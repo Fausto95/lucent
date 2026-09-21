@@ -61,6 +61,11 @@ class FunctionLowerer {
     }
     const body = [...prologue, ...this.stmts(this.fn.body)];
     this.scopes.pop();
+    // Value-typed targets (Swift arrays and structs) must be `var` when mutated in place.
+    for (const id of collectMutatedLocals(body)) {
+      const local = this.locals.find((l) => l.id === id);
+      if (local) local.mutable = true;
+    }
     return {
       name: this.fn.name,
       exported: this.fn.exported,
@@ -271,8 +276,9 @@ function placeToExpr(p: IRPlace): IRExpr {
 function collectAssignedNames(stmts: TStmt[], candidates: ReadonlySet<string>): Set<string> {
   const found = new Set<string>();
   const visitExpr = (e: TExpr): void => {
-    if (e.kind === "assign" || e.kind === "update") {
-      const root = rootIdentifier(e.target);
+    const mutated = e.kind === "assign" || e.kind === "update" ? e.target : e.kind === "methodCall" && e.method === "push" ? e.object : null;
+    if (mutated) {
+      const root = rootIdentifier(mutated);
       if (root && candidates.has(root)) found.add(root);
     }
     for (const child of childrenOf(e)) visitExpr(child);
@@ -312,6 +318,40 @@ function collectAssignedNames(stmts: TStmt[], candidates: ReadonlySet<string>): 
           visitExpr(s.expression);
           break;
         case "block":
+          visit(s.body);
+          break;
+        default:
+          break;
+      }
+    }
+  };
+  visit(stmts);
+  return found;
+}
+
+/** Locals that are pushed into or whose fields/elements are assigned. */
+function collectMutatedLocals(stmts: IRStmt[]): Set<LocalId> {
+  const found = new Set<LocalId>();
+  const rootLocal = (e: IRExpr): LocalId | null => (e.op === "local" ? e.id : e.op === "field" ? rootLocal(e.object) : e.op === "index" ? rootLocal(e.object) : null);
+  const visit = (list: IRStmt[]): void => {
+    for (const s of list) {
+      switch (s.op) {
+        case "push": {
+          const id = rootLocal(s.array);
+          if (id) found.add(id);
+          break;
+        }
+        case "assign": {
+          const id = s.target.kind === "local" ? null : rootLocal(s.target.object);
+          if (id) found.add(id);
+          break;
+        }
+        case "if":
+          visit(s.then);
+          visit(s.else);
+          break;
+        case "while":
+        case "forEach":
           visit(s.body);
           break;
         default:

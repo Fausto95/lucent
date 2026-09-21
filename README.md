@@ -44,7 +44,7 @@ committed red before the implementation commit that turns them green.
 - [x] Bun workspace, strict `tsconfig`, `.gitignore`, `AGENTS.md` — `chore: scaffold bun workspace and strict tsconfig`
 - [x] `docs/language.md` v1 language contract — `docs: define the Lucent language subset`
 - [x] Git remote `github.com/Fausto95/lucent`, no AI co-author trailers in commits
-- [ ] `scripts/doctor.ts` — checks bun, node, swiftc, kotlinc, xcodebuild, Android SDK
+- [x] `scripts/doctor.ts` — checks bun, node, swiftc, kotlinc, xcodebuild, java, adb
 - [~] README kept in sync with progress (this list)
 
 ### 1. `packages/compiler` — pure, no IO
@@ -62,7 +62,7 @@ Public API: `compile(source, { fileName }) → { module: IRModule | null, diagno
 - [x] Red tests: `test/lowering.test.ts` — golden IR text for `fixtures/*.lucent.ts`
 - [x] `src/ir/` — structured, typed IR (`IRStmt` / `IRExpr` / `IRPlace`) and `printIR` text form; see [docs/ir.md](docs/ir.md) for why it is not a CFG
 - [x] `src/lowering/` — typed AST → IR: unique locals, param shadows, `for` → `while`, `for…of` → `forEach`, compound assignment/update expansion, template → `concat`/`str`
-- [ ] `src/passes/` — constant folding, unreachable-block removal (small, optional)
+- [ ] `src/passes/` — constant folding (small, optional; not needed for v1)
 - [x] `src/index.ts` — `compile()` wiring all phases; stops after the first phase that produced errors
 - [x] `fixtures/` — `add`, `fibonacci`, `clamp`, `async-sum`, `struct-roundtrip`, `bytes`, `throw`, `kitchen`, `diagnostics/*` with golden `.ir.txt` / `.diag.txt`
 
@@ -70,11 +70,12 @@ Public API: `compile(source, { fileName }) → { module: IRModule | null, diagno
 
 Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imports }` (bodies only, no host wrapper).
 
-- [ ] Red tests: golden `fixtures/<name>.swift` and `.kt`
-- [ ] `types.ts` — `NativeType → string` lookup (`Double/Double`, `[T]/List<T>`, `T?/T?`, `[String:T]/Map<String,T>`, `ArrayBuffer/ArrayBuffer`)
-- [ ] `emit.ts` — structured re-emission from region hints; temporaries as `let`/`val`; `async throws` / `suspend`; `throw LucentError(code:message:)`
-- [ ] Number semantics: `%` as `fmod`/`rem`, string `+` concat, sized-int wrapping ops (`&+` in Swift)
-- [ ] `scripts/verify-native.ts` — for each fixture, `swiftc -typecheck` and `kotlinc -nowarn` the generated file plus a tiny `LucentError` / `ArrayBuffer` stub prelude; wired into `bun run verify`
+- [x] Red tests: golden `fixtures/<name>.swift` and `.kt`
+- [x] `types.ts` — `NativeType → string` lookup (`Double/Double`, `[T]/List<T>`, `T?/T?`, `[String:T]/Map<String,T>`, `ArrayBuffer/ArrayBuffer`)
+- [x] Emitters — one file per backend (`src/index.ts`), `let`/`var` from IR mutability, `async throws` / `suspend`, statement-level `try`/`try await` in Swift, labeled Swift calls, `throw LucentError(...)`
+- [x] Runtime prelude contract: `LucentError`, `LucentBytes.length/get`, `lucentStr` — hosts supply the `ArrayBuffer` accessors via `swiftRuntime(...)` / `kotlinRuntime(...)`
+- [x] Number semantics: `%` as `truncatingRemainder`/`%`, string `+` concat, sized-int wrapping ops (`&+` in Swift), JS-style number formatting in `lucentStr`
+- [x] `scripts/verify-native.ts` — for each fixture, `swiftc -typecheck` and `kotlinc -nowarn` the generated file plus a stub prelude (`ArrayBuffer` = byte array); wired into `bun run verify`
 
 ### 3. `packages/host-expo` — Expo SDK 58
 
@@ -117,7 +118,7 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 
 ### 8. `packages/types`
 
-- [ ] `@lucent/types` d.ts-only package: branded `int8 … uint64`, `float32`, `float64`
+- [x] `@lucent/types` d.ts-only package: branded `int8 … uint64`, `float32`, `float64`
 
 ### 9. Example apps and end-to-end verification
 

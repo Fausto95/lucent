@@ -5,6 +5,9 @@
     "": {
       "name": "lucent",
       "devDependencies": {
+        "@lucent/backend-kotlin": "workspace:*",
+        "@lucent/backend-swift": "workspace:*",
+        "@lucent/compiler": "workspace:*",
         "@types/bun": "^1.2.0",
         "typescript": "~5.9.3",
       },
