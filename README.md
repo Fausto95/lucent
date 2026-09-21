@@ -105,16 +105,17 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 
 ### 6. `packages/metro`
 
-- [ ] `withLucent(config, { host })` sets `transformer.babelTransformerPath` to `@lucent/metro/transformer`
-- [ ] Transformer: for `/\.lucent\.ts$/`, compile in-process, replace `src` with the host's JS proxy, delegate to `@expo/metro-config/babel-transformer` or `@react-native/metro-babel-transformer`
-- [ ] `getCacheKey()` = upstream key + compiler version + host
-- [ ] Compile errors surfaced as Metro transform errors with the Lucent codeframe
+- [x] `withLucent(config, { host })` sets `transformer.babelTransformerPath` to the bundled `dist/transformer.cjs`; host and upstream transformer reach Metro workers through `LUCENT_HOST` / `LUCENT_UPSTREAM_TRANSFORMER` env
+- [x] `scripts/build-packages.ts` (`bun run build:packages`) bundles the Node-loaded entries (Metro transformer, Expo plugin, CLI bin) to CommonJS with `Bun.build`; sources stay the entry for Bun and tsc
+- [x] Transformer: for `/\.lucent\.ts$/`, compile in-process, replace `src` with the host's JS proxy, delegate to `@expo/metro-config/babel-transformer` or `@react-native/metro-babel-transformer`
+- [x] `getCacheKey()` = upstream key + compiler version + host
+- [x] Compile errors surfaced as Metro transform errors with the Lucent codeframe
 
 ### 7. `packages/expo` — config plugin
 
-- [ ] `app.plugin.js` → `build/plugin`; `createRunOncePlugin`; props `{ host?: "expo" | "nitro" }`
-- [ ] `withDangerousMod` for `ios` and `android`: run the build into `modules/lucent/`, skip when `modRequest.introspect`
-- [ ] Test with `@expo/config-plugins` mod compiler on a temp project
+- [x] `app.plugin.js` → `dist/plugin.cjs`; `createRunOncePlugin`; props `{ host?: "expo" | "nitro" }`
+- [x] `withDangerousMod` for `ios` and `android`: run the build into `modules/lucent/`, skip when `modRequest.introspect`
+- [x] Test invokes the registered dangerous mods directly on a temp project (no prebuild needed)
 
 ### 8. `packages/types`
 

@@ -119,4 +119,10 @@ function init(root: string, host: HostName): number {
   return 0;
 }
 
-process.exit(await main());
+main().then(
+  (code) => process.exit(code),
+  (error: unknown) => {
+    console.error(error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  },
+);

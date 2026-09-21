@@ -1,0 +1,16 @@
+{
+  "name": "@lucent/metro",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./transformer": "./src/transformer.ts"
+  },
+  "dependencies": {
+    "@lucent/compiler": "workspace:*",
+    "@lucent/host-core": "workspace:*",
+    "@lucent/host-expo": "workspace:*",
+    "@lucent/host-nitro": "workspace:*"
+  }
+}

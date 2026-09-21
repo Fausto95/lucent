@@ -5,3 +5,4 @@ node_modules/
 /apps/*/ios
 /apps/*/android
 /apps/*/modules/lucent
+packages/*/dist/
