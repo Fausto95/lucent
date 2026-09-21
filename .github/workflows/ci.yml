@@ -21,11 +21,11 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build:packages
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm format:check
       - run: pnpm test
-      - run: pnpm build:packages
 
   native:
     name: Compile generated Swift and Kotlin
