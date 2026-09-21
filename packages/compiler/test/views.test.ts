@@ -1,9 +1,9 @@
 import { expect, test } from "vite-plus/test";
 import { compile } from "../src/index.ts";
-const source = `import { Column, Row, Text, Spacer, type NativeView } from "@lucent-lang/ui";
+const source = `import { VStack, HStack, Text, Spacer, type NativeView } from "@lucent-lang/ui";
 type Props = { title: string; count: number };
 export function Card(props: Props): NativeView {
-  return <Column spacing={12} padding={16}><Text>{props.title}</Text><Row><Text>{props.count}</Text><Spacer /></Row></Column>;
+  return <VStack spacing={12} padding={16}><Text>{props.title}</Text><HStack><Text>{props.count}</Text><Spacer /></HStack></VStack>;
 }`;
 test("compiles declarative native views from TSX", () => {
   const result = compile(source, { fileName: "card.lucent.tsx" });
@@ -31,9 +31,9 @@ test("composes imported native views", () => {
 
 test("rejects effectful rendering and unsupported view boundaries", () => {
   const bad = [
-    source.replace("return <Column", 'throw new Error("FAIL"); return <Column'),
+    source.replace("return <VStack", 'throw new Error("FAIL"); return <VStack'),
     source.replace("title: string;", "title: string[];"),
-    source.replace("return <Column", "props.count += 1; return <Column"),
+    source.replace("return <VStack", "props.count += 1; return <VStack"),
   ];
   for (const text of bad) expect(compile(text, { fileName: "card.lucent.tsx" }).diagnostics.length).toBeGreaterThan(0);
 });
@@ -43,4 +43,9 @@ test("NativeProps provides the React Native wrapper surface", () => {
     .replace("type NativeView", "type NativeProps, type NativeView")
     .replace("Card(props: Props)", "Card(props: NativeProps<Props>)");
   expect(compile(text, { fileName: "card.lucent.tsx" }).diagnostics).toEqual([]);
+});
+
+test.each(["Column", "Row"])("rejects obsolete stack name %s", (name) => {
+  const result = compile(`import { ${name}, type NativeView } from "@lucent-lang/ui"; export function Card():NativeView { return <${name} />; }`, {fileName:"card.lucent.tsx"});
+  expect(result.module).toBeNull();
 });

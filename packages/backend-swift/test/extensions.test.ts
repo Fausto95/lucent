@@ -10,3 +10,11 @@ test("emits native binding bodies and actor isolation", () => {
   expect(code).toContain("Date().timeIntervalSince1970");
   expect(code).toContain("@MainActor");
 });
+
+test("preserves stack orientation with VStack and HStack", () => {
+ const result=compile('import {VStack,HStack,Text,type NativeView} from "@lucent-lang/ui"; export function Card():NativeView{return <VStack spacing={12}><HStack spacing={4}><Text>Hello</Text></HStack></VStack>;}', {fileName:"card.lucent.tsx"});
+ expect(result.diagnostics).toEqual([]);
+ const code=generateSwift(result.module!).code;
+ expect(code).toContain("VStack(");
+ expect(code).toContain("HStack(");
+});
