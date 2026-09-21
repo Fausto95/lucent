@@ -71,7 +71,7 @@ describe("nitro host proxies", () => {
     const m = modules.find((x) => x.name === "struct-roundtrip")!;
     const { js } = nitroHost.emitProxy(m);
     expect(js).toContain('createHybridObject("StructRoundtrip")');
-    expect(js).toContain("?? undefined");
-    expect(js).toContain("?? null");
+    expect(js).toContain("? undefined :");
+    expect(js).toContain("? null :");
   });
 });

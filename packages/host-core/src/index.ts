@@ -80,25 +80,28 @@ export function moduleIdentifier(name: string): string {
 
 export const exportedFunctions = (module: IRModule): IRFunction[] => module.functions.filter((f) => f.exported);
 
-/** True when values of this type need a JS-side conversion at the boundary (bytes ↔ ArrayBuffer). */
-export function needsConversion(
-  t: NativeType,
-  structs: ReadonlyMap<string, IRStruct>,
-  seen = new Set<string>(),
-): boolean {
+export interface ConversionPolicy {
+  structs: ReadonlyMap<string, IRStruct>;
+  /** Nitro represents "absent" as `undefined`, while Lucent's JS contract uses `null`. */
+  nullAsUndefined: boolean;
+}
+
+/** True when values of this type need a JS-side conversion at the boundary. */
+export function needsConversion(t: NativeType, policy: ConversionPolicy, seen = new Set<string>()): boolean {
   switch (t.kind) {
     case "bytes":
       return true;
-    case "array":
     case "optional":
+      return policy.nullAsUndefined || needsConversion(t.value, policy, seen);
+    case "array":
+      return needsConversion(t.element, policy, seen);
     case "promise":
-      return needsConversion(t.kind === "array" ? t.element : t.value, structs, seen);
     case "map":
-      return needsConversion(t.value, structs, seen);
+      return needsConversion(t.value, policy, seen);
     case "struct": {
       if (seen.has(t.name)) return false;
       seen.add(t.name);
-      return structs.get(t.name)?.fields.some((f) => needsConversion(f.type, structs, seen)) ?? false;
+      return policy.structs.get(t.name)?.fields.some((f) => needsConversion(f.type, policy, seen)) ?? false;
     }
     default:
       return false;
@@ -109,29 +112,27 @@ export function needsConversion(
  * A JS expression converting `value` of type `t` across the boundary.
  * `direction` "in" turns app values into host values (Uint8Array → ArrayBuffer); "out" is the reverse.
  */
-export function convert(
-  value: string,
-  t: NativeType,
-  direction: "in" | "out",
-  structs: ReadonlyMap<string, IRStruct>,
-): string {
-  if (!needsConversion(t, structs)) return value;
+export function convert(value: string, t: NativeType, direction: "in" | "out", policy: ConversionPolicy): string {
+  if (!needsConversion(t, policy)) return value;
   switch (t.kind) {
     case "bytes":
       return direction === "in" ? `toArrayBuffer(${value})` : `fromArrayBuffer(${value})`;
     case "array":
-      return `${value}.map((x) => ${convert("x", t.element, direction, structs)})`;
-    case "optional":
-      return `(${value} == null ? null : ${convert(value, t.value, direction, structs)})`;
+      return `${value}.map((x) => ${convert("x", t.element, direction, policy)})`;
+    case "optional": {
+      const absent = policy.nullAsUndefined && direction === "in" ? "undefined" : "null";
+      const inner = needsConversion(t.value, policy) ? convert(value, t.value, direction, policy) : value;
+      return `(${value} == null ? ${absent} : ${inner})`;
+    }
     case "promise":
-      return `${value}.then((x) => ${convert("x", t.value, direction, structs)})`;
+      return `${value}.then((x) => ${convert("x", t.value, direction, policy)})`;
     case "map":
-      return `Object.fromEntries(Object.entries(${value}).map(([k, x]) => [k, ${convert("x", t.value, direction, structs)}]))`;
+      return `Object.fromEntries(Object.entries(${value}).map(([k, x]) => [k, ${convert("x", t.value, direction, policy)}]))`;
     case "struct": {
-      const fields = structs
+      const fields = policy.structs
         .get(t.name)!
-        .fields.filter((f) => needsConversion(f.type, structs))
-        .map((f) => `${f.name}: ${convert(`${value}.${f.name}`, f.type, direction, structs)}`);
+        .fields.filter((f) => needsConversion(f.type, policy))
+        .map((f) => `${f.name}: ${convert(`${value}.${f.name}`, f.type, direction, policy)}`);
       return `{ ...${value}, ${fields.join(", ")} }`;
     }
     default:
@@ -140,15 +141,26 @@ export function convert(
 }
 
 /** The exported-function wrappers shared by both hosts' proxies; `call` renders the native invocation. */
-export function proxyFunctions(module: IRModule, call: (fn: IRFunction, args: string[]) => string): string {
-  const structs = new Map(module.structs.map((s) => [s.name, s]));
+export function proxyFunctions(
+  module: IRModule,
+  call: (fn: IRFunction, args: string[]) => string,
+  options: { nullAsUndefined: boolean } = { nullAsUndefined: false },
+): string {
+  const policy: ConversionPolicy = {
+    structs: new Map(module.structs.map((s) => [s.name, s])),
+    nullAsUndefined: options.nullAsUndefined,
+  };
   return exportedFunctions(module)
     .map((fn) => {
       const params = fn.params.map((p) => p.name);
-      const args = fn.params.map((p) => convert(p.name, p.type, "in", structs));
+      const args = fn.params.map((p) => convert(p.name, p.type, "in", policy));
       const resultType: NativeType = fn.async ? { kind: "promise", value: fn.returnType } : fn.returnType;
       const invocation = `lucentCall(() => ${call(fn, args)})`;
-      return `export function ${fn.name}(${params.join(", ")}) {\n  return ${convert(invocation, resultType, "out", structs)};\n}`;
+      // Bind the result before converting: conversions may mention their input more than once.
+      const body = needsConversion(resultType, policy)
+        ? `  const result = ${invocation};\n  return ${convert("result", resultType, "out", policy)};`
+        : `  return ${invocation};`;
+      return `export function ${fn.name}(${params.join(", ")}) {\n${body}\n}`;
     })
     .join("\n\n");
 }
