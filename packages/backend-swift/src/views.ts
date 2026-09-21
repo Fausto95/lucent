@@ -7,9 +7,9 @@ export function swiftView(e: ViewExpr, expr: (e: IRExpr) => string): string {
   };
   const children = e.children.map(expr).join("; ");
   const render: Record<string, () => string> = {
-    Column: () =>
+    VStack: () =>
       `VStack(alignment: .leading, spacing: CGFloat(${prop("spacing", "0")})) { ${children} }.padding(CGFloat(${prop("padding", "0")}))`,
-    Row: () =>
+    HStack: () =>
       `HStack(spacing: CGFloat(${prop("spacing", "0")})) { ${children} }.padding(CGFloat(${prop("padding", "0")}))`,
     Text: () =>
       `Text(${e.children.length ? e.children.map(expr).join(" + ") : '""'}).font(.system(size: CGFloat(${prop("size", "17")})))${e.props.some((p) => p.name === "color") ? `.foregroundColor(lucentViewColor(${prop("color", '"#000000"')}))` : ""}`,

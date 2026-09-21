@@ -1,4 +1,4 @@
-export const nativeCard = `import { Column, Text, Button, type NativeProps,
+export const nativeCard = `import { VStack, Text, Button, type NativeProps,
   type NativeView } from "@lucent-lang/ui";
 import type { Event } from "@lucent-lang/events";
 
@@ -6,10 +6,10 @@ type Props = { title: string; onPress: Event<void> };
 
 export function Card(props: NativeProps<Props>): NativeView {
   return (
-    <Column padding={16} spacing={12}>
+    <VStack padding={16} spacing={12}>
       <Text size={20}>{props.title}</Text>
       <Button title="Continue" onPress={props.onPress} />
-    </Column>
+    </VStack>
   );
 }`;
 
@@ -108,7 +108,7 @@ export const nativeSections = [
       },
     ],
     detail:
-      "Compose Column, Row, Text, Spacer, and Button, or import another .lucent.tsx component. NativeProps<P> adds React Native layout props for app usage; only P is available in the native render function. Props accept string, number, boolean, nullable values, and required Event<void> callbacks.",
+      "Compose VStack, HStack, Text, Spacer, and Button, or import another .lucent.tsx component. NativeProps<P> adds React Native layout props for app usage; only P is available in the native render function. Props accept string, number, boolean, nullable values, and required Event<void> callbacks.",
     limit:
       "Rendering is synchronous and pure. Keep state and effects in your React app, then pass new props. Hooks, arbitrary React components, loops, dynamic lists, JSX spreads/fragments, and custom children are not supported. Nitro views require the new architecture.",
   },

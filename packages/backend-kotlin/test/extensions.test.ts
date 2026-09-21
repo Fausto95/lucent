@@ -13,9 +13,12 @@ test("emits native binding bodies and dispatcher hops", () => {
 });
 
 test("preserves stack orientation with VStack and HStack", () => {
- const result=compile('import {VStack,HStack,Text,type NativeView} from "@lucent-lang/ui"; export function Card():NativeView{return <VStack spacing={12}><HStack spacing={4}><Text>Hello</Text></HStack></VStack>;}', {fileName:"card.lucent.tsx"});
- expect(result.diagnostics).toEqual([]);
- const code=generateKotlin(result.module!).code;
- expect(code).toContain("Column(");
- expect(code).toContain("Row(");
+  const result = compile(
+    'import {VStack,HStack,Text,type NativeView} from "@lucent-lang/ui"; export function Card():NativeView{return <VStack spacing={12}><HStack spacing={4}><Text>Hello</Text></HStack></VStack>;}',
+    { fileName: "card.lucent.tsx" },
+  );
+  expect(result.diagnostics).toEqual([]);
+  const code = generateKotlin(result.module!).code;
+  expect(code).toContain("Column(");
+  expect(code).toContain("Row(");
 });

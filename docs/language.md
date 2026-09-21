@@ -218,16 +218,16 @@ without an argument. A subscription is app-only; native code emits events.
 ## Declarative native views (`.lucent.tsx`)
 
 ```tsx
-import { Column, Text, Button, type NativeProps, type NativeView } from "@lucent-lang/ui";
+import { VStack, Text, Button, type NativeProps, type NativeView } from "@lucent-lang/ui";
 import type { Event } from "@lucent-lang/events";
 
 type Props = { title: string; onPress: Event<void> };
 export function Card(props: NativeProps<Props>): NativeView {
   return (
-    <Column padding={16} spacing={12}>
+    <VStack padding={16} spacing={12}>
       <Text size={20}>{props.title}</Text>
       <Button title="Continue" onPress={props.onPress} />
-    </Column>
+    </VStack>
   );
 }
 ```
@@ -241,12 +241,12 @@ render the shared component model. Native view controller containment,
 composition disposal, prop updates, and button callback bridging are generated.
 Nitro requires the React Native new architecture for these views.
 
-| Primitive       | Props                                             | Children                 |
-| --------------- | ------------------------------------------------- | ------------------------ |
-| `Column`, `Row` | `padding`, `spacing` in logical units             | native views             |
-| `Text`          | `size`, `color` (`#RRGGBB`)                       | strings/numbers/booleans |
-| `Spacer`        | `size` (default 8)                                | none                     |
-| `Button`        | required `title`, optional `onPress: Event<void>` | none                     |
+| Primitive          | Props                                             | Children                 |
+| ------------------ | ------------------------------------------------- | ------------------------ |
+| `VStack`, `HStack` | `padding`, `spacing` in logical units             | native views             |
+| `Text`             | `size`, `color` (`#RRGGBB`)                       | strings/numbers/booleans |
+| `Spacer`           | `size` (default 8)                                | none                     |
+| `Button`           | required `title`, optional `onPress: Event<void>` | none                     |
 
 View props support scalar/nullable scalar values and required `Event<void>`
 callbacks. Compose other imported `.lucent.tsx` components with typed props.
@@ -254,6 +254,11 @@ Rendering is synchronous and pure: effects, mutation, async calls, and loops
 are rejected in render functions. Use app state and callbacks to provide new
 props. Hooks, arbitrary React components, dynamic lists, JSX spreads/fragments,
 and custom component `children` are not currently part of this subset.
+
+`VStack` arranges children vertically and `HStack` horizontally. They emit
+SwiftUI `VStack` / `HStack` on iOS and Compose `Column` / `Row` on Android.
+The former Lucent names `Column` and `Row` are no longer exported; migrate
+imports and JSX tags to `VStack` and `HStack` respectively.
 
 ## Threads
 

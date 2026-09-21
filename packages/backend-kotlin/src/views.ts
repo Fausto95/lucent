@@ -7,9 +7,9 @@ export function kotlinView(e: ViewExpr, expr: (e: IRExpr) => string): string {
   };
   const children = e.children.map(expr).join("; ");
   const render: Record<string, () => string> = {
-    Column: () =>
+    VStack: () =>
       `Column(modifier = Modifier.padding((${prop("padding", "0.0")}).toFloat().dp), verticalArrangement = Arrangement.spacedBy((${prop("spacing", "0.0")}).toFloat().dp)) { ${children} }`,
-    Row: () =>
+    HStack: () =>
       `Row(modifier = Modifier.padding((${prop("padding", "0.0")}).toFloat().dp), horizontalArrangement = Arrangement.spacedBy((${prop("spacing", "0.0")}).toFloat().dp)) { ${children} }`,
     Text: () =>
       `Text(text = ${e.children.length ? e.children.map(expr).join(" + ") : '""'}, fontSize = (${prop("size", "17.0")}).toFloat().sp${e.props.some((p) => p.name === "color") ? `, color = Color(android.graphics.Color.parseColor(${prop("color", '"#000000"')}))` : ""})`,

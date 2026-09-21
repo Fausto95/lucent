@@ -46,6 +46,9 @@ test("NativeProps provides the React Native wrapper surface", () => {
 });
 
 test.each(["Column", "Row"])("rejects obsolete stack name %s", (name) => {
-  const result = compile(`import { ${name}, type NativeView } from "@lucent-lang/ui"; export function Card():NativeView { return <${name} />; }`, {fileName:"card.lucent.tsx"});
+  const result = compile(
+    `import { ${name}, type NativeView } from "@lucent-lang/ui"; export function Card():NativeView { return <${name} />; }`,
+    { fileName: "card.lucent.tsx" },
+  );
   expect(result.module).toBeNull();
 });
