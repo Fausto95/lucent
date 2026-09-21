@@ -1,0 +1,22 @@
+{
+  "name": "lucent",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "verify": "bun run typecheck && bun test && bun scripts/verify-native.ts",
+    "doctor": "bun scripts/doctor.ts",
+    "lucent": "bun packages/cli/src/main.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.0",
+    "typescript": "~5.9.3"
+  }
+}
