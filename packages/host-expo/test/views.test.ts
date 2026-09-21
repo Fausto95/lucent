@@ -36,9 +36,19 @@ test("bridges typed native view change payloads", () => {
   expect(tree.get("ios/LucentEditorEditorView.swift")).toContain('["payload": payload]');
   expect(expoHost.emitProxy(result.module!).js).toContain("event.nativeEvent.payload");
 });
-test('namespaces view storage to avoid UIKit and Android View properties',()=>{
- const module=compile('import {Text,type NativeView} from "@lucent-lang/ui"; type Props={enabled:boolean;alpha:number}; export function Status(props:Props):NativeView{return <Text>{props.alpha}</Text>;}',{fileName:'status.lucent.tsx'}).module!;
+test("namespaces view storage to avoid UIKit and Android View properties", () => {
+  const module = compile(
+    'import {Text,type NativeView} from "@lucent-lang/ui"; type Props={enabled:boolean;alpha:number}; export function Status(props:Props):NativeView{return <Text>{props.alpha}</Text>;}',
+    { fileName: "status.lucent.tsx" },
+  ).module!;
+  const files = expoHost.emitPackage([module], { packageName: "lucent" });
+  expect(files.get("ios/LucentStatusStatusView.swift")).toContain("var lucentProp_alpha: Double");
+  expect(files.get("android/src/main/java/expo/modules/lucent/LucentStatusStatusView.kt")).toContain(
+    "var lucentProp_enabled: Boolean",
+  );
+});
+test('disposes native composition when the host view unmounts',()=>{
+ const module=compile('import {Text,type NativeView} from "@lucent-lang/ui"; export function Label():NativeView{return <Text>Hi</Text>;}',{fileName:'label.lucent.tsx'}).module!;
  const files=expoHost.emitPackage([module],{packageName:'lucent'});
- expect(files.get('ios/LucentStatusStatusView.swift')).toContain('var lucentProp_alpha: Double');
- expect(files.get('android/src/main/java/expo/modules/lucent/LucentStatusStatusView.kt')).toContain('var lucentProp_enabled: Boolean');
+ expect([...files.values()].join('\n')).toContain('DisposeOnDetachedFromWindowOrReleasedFromPool');
 });
