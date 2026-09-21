@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
 import { createTransformer, type UpstreamTransformer } from "../src/transformer.ts";
 import { withLucent } from "../src/index.ts";
 

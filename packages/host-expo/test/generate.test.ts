@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
 import { join } from "node:path";
 import { compile, type IRModule } from "@lucent-lang/compiler";
 import { expoHost } from "../src/index.ts";

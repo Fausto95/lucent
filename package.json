@@ -10,12 +10,12 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p fixtures",
-    "lint": "oxlint --deny-warnings",
-    "format": "oxfmt",
-    "format:check": "oxfmt --check",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "build:packages": "tsdown",
+    "lint": "vp lint --deny-warnings",
+    "format": "vp fmt",
+    "format:check": "vp fmt --check",
+    "test": "vp test run",
+    "test:watch": "vp test",
+    "build:packages": "vp pack",
     "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && tsx scripts/verify-native.ts",
     "lucent": "tsx packages/cli/src/main.ts",
     "tools": "tsx scripts/doctor.ts"
@@ -26,12 +26,11 @@
     "@lucent-lang/compiler": "workspace:*",
     "@lucent-lang/types": "workspace:*",
     "@types/node": "^24.7.0",
-    "oxfmt": "0.70.0",
-    "oxlint": "1.85.0",
-    "tsdown": "0.23.0",
     "tsx": "^4.20.6",
     "typescript": "~5.9.3",
-    "vitest": "^3.2.4"
+    "vite": "catalog:",
+    "vite-plus": "catalog:",
+    "vitest": "catalog:"
   },
   "engines": {
     "node": ">=22.12"

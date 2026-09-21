@@ -20,7 +20,7 @@ cli / expo / metro  →  host-expo / host-nitro  →  backend-swift / backend-ko
 ## Working
 
 - `pnpm install`, then `pnpm test`, `pnpm typecheck`, `pnpm verify` (also compiles
-  generated Swift/Kotlin with `swiftc`/`kotlinc`). Tests run on vitest, scripts on tsx.
+  generated Swift/Kotlin with `swiftc`/`kotlinc`). Vite+ (`vp`) provides tests, lint, format and packing; scripts run on tsx.
 - Fixtures in `fixtures/` are the shared contract: `<name>.lucent.ts` with golden
   `<name>.ir.txt`, `<name>.swift`, `<name>.kt`, `<name>.diag.txt`.
 - Tests are committed before the implementation they prove (red, then green).

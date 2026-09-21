@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
 import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -20,7 +20,9 @@ function project(): string {
 describe("@lucent-lang/expo config plugin", () => {
   test("registers dangerous mods for ios and android that run lucent build", async () => {
     const root = project();
-    const config = withLucent({ name: "app", slug: "app" } as never, { host: "expo" }) as unknown as {
+    const config = withLucent({ name: "app", slug: "app" } as never, {
+      host: "expo",
+    }) as unknown as {
       mods: { ios: { dangerous: Mod }; android: { dangerous: Mod } };
     };
     expect(typeof config.mods.ios.dangerous).toBe("function");
@@ -32,7 +34,13 @@ describe("@lucent-lang/expo config plugin", () => {
       modName: "dangerous",
       introspect: false,
     };
-    await config.mods.ios.dangerous({ name: "app", slug: "app", modRequest, modResults: null, modRawConfig: {} });
+    await config.mods.ios.dangerous({
+      name: "app",
+      slug: "app",
+      modRequest,
+      modResults: null,
+      modRawConfig: {},
+    });
     expect(existsSync(join(root, "modules", "lucent", "ios", "LucentMathModule.swift"))).toBe(true);
   });
 
@@ -48,7 +56,13 @@ describe("@lucent-lang/expo config plugin", () => {
       modName: "dangerous",
       introspect: true,
     };
-    await config.mods.android.dangerous({ name: "app", slug: "app", modRequest, modResults: null, modRawConfig: {} });
+    await config.mods.android.dangerous({
+      name: "app",
+      slug: "app",
+      modRequest,
+      modResults: null,
+      modRawConfig: {},
+    });
     expect(existsSync(join(root, "modules"))).toBe(false);
   });
 });

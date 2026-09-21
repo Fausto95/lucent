@@ -28,7 +28,7 @@ rationale and verified external API contracts are in the plan referenced there.
 
 ```sh
 pnpm install
-pnpm test             # unit + golden tests (vitest)
+pnpm test             # unit + golden tests (vp test)
 pnpm typecheck
 pnpm verify           # + lint, format check, and compiling every fixture's Swift and Kotlin
 ```
@@ -41,7 +41,7 @@ committed red before the implementation commit that turns them green.
 
 ### 0. Repository
 
-- [x] pnpm workspace, vitest, tsx, strict `tsconfig`, `.gitignore`, `AGENTS.md` — `chore: scaffold bun workspace and strict tsconfig`
+- [x] pnpm workspace, Vite+ toolchain (`vite.config.ts`), tsx, strict `tsconfig`, `.gitignore`, `AGENTS.md` — `chore: scaffold bun workspace and strict tsconfig`
 - [x] `docs/language.md` v1 language contract — `docs: define the Lucent language subset`
 - [x] Git remote `github.com/Fausto95/lucent`, no AI co-author trailers in commits
 - [x] GitHub Actions: `.github/workflows/ci.yml` runs typecheck, lint, format check and tests on Ubuntu, and the Swift/Kotlin compile check on macOS
@@ -107,7 +107,7 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 ### 6. `packages/metro`
 
 - [x] `withLucent(config, { host })` sets `transformer.babelTransformerPath` to the bundled `dist/transformer.cjs`; host and upstream transformer reach Metro workers through `LUCENT_HOST` / `LUCENT_UPSTREAM_TRANSFORMER` env
-- [x] `tsdown.config.ts` (`pnpm build:packages`) bundles the Node-loaded entries (Metro transformer, Expo plugin, CLI bin) to CommonJS with tsdown (rolldown); sources stay the entry for vitest and tsc
+- [x] `vite.config.ts` `pack` section (`pnpm build:packages` → `vp pack`) bundles the Node-loaded entries (Metro transformer, Expo plugin, CLI bin) to CommonJS; sources stay the entry for tests and tsc
 - [x] Transformer: for `/\.lucent\.ts$/`, compile in-process, replace `src` with the host's JS proxy, delegate to `@expo/metro-config/babel-transformer` or `@react-native/metro-babel-transformer`
 - [x] `getCacheKey()` = upstream key + compiler version + host
 - [x] Compile errors surfaced as Metro transform errors with the Lucent codeframe

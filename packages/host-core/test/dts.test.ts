@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
 import { compile } from "@lucent-lang/compiler";
 import { declarations, jsType, moduleIdentifier } from "../src/index.ts";
 

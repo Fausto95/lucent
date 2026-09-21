@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
 import { parseModule } from "../src/parser/index.ts";
 
 const parse = (source: string) => parseModule(source, "math.lucent.ts");
@@ -17,7 +17,11 @@ describe("parseModule", () => {
     expect(fn.exported).toBe(true);
     expect(fn.async).toBe(false);
     expect(fn.params.map((p) => p.name)).toEqual(["a", "b"]);
-    expect(fn.params[0]!.type).toEqual({ kind: "keyword", name: "number", span: expect.anything() });
+    expect(fn.params[0]!.type).toEqual({
+      kind: "keyword",
+      name: "number",
+      span: expect.anything(),
+    });
     expect(fn.returnType).toEqual({ kind: "keyword", name: "number", span: expect.anything() });
     expect(fn.body).toHaveLength(1);
     expect(fn.body[0]).toMatchObject({
@@ -45,7 +49,10 @@ describe("parseModule", () => {
     expect(diagnostics).toEqual([]);
     const fn = module.functions[0]!;
     expect(fn.async).toBe(true);
-    expect(fn.params[0]!.type).toMatchObject({ kind: "array", element: { kind: "keyword", name: "number" } });
+    expect(fn.params[0]!.type).toMatchObject({
+      kind: "array",
+      element: { kind: "keyword", name: "number" },
+    });
     expect(fn.returnType).toMatchObject({
       kind: "reference",
       name: "Promise",
@@ -122,7 +129,11 @@ describe("parseModule", () => {
           test: {
             kind: "binary",
             operator: ">=",
-            right: { kind: "member", property: "length", object: { kind: "member", property: "scores" } },
+            right: {
+              kind: "member",
+              property: "length",
+              object: { kind: "member", property: "scores" },
+            },
           },
         },
       ],

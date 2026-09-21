@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { expect } from "vitest";
+import { expect } from "vite-plus/test";
 
 export const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "../../../fixtures");
 

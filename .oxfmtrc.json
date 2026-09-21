@@ -1,5 +1,0 @@
-{
-  "$schema": "./node_modules/oxfmt/configuration_schema.json",
-  "printWidth": 120,
-  "ignorePatterns": ["fixtures/**", "apps/**/ios/**", "apps/**/android/**", "apps/website/**"]
-}

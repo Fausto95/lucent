@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test } from "vite-plus/test";
 import { parseModule } from "../src/parser/index.ts";
 import { checkModule } from "../src/checker/index.ts";
 import { typeToString } from "../src/types/native-type.ts";
@@ -48,7 +48,11 @@ describe("checkModule", () => {
     const greet = m.functions[0]!;
     expect(greet.params.map((p) => typeToString(p.type))).toEqual(["struct User", "float64"]);
     expect(typeToString(greet.returnType)).toBe("string");
-    expect(greet.body[0]).toMatchObject({ kind: "variable", name: "out", type: { kind: "string" } });
+    expect(greet.body[0]).toMatchObject({
+      kind: "variable",
+      name: "out",
+      type: { kind: "string" },
+    });
     expect(greet.body[1]).toMatchObject({
       kind: "variable",
       name: "name",
@@ -74,7 +78,10 @@ describe("checkModule", () => {
       }
     `);
     const body = m.functions[0]!.body;
-    expect(body[0]).toMatchObject({ kind: "variable", init: { kind: "number", type: { kind: "int", bits: 32 } } });
+    expect(body[0]).toMatchObject({
+      kind: "variable",
+      init: { kind: "number", type: { kind: "int", bits: 32 } },
+    });
     expect(body[1]).toMatchObject({
       kind: "expression",
       expression: { kind: "assign", value: { kind: "binary", type: { kind: "int", bits: 32 } } },
@@ -98,7 +105,11 @@ describe("checkModule", () => {
     `);
     expect(m.functions[0]!.body[2]).toMatchObject({
       kind: "return",
-      argument: { kind: "unwrap", argument: { kind: "identifier", name: "n" }, type: { kind: "string" } },
+      argument: {
+        kind: "unwrap",
+        argument: { kind: "identifier", name: "n" },
+        type: { kind: "string" },
+      },
     });
     expect(m.functions[1]!.body[0]).toMatchObject({
       kind: "if",
@@ -123,14 +134,21 @@ describe("checkModule", () => {
     `);
     const body = m.functions[2]!.body;
     expect(body[0]).toMatchObject({ kind: "variable", type: { kind: "float", bits: 64 } });
-    expect(body[2]).toMatchObject({ kind: "variable", name: "first", type: { kind: "float", bits: 64 } });
+    expect(body[2]).toMatchObject({
+      kind: "variable",
+      name: "first",
+      type: { kind: "float", bits: 64 },
+    });
     expect(body[3]).toMatchObject({
       kind: "variable",
       name: "maybe",
       type: { kind: "optional", value: { kind: "string" } },
     });
     expect(body[4]).toMatchObject({ kind: "variable", name: "s", type: { kind: "string" } });
-    expect(body[6]).toMatchObject({ kind: "return", argument: { kind: "await", type: { kind: "float", bits: 64 } } });
+    expect(body[6]).toMatchObject({
+      kind: "return",
+      argument: { kind: "await", type: { kind: "float", bits: 64 } },
+    });
   });
 
   test.each([
