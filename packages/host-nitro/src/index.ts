@@ -185,7 +185,23 @@ function spec(module: IRModule): string {
 const SWIFT_RUNTIME =
   GENERATED_HEADER +
   "import NitroModules\n" +
-  swiftRuntime({ length: "return Double(buffer.size)", get: "return Double(buffer.data[Int(index)])" });
+  swiftRuntime(
+    { length: "return Double(buffer.size)", get: "return Double(buffer.data[Int(index)])" },
+    `/** Nitro forwards only the description; the proxy recovers the code from the "[CODE] " prefix. */
+struct LucentError: LocalizedError {
+  let code: String
+  let message: String
+
+  init(code: String, message: String? = nil) {
+    self.code = code
+    self.message = message ?? code
+  }
+
+  var errorDescription: String? {
+    return "[\\(code)] \\(message)"
+  }
+}`,
+  );
 
 /** nitrogen's Swift type for a spec type. */
 function nitroSwiftType(t: NativeType, module: IRModule): string {
@@ -339,6 +355,7 @@ const KOTLIN_RUNTIME =
       get: "return (buffer.getBuffer(false).get(index.toInt()).toInt() and 0xff).toDouble()",
     },
     ANDROID_PACKAGE,
+    'class LucentError(val code: String, message: String? = null) : Exception("[$code] ${message ?: code}")',
   );
 
 /** nitrogen's Kotlin type for a spec type. */

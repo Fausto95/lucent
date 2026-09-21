@@ -3,7 +3,7 @@ package com.margelo.nitro.lucent
 
 import com.margelo.nitro.core.ArrayBuffer
 
-class LucentError(val code: String, message: String? = null) : Exception(message ?: code)
+class LucentError(val code: String, message: String? = null) : Exception("[$code] ${message ?: code}")
 
 object LucentBytes {
   fun length(buffer: ArrayBuffer): Double {

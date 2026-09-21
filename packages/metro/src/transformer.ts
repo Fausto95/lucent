@@ -3,6 +3,7 @@
  * module in-process and hands the host's JS proxy to the upstream transformer;
  * every other file passes straight through.
  */
+import { createRequire } from "node:module";
 import { COMPILER_VERSION, compile, renderDiagnostic } from "@lucent/compiler";
 import type { Host } from "@lucent/host-core";
 import { expoHost } from "@lucent/host-expo";
@@ -61,22 +62,16 @@ const UPSTREAM_CANDIDATES = ["@expo/metro-config/babel-transformer", "@react-nat
 function loadUpstream(): UpstreamTransformer {
   const explicit = process.env[ENV_UPSTREAM];
   const candidates = explicit ? [explicit] : UPSTREAM_CANDIDATES;
-  const require = createRequire();
+  const load = createRequire(import.meta.url);
+  const failures: string[] = [];
   for (const candidate of candidates) {
     try {
-      return require(candidate) as UpstreamTransformer;
-    } catch {
-      continue;
+      return load(candidate) as UpstreamTransformer;
+    } catch (error) {
+      failures.push(`${candidate}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
-  throw new Error(`Lucent: no upstream Metro transformer found (tried ${candidates.join(", ")}).`);
-}
-
-function createRequire(): (id: string) => unknown {
-  // Bundled to CJS for Metro; `require` exists there. Under Bun/ESM tests this path is never taken.
-  const r = (globalThis as { require?: (id: string) => unknown }).require;
-  if (!r) throw new Error("Lucent: transformer must run in a CommonJS environment.");
-  return r;
+  throw new Error(`Lucent: no upstream Metro transformer found.\n${failures.join("\n")}`);
 }
 
 let lazy: LucentTransformer | undefined;

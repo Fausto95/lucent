@@ -14,5 +14,5 @@
     "no-console": "off",
     "no-await-in-loop": "off"
   },
-  "ignorePatterns": ["fixtures/**", "apps/**/ios/**", "apps/**/android/**", "**/.lucent/**"]
+  "ignorePatterns": ["fixtures/**", "apps/**/ios/**", "apps/**/android/**", "**/.lucent/**", "apps/website/**"]
 }

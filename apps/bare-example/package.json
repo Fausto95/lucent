@@ -10,16 +10,18 @@
     "pods": "cd ios && bundle exec pod install"
   },
   "dependencies": {
+    "@lucent/runtime": "workspace:*",
     "react": "19.3.0",
     "react-native": "0.88.0-rc.2",
-    "react-native-safe-area-context": "^5.5.2",
-    "@lucent/runtime": "workspace:*",
-    "react-native-nitro-modules": "0.37.1"
+    "react-native-nitro-modules": "0.37.1",
+    "react-native-safe-area-context": "^5.5.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@babel/preset-env": "^7.25.3",
     "@babel/runtime": "^7.25.0",
+    "@lucent/metro": "workspace:*",
+    "@lucent/types": "workspace:*",
     "@react-native-community/cli": "20.2.0",
     "@react-native-community/cli-platform-android": "20.2.0",
     "@react-native-community/cli-platform-ios": "20.2.0",
@@ -27,10 +29,8 @@
     "@react-native/metro-config": "0.88.0-rc.2",
     "@react-native/typescript-config": "0.88.0-rc.2",
     "@types/react": "^19.2.0",
-    "typescript": "^6.0.3",
-    "@lucent/metro": "workspace:*",
-    "@lucent/types": "workspace:*",
-    "nitrogen": "0.37.1"
+    "nitrogen": "0.37.1",
+    "typescript": "^6.0.3"
   },
   "engines": {
     "node": ">= 22.11.0"

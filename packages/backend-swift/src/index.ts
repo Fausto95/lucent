@@ -61,11 +61,8 @@ export function swiftType(t: NativeType): string {
   }
 }
 
-/** Runtime prelude; `bytes` supplies the host's `ArrayBuffer` accessors. */
-export function swiftRuntime(bytes: { length: string; get: string }): string {
-  return `import Foundation
-
-struct LucentError: Error {
+/** The plain-Swift LucentError used when no host supplies one (tests, verification). */
+export const SWIFT_DEFAULT_ERROR = `struct LucentError: Error {
   let code: String
   let message: String
 
@@ -73,7 +70,13 @@ struct LucentError: Error {
     self.code = code
     self.message = message ?? code
   }
-}
+}`;
+
+/** Runtime prelude; `bytes` supplies the host's `ArrayBuffer` accessors, `error` its LucentError type. */
+export function swiftRuntime(bytes: { length: string; get: string }, error: string = SWIFT_DEFAULT_ERROR): string {
+  return `import Foundation
+
+${error}
 
 enum LucentBytes {
   static func length(_ buffer: ArrayBuffer) -> Double {

@@ -86,10 +86,25 @@ function emitProxy(module: IRModule): { js: string; dts: string } {
 const SWIFT_RUNTIME =
   GENERATED_HEADER +
   "import ExpoModulesCore\n" +
-  swiftRuntime({
-    length: "return Double(buffer.byteLength)",
-    get: "return buffer.withUnsafeBytes { Double($0[Int(index)]) }",
-  });
+  swiftRuntime(
+    {
+      length: "return Double(buffer.byteLength)",
+      get: "return buffer.withUnsafeBytes { Double($0[Int(index)]) }",
+    },
+    `/** Reaches JavaScript as a CodedError with \`code\`. */
+final class LucentError: Exception {
+  let message: String
+
+  init(code: String, message: String? = nil) {
+    self.message = message ?? code
+    super.init(name: "LucentError", description: self.message, code: code)
+  }
+
+  override var reason: String {
+    return message
+  }
+}`,
+  );
 
 function swiftModule(module: IRModule): string {
   const unit = generateSwift(module);
@@ -144,11 +159,12 @@ const KOTLIN_RUNTIME =
   GENERATED_HEADER +
   kotlinRuntime(
     {
-      imports: ["import expo.modules.kotlin.jni.ArrayBuffer"],
+      imports: ["import expo.modules.kotlin.exception.CodedException", "import expo.modules.kotlin.jni.ArrayBuffer"],
       length: "return buffer.size().toDouble()",
       get: "return (buffer.readByte(index.toInt()).toInt() and 0xff).toDouble()",
     },
     ANDROID_PACKAGE,
+    "class LucentError(code: String, message: String? = null) : CodedException(code, message ?: code, null)",
   );
 
 const BUILD_GRADLE = `plugins {

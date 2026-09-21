@@ -3,9 +3,18 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "main": "./dist/index.cjs",
   "exports": {
-    ".": "./src/index.ts",
-    "./transformer": "./src/transformer.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "bun": "./src/index.ts",
+      "default": "./dist/index.cjs"
+    },
+    "./transformer": {
+      "types": "./src/transformer.ts",
+      "bun": "./src/transformer.ts",
+      "default": "./dist/transformer.cjs"
+    }
   },
   "dependencies": {
     "@lucent/compiler": "workspace:*",

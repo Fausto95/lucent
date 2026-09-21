@@ -2,13 +2,18 @@
 import NitroModules
 import Foundation
 
-struct LucentError: Error {
+/** Nitro forwards only the description; the proxy recovers the code from the "[CODE] " prefix. */
+struct LucentError: LocalizedError {
   let code: String
   let message: String
 
   init(code: String, message: String? = nil) {
     self.code = code
     self.message = message ?? code
+  }
+
+  var errorDescription: String? {
+    return "[\(code)] \(message)"
   }
 }
 

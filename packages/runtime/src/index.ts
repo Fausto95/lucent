@@ -15,6 +15,8 @@ export class LucentError extends Error {
 }
 
 const NITRO_PREFIX = /^\[([A-Za-z0-9_]+)\] ?/;
+/** Expo decorates thrown exceptions as "LucentError: <reason> (at File.swift:12)". */
+const EXPO_DECORATION = /^LucentError: (.*?)(?: \(at [^)]*\))?$/s;
 const EXPO_CAUSED_BY = /→ Caused by: (?:[A-Za-z]+: )?/;
 
 /** Turns whatever a host threw into a LucentError, preserving the code. */
@@ -24,7 +26,8 @@ export function normalizeError(error: unknown): LucentError {
   const code = typeof (error as { code?: unknown })?.code === "string" ? (error as { code: string }).code : undefined;
   // Expo wraps native throws: "FunctionCallException: Calling the 'x' function has failed\n→ Caused by: <message>".
   const expoParts = raw.split(EXPO_CAUSED_BY);
-  const unwrapped = expoParts.length > 1 ? expoParts[expoParts.length - 1]!.trim() : raw;
+  const causedBy = expoParts.length > 1 ? expoParts[expoParts.length - 1]!.trim() : raw;
+  const unwrapped = EXPO_DECORATION.exec(causedBy)?.[1] ?? causedBy;
   // Nitro delivers only a message: "[CODE] message".
   const nitro = NITRO_PREFIX.exec(unwrapped);
   if (nitro) return new LucentError(nitro[1]!, unwrapped.slice(nitro[0].length));

@@ -63,9 +63,17 @@ export function kotlinType(t: NativeType): string {
   }
 }
 
-/** Runtime prelude; `bytes` supplies the host's `ArrayBuffer` accessors and `imports` its import lines. */
-export function kotlinRuntime(bytes: { imports: string[]; length: string; get: string }, packageName?: string): string {
-  return `${packageName ? `package ${packageName}\n\n` : ""}${bytes.imports.join("\n")}${bytes.imports.length ? "\n\n" : ""}class LucentError(val code: String, message: String? = null) : Exception(message ?: code)
+/** The plain-Kotlin LucentError used when no host supplies one (tests, verification). */
+export const KOTLIN_DEFAULT_ERROR =
+  "class LucentError(val code: String, message: String? = null) : Exception(message ?: code)";
+
+/** Runtime prelude; `bytes` supplies the host's `ArrayBuffer` accessors and import lines, `error` its LucentError type. */
+export function kotlinRuntime(
+  bytes: { imports: string[]; length: string; get: string },
+  packageName?: string,
+  error: string = KOTLIN_DEFAULT_ERROR,
+): string {
+  return `${packageName ? `package ${packageName}\n\n` : ""}${bytes.imports.join("\n")}${bytes.imports.length ? "\n\n" : ""}${error}
 
 object LucentBytes {
   fun length(buffer: ArrayBuffer): Double {

@@ -3,11 +3,15 @@
   "version": "0.0.0",
   "private": true,
   "bin": {
-    "lucent": "./src/main.ts"
+    "lucent": "./dist/main.cjs"
   },
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": {
+      "types": "./src/index.ts",
+      "bun": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
   },
   "dependencies": {
     "@lucent/compiler": "workspace:*",
