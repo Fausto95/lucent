@@ -23,3 +23,12 @@ test("composes imported native views", () => {
     {fileName: "screen.lucent.tsx", sources: {"card.lucent.tsx": source}});
   expect(result.diagnostics).toEqual([]);
 });
+
+test("rejects effectful rendering and unsupported view boundaries", () => {
+  const bad = [
+    source.replace('return <Column', 'throw new Error("FAIL"); return <Column'),
+    source.replace('title: string;', 'title: string[];'),
+    source.replace('return <Column', 'props.count += 1; return <Column'),
+  ];
+  for (const text of bad) expect(compile(text, {fileName: "card.lucent.tsx"}).diagnostics.length).toBeGreaterThan(0);
+});
