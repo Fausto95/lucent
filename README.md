@@ -1,138 +1,234 @@
 # Lucent
 
-Ahead-of-time compiler from a constrained TypeScript subset to Swift and Kotlin,
-exposed to React Native through **Expo Modules** (SDK 58) or **Nitro Modules**
-(bare RN). You write `*.lucent.ts`; nothing in it ever runs in a JS engine.
+**Write native React Native modules in TypeScript. Ship Swift and Kotlin.**
+
+Lucent compiles a constrained, fully typed subset of TypeScript into Swift and
+Kotlin ahead of time, and exposes the result to your app through
+[Expo Modules](https://docs.expo.dev/modules/overview/) or
+[Nitro Modules](https://nitro.margelo.com/). There is no JavaScript engine on
+the native side: what you write in a `*.lucent.ts` file runs as real native
+code on the device.
+
+```ts
+// src/geo.lucent.ts
+import type { int32 } from "@lucent-lang/types";
+
+export type Point = { x: number; y: number };
+
+export function squaredDistance(a: Point, b: Point): number {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return dx * dx + dy * dy;
+}
+
+export async function checksum(data: Uint8Array): Promise<int32> {
+  let sum: int32 = 0;
+  for (let i = 0; i < data.length; i++) {
+    sum += data[i];
+  }
+  return sum;
+}
+```
+
+```tsx
+// App.tsx — the import looks like any other module
+import { squaredDistance, checksum } from "./src/geo.lucent";
+
+const d = squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25, computed in Swift/Kotlin
+const c = await checksum(new Uint8Array([1, 2, 3])); // a Promise backed by a native async function
+```
+
+> Lucent is pre-release. The language subset is small on purpose and the API
+> will change. See [ROADMAP.md](ROADMAP.md) for what is done and what is next.
+
+## Why
+
+Native modules are where React Native apps go to get fast, and also where most
+teams stop: two languages, two build systems, and a JS bridge to keep in sync.
+Lucent keeps the whole thing in TypeScript:
+
+- **One source, three targets.** A `*.lucent.ts` file becomes Swift, Kotlin, and
+  a typed JavaScript proxy. Your editor already understands it; there is nothing
+  new to learn beyond a list of things you cannot do.
+- **Types are the ABI.** Every value that crosses the boundary has an exact
+  native representation. `any`, arbitrary unions and closures are compile
+  errors, with diagnostics written for humans.
+- **Real async, real errors, real bytes.** `async` functions become Swift
+  `async throws` and Kotlin `suspend`; `throw new LucentError("CODE")` arrives in
+  JS as an `Error` with `code`; `Uint8Array` crosses as an `ArrayBuffer`.
+- **Your host, your choice.** The same module compiles for Expo Modules
+  (SDK 58, Swift macros on iOS) or Nitro Modules (bare React Native, zero-copy
+  buffers). Switching is a config flag.
+
+## How it works
 
 ```
-*.lucent.ts ──► @lucent-lang/compiler ──► IR ──► @lucent-lang/backend-swift ──► Swift bodies
-                                        └─► @lucent-lang/backend-kotlin ─► Kotlin bodies
-                                                    │
-                                        ├─► @lucent-lang/host-expo   (Expo Module + JS proxy)
-                                        └─► @lucent-lang/host-nitro  (Nitro HybridObject + JS proxy)
-                                                    │
-                                       @lucent-lang/metro  · @lucent-lang/expo · @lucent-lang/cli
+*.lucent.ts ──► compiler ──► typed IR ──► Swift ─┐
+                                      └─► Kotlin ─┤──► Expo Module  ─┐
+                                                  └──► Nitro Hybrid ─┤──► JS proxy ──► your app
 ```
 
-Dependency direction is one way: `cli / expo / metro → host-* → backend-* → compiler → oxc-parser`.
-The language contract is in [docs/language.md](docs/language.md). Working rules
-for contributors and agents are in [AGENTS.md](AGENTS.md); the full design
-rationale and verified external API contracts are in the plan referenced there.
+1. The compiler parses the file with [oxc](https://oxc.rs), checks it against the
+   Lucent subset, and lowers it to a small typed IR.
+2. Backends emit Swift and Kotlin bodies from the IR.
+3. A host wraps those bodies as an Expo Module or a Nitro HybridObject and
+   generates the JavaScript proxy that replaces the file in your bundle.
+4. A Metro transformer swaps `*.lucent.ts` for the proxy at bundle time, and an
+   Expo config plugin (or the CLI) writes the native package during prebuild.
 
-## Requirements
+The compiler never sees Expo or Nitro, and the backends never see TypeScript.
+[docs/language.md](docs/language.md) is the language contract;
+[docs/ir.md](docs/ir.md) describes the IR.
 
-- Node 22.12+ and pnpm 9.1.2
-- Xcode 27 with an iOS 26 simulator, `swiftc`
-- `kotlinc` (`brew install kotlin`) and a JDK
-- Android SDK with an emulator image (for the Android end-to-end check)
+## Getting started
+
+### Expo
+
+```sh
+npx expo install @lucent-lang/runtime @lucent-lang/types @lucent-lang/expo @lucent-lang/metro
+```
+
+```js
+// metro.config.js
+const { getDefaultConfig } = require("expo/metro-config");
+const { withLucent } = require("@lucent-lang/metro");
+
+module.exports = withLucent(getDefaultConfig(__dirname), { host: "expo" });
+```
+
+```json
+// app.json
+{ "expo": { "plugins": [["@lucent-lang/expo", { "host": "expo" }]] } }
+```
+
+Write a `*.lucent.ts` file anywhere in your project, import it, and run
+`npx expo prebuild && npx expo run:ios` (or `run:android`). The plugin compiles
+your modules into `modules/lucent/`, which Expo autolinks. Expo Go is not
+supported; a development build is required, as for any native module.
+
+### Bare React Native (Nitro)
+
+```sh
+npm install @lucent-lang/runtime react-native-nitro-modules
+npm install -D @lucent-lang/types @lucent-lang/metro @lucent-lang/cli nitrogen
+```
+
+```js
+// metro.config.js
+const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
+const { withLucent } = require("@lucent-lang/metro");
+
+module.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), {}), { host: "nitro" });
+```
+
+```js
+// react-native.config.js
+const path = require("path");
+module.exports = {
+  dependencies: { "lucent-native": { root: path.join(__dirname, ".lucent", "nitro") } },
+};
+```
+
+Run `npx lucent build --host nitro` whenever your `*.lucent.ts` files change
+(it runs `nitrogen` for you), then `pod install` and build as usual.
+
+### CLI
+
+```
+lucent build [--host expo|nitro] [--emit-ir] [--force] [files…]   compile and emit the native package
+lucent check [files…]                                             type-check only
+lucent init [--host expo|nitro]                                   wire a project's package.json
+```
+
+Builds are incremental: unchanged modules are served from `.lucent/cache.json`.
+
+## The language
+
+Lucent is TypeScript with a fence around it. Inside the fence:
+
+| You write                                         | Native side                                     |
+| ------------------------------------------------- | ----------------------------------------------- |
+| `number`, `string`, `boolean`                     | `Double`, `String`, `Bool`/`Boolean`            |
+| `int32`, `float32`, … (from `@lucent-lang/types`) | sized numerics                                  |
+| `T[]`, `Record<string, T>`                        | arrays, maps                                    |
+| `T \| null`, `field?: T`                          | optionals, with narrowing via `if (x === null)` |
+| `type User = { … }`                               | Swift `struct`, Kotlin `data class`             |
+| `Uint8Array`                                      | `ArrayBuffer`                                   |
+| `async` / `Promise<T>`                            | `async throws` / `suspend`                      |
+| `throw new LucentError(code, { message })`        | an `Error` with `code` in JS                    |
+
+Functions, `if`/`while`/`for`/`for…of`, arithmetic, comparisons, template
+strings, array `push`/index/`length`, calls between functions in the same file.
+Everything else is a diagnostic with a code, a codeframe and a suggestion:
+
+```
+error NT1004: `any` is prohibited
+
+Native functions cannot expose `any`.
+
+  ┌─ any.lucent.ts:1:28
+1 │ export function foo(value: any): number {
+  │                            ^^^
+
+Lucent needs to know the exact memory representation of every value crossing
+the native boundary. Use a concrete type such as `string`, `number`, or a
+struct type alias.
+```
+
+The full contract, including every diagnostic code, is in
+[docs/language.md](docs/language.md).
+
+## Status
+
+Verified end to end on the iOS simulator and the Android emulator, for both
+hosts, with the example apps in [apps/](apps/): sync and async calls, recursion,
+structs with optionals, template strings, bytes, and error codes and messages.
+
+Not in v1 yet: discriminated unions, native classes, events, native views,
+thread annotations, platform SDK bindings. The order we plan to take them in is
+in [ROADMAP.md](ROADMAP.md).
+
+## Repository
+
+```
+packages/
+  compiler/        parser, checker, IR, lowering, diagnostics
+  backend-swift/   IR → Swift
+  backend-kotlin/  IR → Kotlin
+  host-core/       host contract, .d.ts generation, JS boundary conversions
+  host-expo/       Expo Modules (SDK 58) host
+  host-nitro/      Nitro Modules host
+  runtime/         @lucent-lang/runtime — what generated proxies import
+  types/           @lucent-lang/types — sized numerics and the LucentError declaration
+  metro/           withLucent() Metro transformer
+  expo/            Expo config plugin
+  cli/             lucent build / check / init
+apps/
+  expo-example/    Expo SDK 58 app exercising every feature
+  bare-example/    bare React Native + Nitro app, same checks
+fixtures/          the programs every layer is tested against, with golden outputs
+docs/              language and IR contracts
+```
+
+Dependencies flow one way: `cli / expo / metro → host → backend → compiler`.
+
+### Developing
+
+Requires Node 22.12+, pnpm 12, and for native verification Xcode with `swiftc`
+and `kotlinc` (`brew install kotlin`).
 
 ```sh
 pnpm install
-pnpm test             # unit + golden tests (vp test)
+pnpm test           # vitest via Vite+
 pnpm typecheck
-pnpm verify           # + lint, format check, and compiling every fixture's Swift and Kotlin
+pnpm verify         # + lint, format check, and compiling every fixture with swiftc and kotlinc
+pnpm build:packages # bundle the Node-loaded entries (Metro transformer, Expo plugin, CLI)
 ```
 
-## Roadmap / hand-off checklist
+Fixtures in `fixtures/` are the shared contract: each `*.lucent.ts` has golden
+IR, Swift, Kotlin, Expo and Nitro outputs. Tests are committed before the code
+that makes them pass. See [AGENTS.md](AGENTS.md) for the working rules.
 
-Status legend: `[x]` done and committed · `[~]` in progress · `[ ]` not started.
-Each item names the package and the commit(s) that deliver it. Tests are
-committed red before the implementation commit that turns them green.
+## License
 
-### 0. Repository
-
-- [x] pnpm workspace, Vite+ toolchain (`vite.config.ts`), tsx, strict `tsconfig`, `.gitignore`, `AGENTS.md` — `chore: scaffold bun workspace and strict tsconfig`
-- [x] `docs/language.md` v1 language contract — `docs: define the Lucent language subset`
-- [x] Git remote `github.com/Fausto95/lucent`, no AI co-author trailers in commits
-- [x] GitHub Actions: `.github/workflows/ci.yml` runs typecheck, lint, format check and tests on Ubuntu, and the Swift/Kotlin compile check on macOS
-- [x] `scripts/doctor.ts` (`pnpm tools`) — checks node, pnpm, swiftc, kotlinc, xcodebuild, java, adb
-- [~] README kept in sync with progress (this list)
-
-### 1. `packages/compiler` — pure, no IO
-
-Public API: `compile(source, { fileName }) → { module: IRModule | null, diagnostics }`.
-
-- [x] Red tests: `test/parser.test.ts`, `test/types.test.ts`
-- [x] `src/diagnostics/` — `Diagnostic { code, message, span, help? }`, code table (`NT1000`–`NT1016`), `renderDiagnostic(d, source, fileName)` codeframe renderer
-- [x] `src/parser/surface.ts` — closed surface AST (types, statements, expressions); the only place ESTree is visible is `src/parser/index.ts`
-- [x] `src/parser/index.ts` — `parseModule(source, fileName)` on `oxc-parser` `parseSync(lang:"ts")`; maps oxc errors → `NT1000`, unsupported nodes → `NT1001`, foreign imports → `NT1006`
-- [x] `src/types/native-type.ts` — `NativeType` union (`void bool string bytes float{32,64} int{8..64,signed} array map optional struct promise`), `typeToString`, `typeEquals`
-- [x] `src/types/resolve.ts` — `resolveType(SurfaceType, scope)` lookup-table resolver; `NT1003/NT1004/NT1005`
-- [x] Red tests: `test/checker.test.ts` — scopes, inference from initializer, assignability, arity, `await` in async only, `Promise` only as async return, struct field access, dynamic access `NT1002`, missing annotation `NT1014`, missing return `NT1015`, const assignment `NT1016`, > 8 params `NT1007`
-- [x] `src/checker/` — typed surface AST (every expression annotated with `NativeType`), module symbol table (structs, functions, sized types imported from `@lucent-lang/types`)
-- [x] Red tests: `test/lowering.test.ts` — golden IR text for `fixtures/*.lucent.ts`
-- [x] `src/ir/` — structured, typed IR (`IRStmt` / `IRExpr` / `IRPlace`) and `printIR` text form; see [docs/ir.md](docs/ir.md) for why it is not a CFG
-- [x] `src/lowering/` — typed AST → IR: unique locals, param shadows, `for` → `while`, `for…of` → `forEach`, compound assignment/update expansion, template → `concat`/`str`
-- [ ] `src/passes/` — constant folding (small, optional; not needed for v1)
-- [x] `src/index.ts` — `compile()` wiring all phases; stops after the first phase that produced errors
-- [x] `fixtures/` — `add`, `fibonacci`, `clamp`, `async-sum`, `struct-roundtrip`, `bytes`, `throw`, `kitchen`, `diagnostics/*` with golden `.ir.txt` / `.diag.txt`
-
-### 2. `packages/backend-swift`, `packages/backend-kotlin` — IR → source text
-
-Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imports }` (bodies only, no host wrapper).
-
-- [x] Red tests: golden `fixtures/<name>.swift` and `.kt`
-- [x] `types.ts` — `NativeType → string` lookup (`Double/Double`, `[T]/List<T>`, `T?/T?`, `[String:T]/Map<String,T>`, `ArrayBuffer/ArrayBuffer`)
-- [x] Emitters — one file per backend (`src/index.ts`), `let`/`var` from IR mutability, `async throws` / `suspend`, statement-level `try`/`try await` in Swift, labeled Swift calls, `throw LucentError(...)`
-- [x] Runtime prelude contract: `LucentError`, `LucentBytes.length/get`, `lucentStr` — hosts supply the `ArrayBuffer` accessors via `swiftRuntime(...)` / `kotlinRuntime(...)`
-- [x] Number semantics: `%` as `truncatingRemainder`/`%`, string `+` concat, sized-int wrapping ops (`&+` in Swift), JS-style number formatting in `lucentStr`
-- [x] `scripts/verify-native.ts` — for each fixture, `swiftc -typecheck` and `kotlinc -nowarn` the generated file plus a stub prelude (`ArrayBuffer` = byte array); wired into `pnpm verify`
-
-### 3. `packages/host-expo` — Expo SDK 58
-
-- [x] `packages/host-core`: `Host` interface (`emitPackage(modules) → FileTree`, `emitProxy(module) → { js, dts }`), `.d.ts` generation, boundary conversion helpers; `packages/runtime` (`@lucent-lang/runtime`): `LucentError`, `lucentCall`, `toArrayBuffer`/`fromArrayBuffer`, error normalisation for both hosts
-- [x] Swift: `@ExpoModule("Lucent_<name>") public final class Lucent<Name>Module: Module` with `@JS` sync and `@JS(.concurrent) … async throws` members, `@Record` structs, `LucentError: Exception` with `code`
-- [x] Kotlin: `definition()` DSL (`Function`, `AsyncFunction … Coroutine`), constructor-parameter `Record` + `@Field` with type defaults, boundary conversions for Byte/Short/unsigned ints; `LucentError` is a plain Exception (code recovered by the proxy from the message) — switch to `CodedException` once verified in the example app
-- [x] Bytes as `ExpoModulesCore.ArrayBuffer` / `expo.modules.kotlin.jni.ArrayBuffer`; async functions copy on entry
-- [x] Package tree `modules/lucent/` — `expo-module.config.json`, `package.json`, `ios/Lucent.podspec` (sdk-58 template), `android/build.gradle`, `AndroidManifest.xml`, `.gitignore`
-- [x] JS proxy via `requireNativeModule('Lucent_<name>')` + generated `.d.ts`; `Uint8Array` ↔ `ArrayBuffer` shim
-- [x] Golden tests for every emitted file
-
-### 4. `packages/host-nitro` — react-native-nitro-modules 0.37
-
-- [x] `src/specs/<Name>.nitro.ts` from IR signatures (`interface … extends HybridObject<{ ios: 'swift'; android: 'kotlin' }>`; structs as `interface`; bytes as `ArrayBuffer`)
-- [x] `ios/Hybrid<Name>.swift` (`throws`, `Promise.async { }`), `android/.../Hybrid<Name>.kt` (`@Keep @DoNotStrip`, `Promise.async { }`); bodies live in `<Name>Bodies` namespaces with generated `fromNitro`/`toNitro` struct converters, since nitrogen owns boundary types (ints as `number`, Kotlin arrays as `DoubleArray`/`Array<T>`)
-- [x] Package tree `.lucent/nitro/` (`lucent-native`): `package.json`, `nitro.json` (current `autolinking.<Name>.ios/android.{language,implementationClassName}` schema), `NitroLucent.podspec`, `android/build.gradle`, `CMakeLists.txt`, `cpp-adapter.cpp`, `LucentPackage.kt`, `react-native.config.js`. The app links it through its own `react-native.config.js` (`dependencies['lucent-native'].root`), not a `file:` dependency, so regenerated output is picked up without reinstalling
-- [x] `postGenerate` runs `nitrogen` in the package
-- [x] JS proxy via `NitroModules.createHybridObject`; `null` ↔ `undefined` for optionals; rethrows `"[CODE] message"` as `LucentError { code, message }` (Kotlin/Swift `LucentError` message is `[CODE] message` on this host — still to wire in the runtime prelude)
-- [x] Golden tests for every emitted file
-
-### 5. `packages/cli`
-
-- [x] `lucent build [--host expo|nitro] [--out <dir>] [files…]`, `lucent check`, `lucent watch`, `lucent init`
-- [x] Incremental cache `.lucent/cache.json` keyed by `SHA256(compilerVersion + host + source)` storing the IR; prints `✓ cached` / `⚙ compiling`; output files rewritten only when their contents change
-- [x] Diagnostics rendered with codeframes, non-zero exit on error
-- [x] Tests with a temp dir for cache hit/miss
-
-### 6. `packages/metro`
-
-- [x] `withLucent(config, { host })` sets `transformer.babelTransformerPath` to the bundled `dist/transformer.cjs`; host and upstream transformer reach Metro workers through `LUCENT_HOST` / `LUCENT_UPSTREAM_TRANSFORMER` env
-- [x] `vite.config.ts` `pack` section (`pnpm build:packages` → `vp pack`) bundles the Node-loaded entries (Metro transformer, Expo plugin, CLI bin) to CommonJS; sources stay the entry for tests and tsc
-- [x] Transformer: for `/\.lucent\.ts$/`, compile in-process, replace `src` with the host's JS proxy, delegate to `@expo/metro-config/babel-transformer` or `@react-native/metro-babel-transformer`
-- [x] `getCacheKey()` = upstream key + compiler version + host
-- [x] Compile errors surfaced as Metro transform errors with the Lucent codeframe
-
-### 7. `packages/expo` — config plugin
-
-- [x] `app.plugin.js` → `dist/plugin.cjs`; `createRunOncePlugin`; props `{ host?: "expo" | "nitro" }`
-- [x] `withDangerousMod` for `ios` and `android`: run the build into `modules/lucent/`, skip when `modRequest.introspect`
-- [x] Test invokes the registered dangerous mods directly on a temp project (no prebuild needed)
-
-### 8. `packages/types`
-
-- [x] `@lucent-lang/types` d.ts-only package: branded `int8 … uint64`, `float32`, `float64`
-
-### 9. Example apps and end-to-end verification
-
-- [x] `apps/expo-example` — Expo SDK 58 preview 4, `src/math.lucent.ts` + `src/people.lucent.ts` (add, fibonacci, clamp, async sum, struct round-trip, bytes checksum, throw), `App.tsx` asserts every result and shows ALL OK / FAILURES; `expo prebuild` runs the Lucent plugin (verified: compiles, then cache hits)
-- [x] `apps/bare-example` — RN 0.88.0-rc.2 + Nitro 0.37.1, same sources and screen; `pnpm lucent` regenerates `.lucent/nitro` and runs nitrogen (verified)
-- [x] Expo example on the iOS simulator: ALL OK (10/10 checks: sync, recursion, async, struct with optional, template strings, bytes, error code + message). Note: `export LANG=en_US.UTF-8` is required before any CocoaPods command on this machine
-- [x] Bare example (Nitro) on the iOS simulator: ALL OK (same 10 checks) through nitrogen-generated specs and the Lucent Metro transformer with the nitro host
-- [x] Expo example on the Android emulator (API 34, arm64): ALL OK. Needs JDK 21 (`JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home`; Gradle 9.4 rejects JDK 27)
-- [x] Bare example (Nitro) on the Android emulator (API 34, arm64): ALL OK. Needs pnpm's hoisted linker (`nodeLinker: hoisted` in `pnpm-workspace.yaml`) and the app's Gradle files pointing at the workspace-root `node_modules`, as in any React Native monorepo
-- [ ] Metro cache check: edit a `.lucent.ts` signature, reload without `--clear`
-
-### Later (explicitly out of v1)
-
-Discriminated unions · native classes / shared objects · events · native views ·
-thread annotations · platform SDK bindings · capabilities config · stdlib packages.
+[MIT](LICENSE)
