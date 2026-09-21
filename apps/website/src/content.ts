@@ -13,4 +13,4 @@ export const examples = {
 export const source =
   "export function clamp(value: number, min: number, max: number): number {\n  if (value < min) return min;\n  if (value > max) return max;\n  return value;\n}";
 export const commands =
-  "git clone https://github.com/Fausto95/lucent.git\ncd lucent\nbun install\nbun run lucent build --host expo fixtures/clamp.lucent.ts";
+  "git clone https://github.com/Fausto95/lucent.git\ncd lucent\npnpm install\npnpm lucent build --host expo fixtures/clamp.lucent.ts";

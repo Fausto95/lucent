@@ -186,32 +186,38 @@ export function HomePage() {
             <br />
             {"Then bring your own logic."}
           </p>
-          <a href="https://github.com/Fausto95/lucent#requirements" {...stylex.props(styles.textLink2)}>
-            {"Setup requirements "}
-            <span aria-hidden="true">{"↗"}</span>
-          </a>
+          <Link to="/get-started/" {...stylex.props(styles.textLink2)}>
+            {"Setup guide "}
+            <span aria-hidden="true">{"→"}</span>
+          </Link>
         </div>
         <div {...stylex.props(styles.terminal)}>
           <div {...stylex.props(styles.terminalBar)}>
             <span>{"GET STARTED"}</span>
-            <button onClick={() => copy(commands)} id="copy-command" {...stylex.props(styles.copyCommand)}>
-              {"Copy commands "}
+            <button
+              type="button"
+              onClick={() => copy(commands)}
+              id="copy-command"
+              aria-label="Copy commands"
+              {...stylex.props(styles.copyCommand)}
+            >
+              {"Copy"}
               <span aria-hidden="true">{"⧉"}</span>
             </button>
           </div>
           <pre {...stylex.props(styles.terminalCode)}>
             <code>
               <span {...stylex.props(styles.comment)}>{"# Get Lucent"}</span>
-              {"\ngit clone https://github.com/Fausto95/lucent.git\ncd lucent\nbun install\n\n"}
+              {"\ngit clone https://github.com/Fausto95/lucent.git\ncd lucent\npnpm install\n\n"}
               <span {...stylex.props(styles.comment)}>{"# Build your first native module"}</span>
-              {"\nbun run lucent build --host expo fixtures/clamp.lucent.ts"}
+              {"\npnpm lucent build --host expo fixtures/clamp.lucent.ts"}
             </code>
           </pre>
           <div {...stylex.props(styles.terminalNote)}>
-            {"Requires Bun 1.4+ and Node 24. "}
-            <a href="https://github.com/Fausto95/lucent#requirements" {...stylex.props(styles.terminalLink)}>
-              {"Full setup ↗"}
-            </a>
+            {"Requires Node 22.12+ and pnpm 12. "}
+            <Link to="/get-started/" {...stylex.props(styles.terminalLink)}>
+              {"Full setup →"}
+            </Link>
           </div>
         </div>
       </section>
