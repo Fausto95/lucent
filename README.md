@@ -89,19 +89,19 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 
 ### 4. `packages/host-nitro` — react-native-nitro-modules 0.37
 
-- [ ] `src/specs/<Name>.nitro.ts` from IR signatures (`interface … extends HybridObject<{ ios: 'swift'; android: 'kotlin' }>`; structs as `interface`; bytes as `ArrayBuffer`)
-- [ ] `ios/Hybrid<Name>.swift` (`throws`, `Promise.async { }`), `android/.../Hybrid<Name>.kt` (`@Keep @DoNotStrip`, `Promise.async { }`)
-- [ ] Package tree `.lucent/nitro/` (`lucent-native`): `package.json`, `nitro.json` (current `autolinking.<Name>.ios/android.{language,implementationClassName}` schema), `NitroLucent.podspec`, `android/build.gradle`, `CMakeLists.txt`, `cpp-adapter.cpp`, `LucentPackage.kt`, `react-native.config.js`
-- [ ] `postGenerate` runs `nitrogen` in the package
-- [ ] JS proxy via `NitroModules.createHybridObject`; rethrows `"[CODE] message"` as `LucentError { code, message }`
-- [ ] Golden tests for every emitted file
+- [x] `src/specs/<Name>.nitro.ts` from IR signatures (`interface … extends HybridObject<{ ios: 'swift'; android: 'kotlin' }>`; structs as `interface`; bytes as `ArrayBuffer`)
+- [x] `ios/Hybrid<Name>.swift` (`throws`, `Promise.async { }`), `android/.../Hybrid<Name>.kt` (`@Keep @DoNotStrip`, `Promise.async { }`); bodies live in `<Name>Bodies` namespaces with generated `fromNitro`/`toNitro` struct converters, since nitrogen owns boundary types (ints as `number`, Kotlin arrays as `DoubleArray`/`Array<T>`)
+- [x] Package tree `.lucent/nitro/` (`lucent-native`): `package.json`, `nitro.json` (current `autolinking.<Name>.ios/android.{language,implementationClassName}` schema), `NitroLucent.podspec`, `android/build.gradle`, `CMakeLists.txt`, `cpp-adapter.cpp`, `LucentPackage.kt`, `react-native.config.js`
+- [x] `postGenerate` runs `nitrogen` in the package
+- [x] JS proxy via `NitroModules.createHybridObject`; `null` ↔ `undefined` for optionals; rethrows `"[CODE] message"` as `LucentError { code, message }` (Kotlin/Swift `LucentError` message is `[CODE] message` on this host — still to wire in the runtime prelude)
+- [x] Golden tests for every emitted file
 
 ### 5. `packages/cli`
 
-- [ ] `lucent build [--host expo|nitro] [--out <dir>] [files…]`, `lucent check`, `lucent watch`, `lucent init`
-- [ ] Incremental cache `.lucent/cache.json` keyed by `SHA256(source + compilerVersion + host)`; prints `✓ cached` / `⚙ compiling`
-- [ ] Diagnostics rendered with codeframes, non-zero exit on error
-- [ ] Tests with a temp dir for cache hit/miss
+- [x] `lucent build [--host expo|nitro] [--out <dir>] [files…]`, `lucent check`, `lucent watch`, `lucent init`
+- [x] Incremental cache `.lucent/cache.json` keyed by `SHA256(compilerVersion + host + source)` storing the IR; prints `✓ cached` / `⚙ compiling`; output files rewritten only when their contents change
+- [x] Diagnostics rendered with codeframes, non-zero exit on error
+- [x] Tests with a temp dir for cache hit/miss
 
 ### 6. `packages/metro`
 

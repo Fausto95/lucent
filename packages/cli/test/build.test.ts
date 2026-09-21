@@ -8,8 +8,14 @@ function project(): string {
   const root = mkdtempSync(join(tmpdir(), "lucent-cli-"));
   mkdirSync(join(root, "src", "native"), { recursive: true });
   mkdirSync(join(root, "node_modules", "dep"), { recursive: true });
-  writeFileSync(join(root, "src", "native", "math.lucent.ts"), "export function add(a: number, b: number): number { return a + b; }\n");
-  writeFileSync(join(root, "src", "native", "text.lucent.ts"), "export function shout(s: string): string { return s + \"!\"; }\n");
+  writeFileSync(
+    join(root, "src", "native", "math.lucent.ts"),
+    "export function add(a: number, b: number): number { return a + b; }\n",
+  );
+  writeFileSync(
+    join(root, "src", "native", "text.lucent.ts"),
+    'export function shout(s: string): string { return s + "!"; }\n',
+  );
   writeFileSync(join(root, "node_modules", "dep", "ignored.lucent.ts"), "export function nope(): void {}\n");
   return root;
 }
@@ -17,7 +23,10 @@ function project(): string {
 describe("lucent build", () => {
   test("finds lucent files outside node_modules", () => {
     const root = project();
-    expect(findLucentFiles(root).map((f) => f.replace(root + "/", ""))).toEqual(["src/native/math.lucent.ts", "src/native/text.lucent.ts"]);
+    expect(findLucentFiles(root).map((f) => f.replace(root + "/", ""))).toEqual([
+      "src/native/math.lucent.ts",
+      "src/native/text.lucent.ts",
+    ]);
   });
 
   test("compiles into the expo module folder and caches", async () => {
@@ -36,7 +45,10 @@ describe("lucent build", () => {
     expect(second.compiled).toEqual([]);
     expect(second.cached).toEqual(["src/native/math.lucent.ts", "src/native/text.lucent.ts"]);
 
-    writeFileSync(join(root, "src", "native", "math.lucent.ts"), "export function add(a: number, b: number): number { return a - b; }\n");
+    writeFileSync(
+      join(root, "src", "native", "math.lucent.ts"),
+      "export function add(a: number, b: number): number { return a - b; }\n",
+    );
     const third = await build({ root, host: "expo" });
     expect(third.compiled).toEqual(["src/native/math.lucent.ts"]);
     expect(third.cached).toEqual(["src/native/text.lucent.ts"]);
