@@ -1,0 +1,58 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+/* Document defaults only. Component and responsive styles live in StyleX. */
+@layer reset {
+  :root {
+    color-scheme: dark;
+    font-family: "DM Sans", sans-serif;
+    background: #111411;
+    color: #f0f2eb;
+    -webkit-font-smoothing: antialiased;
+  }
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+  body {
+    margin: 0;
+    font-size: 1rem;
+  }
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 35px;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  button {
+    font: inherit;
+    cursor: pointer;
+  }
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:focus-visible,
+  a:focus-visible,
+  [tabindex]:focus-visible {
+    outline: 2px solid #c4f778;
+    outline-offset: 5px;
+  }
+  ::selection {
+    background: #c4f778;
+    color: #111411;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+}
