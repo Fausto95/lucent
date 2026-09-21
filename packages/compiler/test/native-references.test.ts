@@ -65,3 +65,8 @@ test("keeps native listener callbacks out of the JavaScript bridge", () => {
   expect(result.diagnostics).toEqual([]);
   expect(result.module!.functions.find((f) => f.name.endsWith("__method_visit"))?.exported).toBe(false);
 });
+test('rejects SDK property bindings with incompatible signatures',()=>{
+ const library=structuredClone(textLibrary);library.source=library.source.replace('__get_length(lucentSelf:MutableText):number','__get_length(lucentSelf:MutableText):string');
+ const result=compile('import {MutableText} from "@lucent-lang/sdk/text"; export function f():void {const text=new MutableText("x");}',{...options,libraries:{'@lucent-lang/sdk/text':library}});
+ expect(result.module).toBeNull();expect(result.diagnostics.some(d=>d.code==='NT1011')).toBe(true);
+});
