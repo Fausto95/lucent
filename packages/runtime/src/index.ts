@@ -14,8 +14,12 @@ export class LucentError extends Error {
   }
 }
 
-/** Nitro prefixes native errors with the call: "Math.divide(...): [CODE] message". */
-const NITRO_PREFIX = /^(?:[A-Za-z0-9_]+\.[A-Za-z0-9_]+\(\.\.\.\): )?\[([A-Za-z0-9_]+)\] ?/;
+/**
+ * Nitro prefixes native errors with the call ("Math.divide(...): "), and on Android
+ * with the Java class ("com.margelo.nitro.lucent.LucentError: ") followed by a stack trace.
+ */
+const NITRO_PREFIX =
+  /^(?:[A-Za-z0-9_]+\.[A-Za-z0-9_]+\(\.\.\.\): )?(?:[A-Za-z0-9_.$]*LucentError: )?\[([A-Za-z0-9_]+)\] ?/;
 /** Expo decorates thrown exceptions as "LucentError: <reason> (at File.swift:12)". */
 const EXPO_DECORATION = /^LucentError: (.*?)(?: \(at [^)]*\))?$/s;
 const EXPO_CAUSED_BY = /→ Caused by: (?:[A-Za-z]+: )?/;
@@ -31,7 +35,7 @@ export function normalizeError(error: unknown): LucentError {
   const unwrapped = EXPO_DECORATION.exec(causedBy)?.[1] ?? causedBy;
   // Nitro delivers only a message: "[CODE] message".
   const nitro = NITRO_PREFIX.exec(unwrapped);
-  if (nitro) return new LucentError(nitro[1]!, unwrapped.slice(nitro[0].length));
+  if (nitro) return new LucentError(nitro[1]!, unwrapped.slice(nitro[0].length).split("\n")[0]!.trim());
   return new LucentError(code ?? "UNKNOWN", unwrapped);
 }
 

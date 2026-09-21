@@ -129,7 +129,7 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 - [x] Expo example on the iOS simulator: ALL OK (10/10 checks: sync, recursion, async, struct with optional, template strings, bytes, error code + message). Note: `export LANG=en_US.UTF-8` is required before any CocoaPods command on this machine
 - [x] Bare example (Nitro) on the iOS simulator: ALL OK (same 10 checks) through nitrogen-generated specs and the Lucent Metro transformer with the nitro host
 - [x] Expo example on the Android emulator (API 34, arm64): ALL OK. Needs JDK 21 (`JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home`; Gradle 9.4 rejects JDK 27)
-- [ ] **TODO** Bare example (Nitro) on the Android emulator. The generated `lucent-native` library configures and compiles, but the Gradle build then fails in `:react-native-nitro-modules:generateCodegenSchemaFromJavaScript` ("Process 'command node' finished with non-zero exit value 1"): RN's codegen script cannot resolve `@react-native/codegen` from Bun's isolated `node_modules` layout. The workspace now installs with pnpm's hoisted linker, which should resolve this; re-run the Gradle build to confirm. Run with `JAVA_HOME` pointing at JDK 21 and `-PreactNativeArchitectures=arm64-v8a`
+- [x] Bare example (Nitro) on the Android emulator (API 34, arm64): ALL OK. Needs pnpm's hoisted linker (`nodeLinker: hoisted` in `pnpm-workspace.yaml`) and the app's Gradle files pointing at the workspace-root `node_modules`, as in any React Native monorepo
 - [ ] Metro cache check: edit a `.lucent.ts` signature, reload without `--clear`
 
 ### Later (explicitly out of v1)
