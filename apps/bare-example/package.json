@@ -14,8 +14,7 @@
     "react-native": "0.88.0-rc.2",
     "react-native-safe-area-context": "^5.5.2",
     "@lucent/runtime": "workspace:*",
-    "react-native-nitro-modules": "0.37.1",
-    "lucent-native": "file:./.lucent/nitro"
+    "react-native-nitro-modules": "0.37.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

@@ -13,6 +13,7 @@
     "@lucent/compiler": "workspace:*",
     "@lucent/host-core": "workspace:*",
     "@lucent/host-expo": "workspace:*",
-    "@lucent/host-nitro": "workspace:*"
+    "@lucent/host-nitro": "workspace:*",
+    "oxc-parser": "0.151.0"
   }
 }

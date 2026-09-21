@@ -91,7 +91,7 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 
 - [x] `src/specs/<Name>.nitro.ts` from IR signatures (`interface … extends HybridObject<{ ios: 'swift'; android: 'kotlin' }>`; structs as `interface`; bytes as `ArrayBuffer`)
 - [x] `ios/Hybrid<Name>.swift` (`throws`, `Promise.async { }`), `android/.../Hybrid<Name>.kt` (`@Keep @DoNotStrip`, `Promise.async { }`); bodies live in `<Name>Bodies` namespaces with generated `fromNitro`/`toNitro` struct converters, since nitrogen owns boundary types (ints as `number`, Kotlin arrays as `DoubleArray`/`Array<T>`)
-- [x] Package tree `.lucent/nitro/` (`lucent-native`): `package.json`, `nitro.json` (current `autolinking.<Name>.ios/android.{language,implementationClassName}` schema), `NitroLucent.podspec`, `android/build.gradle`, `CMakeLists.txt`, `cpp-adapter.cpp`, `LucentPackage.kt`, `react-native.config.js`
+- [x] Package tree `.lucent/nitro/` (`lucent-native`): `package.json`, `nitro.json` (current `autolinking.<Name>.ios/android.{language,implementationClassName}` schema), `NitroLucent.podspec`, `android/build.gradle`, `CMakeLists.txt`, `cpp-adapter.cpp`, `LucentPackage.kt`, `react-native.config.js`. The app links it through its own `react-native.config.js` (`dependencies['lucent-native'].root`), not a `file:` dependency, because Bun copies `file:` packages into its store
 - [x] `postGenerate` runs `nitrogen` in the package
 - [x] JS proxy via `NitroModules.createHybridObject`; `null` ↔ `undefined` for optionals; rethrows `"[CODE] message"` as `LucentError { code, message }` (Kotlin/Swift `LucentError` message is `[CODE] message` on this host — still to wire in the runtime prelude)
 - [x] Golden tests for every emitted file
@@ -123,9 +123,9 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 
 ### 9. Example apps and end-to-end verification
 
-- [ ] `apps/expo-example` — Expo SDK 58 beta, `math.lucent.ts` (add, fibonacci, clamp, async sum, struct round-trip, bytes round-trip, throw), screen asserting results
-- [ ] `apps/bare-example` — RN 0.88 + Nitro, same screen
-- [ ] iOS simulator run of both apps (checked with the simulator inspector)
+- [x] `apps/expo-example` — Expo SDK 58 preview 4, `src/math.lucent.ts` + `src/people.lucent.ts` (add, fibonacci, clamp, async sum, struct round-trip, bytes checksum, throw), `App.tsx` asserts every result and shows ALL OK / FAILURES; `expo prebuild` runs the Lucent plugin (verified: compiles, then cache hits)
+- [x] `apps/bare-example` — RN 0.88.0-rc.2 + Nitro 0.37.1, same sources and screen; `bun run lucent` regenerates `.lucent/nitro` and runs nitrogen (verified)
+- [~] iOS simulator run of both apps (in progress; note: `export LANG=en_US.UTF-8` is required before any CocoaPods command on this machine)
 - [ ] Android emulator run of both apps (fallback: Kotlin compile check, reported as not device-verified)
 - [ ] Metro cache check: edit a `.lucent.ts` signature, reload without `--clear`
 
