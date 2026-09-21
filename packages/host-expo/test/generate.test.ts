@@ -56,6 +56,6 @@ describe("expo host proxies", () => {
     const { js } = expoHost.emitProxy(bytes);
     expect(js).toContain("requireNativeModule");
     expect(js).toContain("Lucent_bytes");
-    expect(js).toContain(".buffer");
+    expect(js).toContain("toArrayBuffer(data)");
   });
 });

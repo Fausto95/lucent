@@ -54,6 +54,10 @@
         "@lucent/host-core": "workspace:*",
       },
     },
+    "packages/runtime": {
+      "name": "@lucent/runtime",
+      "version": "0.0.0",
+    },
     "packages/types": {
       "name": "@lucent/types",
       "version": "0.0.0",
@@ -69,6 +73,8 @@
     "@lucent/host-core": ["@lucent/host-core@workspace:packages/host-core"],
 
     "@lucent/host-expo": ["@lucent/host-expo@workspace:packages/host-expo"],
+
+    "@lucent/runtime": ["@lucent/runtime@workspace:packages/runtime"],
 
     "@lucent/types": ["@lucent/types@workspace:packages/types"],
 

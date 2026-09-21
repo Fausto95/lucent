@@ -79,13 +79,13 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 
 ### 3. `packages/host-expo` — Expo SDK 58
 
-- [ ] `Host` interface shared with Nitro: `emitPackage(units) → FileTree`, `emitProxy(module) → { js, dts }`
-- [ ] Swift: `@ExpoModule("Lucent_<name>") public final class Lucent<Name>Module: Module` with `@JS` sync and `@JS(.concurrent) … async throws` members, `@Record` structs, `LucentError: Exception` with `code`
-- [ ] Kotlin: `definition()` DSL (`Function`, `AsyncFunction … Coroutine`), `Record` + `@Field` with type defaults, `LucentError : CodedException`
-- [ ] Bytes as `ExpoModulesCore.ArrayBuffer` / `expo.modules.kotlin.jni.ArrayBuffer`; async functions copy on entry
-- [ ] Package tree `modules/lucent/` — `expo-module.config.json`, `package.json`, `ios/Lucent.podspec` (sdk-58 template), `android/build.gradle`, `AndroidManifest.xml`, `.gitignore`
-- [ ] JS proxy via `requireNativeModule('Lucent_<name>')` + generated `.d.ts`; `Uint8Array` ↔ `ArrayBuffer` shim
-- [ ] Golden tests for every emitted file
+- [x] `packages/host-core`: `Host` interface (`emitPackage(modules) → FileTree`, `emitProxy(module) → { js, dts }`), `.d.ts` generation, boundary conversion helpers; `packages/runtime` (`@lucent/runtime`): `LucentError`, `lucentCall`, `toArrayBuffer`/`fromArrayBuffer`, error normalisation for both hosts
+- [x] Swift: `@ExpoModule("Lucent_<name>") public final class Lucent<Name>Module: Module` with `@JS` sync and `@JS(.concurrent) … async throws` members, `@Record` structs, `LucentError: Exception` with `code`
+- [x] Kotlin: `definition()` DSL (`Function`, `AsyncFunction … Coroutine`), constructor-parameter `Record` + `@Field` with type defaults, boundary conversions for Byte/Short/unsigned ints; `LucentError` is a plain Exception (code recovered by the proxy from the message) — switch to `CodedException` once verified in the example app
+- [x] Bytes as `ExpoModulesCore.ArrayBuffer` / `expo.modules.kotlin.jni.ArrayBuffer`; async functions copy on entry
+- [x] Package tree `modules/lucent/` — `expo-module.config.json`, `package.json`, `ios/Lucent.podspec` (sdk-58 template), `android/build.gradle`, `AndroidManifest.xml`, `.gitignore`
+- [x] JS proxy via `requireNativeModule('Lucent_<name>')` + generated `.d.ts`; `Uint8Array` ↔ `ArrayBuffer` shim
+- [x] Golden tests for every emitted file
 
 ### 4. `packages/host-nitro` — react-native-nitro-modules 0.37
 
