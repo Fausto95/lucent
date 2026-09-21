@@ -3,7 +3,7 @@ packages:
   - apps/*
 
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true
 
 minimumReleaseAge: 0
 catalog:
@@ -31,3 +31,6 @@ minimumReleaseAgeExclude:
   - "@oxfmt/*"
   - vitest
   - "@vitest/*"
+
+nodeLinker: hoisted
+strictPeerDependencies: false
