@@ -7,9 +7,9 @@ import { $ } from "bun";
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { compile } from "@lucent/compiler";
-import { generateSwift, swiftRuntime } from "@lucent/backend-swift";
-import { generateKotlin, kotlinRuntime } from "@lucent/backend-kotlin";
+import { compile } from "@lucent-lang/compiler";
+import { generateSwift, swiftRuntime } from "@lucent-lang/backend-swift";
+import { generateKotlin, kotlinRuntime } from "@lucent-lang/backend-kotlin";
 
 const root = join(import.meta.dir, "..");
 const fixtures = join(root, "fixtures");
