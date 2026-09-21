@@ -1,3 +1,4 @@
+import { kotlinErrorWire } from "./errors.ts";
 import { kotlinType } from "./types.ts";
 export { kotlinType } from "./types.ts";
 import { kotlinClass } from "./objects.ts";
@@ -46,17 +47,24 @@ export interface GeneratedUnit {
 
 /** The plain-Kotlin LucentError used when no host supplies one (tests, verification). */
 export const KOTLIN_DEFAULT_ERROR =
-  "class LucentError(val code: String, message: String? = null) : Exception(message ?: code)";
+  "class LucentError(val code: String, message: String? = null, val metadata: Map<String, Any?> = emptyMap()) : Exception(message ?: code)";
 
 /** Runtime prelude; `bytes` supplies the host's `ArrayBuffer` accessors and import lines, `error` its LucentError type. */
 export function kotlinRuntime(
-  bytes: { imports: string[]; length: string; get: string },
+  bytes: { imports: string[]; length: string; get: string; toByteArray?: string; fromByteArray?: string },
   packageName?: string,
   error: string = KOTLIN_DEFAULT_ERROR,
 ): string {
   return `${packageName ? `package ${packageName}\n\n` : ""}${bytes.imports.join("\n")}${bytes.imports.length ? "\n\n" : ""}${error}
+${kotlinErrorWire}
 
 object LucentBytes {
+  fun toByteArray(buffer: ArrayBuffer): ByteArray {
+    ${bytes.toByteArray ?? "return buffer.copyOf()"}
+  }
+  fun fromByteArray(bytes: ByteArray): ArrayBuffer {
+    ${bytes.fromByteArray ?? "return bytes.copyOf()"}
+  }
   fun length(buffer: ArrayBuffer): Double {
     ${bytes.length}
   }
@@ -93,7 +101,9 @@ export function generateKotlin(module: IRModule): GeneratedUnit {
   const functions = module.functions.map((f) => generateFunction(f, module));
   const imports = [
     ...new Set([
-      ...module.functions.flatMap((f) => f.binding?.kotlinImports ?? []),
+      ...module.functions.flatMap((f) =>
+        f.binding?.platforms && !f.binding.platforms.includes("android") ? [] : (f.binding?.kotlinImports ?? []),
+      ),
       ...(module.functions.some((f) => f.returnType.kind === "view") ? kotlinViewImports : []),
     ]),
   ];
@@ -127,6 +137,12 @@ function generateStruct(s: IRStruct): GeneratedStruct {
 }
 
 function generateFunction(f: IRFunction, module: IRModule): GeneratedFunction {
+  if (f.binding?.platforms && !f.binding.platforms.includes("android")) {
+    f = {
+      ...f,
+      binding: { ...f.binding, kotlin: ['throw LucentError("PLATFORM_UNAVAILABLE", "API unavailable on Android")'] },
+    };
+  }
   const emitter = new KotlinEmitter(f);
   const body = f.event
     ? [
@@ -199,7 +215,9 @@ class KotlinEmitter {
       case "return":
         return [s.value ? `${this.returnKeyword} ${this.expr(s.value)}` : this.returnKeyword];
       case "throw":
-        return [`throw LucentError(${str(s.code)}${s.message ? `, ${this.expr(s.message)}` : ""})`];
+        return [
+          `throw LucentError(${str(s.code)}${s.message ? `, message = ${this.expr(s.message)}` : ""}${s.metadata ? `, metadata = mapOf(${s.metadata.map((f) => `${str(f.name)} to ${this.expr(f.value)}`).join(", ")})` : ""})`,
+        ];
       case "expr":
         return [this.expr(s.value)];
       case "push":

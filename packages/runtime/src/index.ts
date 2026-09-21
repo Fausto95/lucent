@@ -7,7 +7,11 @@
 export class LucentError extends Error {
   readonly code: string;
 
-  constructor(code: string, message?: string) {
+  constructor(
+    code: string,
+    message?: string,
+    readonly metadata: Readonly<Record<string, string | number | boolean | null>> = {},
+  ) {
     super(message ?? code);
     this.name = "LucentError";
     this.code = code;
@@ -28,6 +32,30 @@ const EXPO_CAUSED_BY = /→ Caused by: (?:[A-Za-z]+: )?/;
 export function normalizeError(error: unknown): LucentError {
   if (error instanceof LucentError) return error;
   const raw = error instanceof Error ? error.message : String(error);
+  const envelope = /__LUCENT_ERROR_V1__([0-9a-f]+)/i.exec(raw);
+  if (envelope) {
+    try {
+      const hex = envelope[1]!;
+      if (hex.length % 2) throw new Error("Invalid envelope");
+      const text = decodeURIComponent(hex.replace(/../g, (byte) => "%" + byte));
+      const value = JSON.parse(text) as { code?: unknown; message?: unknown; metadata?: unknown };
+      if (
+        typeof value.code === "string" &&
+        typeof value.message === "string" &&
+        value.metadata &&
+        typeof value.metadata === "object" &&
+        !Array.isArray(value.metadata) &&
+        Object.values(value.metadata).every((v) => v === null || ["string", "number", "boolean"].includes(typeof v))
+      )
+        return new LucentError(
+          value.code,
+          value.message,
+          value.metadata as Record<string, string | number | boolean | null>,
+        );
+    } catch {
+      /* Fall back to the host's ordinary error representation. */
+    }
+  }
   const code = typeof (error as { code?: unknown })?.code === "string" ? (error as { code: string }).code : undefined;
   // Expo wraps native throws: "FunctionCallException: Calling the 'x' function has failed\n→ Caused by: <message>".
   const expoParts = raw.split(EXPO_CAUSED_BY);

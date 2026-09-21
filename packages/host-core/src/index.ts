@@ -117,3 +117,5 @@ export { exportedViews, viewName, viewNamespace, viewProps, viewConfig, withoutV
 export { isReference, classProxies } from "./objects.ts";
 
 export { moduleIdentifier } from "./names.ts";
+
+export { capabilityFiles, type PlatformConfig } from "./capabilities.ts";

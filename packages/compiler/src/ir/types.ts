@@ -52,7 +52,7 @@ export type IRStmt =
   | { op: "break" }
   | { op: "continue" }
   | { op: "return"; value: IRExpr | null }
-  | { op: "throw"; code: string; message: IRExpr | null }
+  | { op: "throw"; code: string; metadata?: { name: string; value: IRExpr }[]; message: IRExpr | null }
   | { op: "expr"; value: IRExpr }
   | { op: "push"; array: IRExpr; value: IRExpr };
 
@@ -89,7 +89,7 @@ export interface IRUnion {
 }
 
 export interface IRStruct {
-  reference?: { publicName: string; exported: boolean };
+  reference?: { publicName: string; exported: boolean; privateFields?: string[] };
   union?: IRUnion;
   name: string;
   exported: boolean;

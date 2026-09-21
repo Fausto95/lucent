@@ -12,3 +12,7 @@ export function divide(a, b) {
 export function fail() {
   return lucentCall(() => native.fail());
 }
+
+export function failWithMetadata(path) {
+  return lucentCall(() => native.failWithMetadata(path));
+}

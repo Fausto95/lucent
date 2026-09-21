@@ -282,19 +282,24 @@ const SWIFT_RUNTIME =
   GENERATED_HEADER +
   "import NitroModules\n" +
   swiftRuntime(
-    { length: "return Double(buffer.size)", get: "return Double(buffer.data[Int(index)])" },
-    `/** Nitro forwards only the description; the proxy recovers the code from the "[CODE] " prefix. */
+    {
+      length: "return Double(buffer.size)",
+      get: "return Double(buffer.data[Int(index)])",
+      data: "return buffer.toData(copyIfNeeded: true)",
+      fromData: "if data.isEmpty { return ArrayBuffer.allocate(size: 0) }; return try ArrayBuffer.copy(data: data)",
+    },
+    `/** Nitro forwards only the description; the proxy decodes a portable error envelope. */
 struct LucentError: Error, CustomStringConvertible {
   let code: String
   let message: String
 
-  init(code: String, message: String? = nil) {
+  init(code: String, message: String? = nil, metadata: [String: Any] = [:]) {
     self.code = code
-    self.message = message ?? code
+    self.message = lucentErrorWire(code, message ?? code, metadata)
   }
 
   var description: String {
-    return "[\\(code)] \\(message)"
+    return message
   }
 }`,
   );
@@ -482,9 +487,13 @@ const KOTLIN_RUNTIME =
       imports: ["import com.margelo.nitro.core.ArrayBuffer"],
       length: "return buffer.size.toDouble()",
       get: "return (buffer.getBuffer(false).get(index.toInt()).toInt() and 0xff).toDouble()",
+      toByteArray:
+        "val source = buffer.getBuffer(false).duplicate(); source.rewind(); return ByteArray(source.remaining()).also { source.get(it) }",
+      fromByteArray:
+        "val buffer = java.nio.ByteBuffer.allocateDirect(bytes.size); buffer.put(bytes); buffer.flip(); return ArrayBuffer.wrap(buffer)",
     },
     ANDROID_PACKAGE,
-    'class LucentError(val code: String, message: String? = null) : Exception("[$code] ${message ?: code}")',
+    "class LucentError(val code: String, message: String? = null, val metadata: Map<String, Any?> = emptyMap()) : Exception(lucentErrorWire(code, message ?: code, metadata))",
   );
 
 /** nitrogen's Kotlin type for a spec type. */

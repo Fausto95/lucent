@@ -14,6 +14,11 @@ class HybridNativeStdlib: HybridNativeStdlibSpec {
     let result = try NativeStdlibBodies.matches(value: value)
     return result
   }
+
+  func roundTrip(text: String) throws -> String {
+    let result = try NativeStdlibBodies.roundTrip(text: text)
+    return result
+  }
 }
 
 enum NativeStdlibBodies {
@@ -57,11 +62,27 @@ enum NativeStdlibBodies {
     return value.contains(search)
   }
 
+  static func lucentInternal_d04f744ec3bed451_encodeUTF8(text: String) throws -> ArrayBuffer {
+    return try LucentBytes.fromData(Data(text.utf8))
+  }
+
+  static func lucentInternal_d04f744ec3bed451_decodeUTF8(bytes: ArrayBuffer) throws -> String {
+    return String(decoding: LucentBytes.data(bytes), as: UTF8.self)
+  }
+
+  static func lucentInternal_d04f744ec3bed451_copyBytes(bytes: ArrayBuffer) throws -> ArrayBuffer {
+    return try LucentBytes.fromData(LucentBytes.data(bytes))
+  }
+
   static func magnitude(value: Double) throws -> Double {
     return try lucentInternal_736b35a22321c26_sqrt(value: lucentInternal_736b35a22321c26_abs(value: value))
   }
 
   static func matches(value: String) throws -> Bool {
     return try lucentInternal_2aaae6189ce4e2af_contains(value: lucentInternal_2aaae6189ce4e2af_trim(value: value), search: "lucent")
+  }
+
+  static func roundTrip(text: String) throws -> String {
+    return try lucentInternal_d04f744ec3bed451_decodeUTF8(bytes: lucentInternal_d04f744ec3bed451_copyBytes(bytes: lucentInternal_d04f744ec3bed451_encodeUTF8(text: text)))
   }
 }

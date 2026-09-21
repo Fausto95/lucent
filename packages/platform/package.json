@@ -9,6 +9,9 @@
     },
     "./locale": {
       "types": "./locale.d.ts"
+    },
+    ".": {
+      "types": "./index.d.ts"
     }
   }
 }

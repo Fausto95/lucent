@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { sdkCommand } from "@lucent-lang/sdk/command";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { loadLucentConfig, loadLucentSources } from "@lucent-lang/host-core";
@@ -10,6 +11,7 @@ const USAGE = `lucent — ahead-of-time TypeScript → Swift/Kotlin for React Na
 Usage:
   lucent build [--host expo|nitro] [--out <dir>] [--emit-ir] [--force] [--no-postgen] [files…]
   lucent check [files…]
+  lucent sdk swift|android <input> --out <directory> [--module <Module>]
   lucent init [--host expo|nitro]
 `;
 
@@ -48,6 +50,10 @@ function parseArgs(argv: string[]): Args {
 }
 
 async function main(): Promise<number> {
+  if (process.argv[2] === "sdk") {
+    sdkCommand(process.argv.slice(3));
+    return 0;
+  }
   const args = parseArgs(process.argv.slice(2));
   const root = process.cwd();
   switch (args.command) {
@@ -86,7 +92,7 @@ async function main(): Promise<number> {
           console.error(`${rel}: missing capabilities ${missing.join(", ")}`);
           failed = true;
         }
-        if (result.diagnostics.length) failed = true;
+        if (!result.module) failed = true;
         for (const d of result.diagnostics) console.error("\n" + renderDiagnostic(d, source, rel));
         if (!result.diagnostics.length) console.log(`✓ ${rel}`);
       }

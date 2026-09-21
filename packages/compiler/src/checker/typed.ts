@@ -17,7 +17,7 @@ export interface StructField {
 }
 
 export interface StructDef {
-  reference?: { publicName: string; exported: boolean };
+  reference?: { publicName: string; exported: boolean; privateFields?: string[] };
   union?: IRUnion;
   name: string;
   exported: boolean;
@@ -90,6 +90,6 @@ export type TStmt =
   | { kind: "return"; argument: TExpr | null; span: Span }
   | { kind: "break"; span: Span }
   | { kind: "continue"; span: Span }
-  | { kind: "throw"; code: string; message: TExpr | null; span: Span }
+  | { kind: "throw"; code: string; metadata?: { name: string; value: TExpr }[]; message: TExpr | null; span: Span }
   | { kind: "expression"; expression: TExpr; span: Span }
   | { kind: "block"; body: TStmt[]; span: Span };

@@ -163,7 +163,14 @@ class FunctionLowerer {
       case "continue":
         return [{ op: s.kind }];
       case "throw":
-        return [{ op: "throw", code: s.code, message: s.message ? this.expr(s.message) : null }];
+        return [
+          {
+            op: "throw",
+            code: s.code,
+            message: s.message ? this.expr(s.message) : null,
+            ...(s.metadata ? { metadata: s.metadata.map((f) => ({ name: f.name, value: this.expr(f.value) })) } : {}),
+          },
+        ];
       case "expression":
         return this.expressionStmt(s.expression);
       case "block":
@@ -383,6 +390,7 @@ function collectAssignedNames(stmts: TStmt[], candidates: ReadonlySet<string>): 
           break;
         case "throw":
           if (s.message) visitExpr(s.message);
+          for (const field of s.metadata ?? []) visitExpr(field.value);
           break;
         case "expression":
           visitExpr(s.expression);

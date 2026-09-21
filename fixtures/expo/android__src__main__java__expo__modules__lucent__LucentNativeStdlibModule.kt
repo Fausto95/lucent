@@ -20,6 +20,10 @@ class LucentNativeStdlibModule : Module() {
     Function("matches") { value: String ->
       matches(value)
     }
+
+    Function("roundTrip") { text: String ->
+      roundTrip(text)
+    }
   }
 
   private fun lucentInternal_736b35a22321c26_abs(value: Double): Double {
@@ -62,11 +66,27 @@ class LucentNativeStdlibModule : Module() {
     return value.contains(search)
   }
 
+  private fun lucentInternal_d04f744ec3bed451_encodeUTF8(text: String): ArrayBuffer {
+    return LucentBytes.fromByteArray(text.toByteArray(Charsets.UTF_8))
+  }
+
+  private fun lucentInternal_d04f744ec3bed451_decodeUTF8(bytes: ArrayBuffer): String {
+    return LucentBytes.toByteArray(bytes).toString(Charsets.UTF_8)
+  }
+
+  private fun lucentInternal_d04f744ec3bed451_copyBytes(bytes: ArrayBuffer): ArrayBuffer {
+    return LucentBytes.fromByteArray(LucentBytes.toByteArray(bytes))
+  }
+
   private fun magnitude(value: Double): Double {
     return lucentInternal_736b35a22321c26_sqrt(lucentInternal_736b35a22321c26_abs(value))
   }
 
   private fun matches(value: String): Boolean {
     return lucentInternal_2aaae6189ce4e2af_contains(lucentInternal_2aaae6189ce4e2af_trim(value), "lucent")
+  }
+
+  private fun roundTrip(text: String): String {
+    return lucentInternal_d04f744ec3bed451_decodeUTF8(lucentInternal_d04f744ec3bed451_copyBytes(lucentInternal_d04f744ec3bed451_encodeUTF8(text)))
   }
 }

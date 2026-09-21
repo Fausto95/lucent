@@ -21,9 +21,27 @@ importers:
       '@lucent-lang/compiler':
         specifier: workspace:*
         version: link:packages/compiler
+      '@lucent-lang/config':
+        specifier: workspace:*
+        version: link:packages/config
+      '@lucent-lang/core':
+        specifier: workspace:*
+        version: link:packages/core
+      '@lucent-lang/crypto':
+        specifier: workspace:*
+        version: link:packages/crypto
+      '@lucent-lang/device':
+        specifier: workspace:*
+        version: link:packages/device
       '@lucent-lang/events':
         specifier: workspace:*
         version: link:packages/events
+      '@lucent-lang/filesystem':
+        specifier: workspace:*
+        version: link:packages/filesystem
+      '@lucent-lang/network':
+        specifier: workspace:*
+        version: link:packages/network
       '@lucent-lang/objects':
         specifier: workspace:*
         version: link:packages/objects
@@ -60,6 +78,24 @@ importers:
 
   apps/bare-example:
     dependencies:
+      '@lucent-lang/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@lucent-lang/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@lucent-lang/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
+      '@lucent-lang/device':
+        specifier: workspace:*
+        version: link:../../packages/device
+      '@lucent-lang/filesystem':
+        specifier: workspace:*
+        version: link:../../packages/filesystem
+      '@lucent-lang/network':
+        specifier: workspace:*
+        version: link:../../packages/network
       '@lucent-lang/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -139,6 +175,24 @@ importers:
 
   apps/expo-example:
     dependencies:
+      '@lucent-lang/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@lucent-lang/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@lucent-lang/crypto':
+        specifier: workspace:*
+        version: link:../../packages/crypto
+      '@lucent-lang/device':
+        specifier: workspace:*
+        version: link:../../packages/device
+      '@lucent-lang/filesystem':
+        specifier: workspace:*
+        version: link:../../packages/filesystem
+      '@lucent-lang/network':
+        specifier: workspace:*
+        version: link:../../packages/network
       '@lucent-lang/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -246,6 +300,9 @@ importers:
       '@lucent-lang/host-nitro':
         specifier: workspace:*
         version: link:../host-nitro
+      '@lucent-lang/sdk':
+        specifier: workspace:*
+        version: link:../sdk
       oxc-parser:
         specifier: 0.151.0
         version: 0.151.0
@@ -259,6 +316,14 @@ importers:
         specifier: 0.151.0
         version: 0.151.0
 
+  packages/config: {}
+
+  packages/core: {}
+
+  packages/crypto: {}
+
+  packages/device: {}
+
   packages/events: {}
 
   packages/expo:
@@ -269,12 +334,17 @@ importers:
       '@lucent-lang/cli':
         specifier: workspace:*
         version: link:../cli
+      '@lucent-lang/host-core':
+        specifier: workspace:*
+        version: link:../host-core
       expo:
         specifier: '*'
         version: 57.0.24(@babel/core@7.29.7)(@expo/dom-webview@58.0.1)(react-dom@19.3.0(react@19.3.0))(react-native@0.88.0-rc.2(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@6.0.3))(@react-native/metro-config@0.88.0-rc.2(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)(typescript@6.0.3)
       oxc-parser:
         specifier: 0.151.0
         version: 0.151.0
+
+  packages/filesystem: {}
 
   packages/host-core:
     dependencies:
@@ -330,11 +400,19 @@ importers:
         specifier: 0.151.0
         version: 0.151.0
 
+  packages/network: {}
+
   packages/objects: {}
 
   packages/platform: {}
 
   packages/runtime: {}
+
+  packages/sdk:
+    dependencies:
+      '@lucent-lang/compiler':
+        specifier: workspace:*
+        version: link:../compiler
 
   packages/std: {}
 

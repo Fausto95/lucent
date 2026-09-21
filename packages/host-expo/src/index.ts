@@ -148,13 +148,15 @@ const SWIFT_RUNTIME =
     {
       length: "return Double(buffer.byteLength)",
       get: "return buffer.withUnsafeBytes { Double($0[Int(index)]) }",
+      data: "return buffer.data",
+      fromData: "return try ArrayBuffer.copy(data: data)",
     },
     `/** Reaches JavaScript as a CodedError with \`code\`. */
 final class LucentError: Exception {
   let message: String
 
-  init(code: String, message: String? = nil) {
-    self.message = message ?? code
+  init(code: String, message: String? = nil, metadata: [String: Any] = [:]) {
+    self.message = lucentErrorWire(code, message ?? code, metadata)
     super.init(name: "LucentError", description: self.message, code: code)
   }
 
@@ -272,9 +274,13 @@ const KOTLIN_RUNTIME =
       imports: ["import expo.modules.kotlin.exception.CodedException", "import expo.modules.kotlin.jni.ArrayBuffer"],
       length: "return buffer.size().toDouble()",
       get: "return (buffer.readByte(index.toInt()).toInt() and 0xff).toDouble()",
+      toByteArray:
+        "val source = buffer.toDirectBuffer().duplicate(); source.rewind(); return ByteArray(source.remaining()).also { source.get(it) }",
+      fromByteArray:
+        "val buffer = java.nio.ByteBuffer.allocateDirect(bytes.size); buffer.put(bytes); buffer.flip(); return ArrayBuffer(buffer)",
     },
     ANDROID_PACKAGE,
-    "class LucentError(code: String, message: String? = null) : CodedException(code, message ?: code, null)",
+    "class LucentError(code: String, message: String? = null, val metadata: Map<String, Any?> = emptyMap()) : CodedException(code, lucentErrorWire(code, message ?: code, metadata), null)",
   );
 
 const BUILD_GRADLE = `plugins {
@@ -436,7 +442,7 @@ function kotlinBinding(f: GeneratedFunction): string[] {
   const head = f.async
     ? `AsyncFunction(${JSON.stringify(f.name)}) Coroutine {`
     : `Function(${JSON.stringify(f.name)}) {`;
-  const arrow = params.length ? ` ${params.join(", ")} ->` : "";
+  const arrow = params.length ? ` ${params.join(", ")} ->` : f.async ? " ->" : "";
   return [`${head}${arrow}`, `  ${call}`, "}"];
 }
 

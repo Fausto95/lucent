@@ -123,3 +123,32 @@ test("preserves native build products during regeneration", async () => {
   await build({ root, host: "expo", force: true });
   expect(readFileSync(product, "utf8")).toBe("native build cache");
 });
+
+test("preserves warnings on successful incremental builds", async () => {
+  const root = project();
+  writeFileSync(
+    join(root, "worker.lucent.ts"),
+    "@MainThread export async function count():Promise<number>{let i=0;while(i<10){i+=1;}return i;}",
+  );
+  const first = await build({ root, host: "expo" });
+  expect(first.ok).toBe(true);
+  expect(first.diagnostics.some((d) => d.severity === "warning" && d.rendered.includes("NT3002"))).toBe(true);
+  const next = await build({ root, host: "expo" });
+  expect(next.ok).toBe(true);
+  expect(next.cached).toContain("worker.lucent.ts");
+  expect(next.diagnostics).toEqual(first.diagnostics);
+});
+test("writes platform permission fragments from typed config", async () => {
+  const root = project();
+  writeFileSync(
+    join(root, "lucent.config.ts"),
+    'export default {capabilities:{camera:{reason:"Scan & save"},notifications:{environment:"development"},network:true}};',
+  );
+  const result = await build({ root, host: "expo" });
+  expect(result.ok).toBe(true);
+  expect(readFileSync(join(result.outDir, "ios/LucentInfo.plist"), "utf8")).toContain("Scan &amp; save");
+  expect(readFileSync(join(result.outDir, "ios/Lucent.entitlements"), "utf8")).toContain("aps-environment");
+  expect(readFileSync(join(result.outDir, "android/src/main/AndroidManifest.xml"), "utf8")).toContain(
+    "android.permission.INTERNET",
+  );
+});

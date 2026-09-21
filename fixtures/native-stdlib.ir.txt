@@ -20,8 +20,17 @@ fn lucentInternal_2aaae6189ce4e2af_trim(value: string) -> string
 
 fn lucentInternal_2aaae6189ce4e2af_contains(value: string, search: string) -> bool
 
+fn lucentInternal_d04f744ec3bed451_encodeUTF8(text: string) -> bytes
+
+fn lucentInternal_d04f744ec3bed451_decodeUTF8(bytes: bytes) -> string
+
+fn lucentInternal_d04f744ec3bed451_copyBytes(bytes: bytes) -> bytes
+
 export fn magnitude(value: float64) -> float64
   return (call lucentInternal_736b35a22321c26_sqrt (call lucentInternal_736b35a22321c26_abs value))
 
 export fn matches(value: string) -> bool
   return (call lucentInternal_2aaae6189ce4e2af_contains (call lucentInternal_2aaae6189ce4e2af_trim value) "lucent")
+
+export fn roundTrip(text: string) -> string
+  return (call lucentInternal_d04f744ec3bed451_decodeUTF8 (call lucentInternal_d04f744ec3bed451_copyBytes (call lucentInternal_d04f744ec3bed451_encodeUTF8 text)))

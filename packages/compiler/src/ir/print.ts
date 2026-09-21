@@ -53,7 +53,9 @@ function printFunction(fn: IRFunction): string[] {
           lines.push(`${pad}return${s.value ? " " + expr(s.value) : ""}`);
           break;
         case "throw":
-          lines.push(`${pad}throw ${JSON.stringify(s.code)}${s.message ? " " + expr(s.message) : ""}`);
+          lines.push(
+            `${pad}throw ${JSON.stringify(s.code)}${s.message ? " " + expr(s.message) : ""}${s.metadata ? " metadata { " + s.metadata.map((f) => f.name + ": " + expr(f.value)).join(", ") + " }" : ""}`,
+          );
           break;
         case "expr":
           lines.push(`${pad}${expr(s.value)}`);

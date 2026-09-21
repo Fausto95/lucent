@@ -10,6 +10,12 @@
     "pods": "cd ios && bundle exec pod install"
   },
   "dependencies": {
+    "@lucent-lang/config": "workspace:*",
+    "@lucent-lang/core": "workspace:*",
+    "@lucent-lang/crypto": "workspace:*",
+    "@lucent-lang/device": "workspace:*",
+    "@lucent-lang/filesystem": "workspace:*",
+    "@lucent-lang/network": "workspace:*",
     "@lucent-lang/runtime": "workspace:*",
     "react": "19.3.0",
     "react-native": "0.88.0-rc.2",

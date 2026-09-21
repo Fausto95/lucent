@@ -12,6 +12,10 @@ class HybridThrow: HybridThrowSpec {
   func fail() throws -> Void {
     try ThrowBodies.fail()
   }
+
+  func failWithMetadata(path: String) throws -> Void {
+    try ThrowBodies.failWithMetadata(path: path)
+  }
 }
 
 enum ThrowBodies {
@@ -24,5 +28,9 @@ enum ThrowBodies {
 
   static func fail() throws -> Void {
     throw LucentError(code: "ALWAYS")
+  }
+
+  static func failWithMetadata(path: String) throws -> Void {
+    throw LucentError(code: "MISSING", message: "File\n不存在 🌍", metadata: ["path": path, "attempt": 1.0, "retry": false, "detail": lucentNull()])
   }
 }

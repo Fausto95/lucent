@@ -1,6 +1,11 @@
+import { NATIVE_LIBRARIES } from "./libraries/native.ts";
 /** Native implementations are trusted build inputs; the compiler never executes them. */
 export type ThreadContext = "caller" | "main" | "worker";
+export type NativePlatform = "ios" | "android";
 export interface NativeBinding {
+  platforms?: NativePlatform[];
+  platformQuery?: boolean;
+  cost?: "cpu" | "io";
   swift: string[];
   kotlin: string[];
   swiftImports?: string[];
@@ -13,6 +18,11 @@ export interface LibraryModule {
   bindings?: Record<string, NativeBinding>;
 }
 export const STANDARD_LIBRARIES: Readonly<Record<string, LibraryModule>> = {
+  ...NATIVE_LIBRARIES,
+  "@lucent-lang/platform": {
+    source: "export declare function Platform(): string;",
+    bindings: { Platform: { swift: ['return "ios"'], kotlin: ['return "android"'], platformQuery: true } },
+  },
   "@lucent-lang/std/math": {
     source:
       ["abs", "sqrt", "floor", "ceil", "sin", "cos"]

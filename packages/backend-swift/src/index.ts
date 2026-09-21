@@ -1,3 +1,4 @@
+import { swiftErrorWire } from "./errors.ts";
 import { swiftType } from "./types.ts";
 export { swiftType } from "./types.ts";
 import { swiftClass } from "./objects.ts";
@@ -49,20 +50,32 @@ export interface GeneratedUnit {
 export const SWIFT_DEFAULT_ERROR = `struct LucentError: Error {
   let code: String
   let message: String
+  let metadata: [String: Any]
 
-  init(code: String, message: String? = nil) {
+  init(code: String, message: String? = nil, metadata: [String: Any] = [:]) {
+    self.metadata = metadata
     self.code = code
     self.message = message ?? code
   }
 }`;
 
 /** Runtime prelude; `bytes` supplies the host's `ArrayBuffer` accessors, `error` its LucentError type. */
-export function swiftRuntime(bytes: { length: string; get: string }, error: string = SWIFT_DEFAULT_ERROR): string {
+export function swiftRuntime(
+  bytes: { length: string; get: string; data?: string; fromData?: string },
+  error: string = SWIFT_DEFAULT_ERROR,
+): string {
   return `import Foundation
 
 ${error}
+${swiftErrorWire}
 
 enum LucentBytes {
+  static func data(_ buffer: ArrayBuffer) -> Data {
+    ${bytes.data ?? "return Data(buffer)"}
+  }
+  static func fromData(_ data: Data) throws -> ArrayBuffer {
+    ${bytes.fromData ?? "return Array(data)"}
+  }
   static func length(_ buffer: ArrayBuffer) -> Double {
     ${bytes.length}
   }
@@ -101,7 +114,9 @@ export function generateSwift(module: IRModule): GeneratedUnit {
   const functions = module.functions.map((f) => generateFunction(f, paramNames, module));
   const imports = [
     ...new Set([
-      ...module.functions.flatMap((f) => f.binding?.swiftImports ?? []),
+      ...module.functions.flatMap((f) =>
+        f.binding?.platforms && !f.binding.platforms.includes("ios") ? [] : (f.binding?.swiftImports ?? []),
+      ),
       ...(module.functions.some((f) => f.returnType.kind === "view") ? ["SwiftUI"] : []),
     ]),
   ];
@@ -140,6 +155,15 @@ function generateFunction(
   paramNames: ReadonlyMap<string, string[]>,
   module: IRModule,
 ): GeneratedFunction {
+  if (f.binding?.platforms && !f.binding.platforms.includes("ios")) {
+    f = {
+      ...f,
+      binding: {
+        ...f.binding,
+        swift: ['throw LucentError(code: "PLATFORM_UNAVAILABLE", message: "API unavailable on iOS")'],
+      },
+    };
+  }
   const emitter = new SwiftEmitter(f, paramNames);
   const body = f.event
     ? [
@@ -216,7 +240,9 @@ class SwiftEmitter {
       case "return":
         return [s.value ? `return ${this.top(s.value)}` : "return"];
       case "throw":
-        return [`throw LucentError(code: ${str(s.code)}${s.message ? `, message: ${this.top(s.message)}` : ""})`];
+        return [
+          `throw LucentError(code: ${str(s.code)}${s.message ? `, message: ${this.top(s.message)}` : ""}${s.metadata ? `, metadata: [${s.metadata.map((f) => `${str(f.name)}: ${f.value.op === "const" && f.value.value === null ? "lucentNull()" : this.top(f.value)}`).join(", ")}]` : ""})`,
+        ];
       case "expr":
         return [`_ = ${this.top(s.value)}`];
       case "push":

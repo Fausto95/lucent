@@ -1,0 +1,13 @@
+{
+  "name": "@lucent-lang/sdk",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./command": "./src/command.ts"
+  },
+  "dependencies": {
+    "@lucent-lang/compiler": "workspace:*"
+  }
+}

@@ -17,6 +17,7 @@
     "@lucent-lang/host-core": "workspace:*",
     "@lucent-lang/host-expo": "workspace:*",
     "@lucent-lang/host-nitro": "workspace:*",
+    "@lucent-lang/sdk": "workspace:*",
     "oxc-parser": "0.151.0"
   }
 }

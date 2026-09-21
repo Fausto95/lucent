@@ -6,8 +6,8 @@ import Foundation
 final class LucentError: Exception {
   let message: String
 
-  init(code: String, message: String? = nil) {
-    self.message = message ?? code
+  init(code: String, message: String? = nil, metadata: [String: Any] = [:]) {
+    self.message = lucentErrorWire(code, message ?? code, metadata)
     super.init(name: "LucentError", description: self.message, code: code)
   }
 
@@ -16,7 +16,27 @@ final class LucentError: Exception {
   }
 }
 
+func lucentNull() -> Any { NSNull() }
+func lucentErrorWire(_ code: String, _ message: String, _ metadata: [String: Any]) -> String {
+  let normalized = metadata.mapValues { value -> Any in
+    if let number = value as? NSNumber, !number.doubleValue.isFinite { return NSNull() }
+    return value
+  }
+  let payload: [String: Any] = ["code": code, "message": message, "metadata": normalized]
+  guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]) else {
+    return "[\(code)] \(message)"
+  }
+  return "__LUCENT_ERROR_V1__" + data.map { String(format: "%02x", $0) }.joined()
+}
+
+
 enum LucentBytes {
+  static func data(_ buffer: ArrayBuffer) -> Data {
+    return buffer.data
+  }
+  static func fromData(_ data: Data) throws -> ArrayBuffer {
+    return try ArrayBuffer.copy(data: data)
+  }
   static func length(_ buffer: ArrayBuffer) -> Double {
     return Double(buffer.byteLength)
   }

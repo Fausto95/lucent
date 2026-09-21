@@ -18,14 +18,14 @@ test("platform bindings record required capabilities", () => {
   expect(result.module?.capabilities).toContain("clock");
 });
 test("thread annotations survive lowering", () => {
-  const result = compile("/** @thread main */ export async function f(): Promise<number> { return 1; }", {
+  const result = compile("@MainThread export async function f(): Promise<number> { return 1; }", {
     fileName: "main.lucent.ts",
   });
   expect(result.diagnostics).toEqual([]);
   expect(result.module?.functions[0]?.thread).toBe("main");
 });
 test("synchronous functions cannot request a thread hop", () => {
-  const result = compile("/** @thread worker */ export function f(): number { return 1; }", {
+  const result = compile("@Background export function f(): number { return 1; }", {
     fileName: "main.lucent.ts",
   });
   expect(result.diagnostics.length).toBeGreaterThan(0);

@@ -66,3 +66,36 @@ describe("@lucent-lang/expo config plugin", () => {
     expect(existsSync(join(root, "modules"))).toBe(false);
   });
 });
+
+test("merges capabilities into app configuration without dropping existing values", async () => {
+  const root = project();
+  writeFileSync(
+    join(root, "lucent.config.ts"),
+    'export default {capabilities:{camera:{reason:"Scan"},notifications:{environment:"development"},network:true}};',
+  );
+  const config = withLucent({ name: "app", slug: "app" } as never, {}) as unknown as {
+    mods: { ios: { infoPlist: Mod; entitlements: Mod }; android: { manifest: Mod } };
+  };
+  const request = { projectRoot: root, introspect: false };
+  const ios = await config.mods.ios.infoPlist({
+    modRequest: request,
+    modResults: { Existing: "retained" },
+    modRawConfig: {},
+  });
+  expect(ios.modResults).toMatchObject({ Existing: "retained", NSCameraUsageDescription: "Scan" });
+  const entitlements = await config.mods.ios.entitlements({
+    modRequest: request,
+    modResults: { Existing: true },
+    modRawConfig: {},
+  });
+  expect(entitlements.modResults).toMatchObject({ Existing: true, "aps-environment": "development" });
+  const result = await config.mods.android.manifest({
+    modRequest: request,
+    modResults: { manifest: { "uses-permission": [{ $: { "android:name": "android.permission.INTERNET" } }] } },
+    modRawConfig: {},
+  });
+  const permissions = (result.modResults as { manifest: { "uses-permission": { $: { "android:name": string } }[] } })
+    .manifest["uses-permission"];
+  expect(permissions.filter((p) => p.$["android:name"] === "android.permission.INTERNET")).toHaveLength(1);
+  expect(permissions.some((p) => p.$["android:name"] === "android.permission.CAMERA")).toBe(true);
+});

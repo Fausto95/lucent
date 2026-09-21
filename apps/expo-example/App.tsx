@@ -1,3 +1,4 @@
+import { nativeOS, bytes, hash, fileRoundTrip, deviceModel, fetchBytes, metadataFailure } from "./src/features.lucent";
 import { Counter } from "./src/counter.lucent";
 import { advance, evaluate, timestamp, double, progress, report } from "./src/features.lucent";
 import { NativeCard } from "./src/native-card.lucent";
@@ -65,6 +66,33 @@ async function runChecks(): Promise<Row[]> {
     report(42);
   });
   check("native event", emitted, 42);
+  check("native platform", ["ios", "android"].includes(nativeOS()), true);
+  check("owned UTF-8 buffer", Array.from(bytes("é")), [195, 169]);
+  check("empty owned buffer", bytes("").length, 0);
+  check("native SHA-256", hash("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+  check("filesystem worker roundtrip", await fileRoundTrip("Lucent 🌍"), "Lucent 🌍");
+  check("native device", (await deviceModel()).length > 0, true);
+  try {
+    await fetchBytes("invalid");
+    check("network validation", "no error", "INVALID_URL");
+  } catch (error) {
+    check("network validation", (error as { code: string }).code, "INVALID_URL");
+  }
+  try {
+    metadataFailure("/tmp/é");
+    check("error metadata", "no error", "MISSING");
+  } catch (error) {
+    const e = error as { code: string; message: string; metadata: unknown };
+    check(
+      "error envelope",
+      { code: e.code, message: e.message, metadata: e.metadata },
+      {
+        code: "MISSING",
+        message: "File\n不存在 🌍",
+        metadata: { path: "/tmp/é", attempt: 1, retry: false, detail: null },
+      },
+    );
+  }
   return rows;
 }
 

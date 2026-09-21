@@ -8,3 +8,7 @@ func divide(a: Double, b: Double) throws -> Double {
 func fail() throws -> Void {
   throw LucentError(code: "ALWAYS")
 }
+
+func failWithMetadata(path: String) throws -> Void {
+  throw LucentError(code: "MISSING", message: "File\n不存在 🌍", metadata: ["path": path, "attempt": 1.0, "retry": false, "detail": lucentNull()])
+}

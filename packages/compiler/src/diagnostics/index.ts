@@ -9,6 +9,7 @@ export interface Span {
 }
 
 export interface Diagnostic {
+  readonly severity?: "error" | "warning";
   readonly code: DiagnosticCode;
   readonly message: string;
   readonly span: Span;
@@ -20,7 +21,7 @@ export function diagnostic(code: DiagnosticCode, span: Span, message: string, he
 }
 
 export function hasErrors(diagnostics: readonly Diagnostic[]): boolean {
-  return diagnostics.length > 0;
+  return diagnostics.some((d) => d.severity !== "warning");
 }
 
 /** Sorted (line start offsets) table used to map byte offsets to line/column. */
@@ -53,7 +54,7 @@ export function renderDiagnostic(d: Diagnostic, source: string, fileName: string
   const gutter = String(line);
   const pad = " ".repeat(gutter.length);
   const out = [
-    `error ${d.code}: ${DIAGNOSTIC_CODES[d.code]}`,
+    `${d.severity ?? "error"} ${d.code}: ${DIAGNOSTIC_CODES[d.code]}`,
     "",
     `${d.message}`,
     "",

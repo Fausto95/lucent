@@ -5,4 +5,5 @@ import { type HybridObject } from 'react-native-nitro-modules';
 export interface NativeStdlib extends HybridObject<{ ios: 'swift'; android: 'kotlin' }> {
   magnitude(value: number): number;
   matches(value: string): boolean;
+  roundTrip(text: string): string;
 }

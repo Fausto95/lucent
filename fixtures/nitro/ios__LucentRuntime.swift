@@ -2,22 +2,42 @@
 import NitroModules
 import Foundation
 
-/** Nitro forwards only the description; the proxy recovers the code from the "[CODE] " prefix. */
+/** Nitro forwards only the description; the proxy decodes a portable error envelope. */
 struct LucentError: Error, CustomStringConvertible {
   let code: String
   let message: String
 
-  init(code: String, message: String? = nil) {
+  init(code: String, message: String? = nil, metadata: [String: Any] = [:]) {
     self.code = code
-    self.message = message ?? code
+    self.message = lucentErrorWire(code, message ?? code, metadata)
   }
 
   var description: String {
-    return "[\(code)] \(message)"
+    return message
   }
 }
 
+func lucentNull() -> Any { NSNull() }
+func lucentErrorWire(_ code: String, _ message: String, _ metadata: [String: Any]) -> String {
+  let normalized = metadata.mapValues { value -> Any in
+    if let number = value as? NSNumber, !number.doubleValue.isFinite { return NSNull() }
+    return value
+  }
+  let payload: [String: Any] = ["code": code, "message": message, "metadata": normalized]
+  guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]) else {
+    return "[\(code)] \(message)"
+  }
+  return "__LUCENT_ERROR_V1__" + data.map { String(format: "%02x", $0) }.joined()
+}
+
+
 enum LucentBytes {
+  static func data(_ buffer: ArrayBuffer) -> Data {
+    return buffer.toData(copyIfNeeded: true)
+  }
+  static func fromData(_ data: Data) throws -> ArrayBuffer {
+    if data.isEmpty { return ArrayBuffer.allocate(size: 0) }; return try ArrayBuffer.copy(data: data)
+  }
   static func length(_ buffer: ArrayBuffer) -> Double {
     return Double(buffer.size)
   }

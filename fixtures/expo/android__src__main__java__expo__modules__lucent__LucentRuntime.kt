@@ -4,9 +4,39 @@ package expo.modules.lucent
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.jni.ArrayBuffer
 
-class LucentError(code: String, message: String? = null) : CodedException(code, message ?: code, null)
+class LucentError(code: String, message: String? = null, val metadata: Map<String, Any?> = emptyMap()) : CodedException(code, lucentErrorWire(code, message ?: code, metadata), null)
+
+private fun lucentJsonString(value: String): String = buildString {
+  append('"')
+  for (ch in value) when (ch) {
+    '"' -> append("\\\"")
+    '\\' -> append("\\\\")
+    else -> if (ch.code < 32) append("\\u" + ch.code.toString(16).padStart(4, '0')) else append(ch)
+  }
+  append('"')
+}
+fun lucentErrorWire(code: String, message: String, metadata: Map<String, Any?>): String {
+  val fields = metadata.entries.joinToString(",") { (key, value) ->
+    lucentJsonString(key) + ":" + when (value) {
+      null -> "null"
+      is String -> lucentJsonString(value)
+      is Boolean -> value.toString()
+      is Number -> if (value.toDouble().isFinite()) value.toString() else "null"
+      else -> "null"
+    }
+  }
+  val json = "{\"code\":" + lucentJsonString(code) + ",\"message\":" + lucentJsonString(message) + ",\"metadata\":{" + fields + "}}"
+  return "__LUCENT_ERROR_V1__" + json.toByteArray(Charsets.UTF_8).joinToString("") { (it.toInt() and 255).toString(16).padStart(2, '0') }
+}
+
 
 object LucentBytes {
+  fun toByteArray(buffer: ArrayBuffer): ByteArray {
+    val source = buffer.toDirectBuffer().duplicate(); source.rewind(); return ByteArray(source.remaining()).also { source.get(it) }
+  }
+  fun fromByteArray(bytes: ByteArray): ArrayBuffer {
+    val buffer = java.nio.ByteBuffer.allocateDirect(bytes.size); buffer.put(bytes); buffer.flip(); return ArrayBuffer(buffer)
+  }
   fun length(buffer: ArrayBuffer): Double {
     return buffer.size().toDouble()
   }

@@ -12,3 +12,7 @@ export function magnitude(value) {
 export function matches(value) {
   return lucentCall(() => native.matches(value));
 }
+
+export function roundTrip(text) {
+  return lucentCall(() => native.roundTrip(text));
+}

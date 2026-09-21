@@ -19,6 +19,11 @@ class HybridNativeStdlib : HybridNativeStdlibSpec() {
     val result = NativeStdlibBodies.matches(value)
     return result
   }
+
+  override fun roundTrip(text: String): String {
+    val result = NativeStdlibBodies.roundTrip(text)
+    return result
+  }
 }
 
 object NativeStdlibBodies {
@@ -62,11 +67,27 @@ object NativeStdlibBodies {
     return value.contains(search)
   }
 
+  fun lucentInternal_d04f744ec3bed451_encodeUTF8(text: String): ArrayBuffer {
+    return LucentBytes.fromByteArray(text.toByteArray(Charsets.UTF_8))
+  }
+
+  fun lucentInternal_d04f744ec3bed451_decodeUTF8(bytes: ArrayBuffer): String {
+    return LucentBytes.toByteArray(bytes).toString(Charsets.UTF_8)
+  }
+
+  fun lucentInternal_d04f744ec3bed451_copyBytes(bytes: ArrayBuffer): ArrayBuffer {
+    return LucentBytes.fromByteArray(LucentBytes.toByteArray(bytes))
+  }
+
   fun magnitude(value: Double): Double {
     return lucentInternal_736b35a22321c26_sqrt(lucentInternal_736b35a22321c26_abs(value))
   }
 
   fun matches(value: String): Boolean {
     return lucentInternal_2aaae6189ce4e2af_contains(lucentInternal_2aaae6189ce4e2af_trim(value), "lucent")
+  }
+
+  fun roundTrip(text: String): String {
+    return lucentInternal_d04f744ec3bed451_decodeUTF8(lucentInternal_d04f744ec3bed451_copyBytes(lucentInternal_d04f744ec3bed451_encodeUTF8(text)))
   }
 }

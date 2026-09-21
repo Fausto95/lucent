@@ -208,6 +208,7 @@ function renameExpr(expr: Expr, values: Map<string, string>, locals: Set<string>
     values.get(expr.object.name)?.startsWith("__event_")
   )
     return { kind: "call", callee: values.get(expr.object.name)!, args: result.args as Expr[], span: expr.span };
+  if (expr.kind === "identifier" && !locals.has(expr.name)) result.name = values.get(expr.name) ?? expr.name;
   if (expr.kind === "view") result.name = values.get(expr.name) ?? expr.name;
   if (expr.kind === "call" && !locals.has(expr.callee)) result.callee = values.get(expr.callee) ?? expr.callee;
   return result as unknown as Expr;
@@ -260,7 +261,11 @@ function renameBlock(
       case "return":
         return { ...stmt, argument: stmt.argument ? expr(stmt.argument) : null };
       case "throw":
-        return { ...stmt, message: stmt.message ? expr(stmt.message) : null };
+        return {
+          ...stmt,
+          message: stmt.message ? expr(stmt.message) : null,
+          ...(stmt.metadata ? { metadata: stmt.metadata.map((f) => ({ name: f.name, value: expr(f.value) })) } : {}),
+        };
       case "expression":
         return { ...stmt, expression: expr(stmt.expression) };
       default:

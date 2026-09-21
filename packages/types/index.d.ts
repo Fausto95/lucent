@@ -20,7 +20,11 @@ export type float64 = Sized<"float64">;
 declare global {
   /** The only throwable in Lucent code. Reaches JavaScript as an Error with `code`. */
   class LucentError extends Error {
-    constructor(code: string, options?: { message?: string });
+    constructor(
+      code: string,
+      options?: { message?: string; metadata?: Record<string, string | number | boolean | null> },
+    );
     readonly code: string;
+    readonly metadata: Readonly<Record<string, string | number | boolean | null>>;
   }
 }

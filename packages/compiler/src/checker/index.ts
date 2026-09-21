@@ -1,3 +1,4 @@
+import type { NativeBinding } from "../libraries.ts";
 import { checkBoundaries } from "./boundaries.ts";
 import { UI_PRIMITIVES } from "../ui.ts";
 import { diagnostic, type Diagnostic, type Span } from "../diagnostics/index.ts";
@@ -16,6 +17,7 @@ export interface CheckResult {
 export const MAX_PARAMETERS = 8;
 
 interface Signature {
+  binding?: NativeBinding;
   params: TypedParam[];
   returnType: NativeType;
   async: boolean;
@@ -279,7 +281,13 @@ class ModuleChecker {
             diagnostic("NT1011", fn.span, "Native view props support string, number, boolean, and nullable values."),
           );
       }
-      if (valid && returnType) this.signatures.set(fn.name, { params, returnType, async: fn.async });
+      if (valid && returnType)
+        this.signatures.set(fn.name, {
+          ...(fn.binding ? { binding: fn.binding } : {}),
+          params,
+          returnType,
+          async: fn.async,
+        });
     }
   }
 
@@ -501,7 +509,15 @@ class FunctionChecker {
               `LucentError message must be a string, got \`${typeToString(message.type)}\`.`,
             ),
           );
-        return { kind: "throw", code: s.code, message, span: s.span };
+        const metadata = s.metadata?.map((field) => ({
+          name: field.name,
+          value: this.expr(field.value, field.value.kind === "null" ? T.optional(T.string) : undefined),
+        }));
+        for (const field of metadata ?? []) {
+          if (field.value.kind !== "null" && !["string", "bool", "float", "int"].includes(field.value.type.kind))
+            this.report(diagnostic("NT1011", field.value.span, "Error metadata must contain scalar values."));
+        }
+        return { kind: "throw", code: s.code, message, ...(metadata ? { metadata } : {}), span: s.span };
       }
       case "expression":
         return { kind: "expression", expression: this.expr(s.expression), span: s.span };
@@ -990,6 +1006,13 @@ class FunctionChecker {
   }
 
   private member(e: Extract<Expr, { kind: "member" }>): TExpr {
+    if (
+      e.object.kind === "identifier" &&
+      e.property === "OS" &&
+      this.mod.signatures.get(e.object.name)?.binding?.platformQuery
+    ) {
+      return { kind: "call", callee: e.object.name, args: [], type: T.string, span: e.span };
+    }
     const object = this.expr(e.object);
     const span = e.span;
     const t = object.type;
@@ -1001,6 +1024,13 @@ class FunctionChecker {
       const field = this.mod.structs.get(t.name)?.fields.find((f) => f.name === e.property);
       if (!field) {
         this.report(diagnostic("NT1010", span, `\`${t.name}\` has no field \`${e.property}\`.`));
+        return this.poison(span);
+      }
+      if (
+        this.mod.structs.get(t.name)?.reference?.privateFields?.includes(e.property) &&
+        this.fn.classOp?.className !== t.name
+      ) {
+        this.report(diagnostic("NT1011", span, `Field ${e.property} is private to ${t.name}.`));
         return this.poison(span);
       }
       const union = this.mod.structs.get(t.name)?.union;

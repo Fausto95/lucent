@@ -1,7 +1,9 @@
 /**
- * The only file that imports oxc-parser. Converts the ESTree/TS-ESTree program
+ * The parser boundary imports oxc-parser. Converts the ESTree/TS-ESTree program
  * into the closed surface AST, reporting anything outside the subset.
  */
+import { functionDecorators, maskDecorators } from "./decorators.ts";
+import type { ThreadContext } from "../libraries.ts";
 import { parseSync } from "oxc-parser";
 import type * as ES from "@oxc-project/types";
 import { diagnostic, type Diagnostic, type Span } from "../diagnostics/index.ts";
@@ -117,7 +119,10 @@ const KEYWORD_TYPES: Record<string, string> = {
 };
 
 class Converter {
-  constructor(private readonly source: string) {}
+  constructor(
+    private readonly source: string,
+    private readonly threads: ReadonlyMap<number, ThreadContext>,
+  ) {}
   readonly diagnostics: Diagnostic[] = [];
   readonly imports: SurfaceImport[] = [];
   readonly typeAliases: SurfaceTypeAlias[] = [];
@@ -221,6 +226,7 @@ class Converter {
     const type: SurfaceType = { kind: "reference", name, args: [], span };
     const self: Expr = { kind: "identifier", name: "lucentSelf", span };
     const receiver: SurfaceParam = { name: "lucentSelf", type, optional: false, span };
+    const privateFields: string[] = [];
     const fields: SurfaceField[] = [],
       initializers: ObjectProperty[] = [];
     let constructor: ES.Function | undefined;
@@ -231,9 +237,14 @@ class Converter {
         member.computed ||
         member.key.type !== "Identifier" ||
         member.decorators.length ||
-        (member.accessibility && member.accessibility !== "public")
+        (member.accessibility &&
+          member.accessibility !== "public" &&
+          !(member.type === "PropertyDefinition" && member.accessibility === "private"))
       ) {
-        this.unsupported(member, "native class member (only public instance fields and methods are supported)");
+        this.unsupported(
+          member,
+          "native class member (only public/private instance fields and public methods are supported)",
+        );
         continue;
       }
       const key = member.key.name,
@@ -250,6 +261,10 @@ class Converter {
         const fieldType = this.type(member.typeAnnotation.typeAnnotation);
         fields.push({ name: key, type: fieldType, optional: false, span: at });
         initializers.push({ name: key, value: this.expr(member.value), span: at });
+        if (member.accessibility === "private") {
+          privateFields.push(key);
+          continue;
+        }
         const value: Expr = { kind: "member", object: self, property: key, span: at };
         this.functions.push({
           name: `${name}__get_${key}`,
@@ -312,7 +327,7 @@ class Converter {
       exported,
       type: { kind: "object", fields, span },
       span,
-      reference: { publicName: name, exported },
+      reference: { publicName: name, exported, ...(privateFields.length ? { privateFields } : {}) },
     });
     this.functions.push({
       name: `${name}__create`,
@@ -419,15 +434,16 @@ class Converter {
     const match = this.source
       .slice(0, start)
       .match(/\/\*\*([^*]*(?:\*(?!\/)[^*]*)*)\*\/\s*(?:export\s+)?(?:async\s+)?$/);
-    const annotation = match?.[1]?.match(/@thread\s+(\w+)/)?.[1];
-    if (!annotation) return {};
-    if (annotation !== "main" && annotation !== "worker" && annotation !== "caller") {
+    if (match?.[1]?.includes("@thread"))
       this.diagnostics.push(
-        diagnostic("NT1001", { start, end: start }, "Unknown thread context. Use main, worker, or caller."),
+        diagnostic(
+          "NT1001",
+          { start, end: start },
+          "Thread comment annotations have been replaced by @MainThread, @Background, and @Inherited.",
+        ),
       );
-      return {};
-    }
-    return { thread: annotation };
+    const thread = this.threads.get(start);
+    return thread ? { thread } : {};
   }
 
   private param(node: ES.ParamPattern): SurfaceParam {
@@ -624,22 +640,47 @@ class Converter {
       return { kind: "unsupported", span };
     }
     let message: Expr | null = null;
+    const metadata: { name: string; value: Expr }[] = [];
+    if (arg.arguments.length > 2) this.unsupported(arg, "extra LucentError arguments", help);
     if (optionsArg) {
-      const prop = optionsArg.type === "ObjectExpression" ? optionsArg.properties[0] : undefined;
-      if (
-        optionsArg.type !== "ObjectExpression" ||
-        optionsArg.properties.length !== 1 ||
-        !prop ||
-        prop.type !== "Property" ||
-        prop.key.type !== "Identifier" ||
-        prop.key.name !== "message"
-      ) {
-        this.unsupported(optionsArg, `${LUCENT_ERROR} options other than \`{ message }\``, help);
+      if (optionsArg.type !== "ObjectExpression") {
+        this.unsupported(optionsArg, "nonliteral LucentError options", help);
         return { kind: "unsupported", span };
       }
-      message = this.expr(prop.value);
+      const seen = new Set<string>();
+      for (const prop of optionsArg.properties) {
+        if (
+          prop.type !== "Property" ||
+          prop.computed ||
+          prop.method ||
+          prop.key.type !== "Identifier" ||
+          seen.has(prop.key.name)
+        ) {
+          this.unsupported(prop, "invalid LucentError option", help);
+          continue;
+        }
+        seen.add(prop.key.name);
+        if (prop.key.name === "message") message = this.expr(prop.value);
+        else if (prop.key.name === "metadata" && prop.value.type === "ObjectExpression") {
+          const names = new Set<string>();
+          for (const entry of prop.value.properties) {
+            if (
+              entry.type !== "Property" ||
+              entry.computed ||
+              entry.method ||
+              entry.key.type !== "Identifier" ||
+              names.has(entry.key.name)
+            ) {
+              this.unsupported(entry, "invalid error metadata field");
+              continue;
+            }
+            names.add(entry.key.name);
+            metadata.push({ name: entry.key.name, value: this.expr(entry.value) });
+          }
+        } else this.unsupported(prop, "unknown LucentError option or nonliteral metadata", help);
+      }
     }
-    return { kind: "throw", code: codeArg.value, message, span };
+    return { kind: "throw", code: codeArg.value, message, ...(metadata.length ? { metadata } : {}), span };
   }
 
   // ---- expressions ---------------------------------------------------------
@@ -883,12 +924,15 @@ class Converter {
 }
 
 export function parseModule(source: string, fileName: string): ParseResult {
-  const result = parseSync(fileName, source, {
+  const masked = maskDecorators(source);
+  const result = parseSync(fileName, masked.source, {
     lang: fileName.endsWith(".tsx") ? "tsx" : "ts",
     sourceType: "module",
     preserveParens: false,
   });
-  const converter = new Converter(source);
+  const decorators = functionDecorators(source, masked.source, result.program.body, masked.decorators, result.comments);
+  const converter = new Converter(source, decorators.threads);
+  converter.diagnostics.push(...decorators.diagnostics);
   for (const error of result.errors) {
     if (error.severity !== "Error") continue;
     const label = error.labels[0];

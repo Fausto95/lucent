@@ -18,7 +18,8 @@ TypeScript error.
 - Native classes and `const name = event<T>()` declarations are supported.
 - Built-in packages are `@lucent-lang/types`, `@lucent-lang/objects`,
   `@lucent-lang/events`, `@lucent-lang/ui`, `@lucent-lang/std/*`, and
-  `@lucent-lang/platform/*`. Additional native bindings come from app config.
+  `@lucent-lang/platform`, `@lucent-lang/platform/*`, and the native libraries
+  listed below. Additional native bindings come from app config.
 - JavaScript packages, namespace/default imports, re-exports, and executable
   top-level statements remain unsupported. There is no JS runtime in native code.
 
@@ -64,7 +65,7 @@ Rules:
 `return`, `break`, `continue`, `throw`, expression statements, blocks.
 
 Not allowed: `var`, `switch`, `do … while`, `for … in`, `try` / `catch`,
-labels, `with`, `debugger`, function declarations inside functions, classes.
+labels, `with`, `debugger`, function declarations inside functions, nested classes.
 Assignments, `++`/`--` and `push` are statements only, and `continue` inside a
 C-style `for` loop is rejected (the update step would be skipped).
 
@@ -99,27 +100,33 @@ C-style `for` loop is rejected (the update step would be skipped).
 - `Uint8Array` crosses the boundary as an `ArrayBuffer`. Sync functions may
   read it in place; async functions receive a copy. Indexing yields a `number`.
 - A thrown `LucentError` reaches JavaScript as an `Error` with `code` and
-  `message`, identically on Expo and Nitro hosts.
+  `message`, and scalar `metadata`, identically on Expo and Nitro hosts.
+  Error envelopes preserve Unicode and newlines without exposing native stack
+  traces. Metadata values are strings, numbers, booleans, or null; nested
+  objects and arrays are rejected. Non-finite numbers normalize to null.
 
 ## Diagnostics
 
-| Code   | Meaning                                         |
-| ------ | ----------------------------------------------- |
-| NT1000 | Syntax error (from the parser)                  |
-| NT1001 | Unsupported syntax                              |
-| NT1002 | Dynamic property access                         |
-| NT1003 | Unsupported type                                |
-| NT1004 | `any` / `unknown` is prohibited                 |
-| NT1005 | Function value cannot cross the native boundary |
-| NT1006 | Unsupported dependency                          |
-| NT1007 | Too many parameters                             |
-| NT1010 | Unknown identifier                              |
-| NT1011 | Type mismatch                                   |
-| NT1012 | Wrong number of arguments                       |
-| NT1013 | `await` outside an async function               |
-| NT1014 | Missing type annotation                         |
-| NT1015 | Missing return                                  |
-| NT1016 | Assignment to a `const`                         |
+| Code   | Meaning                                          |
+| ------ | ------------------------------------------------ |
+| NT1000 | Syntax error (from the parser)                   |
+| NT1001 | Unsupported syntax                               |
+| NT1002 | Dynamic property access                          |
+| NT1003 | Unsupported type                                 |
+| NT1004 | `any` / `unknown` is prohibited                  |
+| NT1005 | Function value cannot cross the native boundary  |
+| NT1006 | Unsupported dependency                           |
+| NT1007 | Too many parameters                              |
+| NT1010 | Unknown identifier                               |
+| NT1011 | Type mismatch                                    |
+| NT1012 | Wrong number of arguments                        |
+| NT1013 | `await` outside an async function                |
+| NT1014 | Missing type annotation                          |
+| NT1015 | Missing return                                   |
+| NT1016 | Assignment to a `const`                          |
+| NT2001 | Missing native capability                        |
+| NT2004 | Platform-specific API                            |
+| NT3002 | Potentially expensive main-thread work (warning) |
 
 ## Discriminated unions
 
@@ -169,10 +176,12 @@ handles, so method calls and passing an instance to another Lucent module keep
 its native identity. No instance state is copied through JS. Synchronous calls
 that cross a shared-object boundary are serialized by a recursive native lock.
 
-Public instance fields must have a declared scalar type (`number`, `string`,
+Public and private instance fields must have a declared scalar type (`number`, `string`,
 `boolean`, or a nullable form) and an initializer. Methods are synchronous with
-explicit types. Inheritance beyond the marker `SharedObject`, private/static
-members, getters/setters in source, decorators, and async methods are rejected.
+explicit types and may accept/return buffers. Private fields stay native and
+have no JS bridge accessors; accesses outside their class are rejected.
+Inheritance beyond the marker `SharedObject`, static members, private methods,
+getters/setters in source, class decorators, and async methods are rejected.
 Objects cross function boundaries directly, rather than in arrays, records, or
 optionals. Async functions cannot accept shared-object arguments.
 
@@ -249,66 +258,176 @@ and custom component `children` are not currently part of this subset.
 ## Threads
 
 ```ts
-/** @thread worker */
+@Background
 export async function double(value: number): Promise<number> {
   return value * 2;
 }
 ```
 
-`@thread caller` keeps the host's calling context (the default). `@thread main`
-uses Swift's main actor / Kotlin `Dispatchers.Main`. `@thread worker` uses a
+`@Inherited` keeps the host's calling context (the default). `@MainThread`
+uses Swift's main actor / Kotlin `Dispatchers.Main`. `@Background` uses a
 Swift detached task / Kotlin `Dispatchers.Default`. A thread hop requires an
-async function; its JS result is a promise. Thread annotations do not make
+async function; its JS result is a promise. Decorators do not make
 shared mutable state safe, so shared-object arguments are restricted as above.
 
-## Standard library, SDK bindings, and capabilities
+Decorators take no arguments and apply to top-level functions, including private
+helpers. Legacy `/** @thread … */` comments are rejected with a migration diagnostic.
+Function decorators are a Lucent syntax extension, not standard TypeScript
+method decorators. For editor checking of source files, place
+`// @ts-expect-error Lucent function decorator; compiled before TypeScript.`
+immediately before the decorator. The compiler processes it before Metro
+passes the generated JS proxy to TypeScript tooling.
 
-Available native packages:
+`NT3002` warns about loops, recursion, and bindings marked `cost: "cpu" | "io"`
+reached from `@MainThread`, including calls through private helpers. Explicit
+background hops stop propagation. Warnings are retained on incremental cache
+hits and do not fail builds. This is conservative static analysis, not a
+runtime duration guarantee.
 
-- `@lucent-lang/std/math`: `abs`, `sqrt`, `floor`, `ceil`, `sin`, `cos`, `min`, `max`.
-- `@lucent-lang/std/text`: `trim`, `contains`.
-- `@lucent-lang/platform/clock`: `now()` returns Unix milliseconds; requires `clock`.
-- `@lucent-lang/platform/locale`: `languageTag()`; requires `locale`.
+## Native libraries and memory
 
-An app opts into required capabilities in `lucent.config.json`:
+| Package                        | APIs                                                       | Capability   |
+| ------------------------------ | ---------------------------------------------------------- | ------------ |
+| `@lucent-lang/core`            | `encodeUTF8`, `decodeUTF8`, `copyBytes`                    | none         |
+| `@lucent-lang/filesystem`      | async `read`, `write`, `exists`, `temporaryDirectory`      | `filesystem` |
+| `@lucent-lang/crypto`          | `sha256(bytes)` → lowercase hexadecimal                    | `crypto`     |
+| `@lucent-lang/network`         | async `get(url)` → response bytes                          | `network`    |
+| `@lucent-lang/device`          | async `model()`                                            | `device`     |
+| `@lucent-lang/std/math`        | `abs`, `sqrt`, `floor`, `ceil`, `sin`, `cos`, `min`, `max` | none         |
+| `@lucent-lang/std/text`        | `trim`, `contains`                                         | none         |
+| `@lucent-lang/platform/clock`  | Unix milliseconds `now()`                                  | `clock`      |
+| `@lucent-lang/platform/locale` | `languageTag()`                                            | `locale`     |
 
-```json
-{ "capabilities": ["clock", "locale"] }
-```
+```ts
+import { read } from "@lucent-lang/filesystem";
+import { sha256 } from "@lucent-lang/crypto";
 
-`build`, `check`, and Metro reject missing capabilities. Generated packages
-contain `lucent-manifest.json` with the capabilities used by their modules.
-This is a build-time allowlist, not an OS security sandbox. Bindings that need
-OS permissions or entitlements still require the corresponding app platform
-configuration and runtime permission flow.
-
-A custom SDK binding supplies a typed declaration and trusted native bodies:
-
-```json
-{
-  "capabilities": ["device"],
-  "libraries": {
-    "@lucent-lang/platform/device": {
-      "source": "export declare function model(): Promise<string>;",
-      "bindings": {
-        "model": {
-          "swiftImports": ["UIKit"],
-          "swift": ["return UIDevice.current.model"],
-          "kotlin": ["return android.os.Build.MODEL"],
-          "capabilities": ["device"],
-          "thread": "main"
-        }
-      }
-    }
-  }
+@Background
+export async function hashFile(path: string): Promise<string> {
+  return sha256(await read(path));
 }
 ```
 
-Both platform implementations are required. A binding can declare `thread`
-(`caller`, `main`, or `worker`); main/worker declarations must return a promise.
-The compiler treats manifests as build input, never executing JavaScript from
-them. Native bodies must match the declared types. Custom packages also need
-matching TypeScript declarations for the app editor.
+Filesystem and network I/O hop to a worker context. Device model queries use
+the main context. Hashing is synchronous; use `@Background` around expensive
+work. Filesystem paths refer to the application's native sandbox. GET accepts
+HTTPS, has a 30-second request/read timeout, and rejects non-2xx responses with
+`HTTP_ERROR` and `metadata.status`. Transport errors use `NETWORK_ERROR`;
+file errors use `FILE_READ` / `FILE_WRITE` with `metadata.path`. Cancellation,
+streaming, uploads, and arbitrary request customization are not exposed yet.
+
+Native library results own their bytes. Swift adapters use `Data`; Kotlin uses
+`ByteArray` / direct `ByteBuffer`. JS input buffers are copied for async calls
+before native work outlives the call. Synchronous access may borrow through the
+host SDK; `copyBytes` always creates independent storage. Empty buffers and
+UTF-8 are supported. No binary payload is serialized through JSON. Do not
+mutate or detach a borrowed input during a synchronous native call.
+
+```ts
+export function fail(path: string): void {
+  throw new LucentError("MISSING", {
+    message: "File not found",
+    metadata: { path, attempt: 1, retry: false, detail: null },
+  });
+}
+```
+
+## Typed capabilities
+
+An app can use `lucent.config.ts`:
+
+```ts
+import { defineNativeConfig } from "@lucent-lang/config";
+export default defineNativeConfig({
+  capabilities: {
+    camera: { reason: "Scan documents" },
+    location: { whenInUse: { reason: "Show nearby stores" } },
+    filesystem: true,
+    crypto: true,
+    network: true,
+  },
+});
+```
+
+Configuration is parsed as literal data. Function calls other than the outer
+`defineNativeConfig`, spreads, computed values, and executable statements are
+rejected; configuration code is never evaluated. `lucent.config.json` remains
+supported, including legacy string allowlists for custom capabilities. Keep
+one configuration file per app. Legacy lists grant build access only; use the
+object form to generate permission configuration.
+
+Camera, microphone, photos, bluetooth, and location require nonempty usage
+reasons. Notifications take `{ environment: "development" | "production" }`
+for the APNs entitlement. Core library permissions take booleans. Unknown
+capability names in the typed form fail the build.
+
+`build`, `check`, and Metro enforce the required capability allowlist. Outputs
+include `lucent-manifest.json`, `lucent-platform-config.json`,
+`ios/LucentInfo.plist`, `ios/Lucent.entitlements`, and the Android library
+manifest. Android Gradle merges the library's permissions into the app.
+The Expo plugin merges usage descriptions, entitlements, and Android
+permissions during prebuild while preserving unrelated settings. In a bare
+app, merge the generated plist/entitlement fragments into the app target and
+select its entitlements file in Xcode; generated library files alone cannot
+change the app's signing entitlements. Runtime permission prompts remain the
+app's responsibility. This is build configuration, not a security sandbox.
+
+## Platform guards and SDK bindings
+
+```ts
+import { Platform } from "@lucent-lang/platform";
+import { homeDirectory } from "@lucent-lang/sdk/foundation";
+
+export function home(): string {
+  if (Platform.OS === "ios") {
+    return homeDirectory();
+  }
+  return "";
+}
+```
+
+Bindings declare `platforms: ["ios"]` or `["android"]`. `NT2004` rejects calls
+reachable on another target. Equality/inequality guards narrow `if` branches,
+`else`, negation, and short-circuit expressions; the analysis follows private
+helper calls. Every exported function is also checked as an independent
+entry point. A guard does not narrow following statements outside its branch.
+Unavailable target implementations become throwing stubs and their imports
+are omitted, so the other target still compiles.
+
+Generate SDK manifests with the CLI:
+
+```sh
+lucent sdk swift Foundation.swiftinterface --module Foundation --out sdk/foundation
+lucent sdk android - --classpath /path/to/android.jar --class java.lang.Math --out sdk/math
+```
+
+The output contains a versioned `schema.json`, `library.json` with native
+bindings, and `index.d.ts`. Java extraction uses `javap -public`; saved javap
+output can also be supplied instead of `-`. Register the generated manifest:
+
+```ts
+import { defineNativeConfig } from "@lucent-lang/config";
+export default defineNativeConfig({
+  libraries: { "@lucent-lang/sdk/math": "./sdk/math/library.json" },
+});
+```
+
+Expose the generated declarations through a local package export or editor
+path mapping with the same import specifier. Current extraction handles
+single-line public Swift free-function declarations and public Java static
+methods using supported scalar types (`Double`/`double`, `String`,
+`Bool`/`boolean`, `Int32`/`int`, and void). Swift parameter labels and throws
+are retained. Overloaded names, instance methods, callbacks, generics,
+attribute/availability-gated declarations, and unsupported types are reported and
+omitted. Full SDK class/Objective-C/Kotlin-metadata import is not implemented;
+those APIs still need a curated binding manifest.
+
+Custom manifests contain `source` declarations and `bindings` keyed by export
+name. Each binding supplies `swift` and `kotlin` body-line arrays, optional
+imports, capabilities, platform availability, cost, and execution `thread`
+(`caller`, `main`, `worker`). Bodies are trusted native build inputs and must
+match their declaration. Async declarations return `Promise<T>`. No JavaScript
+implementation from a package runs on the native side.
 
 ## Generation and development
 

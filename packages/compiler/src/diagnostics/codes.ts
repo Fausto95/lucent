@@ -1,5 +1,8 @@
 /** Every diagnostic Lucent can emit. The table is the single source of truth for codes and titles. */
 export const DIAGNOSTIC_CODES = {
+  NT2001: "Missing native capability",
+  NT2004: "Platform-specific API",
+  NT3002: "Potentially expensive main-thread work",
   NT1000: "Syntax error",
   NT1001: "Unsupported syntax",
   NT1002: "Dynamic property access",

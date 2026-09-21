@@ -121,11 +121,11 @@ export const nativeSections = [
     examples: [
       {
         filename: "work.lucent.ts",
-        code: `/** @thread worker */\nexport async function double(value: number): Promise<number> {\n  return value * 2;\n}`,
+        code: `@Background\nexport async function double(value: number): Promise<number> {\n  return value * 2;\n}`,
       },
     ],
     detail:
-      "@thread caller is the default. @thread main uses Swift’s main actor and Kotlin Dispatchers.Main. @thread worker uses a Swift detached task and Kotlin Dispatchers.Default.",
+      "@Inherited is the default. @MainThread uses Swift’s main actor and Kotlin Dispatchers.Main. @Background uses a Swift detached task and Kotlin Dispatchers.Default.",
     limit:
       "Main and worker annotations require an async function. Thread selection does not make shared mutable state safe; shared-object parameters remain restricted to synchronous functions.",
   },

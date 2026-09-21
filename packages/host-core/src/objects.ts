@@ -15,7 +15,10 @@ export function classDeclarations(module: IRModule): string[] {
       const operations = module.functions.filter((f) => f.classOp?.className === s.name);
 
       const ctor = operations.find((f) => f.classOp!.kind === "constructor")!;
-      return `export declare class ${s.name} {\n  constructor(${declarationParams(ctor)});\n  dispose(): void;\n${s.fields.map((f) => `  ${f.name}: ${jsType(f.type)};`).join("\n")}\n${operations
+      return `export declare class ${s.name} {\n  constructor(${declarationParams(ctor)});\n  dispose(): void;\n${s.fields
+        .filter((f) => !s.reference?.privateFields?.includes(f.name))
+        .map((f) => `  ${f.name}: ${jsType(f.type)};`)
+        .join("\n")}\n${operations
         .filter((f) => f.classOp!.kind === "method")
         .map((f) => `  ${f.classOp!.member}(${declarationParams(f, 1)}): ${jsType(f.returnType)};`)
         .join("\n")}\n}${s.reference!.exported ? `\nexport { ${s.name} as ${s.reference!.publicName} };` : ""}`;

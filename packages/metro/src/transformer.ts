@@ -54,8 +54,11 @@ export function createTransformer(options: { upstream: UpstreamTransformer; host
         const rendered = result.diagnostics.map((d) => renderDiagnostic(d, args.src, args.filename)).join("\n\n");
         throw new Error(`Lucent: ${args.filename} did not compile\n\n${rendered}`);
       }
+      for (const d of result.diagnostics)
+        if (d.severity === "warning") console.warn(renderDiagnostic(d, args.src, fileName));
       const missing = (result.module.capabilities ?? []).filter((c) => !config.capabilities.includes(c));
-      if (missing.length) throw new Error(`Lucent: enable capabilities ${missing.join(", ")} in lucent.config.json`);
+      if (missing.length)
+        throw new Error(`Lucent: enable capabilities ${missing.join(", ")} in lucent.config.ts or lucent.config.json`);
       const { js } = host.emitProxy(result.module);
       return options.upstream.transform({ ...args, src: js });
     },

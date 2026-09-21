@@ -1,3 +1,5 @@
+import { platformSafety } from "./checker/platform.ts";
+import { threadSafety } from "./checker/safety.ts";
 import type { LibraryModule } from "./libraries.ts";
 import { checkModule } from "./checker/index.ts";
 import type { Diagnostic } from "./diagnostics/index.ts";
@@ -12,7 +14,7 @@ export { printIR } from "./ir/print.ts";
 export type { NativeType } from "./types/native-type.ts";
 export { typeToString, typeEquals, isNumeric, T } from "./types/native-type.ts";
 
-export const COMPILER_VERSION = "0.1.0";
+export const COMPILER_VERSION = "0.2.0";
 
 export interface CompileOptions {
   fileName: string;
@@ -32,8 +34,10 @@ export function compile(source: string, options: CompileOptions): CompileResult 
   if (parsed.diagnostics.length) return { module: null, diagnostics: parsed.diagnostics };
   const checked = checkModule(parsed.module);
   if (!checked.module) return { module: null, diagnostics: checked.diagnostics };
+  const platformDiagnostics = platformSafety(checked.module.functions);
+  if (platformDiagnostics.length) return { module: null, diagnostics: platformDiagnostics };
   const lowered = lowerModule(checked.module);
-  return { module: lowered.module, diagnostics: lowered.diagnostics };
+  return { module: lowered.module, diagnostics: [...lowered.diagnostics, ...threadSafety(checked.module.functions)] };
 }
 
 export { moduleCandidates } from "./linker.ts";
@@ -41,3 +45,4 @@ export { lucentImports } from "./parser/index.ts";
 
 export type { NativeBinding, LibraryModule, ThreadContext } from "./libraries.ts";
 export { STANDARD_LIBRARIES } from "./libraries.ts";
+export { parseNativeConfig } from "./parser/config.ts";

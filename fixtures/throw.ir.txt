@@ -7,3 +7,6 @@ export fn divide(a: float64, b: float64) -> float64
 
 export fn fail() -> void
   throw "ALWAYS"
+
+export fn failWithMetadata(path: string) -> void
+  throw "MISSING" "File\n不存在 🌍" metadata { path: path, attempt: 1, retry: false, detail: null }

@@ -75,7 +75,7 @@ export type Stmt =
   | { kind: "return"; argument: Expr | null; span: Span }
   | { kind: "break"; span: Span }
   | { kind: "continue"; span: Span }
-  | { kind: "throw"; code: string; message: Expr | null; span: Span }
+  | { kind: "throw"; code: string; metadata?: { name: string; value: Expr }[]; message: Expr | null; span: Span }
   | { kind: "expression"; expression: Expr; span: Span }
   | { kind: "block"; body: Stmt[]; span: Span }
   | { kind: "unsupported"; span: Span };
@@ -103,7 +103,7 @@ export interface SurfaceFunction {
 }
 
 export interface SurfaceTypeAlias {
-  reference?: { publicName: string; exported: boolean };
+  reference?: { publicName: string; exported: boolean; privateFields?: string[] };
   name: string;
   exported: boolean;
   type: SurfaceType;

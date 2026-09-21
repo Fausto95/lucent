@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { COMPILER_VERSION, compile, printIR, renderDiagnostic, type IRModule } from "@lucent-lang/compiler";
-import { loadLucentConfig, loadLucentSources, type FileTree, type Host } from "@lucent-lang/host-core";
+import { capabilityFiles, loadLucentConfig, loadLucentSources, type FileTree, type Host } from "@lucent-lang/host-core";
 import { expoHost } from "@lucent-lang/host-expo";
 import { nitroHost } from "@lucent-lang/host-nitro";
 
@@ -61,6 +61,7 @@ export interface BuildOptions {
 }
 
 export interface BuildDiagnostic {
+  severity?: "error" | "warning";
   fileName: string;
   rendered: string;
 }
@@ -76,7 +77,7 @@ export interface BuildResult {
 interface CacheFile {
   compilerVersion: string;
   host: HostName;
-  modules: Record<string, { hash: string; module: IRModule }>;
+  modules: Record<string, { hash: string; module: IRModule; diagnostics?: BuildDiagnostic[] }>;
 }
 
 const hashOf = (source: string, host: HostName): string =>
@@ -120,20 +121,23 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
     if (hit && hit.hash === hash) {
       log(`✓ ${rel} cached`);
       cachedFiles.push(rel);
+      diagnostics.push(...(hit.diagnostics ?? []));
       modules.push(hit.module);
       nextCache.modules[rel] = hit;
       continue;
     }
     log(`⚙ ${rel} compiling`);
     const result = compile(source, { fileName: file, sources, libraries: config.libraries });
-    if (!result.module) {
-      for (const d of result.diagnostics)
-        diagnostics.push({ fileName: rel, rendered: renderDiagnostic(d, source, rel) });
-      continue;
-    }
+    const reported = result.diagnostics.map((d) => ({
+      fileName: rel,
+      rendered: renderDiagnostic(d, source, rel),
+      ...(d.severity ? { severity: d.severity } : {}),
+    }));
+    diagnostics.push(...reported);
+    if (!result.module) continue;
     compiled.push(rel);
     modules.push(result.module);
-    nextCache.modules[rel] = { hash, module: result.module };
+    nextCache.modules[rel] = { hash, module: result.module, diagnostics: reported };
   }
 
   for (const module of modules)
@@ -141,7 +145,7 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
       if (!config.capabilities.includes(capability))
         diagnostics.push({
           fileName: "lucent.config.json",
-          rendered: `Missing capability "${capability}" required by ${module.name}. Enable it in lucent.config.json.`,
+          rendered: `error NT2001: Missing capability "${capability}" required by ${module.name}. Enable it in lucent.config.ts or lucent.config.json.`,
         });
     }
   const names = new Set<string>();
@@ -153,10 +157,12 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
       });
     names.add(module.name);
   }
-  if (diagnostics.length) return { ok: false, outDir, compiled, cached: cachedFiles, diagnostics };
+  if (diagnostics.some((d) => d.severity !== "warning"))
+    return { ok: false, outDir, compiled, cached: cachedFiles, diagnostics };
 
   const host = HOSTS[options.host];
   const tree = host.emitPackage(modules, { packageName: "lucent" });
+  for (const [path, contents] of capabilityFiles(config.platformConfig)) tree.set(path, contents);
   tree.set(
     "lucent-manifest.json",
     JSON.stringify(

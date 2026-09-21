@@ -11,7 +11,10 @@ const pack = {
   outExtensions: () => ({ js: ".cjs" }),
 };
 
+// Lucent function decorators are parsed by our compiler, not the JS lint/format parser.
 const generated = [
+  "**/*.lucent.ts",
+  "**/*.lucent.tsx",
   "fixtures/**",
   "apps/**/ios/**",
   "apps/**/android/**",

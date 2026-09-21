@@ -16,4 +16,9 @@ public final class LucentThrowModule: Module {
   func fail() throws -> Void {
     throw LucentError(code: "ALWAYS")
   }
+
+  @JS
+  func failWithMetadata(path: String) throws -> Void {
+    throw LucentError(code: "MISSING", message: "File\n不存在 🌍", metadata: ["path": path, "attempt": 1.0, "retry": false, "detail": lucentNull()])
+  }
 }
