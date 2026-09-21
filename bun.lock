@@ -62,7 +62,7 @@
       },
     },
     "apps/website": {
-      "name": "@lucent/website",
+      "name": "@lucent-lang/website",
       "version": "0.0.0",
       "dependencies": {
         "@stylexjs/stylex": "^0.19.1",
@@ -509,7 +509,7 @@
 
     "@lucent-lang/types": ["@lucent-lang/types@workspace:packages/types"],
 
-    "@lucent/website": ["@lucent/website@workspace:apps/website"],
+    "@lucent-lang/website": ["@lucent-lang/website@workspace:apps/website"],
 
     "@nodable/entities": ["@nodable/entities@3.0.0", "", {}, "sha512-8L9xFeTYKhm49xfIypoe2W5wV1m/3Z58kT+7kR9A8OyFxcPduI4VmxaUMQyKYrRjUoLLSXv6EKKID5Tvj9cUVw=="],
 
