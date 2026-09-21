@@ -35,3 +35,10 @@ test("escapes exported C++ method keywords without changing the JS API", () => {
   expect(nitroHost.emitProxy(module).js).toContain("export function double(");
   expect(nitroHost.emitProxy(module).js).toContain("native.lucent_double(");
 });
+test('bridges typed native view change payloads',()=>{
+ const result=compile('import {TextField,type NativeView} from "@lucent-lang/ui"; import type {Event} from "@lucent-lang/events"; type Props={text:string;onChange:Event<string>}; export function Editor(props:Props):NativeView{return <TextField value={props.text} onChange={props.onChange}/>;}',{fileName:'editor.lucent.tsx'});
+ expect(result.diagnostics).toEqual([]);
+ const tree=nitroHost.emitPackage([result.module!],{packageName:'lucent'});
+ expect(tree.get('ios/HybridLucentEditorEditorView.swift')).toContain('((String) -> Void)?');
+ expect(tree.get('android/src/main/java/com/margelo/nitro/lucent/HybridLucentEditorEditorView.kt')).toContain('((String) -> Unit)?');
+});
