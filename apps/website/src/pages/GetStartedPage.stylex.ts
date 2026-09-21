@@ -1,14 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
 export const styles = stylex.create({
-  layout: {
-    maxWidth: "850px",
-    padding: {
-      default: "62px 0 72px",
-      "@media (max-width: 850px)": "32px 0 56px",
-      "@media (max-width: 540px)": "25px 0 48px",
-    },
-  },
   steps: {
     counterReset: "step",
     listStyle: "none",

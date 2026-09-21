@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { CodeBlock } from "../components/CodeBlock";
+import { SectionSidebar } from "../components/SectionSidebar";
 import { styles as reference } from "./LanguagePage.stylex";
 import { styles } from "./GetStartedPage.stylex";
 import { styles as sharedStyles } from "../styles/shared.stylex";
@@ -32,6 +33,13 @@ const BARE_RN_CONFIG =
 
 const BARE_RUN = "npx lucent build --host nitro\ncd ios && pod install && cd ..\nnpx react-native run-ios   # or run-android";
 
+const sections = [
+  { id: "overview", title: "Overview" },
+  { id: "expo", title: "Expo" },
+  { id: "bare", title: "Bare React Native" },
+  { id: "cli", title: "The CLI" },
+];
+
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
   return (
     <li {...stylex.props(styles.step)}>
@@ -48,7 +56,9 @@ function Step({ n, title, children }: { n: number; title: string; children: Reac
 
 export function GetStartedPage() {
   return (
-    <main id="main" {...stylex.props(styles.layout)}>
+    <div {...stylex.props(reference.referenceLayout)}>
+      <SectionSidebar to="/get-started/" label="Getting started" sections={sections} />
+      <main id="main" {...stylex.props(reference.referenceMain)}>
       <section id="overview" {...stylex.props(reference.referenceIntro)}>
         <div {...stylex.props(reference.referenceKicker)}>
           <span {...stylex.props(sharedStyles.eyebrow2)}>{"FIVE MINUTES TO NATIVE."}</span>
@@ -160,6 +170,7 @@ export function GetStartedPage() {
           {"Read the language reference →"}
         </Link>
       </section>
-    </main>
+      </main>
+    </div>
   );
 }
