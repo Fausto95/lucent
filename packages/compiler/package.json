@@ -1,0 +1,13 @@
+{
+  "name": "@lucent/compiler",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@oxc-project/types": "0.151.0",
+    "oxc-parser": "0.151.0"
+  }
+}
