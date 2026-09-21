@@ -77,9 +77,15 @@ describe("lucent build", () => {
 describe("project imports", () => {
   test("rebuilds importers when a dependency changes", async () => {
     const root = project();
-    writeFileSync(join(root, "src", "main.lucent.ts"), 'import { add } from "./native/math.lucent"; export function run(): number { return add(2, 3); }');
+    writeFileSync(
+      join(root, "src", "main.lucent.ts"),
+      'import { add } from "./native/math.lucent"; export function run(): number { return add(2, 3); }',
+    );
     expect((await build({ root, host: "expo" })).ok).toBe(true);
-    writeFileSync(join(root, "src", "native", "math.lucent.ts"), "export function add(a: number, b: number): number { return a - b; }");
+    writeFileSync(
+      join(root, "src", "native", "math.lucent.ts"),
+      "export function add(a: number, b: number): number { return a - b; }",
+    );
     const next = await build({ root, host: "expo" });
     expect(next.ok).toBe(true);
     expect(next.compiled).toContain("src/main.lucent.ts");
@@ -90,4 +96,17 @@ describe("project imports", () => {
     writeFileSync(join(root, "screen.lucent.tsx"), "export function f(): number { return 1; }");
     expect(findLucentFiles(root)).toContain(join(root, "screen.lucent.tsx"));
   });
+});
+
+test("capabilities are checked before writing native output", async () => {
+  const root = project();
+  writeFileSync(join(root, "clock.lucent.ts"), 'import { now } from "@lucent-lang/platform/clock"; export function timestamp(): number { return now(); }');
+  const denied = await build({root, host: "expo"});
+  expect(denied.ok).toBe(false);
+  expect(denied.diagnostics[0]?.rendered).toContain("clock");
+  expect(existsSync(join(root, "modules/lucent"))).toBe(false);
+  writeFileSync(join(root, "lucent.config.json"), JSON.stringify({capabilities: ["clock"]}));
+  expect((await build({root, host: "expo"})).ok).toBe(true);
+  writeFileSync(join(root, "lucent.config.json"), JSON.stringify({capabilities: []}));
+  expect((await build({root, host: "expo"})).ok).toBe(false);
 });
