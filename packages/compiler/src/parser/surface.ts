@@ -57,7 +57,14 @@ export interface ObjectProperty {
 }
 
 export type Stmt =
-  | { kind: "variable"; declaration: "const" | "let"; name: string; type: SurfaceType | null; init: Expr | null; span: Span }
+  | {
+      kind: "variable";
+      declaration: "const" | "let";
+      name: string;
+      type: SurfaceType | null;
+      init: Expr | null;
+      span: Span;
+    }
   | { kind: "if"; test: Expr; consequent: Stmt[]; alternate: Stmt[] | null; span: Span }
   | { kind: "while"; test: Expr; body: Stmt[]; span: Span }
   | { kind: "for"; init: Stmt | null; test: Expr | null; update: Expr | null; body: Stmt[]; span: Span }

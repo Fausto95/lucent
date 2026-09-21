@@ -44,7 +44,7 @@ export type IRPlace =
 export type IRStmt =
   | { op: "let"; id: LocalId; value: IRExpr }
   | { op: "assign"; target: IRPlace; value: IRExpr }
-  | { op: "if"; cond: IRExpr; then: IRStmt[]; else: IRStmt[] }
+  | { op: "if"; cond: IRExpr; consequent: IRStmt[]; alternate: IRStmt[] }
   | { op: "while"; cond: IRExpr; body: IRStmt[] }
   | { op: "forEach"; id: LocalId; iterable: IRExpr; body: IRStmt[] }
   | { op: "break" }

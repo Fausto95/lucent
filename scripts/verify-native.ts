@@ -13,15 +13,23 @@ import { generateKotlin, kotlinRuntime } from "@lucent/backend-kotlin";
 
 const root = join(import.meta.dir, "..");
 const fixtures = join(root, "fixtures");
-const names = readdirSync(fixtures).filter((f) => f.endsWith(".lucent.ts")).map((f) => f.replace(/\.lucent\.ts$/, ""));
+const names = readdirSync(fixtures)
+  .filter((f) => f.endsWith(".lucent.ts"))
+  .map((f) => f.replace(/\.lucent\.ts$/, ""));
 const work = mkdtempSync(join(tmpdir(), "lucent-verify-"));
 
-const SWIFT_RUNTIME = "typealias ArrayBuffer = [UInt8]\n\n" + swiftRuntime({ length: "return Double(buffer.count)", get: "return Double(buffer[Int(index)])" });
+const SWIFT_RUNTIME =
+  "typealias ArrayBuffer = [UInt8]\n\n" +
+  swiftRuntime({ length: "return Double(buffer.count)", get: "return Double(buffer[Int(index)])" });
 const KOTLIN_RUNTIME = (pkg: string) =>
-  kotlinRuntime({ imports: [], length: "return buffer.size.toDouble()", get: "return (buffer[index.toInt()].toInt() and 0xff).toDouble()" }, pkg).replace(
-    `package ${pkg}\n\n`,
-    `package ${pkg}\n\ntypealias ArrayBuffer = ByteArray\n\n`,
-  );
+  kotlinRuntime(
+    {
+      imports: [],
+      length: "return buffer.size.toDouble()",
+      get: "return (buffer[index.toInt()].toInt() and 0xff).toDouble()",
+    },
+    pkg,
+  ).replace(`package ${pkg}\n\n`, `package ${pkg}\n\ntypealias ArrayBuffer = ByteArray\n\n`);
 
 let failed = false;
 const kotlinFiles: string[] = [];
@@ -37,7 +45,9 @@ for (const name of names) {
   }
   const swiftFile = join(work, `${name}.swift`);
   writeFileSync(swiftFile, generateSwift(result.module).code);
-  const swift = await $`swiftc -typecheck -parse-as-library ${join(work, "Runtime.swift")} ${swiftFile}`.quiet().nothrow();
+  const swift = await $`swiftc -typecheck -parse-as-library ${join(work, "Runtime.swift")} ${swiftFile}`
+    .quiet()
+    .nothrow();
   if (swift.exitCode === 0) console.log(`✓ swift   ${name}`);
   else {
     failed = true;

@@ -124,10 +124,15 @@ export function signature(f: GeneratedFunction): string {
   return `func ${f.name}(${params})${f.async ? " async" : ""} throws -> ${f.returnType}`;
 }
 
-export const indent = (lines: string[], depth = 1): string[] => lines.map((l) => (l === "" ? l : "  ".repeat(depth) + l));
+export const indent = (lines: string[], depth = 1): string[] =>
+  lines.map((l) => (l === "" ? l : "  ".repeat(depth) + l));
 
 function generateStruct(s: IRStruct): GeneratedStruct {
-  return { name: s.name, exported: s.exported, fields: s.fields.map((f) => ({ name: f.name, type: swiftType(f.type) })) };
+  return {
+    name: s.name,
+    exported: s.exported,
+    fields: s.fields.map((f) => ({ name: f.name, type: swiftType(f.type) })),
+  };
 }
 
 function generateFunction(f: IRFunction, paramNames: ReadonlyMap<string, string[]>): GeneratedFunction {
@@ -179,12 +184,14 @@ class SwiftEmitter {
   private stmt(s: IRStmt): string[] {
     switch (s.op) {
       case "let":
-        return [`${this.mutable.has(s.id) ? "var" : "let"} ${localName(s.id)}: ${swiftType(this.types.get(s.id)!)} = ${this.top(s.value)}`];
+        return [
+          `${this.mutable.has(s.id) ? "var" : "let"} ${localName(s.id)}: ${swiftType(this.types.get(s.id)!)} = ${this.top(s.value)}`,
+        ];
       case "assign":
         return [`${this.place(s.target)} = ${this.top(s.value)}`];
       case "if": {
-        const lines = [`if ${this.condition(s.cond)} {`, ...indent(this.block(s.then))];
-        if (s.else.length) lines.push("} else {", ...indent(this.block(s.else)));
+        const lines = [`if ${this.condition(s.cond)} {`, ...indent(this.block(s.consequent))];
+        if (s.alternate.length) lines.push("} else {", ...indent(this.block(s.alternate)));
         lines.push("}");
         return lines;
       }
@@ -254,7 +261,9 @@ class SwiftEmitter {
       case "length":
         return this.length(e.object);
       case "index":
-        return e.object.type.kind === "bytes" ? `LucentBytes.get(${this.expr(e.object)}, ${this.expr(e.index)})` : `${this.expr(e.object)}[${this.index(e.index)}]`;
+        return e.object.type.kind === "bytes"
+          ? `LucentBytes.get(${this.expr(e.object)}, ${this.expr(e.index)})`
+          : `${this.expr(e.object)}[${this.index(e.index)}]`;
       case "mapGet":
         return `${this.expr(e.map)}[${this.expr(e.key)}]`;
       case "array":
@@ -361,7 +370,8 @@ function constant(value: number | string | boolean | null, type: NativeType): st
   if (value === null) return "nil";
   if (typeof value === "string") return str(value);
   if (typeof value === "boolean") return value ? "true" : "false";
-  if (type.kind === "float" || (type.kind === "optional" && type.value.kind === "float")) return Number.isInteger(value) ? `${value}.0` : String(value);
+  if (type.kind === "float" || (type.kind === "optional" && type.value.kind === "float"))
+    return Number.isInteger(value) ? `${value}.0` : String(value);
   return String(value);
 }
 

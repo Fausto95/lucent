@@ -114,10 +114,15 @@ export function signature(f: GeneratedFunction): string {
   return `${f.async ? "suspend " : ""}fun ${f.name}(${params}): ${f.returnType}`;
 }
 
-export const indent = (lines: string[], depth = 1): string[] => lines.map((l) => (l === "" ? l : "  ".repeat(depth) + l));
+export const indent = (lines: string[], depth = 1): string[] =>
+  lines.map((l) => (l === "" ? l : "  ".repeat(depth) + l));
 
 function generateStruct(s: IRStruct): GeneratedStruct {
-  return { name: s.name, exported: s.exported, fields: s.fields.map((f) => ({ name: f.name, type: kotlinType(f.type) })) };
+  return {
+    name: s.name,
+    exported: s.exported,
+    fields: s.fields.map((f) => ({ name: f.name, type: kotlinType(f.type) })),
+  };
 }
 
 function generateFunction(f: IRFunction): GeneratedFunction {
@@ -155,12 +160,14 @@ class KotlinEmitter {
   private stmt(s: IRStmt): string[] {
     switch (s.op) {
       case "let":
-        return [`${this.mutable.has(s.id) ? "var" : "val"} ${localName(s.id)}: ${kotlinType(this.types.get(s.id)!)} = ${this.expr(s.value)}`];
+        return [
+          `${this.mutable.has(s.id) ? "var" : "val"} ${localName(s.id)}: ${kotlinType(this.types.get(s.id)!)} = ${this.expr(s.value)}`,
+        ];
       case "assign":
         return [`${this.place(s.target)} = ${this.expr(s.value)}`];
       case "if": {
-        const lines = [`if (${this.condition(s.cond)}) {`, ...indent(this.block(s.then))];
-        if (s.else.length) lines.push("} else {", ...indent(this.block(s.else)));
+        const lines = [`if (${this.condition(s.cond)}) {`, ...indent(this.block(s.consequent))];
+        if (s.alternate.length) lines.push("} else {", ...indent(this.block(s.alternate)));
         lines.push("}");
         return lines;
       }
@@ -230,12 +237,16 @@ class KotlinEmitter {
       case "length":
         return this.length(e.object);
       case "index":
-        return e.object.type.kind === "bytes" ? `LucentBytes.get(${this.expr(e.object)}, ${this.expr(e.index)})` : `${this.expr(e.object)}[${this.index(e.index)}]`;
+        return e.object.type.kind === "bytes"
+          ? `LucentBytes.get(${this.expr(e.object)}, ${this.expr(e.index)})`
+          : `${this.expr(e.object)}[${this.index(e.index)}]`;
       case "mapGet":
         return `${this.expr(e.map)}[${this.expr(e.key)}]`;
       case "array": {
         const element = e.type.kind === "array" ? kotlinType(e.type.element) : "Any";
-        return e.elements.length ? `mutableListOf(${e.elements.map((x) => this.expr(x)).join(", ")})` : `mutableListOf<${element}>()`;
+        return e.elements.length
+          ? `mutableListOf(${e.elements.map((x) => this.expr(x)).join(", ")})`
+          : `mutableListOf<${element}>()`;
       }
       case "struct":
         return `${e.name}(${e.fields.map((f) => `${f.name} = ${this.expr(f.value)}`).join(", ")})`;
@@ -257,7 +268,19 @@ class KotlinEmitter {
   private binary(e: Extract<IRExpr, { op: "binary" }>): string {
     const l = this.expr(e.left);
     const r = this.expr(e.right);
-    const OPS: Record<typeof e.operator, string> = { add: "+", sub: "-", mul: "*", div: "/", rem: "%", lt: "<", le: "<=", gt: ">", ge: ">=", eq: "==", ne: "!=" };
+    const OPS: Record<typeof e.operator, string> = {
+      add: "+",
+      sub: "-",
+      mul: "*",
+      div: "/",
+      rem: "%",
+      lt: "<",
+      le: "<=",
+      gt: ">",
+      ge: ">=",
+      eq: "==",
+      ne: "!=",
+    };
     return `(${l} ${OPS[e.operator]} ${r})`;
   }
 }

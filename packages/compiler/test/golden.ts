@@ -8,7 +8,7 @@ export function fixtureNames(dir = FIXTURES): string[] {
   return readdirSync(dir)
     .filter((f) => f.endsWith(".lucent.ts"))
     .map((f) => f.replace(/\.lucent\.ts$/, ""))
-    .sort();
+    .toSorted();
 }
 
 export function readFixture(name: string, dir = FIXTURES): { source: string; fileName: string } {

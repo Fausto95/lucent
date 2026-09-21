@@ -5,7 +5,10 @@ import type { IRExpr, IRFunction, IRModule, IRPlace, IRStmt } from "./types.ts";
 export function printIR(module: IRModule): string {
   const out: string[] = [`module ${module.name}`];
   for (const s of module.structs) {
-    out.push("", `${s.exported ? "export " : ""}struct ${s.name} { ${s.fields.map((f) => `${f.name}: ${typeToString(f.type)}`).join(", ")} }`);
+    out.push(
+      "",
+      `${s.exported ? "export " : ""}struct ${s.name} { ${s.fields.map((f) => `${f.name}: ${typeToString(f.type)}`).join(", ")} }`,
+    );
   }
   for (const fn of module.functions) out.push("", ...printFunction(fn));
   return out.join("\n") + "\n";
@@ -28,10 +31,10 @@ function printFunction(fn: IRFunction): string[] {
           break;
         case "if":
           lines.push(`${pad}if ${expr(s.cond)}`);
-          emit(s.then, depth + 1);
-          if (s.else.length) {
+          emit(s.consequent, depth + 1);
+          if (s.alternate.length) {
             lines.push(`${pad}else`);
-            emit(s.else, depth + 1);
+            emit(s.alternate, depth + 1);
           }
           break;
         case "while":

@@ -15,7 +15,7 @@ describe("expo host (golden)", () => {
   const files = expoHost.emitPackage(modules, { packageName: "lucent" });
 
   test("emits one file tree for all modules", () => {
-    const paths = [...files.keys()].sort();
+    const paths = [...files.keys()].toSorted();
     expect(paths).toContain("expo-module.config.json");
     expect(paths).toContain("package.json");
     expect(paths).toContain("ios/Lucent.podspec");

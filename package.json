@@ -3,15 +3,18 @@
   "version": "0.0.0",
   "private": true,
   "license": "MIT",
-  "type": "module",
   "workspaces": [
     "packages/*",
     "apps/*"
   ],
+  "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit && tsc --noEmit -p fixtures",
+    "lint": "oxlint --deny-warnings",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "test": "bun test",
-    "verify": "bun run typecheck && bun test && bun scripts/verify-native.ts",
+    "verify": "bun run typecheck && bun run lint && bun run format:check && bun test && bun scripts/verify-native.ts",
     "doctor": "bun scripts/doctor.ts",
     "lucent": "bun packages/cli/src/main.ts"
   },
@@ -21,6 +24,8 @@
     "@lucent/compiler": "workspace:*",
     "@lucent/types": "workspace:*",
     "@types/bun": "^1.2.0",
+    "oxfmt": "0.70.0",
+    "oxlint": "1.85.0",
     "typescript": "~5.9.3"
   }
 }

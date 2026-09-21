@@ -22,7 +22,12 @@ describe("parseModule", () => {
     expect(fn.body).toHaveLength(1);
     expect(fn.body[0]).toMatchObject({
       kind: "return",
-      argument: { kind: "binary", operator: "+", left: { kind: "identifier", name: "a" }, right: { kind: "identifier", name: "b" } },
+      argument: {
+        kind: "binary",
+        operator: "+",
+        left: { kind: "identifier", name: "a" },
+        right: { kind: "identifier", name: "b" },
+      },
     });
   });
 
@@ -41,10 +46,26 @@ describe("parseModule", () => {
     const fn = module.functions[0]!;
     expect(fn.async).toBe(true);
     expect(fn.params[0]!.type).toMatchObject({ kind: "array", element: { kind: "keyword", name: "number" } });
-    expect(fn.returnType).toMatchObject({ kind: "reference", name: "Promise", args: [{ kind: "keyword", name: "number" }] });
-    expect(fn.body[0]).toMatchObject({ kind: "variable", declaration: "let", name: "sum", init: { kind: "number", value: 0 } });
-    expect(fn.body[1]).toMatchObject({ kind: "forOf", variable: "v", iterable: { kind: "identifier", name: "values" } });
-    expect(fn.body[2]).toMatchObject({ kind: "return", argument: { kind: "await", argument: { kind: "call", callee: "helper" } } });
+    expect(fn.returnType).toMatchObject({
+      kind: "reference",
+      name: "Promise",
+      args: [{ kind: "keyword", name: "number" }],
+    });
+    expect(fn.body[0]).toMatchObject({
+      kind: "variable",
+      declaration: "let",
+      name: "sum",
+      init: { kind: "number", value: 0 },
+    });
+    expect(fn.body[1]).toMatchObject({
+      kind: "forOf",
+      variable: "v",
+      iterable: { kind: "identifier", name: "values" },
+    });
+    expect(fn.body[2]).toMatchObject({
+      kind: "return",
+      argument: { kind: "await", argument: { kind: "call", callee: "helper" } },
+    });
     expect(module.functions[1]!.exported).toBe(false);
   });
 
@@ -54,7 +75,9 @@ describe("parseModule", () => {
       export type User = { id: string; age: int32; nickname?: string; tags: string[] | null };
     `);
     expect(diagnostics).toEqual([]);
-    expect(module.imports).toEqual([{ source: "@lucent/types", names: ["int32"], typeOnly: true, span: expect.anything() }]);
+    expect(module.imports).toEqual([
+      { source: "@lucent/types", names: ["int32"], typeOnly: true, span: expect.anything() },
+    ]);
     const alias = module.typeAliases[0]!;
     expect(alias.name).toBe("User");
     expect(alias.exported).toBe(true);
@@ -64,7 +87,11 @@ describe("parseModule", () => {
         { name: "id", optional: false, type: { kind: "keyword", name: "string" } },
         { name: "age", optional: false, type: { kind: "reference", name: "int32", args: [] } },
         { name: "nickname", optional: true, type: { kind: "keyword", name: "string" } },
-        { name: "tags", optional: false, type: { kind: "union", members: [{ kind: "array" }, { kind: "keyword", name: "null" }] } },
+        {
+          name: "tags",
+          optional: false,
+          type: { kind: "union", members: [{ kind: "array" }, { kind: "keyword", name: "null" }] },
+        },
       ],
     });
   });
@@ -89,19 +116,46 @@ describe("parseModule", () => {
       kind: "if",
       test: { kind: "binary", operator: "<" },
       consequent: [{ kind: "throw", code: "BAD_INDEX", message: { kind: "string", value: "negative" } }],
-      alternate: [{ kind: "if", test: { kind: "binary", operator: ">=", right: { kind: "member", property: "length", object: { kind: "member", property: "scores" } } } }],
+      alternate: [
+        {
+          kind: "if",
+          test: {
+            kind: "binary",
+            operator: ">=",
+            right: { kind: "member", property: "length", object: { kind: "member", property: "scores" } },
+          },
+        },
+      ],
     });
-    expect(body[1]).toMatchObject({ kind: "while", body: [{ kind: "expression", expression: { kind: "update", operator: "--", target: { kind: "identifier", name: "i" } } }] });
-    expect(body[2]).toMatchObject({ kind: "expression", expression: { kind: "methodCall", method: "push", args: [{ kind: "number", value: 1 }] } });
+    expect(body[1]).toMatchObject({
+      kind: "while",
+      body: [
+        {
+          kind: "expression",
+          expression: { kind: "update", operator: "--", target: { kind: "identifier", name: "i" } },
+        },
+      ],
+    });
+    expect(body[2]).toMatchObject({
+      kind: "expression",
+      expression: { kind: "methodCall", method: "push", args: [{ kind: "number", value: 1 }] },
+    });
     expect(body[3]).toMatchObject({
       kind: "return",
-      argument: { kind: "template", quasis: ["", ": ", ""], expressions: [{ kind: "member", property: "name" }, { kind: "index" }] },
+      argument: {
+        kind: "template",
+        quasis: ["", ": ", ""],
+        expressions: [{ kind: "member", property: "name" }, { kind: "index" }],
+      },
     });
   });
 
   test("syntax errors become NT1000 with a span", () => {
     const { diagnostics } = parse(`export function (a: number) {}`);
-    expect(diagnostics[0]).toMatchObject({ code: "NT1000", span: { start: expect.any(Number), end: expect.any(Number) } });
+    expect(diagnostics[0]).toMatchObject({
+      code: "NT1000",
+      span: { start: expect.any(Number), end: expect.any(Number) },
+    });
   });
 
   test("unsupported syntax is reported as NT1001 and does not abort parsing", () => {
@@ -123,6 +177,6 @@ describe("parseModule", () => {
       class Foo {}
       export function f(a: number): boolean { var b = a; return b == 1; }
     `);
-    expect(diagnostics.map((d) => d.code).sort()).toEqual(["NT1001", "NT1001", "NT1001", "NT1006"]);
+    expect(diagnostics.map((d) => d.code).toSorted()).toEqual(["NT1001", "NT1001", "NT1001", "NT1006"]);
   });
 });

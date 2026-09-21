@@ -50,7 +50,9 @@ export function resolveType(type: SurfaceType, scope: TypeScope): ResolveResult 
         );
       }
       if (type.name === "null" || type.name === "undefined") {
-        return fail(diagnostic("NT1003", type.span, `\`${type.name}\` is only supported as part of \`T | ${type.name}\`.`));
+        return fail(
+          diagnostic("NT1003", type.span, `\`${type.name}\` is only supported as part of \`T | ${type.name}\`.`),
+        );
       }
       return fail(diagnostic("NT1003", type.span, `\`${type.name}\` has no native representation.`));
     }
@@ -63,10 +65,22 @@ export function resolveType(type: SurfaceType, scope: TypeScope): ResolveResult 
     case "union":
       return resolveUnion(type, scope);
     case "object":
-      return fail(diagnostic("NT1003", type.span, "Inline object types are not supported.", "Declare a type alias: `type Name = { … }` and use `Name` here."));
+      return fail(
+        diagnostic(
+          "NT1003",
+          type.span,
+          "Inline object types are not supported.",
+          "Declare a type alias: `type Name = { … }` and use `Name` here.",
+        ),
+      );
     case "function":
       return fail(
-        diagnostic("NT1005", type.span, "Function values cannot cross the native boundary.", "Native code has no representation for JavaScript closures. Pass data instead."),
+        diagnostic(
+          "NT1005",
+          type.span,
+          "Function values cannot cross the native boundary.",
+          "Native code has no representation for JavaScript closures. Pass data instead.",
+        ),
       );
     case "unsupported":
       return fail(diagnostic("NT1003", type.span, `${capitalize(type.description)} has no native representation.`));
@@ -77,12 +91,25 @@ function resolveReference(type: Extract<SurfaceType, { kind: "reference" }>, sco
   const generic = GENERICS[type.name];
   if (generic) {
     if (type.args.length !== generic.arity) {
-      return fail(diagnostic("NT1003", type.span, `\`${type.name}\` expects ${generic.arity} type argument${generic.arity === 1 ? "" : "s"}.`));
+      return fail(
+        diagnostic(
+          "NT1003",
+          type.span,
+          `\`${type.name}\` expects ${generic.arity} type argument${generic.arity === 1 ? "" : "s"}.`,
+        ),
+      );
     }
     if (type.name === "Record") {
       const key = type.args[0]!;
       if (key.kind !== "keyword" || key.name !== "string") {
-        return fail(diagnostic("NT1003", key.span, "`Record` keys must be `string`.", "Native maps are keyed by strings; use `Record<string, T>`."));
+        return fail(
+          diagnostic(
+            "NT1003",
+            key.span,
+            "`Record` keys must be `string`.",
+            "Native maps are keyed by strings; use `Record<string, T>`.",
+          ),
+        );
       }
     }
     const args: NativeType[] = [];
@@ -93,17 +120,28 @@ function resolveReference(type: Extract<SurfaceType, { kind: "reference" }>, sco
     }
     return ok(generic.build(args));
   }
-  if (type.args.length > 0) return fail(diagnostic("NT1003", type.span, `\`${type.name}\` is not a supported generic type.`));
+  if (type.args.length > 0)
+    return fail(diagnostic("NT1003", type.span, `\`${type.name}\` is not a supported generic type.`));
   const builtin = BUILTIN_REFERENCES[type.name];
   if (builtin) return ok(builtin);
   if (scope.sized.has(type.name) && SIZED_NUMERIC_TYPES[type.name]) return ok(SIZED_NUMERIC_TYPES[type.name]!);
   if (scope.structs.has(type.name)) return ok(T.struct(type.name));
-  const sizedHint = SIZED_NUMERIC_TYPES[type.name] ? ` Import it: \`import type { ${type.name} } from "@lucent/types";\`.` : "";
-  return fail(diagnostic("NT1003", type.span, `Unknown type \`${type.name}\`.`, sizedHint || "Declare it as a type alias in this module."));
+  const sizedHint = SIZED_NUMERIC_TYPES[type.name]
+    ? ` Import it: \`import type { ${type.name} } from "@lucent/types";\`.`
+    : "";
+  return fail(
+    diagnostic(
+      "NT1003",
+      type.span,
+      `Unknown type \`${type.name}\`.`,
+      sizedHint || "Declare it as a type alias in this module.",
+    ),
+  );
 }
 
+const isNullish = (m: SurfaceType) => m.kind === "keyword" && (m.name === "null" || m.name === "undefined");
+
 function resolveUnion(type: Extract<SurfaceType, { kind: "union" }>, scope: TypeScope): ResolveResult {
-  const isNullish = (m: SurfaceType) => m.kind === "keyword" && (m.name === "null" || m.name === "undefined");
   const values = type.members.filter((m) => !isNullish(m));
   if (values.length !== 1 || values.length === type.members.length) {
     return fail(

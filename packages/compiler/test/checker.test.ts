@@ -49,11 +49,18 @@ describe("checkModule", () => {
     expect(greet.params.map((p) => typeToString(p.type))).toEqual(["struct User", "float64"]);
     expect(typeToString(greet.returnType)).toBe("string");
     expect(greet.body[0]).toMatchObject({ kind: "variable", name: "out", type: { kind: "string" } });
-    expect(greet.body[1]).toMatchObject({ kind: "variable", name: "name", type: { kind: "optional", value: { kind: "string" } } });
+    expect(greet.body[1]).toMatchObject({
+      kind: "variable",
+      name: "name",
+      type: { kind: "optional", value: { kind: "string" } },
+    });
     const load = m.functions[1]!;
     expect(load.async).toBe(true);
     expect(typeToString(load.returnType)).toBe("struct User");
-    expect(load.body[0]).toMatchObject({ kind: "return", argument: { kind: "object", type: { kind: "struct", name: "User" } } });
+    expect(load.body[0]).toMatchObject({
+      kind: "return",
+      argument: { kind: "object", type: { kind: "struct", name: "User" } },
+    });
   });
 
   test("numeric literals adapt to sized integer context", () => {
@@ -68,7 +75,10 @@ describe("checkModule", () => {
     `);
     const body = m.functions[0]!.body;
     expect(body[0]).toMatchObject({ kind: "variable", init: { kind: "number", type: { kind: "int", bits: 32 } } });
-    expect(body[1]).toMatchObject({ kind: "expression", expression: { kind: "assign", value: { kind: "binary", type: { kind: "int", bits: 32 } } } });
+    expect(body[1]).toMatchObject({
+      kind: "expression",
+      expression: { kind: "assign", value: { kind: "binary", type: { kind: "int", bits: 32 } } },
+    });
     expect(body[2]).toMatchObject({ kind: "variable", type: { kind: "float", bits: 64 } });
   });
 
@@ -86,8 +96,14 @@ describe("checkModule", () => {
         if (n !== undefined) { return n; } else { return ""; }
       }
     `);
-    expect(m.functions[0]!.body[2]).toMatchObject({ kind: "return", argument: { kind: "unwrap", argument: { kind: "identifier", name: "n" }, type: { kind: "string" } } });
-    expect(m.functions[1]!.body[0]).toMatchObject({ kind: "if", consequent: [{ kind: "return", argument: { kind: "unwrap" } }] });
+    expect(m.functions[0]!.body[2]).toMatchObject({
+      kind: "return",
+      argument: { kind: "unwrap", argument: { kind: "identifier", name: "n" }, type: { kind: "string" } },
+    });
+    expect(m.functions[1]!.body[0]).toMatchObject({
+      kind: "if",
+      consequent: [{ kind: "return", argument: { kind: "unwrap" } }],
+    });
   });
 
   test("calls, await, member access, arrays, maps, bytes", () => {
@@ -108,7 +124,11 @@ describe("checkModule", () => {
     const body = m.functions[2]!.body;
     expect(body[0]).toMatchObject({ kind: "variable", type: { kind: "float", bits: 64 } });
     expect(body[2]).toMatchObject({ kind: "variable", name: "first", type: { kind: "float", bits: 64 } });
-    expect(body[3]).toMatchObject({ kind: "variable", name: "maybe", type: { kind: "optional", value: { kind: "string" } } });
+    expect(body[3]).toMatchObject({
+      kind: "variable",
+      name: "maybe",
+      type: { kind: "optional", value: { kind: "string" } },
+    });
     expect(body[4]).toMatchObject({ kind: "variable", name: "s", type: { kind: "string" } });
     expect(body[6]).toMatchObject({ kind: "return", argument: { kind: "await", type: { kind: "float", bits: 64 } } });
   });
@@ -119,30 +139,66 @@ describe("checkModule", () => {
     ["async without Promise", `export async function f(): number { return 1; }`, ["NT1011"]],
     ["sync with Promise", `export function f(): Promise<number> { return 1; }`, ["NT1011"]],
     ["Promise as param", `export function f(p: Promise<number>): number { return 1; }`, ["NT1003"]],
-    ["too many params", `export function f(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number): number { return 1; }`, ["NT1007"]],
+    [
+      "too many params",
+      `export function f(a: number, b: number, c: number, d: number, e: number, f: number, g: number, h: number, i: number): number { return 1; }`,
+      ["NT1007"],
+    ],
     ["unknown identifier", `export function f(): number { return x; }`, ["NT1010"]],
     ["unknown function", `export function f(): number { return g(); }`, ["NT1010"]],
     ["arity", `function g(a: number): number { return a; } export function f(): number { return g(); }`, ["NT1012"]],
-    ["argument type", `function g(a: number): number { return a; } export function f(): number { return g("x"); }`, ["NT1011"]],
+    [
+      "argument type",
+      `function g(a: number): number { return a; } export function f(): number { return g("x"); }`,
+      ["NT1011"],
+    ],
     ["return type", `export function f(): number { return "x"; }`, ["NT1011"]],
     ["assign to const", `export function f(): number { const a = 1; a = 2; return a; }`, ["NT1016"]],
     ["assignment type", `export function f(): number { let a = 1; a = "x"; return a; }`, ["NT1011"]],
     ["await non-promise", `export async function f(): Promise<number> { return await 1; }`, ["NT1011"]],
     ["if test must be bool", `export function f(a: number): number { if (a) { return 1; } return 2; }`, ["NT1011"]],
-    ["mixed numeric types", `import type { int32 } from "@lucent/types"; export function f(a: int32, b: number): number { return a + b; }`, ["NT1011"]],
-    ["fractional literal into int", `import type { int32 } from "@lucent/types"; export function f(): int32 { return 1.5; }`, ["NT1011"]],
+    [
+      "mixed numeric types",
+      `import type { int32 } from "@lucent/types"; export function f(a: int32, b: number): number { return a + b; }`,
+      ["NT1011"],
+    ],
+    [
+      "fractional literal into int",
+      `import type { int32 } from "@lucent/types"; export function f(): int32 { return 1.5; }`,
+      ["NT1011"],
+    ],
     ["unknown field", `type U = { a: number }; export function f(u: U): number { return u.b; }`, ["NT1010"]],
-    ["dynamic access on struct", `type U = { a: number }; export function f(u: U, k: string): number { return u[k]; }`, ["NT1002"]],
+    [
+      "dynamic access on struct",
+      `type U = { a: number }; export function f(u: U, k: string): number { return u[k]; }`,
+      ["NT1002"],
+    ],
     ["optional used without narrowing", `export function f(a: string | null): string { return a; }`, ["NT1011"]],
     ["missing return", `export function f(a: number): number { if (a > 1) { return 1; } }`, ["NT1015"]],
-    ["object literal missing field", `type U = { a: number; b: string }; export function f(): U { return { a: 1 }; }`, ["NT1011"]],
-    ["object literal extra field", `type U = { a: number }; export function f(): U { return { a: 1, c: 2 }; }`, ["NT1011"]],
-    ["object literal without context", `type U = { a: number }; export function f(): number { const u = { a: 1 }; return u.a; }`, ["NT1014"]],
+    [
+      "object literal missing field",
+      `type U = { a: number; b: string }; export function f(): U { return { a: 1 }; }`,
+      ["NT1011"],
+    ],
+    [
+      "object literal extra field",
+      `type U = { a: number }; export function f(): U { return { a: 1, c: 2 }; }`,
+      ["NT1011"],
+    ],
+    [
+      "object literal without context",
+      `type U = { a: number }; export function f(): number { const u = { a: 1 }; return u.a; }`,
+      ["NT1014"],
+    ],
     ["uninitialized local", `export function f(): number { let a; a = 1; return a; }`, ["NT1014"]],
     ["break outside loop", `export function f(): number { break; return 1; }`, ["NT1001"]],
     ["for-of over non-array", `export function f(s: string): number { for (const c of s) {} return 1; }`, ["NT1011"]],
     ["unknown sized type without import", `export function f(a: int32): number { return 1; }`, ["NT1003"]],
-    ["duplicate function", `export function f(): number { return 1; } export function f(): number { return 2; }`, ["NT1001"]],
+    [
+      "duplicate function",
+      `export function f(): number { return 1; } export function f(): number { return 2; }`,
+      ["NT1001"],
+    ],
   ])("%s", (_name, source, expected) => {
     expect(codes(source)).toEqual(expected);
   });
@@ -153,7 +209,9 @@ describe("checkModule", () => {
   });
 
   test("throw is accepted as an exit and message must be a string", () => {
-    ok(`export function f(a: number): number { if (a < 0) { throw new LucentError("NEG", { message: "neg" }); } return a; }`);
+    ok(
+      `export function f(a: number): number { if (a < 0) { throw new LucentError("NEG", { message: "neg" }); } return a; }`,
+    );
     ok(`export function f(): number { throw new LucentError("NEVER"); }`);
     expect(codes(`export function f(): number { throw new LucentError("X", { message: 1 }); }`)).toEqual(["NT1011"]);
   });

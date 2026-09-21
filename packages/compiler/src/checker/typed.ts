@@ -1,6 +1,12 @@
 /** The typed AST: the surface AST with every expression annotated by its NativeType. */
 import type { Span } from "../diagnostics/index.ts";
-import type { AssignOperator, BinaryOperator, LogicalOperator, UnaryOperator, UpdateOperator } from "../parser/surface.ts";
+import type {
+  AssignOperator,
+  BinaryOperator,
+  LogicalOperator,
+  UnaryOperator,
+  UpdateOperator,
+} from "../parser/surface.ts";
 import type { NativeType } from "../types/native-type.ts";
 
 export interface StructField {

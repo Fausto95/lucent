@@ -31,13 +31,13 @@ describe("diagnostics (golden output)", () => {
   }
 });
 
-describe("lowering details", () => {
-  const ir = (src: string) => {
-    const r = compile(src, { fileName: "x.lucent.ts" });
-    if (!r.module) throw new Error(r.diagnostics.map((d) => d.message).join("\n"));
-    return printIR(r.module);
-  };
+const ir = (src: string) => {
+  const r = compile(src, { fileName: "x.lucent.ts" });
+  if (!r.module) throw new Error(r.diagnostics.map((d) => d.message).join("\n"));
+  return printIR(r.module);
+};
 
+describe("lowering details", () => {
   test("shadowed locals get distinct ids", () => {
     const text = ir(`export function f(n: number): number { let x = n; if (n > 0) { let x = 1; n = x; } return x; }`);
     expect(text).toContain("%x");
@@ -63,7 +63,9 @@ describe("lowering details", () => {
   });
 
   test("continue inside a c-style for loop is rejected", () => {
-    const r = compile(`export function f(): number { for (let i = 0; i < 3; i++) { continue; } return 1; }`, { fileName: "x.lucent.ts" });
+    const r = compile(`export function f(): number { for (let i = 0; i < 3; i++) { continue; } return 1; }`, {
+      fileName: "x.lucent.ts",
+    });
     expect(r.diagnostics.map((d) => d.code)).toEqual(["NT1001"]);
   });
 });

@@ -26,7 +26,8 @@ interface Binding {
   poisoned: boolean;
 }
 
-const MISMATCH = (expected: NativeType, actual: NativeType) => `Expected \`${typeToString(expected)}\`, got \`${typeToString(actual)}\`.`;
+const MISMATCH = (expected: NativeType, actual: NativeType) =>
+  `Expected \`${typeToString(expected)}\`, got \`${typeToString(actual)}\`.`;
 
 const isOptional = (t: NativeType): t is Extract<NativeType, { kind: "optional" }> => t.kind === "optional";
 const isPrimitive = (t: NativeType) => t.kind === "string" || t.kind === "bool" || isNumeric(t);
@@ -69,7 +70,13 @@ class ModuleChecker {
   resolveStorable(type: SurfaceType, what: string): NativeType | null {
     const resolved = this.resolve(type);
     if (resolved && resolved.kind === "promise") {
-      this.report(diagnostic("NT1003", type.span, `\`Promise\` is only supported as the return type of an async function, not as ${what}.`));
+      this.report(
+        diagnostic(
+          "NT1003",
+          type.span,
+          `\`Promise\` is only supported as the return type of an async function, not as ${what}.`,
+        ),
+      );
       return null;
     }
     return resolved;
@@ -83,9 +90,20 @@ class ModuleChecker {
       const signature = this.signatures.get(fn.name);
       if (!signature) continue;
       const body = new FunctionChecker(this, fn, signature).check();
-      functions.push({ name: fn.name, exported: fn.exported, async: fn.async, params: signature.params, returnType: signature.returnType, body, span: fn.span });
+      functions.push({
+        name: fn.name,
+        exported: fn.exported,
+        async: fn.async,
+        params: signature.params,
+        returnType: signature.returnType,
+        body,
+        span: fn.span,
+      });
     }
-    const name = this.module.fileName.replace(/^.*[\\/]/, "").replace(/\.lucent\.ts$/, "").replace(/\.ts$/, "");
+    const name = this.module.fileName
+      .replace(/^.*[\\/]/, "")
+      .replace(/\.lucent\.ts$/, "")
+      .replace(/\.ts$/, "");
     const typed: TypedModule = { name, fileName: this.module.fileName, structs: [...this.structs.values()], functions };
     return { module: this.diagnostics.length ? null : typed, diagnostics: this.diagnostics };
   }
@@ -99,7 +117,14 @@ class ModuleChecker {
       }
       seen.add(alias.name);
       if (alias.type.kind !== "object") {
-        this.report(diagnostic("NT1003", alias.type.span, "Type aliases must be object types (structs).", "Only `type Name = { … }` has a native representation."));
+        this.report(
+          diagnostic(
+            "NT1003",
+            alias.type.span,
+            "Type aliases must be object types (structs).",
+            "Only `type Name = { … }` has a native representation.",
+          ),
+        );
         continue;
       }
       const fields: StructDef["fields"] = [];
@@ -119,13 +144,27 @@ class ModuleChecker {
         continue;
       }
       if (fn.params.length > MAX_PARAMETERS) {
-        this.report(diagnostic("NT1007", fn.span, `\`${fn.name}\` has ${fn.params.length} parameters; native functions take at most ${MAX_PARAMETERS}.`, "Group related parameters into a struct."));
+        this.report(
+          diagnostic(
+            "NT1007",
+            fn.span,
+            `\`${fn.name}\` has ${fn.params.length} parameters; native functions take at most ${MAX_PARAMETERS}.`,
+            "Group related parameters into a struct.",
+          ),
+        );
       }
       const params: TypedParam[] = [];
       let valid = fn.params.length <= MAX_PARAMETERS;
       for (const param of fn.params) {
         if (!param.type) {
-          this.report(diagnostic("NT1014", param.span, `Parameter \`${param.name}\` needs a type annotation.`, "Every value crossing the native boundary must have a declared type."));
+          this.report(
+            diagnostic(
+              "NT1014",
+              param.span,
+              `Parameter \`${param.name}\` needs a type annotation.`,
+              "Every value crossing the native boundary must have a declared type.",
+            ),
+          );
           valid = false;
           continue;
         }
@@ -144,17 +183,37 @@ class ModuleChecker {
 
   private returnTypeOf(fn: SurfaceFunction): NativeType | null {
     if (!fn.returnType) {
-      this.report(diagnostic("NT1014", fn.span, `\`${fn.name}\` needs a return type annotation.`, fn.async ? "Declare `Promise<T>` (or `Promise<void>`)." : "Declare the return type, or `void`."));
+      this.report(
+        diagnostic(
+          "NT1014",
+          fn.span,
+          `\`${fn.name}\` needs a return type annotation.`,
+          fn.async ? "Declare `Promise<T>` (or `Promise<void>`)." : "Declare the return type, or `void`.",
+        ),
+      );
       return null;
     }
     const resolved = this.resolve(fn.returnType);
     if (!resolved) return null;
     if (fn.async && resolved.kind !== "promise") {
-      this.report(diagnostic("NT1011", fn.returnType.span, `Async function \`${fn.name}\` must return \`Promise<${typeToString(resolved)}>\`.`));
+      this.report(
+        diagnostic(
+          "NT1011",
+          fn.returnType.span,
+          `Async function \`${fn.name}\` must return \`Promise<${typeToString(resolved)}>\`.`,
+        ),
+      );
       return null;
     }
     if (!fn.async && resolved.kind === "promise") {
-      this.report(diagnostic("NT1011", fn.returnType.span, `\`${fn.name}\` returns a Promise but is not \`async\`.`, "Mark the function `async`."));
+      this.report(
+        diagnostic(
+          "NT1011",
+          fn.returnType.span,
+          `\`${fn.name}\` returns a Promise but is not \`async\`.`,
+          "Mark the function `async`.",
+        ),
+      );
       return null;
     }
     return resolved.kind === "promise" ? resolved.value : resolved;
@@ -178,7 +237,13 @@ class FunctionChecker {
     const body = this.fn.body.map((s) => this.stmt(s));
     this.pop();
     if (this.signature.returnType.kind !== "void" && !alwaysExits(body)) {
-      this.mod.report(diagnostic("NT1015", this.fn.span, `\`${this.fn.name}\` must return a \`${typeToString(this.signature.returnType)}\` on every path.`));
+      this.mod.report(
+        diagnostic(
+          "NT1015",
+          this.fn.span,
+          `\`${this.fn.name}\` must return a \`${typeToString(this.signature.returnType)}\` on every path.`,
+        ),
+      );
     }
     return body;
   }
@@ -274,14 +339,24 @@ class FunctionChecker {
       case "forOf": {
         const iterable = this.expr(s.iterable);
         const elementType = iterable.type.kind === "array" ? iterable.type.element : null;
-        if (!elementType && !iterable.poisoned) this.report(diagnostic("NT1011", s.iterable.span, `\`for…of\` needs an array, got \`${typeToString(iterable.type)}\`.`));
+        if (!elementType && !iterable.poisoned)
+          this.report(
+            diagnostic("NT1011", s.iterable.span, `\`for…of\` needs an array, got \`${typeToString(iterable.type)}\`.`),
+          );
         this.push();
         this.declare(s.variable, elementType ?? T.float64, false);
         this.loopDepth++;
         const body = this.block(s.body);
         this.loopDepth--;
         this.pop();
-        return { kind: "forOf", variable: s.variable, elementType: elementType ?? T.float64, iterable, body, span: s.span };
+        return {
+          kind: "forOf",
+          variable: s.variable,
+          elementType: elementType ?? T.float64,
+          iterable,
+          body,
+          span: s.span,
+        };
       }
       case "return":
         return this.returnStmt(s);
@@ -291,7 +366,14 @@ class FunctionChecker {
         return { kind: s.kind, span: s.span };
       case "throw": {
         const message = s.message ? this.expr(s.message, T.string) : null;
-        if (message && !this.fits(message, T.string)) this.report(diagnostic("NT1011", s.message!.span, `LucentError message must be a string, got \`${typeToString(message.type)}\`.`));
+        if (message && !this.fits(message, T.string))
+          this.report(
+            diagnostic(
+              "NT1011",
+              s.message!.span,
+              `LucentError message must be a string, got \`${typeToString(message.type)}\`.`,
+            ),
+          );
         return { kind: "throw", code: s.code, message, span: s.span };
       }
       case "expression":
@@ -308,7 +390,14 @@ class FunctionChecker {
     let init: TExpr;
     let type: NativeType;
     if (!s.init) {
-      this.report(diagnostic("NT1014", s.span, `\`${s.name}\` must be initialized so its type is known.`, "Write `let x: T = …` or give it a value."));
+      this.report(
+        diagnostic(
+          "NT1014",
+          s.span,
+          `\`${s.name}\` must be initialized so its type is known.`,
+          "Write `let x: T = …` or give it a value.",
+        ),
+      );
       type = declared ?? T.float64;
       init = this.poison(s.span, type);
     } else if (declared) {
@@ -318,7 +407,8 @@ class FunctionChecker {
     } else {
       init = this.expr(s.init);
       type = init.type;
-      if (!init.poisoned && init.type.kind === "promise") this.report(diagnostic("NT1003", s.init.span, "A Promise cannot be stored; `await` it instead."));
+      if (!init.poisoned && init.type.kind === "promise")
+        this.report(diagnostic("NT1003", s.init.span, "A Promise cannot be stored; `await` it instead."));
     }
     this.declare(s.name, type, s.declaration === "let", init.poisoned === true);
     return { kind: "variable", declaration: s.declaration, name: s.name, type, init, span: s.span };
@@ -327,21 +417,31 @@ class FunctionChecker {
   private returnStmt(s: Extract<Stmt, { kind: "return" }>): TStmt {
     const expected = this.signature.returnType;
     if (!s.argument) {
-      if (expected.kind !== "void") this.report(diagnostic("NT1011", s.span, `\`${this.fn.name}\` must return a \`${typeToString(expected)}\`.`));
+      if (expected.kind !== "void")
+        this.report(diagnostic("NT1011", s.span, `\`${this.fn.name}\` must return a \`${typeToString(expected)}\`.`));
       return { kind: "return", argument: null, span: s.span };
     }
     if (expected.kind === "void") {
-      this.report(diagnostic("NT1011", s.argument.span, `\`${this.fn.name}\` returns \`void\` and cannot return a value.`));
+      this.report(
+        diagnostic("NT1011", s.argument.span, `\`${this.fn.name}\` returns \`void\` and cannot return a value.`),
+      );
       return { kind: "return", argument: null, span: s.span };
     }
     let argument = this.expr(s.argument, expected);
-    if (!this.fits(argument, expected)) argument = this.mismatch(s.argument.span, expected, argument.type, narrowingHint(argument.type));
+    if (!this.fits(argument, expected))
+      argument = this.mismatch(s.argument.span, expected, argument.type, narrowingHint(argument.type));
     return { kind: "return", argument, span: s.span };
   }
 
   private condition(e: Expr): TExpr {
     const test = this.expr(e, T.bool);
-    if (!test.poisoned && test.type.kind !== "bool") return this.mismatch(e.span, T.bool, test.type, "Lucent has no truthiness: compare explicitly, e.g. `x !== 0` or `s.length > 0`.");
+    if (!test.poisoned && test.type.kind !== "bool")
+      return this.mismatch(
+        e.span,
+        T.bool,
+        test.type,
+        "Lucent has no truthiness: compare explicitly, e.g. `x !== 0` or `s.length > 0`.",
+      );
     return test;
   }
 
@@ -352,7 +452,11 @@ class FunctionChecker {
     const alternate = s.alternate ? this.branch(s.alternate, narrowing?.whenFalse) : null;
     // `if (x === null) return …;` narrows the rest of the enclosing block.
     if (narrowing) {
-      const rest = alwaysExits(consequent) ? narrowing.whenFalse : alternate && alwaysExits(alternate) ? narrowing.whenTrue : undefined;
+      const rest = alwaysExits(consequent)
+        ? narrowing.whenFalse
+        : alternate && alwaysExits(alternate)
+          ? narrowing.whenTrue
+          : undefined;
       if (rest) this.narrowings[this.narrowings.length - 1]!.set(narrowing.name, rest.type);
     }
     return { kind: "if", test, consequent, alternate, span: s.span };
@@ -381,7 +485,14 @@ class FunctionChecker {
       case "null":
       case "undefined": {
         if (!expected || !isOptional(expected)) {
-          this.report(diagnostic("NT1014", span, `Cannot infer the type of \`${e.kind}\` here.`, "Annotate the variable: `let x: T | null = null`."));
+          this.report(
+            diagnostic(
+              "NT1014",
+              span,
+              `Cannot infer the type of \`${e.kind}\` here.`,
+              "Annotate the variable: `let x: T | null = null`.",
+            ),
+          );
           return this.poison(span);
         }
         return { kind: "null", type: expected, span };
@@ -389,7 +500,14 @@ class FunctionChecker {
       case "template": {
         const expressions = e.expressions.map((x) => {
           const t = this.expr(x);
-          if (!t.poisoned && !isPrimitive(t.type)) this.report(diagnostic("NT1011", x.span, `Only strings, numbers and booleans can be interpolated, got \`${typeToString(t.type)}\`.`));
+          if (!t.poisoned && !isPrimitive(t.type))
+            this.report(
+              diagnostic(
+                "NT1011",
+                x.span,
+                `Only strings, numbers and booleans can be interpolated, got \`${typeToString(t.type)}\`.`,
+              ),
+            );
           return t;
         });
         return { kind: "template", quasis: e.quasis, expressions, type: T.string, span };
@@ -412,8 +530,10 @@ class FunctionChecker {
       case "unary": {
         const argument = this.expr(e.argument, e.operator === "!" ? T.bool : expected);
         if (argument.poisoned) return this.poison(span, argument.type);
-        if (e.operator === "!" && argument.type.kind !== "bool") return this.mismatch(e.argument.span, T.bool, argument.type);
-        if (e.operator === "-" && !isNumeric(argument.type)) return this.mismatch(e.argument.span, T.float64, argument.type);
+        if (e.operator === "!" && argument.type.kind !== "bool")
+          return this.mismatch(e.argument.span, T.bool, argument.type);
+        if (e.operator === "-" && !isNumeric(argument.type))
+          return this.mismatch(e.argument.span, T.float64, argument.type);
         return { kind: "unary", operator: e.operator, argument, type: argument.type, span };
       }
       case "assign":
@@ -432,11 +552,19 @@ class FunctionChecker {
       case "methodCall":
         return this.methodCall(e);
       case "await": {
-        if (!this.fn.async) this.report(diagnostic("NT1013", span, "`await` is only allowed inside an `async` function."));
+        if (!this.fn.async)
+          this.report(diagnostic("NT1013", span, "`await` is only allowed inside an `async` function."));
         const argument = this.expr(e.argument);
         if (argument.poisoned) return this.poison(span, expected);
         if (argument.type.kind !== "promise") {
-          this.report(diagnostic("NT1011", e.argument.span, `Cannot await \`${typeToString(argument.type)}\`.`, "Only the result of calling an async function can be awaited."));
+          this.report(
+            diagnostic(
+              "NT1011",
+              e.argument.span,
+              `Cannot await \`${typeToString(argument.type)}\`.`,
+              "Only the result of calling an async function can be awaited.",
+            ),
+          );
           return this.poison(span, expected);
         }
         return { kind: "await", argument, type: argument.type.value, span };
@@ -450,7 +578,8 @@ class FunctionChecker {
     const context = expected && isOptional(expected) ? expected.value : expected;
     let type: NativeType = T.float64;
     if (context?.kind === "int") {
-      if (!Number.isInteger(e.value)) return this.mismatch(e.span, context, T.float64, `\`${e.value}\` is not an integer.`);
+      if (!Number.isInteger(e.value))
+        return this.mismatch(e.span, context, T.float64, `\`${e.value}\` is not an integer.`);
       type = context;
     } else if (context?.kind === "float") {
       type = context;
@@ -462,7 +591,14 @@ class FunctionChecker {
     const context = expected && isOptional(expected) ? expected.value : expected;
     const elementContext = context?.kind === "array" ? context.element : undefined;
     if (e.elements.length === 0 && !elementContext) {
-      this.report(diagnostic("NT1014", e.span, "Cannot infer the element type of an empty array.", "Annotate the variable: `const xs: number[] = []`."));
+      this.report(
+        diagnostic(
+          "NT1014",
+          e.span,
+          "Cannot infer the element type of an empty array.",
+          "Annotate the variable: `const xs: number[] = []`.",
+        ),
+      );
       return this.poison(e.span, T.array(T.float64));
     }
     const elements: TExpr[] = [];
@@ -480,7 +616,14 @@ class FunctionChecker {
     const context = expected && isOptional(expected) ? expected.value : expected;
     const struct = context?.kind === "struct" ? this.mod.structs.get(context.name) : undefined;
     if (!struct) {
-      this.report(diagnostic("NT1014", e.span, "An object literal needs a struct type from its context.", "Annotate the variable: `const u: User = { … }`."));
+      this.report(
+        diagnostic(
+          "NT1014",
+          e.span,
+          "An object literal needs a struct type from its context.",
+          "Annotate the variable: `const u: User = { … }`.",
+        ),
+      );
       return this.poison(e.span, context);
     }
     const properties: { name: string; value: TExpr }[] = [];
@@ -497,10 +640,13 @@ class FunctionChecker {
       properties.push({ name: prop.name, value });
     }
     for (const field of struct.fields) {
-      if (!seen.has(field.name)) this.report(diagnostic("NT1011", e.span, `Missing field \`${field.name}\` of \`${struct.name}\`.`));
+      if (!seen.has(field.name))
+        this.report(diagnostic("NT1011", e.span, `Missing field \`${field.name}\` of \`${struct.name}\`.`));
     }
     // Emit fields in declaration order so backends can use positional constructors.
-    properties.sort((a, b) => struct.fields.findIndex((f) => f.name === a.name) - struct.fields.findIndex((f) => f.name === b.name));
+    properties.sort(
+      (a, b) => struct.fields.findIndex((f) => f.name === a.name) - struct.fields.findIndex((f) => f.name === b.name),
+    );
     return { kind: "object", properties, type: T.struct(struct.name), span: e.span };
   }
 
@@ -530,13 +676,26 @@ class FunctionChecker {
       right = this.expr(e.right, left.type);
     }
     const op = e.operator;
-    if (left.poisoned || right.poisoned) return this.poison(span, op === "+" || op === "-" || op === "*" || op === "/" || op === "%" ? left.type : T.bool);
+    if (left.poisoned || right.poisoned)
+      return this.poison(span, op === "+" || op === "-" || op === "*" || op === "/" || op === "%" ? left.type : T.bool);
     if (op === "===" || op === "!==") {
-      const comparable = left.poisoned || right.poisoned || typeEquals(left.type, right.type) || assignable(right.type, left.type) || assignable(left.type, right.type);
+      const comparable =
+        left.poisoned ||
+        right.poisoned ||
+        typeEquals(left.type, right.type) ||
+        assignable(right.type, left.type) ||
+        assignable(left.type, right.type);
       if (!comparable) return this.mismatch(e.right.span, left.type, right.type);
       const base = isOptional(left.type) ? left.type.value : left.type;
       if (!isPrimitive(base)) {
-        this.report(diagnostic("NT1011", span, `\`${op}\` is only supported on strings, numbers, booleans and their optionals, not \`${typeToString(left.type)}\`.`, "Compare a field instead."));
+        this.report(
+          diagnostic(
+            "NT1011",
+            span,
+            `\`${op}\` is only supported on strings, numbers, booleans and their optionals, not \`${typeToString(left.type)}\`.`,
+            "Compare a field instead.",
+          ),
+        );
         return this.poison(span, T.bool);
       }
       return { kind: "binary", operator: op, left, right, type: T.bool, span };
@@ -546,7 +705,12 @@ class FunctionChecker {
     }
     if (!isNumeric(left.type)) return this.mismatch(e.left.span, T.float64, left.type, narrowingHint(left.type));
     if (!typeEquals(left.type, right.type)) {
-      return this.mismatch(e.right.span, left.type, right.type, isNumeric(right.type) ? "Lucent does not convert between numeric types implicitly." : narrowingHint(right.type));
+      return this.mismatch(
+        e.right.span,
+        left.type,
+        right.type,
+        isNumeric(right.type) ? "Lucent does not convert between numeric types implicitly." : narrowingHint(right.type),
+      );
     }
     const isComparison = op === "<" || op === "<=" || op === ">" || op === ">=";
     return { kind: "binary", operator: op, left, right, type: isComparison ? T.bool : left.type, span };
@@ -560,7 +724,15 @@ class FunctionChecker {
         this.report(diagnostic("NT1010", e.span, `Unknown identifier \`${e.name}\`.`));
         return this.poison(e.span);
       }
-      if (!binding.mutable) this.report(diagnostic("NT1016", e.span, `Cannot assign to \`${e.name}\` because it is a constant.`, "Declare it with `let`."));
+      if (!binding.mutable)
+        this.report(
+          diagnostic(
+            "NT1016",
+            e.span,
+            `Cannot assign to \`${e.name}\` because it is a constant.`,
+            "Declare it with `let`.",
+          ),
+        );
       this.clearNarrowing(e.name);
       if (binding.poisoned) return this.poison(e.span, binding.type);
       return { kind: "identifier", name: e.name, type: binding.type, span: e.span };
@@ -568,7 +740,8 @@ class FunctionChecker {
     if (e.kind === "member") return this.member(e);
     if (e.kind === "index") {
       const indexed = this.index(e);
-      if (indexed.kind === "index" && indexed.object.type.kind === "map") this.report(diagnostic("NT1001", e.span, "Assigning into a map is not supported yet."));
+      if (indexed.kind === "index" && indexed.object.type.kind === "map")
+        this.report(diagnostic("NT1001", e.span, "Assigning into a map is not supported yet."));
       return indexed;
     }
     this.report(diagnostic("NT1001", e.span, "Unsupported assignment target."));
@@ -580,7 +753,8 @@ class FunctionChecker {
     let value = this.expr(e.value, target.type);
     if (target.poisoned || value.poisoned) return this.poison(e.span, target.type);
     if (e.operator === "=") {
-      if (!this.fits(value, target.type)) value = this.mismatch(e.value.span, target.type, value.type, narrowingHint(value.type));
+      if (!this.fits(value, target.type))
+        value = this.mismatch(e.value.span, target.type, value.type, narrowingHint(value.type));
     } else {
       const stringConcat = e.operator === "+=" && target.type.kind === "string";
       if (!stringConcat && !isNumeric(target.type)) return this.mismatch(e.target.span, T.float64, target.type);
@@ -592,16 +766,30 @@ class FunctionChecker {
   private call(e: Extract<Expr, { kind: "call" }>): TExpr {
     const signature = this.mod.signatures.get(e.callee);
     if (!signature) {
-      this.report(diagnostic("NT1010", e.span, `Unknown function \`${e.callee}\`.`, "Only functions declared in this module can be called."));
+      this.report(
+        diagnostic(
+          "NT1010",
+          e.span,
+          `Unknown function \`${e.callee}\`.`,
+          "Only functions declared in this module can be called.",
+        ),
+      );
       return this.poison(e.span);
     }
     if (e.args.length !== signature.params.length) {
-      this.report(diagnostic("NT1012", e.span, `\`${e.callee}\` takes ${signature.params.length} argument${signature.params.length === 1 ? "" : "s"}, got ${e.args.length}.`));
+      this.report(
+        diagnostic(
+          "NT1012",
+          e.span,
+          `\`${e.callee}\` takes ${signature.params.length} argument${signature.params.length === 1 ? "" : "s"}, got ${e.args.length}.`,
+        ),
+      );
     }
     const args = e.args.map((arg, i) => {
       const param = signature.params[i];
       const typed = this.expr(arg, param?.type);
-      if (param && !this.fits(typed, param.type)) return this.mismatch(arg.span, param.type, typed.type, narrowingHint(typed.type));
+      if (param && !this.fits(typed, param.type))
+        return this.mismatch(arg.span, param.type, typed.type, narrowingHint(typed.type));
       return typed;
     });
     const type = signature.async ? T.promise(signature.returnType) : signature.returnType;
@@ -624,7 +812,9 @@ class FunctionChecker {
       }
       return { kind: "member", object, property: e.property, type: field.type, span };
     }
-    this.report(diagnostic("NT1011", span, `Cannot read \`${e.property}\` of \`${typeToString(t)}\`.`, narrowingHint(t)));
+    this.report(
+      diagnostic("NT1011", span, `Cannot read \`${e.property}\` of \`${typeToString(t)}\`.`, narrowingHint(t)),
+    );
     return this.poison(span);
   }
 
@@ -634,7 +824,14 @@ class FunctionChecker {
     const t = object.type;
     if (object.poisoned) return this.poison(span);
     if (t.kind === "struct") {
-      this.report(diagnostic("NT1002", span, `Dynamic property access on \`${t.name}\` is not supported.`, "Struct fields are laid out at compile time; use `value.field`."));
+      this.report(
+        diagnostic(
+          "NT1002",
+          span,
+          `Dynamic property access on \`${t.name}\` is not supported.`,
+          "Struct fields are laid out at compile time; use `value.field`.",
+        ),
+      );
       return this.poison(span);
     }
     if (t.kind === "array" || t.kind === "bytes") {
@@ -664,19 +861,32 @@ class FunctionChecker {
       if (args.length !== 1) this.report(diagnostic("NT1012", span, "`push` takes exactly one argument."));
       return { kind: "methodCall", object, method: "push", args, type: T.void, span };
     }
-    this.report(diagnostic("NT1001", span, `Method \`${e.method}\` is not supported on \`${typeToString(object.type)}\`.`));
+    this.report(
+      diagnostic("NT1001", span, `Method \`${e.method}\` is not supported on \`${typeToString(object.type)}\`.`),
+    );
     return this.poison(span);
   }
 }
 
 function narrowingHint(t: NativeType): string | undefined {
-  return isOptional(t) ? "The value may be null. Narrow it first: `if (x === null) { … }` or `if (x !== null) { … }`." : undefined;
+  return isOptional(t)
+    ? "The value may be null. Narrow it first: `if (x === null) { … }` or `if (x !== null) { … }`."
+    : undefined;
 }
 
 /** Recognises `x === null`, `x !== null`, `x === undefined`, `x !== undefined` on an optional identifier. */
-function narrowingOf(test: TExpr): { name: string; whenTrue?: { name: string; type: NativeType }; whenFalse?: { name: string; type: NativeType } } | null {
+function narrowingOf(test: TExpr): {
+  name: string;
+  whenTrue?: { name: string; type: NativeType };
+  whenFalse?: { name: string; type: NativeType };
+} | null {
   if (test.kind !== "binary" || (test.operator !== "===" && test.operator !== "!==")) return null;
-  const [id, lit] = test.left.kind === "identifier" ? [test.left, test.right] : test.right.kind === "identifier" ? [test.right, test.left] : [null, null];
+  const [id, lit] =
+    test.left.kind === "identifier"
+      ? [test.left, test.right]
+      : test.right.kind === "identifier"
+        ? [test.right, test.left]
+        : [null, null];
   if (!id || !lit || lit.kind !== "null" || !isOptional(id.type)) return null;
   const inner = { name: id.name, type: id.type.value };
   return test.operator === "===" ? { name: id.name, whenFalse: inner } : { name: id.name, whenTrue: inner };

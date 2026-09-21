@@ -18,18 +18,18 @@ TypeScript error.
 
 ## Types
 
-| TypeScript                       | Native type      | Swift               | Kotlin            |
-| -------------------------------- | ---------------- | ------------------- | ----------------- |
-| `number`                         | `float64`        | `Double`            | `Double`          |
-| `string`                         | `string`         | `String`            | `String`          |
-| `boolean`                        | `bool`           | `Bool`              | `Boolean`         |
-| `void`                           | `void`           | `Void`              | `Unit`            |
-| `T[]`, `Array<T>`                | `array<T>`       | `[T]`               | `List<T>`         |
-| `T \| null`, `T \| undefined`    | `optional<T>`    | `T?`                | `T?`              |
-| `Record<string, T>`              | `map<T>`         | `[String: T]`       | `Map<String, T>`  |
-| `Uint8Array`                     | `bytes`          | `ArrayBuffer`       | `ArrayBuffer`     |
-| `Promise<T>` (return type only)  | `promise<T>`     | `async … -> T`      | `suspend …: T`    |
-| object type alias                | `struct`         | `struct`            | `data class`      |
+| TypeScript                                                              | Native type    | Swift               | Kotlin            |
+| ----------------------------------------------------------------------- | -------------- | ------------------- | ----------------- |
+| `number`                                                                | `float64`      | `Double`            | `Double`          |
+| `string`                                                                | `string`       | `String`            | `String`          |
+| `boolean`                                                               | `bool`         | `Bool`              | `Boolean`         |
+| `void`                                                                  | `void`         | `Void`              | `Unit`            |
+| `T[]`, `Array<T>`                                                       | `array<T>`     | `[T]`               | `List<T>`         |
+| `T \| null`, `T \| undefined`                                           | `optional<T>`  | `T?`                | `T?`              |
+| `Record<string, T>`                                                     | `map<T>`       | `[String: T]`       | `Map<String, T>`  |
+| `Uint8Array`                                                            | `bytes`        | `ArrayBuffer`       | `ArrayBuffer`     |
+| `Promise<T>` (return type only)                                         | `promise<T>`   | `async … -> T`      | `suspend …: T`    |
+| object type alias                                                       | `struct`       | `struct`            | `data class`      |
 | `int8…int64`, `uint8…uint64`, `float32`, `float64` from `@lucent/types` | sized numerics | `Int32`, `Float`, … | `Int`, `Float`, … |
 
 Rules:
@@ -95,20 +95,20 @@ C-style `for` loop is rejected (the update step would be skipped).
 
 ## Diagnostics
 
-| Code   | Meaning                                              |
-| ------ | ---------------------------------------------------- |
-| NT1000 | Syntax error (from the parser)                       |
-| NT1001 | Unsupported syntax                                   |
-| NT1002 | Dynamic property access                              |
-| NT1003 | Unsupported type                                     |
-| NT1004 | `any` / `unknown` is prohibited                      |
-| NT1005 | Function value cannot cross the native boundary      |
-| NT1006 | Unsupported dependency                               |
-| NT1007 | Too many parameters                                  |
-| NT1010 | Unknown identifier                                   |
-| NT1011 | Type mismatch                                        |
-| NT1012 | Wrong number of arguments                            |
-| NT1013 | `await` outside an async function                    |
-| NT1014 | Missing type annotation                              |
-| NT1015 | Missing return                                       |
-| NT1016 | Assignment to a `const`                              |
+| Code   | Meaning                                         |
+| ------ | ----------------------------------------------- |
+| NT1000 | Syntax error (from the parser)                  |
+| NT1001 | Unsupported syntax                              |
+| NT1002 | Dynamic property access                         |
+| NT1003 | Unsupported type                                |
+| NT1004 | `any` / `unknown` is prohibited                 |
+| NT1005 | Function value cannot cross the native boundary |
+| NT1006 | Unsupported dependency                          |
+| NT1007 | Too many parameters                             |
+| NT1010 | Unknown identifier                              |
+| NT1011 | Type mismatch                                   |
+| NT1012 | Wrong number of arguments                       |
+| NT1013 | `await` outside an async function               |
+| NT1014 | Missing type annotation                         |
+| NT1015 | Missing return                                  |
+| NT1016 | Assignment to a `const`                         |

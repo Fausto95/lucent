@@ -22,7 +22,13 @@ import type {
 
 export type * from "./surface.ts";
 
-type ESLiteral = ES.StringLiteral | ES.NumericLiteral | ES.BooleanLiteral | ES.NullLiteral | ES.BigIntLiteral | ES.RegExpLiteral;
+type ESLiteral =
+  | ES.StringLiteral
+  | ES.NumericLiteral
+  | ES.BooleanLiteral
+  | ES.NullLiteral
+  | ES.BigIntLiteral
+  | ES.RegExpLiteral;
 
 export interface ParseResult {
   module: SurfaceModule;
@@ -80,7 +86,19 @@ const NODE_NAMES: Record<string, string> = {
   TSTypeQuery: "`typeof` type",
 };
 
-const BINARY_OPERATORS: ReadonlySet<string> = new Set<BinaryOperator>(["+", "-", "*", "/", "%", "<", "<=", ">", ">=", "===", "!=="]);
+const BINARY_OPERATORS: ReadonlySet<string> = new Set<BinaryOperator>([
+  "+",
+  "-",
+  "*",
+  "/",
+  "%",
+  "<",
+  "<=",
+  ">",
+  ">=",
+  "===",
+  "!==",
+]);
 const ASSIGN_OPERATORS: ReadonlySet<string> = new Set<AssignOperator>(["=", "+=", "-=", "*=", "/="]);
 
 const KEYWORD_TYPES: Record<string, string> = {
@@ -104,7 +122,11 @@ class Converter {
   readonly typeAliases: SurfaceTypeAlias[] = [];
   readonly functions: SurfaceFunction[] = [];
 
-  unsupported(node: { type: string; start: number; end: number }, what = NODE_NAMES[node.type] ?? node.type, help?: string): void {
+  unsupported(
+    node: { type: string; start: number; end: number },
+    what = NODE_NAMES[node.type] ?? node.type,
+    help?: string,
+  ): void {
     this.diagnostics.push(diagnostic("NT1001", spanOf(node), `Unsupported syntax: ${what}.`, help));
   }
 
@@ -214,8 +236,16 @@ class Converter {
       const args = node.typeArguments?.params.map((p) => this.type(p)) ?? [];
       return { kind: "reference", name: node.typeName.name, args, span };
     },
-    TSArrayType: (node: ES.TSArrayType) => ({ kind: "array", element: this.type(node.elementType), span: spanOf(node) }),
-    TSUnionType: (node: ES.TSUnionType) => ({ kind: "union", members: node.types.map((t) => this.type(t)), span: spanOf(node) }),
+    TSArrayType: (node: ES.TSArrayType) => ({
+      kind: "array",
+      element: this.type(node.elementType),
+      span: spanOf(node),
+    }),
+    TSUnionType: (node: ES.TSUnionType) => ({
+      kind: "union",
+      members: node.types.map((t) => this.type(t)),
+      span: spanOf(node),
+    }),
     TSParenthesizedType: (node: ES.TSParenthesizedType) => this.type(node.typeAnnotation),
     TSFunctionType: (node: ES.TSFunctionType) => ({ kind: "function", span: spanOf(node) }),
     TSTypeLiteral: (node: ES.TSTypeLiteral) => {
@@ -263,17 +293,30 @@ class Converter {
       alternate: node.alternate ? this.bodyOf(node.alternate) : null,
       span: spanOf(node),
     }),
-    WhileStatement: (node: ES.WhileStatement) => ({ kind: "while", test: this.expr(node.test), body: this.bodyOf(node.body), span: spanOf(node) }),
+    WhileStatement: (node: ES.WhileStatement) => ({
+      kind: "while",
+      test: this.expr(node.test),
+      body: this.bodyOf(node.body),
+      span: spanOf(node),
+    }),
     ForStatement: (node: ES.ForStatement) => ({
       kind: "for",
-      init: node.init ? (node.init.type === "VariableDeclaration" ? this.variable(node.init) : { kind: "expression", expression: this.expr(node.init), span: spanOf(node.init) }) : null,
+      init: node.init
+        ? node.init.type === "VariableDeclaration"
+          ? this.variable(node.init)
+          : { kind: "expression", expression: this.expr(node.init), span: spanOf(node.init) }
+        : null,
       test: node.test ? this.expr(node.test) : null,
       update: node.update ? this.expr(node.update) : null,
       body: this.bodyOf(node.body),
       span: spanOf(node),
     }),
     ForOfStatement: (node: ES.ForOfStatement) => this.forOf(node),
-    ReturnStatement: (node: ES.ReturnStatement) => ({ kind: "return", argument: node.argument ? this.expr(node.argument) : null, span: spanOf(node) }),
+    ReturnStatement: (node: ES.ReturnStatement) => ({
+      kind: "return",
+      argument: node.argument ? this.expr(node.argument) : null,
+      span: spanOf(node),
+    }),
     BreakStatement: (node: ES.BreakStatement) => {
       if (node.label) this.unsupported(node, "labeled break");
       return { kind: "break", span: spanOf(node) };
@@ -283,7 +326,11 @@ class Converter {
       return { kind: "continue", span: spanOf(node) };
     },
     ThrowStatement: (node: ES.ThrowStatement) => this.throwStmt(node),
-    ExpressionStatement: (node: ES.ExpressionStatement) => ({ kind: "expression", expression: this.expr(node.expression), span: spanOf(node) }),
+    ExpressionStatement: (node: ES.ExpressionStatement) => ({
+      kind: "expression",
+      expression: this.expr(node.expression),
+      span: spanOf(node),
+    }),
     BlockStatement: (node: ES.BlockStatement) => ({ kind: "block", body: this.block(node), span: spanOf(node) }),
     EmptyStatement: (node: ES.EmptyStatement) => ({ kind: "block", body: [], span: spanOf(node) }),
   };
@@ -317,11 +364,21 @@ class Converter {
     const span = spanOf(node);
     if (node.await) this.unsupported(node, "`for await`");
     const left = node.left;
-    if (left.type !== "VariableDeclaration" || left.declarations.length !== 1 || left.declarations[0]!.id.type !== "Identifier") {
+    if (
+      left.type !== "VariableDeclaration" ||
+      left.declarations.length !== 1 ||
+      left.declarations[0]!.id.type !== "Identifier"
+    ) {
       this.unsupported(left, "for…of binding", "Write `for (const item of items)`.");
       return { kind: "unsupported", span };
     }
-    return { kind: "forOf", variable: left.declarations[0]!.id.name, iterable: this.expr(node.right), body: this.bodyOf(node.body), span };
+    return {
+      kind: "forOf",
+      variable: left.declarations[0]!.id.name,
+      iterable: this.expr(node.right),
+      body: this.bodyOf(node.body),
+      span,
+    };
   }
 
   private throwStmt(node: ES.ThrowStatement): Stmt {
@@ -388,8 +445,15 @@ class Converter {
       }),
       span: spanOf(node),
     }),
-    ObjectExpression: (node: ES.ObjectExpression) => ({ kind: "object", properties: node.properties.map((p) => this.objectProperty(p)), span: spanOf(node) }),
-    Identifier: (node: ES.IdentifierReference) => (node.name === "undefined" ? { kind: "undefined", span: spanOf(node) } : { kind: "identifier", name: node.name, span: spanOf(node) }),
+    ObjectExpression: (node: ES.ObjectExpression) => ({
+      kind: "object",
+      properties: node.properties.map((p) => this.objectProperty(p)),
+      span: spanOf(node),
+    }),
+    Identifier: (node: ES.IdentifierReference) =>
+      node.name === "undefined"
+        ? { kind: "undefined", span: spanOf(node) }
+        : { kind: "identifier", name: node.name, span: spanOf(node) },
     ParenthesizedExpression: (node: ES.ParenthesizedExpression) => this.expr(node.expression),
     BinaryExpression: (node: ES.BinaryExpression) => this.binary(node),
     LogicalExpression: (node: ES.LogicalExpression) => {
@@ -397,7 +461,13 @@ class Converter {
         this.unsupported(node, "nullish coalescing");
         return { kind: "unsupported", span: spanOf(node) };
       }
-      return { kind: "logical", operator: node.operator, left: this.expr(node.left), right: this.expr(node.right), span: spanOf(node) };
+      return {
+        kind: "logical",
+        operator: node.operator,
+        left: this.expr(node.left),
+        right: this.expr(node.right),
+        span: spanOf(node),
+      };
     },
     UnaryExpression: (node: ES.UnaryExpression) => {
       if (node.operator !== "-" && node.operator !== "!") {
@@ -411,12 +481,27 @@ class Converter {
         this.unsupported(node, `assignment operator \`${node.operator}\``);
         return { kind: "unsupported", span: spanOf(node) };
       }
-      return { kind: "assign", operator: node.operator as AssignOperator, target: this.target(node.left), value: this.expr(node.right), span: spanOf(node) };
+      return {
+        kind: "assign",
+        operator: node.operator as AssignOperator,
+        target: this.target(node.left),
+        value: this.expr(node.right),
+        span: spanOf(node),
+      };
     },
-    UpdateExpression: (node: ES.UpdateExpression) => ({ kind: "update", operator: node.operator, target: this.target(node.argument), span: spanOf(node) }),
+    UpdateExpression: (node: ES.UpdateExpression) => ({
+      kind: "update",
+      operator: node.operator,
+      target: this.target(node.argument),
+      span: spanOf(node),
+    }),
     CallExpression: (node: ES.CallExpression) => this.call(node),
     MemberExpression: (node: ES.MemberExpression) => this.member(node),
-    AwaitExpression: (node: ES.AwaitExpression) => ({ kind: "await", argument: this.expr(node.argument), span: spanOf(node) }),
+    AwaitExpression: (node: ES.AwaitExpression) => ({
+      kind: "await",
+      argument: this.expr(node.argument),
+      span: spanOf(node),
+    }),
   };
 
   private literal(node: ESLiteral): Expr {
@@ -432,7 +517,13 @@ class Converter {
 
   private objectProperty(node: ES.ObjectPropertyKind): ObjectProperty {
     const span = spanOf(node);
-    if (node.type !== "Property" || node.kind !== "init" || node.method || node.key.type !== "Identifier" || node.computed) {
+    if (
+      node.type !== "Property" ||
+      node.kind !== "init" ||
+      node.method ||
+      node.key.type !== "Identifier" ||
+      node.computed
+    ) {
       this.unsupported(node, "object literal member");
       return { name: "_", value: { kind: "unsupported", span }, span };
     }
@@ -449,7 +540,13 @@ class Converter {
       this.unsupported(node, `operator \`${node.operator}\``);
       return { kind: "unsupported", span };
     }
-    return { kind: "binary", operator: node.operator as BinaryOperator, left: this.expr(node.left), right: this.expr(node.right), span };
+    return {
+      kind: "binary",
+      operator: node.operator as BinaryOperator,
+      left: this.expr(node.left),
+      right: this.expr(node.right),
+      span,
+    };
   }
 
   private target(node: ES.Expression | ES.AssignmentTarget): Expr {
@@ -486,7 +583,8 @@ class Converter {
       this.unsupported(node, "optional chaining");
       return { kind: "unsupported", span };
     }
-    if (node.computed) return { kind: "index", object: this.expr(node.object), index: this.expr(node.property as ES.Expression), span };
+    if (node.computed)
+      return { kind: "index", object: this.expr(node.object), index: this.expr(node.property as ES.Expression), span };
     if (node.property.type !== "Identifier") {
       this.unsupported(node.property, "private member");
       return { kind: "unsupported", span };
@@ -494,7 +592,6 @@ class Converter {
     return { kind: "member", object: this.expr(node.object), property: node.property.name, span };
   }
 }
-
 
 export function parseModule(source: string, fileName: string): ParseResult {
   const result = parseSync(fileName, source, { lang: "ts", sourceType: "module", preserveParens: false });
@@ -507,7 +604,12 @@ export function parseModule(source: string, fileName: string): ParseResult {
   }
   for (const stmt of result.program.body) converter.topLevel(stmt);
   return {
-    module: { fileName, imports: converter.imports, typeAliases: converter.typeAliases, functions: converter.functions },
+    module: {
+      fileName,
+      imports: converter.imports,
+      typeAliases: converter.typeAliases,
+      functions: converter.functions,
+    },
     diagnostics: converter.diagnostics,
   };
 }

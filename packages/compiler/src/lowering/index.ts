@@ -23,14 +23,23 @@ const BINARY_OPS: Readonly<Record<BinaryOperator, BinaryOp>> = {
   "!==": "ne",
 };
 
-const COMPOUND_OPS: Readonly<Record<Exclude<AssignOperator, "=">, BinaryOp>> = { "+=": "add", "-=": "sub", "*=": "mul", "/=": "div" };
+const COMPOUND_OPS: Readonly<Record<Exclude<AssignOperator, "=">, BinaryOp>> = {
+  "+=": "add",
+  "-=": "sub",
+  "*=": "mul",
+  "/=": "div",
+};
 
 export function lowerModule(module: TypedModule): LowerResult {
   const diagnostics: Diagnostic[] = [];
   const functions = module.functions.map((fn) => new FunctionLowerer(fn, diagnostics).lower());
   const ir: IRModule = {
     name: module.name,
-    structs: module.structs.map((s) => ({ name: s.name, exported: s.exported, fields: s.fields.map((f) => ({ name: f.name, type: f.type })) })),
+    structs: module.structs.map((s) => ({
+      name: s.name,
+      exported: s.exported,
+      fields: s.fields.map((f) => ({ name: f.name, type: f.type })),
+    })),
     functions,
   };
   return { module: diagnostics.length ? null : ir, diagnostics };
@@ -115,7 +124,14 @@ class FunctionLowerer {
         return [{ op: "let", id, value }];
       }
       case "if":
-        return [{ op: "if", cond: this.expr(s.test), then: this.stmts(s.consequent), else: s.alternate ? this.stmts(s.alternate) : [] }];
+        return [
+          {
+            op: "if",
+            cond: this.expr(s.test),
+            consequent: this.stmts(s.consequent),
+            alternate: s.alternate ? this.stmts(s.alternate) : [],
+          },
+        ];
       case "while":
         return [{ op: "while", cond: this.expr(s.test), body: this.stmts(s.body) }];
       case "for":
@@ -145,7 +161,14 @@ class FunctionLowerer {
       const init = s.init ? this.stmt(s.init) : [];
       const cond = s.test ? this.expr(s.test) : ({ op: "const", value: true, type: T.bool } as IRExpr);
       if (containsContinue(s.body)) {
-        this.diagnostics.push(diagnostic("NT1001", s.span, "`continue` inside a C-style `for` loop is not supported yet.", "Use `while` with an explicit index, or `for…of`."));
+        this.diagnostics.push(
+          diagnostic(
+            "NT1001",
+            s.span,
+            "`continue` inside a C-style `for` loop is not supported yet.",
+            "Use `while` with an explicit index, or `for…of`.",
+          ),
+        );
       }
       const update = s.update ? this.expressionStmt(s.update) : [];
       const body = [...this.stmts(s.body), ...update];
@@ -170,7 +193,19 @@ class FunctionLowerer {
     if (e.kind === "update") {
       const target = this.place(e.target);
       const one: IRExpr = { op: "const", value: 1, type: target.type };
-      return [{ op: "assign", target, value: { op: "binary", operator: e.operator === "++" ? "add" : "sub", left: placeToExpr(target), right: one, type: target.type } }];
+      return [
+        {
+          op: "assign",
+          target,
+          value: {
+            op: "binary",
+            operator: e.operator === "++" ? "add" : "sub",
+            left: placeToExpr(target),
+            right: one,
+            type: target.type,
+          },
+        },
+      ];
     }
     if (e.kind === "methodCall" && e.method === "push") {
       return [{ op: "push", array: this.expr(e.object), value: this.expr(e.args[0]!) }];
@@ -208,7 +243,12 @@ class FunctionLowerer {
       case "array":
         return { op: "array", elements: e.elements.map((x) => this.expr(x)), type };
       case "object":
-        return { op: "struct", name: type.kind === "struct" ? type.name : "?", fields: e.properties.map((p) => ({ name: p.name, value: this.expr(p.value) })), type };
+        return {
+          op: "struct",
+          name: type.kind === "struct" ? type.name : "?",
+          fields: e.properties.map((p) => ({ name: p.name, value: this.expr(p.value) })),
+          type,
+        };
       case "identifier": {
         const id = this.resolve(e.name);
         return id === null ? { op: "param", name: e.name, type } : { op: "local", id, type };
@@ -227,7 +267,9 @@ class FunctionLowerer {
         return { op: e.operator === "!" ? "not" : "neg", value: this.expr(e.argument), type };
       case "assign":
       case "update":
-        this.diagnostics.push(diagnostic("NT1001", e.span, "Assignments are only supported as statements, not inside expressions."));
+        this.diagnostics.push(
+          diagnostic("NT1001", e.span, "Assignments are only supported as statements, not inside expressions."),
+        );
         return { op: "const", value: 0, type };
       case "call":
         return { op: "call", callee: e.callee, args: e.args.map((a) => this.expr(a)), type };
@@ -276,7 +318,12 @@ function placeToExpr(p: IRPlace): IRExpr {
 function collectAssignedNames(stmts: TStmt[], candidates: ReadonlySet<string>): Set<string> {
   const found = new Set<string>();
   const visitExpr = (e: TExpr): void => {
-    const mutated = e.kind === "assign" || e.kind === "update" ? e.target : e.kind === "methodCall" && e.method === "push" ? e.object : null;
+    const mutated =
+      e.kind === "assign" || e.kind === "update"
+        ? e.target
+        : e.kind === "methodCall" && e.method === "push"
+          ? e.object
+          : null;
     if (mutated) {
       const root = rootIdentifier(mutated);
       if (root && candidates.has(root)) found.add(root);
@@ -330,9 +377,14 @@ function collectAssignedNames(stmts: TStmt[], candidates: ReadonlySet<string>): 
 }
 
 /** Locals that are pushed into or whose fields/elements are assigned. */
+function rootLocal(e: IRExpr): LocalId | null {
+  if (e.op === "local") return e.id;
+  if (e.op === "field" || e.op === "index") return rootLocal(e.object);
+  return null;
+}
+
 function collectMutatedLocals(stmts: IRStmt[]): Set<LocalId> {
   const found = new Set<LocalId>();
-  const rootLocal = (e: IRExpr): LocalId | null => (e.op === "local" ? e.id : e.op === "field" ? rootLocal(e.object) : e.op === "index" ? rootLocal(e.object) : null);
   const visit = (list: IRStmt[]): void => {
     for (const s of list) {
       switch (s.op) {
@@ -347,8 +399,8 @@ function collectMutatedLocals(stmts: IRStmt[]): Set<LocalId> {
           break;
         }
         case "if":
-          visit(s.then);
-          visit(s.else);
+          visit(s.consequent);
+          visit(s.alternate);
           break;
         case "while":
         case "forEach":

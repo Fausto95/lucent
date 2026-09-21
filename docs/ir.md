@@ -15,7 +15,7 @@ lowering away everything that only JavaScript has:
 
 | Source                          | IR                                                   |
 | ------------------------------- | ---------------------------------------------------- |
-| `let`/`const`, shadowing        | `let %name` / `%name.1`, unique per function          |
+| `let`/`const`, shadowing        | `let %name` / `%name.1`, unique per function         |
 | reassigned parameter            | `let %p = (param p)` prologue; params stay immutable |
 | `for (init; test; update)`      | `init; while test { body; update }`                  |
 | `for (const x of xs)`           | `foreach %x in xs`                                   |
