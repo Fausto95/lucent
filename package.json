@@ -9,6 +9,10 @@
   ],
   "type": "module",
   "scripts": {
+    "dev": "bun run --cwd apps/website dev",
+    "build": "bun run --cwd apps/website build",
+    "start": "bun run --cwd apps/website preview",
+    "preview": "bun run --cwd apps/website preview",
     "typecheck": "tsc --noEmit && tsc --noEmit -p fixtures",
     "build:packages": "bun scripts/build-packages.ts",
     "lint": "oxlint --deny-warnings",

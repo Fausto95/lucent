@@ -7,7 +7,7 @@ From the repository root:
 
 ```sh
 bun install
-bun run --cwd apps/website dev
+bun run dev
 ```
 
 Open http://127.0.0.1:5173. Vite uses its default development port and provides
@@ -17,15 +17,31 @@ React Fast Refresh. The homepage is `/`; the language reference is `/language/`.
 
 ```sh
 bun run --cwd apps/website typecheck
-bun run --cwd apps/website build
-bun run --cwd apps/website preview
+bun run build
+bun run preview
 ```
 
-The production preview uses Vite's default port, http://127.0.0.1:4173.
+`bun run start` is an alias for the local production preview. The preview uses
+Vite's default port, http://127.0.0.1:4173.
 Deploy the generated `dist/` directory to a static host with an SPA fallback
 that serves `index.html` for application routes such as `/language/`.
 `public/_redirects` supplies this rewrite for compatible hosts.
 Do not edit `dist/`; each build replaces it.
+
+## Vercel
+
+Import this repository into Vercel with the **Root Directory set to the repository
+root** (`.`), not `apps/website`. The root `vercel.json` sets:
+
+- Install command: `bun install --frozen-lockfile`
+- Build command: `bun run build`
+- Development command: `bun run dev`
+- Output directory: `apps/website/dist`
+
+The SPA rewrite serves `index.html` for direct visits to routes such as
+`/language/`. Vercel serves the built static files; it does not need to run
+`bun run start` in production. The existing `build:packages` command continues
+to build the compiler packages separately.
 
 ## Source
 
