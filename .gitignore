@@ -2,7 +2,14 @@ node_modules/
 .lucent/
 *.log
 .DS_Store
-/apps/*/ios
-/apps/*/android
+/apps/expo-example/ios
+/apps/expo-example/android
+/apps/expo-example/.expo
 /apps/*/modules/lucent
+/apps/bare-example/ios/Pods
+/apps/bare-example/ios/build
+/apps/bare-example/android/.gradle
+/apps/bare-example/android/build
+/apps/bare-example/android/app/build
+/apps/bare-example/android/app/.cxx
 packages/*/dist/
