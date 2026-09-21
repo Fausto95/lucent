@@ -1,4 +1,8 @@
-# Lucent
+<p align="center">
+  <img src="assets/logo.svg" width="96" alt="Lucent">
+</p>
+
+<h1 align="center">Lucent</h1>
 
 Write native React Native modules in TypeScript. Lucent compiles a typed subset
 of TypeScript to Swift and Kotlin ahead of time. No JavaScript runs on the
