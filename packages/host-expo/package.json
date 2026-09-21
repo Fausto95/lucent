@@ -1,0 +1,15 @@
+{
+  "name": "@lucent/host-expo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@lucent/backend-kotlin": "workspace:*",
+    "@lucent/backend-swift": "workspace:*",
+    "@lucent/compiler": "workspace:*",
+    "@lucent/host-core": "workspace:*"
+  }
+}

@@ -35,6 +35,23 @@
         "oxc-parser": "0.151.0",
       },
     },
+    "packages/host-core": {
+      "name": "@lucent/host-core",
+      "version": "0.0.0",
+      "dependencies": {
+        "@lucent/compiler": "workspace:*",
+      },
+    },
+    "packages/host-expo": {
+      "name": "@lucent/host-expo",
+      "version": "0.0.0",
+      "dependencies": {
+        "@lucent/backend-kotlin": "workspace:*",
+        "@lucent/backend-swift": "workspace:*",
+        "@lucent/compiler": "workspace:*",
+        "@lucent/host-core": "workspace:*",
+      },
+    },
     "packages/types": {
       "name": "@lucent/types",
       "version": "0.0.0",
@@ -46,6 +63,10 @@
     "@lucent/backend-swift": ["@lucent/backend-swift@workspace:packages/backend-swift"],
 
     "@lucent/compiler": ["@lucent/compiler@workspace:packages/compiler"],
+
+    "@lucent/host-core": ["@lucent/host-core@workspace:packages/host-core"],
+
+    "@lucent/host-expo": ["@lucent/host-expo@workspace:packages/host-expo"],
 
     "@lucent/types": ["@lucent/types@workspace:packages/types"],
 
