@@ -1,13 +1,13 @@
 # Lucent website
 
-A React 19 app built with Vite 8, StyleX, and TanStack Router. It belongs to
-the repository's Bun workspace and uses the root `bun.lock`.
+A React 19 app built with Vite+, StyleX, and TanStack Router. It belongs to
+the repository's pnpm workspace and uses the root `pnpm-lock.yaml`.
 
 From the repository root:
 
 ```sh
-bun install
-bun run dev
+pnpm install
+pnpm --filter @lucent-lang/website dev
 ```
 
 Open http://127.0.0.1:5173. Vite uses its default development port and provides
@@ -16,13 +16,12 @@ React Fast Refresh. The homepage is `/`; the language reference is `/language/`.
 ## Checks and production
 
 ```sh
-bun run --cwd apps/website typecheck
-bun run build
-bun run preview
+pnpm --filter @lucent-lang/website typecheck
+pnpm --filter @lucent-lang/website build
+pnpm --filter @lucent-lang/website preview
 ```
 
-`bun run start` is an alias for the local production preview. The preview uses
-Vite's default port, http://127.0.0.1:4173.
+The local production preview uses Vite's default port, http://127.0.0.1:4173.
 Deploy the generated `dist/` directory to a static host with an SPA fallback
 that serves `index.html` for application routes such as `/language/`.
 `public/_redirects` supplies this rewrite for compatible hosts.
@@ -33,14 +32,16 @@ Do not edit `dist/`; each build replaces it.
 Import this repository into Vercel with the **Root Directory set to the repository
 root** (`.`), not `apps/website`. The root `vercel.json` sets:
 
-- Install command: `bun install --frozen-lockfile`
-- Build command: `bun run build`
-- Development command: `bun run dev`
+- Build command: `pnpm run website:build`
+- Development command: `pnpm run website`
 - Output directory: `apps/website/dist`
+
+Installation uses Vercel's default pnpm detection, with pnpm 9.1.2 pinned in the
+root `packageManager` field. There is no custom install command.
 
 The SPA rewrite serves `index.html` for direct visits to routes such as
 `/language/`. Vercel serves the built static files; it does not need to run
-`bun run start` in production. The existing `build:packages` command continues
+the preview server in production. The existing `build:packages` command continues
 to build the compiler packages separately.
 
 ## Source

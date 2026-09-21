@@ -21,7 +21,7 @@ rationale and verified external API contracts are in the plan referenced there.
 
 ## Requirements
 
-- Node 22.12+ and pnpm 12
+- Node 22.12+ and pnpm 9.1.2
 - Xcode 27 with an iOS 26 simulator, `swiftc`
 - `kotlinc` (`brew install kotlin`) and a JDK
 - Android SDK with an emulator image (for the Android end-to-end check)

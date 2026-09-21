@@ -16,6 +16,8 @@
     "test": "vp test run",
     "test:watch": "vp test",
     "build:packages": "vp pack",
+    "website": "pnpm --filter @lucent-lang/website dev",
+    "website:build": "pnpm --filter @lucent-lang/website build",
     "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && tsx scripts/verify-native.ts",
     "lucent": "tsx packages/cli/src/main.ts",
     "tools": "tsx scripts/doctor.ts"
@@ -28,12 +30,31 @@
     "@types/node": "^24.7.0",
     "tsx": "^4.20.6",
     "typescript": "~5.9.3",
-    "vite": "catalog:",
-    "vite-plus": "catalog:",
-    "vitest": "catalog:"
+    "vite": "npm:@voidzero-dev/vite-plus-core@0.3.3",
+    "vite-plus": "0.3.3",
+    "vitest": "4.1.11"
   },
   "engines": {
     "node": ">=22.12"
   },
-  "packageManager": "pnpm@12.5.1"
+  "packageManager": "pnpm@9.1.2",
+  "pnpm": {
+    "overrides": {
+      "vite@*": "npm:@voidzero-dev/vite-plus-core@0.3.3",
+      "vitest@*": "4.1.11"
+    },
+    "peerDependencyRules": {
+      "allowAny": [
+        "vite",
+        "vitest"
+      ],
+      "allowedVersions": {
+        "vite": "*",
+        "vitest": "*"
+      }
+    },
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
 }
