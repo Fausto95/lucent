@@ -2,9 +2,10 @@
   "extends": "../tsconfig.json",
   "compilerOptions": {
     "exactOptionalPropertyTypes": false,
+    "noUncheckedIndexedAccess": false,
     "noUnusedParameters": false,
     "types": ["../packages/types"]
   },
   "include": ["**/*.lucent.ts"],
-  "exclude": []
+  "exclude": ["diagnostics"]
 }
