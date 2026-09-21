@@ -57,8 +57,8 @@ Public API: `compile(source, { fileName }) → { module: IRModule | null, diagno
 - [x] `src/parser/index.ts` — `parseModule(source, fileName)` on `oxc-parser` `parseSync(lang:"ts")`; maps oxc errors → `NT1000`, unsupported nodes → `NT1001`, foreign imports → `NT1006`
 - [x] `src/types/native-type.ts` — `NativeType` union (`void bool string bytes float{32,64} int{8..64,signed} array map optional struct promise`), `typeToString`, `typeEquals`
 - [x] `src/types/resolve.ts` — `resolveType(SurfaceType, scope)` lookup-table resolver; `NT1003/NT1004/NT1005`
-- [ ] Red tests: `test/checker.test.ts` — scopes, inference from initializer, assignability, arity, `await` in async only, `Promise` only as async return, struct field access, dynamic access `NT1002`, missing annotation `NT1014`, missing return `NT1015`, const assignment `NT1016`, > 8 params `NT1007`
-- [ ] `src/checker/` — typed surface AST (every expression annotated with `NativeType`), module symbol table (structs, functions, sized types imported from `@lucent/types`)
+- [x] Red tests: `test/checker.test.ts` — scopes, inference from initializer, assignability, arity, `await` in async only, `Promise` only as async return, struct field access, dynamic access `NT1002`, missing annotation `NT1014`, missing return `NT1015`, const assignment `NT1016`, > 8 params `NT1007`
+- [x] `src/checker/` — typed surface AST (every expression annotated with `NativeType`), module symbol table (structs, functions, sized types imported from `@lucent/types`)
 - [ ] Red tests: `test/lowering.test.ts` — golden IR text for `fixtures/*.lucent.ts`
 - [ ] `src/ir/` — `IRModule / IRStruct / IRFunction / IRBlock / IRInstr / Terminator`, builder, `printIR` text form
 - [ ] `src/lowering/` — typed AST → block IR; structured-region hints so backends can re-emit `if`/`while`; `for…of` → index loop; `&&`/`||` → branches; template literal → concat chain

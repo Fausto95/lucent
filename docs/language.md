@@ -39,8 +39,14 @@ Rules:
 - `Promise<T>` is legal only as the declared return type of an `async` function.
   An `async` function must declare `Promise<T>`; a sync one must not.
 - Unions other than `T | null` / `T | undefined` → `NT1003 Unsupported type`.
-- `any`, `unknown` → `NT1004`. `never`, `object`, `symbol`, `bigint`, tuples,
-  function types, generics, classes, interfaces, enums → `NT1003`.
+- `any`, `unknown` → `NT1004`. Function types → `NT1005`. `never`, `object`,
+  `symbol`, `bigint`, tuples, generics, classes, interfaces, enums → `NT1003`.
+- Optionals must be narrowed before use: `if (x === null) { … }` or
+  `if (x !== null) { … }` on a local or parameter, including the early-return
+  form. There is no truthiness: `if (x)` is `NT1011` unless `x` is a boolean.
+- Numeric types never convert implicitly; `int32 + number` is `NT1011`. Integer
+  literals adopt the sized type of their context.
+- `await` outside an `async` function is a parse error (`NT1000`).
 - A function may take at most 8 parameters → `NT1007 Too many parameters`.
 - Parameters and return types must be annotated. Locals may be inferred from
   their initializer.

@@ -9,7 +9,7 @@ function check(source: string) {
   return checkModule(parsed.module);
 }
 
-const codes = (source: string) => check(source).diagnostics.map((d) => d.code);
+const codes = (source: string): string[] => check(source).diagnostics.map((d) => d.code);
 
 const ok = (source: string) => {
   const result = check(source);
@@ -127,7 +127,6 @@ describe("checkModule", () => {
     ["return type", `export function f(): number { return "x"; }`, ["NT1011"]],
     ["assign to const", `export function f(): number { const a = 1; a = 2; return a; }`, ["NT1016"]],
     ["assignment type", `export function f(): number { let a = 1; a = "x"; return a; }`, ["NT1011"]],
-    ["await outside async", `async function g(): Promise<number> { return 1; } export function f(): number { return await g(); }`, ["NT1013"]],
     ["await non-promise", `export async function f(): Promise<number> { return await 1; }`, ["NT1011"]],
     ["if test must be bool", `export function f(a: number): number { if (a) { return 1; } return 2; }`, ["NT1011"]],
     ["mixed numeric types", `import type { int32 } from "@lucent/types"; export function f(a: int32, b: number): number { return a + b; }`, ["NT1011"]],
