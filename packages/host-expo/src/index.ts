@@ -261,11 +261,13 @@ function kotlinModule(module: IRModule): string {
   ].join("\n");
 }
 
+/** Constructor-parameter Records: named construction for the backend bodies, defaults for the JS bridge. */
 function kotlinRecord(s: GeneratedStruct, ir: IRStruct, structs: ReadonlyMap<string, IRStruct>): string[] {
   const fields = ir.fields.map(
-    (f, i) => `  @Field var ${f.name}: ${s.fields[i]!.type} = ${kotlinDefault(f.type, structs)}`,
+    (f, i) => `  @Field var ${f.name}: ${s.fields[i]!.type} = ${kotlinDefault(f.type, structs)},`,
   );
-  return [`class ${s.name} : Record {`, ...fields, "}"];
+  fields[fields.length - 1] = fields[fields.length - 1]!.replace(/,$/, "");
+  return [`class ${s.name}(`, ...fields, ") : Record"];
 }
 
 /** `Function("name") { a: Double -> name(a) }` or its `AsyncFunction … Coroutine` form, with boundary conversions. */
