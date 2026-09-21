@@ -45,18 +45,18 @@ committed red before the implementation commit that turns them green.
 - [x] `docs/language.md` v1 language contract — `docs: define the Lucent language subset`
 - [x] Git remote `github.com/Fausto95/lucent`, no AI co-author trailers in commits
 - [ ] `scripts/doctor.ts` — checks bun, node, swiftc, kotlinc, xcodebuild, Android SDK
-- [ ] README kept in sync with progress (this list)
+- [~] README kept in sync with progress (this list)
 
 ### 1. `packages/compiler` — pure, no IO
 
 Public API: `compile(source, { fileName }) → { module: IRModule | null, diagnostics }`.
 
 - [x] Red tests: `test/parser.test.ts`, `test/types.test.ts`
-- [~] `src/diagnostics/` — `Diagnostic { code, message, span, help? }`, code table (`NT1000`–`NT1016`), `renderDiagnostic(d, source, fileName)` codeframe renderer
-- [~] `src/parser/surface.ts` — closed surface AST (types, statements, expressions); the only place ESTree is visible is `src/parser/index.ts`
-- [~] `src/parser/index.ts` — `parseModule(source, fileName)` on `oxc-parser` `parseSync(lang:"ts")`; maps oxc errors → `NT1000`, unsupported nodes → `NT1001`, foreign imports → `NT1006`
-- [~] `src/types/native-type.ts` — `NativeType` union (`void bool string bytes float{32,64} int{8..64,signed} array map optional struct promise`), `typeToString`, `typeEquals`
-- [~] `src/types/resolve.ts` — `resolveType(SurfaceType, scope)` lookup-table resolver; `NT1003/NT1004/NT1005`
+- [x] `src/diagnostics/` — `Diagnostic { code, message, span, help? }`, code table (`NT1000`–`NT1016`), `renderDiagnostic(d, source, fileName)` codeframe renderer
+- [x] `src/parser/surface.ts` — closed surface AST (types, statements, expressions); the only place ESTree is visible is `src/parser/index.ts`
+- [x] `src/parser/index.ts` — `parseModule(source, fileName)` on `oxc-parser` `parseSync(lang:"ts")`; maps oxc errors → `NT1000`, unsupported nodes → `NT1001`, foreign imports → `NT1006`
+- [x] `src/types/native-type.ts` — `NativeType` union (`void bool string bytes float{32,64} int{8..64,signed} array map optional struct promise`), `typeToString`, `typeEquals`
+- [x] `src/types/resolve.ts` — `resolveType(SurfaceType, scope)` lookup-table resolver; `NT1003/NT1004/NT1005`
 - [ ] Red tests: `test/checker.test.ts` — scopes, inference from initializer, assignability, arity, `await` in async only, `Promise` only as async return, struct field access, dynamic access `NT1002`, missing annotation `NT1014`, missing return `NT1015`, const assignment `NT1016`, > 8 params `NT1007`
 - [ ] `src/checker/` — typed surface AST (every expression annotated with `NativeType`), module symbol table (structs, functions, sized types imported from `@lucent/types`)
 - [ ] Red tests: `test/lowering.test.ts` — golden IR text for `fixtures/*.lucent.ts`

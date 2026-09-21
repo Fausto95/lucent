@@ -49,7 +49,7 @@ describe("resolveType", () => {
   ])("%s → %s", (ts, code) => {
     const result = typeOf(ts);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.diagnostic.code).toBe(code);
+    if (!result.ok) expect<string>(result.diagnostic.code).toBe(code);
   });
 
   test("optional of optional collapses", () => {
