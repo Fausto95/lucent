@@ -1,0 +1,7 @@
+module add
+
+export fn add(a: float64, b: float64) -> float64
+  return (add a b)
+
+export fn multiply(a: float64, b: float64) -> float64
+  return (mul a b)

@@ -174,7 +174,7 @@ class FunctionChecker {
 
   check(): TStmt[] {
     this.push();
-    for (const p of this.signature.params) this.declare(p.name, p.type, false);
+    for (const p of this.signature.params) this.declare(p.name, p.type, true);
     const body = this.fn.body.map((s) => this.stmt(s));
     this.pop();
     if (this.signature.returnType.kind !== "void" && !alwaysExits(body)) {
@@ -635,7 +635,7 @@ class FunctionChecker {
     if (t.kind === "array" || t.kind === "bytes") {
       const index = this.expr(e.index);
       if (!index.poisoned && !isNumeric(index.type)) return this.mismatch(e.index.span, T.float64, index.type);
-      return { kind: "index", object, index, type: t.kind === "array" ? t.element : T.int(8, false), span };
+      return { kind: "index", object, index, type: t.kind === "array" ? t.element : T.float64, span };
     }
     if (t.kind === "map") {
       const index = this.expr(e.index, T.string);

@@ -58,6 +58,8 @@ Rules:
 
 Not allowed: `var`, `switch`, `do … while`, `for … in`, `try` / `catch`,
 labels, `with`, `debugger`, function declarations inside functions, classes.
+Assignments, `++`/`--` and `push` are statements only, and `continue` inside a
+C-style `for` loop is rejected (the update step would be skipped).
 
 ## Expressions
 
@@ -87,7 +89,7 @@ labels, `with`, `debugger`, function declarations inside functions, classes.
   inside native code, exactly like Swift `Array` / Kotlin `List` would behave
   in the generated code.
 - `Uint8Array` crosses the boundary as an `ArrayBuffer`. Sync functions may
-  read it in place; async functions receive a copy.
+  read it in place; async functions receive a copy. Indexing yields a `number`.
 - A thrown `LucentError` reaches JavaScript as an `Error` with `code` and
   `message`, identically on Expo and Nitro hosts.
 

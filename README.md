@@ -59,12 +59,12 @@ Public API: `compile(source, { fileName }) → { module: IRModule | null, diagno
 - [x] `src/types/resolve.ts` — `resolveType(SurfaceType, scope)` lookup-table resolver; `NT1003/NT1004/NT1005`
 - [x] Red tests: `test/checker.test.ts` — scopes, inference from initializer, assignability, arity, `await` in async only, `Promise` only as async return, struct field access, dynamic access `NT1002`, missing annotation `NT1014`, missing return `NT1015`, const assignment `NT1016`, > 8 params `NT1007`
 - [x] `src/checker/` — typed surface AST (every expression annotated with `NativeType`), module symbol table (structs, functions, sized types imported from `@lucent/types`)
-- [ ] Red tests: `test/lowering.test.ts` — golden IR text for `fixtures/*.lucent.ts`
-- [ ] `src/ir/` — `IRModule / IRStruct / IRFunction / IRBlock / IRInstr / Terminator`, builder, `printIR` text form
-- [ ] `src/lowering/` — typed AST → block IR; structured-region hints so backends can re-emit `if`/`while`; `for…of` → index loop; `&&`/`||` → branches; template literal → concat chain
+- [x] Red tests: `test/lowering.test.ts` — golden IR text for `fixtures/*.lucent.ts`
+- [x] `src/ir/` — structured, typed IR (`IRStmt` / `IRExpr` / `IRPlace`) and `printIR` text form; see [docs/ir.md](docs/ir.md) for why it is not a CFG
+- [x] `src/lowering/` — typed AST → IR: unique locals, param shadows, `for` → `while`, `for…of` → `forEach`, compound assignment/update expansion, template → `concat`/`str`
 - [ ] `src/passes/` — constant folding, unreachable-block removal (small, optional)
-- [ ] `src/index.ts` — `compile()` wiring all phases; stops after the first phase that produced errors
-- [ ] `fixtures/` — `add`, `fibonacci`, `clamp`, `async-sum`, `struct-roundtrip`, `bytes`, `throw`, `diagnostics/*` with golden `.ir.txt` / `.diag.txt`
+- [x] `src/index.ts` — `compile()` wiring all phases; stops after the first phase that produced errors
+- [x] `fixtures/` — `add`, `fibonacci`, `clamp`, `async-sum`, `struct-roundtrip`, `bytes`, `throw`, `kitchen`, `diagnostics/*` with golden `.ir.txt` / `.diag.txt`
 
 ### 2. `packages/backend-swift`, `packages/backend-kotlin` — IR → source text
 

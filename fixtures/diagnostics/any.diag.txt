@@ -1,0 +1,9 @@
+error NT1004: `any` is prohibited
+
+Native functions cannot expose `any`.
+
+  ┌─ any.lucent.ts:1:28
+1 │ export function foo(value: any): number {
+  │                            ^^^
+
+Lucent needs to know the exact memory representation of every value crossing the native boundary. Use a concrete type such as `string`, `number`, or a struct type alias.

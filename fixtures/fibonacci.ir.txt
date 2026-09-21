@@ -1,0 +1,6 @@
+module fibonacci
+
+export fn fibonacci(n: float64) -> float64
+  if (le n 1)
+    return n
+  return (add (call fibonacci (sub n 1)) (call fibonacci (sub n 2)))

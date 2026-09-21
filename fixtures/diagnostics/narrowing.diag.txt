@@ -1,0 +1,9 @@
+error NT1011: Type mismatch
+
+Expected `string`, got `optional<string>`.
+
+  ┌─ narrowing.lucent.ts:2:10
+2 │   return name;
+  │          ^^^^
+
+The value may be null. Narrow it first: `if (x === null) { … }` or `if (x !== null) { … }`.

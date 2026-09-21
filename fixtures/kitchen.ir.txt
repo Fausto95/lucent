@@ -1,0 +1,28 @@
+module kitchen
+
+struct Stats { count: int32, labels: map<string>, values: array<float64> }
+
+fn label(stats: struct Stats, key: string) -> string
+  let %found: optional<string> = (mapget (field stats labels) key)
+  if (ne %found null)
+    return (unwrap %found)
+  return "none"
+
+export fn summarize(stats: struct Stats, key: string, verbose: bool) -> string
+  let %out: string = (call label stats key)
+  let %i: int32 = 0
+  while (lt %i (field stats count))
+    assign %out = (concat %out "!")
+    assign %i = (add %i 1)
+  let %evens: array<float64> = (array)
+  foreach %v: float64 in (field stats values)
+    if (and (eq (rem %v 2) 0) (gt %v 0))
+      push %evens %v
+    else
+      if (lt %v 0)
+        break
+      else
+        continue
+  if (or (not verbose) (eq (length %evens) 0))
+    return %out
+  return (concat %out " " (str (length %evens)) " " (str (neg %i)))
