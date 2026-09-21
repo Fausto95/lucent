@@ -43,8 +43,27 @@ test("rejects invalid package templates before native emission", () => {
     ).module,
   ).toBeNull();
 });
-test('reports malformed package metadata as diagnostics',()=>{
- const malformed={source:'',views:{Badge:{props:{title:{kind:'unknown'}},children:'none',swift:{template:'Text("")'},kotlin:{template:'Text("")'}}}};
- const result=compile('import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/ui"; export function Demo():NativeView{return <Badge/>;}',{fileName:'demo.lucent.tsx',libraries:{'@lucent-lang/widgets':malformed as LibraryModule}});
- expect(result.module).toBeNull();expect(result.diagnostics[0]?.code).toBe('NT1006');
+test("reports malformed package metadata as diagnostics", () => {
+  const malformed = {
+    source: "",
+    views: {
+      Badge: {
+        props: { title: { kind: "unknown" } },
+        children: "none",
+        swift: { template: 'Text("")' },
+        kotlin: { template: 'Text("")' },
+      },
+    },
+  };
+  const result = compile(
+    'import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/ui"; export function Demo():NativeView{return <Badge/>;}',
+    { fileName: "demo.lucent.tsx", libraries: { "@lucent-lang/widgets": malformed as LibraryModule } },
+  );
+  expect(result.module).toBeNull();
+  expect(result.diagnostics[0]?.code).toBe("NT1006");
+});
+test('retains native package capabilities',()=>{
+ const camera=structuredClone(library);camera.native={capabilities:['camera']};
+ const result=compile('import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/ui"; export function Demo():NativeView{return <Badge title="Camera"/>;}',{...options,libraries:{'@lucent-lang/widgets':camera}});
+ expect(result.module?.capabilities).toContain('camera');
 });
