@@ -12,3 +12,8 @@ test('rejects native callbacks at the JavaScript boundary',()=>{
  const result=compile(source.replace('function apply','export function apply'),{fileName:'callbacks.lucent.ts'});
  expect(result.module).toBeNull();expect(result.diagnostics.some(d=>d.code==='NT1005')).toBe(true);
 });
+test('checks platform requirements inside referenced callbacks',()=>{
+ const input='import type {NativeCallback} from "@lucent-lang/types"; import {onlyIOS} from "@lucent-lang/sdk/ios"; function run(callback:NativeCallback<()=>number>):number{return callback();} function ios():number{return onlyIOS();} export function result():number{return run(ios);}';
+ const result=compile(input,{fileName:'callbacks.lucent.ts',libraries:{'@lucent-lang/sdk/ios':{source:'export declare function onlyIOS():number;',bindings:{onlyIOS:{platforms:['ios'],swift:['return 1'],kotlin:[]}}}}});
+ expect(result.module).toBeNull();expect(result.diagnostics.some(d=>d.code==='NT2004')).toBe(true);
+});

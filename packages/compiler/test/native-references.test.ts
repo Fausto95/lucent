@@ -22,3 +22,6 @@ test("constructs and calls real native SDK references", () => {
 test("rejects writes to readonly native properties",()=>{
  expect(compile('import {MutableText} from "@lucent-lang/sdk/text"; export function f():void{const text=new MutableText("a");text.length=3;}',options).module).toBeNull();
 });
+test('rejects native property updates without crashing',()=>{
+ expect(compile('import {MutableText} from "@lucent-lang/sdk/text"; export function f():void{const text=new MutableText("a");text.length++;}',options).module).toBeNull();
+});
