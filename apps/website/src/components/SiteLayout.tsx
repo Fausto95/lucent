@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { styles } from "./SiteLayout.stylex";
-import { styles as sharedStyles } from "../styles/shared.stylex";
+import { Brand } from "./Brand";
 import { useEffect } from "react";
 import { Outlet, useLocation } from "@tanstack/react-router";
 import { ClipboardProvider } from "./ClipboardProvider";
@@ -25,15 +25,7 @@ export function SiteLayout() {
       </a>
       <div {...stylex.props(styles.pageShell)}>
         <header {...stylex.props(styles.header)}>
-          <Link to="/" aria-label="Lucent home" {...stylex.props(styles.brand)}>
-            <span aria-hidden="true" {...stylex.props(styles.brandMark)}>
-              <i {...stylex.props(styles.brandBarTall)}></i>
-              <i {...stylex.props(styles.brandBarMedium)}></i>
-              <i {...stylex.props(styles.brandBarShort)}></i>
-            </span>
-            {"lucent"}
-            <span {...stylex.props(sharedStyles.brandPeriod)}>{"."}</span>
-          </Link>
+          <Brand />
           <nav aria-label="Main navigation" {...stylex.props(styles.mainNav)}>
             <Link to="/" hash="how-it-works" {...stylex.props(styles.overviewNavLink)}>
               {"How it works"}
@@ -51,15 +43,7 @@ export function SiteLayout() {
         </header>
         <Outlet />
         <footer {...stylex.props(styles.footer)}>
-          <Link to="/" {...stylex.props(styles.footerBrand)}>
-            <span aria-hidden="true" {...stylex.props(styles.footerBrandMark)}>
-              <i {...stylex.props(styles.brandBarTall)}></i>
-              <i {...stylex.props(styles.brandBarMedium)}></i>
-              <i {...stylex.props(styles.brandBarShort)}></i>
-            </span>
-            {"lucent"}
-            <span {...stylex.props(sharedStyles.brandPeriod)}>{"."}</span>
-          </Link>
+          <Brand compact />
           <p {...stylex.props(styles.footerTagline)}>{"A little TypeScript. A lot more native."}</p>
           <div {...stylex.props(styles.footerLinks)}>
             <a href="https://github.com/Fausto95/lucent" {...stylex.props(styles.footerLink)}>

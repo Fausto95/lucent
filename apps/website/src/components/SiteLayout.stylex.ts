@@ -37,51 +37,6 @@ export const styles = stylex.create({
     borderBottomStyle: "solid",
     borderBottomColor: "#30362b",
   },
-  brand: {
-    display: "inline-flex",
-    alignItems: "center",
-    fontWeight: 650,
-    fontSize: {
-      default: "2rem",
-      "@media (max-width: 540px)": "1.75rem",
-    },
-    letterSpacing: "-1.8px",
-  },
-  brandMark: {
-    display: "flex",
-    gap: "4px",
-    alignItems: "flex-end",
-    height: "29px",
-    marginRight: {
-      default: "12px",
-      "@media (max-width: 540px)": "7px",
-    },
-    transform: {
-      default: null,
-      "@media (max-width: 540px)": "scale(0.85)",
-    },
-  },
-  brandBarTall: {
-    backgroundColor: "#c4f778",
-    display: "block",
-    width: "6px",
-    height: "29px",
-    transform: "skewY(-15deg)",
-  },
-  brandBarMedium: {
-    backgroundColor: "#c4f778",
-    display: "block",
-    width: "6px",
-    height: "21px",
-    transform: "skewY(-15deg)",
-  },
-  brandBarShort: {
-    backgroundColor: "#c4f778",
-    display: "block",
-    width: "6px",
-    height: "13px",
-    transform: "skewY(-15deg)",
-  },
   mainNav: {
     display: "flex",
     gap: {
@@ -184,34 +139,6 @@ export const styles = stylex.create({
       default: null,
       "@media (max-width: 850px)": "wrap",
     },
-  },
-  footerBrand: {
-    ":hover": {
-      color: "#c4f778",
-    },
-    display: "inline-flex",
-    alignItems: "center",
-    fontWeight: 650,
-    fontSize: {
-      default: "1.5625rem",
-      "@media (max-width: 540px)": "1.4375rem",
-    },
-    letterSpacing: "-1.8px",
-  },
-  footerBrandMark: {
-    display: "flex",
-    gap: "4px",
-    alignItems: "flex-end",
-    height: "29px",
-    marginRight: {
-      default: "4px",
-      "@media (max-width: 540px)": "7px",
-    },
-    transform: {
-      default: "scale(0.75)",
-      "@media (max-width: 540px)": "scale(0.85)",
-    },
-    transformOrigin: "left center",
   },
   footerTagline: {
     fontSize: {

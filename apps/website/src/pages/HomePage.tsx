@@ -59,21 +59,36 @@ export function HomePage() {
           {"your native stack."}
         </span>
         <div {...stylex.props(styles.platformItem)}>
-          <span aria-hidden="true" {...stylex.props(styles.stackGlyph)}>
-            {"⌘"}
-          </span>
+          <img
+            src="/brand/react-native.svg"
+            alt=""
+            aria-hidden="true"
+            width="32"
+            height="32"
+            {...stylex.props(styles.platformLogo)}
+          />
           {" React Native"}
         </div>
         <div {...stylex.props(styles.platformItem)}>
-          <svg viewBox="0 0 30 26" aria-hidden="true" {...stylex.props(styles.expoIcon)}>
-            <path d="m5 21 9-16q1-2 2 0l9 16M10 21l5-9 5 9"></path>
-          </svg>
+          <img
+            src="/brand/expo.svg"
+            alt=""
+            aria-hidden="true"
+            width="32"
+            height="32"
+            {...stylex.props(styles.platformLogo)}
+          />
           {" Expo Modules"}
         </div>
         <div {...stylex.props(styles.platformItem)}>
-          <span aria-hidden="true" {...stylex.props(styles.stackGlyph2)}>
-            {"ϟ"}
-          </span>
+          <img
+            src="/brand/nitro.png"
+            alt=""
+            aria-hidden="true"
+            width="32"
+            height="32"
+            {...stylex.props(styles.platformLogo)}
+          />
           {" Nitro Modules"}
         </div>
         <span {...stylex.props(styles.platformNote)}>

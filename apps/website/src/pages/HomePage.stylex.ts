@@ -248,37 +248,12 @@ export const styles = stylex.create({
     },
     color: "#cbd1c4",
   },
-  stackGlyph: {
-    fontSize: {
-      default: "2.0625rem",
-      "@media (max-width: 540px)": "1.5rem",
-    },
-    lineHeight: 1,
-    color: "#aab69e",
-  },
-  expoIcon: {
-    height: {
-      default: "27px",
-      "@media (max-width: 540px)": "22px",
-    },
-    width: {
-      default: "30px",
-      "@media (max-width: 540px)": "22px",
-    },
-    stroke: "#aab69e",
-    strokeLinecap: "round",
-    strokeLinejoin: "round",
-    strokeWidth: "3",
-    fill: "none",
-  },
-  stackGlyph2: {
-    fontSize: {
-      default: "2.4375rem",
-      "@media (max-width: 540px)": "1.875rem",
-    },
-    lineHeight: 1,
-    color: "#aab69e",
-    transform: "skewX(-12deg)",
+  platformLogo: {
+    display: "block",
+    width: { default: 32, "@media (max-width: 540px)": 24 },
+    height: { default: 32, "@media (max-width: 540px)": 24 },
+    objectFit: "contain",
+    flexShrink: 0,
   },
   platformNote: {
     fontSize: "0.75rem",
