@@ -18,6 +18,6 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["packages/*/src", "packages/*/test", "scripts", "fixtures/**/*.ts"],
-  "exclude": ["node_modules", "apps", "**/.lucent"]
+  "include": ["packages/*/src", "packages/*/test", "scripts"],
+  "exclude": ["node_modules", "apps", "fixtures", "**/.lucent"]
 }

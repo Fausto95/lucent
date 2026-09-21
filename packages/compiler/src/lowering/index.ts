@@ -271,7 +271,10 @@ function placeToExpr(p: IRPlace): IRExpr {
 function collectAssignedNames(stmts: TStmt[], candidates: ReadonlySet<string>): Set<string> {
   const found = new Set<string>();
   const visitExpr = (e: TExpr): void => {
-    if ((e.kind === "assign" || e.kind === "update") && e.target.kind === "identifier" && candidates.has(e.target.name)) found.add(e.target.name);
+    if (e.kind === "assign" || e.kind === "update") {
+      const root = rootIdentifier(e.target);
+      if (root && candidates.has(root)) found.add(root);
+    }
     for (const child of childrenOf(e)) visitExpr(child);
   };
   const visit = (list: TStmt[]): void => {
@@ -318,6 +321,13 @@ function collectAssignedNames(stmts: TStmt[], candidates: ReadonlySet<string>): 
   };
   visit(stmts);
   return found;
+}
+
+/** The identifier at the root of a place chain: `a`, `a.b`, `a[i].c` → `a`. */
+function rootIdentifier(e: TExpr): string | null {
+  if (e.kind === "identifier") return e.name;
+  if (e.kind === "member" || e.kind === "index") return rootIdentifier(e.object);
+  return null;
 }
 
 function childrenOf(e: TExpr): TExpr[] {

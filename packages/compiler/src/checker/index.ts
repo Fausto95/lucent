@@ -534,6 +534,11 @@ class FunctionChecker {
     if (op === "===" || op === "!==") {
       const comparable = left.poisoned || right.poisoned || typeEquals(left.type, right.type) || assignable(right.type, left.type) || assignable(left.type, right.type);
       if (!comparable) return this.mismatch(e.right.span, left.type, right.type);
+      const base = isOptional(left.type) ? left.type.value : left.type;
+      if (!isPrimitive(base)) {
+        this.report(diagnostic("NT1011", span, `\`${op}\` is only supported on strings, numbers, booleans and their optionals, not \`${typeToString(left.type)}\`.`, "Compare a field instead."));
+        return this.poison(span, T.bool);
+      }
       return { kind: "binary", operator: op, left, right, type: T.bool, span };
     }
     if (op === "+" && left.type.kind === "string" && right.type.kind === "string") {

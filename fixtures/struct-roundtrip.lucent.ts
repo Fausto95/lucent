@@ -13,7 +13,7 @@ export function birthday(user: User): User {
 
 export function describe(user: User): string {
   const nickname = user.nickname;
-  if (nickname === null) {
+  if (nickname === undefined) {
     return `${user.id} (${user.age})`;
   }
   return `${nickname} aka ${user.id}`;

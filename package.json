@@ -9,7 +9,7 @@
     "apps/*"
   ],
   "scripts": {
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p fixtures",
     "test": "bun test",
     "verify": "bun run typecheck && bun test && bun scripts/verify-native.ts",
     "doctor": "bun scripts/doctor.ts",

@@ -9,6 +9,20 @@
         "typescript": "~5.9.3",
       },
     },
+    "packages/backend-kotlin": {
+      "name": "@lucent/backend-kotlin",
+      "version": "0.0.0",
+      "dependencies": {
+        "@lucent/compiler": "workspace:*",
+      },
+    },
+    "packages/backend-swift": {
+      "name": "@lucent/backend-swift",
+      "version": "0.0.0",
+      "dependencies": {
+        "@lucent/compiler": "workspace:*",
+      },
+    },
     "packages/compiler": {
       "name": "@lucent/compiler",
       "version": "0.0.0",
@@ -17,9 +31,19 @@
         "oxc-parser": "0.151.0",
       },
     },
+    "packages/types": {
+      "name": "@lucent/types",
+      "version": "0.0.0",
+    },
   },
   "packages": {
+    "@lucent/backend-kotlin": ["@lucent/backend-kotlin@workspace:packages/backend-kotlin"],
+
+    "@lucent/backend-swift": ["@lucent/backend-swift@workspace:packages/backend-swift"],
+
     "@lucent/compiler": ["@lucent/compiler@workspace:packages/compiler"],
+
+    "@lucent/types": ["@lucent/types@workspace:packages/types"],
 
     "@oxc-parser/binding-android-arm-eabi": ["@oxc-parser/binding-android-arm-eabi@0.151.0", "", { "os": "android", "cpu": "arm" }, "sha512-QLfrdT2XmHMo8krBiKHtnTtU2ugxruwnIWMcIl5qpCRV9KPZk1s2YZzSHkIjzabLxG6/1yOoDLvqfS3TrJhfWA=="],
 
