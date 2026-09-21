@@ -3,6 +3,7 @@ import { DIAGNOSTIC_CODES, type DiagnosticCode } from "./codes.ts";
 export { DIAGNOSTIC_CODES, type DiagnosticCode };
 
 export interface Span {
+  readonly origin?: { readonly fileName: string; readonly source: string };
   readonly start: number;
   readonly end: number;
 }
@@ -42,6 +43,8 @@ export function positionOf(starts: readonly number[], offset: number): { line: n
 
 /** Renders a diagnostic in the Lucent codeframe format. */
 export function renderDiagnostic(d: Diagnostic, source: string, fileName: string): string {
+  source = d.span.origin?.source ?? source;
+  fileName = d.span.origin?.fileName ?? fileName;
   const starts = lineStarts(source);
   const { line, column } = positionOf(starts, d.span.start);
   const lineEnd = starts[line] !== undefined ? starts[line]! - 1 : source.length;

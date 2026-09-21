@@ -17,9 +17,14 @@
     "react-native": "0.88.0-rc.1"
   },
   "devDependencies": {
+    "@lucent-lang/events": "workspace:*",
     "@lucent-lang/expo": "workspace:*",
     "@lucent-lang/metro": "workspace:*",
+    "@lucent-lang/objects": "workspace:*",
+    "@lucent-lang/platform": "workspace:*",
+    "@lucent-lang/std": "workspace:*",
     "@lucent-lang/types": "workspace:*",
+    "@lucent-lang/ui": "workspace:*",
     "@types/react": "~19.3.0",
     "typescript": "~6.0.3"
   }

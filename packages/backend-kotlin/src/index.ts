@@ -1,8 +1,16 @@
+import { kotlinType } from "./types.ts";
+export { kotlinType } from "./types.ts";
+import { kotlinClass } from "./objects.ts";
+export { kotlinClass, kotlinObjectRuntime } from "./objects.ts";
+import { kotlinEventValue } from "./events.ts";
+export { kotlinEventRuntime } from "./events.ts";
 /**
  * IR → Kotlin. Emits data classes and function bodies only; hosts wrap them.
  * Generated code relies on a small runtime prelude (`LucentError`,
  * `LucentBytes`, `lucentStr`) that each host provides via `kotlinRuntime`.
  */
+import { kotlinView, kotlinViewImports } from "./views.ts";
+export { kotlinViewImports } from "./views.ts";
 import type { IRExpr, IRFunction, IRModule, IRPlace, IRStmt, IRStruct, NativeType } from "@lucent-lang/compiler";
 
 export interface GeneratedField {
@@ -11,12 +19,14 @@ export interface GeneratedField {
 }
 
 export interface GeneratedStruct {
+  reference?: boolean;
   name: string;
   exported: boolean;
   fields: GeneratedField[];
 }
 
 export interface GeneratedFunction {
+  view?: boolean;
   name: string;
   exported: boolean;
   async: boolean;
@@ -29,38 +39,9 @@ export interface GeneratedFunction {
 export interface GeneratedUnit {
   /** Standalone source: data classes and top-level functions, compilable against the runtime prelude. */
   code: string;
+  imports: string[];
   structs: GeneratedStruct[];
   functions: GeneratedFunction[];
-}
-
-const PRIMITIVES: Readonly<Record<string, string>> = {
-  void: "Unit",
-  bool: "Boolean",
-  string: "String",
-  bytes: "ArrayBuffer",
-};
-
-const INTS: Readonly<Record<string, string>> = { "8": "Byte", "16": "Short", "32": "Int", "64": "Long" };
-
-export function kotlinType(t: NativeType): string {
-  switch (t.kind) {
-    case "float":
-      return t.bits === 64 ? "Double" : "Float";
-    case "int":
-      return `${t.signed ? "" : "U"}${INTS[String(t.bits)]}`;
-    case "array":
-      return `MutableList<${kotlinType(t.element)}>`;
-    case "map":
-      return `Map<String, ${kotlinType(t.value)}>`;
-    case "optional":
-      return `${kotlinType(t.value)}?`;
-    case "struct":
-      return t.name;
-    case "promise":
-      return kotlinType(t.value);
-    default:
-      return PRIMITIVES[t.kind]!;
-  }
 }
 
 /** The plain-Kotlin LucentError used when no host supplies one (tests, verification). */
@@ -109,17 +90,28 @@ export const localName = (id: string): string => id.replace(/^%/, "").replace(/\
 
 export function generateKotlin(module: IRModule): GeneratedUnit {
   const structs = module.structs.map((s) => generateStruct(s));
-  const functions = module.functions.map((f) => generateFunction(f));
+  const functions = module.functions.map((f) => generateFunction(f, module));
+  const imports = [
+    ...new Set([
+      ...module.functions.flatMap((f) => f.binding?.kotlinImports ?? []),
+      ...(module.functions.some((f) => f.returnType.kind === "view") ? kotlinViewImports : []),
+    ]),
+  ];
   const code = [
-    ...structs.map((s) => `data class ${s.name}(\n${s.fields.map((f) => `  var ${f.name}: ${f.type}`).join(",\n")}\n)`),
+    ...imports.map((i) => `import ${i}`),
+    ...structs.map((s) =>
+      s.reference
+        ? kotlinClass(module.structs.find((ir) => ir.name === s.name)!)
+        : `data class ${s.name}(\n${s.fields.map((f) => `  var ${f.name}: ${f.type}`).join(",\n")}\n)`,
+    ),
     ...functions.map((f) => `${signature(f)} {\n${indent(f.body).join("\n")}\n}`),
   ].join("\n\n");
-  return { code: code + "\n", structs, functions };
+  return { code: code + "\n", structs, functions, imports };
 }
 
 export function signature(f: GeneratedFunction): string {
   const params = f.params.map((p) => `${p.name}: ${p.type}`).join(", ");
-  return `${f.async ? "suspend " : ""}fun ${f.name}(${params}): ${f.returnType}`;
+  return `${f.view ? "@Composable " : ""}${f.async ? "suspend " : ""}fun ${f.name}(${params}): ${f.returnType}`;
 }
 
 export const indent = (lines: string[], depth = 1): string[] =>
@@ -129,27 +121,45 @@ function generateStruct(s: IRStruct): GeneratedStruct {
   return {
     name: s.name,
     exported: s.exported,
+    ...(s.reference ? { reference: true } : {}),
     fields: s.fields.map((f) => ({ name: f.name, type: kotlinType(f.type) })),
   };
 }
 
-function generateFunction(f: IRFunction): GeneratedFunction {
+function generateFunction(f: IRFunction, module: IRModule): GeneratedFunction {
   const emitter = new KotlinEmitter(f);
+  const body = f.event
+    ? [
+        `LucentEventHub.emit(${JSON.stringify(f.event.id)}, ${kotlinEventValue("payload", f.params[0]?.type ?? { kind: "void" }, module)})`,
+      ]
+    : (f.binding?.kotlin.map((line) =>
+        f.thread && f.thread !== "caller" ? line.replace(/^(\s*)return\b/, "$1return@withContext") : line,
+      ) ?? emitter.block(f.body));
   return {
     name: f.name,
+    ...(f.returnType.kind === "view" ? { view: true } : {}),
     exported: f.exported,
     async: f.async,
     params: f.params.map((p) => ({ name: p.name, type: kotlinType(p.type) })),
     returnType: kotlinType(f.returnType),
-    body: emitter.block(f.body),
+    body:
+      f.thread && f.thread !== "caller"
+        ? [
+            `return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.${f.thread === "main" ? "Main" : "Default"}) {`,
+            ...indent(body),
+            "}",
+          ]
+        : body,
   };
 }
 
 class KotlinEmitter {
   private readonly mutable: ReadonlySet<string>;
   private readonly types: ReadonlyMap<string, NativeType>;
+  private readonly returnKeyword: string;
 
   constructor(f: IRFunction) {
+    this.returnKeyword = f.thread && f.thread !== "caller" ? "return@withContext" : "return";
     this.mutable = new Set(f.locals.filter((l) => l.mutable).map((l) => l.id));
     this.types = new Map(f.locals.map((l) => [l.id, l.type]));
   }
@@ -187,7 +197,7 @@ class KotlinEmitter {
       case "continue":
         return [s.op];
       case "return":
-        return [s.value ? `return ${this.expr(s.value)}` : "return"];
+        return [s.value ? `${this.returnKeyword} ${this.expr(s.value)}` : this.returnKeyword];
       case "throw":
         return [`throw LucentError(${str(s.code)}${s.message ? `, ${this.expr(s.message)}` : ""})`];
       case "expr":
@@ -214,6 +224,8 @@ class KotlinEmitter {
 
   expr(e: IRExpr): string {
     switch (e.op) {
+      case "view":
+        return kotlinView(e, (x) => this.expr(x));
       case "const":
         return constant(e.value, e.type);
       case "param":
@@ -315,4 +327,22 @@ function constant(value: number | string | boolean | null, type: NativeType): st
 /** Kotlin string literal: JSON escaping plus `$`, which would start a template. */
 export function str(s: string): string {
   return JSON.stringify(s).replace(/\$/g, "\\$");
+}
+
+/** Native namespace used by host view wrappers, independent of bridge types. */
+export function generateKotlinNamespace(module: IRModule, name: string): string {
+  const unit = generateKotlin(module);
+  const members = [
+    ...unit.structs
+      .filter((s) => !s.reference)
+      .map((s) => `data class ${s.name}(${s.fields.map((f) => `var ${f.name}: ${f.type}`).join(", ")})`),
+    ...unit.functions.map((f) => `${signature(f)} {\n${indent(f.body).join("\n")}\n}`),
+  ];
+  return [
+    ...unit.imports.map((i) => `import ${i}`),
+    `object ${name} {`,
+    ...indent(members.join("\n\n").split("\n")),
+    "}",
+    "",
+  ].join("\n");
 }

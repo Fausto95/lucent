@@ -8,8 +8,8 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compile } from "@lucent-lang/compiler";
-import { generateSwift, swiftRuntime } from "@lucent-lang/backend-swift";
-import { generateKotlin, kotlinRuntime } from "@lucent-lang/backend-kotlin";
+import { generateSwift, swiftRuntime, swiftEventRuntime, swiftObjectRuntime } from "@lucent-lang/backend-swift";
+import { generateKotlin, kotlinRuntime, kotlinEventRuntime, kotlinObjectRuntime } from "@lucent-lang/backend-kotlin";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -25,7 +25,9 @@ const work = mkdtempSync(join(tmpdir(), "lucent-verify-"));
 
 const SWIFT_RUNTIME =
   "typealias ArrayBuffer = [UInt8]\n\n" +
-  swiftRuntime({ length: "return Double(buffer.count)", get: "return Double(buffer[Int(index)])" });
+  swiftRuntime({ length: "return Double(buffer.count)", get: "return Double(buffer[Int(index)])" }) +
+  swiftEventRuntime +
+  swiftObjectRuntime;
 const KOTLIN_RUNTIME = (pkg: string) =>
   kotlinRuntime(
     {
@@ -34,7 +36,9 @@ const KOTLIN_RUNTIME = (pkg: string) =>
       get: "return (buffer[index.toInt()].toInt() and 0xff).toDouble()",
     },
     pkg,
-  ).replace(`package ${pkg}\n\n`, `package ${pkg}\n\ntypealias ArrayBuffer = ByteArray\n\n`);
+  ).replace(`package ${pkg}\n\n`, `package ${pkg}\n\ntypealias ArrayBuffer = ByteArray\n\n`) +
+  kotlinEventRuntime +
+  kotlinObjectRuntime;
 
 let failed = false;
 const kotlinFiles: string[] = [];
@@ -50,7 +54,14 @@ for (const name of names) {
   }
   const swiftFile = join(work, `${name}.swift`);
   writeFileSync(swiftFile, generateSwift(result.module).code);
-  const swift = run("swiftc", ["-typecheck", "-parse-as-library", join(work, "Runtime.swift"), swiftFile]);
+  const swift = run("swiftc", [
+    "-typecheck",
+    "-module-cache-path",
+    join(work, "swift-cache"),
+    "-parse-as-library",
+    join(work, "Runtime.swift"),
+    swiftFile,
+  ]);
   if (swift.exitCode === 0) console.log(`✓ swift   ${name}`);
   else {
     failed = true;

@@ -66,3 +66,5 @@ export function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 export function fromArrayBuffer(buffer: ArrayBuffer): Uint8Array {
   return new Uint8Array(buffer);
 }
+
+export { defineNativeClass, nativeObjectHandle, nativeObjectFromHandle } from "./objects.ts";

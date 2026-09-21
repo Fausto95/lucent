@@ -1,3 +1,4 @@
+import { emitViews } from "./views.ts";
 /**
  * Nitro Modules host: one library package with a HybridObject per Lucent module.
  * nitrogen owns the boundary types (its structs, arrays, and `number` for every
@@ -7,14 +8,32 @@
 import type { IRModule, NativeType } from "@lucent-lang/compiler";
 import {
   generateSwift,
+  swiftClass,
+  swiftObjectRuntime,
   swiftRuntime,
+  swiftEventRuntime,
   swiftType,
   indent,
   signature as swiftSignature,
 } from "@lucent-lang/backend-swift";
-import { generateKotlin, kotlinRuntime, kotlinType, signature as kotlinSignature } from "@lucent-lang/backend-kotlin";
+import {
+  generateKotlin,
+  kotlinClass,
+  kotlinObjectRuntime,
+  kotlinRuntime,
+  kotlinEventRuntime,
+  kotlinType,
+  signature as kotlinSignature,
+} from "@lucent-lang/backend-kotlin";
 import type { GeneratedFunction } from "@lucent-lang/backend-kotlin";
 import {
+  exportedViews,
+  viewName,
+  viewConfig,
+  viewProps,
+  withoutViews,
+  isReference,
+  classProxies,
   GENERATED_HEADER,
   runtimeImport,
   declarations,
@@ -25,6 +44,15 @@ import {
   type FileTree,
   type Host,
 } from "@lucent-lang/host-core";
+
+// Nitrogen emits these names directly into C++ method declarations.
+const CPP_KEYWORDS = new Set(
+  "alignas alignof and asm auto bitand bitor bool char char8_t char16_t char32_t compl concept const consteval constexpr constinit const_cast decltype delete double dynamic_cast enum explicit extern float friend inline int long mutable namespace noexcept not operator or private protected public register reinterpret_cast requires short signed sizeof static_assert static_cast struct template thread_local typedef typeid typename union unsigned using virtual void volatile wchar_t xor".split(
+    " ",
+  ),
+);
+const boundaryName = (name: string): string =>
+  CPP_KEYWORDS.has(name) || name.startsWith("lucent_") ? `lucent_${name}` : name;
 
 export const IOS_MODULE_NAME = "NitroLucent";
 export const ANDROID_NAMESPACE = "lucent";
@@ -80,13 +108,15 @@ function emitPackage(modules: IRModule[], options: EmitOptions): FileTree {
         ios: { iosModuleName: IOS_MODULE_NAME },
         android: { androidNamespace: [ANDROID_NAMESPACE], androidCxxLibName: IOS_MODULE_NAME },
         autolinking: Object.fromEntries(
-          modules.map((m) => [
-            hybridName(m),
-            {
-              ios: { language: "swift", implementationClassName: `Hybrid${hybridName(m)}` },
-              android: { language: "kotlin", implementationClassName: `Hybrid${hybridName(m)}` },
-            },
-          ]),
+          [...modules.map(hybridName), ...modules.flatMap((m) => exportedViews(m).map((f) => viewName(m, f)))].map(
+            (name) => [
+              name,
+              {
+                ios: { language: "swift", implementationClassName: `Hybrid${name}` },
+                android: { language: "kotlin", implementationClassName: `Hybrid${name}` },
+              },
+            ],
+          ),
         ),
         ignorePaths: ["**/node_modules"],
         gitAttributesGeneratedFlag: true,
@@ -102,30 +132,75 @@ function emitPackage(modules: IRModule[], options: EmitOptions): FileTree {
   );
   files.set(`${IOS_MODULE_NAME}.podspec`, podspec());
   files.set(`ios/${ident}Runtime.swift`, SWIFT_RUNTIME);
-  files.set("android/build.gradle", buildGradle());
+  files.set(
+    "android/build.gradle",
+    modules.some((m) => exportedViews(m).length) ? COMPOSE_BUILDSCRIPT + buildGradle() + COMPOSE_CONFIG : buildGradle(),
+  );
+  if (modules.some((m) => m.functions.some((f) => f.thread && f.thread !== "caller")))
+    files.set(
+      "android/build.gradle",
+      files.get("android/build.gradle") +
+        '\ndependencies { implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2" }\n',
+    );
   files.set("android/CMakeLists.txt", CMAKE);
   files.set("android/src/main/AndroidManifest.xml", "<manifest>\n</manifest>\n");
   files.set("android/src/main/cpp/cpp-adapter.cpp", CPP_ADAPTER);
-  files.set(`${ANDROID_DIR}/${ident}Package.kt`, PACKAGE_KT(ident));
+  files.set(
+    `${ANDROID_DIR}/${ident}Package.kt`,
+    PACKAGE_KT(
+      ident,
+      modules.flatMap((m) => exportedViews(m).map((f) => viewName(m, f))),
+    ),
+  );
   files.set(`${ANDROID_DIR}/${ident}Runtime.kt`, KOTLIN_RUNTIME);
   for (const module of modules) {
-    files.set(`src/specs/${hybridName(module)}.nitro.ts`, spec(module));
+    files.set(`src/specs/${hybridName(module)}.nitro.ts`, spec(withoutViews(module)));
     files.set(`ios/Hybrid${hybridName(module)}.swift`, swiftHybrid(module));
     files.set(`${ANDROID_DIR}/Hybrid${hybridName(module)}.kt`, kotlinHybrid(module));
   }
+  if (modules.some((m) => m.events?.length)) {
+    files.set("ios/LucentEvents.swift", swiftEventRuntime);
+    files.set(`${ANDROID_DIR}/LucentEvents.kt`, `package ${ANDROID_PACKAGE}\n\n` + kotlinEventRuntime);
+  }
+  if (modules.some((m) => m.structs.some((s) => s.reference))) {
+    files.set("ios/LucentObjects.swift", swiftObjectRuntime);
+    files.set(`${ANDROID_DIR}/LucentObjects.kt`, `package ${ANDROID_PACKAGE}\n\n` + kotlinObjectRuntime);
+    for (const s of modules.flatMap((m) => m.structs).filter((item) => item.reference)) {
+      files.set(`ios/${s.name}.swift`, swiftClass(s));
+      files.set(`${ANDROID_DIR}/${s.name}.kt`, `package ${ANDROID_PACKAGE}\n\n` + kotlinClass(s));
+    }
+  }
+  emitViews(files, modules, ANDROID_PACKAGE);
   return files;
 }
 
 function emitProxy(module: IRModule): { js: string; dts: string } {
-  const body = proxyFunctions(module, (fn, args) => `native.${fn.name}(${args.join(", ")})`, { nullAsUndefined: true });
+  const body =
+    proxyFunctions(module, (fn, args) => `native.${boundaryName(fn.name)}(${args.join(", ")})`, {
+      nullAsUndefined: true,
+    }) + (module.structs.some((s) => s.reference) ? "\n\n" + classProxies(module, true) : "");
   const js = [
     GENERATED_HEADER,
-    'import { NitroModules } from "react-native-nitro-modules";',
+    `import { NitroModules${exportedViews(module).length ? ", getHostComponent, callback" : ""} } from "react-native-nitro-modules";`,
+    ...(exportedViews(module).length ? ['import { createElement } from "react";'] : []),
     runtimeImport(body),
     "",
     `const native = NitroModules.createHybridObject(${JSON.stringify(hybridName(module))});`,
     "",
     body,
+    ...(module.events ?? [])
+      .filter((e) => e.exported)
+      .map(
+        (e) =>
+          `export const ${e.name} = { subscribe(listener) { const id = native.subscribe${moduleIdentifier(e.name)}((json) => listener(JSON.parse(json))); let active = true; return { remove() { if (active) { active = false; native.unsubscribe${moduleIdentifier(e.name)}(id); } } }; } };`,
+      ),
+    ...exportedViews(module).flatMap((f) => {
+      const events = viewProps(module, f).filter((p) => p.type.kind === "event");
+      return [
+        `const Native${f.name} = getHostComponent(${JSON.stringify(viewName(module, f))}, () => (${viewConfig(module, f)}));`,
+        `export function ${f.name}(props) { return createElement(Native${f.name}, { ...props, ${events.map((p) => `${p.name}: callback(props.${p.name})`).join(", ")} }); }`,
+      ];
+    }),
     "",
   ].join("\n");
   return { js, dts: GENERATED_HEADER + declarations(module) };
@@ -134,13 +209,17 @@ function emitProxy(module: IRModule): { js: string; dts: string } {
 // ---- nitro spec ----------------------------------------------------------------
 
 function specType(t: NativeType, module: IRModule): string {
+  if (isReference(t, module)) return "number";
   switch (t.kind) {
+    case "event":
+      return `(${t.payload.kind === "void" ? "" : `payload: ${specType(t.payload, module)}`}) => void`;
     case "float":
     case "int":
       return "number";
     case "bool":
       return "boolean";
     case "string":
+    case "view":
     case "void":
       return t.kind;
     case "bytes":
@@ -159,20 +238,22 @@ function specType(t: NativeType, module: IRModule): string {
 }
 
 function spec(module: IRModule): string {
-  const structs = module.structs.map(
-    (s) =>
-      `export interface ${nitroStructName(module, s.name)} {\n${s.fields
-        .map((f) =>
-          f.type.kind === "optional"
-            ? `  ${f.name}?: ${specType(f.type.value, module)};`
-            : `  ${f.name}: ${specType(f.type, module)};`,
-        )
-        .join("\n")}\n}`,
-  );
+  const structs = module.structs
+    .filter((s) => !s.reference)
+    .map(
+      (s) =>
+        `export interface ${nitroStructName(module, s.name)} {\n${s.fields
+          .map((f) =>
+            f.type.kind === "optional"
+              ? `  ${f.name}?: ${specType(f.type.value, module)};`
+              : `  ${f.name}: ${specType(f.type, module)};`,
+          )
+          .join("\n")}\n}`,
+    );
   const methods = exportedFunctions(module).map((fn) => {
     const params = fn.params.map((p) => `${p.name}: ${specType(p.type, module)}`).join(", ");
     const ret = fn.async ? `Promise<${specType(fn.returnType, module)}>` : specType(fn.returnType, module);
-    return `  ${fn.name}(${params}): ${ret};`;
+    return `  ${boundaryName(fn.name)}(${params}): ${ret};`;
   });
   return [
     GENERATED_HEADER,
@@ -181,6 +262,15 @@ function spec(module: IRModule): string {
     ...structs.flatMap((s) => [s, ""]),
     `export interface ${hybridName(module)} extends HybridObject<{ ios: 'swift'; android: 'kotlin' }> {`,
     ...methods,
+    ...(module.structs.some((s) => s.reference) ? ["  lucentRelease(handle: number): void;"] : []),
+    ...(module.events ?? []).flatMap((e) =>
+      e.exported
+        ? [
+            `  subscribe${moduleIdentifier(e.name)}(listener: (json: string) => void): number;`,
+            `  unsubscribe${moduleIdentifier(e.name)}(token: number): void;`,
+          ]
+        : [],
+    ),
     "}",
     "",
   ].join("\n");
@@ -211,6 +301,7 @@ struct LucentError: Error, CustomStringConvertible {
 
 /** nitrogen's Swift type for a spec type. */
 function nitroSwiftType(t: NativeType, module: IRModule): string {
+  if (isReference(t, module)) return "Double";
   switch (t.kind) {
     case "int":
       return "Double";
@@ -237,6 +328,10 @@ const swiftNeedsConversion = (t: NativeType): boolean =>
 
 /** Swift expression converting `value` between nitrogen's representation and the body's. */
 function swiftConvert(value: string, t: NativeType, direction: "toBody" | "toNitro", module: IRModule): string {
+  if (isReference(t, module) && t.kind === "struct")
+    return direction === "toBody"
+      ? `try LucentObjectRegistry.shared.get(${value}, ${t.name}.self)`
+      : `LucentObjectRegistry.shared.hold(${value})`;
   if (!swiftNeedsConversion(t)) return value;
   switch (t.kind) {
     case "int":
@@ -255,9 +350,9 @@ function swiftConvert(value: string, t: NativeType, direction: "toBody" | "toNit
 }
 
 function swiftHybrid(module: IRModule): string {
-  const unit = generateSwift(module);
+  const unit = generateSwift(withoutViews(module));
   const bodies: string[] = [];
-  for (const s of unit.structs) {
+  for (const s of unit.structs.filter((item) => !item.reference)) {
     const ir = module.structs.find((x) => x.name === s.name)!;
     bodies.push(
       `struct ${s.name} {`,
@@ -274,10 +369,33 @@ function swiftHybrid(module: IRModule): string {
       "",
     );
   }
-  for (const f of unit.functions) bodies.push(`static ${swiftSignature(f)} {`, ...indent(f.body), "}", "");
+  for (const f of unit.functions)
+    bodies.push(
+      `${f.thread === "main" ? "@MainActor " : ""}static ${swiftSignature({ ...f, thread: "caller" })} {`,
+      ...indent(f.body),
+      "}",
+      "",
+    );
   bodies.pop();
 
   const methods: string[] = [];
+  if (module.structs.some((s) => s.reference))
+    methods.push("func lucentRelease(handle: Double) throws { LucentObjectRegistry.shared.release(handle) }", "");
+  if (module.events?.some((e) => e.exported))
+    methods.push(
+      "private var eventTokens: Set<Int> = []",
+      "deinit { eventTokens.forEach { LucentEventHub.shared.remove($0) } }",
+    );
+  for (const e of (module.events ?? []).filter((event) => event.exported))
+    methods.push(
+      `func subscribe${moduleIdentifier(e.name)}(listener: @escaping (String) -> Void) throws -> Double {`,
+      `  let token = LucentEventHub.shared.subscribe(${JSON.stringify(e.id)}, listener)`,
+      "  eventTokens.insert(token)",
+      "  return Double(token)",
+      "}",
+      `func unsubscribe${moduleIdentifier(e.name)}(token: Double) throws { LucentEventHub.shared.remove(Int(token)); eventTokens.remove(Int(token)) }`,
+      "",
+    );
   for (const fn of exportedFunctions(module)) {
     const params = fn.params.map((p) => `${p.name}: ${nitroSwiftType(p.type, module)}`).join(", ");
     const args = fn.params.map((p) => `${p.name}: ${swiftConvert(p.name, p.type, "toBody", module)}`).join(", ");
@@ -287,7 +405,7 @@ function swiftHybrid(module: IRModule): string {
     if (fn.async) {
       const ret = nitroSwiftType(fn.returnType, module);
       methods.push(
-        `func ${fn.name}(${params}) throws -> Promise<${ret}> {`,
+        `func ${boundaryName(fn.name)}(${params}) throws -> Promise<${ret}> {`,
         "  return Promise.async {",
         ...(isVoid ? [`    try await ${call}`] : [`    let result = try await ${call}`, `    return ${result}`]),
         "  }",
@@ -296,8 +414,12 @@ function swiftHybrid(module: IRModule): string {
       );
     } else {
       methods.push(
-        `func ${fn.name}(${params}) throws -> ${nitroSwiftType(fn.returnType, module)} {`,
+        `func ${boundaryName(fn.name)}(${params}) throws -> ${nitroSwiftType(fn.returnType, module)} {`,
+        ...(fn.params.some((p) => isReference(p.type, module)) || isReference(fn.returnType, module)
+          ? ["  return try LucentObjectRegistry.shared.withLock {"]
+          : []),
         ...(isVoid ? [`  try ${call}`] : [`  let result = try ${call}`, `  return ${result}`]),
+        ...(fn.params.some((p) => isReference(p.type, module)) || isReference(fn.returnType, module) ? ["  }"] : []),
         "}",
         "",
       );
@@ -307,6 +429,7 @@ function swiftHybrid(module: IRModule): string {
   return [
     GENERATED_HEADER,
     "import Foundation",
+    ...unit.imports.map((i) => `import ${i}`),
     "import NitroModules",
     "",
     `class Hybrid${hybridName(module)}: Hybrid${hybridName(module)}Spec {`,
@@ -366,6 +489,7 @@ const KOTLIN_RUNTIME =
 
 /** nitrogen's Kotlin type for a spec type. */
 function nitroKotlinType(t: NativeType, module: IRModule): string {
+  if (isReference(t, module)) return "Double";
   switch (t.kind) {
     case "int":
       return "Double";
@@ -397,6 +521,10 @@ const kotlinNeedsConversion = (t: NativeType): boolean =>
   ((t.kind === "optional" || t.kind === "map") && kotlinNeedsConversion(t.value));
 
 function kotlinConvert(value: string, t: NativeType, direction: "toBody" | "toNitro", module: IRModule): string {
+  if (isReference(t, module) && t.kind === "struct")
+    return direction === "toBody"
+      ? `LucentObjectRegistry.get(${value}, ${t.name}::class.java)`
+      : `LucentObjectRegistry.hold(${value})`;
   if (!kotlinNeedsConversion(t)) return value;
   switch (t.kind) {
     case "int":
@@ -421,9 +549,9 @@ function kotlinConvert(value: string, t: NativeType, direction: "toBody" | "toNi
 }
 
 function kotlinHybrid(module: IRModule): string {
-  const unit = generateKotlin(module);
+  const unit = generateKotlin(withoutViews(module));
   const bodies: string[] = [];
-  for (const s of unit.structs) {
+  for (const s of unit.structs.filter((item) => !item.reference)) {
     const ir = module.structs.find((x) => x.name === s.name)!;
     const nitro = nitroStructName(module, s.name);
     bodies.push(
@@ -443,6 +571,23 @@ function kotlinHybrid(module: IRModule): string {
   bodies.pop();
 
   const methods: string[] = [];
+  if (module.structs.some((s) => s.reference))
+    methods.push("override fun lucentRelease(handle: Double) { LucentObjectRegistry.release(handle) }", "");
+  if (module.events?.some((e) => e.exported))
+    methods.push(
+      "private val eventTokens = java.util.Collections.synchronizedSet(mutableSetOf<Int>())",
+      "override fun dispose() { synchronized(eventTokens) { eventTokens.forEach { LucentEventHub.remove(it) }; eventTokens.clear() }; super.dispose() }",
+    );
+  for (const e of (module.events ?? []).filter((event) => event.exported))
+    methods.push(
+      `override fun subscribe${moduleIdentifier(e.name)}(listener: (String) -> Unit): Double {`,
+      `  val token = LucentEventHub.subscribe(${JSON.stringify(e.id)}, listener)`,
+      "  eventTokens.add(token)",
+      "  return token.toDouble()",
+      "}",
+      `override fun unsubscribe${moduleIdentifier(e.name)}(token: Double) { LucentEventHub.remove(token.toInt()); eventTokens.remove(token.toInt()) }`,
+      "",
+    );
   for (const fn of exportedFunctions(module)) {
     const gen: GeneratedFunction = unit.functions.find((f) => f.name === fn.name)!;
     const params = fn.params.map((p) => `${p.name}: ${nitroKotlinType(p.type, module)}`).join(", ");
@@ -453,7 +598,7 @@ function kotlinHybrid(module: IRModule): string {
     const result = isVoid ? "" : kotlinConvert("result", fn.returnType, "toNitro", module);
     if (fn.async) {
       methods.push(
-        `override fun ${fn.name}(${params}): Promise<${ret}> {`,
+        `override fun ${boundaryName(fn.name)}(${params}): Promise<${ret}> {`,
         "  return Promise.async {",
         ...(isVoid ? [`    ${call}`] : [`    val result = ${call}`, `    ${result}`]),
         "  }",
@@ -462,8 +607,17 @@ function kotlinHybrid(module: IRModule): string {
       );
     } else {
       methods.push(
-        `override fun ${fn.name}(${params}): ${ret} {`,
-        ...(isVoid ? [`  ${call}`] : [`  val result = ${call}`, `  return ${result}`]),
+        `override fun ${boundaryName(fn.name)}(${params}): ${ret} {`,
+        ...(fn.params.some((p) => isReference(p.type, module)) || isReference(fn.returnType, module)
+          ? ["  return LucentObjectRegistry.withLock {"]
+          : []),
+        ...(isVoid
+          ? [`  ${call}`]
+          : [
+              `  val result = ${call}`,
+              `  ${fn.params.some((p) => isReference(p.type, module)) || isReference(fn.returnType, module) ? "" : "return "}${result}`,
+            ]),
+        ...(fn.params.some((p) => isReference(p.type, module)) || isReference(fn.returnType, module) ? ["  }"] : []),
         "}",
         "",
       );
@@ -474,6 +628,7 @@ function kotlinHybrid(module: IRModule): string {
     GENERATED_HEADER,
     `package ${ANDROID_PACKAGE}`,
     "",
+    ...unit.imports.map((i) => `import ${i}`),
     "import androidx.annotation.Keep",
     "import com.facebook.proguard.annotations.DoNotStrip",
     "import com.margelo.nitro.core.ArrayBuffer",
@@ -601,16 +756,16 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {
 }
 `;
 
-const PACKAGE_KT = (ident: string) => `${GENERATED_HEADER}
+const PACKAGE_KT = (ident: string, views: string[]) => `${GENERATED_HEADER}
 package ${ANDROID_PACKAGE}
 
 import com.facebook.react.BaseReactPackage
 import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.module.model.ReactModuleInfoProvider
+import com.facebook.react.module.model.ReactModuleInfoProvider${views.length ? "\n" + views.map((name) => `import ${ANDROID_PACKAGE}.views.Hybrid${name}Manager`).join("\n") : ""}
 
 class ${ident}Package : BaseReactPackage() {
-  override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? = null
+${views.length ? `  override fun createViewManagers(reactContext: ReactApplicationContext): List<com.facebook.react.uimanager.ViewManager<*, *>> = listOf(${views.map((n) => `Hybrid${n}Manager()`).join(", ")})\n\n` : ""}  override fun getModule(name: String, reactContext: ReactApplicationContext): NativeModule? = null
 
   override fun getReactModuleInfoProvider(): ReactModuleInfoProvider = ReactModuleInfoProvider { HashMap() }
 
@@ -619,5 +774,20 @@ class ${ident}Package : BaseReactPackage() {
       ${IOS_MODULE_NAME}OnLoad.initializeNative()
     }
   }
+}
+`;
+
+const COMPOSE_BUILDSCRIPT = `buildscript {
+  repositories { google(); mavenCentral() }
+  dependencies { classpath("org.jetbrains.kotlin:compose-compiler-gradle-plugin:\${rootProject.ext.kotlinVersion}") }
+}
+`;
+const COMPOSE_CONFIG = `
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+android { buildFeatures { compose true } }
+dependencies {
+  implementation 'androidx.compose.ui:ui:1.7.6'
+  implementation 'androidx.compose.foundation:foundation:1.7.6'
+  implementation 'androidx.compose.material3:material3:1.3.1'
 }
 `;

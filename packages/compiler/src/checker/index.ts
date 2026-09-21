@@ -1,3 +1,5 @@
+import { checkBoundaries } from "./boundaries.ts";
+import { UI_PRIMITIVES } from "../ui.ts";
 import { diagnostic, type Diagnostic, type Span } from "../diagnostics/index.ts";
 import type { Expr, Stmt, SurfaceFunction, SurfaceModule, SurfaceType } from "../parser/surface.ts";
 import { isNumeric, T, typeEquals, typeToString, type NativeType } from "../types/native-type.ts";
@@ -89,9 +91,13 @@ class ModuleChecker {
     for (const fn of this.module.functions) {
       const signature = this.signatures.get(fn.name);
       if (!signature) continue;
-      const body = new FunctionChecker(this, fn, signature).check();
+      const body = fn.binding || fn.event ? [] : new FunctionChecker(this, fn, signature).check();
       functions.push({
         name: fn.name,
+        ...(fn.classOp ? { classOp: fn.classOp } : {}),
+        ...(fn.thread ? { thread: fn.thread } : {}),
+        ...(fn.event ? { event: fn.event } : {}),
+        ...(fn.binding ? { binding: fn.binding } : {}),
         exported: fn.exported,
         async: fn.async,
         params: signature.params,
@@ -100,9 +106,10 @@ class ModuleChecker {
         span: fn.span,
       });
     }
+    this.diagnostics.push(...checkBoundaries(this.module, this.structs, functions));
     const name = this.module.fileName
       .replace(/^.*[\\/]/, "")
-      .replace(/\.lucent\.ts$/, "")
+      .replace(/\.lucent\.tsx?$/, "")
       .replace(/\.ts$/, "");
     const typed: TypedModule = { name, fileName: this.module.fileName, structs: [...this.structs.values()], functions };
     return { module: this.diagnostics.length ? null : typed, diagnostics: this.diagnostics };
@@ -116,6 +123,10 @@ class ModuleChecker {
         continue;
       }
       seen.add(alias.name);
+      if (alias.type.kind === "union") {
+        this.collectUnion(alias.name, alias.exported, alias.type);
+        continue;
+      }
       if (alias.type.kind !== "object") {
         this.report(
           diagnostic(
@@ -127,18 +138,83 @@ class ModuleChecker {
         );
         continue;
       }
+      if (alias.type.fields.some((f) => f.type.kind === "literal")) {
+        this.collectUnion(alias.name, alias.exported, { kind: "union", members: [alias.type], span: alias.type.span });
+        continue;
+      }
       const fields: StructDef["fields"] = [];
       for (const field of alias.type.fields) {
         const type = this.resolveStorable(field.type, "a struct field");
         if (!type) continue;
         fields.push({ name: field.name, type: field.optional ? T.optional(type) : type });
       }
-      this.structs.set(alias.name, { name: alias.name, exported: alias.exported, fields });
+      this.structs.set(alias.name, {
+        name: alias.name,
+        exported: alias.exported,
+        fields,
+        ...(alias.reference ? { reference: alias.reference } : {}),
+      });
     }
+  }
+
+  private collectUnion(name: string, exported: boolean, type: Extract<SurfaceType, { kind: "union" }>): void {
+    const members = type.members.map((t) =>
+      t.kind === "reference" ? this.module.typeAliases.find((a) => a.name === t.name)?.type : t,
+    );
+    if (members.some((m) => m?.kind !== "object")) {
+      this.report(diagnostic("NT1003", type.span, "A discriminated union must contain record types."));
+      return;
+    }
+    const records = members as Extract<SurfaceType, { kind: "object" }>[];
+    const tag = records[0]?.fields.find(
+      (f) =>
+        !f.optional &&
+        f.type.kind === "literal" &&
+        records.every((r) => r.fields.some((g) => g.name === f.name && !g.optional && g.type.kind === "literal")),
+    )?.name;
+    if (!tag) {
+      this.report(
+        diagnostic("NT1003", type.span, "Union variants need a common required string-literal discriminant."),
+      );
+      return;
+    }
+    const variants: NonNullable<StructDef["union"]>["variants"] = [];
+    const storage = new Map<string, NativeType>();
+    for (const record of records) {
+      const discriminator = record.fields.find((f) => f.name === tag)!.type as Extract<
+        SurfaceType,
+        { kind: "literal" }
+      >;
+      if (variants.some((v) => v.tag === discriminator.value))
+        this.report(diagnostic("NT1011", discriminator.span, "Union tags must be unique."));
+      const fields: StructDef["fields"] = [];
+      for (const field of record.fields.filter((f) => f.name !== tag)) {
+        const t = this.resolveStorable(field.type, "a union field");
+        if (!t) continue;
+        const value = field.optional ? T.optional(t) : t;
+        const previous = storage.get(field.name);
+        if (previous && !typeEquals(previous, value))
+          this.report(diagnostic("NT1003", field.span, "Fields shared by variants must have the same type."));
+        storage.set(field.name, value);
+        fields.push({ name: field.name, type: value });
+      }
+      variants.push({ tag: discriminator.value, fields });
+    }
+    this.structs.set(name, {
+      name,
+      exported,
+      union: { tag, variants },
+      fields: [
+        { name: tag, type: T.string },
+        ...[...storage].map(([fieldName, t]) => ({ name: fieldName, type: T.optional(t) })),
+      ],
+    });
   }
 
   private collectSignatures(): void {
     for (const fn of this.module.functions) {
+      if (fn.thread && fn.thread !== "caller" && !fn.async)
+        this.report(diagnostic("NT1011", fn.span, "A thread hop requires an async function."));
       if (this.signatures.has(fn.name)) {
         this.report(diagnostic("NT1001", fn.span, `Duplicate function \`${fn.name}\`.`));
         continue;
@@ -177,6 +253,32 @@ class ModuleChecker {
       }
       const returnType = this.returnTypeOf(fn);
       if (!returnType) valid = false;
+      if (
+        returnType?.kind === "view" &&
+        (fn.async || params.length > 1 || (params.length === 1 && params[0]!.type.kind !== "struct"))
+      ) {
+        this.report(
+          diagnostic("NT1011", fn.span, "A native view is synchronous and accepts one props record or no parameters."),
+        );
+      }
+      if (returnType?.kind === "view" && params[0]?.type.kind === "struct") {
+        const props = this.structs.get(params[0].type.name)!;
+        if (
+          props.union ||
+          props.fields.some((p) => {
+            const t = p.type.kind === "optional" ? p.type.value : p.type;
+            return !(
+              (p.type.kind === "event" && t.kind === "event" && t.payload.kind === "void") ||
+              t.kind === "string" ||
+              t.kind === "bool" ||
+              (t.kind === "float" && t.bits === 64)
+            );
+          })
+        )
+          this.report(
+            diagnostic("NT1011", fn.span, "Native view props support string, number, boolean, and nullable values."),
+          );
+      }
       if (valid && returnType) this.signatures.set(fn.name, { params, returnType, async: fn.async });
     }
   }
@@ -244,6 +346,31 @@ class FunctionChecker {
           `\`${this.fn.name}\` must return a \`${typeToString(this.signature.returnType)}\` on every path.`,
         ),
       );
+    }
+    if (this.signature.returnType.kind === "view") {
+      const visit = (node: unknown): void => {
+        if (!node || typeof node !== "object") return;
+        if (Array.isArray(node)) {
+          node.forEach(visit);
+          return;
+        }
+        const item = node as Record<string, unknown>;
+        if (
+          ["assign", "update", "throw", "await", "methodCall", "while", "for", "forOf"].includes(String(item.kind)) ||
+          (item.kind === "call" && (item as unknown as TExpr).type.kind !== "view")
+        ) {
+          this.report(
+            diagnostic(
+              "NT1011",
+              this.fn.span,
+              "Native rendering must be pure: move effects and native operations to event handlers.",
+            ),
+          );
+          return;
+        }
+        for (const [key, value] of Object.entries(item)) if (key !== "type" && key !== "span") visit(value);
+      };
+      visit(body);
     }
     return body;
   }
@@ -447,7 +574,7 @@ class FunctionChecker {
 
   private ifStmt(s: Extract<Stmt, { kind: "if" }>): TStmt {
     const test = this.condition(s.test);
-    const narrowing = narrowingOf(test);
+    const narrowing = narrowingOf(test, this.mod.structs);
     const consequent = this.branch(s.consequent, narrowing?.whenTrue);
     const alternate = s.alternate ? this.branch(s.alternate, narrowing?.whenFalse) : null;
     // `if (x === null) return …;` narrows the rest of the enclosing block.
@@ -476,6 +603,8 @@ class FunctionChecker {
   private expr(e: Expr, expected?: NativeType): TExpr {
     const span = e.span;
     switch (e.kind) {
+      case "view":
+        return this.view(e);
       case "number":
         return this.numberLiteral(e, expected);
       case "string":
@@ -574,6 +703,46 @@ class FunctionChecker {
     }
   }
 
+  private view(e: Extract<Expr, { kind: "view" }>): TExpr {
+    const primitive = e.name.startsWith("__ui_") ? UI_PRIMITIVES[e.name.slice(5)] : undefined;
+    if (!primitive) {
+      const signature = this.mod.signatures.get(e.name);
+      if (!signature || signature.returnType.kind !== "view") {
+        this.report(diagnostic("NT1010", e.span, `Unknown native view ${e.name}.`));
+        return this.poison(e.span, T.view);
+      }
+      if (e.children.length)
+        this.report(diagnostic("NT1001", e.span, "Custom native view children are not supported; use typed props."));
+      return this.call({
+        kind: "call",
+        callee: e.name,
+        args: signature.params.length ? [{ kind: "object", properties: e.properties, span: e.span }] : [],
+        span: e.span,
+      });
+    }
+    const seen = new Set<string>();
+    const properties = e.properties.map((p) => {
+      const type = primitive.props[p.name];
+      if (!type || seen.has(p.name))
+        this.report(diagnostic("NT1011", p.span, `Unknown or duplicate ${e.name} prop ${p.name}.`));
+      seen.add(p.name);
+      const value = this.expr(p.value, type);
+      if (type && !this.fits(value, type)) this.mismatch(p.span, type, value.type);
+      return { name: p.name, value };
+    });
+    for (const name of primitive.required ?? [])
+      if (!seen.has(name)) this.report(diagnostic("NT1011", e.span, `Missing ${name} prop.`));
+    const children = e.children.map((c) => {
+      const child = this.expr(c);
+      if (primitive.children === "text" && isPrimitive(child.type))
+        return { kind: "template" as const, quasis: ["", ""], expressions: [child], type: T.string, span: c.span };
+      if (primitive.children !== "views" || child.type.kind !== "view")
+        this.report(diagnostic("NT1011", c.span, `Invalid child for ${e.name}.`));
+      return child;
+    });
+    return { kind: "view", name: e.name.slice(5), properties, children, type: T.view, span: e.span };
+  }
+
   private numberLiteral(e: Extract<Expr, { kind: "number" }>, expected: NativeType | undefined): TExpr {
     const context = expected && isOptional(expected) ? expected.value : expected;
     let type: NativeType = T.float64;
@@ -626,10 +795,18 @@ class FunctionChecker {
       );
       return this.poison(e.span, context);
     }
+    const union = struct.union;
+    const tag = union ? e.properties.find((p) => p.name === union.tag)?.value : undefined;
+    const variant = union?.variants.find((v) => tag?.kind === "string" && v.tag === tag.value);
+    if (union && !variant) {
+      this.report(diagnostic("NT1011", e.span, "Union construction needs a known literal tag."));
+      return this.poison(e.span, context);
+    }
+    const expectedFields = variant ? [{ name: union!.tag, type: T.string }, ...variant.fields] : struct.fields;
     const properties: { name: string; value: TExpr }[] = [];
     const seen = new Set<string>();
     for (const prop of e.properties) {
-      const field = struct.fields.find((f) => f.name === prop.name);
+      const field = expectedFields.find((f) => f.name === prop.name);
       if (!field) {
         this.report(diagnostic("NT1011", prop.span, `\`${struct.name}\` has no field \`${prop.name}\`.`));
         continue;
@@ -639,10 +816,15 @@ class FunctionChecker {
       if (!this.fits(value, field.type)) value = this.mismatch(prop.value.span, field.type, value.type);
       properties.push({ name: prop.name, value });
     }
-    for (const field of struct.fields) {
+    for (const field of expectedFields) {
       if (!seen.has(field.name))
         this.report(diagnostic("NT1011", e.span, `Missing field \`${field.name}\` of \`${struct.name}\`.`));
     }
+    if (union)
+      for (const field of struct.fields) {
+        if (!expectedFields.some((f) => f.name === field.name))
+          properties.push({ name: field.name, value: { kind: "null", type: field.type, span: e.span } });
+      }
     // Emit fields in declaration order so backends can use positional constructors.
     properties.sort(
       (a, b) => struct.fields.findIndex((f) => f.name === a.name) - struct.fields.findIndex((f) => f.name === b.name),
@@ -659,7 +841,11 @@ class FunctionChecker {
     if (binding.poisoned) return this.poison(span, binding.type);
     const id: TExpr = { kind: "identifier", name, type: binding.type, span };
     const narrowed = this.narrowed(name);
-    return narrowed ? { kind: "unwrap", argument: id, type: narrowed, span } : id;
+    return narrowed
+      ? narrowed.kind === "struct" && binding.type.kind === "struct"
+        ? { ...id, type: narrowed }
+        : { kind: "unwrap", argument: id, type: narrowed, span }
+      : id;
   }
 
   private binary(e: Extract<Expr, { kind: "binary" }>): TExpr {
@@ -737,7 +923,14 @@ class FunctionChecker {
       if (binding.poisoned) return this.poison(e.span, binding.type);
       return { kind: "identifier", name: e.name, type: binding.type, span: e.span };
     }
-    if (e.kind === "member") return this.member(e);
+    if (e.kind === "member") {
+      const object = this.expr(e.object);
+      if (object.type.kind === "struct" && this.mod.structs.get(object.type.name)?.union) {
+        this.report(diagnostic("NT1001", e.span, "Union values are immutable; replace the whole value."));
+        return this.poison(e.span);
+      }
+      return this.member(e);
+    }
     if (e.kind === "index") {
       const indexed = this.index(e);
       if (indexed.kind === "index" && indexed.object.type.kind === "map")
@@ -810,6 +1003,20 @@ class FunctionChecker {
         this.report(diagnostic("NT1010", span, `\`${t.name}\` has no field \`${e.property}\`.`));
         return this.poison(span);
       }
+      const union = this.mod.structs.get(t.name)?.union;
+      if (union && e.property !== union.tag) {
+        const variant =
+          union.variants.length === 1 ? union.variants[0] : union.variants.find((v) => v.tag === t.variant);
+        const payload = variant?.fields.find((f) => f.name === e.property);
+        if (!payload) {
+          this.report(diagnostic("NT1011", span, "Narrow the union discriminant before reading this field."));
+          return this.poison(span);
+        }
+        const member: TExpr = { kind: "member", object, property: e.property, type: field.type, span };
+        return payload.type.kind === "optional"
+          ? member
+          : { kind: "unwrap", argument: member, type: payload.type, span };
+      }
       return { kind: "member", object, property: e.property, type: field.type, span };
     }
     this.report(
@@ -852,6 +1059,14 @@ class FunctionChecker {
     const object = this.expr(e.object);
     const span = e.span;
     if (object.poisoned) return this.poison(span, T.void);
+    if (object.type.kind === "struct" && this.mod.structs.get(object.type.name)?.reference) {
+      return this.call({
+        kind: "call",
+        callee: `${object.type.name}__method_${e.method}`,
+        args: [e.object, ...e.args],
+        span,
+      });
+    }
     if (object.type.kind === "array" && e.method === "push") {
       const element = object.type.element;
       const args = e.args.map((arg) => {
@@ -875,12 +1090,37 @@ function narrowingHint(t: NativeType): string | undefined {
 }
 
 /** Recognises `x === null`, `x !== null`, `x === undefined`, `x !== undefined` on an optional identifier. */
-function narrowingOf(test: TExpr): {
+function narrowingOf(
+  test: TExpr,
+  structs: Map<string, StructDef>,
+): {
   name: string;
   whenTrue?: { name: string; type: NativeType };
   whenFalse?: { name: string; type: NativeType };
 } | null {
   if (test.kind !== "binary" || (test.operator !== "===" && test.operator !== "!==")) return null;
+  const [field, tag] = test.left.kind === "member" ? [test.left, test.right] : [test.right, test.left];
+  if (
+    field.kind === "member" &&
+    field.object.kind === "identifier" &&
+    field.object.type.kind === "struct" &&
+    tag.kind === "string"
+  ) {
+    const union = structs.get(field.object.type.name)?.union;
+    if (union && field.property === union.tag && union.variants.some((v) => v.tag === tag.value)) {
+      const name = field.object.name;
+      const equal = { name, type: { ...field.object.type, variant: tag.value } };
+      const remaining = union.variants.filter((v) => v.tag !== tag.value);
+      const different =
+        remaining.length === 1 ? { name, type: { ...field.object.type, variant: remaining[0]!.tag } } : undefined;
+      return {
+        name,
+        ...(test.operator === "==="
+          ? { whenTrue: equal, ...(different ? { whenFalse: different } : {}) }
+          : { whenFalse: equal, ...(different ? { whenTrue: different } : {}) }),
+      };
+    }
+  }
   const [id, lit] =
     test.left.kind === "identifier"
       ? [test.left, test.right]

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "vite-plus/test";
 import { createTransformer, type UpstreamTransformer } from "../src/transformer.ts";
 import { withLucent } from "../src/index.ts";
-import {mkdtempSync, writeFileSync, rmSync} from "node:fs";
-import {join} from "node:path";
-import {tmpdir} from "node:os";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 
 const calls: { src: string; filename: string }[] = [];
 const upstream: UpstreamTransformer = {
@@ -18,11 +18,19 @@ describe("lucent metro transformer", () => {
   test("resolves relative Metro filenames against projectRoot", async () => {
     const root = mkdtempSync(join(tmpdir(), "lucent-metro-"));
     try {
-      writeFileSync(join(root, "package.json"), '{}');
-      writeFileSync(join(root, "helper.lucent.ts"), 'export function helper():number{return 42;}');
-      const t = createTransformer({upstream, host:"expo"});
-      await expect(t.transform({src:'import {helper} from "./helper.lucent"; export function answer():number{return helper();}', filename:"main.lucent.ts",options:{projectRoot:root}})).resolves.toBeDefined();
-    } finally {rmSync(root,{recursive:true,force:true});}
+      writeFileSync(join(root, "package.json"), "{}");
+      writeFileSync(join(root, "helper.lucent.ts"), "export function helper():number{return 42;}");
+      const t = createTransformer({ upstream, host: "expo" });
+      await expect(
+        t.transform({
+          src: 'import {helper} from "./helper.lucent"; export function answer():number{return helper();}',
+          filename: "main.lucent.ts",
+          options: { projectRoot: root },
+        }),
+      ).resolves.toBeDefined();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
   test("replaces .lucent.ts sources with the host proxy before delegating", async () => {
     calls.length = 0;

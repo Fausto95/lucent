@@ -3,6 +3,8 @@ export type IntBits = 8 | 16 | 32 | 64;
 export type FloatBits = 32 | 64;
 
 export type NativeType =
+  | { readonly kind: "event"; readonly payload: NativeType }
+  | { readonly kind: "view" }
   | { readonly kind: "void" }
   | { readonly kind: "bool" }
   | { readonly kind: "string" }
@@ -12,10 +14,12 @@ export type NativeType =
   | { readonly kind: "array"; readonly element: NativeType }
   | { readonly kind: "map"; readonly value: NativeType }
   | { readonly kind: "optional"; readonly value: NativeType }
-  | { readonly kind: "struct"; readonly name: string }
+  | { readonly kind: "struct"; readonly name: string; readonly variant?: string }
   | { readonly kind: "promise"; readonly value: NativeType };
 
 export const T = {
+  event: (payload: NativeType): NativeType => ({ kind: "event", payload }),
+  view: { kind: "view" } as NativeType,
   void: { kind: "void" } as NativeType,
   bool: { kind: "bool" } as NativeType,
   string: { kind: "string" } as NativeType,
@@ -46,6 +50,8 @@ export const SIZED_NUMERIC_TYPES: Readonly<Record<string, NativeType>> = {
 
 export function typeToString(t: NativeType): string {
   switch (t.kind) {
+    case "event":
+      return `event<${typeToString(t.payload)}>`;
     case "float":
       return `float${t.bits}`;
     case "int":

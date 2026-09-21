@@ -182,10 +182,10 @@ describe("parseModule", () => {
     expect(module.functions.map((f) => f.name)).toEqual(["f", "g"]);
   });
 
-  test("loose equality, var, classes, and non-lucent imports are rejected", () => {
+  test("loose equality, var, class inheritance, and non-lucent imports are rejected", () => {
     const { diagnostics } = parse(`
       import { x } from "./other";
-      class Foo {}
+      class Foo extends Base {}
       export function f(a: number): boolean { var b = a; return b == 1; }
     `);
     expect(diagnostics.map((d) => d.code).toSorted()).toEqual(["NT1001", "NT1001", "NT1001", "NT1006"]);

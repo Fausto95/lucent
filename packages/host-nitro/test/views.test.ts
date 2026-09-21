@@ -17,13 +17,20 @@ test("registers generated hybrid native views and Fabric config", () => {
 });
 
 test("imports the generated Fabric managers from their views package", () => {
-  const module=compile('import {Text,type NativeView} from "@lucent-lang/ui"; export function Label():NativeView{return <Text>Hi</Text>;}',{fileName:"label.lucent.tsx"}).module!;
-  const tree=nitroHost.emitPackage([module],{packageName:"lucent"});
-  expect(tree.get("android/src/main/java/com/margelo/nitro/lucent/LucentPackage.kt")).toContain("import com.margelo.nitro.lucent.views.HybridLucentLabelLabelViewManager");
+  const module = compile(
+    'import {Text,type NativeView} from "@lucent-lang/ui"; export function Label():NativeView{return <Text>Hi</Text>;}',
+    { fileName: "label.lucent.tsx" },
+  ).module!;
+  const tree = nitroHost.emitPackage([module], { packageName: "lucent" });
+  expect(tree.get("android/src/main/java/com/margelo/nitro/lucent/LucentPackage.kt")).toContain(
+    "import com.margelo.nitro.lucent.views.HybridLucentLabelLabelViewManager",
+  );
 });
 test("escapes exported C++ method keywords without changing the JS API", () => {
-  const module=compile('export function double(value:number):number{return value*2;}',{fileName:"math.lucent.ts"}).module!;
-  const tree=nitroHost.emitPackage([module],{packageName:"lucent"});
+  const module = compile("export function double(value:number):number{return value*2;}", {
+    fileName: "math.lucent.ts",
+  }).module!;
+  const tree = nitroHost.emitPackage([module], { packageName: "lucent" });
   expect(tree.get("src/specs/Math.nitro.ts")).toContain("lucent_double(");
   expect(nitroHost.emitProxy(module).js).toContain("export function double(");
   expect(nitroHost.emitProxy(module).js).toContain("native.lucent_double(");

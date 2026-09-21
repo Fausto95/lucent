@@ -57,9 +57,12 @@ describe("Lucent module imports", () => {
 
 test("renders a dependency diagnostic against its own source", async () => {
   const { renderDiagnostic } = await import("../src/index.ts");
-  const source='import { broken } from "./dep.lucent"; export function f(): number {return broken();}';
-  const result=compile(source,{fileName:"root.lucent.ts",sources:{"dep.lucent.ts":'export function broken(): number { return "bad"; }'}});
-  const text=renderDiagnostic(result.diagnostics[0]!,source,"root.lucent.ts");
+  const source = 'import { broken } from "./dep.lucent"; export function f(): number {return broken();}';
+  const result = compile(source, {
+    fileName: "root.lucent.ts",
+    sources: { "dep.lucent.ts": 'export function broken(): number { return "bad"; }' },
+  });
+  const text = renderDiagnostic(result.diagnostics[0]!, source, "root.lucent.ts");
   expect(text).toContain("dep.lucent.ts");
   expect(text).toContain('return "bad"');
 });

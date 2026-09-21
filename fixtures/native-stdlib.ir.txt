@@ -1,0 +1,27 @@
+module native-stdlib
+
+fn lucentInternal_736b35a22321c26_abs(value: float64) -> float64
+
+fn lucentInternal_736b35a22321c26_sqrt(value: float64) -> float64
+
+fn lucentInternal_736b35a22321c26_floor(value: float64) -> float64
+
+fn lucentInternal_736b35a22321c26_ceil(value: float64) -> float64
+
+fn lucentInternal_736b35a22321c26_sin(value: float64) -> float64
+
+fn lucentInternal_736b35a22321c26_cos(value: float64) -> float64
+
+fn lucentInternal_736b35a22321c26_min(a: float64, b: float64) -> float64
+
+fn lucentInternal_736b35a22321c26_max(a: float64, b: float64) -> float64
+
+fn lucentInternal_2aaae6189ce4e2af_trim(value: string) -> string
+
+fn lucentInternal_2aaae6189ce4e2af_contains(value: string, search: string) -> bool
+
+export fn magnitude(value: float64) -> float64
+  return (call lucentInternal_736b35a22321c26_sqrt (call lucentInternal_736b35a22321c26_abs value))
+
+export fn matches(value: string) -> bool
+  return (call lucentInternal_2aaae6189ce4e2af_contains (call lucentInternal_2aaae6189ce4e2af_trim value) "lucent")

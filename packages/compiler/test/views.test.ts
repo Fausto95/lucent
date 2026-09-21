@@ -39,6 +39,8 @@ test("rejects effectful rendering and unsupported view boundaries", () => {
 });
 
 test("NativeProps provides the React Native wrapper surface", () => {
-  const text=source.replace('type NativeView','type NativeProps, type NativeView').replace('Card(props: Props)','Card(props: NativeProps<Props>)');
-  expect(compile(text,{fileName:"card.lucent.tsx"}).diagnostics).toEqual([]);
+  const text = source
+    .replace("type NativeView", "type NativeProps, type NativeView")
+    .replace("Card(props: Props)", "Card(props: NativeProps<Props>)");
+  expect(compile(text, { fileName: "card.lucent.tsx" }).diagnostics).toEqual([]);
 });

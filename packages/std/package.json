@@ -1,0 +1,14 @@
+{
+  "name": "@lucent-lang/std",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./math": {
+      "types": "./math.d.ts"
+    },
+    "./text": {
+      "types": "./text.d.ts"
+    }
+  }
+}

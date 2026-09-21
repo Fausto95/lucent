@@ -1,3 +1,4 @@
+import type { NativeBinding, ThreadContext } from "../libraries.ts";
 /**
  * Lucent IR: a structured, fully typed representation with every JavaScript-only
  * construct removed. Backends emit it directly; see docs/ir.md for the rationale.
@@ -16,6 +17,7 @@ interface Typed {
 }
 
 export type IRExpr =
+  | ({ op: "view"; name: string; props: { name: string; value: IRExpr }[]; children: IRExpr[] } & Typed)
   | ({ op: "const"; value: IRConst } & Typed)
   | ({ op: "param"; name: string } & Typed)
   | ({ op: "local"; id: LocalId } & Typed)
@@ -67,6 +69,10 @@ export interface IRParam {
 }
 
 export interface IRFunction {
+  classOp?: { className: string; member: string; kind: "constructor" | "method" | "get" | "set" };
+  event?: { name: string; id: string; exported: boolean };
+  thread?: ThreadContext;
+  binding?: NativeBinding;
   name: string;
   exported: boolean;
   async: boolean;
@@ -77,13 +83,29 @@ export interface IRFunction {
   body: IRStmt[];
 }
 
+export interface IRUnion {
+  tag: string;
+  variants: { tag: string; fields: { name: string; type: NativeType }[] }[];
+}
+
 export interface IRStruct {
+  reference?: { publicName: string; exported: boolean };
+  union?: IRUnion;
   name: string;
   exported: boolean;
   fields: { name: string; type: NativeType }[];
 }
 
+export interface IREvent {
+  name: string;
+  id: string;
+  exported: boolean;
+  payload: NativeType;
+}
+
 export interface IRModule {
+  events?: IREvent[];
+  capabilities?: string[];
   name: string;
   structs: IRStruct[];
   functions: IRFunction[];

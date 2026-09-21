@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
+import { loadLucentConfig, loadLucentSources } from "@lucent-lang/host-core";
 import { compile, renderDiagnostic } from "@lucent-lang/compiler";
 import { build, findLucentFiles, type HostName } from "./index.ts";
 
@@ -70,11 +71,21 @@ async function main(): Promise<number> {
     }
     case "check": {
       const files = args.files.length ? args.files.map((f) => join(root, f)) : findLucentFiles(root);
+      const config = loadLucentConfig(root);
       let failed = false;
       for (const file of files) {
         const source = readFileSync(file, "utf8");
-        const result = compile(source, { fileName: file });
+        const result = compile(source, {
+          fileName: file,
+          sources: loadLucentSources(file, source),
+          libraries: config.libraries,
+        });
         const rel = relative(root, file);
+        const missing = (result.module?.capabilities ?? []).filter((c) => !config.capabilities.includes(c));
+        if (missing.length) {
+          console.error(`${rel}: missing capabilities ${missing.join(", ")}`);
+          failed = true;
+        }
         if (result.diagnostics.length) failed = true;
         for (const d of result.diagnostics) console.error("\n" + renderDiagnostic(d, source, rel));
         if (!result.diagnostics.length) console.log(`✓ ${rel}`);

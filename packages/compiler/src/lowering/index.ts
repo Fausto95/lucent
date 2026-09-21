@@ -36,11 +36,22 @@ export function lowerModule(module: TypedModule): LowerResult {
   const ir: IRModule = {
     name: module.name,
     structs: module.structs.map((s) => ({
+      ...(s.reference ? { reference: s.reference } : {}),
+      ...(s.union ? { union: s.union } : {}),
       name: s.name,
       exported: s.exported,
       fields: s.fields.map((f) => ({ name: f.name, type: f.type })),
     })),
     functions,
+    events: functions
+      .filter((f) => f.event)
+      .map((f) => ({
+        name: f.event!.name,
+        id: f.event!.id,
+        exported: f.event!.exported,
+        payload: f.params[0]?.type ?? T.void,
+      })),
+    capabilities: usedCapabilities(functions),
   };
   return { module: diagnostics.length ? null : ir, diagnostics };
 }
@@ -77,6 +88,10 @@ class FunctionLowerer {
     }
     return {
       name: this.fn.name,
+      ...(this.fn.classOp ? { classOp: this.fn.classOp } : {}),
+      ...(this.fn.event ? { event: this.fn.event } : {}),
+      ...(this.fn.thread ? { thread: this.fn.thread } : {}),
+      ...(this.fn.binding ? { binding: this.fn.binding } : {}),
       exported: this.fn.exported,
       async: this.fn.async,
       params: this.fn.params.map((p) => ({ name: p.name, type: p.type })),
@@ -232,6 +247,14 @@ class FunctionLowerer {
   private expr(e: TExpr): IRExpr {
     const type = e.type;
     switch (e.kind) {
+      case "view":
+        return {
+          op: "view",
+          name: e.name,
+          props: e.properties.map((p) => ({ name: p.name, value: this.expr(p.value) })),
+          children: e.children.map((c) => this.expr(c)),
+          type: e.type,
+        };
       case "number":
       case "string":
       case "boolean":
@@ -441,6 +464,8 @@ function childrenOf(e: TExpr): TExpr[] {
       return [e.target, e.value];
     case "update":
       return [e.target];
+    case "view":
+      return [...e.properties.map((p) => p.value), ...e.children];
     case "call":
       return e.args;
     case "member":
@@ -469,4 +494,31 @@ function containsContinue(stmts: TStmt[]): boolean {
         return false;
     }
   });
+}
+
+function usedCapabilities(functions: IRFunction[]): string[] {
+  const byName = new Map(functions.map((f) => [f.name, f]));
+  const pending = functions.filter((f) => f.exported).map((f) => f.name),
+    seen = new Set<string>(),
+    capabilities = new Set<string>();
+  const calls = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) {
+      node.forEach(calls);
+      return;
+    }
+    const value = node as Record<string, unknown>;
+    if (value.op === "call" && typeof value.callee === "string") pending.push(value.callee);
+    for (const [key, child] of Object.entries(value)) if (key !== "type") calls(child);
+  };
+  while (pending.length) {
+    const name = pending.pop()!;
+    if (seen.has(name)) continue;
+    seen.add(name);
+    const fn = byName.get(name);
+    if (!fn) continue;
+    fn.binding?.capabilities?.forEach((c) => capabilities.add(c));
+    calls(fn.body);
+  }
+  return [...capabilities].toSorted();
 }

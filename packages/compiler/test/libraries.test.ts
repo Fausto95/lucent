@@ -49,8 +49,20 @@ test("async SDK declarations infer suspension from Promise", () => {
 });
 
 test("only requires capabilities of reachable SDK functions", () => {
-  const result=compile('import {read} from "@lucent-lang/platform/demo"; export function f():number{return read();}',{
-    fileName:"demo.lucent.ts", libraries:{"@lucent-lang/platform/demo":{source:'export declare function read():number; export declare function unused():number;',bindings:{read:{swift:['return 1'],kotlin:['return 1.0'],capabilities:['read']},unused:{swift:['return 2'],kotlin:['return 2.0'],capabilities:['unused']}}}}
-  });
+  const result = compile(
+    'import {read} from "@lucent-lang/platform/demo"; export function f():number{return read();}',
+    {
+      fileName: "demo.lucent.ts",
+      libraries: {
+        "@lucent-lang/platform/demo": {
+          source: "export declare function read():number; export declare function unused():number;",
+          bindings: {
+            read: { swift: ["return 1"], kotlin: ["return 1.0"], capabilities: ["read"] },
+            unused: { swift: ["return 2"], kotlin: ["return 2.0"], capabilities: ["unused"] },
+          },
+        },
+      },
+    },
+  );
   expect(result.module?.capabilities).toEqual(["read"]);
 });

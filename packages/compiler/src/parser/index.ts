@@ -117,6 +117,7 @@ const KEYWORD_TYPES: Record<string, string> = {
 };
 
 class Converter {
+  constructor(private readonly source: string) {}
   readonly diagnostics: Diagnostic[] = [];
   readonly imports: SurfaceImport[] = [];
   readonly typeAliases: SurfaceTypeAlias[] = [];
@@ -141,13 +142,19 @@ class Converter {
   private readonly topLevelHandlers: Record<string, (node: never) => void> = {
     ImportDeclaration: (node: ES.ImportDeclaration) => this.importDeclaration(node),
     ExportNamedDeclaration: (node: ES.ExportNamedDeclaration) => this.exportDeclaration(node),
+    ClassDeclaration: (node: ES.Class) => this.classDeclaration(node, false),
     FunctionDeclaration: (node: ES.Function) => this.functionDeclaration(node, false),
+    VariableDeclaration: (node: ES.VariableDeclaration) => this.eventDeclaration(node, false),
     TSTypeAliasDeclaration: (node: ES.TSTypeAliasDeclaration) => this.typeAlias(node, false),
   };
 
   private importDeclaration(node: ES.ImportDeclaration): void {
     const source = node.source.value;
-    if (source !== LUCENT_TYPES_MODULE) {
+    if (
+      source !== LUCENT_TYPES_MODULE &&
+      !source.startsWith("@lucent-lang/") &&
+      !/^\.{1,2}\/.*\.lucent(?:\.tsx?)?$/.test(source)
+    ) {
       this.diagnostics.push(
         diagnostic(
           "NT1006",
@@ -159,11 +166,24 @@ class Converter {
       return;
     }
     const names: string[] = [];
+    const bindings: NonNullable<SurfaceImport["bindings"]> = [];
     for (const spec of node.specifiers ?? []) {
-      if (spec.type === "ImportSpecifier") names.push(spec.local.name);
-      else this.unsupported(spec, "namespace or default import");
+      if (spec.type === "ImportSpecifier") {
+        names.push(spec.local.name);
+        bindings.push({
+          imported: spec.imported.type === "Identifier" ? spec.imported.name : spec.imported.value,
+          local: spec.local.name,
+          typeOnly: node.importKind === "type" || spec.importKind === "type",
+        });
+      } else this.unsupported(spec, "namespace or default import");
     }
-    this.imports.push({ source, names, typeOnly: node.importKind === "type", span: spanOf(node) });
+    this.imports.push({
+      source,
+      names,
+      typeOnly: node.importKind === "type",
+      span: spanOf(node),
+      ...(source === LUCENT_TYPES_MODULE ? {} : { bindings }),
+    });
   }
 
   private exportDeclaration(node: ES.ExportNamedDeclaration): void {
@@ -172,9 +192,197 @@ class Converter {
       this.unsupported(node, "export list", "Export functions and type aliases directly at their declaration.");
       return;
     }
-    if (decl.type === "FunctionDeclaration") this.functionDeclaration(decl, true);
+    if (decl.type === "FunctionDeclaration" || decl.type === "TSDeclareFunction") this.functionDeclaration(decl, true);
     else if (decl.type === "TSTypeAliasDeclaration") this.typeAlias(decl, true);
+    else if (decl.type === "ClassDeclaration") this.classDeclaration(decl, true);
+    else if (decl.type === "VariableDeclaration") this.eventDeclaration(decl, true);
     else this.unsupported(decl);
+  }
+
+  private classDeclaration(node: ES.Class, exported: boolean): void {
+    const base = this.imports
+      .find((i) => i.source === "@lucent-lang/objects")
+      ?.bindings?.find((b) => b.imported === "SharedObject" && !b.typeOnly)?.local;
+    const sharedBase = node.superClass?.type === "Identifier" && node.superClass.name === base;
+    if (
+      !node.id ||
+      (node.superClass && !sharedBase) ||
+      node.typeParameters ||
+      node.abstract ||
+      node.declare ||
+      node.decorators.length ||
+      node.implements?.length
+    ) {
+      this.unsupported(node, "class inheritance, generics, decorators, or ambient classes");
+      return;
+    }
+    const name = node.id.name,
+      span = spanOf(node);
+    const type: SurfaceType = { kind: "reference", name, args: [], span };
+    const self: Expr = { kind: "identifier", name: "lucentSelf", span };
+    const receiver: SurfaceParam = { name: "lucentSelf", type, optional: false, span };
+    const fields: SurfaceField[] = [],
+      initializers: ObjectProperty[] = [];
+    let constructor: ES.Function | undefined;
+    for (const member of node.body.body) {
+      if (
+        (member.type !== "PropertyDefinition" && member.type !== "MethodDefinition") ||
+        member.static ||
+        member.computed ||
+        member.key.type !== "Identifier" ||
+        member.decorators.length ||
+        (member.accessibility && member.accessibility !== "public")
+      ) {
+        this.unsupported(member, "native class member (only public instance fields and methods are supported)");
+        continue;
+      }
+      const key = member.key.name,
+        at = spanOf(member);
+      if (["dispose", "lucentSelf"].includes(key) || key.startsWith("__lucent")) {
+        this.unsupported(member, "reserved native class member name");
+        continue;
+      }
+      if (member.type === "PropertyDefinition") {
+        if (!member.typeAnnotation || !member.value || member.optional || member.readonly) {
+          this.unsupported(member, "native fields require a type and initializer");
+          continue;
+        }
+        const fieldType = this.type(member.typeAnnotation.typeAnnotation);
+        fields.push({ name: key, type: fieldType, optional: false, span: at });
+        initializers.push({ name: key, value: this.expr(member.value), span: at });
+        const value: Expr = { kind: "member", object: self, property: key, span: at };
+        this.functions.push({
+          name: `${name}__get_${key}`,
+          exported,
+          async: false,
+          params: [receiver],
+          returnType: fieldType,
+          body: [{ kind: "return", argument: value, span: at }],
+          span: at,
+          classOp: { className: name, member: key, kind: "get" },
+        });
+        this.functions.push({
+          name: `${name}__set_${key}`,
+          exported,
+          async: false,
+          params: [receiver, { name: "value", type: fieldType, optional: false, span: at }],
+          returnType: { kind: "keyword", name: "void", span: at },
+          body: [
+            {
+              kind: "expression",
+              expression: {
+                kind: "assign",
+                operator: "=",
+                target: value,
+                value: { kind: "identifier", name: "value", span: at },
+                span: at,
+              },
+              span: at,
+            },
+          ],
+          span: at,
+          classOp: { className: name, member: key, kind: "set" },
+        });
+      } else if (member.type === "MethodDefinition" && member.kind === "constructor") constructor = member.value;
+      else if (member.type === "MethodDefinition") {
+        if (
+          member.kind !== "method" ||
+          member.value.async ||
+          member.value.generator ||
+          member.value.typeParameters ||
+          !member.value.returnType
+        ) {
+          this.unsupported(member, "native methods must be synchronous with an explicit return type");
+          continue;
+        }
+        this.functions.push({
+          name: `${name}__method_${key}`,
+          exported,
+          async: false,
+          params: [receiver, ...member.value.params.map((p) => this.param(p))],
+          returnType: this.type(member.value.returnType.typeAnnotation),
+          body: member.value.body ? this.block(member.value.body) : [],
+          span: at,
+          classOp: { className: name, member: key, kind: "method" },
+        });
+      }
+    }
+    this.typeAliases.push({
+      name,
+      exported,
+      type: { kind: "object", fields, span },
+      span,
+      reference: { publicName: name, exported },
+    });
+    this.functions.push({
+      name: `${name}__create`,
+      exported,
+      async: false,
+      params: constructor?.params.map((p) => this.param(p)) ?? [],
+      returnType: type,
+      body: [
+        {
+          kind: "variable",
+          declaration: "const",
+          name: "lucentSelf",
+          type,
+          init: { kind: "object", properties: initializers, span },
+          span,
+        },
+        ...(constructor?.body
+          ? constructor.body.body.flatMap((stmt) => {
+              if (
+                sharedBase &&
+                stmt.type === "ExpressionStatement" &&
+                stmt.expression.type === "CallExpression" &&
+                stmt.expression.callee.type === "Super" &&
+                !stmt.expression.arguments.length
+              )
+                return [];
+              return [this.stmt(stmt)];
+            })
+          : []),
+        { kind: "return", argument: self, span },
+      ],
+      span,
+      classOp: { className: name, member: "constructor", kind: "constructor" },
+    });
+  }
+
+  private eventDeclaration(node: ES.VariableDeclaration, exported: boolean): void {
+    for (const decl of node.declarations) {
+      const init = decl.init;
+      const eventFactory = this.imports
+        .find((i) => i.source === "@lucent-lang/events")
+        ?.bindings?.find((b) => b.imported === "event" && !b.typeOnly)?.local;
+      if (
+        node.kind !== "const" ||
+        decl.id.type !== "Identifier" ||
+        init?.type !== "CallExpression" ||
+        init.callee.type !== "Identifier" ||
+        init.callee.name !== eventFactory ||
+        init.arguments.length ||
+        init.typeArguments?.params.length !== 1
+      ) {
+        this.unsupported(node, "top-level variable (only const event<T>() declarations are supported)");
+        continue;
+      }
+      const span = spanOf(decl);
+      const payload = this.type(init.typeArguments.params[0]!);
+      this.functions.push({
+        name: decl.id.name,
+        exported,
+        async: false,
+        params:
+          payload.kind === "keyword" && payload.name === "void"
+            ? []
+            : [{ name: "payload", optional: false, type: payload, span }],
+        returnType: { kind: "keyword", name: "void", span },
+        body: [],
+        span,
+        event: { name: decl.id.name, id: "", exported },
+      });
+    }
   }
 
   private typeAlias(node: ES.TSTypeAliasDeclaration, exported: boolean): void {
@@ -190,12 +398,14 @@ class Converter {
       this.unsupported(node, "anonymous function");
       return;
     }
-    if (node.generator) this.unsupported(node, "generator function");
+    if ("generator" in node && node.generator) this.unsupported(node, "generator function");
     if (node.typeParameters) this.unsupported(node.typeParameters, "generic function");
     const params = node.params.map((p) => this.param(p));
-    const body = node.body ? this.block(node.body) : [];
+    const body = "body" in node && node.body ? this.block(node.body) : [];
     this.functions.push({
+      ...(node.type === "TSDeclareFunction" ? { ambient: true } : {}),
       name: node.id.name,
+      ...this.threadAnnotation(node.start),
       exported,
       async: node.async,
       params,
@@ -203,6 +413,21 @@ class Converter {
       body,
       span: spanOf(node),
     });
+  }
+
+  private threadAnnotation(start: number): { thread?: "main" | "worker" | "caller" } {
+    const match = this.source
+      .slice(0, start)
+      .match(/\/\*\*([^*]*(?:\*(?!\/)[^*]*)*)\*\/\s*(?:export\s+)?(?:async\s+)?$/);
+    const annotation = match?.[1]?.match(/@thread\s+(\w+)/)?.[1];
+    if (!annotation) return {};
+    if (annotation !== "main" && annotation !== "worker" && annotation !== "caller") {
+      this.diagnostics.push(
+        diagnostic("NT1001", { start, end: start }, "Unknown thread context. Use main, worker, or caller."),
+      );
+      return {};
+    }
+    return { thread: annotation };
   }
 
   private param(node: ES.ParamPattern): SurfaceParam {
@@ -230,6 +455,10 @@ class Converter {
   }
 
   private readonly typeHandlers: Record<string, (node: never) => SurfaceType> = {
+    TSLiteralType: (node: ES.TSLiteralType) =>
+      node.literal.type === "Literal" && typeof node.literal.value === "string"
+        ? { kind: "literal", value: node.literal.value, span: spanOf(node) }
+        : { kind: "unsupported", description: "non-string literal type", span: spanOf(node) },
     TSTypeReference: (node: ES.TSTypeReference) => {
       const span = spanOf(node);
       if (node.typeName.type !== "Identifier") return { kind: "unsupported", description: "qualified type name", span };
@@ -423,6 +652,24 @@ class Converter {
   }
 
   private readonly exprHandlers: Record<string, (node: never) => Expr> = {
+    ThisExpression: (node: ES.ThisExpression) => ({ kind: "identifier", name: "lucentSelf", span: spanOf(node) }),
+    NewExpression: (node: ES.NewExpression) => {
+      if (
+        node.callee.type !== "Identifier" ||
+        node.typeArguments ||
+        node.arguments.some((a) => a.type === "SpreadElement")
+      ) {
+        this.unsupported(node);
+        return { kind: "unsupported", span: spanOf(node) };
+      }
+      return {
+        kind: "call",
+        callee: `${node.callee.name}__create`,
+        args: node.arguments.map((a) => this.expr(a as ES.Expression)),
+        span: spanOf(node),
+      };
+    },
+    JSXElement: (node: ES.JSXElement) => this.jsx(node),
     Literal: (node: ESLiteral) => this.literal(node),
     TemplateLiteral: (node: ES.TemplateLiteral) => ({
       kind: "template",
@@ -577,6 +824,48 @@ class Converter {
     return { kind: "unsupported", span };
   }
 
+  private jsx(node: ES.JSXElement): Expr {
+    const opening = node.openingElement;
+    const span = spanOf(node);
+    if (opening.name.type !== "JSXIdentifier") {
+      this.unsupported(node, "namespaced JSX name");
+      return { kind: "unsupported", span };
+    }
+    const properties: ObjectProperty[] = [];
+    for (const attribute of opening.attributes) {
+      if (attribute.type !== "JSXAttribute" || attribute.name.type !== "JSXIdentifier") {
+        this.unsupported(attribute, "JSX spread or namespaced attribute");
+        continue;
+      }
+      const v = attribute.value;
+      let value: Expr;
+      if (!v) value = { kind: "boolean", value: true, span: spanOf(attribute) };
+      else if (v.type === "Literal") value = { kind: "string", value: String(v.value), span: spanOf(v) };
+      else if (v.type === "JSXExpressionContainer" && v.expression.type !== "JSXEmptyExpression")
+        value = this.expr(v.expression);
+      else {
+        this.unsupported(attribute);
+        continue;
+      }
+      properties.push({ name: attribute.name.name, value, span: spanOf(attribute) });
+    }
+    const children: Expr[] = [];
+    for (const child of node.children) {
+      if (child.type === "JSXText") {
+        const text = child.value
+          .split(/\r?\n/)
+          .map((line, i, all) => (i === 0 && all.length === 1 ? line : line.trim()))
+          .filter(Boolean)
+          .join(" ");
+        if (text) children.push({ kind: "string", value: text, span: spanOf(child) });
+      } else if (child.type === "JSXElement") children.push(this.jsx(child));
+      else if (child.type === "JSXExpressionContainer" && child.expression.type !== "JSXEmptyExpression")
+        children.push(this.expr(child.expression));
+      else if (child.type !== "JSXExpressionContainer") this.unsupported(child);
+    }
+    return { kind: "view", name: opening.name.name, properties, children, span };
+  }
+
   private member(node: ES.MemberExpression): Expr {
     const span = spanOf(node);
     if (node.optional) {
@@ -594,8 +883,12 @@ class Converter {
 }
 
 export function parseModule(source: string, fileName: string): ParseResult {
-  const result = parseSync(fileName, source, { lang: "ts", sourceType: "module", preserveParens: false });
-  const converter = new Converter();
+  const result = parseSync(fileName, source, {
+    lang: fileName.endsWith(".tsx") ? "tsx" : "ts",
+    sourceType: "module",
+    preserveParens: false,
+  });
+  const converter = new Converter(source);
   for (const error of result.errors) {
     if (error.severity !== "Error") continue;
     const label = error.labels[0];
@@ -612,4 +905,10 @@ export function parseModule(source: string, fileName: string): ParseResult {
     },
     diagnostics: converter.diagnostics,
   };
+}
+
+export function lucentImports(source: string, fileName: string): string[] {
+  return parseModule(source, fileName)
+    .module.imports.filter((i) => i.source.startsWith("."))
+    .map((i) => i.source);
 }

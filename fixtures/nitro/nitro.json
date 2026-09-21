@@ -73,6 +73,46 @@
         "implementationClassName": "HybridKitchen"
       }
     },
+    "NativeClass": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridNativeClass"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridNativeClass"
+      }
+    },
+    "NativeEvent": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridNativeEvent"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridNativeEvent"
+      }
+    },
+    "NativeStdlib": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridNativeStdlib"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridNativeStdlib"
+      }
+    },
+    "NativeUnion": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridNativeUnion"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridNativeUnion"
+      }
+    },
     "StructRoundtrip": {
       "ios": {
         "language": "swift",

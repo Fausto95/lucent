@@ -1,0 +1,12 @@
+{
+  "name": "@lucent-lang/events",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts"
+    }
+  }
+}

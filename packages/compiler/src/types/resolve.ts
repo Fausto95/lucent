@@ -25,6 +25,8 @@ const PROHIBITED_KEYWORDS: ReadonlySet<string> = new Set(["any", "unknown"]);
 
 /** Builtin generic references: arity and how to build the type from resolved arguments. */
 const GENERICS: Readonly<Record<string, { arity: number; build: (args: NativeType[]) => NativeType }>> = {
+  NativeProps: { arity: 1, build: ([p]) => p! },
+  Event: { arity: 1, build: ([p]) => T.event(p!) },
   Array: { arity: 1, build: ([e]) => T.array(e!) },
   Promise: { arity: 1, build: ([v]) => T.promise(v!) },
   Record: { arity: 2, build: ([, v]) => T.map(v!) },
@@ -32,10 +34,13 @@ const GENERICS: Readonly<Record<string, { arity: number; build: (args: NativeTyp
 
 const BUILTIN_REFERENCES: Readonly<Record<string, NativeType>> = {
   Uint8Array: T.bytes,
+  NativeView: T.view,
 };
 
 export function resolveType(type: SurfaceType, scope: TypeScope): ResolveResult {
   switch (type.kind) {
+    case "literal":
+      return fail(diagnostic("NT1003", type.span, "String literal types are supported as union discriminants."));
     case "keyword": {
       const builtin = KEYWORDS[type.name];
       if (builtin) return ok(builtin);

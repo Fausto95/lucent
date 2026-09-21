@@ -1,3 +1,6 @@
+import { Counter } from "./src/counter.lucent";
+import { advance, evaluate, timestamp, double, progress, report } from "./src/features.lucent";
+import { NativeCard } from "./src/native-card.lucent";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
@@ -27,7 +30,7 @@ async function runChecks(): Promise<Row[]> {
   check("fibonacci(20)", fibonacci(20), 6765);
   check("clamp(15, 0, 10)", clamp(15, 0, 10), 10);
   check("await total([1, 2, 3.5])", await total([1, 2, 3.5]), 6.5);
-  const person: Person = { name: "Ada", age: 36, nickname: null, tags: ["math"] };
+  const person: Person = { name: "Ada", age: 36, nickname: undefined, tags: ["math"] };
   check("birthday(person)", birthday(person), { name: "Ada", age: 37, nickname: null, tags: ["math"] });
   check("describe(person)", describe(person), "Ada (36)");
   check("describe(nicknamed)", describe({ ...person, nickname: "Countess" }), "Countess aka Ada (36)");
@@ -40,10 +43,33 @@ async function runChecks(): Promise<Row[]> {
     check("divide(1, 0) throws", e.code, "DIVIDE_BY_ZERO");
     check("divide(1, 0) message", e.message, "Cannot divide by zero");
   }
+  const counter = new Counter(4);
+  check("shared counter method", counter.increment(2), 6);
+  check("imported shared counter", advance(counter), 7);
+  check("shared counter property", counter.value, 7);
+  counter.dispose();
+  check("tagged union", evaluate(9), { kind: "ok", value: 3 });
+  check("tagged union error", evaluate(-1), { kind: "error", message: "Negative" });
+  check("platform clock", Math.abs(timestamp() - Date.now()) < 5000, true);
+  check("worker thread", await double(4), 8);
+  const emitted = await new Promise<number>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      subscription.remove();
+      reject(new Error("Native event timed out"));
+    }, 3000);
+    const subscription = progress.subscribe((value) => {
+      clearTimeout(timer);
+      subscription.remove();
+      resolve(value);
+    });
+    report(42);
+  });
+  check("native event", emitted, 42);
   return rows;
 }
 
 export default function App() {
+  const [presses, setPresses] = useState(0);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -55,6 +81,11 @@ export default function App() {
       <Text style={styles.title} accessibilityLabel="lucent-status">
         {error ? `ERROR: ${error}` : rows === null ? "running…" : allOk ? "ALL OK" : "FAILURES"}
       </Text>
+      <NativeCard
+        style={{ height: 140, width: "100%" }}
+        title={`Native taps: ${presses}`}
+        onPress={() => setPresses((n) => n + 1)}
+      />
       {rows?.map((row) => (
         <View key={row.label} style={styles.row}>
           <Text style={row.ok ? styles.ok : styles.bad}>{row.ok ? "✓" : "✗"}</Text>

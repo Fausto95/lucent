@@ -4,8 +4,9 @@
  * every other file passes straight through.
  */
 import { createRequire } from "node:module";
+import { resolve } from "node:path";
 import { COMPILER_VERSION, compile, renderDiagnostic } from "@lucent-lang/compiler";
-import type { Host } from "@lucent-lang/host-core";
+import { loadLucentConfig, sourceProjectRoot, loadLucentSources, type Host } from "@lucent-lang/host-core";
 import { expoHost } from "@lucent-lang/host-expo";
 import { nitroHost } from "@lucent-lang/host-nitro";
 
@@ -30,7 +31,7 @@ export interface LucentTransformer {
 
 const HOSTS: Readonly<Record<HostName, Host>> = { expo: expoHost, nitro: nitroHost };
 
-export const LUCENT_FILE = /\.lucent\.ts$/;
+export const LUCENT_FILE = /\.lucent\.tsx?$/;
 
 /** Env keys through which `withLucent` reaches the transformer in Metro's worker processes. */
 export const ENV_HOST = "LUCENT_HOST";
@@ -41,11 +42,20 @@ export function createTransformer(options: { upstream: UpstreamTransformer; host
   return {
     async transform(args) {
       if (!LUCENT_FILE.test(args.filename)) return options.upstream.transform(args);
-      const result = compile(args.src, { fileName: args.filename });
+      const projectRoot = typeof args.options.projectRoot === "string" ? args.options.projectRoot : process.cwd();
+      const fileName = resolve(projectRoot, args.filename);
+      const config = loadLucentConfig(sourceProjectRoot(fileName));
+      const result = compile(args.src, {
+        fileName,
+        sources: loadLucentSources(fileName, args.src),
+        libraries: config.libraries,
+      });
       if (!result.module) {
         const rendered = result.diagnostics.map((d) => renderDiagnostic(d, args.src, args.filename)).join("\n\n");
         throw new Error(`Lucent: ${args.filename} did not compile\n\n${rendered}`);
       }
+      const missing = (result.module.capabilities ?? []).filter((c) => !config.capabilities.includes(c));
+      if (missing.length) throw new Error(`Lucent: enable capabilities ${missing.join(", ")} in lucent.config.json`);
       const { js } = host.emitProxy(result.module);
       return options.upstream.transform({ ...args, src: js });
     },

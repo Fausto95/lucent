@@ -1,8 +1,16 @@
+import { swiftType } from "./types.ts";
+export { swiftType } from "./types.ts";
+import { swiftClass } from "./objects.ts";
+export { swiftClass, swiftObjectRuntime } from "./objects.ts";
+import { swiftEventValue } from "./events.ts";
+export { swiftEventRuntime } from "./events.ts";
 /**
  * IR → Swift. Emits struct and function bodies only; hosts wrap them.
  * Generated code relies on a small runtime prelude (`LucentError`,
  * `LucentBytes`, `lucentStr`) that each host provides via `swiftRuntime`.
  */
+import { swiftView } from "./views.ts";
+export { swiftViewRuntime, swiftHostedViewRuntime } from "./views.ts";
 import type { IRExpr, IRFunction, IRModule, IRPlace, IRStmt, IRStruct, NativeType } from "@lucent-lang/compiler";
 
 export interface GeneratedField {
@@ -11,12 +19,15 @@ export interface GeneratedField {
 }
 
 export interface GeneratedStruct {
+  reference?: boolean;
   name: string;
   exported: boolean;
   fields: GeneratedField[];
 }
 
 export interface GeneratedFunction {
+  view?: boolean;
+  thread?: "main" | "worker" | "caller";
   name: string;
   exported: boolean;
   async: boolean;
@@ -29,36 +40,9 @@ export interface GeneratedFunction {
 export interface GeneratedUnit {
   /** Standalone source: structs and free functions, compilable against the runtime prelude. */
   code: string;
+  imports: string[];
   structs: GeneratedStruct[];
   functions: GeneratedFunction[];
-}
-
-const PRIMITIVES: Readonly<Record<string, string>> = {
-  void: "Void",
-  bool: "Bool",
-  string: "String",
-  bytes: "ArrayBuffer",
-};
-
-export function swiftType(t: NativeType): string {
-  switch (t.kind) {
-    case "float":
-      return t.bits === 64 ? "Double" : "Float";
-    case "int":
-      return `${t.signed ? "Int" : "UInt"}${t.bits}`;
-    case "array":
-      return `[${swiftType(t.element)}]`;
-    case "map":
-      return `[String: ${swiftType(t.value)}]`;
-    case "optional":
-      return `${swiftType(t.value)}?`;
-    case "struct":
-      return t.name;
-    case "promise":
-      return swiftType(t.value);
-    default:
-      return PRIMITIVES[t.kind]!;
-  }
 }
 
 /** The plain-Swift LucentError used when no host supplies one (tests, verification). */
@@ -114,17 +98,29 @@ export const localName = (id: string): string => id.replace(/^%/, "").replace(/\
 export function generateSwift(module: IRModule): GeneratedUnit {
   const structs = module.structs.map((s) => generateStruct(s));
   const paramNames = new Map(module.functions.map((f) => [f.name, f.params.map((p) => p.name)]));
-  const functions = module.functions.map((f) => generateFunction(f, paramNames));
+  const functions = module.functions.map((f) => generateFunction(f, paramNames, module));
+  const imports = [
+    ...new Set([
+      ...module.functions.flatMap((f) => f.binding?.swiftImports ?? []),
+      ...(module.functions.some((f) => f.returnType.kind === "view") ? ["SwiftUI"] : []),
+    ]),
+  ];
   const code = [
-    ...structs.map((s) => `struct ${s.name} {\n${s.fields.map((f) => `  var ${f.name}: ${f.type}`).join("\n")}\n}`),
+    ...imports.map((i) => `import ${i}`),
+    ...structs.map((s) =>
+      s.reference
+        ? swiftClass(module.structs.find((ir) => ir.name === s.name)!)
+        : `struct ${s.name} {\n${s.fields.map((f) => `  var ${f.name}: ${f.type}`).join("\n")}\n}`,
+    ),
     ...functions.map((f) => `${signature(f)} {\n${indent(f.body).join("\n")}\n}`),
   ].join("\n\n");
-  return { code: code + "\n", structs, functions };
+  return { code: code + "\n", structs, functions, imports };
 }
 
 export function signature(f: GeneratedFunction): string {
   const params = f.params.map((p) => `${p.name}: ${p.type}`).join(", ");
-  return `func ${f.name}(${params})${f.async ? " async" : ""} throws -> ${f.returnType}`;
+  if (f.view) return `@MainActor func ${f.name}(${params}) -> AnyView`;
+  return `${f.thread === "main" ? "@MainActor " : ""}func ${f.name}(${params})${f.async ? " async" : ""} throws -> ${f.returnType}`;
 }
 
 export const indent = (lines: string[], depth = 1): string[] =>
@@ -134,19 +130,31 @@ function generateStruct(s: IRStruct): GeneratedStruct {
   return {
     name: s.name,
     exported: s.exported,
+    ...(s.reference ? { reference: true } : {}),
     fields: s.fields.map((f) => ({ name: f.name, type: swiftType(f.type) })),
   };
 }
 
-function generateFunction(f: IRFunction, paramNames: ReadonlyMap<string, string[]>): GeneratedFunction {
+function generateFunction(
+  f: IRFunction,
+  paramNames: ReadonlyMap<string, string[]>,
+  module: IRModule,
+): GeneratedFunction {
   const emitter = new SwiftEmitter(f, paramNames);
+  const body = f.event
+    ? [
+        `try LucentEventHub.shared.emit(${JSON.stringify(f.event.id)}, ${swiftEventValue("payload", f.params[0]?.type ?? { kind: "void" }, module)})`,
+      ]
+    : (f.binding?.swift ?? emitter.block(f.body));
   return {
     name: f.name,
+    ...(f.returnType.kind === "view" ? { view: true } : {}),
+    ...(f.thread ? { thread: f.thread } : {}),
     exported: f.exported,
     async: f.async,
     params: f.params.map((p) => ({ name: p.name, type: swiftType(p.type) })),
     returnType: swiftType(f.returnType),
-    body: emitter.block(f.body),
+    body: f.thread === "worker" ? ["return try await Task.detached {", ...indent(body), "}.value"] : body,
   };
 }
 
@@ -233,6 +241,8 @@ class SwiftEmitter {
 
   expr(e: IRExpr): string {
     switch (e.op) {
+      case "view":
+        return swiftView(e, (x) => this.expr(x));
       case "const":
         return constant(e.value, e.type);
       case "param":
@@ -324,7 +334,7 @@ function collectCalls(e: IRExpr): Extract<IRExpr, { op: "call" }>[] {
   const visit = (x: IRExpr): void => {
     switch (x.op) {
       case "call":
-        out.push(x);
+        if (x.type.kind !== "view") out.push(x);
         x.args.forEach(visit);
         break;
       case "unwrap":
@@ -381,4 +391,22 @@ function constant(value: number | string | boolean | null, type: NativeType): st
 /** Swift string literal; JSON escaping is a valid subset of Swift's. */
 export function str(s: string): string {
   return JSON.stringify(s);
+}
+
+/** Native namespace used by host view wrappers, independent of bridge types. */
+export function generateSwiftNamespace(module: IRModule, name: string): string {
+  const unit = generateSwift(module);
+  const members = [
+    ...unit.structs
+      .filter((s) => !s.reference)
+      .map((s) => `struct ${s.name} {\n${s.fields.map((f) => `  var ${f.name}: ${f.type}`).join("\n")}\n}`),
+    ...unit.functions.map((f) => `${signature(f).replace("func ", "static func ")} {\n${indent(f.body).join("\n")}\n}`),
+  ];
+  return [
+    ...unit.imports.map((i) => `import ${i}`),
+    `enum ${name} {`,
+    ...indent(members.join("\n\n").split("\n")),
+    "}",
+    "",
+  ].join("\n");
 }

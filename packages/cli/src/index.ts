@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { COMPILER_VERSION, compile, printIR, renderDiagnostic, type IRModule } from "@lucent-lang/compiler";
-import type { FileTree, Host } from "@lucent-lang/host-core";
+import { loadLucentConfig, loadLucentSources, type FileTree, type Host } from "@lucent-lang/host-core";
 import { expoHost } from "@lucent-lang/host-expo";
 import { nitroHost } from "@lucent-lang/host-nitro";
 
@@ -37,7 +37,7 @@ export function findLucentFiles(root: string): string[] {
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
       if (entry.isDirectory()) {
         if (!SKIP_DIRS.has(entry.name) && !entry.name.startsWith(".")) walk(join(dir, entry.name));
-      } else if (entry.name.endsWith(".lucent.ts")) {
+      } else if (/\.lucent\.tsx?$/.test(entry.name)) {
         out.push(join(dir, entry.name));
       }
     }
@@ -86,6 +86,18 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
   const log = options.log ?? (() => {});
   const root = options.root;
   const outDir = join(root, options.outDir ?? defaultOutDir(options.host));
+  let config;
+  try {
+    config = loadLucentConfig(root);
+  } catch (error) {
+    return {
+      ok: false,
+      outDir,
+      compiled: [],
+      cached: [],
+      diagnostics: [{ fileName: "lucent.config.json", rendered: String(error) }],
+    };
+  }
   const cachePath = join(root, ".lucent", "cache.json");
   const cache = options.force ? null : readCache(cachePath, options.host);
   const files = (options.files ?? findLucentFiles(root)).map((f) => (f.startsWith("/") ? f : join(root, f)));
@@ -99,7 +111,11 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
   for (const file of files) {
     const rel = relative(root, file);
     const source = readFileSync(file, "utf8");
-    const hash = hashOf(source, options.host);
+    const sources = loadLucentSources(file, source);
+    const hash = hashOf(
+      JSON.stringify([Object.entries(sources).toSorted(([a], [b]) => a.localeCompare(b)), config.libraries]),
+      options.host,
+    );
     const hit = cache?.modules[rel];
     if (hit && hit.hash === hash) {
       log(`✓ ${rel} cached`);
@@ -109,7 +125,7 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
       continue;
     }
     log(`⚙ ${rel} compiling`);
-    const result = compile(source, { fileName: file });
+    const result = compile(source, { fileName: file, sources, libraries: config.libraries });
     if (!result.module) {
       for (const d of result.diagnostics)
         diagnostics.push({ fileName: rel, rendered: renderDiagnostic(d, source, rel) });
@@ -120,10 +136,41 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
     nextCache.modules[rel] = { hash, module: result.module };
   }
 
+  for (const module of modules)
+    for (const capability of module.capabilities ?? []) {
+      if (!config.capabilities.includes(capability))
+        diagnostics.push({
+          fileName: "lucent.config.json",
+          rendered: `Missing capability "${capability}" required by ${module.name}. Enable it in lucent.config.json.`,
+        });
+    }
+  const names = new Set<string>();
+  for (const module of modules) {
+    if (names.has(module.name))
+      diagnostics.push({
+        fileName: module.name,
+        rendered: `Duplicate native module name ${module.name}; use distinct Lucent file basenames.`,
+      });
+    names.add(module.name);
+  }
   if (diagnostics.length) return { ok: false, outDir, compiled, cached: cachedFiles, diagnostics };
 
   const host = HOSTS[options.host];
-  writeTree(outDir, host.emitPackage(modules, { packageName: "lucent" }));
+  const tree = host.emitPackage(modules, { packageName: "lucent" });
+  tree.set(
+    "lucent-manifest.json",
+    JSON.stringify(
+      {
+        compilerVersion: COMPILER_VERSION,
+        host: options.host,
+        capabilities: [...new Set(modules.flatMap((m) => m.capabilities ?? []))],
+        modules: modules.map((m) => m.name),
+      },
+      null,
+      2,
+    ) + "\n",
+  );
+  writeTree(outDir, tree);
   if (options.emitIR) {
     for (const m of modules) writeIfChanged(join(root, ".lucent", "ir", `${m.name}.ir.txt`), printIR(m));
   }
@@ -145,26 +192,18 @@ function readCache(path: string, host: HostName): CacheFile | null {
 
 /** Writes the tree, only touching files whose contents changed, and removing stale generated files. */
 function writeTree(dir: string, files: FileTree): void {
-  const keep = new Set<string>();
-  for (const [rel, contents] of files) {
-    writeIfChanged(join(dir, rel), contents);
-    keep.add(rel);
+  const manifest = join(dir, ".lucent-files.json");
+  let previous: string[] = [];
+  if (existsSync(manifest)) {
+    const parsed: unknown = JSON.parse(readFileSync(manifest, "utf8"));
+    if (Array.isArray(parsed))
+      previous = parsed.filter(
+        (p): p is string => typeof p === "string" && !p.startsWith("/") && !p.split(/[\\/]/).includes(".."),
+      );
   }
-  if (!existsSync(dir)) return;
-  for (const existing of listFiles(dir)) {
-    if (keep.has(existing) || existing.startsWith("nitrogen/") || existing.startsWith("node_modules/")) continue;
-    rmSync(join(dir, existing));
-  }
-}
-
-function listFiles(dir: string, prefix = ""): string[] {
-  const out: string[] = [];
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
-    if (entry.isDirectory()) out.push(...listFiles(join(dir, entry.name), rel));
-    else out.push(rel);
-  }
-  return out;
+  for (const [rel, contents] of files) writeIfChanged(join(dir, rel), contents);
+  for (const rel of previous) if (!files.has(rel) && existsSync(join(dir, rel))) rmSync(join(dir, rel));
+  writeIfChanged(manifest, JSON.stringify([...files.keys()].toSorted()) + "\n");
 }
 
 function writeIfChanged(path: string, contents: string): void {

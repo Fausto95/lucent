@@ -4,12 +4,15 @@ const state = 'export type State = { kind: "idle" } | { kind: "ready"; value: nu
 const run = (body: string) => compile(state + body, { fileName: "state.lucent.ts" });
 describe("discriminated unions", () => {
   test("supports separately named variant records", () => {
-    const result = compile(`type Idle = { kind: "idle" };
+    const result = compile(
+      `type Idle = { kind: "idle" };
       type Ready = { kind: "ready"; value: number };
       export type State = Idle | Ready;
       export function ready(n: number): State { return {kind: "ready", value:n}; }
       export function value(s: State): number { if(s.kind === "ready") { return s.value; } return 0; }
-      export function payload(s: Ready): number { return s.value; }`, {fileName: "state.lucent.ts"});
+      export function payload(s: Ready): number { return s.value; }`,
+      { fileName: "state.lucent.ts" },
+    );
     expect(result.diagnostics).toEqual([]);
   });
   test("constructs variants and narrows payload reads", () => {

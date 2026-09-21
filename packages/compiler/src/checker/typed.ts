@@ -1,3 +1,5 @@
+import type { NativeBinding, ThreadContext } from "../libraries.ts";
+import type { IRUnion } from "../ir/types.ts";
 /** The typed AST: the surface AST with every expression annotated by its NativeType. */
 import type { Span } from "../diagnostics/index.ts";
 import type {
@@ -15,6 +17,8 @@ export interface StructField {
 }
 
 export interface StructDef {
+  reference?: { publicName: string; exported: boolean };
+  union?: IRUnion;
   name: string;
   exported: boolean;
   fields: StructField[];
@@ -26,6 +30,10 @@ export interface TypedParam {
 }
 
 export interface TypedFunction {
+  classOp?: { className: string; member: string; kind: "constructor" | "method" | "get" | "set" };
+  event?: { name: string; id: string; exported: boolean };
+  thread?: ThreadContext;
+  binding?: NativeBinding;
   name: string;
   exported: boolean;
   async: boolean;
@@ -51,6 +59,7 @@ interface Typed {
 }
 
 export type TExpr =
+  | ({ kind: "view"; name: string; properties: { name: string; value: TExpr }[]; children: TExpr[] } & Typed)
   | ({ kind: "number"; value: number } & Typed)
   | ({ kind: "string"; value: string } & Typed)
   | ({ kind: "boolean"; value: boolean } & Typed)

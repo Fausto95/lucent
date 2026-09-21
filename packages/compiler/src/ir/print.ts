@@ -81,6 +81,8 @@ function place(p: IRPlace): string {
 
 export function expr(e: IRExpr): string {
   switch (e.op) {
+    case "view":
+      return `(view ${e.name} ${e.props.map((p) => `${p.name}=${expr(p.value)}`).join(" ")} ${e.children.map(expr).join(" ")})`;
     case "const":
       return typeof e.value === "string" ? JSON.stringify(e.value) : String(e.value);
     case "param":

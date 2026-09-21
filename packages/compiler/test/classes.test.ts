@@ -1,12 +1,6 @@
 import { expect, test } from "vite-plus/test";
 import { compile } from "../src/index.ts";
-export const counter = `export class Counter {
-  value: number = 0;
-  constructor(initial: number) { this.value = initial; }
-  increment(delta: number): number { this.value += delta; return this.value; }
-}
-export function make(): Counter { return new Counter(2); }
-export function increment(counter: Counter): number { return counter.increment(1); }`;
+import { counter } from "./samples.ts";
 test("compiles native reference classes, constructors, and methods", () => {
   const result = compile(counter, { fileName: "counter.lucent.ts" });
   expect(result.diagnostics).toEqual([]);
@@ -34,6 +28,10 @@ test("requires initialized fields and rejects async shared methods", () => {
 });
 
 test("supports the typed SharedObject base without JS inheritance", () => {
-  const source='import {SharedObject} from "@lucent-lang/objects"; '+counter.replace('class Counter {','class Counter extends SharedObject {').replace('constructor(initial: number) {','constructor(initial: number) { super();');
-  expect(compile(source,{fileName:"counter.lucent.ts"}).diagnostics).toEqual([]);
+  const source =
+    'import {SharedObject} from "@lucent-lang/objects"; ' +
+    counter
+      .replace("class Counter {", "class Counter extends SharedObject {")
+      .replace("constructor(initial: number) {", "constructor(initial: number) { super();");
+  expect(compile(source, { fileName: "counter.lucent.ts" }).diagnostics).toEqual([]);
 });

@@ -1,3 +1,4 @@
+import { emitViews, nativeViewEvent } from "./views.ts";
 /**
  * Expo Modules host (SDK 58): wraps backend output in an autolinked local
  * module folder. Swift uses the macro API, Kotlin the definition DSL.
@@ -5,19 +6,31 @@
 import type { IRModule, IRStruct, NativeType } from "@lucent-lang/compiler";
 import {
   generateSwift,
+  swiftClass,
+  swiftObjectRuntime,
   swiftRuntime,
+  swiftEventRuntime,
   indent as indentSwift,
   signature as swiftSignature,
 } from "@lucent-lang/backend-swift";
 import {
   generateKotlin,
+  kotlinClass,
+  kotlinObjectRuntime,
   kotlinRuntime,
+  kotlinEventRuntime,
   kotlinType,
   indent as indentKotlin,
   signature as kotlinSignature,
 } from "@lucent-lang/backend-kotlin";
 import type { GeneratedFunction, GeneratedStruct } from "@lucent-lang/backend-kotlin";
 import {
+  exportedViews,
+  viewName,
+  viewProps,
+  withoutViews,
+  isReference,
+  classProxies,
   GENERATED_HEADER,
   runtimeImport,
   declarations,
@@ -47,8 +60,17 @@ function emitPackage(modules: IRModule[], options: EmitOptions): FileTree {
     JSON.stringify(
       {
         platforms: ["apple", "android"],
-        apple: { modules: modules.map(moduleClassName) },
-        android: { modules: modules.map((m) => `${ANDROID_PACKAGE}.${moduleClassName(m)}`) },
+        apple: {
+          modules: modules.flatMap((m) => [
+            moduleClassName(m),
+            ...exportedViews(m).map((f) => `${viewName(m, f)}Module`),
+          ]),
+        },
+        android: {
+          modules: modules
+            .flatMap((m) => [moduleClassName(m), ...exportedViews(m).map((f) => `${viewName(m, f)}Module`)])
+            .map((n) => `${ANDROID_PACKAGE}.${n}`),
+        },
       },
       null,
       2,
@@ -61,26 +83,57 @@ function emitPackage(modules: IRModule[], options: EmitOptions): FileTree {
   files.set(".gitignore", "*\n");
   files.set(`ios/${ident}.podspec`, podspec(ident));
   files.set(`ios/${ident}Runtime.swift`, SWIFT_RUNTIME);
-  files.set("android/build.gradle", BUILD_GRADLE);
+  files.set(
+    "android/build.gradle",
+    modules.some((m) => exportedViews(m).length) ? COMPOSE_BUILDSCRIPT + BUILD_GRADLE + COMPOSE_CONFIG : BUILD_GRADLE,
+  );
   files.set("android/src/main/AndroidManifest.xml", "<manifest>\n</manifest>\n");
   files.set(`${androidDir}/${ident}Runtime.kt`, KOTLIN_RUNTIME);
   for (const module of modules) {
     files.set(`ios/${moduleClassName(module)}.swift`, swiftModule(module));
     files.set(`${androidDir}/${moduleClassName(module)}.kt`, kotlinModule(module));
   }
+  if (modules.some((m) => m.events?.length)) {
+    files.set("ios/LucentEvents.swift", swiftEventRuntime);
+    files.set(`${androidDir}/LucentEvents.kt`, `package ${ANDROID_PACKAGE}\n\n` + kotlinEventRuntime);
+  }
+  if (modules.some((m) => m.structs.some((s) => s.reference))) {
+    files.set("ios/LucentObjects.swift", swiftObjectRuntime);
+    files.set(`${androidDir}/LucentObjects.kt`, `package ${ANDROID_PACKAGE}\n\n` + kotlinObjectRuntime);
+    for (const s of modules.flatMap((m) => m.structs).filter((item) => item.reference)) {
+      files.set(`ios/${s.name}.swift`, swiftClass(s));
+      files.set(`${androidDir}/${s.name}.kt`, `package ${ANDROID_PACKAGE}\n\n` + kotlinClass(s));
+    }
+  }
+  emitViews(files, modules, ANDROID_PACKAGE);
   return files;
 }
 
 function emitProxy(module: IRModule): { js: string; dts: string } {
-  const body = proxyFunctions(module, (fn, args) => `native.${fn.name}(${args.join(", ")})`);
+  const body =
+    proxyFunctions(module, (fn, args) => `native.${fn.name}(${args.join(", ")})`) +
+    (module.structs.some((s) => s.reference) ? "\n\n" + classProxies(module, false) : "");
   const js = [
     GENERATED_HEADER,
-    'import { requireNativeModule } from "expo-modules-core";',
+    ...(exportedViews(module).length ? ['import { createElement } from "react";'] : []),
+    `import { requireNativeModule${exportedViews(module).length ? ", requireNativeViewManager" : ""} } from "expo-modules-core";`,
     runtimeImport(body),
     "",
     `const native = requireNativeModule(${JSON.stringify(nativeModuleName(module))});`,
     "",
     body,
+    ...(module.events ?? [])
+      .filter((e) => e.exported)
+      .map(
+        (e) =>
+          `export const ${e.name} = { subscribe(listener) { return native.addListener(${JSON.stringify(e.name)}, (event) => listener(JSON.parse(event.json))); } };`,
+      ),
+    ...exportedViews(module).map((f) => {
+      const events = viewProps(module, f).filter((p) => p.type.kind === "event");
+      const mapped = events.map((p) => `${nativeViewEvent(module, f, p.name)}: props.${p.name}`).join(", ");
+      const cleared = events.map((p) => `${p.name}: undefined`).join(", ");
+      return `const ${f.name}Native = requireNativeViewManager(${JSON.stringify(viewName(module, f))});\nexport function ${f.name}(props) { return createElement(${f.name}Native, { ...props${cleared ? ", " + cleared : ""}${mapped ? ", " + mapped : ""} }); }`;
+    }),
     "",
   ].join("\n");
   return { js, dts: GENERATED_HEADER + declarations(module) };
@@ -112,20 +165,72 @@ final class LucentError: Exception {
   );
 
 function swiftModule(module: IRModule): string {
-  const unit = generateSwift(module);
+  const unit = generateSwift(withoutViews(module));
   const concurrent = unit.functions.some((f) => f.async);
   const members: string[] = [];
-  for (const s of unit.structs) {
+  const events = (module.events ?? []).filter((e) => e.exported);
+  if (events.length)
+    members.push(
+      "private var eventTokens: [Int] = []",
+      "public func definition() -> ModuleDefinition {",
+      `  Events(${events.map((e) => JSON.stringify(e.name)).join(", ")})`,
+      "  OnCreate { [weak self] in",
+      "    guard let self else { return }",
+      ...events.map(
+        (e) =>
+          `    self.eventTokens.append(LucentEventHub.shared.subscribe(${JSON.stringify(e.id)}) { [weak self] json in self?.sendEvent(${JSON.stringify(e.name)}, ["json": json]) })`,
+      ),
+      "  }",
+      "  OnDestroy { [weak self] in self?.eventTokens.forEach { LucentEventHub.shared.remove($0) }; self?.eventTokens.removeAll() }",
+      "}",
+      "",
+    );
+  for (const s of unit.structs.filter((item) => !item.reference)) {
     members.push(`@Record`, `struct ${s.name} {`, ...s.fields.map((f) => `  var ${f.name}: ${f.type}`), `}`, "");
   }
+  if (module.structs.some((s) => s.reference))
+    members.push("@JS func lucentRelease(handle: Double) { LucentObjectRegistry.shared.release(handle) }", "");
   for (const f of unit.functions) {
-    if (f.exported) members.push(f.async ? "@JS(.concurrent)" : "@JS");
-    members.push(`${swiftSignature(f)} {`, ...indentSwift(f.body), "}", "");
+    const ir = module.functions.find((fn) => fn.name === f.name)!;
+    const bridged = ir.params.some((p) => isReference(p.type, module)) || isReference(ir.returnType, module);
+    if (f.exported && bridged) {
+      const params = ir.params
+        .map((p, i) => `${p.name}: ${isReference(p.type, module) ? "Double" : f.params[i]!.type}`)
+        .join(", ");
+      const args = ir.params
+        .map(
+          (p) =>
+            `${p.name}: ${isReference(p.type, module) && p.type.kind === "struct" ? `try LucentObjectRegistry.shared.get(${p.name}, ${p.type.name}.self)` : p.name}`,
+        )
+        .join(", ");
+      members.push(
+        `@JS("${f.name}"${f.async ? ", .concurrent" : ""})`,
+        `func __bridge_${f.name}(${params})${f.async ? " async" : ""} throws -> ${isReference(ir.returnType, module) ? "Double" : f.returnType} {`,
+        ...(f.async ? [] : ["  return try LucentObjectRegistry.shared.withLock {"]),
+        `    let result = try ${f.async ? "await " : ""}${f.name}(${args})`,
+        `    return ${isReference(ir.returnType, module) ? "LucentObjectRegistry.shared.hold(result)" : "result"}`,
+        ...(f.async ? [] : ["  }"]),
+        "}",
+        "",
+      );
+    }
+    if (f.exported && !bridged) members.push(f.async ? "@JS(.concurrent)" : "@JS");
+    members.push(
+      `${swiftSignature(f)} {`,
+      ...indentSwift(
+        f.body.map((line) =>
+          f.thread === "worker" ? line.replace("Task.detached {", "Task.detached { [self] in") : line,
+        ),
+      ),
+      "}",
+      "",
+    );
   }
   members.pop();
   return [
     GENERATED_HEADER,
     "import ExpoModulesCore",
+    ...unit.imports.map((i) => `import ${i}`),
     "",
     `@ExpoModule(${JSON.stringify(nativeModuleName(module))})`,
     `public final class ${moduleClassName(module)}: Module${concurrent ? ", @unchecked Sendable" : ""} {`,
@@ -232,6 +337,8 @@ function kotlinDefault(t: NativeType, structs: ReadonlyMap<string, IRStruct>): s
     case "struct":
       if (!structs.has(t.name)) throw new Error(`Expo host: unknown struct ${t.name}`);
       return `${t.name}()`;
+    case "event":
+    case "view":
     case "void":
     case "promise":
       throw new Error(`Expo host: ${t.kind} cannot be a struct field.`);
@@ -239,12 +346,57 @@ function kotlinDefault(t: NativeType, structs: ReadonlyMap<string, IRStruct>): s
 }
 
 function kotlinModule(module: IRModule): string {
-  const unit = generateKotlin(module);
+  const unit = generateKotlin(withoutViews(module));
   const structs = new Map(module.structs.map((s) => [s.name, s]));
   const members: string[] = [];
-  for (const s of unit.structs) members.push(...kotlinRecord(s, structs.get(s.name)!, structs), "");
+  for (const s of unit.structs.filter((item) => !item.reference))
+    members.push(...kotlinRecord(s, structs.get(s.name)!, structs), "");
   const definition: string[] = [`Name(${JSON.stringify(nativeModuleName(module))})`];
-  for (const f of unit.functions.filter((x) => x.exported)) definition.push("", ...kotlinBinding(f));
+  const events = (module.events ?? []).filter((e) => e.exported);
+  if (events.length) {
+    members.push("private val eventTokens = mutableListOf<Int>()");
+    definition.push(
+      `Events(${events.map((e) => JSON.stringify(e.name)).join(", ")})`,
+      "OnCreate {",
+      ...events.map(
+        (e) =>
+          `  eventTokens.add(LucentEventHub.subscribe(${JSON.stringify(e.id)}) { json -> sendEvent(${JSON.stringify(e.name)}, mapOf("json" to json)) })`,
+      ),
+      "}",
+      "OnDestroy { eventTokens.forEach { LucentEventHub.remove(it) }; eventTokens.clear() }",
+    );
+  }
+  if (module.structs.some((s) => s.reference))
+    definition.push('Function("lucentRelease") { handle: Double -> LucentObjectRegistry.release(handle) }');
+  for (const f of unit.functions.filter((x) => x.exported)) {
+    const ir = module.functions.find((fn) => fn.name === f.name)!;
+    const bridged = ir.params.some((p) => isReference(p.type, module)) || isReference(ir.returnType, module);
+    if (!bridged) {
+      definition.push("", ...kotlinBinding(f));
+      continue;
+    }
+    const params = ir.params
+      .map(
+        (p, i) =>
+          `${p.name}: ${isReference(p.type, module) ? "Double" : (KOTLIN_BOUNDARY[f.params[i]!.type]?.type ?? f.params[i]!.type)}`,
+      )
+      .join(", ");
+    const args = ir.params
+      .map((p, i) =>
+        isReference(p.type, module) && p.type.kind === "struct"
+          ? `LucentObjectRegistry.get(${p.name}, ${p.type.name}::class.java)`
+          : `${p.name}${KOTLIN_BOUNDARY[f.params[i]!.type]?.into ?? ""}`,
+      )
+      .join(", ");
+    definition.push(
+      `${f.async ? `AsyncFunction("${f.name}") Coroutine` : `Function("${f.name}")`} {${params ? ` ${params} ->` : ""}`,
+      ...(f.async ? [] : ["  LucentObjectRegistry.withLock {"]),
+      `    val result = ${f.name}(${args})`,
+      `    ${isReference(ir.returnType, module) ? "LucentObjectRegistry.hold(result)" : `result${KOTLIN_BOUNDARY[f.returnType]?.outOf ?? ""}`}`,
+      ...(f.async ? [] : ["  }"]),
+      "}",
+    );
+  }
   members.push("override fun definition() = ModuleDefinition {", ...indentKotlin(definition), "}", "");
   for (const f of unit.functions) members.push(`private ${kotlinSignature(f)} {`, ...indentKotlin(f.body), "}", "");
   members.pop();
@@ -252,6 +404,7 @@ function kotlinModule(module: IRModule): string {
     GENERATED_HEADER,
     `package ${ANDROID_PACKAGE}`,
     "",
+    ...unit.imports.map((i) => `import ${i}`),
     "import expo.modules.kotlin.functions.Coroutine",
     "import expo.modules.kotlin.jni.ArrayBuffer",
     "import expo.modules.kotlin.modules.Module",
@@ -286,3 +439,18 @@ function kotlinBinding(f: GeneratedFunction): string[] {
   const arrow = params.length ? ` ${params.join(", ")} ->` : "";
   return [`${head}${arrow}`, `  ${call}`, "}"];
 }
+
+const COMPOSE_BUILDSCRIPT = `buildscript {
+  repositories { google(); mavenCentral() }
+  dependencies { classpath("org.jetbrains.kotlin:compose-compiler-gradle-plugin:\${rootProject.ext.kotlinVersion}") }
+}
+`;
+const COMPOSE_CONFIG = `
+apply plugin: 'org.jetbrains.kotlin.plugin.compose'
+android { buildFeatures { compose true } }
+dependencies {
+  implementation 'androidx.compose.ui:ui:1.7.6'
+  implementation 'androidx.compose.foundation:foundation:1.7.6'
+  implementation 'androidx.compose.material3:material3:1.3.1'
+}
+`;

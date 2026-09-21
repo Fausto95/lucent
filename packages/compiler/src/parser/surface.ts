@@ -1,3 +1,4 @@
+import type { NativeBinding, ThreadContext } from "../libraries.ts";
 /**
  * The surface AST: the closed set of TypeScript constructs Lucent understands.
  * Produced by `parseModule`; nothing downstream ever sees ESTree.
@@ -7,6 +8,7 @@ import type { Span } from "../diagnostics/index.ts";
 export type { Span };
 
 export type SurfaceType =
+  | { kind: "literal"; value: string; span: Span }
   | { kind: "keyword"; name: string; span: Span }
   | { kind: "reference"; name: string; args: SurfaceType[]; span: Span }
   | { kind: "array"; element: SurfaceType; span: Span }
@@ -29,6 +31,7 @@ export type AssignOperator = "=" | "+=" | "-=" | "*=" | "/=";
 export type UpdateOperator = "++" | "--";
 
 export type Expr =
+  | { kind: "view"; name: string; properties: ObjectProperty[]; children: Expr[]; span: Span }
   | { kind: "number"; value: number; span: Span }
   | { kind: "string"; value: string; span: Span }
   | { kind: "boolean"; value: boolean; span: Span }
@@ -85,6 +88,11 @@ export interface SurfaceParam {
 }
 
 export interface SurfaceFunction {
+  ambient?: boolean;
+  classOp?: { className: string; member: string; kind: "constructor" | "method" | "get" | "set" };
+  event?: { name: string; id: string; exported: boolean };
+  thread?: ThreadContext;
+  binding?: NativeBinding;
   name: string;
   exported: boolean;
   async: boolean;
@@ -95,6 +103,7 @@ export interface SurfaceFunction {
 }
 
 export interface SurfaceTypeAlias {
+  reference?: { publicName: string; exported: boolean };
   name: string;
   exported: boolean;
   type: SurfaceType;
@@ -103,6 +112,7 @@ export interface SurfaceTypeAlias {
 
 export interface SurfaceImport {
   source: string;
+  bindings?: { imported: string; local: string; typeOnly: boolean }[];
   names: string[];
   typeOnly: boolean;
   span: Span;

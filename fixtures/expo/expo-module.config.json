@@ -11,6 +11,10 @@
       "LucentClampModule",
       "LucentFibonacciModule",
       "LucentKitchenModule",
+      "LucentNativeClassModule",
+      "LucentNativeEventModule",
+      "LucentNativeStdlibModule",
+      "LucentNativeUnionModule",
       "LucentStructRoundtripModule",
       "LucentThrowModule"
     ]
@@ -23,6 +27,10 @@
       "expo.modules.lucent.LucentClampModule",
       "expo.modules.lucent.LucentFibonacciModule",
       "expo.modules.lucent.LucentKitchenModule",
+      "expo.modules.lucent.LucentNativeClassModule",
+      "expo.modules.lucent.LucentNativeEventModule",
+      "expo.modules.lucent.LucentNativeStdlibModule",
+      "expo.modules.lucent.LucentNativeUnionModule",
       "expo.modules.lucent.LucentStructRoundtripModule",
       "expo.modules.lucent.LucentThrowModule"
     ]

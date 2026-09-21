@@ -21,9 +21,24 @@ importers:
       '@lucent-lang/compiler':
         specifier: workspace:*
         version: link:packages/compiler
+      '@lucent-lang/events':
+        specifier: workspace:*
+        version: link:packages/events
+      '@lucent-lang/objects':
+        specifier: workspace:*
+        version: link:packages/objects
+      '@lucent-lang/platform':
+        specifier: workspace:*
+        version: link:packages/platform
+      '@lucent-lang/std':
+        specifier: workspace:*
+        version: link:packages/std
       '@lucent-lang/types':
         specifier: workspace:*
         version: link:packages/types
+      '@lucent-lang/ui':
+        specifier: workspace:*
+        version: link:packages/ui
       '@types/node':
         specifier: ^24.7.0
         version: 24.13.6
@@ -70,12 +85,27 @@ importers:
       '@babel/runtime':
         specifier: ^7.25.0
         version: 7.29.7
+      '@lucent-lang/events':
+        specifier: workspace:*
+        version: link:../../packages/events
       '@lucent-lang/metro':
         specifier: workspace:*
         version: link:../../packages/metro
+      '@lucent-lang/objects':
+        specifier: workspace:*
+        version: link:../../packages/objects
+      '@lucent-lang/platform':
+        specifier: workspace:*
+        version: link:../../packages/platform
+      '@lucent-lang/std':
+        specifier: workspace:*
+        version: link:../../packages/std
       '@lucent-lang/types':
         specifier: workspace:*
         version: link:../../packages/types
+      '@lucent-lang/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@react-native-community/cli':
         specifier: 20.2.0
         version: 20.2.0(typescript@6.0.3)
@@ -125,15 +155,30 @@ importers:
         specifier: 0.88.0-rc.1
         version: 0.88.0-rc.1(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@6.0.3))(@types/react@19.3.0)(react@19.3.0)
     devDependencies:
+      '@lucent-lang/events':
+        specifier: workspace:*
+        version: link:../../packages/events
       '@lucent-lang/expo':
         specifier: workspace:*
         version: link:../../packages/expo
       '@lucent-lang/metro':
         specifier: workspace:*
         version: link:../../packages/metro
+      '@lucent-lang/objects':
+        specifier: workspace:*
+        version: link:../../packages/objects
+      '@lucent-lang/platform':
+        specifier: workspace:*
+        version: link:../../packages/platform
+      '@lucent-lang/std':
+        specifier: workspace:*
+        version: link:../../packages/std
       '@lucent-lang/types':
         specifier: workspace:*
         version: link:../../packages/types
+      '@lucent-lang/ui':
+        specifier: workspace:*
+        version: link:../../packages/ui
       '@types/react':
         specifier: ~19.3.0
         version: 19.3.0
@@ -214,6 +259,8 @@ importers:
         specifier: 0.151.0
         version: 0.151.0
 
+  packages/events: {}
+
   packages/expo:
     dependencies:
       '@expo/config-plugins':
@@ -283,9 +330,27 @@ importers:
         specifier: 0.151.0
         version: 0.151.0
 
+  packages/objects: {}
+
+  packages/platform: {}
+
   packages/runtime: {}
 
+  packages/std: {}
+
   packages/types: {}
+
+  packages/ui:
+    dependencies:
+      '@lucent-lang/events':
+        specifier: workspace:*
+        version: link:../events
+      '@types/react':
+        specifier: '*'
+        version: 19.3.0
+      react-native:
+        specifier: '>=0.88.0-0'
+        version: 0.88.0-rc.2(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@5.9.3))(@react-native/metro-config@0.88.0-rc.2(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0)
 
 packages:
 
@@ -6656,6 +6721,18 @@ snapshots:
       fast-glob: 3.3.3
       picocolors: 1.1.1
 
+  '@react-native-community/cli-config@20.2.0(typescript@5.9.3)':
+    dependencies:
+      '@react-native-community/cli-tools': 20.2.0
+      cosmiconfig: 9.0.2(typescript@5.9.3)
+      deepmerge: 4.3.1
+      fast-glob: 3.3.3
+      joi: 17.13.8
+      picocolors: 1.1.1
+    transitivePeerDependencies:
+      - typescript
+    optional: true
+
   '@react-native-community/cli-config@20.2.0(typescript@6.0.3)':
     dependencies:
       '@react-native-community/cli-tools': 20.2.0
@@ -6666,6 +6743,27 @@ snapshots:
       picocolors: 1.1.1
     transitivePeerDependencies:
       - typescript
+
+  '@react-native-community/cli-doctor@20.2.0(typescript@5.9.3)':
+    dependencies:
+      '@react-native-community/cli-config': 20.2.0(typescript@5.9.3)
+      '@react-native-community/cli-platform-android': 20.2.0
+      '@react-native-community/cli-platform-apple': 20.2.0
+      '@react-native-community/cli-platform-ios': 20.2.0
+      '@react-native-community/cli-tools': 20.2.0
+      command-exists: 1.2.9
+      deepmerge: 4.3.1
+      envinfo: 7.21.0
+      execa: 5.1.1
+      node-stream-zip: 1.16.0
+      ora: 5.4.1
+      picocolors: 1.1.1
+      semver: 7.8.5
+      wcwidth: 1.0.1
+      yaml: 2.9.1
+    transitivePeerDependencies:
+      - typescript
+    optional: true
 
   '@react-native-community/cli-doctor@20.2.0(typescript@6.0.3)':
     dependencies:
@@ -6740,6 +6838,30 @@ snapshots:
   '@react-native-community/cli-types@20.2.0':
     dependencies:
       joi: 17.13.8
+
+  '@react-native-community/cli@20.2.0(typescript@5.9.3)':
+    dependencies:
+      '@react-native-community/cli-clean': 20.2.0
+      '@react-native-community/cli-config': 20.2.0(typescript@5.9.3)
+      '@react-native-community/cli-doctor': 20.2.0(typescript@5.9.3)
+      '@react-native-community/cli-server-api': 20.2.0
+      '@react-native-community/cli-tools': 20.2.0
+      '@react-native-community/cli-types': 20.2.0
+      commander: 9.5.0
+      deepmerge: 4.3.1
+      execa: 5.1.1
+      find-up: 5.0.0
+      fs-extra: 8.1.0
+      graceful-fs: 4.2.11
+      picocolors: 1.1.1
+      prompts: 2.4.2
+      semver: 7.8.5
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - typescript
+      - utf-8-validate
+    optional: true
 
   '@react-native-community/cli@20.2.0(typescript@6.0.3)':
     dependencies:
@@ -6871,6 +6993,23 @@ snapshots:
       semver: 7.8.5
     optionalDependencies:
       '@react-native-community/cli': 20.2.0(typescript@6.0.3)
+    transitivePeerDependencies:
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
+  '@react-native/community-cli-plugin@0.88.0-rc.2(@react-native-community/cli@20.2.0(typescript@5.9.3))(@react-native/metro-config@0.88.0-rc.2(@babel/core@7.29.7))':
+    dependencies:
+      '@react-native/asset-utils': 0.88.0-rc.2
+      '@react-native/dev-middleware': 0.88.0-rc.2
+      commander: 12.1.0
+      debug: 4.4.3
+      invariant: 2.2.4
+      metro: 0.87.1
+      semver: 7.8.5
+    optionalDependencies:
+      '@react-native-community/cli': 20.2.0(typescript@5.9.3)
+      '@react-native/metro-config': 0.88.0-rc.2(@babel/core@7.29.7)
     transitivePeerDependencies:
       - bufferutil
       - supports-color
@@ -7019,6 +7158,15 @@ snapshots:
       nullthrows: 1.1.1
       react: 19.3.0
       react-native: 0.88.0-rc.1(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@6.0.3))(@types/react@19.3.0)(react@19.3.0)
+    optionalDependencies:
+      '@types/react': 19.3.0
+
+  '@react-native/virtualized-lists@0.88.0-rc.2(@types/react@19.3.0)(react-native@0.88.0-rc.2(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@5.9.3))(@react-native/metro-config@0.88.0-rc.2(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)':
+    dependencies:
+      invariant: 2.2.4
+      nullthrows: 1.1.1
+      react: 19.3.0
+      react-native: 0.88.0-rc.2(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@5.9.3))(@react-native/metro-config@0.88.0-rc.2(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0)
     optionalDependencies:
       '@types/react': 19.3.0
 
@@ -7837,6 +7985,16 @@ snapshots:
   core-js-compat@3.50.0:
     dependencies:
       browserslist: 4.29.0
+
+  cosmiconfig@9.0.2(typescript@5.9.3):
+    dependencies:
+      env-paths: 2.2.1
+      import-fresh: 3.3.1
+      js-yaml: 4.3.2
+      parse-json: 5.2.0
+    optionalDependencies:
+      typescript: 5.9.3
+    optional: true
 
   cosmiconfig@9.0.2(typescript@6.0.3):
     dependencies:
@@ -9377,6 +9535,48 @@ snapshots:
       '@react-native/gradle-plugin': 0.88.0-rc.1
       '@react-native/normalize-colors': 0.88.0-rc.1
       '@react-native/virtualized-lists': 0.88.0-rc.1(@types/react@19.3.0)(react-native@0.88.0-rc.1(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@6.0.3))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)
+      anser: 1.4.10
+      ansi-regex: 5.0.1
+      base64-js: 1.5.1
+      flow-enums-runtime: 0.0.6
+      flow-parser: 0.327.0
+      hermes-compiler: 260318099.0.3
+      invariant: 2.2.4
+      memoize-one: 5.2.1
+      metro-runtime: 0.87.1
+      metro-source-map: 0.87.1
+      nullthrows: 1.1.1
+      pretty-format: 29.7.0
+      promise: 8.3.0
+      react: 19.3.0
+      react-devtools-core: 6.1.5
+      react-refresh: 0.14.2
+      regenerator-runtime: 0.13.11
+      scheduler: 0.28.0
+      semver: 7.8.5
+      stacktrace-parser: 0.1.11
+      tinyglobby: 0.2.17
+      whatwg-fetch: 3.6.20
+      ws: 7.5.13
+      yargs: 17.7.3
+    optionalDependencies:
+      '@types/react': 19.3.0
+    transitivePeerDependencies:
+      - '@babel/core'
+      - '@react-native-community/cli'
+      - '@react-native/metro-config'
+      - bufferutil
+      - supports-color
+      - utf-8-validate
+
+  react-native@0.88.0-rc.2(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@5.9.3))(@react-native/metro-config@0.88.0-rc.2(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0):
+    dependencies:
+      '@react-native/asset-utils': 0.88.0-rc.2
+      '@react-native/codegen': 0.88.0-rc.2(@babel/core@7.29.7)
+      '@react-native/community-cli-plugin': 0.88.0-rc.2(@react-native-community/cli@20.2.0(typescript@5.9.3))(@react-native/metro-config@0.88.0-rc.2(@babel/core@7.29.7))
+      '@react-native/gradle-plugin': 0.88.0-rc.2
+      '@react-native/normalize-colors': 0.88.0-rc.2
+      '@react-native/virtualized-lists': 0.88.0-rc.2(@types/react@19.3.0)(react-native@0.88.0-rc.2(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@5.9.3))(@react-native/metro-config@0.88.0-rc.2(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)
       anser: 1.4.10
       ansi-regex: 5.0.1
       base64-js: 1.5.1

@@ -1,8 +1,9 @@
+import type { LibraryModule } from "./libraries.ts";
 import { checkModule } from "./checker/index.ts";
 import type { Diagnostic } from "./diagnostics/index.ts";
 import type { IRModule } from "./ir/types.ts";
 import { lowerModule } from "./lowering/index.ts";
-import { parseModule } from "./parser/index.ts";
+import { linkModule } from "./linker.ts";
 
 export type { Diagnostic, DiagnosticCode, Span } from "./diagnostics/index.ts";
 export { DIAGNOSTIC_CODES, renderDiagnostic } from "./diagnostics/index.ts";
@@ -11,10 +12,13 @@ export { printIR } from "./ir/print.ts";
 export type { NativeType } from "./types/native-type.ts";
 export { typeToString, typeEquals, isNumeric, T } from "./types/native-type.ts";
 
-export const COMPILER_VERSION = "0.0.0";
+export const COMPILER_VERSION = "0.1.0";
 
 export interface CompileOptions {
   fileName: string;
+  /** Dependency source texts, resolved by the caller; the compiler never reads files. */
+  sources?: Readonly<Record<string, string>>;
+  libraries?: Readonly<Record<string, LibraryModule>>;
 }
 
 export interface CompileResult {
@@ -24,10 +28,16 @@ export interface CompileResult {
 
 /** Source text in, IR and diagnostics out. Stops after the first phase that reports an error. */
 export function compile(source: string, options: CompileOptions): CompileResult {
-  const parsed = parseModule(source, options.fileName);
+  const parsed = linkModule(source, options.fileName, options.sources ?? {}, options.libraries);
   if (parsed.diagnostics.length) return { module: null, diagnostics: parsed.diagnostics };
   const checked = checkModule(parsed.module);
   if (!checked.module) return { module: null, diagnostics: checked.diagnostics };
   const lowered = lowerModule(checked.module);
   return { module: lowered.module, diagnostics: lowered.diagnostics };
 }
+
+export { moduleCandidates } from "./linker.ts";
+export { lucentImports } from "./parser/index.ts";
+
+export type { NativeBinding, LibraryModule, ThreadContext } from "./libraries.ts";
+export { STANDARD_LIBRARIES } from "./libraries.ts";

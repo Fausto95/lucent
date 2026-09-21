@@ -115,11 +115,11 @@ test("capabilities are checked before writing native output", async () => {
 });
 
 test("preserves native build products during regeneration", async () => {
-  const root=project();
-  const first=await build({root,host:"expo"});
-  const product=join(first.outDir,"android/build/cache.bin");
-  mkdirSync(join(first.outDir,"android/build"),{recursive:true});
-  writeFileSync(product,"native build cache");
-  await build({root,host:"expo",force:true});
-  expect(readFileSync(product,"utf8")).toBe("native build cache");
+  const root = project();
+  const first = await build({ root, host: "expo" });
+  const product = join(first.outDir, "android/build/cache.bin");
+  mkdirSync(join(first.outDir, "android/build"), { recursive: true });
+  writeFileSync(product, "native build cache");
+  await build({ root, host: "expo", force: true });
+  expect(readFileSync(product, "utf8")).toBe("native build cache");
 });

@@ -1,0 +1,14 @@
+{
+  "name": "@lucent-lang/platform",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./clock": {
+      "types": "./clock.d.ts"
+    },
+    "./locale": {
+      "types": "./locale.d.ts"
+    }
+  }
+}
