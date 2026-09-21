@@ -6,11 +6,20 @@ import { birthday, checksum, describe, type Person } from "./src/people.lucent";
 
 type Row = { label: string; value: string; ok: boolean };
 
+/** JSON with sorted object keys, since hosts do not promise a key order. */
+function canonical(value: unknown): string {
+  return JSON.stringify(value, (_key, v: unknown) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries([...Object.entries(v as Record<string, unknown>)].sort(([a], [b]) => a.localeCompare(b)))
+      : v,
+  );
+}
+
 async function runChecks(): Promise<Row[]> {
   const rows: Row[] = [];
   const check = (label: string, actual: unknown, expected: unknown) => {
-    const value = JSON.stringify(actual);
-    rows.push({ label, value, ok: value === JSON.stringify(expected) });
+    const value = canonical(actual);
+    rows.push({ label, value, ok: value === canonical(expected) });
   };
   check("add(2, 3)", add(2, 3), 5);
   check("fibonacci(20)", fibonacci(20), 6765);
