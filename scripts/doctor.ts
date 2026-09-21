@@ -1,9 +1,7 @@
-#!/usr/bin/env bun
 /** Reports which tools the Lucent toolchain can find on this machine. */
-import { $ } from "bun";
+import { spawnSync } from "node:child_process";
 
 const checks: { name: string; cmd: string[]; required: boolean }[] = [
-  { name: "bun", cmd: ["bun", "--version"], required: true },
   { name: "node", cmd: ["node", "--version"], required: true },
   { name: "swiftc", cmd: ["swiftc", "--version"], required: true },
   { name: "kotlinc", cmd: ["kotlinc", "-version"], required: true },
@@ -12,11 +10,16 @@ const checks: { name: string; cmd: string[]; required: boolean }[] = [
   { name: "adb", cmd: ["adb", "--version"], required: false },
 ];
 
+const agent = process.env.npm_config_user_agent ?? "";
+console.log(
+  `${agent.includes("pnpm") ? "✓" : "-"} ${"pnpm".padEnd(11)} ${agent.split(" ")[0] ?? "run this through pnpm"}`,
+);
+
 let failed = false;
 for (const check of checks) {
-  const result = await $`${check.cmd}`.quiet().nothrow();
-  const text = (result.stdout.toString() + result.stderr.toString()).trim().split("\n")[0] ?? "";
-  const ok = result.exitCode === 0;
+  const result = spawnSync(check.cmd[0]!, check.cmd.slice(1), { encoding: "utf8" });
+  const text = ((result.stdout ?? "") + (result.stderr ?? "")).trim().split("\n")[0] ?? "";
+  const ok = result.status === 0;
   if (!ok && check.required) failed = true;
   console.log(`${ok ? "✓" : check.required ? "✗" : "-"} ${check.name.padEnd(11)} ${ok ? text : "not found"}`);
 }

@@ -9,28 +9,32 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "bun run --cwd apps/website dev",
-    "build": "bun run --cwd apps/website build",
-    "start": "bun run --cwd apps/website preview",
-    "preview": "bun run --cwd apps/website preview",
     "typecheck": "tsc --noEmit && tsc --noEmit -p fixtures",
-    "build:packages": "bun scripts/build-packages.ts",
     "lint": "oxlint --deny-warnings",
     "format": "oxfmt",
     "format:check": "oxfmt --check",
-    "test": "bun test",
-    "verify": "bun run typecheck && bun run lint && bun run format:check && bun test && bun scripts/verify-native.ts",
-    "doctor": "bun scripts/doctor.ts",
-    "lucent": "bun packages/cli/src/main.ts"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "build:packages": "tsdown",
+    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && tsx scripts/verify-native.ts",
+    "lucent": "tsx packages/cli/src/main.ts",
+    "tools": "tsx scripts/doctor.ts"
   },
   "devDependencies": {
     "@lucent-lang/backend-kotlin": "workspace:*",
     "@lucent-lang/backend-swift": "workspace:*",
     "@lucent-lang/compiler": "workspace:*",
     "@lucent-lang/types": "workspace:*",
-    "@types/bun": "^1.2.0",
+    "@types/node": "^24.7.0",
     "oxfmt": "0.70.0",
     "oxlint": "1.85.0",
-    "typescript": "~5.9.3"
-  }
+    "tsdown": "0.23.0",
+    "tsx": "^4.20.6",
+    "typescript": "~5.9.3",
+    "vitest": "^3.2.4"
+  },
+  "engines": {
+    "node": ">=22.12"
+  },
+  "packageManager": "pnpm@12.5.1"
 }

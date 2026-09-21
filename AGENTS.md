@@ -19,8 +19,8 @@ cli / expo / metro  →  host-expo / host-nitro  →  backend-swift / backend-ko
 
 ## Working
 
-- `bun install`, `bun test`, `bun run typecheck`, `bun run verify` (also compiles
-  generated Swift/Kotlin with `swiftc`/`kotlinc`).
+- `pnpm install`, then `pnpm test`, `pnpm typecheck`, `pnpm verify` (also compiles
+  generated Swift/Kotlin with `swiftc`/`kotlinc`). Tests run on vitest, scripts on tsx.
 - Fixtures in `fixtures/` are the shared contract: `<name>.lucent.ts` with golden
   `<name>.ir.txt`, `<name>.swift`, `<name>.kt`, `<name>.diag.txt`.
 - Tests are committed before the implementation they prove (red, then green).

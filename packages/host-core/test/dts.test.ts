@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { compile } from "@lucent-lang/compiler";
 import { declarations, jsType, moduleIdentifier } from "../src/index.ts";
 

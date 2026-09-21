@@ -21,16 +21,16 @@ rationale and verified external API contracts are in the plan referenced there.
 
 ## Requirements
 
-- Bun 1.4+, Node 24 (for oxc-parser's napi binding)
+- Node 22.12+ and pnpm 12
 - Xcode 27 with an iOS 26 simulator, `swiftc`
 - `kotlinc` (`brew install kotlin`) and a JDK
 - Android SDK with an emulator image (for the Android end-to-end check)
 
 ```sh
-bun install
-bun test              # unit + golden tests
-bun run typecheck
-bun run verify        # + compiles every fixture's Swift and Kotlin
+pnpm install
+pnpm test             # unit + golden tests (vitest)
+pnpm typecheck
+pnpm verify           # + lint, format check, and compiling every fixture's Swift and Kotlin
 ```
 
 ## Roadmap / hand-off checklist
@@ -41,10 +41,11 @@ committed red before the implementation commit that turns them green.
 
 ### 0. Repository
 
-- [x] Bun workspace, strict `tsconfig`, `.gitignore`, `AGENTS.md` — `chore: scaffold bun workspace and strict tsconfig`
+- [x] pnpm workspace, vitest, tsx, strict `tsconfig`, `.gitignore`, `AGENTS.md` — `chore: scaffold bun workspace and strict tsconfig`
 - [x] `docs/language.md` v1 language contract — `docs: define the Lucent language subset`
 - [x] Git remote `github.com/Fausto95/lucent`, no AI co-author trailers in commits
-- [x] `scripts/doctor.ts` — checks bun, node, swiftc, kotlinc, xcodebuild, java, adb
+- [x] GitHub Actions: `.github/workflows/ci.yml` runs typecheck, lint, format check and tests on Ubuntu, and the Swift/Kotlin compile check on macOS
+- [x] `scripts/doctor.ts` (`pnpm tools`) — checks node, pnpm, swiftc, kotlinc, xcodebuild, java, adb
 - [~] README kept in sync with progress (this list)
 
 ### 1. `packages/compiler` — pure, no IO
@@ -75,7 +76,7 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 - [x] Emitters — one file per backend (`src/index.ts`), `let`/`var` from IR mutability, `async throws` / `suspend`, statement-level `try`/`try await` in Swift, labeled Swift calls, `throw LucentError(...)`
 - [x] Runtime prelude contract: `LucentError`, `LucentBytes.length/get`, `lucentStr` — hosts supply the `ArrayBuffer` accessors via `swiftRuntime(...)` / `kotlinRuntime(...)`
 - [x] Number semantics: `%` as `truncatingRemainder`/`%`, string `+` concat, sized-int wrapping ops (`&+` in Swift), JS-style number formatting in `lucentStr`
-- [x] `scripts/verify-native.ts` — for each fixture, `swiftc -typecheck` and `kotlinc -nowarn` the generated file plus a stub prelude (`ArrayBuffer` = byte array); wired into `bun run verify`
+- [x] `scripts/verify-native.ts` — for each fixture, `swiftc -typecheck` and `kotlinc -nowarn` the generated file plus a stub prelude (`ArrayBuffer` = byte array); wired into `pnpm verify`
 
 ### 3. `packages/host-expo` — Expo SDK 58
 
@@ -91,7 +92,7 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 
 - [x] `src/specs/<Name>.nitro.ts` from IR signatures (`interface … extends HybridObject<{ ios: 'swift'; android: 'kotlin' }>`; structs as `interface`; bytes as `ArrayBuffer`)
 - [x] `ios/Hybrid<Name>.swift` (`throws`, `Promise.async { }`), `android/.../Hybrid<Name>.kt` (`@Keep @DoNotStrip`, `Promise.async { }`); bodies live in `<Name>Bodies` namespaces with generated `fromNitro`/`toNitro` struct converters, since nitrogen owns boundary types (ints as `number`, Kotlin arrays as `DoubleArray`/`Array<T>`)
-- [x] Package tree `.lucent/nitro/` (`lucent-native`): `package.json`, `nitro.json` (current `autolinking.<Name>.ios/android.{language,implementationClassName}` schema), `NitroLucent.podspec`, `android/build.gradle`, `CMakeLists.txt`, `cpp-adapter.cpp`, `LucentPackage.kt`, `react-native.config.js`. The app links it through its own `react-native.config.js` (`dependencies['lucent-native'].root`), not a `file:` dependency, because Bun copies `file:` packages into its store
+- [x] Package tree `.lucent/nitro/` (`lucent-native`): `package.json`, `nitro.json` (current `autolinking.<Name>.ios/android.{language,implementationClassName}` schema), `NitroLucent.podspec`, `android/build.gradle`, `CMakeLists.txt`, `cpp-adapter.cpp`, `LucentPackage.kt`, `react-native.config.js`. The app links it through its own `react-native.config.js` (`dependencies['lucent-native'].root`), not a `file:` dependency, so regenerated output is picked up without reinstalling
 - [x] `postGenerate` runs `nitrogen` in the package
 - [x] JS proxy via `NitroModules.createHybridObject`; `null` ↔ `undefined` for optionals; rethrows `"[CODE] message"` as `LucentError { code, message }` (Kotlin/Swift `LucentError` message is `[CODE] message` on this host — still to wire in the runtime prelude)
 - [x] Golden tests for every emitted file
@@ -106,7 +107,7 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 ### 6. `packages/metro`
 
 - [x] `withLucent(config, { host })` sets `transformer.babelTransformerPath` to the bundled `dist/transformer.cjs`; host and upstream transformer reach Metro workers through `LUCENT_HOST` / `LUCENT_UPSTREAM_TRANSFORMER` env
-- [x] `scripts/build-packages.ts` (`bun run build:packages`) bundles the Node-loaded entries (Metro transformer, Expo plugin, CLI bin) to CommonJS with `Bun.build`; sources stay the entry for Bun and tsc
+- [x] `tsdown.config.ts` (`pnpm build:packages`) bundles the Node-loaded entries (Metro transformer, Expo plugin, CLI bin) to CommonJS with tsdown (rolldown); sources stay the entry for vitest and tsc
 - [x] Transformer: for `/\.lucent\.ts$/`, compile in-process, replace `src` with the host's JS proxy, delegate to `@expo/metro-config/babel-transformer` or `@react-native/metro-babel-transformer`
 - [x] `getCacheKey()` = upstream key + compiler version + host
 - [x] Compile errors surfaced as Metro transform errors with the Lucent codeframe
@@ -124,11 +125,11 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 ### 9. Example apps and end-to-end verification
 
 - [x] `apps/expo-example` — Expo SDK 58 preview 4, `src/math.lucent.ts` + `src/people.lucent.ts` (add, fibonacci, clamp, async sum, struct round-trip, bytes checksum, throw), `App.tsx` asserts every result and shows ALL OK / FAILURES; `expo prebuild` runs the Lucent plugin (verified: compiles, then cache hits)
-- [x] `apps/bare-example` — RN 0.88.0-rc.2 + Nitro 0.37.1, same sources and screen; `bun run lucent` regenerates `.lucent/nitro` and runs nitrogen (verified)
+- [x] `apps/bare-example` — RN 0.88.0-rc.2 + Nitro 0.37.1, same sources and screen; `pnpm lucent` regenerates `.lucent/nitro` and runs nitrogen (verified)
 - [x] Expo example on the iOS simulator: ALL OK (10/10 checks: sync, recursion, async, struct with optional, template strings, bytes, error code + message). Note: `export LANG=en_US.UTF-8` is required before any CocoaPods command on this machine
 - [x] Bare example (Nitro) on the iOS simulator: ALL OK (same 10 checks) through nitrogen-generated specs and the Lucent Metro transformer with the nitro host
 - [x] Expo example on the Android emulator (API 34, arm64): ALL OK. Needs JDK 21 (`JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk-21.jdk/Contents/Home`; Gradle 9.4 rejects JDK 27)
-- [ ] **TODO** Bare example (Nitro) on the Android emulator. The generated `lucent-native` library configures and compiles, but the Gradle build then fails in `:react-native-nitro-modules:generateCodegenSchemaFromJavaScript` ("Process 'command node' finished with non-zero exit value 1"): RN's codegen script cannot resolve `@react-native/codegen` from Bun's isolated `node_modules` layout. Likely fixes: hoist with `bun install --linker hoisted` for the app, or add `@react-native/codegen` as a direct devDependency of `apps/bare-example`. Run with `JAVA_HOME` pointing at JDK 21 and `-PreactNativeArchitectures=arm64-v8a`
+- [ ] **TODO** Bare example (Nitro) on the Android emulator. The generated `lucent-native` library configures and compiles, but the Gradle build then fails in `:react-native-nitro-modules:generateCodegenSchemaFromJavaScript` ("Process 'command node' finished with non-zero exit value 1"): RN's codegen script cannot resolve `@react-native/codegen` from Bun's isolated `node_modules` layout. The workspace now installs with pnpm's hoisted linker, which should resolve this; re-run the Gradle build to confirm. Run with `JAVA_HOME` pointing at JDK 21 and `-PreactNativeArchitectures=arm64-v8a`
 - [ ] Metro cache check: edit a `.lucent.ts` signature, reload without `--clear`
 
 ### Later (explicitly out of v1)

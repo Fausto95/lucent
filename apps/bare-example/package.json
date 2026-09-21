@@ -6,7 +6,7 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "start": "react-native start",
-    "lucent": "bun ../../packages/cli/src/main.ts build --host nitro",
+    "lucent": "tsx ../../packages/cli/src/main.ts build --host nitro",
     "pods": "cd ios && bundle exec pod install"
   },
   "dependencies": {

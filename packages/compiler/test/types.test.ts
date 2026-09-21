@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { resolveType, type TypeScope } from "../src/types/resolve.ts";
 import { typeToString } from "../src/types/native-type.ts";
 import { parseModule } from "../src/parser/index.ts";

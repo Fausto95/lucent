@@ -1,17 +1,22 @@
-#!/usr/bin/env bun
 /**
  * Compiles every fixture's generated Swift and Kotlin with the real toolchains,
  * against a stub runtime where `ArrayBuffer` is a plain byte array.
  */
-import { $ } from "bun";
+import { spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { compile } from "@lucent-lang/compiler";
 import { generateSwift, swiftRuntime } from "@lucent-lang/backend-swift";
 import { generateKotlin, kotlinRuntime } from "@lucent-lang/backend-kotlin";
 
-const root = join(import.meta.dir, "..");
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+const run = (cmd: string, args: string[]) => {
+  const r = spawnSync(cmd, args, { encoding: "utf8" });
+  return { exitCode: r.status ?? 1, stderr: r.stderr ?? "" };
+};
 const fixtures = join(root, "fixtures");
 const names = readdirSync(fixtures)
   .filter((f) => f.endsWith(".lucent.ts"))
@@ -45,13 +50,11 @@ for (const name of names) {
   }
   const swiftFile = join(work, `${name}.swift`);
   writeFileSync(swiftFile, generateSwift(result.module).code);
-  const swift = await $`swiftc -typecheck -parse-as-library ${join(work, "Runtime.swift")} ${swiftFile}`
-    .quiet()
-    .nothrow();
+  const swift = run("swiftc", ["-typecheck", "-parse-as-library", join(work, "Runtime.swift"), swiftFile]);
   if (swift.exitCode === 0) console.log(`✓ swift   ${name}`);
   else {
     failed = true;
-    console.log(`✗ swift   ${name}\n${swift.stderr.toString()}`);
+    console.log(`✗ swift   ${name}\n${swift.stderr}`);
   }
   const pkg = `fixtures.f_${name.replace(/-/g, "_")}`;
   const kotlinFile = join(work, `${name}.kt`);
@@ -61,11 +64,11 @@ for (const name of names) {
   kotlinFiles.push(kotlinFile, runtimeFile);
 }
 
-const kotlin = await $`kotlinc -nowarn -d ${join(work, "out")} ${kotlinFiles}`.quiet().nothrow();
+const kotlin = run("kotlinc", ["-nowarn", "-d", join(work, "out"), ...kotlinFiles]);
 if (kotlin.exitCode === 0) console.log(`✓ kotlin  ${names.length} fixtures`);
 else {
   failed = true;
-  console.log(`✗ kotlin\n${kotlin.stderr.toString()}`);
+  console.log(`✗ kotlin\n${kotlin.stderr}`);
 }
 console.log(`(sources in ${work})`);
 process.exit(failed ? 1 : 0);

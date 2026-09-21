@@ -1,5 +1,0 @@
-[install]
-optional = true
-
-[test]
-root = "."

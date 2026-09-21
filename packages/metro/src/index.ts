@@ -15,12 +15,12 @@ interface MetroLikeConfig {
   [key: string]: unknown;
 }
 
-/** The bundled CommonJS transformer Metro's workers `require`; built by `bun run build:packages`. */
+/** The bundled CommonJS transformer Metro's workers `require`; built by `pnpm build:packages`. */
 export function transformerPath(): string {
   const here = dirname(fileURLToPath(import.meta.url));
   const built = join(here, "..", "dist", "transformer.cjs");
   if (!existsSync(built))
-    throw new Error(`Lucent: ${built} is missing. Run \`bun run build:packages\` in the lucent repo.`);
+    throw new Error(`Lucent: ${built} is missing. Run \`pnpm build:packages\` in the lucent repo.`);
   return built;
 }
 

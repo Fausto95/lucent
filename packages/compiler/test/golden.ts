@@ -1,8 +1,9 @@
 import { readdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
-import { join } from "node:path";
-import { expect } from "bun:test";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { expect } from "vitest";
 
-export const FIXTURES = join(import.meta.dir, "../../../fixtures");
+export const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), "../../../fixtures");
 
 export function fixtureNames(dir = FIXTURES): string[] {
   return readdirSync(dir)

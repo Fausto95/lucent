@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { createTransformer, type UpstreamTransformer } from "../src/transformer.ts";
 import { withLucent } from "../src/index.ts";
 

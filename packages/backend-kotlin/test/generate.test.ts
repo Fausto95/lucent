@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { join } from "node:path";
 import { compile } from "@lucent-lang/compiler";
 import { generateKotlin, kotlinType } from "../src/index.ts";

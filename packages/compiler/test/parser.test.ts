@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test } from "vitest";
 import { parseModule } from "../src/parser/index.ts";
 
 const parse = (source: string) => parseModule(source, "math.lucent.ts");
