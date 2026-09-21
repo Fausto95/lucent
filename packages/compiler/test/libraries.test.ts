@@ -32,9 +32,25 @@ test("synchronous functions cannot request a thread hop", () => {
 });
 
 test("async SDK declarations infer suspension from Promise", () => {
-  const result=compile('import {model} from "@lucent-lang/platform/device"; export async function f():Promise<string>{return await model();}',{
-    fileName:"device.lucent.ts", libraries:{"@lucent-lang/platform/device":{source:'export declare function model():Promise<string>;',bindings:{model:{swift:['return "phone"'],kotlin:['return "phone"'],thread:"main"}}}}
-  });
+  const result = compile(
+    'import {model} from "@lucent-lang/platform/device"; export async function f():Promise<string>{return await model();}',
+    {
+      fileName: "device.lucent.ts",
+      libraries: {
+        "@lucent-lang/platform/device": {
+          source: "export declare function model():Promise<string>;",
+          bindings: { model: { swift: ['return "phone"'], kotlin: ['return "phone"'], thread: "main" } },
+        },
+      },
+    },
+  );
   expect(result.diagnostics).toEqual([]);
-  expect(result.module?.functions.find(f=>f.binding)?.async).toBe(true);
+  expect(result.module?.functions.find((f) => f.binding)?.async).toBe(true);
+});
+
+test("only requires capabilities of reachable SDK functions", () => {
+  const result=compile('import {read} from "@lucent-lang/platform/demo"; export function f():number{return read();}',{
+    fileName:"demo.lucent.ts", libraries:{"@lucent-lang/platform/demo":{source:'export declare function read():number; export declare function unused():number;',bindings:{read:{swift:['return 1'],kotlin:['return 1.0'],capabilities:['read']},unused:{swift:['return 2'],kotlin:['return 2.0'],capabilities:['unused']}}}}
+  });
+  expect(result.module?.capabilities).toEqual(["read"]);
 });
