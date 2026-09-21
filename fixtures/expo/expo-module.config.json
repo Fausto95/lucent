@@ -1,0 +1,30 @@
+{
+  "platforms": [
+    "apple",
+    "android"
+  ],
+  "apple": {
+    "modules": [
+      "LucentAddModule",
+      "LucentAsyncSumModule",
+      "LucentBytesModule",
+      "LucentClampModule",
+      "LucentFibonacciModule",
+      "LucentKitchenModule",
+      "LucentStructRoundtripModule",
+      "LucentThrowModule"
+    ]
+  },
+  "android": {
+    "modules": [
+      "expo.modules.lucent.LucentAddModule",
+      "expo.modules.lucent.LucentAsyncSumModule",
+      "expo.modules.lucent.LucentBytesModule",
+      "expo.modules.lucent.LucentClampModule",
+      "expo.modules.lucent.LucentFibonacciModule",
+      "expo.modules.lucent.LucentKitchenModule",
+      "expo.modules.lucent.LucentStructRoundtripModule",
+      "expo.modules.lucent.LucentThrowModule"
+    ]
+  }
+}
