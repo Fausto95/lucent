@@ -5,13 +5,13 @@ exposed to React Native through **Expo Modules** (SDK 58) or **Nitro Modules**
 (bare RN). You write `*.lucent.ts`; nothing in it ever runs in a JS engine.
 
 ```
-*.lucent.ts ──► @lucent/compiler ──► IR ──► @lucent/backend-swift ──► Swift bodies
-                                        └─► @lucent/backend-kotlin ─► Kotlin bodies
+*.lucent.ts ──► @lucent-lang/compiler ──► IR ──► @lucent-lang/backend-swift ──► Swift bodies
+                                        └─► @lucent-lang/backend-kotlin ─► Kotlin bodies
                                                     │
-                                        ├─► @lucent/host-expo   (Expo Module + JS proxy)
-                                        └─► @lucent/host-nitro  (Nitro HybridObject + JS proxy)
+                                        ├─► @lucent-lang/host-expo   (Expo Module + JS proxy)
+                                        └─► @lucent-lang/host-nitro  (Nitro HybridObject + JS proxy)
                                                     │
-                                       @lucent/metro  · @lucent/expo · @lucent/cli
+                                       @lucent-lang/metro  · @lucent-lang/expo · @lucent-lang/cli
 ```
 
 Dependency direction is one way: `cli / expo / metro → host-* → backend-* → compiler → oxc-parser`.
@@ -58,7 +58,7 @@ Public API: `compile(source, { fileName }) → { module: IRModule | null, diagno
 - [x] `src/types/native-type.ts` — `NativeType` union (`void bool string bytes float{32,64} int{8..64,signed} array map optional struct promise`), `typeToString`, `typeEquals`
 - [x] `src/types/resolve.ts` — `resolveType(SurfaceType, scope)` lookup-table resolver; `NT1003/NT1004/NT1005`
 - [x] Red tests: `test/checker.test.ts` — scopes, inference from initializer, assignability, arity, `await` in async only, `Promise` only as async return, struct field access, dynamic access `NT1002`, missing annotation `NT1014`, missing return `NT1015`, const assignment `NT1016`, > 8 params `NT1007`
-- [x] `src/checker/` — typed surface AST (every expression annotated with `NativeType`), module symbol table (structs, functions, sized types imported from `@lucent/types`)
+- [x] `src/checker/` — typed surface AST (every expression annotated with `NativeType`), module symbol table (structs, functions, sized types imported from `@lucent-lang/types`)
 - [x] Red tests: `test/lowering.test.ts` — golden IR text for `fixtures/*.lucent.ts`
 - [x] `src/ir/` — structured, typed IR (`IRStmt` / `IRExpr` / `IRPlace`) and `printIR` text form; see [docs/ir.md](docs/ir.md) for why it is not a CFG
 - [x] `src/lowering/` — typed AST → IR: unique locals, param shadows, `for` → `while`, `for…of` → `forEach`, compound assignment/update expansion, template → `concat`/`str`
@@ -79,7 +79,7 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 
 ### 3. `packages/host-expo` — Expo SDK 58
 
-- [x] `packages/host-core`: `Host` interface (`emitPackage(modules) → FileTree`, `emitProxy(module) → { js, dts }`), `.d.ts` generation, boundary conversion helpers; `packages/runtime` (`@lucent/runtime`): `LucentError`, `lucentCall`, `toArrayBuffer`/`fromArrayBuffer`, error normalisation for both hosts
+- [x] `packages/host-core`: `Host` interface (`emitPackage(modules) → FileTree`, `emitProxy(module) → { js, dts }`), `.d.ts` generation, boundary conversion helpers; `packages/runtime` (`@lucent-lang/runtime`): `LucentError`, `lucentCall`, `toArrayBuffer`/`fromArrayBuffer`, error normalisation for both hosts
 - [x] Swift: `@ExpoModule("Lucent_<name>") public final class Lucent<Name>Module: Module` with `@JS` sync and `@JS(.concurrent) … async throws` members, `@Record` structs, `LucentError: Exception` with `code`
 - [x] Kotlin: `definition()` DSL (`Function`, `AsyncFunction … Coroutine`), constructor-parameter `Record` + `@Field` with type defaults, boundary conversions for Byte/Short/unsigned ints; `LucentError` is a plain Exception (code recovered by the proxy from the message) — switch to `CodedException` once verified in the example app
 - [x] Bytes as `ExpoModulesCore.ArrayBuffer` / `expo.modules.kotlin.jni.ArrayBuffer`; async functions copy on entry
@@ -119,7 +119,7 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 
 ### 8. `packages/types`
 
-- [x] `@lucent/types` d.ts-only package: branded `int8 … uint64`, `float32`, `float64`
+- [x] `@lucent-lang/types` d.ts-only package: branded `int8 … uint64`, `float32`, `float64`
 
 ### 9. Example apps and end-to-end verification
 

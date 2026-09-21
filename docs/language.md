@@ -11,26 +11,26 @@ TypeScript error.
 - `export function` and `export async function` declarations are the module's
   native API. Non-exported functions are private helpers.
 - `type Name = { … }` aliases declare structs. They may be exported or not.
-- The only permitted import is `import type { … } from "@lucent/types"`.
+- The only permitted import is `import type { … } from "@lucent-lang/types"`.
   Any other import is `NT1006 Unsupported dependency`.
 - Nothing else may appear at the top level (no statements, no classes, no
   `const` declarations, no default exports). → `NT1001 Unsupported syntax`.
 
 ## Types
 
-| TypeScript                                                              | Native type    | Swift               | Kotlin            |
-| ----------------------------------------------------------------------- | -------------- | ------------------- | ----------------- |
-| `number`                                                                | `float64`      | `Double`            | `Double`          |
-| `string`                                                                | `string`       | `String`            | `String`          |
-| `boolean`                                                               | `bool`         | `Bool`              | `Boolean`         |
-| `void`                                                                  | `void`         | `Void`              | `Unit`            |
-| `T[]`, `Array<T>`                                                       | `array<T>`     | `[T]`               | `List<T>`         |
-| `T \| null`, `T \| undefined`                                           | `optional<T>`  | `T?`                | `T?`              |
-| `Record<string, T>`                                                     | `map<T>`       | `[String: T]`       | `Map<String, T>`  |
-| `Uint8Array`                                                            | `bytes`        | `ArrayBuffer`       | `ArrayBuffer`     |
-| `Promise<T>` (return type only)                                         | `promise<T>`   | `async … -> T`      | `suspend …: T`    |
-| object type alias                                                       | `struct`       | `struct`            | `data class`      |
-| `int8…int64`, `uint8…uint64`, `float32`, `float64` from `@lucent/types` | sized numerics | `Int32`, `Float`, … | `Int`, `Float`, … |
+| TypeScript                                                                   | Native type    | Swift               | Kotlin            |
+| ---------------------------------------------------------------------------- | -------------- | ------------------- | ----------------- |
+| `number`                                                                     | `float64`      | `Double`            | `Double`          |
+| `string`                                                                     | `string`       | `String`            | `String`          |
+| `boolean`                                                                    | `bool`         | `Bool`              | `Boolean`         |
+| `void`                                                                       | `void`         | `Void`              | `Unit`            |
+| `T[]`, `Array<T>`                                                            | `array<T>`     | `[T]`               | `List<T>`         |
+| `T \| null`, `T \| undefined`                                                | `optional<T>`  | `T?`                | `T?`              |
+| `Record<string, T>`                                                          | `map<T>`       | `[String: T]`       | `Map<String, T>`  |
+| `Uint8Array`                                                                 | `bytes`        | `ArrayBuffer`       | `ArrayBuffer`     |
+| `Promise<T>` (return type only)                                              | `promise<T>`   | `async … -> T`      | `suspend …: T`    |
+| object type alias                                                            | `struct`       | `struct`            | `data class`      |
+| `int8…int64`, `uint8…uint64`, `float32`, `float64` from `@lucent-lang/types` | sized numerics | `Int32`, `Float`, … | `Int`, `Float`, … |
 
 Rules:
 

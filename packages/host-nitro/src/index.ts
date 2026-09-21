@@ -4,10 +4,16 @@
  * integer), so backend bodies live in their own namespace and explicit
  * converters move values across.
  */
-import type { IRModule, NativeType } from "@lucent/compiler";
-import { generateSwift, swiftRuntime, swiftType, indent, signature as swiftSignature } from "@lucent/backend-swift";
-import { generateKotlin, kotlinRuntime, kotlinType, signature as kotlinSignature } from "@lucent/backend-kotlin";
-import type { GeneratedFunction } from "@lucent/backend-kotlin";
+import type { IRModule, NativeType } from "@lucent-lang/compiler";
+import {
+  generateSwift,
+  swiftRuntime,
+  swiftType,
+  indent,
+  signature as swiftSignature,
+} from "@lucent-lang/backend-swift";
+import { generateKotlin, kotlinRuntime, kotlinType, signature as kotlinSignature } from "@lucent-lang/backend-kotlin";
+import type { GeneratedFunction } from "@lucent-lang/backend-kotlin";
 import {
   GENERATED_HEADER,
   runtimeImport,
@@ -18,7 +24,7 @@ import {
   type EmitOptions,
   type FileTree,
   type Host,
-} from "@lucent/host-core";
+} from "@lucent-lang/host-core";
 
 export const IOS_MODULE_NAME = "NitroLucent";
 export const ANDROID_NAMESPACE = "lucent";

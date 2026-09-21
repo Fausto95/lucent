@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { compile } from "@lucent/compiler";
+import { compile } from "@lucent-lang/compiler";
 import { generateSwift, swiftType } from "../src/index.ts";
 import { FIXTURES, expectGolden, fixtureNames, readFixture } from "../../compiler/test/golden.ts";
 

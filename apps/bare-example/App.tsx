@@ -8,9 +8,10 @@ type Row = { label: string; value: string; ok: boolean };
 
 /** JSON with sorted object keys, since hosts do not promise a key order. */
 function canonical(value: unknown): string {
+  // oxlint-disable-next-line unicorn/no-array-sort -- Hermes has no toSorted; Object.entries is already a fresh array
   return JSON.stringify(value, (_key, v: unknown) =>
     v && typeof v === "object" && !Array.isArray(v)
-      ? Object.fromEntries([...Object.entries(v as Record<string, unknown>)].sort(([a], [b]) => a.localeCompare(b)))
+      ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b)))
       : v,
   );
 }

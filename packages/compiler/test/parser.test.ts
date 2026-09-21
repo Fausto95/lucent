@@ -71,12 +71,12 @@ describe("parseModule", () => {
 
   test("type alias with optional field and type-only import", () => {
     const { module, diagnostics } = parse(`
-      import type { int32 } from "@lucent/types";
+      import type { int32 } from "@lucent-lang/types";
       export type User = { id: string; age: int32; nickname?: string; tags: string[] | null };
     `);
     expect(diagnostics).toEqual([]);
     expect(module.imports).toEqual([
-      { source: "@lucent/types", names: ["int32"], typeOnly: true, span: expect.anything() },
+      { source: "@lucent-lang/types", names: ["int32"], typeOnly: true, span: expect.anything() },
     ]);
     const alias = module.typeAliases[0]!;
     expect(alias.name).toBe("User");

@@ -5,7 +5,7 @@ import { SIZED_NUMERIC_TYPES, T, type NativeType } from "./native-type.ts";
 export interface TypeScope {
   /** Struct names declared by type aliases in the module. */
   readonly structs: ReadonlySet<string>;
-  /** Sized numeric names imported from `@lucent/types`. */
+  /** Sized numeric names imported from `@lucent-lang/types`. */
   readonly sized: ReadonlySet<string>;
 }
 
@@ -127,7 +127,7 @@ function resolveReference(type: Extract<SurfaceType, { kind: "reference" }>, sco
   if (scope.sized.has(type.name) && SIZED_NUMERIC_TYPES[type.name]) return ok(SIZED_NUMERIC_TYPES[type.name]!);
   if (scope.structs.has(type.name)) return ok(T.struct(type.name));
   const sizedHint = SIZED_NUMERIC_TYPES[type.name]
-    ? ` Import it: \`import type { ${type.name} } from "@lucent/types";\`.`
+    ? ` Import it: \`import type { ${type.name} } from "@lucent-lang/types";\`.`
     : "";
   return fail(
     diagnostic(

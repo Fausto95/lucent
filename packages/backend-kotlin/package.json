@@ -1,5 +1,5 @@
 {
-  "name": "@lucent/backend-kotlin",
+  "name": "@lucent-lang/backend-kotlin",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -7,6 +7,6 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@lucent/compiler": "workspace:*"
+    "@lucent-lang/compiler": "workspace:*"
   }
 }

@@ -2,10 +2,10 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { COMPILER_VERSION, compile, printIR, renderDiagnostic, type IRModule } from "@lucent/compiler";
-import type { FileTree, Host } from "@lucent/host-core";
-import { expoHost } from "@lucent/host-expo";
-import { nitroHost } from "@lucent/host-nitro";
+import { COMPILER_VERSION, compile, printIR, renderDiagnostic, type IRModule } from "@lucent-lang/compiler";
+import type { FileTree, Host } from "@lucent-lang/host-core";
+import { expoHost } from "@lucent-lang/host-expo";
+import { nitroHost } from "@lucent-lang/host-nitro";
 
 export type HostName = "expo" | "nitro";
 

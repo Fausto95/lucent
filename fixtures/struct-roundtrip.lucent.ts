@@ -1,4 +1,4 @@
-import type { int32 } from "@lucent/types";
+import type { int32 } from "@lucent-lang/types";
 
 export type User = {
   id: string;

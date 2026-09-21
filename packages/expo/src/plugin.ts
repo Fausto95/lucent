@@ -5,7 +5,7 @@ import {
   type ConfigPlugin,
   type ExportedConfigWithProps,
 } from "@expo/config-plugins";
-import { build, type HostName } from "@lucent/cli";
+import { build, type HostName } from "@lucent-lang/cli";
 
 export interface LucentPluginProps {
   host?: HostName;
@@ -31,6 +31,6 @@ const withLucentBuild: ConfigPlugin<LucentPluginProps | undefined> = (config, pr
   return config;
 };
 
-const withLucent = createRunOncePlugin(withLucentBuild, "@lucent/expo", "0.0.0");
+const withLucent = createRunOncePlugin(withLucentBuild, "@lucent-lang/expo", "0.0.0");
 
 export default withLucent;

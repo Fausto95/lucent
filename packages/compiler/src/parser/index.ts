@@ -35,7 +35,7 @@ export interface ParseResult {
   diagnostics: Diagnostic[];
 }
 
-export const LUCENT_TYPES_MODULE = "@lucent/types";
+export const LUCENT_TYPES_MODULE = "@lucent-lang/types";
 export const LUCENT_ERROR = "LucentError";
 
 const spanOf = (node: { start: number; end: number }): Span => ({ start: node.start, end: node.end });

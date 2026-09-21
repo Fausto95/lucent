@@ -20,7 +20,7 @@ const ok = (source: string) => {
 describe("checkModule", () => {
   test("signatures, structs, and inferred locals", () => {
     const m = ok(`
-      import type { int32 } from "@lucent/types";
+      import type { int32 } from "@lucent-lang/types";
       export type User = { id: string; age: int32; nickname?: string };
       export function greet(u: User, times: number): string {
         let out = "";
@@ -65,7 +65,7 @@ describe("checkModule", () => {
 
   test("numeric literals adapt to sized integer context", () => {
     const m = ok(`
-      import type { int32 } from "@lucent/types";
+      import type { int32 } from "@lucent-lang/types";
       export function f(a: int32): int32 {
         let b: int32 = 1;
         b = b + 2;
@@ -159,12 +159,12 @@ describe("checkModule", () => {
     ["if test must be bool", `export function f(a: number): number { if (a) { return 1; } return 2; }`, ["NT1011"]],
     [
       "mixed numeric types",
-      `import type { int32 } from "@lucent/types"; export function f(a: int32, b: number): number { return a + b; }`,
+      `import type { int32 } from "@lucent-lang/types"; export function f(a: int32, b: number): number { return a + b; }`,
       ["NT1011"],
     ],
     [
       "fractional literal into int",
-      `import type { int32 } from "@lucent/types"; export function f(): int32 { return 1.5; }`,
+      `import type { int32 } from "@lucent-lang/types"; export function f(): int32 { return 1.5; }`,
       ["NT1011"],
     ],
     ["unknown field", `type U = { a: number }; export function f(u: U): number { return u.b; }`, ["NT1010"]],

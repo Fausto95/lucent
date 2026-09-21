@@ -2,16 +2,21 @@
  * Expo Modules host (SDK 58): wraps backend output in an autolinked local
  * module folder. Swift uses the macro API, Kotlin the definition DSL.
  */
-import type { IRModule, IRStruct, NativeType } from "@lucent/compiler";
-import { generateSwift, swiftRuntime, indent as indentSwift, signature as swiftSignature } from "@lucent/backend-swift";
+import type { IRModule, IRStruct, NativeType } from "@lucent-lang/compiler";
+import {
+  generateSwift,
+  swiftRuntime,
+  indent as indentSwift,
+  signature as swiftSignature,
+} from "@lucent-lang/backend-swift";
 import {
   generateKotlin,
   kotlinRuntime,
   kotlinType,
   indent as indentKotlin,
   signature as kotlinSignature,
-} from "@lucent/backend-kotlin";
-import type { GeneratedFunction, GeneratedStruct } from "@lucent/backend-kotlin";
+} from "@lucent-lang/backend-kotlin";
+import type { GeneratedFunction, GeneratedStruct } from "@lucent-lang/backend-kotlin";
 import {
   GENERATED_HEADER,
   runtimeImport,
@@ -21,7 +26,7 @@ import {
   type EmitOptions,
   type FileTree,
   type Host,
-} from "@lucent/host-core";
+} from "@lucent-lang/host-core";
 
 export const ANDROID_PACKAGE = "expo.modules.lucent";
 export const nativeModuleName = (module: IRModule): string => `Lucent_${module.name}`;

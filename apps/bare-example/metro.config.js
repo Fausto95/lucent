@@ -1,5 +1,5 @@
 const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
-const { withLucent } = require("@lucent/metro");
+const { withLucent } = require("@lucent-lang/metro");
 const path = require("path");
 
 const root = path.resolve(__dirname, "../..");

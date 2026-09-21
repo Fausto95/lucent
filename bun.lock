@@ -5,10 +5,10 @@
     "": {
       "name": "lucent",
       "devDependencies": {
-        "@lucent/backend-kotlin": "workspace:*",
-        "@lucent/backend-swift": "workspace:*",
-        "@lucent/compiler": "workspace:*",
-        "@lucent/types": "workspace:*",
+        "@lucent-lang/backend-kotlin": "workspace:*",
+        "@lucent-lang/backend-swift": "workspace:*",
+        "@lucent-lang/compiler": "workspace:*",
+        "@lucent-lang/types": "workspace:*",
         "@types/bun": "^1.2.0",
         "oxfmt": "0.70.0",
         "oxlint": "1.85.0",
@@ -19,7 +19,7 @@
       "name": "bare-example",
       "version": "0.0.1",
       "dependencies": {
-        "@lucent/runtime": "workspace:*",
+        "@lucent-lang/runtime": "workspace:*",
         "react": "19.3.0",
         "react-native": "0.88.0-rc.2",
         "react-native-nitro-modules": "0.37.1",
@@ -29,8 +29,8 @@
         "@babel/core": "^7.25.2",
         "@babel/preset-env": "^7.25.3",
         "@babel/runtime": "^7.25.0",
-        "@lucent/metro": "workspace:*",
-        "@lucent/types": "workspace:*",
+        "@lucent-lang/metro": "workspace:*",
+        "@lucent-lang/types": "workspace:*",
         "@react-native-community/cli": "20.2.0",
         "@react-native-community/cli-platform-android": "20.2.0",
         "@react-native-community/cli-platform-ios": "20.2.0",
@@ -47,16 +47,16 @@
       "name": "expo-example",
       "version": "1.0.0",
       "dependencies": {
-        "@lucent/runtime": "workspace:*",
+        "@lucent-lang/runtime": "workspace:*",
         "expo": "~58.0.0-preview.4",
         "expo-status-bar": "~58.0.1",
         "react": "19.3.0",
         "react-native": "0.88.0-rc.1",
       },
       "devDependencies": {
-        "@lucent/expo": "workspace:*",
-        "@lucent/metro": "workspace:*",
-        "@lucent/types": "workspace:*",
+        "@lucent-lang/expo": "workspace:*",
+        "@lucent-lang/metro": "workspace:*",
+        "@lucent-lang/types": "workspace:*",
         "@types/react": "~19.3.0",
         "typescript": "~6.0.3",
       },
@@ -80,35 +80,35 @@
       },
     },
     "packages/backend-kotlin": {
-      "name": "@lucent/backend-kotlin",
+      "name": "@lucent-lang/backend-kotlin",
       "version": "0.0.0",
       "dependencies": {
-        "@lucent/compiler": "workspace:*",
+        "@lucent-lang/compiler": "workspace:*",
       },
     },
     "packages/backend-swift": {
-      "name": "@lucent/backend-swift",
+      "name": "@lucent-lang/backend-swift",
       "version": "0.0.0",
       "dependencies": {
-        "@lucent/compiler": "workspace:*",
+        "@lucent-lang/compiler": "workspace:*",
       },
     },
     "packages/cli": {
-      "name": "@lucent/cli",
+      "name": "@lucent-lang/cli",
       "version": "0.0.0",
       "bin": {
         "lucent": "./src/main.ts",
       },
       "dependencies": {
-        "@lucent/compiler": "workspace:*",
-        "@lucent/host-core": "workspace:*",
-        "@lucent/host-expo": "workspace:*",
-        "@lucent/host-nitro": "workspace:*",
+        "@lucent-lang/compiler": "workspace:*",
+        "@lucent-lang/host-core": "workspace:*",
+        "@lucent-lang/host-expo": "workspace:*",
+        "@lucent-lang/host-nitro": "workspace:*",
         "oxc-parser": "0.151.0",
       },
     },
     "packages/compiler": {
-      "name": "@lucent/compiler",
+      "name": "@lucent-lang/compiler",
       "version": "0.0.0",
       "dependencies": {
         "@oxc-project/types": "0.151.0",
@@ -116,11 +116,11 @@
       },
     },
     "packages/expo": {
-      "name": "@lucent/expo",
+      "name": "@lucent-lang/expo",
       "version": "0.0.0",
       "dependencies": {
         "@expo/config-plugins": "58.0.2",
-        "@lucent/cli": "workspace:*",
+        "@lucent-lang/cli": "workspace:*",
         "oxc-parser": "0.151.0",
       },
       "peerDependencies": {
@@ -128,49 +128,49 @@
       },
     },
     "packages/host-core": {
-      "name": "@lucent/host-core",
+      "name": "@lucent-lang/host-core",
       "version": "0.0.0",
       "dependencies": {
-        "@lucent/compiler": "workspace:*",
+        "@lucent-lang/compiler": "workspace:*",
       },
     },
     "packages/host-expo": {
-      "name": "@lucent/host-expo",
+      "name": "@lucent-lang/host-expo",
       "version": "0.0.0",
       "dependencies": {
-        "@lucent/backend-kotlin": "workspace:*",
-        "@lucent/backend-swift": "workspace:*",
-        "@lucent/compiler": "workspace:*",
-        "@lucent/host-core": "workspace:*",
+        "@lucent-lang/backend-kotlin": "workspace:*",
+        "@lucent-lang/backend-swift": "workspace:*",
+        "@lucent-lang/compiler": "workspace:*",
+        "@lucent-lang/host-core": "workspace:*",
       },
     },
     "packages/host-nitro": {
-      "name": "@lucent/host-nitro",
+      "name": "@lucent-lang/host-nitro",
       "version": "0.0.0",
       "dependencies": {
-        "@lucent/backend-kotlin": "workspace:*",
-        "@lucent/backend-swift": "workspace:*",
-        "@lucent/compiler": "workspace:*",
-        "@lucent/host-core": "workspace:*",
+        "@lucent-lang/backend-kotlin": "workspace:*",
+        "@lucent-lang/backend-swift": "workspace:*",
+        "@lucent-lang/compiler": "workspace:*",
+        "@lucent-lang/host-core": "workspace:*",
       },
     },
     "packages/metro": {
-      "name": "@lucent/metro",
+      "name": "@lucent-lang/metro",
       "version": "0.0.0",
       "dependencies": {
-        "@lucent/compiler": "workspace:*",
-        "@lucent/host-core": "workspace:*",
-        "@lucent/host-expo": "workspace:*",
-        "@lucent/host-nitro": "workspace:*",
+        "@lucent-lang/compiler": "workspace:*",
+        "@lucent-lang/host-core": "workspace:*",
+        "@lucent-lang/host-expo": "workspace:*",
+        "@lucent-lang/host-nitro": "workspace:*",
         "oxc-parser": "0.151.0",
       },
     },
     "packages/runtime": {
-      "name": "@lucent/runtime",
+      "name": "@lucent-lang/runtime",
       "version": "0.0.0",
     },
     "packages/types": {
-      "name": "@lucent/types",
+      "name": "@lucent-lang/types",
       "version": "0.0.0",
     },
   },
@@ -487,27 +487,27 @@
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
-    "@lucent/backend-kotlin": ["@lucent/backend-kotlin@workspace:packages/backend-kotlin"],
+    "@lucent-lang/backend-kotlin": ["@lucent-lang/backend-kotlin@workspace:packages/backend-kotlin"],
 
-    "@lucent/backend-swift": ["@lucent/backend-swift@workspace:packages/backend-swift"],
+    "@lucent-lang/backend-swift": ["@lucent-lang/backend-swift@workspace:packages/backend-swift"],
 
-    "@lucent/cli": ["@lucent/cli@workspace:packages/cli"],
+    "@lucent-lang/cli": ["@lucent-lang/cli@workspace:packages/cli"],
 
-    "@lucent/compiler": ["@lucent/compiler@workspace:packages/compiler"],
+    "@lucent-lang/compiler": ["@lucent-lang/compiler@workspace:packages/compiler"],
 
-    "@lucent/expo": ["@lucent/expo@workspace:packages/expo"],
+    "@lucent-lang/expo": ["@lucent-lang/expo@workspace:packages/expo"],
 
-    "@lucent/host-core": ["@lucent/host-core@workspace:packages/host-core"],
+    "@lucent-lang/host-core": ["@lucent-lang/host-core@workspace:packages/host-core"],
 
-    "@lucent/host-expo": ["@lucent/host-expo@workspace:packages/host-expo"],
+    "@lucent-lang/host-expo": ["@lucent-lang/host-expo@workspace:packages/host-expo"],
 
-    "@lucent/host-nitro": ["@lucent/host-nitro@workspace:packages/host-nitro"],
+    "@lucent-lang/host-nitro": ["@lucent-lang/host-nitro@workspace:packages/host-nitro"],
 
-    "@lucent/metro": ["@lucent/metro@workspace:packages/metro"],
+    "@lucent-lang/metro": ["@lucent-lang/metro@workspace:packages/metro"],
 
-    "@lucent/runtime": ["@lucent/runtime@workspace:packages/runtime"],
+    "@lucent-lang/runtime": ["@lucent-lang/runtime@workspace:packages/runtime"],
 
-    "@lucent/types": ["@lucent/types@workspace:packages/types"],
+    "@lucent-lang/types": ["@lucent-lang/types@workspace:packages/types"],
 
     "@lucent/website": ["@lucent/website@workspace:apps/website"],
 

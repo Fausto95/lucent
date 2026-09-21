@@ -4,10 +4,10 @@
  * every other file passes straight through.
  */
 import { createRequire } from "node:module";
-import { COMPILER_VERSION, compile, renderDiagnostic } from "@lucent/compiler";
-import type { Host } from "@lucent/host-core";
-import { expoHost } from "@lucent/host-expo";
-import { nitroHost } from "@lucent/host-nitro";
+import { COMPILER_VERSION, compile, renderDiagnostic } from "@lucent-lang/compiler";
+import type { Host } from "@lucent-lang/host-core";
+import { expoHost } from "@lucent-lang/host-expo";
+import { nitroHost } from "@lucent-lang/host-nitro";
 
 export type HostName = "expo" | "nitro";
 

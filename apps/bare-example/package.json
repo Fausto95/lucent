@@ -10,7 +10,7 @@
     "pods": "cd ios && bundle exec pod install"
   },
   "dependencies": {
-    "@lucent/runtime": "workspace:*",
+    "@lucent-lang/runtime": "workspace:*",
     "react": "19.3.0",
     "react-native": "0.88.0-rc.2",
     "react-native-nitro-modules": "0.37.1",
@@ -20,18 +20,18 @@
     "@babel/core": "^7.25.2",
     "@babel/preset-env": "^7.25.3",
     "@babel/runtime": "^7.25.0",
-    "@lucent/metro": "workspace:*",
-    "@lucent/types": "workspace:*",
+    "@lucent-lang/metro": "workspace:*",
+    "@lucent-lang/types": "workspace:*",
     "@react-native-community/cli": "20.2.0",
     "@react-native-community/cli-platform-android": "20.2.0",
     "@react-native-community/cli-platform-ios": "20.2.0",
     "@react-native/babel-preset": "0.88.0-rc.2",
+    "@react-native/gradle-plugin": "0.88.0-rc.2",
     "@react-native/metro-config": "0.88.0-rc.2",
     "@react-native/typescript-config": "0.88.0-rc.2",
     "@types/react": "^19.2.0",
     "nitrogen": "0.37.1",
-    "typescript": "^6.0.3",
-    "@react-native/gradle-plugin": "0.88.0-rc.2"
+    "typescript": "^6.0.3"
   },
   "engines": {
     "node": ">= 22.11.0"

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { compile } from "@lucent/compiler";
+import { compile } from "@lucent-lang/compiler";
 import { declarations, jsType, moduleIdentifier } from "../src/index.ts";
 
 const ir = (src: string, fileName = "sample.lucent.ts") => {
@@ -21,7 +21,7 @@ describe("host-core", () => {
 
   test("declarations export structs and exported functions only", () => {
     const m = ir(`
-      import type { int32 } from "@lucent/types";
+      import type { int32 } from "@lucent-lang/types";
       export type User = { id: string; age: int32; nickname?: string };
       type Hidden = { x: number };
       function helper(h: Hidden): number { return h.x; }

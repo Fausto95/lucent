@@ -1,5 +1,5 @@
 {
-  "name": "@lucent/cli",
+  "name": "@lucent-lang/cli",
   "version": "0.0.0",
   "private": true,
   "bin": {
@@ -14,10 +14,10 @@
     }
   },
   "dependencies": {
-    "@lucent/compiler": "workspace:*",
-    "@lucent/host-core": "workspace:*",
-    "@lucent/host-expo": "workspace:*",
-    "@lucent/host-nitro": "workspace:*",
+    "@lucent-lang/compiler": "workspace:*",
+    "@lucent-lang/host-core": "workspace:*",
+    "@lucent-lang/host-expo": "workspace:*",
+    "@lucent-lang/host-nitro": "workspace:*",
     "oxc-parser": "0.151.0"
   }
 }

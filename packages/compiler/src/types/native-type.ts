@@ -30,7 +30,7 @@ export const T = {
   promise: (value: NativeType): NativeType => ({ kind: "promise", value }),
 } as const;
 
-/** Names of the sized numeric types exported by `@lucent/types`, mapped to their native type. */
+/** Names of the sized numeric types exported by `@lucent-lang/types`, mapped to their native type. */
 export const SIZED_NUMERIC_TYPES: Readonly<Record<string, NativeType>> = {
   int8: T.int(8),
   int16: T.int(16),

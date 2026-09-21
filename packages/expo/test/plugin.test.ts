@@ -17,7 +17,7 @@ function project(): string {
   return root;
 }
 
-describe("@lucent/expo config plugin", () => {
+describe("@lucent-lang/expo config plugin", () => {
   test("registers dangerous mods for ios and android that run lucent build", async () => {
     const root = project();
     const config = withLucent({ name: "app", slug: "app" } as never, { host: "expo" }) as unknown as {

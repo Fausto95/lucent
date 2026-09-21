@@ -3,7 +3,7 @@
  * Generated code relies on a small runtime prelude (`LucentError`,
  * `LucentBytes`, `lucentStr`) that each host provides via `swiftRuntime`.
  */
-import type { IRExpr, IRFunction, IRModule, IRPlace, IRStmt, IRStruct, NativeType } from "@lucent/compiler";
+import type { IRExpr, IRFunction, IRModule, IRPlace, IRStmt, IRStruct, NativeType } from "@lucent-lang/compiler";
 
 export interface GeneratedField {
   name: string;

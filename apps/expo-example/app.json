@@ -15,7 +15,7 @@
     },
     "plugins": [
       [
-        "@lucent/expo",
+        "@lucent-lang/expo",
         {
           "host": "expo"
         }

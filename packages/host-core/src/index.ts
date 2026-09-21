@@ -1,5 +1,5 @@
 /** What every host backend implements, plus the JS-facing pieces both hosts share. */
-import type { IRFunction, IRModule, IRStruct, NativeType } from "@lucent/compiler";
+import type { IRFunction, IRModule, IRStruct, NativeType } from "@lucent-lang/compiler";
 
 /** Relative path → file contents. */
 export type FileTree = Map<string, string>;
@@ -168,5 +168,5 @@ export function proxyFunctions(
 /** Imports only the runtime helpers a proxy body actually uses. */
 export function runtimeImport(body: string): string {
   const names = ["lucentCall", "toArrayBuffer", "fromArrayBuffer"].filter((n) => body.includes(`${n}(`));
-  return `import { ${names.join(", ")} } from "@lucent/runtime";`;
+  return `import { ${names.join(", ")} } from "@lucent-lang/runtime";`;
 }

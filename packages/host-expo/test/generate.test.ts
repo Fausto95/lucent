@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { compile, type IRModule } from "@lucent/compiler";
+import { compile, type IRModule } from "@lucent-lang/compiler";
 import { expoHost } from "../src/index.ts";
 import { FIXTURES, expectGolden, fixtureNames, readFixture } from "../../compiler/test/golden.ts";
 

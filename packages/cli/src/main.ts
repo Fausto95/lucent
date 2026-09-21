@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
-import { compile, renderDiagnostic } from "@lucent/compiler";
+import { compile, renderDiagnostic } from "@lucent-lang/compiler";
 import { build, findLucentFiles, type HostName } from "./index.ts";
 
 const USAGE = `lucent — ahead-of-time TypeScript → Swift/Kotlin for React Native
@@ -102,8 +102,8 @@ function init(root: string, host: HostName): number {
   };
   pkg.dependencies ??= {};
   pkg.devDependencies ??= {};
-  pkg.dependencies["@lucent/runtime"] ??= "*";
-  pkg.devDependencies["@lucent/types"] ??= "*";
+  pkg.dependencies["@lucent-lang/runtime"] ??= "*";
+  pkg.devDependencies["@lucent-lang/types"] ??= "*";
   if (host === "nitro") {
     pkg.dependencies["react-native-nitro-modules"] ??= "*";
     pkg.dependencies["lucent-native"] = "file:./.lucent/nitro";
