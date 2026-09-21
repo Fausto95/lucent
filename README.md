@@ -125,7 +125,8 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 
 - [x] `apps/expo-example` — Expo SDK 58 preview 4, `src/math.lucent.ts` + `src/people.lucent.ts` (add, fibonacci, clamp, async sum, struct round-trip, bytes checksum, throw), `App.tsx` asserts every result and shows ALL OK / FAILURES; `expo prebuild` runs the Lucent plugin (verified: compiles, then cache hits)
 - [x] `apps/bare-example` — RN 0.88.0-rc.2 + Nitro 0.37.1, same sources and screen; `bun run lucent` regenerates `.lucent/nitro` and runs nitrogen (verified)
-- [~] iOS simulator run of both apps (in progress; note: `export LANG=en_US.UTF-8` is required before any CocoaPods command on this machine)
+- [x] Expo example on the iOS simulator: ALL OK (10/10 checks: sync, recursion, async, struct with optional, template strings, bytes, error code + message). Note: `export LANG=en_US.UTF-8` is required before any CocoaPods command on this machine
+- [x] Bare example (Nitro) on the iOS simulator: ALL OK (same 10 checks) through nitrogen-generated specs and the Lucent Metro transformer with the nitro host
 - [ ] Android emulator run of both apps (fallback: Kotlin compile check, reported as not device-verified)
 - [ ] Metro cache check: edit a `.lucent.ts` signature, reload without `--clear`
 

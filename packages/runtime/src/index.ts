@@ -14,7 +14,8 @@ export class LucentError extends Error {
   }
 }
 
-const NITRO_PREFIX = /^\[([A-Za-z0-9_]+)\] ?/;
+/** Nitro prefixes native errors with the call: "Math.divide(...): [CODE] message". */
+const NITRO_PREFIX = /^(?:[A-Za-z0-9_]+\.[A-Za-z0-9_]+\(\.\.\.\): )?\[([A-Za-z0-9_]+)\] ?/;
 /** Expo decorates thrown exceptions as "LucentError: <reason> (at File.swift:12)". */
 const EXPO_DECORATION = /^LucentError: (.*?)(?: \(at [^)]*\))?$/s;
 const EXPO_CAUSED_BY = /→ Caused by: (?:[A-Za-z]+: )?/;

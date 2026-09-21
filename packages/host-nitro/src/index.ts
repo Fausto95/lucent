@@ -188,7 +188,7 @@ const SWIFT_RUNTIME =
   swiftRuntime(
     { length: "return Double(buffer.size)", get: "return Double(buffer.data[Int(index)])" },
     `/** Nitro forwards only the description; the proxy recovers the code from the "[CODE] " prefix. */
-struct LucentError: LocalizedError {
+struct LucentError: Error, CustomStringConvertible {
   let code: String
   let message: String
 
@@ -197,7 +197,7 @@ struct LucentError: LocalizedError {
     self.message = message ?? code
   }
 
-  var errorDescription: String? {
+  var description: String {
     return "[\\(code)] \\(message)"
   }
 }`,

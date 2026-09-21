@@ -3,7 +3,7 @@ import NitroModules
 import Foundation
 
 /** Nitro forwards only the description; the proxy recovers the code from the "[CODE] " prefix. */
-struct LucentError: LocalizedError {
+struct LucentError: Error, CustomStringConvertible {
   let code: String
   let message: String
 
@@ -12,7 +12,7 @@ struct LucentError: LocalizedError {
     self.message = message ?? code
   }
 
-  var errorDescription: String? {
+  var description: String {
     return "[\(code)] \(message)"
   }
 }
