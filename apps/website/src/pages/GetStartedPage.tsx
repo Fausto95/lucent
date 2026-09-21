@@ -12,8 +12,7 @@ const MODULE_EXAMPLE =
 const USE_EXAMPLE =
   'import { squaredDistance } from "./src/geo.lucent";\n\nsquaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25, computed in Swift / Kotlin';
 
-const EXPO_INSTALL =
-  "npx expo install @lucent-lang/runtime @lucent-lang/types @lucent-lang/expo @lucent-lang/metro";
+const EXPO_INSTALL = "npx expo install @lucent-lang/runtime @lucent-lang/types @lucent-lang/expo @lucent-lang/metro";
 
 const EXPO_METRO =
   'const { getDefaultConfig } = require("expo/metro-config");\nconst { withLucent } = require("@lucent-lang/metro");\n\nmodule.exports = withLucent(getDefaultConfig(__dirname), { host: "expo" });';
@@ -31,13 +30,15 @@ const BARE_METRO =
 const BARE_RN_CONFIG =
   'const path = require("path");\n\nmodule.exports = {\n  dependencies: {\n    "lucent-native": { root: path.join(__dirname, ".lucent", "nitro") },\n  },\n};';
 
-const BARE_RUN = "npx lucent build --host nitro\ncd ios && pod install && cd ..\nnpx react-native run-ios   # or run-android";
+const BARE_RUN =
+  "npx lucent build --host nitro\ncd ios && pod install && cd ..\nnpx react-native run-ios   # or run-android";
 
 const sections = [
   { id: "overview", title: "Overview" },
   { id: "expo", title: "Expo" },
   { id: "bare", title: "Bare React Native" },
   { id: "cli", title: "The CLI" },
+  { id: "native-workflow", title: "Native development" },
 ];
 
 function Step({ n, title, children }: { n: number; title: string; children: React.ReactNode }) {
@@ -59,117 +60,149 @@ export function GetStartedPage() {
     <div {...stylex.props(reference.referenceLayout)}>
       <SectionSidebar to="/get-started/" label="Getting started" sections={sections} />
       <main id="main" {...stylex.props(reference.referenceMain)}>
-      <section id="overview" {...stylex.props(reference.referenceIntro)}>
-        <div {...stylex.props(reference.referenceKicker)}>
-          <span {...stylex.props(sharedStyles.eyebrow2)}>{"FIVE MINUTES TO NATIVE."}</span>
-        </div>
-        <h1 {...stylex.props(reference.referenceHeading)}>
-          {"Get "}
-          <span {...stylex.props(reference.referenceHeadingAccent)}>{"started."}</span>
-        </h1>
-        <p {...stylex.props(reference.referenceLead)}>
-          {"Add Lucent to an Expo app or a bare React Native app, write a "}
-          <code {...stylex.props(reference.referenceInlineCode)}>{"*.lucent.ts"}</code>
-          {" file, and import it like any other module."}
-        </p>
-        <div {...stylex.props(reference.referenceNote)}>
-          <span aria-hidden="true" {...stylex.props(reference.noteMark)}>
-            {"↳"}
-          </span>
-          <p {...stylex.props(reference.referenceNoteText)}>
+        <section id="overview" {...stylex.props(reference.referenceIntro)}>
+          <div {...stylex.props(reference.referenceKicker)}>
+            <span {...stylex.props(sharedStyles.eyebrow2)}>{"FIVE MINUTES TO NATIVE."}</span>
+          </div>
+          <h1 {...stylex.props(reference.referenceHeading)}>
+            {"Get "}
+            <span {...stylex.props(reference.referenceHeadingAccent)}>{"started."}</span>
+          </h1>
+          <p {...stylex.props(reference.referenceLead)}>
+            {"Add Lucent to an Expo app or a bare React Native app, write a "}
+            <code {...stylex.props(reference.referenceInlineCode)}>{"*.lucent.ts"}</code>
+            {" or .lucent.tsx file, and import it like any other module."}
+          </p>
+          <div {...stylex.props(reference.referenceNote)}>
+            <span aria-hidden="true" {...stylex.props(reference.noteMark)}>
+              {"↳"}
+            </span>
+            <p {...stylex.props(reference.referenceNoteText)}>
+              {
+                "Lucent generates native code, so it needs a development build. Expo Go cannot load it, the same as any other native module."
+              }
+            </p>
+          </div>
+        </section>
+
+        <section id="expo" {...stylex.props(reference.referenceSection)}>
+          <div {...stylex.props(reference.referenceSectionLabel)}>{"01 / EXPO"}</div>
+          <h2 {...stylex.props(reference.referenceSectionHeading)}>{"Expo (SDK 58)"}</h2>
+          <p {...stylex.props(reference.referenceParagraph)}>
             {
-              "Lucent generates native code, so it needs a development build. Expo Go cannot load it, the same as any other native module."
+              "The config plugin compiles your modules during prebuild into an autolinked Expo Module, and the Metro plugin swaps each Lucent file for its JavaScript proxy at bundle time."
             }
           </p>
-        </div>
-      </section>
+          <ol {...stylex.props(styles.steps)}>
+            <Step n={1} title="Install">
+              <CodeBlock filename="terminal" code={EXPO_INSTALL} />
+            </Step>
+            <Step n={2} title="Configure Metro">
+              <CodeBlock filename="metro.config.js" code={EXPO_METRO} />
+            </Step>
+            <Step n={3} title="Add the config plugin">
+              <CodeBlock filename="app.json" code={EXPO_APP_JSON} />
+            </Step>
+            <Step n={4} title="Write a module">
+              <CodeBlock filename="src/geo.lucent.ts" code={MODULE_EXAMPLE} />
+            </Step>
+            <Step n={5} title="Use it">
+              <CodeBlock filename="App.tsx" code={USE_EXAMPLE} />
+            </Step>
+            <Step n={6} title="Build and run">
+              <CodeBlock filename="terminal" code={EXPO_RUN} />
+              <p {...stylex.props(reference.referenceCaveat)}>
+                {"Generated code lands in "}
+                <code {...stylex.props(reference.referenceInlineCode)}>{"modules/lucent/"}</code>
+                {", which Expo autolinks. Unchanged modules are cached between builds."}
+              </p>
+            </Step>
+          </ol>
+        </section>
 
-      <section id="expo" {...stylex.props(reference.referenceSection)}>
-        <div {...stylex.props(reference.referenceSectionLabel)}>{"01 / EXPO"}</div>
-        <h2 {...stylex.props(reference.referenceSectionHeading)}>{"Expo (SDK 58)"}</h2>
-        <p {...stylex.props(reference.referenceParagraph)}>
-          {
-            "The config plugin compiles your modules during prebuild into an autolinked Expo Module, and the Metro plugin swaps each Lucent file for its JavaScript proxy at bundle time."
-          }
-        </p>
-        <ol {...stylex.props(styles.steps)}>
-          <Step n={1} title="Install">
-            <CodeBlock filename="terminal" code={EXPO_INSTALL} />
-          </Step>
-          <Step n={2} title="Configure Metro">
-            <CodeBlock filename="metro.config.js" code={EXPO_METRO} />
-          </Step>
-          <Step n={3} title="Add the config plugin">
-            <CodeBlock filename="app.json" code={EXPO_APP_JSON} />
-          </Step>
-          <Step n={4} title="Write a module">
-            <CodeBlock filename="src/geo.lucent.ts" code={MODULE_EXAMPLE} />
-          </Step>
-          <Step n={5} title="Use it">
-            <CodeBlock filename="App.tsx" code={USE_EXAMPLE} />
-          </Step>
-          <Step n={6} title="Build and run">
-            <CodeBlock filename="terminal" code={EXPO_RUN} />
-            <p {...stylex.props(reference.referenceCaveat)}>
-              {"Generated code lands in "}
-              <code {...stylex.props(reference.referenceInlineCode)}>{"modules/lucent/"}</code>
-              {", which Expo autolinks. Unchanged modules are cached between builds."}
-            </p>
-          </Step>
-        </ol>
-      </section>
+        <section id="bare" {...stylex.props(reference.referenceSection)}>
+          <div {...stylex.props(reference.referenceSectionLabel)}>{"02 / BARE REACT NATIVE"}</div>
+          <h2 {...stylex.props(reference.referenceSectionHeading)}>{"Bare React Native (Nitro)"}</h2>
+          <p {...stylex.props(reference.referenceParagraph)}>
+            {
+              "Without Expo, Lucent targets Nitro Modules. The CLI generates a local library, runs nitrogen for you, and React Native autolinks it."
+            }
+          </p>
+          <ol {...stylex.props(styles.steps)}>
+            <Step n={1} title="Install">
+              <CodeBlock filename="terminal" code={BARE_INSTALL} />
+            </Step>
+            <Step n={2} title="Configure Metro">
+              <CodeBlock filename="metro.config.js" code={BARE_METRO} />
+            </Step>
+            <Step n={3} title="Register the generated library">
+              <CodeBlock filename="react-native.config.js" code={BARE_RN_CONFIG} />
+            </Step>
+            <Step n={4} title="Write a module">
+              <CodeBlock filename="src/geo.lucent.ts" code={MODULE_EXAMPLE} />
+            </Step>
+            <Step n={5} title="Build and run">
+              <CodeBlock filename="terminal" code={BARE_RUN} />
+              <p {...stylex.props(reference.referenceCaveat)}>
+                {"Run "}
+                <code {...stylex.props(reference.referenceInlineCode)}>{"npx lucent build --host nitro"}</code>
+                {" again whenever a Lucent file changes; it writes to "}
+                <code {...stylex.props(reference.referenceInlineCode)}>{".lucent/nitro/"}</code>
+                {"."}
+              </p>
+            </Step>
+          </ol>
+        </section>
 
-      <section id="bare" {...stylex.props(reference.referenceSection)}>
-        <div {...stylex.props(reference.referenceSectionLabel)}>{"02 / BARE REACT NATIVE"}</div>
-        <h2 {...stylex.props(reference.referenceSectionHeading)}>{"Bare React Native (Nitro)"}</h2>
-        <p {...stylex.props(reference.referenceParagraph)}>
-          {
-            "Without Expo, Lucent targets Nitro Modules. The CLI generates a local library, runs nitrogen for you, and React Native autolinks it."
-          }
-        </p>
-        <ol {...stylex.props(styles.steps)}>
-          <Step n={1} title="Install">
-            <CodeBlock filename="terminal" code={BARE_INSTALL} />
-          </Step>
-          <Step n={2} title="Configure Metro">
-            <CodeBlock filename="metro.config.js" code={BARE_METRO} />
-          </Step>
-          <Step n={3} title="Register the generated library">
-            <CodeBlock filename="react-native.config.js" code={BARE_RN_CONFIG} />
-          </Step>
-          <Step n={4} title="Write a module">
-            <CodeBlock filename="src/geo.lucent.ts" code={MODULE_EXAMPLE} />
-          </Step>
-          <Step n={5} title="Build and run">
-            <CodeBlock filename="terminal" code={BARE_RUN} />
-            <p {...stylex.props(reference.referenceCaveat)}>
-              {"Run "}
-              <code {...stylex.props(reference.referenceInlineCode)}>{"npx lucent build --host nitro"}</code>
-              {" again whenever a Lucent file changes; it writes to "}
-              <code {...stylex.props(reference.referenceInlineCode)}>{".lucent/nitro/"}</code>
-              {"."}
-            </p>
-          </Step>
-        </ol>
-      </section>
+        <section id="cli" {...stylex.props(reference.referenceSection)}>
+          <div {...stylex.props(reference.referenceSectionLabel)}>{"03 / THE CLI"}</div>
+          <h2 {...stylex.props(reference.referenceSectionHeading)}>{"Commands"}</h2>
+          <CodeBlock
+            filename="terminal"
+            code={
+              "lucent build [--host expo|nitro] [--emit-ir] [--force] [files…]   compile and emit the native package\nlucent check [files…]                                             type-check only\nlucent init [--host expo|nitro]                                   wire a project's package.json"
+            }
+          />
+        </section>
 
-      <section id="cli" {...stylex.props(reference.referenceSection)}>
-        <div {...stylex.props(reference.referenceSectionLabel)}>{"03 / THE CLI"}</div>
-        <h2 {...stylex.props(reference.referenceSectionHeading)}>{"Commands"}</h2>
-        <CodeBlock
-          filename="terminal"
-          code={
-            "lucent build [--host expo|nitro] [--emit-ir] [--force] [files…]   compile and emit the native package\nlucent check [files…]                                             type-check only\nlucent init [--host expo|nitro]                                   wire a project's package.json"
-          }
-        />
-      </section>
+        <section id="native-workflow" {...stylex.props(reference.referenceSection)}>
+          <div {...stylex.props(reference.referenceSectionLabel)}>04 / THE NATIVE WORKFLOW</div>
+          <h2 {...stylex.props(reference.referenceSectionHeading)}>From components to native builds</h2>
+          <p {...stylex.props(reference.referenceParagraph)}>
+            Use .lucent.ts for native logic and .lucent.tsx for shared views. Both extensions are discovered during
+            generation, and imports between them are resolved together. The included Expo and Nitro examples exercise
+            shared objects, unions, events, thread annotations, platform bindings, and native views.
+          </p>
+          <p {...stylex.props(reference.referenceParagraph)}>
+            The workspace includes @lucent-lang/ui, @lucent-lang/events, @lucent-lang/objects, @lucent-lang/std, and
+            @lucent-lang/platform declarations. Add the packages you use to your app. Enable any required platform
+            capabilities in the app’s lucent.config.json.
+          </p>
+          <CodeBlock filename="lucent.config.json" code={'{\n  "capabilities": ["clock", "locale"]\n}'} />
+          <CodeBlock
+            filename="terminal · from your app directory"
+            code={"lucent build --host expo --emit-ir\n# For a Nitro app, use --host nitro"}
+          />
+          <p {...stylex.props(reference.referenceParagraph)}>
+            Expo output lives in modules/lucent; Nitro output lives in .lucent/nitro. The --emit-ir flag also writes
+            .lucent/ir so you can inspect the intermediate representation.
+          </p>
+          <p {...stylex.props(reference.referenceCaveat)}>
+            After changing native source, regenerate and rebuild the app. Refresh CocoaPods or Gradle integration when
+            generated files are added. React-side prop and state changes work normally; native code is compiled ahead of
+            time. Nitro native views require the new architecture.
+          </p>
+          <Link to="/language/" hash="native-views" {...stylex.props(reference.referenceNextButton)}>
+            Write your first native component →
+          </Link>
+        </section>
 
-      <section {...stylex.props(reference.referenceNext)}>
-        <h2 {...stylex.props(reference.referenceNextHeading)}>{"Next: what you can write"}</h2>
-        <Link to="/language/" {...stylex.props(reference.referenceNextButton)}>
-          {"Read the language reference →"}
-        </Link>
-      </section>
+        <section {...stylex.props(reference.referenceNext)}>
+          <h2 {...stylex.props(reference.referenceNextHeading)}>{"Next: what you can write"}</h2>
+          <Link to="/language/" {...stylex.props(reference.referenceNextButton)}>
+            {"Read the language reference →"}
+          </Link>
+        </section>
       </main>
     </div>
   );

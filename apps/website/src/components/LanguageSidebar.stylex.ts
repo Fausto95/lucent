@@ -7,6 +7,8 @@ export const styles = stylex.create({
       "@media (max-width: 850px)": "static",
     },
     top: "32px",
+    maxHeight: { default: "calc(100dvh - 64px)", "@media (max-width: 850px)": "none" },
+    overflowY: { default: "auto", "@media (max-width: 850px)": "visible" },
     alignSelf: "start",
     borderBottomWidth: {
       default: null,

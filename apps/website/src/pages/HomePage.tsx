@@ -5,6 +5,7 @@ import { styles as sharedStyles } from "../styles/shared.stylex";
 import { CompilerDemo } from "../components/CompilerDemo";
 import { useClipboard } from "../components/ClipboardProvider";
 import { commands } from "../content";
+import { NativeViewsFeature } from "../components/NativeViewsFeature";
 export function HomePage() {
   const { copy } = useClipboard();
   return (
@@ -29,7 +30,7 @@ export function HomePage() {
           </p>
           <p {...stylex.props(styles.heroDetail)}>
             {
-              "Compile a focused subset of TypeScript to Swift and Kotlin. Built for React Native. Native execution, from the first call."
+              "Native logic, shared objects, and declarative views. Write TypeScript and TSX. Compile to Swift and Kotlin for React Native."
             }
           </p>
           <div {...stylex.props(styles.heroActions)}>
@@ -102,13 +103,13 @@ export function HomePage() {
           <div>
             <span {...stylex.props(sharedStyles.eyebrow2)}>{"LESS TRANSLATION. MORE CREATION."}</span>
             <h2 id="how-heading" {...stylex.props(styles.howHeading)}>
-              {"Your logic. "}
+              {"Your logic. Your UI. "}
               <span {...stylex.props(styles.sectionHeadingMuted)}>{"On native terms."}</span>
             </h2>
           </div>
           <p {...stylex.props(styles.sectionDescription)}>
             {"Write it once in "}
-            <code {...stylex.props(styles.sectionInlineCode)}>{"*.lucent.ts"}</code>
+            <code {...stylex.props(styles.sectionInlineCode)}>{"*.lucent.ts / *.lucent.tsx"}</code>
             {"."}
             <br />
             {"Let the compiler handle the rest."}
@@ -125,7 +126,7 @@ export function HomePage() {
             <h3 {...stylex.props(styles.featureHeading)}>{"Familiar by design."}</h3>
             <p {...stylex.props(styles.featureDescription)}>
               {
-                "Functions, arrays, structs, and async. A deliberate TypeScript subset with explicit types and clear compile-time diagnostics."
+                "Functions, tagged unions, native classes, and typed events. Compose modules with imports and get clear compile-time diagnostics."
               }
             </p>
             <Link to="/language/" {...stylex.props(styles.featureLink)}>
@@ -143,7 +144,7 @@ export function HomePage() {
             <h3 {...stylex.props(styles.featureHeading)}>{"Native all the way down."}</h3>
             <p {...stylex.props(styles.featureDescription)}>
               {
-                "Readable Swift and Kotlin, compiled ahead of time. Your Lucent functions run as native code, with no JavaScript engine on the native side."
+                "Readable Swift and Kotlin, compiled ahead of time. Your logic runs natively; shared components render through SwiftUI and Jetpack Compose."
               }
             </p>
             <a href="https://github.com/Fausto95/lucent/tree/main/fixtures" {...stylex.props(styles.featureLink)}>
@@ -173,6 +174,7 @@ export function HomePage() {
           </article>
         </div>
       </section>
+      <NativeViewsFeature />
       <section id="get-started" aria-labelledby="start-heading" {...stylex.props(styles.startSection)}>
         <div>
           <span {...stylex.props(styles.eyebrow3)}>{"FROM SOURCE TO SWIFT & KOTLIN"}</span>
@@ -214,7 +216,7 @@ export function HomePage() {
             </code>
           </pre>
           <div {...stylex.props(styles.terminalNote)}>
-            {"Requires Node 22.12+ and pnpm 12. "}
+            {"Requires Node 22.12+ and the repository’s pinned pnpm version. "}
             <Link to="/get-started/" {...stylex.props(styles.terminalLink)}>
               {"Full setup →"}
             </Link>

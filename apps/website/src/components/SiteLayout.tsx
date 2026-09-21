@@ -19,8 +19,8 @@ export function SiteLayout() {
       ?.setAttribute(
         "content",
         isLanguage
-          ? "The Lucent language reference: modules, native types, control flow, async functions, runtime semantics, and compiler diagnostics."
-          : "Write TypeScript. Ship native Swift and Kotlin. Lucent is an ahead-of-time compiler for React Native, with Expo Modules and Nitro support.",
+          ? "Explore Lucent: native TSX views, shared objects, events, unions, imports, thread annotations, SDK bindings, and compiler diagnostics."
+          : "Write TypeScript and TSX. Ship native logic, shared objects, and SwiftUI / Compose views through Expo Modules or Nitro with Lucent.",
       );
   }, [isLanguage, isGetStarted]);
   return (

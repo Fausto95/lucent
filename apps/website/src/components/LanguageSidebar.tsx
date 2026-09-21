@@ -2,10 +2,13 @@ import * as stylex from "@stylexjs/stylex";
 import { styles } from "./LanguageSidebar.stylex";
 import { SectionSidebar } from "./SectionSidebar";
 
+import { nativeSections } from "../nativeExamples";
+
 const sections = [
   { id: "overview", title: "Overview" },
   { id: "modules", title: "Modules & functions" },
   { id: "types", title: "Types" },
+  ...nativeSections.map(({ id, title }) => ({ id, title })),
   { id: "control-flow", title: "Control flow" },
   { id: "expressions", title: "Expressions" },
   { id: "async-errors", title: "Async & errors" },
@@ -21,7 +24,7 @@ export function LanguageSidebar() {
       sections={sections}
       footer={
         <div {...stylex.props(styles.referenceVersion)}>
-          <span {...stylex.props(styles.referenceVersionNumber)}>v1</span> Language contract
+          <span {...stylex.props(styles.referenceVersionNumber)}>AOT</span> Swift + Kotlin
         </div>
       }
     />

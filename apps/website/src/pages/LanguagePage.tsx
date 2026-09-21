@@ -4,6 +4,7 @@ import { styles } from "./LanguagePage.stylex";
 import { styles as sharedStyles } from "../styles/shared.stylex";
 import { CodeBlock } from "../components/CodeBlock";
 import { LanguageSidebar } from "../components/LanguageSidebar";
+import { NativeLanguageSections } from "../components/NativeLanguageSections";
 export function LanguagePage() {
   return (
     <div {...stylex.props(styles.referenceLayout)}>
@@ -12,7 +13,7 @@ export function LanguagePage() {
         <section id="overview" {...stylex.props(styles.referenceIntro)}>
           <div {...stylex.props(styles.referenceKicker)}>
             <span {...stylex.props(sharedStyles.eyebrow2)}>{"TYPESCRIPT, WITH INTENTION."}</span>
-            <span {...stylex.props(styles.versionBadge)}>{"LANGUAGE v1"}</span>
+            <span {...stylex.props(styles.versionBadge)}>{"LANGUAGE REFERENCE"}</span>
           </div>
           <h1 {...stylex.props(styles.referenceHeading)}>
             {"The Lucent "}
@@ -29,7 +30,7 @@ export function LanguagePage() {
             </span>
             <p {...stylex.props(styles.referenceNoteText)}>
               {"Each "}
-              <code {...stylex.props(styles.referenceInlineCode)}>{"*.lucent.ts"}</code>
+              <code {...stylex.props(styles.referenceInlineCode)}>{"*.lucent.ts / *.lucent.tsx"}</code>
               {" file is a native module. Its code is compiled ahead of time and never runs in a JavaScript engine."}
             </p>
           </div>
@@ -72,14 +73,14 @@ export function LanguagePage() {
               {"."}
             </li>
             <li {...stylex.props(styles.referenceListItem)}>
-              {"The only allowed import is "}
+              {"Import sized numeric types with "}
               <code {...stylex.props(styles.referenceInlineCode)}>{'import type { … } from "@lucent-lang/types"'}</code>
               {"."}
             </li>
           </ul>
           <p {...stylex.props(styles.referenceCaveat)}>
             {
-              "At the top level, only function declarations, object type aliases, and the permitted type import are supported. Top-level statements, constants, classes, and default exports are rejected."
+              "Declare functions, record and discriminated-union types, native classes, and typed events at module scope. Import other Lucent files or registered native libraries. Arbitrary top-level execution and default exports are rejected."
             }
           </p>
         </section>
@@ -290,7 +291,7 @@ export function LanguagePage() {
           <h3 {...stylex.props(styles.referenceSubheading)}>{"Structs & optional values"}</h3>
           <p {...stylex.props(styles.referenceParagraph)}>
             {
-              "Object type aliases become Swift structs and Kotlin data classes. Fields can use any supported type except "
+              "Object type aliases become native value records. Fields support scalars, arrays, maps, other value records, and nullable values, but not "
             }
             <code {...stylex.props(styles.referenceInlineCode)}>{"Promise"}</code>
             {". Mark a field optional with "}
@@ -355,7 +356,7 @@ export function LanguagePage() {
               <code {...stylex.props(styles.referenceInlineCode)}>{"any"}</code>
               {", "}
               <code {...stylex.props(styles.referenceInlineCode)}>{"unknown"}</code>
-              {", function types, general unions, tuples, generics, classes, interfaces, enums, "}
+              {", general function types, untagged unions, tuples, user-defined generics, interfaces, enums, "}
               <code {...stylex.props(styles.referenceInlineCode)}>{"never"}</code>
               {", "}
               <code {...stylex.props(styles.referenceInlineCode)}>{"object"}</code>
@@ -367,12 +368,13 @@ export function LanguagePage() {
             </p>
           </div>
         </section>
+        <NativeLanguageSections />
         <section id="control-flow" {...stylex.props(styles.referenceSection)}>
-          <div {...stylex.props(styles.referenceSectionLabel)}>{"03 / KEEP THE LOGIC"}</div>
+          <div {...stylex.props(styles.referenceSectionLabel)}>{"10 / KEEP THE LOGIC"}</div>
           <h2 {...stylex.props(styles.referenceSectionHeading)}>{"Control flow"}</h2>
           <p {...stylex.props(styles.referenceParagraph)}>
             {
-              "Use familiar branches and loops to express your logic. Calls to other functions in the same module are supported, including recursion."
+              "Use familiar branches and loops to express your logic. Call local or imported native functions, including recursive helpers."
             }
           </p>
           <CodeBlock
@@ -441,7 +443,7 @@ export function LanguagePage() {
                   <code {...stylex.props(styles.referenceInlineCode)}>{"debugger"}</code>
                 </li>
                 <li {...stylex.props(styles.referenceListItem)}>{"Nested function declarations"}</li>
-                <li {...stylex.props(styles.referenceListItem)}>{"Class declarations"}</li>
+                <li {...stylex.props(styles.referenceListItem)}>{"Nested class declarations"}</li>
               </ul>
             </div>
           </div>
@@ -460,7 +462,7 @@ export function LanguagePage() {
           </p>
         </section>
         <section id="expressions" {...stylex.props(styles.referenceSection)}>
-          <div {...stylex.props(styles.referenceSectionLabel)}>{"04 / THE BUILDING BLOCKS"}</div>
+          <div {...stylex.props(styles.referenceSectionLabel)}>{"11 / THE BUILDING BLOCKS"}</div>
           <h2 {...stylex.props(styles.referenceSectionHeading)}>{"Expressions"}</h2>
           <div role="region" aria-label="Supported expressions" tabIndex={0} {...stylex.props(styles.referenceTable)}>
             <table {...stylex.props(styles.referenceDataTable)}>
@@ -521,7 +523,7 @@ export function LanguagePage() {
                 <tr>
                   <td {...stylex.props(styles.tableLabelCell)}>{"Functions"}</td>
                   <td {...stylex.props(styles.tableCell)}>
-                    {"Calls within the same module; "}
+                    {"Local and imported function calls; "}
                     <code {...stylex.props(styles.tableCode)}>{"await"}</code>
                     {" inside async functions"}
                   </td>
@@ -545,23 +547,21 @@ export function LanguagePage() {
             <code {...stylex.props(styles.referenceInlineCode)}>{"!="}</code>
             {" are rejected. Dynamic struct access such as "}
             <code {...stylex.props(styles.referenceInlineCode)}>{"obj[key]"}</code>
-            {" is not supported. Closures, "}
-            <code {...stylex.props(styles.referenceInlineCode)}>{"this"}</code>
-            {", spread, destructuring, optional chaining, "}
+            {" is not supported. Closures, spread, destructuring, optional chaining, "}
             <code {...stylex.props(styles.referenceInlineCode)}>{"typeof"}</code>
             {", "}
             <code {...stylex.props(styles.referenceInlineCode)}>{"in"}</code>
             {", and "}
             <code {...stylex.props(styles.referenceInlineCode)}>{"instanceof"}</code>
-            {" are also outside the subset. The only supported "}
+            {" are also outside the subset. Use this inside native classes. A "}
             <code {...stylex.props(styles.referenceInlineCode)}>{"new"}</code>
-            {" expression constructs a "}
+            {" expression constructs a native class instance or a "}
             <code {...stylex.props(styles.referenceInlineCode)}>{"LucentError"}</code>
             {" for throwing."}
           </p>
         </section>
         <section id="async-errors" {...stylex.props(styles.referenceSection)}>
-          <div {...stylex.props(styles.referenceSectionLabel)}>{"05 / ASYNC & FAILURE"}</div>
+          <div {...stylex.props(styles.referenceSectionLabel)}>{"12 / ASYNC & FAILURE"}</div>
           <h2 {...stylex.props(styles.referenceSectionHeading)}>{"Async functions & errors"}</h2>
           <p {...stylex.props(styles.referenceParagraph)}>
             {"An async function must declare a "}
@@ -616,7 +616,7 @@ export function LanguagePage() {
           </p>
         </section>
         <section id="semantics" {...stylex.props(styles.referenceSection)}>
-          <div {...stylex.props(styles.referenceSectionLabel)}>{"06 / ACROSS THE BOUNDARY"}</div>
+          <div {...stylex.props(styles.referenceSectionLabel)}>{"13 / ACROSS THE BOUNDARY"}</div>
           <h2 {...stylex.props(styles.referenceSectionHeading)}>{"Runtime semantics"}</h2>
           <dl {...stylex.props(styles.semanticsList)}>
             <div {...stylex.props(styles.semanticsRow)}>
@@ -664,14 +664,14 @@ export function LanguagePage() {
           </dl>
         </section>
         <section id="diagnostics" {...stylex.props(styles.referenceSection)}>
-          <div {...stylex.props(styles.referenceSectionLabel)}>{"07 / BEFORE YOU SHIP"}</div>
+          <div {...stylex.props(styles.referenceSectionLabel)}>{"14 / BEFORE YOU SHIP"}</div>
           <h2 {...stylex.props(styles.referenceSectionHeading)}>{"Clear compiler diagnostics"}</h2>
           <p {...stylex.props(styles.referenceParagraph)}>
             {"Unsupported TypeScript produces a dedicated "}
             <code {...stylex.props(styles.referenceInlineCode)}>{"NT"}</code>
             {" diagnostic. Check a module before generating native code:"}
           </p>
-          <CodeBlock filename="Terminal" code={"bun run lucent check fixtures/clamp.lucent.ts"} />
+          <CodeBlock filename="Terminal" code={"pnpm lucent check fixtures/clamp.lucent.ts"} />
           <div
             role="region"
             aria-label="Lucent compiler diagnostic codes"
@@ -766,7 +766,7 @@ export function LanguagePage() {
           </div>
           <p {...stylex.props(styles.referenceParagraph)}>
             {
-              "For a missing annotation, add explicit parameter and return types. For an unsupported dependency, move the integration outside your Lucent module and pass the required values into its exported functions."
+              "For a missing annotation, add explicit parameter and return types. For an unsupported dependency, check the Lucent import path or register a native SDK binding. Keep JavaScript-only integrations in app code."
             }
           </p>
         </section>

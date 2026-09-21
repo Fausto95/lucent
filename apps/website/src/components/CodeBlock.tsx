@@ -7,9 +7,26 @@ const tokenStyles = {
   type: styles.syntaxYellow,
   string: styles.syntaxGreen,
 };
-const types = new Set(["number", "string", "boolean", "void", "Promise", "int32", "Double"]);
+const types = new Set([
+  "number",
+  "string",
+  "boolean",
+  "void",
+  "Promise",
+  "int32",
+  "Double",
+  "NativeView",
+  "NativeProps",
+  "Event",
+  "SharedObject",
+]);
 const keywords = new Set([
   "export",
+  "class",
+  "extends",
+  "constructor",
+  "this",
+  "super",
   "import",
   "type",
   "from",
