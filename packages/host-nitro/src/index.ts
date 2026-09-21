@@ -490,7 +490,6 @@ function buildGradle(): string {
   return `apply plugin: "com.android.library"
 apply plugin: "org.jetbrains.kotlin.android"
 apply from: '../nitrogen/generated/android/${IOS_MODULE_NAME}+autolinking.gradle'
-apply plugin: "com.facebook.react"
 
 def safeExtGet(prop, fallback) {
   rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
