@@ -100,13 +100,26 @@ describe("project imports", () => {
 
 test("capabilities are checked before writing native output", async () => {
   const root = project();
-  writeFileSync(join(root, "clock.lucent.ts"), 'import { now } from "@lucent-lang/platform/clock"; export function timestamp(): number { return now(); }');
-  const denied = await build({root, host: "expo"});
+  writeFileSync(
+    join(root, "clock.lucent.ts"),
+    'import { now } from "@lucent-lang/platform/clock"; export function timestamp(): number { return now(); }',
+  );
+  const denied = await build({ root, host: "expo" });
   expect(denied.ok).toBe(false);
   expect(denied.diagnostics[0]?.rendered).toContain("clock");
   expect(existsSync(join(root, "modules/lucent"))).toBe(false);
-  writeFileSync(join(root, "lucent.config.json"), JSON.stringify({capabilities: ["clock"]}));
-  expect((await build({root, host: "expo"})).ok).toBe(true);
-  writeFileSync(join(root, "lucent.config.json"), JSON.stringify({capabilities: []}));
-  expect((await build({root, host: "expo"})).ok).toBe(false);
+  writeFileSync(join(root, "lucent.config.json"), JSON.stringify({ capabilities: ["clock"] }));
+  expect((await build({ root, host: "expo" })).ok).toBe(true);
+  writeFileSync(join(root, "lucent.config.json"), JSON.stringify({ capabilities: [] }));
+  expect((await build({ root, host: "expo" })).ok).toBe(false);
+});
+
+test("preserves native build products during regeneration", async () => {
+  const root=project();
+  const first=await build({root,host:"expo"});
+  const product=join(first.outDir,"android/build/cache.bin");
+  mkdirSync(join(first.outDir,"android/build"),{recursive:true});
+  writeFileSync(product,"native build cache");
+  await build({root,host:"expo",force:true});
+  expect(readFileSync(product,"utf8")).toBe("native build cache");
 });
