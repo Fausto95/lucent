@@ -73,7 +73,7 @@ export function LanguagePage() {
             </li>
             <li {...stylex.props(styles.referenceListItem)}>
               {"The only allowed import is "}
-              <code {...stylex.props(styles.referenceInlineCode)}>{'import type { … } from "@lucent/types"'}</code>
+              <code {...stylex.props(styles.referenceInlineCode)}>{'import type { … } from "@lucent-lang/types"'}</code>
               {"."}
             </li>
           </ul>
@@ -268,7 +268,7 @@ export function LanguagePage() {
                     {", "}
                     <code {...stylex.props(styles.tableCode)}>{"float64"}</code>
                     {" from "}
-                    <code {...stylex.props(styles.tableCode)}>{"@lucent/types"}</code>
+                    <code {...stylex.props(styles.tableCode)}>{"@lucent-lang/types"}</code>
                   </td>
                   <td {...stylex.props(styles.tableCell)}>{"sized numerics"}</td>
                   <td {...stylex.props(styles.tableCell)}>
@@ -304,7 +304,7 @@ export function LanguagePage() {
           <CodeBlock
             filename="struct-roundtrip.lucent.ts"
             code={
-              'import type { int32 } from "@lucent/types";\n\nexport type User = {\n  id: string;\n  age: int32;\n  nickname?: string;\n  tags: string[];\n};\n\nexport function birthday(user: User): User {\n  return { id: user.id, age: user.age + 1, nickname: user.nickname, tags: user.tags };\n}\n\nexport function describe(user: User): string {\n  const nickname = user.nickname;\n  if (nickname === undefined) {\n    return `${user.id} (${user.age})`;\n  }\n  return `${nickname} aka ${user.id}`;\n}'
+              'import type { int32 } from "@lucent-lang/types";\n\nexport type User = {\n  id: string;\n  age: int32;\n  nickname?: string;\n  tags: string[];\n};\n\nexport function birthday(user: User): User {\n  return { id: user.id, age: user.age + 1, nickname: user.nickname, tags: user.tags };\n}\n\nexport function describe(user: User): string {\n  const nickname = user.nickname;\n  if (nickname === undefined) {\n    return `${user.id} (${user.age})`;\n  }\n  return `${nickname} aka ${user.id}`;\n}'
             }
           />
           <p {...stylex.props(styles.referenceParagraph)}>
@@ -335,7 +335,7 @@ export function LanguagePage() {
             {", or "}
             <code {...stylex.props(styles.referenceInlineCode)}>{"float64"}</code>
             {" from "}
-            <code {...stylex.props(styles.referenceInlineCode)}>{"@lucent/types"}</code>
+            <code {...stylex.props(styles.referenceInlineCode)}>{"@lucent-lang/types"}</code>
             {" when you need a specific representation."}
           </p>
           <p {...stylex.props(styles.referenceParagraph)}>

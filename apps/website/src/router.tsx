@@ -3,6 +3,7 @@ import { createRootRoute, createRoute, createRouter, Link } from "@tanstack/reac
 import { SiteLayout } from "./components/SiteLayout";
 import { HomePage } from "./pages/HomePage";
 import { LanguagePage } from "./pages/LanguagePage";
+import { GetStartedPage } from "./pages/GetStartedPage";
 import { styles as sharedStyles } from "./styles/shared.stylex";
 
 const rootRoute = createRootRoute({
@@ -18,9 +19,10 @@ const rootRoute = createRootRoute({
 });
 const homeRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: HomePage });
 const languageRoute = createRoute({ getParentRoute: () => rootRoute, path: "/language/", component: LanguagePage });
+const getStartedRoute = createRoute({ getParentRoute: () => rootRoute, path: "/get-started/", component: GetStartedPage });
 
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([homeRoute, languageRoute]),
+  routeTree: rootRoute.addChildren([homeRoute, getStartedRoute, languageRoute]),
   trailingSlash: "always",
   scrollRestoration: true,
 });
