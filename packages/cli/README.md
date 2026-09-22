@@ -31,4 +31,4 @@ The host is detected from `package.json`; pass `--host expo|nitro` to override.
 Docs: [getting started](https://github.com/Fausto95/lucent/blob/main/docs/getting-started.md)
 · [the language](https://github.com/Fausto95/lucent/blob/main/docs/language.md)
 
-MIT © Faustino Kialungila
+MIT © Lucent
