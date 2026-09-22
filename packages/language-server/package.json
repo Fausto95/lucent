@@ -1,6 +1,6 @@
 {
   "name": "@lucent-lang/language-server",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Lucent language service stub — diagnostics via the compiler; full LSP is post-MVP.",
   "license": "MIT",
   "repository": {

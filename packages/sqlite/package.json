@@ -1,6 +1,6 @@
 {
   "name": "@lucent-lang/sqlite",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Lucent SQLite acceptance package — open/close, scoped transactions, typed params, CI in-memory stubs.",
   "license": "MIT",
   "repository": {

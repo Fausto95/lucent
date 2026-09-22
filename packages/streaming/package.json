@@ -1,6 +1,6 @@
 {
   "name": "@lucent-lang/streaming",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Lucent streaming acceptance package — owned chunk sources, transform/write sinks, explicit backpressure contracts.",
   "license": "MIT",
   "repository": {

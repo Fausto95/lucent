@@ -1,6 +1,6 @@
 {
   "name": "@lucent-lang/cli",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "The lucent command line: build, check, scaffold and diagnose native React Native modules written in TypeScript.",
   "keywords": [
     "cli",

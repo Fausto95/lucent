@@ -1,6 +1,6 @@
 {
   "name": "@lucent-lang/background",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Lucent background-tasks acceptance package — durable vs in-process jobs, versioned payloads, CI schedule stubs.",
   "license": "MIT",
   "repository": {

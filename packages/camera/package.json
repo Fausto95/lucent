@@ -1,6 +1,6 @@
 {
   "name": "@lucent-lang/camera",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Lucent camera acceptance package — session lifecycle, borrowed frames, CI stubs.",
   "license": "MIT",
   "repository": {

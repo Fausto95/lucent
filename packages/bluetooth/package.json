@@ -1,6 +1,6 @@
 {
   "name": "@lucent-lang/bluetooth",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Lucent Bluetooth acceptance package — scan, connect, read/write, buffered notifications, CI fake peripherals.",
   "license": "MIT",
   "repository": {
