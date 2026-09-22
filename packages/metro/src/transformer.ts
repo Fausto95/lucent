@@ -3,8 +3,9 @@
  * module in-process and hands the host's JS proxy to the upstream transformer;
  * every other file passes straight through.
  */
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
-import { resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { COMPILER_VERSION, compile, renderDiagnostic } from "@lucent-lang/compiler";
 import { loadLucentConfig, sourceProjectRoot, loadLucentSources, type Host } from "@lucent-lang/host-core";
 import { expoHost } from "@lucent-lang/host-expo";
@@ -64,9 +65,30 @@ export function createTransformer(options: { upstream: UpstreamTransformer; host
       return options.upstream.transform({ ...args, src: js });
     },
     getCacheKey() {
-      return [options.upstream.getCacheKey?.() ?? "", `lucent@${COMPILER_VERSION}`, options.host].join("|");
+      return [
+        options.upstream.getCacheKey?.() ?? "",
+        `lucent@${COMPILER_VERSION}`,
+        options.host,
+        configFingerprint(),
+      ].join("|");
     },
   };
+}
+
+/**
+ * The manifests and minimum targets an app configures are compiler inputs, so editing one
+ * has to invalidate Metro's transform cache the same way editing a source file does.
+ */
+export function configFingerprint(root: string = process.cwd()): string {
+  try {
+    const config = loadLucentConfig(sourceProjectRoot(join(root, "metro.config.js")));
+    return createHash("sha256")
+      .update(JSON.stringify([config.libraries, config.targets, config.capabilities]))
+      .digest("hex")
+      .slice(0, 16);
+  } catch {
+    return "unresolved-config";
+  }
 }
 
 // ---- module-level entry used by Metro (configured through env by withLucent) ----

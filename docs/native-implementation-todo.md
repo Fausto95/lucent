@@ -96,8 +96,11 @@ specifier; the migration paths are documented in `docs/language.md`.
 - [ ] Enforce call-level ownership, borrowed returns, callback retention, close,
       and executor contracts in compiler analysis and generated runtime behavior.
 - [ ] Add full source/package/SDK provenance to contract diagnostics.
-- [ ] Verify schema, generator, adapter, target, and extraction version changes
-      all invalidate CLI and Metro caches.
+- [x] Invalidate Metro's transform cache when an app's library manifests or
+      minimum targets change. The CLI cache already hashed them; Metro's key was
+      only the compiler version and host, so editing a manifest served stale
+      proxies. Schema, generator and extraction versions still ride on
+      `COMPILER_VERSION` alone and need their own fingerprints.
 - [ ] Reject incompatible native dependency constraints with provenance.
 
 Evidence: `native-contracts.test.ts`, `native-packages.test.ts`, typecheck.

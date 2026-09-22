@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { createTransformer, type UpstreamTransformer } from "../src/transformer.ts";
+import { configFingerprint, createTransformer, type UpstreamTransformer } from "../src/transformer.ts";
 import { withLucent } from "../src/index.ts";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
@@ -88,5 +88,43 @@ describe("withLucent", () => {
     expect(config.transformer.babelTransformerPath).toMatch(/packages\/metro\/dist\/transformer\.cjs$/);
     expect(process.env.LUCENT_HOST).toBe("nitro");
     expect(process.env.LUCENT_UPSTREAM_TRANSFORMER).toBe("/x/upstream.js");
+  });
+});
+
+describe("cache key", () => {
+  test("changes when a project's library manifests change", () => {
+    const root = mkdtempSync(join(tmpdir(), "lucent-metro-"));
+    writeFileSync(join(root, "package.json"), JSON.stringify({ name: "app" }));
+    const library = {
+      source: "export declare function one():number;",
+      bindings: { one: { swift: ["return 1"], kotlin: ["return 1.0"] } },
+    };
+    writeFileSync(join(root, "lucent.config.json"), JSON.stringify({ libraries: { "@lucent-lang/a": library } }));
+    const first = configFingerprint(root);
+    writeFileSync(
+      join(root, "lucent.config.json"),
+      JSON.stringify({
+        libraries: {
+          "@lucent-lang/a": { ...library, bindings: { one: { swift: ["return 2"], kotlin: ["return 2.0"] } } },
+        },
+      }),
+    );
+    expect(configFingerprint(root)).not.toBe(first);
+  });
+
+  test("changes when the minimum targets change", () => {
+    const root = mkdtempSync(join(tmpdir(), "lucent-metro-"));
+    writeFileSync(join(root, "package.json"), JSON.stringify({ name: "app" }));
+    writeFileSync(join(root, "lucent.config.json"), JSON.stringify({ targets: { ios: "16.0" } }));
+    const first = configFingerprint(root);
+    writeFileSync(join(root, "lucent.config.json"), JSON.stringify({ targets: { ios: "17.0" } }));
+    expect(configFingerprint(root)).not.toBe(first);
+  });
+
+  test("an unreadable config does not crash the key", () => {
+    const root = mkdtempSync(join(tmpdir(), "lucent-metro-"));
+    writeFileSync(join(root, "package.json"), JSON.stringify({ name: "app" }));
+    writeFileSync(join(root, "lucent.config.json"), "{ not json");
+    expect(configFingerprint(root)).toBe("unresolved-config");
   });
 });
