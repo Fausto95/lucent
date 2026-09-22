@@ -81,7 +81,7 @@ export function linkModule(
       // Bindings are attached below, so read the manifest directly for the overload group.
       const constructs = (f: (typeof module.functions)[number]) =>
         f.name === `${name}__create` || libraries[path]?.bindings?.[f.name]?.overload === `${name}__create`;
-      if (!alias || alias.type.kind !== "object" || !module.functions.some(constructs)) {
+      if (!alias || alias.type.kind !== "object" || (!native.nativeOnly && !module.functions.some(constructs))) {
         diagnostics.push(
           diagnostic(
             "LUCENT1006",
@@ -270,7 +270,13 @@ export function linkModule(
         ...fn,
         name: values.get(fn.name)!,
         ...(fn.classOp ? { classOp: { ...fn.classOp, className: types.get(fn.classOp.className)! } } : {}),
-        exported: !fn.binding?.nativeOnly && (!!fn.classOp || (!fn.event && path === root && fn.exported)),
+        exported:
+          !fn.binding?.nativeOnly &&
+          !(
+            fn.classOp &&
+            module.typeAliases.find((alias) => alias.name === fn.classOp!.className)?.reference?.native?.nativeOnly
+          ) &&
+          (!!fn.classOp || (!fn.event && path === root && fn.exported)),
         ...(fn.event
           ? { event: { ...fn.event, id: values.get(fn.name)!, exported: path === root && fn.event.exported } }
           : {}),

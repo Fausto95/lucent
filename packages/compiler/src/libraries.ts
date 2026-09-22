@@ -24,6 +24,8 @@ export interface NativeBinding {
 }
 export type { NativeEnumBinding, NativeEnumTarget } from "./types/native-type.ts";
 export interface NativeReferenceBinding {
+  /** SDK resources and delegates that must never cross the JavaScript bridge. */
+  nativeOnly?: boolean;
   contract?: NativeObjectContract;
   swift?: string;
   kotlin?: string;

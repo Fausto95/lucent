@@ -897,3 +897,13 @@ snapshot. Snapshots and locks are released on success and error. Returning the
 same native object through a new handle preserves its serialization identity.
 This is bridge-entry serialization; SDK-internal callbacks still follow the
 SDK's declared executor and synchronization contract.
+
+A library reference can set `nativeOnly: true` for SDK-owned resources and
+compiled delegate objects. Such types can be used by compiled functions and
+native callbacks but cannot appear in an exported JavaScript function's
+parameters or result. No JavaScript class proxy is generated for them, and their
+instance operations remain native-only. SDK-created resources need not declare
+a constructor. Owned delegate types may declare a native-only constructor that
+accepts retained `NativeCallback` values. Existing borrowing and capture checks
+still apply; this flag does not grant ownership or permit borrowed values to
+escape their lifetime.

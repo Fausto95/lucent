@@ -16,7 +16,7 @@ export function isReference(type: NativeType, module: IRModule): boolean {
 }
 export function classDeclarations(module: IRModule): string[] {
   return module.structs
-    .filter((s) => s.reference)
+    .filter((s) => s.reference && !s.reference.native?.nativeOnly)
     .map((s) => {
       const operations = module.functions.filter((f) => f.classOp?.className === s.name && f.exported);
 
@@ -39,7 +39,7 @@ export function classDeclarations(module: IRModule): string[] {
 export function classProxies(module: IRModule, nullAsUndefined: boolean): string {
   const policy: ConversionPolicy = { structs: new Map(module.structs.map((s) => [s.name, s])), nullAsUndefined };
   return module.structs
-    .filter((s) => s.reference)
+    .filter((s) => s.reference && !s.reference.native?.nativeOnly)
     .map((s) => {
       const operations = module.functions.filter((f) => f.classOp?.className === s.name && f.exported);
       const wrapper = (fn: (typeof operations)[number]) => {

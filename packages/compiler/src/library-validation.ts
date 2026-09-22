@@ -139,6 +139,8 @@ export function validateLibrary(library: LibraryModule): string[] {
         errors.push(`Invalid native reference ${name}.`);
         continue;
       }
+      if (reference.nativeOnly !== undefined && typeof reference.nativeOnly !== "boolean")
+        errors.push(`Invalid nativeOnly flag for ${name}.`);
       const contract = reference.contract;
       if (
         contract !== undefined &&

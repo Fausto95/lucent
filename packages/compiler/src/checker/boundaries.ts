@@ -69,8 +69,13 @@ export function checkBoundaries(
         fn.params[0]?.type.kind === "struct" && fn.params[0].type.name === struct.name;
       const ctors = operations.filter((f) => f.classOp?.kind === "constructor");
       if (
-        !ctors.length ||
-        ctors.some((c) => c.async || !typeEquals(c.returnType, T.struct(struct.name)) || c.binding?.nativeOnly)
+        (!struct.reference.native.nativeOnly && !ctors.length) ||
+        ctors.some(
+          (c) =>
+            c.async ||
+            !typeEquals(c.returnType, T.struct(struct.name)) ||
+            (!struct.reference!.native!.nativeOnly && c.binding?.nativeOnly),
+        )
       )
         fail(alias.span, "Native reference constructors must return their object type and support the handle bridge.");
       // `new Name(...)` is one JavaScript function, so overloads must be separable there too.
@@ -152,6 +157,19 @@ export function checkBoundaries(
           "Events require JSON-compatible values; bytes, callbacks, views, and shared objects cannot be event payloads.",
         );
     }
+    if (
+      fn.exported &&
+      [...fn.params.map((p) => p.type), fn.returnType].some((t) =>
+        contains(
+          t,
+          (inner) => inner.kind === "struct" && structs.get(inner.name)?.reference?.native?.nativeOnly === true,
+        ),
+      )
+    )
+      fail(
+        fn.span,
+        "Native-only SDK resources cannot cross the JavaScript boundary. Consume them in compiled Lucent functions and return values instead.",
+      );
     if (fn.returnType.kind === "view") continue;
     const all = [...fn.params.map((p) => p.type), fn.returnType];
     if (all.some((t) => t.kind !== "enum" && contains(t, (inner) => inner.kind === "enum")))

@@ -16,7 +16,7 @@ export { printIR } from "./ir/print.ts";
 export type { NativeType } from "./types/native-type.ts";
 export { typeToString, typeEquals, isNumeric, T } from "./types/native-type.ts";
 
-export const COMPILER_VERSION = "0.6.4";
+export const COMPILER_VERSION = "0.6.5";
 
 export interface CompileOptions {
   targets?: NativeTargets;

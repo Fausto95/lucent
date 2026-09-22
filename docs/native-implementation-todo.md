@@ -231,6 +231,9 @@ adapters and full SDK cleanup quiescence remain incomplete.
 - [x] Distinguish escaping and nonescaping callback captures. `retention: "call"`
       may capture a borrow; `subscription` and absent retention may not.
 - [ ] Preserve executor and error contracts through indirect calls.
+- [x] Add native-only SDK references for delegates and borrowed SDK resources.
+      SDK-owned references need no fictitious constructor; callback-taking
+      constructors remain compiled-only, and bridge exposure is rejected.
 - [ ] Import protocol/interface requirements and validate conformance.
 - [ ] Generate concrete Swift conformances and Kotlin implementations.
 - [ ] Model owned subscriptions with idempotent, reentrant-safe removal.
@@ -358,7 +361,8 @@ adapters and full SDK cleanup quiescence remain incomplete.
 
 ## Latest verification checkpoint
 
-- Unit suite: 614 passing tests across 75 files after per-object bridge serialization,
+- Unit suite: 620 passing tests across 76 files after native-only SDK resources,
+  per-object bridge serialization,
   JavaScript method overload
   dispatch, nullable signature checks, native task scopes, async
   SDK method retention, public package consolidation,
