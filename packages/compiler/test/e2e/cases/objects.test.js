@@ -1,0 +1,16 @@
+print(JSON.stringify(mod.midpoint({ x: 0, y: 0 }, { x: 4, y: 2 })));
+print(JSON.stringify(mod.translate({ x: 1, y: 1 }, 5)));
+const p = { name: "Ada", age: 36, tags: ["math"] };
+print(mod.describe(p), mod.describe({ ...p, nickname: "Countess" }));
+print(JSON.stringify(mod.birthday(p)));
+print(JSON.stringify(mod.makePerson("Bo")));
+print(mod.nickname(p), mod.nickname({ ...p, nickname: "c" }));
+print(mod.area({ kind: "circle", radius: 2 }), mod.area({ kind: "rect", w: 3, h: 4 }));
+print(JSON.stringify(mod.shapes(4)));
+print(JSON.stringify(["1.5", "abc", "true", "false"].map(mod.parseValue)));
+print(mod.kindOf(3), mod.kindOf("abc"), mod.kindOf(true));
+print(mod.maybe(undefined), mod.maybe(null), mod.maybe(4));
+print(mod.treeSum(mod.tree(4)));
+print(JSON.stringify(mod.pairs([1, 2])), JSON.stringify(mod.swap(["a", 1])));
+print(mod.destructure({ name: "X", age: 3, tags: [] }), mod.destructure({ name: "Y", age: 4, tags: ["a", "b", "c"], nickname: "why" }));
+print(mod.toJson({ name: "Z", age: 1, tags: [] }, { kind: "rect", w: 1, h: 2 }));

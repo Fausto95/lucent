@@ -47,6 +47,8 @@ export function compilerOptions(): ts.CompilerOptions {
     allowImportingTsExtensions: true,
     noFallthroughCasesInSwitch: false,
     exactOptionalPropertyTypes: false,
+    // Reading a missing index yields undefined at runtime; the types must say so.
+    noUncheckedIndexedAccess: true,
     paths: { "@lucent-lang/core": [coreTypesPath()] },
   };
 }

@@ -440,6 +440,44 @@ double round(double v) {
   return (v - f >= 0.5) ? f + 1 : f;
 }
 
+double cbrt(double x) {
+  // Port of fdlibm s_cbrt.c (as used by V8).
+  static const uint32_t B1 = 715094163, B2 = 696219795;
+  static const double P0 = 1.87595182427177009643, P1 = -1.88497979543377169875, P2 = 1.621429720105354466140,
+                      P3 = -0.758397934778766047437, P4 = 0.145996192886612446982;
+  uint64_t bits;
+  std::memcpy(&bits, &x, sizeof bits);
+  uint32_t hx = static_cast<uint32_t>(bits >> 32) & 0x7fffffff;
+  uint32_t sign = static_cast<uint32_t>(bits >> 32) & 0x80000000;
+  if (hx >= 0x7ff00000) return x + x;
+  double t;
+  if (hx < 0x00100000) {
+    if ((hx | static_cast<uint32_t>(bits)) == 0) return x;
+    t = 18014398509481984.0;  // 2^54
+    t *= x;
+    uint64_t tb;
+    std::memcpy(&tb, &t, sizeof tb);
+    uint32_t high = static_cast<uint32_t>(tb >> 32) & 0x7fffffff;
+    tb = static_cast<uint64_t>(sign | (high / 3 + B2)) << 32;
+    std::memcpy(&t, &tb, sizeof t);
+  } else {
+    uint64_t tb = static_cast<uint64_t>(sign | (hx / 3 + B1)) << 32;
+    std::memcpy(&t, &tb, sizeof t);
+  }
+  double r = (t * t) * (t / x);
+  t = t * ((P0 + r * (P1 + r * P2)) + ((r * r) * r) * (P3 + r * P4));
+  uint64_t tb;
+  std::memcpy(&tb, &t, sizeof tb);
+  tb = (tb + 0x80000000ULL) & 0xffffffffc0000000ULL;
+  std::memcpy(&t, &tb, sizeof t);
+  double s = t * t;
+  r = x / s;
+  double w = t + t;
+  r = (r - t) / (w + r);
+  t = t + t * r;
+  return t;
+}
+
 double hypot(double a, double b) {
   if (std::isinf(a) || std::isinf(b)) return kInfinity;
   return std::hypot(a, b);

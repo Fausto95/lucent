@@ -248,11 +248,14 @@ export class FnEmitter {
 
   /** Lowers a nested function or arrow to a C++ lambda wrapped in lucent::Fn. */
   closure(node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration, target?: LType): E {
-    let fnType = this.lt(node) as LType;
-    if (fnType.k !== "fn") fail(node, Codes.UnsupportedType, "expected a function type");
-    if (target && target.k === "fn" && target.params.length >= fnType.params.length) {
+    const sig = this.checker.getTypeAtLocation(node).getCallSignatures()[0];
+    if (!sig) fail(node, Codes.UnsupportedType, "expected a function type");
+    let fnType: LType & { k: "fn" };
+    if (target && target.k === "fn" && target.params.length >= node.parameters.length) {
       // Use the contextual parameter list so the lambda matches Fn<...> exactly.
-      fnType = { k: "fn", params: target.params, ret: fnType.ret };
+      fnType = { k: "fn", params: target.params, ret: this.reg.lower(this.checker.getReturnTypeOfSignature(sig), node) };
+    } else {
+      fnType = this.reg.lowerSignature(sig, node) as LType & { k: "fn" };
     }
     const isAsync = !!ts.getModifiers(node)?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword);
     const ret = isAsync ? (fnType.ret.k === "promise" ? fnType.ret.inner : fnType.ret) : fnType.ret;
@@ -299,14 +302,10 @@ export class FnEmitter {
       let type = declared;
       let cppType = declared;
       if (p.initializer) {
-        // Default parameter: callers pass Opt<T>; the body sees T.
-        type = this.reg.lower(this.checker.getTypeAtLocation(p), p);
-        if (type.k === "opt" && !p.questionToken) {
-          const withoutUndefined = this.checker.getNonNullableType(this.checker.getTypeAtLocation(p));
-          const nonNull = this.reg.lower(withoutUndefined, p);
-          const allowsNull = type.k === "opt" && typeKey(type) !== typeKey(unionOf([nonNull, T.undefined]));
-          type = allowsNull ? type : nonNull;
-        }
+        // Default parameter: callers pass Opt<T>; the body sees the declared type.
+        const sym = ts.isIdentifier(p.name) ? this.checker.getSymbolAtLocation(p.name) : undefined;
+        const bodyType = p.type ? this.checker.getTypeFromTypeNode(p.type) : sym ? this.checker.getTypeOfSymbolAtLocation(sym, p.name) : this.checker.getTypeAtLocation(p);
+        type = this.reg.lower(bodyType, p);
         cppType = unionOf([type, T.undefined]);
       } else if (optional && declared.k !== "opt") {
         cppType = type = unionOf([declared, T.undefined]);
@@ -447,8 +446,15 @@ export class FnEmitter {
         const sym = this.checker.getSymbolAtLocation(d.name)!;
         const declared = this.reg.lower(this.checker.getTypeOfSymbolAtLocation(sym, d.name), d.name);
         const type = declared.k === "never" ? T.undefined : declared;
-        const init = d.initializer ? this.exprAs(d.initializer, type) : type.k === "opt" ? undefined : undefined;
-        this.declareVar(sym, d.name.text, type, init);
+        if (this.ctx.capture.isBoxed(sym)) {
+          // Declare the box first so a closure in the initializer can refer
+          // to the variable itself (recursive arrows).
+          const l = this.declareVar(sym, d.name.text, type, undefined);
+          if (d.initializer) this.line(`*${l.cpp} = ${this.exprAs(d.initializer, type)};`);
+        } else {
+          const init = d.initializer ? this.exprAs(d.initializer, type) : undefined;
+          this.declareVar(sym, d.name.text, type, init);
+        }
       } else {
         if (!d.initializer) fail(d, Codes.UnsupportedDestructuring, "destructuring requires an initializer");
         const e = this.expr(d.initializer);

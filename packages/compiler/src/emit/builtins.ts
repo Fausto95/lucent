@@ -13,8 +13,9 @@ const fn = (params: LType[], ret: LType): FnT => ({ k: "fn", params, ret });
 /** Emits a callback argument as a Fn with exactly `params`. */
 function callback(em: FnEmitter, arg: ts.Expression | undefined, params: LType[], ret?: LType): E {
   if (!arg) fail(undefined, Codes.UnsupportedCall, "missing callback");
-  const own = em.lt(arg);
-  const r = ret ?? (own.k === "fn" ? own.ret : T.void);
+  const sig = em.checker.getTypeAtLocation(arg).getCallSignatures()[0];
+  if (!sig) fail(arg, Codes.UnsupportedCall, "expected a function");
+  const r = ret ?? em.reg.lower(em.checker.getReturnTypeOfSignature(sig), arg);
   const target = fn(params, r);
   if (ts.isArrowFunction(arg) || ts.isFunctionExpression(arg)) {
     const e = em.closure(arg, target);

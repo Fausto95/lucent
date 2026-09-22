@@ -227,6 +227,11 @@ export class TypeRegistry {
     if (f & (ts.TypeFlags.BigInt | ts.TypeFlags.BigIntLiteral)) fail(node, Codes.UnsupportedType, "bigint is not supported yet");
     if (f & ts.TypeFlags.ESSymbolLike) fail(node, Codes.UnsupportedType, "symbols are not supported");
     if (f & ts.TypeFlags.TypeParameter) {
+      if ((type as { isThisType?: boolean }).isThisType) {
+        // The polymorphic `this` type of a class: its instance type.
+        const constraint = type.getConstraint() ?? c.getBaseConstraintOfType(type);
+        if (constraint) return this.lower(constraint, node);
+      }
       const sym = type.getSymbol();
       return { k: "tparam", name: sym ? sym.name : "T" };
     }

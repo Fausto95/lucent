@@ -115,7 +115,12 @@ export class CaptureAnalysis {
     }
     if (isWriteTarget(id)) this.written.add(sym);
     const user = enclosingFunction(id);
-    if (user && user !== owner) this.captured.add(sym);
+    if (user && user !== owner) {
+      this.captured.add(sym);
+      // A closure in the variable's own initializer (a recursive arrow)
+      // needs the variable to exist before the closure is created.
+      if (decl && ts.isVariableDeclaration(decl) && decl.initializer && isInside(id, decl.initializer)) this.written.add(sym);
+    }
   }
 
   isBoxed(sym: ts.Symbol): boolean {

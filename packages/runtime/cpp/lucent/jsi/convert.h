@@ -129,6 +129,33 @@ struct Convert<Array<T>> {
   }
 };
 
+// --- tuples (JS arrays of fixed length) --------------------------------------------
+
+template <class... Ts>
+struct Convert<std::tuple<Ts...>> {
+  static std::tuple<Ts...> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+    if (!v.isObject() || !v.getObject(rt).isArray(rt)) throwBoundaryError(rt, p, "an array", v);
+    jsi::Array a = v.getObject(rt).getArray(rt);
+    return read(rt, a, p, std::index_sequence_for<Ts...>{});
+  }
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const std::tuple<Ts...>& t) {
+    jsi::Array a(rt, sizeof...(Ts));
+    write(rt, h, a, t, std::index_sequence_for<Ts...>{});
+    return jsi::Value(rt, a);
+  }
+
+ private:
+  template <size_t... I>
+  static std::tuple<Ts...> read(jsi::Runtime& rt, jsi::Array& a, const Path& p, std::index_sequence<I...>) {
+    size_t n = a.size(rt);
+    return std::tuple<Ts...>(Convert<Ts>::fromJs(rt, I < n ? a.getValueAtIndex(rt, I) : jsi::Value::undefined(), p.index(I))...);
+  }
+  template <size_t... I>
+  static void write(jsi::Runtime& rt, Host& h, jsi::Array& a, const std::tuple<Ts...>& t, std::index_sequence<I...>) {
+    (a.setValueAtIndex(rt, I, Convert<Ts>::toJs(rt, h, std::get<I>(t))), ...);
+  }
+};
+
 // --- records (plain objects used as dictionaries) ----------------------------------
 
 template <class V>

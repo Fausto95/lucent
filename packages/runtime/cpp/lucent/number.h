@@ -62,7 +62,8 @@ inline double trunc(double v) { return std::trunc(v); }
 double round(double v);
 inline double sign(double v) { return std::isnan(v) ? v : (v > 0 ? 1.0 : (v < 0 ? -1.0 : v)); }
 inline double sqrt(double v) { return std::sqrt(v); }
-inline double cbrt(double v) { return std::cbrt(v); }
+/// fdlibm's cbrt (exact for perfect cubes, like JavaScript engines).
+double cbrt(double v);
 inline double exp(double v) { return std::exp(v); }
 inline double expm1(double v) { return std::expm1(v); }
 inline double log(double v) { return std::log(v); }
