@@ -1,5 +1,6 @@
 import type { DocGroup, DocPage } from "./types";
 import { page as introduction } from "./pages/introduction";
+import { page as whatYouCanBuild } from "./pages/what-you-can-build";
 import { page as gettingStarted } from "./pages/getting-started";
 import { page as howItWorks } from "./pages/how-it-works";
 import { page as examples } from "./pages/examples";
@@ -27,7 +28,7 @@ import { page as apiLibraryManifest } from "./pages/api/library-manifest";
 
 /** Sidebar order is reading order; prev/next follow it. */
 export const docsGroups: DocGroup[] = [
-  { label: "Guide", pages: [introduction, gettingStarted, howItWorks, examples] },
+  { label: "Guide", pages: [introduction, whatYouCanBuild, gettingStarted, howItWorks, examples] },
   {
     label: "Language",
     pages: [

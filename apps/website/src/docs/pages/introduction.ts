@@ -41,6 +41,10 @@ export const page: DocPage = {
         "**Platform access** through package manifests that bind real SDK classes and functions, with typed capabilities and platform guards. [Platform →](/docs/language/platform-and-capabilities/)",
       ],
     },
+    {
+      kind: "p",
+      text: "That is the feature surface. The shapes of module those features add up to — and the ones that have to wait, such as anything holding a subscription or an open session — are listed on [what you can build today](/docs/what-you-can-build/).",
+    },
     { kind: "h2", text: "Why not write Swift and Kotlin" },
     {
       kind: "p",
@@ -65,6 +69,11 @@ export const page: DocPage = {
     {
       kind: "cards",
       items: [
+        {
+          title: "What you can build today",
+          text: "The module shapes that work now, the ones that do not, and what each is waiting on.",
+          href: "/docs/what-you-can-build/",
+        },
         {
           title: "Getting started",
           text: "Install into an Expo or bare React Native app and run your first module.",
