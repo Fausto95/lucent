@@ -76,7 +76,10 @@ export function linkModule(
     }
     for (const [name, native] of Object.entries(libraries[path]?.references ?? {})) {
       const alias = module.typeAliases.find((t) => t.name === name);
-      if (!alias || alias.type.kind !== "object" || !module.functions.some((f) => f.name === `${name}__create`)) {
+      // Bindings are attached below, so read the manifest directly for the overload group.
+      const constructs = (f: (typeof module.functions)[number]) =>
+        f.name === `${name}__create` || libraries[path]?.bindings?.[f.name]?.overload === `${name}__create`;
+      if (!alias || alias.type.kind !== "object" || !module.functions.some(constructs)) {
         diagnostics.push(
           diagnostic(
             "LC1006",
@@ -91,7 +94,7 @@ export function linkModule(
         const operation = fn.name.slice(name.length);
         if (!fn.name.startsWith(name + "__")) continue;
         const kinds = { create: "constructor", get: "get", set: "set", method: "method" } as const;
-        const match = /^__(create)$|^__(get|set|method)_(.+)$/.exec(operation);
+        const match = /^__(create)(?:__.+)?$|^__(get|set|method)_(.+)$/.exec(operation);
         if (!match) continue;
         const kind = kinds[(match[1] ?? match[2]) as keyof typeof kinds];
         fn.classOp = { className: name, member: match[3] ?? "constructor", kind };

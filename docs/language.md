@@ -483,10 +483,20 @@ property writes currently require simple assignment; compound updates are
 rejected. Binding platform restrictions still require `Platform.OS` guards.
 
 `generateBindingLibrary` also accepts curated `SDKSchema.classes` entries with
-constructors, properties, and methods. Give overloaded SDK methods distinct
-Lucent names to select their native signatures explicitly. The text-based SDK
-extractors still report unsupported class declarations; this does not provide
-automatic instance-method overload selection or complete SDK metadata extraction.
+constructors, properties, and methods. The text-based SDK extractors still
+report unsupported class declarations and do not yet emit overload groups for
+them; a curated manifest can declare those groups by hand.
+
+Constructors and instance methods take overload groups like free functions.
+Name each candidate `Name__create__<suffix>` or `Name__method_<name>__<suffix>`
+and give them a shared `overload` of `Name__create` or `Name__method_<name>`.
+Source code keeps writing `new Name(...)` and `object.name(...)`; the compiler
+selects one concrete operation before lowering. `new` is a single JavaScript
+function, so constructor overloads must differ in arity or in what `typeof`
+reports for an argument. Two that look identical to JavaScript are rejected,
+because distinguishing `number` from `int32` at runtime would be a guess. The
+generated class declares one TypeScript constructor per overload and its proxy
+dispatches on arity and argument kind.
 
 Compiled functions can be passed to other native functions using
 `NativeCallback`:

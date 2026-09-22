@@ -115,7 +115,13 @@ Contract metadata alone is not proof that the described runtime behavior exists.
 - [x] Generate public TypeScript overload declarations from those signatures.
 - [x] Execute a selected extracted `java.lang.Math.abs` overload in native
       verification, preserving platform guards on the other target.
-- [ ] Support automatic constructor and instance-method overload groups.
+- [x] Support automatic constructor and instance-method overload groups.
+      Candidates share an `overload` group named `Name__create` or
+      `Name__method_<name>`; `new Name(...)` and `object.name(...)` select one
+      concrete operation before lowering. Constructor overloads must be
+      separable by arity or runtime argument kind, since `new` is one
+      JavaScript function; the proxy dispatches on that and the generated
+      declaration carries one TypeScript constructor per overload.
 - [ ] Add enumerated lossless numeric conversions in typed IR.
 - [ ] Contextually resolve closure/function-reference arguments and record/array
       literals without speculative checker side effects.

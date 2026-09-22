@@ -2,6 +2,13 @@ import { diagnostic, type Diagnostic } from "../diagnostics/index.ts";
 import type { SurfaceModule } from "../parser/surface.ts";
 import { typeEquals, T, type NativeType } from "../types/native-type.ts";
 import type { StructDef, TypedFunction } from "./typed.ts";
+/** What `typeof` reports for a value of this type once it reaches JavaScript. */
+export function runtimeKind(t: NativeType): string {
+  if (t.kind === "string" || t.kind === "enum") return "string";
+  if (t.kind === "bool") return "boolean";
+  if (t.kind === "float" || t.kind === "int") return "number";
+  return "object";
+}
 const scalar = (t: NativeType): boolean =>
   t.kind === "string" ||
   t.kind === "bool" ||
@@ -48,9 +55,24 @@ export function checkBoundaries(
       const operations = functions.filter((f) => f.classOp?.className === struct.name);
       const receiver = (fn: TypedFunction) =>
         fn.params[0]?.type.kind === "struct" && fn.params[0].type.name === struct.name;
-      const ctor = operations.find((f) => f.classOp?.kind === "constructor");
-      if (!ctor || ctor.async || !typeEquals(ctor.returnType, T.struct(struct.name)) || ctor.binding?.nativeOnly)
+      const ctors = operations.filter((f) => f.classOp?.kind === "constructor");
+      if (
+        !ctors.length ||
+        ctors.some((c) => c.async || !typeEquals(c.returnType, T.struct(struct.name)) || c.binding?.nativeOnly)
+      )
         fail(alias.span, "Native reference constructors must return their object type and support the handle bridge.");
+      // `new Name(...)` is one JavaScript function, so overloads must be separable there too.
+      const shapes = new Map<string, string>();
+      for (const c of ctors) {
+        const shape = c.params.map((p) => runtimeKind(p.type)).join(",");
+        const other = shapes.get(shape);
+        if (other)
+          fail(
+            c.span,
+            `Constructor overloads ${other} and ${c.name} look the same to JavaScript (${shape || "no arguments"}). Give one of them a distinct arity or argument kind.`,
+          );
+        else shapes.set(shape, c.name);
+      }
       for (const field of struct.fields) {
         const getter = operations.find((f) => f.classOp?.kind === "get" && f.classOp.member === field.name);
         const setter = operations.find((f) => f.classOp?.kind === "set" && f.classOp.member === field.name);

@@ -64,5 +64,7 @@ export { parseNativeConfig } from "./parser/config.ts";
 
 export { validateLibrary } from "./library-validation.ts";
 
+export { runtimeKind } from "./checker/boundaries.ts";
+
 export { nativeSymbolId, validNativeTargets } from "./native-contracts.ts";
 export type * from "./native-contracts.ts";

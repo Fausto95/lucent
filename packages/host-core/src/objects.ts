@@ -5,6 +5,7 @@ const declarationParams = (fn: IRFunction, skip = 0) =>
     .join(", ");
 import type { IRModule, IRFunction, NativeType } from "@lucent-lang/compiler";
 import { convert, jsType, type ConversionPolicy } from "./conversion.ts";
+import { runtimeKind } from "@lucent-lang/compiler";
 export function isReference(type: NativeType, module: IRModule): boolean {
   return type.kind === "struct" && !!module.structs.find((s) => s.name === type.name)?.reference;
 }
@@ -14,8 +15,8 @@ export function classDeclarations(module: IRModule): string[] {
     .map((s) => {
       const operations = module.functions.filter((f) => f.classOp?.className === s.name && f.exported);
 
-      const ctor = operations.find((f) => f.classOp!.kind === "constructor")!;
-      return `export declare class ${s.name} {\n  constructor(${declarationParams(ctor)});\n  dispose(): void;\n${s.fields
+      const ctors = operations.filter((f) => f.classOp!.kind === "constructor");
+      return `export declare class ${s.name} {\n${ctors.map((c) => `  constructor(${declarationParams(c)});`).join("\n")}\n  dispose(): void;\n${s.fields
         .filter((f) => !s.reference?.privateFields?.includes(f.name))
         .map(
           (f) =>
@@ -40,13 +41,28 @@ export function classProxies(module: IRModule, nullAsUndefined: boolean): string
         const result = fn.classOp!.kind === "constructor" ? "result" : convert("result", fn.returnType, "out", policy);
         return `(${params.join(", ")}) => { const result = lucentCall(() => native.${fn.name}(${args.join(", ")})); return ${result}; }`;
       };
-      const ctor = operations.find((f) => f.classOp!.kind === "constructor")!;
+      const ctors = operations.filter((f) => f.classOp!.kind === "constructor");
+      const create =
+        ctors.length === 1
+          ? wrapper(ctors[0]!)
+          : `(...args) => {\n${ctors
+              .map((c) => {
+                const guards = [
+                  `args.length === ${c.params.length}`,
+                  ...c.params.map((p, i) => `typeof args[${i}] === ${JSON.stringify(runtimeKind(p.type))}`),
+                ].join(" && ");
+                const call = c.params.map((p, i) => convert(`args[${i}]`, p.type, "in", policy)).join(", ");
+                return `      if (${guards}) return lucentCall(() => native.${c.name}(${call}));`;
+              })
+              .join(
+                "\n",
+              )}\n      throw new TypeError(${JSON.stringify(`No ${s.reference!.publicName} constructor matches these arguments`)});\n    }`;
       const group = (kind: string) =>
         operations
           .filter((f) => f.classOp!.kind === kind)
           .map((f) => `${JSON.stringify(f.classOp!.member)}: ${wrapper(f)}`)
           .join(", ");
-      return `const ${s.name} = defineNativeClass(${JSON.stringify(s.name)}, { name: ${JSON.stringify(s.reference!.publicName)}, create: ${wrapper(ctor)}, release: (handle) => native.lucentRelease(handle), methods: {${group("method")}}, getters: {${group("get")}}, setters: {${group("set")}} });${s.reference!.exported ? `\nexport { ${s.name} as ${s.reference!.publicName} };` : ""}`;
+      return `const ${s.name} = defineNativeClass(${JSON.stringify(s.name)}, { name: ${JSON.stringify(s.reference!.publicName)}, create: ${create}, release: (handle) => native.lucentRelease(handle), methods: {${group("method")}}, getters: {${group("get")}}, setters: {${group("set")}} });${s.reference!.exported ? `\nexport { ${s.name} as ${s.reference!.publicName} };` : ""}`;
     })
     .join("\n");
 }
