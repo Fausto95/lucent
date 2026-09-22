@@ -13,4 +13,4 @@ normal compiler. Both native executables check known padded/interleaved planes,
 This fixture proves compiled processing and borrowed callback delivery. It does
 not provide camera permissions, native preview, platform camera sessions,
 backpressure, orientation handling, view lifecycle, or physical-device evidence.
-Those remain tracked in `docs/native-implementation-todo.md`.
+Those remain tracked under M8 in [ROADMAP.md](../../ROADMAP.md).

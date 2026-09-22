@@ -77,8 +77,8 @@ The gaps cluster around state that outlives a single call.
 In short: call-in, call-out native work — sync or async, stateless or
 handle-based, with native UI on top. Subscription-shaped work is the next
 slice. See [what you can build today](https://lucent-lang.dev/docs/what-you-can-build/)
-for the detail, and the [implementation checklist](docs/native-implementation-todo.md)
-for every open item and its evidence.
+for the detail, and the [roadmap](ROADMAP.md) for every open item and the
+evidence it has to produce.
 
 ## Docs
 

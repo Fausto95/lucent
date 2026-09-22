@@ -90,7 +90,7 @@ export const page: DocPage = {
     { kind: "h2", text: "The short version" },
     {
       kind: "p",
-      text: "Sync or async, stateless or handle-based, with native UI on top: that works today, on Expo and Nitro, on iOS and Android. Subscription-shaped work does not, and it is one coherent slice rather than five scattered ones — subscriptions and explicit close, which together unlock the session and camera rows. The open items and their evidence are tracked in the [implementation checklist](https://github.com/Fausto95/lucent/blob/main/docs/native-implementation-todo.md) and the [roadmap](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md).",
+      text: "Sync or async, stateless or handle-based, with native UI on top: that works today, on Expo and Nitro, on iOS and Android. Subscription-shaped work does not, and it is one coherent slice rather than five scattered ones — subscriptions and explicit close, which together unlock the session and camera rows. Every open item, and the evidence it has to produce, is tracked in the [roadmap](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md).",
     },
   ],
 };
