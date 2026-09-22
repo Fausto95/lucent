@@ -197,7 +197,7 @@ function emitPackage(modules: IRModule[], options: EmitOptions): FileTree {
         "\n",
     );
   }
-  emitNativeSidecars(files, options.sidecars, ANDROID_DIR, ANDROID_PACKAGE);
+  emitNativeSidecars(files, options.sidecars, ANDROID_DIR, ANDROID_PACKAGE, "NitroModules");
   emitNativePackages(files, modules, ANDROID_PACKAGE);
   emitViews(files, modules, ANDROID_PACKAGE);
   return files;

@@ -64,8 +64,13 @@ export function emitNativeSidecars(
   sidecars: NativeSidecars | undefined,
   androidDir: string,
   androidPackage: string,
+  swiftModule: string,
 ): void {
-  for (const [name, contents] of Object.entries(sidecars?.swift ?? {})) files.set(`ios/${name}`, contents);
+  // `ArrayBuffer` and the rest of the bridge types come from the host's own
+  // module, which differs per host — so the import is added here rather than
+  // written by an author who would have to pick one and lose portability.
+  for (const [name, contents] of Object.entries(sidecars?.swift ?? {}))
+    files.set(`ios/${name}`, `import ${swiftModule}\n${contents}`);
   for (const [name, contents] of Object.entries(sidecars?.kotlin ?? {})) {
     const packaged = /^\s*package\s/m.test(contents) ? contents : `package ${androidPackage}\n\n${contents}`;
     files.set(`${androidDir}/${name}`, packaged);

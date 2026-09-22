@@ -131,7 +131,7 @@ function emitPackage(modules: IRModule[], options: EmitOptions): FileTree {
         "\n",
     );
   }
-  emitNativeSidecars(files, options.sidecars, androidDir, ANDROID_PACKAGE);
+  emitNativeSidecars(files, options.sidecars, androidDir, ANDROID_PACKAGE, "ExpoModulesCore");
   emitNativePackages(files, modules, ANDROID_PACKAGE);
   emitViews(files, modules, ANDROID_PACKAGE);
   return files;
@@ -263,7 +263,7 @@ function swiftModule(module: IRModule): string {
       // An async bridge cannot hold a synchronous scope across a suspension, so it
       // takes the leases up front and releases them on the way out instead.
       members.push([
-        `@JS("${f.name}"${f.async ? ", .concurrent" : ""})`,
+        `@JS("${f.name}"${f.async && f.thread !== "main" ? ", .concurrent" : ""})`,
         block(
           `func __bridge_${f.name}(${params})${f.async ? " async" : ""} throws -> ${bridgedType(ir.returnType, f.returnType)} {`,
           f.async
@@ -281,7 +281,8 @@ function swiftModule(module: IRModule): string {
       ]);
     }
     members.push([
-      ...(f.exported && !bridged ? [f.async ? "@JS(.concurrent)" : "@JS"] : []),
+      // A main-thread function stays on the main actor, so it is not concurrent.
+      ...(f.exported && !bridged ? [f.async && f.thread !== "main" ? "@JS(.concurrent)" : "@JS"] : []),
       block(`${swiftSignature(f)} {`, f.body),
     ]);
   }

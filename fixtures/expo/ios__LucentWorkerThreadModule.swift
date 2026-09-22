@@ -15,7 +15,7 @@ public final class LucentWorkerThreadModule: Module, @unchecked Sendable {
     }.value
   }
 
-  @JS(.concurrent)
+  @JS
   @MainActor func label(count: Double) async throws -> String {
     return "count: " + lucentStr(count)
   }
