@@ -11,6 +11,6 @@ public final class LucentClosureBodyModule: Module {
   @JS
   func scaled(base: Double) throws -> Double {
     let factor: Double = 3.0
-    return try apply(value: base, callback: { (value: Double) throws -> Double in (value * factor) })
+    return try apply(value: base, callback: { (value: Double) throws -> Double in value * factor })
   }
 }

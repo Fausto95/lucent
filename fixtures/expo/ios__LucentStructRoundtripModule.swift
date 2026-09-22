@@ -14,7 +14,7 @@ public final class LucentStructRoundtripModule: Module {
 
   @JS
   func birthday(user: User) throws -> User {
-    return User(id: user.id, age: (user.age &+ 1), nickname: user.nickname, tags: user.tags)
+    return User(id: user.id, age: user.age &+ 1, nickname: user.nickname, tags: user.tags)
   }
 
   @JS

@@ -53,7 +53,7 @@ describe("lucent build", () => {
     const third = await build({ root, host: "expo" });
     expect(third.compiled).toEqual(["src/native/math.lucent.ts"]);
     expect(third.cached).toEqual(["src/native/text.lucent.ts"]);
-    expect(readFileSync(join(third.outDir, "ios", "LucentMathModule.swift"), "utf8")).toContain("(a - b)");
+    expect(readFileSync(join(third.outDir, "ios", "LucentMathModule.swift"), "utf8")).toContain("return a - b");
   });
 
   test("reports diagnostics with codeframes and writes nothing", async () => {

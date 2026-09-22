@@ -6,11 +6,11 @@ import ExpoModulesCore
 public final class LucentAddModule: Module {
   @JS
   func add(a: Double, b: Double) throws -> Double {
-    return (a + b)
+    return a + b
   }
 
   @JS
   func multiply(a: Double, b: Double) throws -> Double {
-    return (a * b)
+    return a * b
   }
 }

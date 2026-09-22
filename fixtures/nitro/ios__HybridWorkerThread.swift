@@ -22,7 +22,7 @@ enum WorkerThreadBodies {
     return try await Task.detached {
       var total: Double = 0.0
       for value in values {
-        total = (total + value)
+        total = total + value
       }
       return total
     }.value

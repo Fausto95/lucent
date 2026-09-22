@@ -199,7 +199,8 @@ final class LucentError: Exception {
   );
 
 function swiftModule(module: IRModule): string {
-  const unit = generateSwift(withoutViews(module));
+  // Bodies live inside the module class, so a `@Background` hop has to capture it.
+  const unit = generateSwift(withoutViews(module), { detachedCaptures: ["self"] });
   const concurrent = unit.functions.some((f) => f.async);
   const members: Doc[] = [];
   const events = (module.events ?? []).filter((e) => e.exported);
@@ -278,12 +279,9 @@ function swiftModule(module: IRModule): string {
         ),
       ]);
     }
-    const body = f.body.map((line) =>
-      f.thread === "worker" ? line.replace("Task.detached {", "Task.detached { [self] in") : line,
-    );
     members.push([
       ...(f.exported && !bridged ? [f.async ? "@JS(.concurrent)" : "@JS"] : []),
-      block(`${swiftSignature(f)} {`, body),
+      block(`${swiftSignature(f)} {`, f.body),
     ]);
   }
   return render(

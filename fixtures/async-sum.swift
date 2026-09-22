@@ -1,11 +1,11 @@
 func scale(value: Double) async throws -> Double {
-  return (value * 2.0)
+  return value * 2.0
 }
 
 func total(values: [Double]) async throws -> Double {
   var sum: Double = 0.0
   for value in values {
-    sum = (sum + value)
+    sum = sum + value
   }
   return try await scale(value: sum)
 }

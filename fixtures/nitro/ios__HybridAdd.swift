@@ -15,10 +15,10 @@ class HybridAdd: HybridAddSpec {
 
 enum AddBodies {
   static func add(a: Double, b: Double) throws -> Double {
-    return (a + b)
+    return a + b
   }
 
   static func multiply(a: Double, b: Double) throws -> Double {
-    return (a * b)
+    return a * b
   }
 }

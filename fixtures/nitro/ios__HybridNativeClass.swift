@@ -53,7 +53,7 @@ enum NativeClassBodies {
 
   static func lucentInternal_8f133499183f7a85_Counter__method_increment(lucentSelf: lucentInternal_8f133499183f7a85_Counter, delta: Double) throws -> Double {
     var lucentSelf: lucentInternal_8f133499183f7a85_Counter = lucentSelf
-    lucentSelf.value = (lucentSelf.value + delta)
+    lucentSelf.value = lucentSelf.value + delta
     return lucentSelf.value
   }
 

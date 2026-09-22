@@ -1,4 +1,14 @@
 import { block, render, sections, type Doc } from "@lucent-lang/codegen";
+import {
+  printExpr as print,
+  printStmts,
+  type BinaryOp,
+  type Effect,
+  type SwiftArg,
+  type SwiftExpr,
+  type SwiftStmt,
+} from "./ast.ts";
+export * from "./ast.ts";
 import { fillNative } from "@lucent-lang/codegen";
 import { swiftErrorWire } from "./errors.ts";
 import { nativeSwift } from "./native.ts";
@@ -40,8 +50,8 @@ export interface GeneratedFunction {
   params: GeneratedField[];
   state?: { name: string; type: string }[];
   returnType: string;
-  /** Body lines without indentation. */
-  body: string[];
+  /** Rendered at whatever depth the host places it. */
+  body: Doc;
 }
 
 export interface GeneratedUnit {
@@ -72,10 +82,10 @@ export function swiftRuntime(
 
 export const localName = (id: string): string => id.replace(/^%/, "").replace(/\./g, "_");
 
-export function generateSwift(module: IRModule): GeneratedUnit {
+export function generateSwift(module: IRModule, options: SwiftOptions = {}): GeneratedUnit {
   const structs = module.structs.map((s) => generateStruct(s));
   const paramNames = new Map(module.functions.map((f) => [f.name, f.params.map((p) => p.name)]));
-  const functions = module.functions.map((f) => generateFunction(f, paramNames, module));
+  const functions = module.functions.map((f) => generateFunction(f, paramNames, module, options));
   const imports = [
     ...new Set([
       ...Object.values(module.views ?? {}).flatMap((v) => v.swift.imports ?? []),
@@ -111,9 +121,6 @@ export function signature(f: GeneratedFunction): string {
   return `${f.thread === "main" ? "@MainActor " : ""}func ${f.name}(${params})${f.async ? " async" : ""} throws -> ${f.returnType}`;
 }
 
-/** Statement bodies are still text; the Swift AST replaces this. Not exported: assembly uses `block`. */
-const indent = (lines: string[], depth = 1): string[] => lines.map((l) => (l === "" ? l : "  ".repeat(depth) + l));
-
 export const structDeclaration = (s: GeneratedStruct): Doc =>
   block(
     `struct ${s.name} {`,
@@ -129,11 +136,21 @@ function generateStruct(s: IRStruct): GeneratedStruct {
   };
 }
 
+/**
+ * `detachedCaptures` lists what a `@Background` hop must capture. Expo puts
+ * bodies inside a module class, so its detached task captures `self`.
+ */
+export interface SwiftOptions {
+  detachedCaptures?: readonly string[];
+}
+
 function generateFunction(
   f: IRFunction,
   paramNames: ReadonlyMap<string, string[]>,
   module: IRModule,
+  options: SwiftOptions,
 ): GeneratedFunction {
+  const detachedCaptures = options.detachedCaptures ?? [];
   if (f.binding?.platforms && !f.binding.platforms.includes("ios")) {
     f = {
       ...f,
@@ -144,11 +161,11 @@ function generateFunction(
     };
   }
   const emitter = new SwiftEmitter(f, paramNames);
-  const body = f.event
-    ? [
-        `try LucentEventHub.shared.emit(${JSON.stringify(f.event.id)}, ${swiftEventValue("payload", f.params[0]?.type ?? { kind: "void" }, module)})`,
-      ]
-    : (f.binding?.swift ?? emitter.block(f.body));
+  const body: Doc = f.event
+    ? `try LucentEventHub.shared.emit(${JSON.stringify(f.event.id)}, ${swiftEventValue("payload", f.params[0]?.type ?? { kind: "void" }, module)})`
+    : f.binding?.swift
+      ? [...f.binding.swift]
+      : printStmts(emitter.block(f.body));
   return {
     name: f.name,
     ...(f.returnType.kind === "view" ? { view: true } : {}),
@@ -161,7 +178,14 @@ function generateFunction(
     })),
     ...(f.state?.length ? { state: f.state.map((slot) => ({ name: slot.name, type: swiftType(slot.type) })) } : {}),
     returnType: swiftType(f.returnType),
-    body: f.thread === "worker" ? ["return try await Task.detached {", ...indent(body), "}.value"] : body,
+    body:
+      f.thread === "worker"
+        ? block(
+            `return try await Task.detached {${detachedCaptures.length ? ` [${detachedCaptures.join(", ")}] in` : ""}`,
+            body,
+            "}.value",
+          )
+        : body,
   };
 }
 
@@ -177,268 +201,263 @@ class SwiftEmitter {
     this.types = new Map(f.locals.map((l) => [l.id, l.type]));
   }
 
-  block(stmts: IRStmt[]): string[] {
-    return stmts.flatMap((s) => this.stmt(s));
+  block(stmts: IRStmt[]): SwiftStmt[] {
+    return stmts.map((s) => this.stmt(s));
   }
 
-  /** A condition without the redundant outer parentheses of a binary/logical expression. */
-  private condition(e: IRExpr): string {
-    const text = this.expr(e);
-    const wrapped = e.op === "binary" || e.op === "and" || e.op === "or";
-    return this.effects(e) + (wrapped && text.startsWith("(") && text.endsWith(")") ? text.slice(1, -1) : text);
-  }
-
-  /** A statement-level expression, prefixed with `try`/`try await` once: Swift forbids `try` inside operators. */
-  private top(e: IRExpr): string {
-    return this.effects(e) + this.expr(e);
-  }
-
-  private effects(e: IRExpr): string {
-    const calls = collectCalls(e);
-    if (calls.length === 0) return "";
-    return calls.some((c) => c.type.kind === "promise") ? "try await " : "try ";
-  }
-
-  private forRows(e: Extract<IRExpr, { op: "view" }>): string {
+  private forRows(e: Extract<IRExpr, { op: "view" }>): SwiftExpr {
     const data = e.props.find((prop) => prop.name === "each");
     const key = e.props.find((prop) => prop.name === "key");
     const child = e.children[0];
     if (!data || child?.op !== "closure" || Array.isArray(child.body) || !child.params[0])
-      return "AnyView(EmptyView())";
+      return raw("AnyView(EmptyView())");
     const param = child.params[0].name;
     const rows = key
-      ? `lucentKeyedRows(${this.expr(data.value)}, ${this.expr(key.value)})`
-      : `Array(${this.expr(data.value)}.enumerated())`;
+      ? `lucentKeyedRows(${print(this.expr(data.value))}, ${print(this.expr(key.value))})`
+      : `Array(${print(this.expr(data.value))}.enumerated())`;
     const identity = key ? "\\.id" : "\\.offset";
     const bind = key ? `let ${param} = lucentRow.value` : `let ${param} = lucentRow.element`;
-    return `AnyView(VStack(alignment: .leading, spacing: 0) { ForEach(${rows}, id: ${identity}) { lucentRow in ${bind}; AnyView(${this.expr(child.body)}) } })`;
+    return raw(
+      `AnyView(VStack(alignment: .leading, spacing: 0) { ForEach(${rows}, id: ${identity}) { lucentRow in ${bind}; AnyView(${print(this.expr(child.body))}) } })`,
+    );
   }
 
-  private stmt(s: IRStmt): string[] {
+  private stmt(s: IRStmt): SwiftStmt {
     switch (s.op) {
       case "let":
-        return [
-          `${this.mutable.has(s.id) ? "var" : "let"} ${localName(s.id)}: ${swiftType(this.types.get(s.id)!)} = ${this.top(s.value)}`,
-        ];
+        return {
+          k: "let",
+          mutable: this.mutable.has(s.id),
+          name: localName(s.id),
+          type: swiftType(this.types.get(s.id)!),
+          value: this.expr(s.value),
+        };
       case "assign":
-        return [`${this.place(s.target)} = ${this.top(s.value)}`];
-      case "if": {
-        const lines = [`if ${this.condition(s.cond)} {`, ...indent(this.block(s.consequent))];
-        if (s.alternate.length) lines.push("} else {", ...indent(this.block(s.alternate)));
-        lines.push("}");
-        return lines;
-      }
+        return { k: "assign", target: this.place(s.target), value: this.expr(s.value) };
+      case "if":
+        return {
+          k: "if",
+          cond: this.expr(s.cond),
+          consequent: this.block(s.consequent),
+          alternate: this.block(s.alternate),
+        };
       case "while":
-        return [`while ${this.condition(s.cond)} {`, ...indent(this.block(s.body)), "}"];
+        return { k: "while", cond: this.expr(s.cond), body: this.block(s.body) };
       case "forEach":
-        return [`for ${localName(s.id)} in ${this.top(s.iterable)} {`, ...indent(this.block(s.body)), "}"];
+        return { k: "forIn", name: localName(s.id), seq: this.expr(s.iterable), body: this.block(s.body) };
       case "break":
+        return { k: "break" };
       case "continue":
-        return [s.op];
+        return { k: "continue" };
       case "return":
-        return [s.value ? `return ${this.top(s.value)}` : "return"];
+        return { k: "return", ...(s.value ? { value: this.expr(s.value) } : {}) };
       case "throw":
-        return [
-          `throw LucentError(code: ${str(s.code)}${s.message ? `, message: ${this.top(s.message)}` : ""}${s.metadata ? `, metadata: [${s.metadata.map((f) => `${str(f.name)}: ${f.value.op === "const" && f.value.value === null ? "lucentNull()" : this.top(f.value)}`).join(", ")}]` : ""})`,
-        ];
+        return {
+          k: "throwError",
+          args: [
+            { label: "code", value: { k: "lit", text: str(s.code) } },
+            ...(s.message ? [{ label: "message", value: this.expr(s.message) }] : []),
+            ...(s.metadata
+              ? [
+                  {
+                    label: "metadata",
+                    value: {
+                      k: "dict" as const,
+                      entries: s.metadata.map(
+                        (f) =>
+                          [
+                            { k: "lit" as const, text: str(f.name) },
+                            f.value.op === "const" && f.value.value === null
+                              ? call(ref("lucentNull"), [])
+                              : this.expr(f.value),
+                          ] as const,
+                      ),
+                    },
+                  },
+                ]
+              : []),
+          ],
+        };
       case "stateWrite":
-        return [`lucentSet_${s.name}(${this.top(s.value)})`];
+        return { k: "expr", value: call(ref(`lucentSet_${s.name}`), [{ value: this.expr(s.value) }]) };
       case "expr":
-        return [`_ = ${this.top(s.value)}`];
+        return { k: "discard", value: this.expr(s.value) };
       case "push":
-        return [`${this.expr(s.array)}.append(${this.top(s.value)})`];
+        return {
+          k: "expr",
+          value: call({ k: "member", target: this.expr(s.array), name: "append" }, [{ value: this.expr(s.value) }]),
+        };
     }
   }
 
-  private place(p: IRPlace): string {
+  private place(p: IRPlace): SwiftExpr {
     switch (p.kind) {
       case "local":
-        return localName(p.id);
+        return ref(localName(p.id));
       case "field":
-        return `${this.expr(p.object)}.${p.field}`;
+        return { k: "member", target: this.expr(p.object), name: p.field };
       case "index":
-        return `${this.expr(p.object)}[${this.index(p.index)}]`;
+        return { k: "subscript", target: this.expr(p.object), index: this.index(p.index) };
     }
   }
 
-  private index(e: IRExpr): string {
-    return `Int(${this.expr(e)})`;
+  /** Swift subscripts want `Int`, while Lucent numbers arrive as `Double`. */
+  private index(e: IRExpr): SwiftExpr {
+    return call(ref("Int"), [{ value: this.expr(e) }]);
   }
 
-  expr(e: IRExpr): string {
+  expr(e: IRExpr): SwiftExpr {
     switch (e.op) {
       case "view":
-        return e.name === "For" ? this.forRows(e) : swiftView(e, (x) => this.expr(x));
+        return e.name === "For" ? this.forRows(e) : raw(swiftView(e, (x) => print(this.expr(x))));
       case "stateRead":
-        return `lucentGet_${e.name}()`;
+        return call(ref(`lucentGet_${e.name}`), []);
       case "stateWrite":
-        return `lucentSet_${e.name}(${this.top(e.value)})`;
+        return call(ref(`lucentSet_${e.name}`), [{ value: this.expr(e.value) }]);
       case "ifExpr":
         return e.type.kind === "view"
-          ? `AnyView(Group { if ${this.expr(e.cond)} { ${this.expr(e.consequent)} } else { ${this.expr(e.alternate)} } })`
-          : `(${this.expr(e.cond)} ? ${this.expr(e.consequent)} : ${this.expr(e.alternate)})`;
+          ? raw(
+              `AnyView(Group { if ${print(this.expr(e.cond))} { ${print(this.expr(e.consequent))} } else { ${print(this.expr(e.alternate))} } })`,
+            )
+          : {
+              k: "ternary",
+              cond: this.expr(e.cond),
+              consequent: this.expr(e.consequent),
+              alternate: this.expr(e.alternate),
+            };
       case "const":
-        return e.type.kind === "enum" && typeof e.value === "string"
-          ? swiftEnumValue(e.type.binding, e.value)
-          : constant(e.value, e.type);
+        return {
+          k: "lit",
+          text:
+            e.type.kind === "enum" && typeof e.value === "string"
+              ? swiftEnumValue(e.type.binding, e.value)
+              : constant(e.value, e.type),
+        };
       case "param":
-        return e.name;
+        return ref(e.name);
       case "local":
-        return localName(e.id);
+        return ref(localName(e.id));
       case "widen":
-        return `${swiftType(e.type)}(${this.expr(e.value)})`;
+        return call(ref(swiftType(e.type)), [{ value: this.expr(e.value) }]);
       case "unwrap":
-        return `${this.expr(e.value)}!`;
+        return { k: "force", value: this.expr(e.value) };
       case "binary":
         return this.binary(e);
       case "concat":
-        return e.parts.map((p) => this.expr(p)).join(" + ");
+        return e.parts.map((p) => this.expr(p)).reduce((left, right) => ({ k: "binary", op: "+", left, right }));
       case "str":
-        return `lucentStr(${this.expr(e.value)})`;
+        return call(ref("lucentStr"), [{ value: this.expr(e.value) }]);
       case "and":
-        return `(${this.expr(e.left)} && ${this.expr(e.right)})`;
+        return { k: "binary", op: "&&", left: this.expr(e.left), right: this.expr(e.right) };
       case "or":
-        return `(${this.expr(e.left)} || ${this.expr(e.right)})`;
+        return { k: "binary", op: "||", left: this.expr(e.left), right: this.expr(e.right) };
       case "not":
-        return `!${this.expr(e.value)}`;
+        return { k: "unary", op: "!", value: this.expr(e.value) };
       case "neg":
-        return `-${this.expr(e.value)}`;
+        return { k: "unary", op: "-", value: this.expr(e.value) };
       case "weak":
-        return e.name;
+        return ref(e.name);
       case "closure": {
         const result = e.type.kind === "callback" ? e.type.result : Array.isArray(e.body) ? e.type : e.body.type;
-        const weak = e.captures
-          .filter((capture) => capture.kind === "weak")
-          .map((capture) => `weak ${capture.name}`)
-          .join(", ");
-        const head = `{ ${weak ? `[${weak}] ` : ""}(${e.params.map((p) => `${p.name}: ${swiftType(p.type)}`).join(", ")}) throws -> ${swiftType(result)} in `;
-        return Array.isArray(e.body)
-          ? `${head}\n${indent(this.block(e.body)).join("\n")}\n}`
-          : `${head}${this.top(e.body)} }`;
+        return {
+          k: "closure",
+          closure: {
+            captures: e.captures.filter((c) => c.kind === "weak").map((c) => `weak ${c.name}`),
+            params: e.params.map((p) => ({ name: p.name, type: swiftType(p.type) })),
+            result: swiftType(result),
+            throws: true,
+            body: Array.isArray(e.body) ? this.block(e.body) : this.expr(e.body),
+          },
+        };
       }
       case "functionRef":
-        return e.name;
+        return ref(e.name);
       case "invoke":
-        return `${this.expr(e.callback)}(${e.args.map((a) => this.expr(a)).join(", ")})`;
+        return call(
+          this.expr(e.callback),
+          e.args.map((a) => ({ value: this.expr(a) })),
+          "throws",
+        );
       case "call":
-        return `${e.callee}(${e.args.map((a, i) => `${this.paramNames.get(e.callee)?.[i] ?? "_"}: ${this.expr(a)}`).join(", ")})`;
+        return call(
+          ref(e.callee),
+          e.args.map((a, i) => ({ label: this.paramNames.get(e.callee)?.[i] ?? "_", value: this.expr(a) })),
+          e.type.kind === "promise" ? "async" : e.type.kind === "view" ? "none" : "throws",
+        );
       case "await":
         return this.expr(e.value);
       case "field":
-        return `${this.expr(e.object)}.${e.field}`;
+        return { k: "member", target: this.expr(e.object), name: e.field };
       case "length":
         return this.length(e.object);
       case "index":
         return e.object.type.kind === "bytes"
-          ? `LucentBytes.get(${this.expr(e.object)}, ${this.expr(e.index)})`
-          : `${this.expr(e.object)}[${this.index(e.index)}]`;
+          ? call(ref("LucentBytes.get"), [{ value: this.expr(e.object) }, { value: this.expr(e.index) }])
+          : { k: "subscript", target: this.expr(e.object), index: this.index(e.index) };
       case "mapGet":
-        return `${this.expr(e.map)}[${this.expr(e.key)}]`;
+        return { k: "subscript", target: this.expr(e.map), index: this.expr(e.key) };
       case "array":
-        return `[${e.elements.map((x) => this.expr(x)).join(", ")}]`;
+        return { k: "array", elements: e.elements.map((x) => this.expr(x)) };
       case "struct":
-        return `${e.name}(${e.fields.map((f) => `${f.name}: ${this.expr(f.value)}`).join(", ")})`;
+        return call(
+          ref(e.name),
+          e.fields.map((f) => ({ label: f.name, value: this.expr(f.value) })),
+        );
     }
   }
 
-  private length(object: IRExpr): string {
+  private length(object: IRExpr): SwiftExpr {
     const inner = this.expr(object);
     switch (object.type.kind) {
       case "string":
-        return `Double(${inner}.utf16.count)`;
+        return call(ref("Double"), [
+          { value: { k: "member", target: { k: "member", target: inner, name: "utf16" }, name: "count" } },
+        ]);
       case "bytes":
-        return `LucentBytes.length(${inner})`;
+        return call(ref("LucentBytes.length"), [{ value: inner }]);
       default:
-        return `Double(${inner}.count)`;
+        return call(ref("Double"), [{ value: { k: "member", target: inner, name: "count" } }]);
     }
   }
 
-  private binary(e: Extract<IRExpr, { op: "binary" }>): string {
-    const l = this.expr(e.left);
-    const r = this.expr(e.right);
+  private binary(e: Extract<IRExpr, { op: "binary" }>): SwiftExpr {
+    const left = this.expr(e.left);
+    const right = this.expr(e.right);
     const isInt = e.left.type.kind === "int";
-    switch (e.operator) {
-      case "add":
-        return `(${l} ${isInt ? "&+" : "+"} ${r})`;
-      case "sub":
-        return `(${l} ${isInt ? "&-" : "-"} ${r})`;
-      case "mul":
-        return `(${l} ${isInt ? "&*" : "*"} ${r})`;
-      case "div":
-        return `(${l} / ${r})`;
-      case "rem":
-        return isInt ? `(${l} % ${r})` : `${l}.truncatingRemainder(dividingBy: ${r})`;
-      case "lt":
-        return `(${l} < ${r})`;
-      case "le":
-        return `(${l} <= ${r})`;
-      case "gt":
-        return `(${l} > ${r})`;
-      case "ge":
-        return `(${l} >= ${r})`;
-      case "eq":
-        return `(${l} == ${r})`;
-      case "ne":
-        return `(${l} != ${r})`;
-    }
+    // Lucent numbers wrap rather than trap, so integer arithmetic uses the `&` operators.
+    const op = ARITHMETIC[e.operator];
+    if (op) return { k: "binary", op: isInt ? op.int : op.float, left, right };
+    if (e.operator === "rem" && !isInt)
+      return call({ k: "member", target: left, name: "truncatingRemainder" }, [{ label: "dividingBy", value: right }]);
+    return { k: "binary", op: COMPARISON[e.operator as keyof typeof COMPARISON], left, right };
   }
 }
 
-function collectCalls(e: IRExpr): Extract<IRExpr, { op: "call" | "invoke" }>[] {
-  const out: Extract<IRExpr, { op: "call" | "invoke" }>[] = [];
-  const visit = (x: IRExpr): void => {
-    switch (x.op) {
-      case "invoke":
-        visit(x.callback);
-        out.push(x);
-        x.args.forEach(visit);
-        break;
-      case "call":
-        if (x.type.kind !== "view") out.push(x);
-        x.args.forEach(visit);
-        break;
-      case "widen":
-      case "unwrap":
-      case "str":
-      case "not":
-      case "neg":
-      case "await":
-        visit(x.value);
-        break;
-      case "binary":
-      case "and":
-      case "or":
-        visit(x.left);
-        visit(x.right);
-        break;
-      case "concat":
-        x.parts.forEach(visit);
-        break;
-      case "field":
-      case "length":
-        visit(x.object);
-        break;
-      case "index":
-        visit(x.object);
-        visit(x.index);
-        break;
-      case "mapGet":
-        visit(x.map);
-        visit(x.key);
-        break;
-      case "array":
-        x.elements.forEach(visit);
-        break;
-      case "struct":
-        x.fields.forEach((f) => visit(f.value));
-        break;
-      default:
-        break;
-    }
-  };
-  visit(e);
-  return out;
-}
+const ARITHMETIC: Partial<Record<string, { int: BinaryOp; float: BinaryOp }>> = {
+  add: { int: "&+", float: "+" },
+  sub: { int: "&-", float: "-" },
+  mul: { int: "&*", float: "*" },
+  div: { int: "/", float: "/" },
+};
+
+const COMPARISON = {
+  rem: "%",
+  lt: "<",
+  le: "<=",
+  gt: ">",
+  ge: ">=",
+  eq: "==",
+  ne: "!=",
+} as const satisfies Record<string, BinaryOp>;
+
+const ref = (name: string): SwiftExpr => ({ k: "ref", name });
+const raw = (text: string): SwiftExpr => ({ k: "raw", text });
+const call = (callee: SwiftExpr, args: readonly SwiftArg[], effect: Effect = "none"): SwiftExpr => ({
+  k: "call",
+  callee,
+  args,
+  effect,
+});
 
 function constant(value: number | string | boolean | null, type: NativeType): string {
   if (value === null) return "nil";

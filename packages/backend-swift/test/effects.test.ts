@@ -14,7 +14,7 @@ const CALLEE = "function pick(value: number): number { return value * 2; }";
 
 test("marks a call inside a conditional expression", () => {
   const code = swiftFor(`${CALLEE} export function choose(flag: boolean): number { return flag ? pick(1) : pick(2); }`);
-  expect(code).toContain("return try (flag ? pick(value: 1.0) : pick(value: 2.0))");
+  expect(code).toContain("return try flag ? pick(value: 1.0) : pick(value: 2.0)");
 });
 
 test("marks a call inside a nested conditional expression", () => {

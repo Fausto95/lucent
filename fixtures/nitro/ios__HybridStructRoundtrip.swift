@@ -31,7 +31,7 @@ enum StructRoundtripBodies {
   }
 
   static func birthday(user: User) throws -> User {
-    return User(id: user.id, age: (user.age &+ 1), nickname: user.nickname, tags: user.tags)
+    return User(id: user.id, age: user.age &+ 1, nickname: user.nickname, tags: user.tags)
   }
 
   static func describe(user: User) throws -> String {

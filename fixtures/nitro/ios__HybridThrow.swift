@@ -22,7 +22,7 @@ enum ThrowBodies {
     if b == 0.0 {
       throw LucentError(code: "DIVIDE_BY_ZERO", message: "Cannot divide by zero")
     }
-    return (a / b)
+    return a / b
   }
 
   static func fail() throws -> Void {

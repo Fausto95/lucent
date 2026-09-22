@@ -17,11 +17,11 @@ func summarize(stats: Stats, key: String, verbose: Bool) throws -> String {
   var i: Int32 = 0
   while i < stats.count {
     out = out + "!"
-    i = (i &+ 1)
+    i = i &+ 1
   }
   var evens: [Double] = []
   for v in stats.values {
-    if (v.truncatingRemainder(dividingBy: 2.0) == 0.0) && (v > 0.0) {
+    if v.truncatingRemainder(dividingBy: 2.0) == 0.0 && v > 0.0 {
       evens.append(v)
     } else {
       if v < 0.0 {
@@ -31,7 +31,7 @@ func summarize(stats: Stats, key: String, verbose: Bool) throws -> String {
       }
     }
   }
-  if !verbose || (Double(evens.count) == 0.0) {
+  if !verbose || Double(evens.count) == 0.0 {
     return out
   }
   return out + " " + lucentStr(Double(evens.count)) + " " + lucentStr(-i)
