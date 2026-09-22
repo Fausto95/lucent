@@ -157,7 +157,7 @@ export const page: DocPage = {
         ["`@lucent-lang/objects`", "`SharedObject` base for [native classes](/docs/language/native-classes/)"],
         ["`@lucent-lang/events`", "`event<T>()` and `Event<T>` for [events](/docs/language/events/) and view callbacks"],
         ["`@lucent-lang/ui`", "`VStack`, `Text`, `Button`, `TextField`… for [native views](/docs/language/native-views/)"],
-        ["`@lucent-lang/core`, `platform`, `crypto`, `filesystem`, `network`, `device`", "the [standard library](/docs/api/std/)"],
+        ["`@lucent-lang/core`, `@lucent-lang/platform`", "the [built-in library](/docs/api/std/)"],
         ["`@lucent-lang/config`", "`defineNativeConfig` for [capabilities and libraries](/docs/api/config/)"],
       ],
     },

@@ -9,8 +9,6 @@ export interface NativeCapabilities {
   filesystem?: boolean;
   crypto?: boolean;
   device?: boolean;
-  clock?: boolean;
-  locale?: boolean;
 }
 export interface NativeConfig {
   targets?: { ios?: string; android?: number };

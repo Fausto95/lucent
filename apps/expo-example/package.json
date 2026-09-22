@@ -12,10 +12,6 @@
   "dependencies": {
     "@lucent-lang/config": "workspace:*",
     "@lucent-lang/core": "workspace:*",
-    "@lucent-lang/crypto": "workspace:*",
-    "@lucent-lang/device": "workspace:*",
-    "@lucent-lang/filesystem": "workspace:*",
-    "@lucent-lang/network": "workspace:*",
     "@lucent-lang/runtime": "workspace:*",
     "expo": "~58.0.0-preview.4",
     "expo-status-bar": "~58.0.1",

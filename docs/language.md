@@ -17,9 +17,10 @@ TypeScript error.
   imports are rejected with `LC1006`.
 - Native classes and `const name = event<T>()` declarations are supported.
 - Built-in packages are `@lucent-lang/types`, `@lucent-lang/objects`,
-  `@lucent-lang/events`, `@lucent-lang/ui`, `@lucent-lang/core/*`, and
-  `@lucent-lang/platform`, `@lucent-lang/platform/*`, and the native libraries
-  listed below. Additional native bindings come from app config.
+  `@lucent-lang/events`, `@lucent-lang/ui`, `@lucent-lang/core`,
+  `@lucent-lang/core/math`, `@lucent-lang/core/text`,
+  `@lucent-lang/core/cancellation`, and `@lucent-lang/platform`. Every other
+  native binding comes from a package manifest listed in app config.
 - JavaScript packages, namespace/default imports, re-exports, and executable
   top-level statements remain unsupported. There is no JS runtime in native code.
 
@@ -310,53 +311,45 @@ background hops stop propagation. Warnings are retained on incremental cache
 hits and do not fail builds. This is conservative static analysis, not a
 runtime duration guarantee.
 
-## Native libraries and memory
+## Built-in libraries and memory
 
-| Package                        | APIs                                                       | Capability   |
-| ------------------------------ | ---------------------------------------------------------- | ------------ |
-| `@lucent-lang/core`            | `encodeUTF8`, `decodeUTF8`, `copyBytes`                    | none         |
-| `@lucent-lang/filesystem`      | async `read`, `write`, `exists`, `temporaryDirectory`      | `filesystem` |
-| `@lucent-lang/crypto`          | `sha256(bytes)` → lowercase hexadecimal                    | `crypto`     |
-| `@lucent-lang/network`         | async `get(url)` → response bytes                          | `network`    |
-| `@lucent-lang/device`          | async `model()`                                            | `device`     |
-| `@lucent-lang/core/math`       | `abs`, `sqrt`, `floor`, `ceil`, `sin`, `cos`, `min`, `max` | none         |
-| `@lucent-lang/core/text`       | `trim`, `contains`                                         | none         |
-| `@lucent-lang/platform/clock`  | Unix milliseconds `now()`                                  | `clock`      |
-| `@lucent-lang/platform/locale` | `languageTag()`                                            | `locale`     |
+Lucent ships the primitives a compiler must own, and nothing else. Anything a
+platform SDK provides reaches source through a package manifest, so a built-in
+never has a capability an app package could not also declare.
+
+| Package                  | APIs                                                       |
+| ------------------------ | ---------------------------------------------------------- |
+| `@lucent-lang/core`      | `encodeUTF8`, `decodeUTF8`, `copyBytes`                    |
+| `@lucent-lang/core/math` | `abs`, `sqrt`, `floor`, `ceil`, `sin`, `cos`, `min`, `max` |
+| `@lucent-lang/core/text` | `trim`, `contains`                                         |
+
+`@lucent-lang/platform` exposes the `Platform.OS` guard and
+`@lucent-lang/core/cancellation` the cooperative `CancellationSource`. Neither
+requires a capability.
+
+The former `@lucent-lang/crypto`, `@lucent-lang/filesystem`,
+`@lucent-lang/network`, `@lucent-lang/device`, `@lucent-lang/platform/clock`,
+and `@lucent-lang/platform/locale` packages have been removed. They were small
+hand-written native modules rather than language features, and they duplicated
+libraries an app already has. Declare the ones you need as package bindings, as
+the example apps do in `native/toolkit.library.json`, or call the equivalent
+JavaScript API. Importing them now fails with `LC1006`.
 
 ```ts
-import { read } from "@lucent-lang/filesystem";
-import { sha256 } from "@lucent-lang/crypto";
+import { encodeUTF8 } from "@lucent-lang/core";
+import { sha256 } from "@lucent-lang/example-toolkit";
 
-@Background
-export async function hashFile(path: string): Promise<string> {
-  return sha256(await read(path));
+export function fingerprint(text: string): string {
+  return sha256(encodeUTF8(text));
 }
 ```
 
-Filesystem and network I/O hop to a worker context. Device model queries use
-the main context. Hashing is synchronous; use `@Background` around expensive
-work. Filesystem paths refer to the application's native sandbox. GET accepts
-HTTPS, has a 30-second request/read timeout, and rejects non-2xx responses with
-`HTTP_ERROR` and `metadata.status`. Transport errors use `NETWORK_ERROR`;
-file errors use `FILE_READ` / `FILE_WRITE` with `metadata.path`. Cancellation,
-streaming, uploads, and arbitrary request customization are not exposed yet.
-
-Native library results own their bytes. Swift adapters use `Data`; Kotlin uses
+Native results own their bytes. Swift adapters use `Data`; Kotlin uses
 `ByteArray` / direct `ByteBuffer`. JS input buffers are copied for async calls
 before native work outlives the call. Synchronous access may borrow through the
 host SDK; `copyBytes` always creates independent storage. Empty buffers and
 UTF-8 are supported. No binary payload is serialized through JSON. Do not
 mutate or detach a borrowed input during a synchronous native call.
-
-```ts
-export function fail(path: string): void {
-  throw new LucentError("MISSING", {
-    message: "File not found",
-    metadata: { path, attempt: 1, retry: false, detail: null },
-  });
-}
-```
 
 ## Typed capabilities
 
@@ -368,8 +361,6 @@ export default defineNativeConfig({
   capabilities: {
     camera: { reason: "Scan documents" },
     location: { whenInUse: { reason: "Show nearby stores" } },
-    filesystem: true,
-    crypto: true,
     network: true,
   },
 });
@@ -384,8 +375,10 @@ object form to generate permission configuration.
 
 Camera, microphone, photos, bluetooth, and location require nonempty usage
 reasons. Notifications take `{ environment: "development" | "production" }`
-for the APNs entitlement. Core library permissions take booleans. Unknown
-capability names in the typed form fail the build.
+for the APNs entitlement. `network`, `filesystem`, `crypto`, and `device` take
+booleans. Unknown capability names in the typed form fail the build; use the
+`lucent.config.json` string list for a capability of your own. The `clock` and
+`locale` capabilities were removed with the built-ins that used them.
 
 `build`, `check`, and Metro enforce the required capability allowlist. Outputs
 include `lucent-manifest.json`, `lucent-platform-config.json`,

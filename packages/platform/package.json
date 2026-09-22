@@ -8,18 +8,10 @@
     "directory": "packages/platform"
   },
   "files": [
-    "index.d.ts",
-    "clock.d.ts",
-    "locale.d.ts"
+    "index.d.ts"
   ],
   "type": "module",
   "exports": {
-    "./clock": {
-      "types": "./clock.d.ts"
-    },
-    "./locale": {
-      "types": "./locale.d.ts"
-    },
     ".": {
       "types": "./index.d.ts"
     }

@@ -41,8 +41,14 @@ test("checks platform requirements inside referenced callbacks", () => {
 });
 test("retains capabilities reached through compiled callbacks", () => {
   const input =
-    'import type {NativeCallback} from "@lucent-lang/types"; import {now} from "@lucent-lang/platform/clock"; function run(callback:NativeCallback<()=>number>):number{return callback();} function read():number{return now();} export function result():number{return run(read);}';
-  expect(compile(input, { fileName: "callbacks.lucent.ts" }).module?.capabilities).toContain("clock");
+    'import type {NativeCallback} from "@lucent-lang/types"; import {now} from "@lucent-lang/example-clock"; function run(callback:NativeCallback<()=>number>):number{return callback();} function read():number{return now();} export function result():number{return run(read);}';
+  const libraries = {
+    "@lucent-lang/example-clock": {
+      source: "export declare function now():number;",
+      bindings: { now: { swift: ["return 0"], kotlin: ["return 0.0"], capabilities: ["clock"] } },
+    },
+  };
+  expect(compile(input, { fileName: "callbacks.lucent.ts", libraries }).module?.capabilities).toContain("clock");
 });
 
 test("compiles expression closures with immutable scalar captures", () => {

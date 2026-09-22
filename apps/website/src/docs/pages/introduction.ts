@@ -33,7 +33,7 @@ export const page: DocPage = {
         "**Native classes** whose state stays in native memory; JavaScript holds a handle. [Native classes →](/docs/language/native-classes/)",
         "**Typed events** emitted from native code and subscribed to from the app. [Events →](/docs/language/events/)",
         "**Native views** written in TSX and rendered by SwiftUI and Jetpack Compose, with controls such as `TextField`, `Toggle` and `Slider`. [Native views →](/docs/language/native-views/)",
-        "**Platform access** through a small standard library (files, crypto, network, device), typed capabilities, and bindings to real SDK classes. [Platform →](/docs/language/platform-and-capabilities/)",
+        "**Platform access** through package manifests that bind real SDK classes and functions, with typed capabilities and platform guards. [Platform →](/docs/language/platform-and-capabilities/)",
       ],
     },
     { kind: "h2", text: "Why not write Swift and Kotlin" },

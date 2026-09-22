@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { build, defaultOutDir, findLucentFiles } from "../src/index.ts";
+import { TOOLKIT_CONFIG, TOOLKIT_LIBRARY, TOOLKIT_SOURCE } from "./helpers.ts";
 
 function project(): string {
   const root = mkdtempSync(join(tmpdir(), "lucent-cli-"));
@@ -100,17 +101,16 @@ describe("project imports", () => {
 
 test("capabilities are checked before writing native output", async () => {
   const root = project();
-  writeFileSync(
-    join(root, "clock.lucent.ts"),
-    'import { now } from "@lucent-lang/platform/clock"; export function timestamp(): number { return now(); }',
-  );
+  writeFileSync(join(root, "toolkit.library.json"), TOOLKIT_LIBRARY);
+  writeFileSync(join(root, "fingerprint.lucent.ts"), TOOLKIT_SOURCE);
+  writeFileSync(join(root, "lucent.config.json"), TOOLKIT_CONFIG([]));
   const denied = await build({ root, host: "expo" });
   expect(denied.ok).toBe(false);
-  expect(denied.diagnostics[0]?.rendered).toContain("clock");
+  expect(denied.diagnostics[0]?.rendered).toContain("crypto");
   expect(existsSync(join(root, "modules/lucent"))).toBe(false);
-  writeFileSync(join(root, "lucent.config.json"), JSON.stringify({ capabilities: ["clock"] }));
+  writeFileSync(join(root, "lucent.config.json"), TOOLKIT_CONFIG(["crypto"]));
   expect((await build({ root, host: "expo" })).ok).toBe(true);
-  writeFileSync(join(root, "lucent.config.json"), JSON.stringify({ capabilities: [] }));
+  writeFileSync(join(root, "lucent.config.json"), TOOLKIT_CONFIG([]));
   expect((await build({ root, host: "expo" })).ok).toBe(false);
 });
 

@@ -1,33 +1,50 @@
 import { expect, test } from "vite-plus/test";
 import { compile } from "../src/index.ts";
+import type { LibraryModule } from "../src/index.ts";
+
+/** Everything beyond byte primitives arrives as a package manifest, exactly as an app's own SDK bindings do. */
+const TOOLKIT: Record<string, LibraryModule> = {
+  "@lucent-lang/example-toolkit": {
+    source: "export declare function sha256(bytes:Uint8Array):string;",
+    bindings: {
+      sha256: { capabilities: ["crypto"], cost: "cpu", swift: ['return ""'], kotlin: ['return ""'] },
+    },
+  },
+};
+
 test.each([
-  ["core", "export function f(text:string):Uint8Array{return encodeUTF8(text);}", "encodeUTF8", []],
-  ["core", "export function f(bytes:Uint8Array):string{return decodeUTF8(bytes);}", "decodeUTF8", []],
-  [
-    "filesystem",
-    "export async function f(path:string):Promise<Uint8Array>{return await read(path);}",
-    "read",
-    ["filesystem"],
-  ],
-  [
-    "filesystem",
-    "export async function f(path:string,bytes:Uint8Array):Promise<void>{await write(path,bytes);}",
-    "write",
-    ["filesystem"],
-  ],
-  ["crypto", "export function f(bytes:Uint8Array):string{return sha256(bytes);}", "sha256", ["crypto"]],
-  ["network", "export async function f(url:string):Promise<Uint8Array>{return await get(url);}", "get", ["network"]],
-  ["device", "export async function f():Promise<string>{return await model();}", "model", ["device"]],
-] as const)("links native %s library", (library, body, name, capabilities) => {
-  const r = compile(`import {${name}} from "@lucent-lang/${library}";${body}`, { fileName: "stdlib.lucent.ts" });
+  ["export function f(text:string):Uint8Array{return encodeUTF8(text);}", "encodeUTF8"],
+  ["export function f(bytes:Uint8Array):string{return decodeUTF8(bytes);}", "decodeUTF8"],
+  ["export function f(bytes:Uint8Array):Uint8Array{return copyBytes(bytes);}", "copyBytes"],
+] as const)("links the built-in byte primitive %#", (body, name) => {
+  const r = compile(`import {${name}} from "@lucent-lang/core";${body}`, { fileName: "stdlib.lucent.ts" });
   expect(r.diagnostics).toEqual([]);
-  expect(r.module?.capabilities ?? []).toEqual(capabilities);
+  expect(r.module?.capabilities ?? []).toEqual([]);
   expect(r.module?.functions.some((f) => f.binding)).toBe(true);
 });
-test("warns when MainThread calls a CPU-intensive native binding", () => {
+
+test("a package binding contributes its capability", () => {
   const r = compile(
-    'import {sha256} from "@lucent-lang/crypto"; @MainThread export async function hash(bytes:Uint8Array):Promise<string>{return sha256(bytes);}',
-    { fileName: "hash.lucent.ts" },
+    'import {sha256} from "@lucent-lang/example-toolkit"; export function f(bytes:Uint8Array):string{return sha256(bytes);}',
+    { fileName: "hash.lucent.ts", libraries: TOOLKIT },
+  );
+  expect(r.diagnostics).toEqual([]);
+  expect(r.module?.capabilities).toEqual(["crypto"]);
+});
+
+test("removed built-in libraries no longer resolve", () => {
+  for (const library of ["crypto", "filesystem", "network", "device", "platform/clock", "platform/locale"]) {
+    const r = compile(`import {anything} from "@lucent-lang/${library}"; export function f():number{return 1;}`, {
+      fileName: "removed.lucent.ts",
+    });
+    expect(r.diagnostics.map((d) => d.code)).toContain("LC1006");
+  }
+});
+
+test("warns when MainThread calls a CPU-intensive package binding", () => {
+  const r = compile(
+    'import {sha256} from "@lucent-lang/example-toolkit"; @MainThread export async function hash(bytes:Uint8Array):Promise<string>{return sha256(bytes);}',
+    { fileName: "hash.lucent.ts", libraries: TOOLKIT },
   );
   expect(r.module).not.toBeNull();
   expect(r.diagnostics).toEqual(

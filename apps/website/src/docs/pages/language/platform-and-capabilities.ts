@@ -4,12 +4,12 @@ export const page: DocPage = {
   slug: "language/platform-and-capabilities",
   title: "Platform & capabilities",
   description:
-    "Reach the platform through the standard library, guard platform-specific calls, declare capabilities once per app, and bind real SDK classes.",
+    "Reach the platform through package bindings, guard platform-specific calls, declare capabilities once per app, and bind real SDK classes.",
   blocks: [
-    { kind: "h2", text: "Standard library" },
+    { kind: "h2", text: "Built-in library" },
     {
       kind: "p",
-      text: "Each import is a direct Swift and Kotlin call, not a bridge. Some need a capability in `lucent.config.ts`; the build fails with `LC2001` if it is missing.",
+      text: "Lucent ships only the primitives the compiler must own. Each import is a direct Swift and Kotlin call, not a bridge, and none of them needs a capability. Everything a platform SDK provides arrives as a package manifest whose bindings declare their own capabilities; a missing one fails the build with `LC2001`.",
     },
     {
       kind: "table",
@@ -18,23 +18,18 @@ export const page: DocPage = {
         ["`@lucent-lang/core`", "`encodeUTF8`, `decodeUTF8`, `copyBytes`", "none"],
         ["`@lucent-lang/core/math`", "`abs`, `sqrt`, `floor`, `ceil`, `sin`, `cos`, `min`, `max`", "none"],
         ["`@lucent-lang/core/text`", "`trim`, `contains`", "none"],
-        ["`@lucent-lang/crypto`", "`sha256(bytes)` → lowercase hex", "`crypto`"],
-        ["`@lucent-lang/filesystem`", "async `read`, `write`, `exists`, `temporaryDirectory`", "`filesystem`"],
-        ["`@lucent-lang/network`", "async `get(url)` → bytes", "`network`"],
-        ["`@lucent-lang/device`", "async `model()`", "`device`"],
-        ["`@lucent-lang/platform/clock`", "`now()` Unix milliseconds", "`clock`"],
-        ["`@lucent-lang/platform/locale`", "`languageTag()`", "`locale`"],
+        ["`@lucent-lang/core/cancellation`", "`CancellationSource`", "none"],
         ["`@lucent-lang/platform`", "`Platform.OS`", "none"],
       ],
     },
     {
       kind: "code",
       filename: "hash.lucent.ts",
-      code: 'import { read } from "@lucent-lang/filesystem";\nimport { sha256 } from "@lucent-lang/crypto";\n\n// @ts-expect-error Lucent function decorator; compiled before TypeScript.\n@Background\nexport async function hashFile(path: string): Promise<string> {\n  return sha256(await read(path));\n}',
+      code: 'import { readFile, sha256 } from "@lucent-lang/example-toolkit";\n\n// @ts-expect-error Lucent function decorator; compiled before TypeScript.\n@Background\nexport async function hashFile(path: string): Promise<string> {\n  return sha256(await readFile(path));\n}',
     },
     {
       kind: "p",
-      text: "Full signatures and error codes are in the [standard library reference](/docs/api/std/).",
+      text: "Full signatures are in the [built-in library reference](/docs/api/std/). `readFile` and `sha256` above come from the example apps’ own `native/toolkit.library.json`.",
     },
     { kind: "h2", text: "Capabilities" },
     {
@@ -50,8 +45,8 @@ export const page: DocPage = {
       kind: "list",
       items: [
         "The file is parsed as literal data and never executed. Anything but the outer `defineNativeConfig` call with a literal object is rejected.",
-        "`camera`, `microphone`, `photos`, `bluetooth` and `location` need a nonempty usage `reason`, which becomes the Info.plist description. `notifications` takes the APNs `environment`. Library capabilities are booleans.",
-        "`build`, `check` and Metro all enforce the allowlist. Unknown capability names fail the build.",
+        "`camera`, `microphone`, `photos`, `bluetooth` and `location` need a nonempty usage `reason`, which becomes the Info.plist description. `notifications` takes the APNs `environment`. `network`, `filesystem`, `crypto` and `device` are booleans.",
+        "`build`, `check` and Metro all enforce the allowlist. Unknown capability names fail the build; use the `lucent.config.json` string list for a capability of your own.",
         "Generated outputs: `lucent-manifest.json`, `lucent-platform-config.json`, `ios/LucentInfo.plist`, `ios/Lucent.entitlements` and the Android library manifest. Gradle merges the permissions into the app; the Expo plugin merges plist keys, entitlements and Android permissions during prebuild. In a bare app, merge the plist and entitlement fragments into the app target yourself.",
         "Runtime permission prompts remain the app's job. This is build configuration, not a sandbox.",
       ],
@@ -73,7 +68,7 @@ export const page: DocPage = {
     { kind: "h2", text: "SDK bindings" },
     {
       kind: "p",
-      text: "Anything not in the standard library comes in through a library manifest: a JSON file with TypeScript declarations (`source`) and Swift and Kotlin bodies per export (`bindings`). Register it in `lucent.config.ts` under an `@lucent-lang/` specifier and import it like any package.",
+      text: "Anything outside the built-in library comes in through a library manifest: a JSON file with TypeScript declarations (`source`) and Swift and Kotlin bodies per export (`bindings`). Register it in `lucent.config.ts` under an `@lucent-lang/` specifier and import it like any package.",
     },
     {
       kind: "code",

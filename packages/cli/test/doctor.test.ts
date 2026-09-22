@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vite-plus/test";
 import { run } from "../src/cli.ts";
-import { CLOCK, fakeIO, project, wiredExpoProject } from "./helpers.ts";
+import { TOOLKIT_CONFIG, TOOLKIT_LIBRARY, TOOLKIT_SOURCE, fakeIO, project, wiredExpoProject } from "./helpers.ts";
 
 const TOOLS = { swiftc: "Apple Swift version 6.2", kotlinc: "info: kotlinc-jvm 2.2.0", xcodebuild: "Xcode 26.0" };
 
@@ -28,14 +28,16 @@ describe("lucent doctor", () => {
       "package.json": JSON.stringify({ dependencies: { expo: "*" } }),
       "app.json": JSON.stringify({ expo: { plugins: [] } }),
       "metro.config.js": "module.exports = {};\n",
-      "src/clock.lucent.ts": CLOCK,
+      "toolkit.library.json": TOOLKIT_LIBRARY,
+      "lucent.config.json": TOOLKIT_CONFIG([]),
+      "src/fingerprint.lucent.ts": TOOLKIT_SOURCE,
     });
     const io = fakeIO(root, { tools: TOOLS });
     expect(await run(["doctor"], io)).toBe(1);
     expect(io.out()).toContain("@lucent-lang/runtime");
     expect(io.out()).toContain("withLucent");
     expect(io.out()).toContain("@lucent-lang/expo");
-    expect(io.out()).toContain("clock");
+    expect(io.out()).toContain("crypto");
   });
 
   test("checks Nitro-specific wiring", async () => {

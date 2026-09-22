@@ -19,7 +19,6 @@ Roughly in the order we intend to tackle them:
 8. Thread annotations (`@MainThread`, `@Background`) with compile-time checks.
 9. Platform SDK bindings generated from Swift interfaces and `android.jar`.
 10. Capabilities config (permissions, Info.plist, manifest) from typed declarations.
-11. A small standard library (`@lucent-lang/crypto`, `filesystem`, …).
 
 ## Done (hand-off log)
 

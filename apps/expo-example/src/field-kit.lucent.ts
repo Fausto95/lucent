@@ -1,11 +1,11 @@
 import { encodeUTF8 } from "@lucent-lang/core";
-import { sha256 } from "@lucent-lang/crypto";
 import { event } from "@lucent-lang/events";
 import { SharedObject } from "@lucent-lang/objects";
+import { sha256 } from "@lucent-lang/example-toolkit";
 
 export const recorded = event<number>();
 
-/** A small native module: mutable fields, a method, an event, and a platform call. */
+/** A small native module: mutable fields, a method, an event, and a package binding. */
 export class FieldKit extends SharedObject {
   name: string = "Field kit";
   samples: number = 0;

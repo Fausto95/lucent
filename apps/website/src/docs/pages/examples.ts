@@ -143,25 +143,25 @@ export const page: DocPage = {
       code: 'const subscription = progress.subscribe((value) => {\n  console.log(value); // 42\n});\nreport(42);\n\n// when the consumer unmounts\nsubscription.remove();',
     },
 
-    { kind: "h2", text: "Threads and the standard library" },
+    { kind: "h2", text: "Threads and package bindings" },
     {
       kind: "p",
-      text: "A decorator picks where a function runs. A thread hop requires an `async` function. Standard library calls are direct Swift and Kotlin calls; the ones that touch the platform need a capability in `lucent.config.ts`.",
+      text: "A decorator picks where a function runs. A thread hop requires an `async` function. Platform APIs arrive as package bindings, which are direct Swift and Kotlin calls and declare the capability they need in `lucent.config.ts`.",
     },
     {
       kind: "code",
       filename: "src/features.lucent.ts",
-      code: 'import { encodeUTF8, decodeUTF8 } from "@lucent-lang/core";\nimport { sha256 } from "@lucent-lang/crypto";\nimport { read, write, temporaryDirectory } from "@lucent-lang/filesystem";\nimport { now } from "@lucent-lang/platform/clock";\n\n// @ts-expect-error Lucent function decorator; compiled before TypeScript.\n@Background\nexport async function double(value: number): Promise<number> {\n  return value * 2;\n}\n\nexport function hash(text: string): string {\n  return sha256(encodeUTF8(text));\n}\n\nexport async function fileRoundTrip(text: string): Promise<string> {\n  const directory = await temporaryDirectory();\n  const path = directory + "/lucent-check.txt";\n  await write(path, encodeUTF8(text));\n  return decodeUTF8(await read(path));\n}\n\nexport function timestamp(): number {\n  return now();\n}',
+      code: 'import { encodeUTF8, decodeUTF8 } from "@lucent-lang/core";\nimport { readFile, sha256, temporaryDirectory, writeFile } from "@lucent-lang/example-toolkit";\n\n// @ts-expect-error Lucent function decorator; compiled before TypeScript.\n@Background\nexport async function double(value: number): Promise<number> {\n  return value * 2;\n}\n\nexport function hash(text: string): string {\n  return sha256(encodeUTF8(text));\n}\n\nexport async function fileRoundTrip(text: string): Promise<string> {\n  const directory = await temporaryDirectory();\n  const path = directory + "/lucent-check.txt";\n  await writeFile(path, encodeUTF8(text));\n  return decodeUTF8(await readFile(path));\n}',
     },
     {
       kind: "code",
       filename: "lucent.config.ts",
-      code: 'import { defineNativeConfig } from "@lucent-lang/config";\n\nexport default defineNativeConfig({\n  capabilities: { clock: true, crypto: true, filesystem: true },\n});',
+      code: 'import { defineNativeConfig } from "@lucent-lang/config";\n\nexport default defineNativeConfig({\n  libraries: { "@lucent-lang/example-toolkit": "./native/toolkit.library.json" },\n  capabilities: { crypto: true, filesystem: true },\n});',
     },
     {
       kind: "code",
       filename: "App.tsx",
-      code: 'await double(4); // 8, computed on a worker\nhash("abc"); // "ba7816bf…f20015ad"\nawait fileRoundTrip("Lucent 🌍"); // "Lucent 🌍"\nMath.abs(timestamp() - Date.now()) < 5000; // true',
+      code: 'await double(4); // 8, computed on a worker\nhash("abc"); // "ba7816bf…f20015ad"\nawait fileRoundTrip("Lucent 🌍"); // "Lucent 🌍"',
     },
     {
       kind: "note",

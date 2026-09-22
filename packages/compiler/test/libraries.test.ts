@@ -9,10 +9,18 @@ test("stdlib imports resolve to typed native operations", () => {
   expect(result.diagnostics).toEqual([]);
   expect(result.module?.functions.some((f) => f.binding)).toBe(true);
 });
-test("platform bindings record required capabilities", () => {
+test("package bindings record required capabilities", () => {
   const result = compile(
-    'import { now } from "@lucent-lang/platform/clock"; export function timestamp(): number { return now(); }',
-    { fileName: "clock.lucent.ts" },
+    'import { now } from "@lucent-lang/example-clock"; export function timestamp(): number { return now(); }',
+    {
+      fileName: "clock.lucent.ts",
+      libraries: {
+        "@lucent-lang/example-clock": {
+          source: "export declare function now():number;",
+          bindings: { now: { swift: ["return 0"], kotlin: ["return 0.0"], capabilities: ["clock"] } },
+        },
+      },
+    },
   );
   expect(result.diagnostics).toEqual([]);
   expect(result.module?.capabilities).toContain("clock");

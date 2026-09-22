@@ -90,7 +90,7 @@ export const page: DocPage = {
         { title: "Events", text: "Typed channels from native code to the app.", href: "/docs/language/events/" },
         { title: "Native views", text: "TSX rendered by SwiftUI and Compose.", href: "/docs/language/native-views/" },
         { title: "Threads", text: "`@MainThread`, `@Background`, and main-thread cost warnings.", href: "/docs/language/threads/" },
-        { title: "Platform & capabilities", text: "Guards, the standard library, config, and SDK bindings.", href: "/docs/language/platform-and-capabilities/" },
+        { title: "Platform & capabilities", text: "Guards, the built-in library, config, and SDK bindings.", href: "/docs/language/platform-and-capabilities/" },
         { title: "Diagnostics", text: "Every `LC` code and what to do about it.", href: "/docs/language/diagnostics/" },
       ],
     },

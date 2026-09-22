@@ -27,21 +27,9 @@ importers:
       '@lucent-lang/core':
         specifier: workspace:*
         version: link:packages/core
-      '@lucent-lang/crypto':
-        specifier: workspace:*
-        version: link:packages/crypto
-      '@lucent-lang/device':
-        specifier: workspace:*
-        version: link:packages/device
       '@lucent-lang/events':
         specifier: workspace:*
         version: link:packages/events
-      '@lucent-lang/filesystem':
-        specifier: workspace:*
-        version: link:packages/filesystem
-      '@lucent-lang/network':
-        specifier: workspace:*
-        version: link:packages/network
       '@lucent-lang/objects':
         specifier: workspace:*
         version: link:packages/objects
@@ -81,18 +69,6 @@ importers:
       '@lucent-lang/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@lucent-lang/crypto':
-        specifier: workspace:*
-        version: link:../../packages/crypto
-      '@lucent-lang/device':
-        specifier: workspace:*
-        version: link:../../packages/device
-      '@lucent-lang/filesystem':
-        specifier: workspace:*
-        version: link:../../packages/filesystem
-      '@lucent-lang/network':
-        specifier: workspace:*
-        version: link:../../packages/network
       '@lucent-lang/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -175,18 +151,6 @@ importers:
       '@lucent-lang/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@lucent-lang/crypto':
-        specifier: workspace:*
-        version: link:../../packages/crypto
-      '@lucent-lang/device':
-        specifier: workspace:*
-        version: link:../../packages/device
-      '@lucent-lang/filesystem':
-        specifier: workspace:*
-        version: link:../../packages/filesystem
-      '@lucent-lang/network':
-        specifier: workspace:*
-        version: link:../../packages/network
       '@lucent-lang/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -311,10 +275,6 @@ importers:
 
   packages/core: {}
 
-  packages/crypto: {}
-
-  packages/device: {}
-
   packages/events: {}
 
   packages/expo:
@@ -334,8 +294,6 @@ importers:
       oxc-parser:
         specifier: 0.151.0
         version: 0.151.0
-
-  packages/filesystem: {}
 
   packages/host-core:
     dependencies:
@@ -390,8 +348,6 @@ importers:
       oxc-parser:
         specifier: 0.151.0
         version: 0.151.0
-
-  packages/network: {}
 
   packages/objects: {}
 

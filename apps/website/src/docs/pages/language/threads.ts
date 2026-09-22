@@ -37,7 +37,7 @@ export const page: DocPage = {
     },
     {
       kind: "p",
-      text: "Standard library I/O (`filesystem`, `network`) already hops to a worker. Hashing is synchronous; wrap expensive work in a `@Background` function.",
+      text: "A package binding declares its own execution context, so I/O bindings can already hop to a worker. Anything left on the caller is synchronous; wrap expensive work in a `@Background` function.",
     },
   ],
 };

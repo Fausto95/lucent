@@ -162,10 +162,10 @@ export function HomePage() {
                 <path d="M19 5v7h7M11 19h10M11 23h10"></path>
               </>
             }
-            title="A standard library."
-            text="UTF-8 and bytes, SHA-256, files, HTTPS GET, device model, clock and locale. Direct native calls; I/O hops to a worker; errors carry codes and metadata."
-            href="/docs/api/std/"
-            linkLabel="Standard library"
+            title="Bring your own SDK."
+            text="Lucent ships byte, math and text primitives. Every platform API arrives as a package manifest: TypeScript declarations plus Swift and Kotlin bodies, with its own capabilities and platform guards."
+            href="/docs/api/library-manifest/"
+            linkLabel="Library manifest"
           />
           <FeatureCard
             number="05"

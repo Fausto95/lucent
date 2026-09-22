@@ -42,8 +42,18 @@ export function project(files: Record<string, string>): string {
 export const MATH = "export function add(a: number, b: number): number { return a + b; }\n";
 export const TEXT = 'export function shout(s: string): string { return s + "!"; }\n';
 export const BAD = "export function f(x: any): number { return 1; }\n";
-export const CLOCK =
-  'import { now } from "@lucent-lang/platform/clock";\nexport function timestamp(): number { return now(); }\n';
+/** A project-local package manifest: the supported way a platform API reaches Lucent source. */
+export const TOOLKIT_LIBRARY =
+  JSON.stringify({
+    source: "export declare function digest(text:string):string;",
+    bindings: { digest: { capabilities: ["crypto"], swift: ["return text"], kotlin: ["return text"] } },
+  }) + "\n";
+
+export const TOOLKIT_CONFIG = (capabilities: string[]): string =>
+  JSON.stringify({ libraries: { "@lucent-lang/example-toolkit": "./toolkit.library.json" }, capabilities }) + "\n";
+
+export const TOOLKIT_SOURCE =
+  'import { digest } from "@lucent-lang/example-toolkit";\nexport function fingerprint(text: string): string { return digest(text); }\n';
 
 /** An Expo app that is fully wired for Lucent. */
 export function wiredExpoProject(extra: Record<string, string> = {}): string {

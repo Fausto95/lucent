@@ -1,7 +1,7 @@
 import { createText, textLength } from "./src/async-text.lucent";
-import { nativeOS, bytes, hash, fileRoundTrip, deviceModel, fetchBytes, metadataFailure } from "./src/features.lucent";
+import { nativeOS, bytes, hash, fileRoundTrip, model, metadataFailure } from "./src/features.lucent";
 import { Counter } from "./src/counter.lucent";
-import { advance, evaluate, timestamp, double, progress, report } from "./src/features.lucent";
+import { advance, evaluate, double, progress, report } from "./src/features.lucent";
 import { FieldKit } from "./src/field-kit.lucent";
 import { FieldScreen } from "./src/field-screen.lucent";
 import { StatusBar } from "expo-status-bar";
@@ -53,7 +53,6 @@ async function runChecks(): Promise<Row[]> {
   counter.dispose();
   check("tagged union", evaluate(9), { kind: "ok", value: 3 });
   check("tagged union error", evaluate(-1), { kind: "error", message: "Negative" });
-  check("platform clock", Math.abs(timestamp() - Date.now()) < 5000, true);
   check("worker thread", await double(4), 8);
   const nativeText = createText("Lucent 🌍");
   const pendingLengths = Promise.all([textLength(nativeText), textLength(nativeText)]);
@@ -83,13 +82,7 @@ async function runChecks(): Promise<Row[]> {
   check("empty owned buffer", bytes("").length, 0);
   check("native SHA-256", hash("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
   check("filesystem worker roundtrip", await fileRoundTrip("Lucent 🌍"), "Lucent 🌍");
-  check("native device", (await deviceModel()).length > 0, true);
-  try {
-    await fetchBytes("invalid");
-    check("network validation", "no error", "INVALID_URL");
-  } catch (error) {
-    check("network validation", (error as { code: string }).code, "INVALID_URL");
-  }
+  check("package device binding", (await model()).length > 0, true);
   try {
     metadataFailure("/tmp/é");
     check("error metadata", "no error", "MISSING");

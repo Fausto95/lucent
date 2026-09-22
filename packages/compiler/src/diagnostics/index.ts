@@ -20,10 +20,6 @@ export function diagnostic(code: DiagnosticCode, span: Span, message: string, he
   return help === undefined ? { code, message, span } : { code, message, span, help };
 }
 
-export function hasErrors(diagnostics: readonly Diagnostic[]): boolean {
-  return diagnostics.some((d) => d.severity !== "warning");
-}
-
 /** Sorted (line start offsets) table used to map byte offsets to line/column. */
 export function lineStarts(source: string): number[] {
   const starts = [0];

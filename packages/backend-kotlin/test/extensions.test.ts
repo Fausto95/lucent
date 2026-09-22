@@ -1,10 +1,26 @@
 import { expect, test } from "vite-plus/test";
 import { compile } from "@lucent-lang/compiler";
+import type { LibraryModule } from "@lucent-lang/compiler";
 import { generateKotlin } from "../src/index.ts";
+
+/** A package binding, the only way a platform API reaches Lucent source. */
+const CLOCK_LIBRARY: Record<string, LibraryModule> = {
+  "@lucent-lang/example-clock": {
+    source: "export declare function now():number;",
+    bindings: {
+      now: {
+        swift: ["return Date().timeIntervalSince1970 * 1000"],
+        kotlin: ["return System.currentTimeMillis().toDouble()"],
+        swiftImports: ["Foundation"],
+        capabilities: ["clock"],
+      },
+    },
+  },
+};
 test("emits native binding bodies and dispatcher hops", () => {
   const result = compile(
-    'import { now } from "@lucent-lang/platform/clock"; @MainThread export async function f(): Promise<number> { return now(); }',
-    { fileName: "clock.lucent.ts" },
+    'import { now } from "@lucent-lang/example-clock"; @MainThread export async function f(): Promise<number> { return now(); }',
+    { fileName: "clock.lucent.ts", libraries: CLOCK_LIBRARY },
   );
   const code = generateKotlin(result.module!).code;
   expect(code).toContain("System.currentTimeMillis()");

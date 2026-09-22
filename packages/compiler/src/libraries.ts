@@ -93,26 +93,4 @@ export const STANDARD_LIBRARIES: Readonly<Record<string, LibraryModule>> = {
       contains: { swift: ["return value.contains(search)"], kotlin: ["return value.contains(search)"] },
     },
   },
-  "@lucent-lang/platform/clock": {
-    source: "export declare function now(): number;",
-    bindings: {
-      now: {
-        swift: ["return Date().timeIntervalSince1970 * 1000"],
-        kotlin: ["return System.currentTimeMillis().toDouble()"],
-        swiftImports: ["Foundation"],
-        capabilities: ["clock"],
-      },
-    },
-  },
-  "@lucent-lang/platform/locale": {
-    source: "export declare function languageTag(): string;",
-    bindings: {
-      languageTag: {
-        swift: ['return Locale.current.identifier.replacingOccurrences(of: "_", with: "-")'],
-        kotlin: ["return java.util.Locale.getDefault().toLanguageTag()"],
-        swiftImports: ["Foundation"],
-        capabilities: ["locale"],
-      },
-    },
-  },
 };

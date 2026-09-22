@@ -31,8 +31,6 @@ const definitions: Readonly<Record<string, CapabilityDefinition>> = {
   filesystem: {},
   crypto: {},
   device: {},
-  clock: {},
-  locale: {},
 };
 const object = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);

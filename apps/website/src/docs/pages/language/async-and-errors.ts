@@ -44,7 +44,7 @@ export const page: DocPage = {
       rows: [
         ["Metadata values", "`string`, `number`, `boolean` or `null`. Nested objects and arrays are rejected. Non-finite numbers become `null`."],
         ["No `try` / `catch`", "Native code cannot catch. Errors propagate to the JavaScript caller."],
-        ["Standard library errors", "Use the same mechanism: `HTTP_ERROR` with `metadata.status`, `FILE_READ` with `metadata.path`, and so on."],
+        ["Package binding errors", "Use the same mechanism: a binding body throws `LucentError` with its own code and metadata, for example `FILE_READ` with `metadata.path`."],
       ],
     },
     {
