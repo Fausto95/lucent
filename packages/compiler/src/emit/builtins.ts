@@ -1,7 +1,7 @@
 import path from "node:path";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
-import { coreTypesPath } from "../program.ts";
+import { coreTypesPath, isLibFile } from "../program.ts";
 import { cppIdent, isVoidish, type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
 import type { E } from "./context.ts";
 import { type FnEmitter, substitute } from "./function.ts";
@@ -232,7 +232,7 @@ function isLibGlobal(em: FnEmitter, id: ts.Expression, name: string): boolean {
   if (!ts.isIdentifier(id) || id.text !== name) return false;
   const sym = em.checker.getSymbolAtLocation(id);
   const decl = sym?.declarations?.[0];
-  return !!decl && decl.getSourceFile().isDeclarationFile && /[\\/]typescript[\\/]lib[\\/]/.test(decl.getSourceFile().fileName);
+  return !!decl && isLibFile(decl.getSourceFile());
 }
 
 export function staticProperty(em: FnEmitter, node: ts.PropertyAccessExpression): E | undefined {

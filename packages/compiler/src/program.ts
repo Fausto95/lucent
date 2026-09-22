@@ -23,6 +23,16 @@ export interface LucentProgram {
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
+/** Globals Lucent code may use besides the ES2022 library (console, …). */
+export function globalsPath(): string {
+  return path.resolve(here, "../lib/globals.d.ts");
+}
+
+/** Whether a declaration comes from the TypeScript library or Lucent's globals. */
+export function isLibFile(sf: ts.SourceFile): boolean {
+  return sf.isDeclarationFile && (/[\\/]typescript[\\/]lib[\\/]lib\./.test(sf.fileName) || path.resolve(sf.fileName) === globalsPath());
+}
+
 /** Path of `@lucent-lang/core` type declarations. */
 export function coreTypesPath(): string {
   return path.resolve(here, "../../core/index.d.ts");
@@ -71,7 +81,7 @@ export function findLucentFiles(root: string): string[] {
 export function createLucentProgram(files: string[]): LucentProgram {
   const options = compilerOptions();
   const host = ts.createCompilerHost(options, true);
-  const program = ts.createProgram(files.map((f) => path.resolve(f)), options, host);
+  const program = ts.createProgram([...files.map((f) => path.resolve(f)), globalsPath()], options, host);
   const checker = program.getTypeChecker();
   const diagnostics: Diagnostic[] = [];
   const modules: LucentModule[] = [];

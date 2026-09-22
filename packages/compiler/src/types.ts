@@ -1,5 +1,6 @@
 import ts from "typescript";
 import { Codes, fail } from "./diagnostics.ts";
+import { isLibFile } from "./program.ts";
 
 /**
  * Lucent types: the native representation of a TypeScript type. Literal
@@ -304,7 +305,7 @@ export class TypeRegistry {
     const decl = sym.declarations?.[0];
     if (!decl) return undefined;
     const sf = decl.getSourceFile();
-    if (!sf.isDeclarationFile || !/[\\/]typescript[\\/]lib[\\/]lib\./.test(sf.fileName)) return undefined;
+    if (!isLibFile(sf)) return undefined;
     return sym.name;
   }
 
