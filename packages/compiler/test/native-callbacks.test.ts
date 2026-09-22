@@ -44,3 +44,16 @@ test("retains capabilities reached through compiled callbacks", () => {
     'import type {NativeCallback} from "@lucent-lang/types"; import {now} from "@lucent-lang/platform/clock"; function run(callback:NativeCallback<()=>number>):number{return callback();} function read():number{return now();} export function result():number{return run(read);}';
   expect(compile(input, { fileName: "callbacks.lucent.ts" }).module?.capabilities).toContain("clock");
 });
+
+test('compiles expression closures with immutable scalar captures', () => {
+ const input = source.replace('return apply(4,double)', 'const factor=3; return apply(4,(value:number):number=>value*factor)');
+ const result = compile(input, {fileName:'closure.lucent.ts'});
+ expect(result.diagnostics).toEqual([]);
+ expect(JSON.stringify(result.module)).toContain('"op":"closure"');
+});
+test('rejects implicit mutable captures', () => {
+ const input = source.replace('return apply(4,double)', 'let factor=3; return apply(4,(value:number):number=>value*factor)');
+ const result = compile(input, {fileName:'closure.lucent.ts'});
+ expect(result.module).toBeNull();
+ expect(result.diagnostics.some(d => d.message.includes('capture'))).toBe(true);
+});
