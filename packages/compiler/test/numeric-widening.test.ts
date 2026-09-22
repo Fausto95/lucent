@@ -20,7 +20,7 @@ test("native overload arguments carry an explicit lossless widening in IR", () =
   expect(result.diagnostics).toEqual([]);
   expect(JSON.stringify(result.module)).toContain('"op":"widen"');
   expect(generateSwift(result.module!).code).toContain("Int16(value)");
-  expect(generateKotlin(result.module!).code).toContain("(value).toShort()");
+  expect(generateKotlin(result.module!).code).toContain("value.toShort()");
 });
 test("native overloads reject narrowing numeric variables", () => {
   const result = compile(

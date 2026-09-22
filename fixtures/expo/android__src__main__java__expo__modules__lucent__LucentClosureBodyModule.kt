@@ -24,6 +24,6 @@ class LucentClosureBodyModule : Module() {
 
   private fun scaled(base: Double): Double {
     val factor: Double = 3.0
-    return apply(base, { value: Double -> (value * factor) })
+    return apply(base, { value: Double -> value * factor })
   }
 }

@@ -26,7 +26,7 @@ class LucentWorkerThreadModule : Module() {
     return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
       var total: Double = 0.0
       for (value in values) {
-        total = (total + value)
+        total = total + value
       }
       return@withContext total
     }

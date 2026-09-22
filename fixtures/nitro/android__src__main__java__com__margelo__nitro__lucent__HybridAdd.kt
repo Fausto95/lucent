@@ -21,10 +21,10 @@ class HybridAdd : HybridAddSpec() {
 
 object AddBodies {
   fun add(a: Double, b: Double): Double {
-    return (a + b)
+    return a + b
   }
 
   fun multiply(a: Double, b: Double): Double {
-    return (a * b)
+    return a * b
   }
 }

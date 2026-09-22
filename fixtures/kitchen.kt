@@ -17,11 +17,11 @@ fun summarize(stats: Stats, key: String, verbose: Boolean): String {
   var i: Int = 0
   while (i < stats.count) {
     out = out + "!"
-    i = (i + 1)
+    i = i + 1
   }
   var evens: MutableList<Double> = mutableListOf<Double>()
   for (v in stats.values) {
-    if (((v % 2.0) == 0.0) && (v > 0.0)) {
+    if (v % 2.0 == 0.0 && v > 0.0) {
       evens.add(v)
     } else {
       if (v < 0.0) {
@@ -31,7 +31,7 @@ fun summarize(stats: Stats, key: String, verbose: Boolean): String {
       }
     }
   }
-  if (!verbose || (evens.size.toDouble() == 0.0)) {
+  if (!verbose || evens.size.toDouble() == 0.0) {
     return out
   }
   return out + " " + lucentStr(evens.size.toDouble()) + " " + lucentStr(-i)

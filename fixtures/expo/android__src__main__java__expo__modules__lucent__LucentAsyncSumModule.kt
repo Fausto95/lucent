@@ -19,13 +19,13 @@ class LucentAsyncSumModule : Module() {
   }
 
   private suspend fun scale(value: Double): Double {
-    return (value * 2.0)
+    return value * 2.0
   }
 
   private suspend fun total(values: MutableList<Double>): Double {
     var sum: Double = 0.0
     for (value in values) {
-      sum = (sum + value)
+      sum = sum + value
     }
     return scale(sum)
   }

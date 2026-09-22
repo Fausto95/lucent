@@ -21,7 +21,7 @@ class HybridTernaryCall : HybridTernaryCallSpec() {
 
 object TernaryCallBodies {
   fun pick(value: Double): Double {
-    return (value * 2.0)
+    return value * 2.0
   }
 
   fun choose(flag: Boolean): Double {
@@ -30,6 +30,6 @@ object TernaryCallBodies {
   }
 
   fun nested(flag: Boolean, other: Boolean): Double {
-    return if (flag) pick(3.0) else if (other) pick(4.0) else 5.0
+    return if (flag) pick(3.0) else (if (other) pick(4.0) else 5.0)
   }
 }

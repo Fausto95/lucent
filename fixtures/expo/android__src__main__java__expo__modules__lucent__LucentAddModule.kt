@@ -23,10 +23,10 @@ class LucentAddModule : Module() {
   }
 
   private fun add(a: Double, b: Double): Double {
-    return (a + b)
+    return a + b
   }
 
   private fun multiply(a: Double, b: Double): Double {
-    return (a * b)
+    return a * b
   }
 }

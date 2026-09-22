@@ -1,4 +1,13 @@
 import { block, render, sections, type Doc } from "@lucent-lang/codegen";
+import {
+  printExpr as print,
+  printStmts,
+  type BinaryOp as KotlinBinaryOp,
+  type KotlinArg,
+  type KotlinExpr,
+  type KotlinStmt,
+} from "./ast.ts";
+export * from "./ast.ts";
 import { fillNative } from "@lucent-lang/codegen";
 import { kotlinErrorWire } from "./errors.ts";
 import { nativeKotlin } from "./native.ts";
@@ -39,8 +48,8 @@ export interface GeneratedFunction {
   params: GeneratedField[];
   state?: { name: string; type: string }[];
   returnType: string;
-  /** Body lines without indentation. */
-  body: string[];
+  /** Rendered at whatever depth the host places it. */
+  body: Doc;
 }
 
 export interface GeneratedUnit {
@@ -118,9 +127,6 @@ export function signature(f: GeneratedFunction): string {
   return `${f.view ? "@Composable " : ""}${f.async ? "suspend " : ""}fun ${f.name}(${[params, state].filter(Boolean).join(", ")}): ${f.returnType}`;
 }
 
-/** Statement bodies are still text; the Kotlin AST replaces this. Not exported: assembly uses `block`. */
-const indent = (lines: string[], depth = 1): string[] => lines.map((l) => (l === "" ? l : "  ".repeat(depth) + l));
-
 /** A data class with one field per line, so a wide record stays readable. */
 export const dataClass = (s: GeneratedStruct): Doc =>
   block(
@@ -146,13 +152,13 @@ function generateFunction(f: IRFunction, module: IRModule, views: KotlinViewImpo
     };
   }
   const emitter = new KotlinEmitter(f, views);
-  const body = f.event
-    ? [
-        `LucentEventHub.emit(${JSON.stringify(f.event.id)}, ${kotlinEventValue("payload", f.params[0]?.type ?? { kind: "void" }, module)})`,
-      ]
-    : (f.binding?.kotlin.map((line) =>
-        f.thread && f.thread !== "caller" ? line.replace(/^(\s*)return\b/, "$1return@withContext") : line,
-      ) ?? emitter.block(f.body));
+  // A binding body is verbatim Kotlin, so its `return` still needs the label rewritten.
+  const hop = f.thread && f.thread !== "caller";
+  const body: Doc = f.event
+    ? `LucentEventHub.emit(${JSON.stringify(f.event.id)}, ${kotlinEventValue("payload", f.params[0]?.type ?? { kind: "void" }, module)})`
+    : f.binding?.kotlin
+      ? f.binding.kotlin.map((line) => (hop ? line.replace(/^(\s*)return\b/, "$1return@withContext") : line))
+      : printStmts(emitter.block(f.body));
   return {
     name: f.name,
     ...(f.returnType.kind === "view" ? { view: true } : {}),
@@ -161,219 +167,294 @@ function generateFunction(f: IRFunction, module: IRModule, views: KotlinViewImpo
     params: f.params.map((p) => ({ name: p.name, type: kotlinType(p.type) })),
     ...(f.state?.length ? { state: f.state.map((slot) => ({ name: slot.name, type: kotlinType(slot.type) })) } : {}),
     returnType: f.returnType.kind === "view" ? "Unit" : kotlinType(f.returnType),
-    body:
-      f.thread && f.thread !== "caller"
-        ? [
-            `return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.${f.thread === "main" ? "Main" : "Default"}) {`,
-            ...indent(body),
-            "}",
-          ]
-        : body,
+    body: hop
+      ? block(
+          `return kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.${f.thread === "main" ? "Main" : "Default"}) {`,
+          body,
+        )
+      : body,
   };
 }
 
 class KotlinEmitter {
   private readonly mutable: ReadonlySet<string>;
   private readonly types: ReadonlyMap<string, NativeType>;
-  private readonly returnKeyword: string;
+  /** A thread hop puts the body in a `withContext` lambda, so `return` needs its label. */
+  private readonly returnLabel: string | undefined;
 
   constructor(
     f: IRFunction,
     private readonly views: KotlinViewImports,
   ) {
-    this.returnKeyword = f.thread && f.thread !== "caller" ? "return@withContext" : "return";
+    this.returnLabel = f.thread && f.thread !== "caller" ? "@withContext" : undefined;
     this.mutable = new Set(f.locals.filter((l) => l.mutable).map((l) => l.id));
     this.types = new Map(f.locals.map((l) => [l.id, l.type]));
   }
 
-  block(stmts: IRStmt[]): string[] {
-    return stmts.flatMap((s) => this.stmt(s));
+  block(stmts: IRStmt[]): KotlinStmt[] {
+    return stmts.map((s) => this.stmt(s));
   }
 
-  /** A condition without the redundant outer parentheses of a binary/logical expression. */
-  private condition(e: IRExpr): string {
-    const text = this.expr(e);
-    const wrapped = e.op === "binary" || e.op === "and" || e.op === "or";
-    return wrapped && text.startsWith("(") && text.endsWith(")") ? text.slice(1, -1) : text;
-  }
-
-  private stmt(s: IRStmt): string[] {
+  private stmt(s: IRStmt): KotlinStmt {
     switch (s.op) {
       case "let":
-        return [
-          `${this.mutable.has(s.id) ? "var" : "val"} ${localName(s.id)}: ${kotlinType(this.types.get(s.id)!)} = ${this.expr(s.value)}`,
-        ];
+        return {
+          k: "let",
+          mutable: this.mutable.has(s.id),
+          name: localName(s.id),
+          type: kotlinType(this.types.get(s.id)!),
+          value: this.expr(s.value),
+        };
       case "assign":
-        return [`${this.place(s.target)} = ${this.expr(s.value)}`];
-      case "if": {
-        const lines = [`if (${this.condition(s.cond)}) {`, ...indent(this.block(s.consequent))];
-        if (s.alternate.length) lines.push("} else {", ...indent(this.block(s.alternate)));
-        lines.push("}");
-        return lines;
-      }
+        return { k: "assign", target: this.place(s.target), value: this.expr(s.value) };
+      case "if":
+        return {
+          k: "if",
+          cond: this.expr(s.cond),
+          consequent: this.block(s.consequent),
+          alternate: this.block(s.alternate),
+        };
       case "while":
-        return [`while (${this.condition(s.cond)}) {`, ...indent(this.block(s.body)), "}"];
+        return { k: "while", cond: this.expr(s.cond), body: this.block(s.body) };
       case "forEach":
-        return [`for (${localName(s.id)} in ${this.expr(s.iterable)}) {`, ...indent(this.block(s.body)), "}"];
+        return { k: "forIn", name: localName(s.id), seq: this.expr(s.iterable), body: this.block(s.body) };
       case "break":
+        return { k: "break" };
       case "continue":
-        return [s.op];
+        return { k: "continue" };
       case "return":
-        return [s.value ? `${this.returnKeyword} ${this.expr(s.value)}` : this.returnKeyword];
+        return {
+          k: "return",
+          ...(s.value ? { value: this.expr(s.value) } : {}),
+          ...(this.returnLabel ? { label: this.returnLabel } : {}),
+        };
       case "throw":
-        return [
-          `throw LucentError(${str(s.code)}${s.message ? `, message = ${this.expr(s.message)}` : ""}${s.metadata ? `, metadata = mapOf(${s.metadata.map((f) => `${str(f.name)} to ${this.expr(f.value)}`).join(", ")})` : ""})`,
-        ];
+        return {
+          k: "throwError",
+          args: [
+            { value: { k: "lit", text: str(s.code) } },
+            ...(s.message ? [{ name: "message", value: this.expr(s.message) }] : []),
+            ...(s.metadata
+              ? [
+                  {
+                    name: "metadata",
+                    value: call(ref("mapOf"), [
+                      {
+                        value: raw(s.metadata.map((f) => `${str(f.name)} to ${print(this.expr(f.value))}`).join(", ")),
+                      },
+                    ]),
+                  },
+                ]
+              : []),
+          ],
+        };
       case "stateWrite":
-        return [`lucentSet_${s.name}(${this.expr(s.value)})`];
+        return { k: "expr", value: call(ref(`lucentSet_${s.name}`), [{ value: this.expr(s.value) }]) };
       case "expr":
-        return [this.expr(s.value)];
+        return { k: "expr", value: this.expr(s.value) };
       case "push":
-        return [`${this.expr(s.array)}.add(${this.expr(s.value)})`];
+        return {
+          k: "expr",
+          value: call({ k: "member", target: this.expr(s.array), name: "add" }, [{ value: this.expr(s.value) }]),
+        };
     }
   }
 
-  private place(p: IRPlace): string {
+  private place(p: IRPlace): KotlinExpr {
     switch (p.kind) {
       case "local":
-        return localName(p.id);
+        return ref(localName(p.id));
       case "field":
-        return `${this.expr(p.object)}.${p.field}`;
+        return { k: "member", target: this.expr(p.object), name: p.field };
       case "index":
-        return `${this.expr(p.object)}[${this.index(p.index)}]`;
+        return { k: "index", target: this.expr(p.object), key: this.index(p.index) };
     }
   }
 
-  private forRows(e: Extract<IRExpr, { op: "view" }>): string {
+  private forRows(e: Extract<IRExpr, { op: "view" }>): KotlinExpr {
     this.views.record(...FOR_IMPORTS);
     const data = e.props.find((prop) => prop.name === "each");
     const key = e.props.find((prop) => prop.name === "key");
     const child = e.children[0];
     if (!data || child?.op !== "closure" || Array.isArray(child.body) || !child.params[0])
-      return "Spacer(modifier = Modifier)";
+      return raw("Spacer(modifier = Modifier)");
     const param = child.params[0].name;
-    const source = this.expr(data.value);
+    const source = print(this.expr(data.value));
     if (!key)
-      return `Column { for (lucentIndex in ${source}.indices) { val ${param} = ${source}[lucentIndex]; ${this.expr(child.body)} } }`;
-    return `Column { for (lucentRow in lucentKeyedRows(${source}, ${this.expr(key.value)})) { key(lucentRow.first) { val ${param} = lucentRow.second; ${this.expr(child.body)} } } }`;
+      return raw(
+        `Column { for (lucentIndex in ${source}.indices) { val ${param} = ${source}[lucentIndex]; ${print(this.expr(child.body))} } }`,
+      );
+    return raw(
+      `Column { for (lucentRow in lucentKeyedRows(${source}, ${print(this.expr(key.value))})) { key(lucentRow.first) { val ${param} = lucentRow.second; ${print(this.expr(child.body))} } } }`,
+    );
   }
 
-  private index(e: IRExpr): string {
-    return e.type.kind === "int" && e.type.bits === 32 && e.type.signed ? this.expr(e) : `${this.expr(e)}.toInt()`;
+  /** Kotlin indexes with `Int`; only an `Int32` local already is one. */
+  private index(e: IRExpr): KotlinExpr {
+    return e.type.kind === "int" && e.type.bits === 32 && e.type.signed
+      ? this.expr(e)
+      : call({ k: "member", target: this.expr(e), name: "toInt" }, []);
   }
 
-  expr(e: IRExpr): string {
+  expr(e: IRExpr): KotlinExpr {
     switch (e.op) {
       case "view":
-        return e.name === "For" ? this.forRows(e) : kotlinView(e, (x) => this.expr(x), this.views);
+        return e.name === "For" ? this.forRows(e) : raw(kotlinView(e, (x) => print(this.expr(x)), this.views));
       case "stateRead":
-        return `lucentGet_${e.name}()`;
+        return call(ref(`lucentGet_${e.name}`), []);
       case "stateWrite":
-        return `lucentSet_${e.name}(${this.expr(e.value)})`;
+        return call(ref(`lucentSet_${e.name}`), [{ value: this.expr(e.value) }]);
       case "ifExpr":
-        return `if (${this.expr(e.cond)}) ${this.expr(e.consequent)} else ${this.expr(e.alternate)}`;
+        return {
+          k: "ifExpr",
+          cond: this.expr(e.cond),
+          consequent: this.expr(e.consequent),
+          alternate: this.expr(e.alternate),
+        };
       case "const":
-        return e.type.kind === "enum" && typeof e.value === "string"
-          ? kotlinEnumValue(e.type.binding, e.value)
-          : constant(e.value, e.type);
+        return {
+          k: "lit",
+          text:
+            e.type.kind === "enum" && typeof e.value === "string"
+              ? kotlinEnumValue(e.type.binding, e.value)
+              : constant(e.value, e.type),
+        };
       case "param":
-        return e.name;
+        return ref(e.name);
       case "local":
-        return localName(e.id);
+        return ref(localName(e.id));
       case "widen":
-        return `(${this.expr(e.value)}).to${kotlinType(e.type)}()`;
+        return call({ k: "member", target: this.expr(e.value), name: `to${kotlinType(e.type)}` }, []);
       case "unwrap":
-        return `${this.expr(e.value)}!!`;
+        return { k: "notNull", value: this.expr(e.value) };
       case "binary":
-        return this.binary(e);
+        return { k: "binary", op: BINARY[e.operator], left: this.expr(e.left), right: this.expr(e.right) };
       case "concat":
-        return e.parts.map((p) => this.expr(p)).join(" + ");
+        return e.parts.map((p) => this.expr(p)).reduce((left, right) => ({ k: "binary", op: "+", left, right }));
       case "str":
-        return `lucentStr(${this.expr(e.value)})`;
+        return call(ref("lucentStr"), [{ value: this.expr(e.value) }]);
       case "and":
-        return `(${this.expr(e.left)} && ${this.expr(e.right)})`;
+        return { k: "binary", op: "&&", left: this.expr(e.left), right: this.expr(e.right) };
       case "or":
-        return `(${this.expr(e.left)} || ${this.expr(e.right)})`;
+        return { k: "binary", op: "||", left: this.expr(e.left), right: this.expr(e.right) };
       case "not":
-        return `!${this.expr(e.value)}`;
+        return { k: "unary", op: "!", value: this.expr(e.value) };
       case "neg":
-        return `-${this.expr(e.value)}`;
+        return { k: "unary", op: "-", value: this.expr(e.value) };
       case "weak":
-        return `${e.name}_weak.get()`;
+        return call({ k: "member", target: ref(`${e.name}_weak`), name: "get" }, []);
       case "closure": {
-        const params = e.params.map((p) => `${p.name}: ${kotlinType(p.type)}`).join(", ");
-        const closure = Array.isArray(e.body)
-          ? `fun(${params}): ${e.type.kind === "callback" ? kotlinType(e.type.result) : "Unit"} {\n${indent(this.block(e.body)).join("\n")}\n}`
-          : `{ ${params ? params + " -> " : ""}${this.expr(e.body)} }`;
+        const closure: KotlinExpr = Array.isArray(e.body)
+          ? {
+              k: "anonFun",
+              fn: {
+                params: e.params.map((p) => ({ name: p.name, type: kotlinType(p.type) })),
+                result: e.type.kind === "callback" ? kotlinType(e.type.result) : "Unit",
+                body: this.block(e.body),
+              },
+            }
+          : {
+              k: "lambda",
+              lambda: {
+                params: e.params.map((p) => `${p.name}: ${kotlinType(p.type)}`),
+                body: this.expr(e.body),
+              },
+            };
         const weaks = e.captures.filter((capture) => capture.kind === "weak");
         if (!weaks.length) return closure;
-        const refs = weaks
-          .map((capture) => `val ${capture.name}_weak = java.lang.ref.WeakReference(${capture.name})`)
-          .join("\n");
-        return `run {\n${indent(`${refs}\n${closure}`.split("\n")).join("\n")}\n}`;
+        // A weak capture has to be materialised before the lambda closes over it.
+        return {
+          k: "run",
+          body: [
+            ...weaks.map((capture): KotlinStmt => ({
+              k: "let",
+              mutable: false,
+              name: `${capture.name}_weak`,
+              value: call(ref("java.lang.ref.WeakReference"), [{ value: ref(capture.name) }]),
+            })),
+            { k: "expr", value: closure },
+          ],
+        };
       }
       case "functionRef":
-        return `::${e.name}`;
+        return ref(`::${e.name}`);
       case "invoke":
-        return `${this.expr(e.callback)}(${e.args.map((a) => this.expr(a)).join(", ")})`;
+        return call(
+          this.expr(e.callback),
+          e.args.map((a) => ({ value: this.expr(a) })),
+        );
       case "call":
-        return `${e.callee}(${e.args.map((a) => this.expr(a)).join(", ")})`;
+        return call(
+          ref(e.callee),
+          e.args.map((a) => ({ value: this.expr(a) })),
+        );
       case "await":
         return this.expr(e.value);
       case "field":
-        return e.type.kind === "view" ? `${this.expr(e.object)}.${e.field}()` : `${this.expr(e.object)}.${e.field}`;
+        return e.type.kind === "view"
+          ? call({ k: "member", target: this.expr(e.object), name: e.field }, [])
+          : { k: "member", target: this.expr(e.object), name: e.field };
       case "length":
         return this.length(e.object);
       case "index":
         return e.object.type.kind === "bytes"
-          ? `LucentBytes.get(${this.expr(e.object)}, ${this.expr(e.index)})`
-          : `${this.expr(e.object)}[${this.index(e.index)}]`;
+          ? call(ref("LucentBytes.get"), [{ value: this.expr(e.object) }, { value: this.expr(e.index) }])
+          : { k: "index", target: this.expr(e.object), key: this.index(e.index) };
       case "mapGet":
-        return `${this.expr(e.map)}[${this.expr(e.key)}]`;
+        return { k: "index", target: this.expr(e.map), key: this.expr(e.key) };
       case "array": {
         const element = e.type.kind === "array" ? kotlinType(e.type.element) : "Any";
         return e.elements.length
-          ? `mutableListOf(${e.elements.map((x) => this.expr(x)).join(", ")})`
-          : `mutableListOf<${element}>()`;
+          ? call(
+              ref("mutableListOf"),
+              e.elements.map((x) => ({ value: this.expr(x) })),
+            )
+          : call(ref(`mutableListOf<${element}>`), []);
       }
       case "struct":
-        return `${e.name}(${e.fields
-          .map((f) => `${f.name} = ${f.value.type.kind === "view" ? `{ ${this.expr(f.value)} }` : this.expr(f.value)}`)
-          .join(", ")})`;
+        return call(
+          ref(e.name),
+          e.fields.map((f) => ({
+            name: f.name,
+            value:
+              f.value.type.kind === "view"
+                ? ({ k: "lambda", lambda: { params: [], body: this.expr(f.value) } } as KotlinExpr)
+                : this.expr(f.value),
+          })),
+        );
     }
   }
 
-  private length(object: IRExpr): string {
+  private length(object: IRExpr): KotlinExpr {
     const inner = this.expr(object);
     switch (object.type.kind) {
       case "string":
-        return `${inner}.length.toDouble()`;
+        return call({ k: "member", target: { k: "member", target: inner, name: "length" }, name: "toDouble" }, []);
       case "bytes":
-        return `LucentBytes.length(${inner})`;
+        return call(ref("LucentBytes.length"), [{ value: inner }]);
       default:
-        return `${inner}.size.toDouble()`;
+        return call({ k: "member", target: { k: "member", target: inner, name: "size" }, name: "toDouble" }, []);
     }
   }
-
-  private binary(e: Extract<IRExpr, { op: "binary" }>): string {
-    const l = this.expr(e.left);
-    const r = this.expr(e.right);
-    const OPS: Record<typeof e.operator, string> = {
-      add: "+",
-      sub: "-",
-      mul: "*",
-      div: "/",
-      rem: "%",
-      lt: "<",
-      le: "<=",
-      gt: ">",
-      ge: ">=",
-      eq: "==",
-      ne: "!=",
-    };
-    return `(${l} ${OPS[e.operator]} ${r})`;
-  }
 }
+
+const BINARY = {
+  add: "+",
+  sub: "-",
+  mul: "*",
+  div: "/",
+  rem: "%",
+  lt: "<",
+  le: "<=",
+  gt: ">",
+  ge: ">=",
+  eq: "==",
+  ne: "!=",
+} as const satisfies Record<string, KotlinBinaryOp>;
+
+const ref = (name: string): KotlinExpr => ({ k: "ref", name });
+const raw = (text: string): KotlinExpr => ({ k: "raw", text });
+const call = (callee: KotlinExpr, args: readonly KotlinArg[]): KotlinExpr => ({ k: "call", callee, args });
 
 /** Kotlin numeric literals carry their type; the IR type decides the suffix. */
 function constant(value: number | string | boolean | null, type: NativeType): string {
