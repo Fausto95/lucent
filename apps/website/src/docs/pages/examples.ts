@@ -98,7 +98,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "src/features.lucent.ts",
-      code: 'import { abs, sqrt } from "@lucent-lang/std/math";\n\nexport type Result = { kind: "ok"; value: number } | { kind: "error"; message: string };\n\nexport function evaluate(value: number): Result {\n  if (value < 0) {\n    return { kind: "error", message: "Negative" };\n  }\n  return { kind: "ok", value: sqrt(abs(value)) };\n}',
+      code: 'import { abs, sqrt } from "@lucent-lang/core/math";\n\nexport type Result = { kind: "ok"; value: number } | { kind: "error"; message: string };\n\nexport function evaluate(value: number): Result {\n  if (value < 0) {\n    return { kind: "error", message: "Negative" };\n  }\n  return { kind: "ok", value: sqrt(abs(value)) };\n}',
     },
     {
       kind: "code",

@@ -40,3 +40,17 @@ Backends map types through a lookup table and never see TypeScript names.
 Numeric IR ops are typed by their operands: `(add %i 1)` on `int32` is integer
 arithmetic; on `float64` it is IEEE double arithmetic. `(index bytes i)` yields
 `float64` like `Uint8Array` indexing does in JavaScript.
+
+## Native contracts and closures
+
+`IRModule.targets` carries configured minimum native deployment versions to
+hosts. Native reference and function bindings retain their validated manifest
+contracts. Selected overload calls already name a concrete function; backends
+do not independently choose candidates.
+
+A `closure` expression carries concrete typed parameters and a typed expression
+body. Its free scalar identifiers refer to immutable enclosing locals. Mutable
+and resource captures are rejected before lowering. A Swift closure is throwing;
+Kotlin uses a native function value. Closure body effects are emitted inside the
+closure, never as effects of constructing it. Explicit resource/state capture
+kinds and component identity nodes remain future IR work.

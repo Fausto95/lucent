@@ -698,6 +698,25 @@ class Converter {
   }
 
   private readonly exprHandlers: Record<string, (node: never) => Expr> = {
+    ArrowFunctionExpression: (node: ES.ArrowFunctionExpression) => {
+      const body =
+        node.body.type === "BlockStatement" &&
+        node.body.body.length === 1 &&
+        node.body.body[0]?.type === "ReturnStatement"
+          ? node.body.body[0].argument
+          : node.body;
+      if (node.async || node.typeParameters || !body || body.type === "BlockStatement") {
+        this.unsupported(node, "native closures require a synchronous expression body");
+        return { kind: "unsupported", span: spanOf(node) };
+      }
+      return {
+        kind: "closure",
+        params: node.params.map((p) => this.param(p)),
+        returnType: node.returnType ? this.type(node.returnType.typeAnnotation) : null,
+        body: this.expr(body),
+        span: spanOf(node),
+      };
+    },
     ThisExpression: (node: ES.ThisExpression) => ({ kind: "identifier", name: "lucentSelf", span: spanOf(node) }),
     NewExpression: (node: ES.NewExpression) => {
       if (

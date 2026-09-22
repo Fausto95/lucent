@@ -8,12 +8,20 @@
     "directory": "packages/core"
   },
   "files": [
-    "index.d.ts"
+    "index.d.ts",
+    "math.d.ts",
+    "text.d.ts"
   ],
   "type": "module",
   "exports": {
     ".": {
       "types": "./index.d.ts"
+    },
+    "./math": {
+      "types": "./math.d.ts"
+    },
+    "./text": {
+      "types": "./text.d.ts"
     }
   },
   "publishConfig": {

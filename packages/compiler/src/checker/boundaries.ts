@@ -113,8 +113,20 @@ export function checkBoundaries(
       );
     if (fn.exported && all.some((t) => !reference(t) && contains(t, reference)))
       fail(fn.span, "Shared objects must cross the native boundary directly, not inside containers or optionals.");
-    if (fn.async && fn.params.some((p) => contains(p.type, reference)))
-      fail(fn.span, "Shared object arguments require synchronous functions so their operations remain serialized.");
+    if (
+      fn.async &&
+      fn.params.some((p) =>
+        contains(p.type, (t) => {
+          if (!reference(t) || t.kind !== "struct") return false;
+          const contract = structs.get(t.name)?.reference?.native?.contract;
+          return contract?.ownership !== "owned" || contract.executor !== "caller" || contract.transferable !== true;
+        }),
+      )
+    )
+      fail(
+        fn.span,
+        "Async native references require owned, transferable, executor-neutral SDK objects; shared mutable objects remain synchronous.",
+      );
   }
   return diagnostics;
 }

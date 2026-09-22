@@ -309,6 +309,12 @@ class FunctionLowerer {
           diagnostic("NT1001", e.span, "Assignments are only supported as statements, not inside expressions."),
         );
         return { op: "const", value: 0, type };
+      case "closure": {
+        this.scopes.push(new Map(e.params.map((p) => [p.name, null])));
+        const body = this.expr(e.body);
+        this.scopes.pop();
+        return { op: "closure", params: e.params.map((p) => ({ name: p.name, type: p.type })), body, type };
+      }
       case "functionRef":
         return { op: "functionRef", name: e.name, type };
       case "invoke":
@@ -467,6 +473,8 @@ function rootIdentifier(e: TExpr): string | null {
 
 function childrenOf(e: TExpr): TExpr[] {
   switch (e.kind) {
+    case "closure":
+      return [e.body];
     case "template":
       return e.expressions;
     case "array":

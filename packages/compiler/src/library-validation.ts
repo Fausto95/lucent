@@ -1,3 +1,4 @@
+import { validNativeTargets } from "./native-contracts.ts";
 import type { LibraryModule } from "./libraries.ts";
 const record = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === "object" && !Array.isArray(value);
@@ -19,6 +20,59 @@ const propType = (value: unknown, depth = 0): boolean => {
 export function validateLibrary(library: LibraryModule): string[] {
   const errors: string[] = [];
   if (!record(library) || typeof library.source !== "string") return ["Library source must be a string."];
+  if (library.schemaVersion !== undefined && library.schemaVersion !== 1)
+    errors.push("Unsupported native manifest schema version.");
+  const executors = new Set(["caller", "main", "worker", "serial"]);
+  const ids = new Set<string>();
+  if (library.bindings !== undefined && !record(library.bindings)) return [...errors, "Bindings must be a map."];
+  for (const [name, binding] of Object.entries(library.bindings ?? {})) {
+    if (!record(binding)) {
+      errors.push(`Invalid native binding ${name}.`);
+      continue;
+    }
+    if (binding.overload !== undefined && (typeof binding.overload !== "string" || !identifier(binding.overload)))
+      errors.push(`Invalid overload group ${name}.`);
+    const contract = binding.contract;
+    if (contract === undefined) continue;
+    if (
+      !record(contract) ||
+      typeof contract.symbolId !== "string" ||
+      !contract.symbolId ||
+      ids.has(contract.symbolId)
+    ) {
+      errors.push(`Invalid or duplicate native symbol identity ${name}.`);
+      continue;
+    }
+    ids.add(contract.symbolId);
+    if (contract.executor !== undefined && !executors.has(String(contract.executor)))
+      errors.push(`Invalid executor in ${name}.`);
+    if (contract.result !== undefined && !["value", "owned", "borrowed", "external"].includes(contract.result))
+      errors.push(`Invalid return ownership in ${name}.`);
+    if (contract.cancellation !== undefined && !["none", "cooperative"].includes(contract.cancellation))
+      errors.push(`Invalid cancellation in ${name}.`);
+    if (contract.availability !== undefined && !validNativeTargets(contract.availability))
+      errors.push(`Invalid availability in ${name}.`);
+    if (contract.parameters !== undefined && !record(contract.parameters)) {
+      errors.push(`Invalid parameter contracts in ${name}.`);
+      continue;
+    }
+    for (const [parameter, value] of Object.entries(contract.parameters ?? {})) {
+      if (!record(value) || !["value", "borrowed", "retained"].includes(value.ownership)) {
+        errors.push(`Invalid ownership of ${parameter}.`);
+        continue;
+      }
+      const callback = value.callback;
+      if (
+        callback !== undefined &&
+        (!record(callback) ||
+          !["call", "subscription"].includes(callback.retention) ||
+          !executors.has(callback.executor) ||
+          !["propagate", "notify"].includes(callback.errors) ||
+          (callback.remove !== undefined && typeof callback.remove !== "string"))
+      )
+        errors.push(`Invalid callback contract ${parameter}.`);
+    }
+  }
   if (library.views !== undefined) {
     if (!record(library.views)) return ["Native views must be a map."];
     for (const [name, view] of Object.entries(library.views)) {
@@ -55,6 +109,16 @@ export function validateLibrary(library: LibraryModule): string[] {
         errors.push(`Invalid native reference ${name}.`);
         continue;
       }
+      const contract = reference.contract;
+      if (
+        contract !== undefined &&
+        (!record(contract) ||
+          !["owned", "external"].includes(String(contract.ownership)) ||
+          !executors.has(String(contract.executor)) ||
+          (contract.transferable !== undefined && typeof contract.transferable !== "boolean") ||
+          (contract.close !== undefined && (typeof contract.close !== "string" || !identifier(contract.close))))
+      )
+        errors.push(`Invalid native object contract ${name}.`);
       for (const key of ["swiftImports", "kotlinImports"] as const)
         if (reference[key] !== undefined && !strings(reference[key])) errors.push(`Invalid ${key} for ${name}.`);
       for (const language of ["swift", "kotlin"] as const)

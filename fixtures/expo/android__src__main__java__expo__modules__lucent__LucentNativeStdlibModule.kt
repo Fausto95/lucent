@@ -26,43 +26,43 @@ class LucentNativeStdlibModule : Module() {
     }
   }
 
-  private fun lucentInternal_736b35a22321c26_abs(value: Double): Double {
+  private fun lucentInternal_a2e2c7dbb96a1210_abs(value: Double): Double {
     return kotlin.math.abs(value)
   }
 
-  private fun lucentInternal_736b35a22321c26_sqrt(value: Double): Double {
+  private fun lucentInternal_a2e2c7dbb96a1210_sqrt(value: Double): Double {
     return kotlin.math.sqrt(value)
   }
 
-  private fun lucentInternal_736b35a22321c26_floor(value: Double): Double {
+  private fun lucentInternal_a2e2c7dbb96a1210_floor(value: Double): Double {
     return kotlin.math.floor(value)
   }
 
-  private fun lucentInternal_736b35a22321c26_ceil(value: Double): Double {
+  private fun lucentInternal_a2e2c7dbb96a1210_ceil(value: Double): Double {
     return kotlin.math.ceil(value)
   }
 
-  private fun lucentInternal_736b35a22321c26_sin(value: Double): Double {
+  private fun lucentInternal_a2e2c7dbb96a1210_sin(value: Double): Double {
     return kotlin.math.sin(value)
   }
 
-  private fun lucentInternal_736b35a22321c26_cos(value: Double): Double {
+  private fun lucentInternal_a2e2c7dbb96a1210_cos(value: Double): Double {
     return kotlin.math.cos(value)
   }
 
-  private fun lucentInternal_736b35a22321c26_min(a: Double, b: Double): Double {
+  private fun lucentInternal_a2e2c7dbb96a1210_min(a: Double, b: Double): Double {
     return kotlin.math.min(a, b)
   }
 
-  private fun lucentInternal_736b35a22321c26_max(a: Double, b: Double): Double {
+  private fun lucentInternal_a2e2c7dbb96a1210_max(a: Double, b: Double): Double {
     return kotlin.math.max(a, b)
   }
 
-  private fun lucentInternal_2aaae6189ce4e2af_trim(value: String): String {
+  private fun lucentInternal_e08d398e59797131_trim(value: String): String {
     return value.trim()
   }
 
-  private fun lucentInternal_2aaae6189ce4e2af_contains(value: String, search: String): Boolean {
+  private fun lucentInternal_e08d398e59797131_contains(value: String, search: String): Boolean {
     return value.contains(search)
   }
 
@@ -79,11 +79,11 @@ class LucentNativeStdlibModule : Module() {
   }
 
   private fun magnitude(value: Double): Double {
-    return lucentInternal_736b35a22321c26_sqrt(lucentInternal_736b35a22321c26_abs(value))
+    return lucentInternal_a2e2c7dbb96a1210_sqrt(lucentInternal_a2e2c7dbb96a1210_abs(value))
   }
 
   private fun matches(value: String): Boolean {
-    return lucentInternal_2aaae6189ce4e2af_contains(lucentInternal_2aaae6189ce4e2af_trim(value), "lucent")
+    return lucentInternal_e08d398e59797131_contains(lucentInternal_e08d398e59797131_trim(value), "lucent")
   }
 
   private fun roundTrip(text: String): String {

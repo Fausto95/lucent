@@ -1,24 +1,24 @@
 module native-stdlib
 
-fn lucentInternal_736b35a22321c26_abs(value: float64) -> float64
+fn lucentInternal_a2e2c7dbb96a1210_abs(value: float64) -> float64
 
-fn lucentInternal_736b35a22321c26_sqrt(value: float64) -> float64
+fn lucentInternal_a2e2c7dbb96a1210_sqrt(value: float64) -> float64
 
-fn lucentInternal_736b35a22321c26_floor(value: float64) -> float64
+fn lucentInternal_a2e2c7dbb96a1210_floor(value: float64) -> float64
 
-fn lucentInternal_736b35a22321c26_ceil(value: float64) -> float64
+fn lucentInternal_a2e2c7dbb96a1210_ceil(value: float64) -> float64
 
-fn lucentInternal_736b35a22321c26_sin(value: float64) -> float64
+fn lucentInternal_a2e2c7dbb96a1210_sin(value: float64) -> float64
 
-fn lucentInternal_736b35a22321c26_cos(value: float64) -> float64
+fn lucentInternal_a2e2c7dbb96a1210_cos(value: float64) -> float64
 
-fn lucentInternal_736b35a22321c26_min(a: float64, b: float64) -> float64
+fn lucentInternal_a2e2c7dbb96a1210_min(a: float64, b: float64) -> float64
 
-fn lucentInternal_736b35a22321c26_max(a: float64, b: float64) -> float64
+fn lucentInternal_a2e2c7dbb96a1210_max(a: float64, b: float64) -> float64
 
-fn lucentInternal_2aaae6189ce4e2af_trim(value: string) -> string
+fn lucentInternal_e08d398e59797131_trim(value: string) -> string
 
-fn lucentInternal_2aaae6189ce4e2af_contains(value: string, search: string) -> bool
+fn lucentInternal_e08d398e59797131_contains(value: string, search: string) -> bool
 
 fn lucentInternal_d04f744ec3bed451_encodeUTF8(text: string) -> bytes
 
@@ -27,10 +27,10 @@ fn lucentInternal_d04f744ec3bed451_decodeUTF8(bytes: bytes) -> string
 fn lucentInternal_d04f744ec3bed451_copyBytes(bytes: bytes) -> bytes
 
 export fn magnitude(value: float64) -> float64
-  return (call lucentInternal_736b35a22321c26_sqrt (call lucentInternal_736b35a22321c26_abs value))
+  return (call lucentInternal_a2e2c7dbb96a1210_sqrt (call lucentInternal_a2e2c7dbb96a1210_abs value))
 
 export fn matches(value: string) -> bool
-  return (call lucentInternal_2aaae6189ce4e2af_contains (call lucentInternal_2aaae6189ce4e2af_trim value) "lucent")
+  return (call lucentInternal_e08d398e59797131_contains (call lucentInternal_e08d398e59797131_trim value) "lucent")
 
 export fn roundTrip(text: string) -> string
   return (call lucentInternal_d04f744ec3bed451_decodeUTF8 (call lucentInternal_d04f744ec3bed451_copyBytes (call lucentInternal_d04f744ec3bed451_encodeUTF8 text)))

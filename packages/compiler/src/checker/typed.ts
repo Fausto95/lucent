@@ -62,6 +62,7 @@ interface Typed {
 }
 
 export type TExpr =
+  | ({ kind: "closure"; params: TypedParam[]; body: TExpr } & Typed)
   | ({ kind: "functionRef"; name: string } & Typed)
   | ({ kind: "invoke"; callback: TExpr; args: TExpr[] } & Typed)
   | ({

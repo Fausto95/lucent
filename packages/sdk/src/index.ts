@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { nativeSymbolId } from "@lucent-lang/compiler";
 import type { LibraryModule, NativeBinding } from "@lucent-lang/compiler";
 export type SDKPlatform = "ios" | "android";
 export interface SDKParameter {
@@ -76,13 +78,7 @@ const safeIdentifier = (name: string) =>
     "in",
   ].includes(name);
 function validate(schema: SDKSchema): SDKSchema {
-  const names = new Map<string, number>();
-  for (const f of schema.functions) names.set(f.name, (names.get(f.name) ?? 0) + 1);
   schema.functions = schema.functions.filter((f) => {
-    if ((names.get(f.name) ?? 0) > 1) {
-      schema.diagnostics.push(`Skipped ${f.name}: overload selection is required`);
-      return false;
-    }
     if (!safeIdentifier(f.name) || f.parameters.some((p) => !safeIdentifier(p.name))) {
       schema.diagnostics.push(`Skipped ${f.name}: unsupported identifier`);
       return false;
@@ -163,6 +159,9 @@ export function extractJavaSignatures(source: string): SDKSchema {
 }
 export function generateBindingLibrary(schema: SDKSchema): { library: LibraryModule; declarations: string } {
   const signatures: string[] = [];
+  const publicFunctions: string[] = [];
+  const counts = new Map<string, number>();
+  for (const fn of schema.functions) counts.set(fn.name, (counts.get(fn.name) ?? 0) + 1);
   const bindings: Record<string, NativeBinding> = {};
   for (const fn of schema.functions) {
     const table = types(schema.platform);
@@ -170,7 +169,23 @@ export function generateBindingLibrary(schema: SDKSchema): { library: LibraryMod
     if (!ret || fn.parameters.some((p) => !table[nativeType(p.nativeType)]))
       throw new Error(`Unsupported schema type in ${fn.name}`);
     const params = fn.parameters.map((p) => `${p.name}: ${table[nativeType(p.nativeType)]!.lucent}`).join(", ");
-    signatures.push(`export declare function ${fn.name}(${params}): ${ret.lucent};`);
+    const symbolId = nativeSymbolId(
+      schema.module,
+      schema.module,
+      fn.nativeName,
+      JSON.stringify([
+        fn.parameters.map((p) => [p.label ?? "_", nativeType(p.nativeType)]),
+        nativeType(fn.returnType),
+        !!fn.throws,
+      ]),
+    );
+    const overloaded = (counts.get(fn.name) ?? 0) > 1;
+    const name = overloaded
+      ? `${fn.name}__overload_${createHash("sha256").update(symbolId).digest("hex").slice(0, 16)}`
+      : fn.name;
+    if (bindings[name]) throw new Error(`Duplicate SDK operation ${fn.name}`);
+    signatures.push(`export declare function ${name}(${params}): ${ret.lucent};`);
+    publicFunctions.push(`export declare function ${fn.name}(${params}): ${ret.lucent};`);
     const args = fn.parameters
       .map((p) => {
         const value = table[nativeType(p.nativeType)]!.argument(p.name);
@@ -179,7 +194,9 @@ export function generateBindingLibrary(schema: SDKSchema): { library: LibraryMod
       .join(", ");
     const invocation = `${schema.platform === "ios" && fn.throws ? "try " : ""}${fn.nativeName}(${args})`;
     const body = [ret.lucent === "void" ? invocation : `return ${ret.result(invocation)}`];
-    bindings[fn.name] = {
+    bindings[name] = {
+      contract: { symbolId },
+      ...(overloaded ? { overload: fn.name } : {}),
       platforms: [schema.platform],
       swift: schema.platform === "ios" ? body : ['throw LucentError(code: "PLATFORM_UNAVAILABLE")'],
       kotlin: schema.platform === "android" ? body : ['throw LucentError("PLATFORM_UNAVAILABLE")'],
@@ -282,11 +299,7 @@ export function generateBindingLibrary(schema: SDKSchema): { library: LibraryMod
   const prefix = signatures.some((s) => s.includes("int32")) ? 'import type {int32} from "@lucent-lang/types";\n' : "";
   const source = prefix + signatures.join("\n") + "\n";
   return {
-    library: { source, bindings, ...(schema.classes?.length ? { references } : {}) },
-    declarations:
-      prefix +
-      signatures.filter((s) => !s.startsWith("export type ") && !s.includes("__")).join("\n") +
-      "\n" +
-      declarations.join("\n"),
+    library: { schemaVersion: 1, source, bindings, ...(schema.classes?.length ? { references } : {}) },
+    declarations: prefix + publicFunctions.join("\n") + "\n" + declarations.join("\n"),
   };
 }

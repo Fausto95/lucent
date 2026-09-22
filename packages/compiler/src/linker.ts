@@ -41,6 +41,7 @@ export function linkModule(
   const diagnostics: Diagnostic[] = [];
   const modules = new Map<string, SurfaceModule>();
   const viewBindings: Record<string, NativeViewBinding> = {};
+  const overloads: Record<string, string[]> = {};
   const active = new Set<string>();
   const names = new Map<string, Map<string, string>>();
   const typeNames = new Map<string, Map<string, string>>();
@@ -81,6 +82,9 @@ export function linkModule(
     for (const fn of module.functions) {
       const binding = libraries[path]?.bindings?.[fn.name];
       if (binding) {
+        for (const name of Object.keys(binding.contract?.parameters ?? {}))
+          if (!fn.params.some((p) => p.name === name))
+            diagnostics.push(diagnostic("NT1006", fn.span, `Unknown native contract parameter ${name} in ${fn.name}.`));
         fn.binding = binding;
         if (fn.ambient && fn.returnType?.kind === "reference" && fn.returnType.name === "Promise") fn.async = true;
         if (binding.thread) fn.thread = binding.thread;
@@ -99,6 +103,20 @@ export function linkModule(
     for (const fn of module.functions)
       if (fn.classOp)
         values.set(fn.name, types.get(fn.classOp.className)! + fn.name.slice(fn.classOp.className.length));
+    const groups = new Map<string, string[]>();
+    for (const fn of module.functions)
+      if (fn.binding?.overload) {
+        const group = fn.binding.overload;
+        const list = groups.get(group) ?? [];
+        list.push(fn.name);
+        groups.set(group, list);
+      }
+    for (const [group, candidates] of groups) {
+      const owner = [...types.keys()].find((name) => group.startsWith(name + "__"));
+      const renamed = owner ? types.get(owner)! + group.slice(owner.length) : prefix + group;
+      values.set(group, renamed);
+      overloads[renamed] = candidates.map((name) => values.get(name)!);
+    }
     names.set(path, values);
     typeNames.set(path, types);
     for (const imp of module.imports) {
@@ -171,6 +189,10 @@ export function linkModule(
           values.set(binding.local, name);
           continue;
         }
+        if (dependency.functions.some((f) => f.binding?.overload === binding.imported) && !binding.typeOnly) {
+          values.set(binding.local, names.get(target)!.get(binding.imported)!);
+          continue;
+        }
         const fn = dependency.functions.find((f) => f.name === binding.imported && f.exported);
         const type = dependency.typeAliases.find((t) => t.name === binding.imported && t.exported);
         const scope = type ? types : values;
@@ -232,6 +254,7 @@ export function linkModule(
       .map((path) => [moduleId(path), libraries[path]!.native!]),
   );
   if (Object.keys(nativePackages).length) result.nativePackages = nativePackages;
+  if (Object.keys(overloads).length) result.overloads = overloads;
   if (Object.keys(viewBindings).length) result.views = viewBindings;
   return { module: result, diagnostics };
 }
@@ -252,7 +275,19 @@ function renameType(type: SurfaceType, names: Map<string, string>): SurfaceType 
   return type;
 }
 
-function renameExpr(expr: Expr, values: Map<string, string>, locals: Set<string>): Expr {
+function renameExpr(
+  expr: Expr,
+  values: Map<string, string>,
+  locals: Set<string>,
+  types = new Map<string, string>(),
+): Expr {
+  if (expr.kind === "closure")
+    return {
+      ...expr,
+      params: expr.params.map((p) => ({ ...p, type: p.type ? renameType(p.type, types) : null })),
+      returnType: expr.returnType ? renameType(expr.returnType, types) : null,
+      body: renameExpr(expr.body, values, new Set([...locals, ...expr.params.map((p) => p.name)]), types),
+    };
   // Expressions contain only expression children and scalar metadata. Rename symbol uses,
   // never member names, object keys, or lexical bindings.
   const result = { ...expr } as unknown as Record<string, unknown>;
@@ -261,13 +296,13 @@ function renameExpr(expr: Expr, values: Map<string, string>, locals: Set<string>
     if (Array.isArray(value))
       result[key] = value.map((v) =>
         v && typeof v === "object" && "kind" in v
-          ? renameExpr(v as Expr, values, locals)
+          ? renameExpr(v as Expr, values, locals, types)
           : v && typeof v === "object" && "value" in v
-            ? { ...v, value: renameExpr(v.value as Expr, values, locals) }
+            ? { ...v, value: renameExpr(v.value as Expr, values, locals, types) }
             : v,
       );
     else if (value && typeof value === "object" && "kind" in value)
-      result[key] = renameExpr(value as Expr, values, locals);
+      result[key] = renameExpr(value as Expr, values, locals, types);
   }
   if (
     expr.kind === "methodCall" &&
@@ -291,7 +326,7 @@ function renameBlock(
 ): Stmt[] {
   const locals = new Set(outer);
   return stmts.map((stmt) => {
-    const expr = (e: Expr) => renameExpr(e, values, locals);
+    const expr = (e: Expr) => renameExpr(e, values, locals, types);
     const block = (s: Stmt[]) => renameBlock(s, values, types, locals);
     switch (stmt.kind) {
       case "variable": {
@@ -320,8 +355,8 @@ function renameBlock(
         return {
           ...stmt,
           init: stmt.init ? block([stmt.init])[0]! : null,
-          test: stmt.test ? renameExpr(stmt.test, values, nested) : null,
-          update: stmt.update ? renameExpr(stmt.update, values, nested) : null,
+          test: stmt.test ? renameExpr(stmt.test, values, nested, types) : null,
+          update: stmt.update ? renameExpr(stmt.update, values, nested, types) : null,
           body: renameBlock(stmt.body, values, types, nested),
         };
       }

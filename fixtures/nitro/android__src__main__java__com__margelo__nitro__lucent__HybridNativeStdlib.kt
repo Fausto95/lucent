@@ -27,43 +27,43 @@ class HybridNativeStdlib : HybridNativeStdlibSpec() {
 }
 
 object NativeStdlibBodies {
-  fun lucentInternal_736b35a22321c26_abs(value: Double): Double {
+  fun lucentInternal_a2e2c7dbb96a1210_abs(value: Double): Double {
     return kotlin.math.abs(value)
   }
 
-  fun lucentInternal_736b35a22321c26_sqrt(value: Double): Double {
+  fun lucentInternal_a2e2c7dbb96a1210_sqrt(value: Double): Double {
     return kotlin.math.sqrt(value)
   }
 
-  fun lucentInternal_736b35a22321c26_floor(value: Double): Double {
+  fun lucentInternal_a2e2c7dbb96a1210_floor(value: Double): Double {
     return kotlin.math.floor(value)
   }
 
-  fun lucentInternal_736b35a22321c26_ceil(value: Double): Double {
+  fun lucentInternal_a2e2c7dbb96a1210_ceil(value: Double): Double {
     return kotlin.math.ceil(value)
   }
 
-  fun lucentInternal_736b35a22321c26_sin(value: Double): Double {
+  fun lucentInternal_a2e2c7dbb96a1210_sin(value: Double): Double {
     return kotlin.math.sin(value)
   }
 
-  fun lucentInternal_736b35a22321c26_cos(value: Double): Double {
+  fun lucentInternal_a2e2c7dbb96a1210_cos(value: Double): Double {
     return kotlin.math.cos(value)
   }
 
-  fun lucentInternal_736b35a22321c26_min(a: Double, b: Double): Double {
+  fun lucentInternal_a2e2c7dbb96a1210_min(a: Double, b: Double): Double {
     return kotlin.math.min(a, b)
   }
 
-  fun lucentInternal_736b35a22321c26_max(a: Double, b: Double): Double {
+  fun lucentInternal_a2e2c7dbb96a1210_max(a: Double, b: Double): Double {
     return kotlin.math.max(a, b)
   }
 
-  fun lucentInternal_2aaae6189ce4e2af_trim(value: String): String {
+  fun lucentInternal_e08d398e59797131_trim(value: String): String {
     return value.trim()
   }
 
-  fun lucentInternal_2aaae6189ce4e2af_contains(value: String, search: String): Boolean {
+  fun lucentInternal_e08d398e59797131_contains(value: String, search: String): Boolean {
     return value.contains(search)
   }
 
@@ -80,11 +80,11 @@ object NativeStdlibBodies {
   }
 
   fun magnitude(value: Double): Double {
-    return lucentInternal_736b35a22321c26_sqrt(lucentInternal_736b35a22321c26_abs(value))
+    return lucentInternal_a2e2c7dbb96a1210_sqrt(lucentInternal_a2e2c7dbb96a1210_abs(value))
   }
 
   fun matches(value: String): Boolean {
-    return lucentInternal_2aaae6189ce4e2af_contains(lucentInternal_2aaae6189ce4e2af_trim(value), "lucent")
+    return lucentInternal_e08d398e59797131_contains(lucentInternal_e08d398e59797131_trim(value), "lucent")
   }
 
   fun roundTrip(text: String): String {

@@ -6,13 +6,13 @@ export const page: DocPage = {
   description:
     "Native functions you can import from Lucent source. Each is a direct Swift and Kotlin call; some require a capability in `lucent.config.ts`.",
   blocks: [
-    { kind: "h2", text: "@lucent-lang/std/math" },
+    { kind: "h2", text: "@lucent-lang/core/math" },
     {
       kind: "code",
       filename: "declaration",
       code: "export declare function abs(value: number): number;\nexport declare function sqrt(value: number): number;\nexport declare function floor(value: number): number;\nexport declare function ceil(value: number): number;\nexport declare function sin(value: number): number;\nexport declare function cos(value: number): number;\nexport declare function min(a: number, b: number): number;\nexport declare function max(a: number, b: number): number;",
     },
-    { kind: "h2", text: "@lucent-lang/std/text" },
+    { kind: "h2", text: "@lucent-lang/core/text" },
     {
       kind: "code",
       filename: "declaration",

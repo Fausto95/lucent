@@ -1,9 +1,10 @@
+import { supportsNativeVersion, type NativeTargets } from "../native-contracts.ts";
 import { diagnostic, type Diagnostic } from "../diagnostics/index.ts";
 import type { NativePlatform } from "../libraries.ts";
 import type { TExpr, TypedFunction } from "./typed.ts";
 
 /** Analyze each reachable call under the platform set of its calling branch. */
-export function platformSafety(functions: TypedFunction[]): Diagnostic[] {
+export function platformSafety(functions: TypedFunction[], targets: NativeTargets = {}): Diagnostic[] {
   const byName = new Map(functions.map((f) => [f.name, f]));
   const diagnostics: Diagnostic[] = [];
   const visited = new Set<string>();
@@ -59,6 +60,19 @@ export function platformSafety(functions: TypedFunction[]): Diagnostic[] {
       const fn = byName.get((node.callee ?? node.name) as string);
       if (fn) {
         const available = fn.binding?.platforms;
+        for (const platform of platforms) {
+          const minimum = fn.binding?.contract?.availability?.[platform];
+          if (minimum !== undefined && !supportsNativeVersion(targets[platform], minimum)) {
+            const call = value as TExpr;
+            diagnostics.push(
+              diagnostic(
+                "NT2004",
+                call.span,
+                `${fn.name} requires ${platform} ${minimum}; configured minimum is ${targets[platform] ?? "unspecified"}.`,
+              ),
+            );
+          }
+        }
         if (available && platforms.some((p) => !available.includes(p))) {
           const call = value as Extract<TExpr, { kind: "call" }>;
           const key = `${fn.name}:${call.span.origin?.fileName ?? ""}:${call.span.start}`;

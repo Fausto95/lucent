@@ -48,9 +48,6 @@ importers:
       '@lucent-lang/platform':
         specifier: workspace:*
         version: link:packages/platform
-      '@lucent-lang/std':
-        specifier: workspace:*
-        version: link:packages/std
       '@lucent-lang/types':
         specifier: workspace:*
         version: link:packages/types
@@ -133,9 +130,6 @@ importers:
       '@lucent-lang/platform':
         specifier: workspace:*
         version: link:../../packages/platform
-      '@lucent-lang/std':
-        specifier: workspace:*
-        version: link:../../packages/std
       '@lucent-lang/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -224,9 +218,6 @@ importers:
       '@lucent-lang/platform':
         specifier: workspace:*
         version: link:../../packages/platform
-      '@lucent-lang/std':
-        specifier: workspace:*
-        version: link:../../packages/std
       '@lucent-lang/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -413,8 +404,6 @@ importers:
       '@lucent-lang/compiler':
         specifier: workspace:*
         version: link:../compiler
-
-  packages/std: {}
 
   packages/types: {}
 

@@ -114,7 +114,11 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
     const source = readFileSync(file, "utf8");
     const sources = loadLucentSources(file, source);
     const hash = hashOf(
-      JSON.stringify([Object.entries(sources).toSorted(([a], [b]) => a.localeCompare(b)), config.libraries]),
+      JSON.stringify([
+        Object.entries(sources).toSorted(([a], [b]) => a.localeCompare(b)),
+        config.libraries,
+        config.targets,
+      ]),
       options.host,
     );
     const hit = cache?.modules[rel];
@@ -127,7 +131,7 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
       continue;
     }
     log(`⚙ ${rel} compiling`);
-    const result = compile(source, { fileName: file, sources, libraries: config.libraries });
+    const result = compile(source, { fileName: file, sources, targets: config.targets, libraries: config.libraries });
     const reported = result.diagnostics.map((d) => ({
       fileName: rel,
       rendered: renderDiagnostic(d, source, rel),

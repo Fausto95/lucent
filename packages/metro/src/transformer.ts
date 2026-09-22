@@ -49,6 +49,7 @@ export function createTransformer(options: { upstream: UpstreamTransformer; host
         fileName,
         sources: loadLucentSources(fileName, args.src),
         libraries: config.libraries,
+        targets: config.targets,
       });
       if (!result.module) {
         const rendered = result.diagnostics.map((d) => renderDiagnostic(d, args.src, args.filename)).join("\n\n");

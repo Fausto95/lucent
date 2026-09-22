@@ -1,9 +1,13 @@
+import type { NativeCallContract, NativeObjectContract } from "./native-contracts.ts";
 import type { NativeType } from "./types/native-type.ts";
 import { NATIVE_LIBRARIES } from "./libraries/native.ts";
 /** Native implementations are trusted build inputs; the compiler never executes them. */
 export type ThreadContext = "caller" | "main" | "worker";
 export type NativePlatform = "ios" | "android";
 export interface NativeBinding {
+  contract?: NativeCallContract;
+  /** Public overload group; resolved before lowering. */
+  overload?: string;
   /** Keep operations such as native listeners out of the JavaScript bridge. */
   nativeOnly?: boolean;
   platforms?: NativePlatform[];
@@ -17,6 +21,7 @@ export interface NativeBinding {
   thread?: ThreadContext;
 }
 export interface NativeReferenceBinding {
+  contract?: NativeObjectContract;
   swift?: string;
   kotlin?: string;
   swiftImports?: string[];
@@ -36,6 +41,7 @@ export interface NativePackage {
   dependencies?: { pods?: Record<string, string>; android?: string[] };
 }
 export interface LibraryModule {
+  schemaVersion?: 1;
   native?: NativePackage;
   views?: Record<string, NativeViewBinding>;
   references?: Record<string, NativeReferenceBinding>;
@@ -48,7 +54,7 @@ export const STANDARD_LIBRARIES: Readonly<Record<string, LibraryModule>> = {
     source: "export declare function Platform(): string;",
     bindings: { Platform: { swift: ['return "ios"'], kotlin: ['return "android"'], platformQuery: true } },
   },
-  "@lucent-lang/std/math": {
+  "@lucent-lang/core/math": {
     source:
       ["abs", "sqrt", "floor", "ceil", "sin", "cos"]
         .map((name) => `export declare function ${name}(value: number): number;`)
@@ -73,7 +79,7 @@ export const STANDARD_LIBRARIES: Readonly<Record<string, LibraryModule>> = {
       max: { swift: ["return Swift.max(a, b)"], kotlin: ["return kotlin.math.max(a, b)"] },
     },
   },
-  "@lucent-lang/std/text": {
+  "@lucent-lang/core/text": {
     source:
       "export declare function trim(value: string): string;\nexport declare function contains(value: string, search: string): boolean;",
     bindings: {

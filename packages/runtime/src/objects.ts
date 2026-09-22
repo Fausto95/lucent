@@ -16,6 +16,7 @@ interface State {
   type: string;
   release(handle: number): void;
   disposed: boolean;
+  pending: number;
 }
 const states = new WeakMap<object, State>();
 const classes = new Map<string, Constructor>();
@@ -26,12 +27,9 @@ const finalizer =
     ? undefined
     : new FinalizationRegistry<State>((state) => {
         if (activeStates.get(state.handle) !== state) return;
-        if (!state.disposed) {
-          state.disposed = true;
-          state.release(state.handle);
-        }
+        state.disposed = true;
         instances.delete(state.handle);
-        activeStates.delete(state.handle);
+        releaseIfUnused(state);
       });
 function attach(value: NativeObject, state: State): NativeObject {
   const previous = activeStates.get(state.handle);
@@ -65,6 +63,7 @@ export function nativeObjectFromHandle(handle: number, type: string): NativeObje
     handle,
     release: definition.release,
     disposed: false,
+    pending: 0,
   });
 }
 export function defineNativeClass(type: string, definition: Definition): Constructor {
@@ -73,16 +72,15 @@ export function defineNativeClass(type: string, definition: Definition): Constru
   class SharedNativeObject implements NativeObject {
     constructor(...args: unknown[]) {
       const handle = definition.create(...args);
-      attach(this, { type, handle, release: definition.release, disposed: false });
+      attach(this, { type, handle, release: definition.release, disposed: false, pending: 0 });
     }
     dispose(): void {
       const state = states.get(this);
       if (!state || state.disposed) return;
-      state.release(state.handle);
       state.disposed = true;
       finalizer?.unregister(this);
       instances.delete(state.handle);
-      activeStates.delete(state.handle);
+      releaseIfUnused(state);
     }
   }
   Object.defineProperty(SharedNativeObject, "name", { value: definition.name });
@@ -104,4 +102,27 @@ export function defineNativeClass(type: string, definition: Definition): Constru
   classes.set(type, SharedNativeObject);
   definitions.set(type, definition);
   return SharedNativeObject;
+}
+
+/** The JS dispatch lease covers time before the native coroutine starts. */
+export async function withNativeObjects<T>(values: readonly unknown[], action: () => T | PromiseLike<T>): Promise<T> {
+  const retained = [...new Set(values)].map((value) => {
+    const state = value && typeof value === "object" ? states.get(value) : undefined;
+    if (!state || state.disposed) throw new Error("Invalid or disposed native object");
+    return state;
+  });
+  retained.forEach((state) => state.pending++);
+  try {
+    return await action();
+  } finally {
+    retained.forEach((state) => {
+      state.pending--;
+      releaseIfUnused(state);
+    });
+  }
+}
+function releaseIfUnused(state: State): void {
+  if (!state.disposed || state.pending || activeStates.get(state.handle) !== state) return;
+  activeStates.delete(state.handle);
+  state.release(state.handle);
 }

@@ -16,8 +16,8 @@ export const page: DocPage = {
       head: ["Import", "API", "Capability"],
       rows: [
         ["`@lucent-lang/core`", "`encodeUTF8`, `decodeUTF8`, `copyBytes`", "none"],
-        ["`@lucent-lang/std/math`", "`abs`, `sqrt`, `floor`, `ceil`, `sin`, `cos`, `min`, `max`", "none"],
-        ["`@lucent-lang/std/text`", "`trim`, `contains`", "none"],
+        ["`@lucent-lang/core/math`", "`abs`, `sqrt`, `floor`, `ceil`, `sin`, `cos`, `min`, `max`", "none"],
+        ["`@lucent-lang/core/text`", "`trim`, `contains`", "none"],
         ["`@lucent-lang/crypto`", "`sha256(bytes)` → lowercase hex", "`crypto`"],
         ["`@lucent-lang/filesystem`", "async `read`, `write`, `exists`, `temporaryDirectory`", "`filesystem`"],
         ["`@lucent-lang/network`", "async `get(url)` → bytes", "`network`"],

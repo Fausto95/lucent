@@ -18,7 +18,7 @@ export const page: DocPage = {
         ["`@lucent-lang/objects`", "`SharedObject`", "[objects](/docs/api/objects/)"],
         ["`@lucent-lang/events`", "`event<T>()`, `Event<T>`, `Subscription`", "[events](/docs/api/events/)"],
         ["`@lucent-lang/ui`", "`VStack`, `HStack`, `ZStack`, `ScrollView`, `Text`, `Spacer`, `Button`, `TextField`, `Toggle`, `Slider`, wrappers, `NativeView`, `NativeProps`", "[ui](/docs/api/ui/)"],
-        ["`@lucent-lang/std/math`, `std/text`", "math and text helpers", "[std](/docs/api/std/)"],
+        ["`@lucent-lang/core/math`, `core/text`", "math and text helpers", "[std](/docs/api/std/)"],
         ["`@lucent-lang/core`, `crypto`, `filesystem`, `network`, `device`", "bytes, hashing, files, HTTP GET, device model", "[std](/docs/api/std/)"],
         ["`@lucent-lang/platform`, `platform/clock`, `platform/locale`", "`Platform.OS`, `now()`, `languageTag()`", "[std](/docs/api/std/)"],
       ],

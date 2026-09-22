@@ -1,3 +1,4 @@
+import { createText, textLength } from "./src/async-text.lucent";
 import { nativeOS, bytes, hash, fileRoundTrip, deviceModel, fetchBytes, metadataFailure } from "./src/features.lucent";
 import { Counter } from "./src/counter.lucent";
 import { advance, evaluate, timestamp, double, progress, report } from "./src/features.lucent";
@@ -53,6 +54,16 @@ async function runChecks(): Promise<Row[]> {
   check("tagged union error", evaluate(-1), { kind: "error", message: "Negative" });
   check("platform clock", Math.abs(timestamp() - Date.now()) < 5000, true);
   check("worker thread", await double(4), 8);
+  const nativeText = createText("Lucent 🌍");
+  const pendingLengths = Promise.all([textLength(nativeText), textLength(nativeText)]);
+  nativeText.dispose();
+  check("disposed async native text", await pendingLengths, [9, 9]);
+  try {
+    await textLength(nativeText);
+    check("disposed text rejects new work", false, true);
+  } catch {
+    check("disposed text rejects new work", true, true);
+  }
   const emitted = await new Promise<number>((resolve, reject) => {
     const timer = setTimeout(() => {
       subscription.remove();

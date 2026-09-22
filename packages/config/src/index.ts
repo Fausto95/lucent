@@ -13,6 +13,7 @@ export interface NativeCapabilities {
   locale?: boolean;
 }
 export interface NativeConfig {
+  targets?: { ios?: string; android?: number };
   capabilities?: NativeCapabilities;
   /** Paths to generated SDK library.json files, relative to the app root. */
   libraries?: Record<string, string>;

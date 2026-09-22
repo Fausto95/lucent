@@ -295,6 +295,8 @@ class SwiftEmitter {
         return `!${this.expr(e.value)}`;
       case "neg":
         return `-${this.expr(e.value)}`;
+      case "closure":
+        return `{ (${e.params.map((p) => `${p.name}: ${swiftType(p.type)}`).join(", ")}) throws -> ${swiftType(e.type.kind === "callback" ? e.type.result : e.body.type)} in ${this.top(e.body)} }`;
       case "functionRef":
         return e.name;
       case "invoke":

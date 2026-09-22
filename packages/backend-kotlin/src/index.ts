@@ -271,6 +271,8 @@ class KotlinEmitter {
         return `!${this.expr(e.value)}`;
       case "neg":
         return `-${this.expr(e.value)}`;
+      case "closure":
+        return `{ ${e.params.length ? e.params.map((p) => `${p.name}: ${kotlinType(p.type)}`).join(", ") + " -> " : ""}${this.expr(e.body)} }`;
       case "functionRef":
         return `::${e.name}`;
       case "invoke":

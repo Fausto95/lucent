@@ -95,4 +95,4 @@ export function fromArrayBuffer(buffer: ArrayBuffer): Uint8Array {
   return new Uint8Array(buffer);
 }
 
-export { defineNativeClass, nativeObjectHandle, nativeObjectFromHandle } from "./objects.ts";
+export { defineNativeClass, nativeObjectHandle, nativeObjectFromHandle, withNativeObjects } from "./objects.ts";

@@ -30,7 +30,6 @@
     "@lucent-lang/metro": "workspace:*",
     "@lucent-lang/objects": "workspace:*",
     "@lucent-lang/platform": "workspace:*",
-    "@lucent-lang/std": "workspace:*",
     "@lucent-lang/types": "workspace:*",
     "@lucent-lang/ui": "workspace:*",
     "@react-native-community/cli": "20.2.0",

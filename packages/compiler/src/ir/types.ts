@@ -1,3 +1,4 @@
+import type { NativeTargets } from "../native-contracts.ts";
 import type { NativePackage } from "../libraries.ts";
 import type { NativeBinding, NativeViewBinding, NativeReferenceBinding, ThreadContext } from "../libraries.ts";
 /**
@@ -18,6 +19,7 @@ interface Typed {
 }
 
 export type IRExpr =
+  | ({ op: "closure"; params: { name: string; type: NativeType }[]; body: IRExpr } & Typed)
   | ({ op: "functionRef"; name: string } & Typed)
   | ({ op: "invoke"; callback: IRExpr; args: IRExpr[] } & Typed)
   | ({
@@ -113,6 +115,7 @@ export interface IREvent {
 }
 
 export interface IRModule {
+  targets?: NativeTargets;
   nativePackages?: Record<string, NativePackage>;
   views?: Record<string, NativeViewBinding>;
   events?: IREvent[];

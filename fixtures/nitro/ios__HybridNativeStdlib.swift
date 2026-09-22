@@ -22,43 +22,43 @@ class HybridNativeStdlib: HybridNativeStdlibSpec {
 }
 
 enum NativeStdlibBodies {
-  static func lucentInternal_736b35a22321c26_abs(value: Double) throws -> Double {
+  static func lucentInternal_a2e2c7dbb96a1210_abs(value: Double) throws -> Double {
     return Swift.abs(value)
   }
 
-  static func lucentInternal_736b35a22321c26_sqrt(value: Double) throws -> Double {
+  static func lucentInternal_a2e2c7dbb96a1210_sqrt(value: Double) throws -> Double {
     return value.squareRoot()
   }
 
-  static func lucentInternal_736b35a22321c26_floor(value: Double) throws -> Double {
+  static func lucentInternal_a2e2c7dbb96a1210_floor(value: Double) throws -> Double {
     return value.rounded(.down)
   }
 
-  static func lucentInternal_736b35a22321c26_ceil(value: Double) throws -> Double {
+  static func lucentInternal_a2e2c7dbb96a1210_ceil(value: Double) throws -> Double {
     return value.rounded(.up)
   }
 
-  static func lucentInternal_736b35a22321c26_sin(value: Double) throws -> Double {
+  static func lucentInternal_a2e2c7dbb96a1210_sin(value: Double) throws -> Double {
     return Foundation.sin(value)
   }
 
-  static func lucentInternal_736b35a22321c26_cos(value: Double) throws -> Double {
+  static func lucentInternal_a2e2c7dbb96a1210_cos(value: Double) throws -> Double {
     return Foundation.cos(value)
   }
 
-  static func lucentInternal_736b35a22321c26_min(a: Double, b: Double) throws -> Double {
+  static func lucentInternal_a2e2c7dbb96a1210_min(a: Double, b: Double) throws -> Double {
     return Swift.min(a, b)
   }
 
-  static func lucentInternal_736b35a22321c26_max(a: Double, b: Double) throws -> Double {
+  static func lucentInternal_a2e2c7dbb96a1210_max(a: Double, b: Double) throws -> Double {
     return Swift.max(a, b)
   }
 
-  static func lucentInternal_2aaae6189ce4e2af_trim(value: String) throws -> String {
+  static func lucentInternal_e08d398e59797131_trim(value: String) throws -> String {
     return value.trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
-  static func lucentInternal_2aaae6189ce4e2af_contains(value: String, search: String) throws -> Bool {
+  static func lucentInternal_e08d398e59797131_contains(value: String, search: String) throws -> Bool {
     return value.contains(search)
   }
 
@@ -75,11 +75,11 @@ enum NativeStdlibBodies {
   }
 
   static func magnitude(value: Double) throws -> Double {
-    return try lucentInternal_736b35a22321c26_sqrt(value: lucentInternal_736b35a22321c26_abs(value: value))
+    return try lucentInternal_a2e2c7dbb96a1210_sqrt(value: lucentInternal_a2e2c7dbb96a1210_abs(value: value))
   }
 
   static func matches(value: String) throws -> Bool {
-    return try lucentInternal_2aaae6189ce4e2af_contains(value: lucentInternal_2aaae6189ce4e2af_trim(value: value), search: "lucent")
+    return try lucentInternal_e08d398e59797131_contains(value: lucentInternal_e08d398e59797131_trim(value: value), search: "lucent")
   }
 
   static func roundTrip(text: String) throws -> String {

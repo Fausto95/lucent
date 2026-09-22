@@ -21,24 +21,111 @@ test("preserves identity and releases each native object exactly once", () => {
   expect(() => nativeObjectHandle(a, "test.Counter")).toThrow();
 });
 
-test('disposal rejects new calls while accepted async work retains its handle', async () => {
- const {withNativeObjects}=await import('../src/objects.ts');
- const released:number[]=[];
- const Text=defineNativeClass('test.AsyncText',{name:'AsyncText',create:()=>991,release:id=>released.push(id),methods:{},getters:{},setters:{}});
- const value=new Text();
- let finish!:()=>void;
- const pending=withNativeObjects([value],()=>new Promise<void>(resolve=>{finish=resolve;}));
- value.dispose();value.dispose();
- expect(()=>nativeObjectHandle(value,'test.AsyncText')).toThrow();
- expect(released).toEqual([]);
- finish();await pending;
- expect(released).toEqual([991]);
+test("disposal rejects new calls while accepted async work retains its handle", async () => {
+  const { withNativeObjects } = await import("../src/objects.ts");
+  const released: number[] = [];
+  const Text = defineNativeClass("test.AsyncText", {
+    name: "AsyncText",
+    create: () => 991,
+    release: (id) => released.push(id),
+    methods: {},
+    getters: {},
+    setters: {},
+  });
+  const value = new Text();
+  let finish!: () => void;
+  const pending = withNativeObjects(
+    [value],
+    () =>
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+  );
+  value.dispose();
+  value.dispose();
+  expect(() => nativeObjectHandle(value, "test.AsyncText")).toThrow();
+  expect(released).toEqual([]);
+  finish();
+  await pending;
+  expect(released).toEqual([991]);
 });
-test('async invocation errors release transit ownership', async()=>{
- const {withNativeObjects}=await import('../src/objects.ts');
- const released:number[]=[];
- const Text=defineNativeClass('test.FailedText',{name:'FailedText',create:()=>992,release:id=>released.push(id),methods:{},getters:{},setters:{}});
- const value=new Text();
- await expect(withNativeObjects([value],()=>{value.dispose();throw new Error('failed');})).rejects.toThrow('failed');
- expect(released).toEqual([992]);
+test("async invocation errors release transit ownership", async () => {
+  const { withNativeObjects } = await import("../src/objects.ts");
+  const released: number[] = [];
+  const Text = defineNativeClass("test.FailedText", {
+    name: "FailedText",
+    create: () => 992,
+    release: (id) => released.push(id),
+    methods: {},
+    getters: {},
+    setters: {},
+  });
+  const value = new Text();
+  await expect(
+    withNativeObjects([value], () => {
+      value.dispose();
+      throw new Error("failed");
+    }),
+  ).rejects.toThrow("failed");
+  expect(released).toEqual([992]);
+});
+
+test("returning a retained object creates a new live wrapper after disposal", async () => {
+  const { withNativeObjects } = await import("../src/objects.ts");
+  const released: number[] = [];
+  const type = "test.ReturnedText";
+  const Text = defineNativeClass(type, {
+    name: "ReturnedText",
+    create: () => 993,
+    release: (id) => released.push(id),
+    methods: {},
+    getters: {},
+    setters: {},
+  });
+  const value = new Text();
+  const returned = await withNativeObjects([value], async () => {
+    value.dispose();
+    await Promise.resolve();
+    return nativeObjectFromHandle(993, type);
+  });
+  expect(returned).not.toBe(value);
+  expect(nativeObjectHandle(returned, type)).toBe(993);
+  expect(released).toEqual([]);
+  returned.dispose();
+  expect(released).toEqual([993]);
+});
+test("parallel calls retain the handle until every accepted call completes", async () => {
+  const { withNativeObjects } = await import("../src/objects.ts");
+  const released: number[] = [];
+  const Text = defineNativeClass("test.ParallelText", {
+    name: "ParallelText",
+    create: () => 994,
+    release: (id) => released.push(id),
+    methods: {},
+    getters: {},
+    setters: {},
+  });
+  const value = new Text();
+  let completeA!: () => void, completeB!: () => void;
+  const a = withNativeObjects(
+    [value],
+    () =>
+      new Promise<void>((r) => {
+        completeA = r;
+      }),
+  );
+  const b = withNativeObjects(
+    [value],
+    () =>
+      new Promise<void>((r) => {
+        completeB = r;
+      }),
+  );
+  value.dispose();
+  completeA();
+  await a;
+  expect(released).toEqual([]);
+  completeB();
+  await b;
+  expect(released).toEqual([994]);
 });

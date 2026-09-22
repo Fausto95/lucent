@@ -209,12 +209,21 @@ function swiftModule(module: IRModule): string {
       const args = ir.params
         .map(
           (p) =>
-            `${p.name}: ${isReference(p.type, module) && p.type.kind === "struct" ? `try LucentObjectRegistry.shared.get(${p.name}, ${p.type.name}.self)` : p.name}`,
+            `${p.name}: ${isReference(p.type, module) && p.type.kind === "struct" ? `try ${f.async ? "lucentLeases" : "LucentObjectRegistry.shared"}.get(${p.name}, ${p.type.name}.self)` : p.name}`,
         )
         .join(", ");
       members.push(
         `@JS("${f.name}"${f.async ? ", .concurrent" : ""})`,
         `func __bridge_${f.name}(${params})${f.async ? " async" : ""} throws -> ${isReference(ir.returnType, module) ? "Double" : f.returnType} {`,
+        ...(f.async && ir.params.some((p) => isReference(p.type, module))
+          ? [
+              `  let lucentLeases = try LucentObjectRegistry.shared.acquireMany([${ir.params
+                .filter((p) => isReference(p.type, module))
+                .map((p) => p.name)
+                .join(", ")}])`,
+              "  defer { lucentLeases.close() }",
+            ]
+          : []),
         ...(f.async ? [] : ["  return try LucentObjectRegistry.shared.withLock {"]),
         `    let result = try ${f.async ? "await " : ""}${f.name}(${args})`,
         `    return ${isReference(ir.returnType, module) ? "LucentObjectRegistry.shared.hold(result)" : "result"}`,
@@ -399,15 +408,27 @@ function kotlinModule(module: IRModule): string {
     const args = ir.params
       .map((p, i) =>
         isReference(p.type, module) && p.type.kind === "struct"
-          ? `LucentObjectRegistry.get(${p.name}, ${p.type.name}::class.java)`
+          ? `${f.async ? "lucentLeases" : "LucentObjectRegistry"}.get(${p.name}, ${p.type.name}::class.java)`
           : `${p.name}${KOTLIN_BOUNDARY[f.params[i]!.type]?.into ?? ""}`,
       )
       .join(", ");
     definition.push(
       `${f.async ? `AsyncFunction("${f.name}") Coroutine` : `Function("${f.name}")`} {${params ? ` ${params} ->` : ""}`,
+      ...(f.async && ir.params.some((p) => isReference(p.type, module))
+        ? [
+            `  val lucentLeases = LucentObjectRegistry.acquireMany(listOf(${ir.params
+              .filter((p) => isReference(p.type, module))
+              .map((p) => p.name)
+              .join(", ")}))`,
+            "  try {",
+          ]
+        : []),
       ...(f.async ? [] : ["  LucentObjectRegistry.withLock {"]),
       `    val result = ${f.name}(${args})`,
       `    ${isReference(ir.returnType, module) ? "LucentObjectRegistry.hold(result)" : `result${KOTLIN_BOUNDARY[f.returnType]?.outOf ?? ""}`}`,
+      ...(f.async && ir.params.some((p) => isReference(p.type, module))
+        ? ["  } finally { lucentLeases.close() }"]
+        : []),
       ...(f.async ? [] : ["  }"]),
       "}",
     );

@@ -104,6 +104,8 @@ export function expr(e: IRExpr): string {
     case "and":
     case "or":
       return `(${e.op} ${expr(e.left)} ${expr(e.right)})`;
+    case "closure":
+      return `closure (${e.params.map((p) => p.name).join(", ")}) => ${expr(e.body)}`;
     case "functionRef":
       return `function_ref ${e.name}`;
     case "invoke":

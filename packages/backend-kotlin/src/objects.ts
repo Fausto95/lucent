@@ -13,8 +13,33 @@ export function kotlinClass(s: IRStruct, includeImports = true): string {
 
   return `class ${s.name}(${s.fields.map((f) => `var ${f.name}: ${kotlinType(f.type)}`).join(", ")})\n`;
 }
-export const kotlinObjectRuntime = `object LucentObjectRegistry {
+export const kotlinObjectRuntime = `class LucentObjectLease<T: Any>(value: T, private var cleanup: (() -> Unit)?): AutoCloseable {
   private val lock = Any()
+  private var objectValue: T? = value
+  val value: T get() = synchronized(lock) {
+    objectValue ?: throw LucentError("DISPOSED_OBJECT", "Native lease is closed")
+  }
+  override fun close() {
+    val action = synchronized(lock) { val result = cleanup; cleanup = null; objectValue = null; result }
+    action?.invoke()
+  }
+}
+class LucentObjectLeaseGroup(private var leases: Map<Double, LucentObjectLease<Any>>): AutoCloseable {
+  private val lock = Any()
+  fun <T: Any> get(handle: Double, type: Class<T>): T = synchronized(lock) {
+    val value = leases[handle]?.value
+    if (!type.isInstance(value)) throw LucentError("DISPOSED_OBJECT", "Invalid or closed native lease")
+    type.cast(value)!!
+  }
+  override fun close() {
+    val pending = synchronized(lock) { val result = leases; leases = emptyMap(); result }
+    pending.values.forEach { it.close() }
+  }
+}
+object LucentObjectRegistry {
+  private val lock = Any()
+  private var leases = 0
+  val activeLeaseCount: Int get() = withLock { leases }
   private var next = 0.0
   private val objects = mutableMapOf<Double, Any>()
   private val identities = java.util.IdentityHashMap<Any, Double>()
@@ -26,6 +51,18 @@ export const kotlinObjectRuntime = `object LucentObjectRegistry {
     val value = objects[handle]
     if (!type.isInstance(value)) throw LucentError("DISPOSED_OBJECT", "Invalid or released native object")
     type.cast(value)!!
+  }
+  fun <T: Any> acquire(handle: Double, type: Class<T>): LucentObjectLease<T> = withLock {
+    val value = get(handle, type)
+    leases += 1
+    LucentObjectLease(value) { withLock { leases -= 1 } }
+  }
+  fun acquireMany(handles: List<Double>): LucentObjectLeaseGroup = withLock {
+    val pending = mutableMapOf<Double, LucentObjectLease<Any>>()
+    try {
+      handles.distinct().forEach { pending[it] = acquire(it, Any::class.java) }
+      LucentObjectLeaseGroup(pending)
+    } catch (error: Throwable) { pending.values.forEach { it.close() }; throw error }
   }
   fun release(handle: Double) { withLock { objects.remove(handle)?.let { identities.remove(it) }; Unit } }
 }

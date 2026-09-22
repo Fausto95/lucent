@@ -32,6 +32,7 @@ export type AssignOperator = "=" | "+=" | "-=" | "*=" | "/=";
 export type UpdateOperator = "++" | "--";
 
 export type Expr =
+  | { kind: "closure"; params: SurfaceParam[]; returnType: SurfaceType | null; body: Expr; span: Span }
   | { kind: "view"; name: string; properties: ObjectProperty[]; children: Expr[]; span: Span }
   | { kind: "number"; value: number; span: Span }
   | { kind: "string"; value: string; span: Span }
@@ -120,6 +121,7 @@ export interface SurfaceImport {
 }
 
 export interface SurfaceModule {
+  overloads?: Record<string, string[]>;
   nativePackages?: Record<string, NativePackage>;
   views?: Record<string, NativeViewBinding>;
   fileName: string;

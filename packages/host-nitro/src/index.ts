@@ -407,7 +407,13 @@ function swiftHybrid(module: IRModule): string {
     );
   for (const fn of exportedFunctions(module)) {
     const params = fn.params.map((p) => `${p.name}: ${nitroSwiftType(p.type, module)}`).join(", ");
-    const args = fn.params.map((p) => `${p.name}: ${swiftConvert(p.name, p.type, "toBody", module)}`).join(", ");
+    const references = fn.params.filter((p) => isReference(p.type, module));
+    const args = fn.params
+      .map(
+        (p) =>
+          `${p.name}: ${fn.async && isReference(p.type, module) && p.type.kind === "struct" ? `try lucentLeases.get(${p.name}, ${p.type.name}.self)` : swiftConvert(p.name, p.type, "toBody", module)}`,
+      )
+      .join(", ");
     const isVoid = fn.returnType.kind === "void";
     const call = `${bodiesName(module)}.${fn.name}(${args})`;
     const result = isVoid ? "" : swiftConvert("result", fn.returnType, "toNitro", module);
@@ -415,7 +421,13 @@ function swiftHybrid(module: IRModule): string {
       const ret = nitroSwiftType(fn.returnType, module);
       methods.push(
         `func ${boundaryName(fn.name)}(${params}) throws -> Promise<${ret}> {`,
+        ...(references.length
+          ? [
+              `  let lucentLeases = try LucentObjectRegistry.shared.acquireMany([${references.map((p) => p.name).join(", ")}])`,
+            ]
+          : []),
         "  return Promise.async {",
+        ...(references.length ? ["    defer { lucentLeases.close() }"] : []),
         ...(isVoid ? [`    try await ${call}`] : [`    let result = try await ${call}`, `    return ${result}`]),
         "  }",
         "}",
@@ -604,7 +616,14 @@ function kotlinHybrid(module: IRModule): string {
   for (const fn of exportedFunctions(module)) {
     const gen: GeneratedFunction = unit.functions.find((f) => f.name === fn.name)!;
     const params = fn.params.map((p) => `${p.name}: ${nitroKotlinType(p.type, module)}`).join(", ");
-    const args = fn.params.map((p) => kotlinConvert(p.name, p.type, "toBody", module)).join(", ");
+    const references = fn.params.filter((p) => isReference(p.type, module));
+    const args = fn.params
+      .map((p) =>
+        fn.async && isReference(p.type, module) && p.type.kind === "struct"
+          ? `lucentLeases.get(${p.name}, ${p.type.name}::class.java)`
+          : kotlinConvert(p.name, p.type, "toBody", module),
+      )
+      .join(", ");
     const call = `${bodiesName(module)}.${gen.name}(${args})`;
     const isVoid = fn.returnType.kind === "void";
     const ret = nitroKotlinType(fn.returnType, module);
@@ -612,9 +631,18 @@ function kotlinHybrid(module: IRModule): string {
     if (fn.async) {
       methods.push(
         `override fun ${boundaryName(fn.name)}(${params}): Promise<${ret}> {`,
+        ...(references.length
+          ? [
+              `  val lucentLeases = LucentObjectRegistry.acquireMany(listOf(${references.map((p) => p.name).join(", ")}))`,
+              "  try {",
+            ]
+          : []),
         "  return Promise.async {",
+        ...(references.length ? ["    try {"] : []),
         ...(isVoid ? [`    ${call}`] : [`    val result = ${call}`, `    ${result}`]),
+        ...(references.length ? ["    } finally { lucentLeases.close() }"] : []),
         "  }",
+        ...(references.length ? ["  } catch (error: Throwable) { lucentLeases.close(); throw error }"] : []),
         "}",
         "",
       );

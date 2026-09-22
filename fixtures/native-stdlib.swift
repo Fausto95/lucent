@@ -1,42 +1,42 @@
 import Foundation
 
-func lucentInternal_736b35a22321c26_abs(value: Double) throws -> Double {
+func lucentInternal_a2e2c7dbb96a1210_abs(value: Double) throws -> Double {
   return Swift.abs(value)
 }
 
-func lucentInternal_736b35a22321c26_sqrt(value: Double) throws -> Double {
+func lucentInternal_a2e2c7dbb96a1210_sqrt(value: Double) throws -> Double {
   return value.squareRoot()
 }
 
-func lucentInternal_736b35a22321c26_floor(value: Double) throws -> Double {
+func lucentInternal_a2e2c7dbb96a1210_floor(value: Double) throws -> Double {
   return value.rounded(.down)
 }
 
-func lucentInternal_736b35a22321c26_ceil(value: Double) throws -> Double {
+func lucentInternal_a2e2c7dbb96a1210_ceil(value: Double) throws -> Double {
   return value.rounded(.up)
 }
 
-func lucentInternal_736b35a22321c26_sin(value: Double) throws -> Double {
+func lucentInternal_a2e2c7dbb96a1210_sin(value: Double) throws -> Double {
   return Foundation.sin(value)
 }
 
-func lucentInternal_736b35a22321c26_cos(value: Double) throws -> Double {
+func lucentInternal_a2e2c7dbb96a1210_cos(value: Double) throws -> Double {
   return Foundation.cos(value)
 }
 
-func lucentInternal_736b35a22321c26_min(a: Double, b: Double) throws -> Double {
+func lucentInternal_a2e2c7dbb96a1210_min(a: Double, b: Double) throws -> Double {
   return Swift.min(a, b)
 }
 
-func lucentInternal_736b35a22321c26_max(a: Double, b: Double) throws -> Double {
+func lucentInternal_a2e2c7dbb96a1210_max(a: Double, b: Double) throws -> Double {
   return Swift.max(a, b)
 }
 
-func lucentInternal_2aaae6189ce4e2af_trim(value: String) throws -> String {
+func lucentInternal_e08d398e59797131_trim(value: String) throws -> String {
   return value.trimmingCharacters(in: .whitespacesAndNewlines)
 }
 
-func lucentInternal_2aaae6189ce4e2af_contains(value: String, search: String) throws -> Bool {
+func lucentInternal_e08d398e59797131_contains(value: String, search: String) throws -> Bool {
   return value.contains(search)
 }
 
@@ -53,11 +53,11 @@ func lucentInternal_d04f744ec3bed451_copyBytes(bytes: ArrayBuffer) throws -> Arr
 }
 
 func magnitude(value: Double) throws -> Double {
-  return try lucentInternal_736b35a22321c26_sqrt(value: lucentInternal_736b35a22321c26_abs(value: value))
+  return try lucentInternal_a2e2c7dbb96a1210_sqrt(value: lucentInternal_a2e2c7dbb96a1210_abs(value: value))
 }
 
 func matches(value: String) throws -> Bool {
-  return try lucentInternal_2aaae6189ce4e2af_contains(value: lucentInternal_2aaae6189ce4e2af_trim(value: value), search: "lucent")
+  return try lucentInternal_e08d398e59797131_contains(value: lucentInternal_e08d398e59797131_trim(value: value), search: "lucent")
 }
 
 func roundTrip(text: String) throws -> String {

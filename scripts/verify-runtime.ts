@@ -11,7 +11,7 @@ import { extractJavaSignatures, generateBindingLibrary } from "../packages/sdk/s
 const javaSignatures = execFileSync("javap", ["-public", "java.lang.Math"], { encoding: "utf8" });
 const library = generateBindingLibrary(extractJavaSignatures(javaSignatures)).library;
 const source =
-  'import {hypot} from "@lucent-lang/sdk/math"; import {Platform} from "@lucent-lang/platform"; export function length():number {if(Platform.OS === "android"){return hypot(3,4);}return 0;}';
+  'import {hypot,abs} from "@lucent-lang/sdk/math"; import {Platform} from "@lucent-lang/platform"; export function length():number {if(Platform.OS === "android"){return hypot(abs(-3),4);}return 0;}';
 const result = compile(source, { fileName: "sdk.lucent.ts", libraries: { "@lucent-lang/sdk/math": library } });
 if (!result.module) throw new Error(JSON.stringify(result.diagnostics));
 const dir = mkdtempSync(join(tmpdir(), "lucent-sdk-verify-"));

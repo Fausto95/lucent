@@ -1,6 +1,6 @@
 import type { Counter } from "./counter.lucent";
 import { event } from "@lucent-lang/events";
-import { abs, sqrt } from "@lucent-lang/std/math";
+import { abs, sqrt } from "@lucent-lang/core/math";
 import { now } from "@lucent-lang/platform/clock";
 export type Result = { kind: "ok"; value: number } | { kind: "error"; message: string };
 export const progress = event<number>();

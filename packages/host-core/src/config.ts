@@ -1,9 +1,16 @@
 import { resolveCapabilities, type PlatformConfig } from "./capabilities.ts";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { parseNativeConfig, validateLibrary, type LibraryModule } from "@lucent-lang/compiler";
+import {
+  parseNativeConfig,
+  validateLibrary,
+  validNativeTargets,
+  type NativeTargets,
+  type LibraryModule,
+} from "@lucent-lang/compiler";
 
 export interface LucentConfig {
+  targets: NativeTargets;
   capabilities: string[];
   platformConfig: PlatformConfig;
   /** Trusted native binding manifests, indexed by their import specifier. */
@@ -24,8 +31,10 @@ export function loadLucentConfig(root: string): LucentConfig {
   ) as Partial<LucentConfig>;
   if (typeof value !== "object" || value === null || Array.isArray(value))
     throw new Error(`${file}: expected an object`);
-  if (Object.keys(value).some((key) => !["capabilities", "libraries"].includes(key)))
+  if (Object.keys(value).some((key) => !["capabilities", "libraries", "targets"].includes(key)))
     throw new Error(`${file}: unknown config key`);
+  if (value.targets !== undefined && !validNativeTargets(value.targets))
+    throw new Error(`${file}: invalid minimum SDK targets`);
   const resolved = resolveCapabilities(value.capabilities);
   if (
     value.libraries !== undefined &&
@@ -69,7 +78,12 @@ export function loadLucentConfig(root: string): LucentConfig {
         throw new Error(`${file}: invalid thread`);
     }
   }
-  return { capabilities: resolved.names, platformConfig: resolved.platformConfig, libraries: value.libraries ?? {} };
+  return {
+    targets: value.targets ?? {},
+    capabilities: resolved.names,
+    platformConfig: resolved.platformConfig,
+    libraries: value.libraries ?? {},
+  };
 }
 
 /** Metro starts at the source file and uses the nearest app config/package boundary. */

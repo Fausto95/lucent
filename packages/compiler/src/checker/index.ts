@@ -49,6 +49,9 @@ export function checkModule(module: SurfaceModule): CheckResult {
 
 class ModuleChecker {
   readonly diagnostics: Diagnostic[] = [];
+  get overloads() {
+    return this.module.overloads ?? {};
+  }
   get views() {
     return this.module.views ?? {};
   }
@@ -346,6 +349,7 @@ class FunctionChecker {
   private readonly scopes: Map<string, Binding>[] = [];
   private readonly narrowings: Map<string, NativeType>[] = [];
   private loopDepth = 0;
+  private readonly captures: Map<string, Binding>[] = [];
 
   constructor(
     private readonly mod: ModuleChecker,
@@ -633,6 +637,43 @@ class FunctionChecker {
   private expr(e: Expr, expected?: NativeType): TExpr {
     const span = e.span;
     switch (e.kind) {
+      case "closure": {
+        const context = expected?.kind === "callback" ? expected : undefined;
+        const params = e.params.map((p, i) => ({
+          name: p.name,
+          type: p.type
+            ? (this.mod.resolveStorable(p.type, "a callback parameter") ?? T.float64)
+            : (context?.params[i] ?? T.float64),
+          span: p.span,
+        }));
+        if (e.params.some((p, i) => !p.type && !context?.params[i]))
+          this.report(
+            diagnostic("NT1014", e.span, "Native callback parameters need a type annotation or callback context."),
+          );
+        const outer = new Map<string, Binding>();
+        for (const scope of this.scopes) for (const [name, binding] of scope) outer.set(name, binding);
+        for (const param of params) outer.delete(param.name);
+        this.captures.push(outer);
+        this.push();
+        for (const param of params) this.declare(param.name, param.type, false);
+        const result = e.returnType ? this.mod.resolve(e.returnType) : context?.result;
+        const body = this.expr(e.body, result ?? undefined);
+        this.pop();
+        this.captures.pop();
+        if (result && !this.fits(body, result)) this.mismatch(e.span, result, body.type);
+        if (body.type.kind === "promise" || body.type.kind === "callback")
+          this.report(diagnostic("NT1005", e.span, "Native closures must return synchronous non-callback values."));
+        return {
+          kind: "closure",
+          params,
+          body,
+          type: T.callback(
+            params.map((p) => p.type),
+            result ?? body.type,
+          ),
+          span: e.span,
+        };
+      }
       case "view":
         return this.view(e);
       case "number":
@@ -873,6 +914,18 @@ class FunctionChecker {
 
   private identifier(name: string, span: Span): TExpr {
     const binding = this.lookup(name);
+    if (
+      binding &&
+      this.captures.some((scope) => scope.get(name) === binding) &&
+      (binding.mutable || !isPrimitive(binding.type))
+    )
+      this.report(
+        diagnostic(
+          "NT1005",
+          span,
+          "Native closures may only capture immutable scalar locals; resource and mutable captures require explicit ownership.",
+        ),
+      );
     const signature = this.mod.signatures.get(name);
     if (!binding && signature) {
       if (signature.async) {
@@ -1045,7 +1098,64 @@ class FunctionChecker {
         span: e.span,
       };
     }
-    const signature = this.mod.signatures.get(e.callee);
+    let callee = e.callee;
+    const candidates = this.mod.overloads[callee];
+    if (candidates) {
+      const inferred = e.args.map((arg) => (arg.kind === "object" || arg.kind === "array" ? null : this.expr(arg)));
+      const matches = candidates
+        .flatMap((name) => {
+          const signature = this.mod.signatures.get(name);
+          if (!signature || signature.params.length !== e.args.length) return [];
+          let score = 0;
+          for (let i = 0; i < e.args.length; i++) {
+            const arg = e.args[i]!,
+              expected = signature.params[i]!.type,
+              actual = inferred[i];
+            if (actual && typeEquals(actual.type, expected)) continue;
+            if (actual && assignable(actual.type, expected)) {
+              score += 1;
+              continue;
+            }
+            if (
+              arg.kind === "number" &&
+              isNumeric(expected) &&
+              (expected.kind !== "int" || Number.isInteger(arg.value))
+            ) {
+              score += 2;
+              continue;
+            }
+            if (arg.kind === "object" && expected.kind === "struct") {
+              score += 3;
+              continue;
+            }
+            if (arg.kind === "array" && expected.kind === "array") {
+              score += 3;
+              continue;
+            }
+            return [];
+          }
+          return [{ name, score }];
+        })
+        .toSorted((a, b) => a.score - b.score);
+      if (!matches.length || matches[1]?.score === matches[0]?.score) {
+        this.report(
+          diagnostic(
+            "NT1012",
+            e.span,
+            `${matches.length ? "Ambiguous" : "No matching"} overload for ${e.callee}.`,
+            candidates
+              .map((name) => {
+                const signature = this.mod.signatures.get(name)!;
+                return `${name}(${signature.params.map((p) => typeToString(p.type)).join(", ")})`;
+              })
+              .join("; "),
+          ),
+        );
+        return this.poison(e.span);
+      }
+      callee = matches[0]!.name;
+    }
+    const signature = this.mod.signatures.get(callee);
     if (!signature) {
       this.report(
         diagnostic(
@@ -1074,7 +1184,7 @@ class FunctionChecker {
       return typed;
     });
     const type = signature.async ? T.promise(signature.returnType) : signature.returnType;
-    return { kind: "call", callee: e.callee, args, type, span: e.span };
+    return { kind: "call", callee, args, type, span: e.span };
   }
 
   private member(e: Extract<Expr, { kind: "member" }>): TExpr {

@@ -17,7 +17,7 @@ TypeScript error.
   imports are rejected with `NT1006`.
 - Native classes and `const name = event<T>()` declarations are supported.
 - Built-in packages are `@lucent-lang/types`, `@lucent-lang/objects`,
-  `@lucent-lang/events`, `@lucent-lang/ui`, `@lucent-lang/std/*`, and
+  `@lucent-lang/events`, `@lucent-lang/ui`, `@lucent-lang/core/*`, and
   `@lucent-lang/platform`, `@lucent-lang/platform/*`, and the native libraries
   listed below. Additional native bindings come from app config.
 - JavaScript packages, namespace/default imports, re-exports, and executable
@@ -183,7 +183,8 @@ have no JS bridge accessors; accesses outside their class are rejected.
 Inheritance beyond the marker `SharedObject`, static members, private methods,
 getters/setters in source, class decorators, and async methods are rejected.
 Objects cross function boundaries directly, rather than in arrays, records, or
-optionals. Async functions cannot accept shared-object arguments.
+optionals. Async functions cannot accept Lucent-authored shared-object arguments;
+explicitly transferable SDK references have the separate contract described below.
 
 Use `counter.dispose()` when the app no longer needs the object. Disposal is
 idempotent and invalidates every JS alias. Where the JS engine implements
@@ -298,8 +299,8 @@ runtime duration guarantee.
 | `@lucent-lang/crypto`          | `sha256(bytes)` → lowercase hexadecimal                    | `crypto`     |
 | `@lucent-lang/network`         | async `get(url)` → response bytes                          | `network`    |
 | `@lucent-lang/device`          | async `model()`                                            | `device`     |
-| `@lucent-lang/std/math`        | `abs`, `sqrt`, `floor`, `ceil`, `sin`, `cos`, `min`, `max` | none         |
-| `@lucent-lang/std/text`        | `trim`, `contains`                                         | none         |
+| `@lucent-lang/core/math`       | `abs`, `sqrt`, `floor`, `ceil`, `sin`, `cos`, `min`, `max` | none         |
+| `@lucent-lang/core/text`       | `trim`, `contains`                                         | none         |
 | `@lucent-lang/platform/clock`  | Unix milliseconds `now()`                                  | `clock`      |
 | `@lucent-lang/platform/locale` | `languageTag()`                                            | `locale`     |
 
@@ -422,7 +423,7 @@ path mapping with the same import specifier. Current extraction handles
 single-line public Swift free-function declarations and public Java static
 methods using supported scalar types (`Double`/`double`, `String`,
 `Bool`/`boolean`, `Int32`/`int`, and void). Swift parameter labels and throws
-are retained. Overloaded names, instance methods, callbacks, generics,
+are retained. Scalar free-function overloads are preserved and selected by argument types. Instance methods, callbacks, generics,
 attribute/availability-gated declarations, and unsupported types are reported and
 omitted. Full SDK class/Objective-C/Kotlin-metadata import is not implemented;
 those APIs still need a curated binding manifest.
@@ -467,7 +468,7 @@ rejected. Binding platform restrictions still require `Platform.OS` guards.
 constructors, properties, and methods. Give overloaded SDK methods distinct
 Lucent names to select their native signatures explicitly. The text-based SDK
 extractors still report unsupported class declarations; this does not provide
-automatic overload selection or complete SDK metadata extraction.
+automatic instance-method overload selection or complete SDK metadata extraction.
 
 Compiled functions can be passed to other native functions using
 `NativeCallback`:
@@ -493,8 +494,26 @@ error handling when connecting these functions to SDK listeners. Async function
 references and callbacks crossing the JavaScript boundary are rejected. Use
 `Event<T>` for JavaScript notifications. A binding with `nativeOnly: true`
 remains callable from Lucent but is omitted from generated JavaScript methods.
-Capturing arrow functions, protocol implementations, borrowed lifetimes, and
-async shared-object arguments are not supported by this increment.
+Synchronous arrow callbacks support expression bodies (or a single return),
+with explicit parameter types or a contextual `NativeCallback` signature.
+They may capture `const` numeric, string, and boolean locals. Mutable locals,
+objects, containers, asynchronous callbacks, and nested callback results are
+rejected. For example, `const factor = 2; apply(4, (value: number) => value * factor)`
+compiles into a native Swift/Kotlin closure.
+
+Protocol implementations and scoped borrowed references remain unsupported.
+The native registry provides typed leases: releasing a handle immediately invalidates new lookup;
+an acquired lease retains the object until closed. Closing is idempotent and
+distinct from SDK resource cleanup. Expo and Nitro accept asynchronous arguments for SDK reference types with
+`contract: { ownership: "owned", executor: "caller", transferable: true }`.
+The adapter author must guarantee that these objects are safe across executors;
+Lucent does not infer thread safety from a class name. Mutable shared classes,
+externally owned references, and executor-confined references remain rejected.
+
+Generated JS proxies retain accepted calls through dispatch; disposing a wrapper
+immediately rejects new work while prior calls finish. Native async wrappers
+acquire a lease group and release it on completion or failure. A lease keeps
+memory alive; it neither requests cancellation nor invokes an SDK close method.
 
 ## Native controls and package views
 
@@ -545,3 +564,35 @@ SwiftUI `@State` or Compose `remember` state. Both example apps demonstrate a
 package-defined counter whose state stays native while changes notify React.
 This is adapter-owned state; Lucent state hooks, keyed lists, native delegate
 syntax, and the camera acceptance feature remain future compiler work.
+
+## Versioned native contracts and overloads
+
+Binding libraries may set `schemaVersion: 1`. Unsupported schema versions and
+invalid contract metadata produce `NT1006`. Native bindings can attach a
+`contract` with a stable `symbolId`; `nativeSymbolId(module, owner, name, abi)`
+constructs identities independently of a Lucent alias. SDK free-function
+extraction emits these identities and stable internal aliases for overloads.
+
+Bindings can share `overload: "publicName"`. Import the public name to select
+one concrete native operation before IR lowering. Exact argument types take
+priority over nullable lifting and contextual numeric literals. No match or a
+tie produces a diagnostic listing candidate signatures; declaration order does
+not break ties. Numeric variable widening, contextual callback overloads, and
+automatic class-method overload generation are not yet supported.
+
+`contract.availability` specifies minimum versions, for example
+`{ ios: "17.0", android: 30 }`. Configure `targets` with the same shape in
+`lucent.config.ts`. Reachable calls are checked against the configured minimums
+within platform guards. Generated CocoaPods and Gradle files raise deployment
+minimums to the configured targets; they never lower a host's existing minimum.
+Targets also participate in the CLI cache key.
+
+Reference ownership and explicit executor-neutral transferability are enforced
+for async arguments as described above. Call-level ownership, callback retention,
+cancellation, serial-object executors, and close fields currently record and
+validate manifest contracts; their runtime behavior is not yet implemented.
+An ownership declaration alone does not make an object transferable.
+
+The standalone `@lucent-lang/std` package has been removed. Its supported math
+and text operations are preserved as `@lucent-lang/core/math` and
+`@lucent-lang/core/text`; update imports accordingly.

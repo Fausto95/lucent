@@ -90,7 +90,14 @@ export function proxyFunctions(
       const body = needsConversion(resultType, policy)
         ? `  const result = ${invocation};\n  return ${convert("result", resultType, "out", policy)};`
         : `  return ${invocation};`;
-      return `export function ${fn.name}(${params.join(", ")}) {\n${body}\n}`;
+      const references = fn.params.filter(
+        (p) => p.type.kind === "struct" && policy.structs.get(p.type.name)?.reference,
+      );
+      const guarded =
+        fn.async && references.length
+          ? `  return withNativeObjects([${references.map((p) => p.name).join(", ")}], () => {\n${body}\n  });`
+          : body;
+      return `export function ${fn.name}(${params.join(", ")}) {\n${guarded}\n}`;
     })
     .join("\n\n");
 }
@@ -99,6 +106,7 @@ export function proxyFunctions(
 export function runtimeImport(body: string): string {
   const names = [
     "lucentCall",
+    "withNativeObjects",
     "toArrayBuffer",
     "fromArrayBuffer",
     "defineNativeClass",
