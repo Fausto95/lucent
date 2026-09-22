@@ -1,7 +1,0 @@
-error LUCENT1018: Borrowed value escapes
-
-Cannot use `resource` after it was closed.
-
-  ┌─ negative-with-resource.lucent.ts:7:3
-7 │   resource.beginOperation();
-  │   ^^^^^^^^

@@ -1,8 +1,0 @@
-module closure-body
-
-fn apply(value: float64, callback: callback<(float64)=>float64>) -> float64
-  return invoke callback(value)
-
-export fn scaled(base: float64) -> float64
-  let %factor: float64 = 3
-  return (call apply {value,value->value} base closure (value) [value factor] => (mul value %factor))

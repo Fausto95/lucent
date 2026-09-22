@@ -1,45 +1,92 @@
-# Roadmap
+# Lucent roadmap (`cpp-jsi` rewrite)
 
-Where Lucent stands against the P0–P90 production plan. Evidence lives in
-[docs/release-evidence.md](docs/release-evidence.md). P90 checkboxes:
-[docs/P90-checklist.md](docs/P90-checklist.md).
+Lucent lets you write React Native native modules in a TypeScript subset.
+This branch is a from-scratch rewrite: `*.lucent.ts` → C++ → JSI, with no
+Swift/Kotlin code generation and no dependency on Nitro or Expo Modules.
 
-Updated 2026-09-22. Experimental — not a production release.
+```
+*.lucent.ts ──TypeScript checker──▶ Lucent IR ──▶ C++ ──▶ JSI (C++ TurboModule)
+                                                   │
+                                   runtime (lucent::String, Array, Map,
+                                   Promise, errors, scheduler, JSI bridge)
+```
 
-## Gates
+Status legend: ✅ done · 🚧 in progress · ⏳ next · 🔭 later
 
-| Gate                        | Focus                                                | Status                                                                   |
-| --------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------ |
-| **A** Semantic foundation   | HIR, ownership, resources, fake-sdk, scopes, effects | **Partial** — CI and compiler evidence; sanitizer/source maps incomplete |
-| **B** Camera vertical slice | Session, frames, stress/race/perf verifies           | **Partial** — CI stubs; physical device preview open                     |
-| **C** Other packages        | BLE, SQLite, location, background, streaming         | **Partial** — in-memory natives + gate-c; real SDKs open                 |
-| **D** Measured optimization | Fold, DCE, reachability, analyze/explain             | **Partial** — opt-in passes; approved device budgets open                |
-| **E** Release readiness     | LSP stubs, pack, docs                                | **Partial** — foundations; npm publish and full IDE open                 |
+---
 
-## Done enough to use in examples
+## M0 — Foundations (this branch)
 
-- Compile → Expo / Nitro on iOS and Android
-- Ownership / borrow checks, resource close + leases, subscriptions, cells
-- `resourceScope`, move/copy, task groups, async `effect`, `resource()` slots
-- Protocol `implements` against library metadata
-- Fake-sdk races and package verify scripts in `pnpm verify`
+Goal: the `hash` example runs from C++ on the iOS simulator and the Android
+emulator, from both a bare React Native app and an Expo app.
 
-## Next
+| Area | Item | Status |
+|---|---|---|
+| Runtime | Value model: number, boolean, `String` (UTF-16, Latin-1 fast path), `Opt<T>`, unions | 🚧 |
+| Runtime | ECMAScript number semantics (ToInt32, `%`, shortest round-trip `toString`, `toFixed`, `parseInt`…) | 🚧 |
+| Runtime | `Array<T>`, `Map`, `Set`, `Dict` (Record) with JS aliasing and insertion order | 🚧 |
+| Runtime | Errors: `Error`/`TypeError`/`RangeError`, `code`, JS ↔ C++ propagation | 🚧 |
+| Host | Pure C++ TurboModule `Lucent`, autolinked on iOS (global C++ module map) and Android (`cxxModule*` autolinking) | ⏳ |
+| Host | JSI conversions with argument validation (`hash: argument 'input' must be a string`) | ⏳ |
+| Compiler | TypeScript checker front end → typed IR, subset diagnostics | ⏳ |
+| Compiler | C++ emitter with `#line` mapping to the `.ts` source | ⏳ |
+| Tooling | `lucent build` CLI, Metro transformer for `*.lucent.ts`, Expo config plugin | ⏳ |
+| Tests | Hermes-on-Linux harness: every module runs through real JSI and is diffed against the same `.ts` run as plain JS | ⏳ |
+| Apps | `apps/bare-example` and `apps/expo-example` with an on-device pass/fail screen | ⏳ |
 
-1. Real-device camera (and host UI) on Expo + Nitro
-2. Wire one other package to a real SDK (SQLite or BLE)
-3. Handwritten performance baselines and CI budgets
-4. Publish `@lucent-lang/*` and a fresh-install smoke path
+Exit criteria: the example apps' test screen is all green on an iOS simulator
+and an Android emulator.
 
-## Out of scope for 1.0
+## M1 — The full language, minus platform SDKs and views
 
-General C/C++ FFI, GPU shaders, unrestricted inheritance, reflection, and
-claiming every native API works adapter-free.
+Goal: complex, self-contained modules (parsers, codecs, crypto, data
+structures, sync engines) can be written in Lucent.
 
-## Plan detail
+- ✅/⏳ Statements: `if`, loops, `for…of`, `switch`, labels, `try/catch/finally`, `throw`.
+- ⏳ Expressions: full operator set, `??`, `?.`, `!`, template literals, spread, destructuring.
+- ⏳ Object types → C++ structs (structural types deduplicated by shape).
+- ⏳ Discriminated unions and `typeof` / discriminant / `instanceof` narrowing (driven by the TS checker's narrowed types).
+- ⏳ Classes: fields, constructors, methods, accessors, `static`, `private`; exported classes become JS objects with stable identity.
+- ⏳ Closures with shared mutable captures (boxing of captured, mutated locals).
+- ⏳ Unconstrained generics (functions and classes → C++ templates).
+- ⏳ `async`/`await` on C++20 coroutines, `Promise.all`, `delay()`; exported async functions run off the JS thread.
+- ⏳ JS callbacks as parameters (sync on the JS thread, async-posted elsewhere; `await`able when they return a Promise).
+- ⏳ Built-ins: `Math`, `Number`, `String`, `Array`, `Map`, `Set`, `Object.keys/values/entries`, `JSON.stringify`, `console`, `Uint8Array`.
+- ⏳ Concurrency model: Lucent code runs one-at-a-time (like JS) under one lock; async work runs on a Lucent thread; no data races by construction.
+- 🔭 `AbortSignal` cancellation for exported async functions.
+- 🔭 `class X extends Error`, interfaces implemented by classes (virtual dispatch).
+- 🔭 Integer inference (`int32` locals) and other optimizations.
 
-The original P0–P90 phase text (semantics, acceptance criteria, delivery
-gates) is the design target behind this tracker. Gate exit criteria and the
-final checklist are in [docs/P90-checklist.md](docs/P90-checklist.md) and
-[docs/release.md](docs/release.md). Do not treat illustrative APIs in older
-design notes as shipped until this file and the evidence doc say so.
+Exit criteria: conformance suite (differential tests vs. plain JS) covering
+every item above passes under ASan/UBSan on Linux and on both simulators.
+
+## M2 — Platform APIs (import AVFoundation, android.*)
+
+Goal: `import { AVCaptureDevice } from "lucent:ios/AVFoundation"` and
+`import { BatteryManager } from "lucent:android/android.os"` just work.
+
+- 🔭 iOS: generate typed bindings from SDK headers with clang (`-ast-dump=json`); emit ObjC++ calls. Nullability, generics, blocks, `NS_SWIFT_UI_ACTOR`/main-thread annotations.
+- 🔭 iOS: Swift-only APIs through generated Swift shims (`@_cdecl` / Swift ↔ C++ interop).
+- 🔭 Android: generate bindings from `android.jar` / AAR class files; emit JNI with cached class/method IDs.
+- 🔭 Android: Kotlin-specific surface (suspend functions, default arguments) via generated Kotlin shims.
+- 🔭 Delegates and protocols: Lucent classes implementing ObjC protocols / Java interfaces (generated ObjC classes and Java proxies forwarding to C++).
+- 🔭 Thread affinity in the type system (main-thread-only APIs require `async`).
+- 🔭 Resource lifetimes (camera sessions, file handles) with explicit close.
+
+## M3 — Views
+
+- 🔭 SwiftUI / UIKit and Compose / Android views from Lucent components (Fabric).
+
+## M4 — Production readiness
+
+- 🔭 npm publishing of `@lucent-lang/*`, fresh-install smoke test.
+- 🔭 Incremental builds and caching; watch mode tied to Metro.
+- 🔭 Source maps for native crashes (symbolicated back to `.lucent.ts`).
+- 🔭 Language server (diagnostics for the Lucent subset in the editor).
+- 🔭 Performance budgets and benchmarks vs. hand-written C++/Swift/Kotlin.
+
+## Non-goals (for now)
+
+- Running arbitrary JavaScript on the native side (no embedded engine).
+- Unrestricted inheritance, reflection, `eval`, prototypes.
+- Cycle collection (objects are reference counted; see docs).

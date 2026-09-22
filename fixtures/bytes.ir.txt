@@ -1,9 +1,0 @@
-module bytes
-
-export fn checksum(data: bytes) -> float64
-  let %sum: float64 = 0
-  let %i: float64 = 0
-  while (lt %i (length data))
-    assign %sum = (add %sum (index data %i))
-    assign %i = (add %i 1)
-  return (rem %sum 256)

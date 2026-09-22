@@ -1,4 +1,0 @@
-buildscript {
-  repositories { google(); mavenCentral() }
-  dependencies { classpath("org.jetbrains.kotlin:compose-compiler-gradle-plugin:${rootProject.ext.kotlinVersion}") }
-}
