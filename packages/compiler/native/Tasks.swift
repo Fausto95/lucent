@@ -1,4 +1,4 @@
-export const TASKS_SWIFT = `import Foundation
+import Foundation
 fileprivate final class LucentTaskRecord {
   var cancelled = false
   var finished = false
@@ -64,4 +64,3 @@ final class LucentTask: @unchecked Sendable {
     if cancelled { throw LucentError(code: "CANCELLED", message: "Native task was cancelled") }
   }
 }
-`;

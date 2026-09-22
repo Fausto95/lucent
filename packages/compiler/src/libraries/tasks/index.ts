@@ -1,7 +1,6 @@
 import type { LibraryModule, NativeBinding } from "../../libraries.ts";
 import { nativeSymbolId } from "../../native-contracts.ts";
-import { TASKS_SWIFT } from "./swift.ts";
-import { TASKS_KOTLIN } from "./kotlin.ts";
+import { nativeSource } from "../native-sources.generated.ts";
 const operations = {
   TaskScope__create: ["return LucentTaskScope()", "return LucentTaskScope()"],
   TaskScope__get_closing: ["return lucentSelf.closing", "return lucentSelf.closing"],
@@ -58,5 +57,8 @@ export declare function NativeTask__method_throwIfCancelled(lucentSelf:NativeTas
     },
   },
   bindings,
-  native: { swift: { "Tasks.swift": TASKS_SWIFT }, kotlin: { "Tasks.kt": TASKS_KOTLIN } },
+  native: {
+    swift: { "Tasks.swift": nativeSource("Tasks.swift") },
+    kotlin: { "Tasks.kt": nativeSource("Tasks.kt") },
+  },
 };

@@ -8,7 +8,8 @@
     "directory": "packages/backend-kotlin"
   },
   "files": [
-    "src"
+    "src",
+    "native"
   ],
   "type": "module",
   "exports": {
@@ -18,6 +19,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@lucent-lang/codegen": "workspace:*",
     "@lucent-lang/compiler": "workspace:*"
   }
 }

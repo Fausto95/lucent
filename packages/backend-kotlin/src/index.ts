@@ -1,4 +1,6 @@
+import { fillNative } from "@lucent-lang/codegen";
 import { kotlinErrorWire } from "./errors.ts";
+import { nativeKotlin } from "./native.ts";
 import { kotlinType } from "./types.ts";
 export { kotlinType } from "./types.ts";
 import { kotlinClass } from "./objects.ts";
@@ -49,8 +51,7 @@ export interface GeneratedUnit {
 }
 
 /** The plain-Kotlin LucentError used when no host supplies one (tests, verification). */
-export const KOTLIN_DEFAULT_ERROR =
-  "class LucentError(val code: String, message: String? = null, val metadata: Map<String, Any?> = emptyMap()) : Exception(message ?: code)";
+export const KOTLIN_DEFAULT_ERROR = nativeKotlin("LucentDefaultError.kt").trimEnd();
 
 /** Runtime prelude; `bytes` supplies the host's `ArrayBuffer` accessors and import lines, `error` its LucentError type. */
 export function kotlinRuntime(
@@ -58,43 +59,18 @@ export function kotlinRuntime(
   packageName?: string,
   error: string = KOTLIN_DEFAULT_ERROR,
 ): string {
-  return `${packageName ? `package ${packageName}\n\n` : ""}${bytes.imports.join("\n")}${bytes.imports.length ? "\n\n" : ""}${error}
-${kotlinErrorWire}
-
-object LucentBytes {
-  fun toByteArray(buffer: ArrayBuffer): ByteArray {
-    ${bytes.toByteArray ?? "return buffer.copyOf()"}
-  }
-  fun fromByteArray(bytes: ByteArray): ArrayBuffer {
-    ${bytes.fromByteArray ?? "return bytes.copyOf()"}
-  }
-  fun length(buffer: ArrayBuffer): Double {
-    ${bytes.length}
-  }
-
-  fun get(buffer: ArrayBuffer, index: Double): Double {
-    ${bytes.get}
-  }
-}
-
-fun lucentStr(value: Double): String {
-  if (value.isFinite() && value == Math.rint(value) && Math.abs(value) < 1e15) {
-    return value.toLong().toString()
-  }
-  return value.toString()
-}
-
-fun lucentStr(value: Float): String = lucentStr(value.toDouble())
-fun lucentStr(value: Int): String = value.toString()
-fun lucentStr(value: Long): String = value.toString()
-fun lucentStr(value: Short): String = value.toString()
-fun lucentStr(value: Byte): String = value.toString()
-fun lucentStr(value: UInt): String = value.toString()
-fun lucentStr(value: ULong): String = value.toString()
-fun lucentStr(value: UShort): String = value.toString()
-fun lucentStr(value: UByte): String = value.toString()
-fun lucentStr(value: Boolean): String = if (value) "true" else "false"
-`;
+  const prelude = `${packageName ? `package ${packageName}\n\n` : ""}${bytes.imports.join("\n")}${bytes.imports.length ? "\n\n" : ""}`;
+  return (
+    prelude +
+    fillNative(nativeKotlin("LucentRuntime.kt"), {
+      error,
+      errorWire: kotlinErrorWire,
+      bytesToByteArray: bytes.toByteArray ?? "return buffer.copyOf()",
+      bytesFromByteArray: bytes.fromByteArray ?? "return bytes.copyOf()",
+      bytesLength: bytes.length,
+      bytesGet: bytes.get,
+    })
+  );
 }
 
 export const localName = (id: string): string => id.replace(/^%/, "").replace(/\./g, "_");

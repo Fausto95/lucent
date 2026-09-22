@@ -1,4 +1,6 @@
+import { fillNative } from "@lucent-lang/codegen";
 import { swiftErrorWire } from "./errors.ts";
+import { nativeSwift } from "./native.ts";
 import { swiftType } from "./types.ts";
 export { swiftType } from "./types.ts";
 import { swiftClass } from "./objects.ts";
@@ -50,63 +52,21 @@ export interface GeneratedUnit {
 }
 
 /** The plain-Swift LucentError used when no host supplies one (tests, verification). */
-export const SWIFT_DEFAULT_ERROR = `struct LucentError: Error {
-  let code: String
-  let message: String
-  let metadata: [String: Any]
-
-  init(code: String, message: String? = nil, metadata: [String: Any] = [:]) {
-    self.metadata = metadata
-    self.code = code
-    self.message = message ?? code
-  }
-}`;
+export const SWIFT_DEFAULT_ERROR = nativeSwift("LucentDefaultError.swift").trimEnd();
 
 /** Runtime prelude; `bytes` supplies the host's `ArrayBuffer` accessors, `error` its LucentError type. */
 export function swiftRuntime(
   bytes: { length: string; get: string; data?: string; fromData?: string },
   error: string = SWIFT_DEFAULT_ERROR,
 ): string {
-  return `import Foundation
-
-${error}
-${swiftErrorWire}
-
-enum LucentBytes {
-  static func data(_ buffer: ArrayBuffer) -> Data {
-    ${bytes.data ?? "return Data(buffer)"}
-  }
-  static func fromData(_ data: Data) throws -> ArrayBuffer {
-    ${bytes.fromData ?? "return Array(data)"}
-  }
-  static func length(_ buffer: ArrayBuffer) -> Double {
-    ${bytes.length}
-  }
-
-  static func get(_ buffer: ArrayBuffer, _ index: Double) -> Double {
-    ${bytes.get}
-  }
-}
-
-func lucentStr(_ value: Double) -> String {
-  if value.isFinite && value == value.rounded() && abs(value) < 1e15 {
-    return String(Int64(value))
-  }
-  return String(value)
-}
-
-func lucentStr(_ value: Float) -> String {
-  return lucentStr(Double(value))
-}
-
-func lucentStr<T: BinaryInteger>(_ value: T) -> String {
-  return String(value)
-}
-
-func lucentStr(_ value: Bool) -> String {
-  return value ? "true" : "false"
-}
-`;
+  return fillNative(nativeSwift("LucentRuntime.swift"), {
+    error,
+    errorWire: swiftErrorWire,
+    bytesData: bytes.data ?? "return Data(buffer)",
+    bytesFromData: bytes.fromData ?? "return Array(data)",
+    bytesLength: bytes.length,
+    bytesGet: bytes.get,
+  });
 }
 
 export const localName = (id: string): string => id.replace(/^%/, "").replace(/\./g, "_");

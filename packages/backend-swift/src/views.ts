@@ -1,4 +1,5 @@
 import type { IRExpr } from "@lucent-lang/compiler";
+import { nativeSwift } from "./native.ts";
 type ViewExpr = Extract<IRExpr, { op: "view" }>;
 function handler(e: ViewExpr, name: string, fallback: string, argument: string): string {
   const found = e.props.find((prop) => prop.name === name);
@@ -59,74 +60,7 @@ export function swiftView(e: ViewExpr, expr: (e: IRExpr) => string): string {
   };
   return `AnyView(${render[e.name]!()})`;
 }
-export const swiftViewRuntime = `import SwiftUI
-/** Row identity for a keyed \`For\`. A duplicate key is a programming error, so it is
- * reported in debug builds and then disambiguated by position rather than dropping a row. */
-struct LucentKeyedRow<Value>: Identifiable {
-  let id: String
-  let value: Value
-}
-
-func lucentKeyedRows<Value>(_ values: [Value], _ key: (Value) throws -> String) -> [LucentKeyedRow<Value>] {
-  var seen = Set<String>()
-  var rows: [LucentKeyedRow<Value>] = []
-  for (index, value) in values.enumerated() {
-    let raw = (try? key(value)) ?? String(index)
-    var id = raw
-    if seen.contains(id) {
-      assertionFailure("Lucent: duplicate view key \\(raw)")
-      id = "\\(raw)#\\(index)"
-    }
-    seen.insert(id)
-    rows.append(LucentKeyedRow(id: id, value: value))
-  }
-  return rows
-}
-
-func lucentViewColor(_ value: String) -> Color {
-  let hex = value.hasPrefix("#") ? String(value.dropFirst()) : value
-  guard hex.count == 6, let rgb = UInt32(hex, radix: 16) else { return .primary }
-  return Color(red: Double((rgb >> 16) & 255) / 255, green: Double((rgb >> 8) & 255) / 255, blue: Double(rgb & 255) / 255)
-}
-`;
+export const swiftViewRuntime = nativeSwift("LucentViews.swift");
 
 /** SwiftUI controller containment, layout, and teardown shared by both hosts. */
-export const swiftHostedViewRuntime = `import UIKit
-import SwiftUI
-@MainActor
-final class LucentHostedView: UIView {
-  private let controller = UIHostingController(rootView: AnyView(EmptyView()))
-  override init(frame: CGRect) {
-    super.init(frame: frame)
-    controller.view.backgroundColor = .clear
-    addSubview(controller.view)
-  }
-  required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-  func render(_ content: AnyView) { controller.rootView = content }
-  override func layoutSubviews() {
-    super.layoutSubviews()
-    controller.view.frame = bounds
-  }
-  override func didMoveToWindow() {
-    super.didMoveToWindow()
-    if window == nil {
-      controller.willMove(toParent: nil)
-      controller.removeFromParent()
-      return
-    }
-    var responder: UIResponder? = self
-    while let current = responder {
-      if let parent = current as? UIViewController {
-        if controller.parent !== parent {
-          controller.willMove(toParent: nil)
-          controller.removeFromParent()
-          parent.addChild(controller)
-          controller.didMove(toParent: parent)
-        }
-        break
-      }
-      responder = current.next
-    }
-  }
-}
-`;
+export const swiftHostedViewRuntime = nativeSwift("LucentHostedView.swift");

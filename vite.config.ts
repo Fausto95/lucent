@@ -15,6 +15,7 @@ const pack = {
 const generated = [
   "**/*.lucent.ts",
   "**/*.lucent.tsx",
+  "**/*.generated.ts",
   "fixtures/**",
   "apps/**/ios/**",
   "apps/**/android/**",

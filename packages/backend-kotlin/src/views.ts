@@ -1,4 +1,5 @@
 import type { IRExpr } from "@lucent-lang/compiler";
+import { nativeKotlin } from "./native.ts";
 type ViewExpr = Extract<IRExpr, { op: "view" }>;
 export function kotlinView(e: ViewExpr, expr: (e: IRExpr) => string): string {
   const prop = (name: string, fallback: string) => {
@@ -42,19 +43,7 @@ export function kotlinView(e: ViewExpr, expr: (e: IRExpr) => string): string {
   return render[e.name]!();
 }
 /** Row identity for a keyed `For`, matching the Swift helper's duplicate-key behaviour. */
-export const kotlinViewRuntime = `fun <Value> lucentKeyedRows(values: List<Value>, key: (Value) -> String): List<Pair<String, Value>> {
-  val seen = HashSet<String>()
-  return values.mapIndexed { index, value ->
-    val raw = key(value)
-    var id = raw
-    if (!seen.add(id)) {
-      id = "$raw#$index"
-      seen.add(id)
-    }
-    Pair(id, value)
-  }
-}
-`;
+export const kotlinViewRuntime = nativeKotlin("LucentViews.kt");
 
 export const kotlinViewImports = [
   "androidx.compose.foundation.background",

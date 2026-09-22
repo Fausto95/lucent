@@ -1,4 +1,4 @@
-export const TASKS_KOTLIN = `package {{androidPackage}}
+package {{androidPackage}}
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -54,4 +54,3 @@ class LucentTask internal constructor(private val scope: LucentTaskScope, privat
     if (cancelled) throw LucentError("CANCELLED", "Native task was cancelled")
   }
 }
-`;

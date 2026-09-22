@@ -112,5 +112,29 @@ else {
   failed = true;
   console.log(`✗ kotlin\n${kotlin.stderr}`);
 }
+
+/**
+ * The SwiftUI runtime is not reachable from any fixture, and UIKit does not
+ * exist on the host, so check it against the iOS simulator SDK directly.
+ */
+const iosSdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
+if (iosSdk.status === 0) {
+  const swiftui = run("swiftc", [
+    "-typecheck",
+    "-module-cache-path",
+    join(work, "swift-cache-ios"),
+    "-target",
+    "arm64-apple-ios17.0-simulator",
+    "-sdk",
+    iosSdk.stdout.trim(),
+    join(root, "packages/backend-swift/native/LucentViews.swift"),
+    join(root, "packages/backend-swift/native/LucentHostedView.swift"),
+  ]);
+  if (swiftui.exitCode === 0) console.log("✓ swift   SwiftUI runtime (iOS SDK)");
+  else {
+    failed = true;
+    console.log(`✗ swift   SwiftUI runtime\n${swiftui.stderr}`);
+  }
+} else console.log("- swift   SwiftUI runtime skipped (no iOS SDK)");
 console.log(`(sources in ${work})`);
 process.exit(failed ? 1 : 0);

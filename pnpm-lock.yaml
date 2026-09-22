@@ -168,12 +168,18 @@ importers:
 
   packages/backend-kotlin:
     dependencies:
+      '@lucent-lang/codegen':
+        specifier: workspace:*
+        version: link:../codegen
       '@lucent-lang/compiler':
         specifier: workspace:*
         version: link:../compiler
 
   packages/backend-swift:
     dependencies:
+      '@lucent-lang/codegen':
+        specifier: workspace:*
+        version: link:../codegen
       '@lucent-lang/compiler':
         specifier: workspace:*
         version: link:../compiler
@@ -198,6 +204,8 @@ importers:
       oxc-parser:
         specifier: 0.151.0
         version: 0.151.0
+
+  packages/codegen: {}
 
   packages/compiler:
     dependencies:
@@ -258,6 +266,9 @@ importers:
       '@lucent-lang/backend-swift':
         specifier: workspace:*
         version: link:../backend-swift
+      '@lucent-lang/codegen':
+        specifier: workspace:*
+        version: link:../codegen
       '@lucent-lang/compiler':
         specifier: workspace:*
         version: link:../compiler
@@ -273,6 +284,9 @@ importers:
       '@lucent-lang/backend-swift':
         specifier: workspace:*
         version: link:../backend-swift
+      '@lucent-lang/codegen':
+        specifier: workspace:*
+        version: link:../codegen
       '@lucent-lang/compiler':
         specifier: workspace:*
         version: link:../compiler

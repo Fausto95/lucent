@@ -1,4 +1,5 @@
 import type { LibraryModule } from "../libraries.ts";
+import { nativeSource } from "./native-sources.generated.ts";
 import { nativeSymbolId } from "../native-contracts.ts";
 const symbol = (name: string, abi: string) => nativeSymbolId("Lucent", "CancellationSource", name, abi);
 export const CANCELLATION_LIBRARY: LibraryModule = {
@@ -50,72 +51,7 @@ export declare function CancellationSource__method_finish(lucentSelf:Cancellatio
     },
   },
   native: {
-    swift: {
-      "Cancellation.swift": `import Foundation
-// Every access to the cancellation bit is synchronized; no SDK objects are transferred.
-final class LucentCancellationSource: @unchecked Sendable {
-  private let lock = NSLock()
-  private var requested = false
-  private var completed = false
-  private var children: [LucentCancellationSource] = []
-  var cancelled: Bool { lock.lock(); defer { lock.unlock() }; return requested }
-  func cancel() {
-    lock.lock()
-    requested = true
-    let kids = children
-    lock.unlock()
-    for child in kids { child.cancel() }
-  }
-  func throwIfCancelled() throws {
-    if cancelled { throw LucentError(code: "CANCELLED", message: "Native operation was cancelled") }
-  }
-  func scope() -> LucentCancellationSource {
-    let child = LucentCancellationSource()
-    lock.lock()
-    children.append(child)
-    let already = requested
-    lock.unlock()
-    if already { child.cancel() }
-    return child
-  }
-  func finish() -> Bool {
-    lock.lock()
-    defer { lock.unlock() }
-    if requested || completed { return false }
-    completed = true
-    return true
-  }
-}
-`,
-    },
-    kotlin: {
-      "Cancellation.kt": `package {{androidPackage}}
-class LucentCancellationSource {
-  private val lock = Any()
-  private val requested = java.util.concurrent.atomic.AtomicBoolean(false)
-  private var completed = false
-  private val children = mutableListOf<LucentCancellationSource>()
-  val cancelled: Boolean get() = requested.get()
-  fun cancel() {
-    val kids = synchronized(lock) { requested.set(true); children.toList() }
-    kids.forEach { it.cancel() }
-  }
-  fun throwIfCancelled() {
-    if (cancelled) throw LucentError("CANCELLED", "Native operation was cancelled")
-  }
-  fun scope(): LucentCancellationSource {
-    val child = LucentCancellationSource()
-    val already = synchronized(lock) { children.add(child); requested.get() }
-    if (already) child.cancel()
-    return child
-  }
-  fun finish(): Boolean = synchronized(lock) {
-    if (requested.get() || completed) return false
-    completed = true
-    true
-  }
-}
-`,
-    },
+    swift: { "Cancellation.swift": nativeSource("Cancellation.swift") },
+    kotlin: { "Cancellation.kt": nativeSource("Cancellation.kt") },
   },
 };
