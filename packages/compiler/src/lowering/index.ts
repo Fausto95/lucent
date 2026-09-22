@@ -42,7 +42,8 @@ const COMPOUND_OPS: Readonly<Record<Exclude<AssignOperator, "=">, BinaryOp>> = {
 
 export function lowerModule(module: TypedModule): LowerResult {
   const diagnostics: Diagnostic[] = [];
-  const functions = module.functions.map((fn) => new FunctionLowerer(fn, diagnostics).lower());
+  const references = new Set(module.structs.filter((s) => s.reference).map((s) => s.name));
+  const functions = module.functions.map((fn) => new FunctionLowerer(fn, diagnostics, references).lower());
   const ir: IRModule = {
     ...(module.enums ? { enums: module.enums } : {}),
     ...(module.nativePackages ? { nativePackages: module.nativePackages } : {}),
@@ -81,11 +82,13 @@ class FunctionLowerer {
   /** Lexical scopes mapping source names to local ids; params live in the outermost one as `null`. */
   private readonly scopes: Map<string, LocalId | null>[] = [];
   private readonly used = new Map<string, number>();
-  private readonly reassignedParams: Set<string>;
+  private readonly reassignedParams: ReadonlyMap<string, Mutation>;
 
   constructor(
     private readonly fn: TypedFunction,
     private readonly diagnostics: Diagnostic[],
+    /** Structs that become a class, so writing through them does not need a mutable binding. */
+    private readonly references: ReadonlySet<string> = new Set(),
   ) {
     this.reassignedParams = collectAssignedNames(fn.body, new Set(fn.params.map((p) => p.name)));
   }
@@ -93,18 +96,24 @@ class FunctionLowerer {
   lower(): IRFunction {
     this.scopes.push(new Map(this.fn.params.map((p) => [p.name, null])));
     const prologue: IRStmt[] = [];
-    // Swift and Kotlin parameters are immutable: reassigned ones get a mutable local shadow.
+    // Swift and Kotlin parameters are immutable, so a written-to one gets a
+    // mutable local shadow — unless it is a reference, where the write goes
+    // through the reference and the binding itself never changes.
     for (const p of this.fn.params) {
-      if (!this.reassignedParams.has(p.name)) continue;
+      const mutation = this.reassignedParams.get(p.name);
+      if (!mutation) continue;
+      if (mutation === "inPlace" && this.isReference(p.type)) continue;
       const id = this.declare(p.name, p.type, true);
       prologue.push({ op: "let", id, value: { op: "param", name: p.name, type: p.type } });
     }
     const body = [...prologue, ...this.stmts(this.fn.body)];
     this.scopes.pop();
-    // Value-typed targets (Swift arrays and structs) must be `var` when mutated in place.
+    // Value-typed targets (Swift arrays and structs) must be `var` when mutated
+    // in place. A reference must not be: writing through it leaves the binding
+    // alone, and swiftc warns about a `var` that is never reassigned.
     for (const id of collectMutatedLocals(body)) {
       const local = this.locals.find((l) => l.id === id);
-      if (local) local.mutable = true;
+      if (local && !this.isReference(local.type)) local.mutable = true;
     }
     return {
       name: this.fn.name,
@@ -120,6 +129,11 @@ class FunctionLowerer {
       body,
       ...(this.slots.length ? { state: this.slots } : {}),
     };
+  }
+
+  /** A struct that becomes a `final class` / `class`, so its fields are writable through a `let`. */
+  private isReference(type: NativeType): boolean {
+    return type.kind === "struct" && this.references.has(type.name);
   }
 
   private declare(name: string, type: NativeType, mutable: boolean): LocalId {
@@ -412,20 +426,26 @@ function placeToExpr(p: IRPlace): IRExpr {
   }
 }
 
-/** Names among `candidates` that are assigned or updated anywhere in `stmts` (ignoring shadowing, conservatively). */
-function collectAssignedNames(stmts: TStmt[], candidates: ReadonlySet<string>): Set<string> {
-  const found = new Set<string>();
+/**
+ * How a parameter is written to. `rebind` replaces the binding itself and always
+ * needs a mutable local; `inPlace` writes through it, which only needs one when
+ * the value has value semantics.
+ */
+export type Mutation = "rebind" | "inPlace";
+
+/** Names among `candidates` that are written to anywhere in `stmts` (ignoring shadowing, conservatively). */
+function collectAssignedNames(stmts: TStmt[], candidates: ReadonlySet<string>): Map<string, Mutation> {
+  const found = new Map<string, Mutation>();
+  const record = (target: TExpr, how: Mutation): void => {
+    const root = rootIdentifier(target);
+    if (!root || !candidates.has(root)) return;
+    // A rebind anywhere outranks an in-place write elsewhere.
+    if (how === "rebind" || !found.has(root)) found.set(root, how);
+  };
   const visitExpr = (e: TExpr): void => {
-    const mutated =
-      e.kind === "assign" || e.kind === "update"
-        ? e.target
-        : e.kind === "methodCall" && e.method === "push"
-          ? e.object
-          : null;
-    if (mutated) {
-      const root = rootIdentifier(mutated);
-      if (root && candidates.has(root)) found.add(root);
-    }
+    if (e.kind === "assign" || e.kind === "update")
+      record(e.target, e.target.kind === "identifier" ? "rebind" : "inPlace");
+    else if (e.kind === "methodCall" && e.method === "push") record(e.object, "inPlace");
     if (e.kind === "closure" && Array.isArray(e.body)) visit(e.body);
     for (const child of childrenOf(e)) visitExpr(child);
   };

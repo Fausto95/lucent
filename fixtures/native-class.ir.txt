@@ -6,13 +6,11 @@ export fn lucentInternal_8f133499183f7a85_Counter__get_value(lucentSelf: struct 
   return (field lucentSelf value)
 
 export fn lucentInternal_8f133499183f7a85_Counter__set_value(lucentSelf: struct lucentInternal_8f133499183f7a85_Counter, value: float64) -> void
-  let %lucentSelf: struct lucentInternal_8f133499183f7a85_Counter = lucentSelf
-  assign (field %lucentSelf value) = value
+  assign (field lucentSelf value) = value
 
 export fn lucentInternal_8f133499183f7a85_Counter__method_increment(lucentSelf: struct lucentInternal_8f133499183f7a85_Counter, delta: float64) -> float64
-  let %lucentSelf: struct lucentInternal_8f133499183f7a85_Counter = lucentSelf
-  assign (field %lucentSelf value) = (add (field %lucentSelf value) delta)
-  return (field %lucentSelf value)
+  assign (field lucentSelf value) = (add (field lucentSelf value) delta)
+  return (field lucentSelf value)
 
 export fn lucentInternal_8f133499183f7a85_Counter__create(initial: float64) -> struct lucentInternal_8f133499183f7a85_Counter
   let %lucentSelf: struct lucentInternal_8f133499183f7a85_Counter = (struct lucentInternal_8f133499183f7a85_Counter (value 0))
