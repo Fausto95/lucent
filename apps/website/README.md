@@ -10,8 +10,14 @@ pnpm install
 pnpm --filter @lucent-lang/website dev
 ```
 
-Open http://127.0.0.1:5173. Vite uses its default development port and provides
-React Fast Refresh. The homepage is `/`; the language reference is `/language/`.
+Open http://127.0.0.1:5173. Routes:
+
+| Path                     | Page                                                   |
+| ------------------------ | ------------------------------------------------------ |
+| `/`                      | Home                                                   |
+| `/docs/`                 | Introduction (Guide)                                   |
+| `/docs/<slug>/`          | Every docs page; see `src/docs/nav.ts` for the list    |
+| `/language/`, `/get-started/` | Redirect to their docs pages (pre-docs URLs)      |
 
 ## Checks and production
 
@@ -21,43 +27,39 @@ pnpm --filter @lucent-lang/website build
 pnpm --filter @lucent-lang/website preview
 ```
 
-The local production preview uses Vite's default port, http://127.0.0.1:4173.
-Deploy the generated `dist/` directory to a static host with an SPA fallback
-that serves `index.html` for application routes such as `/language/`.
-`public/_redirects` supplies this rewrite for compatible hosts.
-Do not edit `dist/`; each build replaces it.
+Deploy `dist/` to a static host with an SPA fallback that serves `index.html`
+for application routes. `public/_redirects` and the root `vercel.json` supply
+that rewrite. Do not edit `dist/`; each build replaces it.
 
 ## Vercel
 
-Import this repository into Vercel with the **Root Directory set to the repository
-root** (`.`), not `apps/website`. The root `vercel.json` sets:
-
-- Build command: `pnpm run website:build`
-- Development command: `pnpm run website`
-- Output directory: `apps/website/dist`
-
-Installation uses Vercel's default pnpm detection, with pnpm 9.1.2 pinned in the
-root `packageManager` field. There is no custom install command.
-
-The SPA rewrite serves `index.html` for direct visits to routes such as
-`/language/`. Vercel serves the built static files; it does not need to run
-the preview server in production. The existing `build:packages` command continues
-to build the compiler packages separately.
+Import this repository with the **Root Directory set to the repository root**
+(`.`), not `apps/website`. The root `vercel.json` sets the build command
+(`pnpm run website:build`), the dev command, and the output directory
+(`apps/website/dist`). pnpm is pinned by the root `packageManager` field.
 
 ## Source
 
-- `index.html`: the application shell, favicon, and initial metadata only.
-- `src/main.tsx`: React entry point.
-- `src/router.tsx`: typed TanStack routes, scroll restoration, and not-found page.
-- `src/pages/`: Home and Language page components.
-- `src/components/`: shared layout, code examples, clipboard feedback, and section navigation.
-- `*.stylex.ts` beside each page/component: its styles, states, and responsive breakpoints.
-- `src/styles/shared.stylex.ts`: the few styles used across components.
-- `src/reset.css`: document defaults, fonts, focus treatment, and reduced-motion support.
-- `src/content.ts`: the homepage's native examples and setup commands.
+- `index.html`: the shell, favicon, description and Open Graph tags. Page
+  components update title/description/OG at runtime through
+  `useDocumentMeta`.
+- `src/router.tsx`: routes, redirects, and the not-found page.
+- `src/pages/HomePage.tsx`, `src/pages/DocsPage.tsx`: the two route components.
+- `src/docs/types.ts`: the docs block model. A page is data: paragraphs with a
+  tiny inline markup (`` `code` ``, `**strong**`, `[text](href)`), code blocks,
+  tabbed code, tables, notes, lists, steps, cards, and diagrams.
+- `src/docs/pages/**`: one file per docs page. `src/docs/nav.ts` is the single
+  source of truth for sidebar order, prev/next, and slug lookup.
+- `src/components/Docs*.tsx`: layout (sidebar, table of contents, pager) and
+  the block renderer. One component per file.
+- `src/components/diagrams/*.tsx`: hand-laid SVG diagrams for "How it works"
+  and "Native views", built from a few primitives (`DiagramBox`,
+  `DiagramArrow`, …) with the site palette.
+- `*.stylex.ts` beside each component: its styles and responsive breakpoints.
+- `src/content.ts`: the homepage's prewritten compiler output and samples.
+- `og.svg`: source of `public/og.png` (1200×630). Regenerate with Quick Look:
+  wrap the artwork in a 1200×1200 canvas offset by 285px, `qlmanage -t -s 1200`,
+  then `sips -c 630 1200`.
 
-StyleX compiles styles at build time through its official Vite integration.
-Internal navigation uses TanStack `Link` components; tabs and clipboard feedback
-use React state. The Swift/Kotlin switcher displays prewritten compiler output,
-not a live compiler. Keep the Language page aligned with `docs/language.md`
-and its code examples with `fixtures/` when the language changes.
+Keep the docs aligned with `docs/language.md` and code samples with
+`fixtures/` and `apps/*-example` when the language changes.
