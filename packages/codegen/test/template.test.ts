@@ -10,9 +10,9 @@ test("substitutes every occurrence", () => {
 });
 
 test("leaves native interpolation alone", () => {
-  const cmake = 'add_library(${PACKAGE_NAME} SHARED)\nset(PACKAGE_NAME {{moduleName}})';
+  const cmake = "add_library(${PACKAGE_NAME} SHARED)\nset(PACKAGE_NAME {{moduleName}})";
   expect(fillNative(cmake, { moduleName: "NitroLucent" })).toBe(
-    'add_library(${PACKAGE_NAME} SHARED)\nset(PACKAGE_NAME NitroLucent)',
+    "add_library(${PACKAGE_NAME} SHARED)\nset(PACKAGE_NAME NitroLucent)",
   );
 });
 

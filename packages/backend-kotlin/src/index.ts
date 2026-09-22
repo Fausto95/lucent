@@ -14,8 +14,8 @@ export { kotlinEventRuntime } from "./events.ts";
  */
 import { kotlinEnumImports, kotlinEnums, kotlinEnumValue } from "./enums.ts";
 export { kotlinEnumBridge, kotlinEnums, kotlinEnumImports } from "./enums.ts";
-import { kotlinView, kotlinViewImports } from "./views.ts";
-export { kotlinViewImports, kotlinViewRuntime } from "./views.ts";
+import { COMPOSE_SCAFFOLDING, FOR_IMPORTS, KotlinViewImports, kotlinView } from "./views.ts";
+export { KotlinViewImports, kotlinViewRuntime } from "./views.ts";
 import type { IRExpr, IRFunction, IRModule, IRPlace, IRStmt, IRStruct, NativeType } from "@lucent-lang/compiler";
 
 export interface GeneratedField {
@@ -77,7 +77,8 @@ export const localName = (id: string): string => id.replace(/^%/, "").replace(/\
 
 export function generateKotlin(module: IRModule): GeneratedUnit {
   const structs = module.structs.map((s) => generateStruct(s));
-  const functions = module.functions.map((f) => generateFunction(f, module));
+  const views = new KotlinViewImports();
+  const functions = module.functions.map((f) => generateFunction(f, module, views));
   const imports = [
     ...new Set([
       ...Object.values(module.views ?? {}).flatMap((v) => v.kotlin.imports ?? []),
@@ -85,7 +86,8 @@ export function generateKotlin(module: IRModule): GeneratedUnit {
       ...module.functions.flatMap((f) =>
         f.binding?.platforms && !f.binding.platforms.includes("android") ? [] : (f.binding?.kotlinImports ?? []),
       ),
-      ...(module.functions.some((f) => f.returnType.kind === "view") ? kotlinViewImports : []),
+      ...(module.functions.some((f) => f.returnType.kind === "view") ? COMPOSE_SCAFFOLDING : []),
+      ...views.toSorted(),
       ...kotlinEnumImports(module),
     ]),
   ];
@@ -125,14 +127,14 @@ function generateStruct(s: IRStruct): GeneratedStruct {
   };
 }
 
-function generateFunction(f: IRFunction, module: IRModule): GeneratedFunction {
+function generateFunction(f: IRFunction, module: IRModule, views: KotlinViewImports): GeneratedFunction {
   if (f.binding?.platforms && !f.binding.platforms.includes("android")) {
     f = {
       ...f,
       binding: { ...f.binding, kotlin: ['throw LucentError("PLATFORM_UNAVAILABLE", "API unavailable on Android")'] },
     };
   }
-  const emitter = new KotlinEmitter(f);
+  const emitter = new KotlinEmitter(f, views);
   const body = f.event
     ? [
         `LucentEventHub.emit(${JSON.stringify(f.event.id)}, ${kotlinEventValue("payload", f.params[0]?.type ?? { kind: "void" }, module)})`,
@@ -164,7 +166,10 @@ class KotlinEmitter {
   private readonly types: ReadonlyMap<string, NativeType>;
   private readonly returnKeyword: string;
 
-  constructor(f: IRFunction) {
+  constructor(
+    f: IRFunction,
+    private readonly views: KotlinViewImports,
+  ) {
     this.returnKeyword = f.thread && f.thread !== "caller" ? "return@withContext" : "return";
     this.mutable = new Set(f.locals.filter((l) => l.mutable).map((l) => l.id));
     this.types = new Map(f.locals.map((l) => [l.id, l.type]));
@@ -229,6 +234,7 @@ class KotlinEmitter {
   }
 
   private forRows(e: Extract<IRExpr, { op: "view" }>): string {
+    this.views.record(...FOR_IMPORTS);
     const data = e.props.find((prop) => prop.name === "each");
     const key = e.props.find((prop) => prop.name === "key");
     const child = e.children[0];
@@ -248,7 +254,7 @@ class KotlinEmitter {
   expr(e: IRExpr): string {
     switch (e.op) {
       case "view":
-        return e.name === "For" ? this.forRows(e) : kotlinView(e, (x) => this.expr(x));
+        return e.name === "For" ? this.forRows(e) : kotlinView(e, (x) => this.expr(x), this.views);
       case "stateRead":
         return `lucentGet_${e.name}()`;
       case "stateWrite":
