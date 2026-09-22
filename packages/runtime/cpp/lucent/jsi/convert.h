@@ -252,6 +252,14 @@ struct Convert<Error> {
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Error& e) { return h.errorToJs(rt, e); }
 };
 
+/// An AbortSignal from JavaScript becomes a native signal that a listener on
+/// the JS signal aborts. The native signal is cached on the JS object, so one
+/// JS signal always maps to one native signal. Signals do not go the other way.
+template <>
+struct Convert<AbortSignal> {
+  static AbortSignal fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+};
+
 // --- promises ------------------------------------------------------------------------------
 
 /// Hands a Lucent promise to JavaScript: the JS promise settles on the JS

@@ -54,7 +54,7 @@ concrete work. Checked items are implemented and covered by tests.
 - [x] `packages/expo`: config plugin (build on prebuild, links the package)
 - [x] `packages/core`: `delay`, `error`, `errorCode`, `utf8Encode`, `utf8Decode`, `now` (native + JS)
 - [x] Verified: RN CLI and Expo autolinking resolve the package as a pure C++ dependency; Android CMake integration builds (host simulation); TurboModule compiles against RN 0.88 headers
-- [ ] `AbortSignal` cancellation for exported async functions
+- [x] `AbortSignal` / `AbortController`, `delay(ms, signal)`; JS signals abort native work (e2e `abort`)
 - [ ] Watch mode (`lucent build --watch`) tied to Metro
 - [ ] Publishable build of the TypeScript packages (currently run from source via tsx)
 

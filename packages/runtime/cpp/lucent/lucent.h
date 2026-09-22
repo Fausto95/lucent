@@ -1,6 +1,7 @@
 // Lucent runtime — umbrella header included by generated code.
 #pragma once
 
+#include "abort.h"
 #include "array.h"
 #include "async.h"
 #include "bytes.h"

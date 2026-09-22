@@ -86,6 +86,11 @@ beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
   them.
 * `jsi/convert.h`: `Convert<T>` between JSI values and Lucent values. The
   compiler emits specializations for structs, classes and unions.
+* `abort.h`: `AbortController` / `AbortSignal`. A signal from JavaScript is
+  mirrored by a native signal stored as `NativeState` on the JS object; an
+  `abort` listener on the JS signal aborts the mirror synchronously on the JS
+  thread, under the Lucent lock, so native listeners run in the same turn as
+  JavaScript's.
 
 ## React Native integration
 

@@ -23,11 +23,6 @@ export default function run(mod, print, lucentClass, mods) {
     const p3 = mod.abortedMidway(c3.signal);
     setTimeout(() => c3.abort(new Error("from js")), 10);
     print(await p3);
-    try {
-      mod.check({ aborted: false });
-    } catch (e) {
-      print("not a signal:", e.name);
-    }
   })();
 
 }

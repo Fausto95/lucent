@@ -53,7 +53,7 @@ structures, sync engines) can be written in Lucent.
 - ✅ JS callbacks as parameters (sync on the JS thread, async-posted elsewhere; `await`able when they return a Promise).
 - ✅ Built-ins: `Math`, `Number`, `String`, `Array`, `Map`, `Set`, `Object.keys/values/entries`, `JSON.stringify`, `console`, `Uint8Array`.
 - ✅ Concurrency model: Lucent code runs one-at-a-time (like JS) under one lock; async work runs on a Lucent thread; no data races by construction.
-- 🔭 `AbortSignal` cancellation for exported async functions.
+- ✅ `AbortSignal` cancellation for exported async functions.
 - ✅ `class X extends Error`.
 - ✅ Interfaces implemented by classes (virtual dispatch).
 - 🔭 General class inheritance; generic interfaces.

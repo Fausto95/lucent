@@ -4,8 +4,8 @@
  * same source also runs as plain TypeScript, e.g. in unit tests.
  */
 
-/** Resolves after `ms` milliseconds. */
-export declare function delay(ms: number): Promise<void>;
+/** Resolves after `ms` milliseconds; rejects with the signal's reason if it aborts first. */
+export declare function delay(ms: number, signal?: AbortSignal): Promise<void>;
 
 /** An Error with a machine-readable `code`, visible to JavaScript as `error.code`. */
 export declare function error(code: string, message: string): Error;

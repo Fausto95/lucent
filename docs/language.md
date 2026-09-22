@@ -81,7 +81,11 @@ Supported:
 * Arrow functions and function expressions, nested function declarations
   (hoisted), recursion. Closures share variables with their enclosing scope,
   and `let` loop variables get a fresh binding per iteration.
-* `async`/`await`, `Promise.all`, `Promise.resolve`/`reject`, `delay(ms)`.
+* `async`/`await`, `Promise.all`, `Promise.resolve`/`reject`, `delay(ms, signal?)`.
+* Cancellation: `AbortSignal` (`aborted`, `throwIfAborted()`,
+  `addEventListener("abort", listener)`) and `new AbortController()`
+  (`signal`, `abort(error?)`). `delay(ms, signal)` rejects with the abort
+  reason. `signal.reason` is untyped and not available; catch the error instead.
 
 Evaluation order is JavaScript's (left to right), even where C++ would leave it
 unspecified.
@@ -143,6 +147,10 @@ Only exported functions, classes and constants are visible from JavaScript.
     synchronously and may return values;
   * called from async code, they are posted to the JS thread, so they must
     return `void` or a `Promise` (which Lucent can `await`).
+* **AbortSignals** can be passed from JavaScript (for example to an exported
+  `async` function) and abort the native side as soon as JavaScript calls
+  `controller.abort()`. They cannot be returned to JavaScript, and an
+  `AbortController` cannot cross at all.
 * **Generic functions and classes** cannot be exported; wrap them in a
   concrete exported function.
 
@@ -182,6 +190,8 @@ explicitly, for example by clearing a field.
 | `toPrecision` / `toExponential` round exact binary ties up | may round ties to even (rare) |
 | deep recursion throws `RangeError` | may overflow the native stack |
 | `console.log(obj)` pretty-prints | prints `String(obj)` |
+| `abort()` without a reason uses an `AbortError` whose message depends on the engine | `AbortError: signal is aborted without reason`, as in React Native and browsers (Node says "This operation was aborted") |
+| an abort reason can be any value | reasons from JavaScript become errors (`String(reason)` as the message when it is not an object); `abort()` in Lucent takes an `Error` |
 | any object with the right members satisfies an interface | only classes that declare `implements`; plain JS objects are rejected at the boundary with a `TypeError` |
 
 ## Diagnostics

@@ -31,7 +31,7 @@ import * as stringsModule from "../lucent/strings.lucent";
 import stringsRun from "./strings";
 
 export const cases: TestCase[] = [
-  { name: "abort", module: abortModule, run: abortRun, expected: ["finished","finished","finished","thrown AbortError running","no signal thrown AbortError","ticked, then aborted","aborted before the first tick","before false, listener, after true, late, thrown AbortError","not stopped"] },
+  { name: "abort", module: abortModule, run: abortRun, expected: ["stopped: AbortError","finished","stopped: AbortError","thrown AbortError running","no signal thrown AbortError","ticked, then aborted","aborted before the first tick","before false, listener, after true, caught AbortError, thrown AbortError","Error: stop please","js aborted, caught Error, aborted=true"] },
   { name: "async", module: asyncModule, run: asyncRun, expected: ["42","[2,4,6]","[8,10,12]","rejected: bad","caught boom","done 1,2,3","42","js rejection: js said no","X X Y 2","start a, start b, both started, end b, end a","undefined void async ran","2","caught fast failed, slow settled","caught fast failed, slow settled","t0, t1, all 9, t2, t3, t4"] },
   { name: "basics", module: basicsModule, run: basicsRun, expected: ["2611606212 2003357396 3261435661","[3397915750,643508156,2183942341]","10 0 0.5","negative zero positive 2.5"] },
   { name: "classes", module: classesModule, run: classesRun, expected: ["6 9 9 counter counter=9","0 true","10 10","true 0","made=2 true true false","2","4 3 3,2,1","ada 15 42","RangeError Deposit must be positive","10,5"] },

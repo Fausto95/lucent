@@ -2,8 +2,20 @@
 // JavaScript implementations of @lucent-lang/core, used when a Lucent module
 // runs as plain TypeScript (tests, web). Native builds use the C++ runtime.
 
-function delay(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function delay(ms, signal) {
+  return new Promise((resolve, reject) => {
+    if (!signal) return void setTimeout(resolve, ms);
+    if (signal.aborted) return void reject(signal.reason);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(signal.reason);
+    };
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
+    signal.addEventListener("abort", onAbort);
+  });
 }
 
 function error(code, message) {

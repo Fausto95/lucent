@@ -71,6 +71,13 @@ export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E
     case "bytes":
       if (name === "length" || name === "byteLength") return num(`(${o}).length()`);
       break;
+    case "abortSignal":
+      if (name === "aborted") return bool(`(${o})->aborted.load()`);
+      if (name === "reason") fail(node, Codes.UnsupportedBuiltin, "signal.reason has no type; catch the error from throwIfAborted() or delay() instead");
+      break;
+    case "abortController":
+      if (name === "signal") return { c: `(${o})->signal`, t: T.abortSignal };
+      break;
     case "error":
       if (name === "message") return str(`(${o})->message`);
       if (name === "name") return str(`(${o})->name`);
@@ -486,6 +493,22 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
     case "error":
       if (name === "toString") return str(`lucent::errorToString(${o})`);
       break;
+    case "abortSignal":
+      if (name === "throwIfAborted") return { c: `(${o})->throwIfAborted()`, t: T.undefined };
+      if (name === "addEventListener") {
+        if (a.length !== 2) fail(node, Codes.UnsupportedBuiltin, 'addEventListener takes the event type and a listener (options are not supported)');
+        return { c: `(${o})->addEventListener(${argAs(em, node, 1, { k: "fn", params: [], ret: T.void })})`, t: T.undefined };
+      }
+      break;
+    case "abortController":
+      if (name === "abort") {
+        if (!a[0]) return { c: `(${o})->abort(lucent::undefined)`, t: T.undefined };
+        const reason = em.expr(a[0]);
+        const isError = reason.t.k === "error" || (reason.t.k === "class" && em.reg.cls(reason.t.id).isError);
+        if (!isError) fail(a[0], Codes.UnsupportedBuiltin, "abort reasons must be Error objects");
+        return { c: `(${o})->abort(${em.coerce(reason, T.error, a[0])})`, t: T.undefined };
+      }
+      break;
     case "fn":
       if (name === "call" || name === "apply" || name === "bind") fail(node, Codes.UnsupportedBuiltin, `Function.prototype.${name} is not supported`);
       break;
@@ -766,8 +789,11 @@ export function globalCall(em: FnEmitter, node: ts.CallExpression, name: string,
   const a = node.arguments;
   if (isCoreSymbol(sym)) {
     switch (name) {
-      case "delay":
-        return { c: `lucent::delay(${argAs(em, node, 0, T.number)})`, t: { k: "promise", inner: T.void } };
+      case "delay": {
+        const ms = argAs(em, node, 0, T.number);
+        const signal = a[1] ? `, ${argAs(em, node, 1, unionOf([T.abortSignal, T.undefined]))}` : "";
+        return { c: `lucent::delay(${ms}${signal})`, t: { k: "promise", inner: T.void } };
+      }
       case "error":
         return { c: `lucent::errorWithCode(${argAs(em, node, 0, T.string)}, ${argAs(em, node, 1, T.string)})`, t: T.error };
       case "errorCode":
@@ -815,6 +841,8 @@ export function newBuiltin(em: FnEmitter, node: ts.NewExpression, callee: ts.Exp
   const a = node.arguments ?? ts.factory.createNodeArray();
   const name = ts.isIdentifier(callee) ? callee.text : "";
   switch (t.k) {
+    case "abortController":
+      return { c: "std::make_shared<lucent::AbortControllerObject>()", t };
     case "map": {
       if (!a[0]) return { c: `${em.cpp(t)}()`, t };
       return { c: `lucent::mapFromEntries<${em.cpp(t.key)}, ${em.cpp(t.val)}>(${em.exprAs(a[0], { k: "array", e: { k: "tuple", es: [t.key, t.val] } })})`, t };

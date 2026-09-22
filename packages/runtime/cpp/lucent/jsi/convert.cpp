@@ -130,4 +130,47 @@ Error Convert<Error>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path&)
   return e;
 }
 
+namespace {
+struct SignalState : jsi::NativeState {
+  explicit SignalState(AbortSignal s) : signal(std::move(s)) {}
+  AbortSignal signal;
+};
+
+Error abortReason(jsi::Runtime& rt, const jsi::Value& signal) {
+  jsi::Value reason = signal.isObject() ? signal.getObject(rt).getProperty(rt, "reason") : jsi::Value::undefined();
+  return reason.isUndefined() ? abortError() : Convert<Error>::fromJs(rt, reason, Path{"AbortSignal", "reason"});
+}
+}  // namespace
+
+AbortSignal Convert<AbortSignal>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  if (!v.isObject()) throwBoundaryError(rt, p, "an AbortSignal", v);
+  jsi::Object o = v.getObject(rt);
+  if (o.hasNativeState<SignalState>(rt)) return o.getNativeState<SignalState>(rt)->signal;
+  jsi::Value aborted = o.getProperty(rt, "aborted");
+  jsi::Value add = o.getProperty(rt, "addEventListener");
+  if (!aborted.isBool() || !add.isObject() || !add.getObject(rt).isFunction(rt)) throwBoundaryError(rt, p, "an AbortSignal", v);
+  auto signal = std::make_shared<AbortSignalObject>();
+  if (aborted.getBool()) {
+    signal->abort(abortReason(rt, v));
+  } else {
+    // The JS signal owns the native one (NativeState below); the listener
+    // only refers to it.
+    std::weak_ptr<AbortSignalObject> weak = signal;
+    jsi::Function onAbort = jsi::Function::createFromHostFunction(
+        rt, jsi::PropNameID::forAscii(rt, "onAbort"), 1,
+        [weak](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {
+          auto s = weak.lock();
+          if (!s) return jsi::Value::undefined();
+          jsi::Value target = count > 0 && args[0].isObject() ? args[0].getObject(rt).getProperty(rt, "target") : jsi::Value(rt, thisVal);
+          return callSync(rt, Host::get(rt), [&]() -> jsi::Value {
+            s->abort(abortReason(rt, target));
+            return jsi::Value::undefined();
+          });
+        });
+    add.getObject(rt).getFunction(rt).callWithThis(rt, o, jsi::String::createFromAscii(rt, "abort"), onAbort);
+  }
+  o.setNativeState(rt, std::make_shared<SignalState>(signal));
+  return signal;
+}
+
 }  // namespace lucent::js
