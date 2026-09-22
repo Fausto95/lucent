@@ -1,7 +1,16 @@
 {
   "name": "@lucent-lang/metro",
   "version": "0.0.1",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fausto95/lucent.git",
+    "directory": "packages/metro"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
   "type": "module",
   "main": "./dist/index.cjs",
   "exports": {
@@ -13,6 +22,9 @@
       "types": "./src/transformer.ts",
       "default": "./dist/transformer.cjs"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@lucent-lang/compiler": "workspace:*",

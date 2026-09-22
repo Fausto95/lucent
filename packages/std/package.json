@@ -1,7 +1,16 @@
 {
   "name": "@lucent-lang/std",
   "version": "0.0.1",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fausto95/lucent.git",
+    "directory": "packages/std"
+  },
+  "files": [
+    "math.d.ts",
+    "text.d.ts"
+  ],
   "type": "module",
   "exports": {
     "./math": {
@@ -10,5 +19,8 @@
     "./text": {
       "types": "./text.d.ts"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

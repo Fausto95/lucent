@@ -1,11 +1,22 @@
 {
   "name": "@lucent-lang/network",
   "version": "0.0.1",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fausto95/lucent.git",
+    "directory": "packages/network"
+  },
+  "files": [
+    "index.d.ts"
+  ],
   "type": "module",
   "exports": {
     ".": {
       "types": "./index.d.ts"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

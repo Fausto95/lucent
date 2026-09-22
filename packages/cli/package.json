@@ -1,16 +1,28 @@
 {
   "name": "@lucent-lang/cli",
   "version": "0.0.1",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fausto95/lucent.git",
+    "directory": "packages/cli"
+  },
   "bin": {
     "lucent": "./dist/main.cjs"
   },
+  "files": [
+    "dist",
+    "src"
+  ],
   "type": "module",
   "exports": {
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@lucent-lang/compiler": "workspace:*",

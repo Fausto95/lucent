@@ -1,10 +1,21 @@
 {
   "name": "@lucent-lang/backend-swift",
   "version": "0.0.1",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fausto95/lucent.git",
+    "directory": "packages/backend-swift"
+  },
+  "files": [
+    "src"
+  ],
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@lucent-lang/compiler": "workspace:*"

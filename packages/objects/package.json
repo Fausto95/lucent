@@ -1,12 +1,23 @@
 {
   "name": "@lucent-lang/objects",
   "version": "0.0.1",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fausto95/lucent.git",
+    "directory": "packages/objects"
+  },
+  "files": [
+    "index.d.ts"
+  ],
   "type": "module",
   "types": "./index.d.ts",
   "exports": {
     ".": {
       "types": "./index.d.ts"
     }
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

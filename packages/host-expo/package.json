@@ -1,10 +1,21 @@
 {
   "name": "@lucent-lang/host-expo",
   "version": "0.0.1",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fausto95/lucent.git",
+    "directory": "packages/host-expo"
+  },
+  "files": [
+    "src"
+  ],
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "@lucent-lang/backend-kotlin": "workspace:*",
