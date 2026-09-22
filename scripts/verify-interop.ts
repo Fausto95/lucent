@@ -40,9 +40,15 @@ let object = NSMutableString(string: "native")
 let registry = LucentObjectRegistry.shared
 let handle = registry.hold(object)
 precondition(handle == registry.hold(object))
-let retained = try registry.get(handle, NSMutableString.self)
+let lease = try registry.acquire(handle, NSMutableString.self)
+let retained = lease.value
 precondition(retained === object)
 registry.release(handle)
+precondition(lease.value === object)
+precondition(registry.activeLeaseCount == 1)
+lease.close()
+lease.close()
+precondition(registry.activeLeaseCount == 0)
 do { _ = try registry.get(handle, NSMutableString.self); fatalError("Released handle was accepted") } catch let error as LucentError { precondition(error.code == "DISPOSED_OBJECT") }
 print("swift: native instances, callback invocation, identity and release passed")
 `;
@@ -62,9 +68,15 @@ fun main() {
  val obj = java.lang.StringBuilder("native")
  val handle = LucentObjectRegistry.hold(obj)
  check(handle == LucentObjectRegistry.hold(obj))
- val retained = LucentObjectRegistry.get(handle, java.lang.StringBuilder::class.java)
+ val lease = LucentObjectRegistry.acquire(handle, java.lang.StringBuilder::class.java)
+ val retained = lease.value
  check(retained === obj)
  LucentObjectRegistry.release(handle)
+ check(lease.value === obj)
+ check(LucentObjectRegistry.activeLeaseCount == 1)
+ lease.close()
+ lease.close()
+ check(LucentObjectRegistry.activeLeaseCount == 0)
  try { LucentObjectRegistry.get(handle, java.lang.StringBuilder::class.java); error("Released handle was accepted") } catch (error:LucentError) { check(error.code == "DISPOSED_OBJECT") }
  println("kotlin: native instances, callback invocation, identity and release passed")
 }`;
