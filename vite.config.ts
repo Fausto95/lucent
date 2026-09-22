@@ -42,7 +42,7 @@ export default defineConfig({
     ignorePatterns: generated,
   },
   test: {
-    include: ["packages/*/test/**/*.test.ts"],
+    include: ["packages/*/test/**/*.test.ts", "scripts/**/*.test.ts"],
     environment: "node",
   },
   pack: [
