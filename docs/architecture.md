@@ -1,0 +1,114 @@
+# Architecture
+
+```
+          app/src/*.lucent.ts
+                  │  lucent build (packages/cli)
+                  ▼
+ ┌──────────────── packages/compiler ─────────────────┐
+ │ program.ts   TypeScript program (strict +          │
+ │              noUncheckedIndexedAccess)              │
+ │ types.ts     TS types → Lucent types (structs by    │
+ │              shape, unions, optionals, classes)     │
+ │ emit/        functions, statements, expressions,    │
+ │              builtins, classes, closures → C++      │
+ │ emit/bindings.ts   JSI conversions, prototypes,     │
+ │              module installers                      │
+ │ native-package.ts  writes .lucent/native            │
+ └─────────────────────────────────────────────────────┘
+                  │
+                  ▼
+ .lucent/native/                      (autolinked by React Native)
+ ├── cpp/lucent/        runtime (copied from packages/runtime/cpp/lucent)
+ ├── cpp/rn/            LucentModule: the pure C++ TurboModule "Lucent"
+ ├── cpp/generated/     lucent_app.h, m_<module>.cpp, lucent_bindings.cpp
+ ├── ios/LucentRegistration.mm       +load → registerCxxModuleToGlobalModuleMap
+ ├── android/CMakeLists.txt          OBJECT library linked into appmodules
+ ├── android/include/lucentnative.h  stub Java-module provider for autolinking
+ ├── LucentNative.podspec
+ ├── react-native.config.js          pure C++ dependency (cxxModule* fields)
+ └── js/<module>.js                  proxies Metro bundles instead of the .ts
+```
+
+## Compiler
+
+The compiler builds a real TypeScript `Program` and never re-implements type
+inference. Every expression's type, including the checker's narrowing at that
+location (`if (x !== undefined)`, `switch (s.kind)`, `typeof`, `instanceof`),
+comes from `checker.getTypeAtLocation`. The emitter lowers each expression to a
+C++ expression plus its *representation* type, and inserts explicit
+conversions where the checker's type differs: unwrapping an optional,
+narrowing a union member, widening into a union, adapting a callback's arity.
+
+Notable lowering choices:
+
+* **Structs are deduplicated by shape.** `type Point = {x, y}`, an interface with
+  the same fields, and an object literal `{ x: 1, y: 2 }` all share one C++ struct.
+* **Closures** are C++ lambdas wrapped in `lucent::Fn`. A local captured by a
+  closure *and* written after its declaration lives in a `lucent::Box`, so both
+  sides see one variable (analysis in `emit/analysis.ts`).
+* **Coroutines** never reference lambda captures: an async arrow becomes a
+  capture-less coroutine that receives its captures as parameters.
+* **`try/finally`** uses completion codes: `return`, `break` and `continue` inside
+  the protected block jump to the finally label and are replayed after it.
+  Catch bodies run outside the C++ `catch` handler, because `co_await` is not
+  allowed inside one.
+* **Evaluation order**: when more than one argument or operand could have side
+  effects, they are evaluated into temporaries left to right (GNU statement
+  expressions, supported by clang and GCC).
+* **`#line` directives** point compiler errors and debugger stepping at the
+  `.lucent.ts` source.
+
+## Runtime
+
+`packages/runtime/cpp/lucent` is header-heavy C++20 with no dependencies
+beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
+
+* `jsstring.h`: `lucent::String`, an immutable, shared, UTF-16 string with a
+  Latin-1 fast path. When the handle is the only owner, `+=` appends in place,
+  so building a string in a loop is linear.
+* `number.h`: ECMAScript number semantics. `toString` produces the shortest
+  round-trip digits; `toFixed` rounds on the exact binary value.
+* `array.h`, `map.h`, `bytes.h`: shared containers with JS semantics.
+* `async.h`, `scheduler.h`: `Promise<T>` as a coroutine type. Bodies start
+  eagerly, and `await` always resumes from the microtask queue.
+  One Lucent thread runs jobs and timers, and one recursive lock serializes all
+  Lucent code.
+* `jsi/host.h`: one `Host` per JS runtime. It owns every JSI reference Lucent
+  holds (promise resolvers, callbacks, class prototypes, the identity cache).
+  An anchor object on `global` invalidates it while the runtime tears down.
+  Native code refers to JSI objects only by id and hops to the JS thread to use
+  them.
+* `jsi/convert.h`: `Convert<T>` between JSI values and Lucent values. The
+  compiler emits specializations for structs, classes and unions.
+
+## React Native integration
+
+`LucentModule` is a C++ TurboModule. Its `create(runtime, name)` returns the
+exports object of the Lucent module `name`, built on first access.
+
+* **iOS**: `LucentRegistration.mm` registers the module in React Native's
+  global C++ TurboModule map from `+load`. No codegen and no app delegate changes.
+* **Android**: the package is a *pure C++ dependency*. React Native's gradle
+  plugin adds `android/CMakeLists.txt` to the app's `appmodules` build and
+  generates `autolinking_cxxModuleProvider`, which instantiates `LucentModule`.
+
+Both React Native CLI and Expo autolinking read the app's
+`react-native.config.js`, whose `lucent-native` entry points at `.lucent/native`.
+
+On the JavaScript side, each proxy calls
+`loadModule(name, () => require("react-native").TurboModuleRegistry)`.
+Resolving `react-native` from the app's own location avoids picking up a second
+copy in monorepos.
+
+## Tests
+
+* `packages/runtime/test/run.sh`: runtime unit tests, including under
+  ASan/UBSan.
+* `packages/compiler/test/e2e/run.ts`: each case is compiled, built into a Hermes
+  host (`packages/runtime/test/jsi/harness.cpp`), and run through real JSI. The
+  same test script runs against the TypeScript source as plain JavaScript in
+  Node, and the outputs must match line for line.
+* `scripts/app-check.ts`: runs `lucent build` on an example app, builds the
+  generated C++ into the Hermes host, bundles the app's test screen code with the
+  app's own Metro config, and runs it. This is the whole device pipeline except
+  the platform build systems.

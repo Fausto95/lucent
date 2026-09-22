@@ -1,5 +1,5 @@
 import ts from "typescript";
-import { Codes, fail } from "../diagnostics.ts";
+import { Codes, CompileError, fail } from "../diagnostics.ts";
 import type { LucentModule } from "../program.ts";
 import { type ClassInfo, cppIdent, isVoidish, type LType, stripOpt, T, typeKey } from "../types.ts";
 import { memberName, parameterProperties } from "./classes.ts";
@@ -23,6 +23,7 @@ export class BindingsEmitter {
   private readonly structs = new Set<string>();
   private readonly classes = new Set<string>();
   private readonly unions = new Map<string, LType & { k: "union" }>();
+  private readonly unionSites = new Map<string, ts.Node>();
 
   constructor(private readonly ctx: Ctx) {}
 
@@ -50,6 +51,7 @@ export class BindingsEmitter {
       case "union":
         if (!this.unions.has(typeKey(t))) {
           this.unions.set(typeKey(t), t);
+          this.unionSites.set(typeKey(t), node);
           for (const m of t.ms) this.use(m, node);
         }
         return;
@@ -110,7 +112,18 @@ export class BindingsEmitter {
     out.push("");
     for (const id of this.structs) out.push(this.structConvert(id));
     for (const id of this.classes) out.push(this.classConvert(id));
-    for (const u of this.unions.values()) out.push(this.unionConvert(u));
+    for (const [key, u] of this.unions) {
+      const code = this.ctx.guard(() => {
+        try {
+          return this.unionConvert(u);
+        } catch (e) {
+          // Report at the declaration that sent the union across the boundary.
+          if (e instanceof CompileError && !e.node) throw new CompileError(this.unionSites.get(key), e.code, e.message);
+          throw e;
+        }
+      });
+      if (code) out.push(code);
+    }
     out.push("}  // namespace lucent::js");
     out.push("");
     out.push("namespace {");
@@ -370,7 +383,7 @@ export class BindingsEmitter {
     for (const name of candidates) {
       const values = structs.map((st) => st.fields.find((f) => f.name === name)?.literal);
       if (values.every((v) => v !== undefined) && new Set(values).size === values.length) {
-        const branches = structs.map((st, i) => `if (d == ${q(values[i]!)}) return ${s}(Convert<${this.reg.cpp(members[i]!)}>::fromJs(rt, v, p));`);
+        const branches = structs.map((_st, i) => `if (d == ${q(values[i]!)}) return ${s}(Convert<${this.reg.cpp(members[i]!)}>::fromJs(rt, v, p));`);
         return `if (v.isObject()) {\n    jsi::Value dv = v.getObject(rt).getProperty(rt, ${q(name)});\n    if (dv.isString()) {\n      std::string d = dv.getString(rt).utf8(rt);\n      ${branches.join("\n      ")}\n    }\n  }`;
       }
     }

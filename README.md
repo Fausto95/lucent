@@ -1,67 +1,114 @@
-<p align="center">
-  <img src="assets/logo.svg" width="96" alt="Lucent">
-</p>
+# Lucent
 
-<h1 align="center">Lucent</h1>
-
-> [!WARNING]
-> **Experimental — not for production.** APIs and the language subset change
-> without a migration path.
-
-Write native React Native modules in TypeScript. Lucent compiles a checked
-subset to Swift and Kotlin ahead of time. Nothing runs in a JS engine on the
-native side.
+**Write React Native native modules in TypeScript. Lucent compiles them to C++ and exposes them over JSI.**
 
 ```ts
-// src/geo.lucent.ts
-export type Point = { x: number; y: number };
+// src/hash.lucent.ts
+export function hash(input: string, seed: number = 0): number {
+  let h = seed | 0;
+  for (let i = 0; i < input.length; i++) {
+    h = Math.imul(h ^ input.charCodeAt(i), 0x5bd1e995);
+    h ^= h >>> 15;
+  }
+  return h >>> 0;
+}
 
-export function squaredDistance(a: Point, b: Point): number {
-  const dx = a.x - b.x;
-  const dy = a.y - b.y;
-  return dx * dx + dy * dy;
+export async function hashMany(inputs: string[]): Promise<number[]> {
+  return inputs.map((s) => hash(s)); // runs off the JS thread
 }
 ```
 
-```ts
-import { squaredDistance } from "./src/geo.lucent";
-squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25 — Swift / Kotlin
+```tsx
+// App.tsx
+import { hash, hashMany } from "./src/hash.lucent";
+
+hash("hello");                 // synchronous call into C++
+await hashMany(["a", "b"]);    // async: runs on the Lucent thread, resolves on the JS thread
 ```
 
-Works with [Expo Modules](https://docs.expo.dev/modules/overview/) (SDK 58)
-and [Nitro Modules](https://nitro.margelo.com/).
+There is no JavaScript engine on the native side, and no Swift, Kotlin, Nitro or
+Expo Modules layer. Each `*.lucent.ts` file becomes C++ that talks to Hermes
+through JSI, through one pure C++ TurboModule that React Native autolinks on
+both platforms.
 
-## Today
+> **Status: experimental.** This branch (`cpp-jsi`) is a from-scratch rewrite.
+> See [ROADMAP.md](ROADMAP.md) and [TODO.md](TODO.md).
 
-- Functions, records, unions, bytes, async, errors
-- Native classes with handles, events, background work, task scopes
-- Resources, subscriptions, `resourceScope`, move/copy
-- `.lucent.tsx` views with `state()`, `resource()`, and `effect()`
-- Camera / BLE / SQLite / location packages as CI stubs (not device-complete)
+## How it works
 
-## Not yet
+```
+*.lucent.ts ──TypeScript checker──▶ typed lowering ──▶ C++ (lucent_app.h, m_*.cpp)
+                                                          │
+                     lucent runtime (strings, numbers, arrays, maps, promises,
+                     errors, scheduler) + JSI bindings + TurboModule "Lucent"
+                                                          │
+                          .lucent/native  ◀── autolinked by React Native (iOS pod, Android CMake)
+```
 
-- Real-device camera / BLE / background OS APIs
-- Full IDE and source maps from native toolchains
-- npm publish and a stable 1.0
+* The **compiler** uses the real TypeScript type checker, including its narrowing,
+  then lowers the program to C++ with JavaScript semantics: doubles with ECMAScript
+  arithmetic, UTF-16 strings, arrays and objects as shared references, exceptions,
+  and `async`/`await` on C++20 coroutines.
+* The **runtime** (`packages/runtime/cpp/lucent`) implements those semantics, plus
+  the JSI boundary: argument validation with readable errors, class instances
+  with stable identity, JS callbacks, and promises in both directions.
+* **Metro** swaps each `*.lucent.ts` import for a small generated proxy. Your editor
+  still type-checks against the original source.
 
-See [what you can build](https://lucent-lang.dev/docs/what-you-can-build/) and
-the [roadmap](ROADMAP.md).
+Read [docs/architecture.md](docs/architecture.md) for the details and
+[docs/language.md](docs/language.md) for what the language supports.
 
-## Docs
+## Using it in an app
 
-- [Getting started](docs/getting-started.md)
-- [Language](docs/language.md) · [Semantics](docs/semantics.md)
-- [Website](https://lucent-lang.dev)
+```sh
+npm i @lucent-lang/runtime @lucent-lang/core
+npm i -D @lucent-lang/cli @lucent-lang/metro
+npx lucent init        # react-native.config.js entry + .gitignore
+```
 
-## Develop
+```js
+// metro.config.js
+const { withLucent } = require("@lucent-lang/metro");
+module.exports = withLucent(getDefaultConfig(__dirname));
+```
+
+Then, whenever native code changes:
+
+```sh
+npx lucent build          # writes .lucent/native (C++ + build files)
+cd ios && pod install     # iOS, when files were added or removed
+npx react-native run-ios  # or run-android
+```
+
+**Expo:** add `"@lucent-lang/expo"` to `plugins` in `app.json`. `expo prebuild`
+runs `lucent build` and links the package.
+
+## Repository
+
+| Path | What |
+|---|---|
+| `packages/compiler` | TypeScript → C++ compiler, native package writer |
+| `packages/runtime` | C++ runtime (`cpp/lucent`), TurboModule host (`cpp/rn`), iOS/Android build templates (`native/`), JS loader (`js/`) |
+| `packages/cli` | `lucent build`, `lucent check`, `lucent init` |
+| `packages/metro` | Metro transformer that swaps `*.lucent.ts` for proxies |
+| `packages/expo` | Expo config plugin |
+| `packages/core` | `@lucent-lang/core`: `delay`, `error`, `utf8Encode`… (native + JS implementations) |
+| `apps/bare-example`, `apps/expo-example` | Example apps with an on-device test screen |
+| `scripts/` | `sync-examples.ts` (copies the e2e cases into the apps), `app-check.ts` (headless app pipeline check) |
+
+## Tests
 
 ```sh
 pnpm install
-pnpm test
-pnpm verify
+packages/runtime/test/run.sh                          # C++ runtime unit tests (SANITIZE=1 for ASan/UBSan)
+HERMES_DIR=~/hermes npx tsx packages/compiler/test/e2e/run.ts   # compile → C++ → Hermes, diffed against plain JS
+HERMES_DIR=~/hermes npx tsx scripts/app-check.ts apps/bare-example  # the app's real Metro bundle + generated C++, headless
 ```
 
-Node 22.12+, pnpm. Native verifies need Xcode and `kotlinc`.
+The end-to-end tests need a Hermes build (`cmake -S hermes -B hermes/build -G Ninja && ninja -C hermes/build hermesvm`):
+every case runs natively through real JSI and must print exactly what the same
+TypeScript prints when run as JavaScript in Node.
 
-MIT © Lucent
+## License
+
+MIT

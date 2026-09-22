@@ -9,8 +9,6 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noImplicitOverride": true,
-    "noFallthroughCasesInSwitch": true,
-    "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
@@ -19,5 +17,5 @@
     "skipLibCheck": true
   },
   "include": ["packages/*/src", "packages/*/test", "scripts"],
-  "exclude": ["node_modules", "apps", "fixtures", "**/.lucent"]
+  "exclude": ["node_modules", "apps", "**/.lucent", "packages/compiler/test/e2e/cases"]
 }

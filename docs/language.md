@@ -1,0 +1,183 @@
+# The Lucent language
+
+Lucent is TypeScript, compiled ahead of time to C++. A `*.lucent.ts` file must
+type-check with TypeScript in strict mode, plus `noUncheckedIndexedAccess`.
+Lucent then accepts the subset described here. Everything it rejects gets a
+`LUCENT` diagnostic that points at the source.
+
+The rule of thumb: **if it type-checks and uses features listed here, it behaves
+exactly like the same code running in JavaScript.** Where Lucent deviates, it
+throws rather than silently doing something different. The deviations are listed
+at the end.
+
+## Modules
+
+```ts
+import { delay, error } from "@lucent-lang/core";   // helpers with native implementations
+import { parse, type Token } from "./lexer.lucent"; // other Lucent modules
+
+export function f(x: number): number { ... }         // callable from JavaScript
+export async function g(): Promise<string> { ... }   // returns a JS promise; runs off the JS thread
+export class Store { ... }                            // `new Store()` from JavaScript
+export const VERSION = "1.0";                          // copied to JavaScript once
+export enum Mode { Fast = "fast", Safe = "safe" }     // becomes a frozen JS object
+export type Item = { id: string; tags: string[] };    // types are free
+
+let counter = 0;                                      // module state, reset on JS reload
+```
+
+* The top level may only contain declarations.
+* Imports are limited to other `*.lucent.ts` files and `@lucent-lang/core`.
+* Module names are file names without `.lucent.ts`, and must be unique within an app.
+
+## Types
+
+| TypeScript | Native representation |
+|---|---|
+| `number` | `double`, with ECMAScript arithmetic (`%`, `**`, bitwise ops through ToInt32, …) |
+| `boolean` | `bool` |
+| `string` (and string literal types) | immutable UTF-16 string, stored one byte per unit when possible |
+| `T[]`, `readonly T[]` | shared array (assignment aliases, like JS) |
+| `[A, B]` | tuple (a value) |
+| `Record<string, V>`, `{ [k: string]: V }` | string-keyed dictionary, JS key order |
+| `Map<K, V>`, `Set<T>` | insertion-ordered, SameValueZero keys |
+| object types (`type`, `interface`, literals) | shared struct; types with the same shape share one struct |
+| classes | shared object with methods, accessors, statics |
+| `T \| undefined`, `T \| null`, `x?: T` | optional that remembers `undefined` vs `null` |
+| other unions | tagged union (`string \| number`, discriminated object unions, …) |
+| `(a: A) => R` | function value (closures capture by reference) |
+| `Promise<T>` | promise (C++20 coroutine) |
+| `Uint8Array` | byte view over a shared buffer |
+| `Error`, `TypeError`, `RangeError`, `class X extends Error` | error object with `name`, `message`, `code` |
+| unconstrained generics `<T>` | C++ templates (functions and classes) |
+
+Not supported: `any`, `unknown` (except in `catch`), intersections, `symbol`,
+`bigint`, `object`, getters in object literals, index signatures mixed with
+properties, and inheritance other than `extends Error`.
+
+## Statements and expressions
+
+Supported:
+
+* `let`/`const` (no `var`), destructuring with defaults and rest, in
+  declarations, parameters, `for…of` and assignments.
+* `if`, `while`, `do…while`, `for`, `for…of` (arrays, strings by code point,
+  `Map`, `Set`, records, `Uint8Array`), `for…in` (records, object types),
+  `switch` with fallthrough, labels with `break`/`continue`,
+  `try`/`catch`/`finally` (including `return`/`break` inside `try`), `throw`.
+* All arithmetic, comparison, bitwise, logical (`&&`, `||` and `??` return the
+  operand like JS), and assignment operators, including `??=`, `||=`, `&&=`.
+* Optional chaining `a?.b`, `a?.[i]`, `a?.m()`, `f?.()`, and non-null `x!` (checked).
+* Template literals, spread in arrays, calls and object literals.
+* `typeof`, `instanceof` (classes, `Error` kinds, `Array`, `Map`, …), `in` on records.
+* Arrow functions and function expressions, nested function declarations
+  (hoisted), recursion. Closures share variables with their enclosing scope,
+  and `let` loop variables get a fresh binding per iteration.
+* `async`/`await`, `Promise.all`, `Promise.resolve`/`reject`, `delay(ms)`.
+
+Evaluation order is JavaScript's (left to right), even where C++ would leave it
+unspecified.
+
+## Built-ins
+
+* **Math**: every function and constant.
+* **Number**: `isInteger`, `isSafeInteger`, `isFinite`, `isNaN`, `parseInt`,
+  `parseFloat`, and the constants; `toString(radix)`, `toFixed`, `toPrecision`,
+  `toExponential`. Globals `parseInt`, `parseFloat`, `isNaN`, `isFinite`,
+  `String()`, `Number()`, `Boolean()`.
+* **String**: `length`, `charAt`, `charCodeAt`, `codePointAt`, `at`, `indexOf`,
+  `lastIndexOf`, `includes`, `startsWith`, `endsWith`, `slice`, `substring`,
+  `substr`, `toUpperCase`/`toLowerCase`, `trim*`, `padStart`/`padEnd`, `repeat`,
+  `replace`/`replaceAll` (string patterns), `split` (string separators),
+  `concat`, `localeCompare`; `String.fromCharCode`, `String.fromCodePoint`.
+* **Array**: `length` (read/write), `push`, `pop`, `shift`, `unshift`, `slice`,
+  `splice`, `concat`, `join`, `indexOf`, `lastIndexOf`, `includes`, `find*`,
+  `filter`, `map`, `flatMap`, `forEach`, `some`, `every`, `reduce`,
+  `reduceRight`, `sort` (stable; default sort compares strings like JS),
+  `toSorted`, `reverse`, `toReversed`, `fill`, `at`, `keys`, `values`,
+  `entries`; `Array.from` (iterables and `{ length }`), `Array.of`,
+  `Array.isArray`, `new Array(n)`.
+* **Map / Set**: the full instance API; `new Map(entries)`, `new Set(iterable)`.
+* **Object**: `keys`, `values`, `entries` (records, and `keys` for object
+  types), `fromEntries`.
+* **JSON.stringify** of any Lucent value (no replacer or indent).
+* **console.log / info / debug / warn / error**: written to os_log (iOS) or logcat (Android).
+* **Date.now()**.
+* **@lucent-lang/core**: `delay`, `error(code, message)`, `errorCode(e)`,
+  `utf8Encode`, `utf8Decode`, `now()`.
+
+Not supported yet: `RegExp`, `Date` objects, `Intl`, `JSON.parse`, iterators
+and generators, `Symbol`, `WeakMap`, `Proxy`, `eval`. Each gives a clear
+diagnostic.
+
+## Crossing the JavaScript boundary
+
+Only exported functions, classes and constants are visible from JavaScript.
+
+* **Arguments are validated**, because JavaScript callers can pass anything:
+  `hash: argument 'input' must be a string, got a number`, or for nested values
+  `midpoint: argument 'a'.y must be a number, got undefined`.
+* **Values are copied:** arrays, records, maps, sets, tuples and plain objects
+  cross the boundary as copies. If native code mutates an array it received,
+  the caller's array is unchanged.
+* **Class instances keep their identity.** The same native object always maps to
+  the same JS object, so `===` works. Instances live as long as either side
+  holds them.
+* **Unions of object types** need a string-literal discriminant (for example
+  `kind: "circle"`) so incoming values can be told apart.
+* **Errors** become JS `Error` / `TypeError` / `RangeError` objects with the same
+  `name`, `message` and `code`. JS exceptions thrown by callbacks become Lucent
+  errors that `catch` can handle.
+* **Callbacks** (`(x: number) => void` parameters):
+  * called while the JS thread is inside a synchronous call, they run
+    synchronously and may return values;
+  * called from async code, they are posted to the JS thread, so they must
+    return `void` or a `Promise` (which Lucent can `await`).
+* **Generic functions and classes** cannot be exported; wrap them in a
+  concrete exported function.
+
+## Concurrency model
+
+Lucent code runs **one piece at a time**, like JavaScript. Every entry into
+Lucent code holds the Lucent lock: a synchronous call from the JS thread, or a
+job on the Lucent thread.
+
+* A synchronous exported function runs on the JS thread.
+* An `async` exported function starts on the **Lucent thread**, so heavy work
+  does not block the JS thread. Its awaits interleave with other Lucent async
+  work exactly as in JavaScript, and its result resolves on the JS thread.
+* Lucent code never races with itself, so there are no data races.
+
+Consequence: while a long async computation runs, synchronous calls from
+JavaScript wait for it to reach an `await`. Keep synchronous functions short, or
+make heavy ones `async`.
+
+## Memory
+
+Objects, arrays, closures and class instances are reference counted. A cycle of
+strong references (for example a parent and child that point at each other, or
+a closure stored on the object it captures) is never freed. Break such cycles
+explicitly, for example by clearing a field.
+
+## Where Lucent deviates from JavaScript
+
+| JavaScript | Lucent |
+|---|---|
+| `arr[i] = v` with `i > length` creates holes | throws `RangeError`; append with `push` or assign at `length` |
+| `arr[i]` / `record[k]` out of range → `undefined` | same, and the type says `T \| undefined`; `!` throws `TypeError` if absent |
+| arrays and objects passed to native code are shared | copied at the boundary (inside Lucent they are shared) |
+| garbage collection frees cycles | reference counting leaks cycles |
+| `toUpperCase` / `toLowerCase` use full Unicode tables | Latin, Greek and Cyrillic (including `ß` → `SS`); other scripts unchanged |
+| `localeCompare` uses ICU collation | case-insensitive code unit order, then lowercase first |
+| `toPrecision` / `toExponential` round exact binary ties up | may round ties to even (rare) |
+| deep recursion throws `RangeError` | may overflow the native stack |
+| `console.log(obj)` pretty-prints | prints `String(obj)` |
+
+## Diagnostics
+
+| Code | Meaning |
+|---|---|
+| `LUCENT1xxx` | unsupported syntax or built-in (`1001` statement/expression, `1003` built-in, `1005` class feature, `1006` throwing a non-Error, …) |
+| `LUCENT2xxx` | types without a native representation (`2001` any/unknown, `2003` inexact object types, `2004` array element variance, `2005` ambiguous union at the boundary, `2007` generics at the boundary) |
+| `LUCENT3xxx` | module structure (`3001` imports, `3002` top-level statements, `3003` exports) |
+| `LUCENT9001` | a TypeScript error (Lucent stops at type errors) |

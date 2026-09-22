@@ -50,7 +50,7 @@ const str = (c: string): E => ({ c, t: T.string });
 
 // --- properties -----------------------------------------------------------------------
 
-export function property(em: FnEmitter, obj: E, name: string, node: ts.Node): E {
+export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E {
   const t = obj.t;
   const o = obj.c;
   switch (t.k) {

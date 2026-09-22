@@ -1116,7 +1116,7 @@ export class FnEmitter {
   }
 
   /** ++x, x++, --x, x-- on locals, fields and elements. */
-  private increment(target: ts.Expression, sign: "+" | "-", postfix: boolean, node: ts.Node): E {
+  private increment(target: ts.Expression, sign: "+" | "-", postfix: boolean, _node: ts.Node): E {
     const op = sign === "+" ? "++" : "--";
     const lv = this.lvalue(target);
     if (lv.direct) return { c: postfix ? `(${lv.direct}${op})` : `(${op}${lv.direct})`, t: T.number };
