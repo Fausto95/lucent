@@ -576,8 +576,9 @@ physical-device release suite and archive its results.
 
 ### Repository workflow
 
-1. Commit failing contract/regression tests before their implementation, per
-   `AGENTS.md`.
+1. Write contract/regression tests before implementation, but commit only when
+   tests and compilation pass. The user's green-only instruction overrides the
+   older tests-first commit rule in `AGENTS.md`.
 2. Implement checker/IR, then both backends and hosts. Preserve conservative
    diagnostics while a capability is incomplete.
 3. Update `docs/language.md` in the same implementation commit as behavior;
@@ -605,8 +606,8 @@ wrapper components as ordered modifiers or old metadata as thread-safe.
 
 ## 15. Review-sized implementation backlog
 
-The following are proposed changes, not claims of completed work. Each
-implementation entry has a preceding tests-only commit as required by the repo.
+The following are proposed changes, not claims of completed work. Commit each
+finished feature or milestone slice together with its passing tests.
 
 | Change | Main scope                                                  | Completion evidence                             |
 | ------ | ----------------------------------------------------------- | ----------------------------------------------- |

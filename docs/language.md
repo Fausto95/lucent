@@ -596,3 +596,42 @@ An ownership declaration alone does not make an object transferable.
 The standalone `@lucent-lang/std` package has been removed. Its supported math
 and text operations are preserved as `@lucent-lang/core/math` and
 `@lucent-lang/core/text`; update imports accordingly.
+
+## Cooperative cancellation
+
+`@lucent-lang/core/cancellation` declares a native `CancellationSource`. Create
+it inside Lucent and expose a factory when JavaScript needs to control it:
+
+```ts
+import { CancellationSource } from "@lucent-lang/core/cancellation";
+
+export function createCancellation(): CancellationSource {
+  return new CancellationSource();
+}
+
+@Background
+export async function total(values: number[], cancellation: CancellationSource): Promise<number> {
+  let result = 0;
+  for (const value of values) {
+    cancellation.throwIfCancelled();
+    result += value;
+  }
+  return result;
+}
+```
+
+The returned JS object exposes `cancel()`, `cancelled`, `throwIfCancelled()`, and
+`dispose()`. `cancel()` is idempotent and safe across executors. Once requested,
+`cancelled` remains true and `throwIfCancelled()` throws a native `LucentError`
+with code `CANCELLED`. Swift protects the flag with a lock; Kotlin uses an atomic
+boolean. This built-in reference satisfies the explicit async ownership contract.
+
+Cancellation is cooperative: it takes effect when authored code checks a
+checkpoint. A successful operation may win a race with cancellation, and a
+request does not interrupt a blocking SDK call or prove that pending work has
+stopped. Use a fresh source for a new independent cancellation lifetime.
+
+Disposing the JS handle rejects new access while existing async leases remain
+valid. Disposal does not request cancellation. Call `cancel()` before disposal
+when work should be asked to stop. Automatic owner/task scopes, SDK cancellation
+adapters, and quiescent resource close are separate, unfinished features.

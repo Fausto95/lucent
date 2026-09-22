@@ -10,7 +10,8 @@
   "files": [
     "index.d.ts",
     "math.d.ts",
-    "text.d.ts"
+    "text.d.ts",
+    "cancellation.d.ts"
   ],
   "type": "module",
   "exports": {
@@ -22,6 +23,9 @@
     },
     "./text": {
       "types": "./text.d.ts"
+    },
+    "./cancellation": {
+      "types": "./cancellation.d.ts"
     }
   },
   "publishConfig": {

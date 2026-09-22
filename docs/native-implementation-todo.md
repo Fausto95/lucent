@@ -7,9 +7,10 @@ means the stated item is implemented and has the evidence named below. `[ ]`
 means incomplete, including work whose code exists but whose acceptance tests
 have not passed. A partially implemented milestone remains open.
 
-No changes have been pushed. Tests-only commits precede implementation, as
-required by `AGENTS.md`. Commit each completed feature or milestone slice as
-soon as its relevant tests pass. Do not add assistant co-author trailers.
+No changes have been pushed. Commit each completed feature or milestone slice
+only after its tests and compilation pass. Do not create failing test-only
+commits. This user instruction overrides the older tests-first commit rule in
+`AGENTS.md`. Do not add assistant co-author trailers.
 
 ## Current status
 
@@ -140,7 +141,13 @@ Evidence: `overloads.test.ts`, SDK extraction tests, `verify-runtime.ts`.
 - [ ] Test multiple concurrent calls, returned-object ownership transfer,
       disposal before dispatch, disposal during suspension, reentrant callbacks,
       and native errors against both host implementations.
-- [ ] Add scope-owned operation tracking and cooperative cancellation tokens.
+- [x] Add a native cooperative `CancellationSource` with synchronized/atomic
+      state, idempotent cancellation, typed `CANCELLED` checkpoints, and explicit
+      async transferability. Execute concurrent cancellation on both toolchains.
+- [ ] Add scope-owned operation tracking, automatic cancellation propagation,
+      and SDK-specific cancellation adapters.
+- [ ] Exercise cancellation during suspension and cancellation/close races
+      against actual Expo/Nitro host scheduling.
 - [ ] Define exactly-once completion under success/cancel/close races.
 - [ ] Add caller/main/worker/serial-object execution enforcement.
 - [ ] Replace registry-wide synchronization around synchronous SDK calls with
@@ -235,7 +242,8 @@ Evidence: `verify-interop.ts`, async-reference host tests,
 
 ## M9 — Verification, migration, and release
 
-- [x] Keep tests-first local commits and preserve the no-push instruction.
+- [x] Preserve the no-push instruction. Use green-only feature/milestone commits
+      under the latest user instruction; do not commit failing tests.
 - [x] Run typecheck, lint, formatting, unit tests, native fixture compilation,
       SDK execution, and interop execution for the initial foundation.
 - [x] Rerun the full unit suite, typecheck, lint, native fixture compilation, SDK
@@ -261,7 +269,7 @@ Evidence: `verify-interop.ts`, async-reference host tests,
 
 ## Latest verification checkpoint
 
-- Unit suite: 426 passing tests across 47 files.
+- Unit suite: 427 passing tests across 48 files.
 - Root and both example app TypeScript checks: passing.
 - Full `pnpm verify`, package build, and website build: passing.
 - Swift/Kotlin fixture compilation, extracted SDK execution, and interop
@@ -274,4 +282,14 @@ Evidence: `verify-interop.ts`, async-reference host tests,
   workaround or a global toolchain change.
 
 These results cover the implemented subset. They do not close the outstanding
-cancellation, delegates, state, lifecycle, extraction, or camera gates.
+scoped cancellation, delegates, state, lifecycle, extraction, or camera gates.
+
+### Cooperative cancellation slice
+
+The compiler accepts the built-in cancellation source across async boundaries.
+Native executable tests verify the initial state, the `CANCELLED` error, repeated
+cancellation, and 1,000 concurrent cancellation requests on Swift and Kotlin.
+The full verification suite and package build pass for this slice. The app and
+website checks above were run for the preceding async lease milestone.
+This primitive does not complete M3: operation scopes, cancellation completion,
+SDK adapters, executor enforcement, and quiescent resource close remain open.
