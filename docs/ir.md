@@ -64,3 +64,6 @@ writes are `stateWrite`; both go through the live cell, not a render snapshot.
 `ifExpr` chooses between two typed values, including views. A `For` view is an
 eager row builder over an array, keyed by index. Component identity nodes and
 closure-owned resource cells remain future IR work.
+
+Native package entries carry an `origin` set by the linker to the registered
+package specifier. Hosts use it to report conflicting SDK requirements.

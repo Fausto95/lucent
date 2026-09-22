@@ -121,6 +121,7 @@ class Converter {
   constructor(
     private readonly source: string,
     private readonly threads: ReadonlyMap<number, ThreadContext>,
+    private readonly libraries: ReadonlySet<string>,
   ) {}
   readonly diagnostics: Diagnostic[] = [];
   readonly imports: SurfaceImport[] = [];
@@ -156,6 +157,7 @@ class Converter {
     const source = node.source.value;
     if (
       source !== LUCENT_TYPES_MODULE &&
+      !this.libraries.has(source) &&
       !source.startsWith("@lucent-lang/") &&
       !/^\.{1,2}\/.*\.lucent(?:\.tsx?)?$/.test(source)
     ) {
@@ -163,7 +165,7 @@ class Converter {
         diagnostic(
           "LUCENT1006",
           spanOf(node.source),
-          `Lucent modules cannot import "${source}". Only type imports from "${LUCENT_TYPES_MODULE}" are allowed.`,
+          `Lucent modules cannot import "${source}". Use a registered native adapter, a Lucent source import, or type imports from "${LUCENT_TYPES_MODULE}".`,
           "Native code is compiled ahead of time and cannot depend on JavaScript modules.",
         ),
       );
@@ -951,7 +953,7 @@ class Converter {
   }
 }
 
-export function parseModule(source: string, fileName: string): ParseResult {
+export function parseModule(source: string, fileName: string, libraries: ReadonlySet<string> = new Set()): ParseResult {
   const masked = maskDecorators(source);
   const result = parseSync(fileName, masked.source, {
     lang: fileName.endsWith(".tsx") ? "tsx" : "ts",
@@ -959,7 +961,7 @@ export function parseModule(source: string, fileName: string): ParseResult {
     preserveParens: false,
   });
   const decorators = functionDecorators(source, masked.source, result.program.body, masked.decorators, result.comments);
-  const converter = new Converter(source, decorators.threads);
+  const converter = new Converter(source, decorators.threads, libraries);
   converter.diagnostics.push(...decorators.diagnostics);
   for (const error of result.errors) {
     if (error.severity !== "Error") continue;

@@ -17,7 +17,7 @@ export function normalizeModulePath(path: string): string {
 }
 
 export function moduleCandidates(from: string, specifier: string): string[] {
-  if (specifier.startsWith("@lucent-lang/")) return [specifier];
+  if (!specifier.startsWith(".")) return [specifier];
   const path = normalizeModulePath(from.replace(/[^/]*$/, "") + specifier);
   return /\.tsx?$/.test(path) ? [path] : [path + ".ts", path + ".tsx"];
 }
@@ -54,7 +54,7 @@ export function linkModule(
       return;
     }
     active.add(path);
-    const parsed = parseModule(texts.get(path)!, path);
+    const parsed = parseModule(texts.get(path)!, path, new Set(Object.keys(libraries)));
     if (path !== root) annotateOrigins(parsed, { fileName: path, source: texts.get(path)! });
     diagnostics.push(...parsed.diagnostics);
     const module = parsed.module;
@@ -282,7 +282,7 @@ export function linkModule(
   const nativePackages = Object.fromEntries(
     [...modules.keys()]
       .filter((path) => libraries[path]?.native)
-      .map((path) => [moduleId(path), libraries[path]!.native!]),
+      .map((path) => [moduleId(path), { ...libraries[path]!.native!, origin: path }]),
   );
   if (Object.keys(nativePackages).length) result.nativePackages = nativePackages;
   if (Object.keys(overloads).length) result.overloads = overloads;

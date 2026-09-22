@@ -37,6 +37,8 @@ export interface NativeViewBinding {
   kotlin: { template: string; imports?: string[]; defaults?: Record<string, string> };
 }
 export interface NativePackage {
+  /** Set by the linker to the importing package specifier for build diagnostics. */
+  origin?: string;
   capabilities?: string[];
   swift?: Record<string, string>;
   kotlin?: Record<string, string>;

@@ -66,3 +66,28 @@ test("renders a dependency diagnostic against its own source", async () => {
   expect(text).toContain("dep.lucent.ts");
   expect(text).toContain('return "bad"');
 });
+
+test.each(["@acme/camera", "my-native-sdk", "lucent-sdk/camera"])(
+  "accepts explicitly registered adapter %s",
+  (specifier) => {
+    const result = compile(`import { read } from "${specifier}"; export function value():number{return read();}`, {
+      fileName: "custom.lucent.ts",
+      libraries: {
+        [specifier]: {
+          source: "export declare function read():number;",
+          bindings: { read: { swift: ["return 1"], kotlin: ["return 1.0"] } },
+        },
+      },
+    });
+    expect(result.diagnostics).toEqual([]);
+    expect(result.module).not.toBeNull();
+  },
+);
+
+test("unregistered packages cannot enter native compilation", () => {
+  const result = compile('import { read } from "@acme/unregistered"; export function value():number{return read();}', {
+    fileName: "custom.lucent.ts",
+  });
+  expect(result.module).toBeNull();
+  expect(result.diagnostics[0]?.code).toBe("LUCENT1006");
+});

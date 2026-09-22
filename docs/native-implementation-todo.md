@@ -101,7 +101,11 @@ specifier; the migration paths are documented in `docs/language.md`.
       only the compiler version and host, so editing a manifest served stale
       proxies. Schema, generator and extraction versions still ride on
       `COMPILER_VERSION` alone and need their own fingerprints.
-- [ ] Reject incompatible native dependency constraints with provenance.
+- [x] Reject differing native dependency requirements with both package
+      specifiers in the error. Shared pods and Android modules require identical
+      requirements; even overlapping ranges must be explicitly aligned. No
+      range solver or implicit SDK upgrade is claimed. Generation is atomic on
+      conflict, and classifiers share their Android module's version check.
 
 Evidence: `native-contracts.test.ts`, `native-packages.test.ts`, typecheck.
 Contract metadata alone is not proof that the described runtime behavior exists.
@@ -392,3 +396,11 @@ fix; host suspension, executor enforcement, and resource scopes remain open.
 One public package with subpath exports, plus a separate CLI, is a packaging
 proposal only. Internal compiler/backend/host boundaries remain valuable; no
 public package consolidation is claimed here.
+
+### Native package integration
+
+- [x] Remove the stale namespace restriction on registered adapters. Scoped,
+      unscoped, and subpath package names compile through explicitly registered
+      native manifests. Unregistered JavaScript imports remain rejected.
+- [x] Preserve originating package specifiers in native package IR and include
+      them in dependency conflicts for both Expo and Nitro.

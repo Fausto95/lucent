@@ -770,3 +770,20 @@ Compiler diagnostics use `LUCENT` followed by four digits, for example
 from the previous abbreviated prefixes; tools matching diagnostic codes should
 update their prefix. Native operation error codes such as `CANCELLED` retain
 their domain meaning.
+
+### Native dependency agreement
+
+Package adapters that require the same CocoaPods dependency or Android
+`group:artifact` must declare identical version requirements. Lucent reports
+both importing package specifiers and requirements when they differ, before
+writing the generated package. This intentionally requires explicit agreement:
+Lucent does not solve overlapping ranges or silently accept Gradle choosing a
+higher SDK version. Compatible but differently written ranges must be aligned
+by the adapter authors too. Classifiers and extensions share the Android module
+version check. Android dependencies use `group:artifact:version`, optionally
+followed by `:classifier` and `@extension`.
+
+Registered native adapters may use any package specifier, including scoped
+third-party names and subpath exports. Registration supplies native declarations
+and bindings; a package name alone never permits importing JavaScript into
+native code. Lucent's own namespace is not required for extension packages.
