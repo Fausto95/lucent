@@ -3,199 +3,220 @@ import { Link } from "@tanstack/react-router";
 import { styles } from "./HomePage.stylex";
 import { styles as sharedStyles } from "../styles/shared.stylex";
 import { CompilerDemo } from "../components/CompilerDemo";
-import { useClipboard } from "../components/ClipboardProvider";
-import { commands } from "../content";
+import { FeatureCard } from "../components/FeatureCard";
 import { NativeViewsFeature } from "../components/NativeViewsFeature";
+import { useClipboard } from "../components/ClipboardProvider";
+import { useDocumentMeta } from "../components/useDocumentMeta";
+import { commands } from "../content";
+
 export function HomePage() {
   const { copy } = useClipboard();
+  useDocumentMeta(
+    "Lucent — TypeScript in. Native out.",
+    "Write TypeScript and TSX. Compile ahead of time to Swift and Kotlin for React Native: native logic, shared objects, typed events, and SwiftUI / Compose views through Expo Modules or Nitro.",
+  );
   return (
     <main id="main">
       <section aria-labelledby="hero-heading" {...stylex.props(styles.hero)}>
         <div {...stylex.props(styles.heroCopy)}>
           <div {...stylex.props(styles.eyebrow)}>
             <span aria-hidden="true" {...stylex.props(styles.tinyMark)}>
-              {"✳"}
+              ✳
             </span>
             {" THE AHEAD-OF-TIME TYPESCRIPT COMPILER"}
           </div>
           <h1 id="hero-heading" {...stylex.props(styles.heroHeading)}>
-            {"TypeScript in."}
+            TypeScript in.
             <br />
-            <span {...stylex.props(sharedStyles.brandPeriod)}>{"Native out."}</span>
+            <span {...stylex.props(sharedStyles.brandPeriod)}>Native out.</span>
           </h1>
           <p {...stylex.props(styles.heroDescription)}>
-            {"The language you love."}
+            The language you know.
             <br />
-            {"The native code you need."}
+            The native code you need.
           </p>
           <p {...stylex.props(styles.heroDetail)}>
-            {
-              "Native logic, shared objects, and declarative views. Write TypeScript and TSX. Compile to Swift and Kotlin for React Native."
-            }
+            Functions, native classes, typed events and SwiftUI / Compose views, written in TypeScript and TSX and
+            compiled to Swift and Kotlin for React Native. No JavaScript runs on the native side.
           </p>
           <div {...stylex.props(styles.heroActions)}>
-            <Link to="/" hash="get-started" {...stylex.props(sharedStyles.button)}>
-              {"Start building "}
+            <Link to="/docs/$/" params={{ _splat: "getting-started" }} {...stylex.props(sharedStyles.button)}>
+              Get started
               <span aria-hidden="true" {...stylex.props(sharedStyles.buttonArrow)}>
-                {"↗"}
+                ↗
               </span>
             </Link>
-            <Link to="/language/" {...stylex.props(styles.textLink)}>
-              {"Explore the language "}
-              <span aria-hidden="true">{"→"}</span>
+            <Link to="/docs/$/" params={{ _splat: "how-it-works" }} {...stylex.props(styles.textLink)}>
+              How it works <span aria-hidden="true">→</span>
             </Link>
           </div>
           <div {...stylex.props(styles.heroFootnote)}>
-            <span>{"OPEN SOURCE"}</span>
-            <span {...stylex.props(styles.footnoteItem)}>{"MIT LICENSE"}</span>
-            <span {...stylex.props(styles.footnoteItem)}>{"EXPO + NITRO"}</span>
+            <span>OPEN SOURCE</span>
+            <span {...stylex.props(styles.footnoteItem)}>MIT LICENSE</span>
+            <span {...stylex.props(styles.footnoteItem)}>EXPO + NITRO</span>
           </div>
         </div>
         <CompilerDemo />
       </section>
+
       <section aria-label="Supported platforms and integrations" {...stylex.props(styles.platformStrip)}>
         <span {...stylex.props(styles.stripIntro)}>
-          {"Fits right into"}
+          Fits right into
           <br {...stylex.props(styles.br)} />
-          {"your native stack."}
+          your native stack.
         </span>
         <div {...stylex.props(styles.platformItem)}>
-          <img
-            src="/brand/react-native.svg"
-            alt=""
-            aria-hidden="true"
-            width="32"
-            height="32"
-            {...stylex.props(styles.platformLogo)}
-          />
+          <img src="/brand/react-native.svg" alt="" aria-hidden="true" width="32" height="32" {...stylex.props(styles.platformLogo)} />
           {" React Native"}
         </div>
         <div {...stylex.props(styles.platformItem)}>
-          <img
-            src="/brand/expo.svg"
-            alt=""
-            aria-hidden="true"
-            width="32"
-            height="32"
-            {...stylex.props(styles.platformLogo)}
-          />
+          <img src="/brand/expo.svg" alt="" aria-hidden="true" width="32" height="32" {...stylex.props(styles.platformLogo)} />
           {" Expo Modules"}
         </div>
         <div {...stylex.props(styles.platformItem)}>
-          <img
-            src="/brand/nitro.png"
-            alt=""
-            aria-hidden="true"
-            width="32"
-            height="32"
-            {...stylex.props(styles.platformLogo)}
-          />
+          <img src="/brand/nitro.png" alt="" aria-hidden="true" width="32" height="32" {...stylex.props(styles.platformLogo)} />
           {" Nitro Modules"}
         </div>
         <span {...stylex.props(styles.platformNote)}>
-          {"iOS & Android"}
+          iOS & Android
           <br />
-          {"from one source"}
+          from one source
         </span>
       </section>
+
       <section id="how-it-works" aria-labelledby="how-heading" {...stylex.props(sharedStyles.howSection)}>
         <div {...stylex.props(styles.sectionIntro)}>
           <div>
-            <span {...stylex.props(sharedStyles.eyebrow2)}>{"LESS TRANSLATION. MORE CREATION."}</span>
+            <span {...stylex.props(sharedStyles.eyebrow2)}>LESS TRANSLATION. MORE CREATION.</span>
             <h2 id="how-heading" {...stylex.props(styles.howHeading)}>
-              {"Your logic. Your UI. "}
-              <span {...stylex.props(styles.sectionHeadingMuted)}>{"On native terms."}</span>
+              Your logic. Your UI. <span {...stylex.props(styles.sectionHeadingMuted)}>On native terms.</span>
             </h2>
           </div>
           <p {...stylex.props(styles.sectionDescription)}>
-            {"Write it once in "}
-            <code {...stylex.props(styles.sectionInlineCode)}>{"*.lucent.ts / *.lucent.tsx"}</code>
-            {"."}
+            Write it once in <code {...stylex.props(styles.sectionInlineCode)}>*.lucent.ts / *.lucent.tsx</code>.
             <br />
-            {"Let the compiler handle the rest."}
+            The compiler handles the rest.
           </p>
         </div>
         <div {...stylex.props(styles.features)}>
-          <article {...stylex.props(styles.article)}>
-            <div {...stylex.props(styles.featureTop)}>
-              <span {...stylex.props(styles.featureNumber)}>{"01"}</span>
-              <svg viewBox="0 0 32 32" aria-hidden="true" {...stylex.props(styles.featureIcon)}>
-                <path d="m11 8-8 8 8 8m10-16 8 8-8 8M18 4l-4 24"></path>
-              </svg>
-            </div>
-            <h3 {...stylex.props(styles.featureHeading)}>{"Familiar by design."}</h3>
-            <p {...stylex.props(styles.featureDescription)}>
-              {
-                "Functions, tagged unions, native classes, and typed events. Compose modules with imports and get clear compile-time diagnostics."
-              }
-            </p>
-            <Link to="/language/" {...stylex.props(styles.featureLink)}>
-              {"Meet the language "}
-              <span aria-hidden="true">{"↗"}</span>
-            </Link>
-          </article>
-          <article {...stylex.props(styles.article2)}>
-            <div {...stylex.props(styles.featureTop)}>
-              <span {...stylex.props(styles.featureNumber)}>{"02"}</span>
-              <svg viewBox="0 0 32 32" aria-hidden="true" {...stylex.props(styles.featureIcon)}>
-                <path d="M18 3 7 18h9l-2 11 12-16h-10z"></path>
-              </svg>
-            </div>
-            <h3 {...stylex.props(styles.featureHeading)}>{"Native all the way down."}</h3>
-            <p {...stylex.props(styles.featureDescription)}>
-              {
-                "Readable Swift and Kotlin, compiled ahead of time. Your logic runs natively; shared components render through SwiftUI and Jetpack Compose."
-              }
-            </p>
-            <a href="https://github.com/Fausto95/lucent/tree/main/fixtures" {...stylex.props(styles.featureLink)}>
-              {"See the generated code "}
-              <span aria-hidden="true">{"↗"}</span>
-            </a>
-          </article>
-          <article {...stylex.props(styles.article3)}>
-            <div {...stylex.props(styles.featureTop)}>
-              <span {...stylex.props(styles.featureNumber)}>{"03"}</span>
-              <svg viewBox="0 0 32 32" aria-hidden="true" {...stylex.props(styles.featureIcon)}>
+          <FeatureCard
+            number="01"
+            position="first"
+            icon={<path d="m11 8-8 8 8 8m10-16 8 8-8 8M18 4l-4 24"></path>}
+            title="A small, checked subset."
+            text="Functions, records, tagged unions, native classes and typed events. Everything outside the subset is a build-time diagnostic with a code frame, never a runtime surprise."
+            href="/docs/language/"
+            linkLabel="Read the language"
+          />
+          <FeatureCard
+            number="02"
+            position="middle"
+            icon={<path d="M18 3 7 18h9l-2 11 12-16h-10z"></path>}
+            title="Native all the way down."
+            text="Readable Swift and Kotlin, compiled ahead of time. Logic runs natively; views render through SwiftUI and Jetpack Compose. Open the output in Xcode or Android Studio."
+            href="/docs/how-it-works/"
+            linkLabel="See the pipeline"
+          />
+          <FeatureCard
+            number="03"
+            position="last"
+            icon={
+              <>
                 <rect x="3" y="5" width="10" height="22" rx="2"></rect>
                 <rect x="19" y="5" width="10" height="22" rx="2"></rect>
                 <path d="M7 23h2m14 0h2M13 16h6"></path>
-              </svg>
-            </div>
-            <h3 {...stylex.props(styles.featureHeading)}>{"Two platforms. One flow."}</h3>
-            <p {...stylex.props(styles.featureDescription)}>
-              {
-                "Connect through Expo Modules or Nitro. Generated native modules and typed JavaScript proxies keep your React Native workflow connected."
-              }
-            </p>
-            <a href="https://github.com/Fausto95/lucent/tree/main/apps" {...stylex.props(styles.featureLink)}>
-              {"Explore the examples "}
-              <span aria-hidden="true">{"↗"}</span>
-            </a>
-          </article>
+              </>
+            }
+            title="Two hosts. One workflow."
+            text="Expo Modules or Nitro, your choice. Generated modules autolink, Metro swaps in a typed proxy at bundle time, and Fast Refresh keeps working for the React side."
+            href="/docs/getting-started/"
+            linkLabel="Set it up"
+          />
         </div>
       </section>
+
       <NativeViewsFeature />
+
+      <section id="platform" aria-labelledby="platform-heading" {...stylex.props(sharedStyles.howSection)}>
+        <div {...stylex.props(styles.sectionIntro)}>
+          <div>
+            <span {...stylex.props(sharedStyles.eyebrow2)}>BEYOND THE SUBSET</span>
+            <h2 id="platform-heading" {...stylex.props(styles.howHeading)}>
+              Reach the platform. <span {...stylex.props(styles.sectionHeadingMuted)}>Stay typed.</span>
+            </h2>
+          </div>
+          <p {...stylex.props(styles.sectionDescription)}>
+            Files, crypto, network, device, threads and SDK classes.
+            <br />
+            Declared once, checked at build time.
+          </p>
+        </div>
+        <div {...stylex.props(styles.features)}>
+          <FeatureCard
+            number="04"
+            position="first"
+            icon={
+              <>
+                <path d="M6 5h13l7 7v15H6z"></path>
+                <path d="M19 5v7h7M11 19h10M11 23h10"></path>
+              </>
+            }
+            title="A standard library."
+            text="UTF-8 and bytes, SHA-256, files, HTTPS GET, device model, clock and locale. Direct native calls; I/O hops to a worker; errors carry codes and metadata."
+            href="/docs/api/std/"
+            linkLabel="Standard library"
+          />
+          <FeatureCard
+            number="05"
+            position="middle"
+            icon={
+              <>
+                <rect x="4" y="12" width="24" height="16" rx="2"></rect>
+                <path d="M10 12V8a6 6 0 0 1 12 0v4M16 19v4"></path>
+              </>
+            }
+            title="Typed capabilities."
+            text="One lucent.config.ts declares what your native code may touch. Usage strings, entitlements and Android permissions are generated; anything undeclared fails the build."
+            href="/docs/api/config/"
+            linkLabel="Capabilities"
+          />
+          <FeatureCard
+            number="06"
+            position="last"
+            icon={
+              <>
+                <path d="M16 3 4 10v12l12 7 12-7V10z"></path>
+                <path d="M4 10l12 7 12-7M16 17v12"></path>
+              </>
+            }
+            title="Bring any native SDK."
+            text="Bind Swift and Kotlin functions and classes with a JSON manifest, or generate one from a .swiftinterface or android.jar. Ship SwiftUI and Compose views as a package."
+            href="/docs/api/library-manifest/"
+            linkLabel="Library manifests"
+          />
+        </div>
+      </section>
+
       <section id="get-started" aria-labelledby="start-heading" {...stylex.props(styles.startSection)}>
         <div>
-          <span {...stylex.props(styles.eyebrow3)}>{"FROM SOURCE TO SWIFT & KOTLIN"}</span>
+          <span {...stylex.props(styles.eyebrow3)}>FROM SOURCE TO SWIFT & KOTLIN</span>
           <h2 id="start-heading" {...stylex.props(styles.startHeading)}>
-            {"Make your next "}
+            Make your next
             <br {...stylex.props(styles.br2)} />
-            {"function native."}
+            function native.
           </h2>
           <p {...stylex.props(styles.startDescription)}>
-            {"Start with the source. Build the included example."}
+            Start with the source. Build the included example.
             <br />
-            {"Then bring your own logic."}
+            Then bring your own logic.
           </p>
-          <Link to="/get-started/" {...stylex.props(styles.textLink2)}>
-            {"Setup guide "}
-            <span aria-hidden="true">{"→"}</span>
+          <Link to="/docs/$/" params={{ _splat: "getting-started" }} {...stylex.props(styles.textLink2)}>
+            Setup guide <span aria-hidden="true">→</span>
           </Link>
         </div>
         <div {...stylex.props(styles.terminal)}>
           <div {...stylex.props(styles.terminalBar)}>
-            <span>{"GET STARTED"}</span>
+            <span>GET STARTED</span>
             <button
               type="button"
               onClick={() => copy(commands)}
@@ -203,22 +224,22 @@ export function HomePage() {
               aria-label="Copy commands"
               {...stylex.props(styles.copyCommand)}
             >
-              {"Copy"}
-              <span aria-hidden="true">{"⧉"}</span>
+              Copy
+              <span aria-hidden="true">⧉</span>
             </button>
           </div>
           <pre {...stylex.props(styles.terminalCode)}>
             <code>
-              <span {...stylex.props(styles.comment)}>{"# Get Lucent"}</span>
+              <span {...stylex.props(styles.comment)}># Get Lucent</span>
               {"\ngit clone https://github.com/Fausto95/lucent.git\ncd lucent\npnpm install\n\n"}
-              <span {...stylex.props(styles.comment)}>{"# Build your first native module"}</span>
+              <span {...stylex.props(styles.comment)}># Build your first native module</span>
               {"\npnpm lucent build --host expo fixtures/clamp.lucent.ts"}
             </code>
           </pre>
           <div {...stylex.props(styles.terminalNote)}>
-            {"Requires Node 22.12+ and the repository’s pinned pnpm version. "}
-            <Link to="/get-started/" {...stylex.props(styles.terminalLink)}>
-              {"Full setup →"}
+            Requires Node 22.12+ and the repository’s pinned pnpm version.{" "}
+            <Link to="/docs/$/" params={{ _splat: "getting-started" }} {...stylex.props(styles.terminalLink)}>
+              Full setup →
             </Link>
           </div>
         </div>
