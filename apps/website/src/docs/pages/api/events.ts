@@ -2,7 +2,7 @@ import type { DocPage } from "../../types";
 
 export const page: DocPage = {
   slug: "api/events",
-  title: "@lucent-lang/events",
+  title: "@lucent-lang/core/events",
   description: "`event<T>()` declares a native event channel. `Event<T>` is the type of an app-side listener or a view callback prop.",
   blocks: [
     {
@@ -18,7 +18,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "progress.lucent.ts",
-      code: 'import { event } from "@lucent-lang/events";\n\nexport const progress = event<number>();\nexport const done = event<void>();\n\nexport function report(value: number): void {\n  progress.emit(value);\n  done.emit();\n}',
+      code: 'import { event } from "@lucent-lang/core/events";\n\nexport const progress = event<number>();\nexport const done = event<void>();\n\nexport function report(value: number): void {\n  progress.emit(value);\n  done.emit();\n}',
     },
     {
       kind: "code",
@@ -33,7 +33,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "card.lucent.tsx",
-      code: 'import type { Event } from "@lucent-lang/events";\n\ntype Props = { onPress: Event<void>; onText: Event<string> };',
+      code: 'import type { Event } from "@lucent-lang/core/events";\n\ntype Props = { onPress: Event<void>; onText: Event<string> };',
     },
     { kind: "p", text: "Semantics (no replay, locking, payload limits) are in [events](/docs/language/events/)." },
   ],

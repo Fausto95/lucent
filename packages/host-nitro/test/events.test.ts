@@ -3,7 +3,7 @@ import { compile } from "@lucent-lang/compiler";
 import { nitroHost } from "../src/index.ts";
 test("bridges typed native event subscriptions", () => {
   const module = compile(
-    'import {event} from "@lucent-lang/events"; export const progress=event<number>(); export function run():void { progress.emit(50); }',
+    'import {event} from "@lucent-lang/core/events"; export const progress=event<number>(); export function run():void { progress.emit(50); }',
     { fileName: "progress.lucent.ts" },
   ).module!;
   const tree = nitroHost.emitPackage([module], { packageName: "lucent" });

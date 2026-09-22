@@ -29,7 +29,7 @@ test("generates actual native SDK class constructors, properties and methods", (
   expect(generated.library.references?.TextBuffer?.kotlin).toBe("java.lang.StringBuilder");
   expect(generated.declarations).toContain("readonly length: int32");
   const result = compile(
-    'import {TextBuffer} from "@lucent-lang/sdk/text"; import {Platform} from "@lucent-lang/platform"; export function run():void {if(Platform.OS === "android"){const text=new TextBuffer("hello");text.append(" world");}}',
+    'import {TextBuffer} from "@lucent-lang/sdk/text"; import {Platform} from "@lucent-lang/core/platform"; export function run():void {if(Platform.OS === "android"){const text=new TextBuffer("hello");text.append(" world");}}',
     { fileName: "sdk.lucent.ts", libraries: { "@lucent-lang/sdk/text": generated.library } },
   );
   expect(result.diagnostics).toEqual([]);

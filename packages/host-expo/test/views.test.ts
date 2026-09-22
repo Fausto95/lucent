@@ -4,7 +4,7 @@ import { exportedViews } from "@lucent-lang/host-core";
 import { expoHost } from "../src/index.ts";
 test("namespaces native view events to avoid React Native bubbling event collisions", () => {
   const module = compile(
-    'import {Button,type NativeView} from "@lucent-lang/ui"; import type {Event} from "@lucent-lang/events"; type Props={onPress:Event<void>}; export function Card(props:Props):NativeView{return <Button title="Go" onPress={props.onPress}/>;}',
+    'import {Button,type NativeView} from "@lucent-lang/core/ui"; import type {Event} from "@lucent-lang/core/events"; type Props={onPress:Event<void>}; export function Card(props:Props):NativeView{return <Button title="Go" onPress={props.onPress}/>;}',
     { fileName: "card.lucent.tsx" },
   ).module!;
   const tree = expoHost.emitPackage([module], { packageName: "lucent" });
@@ -16,7 +16,7 @@ test("namespaces native view events to avoid React Native bubbling event collisi
 });
 test("registers generated SwiftUI and Compose native views", () => {
   const module = compile(
-    'import { Text, type NativeView } from "@lucent-lang/ui"; type Props = {title: string}; export function Card(props: Props): NativeView { return <Text>{props.title}</Text>; }',
+    'import { Text, type NativeView } from "@lucent-lang/core/ui"; type Props = {title: string}; export function Card(props: Props): NativeView { return <Text>{props.title}</Text>; }',
     { fileName: "card.lucent.tsx" },
   ).module!;
   const tree = expoHost.emitPackage([module], { packageName: "lucent" });
@@ -29,7 +29,7 @@ test("registers generated SwiftUI and Compose native views", () => {
 });
 test("bridges typed native view change payloads", () => {
   const result = compile(
-    'import {TextField,type NativeView} from "@lucent-lang/ui"; import type {Event} from "@lucent-lang/events"; type Props={text:string;onChange:Event<string>}; export function Editor(props:Props):NativeView{return <TextField value={props.text} onChange={props.onChange}/>;}',
+    'import {TextField,type NativeView} from "@lucent-lang/core/ui"; import type {Event} from "@lucent-lang/core/events"; type Props={text:string;onChange:Event<string>}; export function Editor(props:Props):NativeView{return <TextField value={props.text} onChange={props.onChange}/>;}',
     { fileName: "editor.lucent.tsx" },
   );
   expect(result.diagnostics).toEqual([]);
@@ -39,7 +39,7 @@ test("bridges typed native view change payloads", () => {
 });
 test("namespaces view storage to avoid UIKit and Android View properties", () => {
   const module = compile(
-    'import {Text,type NativeView} from "@lucent-lang/ui"; type Props={enabled:boolean;alpha:number}; export function Status(props:Props):NativeView{return <Text>{props.alpha}</Text>;}',
+    'import {Text,type NativeView} from "@lucent-lang/core/ui"; type Props={enabled:boolean;alpha:number}; export function Status(props:Props):NativeView{return <Text>{props.alpha}</Text>;}',
     { fileName: "status.lucent.tsx" },
   ).module!;
   const files = expoHost.emitPackage([module], { packageName: "lucent" });
@@ -50,7 +50,7 @@ test("namespaces view storage to avoid UIKit and Android View properties", () =>
 });
 test("keeps view state on the host instance and does not reset it when props update", () => {
   const module = compile(
-    `import { Text, Button, type NativeView } from "@lucent-lang/ui";
+    `import { Text, Button, type NativeView } from "@lucent-lang/core/ui";
 export function Counter(): NativeView {
   const taps = state(1);
   return <Button title="Add" onPress={() => taps.set(taps + 1)} />;
@@ -70,7 +70,7 @@ export function Counter(): NativeView {
 });
 test("emits eager rows and a divider", () => {
   const module = compile(
-    `import { VStack, Text, Divider, For, type NativeView } from "@lucent-lang/ui";
+    `import { VStack, Text, Divider, For, type NativeView } from "@lucent-lang/core/ui";
 type Props = { notes: string[] };
 export function Notes(props: Props): NativeView {
   return <VStack>{props.notes.length > 0 ? <Divider /> : <Text>Empty</Text>}<For each={props.notes}>{(note: string) => <Text>{note}</Text>}</For></VStack>;
@@ -85,7 +85,7 @@ export function Notes(props: Props): NativeView {
 });
 test("disposes native composition when the host view unmounts", () => {
   const module = compile(
-    'import {Text,type NativeView} from "@lucent-lang/ui"; export function Label():NativeView{return <Text>Hi</Text>;}',
+    'import {Text,type NativeView} from "@lucent-lang/core/ui"; export function Label():NativeView{return <Text>Hi</Text>;}',
     { fileName: "label.lucent.tsx" },
   ).module!;
   const files = expoHost.emitPackage([module], { packageName: "lucent" });
@@ -94,7 +94,7 @@ test("disposes native composition when the host view unmounts", () => {
 
 test("a component with a child slot is not mounted from React", () => {
   const result = compile(
-    `import {VStack, Text, type NativeView} from "@lucent-lang/ui";
+    `import {VStack, Text, type NativeView} from "@lucent-lang/core/ui";
 type PanelProps = { title: string; children: NativeView };
 export function Panel(props: PanelProps): NativeView { return (<VStack><Text>{props.title}</Text>{props.children}</VStack>); }`,
     { fileName: "panel.lucent.tsx" },

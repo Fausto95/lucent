@@ -2,7 +2,7 @@ import type { DocPage } from "../../types";
 
 export const page: DocPage = {
   slug: "api/config",
-  title: "@lucent-lang/config",
+  title: "@lucent-lang/core/config",
   description: "`defineNativeConfig` types the app's `lucent.config.ts`: capabilities and registered libraries.",
   blocks: [
     {
@@ -13,7 +13,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "lucent.config.ts",
-      code: 'import { defineNativeConfig } from "@lucent-lang/config";\n\nexport default defineNativeConfig({\n  capabilities: {\n    camera: { reason: "Scan documents" },\n    filesystem: true,\n    network: true,\n  },\n  libraries: {\n    "@lucent-lang/example-counter": "./native/counter.library.json",\n  },\n});',
+      code: 'import { defineNativeConfig } from "@lucent-lang/core/config";\n\nexport default defineNativeConfig({\n  capabilities: {\n    camera: { reason: "Scan documents" },\n    filesystem: true,\n    network: true,\n  },\n  libraries: {\n    "@lucent-lang/example-counter": "./native/counter.library.json",\n  },\n});',
     },
     { kind: "h2", text: "Rules" },
     {

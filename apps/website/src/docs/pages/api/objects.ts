@@ -2,7 +2,7 @@ import type { DocPage } from "../../types";
 
 export const page: DocPage = {
   slug: "api/objects",
-  title: "@lucent-lang/objects",
+  title: "@lucent-lang/core/objects",
   description: "The optional `SharedObject` base for native classes.",
   blocks: [
     {
@@ -17,7 +17,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "counter.lucent.ts",
-      code: 'import { SharedObject } from "@lucent-lang/objects";\n\nexport class Counter extends SharedObject {\n  value: number = 0;\n  constructor(initial: number) {\n    super();\n    this.value = initial;\n  }\n  increment(delta: number): number {\n    this.value += delta;\n    return this.value;\n  }\n}',
+      code: 'import { SharedObject } from "@lucent-lang/core/objects";\n\nexport class Counter extends SharedObject {\n  value: number = 0;\n  constructor(initial: number) {\n    super();\n    this.value = initial;\n  }\n  increment(delta: number): number {\n    this.value += delta;\n    return this.value;\n  }\n}',
     },
     {
       kind: "table",

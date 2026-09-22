@@ -1,7 +1,7 @@
 import type { Counter } from "./counter.lucent";
-import { event } from "@lucent-lang/events";
+import { event } from "@lucent-lang/core/events";
 import { abs, sqrt } from "@lucent-lang/core/math";
-import { Platform } from "@lucent-lang/platform";
+import { Platform } from "@lucent-lang/core/platform";
 import { copyBytes, decodeUTF8, encodeUTF8 } from "@lucent-lang/core";
 import { deviceModel, readFile, sha256, temporaryDirectory, writeFile } from "@lucent-lang/example-toolkit";
 export type Result = { kind: "ok"; value: number } | { kind: "error"; message: string };

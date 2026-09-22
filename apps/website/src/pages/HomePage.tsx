@@ -232,7 +232,7 @@ export function HomePage() {
           <pre {...stylex.props(styles.terminalCode)}>
             <code>
               <span {...stylex.props(styles.comment)}># In an Expo app</span>
-              {"\nnpx expo install @lucent-lang/runtime @lucent-lang/types @lucent-lang/expo @lucent-lang/metro"}
+              {"\nnpx expo install @lucent-lang/core"}
             </code>
           </pre>
           <div {...stylex.props(styles.terminalNote)}>

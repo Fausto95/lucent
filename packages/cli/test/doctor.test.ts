@@ -34,19 +34,19 @@ describe("lucent doctor", () => {
     });
     const io = fakeIO(root, { tools: TOOLS });
     expect(await run(["doctor"], io)).toBe(1);
-    expect(io.out()).toContain("@lucent-lang/runtime");
+    expect(io.out()).toContain("@lucent-lang/core");
     expect(io.out()).toContain("withLucent");
-    expect(io.out()).toContain("@lucent-lang/expo");
+    expect(io.out()).toContain("expo plugin");
     expect(io.out()).toContain("crypto");
   });
 
   test("checks Nitro-specific wiring", async () => {
     const root = project({
       "package.json": JSON.stringify({
-        dependencies: { "react-native-nitro-modules": "*", "@lucent-lang/runtime": "*" },
-        devDependencies: { "@lucent-lang/metro": "*", "@lucent-lang/types": "*", "@lucent-lang/cli": "*" },
+        dependencies: { "react-native-nitro-modules": "*", "@lucent-lang/core": "*" },
+        devDependencies: { "@lucent-lang/cli": "*" },
       }),
-      "metro.config.js": 'require("@lucent-lang/metro").withLucent',
+      "metro.config.js": 'require("@lucent-lang/core/metro").withLucent',
       "src/math.lucent.ts": "export function f(): number { return 1; }\n",
     });
     const io = fakeIO(root, { tools: TOOLS });

@@ -1,5 +1,5 @@
 declare module "@lucent-lang/example-counter" {
-  import type { NativeView } from "@lucent-lang/ui";
+  import type { NativeView } from "@lucent-lang/core/ui";
   export function Counter(props: { onChange: (value: number) => void }): NativeView;
 }
 declare module "@lucent-lang/example-toolkit" {

@@ -4,7 +4,7 @@
     "exactOptionalPropertyTypes": false,
     "noUncheckedIndexedAccess": false,
     "noUnusedParameters": false,
-    "types": ["../packages/types"]
+    "types": ["../packages/core/types"]
   },
   "include": ["**/*.lucent.ts"],
   "exclude": ["diagnostics"]

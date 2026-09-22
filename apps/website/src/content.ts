@@ -16,11 +16,11 @@ export const source =
   "export function clamp(value: number, min: number, max: number): number {\n  if (value < min) return min;\n  if (value > max) return max;\n  return value;\n}";
 
 export const commands =
-  "npx expo install @lucent-lang/runtime @lucent-lang/types @lucent-lang/expo @lucent-lang/metro";
+  "npx expo install @lucent-lang/core";
 
 export const nativeCard = `import { VStack, Text, TextField, Button,
-  type NativeProps, type NativeView } from "@lucent-lang/ui";
-import type { Event } from "@lucent-lang/events";
+  type NativeProps, type NativeView } from "@lucent-lang/core/ui";
+import type { Event } from "@lucent-lang/core/events";
 
 type Props = {
   title: string;

@@ -1,12 +1,13 @@
 import { expect, test } from "vite-plus/test";
 import { compile, type LibraryModule } from "../src/index.ts";
 const libraries: Record<string, LibraryModule> = {
-  "@lucent-lang/platform/test": {
+  "@lucent-lang/core/platform/test": {
     source: "export declare function iosOnly():number;",
     bindings: { iosOnly: { swift: ["return 1"], kotlin: ["return 1.0"], platforms: ["ios"] } },
   },
 };
-const prelude = 'import {Platform} from "@lucent-lang/platform"; import {iosOnly} from "@lucent-lang/platform/test";';
+const prelude =
+  'import {Platform} from "@lucent-lang/core/platform"; import {iosOnly} from "@lucent-lang/core/platform/test";';
 const check = (body: string) => compile(prelude + body, { fileName: "platform.lucent.ts", libraries });
 test("rejects unguarded platform-specific calls", () => {
   expect(check("export function f():number{return iosOnly();}").diagnostics).toEqual(

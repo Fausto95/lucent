@@ -104,7 +104,7 @@ const metroConfig: ProjectCheck = ({ root, host }) => {
       name: "metro config",
       status: "fail",
       detail: "no metro.config.js",
-      hint: "lucent init writes one, or wrap yours with withLucent from @lucent-lang/metro",
+      hint: "lucent init writes one, or wrap yours with withLucent from @lucent-lang/core/metro",
     };
   if (readFileSync(join(root, file), "utf8").includes("withLucent"))
     return { name: "metro config", status: "ok", detail: `${file} uses withLucent` };
@@ -118,7 +118,7 @@ const metroConfig: ProjectCheck = ({ root, host }) => {
 
 const expoPlugin: ProjectCheck = ({ root }) => {
   const path = join(root, "app.json");
-  const hint = 'Add ["@lucent-lang/expo", { "host": "expo" }] to expo.plugins; lucent init does this';
+  const hint = 'Add ["@lucent-lang/core/expo", { "host": "expo" }] to expo.plugins; lucent init does this';
   if (!existsSync(path)) {
     const dynamic = ["app.config.js", "app.config.ts"].find((f) => existsSync(join(root, f)));
     return dynamic
@@ -127,10 +127,12 @@ const expoPlugin: ProjectCheck = ({ root }) => {
   }
   const app = JSON.parse(readFileSync(path, "utf8")) as { expo?: { plugins?: unknown[] } };
   const plugins = app.expo?.plugins ?? [];
-  const wired = plugins.some((p) => p === "@lucent-lang/expo" || (Array.isArray(p) && p[0] === "@lucent-lang/expo"));
+  const wired = plugins.some((p) =>
+    ["@lucent-lang/core/expo"].includes(typeof p === "string" ? p : Array.isArray(p) ? String(p[0]) : ""),
+  );
   return wired
-    ? { name: "expo plugin", status: "ok", detail: "app.json lists @lucent-lang/expo" }
-    : { name: "expo plugin", status: "fail", detail: "app.json is missing @lucent-lang/expo", hint };
+    ? { name: "expo plugin", status: "ok", detail: "app.json lists @lucent-lang/core/expo" }
+    : { name: "expo plugin", status: "fail", detail: "app.json is missing @lucent-lang/core/expo", hint };
 };
 
 const nitroLink: ProjectCheck = ({ root }) => {
@@ -197,11 +199,8 @@ const PROJECT_CHECKS: readonly ProjectCheck[] = [
           detail: "not detected",
           hint: "Install expo or react-native-nitro-modules, then run lucent init",
         },
-  dependency("@lucent-lang/runtime", "fail", "the generated JS proxies import it"),
-  dependency("@lucent-lang/metro", "fail", "Metro needs the Lucent transformer"),
-  dependency("@lucent-lang/types", "warn", "editors need the ambient types"),
+  dependency("@lucent-lang/core", "fail", "Lucent authoring types, runtime and build integrations"),
   metroConfig,
-  forHost("expo", dependency("@lucent-lang/expo", "fail", "expo prebuild compiles through the plugin")),
   forHost("expo", expoPlugin),
   forHost("nitro", dependency("nitrogen", "fail", "Nitro generates its bindings with nitrogen")),
   forHost("nitro", nitroLink),

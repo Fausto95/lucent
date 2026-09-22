@@ -21,27 +21,9 @@ importers:
       '@lucent-lang/compiler':
         specifier: workspace:*
         version: link:packages/compiler
-      '@lucent-lang/config':
-        specifier: workspace:*
-        version: link:packages/config
       '@lucent-lang/core':
         specifier: workspace:*
         version: link:packages/core
-      '@lucent-lang/events':
-        specifier: workspace:*
-        version: link:packages/events
-      '@lucent-lang/objects':
-        specifier: workspace:*
-        version: link:packages/objects
-      '@lucent-lang/platform':
-        specifier: workspace:*
-        version: link:packages/platform
-      '@lucent-lang/types':
-        specifier: workspace:*
-        version: link:packages/types
-      '@lucent-lang/ui':
-        specifier: workspace:*
-        version: link:packages/ui
       '@types/node':
         specifier: ^24.7.0
         version: 24.13.6
@@ -63,15 +45,9 @@ importers:
 
   apps/bare-example:
     dependencies:
-      '@lucent-lang/config':
-        specifier: workspace:*
-        version: link:../../packages/config
       '@lucent-lang/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@lucent-lang/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -94,24 +70,9 @@ importers:
       '@babel/runtime':
         specifier: ^7.25.0
         version: 7.29.7
-      '@lucent-lang/events':
+      '@lucent-lang/cli':
         specifier: workspace:*
-        version: link:../../packages/events
-      '@lucent-lang/metro':
-        specifier: workspace:*
-        version: link:../../packages/metro
-      '@lucent-lang/objects':
-        specifier: workspace:*
-        version: link:../../packages/objects
-      '@lucent-lang/platform':
-        specifier: workspace:*
-        version: link:../../packages/platform
-      '@lucent-lang/types':
-        specifier: workspace:*
-        version: link:../../packages/types
-      '@lucent-lang/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../packages/cli
       '@react-native-community/cli':
         specifier: 20.2.0
         version: 20.2.0(typescript@6.0.3)
@@ -145,15 +106,9 @@ importers:
 
   apps/expo-example:
     dependencies:
-      '@lucent-lang/config':
-        specifier: workspace:*
-        version: link:../../packages/config
       '@lucent-lang/core':
         specifier: workspace:*
         version: link:../../packages/core
-      '@lucent-lang/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
       expo:
         specifier: ~58.0.0-preview.4
         version: 58.0.0-preview.4(@babel/core@7.29.7)(@expo/dom-webview@58.0.1)(react-dom@19.3.0(react@19.3.0))(react-native@0.88.0-rc.1(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@6.0.3))(@types/react@19.3.0)(react@19.3.0))(react@19.3.0)(typescript@6.0.3)
@@ -167,27 +122,9 @@ importers:
         specifier: 0.88.0-rc.1
         version: 0.88.0-rc.1(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@6.0.3))(@types/react@19.3.0)(react@19.3.0)
     devDependencies:
-      '@lucent-lang/events':
+      '@lucent-lang/cli':
         specifier: workspace:*
-        version: link:../../packages/events
-      '@lucent-lang/expo':
-        specifier: workspace:*
-        version: link:../../packages/expo
-      '@lucent-lang/metro':
-        specifier: workspace:*
-        version: link:../../packages/metro
-      '@lucent-lang/objects':
-        specifier: workspace:*
-        version: link:../../packages/objects
-      '@lucent-lang/platform':
-        specifier: workspace:*
-        version: link:../../packages/platform
-      '@lucent-lang/types':
-        specifier: workspace:*
-        version: link:../../packages/types
-      '@lucent-lang/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
+        version: link:../../packages/cli
       '@types/react':
         specifier: ~19.3.0
         version: 19.3.0
@@ -271,11 +208,23 @@ importers:
         specifier: 0.151.0
         version: 0.151.0
 
-  packages/config: {}
-
-  packages/core: {}
-
-  packages/events: {}
+  packages/core:
+    dependencies:
+      '@lucent-lang/expo':
+        specifier: workspace:*
+        version: link:../expo
+      '@lucent-lang/metro':
+        specifier: workspace:*
+        version: link:../metro
+      '@lucent-lang/runtime':
+        specifier: workspace:*
+        version: link:../runtime
+      '@types/react':
+        specifier: '*'
+        version: 19.3.0
+      react-native:
+        specifier: '>=0.88.0-0'
+        version: 0.88.0-rc.2(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@5.9.3))(@react-native/metro-config@0.88.0-rc.2(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0)
 
   packages/expo:
     dependencies:
@@ -349,10 +298,6 @@ importers:
         specifier: 0.151.0
         version: 0.151.0
 
-  packages/objects: {}
-
-  packages/platform: {}
-
   packages/runtime: {}
 
   packages/sdk:
@@ -360,20 +305,6 @@ importers:
       '@lucent-lang/compiler':
         specifier: workspace:*
         version: link:../compiler
-
-  packages/types: {}
-
-  packages/ui:
-    dependencies:
-      '@lucent-lang/events':
-        specifier: workspace:*
-        version: link:../events
-      '@types/react':
-        specifier: '*'
-        version: 19.3.0
-      react-native:
-        specifier: '>=0.88.0-0'
-        version: 0.88.0-rc.2(@babel/core@7.29.7)(@react-native-community/cli@20.2.0(typescript@5.9.3))(@react-native/metro-config@0.88.0-rc.2(@babel/core@7.29.7))(@types/react@19.3.0)(react@19.3.0)
 
 packages:
 

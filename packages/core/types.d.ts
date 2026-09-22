@@ -1,7 +1,7 @@
 /**
  * Sized numeric types for Lucent modules. At the JavaScript boundary every one
  * of them is a `number`; the brand only exists so the Lucent compiler can pick
- * the native representation. `import type { int32 } from "@lucent-lang/types"`.
+ * the native representation. `import type { int32 } from "@lucent-lang/core/types"`.
  */
 declare const brand: unique symbol;
 type Sized<Name extends string> = number & { readonly [brand]?: Name };

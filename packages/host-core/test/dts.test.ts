@@ -21,7 +21,7 @@ describe("host-core", () => {
 
   test("declarations export structs and exported functions only", () => {
     const m = ir(`
-      import type { int32 } from "@lucent-lang/types";
+      import type { int32 } from "@lucent-lang/core/types";
       export type User = { id: string; age: int32; nickname?: string };
       type Hidden = { x: number };
       function helper(h: Hidden): number { return h.x; }

@@ -113,7 +113,7 @@ export function runtimeImport(body: string): string {
     "nativeObjectHandle",
     "nativeObjectFromHandle",
   ].filter((n) => body.includes(`${n}(`));
-  return `import { ${names.join(", ")} } from "@lucent-lang/runtime";`;
+  return `import { ${names.join(", ")} } from "@lucent-lang/core/runtime";`;
 }
 
 export { loadLucentSources } from "./sources.ts";

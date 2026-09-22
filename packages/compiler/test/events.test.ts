@@ -1,7 +1,7 @@
 import { expect, test } from "vite-plus/test";
 import { compile } from "../src/index.ts";
 test("type checks native event declarations and emission", () => {
-  const source = `import { event } from "@lucent-lang/events";
+  const source = `import { event } from "@lucent-lang/core/events";
     type Progress = { percent: number };
     export const progress = event<Progress>();
     export function run(): void { progress.emit({percent: 50}); }`;
@@ -14,8 +14,8 @@ test("type checks native event declarations and emission", () => {
 });
 test("native views accept typed event props", () => {
   const result = compile(
-    `import { Button, type NativeView } from "@lucent-lang/ui";
-    import type { Event } from "@lucent-lang/events";
+    `import { Button, type NativeView } from "@lucent-lang/core/ui";
+    import type { Event } from "@lucent-lang/core/events";
     type Props = { onPress: Event<void> };
     export function Action(props: Props): NativeView { return <Button title="Run" onPress={props.onPress} />; }`,
     { fileName: "action.lucent.tsx" },

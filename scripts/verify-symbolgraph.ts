@@ -56,8 +56,8 @@ if (schema.functions.length !== 3 || schema.coverage?.filter((c) => c.status ===
 const { library } = generateBindingLibrary(schema);
 const result = compile(
   `import {magnitude, greeting} from "@probe/sdk";
-import {Platform} from "@lucent-lang/platform";
-import type {int32} from "@lucent-lang/types";
+import {Platform} from "@lucent-lang/core/platform";
+import type {int32} from "@lucent-lang/core/types";
 export function decimal():number {if(Platform.OS === "ios") return magnitude(-3.5); return 0;}
 export function integer(value:int32):int32 {if(Platform.OS === "ios") return magnitude(value); return 0;}
 export function hello():string {if(Platform.OS === "ios") return greeting("Lucent"); return "";}`,

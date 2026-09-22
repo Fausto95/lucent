@@ -19,7 +19,7 @@ export const page: DocPage = {
         ["`@lucent-lang/core/math`", "`abs`, `sqrt`, `floor`, `ceil`, `sin`, `cos`, `min`, `max`", "none"],
         ["`@lucent-lang/core/text`", "`trim`, `contains`", "none"],
         ["`@lucent-lang/core/cancellation`", "`CancellationSource`", "none"],
-        ["`@lucent-lang/platform`", "`Platform.OS`", "none"],
+        ["`@lucent-lang/core/platform`", "`Platform.OS`", "none"],
       ],
     },
     {
@@ -39,7 +39,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "lucent.config.ts",
-      code: 'import { defineNativeConfig } from "@lucent-lang/config";\n\nexport default defineNativeConfig({\n  capabilities: {\n    camera: { reason: "Scan documents" },\n    location: { whenInUse: { reason: "Show nearby stores" } },\n    notifications: { environment: "development" },\n    filesystem: true,\n    crypto: true,\n    network: true,\n  },\n});',
+      code: 'import { defineNativeConfig } from "@lucent-lang/core/config";\n\nexport default defineNativeConfig({\n  capabilities: {\n    camera: { reason: "Scan documents" },\n    location: { whenInUse: { reason: "Show nearby stores" } },\n    notifications: { environment: "development" },\n    filesystem: true,\n    crypto: true,\n    network: true,\n  },\n});',
     },
     {
       kind: "list",
@@ -63,7 +63,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "home.lucent.ts",
-      code: 'import { Platform } from "@lucent-lang/platform";\nimport { homeDirectory } from "@lucent-lang/sdk/foundation";\n\nexport function home(): string {\n  if (Platform.OS === "ios") {\n    return homeDirectory();\n  }\n  return "";\n}',
+      code: 'import { Platform } from "@lucent-lang/core/platform";\nimport { homeDirectory } from "@lucent-lang/sdk/foundation";\n\nexport function home(): string {\n  if (Platform.OS === "ios") {\n    return homeDirectory();\n  }\n  return "";\n}',
     },
     { kind: "h2", text: "SDK bindings" },
     {
@@ -73,7 +73,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "lucent.config.ts",
-      code: 'import { defineNativeConfig } from "@lucent-lang/config";\n\nexport default defineNativeConfig({\n  libraries: { "@lucent-lang/sdk/math": "./sdk/math/library.json" },\n});',
+      code: 'import { defineNativeConfig } from "@lucent-lang/core/config";\n\nexport default defineNativeConfig({\n  libraries: { "@lucent-lang/sdk/math": "./sdk/math/library.json" },\n});',
     },
     {
       kind: "p",

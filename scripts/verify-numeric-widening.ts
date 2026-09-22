@@ -14,7 +14,7 @@ const pairs = Object.entries(NUMERIC_WIDENINGS).flatMap(([source, targets]) =>
   targets.map((target) => ({ source, target })),
 );
 const names = Object.keys(SIZED_NUMERIC_TYPES);
-const imports = `import type {${names.join(",")}} from "@lucent-lang/types";`;
+const imports = `import type {${names.join(",")}} from "@lucent-lang/core/types";`;
 const targets = [...new Set(pairs.map((p) => p.target))];
 const library: LibraryModule = {
   source: imports + targets.map((t) => `export declare function accept_${t}(value:${t}):${t};`).join("\n"),

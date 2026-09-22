@@ -2,7 +2,7 @@ import type { DocPage } from "../../types";
 
 export const page: DocPage = {
   slug: "api/runtime",
-  title: "@lucent-lang/runtime",
+  title: "@lucent-lang/core/runtime",
   description: "The JavaScript side of Lucent: what generated proxies import. Tiny and host-agnostic, so Expo and Nitro modules look the same to app code.",
   blocks: [
     { kind: "h2", text: "LucentError" },
@@ -18,7 +18,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "App.tsx",
-      code: 'import { LucentError } from "@lucent-lang/runtime";\n\ntry {\n  await fetchBytes("invalid");\n} catch (error) {\n  if (error instanceof LucentError && error.code === "INVALID_URL") {\n    // handle\n  }\n}',
+      code: 'import { LucentError } from "@lucent-lang/core/runtime";\n\ntry {\n  await fetchBytes("invalid");\n} catch (error) {\n  if (error instanceof LucentError && error.code === "INVALID_URL") {\n    // handle\n  }\n}',
     },
     { kind: "h2", text: "lucentCall" },
     {

@@ -3,9 +3,9 @@ import type { DocPage } from "../../types";
 export const page: DocPage = {
   slug: "api/integrations",
   title: "Metro & Expo plugins",
-  description: "`@lucent-lang/metro` swaps Lucent files for their proxies at bundle time. `@lucent-lang/expo` runs the native build during prebuild.",
+  description: "`@lucent-lang/core/metro` swaps Lucent files for their proxies at bundle time. `@lucent-lang/core/expo` runs the native build during prebuild.",
   blocks: [
-    { kind: "h2", text: "@lucent-lang/metro" },
+    { kind: "h2", text: "@lucent-lang/core/metro" },
     {
       kind: "code",
       filename: "declaration",
@@ -14,7 +14,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "metro.config.js",
-      code: 'const { getDefaultConfig } = require("expo/metro-config");\nconst { withLucent } = require("@lucent-lang/metro");\n\nmodule.exports = withLucent(getDefaultConfig(__dirname), { host: "expo" });',
+      code: 'const { getDefaultConfig } = require("expo/metro-config");\nconst { withLucent } = require("@lucent-lang/core/metro");\n\nmodule.exports = withLucent(getDefaultConfig(__dirname), { host: "expo" });',
     },
     {
       kind: "list",
@@ -26,7 +26,7 @@ export const page: DocPage = {
         "The transformer resolves `lucent.config.ts` by walking up from the source file to the nearest config or `package.json`.",
       ],
     },
-    { kind: "h2", text: "@lucent-lang/expo" },
+    { kind: "h2", text: "@lucent-lang/core/expo" },
     {
       kind: "code",
       filename: "declaration",
@@ -35,7 +35,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "app.json",
-      code: '{\n  "expo": {\n    "plugins": [["@lucent-lang/expo", { "host": "expo" }]]\n  }\n}',
+      code: '{\n  "expo": {\n    "plugins": [["@lucent-lang/core/expo", { "host": "expo" }]]\n  }\n}',
     },
     {
       kind: "list",

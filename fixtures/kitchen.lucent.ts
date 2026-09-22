@@ -1,4 +1,4 @@
-import type { int32 } from "@lucent-lang/types";
+import type { int32 } from "@lucent-lang/core/types";
 
 type Stats = { count: int32; labels: Record<string, string>; values: number[] };
 

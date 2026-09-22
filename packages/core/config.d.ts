@@ -17,6 +17,4 @@ export interface NativeConfig {
   libraries?: Record<string, string>;
 }
 /** Build tools parse the literal argument; no application code executes during configuration. */
-export function defineNativeConfig(config: NativeConfig): NativeConfig {
-  return config;
-}
+export declare function defineNativeConfig(config: NativeConfig): NativeConfig;

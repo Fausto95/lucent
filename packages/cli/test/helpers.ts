@@ -60,12 +60,12 @@ export function wiredExpoProject(extra: Record<string, string> = {}): string {
   return project({
     "package.json": JSON.stringify({
       name: "app",
-      dependencies: { expo: "~58.0.0", "@lucent-lang/runtime": "*" },
-      devDependencies: { "@lucent-lang/types": "*", "@lucent-lang/metro": "*", "@lucent-lang/expo": "*" },
+      dependencies: { expo: "~58.0.0", "@lucent-lang/core": "*" },
+      devDependencies: { "@lucent-lang/cli": "*" },
     }),
-    "app.json": JSON.stringify({ expo: { name: "app", plugins: [["@lucent-lang/expo", { host: "expo" }]] } }),
+    "app.json": JSON.stringify({ expo: { name: "app", plugins: [["@lucent-lang/core/expo", { host: "expo" }]] } }),
     "metro.config.js":
-      'const { withLucent } = require("@lucent-lang/metro");\nmodule.exports = withLucent({}, { host: "expo" });\n',
+      'const { withLucent } = require("@lucent-lang/core/metro");\nmodule.exports = withLucent({}, { host: "expo" });\n',
     "lucent.config.json": JSON.stringify({ capabilities: [] }),
     "src/native/math.lucent.ts": MATH,
     "src/native/text.lucent.ts": TEXT,

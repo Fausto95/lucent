@@ -45,12 +45,12 @@ export const page: DocPage = {
     { kind: "h2", text: "Records and optionals" },
     {
       kind: "p",
-      text: "An object type alias is a value record: a Swift `struct` and a Kotlin `data class`. Optional fields must be narrowed with an explicit `=== undefined` or `=== null` check before use. `int32` from `@lucent-lang/types` picks a 32-bit integer instead of a double.",
+      text: "An object type alias is a value record: a Swift `struct` and a Kotlin `data class`. Optional fields must be narrowed with an explicit `=== undefined` or `=== null` check before use. `int32` from `@lucent-lang/core/types` picks a 32-bit integer instead of a double.",
     },
     {
       kind: "code",
       filename: "src/people.lucent.ts",
-      code: 'import type { int32 } from "@lucent-lang/types";\n\nexport type Person = {\n  name: string;\n  age: int32;\n  nickname?: string;\n  tags: string[];\n};\n\nexport function birthday(person: Person): Person {\n  return { name: person.name, age: person.age + 1, nickname: person.nickname, tags: person.tags };\n}\n\nexport function describe(person: Person): string {\n  const nickname = person.nickname;\n  if (nickname === undefined) {\n    return `${person.name} (${person.age})`;\n  }\n  return `${nickname} aka ${person.name} (${person.age})`;\n}',
+      code: 'import type { int32 } from "@lucent-lang/core/types";\n\nexport type Person = {\n  name: string;\n  age: int32;\n  nickname?: string;\n  tags: string[];\n};\n\nexport function birthday(person: Person): Person {\n  return { name: person.name, age: person.age + 1, nickname: person.nickname, tags: person.tags };\n}\n\nexport function describe(person: Person): string {\n  const nickname = person.nickname;\n  if (nickname === undefined) {\n    return `${person.name} (${person.age})`;\n  }\n  return `${nickname} aka ${person.name} (${person.age})`;\n}',
     },
     {
       kind: "code",
@@ -114,7 +114,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "src/counter.lucent.ts",
-      code: 'import { SharedObject } from "@lucent-lang/objects";\n\nexport class Counter extends SharedObject {\n  value: number = 0;\n\n  constructor(initial: number) {\n    super();\n    this.value = initial;\n  }\n\n  increment(delta: number): number {\n    this.value += delta;\n    return this.value;\n  }\n}',
+      code: 'import { SharedObject } from "@lucent-lang/core/objects";\n\nexport class Counter extends SharedObject {\n  value: number = 0;\n\n  constructor(initial: number) {\n    super();\n    this.value = initial;\n  }\n\n  increment(delta: number): number {\n    this.value += delta;\n    return this.value;\n  }\n}',
     },
     {
       kind: "code",
@@ -135,7 +135,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "src/features.lucent.ts",
-      code: 'import { event } from "@lucent-lang/events";\n\nexport const progress = event<number>();\n\nexport function report(value: number): void {\n  progress.emit(value);\n}',
+      code: 'import { event } from "@lucent-lang/core/events";\n\nexport const progress = event<number>();\n\nexport function report(value: number): void {\n  progress.emit(value);\n}',
     },
     {
       kind: "code",
@@ -156,7 +156,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "lucent.config.ts",
-      code: 'import { defineNativeConfig } from "@lucent-lang/config";\n\nexport default defineNativeConfig({\n  libraries: { "@lucent-lang/example-toolkit": "./native/toolkit.library.json" },\n  capabilities: { crypto: true, filesystem: true },\n});',
+      code: 'import { defineNativeConfig } from "@lucent-lang/core/config";\n\nexport default defineNativeConfig({\n  libraries: { "@lucent-lang/example-toolkit": "./native/toolkit.library.json" },\n  capabilities: { crypto: true, filesystem: true },\n});',
     },
     {
       kind: "code",
@@ -176,7 +176,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "src/home.lucent.ts",
-      code: 'import { Platform } from "@lucent-lang/platform";\nimport { homeDirectory } from "@lucent-lang/sdk/foundation";\n\nexport function nativeOS(): string {\n  return Platform.OS; // "ios" | "android"\n}\n\nexport function home(): string {\n  if (Platform.OS === "ios") {\n    return homeDirectory();\n  }\n  return "";\n}',
+      code: 'import { Platform } from "@lucent-lang/core/platform";\nimport { homeDirectory } from "@lucent-lang/sdk/foundation";\n\nexport function nativeOS(): string {\n  return Platform.OS; // "ios" | "android"\n}\n\nexport function home(): string {\n  if (Platform.OS === "ios") {\n    return homeDirectory();\n  }\n  return "";\n}',
     },
 
     { kind: "h2", text: "A native view with controls" },
@@ -187,7 +187,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "src/badge.lucent.tsx",
-      code: 'import { Text, type NativeProps, type NativeView } from "@lucent-lang/ui";\n\ntype Props = { title: string };\n\nexport function Badge(props: NativeProps<Props>): NativeView {\n  return (\n    <Text size={26} color="#e7f6ef">\n      {props.title}\n    </Text>\n  );\n}',
+      code: 'import { Text, type NativeProps, type NativeView } from "@lucent-lang/core/ui";\n\ntype Props = { title: string };\n\nexport function Badge(props: NativeProps<Props>): NativeView {\n  return (\n    <Text size={26} color="#e7f6ef">\n      {props.title}\n    </Text>\n  );\n}',
     },
     {
       kind: "tabs",
@@ -195,7 +195,7 @@ export const page: DocPage = {
         {
           label: "Source",
           filename: "src/field-screen.lucent.tsx",
-          code: 'import { ScrollView, VStack, Text, TextField, Button, For, type NativeProps, type NativeView } from "@lucent-lang/ui";\nimport type { Event } from "@lucent-lang/events";\n\ntype Props = { title: string; notes: string[]; onRecord: Event<void> };\n\nexport function FieldScreen(props: NativeProps<Props>): NativeView {\n  const draft = state("Ridge line");\n  return (\n    <ScrollView>\n      <VStack padding={18} spacing={12}>\n        <Text size={22}>{props.title}</Text>\n        <For each={props.notes}>{(note: string) => <Text>{note}</Text>}</For>\n        <TextField value={draft} onChange={(value: string) => draft.set(value)} placeholder="Label" />\n        <Button title="Record sample" onPress={props.onRecord} />\n      </VStack>\n    </ScrollView>\n  );\n}',
+          code: 'import { ScrollView, VStack, Text, TextField, Button, For, type NativeProps, type NativeView } from "@lucent-lang/core/ui";\nimport type { Event } from "@lucent-lang/core/events";\n\ntype Props = { title: string; notes: string[]; onRecord: Event<void> };\n\nexport function FieldScreen(props: NativeProps<Props>): NativeView {\n  const draft = state("Ridge line");\n  return (\n    <ScrollView>\n      <VStack padding={18} spacing={12}>\n        <Text size={22}>{props.title}</Text>\n        <For each={props.notes}>{(note: string) => <Text>{note}</Text>}</For>\n        <TextField value={draft} onChange={(value: string) => draft.set(value)} placeholder="Label" />\n        <Button title="Record sample" onPress={props.onRecord} />\n      </VStack>\n    </ScrollView>\n  );\n}',
         },
         {
           label: "Swift",
@@ -228,12 +228,12 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "lucent.config.ts",
-      code: 'import { defineNativeConfig } from "@lucent-lang/config";\n\nexport default defineNativeConfig({\n  libraries: { "@lucent-lang/example-counter": "./native/counter.library.json" },\n});',
+      code: 'import { defineNativeConfig } from "@lucent-lang/core/config";\n\nexport default defineNativeConfig({\n  libraries: { "@lucent-lang/example-counter": "./native/counter.library.json" },\n});',
     },
     {
       kind: "code",
       filename: "src/native-libraries.d.ts",
-      code: 'declare module "@lucent-lang/example-counter" {\n  import type { NativeView } from "@lucent-lang/ui";\n  export function Counter(props: { onChange: (value: number) => void }): NativeView;\n}',
+      code: 'declare module "@lucent-lang/example-counter" {\n  import type { NativeView } from "@lucent-lang/core/ui";\n  export function Counter(props: { onChange: (value: number) => void }): NativeView;\n}',
     },
     {
       kind: "code",

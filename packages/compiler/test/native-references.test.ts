@@ -50,7 +50,7 @@ test("rejects native property updates without crashing", () => {
 test("keeps native listener callbacks out of the JavaScript bridge", () => {
   const library = structuredClone(textLibrary);
   library.source =
-    'import type {NativeCallback} from "@lucent-lang/types";' +
+    'import type {NativeCallback} from "@lucent-lang/core/types";' +
     library.source +
     "\nexport declare function MutableText__method_visit(lucentSelf:MutableText,callback:NativeCallback<(value:number)=>number>):number;";
   library.bindings!.MutableText__method_visit = {

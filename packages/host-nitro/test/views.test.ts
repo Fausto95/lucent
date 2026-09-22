@@ -3,7 +3,7 @@ import { compile } from "@lucent-lang/compiler";
 import { nitroHost } from "../src/index.ts";
 test("registers generated hybrid native views and Fabric config", () => {
   const module = compile(
-    'import { Text, type NativeView } from "@lucent-lang/ui"; type Props = {title: string}; export function Card(props: Props): NativeView { return <Text>{props.title}</Text>; }',
+    'import { Text, type NativeView } from "@lucent-lang/core/ui"; type Props = {title: string}; export function Card(props: Props): NativeView { return <Text>{props.title}</Text>; }',
     { fileName: "card.lucent.tsx" },
   ).module!;
   const tree = nitroHost.emitPackage([module], { packageName: "lucent" });
@@ -18,7 +18,7 @@ test("registers generated hybrid native views and Fabric config", () => {
 
 test("imports the generated Fabric managers from their views package", () => {
   const module = compile(
-    'import {Text,type NativeView} from "@lucent-lang/ui"; export function Label():NativeView{return <Text>Hi</Text>;}',
+    'import {Text,type NativeView} from "@lucent-lang/core/ui"; export function Label():NativeView{return <Text>Hi</Text>;}',
     { fileName: "label.lucent.tsx" },
   ).module!;
   const tree = nitroHost.emitPackage([module], { packageName: "lucent" });
@@ -37,7 +37,7 @@ test("escapes exported C++ method keywords without changing the JS API", () => {
 });
 test("bridges typed native view change payloads", () => {
   const result = compile(
-    'import {TextField,type NativeView} from "@lucent-lang/ui"; import type {Event} from "@lucent-lang/events"; type Props={text:string;onChange:Event<string>}; export function Editor(props:Props):NativeView{return <TextField value={props.text} onChange={props.onChange}/>;}',
+    'import {TextField,type NativeView} from "@lucent-lang/core/ui"; import type {Event} from "@lucent-lang/core/events"; type Props={text:string;onChange:Event<string>}; export function Editor(props:Props):NativeView{return <TextField value={props.text} onChange={props.onChange}/>;}',
     { fileName: "editor.lucent.tsx" },
   );
   expect(result.diagnostics).toEqual([]);
@@ -49,7 +49,7 @@ test("bridges typed native view change payloads", () => {
 });
 test("matches nitrogen's array prop type and converts it for the composable", () => {
   const module = compile(
-    `import { Text, type NativeView } from "@lucent-lang/ui";
+    `import { Text, type NativeView } from "@lucent-lang/core/ui";
 type Props = { notes: string[] };
 export function Notes(props: Props): NativeView { return <Text>{props.notes.length}</Text>; }`,
     { fileName: "notes.lucent.tsx" },
@@ -62,7 +62,7 @@ export function Notes(props: Props): NativeView { return <Text>{props.notes.leng
 });
 test("disposes native composition when the host view unmounts", () => {
   const module = compile(
-    'import {Text,type NativeView} from "@lucent-lang/ui"; export function Label():NativeView{return <Text>Hi</Text>;}',
+    'import {Text,type NativeView} from "@lucent-lang/core/ui"; export function Label():NativeView{return <Text>Hi</Text>;}',
     { fileName: "label.lucent.tsx" },
   ).module!;
   const files = nitroHost.emitPackage([module], { packageName: "lucent" });

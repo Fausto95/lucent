@@ -1,6 +1,7 @@
 {
   "name": "@lucent-lang/core",
   "version": "0.0.1",
+  "description": "Lucent authoring types, native runtime, and Expo/Metro integrations.",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -11,7 +12,20 @@
     "index.d.ts",
     "math.d.ts",
     "text.d.ts",
-    "cancellation.d.ts"
+    "cancellation.d.ts",
+    "types.d.ts",
+    "ui.d.ts",
+    "objects.d.ts",
+    "events.d.ts",
+    "platform.d.ts",
+    "runtime.js",
+    "runtime.d.ts",
+    "config.js",
+    "config.d.ts",
+    "metro.cjs",
+    "metro.d.ts",
+    "expo.cjs",
+    "expo.d.ts"
   ],
   "type": "module",
   "exports": {
@@ -26,9 +40,57 @@
     },
     "./cancellation": {
       "types": "./cancellation.d.ts"
+    },
+    "./types": {
+      "types": "./types.d.ts"
+    },
+    "./ui": {
+      "types": "./ui.d.ts"
+    },
+    "./objects": {
+      "types": "./objects.d.ts"
+    },
+    "./events": {
+      "types": "./events.d.ts"
+    },
+    "./platform": {
+      "types": "./platform.d.ts"
+    },
+    "./runtime": {
+      "types": "./runtime.d.ts",
+      "default": "./runtime.js"
+    },
+    "./config": {
+      "types": "./config.d.ts",
+      "default": "./config.js"
+    },
+    "./metro": {
+      "types": "./metro.d.ts",
+      "default": "./metro.cjs"
+    },
+    "./expo": {
+      "types": "./expo.d.ts",
+      "default": "./expo.cjs"
     }
   },
   "publishConfig": {
     "access": "public"
+  },
+  "dependencies": {
+    "@lucent-lang/expo": "workspace:*",
+    "@lucent-lang/metro": "workspace:*",
+    "@lucent-lang/runtime": "workspace:*"
+  },
+  "peerDependencies": {
+    "@types/react": "*",
+    "react-native": ">=0.88.0-0"
+  },
+  "peerDependenciesMeta": {
+    "@types/react": {
+      "optional": true
+    },
+    "react-native": {
+      "optional": true
+    }
   }
 }

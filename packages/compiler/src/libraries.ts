@@ -57,7 +57,7 @@ export interface LibraryModule {
 export const STANDARD_LIBRARIES: Readonly<Record<string, LibraryModule>> = {
   ...NATIVE_LIBRARIES,
   "@lucent-lang/core/cancellation": CANCELLATION_LIBRARY,
-  "@lucent-lang/platform": {
+  "@lucent-lang/core/platform": {
     source: "export declare function Platform(): string;",
     bindings: { Platform: { swift: ['return "ios"'], kotlin: ['return "android"'], platformQuery: true } },
   },

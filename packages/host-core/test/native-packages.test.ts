@@ -24,7 +24,7 @@ for (const [name, host] of [
 ] as const)
   test(`${name} includes native package sources and dependencies`, () => {
     const result = compile(
-      'import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/ui"; export function Demo():NativeView{return <Badge/>;}',
+      'import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/core/ui"; export function Demo():NativeView{return <Badge/>;}',
       { fileName: "demo.lucent.tsx", libraries: { "@lucent-lang/widgets": library } },
     );
     expect(result.diagnostics).toEqual([]);

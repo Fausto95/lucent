@@ -3,7 +3,7 @@ import { compile, type LibraryModule } from "../src/index.ts";
 
 const library: LibraryModule = {
   schemaVersion: 1,
-  source: `import type {NativeCallback} from "@lucent-lang/types";
+  source: `import type {NativeCallback} from "@lucent-lang/core/types";
 export type Buffer = { length: number };
 export type Owned = { length: number };
 export declare function Buffer__create():Buffer;
@@ -72,7 +72,7 @@ export declare function subscribe(buffer:Buffer,callback:NativeCallback<(value:n
 };
 const options = { fileName: "captures.lucent.ts", libraries: { "@lucent-lang/sdk/buf": library } };
 const apply =
-  'import type {NativeCallback} from "@lucent-lang/types"; function apply(value:number,callback:NativeCallback<(value:number)=>number>):number{return callback(value);}';
+  'import type {NativeCallback} from "@lucent-lang/core/types"; function apply(value:number,callback:NativeCallback<(value:number)=>number>):number{return callback(value);}';
 
 test("records an immutable value record as a value capture", () => {
   const result = compile(

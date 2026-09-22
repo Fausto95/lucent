@@ -24,7 +24,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "shape.lucent.ts",
-      code: 'import type { int32 } from "@lucent-lang/types";\nimport { square } from "./math.lucent";\n\ntype Pair = { a: int32; b: int32 };\n\nfunction helper(pair: Pair): int32 {\n  return pair.a + pair.b;\n}\n\nexport function sumOfSquares(pair: Pair): number {\n  return square(helper(pair));\n}',
+      code: 'import type { int32 } from "@lucent-lang/core/types";\nimport { square } from "./math.lucent";\n\ntype Pair = { a: int32; b: int32 };\n\nfunction helper(pair: Pair): int32 {\n  return pair.a + pair.b;\n}\n\nexport function sumOfSquares(pair: Pair): number {\n  return square(helper(pair));\n}',
     },
     { kind: "h2", text: "Types" },
     {
@@ -53,7 +53,7 @@ export const page: DocPage = {
     {
       kind: "list",
       items: [
-        "Sized numerics come from `@lucent-lang/types`. At the JS boundary they are plain `number`s; the brand only picks the native representation.",
+        "Sized numerics come from `@lucent-lang/core/types`. At the JS boundary they are plain `number`s; the brand only picks the native representation.",
         "Numeric types never convert implicitly: `int32 + number` is `LUCENT1011`. Integer literals adopt the sized type of their context.",
         "A record's fields may be any type above except `Promise`. Records are copied across the boundary.",
         "Optionals must be narrowed before use with `=== null`, `!== null`, `=== undefined` or `!== undefined` on a local or parameter. The early-return form counts.",

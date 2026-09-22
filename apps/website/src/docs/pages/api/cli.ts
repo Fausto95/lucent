@@ -90,12 +90,12 @@ export const page: DocPage = {
       rows: [
         [
           "`package.json`",
-          "Adds `@lucent-lang/runtime`, `@lucent-lang/types`, `@lucent-lang/config`, `@lucent-lang/metro`, plus `@lucent-lang/expo` (Expo) or `react-native-nitro-modules`, `nitrogen`, `@lucent-lang/cli` and the `lucent-native` link (Nitro). Lucent packages are pinned to the CLI's version.",
+          "Adds `@lucent-lang/core/runtime`, `@lucent-lang/core/types`, `@lucent-lang/core/config`, `@lucent-lang/core/metro`, plus `@lucent-lang/core/expo` (Expo) or `react-native-nitro-modules`, `nitrogen`, `@lucent-lang/cli` and the `lucent-native` link (Nitro). Lucent packages are pinned to the CLI's version.",
         ],
         ["`lucent.config.ts`", "Written if no config exists, with an empty `capabilities` map to fill in."],
         ["`src/math.lucent.ts`", "A starter module, unless the project already has Lucent files."],
         ["`metro.config.js`", "Written if missing. An existing config is left alone with a note showing the `withLucent` wrapper to add."],
-        ["`app.json`", "Expo: appends `[\"@lucent-lang/expo\", { \"host\": \"expo\" }]` to `expo.plugins`."],
+        ["`app.json`", "Expo: appends `[\"@lucent-lang/core/expo\", { \"host\": \"expo\" }]` to `expo.plugins`."],
         ["`react-native.config.js`", "Nitro: written if missing, linking `.lucent/nitro` as `lucent-native`."],
       ],
     },
@@ -111,7 +111,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "output",
-      code: "🩺 lucent doctor\n\nToolchain\n  ✅ node             v24.16.0\n  ✅ package manager  pnpm\n  ✅ swiftc           Apple Swift version 6.2\n  ❌ kotlinc          not found\n                     💡 brew install kotlin\n  ⏭️ adb              not found (optional)\n\nProject (expo)\n  ✅ package.json     my-app\n  ✅ metro config     metro.config.js uses withLucent\n  ❌ expo plugin      app.json is missing @lucent-lang/expo\n                     💡 Add [\"@lucent-lang/expo\", { \"host\": \"expo\" }] to expo.plugins; lucent init does this\n  ❌ capabilities     missing clock\n                     💡 Declare them in lucent.config.ts: capabilities: { clock: true }\n\n❌ 3 problems. Fix the items marked above and run again.",
+      code: "🩺 lucent doctor\n\nToolchain\n  ✅ node             v24.16.0\n  ✅ package manager  pnpm\n  ✅ swiftc           Apple Swift version 6.2\n  ❌ kotlinc          not found\n                     💡 brew install kotlin\n  ⏭️ adb              not found (optional)\n\nProject (expo)\n  ✅ package.json     my-app\n  ✅ metro config     metro.config.js uses withLucent\n  ❌ expo plugin      app.json is missing @lucent-lang/core/expo\n                     💡 Add [\"@lucent-lang/core/expo\", { \"host\": \"expo\" }] to expo.plugins; lucent init does this\n  ❌ capabilities     missing network\n                     💡 Declare them in lucent.config.ts: capabilities: { network: true }\n\n❌ 3 problems. Fix the items marked above and run again.",
     },
     { kind: "h2", text: "lucent explain" },
     {

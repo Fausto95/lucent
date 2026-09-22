@@ -10,12 +10,20 @@
   "files": [
     "app.plugin.js",
     "dist",
-    "src"
+    "src",
+    "public.d.ts"
   ],
   "type": "module",
   "main": "./src/plugin.ts",
   "exports": {
-    ".": "./src/plugin.ts"
+    ".": {
+      "types": "./public.d.ts",
+      "default": "./src/plugin.ts"
+    },
+    "./plugin": {
+      "types": "./public.d.ts",
+      "default": "./dist/plugin.cjs"
+    }
   },
   "publishConfig": {
     "access": "public"
@@ -28,5 +36,10 @@
   },
   "peerDependencies": {
     "expo": "*"
+  },
+  "peerDependenciesMeta": {
+    "expo": {
+      "optional": true
+    }
   }
 }

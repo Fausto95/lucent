@@ -1,4 +1,4 @@
-import { Text, VStack, type NativeView } from "@lucent-lang/ui";
+import { Text, VStack, type NativeView } from "@lucent-lang/core/ui";
 
 type Props = { title: string; children: NativeView };
 

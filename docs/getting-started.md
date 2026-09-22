@@ -17,20 +17,20 @@ when you would rather wire things by hand.
 ## Expo (SDK 58)
 
 ```sh
-npx expo install @lucent-lang/runtime @lucent-lang/types @lucent-lang/expo @lucent-lang/metro
+npx expo install @lucent-lang/core
 ```
 
 ```js
 // metro.config.js
 const { getDefaultConfig } = require("expo/metro-config");
-const { withLucent } = require("@lucent-lang/metro");
+const { withLucent } = require("@lucent-lang/core/metro");
 
 module.exports = withLucent(getDefaultConfig(__dirname), { host: "expo" });
 ```
 
 ```json
 // app.json
-{ "expo": { "plugins": [["@lucent-lang/expo", { "host": "expo" }]] } }
+{ "expo": { "plugins": [["@lucent-lang/core/expo", { "host": "expo" }]] } }
 ```
 
 Write a `*.lucent.ts` file, import it, then:
@@ -46,14 +46,14 @@ Unchanged modules are cached between builds.
 ## Bare React Native (Nitro)
 
 ```sh
-npm install @lucent-lang/runtime react-native-nitro-modules
-npm install -D @lucent-lang/types @lucent-lang/metro @lucent-lang/cli nitrogen
+npm install @lucent-lang/core react-native-nitro-modules
+npm install -D @lucent-lang/cli nitrogen
 ```
 
 ```js
 // metro.config.js
 const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
-const { withLucent } = require("@lucent-lang/metro");
+const { withLucent } = require("@lucent-lang/core/metro");
 
 module.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), {}), { host: "nitro" });
 ```

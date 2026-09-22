@@ -1,4 +1,4 @@
-import { Text, type NativeProps, type NativeView } from "@lucent-lang/ui";
+import { Text, type NativeProps, type NativeView } from "@lucent-lang/core/ui";
 type Props = { title: string };
 export function Badge(props: NativeProps<Props>): NativeView {
   return (

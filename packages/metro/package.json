@@ -9,13 +9,14 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "public.d.ts"
   ],
   "type": "module",
   "main": "./dist/index.cjs",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
+      "types": "./public.d.ts",
       "default": "./dist/index.cjs"
     },
     "./transformer": {

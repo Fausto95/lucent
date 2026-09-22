@@ -3,7 +3,7 @@ import { compile } from "../src/index.ts";
 import { generateSwiftNamespace } from "@lucent-lang/backend-swift";
 import { generateKotlinNamespace } from "@lucent-lang/backend-kotlin";
 
-const CARD = `import {VStack, Text, type NativeProps, type NativeView} from "@lucent-lang/ui";
+const CARD = `import {VStack, Text, type NativeProps, type NativeView} from "@lucent-lang/core/ui";
 type CardProps = { title: string; children: NativeView };
 function Card(props: CardProps): NativeView {
   return (<VStack padding={12}><Text size={18}>{props.title}</Text>{props.children}</VStack>);
@@ -46,7 +46,7 @@ test("a declared slot must be filled", () => {
 
 test("a shared component with a slot compiles on its own", () => {
   const result = compile(
-    `import {VStack, Text, type NativeView} from "@lucent-lang/ui";
+    `import {VStack, Text, type NativeView} from "@lucent-lang/core/ui";
 type PanelProps = { title: string; children: NativeView };
 export function Panel(props: PanelProps): NativeView { return (<VStack><Text>{props.title}</Text>{props.children}</VStack>); }`,
     { fileName: "panel.lucent.tsx" },

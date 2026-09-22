@@ -5,7 +5,7 @@ import { SIZED_NUMERIC_TYPES, T, type NativeEnumBinding, type NativeType } from 
 export interface TypeScope {
   /** Struct names declared by type aliases in the module. */
   readonly structs: ReadonlySet<string>;
-  /** Sized numeric names imported from `@lucent-lang/types`. */
+  /** Sized numeric names imported from `@lucent-lang/core/types`. */
   readonly sized: ReadonlySet<string>;
   /** SDK enums contributed by package manifests, keyed by their public name. */
   readonly enums: ReadonlyMap<string, NativeEnumBinding>;
@@ -159,7 +159,7 @@ function resolveReference(type: Extract<SurfaceType, { kind: "reference" }>, sco
   if (enumName !== undefined && enumeration) return ok(T.enumeration(enumName, enumeration));
   if (scope.structs.has(type.name)) return ok(T.struct(type.name));
   const sizedHint = SIZED_NUMERIC_TYPES[type.name]
-    ? ` Import it: \`import type { ${type.name} } from "@lucent-lang/types";\`.`
+    ? ` Import it: \`import type { ${type.name} } from "@lucent-lang/core/types";\`.`
     : "";
   return fail(
     diagnostic(

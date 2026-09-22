@@ -215,7 +215,9 @@ export function generateBindingLibrary(schema: SDKSchema): { library: LibraryMod
       `export declare class ${cls.name} { constructor(${parameters(ctor.parameters)}); dispose():void; ${members.join(" ")} }`,
     );
   }
-  const prefix = signatures.some((s) => s.includes("int32")) ? 'import type {int32} from "@lucent-lang/types";\n' : "";
+  const prefix = signatures.some((s) => s.includes("int32"))
+    ? 'import type {int32} from "@lucent-lang/core/types";\n'
+    : "";
   const source = prefix + signatures.join("\n") + "\n";
   return {
     library: { schemaVersion: 1, source, bindings, ...(schema.classes?.length ? { references } : {}) },

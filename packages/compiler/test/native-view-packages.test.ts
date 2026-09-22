@@ -17,7 +17,7 @@ const library: LibraryModule = {
 const options = { fileName: "badge.lucent.tsx", libraries: { "@lucent-lang/widgets": library } };
 test("compiles a package native view without a built-in primitive", () => {
   const result = compile(
-    'import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/ui"; export function Demo():NativeView{return <Badge title="Hello"/>;}',
+    'import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/core/ui"; export function Demo():NativeView{return <Badge title="Hello"/>;}',
     options,
   );
   expect(result.diagnostics).toEqual([]);
@@ -28,7 +28,7 @@ test("compiles a package native view without a built-in primitive", () => {
 test("checks package view props before native emission", () => {
   expect(
     compile(
-      'import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/ui"; export function Demo():NativeView{return <Badge title={42}/>;}',
+      'import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/core/ui"; export function Demo():NativeView{return <Badge title={42}/>;}',
       options,
     ).module,
   ).toBeNull();
@@ -38,7 +38,7 @@ test("rejects invalid package templates before native emission", () => {
   broken.views!.Badge!.swift.template = "Text({{prop:missing}})";
   expect(
     compile(
-      'import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/ui"; export function Demo():NativeView{return <Badge title="Hello"/>;}',
+      'import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/core/ui"; export function Demo():NativeView{return <Badge title="Hello"/>;}',
       { ...options, libraries: { "@lucent-lang/widgets": broken } },
     ).module,
   ).toBeNull();
@@ -56,7 +56,7 @@ test("reports malformed package metadata as diagnostics", () => {
     },
   };
   const result = compile(
-    'import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/ui"; export function Demo():NativeView{return <Badge/>;}',
+    'import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/core/ui"; export function Demo():NativeView{return <Badge/>;}',
     { fileName: "demo.lucent.tsx", libraries: { "@lucent-lang/widgets": malformed as LibraryModule } },
   );
   expect(result.module).toBeNull();
@@ -66,7 +66,7 @@ test("retains native package capabilities", () => {
   const camera = structuredClone(library);
   camera.native = { capabilities: ["camera"] };
   const result = compile(
-    'import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/ui"; export function Demo():NativeView{return <Badge title="Camera"/>;}',
+    'import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/core/ui"; export function Demo():NativeView{return <Badge title="Camera"/>;}',
     { ...options, libraries: { "@lucent-lang/widgets": camera } },
   );
   expect(result.module?.capabilities).toContain("camera");

@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 import { compile } from "../src/index.ts";
-const source = `import { VStack, HStack, Text, Spacer, type NativeView } from "@lucent-lang/ui";
+const source = `import { VStack, HStack, Text, Spacer, type NativeView } from "@lucent-lang/core/ui";
 type Props = { title: string; count: number };
 export function Card(props: Props): NativeView {
   return <VStack spacing={12} padding={16}><Text>{props.title}</Text><HStack><Text>{props.count}</Text><Spacer /></HStack></VStack>;
@@ -21,7 +21,7 @@ test("rejects unknown native primitives and invalid props", () => {
 test("composes imported native views", () => {
   const result = compile(
     `import { Card } from "./card.lucent.tsx";
-    import type { NativeView } from "@lucent-lang/ui";
+    import type { NativeView } from "@lucent-lang/core/ui";
     type Props = {title: string; count: number};
     export function Screen(props: Props): NativeView { return <Card title={props.title} count={props.count} />; }`,
     { fileName: "screen.lucent.tsx", sources: { "card.lucent.tsx": source } },
@@ -47,7 +47,7 @@ test("NativeProps provides the React Native wrapper surface", () => {
 
 test("renders conditional rows, eager lists, dividers, and view-owned state", () => {
   const result = compile(
-    `import { VStack, Text, Button, TextField, Divider, For, type NativeView } from "@lucent-lang/ui";
+    `import { VStack, Text, Button, TextField, Divider, For, type NativeView } from "@lucent-lang/core/ui";
 type Props = { title: string; notes: string[]; armed: boolean };
 export function Field(props: Props): NativeView {
   const draft = state("Ridge");
@@ -75,7 +75,7 @@ export function Field(props: Props): NativeView {
 });
 
 test("rejects state that is nested, non-literal, or written during render", () => {
-  const header = `import { Text, type NativeView } from "@lucent-lang/ui"; type Props = { title: string }; export function Field(props: Props): NativeView {`;
+  const header = `import { Text, type NativeView } from "@lucent-lang/core/ui"; type Props = { title: string }; export function Field(props: Props): NativeView {`;
   const bad = [
     `${header} if (props.title === "a") { const draft = state("x"); } return <Text>{props.title}</Text>; }`,
     `${header} const draft = state(props.title); return <Text>{draft}</Text>; }`,
@@ -86,7 +86,7 @@ test("rejects state that is nested, non-literal, or written during render", () =
 
 test.each(["Column", "Row"])("rejects obsolete stack name %s", (name) => {
   const result = compile(
-    `import { ${name}, type NativeView } from "@lucent-lang/ui"; export function Card():NativeView { return <${name} />; }`,
+    `import { ${name}, type NativeView } from "@lucent-lang/core/ui"; export function Card():NativeView { return <${name} />; }`,
     { fileName: "card.lucent.tsx" },
   );
   expect(result.module).toBeNull();

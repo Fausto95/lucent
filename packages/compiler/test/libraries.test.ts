@@ -41,11 +41,11 @@ test("synchronous functions cannot request a thread hop", () => {
 
 test("async SDK declarations infer suspension from Promise", () => {
   const result = compile(
-    'import {model} from "@lucent-lang/platform/device"; export async function f():Promise<string>{return await model();}',
+    'import {model} from "@lucent-lang/core/platform/device"; export async function f():Promise<string>{return await model();}',
     {
       fileName: "device.lucent.ts",
       libraries: {
-        "@lucent-lang/platform/device": {
+        "@lucent-lang/core/platform/device": {
           source: "export declare function model():Promise<string>;",
           bindings: { model: { swift: ['return "phone"'], kotlin: ['return "phone"'], thread: "main" } },
         },
@@ -58,11 +58,11 @@ test("async SDK declarations infer suspension from Promise", () => {
 
 test("only requires capabilities of reachable SDK functions", () => {
   const result = compile(
-    'import {read} from "@lucent-lang/platform/demo"; export function f():number{return read();}',
+    'import {read} from "@lucent-lang/core/platform/demo"; export function f():number{return read();}',
     {
       fileName: "demo.lucent.ts",
       libraries: {
-        "@lucent-lang/platform/demo": {
+        "@lucent-lang/core/platform/demo": {
           source: "export declare function read():number; export declare function unused():number;",
           bindings: {
             read: { swift: ["return 1"], kotlin: ["return 1.0"], capabilities: ["read"] },

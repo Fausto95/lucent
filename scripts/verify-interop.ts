@@ -27,7 +27,7 @@ export declare function MutableText__method_append(lucentSelf:MutableText,text:s
   },
 };
 const source = `import {MutableText} from '@lucent-lang/sdk/text';
-import type {NativeCallback} from '@lucent-lang/types';
+import type {NativeCallback} from '@lucent-lang/core/types';
 function twice(value:number):number{return value*2;}
 function apply(value:number,callback:NativeCallback<(value:number)=>number>):number{return callback(value);}
 export function compute():number{const text=new MutableText('abc');text.append('de');const factor=2;return apply(text.length,(value:number):number=>value*factor);}`;

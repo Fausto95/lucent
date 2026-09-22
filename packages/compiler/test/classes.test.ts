@@ -29,7 +29,7 @@ test("requires initialized fields and rejects async shared methods", () => {
 
 test("supports the typed SharedObject base without JS inheritance", () => {
   const source =
-    'import {SharedObject} from "@lucent-lang/objects"; ' +
+    'import {SharedObject} from "@lucent-lang/core/objects"; ' +
     counter
       .replace("class Counter {", "class Counter extends SharedObject {")
       .replace("constructor(initial: number) {", "constructor(initial: number) { super();");

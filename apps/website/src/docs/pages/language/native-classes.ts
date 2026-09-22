@@ -8,7 +8,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "counter.lucent.ts",
-      code: 'import { SharedObject } from "@lucent-lang/objects";\n\nexport class Counter extends SharedObject {\n  value: number = 0;\n  private ticks: number = 0;\n\n  constructor(initial: number) {\n    super();\n    this.value = initial;\n  }\n\n  increment(delta: number): number {\n    this.ticks += 1;\n    this.value += delta;\n    return this.value;\n  }\n}',
+      code: 'import { SharedObject } from "@lucent-lang/core/objects";\n\nexport class Counter extends SharedObject {\n  value: number = 0;\n  private ticks: number = 0;\n\n  constructor(initial: number) {\n    super();\n    this.value = initial;\n  }\n\n  increment(delta: number): number {\n    this.ticks += 1;\n    this.value += delta;\n    return this.value;\n  }\n}',
     },
     {
       kind: "code",

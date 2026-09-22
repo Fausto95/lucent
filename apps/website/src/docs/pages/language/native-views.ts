@@ -10,7 +10,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "card.lucent.tsx",
-      code: 'import { VStack, Text, Button, type NativeProps, type NativeView } from "@lucent-lang/ui";\nimport type { Event } from "@lucent-lang/events";\n\ntype Props = { title: string; onPress: Event<void> };\n\nexport function Card(props: NativeProps<Props>): NativeView {\n  return (\n    <VStack padding={16} spacing={12}>\n      <Text size={20}>{props.title}</Text>\n      <Button title="Continue" onPress={props.onPress} />\n    </VStack>\n  );\n}',
+      code: 'import { VStack, Text, Button, type NativeProps, type NativeView } from "@lucent-lang/core/ui";\nimport type { Event } from "@lucent-lang/core/events";\n\ntype Props = { title: string; onPress: Event<void> };\n\nexport function Card(props: NativeProps<Props>): NativeView {\n  return (\n    <VStack padding={16} spacing={12}>\n      <Text size={20}>{props.title}</Text>\n      <Button title="Continue" onPress={props.onPress} />\n    </VStack>\n  );\n}',
     },
     {
       kind: "code",
@@ -71,7 +71,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "tile.lucent.tsx",
-      code: 'import { Background, CornerRadius, Padding, Text, type NativeProps, type NativeView } from "@lucent-lang/ui";\n\ntype Props = { label: string };\n\nexport function Tile(props: NativeProps<Props>): NativeView {\n  return (\n    <Background color="#1b2416">\n      <CornerRadius value={12}>\n        <Padding value={16}>\n          <Text color="#c4f778">{props.label}</Text>\n        </Padding>\n      </CornerRadius>\n    </Background>\n  );\n}',
+      code: 'import { Background, CornerRadius, Padding, Text, type NativeProps, type NativeView } from "@lucent-lang/core/ui";\n\ntype Props = { label: string };\n\nexport function Tile(props: NativeProps<Props>): NativeView {\n  return (\n    <Background color="#1b2416">\n      <CornerRadius value={12}>\n        <Padding value={16}>\n          <Text color="#c4f778">{props.label}</Text>\n        </Padding>\n      </CornerRadius>\n    </Background>\n  );\n}',
     },
     { kind: "h2", text: "Package views" },
     {

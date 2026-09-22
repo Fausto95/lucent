@@ -16,29 +16,29 @@ TypeScript error.
   cannot be used as values. Missing files, ambiguous paths, cycles, and private
   imports are rejected with `LUCENT1006`.
 - Native classes and `const name = event<T>()` declarations are supported.
-- Built-in packages are `@lucent-lang/types`, `@lucent-lang/objects`,
-  `@lucent-lang/events`, `@lucent-lang/ui`, `@lucent-lang/core`,
+- Built-in authoring entry points are `@lucent-lang/core/types`, `@lucent-lang/core/objects`,
+  `@lucent-lang/core/events`, `@lucent-lang/core/ui`, `@lucent-lang/core`,
   `@lucent-lang/core/math`, `@lucent-lang/core/text`,
-  `@lucent-lang/core/cancellation`, and `@lucent-lang/platform`. Every other
+  `@lucent-lang/core/cancellation`, and `@lucent-lang/core/platform`. Every other
   native binding comes from a package manifest listed in app config.
 - JavaScript packages, namespace/default imports, re-exports, and executable
   top-level statements remain unsupported. There is no JS runtime in native code.
 
 ## Types
 
-| TypeScript                                                                   | Native type    | Swift               | Kotlin            |
-| ---------------------------------------------------------------------------- | -------------- | ------------------- | ----------------- |
-| `number`                                                                     | `float64`      | `Double`            | `Double`          |
-| `string`                                                                     | `string`       | `String`            | `String`          |
-| `boolean`                                                                    | `bool`         | `Bool`              | `Boolean`         |
-| `void`                                                                       | `void`         | `Void`              | `Unit`            |
-| `T[]`, `Array<T>`                                                            | `array<T>`     | `[T]`               | `List<T>`         |
-| `T \| null`, `T \| undefined`                                                | `optional<T>`  | `T?`                | `T?`              |
-| `Record<string, T>`                                                          | `map<T>`       | `[String: T]`       | `Map<String, T>`  |
-| `Uint8Array`                                                                 | `bytes`        | `ArrayBuffer`       | `ArrayBuffer`     |
-| `Promise<T>` (return type only)                                              | `promise<T>`   | `async … -> T`      | `suspend …: T`    |
-| object type alias                                                            | `struct`       | `struct`            | `data class`      |
-| `int8…int64`, `uint8…uint64`, `float32`, `float64` from `@lucent-lang/types` | sized numerics | `Int32`, `Float`, … | `Int`, `Float`, … |
+| TypeScript                                                                        | Native type    | Swift               | Kotlin            |
+| --------------------------------------------------------------------------------- | -------------- | ------------------- | ----------------- |
+| `number`                                                                          | `float64`      | `Double`            | `Double`          |
+| `string`                                                                          | `string`       | `String`            | `String`          |
+| `boolean`                                                                         | `bool`         | `Bool`              | `Boolean`         |
+| `void`                                                                            | `void`         | `Void`              | `Unit`            |
+| `T[]`, `Array<T>`                                                                 | `array<T>`     | `[T]`               | `List<T>`         |
+| `T \| null`, `T \| undefined`                                                     | `optional<T>`  | `T?`                | `T?`              |
+| `Record<string, T>`                                                               | `map<T>`       | `[String: T]`       | `Map<String, T>`  |
+| `Uint8Array`                                                                      | `bytes`        | `ArrayBuffer`       | `ArrayBuffer`     |
+| `Promise<T>` (return type only)                                                   | `promise<T>`   | `async … -> T`      | `suspend …: T`    |
+| object type alias                                                                 | `struct`       | `struct`            | `data class`      |
+| `int8…int64`, `uint8…uint64`, `float32`, `float64` from `@lucent-lang/core/types` | sized numerics | `Int32`, `Float`, … | `Int`, `Float`, … |
 
 Rules:
 
@@ -163,7 +163,7 @@ the TypeScript union.
 ## Native classes and shared objects
 
 ```ts
-import { SharedObject } from "@lucent-lang/objects";
+import { SharedObject } from "@lucent-lang/core/objects";
 
 export class Counter extends SharedObject {
   value: number = 0;
@@ -204,7 +204,7 @@ native destructor callback.
 ## Events
 
 ```ts
-import { event } from "@lucent-lang/events";
+import { event } from "@lucent-lang/core/events";
 export type Progress = { percent: number };
 export const progress = event<Progress>();
 export function report(value: number): void {
@@ -226,8 +226,8 @@ without an argument. A subscription is app-only; native code emits events.
 ## Declarative native views (`.lucent.tsx`)
 
 ```tsx
-import { VStack, Text, Button, type NativeProps, type NativeView } from "@lucent-lang/ui";
-import type { Event } from "@lucent-lang/events";
+import { VStack, Text, Button, type NativeProps, type NativeView } from "@lucent-lang/core/ui";
+import type { Event } from "@lucent-lang/core/events";
 
 type Props = { title: string; onPress: Event<void> };
 export function Card(props: NativeProps<Props>): NativeView {
@@ -256,7 +256,7 @@ Nitro requires the React Native new architecture for these views.
 | `Spacer`           | `size` (default 8)                                | none                     |
 | `Divider`          | none                                              | none                     |
 | `Button`           | required `title`, optional `onPress: Event<void>` | none                     |
-| `For`              | required `each`, optional `key`                   | one row closure          |
+| `For`              | required `each`, optional `by`                    | one row closure          |
 
 View props support string, number, boolean, arrays of those, nullable scalars,
 and events. A component may also declare one `children: NativeView` prop, which
@@ -279,9 +279,9 @@ group vertically with zero spacing, like the layout wrappers. A component with a
 slot is Lucent-only: React owns the children of a host view, so the compiler does
 not generate a React component or a declaration for it. Components without a
 slot take no children. A conditional expression may choose between two views or
-two values of the same type. `For` lays rows out eagerly in array order. Without a `key` the identity is the
+two values of the same type. `For` lays rows out eagerly in array order. Without a `by` the identity is the
 index, which is not stable across insertions; pass
-`key={(item: T) => item}` to give each row an identity that survives reordering,
+`by={(item: T) => item}` to give each row an identity that survives reordering,
 so its state and focus move with it. A key closure returns a string, so use a
 template literal for a numeric identity. Duplicate keys are a programming error:
 debug builds report one and the row falls back to a position-disambiguated
@@ -347,13 +347,13 @@ never has a capability an app package could not also declare.
 | `@lucent-lang/core/math` | `abs`, `sqrt`, `floor`, `ceil`, `sin`, `cos`, `min`, `max` |
 | `@lucent-lang/core/text` | `trim`, `contains`                                         |
 
-`@lucent-lang/platform` exposes the `Platform.OS` guard and
+`@lucent-lang/core/platform` exposes the `Platform.OS` guard and
 `@lucent-lang/core/cancellation` the cooperative `CancellationSource`. Neither
 requires a capability.
 
 The former `@lucent-lang/crypto`, `@lucent-lang/filesystem`,
-`@lucent-lang/network`, `@lucent-lang/device`, `@lucent-lang/platform/clock`,
-and `@lucent-lang/platform/locale` packages have been removed. They were small
+`@lucent-lang/network`, `@lucent-lang/device`, `@lucent-lang/core/platform/clock`,
+and `@lucent-lang/core/platform/locale` packages have been removed. They were small
 hand-written native modules rather than language features, and they duplicated
 libraries an app already has. Declare the ones you need as package bindings, as
 the example apps do in `native/toolkit.library.json`, or call the equivalent
@@ -380,7 +380,7 @@ mutate or detach a borrowed input during a synchronous native call.
 An app can use `lucent.config.ts`:
 
 ```ts
-import { defineNativeConfig } from "@lucent-lang/config";
+import { defineNativeConfig } from "@lucent-lang/core/config";
 export default defineNativeConfig({
   capabilities: {
     camera: { reason: "Scan documents" },
@@ -418,7 +418,7 @@ app's responsibility. This is build configuration, not a security sandbox.
 ## Platform guards and SDK bindings
 
 ```ts
-import { Platform } from "@lucent-lang/platform";
+import { Platform } from "@lucent-lang/core/platform";
 import { homeDirectory } from "@lucent-lang/sdk/foundation";
 
 export function home(): string {
@@ -449,7 +449,7 @@ bindings, and `index.d.ts`. Java extraction uses `javap -public`; saved javap
 output can also be supplied instead of `-`. Register the generated manifest:
 
 ```ts
-import { defineNativeConfig } from "@lucent-lang/config";
+import { defineNativeConfig } from "@lucent-lang/core/config";
 export default defineNativeConfig({
   libraries: { "@lucent-lang/sdk/math": "./sdk/math/library.json" },
 });
@@ -521,7 +521,7 @@ Compiled functions can be passed to other native functions using
 `NativeCallback`:
 
 ```ts
-import type { NativeCallback } from "@lucent-lang/types";
+import type { NativeCallback } from "@lucent-lang/core/types";
 
 function twice(value: number): number {
   return value * 2;
@@ -823,3 +823,20 @@ effects, and availability annotations as skipped. It does not infer ownership,
 thread safety, or iOS availability from a macOS graph. Review the extraction
 platform and supply curated contracts for platform-specific SDK APIs. Clang,
 Objective-C, JVM class metadata, and Kotlin metadata adapters remain pending.
+
+### Public package layout
+
+Install `@lucent-lang/core`; install `@lucent-lang/cli` separately for the CLI.
+Authoring declarations are `/types`, `/ui`, `/objects`, `/events`, `/platform`,
+`/math`, `/text`, and `/cancellation`. Use `/config` for `defineNativeConfig`,
+`/metro` for `withLucent`, `/expo` for the Expo plugin, and `/runtime` for JavaScript
+helpers. Subpaths are imports, not separate packages to install.
+
+The old standalone types, UI, objects, events, platform, and configuration
+packages are removed; no compatibility aliases are provided. Compiler, backends,
+hosts, and runtime implementations remain internal dependencies installed by
+core or the CLI. Expo itself is optional for bare Nitro projects.
+
+`For` uses `by={(row) => row}` for its identity selector. React reserves JSX
+`key` for scalar keys, so Lucent does not use it for a callback. The UI entry
+also declares the native `state()` primitive for editor typechecking.

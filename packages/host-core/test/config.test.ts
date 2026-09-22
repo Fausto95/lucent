@@ -10,7 +10,7 @@ const config = (text: string, extension = "ts") => {
 };
 test("reads declarative typed capability config without executing code", () => {
   const c = config(
-    'import {defineNativeConfig} from "@lucent-lang/config"; export default defineNativeConfig({capabilities:{camera:{reason:"Scan a document"},location:{whenInUse:{reason:"Nearby places"}},network:true}});',
+    'import {defineNativeConfig} from "@lucent-lang/core/config"; export default defineNativeConfig({capabilities:{camera:{reason:"Scan a document"},location:{whenInUse:{reason:"Nearby places"}},network:true}});',
   );
   expect(c.capabilities).toEqual(["camera", "location", "network"]);
   expect(c.platformConfig.infoPlist).toMatchObject({
@@ -28,4 +28,19 @@ test("rejects executable config expressions", () => {
 });
 test("retains legacy capability allowlists", () => {
   expect(config('{"capabilities":["clock"]}', "json").capabilities).toEqual(["clock"]);
+});
+
+test("loads third-party library names through public core configuration", () => {
+  const root = mkdtempSync(join(tmpdir(), "lucent-config-"));
+  writeFileSync(join(root, "sdk.json"), JSON.stringify({ source: "", native: { swift: { "SDK.swift": "// sdk" } } }));
+  writeFileSync(
+    join(root, "lucent.config.ts"),
+    'import {defineNativeConfig} from "@lucent-lang/core/config"; export default defineNativeConfig({libraries:{"@acme/camera":"./sdk.json"}});',
+  );
+  expect(loadLucentConfig(root).libraries["@acme/camera"]?.native?.swift?.["SDK.swift"]).toBe("// sdk");
+});
+test("rejects the removed config import rather than retaining an alias", () => {
+  expect(() =>
+    config('import {defineNativeConfig} from "@lucent-lang/config"; export default defineNativeConfig({});'),
+  ).toThrow();
 });

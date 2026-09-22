@@ -29,18 +29,12 @@ const DEPENDENCIES: Readonly<
   Record<HostName, { dependencies: readonly string[]; devDependencies: readonly string[] }>
 > = {
   expo: {
-    dependencies: ["@lucent-lang/runtime"],
-    devDependencies: ["@lucent-lang/types", "@lucent-lang/config", "@lucent-lang/expo", "@lucent-lang/metro"],
+    dependencies: ["@lucent-lang/core"],
+    devDependencies: ["@lucent-lang/cli"],
   },
   nitro: {
-    dependencies: ["@lucent-lang/runtime", "react-native-nitro-modules"],
-    devDependencies: [
-      "@lucent-lang/types",
-      "@lucent-lang/config",
-      "@lucent-lang/metro",
-      "@lucent-lang/cli",
-      "nitrogen",
-    ],
+    dependencies: ["@lucent-lang/core", "react-native-nitro-modules"],
+    devDependencies: ["@lucent-lang/cli", "nitrogen"],
   },
 };
 
@@ -48,7 +42,7 @@ const DEPENDENCIES: Readonly<
 const versionOf = (name: string): string => (name.startsWith("@lucent-lang/") ? CLI_VERSION : "*");
 
 const NITRO_LINK = "file:./.lucent/nitro";
-const EXPO_PLUGIN = "@lucent-lang/expo";
+const EXPO_PLUGIN = "@lucent-lang/core/expo";
 const METRO_FILES = ["metro.config.js", "metro.config.cjs", "metro.config.mjs", "metro.config.ts"];
 const CONFIG_FILES = ["lucent.config.ts", "lucent.config.json"];
 
@@ -58,7 +52,7 @@ export function add(a: number, b: number): number {
 }
 `;
 
-const CONFIG = `import { defineNativeConfig } from "@lucent-lang/config";
+const CONFIG = `import { defineNativeConfig } from "@lucent-lang/core/config";
 
 export default defineNativeConfig({
   // Capabilities your modules use, e.g. { clock: true, camera: { reason: "Scan codes" } }.
@@ -68,12 +62,12 @@ export default defineNativeConfig({
 
 const METRO_CONFIG: Readonly<Record<HostName, string>> = {
   expo: `const { getDefaultConfig } = require("expo/metro-config");
-const { withLucent } = require("@lucent-lang/metro");
+const { withLucent } = require("@lucent-lang/core/metro");
 
 module.exports = withLucent(getDefaultConfig(__dirname), { host: "expo" });
 `,
   nitro: `const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
-const { withLucent } = require("@lucent-lang/metro");
+const { withLucent } = require("@lucent-lang/core/metro");
 
 module.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), {}), { host: "nitro" });
 `,
@@ -162,7 +156,7 @@ const wireMetro: Step = (root, host) => {
     file: existing,
     action: "kept",
     detail: "exists but does not call withLucent",
-    hint: `Wrap the exported config: module.exports = withLucent(config, { host: "${host}" }) with withLucent from @lucent-lang/metro.`,
+    hint: `Wrap the exported config: module.exports = withLucent(config, { host: "${host}" }) with withLucent from @lucent-lang/core/metro.`,
   };
 };
 

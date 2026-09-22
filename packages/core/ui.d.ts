@@ -1,6 +1,6 @@
 import type { ReactElement, ReactNode } from "react";
 import type { ViewProps } from "react-native";
-import type { Event } from "@lucent-lang/events";
+import type { Event } from "@lucent-lang/core/events";
 /** Compiled to SwiftUI/Compose by Lucent. These declarations have no JS runtime. */
 export type NativeView = ReactElement;
 /** React Native host layout props are applied by React, not read by the native render function. */
@@ -26,4 +26,14 @@ export declare function Background(props: { color: string; children?: ReactNode 
 export declare function CornerRadius(props: { value: number; children?: ReactNode }): NativeView;
 export declare function Accessibility(props: { label: string; children?: ReactNode }): NativeView;
 export declare function Divider(props?: Record<string, never>): NativeView;
-export declare function For<T>(props: { each: T[]; children: (item: T) => NativeView }): NativeView;
+export declare function For<T>(props: {
+  each: T[];
+  by?: (item: T) => string;
+  children: (item: T) => NativeView;
+}): NativeView;
+
+/** Native scalar state; values are read directly and written with set(). */
+type StateValue<T> = T extends string ? string : T extends number ? number : boolean;
+declare global {
+  function state<T extends string | number | boolean>(initial: T): StateValue<T> & { set(value: StateValue<T>): void };
+}

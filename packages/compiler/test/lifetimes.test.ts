@@ -92,7 +92,7 @@ test("rejects moving a serial object onto a worker", () => {
 
 test("records value and retained captures and accepts statement bodies", () => {
   const result = compile(
-    'import type {NativeCallback} from "@lucent-lang/types"; import {SerialBox} from "@lucent-lang/sdk/buf"; function apply(value:number,callback:NativeCallback<(value:number)=>number>):number{return callback(value);} export function captured():number{ const factor=3; const box=new SerialBox(); return apply(1,(value:number):number=>{ const extra=value*factor; return extra+box.length; }); }',
+    'import type {NativeCallback} from "@lucent-lang/core/types"; import {SerialBox} from "@lucent-lang/sdk/buf"; function apply(value:number,callback:NativeCallback<(value:number)=>number>):number{return callback(value);} export function captured():number{ const factor=3; const box=new SerialBox(); return apply(1,(value:number):number=>{ const extra=value*factor; return extra+box.length; }); }',
     options,
   );
   expect(result.diagnostics).toEqual([]);

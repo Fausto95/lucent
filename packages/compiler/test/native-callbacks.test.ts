@@ -1,7 +1,7 @@
 import { expect, test } from "vite-plus/test";
 import { compile } from "../src/index.ts";
 const source =
-  'import type {NativeCallback} from "@lucent-lang/types"; function apply(value:number,callback:NativeCallback<(value:number)=>number>):number{return callback(value);} function double(value:number):number{return value*2;} export function result():number{return apply(4,double);}';
+  'import type {NativeCallback} from "@lucent-lang/core/types"; function apply(value:number,callback:NativeCallback<(value:number)=>number>):number{return callback(value);} function double(value:number):number{return value*2;} export function result():number{return apply(4,double);}';
 test("passes and invokes a typed compiled native function", () => {
   const result = compile(source, { fileName: "callbacks.lucent.ts" });
   expect(result.diagnostics).toEqual([]);
@@ -26,7 +26,7 @@ test("rejects native callbacks at the JavaScript boundary", () => {
 });
 test("checks platform requirements inside referenced callbacks", () => {
   const input =
-    'import type {NativeCallback} from "@lucent-lang/types"; import {onlyIOS} from "@lucent-lang/sdk/ios"; function run(callback:NativeCallback<()=>number>):number{return callback();} function ios():number{return onlyIOS();} export function result():number{return run(ios);}';
+    'import type {NativeCallback} from "@lucent-lang/core/types"; import {onlyIOS} from "@lucent-lang/sdk/ios"; function run(callback:NativeCallback<()=>number>):number{return callback();} function ios():number{return onlyIOS();} export function result():number{return run(ios);}';
   const result = compile(input, {
     fileName: "callbacks.lucent.ts",
     libraries: {
@@ -41,7 +41,7 @@ test("checks platform requirements inside referenced callbacks", () => {
 });
 test("retains capabilities reached through compiled callbacks", () => {
   const input =
-    'import type {NativeCallback} from "@lucent-lang/types"; import {now} from "@lucent-lang/example-clock"; function run(callback:NativeCallback<()=>number>):number{return callback();} function read():number{return now();} export function result():number{return run(read);}';
+    'import type {NativeCallback} from "@lucent-lang/core/types"; import {now} from "@lucent-lang/example-clock"; function run(callback:NativeCallback<()=>number>):number{return callback();} function read():number{return now();} export function result():number{return run(read);}';
   const libraries = {
     "@lucent-lang/example-clock": {
       source: "export declare function now():number;",

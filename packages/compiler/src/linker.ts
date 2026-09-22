@@ -146,15 +146,15 @@ export function linkModule(
     typeNames.set(path, types);
     for (const imp of module.imports) {
       if (imp.source === LUCENT_TYPES_MODULE) continue;
-      if (imp.source === "@lucent-lang/objects") {
+      if (imp.source === "@lucent-lang/core/objects") {
         for (const b of imp.bindings ?? [])
           if (b.imported !== "SharedObject" || b.typeOnly)
             diagnostics.push(
-              diagnostic("LUCENT1006", imp.span, "Only SharedObject may be imported from @lucent-lang/objects."),
+              diagnostic("LUCENT1006", imp.span, "Only SharedObject may be imported from @lucent-lang/core/objects."),
             );
         continue;
       }
-      if (imp.source === "@lucent-lang/events") {
+      if (imp.source === "@lucent-lang/core/events") {
         for (const b of imp.bindings ?? []) {
           if (b.imported === "Event" && b.typeOnly) types.set(b.local, "Event");
           else if (b.imported !== "event" || b.typeOnly)
@@ -162,7 +162,7 @@ export function linkModule(
         }
         continue;
       }
-      if (imp.source === "@lucent-lang/ui") {
+      if (imp.source === "@lucent-lang/core/ui") {
         for (const binding of imp.bindings ?? []) {
           if ((binding.imported === "NativeView" || binding.imported === "NativeProps") && binding.typeOnly)
             types.set(binding.local, binding.imported);

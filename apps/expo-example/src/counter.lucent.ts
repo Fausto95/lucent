@@ -1,4 +1,4 @@
-import { SharedObject } from "@lucent-lang/objects";
+import { SharedObject } from "@lucent-lang/core/objects";
 export class Counter extends SharedObject {
   value: number = 0;
   constructor(initial: number) {

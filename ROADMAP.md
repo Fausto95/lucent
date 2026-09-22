@@ -47,7 +47,7 @@ Public API: `compile(source, { fileName }) → { module: IRModule | null, diagno
 - [x] `src/types/native-type.ts` — `NativeType` union (`void bool string bytes float{32,64} int{8..64,signed} array map optional struct promise`), `typeToString`, `typeEquals`
 - [x] `src/types/resolve.ts` — `resolveType(SurfaceType, scope)` lookup-table resolver; `LUCENT1003/LUCENT1004/LUCENT1005`
 - [x] Red tests: `test/checker.test.ts` — scopes, inference from initializer, assignability, arity, `await` in async only, `Promise` only as async return, struct field access, dynamic access `LUCENT1002`, missing annotation `LUCENT1014`, missing return `LUCENT1015`, const assignment `LUCENT1016`, > 8 params `LUCENT1007`
-- [x] `src/checker/` — typed surface AST (every expression annotated with `NativeType`), module symbol table (structs, functions, sized types imported from `@lucent-lang/types`)
+- [x] `src/checker/` — typed surface AST (every expression annotated with `NativeType`), module symbol table (structs, functions, sized types imported from `@lucent-lang/core/types`)
 - [x] Red tests: `test/lowering.test.ts` — golden IR text for `fixtures/*.lucent.ts`
 - [x] `src/ir/` — structured, typed IR (`IRStmt` / `IRExpr` / `IRPlace`) and `printIR` text form; see [docs/ir.md](docs/ir.md) for why it is not a CFG
 - [x] `src/lowering/` — typed AST → IR: unique locals, param shadows, `for` → `while`, `for…of` → `forEach`, compound assignment/update expansion, template → `concat`/`str`
@@ -68,7 +68,7 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 
 ### 3. `packages/host-expo` — Expo SDK 58
 
-- [x] `packages/host-core`: `Host` interface (`emitPackage(modules) → FileTree`, `emitProxy(module) → { js, dts }`), `.d.ts` generation, boundary conversion helpers; `packages/runtime` (`@lucent-lang/runtime`): `LucentError`, `lucentCall`, `toArrayBuffer`/`fromArrayBuffer`, error normalisation for both hosts
+- [x] `packages/host-core`: `Host` interface (`emitPackage(modules) → FileTree`, `emitProxy(module) → { js, dts }`), `.d.ts` generation, boundary conversion helpers; `packages/runtime` (`@lucent-lang/core/runtime`): `LucentError`, `lucentCall`, `toArrayBuffer`/`fromArrayBuffer`, error normalisation for both hosts
 - [x] Swift: `@ExpoModule("Lucent_<name>") public final class Lucent<Name>Module: Module` with `@JS` sync and `@JS(.concurrent) … async throws` members, `@Record` structs, `LucentError: Exception` with `code`
 - [x] Kotlin: `definition()` DSL (`Function`, `AsyncFunction … Coroutine`), constructor-parameter `Record` + `@Field` with type defaults, boundary conversions for Byte/Short/unsigned ints; `LucentError` is a plain Exception (code recovered by the proxy from the message) — switch to `CodedException` once verified in the example app
 - [x] Bytes as `ExpoModulesCore.ArrayBuffer` / `expo.modules.kotlin.jni.ArrayBuffer`; async functions copy on entry
@@ -107,9 +107,9 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 - [x] `withDangerousMod` for `ios` and `android`: run the build into `modules/lucent/`, skip when `modRequest.introspect`
 - [x] Test invokes the registered dangerous mods directly on a temp project (no prebuild needed)
 
-### 8. `packages/types`
+### 8. Authoring declarations in `packages/core`
 
-- [x] `@lucent-lang/types` d.ts-only package: branded `int8 … uint64`, `float32`, `float64`
+- [x] `@lucent-lang/core/types` declaration subpath: branded `int8 … uint64`, `float32`, `float64`
 
 ### 9. Example apps and end-to-end verification
 

@@ -27,7 +27,7 @@ export function BuildDiagram() {
         lines={["Runs when native code changes. Cached per module by", "hash of source + compiler version + host."]}
       />
 
-      <DiagramBox x={290} y={200} w={220} label="Metro transformer" sub="@lucent-lang/metro" />
+      <DiagramBox x={290} y={200} w={220} label="Metro transformer" sub="@lucent-lang/core/metro" />
       <DiagramBox x={550} y={200} w={150} label="JS proxy" sub="replaces the source" />
       <DiagramBox x={740} y={200} w={140} label="app bundle" sub="Hermes" />
       <DiagramArrow from={[210, 140]} to={[290, 222]} marker={m} />

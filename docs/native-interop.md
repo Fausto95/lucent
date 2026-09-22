@@ -106,11 +106,11 @@ in IR rather than expressed as arbitrary string templates.
 
 Proposed import surfaces:
 
-| Surface                   | Purpose                                                             |
-| ------------------------- | ------------------------------------------------------------------- |
-| `@lucent-lang/ui`         | Shared layout and controls with documented cross-platform semantics |
-| `@lucent-lang/ui/swiftui` | SwiftUI-specific views, modifiers, and bindings                     |
-| `@lucent-lang/ui/compose` | Compose-specific controls, modifiers, and state                     |
+| Surface                        | Purpose                                                             |
+| ------------------------------ | ------------------------------------------------------------------- |
+| `@lucent-lang/core/ui`         | Shared layout and controls with documented cross-platform semantics |
+| `@lucent-lang/core/ui/swiftui` | SwiftUI-specific views, modifiers, and bindings                     |
+| `@lucent-lang/core/ui/compose` | Compose-specific controls, modifiers, and state                     |
 
 All authoring remains in `.lucent.tsx`. Platform-specific imports must be
 restricted to the matching target through target-specific modules or compiler

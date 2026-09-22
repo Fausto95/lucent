@@ -37,7 +37,7 @@ export interface ParseResult {
   diagnostics: Diagnostic[];
 }
 
-export const LUCENT_TYPES_MODULE = "@lucent-lang/types";
+export const LUCENT_TYPES_MODULE = "@lucent-lang/core/types";
 export const LUCENT_ERROR = "LucentError";
 
 const spanOf = (node: { start: number; end: number }): Span => ({ start: node.start, end: node.end });
@@ -207,7 +207,7 @@ class Converter {
 
   private classDeclaration(node: ES.Class, exported: boolean): void {
     const base = this.imports
-      .find((i) => i.source === "@lucent-lang/objects")
+      .find((i) => i.source === "@lucent-lang/core/objects")
       ?.bindings?.find((b) => b.imported === "SharedObject" && !b.typeOnly)?.local;
     const sharedBase = node.superClass?.type === "Identifier" && node.superClass.name === base;
     if (
@@ -369,7 +369,7 @@ class Converter {
     for (const decl of node.declarations) {
       const init = decl.init;
       const eventFactory = this.imports
-        .find((i) => i.source === "@lucent-lang/events")
+        .find((i) => i.source === "@lucent-lang/core/events")
         ?.bindings?.find((b) => b.imported === "event" && !b.typeOnly)?.local;
       if (
         node.kind !== "const" ||

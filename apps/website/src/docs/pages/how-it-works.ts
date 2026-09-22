@@ -58,7 +58,7 @@ export const page: DocPage = {
         {
           label: "Proxy",
           filename: "clamp.lucent.js",
-          code: 'import { requireNativeModule } from "expo-modules-core";\nimport { lucentCall } from "@lucent-lang/runtime";\n\nconst native = requireNativeModule("Lucent_clamp");\n\nexport function clamp(value, min, max) {\n  return lucentCall(() => native.clamp(value, min, max));\n}',
+          code: 'import { requireNativeModule } from "expo-modules-core";\nimport { lucentCall } from "@lucent-lang/core/runtime";\n\nconst native = requireNativeModule("Lucent_clamp");\n\nexport function clamp(value, min, max) {\n  return lucentCall(() => native.clamp(value, min, max));\n}',
         },
       ],
     },

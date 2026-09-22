@@ -1,4 +1,4 @@
-import type { Event } from "@lucent-lang/events";
+import type { Event } from "@lucent-lang/core/events";
 import {
   Background,
   Button,
@@ -16,7 +16,7 @@ import {
   VStack,
   type NativeProps,
   type NativeView,
-} from "@lucent-lang/ui";
+} from "@lucent-lang/core/ui";
 import { Badge } from "./badge.lucent";
 import { Panel } from "./panel.lucent";
 
@@ -45,7 +45,7 @@ export function FieldScreen(props: NativeProps<Props>): NativeView {
                 {props.notes.length === 0 ? (
                   <Text color="#8fb9a8">No samples yet</Text>
                 ) : (
-                  <For each={props.notes} key={(note: string) => note}>
+                  <For each={props.notes} by={(note: string) => note}>
                     {(note: string) => (
                       <HStack spacing={8}>
                         <Text color="#d7efe4">{note}</Text>

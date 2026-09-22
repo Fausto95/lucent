@@ -18,14 +18,13 @@ describe("lucent init", () => {
     const io = fakeIO(root);
     expect(await run(["init", "--yes"], io)).toBe(0);
 
-    expect(pkg(root).dependencies["@lucent-lang/runtime"]).toBeDefined();
-    for (const dep of ["@lucent-lang/types", "@lucent-lang/expo", "@lucent-lang/metro", "@lucent-lang/config"])
-      expect(pkg(root).devDependencies[dep], dep).toBeDefined();
+    expect(pkg(root).dependencies["@lucent-lang/core"]).toBeDefined();
+    for (const dep of ["@lucent-lang/cli"]) expect(pkg(root).devDependencies[dep], dep).toBeDefined();
     expect(read(root, "src/math.lucent.ts")).toContain("export function add");
     expect(() => loadLucentConfig(root)).not.toThrow();
     expect(read(root, "lucent.config.ts")).toContain("defineNativeConfig");
     const app = JSON.parse(read(root, "app.json")) as { expo: { plugins: unknown[] } };
-    expect(app.expo.plugins).toEqual(["expo-font", ["@lucent-lang/expo", { host: "expo" }]]);
+    expect(app.expo.plugins).toEqual(["expo-font", ["@lucent-lang/core/expo", { host: "expo" }]]);
     expect(read(root, "metro.config.js")).toContain("withLucent");
     expect(read(root, "metro.config.js")).toContain("expo/metro-config");
     expect(io.out()).toContain("npm install");
@@ -38,8 +37,7 @@ describe("lucent init", () => {
     expect(await run(["init", "--host", "nitro", "--yes"], io)).toBe(0);
     expect(pkg(root).dependencies["react-native-nitro-modules"]).toBeDefined();
     expect(pkg(root).dependencies["lucent-native"]).toBe("file:./.lucent/nitro");
-    for (const dep of ["nitrogen", "@lucent-lang/cli", "@lucent-lang/metro", "@lucent-lang/types"])
-      expect(pkg(root).devDependencies[dep], dep).toBeDefined();
+    for (const dep of ["nitrogen", "@lucent-lang/cli"]) expect(pkg(root).devDependencies[dep], dep).toBeDefined();
     expect(read(root, "react-native.config.js")).toContain("lucent-native");
     expect(read(root, "metro.config.js")).toContain("@react-native/metro-config");
     expect(read(root, "metro.config.js")).toContain('host: "nitro"');

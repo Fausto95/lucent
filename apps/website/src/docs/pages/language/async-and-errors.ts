@@ -36,7 +36,7 @@ export const page: DocPage = {
     },
     {
       kind: "p",
-      text: "The app receives an `Error` subclass with `code`, `message` and `metadata`, identically on Expo and Nitro. The envelope preserves Unicode and newlines and never exposes native stack traces. See [`@lucent-lang/runtime`](/docs/api/runtime/).",
+      text: "The app receives an `Error` subclass with `code`, `message` and `metadata`, identically on Expo and Nitro. The envelope preserves Unicode and newlines and never exposes native stack traces. See [`@lucent-lang/core/runtime`](/docs/api/runtime/).",
     },
     {
       kind: "table",

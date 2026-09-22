@@ -8,7 +8,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "progress.lucent.ts",
-      code: 'import { event } from "@lucent-lang/events";\n\nexport type Progress = { percent: number; label: string };\nexport const progress = event<Progress>();\n\nexport function report(percent: number): void {\n  progress.emit({ percent, label: "native" });\n}',
+      code: 'import { event } from "@lucent-lang/core/events";\n\nexport type Progress = { percent: number; label: string };\nexport const progress = event<Progress>();\n\nexport function report(percent: number): void {\n  progress.emit({ percent, label: "native" });\n}',
     },
     {
       kind: "code",

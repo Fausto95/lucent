@@ -2,14 +2,14 @@ import type { DocPage } from "../../types";
 
 export const page: DocPage = {
   slug: "api/types",
-  title: "@lucent-lang/types",
+  title: "@lucent-lang/core/types",
   description: "Sized numeric types, the `NativeCallback` marker, and the global `LucentError` declaration.",
   blocks: [
     { kind: "h2", text: "Sized numerics" },
     {
       kind: "code",
       filename: "import",
-      code: 'import type { int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64 } from "@lucent-lang/types";',
+      code: 'import type { int8, int16, int32, int64, uint8, uint16, uint32, uint64, float32, float64 } from "@lucent-lang/core/types";',
     },
     {
       kind: "p",
@@ -46,7 +46,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "callback.lucent.ts",
-      code: 'import type { NativeCallback } from "@lucent-lang/types";\n\nfunction twice(value: number): number {\n  return value * 2;\n}\n\nfunction apply(value: number, callback: NativeCallback<(value: number) => number>): number {\n  return callback(value);\n}\n\nexport function result(): number {\n  return apply(4, twice); // 8\n}',
+      code: 'import type { NativeCallback } from "@lucent-lang/core/types";\n\nfunction twice(value: number): number {\n  return value * 2;\n}\n\nfunction apply(value: number, callback: NativeCallback<(value: number) => number>): number {\n  return callback(value);\n}\n\nexport function result(): number {\n  return apply(4, twice); // 8\n}',
     },
     {
       kind: "list",

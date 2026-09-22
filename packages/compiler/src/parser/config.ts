@@ -36,7 +36,7 @@ export function parseNativeConfig(source: string, fileName = "lucent.config.ts")
   for (const node of parsed.program.body) {
     if (
       node.type === "ImportDeclaration" &&
-      node.source.value === "@lucent-lang/config" &&
+      node.source.value === "@lucent-lang/core/config" &&
       node.specifiers.every(
         (s) =>
           s.type === "ImportSpecifier" &&

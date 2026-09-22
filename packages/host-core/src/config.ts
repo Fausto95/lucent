@@ -45,7 +45,11 @@ export function loadLucentConfig(root: string): LucentConfig {
     const library =
       typeof entry === "string" ? (JSON.parse(readFileSync(resolve(root, entry), "utf8")) as LibraryModule) : entry;
     value.libraries![name] = library;
-    if (!name.startsWith("@lucent-lang/") || !library || typeof library.source !== "string")
+    if (
+      !/^(@[a-zA-Z0-9_.-]+\/)?[a-zA-Z0-9_-][a-zA-Z0-9_.-]*(?:\/[a-zA-Z0-9_.-]+)*$/.test(name) ||
+      !library ||
+      typeof library.source !== "string"
+    )
       throw new Error(`${file}: invalid library ${name}`);
     const metadataErrors = validateLibrary(library);
     if (metadataErrors.length) throw new Error(`${file}: ${name}: ${metadataErrors.join(" ")}`);

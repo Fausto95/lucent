@@ -40,8 +40,9 @@ commits. This user instruction overrides the older tests-first commit rule in
 - [x] Remove `packages/std` and all workspace dependencies on it.
 - [x] Update the lockfile and compile the migrated native fixtures.
 - [x] Audit the remaining declaration-only packages against real import sites.
-      `types`, `objects`, `events`, `ui`, `config`, `core` and `platform` each
-      back a distinct compiler-recognised import surface and stay.
+      `types`, `objects`, `events`, `ui`, `config` and `platform` remain useful
+      authoring surfaces, now merged into core subpaths. Their standalone
+      packages are removed.
 - [x] Remove the bundled mini standard library: `crypto`, `filesystem`,
       `network`, `device`, `platform/clock` and `platform/locale` were
       hand-written native modules, not language features, and they hid the
@@ -258,7 +259,7 @@ scopes and runtime close quiesce are not implemented.
       declaration, since React owns a host view's children.
 - [ ] Define identity by parent, declaration, explicit key, and component type.
 - [x] Add keyed eager collections with duplicate-key diagnostics. `For` takes an
-      optional `key` closure from the row value to a string; SwiftUI uses
+      optional `by` closure from the row value to a string; SwiftUI uses
       `ForEach(_:id:)` over the keyed rows and Compose wraps each row in `key`.
       A duplicate key is reported in debug builds and disambiguated by position
       rather than dropping the row.
@@ -342,7 +343,8 @@ scopes and runtime close quiesce are not implemented.
 
 ## Latest verification checkpoint
 
-- Unit suite: 584 passing tests across 70 files after diagnostic namespacing,
+- Unit suite: 601 passing tests across 71 files after public package consolidation,
+  authoring declarations and JSX key-selector corrections, diagnostic namespacing,
   native adapter dependency validation, lossless numeric SDK arguments, and
   structured Swift SDK extraction.
 - Full `pnpm verify` and package compilation pass, including execution of every
@@ -417,9 +419,11 @@ fix; host suspension, executor enforcement, and resource scopes remain open.
       coloring, structured output, fixtures, language docs, and website examples.
 - [x] Bump the compiler cache version so cached proxies cannot retain old codes.
 
-One public package with subpath exports, plus a separate CLI, is a packaging
-proposal only. Internal compiler/backend/host boundaries remain valuable; no
-public package consolidation is claimed here.
+- [x] Consolidate public authoring/runtime/integration imports under
+      `@lucent-lang/core`, with the CLI separate. Remove standalone declaration
+      and configuration packages without backwards-compatible import aliases.
+      Update init/doctor, examples, generated proxies and documentation.
+- [x] Keep compiler/backend/host implementations as internal dependencies.
 
 ### Native package integration
 
@@ -428,3 +432,16 @@ public package consolidation is claimed here.
       native manifests. Unregistered JavaScript imports remain rejected.
 - [x] Preserve originating package specifiers in native package IR and include
       them in dependency conflicts for both Expo and Nitro.
+
+### Single public package verification
+
+- [x] Pack core and typecheck its authoring/config/runtime/integration imports in
+      a separate consumer directory. Core comes from the tarball; internal
+      implementation dependencies come from the built workspace, not npm.
+- [x] Resolve the core Metro entry and the core Expo entry through Expo's real
+      plugin resolver. Typecheck both example apps and build the website.
+- [x] Add scalar state declarations and use `For by={...}` for identity selectors;
+      JSX `key` is reserved by React. Reject the old selector name.
+
+Internal implementation packages still need publishing as transitive
+dependencies; this does not claim a registry installation was tested.

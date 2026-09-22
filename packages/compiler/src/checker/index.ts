@@ -1632,10 +1632,10 @@ class FunctionChecker {
 
   private forView(e: Extract<Expr, { kind: "view" }>): TExpr {
     const eachProps = e.properties.filter((p) => p.name === "each");
-    const keyProps = e.properties.filter((p) => p.name === "key");
+    const keyProps = e.properties.filter((p) => p.name === "by");
     const each = eachProps[0];
     if (eachProps.length !== 1 || keyProps.length > 1 || e.properties.length !== eachProps.length + keyProps.length) {
-      this.report(diagnostic("LUCENT1011", e.span, "`For` takes an `each` array and an optional `key`."));
+      this.report(diagnostic("LUCENT1011", e.span, "`For` takes an `each` array and an optional `by`."));
       return this.poison(e.span, T.view);
     }
     if (!each) return this.poison(e.span, T.view);
@@ -1665,7 +1665,7 @@ class FunctionChecker {
             "LUCENT1011",
             keyProp.span,
             "`For` keys are a closure from the row value to a string.",
-            "Write `key={(item: T) => item}`; use a template literal for a numeric identity.",
+            "Write `by={(item: T) => item}`; use a template literal for a numeric identity.",
           ),
         );
         return this.poison(e.span, T.view);

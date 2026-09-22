@@ -5,7 +5,7 @@ import { generateKotlin } from "../../backend-kotlin/src/index.ts";
 
 const library: LibraryModule = {
   source:
-    'import type {int16} from "@lucent-lang/types"; export declare function small(value:int16):int16; export declare function text(value:string):int16;',
+    'import type {int16} from "@lucent-lang/core/types"; export declare function small(value:int16):int16; export declare function text(value:string):int16;',
   bindings: {
     small: { overload: "read", swift: ["return value"], kotlin: ["return value"] },
     text: { overload: "read", swift: ["return 0"], kotlin: ["return 0"] },
@@ -14,7 +14,7 @@ const library: LibraryModule = {
 const options = { fileName: "widen.lucent.ts", libraries: { "@sdk/numbers": library } };
 test("native overload arguments carry an explicit lossless widening in IR", () => {
   const result = compile(
-    'import {read} from "@sdk/numbers"; import type {int8,int16} from "@lucent-lang/types"; export function f(value:int8):int16{return read(value);}',
+    'import {read} from "@sdk/numbers"; import type {int8,int16} from "@lucent-lang/core/types"; export function f(value:int8):int16{return read(value);}',
     options,
   );
   expect(result.diagnostics).toEqual([]);
@@ -24,7 +24,7 @@ test("native overload arguments carry an explicit lossless widening in IR", () =
 });
 test("native overloads reject narrowing numeric variables", () => {
   const result = compile(
-    'import {read} from "@sdk/numbers"; import type {int16,int32} from "@lucent-lang/types"; export function f(value:int32):int16{return read(value);}',
+    'import {read} from "@sdk/numbers"; import type {int16,int32} from "@lucent-lang/core/types"; export function f(value:int32):int16{return read(value);}',
     options,
   );
   expect(result.module).toBeNull();
@@ -32,7 +32,7 @@ test("native overloads reject narrowing numeric variables", () => {
 });
 test("ordinary Lucent calls retain strict numeric types", () => {
   const result = compile(
-    'import type {int8,int16} from "@lucent-lang/types"; function same(value:int16):int16{return value;} export function f(value:int8):int16{return same(value);}',
+    'import type {int8,int16} from "@lucent-lang/core/types"; function same(value:int16):int16{return value;} export function f(value:int8):int16{return same(value);}',
     { fileName: "strict.lucent.ts" },
   );
   expect(result.module).toBeNull();
@@ -48,12 +48,12 @@ test.each([
   ["float64", "float32"],
 ])("rejects potentially lossy SDK conversion %s to %s", (source, target) => {
   const result = compile(
-    `import type {${source},${target}} from "@lucent-lang/types"; import {accept} from "@sdk/numbers"; export function f(value:${source}):${target}{return accept(value);}`,
+    `import type {${source},${target}} from "@lucent-lang/core/types"; import {accept} from "@sdk/numbers"; export function f(value:${source}):${target}{return accept(value);}`,
     {
       fileName: "lossy.lucent.ts",
       libraries: {
         "@sdk/numbers": {
-          source: `import type {${target}} from "@lucent-lang/types"; export declare function accept(value:${target}):${target};`,
+          source: `import type {${target}} from "@lucent-lang/core/types"; export declare function accept(value:${target}):${target};`,
           bindings: { accept: { swift: ["return value"], kotlin: ["return value"] } },
         },
       },
@@ -65,10 +65,11 @@ test.each([
 
 test("an exact native overload wins over widening", () => {
   const extended = structuredClone(library);
-  extended.source += ' import type {int8} from "@lucent-lang/types"; export declare function exact(value:int8):int16;';
+  extended.source +=
+    ' import type {int8} from "@lucent-lang/core/types"; export declare function exact(value:int8):int16;';
   extended.bindings!.exact = { overload: "read", swift: ["return Int16(value)"], kotlin: ["return value.toShort()"] };
   const result = compile(
-    'import {read} from "@sdk/numbers"; import type {int8,int16} from "@lucent-lang/types"; export function f(value:int8):int16{return read(value);}',
+    'import {read} from "@sdk/numbers"; import type {int8,int16} from "@lucent-lang/core/types"; export function f(value:int8):int16{return read(value);}',
     { ...options, libraries: { "@sdk/numbers": extended } },
   );
   expect(result.diagnostics).toEqual([]);

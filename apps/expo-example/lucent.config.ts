@@ -1,4 +1,4 @@
-import { defineNativeConfig } from "@lucent-lang/config";
+import { defineNativeConfig } from "@lucent-lang/core/config";
 export default defineNativeConfig({
   libraries: {
     "@lucent-lang/example-text": "./native/text.library.json",

@@ -3,7 +3,7 @@ import { compile } from "@lucent-lang/compiler";
 import { expoHost } from "../src/index.ts";
 test("bridges subscriptions and cleans up native listeners", () => {
   const module = compile(
-    'import {event} from "@lucent-lang/events"; export const progress=event<number>(); export function run():void { progress.emit(50); }',
+    'import {event} from "@lucent-lang/core/events"; export const progress=event<number>(); export function run():void { progress.emit(50); }',
     { fileName: "progress.lucent.ts" },
   ).module!;
   const tree = expoHost.emitPackage([module], { packageName: "lucent" });
