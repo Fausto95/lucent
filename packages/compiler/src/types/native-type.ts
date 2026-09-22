@@ -1,3 +1,4 @@
+import type { NativeExecutor } from "../native-contracts.ts";
 /** Lucent's own type model. Nothing downstream of the resolver sees TypeScript types. */
 export type IntBits = 8 | 16 | 32 | 64;
 export type FloatBits = 32 | 64;
@@ -21,7 +22,12 @@ export interface NativeEnumBinding {
 }
 
 export type NativeType =
-  | { readonly kind: "callback"; readonly params: NativeType[]; readonly result: NativeType }
+  | {
+      readonly kind: "callback";
+      readonly params: NativeType[];
+      readonly result: NativeType;
+      readonly executor?: NativeExecutor;
+    }
   | { readonly kind: "event"; readonly payload: NativeType }
   | { readonly kind: "view" }
   | { readonly kind: "void" }
@@ -38,7 +44,12 @@ export type NativeType =
   | { readonly kind: "promise"; readonly value: NativeType };
 
 export const T = {
-  callback: (params: NativeType[], result: NativeType): NativeType => ({ kind: "callback", params, result }),
+  callback: (params: NativeType[], result: NativeType, executor?: NativeExecutor): NativeType => ({
+    kind: "callback",
+    params,
+    result,
+    ...(executor && executor !== "caller" ? { executor } : {}),
+  }),
   event: (payload: NativeType): NativeType => ({ kind: "event", payload }),
   view: { kind: "view" } as NativeType,
   void: { kind: "void" } as NativeType,
@@ -73,7 +84,7 @@ export const SIZED_NUMERIC_TYPES: Readonly<Record<string, NativeType>> = {
 export function typeToString(t: NativeType): string {
   switch (t.kind) {
     case "callback":
-      return `callback<(${t.params.map(typeToString).join(",")})=>${typeToString(t.result)}>`;
+      return `callback<(${t.params.map(typeToString).join(",")})=>${typeToString(t.result)}>${t.executor && t.executor !== "caller" ? `@${t.executor}` : ""}`;
     case "event":
       return `event<${typeToString(t.payload)}>`;
     case "float":

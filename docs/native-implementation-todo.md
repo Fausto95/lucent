@@ -230,7 +230,11 @@ adapters and full SDK cleanup quiescence remain incomplete.
       checks. View `state()` is separate and listed under M5.
 - [x] Distinguish escaping and nonescaping callback captures. `retention: "call"`
       may capture a borrow; `subscription` and absent retention may not.
-- [ ] Preserve executor and error contracts through indirect calls.
+- [x] Preserve callback executor requirements through local aliases, annotations,
+      indirect invocation, and subscription forwarding. Check direct callback
+      bodies in the declared delivery executor, not the registration executor.
+- [ ] Preserve the remaining callback error-policy contracts through indirect
+      higher-order flows and add runtime executor acceptance tests.
 - [x] Add native-only SDK references for delegates and borrowed SDK resources.
       SDK-owned references need no fictitious constructor; callback-taking
       constructors remain compiled-only, and bridge exposure is rejected.
@@ -377,7 +381,8 @@ adapters and full SDK cleanup quiescence remain incomplete.
 
 ## Latest verification checkpoint
 
-- Unit suite: 641 passing tests across 79 files after borrowed frame callbacks,
+- Unit suite: 648 passing tests across 80 files after callback executor propagation,
+  borrowed frame callbacks,
   shared native-only processors, strided luminance verification, curated delegate generation,
   native-only SDK resources,
   per-object bridge serialization,

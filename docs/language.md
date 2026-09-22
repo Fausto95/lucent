@@ -973,3 +973,12 @@ decorator. Use it for processors with borrowed native parameters, such as the
 strided luminance example in `examples/camera/luminance.lucent.ts`. The SDK must
 explicitly copy a frame into an owned resource before asynchronous processing;
 this annotation does not extend the frame's lifetime.
+
+Native callback parameter contracts determine the executor in which a callback
+body is checked. A retained worker callback registered from a main-thread
+function is still checked as worker code. Executor-bound function references
+and local callback aliases preserve their requirement, including through an
+explicit `NativeCallback` annotation. Indirect calls and forwarding into another
+subscription must match that requirement. Nonescaping caller callbacks inherit
+the invocation's executor. These are compile-time checks against SDK metadata;
+the native adapter remains responsible for delivering on the declared executor.

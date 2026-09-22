@@ -1,3 +1,4 @@
+import type { NativeExecutor } from "../native-contracts.ts";
 import { canWidenNumeric } from "../types/numeric-widening.ts";
 import type { NativeBinding } from "../libraries.ts";
 import { checkBoundaries } from "./boundaries.ts";
@@ -294,11 +295,13 @@ class ModuleChecker {
           valid = false;
           continue;
         }
-        const type = this.resolveStorable(param.type, "a parameter");
+        let type = this.resolveStorable(param.type, "a parameter");
         if (!type) {
           valid = false;
           continue;
         }
+        const callback = fn.binding?.contract?.parameters?.[param.name]?.callback;
+        if (type.kind === "callback" && callback) type = { ...type, executor: callback.executor };
         params.push({ name: param.name, type: param.optional ? T.optional(type) : type });
       }
       const returnType = this.returnTypeOf(fn);
@@ -404,6 +407,10 @@ class FunctionChecker {
   /** True unless the closure being typed is a direct `retention: "call"` argument. */
   private nextCallbackEscaping = true;
   private readonly closureEscaping: boolean[] = [];
+  private readonly callbackExecutors: NativeExecutor[] = [];
+  private get currentExecutor(): NativeExecutor {
+    return this.callbackExecutors.at(-1) ?? this.fn.thread ?? "caller";
+  }
   private expectedReturn: NativeType;
   /** Nested statements cannot introduce view state; only the component body can. */
   private depth = 0;
@@ -523,9 +530,9 @@ class FunctionChecker {
         : undefined;
     const required = declared && declared !== "caller" ? declared : object;
     if (!required || required === "caller") return;
-    const actual = this.fn.thread ?? "caller";
+    const actual = this.currentExecutor;
     if (required === "serial") {
-      if (actual !== "caller")
+      if (actual !== "caller" && actual !== "serial")
         this.mod.report(diagnostic("LUCENT1019", span, "A serial object cannot move to another executor."));
       return;
     }
@@ -678,7 +685,7 @@ class FunctionChecker {
 
   private variable(s: Extract<Stmt, { kind: "variable" }>): TStmt {
     if (s.init?.kind === "call" && s.init.callee === "state") return this.stateVariable(s);
-    const declared = s.type ? this.mod.resolveStorable(s.type, "a local variable") : null;
+    let declared = s.type ? this.mod.resolveStorable(s.type, "a local variable") : null;
     let init: TExpr;
     let type: NativeType;
     if (!s.init) {
@@ -694,6 +701,8 @@ class FunctionChecker {
       init = this.poison(s.span, type);
     } else if (declared) {
       init = this.expr(s.init, declared);
+      if (declared.kind === "callback" && init.type.kind === "callback" && init.type.executor)
+        declared = { ...declared, executor: init.type.executor };
       if (!this.fits(init, declared)) init = this.mismatch(s.init.span, declared, init.type);
       type = declared;
     } else {
@@ -832,6 +841,8 @@ class FunctionChecker {
         this.nextCallbackEscaping = true;
         this.closureEscaping.push(escaping);
         const context = expected?.kind === "callback" ? expected : undefined;
+        const executor = context?.executor ?? this.currentExecutor;
+        this.callbackExecutors.push(executor);
         const params = e.params.map((p, i) => ({
           name: p.name,
           type: p.type
@@ -866,11 +877,13 @@ class FunctionChecker {
         this.depth--;
         this.captures.pop();
         this.closureEscaping.pop();
+        this.callbackExecutors.pop();
         const captures = this.recordedCaptures.pop() ?? [];
         const returnType = result ?? (Array.isArray(body) ? T.void : body.type);
         const type = T.callback(
           params.map((p) => p.type),
           returnType,
+          executor,
         );
         if (!Array.isArray(body)) {
           this.rejectBorrow(body, e.span, "escape its callback");
@@ -1224,6 +1237,7 @@ class FunctionChecker {
         type: T.callback(
           signature.params.map((p) => p.type),
           signature.returnType,
+          signature.binding?.contract?.executor,
         ),
         span,
       };
@@ -1427,6 +1441,8 @@ class FunctionChecker {
     const local = this.lookup(e.callee);
     if (local?.type.kind === "callback") {
       const signature = local.type;
+      if (signature.executor && signature.executor !== "caller" && signature.executor !== this.currentExecutor)
+        this.report(diagnostic("LUCENT1019", e.span, `This callback must run on the ${signature.executor} executor.`));
       if (e.args.length !== signature.params.length)
         this.report(diagnostic("LUCENT1012", e.span, "Incorrect native callback argument count."));
       const args = e.args.map((arg, i) => {
@@ -1526,15 +1542,24 @@ class FunctionChecker {
     }
     const args = e.args.map((arg, i) => {
       const param = signature.params[i];
-      const retention = signature.binding?.contract?.parameters?.[param?.name ?? ""]?.callback?.retention;
+      const callback = signature.binding?.contract?.parameters?.[param?.name ?? ""]?.callback;
+      const retention = callback?.retention;
+      let expected = param?.type;
+      if (expected?.kind === "callback") {
+        const executor =
+          (callback?.executor === "caller" && retention === "call") || !signature.binding
+            ? this.currentExecutor
+            : (callback?.executor ?? "caller");
+        expected = { ...expected, executor };
+      }
       const savedEscaping = this.nextCallbackEscaping;
       if (arg.kind === "closure") this.nextCallbackEscaping = retention !== "call";
-      let typed = this.expr(arg, param?.type);
+      let typed = this.expr(arg, expected);
       if (param && signature.binding && canWidenNumeric(typed.type, param.type))
         typed = { kind: "widen", argument: typed, type: param.type, span: arg.span };
       if (arg.kind === "closure") this.nextCallbackEscaping = savedEscaping;
-      if (param && !this.fits(typed, param.type))
-        return this.mismatch(arg.span, param.type, typed.type, narrowingHint(typed.type));
+      if (expected && !this.fits(typed, expected))
+        return this.mismatch(arg.span, expected, typed.type, narrowingHint(typed.type));
       const ownership =
         signature.binding?.contract?.parameters?.[param?.name ?? ""]?.ownership ??
         (param && this.scopedReference(param.type) ? "borrowed" : undefined);
