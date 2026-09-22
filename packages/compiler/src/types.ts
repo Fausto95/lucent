@@ -21,6 +21,7 @@ export type LType =
   | { k: "dict"; val: LType }
   | { k: "struct"; id: string }
   | { k: "class"; id: string; args: LType[] }
+  | { k: "iface"; id: string }
   | { k: "opt"; inner: LType }
   | { k: "union"; ms: LType[] }
   | { k: "fn"; params: LType[]; ret: LType }
@@ -57,6 +58,8 @@ export function typeKey(t: LType): string {
       return `S:${t.id}`;
     case "class":
       return t.args.length ? `C:${t.id}<${t.args.map(typeKey).join(",")}>` : `C:${t.id}`;
+    case "iface":
+      return `I:${t.id}`;
     case "opt":
       return `${typeKey(t.inner)}?`;
     case "union":
@@ -139,6 +142,18 @@ export interface ClassInfo {
   isError: boolean;
 }
 
+/**
+ * An interface that classes implement: an abstract C++ base with virtual
+ * methods and property accessors. Every implementer is known at compile time.
+ */
+export interface IfaceInfo {
+  id: string;
+  cppName: string;
+  decl: ts.InterfaceDeclaration;
+  /** Ids of the classes that declare `implements` for it. */
+  implementers: Set<string>;
+}
+
 const RESERVED = new Set(
   (
     "alignas alignof and and_eq asm auto bitand bitor bool break case catch char char8_t char16_t char32_t class compl concept const " +
@@ -162,6 +177,7 @@ export function cppIdent(name: string): string {
 export class TypeRegistry {
   readonly structs = new Map<string, StructInfo>();
   readonly classes = new Map<string, ClassInfo>();
+  readonly ifaces = new Map<string, IfaceInfo>();
   private readonly structNames = new Set<string>();
   private readonly byTsType = new Map<ts.Type, LType>();
   private readonly inProgress = new Map<ts.Type, string>();
@@ -194,6 +210,41 @@ export class TypeRegistry {
       isError,
     };
     this.classes.set(id, info);
+    return info;
+  }
+
+  /** Records the Lucent interfaces a class names in its `implements` clause. */
+  registerImplements(info: ClassInfo): void {
+    for (const h of info.decl.heritageClauses ?? []) {
+      if (h.token !== ts.SyntaxKind.ImplementsKeyword) continue;
+      for (const t of h.types) {
+        const decl = this.lucentInterface(this.checker.getTypeAtLocation(t).getSymbol());
+        if (decl) this.registerInterface(decl, t).implementers.add(info.id);
+      }
+    }
+  }
+
+  private lucentInterface(sym: ts.Symbol | undefined): ts.InterfaceDeclaration | undefined {
+    if (!sym || !(sym.flags & ts.SymbolFlags.Interface)) return undefined;
+    const decls = (sym.declarations ?? []).filter(ts.isInterfaceDeclaration);
+    const decl = decls[0];
+    if (!decl || !this.isLucentFile(decl.getSourceFile())) return undefined;
+    return decl;
+  }
+
+  private registerInterface(decl: ts.InterfaceDeclaration, node: ts.Node): IfaceInfo {
+    const name = decl.name.text;
+    const id = `${decl.getSourceFile().fileName}#${name}`;
+    const existing = this.ifaces.get(id);
+    if (existing) return existing;
+    if (decl.typeParameters?.length) fail(node, Codes.InterfaceMismatch, `generic interface ${name} cannot be implemented by classes yet`);
+    if (decl.heritageClauses?.length) fail(node, Codes.InterfaceMismatch, `interface ${name} extends another type; interfaces implemented by classes cannot extend yet`);
+    let cppName = `I_${cppIdent(name)}`;
+    let n = 2;
+    while (this.structNames.has(cppName)) cppName = `I_${cppIdent(name)}_${n++}`;
+    this.structNames.add(cppName);
+    const info: IfaceInfo = { id, cppName, decl, implementers: new Set() };
+    this.ifaces.set(id, info);
     return info;
   }
 
@@ -302,6 +353,12 @@ export class TypeRegistry {
           return { k: "class", id: info.id, args: args.map((a) => this.lower(a, node)) };
         }
       }
+    }
+    // Interfaces with methods, or implemented by a class, dispatch virtually.
+    const iface = this.lucentInterface(sym);
+    if (iface) {
+      const id = `${iface.getSourceFile().fileName}#${iface.name.text}`;
+      if (this.ifaces.has(id) || iface.members.some(ts.isMethodSignature)) return { k: "iface", id: this.registerInterface(iface, node).id };
     }
     const calls = type.getCallSignatures();
     const props = c.getPropertiesOfType(type);
@@ -416,6 +473,12 @@ export class TypeRegistry {
     return s;
   }
 
+  iface(id: string): IfaceInfo {
+    const s = this.ifaces.get(id);
+    if (!s) throw new Error(`unknown interface ${id}`);
+    return s;
+  }
+
   cls(id: string): ClassInfo {
     const s = this.classes.get(id);
     if (!s) throw new Error(`unknown class ${id}`);
@@ -456,6 +519,8 @@ export class TypeRegistry {
         const args = t.args.length ? `<${t.args.map((a) => this.cpp(a)).join(", ")}>` : "";
         return `lucent::Ref<lucent_app::${info.cppName}${args}>`;
       }
+      case "iface":
+        return `lucent::Ref<lucent_app::${this.iface(t.id).cppName}>`;
       case "opt":
         return `lucent::Opt<${this.cpp(t.inner)}>`;
       case "union":

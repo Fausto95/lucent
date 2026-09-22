@@ -38,7 +38,8 @@ concrete work. Checked items are implemented and covered by tests.
 - [x] Module graph: imports between `.lucent.ts` files, module state, init order, enums
 - [x] Left-to-right evaluation of arguments and operands
 - [x] `#line` directives
-- [ ] Interfaces implemented by classes (virtual dispatch) and class inheritance
+- [x] Interfaces implemented by classes: virtual dispatch, accessors for properties, boundary conversion (e2e `interfaces`)
+- [ ] Class inheritance (`extends` other than `Error`); generic interfaces and interfaces extending interfaces
 - [ ] `int32` inference for integer loops (performance)
 - [ ] Incremental compilation (cache per module)
 - [ ] Source maps for native crash symbolication

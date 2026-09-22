@@ -22,6 +22,8 @@ export const Codes = {
   AmbiguousUnion: "LUCENT2005",
   BoundaryType: "LUCENT2006",
   GenericBoundary: "LUCENT2007",
+  InterfaceNotImplemented: "LUCENT2008",
+  InterfaceMismatch: "LUCENT2009",
   UnsupportedImport: "LUCENT3001",
   UnsupportedTopLevel: "LUCENT3002",
   UnsupportedExport: "LUCENT3003",

@@ -177,6 +177,8 @@ export class FnEmitter {
     // Error subclasses: upcast freely, downcast (after instanceof) with a check.
     if (to.k === "error" && from.k === "class" && this.reg.cls(from.id).isError) return `lucent::Error(${e.c})`;
     if (from.k === "error" && to.k === "class" && this.reg.cls(to.id).isError) return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
+    if (to.k === "iface") return this.toIface(e, to, node);
+    if (from.k === "iface" && to.k === "class") return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
     if (from.k === "struct" && to.k === "struct") {
       fail(node, Codes.InexactObject, `object types must match exactly to share a native representation (${this.describe(from)} vs ${this.describe(to)})`);
     }
@@ -184,6 +186,25 @@ export class FnEmitter {
       fail(node, Codes.ArrayVariance, `collection element types must match exactly (${typeKey(from)} vs ${typeKey(to)}); annotate the value with the target type`);
     }
     fail(node, Codes.UnsupportedType, `cannot convert ${typeKey(from)} to ${typeKey(to)}`);
+  }
+
+  /** Upcasts a class instance to an interface it declares with `implements`. */
+  private toIface(e: E, to: LType & { k: "iface" }, node?: ts.Node): string {
+    const info = this.reg.iface(to.id);
+    const name = info.decl.name.text;
+    if (e.t.k === "class") {
+      const cls = this.reg.cls(e.t.id);
+      if (!info.implementers.has(cls.id)) {
+        fail(node, Codes.InterfaceNotImplemented, `class ${cls.decl.name!.text} must declare \`implements ${name}\` to be used as ${name}`);
+      }
+      return `std::static_pointer_cast<lucent_app::${info.cppName}>(${e.c})`;
+    }
+    this.notAnImplementation(e.t.k === "struct" ? "an object" : typeKey(e.t), to, node);
+  }
+
+  private notAnImplementation(what: string, to: LType & { k: "iface" }, node?: ts.Node): never {
+    const name = this.reg.iface(to.id).decl.name.text;
+    fail(node, Codes.InterfaceNotImplemented, `${what} cannot be used as ${name}; ${name} is implemented by classes that declare \`implements ${name}\``);
   }
 
   private compatible(from: LType, to: LType): boolean {
@@ -1011,7 +1032,7 @@ export class FnEmitter {
     }
     if (t.k === "never" || sameType(t, e.t)) return e;
     // Only narrow (never widen) based on the checker.
-    if (e.t.k === "opt" || e.t.k === "union" || (e.t.k === "error" && t.k === "class")) {
+    if (e.t.k === "opt" || e.t.k === "union" || ((e.t.k === "error" || e.t.k === "iface") && t.k === "class")) {
       return { c: this.coerce(e, t, node), t };
     }
     return e;
@@ -1160,6 +1181,7 @@ export class FnEmitter {
         return { direct: c, get: c, type: f.type };
       }
       if (ot.k === "class") return builtins.classMemberLvalue(this, obj, ot, name, target);
+      if (ot.k === "iface") return builtins.ifaceMemberLvalue(this, obj, ot, name, target);
       if (ot.k === "array" && name === "length") {
         const tmp = this.ctx.fresh("arr");
         return { get: `${obj.c}.length()`, set: (v) => `${obj.c}.setLength(${v})`, type: T.number, setup: tmp };
@@ -1440,6 +1462,7 @@ export class FnEmitter {
       return { c: `std::visit([&](const auto& v) -> ${this.cpp(rt)} { return v->${cppIdent(name)}; }, ${obj.c})`, t: rt };
     }
     if (t.k === "class") return builtins.classMember(this, obj, t, name, node);
+    if (t.k === "iface") return builtins.ifaceMember(this, obj, t, name, node);
     return builtins.property(this, obj, name, node);
   }
 
@@ -1748,6 +1771,7 @@ export class FnEmitter {
       }
       return { c: `({ ${parts.join(" ")} ${tmp}; })`, t };
     }
+    if (t.k === "iface") this.notAnImplementation("an object literal", t, node);
     if (t.k !== "struct") fail(node, Codes.UnsupportedType, `object literal of type ${typeKey(t)}`);
     const info = this.reg.struct(t.id);
     const tmp = this.ctx.fresh("obj");

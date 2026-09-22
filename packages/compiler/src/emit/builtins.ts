@@ -5,6 +5,7 @@ import { coreTypesPath } from "../program.ts";
 import { cppIdent, isVoidish, type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
 import type { E } from "./context.ts";
 import { type FnEmitter, substitute } from "./function.ts";
+import { type IfaceMember, ifaceMembers } from "./interfaces.ts";
 import { numberLiteral, stringLiteral } from "./literals.ts";
 
 type FnT = LType & { k: "fn" };
@@ -150,6 +151,40 @@ export function classMemberLvalue(em: FnEmitter, obj: E, t: LType & { k: "class"
     return { get: `(${obj.c})->get_${cppIdent(name)}()`, set: (v: string) => `((${obj.c})->set_${cppIdent(name)}(${v}), ${v})`, type };
   }
   fail(node, Codes.UnsupportedAssignmentTarget, `cannot assign to method ${name}`);
+}
+
+// --- interfaces ------------------------------------------------------------------------
+
+function ifaceMemberOf(em: FnEmitter, t: LType & { k: "iface" }, name: string, node: ts.Node): IfaceMember {
+  const info = em.reg.iface(t.id);
+  const m = ifaceMembers(em.ctx, info).find((x) => x.name === name);
+  if (!m) fail(node, Codes.UnsupportedSyntax, `unknown member ${name} of ${info.decl.name.text}`);
+  return m;
+}
+
+export function ifaceMember(em: FnEmitter, obj: E, t: LType & { k: "iface" }, name: string, node: ts.Node): E {
+  const m = ifaceMemberOf(em, t, name, node);
+  if (m.kind === "method") fail(node, Codes.UnsupportedClassFeature, `call ${name}() directly; interface methods cannot be used as values`);
+  return { c: `(${obj.c})->get_${cppIdent(name)}()`, t: m.type };
+}
+
+export function ifaceMemberLvalue(em: FnEmitter, obj: E, t: LType & { k: "iface" }, name: string, node: ts.Node) {
+  const m = ifaceMemberOf(em, t, name, node);
+  if (m.kind === "method" || m.readonly) fail(node, Codes.UnsupportedAssignmentTarget, `cannot assign to ${name}`);
+  return { get: `(${obj.c})->get_${cppIdent(name)}()`, set: (v: string) => `((${obj.c})->set_${cppIdent(name)}(${v}), ${v})`, type: m.type };
+}
+
+function ifaceMethodCall(em: FnEmitter, obj: E, t: LType & { k: "iface" }, name: string, node: ts.CallExpression): E {
+  const m = ifaceMemberOf(em, t, name, node);
+  if (m.kind === "prop") {
+    const ft = stripOpt(m.type);
+    if (ft.k !== "fn") fail(node, Codes.UnsupportedCall, `${name} is not a function`);
+    const f = ifaceMember(em, obj, t, name, node);
+    return { c: `${em.coerce(f, ft, node)}(${em.args(node.arguments, ft.params, node).join(", ")})`, t: isVoidish(ft.ret) ? T.undefined : ft.ret };
+  }
+  const rest = m.params.length && m.params[m.params.length - 1]!.rest ? m.params[m.params.length - 1]!.cppType : undefined;
+  const as = em.args(node.arguments, m.params.map((p) => p.cppType), node, rest);
+  return { c: `(${obj.c})->${cppIdent(name)}(${as.join(", ")})`, t: isVoidish(m.fn.ret) ? T.undefined : m.fn.ret };
 }
 
 function staticClass(em: FnEmitter, id: ts.Expression) {
@@ -413,6 +448,8 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       }
       fail(node, Codes.UnsupportedClassFeature, `unknown method ${name}`);
     }
+    case "iface":
+      return ifaceMethodCall(em, obj, t, name, node);
     case "struct": {
       const f = em.member(obj, name, node);
       const ft = stripOpt(f.t);

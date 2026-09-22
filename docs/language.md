@@ -43,6 +43,7 @@ let counter = 0;                                      // module state, reset on 
 | `Map<K, V>`, `Set<T>` | insertion-ordered, SameValueZero keys |
 | object types (`type`, `interface`, literals) | shared struct; types with the same shape share one struct |
 | classes | shared object with methods, accessors, statics |
+| interfaces with methods, or named in a class's `implements` | abstract base with virtual methods and property accessors; implemented only by classes that declare `implements` |
 | `T \| undefined`, `T \| null`, `x?: T` | optional that remembers `undefined` vs `null` |
 | other unions | tagged union (`string \| number`, discriminated object unions, …) |
 | `(a: A) => R` | function value (closures capture by reference) |
@@ -54,6 +55,13 @@ let counter = 0;                                      // module state, reset on 
 Not supported: `any`, `unknown` (except in `catch`), intersections, `symbol`,
 `bigint`, `object`, getters in object literals, index signatures mixed with
 properties, and inheritance other than `extends Error`.
+
+Interfaces implemented by classes are *nominal*: a class must say
+`implements Shape` to be used as a `Shape` (`LUCENT2008` otherwise), and object
+literals cannot stand in for them. Each implementing member must have the same
+native signature as the interface member (`LUCENT2009`). Generic interfaces,
+interfaces that extend others, and optional or generic methods are not
+supported for classes yet.
 
 ## Statements and expressions
 
@@ -123,6 +131,8 @@ Only exported functions, classes and constants are visible from JavaScript.
 * **Class instances keep their identity.** The same native object always maps to
   the same JS object, so `===` works. Instances live as long as either side
   holds them.
+* **Interface values** cross as their concrete class instance. From JavaScript,
+  only instances of Lucent classes that implement the interface are accepted.
 * **Unions of object types** need a string-literal discriminant (for example
   `kind: "circle"`) so incoming values can be told apart.
 * **Errors** become JS `Error` / `TypeError` / `RangeError` objects with the same
@@ -172,12 +182,13 @@ explicitly, for example by clearing a field.
 | `toPrecision` / `toExponential` round exact binary ties up | may round ties to even (rare) |
 | deep recursion throws `RangeError` | may overflow the native stack |
 | `console.log(obj)` pretty-prints | prints `String(obj)` |
+| any object with the right members satisfies an interface | only classes that declare `implements`; plain JS objects are rejected at the boundary with a `TypeError` |
 
 ## Diagnostics
 
 | Code | Meaning |
 |---|---|
 | `LUCENT1xxx` | unsupported syntax or built-in (`1001` statement/expression, `1003` built-in, `1005` class feature, `1006` throwing a non-Error, …) |
-| `LUCENT2xxx` | types without a native representation (`2001` any/unknown, `2003` inexact object types, `2004` array element variance, `2005` ambiguous union at the boundary, `2007` generics at the boundary) |
+| `LUCENT2xxx` | types without a native representation (`2001` any/unknown, `2003` inexact object types, `2004` array element variance, `2005` ambiguous union at the boundary, `2007` generics at the boundary, `2008` value is not a declared implementation of an interface, `2009` class member does not match its interface) |
 | `LUCENT3xxx` | module structure (`3001` imports, `3002` top-level statements, `3003` exports) |
 | `LUCENT9001` | a TypeScript error (Lucent stops at type errors) |

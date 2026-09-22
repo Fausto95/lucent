@@ -43,6 +43,12 @@ Notable lowering choices:
 
 * **Structs are deduplicated by shape.** `type Point = {x, y}`, an interface with
   the same fields, and an object literal `{ x: 1, y: 2 }` all share one C++ struct.
+* **Interfaces implemented by classes** become abstract C++ bases (`I_Shape`)
+  with pure-virtual methods and `get_`/`set_` accessors for properties.
+  Implementing classes inherit them, fields get generated overrides, and
+  values are `Ref<I_Shape>`. Because every implementer is known at compile
+  time, the JS boundary converts an interface value by trying each
+  implementing class in turn.
 * **Closures** are C++ lambdas wrapped in `lucent::Fn`. A local captured by a
   closure *and* written after its declaration lives in a `lucent::Box`, so both
   sides see one variable (analysis in `emit/analysis.ts`).

@@ -22,6 +22,7 @@ const q = cppQuoted;
 export class BindingsEmitter {
   private readonly structs = new Set<string>();
   private readonly classes = new Set<string>();
+  private readonly ifaces = new Set<string>();
   private readonly unions = new Map<string, LType & { k: "union" }>();
   private readonly unionSites = new Map<string, ts.Node>();
 
@@ -46,6 +47,12 @@ export class BindingsEmitter {
         if (this.classes.has(t.id)) return;
         this.classes.add(t.id);
         for (const m of publicMembers(this.ctx, info)) for (const ty of m.types) this.use(ty, m.node);
+        return;
+      }
+      case "iface": {
+        if (this.ifaces.has(t.id)) return;
+        this.ifaces.add(t.id);
+        for (const id of this.reg.iface(t.id).implementers) this.use({ k: "class", id, args: [] }, node);
         return;
       }
       case "union":
@@ -105,6 +112,7 @@ export class BindingsEmitter {
     const specs: string[] = [];
     for (const id of this.structs) specs.push(this.reg.cpp({ k: "struct", id }));
     for (const id of this.classes) specs.push(this.reg.cpp({ k: "class", id, args: [] }));
+    for (const id of this.ifaces) specs.push(this.reg.cpp({ k: "iface", id }));
     for (const u of this.unions.values()) specs.push(this.reg.cpp(u));
     for (const s of specs) {
       out.push(`template <>\nstruct Convert<${s}> {\n  static ${s} fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);\n  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const ${s}& v);\n};`);
@@ -112,6 +120,7 @@ export class BindingsEmitter {
     out.push("");
     for (const id of this.structs) out.push(this.structConvert(id));
     for (const id of this.classes) out.push(this.classConvert(id));
+    for (const id of this.ifaces) out.push(this.ifaceConvert(id));
     for (const [key, u] of this.unions) {
       const code = this.ctx.guard(() => {
         try {
@@ -187,6 +196,30 @@ export class BindingsEmitter {
       `  return h.wrap(rt, v, ${q(info.id)}, proto_${info.cppName});`,
       `}`,
       proto,
+      "",
+    ].join("\n");
+  }
+
+  /** Interface values cross as their concrete class: every implementer is known. */
+  private ifaceConvert(id: string): string {
+    const info = this.reg.iface(id);
+    const s = this.reg.cpp({ k: "iface", id });
+    const impls = [...info.implementers].map((c) => this.reg.cls(c));
+    const expected = `a ${info.decl.name.text} (${impls.map((c) => c.decl.name!.text).join(", ") || "no implementations"})`;
+    return [
+      `inline ${s} Convert<${s}>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {`,
+      `  auto c = std::dynamic_pointer_cast<lucent_app::${info.cppName}>(instanceOf(rt, v));`,
+      `  if (!c) throwBoundaryError(rt, p, ${q(expected)}, v);`,
+      `  return c;`,
+      `}`,
+      `inline jsi::Value Convert<${s}>::toJs(jsi::Runtime& rt, Host& h, const ${s}& v) {`,
+      `  if (!v) return jsi::Value::null();`,
+      ...impls.map((c) => {
+        const ct = this.reg.cpp({ k: "class", id: c.id, args: [] });
+        return `  if (auto c = std::dynamic_pointer_cast<lucent_app::${c.cppName}>(v)) return Convert<${ct}>::toJs(rt, h, c);`;
+      }),
+      `  throw std::logic_error(${q(`unknown ${info.decl.name.text} implementation`)});`,
+      `}`,
       "",
     ].join("\n");
   }

@@ -4,6 +4,7 @@ import type { LucentModule } from "../program.ts";
 import { type ClassInfo, cppIdent, type LType, T } from "../types.ts";
 import type { Ctx } from "./context.ts";
 import { FnEmitter } from "./function.ts";
+import { ifaceOverrides, ifacesOf, virtualMembers } from "./interfaces.ts";
 
 export interface ClassOutput {
   /** Class definition for the header. */
@@ -43,14 +44,12 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
   const qual = `${info.cppName}${generic ? `<${info.typeParams.map(cppIdent).join(", ")}>` : ""}`;
   const heritage = decl.heritageClauses?.find((h) => h.token === ts.SyntaxKind.ExtendsKeyword);
   if (heritage && !info.isError) fail(heritage, Codes.UnsupportedClassFeature, "class inheritance is only supported for `extends Error`");
-  if (decl.heritageClauses?.some((h) => h.token === ts.SyntaxKind.ImplementsKeyword)) {
-    // `implements` is a type-level check only.
-  }
-  const base = info.isError ? "lucent::ErrorObject" : "lucent::Object";
+  const bases = [info.isError ? "lucent::ErrorObject" : "lucent::Object", ...ifacesOf(ctx, info).map((i) => `lucent_app::${i.cppName}`)];
   const body: string[] = [];
   const members: string[] = [];
   const staticInits: string[] = [];
   const ctor = decl.members.find(ts.isConstructorDeclaration);
+  const virtuals = ctx.guard(() => virtualMembers(ctx, info)) ?? new Set<string>();
 
   const fieldType = (n: ts.Node) => reg.lower(ctx.checker.getTypeAtLocation(n), n);
   // Fields
@@ -103,7 +102,7 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
       em.emitFunctionBody(node);
     });
     const retCpp = asyncM ? `lucent::Promise<${reg.cppRet(ret)}>` : reg.cppRet(ret);
-    const sigText = `${retCpp} ${cppName}(${decls.join(", ")})`;
+    const sigText = `${retCpp} ${cppName}(${decls.join(", ")})${!staticMember && virtuals.has(cppName) ? " override" : ""}`;
     const bodyText = em.body().join("\n");
     if (generic) {
       body.push(`  ${staticMember ? "static " : ""}${sigText} {\n${indent(bodyText)}\n  }`);
@@ -168,8 +167,9 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
       fail(m, Codes.UnsupportedClassFeature, "index signatures in classes are not supported");
     }
   }
+  const overrides = ctx.guard(() => ifaceOverrides(ctx, info)) ?? [];
   void selfType;
-  const definition = `${tmpl}struct ${info.cppName} : ${base} {\n${body.join("\n")}\n};`;
+  const definition = `${tmpl}struct ${info.cppName} : ${bases.join(", ")} {\n${[...body, ...overrides].join("\n")}\n};`;
   return { definition, members: generic ? "" : members.join("\n\n"), staticInits };
 }
 
