@@ -1,8 +1,11 @@
 // Unit tests for the Lucent C++ runtime. Built and run by
 // `packages/runtime/test/run.sh` (optionally under ASan/UBSan).
+#include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <thread>
 
 #include "lucent/lucent.h"
 
@@ -390,6 +393,18 @@ static void async() {
   }
 }
 
+// The Lucent thread sleeps until the earliest timer while other threads add
+// timers; growing the timer heap must not invalidate the deadline it waits on.
+static void timersPostedWhileWaiting() {
+  std::atomic<int> fired{0};
+  Scheduler& s = Scheduler::instance();
+  s.postDelayed(30, [&] { fired++; });
+  std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  for (int i = 0; i < 256; i++) s.postDelayed(40, [&] { fired++; });
+  s.waitIdle(2000);
+  CHECK(fired == 257);
+}
+
 static void bytes() {
   Bytes b = Bytes::fromArray(Array<double>{1, 2, 300, -1});
   CHECK_STR(b.join(), "1,2,44,255");
@@ -411,6 +426,7 @@ int main() {
   optionalsAndUnions();
   errors();
   async();
+  timersPostedWhileWaiting();
   bytes();
   std::printf("%d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;
