@@ -1,0 +1,10 @@
+module worker-thread
+
+export async fn summarize(values: array<float64>) -> float64
+  let %total: float64 = 0
+  foreach %value: float64 in values
+    assign %total = (add %total %value)
+  return %total
+
+export async fn label(count: float64) -> string
+  return (concat "count: " (str count))

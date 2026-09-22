@@ -23,6 +23,16 @@
         "implementationClassName": "HybridAdd"
       }
     },
+    "AsyncReference": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridAsyncReference"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridAsyncReference"
+      }
+    },
     "AsyncSum": {
       "ios": {
         "language": "swift",
@@ -51,6 +61,16 @@
       "android": {
         "language": "kotlin",
         "implementationClassName": "HybridClamp"
+      }
+    },
+    "ClosureBody": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridClosureBody"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridClosureBody"
       }
     },
     "Fibonacci": {
@@ -123,6 +143,16 @@
         "implementationClassName": "HybridStructRoundtrip"
       }
     },
+    "TernaryCall": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridTernaryCall"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridTernaryCall"
+      }
+    },
     "Throw": {
       "ios": {
         "language": "swift",
@@ -131,6 +161,16 @@
       "android": {
         "language": "kotlin",
         "implementationClassName": "HybridThrow"
+      }
+    },
+    "WorkerThread": {
+      "ios": {
+        "language": "swift",
+        "implementationClassName": "HybridWorkerThread"
+      },
+      "android": {
+        "language": "kotlin",
+        "implementationClassName": "HybridWorkerThread"
       }
     }
   },

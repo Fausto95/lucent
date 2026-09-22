@@ -1,6 +1,8 @@
 /**
  * Compiles every fixture's generated Swift and Kotlin with the real toolchains,
- * against a stub runtime where `ArrayBuffer` is a plain byte array.
+ * against a stub runtime where `ArrayBuffer` is a plain byte array and
+ * `kotlinx.coroutines` is a synchronous stand-in. Library native packages a
+ * fixture pulls in are compiled alongside it.
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -40,9 +42,23 @@ const KOTLIN_RUNTIME = (pkg: string) =>
   kotlinEventRuntime +
   kotlinObjectRuntime;
 
+/** Enough of `kotlinx.coroutines` to typecheck thread hops away from a Gradle build. */
+const COROUTINES_STUB = `package kotlinx.coroutines
+
+interface CoroutineDispatcher
+object Dispatchers {
+  val Main: CoroutineDispatcher = object : CoroutineDispatcher {}
+  val Default: CoroutineDispatcher = object : CoroutineDispatcher {}
+}
+suspend fun <T> withContext(context: CoroutineDispatcher, block: suspend () -> T): T = block()
+`;
+
 let failed = false;
 const kotlinFiles: string[] = [];
 writeFileSync(join(work, "Runtime.swift"), SWIFT_RUNTIME);
+const coroutinesFile = join(work, "Coroutines.kt");
+writeFileSync(coroutinesFile, COROUTINES_STUB);
+kotlinFiles.push(coroutinesFile);
 
 for (const name of names) {
   const source = readFileSync(join(fixtures, `${name}.lucent.ts`), "utf8");
@@ -52,6 +68,15 @@ for (const name of names) {
     failed = true;
     continue;
   }
+  const pkg = `fixtures.f_${name.replace(/-/g, "_")}`;
+  const packages = Object.values(result.module.nativePackages ?? {});
+  const swiftPackageFiles = packages.flatMap((p) =>
+    Object.entries(p.swift ?? {}).map(([file, contents]) => {
+      const path = join(work, `${name}.${file}`);
+      writeFileSync(path, contents);
+      return path;
+    }),
+  );
   const swiftFile = join(work, `${name}.swift`);
   writeFileSync(swiftFile, generateSwift(result.module).code);
   const swift = run("swiftc", [
@@ -60,6 +85,7 @@ for (const name of names) {
     join(work, "swift-cache"),
     "-parse-as-library",
     join(work, "Runtime.swift"),
+    ...swiftPackageFiles,
     swiftFile,
   ]);
   if (swift.exitCode === 0) console.log(`✓ swift   ${name}`);
@@ -67,12 +93,17 @@ for (const name of names) {
     failed = true;
     console.log(`✗ swift   ${name}\n${swift.stderr}`);
   }
-  const pkg = `fixtures.f_${name.replace(/-/g, "_")}`;
   const kotlinFile = join(work, `${name}.kt`);
   writeFileSync(kotlinFile, `package ${pkg}\n\n` + generateKotlin(result.module).code);
   const runtimeFile = join(work, `${name}.Runtime.kt`);
   writeFileSync(runtimeFile, KOTLIN_RUNTIME(pkg));
   kotlinFiles.push(kotlinFile, runtimeFile);
+  for (const p of packages)
+    for (const [file, contents] of Object.entries(p.kotlin ?? {})) {
+      const path = join(work, `${name}.${file}`);
+      writeFileSync(path, contents.replaceAll("{{androidPackage}}", pkg));
+      kotlinFiles.push(path);
+    }
 }
 
 const kotlin = run("kotlinc", ["-nowarn", "-d", join(work, "out"), ...kotlinFiles]);

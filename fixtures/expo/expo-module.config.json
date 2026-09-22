@@ -6,9 +6,11 @@
   "apple": {
     "modules": [
       "LucentAddModule",
+      "LucentAsyncReferenceModule",
       "LucentAsyncSumModule",
       "LucentBytesModule",
       "LucentClampModule",
+      "LucentClosureBodyModule",
       "LucentFibonacciModule",
       "LucentKitchenModule",
       "LucentNativeClassModule",
@@ -16,15 +18,19 @@
       "LucentNativeStdlibModule",
       "LucentNativeUnionModule",
       "LucentStructRoundtripModule",
-      "LucentThrowModule"
+      "LucentTernaryCallModule",
+      "LucentThrowModule",
+      "LucentWorkerThreadModule"
     ]
   },
   "android": {
     "modules": [
       "expo.modules.lucent.LucentAddModule",
+      "expo.modules.lucent.LucentAsyncReferenceModule",
       "expo.modules.lucent.LucentAsyncSumModule",
       "expo.modules.lucent.LucentBytesModule",
       "expo.modules.lucent.LucentClampModule",
+      "expo.modules.lucent.LucentClosureBodyModule",
       "expo.modules.lucent.LucentFibonacciModule",
       "expo.modules.lucent.LucentKitchenModule",
       "expo.modules.lucent.LucentNativeClassModule",
@@ -32,7 +38,9 @@
       "expo.modules.lucent.LucentNativeStdlibModule",
       "expo.modules.lucent.LucentNativeUnionModule",
       "expo.modules.lucent.LucentStructRoundtripModule",
-      "expo.modules.lucent.LucentThrowModule"
+      "expo.modules.lucent.LucentTernaryCallModule",
+      "expo.modules.lucent.LucentThrowModule",
+      "expo.modules.lucent.LucentWorkerThreadModule"
     ]
   }
 }

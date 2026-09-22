@@ -81,3 +81,5 @@ dependencies {
   implementation "com.facebook.react:react-native:+"
   implementation project(":react-native-nitro-modules")
 }
+
+dependencies { implementation "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2" }
