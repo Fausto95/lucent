@@ -1,4 +1,4 @@
-error LC1011: Type mismatch
+error LUCENT1011: Type mismatch
 
 Expected `string`, got `optional<string>`.
 

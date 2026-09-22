@@ -17,7 +17,7 @@ export const page: DocPage = {
     },
     {
       kind: "p",
-      text: "A function value cannot be stored or passed into JavaScript (`LC1005`). Inside native code, a compiled function or a synchronous arrow can be a [`NativeCallback`](/docs/api/types/). An arrow may capture an immutable primitive or value record, an owned native reference, an explicit `weak(reference)`, or a borrow when the callback's contract says `retention: \"call\"`. Mutable locals, external resources, and subscription callbacks cannot be captured.",
+      text: "A function value cannot be stored or passed into JavaScript (`LUCENT1005`). Inside native code, a compiled function or a synchronous arrow can be a [`NativeCallback`](/docs/api/types/). An arrow may capture an immutable primitive or value record, an owned native reference, an explicit `weak(reference)`, or a borrow when the callback's contract says `retention: \"call\"`. Mutable locals, external resources, and subscription callbacks cannot be captured.",
     },
     { kind: "h2", text: "Statements" },
     {
@@ -43,7 +43,7 @@ export const page: DocPage = {
       rows: [
         ["Arithmetic", "`+ - * / %`, unary `-`"],
         ["Comparison", "`< <= > >=`"],
-        ["Equality", "`=== !==` only. `==` and `!=` are `LC1001`."],
+        ["Equality", "`=== !==` only. `==` and `!=` are `LUCENT1001`."],
         ["Logic", "`&& || !`"],
         ["Updates (statements)", "`+= -= *= /=`, `++`, `--`"],
         ["Records", "`value.field`; object literal where the target type is a known record"],
@@ -58,7 +58,7 @@ export const page: DocPage = {
     },
     {
       kind: "p",
-      text: "Outside the subset, all `LC1001`: spread, destructuring, optional chaining, `typeof`, `in`, `instanceof`, construction of arbitrary objects, and dynamic property access `obj[key]` on a record (`LC1002`). Arrows are allowed only as native callbacks, described above.",
+      text: "Outside the subset, all `LUCENT1001`: spread, destructuring, optional chaining, `typeof`, `in`, `instanceof`, construction of arbitrary objects, and dynamic property access `obj[key]` on a record (`LUCENT1002`). Arrows are allowed only as native callbacks, described above.",
     },
     { kind: "h2", text: "What lowering does" },
     {

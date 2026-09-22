@@ -19,7 +19,7 @@ Inside a project that lists `@lucent-lang/cli` as a dev dependency,
 | `check`   | Type-check without generating; `--watch`, `--json`                              |
 | `init`    | Add dependencies, `lucent.config.ts`, Metro wiring, the host plugin, a starter  |
 | `doctor`  | Verify Node, Swift, Kotlin and the project's Lucent wiring, with fixes          |
-| `explain` | Describe a diagnostic code such as `LC1004`, or list them all                   |
+| `explain` | Describe a diagnostic code such as `LUCENT1004`, or list them all               |
 | `ir`      | Print a module's typed intermediate representation                              |
 | `clean`   | Remove the cache, IR dumps and the generated package                            |
 | `sdk`     | Extract bindings from a `.swiftinterface` file or a `javap` listing             |

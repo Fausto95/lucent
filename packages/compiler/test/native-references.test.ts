@@ -76,7 +76,7 @@ test("rejects SDK property bindings with incompatible signatures", () => {
     { ...options, libraries: { "@lucent-lang/sdk/text": library } },
   );
   expect(result.module).toBeNull();
-  expect(result.diagnostics.some((d) => d.code === "LC1011")).toBe(true);
+  expect(result.diagnostics.some((d) => d.code === "LUCENT1011")).toBe(true);
 });
 test("rejects asynchronous constructors for native reference handles", () => {
   const library = structuredClone(textLibrary);

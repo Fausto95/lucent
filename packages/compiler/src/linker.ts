@@ -32,7 +32,7 @@ export function linkModule(
   const texts = new Map(Object.entries(sources).map(([path, text]) => [normalizeModulePath(path), text]));
   const libraries = { ...STANDARD_LIBRARIES, ...additional };
   const invalid = Object.entries(libraries).flatMap(([name, library]) =>
-    validateLibrary(library).map((message) => diagnostic("LC1006", { start: 0, end: 0 }, `${name}: ${message}`)),
+    validateLibrary(library).map((message) => diagnostic("LUCENT1006", { start: 0, end: 0 }, `${name}: ${message}`)),
   );
   if (invalid.length)
     return { module: { fileName, imports: [], functions: [], typeAliases: [] }, diagnostics: invalid };
@@ -48,7 +48,9 @@ export function linkModule(
   const visit = (path: string): void => {
     if (modules.has(path)) return;
     if (active.has(path)) {
-      diagnostics.push(diagnostic("LC1006", { start: 0, end: 0 }, `Import cycle: ${[...active, path].join(" → ")}`));
+      diagnostics.push(
+        diagnostic("LUCENT1006", { start: 0, end: 0 }, `Import cycle: ${[...active, path].join(" → ")}`),
+      );
       return;
     }
     active.add(path);
@@ -65,7 +67,7 @@ export function linkModule(
       if (!literals || literals.join("\u0000") !== enumeration.cases.join("\u0000")) {
         diagnostics.push(
           diagnostic(
-            "LC1006",
+            "LUCENT1006",
             { start: 0, end: 0 },
             `Native enum ${name} requires a string-literal union declaring exactly its cases, in order.`,
           ),
@@ -82,7 +84,7 @@ export function linkModule(
       if (!alias || alias.type.kind !== "object" || !module.functions.some(constructs)) {
         diagnostics.push(
           diagnostic(
-            "LC1006",
+            "LUCENT1006",
             { start: 0, end: 0 },
             `Native reference ${name} requires a record declaration and constructor binding.`,
           ),
@@ -105,7 +107,9 @@ export function linkModule(
       if (binding) {
         for (const name of Object.keys(binding.contract?.parameters ?? {}))
           if (!fn.params.some((p) => p.name === name))
-            diagnostics.push(diagnostic("LC1006", fn.span, `Unknown native contract parameter ${name} in ${fn.name}.`));
+            diagnostics.push(
+              diagnostic("LUCENT1006", fn.span, `Unknown native contract parameter ${name} in ${fn.name}.`),
+            );
         fn.binding = binding;
         if (fn.ambient && fn.returnType?.kind === "reference" && fn.returnType.name === "Promise") fn.async = true;
         if (binding.thread) fn.thread = binding.thread;
@@ -146,7 +150,7 @@ export function linkModule(
         for (const b of imp.bindings ?? [])
           if (b.imported !== "SharedObject" || b.typeOnly)
             diagnostics.push(
-              diagnostic("LC1006", imp.span, "Only SharedObject may be imported from @lucent-lang/objects."),
+              diagnostic("LUCENT1006", imp.span, "Only SharedObject may be imported from @lucent-lang/objects."),
             );
         continue;
       }
@@ -154,7 +158,7 @@ export function linkModule(
         for (const b of imp.bindings ?? []) {
           if (b.imported === "Event" && b.typeOnly) types.set(b.local, "Event");
           else if (b.imported !== "event" || b.typeOnly)
-            diagnostics.push(diagnostic("LC1006", imp.span, `Unknown event import ${b.imported}`));
+            diagnostics.push(diagnostic("LUCENT1006", imp.span, `Unknown event import ${b.imported}`));
         }
         continue;
       }
@@ -164,7 +168,7 @@ export function linkModule(
             types.set(binding.local, binding.imported);
           else if (UI_PRIMITIVES[binding.imported] && !binding.typeOnly)
             values.set(binding.local, `__ui_${binding.imported}`);
-          else diagnostics.push(diagnostic("LC1006", imp.span, `Unknown UI import ${binding.imported}`));
+          else diagnostics.push(diagnostic("LUCENT1006", imp.span, `Unknown UI import ${binding.imported}`));
         }
         continue;
       }
@@ -172,7 +176,7 @@ export function linkModule(
       if (candidates.length !== 1) {
         diagnostics.push(
           diagnostic(
-            "LC1006",
+            "LUCENT1006",
             imp.span,
             `${candidates.length ? "Ambiguous" : "Missing"} Lucent import ${imp.source} in ${path}.`,
           ),
@@ -190,7 +194,9 @@ export function linkModule(
           for (const language of ["swift", "kotlin"] as const) {
             const descriptor = view[language];
             if (!descriptor || typeof descriptor.template !== "string") {
-              diagnostics.push(diagnostic("LC1006", imp.span, `Missing ${language} template for ${binding.imported}.`));
+              diagnostics.push(
+                diagnostic("LUCENT1006", imp.span, `Missing ${language} template for ${binding.imported}.`),
+              );
               continue;
             }
             for (const match of descriptor.template.matchAll(/{{([^}]+)}}/g)) {
@@ -202,7 +208,11 @@ export function linkModule(
                 (!(view.required ?? []).includes(prop) && descriptor.defaults?.[prop] === undefined)
               )
                 diagnostics.push(
-                  diagnostic("LC1006", imp.span, `Invalid or missing default for ${language} template token ${token}.`),
+                  diagnostic(
+                    "LUCENT1006",
+                    imp.span,
+                    `Invalid or missing default for ${language} template token ${token}.`,
+                  ),
                 );
             }
           }
@@ -220,7 +230,7 @@ export function linkModule(
         if ((!fn && !type) || scope.has(binding.local) || (fn && binding.typeOnly)) {
           diagnostics.push(
             diagnostic(
-              "LC1006",
+              "LUCENT1006",
               imp.span,
               `Invalid or duplicate import ${binding.local} from ${imp.source}. Only exported declarations may be imported.`,
             ),

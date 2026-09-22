@@ -14,14 +14,14 @@ export const page: DocPage = {
     { kind: "h2", text: "The pipeline" },
     {
       kind: "p",
-      text: "One source file goes through four pure phases, then two backends, then a host. Each phase stops the build on its first error and reports an `LC` diagnostic with a code frame.",
+      text: "One source file goes through four pure phases, then two backends, then a host. Each phase stops the build on its first error and reports an `LUCENT` diagnostic with a code frame.",
     },
     { kind: "diagram", component: PipelineDiagram },
     {
       kind: "table",
       head: ["Phase", "Input → output", "Notes"],
       rows: [
-        ["Parse", "text → surface AST", "[oxc-parser](https://oxc.rs/) for TypeScript syntax. Unsupported nodes are `LC1001`, not a crash."],
+        ["Parse", "text → surface AST", "[oxc-parser](https://oxc.rs/) for TypeScript syntax. Unsupported nodes are `LUCENT1001`, not a crash."],
         ["Check", "AST → typed AST", "Scopes, inference of locals, assignability, arity, narrowing of optionals and union tags, capability and platform checks."],
         ["Lower", "typed AST → IR", "Removes what only JavaScript has: `for(;;)` becomes `while`, `a += b` becomes an assignment, template strings become `concat`."],
         ["Backends", "IR → Swift / Kotlin text", "A lookup table per type. Backends never see TypeScript names."],

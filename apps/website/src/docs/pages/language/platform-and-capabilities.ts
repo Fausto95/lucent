@@ -9,7 +9,7 @@ export const page: DocPage = {
     { kind: "h2", text: "Built-in library" },
     {
       kind: "p",
-      text: "Lucent ships only the primitives the compiler must own. Each import is a direct Swift and Kotlin call, not a bridge, and none of them needs a capability. Everything a platform SDK provides arrives as a package manifest whose bindings declare their own capabilities; a missing one fails the build with `LC2001`.",
+      text: "Lucent ships only the primitives the compiler must own. Each import is a direct Swift and Kotlin call, not a bridge, and none of them needs a capability. Everything a platform SDK provides arrives as a package manifest whose bindings declare their own capabilities; a missing one fails the build with `LUCENT2001`.",
     },
     {
       kind: "table",
@@ -58,7 +58,7 @@ export const page: DocPage = {
     { kind: "h2", text: "Platform guards" },
     {
       kind: "p",
-      text: "A binding may declare `platforms: [\"ios\"]` or `[\"android\"]`. Calling it where the other target could reach it is `LC2004`. Guard with `Platform.OS`; the guard narrows `if` branches, `else`, negation and short-circuit expressions, and the analysis follows private helpers. On the unavailable target the binding becomes a throwing stub and its imports are omitted, so both targets still compile.",
+      text: "A binding may declare `platforms: [\"ios\"]` or `[\"android\"]`. Calling it where the other target could reach it is `LUCENT2004`. Guard with `Platform.OS`; the guard narrows `if` branches, `else`, negation and short-circuit expressions, and the analysis follows private helpers. On the unavailable target the binding becomes a throwing stub and its imports are omitted, so both targets still compile.",
     },
     {
       kind: "code",

@@ -158,7 +158,7 @@ class FunctionLowerer {
         if (s.init.kind === "stateInit") {
           const value = this.expr(s.init.value);
           if (value.op !== "const") {
-            this.diagnostics.push(diagnostic("LC1001", s.span, "`state()` requires a literal."));
+            this.diagnostics.push(diagnostic("LUCENT1001", s.span, "`state()` requires a literal."));
             return [];
           }
           this.slots.push({ name: s.name, type: s.type, value: value.value });
@@ -216,7 +216,7 @@ class FunctionLowerer {
       if (containsContinue(s.body)) {
         this.diagnostics.push(
           diagnostic(
-            "LC1001",
+            "LUCENT1001",
             s.span,
             "`continue` inside a C-style `for` loop is not supported yet.",
             "Use `while` with an explicit index, or `for…of`.",
@@ -348,7 +348,7 @@ class FunctionLowerer {
       case "assign":
       case "update":
         this.diagnostics.push(
-          diagnostic("LC1001", e.span, "Assignments are only supported as statements, not inside expressions."),
+          diagnostic("LUCENT1001", e.span, "Assignments are only supported as statements, not inside expressions."),
         );
         return { op: "const", value: 0, type };
       case "closure": {
@@ -378,7 +378,7 @@ class FunctionLowerer {
           ? { op: "mapGet", map: this.expr(e.object), key: this.expr(e.index), type }
           : { op: "index", object: this.expr(e.object), index: this.expr(e.index), type };
       case "methodCall":
-        this.diagnostics.push(diagnostic("LC1001", e.span, `\`${e.method}\` is only supported as a statement.`));
+        this.diagnostics.push(diagnostic("LUCENT1001", e.span, `\`${e.method}\` is only supported as a statement.`));
         return { op: "const", value: 0, type };
       case "await":
         return { op: "await", value: this.expr(e.argument), type };

@@ -30,7 +30,7 @@ lowering away everything that only JavaScript has:
 | `xs.push(v)`                    | `push xs v` statement                                |
 
 Assignments, updates and `push` are statements only; using them inside an
-expression is `LC1001`. `continue` inside a C-style `for` is `LC1001` in v1
+expression is `LUCENT1001`. `continue` inside a C-style `for` is `LUCENT1001` in v1
 because the update would be skipped.
 
 ## Types

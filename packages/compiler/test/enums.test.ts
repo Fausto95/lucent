@@ -38,7 +38,7 @@ test("an unknown case names the valid ones", () => {
   const result = compileWith(
     'import {setPosition} from "@lucent-lang/example-camera"; export function use():void{setPosition("sideways");}',
   );
-  expect(result.diagnostics[0]?.code).toBe("LC1011");
+  expect(result.diagnostics[0]?.code).toBe("LUCENT1011");
   expect(result.diagnostics[0]?.help).toContain('"front", "back"');
 });
 
@@ -53,7 +53,7 @@ test("a plain string is not an enum", () => {
   const result = compileWith(
     'import {setPosition} from "@lucent-lang/example-camera"; export function use(value:string):void{setPosition(value);}',
   );
-  expect(result.diagnostics[0]?.code).toBe("LC1011");
+  expect(result.diagnostics[0]?.code).toBe("LUCENT1011");
 });
 
 test("enums stay out of records, containers and events", () => {
@@ -80,7 +80,7 @@ test("the declared union must match the manifest cases", () => {
       },
     },
   );
-  expect(result.diagnostics[0]?.code).toBe("LC1006");
+  expect(result.diagnostics[0]?.code).toBe("LUCENT1006");
 });
 
 test("a manifest enum needs one native value per case on both targets", () => {

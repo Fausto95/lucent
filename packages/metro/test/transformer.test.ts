@@ -72,7 +72,7 @@ describe("lucent metro transformer", () => {
         filename: "/app/bad.lucent.ts",
         options: {},
       }),
-    ).rejects.toThrow(/LC1004/);
+    ).rejects.toThrow(/LUCENT1004/);
   });
 
   test("cache key includes upstream, compiler version and host", () => {

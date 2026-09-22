@@ -41,12 +41,12 @@ the pieces fit together for anyone picking up the project.
 Public API: `compile(source, { fileName }) → { module: IRModule | null, diagnostics }`.
 
 - [x] Red tests: `test/parser.test.ts`, `test/types.test.ts`
-- [x] `src/diagnostics/` — `Diagnostic { code, message, span, help? }`, code table (`LC1000`–`LC1016`), `renderDiagnostic(d, source, fileName)` codeframe renderer
+- [x] `src/diagnostics/` — `Diagnostic { code, message, span, help? }`, code table (`LUCENT1000`–`LUCENT1016`), `renderDiagnostic(d, source, fileName)` codeframe renderer
 - [x] `src/parser/surface.ts` — closed surface AST (types, statements, expressions); the only place ESTree is visible is `src/parser/index.ts`
-- [x] `src/parser/index.ts` — `parseModule(source, fileName)` on `oxc-parser` `parseSync(lang:"ts")`; maps oxc errors → `LC1000`, unsupported nodes → `LC1001`, foreign imports → `LC1006`
+- [x] `src/parser/index.ts` — `parseModule(source, fileName)` on `oxc-parser` `parseSync(lang:"ts")`; maps oxc errors → `LUCENT1000`, unsupported nodes → `LUCENT1001`, foreign imports → `LUCENT1006`
 - [x] `src/types/native-type.ts` — `NativeType` union (`void bool string bytes float{32,64} int{8..64,signed} array map optional struct promise`), `typeToString`, `typeEquals`
-- [x] `src/types/resolve.ts` — `resolveType(SurfaceType, scope)` lookup-table resolver; `LC1003/LC1004/LC1005`
-- [x] Red tests: `test/checker.test.ts` — scopes, inference from initializer, assignability, arity, `await` in async only, `Promise` only as async return, struct field access, dynamic access `LC1002`, missing annotation `LC1014`, missing return `LC1015`, const assignment `LC1016`, > 8 params `LC1007`
+- [x] `src/types/resolve.ts` — `resolveType(SurfaceType, scope)` lookup-table resolver; `LUCENT1003/LUCENT1004/LUCENT1005`
+- [x] Red tests: `test/checker.test.ts` — scopes, inference from initializer, assignability, arity, `await` in async only, `Promise` only as async return, struct field access, dynamic access `LUCENT1002`, missing annotation `LUCENT1014`, missing return `LUCENT1015`, const assignment `LUCENT1016`, > 8 params `LUCENT1007`
 - [x] `src/checker/` — typed surface AST (every expression annotated with `NativeType`), module symbol table (structs, functions, sized types imported from `@lucent-lang/types`)
 - [x] Red tests: `test/lowering.test.ts` — golden IR text for `fixtures/*.lucent.ts`
 - [x] `src/ir/` — structured, typed IR (`IRStmt` / `IRExpr` / `IRPlace`) and `printIR` text form; see [docs/ir.md](docs/ir.md) for why it is not a CFG

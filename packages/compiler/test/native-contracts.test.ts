@@ -14,7 +14,7 @@ test("rejects unknown native manifest versions", () => {
     libraries: { "@lucent-lang/test": { schemaVersion: 999, source: "" } as unknown as LibraryModule },
   });
   expect(result.module).toBeNull();
-  expect(result.diagnostics[0]?.code).toBe("LC1006");
+  expect(result.diagnostics[0]?.code).toBe("LUCENT1006");
 });
 test("checks parameter ownership names against declarations", () => {
   const result = compile('import {read} from "@lucent-lang/test"; export function value():number{return read(1);}', {
@@ -34,7 +34,7 @@ test("checks parameter ownership names against declarations", () => {
     },
   });
   expect(result.module).toBeNull();
-  expect(result.diagnostics[0]?.code).toBe("LC1006");
+  expect(result.diagnostics[0]?.code).toBe("LUCENT1006");
 });
 test("enforces minimum native API requirements", () => {
   const library: LibraryModule = {

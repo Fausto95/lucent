@@ -40,7 +40,7 @@ test("an unmatched constructor lists the candidates", () => {
   const result = compileWith(
     'import {Box} from "@lucent-lang/sdk/box"; export function f():number{const b = new Box(true); return b.size;}',
   );
-  expect(result.diagnostics[0]?.code).toBe("LC1012");
+  expect(result.diagnostics[0]?.code).toBe("LUCENT1012");
   expect(result.diagnostics[0]?.help).toContain("Box__create__labelled");
 });
 

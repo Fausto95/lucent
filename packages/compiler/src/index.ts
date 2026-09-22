@@ -16,7 +16,7 @@ export { printIR } from "./ir/print.ts";
 export type { NativeType } from "./types/native-type.ts";
 export { typeToString, typeEquals, isNumeric, T } from "./types/native-type.ts";
 
-export const COMPILER_VERSION = "0.5.0";
+export const COMPILER_VERSION = "0.5.1";
 
 export interface CompileOptions {
   targets?: NativeTargets;
@@ -34,7 +34,10 @@ export interface CompileResult {
 /** Source text in, IR and diagnostics out. Stops after the first phase that reports an error. */
 export function compile(source: string, options: CompileOptions): CompileResult {
   if (options.targets !== undefined && !validNativeTargets(options.targets))
-    return { module: null, diagnostics: [diagnostic("LC1006", { start: 0, end: 0 }, "Invalid minimum SDK targets.")] };
+    return {
+      module: null,
+      diagnostics: [diagnostic("LUCENT1006", { start: 0, end: 0 }, "Invalid minimum SDK targets.")],
+    };
   const parsed = linkModule(source, options.fileName, options.sources ?? {}, options.libraries);
   if (parsed.diagnostics.length) return { module: null, diagnostics: parsed.diagnostics };
   const checked = checkModule(parsed.module);

@@ -27,7 +27,7 @@ export const page: DocPage = {
     { kind: "h2", text: "Throwing" },
     {
       kind: "p",
-      text: "`LucentError` is a global the compiler knows; it needs no import. Throw it with a code, an optional message and optional scalar metadata. Any other thrown value is `LC1001`.",
+      text: "`LucentError` is a global the compiler knows; it needs no import. Throw it with a code, an optional message and optional scalar metadata. Any other thrown value is `LUCENT1001`.",
     },
     {
       kind: "code",

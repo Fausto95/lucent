@@ -41,7 +41,7 @@ export const page: DocPage = {
     { kind: "h2", text: "Removed packages" },
     {
       kind: "p",
-      text: "`@lucent-lang/crypto`, `@lucent-lang/filesystem`, `@lucent-lang/network`, `@lucent-lang/device`, `@lucent-lang/platform/clock` and `@lucent-lang/platform/locale` were small hand-written native modules rather than language features, and they duplicated libraries an app already has. Importing them now fails with `LC1006`. Declare what you need as a [package manifest](/docs/api/library-manifest/), as the example apps do in `native/toolkit.library.json`, or call the JavaScript equivalent.",
+      text: "`@lucent-lang/crypto`, `@lucent-lang/filesystem`, `@lucent-lang/network`, `@lucent-lang/device`, `@lucent-lang/platform/clock` and `@lucent-lang/platform/locale` were small hand-written native modules rather than language features, and they duplicated libraries an app already has. Importing them now fails with `LUCENT1006`. Declare what you need as a [package manifest](/docs/api/library-manifest/), as the example apps do in `native/toolkit.library.json`, or call the JavaScript equivalent.",
     },
   ],
 };

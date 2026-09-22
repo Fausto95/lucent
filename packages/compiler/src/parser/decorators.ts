@@ -110,7 +110,7 @@ export function functionDecorators(
       threads.has(fn.start)
     )
       diagnostics.push(
-        diagnostic("LC1001", span, "Use exactly one of @MainThread, @Background, or @Inherited before a function."),
+        diagnostic("LUCENT1001", span, "Use exactly one of @MainThread, @Background, or @Inherited before a function."),
       );
     else threads.set(fn.start, context);
   }

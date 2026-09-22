@@ -36,7 +36,7 @@ test("a key closure must produce a string", () => {
   const result = compileView(
     "<For each={props.notes} key={(note: string) => 1}>{(note: string) => <Text>{note}</Text>}</For>",
   );
-  expect(result.diagnostics[0]?.code).toBe("LC1011");
+  expect(result.diagnostics[0]?.code).toBe("LUCENT1011");
   expect(result.diagnostics[0]?.message).toContain("Expected `string`");
 });
 

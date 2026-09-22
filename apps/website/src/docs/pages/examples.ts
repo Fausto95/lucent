@@ -171,7 +171,7 @@ export const page: DocPage = {
     { kind: "h2", text: "Platform guards" },
     {
       kind: "p",
-      text: "`Platform.OS` is a compile-time constant per target. A binding declared for one platform can only be called inside a guard; otherwise `LC2004` reports it. The other target compiles with a throwing stub.",
+      text: "`Platform.OS` is a compile-time constant per target. A binding declared for one platform can only be called inside a guard; otherwise `LUCENT2004` reports it. The other target compiles with a throwing stub.",
     },
     {
       kind: "code",
@@ -248,7 +248,7 @@ export const page: DocPage = {
     { kind: "h2", text: "Modules importing modules" },
     {
       kind: "p",
-      text: "Named imports between Lucent files resolve at build time, transitively. Only exports can be imported; cycles and missing files are `LC1006`. Source basenames must be unique within one build.",
+      text: "Named imports between Lucent files resolve at build time, transitively. Only exports can be imported; cycles and missing files are `LUCENT1006`. Source basenames must be unique within one build.",
     },
     {
       kind: "code",

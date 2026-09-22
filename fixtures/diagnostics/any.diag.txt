@@ -1,4 +1,4 @@
-error LC1004: `any` is prohibited
+error LUCENT1004: `any` is prohibited
 
 Native functions cannot expose `any`.
 

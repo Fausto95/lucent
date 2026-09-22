@@ -151,7 +151,7 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
       if (!config.capabilities.includes(capability))
         diagnostics.push({
           fileName: "lucent.config.json",
-          rendered: `error LC2001: Missing capability "${capability}" required by ${module.name}. Enable it in lucent.config.ts or lucent.config.json.`,
+          rendered: `error LUCENT2001: Missing capability "${capability}" required by ${module.name}. Enable it in lucent.config.ts or lucent.config.json.`,
         });
     }
   const names = new Set<string>();

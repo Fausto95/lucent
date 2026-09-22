@@ -5,7 +5,7 @@ type Rule = { pattern: RegExp; paint: (match: RegExpExecArray, p: Palette, accen
 /** Line-shaped rules over the compiler's plain codeframe. The compiler itself stays color-free. */
 const RULES: readonly Rule[] = [
   {
-    pattern: /^(error|warning)( LC\d{4}:)(.*)$/,
+    pattern: /^(error|warning)( LUCENT\d{4}:)(.*)$/,
     paint: (m, p) => `${(m[1] === "error" ? p.red : p.yellow)(m[1]!)}${p.bold(m[2]!)}${m[3]!}`,
   },
   { pattern: /^(\s*┌─ )(.+)$/, paint: (m, p) => `${p.dim(m[1]!)}${p.cyan(m[2]!)}` },

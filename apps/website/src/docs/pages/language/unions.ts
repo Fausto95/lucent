@@ -19,7 +19,7 @@ export const page: DocPage = {
         "Narrow with `===` or `!==` on a local or parameter, including the early-return form. `switch` is not supported.",
         "A payload field shared by several variants must have the same type in each.",
         "Union values are immutable. Replace the whole value to change variant.",
-        "Unions other than tagged records and `T | null` / `T | undefined` are `LC1003`.",
+        "Unions other than tagged records and `T | null` / `T | undefined` are `LUCENT1003`.",
       ],
     },
     { kind: "h2", text: "Native representation" },

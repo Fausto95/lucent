@@ -33,7 +33,7 @@ export const page: DocPage = {
     { kind: "h2", text: "Main-thread cost warnings" },
     {
       kind: "p",
-      text: "`LC3002` warns when a `@MainThread` function reaches a loop, recursion, or a binding whose manifest marks it `cost: \"cpu\"` or `\"io\"`, including through private helpers. An explicit `@Background` hop stops the propagation. Warnings are kept on cache hits and never fail the build. This is conservative static analysis, not a runtime duration guarantee.",
+      text: "`LUCENT3002` warns when a `@MainThread` function reaches a loop, recursion, or a binding whose manifest marks it `cost: \"cpu\"` or `\"io\"`, including through private helpers. An explicit `@Background` hop stops the propagation. Warnings are kept on cache hits and never fail the build. This is conservative static analysis, not a runtime duration guarantee.",
     },
     {
       kind: "p",

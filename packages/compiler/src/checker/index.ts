@@ -80,7 +80,11 @@ class ModuleChecker {
       const previous = this.enums.get(alias.enumeration.name);
       if (previous && JSON.stringify(previous) !== JSON.stringify(alias.enumeration.binding))
         this.report(
-          diagnostic("LC1006", alias.span, `Two packages declare a different native enum ${alias.enumeration.name}.`),
+          diagnostic(
+            "LUCENT1006",
+            alias.span,
+            `Two packages declare a different native enum ${alias.enumeration.name}.`,
+          ),
         );
       this.enums.set(alias.enumeration.name, alias.enumeration.binding);
       this.enumAliases.set(alias.name, alias.enumeration.name);
@@ -110,7 +114,7 @@ class ModuleChecker {
     if (resolved && resolved.kind === "promise") {
       this.report(
         diagnostic(
-          "LC1003",
+          "LUCENT1003",
           type.span,
           `\`Promise\` is only supported as the return type of an async function, not as ${what}.`,
         ),
@@ -163,7 +167,7 @@ class ModuleChecker {
     const seen = new Set<string>();
     for (const alias of this.module.typeAliases) {
       if (seen.has(alias.name)) {
-        this.report(diagnostic("LC1001", alias.span, `Duplicate type \`${alias.name}\`.`));
+        this.report(diagnostic("LUCENT1001", alias.span, `Duplicate type \`${alias.name}\`.`));
         continue;
       }
       seen.add(alias.name);
@@ -175,7 +179,7 @@ class ModuleChecker {
       if (alias.type.kind !== "object") {
         this.report(
           diagnostic(
-            "LC1003",
+            "LUCENT1003",
             alias.type.span,
             "Type aliases must be object types (structs).",
             "Only `type Name = { … }` has a native representation.",
@@ -207,7 +211,7 @@ class ModuleChecker {
       t.kind === "reference" ? this.module.typeAliases.find((a) => a.name === t.name)?.type : t,
     );
     if (members.some((m) => m?.kind !== "object")) {
-      this.report(diagnostic("LC1003", type.span, "A discriminated union must contain record types."));
+      this.report(diagnostic("LUCENT1003", type.span, "A discriminated union must contain record types."));
       return;
     }
     const records = members as Extract<SurfaceType, { kind: "object" }>[];
@@ -219,7 +223,7 @@ class ModuleChecker {
     )?.name;
     if (!tag) {
       this.report(
-        diagnostic("LC1003", type.span, "Union variants need a common required string-literal discriminant."),
+        diagnostic("LUCENT1003", type.span, "Union variants need a common required string-literal discriminant."),
       );
       return;
     }
@@ -231,7 +235,7 @@ class ModuleChecker {
         { kind: "literal" }
       >;
       if (variants.some((v) => v.tag === discriminator.value))
-        this.report(diagnostic("LC1011", discriminator.span, "Union tags must be unique."));
+        this.report(diagnostic("LUCENT1011", discriminator.span, "Union tags must be unique."));
       const fields: StructDef["fields"] = [];
       for (const field of record.fields.filter((f) => f.name !== tag)) {
         const t = this.resolveStorable(field.type, "a union field");
@@ -239,7 +243,7 @@ class ModuleChecker {
         const value = field.optional ? T.optional(t) : t;
         const previous = storage.get(field.name);
         if (previous && !typeEquals(previous, value))
-          this.report(diagnostic("LC1003", field.span, "Fields shared by variants must have the same type."));
+          this.report(diagnostic("LUCENT1003", field.span, "Fields shared by variants must have the same type."));
         storage.set(field.name, value);
         fields.push({ name: field.name, type: value });
       }
@@ -259,15 +263,15 @@ class ModuleChecker {
   private collectSignatures(): void {
     for (const fn of this.module.functions) {
       if (fn.thread && fn.thread !== "caller" && !fn.async)
-        this.report(diagnostic("LC1011", fn.span, "A thread hop requires an async function."));
+        this.report(diagnostic("LUCENT1011", fn.span, "A thread hop requires an async function."));
       if (this.signatures.has(fn.name)) {
-        this.report(diagnostic("LC1001", fn.span, `Duplicate function \`${fn.name}\`.`));
+        this.report(diagnostic("LUCENT1001", fn.span, `Duplicate function \`${fn.name}\`.`));
         continue;
       }
       if (fn.params.length > MAX_PARAMETERS) {
         this.report(
           diagnostic(
-            "LC1007",
+            "LUCENT1007",
             fn.span,
             `\`${fn.name}\` has ${fn.params.length} parameters; native functions take at most ${MAX_PARAMETERS}.`,
             "Group related parameters into a struct.",
@@ -280,7 +284,7 @@ class ModuleChecker {
         if (!param.type) {
           this.report(
             diagnostic(
-              "LC1014",
+              "LUCENT1014",
               param.span,
               `Parameter \`${param.name}\` needs a type annotation.`,
               "Every value crossing the native boundary must have a declared type.",
@@ -303,7 +307,11 @@ class ModuleChecker {
         (fn.async || params.length > 1 || (params.length === 1 && params[0]!.type.kind !== "struct"))
       ) {
         this.report(
-          diagnostic("LC1011", fn.span, "A native view is synchronous and accepts one props record or no parameters."),
+          diagnostic(
+            "LUCENT1011",
+            fn.span,
+            "A native view is synchronous and accepts one props record or no parameters.",
+          ),
         );
       }
       if (returnType?.kind === "view" && params[0]?.type.kind === "struct") {
@@ -329,7 +337,7 @@ class ModuleChecker {
         )
           this.report(
             diagnostic(
-              "LC1011",
+              "LUCENT1011",
               fn.span,
               "Native view props support string, number, boolean, arrays of those, nullable values, and a required `children: NativeView` slot.",
             ),
@@ -349,7 +357,7 @@ class ModuleChecker {
     if (!fn.returnType) {
       this.report(
         diagnostic(
-          "LC1014",
+          "LUCENT1014",
           fn.span,
           `\`${fn.name}\` needs a return type annotation.`,
           fn.async ? "Declare `Promise<T>` (or `Promise<void>`)." : "Declare the return type, or `void`.",
@@ -362,7 +370,7 @@ class ModuleChecker {
     if (fn.async && resolved.kind !== "promise") {
       this.report(
         diagnostic(
-          "LC1011",
+          "LUCENT1011",
           fn.returnType.span,
           `Async function \`${fn.name}\` must return \`Promise<${typeToString(resolved)}>\`.`,
         ),
@@ -372,7 +380,7 @@ class ModuleChecker {
     if (!fn.async && resolved.kind === "promise") {
       this.report(
         diagnostic(
-          "LC1011",
+          "LUCENT1011",
           fn.returnType.span,
           `\`${fn.name}\` returns a Promise but is not \`async\`.`,
           "Mark the function `async`.",
@@ -422,7 +430,7 @@ class FunctionChecker {
     if (this.signature.returnType.kind !== "void" && !alwaysExits(body)) {
       this.mod.report(
         diagnostic(
-          "LC1015",
+          "LUCENT1015",
           this.fn.span,
           `\`${this.fn.name}\` must return a \`${typeToString(this.signature.returnType)}\` on every path.`,
         ),
@@ -454,7 +462,7 @@ class FunctionChecker {
         ) {
           this.report(
             diagnostic(
-              "LC1011",
+              "LUCENT1011",
               this.fn.span,
               "Native rendering must be pure: move effects and native operations to event handlers.",
             ),
@@ -485,7 +493,7 @@ class FunctionChecker {
   }
 
   private rejectBorrow(value: TExpr, span: Span, reason: string): void {
-    if (value.borrowed) this.mod.report(diagnostic("LC1018", span, `A borrowed value cannot ${reason}.`));
+    if (value.borrowed) this.mod.report(diagnostic("LUCENT1018", span, `A borrowed value cannot ${reason}.`));
   }
 
   /** Run a branch without leaking its close/suspension effects, then return those effects. */
@@ -511,11 +519,11 @@ class FunctionChecker {
     const actual = this.fn.thread ?? "caller";
     if (required === "serial") {
       if (actual !== "caller")
-        this.mod.report(diagnostic("LC1019", span, "A serial object cannot move to another executor."));
+        this.mod.report(diagnostic("LUCENT1019", span, "A serial object cannot move to another executor."));
       return;
     }
     if (required !== actual)
-      this.mod.report(diagnostic("LC1019", span, `This call must run on the ${required} executor.`));
+      this.mod.report(diagnostic("LUCENT1019", span, `This call must run on the ${required} executor.`));
   }
 
   private lookup(name: string): Binding | undefined {
@@ -553,7 +561,7 @@ class FunctionChecker {
   }
 
   private mismatch(span: Span, expected: NativeType, actual: NativeType, help?: string): TExpr {
-    this.report(diagnostic("LC1011", span, MISMATCH(expected, actual), help));
+    this.report(diagnostic("LUCENT1011", span, MISMATCH(expected, actual), help));
     return this.poison(span, expected);
   }
 
@@ -605,7 +613,11 @@ class FunctionChecker {
         const elementType = iterable.type.kind === "array" ? iterable.type.element : null;
         if (!elementType && !iterable.poisoned)
           this.report(
-            diagnostic("LC1011", s.iterable.span, `\`for…of\` needs an array, got \`${typeToString(iterable.type)}\`.`),
+            diagnostic(
+              "LUCENT1011",
+              s.iterable.span,
+              `\`for…of\` needs an array, got \`${typeToString(iterable.type)}\`.`,
+            ),
           );
         this.push();
         this.declare(s.variable, elementType ?? T.float64, false);
@@ -626,14 +638,14 @@ class FunctionChecker {
         return this.returnStmt(s);
       case "break":
       case "continue":
-        if (this.loopDepth === 0) this.report(diagnostic("LC1001", s.span, `\`${s.kind}\` outside a loop.`));
+        if (this.loopDepth === 0) this.report(diagnostic("LUCENT1001", s.span, `\`${s.kind}\` outside a loop.`));
         return { kind: s.kind, span: s.span };
       case "throw": {
         const message = s.message ? this.expr(s.message, T.string) : null;
         if (message && !this.fits(message, T.string))
           this.report(
             diagnostic(
-              "LC1011",
+              "LUCENT1011",
               s.message!.span,
               `LucentError message must be a string, got \`${typeToString(message.type)}\`.`,
             ),
@@ -644,7 +656,7 @@ class FunctionChecker {
         }));
         for (const field of metadata ?? []) {
           if (field.value.kind !== "null" && !["string", "bool", "float", "int"].includes(field.value.type.kind))
-            this.report(diagnostic("LC1011", field.value.span, "Error metadata must contain scalar values."));
+            this.report(diagnostic("LUCENT1011", field.value.span, "Error metadata must contain scalar values."));
         }
         return { kind: "throw", code: s.code, message, ...(metadata ? { metadata } : {}), span: s.span };
       }
@@ -665,7 +677,7 @@ class FunctionChecker {
     if (!s.init) {
       this.report(
         diagnostic(
-          "LC1014",
+          "LUCENT1014",
           s.span,
           `\`${s.name}\` must be initialized so its type is known.`,
           "Write `let x: T = …` or give it a value.",
@@ -681,7 +693,7 @@ class FunctionChecker {
       init = this.expr(s.init);
       type = init.type;
       if (!init.poisoned && init.type.kind === "promise")
-        this.report(diagnostic("LC1003", s.init.span, "A Promise cannot be stored; `await` it instead."));
+        this.report(diagnostic("LUCENT1003", s.init.span, "A Promise cannot be stored; `await` it instead."));
     }
     this.declare(s.name, type, s.declaration === "let", init.poisoned === true, init.borrowed === true);
     return { kind: "variable", declaration: s.declaration, name: s.name, type, init, span: s.span };
@@ -699,7 +711,7 @@ class FunctionChecker {
       initExpr?.kind !== "call" ||
       initExpr.args.length !== 1;
     if (invalid || !arg) {
-      this.report(diagnostic("LC1001", s.span, "`state()` declares one const scalar at the top of a native view."));
+      this.report(diagnostic("LUCENT1001", s.span, "`state()` declares one const scalar at the top of a native view."));
       this.declare(s.name, T.float64, false, true);
       return {
         kind: "variable",
@@ -713,7 +725,7 @@ class FunctionChecker {
     const value = this.expr(arg);
     const literal = value.kind === "number" || value.kind === "string" || value.kind === "boolean";
     if (!literal || value.poisoned) {
-      this.report(diagnostic("LC1001", arg.span, "`state()` requires a number, string, or boolean literal."));
+      this.report(diagnostic("LUCENT1001", arg.span, "`state()` requires a number, string, or boolean literal."));
       this.declare(s.name, T.float64, false, true);
       return {
         kind: "variable",
@@ -741,12 +753,14 @@ class FunctionChecker {
     const expected = this.expectedReturn;
     if (!s.argument) {
       if (expected.kind !== "void")
-        this.report(diagnostic("LC1011", s.span, `\`${this.fn.name}\` must return a \`${typeToString(expected)}\`.`));
+        this.report(
+          diagnostic("LUCENT1011", s.span, `\`${this.fn.name}\` must return a \`${typeToString(expected)}\`.`),
+        );
       return { kind: "return", argument: null, span: s.span };
     }
     if (expected.kind === "void") {
       this.report(
-        diagnostic("LC1011", s.argument.span, `\`${this.fn.name}\` returns \`void\` and cannot return a value.`),
+        diagnostic("LUCENT1011", s.argument.span, `\`${this.fn.name}\` returns \`void\` and cannot return a value.`),
       );
       return { kind: "return", argument: null, span: s.span };
     }
@@ -820,7 +834,7 @@ class FunctionChecker {
         }));
         if (e.params.some((p, i) => !p.type && !context?.params[i]))
           this.report(
-            diagnostic("LC1014", e.span, "Native callback parameters need a type annotation or callback context."),
+            diagnostic("LUCENT1014", e.span, "Native callback parameters need a type annotation or callback context."),
           );
         const result = e.returnType ? this.mod.resolve(e.returnType) : context?.result;
         const outer = new Map<string, Binding>();
@@ -833,7 +847,7 @@ class FunctionChecker {
         for (const param of params) this.declare(param.name, param.type, false);
         const statements = Array.isArray(e.body);
         if (statements && !result)
-          this.report(diagnostic("LC1014", e.span, "A native callback with a statement body needs a return type."));
+          this.report(diagnostic("LUCENT1014", e.span, "A native callback with a statement body needs a return type."));
         const savedReturn = this.expectedReturn;
         if (statements) this.expectedReturn = result ?? T.void;
         let body: TExpr | TStmt[];
@@ -853,9 +867,11 @@ class FunctionChecker {
         if (!Array.isArray(body)) {
           if (result && !this.fits(body, result)) this.mismatch(e.span, result, body.type);
           if (body.type.kind === "promise" || body.type.kind === "callback")
-            this.report(diagnostic("LC1005", e.span, "Native closures must return synchronous non-callback values."));
+            this.report(
+              diagnostic("LUCENT1005", e.span, "Native closures must return synchronous non-callback values."),
+            );
         } else if (returnType.kind !== "void" && !alwaysExits(body)) {
-          this.report(diagnostic("LC1015", e.span, "A native callback must return on every path."));
+          this.report(diagnostic("LUCENT1015", e.span, "A native callback must return on every path."));
         }
         return { kind: "closure", params, captures, body, type, span: e.span };
       }
@@ -884,7 +900,7 @@ class FunctionChecker {
         if (!expected || !isOptional(expected)) {
           this.report(
             diagnostic(
-              "LC1014",
+              "LUCENT1014",
               span,
               `Cannot infer the type of \`${e.kind}\` here.`,
               "Annotate the variable: `let x: T | null = null`.",
@@ -900,7 +916,7 @@ class FunctionChecker {
           if (!t.poisoned && !isPrimitive(t.type))
             this.report(
               diagnostic(
-                "LC1011",
+                "LUCENT1011",
                 x.span,
                 `Only strings, numbers and booleans can be interpolated, got \`${typeToString(t.type)}\`.`,
               ),
@@ -964,14 +980,14 @@ class FunctionChecker {
         return this.methodCall(e);
       case "await": {
         if (!this.fn.async)
-          this.report(diagnostic("LC1013", span, "`await` is only allowed inside an `async` function."));
+          this.report(diagnostic("LUCENT1013", span, "`await` is only allowed inside an `async` function."));
         const argument = this.expr(e.argument);
         this.suspended = true;
         if (argument.poisoned) return this.poison(span, expected);
         if (argument.type.kind !== "promise") {
           this.report(
             diagnostic(
-              "LC1011",
+              "LUCENT1011",
               e.argument.span,
               `Cannot await \`${typeToString(argument.type)}\`.`,
               "Only the result of calling an async function can be awaited.",
@@ -993,7 +1009,7 @@ class FunctionChecker {
     if (!primitive) {
       const signature = this.mod.signatures.get(e.name);
       if (!signature || signature.returnType.kind !== "view") {
-        this.report(diagnostic("LC1010", e.span, `Unknown native view ${e.name}.`));
+        this.report(diagnostic("LUCENT1010", e.span, `Unknown native view ${e.name}.`));
         return this.poison(e.span, T.view);
       }
       const props =
@@ -1002,7 +1018,7 @@ class FunctionChecker {
       const properties = [...e.properties];
       if (slot) {
         if (!e.children.length)
-          this.report(diagnostic("LC1011", e.span, `\`${e.name}\` needs children for its \`children\` slot.`));
+          this.report(diagnostic("LUCENT1011", e.span, `\`${e.name}\` needs children for its \`children\` slot.`));
         else
           properties.push({
             name: "children",
@@ -1016,7 +1032,7 @@ class FunctionChecker {
       } else if (e.children.length) {
         this.report(
           diagnostic(
-            "LC1001",
+            "LUCENT1001",
             e.span,
             `\`${e.name}\` takes no children.`,
             "Declare a `children: NativeView` prop to accept them.",
@@ -1034,7 +1050,7 @@ class FunctionChecker {
     const properties = e.properties.map((p) => {
       const type = primitive.props[p.name];
       if (!type || seen.has(p.name))
-        this.report(diagnostic("LC1011", p.span, `Unknown or duplicate ${e.name} prop ${p.name}.`));
+        this.report(diagnostic("LUCENT1011", p.span, `Unknown or duplicate ${e.name} prop ${p.name}.`));
       seen.add(p.name);
       const value = this.expr(p.value, type);
       const eventHandler =
@@ -1048,13 +1064,13 @@ class FunctionChecker {
       return { name: p.name, value };
     });
     for (const name of primitive.required ?? [])
-      if (!seen.has(name)) this.report(diagnostic("LC1011", e.span, `Missing ${name} prop.`));
+      if (!seen.has(name)) this.report(diagnostic("LUCENT1011", e.span, `Missing ${name} prop.`));
     const children = e.children.map((c) => {
       const child = this.expr(c);
       if (primitive.children === "text" && isPrimitive(child.type))
         return { kind: "template" as const, quasis: ["", ""], expressions: [child], type: T.string, span: c.span };
       if (primitive.children !== "views" || child.type.kind !== "view")
-        this.report(diagnostic("LC1011", c.span, `Invalid child for ${e.name}.`));
+        this.report(diagnostic("LUCENT1011", c.span, `Invalid child for ${e.name}.`));
       return child;
     });
     return {
@@ -1087,7 +1103,7 @@ class FunctionChecker {
     if (e.elements.length === 0 && !elementContext) {
       this.report(
         diagnostic(
-          "LC1014",
+          "LUCENT1014",
           e.span,
           "Cannot infer the element type of an empty array.",
           "Annotate the variable: `const xs: number[] = []`.",
@@ -1100,7 +1116,8 @@ class FunctionChecker {
     for (const el of e.elements) {
       const t = this.expr(el, elementType);
       if (!elementType) elementType = t.type;
-      else if (!this.fits(t, elementType)) this.report(diagnostic("LC1011", el.span, MISMATCH(elementType, t.type)));
+      else if (!this.fits(t, elementType))
+        this.report(diagnostic("LUCENT1011", el.span, MISMATCH(elementType, t.type)));
       this.rejectBorrow(t, el.span, "be stored in an array");
       elements.push(t);
     }
@@ -1113,7 +1130,7 @@ class FunctionChecker {
     if (!struct) {
       this.report(
         diagnostic(
-          "LC1014",
+          "LUCENT1014",
           e.span,
           "An object literal needs a struct type from its context.",
           "Annotate the variable: `const u: User = { … }`.",
@@ -1125,7 +1142,7 @@ class FunctionChecker {
     const tag = union ? e.properties.find((p) => p.name === union.tag)?.value : undefined;
     const variant = union?.variants.find((v) => tag?.kind === "string" && v.tag === tag.value);
     if (union && !variant) {
-      this.report(diagnostic("LC1011", e.span, "Union construction needs a known literal tag."));
+      this.report(diagnostic("LUCENT1011", e.span, "Union construction needs a known literal tag."));
       return this.poison(e.span, context);
     }
     const expectedFields = variant ? [{ name: union!.tag, type: T.string }, ...variant.fields] : struct.fields;
@@ -1134,7 +1151,7 @@ class FunctionChecker {
     for (const prop of e.properties) {
       const field = expectedFields.find((f) => f.name === prop.name);
       if (!field) {
-        this.report(diagnostic("LC1011", prop.span, `\`${struct.name}\` has no field \`${prop.name}\`.`));
+        this.report(diagnostic("LUCENT1011", prop.span, `\`${struct.name}\` has no field \`${prop.name}\`.`));
         continue;
       }
       seen.add(prop.name);
@@ -1145,7 +1162,7 @@ class FunctionChecker {
     }
     for (const field of expectedFields) {
       if (!seen.has(field.name))
-        this.report(diagnostic("LC1011", e.span, `Missing field \`${field.name}\` of \`${struct.name}\`.`));
+        this.report(diagnostic("LUCENT1011", e.span, `Missing field \`${field.name}\` of \`${struct.name}\`.`));
     }
     if (union)
       for (const field of struct.fields) {
@@ -1163,9 +1180,9 @@ class FunctionChecker {
     const binding = this.lookup(name);
     if (binding?.state) return { kind: "stateRead", name, type: binding.type, span };
     if (binding && this.closed.has(name))
-      this.report(diagnostic("LC1018", span, `Cannot use \`${name}\` after it was closed.`));
+      this.report(diagnostic("LUCENT1018", span, `Cannot use \`${name}\` after it was closed.`));
     if (binding && this.suspended && binding.borrowed)
-      this.report(diagnostic("LC1018", span, "A borrowed value cannot be used after suspension."));
+      this.report(diagnostic("LUCENT1018", span, "A borrowed value cannot be used after suspension."));
     if (binding && this.captures.some((scope) => scope.get(name) === binding)) {
       const reference = binding.type.kind === "struct" ? this.mod.structs.get(binding.type.name)?.reference : undefined;
       const value =
@@ -1179,7 +1196,7 @@ class FunctionChecker {
       if (!borrowed && (binding.mutable || binding.borrowed || (!value && !retained)))
         this.report(
           diagnostic(
-            "LC1005",
+            "LUCENT1005",
             span,
             "Native closures may only capture immutable scalar locals; resource and mutable captures require explicit ownership.",
           ),
@@ -1189,7 +1206,7 @@ class FunctionChecker {
     const signature = this.mod.signatures.get(name);
     if (!binding && signature) {
       if (signature.async) {
-        this.report(diagnostic("LC1005", span, "Native callbacks must be synchronous."));
+        this.report(diagnostic("LUCENT1005", span, "Native callbacks must be synchronous."));
         return this.poison(span);
       }
       return {
@@ -1203,7 +1220,7 @@ class FunctionChecker {
       };
     }
     if (!binding) {
-      this.report(diagnostic("LC1010", span, `Unknown identifier \`${name}\`.`));
+      this.report(diagnostic("LUCENT1010", span, `Unknown identifier \`${name}\`.`));
       return this.poison(span);
     }
     if (binding.poisoned) return this.poison(span, binding.type);
@@ -1257,7 +1274,7 @@ class FunctionChecker {
       if (!nullCheck && !isPrimitive(base) && base.kind !== "enum") {
         this.report(
           diagnostic(
-            "LC1011",
+            "LUCENT1011",
             span,
             `\`${op}\` is only supported on strings, numbers, booleans and their optionals, not \`${typeToString(left.type)}\`.`,
             "Compare a field instead.",
@@ -1288,13 +1305,13 @@ class FunctionChecker {
     if (e.kind === "identifier") {
       const binding = this.lookup(e.name);
       if (!binding) {
-        this.report(diagnostic("LC1010", e.span, `Unknown identifier \`${e.name}\`.`));
+        this.report(diagnostic("LUCENT1010", e.span, `Unknown identifier \`${e.name}\`.`));
         return this.poison(e.span);
       }
       if (!binding.mutable)
         this.report(
           diagnostic(
-            "LC1016",
+            "LUCENT1016",
             e.span,
             `Cannot assign to \`${e.name}\` because it is a constant.`,
             "Declare it with `let`.",
@@ -1307,11 +1324,11 @@ class FunctionChecker {
     if (e.kind === "member") {
       const object = this.expr(e.object);
       if (object.type.kind === "struct" && this.mod.structs.get(object.type.name)?.union) {
-        this.report(diagnostic("LC1001", e.span, "Union values are immutable; replace the whole value."));
+        this.report(diagnostic("LUCENT1001", e.span, "Union values are immutable; replace the whole value."));
         return this.poison(e.span);
       }
       if (object.type.kind === "struct" && this.mod.structs.get(object.type.name)?.reference?.native) {
-        this.report(diagnostic("LC1011", e.span, "Native properties require simple assignment through a setter."));
+        this.report(diagnostic("LUCENT1011", e.span, "Native properties require simple assignment through a setter."));
         return this.poison(e.span);
       }
       return this.member(e);
@@ -1319,10 +1336,10 @@ class FunctionChecker {
     if (e.kind === "index") {
       const indexed = this.index(e);
       if (indexed.kind === "index" && indexed.object.type.kind === "map")
-        this.report(diagnostic("LC1001", e.span, "Assigning into a map is not supported yet."));
+        this.report(diagnostic("LUCENT1001", e.span, "Assigning into a map is not supported yet."));
       return indexed;
     }
-    this.report(diagnostic("LC1001", e.span, "Unsupported assignment target."));
+    this.report(diagnostic("LUCENT1001", e.span, "Unsupported assignment target."));
     return this.poison(e.span);
   }
 
@@ -1332,7 +1349,7 @@ class FunctionChecker {
       if (object.type.kind === "struct" && this.mod.structs.get(object.type.name)?.reference?.native) {
         const callee = `${object.type.name}__set_${e.target.property}`;
         if (!this.mod.signatures.has(callee) || e.operator !== "=") {
-          this.report(diagnostic("LC1011", e.span, "Native properties require a setter and simple assignment."));
+          this.report(diagnostic("LUCENT1011", e.span, "Native properties require a setter and simple assignment."));
           return this.poison(e.span);
         }
         return this.call({ kind: "call", callee, args: [e.target.object, e.value], span: e.span });
@@ -1365,13 +1382,13 @@ class FunctionChecker {
       return;
     }
     if (existing.kind !== kind)
-      this.report(diagnostic("LC1005", span, `Capture \`${name}\` cannot be both ${existing.kind} and ${kind}.`));
+      this.report(diagnostic("LUCENT1005", span, `Capture \`${name}\` cannot be both ${existing.kind} and ${kind}.`));
   }
 
   private weakCapture(e: Extract<Expr, { kind: "call" }>): TExpr {
     const arg = e.args[0];
     if (e.args.length !== 1 || arg?.kind !== "identifier") {
-      this.report(diagnostic("LC1005", e.span, "`weak()` captures exactly one local."));
+      this.report(diagnostic("LUCENT1005", e.span, "`weak()` captures exactly one local."));
       return this.poison(e.span);
     }
     const binding = this.lookup(arg.name);
@@ -1384,7 +1401,7 @@ class FunctionChecker {
       this.captures.some((scope) => scope.get(arg.name) === binding);
     if (!owned || !binding) {
       this.report(
-        diagnostic("LC1005", e.span, "`weak()` requires an immutable owned reference from an enclosing scope."),
+        diagnostic("LUCENT1005", e.span, "`weak()` requires an immutable owned reference from an enclosing scope."),
       );
       return this.poison(e.span);
     }
@@ -1395,14 +1412,14 @@ class FunctionChecker {
   private call(e: Extract<Expr, { kind: "call" }>): TExpr {
     if (e.callee === "weak") return this.weakCapture(e);
     if (e.callee === "state") {
-      this.report(diagnostic("LC1001", e.span, "`state()` is a view declaration: `const name = state(literal)`."));
+      this.report(diagnostic("LUCENT1001", e.span, "`state()` is a view declaration: `const name = state(literal)`."));
       return this.poison(e.span);
     }
     const local = this.lookup(e.callee);
     if (local?.type.kind === "callback") {
       const signature = local.type;
       if (e.args.length !== signature.params.length)
-        this.report(diagnostic("LC1012", e.span, "Incorrect native callback argument count."));
+        this.report(diagnostic("LUCENT1012", e.span, "Incorrect native callback argument count."));
       const args = e.args.map((arg, i) => {
         const expected = signature.params[i];
         const value = this.expr(arg, expected);
@@ -1458,7 +1475,7 @@ class FunctionChecker {
       if (!matches.length || matches[1]?.score === matches[0]?.score) {
         this.report(
           diagnostic(
-            "LC1012",
+            "LUCENT1012",
             e.span,
             `${matches.length ? "Ambiguous" : "No matching"} overload for ${e.callee}.`,
             candidates
@@ -1477,7 +1494,7 @@ class FunctionChecker {
     if (!signature) {
       this.report(
         diagnostic(
-          "LC1010",
+          "LUCENT1010",
           e.span,
           `Unknown function \`${e.callee}\`.`,
           "Only functions declared in this module can be called.",
@@ -1488,7 +1505,7 @@ class FunctionChecker {
     if (e.args.length !== signature.params.length) {
       this.report(
         diagnostic(
-          "LC1012",
+          "LUCENT1012",
           e.span,
           `\`${e.callee}\` takes ${signature.params.length} argument${signature.params.length === 1 ? "" : "s"}, got ${e.args.length}.`,
         ),
@@ -1511,7 +1528,7 @@ class FunctionChecker {
     });
     this.enforceExecutor(signature, e.span, args[0]);
     if (signature.async && signature.binding?.contract?.result === "borrowed")
-      this.report(diagnostic("LC1018", e.span, "A borrowed value cannot survive suspension."));
+      this.report(diagnostic("LUCENT1018", e.span, "A borrowed value cannot survive suspension."));
     const type = signature.async ? T.promise(signature.returnType) : signature.returnType;
     return {
       kind: "call",
@@ -1541,14 +1558,14 @@ class FunctionChecker {
     if (t.kind === "struct") {
       const field = this.mod.structs.get(t.name)?.fields.find((f) => f.name === e.property);
       if (!field) {
-        this.report(diagnostic("LC1010", span, `\`${t.name}\` has no field \`${e.property}\`.`));
+        this.report(diagnostic("LUCENT1010", span, `\`${t.name}\` has no field \`${e.property}\`.`));
         return this.poison(span);
       }
       if (
         this.mod.structs.get(t.name)?.reference?.privateFields?.includes(e.property) &&
         this.fn.classOp?.className !== t.name
       ) {
-        this.report(diagnostic("LC1011", span, `Field ${e.property} is private to ${t.name}.`));
+        this.report(diagnostic("LUCENT1011", span, `Field ${e.property} is private to ${t.name}.`));
         return this.poison(span);
       }
       if (this.mod.structs.get(t.name)?.reference?.native) {
@@ -1560,7 +1577,7 @@ class FunctionChecker {
           union.variants.length === 1 ? union.variants[0] : union.variants.find((v) => v.tag === t.variant);
         const payload = variant?.fields.find((f) => f.name === e.property);
         if (!payload) {
-          this.report(diagnostic("LC1011", span, "Narrow the union discriminant before reading this field."));
+          this.report(diagnostic("LUCENT1011", span, "Narrow the union discriminant before reading this field."));
           return this.poison(span);
         }
         const member: TExpr = { kind: "member", object, property: e.property, type: field.type, span };
@@ -1571,7 +1588,7 @@ class FunctionChecker {
       return { kind: "member", object, property: e.property, type: field.type, span };
     }
     this.report(
-      diagnostic("LC1011", span, `Cannot read \`${e.property}\` of \`${typeToString(t)}\`.`, narrowingHint(t)),
+      diagnostic("LUCENT1011", span, `Cannot read \`${e.property}\` of \`${typeToString(t)}\`.`, narrowingHint(t)),
     );
     return this.poison(span);
   }
@@ -1584,7 +1601,7 @@ class FunctionChecker {
     if (t.kind === "struct") {
       this.report(
         diagnostic(
-          "LC1002",
+          "LUCENT1002",
           span,
           `Dynamic property access on \`${t.name}\` is not supported.`,
           "Struct fields are laid out at compile time; use `value.field`.",
@@ -1602,7 +1619,7 @@ class FunctionChecker {
       if (!index.poisoned && index.type.kind !== "string") return this.mismatch(e.index.span, T.string, index.type);
       return { kind: "index", object, index, type: T.optional(t.value), span };
     }
-    this.report(diagnostic("LC1011", span, `Cannot index into \`${typeToString(t)}\`.`, narrowingHint(t)));
+    this.report(diagnostic("LUCENT1011", span, `Cannot index into \`${typeToString(t)}\`.`, narrowingHint(t)));
     return this.poison(span);
   }
 
@@ -1611,23 +1628,23 @@ class FunctionChecker {
     const keyProps = e.properties.filter((p) => p.name === "key");
     const each = eachProps[0];
     if (eachProps.length !== 1 || keyProps.length > 1 || e.properties.length !== eachProps.length + keyProps.length) {
-      this.report(diagnostic("LC1011", e.span, "`For` takes an `each` array and an optional `key`."));
+      this.report(diagnostic("LUCENT1011", e.span, "`For` takes an `each` array and an optional `key`."));
       return this.poison(e.span, T.view);
     }
     if (!each) return this.poison(e.span, T.view);
     const data = this.expr(each.value);
     if (data.type.kind !== "array") {
-      this.report(diagnostic("LC1011", each.span, "`For` iterates an array."));
+      this.report(diagnostic("LUCENT1011", each.span, "`For` iterates an array."));
       return this.poison(e.span, T.view);
     }
     const row = e.children[0];
     if (e.children.length !== 1 || row?.kind !== "closure" || row.params.length !== 1) {
-      this.report(diagnostic("LC1011", e.span, "`For` expects one row closure with the element parameter."));
+      this.report(diagnostic("LUCENT1011", e.span, "`For` expects one row closure with the element parameter."));
       return this.poison(e.span, T.view);
     }
     const child = this.expr(row, T.callback([data.type.element], T.view));
     if (child.kind !== "closure" || child.type.kind !== "callback" || child.type.result.kind !== "view") {
-      this.report(diagnostic("LC1011", row.span, "A `For` row must return a native view."));
+      this.report(diagnostic("LUCENT1011", row.span, "A `For` row must return a native view."));
       return this.poison(e.span, T.view);
     }
     const keyProp = keyProps[0];
@@ -1638,7 +1655,7 @@ class FunctionChecker {
       if (key.kind !== "closure" || !typeEquals(key.type, expected)) {
         this.report(
           diagnostic(
-            "LC1011",
+            "LUCENT1011",
             keyProp.span,
             "`For` keys are a closure from the row value to a string.",
             "Write `key={(item: T) => item}`; use a template literal for a numeric identity.",
@@ -1663,7 +1680,7 @@ class FunctionChecker {
       const binding = this.lookup(e.object.name);
       if (binding?.state) {
         if (e.method !== "set" || e.args.length !== 1) {
-          this.report(diagnostic("LC1012", e.span, "`set` takes the next state value."));
+          this.report(diagnostic("LUCENT1012", e.span, "`set` takes the next state value."));
           return this.poison(e.span, T.void);
         }
         const arg = e.args[0]!;
@@ -1693,11 +1710,11 @@ class FunctionChecker {
         this.rejectBorrow(typed, arg.span, "be stored in an array");
         return this.fits(typed, element) ? typed : this.mismatch(arg.span, element, typed.type);
       });
-      if (args.length !== 1) this.report(diagnostic("LC1012", span, "`push` takes exactly one argument."));
+      if (args.length !== 1) this.report(diagnostic("LUCENT1012", span, "`push` takes exactly one argument."));
       return { kind: "methodCall", object, method: "push", args, type: T.void, span };
     }
     this.report(
-      diagnostic("LC1001", span, `Method \`${e.method}\` is not supported on \`${typeToString(object.type)}\`.`),
+      diagnostic("LUCENT1001", span, `Method \`${e.method}\` is not supported on \`${typeToString(object.type)}\`.`),
     );
     return this.poison(span);
   }

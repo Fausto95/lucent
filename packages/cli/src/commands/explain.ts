@@ -9,7 +9,7 @@ interface Category {
   severity: "error" | "warning";
 }
 
-/** The third character of a code picks its family: LC1xxx language, LC2xxx platform, LC3xxx warnings. */
+/** The first numeric character selects language, platform, or warning diagnostics. */
 const CATEGORIES: Readonly<Record<string, Category>> = {
   "1": { label: "Language", severity: "error" },
   "2": { label: "Platform", severity: "error" },
@@ -20,7 +20,8 @@ const DIAGNOSTICS_DOCS = `${DOCS_URL}/language.md#diagnostics`;
 
 const isCode = (value: string): value is DiagnosticCode => value in DIAGNOSTIC_CODES;
 
-const categoryOf = (code: string): Category => CATEGORIES[code.charAt(2)] ?? { label: "Other", severity: "error" };
+const categoryOf = (code: string): Category =>
+  CATEGORIES[code.charAt("LUCENT".length)] ?? { label: "Other", severity: "error" };
 
 const entry = (code: DiagnosticCode): { code: string; title: string; category: string; severity: string } => ({
   code,
@@ -36,7 +37,7 @@ export const explainCommand = defineCommand({
   usage: "[code]",
   options: {},
   examples: [
-    { command: "lucent explain LC1004", note: "What the code means and where to read more" },
+    { command: "lucent explain LUCENT1004", note: "What the code means and where to read more" },
     { command: "lucent explain", note: "Every code Lucent can report" },
   ],
   async run(ctx, _values, [input]) {
@@ -52,7 +53,7 @@ export const explainCommand = defineCommand({
       for (const [key, category] of Object.entries(CATEGORIES)) {
         ui.line();
         ui.line(p.bold(category.label));
-        ui.rows(codes.filter((c) => c.charAt(2) === key).map((c) => [p.cyan(c), DIAGNOSTIC_CODES[c]]));
+        ui.rows(codes.filter((c) => c.charAt("LUCENT".length) === key).map((c) => [p.cyan(c), DIAGNOSTIC_CODES[c]]));
       }
       ui.line();
       ui.hint(DIAGNOSTICS_DOCS);

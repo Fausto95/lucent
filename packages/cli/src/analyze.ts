@@ -40,7 +40,7 @@ export function analyzeFile(root: string, file: string, config: LucentConfig): F
   const rendered = result.diagnostics.map((d) => renderDiagnostic(d, source, rel));
   for (const capability of missingCapabilities)
     rendered.push(
-      `error LC2001: Missing native capability\n\n${rel} needs the "${capability}" capability. Enable it in lucent.config.ts or lucent.config.json.`,
+      `error LUCENT2001: Missing native capability\n\n${rel} needs the "${capability}" capability. Enable it in lucent.config.ts or lucent.config.json.`,
     );
   return { file: rel, source, module: result.module, diagnostics: result.diagnostics, missingCapabilities, rendered };
 }
@@ -75,7 +75,7 @@ export function structuredDiagnostics(report: FileReport): StructuredDiagnostic[
     };
   });
   const capabilities = report.missingCapabilities.map((capability): StructuredDiagnostic => ({
-    code: "LC2001",
+    code: "LUCENT2001",
     severity: "error",
     message: `Missing capability "${capability}".`,
     line: 1,

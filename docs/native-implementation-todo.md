@@ -381,3 +381,14 @@ disposal of both wrappers, and success/error completion of the older call.
 The handle stays retained until all accepted calls settle and is released once.
 Full verification and package compilation pass. This is a JS transit-lifetime
 fix; host suspension, executor enforcement, and resource scopes remain open.
+
+### Explicit diagnostic namespace
+
+- [x] Replace abbreviated compiler diagnostic prefixes with `LUCENT` while
+      preserving numeric identities. Update CLI code lookup, category grouping,
+      coloring, structured output, fixtures, language docs, and website examples.
+- [x] Bump the compiler cache version so cached proxies cannot retain old codes.
+
+One public package with subpath exports, plus a separate CLI, is a packaging
+proposal only. Internal compiler/backend/host boundaries remain valuable; no
+public package consolidation is claimed here.

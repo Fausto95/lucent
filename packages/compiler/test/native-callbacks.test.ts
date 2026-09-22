@@ -22,7 +22,7 @@ test("rejects native callbacks at the JavaScript boundary", () => {
     fileName: "callbacks.lucent.ts",
   });
   expect(result.module).toBeNull();
-  expect(result.diagnostics.some((d) => d.code === "LC1005")).toBe(true);
+  expect(result.diagnostics.some((d) => d.code === "LUCENT1005")).toBe(true);
 });
 test("checks platform requirements inside referenced callbacks", () => {
   const input =
@@ -37,7 +37,7 @@ test("checks platform requirements inside referenced callbacks", () => {
     },
   });
   expect(result.module).toBeNull();
-  expect(result.diagnostics.some((d) => d.code === "LC2004")).toBe(true);
+  expect(result.diagnostics.some((d) => d.code === "LUCENT2004")).toBe(true);
 });
 test("retains capabilities reached through compiled callbacks", () => {
   const input =

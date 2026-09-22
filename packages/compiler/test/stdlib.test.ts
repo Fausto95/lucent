@@ -37,7 +37,7 @@ test("removed built-in libraries no longer resolve", () => {
     const r = compile(`import {anything} from "@lucent-lang/${library}"; export function f():number{return 1;}`, {
       fileName: "removed.lucent.ts",
     });
-    expect(r.diagnostics.map((d) => d.code)).toContain("LC1006");
+    expect(r.diagnostics.map((d) => d.code)).toContain("LUCENT1006");
   }
 });
 
@@ -48,6 +48,6 @@ test("warns when MainThread calls a CPU-intensive package binding", () => {
   );
   expect(r.module).not.toBeNull();
   expect(r.diagnostics).toEqual(
-    expect.arrayContaining([expect.objectContaining({ code: "LC3002", severity: "warning" })]),
+    expect.arrayContaining([expect.objectContaining({ code: "LUCENT3002", severity: "warning" })]),
   );
 });
