@@ -6,7 +6,7 @@ export const sdkCommand = defineCommand({
   glyph: "sdk",
   summary: "Extract native bindings from Swift metadata or javap",
   usage:
-    "swift <file.swiftinterface> --module <Module> --out <dir> | swift-symbolgraph <file.symbols.json> | android <javap.txt|-> --out <dir>",
+    "delegate <schema.json> --out <dir> | swift <file.swiftinterface> --module <Module> --out <dir> | swift-symbolgraph <file.symbols.json> | android <javap.txt|-> --out <dir>",
   options: {},
   raw: true,
   examples: [

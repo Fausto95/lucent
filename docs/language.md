@@ -907,3 +907,49 @@ a constructor. Owned delegate types may declare a native-only constructor that
 accepts retained `NativeCallback` values. Existing borrowing and capture checks
 still apply; this flag does not grant ownership or permit borrowed values to
 escape their lifetime.
+
+### Curated native delegates
+
+`lucent sdk delegate delegate.json --out sdk/decision` generates `library.json`,
+`index.d.ts`, and a copy of the input schema. Register the library through the
+normal `libraries` configuration. Native implementation files are carried in
+the manifest and emitted once by the hosts.
+
+```json
+{
+  "version": 1,
+  "name": "DecisionDelegate",
+  "swift": { "protocol": "SDK.DecisionListener", "imports": ["SDK"], "base": "NSObject" },
+  "kotlin": { "interface": "com.example.DecisionListener" },
+  "methods": [
+    {
+      "name": "allow",
+      "parameters": [{ "name": "value", "type": "number", "swiftLabel": "_" }],
+      "result": "boolean",
+      "errors": { "kind": "fallback", "value": false, "reason": "Deny the operation when the callback fails." }
+    }
+  ]
+}
+```
+
+Compiled Lucent can construct `new DecisionDelegate((value: number): boolean =>
+value > threshold)` and pass it to native SDK bindings. The generated class
+implements the declared protocol/interface and owns its compiled callbacks.
+Callbacks may retain owned native resources under the normal capture rules.
+Keep the delegate owned for the entire registration lifetime when the SDK stores
+it weakly. Automatic subscription ownership and quiescence are not supplied by
+this generator yet.
+
+Requirements support `number`, `int32`, `boolean`, and `string` parameters/results,
+and `void` results. Swift argument labels are explicit and default to `_`.
+Methods share their declared names across platforms. The only supported Swift
+base class is optional `NSObject`; general inheritance, optional requirements,
+SDK reference parameters and automatic protocol extraction remain unsupported.
+Actual native compilation checks the declared protocol conformance.
+
+Every requirement must specify its error policy. `fallback` requires a matching
+literal (null for void) and a nonempty reason. Kotlin catches `Exception`, not VM
+errors. `{ "kind": "propagate", "swiftThrows": true }` is available only for a
+throwing Swift requirement; an incompatible native declaration fails native
+compilation. Delegates execute synchronously on the SDK's calling executor and
+never hop to JavaScript or another executor to obtain a decision.

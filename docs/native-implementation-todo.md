@@ -235,11 +235,18 @@ adapters and full SDK cleanup quiescence remain incomplete.
       SDK-owned references need no fictitious constructor; callback-taking
       constructors remain compiled-only, and bridge exposure is rejected.
 - [ ] Import protocol/interface requirements and validate conformance.
-- [ ] Generate concrete Swift conformances and Kotlin implementations.
+- [x] Generate concrete Swift conformances and Kotlin implementations for
+      curated scalar delegate requirements via `lucent sdk delegate`. Compile
+      both generated implementations against real test protocol/interface
+      declarations and invoke callbacks authored in Lucent.
+- [ ] Extend delegate generation to SDK reference parameters, inherited/optional
+      requirements, availability and protocol extraction.
 - [ ] Model owned subscriptions with idempotent, reentrant-safe removal.
 - [ ] Retain delegates even where the SDK keeps only weak references.
 - [ ] Quiesce in-flight delivery and release captures on teardown.
-- [ ] Require explicit error and fallback policies for nonthrowing ABI callbacks.
+- [x] Require explicit typed fallback policies with reasons for nonthrowing
+      generated delegate callbacks. Throwing Swift requirements may explicitly
+      propagate; invalid/missing policies fail generation.
 - [ ] Run native listener/decision/delegate lifecycle acceptance tests.
 
 ## M5 — Lucent-owned state in `.lucent.tsx`
@@ -361,7 +368,8 @@ adapters and full SDK cleanup quiescence remain incomplete.
 
 ## Latest verification checkpoint
 
-- Unit suite: 620 passing tests across 76 files after native-only SDK resources,
+- Unit suite: 629 passing tests across 78 files after curated delegate generation,
+  native-only SDK resources,
   per-object bridge serialization,
   JavaScript method overload
   dispatch, nullable signature checks, native task scopes, async

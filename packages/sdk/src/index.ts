@@ -1,3 +1,4 @@
+export { generateDelegateLibrary, type DelegateSchema, type DelegateMethod } from "./delegates.ts";
 export { extractSwiftSymbolGraph } from "./symbolgraph.ts";
 import { createHash } from "node:crypto";
 import { nativeSymbolId } from "@lucent-lang/compiler";

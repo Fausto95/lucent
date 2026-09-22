@@ -6,6 +6,7 @@ import {
   extractSwiftSymbolGraph,
   extractJavaSignatures,
   generateBindingLibrary,
+  generateDelegateLibrary,
 } from "./index.ts";
 /** Explicit offline extraction; no SDK download or target application execution. */
 export function sdkCommand(args: string[]): void {
@@ -18,9 +19,20 @@ export function sdkCommand(args: string[]): void {
       throw new Error("SDK options require --module, --out, --classpath, or --class values");
     options[key] = value;
   }
+  if (platform === "delegate" && input) {
+    const schema = JSON.parse(readFileSync(input, "utf8"));
+    const output = generateDelegateLibrary(schema);
+    const dir = options["--out"] ?? "lucent-sdk";
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "schema.json"), JSON.stringify(schema, null, 2) + "\n");
+    writeFileSync(join(dir, "library.json"), JSON.stringify(output.library, null, 2) + "\n");
+    writeFileSync(join(dir, "index.d.ts"), output.declarations);
+    console.log(`Generated delegate ${schema.name} with ${schema.methods.length} curated requirements in ${dir}`);
+    return;
+  }
   if (!input || !["swift", "swift-symbolgraph", "android"].includes(platform ?? ""))
     throw new Error(
-      'Usage: lucent sdk swift <file.swiftinterface> --module <Module> --out <directory> OR lucent sdk swift-symbolgraph <file.symbols.json> --out <directory> OR lucent sdk android <javap.txt> --out <directory>; use input "-" with --classpath <android.jar> --class <qualified.Class> to run javap',
+      'Usage: lucent sdk delegate <schema.json> --out <directory> OR lucent sdk swift <file.swiftinterface> --module <Module> --out <directory> OR lucent sdk swift-symbolgraph <file.symbols.json> --out <directory> OR lucent sdk android <javap.txt> --out <directory>; use input "-" with --classpath <android.jar> --class <qualified.Class> to run javap',
     );
   let schema;
   if (platform === "swift") {

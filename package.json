@@ -18,7 +18,7 @@
     "build:packages": "vp pack",
     "website": "pnpm --filter @lucent-lang/website dev",
     "website:build": "pnpm --filter @lucent-lang/website build",
-    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && tsx scripts/verify-native.ts && tsx scripts/verify-runtime.ts && tsx scripts/verify-interop.ts && tsx scripts/verify-cancellation.ts && tsx scripts/verify-enums.ts && tsx scripts/verify-numeric-widening.ts && tsx scripts/verify-symbolgraph.ts && tsx scripts/verify-task-scopes.ts",
+    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && tsx scripts/verify-native.ts && tsx scripts/verify-runtime.ts && tsx scripts/verify-interop.ts && tsx scripts/verify-cancellation.ts && tsx scripts/verify-enums.ts && tsx scripts/verify-numeric-widening.ts && tsx scripts/verify-symbolgraph.ts && tsx scripts/verify-task-scopes.ts && tsx scripts/verify-delegates.ts",
     "lucent": "tsx packages/cli/src/main.ts",
     "tools": "pnpm --filter expo-example exec tsx ../../packages/cli/src/main.ts doctor"
   },
