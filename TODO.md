@@ -20,7 +20,7 @@ concrete work. Checked items are implemented and covered by tests.
 - [x] `jsi/host.h`: module objects, class prototypes, identity cache, JS callbacks, promise bridging
 - [x] `rn/LucentModule`: C++ TurboModule; iOS `+load` registration; Android autolinking header
 - [x] Unit tests (195 checks), clean under ASan/UBSan with libstdc++ (Linux) and libc++ (macOS); async e2e clean under TSan
-- [ ] `Promise.all` rejects as soon as any input rejects (currently waits in order)
+- [x] `Promise.all` rejects on the first rejection and fulfils one tick after the last input (e2e `async`)
 - [ ] Full Unicode case mapping and ICU-like `localeCompare`
 - [ ] Exact tie rounding for `toPrecision` / `toExponential`
 

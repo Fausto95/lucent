@@ -159,40 +159,75 @@ Promise<T> resolvedPromise(T v) {
   return Promise<T>::resolved(std::move(v));
 }
 
+namespace detail {
+/// Promise.all's bookkeeping: `out` rejects with the first input to reject,
+/// and fulfils with `finish(values)` in the reaction of the last input to
+/// fulfil. Every input is observed at once, as in JavaScript.
+template <class R, class Values, class Finish>
+struct AllState {
+  Promise<R> out;
+  Values values;
+  size_t remaining;
+  Finish finish;
+
+  template <class T>
+  void watch(const Promise<T>& p, std::optional<Stored<T>>& slot, const std::shared_ptr<AllState>& self) {
+    p.onSettled([p, &slot, self] {
+      if (!p.fulfilled()) {
+        self->out.reject(p.error());
+        return;
+      }
+      slot = p.value();
+      if (--self->remaining == 0) self->out.resolve(self->finish(self->values));
+    });
+  }
+};
+}  // namespace detail
+
 /// Promise.all over promises of one type.
 template <class T>
 Promise<Array<T>> promiseAll(Array<Promise<T>> promises) {
-  Array<T> out;
-  for (const auto& p : promises.items()) out.push(co_await p);
-  co_return out;
+  using Values = std::vector<std::optional<T>>;
+  auto finish = [](Values& vs) {
+    Array<T> r;
+    for (auto& v : vs) r.push(std::move(*v));
+    return r;
+  };
+  using State = detail::AllState<Array<T>, Values, decltype(finish)>;
+  auto st = std::make_shared<State>(State{{}, Values(promises.size()), promises.size(), finish});
+  if (st->remaining == 0) st->out.resolve(Array<T>{});
+  size_t i = 0;
+  for (const auto& p : promises.items()) st->watch(p, st->values[i++], st);
+  return st->out;
 }
 inline Promise<void> promiseAllVoid(Array<Promise<void>> promises) {
-  for (const auto& p : promises.items()) co_await p;
+  using Values = std::vector<std::optional<Undefined>>;
+  auto finish = [](Values&) { return undefined; };
+  using State = detail::AllState<void, Values, decltype(finish)>;
+  auto st = std::make_shared<State>(State{{}, Values(promises.size()), promises.size(), finish});
+  if (st->remaining == 0) st->out.resolve(undefined);
+  size_t i = 0;
+  for (const auto& p : promises.items()) st->watch(p, st->values[i++], st);
+  return st->out;
 }
-
-namespace detail {
-template <class T>
-Promise<Stored<T>> stored(Promise<T> p) {
-  if constexpr (std::is_void_v<T>) {
-    co_await p;
-    co_return undefined;
-  } else {
-    co_return co_await p;
-  }
-}
-}  // namespace detail
 
 /// Promise.all over a tuple of promises of different types.
 template <class... Ts>
 Promise<std::tuple<detail::Stored<Ts>...>> promiseAllTuple(std::tuple<Promise<Ts>...> ps) {
-  auto collect = [](std::tuple<Promise<Ts>...> ps) -> Promise<std::tuple<detail::Stored<Ts>...>> {
-    co_return co_await std::apply(
-        [](auto... p) -> Promise<std::tuple<detail::Stored<Ts>...>> {
-          co_return std::tuple<detail::Stored<Ts>...>{co_await detail::stored(p)...};
-        },
-        ps);
+  using Values = std::tuple<std::optional<detail::Stored<Ts>>...>;
+  auto finish = [](Values& vs) {
+    return std::apply([](auto&... v) { return std::tuple<detail::Stored<Ts>...>{std::move(*v)...}; }, vs);
   };
-  return collect(ps);
+  using State = detail::AllState<std::tuple<detail::Stored<Ts>...>, Values, decltype(finish)>;
+  auto st = std::make_shared<State>(State{{}, Values{}, sizeof...(Ts), finish});
+  if constexpr (sizeof...(Ts) == 0) {
+    st->out.resolve({});
+  } else {
+    [&]<size_t... I>(std::index_sequence<I...>) {
+      (st->watch(std::get<I>(ps), std::get<I>(st->values), st), ...);
+    }(std::index_sequence_for<Ts...>{});
+  }
+  return st->out;
 }
 
 /// `await delay(ms)` — resolves after `ms` milliseconds on the Lucent thread.
