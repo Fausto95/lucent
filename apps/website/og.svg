@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <title>Lucent — TypeScript in. Native out.</title>
+  <rect width="1200" height="630" fill="#111411"/>
+  <rect x="0" y="0" width="1200" height="630" fill="none" stroke="#30362b" stroke-width="2"/>
+  <g transform="translate(88 96) scale(1.35)">
+    <path d="M23 6H41L28 36L5 54L23 6Z" fill="#C4F778"/>
+    <path d="M28 36H59L47 54H5L28 36Z" fill="#A5D85C"/>
+    <path d="M23 6H30L15 43L5 54L23 6Z" fill="#E3FFB4"/>
+  </g>
+  <text x="186" y="152" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="46" font-weight="600" fill="#f0f2eb">lucent<tspan fill="#c4f778">.</tspan></text>
+  <text x="88" y="316" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="96" font-weight="600" letter-spacing="-4" fill="#f0f2eb">TypeScript in.</text>
+  <text x="88" y="420" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="96" font-weight="600" letter-spacing="-4" fill="#c4f778">Native out.</text>
+  <text x="88" y="500" font-family="Menlo, Courier New, monospace" font-size="24" fill="#a0a79a">*.lucent.ts  →  Swift + Kotlin  →  Expo Modules / Nitro</text>
+  <text x="88" y="562" font-family="Menlo, Courier New, monospace" font-size="20" letter-spacing="2" fill="#93a781">AHEAD-OF-TIME · NO JS ON THE NATIVE SIDE · MIT</text>
+</svg>
