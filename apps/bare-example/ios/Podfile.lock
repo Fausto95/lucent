@@ -2119,7 +2119,7 @@ SPEC CHECKSUMS:
   fmt: c7776a2a4b1d7ce88b809a1e4d1f7add0f2369df
   glog: b4427c3119645da795ff09985ba9da909c940c96
   hermes-engine: 52cd997cb231e896d50708f7f94a2b1372e4f471
-  LucentNative: 3bd4119658ef0dd1b1a82d5d80d13c69e79d2008
+  LucentNative: 03e8c8ecbf19adedd72a8721771d853b81cd31e9
   RCT-Folly: d173e541eeb78cad5c81011c1bbf62d5b86b9778
   RCTDeprecation: 59814e2ab320b73a838e1e4db88c2bbd4f5de965
   RCTRequired: 97a55e78a27de7811de7aa887ab016df568f6f05

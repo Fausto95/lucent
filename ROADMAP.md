@@ -26,13 +26,13 @@ emulator, from both a bare React Native app and an Expo app.
 | Runtime | ECMAScript number semantics (ToInt32, `%`, shortest round-trip `toString`, `toFixed`, `parseInt`…) | ✅ |
 | Runtime | `Array<T>`, `Map`, `Set`, `Dict` (Record) with JS aliasing and insertion order | ✅ |
 | Runtime | Errors: `Error`/`TypeError`/`RangeError`, `code`, JS ↔ C++ propagation | ✅ |
-| Host | Pure C++ TurboModule `Lucent`, autolinked on iOS (global C++ module map) and Android (`cxxModule*` autolinking) | ✅ (device verification pending) |
+| Host | Pure C++ TurboModule `Lucent`, autolinked on iOS (global C++ module map) and Android (`cxxModule*` autolinking) | ✅ |
 | Host | JSI conversions with argument validation (`hash: argument 'input' must be a string`) | ✅ |
 | Compiler | TypeScript checker front end → typed lowering, subset diagnostics | ✅ |
 | Compiler | C++ emitter with `#line` mapping to the `.ts` source | ✅ |
 | Tooling | `lucent build` CLI, Metro transformer for `*.lucent.ts`, Expo config plugin | ✅ |
 | Tests | Hermes-on-Linux harness: every module runs through real JSI and is diffed against the same `.ts` run as plain JS | ✅ |
-| Apps | `apps/bare-example` and `apps/expo-example` with an on-device pass/fail screen | ✅ (device verification pending) |
+| Apps | `apps/bare-example` and `apps/expo-example` with an on-device pass/fail screen | ✅ (all green on iOS simulator and Android emulator) |
 
 Exit criteria: the example apps' test screen is all green on an iOS simulator
 and an Android emulator.

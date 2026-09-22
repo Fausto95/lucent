@@ -19,7 +19,7 @@ concrete work. Checked items are implemented and covered by tests.
 - [x] `jsi/convert.h`: JS ↔ C++ conversions with validation and error paths
 - [x] `jsi/host.h`: module objects, class prototypes, identity cache, JS callbacks, promise bridging
 - [x] `rn/LucentModule`: C++ TurboModule; iOS `+load` registration; Android autolinking header
-- [x] Unit tests (194 checks), clean under ASan/UBSan; async e2e clean under TSan
+- [x] Unit tests (195 checks), clean under ASan/UBSan with libstdc++ (Linux) and libc++ (macOS); async e2e clean under TSan
 - [ ] `Promise.all` rejects as soon as any input rejects (currently waits in order)
 - [ ] Full Unicode case mapping and ICU-like `localeCompare`
 - [ ] Exact tie rounding for `toPrecision` / `toExponential`
@@ -69,8 +69,8 @@ concrete work. Checked items are implemented and covered by tests.
 
 - [x] `apps/bare-example`: RN 0.88, on-device test screen
 - [x] `apps/expo-example`: Expo SDK 58, same screen
-- [ ] Manual verification on iOS simulator (owner)
-- [ ] Manual verification on Android emulator (owner)
+- [x] iOS simulator (iPhone 18 Pro, iOS 27, Xcode 27): bare and Expo apps ALL PASSED, reload ×3 without crash
+- [x] Android emulator (Pixel 3a, API 34, arm64): bare and Expo apps ALL PASSED, reload ×3 without crash
 
 ## Docs
 
