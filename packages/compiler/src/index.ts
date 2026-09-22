@@ -7,13 +7,18 @@ import type { LibraryModule } from "./libraries.ts";
 import { checkModule } from "./checker/index.ts";
 import type { Diagnostic } from "./diagnostics/index.ts";
 import type { IRModule } from "./ir/types.ts";
+import { validateHIR } from "./ir/validate.ts";
 import { lowerModule } from "./lowering/index.ts";
 import { linkModule } from "./linker.ts";
+import { optimizeModule } from "./optimize/index.ts";
 
 export type { Diagnostic, DiagnosticCode, Span } from "./diagnostics/index.ts";
 export { DIAGNOSTIC_CODES, renderDiagnostic } from "./diagnostics/index.ts";
 export type * from "./ir/types.ts";
 export { printIR } from "./ir/print.ts";
+export { validateHIR } from "./ir/validate.ts";
+export { optimizeModule } from "./optimize/index.ts";
+export type { OptimizeOptions, OptimizeResult } from "./optimize/index.ts";
 export { sidecarSymbol } from "./linker.ts";
 export type { NativeType } from "./types/native-type.ts";
 export { typeToString, typeEquals, isNumeric, T } from "./types/native-type.ts";
@@ -31,11 +36,29 @@ export interface CompileOptions {
   /** Dependency source texts, resolved by the caller; the compiler never reads files. */
   sources?: Readonly<Record<string, string>>;
   libraries?: Readonly<Record<string, LibraryModule>>;
+  /** Run optional HIR optimization passes. Default false so fixture goldens stay stable. */
+  optimize?: boolean;
+  /**
+   * Emit a Lucent→HIR name/span map (P35 partial). Maps remaining IR function
+   * names to Lucent source spans from the typed AST.
+   */
+  sourceMap?: boolean;
+}
+
+/** P35 stub: IR function names → Lucent byte spans (not full native source maps). */
+export interface LucentSourceMap {
+  version: 1;
+  fileName: string;
+  functions: { name: string; start: number; end: number; fileName?: string }[];
 }
 
 export interface CompileResult {
   module: IRModule | null;
   diagnostics: Diagnostic[];
+  /** Messages from optimization passes when `optimize` was requested. */
+  optimizeLog?: string[];
+  /** Present when `sourceMap: true` and compilation produced a module. */
+  sourceMap?: LucentSourceMap;
 }
 
 /** Source text in, IR and diagnostics out. Stops after the first phase that reports an error. */
@@ -52,12 +75,47 @@ export function compile(source: string, options: CompileOptions): CompileResult 
   const platformDiagnostics = platformSafety(checked.module.functions, options.targets);
   if (platformDiagnostics.length) return { module: null, diagnostics: platformDiagnostics };
   const lowered = lowerModule(checked.module);
-  if (lowered.module && options.targets) lowered.module.targets = { ...options.targets };
-  return { module: lowered.module, diagnostics: [...lowered.diagnostics, ...threadSafety(checked.module.functions)] };
+  if (!lowered.module) return { module: null, diagnostics: lowered.diagnostics };
+  const hirDiagnostics = validateHIR(lowered.module);
+  if (hirDiagnostics.length) return { module: null, diagnostics: [...lowered.diagnostics, ...hirDiagnostics] };
+  if (options.targets) lowered.module.targets = { ...options.targets };
+  const optimized = optimizeModule(lowered.module, { enabled: options.optimize === true });
+  const sourceMap =
+    options.sourceMap === true
+      ? buildSourceMap(options.fileName, checked.module.functions, optimized.module)
+      : undefined;
+  return {
+    module: optimized.module,
+    diagnostics: [...lowered.diagnostics, ...threadSafety(checked.module.functions)],
+    ...(optimized.log.length ? { optimizeLog: optimized.log } : {}),
+    ...(sourceMap ? { sourceMap } : {}),
+  };
+}
+
+function buildSourceMap(
+  fileName: string,
+  typedFunctions: readonly { name: string; span: { start: number; end: number; origin?: { fileName: string } } }[],
+  module: IRModule,
+): LucentSourceMap {
+  const spans = new Map(typedFunctions.map((fn) => [fn.name, fn.span]));
+  return {
+    version: 1,
+    fileName,
+    functions: module.functions.map((fn) => {
+      const span = spans.get(fn.name);
+      return {
+        name: fn.name,
+        start: span?.start ?? 0,
+        end: span?.end ?? 0,
+        ...(span?.origin?.fileName ? { fileName: span.origin.fileName } : {}),
+      };
+    }),
+  };
 }
 
 export { moduleCandidates } from "./linker.ts";
-export { lucentImports } from "./parser/index.ts";
+export { lucentImports, parseModule } from "./parser/index.ts";
+export type { Expr, Stmt, SurfaceModule, SurfaceImport, SurfaceFunction } from "./parser/surface.ts";
 
 export type {
   NativePackage,

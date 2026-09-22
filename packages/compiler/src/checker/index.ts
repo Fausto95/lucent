@@ -1,6 +1,7 @@
 import type { NativeExecutor } from "../native-contracts.ts";
 import { canWidenNumeric } from "../types/numeric-widening.ts";
 import type { NativeBinding } from "../libraries.ts";
+import type { IRCallSemantics, IROwnership } from "../ir/types.ts";
 import { checkBoundaries } from "./boundaries.ts";
 import { UI_PRIMITIVES } from "../ui.ts";
 import { diagnostic, type Diagnostic, type Span } from "../diagnostics/index.ts";
@@ -32,14 +33,50 @@ interface Signature {
   async: boolean;
 }
 
+/** Build resolved HIR call semantics from a checked signature. */
+export function callSemantics(signature: Signature, argumentCount: number): IRCallSemantics {
+  const contract = signature.binding?.contract;
+  const argumentOwnership: IROwnership[] = [];
+  for (let i = 0; i < argumentCount; i++) {
+    const param = signature.params[i];
+    const declared = contract?.parameters?.[param?.name ?? ""]?.ownership;
+    if (declared === "borrowed" || declared === "retained" || declared === "value") {
+      argumentOwnership.push(declared);
+      continue;
+    }
+    argumentOwnership.push("value");
+  }
+  const result = contract?.result;
+  const resultOwnership: IROwnership =
+    result === "owned" || result === "borrowed" || result === "external" || result === "value" ? result : "value";
+  const executor = contract?.executor;
+  return {
+    ...(contract?.symbolId ? { symbolId: contract.symbolId } : {}),
+    argumentOwnership,
+    resultOwnership,
+    effects: {
+      async: signature.async,
+      throws: Boolean(signature.binding),
+      native: Boolean(signature.binding),
+      ...(executor ? { executor } : {}),
+    },
+    suspension: signature.async,
+    cancellation: contract?.cancellation ?? "none",
+  };
+}
+
 interface Binding {
   type: NativeType;
   mutable: boolean;
   /** The declaration already failed to type; uses of it must not cascade. */
   poisoned: boolean;
   borrowed?: boolean;
+  /** Where the borrow was introduced (parameter or borrowed call result), when known. */
+  borrowOrigin?: Span;
   /** View-owned scalar cell. Reads are live; writes go through `set`. */
   state?: true;
+  /** View-owned closeable resource cell. */
+  resource?: true;
 }
 
 const MISMATCH = (expected: NativeType, actual: NativeType) =>
@@ -148,6 +185,7 @@ class ModuleChecker {
         span: fn.span,
       });
     }
+    this.checkProtocolImplements(functions);
     this.diagnostics.push(...checkBoundaries(this.module, this.structs, functions));
     const name = this.module.fileName
       .replace(/^.*[\\/]/, "")
@@ -163,6 +201,67 @@ class ModuleChecker {
       functions,
     };
     return { module: this.diagnostics.length ? null : typed, diagnostics: this.diagnostics };
+  }
+
+  /** Validate `class X implements Y` against library protocol metadata. */
+  private checkProtocolImplements(functions: TypedFunction[]): void {
+    for (const alias of this.module.typeAliases) {
+      const claimed = alias.reference?.implements;
+      if (!claimed?.length) continue;
+      const className = alias.name;
+      const methods = functions.filter((f) => f.classOp?.className === className && f.classOp.kind === "method");
+      const provided = new Map(methods.map((f) => [f.classOp!.member, f]));
+      for (const protocolName of claimed) {
+        const protocolStruct =
+          this.structs.get(protocolName) ??
+          [...this.structs.values()].find((s) => s.reference?.publicName === protocolName);
+        const protocol = protocolStruct?.reference?.native?.protocol;
+        if (!protocol) {
+          this.report(
+            diagnostic(
+              "LUCENT1011",
+              alias.span,
+              `\`${className}\` implements unknown protocol \`${protocolName}\`.`,
+              "Import a library reference that declares `protocol` metadata for this name.",
+            ),
+          );
+          continue;
+        }
+        for (const required of protocol.methods) {
+          const impl = provided.get(required.name);
+          if (!impl) continue;
+          const expectedParams = required.parameters.map((p) => p.type);
+          const actualParams = impl.params.slice(1).map((p) => typeToString(p.type));
+          const actualResult = typeToString(impl.returnType);
+          const paramsMatch =
+            expectedParams.length === actualParams.length &&
+            expectedParams.every((t, i) => protocolTypeMatches(t, actualParams[i]!));
+          const resultMatch = protocolTypeMatches(required.result, actualResult);
+          if (!paramsMatch || !resultMatch) {
+            this.report(
+              diagnostic(
+                "LUCENT1011",
+                impl.span,
+                `\`${className}.${required.name}\` does not match protocol \`${protocolName}\`.`,
+                `Expected ${formatProtocolMethod(required)}; got ${required.name}(${actualParams.join(", ")}): ${actualResult}.`,
+              ),
+            );
+          }
+        }
+        const absent = protocol.methods.filter((r) => !provided.has(r.name));
+        if (absent.length) {
+          const candidates = protocol.methods.map(formatProtocolMethod).join("; ");
+          this.report(
+            diagnostic(
+              "LUCENT1011",
+              alias.span,
+              `\`${className}\` does not implement \`${protocolName}\`: missing ${absent.map((m) => m.name).join(", ")}.`,
+              `Candidates: ${candidates}.`,
+            ),
+          );
+        }
+      }
+    }
   }
 
   private collectStructs(): void {
@@ -401,7 +500,18 @@ class FunctionChecker {
   private readonly narrowings: Map<string, NativeType>[] = [];
   private loopDepth = 0;
   private suspended = false;
+  private suspensionSpan: Span | undefined;
   private closed = new Set<string>();
+  /** Locals whose ownership was transferred by `move()`. */
+  private moved = new Set<string>();
+  /** Idempotent `close()` may re-enter an already-closed identifier. */
+  private allowClosedClose = false;
+  /** Effect bodies may `return () => { … }` as sync cleanup. */
+  private allowEffectCleanupReturn = false;
+  /** True while typing an async `effect()` body or cleanup (allows `await`). */
+  private asyncEffectContext = false;
+  /** `ResourceScope` local → resources registered via `own`. */
+  private readonly scopeOwned = new Map<string, Set<string>>();
   private readonly captures: Map<string, Binding>[] = [];
   private readonly recordedCaptures: { name: string; kind: "value" | "retained" | "borrowed" | "weak" }[][] = [];
   /** True unless the closure being typed is a direct `retention: "call"` argument. */
@@ -425,14 +535,12 @@ class FunctionChecker {
 
   check(): TStmt[] {
     this.push();
-    for (const p of this.signature.params)
-      this.declare(
-        p.name,
-        p.type,
-        true,
-        false,
-        this.fn.binding?.contract?.parameters?.[p.name]?.ownership === "borrowed" || this.scopedReference(p.type),
-      );
+    for (let i = 0; i < this.signature.params.length; i++) {
+      const p = this.signature.params[i]!;
+      const borrowed =
+        this.fn.binding?.contract?.parameters?.[p.name]?.ownership === "borrowed" || this.scopedReference(p.type);
+      this.declare(p.name, p.type, true, false, borrowed, borrowed ? this.fn.params[i]?.span : undefined);
+    }
     const body = this.fn.body.map((s) => this.stmt(s));
     this.pop();
     if (this.signature.returnType.kind !== "void" && !alwaysExits(body)) {
@@ -477,6 +585,8 @@ class FunctionChecker {
           );
           return;
         }
+        // Resource/state inits and effect slots are declarations, not render work.
+        if (item.kind === "resourceInit" || item.kind === "stateInit" || item.kind === "effect") return;
         for (const [key, value] of Object.entries(item)) if (key !== "type" && key !== "span") visit(value);
       };
       visit(body);
@@ -496,8 +606,20 @@ class FunctionChecker {
     this.narrowings.pop();
   }
 
-  private declare(name: string, type: NativeType, mutable: boolean, poisoned = false, borrowed = false): void {
-    this.scopes[this.scopes.length - 1]!.set(name, { type, mutable, poisoned, ...(borrowed ? { borrowed } : {}) });
+  private declare(
+    name: string,
+    type: NativeType,
+    mutable: boolean,
+    poisoned = false,
+    borrowed = false,
+    borrowOrigin?: Span,
+  ): void {
+    this.scopes[this.scopes.length - 1]!.set(name, {
+      type,
+      mutable,
+      poisoned,
+      ...(borrowed ? { borrowed, ...(borrowOrigin ? { borrowOrigin } : {}) } : {}),
+    });
   }
 
   private scopedReference(type: NativeType): boolean {
@@ -506,20 +628,61 @@ class FunctionChecker {
     return native?.nativeOnly === true && native.contract?.ownership === "external";
   }
 
-  private rejectBorrow(value: TExpr, span: Span, reason: string): void {
-    if (value.borrowed) this.mod.report(diagnostic("LUCENT1018", span, `A borrowed value cannot ${reason}.`));
+  private borrowOriginOf(value: TExpr): Span | undefined {
+    if (value.borrowOrigin) return value.borrowOrigin;
+    if (value.kind === "identifier") return this.lookup(value.name)?.borrowOrigin;
+    if (value.kind === "unwrap" || value.kind === "widen") return this.borrowOriginOf(value.argument);
+    return undefined;
   }
 
-  /** Run a branch without leaking its close/suspension effects, then return those effects. */
-  private isolate(run: () => TStmt[]): { stmts: TStmt[]; closed: string[]; suspended: boolean } {
+  private borrowHelp(origin: Span | undefined, why: string): string {
+    const parts = [
+      origin
+        ? "The borrow originates at a parameter or borrowed call result earlier in this scope."
+        : "This value is borrowed for the current scope only.",
+      why,
+      "Process the borrow before `await`, or copy needed data into owned memory.",
+    ];
+    return parts.join(" ");
+  }
+
+  private rejectBorrow(value: TExpr, span: Span, reason: string): void {
+    if (!value.borrowed) return;
+    this.mod.report(
+      diagnostic(
+        "LUCENT1018",
+        span,
+        `A borrowed value cannot ${reason}.`,
+        this.borrowHelp(
+          this.borrowOriginOf(value),
+          `This use is unsafe because it would ${reason} and outlive the owner's guarantee.`,
+        ),
+      ),
+    );
+  }
+
+  /** Run a branch without leaking its close/move/suspension effects, then return those effects. */
+  private isolate(run: () => TStmt[]): {
+    stmts: TStmt[];
+    closed: string[];
+    moved: string[];
+    suspended: boolean;
+    suspensionSpan: Span | undefined;
+  } {
     const closedBefore = new Set(this.closed);
+    const movedBefore = new Set(this.moved);
     const suspendedBefore = this.suspended;
+    const suspensionBefore = this.suspensionSpan;
     const stmts = run();
     const closed = [...this.closed].filter((name) => !closedBefore.has(name));
+    const moved = [...this.moved].filter((name) => !movedBefore.has(name));
     const suspended = this.suspended;
+    const suspensionSpan = this.suspensionSpan;
     this.closed = closedBefore;
+    this.moved = movedBefore;
     this.suspended = suspendedBefore;
-    return { stmts, closed, suspended };
+    this.suspensionSpan = suspensionBefore;
+    return { stmts, closed, moved, suspended, suspensionSpan };
   }
 
   private enforceExecutor(signature: Signature, span: Span, receiver?: TExpr): void {
@@ -675,6 +838,7 @@ class FunctionChecker {
         return { kind: "throw", code: s.code, message, ...(metadata ? { metadata } : {}), span: s.span };
       }
       case "expression":
+        if (s.expression.kind === "call" && s.expression.callee === "effect") return this.effectStmt(s);
         return { kind: "expression", expression: this.expr(s.expression), span: s.span };
       case "block":
         return { kind: "block", body: this.block(s.body), span: s.span };
@@ -685,6 +849,7 @@ class FunctionChecker {
 
   private variable(s: Extract<Stmt, { kind: "variable" }>): TStmt {
     if (s.init?.kind === "call" && s.init.callee === "state") return this.stateVariable(s);
+    if (s.init?.kind === "call" && s.init.callee === "resource") return this.resourceVariable(s);
     let declared = s.type ? this.mod.resolveStorable(s.type, "a local variable") : null;
     let init: TExpr;
     let type: NativeType;
@@ -711,7 +876,14 @@ class FunctionChecker {
       if (!init.poisoned && init.type.kind === "promise")
         this.report(diagnostic("LUCENT1003", s.init.span, "A Promise cannot be stored; `await` it instead."));
     }
-    this.declare(s.name, type, s.declaration === "let", init.poisoned === true, init.borrowed === true);
+    this.declare(
+      s.name,
+      type,
+      s.declaration === "let",
+      init.poisoned === true,
+      init.borrowed === true,
+      init.borrowed ? (this.borrowOriginOf(init) ?? s.init?.span ?? s.span) : undefined,
+    );
     return { kind: "variable", declaration: s.declaration, name: s.name, type, init, span: s.span };
   }
 
@@ -765,7 +937,165 @@ class FunctionChecker {
     };
   }
 
+  private resourceVariable(s: Extract<Stmt, { kind: "variable" }>): TStmt {
+    const initExpr = s.init;
+    const arg = initExpr?.kind === "call" ? initExpr.args[0] : undefined;
+    const invalid =
+      this.signature.returnType.kind !== "view" ||
+      this.depth !== 0 ||
+      s.declaration !== "const" ||
+      s.type !== null ||
+      !arg ||
+      initExpr?.kind !== "call" ||
+      initExpr.args.length !== 1;
+    if (invalid || !arg) {
+      this.report(
+        diagnostic("LUCENT1001", s.span, "`resource()` declares one const owned value at the top of a native view."),
+      );
+      this.declare(s.name, T.float64, false, true);
+      return {
+        kind: "variable",
+        declaration: s.declaration,
+        name: s.name,
+        type: T.float64,
+        init: this.poison(s.span),
+        span: s.span,
+      };
+    }
+    if (arg.kind !== "closure" || arg.params.length !== 0) {
+      this.report(
+        diagnostic("LUCENT1001", arg.span, "`resource()` requires a zero-argument factory: `resource(() => new T())`."),
+      );
+      this.declare(s.name, T.float64, false, true);
+      return {
+        kind: "variable",
+        declaration: "const",
+        name: s.name,
+        type: T.float64,
+        init: this.poison(s.span),
+        span: s.span,
+      };
+    }
+    const factory = this.expr(arg);
+    const created = factory.kind === "closure" ? (Array.isArray(factory.body) ? null : factory.body) : null;
+    const createCall =
+      created?.kind === "call"
+        ? created
+        : created?.kind === "await" && created.argument.kind === "call"
+          ? created.argument
+          : null;
+    const type = created?.type ?? T.float64;
+    const close =
+      type.kind === "struct" ? this.mod.structs.get(type.name)?.reference?.native?.contract?.close : undefined;
+    if (!createCall || createCall.args.length !== 0 || !close || created?.borrowed) {
+      this.report(
+        diagnostic(
+          "LUCENT1001",
+          arg.span,
+          "`resource()` factory must return a zero-argument owned create with a `close` contract.",
+          "Write `resource(() => new CameraSession())` (or another closeable SDK type).",
+        ),
+      );
+      this.declare(s.name, T.float64, false, true);
+      return {
+        kind: "variable",
+        declaration: "const",
+        name: s.name,
+        type: T.float64,
+        init: this.poison(s.span),
+        span: s.span,
+      };
+    }
+    this.rejectBorrow(created!, arg.span, "be stored in a resource slot");
+    this.declare(s.name, type, false);
+    const binding = this.lookup(s.name);
+    if (binding) binding.resource = true;
+    return {
+      kind: "variable",
+      declaration: "const",
+      name: s.name,
+      type,
+      init: { kind: "resourceInit", value: createCall, close, type, span: s.span },
+      span: s.span,
+    };
+  }
+
+  private effectStmt(s: Extract<Stmt, { kind: "expression" }>): TStmt {
+    const call = s.expression;
+    if (call.kind !== "call") return { kind: "expression", expression: this.poison(s.span), span: s.span };
+    const invalid = this.signature.returnType.kind !== "view" || this.depth !== 0 || call.args.length !== 2;
+    if (invalid) {
+      this.report(
+        diagnostic("LUCENT1001", s.span, "`effect()` runs at the top of a native view: `effect(() => { … }, [deps])`."),
+      );
+      return { kind: "effect", body: [], cleanup: [], deps: [], span: s.span };
+    }
+    const [factoryArg, depsArg] = call.args;
+    if (!factoryArg || factoryArg.kind !== "closure" || factoryArg.params.length !== 0) {
+      this.report(
+        diagnostic(
+          "LUCENT1001",
+          call.span,
+          "`effect()` requires a zero-argument body: `effect(() => { … }, [deps])` or `effect(async () => { … }, [deps])`.",
+        ),
+      );
+      return { kind: "effect", body: [], cleanup: [], deps: [], span: s.span };
+    }
+    if (!depsArg || depsArg.kind !== "array" || depsArg.elements.some((el) => el.kind !== "identifier")) {
+      this.report(
+        diagnostic("LUCENT1001", depsArg?.span ?? call.span, "`effect()` deps must be an array of identifiers."),
+      );
+      return { kind: "effect", body: [], cleanup: [], deps: [], span: s.span };
+    }
+    const deps = depsArg.elements.map((el) => (el.kind === "identifier" ? el.name : ""));
+    for (const name of deps) {
+      const binding = this.lookup(name);
+      if (!binding) this.report(diagnostic("LUCENT1010", depsArg.span, `Unknown identifier \`${name}\`.`));
+      else if (binding.borrowed)
+        this.report(diagnostic("LUCENT1005", depsArg.span, `Borrowed \`${name}\` cannot be an effect dependency.`));
+    }
+    let async = Boolean(factoryArg.async);
+    if (Array.isArray(factoryArg.body)) {
+      const lastSurface = factoryArg.body[factoryArg.body.length - 1];
+      if (lastSurface?.kind === "return" && lastSurface.argument?.kind === "closure" && lastSurface.argument.async)
+        async = true;
+    }
+    this.depth++;
+    this.push();
+    const savedReturn = this.expectedReturn;
+    const savedAsync = this.asyncEffectContext;
+    this.expectedReturn = T.void;
+    this.asyncEffectContext = async;
+    this.allowEffectCleanupReturn = true;
+    let stmts: TStmt[];
+    if (Array.isArray(factoryArg.body)) stmts = factoryArg.body.map((statement) => this.stmt(statement));
+    else stmts = [{ kind: "expression", expression: this.expr(factoryArg.body), span: factoryArg.span }];
+    this.allowEffectCleanupReturn = false;
+    this.asyncEffectContext = savedAsync;
+    this.expectedReturn = savedReturn;
+    this.pop();
+    this.depth--;
+    let body = stmts;
+    let cleanup: TStmt[] = [];
+    const last = stmts[stmts.length - 1];
+    if (last?.kind === "return" && last.argument?.kind === "closure") {
+      body = stmts.slice(0, -1);
+      const clean = last.argument;
+      cleanup = Array.isArray(clean.body)
+        ? clean.body
+        : [{ kind: "expression", expression: clean.body, span: clean.span }];
+    }
+    return { kind: "effect", body, cleanup, deps, ...(async ? { async: true as const } : {}), span: s.span };
+  }
+
   private returnStmt(s: Extract<Stmt, { kind: "return" }>): TStmt {
+    if (this.allowEffectCleanupReturn && s.argument?.kind === "closure" && s.argument.params.length === 0) {
+      const savedAsync = this.asyncEffectContext;
+      if (s.argument.async) this.asyncEffectContext = true;
+      const argument = this.expr(s.argument, T.callback([], T.void));
+      this.asyncEffectContext = savedAsync;
+      return { kind: "return", argument, span: s.span };
+    }
     const expected = this.expectedReturn;
     if (!s.argument) {
       if (expected.kind !== "void")
@@ -809,7 +1139,12 @@ class FunctionChecker {
       : null;
     for (const name of consequent.closed) this.closed.add(name);
     for (const name of alternate?.closed ?? []) this.closed.add(name);
-    if (consequent.suspended || alternate?.suspended) this.suspended = true;
+    for (const name of consequent.moved) this.moved.add(name);
+    for (const name of alternate?.moved ?? []) this.moved.add(name);
+    if (consequent.suspended || alternate?.suspended) {
+      this.suspended = true;
+      this.suspensionSpan ??= consequent.suspensionSpan ?? alternate?.suspensionSpan;
+    }
     // `if (x === null) return …;` narrows the rest of the enclosing block.
     if (narrowing) {
       const rest = alwaysExits(consequent.stmts)
@@ -840,6 +1175,8 @@ class FunctionChecker {
         const escaping = this.nextCallbackEscaping;
         this.nextCallbackEscaping = true;
         this.closureEscaping.push(escaping);
+        if (e.async && !this.asyncEffectContext)
+          this.report(diagnostic("LUCENT1005", e.span, "Native callbacks must be synchronous."));
         const context = expected?.kind === "callback" ? expected : undefined;
         const executor = context?.executor ?? this.currentExecutor;
         this.callbackExecutors.push(executor);
@@ -862,8 +1199,10 @@ class FunctionChecker {
         this.captures.push(outer);
         this.depth++;
         this.push();
-        for (const param of params)
-          this.declare(param.name, param.type, false, false, this.scopedReference(param.type));
+        for (const param of params) {
+          const borrowed = this.scopedReference(param.type);
+          this.declare(param.name, param.type, false, false, borrowed, borrowed ? param.span : undefined);
+        }
         const statements = Array.isArray(e.body);
         if (statements && !result)
           this.report(diagnostic("LUCENT1014", e.span, "A native callback with a statement body needs a return type."));
@@ -1001,10 +1340,11 @@ class FunctionChecker {
       case "methodCall":
         return this.methodCall(e);
       case "await": {
-        if (!this.fn.async)
+        if (!this.fn.async && !this.asyncEffectContext)
           this.report(diagnostic("LUCENT1013", span, "`await` is only allowed inside an `async` function."));
         const argument = this.expr(e.argument);
         this.suspended = true;
+        this.suspensionSpan ??= span;
         if (argument.poisoned) return this.poison(span, expected);
         if (argument.type.kind !== "promise") {
           this.report(
@@ -1201,10 +1541,25 @@ class FunctionChecker {
   private identifier(name: string, span: Span): TExpr {
     const binding = this.lookup(name);
     if (binding?.state) return { kind: "stateRead", name, type: binding.type, span };
-    if (binding && this.closed.has(name))
+    if (binding?.resource) return { kind: "resourceRead", name, type: binding.type, span };
+    if (binding && this.moved.has(name))
+      this.report(diagnostic("LUCENT1018", span, `Cannot use \`${name}\` after it was moved.`));
+    if (binding && this.closed.has(name) && !this.allowClosedClose)
       this.report(diagnostic("LUCENT1018", span, `Cannot use \`${name}\` after it was closed.`));
     if (binding && this.suspended && binding.borrowed)
-      this.report(diagnostic("LUCENT1018", span, "A borrowed value cannot be used after suspension."));
+      this.report(
+        diagnostic(
+          "LUCENT1018",
+          span,
+          "A borrowed value cannot be used after suspension.",
+          this.borrowHelp(
+            binding.borrowOrigin,
+            this.suspensionSpan
+              ? "Suspension begins at a preceding `await`; this use would read the borrow after that point."
+              : "This use would read the borrow after suspension.",
+          ),
+        ),
+      );
     if (binding && this.captures.some((scope) => scope.get(name) === binding)) {
       const reference = binding.type.kind === "struct" ? this.mod.structs.get(binding.type.name)?.reference : undefined;
       const value =
@@ -1252,7 +1607,9 @@ class FunctionChecker {
       name,
       type: binding.type,
       span,
-      ...(binding.borrowed ? { borrowed: true as const } : {}),
+      ...(binding.borrowed
+        ? { borrowed: true as const, ...(binding.borrowOrigin ? { borrowOrigin: binding.borrowOrigin } : {}) }
+        : {}),
     };
     const narrowed = this.narrowed(name);
     return narrowed
@@ -1263,7 +1620,12 @@ class FunctionChecker {
             argument: id,
             type: narrowed,
             span,
-            ...(id.borrowed && !isPrimitive(narrowed) ? { borrowed: true as const } : {}),
+            ...(id.borrowed && !isPrimitive(narrowed)
+              ? {
+                  borrowed: true as const,
+                  ...(id.borrowOrigin ? { borrowOrigin: id.borrowOrigin } : {}),
+                }
+              : {}),
           }
       : id;
   }
@@ -1386,7 +1748,11 @@ class FunctionChecker {
         value = this.mismatch(e.value.span, target.type, value.type, narrowingHint(value.type));
       if (e.target.kind === "identifier") {
         const binding = this.lookup(e.target.name);
-        if (binding) binding.borrowed = value.borrowed === true;
+        if (binding) {
+          binding.borrowed = value.borrowed === true;
+          if (value.borrowed) binding.borrowOrigin = this.borrowOriginOf(value) ?? e.value.span;
+          else delete binding.borrowOrigin;
+        }
       } else this.rejectBorrow(value, e.value.span, "be stored in a field or element");
     } else {
       const stringConcat = e.operator === "+=" && target.type.kind === "string";
@@ -1432,10 +1798,84 @@ class FunctionChecker {
     return { kind: "weak", name: arg.name, type: T.optional(binding.type), span: e.span };
   }
 
-  private call(e: Extract<Expr, { kind: "call" }>): TExpr {
+  private moveExpr(e: Extract<Expr, { kind: "call" }>): TExpr {
+    const arg = e.args[0];
+    if (e.args.length !== 1 || arg?.kind !== "identifier") {
+      this.report(diagnostic("LUCENT1005", e.span, "`move()` takes exactly one identifier."));
+      return this.poison(e.span);
+    }
+    const binding = this.lookup(arg.name);
+    if (!binding) {
+      this.report(diagnostic("LUCENT1010", e.span, `Unknown identifier \`${arg.name}\`.`));
+      return this.poison(e.span);
+    }
+    if (this.moved.has(arg.name)) {
+      this.report(diagnostic("LUCENT1018", e.span, `Cannot use \`${arg.name}\` after it was moved.`));
+      return this.poison(e.span, binding.type);
+    }
+    if (this.closed.has(arg.name)) {
+      this.report(diagnostic("LUCENT1018", e.span, `Cannot use \`${arg.name}\` after it was closed.`));
+      return this.poison(e.span, binding.type);
+    }
+    if (binding.borrowed) {
+      this.report(
+        diagnostic(
+          "LUCENT1018",
+          e.span,
+          "Cannot move a borrowed value.",
+          this.borrowHelp(binding.borrowOrigin, "Moving a borrow does not transfer ownership of the referent."),
+        ),
+      );
+      return this.poison(e.span, binding.type);
+    }
+    this.moved.add(arg.name);
+    return { kind: "move", name: arg.name, type: binding.type, span: e.span };
+  }
+
+  private copyExpr(e: Extract<Expr, { kind: "call" }>): TExpr {
+    const arg = e.args[0];
+    if (e.args.length !== 1 || arg?.kind !== "identifier") {
+      this.report(diagnostic("LUCENT1005", e.span, "`copy()` takes exactly one identifier."));
+      return this.poison(e.span);
+    }
+    const value = this.identifier(arg.name, arg.span);
+    if (value.poisoned) return this.poison(e.span, value.type);
+    const t = value.type;
+    const copyable =
+      isPrimitive(t) ||
+      t.kind === "enum" ||
+      t.kind === "bytes" ||
+      (t.kind === "struct" && !this.mod.structs.get(t.name)?.reference);
+    if (!copyable) {
+      this.report(
+        diagnostic(
+          "LUCENT1005",
+          e.span,
+          `\`copy()\` is not defined for \`${typeToString(t)}\`.`,
+          "Use `copy()` on scalars, enums, value structs, or `Uint8Array` bytes.",
+        ),
+      );
+      return this.poison(e.span, t);
+    }
+    return { kind: "copy", argument: value, type: t, span: e.span };
+  }
+
+  private call(e: Extract<Expr, { kind: "call" }>, typedArgs?: ReadonlyMap<number, TExpr>): TExpr {
     if (e.callee === "weak") return this.weakCapture(e);
+    if (e.callee === "move") return this.moveExpr(e);
+    if (e.callee === "copy") return this.copyExpr(e);
     if (e.callee === "state") {
       this.report(diagnostic("LUCENT1001", e.span, "`state()` is a view declaration: `const name = state(literal)`."));
+      return this.poison(e.span);
+    }
+    if (e.callee === "resource") {
+      this.report(
+        diagnostic("LUCENT1001", e.span, "`resource()` is a view declaration: `const name = resource(() => new T())`."),
+      );
+      return this.poison(e.span);
+    }
+    if (e.callee === "effect") {
+      this.report(diagnostic("LUCENT1001", e.span, "`effect()` is a view declaration: `effect(() => { … }, [deps])`."));
       return this.poison(e.span);
     }
     const local = this.lookup(e.callee);
@@ -1447,7 +1887,7 @@ class FunctionChecker {
         this.report(diagnostic("LUCENT1012", e.span, "Incorrect native callback argument count."));
       const args = e.args.map((arg, i) => {
         const expected = signature.params[i];
-        const value = this.expr(arg, expected);
+        const value = typedArgs?.get(i) ?? this.expr(arg, expected);
         return expected && !this.fits(value, expected) ? this.mismatch(arg.span, expected, value.type) : value;
       });
       return {
@@ -1461,7 +1901,9 @@ class FunctionChecker {
     let callee = e.callee;
     const candidates = this.mod.overloads[callee];
     if (candidates) {
-      const inferred = e.args.map((arg) => (arg.kind === "object" || arg.kind === "array" ? null : this.expr(arg)));
+      const inferred = e.args.map(
+        (arg, i) => typedArgs?.get(i) ?? (arg.kind === "object" || arg.kind === "array" ? null : this.expr(arg)),
+      );
       const matches = candidates
         .flatMap((name) => {
           const signature = this.mod.signatures.get(name);
@@ -1502,17 +1944,17 @@ class FunctionChecker {
         })
         .toSorted((a, b) => a.score - b.score);
       if (!matches.length || matches[1]?.score === matches[0]?.score) {
+        const display = e.callee.replace(/^lucentInternal_[0-9a-f]+_/, "");
+        const candidateLines = candidates.map((name) => {
+          const signature = this.mod.signatures.get(name)!;
+          return `  ${display}(${signature.params.map((p) => typeToString(p.type)).join(", ")})`;
+        });
         this.report(
           diagnostic(
             "LUCENT1012",
             e.span,
-            `${matches.length ? "Ambiguous" : "No matching"} overload for ${e.callee}.`,
-            candidates
-              .map((name) => {
-                const signature = this.mod.signatures.get(name)!;
-                return `${name}(${signature.params.map((p) => typeToString(p.type)).join(", ")})`;
-              })
-              .join("; "),
+            `${matches.length ? "Ambiguous" : "No matching"} overload for ${display}.`,
+            ["Candidates:", ...candidateLines].join("\n"),
           ),
         );
         return this.poison(e.span);
@@ -1554,7 +1996,7 @@ class FunctionChecker {
       }
       const savedEscaping = this.nextCallbackEscaping;
       if (arg.kind === "closure") this.nextCallbackEscaping = retention !== "call";
-      let typed = this.expr(arg, expected);
+      let typed = typedArgs?.get(i) ?? this.expr(arg, expected);
       if (param && signature.binding && canWidenNumeric(typed.type, param.type))
         typed = { kind: "widen", argument: typed, type: param.type, span: arg.span };
       if (arg.kind === "closure") this.nextCallbackEscaping = savedEscaping;
@@ -1570,15 +2012,58 @@ class FunctionChecker {
     });
     this.enforceExecutor(signature, e.span, args[0]);
     if (signature.async && signature.binding?.contract?.result === "borrowed")
-      this.report(diagnostic("LUCENT1018", e.span, "A borrowed value cannot survive suspension."));
+      this.report(
+        diagnostic(
+          "LUCENT1018",
+          e.span,
+          "A borrowed value cannot survive suspension.",
+          this.borrowHelp(e.span, "An async call that returns a borrow would resume after the borrow scope ends."),
+        ),
+      );
     const type = signature.async ? T.promise(signature.returnType) : signature.returnType;
+    if (
+      (callee.endsWith("_withResource") ||
+        callee.endsWith("_withSubscription") ||
+        callee === "withResource" ||
+        callee === "withSubscription") &&
+      e.args[0]?.kind === "identifier"
+    )
+      this.closed.add(e.args[0].name);
+    if (
+      (callee.endsWith("_resourceScope") || callee === "resourceScope") &&
+      e.args[0]?.kind === "closure" &&
+      e.args[0].params[0]
+    ) {
+      const scopeParam = e.args[0].params[0].name;
+      for (const name of this.scopeOwned.get(scopeParam) ?? []) this.closed.add(name);
+      this.scopeOwned.delete(scopeParam);
+    }
+    if (
+      (callee.endsWith("__method_own") || callee.endsWith("_method_own")) &&
+      e.args[0]?.kind === "identifier" &&
+      e.args[1]?.kind === "identifier"
+    ) {
+      const scopeName = e.args[0].name;
+      const resourceName = e.args[1].name;
+      const bag = this.scopeOwned.get(scopeName) ?? new Set<string>();
+      bag.add(resourceName);
+      this.scopeOwned.set(scopeName, bag);
+    }
+    if (
+      (callee.endsWith("__method_closeAll") || callee.endsWith("_method_closeAll")) &&
+      e.args[0]?.kind === "identifier"
+    ) {
+      for (const name of this.scopeOwned.get(e.args[0].name) ?? []) this.closed.add(name);
+      this.scopeOwned.delete(e.args[0].name);
+    }
     return {
       kind: "call",
       callee,
       args,
+      semantics: callSemantics(signature, args.length),
       type,
       span: e.span,
-      ...(signature.binding?.contract?.result === "borrowed" ? { borrowed: true as const } : {}),
+      ...(signature.binding?.contract?.result === "borrowed" ? { borrowed: true as const, borrowOrigin: e.span } : {}),
     };
   }
 
@@ -1588,7 +2073,7 @@ class FunctionChecker {
       e.property === "OS" &&
       this.mod.signatures.get(e.object.name)?.binding?.platformQuery
     ) {
-      return { kind: "call", callee: e.object.name, args: [], type: T.string, span: e.span };
+      return this.call({ kind: "call", callee: e.object.name, args: [], span: e.span });
     }
     const object = this.expr(e.object);
     const span = e.span;
@@ -1611,7 +2096,10 @@ class FunctionChecker {
         return this.poison(span);
       }
       if (this.mod.structs.get(t.name)?.reference?.native) {
-        return this.call({ kind: "call", callee: `${t.name}__get_${e.property}`, args: [e.object], span });
+        return this.call(
+          { kind: "call", callee: `${t.name}__get_${e.property}`, args: [e.object], span },
+          new Map([[0, object]]),
+        );
       }
       const union = this.mod.structs.get(t.name)?.union;
       if (union && e.property !== union.tag) {
@@ -1730,35 +2218,46 @@ class FunctionChecker {
         if (!this.fits(value, binding.type)) value = this.mismatch(arg.span, binding.type, value.type);
         return { kind: "stateWrite", name: e.object.name, value, type: T.void, span: e.span };
       }
+      if (binding?.type.kind === "struct") {
+        const close = this.mod.structs.get(binding.type.name)?.reference?.native?.contract?.close;
+        if (close === e.method) this.allowClosedClose = true;
+      }
     }
-    const object = this.expr(e.object);
-    const span = e.span;
-    if (object.poisoned) return this.poison(span, T.void);
-    if (object.type.kind === "struct" && this.mod.structs.get(object.type.name)?.reference) {
-      const call = this.call({
-        kind: "call",
-        callee: `${object.type.name}__method_${e.method}`,
-        args: [e.object, ...e.args],
-        span,
-      });
-      const close = this.mod.structs.get(object.type.name)?.reference?.native?.contract?.close;
-      if (close === e.method && e.object.kind === "identifier") this.closed.add(e.object.name);
-      return call;
+    try {
+      const object = this.expr(e.object);
+      const span = e.span;
+      if (object.poisoned) return this.poison(span, T.void);
+      if (object.type.kind === "struct" && this.mod.structs.get(object.type.name)?.reference) {
+        const call = this.call(
+          {
+            kind: "call",
+            callee: `${object.type.name}__method_${e.method}`,
+            args: [e.object, ...e.args],
+            span,
+          },
+          new Map([[0, object]]),
+        );
+        const close = this.mod.structs.get(object.type.name)?.reference?.native?.contract?.close;
+        if (close === e.method && e.object.kind === "identifier") this.closed.add(e.object.name);
+        return call;
+      }
+      if (object.type.kind === "array" && e.method === "push") {
+        const element = object.type.element;
+        const args = e.args.map((arg) => {
+          const typed = this.expr(arg, element);
+          this.rejectBorrow(typed, arg.span, "be stored in an array");
+          return this.fits(typed, element) ? typed : this.mismatch(arg.span, element, typed.type);
+        });
+        if (args.length !== 1) this.report(diagnostic("LUCENT1012", span, "`push` takes exactly one argument."));
+        return { kind: "methodCall", object, method: "push", args, type: T.void, span };
+      }
+      this.report(
+        diagnostic("LUCENT1001", span, `Method \`${e.method}\` is not supported on \`${typeToString(object.type)}\`.`),
+      );
+      return this.poison(span);
+    } finally {
+      this.allowClosedClose = false;
     }
-    if (object.type.kind === "array" && e.method === "push") {
-      const element = object.type.element;
-      const args = e.args.map((arg) => {
-        const typed = this.expr(arg, element);
-        this.rejectBorrow(typed, arg.span, "be stored in an array");
-        return this.fits(typed, element) ? typed : this.mismatch(arg.span, element, typed.type);
-      });
-      if (args.length !== 1) this.report(diagnostic("LUCENT1012", span, "`push` takes exactly one argument."));
-      return { kind: "methodCall", object, method: "push", args, type: T.void, span };
-    }
-    this.report(
-      diagnostic("LUCENT1001", span, `Method \`${e.method}\` is not supported on \`${typeToString(object.type)}\`.`),
-    );
-    return this.poison(span);
   }
 }
 
@@ -1809,6 +2308,23 @@ function narrowingOf(
   if (!id || !lit || lit.kind !== "null" || !isOptional(id.type)) return null;
   const inner = { name: id.name, type: id.type.value };
   return test.operator === "===" ? { name: id.name, whenFalse: inner } : { name: id.name, whenTrue: inner };
+}
+
+function formatProtocolMethod(method: {
+  name: string;
+  parameters: { name: string; type: string }[];
+  result: string;
+}): string {
+  return `${method.name}(${method.parameters.map((p) => `${p.name}: ${p.type}`).join(", ")}): ${method.result}`;
+}
+
+/** Compare protocol metadata type names to `typeToString` output. */
+function normalizeProtocolTypeName(t: string): string {
+  return t === "number" ? "float64" : t === "boolean" ? "bool" : t;
+}
+
+function protocolTypeMatches(expected: string, actual: string): boolean {
+  return normalizeProtocolTypeName(expected) === normalizeProtocolTypeName(actual);
 }
 
 export function alwaysExits(stmts: readonly TStmt[]): boolean {

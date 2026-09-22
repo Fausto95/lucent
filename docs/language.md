@@ -5,6 +5,8 @@ file ever runs in a JavaScript engine. Everything TypeScript allows but Lucent
 does not is rejected with a dedicated `LUCENT` diagnostic, never with a generic
 TypeScript error.
 
+Ownership, lifetime, concurrency, and related rules: [`docs/semantics.md`](semantics.md).
+
 ## Module shape
 
 - `export function` and `export async function` declarations are the module's
@@ -19,7 +21,10 @@ TypeScript error.
 - Built-in authoring entry points are `@lucent-lang/core/types`, `@lucent-lang/core/objects`,
   `@lucent-lang/core/events`, `@lucent-lang/core/ui`, `@lucent-lang/core`,
   `@lucent-lang/core/math`, `@lucent-lang/core/text`,
-  `@lucent-lang/core/cancellation`, and `@lucent-lang/core/platform`. Any other
+  `@lucent-lang/core/cancellation`, `@lucent-lang/core/tasks`,
+  `@lucent-lang/core/resources`, `@lucent-lang/core/subscriptions`,
+  `@lucent-lang/core/lifecycle`, `@lucent-lang/core/cells`, and
+  `@lucent-lang/core/platform`. Any other
   platform API is reached with `@Native`, whose implementation lives in a
   `.swift`/`.kt` file beside the Lucent source.
 - JavaScript packages, namespace/default imports, re-exports, and executable
@@ -85,7 +90,15 @@ C-style `for` loop is rejected (the update step would be skipped).
 - Member access `value.field` on structs; `array.length`; `array.push(x)`;
   `array[i]` indexing.
 - `throw new LucentError("CODE", { message: "…" })`. `LucentError` is a global
-  known to the compiler. Any other thrown value is `LUCENT1001`.
+  known to the compiler. Any other thrown value is `LUCENT1001`. Typed error
+  codes are author-chosen strings (for example `"CAMERA_DENIED"`); the
+  compiler does not validate a closed set. Callback contracts declare an error
+  policy of `propagate` or `notify`: `propagate` surfaces a thrown
+  `LucentError` to the registering call site when the contract allows it, while
+  `notify` reports failure without throwing through the callback boundary.
+  Cooperative cancellation (`CANCELLED` from a checkpoint) is distinct from a
+  thrown `LucentError` authoring path: cancellation is a lifetime signal, not a
+  domain error code you invent with `new LucentError(...)`.
 - `obj[key]` on a struct (dynamic property access) → `LUCENT1002`.
 - `this` and `new` are supported for native classes.
 - Closures, construction of arbitrary JS objects, `typeof`, `in`,
@@ -297,7 +310,25 @@ value. Prop updates do not reset it. Read `name` for the current value.
 inside a branch, loop, or nested block is rejected, as is calling `set` while
 rendering.
 
-Rendering stays synchronous. Effects, mutation, async calls, and loops in the
+`const name = resource(() => new T())` at the top of a view declares a
+component-owned resource slot. The factory must be a zero-argument expression
+that returns an owned SDK create with a `contract.close` method (for example
+`new CameraSession()` or `new NativeResource()`). The host creates the value
+once per identity and closes it on unmount. Resource values follow ordinary
+owned-reference borrow rules and must not escape as borrows. Nested
+`resource()` calls are rejected.
+
+`effect(() => { …; return () => { … } }, [deps])` declares a sync component
+effect. Setup runs when the view mounts; the optional cleanup function runs on
+unmount. `effect(async () => { …; return async () => { … } }, [deps])` is the
+async form: backends cancel the previous TaskScope, await cleanup, then start
+the next generation (SwiftUI `.task` / Compose `LaunchedEffect` via
+`LucentEffectRunner`). `deps` is an array of identifiers (typically resource or
+state slots) whose identity is recorded for dependency-scoped restart work.
+Nested `effect()` calls are rejected. Effects are not part of the synchronous
+render path.
+
+Rendering stays synchronous. Mutation, async calls, and loops in the
 render body are rejected. Handlers may update state and may be closures passed
 to `onPress` or `onChange`. Hooks, arbitrary React components, JSX spreads, and
 fragments are not part of this subset.
@@ -547,10 +578,13 @@ with explicit parameter types or a contextual `NativeCallback` signature.
 They may capture `const` numeric, string, boolean, and immutable value-record
 locals (`value`), and an immutable owned native reference (`retained`).
 `weak(reference)` captures that owned reference as an optional; the closure must
-handle `null` before using it. A callback parameter whose contract says
+handle `null` before using it. `move(x)` and `copy(x)` are ownership builtins
+(see Move and copy). A callback parameter whose contract says
 `retention: "call"` may capture a borrow (`borrowed`). A subscription, or a
 callback with no retention, may not. Mutable locals, external resources, and
-nested callback results are rejected. For example,
+nested callback results are rejected. For mutable capture of a scalar, use an
+owned `Cell` from `@lucent-lang/core/cells` (`const count = new Cell(0)` then
+`count.value = count.value + 1`) rather than a mutable local. For example,
 `const factor = 2; apply(4, (value: number) => value * factor)` compiles into a
 native Swift/Kotlin closure.
 
@@ -780,6 +814,15 @@ set one, must match the enclosing function: `main` and `worker` require
 Callback retention and automatic SDK cancellation adapters are not implemented.
 An ownership declaration alone does not make an object transferable.
 
+### Ownership diagnostics
+
+`LUCENT1018` borrow errors name the illegal use (return, store, pass out of
+scope, use after suspension). When the checker knows where the borrow began —
+a borrowed parameter or a `result: "borrowed"` call — the diagnostic `help`
+points back to that origin, explains why the use is unsafe, and suggests
+processing the borrow before `await` or copying needed data into owned memory.
+Use-after-suspension help also notes the preceding `await`.
+
 The standalone `@lucent-lang/std` package has been removed. Its supported math
 and text operations are preserved as `@lucent-lang/core/math` and
 `@lucent-lang/core/text`; update imports accordingly.
@@ -939,6 +982,153 @@ completion, close remains pending. Do not await scope close from work that must
 itself finish before that close can return. `dispose()` invalidates a bridge
 handle; it neither requests cancellation nor reports operation completion.
 
+### Native task groups
+
+Import `TaskGroup` from `@lucent-lang/core/tasks` for structured concurrency with
+failure propagation. `group.begin()` registers a child `NativeTask` the same way
+a scope does. When a child fails (native `fail(error)` or a thrown `run` body),
+siblings are cancelled, the first error is kept as primary, and
+`await group.close()` waits for quiescence then rethrows that primary error.
+Close still requires every child to `finish()`. Prefer task groups when one
+failure should cancel peer work; prefer task scopes when completion tracking
+should not promote child errors.
+
+### Native resources
+
+Import `NativeResource` from `@lucent-lang/core/resources` for the owned resource
+state machine OPEN → CLOSING → CLOSED. Create with `new NativeResource()`.
+`beginOperation()` acquires a lease while OPEN and throws `CLOSED` while CLOSING.
+After CLOSED it throws `LIFETIME_ERROR` (development sanitizer). Optional
+`createdAt` / `closedAt` debug labels default to timestamps and may be set from
+Lucent; when present they are included in the `LIFETIME_ERROR` message. A P35
+**partial** source map (`compile({ sourceMap: true })` → `lucent.map.json`) maps
+IR function names to Lucent spans; full Swift/Kotlin diagnostic mapping remains
+future work. `endOperation()` releases a lease.
+`leaseCount` and `closed` are observable.
+
+`await resource.close()` moves OPEN to CLOSING (rejecting new operations), waits
+asynchronously until every lease is released, runs optional cleanup, then reaches
+CLOSED. Close is idempotent: calling it again after CLOSED is allowed at both
+runtime and the type checker. Waiters use async continuations so a callback that
+requests close cannot deadlock by synchronously waiting on itself. Process-wide
+live resource and lease counters exist for native tests. JS `dispose()` still
+does not close the resource. `withResource(resource, body)` runs `body` then
+awaits `close()` on every exit path.
+
+### Native subscriptions
+
+Import `NativeSubscription` from `@lucent-lang/core/subscriptions` for an owned
+subscription lifetime OPEN → CLOSING → CLOSED. Create with
+`new NativeSubscription()`. Adapters call `beginDelivery()` / `endDelivery()`
+around each in-flight callback; `activeCallbackCount` and `closed` are
+observable. After CLOSED, `beginDelivery()` throws `LIFETIME_ERROR` with the
+same optional `createdAt` / `closedAt` labels as resources. `await
+subscription.close()` rejects new delivery, waits until in-flight callbacks
+quiesce, runs optional cleanup, then reaches CLOSED. Close is idempotent.
+Waiters use async continuations so a delivery that requests close cannot
+deadlock by waiting on itself. `withSubscription` mirrors `withResource`. The
+object contract is owned, `close: "close"`, and transferable.
+
+### Resource scopes
+
+Import `withResource` from `@lucent-lang/core/resources` (and `withSubscription`
+from `@lucent-lang/core/subscriptions`) to run a synchronous body and then
+`await close()` on every exit path — normal return and thrown error. The helper
+is implemented in hand-written native (`LucentResourceScope` /
+`LucentSubscriptionScope`); bindings only call those helpers. After
+`await withResource(resource, …)`, the checker treats `resource` as closed
+(`LUCENT1018` on later use other than idempotent `close()`).
+
+```ts
+import { NativeResource, withResource } from "@lucent-lang/core/resources";
+
+export async function use(): Promise<void> {
+  const resource = new NativeResource();
+  await withResource(resource, (r: NativeResource): void => {
+    r.beginOperation();
+    r.endOperation();
+  });
+}
+```
+
+Bodies are `NativeCallback` (synchronous). Async work must finish before the
+callback returns; close still awaits lease quiescence.
+
+For multiple resources, use `resourceScope` with `scope.own`. Owned resources
+are closed in reverse registration order on every exit path. The checker marks
+identifiers passed to `own` as closed after the call (or after
+`await scope.closeAll()` when using `ResourceScope` directly). Lucent has no
+`try`/`finally` yet, so prefer `resourceScope` over manual `closeAll` when a
+throw path must still release.
+
+```ts
+import { NativeResource, resourceScope } from "@lucent-lang/core/resources";
+
+export async function use(): Promise<void> {
+  const first = new NativeResource();
+  const second = new NativeResource();
+  await resourceScope((scope): void => {
+    scope.own(first);
+    scope.own(second);
+    first.beginOperation();
+    first.endOperation();
+  });
+}
+```
+
+`using` syntax remains future work. Nested `withResource` / `withSubscription`
+calls still compose when a single-resource helper is enough.
+
+### Move and copy
+
+`move(x)` and `copy(x)` are builtins that take a single identifier:
+
+- `move(ownedLocal)` transfers ownership. Later uses of that local are
+  `LUCENT1018` use-after-move. Moving a borrow is rejected.
+- `copy(x)` produces an owned/value result. Scalars and value structs copy as
+  values; `Uint8Array` lowers to a byte copy via `LucentBytes`. Native reference
+  types without a copy protocol are rejected — promote borrows with an explicit
+  API instead.
+
+IR carries `move` / `copy` ops. Backends treat `move` as identity (ownership is
+Lucent-level) and emit the byte copy helper for `copy` on bytes.
+
+### Camera package
+
+`@lucent-lang/camera` is the Gate B acceptance package: a `CameraSession` owns
+start/stop/interrupt/restart/close, and `frames(callback)` delivers borrowed
+`Frame` buffers under a keep-latest backpressure contract (`retention:
+"subscription"`, `executor: "worker"`, `errors: "notify"`, `backpressure:
+"latest"`) with a `droppedFrames` counter. `CameraPreview` is a package
+NativeView stub for hosts that support views. Register `CAMERA_LIBRARY` through
+`compile({ libraries })`. CI uses synthetic frames; device preview remains a
+later host/device pass. See `packages/camera/README.md`.
+
+### Gate C acceptance packages
+
+Gate C generality scaffolds (roadmap P82–P86) follow the same LibraryModule +
+native stub pattern as camera, without package-specific compiler forks:
+
+| Package                   | Role                                                                |
+| ------------------------- | ------------------------------------------------------------------- |
+| `@lucent-lang/bluetooth`  | Scan / connect / read-write / buffered notifications (`Uint8Array`) |
+| `@lucent-lang/sqlite`     | Open/close, execute/query, borrowed transaction scope               |
+| `@lucent-lang/location`   | Provider resource, keep-latest updates, permission union            |
+| `@lucent-lang/background` | Durable vs in-process jobs with versioned serializable payloads     |
+| `@lucent-lang/streaming`  | Owned chunk sources, transform/write sinks, explicit backpressure   |
+
+Register each `*_LIBRARY` through `compile({ libraries })`. CI stubs and
+`scripts/verify-gate-c.ts` cover compile + Swift/Kotlin smoke; host/device rows
+are tracked in `docs/conformance-matrix.md` (P87).
+
+### Mutable cells
+
+Import `Cell` from `@lucent-lang/core/cells`. User generics are unsupported, so
+the cell holds a `number` (`Double` / `Double`). Create with `new Cell(0)`, read
+`cell.value`, and assign `cell.value = next`. A `const` cell is a retained owned
+capture, which is the mutable-capture primitive for native closures. A cell does
+not make concurrent mutation across executors safe.
+
 Native instance-method overloads use their binding's public group name (for
 example, `Box__method_measure`). Generated JavaScript exposes `box.measure(...)`
 with one TypeScript signature per overload and dispatches by argument count and
@@ -1004,6 +1194,13 @@ Callbacks may retain owned native resources under the normal capture rules.
 Keep the delegate owned for the entire registration lifetime when the SDK stores
 it weakly. Automatic subscription ownership and quiescence are not supplied by
 this generator yet.
+
+Author-written Lucent classes may also declare `implements ProtocolName` when
+`ProtocolName` is a library reference with `protocol.methods` metadata. The
+checker requires each listed method to exist with matching parameter and result
+types, and reports missing methods with a Candidates list (`LUCENT1011`). This
+is a compile-time conformance check; curated `lucent sdk delegate` generation
+remains the path that emits native protocol/interface wrappers.
 
 Requirements support `number`, `int32`, `boolean`, and `string` parameters/results,
 and `void` results. Swift argument labels are explicit and default to `_`.

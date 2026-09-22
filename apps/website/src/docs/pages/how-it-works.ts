@@ -22,15 +22,16 @@ export const page: DocPage = {
       head: ["Phase", "Input → output", "Notes"],
       rows: [
         ["Parse", "text → surface AST", "[oxc-parser](https://oxc.rs/) for TypeScript syntax. Unsupported nodes are `LUCENT1001`, not a crash."],
-        ["Check", "AST → typed AST", "Scopes, inference of locals, assignability, arity, narrowing of optionals and union tags, capability and platform checks."],
-        ["Lower", "typed AST → IR", "Removes what only JavaScript has: `for(;;)` becomes `while`, `a += b` becomes an assignment, template strings become `concat`."],
-        ["Backends", "IR → Swift / Kotlin text", "A lookup table per type. Backends never see TypeScript names."],
-        ["Host", "bodies → package", "Wraps functions as an Expo `Module` or a Nitro `HybridObject`, writes the JS proxy and `.d.ts`, plus podspec, Gradle, manifests."],
+        ["Check", "AST → typed AST", "Scopes, ownership/borrow, effects, capability and platform checks."],
+        ["Lower", "typed AST → HIR", "JS-only constructs removed; calls keep symbol identity, ownership and effects."],
+        ["Optimize (opt-in)", "HIR → HIR", "`lucent build --optimize`: fold, DCE, dead branches, reachability."],
+        ["Backends", "HIR → Swift / Kotlin", "Lookup tables per type. Backends do not re-decide ownership."],
+        ["Host", "bodies → package", "Expo Module or Nitro HybridObject, JS proxy, podspec / Gradle."],
       ],
     },
     {
       kind: "p",
-      text: "The IR is typed and keeps structured control flow (`if`, `while`, `forEach`, `return`, `throw`). Swift and Kotlin have no `goto`, so a basic-block CFG would only have to be re-structured on the way out. Run `lucent build --emit-ir` to write it to `.lucent/ir/`.",
+      text: "The IR is typed and keeps structured control flow (`if`, `while`, `forEach`, `return`, `throw`). Calls carry resolved ownership and effects (HIR). Run `lucent build --emit hir` to write it under `.lucent/ir/`.",
     },
     {
       kind: "tabs",

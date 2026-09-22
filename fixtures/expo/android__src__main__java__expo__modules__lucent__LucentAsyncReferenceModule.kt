@@ -44,6 +44,37 @@ class LucentAsyncReferenceModule : Module() {
         result
       } finally { lucentLeases.close() }
     }
+    Function("lucentInternal_2e40afc3526ae0ac_TaskGroup__create") {
+      LucentObjectRegistry.withObjects(listOf()) { lucentLeases ->
+        val result = lucentInternal_2e40afc3526ae0ac_TaskGroup__create()
+        LucentObjectRegistry.hold(result)
+      }
+    }
+    Function("lucentInternal_2e40afc3526ae0ac_TaskGroup__get_closing") { lucentSelf: Double ->
+      LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
+        val result = lucentInternal_2e40afc3526ae0ac_TaskGroup__get_closing(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskGroup::class.java))
+        result
+      }
+    }
+    Function("lucentInternal_2e40afc3526ae0ac_TaskGroup__get_activeCount") { lucentSelf: Double ->
+      LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
+        val result = lucentInternal_2e40afc3526ae0ac_TaskGroup__get_activeCount(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskGroup::class.java))
+        result
+      }
+    }
+    Function("lucentInternal_2e40afc3526ae0ac_TaskGroup__method_begin") { lucentSelf: Double ->
+      LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
+        val result = lucentInternal_2e40afc3526ae0ac_TaskGroup__method_begin(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskGroup::class.java))
+        LucentObjectRegistry.hold(result)
+      }
+    }
+    AsyncFunction("lucentInternal_2e40afc3526ae0ac_TaskGroup__method_close") Coroutine { lucentSelf: Double ->
+      val lucentLeases = LucentObjectRegistry.acquireMany(listOf(lucentSelf))
+      try {
+        val result = lucentInternal_2e40afc3526ae0ac_TaskGroup__method_close(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskGroup::class.java))
+        result
+      } finally { lucentLeases.close() }
+    }
     Function("lucentInternal_2e40afc3526ae0ac_NativeTask__create") { scope: Double ->
       LucentObjectRegistry.withObjects(listOf(scope)) { lucentLeases ->
         val result = lucentInternal_2e40afc3526ae0ac_NativeTask__create(lucentLeases.get(scope, lucentInternal_2e40afc3526ae0ac_TaskScope::class.java))
@@ -112,6 +143,26 @@ class LucentAsyncReferenceModule : Module() {
   }
 
   private suspend fun lucentInternal_2e40afc3526ae0ac_TaskScope__method_close(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskScope): Unit {
+    lucentSelf.close()
+  }
+
+  private fun lucentInternal_2e40afc3526ae0ac_TaskGroup__create(): lucentInternal_2e40afc3526ae0ac_TaskGroup {
+    return LucentTaskGroup()
+  }
+
+  private fun lucentInternal_2e40afc3526ae0ac_TaskGroup__get_closing(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup): Boolean {
+    return lucentSelf.closing
+  }
+
+  private fun lucentInternal_2e40afc3526ae0ac_TaskGroup__get_activeCount(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup): Double {
+    return lucentSelf.activeCount
+  }
+
+  private fun lucentInternal_2e40afc3526ae0ac_TaskGroup__method_begin(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup): lucentInternal_2e40afc3526ae0ac_NativeTask {
+    return lucentSelf.begin()
+  }
+
+  private suspend fun lucentInternal_2e40afc3526ae0ac_TaskGroup__method_close(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup): Unit {
     lucentSelf.close()
   }
 

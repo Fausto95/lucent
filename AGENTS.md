@@ -28,9 +28,15 @@ cli / expo / metro  →  host-expo / host-nitro  →  backend-swift / backend-ko
   arrive through `{{token}}` placeholders. The compiler cannot read files, so
   `scripts/embed-native.ts` generates its embed; `pnpm verify` checks it is
   fresh.
-- Generated code is built as a `Doc` and rendered. Never hardcode an indent
-  prefix, and never push an opening and closing brace as separate lines — use
-  `block`, so nesting cannot fall out of step with the text.
+- Generated code is built as a `Doc` and rendered via `@lucent-lang/codegen`
+  (`block`, `indent`, `sections`, `render`, `fillNative`). Never hardcode an
+  indent prefix, and never push an opening and closing brace as separate lines —
+  use `block`, so nesting cannot fall out of step with the text.
+- Do not assemble Swift/Kotlin with TypeScript template literals or string
+  concatenation that invents braces or indentation — including verify harnesses
+  under `scripts/`. Hand-written runners live in `scripts/native/` (or package
+  `native/`) and are composed with `fillNative` + `Doc` helpers in
+  `scripts/lib/`.
 - Expressions are built as a `SwiftExpr` / `KotlinExpr` and printed.
   Parentheses come from the precedence table and Swift's `try` from an
   exhaustive effect walk; neither is written by hand at a call site.

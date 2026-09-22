@@ -8,6 +8,19 @@ export declare class TaskScope {
   close(): Promise<void>;
   dispose(): void;
 }
+/**
+ * Structured task group: child failure cancels siblings; `close` awaits
+ * quiescence and rethrows the primary child error.
+ */
+export declare class TaskGroup {
+  constructor();
+  readonly closing: boolean;
+  readonly activeCount: number;
+  begin(): NativeTask;
+  /** Reject new work, cancel active children, await completion, rethrow primary error. */
+  close(): Promise<void>;
+  dispose(): void;
+}
 /** The SDK adapter must retain this task and finish it on every actual completion path. */
 export declare class NativeTask {
   constructor(scope: TaskScope);

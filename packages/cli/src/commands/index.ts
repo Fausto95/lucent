@@ -5,6 +5,7 @@ import { doctorCommand } from "./doctor.ts";
 import { explainCommand } from "./explain.ts";
 import { initCommand } from "./init.ts";
 import { irCommand } from "./ir.ts";
+import { packCommand } from "./pack.ts";
 import { sdkCommand } from "./sdk.ts";
 import type { Command } from "./types.ts";
 
@@ -16,6 +17,7 @@ export const COMMANDS: readonly Command[] = [
   doctorCommand,
   explainCommand,
   irCommand,
+  packCommand,
   cleanCommand,
   sdkCommand,
 ];

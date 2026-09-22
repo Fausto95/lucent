@@ -1,0 +1,9 @@
+error LUCENT1018: Borrowed value escapes
+
+A borrowed value cannot be used after suspension.
+
+   ┌─ negative-borrow-after-await.lucent.ts:12:10
+12 │   return buffer.length;
+   │          ^^^^^^
+
+The borrow originates at a parameter or borrowed call result earlier in this scope. Suspension begins at a preceding `await`; this use would read the borrow after that point. Process the borrow before `await`, or copy needed data into owned memory.

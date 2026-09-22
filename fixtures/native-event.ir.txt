@@ -5,4 +5,4 @@ export struct Progress { percent: float64, label: string }
 fn __event_253846265b0a3b85_progress(payload: struct Progress) -> void
 
 export fn report(percent: float64) -> void
-  (call __event_253846265b0a3b85_progress (struct Progress (percent percent) (label "native")))
+  (call __event_253846265b0a3b85_progress {value->value} (struct Progress (percent percent) (label "native")))

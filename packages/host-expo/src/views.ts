@@ -10,6 +10,9 @@ import {
   exportedViews,
   stateArguments,
   stateFields,
+  resourceArguments,
+  resourceDispose,
+  resourceFields,
   viewCallWithState,
   viewName,
   viewNamespace,
@@ -79,13 +82,15 @@ final class ${name}: ExpoView {
   private let content = LucentHostedView(frame: .zero)
 ${swiftProps}
 ${indentLines(stateFields(fn, "swift", swiftType))}
+${indentLines(resourceFields(fn, "swift", swiftType, namespace))}
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
     addSubview(content)
     update()
   }
   override func layoutSubviews() { super.layoutSubviews(); content.frame = bounds }
-  func update() { content.render(${namespace}.${fn.name}(${viewCallWithState(viewCall(module, fn, swiftArgs, "swift"), stateArguments(fn, "swift", "update"))})) }
+  func update() { content.render(${namespace}.${fn.name}(${viewCallWithState(viewCall(module, fn, swiftArgs, "swift"), stateArguments(fn, "swift", "update"), resourceArguments(fn, "swift"))})) }
+  ${resourceDispose(fn, "swift")}
 }
 `,
       );
@@ -124,11 +129,13 @@ ${props
 class ${name}(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
 ${props.map((p) => (p.type.kind === "event" ? `  val ${nativeViewEvent(module, fn, p.name)} by EventDispatcher<Map<String, Any>>()` : `  var lucentProp_${p.name}: ${kotlinType(p.type)} by mutableStateOf(${defaultValue(p.type.kind, "kotlin")})`)).join("\n")}
 ${indentLines(stateFields(fn, "kotlin", kotlinType))}
+${indentLines(resourceFields(fn, "kotlin", kotlinType, namespace))}
   private val content = ComposeView(context).apply {
     setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
-    setContent { ${namespace}.${fn.name}(${viewCallWithState(viewCall(module, fn, kotlinArgs, "kotlin"), stateArguments(fn, "kotlin", "update"))}) }
+    setContent { ${namespace}.${fn.name}(${viewCallWithState(viewCall(module, fn, kotlinArgs, "kotlin"), stateArguments(fn, "kotlin", "update"), resourceArguments(fn, "kotlin"))}) }
   }
   init { addView(content, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)) }
+  ${resourceDispose(fn, "kotlin")}
 }
 `,
       );

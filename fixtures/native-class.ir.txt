@@ -18,7 +18,7 @@ export fn lucentInternal_8f133499183f7a85_Counter__create(initial: float64) -> s
   return %lucentSelf
 
 export fn makeCounter(initial: float64) -> struct lucentInternal_8f133499183f7a85_Counter
-  return (call lucentInternal_8f133499183f7a85_Counter__create initial)
+  return (call lucentInternal_8f133499183f7a85_Counter__create {value->value} initial)
 
 export fn advance(counter: struct lucentInternal_8f133499183f7a85_Counter) -> float64
-  return (call lucentInternal_8f133499183f7a85_Counter__method_increment counter 1)
+  return (call lucentInternal_8f133499183f7a85_Counter__method_increment {value,value->value} counter 1)

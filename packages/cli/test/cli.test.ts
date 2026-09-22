@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vite-plus/test";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { COMPILER_VERSION } from "@lucent-lang/compiler";
 import { run } from "../src/cli.ts";
@@ -18,7 +18,7 @@ describe("global flags", () => {
   test("--help lists every command with its emoji", async () => {
     const io = fakeIO(project({}));
     expect(await run(["--help"], io)).toBe(0);
-    for (const name of ["build", "check", "init", "doctor", "explain", "ir", "clean", "sdk"])
+    for (const name of ["build", "check", "init", "doctor", "explain", "ir", "pack", "clean", "sdk"])
       expect(io.out()).toContain(name);
     expect(io.out()).toContain("🔨");
     expect(io.out()).toContain("--no-color");
@@ -38,6 +38,7 @@ describe("global flags", () => {
       const io = fakeIO(project({}));
       expect(await run(argv, io)).toBe(0);
       expect(io.out()).toContain("--emit-ir");
+      expect(io.out()).toContain("--emit");
       expect(io.out()).toContain("--watch");
       expect(io.out()).toContain("Examples");
     }
@@ -64,6 +65,28 @@ describe("global flags", () => {
   });
 });
 
+describe("lucent pack", () => {
+  test("lists publishable packages and publish steps", async () => {
+    const root = project({
+      "packages/compiler/package.json": JSON.stringify({
+        name: "@lucent-lang/compiler",
+        version: "0.0.1",
+        publishConfig: { access: "public" },
+      }),
+      "packages/bench/package.json": JSON.stringify({
+        name: "@lucent-lang/bench",
+        version: "0.0.1",
+        private: true,
+      }),
+    });
+    const io = fakeIO(root);
+    expect(await run(["pack"], io)).toBe(0);
+    expect(io.out()).toContain("@lucent-lang/compiler@0.0.1");
+    expect(io.out()).toContain("publish steps");
+    expect(io.out()).toContain("smoke-fresh-install.md");
+  });
+});
+
 describe("lucent build", () => {
   test("compiles, then reports cache hits", async () => {
     const root = wiredExpoProject();
@@ -85,6 +108,52 @@ describe("lucent build", () => {
     expect(result).toMatchObject({ ok: true, host: "expo", outDir: "modules/lucent", cached: [] });
     expect(result.compiled).toEqual(["src/native/math.lucent.ts", "src/native/text.lucent.ts"]);
     expect(typeof result.durationMs).toBe("number");
+  });
+
+  test("--analyze prints static IR estimates", async () => {
+    const io = fakeIO(wiredExpoProject());
+    expect(await run(["build", "--analyze"], io)).toBe(0);
+    expect(io.out()).toContain("static estimates");
+    expect(io.out()).toContain("Native calls");
+    expect(io.out()).toContain("Async calls");
+    expect(io.out()).toContain("JS exports");
+  });
+
+  test("--explain without --optimize reports disabled", async () => {
+    const io = fakeIO(wiredExpoProject());
+    expect(await run(["build", "--explain"], io)).toBe(0);
+    expect(io.out()).toContain("Optimization disabled");
+  });
+
+  test("--optimize --explain prints the optimization log", async () => {
+    const io = fakeIO(
+      wiredExpoProject({
+        "src/native/fold.lucent.ts": "export function f(): number { 1; return 2 + 3; }\n",
+      }),
+    );
+    expect(await run(["build", "--optimize", "--explain"], io)).toBe(0);
+    expect(io.out()).toContain("constant-fold:");
+    expect(io.out()).toContain("dce:");
+  });
+
+  test("--emit hir writes IR text like --emit-ir", async () => {
+    const root = wiredExpoProject();
+    const io = fakeIO(root);
+    expect(await run(["build", "--emit", "hir", "src/native/math.lucent.ts"], io)).toBe(0);
+    expect(readFileSync(join(root, ".lucent", "ir", "math.ir.txt"), "utf8")).toContain("export fn add");
+    const map = JSON.parse(readFileSync(join(root, ".lucent", "ir", "math.lucent.map.json"), "utf8")) as {
+      version: number;
+      functions: { name: string }[];
+    };
+    expect(map.version).toBe(1);
+    expect(map.functions.some((f) => f.name === "add")).toBe(true);
+  });
+
+  test("--emit ast prints surface function names", async () => {
+    const io = fakeIO(wiredExpoProject());
+    expect(await run(["build", "--emit", "ast", "src/native/math.lucent.ts"], io)).toBe(0);
+    expect(io.out()).toContain("ast (surface functions)");
+    expect(io.out()).toContain("add");
   });
 
   test("--no-color --no-emoji produces plain text", async () => {

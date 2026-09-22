@@ -18,6 +18,9 @@ importers:
       '@lucent-lang/backend-swift':
         specifier: workspace:*
         version: link:packages/backend-swift
+      '@lucent-lang/codegen':
+        specifier: workspace:*
+        version: link:packages/codegen
       '@lucent-lang/compiler':
         specifier: workspace:*
         version: link:packages/compiler
@@ -184,6 +187,42 @@ importers:
         specifier: workspace:*
         version: link:../compiler
 
+  packages/background:
+    dependencies:
+      '@lucent-lang/compiler':
+        specifier: workspace:*
+        version: link:../compiler
+      '@lucent-lang/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/bench:
+    dependencies:
+      '@lucent-lang/camera':
+        specifier: workspace:*
+        version: link:../camera
+      '@lucent-lang/compiler':
+        specifier: workspace:*
+        version: link:../compiler
+
+  packages/bluetooth:
+    dependencies:
+      '@lucent-lang/compiler':
+        specifier: workspace:*
+        version: link:../compiler
+      '@lucent-lang/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/camera:
+    dependencies:
+      '@lucent-lang/compiler':
+        specifier: workspace:*
+        version: link:../compiler
+      '@lucent-lang/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/cli:
     dependencies:
       '@lucent-lang/compiler':
@@ -252,6 +291,12 @@ importers:
         specifier: 0.151.0
         version: 0.151.0
 
+  packages/fake-sdk:
+    dependencies:
+      '@lucent-lang/compiler':
+        specifier: workspace:*
+        version: link:../compiler
+
   packages/host-core:
     dependencies:
       '@lucent-lang/compiler':
@@ -294,6 +339,21 @@ importers:
         specifier: workspace:*
         version: link:../host-core
 
+  packages/language-server:
+    dependencies:
+      '@lucent-lang/compiler':
+        specifier: workspace:*
+        version: link:../compiler
+
+  packages/location:
+    dependencies:
+      '@lucent-lang/compiler':
+        specifier: workspace:*
+        version: link:../compiler
+      '@lucent-lang/core':
+        specifier: workspace:*
+        version: link:../core
+
   packages/metro:
     dependencies:
       '@lucent-lang/compiler':
@@ -319,6 +379,24 @@ importers:
       '@lucent-lang/compiler':
         specifier: workspace:*
         version: link:../compiler
+
+  packages/sqlite:
+    dependencies:
+      '@lucent-lang/compiler':
+        specifier: workspace:*
+        version: link:../compiler
+      '@lucent-lang/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/streaming:
+    dependencies:
+      '@lucent-lang/compiler':
+        specifier: workspace:*
+        version: link:../compiler
+      '@lucent-lang/core':
+        specifier: workspace:*
+        version: link:../core
 
 packages:
 

@@ -1,11 +1,16 @@
-/** Extract an actual Swift compiler graph, then compile and execute its generated bindings. */
+/**
+ * Extract an actual Swift compiler graph, then compile and execute its generated
+ * bindings. Program assembly uses `@lucent-lang/codegen` Doc helpers.
+ */
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { block, sections } from "../packages/codegen/src/index.ts";
 import { extractSwiftSymbolGraph, generateBindingLibrary } from "../packages/sdk/src/index.ts";
 import { compile } from "../packages/compiler/src/index.ts";
-import { generateSwift, swiftRuntime } from "../packages/backend-swift/src/index.ts";
+import { renderSwiftVerifyProgram } from "./lib/native-harness.ts";
+
 const dir = mkdtempSync(join(tmpdir(), "lucent-symbolgraph-"));
 const graphDir = join(dir, "graphs");
 mkdirSync(graphDir);
@@ -64,11 +69,20 @@ export function hello():string {if(Platform.OS === "ios") return greeting("Lucen
   { fileName: "probe.lucent.ts", libraries: { "@probe/sdk": library } },
 );
 if (!result.module) throw new Error(JSON.stringify(result.diagnostics));
-writeFileSync(
-  join(dir, "main.swift"),
-  `typealias ArrayBuffer = [UInt8]\n${swiftRuntime({ length: "return Double(buffer.count)", get: "return Double(buffer[Int(index)])" })}\n${generateSwift(result.module).code}\nprecondition(try! decimal() == 3.5)\nprecondition(try! integer(value: -17) == 17)\nprecondition(try! hello() == "Hello Lucent")\nprint("swift: compiler symbol graph overloads, labels and coverage passed")\n`,
-);
+
+const harness = sections([
+  block("@main struct Runner {", [
+    block("static func main() throws {", [
+      "precondition(try! decimal() == 3.5)",
+      "precondition(try! integer(value: -17) == 17)",
+      'precondition(try! hello() == "Hello Lucent")',
+      'print("swift: compiler symbol graph overloads, labels and coverage passed")',
+    ]),
+  ]),
+]);
+writeFileSync(join(dir, "main.swift"), renderSwiftVerifyProgram(result.module, harness));
 run("swiftc", [
+  "-parse-as-library",
   "-module-cache-path",
   join(dir, "cache"),
   "-I",

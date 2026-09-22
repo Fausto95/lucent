@@ -7,6 +7,11 @@ const operations = {
   TaskScope__get_activeCount: ["return lucentSelf.activeCount", "return lucentSelf.activeCount"],
   TaskScope__method_begin: ["return try lucentSelf.begin()", "return lucentSelf.begin()"],
   TaskScope__method_close: ["await lucentSelf.close()", "lucentSelf.close()"],
+  TaskGroup__create: ["return LucentTaskGroup()", "return LucentTaskGroup()"],
+  TaskGroup__get_closing: ["return lucentSelf.closing", "return lucentSelf.closing"],
+  TaskGroup__get_activeCount: ["return lucentSelf.activeCount", "return lucentSelf.activeCount"],
+  TaskGroup__method_begin: ["return try lucentSelf.begin()", "return lucentSelf.begin()"],
+  TaskGroup__method_close: ["try await lucentSelf.close()", "lucentSelf.close()"],
   NativeTask__create: ["return try scope.begin()", "return scope.begin()"],
   NativeTask__get_cancelled: ["return lucentSelf.cancelled", "return lucentSelf.cancelled"],
   NativeTask__get_finished: ["return lucentSelf.finished", "return lucentSelf.finished"],
@@ -14,15 +19,20 @@ const operations = {
   NativeTask__method_finish: ["return lucentSelf.finish()", "return lucentSelf.finish()"],
   NativeTask__method_throwIfCancelled: ["try lucentSelf.throwIfCancelled()", "lucentSelf.throwIfCancelled()"],
 } as const;
+const ownedCreates = new Set([
+  "TaskScope__create",
+  "TaskScope__method_begin",
+  "TaskGroup__create",
+  "TaskGroup__method_begin",
+  "NativeTask__create",
+]);
 const bindings: Record<string, NativeBinding> = Object.fromEntries(
   Object.entries(operations).map(([name, [swift, kotlin]]) => [
     name,
     {
       contract: {
         symbolId: nativeSymbolId("Lucent", "TaskScope", name, "v1"),
-        ...(["TaskScope__create", "TaskScope__method_begin", "NativeTask__create"].includes(name)
-          ? { result: "owned" as const }
-          : {}),
+        ...(ownedCreates.has(name) ? { result: "owned" as const } : {}),
       },
       swift: [swift],
       kotlin: [kotlin],
@@ -32,12 +42,18 @@ const bindings: Record<string, NativeBinding> = Object.fromEntries(
 export const TASKS_LIBRARY: LibraryModule = {
   schemaVersion: 1,
   source: `export type TaskScope={closing:boolean;activeCount:number};
+export type TaskGroup={closing:boolean;activeCount:number};
 export type NativeTask={cancelled:boolean;finished:boolean};
 export declare function TaskScope__create():TaskScope;
 export declare function TaskScope__get_closing(lucentSelf:TaskScope):boolean;
 export declare function TaskScope__get_activeCount(lucentSelf:TaskScope):number;
 export declare function TaskScope__method_begin(lucentSelf:TaskScope):NativeTask;
 export declare function TaskScope__method_close(lucentSelf:TaskScope):Promise<void>;
+export declare function TaskGroup__create():TaskGroup;
+export declare function TaskGroup__get_closing(lucentSelf:TaskGroup):boolean;
+export declare function TaskGroup__get_activeCount(lucentSelf:TaskGroup):number;
+export declare function TaskGroup__method_begin(lucentSelf:TaskGroup):NativeTask;
+export declare function TaskGroup__method_close(lucentSelf:TaskGroup):Promise<void>;
 export declare function NativeTask__create(scope:TaskScope):NativeTask;
 export declare function NativeTask__get_cancelled(lucentSelf:NativeTask):boolean;
 export declare function NativeTask__get_finished(lucentSelf:NativeTask):boolean;
@@ -48,6 +64,11 @@ export declare function NativeTask__method_throwIfCancelled(lucentSelf:NativeTas
     TaskScope: {
       swift: "LucentTaskScope",
       kotlin: "LucentTaskScope",
+      contract: { ownership: "owned", executor: "caller", transferable: true, close: "close" },
+    },
+    TaskGroup: {
+      swift: "LucentTaskGroup",
+      kotlin: "LucentTaskGroup",
       contract: { ownership: "owned", executor: "caller", transferable: true, close: "close" },
     },
     NativeTask: {

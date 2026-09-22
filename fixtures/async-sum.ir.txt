@@ -1,10 +1,10 @@
 module async-sum
 
-async fn scale(value: float64) -> float64
+async fn scale(value: float64) -> float64 [async]
   return (mul value 2)
 
-export async fn total(values: array<float64>) -> float64
+export async fn total(values: array<float64>) -> float64 [async]
   let %sum: float64 = 0
   foreach %value: float64 in values
     assign %sum = (add %sum %value)
-  return (await (call scale %sum))
+  return (await (call scale {value->value async} %sum))

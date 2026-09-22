@@ -36,4 +36,8 @@ export declare function For<T>(props: {
 type StateValue<T> = T extends string ? string : T extends number ? number : boolean;
 declare global {
   function state<T extends string | number | boolean>(initial: T): StateValue<T> & { set(value: StateValue<T>): void };
+  /** Component-owned resource; created once per host identity and closed on unmount. */
+  function resource<T>(factory: () => T): T;
+  /** Sync component effect. Cleanup runs before unmount; deps identity is recorded for later async work. */
+  function effect(body: () => void | (() => void), deps: readonly unknown[]): void;
 }

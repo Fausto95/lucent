@@ -1,11 +1,18 @@
-/** Execute the cooperative cancellation primitive on both native toolchains. */
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { execFileSync } from "node:child_process";
+/**
+ * Execute the cooperative cancellation primitive on both native toolchains.
+ * Harness runners live under scripts/native/verify-cancellation/.
+ */
 import { compile } from "../packages/compiler/src/index.ts";
 import { generateSwift, swiftRuntime } from "../packages/backend-swift/src/index.ts";
 import { generateKotlin, kotlinRuntime } from "../packages/backend-kotlin/src/index.ts";
+import {
+  compileAndRunKotlin,
+  compileAndRunSwift,
+  fillVerifyHarness,
+  packageSources,
+  readNativeTemplate,
+} from "./lib/verify-harness.ts";
+
 const result = compile(
   `import {CancellationSource} from '@lucent-lang/core/cancellation';
 export function make():CancellationSource{return new CancellationSource();}
@@ -16,68 +23,32 @@ export function complete(source:CancellationSource):boolean{return source.finish
   { fileName: "cancellation.lucent.ts" },
 );
 if (!result.module) throw new Error(JSON.stringify(result.diagnostics));
-const module = result.module;
-const dir = mkdtempSync(join(tmpdir(), "lucent-cancellation-"));
-const packages = Object.values(module.nativePackages ?? {});
-const swift = `typealias ArrayBuffer = [UInt8]
-${swiftRuntime({ length: "return Double(buffer.count)", get: "return Double(buffer[Int(index)])" })}
-${packages.flatMap((p) => Object.values(p.swift ?? {})).join("\n")}
-${generateSwift(module).code}
-let source = try make()
-let initial = try checkpoint(source: source)
-precondition(!initial)
-DispatchQueue.concurrentPerform(iterations: 1000) { _ in try! cancel(source: source) }
-do { _ = try checkpoint(source: source); fatalError("Cancellation was ignored") } catch let error as LucentError { precondition(error.code == "CANCELLED") }
-try cancel(source: source)
-let parent = try make()
-let scoped = try child(source: parent)
-try cancel(source: parent)
-do { _ = try checkpoint(source: scoped); fatalError("Child scope ignored cancellation") } catch let error as LucentError { precondition(error.code == "CANCELLED") }
-let finished = try make()
-let first = try complete(source: finished)
-let second = try complete(source: finished)
-precondition(first)
-precondition(!second)
-let cancelled = try make()
-try cancel(source: cancelled)
-let afterCancel = try complete(source: cancelled)
-precondition(!afterCancel)
-print("swift: cooperative cancellation, typed errors and concurrent cancellation passed")
-`;
-writeFileSync(join(dir, "main.swift"), swift);
-execFileSync(
-  "swiftc",
-  ["-module-cache-path", join(dir, "cache"), join(dir, "main.swift"), "-o", join(dir, "swift-test")],
-  { stdio: "pipe" },
+const ir = result.module;
+
+const runtimeSwift = swiftRuntime({
+  length: "return Double(buffer.count)",
+  get: "return Double(buffer[Int(index)])",
+});
+const runtimeKotlin = kotlinRuntime({
+  imports: [],
+  length: "return buffer.size.toDouble()",
+  get: "return buffer[index.toInt()].toDouble()",
+});
+
+compileAndRunSwift(
+  fillVerifyHarness(readNativeTemplate("verify-cancellation", "Runner.swift"), {
+    runtime: runtimeSwift,
+    packages: packageSources(ir, "swift"),
+    generated: generateSwift(ir).code,
+  }),
+  "lucent-cancellation-",
 );
-process.stdout.write(execFileSync(join(dir, "swift-test")));
-const kotlin = `typealias ArrayBuffer = ByteArray
-${kotlinRuntime({ imports: [], length: "return buffer.size.toDouble()", get: "return buffer[index.toInt()].toDouble()" })}
-${packages
-  .flatMap((p) => Object.values(p.kotlin ?? {}))
-  .join("\n")
-  .replace(/^package .*\n/gm, "")}
-${generateKotlin(module).code}
-fun main() {
- val source=make()
- check(!checkpoint(source))
- val workers=(0 until 8).map { kotlin.concurrent.thread { repeat(125) { cancel(source) } } }
- workers.forEach { it.join() }
- try { checkpoint(source); error("Cancellation was ignored") } catch (error:LucentError) { check(error.code == "CANCELLED") }
- cancel(source)
- val parent = make()
- val scoped = child(parent)
- cancel(parent)
- try { checkpoint(scoped); error("Child scope ignored cancellation") } catch (error:LucentError) { check(error.code == "CANCELLED") }
- val finished = make()
- check(complete(finished))
- check(!complete(finished))
- val cancelled = make()
- cancel(cancelled)
- check(!complete(cancelled))
- println("kotlin: cooperative cancellation, typed errors and concurrent cancellation passed")
-}
-`;
-writeFileSync(join(dir, "Main.kt"), kotlin);
-execFileSync("kotlinc", [join(dir, "Main.kt"), "-include-runtime", "-d", join(dir, "main.jar")], { stdio: "pipe" });
-process.stdout.write(execFileSync("java", ["-jar", join(dir, "main.jar")]));
+
+compileAndRunKotlin(
+  fillVerifyHarness(readNativeTemplate("verify-cancellation", "Main.kt"), {
+    runtime: runtimeKotlin,
+    packages: packageSources(ir, "kotlin"),
+    generated: generateKotlin(ir).code,
+  }),
+  "lucent-cancellation-",
+);

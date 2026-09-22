@@ -215,14 +215,21 @@ class Converter {
       .find((i) => i.source === "@lucent-lang/core/objects")
       ?.bindings?.find((b) => b.imported === "SharedObject" && !b.typeOnly)?.local;
     const sharedBase = node.superClass?.type === "Identifier" && node.superClass.name === base;
+    const implementsNames: string[] = [];
+    for (const iface of node.implements ?? []) {
+      if (iface.type !== "TSClassImplements" || iface.expression.type !== "Identifier" || iface.typeArguments) {
+        this.unsupported(iface, "protocol implements (identifier protocols only)");
+        continue;
+      }
+      implementsNames.push(iface.expression.name);
+    }
     if (
       !node.id ||
       (node.superClass && !sharedBase) ||
       node.typeParameters ||
       node.abstract ||
       node.declare ||
-      node.decorators.length ||
-      node.implements?.length
+      node.decorators.length
     ) {
       this.unsupported(node, "class inheritance, generics, decorators, or ambient classes");
       return;
@@ -333,7 +340,12 @@ class Converter {
       exported,
       type: { kind: "object", fields, span },
       span,
-      reference: { publicName: name, exported, ...(privateFields.length ? { privateFields } : {}) },
+      reference: {
+        publicName: name,
+        exported,
+        ...(privateFields.length ? { privateFields } : {}),
+        ...(implementsNames.length ? { implements: implementsNames } : {}),
+      },
     });
     this.functions.push({
       name: `${name}__create`,
@@ -716,21 +728,22 @@ class Converter {
 
   private readonly exprHandlers: Record<string, (node: never) => Expr> = {
     ArrowFunctionExpression: (node: ES.ArrowFunctionExpression) => {
-      if (node.async || node.typeParameters) {
-        this.unsupported(node, "native closures must be synchronous");
+      if (node.typeParameters) {
+        this.unsupported(node, "generic closures");
         return { kind: "unsupported", span: spanOf(node) };
       }
       const params = node.params.map((p) => this.param(p));
       const returnType = node.returnType ? this.type(node.returnType.typeAnnotation) : null;
       const span = spanOf(node);
+      const asyncFlag = node.async ? ({ async: true as const } as const) : {};
       if (node.body.type !== "BlockStatement")
-        return { kind: "closure", params, returnType, body: this.expr(node.body), span };
+        return { kind: "closure", params, returnType, body: this.expr(node.body), ...asyncFlag, span };
       const only =
         node.body.body.length === 1 && node.body.body[0]?.type === "ReturnStatement"
           ? node.body.body[0].argument
           : null;
-      if (only) return { kind: "closure", params, returnType, body: this.expr(only), span };
-      return { kind: "closure", params, returnType, body: this.block(node.body), span };
+      if (only) return { kind: "closure", params, returnType, body: this.expr(only), ...asyncFlag, span };
+      return { kind: "closure", params, returnType, body: this.block(node.body), ...asyncFlag, span };
     },
     ConditionalExpression: (node: ES.ConditionalExpression) => ({
       kind: "conditional",

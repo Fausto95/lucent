@@ -8,6 +8,11 @@ export interface AsyncReference extends HybridObject<{ ios: 'swift'; android: 'k
   lucentInternal_2e40afc3526ae0ac_TaskScope__get_activeCount(lucentSelf: number): number;
   lucentInternal_2e40afc3526ae0ac_TaskScope__method_begin(lucentSelf: number): number;
   lucentInternal_2e40afc3526ae0ac_TaskScope__method_close(lucentSelf: number): Promise<void>;
+  lucentInternal_2e40afc3526ae0ac_TaskGroup__create(): number;
+  lucentInternal_2e40afc3526ae0ac_TaskGroup__get_closing(lucentSelf: number): boolean;
+  lucentInternal_2e40afc3526ae0ac_TaskGroup__get_activeCount(lucentSelf: number): number;
+  lucentInternal_2e40afc3526ae0ac_TaskGroup__method_begin(lucentSelf: number): number;
+  lucentInternal_2e40afc3526ae0ac_TaskGroup__method_close(lucentSelf: number): Promise<void>;
   lucentInternal_2e40afc3526ae0ac_NativeTask__create(scope: number): number;
   lucentInternal_2e40afc3526ae0ac_NativeTask__get_cancelled(lucentSelf: number): boolean;
   lucentInternal_2e40afc3526ae0ac_NativeTask__get_finished(lucentSelf: number): boolean;

@@ -13,4 +13,8 @@ normal compiler. Both native executables check known padded/interleaved planes,
 This fixture proves compiled processing and borrowed callback delivery. It does
 not provide camera permissions, native preview, platform camera sessions,
 backpressure, orientation handling, view lifecycle, or physical-device evidence.
-Those remain tracked under M8 in [ROADMAP.md](../../ROADMAP.md).
+
+Session ownership, keep-latest frames metadata, and CI camera stubs live in
+[`packages/camera`](../../packages/camera) (`@lucent-lang/camera`), verified by
+`scripts/verify-camera-package.ts`. Full device acceptance remains under P79–P81
+in [ROADMAP.md](../../ROADMAP.md).

@@ -41,7 +41,7 @@ test("an unmatched constructor lists the candidates", () => {
     'import {Box} from "@lucent-lang/sdk/box"; export function f():number{const b = new Box(true); return b.size;}',
   );
   expect(result.diagnostics[0]?.code).toBe("LUCENT1012");
-  expect(result.diagnostics[0]?.help).toContain("Box__create__labelled");
+  expect(result.diagnostics[0]?.help).toBe("Candidates:\n  Box__create(float64)\n  Box__create(string)");
 });
 
 test("constructor overloads JavaScript cannot tell apart are rejected", () => {

@@ -1,0 +1,28 @@
+{
+  "name": "@lucent-lang/language-server",
+  "version": "0.0.1",
+  "description": "Lucent language service stub — diagnostics via the compiler; full LSP is post-MVP.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fausto95/lucent.git",
+    "directory": "packages/language-server"
+  },
+  "bin": {
+    "lucent-language-server": "./src/index.ts"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@lucent-lang/compiler": "workspace:*"
+  }
+}

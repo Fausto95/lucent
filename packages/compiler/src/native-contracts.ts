@@ -11,6 +11,11 @@ export interface NativeParameterContract {
     executor: NativeExecutor;
     errors: "propagate" | "notify";
     remove?: string;
+    /**
+     * Declared delivery policy for streaming subscriptions. Package overlays
+     * document the policy; the runtime queue may still be stubbed.
+     */
+    backpressure?: "latest" | "dropOldest" | "dropNewest" | "block";
   };
 }
 export interface NativeCallContract {
@@ -20,6 +25,10 @@ export interface NativeCallContract {
   executor?: NativeExecutor;
   cancellation?: "none" | "cooperative";
   availability?: NativeTargets;
+  /** When true, the receiver must still be open for this call. */
+  resourceRequiresOpen?: boolean;
+  /** When true, the call may block the calling executor. */
+  blocking?: boolean;
 }
 export interface NativeObjectContract {
   ownership: "owned" | "external";

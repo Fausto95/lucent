@@ -2,7 +2,14 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
-import { COMPILER_VERSION, compile, printIR, renderDiagnostic, type IRModule } from "@lucent-lang/compiler";
+import {
+  COMPILER_VERSION,
+  compile,
+  printIR,
+  renderDiagnostic,
+  type IRModule,
+  type LucentSourceMap,
+} from "@lucent-lang/compiler";
 import {
   capabilityFiles,
   loadLucentConfig,
@@ -67,6 +74,10 @@ export interface BuildOptions {
   force?: boolean;
   /** Run the host's post-generate step (nitrogen). Off in tests. */
   postGenerate?: boolean;
+  /** Enable optional HIR optimization passes. */
+  optimize?: boolean;
+  /** Emit lucent.map.json alongside IR (implies sourceMap on compile when emitIR). */
+  sourceMap?: boolean;
   log?: (line: string) => void;
 }
 
@@ -82,6 +93,10 @@ export interface BuildResult {
   compiled: string[];
   cached: string[];
   diagnostics: BuildDiagnostic[];
+  /** Modules produced by this build (compiled or cached), for analyze/explain. */
+  modules: IRModule[];
+  /** Optimization log lines when `--optimize` ran. */
+  optimizeLog: string[];
 }
 
 interface CacheFile {
@@ -90,24 +105,32 @@ interface CacheFile {
   modules: Record<string, { hash: string; module: IRModule; diagnostics?: BuildDiagnostic[] }>;
 }
 
-const hashOf = (source: string, host: HostName): string =>
-  createHash("sha256").update(`${COMPILER_VERSION}\0${host}\0${source}`).digest("hex");
+const hashOf = (source: string, host: HostName, optimize: boolean): string =>
+  createHash("sha256")
+    .update(`${COMPILER_VERSION}\0${host}\0${optimize ? "opt" : "base"}\0${source}`)
+    .digest("hex");
 
 export async function build(options: BuildOptions): Promise<BuildResult> {
   const log = options.log ?? (() => {});
   const root = options.root;
+  const optimize = options.optimize === true;
+  const wantSourceMap = options.sourceMap === true || options.emitIR === true;
   const outDir = join(root, options.outDir ?? defaultOutDir(options.host));
+  const sourceMaps = new Map<string, LucentSourceMap>();
+  const empty = (diagnostics: BuildDiagnostic[]): BuildResult => ({
+    ok: false,
+    outDir,
+    compiled: [],
+    cached: [],
+    diagnostics,
+    modules: [],
+    optimizeLog: [],
+  });
   let config;
   try {
     config = loadLucentConfig(root);
   } catch (error) {
-    return {
-      ok: false,
-      outDir,
-      compiled: [],
-      cached: [],
-      diagnostics: [{ fileName: "lucent.config.json", rendered: String(error) }],
-    };
+    return empty([{ fileName: "lucent.config.json", rendered: String(error) }]);
   }
   const cachePath = join(root, ".lucent", "cache.json");
   const cache = options.force ? null : readCache(cachePath, options.host);
@@ -118,6 +141,7 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
   const compiled: string[] = [];
   const cachedFiles: string[] = [];
   const diagnostics: BuildDiagnostic[] = [];
+  const optimizeLog: string[] = [];
   const sidecars: NativeSidecars = { swift: {}, kotlin: {} };
 
   for (const file of files) {
@@ -138,6 +162,7 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
         config.targets,
       ]),
       options.host,
+      optimize,
     );
     const hit = cache?.modules[rel];
     if (hit && hit.hash === hash) {
@@ -146,19 +171,39 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
       diagnostics.push(...(hit.diagnostics ?? []));
       modules.push(hit.module);
       nextCache.modules[rel] = hit;
+      if (wantSourceMap) {
+        const mapped = compile(source, {
+          fileName: file,
+          sources,
+          targets: config.targets,
+          libraries: config.libraries,
+          ...(optimize ? { optimize: true } : {}),
+          sourceMap: true,
+        });
+        if (mapped.sourceMap && mapped.module) sourceMaps.set(mapped.module.name, mapped.sourceMap);
+      }
       continue;
     }
     log(`⚙ ${rel} compiling`);
-    const result = compile(source, { fileName: file, sources, targets: config.targets, libraries: config.libraries });
+    const result = compile(source, {
+      fileName: file,
+      sources,
+      targets: config.targets,
+      libraries: config.libraries,
+      ...(optimize ? { optimize: true } : {}),
+      ...(wantSourceMap ? { sourceMap: true } : {}),
+    });
     const reported = result.diagnostics.map((d) => ({
       fileName: rel,
       rendered: renderDiagnostic(d, source, rel),
       ...(d.severity ? { severity: d.severity } : {}),
     }));
     diagnostics.push(...reported);
+    if (result.optimizeLog) optimizeLog.push(...result.optimizeLog.map((line) => `${rel}: ${line}`));
     if (!result.module) continue;
     compiled.push(rel);
     modules.push(result.module);
+    if (result.sourceMap) sourceMaps.set(result.module.name, result.sourceMap);
     nextCache.modules[rel] = { hash, module: result.module, diagnostics: reported };
   }
 
@@ -180,7 +225,7 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
     names.add(module.name);
   }
   if (diagnostics.some((d) => d.severity !== "warning"))
-    return { ok: false, outDir, compiled, cached: cachedFiles, diagnostics };
+    return { ok: false, outDir, compiled, cached: cachedFiles, diagnostics, modules, optimizeLog };
 
   const host = HOSTS[options.host];
   const tree = host.emitPackage(modules, { packageName: "lucent", sidecars });
@@ -200,12 +245,17 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
   );
   writeTree(outDir, tree);
   if (options.emitIR) {
-    for (const m of modules) writeIfChanged(join(root, ".lucent", "ir", `${m.name}.ir.txt`), printIR(m));
+    for (const m of modules) {
+      writeIfChanged(join(root, ".lucent", "ir", `${m.name}.ir.txt`), printIR(m));
+      const map = sourceMaps.get(m.name);
+      if (map)
+        writeIfChanged(join(root, ".lucent", "ir", `${m.name}.lucent.map.json`), JSON.stringify(map, null, 2) + "\n");
+    }
   }
   mkdirSync(dirname(cachePath), { recursive: true });
   writeFileSync(cachePath, JSON.stringify(nextCache));
   if (options.postGenerate && host.postGenerate) await host.postGenerate(outDir);
-  return { ok: true, outDir, compiled, cached: cachedFiles, diagnostics };
+  return { ok: true, outDir, compiled, cached: cachedFiles, diagnostics, modules, optimizeLog };
 }
 
 function readCache(path: string, host: HostName): CacheFile | null {

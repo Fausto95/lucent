@@ -1,0 +1,31 @@
+{
+  "name": "@lucent-lang/location",
+  "version": "0.0.1",
+  "description": "Lucent location acceptance package — provider resource, keep-latest updates, permission union, CI fake positions.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fausto95/lucent.git",
+    "directory": "packages/location"
+  },
+  "files": [
+    "src",
+    "native",
+    "lucent",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@lucent-lang/compiler": "workspace:*",
+    "@lucent-lang/core": "workspace:*"
+  }
+}

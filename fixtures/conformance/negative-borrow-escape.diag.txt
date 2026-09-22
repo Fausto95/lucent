@@ -1,0 +1,9 @@
+error LUCENT1018: Borrowed value escapes
+
+A borrowed value cannot be stored in an array.
+
+  ┌─ negative-borrow-escape.lucent.ts:7:13
+7 │     xs.push(frame);
+  │             ^^^^^
+
+The borrow originates at a parameter or borrowed call result earlier in this scope. This use is unsafe because it would be stored in an array and outlive the owner's guarantee. Process the borrow before `await`, or copy needed data into owned memory.

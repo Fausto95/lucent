@@ -9,12 +9,12 @@ export const page: DocPage = {
     {
       kind: "note",
       tone: "warn",
-      text: "**Very early and experimental — do not use Lucent in production.** The language, the generated native code and every `@lucent-lang/*` API change without notice and without a migration path, and there are gaps and bugs you will hit. Both example apps in the repository pass on iOS and Android with Expo SDK 58 and Nitro 0.37; that is the extent of what has been exercised.",
+      text: "**Experimental — do not use Lucent in production.** The language, generated native code and `@lucent-lang/*` APIs change without a migration path. The Expo example app exercises the native contract on simulator; full device matrices and a 1.0 release are still open.",
     },
     { kind: "h2", text: "What it is" },
     {
       kind: "p",
-      text: "A `*.lucent.ts` file is a native module. A `*.lucent.tsx` file is a native view. Lucent parses, type-checks and compiles them to Swift and Kotlin, then wraps the result as an Expo Module or a Nitro HybridObject. Your app imports the file like any other TypeScript module; at runtime the call lands in compiled native code.",
+      text: "A `*.lucent.ts` file is a native module. A `*.lucent.tsx` file is a native view. Lucent type-checks and compiles them to Swift and Kotlin, then wraps the result as an Expo Module or a Nitro HybridObject. Your app imports the file like TypeScript; the call runs as compiled native code.",
     },
     {
       kind: "code",
@@ -28,42 +28,27 @@ export const page: DocPage = {
     },
     {
       kind: "p",
-      text: "There is no JavaScript engine on the native side and no interpreter. What you write is what runs, as readable Swift and Kotlin you can open in Xcode or Android Studio.",
+      text: "There is no JavaScript engine on the native side. What you write compiles to readable Swift and Kotlin.",
     },
     { kind: "h2", text: "What you can build" },
     {
       kind: "list",
       items: [
-        "**Functions** over numbers, strings, booleans, records, arrays, maps, bytes and optionals, sync or async. [Language →](/docs/language/)",
-        "**Native classes** whose state stays in native memory; JavaScript holds a handle. [Native classes →](/docs/language/native-classes/)",
-        "**Typed events** emitted from native code and subscribed to from the app. [Events →](/docs/language/events/)",
-        "**Native views** written in TSX and rendered by SwiftUI and Jetpack Compose, with controls such as `TextField`, `Toggle` and `Slider`. [Native views →](/docs/language/native-views/)",
-        "**Platform access** through package manifests that bind real SDK classes and functions, with typed capabilities and platform guards. [Platform →](/docs/language/platform-and-capabilities/)",
+        "**Functions** over numbers, strings, records, unions, arrays, maps, bytes — sync or async. [Language →](/docs/language/)",
+        "**Native classes**, resources, subscriptions, task scopes and events. [Native classes →](/docs/language/native-classes/)",
+        "**Views** in TSX with `state()`, `resource()` and `effect()`, rendered by SwiftUI and Compose. [Native views →](/docs/language/native-views/)",
+        "**SDK packages** through manifests and overlays — camera and friends as CI stubs today. [What you can build today →](/docs/what-you-can-build/)",
       ],
     },
+    { kind: "h2", text: "Why not write Swift and Kotlin twice" },
     {
       kind: "p",
-      text: "That is the feature surface. The shapes of module those features add up to — and the ones that have to wait, such as anything holding a subscription or an open session — are listed on [what you can build today](/docs/what-you-can-build/).",
-    },
-    { kind: "h2", text: "Why not write Swift and Kotlin" },
-    {
-      kind: "p",
-      text: "Because the logic would exist twice, and the two copies drift. Lucent's job is the Expo and Nitro boundary: one checked source, generated Swift and Kotlin, and a typed JavaScript proxy. The novel part is that interop — classes, events, views, and the proxy — not a general transpiler.",
-    },
-    {
-      kind: "table",
-      head: ["Use this instead", "When"],
-      rows: [
-        ["Swift and Kotlin", "You need the full language, an SDK the subset cannot express, or you are happy to maintain both."],
-        ["JSI or a TurboModule", "You already have native code and only need a thin, hand-written call across the bridge."],
-        ["Nitro, without Lucent", "You want to author the HybridObject in Swift and Kotlin yourself."],
-        ["Wasm", "The code must run in a portable runtime, including on the JavaScript side."],
-      ],
+      text: "Shared feature logic drifts when it lives in two languages. Lucent keeps one checked source for the Expo / Nitro boundary and generates both backends. Use hand-written Swift or Kotlin when you need the full language or an SDK the subset cannot express.",
     },
     { kind: "h2", text: "What it is not" },
     {
       kind: "p",
-      text: "Lucent is not TypeScript with a native backend. The subset is listed on the [language](/docs/language/) and [functions](/docs/language/functions-and-control-flow/) pages: no `any`, no generics, no `switch`, no `try`/`catch`, no dynamic property access. Arrow callbacks exist inside native code, with explicit captures; a function value still cannot cross into JavaScript. Everything outside the subset fails with an `LUCENT` diagnostic at build time. It is also not a UI framework: React owns app state and effects. A view may keep control state on the host instance.",
+      text: "Not full TypeScript: no `any`, user generics, `switch`, or `try`/`catch` inside Lucent. Outside the subset fails with an `LUCENT` diagnostic at build time. Not a UI framework: React owns the app shell; Lucent views own native control and resource state.",
     },
     { kind: "h2", text: "Where to go next" },
     {
@@ -71,28 +56,23 @@ export const page: DocPage = {
       items: [
         {
           title: "What you can build today",
-          text: "The module shapes that work now, the ones that do not, and what each is waiting on.",
+          text: "Covered shapes, CI stubs, and what still needs devices.",
           href: "/docs/what-you-can-build/",
         },
         {
           title: "Getting started",
-          text: "Install into an Expo or bare React Native app and run your first module.",
+          text: "Wire Expo or bare React Native and run a first module.",
           href: "/docs/getting-started/",
         },
         {
           title: "How it works",
-          text: "The pipeline from source to native package, and what happens at runtime.",
+          text: "Parse → check → HIR → Swift / Kotlin → host package.",
           href: "/docs/how-it-works/",
         },
         {
           title: "Examples",
-          text: "Annotated modules, views and packages taken from the example apps.",
+          text: "Modules and views from the example apps.",
           href: "/docs/examples/",
-        },
-        {
-          title: "API reference",
-          text: "Every `@lucent-lang/*` package, the CLI, plugins and the library manifest.",
-          href: "/docs/api/",
         },
       ],
     },

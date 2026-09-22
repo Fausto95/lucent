@@ -1,4 +1,7 @@
 import { TASKS_LIBRARY } from "./libraries/tasks/index.ts";
+import { RESOURCES_LIBRARY } from "./libraries/resources/index.ts";
+import { SUBSCRIPTIONS_LIBRARY } from "./libraries/subscriptions/index.ts";
+import { CELLS_LIBRARY } from "./libraries/cells/index.ts";
 import { CANCELLATION_LIBRARY } from "./libraries/cancellation.ts";
 import type { NativeCallContract, NativeObjectContract } from "./native-contracts.ts";
 import type { NativeEnumBinding, NativeType } from "./types/native-type.ts";
@@ -31,6 +34,17 @@ export interface NativeReferenceBinding {
   kotlin?: string;
   swiftImports?: string[];
   kotlinImports?: string[];
+  /**
+   * When set, Lucent classes may `implements` this reference. The checker
+   * validates required methods against the class's `Name__method_*` ops.
+   */
+  protocol?: {
+    methods: {
+      name: string;
+      parameters: { name: string; type: string }[];
+      result: string;
+    }[];
+  };
 }
 export interface NativeViewBinding {
   props: Record<string, NativeType>;
@@ -61,6 +75,9 @@ export const STANDARD_LIBRARIES: Readonly<Record<string, LibraryModule>> = {
   ...NATIVE_LIBRARIES,
   "@lucent-lang/core/cancellation": CANCELLATION_LIBRARY,
   "@lucent-lang/core/tasks": TASKS_LIBRARY,
+  "@lucent-lang/core/resources": RESOURCES_LIBRARY,
+  "@lucent-lang/core/subscriptions": SUBSCRIPTIONS_LIBRARY,
+  "@lucent-lang/core/cells": CELLS_LIBRARY,
   "@lucent-lang/core/platform": {
     source: "export declare function Platform(): string;",
     bindings: { Platform: { swift: ['return "ios"'], kotlin: ['return "android"'], platformQuery: true } },

@@ -1,14 +1,19 @@
 import type { TExpr, TStmt, TypedFunction, TypedModule } from "../checker/typed.ts";
 import { diagnostic, type Diagnostic } from "../diagnostics/index.ts";
 import type { AssignOperator, BinaryOperator } from "../parser/surface.ts";
+import type { NativeExecutor } from "../native-contracts.ts";
+import { nativeSource } from "../native-sources.generated.ts";
 import { T, type NativeType } from "../types/native-type.ts";
 import type {
   BinaryOp,
+  IRCallEffects,
+  IREffectSlot,
   IRExpr,
   IRFunction,
   IRLocal,
   IRModule,
   IRPlace,
+  IRResourceSlot,
   IRStateSlot,
   IRStmt,
   LocalId,
@@ -44,9 +49,18 @@ export function lowerModule(module: TypedModule): LowerResult {
   const diagnostics: Diagnostic[] = [];
   const references = new Set(module.structs.filter((s) => s.reference).map((s) => s.name));
   const functions = module.functions.map((fn) => new FunctionLowerer(fn, diagnostics, references).lower());
+  const needsEffectRuntime = functions.some((fn) => fn.effectSlots?.some((slot) => slot.async));
+  const nativePackages = { ...module.nativePackages };
+  if (needsEffectRuntime && !Object.values(nativePackages).some((pkg) => pkg.swift && "Tasks.swift" in pkg.swift)) {
+    nativePackages.lucentTasks = {
+      origin: "@lucent-lang/core/tasks",
+      swift: { "Tasks.swift": nativeSource("Tasks.swift") },
+      kotlin: { "Tasks.kt": nativeSource("Tasks.kt") },
+    };
+  }
   const ir: IRModule = {
     ...(module.enums ? { enums: module.enums } : {}),
-    ...(module.nativePackages ? { nativePackages: module.nativePackages } : {}),
+    ...(Object.keys(nativePackages).length ? { nativePackages } : {}),
     ...(module.views ? { views: module.views } : {}),
     name: module.name,
     structs: module.structs.map((s) => ({
@@ -68,7 +82,7 @@ export function lowerModule(module: TypedModule): LowerResult {
     capabilities: [
       ...new Set([
         ...usedCapabilities(functions),
-        ...Object.values(module.nativePackages ?? {}).flatMap((p) => p.capabilities ?? []),
+        ...Object.values(nativePackages).flatMap((p) => p.capabilities ?? []),
       ]),
     ].toSorted(),
   };
@@ -78,7 +92,11 @@ export function lowerModule(module: TypedModule): LowerResult {
 class FunctionLowerer {
   private readonly locals: IRLocal[] = [];
   private readonly slots: IRStateSlot[] = [];
+  private readonly resourceSlots: IRResourceSlot[] = [];
+  private readonly effectSlots: IREffectSlot[] = [];
   private readonly state = new Map<string, NativeType>();
+  private readonly resources = new Map<string, NativeType>();
+  private effectCount = 0;
   /** Lexical scopes mapping source names to local ids; params live in the outermost one as `null`. */
   private readonly scopes: Map<string, LocalId | null>[] = [];
   private readonly used = new Map<string, number>();
@@ -115,6 +133,7 @@ class FunctionLowerer {
       const local = this.locals.find((l) => l.id === id);
       if (local && !this.isReference(local.type)) local.mutable = true;
     }
+    const effects = inferFunctionEffects(this.fn, body);
     return {
       name: this.fn.name,
       ...(this.fn.classOp ? { classOp: this.fn.classOp } : {}),
@@ -128,6 +147,9 @@ class FunctionLowerer {
       locals: this.locals,
       body,
       ...(this.slots.length ? { state: this.slots } : {}),
+      ...(this.resourceSlots.length ? { resources: this.resourceSlots } : {}),
+      ...(this.effectSlots.length ? { effectSlots: this.effectSlots } : {}),
+      ...(effects ? { effects } : {}),
     };
   }
 
@@ -179,9 +201,37 @@ class FunctionLowerer {
           this.state.set(s.name, s.type);
           return [];
         }
+        if (s.init.kind === "resourceInit") {
+          const value = this.expr(s.init.value);
+          if (value.op !== "call" || value.args.length !== 0) {
+            this.diagnostics.push(
+              diagnostic("LUCENT1001", s.span, "`resource()` requires a zero-argument owned create."),
+            );
+            return [];
+          }
+          this.resourceSlots.push({
+            name: s.name,
+            type: s.type,
+            initCallee: value.callee,
+            close: s.init.close,
+          });
+          this.resources.set(s.name, s.type);
+          return [];
+        }
         const value = this.expr(s.init);
         const id = this.declare(s.name, s.type, s.declaration === "let");
         return [{ op: "let", id, value }];
+      }
+      case "effect": {
+        const id = `effect${this.effectCount++}`;
+        this.effectSlots.push({
+          id,
+          body: this.stmts(s.body),
+          cleanup: this.stmts(s.cleanup),
+          deps: s.deps,
+          ...(s.async ? { async: true as const } : {}),
+        });
+        return [];
       }
       case "if":
         return [
@@ -328,13 +378,18 @@ class FunctionLowerer {
         };
       case "identifier": {
         if (this.state.has(e.name)) return { op: "stateRead", name: e.name, type };
+        if (this.resources.has(e.name)) return { op: "resourceRead", name: e.name, type };
         const id = this.resolve(e.name);
         return id === null ? { op: "param", name: e.name, type } : { op: "local", id, type };
       }
       case "stateInit":
         return this.expr(e.value);
+      case "resourceInit":
+        return this.expr(e.value);
       case "stateRead":
         return { op: "stateRead", name: e.name, type };
+      case "resourceRead":
+        return { op: "resourceRead", name: e.name, type };
       case "stateWrite":
         return { op: "stateWrite", name: e.name, value: this.expr(e.value), type };
       case "conditional":
@@ -347,6 +402,13 @@ class FunctionLowerer {
         };
       case "weak":
         return { op: "weak", name: e.name, type };
+      case "move": {
+        const id = this.resolve(e.name);
+        const value: IRExpr = id === null ? { op: "param", name: e.name, type } : { op: "local", id, type };
+        return { op: "move", value, type };
+      }
+      case "copy":
+        return { op: "copy", value: this.expr(e.argument), type };
       case "widen":
         return { op: "widen", value: this.expr(e.argument), type };
       case "unwrap":
@@ -384,7 +446,13 @@ class FunctionLowerer {
       case "invoke":
         return { op: "invoke", callback: this.expr(e.callback), args: e.args.map((a) => this.expr(a)), type };
       case "call":
-        return { op: "call", callee: e.callee, args: e.args.map((a) => this.expr(a)), type };
+        return {
+          op: "call",
+          callee: e.callee,
+          args: e.args.map((a) => this.expr(a)),
+          semantics: e.semantics,
+          type,
+        };
       case "member":
         return { op: "field", object: this.expr(e.object), field: e.property, type };
       case "length":
@@ -628,4 +696,38 @@ function usedCapabilities(functions: IRFunction[]): string[] {
     calls(fn.body);
   }
   return [...capabilities].toSorted();
+}
+
+/** Infer function effects from the async flag and native calls in the lowered body. */
+function inferFunctionEffects(fn: TypedFunction, body: IRStmt[]): IRCallEffects | undefined {
+  let native = Boolean(fn.binding);
+  let throws = Boolean(fn.binding);
+  const executors = new Set<NativeExecutor>();
+  if (fn.binding?.contract?.executor) executors.add(fn.binding.contract.executor);
+
+  const walk = (node: unknown): void => {
+    if (!node || typeof node !== "object") return;
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+      return;
+    }
+    const value = node as Record<string, unknown>;
+    if (value.op === "throw") throws = true;
+    if (value.op === "call" && value.semantics && typeof value.semantics === "object") {
+      const effects = (value.semantics as { effects?: IRCallEffects }).effects;
+      if (effects?.native) native = true;
+      if (effects?.throws) throws = true;
+      if (effects?.executor) executors.add(effects.executor);
+    }
+    for (const [key, child] of Object.entries(value)) if (key !== "type" && key !== "binding") walk(child);
+  };
+  walk(body);
+
+  if (!native && !fn.async) return undefined;
+  return {
+    async: fn.async,
+    throws,
+    native,
+    ...(executors.size === 1 ? { executor: [...executors][0] } : {}),
+  };
 }

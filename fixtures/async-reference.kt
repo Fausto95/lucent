@@ -1,6 +1,9 @@
 typealias lucentInternal_2e40afc3526ae0ac_TaskScope = LucentTaskScope
 
 
+typealias lucentInternal_2e40afc3526ae0ac_TaskGroup = LucentTaskGroup
+
+
 typealias lucentInternal_2e40afc3526ae0ac_NativeTask = LucentTask
 
 
@@ -21,6 +24,26 @@ fun lucentInternal_2e40afc3526ae0ac_TaskScope__method_begin(lucentSelf: lucentIn
 }
 
 suspend fun lucentInternal_2e40afc3526ae0ac_TaskScope__method_close(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskScope): Unit {
+  lucentSelf.close()
+}
+
+fun lucentInternal_2e40afc3526ae0ac_TaskGroup__create(): lucentInternal_2e40afc3526ae0ac_TaskGroup {
+  return LucentTaskGroup()
+}
+
+fun lucentInternal_2e40afc3526ae0ac_TaskGroup__get_closing(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup): Boolean {
+  return lucentSelf.closing
+}
+
+fun lucentInternal_2e40afc3526ae0ac_TaskGroup__get_activeCount(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup): Double {
+  return lucentSelf.activeCount
+}
+
+fun lucentInternal_2e40afc3526ae0ac_TaskGroup__method_begin(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup): lucentInternal_2e40afc3526ae0ac_NativeTask {
+  return lucentSelf.begin()
+}
+
+suspend fun lucentInternal_2e40afc3526ae0ac_TaskGroup__method_close(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup): Unit {
   lucentSelf.close()
 }
 

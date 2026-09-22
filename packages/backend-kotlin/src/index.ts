@@ -26,6 +26,7 @@ import { kotlinEnumImports, kotlinEnums, kotlinEnumValue } from "./enums.ts";
 export { kotlinEnumBridge, kotlinEnums, kotlinEnumImports } from "./enums.ts";
 import { COMPOSE_SCAFFOLDING, FOR_IMPORTS, KotlinViewImports, kotlinView } from "./views.ts";
 export { KotlinViewImports, kotlinViewRuntime } from "./views.ts";
+import { kotlinViewLifecycle } from "./lifecycle.ts";
 import type { IRExpr, IRFunction, IRModule, IRPlace, IRStmt, IRStruct, NativeType } from "@lucent-lang/compiler";
 
 export interface GeneratedField {
@@ -47,6 +48,7 @@ export interface GeneratedFunction {
   async: boolean;
   params: GeneratedField[];
   state?: { name: string; type: string }[];
+  resources?: { name: string; type: string }[];
   returnType: string;
   /** Rendered at whatever depth the host places it. */
   body: Doc;
@@ -124,7 +126,8 @@ export function signature(f: GeneratedFunction): string {
   const state = (f.state ?? [])
     .map((slot) => `lucentGet_${slot.name}: () -> ${slot.type}, lucentSet_${slot.name}: (${slot.type}) -> Unit`)
     .join(", ");
-  return `${f.view ? "@Composable " : ""}${f.async ? "suspend " : ""}fun ${f.name}(${[params, state].filter(Boolean).join(", ")}): ${f.returnType}`;
+  const resources = (f.resources ?? []).map((slot) => `lucentGet_${slot.name}: () -> ${slot.type}`).join(", ");
+  return `${f.view ? "@Composable " : ""}${f.async ? "suspend " : ""}fun ${f.name}(${[params, state, resources].filter(Boolean).join(", ")}): ${f.returnType}`;
 }
 
 /** A data class with one field per line, so a wide record stays readable. */
@@ -158,7 +161,7 @@ function generateFunction(f: IRFunction, module: IRModule, views: KotlinViewImpo
     ? `LucentEventHub.emit(${JSON.stringify(f.event.id)}, ${kotlinEventValue("payload", f.params[0]?.type ?? { kind: "void" }, module)})`
     : f.binding?.kotlin
       ? f.binding.kotlin.map((line) => (hop ? line.replace(/^(\s*)return\b/, "$1return@withContext") : line))
-      : printStmts(emitter.block(f.body));
+      : viewBody(f, emitter);
   return {
     name: f.name,
     ...(f.returnType.kind === "view" ? { view: true } : {}),
@@ -166,6 +169,9 @@ function generateFunction(f: IRFunction, module: IRModule, views: KotlinViewImpo
     async: f.async,
     params: f.params.map((p) => ({ name: p.name, type: kotlinType(p.type) })),
     ...(f.state?.length ? { state: f.state.map((slot) => ({ name: slot.name, type: kotlinType(slot.type) })) } : {}),
+    ...(f.resources?.length
+      ? { resources: f.resources.map((slot) => ({ name: slot.name, type: kotlinType(slot.type) })) }
+      : {}),
     returnType: f.returnType.kind === "view" ? "Unit" : kotlinType(f.returnType),
     body: hop
       ? block(
@@ -176,6 +182,18 @@ function generateFunction(f: IRFunction, module: IRModule, views: KotlinViewImpo
   };
 }
 
+function viewBody(f: IRFunction, emitter: KotlinEmitter): Doc {
+  const content = printStmts(emitter.block(f.body));
+  if (f.returnType.kind === "view" && ((f.effectSlots?.length ?? 0) > 0 || (f.resources?.length ?? 0) > 0)) {
+    const hasSync = f.effectSlots?.some((slot) => !slot.async) || (f.resources?.length ?? 0) > 0;
+    const hasAsync = f.effectSlots?.some((slot) => slot.async);
+    if (hasSync) emitter.views.record("androidx.compose.runtime.DisposableEffect");
+    if (hasAsync) emitter.views.record("androidx.compose.runtime.LaunchedEffect");
+    return kotlinViewLifecycle(f, content, (s) => emitter.block(s));
+  }
+  return content;
+}
+
 class KotlinEmitter {
   private readonly mutable: ReadonlySet<string>;
   private readonly types: ReadonlyMap<string, NativeType>;
@@ -184,7 +202,7 @@ class KotlinEmitter {
 
   constructor(
     f: IRFunction,
-    private readonly views: KotlinViewImports,
+    readonly views: KotlinViewImports,
   ) {
     this.returnLabel = f.thread && f.thread !== "caller" ? "@withContext" : undefined;
     this.mutable = new Set(f.locals.filter((l) => l.mutable).map((l) => l.id));
@@ -302,6 +320,8 @@ class KotlinEmitter {
         return e.name === "For" ? this.forRows(e) : raw(kotlinView(e, (x) => print(this.expr(x)), this.views));
       case "stateRead":
         return call(ref(`lucentGet_${e.name}`), []);
+      case "resourceRead":
+        return call(ref(`lucentGet_${e.name}`), []);
       case "stateWrite":
         return call(ref(`lucentSet_${e.name}`), [{ value: this.expr(e.value) }]);
       case "ifExpr":
@@ -343,6 +363,14 @@ class KotlinEmitter {
         return { k: "unary", op: "-", value: this.expr(e.value) };
       case "weak":
         return call({ k: "member", target: ref(`${e.name}_weak`), name: "get" }, []);
+      case "move":
+        return this.expr(e.value);
+      case "copy":
+        return e.value.type.kind === "bytes"
+          ? call(ref("LucentBytes.fromByteArray"), [
+              { value: call(ref("LucentBytes.toByteArray"), [{ value: this.expr(e.value) }]) },
+            ])
+          : this.expr(e.value);
       case "closure": {
         const closure: KotlinExpr = Array.isArray(e.body)
           ? {

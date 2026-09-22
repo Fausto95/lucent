@@ -52,6 +52,10 @@ export function validateLibrary(library: LibraryModule): string[] {
       errors.push(`Invalid cancellation in ${name}.`);
     if (contract.availability !== undefined && !validNativeTargets(contract.availability))
       errors.push(`Invalid availability in ${name}.`);
+    if (contract.resourceRequiresOpen !== undefined && typeof contract.resourceRequiresOpen !== "boolean")
+      errors.push(`Invalid resourceRequiresOpen in ${name}.`);
+    if (contract.blocking !== undefined && typeof contract.blocking !== "boolean")
+      errors.push(`Invalid blocking in ${name}.`);
     if (contract.parameters !== undefined && !record(contract.parameters)) {
       errors.push(`Invalid parameter contracts in ${name}.`);
       continue;
@@ -62,13 +66,15 @@ export function validateLibrary(library: LibraryModule): string[] {
         continue;
       }
       const callback = value.callback;
+      const backpressurePolicies = new Set(["latest", "dropOldest", "dropNewest", "block"]);
       if (
         callback !== undefined &&
         (!record(callback) ||
           !["call", "subscription"].includes(callback.retention) ||
           !executors.has(callback.executor) ||
           !["propagate", "notify"].includes(callback.errors) ||
-          (callback.remove !== undefined && typeof callback.remove !== "string"))
+          (callback.remove !== undefined && typeof callback.remove !== "string") ||
+          (callback.backpressure !== undefined && !backpressurePolicies.has(String(callback.backpressure))))
       )
         errors.push(`Invalid callback contract ${parameter}.`);
     }
@@ -159,6 +165,25 @@ export function validateLibrary(library: LibraryModule): string[] {
           (typeof reference[language] !== "string" || !reference[language]?.trim())
         )
           errors.push(`Invalid ${language} reference ${name}.`);
+      const protocol = reference.protocol;
+      if (protocol !== undefined) {
+        if (!record(protocol) || !Array.isArray(protocol.methods) || !protocol.methods.length)
+          errors.push(`Invalid protocol metadata for ${name}.`);
+        else
+          for (const method of protocol.methods) {
+            if (
+              !record(method) ||
+              typeof method.name !== "string" ||
+              !identifier(method.name) ||
+              !Array.isArray(method.parameters) ||
+              typeof method.result !== "string" ||
+              !method.parameters.every(
+                (p) => record(p) && typeof p.name === "string" && identifier(p.name) && typeof p.type === "string",
+              )
+            )
+              errors.push(`Invalid protocol method in ${name}.`);
+          }
+      }
     }
   }
   if (library.native !== undefined) {

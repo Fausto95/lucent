@@ -1,5 +1,11 @@
 export { generateDelegateLibrary, type DelegateSchema, type DelegateMethod } from "./delegates.ts";
 export { extractSwiftSymbolGraph } from "./symbolgraph.ts";
+export {
+  validateOverlay,
+  type LucentOverlay,
+  type LucentOverlayObject,
+  type LucentOverlayCallback,
+} from "./overlay.ts";
 import { createHash } from "node:crypto";
 import { nativeSymbolId } from "@lucent-lang/compiler";
 import type { LibraryModule, NativeBinding } from "@lucent-lang/compiler";

@@ -106,7 +106,7 @@ export function HomePage() {
             position="first"
             icon={<path d="m11 8-8 8 8 8m10-16 8 8-8 8M18 4l-4 24"></path>}
             title="A small, checked subset."
-            text="Records, optionals, unions, async errors, native classes, callbacks, and views. What the subset excludes is a build-time diagnostic with a code frame, never a runtime surprise."
+            text="Functions, records, unions, resources, subscriptions, native classes, and views with state and effects. Outside the subset is a build-time diagnostic, never a runtime surprise."
             href="/docs/language/"
             linkLabel="Read the language"
           />

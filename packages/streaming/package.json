@@ -1,0 +1,31 @@
+{
+  "name": "@lucent-lang/streaming",
+  "version": "0.0.1",
+  "description": "Lucent streaming acceptance package — owned chunk sources, transform/write sinks, explicit backpressure contracts.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fausto95/lucent.git",
+    "directory": "packages/streaming"
+  },
+  "files": [
+    "src",
+    "native",
+    "lucent",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@lucent-lang/compiler": "workspace:*",
+    "@lucent-lang/core": "workspace:*"
+  }
+}

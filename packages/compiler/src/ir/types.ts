@@ -1,4 +1,4 @@
-import type { NativeTargets } from "../native-contracts.ts";
+import type { NativeExecutor, NativeTargets } from "../native-contracts.ts";
 import type { NativePackage } from "../libraries.ts";
 import type {
   NativeBinding,
@@ -8,10 +8,37 @@ import type {
   ThreadContext,
 } from "../libraries.ts";
 /**
- * Lucent IR: a structured, fully typed representation with every JavaScript-only
- * construct removed. Backends emit it directly; see docs/ir.md for the rationale.
+ * Lucent IR (HIR): a structured, fully typed representation with every
+ * JavaScript-only construct removed. Resolved ownership, effects, and symbol
+ * identity live on call nodes so backends print already-understood operations.
+ * See docs/ir.md.
  */
 import type { NativeType } from "../types/native-type.ts";
+
+/** Ownership of a call argument or result after checking. */
+export type IROwnership = "value" | "owned" | "borrowed" | "retained" | "external";
+
+/** Effects known for a resolved call. Unknown native work is conservatively native. */
+export interface IRCallEffects {
+  async: boolean;
+  throws: boolean;
+  native: boolean;
+  executor?: NativeExecutor;
+}
+
+/**
+ * Resolved call semantics carried through the HIR. Backends must not reinterpret
+ * ownership, cancellation, or executor requirements from the callee name alone.
+ */
+export interface IRCallSemantics {
+  /** Stable ABI identity when the callee has a native contract. */
+  symbolId?: string;
+  argumentOwnership: IROwnership[];
+  resultOwnership: IROwnership;
+  effects: IRCallEffects;
+  suspension: boolean;
+  cancellation: "none" | "cooperative";
+}
 
 /** Locals are `%name`, with `.n` suffixes when a name is shadowed. */
 export type LocalId = string;
@@ -30,6 +57,27 @@ export interface IRStateSlot {
   value: IRConst;
 }
 
+/** Component-owned closeable resource, created once per host identity. */
+export interface IRResourceSlot {
+  name: string;
+  type: NativeType;
+  /** Linked create callee, typically `Type__create`. */
+  initCallee: string;
+  /** `contract.close` method name invoked on unmount. */
+  close: string;
+}
+
+/** Dependency-scoped component effect with optional sync or async cleanup. */
+export interface IREffectSlot {
+  /** Stable slot id for backends (`effect0`, …). */
+  id: string;
+  body: IRStmt[];
+  cleanup: IRStmt[];
+  deps: string[];
+  /** When true, backends cancel/join via TaskScope before replacement or unmount. */
+  async?: boolean;
+}
+
 export interface IRCapture {
   name: string;
   kind: "value" | "retained" | "borrowed" | "weak";
@@ -42,8 +90,11 @@ export type IRExpr =
       body: IRExpr | IRStmt[];
     } & Typed)
   | ({ op: "weak"; name: string } & Typed)
+  | ({ op: "move"; value: IRExpr } & Typed)
+  | ({ op: "copy"; value: IRExpr } & Typed)
   | ({ op: "stateRead"; name: string } & Typed)
   | ({ op: "stateWrite"; name: string; value: IRExpr } & Typed)
+  | ({ op: "resourceRead"; name: string } & Typed)
   | ({ op: "ifExpr"; cond: IRExpr; consequent: IRExpr; alternate: IRExpr } & Typed)
   | ({ op: "functionRef"; name: string } & Typed)
   | ({ op: "invoke"; callback: IRExpr; args: IRExpr[] } & Typed)
@@ -66,7 +117,7 @@ export type IRExpr =
   | ({ op: "or"; left: IRExpr; right: IRExpr } & Typed)
   | ({ op: "not"; value: IRExpr } & Typed)
   | ({ op: "neg"; value: IRExpr } & Typed)
-  | ({ op: "call"; callee: string; args: IRExpr[] } & Typed)
+  | ({ op: "call"; callee: string; args: IRExpr[]; semantics: IRCallSemantics } & Typed)
   | ({ op: "await"; value: IRExpr } & Typed)
   | ({ op: "field"; object: IRExpr; field: string } & Typed)
   | ({ op: "length"; object: IRExpr } & Typed)
@@ -121,6 +172,12 @@ export interface IRFunction {
   body: IRStmt[];
   /** Scalar view state, initialized once per host instance. */
   state?: IRStateSlot[];
+  /** Owned resources closed when the host identity unmounts. */
+  resources?: IRResourceSlot[];
+  /** Component effects: run on mount, cleanup on unmount (sync or async). */
+  effectSlots?: IREffectSlot[];
+  /** Lightweight effects inferred from the async flag and body native calls. */
+  effects?: IRCallEffects;
 }
 
 export interface IRUnion {
@@ -129,7 +186,13 @@ export interface IRUnion {
 }
 
 export interface IRStruct {
-  reference?: { publicName: string; exported: boolean; privateFields?: string[]; native?: NativeReferenceBinding };
+  reference?: {
+    publicName: string;
+    exported: boolean;
+    privateFields?: string[];
+    native?: NativeReferenceBinding;
+    implements?: string[];
+  };
   union?: IRUnion;
   name: string;
   exported: boolean;

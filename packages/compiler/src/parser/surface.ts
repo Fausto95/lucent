@@ -38,7 +38,14 @@ export type AssignOperator = "=" | "+=" | "-=" | "*=" | "/=";
 export type UpdateOperator = "++" | "--";
 
 export type Expr =
-  | { kind: "closure"; params: SurfaceParam[]; returnType: SurfaceType | null; body: Expr | Stmt[]; span: Span }
+  | {
+      kind: "closure";
+      params: SurfaceParam[];
+      returnType: SurfaceType | null;
+      body: Expr | Stmt[];
+      async?: boolean;
+      span: Span;
+    }
   | { kind: "view"; name: string; properties: ObjectProperty[]; children: Expr[]; span: Span }
   | { kind: "number"; value: number; span: Span }
   | { kind: "string"; value: string; span: Span }
@@ -118,7 +125,14 @@ export interface SurfaceFunction {
 
 export interface SurfaceTypeAlias {
   enumeration?: { name: string; binding: NativeEnumBinding };
-  reference?: { publicName: string; exported: boolean; privateFields?: string[]; native?: NativeReferenceBinding };
+  reference?: {
+    publicName: string;
+    exported: boolean;
+    privateFields?: string[];
+    native?: NativeReferenceBinding;
+    /** Protocol/interface names this Lucent class claims to implement. */
+    implements?: string[];
+  };
   name: string;
   exported: boolean;
   type: SurfaceType;

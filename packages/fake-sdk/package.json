@@ -1,0 +1,24 @@
+{
+  "name": "@lucent-lang/fake-sdk",
+  "version": "0.0.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fausto95/lucent.git",
+    "directory": "packages/fake-sdk"
+  },
+  "files": [
+    "src",
+    "native"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@lucent-lang/compiler": "workspace:*"
+  }
+}

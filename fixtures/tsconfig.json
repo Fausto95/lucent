@@ -7,5 +7,5 @@
     "types": ["../packages/core/types"]
   },
   "include": ["**/*.lucent.ts"],
-  "exclude": ["diagnostics"]
+  "exclude": ["diagnostics", "conformance"]
 }

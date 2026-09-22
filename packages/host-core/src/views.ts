@@ -36,6 +36,25 @@ export function stateFields(
     .join("\n");
 }
 
+/** Owned resource fields created once via the linked create callee. */
+export function resourceFields(
+  fn: IRFunction,
+  language: "swift" | "kotlin",
+  typeName: (type: NativeType) => string,
+  namespace: string,
+): string {
+  return (fn.resources ?? [])
+    .map((slot) => {
+      const type = typeName(slot.type);
+      const init =
+        language === "swift" ? `try! ${namespace}.${slot.initCallee}()` : `${namespace}.${slot.initCallee}()`;
+      return language === "swift"
+        ? `lazy var lucentResource_${slot.name}: ${type} = { ${init} }()`
+        : `private val lucentResource_${slot.name}: ${type} by lazy { ${init} }`;
+    })
+    .join("\n");
+}
+
 /** Getter and setter arguments. `refresh` is the Swift method that rebuilds the hosted tree. */
 export function stateArguments(fn: IRFunction, language: "swift" | "kotlin", refresh: string): string {
   return (fn.state ?? [])
@@ -48,8 +67,38 @@ export function stateArguments(fn: IRFunction, language: "swift" | "kotlin", ref
     .join(", ");
 }
 
-export function viewCallWithState(props: string, state: string): string {
-  return [props, state].filter(Boolean).join(", ");
+/** Resource getter arguments passed into the generated view function. */
+export function resourceArguments(fn: IRFunction, language: "swift" | "kotlin"): string {
+  return (fn.resources ?? [])
+    .map((slot) =>
+      language === "swift"
+        ? `lucentGet_${slot.name}: { [weak self] in self!.lucentResource_${slot.name} }`
+        : `lucentGet_${slot.name} = { lucentResource_${slot.name} }`,
+    )
+    .join(", ");
+}
+
+/** Close owned resources when the host identity is torn down. */
+export function resourceDispose(fn: IRFunction, language: "swift" | "kotlin"): string {
+  const slots = fn.resources ?? [];
+  if (!slots.length) return "";
+  if (language === "swift") {
+    const closes = slots
+      .map(
+        (slot) =>
+          `let lucentClose_${slot.name} = lucentResource_${slot.name}\n    Task { try? await lucentClose_${slot.name}.${slot.close}() }`,
+      )
+      .join("\n    ");
+    return `deinit {\n    ${closes}\n  }`;
+  }
+  const closes = slots
+    .map((slot) => `kotlinx.coroutines.runBlocking { lucentResource_${slot.name}.${slot.close}() }`)
+    .join("\n    ");
+  return `override fun onDetachedFromWindow() {\n    super.onDetachedFromWindow()\n    ${closes}\n  }`;
+}
+
+export function viewCallWithState(props: string, state: string, resources = ""): string {
+  return [props, state, resources].filter(Boolean).join(", ");
 }
 
 export function viewProps(module: IRModule, fn: IRFunction) {

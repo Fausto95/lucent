@@ -6,7 +6,7 @@ import type {
   NativeReferenceBinding,
   ThreadContext,
 } from "../libraries.ts";
-import type { IRUnion } from "../ir/types.ts";
+import type { IRCallSemantics, IRUnion } from "../ir/types.ts";
 /** The typed AST: the surface AST with every expression annotated by its NativeType. */
 import type { Span } from "../diagnostics/index.ts";
 import type {
@@ -24,7 +24,13 @@ export interface StructField {
 }
 
 export interface StructDef {
-  reference?: { publicName: string; exported: boolean; privateFields?: string[]; native?: NativeReferenceBinding };
+  reference?: {
+    publicName: string;
+    exported: boolean;
+    privateFields?: string[];
+    native?: NativeReferenceBinding;
+    implements?: string[];
+  };
   union?: IRUnion;
   name: string;
   exported: boolean;
@@ -68,6 +74,8 @@ interface Typed {
   poisoned?: true;
   /** The value is borrowed for this scope and must not escape or outlive a suspension. */
   borrowed?: true;
+  /** Where the borrow was introduced (parameter or borrowed call result), when known. */
+  borrowOrigin?: Span;
 }
 
 export type TExpr =
@@ -78,6 +86,8 @@ export type TExpr =
       body: TExpr | TStmt[];
     } & Typed)
   | ({ kind: "weak"; name: string } & Typed)
+  | ({ kind: "move"; name: string } & Typed)
+  | ({ kind: "copy"; argument: TExpr } & Typed)
   | ({ kind: "functionRef"; name: string } & Typed)
   | ({ kind: "invoke"; callback: TExpr; args: TExpr[] } & Typed)
   | ({
@@ -103,10 +113,12 @@ export type TExpr =
   | ({ kind: "stateInit"; value: TExpr } & Typed)
   | ({ kind: "stateRead"; name: string } & Typed)
   | ({ kind: "stateWrite"; name: string; value: TExpr } & Typed)
+  | ({ kind: "resourceInit"; value: TExpr; close: string } & Typed)
+  | ({ kind: "resourceRead"; name: string } & Typed)
   | ({ kind: "unary"; operator: UnaryOperator; argument: TExpr } & Typed)
   | ({ kind: "assign"; operator: AssignOperator; target: TExpr; value: TExpr } & Typed)
   | ({ kind: "update"; operator: UpdateOperator; target: TExpr } & Typed)
-  | ({ kind: "call"; callee: string; args: TExpr[] } & Typed)
+  | ({ kind: "call"; callee: string; args: TExpr[]; semantics: IRCallSemantics } & Typed)
   | ({ kind: "member"; object: TExpr; property: string } & Typed)
   | ({ kind: "length"; object: TExpr } & Typed)
   | ({ kind: "index"; object: TExpr; index: TExpr } & Typed)
@@ -115,6 +127,14 @@ export type TExpr =
 
 export type TStmt =
   | { kind: "variable"; declaration: "const" | "let"; name: string; type: NativeType; init: TExpr; span: Span }
+  | {
+      kind: "effect";
+      body: TStmt[];
+      cleanup: TStmt[];
+      deps: string[];
+      async?: boolean;
+      span: Span;
+    }
   | { kind: "if"; test: TExpr; consequent: TStmt[]; alternate: TStmt[] | null; span: Span }
   | { kind: "while"; test: TExpr; body: TStmt[]; span: Span }
   | { kind: "for"; init: TStmt | null; test: TExpr | null; update: TExpr | null; body: TStmt[]; span: Span }

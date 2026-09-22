@@ -1,0 +1,7 @@
+error LUCENT1018: Borrowed value escapes
+
+Cannot use `owned` after it was moved.
+
+  ┌─ negative-move.lucent.ts:7:10
+7 │   return owned.length;
+  │          ^^^^^

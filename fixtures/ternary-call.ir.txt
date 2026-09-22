@@ -4,8 +4,8 @@ fn pick(value: float64) -> float64
   return (mul value 2)
 
 export fn choose(flag: bool) -> float64
-  let %chosen: float64 = (if flag (call pick 1) (call pick 2))
+  let %chosen: float64 = (if flag (call pick {value->value} 1) (call pick {value->value} 2))
   return %chosen
 
 export fn nested(flag: bool, other: bool) -> float64
-  return (if flag (call pick 3) (if other (call pick 4) 5))
+  return (if flag (call pick {value->value} 3) (if other (call pick {value->value} 4) 5))

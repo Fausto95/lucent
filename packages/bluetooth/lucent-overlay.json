@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "package": "@lucent-lang/bluetooth",
+  "objects": {
+    "BluetoothScanner": {
+      "ownership": "owned",
+      "executor": "caller",
+      "transferable": true,
+      "close": "close",
+      "cancellation": "cooperative"
+    },
+    "BluetoothConnection": {
+      "ownership": "owned",
+      "executor": "caller",
+      "transferable": true,
+      "close": "close",
+      "cancellation": "cooperative"
+    }
+  },
+  "callbacks": {
+    "BluetoothConnection.notifications": {
+      "retention": "subscription",
+      "executor": "worker",
+      "errors": "notify",
+      "backpressure": "block"
+    }
+  }
+}

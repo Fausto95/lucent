@@ -123,6 +123,8 @@ export { loadLucentSources, loadNativeSidecars, emitNativeSidecars, type NativeS
 
 export { loadLucentConfig, sourceProjectRoot, type LucentConfig } from "./config.ts";
 
+export { validateLucentPackage } from "./package.ts";
+
 export {
   exportedViews,
   hasChildSlot,
@@ -133,6 +135,9 @@ export {
   withoutViews,
   stateFields,
   stateArguments,
+  resourceFields,
+  resourceArguments,
+  resourceDispose,
   viewCallWithState,
 } from "./views.ts";
 

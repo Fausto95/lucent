@@ -66,6 +66,66 @@ public final class LucentAsyncReferenceModule: Module, @unchecked Sendable {
     await lucentSelf.close()
   }
 
+  @JS("lucentInternal_2e40afc3526ae0ac_TaskGroup__create")
+  func __bridge_lucentInternal_2e40afc3526ae0ac_TaskGroup__create() throws -> Double {
+    return try LucentObjectRegistry.shared.withObjects([]) { lucentLeases in
+      let result = try lucentInternal_2e40afc3526ae0ac_TaskGroup__create()
+      return LucentObjectRegistry.shared.hold(result)
+    }
+  }
+
+  func lucentInternal_2e40afc3526ae0ac_TaskGroup__create() throws -> lucentInternal_2e40afc3526ae0ac_TaskGroup {
+    return LucentTaskGroup()
+  }
+
+  @JS("lucentInternal_2e40afc3526ae0ac_TaskGroup__get_closing")
+  func __bridge_lucentInternal_2e40afc3526ae0ac_TaskGroup__get_closing(lucentSelf: Double) throws -> Bool {
+    return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
+      let result = try lucentInternal_2e40afc3526ae0ac_TaskGroup__get_closing(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskGroup.self))
+      return result
+    }
+  }
+
+  func lucentInternal_2e40afc3526ae0ac_TaskGroup__get_closing(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup) throws -> Bool {
+    return lucentSelf.closing
+  }
+
+  @JS("lucentInternal_2e40afc3526ae0ac_TaskGroup__get_activeCount")
+  func __bridge_lucentInternal_2e40afc3526ae0ac_TaskGroup__get_activeCount(lucentSelf: Double) throws -> Double {
+    return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
+      let result = try lucentInternal_2e40afc3526ae0ac_TaskGroup__get_activeCount(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskGroup.self))
+      return result
+    }
+  }
+
+  func lucentInternal_2e40afc3526ae0ac_TaskGroup__get_activeCount(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup) throws -> Double {
+    return lucentSelf.activeCount
+  }
+
+  @JS("lucentInternal_2e40afc3526ae0ac_TaskGroup__method_begin")
+  func __bridge_lucentInternal_2e40afc3526ae0ac_TaskGroup__method_begin(lucentSelf: Double) throws -> Double {
+    return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
+      let result = try lucentInternal_2e40afc3526ae0ac_TaskGroup__method_begin(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskGroup.self))
+      return LucentObjectRegistry.shared.hold(result)
+    }
+  }
+
+  func lucentInternal_2e40afc3526ae0ac_TaskGroup__method_begin(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup) throws -> lucentInternal_2e40afc3526ae0ac_NativeTask {
+    return try lucentSelf.begin()
+  }
+
+  @JS("lucentInternal_2e40afc3526ae0ac_TaskGroup__method_close", .concurrent)
+  func __bridge_lucentInternal_2e40afc3526ae0ac_TaskGroup__method_close(lucentSelf: Double) async throws -> Void {
+    let lucentLeases = try LucentObjectRegistry.shared.acquireMany([lucentSelf])
+    defer { lucentLeases.close() }
+    let result = try await lucentInternal_2e40afc3526ae0ac_TaskGroup__method_close(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskGroup.self))
+    return result
+  }
+
+  func lucentInternal_2e40afc3526ae0ac_TaskGroup__method_close(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup) async throws -> Void {
+    try await lucentSelf.close()
+  }
+
   @JS("lucentInternal_2e40afc3526ae0ac_NativeTask__create")
   func __bridge_lucentInternal_2e40afc3526ae0ac_NativeTask__create(scope: Double) throws -> Double {
     return try LucentObjectRegistry.shared.withObjects([scope]) { lucentLeases in

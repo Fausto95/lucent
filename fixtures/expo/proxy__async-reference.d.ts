@@ -7,6 +7,14 @@ export declare class lucentInternal_2e40afc3526ae0ac_TaskScope {
   begin(): lucentInternal_2e40afc3526ae0ac_NativeTask;
   close(): Promise<void>;
 }
+export declare class lucentInternal_2e40afc3526ae0ac_TaskGroup {
+  constructor();
+  dispose(): void;
+  readonly closing: boolean;
+  readonly activeCount: number;
+  begin(): lucentInternal_2e40afc3526ae0ac_NativeTask;
+  close(): Promise<void>;
+}
 export declare class lucentInternal_2e40afc3526ae0ac_NativeTask {
   constructor(scope: lucentInternal_2e40afc3526ae0ac_TaskScope);
   dispose(): void;

@@ -1,0 +1,16 @@
+{
+  "name": "@lucent-lang/bench",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Lucent micro and macro benchmark stubs. Budgets need handwritten baselines (P77/P78).",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "micro:compile": "tsx scripts/compile-micro.ts",
+    "macro:camera-luminance": "tsx scripts/compile-camera-luminance.ts"
+  },
+  "dependencies": {
+    "@lucent-lang/camera": "workspace:*",
+    "@lucent-lang/compiler": "workspace:*"
+  }
+}

@@ -14,7 +14,7 @@ export fn bumpCount(stats: struct Stats) -> int32
   return (field %stats count)
 
 export fn summarize(stats: struct Stats, key: string, verbose: bool) -> string
-  let %out: string = (call label stats key)
+  let %out: string = (call label {value,value->value} stats key)
   let %i: int32 = 0
   while (lt %i (field stats count))
     assign %out = (concat %out "!")

@@ -27,6 +27,7 @@ import { swiftEnumImports, swiftEnums, swiftEnumValue } from "./enums.ts";
 export { swiftEnumBridge, swiftEnums, swiftEnumImports } from "./enums.ts";
 import { swiftView } from "./views.ts";
 export { swiftViewRuntime, swiftHostedViewRuntime } from "./views.ts";
+import { swiftViewLifecycle } from "./lifecycle.ts";
 import type { IRExpr, IRFunction, IRModule, IRPlace, IRStmt, IRStruct, NativeType } from "@lucent-lang/compiler";
 
 export interface GeneratedField {
@@ -49,6 +50,7 @@ export interface GeneratedFunction {
   async: boolean;
   params: GeneratedField[];
   state?: { name: string; type: string }[];
+  resources?: { name: string; type: string }[];
   returnType: string;
   /** Rendered at whatever depth the host places it. */
   body: Doc;
@@ -117,7 +119,10 @@ export function signature(f: GeneratedFunction): string {
         `lucentGet_${slot.name}: @escaping () -> ${slot.type}, lucentSet_${slot.name}: @escaping (${slot.type}) -> Void`,
     )
     .join(", ");
-  if (f.view) return `@MainActor func ${f.name}(${[params, state].filter(Boolean).join(", ")}) -> AnyView`;
+  const resources = (f.resources ?? [])
+    .map((slot) => `lucentGet_${slot.name}: @escaping () -> ${slot.type}`)
+    .join(", ");
+  if (f.view) return `@MainActor func ${f.name}(${[params, state, resources].filter(Boolean).join(", ")}) -> AnyView`;
   return `${f.thread === "main" ? "@MainActor " : ""}func ${f.name}(${params})${f.async ? " async" : ""} throws -> ${f.returnType}`;
 }
 
@@ -165,7 +170,7 @@ function generateFunction(
     ? `try LucentEventHub.shared.emit(${JSON.stringify(f.event.id)}, ${swiftEventValue("payload", f.params[0]?.type ?? { kind: "void" }, module)})`
     : f.binding?.swift
       ? [...f.binding.swift]
-      : printStmts(emitter.block(f.body));
+      : viewBody(f, emitter);
   return {
     name: f.name,
     ...(f.returnType.kind === "view" ? { view: true } : {}),
@@ -177,6 +182,9 @@ function generateFunction(
       type: (p.type.kind === "callback" ? "@escaping " : "") + swiftType(p.type),
     })),
     ...(f.state?.length ? { state: f.state.map((slot) => ({ name: slot.name, type: swiftType(slot.type) })) } : {}),
+    ...(f.resources?.length
+      ? { resources: f.resources.map((slot) => ({ name: slot.name, type: swiftType(slot.type) })) }
+      : {}),
     returnType: swiftType(f.returnType),
     body:
       f.thread === "worker"
@@ -187,6 +195,19 @@ function generateFunction(
           )
         : body,
   };
+}
+
+function viewBody(f: IRFunction, emitter: SwiftEmitter): Doc {
+  if (f.returnType.kind === "view" && ((f.effectSlots?.length ?? 0) > 0 || (f.resources?.length ?? 0) > 0)) {
+    const stmts = f.body;
+    const last = stmts[stmts.length - 1];
+    if (last?.op === "return" && last.value) {
+      const prefix = printStmts(emitter.block(stmts.slice(0, -1)));
+      const viewExpr = print(emitter.expr(last.value));
+      return sections([prefix, swiftViewLifecycle(f, viewExpr, (s) => emitter.block(s))]);
+    }
+  }
+  return printStmts(emitter.block(f.body));
 }
 
 class SwiftEmitter {
@@ -312,6 +333,8 @@ class SwiftEmitter {
         return e.name === "For" ? this.forRows(e) : raw(swiftView(e, (x) => print(this.expr(x))));
       case "stateRead":
         return call(ref(`lucentGet_${e.name}`), []);
+      case "resourceRead":
+        return call(ref(`lucentGet_${e.name}`), []);
       case "stateWrite":
         return call(ref(`lucentSet_${e.name}`), [{ value: this.expr(e.value) }]);
       case "ifExpr":
@@ -357,6 +380,16 @@ class SwiftEmitter {
         return { k: "unary", op: "-", value: this.expr(e.value) };
       case "weak":
         return ref(e.name);
+      case "move":
+        return this.expr(e.value);
+      case "copy":
+        return e.value.type.kind === "bytes"
+          ? call(
+              ref("LucentBytes.fromData"),
+              [{ value: call(ref("LucentBytes.data"), [{ value: this.expr(e.value) }]) }],
+              "throws",
+            )
+          : this.expr(e.value);
       case "closure": {
         const result = e.type.kind === "callback" ? e.type.result : Array.isArray(e.body) ? e.type : e.body.type;
         return {

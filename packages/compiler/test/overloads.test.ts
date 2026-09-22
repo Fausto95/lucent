@@ -33,6 +33,7 @@ test("ambiguous overloads fail independent of declaration order", () => {
   });
   expect(result.module).toBeNull();
   expect(result.diagnostics.some((d) => d.message.includes("Ambiguous"))).toBe(true);
+  expect(result.diagnostics[0]?.help).toBe("Candidates:\n  measure(float64)\n  measure(float64)");
 });
 test("reports no matching overload with the candidates", () => {
   const result = compile(
@@ -41,4 +42,5 @@ test("reports no matching overload with the candidates", () => {
   );
   expect(result.module).toBeNull();
   expect(result.diagnostics.some((d) => d.message.includes("overload"))).toBe(true);
+  expect(result.diagnostics[0]?.help).toBe("Candidates:\n  measure(float64)\n  measure(string)");
 });

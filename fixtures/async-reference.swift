@@ -1,6 +1,9 @@
 typealias lucentInternal_2e40afc3526ae0ac_TaskScope = LucentTaskScope
 
 
+typealias lucentInternal_2e40afc3526ae0ac_TaskGroup = LucentTaskGroup
+
+
 typealias lucentInternal_2e40afc3526ae0ac_NativeTask = LucentTask
 
 
@@ -22,6 +25,26 @@ func lucentInternal_2e40afc3526ae0ac_TaskScope__method_begin(lucentSelf: lucentI
 
 func lucentInternal_2e40afc3526ae0ac_TaskScope__method_close(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskScope) async throws -> Void {
   await lucentSelf.close()
+}
+
+func lucentInternal_2e40afc3526ae0ac_TaskGroup__create() throws -> lucentInternal_2e40afc3526ae0ac_TaskGroup {
+  return LucentTaskGroup()
+}
+
+func lucentInternal_2e40afc3526ae0ac_TaskGroup__get_closing(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup) throws -> Bool {
+  return lucentSelf.closing
+}
+
+func lucentInternal_2e40afc3526ae0ac_TaskGroup__get_activeCount(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup) throws -> Double {
+  return lucentSelf.activeCount
+}
+
+func lucentInternal_2e40afc3526ae0ac_TaskGroup__method_begin(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup) throws -> lucentInternal_2e40afc3526ae0ac_NativeTask {
+  return try lucentSelf.begin()
+}
+
+func lucentInternal_2e40afc3526ae0ac_TaskGroup__method_close(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskGroup) async throws -> Void {
+  try await lucentSelf.close()
 }
 
 func lucentInternal_2e40afc3526ae0ac_NativeTask__create(scope: lucentInternal_2e40afc3526ae0ac_TaskScope) throws -> lucentInternal_2e40afc3526ae0ac_NativeTask {

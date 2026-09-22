@@ -8,7 +8,7 @@ export const page: DocPage = {
   blocks: [
     {
       kind: "p",
-      text: "`clamp` below is the smallest module, not the interesting one. The rest of this page is the boundary: records and optionals, bytes, async errors, tagged unions, a native class that owns memory, events, threads, and a view that keeps its own controls. Run them in [apps/expo-example](https://github.com/Fausto95/lucent/tree/main/apps/expo-example) and [apps/bare-example](https://github.com/Fausto95/lucent/tree/main/apps/bare-example). Both show ALL OK on iOS and Android when every check passes.",
+      text: "`clamp` below is the smallest module. The rest of this page is the boundary: records, bytes, async errors, unions, native classes, events, threads, and views with their own controls. Run them in [apps/expo-example](https://github.com/Fausto95/lucent/tree/main/apps/expo-example) and [apps/bare-example](https://github.com/Fausto95/lucent/tree/main/apps/bare-example). When every check passes, the Expo app shows **Contract passed**.",
     },
 
     { kind: "h2", text: "A pure function" },

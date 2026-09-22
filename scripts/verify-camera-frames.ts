@@ -1,12 +1,19 @@
-/** Synthetic SDK delivery into a real compiled Lucent frame processor. No device camera claims. */
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { execFileSync } from "node:child_process";
+/**
+ * Synthetic SDK delivery into a real compiled Lucent frame processor. No device
+ * camera claims. Harness runners live under scripts/native/verify-camera-frames/.
+ */
+import { readFileSync } from "node:fs";
 import { generateDelegateLibrary } from "../packages/sdk/src/index.ts";
 import { compile } from "../packages/compiler/src/index.ts";
 import { generateSwift, swiftRuntime } from "../packages/backend-swift/src/index.ts";
 import { generateKotlin, kotlinRuntime } from "../packages/backend-kotlin/src/index.ts";
+import {
+  compileAndRunKotlin,
+  compileAndRunSwift,
+  fillVerifyHarness,
+  readNativeTemplate,
+} from "./lib/verify-harness.ts";
+
 const { library } = generateDelegateLibrary({
   version: 1,
   name: "FrameDelegate",
@@ -52,81 +59,35 @@ const result = compile(
   },
 );
 if (!result.module) throw new Error(JSON.stringify(result.diagnostics));
-const dir = mkdtempSync(join(tmpdir(), "lucent-camera-frames-"));
-const swift = `import Foundation
-protocol FrameListener:AnyObject {func analyze(_ frame:SDKFrame)->Double}
-final class SDKFrame {
- static var open=0
- private var valid=true
- private let bytes:[UInt8]
- init(_ bytes:[UInt8]){self.bytes=bytes;Self.open+=1}
- func sample(_ index:Double)throws->Double {
-  guard valid else {throw LucentError(code:"CLOSED_FRAME")}
-  guard index>=0 && index<Double(bytes.count) && index.rounded(.down)==index else {throw LucentError(code:"INVALID_FRAME")}
-  return Double(bytes[Int(index)])
- }
- func close(){if valid {valid=false;Self.open-=1}}
-}
-typealias ArrayBuffer=[UInt8]
-${swiftRuntime({ length: "return Double(buffer.count)", get: "return Double(buffer[Int(index)])" })}
-${Object.values(library.native!.swift!).join("\n")}
-${generateSwift(result.module).code}
-let listener=try make()
-func deliver(_ bytes:[UInt8])->Double {
- let frame=SDKFrame(bytes)
- defer {frame.close()}
- return listener.analyze(frame)
-}
-for _ in 0..<1000 {
- precondition(deliver([10,255,20,255,255,255,30,255,40])==25)
- precondition(deliver([10]) == -1)
- precondition(SDKFrame.open==0)
-}
-let closed=SDKFrame([10]);closed.close();closed.close()
-precondition(listener.analyze(closed) == -1 && SDKFrame.open==0)
-print("swift: strided Lucent luminance, 1000 valid/malformed frame pairs, closed-frame rejection and zero open frames passed")
-`;
-writeFileSync(join(dir, "main.swift"), swift);
-execFileSync(
-  "swiftc",
-  ["-module-cache-path", join(dir, "cache"), join(dir, "main.swift"), "-o", join(dir, "swift-test")],
-  { stdio: "pipe", timeout: 120000 },
-);
-process.stdout.write(execFileSync(join(dir, "swift-test"), { timeout: 30000 }));
-const kotlin = `interface FrameListener {fun analyze(frame:SDKFrame):Double}
-class SDKFrame(private val bytes:ByteArray):AutoCloseable {
- companion object {var open=0}
- private var valid=true
- init {open+=1}
- fun sample(index:Double):Double {
-  if(!valid) throw LucentError("CLOSED_FRAME")
-  if(index<0 || index>=bytes.size || index.toInt().toDouble()!=index) throw LucentError("INVALID_FRAME")
-  return (bytes[index.toInt()].toInt() and 255).toDouble()
- }
- override fun close(){if(valid){valid=false;open-=1}}
-}
-typealias ArrayBuffer=ByteArray
-${kotlinRuntime({ imports: [], length: "return buffer.size.toDouble()", get: "return buffer[index.toInt()].toDouble()" })}
-${Object.values(library.native!.kotlin!)
-  .join("\n")
-  .replace(/^package .*\n/gm, "")}
-${generateKotlin(result.module).code}
-fun main(){
- val listener=make()
- fun deliver(bytes:ByteArray):Double=SDKFrame(bytes).use{listener.analyze(it)}
- repeat(1000){
-  check(deliver(byteArrayOf(10,-1,20,-1,-1,-1,30,-1,40))==25.0)
-  check(deliver(byteArrayOf(10)) == -1.0)
-  check(SDKFrame.open==0)
- }
- val closed=SDKFrame(byteArrayOf(10));closed.close();closed.close()
- check(listener.analyze(closed) == -1.0 && SDKFrame.open==0)
- println("kotlin: strided Lucent luminance, 1000 valid/malformed frame pairs, closed-frame rejection and zero open frames passed")
-}
-`;
-writeFileSync(join(dir, "Main.kt"), kotlin);
-execFileSync("kotlinc", [join(dir, "Main.kt"), "-include-runtime", "-d", join(dir, "main.jar")], {
-  stdio: "pipe",
-  timeout: 120000,
+const ir = result.module;
+
+const runtimeSwift = swiftRuntime({
+  length: "return Double(buffer.count)",
+  get: "return Double(buffer[Int(index)])",
 });
-process.stdout.write(execFileSync("java", ["-jar", join(dir, "main.jar")], { timeout: 30000 }));
+const runtimeKotlin = kotlinRuntime({
+  imports: [],
+  length: "return buffer.size.toDouble()",
+  get: "return buffer[index.toInt()].toDouble()",
+});
+
+const swiftPackages = Object.values(library.native!.swift!);
+const kotlinPackages = Object.values(library.native!.kotlin!).map((src) => src.replace(/^package .*\n/gm, ""));
+
+compileAndRunSwift(
+  fillVerifyHarness(readNativeTemplate("verify-camera-frames", "Runner.swift"), {
+    runtime: runtimeSwift,
+    packages: swiftPackages,
+    generated: generateSwift(ir).code,
+  }),
+  "lucent-camera-frames-",
+);
+
+compileAndRunKotlin(
+  fillVerifyHarness(readNativeTemplate("verify-camera-frames", "Main.kt"), {
+    runtime: runtimeKotlin,
+    packages: kotlinPackages,
+    generated: generateKotlin(ir).code,
+  }),
+  "lucent-camera-frames-",
+);

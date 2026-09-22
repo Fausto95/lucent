@@ -62,6 +62,7 @@ test("rejects returning or suspending a borrow, and use after close", () => {
     options,
   );
   expect(suspended.diagnostics.some((d) => d.message.includes("suspension"))).toBe(true);
+  expect(suspended.diagnostics.some((d) => d.help?.includes("await"))).toBe(true);
   const closed = compile(
     'import {borrow} from "@lucent-lang/sdk/buf"; @MainThread export async function stop(): Promise<number> { const buffer = borrow(); buffer.close(); return buffer.length; }',
     options,

@@ -26,7 +26,11 @@
     "metro.d.ts",
     "expo.cjs",
     "expo.d.ts",
-    "tasks.d.ts"
+    "tasks.d.ts",
+    "resources.d.ts",
+    "subscriptions.d.ts",
+    "cells.d.ts",
+    "lifecycle.d.ts"
   ],
   "type": "module",
   "exports": {
@@ -75,6 +79,18 @@
     },
     "./tasks": {
       "types": "./tasks.d.ts"
+    },
+    "./resources": {
+      "types": "./resources.d.ts"
+    },
+    "./subscriptions": {
+      "types": "./subscriptions.d.ts"
+    },
+    "./cells": {
+      "types": "./cells.d.ts"
+    },
+    "./lifecycle": {
+      "types": "./lifecycle.d.ts"
     }
   },
   "publishConfig": {

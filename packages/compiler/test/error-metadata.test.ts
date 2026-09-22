@@ -15,6 +15,15 @@ test("lowers scalar error metadata without a serialized ABI value", () => {
     ]),
   );
 });
+test("throws typed LucentError codes such as CAMERA_DENIED", () => {
+  const result = compile('export function deny():void{throw new LucentError("CAMERA_DENIED");}', {
+    fileName: "camera-denied.lucent.ts",
+  });
+  expect(result.diagnostics).toEqual([]);
+  expect(result.module?.functions[0]?.body).toEqual(
+    expect.arrayContaining([expect.objectContaining({ op: "throw", code: "CAMERA_DENIED" })]),
+  );
+});
 test.each(["{items:[1]}", "{nested:{value:1}}"])("rejects nonscalar error metadata %s", (metadata) => {
   expect(
     compile(`export function f():void{throw new LucentError("ERROR",{metadata:${metadata}});}`, {

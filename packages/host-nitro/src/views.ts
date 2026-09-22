@@ -10,6 +10,9 @@ import {
   exportedViews,
   stateArguments,
   stateFields,
+  resourceArguments,
+  resourceDispose,
+  resourceFields,
   viewCallWithState,
   viewName,
   viewNamespace,
@@ -69,11 +72,13 @@ class Hybrid${name}: Hybrid${name}Spec {
   var view: UIView { content }
 ${props.map((p) => `  var ${p.name}: ${p.type.kind === "event" ? `(${swiftType(p.type)})?` : swiftType(p.type)} = ${defaultValue(p.type, "swift")}`).join("\n")}
 ${indentLines(stateFields(fn, "swift", swiftType))}
+${indentLines(resourceFields(fn, "swift", swiftType, namespace))}
   func afterUpdate() {
     MainActor.assumeIsolated {
-      content.render(${namespace}.${fn.name}(${viewCallWithState(type?.kind === "struct" ? `${fn.params[0]!.name}: ${namespace}.${type.name}(${swiftArgs})` : "", stateArguments(fn, "swift", "afterUpdate"))}))
+      content.render(${namespace}.${fn.name}(${viewCallWithState(type?.kind === "struct" ? `${fn.params[0]!.name}: ${namespace}.${type.name}(${swiftArgs})` : "", stateArguments(fn, "swift", "afterUpdate"), resourceArguments(fn, "swift"))}))
     }
   }
+  ${resourceDispose(fn, "swift")}
 }
 `,
       );
@@ -94,9 +99,10 @@ import com.facebook.proguard.annotations.DoNotStrip
 class Hybrid${name}(context: ThemedReactContext) : Hybrid${name}Spec() {
 ${props.map((p) => `  override var ${p.name}: ${nitroViewType(p.type)} by mutableStateOf(${nitroViewDefault(p.type)})`).join("\n")}
 ${indentLines(stateFields(fn, "kotlin", kotlinType))}
+${indentLines(resourceFields(fn, "kotlin", kotlinType, namespace))}
   override val view: View = ComposeView(context).apply {
     setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
-    setContent { ${namespace}.${fn.name}(${viewCallWithState(type?.kind === "struct" ? `${namespace}.${type.name}(${kotlinArgs})` : "", stateArguments(fn, "kotlin", "afterUpdate"))}) }
+    setContent { ${namespace}.${fn.name}(${viewCallWithState(type?.kind === "struct" ? `${namespace}.${type.name}(${kotlinArgs})` : "", stateArguments(fn, "kotlin", "afterUpdate"), resourceArguments(fn, "kotlin"))}) }
   }
 }
 `,

@@ -13,3 +13,8 @@ node_modules/
 /apps/bare-example/android/app/build
 /apps/bare-example/android/app/.cxx
 packages/*/dist/
+packages/bench/results/
+.pnpm-store/
+.claude/
+.tmp/
+.tmp-expo-ios.png
