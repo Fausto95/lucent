@@ -1,6 +1,7 @@
 {
   "name": "@lucent-lang/language-server",
   "version": "0.0.3",
+  "private": true,
   "description": "Lucent language service stub — diagnostics via the compiler; full LSP is post-MVP.",
   "license": "MIT",
   "repository": {
@@ -18,9 +19,6 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "dependencies": {
     "@lucent-lang/compiler": "workspace:*"

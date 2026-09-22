@@ -33,7 +33,8 @@ They use the existing interim surface:
 | App `lucent.config.ts` / `lucent.config.json` | Capability allowlist and library path registration                  |
 | Package `native/*.swift` / `*.kt`             | Hand-written adapter bodies, embedded via `scripts/embed-native.ts` |
 
-`@lucent-lang/camera` and `@lucent-lang/fake-sdk` follow that interim form:
+`@lucent-lang/camera` and `@lucent-lang/fake-sdk` follow that interim form
+(workspace-only / `private: true` — not published to npm):
 export a `LibraryModule`, keep adapters under `native/`, and rely on the app
 config for capabilities. Migrate to `lucent.package.json` when P62–P66 land.
 

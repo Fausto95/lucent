@@ -1,6 +1,7 @@
 {
   "name": "@lucent-lang/bluetooth",
   "version": "0.0.3",
+  "private": true,
   "description": "Lucent Bluetooth acceptance package — scan, connect, read/write, buffered notifications, CI fake peripherals.",
   "license": "MIT",
   "repository": {
@@ -20,9 +21,6 @@
       "types": "./src/index.d.ts",
       "default": "./src/index.ts"
     }
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "dependencies": {
     "@lucent-lang/compiler": "workspace:*",

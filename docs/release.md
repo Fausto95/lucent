@@ -51,7 +51,10 @@ Packages are not on npm yet. Use the workspace until the first candidate:
    [`P90-checklist.md`](P90-checklist.md))
 5. Only then: `pnpm publish -r --access public` from the release commit
 
-Do not publish private stub packages (`@lucent-lang/bench`, examples).
+Do not publish private packages: `@lucent-lang/bench`, `@lucent-lang/fake-sdk`,
+acceptance stubs (`camera`, `bluetooth`, `sqlite`, `location`, `background`,
+`streaming`), `@lucent-lang/language-server`, or the example apps. Those stay
+workspace-only until they are intentionally productized.
 
 ## Exit criterion
 

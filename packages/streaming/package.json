@@ -1,6 +1,7 @@
 {
   "name": "@lucent-lang/streaming",
   "version": "0.0.3",
+  "private": true,
   "description": "Lucent streaming acceptance package — owned chunk sources, transform/write sinks, explicit backpressure contracts.",
   "license": "MIT",
   "repository": {
@@ -20,9 +21,6 @@
       "types": "./src/index.d.ts",
       "default": "./src/index.ts"
     }
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "dependencies": {
     "@lucent-lang/compiler": "workspace:*",

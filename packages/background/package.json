@@ -1,6 +1,7 @@
 {
   "name": "@lucent-lang/background",
   "version": "0.0.3",
+  "private": true,
   "description": "Lucent background-tasks acceptance package — durable vs in-process jobs, versioned payloads, CI schedule stubs.",
   "license": "MIT",
   "repository": {
@@ -20,9 +21,6 @@
       "types": "./src/index.d.ts",
       "default": "./src/index.ts"
     }
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "dependencies": {
     "@lucent-lang/compiler": "workspace:*",

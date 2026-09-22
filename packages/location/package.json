@@ -1,6 +1,7 @@
 {
   "name": "@lucent-lang/location",
   "version": "0.0.3",
+  "private": true,
   "description": "Lucent location acceptance package — provider resource, keep-latest updates, permission union, CI fake positions.",
   "license": "MIT",
   "repository": {
@@ -20,9 +21,6 @@
       "types": "./src/index.d.ts",
       "default": "./src/index.ts"
     }
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "dependencies": {
     "@lucent-lang/compiler": "workspace:*",

@@ -1,6 +1,7 @@
 {
   "name": "@lucent-lang/camera",
   "version": "0.0.3",
+  "private": true,
   "description": "Lucent camera acceptance package — session lifecycle, borrowed frames, CI stubs.",
   "license": "MIT",
   "repository": {
@@ -20,9 +21,6 @@
       "types": "./src/index.d.ts",
       "default": "./src/index.ts"
     }
-  },
-  "publishConfig": {
-    "access": "public"
   },
   "dependencies": {
     "@lucent-lang/compiler": "workspace:*",

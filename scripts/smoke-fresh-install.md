@@ -34,6 +34,7 @@ Until packages are on the registry, consume from the workspace:
 
 - [ ] `pnpm exec lucent pack` (or `pnpm -r pack --dry-run`) lists intended tarballs
 - [ ] Each publishable package has `publishConfig.access` and a matching version
+- [ ] Private packages (`fake-sdk`, acceptance stubs, `bench`, `language-server`) do **not** appear as publishable
 - [ ] Changelog / release notes name the previous good candidate for rollback
 - [ ] Do **not** `npm publish` until P90 device evidence and matrix rows are attached
 

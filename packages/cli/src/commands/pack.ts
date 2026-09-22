@@ -69,15 +69,19 @@ export const packCommand = defineCommand({
     }
     if (skipped.length) {
       ui.line();
-      ui.line(ui.palette.dim(`Skipped (${skipped.length}): private or missing publishConfig`));
+      ui.line(ui.palette.dim("Skipped (private or missing publishConfig):"));
+      for (const pkg of skipped.sort((a, b) => a.name.localeCompare(b.name))) {
+        ui.line(ui.palette.dim(`  ${pkg.name}  (${pkg.reason})`));
+      }
     }
     ui.line();
     ui.heading("book", "publish steps");
     ui.line("1. Green typecheck / test / verify on the release commit");
-    ui.line("2. pnpm -r pack --dry-run   # or pack individual packages");
+    ui.line("2. pnpm -r publish --access public --dry-run   # inspect; skips private");
     ui.line("3. Attach P90 evidence; see docs/release.md and docs/P90-checklist.md");
     ui.line("4. pnpm publish -r --access public   # only when intentionally releasing");
     ui.line();
+    ui.hint("Private packages (fake-sdk, acceptance stubs, bench, language-server) stay off npm.");
     ui.hint("Fresh-install smoke: scripts/smoke-fresh-install.md");
     return 0;
   },
