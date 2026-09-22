@@ -171,7 +171,7 @@ function generateFunction(f: IRFunction, module: IRModule): GeneratedFunction {
     async: f.async,
     params: f.params.map((p) => ({ name: p.name, type: kotlinType(p.type) })),
     ...(f.state?.length ? { state: f.state.map((slot) => ({ name: slot.name, type: kotlinType(slot.type) })) } : {}),
-    returnType: kotlinType(f.returnType),
+    returnType: f.returnType.kind === "view" ? "Unit" : kotlinType(f.returnType),
     body:
       f.thread && f.thread !== "caller"
         ? [
@@ -326,7 +326,7 @@ class KotlinEmitter {
       case "await":
         return this.expr(e.value);
       case "field":
-        return `${this.expr(e.object)}.${e.field}`;
+        return e.type.kind === "view" ? `${this.expr(e.object)}.${e.field}()` : `${this.expr(e.object)}.${e.field}`;
       case "length":
         return this.length(e.object);
       case "index":
@@ -342,7 +342,9 @@ class KotlinEmitter {
           : `mutableListOf<${element}>()`;
       }
       case "struct":
-        return `${e.name}(${e.fields.map((f) => `${f.name} = ${this.expr(f.value)}`).join(", ")})`;
+        return `${e.name}(${e.fields
+          .map((f) => `${f.name} = ${f.value.type.kind === "view" ? `{ ${this.expr(f.value)} }` : this.expr(f.value)}`)
+          .join(", ")})`;
     }
   }
 

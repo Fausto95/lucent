@@ -236,8 +236,11 @@ scopes and runtime close quiesce are not implemented.
 
 ## M6 — Composition, lifecycle, and references
 
-- [ ] Add typed child slots. Conditional view expressions and `For` rows, keyed
-      or index-ordered, are implemented; typed child slots are not.
+- [x] Add typed child slots. A component may declare one `children: NativeView`
+      prop that receives its JSX children; several children group vertically.
+      SwiftUI passes an `AnyView`, Compose a `@Composable () -> Unit`. A
+      component with a slot is Lucent-only and gets no React component or
+      declaration, since React owns a host view's children.
 - [ ] Define identity by parent, declaration, explicit key, and component type.
 - [x] Add keyed eager collections with duplicate-key diagnostics. `For` takes an
       optional `key` closure from the row value to a string; SwiftUI uses

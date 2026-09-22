@@ -1,6 +1,7 @@
 import type { NativeType } from "@lucent-lang/compiler";
 const PRIMITIVES: Readonly<Record<string, string>> = {
-  view: "Unit",
+  /** A child slot is content to emit, not a value; a view result is plain Unit. */
+  view: "@Composable () -> Unit",
   void: "Unit",
   bool: "Boolean",
   string: "String",

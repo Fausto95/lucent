@@ -316,6 +316,7 @@ class ModuleChecker {
               (p.type.kind === "event" &&
                 t.kind === "event" &&
                 ["void", "string", "bool", "float"].includes(t.payload.kind)) ||
+              (p.name === "children" && p.type.kind === "view") ||
               t.kind === "string" ||
               t.kind === "bool" ||
               (t.kind === "float" && t.bits === 64) ||
@@ -330,7 +331,7 @@ class ModuleChecker {
             diagnostic(
               "LC1011",
               fn.span,
-              "Native view props support string, number, boolean, arrays of those, and nullable values.",
+              "Native view props support string, number, boolean, arrays of those, nullable values, and a required `children: NativeView` slot.",
             ),
           );
       }
@@ -995,12 +996,37 @@ class FunctionChecker {
         this.report(diagnostic("LC1010", e.span, `Unknown native view ${e.name}.`));
         return this.poison(e.span, T.view);
       }
-      if (e.children.length)
-        this.report(diagnostic("LC1001", e.span, "Custom native view children are not supported; use typed props."));
+      const props =
+        signature.params[0]?.type.kind === "struct" ? this.mod.structs.get(signature.params[0].type.name) : undefined;
+      const slot = props?.fields.find((f) => f.name === "children" && f.type.kind === "view");
+      const properties = [...e.properties];
+      if (slot) {
+        if (!e.children.length)
+          this.report(diagnostic("LC1011", e.span, `\`${e.name}\` needs children for its \`children\` slot.`));
+        else
+          properties.push({
+            name: "children",
+            // Several children group vertically with no spacing, like the layout wrappers.
+            value:
+              e.children.length === 1
+                ? e.children[0]!
+                : { kind: "view", name: "__ui_VStack", properties: [], children: e.children, span: e.span },
+            span: e.span,
+          });
+      } else if (e.children.length) {
+        this.report(
+          diagnostic(
+            "LC1001",
+            e.span,
+            `\`${e.name}\` takes no children.`,
+            "Declare a `children: NativeView` prop to accept them.",
+          ),
+        );
+      }
       return this.call({
         kind: "call",
         callee: e.name,
-        args: signature.params.length ? [{ kind: "object", properties: e.properties, span: e.span }] : [],
+        args: signature.params.length ? [{ kind: "object", properties, span: e.span }] : [],
         span: e.span,
       });
     }

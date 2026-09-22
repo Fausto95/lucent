@@ -1,5 +1,6 @@
 import { expect, test } from "vite-plus/test";
 import { compile } from "@lucent-lang/compiler";
+import { exportedViews } from "@lucent-lang/host-core";
 import { expoHost } from "../src/index.ts";
 test("namespaces native view events to avoid React Native bubbling event collisions", () => {
   const module = compile(
@@ -89,4 +90,16 @@ test("disposes native composition when the host view unmounts", () => {
   ).module!;
   const files = expoHost.emitPackage([module], { packageName: "lucent" });
   expect([...files.values()].join("\n")).toContain("DisposeOnDetachedFromWindowOrReleasedFromPool");
+});
+
+test("a component with a child slot is not mounted from React", () => {
+  const result = compile(
+    `import {VStack, Text, type NativeView} from "@lucent-lang/ui";
+type PanelProps = { title: string; children: NativeView };
+export function Panel(props: PanelProps): NativeView { return (<VStack><Text>{props.title}</Text>{props.children}</VStack>); }`,
+    { fileName: "panel.lucent.tsx" },
+  );
+  expect(result.diagnostics).toEqual([]);
+  expect(exportedViews(result.module!)).toEqual([]);
+  expect(expoHost.emitProxy(result.module!).dts).not.toContain("Panel");
 });

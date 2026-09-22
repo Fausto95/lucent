@@ -18,6 +18,7 @@ import {
   type NativeView,
 } from "@lucent-lang/ui";
 import { Badge } from "./badge.lucent";
+import { Panel } from "./panel.lucent";
 
 type Props = {
   title: string;
@@ -40,18 +41,20 @@ export function FieldScreen(props: NativeProps<Props>): NativeView {
                 {armed ? "Receiver armed" : "Receiver paused"}
               </Text>
               <Divider />
-              {props.notes.length === 0 ? (
-                <Text color="#8fb9a8">No samples yet</Text>
-              ) : (
-                <For each={props.notes} key={(note: string) => note}>
-                  {(note: string) => (
-                    <HStack spacing={8}>
-                      <Text color="#d7efe4">{note}</Text>
-                      <Spacer />
-                    </HStack>
-                  )}
-                </For>
-              )}
+              <Panel title="SAMPLE LOG">
+                {props.notes.length === 0 ? (
+                  <Text color="#8fb9a8">No samples yet</Text>
+                ) : (
+                  <For each={props.notes} key={(note: string) => note}>
+                    {(note: string) => (
+                      <HStack spacing={8}>
+                        <Text color="#d7efe4">{note}</Text>
+                        <Spacer />
+                      </HStack>
+                    )}
+                  </For>
+                )}
+              </Panel>
               <TextField value={draft} onChange={(value: string) => draft.set(value)} placeholder="Sample label" />
               <Toggle title="Arm receiver" value={armed} onChange={(value: boolean) => armed.set(value)} />
               <Slider value={gain} min={0} max={100} onChange={(value: number) => gain.set(value)} />

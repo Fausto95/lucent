@@ -259,8 +259,27 @@ Nitro requires the React Native new architecture for these views.
 | `For`              | required `each`, optional `key`                   | one row closure          |
 
 View props support string, number, boolean, arrays of those, nullable scalars,
-and events. A conditional expression may choose between two views or two values
-of the same type. `For` lays rows out eagerly in array order. Without a `key` the identity is the
+and events. A component may also declare one `children: NativeView` prop, which
+receives the JSX children written at its call site:
+
+```tsx
+type PanelProps = { title: string; children: NativeView };
+export function Panel(props: PanelProps): NativeView {
+  return (
+    <VStack spacing={6}>
+      <Text size={12}>{props.title}</Text>
+      {props.children}
+    </VStack>
+  );
+}
+```
+
+`<Panel title="Log"><Text>one</Text></Panel>` fills the slot. Several children
+group vertically with zero spacing, like the layout wrappers. A component with a
+slot is Lucent-only: React owns the children of a host view, so the compiler does
+not generate a React component or a declaration for it. Components without a
+slot take no children. A conditional expression may choose between two views or
+two values of the same type. `For` lays rows out eagerly in array order. Without a `key` the identity is the
 index, which is not stable across insertions; pass
 `key={(item: T) => item}` to give each row an identity that survives reordering,
 so its state and focus move with it. A key closure returns a string, so use a

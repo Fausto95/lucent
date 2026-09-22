@@ -2,7 +2,7 @@ import { jsType, needsConversion, convert, type ConversionPolicy } from "./conve
 export { jsType, needsConversion, convert, type ConversionPolicy } from "./conversion.ts";
 import { classDeclarations } from "./objects.ts";
 /** What every host backend implements, plus the JS-facing pieces both hosts share. */
-import { viewProps } from "./views.ts";
+import { hasChildSlot, viewProps } from "./views.ts";
 import type { IRFunction, IRModule, IRStruct, NativeType } from "@lucent-lang/compiler";
 
 /** Relative path → file contents. */
@@ -41,7 +41,7 @@ export function structDeclaration(s: IRStruct): string {
 export function declarations(module: IRModule): string {
   const structs = module.structs.filter((s) => s.exported && !s.reference).map(structDeclaration);
   const functions = module.functions
-    .filter((f) => f.exported && !f.classOp)
+    .filter((f) => f.exported && !f.classOp && !(f.returnType.kind === "view" && hasChildSlot(module, f)))
     .map((f) =>
       f.returnType.kind === "view"
         ? `export declare const ${f.name}: import("react").ComponentType<{ ${viewProps(module, f)
@@ -122,6 +122,7 @@ export { loadLucentConfig, sourceProjectRoot, type LucentConfig } from "./config
 
 export {
   exportedViews,
+  hasChildSlot,
   viewName,
   viewNamespace,
   viewProps,

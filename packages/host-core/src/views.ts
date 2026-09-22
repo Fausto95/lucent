@@ -1,7 +1,14 @@
 import type { IRConst, IRFunction, IRModule, NativeType } from "@lucent-lang/compiler";
 import { moduleIdentifier } from "./names.ts";
+/** React owns the children of a host view, so a component with a child slot stays Lucent-only. */
+export function hasChildSlot(module: IRModule, fn: IRFunction): boolean {
+  const type = fn.params[0]?.type;
+  if (type?.kind !== "struct") return false;
+  return module.structs.find((s) => s.name === type.name)?.fields.some((f) => f.type.kind === "view") ?? false;
+}
+
 export const exportedViews = (module: IRModule): IRFunction[] =>
-  module.functions.filter((f) => f.exported && f.returnType.kind === "view");
+  module.functions.filter((f) => f.exported && f.returnType.kind === "view" && !hasChildSlot(module, f));
 export const viewName = (module: IRModule, fn: IRFunction): string =>
   `Lucent${moduleIdentifier(module.name)}${fn.name}View`;
 export const viewNamespace = (module: IRModule): string => `Lucent${moduleIdentifier(module.name)}Views`;
