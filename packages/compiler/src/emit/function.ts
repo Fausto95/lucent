@@ -174,6 +174,9 @@ export class FnEmitter {
     }
     if (to.k === "fn" && from.k === "fn") return this.adaptFn(e, to, node);
     if (this.cpp(from) === this.cpp(to)) return e.c;
+    // Error subclasses: upcast freely, downcast (after instanceof) with a check.
+    if (to.k === "error" && from.k === "class" && this.reg.cls(from.id).isError) return `lucent::Error(${e.c})`;
+    if (from.k === "error" && to.k === "class" && this.reg.cls(to.id).isError) return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
     if (from.k === "struct" && to.k === "struct") {
       fail(node, Codes.InexactObject, `object types must match exactly to share a native representation (${this.describe(from)} vs ${this.describe(to)})`);
     }
@@ -339,7 +342,9 @@ export class FnEmitter {
         this.line(`${e.c};`);
         if (this.opts.async) this.line("co_return;");
       } else {
-        this.line(`${this.opts.async ? "co_return" : "return"} ${this.exprAs(body, ret)};`);
+        let e = this.expr(body, ret);
+        if (this.opts.async && e.t.k === "promise" && ret.k !== "promise") e = { c: `(co_await ${e.c})`, t: e.t.inner };
+        this.line(`${this.opts.async ? "co_return" : "return"} ${this.coerce(e, ret, body)};`);
       }
     }
   }
@@ -515,10 +520,12 @@ export class FnEmitter {
     const kw = this.opts.async ? "co_return" : "return";
     let value: string | undefined;
     if (s.expression) {
+      let e = this.expr(s.expression, ret);
+      // `return promise` in an async function returns the promised value.
+      if (this.opts.async && e.t.k === "promise" && ret.k !== "promise") e = { c: `(co_await ${e.c})`, t: isVoidish(e.t.inner) ? T.undefined : e.t.inner };
       if (isVoidish(ret)) {
-        const e = this.expr(s.expression);
         if (e.c !== "lucent::undefined") this.line(`${e.c};`);
-      } else value = this.exprAs(s.expression, ret);
+      } else value = this.coerce(e, ret, s.expression);
     } else if (!isVoidish(ret)) {
       value = this.coerce({ c: "lucent::undefined", t: T.undefined }, ret, s);
     }
@@ -1000,7 +1007,7 @@ export class FnEmitter {
     }
     if (t.k === "never" || sameType(t, e.t)) return e;
     // Only narrow (never widen) based on the checker.
-    if (e.t.k === "opt" || e.t.k === "union") {
+    if (e.t.k === "opt" || e.t.k === "union" || (e.t.k === "error" && t.k === "class")) {
       return { c: this.coerce(e, t, node), t };
     }
     return e;
@@ -1422,7 +1429,7 @@ export class FnEmitter {
   }
 
   private propertyAccess(node: ts.PropertyAccessExpression): E {
-    if (isOptionalChain(node)) return this.optionalChain(node);
+    if (isOptionalChain(node)) return this.chainPart(node).e;
     const staticE = builtins.staticProperty(this, node);
     if (staticE) return staticE;
     const obj = this.receiver(node.expression);
@@ -1438,10 +1445,13 @@ export class FnEmitter {
   }
 
   private elementAccess(node: ts.ElementAccessExpression): E {
-    if (isOptionalChain(node)) return this.optionalChain(node);
-    const obj = this.expr(node.expression);
+    if (isOptionalChain(node)) return this.chainPart(node).e;
+    return this.elementOf(this.expr(node.expression), node.argumentExpression, node);
+  }
+
+  /** `obj[arg]` on an already-evaluated object. */
+  elementOf(obj: E, arg: ts.Expression, node: ts.Node): E {
     const t = obj.t;
-    const arg = node.argumentExpression;
     switch (t.k) {
       case "array":
         return { c: `(${obj.c}).get(${this.exprAs(arg, T.number)})`, t: unionOf([t.e, T.undefined]) };
@@ -1464,72 +1474,63 @@ export class FnEmitter {
     fail(node, Codes.UnsupportedSyntax, `cannot index ${typeKey(t)}`);
   }
 
-  /** Lowers `a?.b.c`, `a?.[i]`, `a?.m()`: undefined if `a` is nullish. */
-  private optionalChain(top: ts.Expression): E {
-    // Find the innermost optional link in this chain.
-    let link: ts.Node | undefined;
-    let n: ts.Node = top;
-    for (;;) {
-      if ((ts.isPropertyAccessExpression(n) || ts.isElementAccessExpression(n) || ts.isCallExpression(n)) && n.questionDotToken) link = n;
-      if (ts.isPropertyAccessExpression(n) || ts.isElementAccessExpression(n) || ts.isCallExpression(n) || ts.isNonNullExpression(n)) {
-        const inner = (n as ts.PropertyAccessExpression).expression;
-        if (!(inner.flags & ts.NodeFlags.OptionalChain) && !(n.flags & ts.NodeFlags.OptionalChain)) break;
-        n = inner;
-      } else break;
+  /**
+   * One link of an optional chain (`a?.b.c`, `a?.[i]`, `a?.m()`, `f?.()`).
+   * `sc` is true when the value may be undefined because the chain
+   * short-circuited; later links then short-circuit too.
+   */
+  private chainPart(n: ts.Expression): { e: E; sc: boolean } {
+    if (!(n.flags & ts.NodeFlags.OptionalChain)) return { e: this.expr(n), sc: false };
+    if (ts.isNonNullExpression(n)) {
+      const b = this.chainPart(n.expression);
+      return b;
     }
-    if (!link) {
-      // No `?.` left in the chain: emit normally.
-      const saved = top.flags;
-      (top as { flags: ts.NodeFlags }).flags = saved & ~ts.NodeFlags.OptionalChain;
-      try {
-        return this.expr(top);
-      } finally {
-        (top as { flags: ts.NodeFlags }).flags = saved;
+    if (ts.isPropertyAccessExpression(n)) {
+      const recv = this.chainPart(n.expression);
+      return this.guarded(recv, !!n.questionDotToken, (x) => this.member(x, n.name.text, n), n);
+    }
+    if (ts.isElementAccessExpression(n)) {
+      const recv = this.chainPart(n.expression);
+      return this.guarded(recv, !!n.questionDotToken, (x) => this.elementOf(x, n.argumentExpression, n), n);
+    }
+    if (ts.isCallExpression(n)) {
+      const callee = n.expression;
+      if (ts.isPropertyAccessExpression(callee) && !n.questionDotToken) {
+        const recv = this.chainPart(callee.expression);
+        return this.guarded(recv, !!callee.questionDotToken, (x) => builtins.methodCall(this, x, callee.name.text, n), n);
       }
+      const f = this.chainPart(callee);
+      return this.guarded(f, !!n.questionDotToken, (x) => this.callValue(x, n), n);
     }
-    const base = (link as ts.PropertyAccessExpression).expression;
-    const b = this.expr(base);
-    const tmp = this.ctx.fresh("oc");
-    const resultT = unionOf([this.lt(top), T.undefined]);
-    if (b.t.k !== "opt") {
-      // Not actually optional: drop the `?.`.
-      return this.withoutQuestionDot(link, top, resultT);
-    }
-    this.subst.set(base, { c: `${tmp}.get()`, t: b.t.inner });
-    let rest: E;
-    try {
-      rest = this.withoutQuestionDot(link, top, resultT);
-    } finally {
-      this.subst.delete(base);
-    }
-    return { c: `({ auto ${tmp} = ${b.c}; ${tmp}.has() ? ${this.coerce(rest, resultT, top)} : ${this.cpp(resultT)}(lucent::undefined); })`, t: resultT };
+    return { e: this.expr(n), sc: false };
   }
 
-  private withoutQuestionDot(link: ts.Node, top: ts.Expression, _resultT: LType): E {
-    const l = link as { questionDotToken?: ts.QuestionDotToken };
-    const saved = l.questionDotToken;
-    l.questionDotToken = undefined;
-    const flagsSaved: [ts.Node, ts.NodeFlags][] = [];
-    let n: ts.Node = top;
-    for (;;) {
-      flagsSaved.push([n, n.flags]);
-      (n as { flags: ts.NodeFlags }).flags = n.flags & ~ts.NodeFlags.OptionalChain;
-      if (n === link) break;
-      if (ts.isPropertyAccessExpression(n) || ts.isElementAccessExpression(n) || ts.isCallExpression(n) || ts.isNonNullExpression(n)) n = (n as ts.PropertyAccessExpression).expression;
-      else break;
+  private guarded(b: { e: E; sc: boolean }, q: boolean, apply: (x: E) => E, node: ts.Node): { e: E; sc: boolean } {
+    if (b.e.t.k !== "opt" || (!q && !b.sc)) {
+      if (b.e.t.k === "opt" && !q) fail(node, Codes.UnsupportedSyntax, "value may be undefined here; use ?. or check it first");
+      return { e: apply(b.e), sc: b.sc };
     }
-    try {
-      return this.expr(top);
-    } finally {
-      l.questionDotToken = saved;
-      for (const [node, f] of flagsSaved) (node as { flags: ts.NodeFlags }).flags = f;
-    }
+    const tmp = this.ctx.fresh("oc");
+    const r = apply({ c: `${tmp}.get()`, t: b.e.t.inner });
+    const rt = unionOf([r.t, T.undefined]);
+    return {
+      e: { c: `({ auto ${tmp} = ${b.e.c}; ${tmp}.has() ? ${this.coerce(r, rt, node)} : ${this.cpp(rt)}(lucent::undefined); })`, t: rt },
+      sc: true,
+    };
+  }
+
+  /** Calls a function value with the arguments of `node`. */
+  private callValue(f: E, node: ts.CallExpression): E {
+    const ft = stripOpt(f.t);
+    if (ft.k !== "fn") fail(node.expression, Codes.UnsupportedCall, `cannot call a value of type ${typeKey(f.t)}`);
+    const args = this.args(node.arguments, ft.params, node);
+    return { c: `${this.coerce(f, ft, node.expression)}(${args.join(", ")})`, t: isVoidish(ft.ret) ? T.undefined : ft.ret };
   }
 
   // --- calls ------------------------------------------------------------------------------
 
   private call(node: ts.CallExpression): E {
-    if (isOptionalChain(node) && (node.questionDotToken || node.expression.flags & ts.NodeFlags.OptionalChain)) return this.optionalChain(node);
+    if (isOptionalChain(node)) return this.chainPart(node).e;
     const callee = node.expression;
     if (callee.kind === ts.SyntaxKind.SuperKeyword) return builtins.superCall(this, node);
     if (ts.isPropertyAccessExpression(callee)) {
@@ -1549,12 +1550,7 @@ export class FnEmitter {
       }
     }
     // A function value.
-    const f = this.expr(callee);
-    const ft = stripOpt(f.t);
-    if (ft.k !== "fn") fail(callee, Codes.UnsupportedCall, `cannot call a value of type ${typeKey(f.t)}`);
-    const args = this.args(node.arguments, ft.params, node);
-    const c = `${this.coerce(f, ft, callee)}(${args.join(", ")})`;
-    return { c, t: isVoidish(ft.ret) ? T.undefined : ft.ret };
+    return this.callValue(this.expr(callee), node);
   }
 
   /** Arguments coerced to parameter types, with missing optionals as undefined. */
@@ -1628,7 +1624,7 @@ export class FnEmitter {
 
   private arrayLiteral(node: ts.ArrayLiteralExpression, hint?: LType): E {
     let t = this.lt(node);
-    const ctxT = this.contextualType(node) ?? hint;
+    const ctxT = hint ?? this.contextualType(node);
     if (ctxT) {
       const c = stripOpt(ctxT);
       if (c.k === "array" || c.k === "tuple") t = c;
@@ -1674,7 +1670,7 @@ export class FnEmitter {
   }
 
   private objectLiteral(node: ts.ObjectLiteralExpression, hint?: LType): E {
-    let t = this.contextualType(node) ?? hint ?? this.lt(node);
+    let t = hint ?? this.contextualType(node) ?? this.lt(node);
     t = stripOpt(t);
     if (t.k === "union") {
       // Pick the member this literal belongs to.

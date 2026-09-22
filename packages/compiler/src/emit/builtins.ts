@@ -209,7 +209,9 @@ export function staticProperty(em: FnEmitter, node: ts.PropertyAccessExpression)
   }
   if (isLibGlobal(em, obj, "Number") && name in NUMBER_CONSTANTS) return num(NUMBER_CONSTANTS[name]!);
   // Enum members are constants.
-  const constant = em.checker.getConstantValue(node);
+  const memberSym = em.checker.getSymbolAtLocation(node);
+  const memberDecl = memberSym && memberSym.flags & ts.SymbolFlags.EnumMember ? memberSym.valueDeclaration : undefined;
+  const constant = memberDecl && ts.isEnumMember(memberDecl) ? em.checker.getConstantValue(memberDecl) : em.checker.getConstantValue(node);
   if (constant !== undefined) return typeof constant === "number" ? num(numberLiteral(constant)) : str(stringLiteral(constant));
   const g = staticClass(em, obj);
   if (g) {
@@ -348,11 +350,18 @@ export function staticCall(em: FnEmitter, node: ts.CallExpression, callee: ts.Pr
     }
     if (name === "reject") return { c: `lucent::Promise<${em.reg.cppRet(rt.inner)}>::rejected(${em.exprAs(a[0]!, T.error)})`, t: rt };
     if (name === "all") {
-      const src = em.expr(a[0]!);
+      const src = em.expr(a[0]!, em.lt(a[0]!));
       const st = stripOpt(src.t);
       if (st.k === "array" && st.e.k === "promise") {
         if (isVoidish(st.e.inner)) return { c: `lucent::promiseAllVoid(${src.c})`, t: { k: "promise", inner: T.void } };
         return { c: `lucent::promiseAll(${src.c})`, t: { k: "promise", inner: { k: "array", e: st.e.inner } } };
+      }
+      if (st.k === "tuple" && st.es.every((e) => e.k === "promise")) {
+        const inners = st.es.map((e) => {
+          const inner = (e as LType & { k: "promise" }).inner;
+          return isVoidish(inner) ? T.undefined : inner;
+        });
+        return { c: `lucent::promiseAllTuple(${src.c})`, t: { k: "promise", inner: { k: "tuple", es: inners } } };
       }
       fail(node, Codes.UnsupportedBuiltin, "Promise.all needs an array of promises of one type");
     }

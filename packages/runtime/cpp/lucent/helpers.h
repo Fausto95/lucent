@@ -115,6 +115,14 @@ bool isErrorOf(const V& v, const char* kind) {
   }
 }
 
+/// Checked downcast after `instanceof` narrowing.
+template <class C, class V>
+Ref<C> downcast(const Ref<V>& v) {
+  auto r = std::dynamic_pointer_cast<C>(v);
+  if (!r) throwTypeError("Value is not an instance of the expected class");
+  return r;
+}
+
 inline Error errorWithCode(const String& code, const String& message) {
   Error e = makeError(message);
   e->code = code;

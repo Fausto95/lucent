@@ -14,6 +14,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <tuple>
 #include <vector>
 
 #include "array.h"
@@ -167,6 +168,31 @@ Promise<Array<T>> promiseAll(Array<Promise<T>> promises) {
 }
 inline Promise<void> promiseAllVoid(Array<Promise<void>> promises) {
   for (const auto& p : promises.items()) co_await p;
+}
+
+namespace detail {
+template <class T>
+Promise<Stored<T>> stored(Promise<T> p) {
+  if constexpr (std::is_void_v<T>) {
+    co_await p;
+    co_return undefined;
+  } else {
+    co_return co_await p;
+  }
+}
+}  // namespace detail
+
+/// Promise.all over a tuple of promises of different types.
+template <class... Ts>
+Promise<std::tuple<detail::Stored<Ts>...>> promiseAllTuple(std::tuple<Promise<Ts>...> ps) {
+  auto collect = [](std::tuple<Promise<Ts>...> ps) -> Promise<std::tuple<detail::Stored<Ts>...>> {
+    co_return co_await std::apply(
+        [](auto... p) -> Promise<std::tuple<detail::Stored<Ts>...>> {
+          co_return std::tuple<detail::Stored<Ts>...>{co_await detail::stored(p)...};
+        },
+        ps);
+  };
+  return collect(ps);
 }
 
 /// `await delay(ms)` — resolves after `ms` milliseconds on the Lucent thread.
