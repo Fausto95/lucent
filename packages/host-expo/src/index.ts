@@ -131,7 +131,14 @@ function emitPackage(modules: IRModule[], options: EmitOptions): FileTree {
         "\n",
     );
   }
-  emitNativeSidecars(files, options.sidecars, androidDir, ANDROID_PACKAGE, "ExpoModulesCore");
+  emitNativeSidecars(
+    files,
+    options.sidecars,
+    androidDir,
+    ANDROID_PACKAGE,
+    "ExpoModulesCore",
+    "expo.modules.kotlin.jni.ArrayBuffer",
+  );
   emitNativePackages(files, modules, ANDROID_PACKAGE);
   emitViews(files, modules, ANDROID_PACKAGE);
   return files;

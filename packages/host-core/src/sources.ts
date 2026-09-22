@@ -65,6 +65,7 @@ export function emitNativeSidecars(
   androidDir: string,
   androidPackage: string,
   swiftModule: string,
+  kotlinImport: string,
 ): void {
   // `ArrayBuffer` and the rest of the bridge types come from the host's own
   // module, which differs per host — so the import is added here rather than
@@ -72,7 +73,16 @@ export function emitNativeSidecars(
   for (const [name, contents] of Object.entries(sidecars?.swift ?? {}))
     files.set(`ios/${name}`, `import ${swiftModule}\n${contents}`);
   for (const [name, contents] of Object.entries(sidecars?.kotlin ?? {})) {
-    const packaged = /^\s*package\s/m.test(contents) ? contents : `package ${androidPackage}\n\n${contents}`;
+    // Kotlin only accepts imports below the package declaration, so the import
+    // follows whichever declaration the file ends up with.
+    const declared = /^[^\S\n]*package\s+\S+.*$/m.exec(contents);
+    const packaged = declared
+      ? splice(contents, declared.index + declared[0].length, `\n\nimport ${kotlinImport}`)
+      : `package ${androidPackage}\n\nimport ${kotlinImport}\n\n${contents}`;
     files.set(`${androidDir}/${name}`, packaged);
   }
+}
+
+function splice(source: string, at: number, insert: string): string {
+  return `${source.slice(0, at)}${insert}${source.slice(at)}`;
 }
