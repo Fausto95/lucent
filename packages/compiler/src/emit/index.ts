@@ -272,7 +272,9 @@ function jsProxy(m: ModuleExports): string {
     '"use strict";',
     'Object.defineProperty(exports, "__esModule", { value: true });',
     'const { loadModule, lucentClass } = require("@lucent-lang/runtime");',
-    `const m = loadModule(${JSON.stringify(m.module.name)});`,
+    // `react-native` is required from the app's own location, so the app's
+    // copy is used even in monorepos with several versions installed.
+    `const m = loadModule(${JSON.stringify(m.module.name)}, () => require("react-native").TurboModuleRegistry);`,
   ];
   for (const f of m.functions) lines.push(`exports.${f.decl.name!.text} = m.${f.decl.name!.text};`);
   for (const c of m.classes) lines.push(`exports.${c.decl.name!.text} = lucentClass(m.${c.decl.name!.text});`);

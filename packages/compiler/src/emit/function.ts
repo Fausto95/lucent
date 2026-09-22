@@ -331,8 +331,11 @@ export class FnEmitter {
         if (this.opts.async) {
           if (isVoidish(ret)) this.line("co_return;");
           else if (ret.k === "opt") this.line("co_return lucent::undefined;");
+          else this.line("lucent::unreachable();");
         } else if (ret.k === "opt") {
           this.line("return lucent::undefined;");
+        } else if (!isVoidish(ret) && !this.opts.isConstructor) {
+          this.line("lucent::unreachable();");
         }
       }
     } else {
@@ -404,8 +407,9 @@ export class FnEmitter {
       case ts.SyntaxKind.VariableStatement:
         return this.varStatement((s as ts.VariableStatement).declarationList);
       case ts.SyntaxKind.ExpressionStatement: {
-        const e = this.expr((s as ts.ExpressionStatement).expression);
-        this.line(`${e.c};`);
+        const x = (s as ts.ExpressionStatement).expression;
+        const e = this.expr(ts.isVoidExpression(x) ? x.expression : x);
+        this.line(`(void)(${e.c});`);
         return;
       }
       case ts.SyntaxKind.ReturnStatement:

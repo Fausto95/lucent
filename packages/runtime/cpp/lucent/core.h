@@ -45,6 +45,10 @@ inline constexpr Null null{};
 [[noreturn]] void throwTypeError(const char* message);
 [[noreturn]] void throwRangeError(const char* message);
 
+/// Placed where TypeScript proved control cannot reach (e.g. after an
+/// exhaustive switch). Throws instead of running off the end of a function.
+[[noreturn]] inline void unreachable() { throwTypeError("Reached code the type checker proved unreachable"); }
+
 /// `T | undefined | null`. Remembers which of the two absent values it holds
 /// so `x === null` and `x === undefined` behave as in JavaScript.
 template <class T>
