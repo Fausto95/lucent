@@ -405,6 +405,56 @@ static void timersPostedWhileWaiting() {
   CHECK(fired == 257);
 }
 
+static Promise<String> waitFor(double ms, AbortSignal signal) {
+  try {
+    co_await delay(ms, signal);
+    co_return S("finished");
+  } catch (const Exception& e) {
+    co_return e.error()->name;
+  }
+}
+
+static void abortSignals() {
+  std::string log;
+  Promise<String> early;
+  Promise<String> late;
+  AbortController c = std::make_shared<AbortControllerObject>();
+  {
+    LucentScope scope;
+    c->signal->addEventListener([&] { log += "listener "; });
+    early = waitFor(1000, c->signal);
+    CHECK(!c->signal->aborted);
+    c->abort(undefined);
+    c->abort(undefined);
+    CHECK(c->signal->aborted);
+    CHECK_STR(c->signal->reason->name, "AbortError");
+    CHECK_STR(c->signal->reason->message, "signal is aborted without reason");
+    CHECK_THROWS(c->signal->throwIfAborted(), "AbortError");
+    late = waitFor(1, c->signal);
+  }
+  Scheduler::instance().waitIdle(2000);
+  {
+    LucentScope scope;
+    CHECK(log == "listener ");
+    CHECK_STR(early.value(), "AbortError");
+    CHECK_STR(late.value(), "AbortError");
+  }
+
+  Promise<String> finished;
+  AbortController quiet = std::make_shared<AbortControllerObject>();
+  {
+    LucentScope scope;
+    finished = waitFor(1, quiet->signal);
+  }
+  Scheduler::instance().waitIdle(2000);
+  {
+    LucentScope scope;
+    CHECK_STR(finished.value(), "finished");
+    quiet->abort(makeError(S("stop")));
+    CHECK_STR(quiet->signal->reason->message, "stop");
+  }
+}
+
 static void bytes() {
   Bytes b = Bytes::fromArray(Array<double>{1, 2, 300, -1});
   CHECK_STR(b.join(), "1,2,44,255");
@@ -427,6 +477,7 @@ int main() {
   errors();
   async();
   timersPostedWhileWaiting();
+  abortSignals();
   bytes();
   std::printf("%d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;
