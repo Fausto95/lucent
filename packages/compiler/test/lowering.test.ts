@@ -31,11 +31,13 @@ describe("diagnostics (golden output)", () => {
   }
 });
 
-const ir = (src: string) => {
+const compiled = (src: string) => {
   const r = compile(src, { fileName: "x.lucent.ts" });
   if (!r.module) throw new Error(r.diagnostics.map((d) => d.message).join("\n"));
-  return printIR(r.module);
+  return r.module;
 };
+
+const ir = (src: string) => printIR(compiled(src));
 
 describe("lowering details", () => {
   test("shadowed locals get distinct ids", () => {
@@ -67,5 +69,66 @@ describe("lowering details", () => {
       fileName: "x.lucent.ts",
     });
     expect(r.diagnostics.map((d) => d.code)).toEqual(["LUCENT1001"]);
+  });
+});
+
+/**
+ * Swift and Kotlin parameters are immutable bindings, so a parameter mutated in
+ * place normally needs a `var` shadow. A reference struct does not: it becomes a
+ * `final class` / `class`, and writing through the reference is legal on a `let`.
+ * The shadow there is noise that also shadows the parameter's own name.
+ */
+describe("parameter shadows", () => {
+  const CLASS = `export class Counter {
+    value: number = 0;
+    constructor(initial: number) { this.value = initial; }
+    increment(delta: number): number { this.value += delta; return this.value; }
+  }`;
+
+  test("a mutated reference receiver uses the parameter directly", () => {
+    const text = ir(CLASS);
+    expect(text).not.toMatch(/let %lucentSelf: struct \S+ = lucentSelf/);
+    expect(text).toContain("assign (field lucentSelf value) = (add (field lucentSelf value) delta)");
+    expect(text).toContain("assign (field lucentSelf value) = value");
+  });
+
+  test("a constructor still binds its own receiver", () => {
+    // `__create` builds the instance from a struct literal; that local is real.
+    expect(ir(CLASS)).toMatch(/let %lucentSelf: struct \S+ = \(struct \S+ \(value 0\)\)/);
+  });
+
+  test("a reference local written through stays immutable", () => {
+    // A `var` that is never reassigned draws a swiftc warning, and assigning a
+    // field of a class reference does not reassign the binding.
+    const create = compiled(CLASS).functions.find((f) => f.name.endsWith("__create"))!;
+    expect(create.locals.map((l) => [l.name, l.mutable])).toEqual([["lucentSelf", false]]);
+  });
+
+  test("a value-struct local written through becomes mutable", () => {
+    const make = compiled(`type P = { x: number };
+      export function make(): P { const p: P = { x: 0 }; p.x = 1; return p; }`).functions[0]!;
+    expect(make.locals.map((l) => [l.name, l.mutable])).toEqual([["p", true]]);
+  });
+
+  test("a rebound reference parameter keeps its shadow", () => {
+    const text = ir(`${CLASS}
+      export function swap(a: Counter, b: Counter): number { a = b; return a.value; }`);
+    expect(text).toMatch(/let %a: struct \S+ = a/);
+  });
+
+  test("a mutated value struct keeps its shadow", () => {
+    const text = ir(`type P = { x: number };
+      export function move(p: P): void { p.x = 1; }`);
+    expect(text).toContain("let %p: struct P = p");
+  });
+
+  test("a mutated array keeps its shadow", () => {
+    const text = ir("export function add(xs: number[], v: number): void { xs.push(v); }");
+    expect(text).toContain("let %xs: array<float64> = xs");
+  });
+
+  test("a rebound scalar keeps its shadow", () => {
+    const text = ir("export function bump(n: number): number { n = n + 1; return n; }");
+    expect(text).toContain("let %n: float64 = n");
   });
 });
