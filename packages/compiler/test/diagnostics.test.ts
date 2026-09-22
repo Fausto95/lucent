@@ -23,6 +23,10 @@ describe("diagnostics", () => {
     expect([...r.files.keys()]).toContain("lucent_app.h");
   });
 
+  it("accepts console", () => {
+    expect(codes('export function f(n: number): void { console.log("n", n); console.warn(`w${n}`); }')).toEqual([]);
+  });
+
   it("reports TypeScript errors first", () => {
     expect(codes("export function f(): number { return 'x'; }")).toEqual(["LUCENT9001"]);
   });
