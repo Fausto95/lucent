@@ -873,3 +873,16 @@ SDK work or attach to arbitrary platform tasks. If an adapter never reports
 completion, close remains pending. Do not await scope close from work that must
 itself finish before that close can return. `dispose()` invalidates a bridge
 handle; it neither requests cancellation nor reports operation completion.
+
+Native instance-method overloads use their binding's public group name (for
+example, `Box__method_measure`). Generated JavaScript exposes `box.measure(...)`
+with one TypeScript signature per overload and dispatches by argument count and
+runtime argument kind. Nullable arguments accept null, undefined, or their
+underlying value. Calls with no matching signature throw `TypeError`.
+
+Constructor and method overloads must be distinguishable in JavaScript. Numeric
+widths, different object types, and overlapping nullable signatures cannot
+select different overloads at this boundary; give these operations separate
+public names. Overloads of one method must also share their completion contract:
+all synchronous or all asynchronous. Async overloads retain their receiver and
+native arguments through completion, including after immediate disposal.

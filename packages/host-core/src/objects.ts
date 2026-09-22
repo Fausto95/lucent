@@ -6,6 +6,11 @@ const declarationParams = (fn: IRFunction, skip = 0) =>
 import type { IRModule, IRFunction, NativeType } from "@lucent-lang/compiler";
 import { convert, jsType, type ConversionPolicy } from "./conversion.ts";
 import { runtimeKind } from "@lucent-lang/compiler";
+function argumentGuard(value: string, type: NativeType): string {
+  return type.kind === "optional"
+    ? `(${value} == null || ${argumentGuard(value, type.value)})`
+    : `typeof ${value} === ${JSON.stringify(runtimeKind(type))}`;
+}
 export function isReference(type: NativeType, module: IRModule): boolean {
   return type.kind === "struct" && !!module.structs.find((s) => s.name === type.name)?.reference;
 }
@@ -52,7 +57,7 @@ export function classProxies(module: IRModule, nullAsUndefined: boolean): string
               .map((c) => {
                 const guards = [
                   `args.length === ${c.params.length}`,
-                  ...c.params.map((p, i) => `typeof args[${i}] === ${JSON.stringify(runtimeKind(p.type))}`),
+                  ...c.params.map((p, i) => argumentGuard(`args[${i}]`, p.type)),
                 ].join(" && ");
                 const call = c.params.map((p, i) => convert(`args[${i}]`, p.type, "in", policy)).join(", ");
                 return `      if (${guards}) return lucentCall(() => native.${c.name}(${call}));`;
@@ -63,11 +68,29 @@ export function classProxies(module: IRModule, nullAsUndefined: boolean): string
       const asyncMethods = operations
         .filter((f) => f.classOp!.kind === "method" && f.async)
         .map((f) => f.classOp!.member);
-      const group = (kind: string) =>
-        operations
-          .filter((f) => f.classOp!.kind === kind)
-          .map((f) => `${JSON.stringify(f.classOp!.member)}: ${wrapper(f)}`)
+      const group = (kind: string) => {
+        const members = new Map<string, IRFunction[]>();
+        for (const fn of operations.filter((f) => f.classOp!.kind === kind)) {
+          const name = fn.classOp!.member;
+          members.set(name, [...(members.get(name) ?? []), fn]);
+        }
+        return [...members]
+          .map(([name, candidates]) => {
+            if (candidates.length === 1) return `${JSON.stringify(name)}: ${wrapper(candidates[0]!)}`;
+            const cases = candidates
+              .map((fn) => {
+                const params = fn.params.slice(1);
+                const guards = [
+                  `args.length === ${params.length}`,
+                  ...params.map((p, i) => argumentGuard(`args[${i}]`, p.type)),
+                ].join(" && ");
+                return `if (${guards}) return (${wrapper(fn)})(receiver, ...args);`;
+              })
+              .join("\n");
+            return `${JSON.stringify(name)}: (receiver, ...args) => {\n${cases}\nthrow new TypeError(${JSON.stringify(`No ${s.reference!.publicName}.${name} overload matches these arguments`)});\n}`;
+          })
           .join(", ");
+      };
       return `const ${s.name} = defineNativeClass(${JSON.stringify(s.name)}, { name: ${JSON.stringify(s.reference!.publicName)}, create: ${create}, release: (handle) => native.lucentRelease(handle), methods: {${group("method")}}, ${asyncMethods.length ? `asyncMethods: ${JSON.stringify(asyncMethods)}, ` : ""}getters: {${group("get")}}, setters: {${group("set")}} });${s.reference!.exported ? `\nexport { ${s.name} as ${s.reference!.publicName} };` : ""}`;
     })
     .join("\n");

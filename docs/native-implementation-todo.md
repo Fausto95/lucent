@@ -130,6 +130,10 @@ Contract metadata alone is not proof that the described runtime behavior exists.
       separable by arity or runtime argument kind, since `new` is one
       JavaScript function; the proxy dispatches on that and the generated
       declaration carries one TypeScript constructor per overload.
+- [x] Preserve public instance-method names and dispatch JavaScript calls by
+      arity and argument kind in both hosts. Verify synchronous and asynchronous
+      overloads, receiver retention, nullable arguments, unmatched calls, and
+      rejection of signatures JavaScript cannot distinguish.
 - [x] Add enumerated lossless numeric SDK-argument conversions in typed IR,
       lower them to explicit Swift/Kotlin conversions, and rank exact overloads
       above widening. Execute every permitted conversion at range boundaries
@@ -350,7 +354,8 @@ scopes and runtime close quiesce are not implemented.
 
 ## Latest verification checkpoint
 
-- Unit suite: 604 passing tests across 73 files after native task scopes, async
+- Unit suite: 612 passing tests across 74 files after JavaScript method overload
+  dispatch, nullable signature checks, native task scopes, async
   SDK method retention, public package consolidation,
   authoring declarations and JSX key-selector corrections, diagnostic namespacing,
   native adapter dependency validation, lossless numeric SDK arguments, and

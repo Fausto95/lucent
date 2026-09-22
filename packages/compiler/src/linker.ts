@@ -93,8 +93,9 @@ export function linkModule(
       }
       alias.reference = { publicName: name, exported: alias.exported, native };
       for (const fn of module.functions) {
-        const operation = fn.name.slice(name.length);
-        if (!fn.name.startsWith(name + "__")) continue;
+        const publicOperation = libraries[path]?.bindings?.[fn.name]?.overload ?? fn.name;
+        const operation = publicOperation.slice(name.length);
+        if (!publicOperation.startsWith(name + "__")) continue;
         const kinds = { create: "constructor", get: "get", set: "set", method: "method" } as const;
         const match = /^__(create)(?:__.+)?$|^__(get|set|method)_(.+)$/.exec(operation);
         if (!match) continue;
