@@ -27,6 +27,10 @@ const sanitize = process.env.SANITIZE === "1";
 const cxx = process.env.CXX ?? "clang++";
 const work = path.join(os.tmpdir(), `lucent-e2e${sanitize ? "-san" : ""}`);
 
+// Generated code builds with -Werror in the NDK's appmodules build; match it
+// (and the podspec/CMake suppressions) so warnings fail here first.
+const deviceFlags = cxx.includes("clang") ? ["-Werror", "-Wno-gnu-statement-expression", "-Wno-parentheses-equality", "-Wno-comma"] : [];
+
 const baseFlags = [
   "-std=c++20",
   "-g",
@@ -109,7 +113,7 @@ function nativeRun(c: Case, lib: string): string {
   for (const name of result.files.keys()) {
     if (!name.endsWith(".cpp")) continue;
     const obj = path.join(dir, name.replace(/\.cpp$/, ".o"));
-    sh(cxx, [...baseFlags, `-I${dir}`, "-c", path.join(dir, name), "-o", obj]);
+    sh(cxx, [...baseFlags, ...deviceFlags, `-I${dir}`, "-c", path.join(dir, name), "-o", obj]);
     objs.push(obj);
   }
   const exe = path.join(dir, "host");
