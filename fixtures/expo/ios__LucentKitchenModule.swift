@@ -20,6 +20,13 @@ public final class LucentKitchenModule: Module {
   }
 
   @JS
+  func bumpCount(stats: Stats) throws -> Int32 {
+    var stats: Stats = stats
+    stats.count = stats.count &+ 1
+    return stats.count
+  }
+
+  @JS
   func summarize(stats: Stats, key: String, verbose: Bool) throws -> String {
     var out: String = try label(stats: stats, key: key)
     var i: Int32 = 0

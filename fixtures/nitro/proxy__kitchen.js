@@ -5,6 +5,10 @@ import { lucentCall } from "@lucent-lang/core/runtime";
 
 const native = NitroModules.createHybridObject("Kitchen");
 
+export function bumpCount(stats) {
+  return lucentCall(() => native.bumpCount(stats));
+}
+
 export function summarize(stats, key, verbose) {
   return lucentCall(() => native.summarize(stats, key, verbose));
 }

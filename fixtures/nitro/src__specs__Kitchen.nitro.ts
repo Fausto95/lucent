@@ -9,5 +9,6 @@ export interface KitchenStats {
 }
 
 export interface Kitchen extends HybridObject<{ ios: 'swift'; android: 'kotlin' }> {
+  bumpCount(stats: KitchenStats): number;
   summarize(stats: KitchenStats, key: string, verbose: boolean): string;
 }

@@ -8,6 +8,11 @@ fn label(stats: struct Stats, key: string) -> string
     return (unwrap %found)
   return "none"
 
+export fn bumpCount(stats: struct Stats) -> int32
+  let %stats: struct Stats = stats
+  assign (field %stats count) = (add (field %stats count) 1)
+  return (field %stats count)
+
 export fn summarize(stats: struct Stats, key: string, verbose: bool) -> string
   let %out: string = (call label stats key)
   let %i: int32 = 0

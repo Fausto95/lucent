@@ -12,6 +12,12 @@ func label(stats: Stats, key: String) throws -> String {
   return "none"
 }
 
+func bumpCount(stats: Stats) throws -> Int32 {
+  var stats: Stats = stats
+  stats.count = stats.count &+ 1
+  return stats.count
+}
+
 func summarize(stats: Stats, key: String, verbose: Bool) throws -> String {
   var out: String = try label(stats: stats, key: key)
   var i: Int32 = 0

@@ -12,6 +12,12 @@ fun label(stats: Stats, key: String): String {
   return "none"
 }
 
+fun bumpCount(stats: Stats): Int {
+  var stats: Stats = stats
+  stats.count = stats.count + 1
+  return stats.count
+}
+
 fun summarize(stats: Stats, key: String, verbose: Boolean): String {
   var out: String = label(stats, key)
   var i: Int = 0

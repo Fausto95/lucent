@@ -10,6 +10,12 @@ function label(stats: Stats, key: string): string {
   return "none";
 }
 
+/** A value struct mutated in place: Swift needs a `var` copy, unlike a class receiver. */
+export function bumpCount(stats: Stats): int32 {
+  stats.count++;
+  return stats.count;
+}
+
 export function summarize(stats: Stats, key: string, verbose: boolean): string {
   let out = label(stats, key);
   let i: int32 = 0;

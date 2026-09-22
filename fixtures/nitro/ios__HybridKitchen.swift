@@ -4,6 +4,11 @@ import Foundation
 import NitroModules
 
 class HybridKitchen: HybridKitchenSpec {
+  func bumpCount(stats: KitchenStats) throws -> Double {
+    let result = try KitchenBodies.bumpCount(stats: KitchenBodies.Stats.fromNitro(stats))
+    return Double(result)
+  }
+
   func summarize(stats: KitchenStats, key: String, verbose: Bool) throws -> String {
     return try KitchenBodies.summarize(stats: KitchenBodies.Stats.fromNitro(stats), key: key, verbose: verbose)
   }
@@ -30,6 +35,12 @@ enum KitchenBodies {
       return found!
     }
     return "none"
+  }
+
+  static func bumpCount(stats: Stats) throws -> Int32 {
+    var stats: Stats = stats
+    stats.count = stats.count &+ 1
+    return stats.count
   }
 
   static func summarize(stats: Stats, key: String, verbose: Bool) throws -> String {

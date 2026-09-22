@@ -10,6 +10,11 @@ import com.margelo.nitro.core.Promise
 @Keep
 @DoNotStrip
 class HybridKitchen : HybridKitchenSpec() {
+  override fun bumpCount(stats: KitchenStats): Double {
+    val result = KitchenBodies.bumpCount(KitchenBodies.Stats.fromNitro(stats))
+    return result.toDouble()
+  }
+
   override fun summarize(stats: KitchenStats, key: String, verbose: Boolean): String {
     return KitchenBodies.summarize(KitchenBodies.Stats.fromNitro(stats), key, verbose)
   }
@@ -34,6 +39,12 @@ object KitchenBodies {
       return found!!
     }
     return "none"
+  }
+
+  fun bumpCount(stats: Stats): Int {
+    var stats: Stats = stats
+    stats.count = stats.count + 1
+    return stats.count
   }
 
   fun summarize(stats: Stats, key: String, verbose: Boolean): String {

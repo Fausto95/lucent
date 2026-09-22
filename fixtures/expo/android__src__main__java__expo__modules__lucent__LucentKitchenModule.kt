@@ -19,6 +19,10 @@ class LucentKitchenModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("Lucent_kitchen")
 
+    Function("bumpCount") { stats: Stats ->
+      bumpCount(stats)
+    }
+
     Function("summarize") { stats: Stats, key: String, verbose: Boolean ->
       summarize(stats, key, verbose)
     }
@@ -30,6 +34,12 @@ class LucentKitchenModule : Module() {
       return found!!
     }
     return "none"
+  }
+
+  private fun bumpCount(stats: Stats): Int {
+    var stats: Stats = stats
+    stats.count = stats.count + 1
+    return stats.count
   }
 
   private fun summarize(stats: Stats, key: String, verbose: Boolean): String {
