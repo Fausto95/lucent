@@ -60,7 +60,7 @@ test("reports malformed package metadata as diagnostics", () => {
     { fileName: "demo.lucent.tsx", libraries: { "@lucent-lang/widgets": malformed as LibraryModule } },
   );
   expect(result.module).toBeNull();
-  expect(result.diagnostics[0]?.code).toBe("NT1006");
+  expect(result.diagnostics[0]?.code).toBe("LC1006");
 });
 test("retains native package capabilities", () => {
   const camera = structuredClone(library);

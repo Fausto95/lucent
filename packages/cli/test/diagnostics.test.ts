@@ -24,7 +24,7 @@ describe("colorizeDiagnostic", () => {
     expect(out.replaceAll(ANSI, "")).toBe(rendered);
   });
   test("paints warnings yellow", () => {
-    const out = colorizeDiagnostic("warning NT3002: Potentially expensive main-thread work", createPalette(true));
+    const out = colorizeDiagnostic("warning LC3002: Potentially expensive main-thread work", createPalette(true));
     expect(out).toContain(`${ESC}[33mwarning${ESC}[39m`);
   });
 });

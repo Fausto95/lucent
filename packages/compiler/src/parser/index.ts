@@ -42,7 +42,7 @@ export const LUCENT_ERROR = "LucentError";
 
 const spanOf = (node: { start: number; end: number }): Span => ({ start: node.start, end: node.end });
 
-/** Human names for ESTree node types that Lucent rejects, used in NT1001 messages. */
+/** Human names for ESTree node types that Lucent rejects, used in LC1001 messages. */
 const NODE_NAMES: Record<string, string> = {
   SwitchStatement: "switch statement",
   DoWhileStatement: "do…while loop",
@@ -132,7 +132,7 @@ class Converter {
     what = NODE_NAMES[node.type] ?? node.type,
     help?: string,
   ): void {
-    this.diagnostics.push(diagnostic("NT1001", spanOf(node), `Unsupported syntax: ${what}.`, help));
+    this.diagnostics.push(diagnostic("LC1001", spanOf(node), `Unsupported syntax: ${what}.`, help));
   }
 
   // ---- top level -----------------------------------------------------------
@@ -161,7 +161,7 @@ class Converter {
     ) {
       this.diagnostics.push(
         diagnostic(
-          "NT1006",
+          "LC1006",
           spanOf(node.source),
           `Lucent modules cannot import "${source}". Only type imports from "${LUCENT_TYPES_MODULE}" are allowed.`,
           "Native code is compiled ahead of time and cannot depend on JavaScript modules.",
@@ -436,7 +436,7 @@ class Converter {
     if (match?.[1]?.includes("@thread"))
       this.diagnostics.push(
         diagnostic(
-          "NT1001",
+          "LC1001",
           { start, end: start },
           "Thread comment annotations have been replaced by @MainThread, @Background, and @Inherited.",
         ),
@@ -965,7 +965,7 @@ export function parseModule(source: string, fileName: string): ParseResult {
     if (error.severity !== "Error") continue;
     const label = error.labels[0];
     const span: Span = label ? { start: label.start, end: label.end } : { start: 0, end: 0 };
-    converter.diagnostics.push(diagnostic("NT1000", span, error.message, error.helpMessage ?? undefined));
+    converter.diagnostics.push(diagnostic("LC1000", span, error.message, error.helpMessage ?? undefined));
   }
   for (const stmt of result.program.body) converter.topLevel(stmt);
   return {

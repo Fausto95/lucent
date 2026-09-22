@@ -98,7 +98,7 @@ test("rejects a weak capture that is not an immutable owned reference", () => {
     options,
   );
   expect(result.module).toBeNull();
-  expect(result.diagnostics.some((d) => d.code === "NT1005")).toBe(true);
+  expect(result.diagnostics.some((d) => d.code === "LC1005")).toBe(true);
 });
 
 test("a nonescaping callback may capture a borrow", () => {

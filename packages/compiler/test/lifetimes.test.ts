@@ -48,7 +48,7 @@ test("rejects a main-executor call from the caller executor", () => {
     options,
   );
   expect(result.module).toBeNull();
-  expect(result.diagnostics.some((d) => d.code === "NT1019")).toBe(true);
+  expect(result.diagnostics.some((d) => d.code === "LC1019")).toBe(true);
 });
 
 test("rejects returning or suspending a borrow, and use after close", () => {
@@ -56,7 +56,7 @@ test("rejects returning or suspending a borrow, and use after close", () => {
     'import {borrow, Buffer} from "@lucent-lang/sdk/buf"; @MainThread export async function leak(): Promise<Buffer> { return borrow(); }',
     options,
   );
-  expect(returned.diagnostics.some((d) => d.code === "NT1018")).toBe(true);
+  expect(returned.diagnostics.some((d) => d.code === "LC1018")).toBe(true);
   const suspended = compile(
     'import {borrow} from "@lucent-lang/sdk/buf"; async function pause(): Promise<number> { return 1; } @MainThread export async function later(): Promise<number> { const buffer = borrow(); await pause(); return buffer.length; }',
     options,
@@ -87,7 +87,7 @@ test("rejects moving a serial object onto a worker", () => {
     'import {SerialBox} from "@lucent-lang/sdk/buf"; @Background export async function hop(): Promise<number> { const box = new SerialBox(); return box.length; }',
     options,
   );
-  expect(result.diagnostics.some((d) => d.code === "NT1019")).toBe(true);
+  expect(result.diagnostics.some((d) => d.code === "LC1019")).toBe(true);
 });
 
 test("records value and retained captures and accepts statement bodies", () => {

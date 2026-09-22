@@ -24,19 +24,19 @@ describe("Lucent module imports", () => {
     for (const source of ["./lib/missing.lucent", "react"]) {
       expect(
         compile(`import { double } from "${source}";`, { fileName: "main.lucent.ts", sources }).diagnostics[0]?.code,
-      ).toBe("NT1006");
+      ).toBe("LC1006");
     }
     expect(
       compile('import { twice } from "./lib/math.lucent";', { fileName: "main.lucent.ts", sources }).diagnostics[0]
         ?.code,
-    ).toBe("NT1006");
+    ).toBe("LC1006");
   });
   test("rejects import cycles with a diagnostic", () => {
     const result = compile('import { b } from "./b.lucent"; export function a(): number { return b(); }', {
       fileName: "a.lucent.ts",
       sources: { "b.lucent.ts": 'import { a } from "./a.lucent"; export function b(): number { return a(); }' },
     });
-    expect(result.diagnostics[0]?.code).toBe("NT1006");
+    expect(result.diagnostics[0]?.code).toBe("LC1006");
     expect(result.diagnostics[0]?.message).toContain("cycle");
   });
   test("rejects a type-only import used as a value", () => {
@@ -51,7 +51,7 @@ describe("Lucent module imports", () => {
       'import { double } from "./lib/math.lucent"; export function f(): number { return twice(1); }',
       { fileName: "main.lucent.ts", sources },
     );
-    expect(result.diagnostics[0]?.code).toBe("NT1010");
+    expect(result.diagnostics[0]?.code).toBe("LC1010");
   });
 });
 

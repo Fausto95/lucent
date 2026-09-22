@@ -66,7 +66,7 @@ export function platformSafety(functions: TypedFunction[], targets: NativeTarget
             const call = value as TExpr;
             diagnostics.push(
               diagnostic(
-                "NT2004",
+                "LC2004",
                 call.span,
                 `${fn.name} requires ${platform} ${minimum}; configured minimum is ${targets[platform] ?? "unspecified"}.`,
               ),
@@ -80,7 +80,7 @@ export function platformSafety(functions: TypedFunction[], targets: NativeTarget
             reported.add(key);
             diagnostics.push(
               diagnostic(
-                "NT2004",
+                "LC2004",
                 call.span,
                 `${fn.name} is available only on ${available.join(" or ")}.`,
                 'Guard this call with Platform.OS === "ios" or Platform.OS === "android".',

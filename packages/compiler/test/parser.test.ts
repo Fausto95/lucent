@@ -161,15 +161,15 @@ describe("parseModule", () => {
     });
   });
 
-  test("syntax errors become NT1000 with a span", () => {
+  test("syntax errors become LC1000 with a span", () => {
     const { diagnostics } = parse(`export function (a: number) {}`);
     expect(diagnostics[0]).toMatchObject({
-      code: "NT1000",
+      code: "LC1000",
       span: { start: expect.any(Number), end: expect.any(Number) },
     });
   });
 
-  test("unsupported syntax is reported as NT1001 and does not abort parsing", () => {
+  test("unsupported syntax is reported as LC1001 and does not abort parsing", () => {
     const { module, diagnostics } = parse(`
       export function f(a: number): number {
         switch (a) { default: return 1; }
@@ -177,7 +177,7 @@ describe("parseModule", () => {
       export function g(): number { return 2; }
     `);
     expect(diagnostics).toHaveLength(1);
-    expect(diagnostics[0]).toMatchObject({ code: "NT1001" });
+    expect(diagnostics[0]).toMatchObject({ code: "LC1001" });
     expect(diagnostics[0]!.message).toContain("switch");
     expect(module.functions.map((f) => f.name)).toEqual(["f", "g"]);
   });
@@ -188,6 +188,6 @@ describe("parseModule", () => {
       class Foo extends Base {}
       export function f(a: number): boolean { var b = a; return b == 1; }
     `);
-    expect(diagnostics.map((d) => d.code).toSorted()).toEqual(["NT1001", "NT1001", "NT1001", "NT1006"]);
+    expect(diagnostics.map((d) => d.code).toSorted()).toEqual(["LC1001", "LC1001", "LC1001", "LC1006"]);
   });
 });

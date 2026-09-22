@@ -9,7 +9,7 @@ export const page: DocPage = {
     { kind: "h2", text: "Standard library" },
     {
       kind: "p",
-      text: "Each import is a direct Swift and Kotlin call, not a bridge. Some need a capability in `lucent.config.ts`; the build fails with `NT2001` if it is missing.",
+      text: "Each import is a direct Swift and Kotlin call, not a bridge. Some need a capability in `lucent.config.ts`; the build fails with `LC2001` if it is missing.",
     },
     {
       kind: "table",
@@ -63,7 +63,7 @@ export const page: DocPage = {
     { kind: "h2", text: "Platform guards" },
     {
       kind: "p",
-      text: "A binding may declare `platforms: [\"ios\"]` or `[\"android\"]`. Calling it where the other target could reach it is `NT2004`. Guard with `Platform.OS`; the guard narrows `if` branches, `else`, negation and short-circuit expressions, and the analysis follows private helpers. On the unavailable target the binding becomes a throwing stub and its imports are omitted, so both targets still compile.",
+      text: "A binding may declare `platforms: [\"ios\"]` or `[\"android\"]`. Calling it where the other target could reach it is `LC2004`. Guard with `Platform.OS`; the guard narrows `if` branches, `else`, negation and short-circuit expressions, and the analysis follows private helpers. On the unavailable target the binding becomes a throwing stub and its imports are omitted, so both targets still compile.",
     },
     {
       kind: "code",

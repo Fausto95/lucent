@@ -1,4 +1,4 @@
-error NT1011: Type mismatch
+error LC1011: Type mismatch
 
 Expected `string`, got `optional<string>`.
 

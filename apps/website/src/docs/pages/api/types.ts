@@ -28,7 +28,7 @@ export const page: DocPage = {
     {
       kind: "list",
       items: [
-        "No implicit conversion between numeric types (`NT1011`).",
+        "No implicit conversion between numeric types (`LC1011`).",
         "Integer literals adopt the sized type of their context: `const n: int32 = 1`.",
         "Arithmetic on sized integers wraps on overflow.",
       ],
@@ -51,7 +51,7 @@ export const page: DocPage = {
     {
       kind: "list",
       items: [
-        "Callbacks never cross into JavaScript (`NT1005`). Use an [event](/docs/api/events/) to notify the app.",
+        "Callbacks never cross into JavaScript (`LC1005`). Use an [event](/docs/api/events/) to notify the app.",
         "Async function references and capturing arrow functions are rejected.",
         "A binding marked `nativeOnly: true` in a [manifest](/docs/api/library-manifest/) may take callbacks and is omitted from the generated JavaScript API.",
       ],

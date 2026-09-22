@@ -98,7 +98,7 @@ describe("lucent build", () => {
   test("colors diagnostics and exits 1 on errors", async () => {
     const io = fakeIO(wiredExpoProject({ "src/bad.lucent.ts": BAD }), { env: { FORCE_COLOR: "1" } });
     expect(await run(["build"], io)).toBe(1);
-    expect(io.err()).toContain("NT1004");
+    expect(io.err()).toContain("LC1004");
     expect(io.err()).toContain(`${ESC}[31merror${ESC}[39m`);
     expect(io.err()).toContain("1 error");
   });
@@ -133,7 +133,7 @@ describe("lucent check", () => {
     const io = fakeIO(wiredExpoProject({ "src/bad.lucent.ts": BAD }));
     expect(await run(["check"], io)).toBe(1);
     expect(io.out()).toContain("❌ src/bad.lucent.ts");
-    expect(io.err()).toContain("NT1004");
+    expect(io.err()).toContain("LC1004");
     expect(io.err()).toContain("1 error");
   });
 
@@ -143,15 +143,15 @@ describe("lucent check", () => {
     const result = JSON.parse(io.out()) as { ok: boolean; files: { file: string; diagnostics: unknown[] }[] };
     expect(result.ok).toBe(false);
     const bad = result.files.find((f) => f.file === "src/bad.lucent.ts")!;
-    expect(bad.diagnostics[0]).toMatchObject({ code: "NT1004", severity: "error", line: 1 });
+    expect(bad.diagnostics[0]).toMatchObject({ code: "LC1004", severity: "error", line: 1 });
   });
 });
 
 describe("lucent explain", () => {
   test("describes a diagnostic code", async () => {
     const io = fakeIO(project({}));
-    expect(await run(["explain", "nt1004"], io)).toBe(0);
-    expect(io.out()).toContain("NT1004");
+    expect(await run(["explain", "lc1004"], io)).toBe(0);
+    expect(io.out()).toContain("LC1004");
     expect(io.out()).toContain("`any` is prohibited");
     expect(io.out()).toContain("Language");
   });
@@ -159,22 +159,22 @@ describe("lucent explain", () => {
   test("lists every code when called without one", async () => {
     const io = fakeIO(project({}));
     expect(await run(["explain"], io)).toBe(0);
-    expect(io.out()).toContain("NT1000");
-    expect(io.out()).toContain("NT3002");
+    expect(io.out()).toContain("LC1000");
+    expect(io.out()).toContain("LC3002");
   });
 
   test("suggests a close code", async () => {
     const io = fakeIO(project({}));
-    expect(await run(["explain", "NT100"], io)).toBe(1);
+    expect(await run(["explain", "LC100"], io)).toBe(1);
     expect(io.err()).toContain("Unknown diagnostic code");
-    expect(io.err()).toContain('Did you mean "NT1000"?');
+    expect(io.err()).toContain('Did you mean "LC1000"?');
   });
 
   test("--json", async () => {
     const io = fakeIO(project({}));
-    await run(["explain", "NT3002", "--json"], io);
+    await run(["explain", "LC3002", "--json"], io);
     expect(JSON.parse(io.out())).toEqual({
-      code: "NT3002",
+      code: "LC3002",
       title: "Potentially expensive main-thread work",
       category: "warning",
       severity: "warning",

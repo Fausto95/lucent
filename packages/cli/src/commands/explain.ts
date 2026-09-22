@@ -9,7 +9,7 @@ interface Category {
   severity: "error" | "warning";
 }
 
-/** The third character of a code picks its family: NT1xxx language, NT2xxx platform, NT3xxx warnings. */
+/** The third character of a code picks its family: LC1xxx language, LC2xxx platform, LC3xxx warnings. */
 const CATEGORIES: Readonly<Record<string, Category>> = {
   "1": { label: "Language", severity: "error" },
   "2": { label: "Platform", severity: "error" },
@@ -36,7 +36,7 @@ export const explainCommand = defineCommand({
   usage: "[code]",
   options: {},
   examples: [
-    { command: "lucent explain NT1004", note: "What the code means and where to read more" },
+    { command: "lucent explain LC1004", note: "What the code means and where to read more" },
     { command: "lucent explain", note: "Every code Lucent can report" },
   ],
   async run(ctx, _values, [input]) {

@@ -31,9 +31,9 @@ test("warns for expensive transitive main-thread work without rejecting the modu
   );
   expect(r.module).not.toBeNull();
   expect(r.diagnostics).toEqual(
-    expect.arrayContaining([expect.objectContaining({ code: "NT3002", severity: "warning" })]),
+    expect.arrayContaining([expect.objectContaining({ code: "LC3002", severity: "warning" })]),
   );
-  expect(renderDiagnostic(r.diagnostics[0]!, "", "work.lucent.ts")).toContain("warning NT3002");
+  expect(renderDiagnostic(r.diagnostics[0]!, "", "work.lucent.ts")).toContain("warning LC3002");
 });
 test("does not warn when a main-thread function awaits explicitly background work", () => {
   const r = compile(

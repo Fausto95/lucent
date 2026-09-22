@@ -36,16 +36,16 @@ describe("resolveType", () => {
   });
 
   test.each([
-    ["any", "NT1004"],
-    ["unknown", "NT1004"],
-    ["string | number", "NT1003"],
-    ["Foo", "NT1003"],
-    ["Promise<any>", "NT1004"],
-    ["Record<number, string>", "NT1003"],
-    ["Map<string, number>", "NT1003"],
-    ["never", "NT1003"],
-    ["() => void", "NT1005"],
-    ["[number, string]", "NT1003"],
+    ["any", "LC1004"],
+    ["unknown", "LC1004"],
+    ["string | number", "LC1003"],
+    ["Foo", "LC1003"],
+    ["Promise<any>", "LC1004"],
+    ["Record<number, string>", "LC1003"],
+    ["Map<string, number>", "LC1003"],
+    ["never", "LC1003"],
+    ["() => void", "LC1005"],
+    ["[number, string]", "LC1003"],
   ])("%s → %s", (ts, code) => {
     const result = typeOf(ts);
     expect(result.ok).toBe(false);

@@ -54,7 +54,7 @@ export const page: DocPage = {
     { kind: "h2", text: "What it is not" },
     {
       kind: "p",
-      text: "Lucent is not TypeScript with a native backend. The subset is listed on the [language](/docs/language/) and [functions](/docs/language/functions-and-control-flow/) pages: no `any`, no generics, no `switch`, no `try`/`catch`, no dynamic property access. Arrow callbacks exist inside native code, with explicit captures; a function value still cannot cross into JavaScript. Everything outside the subset fails with an `NT` diagnostic at build time. It is also not a UI framework: React owns app state and effects. A view may keep control state on the host instance.",
+      text: "Lucent is not TypeScript with a native backend. The subset is listed on the [language](/docs/language/) and [functions](/docs/language/functions-and-control-flow/) pages: no `any`, no generics, no `switch`, no `try`/`catch`, no dynamic property access. Arrow callbacks exist inside native code, with explicit captures; a function value still cannot cross into JavaScript. Everything outside the subset fails with an `LC` diagnostic at build time. It is also not a UI framework: React owns app state and effects. A view may keep control state on the host instance.",
     },
     {
       kind: "note",

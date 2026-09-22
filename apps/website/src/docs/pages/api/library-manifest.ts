@@ -28,7 +28,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "declaration",
-      code: 'interface NativeBinding {\n  swift: string[];            // body lines\n  kotlin: string[];           // body lines\n  swiftImports?: string[];\n  kotlinImports?: string[];\n  capabilities?: string[];    // required in lucent.config.ts\n  platforms?: ("ios" | "android")[];  // one platform → needs a Platform.OS guard\n  thread?: "caller" | "main" | "worker";\n  cost?: "cpu" | "io";        // feeds NT3002 main-thread warnings\n  nativeOnly?: boolean;       // callable from Lucent, absent from the JS API\n  platformQuery?: boolean;    // internal: Platform.OS\n}',
+      code: 'interface NativeBinding {\n  swift: string[];            // body lines\n  kotlin: string[];           // body lines\n  swiftImports?: string[];\n  kotlinImports?: string[];\n  capabilities?: string[];    // required in lucent.config.ts\n  platforms?: ("ios" | "android")[];  // one platform → needs a Platform.OS guard\n  thread?: "caller" | "main" | "worker";\n  cost?: "cpu" | "io";        // feeds LC3002 main-thread warnings\n  nativeOnly?: boolean;       // callable from Lucent, absent from the JS API\n  platformQuery?: boolean;    // internal: Platform.OS\n}',
     },
     {
       kind: "code",
@@ -39,7 +39,7 @@ export const page: DocPage = {
       kind: "list",
       items: [
         "`thread: \"main\"` or `\"worker\"` implies an async declaration; the generated function hops and returns a promise.",
-        "With `platforms: [\"ios\"]`, the Android side becomes a throwing stub and Kotlin imports are dropped, so both targets compile. Calls must be guarded (`NT2004`).",
+        "With `platforms: [\"ios\"]`, the Android side becomes a throwing stub and Kotlin imports are dropped, so both targets compile. Calls must be guarded (`LC2004`).",
         "`nativeOnly` bindings may take `NativeCallback` parameters; they are how native listeners are attached without exposing callbacks to JavaScript.",
       ],
     },

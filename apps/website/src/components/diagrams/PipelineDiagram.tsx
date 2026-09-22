@@ -20,7 +20,7 @@ export function PipelineDiagram() {
     >
       <DiagramBox x={xs[0]!} y={row1} w={140} label="geo.lucent.ts" sub="your source" accent />
       <DiagramBox x={xs[1]!} y={row1} w={140} label="parse" sub="oxc-parser" />
-      <DiagramBox x={xs[2]!} y={row1} w={140} label="check" sub="types · scopes · NT codes" />
+      <DiagramBox x={xs[2]!} y={row1} w={140} label="check" sub="types · scopes · LC codes" />
       <DiagramBox x={xs[3]!} y={row1} w={140} label="lower" sub="JS-only forms removed" />
       <DiagramBox x={xs[4]!} y={row1} w={140} label="IR" sub="typed, structured" />
       {xs.slice(0, -1).map((x, i) => (

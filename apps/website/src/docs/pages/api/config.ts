@@ -47,7 +47,7 @@ export const page: DocPage = {
     { kind: "h2", text: "Enforcement" },
     {
       kind: "p",
-      text: "`lucent build`, `lucent check` and the Metro transformer compare each module's required capabilities (from the standard library and from manifests) against this allowlist and report `NT2001` for anything missing. Runtime permission prompts stay the app's responsibility.",
+      text: "`lucent build`, `lucent check` and the Metro transformer compare each module's required capabilities (from the standard library and from manifests) against this allowlist and report `LC2001` for anything missing. Runtime permission prompts stay the app's responsibility.",
     },
   ],
 };

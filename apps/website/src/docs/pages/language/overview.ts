@@ -4,7 +4,7 @@ export const page: DocPage = {
   slug: "language",
   title: "The language",
   description:
-    "A constrained subset of TypeScript. Everything TypeScript allows but Lucent does not is rejected with a dedicated `NT` diagnostic, never with a generic TypeScript error.",
+    "A constrained subset of TypeScript. Everything TypeScript allows but Lucent does not is rejected with a dedicated `LC` diagnostic, never with a generic TypeScript error.",
   blocks: [
     { kind: "h2", text: "Module shape" },
     {
@@ -54,11 +54,11 @@ export const page: DocPage = {
       kind: "list",
       items: [
         "Sized numerics come from `@lucent-lang/types`. At the JS boundary they are plain `number`s; the brand only picks the native representation.",
-        "Numeric types never convert implicitly: `int32 + number` is `NT1011`. Integer literals adopt the sized type of their context.",
+        "Numeric types never convert implicitly: `int32 + number` is `LC1011`. Integer literals adopt the sized type of their context.",
         "A record's fields may be any type above except `Promise`. Records are copied across the boundary.",
         "Optionals must be narrowed before use with `=== null`, `!== null`, `=== undefined` or `!== undefined` on a local or parameter. The early-return form counts.",
-        "There is no truthiness. `if (x)` is `NT1011` unless `x` is a boolean.",
-        "`any` and `unknown` are `NT1004`. A function type crosses only as a `NativeCallback` inside native code (`NT1005` otherwise). `never`, `object`, `symbol`, `bigint`, tuples, generics, interfaces and enums are `NT1003`. There is no `Date`.",
+        "There is no truthiness. `if (x)` is `LC1011` unless `x` is a boolean.",
+        "`any` and `unknown` are `LC1004`. A function type crosses only as a `NativeCallback` inside native code (`LC1005` otherwise). `never`, `object`, `symbol`, `bigint`, tuples, generics, interfaces and enums are `LC1003`. There is no `Date`.",
       ],
     },
     {
@@ -76,7 +76,7 @@ export const page: DocPage = {
         ["Arrays", "Copied across the JS boundary; reference-shared inside native code like Swift `Array` / Kotlin `List` in the generated code."],
         ["Bytes", "`Uint8Array` crosses as an `ArrayBuffer`. Sync functions may read it in place; async functions get a copy. Indexing yields a `number`."],
         ["Errors", "A thrown `LucentError` reaches JavaScript with `code`, `message` and scalar `metadata`, identically on Expo and Nitro."],
-        ["Parameters", "At most 8 per function (`NT1007`)."],
+        ["Parameters", "At most 8 per function (`LC1007`)."],
       ],
     },
     { kind: "h2", text: "Pages in this section" },
@@ -91,7 +91,7 @@ export const page: DocPage = {
         { title: "Native views", text: "TSX rendered by SwiftUI and Compose.", href: "/docs/language/native-views/" },
         { title: "Threads", text: "`@MainThread`, `@Background`, and main-thread cost warnings.", href: "/docs/language/threads/" },
         { title: "Platform & capabilities", text: "Guards, the standard library, config, and SDK bindings.", href: "/docs/language/platform-and-capabilities/" },
-        { title: "Diagnostics", text: "Every `NT` code and what to do about it.", href: "/docs/language/diagnostics/" },
+        { title: "Diagnostics", text: "Every `LC` code and what to do about it.", href: "/docs/language/diagnostics/" },
       ],
     },
   ],

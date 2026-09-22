@@ -29,7 +29,7 @@ export function threadSafety(functions: TypedFunction[]): Diagnostic[] {
     .map((f) =>
       Object.assign(
         diagnostic(
-          "NT3002",
+          "LC3002",
           f.span,
           `Potentially expensive operation executed on MainThread in ${f.name}.`,
           "Move loops, recursive helpers, or CPU-intensive work into an @Background async function.",

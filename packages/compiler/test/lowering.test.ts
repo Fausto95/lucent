@@ -66,6 +66,6 @@ describe("lowering details", () => {
     const r = compile(`export function f(): number { for (let i = 0; i < 3; i++) { continue; } return 1; }`, {
       fileName: "x.lucent.ts",
     });
-    expect(r.diagnostics.map((d) => d.code)).toEqual(["NT1001"]);
+    expect(r.diagnostics.map((d) => d.code)).toEqual(["LC1001"]);
   });
 });

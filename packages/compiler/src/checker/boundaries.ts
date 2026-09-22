@@ -15,7 +15,7 @@ export function checkBoundaries(
 ): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
   const fail = (span: { start: number; end: number }, message: string) =>
-    diagnostics.push(diagnostic("NT1011", span, message));
+    diagnostics.push(diagnostic("LC1011", span, message));
 
   const contains = (t: NativeType, predicate: (t: NativeType) => boolean, seen = new Set<string>()): boolean => {
     if (predicate(t)) return true;
@@ -39,7 +39,7 @@ export function checkBoundaries(
     if (struct.fields.some((f) => contains(f.type, (t) => t.kind === "callback")))
       diagnostics.push(
         diagnostic(
-          "NT1005",
+          "LC1005",
           alias.span,
           "Native callbacks are function parameters or local values, not bridge record fields.",
         ),
@@ -106,7 +106,7 @@ export function checkBoundaries(
     if (fn.exported && all.some((t) => contains(t, (inner) => inner.kind === "callback")))
       diagnostics.push(
         diagnostic(
-          "NT1005",
+          "LC1005",
           fn.span,
           "Native callbacks cannot cross the JavaScript boundary. Use typed events for JavaScript notifications.",
         ),

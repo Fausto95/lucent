@@ -31,6 +31,6 @@ test("warns when MainThread calls a CPU-intensive native binding", () => {
   );
   expect(r.module).not.toBeNull();
   expect(r.diagnostics).toEqual(
-    expect.arrayContaining([expect.objectContaining({ code: "NT3002", severity: "warning" })]),
+    expect.arrayContaining([expect.objectContaining({ code: "LC3002", severity: "warning" })]),
   );
 });

@@ -77,7 +77,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "terminal",
-      code: 'lucent check --json\n# { "ok": false, "files": [{ "file": "src/geo.lucent.ts", "ok": false,\n#     "diagnostics": [{ "code": "NT1014", "severity": "error", "message": "…", "line": 4, "column": 14, "help": "…" }] }],\n#   "durationMs": 12 }',
+      code: 'lucent check --json\n# { "ok": false, "files": [{ "file": "src/geo.lucent.ts", "ok": false,\n#     "diagnostics": [{ "code": "LC1014", "severity": "error", "message": "…", "line": 4, "column": 14, "help": "…" }] }],\n#   "durationMs": 12 }',
     },
     { kind: "h2", text: "lucent init" },
     {
@@ -116,7 +116,7 @@ export const page: DocPage = {
     { kind: "h2", text: "lucent explain" },
     {
       kind: "p",
-      text: "`lucent explain NT1004` prints the code's title, its family (language, platform, or warning) and a link to the [diagnostics reference](/docs/language/diagnostics/). Without a code it lists every diagnostic Lucent can report. Codes are case-insensitive and a near miss gets a suggestion.",
+      text: "`lucent explain LC1004` prints the code's title, its family (language, platform, or warning) and a link to the [diagnostics reference](/docs/language/diagnostics/). Without a code it lists every diagnostic Lucent can report. Codes are case-insensitive and a near miss gets a suggestion.",
     },
     { kind: "h2", text: "lucent ir" },
     {

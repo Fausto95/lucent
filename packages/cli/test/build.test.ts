@@ -62,7 +62,7 @@ describe("lucent build", () => {
     expect(result.ok).toBe(false);
     expect(result.diagnostics).toHaveLength(1);
     expect(result.diagnostics[0]!.fileName).toBe("src/native/bad.lucent.ts");
-    expect(result.diagnostics[0]!.rendered).toContain("NT1004");
+    expect(result.diagnostics[0]!.rendered).toContain("LC1004");
     expect(existsSync(join(root, defaultOutDir("expo")))).toBe(false);
   });
 
@@ -132,7 +132,7 @@ test("preserves warnings on successful incremental builds", async () => {
   );
   const first = await build({ root, host: "expo" });
   expect(first.ok).toBe(true);
-  expect(first.diagnostics.some((d) => d.severity === "warning" && d.rendered.includes("NT3002"))).toBe(true);
+  expect(first.diagnostics.some((d) => d.severity === "warning" && d.rendered.includes("LC3002"))).toBe(true);
   const next = await build({ root, host: "expo" });
   expect(next.ok).toBe(true);
   expect(next.cached).toContain("worker.lucent.ts");

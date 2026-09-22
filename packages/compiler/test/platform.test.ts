@@ -10,7 +10,7 @@ const prelude = 'import {Platform} from "@lucent-lang/platform"; import {iosOnly
 const check = (body: string) => compile(prelude + body, { fileName: "platform.lucent.ts", libraries });
 test("rejects unguarded platform-specific calls", () => {
   expect(check("export function f():number{return iosOnly();}").diagnostics).toEqual(
-    expect.arrayContaining([expect.objectContaining({ code: "NT2004" })]),
+    expect.arrayContaining([expect.objectContaining({ code: "LC2004" })]),
   );
 });
 test.each([

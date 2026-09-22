@@ -2,7 +2,7 @@
 
 Lucent is a constrained subset of TypeScript. A module is a `*.lucent.ts` file or a `*.lucent.tsx` native component file. The compiler turns it into Swift and Kotlin ahead of time; nothing in the
 file ever runs in a JavaScript engine. Everything TypeScript allows but Lucent
-does not is rejected with a dedicated `NT` diagnostic, never with a generic
+does not is rejected with a dedicated `LC` diagnostic, never with a generic
 TypeScript error.
 
 ## Module shape
@@ -14,7 +14,7 @@ TypeScript error.
 - Named imports and aliases can refer to other `.lucent.ts` and `.lucent.tsx`
   files, with an explicit extension or the `.lucent` suffix. Type-only imports
   cannot be used as values. Missing files, ambiguous paths, cycles, and private
-  imports are rejected with `NT1006`.
+  imports are rejected with `LC1006`.
 - Native classes and `const name = event<T>()` declarations are supported.
 - Built-in packages are `@lucent-lang/types`, `@lucent-lang/objects`,
   `@lucent-lang/events`, `@lucent-lang/ui`, `@lucent-lang/core/*`, and
@@ -47,15 +47,15 @@ Rules:
   An `async` function must declare `Promise<T>`; a sync one must not.
 - Named discriminated unions are supported as described below. Other unions
   besides `T | null` / `T | undefined` remain unsupported.
-- `any`, `unknown` → `NT1004`. Function types → `NT1005`. `never`, `object`,
-  `symbol`, `bigint`, tuples, user-defined generics, interfaces, enums → `NT1003`.
+- `any`, `unknown` → `LC1004`. Function types → `LC1005`. `never`, `object`,
+  `symbol`, `bigint`, tuples, user-defined generics, interfaces, enums → `LC1003`.
 - Optionals must be narrowed before use: `if (x === null) { … }` or
   `if (x !== null) { … }` on a local or parameter, including the early-return
-  form. There is no truthiness: `if (x)` is `NT1011` unless `x` is a boolean.
-- Numeric types never convert implicitly; `int32 + number` is `NT1011`. Integer
+  form. There is no truthiness: `if (x)` is `LC1011` unless `x` is a boolean.
+- Numeric types never convert implicitly; `int32 + number` is `LC1011`. Integer
   literals adopt the sized type of their context.
-- `await` outside an `async` function is a parse error (`NT1000`).
-- A function may take at most 8 parameters → `NT1007 Too many parameters`.
+- `await` outside an `async` function is a parse error (`LC1000`).
+- A function may take at most 8 parameters → `LC1007 Too many parameters`.
 - Parameters and return types must be annotated. Locals may be inferred from
   their initializer.
 
@@ -76,18 +76,18 @@ C-style `for` loop is rejected (the update step would be skipped).
   literals `{ id, age }` where the target type is a known struct.
 - Identifiers, parenthesised expressions.
 - Arithmetic `+ - * / %`, comparison `< <= > >=`, strict equality `=== !==`
-  (`==` / `!=` are `NT1001`), logical `&& || !`, unary `-`, compound
+  (`==` / `!=` are `LC1001`), logical `&& || !`, unary `-`, compound
   assignment `+= -= *= /=`, `++` / `--` as statements.
 - Calls to local functions, imported Lucent functions, and registered native bindings.
 - `await expr` inside `async` functions only.
 - Member access `value.field` on structs; `array.length`; `array.push(x)`;
   `array[i]` indexing.
 - `throw new LucentError("CODE", { message: "…" })`. `LucentError` is a global
-  known to the compiler. Any other thrown value is `NT1001`.
-- `obj[key]` on a struct (dynamic property access) → `NT1002`.
+  known to the compiler. Any other thrown value is `LC1001`.
+- `obj[key]` on a struct (dynamic property access) → `LC1002`.
 - `this` and `new` are supported for native classes.
 - Closures, construction of arbitrary JS objects, `typeof`, `in`,
-  `instanceof`, spread, destructuring, optional chaining → `NT1001`.
+  `instanceof`, spread, destructuring, optional chaining → `LC1001`.
 
 ## Semantics
 
@@ -109,26 +109,30 @@ C-style `for` loop is rejected (the update step would be skipped).
 
 | Code   | Meaning                                          |
 | ------ | ------------------------------------------------ |
-| NT1000 | Syntax error (from the parser)                   |
-| NT1001 | Unsupported syntax                               |
-| NT1002 | Dynamic property access                          |
-| NT1003 | Unsupported type                                 |
-| NT1004 | `any` / `unknown` is prohibited                  |
-| NT1005 | Function value cannot cross the native boundary  |
-| NT1006 | Unsupported dependency                           |
-| NT1007 | Too many parameters                              |
-| NT1010 | Unknown identifier                               |
-| NT1011 | Type mismatch                                    |
-| NT1012 | Wrong number of arguments                        |
-| NT1013 | `await` outside an async function                |
-| NT1014 | Missing type annotation                          |
-| NT1015 | Missing return                                   |
-| NT1016 | Assignment to a `const`                          |
-| NT1018 | Borrowed value escapes its scope                 |
-| NT1019 | Native call is on the wrong executor             |
-| NT2001 | Missing native capability                        |
-| NT2004 | Platform-specific API                            |
-| NT3002 | Potentially expensive main-thread work (warning) |
+| LC1000 | Syntax error (from the parser)                   |
+| LC1001 | Unsupported syntax                               |
+| LC1002 | Dynamic property access                          |
+| LC1003 | Unsupported type                                 |
+| LC1004 | `any` / `unknown` is prohibited                  |
+| LC1005 | Function value cannot cross the native boundary  |
+| LC1006 | Unsupported dependency                           |
+| LC1007 | Too many parameters                              |
+| LC1010 | Unknown identifier                               |
+| LC1011 | Type mismatch                                    |
+| LC1012 | Wrong number of arguments                        |
+| LC1013 | `await` outside an async function                |
+| LC1014 | Missing type annotation                          |
+| LC1015 | Missing return                                   |
+| LC1016 | Assignment to a `const`                          |
+| LC1018 | Borrowed value escapes its scope                 |
+| LC1019 | Native call is on the wrong executor             |
+| LC2001 | Missing native capability                        |
+| LC2004 | Platform-specific API                            |
+| LC3002 | Potentially expensive main-thread work (warning) |
+
+`LC` stands for Lucent. `LC1xxx` is the language subset, `LC2xxx` is the target
+platform, and `LC3xxx` is a warning. These codes were spelled `NT####` before
+this release; the numbers are unchanged, so `NT1004` is now `LC1004`.
 
 ## Discriminated unions
 
@@ -300,7 +304,7 @@ method decorators. For editor checking of source files, place
 immediately before the decorator. The compiler processes it before Metro
 passes the generated JS proxy to TypeScript tooling.
 
-`NT3002` warns about loops, recursion, and bindings marked `cost: "cpu" | "io"`
+`LC3002` warns about loops, recursion, and bindings marked `cost: "cpu" | "io"`
 reached from `@MainThread`, including calls through private helpers. Explicit
 background hops stop propagation. Warnings are retained on incremental cache
 hits and do not fail builds. This is conservative static analysis, not a
@@ -408,7 +412,7 @@ export function home(): string {
 }
 ```
 
-Bindings declare `platforms: ["ios"]` or `["android"]`. `NT2004` rejects calls
+Bindings declare `platforms: ["ios"]` or `["android"]`. `LC2004` rejects calls
 reachable on another target. Equality/inequality guards narrow `if` branches,
 `else`, negation, and short-circuit expressions; the analysis follows private
 helper calls. Every exported function is also checked as an independent
@@ -598,7 +602,7 @@ syntax, and the camera acceptance feature remain future compiler work.
 ## Versioned native contracts and overloads
 
 Binding libraries may set `schemaVersion: 1`. Unsupported schema versions and
-invalid contract metadata produce `NT1006`. Native bindings can attach a
+invalid contract metadata produce `LC1006`. Native bindings can attach a
 `contract` with a stable `symbolId`; `nativeSymbolId(module, owner, name, abi)`
 constructs identities independently of a Lucent alias. SDK free-function
 extraction emits these identities and stable internal aliases for overloads.
