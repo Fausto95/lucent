@@ -77,4 +77,28 @@ export function f(b: B): number { return take(b); }`;
     const d = r.diagnostics.find((x) => x.code === "LUCENT1001");
     expect(d?.line).toBe(2);
   });
+
+  describe("interfaces implemented by classes", () => {
+    const shape = "interface Shape { area(): number; }\n";
+
+    it("accepts a class that declares implements", () => {
+      expect(codes(`${shape}class Sq implements Shape { area(): number { return 1; } }\nexport function f(): number { const s: Shape = new Sq(); return s.area(); }`)).toEqual([]);
+    });
+
+    it("rejects a class that matches only structurally", () => {
+      expect(codes(`${shape}class Sq { area(): number { return 1; } }\nexport function f(): number { const s: Shape = new Sq(); return s.area(); }`)).toContain("LUCENT2008");
+    });
+
+    it("rejects an object literal for an interface with methods", () => {
+      expect(codes(`${shape}export function f(): number { const s: Shape = { area: () => 1 }; return s.area(); }`)).toContain("LUCENT2008");
+    });
+
+    it("rejects a method whose native signature differs", () => {
+      expect(codes(`interface P { at(i: number): string | undefined; }\nclass Q implements P { at(i?: number): string { return "x"; } }\nexport function f(): number { return 1; }`)).toContain("LUCENT2009");
+    });
+
+    it("rejects generic interfaces implemented by classes", () => {
+      expect(codes(`interface Box<T> { get(): T; }\nclass N implements Box<number> { get(): number { return 1; } }\nexport function f(): number { return 1; }`)).toContain("LUCENT2009");
+    });
+  });
 });
