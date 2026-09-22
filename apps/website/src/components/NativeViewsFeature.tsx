@@ -24,8 +24,8 @@ export function NativeViewsFeature() {
         </div>
         <p {...stylex.props(styles.detail)}>
           Stacks, text, buttons, text fields, toggles and sliders, plus padding, background, corner radius and
-          accessibility wrappers. Keep state in React; inputs are controlled and report through typed events. Ship your
-          own SwiftUI and Compose views as a package when the shared set is not enough.
+          accessibility wrappers. A view can keep its own controls with `state()`, or stay controlled from React through
+          typed events. Ship your own SwiftUI and Compose views as a package when the shared set is not enough.
         </p>
         <Link to="/docs/$/" params={{ _splat: "language/native-views" }} {...stylex.props(styles.link)}>
           Native views reference <span aria-hidden="true">↗</span>

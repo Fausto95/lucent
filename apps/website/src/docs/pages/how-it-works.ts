@@ -98,9 +98,18 @@ export const page: DocPage = {
     { kind: "h2", text: "Native views" },
     {
       kind: "p",
-      text: "A `.lucent.tsx` export is a pure function from props to a view tree. The backends turn it into a SwiftUI `View` and a `@Composable`; the host mounts it in an Expo view or a Nitro Fabric view. React renders the host view, passes props, and receives `Event<T>` callbacks. State never lives in the native view unless a native package adapter owns it.",
+      text: "A `.lucent.tsx` export is a function from props to a view tree. The backends turn it into a SwiftUI `View` and a `@Composable`; the host mounts it in an Expo view or a Nitro Fabric view. React renders the host view, passes props, and receives `Event<T>` callbacks. `state()` lives on that host instance, so a control survives the next prop update. React still owns everything else.",
     },
     { kind: "diagram", component: ViewsDiagram },
+    { kind: "h2", text: "Generated files" },
+    {
+      kind: "p",
+      text: "The output is a build product. Expo writes `modules/lucent/`. Nitro writes `.lucent/nitro/`. The next build overwrites both. Do not edit those files: there is no merge, and no source map from a native stack frame back to a `.lucent.ts` line. A thrown `LucentError` arrives in JavaScript as an error with `code`, `message`, and scalar `metadata`. Anything else is a native exception in Xcode or logcat.",
+    },
+    {
+      kind: "p",
+      text: "Unchanged modules are cached, so a rebuild does not recompile every file. `lucent check` reports diagnostics without writing Swift or Kotlin. `pnpm verify` in this repository compiles the golden fixtures with `swiftc` and `kotlinc`; an app still needs a Mac for the iOS build.",
+    },
     { kind: "h2", text: "Architecture" },
     {
       kind: "p",

@@ -166,6 +166,7 @@ export const page: DocPage = {
       kind: "list",
       items: [
         "Changing a `.lucent.ts(x)` file changes native code. Rebuild the app (`expo run:ios` or `lucent build` + Xcode/Gradle). There is no native hot reload.",
+        "Generated Swift and Kotlin are overwritten on the next build. Do not edit `modules/lucent/` or `.lucent/nitro/`. There are no source maps; a native crash is a native stack trace.",
         "Changing React code that calls into Lucent works as usual with Fast Refresh.",
         "Run `lucent check` for diagnostics without generating anything. Metro reports the same errors with a code frame when it bundles.",
         "When files are added to the generated package, refresh CocoaPods or Gradle (`pod install`, Gradle sync).",

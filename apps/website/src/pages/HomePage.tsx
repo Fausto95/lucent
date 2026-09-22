@@ -13,7 +13,7 @@ export function HomePage() {
   const { copy } = useClipboard();
   useDocumentMeta(
     "Lucent — TypeScript in. Native out.",
-    "Write TypeScript and TSX. Compile ahead of time to Swift and Kotlin for React Native: native logic, shared objects, typed events, and SwiftUI / Compose views through Expo Modules or Nitro.",
+    "One TypeScript module becomes the Swift and the Kotlin for an Expo or Nitro boundary. Native functions, objects, events, and SwiftUI / Compose views, with no JavaScript engine on the native side.",
   );
   return (
     <main id="main">
@@ -31,13 +31,14 @@ export function HomePage() {
             <span {...stylex.props(sharedStyles.brandPeriod)}>Native out.</span>
           </h1>
           <p {...stylex.props(styles.heroDescription)}>
-            The language you know.
+            One module.
             <br />
-            The native code you need.
+            Not two native implementations.
           </p>
           <p {...stylex.props(styles.heroDetail)}>
-            Functions, native classes, typed events and SwiftUI / Compose views, written in TypeScript and TSX and
-            compiled to Swift and Kotlin for React Native. No JavaScript runs on the native side.
+            Lucent compiles a checked TypeScript subset to Swift and Kotlin for the Expo Modules and Nitro boundary:
+            typed proxies, native objects, events, and SwiftUI / Compose views. Write Swift, Kotlin, a JSI call, or Wasm
+            when you need the whole language or a runtime on the native side.
           </p>
           <div {...stylex.props(styles.heroActions)}>
             <Link to="/docs/$/" params={{ _splat: "getting-started" }} {...stylex.props(sharedStyles.button)}>
@@ -104,7 +105,7 @@ export function HomePage() {
             position="first"
             icon={<path d="m11 8-8 8 8 8m10-16 8 8-8 8M18 4l-4 24"></path>}
             title="A small, checked subset."
-            text="Functions, records, tagged unions, native classes and typed events. Everything outside the subset is a build-time diagnostic with a code frame, never a runtime surprise."
+            text="Records, optionals, unions, async errors, native classes, callbacks, and views. What the subset excludes is a build-time diagnostic with a code frame, never a runtime surprise."
             href="/docs/language/"
             linkLabel="Read the language"
           />
@@ -206,9 +207,9 @@ export function HomePage() {
             function native.
           </h2>
           <p {...stylex.props(styles.startDescription)}>
-            Start with the source. Build the included example.
+            Install the packages into an app.
             <br />
-            Then bring your own logic.
+            The compiler repository is for working on Lucent itself.
           </p>
           <Link to="/docs/$/" params={{ _splat: "getting-started" }} {...stylex.props(styles.textLink2)}>
             Setup guide <span aria-hidden="true">→</span>
@@ -230,10 +231,8 @@ export function HomePage() {
           </div>
           <pre {...stylex.props(styles.terminalCode)}>
             <code>
-              <span {...stylex.props(styles.comment)}># Get Lucent</span>
-              {"\ngit clone https://github.com/Fausto95/lucent.git\ncd lucent\npnpm install\n\n"}
-              <span {...stylex.props(styles.comment)}># Build your first native module</span>
-              {"\npnpm lucent build --host expo fixtures/clamp.lucent.ts"}
+              <span {...stylex.props(styles.comment)}># In an Expo app</span>
+              {"\nnpx expo install @lucent-lang/runtime @lucent-lang/types @lucent-lang/expo @lucent-lang/metro"}
             </code>
           </pre>
           <div {...stylex.props(styles.terminalNote)}>

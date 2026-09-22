@@ -17,7 +17,7 @@ export const page: DocPage = {
     },
     {
       kind: "p",
-      text: "Function values do not exist in the subset: a function cannot be stored, passed to JavaScript, or closed over. Inside native code, a compiled function can be handed to a native binding as a [`NativeCallback`](/docs/api/types/).",
+      text: "A function value cannot be stored or passed into JavaScript (`NT1005`). Inside native code, a compiled function or a synchronous arrow can be a [`NativeCallback`](/docs/api/types/). An arrow may capture an immutable primitive or value record, an owned native reference, an explicit `weak(reference)`, or a borrow when the callback's contract says `retention: \"call\"`. Mutable locals, external resources, and subscription callbacks cannot be captured.",
     },
     { kind: "h2", text: "Statements" },
     {
@@ -58,7 +58,7 @@ export const page: DocPage = {
     },
     {
       kind: "p",
-      text: "Outside the subset, all `NT1001`: closures and arrow functions, spread, destructuring, optional chaining, `typeof`, `in`, `instanceof`, construction of arbitrary objects, and dynamic property access `obj[key]` on a record (`NT1002`).",
+      text: "Outside the subset, all `NT1001`: spread, destructuring, optional chaining, `typeof`, `in`, `instanceof`, construction of arbitrary objects, and dynamic property access `obj[key]` on a record (`NT1002`). Arrows are allowed only as native callbacks, described above.",
     },
     { kind: "h2", text: "What lowering does" },
     {

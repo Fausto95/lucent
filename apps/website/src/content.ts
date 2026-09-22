@@ -16,7 +16,7 @@ export const source =
   "export function clamp(value: number, min: number, max: number): number {\n  if (value < min) return min;\n  if (value > max) return max;\n  return value;\n}";
 
 export const commands =
-  "git clone https://github.com/Fausto95/lucent.git\ncd lucent\npnpm install\npnpm lucent build --host expo fixtures/clamp.lucent.ts";
+  "npx expo install @lucent-lang/runtime @lucent-lang/types @lucent-lang/expo @lucent-lang/metro";
 
 export const nativeCard = `import { VStack, Text, TextField, Button,
   type NativeProps, type NativeView } from "@lucent-lang/ui";

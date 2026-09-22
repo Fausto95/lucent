@@ -36,10 +36,25 @@ export const page: DocPage = {
         "**Platform access** through a small standard library (files, crypto, network, device), typed capabilities, and bindings to real SDK classes. [Platform →](/docs/language/platform-and-capabilities/)",
       ],
     },
+    { kind: "h2", text: "Why not write Swift and Kotlin" },
+    {
+      kind: "p",
+      text: "Because the logic would exist twice, and the two copies drift. Lucent's job is the Expo and Nitro boundary: one checked source, generated Swift and Kotlin, and a typed JavaScript proxy. The novel part is that interop — classes, events, views, and the proxy — not a general transpiler.",
+    },
+    {
+      kind: "table",
+      head: ["Use this instead", "When"],
+      rows: [
+        ["Swift and Kotlin", "You need the full language, an SDK the subset cannot express, or you are happy to maintain both."],
+        ["JSI or a TurboModule", "You already have native code and only need a thin, hand-written call across the bridge."],
+        ["Nitro, without Lucent", "You want to author the HybridObject in Swift and Kotlin yourself."],
+        ["Wasm", "The code must run in a portable runtime, including on the JavaScript side."],
+      ],
+    },
     { kind: "h2", text: "What it is not" },
     {
       kind: "p",
-      text: "Lucent is not TypeScript with a native backend. The subset is small on purpose: no closures, no `any`, no dynamic property access, no `switch`, no `try`/`catch`. Everything outside the subset fails with a dedicated `NT` diagnostic at build time, never at runtime. It is also not a UI framework: React owns state and effects, native views are pure render functions.",
+      text: "Lucent is not TypeScript with a native backend. The subset is listed on the [language](/docs/language/) and [functions](/docs/language/functions-and-control-flow/) pages: no `any`, no generics, no `switch`, no `try`/`catch`, no dynamic property access. Arrow callbacks exist inside native code, with explicit captures; a function value still cannot cross into JavaScript. Everything outside the subset fails with an `NT` diagnostic at build time. It is also not a UI framework: React owns app state and effects. A view may keep control state on the host instance.",
     },
     {
       kind: "note",

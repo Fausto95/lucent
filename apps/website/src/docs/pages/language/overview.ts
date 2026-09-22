@@ -58,7 +58,7 @@ export const page: DocPage = {
         "A record's fields may be any type above except `Promise`. Records are copied across the boundary.",
         "Optionals must be narrowed before use with `=== null`, `!== null`, `=== undefined` or `!== undefined` on a local or parameter. The early-return form counts.",
         "There is no truthiness. `if (x)` is `NT1011` unless `x` is a boolean.",
-        "`any` and `unknown` are `NT1004`. Function types are `NT1005`. `never`, `object`, `symbol`, `bigint`, tuples, generics, interfaces and enums are `NT1003`.",
+        "`any` and `unknown` are `NT1004`. A function type crosses only as a `NativeCallback` inside native code (`NT1005` otherwise). `never`, `object`, `symbol`, `bigint`, tuples, generics, interfaces and enums are `NT1003`. There is no `Date`.",
       ],
     },
     {
