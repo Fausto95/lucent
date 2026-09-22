@@ -7,18 +7,20 @@ Status legend: `[x]` done and committed · `[~]` in progress · `[ ]` not starte
 
 ## Next
 
-Roughly in the order we intend to tackle them:
+Items 4 through 10 of the old list are implemented; discriminated unions, native
+classes, events, native views, thread annotations, SDK bindings and the
+capabilities config all appear in the hand-off log below. The remaining native
+interoperability work, with its acceptance evidence, is tracked in
+[docs/native-implementation-todo.md](docs/native-implementation-todo.md). The
+largest open gaps are protocol and delegate conformance, component identity with
+scoped effects, structured SDK metadata extraction, and the camera acceptance
+feature.
+
+Outside that checklist:
 
 1. Publish `@lucent-lang/*` to npm and cut a 0.1.0.
 2. Checker rule: a non-exported struct used in an exported signature is an error.
 3. `Uint8Array` zero-copy on the Expo host (sync functions only).
-4. Discriminated unions.
-5. Native classes (Expo shared objects / Nitro hybrid objects with state).
-6. Events.
-7. Native views.
-8. Thread annotations (`@MainThread`, `@Background`) with compile-time checks.
-9. Platform SDK bindings generated from Swift interfaces and `android.jar`.
-10. Capabilities config (permissions, Info.plist, manifest) from typed declarations.
 
 ## Done (hand-off log)
 
