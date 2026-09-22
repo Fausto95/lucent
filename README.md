@@ -55,4 +55,13 @@ pnpm test
 pnpm verify   # typecheck, lint, format, tests, and compile fixtures with swiftc/kotlinc
 ```
 
+## Releasing
+
+Run the **Release** workflow from `main` (Actions → Release → Run workflow) and
+pick `patch`, `minor` or `major`. It bumps the root `package.json` and every
+`packages/*` in lockstep, runs the CI gate, commits `chore(release): vX.Y.Z`,
+tags it, publishes all `@lucent-lang/*` packages to npm and creates a GitHub
+Release with generated notes. Publishing needs an `NPM_TOKEN` repository secret
+(granular npm token with write access to the `@lucent-lang` scope, 2FA bypass).
+
 MIT © Faustino Kialungila
