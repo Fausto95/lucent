@@ -1,0 +1,13 @@
+{
+  "name": "@lucent-lang/cli",
+  "version": "0.1.0-cpp",
+  "description": "lucent build: compiles *.lucent.ts into a native React Native package",
+  "license": "MIT",
+  "type": "module",
+  "bin": { "lucent": "./bin/lucent.js" },
+  "dependencies": {
+    "@lucent-lang/compiler": "workspace:*",
+    "@lucent-lang/runtime": "workspace:*",
+    "tsx": "^4.20.6"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@lucent-lang/core",
+  "version": "0.1.0-cpp",
+  "description": "Types and helpers for writing Lucent modules",
+  "license": "MIT",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": { "types": "./index.d.ts", "default": "./index.js" },
+    "./metro": "./metro.cjs",
+    "./expo": "./expo.cjs",
+    "./package.json": "./package.json"
+  }
+}

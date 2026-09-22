@@ -1,0 +1,181 @@
+import ts from "typescript";
+import { Codes, fail } from "../diagnostics.ts";
+import type { LucentModule } from "../program.ts";
+import { type ClassInfo, cppIdent, type LType, T } from "../types.ts";
+import type { Ctx } from "./context.ts";
+import { FnEmitter } from "./function.ts";
+
+export interface ClassOutput {
+  /** Class definition for the header. */
+  definition: string;
+  /** Out-of-line member definitions (empty for generic classes). */
+  members: string;
+  /** Static field initializers, run by the module's init(). */
+  staticInits: string[];
+}
+
+function modifiers(n: ts.Node): ts.SyntaxKind[] {
+  return ts.canHaveModifiers(n) ? (ts.getModifiers(n) ?? []).map((m) => m.kind) : [];
+}
+const isStatic = (n: ts.Node) => modifiers(n).includes(ts.SyntaxKind.StaticKeyword);
+const isAsync = (n: ts.Node) => modifiers(n).includes(ts.SyntaxKind.AsyncKeyword);
+
+export function memberName(m: ts.ClassElement | ts.ParameterDeclaration): string {
+  const n = m.name;
+  if (!n) fail(m, Codes.UnsupportedClassFeature, "unnamed class member");
+  if (ts.isIdentifier(n) || ts.isPrivateIdentifier(n) || ts.isStringLiteral(n)) return n.text;
+  fail(m, Codes.UnsupportedClassFeature, "computed member names are not supported");
+}
+
+/** Parameter properties: `constructor(private x: number)`. */
+export function parameterProperties(ctor: ts.ConstructorDeclaration | undefined): ts.ParameterDeclaration[] {
+  return (ctor?.parameters ?? []).filter((p) =>
+    modifiers(p).some((k) => [ts.SyntaxKind.PrivateKeyword, ts.SyntaxKind.PublicKeyword, ts.SyntaxKind.ProtectedKeyword, ts.SyntaxKind.ReadonlyKeyword].includes(k)),
+  );
+}
+
+export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): ClassOutput {
+  const decl = info.decl;
+  const reg = ctx.reg;
+  const generic = info.typeParams.length > 0;
+  const tmpl = generic ? `template <${info.typeParams.map((p) => `class ${cppIdent(p)}`).join(", ")}>\n` : "";
+  const selfType: LType = { k: "class", id: info.id, args: info.typeParams.map((p) => ({ k: "tparam", name: p }) as LType) };
+  const qual = `${info.cppName}${generic ? `<${info.typeParams.map(cppIdent).join(", ")}>` : ""}`;
+  const heritage = decl.heritageClauses?.find((h) => h.token === ts.SyntaxKind.ExtendsKeyword);
+  if (heritage && !info.isError) fail(heritage, Codes.UnsupportedClassFeature, "class inheritance is only supported for `extends Error`");
+  if (decl.heritageClauses?.some((h) => h.token === ts.SyntaxKind.ImplementsKeyword)) {
+    // `implements` is a type-level check only.
+  }
+  const base = info.isError ? "lucent::ErrorObject" : "lucent::Object";
+  const body: string[] = [];
+  const members: string[] = [];
+  const staticInits: string[] = [];
+  const ctor = decl.members.find(ts.isConstructorDeclaration);
+
+  const fieldType = (n: ts.Node) => reg.lower(ctx.checker.getTypeAtLocation(n), n);
+  // Fields
+  for (const p of parameterProperties(ctor)) {
+    body.push(`  ${reg.cpp(fieldType(p))} ${cppIdent(memberName(p))}{};`);
+  }
+  for (const m of decl.members) {
+    if (!ts.isPropertyDeclaration(m)) continue;
+    const t = fieldType(m);
+    const name = cppIdent(memberName(m));
+    if (isStatic(m)) {
+      if (generic) fail(m, Codes.UnsupportedClassFeature, "static fields in generic classes are not supported");
+      body.push(`  static inline ${reg.cpp(t)} ${name}{};`);
+      if (m.initializer) {
+        const em = new FnEmitter(ctx, { module, async: false, returnType: T.void });
+        const v = ctx.guard(() => em.exprAs(m.initializer!, t));
+        if (v !== undefined) staticInits.push(...em.lines, `  ${info.cppName}::${name} = ${v};`);
+      }
+    } else {
+      body.push(`  ${reg.cpp(t)} ${name}{};`);
+    }
+  }
+
+  const emitMethod = (
+    node: ts.MethodDeclaration | ts.ConstructorDeclaration | ts.GetAccessorDeclaration | ts.SetAccessorDeclaration,
+    cppName: string,
+    staticMember: boolean,
+    prelude?: (em: FnEmitter) => void,
+  ) => {
+    const sig = ctx.checker.getSignatureFromDeclaration(node)!;
+    const fnType = reg.lowerSignature(sig, node) as LType & { k: "fn" };
+    const asyncM = isAsync(node);
+    const isCtor = ts.isConstructorDeclaration(node);
+    let ret: LType = isCtor ? T.void : fnType.ret;
+    if (asyncM) ret = ret.k === "promise" ? ret.inner : ret;
+    const em = new FnEmitter(ctx, {
+      module,
+      async: asyncM,
+      returnType: ret,
+      cls: staticMember ? undefined : info,
+      thisExpr: staticMember ? undefined : "this",
+      isConstructor: isCtor,
+    });
+    const params = em.paramInfos(node, fnType);
+    let decls: string[] = [];
+    ctx.guard(() => {
+      if (asyncM && !staticMember) em.line("auto self = lucent::selfRef(this);");
+      decls = em.emitParams(node, params);
+      prelude?.(em);
+      em.emitFunctionBody(node);
+    });
+    const retCpp = asyncM ? `lucent::Promise<${reg.cppRet(ret)}>` : reg.cppRet(ret);
+    const sigText = `${retCpp} ${cppName}(${decls.join(", ")})`;
+    const bodyText = em.body().join("\n");
+    if (generic) {
+      body.push(`  ${staticMember ? "static " : ""}${sigText} {\n${indent(bodyText)}\n  }`);
+    } else {
+      body.push(`  ${staticMember ? "static " : ""}${sigText};`);
+      members.push(`${retCpp} ${info.cppName}::${cppName}(${decls.join(", ")}) {\n${bodyText}\n}`);
+    }
+    return { decls, params };
+  };
+
+  // Constructor: construct() runs field initializers, then the body.
+  const initFields = (em: FnEmitter) => {
+    if (info.isError) em.line(`this->name = LUCENT_STR("Error");`);
+    for (const p of parameterProperties(ctor)) {
+      const sym = ctx.checker.getSymbolAtLocation(p.name as ts.Identifier)!;
+      const local = em.allScopes().map((s) => s.get(sym)).find(Boolean)!;
+      em.line(`this->${cppIdent(memberName(p))} = ${local.boxed ? `*${local.cpp}` : local.cpp};`);
+    }
+    for (const m of decl.members) {
+      if (!ts.isPropertyDeclaration(m) || isStatic(m) || !m.initializer) continue;
+      const t = fieldType(m);
+      const v = ctx.guard(() => em.exprAs(m.initializer!, t));
+      if (v !== undefined) em.line(`this->${cppIdent(memberName(m))} = ${v};`);
+    }
+  };
+  let ctorDecls: string[] = [];
+  let ctorArgs: string[] = [];
+  if (ctor) {
+    const r = emitMethod(ctor, "construct", false, initFields);
+    ctorDecls = r.decls;
+    ctorArgs = r.decls.map((d) => d.split(" ").pop()!);
+  } else {
+    const em = new FnEmitter(ctx, { module, async: false, returnType: T.void, cls: info, thisExpr: "this", isConstructor: true });
+    initFields(em);
+    const bodyText = em.body().join("\n");
+    if (generic) body.push(`  void construct() {\n${indent(bodyText)}\n  }`);
+    else {
+      body.push("  void construct();");
+      members.push(`void ${info.cppName}::construct() {\n${bodyText}\n}`);
+    }
+  }
+  const createBody = `  auto self = std::make_shared<${qual}>();\n  self->construct(${ctorArgs.join(", ")});\n  return self;`;
+  if (generic) body.push(`  static lucent::Ref<${qual}> create(${ctorDecls.join(", ")}) {\n${indent(createBody)}\n  }`);
+  else {
+    body.push(`  static lucent::Ref<${info.cppName}> create(${ctorDecls.join(", ")});`);
+    members.push(`lucent::Ref<${info.cppName}> ${info.cppName}::create(${ctorDecls.join(", ")}) {\n${createBody}\n}`);
+  }
+
+  for (const m of decl.members) {
+    if (ts.isMethodDeclaration(m)) {
+      if (!m.body) continue;
+      emitMethod(m, cppIdent(memberName(m)), isStatic(m));
+    } else if (ts.isGetAccessorDeclaration(m)) {
+      emitMethod(m, `get_${cppIdent(memberName(m))}`, isStatic(m));
+    } else if (ts.isSetAccessorDeclaration(m)) {
+      emitMethod(m, `set_${cppIdent(memberName(m))}`, isStatic(m));
+    } else if (ts.isPropertyDeclaration(m) || ts.isConstructorDeclaration(m) || ts.isSemicolonClassElement(m)) {
+      continue;
+    } else if (ts.isClassStaticBlockDeclaration(m)) {
+      fail(m, Codes.UnsupportedClassFeature, "static blocks are not supported");
+    } else if (ts.isIndexSignatureDeclaration(m)) {
+      fail(m, Codes.UnsupportedClassFeature, "index signatures in classes are not supported");
+    }
+  }
+  void selfType;
+  const definition = `${tmpl}struct ${info.cppName} : ${base} {\n${body.join("\n")}\n};`;
+  return { definition, members: generic ? "" : members.join("\n\n"), staticInits };
+}
+
+function indent(s: string): string {
+  return s
+    .split("\n")
+    .map((l) => (l.startsWith("#line") ? l : `  ${l}`))
+    .join("\n");
+}

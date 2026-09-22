@@ -9,6 +9,8 @@
 #include "equality.h"
 #include "error.h"
 #include "function.h"
+#include "helpers.h"
+#include "json.h"
 #include "map.h"
 #include "number.h"
 #include "ops.h"

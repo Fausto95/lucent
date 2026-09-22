@@ -106,9 +106,9 @@ class String {
 
 /// A string literal with static storage: built once per call site.
 #define LUCENT_STR(literal) \
-  ([]() -> const ::lucent::String& { static const ::lucent::String s = ::lucent::String::fromUtf8(literal); return s; }())
+  ([]() -> const ::lucent::String& { static const ::lucent::String s = ::lucent::String::fromUtf8(std::string_view(literal, sizeof(literal) - 1)); return s; }())
 #define LUCENT_STR16(literal) \
-  ([]() -> const ::lucent::String& { static const ::lucent::String s = ::lucent::String::fromUtf16(literal); return s; }())
+  ([]() -> const ::lucent::String& { static const ::lucent::String s = ::lucent::String::fromUtf16(literal, sizeof(literal) / sizeof(char16_t) - 1); return s; }())
 
 bool isJsWhitespace(char16_t c);
 

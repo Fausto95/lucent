@@ -1,0 +1,14 @@
+{
+  "name": "@lucent-lang/runtime",
+  "version": "0.1.0-cpp",
+  "description": "Lucent C++ runtime and the JavaScript loader for generated modules",
+  "license": "MIT",
+  "main": "./js/index.js",
+  "types": "./js/index.d.ts",
+  "files": ["cpp", "js"],
+  "exports": {
+    ".": "./js/index.js",
+    "./js": "./js/index.js",
+    "./package.json": "./package.json"
+  }
+}

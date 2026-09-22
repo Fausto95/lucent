@@ -94,3 +94,50 @@ void consoleWrite(ConsoleLevel level, const String& message) {
 }
 
 }  // namespace lucent
+
+#include "json.h"
+
+namespace lucent {
+
+void JsonWriter::quote(const String& s) {
+  static const char* hex = "0123456789abcdef";
+  out.push_back(u'"');
+  size_t n = s.length();
+  for (size_t i = 0; i < n; i++) {
+    char16_t c = s.unit(i);
+    switch (c) {
+      case u'"': out.append(u"\\\""); break;
+      case u'\\': out.append(u"\\\\"); break;
+      case u'\b': out.append(u"\\b"); break;
+      case u'\f': out.append(u"\\f"); break;
+      case u'\n': out.append(u"\\n"); break;
+      case u'\r': out.append(u"\\r"); break;
+      case u'\t': out.append(u"\\t"); break;
+      default: {
+        bool lone = false;
+        if (c >= 0xD800 && c <= 0xDBFF) {
+          lone = !(i + 1 < n && s.unit(i + 1) >= 0xDC00 && s.unit(i + 1) <= 0xDFFF);
+          if (!lone) {
+            out.push_back(c);
+            out.push_back(s.unit(++i));
+            continue;
+          }
+        } else if (c >= 0xDC00 && c <= 0xDFFF) {
+          lone = true;
+        }
+        if (c < 0x20 || lone) {
+          out.append(u"\\u");
+          out.push_back(hex[(c >> 12) & 15]);
+          out.push_back(hex[(c >> 8) & 15]);
+          out.push_back(hex[(c >> 4) & 15]);
+          out.push_back(hex[c & 15]);
+        } else {
+          out.push_back(c);
+        }
+      }
+    }
+  }
+  out.push_back(u'"');
+}
+
+}  // namespace lucent

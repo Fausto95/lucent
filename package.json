@@ -1,6 +1,6 @@
 {
   "name": "lucent",
-  "version": "0.0.3",
+  "version": "0.1.0-cpp",
   "private": true,
   "license": "MIT",
   "workspaces": [
@@ -9,54 +9,21 @@
   ],
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit && tsc --noEmit -p fixtures",
-    "lint": "vp lint --deny-warnings",
-    "format": "vp fmt",
-    "format:check": "vp fmt --check",
-    "test": "vp test run",
-    "test:watch": "vp test",
-    "build:packages": "vp pack",
-    "website": "pnpm --filter @lucent-lang/website dev",
-    "website:build": "pnpm --filter @lucent-lang/website build",
-    "verify": "tsx scripts/embed-native.ts --check && pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && tsx scripts/verify-native.ts && tsx scripts/verify-runtime.ts && tsx scripts/verify-interop.ts && tsx scripts/verify-receivers.ts && tsx scripts/verify-cancellation.ts && tsx scripts/verify-enums.ts && tsx scripts/verify-numeric-widening.ts && tsx scripts/verify-symbolgraph.ts && tsx scripts/verify-task-scopes.ts && tsx scripts/verify-task-groups.ts && tsx scripts/verify-resources.ts && tsx scripts/verify-fake-sdk.ts && tsx scripts/verify-delegates.ts && tsx scripts/verify-camera-frames.ts && tsx scripts/verify-camera-package.ts && tsx scripts/verify-camera-stress.ts && tsx scripts/verify-camera-race.ts && tsx scripts/verify-camera-perf.ts && tsx scripts/verify-gate-c.ts && tsx scripts/verify-sqlite-tx.ts && tsx scripts/verify-overlay-retention.ts && tsx scripts/verify-bundles.ts",
-    "lucent": "tsx packages/cli/src/main.ts",
-    "tools": "pnpm --filter expo-example exec tsx ../../packages/cli/src/main.ts doctor",
-    "embed:native": "tsx scripts/embed-native.ts"
+    "build": "pnpm -r --filter './packages/*' build",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "test:runtime": "packages/runtime/test/run.sh",
+    "test:e2e": "tsx packages/compiler/test/e2e/run.ts",
+    "lucent": "tsx packages/cli/src/main.ts"
   },
   "devDependencies": {
-    "@lucent-lang/backend-kotlin": "workspace:*",
-    "@lucent-lang/backend-swift": "workspace:*",
-    "@lucent-lang/codegen": "workspace:*",
-    "@lucent-lang/compiler": "workspace:*",
-    "@lucent-lang/core": "workspace:*",
     "@types/node": "^24.7.0",
     "tsx": "^4.20.6",
     "typescript": "~5.9.3",
-    "vite": "npm:@voidzero-dev/vite-plus-core@0.3.3",
-    "vite-plus": "0.3.3",
-    "vitest": "4.1.11"
+    "vitest": "^3.2.4"
   },
   "engines": {
     "node": ">=22.12"
   },
-  "packageManager": "pnpm@9.1.2",
-  "pnpm": {
-    "overrides": {
-      "vite@*": "npm:@voidzero-dev/vite-plus-core@0.3.3",
-      "vitest@*": "4.1.11"
-    },
-    "peerDependencyRules": {
-      "allowAny": [
-        "vite",
-        "vitest"
-      ],
-      "allowedVersions": {
-        "vite": "*",
-        "vitest": "*"
-      }
-    },
-    "onlyBuiltDependencies": [
-      "esbuild"
-    ]
-  }
+  "packageManager": "pnpm@9.1.2"
 }
