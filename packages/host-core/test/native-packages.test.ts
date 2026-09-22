@@ -34,3 +34,13 @@ for (const [name, host] of [
     expect([...files].find(([path]) => path.endsWith(".podspec"))?.[1]).toContain("WidgetSDK");
     expect(files.get("android/build.gradle")).toContain("dev.widgets:ui:1.0.0");
   });
+
+for (const [name, host] of [["expo", expoHost], ["nitro", nitroHost]] as const)
+  test(`${name} propagates minimum native targets to build files`, () => {
+    const result = compile('export function value():number{return 1;}', {
+      fileName: 'target.lucent.ts', targets: {ios: '17.0', android: 30},
+    });
+    const files = host.emitPackage([result.module!], {packageName:'lucent'});
+    expect([...files].find(([path]) => path.endsWith('.podspec'))?.[1]).toContain('Gem::Version.new("17.0")');
+    expect(files.get('android/build.gradle')).toContain('Math.max(android.defaultConfig.minSdkVersion.apiLevel, 30)');
+  });
