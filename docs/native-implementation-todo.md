@@ -8,7 +8,8 @@ means incomplete, including work whose code exists but whose acceptance tests
 have not passed. A partially implemented milestone remains open.
 
 No changes have been pushed. Tests-only commits precede implementation, as
-required by `AGENTS.md`. Do not add assistant co-author trailers.
+required by `AGENTS.md`. Commit each completed feature or milestone slice as
+soon as its relevant tests pass. Do not add assistant co-author trailers.
 
 ## Current status
 
@@ -129,8 +130,9 @@ Evidence: `overloads.test.ts`, SDK extraction tests, `verify-runtime.ts`.
 - [x] Add JS transit retention so immediate `dispose()` rejects new calls while
       accepted async calls retain their handles through dispatch and completion.
 - [x] Test success and synchronous failure during JS transit retention.
-- [ ] Build and execute the new async wrappers with the actual Expo and Nitro
-      SDKs on both platforms. Generator assertions are not sufficient for this gate.
+- [x] Build and execute the new async wrappers with the actual Expo and Nitro
+      SDKs on iOS 18.2 Simulator and Android 14 emulator. All four examples
+      report `ALL OK`, including immediate-disposal checks.
 - [x] Unit-test parallel JS dispatch and transfer to a new returned wrapper after
       the original wrapper is disposed.
 - [x] Execute concurrent calls followed by immediate disposal and rejection of
