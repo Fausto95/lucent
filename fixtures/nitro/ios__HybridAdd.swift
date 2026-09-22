@@ -5,13 +5,11 @@ import NitroModules
 
 class HybridAdd: HybridAddSpec {
   func add(a: Double, b: Double) throws -> Double {
-    let result = try AddBodies.add(a: a, b: b)
-    return result
+    return try AddBodies.add(a: a, b: b)
   }
 
   func multiply(a: Double, b: Double) throws -> Double {
-    let result = try AddBodies.multiply(a: a, b: b)
-    return result
+    return try AddBodies.multiply(a: a, b: b)
   }
 }
 

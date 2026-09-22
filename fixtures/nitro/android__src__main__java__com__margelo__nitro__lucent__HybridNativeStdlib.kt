@@ -11,18 +11,15 @@ import com.margelo.nitro.core.Promise
 @DoNotStrip
 class HybridNativeStdlib : HybridNativeStdlibSpec() {
   override fun magnitude(value: Double): Double {
-    val result = NativeStdlibBodies.magnitude(value)
-    return result
+    return NativeStdlibBodies.magnitude(value)
   }
 
   override fun matches(value: String): Boolean {
-    val result = NativeStdlibBodies.matches(value)
-    return result
+    return NativeStdlibBodies.matches(value)
   }
 
   override fun roundTrip(text: String): String {
-    val result = NativeStdlibBodies.roundTrip(text)
-    return result
+    return NativeStdlibBodies.roundTrip(text)
   }
 }
 

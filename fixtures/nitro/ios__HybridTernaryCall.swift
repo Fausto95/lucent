@@ -5,13 +5,11 @@ import NitroModules
 
 class HybridTernaryCall: HybridTernaryCallSpec {
   func choose(flag: Bool) throws -> Double {
-    let result = try TernaryCallBodies.choose(flag: flag)
-    return result
+    return try TernaryCallBodies.choose(flag: flag)
   }
 
   func nested(flag: Bool, other: Bool) throws -> Double {
-    let result = try TernaryCallBodies.nested(flag: flag, other: other)
-    return result
+    return try TernaryCallBodies.nested(flag: flag, other: other)
   }
 }
 

@@ -6,18 +6,15 @@ import NitroModules
 
 class HybridNativeStdlib: HybridNativeStdlibSpec {
   func magnitude(value: Double) throws -> Double {
-    let result = try NativeStdlibBodies.magnitude(value: value)
-    return result
+    return try NativeStdlibBodies.magnitude(value: value)
   }
 
   func matches(value: String) throws -> Bool {
-    let result = try NativeStdlibBodies.matches(value: value)
-    return result
+    return try NativeStdlibBodies.matches(value: value)
   }
 
   func roundTrip(text: String) throws -> String {
-    let result = try NativeStdlibBodies.roundTrip(text: text)
-    return result
+    return try NativeStdlibBodies.roundTrip(text: text)
   }
 }
 

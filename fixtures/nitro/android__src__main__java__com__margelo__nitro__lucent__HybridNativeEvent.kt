@@ -12,6 +12,7 @@ import com.margelo.nitro.core.Promise
 class HybridNativeEvent : HybridNativeEventSpec() {
   private val eventTokens = java.util.Collections.synchronizedSet(mutableSetOf<Int>())
   override fun dispose() { synchronized(eventTokens) { eventTokens.forEach { LucentEventHub.remove(it) }; eventTokens.clear() }; super.dispose() }
+
   override fun subscribeProgress(listener: (String) -> Unit): Double {
     val token = LucentEventHub.subscribe("__event_253846265b0a3b85_progress", listener)
     eventTokens.add(token)

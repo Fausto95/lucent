@@ -16,8 +16,7 @@ class HybridNativeUnion : HybridNativeUnionSpec() {
   }
 
   override fun read(result: NativeUnionResult): Double {
-    val result = NativeUnionBodies.read(NativeUnionBodies.Result.fromNitro(result))
-    return result
+    return NativeUnionBodies.read(NativeUnionBodies.Result.fromNitro(result))
   }
 }
 

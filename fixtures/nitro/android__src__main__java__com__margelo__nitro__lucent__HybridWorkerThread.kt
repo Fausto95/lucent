@@ -12,15 +12,13 @@ import com.margelo.nitro.core.Promise
 class HybridWorkerThread : HybridWorkerThreadSpec() {
   override fun summarize(values: DoubleArray): Promise<Double> {
     return Promise.async {
-      val result = WorkerThreadBodies.summarize(values.toMutableList())
-      result
+      WorkerThreadBodies.summarize(values.toMutableList())
     }
   }
 
   override fun label(count: Double): Promise<String> {
     return Promise.async {
-      val result = WorkerThreadBodies.label(count)
-      result
+      WorkerThreadBodies.label(count)
     }
   }
 }

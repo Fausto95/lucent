@@ -11,8 +11,7 @@ import com.margelo.nitro.core.Promise
 @DoNotStrip
 class HybridThrow : HybridThrowSpec() {
   override fun divide(a: Double, b: Double): Double {
-    val result = ThrowBodies.divide(a, b)
-    return result
+    return ThrowBodies.divide(a, b)
   }
 
   override fun fail(): Unit {

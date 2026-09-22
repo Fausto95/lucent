@@ -13,100 +13,90 @@ class HybridAsyncReference : HybridAsyncReferenceSpec() {
   override fun lucentRelease(handle: Double) { LucentObjectRegistry.release(handle) }
 
   override fun lucentInternal_2e40afc3526ae0ac_TaskScope__create(): Double {
-    return LucentObjectRegistry.withObjects(listOf()) { lucentLeases ->
     val result = AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__create()
-    LucentObjectRegistry.hold(result)
-    }
+    return LucentObjectRegistry.hold(result)
   }
 
   override fun lucentInternal_2e40afc3526ae0ac_TaskScope__get_closing(lucentSelf: Double): Boolean {
     return LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
-    val result = AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__get_closing(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope::class.java))
-    result
+      AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__get_closing(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope::class.java))
     }
   }
 
   override fun lucentInternal_2e40afc3526ae0ac_TaskScope__get_activeCount(lucentSelf: Double): Double {
     return LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
-    val result = AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__get_activeCount(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope::class.java))
-    result
+      AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__get_activeCount(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope::class.java))
     }
   }
 
   override fun lucentInternal_2e40afc3526ae0ac_TaskScope__method_begin(lucentSelf: Double): Double {
     return LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
-    val result = AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__method_begin(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope::class.java))
-    LucentObjectRegistry.hold(result)
+      val result = AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__method_begin(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope::class.java))
+      LucentObjectRegistry.hold(result)
     }
   }
 
   override fun lucentInternal_2e40afc3526ae0ac_TaskScope__method_close(lucentSelf: Double): Promise<Unit> {
     val lucentLeases = LucentObjectRegistry.acquireMany(listOf(lucentSelf))
     try {
-    return Promise.async {
-      try {
-      AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__method_close(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope::class.java))
-      } finally { lucentLeases.close() }
-    }
+      return Promise.async {
+        try {
+          AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__method_close(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope::class.java))
+        } finally { lucentLeases.close() }
+      }
     } catch (error: Throwable) { lucentLeases.close(); throw error }
   }
 
   override fun lucentInternal_2e40afc3526ae0ac_NativeTask__create(scope: Double): Double {
     return LucentObjectRegistry.withObjects(listOf(scope)) { lucentLeases ->
-    val result = AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__create(lucentLeases.get(scope, lucentInternal_2e40afc3526ae0ac_TaskScope::class.java))
-    LucentObjectRegistry.hold(result)
+      val result = AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__create(lucentLeases.get(scope, lucentInternal_2e40afc3526ae0ac_TaskScope::class.java))
+      LucentObjectRegistry.hold(result)
     }
   }
 
   override fun lucentInternal_2e40afc3526ae0ac_NativeTask__get_cancelled(lucentSelf: Double): Boolean {
     return LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
-    val result = AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__get_cancelled(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask::class.java))
-    result
+      AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__get_cancelled(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask::class.java))
     }
   }
 
   override fun lucentInternal_2e40afc3526ae0ac_NativeTask__get_finished(lucentSelf: Double): Boolean {
     return LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
-    val result = AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__get_finished(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask::class.java))
-    result
+      AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__get_finished(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask::class.java))
     }
   }
 
   override fun lucentInternal_2e40afc3526ae0ac_NativeTask__method_cancel(lucentSelf: Double): Unit {
     return LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
-    AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__method_cancel(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask::class.java))
+      AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__method_cancel(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask::class.java))
     }
   }
 
   override fun lucentInternal_2e40afc3526ae0ac_NativeTask__method_finish(lucentSelf: Double): Boolean {
     return LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
-    val result = AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__method_finish(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask::class.java))
-    result
+      AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__method_finish(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask::class.java))
     }
   }
 
   override fun lucentInternal_2e40afc3526ae0ac_NativeTask__method_throwIfCancelled(lucentSelf: Double): Unit {
     return LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
-    AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__method_throwIfCancelled(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask::class.java))
+      AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__method_throwIfCancelled(lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask::class.java))
     }
   }
 
   override fun open(): Double {
-    return LucentObjectRegistry.withObjects(listOf()) { lucentLeases ->
     val result = AsyncReferenceBodies.open()
-    LucentObjectRegistry.hold(result)
-    }
+    return LucentObjectRegistry.hold(result)
   }
 
   override fun settle(scope: Double): Promise<Double> {
     val lucentLeases = LucentObjectRegistry.acquireMany(listOf(scope))
     try {
-    return Promise.async {
-      try {
-      val result = AsyncReferenceBodies.settle(lucentLeases.get(scope, lucentInternal_2e40afc3526ae0ac_TaskScope::class.java))
-      result
-      } finally { lucentLeases.close() }
-    }
+      return Promise.async {
+        try {
+          AsyncReferenceBodies.settle(lucentLeases.get(scope, lucentInternal_2e40afc3526ae0ac_TaskScope::class.java))
+        } finally { lucentLeases.close() }
+      }
     } catch (error: Throwable) { lucentLeases.close(); throw error }
   }
 }

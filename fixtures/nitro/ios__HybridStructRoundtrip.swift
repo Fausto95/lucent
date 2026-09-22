@@ -10,8 +10,7 @@ class HybridStructRoundtrip: HybridStructRoundtripSpec {
   }
 
   func describe(user: StructRoundtripUser) throws -> String {
-    let result = try StructRoundtripBodies.describe(user: StructRoundtripBodies.User.fromNitro(user))
-    return result
+    return try StructRoundtripBodies.describe(user: StructRoundtripBodies.User.fromNitro(user))
   }
 }
 

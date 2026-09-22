@@ -1,3 +1,4 @@
+import { block, render, sections, type Doc } from "@lucent-lang/codegen";
 import { fillNative } from "@lucent-lang/codegen";
 import { kotlinErrorWire } from "./errors.ts";
 import { nativeKotlin } from "./native.ts";
@@ -91,20 +92,22 @@ export function generateKotlin(module: IRModule): GeneratedUnit {
       ...kotlinEnumImports(module),
     ]),
   ];
-  const code = [
-    ...imports.map((i) => `import ${i}`),
-    ...kotlinEnums(module.enums ?? {}),
-    ...structs.map((s) =>
-      s.reference
-        ? kotlinClass(
-            module.structs.find((ir) => ir.name === s.name)!,
-            false,
-          )
-        : `data class ${s.name}(\n${s.fields.map((f) => `  var ${f.name}: ${f.type}`).join(",\n")}\n)`,
-    ),
-    ...functions.map((f) => `${signature(f)} {\n${indent(f.body).join("\n")}\n}`),
-  ].join("\n\n");
-  return { code: code + "\n", structs, functions, imports };
+  const code = render(
+    sections([
+      imports.map((i) => `import ${i}`),
+      ...kotlinEnums(module.enums ?? {}),
+      ...structs.map((s) =>
+        s.reference
+          ? kotlinClass(
+              module.structs.find((ir) => ir.name === s.name)!,
+              false,
+            )
+          : dataClass(s),
+      ),
+      ...functions.map((f) => block(`${signature(f)} {`, f.body)),
+    ]),
+  );
+  return { code, structs, functions, imports };
 }
 
 export function signature(f: GeneratedFunction): string {
@@ -115,8 +118,16 @@ export function signature(f: GeneratedFunction): string {
   return `${f.view ? "@Composable " : ""}${f.async ? "suspend " : ""}fun ${f.name}(${[params, state].filter(Boolean).join(", ")}): ${f.returnType}`;
 }
 
-export const indent = (lines: string[], depth = 1): string[] =>
-  lines.map((l) => (l === "" ? l : "  ".repeat(depth) + l));
+/** Statement bodies are still text; the Kotlin AST replaces this. Not exported: assembly uses `block`. */
+const indent = (lines: string[], depth = 1): string[] => lines.map((l) => (l === "" ? l : "  ".repeat(depth) + l));
+
+/** A data class with one field per line, so a wide record stays readable. */
+export const dataClass = (s: GeneratedStruct): Doc =>
+  block(
+    `data class ${s.name}(`,
+    s.fields.map((f, i) => `var ${f.name}: ${f.type}${i < s.fields.length - 1 ? "," : ""}`),
+    ")",
+  );
 
 function generateStruct(s: IRStruct): GeneratedStruct {
   return {
@@ -395,14 +406,13 @@ export function generateKotlinNamespace(module: IRModule, name: string): string 
     ...unit.structs
       .filter((s) => !s.reference)
       .map((s) => `data class ${s.name}(${s.fields.map((f) => `var ${f.name}: ${f.type}`).join(", ")})`),
-    ...unit.functions.map((f) => `${signature(f)} {\n${indent(f.body).join("\n")}\n}`),
+    ...unit.functions.map((f) => block(`${signature(f)} {`, f.body)),
   ];
-  return [
-    ...unit.imports.map((i) => `import ${i}`),
-    ...kotlinEnums(module.enums ?? {}),
-    `object ${name} {`,
-    ...indent(members.join("\n\n").split("\n")),
-    "}",
-    "",
-  ].join("\n");
+  return render(
+    sections([
+      unit.imports.map((i) => `import ${i}`),
+      ...kotlinEnums(module.enums ?? {}),
+      block(`object ${name} {`, sections(members)),
+    ]),
+  );
 }

@@ -5,8 +5,7 @@ import NitroModules
 
 class HybridBytes: HybridBytesSpec {
   func checksum(data: ArrayBuffer) throws -> Double {
-    let result = try BytesBodies.checksum(data: data)
-    return result
+    return try BytesBodies.checksum(data: data)
   }
 }
 

@@ -5,8 +5,7 @@ import NitroModules
 
 class HybridClosureBody: HybridClosureBodySpec {
   func scaled(base: Double) throws -> Double {
-    let result = try ClosureBodyBodies.scaled(base: base)
-    return result
+    return try ClosureBodyBodies.scaled(base: base)
   }
 }
 

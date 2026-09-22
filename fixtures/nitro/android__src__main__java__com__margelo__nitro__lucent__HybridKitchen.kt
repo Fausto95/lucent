@@ -11,8 +11,7 @@ import com.margelo.nitro.core.Promise
 @DoNotStrip
 class HybridKitchen : HybridKitchenSpec() {
   override fun summarize(stats: KitchenStats, key: String, verbose: Boolean): String {
-    val result = KitchenBodies.summarize(KitchenBodies.Stats.fromNitro(stats), key, verbose)
-    return result
+    return KitchenBodies.summarize(KitchenBodies.Stats.fromNitro(stats), key, verbose)
   }
 }
 

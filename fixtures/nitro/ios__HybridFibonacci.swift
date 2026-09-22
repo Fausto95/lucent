@@ -5,8 +5,7 @@ import NitroModules
 
 class HybridFibonacci: HybridFibonacciSpec {
   func fibonacci(n: Double) throws -> Double {
-    let result = try FibonacciBodies.fibonacci(n: n)
-    return result
+    return try FibonacciBodies.fibonacci(n: n)
   }
 }
 

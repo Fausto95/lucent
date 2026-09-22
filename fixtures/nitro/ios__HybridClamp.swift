@@ -5,8 +5,7 @@ import NitroModules
 
 class HybridClamp: HybridClampSpec {
   func clamp(value: Double, min: Double, max: Double) throws -> Double {
-    let result = try ClampBodies.clamp(value: value, min: min, max: max)
-    return result
+    return try ClampBodies.clamp(value: value, min: min, max: max)
   }
 }
 

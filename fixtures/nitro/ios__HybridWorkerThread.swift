@@ -6,15 +6,13 @@ import NitroModules
 class HybridWorkerThread: HybridWorkerThreadSpec {
   func summarize(values: [Double]) throws -> Promise<Double> {
     return Promise.async {
-      let result = try await WorkerThreadBodies.summarize(values: values)
-      return result
+      return try await WorkerThreadBodies.summarize(values: values)
     }
   }
 
   func label(count: Double) throws -> Promise<String> {
     return Promise.async {
-      let result = try await WorkerThreadBodies.label(count: count)
-      return result
+      return try await WorkerThreadBodies.label(count: count)
     }
   }
 }

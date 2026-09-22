@@ -11,8 +11,7 @@ import com.margelo.nitro.core.Promise
 @DoNotStrip
 class HybridBytes : HybridBytesSpec() {
   override fun checksum(data: ArrayBuffer): Double {
-    val result = BytesBodies.checksum(data)
-    return result
+    return BytesBodies.checksum(data)
   }
 }
 

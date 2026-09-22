@@ -11,8 +11,7 @@ import com.margelo.nitro.core.Promise
 @DoNotStrip
 class HybridFibonacci : HybridFibonacciSpec() {
   override fun fibonacci(n: Double): Double {
-    val result = FibonacciBodies.fibonacci(n)
-    return result
+    return FibonacciBodies.fibonacci(n)
   }
 }
 

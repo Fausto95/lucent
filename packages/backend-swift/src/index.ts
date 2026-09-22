@@ -1,3 +1,4 @@
+import { block, render, sections, type Doc } from "@lucent-lang/codegen";
 import { fillNative } from "@lucent-lang/codegen";
 import { swiftErrorWire } from "./errors.ts";
 import { nativeSwift } from "./native.ts";
@@ -85,17 +86,17 @@ export function generateSwift(module: IRModule): GeneratedUnit {
       ...swiftEnumImports(module),
     ]),
   ];
-  const code = [
-    ...imports.map((i) => `import ${i}`),
-    ...swiftEnums(module.enums ?? {}),
-    ...structs.map((s) =>
-      s.reference
-        ? swiftClass(module.structs.find((ir) => ir.name === s.name)!)
-        : `struct ${s.name} {\n${s.fields.map((f) => `  var ${f.name}: ${f.type}`).join("\n")}\n}`,
-    ),
-    ...functions.map((f) => `${signature(f)} {\n${indent(f.body).join("\n")}\n}`),
-  ].join("\n\n");
-  return { code: code + "\n", structs, functions, imports };
+  const code = render(
+    sections([
+      imports.map((i) => `import ${i}`),
+      ...swiftEnums(module.enums ?? {}),
+      ...structs.map((s) =>
+        s.reference ? swiftClass(module.structs.find((ir) => ir.name === s.name)!) : structDeclaration(s),
+      ),
+      ...functions.map((f) => block(`${signature(f)} {`, f.body)),
+    ]),
+  );
+  return { code, structs, functions, imports };
 }
 
 export function signature(f: GeneratedFunction): string {
@@ -110,8 +111,14 @@ export function signature(f: GeneratedFunction): string {
   return `${f.thread === "main" ? "@MainActor " : ""}func ${f.name}(${params})${f.async ? " async" : ""} throws -> ${f.returnType}`;
 }
 
-export const indent = (lines: string[], depth = 1): string[] =>
-  lines.map((l) => (l === "" ? l : "  ".repeat(depth) + l));
+/** Statement bodies are still text; the Swift AST replaces this. Not exported: assembly uses `block`. */
+const indent = (lines: string[], depth = 1): string[] => lines.map((l) => (l === "" ? l : "  ".repeat(depth) + l));
+
+export const structDeclaration = (s: GeneratedStruct): Doc =>
+  block(
+    `struct ${s.name} {`,
+    s.fields.map((f) => `var ${f.name}: ${f.type}`),
+  );
 
 function generateStruct(s: IRStruct): GeneratedStruct {
   return {
@@ -451,17 +458,14 @@ export function str(s: string): string {
 export function generateSwiftNamespace(module: IRModule, name: string): string {
   const unit = generateSwift(module);
   const members = [
-    ...unit.structs
-      .filter((s) => !s.reference)
-      .map((s) => `struct ${s.name} {\n${s.fields.map((f) => `  var ${f.name}: ${f.type}`).join("\n")}\n}`),
-    ...unit.functions.map((f) => `${signature(f).replace("func ", "static func ")} {\n${indent(f.body).join("\n")}\n}`),
+    ...unit.structs.filter((s) => !s.reference).map(structDeclaration),
+    ...unit.functions.map((f) => block(`${signature(f).replace("func ", "static func ")} {`, f.body)),
   ];
-  return [
-    ...unit.imports.map((i) => `import ${i}`),
-    ...swiftEnums(module.enums ?? {}),
-    `enum ${name} {`,
-    ...indent(members.join("\n\n").split("\n")),
-    "}",
-    "",
-  ].join("\n");
+  return render(
+    sections([
+      unit.imports.map((i) => `import ${i}`),
+      ...swiftEnums(module.enums ?? {}),
+      block(`enum ${name} {`, sections(members)),
+    ]),
+  );
 }

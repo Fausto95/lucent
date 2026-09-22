@@ -16,8 +16,7 @@ class HybridStructRoundtrip : HybridStructRoundtripSpec() {
   }
 
   override fun describe(user: StructRoundtripUser): String {
-    val result = StructRoundtripBodies.describe(StructRoundtripBodies.User.fromNitro(user))
-    return result
+    return StructRoundtripBodies.describe(StructRoundtripBodies.User.fromNitro(user))
   }
 }
 

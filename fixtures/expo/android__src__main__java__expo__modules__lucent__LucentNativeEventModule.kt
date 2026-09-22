@@ -16,6 +16,7 @@ class LucentNativeEventModule : Module() {
   ) : Record
 
   private val eventTokens = mutableListOf<Int>()
+
   override fun definition() = ModuleDefinition {
     Name("Lucent_native-event")
     Events("progress")

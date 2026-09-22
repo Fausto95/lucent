@@ -5,8 +5,7 @@ import NitroModules
 
 class HybridThrow: HybridThrowSpec {
   func divide(a: Double, b: Double) throws -> Double {
-    let result = try ThrowBodies.divide(a: a, b: b)
-    return result
+    return try ThrowBodies.divide(a: a, b: b)
   }
 
   func fail() throws -> Void {

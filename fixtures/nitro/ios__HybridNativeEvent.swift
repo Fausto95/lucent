@@ -6,6 +6,7 @@ import NitroModules
 class HybridNativeEvent: HybridNativeEventSpec {
   private var eventTokens: Set<Int> = []
   deinit { eventTokens.forEach { LucentEventHub.shared.remove($0) } }
+
   func subscribeProgress(listener: @escaping (String) -> Void) throws -> Double {
     let token = LucentEventHub.shared.subscribe("__event_253846265b0a3b85_progress", listener)
     eventTokens.insert(token)

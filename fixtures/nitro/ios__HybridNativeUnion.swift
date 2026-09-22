@@ -10,8 +10,7 @@ class HybridNativeUnion: HybridNativeUnionSpec {
   }
 
   func read(result: NativeUnionResult) throws -> Double {
-    let result = try NativeUnionBodies.read(result: NativeUnionBodies.Result.fromNitro(result))
-    return result
+    return try NativeUnionBodies.read(result: NativeUnionBodies.Result.fromNitro(result))
   }
 }
 

@@ -11,8 +11,7 @@ import com.margelo.nitro.core.Promise
 @DoNotStrip
 class HybridClosureBody : HybridClosureBodySpec() {
   override fun scaled(base: Double): Double {
-    val result = ClosureBodyBodies.scaled(base)
-    return result
+    return ClosureBodyBodies.scaled(base)
   }
 }
 

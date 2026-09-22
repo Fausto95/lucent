@@ -1,3 +1,4 @@
+import { blank, block, render, sections, type Doc } from "@lucent-lang/codegen";
 import { fillNative } from "@lucent-lang/codegen";
 import { emitNativePackages } from "@lucent-lang/host-core";
 import { nativeAsset } from "./native.ts";
@@ -16,7 +17,6 @@ import {
   swiftObjectRuntime,
   swiftRuntime,
   swiftEventRuntime,
-  indent as indentSwift,
   signature as swiftSignature,
 } from "@lucent-lang/backend-swift";
 import {
@@ -29,7 +29,6 @@ import {
   kotlinRuntime,
   kotlinEventRuntime,
   kotlinType,
-  indent as indentKotlin,
   signature as kotlinSignature,
 } from "@lucent-lang/backend-kotlin";
 import type { GeneratedFunction, GeneratedStruct } from "@lucent-lang/backend-kotlin";
@@ -202,29 +201,33 @@ final class LucentError: Exception {
 function swiftModule(module: IRModule): string {
   const unit = generateSwift(withoutViews(module));
   const concurrent = unit.functions.some((f) => f.async);
-  const members: string[] = [];
+  const members: Doc[] = [];
   const events = (module.events ?? []).filter((e) => e.exported);
   if (events.length)
-    members.push(
+    members.push([
       "private var eventTokens: [Int] = []",
-      "public func definition() -> ModuleDefinition {",
-      `  Events(${events.map((e) => JSON.stringify(e.name)).join(", ")})`,
-      "  OnCreate { [weak self] in",
-      "    guard let self else { return }",
-      ...events.map(
-        (e) =>
-          `    self.eventTokens.append(LucentEventHub.shared.subscribe(${JSON.stringify(e.id)}) { [weak self] json in self?.sendEvent(${JSON.stringify(e.name)}, ["json": json]) })`,
+      block("public func definition() -> ModuleDefinition {", [
+        `Events(${events.map((e) => JSON.stringify(e.name)).join(", ")})`,
+        block("OnCreate { [weak self] in", [
+          "guard let self else { return }",
+          ...events.map(
+            (e) =>
+              `self.eventTokens.append(LucentEventHub.shared.subscribe(${JSON.stringify(e.id)}) { [weak self] json in self?.sendEvent(${JSON.stringify(e.name)}, ["json": json]) })`,
+          ),
+        ]),
+        "OnDestroy { [weak self] in self?.eventTokens.forEach { LucentEventHub.shared.remove($0) }; self?.eventTokens.removeAll() }",
+      ]),
+    ]);
+  for (const s of unit.structs.filter((item) => !item.reference))
+    members.push([
+      "@Record",
+      block(
+        `struct ${s.name} {`,
+        s.fields.map((f) => `var ${f.name}: ${f.type}`),
       ),
-      "  }",
-      "  OnDestroy { [weak self] in self?.eventTokens.forEach { LucentEventHub.shared.remove($0) }; self?.eventTokens.removeAll() }",
-      "}",
-      "",
-    );
-  for (const s of unit.structs.filter((item) => !item.reference)) {
-    members.push(`@Record`, `struct ${s.name} {`, ...s.fields.map((f) => `  var ${f.name}: ${f.type}`), `}`, "");
-  }
+    ]);
   if (module.structs.some((s) => s.reference))
-    members.push("@JS func lucentRelease(handle: Double) { LucentObjectRegistry.shared.release(handle) }", "");
+    members.push("@JS func lucentRelease(handle: Double) { LucentObjectRegistry.shared.release(handle) }");
   for (const f of unit.functions) {
     const ir = module.functions.find((fn) => fn.name === f.name)!;
     const bridgedType = (type: NativeType, generated: string) =>
@@ -235,6 +238,8 @@ function swiftModule(module: IRModule): string {
       ir.returnType.kind === "enum";
     if (f.exported && bridged) {
       const params = ir.params.map((p, i) => `${p.name}: ${bridgedType(p.type, f.params[i]!.type)}`).join(", ");
+      const references = ir.params.filter((p) => isReference(p.type, module));
+      const handles = references.map((p) => p.name).join(", ");
       const args = ir.params
         .map((p) => {
           if (isReference(p.type, module) && p.type.kind === "struct")
@@ -243,63 +248,57 @@ function swiftModule(module: IRModule): string {
           return `${p.name}: ${p.name}`;
         })
         .join(", ");
-      members.push(
-        `@JS("${f.name}"${f.async ? ", .concurrent" : ""})`,
-        `func __bridge_${f.name}(${params})${f.async ? " async" : ""} throws -> ${bridgedType(ir.returnType, f.returnType)} {`,
-        ...(f.async && ir.params.some((p) => isReference(p.type, module))
-          ? [
-              `  let lucentLeases = try LucentObjectRegistry.shared.acquireMany([${ir.params
-                .filter((p) => isReference(p.type, module))
-                .map((p) => p.name)
-                .join(", ")}])`,
-              "  defer { lucentLeases.close() }",
-            ]
-          : []),
-        ...(f.async
-          ? []
-          : [
-              `  return try LucentObjectRegistry.shared.withObjects([${ir.params
-                .filter((p) => isReference(p.type, module))
-                .map((p) => p.name)
-                .join(", ")}]) { lucentLeases in`,
-            ]),
-        `    let result = try ${f.async ? "await " : ""}${f.name}(${args})`,
-        `    return ${
+      const settle: Doc = [
+        `let result = try ${f.async ? "await " : ""}${f.name}(${args})`,
+        `return ${
           isReference(ir.returnType, module)
             ? "LucentObjectRegistry.shared.hold(result)"
             : ir.returnType.kind === "enum"
               ? `try ${swiftEnumBridge(ir.returnType.name)}.toLucent(result)`
               : "result"
         }`,
-        ...(f.async ? [] : ["  }"]),
-        "}",
-        "",
-      );
-    }
-    if (f.exported && !bridged) members.push(f.async ? "@JS(.concurrent)" : "@JS");
-    members.push(
-      `${swiftSignature(f)} {`,
-      ...indentSwift(
-        f.body.map((line) =>
-          f.thread === "worker" ? line.replace("Task.detached {", "Task.detached { [self] in") : line,
+      ];
+      // An async bridge cannot hold a synchronous scope across a suspension, so it
+      // takes the leases up front and releases them on the way out instead.
+      members.push([
+        `@JS("${f.name}"${f.async ? ", .concurrent" : ""})`,
+        block(
+          `func __bridge_${f.name}(${params})${f.async ? " async" : ""} throws -> ${bridgedType(ir.returnType, f.returnType)} {`,
+          f.async
+            ? [
+                ...(references.length
+                  ? [
+                      `let lucentLeases = try LucentObjectRegistry.shared.acquireMany([${handles}])`,
+                      "defer { lucentLeases.close() }",
+                    ]
+                  : []),
+                settle,
+              ]
+            : block(`return try LucentObjectRegistry.shared.withObjects([${handles}]) { lucentLeases in`, settle),
         ),
-      ),
-      "}",
-      "",
+      ]);
+    }
+    const body = f.body.map((line) =>
+      f.thread === "worker" ? line.replace("Task.detached {", "Task.detached { [self] in") : line,
     );
+    members.push([
+      ...(f.exported && !bridged ? [f.async ? "@JS(.concurrent)" : "@JS"] : []),
+      block(`${swiftSignature(f)} {`, body),
+    ]);
   }
-  members.pop();
-  return [
-    GENERATED_HEADER,
-    "import ExpoModulesCore",
-    ...unit.imports.map((i) => `import ${i}`),
-    "",
-    `@ExpoModule(${JSON.stringify(nativeModuleName(module))})`,
-    `public final class ${moduleClassName(module)}: Module${concurrent ? ", @unchecked Sendable" : ""} {`,
-    ...indentSwift(members),
-    "}",
-    "",
-  ].join("\n");
+  return render(
+    sections([
+      GENERATED_HEADER.trimEnd(),
+      ["import ExpoModulesCore", ...unit.imports.map((i) => `import ${i}`)],
+      [
+        `@ExpoModule(${JSON.stringify(nativeModuleName(module))})`,
+        block(
+          `public final class ${moduleClassName(module)}: Module${concurrent ? ", @unchecked Sendable" : ""} {`,
+          sections(members),
+        ),
+      ],
+    ]),
+  );
 }
 
 function podspec(ident: string): string {
@@ -381,10 +380,10 @@ function kotlinDefault(t: NativeType, structs: ReadonlyMap<string, IRStruct>): s
 function kotlinModule(module: IRModule): string {
   const unit = generateKotlin(withoutViews(module));
   const structs = new Map(module.structs.map((s) => [s.name, s]));
-  const members: string[] = [];
+  const members: Doc[] = [];
   for (const s of unit.structs.filter((item) => !item.reference))
-    members.push(...kotlinRecord(s, structs.get(s.name)!, structs), "");
-  const definition: string[] = [`Name(${JSON.stringify(nativeModuleName(module))})`];
+    members.push(kotlinRecord(s, structs.get(s.name)!, structs));
+  const definition: Doc[] = [`Name(${JSON.stringify(nativeModuleName(module))})`];
   const events = (module.events ?? []).filter((e) => e.exported);
   if (events.length) {
     members.push("private val eventTokens = mutableListOf<Int>()");
@@ -408,7 +407,7 @@ function kotlinModule(module: IRModule): string {
       isReference(ir.returnType, module) ||
       ir.returnType.kind === "enum";
     if (!bridged) {
-      definition.push("", ...kotlinBinding(f));
+      definition.push(blank, kotlinBinding(f));
       continue;
     }
     const params = ir.params
@@ -425,73 +424,67 @@ function kotlinModule(module: IRModule): string {
         return `${p.name}${KOTLIN_BOUNDARY[f.params[i]!.type]?.into ?? ""}`;
       })
       .join(", ");
-    definition.push(
-      `${f.async ? `AsyncFunction("${f.name}") Coroutine` : `Function("${f.name}")`} {${params ? ` ${params} ->` : ""}`,
-      ...(f.async && ir.params.some((p) => isReference(p.type, module))
+    const handles = ir.params
+      .filter((p) => isReference(p.type, module))
+      .map((p) => p.name)
+      .join(", ");
+    const settle: Doc = [
+      `val result = ${f.name}(${args})`,
+      isReference(ir.returnType, module)
+        ? "LucentObjectRegistry.hold(result)"
+        : ir.returnType.kind === "enum"
+          ? `${kotlinEnumBridge(ir.returnType.name)}.toLucent(result)`
+          : `result${KOTLIN_BOUNDARY[f.returnType]?.outOf ?? ""}`,
+    ];
+    // A coroutine cannot hold a synchronous scope across a suspension, so it takes
+    // the leases up front and releases them however the body leaves.
+    const guarded: Doc =
+      f.async && handles
         ? [
-            `  val lucentLeases = LucentObjectRegistry.acquireMany(listOf(${ir.params
-              .filter((p) => isReference(p.type, module))
-              .map((p) => p.name)
-              .join(", ")}))`,
-            "  try {",
+            `val lucentLeases = LucentObjectRegistry.acquireMany(listOf(${handles}))`,
+            block("try {", settle, "} finally { lucentLeases.close() }"),
           ]
-        : []),
-      ...(f.async
-        ? []
-        : [
-            `  LucentObjectRegistry.withObjects(listOf(${ir.params
-              .filter((p) => isReference(p.type, module))
-              .map((p) => p.name)
-              .join(", ")})) { lucentLeases ->`,
-          ]),
-      `    val result = ${f.name}(${args})`,
-      `    ${
-        isReference(ir.returnType, module)
-          ? "LucentObjectRegistry.hold(result)"
-          : ir.returnType.kind === "enum"
-            ? `${kotlinEnumBridge(ir.returnType.name)}.toLucent(result)`
-            : `result${KOTLIN_BOUNDARY[f.returnType]?.outOf ?? ""}`
-      }`,
-      ...(f.async && ir.params.some((p) => isReference(p.type, module))
-        ? ["  } finally { lucentLeases.close() }"]
-        : []),
-      ...(f.async ? [] : ["  }"]),
-      "}",
+        : f.async
+          ? settle
+          : block(`LucentObjectRegistry.withObjects(listOf(${handles})) { lucentLeases ->`, settle);
+    definition.push(
+      block(
+        `${f.async ? `AsyncFunction("${f.name}") Coroutine` : `Function("${f.name}")`} {${params ? ` ${params} ->` : ""}`,
+        guarded,
+      ),
     );
   }
-  members.push("override fun definition() = ModuleDefinition {", ...indentKotlin(definition), "}", "");
-  for (const f of unit.functions) members.push(`private ${kotlinSignature(f)} {`, ...indentKotlin(f.body), "}", "");
-  members.pop();
-  return [
-    GENERATED_HEADER,
-    `package ${ANDROID_PACKAGE}`,
-    "",
-    ...unit.imports.map((i) => `import ${i}`),
-    "import expo.modules.kotlin.functions.Coroutine",
-    "import expo.modules.kotlin.jni.ArrayBuffer",
-    "import expo.modules.kotlin.modules.Module",
-    "import expo.modules.kotlin.modules.ModuleDefinition",
-    "import expo.modules.kotlin.records.Field",
-    "import expo.modules.kotlin.records.Record",
-    "",
-    `class ${moduleClassName(module)} : Module() {`,
-    ...indentKotlin(members),
-    "}",
-    "",
-  ].join("\n");
+  members.push(block("override fun definition() = ModuleDefinition {", definition));
+  for (const f of unit.functions) members.push(block(`private ${kotlinSignature(f)} {`, f.body));
+  return render(
+    sections([
+      GENERATED_HEADER.trimEnd(),
+      `package ${ANDROID_PACKAGE}`,
+      [
+        ...unit.imports.map((i) => `import ${i}`),
+        "import expo.modules.kotlin.functions.Coroutine",
+        "import expo.modules.kotlin.jni.ArrayBuffer",
+        "import expo.modules.kotlin.modules.Module",
+        "import expo.modules.kotlin.modules.ModuleDefinition",
+        "import expo.modules.kotlin.records.Field",
+        "import expo.modules.kotlin.records.Record",
+      ],
+      block(`class ${moduleClassName(module)} : Module() {`, sections(members)),
+    ]),
+  );
 }
 
 /** Constructor-parameter Records: named construction for the backend bodies, defaults for the JS bridge. */
-function kotlinRecord(s: GeneratedStruct, ir: IRStruct, structs: ReadonlyMap<string, IRStruct>): string[] {
+function kotlinRecord(s: GeneratedStruct, ir: IRStruct, structs: ReadonlyMap<string, IRStruct>): Doc {
   const fields = ir.fields.map(
-    (f, i) => `  @Field var ${f.name}: ${s.fields[i]!.type} = ${kotlinDefault(f.type, structs)},`,
+    (f, i) =>
+      `@Field var ${f.name}: ${s.fields[i]!.type} = ${kotlinDefault(f.type, structs)}${i < ir.fields.length - 1 ? "," : ""}`,
   );
-  fields[fields.length - 1] = fields[fields.length - 1]!.replace(/,$/, "");
-  return [`class ${s.name}(`, ...fields, ") : Record"];
+  return block(`class ${s.name}(`, fields, ") : Record");
 }
 
 /** `Function("name") { a: Double -> name(a) }` or its `AsyncFunction … Coroutine` form, with boundary conversions. */
-function kotlinBinding(f: GeneratedFunction): string[] {
+function kotlinBinding(f: GeneratedFunction): Doc {
   const params = f.params.map((p) => `${p.name}: ${KOTLIN_BOUNDARY[p.type]?.type ?? p.type}`);
   const args = f.params.map((p) => `${p.name}${KOTLIN_BOUNDARY[p.type]?.into ?? ""}`);
   const call = `${f.name}(${args.join(", ")})${KOTLIN_BOUNDARY[f.returnType]?.outOf ?? ""}`;
@@ -499,7 +492,7 @@ function kotlinBinding(f: GeneratedFunction): string[] {
     ? `AsyncFunction(${JSON.stringify(f.name)}) Coroutine {`
     : `Function(${JSON.stringify(f.name)}) {`;
   const arrow = params.length ? ` ${params.join(", ")} ->` : f.async ? " ->" : "";
-  return [`${head}${arrow}`, `  ${call}`, "}"];
+  return block(`${head}${arrow}`, call);
 }
 
 const COMPOSE_BUILDSCRIPT = nativeAsset("compose-buildscript.gradle");

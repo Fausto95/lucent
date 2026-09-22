@@ -1,3 +1,4 @@
+import { block, indent, render, sections, type Doc } from "@lucent-lang/codegen";
 import { fillNative } from "@lucent-lang/codegen";
 import { emitNativePackages } from "@lucent-lang/host-core";
 import { nativeAsset } from "./native.ts";
@@ -19,7 +20,6 @@ import {
   swiftRuntime,
   swiftEventRuntime,
   swiftType,
-  indent,
   signature as swiftSignature,
 } from "@lucent-lang/backend-swift";
 import {
@@ -395,54 +395,56 @@ function swiftConvert(value: string, t: NativeType, direction: "toBody" | "toNit
 
 function swiftHybrid(module: IRModule): string {
   const unit = generateSwift(withoutViews(module));
-  const bodies: string[] = [];
+  const bodies: Doc[] = [];
   for (const s of unit.structs.filter((item) => !item.reference)) {
     const ir = module.structs.find((x) => x.name === s.name)!;
+    const nitro = nitroStructName(module, s.name);
     bodies.push(
-      `struct ${s.name} {`,
-      ...s.fields.map((f) => `  var ${f.name}: ${f.type}`),
-      "",
-      `  static func fromNitro(_ value: ${nitroStructName(module, s.name)}) -> ${s.name} {`,
-      `    return ${s.name}(${ir.fields.map((f) => `${f.name}: ${swiftConvert(`value.${f.name}`, f.type, "toBody", module)}`).join(", ")})`,
-      "  }",
-      "",
-      `  func toNitro() -> ${nitroStructName(module, s.name)} {`,
-      `    return ${nitroStructName(module, s.name)}(${ir.fields.map((f) => `${f.name}: ${swiftConvert(f.name, f.type, "toNitro", module)}`).join(", ")})`,
-      "  }",
-      "}",
-      "",
+      block(
+        `struct ${s.name} {`,
+        sections([
+          s.fields.map((f) => `var ${f.name}: ${f.type}`),
+          block(
+            `static func fromNitro(_ value: ${nitro}) -> ${s.name} {`,
+            `return ${s.name}(${ir.fields.map((f) => `${f.name}: ${swiftConvert(`value.${f.name}`, f.type, "toBody", module)}`).join(", ")})`,
+          ),
+          block(
+            `func toNitro() -> ${nitro} {`,
+            `return ${nitro}(${ir.fields.map((f) => `${f.name}: ${swiftConvert(f.name, f.type, "toNitro", module)}`).join(", ")})`,
+          ),
+        ]),
+      ),
     );
   }
   for (const f of unit.functions)
     bodies.push(
-      `${f.thread === "main" ? "@MainActor " : ""}static ${swiftSignature({ ...f, thread: "caller" })} {`,
-      ...indent(f.body),
-      "}",
-      "",
+      block(
+        `${f.thread === "main" ? "@MainActor " : ""}static ${swiftSignature({ ...f, thread: "caller" })} {`,
+        f.body,
+      ),
     );
-  bodies.pop();
 
-  const methods: string[] = [];
+  const methods: Doc[] = [];
   if (module.structs.some((s) => s.reference))
-    methods.push("func lucentRelease(handle: Double) throws { LucentObjectRegistry.shared.release(handle) }", "");
+    methods.push("func lucentRelease(handle: Double) throws { LucentObjectRegistry.shared.release(handle) }");
   if (module.events?.some((e) => e.exported))
-    methods.push(
+    methods.push([
       "private var eventTokens: Set<Int> = []",
       "deinit { eventTokens.forEach { LucentEventHub.shared.remove($0) } }",
-    );
+    ]);
   for (const e of (module.events ?? []).filter((event) => event.exported))
-    methods.push(
-      `func subscribe${moduleIdentifier(e.name)}(listener: @escaping (String) -> Void) throws -> Double {`,
-      `  let token = LucentEventHub.shared.subscribe(${JSON.stringify(e.id)}, listener)`,
-      "  eventTokens.insert(token)",
-      "  return Double(token)",
-      "}",
+    methods.push([
+      block(`func subscribe${moduleIdentifier(e.name)}(listener: @escaping (String) -> Void) throws -> Double {`, [
+        `let token = LucentEventHub.shared.subscribe(${JSON.stringify(e.id)}, listener)`,
+        "eventTokens.insert(token)",
+        "return Double(token)",
+      ]),
       `func unsubscribe${moduleIdentifier(e.name)}(token: Double) throws { LucentEventHub.shared.remove(Int(token)); eventTokens.remove(Int(token)) }`,
-      "",
-    );
+    ]);
   for (const fn of exportedFunctions(module)) {
     const params = fn.params.map((p) => `${p.name}: ${nitroSwiftType(p.type, module)}`).join(", ");
     const references = fn.params.filter((p) => isReference(p.type, module));
+    const handles = references.map((p) => p.name).join(", ");
     const args = fn.params
       .map(
         (p) =>
@@ -451,54 +453,50 @@ function swiftHybrid(module: IRModule): string {
       .join(", ");
     const isVoid = fn.returnType.kind === "void";
     const call = `${bodiesName(module)}.${fn.name}(${args})`;
-    const result = isVoid ? "" : swiftConvert("result", fn.returnType, "toNitro", module);
+    const ret = nitroSwiftType(fn.returnType, module);
+    const converted = swiftConvert("result", fn.returnType, "toNitro", module);
+    /**
+     * Bind the result only when a conversion needs a name for it. Swift wants
+     * `try` on the whole expression, so the call cannot be nested inside the
+     * conversion.
+     */
+    const settle = (invoke: string): Doc =>
+      isVoid ? invoke : converted === "result" ? `return ${invoke}` : [`let result = ${invoke}`, `return ${converted}`];
     if (fn.async) {
-      const ret = nitroSwiftType(fn.returnType, module);
       methods.push(
-        `func ${boundaryName(fn.name)}(${params}) throws -> Promise<${ret}> {`,
-        ...(references.length
-          ? [
-              `  let lucentLeases = try LucentObjectRegistry.shared.acquireMany([${references.map((p) => p.name).join(", ")}])`,
-            ]
-          : []),
-        "  return Promise.async {",
-        ...(references.length ? ["    defer { lucentLeases.close() }"] : []),
-        ...(isVoid ? [`    try await ${call}`] : [`    let result = try await ${call}`, `    return ${result}`]),
-        "  }",
-        "}",
-        "",
+        block(`func ${boundaryName(fn.name)}(${params}) throws -> Promise<${ret}> {`, [
+          ...(references.length
+            ? [`let lucentLeases = try LucentObjectRegistry.shared.acquireMany([${handles}])`]
+            : []),
+          block("return Promise.async {", [
+            ...(references.length ? ["defer { lucentLeases.close() }"] : []),
+            settle(`try await ${call}`),
+          ]),
+        ]),
       );
     } else {
+      // Only reference arguments need a lease; a reference result is held after the call returns.
       methods.push(
-        `func ${boundaryName(fn.name)}(${params}) throws -> ${nitroSwiftType(fn.returnType, module)} {`,
-        ...(fn.params.some((p) => isReference(p.type, module)) || isReference(fn.returnType, module)
-          ? [
-              `  return try LucentObjectRegistry.shared.withObjects([${references.map((p) => p.name).join(", ")}]) { lucentLeases in`,
-            ]
-          : []),
-        ...(isVoid ? [`  try ${call}`] : [`  let result = try ${call}`, `  return ${result}`]),
-        ...(fn.params.some((p) => isReference(p.type, module)) || isReference(fn.returnType, module) ? ["  }"] : []),
-        "}",
-        "",
+        block(
+          `func ${boundaryName(fn.name)}(${params}) throws -> ${ret} {`,
+          references.length
+            ? block(
+                `return try LucentObjectRegistry.shared.withObjects([${handles}]) { lucentLeases in`,
+                settle(`try ${call}`),
+              )
+            : settle(`try ${call}`),
+        ),
       );
     }
   }
-  methods.pop();
-  return [
-    GENERATED_HEADER,
-    "import Foundation",
-    ...unit.imports.map((i) => `import ${i}`),
-    "import NitroModules",
-    "",
-    `class Hybrid${hybridName(module)}: Hybrid${hybridName(module)}Spec {`,
-    ...indent(methods),
-    "}",
-    "",
-    `enum ${bodiesName(module)} {`,
-    ...indent(bodies),
-    "}",
-    "",
-  ].join("\n");
+  return render(
+    sections([
+      GENERATED_HEADER.trimEnd(),
+      ["import Foundation", ...unit.imports.map((i) => `import ${i}`), "import NitroModules"],
+      block(`class Hybrid${hybridName(module)}: Hybrid${hybridName(module)}Spec {`, sections(methods)),
+      block(`enum ${bodiesName(module)} {`, sections(bodies)),
+    ]),
+  );
 }
 
 function podspec(): string {
@@ -593,48 +591,52 @@ function kotlinConvert(value: string, t: NativeType, direction: "toBody" | "toNi
 
 function kotlinHybrid(module: IRModule): string {
   const unit = generateKotlin(withoutViews(module));
-  const bodies: string[] = [];
+  const bodies: Doc[] = [];
   for (const s of unit.structs.filter((item) => !item.reference)) {
     const ir = module.structs.find((x) => x.name === s.name)!;
     const nitro = nitroStructName(module, s.name);
-    bodies.push(
-      `data class ${s.name}(`,
-      ...s.fields.map((f, i) => `  var ${f.name}: ${f.type}${i < s.fields.length - 1 ? "," : ""}`),
-      ") {",
-      `  fun toNitro(): ${nitro} = ${nitro}(${ir.fields.map((f) => `${f.name} = ${kotlinConvert(f.name, f.type, "toNitro", module)}`).join(", ")})`,
-      "",
-      "  companion object {",
-      `    fun fromNitro(value: ${nitro}): ${s.name} = ${s.name}(${ir.fields.map((f) => `${f.name} = ${kotlinConvert(`value.${f.name}`, f.type, "toBody", module)}`).join(", ")})`,
-      "  }",
+    bodies.push([
+      block(
+        `data class ${s.name}(`,
+        s.fields.map((f, i) => `var ${f.name}: ${f.type}${i < s.fields.length - 1 ? "," : ""}`),
+        ") {",
+      ),
+      indent(
+        sections([
+          `fun toNitro(): ${nitro} = ${nitro}(${ir.fields.map((f) => `${f.name} = ${kotlinConvert(f.name, f.type, "toNitro", module)}`).join(", ")})`,
+          block(
+            "companion object {",
+            `fun fromNitro(value: ${nitro}): ${s.name} = ${s.name}(${ir.fields.map((f) => `${f.name} = ${kotlinConvert(`value.${f.name}`, f.type, "toBody", module)}`).join(", ")})`,
+          ),
+        ]),
+      ),
       "}",
-      "",
-    );
+    ]);
   }
-  for (const f of unit.functions) bodies.push(`${kotlinSignature(f)} {`, ...indent(f.body), "}", "");
-  bodies.pop();
+  for (const f of unit.functions) bodies.push(block(`${kotlinSignature(f)} {`, f.body));
 
-  const methods: string[] = [];
+  const methods: Doc[] = [];
   if (module.structs.some((s) => s.reference))
-    methods.push("override fun lucentRelease(handle: Double) { LucentObjectRegistry.release(handle) }", "");
+    methods.push("override fun lucentRelease(handle: Double) { LucentObjectRegistry.release(handle) }");
   if (module.events?.some((e) => e.exported))
-    methods.push(
+    methods.push([
       "private val eventTokens = java.util.Collections.synchronizedSet(mutableSetOf<Int>())",
       "override fun dispose() { synchronized(eventTokens) { eventTokens.forEach { LucentEventHub.remove(it) }; eventTokens.clear() }; super.dispose() }",
-    );
+    ]);
   for (const e of (module.events ?? []).filter((event) => event.exported))
-    methods.push(
-      `override fun subscribe${moduleIdentifier(e.name)}(listener: (String) -> Unit): Double {`,
-      `  val token = LucentEventHub.subscribe(${JSON.stringify(e.id)}, listener)`,
-      "  eventTokens.add(token)",
-      "  return token.toDouble()",
-      "}",
+    methods.push([
+      block(`override fun subscribe${moduleIdentifier(e.name)}(listener: (String) -> Unit): Double {`, [
+        `val token = LucentEventHub.subscribe(${JSON.stringify(e.id)}, listener)`,
+        "eventTokens.add(token)",
+        "return token.toDouble()",
+      ]),
       `override fun unsubscribe${moduleIdentifier(e.name)}(token: Double) { LucentEventHub.remove(token.toInt()); eventTokens.remove(token.toInt()) }`,
-      "",
-    );
+    ]);
   for (const fn of exportedFunctions(module)) {
     const gen: GeneratedFunction = unit.functions.find((f) => f.name === fn.name)!;
     const params = fn.params.map((p) => `${p.name}: ${nitroKotlinType(p.type, module)}`).join(", ");
     const references = fn.params.filter((p) => isReference(p.type, module));
+    const handles = references.map((p) => p.name).join(", ");
     const args = fn.params
       .map((p) =>
         isReference(p.type, module) && p.type.kind === "struct"
@@ -645,68 +647,58 @@ function kotlinHybrid(module: IRModule): string {
     const call = `${bodiesName(module)}.${gen.name}(${args})`;
     const isVoid = fn.returnType.kind === "void";
     const ret = nitroKotlinType(fn.returnType, module);
-    const result = isVoid ? "" : kotlinConvert("result", fn.returnType, "toNitro", module);
+    const converted = kotlinConvert("result", fn.returnType, "toNitro", module);
+    /** Bind the call only when a conversion needs to name it. */
+    const settle = (keyword: string): Doc =>
+      isVoid ? call : converted === "result" ? `${keyword}${call}` : [`val result = ${call}`, `${keyword}${converted}`];
     if (fn.async) {
+      // A lease taken before the coroutine starts must be released on every exit from it.
+      const async = block("return Promise.async {", references.length ? tryFinally(settle("")) : settle(""));
       methods.push(
-        `override fun ${boundaryName(fn.name)}(${params}): Promise<${ret}> {`,
-        ...(references.length
-          ? [
-              `  val lucentLeases = LucentObjectRegistry.acquireMany(listOf(${references.map((p) => p.name).join(", ")}))`,
-              "  try {",
-            ]
-          : []),
-        "  return Promise.async {",
-        ...(references.length ? ["    try {"] : []),
-        ...(isVoid ? [`    ${call}`] : [`    val result = ${call}`, `    ${result}`]),
-        ...(references.length ? ["    } finally { lucentLeases.close() }"] : []),
-        "  }",
-        ...(references.length ? ["  } catch (error: Throwable) { lucentLeases.close(); throw error }"] : []),
-        "}",
-        "",
+        block(
+          `override fun ${boundaryName(fn.name)}(${params}): Promise<${ret}> {`,
+          references.length
+            ? [
+                `val lucentLeases = LucentObjectRegistry.acquireMany(listOf(${handles}))`,
+                block("try {", async, "} catch (error: Throwable) { lucentLeases.close(); throw error }"),
+              ]
+            : async,
+        ),
       );
     } else {
       methods.push(
-        `override fun ${boundaryName(fn.name)}(${params}): ${ret} {`,
-        ...(fn.params.some((p) => isReference(p.type, module)) || isReference(fn.returnType, module)
-          ? [
-              `  return LucentObjectRegistry.withObjects(listOf(${references.map((p) => p.name).join(", ")})) { lucentLeases ->`,
-            ]
-          : []),
-        ...(isVoid
-          ? [`  ${call}`]
-          : [
-              `  val result = ${call}`,
-              `  ${fn.params.some((p) => isReference(p.type, module)) || isReference(fn.returnType, module) ? "" : "return "}${result}`,
-            ]),
-        ...(fn.params.some((p) => isReference(p.type, module)) || isReference(fn.returnType, module) ? ["  }"] : []),
-        "}",
-        "",
+        block(
+          `override fun ${boundaryName(fn.name)}(${params}): ${ret} {`,
+          references.length
+            ? block(`return LucentObjectRegistry.withObjects(listOf(${handles})) { lucentLeases ->`, settle(""))
+            : settle("return "),
+        ),
       );
     }
   }
-  methods.pop();
-  return [
-    GENERATED_HEADER,
-    `package ${ANDROID_PACKAGE}`,
-    "",
-    ...unit.imports.map((i) => `import ${i}`),
-    "import androidx.annotation.Keep",
-    "import com.facebook.proguard.annotations.DoNotStrip",
-    "import com.margelo.nitro.core.ArrayBuffer",
-    "import com.margelo.nitro.core.Promise",
-    "",
-    "@Keep",
-    "@DoNotStrip",
-    `class Hybrid${hybridName(module)} : Hybrid${hybridName(module)}Spec() {`,
-    ...indent(methods),
-    "}",
-    "",
-    `object ${bodiesName(module)} {`,
-    ...indent(bodies),
-    "}",
-    "",
-  ].join("\n");
+  return render(
+    sections([
+      GENERATED_HEADER.trimEnd(),
+      `package ${ANDROID_PACKAGE}`,
+      [
+        ...unit.imports.map((i) => `import ${i}`),
+        "import androidx.annotation.Keep",
+        "import com.facebook.proguard.annotations.DoNotStrip",
+        "import com.margelo.nitro.core.ArrayBuffer",
+        "import com.margelo.nitro.core.Promise",
+      ],
+      [
+        "@Keep",
+        "@DoNotStrip",
+        block(`class Hybrid${hybridName(module)} : Hybrid${hybridName(module)}Spec() {`, sections(methods)),
+      ],
+      block(`object ${bodiesName(module)} {`, sections(bodies)),
+    ]),
+  );
 }
+
+/** Releases the lease however the coroutine body leaves: value, exception or cancellation. */
+const tryFinally = (body: Doc): Doc => block("try {", body, "} finally { lucentLeases.close() }");
 
 function buildGradle(): string {
   return fillNative(nativeAsset("build.gradle"), {

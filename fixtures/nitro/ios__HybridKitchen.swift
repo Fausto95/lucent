@@ -5,8 +5,7 @@ import NitroModules
 
 class HybridKitchen: HybridKitchenSpec {
   func summarize(stats: KitchenStats, key: String, verbose: Bool) throws -> String {
-    let result = try KitchenBodies.summarize(stats: KitchenBodies.Stats.fromNitro(stats), key: key, verbose: verbose)
-    return result
+    return try KitchenBodies.summarize(stats: KitchenBodies.Stats.fromNitro(stats), key: key, verbose: verbose)
   }
 }
 

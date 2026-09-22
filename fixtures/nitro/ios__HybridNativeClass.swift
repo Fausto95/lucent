@@ -8,42 +8,35 @@ class HybridNativeClass: HybridNativeClassSpec {
 
   func lucentInternal_8f133499183f7a85_Counter__get_value(lucentSelf: Double) throws -> Double {
     return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
-    let result = try NativeClassBodies.lucentInternal_8f133499183f7a85_Counter__get_value(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter.self))
-    return result
+      return try NativeClassBodies.lucentInternal_8f133499183f7a85_Counter__get_value(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter.self))
     }
   }
 
   func lucentInternal_8f133499183f7a85_Counter__set_value(lucentSelf: Double, value: Double) throws -> Void {
     return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
-    try NativeClassBodies.lucentInternal_8f133499183f7a85_Counter__set_value(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter.self), value: value)
+      try NativeClassBodies.lucentInternal_8f133499183f7a85_Counter__set_value(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter.self), value: value)
     }
   }
 
   func lucentInternal_8f133499183f7a85_Counter__method_increment(lucentSelf: Double, delta: Double) throws -> Double {
     return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
-    let result = try NativeClassBodies.lucentInternal_8f133499183f7a85_Counter__method_increment(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter.self), delta: delta)
-    return result
+      return try NativeClassBodies.lucentInternal_8f133499183f7a85_Counter__method_increment(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter.self), delta: delta)
     }
   }
 
   func lucentInternal_8f133499183f7a85_Counter__create(initial: Double) throws -> Double {
-    return try LucentObjectRegistry.shared.withObjects([]) { lucentLeases in
     let result = try NativeClassBodies.lucentInternal_8f133499183f7a85_Counter__create(initial: initial)
     return LucentObjectRegistry.shared.hold(result)
-    }
   }
 
   func makeCounter(initial: Double) throws -> Double {
-    return try LucentObjectRegistry.shared.withObjects([]) { lucentLeases in
     let result = try NativeClassBodies.makeCounter(initial: initial)
     return LucentObjectRegistry.shared.hold(result)
-    }
   }
 
   func advance(counter: Double) throws -> Double {
     return try LucentObjectRegistry.shared.withObjects([counter]) { lucentLeases in
-    let result = try NativeClassBodies.advance(counter: try lucentLeases.get(counter, lucentInternal_8f133499183f7a85_Counter.self))
-    return result
+      return try NativeClassBodies.advance(counter: try lucentLeases.get(counter, lucentInternal_8f133499183f7a85_Counter.self))
     }
   }
 }

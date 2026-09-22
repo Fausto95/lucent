@@ -11,13 +11,11 @@ import com.margelo.nitro.core.Promise
 @DoNotStrip
 class HybridAdd : HybridAddSpec() {
   override fun add(a: Double, b: Double): Double {
-    val result = AddBodies.add(a, b)
-    return result
+    return AddBodies.add(a, b)
   }
 
   override fun multiply(a: Double, b: Double): Double {
-    val result = AddBodies.multiply(a, b)
-    return result
+    return AddBodies.multiply(a, b)
   }
 }
 

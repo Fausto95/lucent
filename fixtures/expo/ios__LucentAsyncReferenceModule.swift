@@ -58,8 +58,8 @@ public final class LucentAsyncReferenceModule: Module, @unchecked Sendable {
   func __bridge_lucentInternal_2e40afc3526ae0ac_TaskScope__method_close(lucentSelf: Double) async throws -> Void {
     let lucentLeases = try LucentObjectRegistry.shared.acquireMany([lucentSelf])
     defer { lucentLeases.close() }
-      let result = try await lucentInternal_2e40afc3526ae0ac_TaskScope__method_close(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope.self))
-      return result
+    let result = try await lucentInternal_2e40afc3526ae0ac_TaskScope__method_close(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope.self))
+    return result
   }
 
   func lucentInternal_2e40afc3526ae0ac_TaskScope__method_close(lucentSelf: lucentInternal_2e40afc3526ae0ac_TaskScope) async throws -> Void {
@@ -154,8 +154,8 @@ public final class LucentAsyncReferenceModule: Module, @unchecked Sendable {
   func __bridge_settle(scope: Double) async throws -> Double {
     let lucentLeases = try LucentObjectRegistry.shared.acquireMany([scope])
     defer { lucentLeases.close() }
-      let result = try await settle(scope: try lucentLeases.get(scope, lucentInternal_2e40afc3526ae0ac_TaskScope.self))
-      return result
+    let result = try await settle(scope: try lucentLeases.get(scope, lucentInternal_2e40afc3526ae0ac_TaskScope.self))
+    return result
   }
 
   func settle(scope: lucentInternal_2e40afc3526ae0ac_TaskScope) async throws -> Double {

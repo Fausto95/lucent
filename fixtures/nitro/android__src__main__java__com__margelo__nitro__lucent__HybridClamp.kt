@@ -11,8 +11,7 @@ import com.margelo.nitro.core.Promise
 @DoNotStrip
 class HybridClamp : HybridClampSpec() {
   override fun clamp(value: Double, min: Double, max: Double): Double {
-    val result = ClampBodies.clamp(value, min, max)
-    return result
+    return ClampBodies.clamp(value, min, max)
   }
 }
 

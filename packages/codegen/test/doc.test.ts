@@ -34,9 +34,7 @@ describe("multi-line fragments", () => {
   });
 
   test("preserves relative indentation inside a multi-line string", () => {
-    expect(render(block("outer {", "head {\n  nested\n}", "}"))).toBe(
-      "outer {\n  head {\n    nested\n  }\n}\n",
-    );
+    expect(render(block("outer {", "head {\n  nested\n}", "}"))).toBe("outer {\n  head {\n    nested\n  }\n}\n");
   });
 
   test("keeps interior blank lines blank rather than indenting them", () => {

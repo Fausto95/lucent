@@ -11,13 +11,11 @@ import com.margelo.nitro.core.Promise
 @DoNotStrip
 class HybridTernaryCall : HybridTernaryCallSpec() {
   override fun choose(flag: Boolean): Double {
-    val result = TernaryCallBodies.choose(flag)
-    return result
+    return TernaryCallBodies.choose(flag)
   }
 
   override fun nested(flag: Boolean, other: Boolean): Double {
-    val result = TernaryCallBodies.nested(flag, other)
-    return result
+    return TernaryCallBodies.nested(flag, other)
   }
 }
 

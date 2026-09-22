@@ -6,8 +6,7 @@ import NitroModules
 class HybridAsyncSum: HybridAsyncSumSpec {
   func total(values: [Double]) throws -> Promise<Double> {
     return Promise.async {
-      let result = try await AsyncSumBodies.total(values: values)
-      return result
+      return try await AsyncSumBodies.total(values: values)
     }
   }
 }

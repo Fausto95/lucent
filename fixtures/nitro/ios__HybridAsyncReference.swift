@@ -7,30 +7,26 @@ class HybridAsyncReference: HybridAsyncReferenceSpec {
   func lucentRelease(handle: Double) throws { LucentObjectRegistry.shared.release(handle) }
 
   func lucentInternal_2e40afc3526ae0ac_TaskScope__create() throws -> Double {
-    return try LucentObjectRegistry.shared.withObjects([]) { lucentLeases in
     let result = try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__create()
     return LucentObjectRegistry.shared.hold(result)
-    }
   }
 
   func lucentInternal_2e40afc3526ae0ac_TaskScope__get_closing(lucentSelf: Double) throws -> Bool {
     return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
-    let result = try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__get_closing(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope.self))
-    return result
+      return try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__get_closing(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope.self))
     }
   }
 
   func lucentInternal_2e40afc3526ae0ac_TaskScope__get_activeCount(lucentSelf: Double) throws -> Double {
     return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
-    let result = try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__get_activeCount(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope.self))
-    return result
+      return try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__get_activeCount(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope.self))
     }
   }
 
   func lucentInternal_2e40afc3526ae0ac_TaskScope__method_begin(lucentSelf: Double) throws -> Double {
     return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
-    let result = try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__method_begin(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope.self))
-    return LucentObjectRegistry.shared.hold(result)
+      let result = try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_TaskScope__method_begin(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_TaskScope.self))
+      return LucentObjectRegistry.shared.hold(result)
     }
   }
 
@@ -44,57 +40,51 @@ class HybridAsyncReference: HybridAsyncReferenceSpec {
 
   func lucentInternal_2e40afc3526ae0ac_NativeTask__create(scope: Double) throws -> Double {
     return try LucentObjectRegistry.shared.withObjects([scope]) { lucentLeases in
-    let result = try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__create(scope: try lucentLeases.get(scope, lucentInternal_2e40afc3526ae0ac_TaskScope.self))
-    return LucentObjectRegistry.shared.hold(result)
+      let result = try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__create(scope: try lucentLeases.get(scope, lucentInternal_2e40afc3526ae0ac_TaskScope.self))
+      return LucentObjectRegistry.shared.hold(result)
     }
   }
 
   func lucentInternal_2e40afc3526ae0ac_NativeTask__get_cancelled(lucentSelf: Double) throws -> Bool {
     return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
-    let result = try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__get_cancelled(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask.self))
-    return result
+      return try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__get_cancelled(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask.self))
     }
   }
 
   func lucentInternal_2e40afc3526ae0ac_NativeTask__get_finished(lucentSelf: Double) throws -> Bool {
     return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
-    let result = try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__get_finished(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask.self))
-    return result
+      return try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__get_finished(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask.self))
     }
   }
 
   func lucentInternal_2e40afc3526ae0ac_NativeTask__method_cancel(lucentSelf: Double) throws -> Void {
     return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
-    try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__method_cancel(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask.self))
+      try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__method_cancel(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask.self))
     }
   }
 
   func lucentInternal_2e40afc3526ae0ac_NativeTask__method_finish(lucentSelf: Double) throws -> Bool {
     return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
-    let result = try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__method_finish(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask.self))
-    return result
+      return try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__method_finish(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask.self))
     }
   }
 
   func lucentInternal_2e40afc3526ae0ac_NativeTask__method_throwIfCancelled(lucentSelf: Double) throws -> Void {
     return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
-    try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__method_throwIfCancelled(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask.self))
+      try AsyncReferenceBodies.lucentInternal_2e40afc3526ae0ac_NativeTask__method_throwIfCancelled(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_2e40afc3526ae0ac_NativeTask.self))
     }
   }
 
   func open() throws -> Double {
-    return try LucentObjectRegistry.shared.withObjects([]) { lucentLeases in
     let result = try AsyncReferenceBodies.open()
     return LucentObjectRegistry.shared.hold(result)
-    }
   }
 
   func settle(scope: Double) throws -> Promise<Double> {
     let lucentLeases = try LucentObjectRegistry.shared.acquireMany([scope])
     return Promise.async {
       defer { lucentLeases.close() }
-      let result = try await AsyncReferenceBodies.settle(scope: try lucentLeases.get(scope, lucentInternal_2e40afc3526ae0ac_TaskScope.self))
-      return result
+      return try await AsyncReferenceBodies.settle(scope: try lucentLeases.get(scope, lucentInternal_2e40afc3526ae0ac_TaskScope.self))
     }
   }
 }

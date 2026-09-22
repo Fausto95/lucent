@@ -12,8 +12,7 @@ import com.margelo.nitro.core.Promise
 class HybridAsyncSum : HybridAsyncSumSpec() {
   override fun total(values: DoubleArray): Promise<Double> {
     return Promise.async {
-      val result = AsyncSumBodies.total(values.toMutableList())
-      result
+      AsyncSumBodies.total(values.toMutableList())
     }
   }
 }
