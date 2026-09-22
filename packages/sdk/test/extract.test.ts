@@ -34,5 +34,17 @@ test("does not silently choose an overload", () => {
     "public final class java.lang.Math {\npublic static int abs(int);\npublic static double abs(double);\n}",
   );
   expect(generateBindingLibrary(schema).library.source).not.toContain("function abs(");
-  expect(schema.diagnostics.some((d) => d.includes("overload"))).toBe(true);
+  expect(schema.diagnostics).toEqual([]);
+  expect(Object.values(generateBindingLibrary(schema).library.bindings!).map(b => b.overload)).toEqual(["abs", "abs"]);
+});
+
+test("native symbol IDs and overload aliases are stable across extraction order", () => {
+ const source = "public final class SDK {\npublic static double measure(double);\npublic static double measure(java.lang.String);\n}";
+ const schema = extractJavaSignatures(source);
+ const first = generateBindingLibrary(schema);
+ const second = generateBindingLibrary({...schema, functions:[...schema.functions].reverse()});
+ expect(Object.keys(first.library.bindings!).sort()).toEqual(Object.keys(second.library.bindings!).sort());
+ for (const name of Object.keys(first.library.bindings!)) expect(first.library.bindings![name]!.contract?.symbolId).toBe(second.library.bindings![name]!.contract?.symbolId);
+ expect(first.declarations).toContain("function measure(arg0: string)");
+ expect(first.library.schemaVersion).toBe(1);
 });
