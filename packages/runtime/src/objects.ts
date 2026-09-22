@@ -7,6 +7,7 @@ interface Definition {
   name: string;
   create(...args: unknown[]): number;
   release(handle: number): void;
+  asyncMethods?: readonly string[];
   methods: Record<string, (handle: number, ...args: unknown[]) => unknown>;
   getters: Record<string, (handle: number) => unknown>;
   setters: Record<string, (handle: number, value: unknown) => void>;
@@ -91,7 +92,12 @@ export function defineNativeClass(type: string, definition: Definition): Constru
   for (const [name, method] of Object.entries(definition.methods))
     Object.defineProperty(SharedNativeObject.prototype, name, {
       value(this: NativeObject, ...args: unknown[]) {
-        return method(nativeObjectHandle(this, type), ...args);
+        const invoke = () => method(nativeObjectHandle(this, type), ...args);
+        if (definition.asyncMethods?.includes(name)) {
+          const references = args.filter((value) => !!value && typeof value === "object" && states.has(value));
+          return withNativeObjects([this, ...references], invoke);
+        }
+        return invoke();
       },
     });
   for (const [name, getter] of Object.entries(definition.getters))

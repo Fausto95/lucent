@@ -840,3 +840,10 @@ core or the CLI. Expo itself is optional for bare Nitro projects.
 `For` uses `by={(row) => row}` for its identity selector. React reserves JSX
 `key` for scalar keys, so Lucent does not use it for a callback. The UI entry
 also declares the native `state()` primitive for editor typechecking.
+
+Async SDK instance methods expose `Promise<T>` in generated declarations. Their
+proxies retain both the receiver and native-object arguments before dispatch,
+await completion before converting the result, and release transit retention on
+success, native rejection, or conversion failure. Immediate `dispose()` rejects
+new calls without invalidating an accepted method call. Async methods still
+require owned, transferable, executor-neutral SDK reference contracts.

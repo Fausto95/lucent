@@ -158,6 +158,9 @@ Evidence: `overloads.test.ts`, SDK extraction tests, `verify-runtime.ts`.
       for ordinary mutable shared classes and unknown legacy contracts.
 - [x] Generate acquisition and deferred/finally cleanup in Expo and Nitro async
       wrappers. Nitro acquires before scheduling its promise.
+- [x] Extend transit retention to asynchronous SDK instance methods, including
+      receivers, arguments, awaited native result conversion, and native rejection.
+      Emit Promise-returning method declarations for both hosts.
 - [x] Add JS transit retention so immediate `dispose()` rejects new calls while
       accepted async calls retain their handles through dispatch and completion.
 - [x] Test success and synchronous failure during JS transit retention.

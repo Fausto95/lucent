@@ -24,7 +24,10 @@ export function classDeclarations(module: IRModule): string[] {
         )
         .join("\n")}\n${operations
         .filter((f) => f.classOp!.kind === "method")
-        .map((f) => `  ${f.classOp!.member}(${declarationParams(f, 1)}): ${jsType(f.returnType)};`)
+        .map(
+          (f) =>
+            `  ${f.classOp!.member}(${declarationParams(f, 1)}): ${f.async ? `Promise<${jsType(f.returnType)}>` : jsType(f.returnType)};`,
+        )
         .join("\n")}\n}${s.reference!.exported ? `\nexport { ${s.name} as ${s.reference!.publicName} };` : ""}`;
     });
 }
@@ -39,7 +42,7 @@ export function classProxies(module: IRModule, nullAsUndefined: boolean): string
         const params = fn.params.map((p) => p.name);
         const args = fn.params.map((p, i) => (hasReceiver && i === 0 ? p.name : convert(p.name, p.type, "in", policy)));
         const result = fn.classOp!.kind === "constructor" ? "result" : convert("result", fn.returnType, "out", policy);
-        return `(${params.join(", ")}) => { const result = lucentCall(() => native.${fn.name}(${args.join(", ")})); return ${result}; }`;
+        return `${fn.async ? "async " : ""}(${params.join(", ")}) => { const result = ${fn.async ? "await " : ""}lucentCall(() => native.${fn.name}(${args.join(", ")})); return ${result}; }`;
       };
       const ctors = operations.filter((f) => f.classOp!.kind === "constructor");
       const create =
@@ -57,12 +60,15 @@ export function classProxies(module: IRModule, nullAsUndefined: boolean): string
               .join(
                 "\n",
               )}\n      throw new TypeError(${JSON.stringify(`No ${s.reference!.publicName} constructor matches these arguments`)});\n    }`;
+      const asyncMethods = operations
+        .filter((f) => f.classOp!.kind === "method" && f.async)
+        .map((f) => f.classOp!.member);
       const group = (kind: string) =>
         operations
           .filter((f) => f.classOp!.kind === kind)
           .map((f) => `${JSON.stringify(f.classOp!.member)}: ${wrapper(f)}`)
           .join(", ");
-      return `const ${s.name} = defineNativeClass(${JSON.stringify(s.name)}, { name: ${JSON.stringify(s.reference!.publicName)}, create: ${create}, release: (handle) => native.lucentRelease(handle), methods: {${group("method")}}, getters: {${group("get")}}, setters: {${group("set")}} });${s.reference!.exported ? `\nexport { ${s.name} as ${s.reference!.publicName} };` : ""}`;
+      return `const ${s.name} = defineNativeClass(${JSON.stringify(s.name)}, { name: ${JSON.stringify(s.reference!.publicName)}, create: ${create}, release: (handle) => native.lucentRelease(handle), methods: {${group("method")}}, ${asyncMethods.length ? `asyncMethods: ${JSON.stringify(asyncMethods)}, ` : ""}getters: {${group("get")}}, setters: {${group("set")}} });${s.reference!.exported ? `\nexport { ${s.name} as ${s.reference!.publicName} };` : ""}`;
     })
     .join("\n");
 }
