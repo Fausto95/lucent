@@ -19,6 +19,9 @@ export default function run(mod, print, lucentClass, mods) {
     const r = await mod.voidAsync((s) => logs.push(s));
     print(r, logs.join(","));
     print(await mod.noAwait(1));
+    print(await mod.allRejectsEarly());
+    print(await mod.tupleRejectsEarly());
+    print(await mod.allTicks());
   })();
 
 }

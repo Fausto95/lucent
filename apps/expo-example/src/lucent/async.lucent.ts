@@ -83,3 +83,59 @@ export async function voidAsync(log: (s: string) => void): Promise<void> {
 export async function noAwait(x: number): Promise<number> {
   return x + 1;
 }
+
+export async function allRejectsEarly(): Promise<string> {
+  const log: string[] = [];
+  const slow = async (): Promise<number> => {
+    await delay(40);
+    log.push("slow settled");
+    return 1;
+  };
+  const fast = async (): Promise<number> => {
+    await delay(1);
+    throw new Error("fast failed");
+  };
+  try {
+    await Promise.all([slow(), fast()]);
+  } catch (e) {
+    log.push(`caught ${(e as Error).message}`);
+  }
+  await delay(60);
+  return log.join(", ");
+}
+
+export async function tupleRejectsEarly(): Promise<string> {
+  const log: string[] = [];
+  const slow = async (): Promise<string> => {
+    await delay(40);
+    log.push("slow settled");
+    return "s";
+  };
+  const fast = async (): Promise<number> => {
+    await delay(1);
+    throw new Error("fast failed");
+  };
+  try {
+    const [s, n] = await Promise.all([slow(), fast()]);
+    log.push(`${s}${n}`);
+  } catch (e) {
+    log.push(`caught ${(e as Error).message}`);
+  }
+  await delay(60);
+  return log.join(", ");
+}
+
+export async function allTicks(): Promise<string> {
+  const log: string[] = [];
+  const ticker = async () => {
+    for (let i = 0; i < 5; i++) {
+      await noAwait(i);
+      log.push(`t${i}`);
+    }
+  };
+  const t = ticker();
+  const [a, b, c] = await Promise.all([noAwait(1), noAwait(2), noAwait(3)]);
+  log.push(`all ${a + b + c}`);
+  await t;
+  return log.join(", ");
+}
