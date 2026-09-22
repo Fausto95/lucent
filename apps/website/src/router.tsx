@@ -1,9 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
-import { createRootRoute, createRoute, createRouter, Link } from "@tanstack/react-router";
+import { createRootRoute, createRoute, createRouter, Link, redirect } from "@tanstack/react-router";
 import { SiteLayout } from "./components/SiteLayout";
 import { HomePage } from "./pages/HomePage";
-import { LanguagePage } from "./pages/LanguagePage";
-import { GetStartedPage } from "./pages/GetStartedPage";
+import { DocsPage } from "./pages/DocsPage";
 import { styles as sharedStyles } from "./styles/shared.stylex";
 
 const rootRoute = createRootRoute({
@@ -18,11 +17,26 @@ const rootRoute = createRootRoute({
   ),
 });
 const homeRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: HomePage });
-const languageRoute = createRoute({ getParentRoute: () => rootRoute, path: "/language/", component: LanguagePage });
-const getStartedRoute = createRoute({ getParentRoute: () => rootRoute, path: "/get-started/", component: GetStartedPage });
+const docsRoute = createRoute({ getParentRoute: () => rootRoute, path: "/docs/$", component: DocsPage });
+
+/** Pre-docs URLs keep working. */
+const legacyLanguageRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/language/",
+  beforeLoad: () => {
+    throw redirect({ to: "/docs/$/", params: { _splat: "language" }, replace: true });
+  },
+});
+const legacyGetStartedRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/get-started/",
+  beforeLoad: () => {
+    throw redirect({ to: "/docs/$/", params: { _splat: "getting-started" }, replace: true });
+  },
+});
 
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([homeRoute, getStartedRoute, languageRoute]),
+  routeTree: rootRoute.addChildren([homeRoute, docsRoute, legacyLanguageRoute, legacyGetStartedRoute]),
   trailingSlash: "always",
   scrollRestoration: true,
 });

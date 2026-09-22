@@ -1,7 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { CodeBlock } from "./CodeBlock";
-import { nativeCard } from "../nativeExamples";
+import { nativeCard } from "../content";
 import { styles } from "./NativeViewsFeature.stylex";
 import { styles as shared } from "../styles/shared.stylex";
 
@@ -23,11 +23,12 @@ export function NativeViewsFeature() {
           <span>Android / Compose</span>
         </div>
         <p {...stylex.props(styles.detail)}>
-          Keep state in React. Pass typed props and callbacks to native components. Import another Lucent component when
-          you want to build something bigger.
+          Stacks, text, buttons, text fields, toggles and sliders, plus padding, background, corner radius and
+          accessibility wrappers. Keep state in React; inputs are controlled and report through typed events. Ship your
+          own SwiftUI and Compose views as a package when the shared set is not enough.
         </p>
-        <Link to="/language/" hash="native-views" {...stylex.props(styles.link)}>
-          Explore native views <span aria-hidden="true">↗</span>
+        <Link to="/docs/$/" params={{ _splat: "language/native-views" }} {...stylex.props(styles.link)}>
+          Native views reference <span aria-hidden="true">↗</span>
         </Link>
         <p {...stylex.props(styles.note)}>Compiled ahead of time. Native source changes require an app rebuild.</p>
       </div>

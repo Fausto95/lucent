@@ -3,7 +3,7 @@ import { useState, type KeyboardEvent } from "react";
 import { styles } from "./CompilerDemo.stylex";
 import { styles as sharedStyles } from "../styles/shared.stylex";
 import { examples, source } from "../content";
-import { HighlightedCode } from "./CodeBlock";
+import { HighlightedCode } from "./HighlightedCode";
 import { useClipboard } from "./ClipboardProvider";
 
 export function CompilerDemo() {

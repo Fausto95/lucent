@@ -101,4 +101,8 @@ export const styles = stylex.create({
   syntaxGreen: {
     color: "#c4f778",
   },
+  syntaxComment: {
+    color: "#7c8873",
+    fontStyle: "italic",
+  },
 });

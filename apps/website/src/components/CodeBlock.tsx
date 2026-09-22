@@ -1,77 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import { styles } from "./CodeBlock.stylex";
+import { HighlightedCode } from "./HighlightedCode";
 import { useClipboard } from "./ClipboardProvider";
-
-const tokenStyles = {
-  keyword: styles.syntaxPurple,
-  type: styles.syntaxYellow,
-  string: styles.syntaxGreen,
-};
-const types = new Set([
-  "number",
-  "string",
-  "boolean",
-  "void",
-  "Promise",
-  "int32",
-  "Double",
-  "NativeView",
-  "NativeProps",
-  "Event",
-  "SharedObject",
-]);
-const keywords = new Set([
-  "export",
-  "class",
-  "extends",
-  "constructor",
-  "this",
-  "super",
-  "import",
-  "type",
-  "from",
-  "function",
-  "func",
-  "fun",
-  "async",
-  "await",
-  "return",
-  "if",
-  "else",
-  "for",
-  "of",
-  "const",
-  "let",
-  "throw",
-  "throws",
-  "new",
-  "null",
-  "undefined",
-]);
-
-export function HighlightedCode({ code, reference = false }: { code: string; reference?: boolean }) {
-  const tokens = code.split(/("[^"\n]*"|\b\w+\b)/g);
-  return (
-    <code {...stylex.props(reference && styles.referenceCodeText)}>
-      {tokens.map((token, index) => {
-        const kind = types.has(token)
-          ? "type"
-          : keywords.has(token)
-            ? "keyword"
-            : token.startsWith('"')
-              ? "string"
-              : null;
-        return kind ? (
-          <span key={index} {...stylex.props(tokenStyles[kind])}>
-            {token}
-          </span>
-        ) : (
-          token
-        );
-      })}
-    </code>
-  );
-}
 
 export function CodeBlock({ filename, code }: { filename: string; code: string }) {
   const { copy } = useClipboard();
