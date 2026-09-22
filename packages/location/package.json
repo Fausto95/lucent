@@ -1,6 +1,6 @@
 {
   "name": "@lucent-lang/location",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Lucent location acceptance package — provider resource, keep-latest updates, permission union, CI fake positions.",
   "license": "MIT",
   "repository": {

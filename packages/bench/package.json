@@ -1,6 +1,6 @@
 {
   "name": "@lucent-lang/bench",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "description": "Lucent micro and macro benchmark stubs. Budgets need handwritten baselines (P77/P78).",
   "license": "MIT",

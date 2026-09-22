@@ -1,6 +1,6 @@
 {
   "name": "@lucent-lang/core",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Lucent authoring types, native runtime, and Expo/Metro integrations.",
   "license": "MIT",
   "repository": {
