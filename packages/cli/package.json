@@ -1,6 +1,19 @@
 {
   "name": "@lucent-lang/cli",
   "version": "0.0.1",
+  "description": "The lucent command line: build, check, scaffold and diagnose native React Native modules written in TypeScript.",
+  "keywords": [
+    "cli",
+    "compiler",
+    "expo",
+    "kotlin",
+    "lucent",
+    "nitro",
+    "react-native",
+    "swift"
+  ],
+  "homepage": "https://github.com/Fausto95/lucent#readme",
+  "bugs": "https://github.com/Fausto95/lucent/issues",
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -31,5 +44,8 @@
     "@lucent-lang/host-nitro": "workspace:*",
     "@lucent-lang/sdk": "workspace:*",
     "oxc-parser": "0.151.0"
+  },
+  "engines": {
+    "node": ">=22.12"
   }
 }

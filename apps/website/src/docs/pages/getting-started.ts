@@ -16,6 +16,15 @@ export const page: DocPage = {
       kind: "note",
       text: "Lucent generates native code, so it needs a development build. Expo Go cannot load it, the same as any other native module. Node 22.12+ is required.",
     },
+    {
+      kind: "code",
+      filename: "terminal",
+      code: "npx @lucent-lang/cli init      # detects Expo or bare React Native and wires the app\nnpx @lucent-lang/cli doctor    # verifies the toolchain and the wiring",
+    },
+    {
+      kind: "p",
+      text: "`init` adds the dependencies, `lucent.config.ts`, a Metro config, the Expo plugin or the Nitro autolink entry, and a starter module. The steps below show what it produces, for wiring things by hand. The [CLI reference](/docs/api/cli/) covers every command.",
+    },
     { kind: "h2", text: "Expo" },
     {
       kind: "p",

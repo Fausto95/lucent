@@ -32,7 +32,7 @@ the pieces fit together for anyone picking up the project.
 - [x] `docs/language.md` v1 language contract — `docs: define the Lucent language subset`
 - [x] Git remote `github.com/Fausto95/lucent`, no AI co-author trailers in commits
 - [x] GitHub Actions: `.github/workflows/ci.yml` runs typecheck, lint, format check and tests on Ubuntu, and the Swift/Kotlin compile check on macOS
-- [x] `scripts/doctor.ts` (`pnpm tools`) — checks node, pnpm, swiftc, kotlinc, xcodebuild, java, adb
+- [x] `lucent doctor` (`pnpm tools` runs it in the Expo example) — checks node, the package manager, swiftc, kotlinc, xcodebuild, java, adb, pod, then the project wiring: dependencies, Metro config, Expo plugin or Nitro autolink, `lucent.config`, Lucent files and undeclared capabilities
 - [x] This roadmap kept in sync with progress
 
 ### 1. `packages/compiler` — pure, no IO
@@ -86,7 +86,8 @@ Both expose `generate(module: IRModule): GeneratedUnit { structs, functions, imp
 
 ### 5. `packages/cli`
 
-- [x] `lucent build [--host expo|nitro] [--out <dir>] [files…]`, `lucent check`, `lucent watch`, `lucent init`
+- [x] `lucent build [--host expo|nitro] [--out <dir>] [--watch] [files…]`, `lucent check [--watch]`, `lucent init` (interactive host picker; wires dependencies, config, Metro, the Expo plugin or Nitro autolink, and a starter), `lucent doctor`, `lucent explain`, `lucent ir`, `lucent clean`, `lucent sdk`
+- [x] Commands are data (name, glyph, option specs, examples); help, `--help` per command, typo suggestions and validation derive from it. Colored, emoji output with `--no-color` / `--no-emoji` / `NO_COLOR` / `FORCE_COLOR`; `--json` for CI; host detected from `package.json`; `npx @lucent-lang/cli <command>` runs without installing
 - [x] Incremental cache `.lucent/cache.json` keyed by `SHA256(compilerVersion + host + source)` storing the IR; prints `✓ cached` / `⚙ compiling`; output files rewritten only when their contents change
 - [x] Diagnostics rendered with codeframes, non-zero exit on error
 - [x] Tests with a temp dir for cache hit/miss

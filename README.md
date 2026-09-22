@@ -33,6 +33,7 @@ and [Nitro Modules](https://nitro.margelo.com/) (bare React Native).
 ## Docs
 
 - [Getting started](docs/getting-started.md) — install and configure for Expo or bare React Native
+- [CLI](docs/getting-started.md#cli) — `npx @lucent-lang/cli init | build | check | doctor`
 - [The language](docs/language.md) — what you can write and how it maps to native
 - [Roadmap](ROADMAP.md) — what is done and what is next
 
