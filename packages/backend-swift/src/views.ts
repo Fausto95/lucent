@@ -60,6 +60,29 @@ export function swiftView(e: ViewExpr, expr: (e: IRExpr) => string): string {
   return `AnyView(${render[e.name]!()})`;
 }
 export const swiftViewRuntime = `import SwiftUI
+/** Row identity for a keyed \`For\`. A duplicate key is a programming error, so it is
+ * reported in debug builds and then disambiguated by position rather than dropping a row. */
+struct LucentKeyedRow<Value>: Identifiable {
+  let id: String
+  let value: Value
+}
+
+func lucentKeyedRows<Value>(_ values: [Value], _ key: (Value) throws -> String) -> [LucentKeyedRow<Value>] {
+  var seen = Set<String>()
+  var rows: [LucentKeyedRow<Value>] = []
+  for (index, value) in values.enumerated() {
+    let raw = (try? key(value)) ?? String(index)
+    var id = raw
+    if seen.contains(id) {
+      assertionFailure("Lucent: duplicate view key \\(raw)")
+      id = "\\(raw)#\\(index)"
+    }
+    seen.insert(id)
+    rows.append(LucentKeyedRow(id: id, value: value))
+  }
+  return rows
+}
+
 func lucentViewColor(_ value: String) -> Color {
   let hex = value.hasPrefix("#") ? String(value.dropFirst()) : value
   guard hex.count == 6, let rgb = UInt32(hex, radix: 16) else { return .primary }

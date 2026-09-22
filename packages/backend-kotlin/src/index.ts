@@ -13,7 +13,7 @@ export { kotlinEventRuntime } from "./events.ts";
 import { kotlinEnumImports, kotlinEnums, kotlinEnumValue } from "./enums.ts";
 export { kotlinEnumBridge, kotlinEnums, kotlinEnumImports } from "./enums.ts";
 import { kotlinView, kotlinViewImports } from "./views.ts";
-export { kotlinViewImports } from "./views.ts";
+export { kotlinViewImports, kotlinViewRuntime } from "./views.ts";
 import type { IRExpr, IRFunction, IRModule, IRPlace, IRStmt, IRStruct, NativeType } from "@lucent-lang/compiler";
 
 export interface GeneratedField {
@@ -254,12 +254,15 @@ class KotlinEmitter {
 
   private forRows(e: Extract<IRExpr, { op: "view" }>): string {
     const data = e.props.find((prop) => prop.name === "each");
+    const key = e.props.find((prop) => prop.name === "key");
     const child = e.children[0];
     if (!data || child?.op !== "closure" || Array.isArray(child.body) || !child.params[0])
       return "Spacer(modifier = Modifier)";
     const param = child.params[0].name;
     const source = this.expr(data.value);
-    return `Column { for (lucentIndex in ${source}.indices) { val ${param} = ${source}[lucentIndex]; ${this.expr(child.body)} } }`;
+    if (!key)
+      return `Column { for (lucentIndex in ${source}.indices) { val ${param} = ${source}[lucentIndex]; ${this.expr(child.body)} } }`;
+    return `Column { for (lucentRow in lucentKeyedRows(${source}, ${this.expr(key.value)})) { key(lucentRow.first) { val ${param} = lucentRow.second; ${this.expr(child.body)} } } }`;
   }
 
   private index(e: IRExpr): string {

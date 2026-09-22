@@ -43,7 +43,7 @@ export function FieldScreen(props: NativeProps<Props>): NativeView {
               {props.notes.length === 0 ? (
                 <Text color="#8fb9a8">No samples yet</Text>
               ) : (
-                <For each={props.notes}>
+                <For each={props.notes} key={(note: string) => note}>
                   {(note: string) => (
                     <HStack spacing={8}>
                       <Text color="#d7efe4">{note}</Text>

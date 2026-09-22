@@ -5,7 +5,7 @@ import {
   swiftHostedViewRuntime,
   swiftViewRuntime,
 } from "@lucent-lang/backend-swift";
-import { generateKotlinNamespace, kotlinType } from "@lucent-lang/backend-kotlin";
+import { generateKotlinNamespace, kotlinType, kotlinViewRuntime } from "@lucent-lang/backend-kotlin";
 import {
   exportedViews,
   stateArguments,
@@ -24,6 +24,7 @@ export function emitViews(files: FileTree, modules: IRModule[], androidPackage: 
   if (!modules.some((m) => exportedViews(m).length)) return;
   const dir = `android/src/main/java/${androidPackage.replaceAll(".", "/")}`;
   files.set("ios/LucentHostedView.swift", swiftHostedViewRuntime + swiftViewRuntime);
+  files.set(`${dir}/LucentViews.kt`, `package ${androidPackage}\n\n` + kotlinViewRuntime);
   for (const module of modules) {
     if (!exportedViews(module).length) continue;
     const namespace = viewNamespace(module);

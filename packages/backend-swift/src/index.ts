@@ -234,11 +234,17 @@ class SwiftEmitter {
 
   private forRows(e: Extract<IRExpr, { op: "view" }>): string {
     const data = e.props.find((prop) => prop.name === "each");
+    const key = e.props.find((prop) => prop.name === "key");
     const child = e.children[0];
     if (!data || child?.op !== "closure" || Array.isArray(child.body) || !child.params[0])
       return "AnyView(EmptyView())";
     const param = child.params[0].name;
-    return `AnyView(VStack(alignment: .leading, spacing: 0) { ForEach(Array(${this.expr(data.value)}.enumerated()), id: \\.offset) { pair in let ${param} = pair.element; AnyView(${this.expr(child.body)}) } })`;
+    const rows = key
+      ? `lucentKeyedRows(${this.expr(data.value)}, ${this.expr(key.value)})`
+      : `Array(${this.expr(data.value)}.enumerated())`;
+    const identity = key ? "\\.id" : "\\.offset";
+    const bind = key ? `let ${param} = lucentRow.value` : `let ${param} = lucentRow.element`;
+    return `AnyView(VStack(alignment: .leading, spacing: 0) { ForEach(${rows}, id: ${identity}) { lucentRow in ${bind}; AnyView(${this.expr(child.body)}) } })`;
   }
 
   private stmt(s: IRStmt): string[] {

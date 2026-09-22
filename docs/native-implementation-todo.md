@@ -230,9 +230,14 @@ scopes and runtime close quiesce are not implemented.
 
 ## M6 — Composition, lifecycle, and references
 
-- [ ] Add typed child slots. Conditional view expressions and eager index-ordered `For` rows are in M5; keyed identity is not.
+- [ ] Add typed child slots. Conditional view expressions and `For` rows, keyed
+      or index-ordered, are implemented; typed child slots are not.
 - [ ] Define identity by parent, declaration, explicit key, and component type.
-- [ ] Add keyed eager collections with duplicate-key diagnostics.
+- [x] Add keyed eager collections with duplicate-key diagnostics. `For` takes an
+      optional `key` closure from the row value to a string; SwiftUI uses
+      `ForEach(_:id:)` over the keyed rows and Compose wraps each row in `key`.
+      A duplicate key is reported in debug builds and disambiguated by position
+      rather than dropping the row.
 - [ ] Preserve state/focus/resources on reorder; clean up removed identities.
 - [ ] Add lazy collections with explicit logical-state versus visibility lifetime.
 - [ ] Add dependency-scoped effects: cleanup before restart, once on disposal.

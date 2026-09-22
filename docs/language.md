@@ -249,19 +249,24 @@ render the shared component model. Native view controller containment,
 composition disposal, prop updates, and button callback bridging are generated.
 Nitro requires the React Native new architecture for these views.
 
-| Primitive          | Props                                              | Children                 |
-| ------------------ | -------------------------------------------------- | ------------------------ |
-| `VStack`, `HStack` | `padding`, `spacing` in logical units              | native views             |
-| `Text`             | `size`, `color` (`#RRGGBB`)                        | strings/numbers/booleans |
-| `Spacer`           | `size` (default 8)                                 | none                     |
-| `Divider`          | none                                               | none                     |
-| `Button`           | required `title`, optional `onPress: Event<void>`  | none                     |
-| `For`              | required `each: string[] \| number[] \| boolean[]` | one row closure          |
+| Primitive          | Props                                             | Children                 |
+| ------------------ | ------------------------------------------------- | ------------------------ |
+| `VStack`, `HStack` | `padding`, `spacing` in logical units             | native views             |
+| `Text`             | `size`, `color` (`#RRGGBB`)                       | strings/numbers/booleans |
+| `Spacer`           | `size` (default 8)                                | none                     |
+| `Divider`          | none                                              | none                     |
+| `Button`           | required `title`, optional `onPress: Event<void>` | none                     |
+| `For`              | required `each`, optional `key`                   | one row closure          |
 
 View props support string, number, boolean, arrays of those, nullable scalars,
 and events. A conditional expression may choose between two views or two values
-of the same type. `For` lays rows out eagerly in array order; the index is not
-a stable identity across insertions. Compose other imported `.lucent.tsx`
+of the same type. `For` lays rows out eagerly in array order. Without a `key` the identity is the
+index, which is not stable across insertions; pass
+`key={(item: T) => item}` to give each row an identity that survives reordering,
+so its state and focus move with it. A key closure returns a string, so use a
+template literal for a numeric identity. Duplicate keys are a programming error:
+debug builds report one and the row falls back to a position-disambiguated
+identity instead of disappearing. Compose other imported `.lucent.tsx`
 components with typed props.
 
 `const name = state(literal)` at the top of a view declares scalar state owned
@@ -548,7 +553,8 @@ a `value` and `onChange`. The value may be a prop or view `state`; `onChange`
 may be an event or a closure that calls `set`. Native change events carry
 string, boolean, or number payloads through both Expo and Nitro. `Slider`
 defaults to the range 0–1. `For` repeats one row closure for each element of a
-string, number, or boolean array.
+string, number, or boolean array, keyed by `key` when given and by index
+otherwise.
 
 `Padding`, `Background`, `CornerRadius`, and `Accessibility` wrap their children
 in a vertical group. Nest wrappers to specify composition order. These are

@@ -1582,11 +1582,13 @@ class FunctionChecker {
 
   private forView(e: Extract<Expr, { kind: "view" }>): TExpr {
     const eachProps = e.properties.filter((p) => p.name === "each");
+    const keyProps = e.properties.filter((p) => p.name === "key");
     const each = eachProps[0];
-    if (eachProps.length !== 1 || e.properties.length !== 1 || !each) {
-      this.report(diagnostic("LC1011", e.span, "`For` requires an `each` array."));
+    if (eachProps.length !== 1 || keyProps.length > 1 || e.properties.length !== eachProps.length + keyProps.length) {
+      this.report(diagnostic("LC1011", e.span, "`For` takes an `each` array and an optional `key`."));
       return this.poison(e.span, T.view);
     }
+    if (!each) return this.poison(e.span, T.view);
     const data = this.expr(each.value);
     if (data.type.kind !== "array") {
       this.report(diagnostic("LC1011", each.span, "`For` iterates an array."));
@@ -1602,10 +1604,28 @@ class FunctionChecker {
       this.report(diagnostic("LC1011", row.span, "A `For` row must return a native view."));
       return this.poison(e.span, T.view);
     }
+    const keyProp = keyProps[0];
+    const properties = [{ name: "each", value: data }];
+    if (keyProp) {
+      const expected = T.callback([data.type.element], T.string);
+      const key = this.expr(keyProp.value, expected);
+      if (key.kind !== "closure" || !typeEquals(key.type, expected)) {
+        this.report(
+          diagnostic(
+            "LC1011",
+            keyProp.span,
+            "`For` keys are a closure from the row value to a string.",
+            "Write `key={(item: T) => item}`; use a template literal for a numeric identity.",
+          ),
+        );
+        return this.poison(e.span, T.view);
+      }
+      properties.push({ name: "key", value: key });
+    }
     return {
       kind: "view",
       name: "For",
-      properties: [{ name: "each", value: data }],
+      properties,
       children: [child],
       type: T.view,
       span: e.span,

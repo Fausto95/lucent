@@ -41,6 +41,21 @@ export function kotlinView(e: ViewExpr, expr: (e: IRExpr) => string): string {
   };
   return render[e.name]!();
 }
+/** Row identity for a keyed `For`, matching the Swift helper's duplicate-key behaviour. */
+export const kotlinViewRuntime = `fun <Value> lucentKeyedRows(values: List<Value>, key: (Value) -> String): List<Pair<String, Value>> {
+  val seen = HashSet<String>()
+  return values.mapIndexed { index, value ->
+    val raw = key(value)
+    var id = raw
+    if (!seen.add(id)) {
+      id = "$raw#$index"
+      seen.add(id)
+    }
+    Pair(id, value)
+  }
+}
+`;
+
 export const kotlinViewImports = [
   "androidx.compose.foundation.background",
   "androidx.compose.foundation.verticalScroll",
@@ -50,6 +65,7 @@ export const kotlinViewImports = [
   "androidx.compose.ui.semantics.semantics",
   "androidx.compose.ui.semantics.contentDescription",
   "androidx.compose.runtime.Composable",
+  "androidx.compose.runtime.key",
   "androidx.compose.foundation.layout.*",
   "androidx.compose.material3.*",
   "androidx.compose.ui.Modifier",
