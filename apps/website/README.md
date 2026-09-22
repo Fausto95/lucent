@@ -56,6 +56,16 @@ Import this repository with the **Root Directory set to the repository root**
   and "Native views", built from a few primitives (`DiagramBox`,
   `DiagramArrow`, …) with the site palette.
 - `*.stylex.ts` beside each component: its styles and responsive breakpoints.
+- `src/styles/tokens.stylex.ts`: every colour, as StyleX `defineVars` roles
+  (background, surface, border, text, accent, syntax…). Defaults are dark and
+  follow `prefers-color-scheme`; `darkTheme` / `lightTheme` are `createTheme`
+  overrides for an explicit choice. Style files and the SVG diagrams reference
+  tokens only. `reset.css` repeats the two canvas colours for the pre-hydration
+  paint and the focus ring, which needs a descendant selector.
+- `src/components/ThemeProvider.tsx`: owns the preference (`localStorage`
+  `lucent-theme`, else the OS), and is the only writer of the theme class on
+  `<html>`, `data-theme`, and the `theme-color` meta tag. `ThemeToggle` in the
+  header flips between light and dark.
 - `src/content.ts`: the homepage's prewritten compiler output and samples.
 - `og.svg`: source of `public/og.png` (1200×630). Regenerate with Quick Look:
   wrap the artwork in a 1200×1200 canvas offset by 285px, `qlmanage -t -s 1200`,
