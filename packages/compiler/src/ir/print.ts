@@ -94,6 +94,8 @@ export function expr(e: IRExpr): string {
       return e.name;
     case "local":
       return e.id;
+    case "widen":
+      return `(widen ${typeToString(e.type)} ${expr(e.value)})`;
     case "unwrap":
     case "str":
     case "not":

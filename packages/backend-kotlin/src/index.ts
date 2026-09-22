@@ -287,6 +287,8 @@ class KotlinEmitter {
         return e.name;
       case "local":
         return localName(e.id);
+      case "widen":
+        return `(${this.expr(e.value)}).to${kotlinType(e.type)}()`;
       case "unwrap":
         return `${this.expr(e.value)}!!`;
       case "binary":

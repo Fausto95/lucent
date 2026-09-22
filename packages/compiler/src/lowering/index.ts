@@ -333,6 +333,8 @@ class FunctionLowerer {
         };
       case "weak":
         return { op: "weak", name: e.name, type };
+      case "widen":
+        return { op: "widen", value: this.expr(e.argument), type };
       case "unwrap":
         return { op: "unwrap", value: this.expr(e.argument), type };
       case "binary": {
@@ -530,6 +532,7 @@ function childrenOf(e: TExpr): TExpr[] {
       return e.elements;
     case "object":
       return e.properties.map((p) => p.value);
+    case "widen":
     case "unwrap":
     case "unary":
     case "await":

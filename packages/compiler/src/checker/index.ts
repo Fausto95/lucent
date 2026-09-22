@@ -1,3 +1,4 @@
+import { canWidenNumeric } from "../types/numeric-widening.ts";
 import type { NativeBinding } from "../libraries.ts";
 import { checkBoundaries } from "./boundaries.ts";
 import { UI_PRIMITIVES } from "../ui.ts";
@@ -1451,6 +1452,10 @@ class FunctionChecker {
               score += 1;
               continue;
             }
+            if (actual && signature.binding && canWidenNumeric(actual.type, expected)) {
+              score += 2;
+              continue;
+            }
             if (
               arg.kind === "number" &&
               isNumeric(expected) &&
@@ -1516,7 +1521,9 @@ class FunctionChecker {
       const retention = signature.binding?.contract?.parameters?.[param?.name ?? ""]?.callback?.retention;
       const savedEscaping = this.nextCallbackEscaping;
       if (arg.kind === "closure") this.nextCallbackEscaping = retention !== "call";
-      const typed = this.expr(arg, param?.type);
+      let typed = this.expr(arg, param?.type);
+      if (param && signature.binding && canWidenNumeric(typed.type, param.type))
+        typed = { kind: "widen", argument: typed, type: param.type, span: arg.span };
       if (arg.kind === "closure") this.nextCallbackEscaping = savedEscaping;
       if (param && !this.fits(typed, param.type))
         return this.mismatch(arg.span, param.type, typed.type, narrowingHint(typed.type));

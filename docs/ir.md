@@ -67,3 +67,8 @@ closure-owned resource cells remain future IR work.
 
 Native package entries carry an `origin` set by the linker to the registered
 package specifier. Hosts use it to report conflicting SDK requirements.
+
+A `widen` expression records a proven lossless SDK-argument conversion. Its
+`value.type` is the source representation and its own `type` is the destination.
+Both backends emit an explicit native numeric conversion; they never infer one
+from the receiving parameter. Text IR prints `(widen <destination> <value>)`.

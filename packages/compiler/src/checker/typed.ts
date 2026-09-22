@@ -95,6 +95,7 @@ export type TExpr =
   | ({ kind: "array"; elements: TExpr[] } & Typed)
   | ({ kind: "object"; properties: { name: string; value: TExpr }[] } & Typed)
   | ({ kind: "identifier"; name: string } & Typed)
+  | ({ kind: "widen"; argument: TExpr } & Typed)
   | ({ kind: "unwrap"; argument: TExpr } & Typed)
   | ({ kind: "binary"; operator: BinaryOperator; left: TExpr; right: TExpr } & Typed)
   | ({ kind: "logical"; operator: LogicalOperator; left: TExpr; right: TExpr } & Typed)

@@ -57,6 +57,7 @@ export type IRExpr =
   | ({ op: "const"; value: IRConst } & Typed)
   | ({ op: "param"; name: string } & Typed)
   | ({ op: "local"; id: LocalId } & Typed)
+  | ({ op: "widen"; value: IRExpr } & Typed)
   | ({ op: "unwrap"; value: IRExpr } & Typed)
   | ({ op: "binary"; operator: BinaryOp; left: IRExpr; right: IRExpr } & Typed)
   | ({ op: "concat"; parts: IRExpr[] } & Typed)

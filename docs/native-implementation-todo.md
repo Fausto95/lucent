@@ -129,7 +129,11 @@ Contract metadata alone is not proof that the described runtime behavior exists.
       separable by arity or runtime argument kind, since `new` is one
       JavaScript function; the proxy dispatches on that and the generated
       declaration carries one TypeScript constructor per overload.
-- [ ] Add enumerated lossless numeric conversions in typed IR.
+- [x] Add enumerated lossless numeric SDK-argument conversions in typed IR,
+      lower them to explicit Swift/Kotlin conversions, and rank exact overloads
+      above widening. Execute every permitted conversion at range boundaries
+      and reject narrowing/sign/precision loss. Container/optional conversions
+      remain unsupported.
 - [ ] Contextually resolve closure/function-reference arguments and record/array
       literals without speculative checker side effects.
 - [ ] Account for availability and shared cross-platform facade contracts.
@@ -330,7 +334,17 @@ scopes and runtime close quiesce are not implemented.
 
 ## Latest verification checkpoint
 
-- Unit suite after this slice: 554 passing tests across 68 files. Typecheck,
+- Unit suite: 577 passing tests across 68 files after diagnostic namespacing,
+  native adapter dependency validation, and lossless numeric SDK arguments.
+- Full `pnpm verify` and package compilation pass, including execution of every
+  allowed numeric widening at its range boundaries on Swift and Kotlin.
+- Website build passed for the diagnostic namespace migration.
+- Full app/device builds below are from the preceding checkpoint; these new
+  compiler slices do not constitute a new four-host or physical-device run.
+
+### Previous full application checkpoint
+
+- Unit suite after that slice: 554 passing tests across 68 files. Typecheck,
   lint and formatting pass. `pnpm verify` runs the Swift and Kotlin fixture
   compilation, the extracted-SDK execution, the interop and lease stress check,
   the cancellation check and the new enum check; all pass on Swift 6.4 and

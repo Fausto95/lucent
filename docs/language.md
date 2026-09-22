@@ -53,7 +53,7 @@ Rules:
 - Optionals must be narrowed before use: `if (x === null) { … }` or
   `if (x !== null) { … }` on a local or parameter, including the early-return
   form. There is no truthiness: `if (x)` is `LUCENT1011` unless `x` is a boolean.
-- Numeric types never convert implicitly; `int32 + number` is `LUCENT1011`. Integer
+- Arithmetic and ordinary Lucent calls never convert numeric types implicitly; `int32 + number` is `LUCENT1011`. Integer
   literals adopt the sized type of their context.
 - `await` outside an `async` function is a parse error (`LUCENT1000`).
 - A function may take at most 8 parameters → `LUCENT1007 Too many parameters`.
@@ -787,3 +787,18 @@ Registered native adapters may use any package specifier, including scoped
 third-party names and subpath exports. Registration supplies native declarations
 and bindings; a package name alone never permits importing JavaScript into
 native code. Lucent's own namespace is not required for extension packages.
+
+### Lossless numeric SDK arguments
+
+Native binding calls may widen a numeric variable when every value of its source
+representation fits exactly in the parameter type. Overload resolution prefers
+an exact match, then nullable lifting, then a lossless widening. Multiple equally
+ranked candidates remain an ambiguity; return types do not break ties.
+
+Supported widenings are larger integers of the same signedness; unsigned to a
+strictly larger signed integer; `float32` to `float64`; integers up to 16 bits to
+`float32`; and integers up to 32 bits to `float64`. Signed-to-unsigned conversions,
+integer narrowing, `int64`/`uint64` to floating point, and `float64` to `float32`
+are rejected for variables. Ordinary authored Lucent functions and arithmetic
+retain their strict numeric type rules. This does not add numeric conversion
+inside arrays, records, or optional values.

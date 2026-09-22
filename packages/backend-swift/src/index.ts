@@ -318,6 +318,8 @@ class SwiftEmitter {
         return e.name;
       case "local":
         return localName(e.id);
+      case "widen":
+        return `${swiftType(e.type)}(${this.expr(e.value)})`;
       case "unwrap":
         return `${this.expr(e.value)}!`;
       case "binary":
@@ -428,6 +430,7 @@ function collectCalls(e: IRExpr): Extract<IRExpr, { op: "call" | "invoke" }>[] {
         if (x.type.kind !== "view") out.push(x);
         x.args.forEach(visit);
         break;
+      case "widen":
       case "unwrap":
       case "str":
       case "not":
