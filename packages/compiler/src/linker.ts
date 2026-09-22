@@ -33,6 +33,22 @@ function sidecarBinding(fn: SurfaceFunction): NativeBinding {
   };
 }
 
+/** Marks `Name__create`, `Name__get_x`, `Name__set_x` and `Name__method_x` as members of `name`. */
+function assignClassOps(module: SurfaceModule, name: string, publicName: (fn: SurfaceFunction) => string): void {
+  const kinds = { create: "constructor", get: "get", set: "set", method: "method" } as const;
+  for (const fn of module.functions) {
+    const operation = publicName(fn);
+    if (!operation.startsWith(name + "__")) continue;
+    const match = /^__(create)(?:__.+)?$|^__(get|set|method)_(.+)$/.exec(operation.slice(name.length));
+    if (!match) continue;
+    fn.classOp = {
+      className: name,
+      member: match[3] ?? "constructor",
+      kind: kinds[(match[1] ?? match[2]) as keyof typeof kinds],
+    };
+  }
+}
+
 export function normalizeModulePath(path: string): string {
   const parts: string[] = [];
   for (const part of path.replaceAll("\\", "/").split("/")) {
@@ -119,17 +135,13 @@ export function linkModule(
         continue;
       }
       alias.reference = { publicName: name, exported: alias.exported, native };
-      for (const fn of module.functions) {
-        const publicOperation = libraries[path]?.bindings?.[fn.name]?.overload ?? fn.name;
-        const operation = publicOperation.slice(name.length);
-        if (!publicOperation.startsWith(name + "__")) continue;
-        const kinds = { create: "constructor", get: "get", set: "set", method: "method" } as const;
-        const match = /^__(create)(?:__.+)?$|^__(get|set|method)_(.+)$/.exec(operation);
-        if (!match) continue;
-        const kind = kinds[(match[1] ?? match[2]) as keyof typeof kinds];
-        fn.classOp = { className: name, member: match[3] ?? "constructor", kind };
-      }
+      assignClassOps(module, name, (fn) => libraries[path]?.bindings?.[fn.name]?.overload ?? fn.name);
     }
+    // `@NativeReference` aliases carry their own binding, so they need the same
+    // `Name__create` / `Name__get_x` operations recognised as class members.
+    for (const alias of module.typeAliases)
+      if (alias.reference?.native && !libraries[path]?.references?.[alias.name])
+        assignClassOps(module, alias.name, (fn) => fn.name);
     for (const fn of module.functions) {
       // A sidecar declaration carries its own binding; everything downstream of
       // here — async promotion, contract checks, threads — then applies alike.

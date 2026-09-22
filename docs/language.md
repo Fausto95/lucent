@@ -19,8 +19,9 @@ TypeScript error.
 - Built-in authoring entry points are `@lucent-lang/core/types`, `@lucent-lang/core/objects`,
   `@lucent-lang/core/events`, `@lucent-lang/core/ui`, `@lucent-lang/core`,
   `@lucent-lang/core/math`, `@lucent-lang/core/text`,
-  `@lucent-lang/core/cancellation`, and `@lucent-lang/core/platform`. Every other
-  native binding comes from a package manifest listed in app config.
+  `@lucent-lang/core/cancellation`, and `@lucent-lang/core/platform`. Any other
+  platform API is reached with `@Native`, whose implementation lives in a
+  `.swift`/`.kt` file beside the Lucent source.
 - JavaScript packages, namespace/default imports, re-exports, and executable
   top-level statements remain unsupported. There is no JS runtime in native code.
 
@@ -626,6 +627,70 @@ SwiftUI `@State` or Compose `remember` state. Both example apps demonstrate a
 package-defined counter whose state stays native while changes notify React.
 This is adapter-owned state; Lucent state hooks, keyed lists, native delegate
 syntax, and the camera acceptance feature remain future compiler work.
+
+## Native sidecars
+
+A platform API that Lucent does not ship is reached by declaring it and
+implementing it next door:
+
+```ts
+// toolkit.lucent.ts
+// @ts-expect-error Lucent function decorator; compiled before TypeScript.
+@Capability("crypto")
+// @ts-expect-error Lucent function decorator; compiled before TypeScript.
+@Native
+export declare function sha256(bytes: Uint8Array): string;
+```
+
+```swift
+// toolkit.swift
+import CryptoKit
+
+func lucentNative_sha256(bytes: ArrayBuffer) throws -> String {
+  return SHA256.hash(data: LucentBytes.data(bytes)).map { String(format: "%02x", $0) }.joined()
+}
+```
+
+The pair is found by filename: `toolkit.lucent.ts` is implemented by
+`toolkit.swift` and `toolkit.kt`, with no registration anywhere. Each `@Native`
+declaration names a `lucentNative_`-prefixed symbol the sidecar defines. Swift
+labels arguments with the parameter names and Kotlin passes them positionally;
+`swiftc` and `kotlinc` check that the signatures line up, so a rename or a
+type change fails the build rather than at runtime. A sidecar carries its own
+`import` lines, and a Kotlin file without a `package` declaration receives the
+generated one.
+
+Swift sidecar functions are `throws`, because the generated caller marks every
+native call with `try`. A `Promise<T>` declaration is awaited, so its Swift
+implementation is `async throws` and its Kotlin implementation is `suspend`.
+
+`@Capability("crypto", "filesystem")` states what an implementation needs. A
+module that reaches a capability the app has not enabled in `lucent.config.ts`
+fails the build, the same check package manifests get. `@MainThread` and
+`@Background` apply to declarations as they do to Lucent functions.
+
+An SDK type becomes a handle with `@NativeReference`:
+
+```ts
+// @ts-expect-error Lucent type decorator; compiled before TypeScript.
+@NativeReference({ swift: "NSString", kotlin: "String", ownership: "owned", executor: "caller", transferable: true })
+export type NativeText = { length: number };
+
+// @ts-expect-error Lucent function decorator; compiled before TypeScript.
+@Native
+export declare function NativeText__create(value: string): NativeText;
+```
+
+`swift` and `kotlin` name the platform type. `ownership` and `executor` are
+written together — the borrow and executor checks read both, and stating one
+alone would quietly relax the other. Omitting the contract entirely keeps the
+conservative default, which rejects passing the handle across executors.
+`Name__create`, `Name__get_x`, `Name__set_x` and `Name__method_x` become the
+type's constructor, properties and methods.
+
+Package manifests remain the mechanism for a third-party package that ships
+native bindings under a bare specifier, since sidecar resolution follows
+relative imports only.
 
 ## SDK enums and option sets
 

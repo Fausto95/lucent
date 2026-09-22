@@ -5,6 +5,7 @@
 import { functionDecorators, maskDecorators } from "./decorators.ts";
 import type { ThreadContext } from "../libraries.ts";
 import { parseSync } from "oxc-parser";
+import type { NativeReferenceBinding } from "../libraries.ts";
 import type * as ES from "@oxc-project/types";
 import { diagnostic, type Diagnostic, type Span } from "../diagnostics/index.ts";
 import type {
@@ -125,6 +126,7 @@ class Converter {
     private readonly nativeOnly: ReadonlySet<number>,
     private readonly sidecar: ReadonlySet<number> = new Set(),
     private readonly capabilities: ReadonlyMap<number, string[]> = new Map(),
+    private readonly nativeReferences: ReadonlyMap<number, NativeReferenceBinding> = new Map(),
   ) {}
   readonly diagnostics: Diagnostic[] = [];
   readonly imports: SurfaceImport[] = [];
@@ -409,7 +411,15 @@ class Converter {
       this.unsupported(node.typeParameters, "generic type alias");
       return;
     }
-    this.typeAliases.push({ name: node.id.name, exported, type: this.type(node.typeAnnotation), span: spanOf(node) });
+    const native = this.nativeReferences.get(node.start);
+    this.typeAliases.push({
+      name: node.id.name,
+      exported,
+      type: this.type(node.typeAnnotation),
+      span: spanOf(node),
+      // `@NativeReference` makes the alias an SDK handle rather than a record.
+      ...(native ? { reference: { publicName: node.id.name, exported, native } } : {}),
+    });
   }
 
   private functionDeclaration(node: ES.Function, exported: boolean): void {
@@ -974,6 +984,7 @@ export function parseModule(source: string, fileName: string, libraries: Readonl
     decorators.nativeOnly,
     decorators.sidecar,
     decorators.capabilities,
+    decorators.nativeReferences,
   );
   converter.diagnostics.push(...decorators.diagnostics);
   for (const error of result.errors) {
