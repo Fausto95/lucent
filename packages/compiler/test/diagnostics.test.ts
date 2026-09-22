@@ -105,4 +105,22 @@ export function f(b: B): number { return take(b); }`;
       expect(codes(`interface Box<T> { get(): T; }\nclass N implements Box<number> { get(): number { return 1; } }\nexport function f(): number { return 1; }`)).toContain("LUCENT2009");
     });
   });
+
+  describe("AbortSignal", () => {
+    it("accepts signals from JavaScript", () => {
+      expect(codes("export function f(s: AbortSignal): boolean { return s.aborted; }")).toEqual([]);
+    });
+
+    it("rejects returning a signal to JavaScript", () => {
+      expect(codes("export function f(): AbortSignal { return new AbortController().signal; }")).toContain("LUCENT2006");
+    });
+
+    it("rejects abort reasons that are not errors", () => {
+      expect(codes('export function f(): void { new AbortController().abort("stop"); }')).toContain("LUCENT1003");
+    });
+
+    it("rejects reading the untyped reason", () => {
+      expect(codes("export function f(s: AbortSignal): boolean { return s.reason === undefined; }")).toEqual(expect.arrayContaining([expect.stringMatching(/LUCENT(1003|2001)/)]));
+    });
+  });
 });

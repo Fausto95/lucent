@@ -89,7 +89,7 @@ try {
 console.log("• running in Hermes");
 const pre = path.join(work, "pre.js");
 fs.writeFileSync(pre, 'var process = { env: { NODE_ENV: "production" } };\n');
-const r = spawnSync(exe, [pre, bundle], { encoding: "utf8", timeout: 120000 });
+const r = spawnSync(exe, [path.join(root, "packages/runtime/test/jsi/abort-polyfill.js"), pre, bundle], { encoding: "utf8", timeout: 120000 });
 process.stdout.write(r.stdout);
 process.stderr.write(r.stderr);
 if (r.status !== 0 || !r.stdout.includes("ALL PASSED")) process.exit(1);

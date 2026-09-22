@@ -22,6 +22,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const casesDir = path.join(here, "cases");
 const runtimeDir = path.resolve(here, "../../../runtime");
 const coreJs = path.resolve(here, "../../../core/index.js");
+const abortPolyfill = path.resolve(here, "../../../runtime/test/jsi/abort-polyfill.js");
 const hermes = process.env.HERMES_DIR ?? path.join(os.homedir(), "hermes");
 const sanitize = process.env.SANITIZE === "1";
 const cxx = process.env.CXX ?? "clang++";
@@ -138,7 +139,7 @@ function nativeRun(c: Case, lib: string): string {
     `var mods = __lucent; var mod = __lucent[${JSON.stringify(moduleNames[0])}];\n` +
       `function lucentClass(factory) { function C() { return factory.apply(undefined, arguments); } C.prototype = factory.prototype; Object.defineProperty(C.prototype, "constructor", { value: C }); for (var k of Object.keys(factory)) C[k] = factory[k]; return C; }\n`,
   );
-  const r = spawnSync(exe, [prelude, c.test], { encoding: "utf8", timeout: 60000, env: { ...process.env, ASAN_OPTIONS: "detect_leaks=0" } });
+  const r = spawnSync(exe, [abortPolyfill, prelude, c.test], { encoding: "utf8", timeout: 60000, env: { ...process.env, ASAN_OPTIONS: "detect_leaks=0" } });
   if (r.status !== 0) throw new Error(`native run failed (${r.status ?? r.signal}):\n${r.stderr}\n${r.stdout}`);
   if (r.stderr.trim()) process.stderr.write(r.stderr);
   return r.stdout;
@@ -189,6 +190,8 @@ async function referenceRun(c: Case): Promise<string> {
     Map,
     Set,
     Uint8Array,
+    AbortController,
+    AbortSignal,
     String,
     Number,
   };
