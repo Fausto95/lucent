@@ -3,18 +3,18 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "android": "react-native run-android",
-    "ios": "react-native run-ios",
+    "android": "lucent build && react-native run-android",
+    "ios": "lucent build && react-native run-ios",
     "start": "react-native start",
-    "lucent": "tsx ../../packages/cli/src/main.ts build --host nitro",
-    "pods": "cd ios && bundle exec pod install"
+    "lucent": "lucent build",
+    "pods": "lucent build && cd ios && bundle exec pod install"
   },
   "dependencies": {
     "@lucent-lang/core": "workspace:*",
     "react": "19.3.0",
     "react-native": "0.88.0-rc.2",
-    "react-native-nitro-modules": "0.37.1",
-    "react-native-safe-area-context": "^5.5.2"
+    "react-native-safe-area-context": "^5.5.2",
+    "@lucent-lang/runtime": "workspace:*"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -29,8 +29,8 @@
     "@react-native/metro-config": "0.88.0-rc.2",
     "@react-native/typescript-config": "0.88.0-rc.2",
     "@types/react": "^19.2.0",
-    "nitrogen": "0.37.1",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "@lucent-lang/metro": "workspace:*"
   },
   "engines": {
     "node": ">= 22.11.0"

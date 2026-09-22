@@ -14,12 +14,7 @@
       "package": "dev.lucent.expoexample"
     },
     "plugins": [
-      [
-        "@lucent-lang/core/expo",
-        {
-          "host": "expo"
-        }
-      ]
+      "@lucent-lang/expo"
     ]
   }
 }

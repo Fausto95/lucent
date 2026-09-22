@@ -9,10 +9,10 @@
 
 #include "core.h"
 #include "equality.h"
-#include "error.h"
+#include "jserror.h"
 #include "function.h"
 #include "number.h"
-#include "string.h"
+#include "jsstring.h"
 
 namespace lucent {
 

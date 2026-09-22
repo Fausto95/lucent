@@ -3,5 +3,6 @@
   "version": "0.1.0-cpp",
   "description": "Metro integration: *.lucent.ts imports resolve to generated JSI proxies",
   "license": "MIT",
-  "main": "./src/index.cjs"
+  "main": "./src/index.cjs",
+  "types": "./src/index.d.ts"
 }

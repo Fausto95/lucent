@@ -19,7 +19,7 @@
 
 #include "array.h"
 #include "core.h"
-#include "error.h"
+#include "jserror.h"
 #include "scheduler.h"
 
 namespace lucent {

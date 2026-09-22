@@ -10,11 +10,11 @@
 #include "array.h"
 #include "bytes.h"
 #include "core.h"
-#include "error.h"
+#include "jserror.h"
 #include "function.h"
 #include "map.h"
 #include "number.h"
-#include "string.h"
+#include "jsstring.h"
 
 namespace lucent {
 

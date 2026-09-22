@@ -117,6 +117,8 @@ int main(int argc, char** argv) {
   {
     std::shared_ptr<Host> host = Host::create(rt, post);
     rt.global().setProperty(rt, "__lucent", host->modules(rt));
+    // What @lucent-lang/runtime's loader looks for outside React Native.
+    rt.global().setProperty(rt, "__lucentModules", rt.global().getProperty(rt, "__lucent"));
     rt.global().setProperty(
         rt, "print",
         jsi::Function::createFromHostFunction(rt, jsi::PropNameID::forAscii(rt, "print"), 1,

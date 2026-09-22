@@ -8,7 +8,7 @@
 
 #include "array.h"
 #include "core.h"
-#include "string.h"
+#include "jsstring.h"
 
 namespace lucent {
 

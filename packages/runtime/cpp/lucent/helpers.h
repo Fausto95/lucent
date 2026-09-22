@@ -11,11 +11,11 @@
 #include "async.h"
 #include "bytes.h"
 #include "core.h"
-#include "error.h"
+#include "jserror.h"
 #include "map.h"
 #include "number.h"
 #include "ops.h"
-#include "string.h"
+#include "jsstring.h"
 
 namespace lucent {
 

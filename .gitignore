@@ -18,3 +18,4 @@ packages/bench/results/
 .claude/
 .tmp/
 .tmp-expo-ios.png
+/apps/*/.lucent

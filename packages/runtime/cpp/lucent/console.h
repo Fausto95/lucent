@@ -3,7 +3,7 @@
 
 #include <functional>
 
-#include "string.h"
+#include "jsstring.h"
 
 namespace lucent {
 
