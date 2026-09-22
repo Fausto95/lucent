@@ -122,6 +122,7 @@ class Converter {
     private readonly source: string,
     private readonly threads: ReadonlyMap<number, ThreadContext>,
     private readonly libraries: ReadonlySet<string>,
+    private readonly nativeOnly: ReadonlySet<number>,
   ) {}
   readonly diagnostics: Diagnostic[] = [];
   readonly imports: SurfaceImport[] = [];
@@ -422,6 +423,7 @@ class Converter {
       ...(node.type === "TSDeclareFunction" ? { ambient: true } : {}),
       name: node.id.name,
       ...this.threadAnnotation(node.start),
+      ...(this.nativeOnly.has(node.start) ? { nativeOnly: true } : {}),
       exported,
       async: node.async,
       params,
@@ -961,7 +963,7 @@ export function parseModule(source: string, fileName: string, libraries: Readonl
     preserveParens: false,
   });
   const decorators = functionDecorators(source, masked.source, result.program.body, masked.decorators, result.comments);
-  const converter = new Converter(source, decorators.threads, libraries);
+  const converter = new Converter(source, decorators.threads, libraries, decorators.nativeOnly);
   converter.diagnostics.push(...decorators.diagnostics);
   for (const error of result.errors) {
     if (error.severity !== "Error") continue;

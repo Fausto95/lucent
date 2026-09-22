@@ -271,6 +271,7 @@ export function linkModule(
         name: values.get(fn.name)!,
         ...(fn.classOp ? { classOp: { ...fn.classOp, className: types.get(fn.classOp.className)! } } : {}),
         exported:
+          !fn.nativeOnly &&
           !fn.binding?.nativeOnly &&
           !(
             fn.classOp &&

@@ -4,7 +4,7 @@ import { nativeSymbolId, type LibraryModule } from "@lucent-lang/compiler";
 export type DelegateScalar = "number" | "int32" | "boolean" | "string";
 export interface DelegateMethod {
   name: string;
-  parameters: { name: string; type: DelegateScalar; swiftLabel?: string }[];
+  parameters: { name: string; type: DelegateScalar | (string & {}); swiftLabel?: string }[];
   result: DelegateScalar | "void";
   /** Propagation requires a throwing Swift requirement. Fallbacks are explicit ABI policy. */
   errors:
@@ -16,6 +16,8 @@ export interface DelegateSchema {
   name: string;
   swift: { protocol: string; imports: string[]; base?: "NSObject" };
   kotlin: { interface: string };
+  /** SDK-owned objects delivered only for the duration of a callback. */
+  resources?: Record<string, { swift: string; kotlin: string }>;
   methods: DelegateMethod[];
 }
 const types: Record<DelegateScalar | "void", { swift: string; kotlin: string }> = {
@@ -78,10 +80,10 @@ function fallback(method: DelegateMethod, language: "swift" | "kotlin"): string 
 }
 const callbackType = (method: DelegateMethod) =>
   `NativeCallback<(${method.parameters.map((p) => `${p.name}:${p.type}`).join(",")})=>${method.result}>`;
-const swiftCallback = (method: DelegateMethod) =>
-  `(${method.parameters.map((p) => types[p.type].swift).join(", ")}) throws -> ${types[method.result].swift}`;
-const kotlinCallback = (method: DelegateMethod) =>
-  `(${method.parameters.map((p) => types[p.type].kotlin).join(", ")}) -> ${types[method.result].kotlin}`;
+const swiftCallback = (method: DelegateMethod, nativeTypes: Record<string, { swift: string; kotlin: string }>) =>
+  `(${method.parameters.map((p) => nativeTypes[p.type]!.swift).join(", ")}) throws -> ${types[method.result].swift}`;
+const kotlinCallback = (method: DelegateMethod, nativeTypes: Record<string, { swift: string; kotlin: string }>) =>
+  `(${method.parameters.map((p) => nativeTypes[p.type]!.kotlin).join(", ")}) -> ${types[method.result].kotlin}`;
 
 /** Curated protocol metadata in; concrete conformances and a public library manifest out. */
 export function generateDelegateLibrary(schema: DelegateSchema): { library: LibraryModule; declarations: string } {
@@ -98,6 +100,24 @@ export function generateDelegateLibrary(schema: DelegateSchema): { library: Libr
     !schema.methods.length
   )
     throw new Error("Invalid delegate schema");
+  const nativeTypes: Record<string, { swift: string; kotlin: string }> = { ...types };
+  if (
+    schema.resources !== undefined &&
+    (!schema.resources || typeof schema.resources !== "object" || Array.isArray(schema.resources))
+  )
+    throw new Error("Invalid delegate resources");
+  for (const [name, resource] of Object.entries(schema.resources ?? {})) {
+    if (
+      !identifier(name) ||
+      name === schema.name ||
+      Object.hasOwn(nativeTypes, name) ||
+      !resource ||
+      !qualified(resource.swift) ||
+      !qualified(resource.kotlin)
+    )
+      throw new Error(`Invalid delegate resource ${name}`);
+    nativeTypes[name] = resource;
+  }
   const names = new Set<string>();
   for (const method of schema.methods) {
     if (
@@ -113,7 +133,7 @@ export function generateDelegateLibrary(schema: DelegateSchema): { library: Libr
       if (
         !identifier(p.name) ||
         parameters.has(p.name) ||
-        !Object.hasOwn(types, p.type) ||
+        !Object.hasOwn(nativeTypes, p.type) ||
         (p.type as string) === "void" ||
         (p.swiftLabel !== undefined && p.swiftLabel !== "_" && !identifier(p.swiftLabel))
       )
@@ -130,14 +150,16 @@ export function generateDelegateLibrary(schema: DelegateSchema): { library: Libr
   }
   const nativeName = `LucentDelegate_${createHash("sha256").update(JSON.stringify(schema)).digest("hex").slice(0, 16)}`;
   const swiftMethods = schema.methods.map((method) => {
-    const params = method.parameters.map((p) => `${p.swiftLabel ?? "_"} ${p.name}: ${types[p.type].swift}`).join(", ");
+    const params = method.parameters
+      .map((p) => `${p.swiftLabel ?? "_"} ${p.name}: ${nativeTypes[p.type]!.swift}`)
+      .join(", ");
     const invocation = `${method.result === "void" ? "" : "return "}try lucent_${method.name}(${method.parameters.map((p) => p.name).join(", ")})`;
     const body =
       method.errors.kind === "propagate" ? invocation : `do { ${invocation} } catch { ${fallback(method, "swift")} }`;
     return `  func ${method.name}(${params})${method.errors.kind === "propagate" ? " throws" : ""} -> ${types[method.result].swift} { ${body} }`;
   });
   const kotlinMethods = schema.methods.map((method) => {
-    const params = method.parameters.map((p) => `${p.name}: ${types[p.type].kotlin}`).join(", ");
+    const params = method.parameters.map((p) => `${p.name}: ${nativeTypes[p.type]!.kotlin}`).join(", ");
     const invocation = `${method.result === "void" ? "" : "return "}lucent_${method.name}(${method.parameters.map((p) => p.name).join(", ")})`;
     const body =
       method.errors.kind === "propagate"
@@ -149,17 +171,29 @@ export function generateDelegateLibrary(schema: DelegateSchema): { library: Libr
     [...new Set([...schema.swift.imports, ...(schema.swift.base ? ["Foundation"] : [])])]
       .map((i) => `import ${i}`)
       .join("\n") +
-    `\nfinal class ${nativeName}: ${schema.swift.base ? schema.swift.base + ", " : ""}${schema.swift.protocol} {\n${schema.methods.map((m) => `  private let lucent_${m.name}: ${swiftCallback(m)}`).join("\n")}\n  init(${schema.methods.map((m) => `${m.name}: @escaping ${swiftCallback(m)}`).join(", ")}) {\n${schema.methods.map((m) => `    self.lucent_${m.name} = ${m.name}`).join("\n")}\n${schema.swift.base ? "    super.init()\n" : ""}  }\n${swiftMethods.join("\n")}\n}\n`;
-  const kotlin = `package {{androidPackage}}\nclass ${nativeName}(${schema.methods.map((m) => `private val lucent_${m.name}: ${kotlinCallback(m)}`).join(", ")}): ${schema.kotlin.interface} {\n${kotlinMethods.join("\n")}\n}\n`;
+    `\nfinal class ${nativeName}: ${schema.swift.base ? schema.swift.base + ", " : ""}${schema.swift.protocol} {\n${schema.methods.map((m) => `  private let lucent_${m.name}: ${swiftCallback(m, nativeTypes)}`).join("\n")}\n  init(${schema.methods.map((m) => `${m.name}: @escaping ${swiftCallback(m, nativeTypes)}`).join(", ")}) {\n${schema.methods.map((m) => `    self.lucent_${m.name} = ${m.name}`).join("\n")}\n${schema.swift.base ? "    super.init()\n" : ""}  }\n${swiftMethods.join("\n")}\n}\n`;
+  const kotlin = `package {{androidPackage}}\nclass ${nativeName}(${schema.methods.map((m) => `private val lucent_${m.name}: ${kotlinCallback(m, nativeTypes)}`).join(", ")}): ${schema.kotlin.interface} {\n${kotlinMethods.join("\n")}\n}\n`;
   const params = schema.methods.map((m) => `${m.name}:${callbackType(m)}`).join(",");
   const prefix = 'import type {NativeCallback,int32} from "@lucent-lang/core/types";\n';
+  const resourceAliases = Object.keys(schema.resources ?? {})
+    .map((name) => `export type ${name} = {};`)
+    .join("\n");
+  const resourceReferences = Object.fromEntries(
+    Object.entries(schema.resources ?? {}).map(([name, resource]) => [
+      name,
+      { ...resource, nativeOnly: true, contract: { ownership: "external" as const, executor: "caller" as const } },
+    ]),
+  );
   return {
     library: {
       schemaVersion: 1,
       source:
         prefix +
+        resourceAliases +
+        "\n" +
         `export type ${schema.name}={};\nexport declare function ${schema.name}__create(${params}):${schema.name};`,
       references: {
+        ...resourceReferences,
         [schema.name]: {
           nativeOnly: true,
           swift: nativeName,
@@ -191,6 +225,8 @@ export function generateDelegateLibrary(schema: DelegateSchema): { library: Libr
     },
     declarations:
       prefix +
+      resourceAliases +
+      "\n" +
       `/** Compiled-only native delegate; retain it for the SDK registration lifetime. */\nexport declare class ${schema.name} { constructor(${params}); }\n`,
   };
 }

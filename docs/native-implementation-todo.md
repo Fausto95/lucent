@@ -239,8 +239,11 @@ adapters and full SDK cleanup quiescence remain incomplete.
       curated scalar delegate requirements via `lucent sdk delegate`. Compile
       both generated implementations against real test protocol/interface
       declarations and invoke callbacks authored in Lucent.
-- [ ] Extend delegate generation to SDK reference parameters, inherited/optional
-      requirements, availability and protocol extraction.
+- [x] Support curated SDK resource parameters as borrowed, native-only
+      delegate inputs. Reject return, storage, retained-call and escaping
+      callback capture; allow scoped helpers and explicitly nonescaping callbacks.
+- [ ] Extend delegate generation to inherited/optional requirements, availability
+      and protocol extraction.
 - [ ] Model owned subscriptions with idempotent, reentrant-safe removal.
 - [ ] Retain delegates even where the SDK keeps only weak references.
 - [ ] Quiesce in-flight delivery and release captures on teardown.
@@ -323,7 +326,13 @@ adapters and full SDK cleanup quiescence remain incomplete.
 - [ ] Implement Expo/Nitro-aware permission adapters, denial, retry, and recovery.
 - [ ] Implement native preview and typed session start/stop/interruption/close.
 - [ ] Declare borrowed frame planes, format, stride, orientation, and validity.
-- [ ] Compile a luminance processor from `.lucent.ts` with known-frame tests.
+- [x] Compile a luminance processor from `.lucent.ts` with known-frame tests.
+      `examples/camera/luminance.lucent.ts` handles row and pixel stride. Native
+      Swift/Kotlin harnesses deliver 1,000 valid/malformed synthetic frame pairs
+      through generated delegates, close every frame, and verify zero open
+      frames. Physical camera delivery is not implemented by this harness.
+- [x] Add `@NativeOnly` exported processors for sharing across `.lucent.ts` files
+      without exposing frame-bearing signatures to JavaScript.
 - [ ] Enforce scoped processing and explicit copying before asynchronous escape.
 - [ ] Bound work to one frame in flight with keep-latest backpressure.
 - [ ] Close Android frames on success, error, and cancellation.
@@ -368,7 +377,8 @@ adapters and full SDK cleanup quiescence remain incomplete.
 
 ## Latest verification checkpoint
 
-- Unit suite: 629 passing tests across 78 files after curated delegate generation,
+- Unit suite: 641 passing tests across 79 files after borrowed frame callbacks,
+  shared native-only processors, strided luminance verification, curated delegate generation,
   native-only SDK resources,
   per-object bridge serialization,
   JavaScript method overload

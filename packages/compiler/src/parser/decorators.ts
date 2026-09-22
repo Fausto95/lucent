@@ -90,6 +90,7 @@ export function functionDecorators(
   decorators: Span[],
   comments: readonly { start: number; end: number }[],
 ) {
+  const nativeOnly = new Set<number>();
   const threads = new Map<number, ThreadContext>(),
     diagnostics: Diagnostic[] = [];
   const trivia = (start: number, end: number) => {
@@ -102,7 +103,17 @@ export function functionDecorators(
   for (const span of decorators) {
     const stmt = body.find((s) => s.start >= span.end && trivia(span.end, s.start));
     const fn = stmt?.type === "ExportNamedDeclaration" ? stmt.declaration : stmt;
-    const context = CONTEXTS[source.slice(span.start + 1, span.end)];
+    const name = source.slice(span.start + 1, span.end);
+    const context = CONTEXTS[name];
+    if (
+      name === "NativeOnly" &&
+      fn &&
+      (fn.type === "FunctionDeclaration" || fn.type === "TSDeclareFunction") &&
+      !nativeOnly.has(fn.start)
+    ) {
+      nativeOnly.add(fn.start);
+      continue;
+    }
     if (
       !context ||
       !fn ||
@@ -110,9 +121,13 @@ export function functionDecorators(
       threads.has(fn.start)
     )
       diagnostics.push(
-        diagnostic("LUCENT1001", span, "Use exactly one of @MainThread, @Background, or @Inherited before a function."),
+        diagnostic(
+          "LUCENT1001",
+          span,
+          "Use at most one @NativeOnly and one of @MainThread, @Background, or @Inherited before a function.",
+        ),
       );
     else threads.set(fn.start, context);
   }
-  return { threads, diagnostics };
+  return { threads, nativeOnly, diagnostics };
 }

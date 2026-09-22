@@ -42,3 +42,17 @@ test("does not warn when a main-thread function awaits explicitly background wor
   );
   expect(r.diagnostics).toEqual([]);
 });
+
+test("NativeOnly composes with one executor annotation", () => {
+  const result = compile("@NativeOnly @Background export async function work():Promise<number>{return 1;}", {
+    fileName: "native-only.lucent.ts",
+  });
+  expect(result.diagnostics).toEqual([]);
+  expect(result.module!.functions[0]!.exported).toBe(false);
+  expect(result.module!.functions[0]!.thread).toBe("worker");
+});
+test.each(["@NativeOnly @NativeOnly", "@NativeOnly()"])("rejects invalid native-only decorators: %s", (decorator) => {
+  expect(
+    compile(`${decorator} export function work():number{return 1;}`, { fileName: "native-only.lucent.ts" }).module,
+  ).toBeNull();
+});

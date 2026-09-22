@@ -944,7 +944,7 @@ Requirements support `number`, `int32`, `boolean`, and `string` parameters/resul
 and `void` results. Swift argument labels are explicit and default to `_`.
 Methods share their declared names across platforms. The only supported Swift
 base class is optional `NSObject`; general inheritance, optional requirements,
-SDK reference parameters and automatic protocol extraction remain unsupported.
+automatic protocol extraction remain unsupported.
 Actual native compilation checks the declared protocol conformance.
 
 Every requirement must specify its error policy. `fallback` requires a matching
@@ -953,3 +953,23 @@ errors. `{ "kind": "propagate", "swiftThrows": true }` is available only for a
 throwing Swift requirement; an incompatible native declaration fails native
 compilation. Delegates execute synchronously on the SDK's calling executor and
 never hop to JavaScript or another executor to obtain a decision.
+
+Delegate schemas may declare `resources`, a map from a Lucent type name to its
+qualified `swift` and `kotlin` SDK types. These names may be used as requirement
+parameter types. Generated resource aliases are native-only, externally owned
+references. Resource results remain unsupported. Provide accessors through
+ordinary native bindings; the compiler has no camera-specific resource type.
+
+Parameters of externally owned native-only reference types are scoped borrows,
+including callback parameters and compiled helper parameters. They cannot be
+returned, stored in a record/array, passed to a retained parameter, captured by
+an escaping callback, or used after suspension. Explicitly nonescaping callbacks
+may use them while their delivery is active. SDK adapters remain responsible for
+invalidating and closing the real SDK resource when delivery finishes.
+
+`@NativeOnly export function` declares a function importable by other Lucent
+files without generating a JavaScript export. It can compose with one executor
+decorator. Use it for processors with borrowed native parameters, such as the
+strided luminance example in `examples/camera/luminance.lucent.ts`. The SDK must
+explicitly copy a frame into an owned resource before asynchronous processing;
+this annotation does not extend the frame's lifetime.

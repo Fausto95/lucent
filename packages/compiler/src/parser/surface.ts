@@ -97,6 +97,7 @@ export interface SurfaceParam {
 }
 
 export interface SurfaceFunction {
+  nativeOnly?: boolean;
   ambient?: boolean;
   classOp?: { className: string; member: string; kind: "constructor" | "method" | "get" | "set" };
   event?: { name: string; id: string; exported: boolean };

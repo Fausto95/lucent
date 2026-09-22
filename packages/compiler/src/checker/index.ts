@@ -424,7 +424,7 @@ class FunctionChecker {
         p.type,
         true,
         false,
-        this.fn.binding?.contract?.parameters?.[p.name]?.ownership === "borrowed",
+        this.fn.binding?.contract?.parameters?.[p.name]?.ownership === "borrowed" || this.scopedReference(p.type),
       );
     const body = this.fn.body.map((s) => this.stmt(s));
     this.pop();
@@ -491,6 +491,12 @@ class FunctionChecker {
 
   private declare(name: string, type: NativeType, mutable: boolean, poisoned = false, borrowed = false): void {
     this.scopes[this.scopes.length - 1]!.set(name, { type, mutable, poisoned, ...(borrowed ? { borrowed } : {}) });
+  }
+
+  private scopedReference(type: NativeType): boolean {
+    if (type.kind !== "struct") return false;
+    const native = this.mod.structs.get(type.name)?.reference?.native;
+    return native?.nativeOnly === true && native.contract?.ownership === "external";
   }
 
   private rejectBorrow(value: TExpr, span: Span, reason: string): void {
@@ -845,7 +851,8 @@ class FunctionChecker {
         this.captures.push(outer);
         this.depth++;
         this.push();
-        for (const param of params) this.declare(param.name, param.type, false);
+        for (const param of params)
+          this.declare(param.name, param.type, false, false, this.scopedReference(param.type));
         const statements = Array.isArray(e.body);
         if (statements && !result)
           this.report(diagnostic("LUCENT1014", e.span, "A native callback with a statement body needs a return type."));
@@ -866,6 +873,7 @@ class FunctionChecker {
           returnType,
         );
         if (!Array.isArray(body)) {
+          this.rejectBorrow(body, e.span, "escape its callback");
           if (result && !this.fits(body, result)) this.mismatch(e.span, result, body.type);
           if (body.type.kind === "promise" || body.type.kind === "callback")
             this.report(
@@ -1193,7 +1201,7 @@ class FunctionChecker {
         this.closureEscaping.at(-1) === false &&
         binding.borrowed &&
         !binding.mutable &&
-        reference?.native?.contract?.ownership === "owned";
+        (reference?.native?.contract?.ownership === "owned" || this.scopedReference(binding.type));
       if (!borrowed && (binding.mutable || binding.borrowed || (!value && !retained)))
         this.report(
           diagnostic(
@@ -1527,7 +1535,9 @@ class FunctionChecker {
       if (arg.kind === "closure") this.nextCallbackEscaping = savedEscaping;
       if (param && !this.fits(typed, param.type))
         return this.mismatch(arg.span, param.type, typed.type, narrowingHint(typed.type));
-      const ownership = signature.binding?.contract?.parameters?.[param?.name ?? ""]?.ownership;
+      const ownership =
+        signature.binding?.contract?.parameters?.[param?.name ?? ""]?.ownership ??
+        (param && this.scopedReference(param.type) ? "borrowed" : undefined);
       const receiver = i === 0 && /__(method|get|set)_/.test(callee);
       if (typed.borrowed && ownership !== "borrowed" && !(ownership === undefined && receiver))
         this.rejectBorrow(typed, arg.span, "be passed out of its scope");

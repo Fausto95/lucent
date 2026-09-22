@@ -57,3 +57,30 @@ test("rejects duplicate and unsupported requirements", () => {
     }),
   ).toThrow();
 });
+
+test("curated delegate resources are borrowed native-only callback parameters", () => {
+  const { library } = generateDelegateLibrary({
+    ...schema,
+    resources: { Frame: { swift: "SDKFrame", kotlin: "SDKFrame" } },
+    methods: [
+      {
+        name: "analyze",
+        parameters: [{ name: "frame", type: "Frame" }],
+        result: "number",
+        errors: { kind: "fallback", value: -1, reason: "Reject invalid frame" },
+      },
+    ],
+  });
+  expect(validateLibrary(library)).toEqual([]);
+  expect(library.references!.Frame).toEqual({
+    nativeOnly: true,
+    swift: "SDKFrame",
+    kotlin: "SDKFrame",
+    contract: { ownership: "external", executor: "caller" },
+  });
+  const result = compile(
+    "import {DecisionDelegate,Frame} from '@sdk/delegate'; export function run():number{const listener=new DecisionDelegate((frame:Frame):number=>1);return 1;}",
+    { fileName: "frame-delegate.lucent.ts", libraries: { "@sdk/delegate": library } },
+  );
+  expect(result.diagnostics).toEqual([]);
+});
