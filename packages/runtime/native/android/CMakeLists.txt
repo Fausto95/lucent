@@ -27,6 +27,8 @@ target_compile_options(lucentnative PRIVATE
   -Wno-unused-variable
   -Wno-unused-label
   -Wno-gnu-statement-expression
+  -Wno-parentheses-equality
+  -Wno-comma
 )
 
 target_link_libraries(lucentnative jsi reactnative fbjni log)

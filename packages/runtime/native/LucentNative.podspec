@@ -14,7 +14,7 @@ Pod::Spec.new do |s|
   s.pod_target_xcconfig = {
     "CLANG_CXX_LANGUAGE_STANDARD" => "c++20",
     "HEADER_SEARCH_PATHS" => "\"$(PODS_TARGET_SRCROOT)/cpp\" \"$(PODS_TARGET_SRCROOT)/cpp/generated\" \"$(PODS_TARGET_SRCROOT)/cpp/rn\"",
-    "OTHER_CPLUSPLUSFLAGS" => "$(inherited) -fexceptions -frtti -Wno-gnu-statement-expression -Wno-unused-label",
+    "OTHER_CPLUSPLUSFLAGS" => "$(inherited) -fexceptions -frtti -Wno-gnu-statement-expression -Wno-unused-label -Wno-parentheses-equality -Wno-comma",
   }
 
   install_modules_dependencies(s)
