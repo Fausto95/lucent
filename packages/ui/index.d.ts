@@ -25,3 +25,5 @@ export declare function Padding(props: { value: number; children?: ReactNode }):
 export declare function Background(props: { color: string; children?: ReactNode }): NativeView;
 export declare function CornerRadius(props: { value: number; children?: ReactNode }): NativeView;
 export declare function Accessibility(props: { label: string; children?: ReactNode }): NativeView;
+export declare function Divider(props?: Record<string, never>): NativeView;
+export declare function For<T>(props: { each: T[]; children: (item: T) => NativeView }): NativeView;

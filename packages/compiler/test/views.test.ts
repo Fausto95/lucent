@@ -45,6 +45,45 @@ test("NativeProps provides the React Native wrapper surface", () => {
   expect(compile(text, { fileName: "card.lucent.tsx" }).diagnostics).toEqual([]);
 });
 
+test("renders conditional rows, eager lists, dividers, and view-owned state", () => {
+  const result = compile(
+    `import { VStack, Text, Button, TextField, Divider, For, type NativeView } from "@lucent-lang/ui";
+type Props = { title: string; notes: string[]; armed: boolean };
+export function Field(props: Props): NativeView {
+  const draft = state("Ridge");
+  const gain = state(35);
+  return <VStack spacing={8}>
+    <Text>{props.armed ? props.title : "Paused"}</Text>
+    <Divider />
+    <For each={props.notes}>{(note: string) => <Text>{note}</Text>}</For>
+    <TextField value={draft} onChange={(value: string) => draft.set(value)} placeholder="Label" />
+    <Text>{gain}</Text>
+    <Button title="Save" onPress={() => draft.set(draft + ".")} />
+  </VStack>;
+}`,
+    { fileName: "field.lucent.tsx" },
+  );
+  expect(result.diagnostics).toEqual([]);
+  const fn = result.module?.functions.find((item) => item.name === "Field");
+  expect(fn?.state?.map((slot) => [slot.name, slot.value])).toEqual([
+    ["draft", "Ridge"],
+    ["gain", 35],
+  ]);
+  expect(JSON.stringify(fn?.body)).toContain('"op":"ifExpr"');
+  expect(JSON.stringify(fn?.body)).toContain('"name":"For"');
+  expect(JSON.stringify(fn?.body)).toContain('"op":"stateWrite"');
+});
+
+test("rejects state that is nested, non-literal, or written during render", () => {
+  const header = `import { Text, type NativeView } from "@lucent-lang/ui"; type Props = { title: string }; export function Field(props: Props): NativeView {`;
+  const bad = [
+    `${header} if (props.title === "a") { const draft = state("x"); } return <Text>{props.title}</Text>; }`,
+    `${header} const draft = state(props.title); return <Text>{draft}</Text>; }`,
+    `${header} const draft = state("x"); draft.set("y"); return <Text>{draft}</Text>; }`,
+  ];
+  for (const text of bad) expect(compile(text, { fileName: "field.lucent.tsx" }).module).toBeNull();
+});
+
 test.each(["Column", "Row"])("rejects obsolete stack name %s", (name) => {
   const result = compile(
     `import { ${name}, type NativeView } from "@lucent-lang/ui"; export function Card():NativeView { return <${name} />; }`,

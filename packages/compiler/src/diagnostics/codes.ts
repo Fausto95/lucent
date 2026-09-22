@@ -18,6 +18,8 @@ export const DIAGNOSTIC_CODES = {
   NT1014: "Missing type annotation",
   NT1015: "Missing return",
   NT1016: "Assignment to a constant",
+  NT1018: "Borrowed value escapes",
+  NT1019: "Wrong executor",
 } as const;
 
 export type DiagnosticCode = keyof typeof DIAGNOSTIC_CODES;

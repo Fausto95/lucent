@@ -19,10 +19,10 @@ commits. This user instruction overrides the older tests-first commit rule in
 | Package cleanup               | Completed for `std` | Further removals require an actual redundancy audit                        |
 | Native contracts              | Partial             | Full symbol kinds, enforcement, cache coverage, provenance                 |
 | Overload resolution           | Partial             | Methods/constructors, callback contexts, conversions, availability ranking |
-| Async object lifetime         | Partial             | Cancellation, close, object executors and broader race coverage            |
-| Native closures               | Partial             | Resource/state captures, block bodies, explicit capture environments       |
+| Async object lifetime         | Partial             | SDK task scopes, host cancel/close races, runtime close quiesce            |
+| Native closures               | Partial             | Closure-owned resource cells; indirect executor/error preservation         |
 | Delegates/interfaces          | Not implemented     | Conformance, subscriptions, delivery/error policies                        |
-| Lucent-owned component state  | Not implemented     | Component IR, storage, handlers, bindings                                  |
+| Lucent-owned component state  | Partial             | Component IR, `@State`/`remember` identity, resource slots, record events  |
 | Keyed composition and effects | Not implemented     | Identity, keyed/lazy collections, effects, refs                            |
 | Structured SDK extraction     | Not implemented     | Apple/JVM metadata adapters and curated overlays                           |
 | Camera acceptance feature     | Not implemented     | Permissions, preview, sessions, frames, Lucent processor                   |
@@ -147,23 +147,27 @@ Evidence: `overloads.test.ts`, SDK extraction tests, `verify-runtime.ts`.
 - [x] Add a native cooperative `CancellationSource` with synchronized/atomic
       state, idempotent cancellation, typed `CANCELLED` checkpoints, and explicit
       async transferability. Execute concurrent cancellation on both toolchains.
-- [ ] Add scope-owned operation tracking, automatic cancellation propagation,
-      and SDK-specific cancellation adapters.
+- [ ] Add scope-owned operation tracking for arbitrary SDK tasks, and
+      SDK-specific cancellation adapters. Child `CancellationSource.scope()`
+      propagation is implemented; general task scopes are not.
 - [ ] Exercise cancellation during suspension and cancellation/close races
       against actual Expo/Nitro host scheduling.
-- [ ] Define exactly-once completion under success/cancel/close races.
-- [ ] Add caller/main/worker/serial-object execution enforcement.
+- [x] Define exactly-once completion under success/cancel races on
+      `CancellationSource.finish()`. Close races against SDK cleanup are not
+      included.
+- [x] Add caller/main/worker/serial-object execution enforcement.
 - [ ] Replace registry-wide synchronization around synchronous SDK calls with
       appropriate object/executor serialization; do not hold registry locks while
       invoking arbitrary SDK code or callbacks.
-- [ ] Implement borrowed reference escape and suspension checks.
+- [x] Implement borrowed reference escape and suspension checks.
 - [ ] Implement explicit close: reject new work, cancel/quiesce pending work,
-      then run SDK cleanup on the required executor.
+      then run SDK cleanup on the required executor. Use-after-`close` is now a
+      compiler error; runtime quiesce and SDK cleanup are not.
 - [ ] Define externally owned resource detachment and cleanup-error behavior.
 
-Evidence: `verify-interop.ts`, async-reference host tests,
-`runtime/test/objects.test.ts`, `verify-cancellation.ts`. Scope cancellation and
-SDK close are not implemented.
+Evidence: `lifetimes.test.ts`, `verify-interop.ts`, async-reference host tests,
+`runtime/test/objects.test.ts`, `verify-cancellation.ts`. Arbitrary SDK task
+scopes and runtime close quiesce are not implemented.
 
 ## M4 — Native closures and delegates
 
@@ -172,11 +176,16 @@ SDK close are not implemented.
 - [x] Allow immutable scalar `const` captures and reject mutable/resource captures.
 - [x] Lower closure expressions to IR and emit Swift/Kotlin closures.
 - [x] Execute a captured callback on both native toolchains.
-- [ ] Add explicit capture-environment metadata to IR.
-- [ ] Support statement bodies, value-record captures, owned references, weak
-      captures, and persistent state/resource cells with lifetime checks.
-- [ ] Distinguish escaping/nonescaping callbacks and preserve executor/error
-      contracts through indirect calls.
+- [x] Add explicit capture-environment metadata to IR.
+- [x] Support statement bodies, value captures, and retained owned references.
+- [x] Support weak captures. `weak(reference)` is an optional capture of an
+      immutable owned reference, and the closure must handle null. Immutable
+      non-reference records use the `value` capture rule.
+- [ ] Support persistent state/resource cells inside closures, with lifetime
+      checks. View `state()` is separate and listed under M5.
+- [x] Distinguish escaping and nonescaping callback captures. `retention: "call"`
+      may capture a borrow; `subscription` and absent retention may not.
+- [ ] Preserve executor and error contracts through indirect calls.
 - [ ] Import protocol/interface requirements and validate conformance.
 - [ ] Generate concrete Swift conformances and Kotlin implementations.
 - [ ] Model owned subscriptions with idempotent, reentrant-safe removal.
@@ -188,20 +197,28 @@ SDK close are not implemented.
 ## M5 — Lucent-owned state in `.lucent.tsx`
 
 - [ ] Introduce component definition/instance IR, separate from view templates.
-- [ ] Add typed state operations at static top-level component positions.
-- [ ] Initialize state once per identity; preserve it across prop updates.
-- [ ] Implement ordered functional updates and handlers reading current state.
-- [ ] Generate SwiftUI-owned storage and equivalent Compose remembered storage.
-- [ ] Enforce UI-executor mutations and render purity.
-- [ ] Bind controlled inputs directly to native state.
+- [x] Add typed `state(literal)` operations at the top level of a view. Nested
+      and non-literal declarations are rejected.
+- [x] Initialize that state once on the host view instance and preserve it
+      across prop updates. Keyed identity reset is not implemented.
+- [x] Read the live cell from handlers, so `name.set(name + 1)` uses the current
+      value.
+- [ ] Generate SwiftUI `@State` and Compose `remember` inside the view value.
+      Storage is a field on the generated host view instead.
+- [x] Reject state writes and other effects during render. Handler closures may
+      update state. UI-executor hopping is not a separate check.
+- [x] Bind `TextField`, `Toggle`, and `Slider` to view state, or to props.
+- [x] Allow conditional view expressions and eager `For` rows over string,
+      number, and boolean arrays. Row identity is the index.
 - [ ] Support validated record event payloads without native resource leakage.
 - [ ] Add component-owned resource slots separate from value state.
-- [ ] Replace adapter-owned counters in both examples with Lucent-authored
-      counters; test editing and parent prop updates through UI interaction.
+- [x] Replace the adapter-owned counter in both example apps with a Lucent
+      `FieldScreen` that owns its controls and a `FieldKit` class for the log.
+- [ ] Exercise text editing and a parent prop update through UI automation.
 
 ## M6 — Composition, lifecycle, and references
 
-- [ ] Add conditional content and typed child slots.
+- [ ] Add typed child slots. Conditional view expressions and eager index-ordered `For` rows are in M5; keyed identity is not.
 - [ ] Define identity by parent, declaration, explicit key, and component type.
 - [ ] Add keyed eager collections with duplicate-key diagnostics.
 - [ ] Preserve state/focus/resources on reorder; clean up removed identities.
@@ -273,7 +290,10 @@ SDK close are not implemented.
 
 ## Latest verification checkpoint
 
-- Unit suite: 429 passing tests across 48 files.
+- Unit suite after the lifetime slice: 434 passing tests across 49 files.
+  Lint passed. Cancellation and interop native checks passed. The four app
+  builds below were not rerun for this slice.
+- Previous full checkpoint: 429 passing tests across 48 files.
 - Root and both example app TypeScript checks: passing.
 - Full `pnpm verify`, package build, and website build: passing.
 - Swift/Kotlin fixture compilation, extracted SDK execution, and interop
@@ -293,10 +313,14 @@ scoped cancellation, delegates, state, lifecycle, extraction, or camera gates.
 The compiler accepts the built-in cancellation source across async boundaries.
 Native executable tests verify the initial state, the `CANCELLED` error, repeated
 cancellation, and 1,000 concurrent cancellation requests on Swift and Kotlin.
-The full verification suite and package build pass for this slice. The app and
-website checks above were run for the preceding async lease milestone.
-This primitive does not complete M3: operation scopes, cancellation completion,
-SDK adapters, executor enforcement, and quiescent resource close remain open.
+Child `scope()` sources observe parent cancellation, and `finish()` is true once
+and false after cancellation or a second completion. Borrowed results cannot be
+returned, stored, or used after suspension or `close`. Calls must match
+`main`, `worker`, or caller-confined `serial` executors. Closure IR records
+`value` and `retained` captures, including statement bodies.
+
+Operation scopes for arbitrary SDK work, host-scheduler cancel races, delegate
+subscriptions, component state, extraction, and the camera feature remain open.
 
 ### Replacement-wrapper retention slice
 

@@ -28,6 +28,9 @@ interface Binding {
   mutable: boolean;
   /** The declaration already failed to type; uses of it must not cascade. */
   poisoned: boolean;
+  borrowed?: boolean;
+  /** View-owned scalar cell. Reads are live; writes go through `set`. */
+  state?: true;
 }
 
 const MISMATCH = (expected: NativeType, actual: NativeType) =>
@@ -288,12 +291,20 @@ class ModuleChecker {
                 ["void", "string", "bool", "float"].includes(t.payload.kind)) ||
               t.kind === "string" ||
               t.kind === "bool" ||
-              (t.kind === "float" && t.bits === 64)
+              (t.kind === "float" && t.bits === 64) ||
+              (t.kind === "array" &&
+                (t.element.kind === "string" ||
+                  t.element.kind === "bool" ||
+                  (t.element.kind === "float" && t.element.bits === 64)))
             );
           })
         )
           this.report(
-            diagnostic("NT1011", fn.span, "Native view props support string, number, boolean, and nullable values."),
+            diagnostic(
+              "NT1011",
+              fn.span,
+              "Native view props support string, number, boolean, arrays of those, and nullable values.",
+            ),
           );
       }
       if (valid && returnType)
@@ -349,17 +360,35 @@ class FunctionChecker {
   private readonly scopes: Map<string, Binding>[] = [];
   private readonly narrowings: Map<string, NativeType>[] = [];
   private loopDepth = 0;
+  private suspended = false;
+  private closed = new Set<string>();
   private readonly captures: Map<string, Binding>[] = [];
+  private readonly recordedCaptures: { name: string; kind: "value" | "retained" | "borrowed" | "weak" }[][] = [];
+  /** True unless the closure being typed is a direct `retention: "call"` argument. */
+  private nextCallbackEscaping = true;
+  private readonly closureEscaping: boolean[] = [];
+  private expectedReturn: NativeType;
+  /** Nested statements cannot introduce view state; only the component body can. */
+  private depth = 0;
 
   constructor(
     private readonly mod: ModuleChecker,
     private readonly fn: SurfaceFunction,
     private readonly signature: Signature,
-  ) {}
+  ) {
+    this.expectedReturn = signature.returnType;
+  }
 
   check(): TStmt[] {
     this.push();
-    for (const p of this.signature.params) this.declare(p.name, p.type, true);
+    for (const p of this.signature.params)
+      this.declare(
+        p.name,
+        p.type,
+        true,
+        false,
+        this.fn.binding?.contract?.parameters?.[p.name]?.ownership === "borrowed",
+      );
     const body = this.fn.body.map((s) => this.stmt(s));
     this.pop();
     if (this.signature.returnType.kind !== "void" && !alwaysExits(body)) {
@@ -379,10 +408,20 @@ class FunctionChecker {
           return;
         }
         const item = node as Record<string, unknown>;
+        if (item.kind === "closure") return;
         if (
-          ["assign", "update", "throw", "await", "invoke", "methodCall", "while", "for", "forOf"].includes(
-            String(item.kind),
-          ) ||
+          [
+            "assign",
+            "update",
+            "throw",
+            "await",
+            "invoke",
+            "methodCall",
+            "stateWrite",
+            "while",
+            "for",
+            "forOf",
+          ].includes(String(item.kind)) ||
           (item.kind === "call" && (item as unknown as TExpr).type.kind !== "view")
         ) {
           this.report(
@@ -413,8 +452,42 @@ class FunctionChecker {
     this.narrowings.pop();
   }
 
-  private declare(name: string, type: NativeType, mutable: boolean, poisoned = false): void {
-    this.scopes[this.scopes.length - 1]!.set(name, { type, mutable, poisoned });
+  private declare(name: string, type: NativeType, mutable: boolean, poisoned = false, borrowed = false): void {
+    this.scopes[this.scopes.length - 1]!.set(name, { type, mutable, poisoned, ...(borrowed ? { borrowed } : {}) });
+  }
+
+  private rejectBorrow(value: TExpr, span: Span, reason: string): void {
+    if (value.borrowed) this.mod.report(diagnostic("NT1018", span, `A borrowed value cannot ${reason}.`));
+  }
+
+  /** Run a branch without leaking its close/suspension effects, then return those effects. */
+  private isolate(run: () => TStmt[]): { stmts: TStmt[]; closed: string[]; suspended: boolean } {
+    const closedBefore = new Set(this.closed);
+    const suspendedBefore = this.suspended;
+    const stmts = run();
+    const closed = [...this.closed].filter((name) => !closedBefore.has(name));
+    const suspended = this.suspended;
+    this.closed = closedBefore;
+    this.suspended = suspendedBefore;
+    return { stmts, closed, suspended };
+  }
+
+  private enforceExecutor(signature: Signature, span: Span, receiver?: TExpr): void {
+    const declared = signature.binding?.contract?.executor;
+    const object =
+      receiver?.type.kind === "struct"
+        ? this.mod.structs.get(receiver.type.name)?.reference?.native?.contract?.executor
+        : undefined;
+    const required = declared && declared !== "caller" ? declared : object;
+    if (!required || required === "caller") return;
+    const actual = this.fn.thread ?? "caller";
+    if (required === "serial") {
+      if (actual !== "caller")
+        this.mod.report(diagnostic("NT1019", span, "A serial object cannot move to another executor."));
+      return;
+    }
+    if (required !== actual)
+      this.mod.report(diagnostic("NT1019", span, `This call must run on the ${required} executor.`));
   }
 
   private lookup(name: string): Binding | undefined {
@@ -459,10 +532,19 @@ class FunctionChecker {
   // ---- statements ------------------------------------------------------------
 
   private block(stmts: Stmt[]): TStmt[] {
-    this.push();
-    const out = stmts.map((s) => this.stmt(s));
-    this.pop();
-    return out;
+    return this.nest(() => {
+      this.push();
+      const out = stmts.map((s) => this.stmt(s));
+      this.pop();
+      return out;
+    });
+  }
+
+  private nest<T>(run: () => T): T {
+    this.depth++;
+    const result = run();
+    this.depth--;
+    return result;
   }
 
   private stmt(s: Stmt): TStmt {
@@ -478,17 +560,18 @@ class FunctionChecker {
         this.loopDepth--;
         return { kind: "while", test, body, span: s.span };
       }
-      case "for": {
-        this.push();
-        const init = s.init ? this.stmt(s.init) : null;
-        const test = s.test ? this.condition(s.test) : null;
-        const update = s.update ? this.expr(s.update) : null;
-        this.loopDepth++;
-        const body = this.block(s.body);
-        this.loopDepth--;
-        this.pop();
-        return { kind: "for", init, test, update, body, span: s.span };
-      }
+      case "for":
+        return this.nest(() => {
+          this.push();
+          const init = s.init ? this.stmt(s.init) : null;
+          const test = s.test ? this.condition(s.test) : null;
+          const update = s.update ? this.expr(s.update) : null;
+          this.loopDepth++;
+          const body = this.block(s.body);
+          this.loopDepth--;
+          this.pop();
+          return { kind: "for" as const, init, test, update, body, span: s.span };
+        });
       case "forOf": {
         const iterable = this.expr(s.iterable);
         const elementType = iterable.type.kind === "array" ? iterable.type.element : null;
@@ -547,6 +630,7 @@ class FunctionChecker {
   }
 
   private variable(s: Extract<Stmt, { kind: "variable" }>): TStmt {
+    if (s.init?.kind === "call" && s.init.callee === "state") return this.stateVariable(s);
     const declared = s.type ? this.mod.resolveStorable(s.type, "a local variable") : null;
     let init: TExpr;
     let type: NativeType;
@@ -571,12 +655,62 @@ class FunctionChecker {
       if (!init.poisoned && init.type.kind === "promise")
         this.report(diagnostic("NT1003", s.init.span, "A Promise cannot be stored; `await` it instead."));
     }
-    this.declare(s.name, type, s.declaration === "let", init.poisoned === true);
+    this.declare(s.name, type, s.declaration === "let", init.poisoned === true, init.borrowed === true);
     return { kind: "variable", declaration: s.declaration, name: s.name, type, init, span: s.span };
   }
 
+  private stateVariable(s: Extract<Stmt, { kind: "variable" }>): TStmt {
+    const initExpr = s.init;
+    const arg = initExpr?.kind === "call" ? initExpr.args[0] : undefined;
+    const invalid =
+      this.signature.returnType.kind !== "view" ||
+      this.depth !== 0 ||
+      s.declaration !== "const" ||
+      s.type !== null ||
+      !arg ||
+      initExpr?.kind !== "call" ||
+      initExpr.args.length !== 1;
+    if (invalid || !arg) {
+      this.report(diagnostic("NT1001", s.span, "`state()` declares one const scalar at the top of a native view."));
+      this.declare(s.name, T.float64, false, true);
+      return {
+        kind: "variable",
+        declaration: s.declaration,
+        name: s.name,
+        type: T.float64,
+        init: this.poison(s.span),
+        span: s.span,
+      };
+    }
+    const value = this.expr(arg);
+    const literal = value.kind === "number" || value.kind === "string" || value.kind === "boolean";
+    if (!literal || value.poisoned) {
+      this.report(diagnostic("NT1001", arg.span, "`state()` requires a number, string, or boolean literal."));
+      this.declare(s.name, T.float64, false, true);
+      return {
+        kind: "variable",
+        declaration: "const",
+        name: s.name,
+        type: T.float64,
+        init: this.poison(s.span),
+        span: s.span,
+      };
+    }
+    this.declare(s.name, value.type, false);
+    const binding = this.lookup(s.name);
+    if (binding) binding.state = true;
+    return {
+      kind: "variable",
+      declaration: "const",
+      name: s.name,
+      type: value.type,
+      init: { kind: "stateInit", value, type: value.type, span: s.span },
+      span: s.span,
+    };
+  }
+
   private returnStmt(s: Extract<Stmt, { kind: "return" }>): TStmt {
-    const expected = this.signature.returnType;
+    const expected = this.expectedReturn;
     if (!s.argument) {
       if (expected.kind !== "void")
         this.report(diagnostic("NT1011", s.span, `\`${this.fn.name}\` must return a \`${typeToString(expected)}\`.`));
@@ -591,6 +725,7 @@ class FunctionChecker {
     let argument = this.expr(s.argument, expected);
     if (!this.fits(argument, expected))
       argument = this.mismatch(s.argument.span, expected, argument.type, narrowingHint(argument.type));
+    this.rejectBorrow(argument, s.argument.span, "be returned");
     return { kind: "return", argument, span: s.span };
   }
 
@@ -609,18 +744,24 @@ class FunctionChecker {
   private ifStmt(s: Extract<Stmt, { kind: "if" }>): TStmt {
     const test = this.condition(s.test);
     const narrowing = narrowingOf(test, this.mod.structs);
-    const consequent = this.branch(s.consequent, narrowing?.whenTrue);
-    const alternate = s.alternate ? this.branch(s.alternate, narrowing?.whenFalse) : null;
+    const consequent = this.isolate(() => this.nest(() => this.branch(s.consequent, narrowing?.whenTrue)));
+    const alternateSource = s.alternate;
+    const alternate = alternateSource
+      ? this.isolate(() => this.nest(() => this.branch(alternateSource, narrowing?.whenFalse)))
+      : null;
+    for (const name of consequent.closed) this.closed.add(name);
+    for (const name of alternate?.closed ?? []) this.closed.add(name);
+    if (consequent.suspended || alternate?.suspended) this.suspended = true;
     // `if (x === null) return …;` narrows the rest of the enclosing block.
     if (narrowing) {
-      const rest = alwaysExits(consequent)
+      const rest = alwaysExits(consequent.stmts)
         ? narrowing.whenFalse
-        : alternate && alwaysExits(alternate)
+        : alternate && alwaysExits(alternate.stmts)
           ? narrowing.whenTrue
           : undefined;
       if (rest) this.narrowings[this.narrowings.length - 1]!.set(narrowing.name, rest.type);
     }
-    return { kind: "if", test, consequent, alternate, span: s.span };
+    return { kind: "if", test, consequent: consequent.stmts, alternate: alternate?.stmts ?? null, span: s.span };
   }
 
   private branch(stmts: Stmt[], narrowing: { name: string; type: NativeType } | undefined): TStmt[] {
@@ -638,6 +779,9 @@ class FunctionChecker {
     const span = e.span;
     switch (e.kind) {
       case "closure": {
+        const escaping = this.nextCallbackEscaping;
+        this.nextCallbackEscaping = true;
+        this.closureEscaping.push(escaping);
         const context = expected?.kind === "callback" ? expected : undefined;
         const params = e.params.map((p, i) => ({
           name: p.name,
@@ -650,29 +794,42 @@ class FunctionChecker {
           this.report(
             diagnostic("NT1014", e.span, "Native callback parameters need a type annotation or callback context."),
           );
+        const result = e.returnType ? this.mod.resolve(e.returnType) : context?.result;
         const outer = new Map<string, Binding>();
         for (const scope of this.scopes) for (const [name, binding] of scope) outer.set(name, binding);
         for (const param of params) outer.delete(param.name);
+        this.recordedCaptures.push([]);
         this.captures.push(outer);
+        this.depth++;
         this.push();
         for (const param of params) this.declare(param.name, param.type, false);
-        const result = e.returnType ? this.mod.resolve(e.returnType) : context?.result;
-        const body = this.expr(e.body, result ?? undefined);
+        const statements = Array.isArray(e.body);
+        if (statements && !result)
+          this.report(diagnostic("NT1014", e.span, "A native callback with a statement body needs a return type."));
+        const savedReturn = this.expectedReturn;
+        if (statements) this.expectedReturn = result ?? T.void;
+        let body: TExpr | TStmt[];
+        if (Array.isArray(e.body)) body = e.body.map((statement) => this.stmt(statement));
+        else body = this.expr(e.body, result ?? undefined);
+        this.expectedReturn = savedReturn;
         this.pop();
+        this.depth--;
         this.captures.pop();
-        if (result && !this.fits(body, result)) this.mismatch(e.span, result, body.type);
-        if (body.type.kind === "promise" || body.type.kind === "callback")
-          this.report(diagnostic("NT1005", e.span, "Native closures must return synchronous non-callback values."));
-        return {
-          kind: "closure",
-          params,
-          body,
-          type: T.callback(
-            params.map((p) => p.type),
-            result ?? body.type,
-          ),
-          span: e.span,
-        };
+        this.closureEscaping.pop();
+        const captures = this.recordedCaptures.pop() ?? [];
+        const returnType = result ?? (Array.isArray(body) ? T.void : body.type);
+        const type = T.callback(
+          params.map((p) => p.type),
+          returnType,
+        );
+        if (!Array.isArray(body)) {
+          if (result && !this.fits(body, result)) this.mismatch(e.span, result, body.type);
+          if (body.type.kind === "promise" || body.type.kind === "callback")
+            this.report(diagnostic("NT1005", e.span, "Native closures must return synchronous non-callback values."));
+        } else if (returnType.kind !== "void" && !alwaysExits(body)) {
+          this.report(diagnostic("NT1015", e.span, "A native callback must return on every path."));
+        }
+        return { kind: "closure", params, captures, body, type, span: e.span };
       }
       case "view":
         return this.view(e);
@@ -720,6 +877,20 @@ class FunctionChecker {
         return this.identifier(e.name, span);
       case "binary":
         return this.binary(e);
+      case "conditional": {
+        const test = this.condition(e.test);
+        const consequent = this.expr(e.consequent);
+        const alternate = this.expr(e.alternate);
+        if (consequent.poisoned || alternate.poisoned) return this.poison(span, T.view);
+        if (consequent.type.kind === "view" || alternate.type.kind === "view") {
+          if (consequent.type.kind !== "view" || alternate.type.kind !== "view")
+            return this.mismatch(e.span, T.view, consequent.type.kind === "view" ? alternate.type : consequent.type);
+          return { kind: "conditional", test, consequent, alternate, type: T.view, span };
+        }
+        if (!typeEquals(consequent.type, alternate.type))
+          return this.mismatch(e.alternate.span, consequent.type, alternate.type);
+        return { kind: "conditional", test, consequent, alternate, type: consequent.type, span };
+      }
       case "logical": {
         const left = this.expr(e.left, T.bool);
         const right = this.expr(e.right, T.bool);
@@ -755,6 +926,7 @@ class FunctionChecker {
         if (!this.fn.async)
           this.report(diagnostic("NT1013", span, "`await` is only allowed inside an `async` function."));
         const argument = this.expr(e.argument);
+        this.suspended = true;
         if (argument.poisoned) return this.poison(span, expected);
         if (argument.type.kind !== "promise") {
           this.report(
@@ -775,6 +947,7 @@ class FunctionChecker {
   }
 
   private view(e: Extract<Expr, { kind: "view" }>): TExpr {
+    if (e.name === "__ui_For") return this.forView(e);
     const native = this.mod.views[e.name];
     const primitive = native ?? (e.name.startsWith("__ui_") ? UI_PRIMITIVES[e.name.slice(5)] : undefined);
     if (!primitive) {
@@ -799,7 +972,14 @@ class FunctionChecker {
         this.report(diagnostic("NT1011", p.span, `Unknown or duplicate ${e.name} prop ${p.name}.`));
       seen.add(p.name);
       const value = this.expr(p.value, type);
-      if (type && !this.fits(value, type)) this.mismatch(p.span, type, value.type);
+      const eventHandler =
+        type?.kind === "event" &&
+        value.type.kind === "callback" &&
+        value.type.result.kind === "void" &&
+        (type.payload.kind === "void"
+          ? value.type.params.length === 0
+          : value.type.params.length === 1 && typeEquals(value.type.params[0]!, type.payload));
+      if (type && !this.fits(value, type) && !eventHandler) this.mismatch(p.span, type, value.type);
       return { name: p.name, value };
     });
     for (const name of primitive.required ?? [])
@@ -856,6 +1036,7 @@ class FunctionChecker {
       const t = this.expr(el, elementType);
       if (!elementType) elementType = t.type;
       else if (!this.fits(t, elementType)) this.report(diagnostic("NT1011", el.span, MISMATCH(elementType, t.type)));
+      this.rejectBorrow(t, el.span, "be stored in an array");
       elements.push(t);
     }
     return { kind: "array", elements, type: T.array(elementType!), span: e.span };
@@ -894,6 +1075,7 @@ class FunctionChecker {
       seen.add(prop.name);
       let value = this.expr(prop.value, field.type);
       if (!this.fits(value, field.type)) value = this.mismatch(prop.value.span, field.type, value.type);
+      this.rejectBorrow(value, prop.span, "be stored in a record");
       properties.push({ name: prop.name, value });
     }
     for (const field of expectedFields) {
@@ -914,18 +1096,30 @@ class FunctionChecker {
 
   private identifier(name: string, span: Span): TExpr {
     const binding = this.lookup(name);
-    if (
-      binding &&
-      this.captures.some((scope) => scope.get(name) === binding) &&
-      (binding.mutable || !isPrimitive(binding.type))
-    )
-      this.report(
-        diagnostic(
-          "NT1005",
-          span,
-          "Native closures may only capture immutable scalar locals; resource and mutable captures require explicit ownership.",
-        ),
-      );
+    if (binding?.state) return { kind: "stateRead", name, type: binding.type, span };
+    if (binding && this.closed.has(name))
+      this.report(diagnostic("NT1018", span, `Cannot use \`${name}\` after it was closed.`));
+    if (binding && this.suspended && binding.borrowed)
+      this.report(diagnostic("NT1018", span, "A borrowed value cannot be used after suspension."));
+    if (binding && this.captures.some((scope) => scope.get(name) === binding)) {
+      const reference = binding.type.kind === "struct" ? this.mod.structs.get(binding.type.name)?.reference : undefined;
+      const value = isPrimitive(binding.type) || (binding.type.kind === "struct" && !reference);
+      const retained = reference?.native?.contract?.ownership === "owned" && !binding.mutable && !binding.borrowed;
+      const borrowed =
+        this.closureEscaping.at(-1) === false &&
+        binding.borrowed &&
+        !binding.mutable &&
+        reference?.native?.contract?.ownership === "owned";
+      if (!borrowed && (binding.mutable || binding.borrowed || (!value && !retained)))
+        this.report(
+          diagnostic(
+            "NT1005",
+            span,
+            "Native closures may only capture immutable scalar locals; resource and mutable captures require explicit ownership.",
+          ),
+        );
+      else this.recordCapture(name, borrowed ? "borrowed" : retained ? "retained" : "value", span);
+    }
     const signature = this.mod.signatures.get(name);
     if (!binding && signature) {
       if (signature.async) {
@@ -947,12 +1141,24 @@ class FunctionChecker {
       return this.poison(span);
     }
     if (binding.poisoned) return this.poison(span, binding.type);
-    const id: TExpr = { kind: "identifier", name, type: binding.type, span };
+    const id: TExpr = {
+      kind: "identifier",
+      name,
+      type: binding.type,
+      span,
+      ...(binding.borrowed ? { borrowed: true as const } : {}),
+    };
     const narrowed = this.narrowed(name);
     return narrowed
       ? narrowed.kind === "struct" && binding.type.kind === "struct"
         ? { ...id, type: narrowed }
-        : { kind: "unwrap", argument: id, type: narrowed, span }
+        : {
+            kind: "unwrap",
+            argument: id,
+            type: narrowed,
+            span,
+            ...(id.borrowed && !isPrimitive(narrowed) ? { borrowed: true as const } : {}),
+          }
       : id;
   }
 
@@ -981,7 +1187,8 @@ class FunctionChecker {
         assignable(left.type, right.type);
       if (!comparable) return this.mismatch(e.right.span, left.type, right.type);
       const base = isOptional(left.type) ? left.type.value : left.type;
-      if (!isPrimitive(base)) {
+      const nullCheck = left.kind === "null" || right.kind === "null";
+      if (!nullCheck && !isPrimitive(base)) {
         this.report(
           diagnostic(
             "NT1011",
@@ -1071,6 +1278,10 @@ class FunctionChecker {
     if (e.operator === "=") {
       if (!this.fits(value, target.type))
         value = this.mismatch(e.value.span, target.type, value.type, narrowingHint(value.type));
+      if (e.target.kind === "identifier") {
+        const binding = this.lookup(e.target.name);
+        if (binding) binding.borrowed = value.borrowed === true;
+      } else this.rejectBorrow(value, e.value.span, "be stored in a field or element");
     } else {
       const stringConcat = e.operator === "+=" && target.type.kind === "string";
       if (!stringConcat && !isNumeric(target.type)) return this.mismatch(e.target.span, T.float64, target.type);
@@ -1079,7 +1290,48 @@ class FunctionChecker {
     return { kind: "assign", operator: e.operator, target, value, type: target.type, span: e.span };
   }
 
+  private recordCapture(name: string, kind: "value" | "retained" | "borrowed" | "weak", span: Span): void {
+    const list = this.recordedCaptures.at(-1);
+    if (!list) return;
+    const existing = list.find((capture) => capture.name === name);
+    if (!existing) {
+      list.push({ name, kind });
+      return;
+    }
+    if (existing.kind !== kind)
+      this.report(diagnostic("NT1005", span, `Capture \`${name}\` cannot be both ${existing.kind} and ${kind}.`));
+  }
+
+  private weakCapture(e: Extract<Expr, { kind: "call" }>): TExpr {
+    const arg = e.args[0];
+    if (e.args.length !== 1 || arg?.kind !== "identifier") {
+      this.report(diagnostic("NT1005", e.span, "`weak()` captures exactly one local."));
+      return this.poison(e.span);
+    }
+    const binding = this.lookup(arg.name);
+    const reference = binding?.type.kind === "struct" ? this.mod.structs.get(binding.type.name)?.reference : undefined;
+    const owned =
+      !!binding &&
+      !binding.mutable &&
+      !binding.borrowed &&
+      reference?.native?.contract?.ownership === "owned" &&
+      this.captures.some((scope) => scope.get(arg.name) === binding);
+    if (!owned || !binding) {
+      this.report(
+        diagnostic("NT1005", e.span, "`weak()` requires an immutable owned reference from an enclosing scope."),
+      );
+      return this.poison(e.span);
+    }
+    this.recordCapture(arg.name, "weak", e.span);
+    return { kind: "weak", name: arg.name, type: T.optional(binding.type), span: e.span };
+  }
+
   private call(e: Extract<Expr, { kind: "call" }>): TExpr {
+    if (e.callee === "weak") return this.weakCapture(e);
+    if (e.callee === "state") {
+      this.report(diagnostic("NT1001", e.span, "`state()` is a view declaration: `const name = state(literal)`."));
+      return this.poison(e.span);
+    }
     const local = this.lookup(e.callee);
     if (local?.type.kind === "callback") {
       const signature = local.type;
@@ -1178,13 +1430,31 @@ class FunctionChecker {
     }
     const args = e.args.map((arg, i) => {
       const param = signature.params[i];
+      const retention = signature.binding?.contract?.parameters?.[param?.name ?? ""]?.callback?.retention;
+      const savedEscaping = this.nextCallbackEscaping;
+      if (arg.kind === "closure") this.nextCallbackEscaping = retention !== "call";
       const typed = this.expr(arg, param?.type);
+      if (arg.kind === "closure") this.nextCallbackEscaping = savedEscaping;
       if (param && !this.fits(typed, param.type))
         return this.mismatch(arg.span, param.type, typed.type, narrowingHint(typed.type));
+      const ownership = signature.binding?.contract?.parameters?.[param?.name ?? ""]?.ownership;
+      const receiver = i === 0 && /__(method|get|set)_/.test(callee);
+      if (typed.borrowed && ownership !== "borrowed" && !(ownership === undefined && receiver))
+        this.rejectBorrow(typed, arg.span, "be passed out of its scope");
       return typed;
     });
+    this.enforceExecutor(signature, e.span, args[0]);
+    if (signature.async && signature.binding?.contract?.result === "borrowed")
+      this.report(diagnostic("NT1018", e.span, "A borrowed value cannot survive suspension."));
     const type = signature.async ? T.promise(signature.returnType) : signature.returnType;
-    return { kind: "call", callee, args, type, span: e.span };
+    return {
+      kind: "call",
+      callee,
+      args,
+      type,
+      span: e.span,
+      ...(signature.binding?.contract?.result === "borrowed" ? { borrowed: true as const } : {}),
+    };
   }
 
   private member(e: Extract<Expr, { kind: "member" }>): TExpr {
@@ -1270,22 +1540,71 @@ class FunctionChecker {
     return this.poison(span);
   }
 
+  private forView(e: Extract<Expr, { kind: "view" }>): TExpr {
+    const eachProps = e.properties.filter((p) => p.name === "each");
+    const each = eachProps[0];
+    if (eachProps.length !== 1 || e.properties.length !== 1 || !each) {
+      this.report(diagnostic("NT1011", e.span, "`For` requires an `each` array."));
+      return this.poison(e.span, T.view);
+    }
+    const data = this.expr(each.value);
+    if (data.type.kind !== "array") {
+      this.report(diagnostic("NT1011", each.span, "`For` iterates an array."));
+      return this.poison(e.span, T.view);
+    }
+    const row = e.children[0];
+    if (e.children.length !== 1 || row?.kind !== "closure" || row.params.length !== 1) {
+      this.report(diagnostic("NT1011", e.span, "`For` expects one row closure with the element parameter."));
+      return this.poison(e.span, T.view);
+    }
+    const child = this.expr(row, T.callback([data.type.element], T.view));
+    if (child.kind !== "closure" || child.type.kind !== "callback" || child.type.result.kind !== "view") {
+      this.report(diagnostic("NT1011", row.span, "A `For` row must return a native view."));
+      return this.poison(e.span, T.view);
+    }
+    return {
+      kind: "view",
+      name: "For",
+      properties: [{ name: "each", value: data }],
+      children: [child],
+      type: T.view,
+      span: e.span,
+    };
+  }
+
   private methodCall(e: Extract<Expr, { kind: "methodCall" }>): TExpr {
+    if (e.object.kind === "identifier") {
+      const binding = this.lookup(e.object.name);
+      if (binding?.state) {
+        if (e.method !== "set" || e.args.length !== 1) {
+          this.report(diagnostic("NT1012", e.span, "`set` takes the next state value."));
+          return this.poison(e.span, T.void);
+        }
+        const arg = e.args[0]!;
+        let value = this.expr(arg, binding.type);
+        if (!this.fits(value, binding.type)) value = this.mismatch(arg.span, binding.type, value.type);
+        return { kind: "stateWrite", name: e.object.name, value, type: T.void, span: e.span };
+      }
+    }
     const object = this.expr(e.object);
     const span = e.span;
     if (object.poisoned) return this.poison(span, T.void);
     if (object.type.kind === "struct" && this.mod.structs.get(object.type.name)?.reference) {
-      return this.call({
+      const call = this.call({
         kind: "call",
         callee: `${object.type.name}__method_${e.method}`,
         args: [e.object, ...e.args],
         span,
       });
+      const close = this.mod.structs.get(object.type.name)?.reference?.native?.contract?.close;
+      if (close === e.method && e.object.kind === "identifier") this.closed.add(e.object.name);
+      return call;
     }
     if (object.type.kind === "array" && e.method === "push") {
       const element = object.type.element;
       const args = e.args.map((arg) => {
         const typed = this.expr(arg, element);
+        this.rejectBorrow(typed, arg.span, "be stored in an array");
         return this.fits(typed, element) ? typed : this.mismatch(arg.span, element, typed.type);
       });
       if (args.length !== 1) this.report(diagnostic("NT1012", span, "`push` takes exactly one argument."));

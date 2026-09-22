@@ -20,7 +20,7 @@ export const page: DocPage = {
       head: ["Code", "Meaning", "Typical fix"],
       rows: [
         ["`NT1000`", "Syntax error from the parser", "Also raised for `await` outside `async`."],
-        ["`NT1001`", "Unsupported syntax", "Closures, spread, `switch`, `try`, `==`, non-`LucentError` throws… Rewrite with the [supported forms](/docs/language/functions-and-control-flow/)."],
+        ["`NT1001`", "Unsupported syntax", "Spread, `switch`, `try`, `==`, async arrows, non-`LucentError` throws… Rewrite with the [supported forms](/docs/language/functions-and-control-flow/)."],
         ["`NT1002`", "Dynamic property access", "`obj[key]` on a record. Use `obj.field`, or a `Record<string, T>`."],
         ["`NT1003`", "Unsupported type", "Tuples, generics, interfaces, enums, `never`, `object`, `symbol`, `bigint`, untagged unions."],
         ["`NT1004`", "`any` / `unknown` is prohibited", "Give the value a concrete type."],
@@ -34,6 +34,8 @@ export const page: DocPage = {
         ["`NT1014`", "Missing type annotation", "Annotate parameters and return types."],
         ["`NT1015`", "Missing return", "Every path must return when the return type is not `void`."],
         ["`NT1016`", "Assignment to a constant", "Use `let`."],
+        ["`NT1018`", "Borrowed value escapes its scope", "Do not return, store, or use a borrow after `await` or `close`."],
+        ["`NT1019`", "Native call is on the wrong executor", "Match `@MainThread`, `@Background`, or keep a serial object on the caller."],
       ],
     },
     { kind: "h2", text: "Platform" },

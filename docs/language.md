@@ -124,6 +124,8 @@ C-style `for` loop is rejected (the update step would be skipped).
 | NT1014 | Missing type annotation                          |
 | NT1015 | Missing return                                   |
 | NT1016 | Assignment to a `const`                          |
+| NT1018 | Borrowed value escapes its scope                 |
+| NT1019 | Native call is on the wrong executor             |
 | NT2001 | Missing native capability                        |
 | NT2004 | Platform-specific API                            |
 | NT3002 | Potentially expensive main-thread work (warning) |
@@ -242,19 +244,33 @@ render the shared component model. Native view controller containment,
 composition disposal, prop updates, and button callback bridging are generated.
 Nitro requires the React Native new architecture for these views.
 
-| Primitive          | Props                                             | Children                 |
-| ------------------ | ------------------------------------------------- | ------------------------ |
-| `VStack`, `HStack` | `padding`, `spacing` in logical units             | native views             |
-| `Text`             | `size`, `color` (`#RRGGBB`)                       | strings/numbers/booleans |
-| `Spacer`           | `size` (default 8)                                | none                     |
-| `Button`           | required `title`, optional `onPress: Event<void>` | none                     |
+| Primitive          | Props                                              | Children                 |
+| ------------------ | -------------------------------------------------- | ------------------------ |
+| `VStack`, `HStack` | `padding`, `spacing` in logical units              | native views             |
+| `Text`             | `size`, `color` (`#RRGGBB`)                        | strings/numbers/booleans |
+| `Spacer`           | `size` (default 8)                                 | none                     |
+| `Divider`          | none                                               | none                     |
+| `Button`           | required `title`, optional `onPress: Event<void>`  | none                     |
+| `For`              | required `each: string[] \| number[] \| boolean[]` | one row closure          |
 
-View props support scalar/nullable scalar values and required `Event<void>`
-callbacks. Compose other imported `.lucent.tsx` components with typed props.
-Rendering is synchronous and pure: effects, mutation, async calls, and loops
-are rejected in render functions. Use app state and callbacks to provide new
-props. Hooks, arbitrary React components, dynamic lists, JSX spreads/fragments,
-and custom component `children` are not currently part of this subset.
+View props support string, number, boolean, arrays of those, nullable scalars,
+and events. A conditional expression may choose between two views or two values
+of the same type. `For` lays rows out eagerly in array order; the index is not
+a stable identity across insertions. Compose other imported `.lucent.tsx`
+components with typed props.
+
+`const name = state(literal)` at the top of a view declares scalar state owned
+by that host instance. A number, string, or boolean literal is the initial
+value. Prop updates do not reset it. Read `name` for the current value.
+`name.set(next)` is allowed in an event handler and sees the latest value, so
+`taps.set(taps + 1)` does not lose increments to a stale render. `state()`
+inside a branch, loop, or nested block is rejected, as is calling `set` while
+rendering.
+
+Rendering stays synchronous. Effects, mutation, async calls, and loops in the
+render body are rejected. Handlers may update state and may be closures passed
+to `onPress` or `onChange`. Hooks, arbitrary React components, JSX spreads, and
+fragments are not part of this subset.
 
 `VStack` arranges children vertically and `HStack` horizontally. They emit
 SwiftUI `VStack` / `HStack` on iOS and Compose `Column` / `Row` on Android.
@@ -496,12 +512,19 @@ references and callbacks crossing the JavaScript boundary are rejected. Use
 remains callable from Lucent but is omitted from generated JavaScript methods.
 Synchronous arrow callbacks support expression bodies (or a single return),
 with explicit parameter types or a contextual `NativeCallback` signature.
-They may capture `const` numeric, string, and boolean locals. Mutable locals,
-objects, containers, asynchronous callbacks, and nested callback results are
-rejected. For example, `const factor = 2; apply(4, (value: number) => value * factor)`
-compiles into a native Swift/Kotlin closure.
+They may capture `const` numeric, string, boolean, and immutable value-record
+locals (`value`), and an immutable owned native reference (`retained`).
+`weak(reference)` captures that owned reference as an optional; the closure must
+handle `null` before using it. A callback parameter whose contract says
+`retention: "call"` may capture a borrow (`borrowed`). A subscription, or a
+callback with no retention, may not. Mutable locals, external resources, and
+nested callback results are rejected. For example,
+`const factor = 2; apply(4, (value: number) => value * factor)` compiles into a
+native Swift/Kotlin closure.
 
-Protocol implementations and scoped borrowed references remain unsupported.
+Protocol implementations remain unsupported. Weak captures are explicit and
+nullable. A nonescaping callback may close over a borrow for the duration of
+the call.
 The native registry provides typed leases: releasing a handle immediately invalidates new lookup;
 an acquired lease retains the object until closed. Closing is idempotent and
 distinct from SDK resource cleanup. Expo and Nitro accept asynchronous arguments for SDK reference types with
@@ -521,11 +544,14 @@ every wrapper generation have completed or failed.
 
 ## Native controls and package views
 
-Author views in `.lucent.tsx`. Shared controls now include `TextField`, `Toggle`,
-`Slider`, `ScrollView`, and `ZStack`, alongside `VStack`, `HStack`, `Text`,
-`Spacer`, and `Button`. Text fields, toggles, and sliders require a controlled
-`value` and `onChange`; native change events carry string, boolean, or number
-payloads through both Expo and Nitro. `Slider` defaults to the range 0–1.
+Author views in `.lucent.tsx`. Shared controls include `TextField`, `Toggle`,
+`Slider`, `ScrollView`, `ZStack`, `Divider`, and `For`, alongside `VStack`,
+`HStack`, `Text`, `Spacer`, and `Button`. Text fields, toggles, and sliders take
+a `value` and `onChange`. The value may be a prop or view `state`; `onChange`
+may be an event or a closure that calls `set`. Native change events carry
+string, boolean, or number payloads through both Expo and Nitro. `Slider`
+defaults to the range 0–1. `For` repeats one row closure for each element of a
+string, number, or boolean array.
 
 `Padding`, `Background`, `CornerRadius`, and `Accessibility` wrap their children
 in a vertical group. Nest wrappers to specify composition order. These are
@@ -592,9 +618,14 @@ minimums to the configured targets; they never lower a host's existing minimum.
 Targets also participate in the CLI cache key.
 
 Reference ownership and explicit executor-neutral transferability are enforced
-for async arguments as described above. Call-level ownership, callback retention,
-cancellation, serial-object executors, and close fields currently record and
-validate manifest contracts; their runtime behavior is not yet implemented.
+for async arguments as described above. A call whose `contract.result` is
+`borrowed` cannot be returned, stored, passed where a borrow was not declared,
+or used after `await`. A reference `contract.close` method makes later uses of
+that identifier an error, including when only one branch closes it. Call
+`contract.executor`, or the receiver's object executor when the call does not
+set one, must match the enclosing function: `main` and `worker` require
+`@MainThread` and `@Background`; `serial` stays on the caller and cannot hop.
+Callback retention and automatic SDK cancellation adapters are not implemented.
 An ownership declaration alone does not make an object transferable.
 
 The standalone `@lucent-lang/std` package has been removed. Its supported math
@@ -624,18 +655,23 @@ export async function total(values: number[], cancellation: CancellationSource):
 }
 ```
 
-The returned JS object exposes `cancel()`, `cancelled`, `throwIfCancelled()`, and
-`dispose()`. `cancel()` is idempotent and safe across executors. Once requested,
-`cancelled` remains true and `throwIfCancelled()` throws a native `LucentError`
-with code `CANCELLED`. Swift protects the flag with a lock; Kotlin uses an atomic
-boolean. This built-in reference satisfies the explicit async ownership contract.
+The returned JS object exposes `cancel()`, `cancelled`, `throwIfCancelled()`,
+`scope()`, `finish()`, and `dispose()`. `cancel()` is idempotent and safe across
+executors. Once requested, `cancelled` remains true and `throwIfCancelled()`
+throws a native `LucentError` with code `CANCELLED`. `scope()` returns a child
+source that becomes cancelled with its parent, including when the parent is
+already cancelled. `finish()` returns true once; it returns false when
+cancellation already won or completion already happened. Swift protects this
+state with a lock; Kotlin uses the same lock around the completion bit and an
+atomic cancellation flag. This built-in reference satisfies the explicit async
+ownership contract.
 
 Cancellation is cooperative: it takes effect when authored code checks a
-checkpoint. A successful operation may win a race with cancellation, and a
+checkpoint. A successful `finish()` may win a race with cancellation, and a
 request does not interrupt a blocking SDK call or prove that pending work has
 stopped. Use a fresh source for a new independent cancellation lifetime.
 
 Disposing the JS handle rejects new access while existing async leases remain
 valid. Disposal does not request cancellation. Call `cancel()` before disposal
-when work should be asked to stop. Automatic owner/task scopes, SDK cancellation
-adapters, and quiescent resource close are separate, unfinished features.
+when work should be asked to stop. SDK-specific cancellation adapters and
+quiescent resource close remain unfinished.

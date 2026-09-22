@@ -32,4 +32,7 @@ export const UI_PRIMITIVES: Readonly<Record<string, PrimitiveDefinition>> = {
   Text: { props: { size: T.float64, color: T.string }, children: "text" },
   Spacer: { props: { size: T.float64 }, children: "none" },
   Button: { props: { title: T.string, onPress: T.event(T.void) }, children: "none", required: ["title"] },
+  Divider: { props: {}, children: "none" },
+  /** Eager rows. `each` is checked separately because its element type varies. */
+  For: { props: {}, children: "views" },
 };

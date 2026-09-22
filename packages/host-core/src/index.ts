@@ -120,7 +120,17 @@ export { loadLucentSources } from "./sources.ts";
 
 export { loadLucentConfig, sourceProjectRoot, type LucentConfig } from "./config.ts";
 
-export { exportedViews, viewName, viewNamespace, viewProps, viewConfig, withoutViews } from "./views.ts";
+export {
+  exportedViews,
+  viewName,
+  viewNamespace,
+  viewProps,
+  viewConfig,
+  withoutViews,
+  stateFields,
+  stateArguments,
+  viewCallWithState,
+} from "./views.ts";
 
 export { isReference, classProxies } from "./objects.ts";
 

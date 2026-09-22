@@ -2,9 +2,10 @@ import { createText, textLength } from "./src/async-text.lucent";
 import { nativeOS, bytes, hash, fileRoundTrip, deviceModel, fetchBytes, metadataFailure } from "./src/features.lucent";
 import { Counter } from "./src/counter.lucent";
 import { advance, evaluate, timestamp, double, progress, report } from "./src/features.lucent";
-import { NativeCard } from "./src/native-card.lucent";
+import { FieldKit } from "./src/field-kit.lucent";
+import { FieldScreen } from "./src/field-screen.lucent";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { add, clamp, divide, fibonacci, total } from "./src/math.lucent";
 import { birthday, checksum, describe, type Person } from "./src/people.lucent";
@@ -104,38 +105,49 @@ async function runChecks(): Promise<Row[]> {
       },
     );
   }
+  const probe = new FieldKit("probe");
+  check("field kit record", probe.record(), 1);
+  check("field kit second record", probe.record(), 2);
+  check("field kit digest", probe.digest("abc"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+  probe.dispose();
   return rows;
 }
 
 export default function App() {
-  const [nativeCount, setNativeCount] = useState(0);
-  const [text, setText] = useState("Lucent");
-  const [enabled, setEnabled] = useState(true);
-  const [amount, setAmount] = useState(50);
-  const [presses, setPresses] = useState(0);
+  const kit = useRef(new FieldKit("North ridge"));
+  const [notes, setNotes] = useState(["Baseline · 12.4", "Creek bed · 18.1"]);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     runChecks().then(setRows, (e: unknown) => setError(String(e)));
   }, []);
   const allOk = rows?.every((r) => r.ok) ?? false;
+  const status = error
+    ? `ERROR: ${error}`
+    : rows === null
+      ? "Checking native contract…"
+      : allOk
+        ? "Contract passed"
+        : "Contract failed";
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title} accessibilityLabel="lucent-status">
-        {error ? `ERROR: ${error}` : rows === null ? "running…" : allOk ? "ALL OK" : "FAILURES"}
+      <Text style={styles.kicker}>LUCENT FIELD KIT</Text>
+      <Text style={styles.lead}>
+        The screen owns its label, gain, and arming flag. The sample log and the record event stay in the app, backed by
+        a native FieldKit.
       </Text>
-      <NativeCard
-        style={{ height: 420, width: "100%" }}
-        text={text}
-        onText={setText}
-        enabled={enabled}
-        onEnabled={setEnabled}
-        amount={amount}
-        onAmount={setAmount}
-        onCount={setNativeCount}
-        title={`Native taps: ${presses} · Count: ${nativeCount}`}
-        onPress={() => setPresses((n) => n + 1)}
+      <FieldScreen
+        style={styles.screen}
+        title={kit.current.name}
+        notes={notes}
+        onRecord={() => {
+          const count = kit.current.record();
+          setNotes((items) => [...items, `Sample ${count} · ridge`]);
+        }}
       />
+      <Text style={styles.status} accessibilityLabel="lucent-status">
+        {status}
+      </Text>
       {rows?.map((row) => (
         <View key={row.label} style={styles.row}>
           <Text style={row.ok ? styles.ok : styles.bad}>{row.ok ? "✓" : "✗"}</Text>
@@ -143,17 +155,20 @@ export default function App() {
           <Text style={styles.value}>{row.value}</Text>
         </View>
       ))}
-      <StatusBar style="auto" />
+      <StatusBar style="light" />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { paddingTop: 80, paddingHorizontal: 20, paddingBottom: 40, gap: 8 },
-  title: { fontSize: 24, fontWeight: "700", marginBottom: 12 },
+  container: { paddingTop: 72, paddingHorizontal: 20, paddingBottom: 48, gap: 10, backgroundColor: "#0c1612" },
+  kicker: { color: "#c4f778", fontSize: 12, fontWeight: "700", letterSpacing: 1.4 },
+  lead: { color: "#d7efe4", fontSize: 16, lineHeight: 22, marginBottom: 8 },
+  screen: { height: 560, width: "100%", borderRadius: 22, overflow: "hidden" },
+  status: { color: "#e7f6ef", fontSize: 18, fontWeight: "700", marginTop: 12 },
   row: { flexDirection: "row", gap: 8, alignItems: "flex-start" },
-  ok: { color: "green", fontWeight: "700" },
-  bad: { color: "red", fontWeight: "700" },
-  label: { fontFamily: "Menlo", flexShrink: 0 },
-  value: { fontFamily: "Menlo", color: "#555", flexShrink: 1 },
+  ok: { color: "#c4f778", fontWeight: "700" },
+  bad: { color: "#ff8f80", fontWeight: "700" },
+  label: { fontFamily: "Menlo", color: "#d7efe4", flexShrink: 0 },
+  value: { fontFamily: "Menlo", color: "#8fb9a8", flexShrink: 1 },
 });

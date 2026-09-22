@@ -47,6 +47,19 @@ test("bridges typed native view change payloads", () => {
     "((String) -> Unit)?",
   );
 });
+test("matches nitrogen's array prop type and converts it for the composable", () => {
+  const module = compile(
+    `import { Text, type NativeView } from "@lucent-lang/ui";
+type Props = { notes: string[] };
+export function Notes(props: Props): NativeView { return <Text>{props.notes.length}</Text>; }`,
+    { fileName: "notes.lucent.tsx" },
+  ).module!;
+  const hybrid = nitroHost
+    .emitPackage([module], { packageName: "lucent" })
+    .get("android/src/main/java/com/margelo/nitro/lucent/HybridLucentNotesNotesView.kt")!;
+  expect(hybrid).toContain("override var notes: Array<String> by mutableStateOf(emptyArray())");
+  expect(hybrid).toContain("notes = notes.toMutableList()");
+});
 test("disposes native composition when the host view unmounts", () => {
   const module = compile(
     'import {Text,type NativeView} from "@lucent-lang/ui"; export function Label():NativeView{return <Text>Hi</Text>;}',

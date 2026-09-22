@@ -32,6 +32,7 @@ export interface GeneratedFunction {
   exported: boolean;
   async: boolean;
   params: GeneratedField[];
+  state?: { name: string; type: string }[];
   returnType: string;
   /** Body lines without indentation. */
   body: string[];
@@ -126,7 +127,10 @@ export function generateKotlin(module: IRModule): GeneratedUnit {
 
 export function signature(f: GeneratedFunction): string {
   const params = f.params.map((p) => `${p.name}: ${p.type}`).join(", ");
-  return `${f.view ? "@Composable " : ""}${f.async ? "suspend " : ""}fun ${f.name}(${params}): ${f.returnType}`;
+  const state = (f.state ?? [])
+    .map((slot) => `lucentGet_${slot.name}: () -> ${slot.type}, lucentSet_${slot.name}: (${slot.type}) -> Unit`)
+    .join(", ");
+  return `${f.view ? "@Composable " : ""}${f.async ? "suspend " : ""}fun ${f.name}(${[params, state].filter(Boolean).join(", ")}): ${f.returnType}`;
 }
 
 export const indent = (lines: string[], depth = 1): string[] =>
@@ -162,6 +166,7 @@ function generateFunction(f: IRFunction, module: IRModule): GeneratedFunction {
     exported: f.exported,
     async: f.async,
     params: f.params.map((p) => ({ name: p.name, type: kotlinType(p.type) })),
+    ...(f.state?.length ? { state: f.state.map((slot) => ({ name: slot.name, type: kotlinType(slot.type) })) } : {}),
     returnType: kotlinType(f.returnType),
     body:
       f.thread && f.thread !== "caller"
@@ -223,6 +228,8 @@ class KotlinEmitter {
         return [
           `throw LucentError(${str(s.code)}${s.message ? `, message = ${this.expr(s.message)}` : ""}${s.metadata ? `, metadata = mapOf(${s.metadata.map((f) => `${str(f.name)} to ${this.expr(f.value)}`).join(", ")})` : ""})`,
         ];
+      case "stateWrite":
+        return [`lucentSet_${s.name}(${this.expr(s.value)})`];
       case "expr":
         return [this.expr(s.value)];
       case "push":
@@ -241,6 +248,16 @@ class KotlinEmitter {
     }
   }
 
+  private forRows(e: Extract<IRExpr, { op: "view" }>): string {
+    const data = e.props.find((prop) => prop.name === "each");
+    const child = e.children[0];
+    if (!data || child?.op !== "closure" || Array.isArray(child.body) || !child.params[0])
+      return "Spacer(modifier = Modifier)";
+    const param = child.params[0].name;
+    const source = this.expr(data.value);
+    return `Column { for (lucentIndex in ${source}.indices) { val ${param} = ${source}[lucentIndex]; ${this.expr(child.body)} } }`;
+  }
+
   private index(e: IRExpr): string {
     return e.type.kind === "int" && e.type.bits === 32 && e.type.signed ? this.expr(e) : `${this.expr(e)}.toInt()`;
   }
@@ -248,7 +265,13 @@ class KotlinEmitter {
   expr(e: IRExpr): string {
     switch (e.op) {
       case "view":
-        return kotlinView(e, (x) => this.expr(x));
+        return e.name === "For" ? this.forRows(e) : kotlinView(e, (x) => this.expr(x));
+      case "stateRead":
+        return `lucentGet_${e.name}()`;
+      case "stateWrite":
+        return `lucentSet_${e.name}(${this.expr(e.value)})`;
+      case "ifExpr":
+        return `if (${this.expr(e.cond)}) ${this.expr(e.consequent)} else ${this.expr(e.alternate)}`;
       case "const":
         return constant(e.value, e.type);
       case "param":
@@ -271,8 +294,20 @@ class KotlinEmitter {
         return `!${this.expr(e.value)}`;
       case "neg":
         return `-${this.expr(e.value)}`;
-      case "closure":
-        return `{ ${e.params.length ? e.params.map((p) => `${p.name}: ${kotlinType(p.type)}`).join(", ") + " -> " : ""}${this.expr(e.body)} }`;
+      case "weak":
+        return `${e.name}_weak.get()`;
+      case "closure": {
+        const params = e.params.map((p) => `${p.name}: ${kotlinType(p.type)}`).join(", ");
+        const closure = Array.isArray(e.body)
+          ? `fun(${params}): ${e.type.kind === "callback" ? kotlinType(e.type.result) : "Unit"} {\n${indent(this.block(e.body)).join("\n")}\n}`
+          : `{ ${params ? params + " -> " : ""}${this.expr(e.body)} }`;
+        const weaks = e.captures.filter((capture) => capture.kind === "weak");
+        if (!weaks.length) return closure;
+        const refs = weaks
+          .map((capture) => `val ${capture.name}_weak = java.lang.ref.WeakReference(${capture.name})`)
+          .join("\n");
+        return `run {\n${indent(`${refs}\n${closure}`.split("\n")).join("\n")}\n}`;
+      }
       case "functionRef":
         return `::${e.name}`;
       case "invoke":

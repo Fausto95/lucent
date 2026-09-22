@@ -7,7 +7,9 @@ export const CANCELLATION_LIBRARY: LibraryModule = {
 export declare function CancellationSource__create():CancellationSource;
 export declare function CancellationSource__get_cancelled(lucentSelf:CancellationSource):boolean;
 export declare function CancellationSource__method_cancel(lucentSelf:CancellationSource):void;
-export declare function CancellationSource__method_throwIfCancelled(lucentSelf:CancellationSource):void;`,
+export declare function CancellationSource__method_throwIfCancelled(lucentSelf:CancellationSource):void;
+export declare function CancellationSource__method_scope(lucentSelf:CancellationSource):CancellationSource;
+export declare function CancellationSource__method_finish(lucentSelf:CancellationSource):boolean;`,
   references: {
     CancellationSource: {
       swift: "LucentCancellationSource",
@@ -36,6 +38,16 @@ export declare function CancellationSource__method_throwIfCancelled(lucentSelf:C
       swift: ["try lucentSelf.throwIfCancelled()"],
       kotlin: ["lucentSelf.throwIfCancelled()"],
     },
+    CancellationSource__method_scope: {
+      contract: { symbolId: symbol("scope", "()->CancellationSource"), result: "owned" },
+      swift: ["return lucentSelf.scope()"],
+      kotlin: ["return lucentSelf.scope()"],
+    },
+    CancellationSource__method_finish: {
+      contract: { symbolId: symbol("finish", "()->Bool") },
+      swift: ["return lucentSelf.finish()"],
+      kotlin: ["return lucentSelf.finish()"],
+    },
   },
   native: {
     swift: {
@@ -44,10 +56,34 @@ export declare function CancellationSource__method_throwIfCancelled(lucentSelf:C
 final class LucentCancellationSource: @unchecked Sendable {
   private let lock = NSLock()
   private var requested = false
+  private var completed = false
+  private var children: [LucentCancellationSource] = []
   var cancelled: Bool { lock.lock(); defer { lock.unlock() }; return requested }
-  func cancel() { lock.lock(); requested = true; lock.unlock() }
+  func cancel() {
+    lock.lock()
+    requested = true
+    let kids = children
+    lock.unlock()
+    for child in kids { child.cancel() }
+  }
   func throwIfCancelled() throws {
     if cancelled { throw LucentError(code: "CANCELLED", message: "Native operation was cancelled") }
+  }
+  func scope() -> LucentCancellationSource {
+    let child = LucentCancellationSource()
+    lock.lock()
+    children.append(child)
+    let already = requested
+    lock.unlock()
+    if already { child.cancel() }
+    return child
+  }
+  func finish() -> Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    if requested || completed { return false }
+    completed = true
+    return true
   }
 }
 `,
@@ -55,11 +91,28 @@ final class LucentCancellationSource: @unchecked Sendable {
     kotlin: {
       "Cancellation.kt": `package {{androidPackage}}
 class LucentCancellationSource {
+  private val lock = Any()
   private val requested = java.util.concurrent.atomic.AtomicBoolean(false)
+  private var completed = false
+  private val children = mutableListOf<LucentCancellationSource>()
   val cancelled: Boolean get() = requested.get()
-  fun cancel() { requested.set(true) }
+  fun cancel() {
+    val kids = synchronized(lock) { requested.set(true); children.toList() }
+    kids.forEach { it.cancel() }
+  }
   fun throwIfCancelled() {
     if (cancelled) throw LucentError("CANCELLED", "Native operation was cancelled")
+  }
+  fun scope(): LucentCancellationSource {
+    val child = LucentCancellationSource()
+    val already = synchronized(lock) { children.add(child); requested.get() }
+    if (already) child.cancel()
+    return child
+  }
+  fun finish(): Boolean = synchronized(lock) {
+    if (requested.get() || completed) return false
+    completed = true
+    true
   }
 }
 `,

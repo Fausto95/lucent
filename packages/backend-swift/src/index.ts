@@ -33,6 +33,7 @@ export interface GeneratedFunction {
   exported: boolean;
   async: boolean;
   params: GeneratedField[];
+  state?: { name: string; type: string }[];
   returnType: string;
   /** Body lines without indentation. */
   body: string[];
@@ -135,7 +136,13 @@ export function generateSwift(module: IRModule): GeneratedUnit {
 
 export function signature(f: GeneratedFunction): string {
   const params = f.params.map((p) => `${p.name}: ${p.type}`).join(", ");
-  if (f.view) return `@MainActor func ${f.name}(${params}) -> AnyView`;
+  const state = (f.state ?? [])
+    .map(
+      (slot) =>
+        `lucentGet_${slot.name}: @escaping () -> ${slot.type}, lucentSet_${slot.name}: @escaping (${slot.type}) -> Void`,
+    )
+    .join(", ");
+  if (f.view) return `@MainActor func ${f.name}(${[params, state].filter(Boolean).join(", ")}) -> AnyView`;
   return `${f.thread === "main" ? "@MainActor " : ""}func ${f.name}(${params})${f.async ? " async" : ""} throws -> ${f.returnType}`;
 }
 
@@ -181,6 +188,7 @@ function generateFunction(
       name: p.name,
       type: (p.type.kind === "callback" ? "@escaping " : "") + swiftType(p.type),
     })),
+    ...(f.state?.length ? { state: f.state.map((slot) => ({ name: slot.name, type: swiftType(slot.type) })) } : {}),
     returnType: swiftType(f.returnType),
     body: f.thread === "worker" ? ["return try await Task.detached {", ...indent(body), "}.value"] : body,
   };
@@ -220,6 +228,15 @@ class SwiftEmitter {
     return calls.some((c) => c.type.kind === "promise") ? "try await " : "try ";
   }
 
+  private forRows(e: Extract<IRExpr, { op: "view" }>): string {
+    const data = e.props.find((prop) => prop.name === "each");
+    const child = e.children[0];
+    if (!data || child?.op !== "closure" || Array.isArray(child.body) || !child.params[0])
+      return "AnyView(EmptyView())";
+    const param = child.params[0].name;
+    return `AnyView(VStack(alignment: .leading, spacing: 0) { ForEach(Array(${this.expr(data.value)}.enumerated()), id: \\.offset) { pair in let ${param} = pair.element; AnyView(${this.expr(child.body)}) } })`;
+  }
+
   private stmt(s: IRStmt): string[] {
     switch (s.op) {
       case "let":
@@ -247,6 +264,8 @@ class SwiftEmitter {
         return [
           `throw LucentError(code: ${str(s.code)}${s.message ? `, message: ${this.top(s.message)}` : ""}${s.metadata ? `, metadata: [${s.metadata.map((f) => `${str(f.name)}: ${f.value.op === "const" && f.value.value === null ? "lucentNull()" : this.top(f.value)}`).join(", ")}]` : ""})`,
         ];
+      case "stateWrite":
+        return [`lucentSet_${s.name}(${this.top(s.value)})`];
       case "expr":
         return [`_ = ${this.top(s.value)}`];
       case "push":
@@ -272,7 +291,15 @@ class SwiftEmitter {
   expr(e: IRExpr): string {
     switch (e.op) {
       case "view":
-        return swiftView(e, (x) => this.expr(x));
+        return e.name === "For" ? this.forRows(e) : swiftView(e, (x) => this.expr(x));
+      case "stateRead":
+        return `lucentGet_${e.name}()`;
+      case "stateWrite":
+        return `lucentSet_${e.name}(${this.top(e.value)})`;
+      case "ifExpr":
+        return e.type.kind === "view"
+          ? `AnyView(Group { if ${this.expr(e.cond)} { ${this.expr(e.consequent)} } else { ${this.expr(e.alternate)} } })`
+          : `(${this.expr(e.cond)} ? ${this.expr(e.consequent)} : ${this.expr(e.alternate)})`;
       case "const":
         return constant(e.value, e.type);
       case "param":
@@ -295,8 +322,19 @@ class SwiftEmitter {
         return `!${this.expr(e.value)}`;
       case "neg":
         return `-${this.expr(e.value)}`;
-      case "closure":
-        return `{ (${e.params.map((p) => `${p.name}: ${swiftType(p.type)}`).join(", ")}) throws -> ${swiftType(e.type.kind === "callback" ? e.type.result : e.body.type)} in ${this.top(e.body)} }`;
+      case "weak":
+        return e.name;
+      case "closure": {
+        const result = e.type.kind === "callback" ? e.type.result : Array.isArray(e.body) ? e.type : e.body.type;
+        const weak = e.captures
+          .filter((capture) => capture.kind === "weak")
+          .map((capture) => `weak ${capture.name}`)
+          .join(", ");
+        const head = `{ ${weak ? `[${weak}] ` : ""}(${e.params.map((p) => `${p.name}: ${swiftType(p.type)}`).join(", ")}) throws -> ${swiftType(result)} in `;
+        return Array.isArray(e.body)
+          ? `${head}\n${indent(this.block(e.body)).join("\n")}\n}`
+          : `${head}${this.top(e.body)} }`;
+      }
       case "functionRef":
         return e.name;
       case "invoke":

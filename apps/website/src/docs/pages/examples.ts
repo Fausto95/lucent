@@ -182,37 +182,37 @@ export const page: DocPage = {
     { kind: "h2", text: "A native view with controls" },
     {
       kind: "p",
-      text: "One `.lucent.tsx` component becomes SwiftUI on iOS and Compose on Android. Inputs are controlled: the app owns `text`, `enabled` and `amount`, the view reports changes through typed events. `Badge` is another Lucent component imported from a sibling file.",
+      text: "One `.lucent.tsx` component becomes SwiftUI on iOS and Compose on Android. `FieldScreen` owns its label, gain, and arming flag with `state()`. The sample list and the record event stay in the app, which drives a `FieldKit` class. `Badge` is another Lucent component imported from a sibling file.",
     },
     {
       kind: "code",
       filename: "src/badge.lucent.tsx",
-      code: 'import { Text, type NativeProps, type NativeView } from "@lucent-lang/ui";\n\ntype Props = { title: string };\n\nexport function Badge(props: NativeProps<Props>): NativeView {\n  return (\n    <Text size={20} color="#38745E">\n      {props.title}\n    </Text>\n  );\n}',
+      code: 'import { Text, type NativeProps, type NativeView } from "@lucent-lang/ui";\n\ntype Props = { title: string };\n\nexport function Badge(props: NativeProps<Props>): NativeView {\n  return (\n    <Text size={26} color="#e7f6ef">\n      {props.title}\n    </Text>\n  );\n}',
     },
     {
       kind: "tabs",
       tabs: [
         {
           label: "Source",
-          filename: "src/native-card.lucent.tsx",
-          code: 'import { VStack, Button, TextField, Toggle, Slider, type NativeProps, type NativeView } from "@lucent-lang/ui";\nimport type { Event } from "@lucent-lang/events";\nimport { Badge } from "./badge.lucent";\n\ntype Props = {\n  title: string;\n  onPress: Event<void>;\n  text: string;\n  onText: Event<string>;\n  enabled: boolean;\n  onEnabled: Event<boolean>;\n  amount: number;\n  onAmount: Event<number>;\n};\n\nexport function NativeCard(props: NativeProps<Props>): NativeView {\n  return (\n    <VStack padding={16} spacing={12}>\n      <Badge title={props.title} />\n      <TextField value={props.text} onChange={props.onText} placeholder="Native input" />\n      <Toggle title="Native toggle" value={props.enabled} onChange={props.onEnabled} />\n      <Slider value={props.amount} min={0} max={100} onChange={props.onAmount} />\n      <Button title="Native button" onPress={props.onPress} />\n    </VStack>\n  );\n}',
+          filename: "src/field-screen.lucent.tsx",
+          code: 'import { ScrollView, VStack, Text, TextField, Button, For, type NativeProps, type NativeView } from "@lucent-lang/ui";\nimport type { Event } from "@lucent-lang/events";\n\ntype Props = { title: string; notes: string[]; onRecord: Event<void> };\n\nexport function FieldScreen(props: NativeProps<Props>): NativeView {\n  const draft = state("Ridge line");\n  return (\n    <ScrollView>\n      <VStack padding={18} spacing={12}>\n        <Text size={22}>{props.title}</Text>\n        <For each={props.notes}>{(note: string) => <Text>{note}</Text>}</For>\n        <TextField value={draft} onChange={(value: string) => draft.set(value)} placeholder="Label" />\n        <Button title="Record sample" onPress={props.onRecord} />\n      </VStack>\n    </ScrollView>\n  );\n}',
         },
         {
           label: "Swift",
           filename: "generated (Badge)",
-          code: 'import SwiftUI\nenum LucentBadgeViews {\n  struct Props {\n    var title: String\n  }\n\n  @MainActor static func Badge(props: Props) -> AnyView {\n    return AnyView(Text(props.title).font(.system(size: CGFloat(20.0))).foregroundColor(lucentViewColor("#38745E")))\n  }\n}',
+          code: 'import SwiftUI\nenum LucentBadgeViews {\n  struct Props {\n    var title: String\n  }\n\n  @MainActor static func Badge(props: Props) -> AnyView {\n    return AnyView(Text(props.title).font(.system(size: CGFloat(26.0))).foregroundColor(lucentViewColor("#e7f6ef")))\n  }\n}',
         },
         {
           label: "Kotlin",
           filename: "generated (Badge)",
-          code: 'object LucentBadgeViews {\n  data class Props(var title: String)\n\n  @Composable fun Badge(props: Props): Unit {\n    return Text(text = props.title, fontSize = (20.0).toFloat().sp, color = Color(android.graphics.Color.parseColor("#38745E")))\n  }\n}',
+          code: 'object LucentBadgeViews {\n  data class Props(var title: String)\n\n  @Composable fun Badge(props: Props): Unit {\n    return Text(text = props.title, fontSize = (26.0).toFloat().sp, color = Color(android.graphics.Color.parseColor("#e7f6ef")))\n  }\n}',
         },
       ],
     },
     {
       kind: "code",
       filename: "App.tsx",
-      code: 'import { useState } from "react";\nimport { NativeCard } from "./src/native-card.lucent";\n\nexport function Screen() {\n  const [text, setText] = useState("Lucent");\n  const [enabled, setEnabled] = useState(true);\n  const [amount, setAmount] = useState(50);\n  const [presses, setPresses] = useState(0);\n  return (\n    <NativeCard\n      style={{ height: 320 }}\n      title={`Native taps: ${presses}`}\n      onPress={() => setPresses((n) => n + 1)}\n      text={text}\n      onText={setText}\n      enabled={enabled}\n      onEnabled={setEnabled}\n      amount={amount}\n      onAmount={setAmount}\n    />\n  );\n}',
+      code: 'import { useState } from "react";\nimport { FieldScreen } from "./src/field-screen.lucent";\nimport { FieldKit } from "./src/field-kit.lucent";\n\nconst kit = new FieldKit("North ridge");\n\nexport function Screen() {\n  const [notes, setNotes] = useState(["Baseline"]);\n  return (\n    <FieldScreen\n      style={{ height: 520 }}\n      title={kit.name}\n      notes={notes}\n      onRecord={() => setNotes((items) => [...items, `Sample ${kit.record()}`])}\n    />\n  );\n}',
     },
 
     { kind: "h2", text: "A native package view" },

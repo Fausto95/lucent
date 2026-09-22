@@ -10,7 +10,9 @@ const result = compile(
   `import {CancellationSource} from '@lucent-lang/core/cancellation';
 export function make():CancellationSource{return new CancellationSource();}
 export function cancel(source:CancellationSource):void{source.cancel();}
-export function checkpoint(source:CancellationSource):boolean{source.throwIfCancelled();return source.cancelled;}`,
+export function checkpoint(source:CancellationSource):boolean{source.throwIfCancelled();return source.cancelled;}
+export function child(source:CancellationSource):CancellationSource{return source.scope();}
+export function complete(source:CancellationSource):boolean{return source.finish();}`,
   { fileName: "cancellation.lucent.ts" },
 );
 if (!result.module) throw new Error(JSON.stringify(result.diagnostics));
@@ -27,6 +29,19 @@ precondition(!initial)
 DispatchQueue.concurrentPerform(iterations: 1000) { _ in try! cancel(source: source) }
 do { _ = try checkpoint(source: source); fatalError("Cancellation was ignored") } catch let error as LucentError { precondition(error.code == "CANCELLED") }
 try cancel(source: source)
+let parent = try make()
+let scoped = try child(source: parent)
+try cancel(source: parent)
+do { _ = try checkpoint(source: scoped); fatalError("Child scope ignored cancellation") } catch let error as LucentError { precondition(error.code == "CANCELLED") }
+let finished = try make()
+let first = try complete(source: finished)
+let second = try complete(source: finished)
+precondition(first)
+precondition(!second)
+let cancelled = try make()
+try cancel(source: cancelled)
+let afterCancel = try complete(source: cancelled)
+precondition(!afterCancel)
 print("swift: cooperative cancellation, typed errors and concurrent cancellation passed")
 `;
 writeFileSync(join(dir, "main.swift"), swift);
@@ -50,6 +65,16 @@ fun main() {
  workers.forEach { it.join() }
  try { checkpoint(source); error("Cancellation was ignored") } catch (error:LucentError) { check(error.code == "CANCELLED") }
  cancel(source)
+ val parent = make()
+ val scoped = child(parent)
+ cancel(parent)
+ try { checkpoint(scoped); error("Child scope ignored cancellation") } catch (error:LucentError) { check(error.code == "CANCELLED") }
+ val finished = make()
+ check(complete(finished))
+ check(!complete(finished))
+ val cancelled = make()
+ cancel(cancelled)
+ check(!complete(cancelled))
  println("kotlin: cooperative cancellation, typed errors and concurrent cancellation passed")
 }
 `;

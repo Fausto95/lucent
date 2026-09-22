@@ -59,10 +59,18 @@ interface Typed {
   span: Span;
   /** Set on placeholders produced after a diagnostic, so later checks do not cascade. */
   poisoned?: true;
+  /** The value is borrowed for this scope and must not escape or outlive a suspension. */
+  borrowed?: true;
 }
 
 export type TExpr =
-  | ({ kind: "closure"; params: TypedParam[]; body: TExpr } & Typed)
+  | ({
+      kind: "closure";
+      params: TypedParam[];
+      captures: { name: string; kind: "value" | "retained" | "borrowed" | "weak" }[];
+      body: TExpr | TStmt[];
+    } & Typed)
+  | ({ kind: "weak"; name: string } & Typed)
   | ({ kind: "functionRef"; name: string } & Typed)
   | ({ kind: "invoke"; callback: TExpr; args: TExpr[] } & Typed)
   | ({
@@ -83,6 +91,10 @@ export type TExpr =
   | ({ kind: "unwrap"; argument: TExpr } & Typed)
   | ({ kind: "binary"; operator: BinaryOperator; left: TExpr; right: TExpr } & Typed)
   | ({ kind: "logical"; operator: LogicalOperator; left: TExpr; right: TExpr } & Typed)
+  | ({ kind: "conditional"; test: TExpr; consequent: TExpr; alternate: TExpr } & Typed)
+  | ({ kind: "stateInit"; value: TExpr } & Typed)
+  | ({ kind: "stateRead"; name: string } & Typed)
+  | ({ kind: "stateWrite"; name: string; value: TExpr } & Typed)
   | ({ kind: "unary"; operator: UnaryOperator; argument: TExpr } & Typed)
   | ({ kind: "assign"; operator: AssignOperator; target: TExpr; value: TExpr } & Typed)
   | ({ kind: "update"; operator: UpdateOperator; target: TExpr } & Typed)

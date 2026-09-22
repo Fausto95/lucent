@@ -2,7 +2,17 @@ import type { TExpr, TStmt, TypedFunction, TypedModule } from "../checker/typed.
 import { diagnostic, type Diagnostic } from "../diagnostics/index.ts";
 import type { AssignOperator, BinaryOperator } from "../parser/surface.ts";
 import { T, type NativeType } from "../types/native-type.ts";
-import type { BinaryOp, IRExpr, IRFunction, IRLocal, IRModule, IRPlace, IRStmt, LocalId } from "../ir/types.ts";
+import type {
+  BinaryOp,
+  IRExpr,
+  IRFunction,
+  IRLocal,
+  IRModule,
+  IRPlace,
+  IRStateSlot,
+  IRStmt,
+  LocalId,
+} from "../ir/types.ts";
 
 export interface LowerResult {
   module: IRModule | null;
@@ -65,6 +75,8 @@ export function lowerModule(module: TypedModule): LowerResult {
 
 class FunctionLowerer {
   private readonly locals: IRLocal[] = [];
+  private readonly slots: IRStateSlot[] = [];
+  private readonly state = new Map<string, NativeType>();
   /** Lexical scopes mapping source names to local ids; params live in the outermost one as `null`. */
   private readonly scopes: Map<string, LocalId | null>[] = [];
   private readonly used = new Map<string, number>();
@@ -105,6 +117,7 @@ class FunctionLowerer {
       returnType: this.fn.returnType,
       locals: this.locals,
       body,
+      ...(this.slots.length ? { state: this.slots } : {}),
     };
   }
 
@@ -141,6 +154,16 @@ class FunctionLowerer {
   private stmt(s: TStmt): IRStmt[] {
     switch (s.kind) {
       case "variable": {
+        if (s.init.kind === "stateInit") {
+          const value = this.expr(s.init.value);
+          if (value.op !== "const") {
+            this.diagnostics.push(diagnostic("NT1001", s.span, "`state()` requires a literal."));
+            return [];
+          }
+          this.slots.push({ name: s.name, type: s.type, value: value.value });
+          this.state.set(s.name, s.type);
+          return [];
+        }
         const value = this.expr(s.init);
         const id = this.declare(s.name, s.type, s.declaration === "let");
         return [{ op: "let", id, value }];
@@ -207,6 +230,7 @@ class FunctionLowerer {
 
   /** Assignments and updates are statements in the IR; anything else is evaluated for effect. */
   private expressionStmt(e: TExpr): IRStmt[] {
+    if (e.kind === "stateWrite") return [{ op: "stateWrite", name: e.name, value: this.expr(e.value) }];
     if (e.kind === "assign") {
       const target = this.place(e.target);
       const value = this.expr(e.value);
@@ -288,9 +312,26 @@ class FunctionLowerer {
           type,
         };
       case "identifier": {
+        if (this.state.has(e.name)) return { op: "stateRead", name: e.name, type };
         const id = this.resolve(e.name);
         return id === null ? { op: "param", name: e.name, type } : { op: "local", id, type };
       }
+      case "stateInit":
+        return this.expr(e.value);
+      case "stateRead":
+        return { op: "stateRead", name: e.name, type };
+      case "stateWrite":
+        return { op: "stateWrite", name: e.name, value: this.expr(e.value), type };
+      case "conditional":
+        return {
+          op: "ifExpr",
+          cond: this.expr(e.test),
+          consequent: this.expr(e.consequent),
+          alternate: this.expr(e.alternate),
+          type,
+        };
+      case "weak":
+        return { op: "weak", name: e.name, type };
       case "unwrap":
         return { op: "unwrap", value: this.expr(e.argument), type };
       case "binary": {
@@ -311,9 +352,15 @@ class FunctionLowerer {
         return { op: "const", value: 0, type };
       case "closure": {
         this.scopes.push(new Map(e.params.map((p) => [p.name, null])));
-        const body = this.expr(e.body);
+        const body = Array.isArray(e.body) ? this.stmts(e.body) : this.expr(e.body);
         this.scopes.pop();
-        return { op: "closure", params: e.params.map((p) => ({ name: p.name, type: p.type })), body, type };
+        return {
+          op: "closure",
+          params: e.params.map((p) => ({ name: p.name, type: p.type })),
+          captures: e.captures,
+          body,
+          type,
+        };
       }
       case "functionRef":
         return { op: "functionRef", name: e.name, type };
@@ -376,6 +423,7 @@ function collectAssignedNames(stmts: TStmt[], candidates: ReadonlySet<string>): 
       const root = rootIdentifier(mutated);
       if (root && candidates.has(root)) found.add(root);
     }
+    if (e.kind === "closure" && Array.isArray(e.body)) visit(e.body);
     for (const child of childrenOf(e)) visitExpr(child);
   };
   const visit = (list: TStmt[]): void => {
@@ -474,7 +522,7 @@ function rootIdentifier(e: TExpr): string | null {
 function childrenOf(e: TExpr): TExpr[] {
   switch (e.kind) {
     case "closure":
-      return [e.body];
+      return Array.isArray(e.body) ? [] : [e.body];
     case "template":
       return e.expressions;
     case "array":
@@ -487,7 +535,8 @@ function childrenOf(e: TExpr): TExpr[] {
       return [e.argument];
     case "binary":
     case "logical":
-      return [e.left, e.right];
+    case "conditional":
+      return e.kind === "conditional" ? [e.test, e.consequent, e.alternate] : [e.left, e.right];
     case "assign":
       return [e.target, e.value];
     case "update":
@@ -505,6 +554,9 @@ function childrenOf(e: TExpr): TExpr[] {
       return [e.object, e.index];
     case "methodCall":
       return [e.object, ...e.args];
+    case "stateInit":
+    case "stateWrite":
+      return [e.value];
     default:
       return [];
   }

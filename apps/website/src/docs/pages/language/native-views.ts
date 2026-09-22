@@ -24,10 +24,12 @@ export const page: DocPage = {
       items: [
         "An exported function returning `NativeView` that takes one props record (or nothing) is a native view.",
         "`NativeProps<P>` adds React Native's `ViewProps` for the app side. Inside the render function only `P` exists; React applies `style` and layout to the host view.",
-        "Rendering is synchronous and pure. Effects, mutation, async calls and loops in a render function are rejected. Keep state in React and pass new props.",
-        "Props are scalars, nullable scalars, and `Event<void | string | boolean | number>` callbacks.",
+        "Rendering is synchronous. Effects, mutation, async calls and loops in the render body are rejected. Event handlers may update view state.",
+        "`const name = state(literal)` at the top of the view owns a string, number, or boolean on the host instance. Prop updates do not reset it. `name.set(next)` reads the current value.",
+        "Props are strings, numbers, booleans, arrays of those, nullable scalars, and `Event<void | string | boolean | number>` callbacks.",
+        "`condition ? <A /> : <B />` chooses a view. `For` repeats one row for each element of a string, number, or boolean array, in index order.",
         "Compose other `.lucent.tsx` components by importing them; pass typed props.",
-        "Not in the subset: hooks, arbitrary React components, dynamic lists, JSX spreads and fragments, custom `children`.",
+        "Not in the subset: hooks, arbitrary React components, keyed or lazy lists, JSX spreads and fragments, custom `children`.",
       ],
     },
     { kind: "h2", text: "Controls" },
@@ -36,6 +38,8 @@ export const page: DocPage = {
       head: ["Primitive", "Props", "Children"],
       rows: [
         ["`VStack`, `HStack`", "`padding?`, `spacing?`", "views"],
+        ["`Divider`", "none", "none"],
+        ["`For`", "`each` (`string[]`, `number[]`, or `boolean[]`)", "one row closure"],
         ["`ZStack`, `ScrollView`", "none", "views"],
         ["`Text`", "`size?`, `color?` (`#RRGGBB`)", "strings, numbers, booleans"],
         ["`Spacer`", "`size?` (default 8)", "none"],
@@ -47,7 +51,7 @@ export const page: DocPage = {
     },
     {
       kind: "p",
-      text: "Inputs are controlled: the app owns the value and receives changes. `VStack` and `HStack` emit SwiftUI `VStack` / `HStack` and Compose `Column` / `Row`.",
+      text: "Inputs take a value and a change handler. The value can be a prop or `state()` local to the view; the handler can be an event or a closure that calls `set`. `VStack` and `HStack` emit SwiftUI `VStack` / `HStack` and Compose `Column` / `Row`. `For` emits an eager stack of rows.",
     },
     { kind: "h2", text: "Wrappers" },
     {

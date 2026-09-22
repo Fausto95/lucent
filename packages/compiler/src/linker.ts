@@ -281,13 +281,17 @@ function renameExpr(
   locals: Set<string>,
   types = new Map<string, string>(),
 ): Expr {
-  if (expr.kind === "closure")
+  if (expr.kind === "closure") {
+    const captured = new Set([...locals, ...expr.params.map((p) => p.name)]);
     return {
       ...expr,
       params: expr.params.map((p) => ({ ...p, type: p.type ? renameType(p.type, types) : null })),
       returnType: expr.returnType ? renameType(expr.returnType, types) : null,
-      body: renameExpr(expr.body, values, new Set([...locals, ...expr.params.map((p) => p.name)]), types),
+      body: Array.isArray(expr.body)
+        ? renameBlock(expr.body, values, types, captured)
+        : renameExpr(expr.body, values, captured, types),
     };
+  }
   // Expressions contain only expression children and scalar metadata. Rename symbol uses,
   // never member names, object keys, or lexical bindings.
   const result = { ...expr } as unknown as Record<string, unknown>;

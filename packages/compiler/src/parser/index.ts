@@ -61,7 +61,6 @@ const NODE_NAMES: Record<string, string> = {
   ObjectPattern: "destructuring",
   ArrayPattern: "destructuring",
   RestElement: "rest parameter",
-  ConditionalExpression: "conditional expression",
   SequenceExpression: "comma expression",
   ChainExpression: "optional chaining",
   TaggedTemplateExpression: "tagged template",
@@ -699,24 +698,29 @@ class Converter {
 
   private readonly exprHandlers: Record<string, (node: never) => Expr> = {
     ArrowFunctionExpression: (node: ES.ArrowFunctionExpression) => {
-      const body =
-        node.body.type === "BlockStatement" &&
-        node.body.body.length === 1 &&
-        node.body.body[0]?.type === "ReturnStatement"
-          ? node.body.body[0].argument
-          : node.body;
-      if (node.async || node.typeParameters || !body || body.type === "BlockStatement") {
-        this.unsupported(node, "native closures require a synchronous expression body");
+      if (node.async || node.typeParameters) {
+        this.unsupported(node, "native closures must be synchronous");
         return { kind: "unsupported", span: spanOf(node) };
       }
-      return {
-        kind: "closure",
-        params: node.params.map((p) => this.param(p)),
-        returnType: node.returnType ? this.type(node.returnType.typeAnnotation) : null,
-        body: this.expr(body),
-        span: spanOf(node),
-      };
+      const params = node.params.map((p) => this.param(p));
+      const returnType = node.returnType ? this.type(node.returnType.typeAnnotation) : null;
+      const span = spanOf(node);
+      if (node.body.type !== "BlockStatement")
+        return { kind: "closure", params, returnType, body: this.expr(node.body), span };
+      const only =
+        node.body.body.length === 1 && node.body.body[0]?.type === "ReturnStatement"
+          ? node.body.body[0].argument
+          : null;
+      if (only) return { kind: "closure", params, returnType, body: this.expr(only), span };
+      return { kind: "closure", params, returnType, body: this.block(node.body), span };
     },
+    ConditionalExpression: (node: ES.ConditionalExpression) => ({
+      kind: "conditional",
+      test: this.expr(node.test),
+      consequent: this.expr(node.consequent),
+      alternate: this.expr(node.alternate),
+      span: spanOf(node),
+    }),
     ThisExpression: (node: ES.ThisExpression) => ({ kind: "identifier", name: "lucentSelf", span: spanOf(node) }),
     NewExpression: (node: ES.NewExpression) => {
       if (

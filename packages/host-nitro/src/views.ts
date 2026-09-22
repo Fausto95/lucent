@@ -6,7 +6,17 @@ import {
   swiftViewRuntime,
 } from "@lucent-lang/backend-swift";
 import { generateKotlinNamespace, kotlinType } from "@lucent-lang/backend-kotlin";
-import { exportedViews, viewName, viewNamespace, viewProps, jsType, type FileTree } from "@lucent-lang/host-core";
+import {
+  exportedViews,
+  stateArguments,
+  stateFields,
+  viewCallWithState,
+  viewName,
+  viewNamespace,
+  viewProps,
+  jsType,
+  type FileTree,
+} from "@lucent-lang/host-core";
 
 export function emitViews(files: FileTree, modules: IRModule[], androidPackage: string): void {
   if (!modules.some((m) => exportedViews(m).length)) return;
@@ -27,7 +37,17 @@ export function emitViews(files: FileTree, modules: IRModule[], androidPackage: 
             `${p.name}: ${p.name}${p.type.kind === "event" ? (p.type.payload.kind === "void" ? " ?? {}" : " ?? { _ in }") : ""}`,
         )
         .join(", ");
-      const kotlinArgs = props.map((p) => `${p.name} = ${p.name}${p.type.kind === "event" ? " ?: {}" : ""}`).join(", ");
+      const kotlinArgs = props
+        .map((p) => {
+          const value =
+            p.type.kind === "event"
+              ? `${p.name} ?: {}`
+              : p.type.kind === "array"
+                ? `${p.name}.toMutableList()`
+                : p.name;
+          return `${p.name} = ${value}`;
+        })
+        .join(", ");
       files.set(
         `src/specs/${name}.nitro.ts`,
         `import type { HybridView, HybridViewProps, HybridViewMethods } from "react-native-nitro-modules";
@@ -47,9 +67,10 @@ class Hybrid${name}: Hybrid${name}Spec {
   private let content = MainActor.assumeIsolated { LucentHostedView(frame: .zero) }
   var view: UIView { content }
 ${props.map((p) => `  var ${p.name}: ${p.type.kind === "event" ? `(${swiftType(p.type)})?` : swiftType(p.type)} = ${defaultValue(p.type, "swift")}`).join("\n")}
+${indentLines(stateFields(fn, "swift", swiftType))}
   func afterUpdate() {
     MainActor.assumeIsolated {
-      content.render(${namespace}.${fn.name}(${type?.kind === "struct" ? `${fn.params[0]!.name}: ${namespace}.${type.name}(${swiftArgs})` : ""}))
+      content.render(${namespace}.${fn.name}(${viewCallWithState(type?.kind === "struct" ? `${fn.params[0]!.name}: ${namespace}.${type.name}(${swiftArgs})` : "", stateArguments(fn, "swift", "afterUpdate"))}))
     }
   }
 }
@@ -70,10 +91,11 @@ import com.facebook.proguard.annotations.DoNotStrip
 @Keep
 @DoNotStrip
 class Hybrid${name}(context: ThemedReactContext) : Hybrid${name}Spec() {
-${props.map((p) => `  override var ${p.name}: ${p.type.kind === "event" ? `(${kotlinType(p.type)})?` : kotlinType(p.type)} by mutableStateOf(${defaultValue(p.type, "kotlin")})`).join("\n")}
+${props.map((p) => `  override var ${p.name}: ${nitroViewType(p.type)} by mutableStateOf(${nitroViewDefault(p.type)})`).join("\n")}
+${indentLines(stateFields(fn, "kotlin", kotlinType))}
   override val view: View = ComposeView(context).apply {
     setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
-    setContent { ${namespace}.${fn.name}(${type?.kind === "struct" ? `${namespace}.${type.name}(${kotlinArgs})` : ""}) }
+    setContent { ${namespace}.${fn.name}(${viewCallWithState(type?.kind === "struct" ? `${namespace}.${type.name}(${kotlinArgs})` : "", stateArguments(fn, "kotlin", "afterUpdate"))}) }
   }
 }
 `,
@@ -81,12 +103,34 @@ ${props.map((p) => `  override var ${p.name}: ${p.type.kind === "event" ? `(${ko
     }
   }
 }
+function indentLines(text: string): string {
+  return text
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => `  ${line}`)
+    .join("\n");
+}
+function nitroViewType(type: NativeType): string {
+  if (type.kind === "event") return `(${kotlinType(type)})?`;
+  if (type.kind !== "array") return kotlinType(type);
+  if (type.element.kind === "string") return "Array<String>";
+  if (type.element.kind === "bool") return "BooleanArray";
+  if (type.element.kind === "float" || type.element.kind === "int") return "DoubleArray";
+  return kotlinType(type);
+}
+function nitroViewDefault(type: NativeType): string {
+  if (type.kind === "array" && type.element.kind === "string") return "emptyArray()";
+  if (type.kind === "array" && type.element.kind === "bool") return "booleanArrayOf()";
+  if (type.kind === "array" && (type.element.kind === "float" || type.element.kind === "int")) return "doubleArrayOf()";
+  return defaultValue(type, "kotlin");
+}
 function defaultValue(type: NativeType, language: string): string {
   const defaults: Record<string, string> = {
     event: language === "swift" ? "nil" : "null",
     string: '""',
     bool: "false",
     float: "0.0",
+    array: language === "kotlin" ? "mutableListOf()" : "[]",
     optional: language === "swift" ? "nil" : "null",
   };
   if (!(type.kind in defaults)) throw new Error(`Unsupported native view prop ${type.kind}`);

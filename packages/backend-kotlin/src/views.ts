@@ -37,6 +37,7 @@ export function kotlinView(e: ViewExpr, expr: (e: IRExpr) => string): string {
       `Text(text = ${e.children.length ? e.children.map(expr).join(" + ") : '""'}, fontSize = (${prop("size", "17.0")}).toFloat().sp${e.props.some((p) => p.name === "color") ? `, color = Color(android.graphics.Color.parseColor(${prop("color", '"#000000"')}))` : ""})`,
     Spacer: () => `Spacer(modifier = Modifier.size((${prop("size", "8.0")}).toFloat().dp))`,
     Button: () => `Button(onClick = ${prop("onPress", "{}")}) { Text(${prop("title", '""')}) }`,
+    Divider: () => `HorizontalDivider()`,
   };
   return render[e.name]!();
 }

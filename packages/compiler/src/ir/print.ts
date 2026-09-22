@@ -63,6 +63,9 @@ function printFunction(fn: IRFunction): string[] {
         case "push":
           lines.push(`${pad}push ${expr(s.array)} ${expr(s.value)}`);
           break;
+        case "stateWrite":
+          lines.push(`${pad}state ${s.name} = ${expr(s.value)}`);
+          break;
       }
     }
   };
@@ -104,8 +107,19 @@ export function expr(e: IRExpr): string {
     case "and":
     case "or":
       return `(${e.op} ${expr(e.left)} ${expr(e.right)})`;
-    case "closure":
-      return `closure (${e.params.map((p) => p.name).join(", ")}) => ${expr(e.body)}`;
+    case "weak":
+      return `(weak ${e.name})`;
+    case "stateRead":
+      return `(state ${e.name})`;
+    case "stateWrite":
+      return `(set ${e.name} ${expr(e.value)})`;
+    case "ifExpr":
+      return `(if ${expr(e.cond)} ${expr(e.consequent)} ${expr(e.alternate)})`;
+    case "closure": {
+      const captures = e.captures.length ? ` [${e.captures.map((c) => `${c.kind} ${c.name}`).join(", ")}]` : "";
+      const body = Array.isArray(e.body) ? "block" : expr(e.body);
+      return `closure (${e.params.map((p) => p.name).join(", ")})${captures} => ${body}`;
+    }
     case "functionRef":
       return `function_ref ${e.name}`;
     case "invoke":

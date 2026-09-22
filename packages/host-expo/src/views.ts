@@ -6,7 +6,16 @@ import {
   swiftViewRuntime,
 } from "@lucent-lang/backend-swift";
 import { generateKotlinNamespace, kotlinType } from "@lucent-lang/backend-kotlin";
-import { exportedViews, viewName, viewNamespace, viewProps, type FileTree } from "@lucent-lang/host-core";
+import {
+  exportedViews,
+  stateArguments,
+  stateFields,
+  viewCallWithState,
+  viewName,
+  viewNamespace,
+  viewProps,
+  type FileTree,
+} from "@lucent-lang/host-core";
 
 export const nativeViewEvent = (module: IRModule, fn: IRFunction, prop: string): string =>
   `on${viewName(module, fn)}_${prop}`;
@@ -68,13 +77,14 @@ ${props
 final class ${name}: ExpoView {
   private let content = LucentHostedView(frame: .zero)
 ${swiftProps}
+${indentLines(stateFields(fn, "swift", swiftType))}
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
     addSubview(content)
     update()
   }
   override func layoutSubviews() { super.layoutSubviews(); content.frame = bounds }
-  func update() { content.render(${namespace}.${fn.name}(${viewCall(module, fn, swiftArgs, "swift")})) }
+  func update() { content.render(${namespace}.${fn.name}(${viewCallWithState(viewCall(module, fn, swiftArgs, "swift"), stateArguments(fn, "swift", "update"))})) }
 }
 `,
       );
@@ -112,9 +122,10 @@ ${props
 }
 class ${name}(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
 ${props.map((p) => (p.type.kind === "event" ? `  val ${nativeViewEvent(module, fn, p.name)} by EventDispatcher<Map<String, Any>>()` : `  var lucentProp_${p.name}: ${kotlinType(p.type)} by mutableStateOf(${defaultValue(p.type.kind, "kotlin")})`)).join("\n")}
+${indentLines(stateFields(fn, "kotlin", kotlinType))}
   private val content = ComposeView(context).apply {
     setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
-    setContent { ${namespace}.${fn.name}(${viewCall(module, fn, kotlinArgs, "kotlin")}) }
+    setContent { ${namespace}.${fn.name}(${viewCallWithState(viewCall(module, fn, kotlinArgs, "kotlin"), stateArguments(fn, "kotlin", "update"))}) }
   }
   init { addView(content, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)) }
 }
@@ -128,11 +139,19 @@ function viewCall(module: IRModule, fn: IRFunction, args: string, language: stri
   if (!param || param.type.kind !== "struct") return "";
   return `${language === "swift" ? `${param.name}: ` : ""}${viewNamespace(module)}.${param.type.name}(${args})`;
 }
+function indentLines(text: string): string {
+  return text
+    .split("\n")
+    .filter(Boolean)
+    .map((line) => `  ${line}`)
+    .join("\n");
+}
 function defaultValue(kind: string, language: string): string {
   const defaults: Record<string, string> = {
     string: '""',
     bool: "false",
     float: "0.0",
+    array: language === "kotlin" ? "mutableListOf()" : "[]",
     optional: language === "swift" ? "nil" : "null",
   };
   if (!(kind in defaults)) throw new Error(`Native view prop ${kind} requires an explicit supported boundary type.`);

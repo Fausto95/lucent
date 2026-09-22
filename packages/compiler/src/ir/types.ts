@@ -18,8 +18,27 @@ interface Typed {
   readonly type: NativeType;
 }
 
+export interface IRStateSlot {
+  name: string;
+  type: NativeType;
+  value: IRConst;
+}
+
+export interface IRCapture {
+  name: string;
+  kind: "value" | "retained" | "borrowed" | "weak";
+}
 export type IRExpr =
-  | ({ op: "closure"; params: { name: string; type: NativeType }[]; body: IRExpr } & Typed)
+  | ({
+      op: "closure";
+      params: { name: string; type: NativeType }[];
+      captures: IRCapture[];
+      body: IRExpr | IRStmt[];
+    } & Typed)
+  | ({ op: "weak"; name: string } & Typed)
+  | ({ op: "stateRead"; name: string } & Typed)
+  | ({ op: "stateWrite"; name: string; value: IRExpr } & Typed)
+  | ({ op: "ifExpr"; cond: IRExpr; consequent: IRExpr; alternate: IRExpr } & Typed)
   | ({ op: "functionRef"; name: string } & Typed)
   | ({ op: "invoke"; callback: IRExpr; args: IRExpr[] } & Typed)
   | ({
@@ -65,7 +84,8 @@ export type IRStmt =
   | { op: "return"; value: IRExpr | null }
   | { op: "throw"; code: string; metadata?: { name: string; value: IRExpr }[]; message: IRExpr | null }
   | { op: "expr"; value: IRExpr }
-  | { op: "push"; array: IRExpr; value: IRExpr };
+  | { op: "push"; array: IRExpr; value: IRExpr }
+  | { op: "stateWrite"; name: string; value: IRExpr };
 
 export interface IRLocal {
   id: LocalId;
@@ -92,6 +112,8 @@ export interface IRFunction {
   returnType: NativeType;
   locals: IRLocal[];
   body: IRStmt[];
+  /** Scalar view state, initialized once per host instance. */
+  state?: IRStateSlot[];
 }
 
 export interface IRUnion {

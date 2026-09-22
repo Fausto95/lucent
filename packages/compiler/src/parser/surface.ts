@@ -32,7 +32,7 @@ export type AssignOperator = "=" | "+=" | "-=" | "*=" | "/=";
 export type UpdateOperator = "++" | "--";
 
 export type Expr =
-  | { kind: "closure"; params: SurfaceParam[]; returnType: SurfaceType | null; body: Expr; span: Span }
+  | { kind: "closure"; params: SurfaceParam[]; returnType: SurfaceType | null; body: Expr | Stmt[]; span: Span }
   | { kind: "view"; name: string; properties: ObjectProperty[]; children: Expr[]; span: Span }
   | { kind: "number"; value: number; span: Span }
   | { kind: "string"; value: string; span: Span }
@@ -45,6 +45,7 @@ export type Expr =
   | { kind: "identifier"; name: string; span: Span }
   | { kind: "binary"; operator: BinaryOperator; left: Expr; right: Expr; span: Span }
   | { kind: "logical"; operator: LogicalOperator; left: Expr; right: Expr; span: Span }
+  | { kind: "conditional"; test: Expr; consequent: Expr; alternate: Expr; span: Span }
   | { kind: "unary"; operator: UnaryOperator; argument: Expr; span: Span }
   | { kind: "assign"; operator: AssignOperator; target: Expr; value: Expr; span: Span }
   | { kind: "update"; operator: UpdateOperator; target: Expr; span: Span }

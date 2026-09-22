@@ -48,9 +48,19 @@ hosts. Native reference and function bindings retain their validated manifest
 contracts. Selected overload calls already name a concrete function; backends
 do not independently choose candidates.
 
-A `closure` expression carries concrete typed parameters and a typed expression
-body. Its free scalar identifiers refer to immutable enclosing locals. Mutable
-and resource captures are rejected before lowering. A Swift closure is throwing;
-Kotlin uses a native function value. Closure body effects are emitted inside the
-closure, never as effects of constructing it. Explicit resource/state capture
-kinds and component identity nodes remain future IR work.
+A `closure` expression carries concrete typed parameters, an explicit capture
+list, and either a typed expression body or a statement block. Captures are
+`value` for immutable scalars and value records, `retained` for an immutable
+local whose native contract is `owned`, `borrowed` for a borrow closed over by
+a `retention: "call"` callback, or `weak` for `weak(reference)`. Mutable and
+unknown resource captures are rejected before lowering. A Swift closure is
+throwing. Kotlin expression closures are lambdas; statement bodies are
+anonymous functions so `return` completes the callback. Closure body effects
+are emitted inside the closure, never as effects of constructing it.
+
+A view function may carry `state` slots. Each slot is a literal scalar
+initialized once on the host view instance. Reads are `stateRead` and handler
+writes are `stateWrite`; both go through the live cell, not a render snapshot.
+`ifExpr` chooses between two typed values, including views. A `For` view is an
+eager row builder over an array, keyed by index. Component identity nodes and
+closure-owned resource cells remain future IR work.
