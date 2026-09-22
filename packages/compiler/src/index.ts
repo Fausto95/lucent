@@ -14,7 +14,7 @@ export { printIR } from "./ir/print.ts";
 export type { NativeType } from "./types/native-type.ts";
 export { typeToString, typeEquals, isNumeric, T } from "./types/native-type.ts";
 
-export const COMPILER_VERSION = "0.2.1";
+export const COMPILER_VERSION = "0.3.0";
 
 export interface CompileOptions {
   fileName: string;
@@ -43,6 +43,15 @@ export function compile(source: string, options: CompileOptions): CompileResult 
 export { moduleCandidates } from "./linker.ts";
 export { lucentImports } from "./parser/index.ts";
 
-export type { NativeBinding, LibraryModule, ThreadContext } from "./libraries.ts";
+export type {
+  NativePackage,
+  NativeBinding,
+  NativeViewBinding,
+  NativeReferenceBinding,
+  LibraryModule,
+  ThreadContext,
+} from "./libraries.ts";
 export { STANDARD_LIBRARIES } from "./libraries.ts";
 export { parseNativeConfig } from "./parser/config.ts";
+
+export { validateLibrary } from "./library-validation.ts";

@@ -28,3 +28,6 @@ declare global {
     readonly metadata: Readonly<Record<string, string | number | boolean | null>>;
   }
 }
+
+/** A synchronous function compiled to native code; cannot cross into JavaScript. */
+export type NativeCallback<F extends (...args: never[]) => unknown> = F;

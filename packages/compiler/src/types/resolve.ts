@@ -93,6 +93,24 @@ export function resolveType(type: SurfaceType, scope: TypeScope): ResolveResult 
 }
 
 function resolveReference(type: Extract<SurfaceType, { kind: "reference" }>, scope: TypeScope): ResolveResult {
+  if (type.name === "NativeCallback") {
+    const signature = type.args[0];
+    if (type.args.length !== 1 || signature?.kind !== "function")
+      return fail(diagnostic("NT1005", type.span, "NativeCallback requires a function signature."));
+    const params: NativeType[] = [];
+    for (const param of signature.params) {
+      if (!param.type || param.optional)
+        return fail(diagnostic("NT1005", param.span, "Native callback parameters require explicit, required types."));
+      const resolved = resolveType(param.type, scope);
+      if (!resolved.ok) return resolved;
+      params.push(resolved.type);
+    }
+    const result = resolveType(signature.returnType, scope);
+    if (!result.ok) return result;
+    if (result.type.kind === "promise")
+      return fail(diagnostic("NT1005", type.span, "Native callbacks must be synchronous."));
+    return ok(T.callback(params, result.type));
+  }
   const generic = GENERICS[type.name];
   if (generic) {
     if (type.args.length !== generic.arity) {

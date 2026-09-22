@@ -1,6 +1,7 @@
+import { validateLibrary } from "./library-validation.ts";
 /** Pure source graph linker. Dependencies are supplied as data by the integration. */
 import { UI_PRIMITIVES } from "./ui.ts";
-import { STANDARD_LIBRARIES, type LibraryModule } from "./libraries.ts";
+import { STANDARD_LIBRARIES, type LibraryModule, type NativeViewBinding } from "./libraries.ts";
 import { diagnostic, type Diagnostic } from "./diagnostics/index.ts";
 import { parseModule, LUCENT_TYPES_MODULE, type ParseResult } from "./parser/index.ts";
 import type { Expr, Stmt, SurfaceModule, SurfaceType } from "./parser/surface.ts";
@@ -30,10 +31,16 @@ export function linkModule(
   const root = normalizeModulePath(fileName);
   const texts = new Map(Object.entries(sources).map(([path, text]) => [normalizeModulePath(path), text]));
   const libraries = { ...STANDARD_LIBRARIES, ...additional };
+  const invalid = Object.entries(libraries).flatMap(([name, library]) =>
+    validateLibrary(library).map((message) => diagnostic("NT1006", { start: 0, end: 0 }, `${name}: ${message}`)),
+  );
+  if (invalid.length)
+    return { module: { fileName, imports: [], functions: [], typeAliases: [] }, diagnostics: invalid };
   for (const [name, library] of Object.entries(libraries)) texts.set(name, library.source);
   texts.set(root, source);
   const diagnostics: Diagnostic[] = [];
   const modules = new Map<string, SurfaceModule>();
+  const viewBindings: Record<string, NativeViewBinding> = {};
   const active = new Set<string>();
   const names = new Map<string, Map<string, string>>();
   const typeNames = new Map<string, Map<string, string>>();
@@ -48,6 +55,29 @@ export function linkModule(
     if (path !== root) annotateOrigins(parsed, { fileName: path, source: texts.get(path)! });
     diagnostics.push(...parsed.diagnostics);
     const module = parsed.module;
+    for (const [name, native] of Object.entries(libraries[path]?.references ?? {})) {
+      const alias = module.typeAliases.find((t) => t.name === name);
+      if (!alias || alias.type.kind !== "object" || !module.functions.some((f) => f.name === `${name}__create`)) {
+        diagnostics.push(
+          diagnostic(
+            "NT1006",
+            { start: 0, end: 0 },
+            `Native reference ${name} requires a record declaration and constructor binding.`,
+          ),
+        );
+        continue;
+      }
+      alias.reference = { publicName: name, exported: alias.exported, native };
+      for (const fn of module.functions) {
+        const operation = fn.name.slice(name.length);
+        if (!fn.name.startsWith(name + "__")) continue;
+        const kinds = { create: "constructor", get: "get", set: "set", method: "method" } as const;
+        const match = /^__(create)$|^__(get|set|method)_(.+)$/.exec(operation);
+        if (!match) continue;
+        const kind = kinds[(match[1] ?? match[2]) as keyof typeof kinds];
+        fn.classOp = { className: name, member: match[3] ?? "constructor", kind };
+      }
+    }
     for (const fn of module.functions) {
       const binding = libraries[path]?.bindings?.[fn.name];
       if (binding) {
@@ -115,6 +145,32 @@ export function linkModule(
       const dependency = modules.get(target);
       if (!dependency) continue;
       for (const binding of imp.bindings ?? []) {
+        const view = libraries[target]?.views?.[binding.imported];
+        if (view && !binding.typeOnly) {
+          const name = `__package_${moduleId(target)}_${binding.imported}`;
+          for (const language of ["swift", "kotlin"] as const) {
+            const descriptor = view[language];
+            if (!descriptor || typeof descriptor.template !== "string") {
+              diagnostics.push(diagnostic("NT1006", imp.span, `Missing ${language} template for ${binding.imported}.`));
+              continue;
+            }
+            for (const match of descriptor.template.matchAll(/{{([^}]+)}}/g)) {
+              const token = match[1]!;
+              if (token === "children" && view.children !== "none") continue;
+              const prop = token.startsWith("prop:") ? token.slice(5) : "";
+              if (
+                !view.props[prop] ||
+                (!(view.required ?? []).includes(prop) && descriptor.defaults?.[prop] === undefined)
+              )
+                diagnostics.push(
+                  diagnostic("NT1006", imp.span, `Invalid or missing default for ${language} template token ${token}.`),
+                );
+            }
+          }
+          viewBindings[name] = view;
+          values.set(binding.local, name);
+          continue;
+        }
         const fn = dependency.functions.find((f) => f.name === binding.imported && f.exported);
         const type = dependency.typeAliases.find((t) => t.name === binding.imported && t.exported);
         const scope = type ? types : values;
@@ -160,7 +216,7 @@ export function linkModule(
         ...fn,
         name: values.get(fn.name)!,
         ...(fn.classOp ? { classOp: { ...fn.classOp, className: types.get(fn.classOp.className)! } } : {}),
-        exported: !!fn.classOp || (!fn.event && path === root && fn.exported),
+        exported: !fn.binding?.nativeOnly && (!!fn.classOp || (!fn.event && path === root && fn.exported)),
         ...(fn.event
           ? { event: { ...fn.event, id: values.get(fn.name)!, exported: path === root && fn.event.exported } }
           : {}),
@@ -170,10 +226,23 @@ export function linkModule(
       });
     }
   }
+  const nativePackages = Object.fromEntries(
+    [...modules.keys()]
+      .filter((path) => libraries[path]?.native)
+      .map((path) => [moduleId(path), libraries[path]!.native!]),
+  );
+  if (Object.keys(nativePackages).length) result.nativePackages = nativePackages;
+  if (Object.keys(viewBindings).length) result.views = viewBindings;
   return { module: result, diagnostics };
 }
 
 function renameType(type: SurfaceType, names: Map<string, string>): SurfaceType {
+  if (type.kind === "function")
+    return {
+      ...type,
+      params: type.params.map((p) => ({ ...p, type: p.type ? renameType(p.type, names) : null })),
+      returnType: renameType(type.returnType, names),
+    };
   if (type.kind === "reference")
     return { ...type, name: names.get(type.name) ?? type.name, args: type.args.map((t) => renameType(t, names)) };
   if (type.kind === "array") return { ...type, element: renameType(type.element, names) };

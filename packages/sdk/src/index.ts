@@ -12,7 +12,16 @@ export interface SDKFunction {
   returnType: string;
   throws?: boolean;
 }
+export interface SDKClass {
+  name: string;
+  nativeName: string;
+  constructor: { parameters: SDKParameter[]; throws?: boolean };
+  properties: { name: string; nativeType: string; getter?: string; setter?: string }[];
+  /** Distinct public names explicitly select native overloads. */
+  methods: SDKFunction[];
+}
 export interface SDKSchema {
+  classes?: SDKClass[];
   version: 1;
   platform: SDKPlatform;
   module: string;
@@ -177,7 +186,107 @@ export function generateBindingLibrary(schema: SDKSchema): { library: LibraryMod
       ...(schema.platform === "ios" ? { swiftImports: [schema.module] } : {}),
     };
   }
+  const references: NonNullable<LibraryModule["references"]> = {};
+  const declarations: string[] = [];
+  const table = { ...types(schema.platform) };
+  for (const cls of schema.classes ?? []) {
+    if (!safeIdentifier(cls.name) || !/^[A-Za-z_][\w.]*(?:\$[\w]+)*$/.test(cls.nativeName))
+      throw new Error("Invalid SDK class identifier");
+    if (references[cls.name]) throw new Error(`Duplicate SDK class ${cls.name}`);
+    references[cls.name] =
+      schema.platform === "ios"
+        ? { swift: cls.nativeName, swiftImports: [schema.module] }
+        : { kotlin: cls.nativeName.replaceAll("$", ".") };
+    table[nativeType(cls.nativeName)] = mapping(cls.name);
+  }
+  const mapped = (name: string): Mapping => {
+    const value = table[nativeType(name)];
+    if (!value) throw new Error(`Unsupported SDK type ${name}`);
+    return value;
+  };
+  const parameters = (params: SDKParameter[]) =>
+    params
+      .map((p) => {
+        if (!safeIdentifier(p.name)) throw new Error(`Invalid SDK parameter ${p.name}`);
+        return `${p.name}: ${mapped(p.nativeType).lucent}`;
+      })
+      .join(", ");
+  const argumentsFor = (params: SDKParameter[]) =>
+    params
+      .map((p) => {
+        const value = mapped(p.nativeType).argument(p.name);
+        return schema.platform === "ios" && p.label && p.label !== "_" ? `${p.label}: ${value}` : value;
+      })
+      .join(", ");
+  const bind = (name: string, params: string, result: string, body: string) => {
+    if (bindings[name]) throw new Error(`Duplicate SDK operation ${name}`);
+    signatures.push(`export declare function ${name}(${params}): ${result};`);
+    bindings[name] = {
+      platforms: [schema.platform],
+      swift: schema.platform === "ios" ? [body] : [],
+      kotlin: schema.platform === "android" ? [body] : [],
+      ...(schema.platform === "ios" ? { swiftImports: [schema.module] } : {}),
+    };
+  };
+  for (const cls of schema.classes ?? []) {
+    const fields = cls.properties.map((p) => `${p.name}: ${mapped(p.nativeType).lucent}`).join("; ");
+    signatures.push(`export type ${cls.name} = {${fields}};`);
+    const ctor = cls.constructor;
+    bind(
+      `${cls.name}__create`,
+      parameters(ctor.parameters),
+      cls.name,
+      `return ${schema.platform === "ios" && ctor.throws ? "try " : ""}${cls.nativeName.replaceAll("$", ".")}(${argumentsFor(ctor.parameters)})`,
+    );
+    const members: string[] = [];
+    const names = new Set<string>();
+    for (const p of cls.properties) {
+      if (!safeIdentifier(p.name) || names.has(p.name)) throw new Error(`Invalid or duplicate SDK member ${p.name}`);
+      names.add(p.name);
+      const type = mapped(p.nativeType);
+      bind(
+        `${cls.name}__get_${p.name}`,
+        `lucentSelf: ${cls.name}`,
+        type.lucent,
+        `return ${type.result(`lucentSelf.${p.getter ?? p.name}`)}`,
+      );
+      if (p.setter)
+        bind(
+          `${cls.name}__set_${p.name}`,
+          `lucentSelf: ${cls.name}, value: ${type.lucent}`,
+          "void",
+          p.setter.includes("{value}")
+            ? p.setter.replaceAll("{self}", "lucentSelf").replaceAll("{value}", type.argument("value"))
+            : `lucentSelf.${p.setter} = ${type.argument("value")}`,
+        );
+      members.push(`${p.setter ? "" : "readonly "}${p.name}: ${type.lucent};`);
+    }
+    for (const fn of cls.methods) {
+      if (!safeIdentifier(fn.name) || !safeIdentifier(fn.nativeName) || names.has(fn.name))
+        throw new Error(`Invalid or duplicate SDK member ${fn.name}`);
+      names.add(fn.name);
+      const result = mapped(fn.returnType);
+      const call = `${schema.platform === "ios" && fn.throws ? "try " : ""}lucentSelf.${fn.nativeName}(${argumentsFor(fn.parameters)})`;
+      bind(
+        `${cls.name}__method_${fn.name}`,
+        [`lucentSelf: ${cls.name}`, parameters(fn.parameters)].filter(Boolean).join(", "),
+        result.lucent,
+        result.lucent === "void" ? call : `return ${result.result(call)}`,
+      );
+      members.push(`${fn.name}(${parameters(fn.parameters)}): ${result.lucent};`);
+    }
+    declarations.push(
+      `export declare class ${cls.name} { constructor(${parameters(ctor.parameters)}); dispose():void; ${members.join(" ")} }`,
+    );
+  }
   const prefix = signatures.some((s) => s.includes("int32")) ? 'import type {int32} from "@lucent-lang/types";\n' : "";
   const source = prefix + signatures.join("\n") + "\n";
-  return { library: { source, bindings }, declarations: source };
+  return {
+    library: { source, bindings, ...(schema.classes?.length ? { references } : {}) },
+    declarations:
+      prefix +
+      signatures.filter((s) => !s.startsWith("export type ") && !s.includes("__")).join("\n") +
+      "\n" +
+      declarations.join("\n"),
+  };
 }

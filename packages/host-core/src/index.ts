@@ -119,3 +119,5 @@ export { isReference, classProxies } from "./objects.ts";
 export { moduleIdentifier } from "./names.ts";
 
 export { capabilityFiles, type PlatformConfig } from "./capabilities.ts";
+
+export { emitNativePackages } from "./native-packages.ts";

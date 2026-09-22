@@ -27,19 +27,19 @@ export function emitViews(files: FileTree, modules: IRModule[], androidPackage: 
         .map((p) =>
           p.type.kind === "event"
             ? `  let ${nativeViewEvent(module, fn, p.name)} = EventDispatcher()`
-            : `  var ${p.name}: ${swiftType(p.type)} = ${defaultValue(p.type.kind, "swift")}`,
+            : `  var lucentProp_${p.name}: ${swiftType(p.type)} = ${defaultValue(p.type.kind, "swift")}`,
         )
         .join("\n");
       const swiftArgs = props
         .map(
           (p) =>
-            `${p.name}: ${p.type.kind === "event" ? `{ [weak self] in self?.${nativeViewEvent(module, fn, p.name)}() }` : p.name}`,
+            `${p.name}: ${p.type.kind === "event" ? (p.type.payload.kind === "void" ? `{ [weak self] in self?.${nativeViewEvent(module, fn, p.name)}() }` : `{ [weak self] payload in self?.${nativeViewEvent(module, fn, p.name)}(["payload": payload]) }`) : `lucentProp_${p.name}`}`,
         )
         .join(", ");
       const kotlinArgs = props
         .map(
           (p) =>
-            `${p.name} = ${p.type.kind === "event" ? `{ ${nativeViewEvent(module, fn, p.name)}(emptyMap<String, Any>()) }` : p.name}`,
+            `${p.name} = ${p.type.kind === "event" ? (p.type.payload.kind === "void" ? `{ ${nativeViewEvent(module, fn, p.name)}(emptyMap<String, Any>()) }` : `{ payload -> ${nativeViewEvent(module, fn, p.name)}(mapOf("payload" to payload)) }`) : `lucentProp_${p.name}`}`,
         )
         .join(", ");
       files.set(
@@ -56,7 +56,10 @@ ${props
   .join("\n")}
 ${props
   .filter((p) => p.type.kind !== "event")
-  .map((p) => `      Prop("${p.name}") { (view: ${name}, value: ${swiftType(p.type)}) in view.${p.name} = value }`)
+  .map(
+    (p) =>
+      `      Prop("${p.name}") { (view: ${name}, value: ${swiftType(p.type)}) in view.lucentProp_${p.name} = value }`,
+  )
   .join("\n")}
       OnViewDidUpdateProps { (view: ${name}) in view.update() }
     }
@@ -99,15 +102,18 @@ ${props
   .join("\n")}
 ${props
   .filter((p) => p.type.kind !== "event")
-  .map((p) => `      Prop("${p.name}") { view: ${name}, value: ${kotlinType(p.type)} -> view.${p.name} = value }`)
+  .map(
+    (p) =>
+      `      Prop("${p.name}") { view: ${name}, value: ${kotlinType(p.type)} -> view.lucentProp_${p.name} = value }`,
+  )
   .join("\n")}
     }
   }
 }
 class ${name}(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
-${props.map((p) => (p.type.kind === "event" ? `  val ${nativeViewEvent(module, fn, p.name)} by EventDispatcher<Map<String, Any>>()` : `  var ${p.name}: ${kotlinType(p.type)} by mutableStateOf(${defaultValue(p.type.kind, "kotlin")})`)).join("\n")}
+${props.map((p) => (p.type.kind === "event" ? `  val ${nativeViewEvent(module, fn, p.name)} by EventDispatcher<Map<String, Any>>()` : `  var lucentProp_${p.name}: ${kotlinType(p.type)} by mutableStateOf(${defaultValue(p.type.kind, "kotlin")})`)).join("\n")}
   private val content = ComposeView(context).apply {
-    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
     setContent { ${namespace}.${fn.name}(${viewCall(module, fn, kotlinArgs, "kotlin")}) }
   }
   init { addView(content, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)) }

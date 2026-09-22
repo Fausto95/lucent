@@ -114,6 +114,7 @@ export function generateSwift(module: IRModule): GeneratedUnit {
   const functions = module.functions.map((f) => generateFunction(f, paramNames, module));
   const imports = [
     ...new Set([
+      ...Object.values(module.views ?? {}).flatMap((v) => v.swift.imports ?? []),
       ...module.functions.flatMap((f) =>
         f.binding?.platforms && !f.binding.platforms.includes("ios") ? [] : (f.binding?.swiftImports ?? []),
       ),
@@ -176,7 +177,10 @@ function generateFunction(
     ...(f.thread ? { thread: f.thread } : {}),
     exported: f.exported,
     async: f.async,
-    params: f.params.map((p) => ({ name: p.name, type: swiftType(p.type) })),
+    params: f.params.map((p) => ({
+      name: p.name,
+      type: (p.type.kind === "callback" ? "@escaping " : "") + swiftType(p.type),
+    })),
     returnType: swiftType(f.returnType),
     body: f.thread === "worker" ? ["return try await Task.detached {", ...indent(body), "}.value"] : body,
   };
@@ -291,6 +295,10 @@ class SwiftEmitter {
         return `!${this.expr(e.value)}`;
       case "neg":
         return `-${this.expr(e.value)}`;
+      case "functionRef":
+        return e.name;
+      case "invoke":
+        return `${this.expr(e.callback)}(${e.args.map((a) => this.expr(a)).join(", ")})`;
       case "call":
         return `${e.callee}(${e.args.map((a, i) => `${this.paramNames.get(e.callee)?.[i] ?? "_"}: ${this.expr(a)}`).join(", ")})`;
       case "await":
@@ -355,10 +363,15 @@ class SwiftEmitter {
   }
 }
 
-function collectCalls(e: IRExpr): Extract<IRExpr, { op: "call" }>[] {
-  const out: Extract<IRExpr, { op: "call" }>[] = [];
+function collectCalls(e: IRExpr): Extract<IRExpr, { op: "call" | "invoke" }>[] {
+  const out: Extract<IRExpr, { op: "call" | "invoke" }>[] = [];
   const visit = (x: IRExpr): void => {
     switch (x.op) {
+      case "invoke":
+        visit(x.callback);
+        out.push(x);
+        x.args.forEach(visit);
+        break;
       case "call":
         if (x.type.kind !== "view") out.push(x);
         x.args.forEach(visit);

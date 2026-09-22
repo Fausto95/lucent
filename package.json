@@ -18,7 +18,7 @@
     "build:packages": "vp pack",
     "website": "pnpm --filter @lucent-lang/website dev",
     "website:build": "pnpm --filter @lucent-lang/website build",
-    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && tsx scripts/verify-native.ts && tsx scripts/verify-runtime.ts",
+    "verify": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test && tsx scripts/verify-native.ts && tsx scripts/verify-runtime.ts && tsx scripts/verify-interop.ts",
     "lucent": "tsx packages/cli/src/main.ts",
     "tools": "tsx scripts/doctor.ts"
   },

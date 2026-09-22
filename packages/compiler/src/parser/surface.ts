@@ -1,4 +1,5 @@
-import type { NativeBinding, ThreadContext } from "../libraries.ts";
+import type { NativePackage } from "../libraries.ts";
+import type { NativeBinding, NativeViewBinding, NativeReferenceBinding, ThreadContext } from "../libraries.ts";
 /**
  * The surface AST: the closed set of TypeScript constructs Lucent understands.
  * Produced by `parseModule`; nothing downstream ever sees ESTree.
@@ -14,7 +15,7 @@ export type SurfaceType =
   | { kind: "array"; element: SurfaceType; span: Span }
   | { kind: "union"; members: SurfaceType[]; span: Span }
   | { kind: "object"; fields: SurfaceField[]; span: Span }
-  | { kind: "function"; span: Span }
+  | { kind: "function"; params: SurfaceParam[]; returnType: SurfaceType; span: Span }
   | { kind: "unsupported"; description: string; span: Span };
 
 export interface SurfaceField {
@@ -103,7 +104,7 @@ export interface SurfaceFunction {
 }
 
 export interface SurfaceTypeAlias {
-  reference?: { publicName: string; exported: boolean; privateFields?: string[] };
+  reference?: { publicName: string; exported: boolean; privateFields?: string[]; native?: NativeReferenceBinding };
   name: string;
   exported: boolean;
   type: SurfaceType;
@@ -119,6 +120,8 @@ export interface SurfaceImport {
 }
 
 export interface SurfaceModule {
+  nativePackages?: Record<string, NativePackage>;
+  views?: Record<string, NativeViewBinding>;
   fileName: string;
   imports: SurfaceImport[];
   typeAliases: SurfaceTypeAlias[];

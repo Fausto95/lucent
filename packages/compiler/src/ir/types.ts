@@ -1,4 +1,5 @@
-import type { NativeBinding, ThreadContext } from "../libraries.ts";
+import type { NativePackage } from "../libraries.ts";
+import type { NativeBinding, NativeViewBinding, NativeReferenceBinding, ThreadContext } from "../libraries.ts";
 /**
  * Lucent IR: a structured, fully typed representation with every JavaScript-only
  * construct removed. Backends emit it directly; see docs/ir.md for the rationale.
@@ -17,7 +18,15 @@ interface Typed {
 }
 
 export type IRExpr =
-  | ({ op: "view"; name: string; props: { name: string; value: IRExpr }[]; children: IRExpr[] } & Typed)
+  | ({ op: "functionRef"; name: string } & Typed)
+  | ({ op: "invoke"; callback: IRExpr; args: IRExpr[] } & Typed)
+  | ({
+      op: "view";
+      native?: NativeViewBinding;
+      name: string;
+      props: { name: string; value: IRExpr }[];
+      children: IRExpr[];
+    } & Typed)
   | ({ op: "const"; value: IRConst } & Typed)
   | ({ op: "param"; name: string } & Typed)
   | ({ op: "local"; id: LocalId } & Typed)
@@ -89,7 +98,7 @@ export interface IRUnion {
 }
 
 export interface IRStruct {
-  reference?: { publicName: string; exported: boolean; privateFields?: string[] };
+  reference?: { publicName: string; exported: boolean; privateFields?: string[]; native?: NativeReferenceBinding };
   union?: IRUnion;
   name: string;
   exported: boolean;
@@ -104,6 +113,8 @@ export interface IREvent {
 }
 
 export interface IRModule {
+  nativePackages?: Record<string, NativePackage>;
+  views?: Record<string, NativeViewBinding>;
   events?: IREvent[];
   capabilities?: string[];
   name: string;

@@ -3,6 +3,7 @@ export type IntBits = 8 | 16 | 32 | 64;
 export type FloatBits = 32 | 64;
 
 export type NativeType =
+  | { readonly kind: "callback"; readonly params: NativeType[]; readonly result: NativeType }
   | { readonly kind: "event"; readonly payload: NativeType }
   | { readonly kind: "view" }
   | { readonly kind: "void" }
@@ -18,6 +19,7 @@ export type NativeType =
   | { readonly kind: "promise"; readonly value: NativeType };
 
 export const T = {
+  callback: (params: NativeType[], result: NativeType): NativeType => ({ kind: "callback", params, result }),
   event: (payload: NativeType): NativeType => ({ kind: "event", payload }),
   view: { kind: "view" } as NativeType,
   void: { kind: "void" } as NativeType,
@@ -50,6 +52,8 @@ export const SIZED_NUMERIC_TYPES: Readonly<Record<string, NativeType>> = {
 
 export function typeToString(t: NativeType): string {
   switch (t.kind) {
+    case "callback":
+      return `callback<(${t.params.map(typeToString).join(",")})=>${typeToString(t.result)}>`;
     case "event":
       return `event<${typeToString(t.payload)}>`;
     case "float":

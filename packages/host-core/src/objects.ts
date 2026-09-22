@@ -12,12 +12,15 @@ export function classDeclarations(module: IRModule): string[] {
   return module.structs
     .filter((s) => s.reference)
     .map((s) => {
-      const operations = module.functions.filter((f) => f.classOp?.className === s.name);
+      const operations = module.functions.filter((f) => f.classOp?.className === s.name && f.exported);
 
       const ctor = operations.find((f) => f.classOp!.kind === "constructor")!;
       return `export declare class ${s.name} {\n  constructor(${declarationParams(ctor)});\n  dispose(): void;\n${s.fields
         .filter((f) => !s.reference?.privateFields?.includes(f.name))
-        .map((f) => `  ${f.name}: ${jsType(f.type)};`)
+        .map(
+          (f) =>
+            `  ${operations.some((op) => op.classOp?.kind === "set" && op.classOp.member === f.name) ? "" : "readonly "}${f.name}: ${jsType(f.type)};`,
+        )
         .join("\n")}\n${operations
         .filter((f) => f.classOp!.kind === "method")
         .map((f) => `  ${f.classOp!.member}(${declarationParams(f, 1)}): ${jsType(f.returnType)};`)
@@ -29,7 +32,7 @@ export function classProxies(module: IRModule, nullAsUndefined: boolean): string
   return module.structs
     .filter((s) => s.reference)
     .map((s) => {
-      const operations = module.functions.filter((f) => f.classOp?.className === s.name);
+      const operations = module.functions.filter((f) => f.classOp?.className === s.name && f.exported);
       const wrapper = (fn: (typeof operations)[number]) => {
         const hasReceiver = fn.classOp!.kind !== "constructor";
         const params = fn.params.map((p) => p.name);

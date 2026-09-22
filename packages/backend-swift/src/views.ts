@@ -6,7 +6,29 @@ export function swiftView(e: ViewExpr, expr: (e: IRExpr) => string): string {
     return found ? expr(found.value) : fallback;
   };
   const children = e.children.map(expr).join("; ");
+  if (e.native) {
+    const descriptor = e.native.swift;
+    const rendered = descriptor.template.replace(/{{([^}]+)}}/g, (_, token: string) =>
+      token === "children" ? children : prop(token.slice(5), descriptor.defaults?.[token.slice(5)] ?? ""),
+    );
+    return `AnyView(${rendered})`;
+  }
   const render: Record<string, () => string> = {
+    TextField: () =>
+      `TextField(${prop("placeholder", '""')}, text: Binding(get: { ${prop("value", '""')} }, set: ${prop("onChange", "{ _ in }")}))`,
+    Toggle: () =>
+      `Toggle(${prop("title", '""')}, isOn: Binding(get: { ${prop("value", "false")} }, set: ${prop("onChange", "{ _ in }")}))`,
+    Slider: () =>
+      `Slider(value: Binding(get: { ${prop("value", "0")} }, set: ${prop("onChange", "{ _ in }")}), in: ${prop("min", "0")}...max(${prop("min", "0")},${prop("max", "1")}))`,
+    ScrollView: () => `ScrollView { VStack(alignment: .leading, spacing: 0) { ${children} } }`,
+    ZStack: () => `ZStack { ${children} }`,
+    Padding: () => `VStack(alignment: .leading, spacing: 0) { ${children} }.padding(CGFloat(${prop("value", "0")}))`,
+    Background: () =>
+      `VStack(alignment: .leading, spacing: 0) { ${children} }.background(lucentViewColor(${prop("color", '"#000000"')}))`,
+    CornerRadius: () =>
+      `VStack(alignment: .leading, spacing: 0) { ${children} }.clipShape(RoundedRectangle(cornerRadius: CGFloat(${prop("value", "0")})))`,
+    Accessibility: () =>
+      `VStack(alignment: .leading, spacing: 0) { ${children} }.accessibilityLabel(${prop("label", '""')})`,
     VStack: () =>
       `VStack(alignment: .leading, spacing: CGFloat(${prop("spacing", "0")})) { ${children} }.padding(CGFloat(${prop("padding", "0")}))`,
     HStack: () =>

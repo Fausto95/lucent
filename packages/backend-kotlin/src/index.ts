@@ -101,6 +101,8 @@ export function generateKotlin(module: IRModule): GeneratedUnit {
   const functions = module.functions.map((f) => generateFunction(f, module));
   const imports = [
     ...new Set([
+      ...Object.values(module.views ?? {}).flatMap((v) => v.kotlin.imports ?? []),
+      ...module.structs.flatMap((s) => s.reference?.native?.kotlinImports ?? []),
       ...module.functions.flatMap((f) =>
         f.binding?.platforms && !f.binding.platforms.includes("android") ? [] : (f.binding?.kotlinImports ?? []),
       ),
@@ -111,7 +113,10 @@ export function generateKotlin(module: IRModule): GeneratedUnit {
     ...imports.map((i) => `import ${i}`),
     ...structs.map((s) =>
       s.reference
-        ? kotlinClass(module.structs.find((ir) => ir.name === s.name)!)
+        ? kotlinClass(
+            module.structs.find((ir) => ir.name === s.name)!,
+            false,
+          )
         : `data class ${s.name}(\n${s.fields.map((f) => `  var ${f.name}: ${f.type}`).join(",\n")}\n)`,
     ),
     ...functions.map((f) => `${signature(f)} {\n${indent(f.body).join("\n")}\n}`),
@@ -266,6 +271,10 @@ class KotlinEmitter {
         return `!${this.expr(e.value)}`;
       case "neg":
         return `-${this.expr(e.value)}`;
+      case "functionRef":
+        return `::${e.name}`;
+      case "invoke":
+        return `${this.expr(e.callback)}(${e.args.map((a) => this.expr(a)).join(", ")})`;
       case "call":
         return `${e.callee}(${e.args.map((a) => this.expr(a)).join(", ")})`;
       case "await":

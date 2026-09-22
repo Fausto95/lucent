@@ -97,6 +97,10 @@ async function runChecks(): Promise<Row[]> {
 }
 
 export default function App() {
+  const [nativeCount, setNativeCount] = useState(0);
+  const [text, setText] = useState("Lucent");
+  const [enabled, setEnabled] = useState(true);
+  const [amount, setAmount] = useState(50);
   const [presses, setPresses] = useState(0);
   const [rows, setRows] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -110,8 +114,15 @@ export default function App() {
         {error ? `ERROR: ${error}` : rows === null ? "running…" : allOk ? "ALL OK" : "FAILURES"}
       </Text>
       <NativeCard
-        style={{ height: 140, width: "100%" }}
-        title={`Native taps: ${presses}`}
+        style={{ height: 420, width: "100%" }}
+        text={text}
+        onText={setText}
+        enabled={enabled}
+        onEnabled={setEnabled}
+        amount={amount}
+        onAmount={setAmount}
+        onCount={setNativeCount}
+        title={`Native taps: ${presses} · Count: ${nativeCount}`}
         onPress={() => setPresses((n) => n + 1)}
       />
       {rows?.map((row) => (

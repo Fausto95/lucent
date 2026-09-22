@@ -21,7 +21,12 @@ export function emitViews(files: FileTree, modules: IRModule[], androidPackage: 
       const name = viewName(module, fn);
       const props = viewProps(module, fn);
       const type = fn.params[0]?.type;
-      const swiftArgs = props.map((p) => `${p.name}: ${p.name}${p.type.kind === "event" ? " ?? {}" : ""}`).join(", ");
+      const swiftArgs = props
+        .map(
+          (p) =>
+            `${p.name}: ${p.name}${p.type.kind === "event" ? (p.type.payload.kind === "void" ? " ?? {}" : " ?? { _ in }") : ""}`,
+        )
+        .join(", ");
       const kotlinArgs = props.map((p) => `${p.name} = ${p.name}${p.type.kind === "event" ? " ?: {}" : ""}`).join(", ");
       files.set(
         `src/specs/${name}.nitro.ts`,
@@ -41,7 +46,7 @@ import NitroModules
 class Hybrid${name}: Hybrid${name}Spec {
   private let content = MainActor.assumeIsolated { LucentHostedView(frame: .zero) }
   var view: UIView { content }
-${props.map((p) => `  var ${p.name}: ${p.type.kind === "event" ? "(() -> Void)?" : swiftType(p.type)} = ${defaultValue(p.type, "swift")}`).join("\n")}
+${props.map((p) => `  var ${p.name}: ${p.type.kind === "event" ? `(${swiftType(p.type)})?` : swiftType(p.type)} = ${defaultValue(p.type, "swift")}`).join("\n")}
   func afterUpdate() {
     MainActor.assumeIsolated {
       content.render(${namespace}.${fn.name}(${type?.kind === "struct" ? `${fn.params[0]!.name}: ${namespace}.${type.name}(${swiftArgs})` : ""}))
@@ -65,9 +70,9 @@ import com.facebook.proguard.annotations.DoNotStrip
 @Keep
 @DoNotStrip
 class Hybrid${name}(context: ThemedReactContext) : Hybrid${name}Spec() {
-${props.map((p) => `  override var ${p.name}: ${p.type.kind === "event" ? "(() -> Unit)?" : kotlinType(p.type)} by mutableStateOf(${defaultValue(p.type, "kotlin")})`).join("\n")}
+${props.map((p) => `  override var ${p.name}: ${p.type.kind === "event" ? `(${kotlinType(p.type)})?` : kotlinType(p.type)} by mutableStateOf(${defaultValue(p.type, "kotlin")})`).join("\n")}
   override val view: View = ComposeView(context).apply {
-    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
+    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
     setContent { ${namespace}.${fn.name}(${type?.kind === "struct" ? `${namespace}.${type.name}(${kotlinArgs})` : ""}) }
   }
 }

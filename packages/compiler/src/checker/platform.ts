@@ -52,8 +52,11 @@ export function platformSafety(functions: TypedFunction[]): Diagnostic[] {
       visit(node.right, narrow(node.left as TExpr, platforms, node.operator === "&&"));
       return;
     }
-    if (node.kind === "call" && typeof node.callee === "string") {
-      const fn = byName.get(node.callee);
+    if (
+      (node.kind === "call" && typeof node.callee === "string") ||
+      (node.kind === "functionRef" && typeof node.name === "string")
+    ) {
+      const fn = byName.get((node.callee ?? node.name) as string);
       if (fn) {
         const available = fn.binding?.platforms;
         if (available && platforms.some((p) => !available.includes(p))) {

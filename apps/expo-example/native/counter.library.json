@@ -1,0 +1,32 @@
+{
+  "source": "",
+  "native": {
+    "swift": {
+      "Counter.swift": "import SwiftUI\nstruct LucentPackageCounter: View {\n  var onChange: (Double) -> Void\n  @State private var count: Double = 0\n  var body: some View {\n    HStack {\n      Button(\"−\") { count -= 1; onChange(count) }\n      Text(\"Native state: \\(Int(count))\")\n      Button(\"+\") { count += 1; onChange(count) }\n    }\n  }\n}\n"
+    },
+    "kotlin": {
+      "Counter.kt": "package {{androidPackage}}\nimport androidx.compose.runtime.*\nimport androidx.compose.foundation.layout.Row\nimport androidx.compose.material3.Button\nimport androidx.compose.material3.Text\n@Composable\nfun LucentPackageCounter(onChange: (Double) -> Unit) {\n  var count by remember { mutableDoubleStateOf(0.0) }\n  Row {\n    Button(onClick = { count -= 1; onChange(count) }) { Text(\"−\") }\n    Text(\"Native state: ${count.toInt()}\")\n    Button(onClick = { count += 1; onChange(count) }) { Text(\"+\") }\n  }\n}\n"
+    }
+  },
+  "views": {
+    "Counter": {
+      "props": {
+        "onChange": {
+          "kind": "event",
+          "payload": {
+            "kind": "float",
+            "bits": 64
+          }
+        }
+      },
+      "required": ["onChange"],
+      "children": "none",
+      "swift": {
+        "template": "LucentPackageCounter(onChange: {{prop:onChange}})"
+      },
+      "kotlin": {
+        "template": "LucentPackageCounter(onChange = {{prop:onChange}})"
+      }
+    }
+  }
+}

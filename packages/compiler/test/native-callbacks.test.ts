@@ -39,7 +39,8 @@ test("checks platform requirements inside referenced callbacks", () => {
   expect(result.module).toBeNull();
   expect(result.diagnostics.some((d) => d.code === "NT2004")).toBe(true);
 });
-test('retains capabilities reached through compiled callbacks',()=>{
- const input='import type {NativeCallback} from "@lucent-lang/types"; import {now} from "@lucent-lang/platform/clock"; function run(callback:NativeCallback<()=>number>):number{return callback();} function read():number{return now();} export function result():number{return run(read);}';
- expect(compile(input,{fileName:'callbacks.lucent.ts'}).module?.capabilities).toContain('clock');
+test("retains capabilities reached through compiled callbacks", () => {
+  const input =
+    'import type {NativeCallback} from "@lucent-lang/types"; import {now} from "@lucent-lang/platform/clock"; function run(callback:NativeCallback<()=>number>):number{return callback();} function read():number{return now();} export function result():number{return run(read);}';
+  expect(compile(input, { fileName: "callbacks.lucent.ts" }).module?.capabilities).toContain("clock");
 });

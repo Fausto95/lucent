@@ -446,3 +446,102 @@ After native implementation or API changes, run `lucent build`, refresh native
 integration when files are added (`pod install` / Gradle sync), and rebuild the
 app. React-side state/prop changes work normally. This remains AOT compilation;
 there is no native-code hot-reload interpreter in this release.
+
+## Native SDK objects and callbacks
+
+Curated libraries may declare `references` alongside `source` and `bindings`.
+Each reference maps a record name to an actual Swift class and/or Kotlin class
+(`swift`, `kotlin`, and optional per-language imports). Lucent emits a native
+type alias, retaining the SDK instance itself. Ordinary local references use
+native ownership; JavaScript-visible objects use the existing identity registry
+and `dispose()` invalidates their handles.
+
+Declare operations as `Name__create`, `Name__get_property`,
+`Name__set_property`, and `Name__method_methodName`. Instance operations take
+`lucentSelf: Name` first. Source code uses `new Name(...)`, `object.property`,
+and `object.methodName(...)`. A property without a setter is read-only. Native constructors must be synchronous. Native
+property writes currently require simple assignment; compound updates are
+rejected. Binding platform restrictions still require `Platform.OS` guards.
+
+`generateBindingLibrary` also accepts curated `SDKSchema.classes` entries with
+constructors, properties, and methods. Give overloaded SDK methods distinct
+Lucent names to select their native signatures explicitly. The text-based SDK
+extractors still report unsupported class declarations; this does not provide
+automatic overload selection or complete SDK metadata extraction.
+
+Compiled functions can be passed to other native functions using
+`NativeCallback`:
+
+```ts
+import type { NativeCallback } from "@lucent-lang/types";
+
+function twice(value: number): number {
+  return value * 2;
+}
+function apply(value: number, callback: NativeCallback<(value: number) => number>): number {
+  return callback(value);
+}
+export function result(): number {
+  return apply(4, twice);
+}
+```
+
+Callbacks are synchronous, typed native function references. Swift callbacks
+can throw and are escaping parameters; Kotlin callbacks use native function
+types. Native adapters own retention, cancellation, executor selection, and
+error handling when connecting these functions to SDK listeners. Async function
+references and callbacks crossing the JavaScript boundary are rejected. Use
+`Event<T>` for JavaScript notifications. A binding with `nativeOnly: true`
+remains callable from Lucent but is omitted from generated JavaScript methods.
+Capturing arrow functions, protocol implementations, borrowed lifetimes, and
+async shared-object arguments are not supported by this increment.
+
+## Native controls and package views
+
+Author views in `.lucent.tsx`. Shared controls now include `TextField`, `Toggle`,
+`Slider`, `ScrollView`, and `ZStack`, alongside `VStack`, `HStack`, `Text`,
+`Spacer`, and `Button`. Text fields, toggles, and sliders require a controlled
+`value` and `onChange`; native change events carry string, boolean, or number
+payloads through both Expo and Nitro. `Slider` defaults to the range 0–1.
+
+`Padding`, `Background`, `CornerRadius`, and `Accessibility` wrap their children
+in a vertical group. Nest wrappers to specify composition order. These are
+layout wrappers, not a complete SwiftUI/Compose modifier API; multiple children
+are grouped vertically with zero spacing.
+
+A library may add a `views` map. Each descriptor declares typed `props`,
+`required` prop names, `children` (`views`, `text`, or `none`), and `swift`/`kotlin`
+templates. Templates substitute `{{prop:name}}` and `{{children}}`; optional
+props referenced by a template require a native-expression entry in `defaults`.
+Per-language `imports` are emitted with the native render functions. Metadata
+and required props are checked before native generation. Templates are trusted
+package code, like function binding bodies.
+
+Native adapter implementations can ship in the library's `native` object:
+
+```json
+{
+  "native": {
+    "swift": { "Widget.swift": "import SwiftUI\n// adapter implementation" },
+    "kotlin": { "Widget.kt": "package {{androidPackage}}\n// adapter implementation" },
+    "dependencies": {
+      "pods": { "WidgetSDK": "~> 1.0" },
+      "android": ["dev.widgets:ui:1.0.0"]
+    }
+  }
+}
+```
+
+Package-level `native.capabilities` declares required capability names; these
+participate in the same app allowlist checks as function bindings.
+
+The hosts emit each imported package once under `ios/LucentPackages/` and
+`android/src/main/java/LucentPackages/`, append CocoaPods/Gradle dependencies,
+and replace the Kotlin package placeholder. Source keys must be simple
+`.swift`/`.kt` filenames. Conflicting package contents or pod versions fail
+generation. Android compositions use [detach/pool disposal](https://developer.android.com/reference/kotlin/androidx/compose/ui/platform/ViewCompositionStrategy) so an unmounted host does not wait for the activity to be destroyed.
+Adapters implement their own native view lifecycle and may own
+SwiftUI `@State` or Compose `remember` state. Both example apps demonstrate a
+package-defined counter whose state stays native while changes notify React.
+This is adapter-owned state; Lucent state hooks, keyed lists, native delegate
+syntax, and the camera acceptance feature remain future compiler work.

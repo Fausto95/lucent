@@ -1,8 +1,13 @@
 # Expanding Lucent's native surface
 
-Status: proposed architecture and implementation sequence. The stack rename
-below is implemented; the new interop and UI APIs in this document are not yet
-available. This document does not claim complete native SDK coverage.
+Status: implementation in progress. SDK reference bindings, synchronous native
+function callbacks, package-defined native views/adapters, native package source
+and dependency wiring, controlled inputs, typed view events, and layout wrappers
+are implemented. The example packages demonstrate adapter-owned native state.
+Automatic SDK overload resolution, delegate syntax, async object lifetime rules,
+Lucent-owned state/keyed composition, the camera acceptance feature, and broader
+structured metadata extraction remain outstanding. This document does not claim
+complete native SDK coverage.
 
 ## Direction
 
@@ -42,10 +47,11 @@ References:
 native `Column` and `Row`. This is a change to Lucent's public API names, with
 no change in stack orientation.
 
-The current shared-object machinery represents classes defined in Lucent. It
-does not yet represent arbitrary SDK instances. Render functions are pure,
-props are constrained, callbacks are `Event<void>`, and source code cannot yet
-implement native protocols/delegates. These are the main capability gaps.
+Shared-object machinery now supports Lucent-defined classes and SDK reference
+bindings. Render functions remain pure. View callbacks support void, string,
+boolean, and number payloads. Source code cannot yet implement native
+protocols/delegates or own reactive component state directly. Package adapters
+can supply stateful native views without extending the compiler primitive table.
 
 ## One native symbol model
 

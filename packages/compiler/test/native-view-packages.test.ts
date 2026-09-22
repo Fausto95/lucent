@@ -62,8 +62,12 @@ test("reports malformed package metadata as diagnostics", () => {
   expect(result.module).toBeNull();
   expect(result.diagnostics[0]?.code).toBe("NT1006");
 });
-test('retains native package capabilities',()=>{
- const camera=structuredClone(library);camera.native={capabilities:['camera']};
- const result=compile('import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/ui"; export function Demo():NativeView{return <Badge title="Camera"/>;}',{...options,libraries:{'@lucent-lang/widgets':camera}});
- expect(result.module?.capabilities).toContain('camera');
+test("retains native package capabilities", () => {
+  const camera = structuredClone(library);
+  camera.native = { capabilities: ["camera"] };
+  const result = compile(
+    'import {Badge} from "@lucent-lang/widgets"; import type {NativeView} from "@lucent-lang/ui"; export function Demo():NativeView{return <Badge title="Camera"/>;}',
+    { ...options, libraries: { "@lucent-lang/widgets": camera } },
+  );
+  expect(result.module?.capabilities).toContain("camera");
 });

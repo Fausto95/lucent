@@ -34,6 +34,8 @@ export function lowerModule(module: TypedModule): LowerResult {
   const diagnostics: Diagnostic[] = [];
   const functions = module.functions.map((fn) => new FunctionLowerer(fn, diagnostics).lower());
   const ir: IRModule = {
+    ...(module.nativePackages ? { nativePackages: module.nativePackages } : {}),
+    ...(module.views ? { views: module.views } : {}),
     name: module.name,
     structs: module.structs.map((s) => ({
       ...(s.reference ? { reference: s.reference } : {}),
@@ -51,7 +53,12 @@ export function lowerModule(module: TypedModule): LowerResult {
         exported: f.event!.exported,
         payload: f.params[0]?.type ?? T.void,
       })),
-    capabilities: usedCapabilities(functions),
+    capabilities: [
+      ...new Set([
+        ...usedCapabilities(functions),
+        ...Object.values(module.nativePackages ?? {}).flatMap((p) => p.capabilities ?? []),
+      ]),
+    ].toSorted(),
   };
   return { module: diagnostics.length ? null : ir, diagnostics };
 }
@@ -257,6 +264,7 @@ class FunctionLowerer {
       case "view":
         return {
           op: "view",
+          ...(e.native ? { native: e.native } : {}),
           name: e.name,
           props: e.properties.map((p) => ({ name: p.name, value: this.expr(p.value) })),
           children: e.children.map((c) => this.expr(c)),
@@ -301,6 +309,10 @@ class FunctionLowerer {
           diagnostic("NT1001", e.span, "Assignments are only supported as statements, not inside expressions."),
         );
         return { op: "const", value: 0, type };
+      case "functionRef":
+        return { op: "functionRef", name: e.name, type };
+      case "invoke":
+        return { op: "invoke", callback: this.expr(e.callback), args: e.args.map((a) => this.expr(a)), type };
       case "call":
         return { op: "call", callee: e.callee, args: e.args.map((a) => this.expr(a)), type };
       case "member":
@@ -474,6 +486,8 @@ function childrenOf(e: TExpr): TExpr[] {
       return [e.target];
     case "view":
       return [...e.properties.map((p) => p.value), ...e.children];
+    case "invoke":
+      return [e.callback, ...e.args];
     case "call":
       return e.args;
     case "member":
@@ -516,6 +530,7 @@ function usedCapabilities(functions: IRFunction[]): string[] {
       return;
     }
     const value = node as Record<string, unknown>;
+    if (value.op === "functionRef" && typeof value.name === "string") pending.push(value.name);
     if (value.op === "call" && typeof value.callee === "string") pending.push(value.callee);
     for (const [key, child] of Object.entries(value)) if (key !== "type") calls(child);
   };

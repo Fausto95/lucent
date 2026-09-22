@@ -1,8 +1,11 @@
+import type { NativeType } from "./types/native-type.ts";
 import { NATIVE_LIBRARIES } from "./libraries/native.ts";
 /** Native implementations are trusted build inputs; the compiler never executes them. */
 export type ThreadContext = "caller" | "main" | "worker";
 export type NativePlatform = "ios" | "android";
 export interface NativeBinding {
+  /** Keep operations such as native listeners out of the JavaScript bridge. */
+  nativeOnly?: boolean;
   platforms?: NativePlatform[];
   platformQuery?: boolean;
   cost?: "cpu" | "io";
@@ -13,7 +16,29 @@ export interface NativeBinding {
   capabilities?: string[];
   thread?: ThreadContext;
 }
+export interface NativeReferenceBinding {
+  swift?: string;
+  kotlin?: string;
+  swiftImports?: string[];
+  kotlinImports?: string[];
+}
+export interface NativeViewBinding {
+  props: Record<string, NativeType>;
+  required?: string[];
+  children: "views" | "text" | "none";
+  swift: { template: string; imports?: string[]; defaults?: Record<string, string> };
+  kotlin: { template: string; imports?: string[]; defaults?: Record<string, string> };
+}
+export interface NativePackage {
+  capabilities?: string[];
+  swift?: Record<string, string>;
+  kotlin?: Record<string, string>;
+  dependencies?: { pods?: Record<string, string>; android?: string[] };
+}
 export interface LibraryModule {
+  native?: NativePackage;
+  views?: Record<string, NativeViewBinding>;
+  references?: Record<string, NativeReferenceBinding>;
   source: string;
   bindings?: Record<string, NativeBinding>;
 }

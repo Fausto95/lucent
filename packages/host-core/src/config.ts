@@ -1,7 +1,7 @@
 import { resolveCapabilities, type PlatformConfig } from "./capabilities.ts";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { parseNativeConfig, type LibraryModule } from "@lucent-lang/compiler";
+import { parseNativeConfig, validateLibrary, type LibraryModule } from "@lucent-lang/compiler";
 
 export interface LucentConfig {
   capabilities: string[];
@@ -38,7 +38,11 @@ export function loadLucentConfig(root: string): LucentConfig {
     value.libraries![name] = library;
     if (!name.startsWith("@lucent-lang/") || !library || typeof library.source !== "string")
       throw new Error(`${file}: invalid library ${name}`);
+    const metadataErrors = validateLibrary(library);
+    if (metadataErrors.length) throw new Error(`${file}: ${name}: ${metadataErrors.join(" ")}`);
     for (const binding of Object.values(library.bindings ?? {})) {
+      if (binding.nativeOnly !== undefined && typeof binding.nativeOnly !== "boolean")
+        throw new Error(`${file}: invalid nativeOnly flag`);
       for (const language of ["swift", "kotlin"] as const) {
         if (!Array.isArray(binding[language]) || binding[language].some((line) => typeof line !== "string"))
           throw new Error(`${file}: ${name} needs ${language} body lines`);

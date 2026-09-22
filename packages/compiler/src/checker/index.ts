@@ -49,6 +49,9 @@ export function checkModule(module: SurfaceModule): CheckResult {
 
 class ModuleChecker {
   readonly diagnostics: Diagnostic[] = [];
+  get views() {
+    return this.module.views ?? {};
+  }
   readonly structs = new Map<string, StructDef>();
   readonly signatures = new Map<string, Signature>();
   readonly typeScope: TypeScope;
@@ -113,7 +116,14 @@ class ModuleChecker {
       .replace(/^.*[\\/]/, "")
       .replace(/\.lucent\.tsx?$/, "")
       .replace(/\.ts$/, "");
-    const typed: TypedModule = { name, fileName: this.module.fileName, structs: [...this.structs.values()], functions };
+    const typed: TypedModule = {
+      ...(this.module.nativePackages ? { nativePackages: this.module.nativePackages } : {}),
+      ...(this.module.views ? { views: this.module.views } : {}),
+      name,
+      fileName: this.module.fileName,
+      structs: [...this.structs.values()],
+      functions,
+    };
     return { module: this.diagnostics.length ? null : typed, diagnostics: this.diagnostics };
   }
 
@@ -270,7 +280,9 @@ class ModuleChecker {
           props.fields.some((p) => {
             const t = p.type.kind === "optional" ? p.type.value : p.type;
             return !(
-              (p.type.kind === "event" && t.kind === "event" && t.payload.kind === "void") ||
+              (p.type.kind === "event" &&
+                t.kind === "event" &&
+                ["void", "string", "bool", "float"].includes(t.payload.kind)) ||
               t.kind === "string" ||
               t.kind === "bool" ||
               (t.kind === "float" && t.bits === 64)
@@ -364,7 +376,9 @@ class FunctionChecker {
         }
         const item = node as Record<string, unknown>;
         if (
-          ["assign", "update", "throw", "await", "methodCall", "while", "for", "forOf"].includes(String(item.kind)) ||
+          ["assign", "update", "throw", "await", "invoke", "methodCall", "while", "for", "forOf"].includes(
+            String(item.kind),
+          ) ||
           (item.kind === "call" && (item as unknown as TExpr).type.kind !== "view")
         ) {
           this.report(
@@ -720,7 +734,8 @@ class FunctionChecker {
   }
 
   private view(e: Extract<Expr, { kind: "view" }>): TExpr {
-    const primitive = e.name.startsWith("__ui_") ? UI_PRIMITIVES[e.name.slice(5)] : undefined;
+    const native = this.mod.views[e.name];
+    const primitive = native ?? (e.name.startsWith("__ui_") ? UI_PRIMITIVES[e.name.slice(5)] : undefined);
     if (!primitive) {
       const signature = this.mod.signatures.get(e.name);
       if (!signature || signature.returnType.kind !== "view") {
@@ -756,7 +771,15 @@ class FunctionChecker {
         this.report(diagnostic("NT1011", c.span, `Invalid child for ${e.name}.`));
       return child;
     });
-    return { kind: "view", name: e.name.slice(5), properties, children, type: T.view, span: e.span };
+    return {
+      kind: "view",
+      ...(native ? { native } : {}),
+      name: native ? e.name : e.name.slice(5),
+      properties,
+      children,
+      type: T.view,
+      span: e.span,
+    };
   }
 
   private numberLiteral(e: Extract<Expr, { kind: "number" }>, expected: NativeType | undefined): TExpr {
@@ -850,6 +873,22 @@ class FunctionChecker {
 
   private identifier(name: string, span: Span): TExpr {
     const binding = this.lookup(name);
+    const signature = this.mod.signatures.get(name);
+    if (!binding && signature) {
+      if (signature.async) {
+        this.report(diagnostic("NT1005", span, "Native callbacks must be synchronous."));
+        return this.poison(span);
+      }
+      return {
+        kind: "functionRef",
+        name,
+        type: T.callback(
+          signature.params.map((p) => p.type),
+          signature.returnType,
+        ),
+        span,
+      };
+    }
     if (!binding) {
       this.report(diagnostic("NT1010", span, `Unknown identifier \`${name}\`.`));
       return this.poison(span);
@@ -945,6 +984,10 @@ class FunctionChecker {
         this.report(diagnostic("NT1001", e.span, "Union values are immutable; replace the whole value."));
         return this.poison(e.span);
       }
+      if (object.type.kind === "struct" && this.mod.structs.get(object.type.name)?.reference?.native) {
+        this.report(diagnostic("NT1011", e.span, "Native properties require simple assignment through a setter."));
+        return this.poison(e.span);
+      }
       return this.member(e);
     }
     if (e.kind === "index") {
@@ -958,6 +1001,17 @@ class FunctionChecker {
   }
 
   private assign(e: Extract<Expr, { kind: "assign" }>): TExpr {
+    if (e.target.kind === "member") {
+      const object = this.expr(e.target.object);
+      if (object.type.kind === "struct" && this.mod.structs.get(object.type.name)?.reference?.native) {
+        const callee = `${object.type.name}__set_${e.target.property}`;
+        if (!this.mod.signatures.has(callee) || e.operator !== "=") {
+          this.report(diagnostic("NT1011", e.span, "Native properties require a setter and simple assignment."));
+          return this.poison(e.span);
+        }
+        return this.call({ kind: "call", callee, args: [e.target.object, e.value], span: e.span });
+      }
+    }
     const target = this.target(e.target);
     let value = this.expr(e.value, target.type);
     if (target.poisoned || value.poisoned) return this.poison(e.span, target.type);
@@ -973,6 +1027,24 @@ class FunctionChecker {
   }
 
   private call(e: Extract<Expr, { kind: "call" }>): TExpr {
+    const local = this.lookup(e.callee);
+    if (local?.type.kind === "callback") {
+      const signature = local.type;
+      if (e.args.length !== signature.params.length)
+        this.report(diagnostic("NT1012", e.span, "Incorrect native callback argument count."));
+      const args = e.args.map((arg, i) => {
+        const expected = signature.params[i];
+        const value = this.expr(arg, expected);
+        return expected && !this.fits(value, expected) ? this.mismatch(arg.span, expected, value.type) : value;
+      });
+      return {
+        kind: "invoke",
+        callback: this.identifier(e.callee, e.span),
+        args,
+        type: signature.result,
+        span: e.span,
+      };
+    }
     const signature = this.mod.signatures.get(e.callee);
     if (!signature) {
       this.report(
@@ -1032,6 +1104,9 @@ class FunctionChecker {
       ) {
         this.report(diagnostic("NT1011", span, `Field ${e.property} is private to ${t.name}.`));
         return this.poison(span);
+      }
+      if (this.mod.structs.get(t.name)?.reference?.native) {
+        return this.call({ kind: "call", callee: `${t.name}__get_${e.property}`, args: [e.object], span });
       }
       const union = this.mod.structs.get(t.name)?.union;
       if (union && e.property !== union.tag) {

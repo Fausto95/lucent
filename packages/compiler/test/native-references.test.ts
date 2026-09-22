@@ -78,8 +78,15 @@ test("rejects SDK property bindings with incompatible signatures", () => {
   expect(result.module).toBeNull();
   expect(result.diagnostics.some((d) => d.code === "NT1011")).toBe(true);
 });
-test('rejects asynchronous constructors for native reference handles',()=>{
- const library=structuredClone(textLibrary);library.source=library.source.replace('__create(text:string):MutableText','__create(text:string):Promise<MutableText>');
- const result=compile('import {MutableText} from "@lucent-lang/sdk/text"; export function f():void {}',{...options,libraries:{'@lucent-lang/sdk/text':library}});
- expect(result.module).toBeNull();
+test("rejects asynchronous constructors for native reference handles", () => {
+  const library = structuredClone(textLibrary);
+  library.source = library.source.replace(
+    "__create(text:string):MutableText",
+    "__create(text:string):Promise<MutableText>",
+  );
+  const result = compile('import {MutableText} from "@lucent-lang/sdk/text"; export function f():void {}', {
+    ...options,
+    libraries: { "@lucent-lang/sdk/text": library },
+  });
+  expect(result.module).toBeNull();
 });

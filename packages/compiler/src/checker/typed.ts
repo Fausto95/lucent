@@ -1,4 +1,5 @@
-import type { NativeBinding, ThreadContext } from "../libraries.ts";
+import type { NativePackage } from "../libraries.ts";
+import type { NativeBinding, NativeViewBinding, NativeReferenceBinding, ThreadContext } from "../libraries.ts";
 import type { IRUnion } from "../ir/types.ts";
 /** The typed AST: the surface AST with every expression annotated by its NativeType. */
 import type { Span } from "../diagnostics/index.ts";
@@ -17,7 +18,7 @@ export interface StructField {
 }
 
 export interface StructDef {
-  reference?: { publicName: string; exported: boolean; privateFields?: string[] };
+  reference?: { publicName: string; exported: boolean; privateFields?: string[]; native?: NativeReferenceBinding };
   union?: IRUnion;
   name: string;
   exported: boolean;
@@ -45,6 +46,8 @@ export interface TypedFunction {
 }
 
 export interface TypedModule {
+  nativePackages?: Record<string, NativePackage>;
+  views?: Record<string, NativeViewBinding>;
   name: string;
   fileName: string;
   structs: StructDef[];
@@ -59,7 +62,15 @@ interface Typed {
 }
 
 export type TExpr =
-  | ({ kind: "view"; name: string; properties: { name: string; value: TExpr }[]; children: TExpr[] } & Typed)
+  | ({ kind: "functionRef"; name: string } & Typed)
+  | ({ kind: "invoke"; callback: TExpr; args: TExpr[] } & Typed)
+  | ({
+      kind: "view";
+      native?: NativeViewBinding;
+      name: string;
+      properties: { name: string; value: TExpr }[];
+      children: TExpr[];
+    } & Typed)
   | ({ kind: "number"; value: number } & Typed)
   | ({ kind: "string"; value: string } & Typed)
   | ({ kind: "boolean"; value: boolean } & Typed)

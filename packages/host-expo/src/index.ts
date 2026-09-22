@@ -1,3 +1,4 @@
+import { emitNativePackages } from "@lucent-lang/host-core";
 import { emitViews, nativeViewEvent } from "./views.ts";
 /**
  * Expo Modules host (SDK 58): wraps backend output in an autolinked local
@@ -105,6 +106,7 @@ function emitPackage(modules: IRModule[], options: EmitOptions): FileTree {
       files.set(`${androidDir}/${s.name}.kt`, `package ${ANDROID_PACKAGE}\n\n` + kotlinClass(s));
     }
   }
+  emitNativePackages(files, modules, ANDROID_PACKAGE);
   emitViews(files, modules, ANDROID_PACKAGE);
   return files;
 }
@@ -130,7 +132,12 @@ function emitProxy(module: IRModule): { js: string; dts: string } {
       ),
     ...exportedViews(module).map((f) => {
       const events = viewProps(module, f).filter((p) => p.type.kind === "event");
-      const mapped = events.map((p) => `${nativeViewEvent(module, f, p.name)}: props.${p.name}`).join(", ");
+      const mapped = events
+        .map(
+          (p) =>
+            `${nativeViewEvent(module, f, p.name)}: ${p.type.kind === "event" && p.type.payload.kind !== "void" ? `(event) => props.${p.name}?.(event.nativeEvent.payload)` : `props.${p.name}`}`,
+        )
+        .join(", ");
       const cleared = events.map((p) => `${p.name}: undefined`).join(", ");
       return `const ${f.name}Native = requireNativeViewManager(${JSON.stringify(viewName(module, f))});\nexport function ${f.name}(props) { return createElement(${f.name}Native, { ...props${cleared ? ", " + cleared : ""}${mapped ? ", " + mapped : ""} }); }`;
     }),
@@ -343,6 +350,8 @@ function kotlinDefault(t: NativeType, structs: ReadonlyMap<string, IRStruct>): s
     case "struct":
       if (!structs.has(t.name)) throw new Error(`Expo host: unknown struct ${t.name}`);
       return `${t.name}()`;
+    case "callback":
+      throw new Error("Native callbacks cannot cross the JavaScript boundary.");
     case "event":
     case "view":
     case "void":

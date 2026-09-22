@@ -13,8 +13,11 @@ export function threadSafety(functions: TypedFunction[]): Diagnostic[] {
       if (Array.isArray(node)) return node.some(visit);
       const n = node as Record<string, unknown>;
       if (["while", "for", "forOf"].includes(String(n.kind))) return true;
-      if (n.kind === "call" && typeof n.callee === "string") {
-        const callee = byName.get(n.callee);
+      if (
+        (n.kind === "call" && typeof n.callee === "string") ||
+        (n.kind === "functionRef" && typeof n.name === "string")
+      ) {
+        const callee = byName.get((n.callee ?? n.name) as string);
         if (callee && expensive(callee, next)) return true;
       }
       return Object.entries(n).some(([key, value]) => key !== "type" && key !== "span" && visit(value));

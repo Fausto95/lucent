@@ -47,8 +47,11 @@ test("namespaces view storage to avoid UIKit and Android View properties", () =>
     "var lucentProp_enabled: Boolean",
   );
 });
-test('disposes native composition when the host view unmounts',()=>{
- const module=compile('import {Text,type NativeView} from "@lucent-lang/ui"; export function Label():NativeView{return <Text>Hi</Text>;}',{fileName:'label.lucent.tsx'}).module!;
- const files=expoHost.emitPackage([module],{packageName:'lucent'});
- expect([...files.values()].join('\n')).toContain('DisposeOnDetachedFromWindowOrReleasedFromPool');
+test("disposes native composition when the host view unmounts", () => {
+  const module = compile(
+    'import {Text,type NativeView} from "@lucent-lang/ui"; export function Label():NativeView{return <Text>Hi</Text>;}',
+    { fileName: "label.lucent.tsx" },
+  ).module!;
+  const files = expoHost.emitPackage([module], { packageName: "lucent" });
+  expect([...files.values()].join("\n")).toContain("DisposeOnDetachedFromWindowOrReleasedFromPool");
 });

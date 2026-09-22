@@ -1,3 +1,4 @@
+import { emitNativePackages } from "@lucent-lang/host-core";
 import { emitViews } from "./views.ts";
 /**
  * Nitro Modules host: one library package with a HybridObject per Lucent module.
@@ -170,6 +171,7 @@ function emitPackage(modules: IRModule[], options: EmitOptions): FileTree {
       files.set(`${ANDROID_DIR}/${s.name}.kt`, `package ${ANDROID_PACKAGE}\n\n` + kotlinClass(s));
     }
   }
+  emitNativePackages(files, modules, ANDROID_PACKAGE);
   emitViews(files, modules, ANDROID_PACKAGE);
   return files;
 }
@@ -211,6 +213,8 @@ function emitProxy(module: IRModule): { js: string; dts: string } {
 function specType(t: NativeType, module: IRModule): string {
   if (isReference(t, module)) return "number";
   switch (t.kind) {
+    case "callback":
+      throw new Error("Native callbacks cannot cross the JavaScript boundary.");
     case "event":
       return `(${t.payload.kind === "void" ? "" : `payload: ${specType(t.payload, module)}`}) => void`;
     case "float":

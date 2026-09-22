@@ -1,6 +1,6 @@
 import { diagnostic, type Diagnostic } from "../diagnostics/index.ts";
 import type { SurfaceModule } from "../parser/surface.ts";
-import type { NativeType } from "../types/native-type.ts";
+import { typeEquals, T, type NativeType } from "../types/native-type.ts";
 import type { StructDef, TypedFunction } from "./typed.ts";
 const scalar = (t: NativeType): boolean =>
   t.kind === "string" ||
@@ -36,6 +36,39 @@ export function checkBoundaries(
   for (const alias of source.typeAliases) {
     const struct = structs.get(alias.name);
     if (!struct) continue;
+    if (struct.fields.some((f) => contains(f.type, (t) => t.kind === "callback")))
+      diagnostics.push(
+        diagnostic(
+          "NT1005",
+          alias.span,
+          "Native callbacks are function parameters or local values, not bridge record fields.",
+        ),
+      );
+    if (struct.reference?.native) {
+      const operations = functions.filter((f) => f.classOp?.className === struct.name);
+      const receiver = (fn: TypedFunction) =>
+        fn.params[0]?.type.kind === "struct" && fn.params[0].type.name === struct.name;
+      const ctor = operations.find((f) => f.classOp?.kind === "constructor");
+      if (!ctor || ctor.async || !typeEquals(ctor.returnType, T.struct(struct.name)) || ctor.binding?.nativeOnly)
+        fail(alias.span, "Native reference constructors must return their object type and support the handle bridge.");
+      for (const field of struct.fields) {
+        const getter = operations.find((f) => f.classOp?.kind === "get" && f.classOp.member === field.name);
+        const setter = operations.find((f) => f.classOp?.kind === "set" && f.classOp.member === field.name);
+        if (!getter || getter.params.length !== 1 || !receiver(getter) || !typeEquals(getter.returnType, field.type))
+          fail(alias.span, `Native property ${field.name} requires a compatible getter.`);
+        if (
+          setter &&
+          (setter.params.length !== 2 ||
+            !receiver(setter) ||
+            !typeEquals(setter.params[1]!.type, field.type) ||
+            setter.returnType.kind !== "void")
+        )
+          fail(alias.span, `Native property ${field.name} has an incompatible setter.`);
+      }
+      for (const fn of operations)
+        if (fn.classOp?.kind === "method" && !receiver(fn))
+          fail(fn.span, "Native methods require their object type as the first parameter.");
+    }
     if (!struct.reference && struct.fields.length === 0)
       fail(alias.span, "Empty value records are not supported. Use a tagged record or void.");
     if (
@@ -43,7 +76,7 @@ export function checkBoundaries(
       struct.fields.some((f) => contains(f.type, (t) => t.kind === "event" || t.kind === "view"))
     )
       fail(alias.span, "Event callbacks are only supported in native view props records.");
-    if (struct.reference && struct.fields.some((f) => !scalar(f.type)))
+    if (struct.reference && !struct.reference.native && struct.fields.some((f) => !scalar(f.type)))
       fail(alias.span, "Shared object fields support scalar and nullable scalar values.");
     if (!struct.reference && struct.fields.some((f) => contains(f.type, reference)))
       fail(alias.span, "A value record cannot contain a shared native object. Pass the object directly.");
@@ -70,6 +103,14 @@ export function checkBoundaries(
     const all = [...fn.params.map((p) => p.type), fn.returnType];
     if (all.some((t) => contains(t, (inner) => inner.kind === "event" || inner.kind === "view")))
       fail(fn.span, "Event callbacks are only supported as native view props.");
+    if (fn.exported && all.some((t) => contains(t, (inner) => inner.kind === "callback")))
+      diagnostics.push(
+        diagnostic(
+          "NT1005",
+          fn.span,
+          "Native callbacks cannot cross the JavaScript boundary. Use typed events for JavaScript notifications.",
+        ),
+      );
     if (fn.exported && all.some((t) => !reference(t) && contains(t, reference)))
       fail(fn.span, "Shared objects must cross the native boundary directly, not inside containers or optionals.");
     if (fn.async && fn.params.some((p) => contains(p.type, reference)))

@@ -24,6 +24,8 @@ export function jsType(t: NativeType): string {
       return `${jsType(t.value)} | null`;
     case "struct":
       return t.name;
+    case "callback":
+      return `(${t.params.map((p, i) => `arg${i}: ${jsType(p)}`).join(", ")}) => ${jsType(t.result)}`;
     case "promise":
       return `Promise<${jsType(t.value)}>`;
     default:

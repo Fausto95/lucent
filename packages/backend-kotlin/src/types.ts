@@ -11,6 +11,8 @@ const INTS: Readonly<Record<string, string>> = { "8": "Byte", "16": "Short", "32
 
 export function kotlinType(t: NativeType): string {
   switch (t.kind) {
+    case "callback":
+      return `(${t.params.map(kotlinType).join(", ")}) -> ${kotlinType(t.result)}`;
     case "event":
       return `(${t.payload.kind === "void" ? "" : kotlinType(t.payload)}) -> Unit`;
     case "float":
@@ -22,7 +24,7 @@ export function kotlinType(t: NativeType): string {
     case "map":
       return `Map<String, ${kotlinType(t.value)}>`;
     case "optional":
-      return `${kotlinType(t.value)}?`;
+      return `${t.value.kind === "callback" || t.value.kind === "event" ? `(${kotlinType(t.value)})` : kotlinType(t.value)}?`;
     case "struct":
       return t.name;
     case "promise":

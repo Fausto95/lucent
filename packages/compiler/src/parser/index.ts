@@ -492,7 +492,12 @@ class Converter {
       span: spanOf(node),
     }),
     TSParenthesizedType: (node: ES.TSParenthesizedType) => this.type(node.typeAnnotation),
-    TSFunctionType: (node: ES.TSFunctionType) => ({ kind: "function", span: spanOf(node) }),
+    TSFunctionType: (node: ES.TSFunctionType) => ({
+      kind: "function",
+      params: node.params.map((p) => this.param(p)),
+      returnType: this.type(node.returnType.typeAnnotation),
+      span: spanOf(node),
+    }),
     TSTypeLiteral: (node: ES.TSTypeLiteral) => {
       const fields: SurfaceField[] = [];
       for (const member of node.members) {

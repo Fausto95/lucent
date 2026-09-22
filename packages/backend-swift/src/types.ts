@@ -9,6 +9,8 @@ const PRIMITIVES: Readonly<Record<string, string>> = {
 
 export function swiftType(t: NativeType): string {
   switch (t.kind) {
+    case "callback":
+      return `(${t.params.map(swiftType).join(", ")}) throws -> ${swiftType(t.result)}`;
     case "event":
       return `(${t.payload.kind === "void" ? "" : swiftType(t.payload)}) -> Void`;
     case "float":
@@ -20,7 +22,7 @@ export function swiftType(t: NativeType): string {
     case "map":
       return `[String: ${swiftType(t.value)}]`;
     case "optional":
-      return `${swiftType(t.value)}?`;
+      return `${t.value.kind === "callback" || t.value.kind === "event" ? `(${swiftType(t.value)})` : swiftType(t.value)}?`;
     case "struct":
       return t.name;
     case "promise":

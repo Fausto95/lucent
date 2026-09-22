@@ -104,6 +104,10 @@ export function expr(e: IRExpr): string {
     case "and":
     case "or":
       return `(${e.op} ${expr(e.left)} ${expr(e.right)})`;
+    case "functionRef":
+      return `function_ref ${e.name}`;
+    case "invoke":
+      return `invoke ${expr(e.callback)}(${e.args.map(expr).join(", ")})`;
     case "call":
       return `(call ${e.callee}${e.args.map((a) => " " + expr(a)).join("")})`;
     case "field":
