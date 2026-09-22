@@ -3,7 +3,7 @@ import { compile } from "../src/index.ts";
 
 test("stdlib imports resolve to typed native operations", () => {
   const result = compile(
-    'import { abs, sqrt } from "@lucent-lang/std/math"; export function length(x: number): number { return sqrt(abs(x)); }',
+    'import { abs, sqrt } from "@lucent-lang/core/math"; export function length(x: number): number { return sqrt(abs(x)); }',
     { fileName: "math.lucent.ts" },
   );
   expect(result.diagnostics).toEqual([]);
