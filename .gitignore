@@ -19,3 +19,4 @@ packages/bench/results/
 .tmp/
 .tmp-expo-ios.png
 /apps/*/.lucent
+vendor/
