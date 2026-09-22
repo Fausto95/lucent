@@ -52,7 +52,8 @@ export function HomePage() {
             </Link>
           </div>
           <div {...stylex.props(styles.heroFootnote)}>
-            <span>OPEN SOURCE</span>
+            <span {...stylex.props(styles.footnoteWarn)}>EXPERIMENTAL — NOT FOR PRODUCTION</span>
+            <span {...stylex.props(styles.footnoteItem)}>OPEN SOURCE</span>
             <span {...stylex.props(styles.footnoteItem)}>MIT LICENSE</span>
             <span {...stylex.props(styles.footnoteItem)}>EXPO + NITRO</span>
           </div>

@@ -1,5 +1,10 @@
 # Getting started
 
+> [!WARNING]
+> **Very early and experimental — do not use Lucent in production.** Every API
+> below changes without notice. Install it into a throwaway or side project,
+> not an app you ship.
+
 Lucent needs a development build; Expo Go cannot load native modules.
 
 ## Quick start

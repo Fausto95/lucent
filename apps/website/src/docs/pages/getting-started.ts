@@ -14,6 +14,11 @@ export const page: DocPage = {
   blocks: [
     {
       kind: "note",
+      tone: "warn",
+      text: "**Very early and experimental — do not use Lucent in production.** Every API here changes without notice. Install it into a throwaway or side project, not an app you ship.",
+    },
+    {
+      kind: "note",
       text: "Lucent generates native code, so it needs a development build. Expo Go cannot load it, the same as any other native module. Node 22.12+ is required.",
     },
     {

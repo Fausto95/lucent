@@ -176,6 +176,9 @@ export const styles = stylex.create({
       color: tokens.textSubtle,
     },
   },
+  footnoteWarn: {
+    color: tokens.warn,
+  },
   platformStrip: {
     borderTopWidth: "1px",
     borderTopStyle: "solid",

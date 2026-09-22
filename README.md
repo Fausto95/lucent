@@ -4,6 +4,13 @@
 
 <h1 align="center">Lucent</h1>
 
+> [!WARNING]
+> **Very early and experimental — do not use this in production.**
+> Lucent is a research-stage project. The language subset, the generated Swift
+> and Kotlin, the CLI and every `@lucent-lang/*` API change without notice and
+> without a migration path. Expect gaps, rough edges and bugs. Use it on a
+> throwaway or side project, and report what breaks.
+
 Write native React Native modules in TypeScript. Lucent compiles a typed subset
 of TypeScript to Swift and Kotlin ahead of time. No JavaScript runs on the
 native side.
@@ -27,8 +34,6 @@ squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25, runs in Swift / Kotlin
 
 Works with [Expo Modules](https://docs.expo.dev/modules/overview/) (SDK 58)
 and [Nitro Modules](https://nitro.margelo.com/) (bare React Native).
-
-> Pre-release. The language is intentionally small and the API will change.
 
 ## Docs
 
