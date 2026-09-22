@@ -104,7 +104,10 @@ void Scheduler::run() {
     if (timers_.empty()) {
       cv_.wait(g);
     } else {
-      cv_.wait_until(g, timers_.top().at);
+      // A copy: wait_until reads the deadline after unlocking, when a
+      // postDelayed may have reallocated the heap.
+      const auto deadline = timers_.top().at;
+      cv_.wait_until(g, deadline);
     }
   }
 }
