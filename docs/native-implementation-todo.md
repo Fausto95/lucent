@@ -197,9 +197,13 @@ Evidence: `overloads.test.ts`, SDK extraction tests, `verify-runtime.ts`.
       `CancellationSource.finish()`. Close races against SDK cleanup are not
       included.
 - [x] Add caller/main/worker/serial-object execution enforcement.
-- [ ] Replace registry-wide synchronization around synchronous SDK calls with
+- [x] Replace registry-wide synchronization around synchronous SDK calls with
       appropriate object/executor serialization; do not hold registry locks while
-      invoking arbitrary SDK code or callbacks.
+      invoking arbitrary SDK code or callbacks. Retained snapshots survive handle
+      disposal; per-object recursive locks serialize synchronous bridge entry,
+      and multi-object calls acquire locks in stable order. Verify independent
+      calls, same-object mutation, same-thread reentry, error cleanup, and Swift
+      deinitialization outside the registry lock.
 - [x] Implement borrowed reference escape and suspension checks.
 - [ ] Implement explicit close: reject new work, cancel/quiesce pending work,
       then run SDK cleanup on the required executor. Use-after-`close` is now a
@@ -208,7 +212,7 @@ Evidence: `overloads.test.ts`, SDK extraction tests, `verify-runtime.ts`.
 
 Evidence: `lifetimes.test.ts`, `verify-interop.ts`, async-reference host tests,
 `runtime/test/objects.test.ts`, `verify-cancellation.ts`. Arbitrary SDK task
-scopes and runtime close quiesce are not implemented.
+adapters and full SDK cleanup quiescence remain incomplete.
 
 ## M4 — Native closures and delegates
 
@@ -354,7 +358,8 @@ scopes and runtime close quiesce are not implemented.
 
 ## Latest verification checkpoint
 
-- Unit suite: 612 passing tests across 74 files after JavaScript method overload
+- Unit suite: 614 passing tests across 75 files after per-object bridge serialization,
+  JavaScript method overload
   dispatch, nullable signature checks, native task scopes, async
   SDK method retention, public package consolidation,
   authoring declarations and JSX key-selector corrections, diagnostic namespacing,
@@ -366,8 +371,9 @@ scopes and runtime close quiesce are not implemented.
   verification covers cancellation/completion races, concurrent completion,
   repeated close, rejection after close, and waiting for all accepted work.
 - Website build passes with updated SDK extraction and overload documentation.
-- Full app/device builds below are from the preceding checkpoint; these new
-  compiler slices do not constitute a new four-host or physical-device run.
+- Regenerated and compiled both example apps on iOS and Android after bridge
+  serialization changes: all four builds pass. This is compilation evidence,
+  not a new simulator/emulator interaction run or physical-device camera run.
 
 ### Previous full application checkpoint
 

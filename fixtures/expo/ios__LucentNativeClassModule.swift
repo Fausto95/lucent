@@ -8,8 +8,8 @@ public final class LucentNativeClassModule: Module {
 
   @JS("lucentInternal_8f133499183f7a85_Counter__get_value")
   func __bridge_lucentInternal_8f133499183f7a85_Counter__get_value(lucentSelf: Double) throws -> Double {
-    return try LucentObjectRegistry.shared.withLock {
-      let result = try lucentInternal_8f133499183f7a85_Counter__get_value(lucentSelf: try LucentObjectRegistry.shared.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter.self))
+    return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
+      let result = try lucentInternal_8f133499183f7a85_Counter__get_value(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter.self))
       return result
     }
   }
@@ -20,8 +20,8 @@ public final class LucentNativeClassModule: Module {
 
   @JS("lucentInternal_8f133499183f7a85_Counter__set_value")
   func __bridge_lucentInternal_8f133499183f7a85_Counter__set_value(lucentSelf: Double, value: Double) throws -> Void {
-    return try LucentObjectRegistry.shared.withLock {
-      let result = try lucentInternal_8f133499183f7a85_Counter__set_value(lucentSelf: try LucentObjectRegistry.shared.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter.self), value: value)
+    return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
+      let result = try lucentInternal_8f133499183f7a85_Counter__set_value(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter.self), value: value)
       return result
     }
   }
@@ -33,8 +33,8 @@ public final class LucentNativeClassModule: Module {
 
   @JS("lucentInternal_8f133499183f7a85_Counter__method_increment")
   func __bridge_lucentInternal_8f133499183f7a85_Counter__method_increment(lucentSelf: Double, delta: Double) throws -> Double {
-    return try LucentObjectRegistry.shared.withLock {
-      let result = try lucentInternal_8f133499183f7a85_Counter__method_increment(lucentSelf: try LucentObjectRegistry.shared.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter.self), delta: delta)
+    return try LucentObjectRegistry.shared.withObjects([lucentSelf]) { lucentLeases in
+      let result = try lucentInternal_8f133499183f7a85_Counter__method_increment(lucentSelf: try lucentLeases.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter.self), delta: delta)
       return result
     }
   }
@@ -47,7 +47,7 @@ public final class LucentNativeClassModule: Module {
 
   @JS("lucentInternal_8f133499183f7a85_Counter__create")
   func __bridge_lucentInternal_8f133499183f7a85_Counter__create(initial: Double) throws -> Double {
-    return try LucentObjectRegistry.shared.withLock {
+    return try LucentObjectRegistry.shared.withObjects([]) { lucentLeases in
       let result = try lucentInternal_8f133499183f7a85_Counter__create(initial: initial)
       return LucentObjectRegistry.shared.hold(result)
     }
@@ -61,7 +61,7 @@ public final class LucentNativeClassModule: Module {
 
   @JS("makeCounter")
   func __bridge_makeCounter(initial: Double) throws -> Double {
-    return try LucentObjectRegistry.shared.withLock {
+    return try LucentObjectRegistry.shared.withObjects([]) { lucentLeases in
       let result = try makeCounter(initial: initial)
       return LucentObjectRegistry.shared.hold(result)
     }
@@ -73,8 +73,8 @@ public final class LucentNativeClassModule: Module {
 
   @JS("advance")
   func __bridge_advance(counter: Double) throws -> Double {
-    return try LucentObjectRegistry.shared.withLock {
-      let result = try advance(counter: try LucentObjectRegistry.shared.get(counter, lucentInternal_8f133499183f7a85_Counter.self))
+    return try LucentObjectRegistry.shared.withObjects([counter]) { lucentLeases in
+      let result = try advance(counter: try lucentLeases.get(counter, lucentInternal_8f133499183f7a85_Counter.self))
       return result
     }
   }

@@ -886,3 +886,14 @@ select different overloads at this boundary; give these operations separate
 public names. Overloads of one method must also share their completion contract:
 all synchronous or all asynchronous. Async overloads retain their receiver and
 native arguments through completion, including after immediate disposal.
+
+Synchronous bridge calls retain their native object arguments before invoking
+SDK code. Each referenced object has a recursive serialization lock; calls with
+multiple objects acquire those locks in a stable order. Independent objects do
+not share an execution lock. Registry bookkeeping is complete before SDK code
+runs, so callbacks may access the registry without holding its global lock.
+Disposing a handle during an accepted call does not invalidate that call's
+snapshot. Snapshots and locks are released on success and error. Returning the
+same native object through a new handle preserves its serialization identity.
+This is bridge-entry serialization; SDK-internal callbacks still follow the
+SDK's declared executor and synchronization contract.

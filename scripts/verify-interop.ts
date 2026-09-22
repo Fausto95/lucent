@@ -84,6 +84,50 @@ func verifyOwnership() throws {
   precondition(observed == nil)
 }
 try verifyOwnership()
+let serialized = registry.hold(NSMutableString(string: ""))
+DispatchQueue.concurrentPerform(iterations: 1000) { _ in
+  try! registry.withObjects([serialized, serialized]) { snapshot in
+    let value = try snapshot.get(serialized, NSMutableString.self)
+    value.append("x")
+  }
+}
+let serialValue = try registry.get(serialized, NSMutableString.self)
+precondition(serialValue.length == 1000)
+let independent = registry.hold(NSObject())
+try registry.withObjects([serialized]) { snapshot in
+  let done = DispatchSemaphore(value: 0)
+  DispatchQueue.global().async {
+    try! registry.withObjects([independent]) { _ in
+      let temporary = registry.hold(NSObject())
+      registry.release(temporary)
+    }
+    done.signal()
+  }
+  precondition(done.wait(timeout: .now() + 5) == .success, "SDK call held registry-wide synchronization")
+  registry.release(serialized)
+  let value = try snapshot.get(serialized, NSMutableString.self)
+  precondition(value.length == 1000)
+  let replacement = registry.hold(value)
+  try registry.withObjects([replacement]) { nested in
+    let nestedValue = try nested.get(replacement, NSMutableString.self); precondition(nestedValue === value)
+  }
+  registry.release(replacement)
+}
+registry.release(independent)
+precondition(registry.activeLeaseCount == 0)
+let throwing = registry.hold(NSObject())
+do { try registry.withObjects([throwing]) { _ in throw LucentError(code: "TEST", message: "failure") } } catch {}
+precondition(registry.activeLeaseCount == 0)
+registry.release(throwing)
+final class RegistryFinalizer: NSObject {
+ deinit {
+  let done = DispatchSemaphore(value: 0)
+  DispatchQueue.global().async { _ = LucentObjectRegistry.shared.activeLeaseCount; done.signal() }
+  precondition(done.wait(timeout: .now() + 5) == .success, "Deinitializer held registry lock")
+ }
+}
+let finalizerHandle = registry.hold(RegistryFinalizer())
+registry.release(finalizerHandle)
 print("swift: native callbacks, identity, invalidation, lease ownership and 1000 concurrent releases passed")
 `;
 writeFileSync(
@@ -95,7 +139,7 @@ execFileSync(
   ["-module-cache-path", join(dir, "cache"), join(dir, "main.swift"), "-o", join(dir, "swift-test")],
   { stdio: "pipe" },
 );
-process.stdout.write(execFileSync(join(dir, "swift-test")));
+process.stdout.write(execFileSync(join(dir, "swift-test"), { timeout: 30000 }));
 const kotlin = `typealias ArrayBuffer = ByteArray\n${kotlinRuntime({ imports: [], length: "return buffer.size.toDouble()", get: "return buffer[index.toInt()].toDouble()" })}\n${kotlinObjectRuntime}\n${generateKotlin(result.module).code}
 fun main() {
  check(compute() == 10.0)
@@ -133,8 +177,40 @@ fun main() {
  } }
  workers.forEach { it.join() }
  check(LucentObjectRegistry.activeLeaseCount == 0)
+ val serialized = LucentObjectRegistry.hold(java.lang.StringBuilder())
+ val serialWorkers = (0 until 8).map { kotlin.concurrent.thread {
+  repeat(125) { LucentObjectRegistry.withObjects(listOf(serialized, serialized)) { snapshot ->
+   snapshot.get(serialized, java.lang.StringBuilder::class.java).append("x")
+  } }
+ } }
+ serialWorkers.forEach { it.join() }
+ check(LucentObjectRegistry.get(serialized, java.lang.StringBuilder::class.java).length == 1000)
+ val independent = LucentObjectRegistry.hold(Any())
+ LucentObjectRegistry.withObjects(listOf(serialized)) { snapshot ->
+  val done = java.util.concurrent.CountDownLatch(1)
+  val worker = kotlin.concurrent.thread {
+   LucentObjectRegistry.withObjects(listOf(independent)) {
+    val temporary = LucentObjectRegistry.hold(Any()); LucentObjectRegistry.release(temporary)
+   }
+   done.countDown()
+  }
+  check(done.await(5, java.util.concurrent.TimeUnit.SECONDS)) { "SDK call held registry-wide synchronization" }
+  worker.join()
+  LucentObjectRegistry.release(serialized)
+  val value = snapshot.get(serialized, java.lang.StringBuilder::class.java)
+  check(value.length == 1000)
+  val replacement = LucentObjectRegistry.hold(value)
+  LucentObjectRegistry.withObjects(listOf(replacement)) { nested -> check(nested.get(replacement, java.lang.StringBuilder::class.java) === value) }
+  LucentObjectRegistry.release(replacement)
+ }
+ LucentObjectRegistry.release(independent)
+ check(LucentObjectRegistry.activeLeaseCount == 0)
+ val throwing = LucentObjectRegistry.hold(Any())
+ try { LucentObjectRegistry.withObjects(listOf(throwing)) { error("failure") } } catch(error:IllegalStateException) { }
+ check(LucentObjectRegistry.activeLeaseCount == 0)
+ LucentObjectRegistry.release(throwing)
  println("kotlin: native callbacks, identity, invalidation and 1000 concurrent lease releases passed")
 }`;
 writeFileSync(join(dir, "Main.kt"), kotlin);
 execFileSync("kotlinc", [join(dir, "Main.kt"), "-include-runtime", "-d", join(dir, "main.jar")], { stdio: "pipe" });
-process.stdout.write(execFileSync("java", ["-jar", join(dir, "main.jar")]));
+process.stdout.write(execFileSync("java", ["-jar", join(dir, "main.jar")], { timeout: 30000 }));

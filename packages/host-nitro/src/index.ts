@@ -444,7 +444,7 @@ function swiftHybrid(module: IRModule): string {
     const args = fn.params
       .map(
         (p) =>
-          `${p.name}: ${fn.async && isReference(p.type, module) && p.type.kind === "struct" ? `try lucentLeases.get(${p.name}, ${p.type.name}.self)` : swiftConvert(p.name, p.type, "toBody", module)}`,
+          `${p.name}: ${isReference(p.type, module) && p.type.kind === "struct" ? `try lucentLeases.get(${p.name}, ${p.type.name}.self)` : swiftConvert(p.name, p.type, "toBody", module)}`,
       )
       .join(", ");
     const isVoid = fn.returnType.kind === "void";
@@ -470,7 +470,9 @@ function swiftHybrid(module: IRModule): string {
       methods.push(
         `func ${boundaryName(fn.name)}(${params}) throws -> ${nitroSwiftType(fn.returnType, module)} {`,
         ...(fn.params.some((p) => isReference(p.type, module)) || isReference(fn.returnType, module)
-          ? ["  return try LucentObjectRegistry.shared.withLock {"]
+          ? [
+              `  return try LucentObjectRegistry.shared.withObjects([${references.map((p) => p.name).join(", ")}]) { lucentLeases in`,
+            ]
           : []),
         ...(isVoid ? [`  try ${call}`] : [`  let result = try ${call}`, `  return ${result}`]),
         ...(fn.params.some((p) => isReference(p.type, module)) || isReference(fn.returnType, module) ? ["  }"] : []),
@@ -659,7 +661,7 @@ function kotlinHybrid(module: IRModule): string {
     const references = fn.params.filter((p) => isReference(p.type, module));
     const args = fn.params
       .map((p) =>
-        fn.async && isReference(p.type, module) && p.type.kind === "struct"
+        isReference(p.type, module) && p.type.kind === "struct"
           ? `lucentLeases.get(${p.name}, ${p.type.name}::class.java)`
           : kotlinConvert(p.name, p.type, "toBody", module),
       )
@@ -690,7 +692,9 @@ function kotlinHybrid(module: IRModule): string {
       methods.push(
         `override fun ${boundaryName(fn.name)}(${params}): ${ret} {`,
         ...(fn.params.some((p) => isReference(p.type, module)) || isReference(fn.returnType, module)
-          ? ["  return LucentObjectRegistry.withLock {"]
+          ? [
+              `  return LucentObjectRegistry.withObjects(listOf(${references.map((p) => p.name).join(", ")})) { lucentLeases ->`,
+            ]
           : []),
         ...(isVoid
           ? [`  ${call}`]

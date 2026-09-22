@@ -236,7 +236,7 @@ function swiftModule(module: IRModule): string {
       const args = ir.params
         .map((p) => {
           if (isReference(p.type, module) && p.type.kind === "struct")
-            return `${p.name}: try ${f.async ? "lucentLeases" : "LucentObjectRegistry.shared"}.get(${p.name}, ${p.type.name}.self)`;
+            return `${p.name}: try lucentLeases.get(${p.name}, ${p.type.name}.self)`;
           if (p.type.kind === "enum") return `${p.name}: try ${swiftEnumBridge(p.type.name)}.fromLucent(${p.name})`;
           return `${p.name}: ${p.name}`;
         })
@@ -253,7 +253,14 @@ function swiftModule(module: IRModule): string {
               "  defer { lucentLeases.close() }",
             ]
           : []),
-        ...(f.async ? [] : ["  return try LucentObjectRegistry.shared.withLock {"]),
+        ...(f.async
+          ? []
+          : [
+              `  return try LucentObjectRegistry.shared.withObjects([${ir.params
+                .filter((p) => isReference(p.type, module))
+                .map((p) => p.name)
+                .join(", ")}]) { lucentLeases in`,
+            ]),
         `    let result = try ${f.async ? "await " : ""}${f.name}(${args})`,
         `    return ${
           isReference(ir.returnType, module)
@@ -448,7 +455,7 @@ function kotlinModule(module: IRModule): string {
     const args = ir.params
       .map((p, i) => {
         if (isReference(p.type, module) && p.type.kind === "struct")
-          return `${f.async ? "lucentLeases" : "LucentObjectRegistry"}.get(${p.name}, ${p.type.name}::class.java)`;
+          return `lucentLeases.get(${p.name}, ${p.type.name}::class.java)`;
         if (p.type.kind === "enum") return `${kotlinEnumBridge(p.type.name)}.fromLucent(${p.name})`;
         return `${p.name}${KOTLIN_BOUNDARY[f.params[i]!.type]?.into ?? ""}`;
       })
@@ -464,7 +471,14 @@ function kotlinModule(module: IRModule): string {
             "  try {",
           ]
         : []),
-      ...(f.async ? [] : ["  LucentObjectRegistry.withLock {"]),
+      ...(f.async
+        ? []
+        : [
+            `  LucentObjectRegistry.withObjects(listOf(${ir.params
+              .filter((p) => isReference(p.type, module))
+              .map((p) => p.name)
+              .join(", ")})) { lucentLeases ->`,
+          ]),
       `    val result = ${f.name}(${args})`,
       `    ${
         isReference(ir.returnType, module)

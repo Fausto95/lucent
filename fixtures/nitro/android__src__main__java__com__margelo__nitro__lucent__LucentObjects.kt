@@ -23,9 +23,15 @@ class LucentObjectLeaseGroup(private var leases: Map<Double, LucentObjectLease<A
     pending.values.forEach { it.close() }
   }
 }
+private class LucentObjectSerialization(value: Any, val order: Long) {
+  val objectValue = java.lang.ref.WeakReference(value)
+  val lock = java.util.concurrent.locks.ReentrantLock()
+}
 object LucentObjectRegistry {
   private val lock = Any()
   private var leases = 0
+  private var serializationOrder = 0L
+  private val serialization = mutableListOf<LucentObjectSerialization>()
   val activeLeaseCount: Int get() = withLock { leases }
   private var next = 0.0
   private val objects = mutableMapOf<Double, Any>()
@@ -50,6 +56,26 @@ object LucentObjectRegistry {
       handles.distinct().forEach { pending[it] = acquire(it, Any::class.java) }
       LucentObjectLeaseGroup(pending)
     } catch (error: Throwable) { pending.values.forEach { it.close() }; throw error }
+  }
+  fun <T> withObjects(handles: List<Double>, body: (LucentObjectLeaseGroup) -> T): T {
+    val (group, locks) = withLock {
+      val group = acquireMany(handles)
+      serialization.removeAll { it.objectValue.get() == null }
+      val locks = handles.distinct().map { handle ->
+        val value = group.get(handle, Any::class.java)
+        serialization.firstOrNull { it.objectValue.get() === value } ?: run {
+          val entry = LucentObjectSerialization(value, ++serializationOrder)
+          serialization.add(entry)
+          entry
+        }
+      }.distinct().sortedBy { it.order }
+      Pair(group, locks)
+    }
+    locks.forEach { it.lock.lock() }
+    try { return body(group) } finally {
+      locks.asReversed().forEach { it.lock.unlock() }
+      group.close()
+    }
   }
   fun release(handle: Double) { withLock { objects.remove(handle)?.let { identities.remove(it) }; Unit } }
 }

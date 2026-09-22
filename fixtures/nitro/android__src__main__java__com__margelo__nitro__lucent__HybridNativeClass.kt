@@ -13,42 +13,42 @@ class HybridNativeClass : HybridNativeClassSpec() {
   override fun lucentRelease(handle: Double) { LucentObjectRegistry.release(handle) }
 
   override fun lucentInternal_8f133499183f7a85_Counter__get_value(lucentSelf: Double): Double {
-    return LucentObjectRegistry.withLock {
-    val result = NativeClassBodies.lucentInternal_8f133499183f7a85_Counter__get_value(LucentObjectRegistry.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter::class.java))
+    return LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
+    val result = NativeClassBodies.lucentInternal_8f133499183f7a85_Counter__get_value(lucentLeases.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter::class.java))
     result
     }
   }
 
   override fun lucentInternal_8f133499183f7a85_Counter__set_value(lucentSelf: Double, value: Double): Unit {
-    return LucentObjectRegistry.withLock {
-    NativeClassBodies.lucentInternal_8f133499183f7a85_Counter__set_value(LucentObjectRegistry.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter::class.java), value)
+    return LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
+    NativeClassBodies.lucentInternal_8f133499183f7a85_Counter__set_value(lucentLeases.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter::class.java), value)
     }
   }
 
   override fun lucentInternal_8f133499183f7a85_Counter__method_increment(lucentSelf: Double, delta: Double): Double {
-    return LucentObjectRegistry.withLock {
-    val result = NativeClassBodies.lucentInternal_8f133499183f7a85_Counter__method_increment(LucentObjectRegistry.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter::class.java), delta)
+    return LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
+    val result = NativeClassBodies.lucentInternal_8f133499183f7a85_Counter__method_increment(lucentLeases.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter::class.java), delta)
     result
     }
   }
 
   override fun lucentInternal_8f133499183f7a85_Counter__create(initial: Double): Double {
-    return LucentObjectRegistry.withLock {
+    return LucentObjectRegistry.withObjects(listOf()) { lucentLeases ->
     val result = NativeClassBodies.lucentInternal_8f133499183f7a85_Counter__create(initial)
     LucentObjectRegistry.hold(result)
     }
   }
 
   override fun makeCounter(initial: Double): Double {
-    return LucentObjectRegistry.withLock {
+    return LucentObjectRegistry.withObjects(listOf()) { lucentLeases ->
     val result = NativeClassBodies.makeCounter(initial)
     LucentObjectRegistry.hold(result)
     }
   }
 
   override fun advance(counter: Double): Double {
-    return LucentObjectRegistry.withLock {
-    val result = NativeClassBodies.advance(LucentObjectRegistry.get(counter, lucentInternal_8f133499183f7a85_Counter::class.java))
+    return LucentObjectRegistry.withObjects(listOf(counter)) { lucentLeases ->
+    val result = NativeClassBodies.advance(lucentLeases.get(counter, lucentInternal_8f133499183f7a85_Counter::class.java))
     result
     }
   }

@@ -14,38 +14,38 @@ class LucentNativeClassModule : Module() {
     Name("Lucent_native-class")
     Function("lucentRelease") { handle: Double -> LucentObjectRegistry.release(handle) }
     Function("lucentInternal_8f133499183f7a85_Counter__get_value") { lucentSelf: Double ->
-      LucentObjectRegistry.withLock {
-        val result = lucentInternal_8f133499183f7a85_Counter__get_value(LucentObjectRegistry.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter::class.java))
+      LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
+        val result = lucentInternal_8f133499183f7a85_Counter__get_value(lucentLeases.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter::class.java))
         result
       }
     }
     Function("lucentInternal_8f133499183f7a85_Counter__set_value") { lucentSelf: Double, value: Double ->
-      LucentObjectRegistry.withLock {
-        val result = lucentInternal_8f133499183f7a85_Counter__set_value(LucentObjectRegistry.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter::class.java), value)
+      LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
+        val result = lucentInternal_8f133499183f7a85_Counter__set_value(lucentLeases.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter::class.java), value)
         result
       }
     }
     Function("lucentInternal_8f133499183f7a85_Counter__method_increment") { lucentSelf: Double, delta: Double ->
-      LucentObjectRegistry.withLock {
-        val result = lucentInternal_8f133499183f7a85_Counter__method_increment(LucentObjectRegistry.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter::class.java), delta)
+      LucentObjectRegistry.withObjects(listOf(lucentSelf)) { lucentLeases ->
+        val result = lucentInternal_8f133499183f7a85_Counter__method_increment(lucentLeases.get(lucentSelf, lucentInternal_8f133499183f7a85_Counter::class.java), delta)
         result
       }
     }
     Function("lucentInternal_8f133499183f7a85_Counter__create") { initial: Double ->
-      LucentObjectRegistry.withLock {
+      LucentObjectRegistry.withObjects(listOf()) { lucentLeases ->
         val result = lucentInternal_8f133499183f7a85_Counter__create(initial)
         LucentObjectRegistry.hold(result)
       }
     }
     Function("makeCounter") { initial: Double ->
-      LucentObjectRegistry.withLock {
+      LucentObjectRegistry.withObjects(listOf()) { lucentLeases ->
         val result = makeCounter(initial)
         LucentObjectRegistry.hold(result)
       }
     }
     Function("advance") { counter: Double ->
-      LucentObjectRegistry.withLock {
-        val result = advance(LucentObjectRegistry.get(counter, lucentInternal_8f133499183f7a85_Counter::class.java))
+      LucentObjectRegistry.withObjects(listOf(counter)) { lucentLeases ->
+        val result = advance(lucentLeases.get(counter, lucentInternal_8f133499183f7a85_Counter::class.java))
         result
       }
     }

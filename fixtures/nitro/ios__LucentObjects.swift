@@ -37,10 +37,18 @@ final class LucentObjectLeaseGroup: @unchecked Sendable {
   }
   deinit { close() }
 }
+private final class LucentObjectSerialization {
+  weak var object: AnyObject?
+  let lock = NSRecursiveLock()
+  let order: Int
+  init(_ object: AnyObject, _ order: Int) { self.object = object; self.order = order }
+}
 final class LucentObjectRegistry: @unchecked Sendable {
   static let shared = LucentObjectRegistry()
   private let lock = NSRecursiveLock()
   private var leases = 0
+  private var serializationOrder = 0
+  private var serialization: [ObjectIdentifier: LucentObjectSerialization] = [:]
   var activeLeaseCount: Int { withLock { leases } }
   private var next: Double = 0
   private var objects: [Double: AnyObject] = [:]
@@ -67,7 +75,37 @@ final class LucentObjectRegistry: @unchecked Sendable {
     for handle in Set(handles) { pending[handle] = try acquire(handle, AnyObject.self) }
     return LucentObjectLeaseGroup(pending)
   } }
-  func release(_ handle: Double) { withLock {
-    if let object = objects.removeValue(forKey: handle) { identities.removeValue(forKey: ObjectIdentifier(object)) }
-  } }
+  // Snapshot under the registry lock; invoke SDK code only under object locks.
+  func withObjects<T>(_ handles: [Double], _ body: (LucentObjectLeaseGroup) throws -> T) throws -> T {
+    let (group, locks) = try withLock { () throws -> (LucentObjectLeaseGroup, [LucentObjectSerialization]) in
+      let group = try acquireMany(handles)
+      serialization = serialization.filter { $0.value.object != nil }
+      var unique: [ObjectIdentifier: LucentObjectSerialization] = [:]
+      for handle in Set(handles) {
+        let object = try group.get(handle, AnyObject.self)
+        let identity = ObjectIdentifier(object)
+        if serialization[identity] == nil {
+          serializationOrder += 1
+          serialization[identity] = LucentObjectSerialization(object, serializationOrder)
+        }
+        unique[identity] = serialization[identity]!
+      }
+      return (group, unique.values.sorted { $0.order < $1.order })
+    }
+    for entry in locks { entry.lock.lock() }
+    defer {
+      for entry in locks.reversed() { entry.lock.unlock() }
+      group.close()
+    }
+    return try body(group)
+  }
+  func release(_ handle: Double) {
+    let retained: AnyObject? = withLock {
+      let object = objects.removeValue(forKey: handle)
+      if let object { identities.removeValue(forKey: ObjectIdentifier(object)) }
+      return object
+    }
+    // Native deinitializers can call back into the registry on another executor.
+    withExtendedLifetime(retained) {}
+  }
 }
