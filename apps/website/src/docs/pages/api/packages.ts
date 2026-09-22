@@ -37,7 +37,7 @@ export const page: DocPage = {
       kind: "table",
       head: ["Package", "Purpose", "Reference"],
       rows: [
-        ["`@lucent-lang/cli`", "`lucent build | check | init | sdk`", "[CLI](/docs/api/cli/)"],
+        ["`@lucent-lang/cli`", "`lucent build | check | init | doctor | explain | ir | clean | sdk`; runs via `npx @lucent-lang/cli`", "[CLI](/docs/api/cli/)"],
         ["`@lucent-lang/metro`", "`withLucent(config, { host })`", "[integrations](/docs/api/integrations/)"],
         ["`@lucent-lang/expo`", "config plugin for `expo prebuild`", "[integrations](/docs/api/integrations/)"],
         ["`@lucent-lang/sdk`", "manifest generation from `.swiftinterface` and `android.jar`", "[library manifest](/docs/api/library-manifest/)"],

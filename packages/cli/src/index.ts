@@ -9,6 +9,8 @@ import { nitroHost } from "@lucent-lang/host-nitro";
 
 export type HostName = "expo" | "nitro";
 
+export const HOST_NAMES = ["expo", "nitro"] as const satisfies readonly HostName[];
+
 export const HOSTS: Readonly<Record<HostName, Host>> = { expo: expoHost, nitro: nitroHost };
 
 /** Where each host's package lives, relative to the project root. */
@@ -19,7 +21,7 @@ const OUT_DIRS: Readonly<Record<HostName, string>> = {
 
 export const defaultOutDir = (host: HostName): string => OUT_DIRS[host];
 
-const SKIP_DIRS: ReadonlySet<string> = new Set([
+export const SKIP_DIRS: ReadonlySet<string> = new Set([
   "node_modules",
   ".git",
   ".lucent",
