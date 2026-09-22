@@ -1,9 +1,7 @@
-import { readFileSync } from "node:fs";
-
 /**
  * Hand-written Swift lives in `native/` as real source, not TypeScript string
  * literals: editors highlight it, formatters reach it, and `swiftc` checks it
- * directly. Read eagerly — these are a few kilobytes read once per build.
+ * directly. It is embedded rather than read back, because a bundled host
+ * resolves a runtime path beside the bundle instead of into this package.
  */
-export const nativeSwift = (file: string): string =>
-  readFileSync(new URL(`../native/${file}`, import.meta.url), "utf8");
+export { nativeSource as nativeSwift } from "./native-sources.generated.ts";

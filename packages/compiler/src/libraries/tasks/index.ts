@@ -1,6 +1,6 @@
 import type { LibraryModule, NativeBinding } from "../../libraries.ts";
 import { nativeSymbolId } from "../../native-contracts.ts";
-import { nativeSource } from "../native-sources.generated.ts";
+import { nativeSource } from "../../native-sources.generated.ts";
 const operations = {
   TaskScope__create: ["return LucentTaskScope()", "return LucentTaskScope()"],
   TaskScope__get_closing: ["return lucentSelf.closing", "return lucentSelf.closing"],

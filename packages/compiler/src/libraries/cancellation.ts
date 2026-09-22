@@ -1,5 +1,5 @@
 import type { LibraryModule } from "../libraries.ts";
-import { nativeSource } from "./native-sources.generated.ts";
+import { nativeSource } from "../native-sources.generated.ts";
 import { nativeSymbolId } from "../native-contracts.ts";
 const symbol = (name: string, abi: string) => nativeSymbolId("Lucent", "CancellationSource", name, abi);
 export const CANCELLATION_LIBRARY: LibraryModule = {

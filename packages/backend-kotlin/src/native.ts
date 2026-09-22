@@ -1,9 +1,8 @@
-import { readFileSync } from "node:fs";
-
 /**
  * Hand-written Kotlin lives in `native/` as real source, not TypeScript string
  * literals: editors highlight it, formatters reach it, `kotlinc` checks it
- * directly, and JSON/string escapes stop needing a second layer of backslashes.
+ * directly, and JSON escapes stop needing a second layer of backslashes. It is
+ * embedded rather than read back, because a bundled host resolves a runtime
+ * path beside the bundle instead of into this package.
  */
-export const nativeKotlin = (file: string): string =>
-  readFileSync(new URL(`../native/${file}`, import.meta.url), "utf8");
+export { nativeSource as nativeKotlin } from "./native-sources.generated.ts";
