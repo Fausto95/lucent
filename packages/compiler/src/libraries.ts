@@ -1,3 +1,4 @@
+import { TASKS_LIBRARY } from "./libraries/tasks/index.ts";
 import { CANCELLATION_LIBRARY } from "./libraries/cancellation.ts";
 import type { NativeCallContract, NativeObjectContract } from "./native-contracts.ts";
 import type { NativeEnumBinding, NativeType } from "./types/native-type.ts";
@@ -57,6 +58,7 @@ export interface LibraryModule {
 export const STANDARD_LIBRARIES: Readonly<Record<string, LibraryModule>> = {
   ...NATIVE_LIBRARIES,
   "@lucent-lang/core/cancellation": CANCELLATION_LIBRARY,
+  "@lucent-lang/core/tasks": TASKS_LIBRARY,
   "@lucent-lang/core/platform": {
     source: "export declare function Platform(): string;",
     bindings: { Platform: { swift: ['return "ios"'], kotlin: ['return "android"'], platformQuery: true } },

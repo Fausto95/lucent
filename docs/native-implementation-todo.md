@@ -19,7 +19,7 @@ commits. This user instruction overrides the older tests-first commit rule in
 | Package cleanup               | Completed       | `std` and the bundled mini stdlib are gone; the rest carry real layers     |
 | Native contracts              | Partial         | Remaining symbol kinds, enforcement, cache coverage, provenance            |
 | Overload resolution           | Partial         | Methods/constructors, callback contexts, conversions, availability ranking |
-| Async object lifetime         | Partial         | SDK task scopes, host cancel/close races, runtime close quiesce            |
+| Async object lifetime         | Partial         | SDK task adapters, host cancel/close races, runtime close quiesce          |
 | Native closures               | Partial         | Closure-owned resource cells; indirect executor/error preservation         |
 | Delegates/interfaces          | Not implemented | Conformance, subscriptions, delivery/error policies                        |
 | Lucent-owned component state  | Partial         | Component IR, `@State`/`remember` identity, resource slots, record events  |
@@ -180,9 +180,13 @@ Evidence: `overloads.test.ts`, SDK extraction tests, `verify-runtime.ts`.
 - [x] Add a native cooperative `CancellationSource` with synchronized/atomic
       state, idempotent cancellation, typed `CANCELLED` checkpoints, and explicit
       async transferability. Execute concurrent cancellation on both toolchains.
-- [ ] Add scope-owned operation tracking for arbitrary SDK tasks, and
-      SDK-specific cancellation adapters. Child `CancellationSource.scope()`
-      propagation is implemented; general task scopes are not.
+- [x] Add `@lucent-lang/core/tasks` operation tracking with synchronized task
+      records, cancellation requests, exactly-once completion, and asynchronous
+      close that waits for actual completion. Execute repeated close and concurrent
+      completion on Swift and Kotlin.
+- [ ] Connect operation scopes to SDK-specific cancellation adapters; adapters
+      must retain tasks and finish them on every real completion/error path.
+      Disposing a handle does not close a scope or complete an SDK operation.
 - [ ] Exercise cancellation during suspension and cancellation/close races
       against actual Expo/Nitro host scheduling.
 - [x] Define exactly-once completion under success/cancel races on
@@ -346,13 +350,16 @@ scopes and runtime close quiesce are not implemented.
 
 ## Latest verification checkpoint
 
-- Unit suite: 601 passing tests across 71 files after public package consolidation,
+- Unit suite: 604 passing tests across 73 files after native task scopes, async
+  SDK method retention, public package consolidation,
   authoring declarations and JSX key-selector corrections, diagnostic namespacing,
   native adapter dependency validation, lossless numeric SDK arguments, and
   structured Swift SDK extraction.
 - Full `pnpm verify` and package compilation pass, including execution of every
   allowed numeric widening at its range boundaries on Swift and Kotlin, plus
-  real Swift symbol graph extraction and generated binding execution.
+  real Swift symbol graph extraction and generated binding execution. Task scope
+  verification covers cancellation/completion races, concurrent completion,
+  repeated close, rejection after close, and waiting for all accepted work.
 - Website build passes with updated SDK extraction and overload documentation.
 - Full app/device builds below are from the preceding checkpoint; these new
   compiler slices do not constitute a new four-host or physical-device run.

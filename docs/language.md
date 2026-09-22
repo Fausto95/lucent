@@ -847,3 +847,29 @@ await completion before converting the result, and release transit retention on
 success, native rejection, or conversion failure. Immediate `dispose()` rejects
 new calls without invalidating an accepted method call. Async methods still
 require owned, transferable, executor-neutral SDK reference contracts.
+
+### Native task scopes
+
+Import `TaskScope` and `NativeTask` from `@lucent-lang/core/tasks` to track native
+operations across suspension. Create a scope with `new TaskScope()` and register
+work with `scope.begin()` (or `new NativeTask(scope)`). `scope.activeCount` counts
+operations that have not actually completed.
+
+`await scope.close()` atomically rejects new work with `CLOSED_SCOPE`, requests
+cancellation for every active task, and waits until every task calls `finish()`.
+Multiple callers may await close. `scope.closing` becomes true as soon as close
+starts and remains true. An empty scope closes immediately.
+
+A task exposes `cancelled`, `finished`, `cancel()`, `throwIfCancelled()`, and
+`finish()`. Cancellation is cooperative; checkpoints throw `CANCELLED`.
+`finish()` records completion exactly once and returns true only for the first
+completion when cancellation has not already won. A cancelled task still needs
+to finish before its scope can close. Cancelling an already finished task has no
+effect. Scope/task state is synchronized on both native targets.
+
+SDK adapters must retain each task and call `finish()` on every actual completion
+or error path, after their cleanup. This primitive does not automatically cancel
+SDK work or attach to arbitrary platform tasks. If an adapter never reports
+completion, close remains pending. Do not await scope close from work that must
+itself finish before that close can return. `dispose()` invalidates a bridge
+handle; it neither requests cancellation nor reports operation completion.

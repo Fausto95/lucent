@@ -25,7 +25,8 @@
     "metro.cjs",
     "metro.d.ts",
     "expo.cjs",
-    "expo.d.ts"
+    "expo.d.ts",
+    "tasks.d.ts"
   ],
   "type": "module",
   "exports": {
@@ -71,6 +72,9 @@
     "./expo": {
       "types": "./expo.d.ts",
       "default": "./expo.cjs"
+    },
+    "./tasks": {
+      "types": "./tasks.d.ts"
     }
   },
   "publishConfig": {
