@@ -6,6 +6,11 @@ export const page: DocPage = {
   description:
     "Lucent compiles a typed subset of TypeScript to Swift and Kotlin ahead of time. Write native React Native modules and views without leaving TypeScript.",
   blocks: [
+    {
+      kind: "note",
+      tone: "warn",
+      text: "**Very early and experimental — do not use Lucent in production.** The language, the generated native code and every `@lucent-lang/*` API change without notice and without a migration path, and there are gaps and bugs you will hit. Both example apps in the repository pass on iOS and Android with Expo SDK 58 and Nitro 0.37; that is the extent of what has been exercised.",
+    },
     { kind: "h2", text: "What it is" },
     {
       kind: "p",
@@ -55,11 +60,6 @@ export const page: DocPage = {
     {
       kind: "p",
       text: "Lucent is not TypeScript with a native backend. The subset is listed on the [language](/docs/language/) and [functions](/docs/language/functions-and-control-flow/) pages: no `any`, no generics, no `switch`, no `try`/`catch`, no dynamic property access. Arrow callbacks exist inside native code, with explicit captures; a function value still cannot cross into JavaScript. Everything outside the subset fails with an `LUCENT` diagnostic at build time. It is also not a UI framework: React owns app state and effects. A view may keep control state on the host instance.",
-    },
-    {
-      kind: "note",
-      tone: "warn",
-      text: "Pre-release. The language and the package APIs will change before 0.1.0. Both example apps in the repository pass on iOS and Android with Expo SDK 58 and Nitro 0.37.",
     },
     { kind: "h2", text: "Where to go next" },
     {

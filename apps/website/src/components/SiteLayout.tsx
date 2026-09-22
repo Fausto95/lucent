@@ -3,6 +3,7 @@ import { Link, Outlet, useLocation } from "@tanstack/react-router";
 import { styles } from "./SiteLayout.stylex";
 import { Brand } from "./Brand";
 import { ClipboardProvider } from "./ClipboardProvider";
+import { ExperimentalBanner } from "./ExperimentalBanner";
 import { ThemeProvider } from "./ThemeProvider";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -18,6 +19,7 @@ export function SiteLayout() {
           Skip to content
         </a>
         <div {...stylex.props(styles.pageShell)}>
+          <ExperimentalBanner />
           <header {...stylex.props(styles.header)}>
             <Brand />
             <nav aria-label="Main navigation" {...stylex.props(styles.mainNav)}>
