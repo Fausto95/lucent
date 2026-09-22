@@ -28,7 +28,7 @@ export const page: DocPage = {
     {
       kind: "list",
       items: [
-        "No implicit conversion between numeric types (`LUCENT1011`).",
+        "Arithmetic and ordinary Lucent calls keep numeric types strict (`LUCENT1011`). SDK arguments may widen losslessly: larger same-sign integers, unsigned to a larger signed integer, integers up to 16 bits to float32 or up to 32 bits to float64, and float32 to float64. Narrowing and precision loss are rejected.",
         "Integer literals adopt the sized type of their context: `const n: int32 = 1`.",
         "Arithmetic on sized integers wraps on overflow.",
       ],

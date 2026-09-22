@@ -74,7 +74,7 @@ export const page: DocPage = {
         ["`Name__create`", "`new Name(...)`", "must be synchronous"],
         ["`Name__get_prop`", "`object.prop`", "instance operations take `lucentSelf: Name` first"],
         ["`Name__set_prop`", "`object.prop = value`", "simple assignment only; omit for read-only"],
-        ["`Name__method_run`", "`object.run(...)`", "give overloads distinct Lucent names"],
+        ["`Name__method_run`", "`object.run(...)`", "use an overload group for supported argument-based dispatch"],
       ],
     },
     {
@@ -136,7 +136,7 @@ export const page: DocPage = {
     {
       kind: "note",
       tone: "warn",
-      text: "Not implemented yet: automatic overload resolution, protocol and delegate implementations in Lucent source, Objective-C and Kotlin-metadata import, availability by OS version. These APIs need a curated manifest today.",
+      text: "Overload groups support free functions, constructors and methods; exact matches win over lossless numeric widening. Native availability is checked against configured minimum targets. Protocol and delegate implementations, Objective-C and Kotlin metadata import, contextual callback overloads, and runtime availability checks remain incomplete.",
     },
   ],
 };

@@ -41,7 +41,7 @@ export const page: DocPage = {
         ["`@lucent-lang/cli`", "`lucent build | check | init | doctor | explain | ir | clean | sdk`; runs via `npx @lucent-lang/cli`", "[CLI](/docs/api/cli/)"],
         ["`@lucent-lang/metro`", "`withLucent(config, { host })`", "[integrations](/docs/api/integrations/)"],
         ["`@lucent-lang/expo`", "config plugin for `expo prebuild`", "[integrations](/docs/api/integrations/)"],
-        ["`@lucent-lang/sdk`", "manifest generation from `.swiftinterface` and `android.jar`", "[library manifest](/docs/api/library-manifest/)"],
+        ["`@lucent-lang/sdk`", "manifest generation from Swift symbol graphs, `.swiftinterface` and `android.jar`", "[library manifest](/docs/api/library-manifest/)"],
         ["`@lucent-lang/compiler`, `host-core`, `host-expo`, `host-nitro`, `backend-swift`, `backend-kotlin`", "the compiler itself; programmatic use only", "[how it works](/docs/how-it-works/#architecture)"],
       ],
     },

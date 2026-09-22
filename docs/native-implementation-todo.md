@@ -24,7 +24,7 @@ commits. This user instruction overrides the older tests-first commit rule in
 | Delegates/interfaces          | Not implemented | Conformance, subscriptions, delivery/error policies                        |
 | Lucent-owned component state  | Partial         | Component IR, `@State`/`remember` identity, resource slots, record events  |
 | Keyed composition and effects | Not implemented | Identity, keyed/lazy collections, effects, refs                            |
-| Structured SDK extraction     | Not implemented | Apple/JVM metadata adapters and curated overlays                           |
+| Structured SDK extraction     | Partial         | Swift members/protocols, Clang/JVM/Kotlin adapters and overlays            |
 | Camera acceptance feature     | Not implemented | Permissions, preview, sessions, frames, Lucent processor                   |
 | Release acceptance            | Open            | Four host/platform combinations and physical-device evidence               |
 
@@ -273,12 +273,20 @@ scopes and runtime close quiesce are not implemented.
 
 ## M7 — SDK extraction and packages
 
-- [ ] Add Swift symbol graph and selected Clang/Objective-C extraction adapters.
+- [x] Read Swift compiler symbol graphs (format 0.6) for public scalar free
+      functions, preserving native symbol IDs, labels, and overloads. Compile and
+      execute generated bindings from an actual compiler-produced test SDK.
+- [ ] Extend structured Swift extraction to members and protocols; add selected
+      Clang/Objective-C adapters.
 - [ ] Add JVM annotation/class-signature and Kotlin metadata extraction.
 - [ ] Add curated ownership/executor/availability/callback overlays.
 - [ ] Support enums, option sets, concrete generics, and inherited members.
-- [ ] Emit machine-readable coverage reports for unsupported declarations.
-- [ ] Pin toolchain/schema/overlay versions and fingerprint extraction inputs.
+- [x] Emit per-symbol machine-readable coverage for structured Swift graphs,
+      including unsupported declarations and all-unsupported inputs.
+- [ ] Extend coverage reporting to every other extraction adapter.
+- [x] Fingerprint structured Swift graph inputs and record extractor version,
+      format, compiler generator, and platform metadata.
+- [ ] Add equivalent toolchain/schema/overlay fingerprints for other adapters.
 - [ ] Generate declarations, compiler metadata, and native manifests together.
 - [ ] Extract and execute an overload and protocol/interface from representative
       Apple and Android/Kotlin SDKs.
@@ -334,11 +342,13 @@ scopes and runtime close quiesce are not implemented.
 
 ## Latest verification checkpoint
 
-- Unit suite: 577 passing tests across 68 files after diagnostic namespacing,
-  native adapter dependency validation, and lossless numeric SDK arguments.
+- Unit suite: 584 passing tests across 70 files after diagnostic namespacing,
+  native adapter dependency validation, lossless numeric SDK arguments, and
+  structured Swift SDK extraction.
 - Full `pnpm verify` and package compilation pass, including execution of every
-  allowed numeric widening at its range boundaries on Swift and Kotlin.
-- Website build passed for the diagnostic namespace migration.
+  allowed numeric widening at its range boundaries on Swift and Kotlin, plus
+  real Swift symbol graph extraction and generated binding execution.
+- Website build passes with updated SDK extraction and overload documentation.
 - Full app/device builds below are from the preceding checkpoint; these new
   compiler slices do not constitute a new four-host or physical-device run.
 

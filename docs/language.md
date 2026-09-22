@@ -802,3 +802,24 @@ integer narrowing, `int64`/`uint64` to floating point, and `float64` to `float32
 are rejected for variables. Ordinary authored Lucent functions and arithmetic
 retain their strict numeric type rules. This does not add numeric conversion
 inside arrays, records, or optional values.
+
+### Structured Swift SDK extraction
+
+`lucent sdk swift-symbolgraph SDK.symbols.json --out sdk/bindings` reads Swift
+compiler symbol graph format 0.6. The graph supplies its module name, stable
+symbol identities, function signatures, and argument labels. Supported public
+scalar free functions generate overload declarations and native bindings through
+the same package API as curated adapters.
+
+Alongside `schema.json`, `library.json`, and `index.d.ts`, the command writes
+`coverage.json`: every symbol is either supported or skipped with a reason.
+Coverage includes the SHA-256 of the input, extractor version, graph format,
+compiler generator string, and graph platform metadata. A graph with no supported
+symbols still writes coverage and exits unsuccessfully. Unknown graph formats
+and duplicate symbol identities fail explicitly.
+
+This first structured adapter reports protocols, members, generics, unsupported
+effects, and availability annotations as skipped. It does not infer ownership,
+thread safety, or iOS availability from a macOS graph. Review the extraction
+platform and supply curated contracts for platform-specific SDK APIs. Clang,
+Objective-C, JVM class metadata, and Kotlin metadata adapters remain pending.

@@ -9,7 +9,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "terminal",
-      code: "npx @lucent-lang/cli init      # wire an Expo or bare React Native app\nnpx @lucent-lang/cli doctor    # check the toolchain and the wiring\n\nlucent build [--host expo|nitro] [--out <dir>] [--emit-ir] [--force] [--no-postgen] [--watch] [files…]\nlucent check [--watch] [files…]\nlucent init [--host expo|nitro] [--yes]\nlucent doctor [--host expo|nitro]\nlucent explain [code]\nlucent ir <file>\nlucent clean [--out <dir>] [--dry-run]\nlucent sdk swift <file.swiftinterface> --module <Module> --out <dir>\nlucent sdk android <javap.txt> --out <dir>\nlucent sdk android - --classpath <android.jar> --class <qualified.Class> --out <dir>",
+      code: "npx @lucent-lang/cli init      # wire an Expo or bare React Native app\nnpx @lucent-lang/cli doctor    # check the toolchain and the wiring\n\nlucent build [--host expo|nitro] [--out <dir>] [--emit-ir] [--force] [--no-postgen] [--watch] [files…]\nlucent check [--watch] [files…]\nlucent init [--host expo|nitro] [--yes]\nlucent doctor [--host expo|nitro]\nlucent explain [code]\nlucent ir <file>\nlucent clean [--out <dir>] [--dry-run]\nlucent sdk swift <file.swiftinterface> --module <Module> --out <dir>\nlucent sdk swift-symbolgraph <file.symbols.json> --out <dir>\nlucent sdk android <javap.txt> --out <dir>\nlucent sdk android - --classpath <android.jar> --class <qualified.Class> --out <dir>",
     },
     {
       kind: "p",
@@ -131,7 +131,7 @@ export const page: DocPage = {
     { kind: "h2", text: "lucent sdk" },
     {
       kind: "p",
-      text: "Generates a [library manifest](/docs/api/library-manifest/) from platform SDK interfaces. Writes `schema.json` (versioned, with extraction diagnostics), `library.json` (the bindings) and `index.d.ts` (editor declarations) to `--out`.",
+      text: "Generates a [library manifest](/docs/api/library-manifest/) from platform SDK interfaces. Writes `schema.json` (versioned, with extraction diagnostics), `library.json` (the bindings) and `index.d.ts` (editor declarations) to `--out`. The `swift-symbolgraph` adapter reads Swift graph format 0.6 and also writes `coverage.json` with per-symbol support status, skip reasons, compiler metadata and an input fingerprint. It currently supports public scalar free functions and overloads; members, protocols, generics and APIs requiring contract overlays remain unsupported.",
     },
     {
       kind: "code",
@@ -143,7 +143,7 @@ export const page: DocPage = {
       items: [
         "Swift: single-line public free functions. Parameter labels and `throws` are kept.",
         "Android: public static methods, via `javap -public`. Pass a saved javap listing instead of `-` to skip running javap.",
-        "Supported scalar types: `Double`/`double`, `String`, `Bool`/`boolean`, `Int32`/`int`, `void`. Overloads, instance methods, callbacks, generics and availability-gated declarations are reported in `schema.json` and omitted.",
+        "Supported scalar types: `Double`/`double`, `String`, `Bool`/`boolean`, `Int32`/`int`, `void`. Supported scalar overloads are preserved and selected by argument types. Unsupported instance members, callbacks, generics and availability-gated declarations are reported and omitted.",
       ],
     },
     { kind: "h2", text: "Programmatic use" },

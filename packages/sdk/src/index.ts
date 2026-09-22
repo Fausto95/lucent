@@ -1,99 +1,18 @@
+export { extractSwiftSymbolGraph } from "./symbolgraph.ts";
 import { createHash } from "node:crypto";
 import { nativeSymbolId } from "@lucent-lang/compiler";
 import type { LibraryModule, NativeBinding } from "@lucent-lang/compiler";
-export type SDKPlatform = "ios" | "android";
-export interface SDKParameter {
-  name: string;
-  nativeType: string;
-  label?: string;
-}
-export interface SDKFunction {
-  name: string;
-  nativeName: string;
-  parameters: SDKParameter[];
-  returnType: string;
-  throws?: boolean;
-}
-export interface SDKClass {
-  name: string;
-  nativeName: string;
-  constructor: { parameters: SDKParameter[]; throws?: boolean };
-  properties: { name: string; nativeType: string; getter?: string; setter?: string }[];
-  /** Distinct public names explicitly select native overloads. */
-  methods: SDKFunction[];
-}
-export interface SDKSchema {
-  classes?: SDKClass[];
-  version: 1;
-  platform: SDKPlatform;
-  module: string;
-  functions: SDKFunction[];
-  diagnostics: string[];
-}
-interface Mapping {
-  lucent: string;
-  argument: (value: string) => string;
-  result: (value: string) => string;
-}
-const identity = (value: string) => value;
-const mapping = (lucent: string, argument = identity, result = identity): Mapping => ({ lucent, argument, result });
-const swiftTypes: Record<string, Mapping> = {
-  Double: mapping("number"),
-  String: mapping("string"),
-  Bool: mapping("boolean"),
-  Void: mapping("void"),
-  "()": mapping("void"),
-  Int32: mapping("int32"),
-};
-const javaTypes: Record<string, Mapping> = {
-  double: mapping("number"),
-  boolean: mapping("boolean"),
-  int: mapping("int32"),
-  void: mapping("void"),
-  "java.lang.String": mapping("string"),
-  String: mapping("string"),
-};
-const types = (platform: SDKPlatform) => (platform === "ios" ? swiftTypes : javaTypes);
-const nativeType = (name: string) => name.trim().replace(/^Swift\./, "");
-const safeIdentifier = (name: string) =>
-  /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) &&
-  ![
-    "default",
-    "return",
-    "class",
-    "function",
-    "new",
-    "var",
-    "let",
-    "const",
-    "delete",
-    "switch",
-    "case",
-    "throw",
-    "try",
-    "catch",
-    "repeat",
-    "when",
-    "is",
-    "in",
-  ].includes(name);
-function validate(schema: SDKSchema): SDKSchema {
-  schema.functions = schema.functions.filter((f) => {
-    if (!safeIdentifier(f.name) || f.parameters.some((p) => !safeIdentifier(p.name))) {
-      schema.diagnostics.push(`Skipped ${f.name}: unsupported identifier`);
-      return false;
-    }
-    if (
-      !types(schema.platform)[nativeType(f.returnType)] ||
-      f.parameters.some((p) => !types(schema.platform)[nativeType(p.nativeType)])
-    ) {
-      schema.diagnostics.push(`Skipped ${f.name}: unsupported SDK type`);
-      return false;
-    }
-    return true;
-  });
-  return schema;
-}
+import {
+  types,
+  nativeType,
+  safeIdentifier,
+  mapping,
+  validateSDKSchema,
+  type SDKSchema,
+  type SDKParameter,
+  type Mapping,
+} from "./schema.ts";
+export type { SDKPlatform, SDKParameter, SDKFunction, SDKClass, SDKSchema } from "./schema.ts";
 /** Declaration-only Swift interface subset. Unsupported APIs are reported, never guessed. */
 export function extractSwiftInterface(source: string, module: string): SDKSchema {
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(module)) throw new Error("Invalid Swift module");
@@ -131,7 +50,7 @@ export function extractSwiftInterface(source: string, module: string): SDKSchema
     }
     depth += (text.match(/{/g)?.length ?? 0) - (text.match(/}/g)?.length ?? 0);
   }
-  return validate(schema);
+  return validateSDKSchema(schema);
 }
 /** Consumes javap -public output from android.jar or another trusted SDK classpath. */
 export function extractJavaSignatures(source: string): SDKSchema {
@@ -155,7 +74,7 @@ export function extractJavaSignatures(source: string): SDKSchema {
       returnType: match[1]!,
     });
   }
-  return validate(schema);
+  return validateSDKSchema(schema);
 }
 export function generateBindingLibrary(schema: SDKSchema): { library: LibraryModule; declarations: string } {
   const signatures: string[] = [];
@@ -172,7 +91,7 @@ export function generateBindingLibrary(schema: SDKSchema): { library: LibraryMod
     const symbolId = nativeSymbolId(
       schema.module,
       schema.module,
-      fn.nativeName,
+      fn.nativeId ?? fn.nativeName,
       JSON.stringify([
         fn.parameters.map((p) => [p.label ?? "_", nativeType(p.nativeType)]),
         nativeType(fn.returnType),

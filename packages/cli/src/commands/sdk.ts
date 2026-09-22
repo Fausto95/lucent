@@ -4,11 +4,16 @@ import { defineCommand } from "./types.ts";
 export const sdkCommand = defineCommand({
   name: "sdk",
   glyph: "sdk",
-  summary: "Extract native bindings from a Swift interface or a javap listing",
-  usage: "swift <file.swiftinterface> --module <Module> --out <dir> | android <javap.txt|-> --out <dir>",
+  summary: "Extract native bindings from Swift metadata or javap",
+  usage:
+    "swift <file.swiftinterface> --module <Module> --out <dir> | swift-symbolgraph <file.symbols.json> | android <javap.txt|-> --out <dir>",
   options: {},
   raw: true,
   examples: [
+    {
+      command: "lucent sdk swift-symbolgraph SDK.symbols.json --out sdk/bindings",
+      note: "Structured Swift metadata with coverage and input fingerprints",
+    },
     {
       command: "lucent sdk swift Foundation.swiftinterface --module Foundation --out sdk/foundation",
       note: "Bindings for public Swift free functions",
