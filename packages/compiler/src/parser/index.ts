@@ -123,6 +123,8 @@ class Converter {
     private readonly threads: ReadonlyMap<number, ThreadContext>,
     private readonly libraries: ReadonlySet<string>,
     private readonly nativeOnly: ReadonlySet<number>,
+    private readonly sidecar: ReadonlySet<number> = new Set(),
+    private readonly capabilities: ReadonlyMap<number, string[]> = new Map(),
   ) {}
   readonly diagnostics: Diagnostic[] = [];
   readonly imports: SurfaceImport[] = [];
@@ -424,6 +426,8 @@ class Converter {
       name: node.id.name,
       ...this.threadAnnotation(node.start),
       ...(this.nativeOnly.has(node.start) ? { nativeOnly: true } : {}),
+      ...(this.sidecar.has(node.start) ? { sidecar: true } : {}),
+      ...(this.capabilities.has(node.start) ? { capabilities: this.capabilities.get(node.start)! } : {}),
       exported,
       async: node.async,
       params,
@@ -962,8 +966,15 @@ export function parseModule(source: string, fileName: string, libraries: Readonl
     sourceType: "module",
     preserveParens: false,
   });
-  const decorators = functionDecorators(source, masked.source, result.program.body, masked.decorators, result.comments);
-  const converter = new Converter(source, decorators.threads, libraries, decorators.nativeOnly);
+  const decorators = functionDecorators(masked.source, result.program.body, masked.decorators, result.comments);
+  const converter = new Converter(
+    source,
+    decorators.threads,
+    libraries,
+    decorators.nativeOnly,
+    decorators.sidecar,
+    decorators.capabilities,
+  );
   converter.diagnostics.push(...decorators.diagnostics);
   for (const error of result.errors) {
     if (error.severity !== "Error") continue;

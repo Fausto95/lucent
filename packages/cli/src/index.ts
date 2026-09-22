@@ -3,7 +3,15 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { COMPILER_VERSION, compile, printIR, renderDiagnostic, type IRModule } from "@lucent-lang/compiler";
-import { capabilityFiles, loadLucentConfig, loadLucentSources, type FileTree, type Host } from "@lucent-lang/host-core";
+import {
+  capabilityFiles,
+  loadLucentConfig,
+  loadLucentSources,
+  loadNativeSidecars,
+  type FileTree,
+  type Host,
+  type NativeSidecars,
+} from "@lucent-lang/host-core";
 import { expoHost } from "@lucent-lang/host-expo";
 import { nitroHost } from "@lucent-lang/host-nitro";
 
@@ -110,14 +118,22 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
   const compiled: string[] = [];
   const cachedFiles: string[] = [];
   const diagnostics: BuildDiagnostic[] = [];
+  const sidecars: NativeSidecars = { swift: {}, kotlin: {} };
 
   for (const file of files) {
     const rel = relative(root, file);
     const source = readFileSync(file, "utf8");
     const sources = loadLucentSources(file, source);
+    // Sidecars are part of the module's native output, so a change to one has
+    // to miss the cache exactly as a change to the Lucent source does.
+    const moduleSidecars = loadNativeSidecars(Object.keys(sources));
+    // Merged before the cache check: a cached module still ships its sidecars.
+    Object.assign(sidecars.swift, moduleSidecars.swift);
+    Object.assign(sidecars.kotlin, moduleSidecars.kotlin);
     const hash = hashOf(
       JSON.stringify([
         Object.entries(sources).toSorted(([a], [b]) => a.localeCompare(b)),
+        moduleSidecars,
         config.libraries,
         config.targets,
       ]),
@@ -167,7 +183,7 @@ export async function build(options: BuildOptions): Promise<BuildResult> {
     return { ok: false, outDir, compiled, cached: cachedFiles, diagnostics };
 
   const host = HOSTS[options.host];
-  const tree = host.emitPackage(modules, { packageName: "lucent" });
+  const tree = host.emitPackage(modules, { packageName: "lucent", sidecars });
   for (const [path, contents] of capabilityFiles(config.platformConfig)) tree.set(path, contents);
   tree.set(
     "lucent-manifest.json",

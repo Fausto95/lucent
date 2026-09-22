@@ -14,6 +14,7 @@ export type { Diagnostic, DiagnosticCode, Span } from "./diagnostics/index.ts";
 export { DIAGNOSTIC_CODES, renderDiagnostic } from "./diagnostics/index.ts";
 export type * from "./ir/types.ts";
 export { printIR } from "./ir/print.ts";
+export { sidecarSymbol } from "./linker.ts";
 export type { NativeType } from "./types/native-type.ts";
 export { typeToString, typeEquals, isNumeric, T } from "./types/native-type.ts";
 

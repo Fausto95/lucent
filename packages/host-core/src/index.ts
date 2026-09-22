@@ -3,6 +3,7 @@ export { jsType, needsConversion, convert, type ConversionPolicy } from "./conve
 import { classDeclarations } from "./objects.ts";
 /** What every host backend implements, plus the JS-facing pieces both hosts share. */
 import { hasChildSlot, viewProps } from "./views.ts";
+import type { NativeSidecars } from "./sources.ts";
 import type { IRFunction, IRModule, IRStruct, NativeType } from "@lucent-lang/compiler";
 
 /** Relative path → file contents. */
@@ -11,6 +12,8 @@ export type FileTree = Map<string, string>;
 export interface EmitOptions {
   /** Name of the generated native package/module folder (e.g. `lucent`). */
   packageName: string;
+  /** Hand-written native files sitting beside the app's Lucent sources. */
+  sidecars?: NativeSidecars;
 }
 
 export interface Host {
@@ -116,7 +119,7 @@ export function runtimeImport(body: string): string {
   return `import { ${names.join(", ")} } from "@lucent-lang/core/runtime";`;
 }
 
-export { loadLucentSources } from "./sources.ts";
+export { loadLucentSources, loadNativeSidecars, emitNativeSidecars, type NativeSidecars } from "./sources.ts";
 
 export { loadLucentConfig, sourceProjectRoot, type LucentConfig } from "./config.ts";
 

@@ -3,7 +3,7 @@ import { event } from "@lucent-lang/core/events";
 import { abs, sqrt } from "@lucent-lang/core/math";
 import { Platform } from "@lucent-lang/core/platform";
 import { copyBytes, decodeUTF8, encodeUTF8 } from "@lucent-lang/core";
-import { deviceModel, readFile, sha256, temporaryDirectory, writeFile } from "@lucent-lang/example-toolkit";
+import { deviceModel, readFile, sha256, temporaryDirectory, writeFile } from "./toolkit.lucent";
 export type Result = { kind: "ok"; value: number } | { kind: "error"; message: string };
 export const progress = event<number>();
 export function report(value: number): void {

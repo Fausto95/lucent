@@ -1,6 +1,6 @@
 import { blank, block, render, sections, type Doc } from "@lucent-lang/codegen";
 import { fillNative } from "@lucent-lang/codegen";
-import { emitNativePackages } from "@lucent-lang/host-core";
+import { emitNativePackages, emitNativeSidecars } from "@lucent-lang/host-core";
 import { nativeAsset } from "./native.ts";
 import { emitViews, nativeViewEvent } from "./views.ts";
 /**
@@ -86,7 +86,7 @@ function emitPackage(modules: IRModule[], options: EmitOptions): FileTree {
   );
   files.set(
     "package.json",
-    JSON.stringify({ name: `${options.packageName}-native`, version: "0.0.0", private: true }, null, 2) + "\n",
+    JSON.stringify({ name: `${options.packageName}-lang`, version: "0.0.0", private: true }, null, 2) + "\n",
   );
   files.set(".gitignore", "*\n");
   files.set(`ios/${ident}.podspec`, podspec(ident));
@@ -131,6 +131,7 @@ function emitPackage(modules: IRModule[], options: EmitOptions): FileTree {
         "\n",
     );
   }
+  emitNativeSidecars(files, options.sidecars, androidDir, ANDROID_PACKAGE);
   emitNativePackages(files, modules, ANDROID_PACKAGE);
   emitViews(files, modules, ANDROID_PACKAGE);
   return files;

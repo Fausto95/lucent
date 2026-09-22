@@ -98,6 +98,10 @@ export interface SurfaceParam {
 
 export interface SurfaceFunction {
   nativeOnly?: boolean;
+  /** `@Native`: implemented by a sidecar native file, not by a manifest binding. */
+  sidecar?: boolean;
+  /** `@Capability(...)`: capability names the native implementation requires. */
+  capabilities?: string[];
   ambient?: boolean;
   classOp?: { className: string; member: string; kind: "constructor" | "method" | "get" | "set" };
   event?: { name: string; id: string; exported: boolean };

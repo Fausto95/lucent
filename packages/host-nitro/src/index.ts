@@ -1,6 +1,6 @@
 import { block, indent, render, sections, type Doc } from "@lucent-lang/codegen";
 import { fillNative } from "@lucent-lang/codegen";
-import { emitNativePackages } from "@lucent-lang/host-core";
+import { emitNativePackages, emitNativeSidecars } from "@lucent-lang/host-core";
 import { nativeAsset } from "./native.ts";
 import { emitViews } from "./views.ts";
 /**
@@ -94,7 +94,7 @@ function emitPackage(modules: IRModule[], options: EmitOptions): FileTree {
     "package.json",
     JSON.stringify(
       {
-        name: `${options.packageName}-native`,
+        name: `${options.packageName}-lang`,
         version: "0.0.0",
         private: true,
         main: "src/index.ts",
@@ -197,6 +197,7 @@ function emitPackage(modules: IRModule[], options: EmitOptions): FileTree {
         "\n",
     );
   }
+  emitNativeSidecars(files, options.sidecars, ANDROID_DIR, ANDROID_PACKAGE);
   emitNativePackages(files, modules, ANDROID_PACKAGE);
   emitViews(files, modules, ANDROID_PACKAGE);
   return files;

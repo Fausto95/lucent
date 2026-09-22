@@ -1,7 +1,7 @@
 import { encodeUTF8 } from "@lucent-lang/core";
 import { event } from "@lucent-lang/core/events";
 import { SharedObject } from "@lucent-lang/core/objects";
-import { sha256 } from "@lucent-lang/example-toolkit";
+import { sha256 } from "./toolkit.lucent";
 
 export const recorded = event<number>();
 

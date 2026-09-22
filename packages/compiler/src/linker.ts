@@ -1,10 +1,37 @@
 import { validateLibrary } from "./library-validation.ts";
 /** Pure source graph linker. Dependencies are supplied as data by the integration. */
 import { UI_PRIMITIVES } from "./ui.ts";
-import { STANDARD_LIBRARIES, type LibraryModule, type NativeViewBinding } from "./libraries.ts";
+import { STANDARD_LIBRARIES, type LibraryModule, type NativeBinding, type NativeViewBinding } from "./libraries.ts";
 import { diagnostic, type Diagnostic } from "./diagnostics/index.ts";
 import { parseModule, LUCENT_TYPES_MODULE, type ParseResult } from "./parser/index.ts";
-import type { Expr, Stmt, SurfaceModule, SurfaceType } from "./parser/surface.ts";
+import type { Expr, Stmt, SurfaceFunction, SurfaceModule, SurfaceType } from "./parser/surface.ts";
+
+/**
+ * The name a sidecar `.swift`/`.kt` file must define for a `@Native`
+ * declaration. Prefixed so it cannot collide with the wrapper the backend
+ * generates for the same declaration in a root module.
+ */
+export const sidecarSymbol = (name: string): string => `lucentNative_${name}`;
+
+/**
+ * A `@Native` declaration is implemented beside its Lucent file rather than by
+ * a manifest, so the binding is just a call through to that symbol. Swift
+ * labels its arguments with the parameter names; Kotlin passes them
+ * positionally. The native toolchain checks the signature matches.
+ */
+function sidecarBinding(fn: SurfaceFunction): NativeBinding {
+  const target = sidecarSymbol(fn.name);
+  const swiftArgs = fn.params.map((p) => `${p.name}: ${p.name}`).join(", ");
+  const kotlinArgs = fn.params.map((p) => p.name).join(", ");
+  const type = fn.returnType;
+  const async = type?.kind === "reference" && type.name === "Promise";
+  const returns = type?.kind === "keyword" && type.name === "void" ? "" : "return ";
+  return {
+    ...(fn.capabilities?.length ? { capabilities: fn.capabilities } : {}),
+    swift: [`${returns}try ${async ? "await " : ""}${target}(${swiftArgs})`],
+    kotlin: [`${returns}${target}(${kotlinArgs})`],
+  };
+}
 
 export function normalizeModulePath(path: string): string {
   const parts: string[] = [];
@@ -104,7 +131,9 @@ export function linkModule(
       }
     }
     for (const fn of module.functions) {
-      const binding = libraries[path]?.bindings?.[fn.name];
+      // A sidecar declaration carries its own binding; everything downstream of
+      // here — async promotion, contract checks, threads — then applies alike.
+      const binding = fn.sidecar ? sidecarBinding(fn) : libraries[path]?.bindings?.[fn.name];
       if (binding) {
         for (const name of Object.keys(binding.contract?.parameters ?? {}))
           if (!fn.params.some((p) => p.name === name))
