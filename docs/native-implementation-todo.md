@@ -1,6 +1,7 @@
 # Native interoperability implementation checklist
 
-Updated: 2026-09-22. Scope: [implementation plan](native-implementation-plan.md).
+Updated: 2026-09-22, after an audit of every open item against the code and its
+named evidence. Scope: [implementation plan](native-implementation-plan.md).
 
 This is the delivery checklist, not a list of advertised capabilities. `[x]`
 means the stated item is implemented and has the evidence named below. `[ ]`
@@ -14,19 +15,28 @@ commits. This user instruction overrides the older tests-first commit rule in
 
 ## Current status
 
-| Area                          | Status          | What is still missing                                                      |
-| ----------------------------- | --------------- | -------------------------------------------------------------------------- |
-| Package cleanup               | Completed       | `std` and the bundled mini stdlib are gone; the rest carry real layers     |
-| Native contracts              | Partial         | Remaining symbol kinds, enforcement, cache coverage, provenance            |
-| Overload resolution           | Partial         | Methods/constructors, callback contexts, conversions, availability ranking |
-| Async object lifetime         | Partial         | SDK task adapters, host cancel/close races, runtime close quiesce          |
-| Native closures               | Partial         | Closure-owned resource cells; indirect executor/error preservation         |
-| Delegates/interfaces          | Not implemented | Conformance, subscriptions, delivery/error policies                        |
-| Lucent-owned component state  | Partial         | Component IR, `@State`/`remember` identity, resource slots, record events  |
-| Keyed composition and effects | Not implemented | Identity, keyed/lazy collections, effects, refs                            |
-| Structured SDK extraction     | Partial         | Swift members/protocols, Clang/JVM/Kotlin adapters and overlays            |
-| Camera acceptance feature     | Not implemented | Permissions, preview, sessions, frames, Lucent processor                   |
-| Release acceptance            | Open            | Four host/platform combinations and physical-device evidence               |
+| Area                          | Status    | What is still missing                                                       |
+| ----------------------------- | --------- | --------------------------------------------------------------------------- |
+| Package cleanup               | Completed | `std` and the bundled mini stdlib are gone; the rest carry real layers      |
+| Native contracts              | Partial   | Remaining symbol kinds, runtime close enforcement, provenance               |
+| Overload resolution           | Partial   | Contextual closure/literal arguments, availability ranking, ambiguity tests |
+| Async object lifetime         | Partial   | SDK task adapters, host cancel/close races, runtime close quiesce           |
+| Native closures               | Partial   | Closure-owned resource cells; indirect error-policy preservation            |
+| Delegates/interfaces          | Partial   | Subscriptions, teardown quiescence, imported protocol conformance           |
+| Lucent-owned component state  | Partial   | Component IR, `@State`/`remember` identity, resource slots, record events   |
+| Keyed composition and effects | Partial   | Identity, reorder preservation, lazy collections, effects, refs             |
+| Structured SDK extraction     | Partial   | Swift members/protocols, Clang/JVM/Kotlin adapters and overlays             |
+| Camera acceptance feature     | Partial   | Permissions, preview, sessions, frame declarations, backpressure            |
+| Release acceptance            | Open      | Four host/platform combinations and physical-device evidence                |
+
+Four rows moved off `Not implemented` in the audit, against evidence that was
+already green. Delegates: nine of seventeen M4 items are done and
+`verify-delegates.ts` executes generated conformances on both toolchains. Keyed
+composition: typed child slots and keyed eager collections are done and tested.
+Camera: the luminance processor and `@NativeOnly` sharing are done, and
+`verify-camera-frames.ts` runs 1,000 synthetic frame pairs through generated
+delegates on both toolchains. Overload resolution and native closures keep
+their status, but their missing-work column named items that are now `[x]`.
 
 ## Package cleanup
 
@@ -96,6 +106,12 @@ specifier; the migration paths are documented in `docs/language.md`.
       protocol/interface requirements, callbacks, generic specializations.
 - [ ] Enforce call-level ownership, borrowed returns, callback retention, close,
       and executor contracts in compiler analysis and generated runtime behavior.
+      Four of the five are enforced and tested: ownership (`native-references`),
+      borrowed returns and use-after-close (`lifetimes`), callback retention
+      (`borrowed-callbacks`), executors (`callback-executors`). Only `close` is
+      outstanding, and only at runtime — it is a compiler error today, but
+      nothing rejects new work, quiesces, and then runs SDK cleanup. Closing
+      this item means closing the M3 explicit-close item.
 - [ ] Add full source/package/SDK provenance to contract diagnostics.
 - [x] Invalidate Metro's transform cache when an app's library manifests or
       minimum targets change. The CLI cache already hashed them; Metro's key was
@@ -342,8 +358,12 @@ adapters and full SDK cleanup quiescence remain incomplete.
 - [ ] Close Android frames on success, error, and cancellation.
 - [ ] Deliver compact typed results with a configurable notification-rate limit.
 - [ ] Author state, event handlers, and feature orchestration in `.lucent.tsx`.
-- [ ] Test 1,000 synthetic frames and 100 mount/unmount cycles with zero remaining
-      leases, subscriptions, or frames after quiescence.
+- [x] Test 1,000 synthetic frames with zero remaining frames after quiescence.
+      `verify-camera-frames.ts` delivers 1,000 valid/malformed pairs through
+      generated delegates on both toolchains and asserts every frame is closed.
+- [ ] Test 100 mount/unmount cycles with zero remaining leases or subscriptions
+      after quiescence. Blocked on subscriptions (M4) and component lifecycle
+      (M6); there is nothing to mount or unmount yet.
 - [ ] Run physical-device permissions, real frames, orientation, interruption,
       background/foreground, and device-loss tests for all four host/platform pairs.
 - [ ] Record device/OS, p50/p95 processing time, drops, max in-flight work,
@@ -372,14 +392,76 @@ adapters and full SDK cleanup quiescence remain incomplete.
 
 ## Next execution order
 
-1. Add resource scopes, cancellation, and executor enforcement, including
-   deterministic suspended-work and close/cancel races on both hosts.
-2. Complete closure environments and delegate subscriptions on those lifetimes.
-3. Implement component state, then keys/effects/resource slots.
-4. Extend SDK extraction while building the camera through curated public APIs.
-5. Complete the camera host/device matrix and migration checks.
+Ordered by what the camera feature actually blocks on. 62 items remain open;
+each numbered slice below is a coherent unit that can land green on its own.
+
+The audit changed no totals. It moved four status rows off `Not implemented`
+against evidence that was already green, and split one camera item whose two
+halves were in different states — the 1,000-frame run is done, the 100
+mount/unmount cycles cannot start until there is a component to mount.
+
+0. **Deterministic fake SDK** (M0, 1 item). Mutable objects, async barriers,
+   retained listeners, synchronous decisions, UI-bound objects, borrowed
+   buffers. Every slice below needs to assert listener and lifetime behaviour
+   under races, and each `verify-*.ts` currently rebuilds a throwaway SDK
+   inline. Do this first or repeat that work four times.
+
+1. **Subscriptions and teardown** (M4 tail, 4 items). Owned subscriptions with
+   idempotent reentrant-safe removal; retaining delegates the SDK holds only
+   weakly; quiescing in-flight delivery and releasing captures. Frame delivery
+   is a retained listener, so every M8 item that receives a frame waits on
+   this. The conformance generation underneath it is already green.
+
+2. **Explicit close and resource scopes** (M3 tail, 4 items). Close that
+   rejects new work, cancels and quiesces pending work, then runs SDK cleanup
+   on the required executor; externally owned resource detachment; operation
+   scopes wired to SDK cancellation adapters. A capture session is a closeable
+   resource, so M8 session start/stop/interruption/close, backpressure and
+   Android frame closing all wait on this. Also closes the M1 enforcement item.
+
+3. **Component IR, resource slots and effects** (M5/M6, ~10 items). Component
+   definition/instance IR separate from view templates; component-owned
+   resource slots; dependency-scoped effects; instance-owned task cancellation;
+   mount, visibility and foreground separated. Required for authoring camera
+   orchestration in `.lucent.tsx`, and for the 100 mount/unmount cycles.
+
+4. **Camera package** (M8, 9 items). Permissions, preview, typed sessions,
+   borrowed frame declarations, scoped processing, keep-latest backpressure,
+   rate-limited results.
+
+5. **Device matrix and release** (M8/M9, 8 items). Four host/platform pairs,
+   physical-device evidence, performance budgets measured before they are set.
+
+Not on the critical path: **M7 SDK extraction** (7 items). M8 builds the camera
+"through public package APIs", and curated manifests already carry delegates,
+enums and references. Extraction reduces the hand-authoring cost of that
+manifest but blocks none of slices 1–5, so it can run in parallel or later.
+The same is true of the remaining **M2** items, which refine overload
+resolution rather than enable anything camera needs.
 
 ## Latest verification checkpoint
+
+- Unit suite: 750 passing tests across 86 files. `pnpm verify` runs the Swift
+  and Kotlin fixture compilation plus eleven native executables, and now also
+  builds the shipped bundles and loads each one.
+- Code generation moved off string concatenation: hand-written native source
+  lives in `packages/*/native` and is embedded at build time, emission goes
+  through a document tree that owns indentation and brace balance, and Swift
+  and Kotlin expressions are printed from typed ASTs. Two defects came out of
+  it. A call inside a conditional never received its `try`, so that Swift did
+  not compile and no fixture reached it. A parenthesisation mistake turned
+  `total / (columns * rows)` into `(total / columns) * rows`, which compiles
+  and returns a different number; `verify-camera-frames` caught it by running.
+- Two verification gaps closed. `verify-receivers.ts` pins that a Lucent class
+  is a reference, which nothing executed. `verify-bundles.ts` builds and loads
+  the packed artifacts, which nothing did — a native file read through
+  `import.meta.url` resolved beside the bundle, so the shipped CLI failed on
+  import while every test passed.
+- `COMPILER_VERSION` now comes from the compiler manifest. It had drifted to
+  0.6.7 against a package at 0.0.1, and it keys both the CLI build cache and
+  the Metro transform cache, so stale output could be served as fresh.
+
+### Checkpoint before the code-generation slice
 
 - Unit suite: 648 passing tests across 80 files after callback executor propagation,
   borrowed frame callbacks,
