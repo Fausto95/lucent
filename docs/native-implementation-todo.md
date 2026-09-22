@@ -235,7 +235,11 @@ scopes and runtime close quiesce are not implemented.
 - [ ] Add component-owned resource slots separate from value state.
 - [x] Replace the adapter-owned counter in both example apps with a Lucent
       `FieldScreen` that owns its controls and a `FieldKit` class for the log.
-- [ ] Exercise text editing and a parent prop update through UI automation.
+- [x] Exercise text editing and a parent prop update through UI automation on
+      the Android emulator: typing into the native `TextField` updates the
+      Lucent-owned `draft` state, and appending two sample rows from React
+      leaves `draft`, `gain` and `armed` untouched. iOS automation still needs
+      the simulator tooling enabled on the build machine.
 
 ## M6 — Composition, lifecycle, and references
 
@@ -301,7 +305,10 @@ scopes and runtime close quiesce are not implemented.
 - [x] Regenerate both examples and compile the native module on both Android
       hosts and both iOS apps. Both iOS simulator apps report `ALL OK`.
 - [x] Build/install both full Android apps and verify `ALL OK` on the emulator.
-- [ ] Add TSX/UI-toolchain fixture verification and interaction automation.
+- [ ] Add TSX/UI-toolchain fixture verification and iOS interaction automation.
+      Android interaction is automated through `adb input`; the iOS simulator
+      tooling on this machine needs `sudo xcode-select -s`, so its interaction
+      evidence is still manual.
 - [ ] Add a deterministic concurrency/delegate harness and physical-device suite.
 - [ ] Test manifest upgrades, stale generated artifacts, and cache invalidation.
 - [ ] Keep language, IR, implementation checklist, and website support claims
@@ -319,23 +326,39 @@ scopes and runtime close quiesce are not implemented.
 
 ## Latest verification checkpoint
 
-- Unit suite after the lifetime slice: 434 passing tests across 49 files.
-  Lint passed. Cancellation and interop native checks passed. The four app
-  builds below were not rerun for this slice.
-- Previous full checkpoint: 429 passing tests across 48 files.
-- Root and both example app TypeScript checks: passing.
-- Full `pnpm verify`, package build, and website build: passing.
-- Swift/Kotlin fixture compilation, extracted SDK execution, and interop
-  execution: passing. Both runtimes report zero remaining leases after stress.
-- Expo and Nitro Android module compilation: passing.
-- Expo and Nitro iOS app builds and simulator checks: passing (`ALL OK`).
-- Expo and Nitro Android app builds and emulator checks: passing (`ALL OK`).
-  Expo's initial full build selected an older Node 21 daemon. Running with
-  Node 24 and `--no-daemon` resolved that environment issue without a source
-  workaround or a global toolchain change.
+- Unit suite after this slice: 554 passing tests across 68 files. Typecheck,
+  lint and formatting pass. `pnpm verify` runs the Swift and Kotlin fixture
+  compilation, the extracted-SDK execution, the interop and lease stress check,
+  the cancellation check and the new enum check; all pass on Swift 6.4 and
+  Kotlin 2.4.20.
+- Package build and website build: passing.
+- All four host/platform combinations were rebuilt and run for this slice:
+
+  | Combination     | Result                                                       |
+  | --------------- | ------------------------------------------------------------ |
+  | Expo / iOS      | `Contract passed`, 0 build errors, iPhone 16 Pro on iOS 18.2 |
+  | Expo / Android  | `Contract passed`, Pixel 3a API 34 arm64 emulator            |
+  | Nitro / iOS     | `Contract passed`, same simulator                            |
+  | Nitro / Android | `Contract passed`, same emulator                             |
+
+  Every check passes on all four, including the package bindings that replaced
+  the removed built-ins: `native SHA-256`, `filesystem worker roundtrip` and
+  `package device binding`.
+
+- Interaction evidence on the Android emulator, driven through `adb input`:
+  tapping `Record sample` twice appended two rows to the keyed `For` list and
+  left the component's own `draft`, `gain` and `armed` state untouched across
+  the parent prop update; typing into the native `TextField` changed the
+  Lucent-owned `draft` state and its mirrored label. The equivalent iOS
+  automation is still missing.
+- A stale Metro server from an earlier session served the old transformer and
+  reported the pre-rename `NT` codes. That was an environment issue, not a
+  product one, but it exposed a real gap: Metro keyed transforms on the
+  compiler version and host only, so an edited manifest or target served stale
+  proxies. Fixed in this slice.
 
 These results cover the implemented subset. They do not close the outstanding
-scoped cancellation, delegates, state, lifecycle, extraction, or camera gates.
+delegate, component-IR, lifecycle, extraction, or camera gates.
 
 ### Cooperative cancellation slice
 

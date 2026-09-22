@@ -3,13 +3,20 @@
 Status: implementation in progress; the full acceptance feature is not complete.
 
 Implemented foundation (2026-09-22): versioned contract validation, stable
-free-function symbol identities, scalar overload selection, minimum SDK target
-checking and native build propagation, immutable scalar callback captures, and
-typed registry leases with native stress tests. Async host wrappers and JS
-transit retention are implemented for explicitly owned, transferable,
-executor-neutral SDK references; the current example checks pass on Expo and
-Nitro on both iOS Simulator and Android emulator. The redundant `std`
-package was removed; its APIs now live in `core/math` and `core/text`.
+symbol identities, overload selection for free functions, constructors and
+instance methods, SDK enums and option sets, minimum SDK target checking and
+native build propagation, immutable scalar callback captures, and typed
+registry leases with native stress tests. Async host wrappers and JS transit
+retention are implemented for explicitly owned, transferable, executor-neutral
+SDK references. On the view side: Lucent-owned scalar state, controlled inputs,
+conditional content, keyed `For` rows and typed child slots. The example checks
+pass on Expo and Nitro on both iOS Simulator and Android emulator.
+
+The bundled mini standard library (`crypto`, `filesystem`, `network`, `device`,
+`platform/clock`, `platform/locale`) was removed along with the earlier `std`
+package. Only byte, math and text primitives plus the `Platform.OS` guard and
+the cancellation source remain built in; everything else is a package manifest,
+which is the extension point every other SDK has to use anyway.
 
 Still required for acceptance: complete ownership/executor enforcement and host
 async acceptance, cancellation/resource scopes, mutable/resource closure captures,
