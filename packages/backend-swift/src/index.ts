@@ -10,6 +10,8 @@ export { swiftEventRuntime } from "./events.ts";
  * Generated code relies on a small runtime prelude (`LucentError`,
  * `LucentBytes`, `lucentStr`) that each host provides via `swiftRuntime`.
  */
+import { swiftEnumImports, swiftEnums, swiftEnumValue } from "./enums.ts";
+export { swiftEnumBridge, swiftEnums, swiftEnumImports } from "./enums.ts";
 import { swiftView } from "./views.ts";
 export { swiftViewRuntime, swiftHostedViewRuntime } from "./views.ts";
 import type { IRExpr, IRFunction, IRModule, IRPlace, IRStmt, IRStruct, NativeType } from "@lucent-lang/compiler";
@@ -120,10 +122,12 @@ export function generateSwift(module: IRModule): GeneratedUnit {
         f.binding?.platforms && !f.binding.platforms.includes("ios") ? [] : (f.binding?.swiftImports ?? []),
       ),
       ...(module.functions.some((f) => f.returnType.kind === "view") ? ["SwiftUI"] : []),
+      ...swiftEnumImports(module),
     ]),
   ];
   const code = [
     ...imports.map((i) => `import ${i}`),
+    ...swiftEnums(module.enums ?? {}),
     ...structs.map((s) =>
       s.reference
         ? swiftClass(module.structs.find((ir) => ir.name === s.name)!)
@@ -301,7 +305,9 @@ class SwiftEmitter {
           ? `AnyView(Group { if ${this.expr(e.cond)} { ${this.expr(e.consequent)} } else { ${this.expr(e.alternate)} } })`
           : `(${this.expr(e.cond)} ? ${this.expr(e.consequent)} : ${this.expr(e.alternate)})`;
       case "const":
-        return constant(e.value, e.type);
+        return e.type.kind === "enum" && typeof e.value === "string"
+          ? swiftEnumValue(e.type.binding, e.value)
+          : constant(e.value, e.type);
       case "param":
         return e.name;
       case "local":
@@ -483,6 +489,7 @@ export function generateSwiftNamespace(module: IRModule, name: string): string {
   ];
   return [
     ...unit.imports.map((i) => `import ${i}`),
+    ...swiftEnums(module.enums ?? {}),
     `enum ${name} {`,
     ...indent(members.join("\n\n").split("\n")),
     "}",

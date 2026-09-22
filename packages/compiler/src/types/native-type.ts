@@ -2,6 +2,24 @@
 export type IntBits = 8 | 16 | 32 | 64;
 export type FloatBits = 32 | 64;
 
+/** One target's spelling of an SDK enum: its native type and a native expression per case. */
+export interface NativeEnumTarget {
+  readonly type: string;
+  readonly values: Readonly<Record<string, string>>;
+  readonly imports?: readonly string[];
+}
+
+/**
+ * An SDK enum or option set declared by a package manifest. Cases are ordinary
+ * string literals in Lucent source and cross into JavaScript as those strings;
+ * native code only ever sees the target's own value.
+ */
+export interface NativeEnumBinding {
+  readonly cases: readonly string[];
+  readonly swift: NativeEnumTarget;
+  readonly kotlin: NativeEnumTarget;
+}
+
 export type NativeType =
   | { readonly kind: "callback"; readonly params: NativeType[]; readonly result: NativeType }
   | { readonly kind: "event"; readonly payload: NativeType }
@@ -15,6 +33,7 @@ export type NativeType =
   | { readonly kind: "array"; readonly element: NativeType }
   | { readonly kind: "map"; readonly value: NativeType }
   | { readonly kind: "optional"; readonly value: NativeType }
+  | { readonly kind: "enum"; readonly name: string; readonly binding: NativeEnumBinding }
   | { readonly kind: "struct"; readonly name: string; readonly variant?: string }
   | { readonly kind: "promise"; readonly value: NativeType };
 
@@ -32,6 +51,7 @@ export const T = {
   array: (element: NativeType): NativeType => ({ kind: "array", element }),
   map: (value: NativeType): NativeType => ({ kind: "map", value }),
   optional: (value: NativeType): NativeType => (value.kind === "optional" ? value : { kind: "optional", value }),
+  enumeration: (name: string, binding: NativeEnumBinding): NativeType => ({ kind: "enum", name, binding }),
   struct: (name: string): NativeType => ({ kind: "struct", name }),
   promise: (value: NativeType): NativeType => ({ kind: "promise", value }),
 } as const;
@@ -68,6 +88,8 @@ export function typeToString(t: NativeType): string {
       return `optional<${typeToString(t.value)}>`;
     case "promise":
       return `promise<${typeToString(t.value)}>`;
+    case "enum":
+      return `enum ${t.name}`;
     case "struct":
       return `struct ${t.name}`;
     default:
@@ -80,3 +102,6 @@ export function typeEquals(a: NativeType, b: NativeType): boolean {
 }
 
 export const isNumeric = (t: NativeType): boolean => t.kind === "float" || t.kind === "int";
+
+/** Enum values are strings everywhere but native code, so they interpolate and compare like strings. */
+export const isTextual = (t: NativeType): boolean => t.kind === "string" || t.kind === "enum";

@@ -10,6 +10,8 @@ export { kotlinEventRuntime } from "./events.ts";
  * Generated code relies on a small runtime prelude (`LucentError`,
  * `LucentBytes`, `lucentStr`) that each host provides via `kotlinRuntime`.
  */
+import { kotlinEnumImports, kotlinEnums, kotlinEnumValue } from "./enums.ts";
+export { kotlinEnumBridge, kotlinEnums, kotlinEnumImports } from "./enums.ts";
 import { kotlinView, kotlinViewImports } from "./views.ts";
 export { kotlinViewImports } from "./views.ts";
 import type { IRExpr, IRFunction, IRModule, IRPlace, IRStmt, IRStruct, NativeType } from "@lucent-lang/compiler";
@@ -108,10 +110,12 @@ export function generateKotlin(module: IRModule): GeneratedUnit {
         f.binding?.platforms && !f.binding.platforms.includes("android") ? [] : (f.binding?.kotlinImports ?? []),
       ),
       ...(module.functions.some((f) => f.returnType.kind === "view") ? kotlinViewImports : []),
+      ...kotlinEnumImports(module),
     ]),
   ];
   const code = [
     ...imports.map((i) => `import ${i}`),
+    ...kotlinEnums(module.enums ?? {}),
     ...structs.map((s) =>
       s.reference
         ? kotlinClass(
@@ -273,7 +277,9 @@ class KotlinEmitter {
       case "ifExpr":
         return `if (${this.expr(e.cond)}) ${this.expr(e.consequent)} else ${this.expr(e.alternate)}`;
       case "const":
-        return constant(e.value, e.type);
+        return e.type.kind === "enum" && typeof e.value === "string"
+          ? kotlinEnumValue(e.type.binding, e.value)
+          : constant(e.value, e.type);
       case "param":
         return e.name;
       case "local":
@@ -404,6 +410,7 @@ export function generateKotlinNamespace(module: IRModule, name: string): string 
   ];
   return [
     ...unit.imports.map((i) => `import ${i}`),
+    ...kotlinEnums(module.enums ?? {}),
     `object ${name} {`,
     ...indent(members.join("\n\n").split("\n")),
     "}",

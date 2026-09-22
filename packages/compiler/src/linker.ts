@@ -56,6 +56,24 @@ export function linkModule(
     if (path !== root) annotateOrigins(parsed, { fileName: path, source: texts.get(path)! });
     diagnostics.push(...parsed.diagnostics);
     const module = parsed.module;
+    for (const [name, enumeration] of Object.entries(libraries[path]?.enums ?? {})) {
+      const alias = module.typeAliases.find((t) => t.name === name);
+      const literals =
+        alias?.type.kind === "union" && alias.type.members.every((m) => m.kind === "literal")
+          ? alias.type.members.map((m) => (m.kind === "literal" ? m.value : ""))
+          : null;
+      if (!literals || literals.join("\u0000") !== enumeration.cases.join("\u0000")) {
+        diagnostics.push(
+          diagnostic(
+            "LC1006",
+            { start: 0, end: 0 },
+            `Native enum ${name} requires a string-literal union declaring exactly its cases, in order.`,
+          ),
+        );
+        continue;
+      }
+      if (alias) alias.enumeration = { name, binding: enumeration };
+    }
     for (const [name, native] of Object.entries(libraries[path]?.references ?? {})) {
       const alias = module.typeAliases.find((t) => t.name === name);
       if (!alias || alias.type.kind !== "object" || !module.functions.some((f) => f.name === `${name}__create`)) {

@@ -14,19 +14,19 @@ commits. This user instruction overrides the older tests-first commit rule in
 
 ## Current status
 
-| Area                          | Status              | What is still missing                                                      |
-| ----------------------------- | ------------------- | -------------------------------------------------------------------------- |
-| Package cleanup               | Completed for `std` | Further removals require an actual redundancy audit                        |
-| Native contracts              | Partial             | Full symbol kinds, enforcement, cache coverage, provenance                 |
-| Overload resolution           | Partial             | Methods/constructors, callback contexts, conversions, availability ranking |
-| Async object lifetime         | Partial             | SDK task scopes, host cancel/close races, runtime close quiesce            |
-| Native closures               | Partial             | Closure-owned resource cells; indirect executor/error preservation         |
-| Delegates/interfaces          | Not implemented     | Conformance, subscriptions, delivery/error policies                        |
-| Lucent-owned component state  | Partial             | Component IR, `@State`/`remember` identity, resource slots, record events  |
-| Keyed composition and effects | Not implemented     | Identity, keyed/lazy collections, effects, refs                            |
-| Structured SDK extraction     | Not implemented     | Apple/JVM metadata adapters and curated overlays                           |
-| Camera acceptance feature     | Not implemented     | Permissions, preview, sessions, frames, Lucent processor                   |
-| Release acceptance            | Open                | Four host/platform combinations and physical-device evidence               |
+| Area                          | Status          | What is still missing                                                      |
+| ----------------------------- | --------------- | -------------------------------------------------------------------------- |
+| Package cleanup               | Completed       | `std` and the bundled mini stdlib are gone; the rest carry real layers     |
+| Native contracts              | Partial         | Remaining symbol kinds, enforcement, cache coverage, provenance            |
+| Overload resolution           | Partial         | Methods/constructors, callback contexts, conversions, availability ranking |
+| Async object lifetime         | Partial         | SDK task scopes, host cancel/close races, runtime close quiesce            |
+| Native closures               | Partial         | Closure-owned resource cells; indirect executor/error preservation         |
+| Delegates/interfaces          | Not implemented | Conformance, subscriptions, delivery/error policies                        |
+| Lucent-owned component state  | Partial         | Component IR, `@State`/`remember` identity, resource slots, record events  |
+| Keyed composition and effects | Not implemented | Identity, keyed/lazy collections, effects, refs                            |
+| Structured SDK extraction     | Not implemented | Apple/JVM metadata adapters and curated overlays                           |
+| Camera acceptance feature     | Not implemented | Permissions, preview, sessions, frames, Lucent processor                   |
+| Release acceptance            | Open            | Four host/platform combinations and physical-device evidence               |
 
 ## Package cleanup
 
@@ -39,9 +39,16 @@ commits. This user instruction overrides the older tests-first commit rule in
       entries, fixtures, examples, website snippets, and language documentation.
 - [x] Remove `packages/std` and all workspace dependencies on it.
 - [x] Update the lockfile and compile the migrated native fixtures.
-- [ ] Audit the remaining declaration-only packages against real import sites
-      before proposing another consolidation. Do not delete useful compiler,
-      backend, host, integration, or runtime layers merely because they are small.
+- [x] Audit the remaining declaration-only packages against real import sites.
+      `types`, `objects`, `events`, `ui`, `config`, `core` and `platform` each
+      back a distinct compiler-recognised import surface and stay.
+- [x] Remove the bundled mini standard library: `crypto`, `filesystem`,
+      `network`, `device`, `platform/clock` and `platform/locale` were
+      hand-written native modules, not language features, and they hid the
+      package extension point that has to carry every other SDK. The example
+      apps declare the same operations in `native/toolkit.library.json`, so the
+      device evidence is preserved and now also proves a third-party package.
+      Removes the `clock` and `locale` capabilities, which gated nothing.
 - [x] Pack `core` and type-check both new imports in an isolated consumer using
       only the archive contents. Refresh the workspace installation offline.
 
@@ -79,8 +86,13 @@ specifier; the migration paths are documented in `docs/language.md`.
       installed CocoaPods specification API.
 - [ ] Exercise raised minimum targets in full native app builds, including
       conflicts with consumer-app settings.
-- [ ] Cover every symbol kind: initializers, methods, properties, enums, option
-      sets, protocol/interface requirements, callbacks, generic specializations.
+- [x] Cover enums and option sets: manifest `enums` declare cases plus a native
+      type and per-case expression for each target, validated against the
+      declared string-literal union. Cases are string literals in source, the
+      SDK value in native code, and the case name across the JavaScript
+      boundary through a generated `LucentEnum_<Name>` bridge.
+- [ ] Cover the remaining symbol kinds: initializers, methods, properties,
+      protocol/interface requirements, callbacks, generic specializations.
 - [ ] Enforce call-level ownership, borrowed returns, callback retention, close,
       and executor contracts in compiler analysis and generated runtime behavior.
 - [ ] Add full source/package/SDK provenance to contract diagnostics.

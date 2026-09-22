@@ -1,5 +1,11 @@
 import type { NativePackage } from "../libraries.ts";
-import type { NativeBinding, NativeViewBinding, NativeReferenceBinding, ThreadContext } from "../libraries.ts";
+import type {
+  NativeBinding,
+  NativeEnumBinding,
+  NativeViewBinding,
+  NativeReferenceBinding,
+  ThreadContext,
+} from "../libraries.ts";
 /**
  * The surface AST: the closed set of TypeScript constructs Lucent understands.
  * Produced by `parseModule`; nothing downstream ever sees ESTree.
@@ -106,6 +112,7 @@ export interface SurfaceFunction {
 }
 
 export interface SurfaceTypeAlias {
+  enumeration?: { name: string; binding: NativeEnumBinding };
   reference?: { publicName: string; exported: boolean; privateFields?: string[]; native?: NativeReferenceBinding };
   name: string;
   exported: boolean;

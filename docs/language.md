@@ -592,6 +592,61 @@ package-defined counter whose state stays native while changes notify React.
 This is adapter-owned state; Lucent state hooks, keyed lists, native delegate
 syntax, and the camera acceptance feature remain future compiler work.
 
+## SDK enums and option sets
+
+A package manifest may declare `enums`. Each entry names the Lucent cases and,
+per target, the native type plus one native expression per case:
+
+```json
+{
+  "source": "export type Position = \"front\" | \"back\";\nexport declare function setPosition(position:Position):void;",
+  "enums": {
+    "Position": {
+      "cases": ["front", "back"],
+      "swift": {
+        "type": "AVCaptureDevice.Position",
+        "values": { "front": ".front", "back": ".back" },
+        "imports": ["AVFoundation"]
+      },
+      "kotlin": { "type": "Int", "values": { "front": "0", "back": "1" } }
+    }
+  }
+}
+```
+
+The manifest's `source` must declare the same cases, in the same order, as a
+string-literal union; a mismatch is `LC1006`. Both targets are required, and
+each needs one value per case.
+
+In Lucent source a case is an ordinary string literal that adopts the enum type
+from its context. Native code only ever sees the SDK value:
+
+```ts
+import { setPosition, currentPosition } from "@lucent-lang/example-camera";
+import type { Position } from "@lucent-lang/example-camera";
+
+export function useBack(): void {
+  setPosition("back");
+}
+export function facing(): Position {
+  return currentPosition();
+}
+export function isBack(): boolean {
+  return currentPosition() === "back";
+}
+```
+
+A literal outside the case list is `LC1011` and the diagnostic lists the valid
+cases. A plain `string` is not an enum; annotate the value with the enum type.
+Enums compare with `===` and `!==` against case literals.
+
+Enums cross into JavaScript as their case name, typed as the literal union in
+the generated declarations. The compiler emits a `LucentEnum_<Name>` bridge per
+target; an unrecognised name from JavaScript throws `INVALID_ENUM_CASE` instead
+of guessing. Enums are parameter, return and local types only: they cannot be
+record fields, event payloads, or sit inside arrays, maps or optionals. Carry a
+case through those as a plain string.
+
 ## Versioned native contracts and overloads
 
 Binding libraries may set `schemaVersion: 1`. Unsupported schema versions and

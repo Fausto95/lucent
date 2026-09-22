@@ -22,6 +22,8 @@ export function jsType(t: NativeType): string {
       return `Record<string, ${jsType(t.value)}>`;
     case "optional":
       return `${jsType(t.value)} | null`;
+    case "enum":
+      return t.binding.cases.map((c) => JSON.stringify(c)).join(" | ");
     case "struct":
       return t.name;
     case "callback":

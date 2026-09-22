@@ -23,6 +23,8 @@ export function swiftType(t: NativeType): string {
       return `[String: ${swiftType(t.value)}]`;
     case "optional":
       return `${t.value.kind === "callback" || t.value.kind === "event" ? `(${swiftType(t.value)})` : swiftType(t.value)}?`;
+    case "enum":
+      return t.binding.swift.type;
     case "struct":
       return t.name;
     case "promise":

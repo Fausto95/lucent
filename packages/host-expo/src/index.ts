@@ -8,6 +8,9 @@ import type { IRModule, IRStruct, NativeType } from "@lucent-lang/compiler";
 import {
   generateSwift,
   swiftClass,
+  swiftEnumBridge,
+  swiftEnumImports,
+  swiftEnums,
   swiftObjectRuntime,
   swiftRuntime,
   swiftEventRuntime,
@@ -17,6 +20,9 @@ import {
 import {
   generateKotlin,
   kotlinClass,
+  kotlinEnumBridge,
+  kotlinEnumImports,
+  kotlinEnums,
   kotlinObjectRuntime,
   kotlinRuntime,
   kotlinEventRuntime,
@@ -105,6 +111,24 @@ function emitPackage(modules: IRModule[], options: EmitOptions): FileTree {
       files.set(`ios/${s.name}.swift`, swiftClass(s));
       files.set(`${androidDir}/${s.name}.kt`, `package ${ANDROID_PACKAGE}\n\n` + kotlinClass(s));
     }
+  }
+  const enums = Object.assign({}, ...modules.map((m) => m.enums ?? {})) as Record<string, never>;
+  if (Object.keys(enums).length) {
+    files.set(
+      "ios/LucentEnums.swift",
+      [...new Set(modules.flatMap(swiftEnumImports))].map((i) => `import ${i}`).join("\n") +
+        "\n\n" +
+        swiftEnums(enums).join("\n\n") +
+        "\n",
+    );
+    files.set(
+      `${androidDir}/LucentEnums.kt`,
+      `package ${ANDROID_PACKAGE}\n\n` +
+        [...new Set(modules.flatMap(kotlinEnumImports))].map((i) => `import ${i}`).join("\n") +
+        "\n\n" +
+        kotlinEnums(enums).join("\n\n") +
+        "\n",
+    );
   }
   emitNativePackages(files, modules, ANDROID_PACKAGE);
   emitViews(files, modules, ANDROID_PACKAGE);
@@ -201,20 +225,25 @@ function swiftModule(module: IRModule): string {
     members.push("@JS func lucentRelease(handle: Double) { LucentObjectRegistry.shared.release(handle) }", "");
   for (const f of unit.functions) {
     const ir = module.functions.find((fn) => fn.name === f.name)!;
-    const bridged = ir.params.some((p) => isReference(p.type, module)) || isReference(ir.returnType, module);
+    const bridgedType = (type: NativeType, generated: string) =>
+      isReference(type, module) ? "Double" : type.kind === "enum" ? "String" : generated;
+    const bridged =
+      ir.params.some((p) => isReference(p.type, module) || p.type.kind === "enum") ||
+      isReference(ir.returnType, module) ||
+      ir.returnType.kind === "enum";
     if (f.exported && bridged) {
-      const params = ir.params
-        .map((p, i) => `${p.name}: ${isReference(p.type, module) ? "Double" : f.params[i]!.type}`)
-        .join(", ");
+      const params = ir.params.map((p, i) => `${p.name}: ${bridgedType(p.type, f.params[i]!.type)}`).join(", ");
       const args = ir.params
-        .map(
-          (p) =>
-            `${p.name}: ${isReference(p.type, module) && p.type.kind === "struct" ? `try ${f.async ? "lucentLeases" : "LucentObjectRegistry.shared"}.get(${p.name}, ${p.type.name}.self)` : p.name}`,
-        )
+        .map((p) => {
+          if (isReference(p.type, module) && p.type.kind === "struct")
+            return `${p.name}: try ${f.async ? "lucentLeases" : "LucentObjectRegistry.shared"}.get(${p.name}, ${p.type.name}.self)`;
+          if (p.type.kind === "enum") return `${p.name}: try ${swiftEnumBridge(p.type.name)}.fromLucent(${p.name})`;
+          return `${p.name}: ${p.name}`;
+        })
         .join(", ");
       members.push(
         `@JS("${f.name}"${f.async ? ", .concurrent" : ""})`,
-        `func __bridge_${f.name}(${params})${f.async ? " async" : ""} throws -> ${isReference(ir.returnType, module) ? "Double" : f.returnType} {`,
+        `func __bridge_${f.name}(${params})${f.async ? " async" : ""} throws -> ${bridgedType(ir.returnType, f.returnType)} {`,
         ...(f.async && ir.params.some((p) => isReference(p.type, module))
           ? [
               `  let lucentLeases = try LucentObjectRegistry.shared.acquireMany([${ir.params
@@ -226,7 +255,13 @@ function swiftModule(module: IRModule): string {
           : []),
         ...(f.async ? [] : ["  return try LucentObjectRegistry.shared.withLock {"]),
         `    let result = try ${f.async ? "await " : ""}${f.name}(${args})`,
-        `    return ${isReference(ir.returnType, module) ? "LucentObjectRegistry.shared.hold(result)" : "result"}`,
+        `    return ${
+          isReference(ir.returnType, module)
+            ? "LucentObjectRegistry.shared.hold(result)"
+            : ir.returnType.kind === "enum"
+              ? `try ${swiftEnumBridge(ir.returnType.name)}.toLucent(result)`
+              : "result"
+        }`,
         ...(f.async ? [] : ["  }"]),
         "}",
         "",
@@ -359,6 +394,8 @@ function kotlinDefault(t: NativeType, structs: ReadonlyMap<string, IRStruct>): s
     case "struct":
       if (!structs.has(t.name)) throw new Error(`Expo host: unknown struct ${t.name}`);
       return `${t.name}()`;
+    case "enum":
+      throw new Error("Expo host: native enums cannot be a struct field.");
     case "callback":
       throw new Error("Native callbacks cannot cross the JavaScript boundary.");
     case "event":
@@ -394,23 +431,27 @@ function kotlinModule(module: IRModule): string {
     definition.push('Function("lucentRelease") { handle: Double -> LucentObjectRegistry.release(handle) }');
   for (const f of unit.functions.filter((x) => x.exported)) {
     const ir = module.functions.find((fn) => fn.name === f.name)!;
-    const bridged = ir.params.some((p) => isReference(p.type, module)) || isReference(ir.returnType, module);
+    const bridged =
+      ir.params.some((p) => isReference(p.type, module) || p.type.kind === "enum") ||
+      isReference(ir.returnType, module) ||
+      ir.returnType.kind === "enum";
     if (!bridged) {
       definition.push("", ...kotlinBinding(f));
       continue;
     }
     const params = ir.params
-      .map(
-        (p, i) =>
-          `${p.name}: ${isReference(p.type, module) ? "Double" : (KOTLIN_BOUNDARY[f.params[i]!.type]?.type ?? f.params[i]!.type)}`,
-      )
+      .map((p, i) => {
+        const generated = KOTLIN_BOUNDARY[f.params[i]!.type]?.type ?? f.params[i]!.type;
+        return `${p.name}: ${isReference(p.type, module) ? "Double" : p.type.kind === "enum" ? "String" : generated}`;
+      })
       .join(", ");
     const args = ir.params
-      .map((p, i) =>
-        isReference(p.type, module) && p.type.kind === "struct"
-          ? `${f.async ? "lucentLeases" : "LucentObjectRegistry"}.get(${p.name}, ${p.type.name}::class.java)`
-          : `${p.name}${KOTLIN_BOUNDARY[f.params[i]!.type]?.into ?? ""}`,
-      )
+      .map((p, i) => {
+        if (isReference(p.type, module) && p.type.kind === "struct")
+          return `${f.async ? "lucentLeases" : "LucentObjectRegistry"}.get(${p.name}, ${p.type.name}::class.java)`;
+        if (p.type.kind === "enum") return `${kotlinEnumBridge(p.type.name)}.fromLucent(${p.name})`;
+        return `${p.name}${KOTLIN_BOUNDARY[f.params[i]!.type]?.into ?? ""}`;
+      })
       .join(", ");
     definition.push(
       `${f.async ? `AsyncFunction("${f.name}") Coroutine` : `Function("${f.name}")`} {${params ? ` ${params} ->` : ""}`,
@@ -425,7 +466,13 @@ function kotlinModule(module: IRModule): string {
         : []),
       ...(f.async ? [] : ["  LucentObjectRegistry.withLock {"]),
       `    val result = ${f.name}(${args})`,
-      `    ${isReference(ir.returnType, module) ? "LucentObjectRegistry.hold(result)" : `result${KOTLIN_BOUNDARY[f.returnType]?.outOf ?? ""}`}`,
+      `    ${
+        isReference(ir.returnType, module)
+          ? "LucentObjectRegistry.hold(result)"
+          : ir.returnType.kind === "enum"
+            ? `${kotlinEnumBridge(ir.returnType.name)}.toLucent(result)`
+            : `result${KOTLIN_BOUNDARY[f.returnType]?.outOf ?? ""}`
+      }`,
       ...(f.async && ir.params.some((p) => isReference(p.type, module))
         ? ["  } finally { lucentLeases.close() }"]
         : []),

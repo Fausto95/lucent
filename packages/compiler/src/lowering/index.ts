@@ -44,6 +44,7 @@ export function lowerModule(module: TypedModule): LowerResult {
   const diagnostics: Diagnostic[] = [];
   const functions = module.functions.map((fn) => new FunctionLowerer(fn, diagnostics).lower());
   const ir: IRModule = {
+    ...(module.enums ? { enums: module.enums } : {}),
     ...(module.nativePackages ? { nativePackages: module.nativePackages } : {}),
     ...(module.views ? { views: module.views } : {}),
     name: module.name,

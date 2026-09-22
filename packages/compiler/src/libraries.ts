@@ -1,6 +1,6 @@
 import { CANCELLATION_LIBRARY } from "./libraries/cancellation.ts";
 import type { NativeCallContract, NativeObjectContract } from "./native-contracts.ts";
-import type { NativeType } from "./types/native-type.ts";
+import type { NativeEnumBinding, NativeType } from "./types/native-type.ts";
 import { NATIVE_LIBRARIES } from "./libraries/native.ts";
 /** Native implementations are trusted build inputs; the compiler never executes them. */
 export type ThreadContext = "caller" | "main" | "worker";
@@ -21,6 +21,7 @@ export interface NativeBinding {
   capabilities?: string[];
   thread?: ThreadContext;
 }
+export type { NativeEnumBinding, NativeEnumTarget } from "./types/native-type.ts";
 export interface NativeReferenceBinding {
   contract?: NativeObjectContract;
   swift?: string;
@@ -45,6 +46,8 @@ export interface LibraryModule {
   schemaVersion?: 1;
   native?: NativePackage;
   views?: Record<string, NativeViewBinding>;
+  /** SDK enums and option sets, keyed by the string-literal union alias in `source`. */
+  enums?: Record<string, NativeEnumBinding>;
   references?: Record<string, NativeReferenceBinding>;
   source: string;
   bindings?: Record<string, NativeBinding>;

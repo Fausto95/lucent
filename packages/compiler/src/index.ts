@@ -52,6 +52,8 @@ export { lucentImports } from "./parser/index.ts";
 export type {
   NativePackage,
   NativeBinding,
+  NativeEnumBinding,
+  NativeEnumTarget,
   NativeViewBinding,
   NativeReferenceBinding,
   LibraryModule,

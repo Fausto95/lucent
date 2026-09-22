@@ -1,5 +1,11 @@
 import type { NativePackage } from "../libraries.ts";
-import type { NativeBinding, NativeViewBinding, NativeReferenceBinding, ThreadContext } from "../libraries.ts";
+import type {
+  NativeBinding,
+  NativeEnumBinding,
+  NativeViewBinding,
+  NativeReferenceBinding,
+  ThreadContext,
+} from "../libraries.ts";
 import type { IRUnion } from "../ir/types.ts";
 /** The typed AST: the surface AST with every expression annotated by its NativeType. */
 import type { Span } from "../diagnostics/index.ts";
@@ -46,6 +52,7 @@ export interface TypedFunction {
 }
 
 export interface TypedModule {
+  enums?: Record<string, NativeEnumBinding>;
   nativePackages?: Record<string, NativePackage>;
   views?: Record<string, NativeViewBinding>;
   name: string;

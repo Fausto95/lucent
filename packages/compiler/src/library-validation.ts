@@ -102,6 +102,36 @@ export function validateLibrary(library: LibraryModule): string[] {
       }
     }
   }
+  if (library.enums !== undefined) {
+    if (!record(library.enums)) return [...errors, "Native enums must be a map."];
+    for (const [name, enumeration] of Object.entries(library.enums)) {
+      if (!identifier(name) || !record(enumeration) || !strings(enumeration.cases) || !enumeration.cases.length) {
+        errors.push(`Invalid native enum ${name}.`);
+        continue;
+      }
+      const cases = enumeration.cases as string[];
+      if (new Set(cases).size !== cases.length) errors.push(`Duplicate case in native enum ${name}.`);
+      for (const language of ["swift", "kotlin"] as const) {
+        const target = enumeration[language];
+        if (
+          !record(target) ||
+          typeof target.type !== "string" ||
+          !target.type.trim() ||
+          !record(target.values) ||
+          (target.imports !== undefined && !strings(target.imports))
+        ) {
+          errors.push(`Invalid ${language} binding for native enum ${name}.`);
+          continue;
+        }
+        const values = target.values;
+        if (
+          Object.keys(values).length !== cases.length ||
+          cases.some((c) => typeof values[c] !== "string" || !String(values[c]).trim())
+        )
+          errors.push(`Native enum ${name} needs one ${language} value per case.`);
+      }
+    }
+  }
   if (library.references !== undefined) {
     if (!record(library.references)) return [...errors, "Native references must be a map."];
     for (const [name, reference] of Object.entries(library.references)) {

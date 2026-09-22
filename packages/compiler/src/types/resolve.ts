@@ -1,12 +1,16 @@
 import { diagnostic, type Diagnostic } from "../diagnostics/index.ts";
 import type { SurfaceType } from "../parser/surface.ts";
-import { SIZED_NUMERIC_TYPES, T, type NativeType } from "./native-type.ts";
+import { SIZED_NUMERIC_TYPES, T, type NativeEnumBinding, type NativeType } from "./native-type.ts";
 
 export interface TypeScope {
   /** Struct names declared by type aliases in the module. */
   readonly structs: ReadonlySet<string>;
   /** Sized numeric names imported from `@lucent-lang/types`. */
   readonly sized: ReadonlySet<string>;
+  /** SDK enums contributed by package manifests, keyed by their public name. */
+  readonly enums: ReadonlyMap<string, NativeEnumBinding>;
+  /** Module-local alias name → public enum name. */
+  readonly enumAliases: ReadonlyMap<string, string>;
 }
 
 export type ResolveResult = { ok: true; type: NativeType } | { ok: false; diagnostic: Diagnostic };
@@ -148,6 +152,9 @@ function resolveReference(type: Extract<SurfaceType, { kind: "reference" }>, sco
   const builtin = BUILTIN_REFERENCES[type.name];
   if (builtin) return ok(builtin);
   if (scope.sized.has(type.name) && SIZED_NUMERIC_TYPES[type.name]) return ok(SIZED_NUMERIC_TYPES[type.name]!);
+  const enumName = scope.enumAliases.get(type.name);
+  const enumeration = enumName === undefined ? undefined : scope.enums.get(enumName);
+  if (enumName !== undefined && enumeration) return ok(T.enumeration(enumName, enumeration));
   if (scope.structs.has(type.name)) return ok(T.struct(type.name));
   const sizedHint = SIZED_NUMERIC_TYPES[type.name]
     ? ` Import it: \`import type { ${type.name} } from "@lucent-lang/types";\`.`

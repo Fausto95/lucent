@@ -10,6 +10,9 @@ import type { IRModule, NativeType } from "@lucent-lang/compiler";
 import {
   generateSwift,
   swiftClass,
+  swiftEnumBridge,
+  swiftEnumImports,
+  swiftEnums,
   swiftObjectRuntime,
   swiftRuntime,
   swiftEventRuntime,
@@ -20,6 +23,9 @@ import {
 import {
   generateKotlin,
   kotlinClass,
+  kotlinEnumBridge,
+  kotlinEnumImports,
+  kotlinEnums,
   kotlinObjectRuntime,
   kotlinRuntime,
   kotlinEventRuntime,
@@ -171,6 +177,24 @@ function emitPackage(modules: IRModule[], options: EmitOptions): FileTree {
       files.set(`${ANDROID_DIR}/${s.name}.kt`, `package ${ANDROID_PACKAGE}\n\n` + kotlinClass(s));
     }
   }
+  const enums = Object.assign({}, ...modules.map((m) => m.enums ?? {})) as Record<string, never>;
+  if (Object.keys(enums).length) {
+    files.set(
+      "ios/LucentEnums.swift",
+      [...new Set(modules.flatMap(swiftEnumImports))].map((i) => `import ${i}`).join("\n") +
+        "\n\n" +
+        swiftEnums(enums).join("\n\n") +
+        "\n",
+    );
+    files.set(
+      `${ANDROID_DIR}/LucentEnums.kt`,
+      `package ${ANDROID_PACKAGE}\n\n` +
+        [...new Set(modules.flatMap(kotlinEnumImports))].map((i) => `import ${i}`).join("\n") +
+        "\n\n" +
+        kotlinEnums(enums).join("\n\n") +
+        "\n",
+    );
+  }
   emitNativePackages(files, modules, ANDROID_PACKAGE);
   emitViews(files, modules, ANDROID_PACKAGE);
   return files;
@@ -234,6 +258,8 @@ function specType(t: NativeType, module: IRModule): string {
       return `Record<string, ${specType(t.value, module)}>`;
     case "optional":
       return `${specType(t.value, module)} | undefined`;
+    case "enum":
+      return "string";
     case "struct":
       return nitroStructName(module, t.name);
     case "promise":
@@ -312,6 +338,8 @@ struct LucentError: Error, CustomStringConvertible {
 function nitroSwiftType(t: NativeType, module: IRModule): string {
   if (isReference(t, module)) return "Double";
   switch (t.kind) {
+    case "enum":
+      return "String";
     case "int":
       return "Double";
     case "array":
@@ -331,6 +359,7 @@ function nitroSwiftType(t: NativeType, module: IRModule): string {
 
 const swiftNeedsConversion = (t: NativeType): boolean =>
   t.kind === "int" ||
+  t.kind === "enum" ||
   t.kind === "struct" ||
   ((t.kind === "array" || t.kind === "optional" || t.kind === "map") &&
     swiftNeedsConversion(t.kind === "array" ? t.element : t.value));
@@ -343,6 +372,10 @@ function swiftConvert(value: string, t: NativeType, direction: "toBody" | "toNit
       : `LucentObjectRegistry.shared.hold(${value})`;
   if (!swiftNeedsConversion(t)) return value;
   switch (t.kind) {
+    case "enum":
+      return direction === "toBody"
+        ? `try ${swiftEnumBridge(t.name)}.fromLucent(${value})`
+        : `try ${swiftEnumBridge(t.name)}.toLucent(${value})`;
     case "int":
       return direction === "toBody" ? `${swiftType(t)}(${value})` : `Double(${value})`;
     case "struct":
@@ -516,6 +549,8 @@ const KOTLIN_RUNTIME =
 function nitroKotlinType(t: NativeType, module: IRModule): string {
   if (isReference(t, module)) return "Double";
   switch (t.kind) {
+    case "enum":
+      return "String";
     case "int":
       return "Double";
     case "array":
@@ -541,6 +576,7 @@ function primitiveArray(element: NativeType): string | null {
 
 const kotlinNeedsConversion = (t: NativeType): boolean =>
   t.kind === "int" ||
+  t.kind === "enum" ||
   t.kind === "struct" ||
   t.kind === "array" ||
   ((t.kind === "optional" || t.kind === "map") && kotlinNeedsConversion(t.value));
@@ -552,6 +588,10 @@ function kotlinConvert(value: string, t: NativeType, direction: "toBody" | "toNi
       : `LucentObjectRegistry.hold(${value})`;
   if (!kotlinNeedsConversion(t)) return value;
   switch (t.kind) {
+    case "enum":
+      return direction === "toBody"
+        ? `${kotlinEnumBridge(t.name)}.fromLucent(${value})`
+        : `${kotlinEnumBridge(t.name)}.toLucent(${value})`;
     case "int":
       return direction === "toBody" ? `${value}.to${kotlinType(t)}()` : `${value}.toDouble()`;
     case "struct":

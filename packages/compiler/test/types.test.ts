@@ -3,7 +3,12 @@ import { resolveType, type TypeScope } from "../src/types/resolve.ts";
 import { typeToString } from "../src/types/native-type.ts";
 import { parseModule } from "../src/parser/index.ts";
 
-const scope: TypeScope = { structs: new Set(["User"]), sized: new Set(["int32", "float32"]) };
+const scope: TypeScope = {
+  enums: new Map(),
+  enumAliases: new Map(),
+  structs: new Set(["User"]),
+  sized: new Set(["int32", "float32"]),
+};
 
 function typeOf(annotation: string) {
   const { module, diagnostics } = parseModule(`function f(x: ${annotation}): void {}`, "t.lucent.ts");

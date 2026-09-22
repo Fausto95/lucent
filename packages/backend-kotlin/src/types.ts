@@ -25,6 +25,8 @@ export function kotlinType(t: NativeType): string {
       return `Map<String, ${kotlinType(t.value)}>`;
     case "optional":
       return `${t.value.kind === "callback" || t.value.kind === "event" ? `(${kotlinType(t.value)})` : kotlinType(t.value)}?`;
+    case "enum":
+      return t.binding.kotlin.type;
     case "struct":
       return t.name;
     case "promise":

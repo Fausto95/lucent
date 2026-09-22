@@ -3,7 +3,14 @@ import { checkBoundaries } from "./boundaries.ts";
 import { UI_PRIMITIVES } from "../ui.ts";
 import { diagnostic, type Diagnostic, type Span } from "../diagnostics/index.ts";
 import type { Expr, Stmt, SurfaceFunction, SurfaceModule, SurfaceType } from "../parser/surface.ts";
-import { isNumeric, T, typeEquals, typeToString, type NativeType } from "../types/native-type.ts";
+import {
+  isNumeric,
+  T,
+  typeEquals,
+  typeToString,
+  type NativeEnumBinding,
+  type NativeType,
+} from "../types/native-type.ts";
 import { resolveType, type TypeScope } from "../types/resolve.ts";
 import type { StructDef, TExpr, TStmt, TypedFunction, TypedModule, TypedParam } from "./typed.ts";
 
@@ -59,13 +66,31 @@ class ModuleChecker {
     return this.module.views ?? {};
   }
   readonly structs = new Map<string, StructDef>();
+  readonly enums = new Map<string, NativeEnumBinding>();
+  /** Prefixed alias name → public enum name. */
+  readonly enumAliases = new Map<string, string>();
   readonly signatures = new Map<string, Signature>();
   readonly typeScope: TypeScope;
 
   constructor(private readonly module: SurfaceModule) {
     const sized = new Set<string>();
     for (const imp of module.imports) for (const name of imp.names) sized.add(name);
-    this.typeScope = { structs: new Set(module.typeAliases.map((a) => a.name)), sized };
+    for (const alias of module.typeAliases) {
+      if (!alias.enumeration) continue;
+      const previous = this.enums.get(alias.enumeration.name);
+      if (previous && JSON.stringify(previous) !== JSON.stringify(alias.enumeration.binding))
+        this.report(
+          diagnostic("LC1006", alias.span, `Two packages declare a different native enum ${alias.enumeration.name}.`),
+        );
+      this.enums.set(alias.enumeration.name, alias.enumeration.binding);
+      this.enumAliases.set(alias.name, alias.enumeration.name);
+    }
+    this.typeScope = {
+      structs: new Set(module.typeAliases.filter((a) => !a.enumeration).map((a) => a.name)),
+      sized,
+      enums: this.enums,
+      enumAliases: this.enumAliases,
+    };
   }
 
   report(d: Diagnostic): void {
@@ -123,6 +148,7 @@ class ModuleChecker {
       .replace(/\.lucent\.tsx?$/, "")
       .replace(/\.ts$/, "");
     const typed: TypedModule = {
+      ...(this.enums.size ? { enums: Object.fromEntries(this.enums) } : {}),
       ...(this.module.nativePackages ? { nativePackages: this.module.nativePackages } : {}),
       ...(this.module.views ? { views: this.module.views } : {}),
       name,
@@ -141,6 +167,7 @@ class ModuleChecker {
         continue;
       }
       seen.add(alias.name);
+      if (alias.enumeration) continue;
       if (alias.type.kind === "union") {
         this.collectUnion(alias.name, alias.exported, alias.type);
         continue;
@@ -835,8 +862,20 @@ class FunctionChecker {
         return this.view(e);
       case "number":
         return this.numberLiteral(e, expected);
-      case "string":
+      case "string": {
+        const context = expected && isOptional(expected) ? expected.value : expected;
+        if (context?.kind === "enum") {
+          if (!context.binding.cases.includes(e.value))
+            return this.mismatch(
+              span,
+              context,
+              T.string,
+              `\`${e.value}\` is not a case of ${context.name}. Cases: ${context.binding.cases.map((c) => `"${c}"`).join(", ")}.`,
+            );
+          return { kind: "string", value: e.value, type: context, span };
+        }
         return { kind: "string", value: e.value, type: T.string, span };
+      }
       case "boolean":
         return { kind: "boolean", value: e.value, type: T.bool, span };
       case "null":
@@ -1103,7 +1142,8 @@ class FunctionChecker {
       this.report(diagnostic("LC1018", span, "A borrowed value cannot be used after suspension."));
     if (binding && this.captures.some((scope) => scope.get(name) === binding)) {
       const reference = binding.type.kind === "struct" ? this.mod.structs.get(binding.type.name)?.reference : undefined;
-      const value = isPrimitive(binding.type) || (binding.type.kind === "struct" && !reference);
+      const value =
+        isPrimitive(binding.type) || binding.type.kind === "enum" || (binding.type.kind === "struct" && !reference);
       const retained = reference?.native?.contract?.ownership === "owned" && !binding.mutable && !binding.borrowed;
       const borrowed =
         this.closureEscaping.at(-1) === false &&
@@ -1188,7 +1228,7 @@ class FunctionChecker {
       if (!comparable) return this.mismatch(e.right.span, left.type, right.type);
       const base = isOptional(left.type) ? left.type.value : left.type;
       const nullCheck = left.kind === "null" || right.kind === "null";
-      if (!nullCheck && !isPrimitive(base)) {
+      if (!nullCheck && !isPrimitive(base) && base.kind !== "enum") {
         this.report(
           diagnostic(
             "LC1011",

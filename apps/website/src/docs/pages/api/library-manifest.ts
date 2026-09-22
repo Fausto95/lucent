@@ -43,6 +43,25 @@ export const page: DocPage = {
         "`nativeOnly` bindings may take `NativeCallback` parameters; they are how native listeners are attached without exposing callbacks to JavaScript.",
       ],
     },
+    { kind: "h2", text: "enums" },
+    {
+      kind: "p",
+      text: "Declare an SDK enum or option set. `cases` lists the Lucent case names, and each target names its native type plus one native expression per case. The `source` must declare the same cases, in the same order, as a string-literal union; a mismatch is `LC1006`.",
+    },
+    {
+      kind: "code",
+      filename: "camera.library.json",
+      code: '{\n  "source": "export type Position = \\"front\\" | \\"back\\";\\nexport declare function setPosition(position: Position): void;",\n  "enums": {\n    "Position": {\n      "cases": ["front", "back"],\n      "swift": {\n        "type": "AVCaptureDevice.Position",\n        "values": { "front": ".front", "back": ".back" },\n        "imports": ["AVFoundation"]\n      },\n      "kotlin": { "type": "Int", "values": { "front": "0", "back": "1" } }\n    }\n  },\n  "bindings": {\n    "setPosition": { "swift": ["session.position = position"], "kotlin": ["session.facing = position"] }\n  }\n}',
+    },
+    {
+      kind: "list",
+      items: [
+        "In Lucent source a case is a plain string literal that adopts the enum type from its context. A literal outside the list is `LC1011` and the message names the valid cases.",
+        "Native code only ever sees the SDK value. JavaScript only ever sees the case name, typed as the literal union in the generated declarations.",
+        "The compiler emits a `LucentEnum_<Name>` bridge per target. A name JavaScript sends that is not a case throws `INVALID_ENUM_CASE` rather than being guessed.",
+        "Enums are parameter, return and local types. They cannot be record fields or event payloads, or sit inside arrays, maps and optionals; carry the case as a plain string there.",
+      ],
+    },
     { kind: "h2", text: "references" },
     {
       kind: "p",

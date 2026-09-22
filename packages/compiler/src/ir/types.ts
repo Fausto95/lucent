@@ -1,6 +1,12 @@
 import type { NativeTargets } from "../native-contracts.ts";
 import type { NativePackage } from "../libraries.ts";
-import type { NativeBinding, NativeViewBinding, NativeReferenceBinding, ThreadContext } from "../libraries.ts";
+import type {
+  NativeBinding,
+  NativeEnumBinding,
+  NativeViewBinding,
+  NativeReferenceBinding,
+  ThreadContext,
+} from "../libraries.ts";
 /**
  * Lucent IR: a structured, fully typed representation with every JavaScript-only
  * construct removed. Backends emit it directly; see docs/ir.md for the rationale.
@@ -137,6 +143,8 @@ export interface IREvent {
 }
 
 export interface IRModule {
+  /** SDK enums reachable from this module, keyed by their Lucent name. */
+  enums?: Record<string, NativeEnumBinding>;
   targets?: NativeTargets;
   nativePackages?: Record<string, NativePackage>;
   views?: Record<string, NativeViewBinding>;

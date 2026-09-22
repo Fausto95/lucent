@@ -80,6 +80,8 @@ export function checkBoundaries(
       fail(alias.span, "Shared object fields support scalar and nullable scalar values.");
     if (!struct.reference && struct.fields.some((f) => contains(f.type, reference)))
       fail(alias.span, "A value record cannot contain a shared native object. Pass the object directly.");
+    if (struct.fields.some((f) => contains(f.type, (t) => t.kind === "enum")))
+      fail(alias.span, "Native enums are parameter, return and local types. Carry the case as a string in a record.");
   }
   for (const fn of functions) {
     const original = source.functions.find((f) => f.name === fn.name)!;
@@ -87,6 +89,7 @@ export function checkBoundaries(
       fail(fn.span, "A declared native function requires a registered platform binding.");
     if (fn.event) {
       const invalid = (t: NativeType) =>
+        t.kind === "enum" ||
         t.kind === "bytes" ||
         t.kind === "event" ||
         t.kind === "view" ||
@@ -101,6 +104,8 @@ export function checkBoundaries(
     }
     if (fn.returnType.kind === "view") continue;
     const all = [...fn.params.map((p) => p.type), fn.returnType];
+    if (all.some((t) => t.kind !== "enum" && contains(t, (inner) => inner.kind === "enum")))
+      fail(fn.span, "Native enums cross the boundary directly, not inside arrays, maps, optionals or records.");
     if (all.some((t) => contains(t, (inner) => inner.kind === "event" || inner.kind === "view")))
       fail(fn.span, "Event callbacks are only supported as native view props.");
     if (fn.exported && all.some((t) => contains(t, (inner) => inner.kind === "callback")))
