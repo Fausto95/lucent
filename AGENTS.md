@@ -8,14 +8,32 @@ No JS runtime exists on the native side.
 
 ```
 cli / expo / metro  →  host-expo / host-nitro  →  backend-swift / backend-kotlin  →  compiler  →  oxc-parser
+                                ↘                          ↙
+                                   codegen  (leaf, no deps)
 ```
 
 - `packages/compiler` is pure: source text in, IR + diagnostics out. It imports
   nothing but `oxc-parser`, and only `src/parser/` may import it.
 - Backends know the IR only. Hosts know backends and the target SDK. Integrations
   (cli, metro, expo plugin) know hosts.
+- `packages/codegen` knows no IR and no target language. It holds the emission
+  document tree, which owns indentation and brace balance, and `fillNative`.
 - Definitions are data: type mappings, diagnostic codes, and templates live in
   lookup tables, not `switch` ladders.
+
+## Emitting native code
+
+- Hand-written Swift, Kotlin and build files live in each package's `native/`
+  as real source, never as TypeScript string literals. Host-supplied fragments
+  arrive through `{{token}}` placeholders. The compiler cannot read files, so
+  `scripts/embed-native.ts` generates its embed; `pnpm verify` checks it is
+  fresh.
+- Generated code is built as a `Doc` and rendered. Never hardcode an indent
+  prefix, and never push an opening and closing brace as separate lines — use
+  `block`, so nesting cannot fall out of step with the text.
+- Expressions are built as a `SwiftExpr` / `KotlinExpr` and printed.
+  Parentheses come from the precedence table and Swift's `try` from an
+  exhaustive effect walk; neither is written by hand at a call site.
 
 ## Working
 
