@@ -1014,6 +1014,13 @@ export class FnEmitter {
   }
 
   private template(node: ts.TemplateExpression): E {
+    return this.inOrder(
+      node.templateSpans.map((s) => s.expression),
+      () => this.templateInner(node),
+    );
+  }
+
+  private templateInner(node: ts.TemplateExpression): E {
     const parts: string[] = [];
     if (node.head.text) parts.push(stringLiteral(node.head.text));
     for (const span of node.templateSpans) {
@@ -1240,6 +1247,10 @@ export class FnEmitter {
         fail(node, Codes.UnsupportedOperator, "`in` is only supported on records");
       }
     }
+    return this.inOrder([node.left, node.right], () => this.binaryOp(node, op));
+  }
+
+  private binaryOp(node: ts.BinaryExpression, op: ts.SyntaxKind): E {
     const a = this.expr(node.left);
     const b = this.expr(node.right);
     switch (op) {
@@ -1529,8 +1540,39 @@ export class FnEmitter {
 
   // --- calls ------------------------------------------------------------------------------
 
+  /**
+   * C++ leaves the evaluation order of function arguments (and of `a + b`)
+   * unspecified; JavaScript evaluates left to right. When the order could be
+   * observed, arguments are evaluated into temporaries first.
+   */
+  private inOrder(args: readonly ts.Expression[], build: () => E): E {
+    const candidates = args.filter((a) => !isLiteral(a) && !ts.isArrowFunction(a) && !ts.isFunctionExpression(a));
+    if (candidates.length < 2 || candidates.every(isSimple)) return build();
+    const temps: string[] = [];
+    const saved: ts.Expression[] = [];
+    try {
+      for (const a of candidates) {
+        const target = ts.isSpreadElement(a) ? a.expression : a;
+        const e = this.expr(target);
+        const tmp = this.ctx.fresh("arg");
+        temps.push(`auto ${tmp} = ${e.c};`);
+        this.subst.set(target, { c: tmp, t: e.t });
+        saved.push(target);
+      }
+      const r = build();
+      return { c: `({ ${temps.join(" ")} ${r.c}; })`, t: r.t };
+    } finally {
+      for (const s of saved) this.subst.delete(s);
+    }
+  }
+
   private call(node: ts.CallExpression): E {
     if (isOptionalChain(node)) return this.chainPart(node).e;
+    if (node.arguments.length >= 2) return this.inOrder(node.arguments, () => this.callInner(node));
+    return this.callInner(node);
+  }
+
+  private callInner(node: ts.CallExpression): E {
     const callee = node.expression;
     if (callee.kind === ts.SyntaxKind.SuperKeyword) return builtins.superCall(this, node);
     if (ts.isPropertyAccessExpression(callee)) {
@@ -1601,6 +1643,12 @@ export class FnEmitter {
   }
 
   private newExpr(node: ts.NewExpression): E {
+    const args = node.arguments ?? [];
+    if (args.length >= 2) return this.inOrder(args, () => this.newInner(node));
+    return this.newInner(node);
+  }
+
+  private newInner(node: ts.NewExpression): E {
     const callee = node.expression;
     const t = this.lt(node);
     if (t.k === "class") {
@@ -1733,6 +1781,39 @@ export class FnEmitter {
     }
     return { c: `({ ${parts.join(" ")} ${tmp}; })`, t };
   }
+}
+
+function isLiteral(n: ts.Expression): boolean {
+  return (
+    ts.isNumericLiteral(n) ||
+    ts.isStringLiteral(n) ||
+    ts.isNoSubstitutionTemplateLiteral(n) ||
+    n.kind === ts.SyntaxKind.TrueKeyword ||
+    n.kind === ts.SyntaxKind.FalseKeyword ||
+    n.kind === ts.SyntaxKind.NullKeyword ||
+    (ts.isIdentifier(n) && n.text === "undefined")
+  );
+}
+
+/** An expression without side effects (so evaluation order cannot be observed). */
+export function isSimple(n: ts.Expression): boolean {
+  if (isLiteral(n) || ts.isIdentifier(n) || n.kind === ts.SyntaxKind.ThisKeyword) return true;
+  if (ts.isArrowFunction(n) || ts.isFunctionExpression(n)) return true;
+  if (ts.isParenthesizedExpression(n) || ts.isAsExpression(n) || ts.isNonNullExpression(n) || ts.isSatisfiesExpression(n) || ts.isTypeOfExpression(n)) {
+    return isSimple(n.expression);
+  }
+  if (ts.isPropertyAccessExpression(n)) return isSimple(n.expression);
+  if (ts.isElementAccessExpression(n)) return isSimple(n.expression) && isSimple(n.argumentExpression);
+  if (ts.isPrefixUnaryExpression(n)) return n.operator !== ts.SyntaxKind.PlusPlusToken && n.operator !== ts.SyntaxKind.MinusMinusToken && isSimple(n.operand);
+  if (ts.isBinaryExpression(n)) {
+    const k = n.operatorToken.kind;
+    if (k >= ts.SyntaxKind.FirstAssignment && k <= ts.SyntaxKind.LastAssignment) return false;
+    return isSimple(n.left) && isSimple(n.right);
+  }
+  if (ts.isConditionalExpression(n)) return isSimple(n.condition) && isSimple(n.whenTrue) && isSimple(n.whenFalse);
+  if (ts.isTemplateExpression(n)) return n.templateSpans.every((s) => isSimple(s.expression));
+  if (ts.isArrayLiteralExpression(n)) return n.elements.every((e) => !ts.isSpreadElement(e) && isSimple(e));
+  return false;
 }
 
 function propName(n: ts.PropertyName): string {
