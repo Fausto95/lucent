@@ -21,8 +21,10 @@ export function DiagramBox({ x, y, w, h = 44, label, sub, accent }: DiagramBoxPr
         width={w}
         height={h}
         rx="6"
-        fill={accent ? palette.accentFill : palette.boxFill}
-        stroke={accent ? palette.accent : palette.boxStroke}
+        style={{
+          fill: accent ? palette.accentFill : palette.boxFill,
+          stroke: accent ? palette.accent : palette.boxStroke,
+        }}
       />
       <text
         x={cx}
@@ -30,12 +32,19 @@ export function DiagramBox({ x, y, w, h = 44, label, sub, accent }: DiagramBoxPr
         textAnchor="middle"
         fontFamily={FONT}
         fontSize="12.5"
-        fill={accent ? palette.accent : palette.text}
+        style={{ fill: accent ? palette.accent : palette.text }}
       >
         {label}
       </text>
       {sub && (
-        <text x={cx} y={y + h / 2 + 13} textAnchor="middle" fontFamily={FONT} fontSize="10.5" fill={palette.muted}>
+        <text
+          x={cx}
+          y={y + h / 2 + 13}
+          textAnchor="middle"
+          fontFamily={FONT}
+          fontSize="10.5"
+          style={{ fill: palette.muted }}
+        >
           {sub}
         </text>
       )}

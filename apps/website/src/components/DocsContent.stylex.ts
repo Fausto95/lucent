@@ -1,9 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
+import { tokens } from "../styles/tokens.stylex";
 
 const mono = '"IBM Plex Mono", monospace';
-const border = "#30362b";
-const accent = "#c4f778";
-const text = "#aeb7a4";
+const border = tokens.border;
+const accent = tokens.accent;
+const text = tokens.textMuted;
 
 export const styles = stylex.create({
   kicker: {
@@ -12,7 +13,7 @@ export const styles = stylex.create({
     lineHeight: "normal",
     fontFamily: mono,
     letterSpacing: "1.2px",
-    color: "#93a781",
+    color: tokens.textSubtle,
     textTransform: "uppercase",
   },
   title: {
@@ -28,7 +29,7 @@ export const styles = stylex.create({
   lead: {
     fontSize: "1.2rem",
     lineHeight: 1.65,
-    color: "#d0d8c7",
+    color: tokens.textSecondary,
     margin: "0 0 12px",
     maxWidth: "62ch",
   },
@@ -71,20 +72,20 @@ export const styles = stylex.create({
     fontWeight: 400,
     fontSize: "0.875em",
     fontFamily: mono,
-    color: "#d5e4c7",
+    color: tokens.textCode,
     overflowWrap: "anywhere",
-    backgroundColor: "#20271b",
+    backgroundColor: tokens.surface,
     borderRadius: "3px",
     padding: "2px 5px",
   },
   strong: {
-    color: "#f0f2eb",
+    color: tokens.text,
     fontWeight: 550,
   },
   link: {
     color: accent,
     textDecorationLine: "underline",
-    textDecorationColor: "#5f7a3d",
+    textDecorationColor: tokens.accentBorder,
     textUnderlineOffset: "3px",
     ":hover": {
       textDecorationColor: accent,
@@ -102,14 +103,14 @@ export const styles = stylex.create({
     paddingLeft: "4px",
     margin: "6px 0",
     "::marker": {
-      color: "#71865d",
+      color: tokens.textSubtle,
     },
   },
   note: {
     display: "flex",
     alignItems: "baseline",
     gap: "14px",
-    backgroundColor: "#1b2416",
+    backgroundColor: tokens.surface,
     borderLeftWidth: "2px",
     borderLeftStyle: "solid",
     borderLeftColor: accent,
@@ -119,8 +120,8 @@ export const styles = stylex.create({
     maxWidth: "76ch",
   },
   noteWarn: {
-    backgroundColor: "#251f14",
-    borderLeftColor: "#e6b45a",
+    backgroundColor: tokens.warnSurface,
+    borderLeftColor: tokens.warn,
   },
   noteMark: {
     color: accent,
@@ -129,7 +130,7 @@ export const styles = stylex.create({
     flexShrink: 0,
   },
   noteMarkWarn: {
-    color: "#e6b45a",
+    color: tokens.warn,
   },
   noteText: {
     fontSize: "0.95rem",
@@ -157,9 +158,9 @@ export const styles = stylex.create({
     fontWeight: 500,
     letterSpacing: "0.6px",
     textTransform: "uppercase",
-    color: "#d3ddc9",
+    color: tokens.textSecondary,
     padding: "12px 15px",
-    backgroundColor: "#1e2519",
+    backgroundColor: tokens.surface,
     whiteSpace: "nowrap",
   },
   td: {
@@ -167,20 +168,20 @@ export const styles = stylex.create({
     borderTopWidth: "1px",
     borderTopStyle: "solid",
     borderTopColor: border,
-    color: "#afbba5",
+    color: tokens.textMuted,
     verticalAlign: "top",
   },
   tdFirst: {
-    color: "#d5e4c7",
+    color: tokens.textCode,
     minWidth: "120px",
   },
   diagram: {
     margin: "26px 0",
     borderWidth: "1px",
     borderStyle: "solid",
-    borderColor: "#37412f",
+    borderColor: tokens.borderStrong,
     borderRadius: "7px",
-    backgroundColor: "#151a12",
+    backgroundColor: tokens.bgSunken,
     padding: {
       default: "18px 20px 10px",
       "@media (max-width: 540px)": "10px 8px 4px",
@@ -195,7 +196,7 @@ export const styles = stylex.create({
   caption: {
     fontSize: "0.8rem",
     lineHeight: 1.6,
-    color: "#8d9783",
+    color: tokens.textSubtle,
     fontFamily: mono,
     margin: "10px 0 0",
   },
@@ -225,8 +226,8 @@ export const styles = stylex.create({
     width: "26px",
     height: "26px",
     borderRadius: "999px",
-    backgroundColor: accent,
-    color: "#111411",
+    backgroundColor: tokens.accentFill,
+    color: tokens.onAccent,
     fontSize: "0.8rem",
     fontWeight: 700,
     flexShrink: 0,
@@ -246,9 +247,9 @@ export const styles = stylex.create({
     padding: "18px 20px",
     borderWidth: "1px",
     borderStyle: "solid",
-    borderColor: "#37412f",
+    borderColor: tokens.borderStrong,
     borderRadius: "7px",
-    backgroundColor: "#181e14",
+    backgroundColor: tokens.bgRaised,
     transitionProperty: "border-color, transform",
     transitionDuration: "0.15s",
     ":hover": {
@@ -262,7 +263,7 @@ export const styles = stylex.create({
     gap: "12px",
     fontSize: "1rem",
     fontWeight: 550,
-    color: "#f0f2eb",
+    color: tokens.text,
     margin: "0 0 6px",
   },
   cardArrow: {
@@ -281,7 +282,7 @@ export const styles = stylex.create({
   tab: {
     borderWidth: 0,
     backgroundColor: "transparent",
-    color: "#9fae93",
+    color: tokens.textSubtle,
     fontFamily: mono,
     fontSize: "0.75rem",
     padding: "4px 8px",
@@ -293,6 +294,6 @@ export const styles = stylex.create({
   },
   tabSelected: {
     color: accent,
-    backgroundColor: "#22301a",
+    backgroundColor: tokens.surfaceStrong,
   },
 });

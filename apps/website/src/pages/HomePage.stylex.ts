@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { tokens } from "../styles/tokens.stylex";
 
 export const styles = stylex.create({
   hero: {
@@ -46,7 +47,7 @@ export const styles = stylex.create({
       "@media (max-width: 540px)": "0.3px",
       "@media (max-width: 1150px)": "1px",
     },
-    color: "#b8c0ae",
+    color: tokens.textMuted,
     display: "flex",
     alignItems: "center",
     gap: {
@@ -56,7 +57,7 @@ export const styles = stylex.create({
     whiteSpace: "normal",
   },
   tinyMark: {
-    color: "#c4f778",
+    color: tokens.accent,
     fontSize: {
       default: "1.5rem",
       "@media (max-width: 540px)": "1.25rem",
@@ -93,7 +94,7 @@ export const styles = stylex.create({
     margin: "0 0 18px",
   },
   heroDetail: {
-    color: "#a0a79a",
+    color: tokens.textMuted,
     fontSize: {
       default: "1rem",
       "@media (max-width: 540px)": "0.9375rem",
@@ -127,7 +128,7 @@ export const styles = stylex.create({
   },
   textLink: {
     ":hover": {
-      color: "#c4f778",
+      color: tokens.accent,
     },
     fontSize: {
       default: "0.875rem",
@@ -161,7 +162,7 @@ export const styles = stylex.create({
       default: "0.65px",
       "@media (max-width: 540px)": "0.8px",
     },
-    color: "#949d88",
+    color: tokens.textSubtle,
     flexWrap: "wrap",
   },
   footnoteItem: {
@@ -172,16 +173,16 @@ export const styles = stylex.create({
         "@media (max-width: 1150px)": "12px",
         "@media (max-width: 540px)": "12px",
       },
-      color: "#717966",
+      color: tokens.textSubtle,
     },
   },
   platformStrip: {
     borderTopWidth: "1px",
     borderTopStyle: "solid",
-    borderTopColor: "#30362b",
+    borderTopColor: tokens.border,
     borderBottomWidth: "1px",
     borderBottomStyle: "solid",
-    borderBottomColor: "#30362b",
+    borderBottomColor: tokens.border,
     padding: {
       default: "27px 0",
       "@media (max-width: 540px)": "23px 0",
@@ -216,7 +217,7 @@ export const styles = stylex.create({
       "@media (max-width: 850px)": "0.75rem",
     },
     lineHeight: 1.6,
-    color: "#a1aa96",
+    color: tokens.textMuted,
     width: {
       default: null,
       "@media (max-width: 850px)": "100%",
@@ -246,7 +247,7 @@ export const styles = stylex.create({
       default: "-0.45px",
       "@media (max-width: 540px)": "-0.3px",
     },
-    color: "#cbd1c4",
+    color: tokens.textSecondary,
   },
   platformLogo: {
     display: "block",
@@ -258,7 +259,7 @@ export const styles = stylex.create({
   platformNote: {
     fontSize: "0.75rem",
     lineHeight: 1.6,
-    color: "#a1aa96",
+    color: tokens.textMuted,
     textAlign: "right",
     display: {
       default: null,
@@ -293,7 +294,7 @@ export const styles = stylex.create({
     margin: "14px 0 0",
   },
   sectionHeadingMuted: {
-    color: "#9da793",
+    color: tokens.textSubtle,
     display: {
       default: null,
       "@media (max-width: 540px)": "block",
@@ -302,7 +303,7 @@ export const styles = stylex.create({
   sectionDescription: {
     fontSize: "1rem",
     lineHeight: 1.8,
-    color: "#a0a79a",
+    color: tokens.textMuted,
     margin: "0",
     marginTop: {
       default: null,
@@ -314,7 +315,7 @@ export const styles = stylex.create({
     fontSize: "0.75rem",
     lineHeight: "normal",
     fontFamily: '"IBM Plex Mono", monospace',
-    color: "#c7d2bd",
+    color: tokens.textSecondary,
   },
   features: {
     display: "grid",
@@ -343,7 +344,7 @@ export const styles = stylex.create({
       "@media (max-width: 850px)": "none",
     },
     borderRightColor: {
-      default: "#30362b",
+      default: tokens.border,
       "@media (max-width: 850px)": "currentColor",
     },
     paddingLeft: "0",
@@ -372,7 +373,7 @@ export const styles = stylex.create({
     borderBottomColor: {
       default: null,
       "@media (max-width: 850px)": "currentColor",
-      "@media (max-width: 540px)": "#30362b",
+      "@media (max-width: 540px)": tokens.border,
     },
     borderLeftWidth: {
       default: null,
@@ -402,13 +403,13 @@ export const styles = stylex.create({
     fontSize: "0.75rem",
     lineHeight: "normal",
     fontFamily: '"IBM Plex Mono", monospace',
-    color: "#89967c",
+    color: tokens.textSubtle,
   },
   featureIcon: {
     height: "27px",
     width: "27px",
     fill: "none",
-    stroke: "#c4f778",
+    stroke: tokens.accent,
     strokeWidth: "1.3",
     strokeLinecap: "round",
     strokeLinejoin: "round",
@@ -430,7 +431,7 @@ export const styles = stylex.create({
       "@media (max-width: 540px)": "0.9375rem",
     },
     lineHeight: 1.8,
-    color: "#a0a79a",
+    color: tokens.textMuted,
     margin: "0 0 22px",
     minHeight: {
       default: "108px",
@@ -445,7 +446,7 @@ export const styles = stylex.create({
   },
   featureLink: {
     ":hover": {
-      color: "#c4f778",
+      color: tokens.accent,
     },
     display: "inline-flex",
     gap: "10px",
@@ -468,7 +469,7 @@ export const styles = stylex.create({
       "@media (max-width: 850px)": "none",
     },
     borderRightColor: {
-      default: "#30362b",
+      default: tokens.border,
       "@media (max-width: 850px)": "currentColor",
     },
     borderTopWidth: {
@@ -496,7 +497,7 @@ export const styles = stylex.create({
     borderBottomColor: {
       default: null,
       "@media (max-width: 850px)": "currentColor",
-      "@media (max-width: 540px)": "#30362b",
+      "@media (max-width: 540px)": tokens.border,
     },
     borderLeftWidth: {
       default: null,
@@ -560,7 +561,7 @@ export const styles = stylex.create({
     borderBottomColor: {
       default: "currentColor",
       "@media (max-width: 850px)": "currentColor",
-      "@media (max-width: 540px)": "#30362b",
+      "@media (max-width: 540px)": tokens.border,
     },
     borderLeftWidth: {
       default: "0",
@@ -584,19 +585,19 @@ export const styles = stylex.create({
     },
   },
   startSection: {
-    backgroundColor: "#1b2416",
+    backgroundColor: tokens.surface,
     borderTopWidth: "1px",
     borderTopStyle: "solid",
-    borderTopColor: "#38432e",
+    borderTopColor: tokens.borderStrong,
     borderRightWidth: "1px",
     borderRightStyle: "solid",
-    borderRightColor: "#38432e",
+    borderRightColor: tokens.borderStrong,
     borderBottomWidth: "1px",
     borderBottomStyle: "solid",
-    borderBottomColor: "#38432e",
+    borderBottomColor: tokens.borderStrong,
     borderLeftWidth: "1px",
     borderLeftStyle: "solid",
-    borderLeftColor: "#38432e",
+    borderLeftColor: tokens.borderStrong,
     borderRadius: "9px",
     padding: {
       default: "42px",
@@ -626,7 +627,7 @@ export const styles = stylex.create({
       top: "0",
       bottom: "0",
       width: "3px",
-      backgroundColor: "#c4f778",
+      backgroundColor: tokens.accentFill,
     },
   },
   eyebrow3: {
@@ -641,7 +642,7 @@ export const styles = stylex.create({
       default: "1.1px",
       "@media (max-width: 540px)": "0.6px",
     },
-    color: "#b6caa0",
+    color: tokens.textMuted,
     display: "block",
   },
   startHeading: {
@@ -663,7 +664,7 @@ export const styles = stylex.create({
     },
   },
   startDescription: {
-    color: "#acb6a1",
+    color: tokens.textMuted,
     fontSize: {
       default: "1rem",
       "@media (max-width: 540px)": "0.875rem",
@@ -673,7 +674,7 @@ export const styles = stylex.create({
   },
   textLink2: {
     ":hover": {
-      color: "#c4f778",
+      color: tokens.accent,
     },
     fontSize: {
       default: "0.875rem",
@@ -684,24 +685,24 @@ export const styles = stylex.create({
     alignItems: "center",
     transitionProperty: "color",
     transitionDuration: "0.2s",
-    color: "#c4f778",
+    color: tokens.accent,
   },
   terminal: {
     minWidth: "0",
     alignSelf: "center",
-    backgroundColor: "#131810",
+    backgroundColor: tokens.bgSunken,
     borderTopWidth: "1px",
     borderTopStyle: "solid",
-    borderTopColor: "#3a462f",
+    borderTopColor: tokens.borderStrong,
     borderRightWidth: "1px",
     borderRightStyle: "solid",
-    borderRightColor: "#3a462f",
+    borderRightColor: tokens.borderStrong,
     borderBottomWidth: "1px",
     borderBottomStyle: "solid",
-    borderBottomColor: "#3a462f",
+    borderBottomColor: tokens.borderStrong,
     borderLeftWidth: "1px",
     borderLeftStyle: "solid",
-    borderLeftColor: "#3a462f",
+    borderLeftColor: tokens.borderStrong,
     borderRadius: "6px",
     overflow: "hidden",
   },
@@ -715,7 +716,7 @@ export const styles = stylex.create({
     },
     borderBottomWidth: "1px",
     borderBottomStyle: "solid",
-    borderBottomColor: "#2c3823",
+    borderBottomColor: tokens.border,
     fontWeight: 400,
     fontSize: {
       default: "0.75rem",
@@ -723,7 +724,7 @@ export const styles = stylex.create({
     },
     lineHeight: "normal",
     fontFamily: '"IBM Plex Mono", monospace',
-    color: "#a2b391",
+    color: tokens.textMuted,
     letterSpacing: "1px",
     flexWrap: {
       default: null,
@@ -737,10 +738,10 @@ export const styles = stylex.create({
   copyCommand: {
     borderWidth: "1px",
     borderStyle: "solid",
-    borderColor: "#2c3823",
+    borderColor: tokens.border,
     borderRadius: "6px",
     backgroundColor: "transparent",
-    color: "#9fae93",
+    color: tokens.textSubtle,
     fontWeight: 500,
     fontSize: "0.6875rem",
     lineHeight: 1,
@@ -755,13 +756,13 @@ export const styles = stylex.create({
     transitionProperty: "color, border-color",
     transitionDuration: "120ms",
     ":hover": {
-      color: "#c4f778",
-      borderColor: "#c4f778",
+      color: tokens.accent,
+      borderColor: tokens.accent,
     },
     ":focus-visible": {
       outlineWidth: "2px",
       outlineStyle: "solid",
-      outlineColor: "#c4f778",
+      outlineColor: tokens.accent,
       outlineOffset: "2px",
     },
   },
@@ -780,10 +781,10 @@ export const styles = stylex.create({
     },
     margin: "0",
     overflow: "auto",
-    color: "#dce6d3",
+    color: tokens.textCode,
   },
   comment: {
-    color: "#819372",
+    color: tokens.syntaxComment,
   },
   terminalNote: {
     fontSize: {
@@ -792,8 +793,8 @@ export const styles = stylex.create({
     },
     borderTopWidth: "1px",
     borderTopStyle: "solid",
-    borderTopColor: "#2c3823",
-    color: "#93a485",
+    borderTopColor: tokens.border,
+    color: tokens.textSubtle,
     padding: {
       default: "12px 17px",
       "@media (max-width: 540px)": "12px",
@@ -801,7 +802,7 @@ export const styles = stylex.create({
     lineHeight: 1.6,
   },
   terminalLink: {
-    color: "#c7d6b9",
+    color: tokens.textSecondary,
     whiteSpace: "nowrap",
   },
 });

@@ -1,13 +1,32 @@
 @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;450;500;550;600;650;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
-/* Document defaults only. Component and responsive styles live in StyleX. */
+/*
+ * Document defaults only. Component and responsive styles live in StyleX,
+ * and colours live in src/styles/tokens.stylex.ts. The two colour rules
+ * below are the exceptions: the pre-hydration canvas (so there is no flash
+ * before ThemeProvider applies the token class to <html>) and the focus
+ * ring, which needs a descendant selector StyleX does not offer.
+ */
 @layer reset {
   :root {
-    color-scheme: dark;
     font-family: "DM Sans", sans-serif;
     background: #111411;
-    color: #f0f2eb;
+    color-scheme: dark;
+    --focus-ring: #c4f778;
     -webkit-font-smoothing: antialiased;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      background: #f7f8f3;
+      color-scheme: light;
+      --focus-ring: #3c7a12;
+    }
+  }
+  :root[data-theme="dark"] {
+    --focus-ring: #c4f778;
+  }
+  :root[data-theme="light"] {
+    --focus-ring: #3c7a12;
   }
   *,
   *::before,
@@ -37,7 +56,7 @@
   button:focus-visible,
   a:focus-visible,
   [tabindex]:focus-visible {
-    outline: 2px solid #c4f778;
+    outline: 2px solid var(--focus-ring);
     outline-offset: 5px;
   }
   ::selection {

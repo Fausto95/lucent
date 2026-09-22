@@ -1,12 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
+import { tokens } from "../styles/tokens.stylex";
 
 export const styles = stylex.create({
   skipLink: {
     position: "fixed",
     top: "12px",
     left: "12px",
-    backgroundColor: "#c4f778",
-    color: "#111411",
+    backgroundColor: tokens.accentFill,
+    color: tokens.onAccent,
     padding: "10px",
     zIndex: 10,
     transform: "translateY(-150%)",
@@ -35,7 +36,7 @@ export const styles = stylex.create({
     justifyContent: "space-between",
     borderBottomWidth: "1px",
     borderBottomStyle: "solid",
-    borderBottomColor: "#30362b",
+    borderBottomColor: tokens.border,
   },
   mainNav: {
     display: "flex",
@@ -51,11 +52,11 @@ export const styles = stylex.create({
     },
   },
   overviewNavLink: {
-    color: "#c6cbc1",
+    color: tokens.textSecondary,
     transitionProperty: "color",
     transitionDuration: "0.2s",
     ":hover": {
-      color: "#c4f778",
+      color: tokens.accent,
     },
     fontSize: {
       default: null,
@@ -67,11 +68,11 @@ export const styles = stylex.create({
     },
   },
   languageNavLink: {
-    color: "#c6cbc1",
+    color: tokens.textSecondary,
     transitionProperty: "color",
     transitionDuration: "0.2s",
     ":hover": {
-      color: "#c4f778",
+      color: tokens.accent,
     },
     fontSize: {
       default: null,
@@ -87,22 +88,22 @@ export const styles = stylex.create({
     },
     borderTopWidth: "1px",
     borderTopStyle: "solid",
-    borderTopColor: "#42493c",
+    borderTopColor: tokens.borderStrong,
     borderRightWidth: "1px",
     borderRightStyle: "solid",
-    borderRightColor: "#42493c",
+    borderRightColor: tokens.borderStrong,
     borderBottomWidth: "1px",
     borderBottomStyle: "solid",
-    borderBottomColor: "#42493c",
+    borderBottomColor: tokens.borderStrong,
     borderLeftWidth: "1px",
     borderLeftStyle: "solid",
-    borderLeftColor: "#42493c",
+    borderLeftColor: tokens.borderStrong,
     borderRadius: "6px",
     padding: {
       default: "10px 16px",
       "@media (max-width: 540px)": "8px 10px",
     },
-    color: "#c6cbc1",
+    color: tokens.textSecondary,
     transitionProperty: "color",
     transitionDuration: "0.2s",
     fontSize: {
@@ -110,7 +111,7 @@ export const styles = stylex.create({
       "@media (max-width: 540px)": "0.875rem",
     },
     ":hover": {
-      color: "#c4f778",
+      color: tokens.accent,
     },
   },
   externalLinkIcon: {
@@ -134,7 +135,7 @@ export const styles = stylex.create({
     padding: "28px 0 35px",
     borderTopWidth: "1px",
     borderTopStyle: "solid",
-    borderTopColor: "#30362b",
+    borderTopColor: tokens.border,
     flexWrap: {
       default: null,
       "@media (max-width: 850px)": "wrap",
@@ -145,7 +146,7 @@ export const styles = stylex.create({
       default: "0.8125rem",
       "@media (max-width: 540px)": "0.75rem",
     },
-    color: "#939e87",
+    color: tokens.textSubtle,
     order: {
       default: null,
       "@media (max-width: 850px)": 3,
@@ -176,13 +177,13 @@ export const styles = stylex.create({
   },
   footerLink: {
     ":hover": {
-      color: "#c4f778",
+      color: tokens.accent,
     },
   },
   footerLicense: {
-    color: "#8d9783",
+    color: tokens.textSubtle,
   },
   activeNav: {
-    color: "#c4f778",
+    color: tokens.accent,
   },
 });

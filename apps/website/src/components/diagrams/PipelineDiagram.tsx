@@ -61,9 +61,9 @@ export function PipelineDiagram() {
       />
 
       <DiagramArrow from={[692, row3 + 44]} to={[692, 318]} marker={m} />
-      <rect x="20" y="318" width="828" height="44" rx="6" fill={palette.boxFill} stroke={palette.boxStroke} />
-      <text x="34" y="345" fontFamily={FONT} fontSize="12" fill={palette.text}>
-        <tspan fill={palette.accent}>modules/lucent/</tspan>
+      <rect x="20" y="318" width="828" height="44" rx="6" style={{ fill: palette.boxFill, stroke: palette.boxStroke }} />
+      <text x="34" y="345" fontFamily={FONT} fontSize="12" style={{ fill: palette.text }}>
+        <tspan style={{ fill: palette.accent }}>modules/lucent/</tspan>
         <tspan dx="18">ios/LucentGeoModule.swift</tspan>
         <tspan dx="18">android/…/LucentGeoModule.kt</tspan>
         <tspan dx="18">geo.lucent.js + .d.ts</tspan>

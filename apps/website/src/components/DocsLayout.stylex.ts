@@ -1,8 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
+import { tokens } from "../styles/tokens.stylex";
 
 const mono = '"IBM Plex Mono", monospace';
-const border = "#30362b";
-const accent = "#c4f778";
+const border = tokens.border;
+const accent = tokens.accent;
 
 export const styles = stylex.create({
   layout: {
@@ -65,7 +66,7 @@ export const styles = stylex.create({
     fontFamily: mono,
     fontSize: "0.75rem",
     letterSpacing: "1px",
-    color: "#b8c0ae",
+    color: tokens.textMuted,
     padding: "10px 0",
     "::-webkit-details-marker": {
       display: "none",
@@ -79,7 +80,7 @@ export const styles = stylex.create({
     fontSize: "0.7rem",
     letterSpacing: "1.2px",
     textTransform: "uppercase",
-    color: "#93a781",
+    color: tokens.textSubtle,
     margin: "0 0 8px 12px",
   },
   navLink: {
@@ -88,20 +89,20 @@ export const styles = stylex.create({
     borderLeftWidth: "1px",
     borderLeftStyle: "solid",
     borderLeftColor: border,
-    color: "#a0a79a",
+    color: tokens.textMuted,
     fontSize: "0.9rem",
     lineHeight: 1.4,
     transitionProperty: "color, background-color, border-color",
     transitionDuration: "0.15s",
     ":hover": {
       color: accent,
-      backgroundColor: "#1c2516",
+      backgroundColor: tokens.surface,
       borderLeftColor: accent,
     },
   },
   navLinkActive: {
     color: accent,
-    backgroundColor: "#1c2516",
+    backgroundColor: tokens.surface,
     borderLeftColor: accent,
   },
   main: {
@@ -123,7 +124,7 @@ export const styles = stylex.create({
     fontSize: "0.7rem",
     letterSpacing: "1.2px",
     textTransform: "uppercase",
-    color: "#93a781",
+    color: tokens.textSubtle,
     margin: "0 0 10px",
   },
   tocLink: {
@@ -132,7 +133,7 @@ export const styles = stylex.create({
     borderLeftWidth: "1px",
     borderLeftStyle: "solid",
     borderLeftColor: border,
-    color: "#8d9783",
+    color: tokens.textSubtle,
     fontSize: "0.8rem",
     lineHeight: 1.45,
     ":hover": {
@@ -140,7 +141,7 @@ export const styles = stylex.create({
     },
   },
   tocLinkActive: {
-    color: "#e6ecdf",
+    color: tokens.textSecondary,
     borderLeftColor: accent,
   },
   pager: {
@@ -161,9 +162,9 @@ export const styles = stylex.create({
     padding: "14px 18px",
     borderWidth: "1px",
     borderStyle: "solid",
-    borderColor: "#37412f",
+    borderColor: tokens.borderStrong,
     borderRadius: "7px",
-    color: "#f0f2eb",
+    color: tokens.text,
     ":hover": {
       borderColor: accent,
     },
@@ -180,14 +181,14 @@ export const styles = stylex.create({
     fontFamily: mono,
     fontSize: "0.7rem",
     letterSpacing: "1px",
-    color: "#93a781",
+    color: tokens.textSubtle,
     marginBottom: "4px",
   },
   editLink: {
     display: "inline-block",
     marginTop: "28px",
     fontSize: "0.8rem",
-    color: "#8d9783",
+    color: tokens.textSubtle,
     ":hover": {
       color: accent,
     },

@@ -1,22 +1,23 @@
 import * as stylex from "@stylexjs/stylex";
+import { tokens } from "../styles/tokens.stylex";
 
 export const styles = stylex.create({
   referenceCode: {
     margin: "25px 0",
     borderTopWidth: "1px",
     borderTopStyle: "solid",
-    borderTopColor: "#37412f",
+    borderTopColor: tokens.borderStrong,
     borderRightWidth: "1px",
     borderRightStyle: "solid",
-    borderRightColor: "#37412f",
+    borderRightColor: tokens.borderStrong,
     borderBottomWidth: "1px",
     borderBottomStyle: "solid",
-    borderBottomColor: "#37412f",
+    borderBottomColor: tokens.borderStrong,
     borderLeftWidth: "1px",
     borderLeftStyle: "solid",
-    borderLeftColor: "#37412f",
+    borderLeftColor: tokens.borderStrong,
     borderRadius: "7px",
-    backgroundColor: "#181e14",
+    backgroundColor: tokens.bgRaised,
     overflow: "hidden",
   },
   referenceCodeBar: {
@@ -33,8 +34,8 @@ export const styles = stylex.create({
     },
     borderBottomWidth: "1px",
     borderBottomStyle: "solid",
-    borderBottomColor: "#303a28",
-    color: "#bdcbb0",
+    borderBottomColor: tokens.border,
+    color: tokens.textMuted,
     fontWeight: 400,
     fontSize: "0.75rem",
     lineHeight: "normal",
@@ -43,10 +44,10 @@ export const styles = stylex.create({
   referenceCopyButton: {
     borderWidth: "1px",
     borderStyle: "solid",
-    borderColor: "#2c3823",
+    borderColor: tokens.border,
     borderRadius: "6px",
     backgroundColor: "transparent",
-    color: "#9fae93",
+    color: tokens.textSubtle,
     fontWeight: 500,
     fontSize: "0.6875rem",
     lineHeight: 1,
@@ -61,13 +62,13 @@ export const styles = stylex.create({
     transitionProperty: "color, border-color",
     transitionDuration: "120ms",
     ":hover": {
-      color: "#c4f778",
-      borderColor: "#c4f778",
+      color: tokens.accent,
+      borderColor: tokens.accent,
     },
     ":focus-visible": {
       outlineWidth: "2px",
       outlineStyle: "solid",
-      outlineColor: "#c4f778",
+      outlineColor: tokens.accent,
       outlineOffset: "2px",
     },
   },
@@ -89,20 +90,20 @@ export const styles = stylex.create({
     fontSize: "1em",
     lineHeight: 1.9,
     fontFamily: '"IBM Plex Mono", monospace',
-    color: "#d5e4c7",
+    color: tokens.textCode,
     overflowWrap: "normal",
   },
   syntaxPurple: {
-    color: "#c7a4e1",
+    color: tokens.syntaxKeyword,
   },
   syntaxYellow: {
-    color: "#d7d393",
+    color: tokens.syntaxType,
   },
   syntaxGreen: {
-    color: "#c4f778",
+    color: tokens.accent,
   },
   syntaxComment: {
-    color: "#7c8873",
+    color: tokens.syntaxComment,
     fontStyle: "italic",
   },
 });

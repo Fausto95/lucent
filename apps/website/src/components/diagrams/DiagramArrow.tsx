@@ -16,10 +16,10 @@ export function DiagramArrow({ from, to, marker, dashed }: DiagramArrowProps) {
       y1={from[1]}
       x2={to[0]}
       y2={to[1]}
-      stroke={palette.line}
       strokeWidth="1.25"
       strokeDasharray={dashed ? "4 4" : undefined}
       markerEnd={`url(#${marker})`}
+      style={{ stroke: palette.line }}
     />
   );
 }

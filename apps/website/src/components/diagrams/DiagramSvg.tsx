@@ -18,7 +18,7 @@ export function DiagramSvg({ viewBox, title, markerId, children }: DiagramSvgPro
       <title>{title}</title>
       <defs>
         <marker id={markerId} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-          <path d="M0 0 L10 5 L0 10 z" fill={palette.line} />
+          <path d="M0 0 L10 5 L0 10 z" style={{ fill: palette.line }} />
         </marker>
       </defs>
       {children}

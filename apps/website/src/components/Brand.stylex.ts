@@ -1,11 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
+import { tokens } from "../styles/tokens.stylex";
 
 export const styles = stylex.create({
   brand: {
     display: "inline-flex",
     alignItems: "center",
     gap: { default: 10, "@media (max-width: 540px)": 7 },
-    color: "#f0f2eb",
+    color: tokens.text,
     fontSize: { default: "2rem", "@media (max-width: 540px)": "1.75rem" },
     fontWeight: 650,
     lineHeight: 1,
@@ -27,5 +28,5 @@ export const styles = stylex.create({
     width: 30,
     height: 30,
   },
-  period: { color: "#c4f778" },
+  period: { color: tokens.accent },
 });

@@ -1,4 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
+import { tokens } from "../styles/tokens.stylex";
 
 export const styles = stylex.create({
   section: {
@@ -9,7 +10,9 @@ export const styles = stylex.create({
     },
     gap: { default: "56px", "@media (max-width: 950px)": "20px" },
     paddingBlock: { default: "80px", "@media (max-width: 540px)": "44px" },
-    borderTop: "1px solid #30362b",
+    borderTopWidth: "1px",
+    borderTopStyle: "solid",
+    borderTopColor: tokens.border,
     alignItems: "center",
   },
   copy: { minWidth: 0 },
@@ -20,14 +23,14 @@ export const styles = stylex.create({
     letterSpacing: "-1.8px",
     marginBlock: "22px",
   },
-  accent: { color: "#c4f778" },
-  description: { color: "#d5dbce", fontSize: "1.12rem", lineHeight: 1.7, maxWidth: "42ch" },
-  detail: { color: "#a0a79a", lineHeight: 1.8, maxWidth: "48ch" },
+  accent: { color: tokens.accent },
+  description: { color: tokens.textSecondary, fontSize: "1.12rem", lineHeight: 1.7, maxWidth: "42ch" },
+  detail: { color: tokens.textMuted, lineHeight: 1.8, maxWidth: "48ch" },
   targets: {
     display: "flex",
     flexWrap: "wrap",
     gap: "12px 24px",
-    color: "#c4f778",
+    color: tokens.accent,
     fontFamily: '"IBM Plex Mono", monospace',
     fontSize: ".8rem",
     marginBlock: "24px",
@@ -35,12 +38,12 @@ export const styles = stylex.create({
   link: {
     display: "inline-flex",
     gap: "16px",
-    color: "#c4f778",
+    color: tokens.accent,
     fontWeight: 500,
     textDecoration: "none",
     marginTop: "20px",
     ":hover": { textDecoration: "underline" },
   },
-  note: { color: "#a0a79a", fontSize: ".8rem", lineHeight: 1.6, marginTop: "22px", maxWidth: "46ch" },
+  note: { color: tokens.textMuted, fontSize: ".8rem", lineHeight: 1.6, marginTop: "22px", maxWidth: "46ch" },
   code: { minWidth: 0 },
 });

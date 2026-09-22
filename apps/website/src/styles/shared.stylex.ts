@@ -1,8 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
+import { tokens } from "./tokens.stylex";
 
 export const styles = stylex.create({
   brandPeriod: {
-    color: "#c4f778",
+    color: tokens.accent,
   },
   button: {
     display: "inline-flex",
@@ -21,10 +22,10 @@ export const styles = stylex.create({
     fontWeight: 650,
     transitionProperty: "background-color, transform",
     transitionDuration: "0.2s, 0.2s",
-    backgroundColor: "#c4f778",
-    color: "#17210e",
+    backgroundColor: tokens.accentFill,
+    color: tokens.onAccent,
     ":hover": {
-      backgroundColor: "#d5ff9c",
+      backgroundColor: tokens.accentFillHover,
       transform: "translateY(-2px)",
     },
   },
@@ -50,7 +51,7 @@ export const styles = stylex.create({
       default: "1.3px",
       "@media (max-width: 540px)": "1px",
     },
-    color: "#b8c0ae",
+    color: tokens.textMuted,
     display: "block",
   },
 });
