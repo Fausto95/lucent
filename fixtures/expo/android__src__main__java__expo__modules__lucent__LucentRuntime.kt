@@ -8,13 +8,16 @@ class LucentError(code: String, message: String? = null, val metadata: Map<Strin
 
 private fun lucentJsonString(value: String): String = buildString {
   append('"')
+
   for (ch in value) when (ch) {
     '"' -> append("\\\"")
     '\\' -> append("\\\\")
     else -> if (ch.code < 32) append("\\u" + ch.code.toString(16).padStart(4, '0')) else append(ch)
   }
+
   append('"')
 }
+
 fun lucentErrorWire(code: String, message: String, metadata: Map<String, Any?>): String {
   val fields = metadata.entries.joinToString(",") { (key, value) ->
     lucentJsonString(key) + ":" + when (value) {
@@ -25,8 +28,13 @@ fun lucentErrorWire(code: String, message: String, metadata: Map<String, Any?>):
       else -> "null"
     }
   }
-  val json = "{\"code\":" + lucentJsonString(code) + ",\"message\":" + lucentJsonString(message) + ",\"metadata\":{" + fields + "}}"
-  return "__LUCENT_ERROR_V1__" + json.toByteArray(Charsets.UTF_8).joinToString("") { (it.toInt() and 255).toString(16).padStart(2, '0') }
+
+  val json = "{\"code\":" + lucentJsonString(code) +
+    ",\"message\":" + lucentJsonString(message) +
+    ",\"metadata\":{" + fields + "}}"
+
+  return "__LUCENT_ERROR_V1__" + json.toByteArray(Charsets.UTF_8)
+    .joinToString("") { (it.toInt() and 255).toString(16).padStart(2, '0') }
 }
 
 
