@@ -2,16 +2,21 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, cpp-jsi]
   pull_request:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # The Hermes revision the e2e and app-check harnesses are verified against.
+  HERMES_REF: 7508017ae267ecffe4c4df38656713034f35d9bf
+  HERMES_DIR: ${{ github.workspace }}/.hermes
+
 jobs:
   test:
-    name: Typecheck, lint, test
+    name: Runtime, e2e, diagnostics, app check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,15 +26,43 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm build:packages
-      - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm format:check
-      - run: pnpm test
+      - run: sudo apt-get update && sudo apt-get install -y ninja-build libicu-dev
 
-  native:
-    name: Compile generated Swift and Kotlin
-    runs-on: macos-latest
+      - name: Restore Hermes build
+        id: hermes-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.HERMES_DIR }}
+          key: hermes-${{ runner.os }}-${{ env.HERMES_REF }}
+      - name: Build Hermes
+        if: steps.hermes-cache.outputs.cache-hit != 'true'
+        run: |
+          git init "$HERMES_DIR"
+          cd "$HERMES_DIR"
+          git fetch --depth 1 https://github.com/facebook/hermes.git "$HERMES_REF"
+          git checkout FETCH_HEAD
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+          ninja -C build hermesvm jsi
+
+      - run: pnpm typecheck
+      - run: pnpm test
+      - name: Runtime unit tests
+        run: packages/runtime/test/run.sh
+      - name: Runtime unit tests (ASan/UBSan, GCC)
+        run: SANITIZE=1 CXX=g++ packages/runtime/test/run.sh
+      - name: End-to-end (native vs. JavaScript)
+        run: pnpm test:e2e
+      - name: App check (bare)
+        run: pnpm exec tsx scripts/app-check.ts apps/bare-example
+      - name: App check (Expo)
+        run: pnpm exec tsx scripts/app-check.ts apps/expo-example
+
+  ios:
+    name: Bare example (iOS simulator build)
+    runs-on: macos-26
+    env:
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -37,6 +70,48 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
-      - run: brew install kotlin
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec tsx scripts/verify-native.ts
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: apps/bare-example
+      - name: Runtime unit tests (ASan/UBSan, libc++)
+        run: SANITIZE=1 packages/runtime/test/run.sh
+      - name: Generate the native package
+        working-directory: apps/bare-example
+        run: pnpm lucent
+      - name: Install pods
+        working-directory: apps/bare-example/ios
+        run: bundle exec pod install
+      - name: Build
+        working-directory: apps/bare-example/ios
+        run: |
+          set -o pipefail
+          xcodebuild -workspace BareExample.xcworkspace -scheme BareExample \
+            -configuration Debug -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -n 200
+
+  android:
+    name: Bare example (Android build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+      - run: pnpm install --frozen-lockfile
+      - name: Generate the native package
+        working-directory: apps/bare-example
+        run: pnpm lucent
+      - name: Build
+        working-directory: apps/bare-example/android
+        run: ./gradlew assembleDebug -PreactNativeArchitectures=x86_64

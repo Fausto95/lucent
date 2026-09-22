@@ -20,3 +20,4 @@ packages/bench/results/
 .tmp-expo-ios.png
 /apps/*/.lucent
 vendor/
+.hermes/
