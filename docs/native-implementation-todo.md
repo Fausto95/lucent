@@ -136,6 +136,9 @@ Evidence: `overloads.test.ts`, SDK extraction tests, `verify-runtime.ts`.
       report `ALL OK`, including immediate-disposal checks.
 - [x] Unit-test parallel JS dispatch and transfer to a new returned wrapper after
       the original wrapper is disposed.
+- [x] Keep transit retention shared across replacement wrappers. Disposing a
+      replacement waits for calls accepted by both old and new wrappers, including
+      rejected calls, and releases the native handle exactly once.
 - [x] Execute concurrent calls followed by immediate disposal and rejection of
       new work in all four host/platform example combinations.
 - [ ] Test multiple concurrent calls, returned-object ownership transfer,
@@ -159,7 +162,8 @@ Evidence: `overloads.test.ts`, SDK extraction tests, `verify-runtime.ts`.
 - [ ] Define externally owned resource detachment and cleanup-error behavior.
 
 Evidence: `verify-interop.ts`, async-reference host tests,
-`runtime/test/objects.test.ts`. Cancellation and SDK close are not implemented.
+`runtime/test/objects.test.ts`, `verify-cancellation.ts`. Scope cancellation and
+SDK close are not implemented.
 
 ## M4 — Native closures and delegates
 
@@ -269,7 +273,7 @@ Evidence: `verify-interop.ts`, async-reference host tests,
 
 ## Latest verification checkpoint
 
-- Unit suite: 427 passing tests across 48 files.
+- Unit suite: 429 passing tests across 48 files.
 - Root and both example app TypeScript checks: passing.
 - Full `pnpm verify`, package build, and website build: passing.
 - Swift/Kotlin fixture compilation, extracted SDK execution, and interop
@@ -293,3 +297,11 @@ The full verification suite and package build pass for this slice. The app and
 website checks above were run for the preceding async lease milestone.
 This primitive does not complete M3: operation scopes, cancellation completion,
 SDK adapters, executor enforcement, and quiescent resource close remain open.
+
+### Replacement-wrapper retention slice
+
+Regression tests cover overlapping calls on old and replacement wrappers,
+disposal of both wrappers, and success/error completion of the older call.
+The handle stays retained until all accepted calls settle and is released once.
+Full verification and package compilation pass. This is a JS transit-lifetime
+fix; host suspension, executor enforcement, and resource scopes remain open.

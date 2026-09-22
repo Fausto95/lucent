@@ -514,6 +514,10 @@ Generated JS proxies retain accepted calls through dispatch; disposing a wrapper
 immediately rejects new work while prior calls finish. Native async wrappers
 acquire a lease group and release it on completion or failure. A lease keeps
 memory alive; it neither requests cancellation nor invokes an SDK close method.
+If an accepted call returns the same native object after its original wrapper
+was disposed, its new wrapper shares retention with all outstanding calls.
+Disposing that replacement releases the handle only after calls accepted by
+every wrapper generation have completed or failed.
 
 ## Native controls and package views
 

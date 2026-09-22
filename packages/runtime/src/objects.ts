@@ -16,7 +16,7 @@ interface State {
   type: string;
   release(handle: number): void;
   disposed: boolean;
-  pending: number;
+  pending: { count: number };
 }
 const states = new WeakMap<object, State>();
 const classes = new Map<string, Constructor>();
@@ -33,7 +33,11 @@ const finalizer =
       });
 function attach(value: NativeObject, state: State): NativeObject {
   const previous = activeStates.get(state.handle);
-  if (previous) previous.disposed = true;
+  if (previous) {
+    previous.disposed = true;
+    // Accepted calls on every wrapper generation share the same native lifetime.
+    state.pending = previous.pending;
+  }
   activeStates.set(state.handle, state);
   states.set(value, state);
   instances.set(state.handle, typeof WeakRef === "undefined" ? value : new WeakRef(value));
@@ -63,7 +67,7 @@ export function nativeObjectFromHandle(handle: number, type: string): NativeObje
     handle,
     release: definition.release,
     disposed: false,
-    pending: 0,
+    pending: { count: 0 },
   });
 }
 export function defineNativeClass(type: string, definition: Definition): Constructor {
@@ -72,7 +76,7 @@ export function defineNativeClass(type: string, definition: Definition): Constru
   class SharedNativeObject implements NativeObject {
     constructor(...args: unknown[]) {
       const handle = definition.create(...args);
-      attach(this, { type, handle, release: definition.release, disposed: false, pending: 0 });
+      attach(this, { type, handle, release: definition.release, disposed: false, pending: { count: 0 } });
     }
     dispose(): void {
       const state = states.get(this);
@@ -111,18 +115,19 @@ export async function withNativeObjects<T>(values: readonly unknown[], action: (
     if (!state || state.disposed) throw new Error("Invalid or disposed native object");
     return state;
   });
-  retained.forEach((state) => state.pending++);
+  retained.forEach((state) => state.pending.count++);
   try {
     return await action();
   } finally {
     retained.forEach((state) => {
-      state.pending--;
+      state.pending.count--;
       releaseIfUnused(state);
     });
   }
 }
 function releaseIfUnused(state: State): void {
-  if (!state.disposed || state.pending || activeStates.get(state.handle) !== state) return;
-  activeStates.delete(state.handle);
-  state.release(state.handle);
+  const current = activeStates.get(state.handle);
+  if (!current || current.pending !== state.pending || !current.disposed || current.pending.count) return;
+  activeStates.delete(current.handle);
+  current.release(current.handle);
 }
