@@ -158,6 +158,18 @@ std::string fixedDigits(double v, int fraction) {
 
 }  // namespace
 
+namespace detail {
+void formatNumber(double v, ConcatPiece& out) {
+  if (std::fabs(v) < 9007199254740992.0 && std::trunc(v) == v) {
+    // Integers, including -0 (printed "0").
+    auto r = std::to_chars(out.digits, out.digits + sizeof out.digits, static_cast<int64_t>(v));
+    out.n = static_cast<uint8_t>(r.ptr - out.digits);
+    return;
+  }
+  out.formatted = numberToString(v);
+}
+}  // namespace detail
+
 String numberToString(double v) {
   if (std::isnan(v)) return String::fromLatin1("NaN");
   if (v == 0) return String::fromLatin1("0");

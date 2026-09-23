@@ -1,9 +1,11 @@
 // Lucent runtime — ECMAScript number semantics.
 #pragma once
 
+#include <charconv>
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <type_traits>
 
 #include "jsstring.h"
 
@@ -130,5 +132,59 @@ double max(double a, double b, double c, Rest... rest) {
   return max(max(a, b), c, rest...);
 }
 }  // namespace math
+
+namespace detail {
+/// One part of a concatenation: a string, or a number already formatted
+/// into `digits`, so the total length is known before allocating.
+struct ConcatPiece {
+  const String* s = nullptr;
+  String formatted;  // numbers without a short form (fractions, exponents)
+  char digits[24];
+  uint8_t n = 0;
+  const String* string() const { return s ? s : formatted.empty() ? nullptr : &formatted; }
+  size_t length() const { return string() ? string()->length() : n; }
+  bool oneByte() const { return !string() || string()->isOneByte(); }
+  void appendTo(StringBuilder& b) const {
+    if (auto* str = string()) b.append(*str);
+    else b.appendAscii(std::string_view(digits, n));
+  }
+};
+void formatNumber(double v, ConcatPiece& out);
+
+template <class P>
+ConcatPiece concatPiece(const P& p) {
+  ConcatPiece piece;
+  if constexpr (std::is_floating_point_v<P>) {
+    formatNumber(static_cast<double>(p), piece);
+  } else if constexpr (std::is_arithmetic_v<P> && !std::is_same_v<P, bool>) {
+    // Exact integers (from integer inference) print as their digits.
+    auto r = std::to_chars(piece.digits, piece.digits + sizeof piece.digits, p);
+    piece.n = static_cast<uint8_t>(r.ptr - piece.digits);
+  } else {
+    piece.s = &p;
+  }
+  return piece;
+}
+}  // namespace detail
+
+/// A template literal: strings and numbers joined into one string, allocating
+/// only the result.
+template <class... P>
+String concat(const P&... parts) {
+  if constexpr (sizeof...(P) == 1 && (std::is_same_v<P, String> && ...)) {
+    return (parts, ...);
+  } else {
+    detail::ConcatPiece pieces[] = {detail::concatPiece(parts)...};
+    size_t length = 0;
+    bool oneByte = true;
+    for (auto& p : pieces) {
+      length += p.length();
+      oneByte = oneByte && p.oneByte();
+    }
+    StringBuilder b(length, oneByte);
+    for (auto& p : pieces) p.appendTo(b);
+    return std::move(b).build();
+  }
+}
 
 }  // namespace lucent

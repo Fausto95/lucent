@@ -102,9 +102,27 @@ class String {
   void appendUnitsTo(std::u16string& out) const;
 
   std::shared_ptr<Data> d_;
+  friend class StringBuilder;
 };
 
 /// A string literal with static storage: built once per call site.
+/// Builds a string from parts. With the size reserved up front, the buffer
+/// grows once and becomes the result's storage, so building allocates about
+/// as much as the result itself.
+class StringBuilder {
+ public:
+  StringBuilder(size_t capacity, bool oneByte);
+  void append(const String& s);
+  /// Bytes < 0x80 (digits, signs, exponents).
+  void appendAscii(std::string_view ascii);
+  String build() &&;
+
+ private:
+  bool oneByte_;
+  std::string bytes_;
+  std::u16string wide_;
+};
+
 #define LUCENT_STR(literal) \
   ([]() -> const ::lucent::String& { static const ::lucent::String s = ::lucent::String::fromUtf8(std::string_view(literal, sizeof(literal) - 1)); return s; }())
 #define LUCENT_STR16(literal) \

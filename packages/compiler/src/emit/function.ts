@@ -1309,16 +1309,17 @@ export class FnEmitter {
   }
 
   private templateInner(node: ts.TemplateExpression): E {
+    // Numbers go to lucent::concat unformatted (exact integers as such), so
+    // the result is built with one allocation.
     const parts: string[] = [];
     if (node.head.text) parts.push(stringLiteral(node.head.text));
     for (const span of node.templateSpans) {
       const e = this.expr(span.expression);
-      parts.push(this.toStringCode(e));
+      parts.push(e.int ? e.int.c : e.t.k === "number" ? e.c : this.toStringCode(e));
       if (span.literal.text) parts.push(stringLiteral(span.literal.text));
     }
     if (parts.length === 0) return { c: "lucent::String()", t: T.string };
-    if (parts.length === 1) return { c: `lucent::String(${parts[0]})`, t: T.string };
-    return { c: `(lucent::String(${parts[0]}) + ${parts.slice(1).join(" + ")})`, t: T.string };
+    return { c: `lucent::concat(${parts.join(", ")})`, t: T.string };
   }
 
   toStringCode(e: E): string {

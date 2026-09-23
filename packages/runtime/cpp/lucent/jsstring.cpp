@@ -293,6 +293,37 @@ String operator+(const String& a, const String& b) {
   return String(std::move(d));
 }
 
+StringBuilder::StringBuilder(size_t capacity, bool oneByte) : oneByte_(oneByte) {
+  if (oneByte) bytes_.reserve(capacity);
+  else wide_.reserve(capacity);
+}
+
+void StringBuilder::append(const String& s) {
+  if (s.empty()) return;
+  if (oneByte_ && s.isOneByte()) {
+    bytes_.append(s.latin1());
+    return;
+  }
+  if (oneByte_) {
+    // Parts were promised Latin-1; widen what was built so far.
+    wide_.reserve(bytes_.size() + s.length());
+    for (unsigned char b : bytes_) wide_.push_back(b);
+    bytes_.clear();
+    oneByte_ = false;
+  }
+  s.appendUnitsTo(wide_);
+}
+
+void StringBuilder::appendAscii(std::string_view ascii) {
+  if (oneByte_) bytes_.append(ascii);
+  else wide_.append(ascii.begin(), ascii.end());
+}
+
+String StringBuilder::build() && {
+  if (oneByte_) return String::make(std::move(bytes_));
+  return String::make(std::move(wide_));
+}
+
 String& String::operator+=(const String& other) {
   if (other.empty()) return *this;
   if (!d_) {
