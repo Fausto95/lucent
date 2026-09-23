@@ -35,7 +35,9 @@ describe("Lucent packages", () => {
   it("finds the Lucent packages the app depends on, transitively, and nothing else", () => {
     const root = app();
     expect(lucentPackages(root).map((p) => `${p.name}@${p.version}`)).toEqual(["lucent-a@1.0.0", "lucent-b@2.0.0"]);
-    expect(projectFiles(root).map((f) => path.relative(root, f))).toEqual([
+    // Packages are where they really are (workspace links followed).
+    const real = fs.realpathSync(root);
+    expect(projectFiles(root).map((f) => path.relative(real, fs.realpathSync(f)))).toEqual([
       "node_modules/lucent-a/src/nested/deep.lucent.ts",
       "node_modules/lucent-a/src/storage.lucent.ts",
       "node_modules/lucent-b/lib/storage.lucent.ts",
