@@ -19,4 +19,20 @@ describe("native package", () => {
       expect(files(path.join(out, sub)).sort()).toEqual(files(path.join(runtimeDir(), sub)).sort());
     }
   });
+
+  it("leaves the build outputs of the Android library alone", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const src = path.join(dir, "sample.lucent.ts");
+    fs.writeFileSync(src, "export function one(): number { return 1; }");
+    const out = path.join(dir, "native");
+    writeNativePackage(compile([src]), out);
+    // Gradle builds the package's android/ library in place.
+    for (const f of ["android/build/intermediates/classes.jar", "android/.cxx/cache.json", "android/.gradle/state"]) {
+      fs.mkdirSync(path.dirname(path.join(out, f)), { recursive: true });
+      fs.writeFileSync(path.join(out, f), "gradle");
+    }
+    const r = writeNativePackage(compile([src]), out);
+    expect(r.removed).toEqual([]);
+    expect(fs.existsSync(path.join(out, "android/build/intermediates/classes.jar"))).toBe(true);
+  });
 });
