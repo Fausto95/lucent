@@ -249,6 +249,126 @@ export function which(): string {
 `,
 };
 
+const tracker = {
+  "tracker.lucent.ts": `import { PLATFORM } from "lucent:platform";
+import { CLLocationManager, type CLLocationManagerDelegate, type CLLocation } from "lucent:ios/CoreLocation";
+import { Build } from "lucent:android/android.os";
+import { main } from "lucent:thread";
+
+// iOS only: they use lucent:ios outside a branch.
+class Updates implements CLLocationManagerDelegate {
+  last = "";
+  locationManager_didUpdateLocations(_manager: CLLocationManager, locations: CLLocation[]): void {
+    this.last = describe(locations[0] ?? null);
+  }
+}
+let manager: CLLocationManager | null = null;
+function describe(l: CLLocation | null): string {
+  return l === null ? "none" : \`\${l.coordinate.latitude}\`;
+}
+
+// Android only, through another Android-only declaration.
+const model = (): string => Build.MODEL ?? "";
+function label(): string {
+  return \`android \${model()}\`;
+}
+
+// Shared.
+let calls = 0;
+
+export async function start(): Promise<string> {
+  calls++;
+  if (PLATFORM === "ios") {
+    return main(() => {
+      const updates = new Updates();
+      manager = new CLLocationManager();
+      manager.delegate = updates;
+      return updates.last;
+    });
+  } else {
+    return label();
+  }
+}
+`,
+};
+
+describe("platform declarations in one module", () => {
+  it.skipIf(!ios || !android)("compiles each declaration for the platform whose SDK it uses", () => {
+    const r = compile(project(tracker), { platforms: ["ios", "android", "host"] });
+    expect(r.diagnostics).toEqual([]);
+    const mm = r.files.get("ios/m_tracker.mm")!;
+    expect(mm).toContain("CLLocationManager");
+    expect(mm).toContain("describe");
+    expect(mm).not.toContain("android/os/Build");
+    expect(mm).not.toContain("label");
+    const cpp = r.files.get("android/m_tracker.cpp")!;
+    expect(cpp).toContain("android/os/Build");
+    expect(cpp).toContain("label");
+    expect(cpp).not.toContain("CLLocationManager");
+    const host = r.files.get("host/m_tracker.cpp")!;
+    expect(host).not.toContain("CLLocationManager");
+    expect(host).not.toContain("android/os/Build");
+    // Shared state is everywhere.
+    for (const f of [mm, cpp, host]) expect(f).toContain("calls");
+  });
+
+  it.skipIf(!ios || !android || process.platform !== "darwin")("generates code each target compiles", () => {
+    const r = compile(project(tracker), { platforms: ["ios", "android", "host"] });
+    expect(r.diagnostics).toEqual([]);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-scoped-glue-"));
+    for (const [k, v] of r.files) {
+      fs.mkdirSync(path.dirname(path.join(dir, k)), { recursive: true });
+      fs.writeFileSync(path.join(dir, k), v);
+    }
+    const flags = ["-std=c++20", "-fsyntax-only", "-Werror", "-Wno-gnu-statement-expression", "-Wno-unused-label", "-Wno-parentheses-equality", "-Wno-comma", `-I${path.join(runtimeDir(), "cpp")}`];
+    const ndkRoot = path.join(process.env.ANDROID_HOME ?? path.join(os.homedir(), "Library/Android/sdk"), "ndk");
+    const ndk = fs.existsSync(ndkRoot) ? fs.readdirSync(ndkRoot).sort().pop() : undefined;
+    const runs: [string, string[]][] = [
+      ["xcrun", ["--sdk", "iphonesimulator", "clang++", ...flags, "-fobjc-arc", "-target", "arm64-apple-ios15.1-simulator", `-I${path.join(dir, "ios")}`, "-x", "objective-c++", path.join(dir, "ios/m_tracker.mm")]],
+      ["clang++", [...flags, `-I${path.join(dir, "host")}`, path.join(dir, "host/m_tracker.cpp")]],
+    ];
+    if (ndk) {
+      const bin = fs.readdirSync(path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt")).map((h) => path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt", h, "bin/clang++"))[0]!;
+      runs.push([bin, ["--target=aarch64-linux-android24", ...flags, `-I${path.join(dir, "android")}`, path.join(dir, "android/m_tracker.cpp")]]);
+    }
+    for (const [cmd, args] of runs) expect(spawnSync(cmd, args, { encoding: "utf8" }).stderr).toBe("");
+  }, 600_000);
+
+  it.skipIf(!android)("compiles for Android where the iOS SDK is missing (its declarations untyped)", () => {
+    const r = compile(project(tracker), { platforms: ["android", "host"], sdk: { ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") }, prebuilt: false } });
+    expect(r.diagnostics).toEqual([]);
+    expect(r.files.get("android/m_tracker.cpp")).toContain("label");
+  });
+
+  it("keeps exports shared, and each declaration on one platform", () => {
+    const r = compile(
+      project({
+        "m.lucent.ts": `import { PLATFORM } from "lucent:platform";
+import { UIDevice } from "lucent:ios/UIKit";
+import { Build } from "lucent:android/android.os";
+const iosName = (): string => UIDevice.current.name;
+export function exported(): string {
+  return Build.MODEL ?? "";
+}
+function both(): string {
+  return \`\${UIDevice.current.name} \${Build.MODEL}\`;
+}
+export function f(): string {
+  if (PLATFORM === "android") return iosName();
+  return "";
+}
+`,
+      }),
+      { platforms: ["host"] },
+    );
+    const byLine = Object.fromEntries(r.diagnostics.map((d) => [d.line, d.message]));
+    expect(byLine[5]).toMatch(/exported.*exported.*both platforms.*lucent:android/);
+    expect(byLine[8]).toMatch(/both.*lucent:ios.*lucent:android/);
+    expect(byLine[12]).toMatch(/iosName.*iOS.*PLATFORM === "ios"/);
+    expect(codes(r).every((c) => c === "LUCENT3004")).toBe(true);
+  });
+});
+
 describe("platform branches in one module", () => {
   it.skipIf(!ios || !android)("compiles each target's branch only", () => {
     const r = compile(project(device));
