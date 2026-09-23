@@ -90,6 +90,20 @@ static void numbers() {
   CHECK_STR(numberToPrecision(123456, 2), "1.2e+5");
   CHECK_STR(numberToExponential(123456, 2), "1.23e+5");
   CHECK_STR(numberToExponential(0.00015), "1.5e-4");
+  // Exact binary ties round up (away from zero), unlike printf's ties-to-even.
+  CHECK_STR(numberToExponential(2.5, 0), "3e+0");
+  CHECK_STR(numberToExponential(-2.5, 0), "-3e+0");
+  CHECK_STR(numberToExponential(8.5, 0), "9e+0");
+  CHECK_STR(numberToExponential(0.125, 1), "1.3e-1");
+  CHECK_STR(numberToPrecision(1.25, 2), "1.3");
+  CHECK_STR(numberToPrecision(1.5, 1), "2");
+  CHECK_STR(numberToPrecision(2.5, 1), "3");
+  CHECK_STR(numberToPrecision(12.5, 2), "13");
+  CHECK_STR(numberToPrecision(0.000125, 2), "0.00013");
+  CHECK_STR(numberToPrecision(1.005, 3), "1.00");
+  CHECK_STR(numberToPrecision(1.45, 2), "1.4");
+  CHECK_STR(numberToPrecision(5e-324, 2), "4.9e-324");
+  CHECK_STR(numberToPrecision(1e21, 3), "1.00e+21");
   CHECK(toInt32(4294967296.0 + 5) == 5);
   CHECK(toInt32(2147483648.0) == -2147483647 - 1);
   CHECK(toInt32(-1.9) == -1);
