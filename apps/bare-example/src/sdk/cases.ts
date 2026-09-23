@@ -6,6 +6,7 @@ import * as Application from "./application.lucent";
 import { mainThreadCallback } from "./callbacks.lucent";
 import * as Clipboard from "./clipboard.lucent";
 import * as Device from "./device.lucent";
+import * as LocalAuthentication from "./localAuthentication.lucent";
 import { impactAsync, notificationAsync, selectionAsync } from "./haptics.lucent";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "./hapticsTypes.lucent";
 import { parityCases } from "./parity";
@@ -75,6 +76,21 @@ export const sdkCases: SdkCase[] = [
       return `${value} ${await SecureStore.getItemAsync("token")}`;
     },
     expected: "s3cr3t ✓ null",
+  },
+  {
+    name: "local-authentication: hardware, enrollment, level",
+    run: async () =>
+      `${await LocalAuthentication.hasHardwareAsync()} ${await LocalAuthentication.isEnrolledAsync()} [${await LocalAuthentication.supportedAuthenticationTypesAsync()}] ${await LocalAuthentication.getEnrolledLevelAsync()}`,
+    expected: /^(true|false) (true|false) \[[1-3,]*\] [0-3]$/,
+  },
+  {
+    // Biometrics only: without enrollment it fails at once, with no prompt.
+    name: "local-authentication: authenticate without enrolled biometrics",
+    run: async () => {
+      const r = await LocalAuthentication.authenticateAsync({ promptMessage: "Lucent", disableDeviceFallback: true });
+      return `${r.success} ${r.error}`;
+    },
+    expected: /^false (not_enrolled|missing_usage_description|not_available)$/,
   },
   ...parityCases,
 ];

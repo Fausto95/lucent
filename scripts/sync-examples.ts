@@ -112,11 +112,13 @@ import * as ExpoApplication from "expo-application";
 import * as ExpoClipboard from "expo-clipboard";
 import * as ExpoDevice from "expo-device";
 import * as Haptics from "expo-haptics";
+import * as ExpoLocalAuthentication from "expo-local-authentication";
 import * as ExpoSecureStore from "expo-secure-store";
 import * as Application from "./application.lucent";
 import * as Clipboard from "./clipboard.lucent";
 import * as Device from "./device.lucent";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "./hapticsTypes.lucent";
+import * as LocalAuthentication from "./localAuthentication.lucent";
 import * as SecureStore from "./secureStore.lucent";
 import * as Storage from "./storage.lucent";
 import type { SdkCase } from "./types";
@@ -134,7 +136,31 @@ async function storageSteps(s: { clear(): Promise<void>; setItem(k: string, v: s
   return \`\${JSON.stringify(keys)} \${JSON.stringify(await s.multiGet(["a", "b", "c"]))} \${await s.getItem("b")}\`;
 }
 
+/** What a device's biometrics look like through either implementation. */
+async function authSteps(m: { hasHardwareAsync(): Promise<boolean>; isEnrolledAsync(): Promise<boolean>; supportedAuthenticationTypesAsync(): Promise<number[]>; getEnrolledLevelAsync(): Promise<number> }): Promise<string> {
+  return JSON.stringify([await m.hasHardwareAsync(), await m.isEnrolledAsync(), await m.supportedAuthenticationTypesAsync(), await m.getEnrolledLevelAsync()]);
+}
+
 export const parityCases: SdkCase[] = [
+  {
+    name: "same as expo-local-authentication",
+    run: async () => {
+      const [a, b] = [await authSteps(LocalAuthentication), await authSteps(ExpoLocalAuthentication)];
+      return a === b ? "same" : \`lucent \${a} expo \${b}\`;
+    },
+    expected: "same",
+  },
+  {
+    name: "authenticateAsync like expo-local-authentication",
+    run: async () => {
+      // Biometrics only, so no passcode prompt waits for a person.
+      const options = { promptMessage: "Lucent parity", disableDeviceFallback: true };
+      const shape = (r: { success: boolean; error?: string }) => JSON.stringify([r.success, r.success ? null : r.error]);
+      const [a, b] = [shape(await LocalAuthentication.authenticateAsync(options)), shape(await ExpoLocalAuthentication.authenticateAsync(options))];
+      return a === b ? \`same \${a}\` : \`lucent \${a} expo \${b}\`;
+    },
+    expected: /^same /,
+  },
   {
     name: "same as expo-application",
     run: async () =>

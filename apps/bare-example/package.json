@@ -11,16 +11,18 @@
   },
   "dependencies": {
     "@lucent-lang/core": "workspace:*",
+    "@lucent-lang/runtime": "workspace:*",
+    "@react-native-community/netinfo": "12.0.1",
     "react": "19.3.0",
     "react-native": "0.88.0-rc.2",
-    "react-native-safe-area-context": "^5.5.2",
-    "@lucent-lang/runtime": "workspace:*"
+    "react-native-safe-area-context": "^5.5.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@babel/preset-env": "^7.25.3",
     "@babel/runtime": "^7.25.0",
     "@lucent-lang/cli": "workspace:*",
+    "@lucent-lang/metro": "workspace:*",
     "@react-native-community/cli": "20.2.0",
     "@react-native-community/cli-platform-android": "20.2.0",
     "@react-native-community/cli-platform-ios": "20.2.0",
@@ -29,8 +31,7 @@
     "@react-native/metro-config": "0.88.0-rc.2",
     "@react-native/typescript-config": "0.88.0-rc.2",
     "@types/react": "^19.2.0",
-    "typescript": "^6.0.3",
-    "@lucent-lang/metro": "workspace:*"
+    "typescript": "^6.0.3"
   },
   "engines": {
     "node": ">= 22.11.0"
