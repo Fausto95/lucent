@@ -5,6 +5,8 @@
 #include <cmath>
 #include <initializer_list>
 #include <memory>
+#include <tuple>
+#include <variant>
 #include <vector>
 
 #include "core.h"
@@ -21,6 +23,12 @@ class Array;
 
 template <class T>
 String toJsString(const Opt<T>& v);
+// Defined in ops.h / helpers.h; declared here so element types that are
+// unions or tuples resolve inside Array's templates (ADL only searches std).
+template <class... Ts>
+String toJsString(const std::variant<Ts...>& v);
+template <class... Ts>
+String toJsString(const std::tuple<Ts...>& t);
 
 namespace detail {
 // JS relative index (used by slice, splice, fill, at...).
