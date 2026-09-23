@@ -81,6 +81,11 @@ export function sdkDts(schema: SdkModuleSchema): string {
       body.push(`export declare enum ${type.name} {`, ...type.cases.map((c) => `  ${c.name} = ${c.value},`), "}", "");
       continue;
     }
+    if (type.kind === "struct") {
+      // A C struct by value: a plain object type.
+      body.push(`export declare type ${type.name} = { ${type.fields.map((f) => `${f.name}: ${tsType(parseSdkType(f.type, schema.module))}`).join("; ")} };`, "");
+      continue;
+    }
     body.push(...classDts(schema, type, tsType, use), "");
   }
   for (const f of schema.functions ?? []) {
@@ -165,6 +170,7 @@ export function stubDts(platform: Platform, module: string, names: NamesIndex): 
   out.push("");
   for (const [name, t] of Object.entries(names.types)) {
     if (t.kind === "enum") out.push(`export declare enum ${name} {}`);
+    else if (t.kind === "struct") out.push(`export declare type ${name} = { readonly __lucent_struct_${name}?: never };`);
     else if (t.kind === "protocol") out.push(`export declare abstract class ${name} {}`);
     else out.push(`export declare class ${name}${platform === "ios" ? " extends NSObject" : ""} {`, `  private readonly __lucent_${name}: never;`, "  protected constructor();", "}");
   }

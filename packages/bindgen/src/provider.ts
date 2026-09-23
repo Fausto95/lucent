@@ -452,7 +452,7 @@ export function sdkNames(platform: Platform, module: string, opts: SdkOptions = 
     const r = sdkModule(platform, module, opts);
     if ("missing" in r) return r;
     const types: NamesIndex["types"] = {};
-    for (const t of r.schema.types) types[t.name] = t.kind === "enum" ? { kind: "enum", native: t.native } : { kind: t.interface ? "protocol" : "class", native: t.native };
+    for (const t of r.schema.types) types[t.name] = t.kind === "class" ? { kind: t.interface ? "protocol" : "class", native: t.native } : { kind: t.kind, native: t.native };
     return { names: { module, refs: {}, aliases: {}, types } };
   }
   if (!sdk.ios!.modules.has(module)) return { missing: `lucent:ios/${module} was not found in the SDK or the app's dependencies` };

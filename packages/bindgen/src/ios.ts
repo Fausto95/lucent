@@ -419,7 +419,7 @@ export interface NamesIndex {
   /** Typealias and typed-string-enum USR → the fragments they stand for. */
   aliases: Record<string, Fragment[]>;
   /** Schema name → what the glue needs to use a type without its schema. */
-  types: Record<string, { kind: "class" | "protocol" | "enum"; native: string }>;
+  types: Record<string, { kind: "class" | "protocol" | "enum" | "struct"; native: string }>;
 }
 
 export function namesOf(module: string, g: SymbolGraph): NamesIndex {
@@ -438,6 +438,12 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
     if ((k === "swift.enum" || k === "swift.struct") && usr.startsWith("c:@E@")) {
       refs[usr] = `${module}.${name}`;
       types[name] = { kind: "enum", native: usr.slice("c:@E@".length) };
+    }
+    // C structs (`typedef struct {…} X` or `struct X`).
+    const record = k === "swift.struct" ? /^c:@S[A]?@(\w+)$/.exec(usr) : null;
+    if (record) {
+      refs[usr] = `${module}.${name}`;
+      types[name] = { kind: "struct", native: record[1]! };
     }
     if (k === "swift.typealias") {
       const eq = (s.declarationFragments ?? []).findIndex((f) => f.spelling.includes("="));
@@ -484,6 +490,7 @@ export function buildIosSchemas(graphs: Map<string, SymbolGraph>, values: (enums
 export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex[], values: (enums: string[]) => Map<string, Map<string, number>>): SdkModuleSchema {
   const refs = new Map<string, string>(names.flatMap((n) => Object.entries(n.refs)));
   const aliases = new Map<string, Fragment[]>(names.flatMap((n) => Object.entries(n.aliases)));
+  const kinds = new Map<string, string>(names.flatMap((n) => Object.entries(n.types).map(([name, t]): [string, string] => [`${n.module}.${name}`, t.kind])));
   {
     const mod: SdkModuleSchema = { platform: "ios", module, frameworks: [module], types: [], skipped: [] };
     const members = new Map<string, SymbolGraphSymbol[]>();
@@ -518,6 +525,28 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
       }
       const e: SdkEnumSchema = { kind: "enum", name: s.pathComponents.join("_"), native: cName, cases: cases as SdkEnumSchema["cases"] };
       mod.types.push(e);
+    }
+
+    // C structs: their fields, numbers and structs.
+    for (const s of g.symbols) {
+      const record = s.kind.identifier === "swift.struct" ? /^c:@S[A]?@(\w+)$/.exec(s.identifier.precise) : null;
+      if (!record || unavailable(s)) continue;
+      const name = s.pathComponents.join("_");
+      try {
+        const fields = (members.get(s.identifier.precise) ?? [])
+          .filter((m) => m.kind.identifier === "swift.property" && m.identifier.precise.startsWith(`${s.identifier.precise}@FI@`))
+          .map((m) => {
+            const type = parseType(propertyType(m.declarationFragments ?? []), resolver());
+            const isStruct = kinds.get(type) === "struct";
+            if (!isStruct && !/^(double|float|CGFloat|NSInteger|NSUInteger|u?int(8|16|32|64)|bool)$/.test(type)) throw new Unsupported(`struct field ${type}`);
+            return { name: m.pathComponents[m.pathComponents.length - 1]!, type };
+          });
+        if (!fields.length) throw new Unsupported("struct without fields");
+        mod.types.push({ kind: "struct", name, native: record[1]!, fields });
+      } catch (e) {
+        if (e instanceof Unsupported) mod.skipped!.push(`${name}: ${e.message}`);
+        else throw e;
+      }
     }
 
     // Typed string keys (NS_TYPED_ENUM): string constants read from their C globals.

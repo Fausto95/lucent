@@ -16,7 +16,7 @@ export interface SdkModuleSchema {
   frameworks?: string[];
   /** The header to import for the module (iOS): `M/M.h`, or the umbrella its module map names. */
   header?: string;
-  types: (SdkClassSchema | SdkEnumSchema)[];
+  types: (SdkClassSchema | SdkEnumSchema | SdkStructSchema)[];
   /** C functions (iOS). */
   functions?: SdkMethodSchema[];
   /** C global constants (iOS): `kSecClass`, `NSFileCreationDate`… */
@@ -32,6 +32,15 @@ export interface SdkEnumSchema {
   /** The C enum type. */
   native: string;
   cases: { name: string; native: string; value: number }[];
+}
+
+/** A C struct passed by value (iOS): numbers, booleans and structs, in field order. */
+export interface SdkStructSchema {
+  kind: "struct";
+  name: string;
+  /** The C type name. */
+  native: string;
+  fields: SdkParam[];
 }
 
 export interface SdkParam {

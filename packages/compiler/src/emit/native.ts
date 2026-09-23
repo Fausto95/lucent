@@ -1,7 +1,7 @@
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import { builtinSdkModuleOf, sdkModuleOf } from "../program.ts";
-import { findSdkModule, findSdkType, loadSdkModule, jniDescriptor, sdkTypeInfo, parseSdkType, type Platform, type SdkCallable, type SdkClassSchema, type SdkMethodSchema, type SdkPropertySchema, type SdkType } from "../sdk/schema.ts";
+import { findSdkModule, findSdkType, loadSdkModule, jniDescriptor, sdkTypeInfo, parseSdkType, type Platform, type SdkCallable, type SdkClassSchema, type SdkMethodSchema, type SdkPropertySchema, type SdkStructSchema, type SdkType } from "../sdk/schema.ts";
 import { type ClassInfo, cppIdent, type LType, T, unionOf } from "../types.ts";
 import type { E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
@@ -187,6 +187,44 @@ function sdkEnum(platform: Platform, t: SdkType): { native: string } | undefined
   return info?.kind === "enum" ? info : undefined;
 }
 
+/** A C struct's schema (iOS), when `t` names one. */
+function sdkStruct(t: SdkType): SdkStructSchema | undefined {
+  if (t.k !== "ref" || sdkTypeInfo("ios", t.module, t.name)?.kind !== "struct") return undefined;
+  const s = findSdkType("ios", t.module, t.name);
+  return s?.kind === "struct" ? s : undefined;
+}
+
+/**
+ * A C struct value (code `c`) as a Lucent object of struct type `lt`, field
+ * by field; `depth` keeps nested structs' temporaries apart.
+ */
+function structFromObjc(em: FnEmitter, c: string, s: SdkStructSchema, module: string, lt: LType, depth = 0): string {
+  const st = lt.k === "opt" ? lt.inner : lt;
+  if (st.k !== "struct") throw new Error(`${s.name} lowers to ${st.k}, not an object type`);
+  const info = em.reg.struct(st.id);
+  const [sv, ov] = [`s${depth}_`, `o${depth}_`];
+  const fields = s.fields.map((f) => {
+    const ft = parseSdkType(f.type, module);
+    const inner = sdkStruct(ft);
+    const flt = info.fields.find((x) => x.name === f.name)!.type;
+    const v = inner ? structFromObjc(em, `${sv}.${f.name}`, inner, ft.k === "ref" ? ft.module : module, flt, depth + 1) : ft.k === "prim" && (ft.name === "bool" || ft.name === "boolean") ? `static_cast<bool>(${sv}.${f.name})` : `static_cast<double>(${sv}.${f.name})`;
+    return `${ov}->${cppIdent(f.name)} = ${v};`;
+  });
+  return `({ auto ${sv} = ${c}; auto ${ov} = std::make_shared<lucent_app::${info.cppName}>(); ${fields.join(" ")} ${ov}; })`;
+}
+
+/** A Lucent object (code `c`) as the C struct `s`, in field order. */
+function structToObjc(c: string, s: SdkStructSchema, module: string): string {
+  const fields = s.fields.map((f) => {
+    const ft = parseSdkType(f.type, module);
+    const inner = sdkStruct(ft);
+    const v = `(${c})->${cppIdent(f.name)}`;
+    if (inner) return structToObjc(v, inner, ft.k === "ref" ? ft.module : module);
+    return ft.k === "prim" && (ft.name === "bool" || ft.name === "boolean") ? `(${v} ? YES : NO)` : `static_cast<${OBJC_NUMBER[(ft as SdkType & { k: "prim" }).name] ?? "double"}>(${v})`;
+  });
+  return `${s.native}{${fields.join(", ")}}`;
+}
+
 /** Objective-C (or CoreFoundation) spelling of a reference type, for casts. */
 function objcRefType(t: SdkType & { k: "ref" }): string {
   const info = sdkTypeInfo("ios", t.module, t.name);
@@ -214,7 +252,7 @@ export function objcTypeName(t: SdkType): string {
     case "record":
       return "NSDictionary*";
     case "ref":
-      return sdkEnum("ios", t)?.native ?? objcRefType(t);
+      return sdkEnum("ios", t)?.native ?? sdkStruct(t)?.native ?? objcRefType(t);
     case "fn":
       return `${objcTypeName(t.ret)} (^)(${t.params.map(objcTypeName).join(", ")})`;
     default:
@@ -281,6 +319,8 @@ export function toObjcCode(t: SdkType, c: string, owned: boolean): string {
     case "ref": {
       const e = sdkEnum("ios", t);
       if (e) return `static_cast<${e.native}>(${c})`;
+      const s = sdkStruct(t);
+      if (s) return structToObjc(c, s, t.module);
       return `((${objcRefType(t)})lucent::objc::unwrap(${c}))`;
     }
     default:
@@ -319,6 +359,12 @@ function toObjc(em: FnEmitter, arg: ts.Expression, t: SdkType, owned = false): s
     }
   })();
   if (t.k === "id") return toObjcCode(t, em.expr(arg).c, owned);
+  const struct = sdkStruct(t);
+  if (struct) {
+    const declared = em.checker.getContextualType(arg);
+    const lt = declared ? em.reg.lower(declared, arg) : em.lt(arg);
+    return toObjcCode(t, em.exprAs(arg, lt), owned);
+  }
   if (!t.nullable) return toObjcCode(t, scalar ? em.exprAs(arg, scalar) : em.expr(arg).c, owned);
   if (t.k === "out") return toObjcCode(t, em.expr(arg).c, owned);
   const v = scalar ? em.exprAs(arg, unionOf([scalar, T.null])) : em.expr(arg).c;
@@ -362,9 +408,12 @@ export function fromObjc(em: FnEmitter, code: string, t: SdkType, lt: LType, wha
       const fn = t.k === "array" ? "fromNSArray" : "fromNSDictionary";
       return t.nullable ? { c: `lucent::objc::${fn}Opt<${em.cpp(itemLt)}>(${src}, ${lambda})`, t: lt } : { c: `lucent::objc::${fn}<${em.cpp(itemLt)}>(${src}, ${lambda}, ${w})`, t: container };
     }
-    case "ref":
+    case "ref": {
       if (sdkEnum("ios", t)) return { c: `static_cast<double>(${code})`, t: T.number };
+      const s = sdkStruct(t);
+      if (s) return { c: structFromObjc(em, code, s, t.module, lt), t: lt };
       return lt.k === "opt" ? { c: `lucent::objc::wrapOpt(${code})`, t: lt } : { c: `lucent::objc::wrap(${code}, ${w})`, t: lt };
+    }
     case "error":
       return lt.k === "opt" ? { c: `lucent::objc::fromNSErrorOpt(${code})`, t: lt } : { c: `lucent::objc::fromNSError(${code}, ${w})`, t: lt };
     default:
@@ -757,6 +806,7 @@ function declaredLt(em: FnEmitter, platform: Platform, t: SdkType, node: ts.Node
       return opt({ k: "dict", val: declaredLt(em, platform, { ...t.of, nullable: false } as SdkType, node) });
     case "ref":
       if (sdkEnum(platform, t)) return opt(T.number);
+      if (sdkStruct(t)) return em.lt(node);
       return opt({ k: "native", platform, module: t.module, name: t.name });
     default: {
       const sig = ts.isCallExpression(node) ? em.checker.getResolvedSignature(node) : undefined;

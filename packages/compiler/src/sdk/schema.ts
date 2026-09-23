@@ -4,11 +4,11 @@
  * the type grammar, JNI descriptors, and module lookup.
  */
 
-import { type Platform, PLATFORMS, type SdkClassSchema, type SdkEnumSchema, type NamesIndex, type SdkLookup, type SdkModuleSchema, sdkIdentity, sdkModule, sdkNames, type SdkOptions } from "@lucent-lang/bindgen";
+import { type Platform, PLATFORMS, type SdkClassSchema, type SdkEnumSchema, type SdkStructSchema, type NamesIndex, type SdkLookup, type SdkModuleSchema, sdkIdentity, sdkModule, sdkNames, type SdkOptions } from "@lucent-lang/bindgen";
 
 export { PLATFORMS };
 export type { SdkOptions } from "@lucent-lang/bindgen";
-export type { Platform, SdkCallable, SdkClassSchema, SdkEnumSchema, SdkMethodSchema, SdkModuleSchema, SdkParam, SdkPropertySchema } from "@lucent-lang/bindgen";
+export type { Platform, SdkCallable, SdkClassSchema, SdkEnumSchema, SdkMethodSchema, SdkModuleSchema, SdkParam, SdkPropertySchema, SdkStructSchema } from "@lucent-lang/bindgen";
 
 /** A parsed schema type: `int`, `string?`, `long[]`, `Class<T>`, `android.os.Vibrator`, `UIDevice`. */
 export type SdkType =
@@ -163,7 +163,7 @@ export function loadSdkModule(platform: Platform, module: string): SdkModuleSche
 }
 
 /** A type's kind and native name, from the module's names (no schema needed). */
-export function sdkTypeInfo(platform: Platform, module: string, name: string): { kind: "class" | "protocol" | "enum"; native: string } | undefined {
+export function sdkTypeInfo(platform: Platform, module: string, name: string): { kind: "class" | "protocol" | "enum" | "struct"; native: string } | undefined {
   const n = sdkNames(platform, module, sdkOptions);
   return "names" in n ? n.names.types[name] : undefined;
 }
@@ -179,7 +179,7 @@ export function currentSdkIdentity(): string {
   return sdkIdentity(sdkOptions);
 }
 
-export function findSdkType(platform: Platform, module: string, name: string): SdkClassSchema | SdkEnumSchema | undefined {
+export function findSdkType(platform: Platform, module: string, name: string): SdkClassSchema | SdkEnumSchema | SdkStructSchema | undefined {
   return findSdkModule(platform, module)?.types.find((t) => t.name === name);
 }
 
