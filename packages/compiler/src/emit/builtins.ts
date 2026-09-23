@@ -530,7 +530,7 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       const found = classMemberDecl(em, t, name);
       const decl = found?.decl;
       if (decl && ts.isMethodDeclaration(decl)) return callMethodDecl(em, `(${o})->${cppIdent(name)}`, decl, node, found.owner);
-      if (decl && (ts.isPropertyDeclaration(decl) || ts.isGetAccessorDeclaration(decl))) {
+      if (decl && (ts.isPropertyDeclaration(decl) || ts.isParameter(decl) || ts.isGetAccessorDeclaration(decl))) {
         const f = classMember(em, obj, t, name, node);
         const ft = stripOpt(f.t);
         if (ft.k !== "fn") fail(node, Codes.UnsupportedCall, `${name} is not a function`);
