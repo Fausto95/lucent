@@ -1,7 +1,9 @@
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { EmitResult } from "./emit/index.ts";
+import { coreTypesPath } from "./program.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -17,6 +19,32 @@ export interface WriteResult {
   removed: string[];
   /** True when files were added or removed (pods / Gradle need a resync). */
   structureChanged: boolean;
+}
+
+/**
+ * A key for everything a build depends on: the sources, the compiler, the
+ * runtime and templates it copies, and the output location. Content, not
+ * versions, so edits to the compiler or runtime invalidate it too.
+ */
+export function inputsKey(files: string[], outDir: string): string {
+  const hash = crypto.createHash("sha256");
+  hash.update(path.resolve(outDir));
+  const compilerRoot = path.resolve(here, "..");
+  const deps = [...listFiles(path.join(compilerRoot, "src")), ...listFiles(path.join(compilerRoot, "lib")), ...listFiles(runtimeDir()).filter((f) => !f.includes(`${path.sep}test${path.sep}`)), coreTypesPath()];
+  for (const f of [...files.map((f) => path.resolve(f)).sort(), ...deps.sort()]) {
+    hash.update(f);
+    hash.update(fs.readFileSync(f));
+  }
+  return hash.digest("hex");
+}
+
+/** Whether `outDir` was written by a build with the same inputs. */
+export function isUpToDate(outDir: string, key: string): boolean {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf8")).inputs === key;
+  } catch {
+    return false;
+  }
 }
 
 function listFiles(dir: string): string[] {
@@ -36,7 +64,7 @@ function listFiles(dir: string): string[] {
  * platforms, and the JavaScript proxies. Files whose content did not change
  * are left alone so native builds stay incremental.
  */
-export function writeNativePackage(result: EmitResult, outDir: string): WriteResult {
+export function writeNativePackage(result: EmitResult, outDir: string, options: { inputsKey?: string } = {}): WriteResult {
   const rt = runtimeDir();
   const want = new Map<string, string | Buffer>();
   const copyTree = (from: string, to: string, filter: (f: string) => boolean) => {
@@ -53,7 +81,7 @@ export function writeNativePackage(result: EmitResult, outDir: string): WriteRes
   for (const [name, content] of result.proxies) want.set(path.join(outDir, "js", `${name}.js`), content);
   want.set(
     path.join(outDir, "manifest.json"),
-    JSON.stringify({ generator: "lucent", modules: [...result.proxies.keys()].sort() }, null, 2) + "\n",
+    JSON.stringify({ generator: "lucent", modules: [...result.proxies.keys()].sort(), inputs: options.inputsKey }, null, 2) + "\n",
   );
 
   const existing = new Set(listFiles(outDir));

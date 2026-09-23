@@ -5,7 +5,7 @@ import { createLucentProgram, findLucentFiles } from "./program.ts";
 export { Codes, formatDiagnostic, type Diagnostic } from "./diagnostics.ts";
 export { findLucentFiles, moduleNameOf, LUCENT_EXTENSION, coreTypesPath } from "./program.ts";
 export type { EmitResult } from "./emit/index.ts";
-export { writeNativePackage, runtimeDir, type WriteResult } from "./native-package.ts";
+export { inputsKey, isUpToDate, writeNativePackage, runtimeDir, type WriteResult } from "./native-package.ts";
 
 export interface CompileResult extends EmitResult {
   ok: boolean;

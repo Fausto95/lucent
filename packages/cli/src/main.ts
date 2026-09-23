@@ -1,11 +1,13 @@
 import fs from "node:fs";
 import path from "node:path";
-import { compile, findLucentFiles, formatDiagnostic, writeNativePackage } from "@lucent-lang/compiler";
+import { compile, findLucentFiles, formatDiagnostic, inputsKey, isUpToDate, writeNativePackage } from "@lucent-lang/compiler";
 
 const HELP = `lucent — compile *.lucent.ts modules into a native React Native package
 
 Usage:
-  lucent build [--root <dir>] [--out <dir>]   Compile and write the native package (default out: <root>/.lucent/native)
+  lucent build [--root <dir>] [--out <dir>] [--force]
+                                             Compile and write the native package (default out: <root>/.lucent/native);
+                                             skipped when nothing changed since the last build, unless --force
   lucent check [--root <dir>]                 Type-check and validate without writing anything
   lucent init  [--root <dir>]                 Wire an app: react-native.config.js, .gitignore, tsconfig
 `;
@@ -32,6 +34,12 @@ function run(): number {
     process.stdout.write(`No *.lucent.ts files under ${root}\n`);
   }
   const t0 = Date.now();
+  const out = path.resolve(arg("--out", path.join(root, ".lucent/native")));
+  const key = inputsKey(files, out);
+  if (command === "build" && !process.argv.includes("--force") && isUpToDate(out, key)) {
+    process.stdout.write(`✓ ${path.relative(root, out)} is up to date (${files.length} module(s), ${Date.now() - t0} ms)\n`);
+    return 0;
+  }
   const result = compile(files);
   for (const d of result.diagnostics) process.stderr.write(formatDiagnostic({ ...d, file: d.file && path.relative(root, d.file) }) + "\n");
   if (!result.ok) {
@@ -43,8 +51,7 @@ function run(): number {
     process.stdout.write(`✓ ${names.length} module(s) OK: ${names.join(", ")} (${Date.now() - t0} ms)\n`);
     return 0;
   }
-  const out = path.resolve(arg("--out", path.join(root, ".lucent/native")));
-  const w = writeNativePackage(result, out);
+  const w = writeNativePackage(result, out, { inputsKey: key });
   process.stdout.write(`✓ Compiled ${names.length} module(s): ${names.join(", ")} (${Date.now() - t0} ms)\n`);
   process.stdout.write(`  ${path.relative(root, out)}: ${w.written.length} written, ${w.unchanged} unchanged, ${w.removed.length} removed\n`);
   if (w.structureChanged) {
