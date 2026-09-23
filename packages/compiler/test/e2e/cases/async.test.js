@@ -19,4 +19,8 @@
   print(await mod.allRejectsEarly());
   print(await mod.tupleRejectsEarly());
   print(await mod.allTicks());
+  print(await mod.promised(21));
+  try { await mod.promiseRejects(); } catch (e) { print(e.name, e.message); }
+  try { await mod.promiseThrows(); } catch (e) { print(e.name, e.message); }
+  print(await mod.promiseSettlesOnce(), await mod.promiseOfNothing());
 })();
