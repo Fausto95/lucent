@@ -14,7 +14,7 @@ export type { Platform, SdkCallable, SdkClassSchema, SdkEnumSchema, SdkMethodSch
 export { sdkDts } from "./sdk/dts.ts";
 export { inputsKey, isUpToDate, writeNativePackage, runtimeDir, type WriteResult } from "./native-package.ts";
 export { watchBuild, type WatchEvent } from "./watch.ts";
-export { prefetch as prefetchSdk, sdkAvailable, sdkModule, sdkModules } from "@lucent-lang/bindgen";
+export { forgetLoadedSdks, podsSearchPaths, prefetch as prefetchSdk, sdkAvailable, sdkModule, sdkModules } from "@lucent-lang/bindgen";
 
 export interface CompileResult extends EmitResult {
   ok: boolean;

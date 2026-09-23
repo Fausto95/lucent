@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { formatDiagnostic } from "./diagnostics.ts";
-import { compile } from "./index.ts";
+import { compile, type CompileOptions } from "./index.ts";
 import { inputsKey, isUpToDate, writeNativePackage } from "./native-package.ts";
 import { findLucentFiles, LUCENT_EXTENSION } from "./program.ts";
 
@@ -18,7 +18,7 @@ export interface WatchEvent {
  * Builds `root` into `outDir`, then again whenever a `*.lucent.ts` file under
  * it changes. Returns a function that stops watching.
  */
-export function watchBuild(root: string, outDir: string, onBuild: (e: WatchEvent) => void): () => void {
+export function watchBuild(root: string, outDir: string, onBuild: (e: WatchEvent) => void, options: CompileOptions = {}): () => void {
   let timer: NodeJS.Timeout | undefined;
   let building = false;
   let again = false;
@@ -33,7 +33,7 @@ export function watchBuild(root: string, outDir: string, onBuild: (e: WatchEvent
       const files = findLucentFiles(root);
       const key = inputsKey(files, outDir);
       if (isUpToDate(outDir, key)) return;
-      const result = compile(files);
+      const result = compile(files, options);
       const modules = [...result.proxies.keys()];
       if (!result.ok) {
         onBuild({ ok: false, modules, messages: result.diagnostics.map((d) => formatDiagnostic({ ...d, file: d.file && path.relative(root, d.file) })), nativeChanged: false });

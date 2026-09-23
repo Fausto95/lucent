@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { spawn } from "node:child_process";
-import { compile, findLucentFiles, formatDiagnostic, inputsKey, isUpToDate, platformOf, prefetchSdk, sdkAvailable, sdkModule, sdkModules, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
+import { spawn, spawnSync } from "node:child_process";
+import { compile, findLucentFiles, forgetLoadedSdks, formatDiagnostic, inputsKey, isUpToDate, platformOf, podsSearchPaths, prefetchSdk, sdkAvailable, sdkModule, sdkModules, type SdkOptions, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
 
 const HELP = `lucent — compile *.lucent.ts modules into a native React Native package
 
@@ -17,6 +17,13 @@ Usage:
                                              Extract SDK bindings into the cache ahead of use (default: the
                                              lucent:* modules the project imports; --all: every module)
   lucent init  [--root <dir>]                 Wire an app: react-native.config.js, .gitignore, tsconfig
+`;
+
+const LUCENT_GRADLE = 'rootProject.file("../.lucent/native/android/lucent.gradle")';
+const LUCENT_GRADLE_APPLY = `
+// Lucent: lucent:android bindings for the app's dependencies (the file is written by lucent build).
+def lucentGradle = ${LUCENT_GRADLE}
+if (lucentGradle.exists()) apply from: lucentGradle
 `;
 
 function arg(name: string, fallback: string): string {
@@ -43,15 +50,17 @@ function run(): number {
     process.stdout.write(`No *.lucent.ts files under ${root}\n`);
   }
   const t0 = Date.now();
+  const sdk = projectSdk(root);
+  if (command === "build") resolveAndroidDependencies(root, files, sdk);
   const out = path.resolve(arg("--out", path.join(root, ".lucent/native")));
   const platformsArg = arg("--platforms", "");
   let platforms = platformsArg ? (platformsArg.split(",") as Target[]) : undefined;
   if (!platforms && files.some((f) => platformOf(f))) {
     // Build what this machine can: an Android-only Linux host, a Mac without the Android SDK.
-    const installed = (["ios", "android"] as const).filter((p) => sdkAvailable(p));
+    const installed = (["ios", "android"] as const).filter((p) => sdkAvailable(p, sdk));
     for (const p of ["ios", "android"] as const) {
       if (installed.includes(p)) continue;
-      const why = sdkModule(p, p === "ios" ? "Foundation" : "android.os");
+      const why = sdkModule(p, p === "ios" ? "Foundation" : "android.os", sdk);
       process.stderr.write(`! ${"missing" in why ? why.missing : `no ${p} SDK`}; skipped ${p === "ios" ? "iOS" : "Android"} (build it with --platforms ${p} once the SDK is installed).\n`);
     }
     if (!installed.length) {
@@ -66,7 +75,7 @@ function run(): number {
     process.stdout.write(`✓ ${path.relative(root, out)} is up to date (${files.length} module(s), ${Date.now() - t0} ms)\n`);
     return 0;
   }
-  const result = compile(files, { platforms });
+  const result = compile(files, { platforms, sdk });
   for (const d of result.diagnostics) process.stderr.write(formatDiagnostic({ ...d, file: d.file && path.relative(root, d.file) }) + "\n");
   if (!result.ok) {
     process.stderr.write(`\n✗ ${result.diagnostics.length} problem(s); nothing was written.\n`);
@@ -84,6 +93,35 @@ function run(): number {
     process.stdout.write(`  Native files were added or removed: run \`pod install\` (iOS) before the next build.\n`);
   }
   return 0;
+}
+
+/** Where this project's bindings come from: the SDKs, and what the app links. */
+function projectSdk(root: string): SdkOptions {
+  const pods = podsSearchPaths(path.join(root, "ios"));
+  return { android: { classpath: path.join(root, ".lucent/android-classpath.json") }, ...(pods ? { ios: pods } : {}) };
+}
+
+/**
+ * An Android import that android.jar does not have is looked up in the app's
+ * dependencies: resolve them with Gradle (the lucentClasspath task of
+ * lucent.gradle) when that has not happened yet or the build files changed.
+ */
+function resolveAndroidDependencies(root: string, files: string[], sdk: SdkOptions): void {
+  const imports = sdkImports(files).android;
+  const android = path.join(root, "android");
+  const gradlew = path.join(android, process.platform === "win32" ? "gradlew.bat" : "gradlew");
+  const classpath = sdk.android!.classpath!;
+  if (!imports.length || !fs.existsSync(gradlew)) return;
+  const age = fs.existsSync(classpath) ? fs.statSync(classpath).mtimeMs : 0;
+  const changed = [path.join(android, "build.gradle"), path.join(android, "app/build.gradle")].some((f) => fs.existsSync(f) && fs.statSync(f).mtimeMs > age);
+  const unresolved = imports.some((m) => "missing" in sdkModule("android", m, sdk));
+  if (!unresolved && !(changed && age)) return;
+  process.stdout.write("• resolving the app's Android dependencies (Gradle :app:lucentClasspath)\n");
+  const r = spawnSync(gradlew, ["-q", ":app:lucentClasspath"], { cwd: android, encoding: "utf8" });
+  if (r.status !== 0) {
+    process.stderr.write(`! Gradle could not resolve them:\n${(r.stderr || r.stdout).trim().split("\n").slice(-8).join("\n")}\n  Does android/app/build.gradle apply lucent.gradle? (lucent init adds it)\n`);
+  }
+  forgetLoadedSdks();
 }
 
 /** `lucent:<platform>/<module>` imports of the project's files. */
@@ -119,7 +157,7 @@ function sdkPrefetch(root: string): number {
   for (const p of ["ios", "android"] as const) {
     let modules = wanted[p];
     if (all || (modules && !modules.length)) {
-      const everything = sdkModules(p);
+      const everything = sdkModules(p, projectSdk(root));
       if (!Array.isArray(everything)) {
         process.stderr.write(`✗ ${everything.missing}\n`);
         failed++;
@@ -127,7 +165,7 @@ function sdkPrefetch(root: string): number {
       }
       modules = everything;
     }
-    for (const [i, r] of prefetchSdk(p, modules ?? []).entries()) {
+    for (const [i, r] of prefetchSdk(p, modules ?? [], projectSdk(root)).entries()) {
       const name = `lucent:${p}/${modules![i]}`;
       if ("schema" in r) process.stdout.write(`✓ ${name}\n`);
       else {
@@ -150,7 +188,7 @@ function watch(root: string): number {
     }
     process.stdout.write(`[${time}] ✓ Lucent: ${e.messages.join("; ")}\n`);
     if (e.nativeChanged) process.stdout.write("  Native code changed: rebuild the app (Xcode / Gradle) to run it.\n");
-  });
+  }, { sdk: projectSdk(root) });
   return -1;
 }
 
@@ -167,6 +205,11 @@ function init(root: string): number {
     process.stdout.write("✓ renamed the lucent-native dependency to lucent in react-native.config.js\n");
   } else if (!/["']lucent["']\s*:/.test(text)) {
     process.stdout.write(`! add this to the "dependencies" of react-native.config.js:\n    ${entry}\n`);
+  }
+  const appGradle = path.join(root, "android/app/build.gradle");
+  if (fs.existsSync(appGradle) && !fs.readFileSync(appGradle, "utf8").includes(LUCENT_GRADLE)) {
+    fs.appendFileSync(appGradle, LUCENT_GRADLE_APPLY);
+    process.stdout.write("✓ applied lucent.gradle in android/app/build.gradle (bindings for the app's dependencies)\n");
   }
   const gitignore = path.join(root, ".gitignore");
   const ignored = fs.existsSync(gitignore) ? fs.readFileSync(gitignore, "utf8") : "";
