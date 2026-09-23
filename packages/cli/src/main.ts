@@ -1,13 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
-import { compile, findLucentFiles, formatDiagnostic, inputsKey, isUpToDate, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
+import { compile, findLucentFiles, formatDiagnostic, inputsKey, isUpToDate, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
 
 const HELP = `lucent — compile *.lucent.ts modules into a native React Native package
 
 Usage:
-  lucent build [--root <dir>] [--out <dir>] [--force]
+  lucent build [--root <dir>] [--out <dir>] [--force] [--platforms ios,android,host]
                                              Compile and write the native package (default out: <root>/.lucent/native);
-                                             skipped when nothing changed since the last build, unless --force
+                                             skipped when nothing changed since the last build, unless --force.
+                                             Platform modules (*.ios.lucent.ts, *.android.lucent.ts) are built for
+                                             --platforms (default ios,android; host: stubs, for tests and tools)
   lucent build --watch [--root <dir>]         Build, then rebuild whenever a *.lucent.ts file changes
   lucent check [--root <dir>]                 Type-check and validate without writing anything
   lucent init  [--root <dir>]                 Wire an app: react-native.config.js, .gitignore, tsconfig
@@ -37,12 +39,14 @@ function run(): number {
   }
   const t0 = Date.now();
   const out = path.resolve(arg("--out", path.join(root, ".lucent/native")));
-  const key = inputsKey(files, out);
+  const platformsArg = arg("--platforms", "");
+  const platforms = platformsArg ? (platformsArg.split(",") as Target[]) : undefined;
+  const key = inputsKey(files, out) + (platformsArg ? `:${platformsArg}` : "");
   if (command === "build" && !process.argv.includes("--force") && isUpToDate(out, key)) {
     process.stdout.write(`✓ ${path.relative(root, out)} is up to date (${files.length} module(s), ${Date.now() - t0} ms)\n`);
     return 0;
   }
-  const result = compile(files);
+  const result = compile(files, { platforms });
   for (const d of result.diagnostics) process.stderr.write(formatDiagnostic({ ...d, file: d.file && path.relative(root, d.file) }) + "\n");
   if (!result.ok) {
     process.stderr.write(`\n✗ ${result.diagnostics.length} problem(s); nothing was written.\n`);

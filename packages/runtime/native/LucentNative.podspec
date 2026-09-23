@@ -9,12 +9,16 @@ Pod::Spec.new do |s|
   s.platforms    = { :ios => min_ios_version_supported }
   s.source       = { :git => "https://github.com/Fausto95/lucent.git", :tag => s.version.to_s }
 
-  s.source_files = ["cpp/**/*.{h,cpp,inc,c}", "ios/**/*.{h,mm}"]
+  # Projects with platform modules generate one set of files per target
+  # (cpp/generated/ios, cpp/generated/android); iOS builds its own. The
+  # runtime's Android glue is guarded by __ANDROID__.
+  s.source_files = ["cpp/**/*.{h,cpp,inc,c,mm}", "ios/**/*.{h,mm}"]
+  s.exclude_files = ["cpp/generated/android/**", "cpp/generated/host/**"]
   s.frameworks   = "CoreFoundation"
   s.header_mappings_dir = "cpp"
   s.pod_target_xcconfig = {
     "CLANG_CXX_LANGUAGE_STANDARD" => "c++20",
-    "HEADER_SEARCH_PATHS" => "\"$(PODS_TARGET_SRCROOT)/cpp\" \"$(PODS_TARGET_SRCROOT)/cpp/generated\" \"$(PODS_TARGET_SRCROOT)/cpp/rn\"",
+    "HEADER_SEARCH_PATHS" => "\"$(PODS_TARGET_SRCROOT)/cpp\" \"$(PODS_TARGET_SRCROOT)/cpp/generated/ios\" \"$(PODS_TARGET_SRCROOT)/cpp/generated\" \"$(PODS_TARGET_SRCROOT)/cpp/rn\"",
     # The vendored regular expression engine (third_party/quickjs) is C.
     "OTHER_CFLAGS" => "$(inherited) -w",
     "OTHER_CPLUSPLUSFLAGS" => "$(inherited) -ffp-contract=off -fexceptions -frtti -Wno-gnu-statement-expression -Wno-unused-label -Wno-parentheses-equality -Wno-comma",

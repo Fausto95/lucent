@@ -27,6 +27,9 @@ export const Codes = {
   UnsupportedImport: "LUCENT3001",
   UnsupportedTopLevel: "LUCENT3002",
   UnsupportedExport: "LUCENT3003",
+  SdkImport: "LUCENT3004",
+  PlatformConformance: "LUCENT3005",
+  MainThreadOnly: "LUCENT3006",
   TypeScript: "LUCENT9001",
 } as const;
 

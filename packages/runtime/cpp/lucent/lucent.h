@@ -16,6 +16,7 @@
 #include "json.h"
 #include "json_parse.h"
 #include "map.h"
+#include "native.h"
 #include "number.h"
 #include "regexp.h"
 #include "ops.h"

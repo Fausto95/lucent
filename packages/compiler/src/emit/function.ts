@@ -6,6 +6,7 @@ import type { LucentModule } from "../program.ts";
 import { type ClassInfo, cppIdent, isVoidish, type LType, sameType, stripOpt, substitute, T, typeKey, unionOf } from "../types.ts";
 import { containsAwait, freeVariables, type FunctionLike, symbolOf } from "./analysis.ts";
 import * as builtins from "./builtins.ts";
+import * as native from "./native.ts";
 import type { Ctx, E, IntKind, ParamInfo } from "./context.ts";
 import { inferIntegers } from "./integers.ts";
 export { substitute } from "../types.ts";
@@ -665,7 +666,14 @@ export class FnEmitter {
             this.line(`${INT_CPP[kind]} ${l.cpp} = ${init};`);
             continue;
           }
-          const init = d.initializer ? this.exprAs(d.initializer, type) : undefined;
+          let init: string | undefined;
+          try {
+            init = d.initializer ? this.exprAs(d.initializer, type) : undefined;
+          } catch (e) {
+            // Declared anyway, so later uses do not also report it as unknown.
+            this.declareVar(sym, d.name.text, type, undefined);
+            throw e;
+          }
           this.declareVar(sym, d.name.text, type, init);
         }
       } else {
@@ -1776,12 +1784,15 @@ export class FnEmitter {
       return { c: `std::visit([&](const auto& v) -> ${this.cpp(rt)} { return v->${cppIdent(name)}; }, ${obj.c})`, t: rt };
     }
     if (t.k === "class") return builtins.classMember(this, obj, t, name, node);
+    if (t.k === "native") return native.nativeMember(this, obj, node);
     if (t.k === "iface") return builtins.ifaceMember(this, obj, t, name, node);
     return builtins.property(this, obj, name, node);
   }
 
   private propertyAccess(node: ts.PropertyAccessExpression): E {
     if (isOptionalChain(node)) return this.chainPart(node).e;
+    const nativeE = native.nativeStaticProperty(this, node);
+    if (nativeE) return nativeE;
     const staticE = builtins.staticProperty(this, node);
     if (staticE) return staticE;
     if (node.expression.kind === ts.SyntaxKind.SuperKeyword) return builtins.superMember(this, node.name.text, node);
@@ -1926,6 +1937,8 @@ export class FnEmitter {
     if (callee.kind === ts.SyntaxKind.SuperKeyword) return builtins.superCall(this, node);
     if (ts.isPropertyAccessExpression(callee) && callee.expression.kind === ts.SyntaxKind.SuperKeyword) return builtins.superMember(this, callee.name.text, callee, node);
     if (ts.isPropertyAccessExpression(callee)) {
+      const n = native.nativeCall(this, node, undefined);
+      if (n) return n;
       const s = builtins.staticCall(this, node, callee);
       if (s) return s;
       const obj = this.receiver(callee.expression);
@@ -1937,6 +1950,8 @@ export class FnEmitter {
       if (sym && !this.findLocal(sym)) {
         const g = this.ctx.globals.get(sym);
         if (g && g.kind === "function") return this.callUserFunction(g, node);
+        const n = native.nativeBuiltinCall(this, node);
+        if (n) return n;
         const b = builtins.globalCall(this, node, callee.text, sym);
         if (b) return b;
       }
@@ -2001,6 +2016,7 @@ export class FnEmitter {
   private newInner(node: ts.NewExpression): E {
     const callee = node.expression;
     const t = this.lt(node);
+    if (t.k === "native") return native.nativeNew(this, node, t);
     if (t.k === "class") {
       // The nearest constructor in the class chain (subclasses may inherit it).
       const owner = this.reg.chain(t).find((c) => c.info.decl.members.some(ts.isConstructorDeclaration));

@@ -1,4 +1,5 @@
 import ts from "typescript";
+import type { Platform } from "../sdk/schema.ts";
 import { CompileError, type Diagnostic, toDiagnostic } from "../diagnostics.ts";
 import type { LucentModule } from "../program.ts";
 import { type ClassInfo, type LType, TypeRegistry } from "../types.ts";
@@ -35,6 +36,11 @@ export class Ctx {
   readonly capture: CaptureAnalysis;
   readonly globals = new Map<ts.Symbol, Global>();
   readonly diagnostics: Diagnostic[] = [];
+  /** The platform of the program being emitted (platform files only exist there). */
+  platform?: Platform;
+  /** Per module: includes and checks its platform glue needs. */
+  readonly frameworks = new Set<string>();
+  readonly nativeUnits = new Map<LucentModule, { includes: Set<string>; lines: Set<string> }>();
   /** Target types of JSON.parse, which get generated readers. */
   readonly jsonReads = new Map<string, LType>();
   private tmp = 0;
@@ -46,6 +52,15 @@ export class Ctx {
     const files = new Set(modules.map((m) => m.sourceFile));
     this.reg = new TypeRegistry(checker, (sf) => files.has(sf));
     this.capture = new CaptureAnalysis(checker, modules.map((m) => m.sourceFile));
+  }
+
+  nativeUnit(m: LucentModule): { includes: Set<string>; lines: Set<string> } {
+    let u = this.nativeUnits.get(m);
+    if (!u) {
+      u = { includes: new Set(), lines: new Set() };
+      this.nativeUnits.set(m, u);
+    }
+    return u;
   }
 
   fresh(prefix = "t"): string {

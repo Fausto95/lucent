@@ -8,6 +8,7 @@ import type { E } from "./context.ts";
 import { type FnEmitter, substitute } from "./function.ts";
 import { type IfaceMember, membersOf } from "./interfaces.ts";
 import { cppQuoted, numberLiteral, stringLiteral } from "./literals.ts";
+import { nativeCall } from "./native.ts";
 
 type FnT = LType & { k: "fn" };
 const fn = (params: LType[], ret: LType): FnT => ({ k: "fn", params, ret });
@@ -518,6 +519,7 @@ function callMethodDecl(em: FnEmitter, target: string, decl: ts.MethodDeclaratio
 
 export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExpression): E {
   const t = obj.t;
+  if (t.k === "native") return nativeCall(em, node, obj) ?? fail(node, Codes.UnsupportedCall, `${name} is not a method of ${t.name}`);
   const o = obj.c;
   const a = node.arguments;
   if (name === "toString" && a.length === 0 && t.k !== "number") return str(em.toStringCode(obj));

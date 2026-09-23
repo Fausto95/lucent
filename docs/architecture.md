@@ -138,6 +138,21 @@ On the JavaScript side, each proxy calls
 Resolving `react-native` from the app's own location avoids picking up a second
 copy in monorepos.
 
+## Platform modules
+
+`haptics.ios.lucent.ts` and `haptics.android.lucent.ts` implement the exports
+`haptics.lucent.ts` declares. `compile()` plans modules
+(`src/platforms.ts`), then builds one program per target: the platform's files
+plus the shared modules, with the declarations as reference files, and
+`lucent:<platform>/*` resolved to `.d.ts` files generated from binding schemas
+(`src/sdk/`) and served from a virtual directory. Each target's output is a
+complete file set under `<target>/`. Declarations of SDK classes lower to the
+`native` LType (`lucent::NativeRef`); `emit/native.ts` maps each use back to
+its schema entry through the checker's resolved declaration and emits
+Objective-C++ message sends or JNI calls. The runtime side is
+`lucent/native.h` (NativeRef, `runOnMain`) and `lucent/platform/{ios,android}`.
+Details: [platform-bindings.md](platform-bindings.md).
+
 ## Editor diagnostics
 
 `@lucent-lang/ts-plugin` is a TypeScript language-service plugin. tsserver

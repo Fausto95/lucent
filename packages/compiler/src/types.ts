@@ -1,6 +1,7 @@
 import ts from "typescript";
 import { Codes, fail } from "./diagnostics.ts";
-import { isLibFile } from "./program.ts";
+import { isLibFile, sdkModuleOf } from "./program.ts";
+import type { Platform } from "./sdk/schema.ts";
 
 /**
  * Lucent types: the native representation of a TypeScript type. Literal
@@ -36,7 +37,9 @@ export type LType =
   | { k: "iterResult"; e: LType }
   | { k: "abortSignal" }
   | { k: "abortController" }
-  | { k: "tparam"; name: string };
+  | { k: "tparam"; name: string }
+  /** An object of a platform SDK class (lucent:ios/…, lucent:android/…). */
+  | { k: "native"; platform: Platform; module: string; name: string };
 
 export const T = {
   number: { k: "number" } as LType,
@@ -87,6 +90,8 @@ export function typeKey(t: LType): string {
       return `Promise<${typeKey(t.inner)}>`;
     case "tparam":
       return `T:${t.name}`;
+    case "native":
+      return `N:${t.platform}:${t.module}.${t.name}`;
     default:
       return t.k;
   }
@@ -502,6 +507,15 @@ export class TypeRegistry {
 
   private lowerObject(type: ts.ObjectType, node: ts.Node): LType {
     const c = this.checker;
+    const sdkSym = type.getSymbol();
+    const decl = sdkSym?.declarations?.[0];
+    const sdk = decl && ts.isClassDeclaration(decl) ? sdkModuleOf(decl.getSourceFile()) : undefined;
+    if (sdk && sdkSym) {
+      if (type.getConstructSignatures().length || c.getTypeOfSymbolAtLocation(sdkSym, decl!) === type) {
+        fail(node, Codes.UnsupportedSyntax, `the class ${sdkSym.name} can only be used with new, static members, or as a Class<T> argument`);
+      }
+      return { k: "native", platform: sdk.platform, module: sdk.module, name: sdkSym.name };
+    }
     if (c.isTupleType(type)) {
       return { k: "tuple", es: c.getTypeArguments(type as ts.TypeReference).map((t) => this.lower(t, node)) };
     }
@@ -773,6 +787,8 @@ export class TypeRegistry {
         return "lucent::AbortController";
       case "tparam":
         return cppIdent(t.name);
+      case "native":
+        return "lucent::NativeRef";
     }
   }
 

@@ -174,6 +174,12 @@ importers:
       '@lucent-lang/runtime':
         specifier: workspace:*
         version: link:../runtime
+      '@lucent-lang/sdk-android':
+        specifier: workspace:*
+        version: link:../sdk-android
+      '@lucent-lang/sdk-ios':
+        specifier: workspace:*
+        version: link:../sdk-ios
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
@@ -192,6 +198,10 @@ importers:
   packages/metro: {}
 
   packages/runtime: {}
+
+  packages/sdk-android: {}
+
+  packages/sdk-ios: {}
 
   packages/ts-plugin:
     dependencies:

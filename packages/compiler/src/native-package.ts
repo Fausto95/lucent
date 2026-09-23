@@ -5,6 +5,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import type { EmitResult } from "./emit/index.ts";
 import { coreTypesPath } from "./program.ts";
+import { sdkSchemaFiles } from "./sdk/schema.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -33,7 +34,7 @@ export function inputsKey(files: string[], outDir: string): string {
   // The compiler itself: its sources in this repository, dist when installed.
   const compilerRoot = path.resolve(here, "..");
   const compilerFiles = ["src", "dist", "lib"].flatMap((d) => listFiles(path.join(compilerRoot, d)));
-  const deps = [...compilerFiles, ...listFiles(runtimeDir()).filter((f) => !f.includes(`${path.sep}test${path.sep}`) && !f.includes(`${path.sep}node_modules${path.sep}`)), coreTypesPath()];
+  const deps = [...compilerFiles, ...listFiles(runtimeDir()).filter((f) => !f.includes(`${path.sep}test${path.sep}`) && !f.includes(`${path.sep}node_modules${path.sep}`)), coreTypesPath(), ...sdkSchemaFiles()];
   for (const f of [...files.map((f) => path.resolve(f)).sort(), ...deps.sort()]) {
     hash.update(f);
     hash.update(fs.readFileSync(f));
@@ -80,6 +81,10 @@ export function writeNativePackage(result: EmitResult, outDir: string, options: 
   copyTree(path.join(rt, "cpp/rn"), path.join(outDir, "cpp/rn"), () => true);
   copyTree(path.join(rt, "cpp/third_party"), path.join(outDir, "cpp/third_party"), () => true);
   copyTree(path.join(rt, "native"), outDir, () => true);
+  // Frameworks the iOS platform code uses join the podspec's.
+  const podspec = path.join(outDir, "LucentNative.podspec");
+  const frameworks = ["CoreFoundation", ...(result.frameworks ?? [])];
+  want.set(podspec, want.get(podspec)!.toString().replace(/s\.frameworks\s*=.*$/m, `s.frameworks   = ${JSON.stringify([...new Set(frameworks)]).replace(/,/g, ", ")}`));
   for (const [name, content] of result.files) want.set(path.join(outDir, "cpp/generated", name), content);
   for (const [name, content] of result.proxies) want.set(path.join(outDir, "js", `${name}.js`), content);
   want.set(

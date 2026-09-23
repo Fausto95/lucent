@@ -1,0 +1,119 @@
+# Platform bindings — what is implemented
+
+This is the M2.0 spike of [the design](m2-platform-bindings.md): platform
+modules, hand-written binding schemas, Objective-C++ and JNI glue, and
+`main()`. This page describes the current behavior; the design document
+describes where it is going.
+
+## Platform modules
+
+```
+haptics.lucent.ts          export declare function impactAsync(style?: ImpactStyle): Promise<void>;
+haptics.ios.lucent.ts      the iOS implementation (imports lucent:ios/…)
+haptics.android.lucent.ts  the Android implementation (imports lucent:android/…)
+```
+
+- The shared file may contain only `export declare function`s, types and
+  imports (LUCENT3005 otherwise). Put shared code and enums in another
+  module that all three import.
+- Each implementation must export exactly the declared values, with types
+  assignable to the declarations (LUCENT3005). JavaScript imports the shared
+  file, so it sees one API; the proxy and the JSI bindings are the same on
+  both platforms.
+- Each platform is checked in its own program: `lucent:ios/*` and
+  `lucent:ios` resolve only in `.ios.lucent.ts` files, `lucent:android/*` and
+  `lucent:android` only in `.android.lucent.ts` files, and `lucent:thread` in
+  both (LUCENT3004 otherwise, and for SDK modules without a schema).
+- Other modules import a platform module as usual (`./haptics.lucent`); calls
+  go to the platform's implementation.
+
+### Output
+
+Projects without platform modules keep the single layout,
+`.lucent/native/cpp/generated/*`. With platform modules, each target gets a
+complete set: `generated/ios/*` (platform modules as `.mm`, Objective-C++
+with ARC) and `generated/android/*`. The podspec compiles `generated/ios`,
+CMake compiles `generated/android`, and the podspec links the frameworks the
+iOS code imports.
+
+`lucent build --platforms host` writes `generated/host/*`, where platform
+modules' exports throw (or reject) "`<module>.<name>` is not available on this
+platform". `scripts/app-check.ts` uses it to run the rest of an app in the
+Hermes host.
+
+## Binding schemas
+
+`@lucent-lang/sdk-ios/<Module>.json` and `@lucent-lang/sdk-android/<package>.json`
+describe classes (native name, superclass, constructors, methods, properties,
+thread rule, availability) and enums in a small type grammar: `int`, `long`,
+`CGFloat`, `string`, `string?`, `long[]`, `Class<T>`, `android.os.Vibrator`,
+`UIDevice`. The compiler turns each into a `.d.ts` served from a virtual
+directory:
+
+- classes are nominal (a private brand) and have a private constructor unless
+  the SDK declares initializers;
+- Swift names on iOS (`UIDevice.current`, `init(style:)` → `constructor(style)`),
+  nested types joined with `_` (`UIImpactFeedbackGenerator_FeedbackStyle`);
+- Java names on Android, plus Kotlin-style getter properties
+  (`VibratorManager.defaultVibrator`);
+- `T?` → `T | null`; unannotated Java references are nullable
+  (`Build.MODEL: string | null`);
+- `Class<T>` parameters take the class itself:
+  `context.getSystemService(Vibrator)` is `Vibrator | null`.
+
+The spike ships UIKit's feedback generators and `UIDevice`, and Android's
+`Build`, `Build.VERSION`, `VibrationEffect`, `Vibrator`, `VibratorManager`,
+`Looper` and `Context`.
+
+## Calls
+
+- **iOS**: message sends with the SDK's own selectors, in Objective-C++
+  compiled against the real headers:
+  `[[UIImpactFeedbackGenerator alloc] initWithStyle:static_cast<UIImpactFeedbackStyle>(…)]`.
+  Every enum value used is checked against the SDK with a `static_assert`.
+- **Android**: JNI with descriptors derived from the schema types; class and
+  member IDs are looked up once per call site, local references are freed per
+  call, and classes the system class loader cannot see are loaded through the
+  application's.
+- Platform objects are `lucent::NativeRef`s: a retained Objective-C object
+  (released on the main thread) or a JNI global reference. `===` compares
+  identity (`IsSameObject` on Android). They cannot cross to JavaScript
+  (LUCENT2006).
+- Java exceptions become Lucent errors whose `code` is the exception class
+  (`java.lang.IllegalArgumentException`) and whose message is the
+  exception's. A `nil`/`null` result where the schema promises an object
+  throws `TypeError`.
+
+## Threads
+
+`main(f)` from `lucent:thread` runs `f` on the main thread (the main queue;
+the main Looper through a `Handler`) holding the Lucent lock, and resolves
+with its result; the caller never waits for it. Main-thread-only APIs
+(`mainActor` in the schema, `@MainActor` in Swift) are a compile error
+outside a `main(() => …)` literal (LUCENT3006).
+
+`available("ios", major, minor?)` and `available("android", api)` check the
+running OS; `appContext()` returns the Android `Application`
+(`ActivityThread.currentApplication()`).
+
+## Verified in the spike
+
+- `swift-symbolgraph-extract` on UIKit (iOS 27 SDK) gives clang USRs for
+  Objective-C members (`c:objc(cs)UIImpactFeedbackGenerator(im)impactOccurred`,
+  `(cpy)` class properties, `(py)` properties), `@MainActor` in declaration
+  fragments, enum cases with their C enumerators
+  (`c:@E@UIImpactFeedbackStyle@UIImpactFeedbackStyleMedium`), and
+  completion-handler methods twice under one clang USR: once with the
+  handler, once as Swift `async`. Extracting UIKit takes about 40 s and 29 MB,
+  so extraction results need caching.
+- Generated glue compiles with `-Werror` against the iOS simulator SDK and
+  the NDK (`packages/compiler/test/platforms.test.ts`); derived JNI
+  descriptors match `android.jar`.
+
+## Not yet
+
+Everything the design lists after M2.0: extractors, availability narrowing,
+delegates and listeners, Swift and Kotlin shims, completion handlers as
+promises, `lucent.json` dependencies and permissions, arrays and optionals in
+iOS calls, editor support for `lucent:*` imports (the TypeScript plugin
+checks platform files, but tsserver itself does not resolve `lucent:*`).

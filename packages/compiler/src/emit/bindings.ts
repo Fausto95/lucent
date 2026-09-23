@@ -106,6 +106,8 @@ export class BindingsEmitter {
     if (this.flows.has(key)) return;
     this.flows.add(key);
     switch (t.k) {
+      case "native":
+        fail(node, Codes.BoundaryType, `${t.name} is a ${t.platform === "ios" ? "iOS" : "Android"} object; platform objects cannot cross the JavaScript boundary, so return the values you need`);
       case "abortSignal":
         if (out) fail(node, Codes.BoundaryType, "an AbortSignal can only be passed from JavaScript to Lucent, not returned or passed to a JavaScript callback");
         return;

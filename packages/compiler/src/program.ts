@@ -4,6 +4,8 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { Codes, type Diagnostic } from "./diagnostics.ts";
+import { sdkDts } from "./sdk/dts.ts";
+import { findSdkModule, type Platform, PLATFORMS } from "./sdk/schema.ts";
 import { cppIdent } from "./types.ts";
 
 export interface LucentModule {
@@ -13,10 +15,15 @@ export interface LucentModule {
   sourceFile: ts.SourceFile;
   /** C++ namespace inside `lucent_app`. */
   ns: string;
+  /** For a platform file: the shared file declaring the module's exports. */
+  declaration?: ts.SourceFile;
+  /** A shared declaration compiled on its own (host target): exports throw. */
+  stub?: boolean;
 }
 
 export interface LucentProgram {
   program: ts.Program;
+  platform?: Platform;
   checker: ts.TypeChecker;
   modules: LucentModule[];
   diagnostics: Diagnostic[];
@@ -42,12 +49,46 @@ export function coreTypesPath(): string {
 }
 
 export const LUCENT_EXTENSION = /\.lucent\.tsx?$/;
+const PLATFORM_EXTENSION = /\.(ios|android)\.lucent\.tsx?$/;
 
+/** The module a file belongs to: `haptics` for haptics.lucent.ts and haptics.ios.lucent.ts. */
 export function moduleNameOf(file: string): string {
-  return path.basename(file).replace(LUCENT_EXTENSION, "");
+  return path.basename(file).replace(PLATFORM_EXTENSION, "").replace(LUCENT_EXTENSION, "");
 }
 
-export function compilerOptions(): ts.CompilerOptions {
+/** The platform of a `*.ios.lucent.ts` / `*.android.lucent.ts` file. */
+export function platformOf(file: string): Platform | undefined {
+  return PLATFORM_EXTENSION.exec(file)?.[1] as Platform | undefined;
+}
+
+// SDK declarations are generated from binding schemas and served from this
+// virtual directory: lucent:ios/UIKit is <SDK_ROOT>/ios/UIKit.d.ts.
+const SDK_ROOT = path.resolve("/__lucent_sdk__");
+
+function sdkLibPath(name: string): string {
+  return path.resolve(here, `../lib/sdk/${name}.d.ts`);
+}
+
+function virtualSdkText(file: string): string | undefined {
+  const rel = path.relative(SDK_ROOT, path.resolve(file));
+  const m = /^(ios|android)[\\/]([\w.]+)\.d\.ts$/.exec(rel);
+  const schema = m ? findSdkModule(m[1] as Platform, m[2]!) : undefined;
+  return schema ? sdkDts(schema) : undefined;
+}
+
+/** Whether a declaration comes from an SDK binding module. */
+export function sdkModuleOf(sf: ts.SourceFile): { platform: Platform; module: string } | undefined {
+  const m = /^(ios|android)[\\/]([\w.]+)\.d\.ts$/.exec(path.relative(SDK_ROOT, path.resolve(sf.fileName)));
+  return m ? { platform: m[1] as Platform, module: m[2]! } : undefined;
+}
+
+/** The built-in lucent:thread / lucent:ios / lucent:android module a declaration comes from. */
+export function builtinSdkModuleOf(sf: ts.SourceFile): string | undefined {
+  for (const name of ["thread", ...PLATFORMS]) if (path.resolve(sf.fileName) === sdkLibPath(name)) return `lucent:${name}`;
+  return undefined;
+}
+
+export function compilerOptions(platform?: Platform): ts.CompilerOptions {
   return {
     strict: true,
     target: ts.ScriptTarget.ES2022,
@@ -62,7 +103,16 @@ export function compilerOptions(): ts.CompilerOptions {
     exactOptionalPropertyTypes: false,
     // Reading a missing index yields undefined at runtime; the types must say so.
     noUncheckedIndexedAccess: true,
-    paths: { "@lucent-lang/core": [coreTypesPath()] },
+    paths: {
+      "@lucent-lang/core": [coreTypesPath()],
+      ...(platform
+        ? {
+            "lucent:thread": [sdkLibPath("thread")],
+            [`lucent:${platform}`]: [sdkLibPath(platform)],
+            [`lucent:${platform}/*`]: [path.join(SDK_ROOT, platform, "*.d.ts")],
+          }
+        : {}),
+    },
   };
 }
 
@@ -93,7 +143,15 @@ function compilerHost(options: ts.CompilerOptions, readSource: ReadSource | unde
   const readFile = host.readFile.bind(host);
   host.readFile = (f) => readSource?.(path.resolve(f)) ?? readFile(f);
   const fileExists = host.fileExists.bind(host);
-  host.fileExists = (f) => readSource?.(path.resolve(f)) !== undefined || fileExists(f);
+  host.fileExists = (f) => readSource?.(path.resolve(f)) !== undefined || virtualSdkText(f) !== undefined || fileExists(f);
+  const readDisk = host.readFile;
+  host.readFile = (f) => virtualSdkText(f) ?? readDisk(f);
+  // Module resolution skips files in directories that do not exist.
+  const directoryExists = host.directoryExists?.bind(host);
+  host.directoryExists = (d) => {
+    const rel = path.relative(SDK_ROOT, path.resolve(d));
+    return rel === "" || (PLATFORMS as readonly string[]).includes(rel) || (directoryExists?.(d) ?? ts.sys.directoryExists(d));
+  };
   const getSourceFile = host.getSourceFile.bind(host);
   host.getSourceFile = (f, language, onError, shouldCreate) => {
     if (!f.endsWith(".d.ts")) return getSourceFile(f, language, onError, shouldCreate);
@@ -108,10 +166,18 @@ function compilerHost(options: ts.CompilerOptions, readSource: ReadSource | unde
   return host;
 }
 
-export function createLucentProgram(files: string[], readSource?: ReadSource): LucentProgram {
-  const options = compilerOptions();
+/**
+ * A program of Lucent modules. With a `platform`, it may contain that
+ * platform's files and resolves its SDK modules; `references` are files the
+ * checker sees (platform modules' shared declarations) that are not
+ * compiled themselves.
+ */
+export function createLucentProgram(files: string[], readSource?: ReadSource, platform?: Platform, extra: { references?: string[]; stubs?: string[] } = {}): LucentProgram {
+  const references = extra.references ?? [];
+  const stubs = new Set((extra.stubs ?? []).map((f) => path.resolve(f)));
+  const options = compilerOptions(platform);
   const host = compilerHost(options, readSource);
-  const program = ts.createProgram([...files.map((f) => path.resolve(f)), globalsPath()], options, host);
+  const program = ts.createProgram([...files.map((f) => path.resolve(f)), ...references.map((f) => path.resolve(f)), globalsPath()], options, host);
   const checker = program.getTypeChecker();
   const diagnostics: Diagnostic[] = [];
   const modules: LucentModule[] = [];
@@ -126,14 +192,42 @@ export function createLucentProgram(files: string[], readSource?: ReadSource): L
       continue;
     }
     names.set(name, file);
-    modules.push({ name, file: sf.fileName, sourceFile: sf, ns: `m_${cppIdent(name)}` });
+    const declaration = platformOf(file) ? references.map((r) => program.getSourceFile(path.resolve(r))).find((r) => r && path.dirname(r.fileName) === path.dirname(sf.fileName) && moduleNameOf(r.fileName) === name) : undefined;
+    modules.push({ name, file: sf.fileName, sourceFile: sf, ns: `m_${cppIdent(name)}`, declaration, stub: stubs.has(path.resolve(file)) });
   }
-  for (const m of modules) {
-    for (const d of [...program.getSyntacticDiagnostics(m.sourceFile), ...program.getSemanticDiagnostics(m.sourceFile)]) {
+  const checked = [...modules.map((m) => m.sourceFile), ...references.map((f) => program.getSourceFile(path.resolve(f))).filter((sf): sf is ts.SourceFile => !!sf)];
+  for (const sf of checked) {
+    const bad = sdkImportErrors(sf, platform);
+    diagnostics.push(...bad);
+    for (const d of [...program.getSyntacticDiagnostics(sf), ...program.getSemanticDiagnostics(sf)]) {
+      // An SDK import this program cannot resolve is reported once, as a Lucent error.
+      if (d.code === 2307 && bad.some((b) => b.start !== undefined && d.start !== undefined && d.start >= b.start && d.start < b.start + (b.length ?? 0))) continue;
       diagnostics.push(fromTs(d));
     }
   }
-  return { program, checker, modules, diagnostics };
+  return { program, platform, checker, modules, diagnostics };
+}
+
+/** `lucent:` imports this file may not use: another platform's, unknown SDK modules, or any outside platform files. */
+function sdkImportErrors(sf: ts.SourceFile, platform: Platform | undefined): Diagnostic[] {
+  const out: Diagnostic[] = [];
+  for (const s of sf.statements) {
+    if (!ts.isImportDeclaration(s) || !ts.isStringLiteral(s.moduleSpecifier)) continue;
+    const spec = s.moduleSpecifier.text;
+    const m = /^lucent:(\w+)(?:\/(.+))?$/.exec(spec);
+    if (!m) continue;
+    const [, scope, module] = m;
+    let message: string | undefined;
+    if (!platform) message = `${spec} can only be imported by platform files (*.ios.lucent.ts, *.android.lucent.ts)`;
+    else if (scope === "thread" && !module) continue;
+    else if (scope !== platform) message = `${spec} is only available in *.${scope}.lucent.ts files`;
+    else if (module && !findSdkModule(platform, module)) message = `no binding schema for ${spec}`;
+    else continue;
+    const start = s.moduleSpecifier.getStart(sf);
+    const { line, character } = sf.getLineAndCharacterOfPosition(start);
+    out.push({ code: Codes.SdkImport, message, file: sf.fileName, line: line + 1, column: character + 1, start, length: s.moduleSpecifier.getEnd() - start });
+  }
+  return out;
 }
 
 function fromTs(d: ts.Diagnostic): Diagnostic {

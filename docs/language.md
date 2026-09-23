@@ -27,8 +27,37 @@ let counter = 0;                                      // module state, reset on 
 ```
 
 * The top level may only contain declarations.
-* Imports are limited to other `*.lucent.ts` files and `@lucent-lang/core`.
+* Imports are limited to other `*.lucent.ts` files and `@lucent-lang/core`, and
+  in platform files to platform SDKs (below).
 * Module names are file names without `.lucent.ts`, and must be unique within an app.
+
+### Platform modules
+
+A module can be implemented per platform against the iOS and Android SDKs:
+
+```ts
+// haptics.lucent.ts: the API, declarations only
+export declare function selectionAsync(): Promise<void>;
+
+// haptics.ios.lucent.ts
+import { UISelectionFeedbackGenerator } from "lucent:ios/UIKit";
+import { main } from "lucent:thread";
+export function selectionAsync(): Promise<void> {
+  return main(() => new UISelectionFeedbackGenerator().selectionChanged());
+}
+
+// haptics.android.lucent.ts
+import { VibrationEffect, Vibrator } from "lucent:android/android.os";
+import { appContext } from "lucent:android";
+export async function selectionAsync(): Promise<void> {
+  appContext().getSystemService(Vibrator)?.vibrate(VibrationEffect.createWaveform([0, 50], [0, 30], -1));
+}
+```
+
+Each implementation must export exactly what the shared file declares.
+Main-thread-only APIs (UIKit) must be used inside `main(() => …)`. Platform
+objects stay inside Lucent; return the values JavaScript needs. See
+[platform-bindings.md](platform-bindings.md) for the SDK coverage and rules.
 
 ## Types
 
@@ -231,5 +260,5 @@ explicitly, for example by clearing a field.
 |---|---|
 | `LUCENT1xxx` | unsupported syntax or built-in (`1001` statement/expression, `1003` built-in, `1005` class feature, `1006` throwing a non-Error, …) |
 | `LUCENT2xxx` | types without a native representation (`2001` any/unknown, `2003` inexact object types, `2004` array element variance, `2005` ambiguous union at the boundary, `2007` generics at the boundary, `2008` value is not a declared implementation of an interface, `2009` class member does not match its interface) |
-| `LUCENT3xxx` | module structure (`3001` imports, `3002` top-level statements, `3003` exports) |
+| `LUCENT3xxx` | module structure (`3001` imports, `3002` top-level statements, `3003` exports, `3004` SDK imports the file's platform cannot use, `3005` a platform module's files do not match its declaration, `3006` a main-thread-only API outside `main(() => …)`) |
 | `LUCENT9001` | a TypeScript error (Lucent stops at type errors) |

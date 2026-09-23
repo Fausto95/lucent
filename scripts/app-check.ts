@@ -32,12 +32,19 @@ fs.mkdirSync(work, { recursive: true });
 console.log("• lucent build");
 sh(process.execPath, [path.join(root, "packages/cli/bin/lucent.cjs"), "build", "--root", app]);
 
+// Platform modules run only on devices; the host gets stubs of them, built
+// next to the app's own package so that package stays the device build.
+console.log("• lucent build --platforms host");
+const hostOut = path.join(work, "native");
+sh(process.execPath, [path.join(root, "packages/cli/bin/lucent.cjs"), "build", "--root", app, "--platforms", "host", "--out", hostOut]);
+
 console.log("• compiling native code");
-const cpp = path.join(app, ".lucent/native/cpp");
-const flags = ["-std=c++20", "-ffp-contract=off", "-O1", "-g", "-w", `-I${cpp}`, `-I${cpp}/generated`, `-I${hermes}/API`, `-I${hermes}/API/jsi`, `-I${hermes}/public`];
+const cpp = path.join(hostOut, "cpp");
+const generated = fs.existsSync(path.join(cpp, "generated/host")) ? path.join(cpp, "generated/host") : path.join(cpp, "generated");
+const flags = ["-std=c++20", "-ffp-contract=off", "-O1", "-g", "-w", `-I${cpp}`, `-I${generated}`, `-I${hermes}/API`, `-I${hermes}/API/jsi`, `-I${hermes}/public`];
 const rs = runtimeSources(cpp);
 const sources = [
-  ...fs.readdirSync(path.join(cpp, "generated")).filter((f) => f.endsWith(".cpp")).map((f) => path.join(cpp, "generated", f)),
+  ...fs.readdirSync(generated).filter((f) => f.endsWith(".cpp")).map((f) => path.join(generated, f)),
   ...rs.cxx,
   ...rs.c,
   path.join(root, "packages/runtime/test/jsi/harness.cpp"),

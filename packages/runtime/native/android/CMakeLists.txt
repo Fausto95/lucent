@@ -5,6 +5,9 @@ set(CMAKE_VERBOSE_MAKEFILE on)
 
 set(LUCENT_ROOT ${CMAKE_CURRENT_LIST_DIR}/..)
 file(GLOB_RECURSE LUCENT_SOURCES CONFIGURE_DEPENDS ${LUCENT_ROOT}/cpp/*.cpp)
+# Projects with platform modules generate one set of files per target
+# (cpp/generated/ios, cpp/generated/android); Android builds its own.
+list(FILTER LUCENT_SOURCES EXCLUDE REGEX "/cpp/generated/(ios|host)/")
 
 # The vendored regular expression engine is C. It is a library of its own so
 # that React Native's C++ compile options never reach it.
@@ -17,6 +20,7 @@ add_library(lucentnative OBJECT ${LUCENT_SOURCES})
 
 target_include_directories(lucentnative PUBLIC
   ${LUCENT_ROOT}/cpp
+  ${LUCENT_ROOT}/cpp/generated/android
   ${LUCENT_ROOT}/cpp/generated
   ${LUCENT_ROOT}/cpp/rn
   ${CMAKE_CURRENT_LIST_DIR}/include
