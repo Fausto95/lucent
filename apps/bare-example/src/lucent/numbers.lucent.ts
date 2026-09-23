@@ -40,3 +40,8 @@ export function sum(xs: number[]): number {
 export function fib(n: number): number {
   return n < 2 ? n : fib(n - 1) + fib(n - 2);
 }
+
+// JavaScript rounds the product before adding; a fused multiply-add would not.
+export function multiplyAdd(a: number, b: number, c: number): number {
+  return a * b + c;
+}

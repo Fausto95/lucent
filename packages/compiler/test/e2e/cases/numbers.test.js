@@ -7,3 +7,4 @@ print(JSON.stringify(mod.mathFns(2)));
 print(mod.precision(1234.5678), mod.precision(0.000123456));
 print(JSON.stringify(mod.checks(3)), JSON.stringify(mod.checks(3.5)), JSON.stringify(mod.checks(NaN)), JSON.stringify(mod.checks(Infinity)));
 print(mod.sum([1, 2, 3.5]), mod.fib(20));
+print(mod.multiplyAdd(0.1, 10, -1), mod.multiplyAdd(1 / 3, 3, -1), mod.multiplyAdd(1e308, 10, -1e308));

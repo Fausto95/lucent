@@ -1,0 +1,126 @@
+// Benchmark kernels: typical native-module work. Each takes a size and
+// returns a checksum, so the JavaScript and native runs can be compared.
+// scripts/bench.ts and the example apps' benchmark screen time them.
+
+function text(n: number): string {
+  let s = "";
+  for (let i = 0; i < n; i++) s += String.fromCharCode(97 + ((i * 7) % 26));
+  return s;
+}
+
+/** Murmur-style string hash (the README example). */
+export function murmur(n: number): number {
+  const input = text(n);
+  let h = 0;
+  for (let i = 0; i < input.length; i++) {
+    h = Math.imul(h ^ input.charCodeAt(i), 0x5bd1e995);
+    h ^= h >>> 15;
+  }
+  return h >>> 0;
+}
+
+/** FNV-1a over bytes, kept unsigned with >>> 0. */
+export function fnv1a(n: number): number {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < n; i++) {
+    h ^= i & 0xff;
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h;
+}
+
+/** CRC-32 with a lookup table. */
+export function crc32(n: number): number {
+  const table: number[] = [];
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table.push(c >>> 0);
+  }
+  let crc = 0xffffffff;
+  for (let i = 0; i < n; i++) crc = table[(crc ^ (i & 0xff)) & 0xff]! ^ (crc >>> 8);
+  return (crc ^ 0xffffffff) >>> 0;
+}
+
+/** xorshift32 pseudo-random numbers, summed. */
+export function xorshift(n: number): number {
+  let x = 2463534242;
+  let sum = 0;
+  for (let i = 0; i < n; i++) {
+    x ^= x << 13;
+    x ^= x >>> 17;
+    x ^= x << 5;
+    sum = (sum + (x >>> 0)) % 1000000007;
+  }
+  return sum;
+}
+
+/** Sieve of Eratosthenes: number of primes below n. */
+export function sieve(n: number): number {
+  const composite: boolean[] = [];
+  for (let i = 0; i < n; i++) composite.push(false);
+  let count = 0;
+  for (let i = 2; i < n; i++) {
+    if (composite[i]) continue;
+    count++;
+    for (let j = i * i; j < n; j += i) composite[j] = true;
+  }
+  return count;
+}
+
+/** Mandelbrot set: iterations summed over a grid of about n points (floating point). */
+export function mandelbrot(n: number): number {
+  const side = Math.max(1, Math.floor(Math.sqrt(n)));
+  let total = 0;
+  for (let y = 0; y < side; y++) {
+    for (let x = 0; x < side; x++) {
+      const cr = (x / side) * 3 - 2;
+      const ci = (y / side) * 2 - 1;
+      let zr = 0;
+      let zi = 0;
+      let k = 0;
+      while (k < 50 && zr * zr + zi * zi < 4) {
+        const t = zr * zr - zi * zi + cr;
+        zi = 2 * zr * zi + ci;
+        zr = t;
+        k++;
+      }
+      total += k;
+    }
+  }
+  return total;
+}
+
+/** Sorting numbers with a comparator. */
+export function sortNumbers(n: number): number {
+  const xs: number[] = [];
+  let seed = 1;
+  for (let i = 0; i < n; i++) {
+    seed = (seed * 16807) % 2147483647;
+    xs.push(seed % 100000);
+  }
+  xs.sort((a, b) => a - b);
+  return xs[0]! + xs[xs.length >> 1]! + xs[xs.length - 1]!;
+}
+
+/** Word counts in a Map. */
+export function wordCount(n: number): number {
+  const counts = new Map<string, number>();
+  for (let i = 0; i < n; i++) {
+    const w = `w${(i * 31) % 997}`;
+    counts.set(w, (counts.get(w) ?? 0) + 1);
+  }
+  let best = 0;
+  for (const [, c] of counts) if (c > best) best = c;
+  return counts.size * 1000 + best;
+}
+
+/** Building and splitting strings. */
+export function strings(n: number): number {
+  const parts: string[] = [];
+  for (let i = 0; i < n; i++) parts.push(`item-${i}`);
+  const joined = parts.join(",");
+  let total = 0;
+  for (const p of joined.split(",")) total += p.length;
+  return total;
+}
