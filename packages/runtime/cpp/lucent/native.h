@@ -27,18 +27,21 @@ class NativeRef {
   explicit operator bool() const { return p_ != nullptr; }
   const void* identity() const { return p_.get(); }
 
-  /// The same platform object (`===`): pointer identity on iOS, IsSameObject on Android.
-  friend bool strictEquals(const NativeRef& a, const NativeRef& b) {
-    if (a.p_ == b.p_) return true;
-    if (!a.p_ || !b.p_) return false;
-    return a.same_ ? a.same_(a.get(), b.get()) : a.get() == b.get();
+  /// The same platform object: pointer identity on iOS, IsSameObject on Android.
+  bool same(const NativeRef& o) const {
+    if (p_ == o.p_) return true;
+    if (!p_ || !o.p_) return false;
+    return same_ ? same_(get(), o.get()) : get() == o.get();
   }
-  friend String toJsString(const NativeRef&) { return String::fromLatin1("[object NativeObject]"); }
 
  private:
   std::shared_ptr<void> p_;
   bool (*same_)(void*, void*) = nullptr;
 };
+
+// Namespace-scope, not hidden friends: generated code calls them qualified.
+inline bool strictEquals(const NativeRef& a, const NativeRef& b) { return a.same(b); }
+inline String toJsString(const NativeRef&) { return String::fromLatin1("[object NativeObject]"); }
 
 /// Runs `job` on the platform's main thread (main queue, main Looper; a
 /// dedicated thread standing in for it on other hosts).
