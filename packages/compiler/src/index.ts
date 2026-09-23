@@ -1,7 +1,7 @@
 import { type Diagnostic, formatDiagnostic } from "./diagnostics.ts";
 import { emitProgram, type EmitResult } from "./emit/index.ts";
 import { conformanceErrors, declarationErrors, missingImplementations, planModules, type Target } from "./platforms.ts";
-import { createLucentProgram, findLucentFiles, type ReadSource } from "./program.ts";
+import { builtinSdkModuleOf, createLucentProgram, findLucentFiles, type LucentProgram, type ReadSource, sdkModuleOf } from "./program.ts";
 import { PLATFORMS } from "./sdk/schema.ts";
 
 export { CodeDescriptions, Codes, formatDiagnostic, type Code, type Diagnostic } from "./diagnostics.ts";
@@ -48,6 +48,7 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
       const impls = plan.platformModules.map((pm) => pm.implementations[target]!);
       const lp = createLucentProgram([...plan.shared, ...impls], options.readSource, target, { references: declarations });
       result = compileOnce(lp, declarations);
+      collectTypes(lp, (out.types ??= new Map()));
     }
     out.diagnostics.push(...result.diagnostics);
     for (const [name, content] of result.files) out.files.set(`${target}/${name}`, content);
@@ -61,6 +62,16 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
     out.proxies.clear();
   }
   return out;
+}
+
+/** The lucent:* declarations a platform program loaded (imports and what they reference). */
+function collectTypes(lp: LucentProgram, into: Map<string, string>): void {
+  for (const sf of lp.program.getSourceFiles()) {
+    const sdk = sdkModuleOf(sf);
+    if (sdk) into.set(`${sdk.platform}/${sdk.module}.d.ts`, sf.text);
+    const builtin = builtinSdkModuleOf(sf);
+    if (builtin) into.set(`${builtin.slice("lucent:".length)}.d.ts`, sf.text);
+  }
 }
 
 function compileOnce(lp: ReturnType<typeof createLucentProgram>, declarations: string[] = []): CompileResult {

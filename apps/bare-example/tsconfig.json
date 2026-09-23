@@ -1,8 +1,22 @@
 {
   "extends": "@react-native/typescript-config",
-  "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["**/node_modules", "**/Pods"],
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/Pods"
+  ],
   "compilerOptions": {
-    "types": ["react", "react-native"]
+    "types": [
+      "react",
+      "react-native"
+    ],
+    "paths": {
+      "lucent:*": [
+        "./.lucent/native/types/*"
+      ]
+    }
   }
 }

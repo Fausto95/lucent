@@ -103,7 +103,10 @@ function init(root: string): number {
   }
   process.stdout.write(
     "Next: wrap your Metro config with withLucent() from @lucent-lang/metro, and enable\n" +
-      '"noUncheckedIndexedAccess": true in tsconfig.json (Lucent requires it).\n',
+      '"noUncheckedIndexedAccess": true in tsconfig.json (Lucent requires it).\n' +
+      'Platform modules (*.ios.lucent.ts, *.android.lucent.ts) import lucent:*; for your editor and tsc, add\n' +
+      '  "paths": { "lucent:*": ["./.lucent/native/types/*"] }\n' +
+      'to the compilerOptions of tsconfig.json (lucent build writes those declarations).\n',
   );
   return 0;
 }

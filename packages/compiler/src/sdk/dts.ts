@@ -104,9 +104,11 @@ function classDts(schema: SdkModuleSchema, cls: SdkClassSchema, tsType: (t: SdkT
   // interfaces merge into the class type below, so values convert to them.
   out.push(`export declare ${cls.interface || cls.abstract ? "abstract " : ""}class ${cls.name}${ext} {`);
   out.push(`  private readonly __lucent_${cls.name}: never;`);
-  if (!cls.constructors?.length && !cls.inheritsInit) out.push("  private constructor();");
+  if (!cls.constructors?.length && !cls.inheritsInit) out.push("  protected constructor();");
   for (const c of cls.constructors ?? []) out.push(`${memberDoc(c)}  constructor(${params(c.params)});`);
-  for (const p of cls.properties ?? []) out.push(`${memberDoc(p)}  ${p.static ? "static " : ""}${p.readonly ? "readonly " : ""}${p.name}: ${tsType(parse(p.type))};`);
+  // A TypeScript class cannot have a property and a method of one name: the method stays.
+  const methodNames = new Set((cls.methods ?? []).map((m) => `${!!m.static}:${m.name}`));
+  for (const p of (cls.properties ?? []).filter((x) => !methodNames.has(`${!!x.static}:${x.name}`))) out.push(`${memberDoc(p)}  ${p.static ? "static " : ""}${p.readonly ? "readonly " : ""}${p.name}: ${tsType(parse(p.type))};`);
   for (const m of cls.methods ?? []) {
     const tps = m.typeParams ?? [];
     out.push(`${memberDoc(m)}  ${m.static ? "static " : ""}${m.name}${tps.length ? `<${tps.join(", ")}>` : ""}(${params(m.params, tps)}): ${tsType(parse(m.returns, tps))};`);

@@ -75,7 +75,7 @@ export function f(): string {
 }
 `;
     // Protocols cannot be constructed; classes inherit NSObject's init as in Swift.
-    expect(tsErrors("ios", src)).toEqual(["6: TS2739", "8: TS2673"]);
+    expect(tsErrors("ios", src)).toEqual(["6: TS2739", "8: TS2674"]);
   });
 
   it("types Java classes: nullability, primitive arrays, Class<T> and getter properties", () => {
@@ -142,6 +142,8 @@ describe("platform modules", () => {
       module: ts.ModuleKind.ESNext,
       moduleResolution: ts.ModuleResolutionKind.Bundler,
       allowImportingTsExtensions: true,
+      // As in React Native's and Expo's tsconfig bases.
+      skipLibCheck: true,
       paths: { "lucent:*": [path.join(out, "types/*")] },
     });
     expect(ts.getPreEmitDiagnostics(program).map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n"))).toEqual([]);

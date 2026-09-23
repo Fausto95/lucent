@@ -6,7 +6,7 @@ export declare function available(platform: "ios", major: number, minor?: number
 /** The root of Objective-C objects. Values of type `Any` (`id`) arrive as NSObjects. */
 export declare class NSObject {
   private readonly __lucent_NSObject: never;
-  private constructor();
+  protected constructor();
 }
 
 /** What can go where Objective-C takes `Any` (`id`), CoreFoundation values included. */

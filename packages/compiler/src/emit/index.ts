@@ -18,6 +18,12 @@ export interface EmitResult {
   diagnostics: import("../diagnostics.ts").Diagnostic[];
   /** Apple frameworks the iOS platform code uses. */
   frameworks?: string[];
+  /**
+   * Declarations of the lucent:* modules the platform modules use
+   * (`ios/UIKit.d.ts`, `thread.d.ts`…), for the app's own TypeScript:
+   * map `lucent:*` to them in tsconfig paths.
+   */
+  types?: Map<string, string>;
 }
 
 export function emitProgram(lp: LucentProgram): EmitResult {
