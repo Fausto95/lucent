@@ -7,8 +7,28 @@ const crypto = require("node:crypto");
 const upstream = require(process.env.LUCENT_UPSTREAM_TRANSFORMER);
 const LUCENT = /\.lucent\.tsx?$/;
 
+/**
+ * The module's name, as the compiler's moduleNameOf gives it: its file's, or
+ * in a Lucent package (the nearest package.json has a `lucent` field)
+ * `<package>/<path under its sources>`.
+ */
+function moduleName(filename) {
+  const base = (f) => f.replace(/\.(ios|android)(?=\.lucent\.tsx?$)/, "").replace(LUCENT, "");
+  for (let dir = path.dirname(path.resolve(filename)); ; dir = path.dirname(dir)) {
+    const file = path.join(dir, "package.json");
+    if (fs.existsSync(file)) {
+      const pkg = JSON.parse(fs.readFileSync(file, "utf8"));
+      if (!pkg.lucent || !pkg.name) break;
+      const rel = path.relative(path.join(dir, pkg.lucent.sources || "."), path.resolve(filename));
+      return `${pkg.name}/${base(rel).split(path.sep).join("/")}`;
+    }
+    if (path.dirname(dir) === dir) break;
+  }
+  return base(path.basename(filename));
+}
+
 function proxyFor(filename, projectRoot) {
-  const name = path.basename(filename).replace(LUCENT, "");
+  const name = moduleName(filename);
   const generated = path.join(projectRoot, ".lucent", "native", "js", `${name}.js`);
   if (fs.existsSync(generated)) return fs.readFileSync(generated, "utf8");
   return (

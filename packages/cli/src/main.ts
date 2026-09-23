@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { compile, findLucentFiles, forgetLoadedSdks, formatDiagnostic, inputsKey, isUpToDate, platformOf, podsSearchPaths, prefetchSdk, sdkAvailable, sdkModule, sdkModules, runtimeDir, type SdkOptions, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
+import { compile, forgetLoadedSdks, formatDiagnostic, inputsKey, isUpToDate, platformOf, podsSearchPaths, prefetchSdk, projectFiles, sdkAvailable, sdkModule, sdkModules, runtimeDir, type SdkOptions, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
 
 const HELP = `lucent — compile *.lucent.ts modules into a native React Native package
 
@@ -39,7 +39,13 @@ function run(): number {
     return 1;
   }
   if (command === "build" && process.argv.includes("--watch")) return watch(root);
-  const files = findLucentFiles(root);
+  let files: string[];
+  try {
+    files = projectFiles(root);
+  } catch (e) {
+    process.stderr.write(`✗ ${(e as Error).message}\n`);
+    return 1;
+  }
   if (files.length === 0) {
     process.stdout.write(`No *.lucent.ts files under ${root}\n`);
   }
@@ -174,7 +180,7 @@ function sdkPrefetch(root: string): number {
   };
   const all = process.argv.includes("--all");
   let wanted = { ios: listed("ios"), android: listed("android") };
-  if (!wanted.ios && !wanted.android && !all) wanted = sdkImports(findLucentFiles(root));
+  if (!wanted.ios && !wanted.android && !all) wanted = sdkImports(projectFiles(root));
   let failed = 0;
   for (const p of ["ios", "android"] as const) {
     let modules = wanted[p];

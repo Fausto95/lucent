@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { lucentPackageOf, lucentPackages } from "./packages.ts";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -52,8 +53,20 @@ export const LUCENT_EXTENSION = /\.lucent\.tsx?$/;
 const PLATFORM_EXTENSION = /\.(ios|android)\.lucent\.tsx?$/;
 
 /** The module a file belongs to: `haptics` for haptics.lucent.ts and haptics.ios.lucent.ts. */
+/**
+ * A module's name: its file's, or, in a Lucent package, `<package>/<path>`
+ * (its path under the package's sources, without the extension).
+ */
 export function moduleNameOf(file: string): string {
-  return path.basename(file).replace(PLATFORM_EXTENSION, "").replace(LUCENT_EXTENSION, "");
+  const base = (f: string) => f.replace(PLATFORM_EXTENSION, "").replace(LUCENT_EXTENSION, "");
+  const pkg = lucentPackageOf(file);
+  if (!pkg) return base(path.basename(file));
+  return `${pkg.name}/${base(path.relative(pkg.sources, path.resolve(file))).split(path.sep).join("/")}`;
+}
+
+/** The app's Lucent files and those of the Lucent packages it depends on. */
+export function projectFiles(root: string): string[] {
+  return [...findLucentFiles(root), ...lucentPackages(root).flatMap((p) => findLucentFiles(p.sources))].sort();
 }
 
 /** The platform of a `*.ios.lucent.ts` / `*.android.lucent.ts` file. */

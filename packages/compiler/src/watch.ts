@@ -3,7 +3,7 @@ import path from "node:path";
 import { formatDiagnostic } from "./diagnostics.ts";
 import { compile, type CompileOptions } from "./index.ts";
 import { inputsKey, isUpToDate, writeNativePackage } from "./native-package.ts";
-import { findLucentFiles, LUCENT_EXTENSION } from "./program.ts";
+import { LUCENT_EXTENSION, projectFiles } from "./program.ts";
 
 export interface WatchEvent {
   ok: boolean;
@@ -30,7 +30,7 @@ export function watchBuild(root: string, outDir: string, onBuild: (e: WatchEvent
     }
     building = true;
     try {
-      const files = findLucentFiles(root);
+      const files = projectFiles(root);
       hooks.beforeBuild?.(files);
       const key = inputsKey(files, outDir);
       if (isUpToDate(outDir, key)) return;
