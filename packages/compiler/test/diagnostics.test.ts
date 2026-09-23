@@ -23,6 +23,10 @@ describe("diagnostics", () => {
     expect([...r.files.keys()]).toContain("lucent_app.h");
   });
 
+  it("accepts renamed imports of core helpers", () => {
+    expect(codes('import { errorCode as codeOf } from "@lucent-lang/core";\nexport function f(e: Error): string { return codeOf(e) ?? "none"; }')).toEqual([]);
+  });
+
   it("accepts console", () => {
     expect(codes('export function f(n: number): void { console.log("n", n); console.warn(`w${n}`); }')).toEqual([]);
   });
