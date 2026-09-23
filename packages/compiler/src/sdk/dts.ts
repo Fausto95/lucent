@@ -72,7 +72,7 @@ function classDts(schema: SdkModuleSchema, cls: SdkClassSchema, tsType: (t: SdkT
   // interfaces merge into the class type below, so values convert to them.
   out.push(`export declare ${cls.interface || cls.abstract ? "abstract " : ""}class ${cls.name}${ext} {`);
   out.push(`  private readonly __lucent_${cls.name}: never;`);
-  if (!cls.constructors?.length) out.push("  private constructor();");
+  if (!cls.constructors?.length && !cls.inheritsInit) out.push("  private constructor();");
   for (const c of cls.constructors ?? []) out.push(`${memberDoc(c)}  constructor(${params(c.params)});`);
   for (const p of cls.properties ?? []) out.push(`${memberDoc(p)}  ${p.static ? "static " : ""}${p.readonly ? "readonly " : ""}${p.name}: ${tsType(parse(p.type))};`);
   for (const m of cls.methods ?? []) {

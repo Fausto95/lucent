@@ -91,8 +91,10 @@ export interface SdkClassSchema {
   extends?: string;
   /** Implemented interfaces (Java), as type references. */
   implements?: string[];
-  /** A Java interface. */
+  /** A Java interface, or an Objective-C protocol. */
   interface?: boolean;
+  /** Objective-C: declares no initializers but inherits its superclass's. */
+  inheritsInit?: boolean;
   abstract?: boolean;
   /** Isolated to the main thread (`@MainActor`, `@UiThread`). */
   mainActor?: boolean;

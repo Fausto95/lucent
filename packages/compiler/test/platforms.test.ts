@@ -62,17 +62,18 @@ export async function model(): Promise<string> {
 
 describe("SDK bindings: types", () => {
   it("types iOS classes nominally, with Swift names, enums and class properties", () => {
-    const src = `import { UIDevice, UIFeedbackGenerator, UIImpactFeedbackGenerator, UIImpactFeedbackGenerator_FeedbackStyle as Style, UISelectionFeedbackGenerator } from "lucent:ios/UIKit";
+    const src = `import { UIApplicationDelegate, UIDevice, UIFeedbackGenerator, UIImpactFeedbackGenerator, UIImpactFeedbackGenerator_FeedbackStyle as Style, UISelectionFeedbackGenerator } from "lucent:ios/UIKit";
 export function f(): string {
   const g = new UIImpactFeedbackGenerator(Style.heavy);
   const base: UIFeedbackGenerator = g;
   void base;
   const wrong: UIImpactFeedbackGenerator = new UISelectionFeedbackGenerator();
   void wrong;
-  new UIDevice();
+  new UIApplicationDelegate();
   return UIDevice.current.systemName;
 }
 `;
+    // Protocols cannot be constructed; classes inherit NSObject's init as in Swift.
     expect(tsErrors("ios", src)).toEqual(["6: TS2739", "8: TS2673"]);
   });
 

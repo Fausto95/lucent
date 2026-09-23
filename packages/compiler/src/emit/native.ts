@@ -335,12 +335,15 @@ function guarded(em: FnEmitter, node: ts.Node, n: number): boolean {
 export function nativeNew(em: FnEmitter, node: ts.NewExpression, t: LType & { k: "native" }): E {
   const sig = em.checker.getResolvedSignature(node);
   const decl = sig?.declaration;
-  const ref = decl ? classOfDecl(decl) : undefined;
+  let ref = decl ? classOfDecl(decl) : undefined;
   if (!ref || !decl || !ts.isConstructorDeclaration(decl)) fail(node, Codes.UnsupportedCall, `${t.name} cannot be constructed`);
   requireMain(em, node, ref);
   noteIncludes(em, ref);
   const index = (decl.parent as ts.ClassDeclaration).members.filter(ts.isConstructorDeclaration).indexOf(decl);
   const ctor = ref.cls.constructors![index]!;
+  // An inherited initializer allocates the class being constructed.
+  const own = findSdkType(t.platform, t.module, t.name);
+  if (own?.kind === "class" && own !== ref.cls) ref = { ...ref, module: t.module, cls: own };
   requireAvailable(em, node, ref, ref.cls.since, t.name);
   requireAvailable(em, node, ref, ctor.since, `new ${t.name}(…)`);
   const args = argsOf(node);

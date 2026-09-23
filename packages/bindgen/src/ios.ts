@@ -417,8 +417,10 @@ export function buildIosSchemas(graphs: Map<string, SymbolGraph>, values: (enums
       const methods: SdkMethodSchema[] = [];
       const props: SdkPropertySchema[] = [];
       const seenUsr = new Set<string>();
+      let initUnavailable = false;
       for (const mem of members.get(s.identifier.precise) ?? []) {
         const mm = objcMember(mem.identifier.precise);
+        if (mm && unavailable(mem) && mem.kind.identifier === "swift.init") initUnavailable = true;
         if (!mm || unavailable(mem)) continue;
         const text = declText(mem);
         // A completion-handler method is imported twice: keep the handler form.
@@ -468,6 +470,12 @@ export function buildIosSchemas(graphs: Map<string, SymbolGraph>, values: (enums
       }
       disambiguate(methods);
       for (const x of methods) delete (x as SdkMethodSchema & { swiftName?: string }).swiftName;
+      // Objective-C initializers are inherited (NSObject's init at the root)
+      // unless the class makes init unavailable.
+      if (!ctors.length && !initUnavailable && k === "swift.class") {
+        if (cls.extends) cls.inheritsInit = true;
+        else ctors.push({ params: [], selector: "init" });
+      }
       if (ctors.length) cls.constructors = ctors;
       if (methods.length) cls.methods = methods;
       if (props.length) cls.properties = props;
