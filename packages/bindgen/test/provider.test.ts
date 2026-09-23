@@ -192,6 +192,20 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     expect(player?.kind === "class" && player.methods?.find((m) => m.selector === "openRequest:")?.params).toEqual([{ name: "request", type: T("Foundation.NSURLRequest") }]);
   });
 
+  it("binds opaque CoreFoundation-style handles as classes of their C type", () => {
+    const opts = { cacheDir: tmp("lucent-cache-"), ios: { includePaths: [path.join(fixtures, "objc")] } };
+    const names = sdkNames("ios", "Measures", opts);
+    expect("names" in names && names.names.types.MSRBuffer).toEqual({ kind: "class", native: "MSRBufferRef", cf: true });
+    const measures = sdkModule("ios", "Measures", opts);
+    const schema = "schema" in measures ? measures.schema : undefined;
+    expect(schema?.types.find((t) => t.name === "MSRBuffer")).toEqual({ kind: "class", name: "MSRBuffer", native: "MSRBufferRef", cf: true });
+    expect(schema?.functions?.find((f) => f.name === "MSRBufferCreate")?.returns).toEqual(T("Measures.MSRBuffer?"));
+    expect(schema?.functions?.find((f) => f.name === "MSRBufferGetSize")?.params).toEqual([{ name: "buffer", type: T("Measures.MSRBuffer") }]);
+    const players = sdkModule("ios", "Players", opts);
+    const player = "schema" in players ? players.schema.types.find((t) => t.name === "PLYPlayer") : undefined;
+    expect(player?.kind === "class" && player.properties?.find((p) => p.name === "buffer")?.type).toEqual(T("Measures.MSRBuffer?"));
+  });
+
   it("keys the app's pods on Podfile.lock, not on every header", () => {
     const dir = tmp("lucent-pods-");
     fs.cpSync(path.join(fixtures, "pods"), dir, { recursive: true });

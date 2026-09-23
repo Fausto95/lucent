@@ -10,6 +10,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic) MSRRange selection;
 @property (nonatomic, copy) NSIndexPath *position;
 - (void)openRequest:(NSURLRequest *)request;
+@property (nonatomic, nullable) MSRBufferRef buffer;
+- (nullable MSRBufferRef)copyBuffer CF_RETURNS_RETAINED;
 @end
 
 NS_ASSUME_NONNULL_END

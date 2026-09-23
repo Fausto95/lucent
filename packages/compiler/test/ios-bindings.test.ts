@@ -139,6 +139,16 @@ export async function run(): Promise<string> {
 }
 `;
 
+const cgImages = `import { UIImage } from "lucent:ios/UIKit";
+import { main } from "lucent:thread";
+export async function run(): Promise<string> {
+  return main(() => {
+    const cg = new UIImage(new Uint8Array(0)).cgImage;
+    return cg === null ? "none" : \`\${new UIImage(cg).size.width}\`;
+  });
+}
+`;
+
 const mediaTimes = `import { AVPlayer } from "lucent:ios/AVFoundation";
 import { CMTimeCompare, CMTimeMake } from "lucent:ios/CoreMedia";
 import { NSUnionRange } from "lucent:ios/Foundation";
@@ -323,6 +333,13 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(mm).toContain("initWithFrame:CGRect{CGPoint{");
   });
 
+  it("passes opaque CoreFoundation handles (CGImage) as Lucent objects", () => {
+    const { r, mm } = ios(cgImages);
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("lucent::objc::wrapOpt((__bridge id)");
+    expect(mm).toContain("initWithCGImage:((__bridge CGImageRef)lucent::objc::unwrap(");
+  });
+
   it("monitors network paths: OS objects, anonymous enums, blocks, the main queue", () => {
     const { r, mm } = ios(pathMonitor);
     expect(r.diagnostics).toEqual([]);
@@ -346,7 +363,7 @@ export async function run(): Promise<string> {
   it("generates Objective-C++ that compiles against the iOS SDK", () => {
     const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
     if (process.platform !== "darwin" || sdk.status !== 0) return;
-    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [unimportedStruct], [mediaTimes], [shadowing], [pathMonitor], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
+    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [unimportedStruct], [cgImages], [mediaTimes], [shadowing], [pathMonitor], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
       const { r, dir } = ios(src, sdk);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {
