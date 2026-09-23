@@ -86,6 +86,10 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     expect(mod().skipped!.some((s) => s.startsWith("WDGWidget.fetch(completion:)"))).toBe(true);
   });
 
+  it("reads typed string keys (NS_TYPED_ENUM) as string constants of their C globals", () => {
+    expect(type("WDGKey")).toMatchObject({ kind: "class", properties: [{ name: "name", static: true, readonly: true, type: "string", global: "WDGKeyName" }] });
+  });
+
   it("bridges CoreFoundation types, and out-pointers of C functions", () => {
     expect(mod().constants).toEqual(expect.arrayContaining([{ name: "WDGKeyClass", type: "CFString" }]));
     const fn = (name: string) => mod().functions!.find((f) => f.name === name);
