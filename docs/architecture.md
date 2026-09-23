@@ -153,9 +153,10 @@ Objective-C++ message sends or JNI calls. The runtime side is
 `lucent/native.h` (NativeRef, `runOnMain`) and `lucent/platform/{ios,android}`.
 A shared module can also branch on `PLATFORM` (lucent:platform): every
 target's program resolves both platforms' SDK modules (untyped where an SDK
-is missing), `branchErrors` keeps each SDK's uses inside its branch, and the
-emitter compiles the target's branch only (`platformTest` in
-`src/platforms.ts`). Details: [platform-bindings.md](platform-bindings.md).
+is missing). `platformScopes` gives each top-level declaration the platform
+whose SDK it uses outside a branch and checks every use of platform code;
+the emitter leaves other platforms' declarations out and compiles the
+target's branch only (`platformTest`, all in `src/platforms.ts`). Details: [platform-bindings.md](platform-bindings.md).
 
 ## Editor diagnostics
 

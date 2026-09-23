@@ -1,7 +1,8 @@
 import path from "node:path";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
-import { coreTypesPath, type LucentModule, type LucentProgram } from "../program.ts";
+import { platformScopes } from "../platforms.ts";
+import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
 import { BindingsEmitter, type ModuleExports, publicMembers } from "./bindings.ts";
 import { emitClass } from "./classes.ts";
@@ -42,6 +43,9 @@ export function emitProgram(lp: LucentProgram): EmitResult {
   for (const m of lp.modules) if (m.declaration) byFile.set(path.resolve(m.declaration.fileName), m);
   const exportsOf = new Map<LucentModule, ModuleExports>();
   const imports = new Map<LucentModule, LucentModule[]>();
+  // A shared module's declarations of another platform (all of them, on the host) are left out.
+  const scoped = new Map(lp.modules.filter((m) => !platformOf(m.file)).flatMap((m) => [...platformScopes(lp.checker, m.sourceFile).platforms]));
+  const here = (s: ts.Statement) => !scoped.has(s) || scoped.get(s) === ctx.platform;
 
   // Pass 1: classes, then functions and variables, so every body can refer to
   // any top-level declaration.
@@ -49,7 +53,7 @@ export function emitProgram(lp: LucentProgram): EmitResult {
     exportsOf.set(m, { module: m, functions: [], classes: [], consts: [], enums: [] });
     imports.set(m, []);
     for (const s of m.sourceFile.statements) {
-      if (ts.isClassDeclaration(s)) {
+      if (ts.isClassDeclaration(s) && here(s)) {
         if (!s.name) {
           ctx.diagnostics.push({ code: Codes.UnsupportedTopLevel, message: "classes need a name", file: m.file });
           continue;
@@ -67,7 +71,7 @@ export function emitProgram(lp: LucentProgram): EmitResult {
   ctx.reg.propagateErrors();
   for (const m of lp.modules) {
     for (const s of m.sourceFile.statements) {
-      ctx.guard(() => collect(ctx, m, s, exportsOf.get(m)!, imports.get(m)!, byFile));
+      if (here(s)) ctx.guard(() => collect(ctx, m, s, exportsOf.get(m)!, imports.get(m)!, byFile));
     }
   }
   // Calls from other modules resolve to the declarations; route them to the
@@ -214,7 +218,7 @@ export function emitProgram(lp: LucentProgram): EmitResult {
 
   const proxies = new Map<string, string>();
   for (const m of mods) proxies.set(m.module.name, jsProxy(m));
-  return { files, proxies, diagnostics: [...lp.diagnostics, ...ctx.diagnostics], frameworks: [...ctx.frameworks].sort(), java, javaKeep: [...ctx.javaClasses].sort(), androidPermissions: [...ctx.androidPermissions].sort() };
+  return { files, proxies, diagnostics: ctx.diagnostics, frameworks: [...ctx.frameworks].sort(), java, javaKeep: [...ctx.javaClasses].sort(), androidPermissions: [...ctx.androidPermissions].sort() };
 }
 
 function isExported(n: ts.Node): boolean {

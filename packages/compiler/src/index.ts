@@ -1,9 +1,9 @@
 import { type Diagnostic, formatDiagnostic } from "./diagnostics.ts";
 import { emitProgram, type EmitResult } from "./emit/index.ts";
-import { branchErrors, conformanceErrors, declarationErrors, missingImplementations, planModules, type Target } from "./platforms.ts";
+import { conformanceErrors, declarationErrors, inUntypedPlatformCode, missingImplementations, planModules, platformScopes, type Target } from "./platforms.ts";
 import { builtinSdkModuleOf, createLucentProgram, findLucentFiles, type LucentProgram, platformOf, type ReadSource, sdkModuleOf, usesPlatforms } from "./program.ts";
 import { sdkAvailable } from "@lucent-lang/bindgen";
-import { PLATFORMS, type SdkOptions, withSdkOptions } from "./sdk/schema.ts";
+import { PLATFORMS, platformSdkAvailable, type SdkOptions, withSdkOptions } from "./sdk/schema.ts";
 
 export { CodeDescriptions, Codes, formatDiagnostic, type Code, type Diagnostic } from "./diagnostics.ts";
 export { findLucentFiles, moduleNameOf, platformOf, projectFiles, LUCENT_EXTENSION, coreTypesPath, type ReadSource } from "./program.ts";
@@ -96,7 +96,8 @@ function collectTypes(lp: LucentProgram, into: Map<string, string>): void {
 }
 
 function compileOnce(lp: ReturnType<typeof createLucentProgram>, declarations: string[] = []): CompileResult {
-  const checks = [...lp.diagnostics, ...declarations.flatMap((d) => declarationErrors(lp, d)), ...lp.modules.filter((m) => !platformOf(m.file)).flatMap((m) => branchErrors(lp.checker, m.sourceFile))];
+  const untyped = PLATFORMS.filter((p) => p !== lp.platform && !platformSdkAvailable(p));
+  const checks = [...lp.diagnostics.filter((d) => !inUntypedPlatformCode(lp, d, untyped)), ...declarations.flatMap((d) => declarationErrors(lp, d)), ...lp.modules.filter((m) => !platformOf(m.file)).flatMap((m) => platformScopes(lp.checker, m.sourceFile).errors)];
   // Stop at TypeScript errors: the checker's types are unreliable past them.
   if (checks.length) return { files: new Map(), proxies: new Map(), diagnostics: checks, ok: false };
   const conformance = conformanceErrors(lp);

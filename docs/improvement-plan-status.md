@@ -223,9 +223,11 @@ classes (NSMapTable, NSHashTable, NSLayoutAnchor), protocol compositions
       only, the host throws there, and a platform's SDK is used only inside
       its branch. Both branches type-check on every target (untyped where an
       SDK is missing). Glue compiles for iOS, the NDK and the host.
-- Left: `switch (PLATFORM)`, conditions combining a platform test with others
-  (`PLATFORM === "ios" && …`), and SDK classes or state outside branches
-  (delegate classes stay in platform files).
+- [x] Top-level declarations take the platform whose SDK they use outside a
+      branch (delegate classes, SDK-typed state, helpers), transitively; they
+      compile on that target only. Exports stay shared.
+- Left: `switch (PLATFORM)`, and conditions combining a platform test with
+  others (`PLATFORM === "ios" && …`).
 
 ## Phase 5: typed IR
 

@@ -154,40 +154,151 @@ export function branchPlatform(checker: ts.TypeChecker, node: ts.Node): Platform
   return undefined;
 }
 
+const PLATFORM_NAMES: Record<Platform, string> = { ios: "iOS", android: "Android" };
+
+/** What a shared module's platform code is: which platform each top-level declaration belongs to, and misuses. */
+export interface PlatformScopes {
+  /** Top-level statements that use a platform's SDK (or such a statement) outside a platform branch: they compile on that target only. */
+  platforms: Map<ts.Statement, Platform>;
+  errors: Diagnostic[];
+}
+
 /**
- * A shared module's uses of platform code outside the branch for that
- * platform: another platform's target would compile them. lucent:thread
- * needs a platform too (the host has no main thread).
+ * A top-level declaration that uses a platform's SDK outside a platform
+ * branch, directly or through another such declaration, belongs to that
+ * platform. Every use of platform code must then be in that platform's
+ * branch or declarations; lucent:thread needs one of either platform (the
+ * host has no main thread). Exports run on both platforms, so they branch.
  */
-export function branchErrors(checker: ts.TypeChecker, sf: ts.SourceFile): Diagnostic[] {
+export function platformScopes(checker: ts.TypeChecker, sf: ts.SourceFile): PlatformScopes {
   const imported = new Map<ts.Symbol, { spec: string; platform?: Platform }>();
+  // By local name too: an untyped platform's imports (its SDK not installed) resolve to no symbol as types.
+  const importedNames = new Map<string, { spec: string; platform?: Platform }>();
+  const declared = new Map<ts.Symbol, ts.Statement>();
   for (const s of sf.statements) {
-    if (!ts.isImportDeclaration(s) || !ts.isStringLiteral(s.moduleSpecifier) || !s.importClause) continue;
-    const spec = s.moduleSpecifier.text;
-    const scope = /^lucent:(\w+)/.exec(spec)?.[1];
-    if (!scope || scope === "platform") continue;
-    const platform = (PLATFORMS as readonly string[]).includes(scope) ? (scope as Platform) : undefined;
-    const names = [s.importClause.name, ...(s.importClause.namedBindings && ts.isNamedImports(s.importClause.namedBindings) ? s.importClause.namedBindings.elements.map((e) => e.name) : [])];
-    for (const n of names) {
-      const sym = n && checker.getSymbolAtLocation(n);
-      if (sym) imported.set(sym, { spec, platform });
+    if (ts.isImportDeclaration(s)) {
+      if (!ts.isStringLiteral(s.moduleSpecifier) || !s.importClause) continue;
+      const spec = s.moduleSpecifier.text;
+      const scope = /^lucent:(\w+)/.exec(spec)?.[1];
+      if (!scope || scope === "platform") continue;
+      const platform = (PLATFORMS as readonly string[]).includes(scope) ? (scope as Platform) : undefined;
+      const names = [s.importClause.name, ...(s.importClause.namedBindings && ts.isNamedImports(s.importClause.namedBindings) ? s.importClause.namedBindings.elements.map((e) => e.name) : [])];
+      for (const n of names) {
+        const sym = n && checker.getSymbolAtLocation(n);
+        if (sym) imported.set(sym, { spec, platform });
+        if (n) importedNames.set(n.text, { spec, platform });
+      }
+      continue;
+    }
+    for (const n of declaredNames(s)) {
+      const sym = checker.getSymbolAtLocation(n);
+      if (sym) declared.set(sym, s);
     }
   }
-  const out: Diagnostic[] = [];
-  if (!imported.size) return out;
-  const visit = (n: ts.Node): void => {
-    if (ts.isImportDeclaration(n)) return;
-    if (ts.isIdentifier(n)) {
-      const sym = checker.getSymbolAtLocation(n);
-      const from = sym && imported.get(sym);
-      const branch = from && branchPlatform(checker, n);
-      if (from && (from.platform ? branch !== from.platform : !branch)) {
-        const where = from.platform ? `inside \`if (PLATFORM === "${from.platform}")\`` : `inside a platform branch (\`if (PLATFORM === "ios")\`, \`else\`)`;
-        out.push(at(n, `${n.text} comes from ${from.spec}: use it ${where}, or in a *.${from.platform ?? "ios"}.lucent.ts file`, Codes.SdkImport));
+  const platforms = new Map<ts.Statement, Platform>();
+  const errors: Diagnostic[] = [];
+  if (!imported.size) return { platforms, errors };
+
+  // Each statement's references to platform code, and the branch they sit in.
+  type Ref = { id: ts.Identifier; stmt: ts.Statement; branch?: Platform; spec?: string; platform?: Platform; target?: ts.Statement };
+  const refs: Ref[] = [];
+  for (const stmt of sf.statements) {
+    if (ts.isImportDeclaration(stmt)) continue;
+    const visit = (n: ts.Node): void => {
+      if (ts.isIdentifier(n)) {
+        const sym = checker.getSymbolAtLocation(n);
+        const untyped = !sym || !!(sym.flags & (ts.SymbolFlags.Alias | ts.SymbolFlags.ValueModule | ts.SymbolFlags.NamespaceModule | ts.SymbolFlags.Transient));
+        const from = (sym && imported.get(sym)) ?? (untyped && !ts.isPropertyAccessExpression(n.parent) ? importedNames.get(n.text) : undefined);
+        const target = sym && declared.get(sym);
+        if (from) refs.push({ id: n, stmt, branch: branchPlatform(checker, n), spec: from.spec, platform: from.platform });
+        else if (target && target !== stmt) refs.push({ id: n, stmt, branch: branchPlatform(checker, n), target });
       }
-    }
-    ts.forEachChild(n, visit);
+      ts.forEachChild(n, visit);
+    };
+    visit(stmt);
+  }
+  // Platforms of statements, to a fixed point through the declarations they use.
+  const uses = new Map<ts.Statement, Set<Platform>>();
+  const add = (stmt: ts.Statement, p: Platform) => {
+    const set = uses.get(stmt) ?? new Set<Platform>();
+    const grew = !set.has(p);
+    set.add(p);
+    uses.set(stmt, set);
+    return grew;
   };
-  visit(sf);
+  for (let changed = true; changed; ) {
+    changed = false;
+    for (const r of refs) {
+      if (r.branch) continue;
+      const p = r.platform ?? (r.target ? only(uses.get(r.target)) : undefined);
+      if (p && add(r.stmt, p)) changed = true;
+    }
+  }
+  const blamed = new Set<ts.Statement>();
+  for (const [stmt, set] of uses) {
+    const name = declaredNames(stmt)[0] ?? stmt;
+    const what = ts.isIdentifier(name) ? name.text : "this statement";
+    if (set.size > 1) {
+      errors.push(at(name, `${what} uses lucent:ios and lucent:android outside a platform branch: branch with PLATFORM, or split it`, Codes.SdkImport));
+      blamed.add(stmt);
+    } else if (isExported(stmt)) {
+      errors.push(at(name, `${what} is exported, and exports run on both platforms, but it uses lucent:${only(set)} outside a platform branch: branch inside it with PLATFORM`, Codes.SdkImport));
+      blamed.add(stmt);
+    } else platforms.set(stmt, only(set)!);
+  }
+  for (const r of refs) {
+    if (blamed.has(r.stmt)) continue;
+    const home = r.branch ?? platforms.get(r.stmt);
+    const needed = r.platform ?? (r.target ? platforms.get(r.target) : undefined);
+    if (r.spec && !r.platform) {
+      // lucent:thread: in either platform's code.
+      if (!home) errors.push(at(r.id, `${r.id.text} comes from ${r.spec}: use it in platform code, inside \`if (PLATFORM === "ios")\` or its \`else\``, Codes.SdkImport));
+      continue;
+    }
+    if (!needed || home === needed) continue;
+    const source = r.spec ? `comes from ${r.spec}` : `uses lucent:${needed}`;
+    errors.push(at(r.id, `${r.id.text} ${source} (${PLATFORM_NAMES[needed]} code): use it inside \`if (PLATFORM === "${needed}")\`, or in other ${PLATFORM_NAMES[needed]} code`, Codes.SdkImport));
+  }
+  return { platforms, errors };
+}
+
+function only<T>(set: Set<T> | undefined): T | undefined {
+  return set?.size === 1 ? [...set][0] : undefined;
+}
+
+/** The names a top-level statement declares. */
+function declaredNames(s: ts.Statement): ts.Identifier[] {
+  if ((ts.isFunctionDeclaration(s) || ts.isClassDeclaration(s)) && s.name) return [s.name];
+  if (ts.isTypeAliasDeclaration(s) || ts.isInterfaceDeclaration(s) || ts.isEnumDeclaration(s)) return [s.name];
+  if (!ts.isVariableStatement(s)) return [];
+  const out: ts.Identifier[] = [];
+  const bind = (n: ts.BindingName) => {
+    if (ts.isIdentifier(n)) out.push(n);
+    else for (const e of n.elements) if (!ts.isOmittedExpression(e)) bind(e.name);
+  };
+  for (const d of s.declarationList.declarations) bind(d.name);
   return out;
+}
+
+function isExported(s: ts.Statement): boolean {
+  return ts.canHaveModifiers(s) && !!ts.getModifiers(s)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword);
+}
+
+/**
+ * TypeScript errors in a shared module's code for a platform whose SDK is
+ * untyped in this program (not installed, and not the target): that code is
+ * never emitted here, and its SDK types do not resolve.
+ */
+export function inUntypedPlatformCode(lp: LucentProgram, d: Diagnostic, untyped: readonly Platform[]): boolean {
+  if (d.code !== Codes.TypeScript || !d.file || d.start === undefined || !untyped.length || platformOf(d.file)) return false;
+  const sf = lp.program.getSourceFile(path.resolve(d.file));
+  if (!sf) return false;
+  let node: ts.Node = sf;
+  for (let inner: ts.Node | undefined = sf; inner; ) {
+    node = inner;
+    inner = ts.forEachChild(node, (c) => (c.getStart(sf) <= d.start! && d.start! < c.getEnd() ? c : undefined));
+  }
+  const stmt = sf.statements.find((s) => s.getStart(sf) <= d.start! && d.start! < s.getEnd());
+  const p = branchPlatform(lp.checker, node) ?? (stmt ? platformScopes(lp.checker, sf).platforms.get(stmt) : undefined);
+  return !!p && untyped.includes(p);
 }

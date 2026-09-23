@@ -49,14 +49,18 @@ export async function model(): Promise<string> {
   platform), in `if`/`else` and in `? :`. Each target compiles its own branch
   only; the host target throws there ("this code runs only on iOS and
   Android"). `PLATFORM` as a value is the target's name.
-- A platform's imports may only be used inside its branch, and
-  `lucent:thread` inside a branch of either platform (LUCENT3004 otherwise).
-  Classes implementing SDK protocols and module-level state of SDK types
-  belong in platform files.
+- A top-level declaration that uses a platform's SDK outside a branch,
+  directly or through another such declaration, belongs to that platform:
+  delegate classes, SDK-typed state, helpers taking SDK types. It compiles on
+  that target only. A declaration using both platforms outside branches is an
+  error; exports run on both platforms, so they branch inside.
+- A platform's code (its imports and declarations) may only be used inside
+  its branch or its declarations, and `lucent:thread` in either platform's
+  code (LUCENT3004 otherwise).
 - Every target type-checks both branches. Where the other platform's SDK is
-  not installed, its modules are untyped there (the branch is never emitted
-  on that target); values that flow out of such a branch need a type
-  annotation.
+  not installed, its modules are untyped there and TypeScript's errors in its
+  code are ignored (that code is never emitted on that target); values that
+  flow out of such a branch need a type annotation.
 - A module that branches is built per target, like platform modules, and is
   Objective-C++ (`.mm`) on iOS.
 
