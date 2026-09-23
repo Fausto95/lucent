@@ -12,8 +12,10 @@ export interface SdkModuleSchema {
   platform: Platform;
   /** Clang/Swift module (iOS) or Java package (Android). */
   module: string;
-  /** Frameworks to link (iOS). */
+  /** Frameworks to link (iOS): the SDK framework; none for a pod, which links itself. */
   frameworks?: string[];
+  /** The header to import for the module (iOS): `M/M.h`, or the umbrella its module map names. */
+  header?: string;
   types: (SdkClassSchema | SdkEnumSchema)[];
   /** C functions (iOS). */
   functions?: SdkMethodSchema[];

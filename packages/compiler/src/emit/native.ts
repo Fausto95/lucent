@@ -1,7 +1,7 @@
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import { builtinSdkModuleOf, sdkModuleOf } from "../program.ts";
-import { findSdkModule, findSdkType, jniDescriptor, sdkTypeInfo, parseSdkType, type Platform, type SdkClassSchema, type SdkMethodSchema, type SdkPropertySchema, type SdkType } from "../sdk/schema.ts";
+import { findSdkModule, findSdkType, loadSdkModule, jniDescriptor, sdkTypeInfo, parseSdkType, type Platform, type SdkClassSchema, type SdkMethodSchema, type SdkPropertySchema, type SdkType } from "../sdk/schema.ts";
 import { type LType, T, unionOf } from "../types.ts";
 import type { E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
@@ -71,19 +71,8 @@ function requireMain(em: FnEmitter, node: ts.Node, ref: SdkClassRef, member?: { 
 
 function noteIncludes(em: FnEmitter, ref: SdkClassRef): void {
   const n = em.ctx.nativeUnit(em.opts.module);
-  if (ref.platform === "ios") {
-    n.includes.add("#include <lucent/platform/ios.h>");
-    for (const f of findSdkModuleFrameworks(ref)) {
-      n.includes.add(`#import <${f}/${f}.h>`);
-      em.ctx.frameworks.add(f);
-    }
-  } else {
-    n.includes.add("#include <lucent/platform/android.h>");
-  }
-}
-
-function findSdkModuleFrameworks(ref: SdkClassRef): string[] {
-  return ref.platform === "ios" ? [ref.module] : [];
+  if (ref.platform === "ios") noteFramework(em, ref.module);
+  else n.includes.add("#include <lucent/platform/android.h>");
 }
 
 // --- iOS -----------------------------------------------------------------------------
@@ -553,9 +542,8 @@ export function nativeStaticProperty(em: FnEmitter, node: ts.PropertyAccessExpre
     const value = em.checker.getConstantValue(decl);
     if (e?.kind === "enum" && sdk.platform === "ios" && typeof value === "number") {
       const c = e.cases.find((x) => x.name === decl.name.getText())!;
-      const unit = em.ctx.nativeUnit(em.opts.module);
-      unit.includes.add(`#import <${sdk.module}/${sdk.module}.h>`);
-      unit.lines.add(`static_assert(${c.native} == ${value}, "${e.name}.${c.name} in the ${sdk.module} binding schema");`);
+      noteFramework(em, sdk.module);
+      em.ctx.nativeUnit(em.opts.module).lines.add(`static_assert(${c.native} == ${value}, "${e.name}.${c.name} in the ${sdk.module} binding schema");`);
     }
     return undefined;
   }
@@ -701,11 +689,14 @@ export function nativeConstant(em: FnEmitter, id: ts.Identifier): E | undefined 
   return fromObjc(em, c.name, ct, declaredLt(em, "ios", ct, id), c.name);
 }
 
+/** Imports an iOS module's header and links what it needs, as its schema says. */
 function noteFramework(em: FnEmitter, module: string): void {
+  const schema = loadSdkModule("ios", module);
+  if (!schema.header) throw new Error(`the lucent:ios/${module} binding schema names no header`);
   const n = em.ctx.nativeUnit(em.opts.module);
   n.includes.add("#include <lucent/platform/ios.h>");
-  n.includes.add(`#import <${module}/${module}.h>`);
-  em.ctx.frameworks.add(module);
+  n.includes.add(`#import <${schema.header}>`);
+  for (const f of schema.frameworks ?? []) em.ctx.frameworks.add(f);
 }
 
 function androidCall(em: FnEmitter, node: ts.CallExpression, ref: SdkClassRef, m: SdkMethodSchema, obj: E | undefined): E {
