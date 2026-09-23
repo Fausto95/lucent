@@ -230,7 +230,9 @@ const RESERVED = new Set(
     "explicit export extern false float for friend goto if inline int long mutable namespace new noexcept not not_eq nullptr operator or " +
     "or_eq private protected public register reinterpret_cast requires return short signed sizeof static static_assert static_cast struct " +
     "switch template this thread_local throw true try typedef typeid typename union unsigned using virtual void volatile wchar_t while xor " +
-    "xor_eq final override assert errno NULL EOF stdin stdout stderr main std lucent jsi facebook self"
+    "xor_eq final override assert errno NULL EOF stdin stdout stderr main std lucent jsi facebook self " +
+    // Objective-C's types, macros and method names, and JNI's environment, which platform glue uses.
+    "id Class SEL IMP BOOL YES NO nil Nil _cmd super env"
   ).split(" "),
 );
 
@@ -238,6 +240,8 @@ const RESERVED = new Set(
 export function cppIdent(name: string): string {
   let out = name.replace(/[^A-Za-z0-9_]/g, (c) => `_u${c.codePointAt(0)!.toString(16)}_`);
   if (/^[0-9]/.test(out)) out = `_${out}`;
+  // The glue's temporaries end in `_` (v_, r_, o_): Lucent names that do get a prefix of their own.
+  if (out.endsWith("_")) out = `u_${out}`;
   if (RESERVED.has(out) || out.includes("__") || /^_[A-Z]/.test(out)) out = `${out}_`;
   return out;
 }
