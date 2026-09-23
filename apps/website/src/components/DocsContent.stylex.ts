@@ -278,6 +278,9 @@ export const styles = stylex.create({
   tabList: {
     display: "flex",
     gap: "4px",
+    flexShrink: 0,
+    // Pull the first tab's padding back, so its label starts where the code does.
+    marginLeft: "-8px",
   },
   tab: {
     borderWidth: 0,
