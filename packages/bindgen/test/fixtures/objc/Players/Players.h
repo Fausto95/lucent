@@ -14,6 +14,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (nullable MSRBufferRef)copyBuffer CF_RETURNS_RETAINED;
 @property (nonatomic, copy) NSSet<NSString *> *tags;
 - (void)followPlayers:(NSSet<PLYPlayer *> *)players;
+@property (nonatomic, copy) NSDictionary *info;
+- (void)markObjects:(NSSet *)objects;
 @end
 
 NS_ASSUME_NONNULL_END

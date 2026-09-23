@@ -213,6 +213,14 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     expect(player?.kind === "class" && player.methods?.find((m) => m.selector === "followPlayers:")?.params).toEqual([{ name: "players", type: T("Set<Players.PLYPlayer>") }]);
   });
 
+  it("binds AnyHashable (untyped NSDictionary keys, NSSet elements) as id", () => {
+    const r = sdkModule("ios", "Players", { cacheDir: tmp("lucent-cache-"), ios: { includePaths: [path.join(fixtures, "objc")] } });
+    const player = "schema" in r ? r.schema.types.find((t) => t.name === "PLYPlayer") : undefined;
+    // Keys that are not strings are left out when read, as JavaScript objects' are.
+    expect(player?.kind === "class" && player.properties?.find((p) => p.name === "info")?.type).toEqual(T("Record<id>"));
+    expect(player?.kind === "class" && player.methods?.find((m) => m.selector === "markObjects:")?.params).toEqual([{ name: "objects", type: T("Set<id>") }]);
+  });
+
   it("keys the app's pods on Podfile.lock, not on every header", () => {
     const dir = tmp("lucent-pods-");
     fs.cpSync(path.join(fixtures, "pods"), dir, { recursive: true });
