@@ -153,6 +153,15 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     expect(gauge?.kind === "class" && gauge.properties?.find((p) => p.name === "documentation")?.type).toEqual(T("Foundation.NSURL"));
   });
 
+  it("resolves structs and typedefs other modules declare, attributes and tags included", () => {
+    const r = sdkModule("ios", "Players", { cacheDir: tmp("lucent-cache-"), ios: { includePaths: [path.join(fixtures, "objc")] } });
+    const player = "schema" in r ? r.schema.types.find((t) => t.name === "PLYPlayer") : undefined;
+    const type = (name: string) => (player?.kind === "class" ? player.properties?.find((p) => p.name === name)?.type : undefined);
+    expect(type("currentTime")).toEqual(T("Measures.MSRTime"));
+    expect(type("loop")).toEqual(T("Measures.MSRSpan"));
+    expect(type("track")).toEqual(T("int32"));
+  });
+
   it("keys the app's pods on Podfile.lock, not on every header", () => {
     const dir = tmp("lucent-pods-");
     fs.cpSync(path.join(fixtures, "pods"), dir, { recursive: true });
