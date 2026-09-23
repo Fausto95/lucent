@@ -259,6 +259,14 @@ export const styles = stylex.create({
     objectFit: "contain",
     flexShrink: 0,
   },
+  // A mask, so the single-colour mark takes the theme's text colour.
+  expoLogo: {
+    backgroundColor: tokens.text,
+    maskImage: "url(/brand/expo.svg)",
+    maskRepeat: "no-repeat",
+    maskPosition: "center",
+    maskSize: "contain",
+  },
   platformNote: {
     fontSize: "0.75rem",
     lineHeight: 1.6,

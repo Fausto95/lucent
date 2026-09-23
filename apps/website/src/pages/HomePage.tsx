@@ -71,7 +71,10 @@ export function HomePage() {
           <img src="/brand/react-native.svg" alt="" aria-hidden="true" width="32" height="32" {...stylex.props(styles.platformLogo)} />
           {" React Native"}
         </div>
-        <div {...stylex.props(styles.platformItem)}>Expo</div>
+        <div {...stylex.props(styles.platformItem)}>
+          <span aria-hidden="true" {...stylex.props(styles.platformLogo, styles.expoLogo)} />
+          {" Expo"}
+        </div>
         <div {...stylex.props(styles.platformItem)}>New Architecture</div>
         <span {...stylex.props(styles.platformNote)}>
           iOS & Android
