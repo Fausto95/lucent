@@ -1,0 +1,9 @@
+{
+  "name": "@lucent-lang/sdk-android",
+  "version": "0.1.0-cpp",
+  "description": "Binding schemas for the Android SDK, imported by Lucent modules as lucent:android/<package>",
+  "license": "MIT",
+  "files": [
+    "*.json"
+  ]
+}

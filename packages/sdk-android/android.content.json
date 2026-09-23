@@ -1,0 +1,56 @@
+{
+  "platform": "android",
+  "module": "android.content",
+  "types": [
+    {
+      "kind": "class",
+      "name": "Context",
+      "native": "android/content/Context",
+      "properties": [
+        {
+          "name": "VIBRATOR_SERVICE",
+          "static": true,
+          "readonly": true,
+          "type": "string"
+        },
+        {
+          "name": "VIBRATOR_MANAGER_SERVICE",
+          "static": true,
+          "readonly": true,
+          "type": "string"
+        },
+        {
+          "name": "packageName",
+          "readonly": true,
+          "getter": "getPackageName",
+          "type": "string"
+        }
+      ],
+      "methods": [
+        {
+          "name": "getPackageName",
+          "params": [],
+          "returns": "string"
+        },
+        {
+          "name": "getMainLooper",
+          "params": [],
+          "returns": "android.os.Looper"
+        },
+        {
+          "name": "getSystemService",
+          "typeParams": [
+            "T"
+          ],
+          "params": [
+            {
+              "name": "serviceClass",
+              "type": "Class<T>"
+            }
+          ],
+          "returns": "T?"
+        }
+      ]
+    }
+  ]
+}

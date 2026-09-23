@@ -615,8 +615,40 @@ static void concatenation() {
   CHECK_STR(concat(S("same")), "same");
 }
 
+template <class T>
+static bool settleWithin(const Promise<T>& p, int ms) {
+  for (int i = 0; i < ms; i++) {
+    {
+      LucentScope scope;
+      if (p.settled()) return true;
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+  return false;
+}
+
+static void mainThread() {
+  CHECK(!onMainThread());
+  Promise<double> p;
+  {
+    LucentScope scope;
+    p = runOnMain([] { return onMainThread() ? 42.0 : -1.0; });
+  }
+  CHECK(settleWithin(p, 2000));
+  CHECK(p.fulfilled() && p.value() == 42.0);
+
+  Promise<void> failed;
+  {
+    LucentScope scope;
+    failed = runOnMain([] { throw Exception(makeError(String::fromLatin1("RangeError"), S("on main"))); });
+  }
+  CHECK(settleWithin(failed, 2000));
+  CHECK(!failed.fulfilled() && failed.error()->message == S("on main"));
+}
+
 int main() {
   numbers();
+  mainThread();
   concatenation();
   strings();
   arrays();

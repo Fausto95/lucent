@@ -1,0 +1,70 @@
+{
+  "platform": "android",
+  "module": "android.os",
+  "types": [
+    {
+      "kind": "class",
+      "name": "Build",
+      "native": "android/os/Build",
+      "properties": [
+        { "name": "MANUFACTURER", "static": true, "readonly": true, "type": "string?" },
+        { "name": "MODEL", "static": true, "readonly": true, "type": "string?" }
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "Build_VERSION",
+      "native": "android/os/Build$VERSION",
+      "properties": [
+        { "name": "SDK_INT", "static": true, "readonly": true, "type": "int" },
+        { "name": "RELEASE", "static": true, "readonly": true, "type": "string?" }
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "VibrationEffect",
+      "native": "android/os/VibrationEffect",
+      "since": 26,
+      "properties": [
+        { "name": "DEFAULT_AMPLITUDE", "static": true, "readonly": true, "type": "int" },
+        { "name": "EFFECT_CLICK", "static": true, "readonly": true, "type": "int" },
+        { "name": "EFFECT_DOUBLE_CLICK", "static": true, "readonly": true, "type": "int" },
+        { "name": "EFFECT_TICK", "static": true, "readonly": true, "type": "int" },
+        { "name": "EFFECT_HEAVY_CLICK", "static": true, "readonly": true, "type": "int" }
+      ],
+      "methods": [
+        { "name": "createOneShot", "static": true, "params": [{ "name": "milliseconds", "type": "long" }, { "name": "amplitude", "type": "int" }], "returns": "android.os.VibrationEffect" },
+        { "name": "createWaveform", "static": true, "params": [{ "name": "timings", "type": "long[]" }, { "name": "repeat", "type": "int" }], "returns": "android.os.VibrationEffect" },
+        { "name": "createWaveform", "static": true, "params": [{ "name": "timings", "type": "long[]" }, { "name": "amplitudes", "type": "int[]" }, { "name": "repeat", "type": "int" }], "returns": "android.os.VibrationEffect" },
+        { "name": "createPredefined", "static": true, "since": 29, "params": [{ "name": "effectId", "type": "int" }], "returns": "android.os.VibrationEffect" }
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "Vibrator",
+      "native": "android/os/Vibrator",
+      "methods": [
+        { "name": "hasVibrator", "params": [], "returns": "boolean" },
+        { "name": "vibrate", "params": [{ "name": "pattern", "type": "long[]" }, { "name": "repeat", "type": "int" }], "returns": "void" },
+        { "name": "vibrate", "since": 26, "params": [{ "name": "vibe", "type": "android.os.VibrationEffect" }], "returns": "void" },
+        { "name": "cancel", "params": [], "returns": "void" }
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "VibratorManager",
+      "native": "android/os/VibratorManager",
+      "since": 31,
+      "properties": [{ "name": "defaultVibrator", "readonly": true, "getter": "getDefaultVibrator", "type": "android.os.Vibrator" }]
+    },
+    {
+      "kind": "class",
+      "name": "Looper",
+      "native": "android/os/Looper",
+      "methods": [
+        { "name": "getMainLooper", "static": true, "params": [], "returns": "android.os.Looper" },
+        { "name": "myLooper", "static": true, "params": [], "returns": "android.os.Looper?" }
+      ]
+    }
+  ]
+}

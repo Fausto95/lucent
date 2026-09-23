@@ -1,0 +1,83 @@
+{
+  "platform": "ios",
+  "module": "UIKit",
+  "frameworks": ["UIKit"],
+  "types": [
+    {
+      "kind": "enum",
+      "name": "UIImpactFeedbackGenerator_FeedbackStyle",
+      "native": "UIImpactFeedbackStyle",
+      "cases": [
+        { "name": "light", "native": "UIImpactFeedbackStyleLight", "value": 0 },
+        { "name": "medium", "native": "UIImpactFeedbackStyleMedium", "value": 1 },
+        { "name": "heavy", "native": "UIImpactFeedbackStyleHeavy", "value": 2 },
+        { "name": "soft", "native": "UIImpactFeedbackStyleSoft", "value": 3 },
+        { "name": "rigid", "native": "UIImpactFeedbackStyleRigid", "value": 4 }
+      ]
+    },
+    {
+      "kind": "enum",
+      "name": "UINotificationFeedbackGenerator_FeedbackType",
+      "native": "UINotificationFeedbackType",
+      "cases": [
+        { "name": "success", "native": "UINotificationFeedbackTypeSuccess", "value": 0 },
+        { "name": "warning", "native": "UINotificationFeedbackTypeWarning", "value": 1 },
+        { "name": "error", "native": "UINotificationFeedbackTypeError", "value": 2 }
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "UIFeedbackGenerator",
+      "native": "UIFeedbackGenerator",
+      "mainActor": true,
+      "methods": [{ "name": "prepare", "selector": "prepare", "params": [], "returns": "void" }]
+    },
+    {
+      "kind": "class",
+      "name": "UIImpactFeedbackGenerator",
+      "native": "UIImpactFeedbackGenerator",
+      "extends": "UIFeedbackGenerator",
+      "mainActor": true,
+      "constructors": [
+        { "selector": "initWithStyle:", "params": [{ "name": "style", "type": "UIImpactFeedbackGenerator_FeedbackStyle" }] }
+      ],
+      "methods": [
+        { "name": "impactOccurred", "selector": "impactOccurred", "params": [], "returns": "void" },
+        { "name": "impactOccurred", "selector": "impactOccurredWithIntensity:", "params": [{ "name": "intensity", "type": "CGFloat" }], "returns": "void" }
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "UINotificationFeedbackGenerator",
+      "native": "UINotificationFeedbackGenerator",
+      "extends": "UIFeedbackGenerator",
+      "mainActor": true,
+      "constructors": [{ "selector": "init", "params": [] }],
+      "methods": [
+        { "name": "notificationOccurred", "selector": "notificationOccurred:", "params": [{ "name": "notificationType", "type": "UINotificationFeedbackGenerator_FeedbackType" }], "returns": "void" }
+      ]
+    },
+    {
+      "kind": "class",
+      "name": "UISelectionFeedbackGenerator",
+      "native": "UISelectionFeedbackGenerator",
+      "extends": "UIFeedbackGenerator",
+      "mainActor": true,
+      "constructors": [{ "selector": "init", "params": [] }],
+      "methods": [{ "name": "selectionChanged", "selector": "selectionChanged", "params": [], "returns": "void" }]
+    },
+    {
+      "kind": "class",
+      "name": "UIDevice",
+      "native": "UIDevice",
+      "mainActor": true,
+      "properties": [
+        { "name": "current", "static": true, "readonly": true, "selector": "currentDevice", "type": "UIDevice" },
+        { "name": "name", "readonly": true, "type": "string" },
+        { "name": "model", "readonly": true, "type": "string" },
+        { "name": "systemName", "readonly": true, "type": "string" },
+        { "name": "systemVersion", "readonly": true, "type": "string" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "name": "@lucent-lang/sdk-ios",
+  "version": "0.1.0-cpp",
+  "description": "Binding schemas for the iOS SDK, imported by Lucent modules as lucent:ios/<module>",
+  "license": "MIT",
+  "files": [
+    "*.json"
+  ]
+}
