@@ -213,6 +213,10 @@ export const styles = stylex.create({
     },
   },
   stripIntro: {
+    flex: {
+      default: "1 1 0",
+      "@media (max-width: 850px)": "none",
+    },
     fontSize: {
       default: "0.75rem",
       "@media (max-width: 850px)": "0.75rem",
@@ -228,6 +232,28 @@ export const styles = stylex.create({
     display: {
       default: null,
       "@media (max-width: 850px)": "none",
+    },
+  },
+  /**
+   * Centred on the strip: on wide screens the intro and the note split the
+   * rest equally; below 850px the intro takes its own line, the note is hidden
+   * and the group takes the row.
+   */
+  platformGroup: {
+    flex: {
+      default: "none",
+      "@media (max-width: 850px)": "1",
+    },
+    display: "flex",
+    justifyContent: {
+      default: "center",
+      "@media (max-width: 540px)": "flex-start",
+    },
+    alignItems: "center",
+    columnGap: {
+      default: "72px",
+      "@media (max-width: 850px)": "48px",
+      "@media (max-width: 540px)": "22px",
     },
   },
   platformItem: {
@@ -266,14 +292,14 @@ export const styles = stylex.create({
     maskSize: "contain",
   },
   platformNote: {
-    marginLeft: "auto",
+    flex: "1 1 0",
     fontSize: "0.75rem",
     lineHeight: 1.6,
     color: tokens.textMuted,
     textAlign: "right",
     display: {
       default: null,
-      "@media (max-width: 1150px)": "none",
+      "@media (max-width: 850px)": "none",
     },
   },
   sectionIntro: {

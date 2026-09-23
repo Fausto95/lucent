@@ -67,13 +67,15 @@ export function HomePage() {
           <br {...stylex.props(styles.br)} />
           your app runs.
         </span>
-        <div {...stylex.props(styles.platformItem)}>
-          <img src="/brand/react-native.svg" alt="" aria-hidden="true" width="32" height="32" {...stylex.props(styles.platformLogo)} />
-          {" React Native"}
-        </div>
-        <div {...stylex.props(styles.platformItem)}>
-          <span aria-hidden="true" {...stylex.props(styles.platformLogo, styles.expoLogo)} />
-          {" Expo"}
+        <div {...stylex.props(styles.platformGroup)}>
+          <div {...stylex.props(styles.platformItem)}>
+            <img src="/brand/react-native.svg" alt="" aria-hidden="true" width="32" height="32" {...stylex.props(styles.platformLogo)} />
+            {" React Native"}
+          </div>
+          <div {...stylex.props(styles.platformItem)}>
+            <span aria-hidden="true" {...stylex.props(styles.platformLogo, styles.expoLogo)} />
+            {" Expo"}
+          </div>
         </div>
         <span {...stylex.props(styles.platformNote)}>
           iOS & Android
