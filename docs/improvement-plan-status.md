@@ -231,9 +231,13 @@ classes (NSMapTable, NSHashTable, NSLayoutAnchor), protocol compositions
       ports (application, callbacks, clipboard, device, files,
       local-authentication, location, netinfo, probe, linked) and both example
       packages are single modules; both apps' checks and smoke-install pass.
-- Left: `switch (PLATFORM)`, and conditions combining a platform test with
-  others (`PLATFORM === "ios" && …`); README's "Today" list still describes
-  platform files (README belongs to the other session).
+- [x] Device check of the single-module ports (2026-09-23): bare 23/23 and
+      Expo 36/36 on the iOS simulator and the Android emulator, Release.
+- [x] `switch (PLATFORM)` (each platform's case and its fall-through; clauses
+      both platforms reach are shared) and `PLATFORM === "ios" && …` (the
+      then-branch is iOS code, the else-branch shared).
+- Left: README's "Today" list still describes platform files (README
+  belongs to the other session).
 
 ## Phase 5: typed IR
 

@@ -138,18 +138,69 @@ export function platformTest(checker: ts.TypeChecker, e: ts.Expression): { platf
   return { platform: literal.text as Platform, equal };
 }
 
-/** The branch of a platform test that runs on `platform` (the other one runs on the other platform). */
-export function liveBranch<T>(test: { platform: Platform; equal: boolean }, platform: Platform, whenTrue: T, whenFalse: T): T {
-  return (test.platform === platform) === test.equal ? whenTrue : whenFalse;
+/**
+ * A condition that holds on one platform only: a platform test, alone or
+ * leading `&&`s (`PLATFORM === "ios" && ready`). `platform` is where its true
+ * side runs; `rest` are the other conditions, and its false side runs on both
+ * platforms when there are any.
+ */
+export interface PlatformGuard {
+  platform: Platform;
+  rest: ts.Expression[];
 }
 
-/** The platform the innermost platform branch around `node` runs on. */
+export function platformGuard(checker: ts.TypeChecker, e: ts.Expression): PlatformGuard | undefined {
+  while (ts.isParenthesizedExpression(e)) e = e.expression;
+  const test = platformTest(checker, e);
+  if (test) return { platform: test.equal ? test.platform : otherPlatform(test.platform), rest: [] };
+  if (!ts.isBinaryExpression(e) || e.operatorToken.kind !== ts.SyntaxKind.AmpersandAmpersandToken) return undefined;
+  const left = platformGuard(checker, e.left);
+  return left && { platform: left.platform, rest: [...left.rest, e.right] };
+}
+
+function otherPlatform(p: Platform): Platform {
+  return PLATFORMS.find((x) => x !== p)!;
+}
+
+/**
+ * The platforms that run each clause of `switch (PLATFORM)`: those its case
+ * names (`default`: those no case names), and those falling through from the
+ * clause before.
+ */
+export function switchPlatforms(checker: ts.TypeChecker, s: ts.SwitchStatement): Platform[][] | undefined {
+  let d = s.expression;
+  while (ts.isParenthesizedExpression(d)) d = d.expression;
+  if (!isPlatformValue(checker, d)) return undefined;
+  const named = (c: ts.CaseOrDefaultClause) => (ts.isCaseClause(c) && ts.isStringLiteral(c.expression) ? c.expression.text : undefined);
+  const cased = new Set(s.caseBlock.clauses.map(named));
+  const out: Platform[][] = [];
+  let falling: Platform[] = [];
+  for (const c of s.caseBlock.clauses) {
+    const own = ts.isCaseClause(c) ? PLATFORMS.filter((p) => named(c) === p) : PLATFORMS.filter((p) => !cased.has(p));
+    const runs = PLATFORMS.filter((p) => own.includes(p) || falling.includes(p));
+    out.push(runs);
+    const last = c.statements[c.statements.length - 1];
+    const exits = !!last && (ts.isBreakStatement(last) || ts.isReturnStatement(last) || ts.isThrowStatement(last) || ts.isContinueStatement(last));
+    falling = exits ? [] : runs;
+  }
+  return out;
+}
+
+/** The platform the innermost platform branch or case around `node` runs on; code both platforms reach has none. */
 export function branchPlatform(checker: ts.TypeChecker, node: ts.Node): Platform | undefined {
   for (let child = node, p = node.parent; p; child = p, p = p.parent) {
+    if (ts.isCaseClause(p) || ts.isDefaultClause(p)) {
+      const s = p.parent.parent;
+      const runs = switchPlatforms(checker, s)?.[s.caseBlock.clauses.indexOf(p)];
+      if (runs?.length === 1) return runs[0];
+      continue;
+    }
     const [cond, whenTrue, whenFalse] = ts.isIfStatement(p) ? [p.expression, p.thenStatement, p.elseStatement] : ts.isConditionalExpression(p) ? [p.condition, p.whenTrue, p.whenFalse] : [];
     if (!cond || (child !== whenTrue && child !== whenFalse)) continue;
-    const test = platformTest(checker, cond);
-    if (test) return PLATFORMS.find((x) => liveBranch(test, x, whenTrue, whenFalse) === child);
+    const guard = platformGuard(checker, cond);
+    if (!guard) continue;
+    if (child === whenTrue) return guard.platform;
+    if (!guard.rest.length) return otherPlatform(guard.platform);
   }
   return undefined;
 }
@@ -241,10 +292,8 @@ export function platformScopes(checker: ts.TypeChecker, sf: ts.SourceFile): Plat
     if (set.size > 1) {
       errors.push(at(name, `${what} uses lucent:ios and lucent:android outside a platform branch: branch with PLATFORM, or split it`, Codes.SdkImport));
       blamed.add(stmt);
-    } else if (isExported(stmt)) {
-      errors.push(at(name, `${what} is exported, and exports run on both platforms, but it uses lucent:${only(set)} outside a platform branch: branch inside it with PLATFORM`, Codes.SdkImport));
-      blamed.add(stmt);
-    } else platforms.set(stmt, only(set)!);
+    } else if (!isExported(stmt)) platforms.set(stmt, only(set)!);
+    // Exports run on both platforms: their uses of platform code are reported below, where they are.
   }
   for (const r of refs) {
     if (blamed.has(r.stmt)) continue;

@@ -2,7 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
-import { isPlatformValue, liveBranch, platformTest } from "../platforms.ts";
+import { isPlatformValue, platformGuard, switchPlatforms } from "../platforms.ts";
+import type { Platform } from "../sdk/schema.ts";
 import type { LucentModule } from "../program.ts";
 import { type ClassInfo, cppIdent, isVoidish, type LType, sameType, stripOpt, substitute, T, typeKey, unionOf } from "../types.ts";
 import { containsAwait, freeVariables, type FunctionLike, symbolOf } from "./analysis.ts";
@@ -857,18 +858,18 @@ export class FnEmitter {
   }
 
   private ifStmt(s: ts.IfStatement): void {
-    // `if (PLATFORM === "ios")`: this target's branch only; the host has neither.
-    const test = platformTest(this.checker, s.expression);
-    if (test) {
-      if (!this.ctx.platform) return this.line(`${this.platformOnly(s, "void")};`);
-      const live = liveBranch(test, this.ctx.platform, s.thenStatement, s.elseStatement);
+    // `if (PLATFORM === "ios" && …)`: what this target can run; the host has neither platform.
+    const guard = platformGuard(this.checker, s.expression);
+    if (guard && !this.ctx.platform) return this.line(`${this.platformOnly(s, "void")};`);
+    if (guard && (guard.platform !== this.ctx.platform || !guard.rest.length)) {
+      const live = guard.platform === this.ctx.platform ? s.thenStatement : s.elseStatement;
       if (!live) return;
       this.open("{");
       this.nested(live);
       this.close();
       return;
     }
-    this.open(`if (${this.cond(s.expression)}) {`);
+    this.open(`if (${guard ? guard.rest.map((r) => this.cond(r)).join(" && ") : this.cond(s.expression)}) {`);
     this.nested(s.thenStatement);
     if (s.elseStatement) {
       this.depth--;
@@ -1045,6 +1046,8 @@ export class FnEmitter {
   }
 
   private switchStmt(s: ts.SwitchStatement, labels: string[]): void {
+    const runs = switchPlatforms(this.checker, s);
+    if (runs) return this.platformSwitch(s, labels, runs);
     const disc = this.expr(s.expression);
     const d = this.ctx.fresh("sw");
     const m = this.ctx.fresh("case");
@@ -1081,6 +1084,31 @@ export class FnEmitter {
     this.ctl.pop();
     if (entry.usedBreakLabel) this.line(`${entry.breakLabel}:;`);
     this.close();
+  }
+
+  /**
+   * `switch (PLATFORM)`: the clauses this target runs, in order (its case and
+   * what it falls through to), in a C++ switch that `break` leaves.
+   */
+  private platformSwitch(s: ts.SwitchStatement, labels: string[], runs: Platform[][]): void {
+    if (!this.ctx.platform) return this.line(`${this.platformOnly(s, "void")};`);
+    const target = this.ctx.platform;
+    const entry: ControlEntry = { kind: "switch", labels, breakLabel: this.ctx.fresh("brk") };
+    this.ctl.push(entry);
+    this.open("switch (0) {");
+    this.line("case 0:");
+    s.caseBlock.clauses.forEach((c, i) => {
+      if (!runs[i]!.includes(target)) return;
+      this.open("{");
+      this.pushScope();
+      for (const x of c.statements) this.stmt(x);
+      this.popScope();
+      this.close();
+    });
+    this.line("default: break;");
+    this.close();
+    this.ctl.pop();
+    if (entry.usedBreakLabel) this.line(`${entry.breakLabel}:;`);
   }
 
   private labeled(s: ts.LabeledStatement): void {
@@ -1788,18 +1816,17 @@ export class FnEmitter {
   }
 
   private conditional(node: ts.ConditionalExpression): E {
-    const test = platformTest(this.checker, node.condition);
-    if (test) {
-      // The live branch's type: the other's may be untyped (its SDK missing here).
-      if (!this.ctx.platform) {
-        const typed = [node.whenTrue, node.whenFalse].find((b) => !(this.checker.getTypeAtLocation(b).flags & ts.TypeFlags.Any)) ?? node;
-        const t = this.lt(typed);
-        return { c: this.platformOnly(node, this.ctx.reg.cpp(t)), t };
-      }
-      return this.expr(liveBranch(test, this.ctx.platform, node.whenTrue, node.whenFalse));
+    const guard = platformGuard(this.checker, node.condition);
+    if (guard && !this.ctx.platform) {
+      // A branch's type: the other's may be untyped (its SDK missing here).
+      const typed = [node.whenTrue, node.whenFalse].find((b) => !(this.checker.getTypeAtLocation(b).flags & ts.TypeFlags.Any)) ?? node;
+      const t = this.lt(typed);
+      return { c: this.platformOnly(node, this.ctx.reg.cpp(t)), t };
     }
+    if (guard && guard.platform !== this.ctx.platform) return this.expr(node.whenFalse);
+    if (guard && !guard.rest.length) return this.expr(node.whenTrue);
     const t = this.lt(node);
-    const c = this.cond(node.condition);
+    const c = guard ? guard.rest.map((r) => this.cond(r)).join(" && ") : this.cond(node.condition);
     const a = this.expr(node.whenTrue, t);
     const b = this.expr(node.whenFalse, t);
     return { c: `(${c} ? ${this.coerce(a, t, node.whenTrue)} : ${this.coerce(b, t, node.whenFalse)})`, t };
