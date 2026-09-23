@@ -119,11 +119,12 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     if (d.kind !== "class") throw new Error("not a class");
     // Swift's base name and labels, as in the selector: stable whatever else the protocol declares.
     expect(d).toMatchObject({ interface: true });
-    expect(d.methods).toEqual([
+    expect(d.methods).toMatchObject([
       { name: "loader_didLoad", selector: "loader:didLoadData:", params: [{ name: "loader", type: "Widgets.WDGLoader" }, { name: "data", type: "NSData" }], returns: "void" },
       { name: "loader_didFailWithError", selector: "loader:didFailWithError:", params: [{ name: "loader", type: "Widgets.WDGLoader" }, { name: "error", type: "error" }], returns: "void", optional: true },
       { name: "loaderShouldRetry", selector: "loaderShouldRetry:", params: [{ name: "loader", type: "Widgets.WDGLoader" }], returns: "bool", optional: true },
     ]);
+    expect(d.methods![0]).not.toHaveProperty("optional");
     expect(method("area")).toHaveLength(1);
   });
 

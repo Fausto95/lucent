@@ -153,6 +153,11 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     expect("schema" in r && { header: r.schema.header, frameworks: r.schema.frameworks }).toEqual({ header: "Security/Security.h", frameworks: ["Security"] });
   });
 
+  it("imports an SDK framework through the umbrella header its module map names", () => {
+    const r = sdkModule("ios", "_LocationEssentials");
+    expect("schema" in r && r.schema.header).toBe("_LocationEssentials/LocationEssentials.h");
+  });
+
   it("names the fix when there is no Xcode", () => {
     const r = sdkModule("ios", "UIKit", { cacheDir: tmp("lucent-cache-"), ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") }, prebuilt: false });
     expect(r).toEqual({ missing: expect.stringMatching(/iOS SDK.*not found.*xcode-select/s) });

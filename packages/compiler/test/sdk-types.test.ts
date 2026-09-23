@@ -53,7 +53,7 @@ describe("SDK declarations", () => {
     expect(dts).toContain("  countWhere(predicate: (arg0: string) => boolean): number;");
   });
 
-  it("declares protocols as interfaces Lucent classes implement, optional requirements optional", () => {
+  it("declares protocols structurally, so Lucent classes implement them; optional requirements optional", () => {
     const d = sdkDts({
       platform: "ios",
       module: "Widgets",
@@ -71,11 +71,19 @@ describe("SDK declarations", () => {
         { kind: "class", name: "WDGLoader", native: "WDGLoader", implements: ["WDGLoaderDelegate"], properties: [{ name: "delegate", type: "WDGLoaderDelegate?", setter: "setDelegate:", weak: true }] },
       ],
     });
-    expect(d).toContain("export declare interface WDGLoaderDelegate {");
+    // Abstract classes without a brand: structural, and they keep Java interfaces' constants.
+    expect(d).toContain("export declare abstract class WDGLoaderDelegate {");
+    expect(d).not.toContain("__lucent_WDGLoaderDelegate");
     expect(d).toContain("  loader_didLoad(loader: WDGLoader, data: Uint8Array): void;");
     expect(d).toContain("  loaderShouldRetry?(loader: WDGLoader): boolean;");
     expect(d).toContain("export declare interface WDGLoader extends WDGLoaderDelegate {}");
     expect(d).toContain("  delegate: WDGLoaderDelegate | null;");
+  });
+
+  it("re-exports the implementation modules it uses, as module maps' export * does", () => {
+    const d = sdkDts({ platform: "ios", module: "CoreLocation", types: [{ kind: "class", name: "CLLocationManager", native: "CLLocationManager", properties: [{ name: "location", type: "_LocationEssentials.CLLocation?", readonly: true }] }] });
+    expect(d).toContain('import type { CLLocation } from "lucent:ios/_LocationEssentials";');
+    expect(d).toContain('export * from "lucent:ios/_LocationEssentials";');
   });
 
   it("adds a promise overload for completion handlers Swift imports as async", () => {
