@@ -82,6 +82,11 @@ class Array {
 
   /// Unchecked element read for compiler-proven in-bounds indexes.
   T at(size_t i) const { return static_cast<T>((*d_)[i]); }
+  /// `a[i]` for an index the compiler knows is an integer.
+  Opt<T> getIndex(int64_t index) const {
+    if (index >= 0 && static_cast<uint64_t>(index) < d_->size()) return static_cast<T>((*d_)[static_cast<size_t>(index)]);
+    return undefined;
+  }
   /// `a[i]`: undefined when out of bounds.
   Opt<T> get(double index) const {
     if (index >= 0 && index < static_cast<double>(d_->size()) && std::trunc(index) == index) {

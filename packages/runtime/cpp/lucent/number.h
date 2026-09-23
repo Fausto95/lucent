@@ -24,13 +24,14 @@ inline int32_t toInt32(double v) {
 inline uint32_t toUint32(double v) { return static_cast<uint32_t>(toInt32(v)); }
 
 inline double jsMod(double a, double b) {
-  // Integer operands with a positive divisor: an integer remainder, keeping
-  // the dividend's sign (including -0) as JavaScript does.
-  if (a >= -2147483648.0 && a <= 2147483647.0 && b >= 1.0 && b <= 2147483647.0) {
-    auto ia = static_cast<int32_t>(a);
-    auto ib = static_cast<int32_t>(b);
-    if (ia == a && ib == b) {
-      int32_t r = ia % ib;
+  // Exact integer operands with a positive divisor: an integer remainder,
+  // keeping the dividend's sign (including -0) as JavaScript does.
+  constexpr double kExact = 9007199254740992.0;  // 2^53
+  if (a >= -kExact && a <= kExact && b >= 1.0 && b <= kExact) {
+    auto ia = static_cast<int64_t>(a);
+    auto ib = static_cast<int64_t>(b);
+    if (static_cast<double>(ia) == a && static_cast<double>(ib) == b) {
+      int64_t r = ia % ib;
       return r == 0 && std::signbit(a) ? -0.0 : static_cast<double>(r);
     }
   }
