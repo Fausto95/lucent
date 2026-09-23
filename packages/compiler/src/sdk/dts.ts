@@ -49,6 +49,14 @@ export function sdkDts(schema: SdkModuleSchema): string {
         }
         case "classOf":
           return `{ readonly prototype: ${t.param} }`;
+        case "error":
+          return "Error";
+        case "fn": {
+          // The block's arguments come from the platform; its result goes back.
+          const ps = t.params.map((x, i) => `arg${i}: ${tsType(x, true)}`).join(", ");
+          const fn = `(${ps}) => ${tsType(t.ret, false)}`;
+          return t.nullable ? `(${fn})` : fn;
+        }
         case "tparam":
           return t.name;
         case "ref":
@@ -112,7 +120,10 @@ function classDts(schema: SdkModuleSchema, cls: SdkClassSchema, tsType: (t: SdkT
   for (const p of (cls.properties ?? []).filter((x) => !methodNames.has(`${!!x.static}:${x.name}`))) out.push(`${memberDoc(p)}  ${p.static ? "static " : ""}${p.readonly ? "readonly " : ""}${p.name}: ${tsType(parse(p.type))};`);
   for (const m of cls.methods ?? []) {
     const tps = m.typeParams ?? [];
-    out.push(`${memberDoc(m)}  ${m.static ? "static " : ""}${m.name}${tps.length ? `<${tps.join(", ")}>` : ""}(${params(m.params, tps)}): ${tsType(parse(m.returns, tps))};`);
+    const head = `${memberDoc(m)}  ${m.static ? "static " : ""}${m.name}${tps.length ? `<${tps.join(", ")}>` : ""}`;
+    out.push(`${head}(${params(m.params, tps)}): ${tsType(parse(m.returns, tps))};`);
+    // Without its completion handler: a promise of what the handler receives.
+    if (m.async) out.push(`${head}(${params(m.params.slice(0, -1), tps)}): Promise<${tsType(parse(m.async.returns, tps))}>;`);
   }
   out.push("}");
   if (cls.implements?.length) out.push(`export declare interface ${cls.name} extends ${cls.implements.map((i) => tsType(parse(i))).join(", ")} {}`);

@@ -27,6 +27,10 @@ export type SdkType =
   /** A C out-parameter (`CFTypeRef *`). */
   | { k: "out"; of: SdkType; nullable: boolean }
   | { k: "classOf"; param: string; nullable: boolean }
+  /** A block (iOS): `escaping` when it outlives the call, `main` when it runs on the main thread. */
+  | { k: "fn"; params: SdkType[]; ret: SdkType; escaping: boolean; main: boolean; nullable: boolean }
+  /** Swift's Error (an NSError): a Lucent Error. */
+  | { k: "error"; nullable: boolean }
   | { k: "tparam"; name: string; nullable: boolean }
   | { k: "ref"; module: string; name: string; nullable: boolean };
 
@@ -37,13 +41,66 @@ const JNI_PRIM: Record<string, string> = { void: "V", boolean: "Z", bool: "Z", b
 
 /** Parses a schema type; bare names refer to `module`. */
 export function parseSdkType(s: string, module = "", typeParams: readonly string[] = []): SdkType {
-  if (s.endsWith("?")) return { ...parseSdkType(s.slice(0, -1), module, typeParams), nullable: true };
-  if (s.endsWith("[]")) return { k: "array", of: parseSdkType(s.slice(0, -2), module, typeParams), nullable: false };
-  const generic = /^(Record|Out)<(.+)>$/.exec(s);
-  if (generic) {
-    const of = parseSdkType(generic[2]!, module, typeParams);
-    return generic[1] === "Record" ? { k: "record", of, nullable: false } : { k: "out", of, nullable: false };
-  }
+  const toks = s.match(/@\w+|=>|[()[\]<>?,]|[\w.$]+/g) ?? [];
+  let p = 0;
+  const expect = (t: string) => {
+    if (toks[p++] !== t) throw new Error(`schema type ${s}: expected ${t}`);
+  };
+  const type = (): SdkType => {
+    let t = primary();
+    for (;;) {
+      if (toks[p] === "?") {
+        p++;
+        // An optional block is stored, so it escapes.
+        t = t.k === "fn" ? { ...t, escaping: true, nullable: true } : { ...t, nullable: true };
+      } else if (toks[p] === "[" && toks[p + 1] === "]") {
+        p += 2;
+        t = { k: "array", of: t, nullable: false };
+      } else return t;
+    }
+  };
+  const primary = (): SdkType => {
+    const attrs: string[] = [];
+    while (toks[p]?.startsWith("@")) attrs.push(toks[p++]!);
+    if (toks[p] === "(") {
+      p++;
+      const items: SdkType[] = [];
+      while (toks[p] !== ")") {
+        items.push(type());
+        if (toks[p] === ",") p++;
+        else break;
+      }
+      expect(")");
+      if (toks[p] === "=>") {
+        p++;
+        return { k: "fn", params: items, ret: type(), escaping: attrs.includes("@escaping"), main: attrs.includes("@main"), nullable: false };
+      }
+      if (items.length !== 1 || attrs.length) throw new Error(`schema type ${s}: expected =>`);
+      return items[0]!;
+    }
+    const name = toks[p++];
+    if (!name || !/^[\w.$]+$/.test(name)) throw new Error(`schema type ${s}: unexpected ${name ?? "end"}`);
+    if (toks[p] === "<") {
+      p++;
+      if (name === "Class") {
+        const param = toks[p++]!;
+        expect(">");
+        return { k: "classOf", param, nullable: false };
+      }
+      const of = type();
+      expect(">");
+      if (name === "Record") return { k: "record", of, nullable: false };
+      if (name === "Out") return { k: "out", of, nullable: false };
+      throw new Error(`schema type ${s}: unknown generic ${name}`);
+    }
+    return named(name, module, typeParams);
+  };
+  const t = type();
+  if (p !== toks.length) throw new Error(`schema type ${s}: unexpected ${toks[p]}`);
+  return t;
+}
+
+function named(s: string, module: string, typeParams: readonly string[]): SdkType {
   switch (s) {
     case "NSData":
       return { k: "bytes", nullable: false };
@@ -53,6 +110,8 @@ export function parseSdkType(s: string, module = "", typeParams: readonly string
       return { k: "date", nullable: false };
     case "id":
       return { k: "id", nullable: false };
+    case "error":
+      return { k: "error", nullable: false };
     case "CFTypeRef":
     case "CFNumber":
       return { k: "id", nullable: false, cf: true };
@@ -65,8 +124,6 @@ export function parseSdkType(s: string, module = "", typeParams: readonly string
     case "CFBoolean":
       return { k: "prim", name: "bool", nullable: false };
   }
-  const classOf = /^Class<(\w+)>$/.exec(s);
-  if (classOf) return { k: "classOf", param: classOf[1]!, nullable: false };
   if (s === "string") return { k: "string", nullable: false };
   if (s === "CharSequence") return { k: "string", nullable: false, charSequence: true };
   if ((PRIMS as readonly string[]).includes(s)) return { k: "prim", name: s as PrimName, nullable: false };
@@ -145,6 +202,8 @@ export function jniDescriptor(params: string[], returns: string, typeParams: rea
       case "id":
       case "record":
       case "out":
+      case "fn":
+      case "error":
         return fail(`${t.k} is not a Java type`);
       case "ref": {
         if (t.module === "java.lang") return `Ljava/lang/${t.name};`;

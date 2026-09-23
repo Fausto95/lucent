@@ -158,6 +158,7 @@ function boxed(t: SdkType, c: string): string {
 }
 
 function toObjc(em: FnEmitter, arg: ts.Expression, t: SdkType, owned = false): string {
+  if (t.k === "fn" || t.k === "error") fail(arg, Codes.UnsupportedType, `passing ${t.k === "fn" ? "functions" : "errors"} to Objective-C is not supported yet`);
   const scalar = ((): LType | undefined => {
     switch (t.k) {
       case "prim":
@@ -613,7 +614,9 @@ export function nativeCall(em: FnEmitter, node: ts.CallExpression, obj: E | unde
   if (isStatic === !!obj) return undefined;
   const name = (decl.name as ts.Identifier).text;
   const index = (decl.parent as ts.ClassDeclaration).members.filter((m) => ts.isMethodDeclaration(m) && (m.name as ts.Identifier).text === name).indexOf(decl);
-  const method = (ref.cls.methods ?? []).filter((m) => m.name === name)[index]!;
+  // The declarations' order: each method, then its promise form (sdkDts).
+  const { method, promise } = (ref.cls.methods ?? []).filter((m) => m.name === name).flatMap((m) => [{ method: m, promise: false }, ...(m.async ? [{ method: m, promise: true }] : [])])[index]!;
+  if (promise) fail(node, Codes.UnsupportedCall, `${ref.cls.name}.${name}() as a promise is not supported yet: pass the completion handler`);
   requireMain(em, node, ref, method);
   if (!obj) requireAvailable(em, node, ref, ref.cls.since, ref.cls.name);
   requireAvailable(em, node, ref, method.since, `${ref.cls.name}.${method.name}`);

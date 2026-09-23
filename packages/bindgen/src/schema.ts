@@ -60,6 +60,12 @@ export interface SdkMethodSchema extends SdkCallable {
   java?: string;
   /** Reports failure through a trailing NSError** (Swift `throws`). */
   throws?: boolean;
+  /**
+   * The last parameter is a completion block that Swift also imports as
+   * `async` (iOS): the method can be called without it, for a promise of
+   * `returns`, rejected with the block's error when `throws`.
+   */
+  async?: { returns: string; throws?: boolean };
 }
 
 export interface SdkPropertySchema {
