@@ -309,14 +309,24 @@ function tsKey(m: SdkMethodSchema): string {
   return `${m.static ? "static " : ""}${m.name}(${m.params.map((p) => one(p.type)).join(",")})`;
 }
 
+// Which overload a JavaScript number picks when several collide: int first.
+const NUMBER_RANK: Record<string, number> = { int: 0, long: 1, double: 2, float: 3, short: 4, byte: 5, char: 6 };
+const rank = (m: SdkMethodSchema) => m.params.map((p) => NUMBER_RANK[p.type] ?? 0);
+const before = (a: number[], b: number[]) => {
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i]! < b[i]!;
+  return false;
+};
+
 function renameOverloads(methods: SdkMethodSchema[]): void {
-  const seen = new Set<string>();
+  const keepers = new Map<string, SdkMethodSchema>();
   for (const m of methods) {
     const key = tsKey(m);
-    if (!seen.has(key)) {
-      seen.add(key);
-      continue;
-    }
+    const k = keepers.get(key);
+    if (!k || before(rank(m), rank(k))) keepers.set(key, m);
+  }
+  const seen = new Set(keepers.keys());
+  for (const m of methods) {
+    if (keepers.get(tsKey(m)) === m) continue;
     const javaName = m.name;
     m.name = `${javaName}_${m.params.map((p) => p.type.replace(/\?$/, "").replace(/\[\]/g, "Array").split(".").pop()).join("_")}`;
     m.java = javaName;
