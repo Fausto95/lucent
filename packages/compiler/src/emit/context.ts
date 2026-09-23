@@ -43,6 +43,8 @@ export class Ctx {
   platform?: Platform;
   /** Per module: includes and checks its platform glue needs. */
   readonly frameworks = new Set<string>();
+  /** Java classes the Android glue names (JNI), which the app's shrinker must keep. */
+  readonly javaClasses = new Set<string>();
   readonly nativeUnits = new Map<LucentModule, { includes: Set<string>; lines: Set<string> }>();
   /** Target types of JSON.parse, which get generated readers. */
   readonly jsonReads = new Map<string, LType>();

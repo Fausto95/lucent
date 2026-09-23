@@ -441,7 +441,7 @@ function toJni(em: FnEmitter, ref: SdkClassRef, arg: ts.Expression, t: SdkType):
       const named = sdkClassNamed(em, arg);
       if (!named) fail(arg, Codes.UnsupportedSyntax, "pass the class itself (for example `Vibrator`)");
       requireAvailable(em, arg, named, named.cls.since, named.cls.name);
-      return `lucent::jni::findClass(${cppQuoted(named.cls.native)})`;
+      return `lucent::jni::findClass(${javaClass(em, named.cls.native)})`;
     }
     case "ref": {
       const lt: LType = { k: "native", platform: ref.platform, module: t.module, name: t.name };
@@ -465,7 +465,7 @@ function javaProxy(em: FnEmitter, arg: ts.Expression, f: E, t: SdkType & { k: "r
   const sam = iface?.kind === "class" && iface.functional ? iface.methods?.find((m) => m.name === iface.functional && m.abstract) : undefined;
   if (iface?.kind !== "class" || !sam) fail(arg, Codes.UnsupportedType, `${t.name} has more than one method to implement: pass an object of a class implementing it`);
   const entry = proxyEntry(em, arg, t.module, iface.name, sam, f.t as LType & { k: "fn" }, "f_", (a) => `f_(${a.join(", ")})`);
-  return `({ auto f_ = ${f.c}; lucent::jni::proxyFor(env, ${cppQuoted(iface.native)}, f_.identity(), {${entry}}); })`;
+  return `({ auto f_ = ${f.c}; lucent::jni::proxyFor(env, ${javaClass(em, iface.native)}, f_.identity(), {${entry}}); })`;
 }
 
 /**
@@ -547,7 +547,7 @@ function javaObjectOfClass(em: FnEmitter, e: E, to: LType & { k: "native" }, nod
     entries.push(proxyEntry(em, impl, to.module, iface.name, m, fn, "s_ = o_", (a) => `s_->${cppIdent(m.name)}(${a.join(", ")})`));
   }
   em.ctx.nativeUnit(em.opts.module).includes.add("#include <lucent/platform/android.h>");
-  return `({ auto o_ = ${e.c}; lucent::jni::proxyFor(lucent::jni::env(), ${cppQuoted(iface.native)}, o_.get(), {${entries.join(", ")}}); })`;
+  return `({ auto o_ = ${e.c}; lucent::jni::proxyFor(lucent::jni::env(), ${javaClass(em, iface.native)}, o_.get(), {${entries.join(", ")}}); })`;
 }
 
 /** A Lucent result as the boxed object a proxy method returns. */
@@ -566,6 +566,12 @@ function boxJava(node: ts.Node, t: SdkType, c: string, what: string): string {
     default:
       return `lucent::jni::boxInt(env, lucent::toInt32(${c}))`;
   }
+}
+
+/** A Java class the glue names (JNI), as a C++ string; recorded for the app's shrinker to keep. */
+function javaClass(em: FnEmitter, internal: string): string {
+  em.ctx.javaClasses.add(internal);
+  return cppQuoted(internal);
 }
 
 /** byte[] ↔ Uint8Array, String[] ↔ string[], int[]/long[] ↔ number[]: copied. */
@@ -615,7 +621,7 @@ function jniCall(em: FnEmitter, opts: { cls: SdkClassSchema; lookup: string; nam
     "JNIEnv* env = lucent::jni::env();",
     ...(opts.pre ?? []),
     "lucent::jni::LocalFrame frame_(env);",
-    `static jclass cls_ = lucent::jni::findClass(${cppQuoted(opts.cls.native)});`,
+    `static jclass cls_ = lucent::jni::findClass(${javaClass(em, opts.cls.native)});`,
     `static auto id_ = lucent::jni::${opts.lookup}(cls_, ${cppQuoted(opts.name)}, ${cppQuoted(opts.desc)});`,
     result ? `${opts.access("id_")};` : `auto r_ = ${opts.access("id_")};`,
     "lucent::jni::check(env);",

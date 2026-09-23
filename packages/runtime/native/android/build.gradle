@@ -12,6 +12,8 @@ android {
   compileSdk safeExtGet("compileSdkVersion", 36)
   defaultConfig {
     minSdk safeExtGet("minSdkVersion", 24)
+    // Written by lucent build: what the JNI glue finds by name, kept from the app's shrinker.
+    consumerProguardFiles "consumer-rules.pro"
   }
 }
 

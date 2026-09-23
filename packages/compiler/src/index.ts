@@ -65,7 +65,10 @@ function compileWith(files: string[], options: CompileOptions): CompileResult {
     for (const [name, content] of result.files) out.files.set(`${target}/${name}`, content);
     for (const [name, proxy] of result.proxies) out.proxies.set(name, proxy);
     if (target === "ios") out.frameworks = result.frameworks;
-    if (target === "android") out.java = result.java;
+    if (target === "android") {
+      out.java = result.java;
+      out.javaKeep = result.javaKeep;
+    }
   }
   out.diagnostics = dedupe(out.diagnostics);
   out.ok = out.diagnostics.length === 0;
