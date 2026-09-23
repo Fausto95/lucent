@@ -1,0 +1,88 @@
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { extractIos } from "../src/ios.ts";
+
+const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/objc");
+const xcode = process.platform === "darwin" && spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"]).status === 0;
+
+describe.skipIf(!xcode)("iOS extractor", () => {
+  const modules = xcode ? extractIos({ modules: ["Widgets"], includePaths: [fixtures] }) : [];
+  const mod = () => modules.find((m) => m.module === "Widgets")!;
+  const type = (name: string) => {
+    const t = mod().types.find((x) => x.name === name);
+    if (!t) throw new Error(`no type ${name}`);
+    return t;
+  };
+  const widget = () => {
+    const t = type("WDGWidget");
+    if (t.kind !== "class") throw new Error("not a class");
+    return t;
+  };
+  const method = (name: string) => widget().methods!.filter((m) => m.name === name);
+
+  it("reads Objective-C classes and protocols with Swift names and the main-actor rule", () => {
+    expect(mod().platform).toBe("ios");
+    expect(widget()).toMatchObject({ native: "WDGWidget", mainActor: true, implements: ["Widgets.WDGShape"] });
+    expect(type("WDGShape")).toMatchObject({ kind: "class", native: "WDGShape", interface: true });
+  });
+
+  it("gives enums and options their values, implicit ones counted from the last explicit value", () => {
+    expect(type("WDGStyle")).toEqual({
+      kind: "enum",
+      name: "WDGStyle",
+      native: "WDGStyle",
+      cases: [
+        { name: "light", native: "WDGStyleLight", value: 0 },
+        { name: "medium", native: "WDGStyleMedium", value: 1 },
+        { name: "heavy", native: "WDGStyleHeavy", value: 10 },
+        { name: "rigid", native: "WDGStyleRigid", value: 11 },
+      ],
+    });
+    expect(type("WDGEdges")).toMatchObject({ kind: "enum", cases: [{ name: "top", value: 1 }, { name: "bottom", value: 2 }] });
+  });
+
+  it("maps initializers, factories and class properties to their selectors", () => {
+    expect(widget().constructors).toEqual([
+      { params: [], selector: "init" },
+      { params: [{ name: "style", type: "Widgets.WDGStyle" }], selector: "initWithStyle:" },
+    ]);
+    expect(method("named")[0]).toMatchObject({ static: true, selector: "widgetNamed:", params: [{ name: "name", type: "string" }], returns: "Widgets.WDGWidget" });
+    const props = Object.fromEntries(widget().properties!.map((p) => [p.name, p]));
+    expect(props.shared).toMatchObject({ static: true, readonly: true, selector: "sharedWidget", type: "Widgets.WDGWidget" });
+    expect(props.name).toMatchObject({ type: "string", setter: "setName:" });
+    expect(props.name!.readonly).toBeFalsy();
+    expect(props.label).toMatchObject({ type: "string?", setter: "setLabel:" });
+    expect(props.isEnabled).toMatchObject({ readonly: true, selector: "isEnabled", type: "bool" });
+    expect(props.edges).toMatchObject({ type: "Widgets.WDGEdges" });
+    expect(props.size).toMatchObject({ type: "uint64" });
+  });
+
+  it("types parameters and results: nullability, collections, data, dates, id", () => {
+    expect(method("touch")[0]).toMatchObject({ selector: "touch:other:", params: [{ type: "Widgets.WDGShape" }, { type: "Widgets.WDGWidget?" }], returns: "void" });
+    expect(method("tags")[0]!.returns).toBe("string[]");
+    expect(method("data")[0]).toMatchObject({ selector: "dataForKey:", returns: "NSData?" });
+    expect(method("attributes")[0]!.returns).toBe("Record<id>");
+    expect(method("setObject")[0]!.params.map((p) => p.type)).toEqual(["id", "string"]);
+    expect(method("modified")[0]!.returns).toBe("NSDate?");
+  });
+
+  it("turns NSError** into throws", () => {
+    // Swift's view: the BOOL result becomes the error signal.
+    expect(method("save")[0]).toMatchObject({ selector: "saveToPath:error:", throws: true, params: [{ name: "path", type: "string" }], returns: "void" });
+  });
+
+  it("appends labels to overloads that collide once labels are dropped", () => {
+    expect(method("impact").map((m) => m.selector)).toEqual(["impact", "impactWithIntensity:"]);
+    expect(method("resize").map((m) => m.selector)).toEqual(["resizeToWidth:"]);
+    expect(method("resizeHeight").map((m) => m.selector)).toEqual(["resizeToHeight:"]);
+  });
+
+  it("records availability, C functions and constants, and what it skips", () => {
+    expect(method("modern")[0]!.since).toBe("16.0");
+    expect(mod().functions).toEqual([{ name: "WDGDistance", params: [{ name: "a", type: "Widgets.WDGWidget" }, { name: "b", type: "Widgets.WDGWidget" }], returns: "double" }]);
+    expect(mod().constants).toEqual(expect.arrayContaining([{ name: "WDGVersionString", type: "string" }]));
+    expect(mod().skipped!.some((s) => s.startsWith("WDGWidget.fetch(completion:)"))).toBe(true);
+  });
+});
