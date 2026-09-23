@@ -52,13 +52,19 @@ Done:
       errors log to logcat and the unified log; Lucent names no longer shadow
       the glue's (`id`); parameter-property functions can be called.
 
-Left:
+- [x] netinfo port (fetch, and event listeners): the Network framework's path
+      monitor on iOS (OS objects, anonymous C enums, typealiased blocks,
+      `mainQueue()`), a Lucent `NetworkCallback` on Android. Parity with
+      @react-native-community/netinfo in both apps.
+- [x] Release tests: an Objective-C++ runtime test on the macOS host (ARC,
+      ASan): blocks release what they hold, the object cache is weak, and
+      ErrorOut retains once.
+- [x] Debug builds report the native references left at teardown.
+- [x] Acceptance: all three ports pass next to the originals on the iOS
+      simulator and the Android emulator. Bare 23/23 and Expo 36/36 on both
+      platforms, on 2026-09-23.
 
-- [ ] netinfo port. iOS needs the Network framework's C API: opaque handle
-      types (`nw_path_t`), typealiased block types, and a dispatch queue.
-- [ ] Tests of callback release, and no leaks under ASan.
-- [ ] Debug builds report live native references at teardown.
-- [ ] All three ports next to the originals on devices, bare and Expo.
+Phase 1 is complete; what remains of it is postponed below.
 
 Postponed:
 
@@ -86,6 +92,10 @@ Postponed:
 ## Phase 2: build and test reliability
 
 - [x] SDK-bound tests skip without the SDK (Android gated like iOS).
+- [x] The android.jar descriptor test runs one javap per package (37 s → 1 s).
+- [ ] Tests leave temporary projects behind: 5,291 `lucent-*` directories
+      (9 GB) in the temp directory after a day of runs. Helpers should remove
+      what they make.
 - [ ] A failed Gradle resolution is recorded with its input hash, so it is
       retried only when the inputs change.
 - [ ] Classpath staleness hashes settings.gradle, libs.versions.toml,
