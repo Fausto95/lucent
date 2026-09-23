@@ -344,7 +344,8 @@ export function f(): string {
       { platforms: ["host"] },
     );
     const byLine = Object.fromEntries(r.diagnostics.map((d) => [d.line, d.message]));
-    expect(byLine[5]).toMatch(/exported.*exported.*both platforms.*lucent:android/);
+    // An export runs on both platforms: its platform code is reported where it is used.
+    expect(byLine[6]).toMatch(/Build.*lucent:android.*PLATFORM === "android"/);
     expect(byLine[8]).toMatch(/both.*lucent:ios.*lucent:android/);
     expect(byLine[12]).toMatch(/iosName.*iOS.*PLATFORM === "ios"/);
     expect(codes(r).every((c) => c === "LUCENT3004")).toBe(true);
