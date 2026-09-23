@@ -37,13 +37,14 @@ dependency.
   closures, generics, `async`/`await`, errors
 - JS callbacks, promises and `AbortSignal` across the boundary
 - `lucent build` / `lucent check`, the Metro transformer and the Expo plugin
-- Early platform modules (`*.ios.lucent.ts` / `*.android.lucent.ts`) on
-  hand-written SDK bindings
+- Early platform modules (`*.ios.lucent.ts` / `*.android.lucent.ts`):
+  Android bindings generated from `android.jar`, iOS a hand-written UIKit
+  subset
 
 ## Not yet
 
 - Testing on physical devices (simulators and emulators pass)
-- Generated platform API bindings (M2)
+- Generated iOS bindings, delegates and protocols (M2)
 - Views (M3)
 - npm publish
 
