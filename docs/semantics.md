@@ -31,16 +31,20 @@ let counter = 0;                                      // module state, reset on 
 ```
 
 * The top level may only contain declarations.
-* Imports are limited to other `*.lucent.ts` files and `@lucent-lang/core`, and
-  in platform files to platform SDKs (below).
+* Imports are limited to other `*.lucent.ts` files, `@lucent-lang/core`, and
+  the `lucent:` platform modules (below).
 * Module names are file names without `.lucent.ts`, and must be unique within an app.
 
-### Platform modules
+### Platform code
 
-`<name>.ios.lucent.ts` and `<name>.android.lucent.ts` implement the exports
-that `<name>.lucent.ts` declares; `lucent:ios/*`, `lucent:android/*` and
-`lucent:thread` resolve only in them. The rules are in
-[platform-bindings.md](platform-bindings.md).
+A module uses both platforms' SDKs (`lucent:ios/*`, `lucent:android/*`) and
+branches on `PLATFORM` from `lucent:platform`: `if (PLATFORM === "ios") { … }
+else { … }`. Each platform compiles its own branch, and the top-level
+declarations that use its SDK. This is the standard way to write platform
+code. Splitting a module into `<name>.ios.lucent.ts` and
+`<name>.android.lucent.ts`, implementing what `<name>.lucent.ts` declares, is
+the alternative for modules whose platform halves share nothing. The rules
+are in [platform-bindings.md](platform-bindings.md).
 
 ## Types
 

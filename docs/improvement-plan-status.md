@@ -226,8 +226,14 @@ classes (NSMapTable, NSHashTable, NSLayoutAnchor), protocol compositions
 - [x] Top-level declarations take the platform whose SDK they use outside a
       branch (delegate classes, SDK-typed state, helpers), transitively; they
       compile on that target only. Exports stay shared.
+- [x] One module is the standard way to write platform code (docs, CLI help,
+      smoke-install); split platform files are the opt-in alternative. The
+      ports (application, callbacks, clipboard, device, files,
+      local-authentication, location, netinfo, probe, linked) and both example
+      packages are single modules; both apps' checks and smoke-install pass.
 - Left: `switch (PLATFORM)`, and conditions combining a platform test with
-  others (`PLATFORM === "ios" && …`).
+  others (`PLATFORM === "ios" && …`); README's "Today" list still describes
+  platform files (README belongs to the other session).
 
 ## Phase 5: typed IR
 

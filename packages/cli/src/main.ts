@@ -10,8 +10,9 @@ Usage:
   lucent build [--root <dir>] [--out <dir>] [--force] [--platforms ios,android,host]
                                              Compile and write the native package (default out: <root>/.lucent/native);
                                              skipped when nothing changed since the last build, unless --force.
-                                             Platform modules (*.ios.lucent.ts, *.android.lucent.ts) are built for
-                                             --platforms (default ios,android; host: stubs, for tests and tools)
+                                             Modules with platform code (PLATFORM branches, or *.ios/*.android.lucent.ts
+                                             files) are built for --platforms (default ios,android; host: platform
+                                             code throws, for tests and tools)
   lucent build --watch [--root <dir>]         Build, then rebuild whenever a *.lucent.ts file changes
   lucent check [--root <dir>]                 Type-check and validate without writing anything
   lucent sdk prefetch [--ios A,B] [--android p.q,…] [--all] [--root <dir>]
@@ -331,7 +332,7 @@ function init(root: string): number {
   process.stdout.write(
     "Next: wrap your Metro config with withLucent() from @lucent-lang/metro, and enable\n" +
       '"noUncheckedIndexedAccess": true in tsconfig.json (Lucent requires it).\n' +
-      'Platform modules (*.ios.lucent.ts, *.android.lucent.ts) import lucent:*; for your editor and tsc, add\n' +
+      'Platform code imports lucent:* (branch with PLATFORM from lucent:platform); for your editor and tsc, add\n' +
       '  "paths": { "lucent:*": ["./.lucent/native/types/*"] }\n' +
       'to the compilerOptions of tsconfig.json (lucent build writes those declarations).\n',
   );

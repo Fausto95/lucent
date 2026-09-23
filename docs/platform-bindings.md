@@ -5,33 +5,11 @@ modules, binding schemas extracted on demand from the installed SDKs,
 Objective-C++ and JNI glue, and `main()`. This page describes the current
 behavior; the design document describes where it is going.
 
-## Platform modules
+## Platform code
 
-```
-haptics.lucent.ts          export declare function impactAsync(style?: ImpactStyle): Promise<void>;
-haptics.ios.lucent.ts      the iOS implementation (imports lucent:ios/…)
-haptics.android.lucent.ts  the Android implementation (imports lucent:android/…)
-```
-
-- The shared file may contain only `export declare function`s, types and
-  imports (LUCENT3005 otherwise). Put shared code and enums in another
-  module that all three import.
-- Each implementation must export exactly the declared values, with types
-  assignable to the declarations (LUCENT3005). JavaScript imports the shared
-  file, so it sees one API; the proxy and the JSI bindings are the same on
-  both platforms.
-- Each platform is checked in its own program: in platform files,
-  `lucent:ios/*` and `lucent:ios` resolve only in `.ios.lucent.ts` files,
-  `lucent:android/*` and `lucent:android` only in `.android.lucent.ts` files,
-  and `lucent:thread` in both (LUCENT3004 otherwise, and for SDK modules
-  without a schema).
-- Other modules import a platform module as usual (`./haptics.lucent`); calls
-  go to the platform's implementation.
-
-### Platform branches in one module
-
-A module without platform files can branch on `PLATFORM` from
-`lucent:platform` and use both platforms' SDKs:
+Platform code is written in one module, branching on `PLATFORM` from
+`lucent:platform`; that is the standard form. Splitting a module into one
+file per platform is the opt-in alternative (below).
 
 ```ts
 import { PLATFORM } from "lucent:platform";
@@ -61,20 +39,53 @@ export async function model(): Promise<string> {
   not installed, its modules are untyped there and TypeScript's errors in its
   code are ignored (that code is never emitted on that target); values that
   flow out of such a branch need a type annotation.
-- A module that branches is built per target, like platform modules, and is
+- A module that branches is built per target, like split modules, and is
   Objective-C++ (`.mm`) on iOS.
+
+The ports in `scripts/example-app/src/sdk` (expo-application, -clipboard,
+-device, -local-authentication, -location, netinfo) and the example packages
+`examples/lucent-haptics` and `examples/lucent-secure-store` are written this
+way: each export branches, and each platform's helpers, delegate classes and
+state sit in sections of their own.
+
+### Split into platform files (opt-in)
+
+When a module's platform halves share nothing, it can be split: a shared
+declaration file and one implementation per platform.
+
+```
+haptics.lucent.ts          export declare function impactAsync(style?: ImpactStyle): Promise<void>;
+haptics.ios.lucent.ts      the iOS implementation (imports lucent:ios/…)
+haptics.android.lucent.ts  the Android implementation (imports lucent:android/…)
+```
+
+- The shared file may contain only `export declare function`s, types and
+  imports (LUCENT3005 otherwise). Put shared code and enums in another
+  module that all three import.
+- Each implementation must export exactly the declared values, with types
+  assignable to the declarations (LUCENT3005). JavaScript imports the shared
+  file, so it sees one API; the proxy and the JSI bindings are the same on
+  both platforms.
+- Each platform is checked in its own program: in platform files,
+  `lucent:ios/*` and `lucent:ios` resolve only in `.ios.lucent.ts` files,
+  `lucent:android/*` and `lucent:android` only in `.android.lucent.ts` files,
+  and `lucent:thread` in both (LUCENT3004 otherwise, and for SDK modules
+  without a schema).
+- Other modules import a platform module as usual (`./haptics.lucent`); calls
+  go to the platform's implementation.
 
 ### Output
 
-Projects without platform modules keep the single layout,
-`.lucent/native/cpp/generated/*`. With platform modules, each target gets a
-complete set: `generated/ios/*` (platform modules as `.mm`, Objective-C++
+Projects without platform code keep the single layout,
+`.lucent/native/cpp/generated/*`. With platform code, each target gets a
+complete set: `generated/ios/*` (modules with iOS code as `.mm`, Objective-C++
 with ARC) and `generated/android/*`. The podspec compiles `generated/ios`,
 CMake compiles `generated/android`, and the podspec links the frameworks the
 iOS code imports.
 
 `lucent build --platforms host` writes `generated/host/*`, where platform
-modules' exports throw (or reject) "`<module>.<name>` is not available on this
+branches throw "this code runs only on iOS and Android" and split modules'
+exports throw (or reject) "`<module>.<name>` is not available on this
 platform". `scripts/app-check.ts` uses it to run the rest of an app in the
 Hermes host.
 

@@ -138,8 +138,16 @@ On the JavaScript side, each proxy calls
 Resolving `react-native` from the app's own location avoids picking up a second
 copy in monorepos.
 
-## Platform modules
+## Platform code
 
+A module branches on `PLATFORM` (lucent:platform), the standard form: every
+target's program resolves both platforms' SDK modules (untyped where an SDK
+is missing). `platformScopes` gives each top-level declaration the platform
+whose SDK it uses outside a branch and checks every use of platform code;
+the emitter leaves other platforms' declarations out and compiles the
+target's branch only (`platformTest`, all in `src/platforms.ts`).
+
+Split modules are the opt-in alternative:
 `haptics.ios.lucent.ts` and `haptics.android.lucent.ts` implement the exports
 `haptics.lucent.ts` declares. `compile()` plans modules
 (`src/platforms.ts`), then builds one program per target: the platform's files
@@ -151,12 +159,7 @@ complete file set under `<target>/`. Declarations of SDK classes lower to the
 its schema entry through the checker's resolved declaration and emits
 Objective-C++ message sends or JNI calls. The runtime side is
 `lucent/native.h` (NativeRef, `runOnMain`) and `lucent/platform/{ios,android}`.
-A shared module can also branch on `PLATFORM` (lucent:platform): every
-target's program resolves both platforms' SDK modules (untyped where an SDK
-is missing). `platformScopes` gives each top-level declaration the platform
-whose SDK it uses outside a branch and checks every use of platform code;
-the emitter leaves other platforms' declarations out and compiles the
-target's branch only (`platformTest`, all in `src/platforms.ts`). Details: [platform-bindings.md](platform-bindings.md).
+Details: [platform-bindings.md](platform-bindings.md).
 
 ## Editor diagnostics
 
