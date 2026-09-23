@@ -22,7 +22,7 @@ runtime/js           loader used by generated proxies
   end-to-end case in `packages/compiler/test/e2e/cases/` (`<name>.lucent.ts` +
   `<name>.test.js`). The runner compares native output with the same source
   run as JavaScript; a deviation needs a documented reason in
-  `docs/language.md`.
+  `docs/semantics.md`.
 - Unsupported features fail with a `LUCENT` diagnostic (`fail(node, Codes.X, …)`),
   never with invalid C++.
 - Generated C++ must not depend on unspecified evaluation order (see

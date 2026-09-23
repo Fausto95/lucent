@@ -84,6 +84,7 @@ concrete work. Checked items are implemented and covered by tests.
 ## Docs
 
 - [x] `README.md`
-- [x] `docs/language.md`: supported subset, boundary rules, concurrency, deviations
+- [x] `docs/semantics.md`: supported subset, boundary rules, concurrency, deviations
+- [x] `docs/testing.md`: Hermes harness, differential e2e, sanitizers, app check
 - [x] `docs/architecture.md`
 - [x] `AGENTS.md`

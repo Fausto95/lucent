@@ -168,13 +168,4 @@ changes version. TypeScript errors are left to TypeScript.
 
 ## Tests
 
-* `packages/runtime/test/run.sh`: runtime unit tests, including under
-  ASan/UBSan.
-* `packages/compiler/test/e2e/run.ts`: each case is compiled, built into a Hermes
-  host (`packages/runtime/test/jsi/harness.cpp`), and run through real JSI. The
-  same test script runs against the TypeScript source as plain JavaScript in
-  Node, and the outputs must match line for line.
-* `scripts/app-check.ts`: runs `lucent build` on an example app, builds the
-  generated C++ into the Hermes host, bundles the app's test screen code with the
-  app's own Metro config, and runs it. This is the whole device pipeline except
-  the platform build systems.
+See [testing.md](testing.md).

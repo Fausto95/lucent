@@ -1,14 +1,18 @@
-# The Lucent language
+# Lucent semantics
 
-Lucent is TypeScript, compiled ahead of time to C++. A `*.lucent.ts` file must
-type-check with TypeScript in strict mode, plus `noUncheckedIndexedAccess`.
-Lucent then accepts the subset described here. Everything it rejects gets a
-`LUCENT` diagnostic that points at the source.
+The specification of what Lucent accepts and how it behaves, for people
+working on the compiler and runtime. The user-facing tutorial is the website's
+Language section; when the two disagree, this file and the e2e cases win.
 
-The rule of thumb: **if it type-checks and uses features listed here, it behaves
-exactly like the same code running in JavaScript.** Where Lucent deviates, it
-throws rather than silently doing something different. The deviations are listed
-at the end.
+A `*.lucent.ts` file must type-check with TypeScript in strict mode, plus
+`noUncheckedIndexedAccess`. Lucent accepts the subset below; everything else
+gets a `LUCENT` diagnostic that points at the source, never invalid C++.
+
+**The contract: code that type-checks and uses only this subset behaves
+exactly like the same code running in JavaScript.** Where Lucent cannot match
+JavaScript, it throws rather than silently doing something different, and the
+deviation is listed in [Deviations](#deviations-from-javascript). Every item
+here is covered by a differential case ([testing.md](testing.md)).
 
 ## Modules
 
@@ -33,31 +37,10 @@ let counter = 0;                                      // module state, reset on 
 
 ### Platform modules
 
-A module can be implemented per platform against the iOS and Android SDKs:
-
-```ts
-// haptics.lucent.ts: the API, declarations only
-export declare function selectionAsync(): Promise<void>;
-
-// haptics.ios.lucent.ts
-import { UISelectionFeedbackGenerator } from "lucent:ios/UIKit";
-import { main } from "lucent:thread";
-export function selectionAsync(): Promise<void> {
-  return main(() => new UISelectionFeedbackGenerator().selectionChanged());
-}
-
-// haptics.android.lucent.ts
-import { VibrationEffect, Vibrator } from "lucent:android/android.os";
-import { appContext } from "lucent:android";
-export async function selectionAsync(): Promise<void> {
-  appContext().getSystemService(Vibrator)?.vibrate(VibrationEffect.createWaveform([0, 50], [0, 30], -1));
-}
-```
-
-Each implementation must export exactly what the shared file declares.
-Main-thread-only APIs (UIKit) must be used inside `main(() => …)`. Platform
-objects stay inside Lucent; return the values JavaScript needs. See
-[platform-bindings.md](platform-bindings.md) for the SDK coverage and rules.
+`<name>.ios.lucent.ts` and `<name>.android.lucent.ts` implement the exports
+that `<name>.lucent.ts` declares; `lucent:ios/*`, `lucent:android/*` and
+`lucent:thread` resolve only in them. The rules are in
+[platform-bindings.md](platform-bindings.md).
 
 ## Types
 
@@ -167,12 +150,11 @@ unspecified.
   current locale, like Hermes (CoreFoundation on iOS, `java.text.Collator` on
   Android).
 * **console.log / info / debug / warn / error**: written to os_log (iOS) or logcat (Android).
-* **Date.now()**.
+* **Date**: `new Date(…)`, `Date.now()`, `Date.parse`, `Date.UTC`, `get…`/`set…` in local time and UTC, `getTimezoneOffset`, `toISOString`, `toString`, `toDateString`, `toTimeString`, `toUTCString`; not the `toLocale…` methods.
 * **@lucent-lang/core**: `delay`, `error(code, message)`, `errorCode(e)`,
   `utf8Encode`, `utf8Decode`, `now()`.
 
-Not supported yet: `RegExp`, `Date` objects, `Intl`, `JSON.parse`, iterators
-and generators, `Symbol`, `WeakMap`, `Proxy`, `eval`. Each gives a clear
+Not supported: `Intl`, `Symbol`, `WeakMap`, `Proxy`, `eval`. Each gives a
 diagnostic.
 
 ## Crossing the JavaScript boundary
@@ -234,7 +216,7 @@ strong references (for example a parent and child that point at each other, or
 a closure stored on the object it captures) is never freed. Break such cycles
 explicitly, for example by clearing a field.
 
-## Where Lucent deviates from JavaScript
+## Deviations from JavaScript
 
 | JavaScript | Lucent |
 |---|---|
