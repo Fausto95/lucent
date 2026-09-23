@@ -1,7 +1,6 @@
 import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { extractAndroid, jarIndex } from "./android.ts";
@@ -42,8 +41,6 @@ export interface SdkOptions {
     lockfile?: string;
     xcrun?: string;
   };
-  /** Fall back to @lucent-lang/sdk-<platform> prebuilt caches when there is no local SDK (default true). */
-  prebuilt?: boolean;
 }
 
 export type SdkLookup = { schema: SdkModuleSchema } | { missing: string };
@@ -420,15 +417,6 @@ function locate(platform: Platform, opts: SdkOptions): Located | { missing: stri
   return l;
 }
 
-function prebuilt(platform: Platform, module: string): SdkModuleSchema | undefined {
-  try {
-    const dir = path.dirname(createRequire(import.meta.url).resolve(`@lucent-lang/sdk-${platform}/package.json`));
-    const file = path.join(dir, `${module}.json`);
-    return fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, "utf8")) as SdkModuleSchema) : undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 /** The schema of `lucent:<platform>/<module>`, extracting and caching it on first use. */
 export function sdkModule(platform: Platform, module: string, opts: SdkOptions = {}): SdkLookup {
@@ -438,10 +426,8 @@ export function sdkModule(platform: Platform, module: string, opts: SdkOptions =
   const hit = loaded.get(memo);
   if (hit) return hit;
   let result: SdkLookup;
-  if (!("dir" in sdk)) {
-    const p = opts.prebuilt !== false ? prebuilt(platform, module) : undefined;
-    result = p ? { schema: p } : sdk;
-  } else {
+  if (!("dir" in sdk)) result = sdk;
+  else {
     const file = path.join(sdk.dir, `${module}.json`);
     const read = (): SdkLookup | undefined => (fs.existsSync(file) ? { schema: JSON.parse(fs.readFileSync(file, "utf8")) as SdkModuleSchema } : undefined);
     result =
@@ -458,9 +444,9 @@ export function sdkModule(platform: Platform, module: string, opts: SdkOptions =
   return result;
 }
 
-/** Whether a platform's SDK is available (locally or prebuilt). */
+/** Whether a platform's SDK is installed. */
 export function sdkAvailable(platform: Platform, opts: SdkOptions = {}): boolean {
-  return "dir" in locate(platform, opts) || (opts.prebuilt !== false && prebuilt(platform, platform === "ios" ? "Foundation" : "android.os") !== undefined);
+  return "dir" in locate(platform, opts);
 }
 
 /** What identifies the SDKs a build uses (for build caches): stable while the SDKs are. */

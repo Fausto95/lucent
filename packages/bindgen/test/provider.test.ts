@@ -13,8 +13,8 @@ const T = (s: string, typeParams: string[] = []) => parseSchemaType(s, "", typeP
 
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 const javac = spawnSync("javac", ["-version"]).status === 0 && spawnSync("jar", ["--version"]).status === 0;
-const xcode = sdkAvailable("ios", { prebuilt: false });
-const androidSdk = sdkAvailable("android", { prebuilt: false });
+const xcode = sdkAvailable("ios");
+const androidSdk = sdkAvailable("android");
 
 function fixtureJar(dir: string): string {
   const sources = spawnSync("find", [path.join(fixtures, "java"), "-name", "*.java"], { encoding: "utf8" }).stdout.trim().split("\n");
@@ -100,7 +100,7 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
   });
 
   it("names the fix when there is no Android SDK", () => {
-    const r = sdkModule("android", "android.os", { cacheDir: tmp("lucent-cache-"), android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] }, prebuilt: false });
+    const r = sdkModule("android", "android.os", { cacheDir: tmp("lucent-cache-"), android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] } });
     expect(r).toEqual({ missing: expect.stringMatching(/Android SDK.*not found.*ANDROID_HOME/s) });
   });
 });
@@ -252,7 +252,7 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
   });
 
   it("names the fix when there is no Xcode", () => {
-    const r = sdkModule("ios", "UIKit", { cacheDir: tmp("lucent-cache-"), ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") }, prebuilt: false });
+    const r = sdkModule("ios", "UIKit", { cacheDir: tmp("lucent-cache-"), ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") } });
     expect(r).toEqual({ missing: expect.stringMatching(/iOS SDK.*not found.*xcode-select/s) });
   });
 });

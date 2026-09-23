@@ -12,7 +12,7 @@ export const page: DocPage = {
     {
       kind: "note",
       tone: "warn",
-      text: "`@lucent-lang/lucent` is **not published to npm yet**. Until it is, build its tarball from the repository with `pnpm pack` in `packages/lucent` (and in `packages/sdk-ios` and `packages/sdk-android`, which it depends on), then install the tarball.",
+      text: "`@lucent-lang/lucent` is **not published to npm yet**. Until it is, build its tarball from the repository with `pnpm pack` in `packages/lucent`, then install the tarball.",
     },
     {
       kind: "steps",

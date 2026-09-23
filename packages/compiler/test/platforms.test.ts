@@ -26,8 +26,8 @@ function tsErrors(platform: "ios" | "android", source: string): string[] {
 
 const codes = (r: { diagnostics: { code: string }[] }) => r.diagnostics.map((d) => d.code);
 
-// Most of these compile both platforms: they need an iOS SDK (Xcode, or the
-// prebuilt @lucent-lang/sdk-ios); hosts without one run the Android suites.
+// Most of these compile both platforms: they need an iOS SDK (Xcode); hosts
+// without one run the Android suites.
 const ios = sdkAvailable("ios");
 const android = sdkAvailable("android");
 
@@ -183,7 +183,7 @@ describe.skipIf(!ios)("platform modules", () => {
   });
 
   it("reports a missing SDK with the fix", () => {
-    const r = compile(project(haptics), { platforms: ["android"], sdk: { android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] }, prebuilt: false } });
+    const r = compile(project(haptics), { platforms: ["android"], sdk: { android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] } } });
     expect(r.diagnostics.map((d) => d.code)).toContain("LUCENT3004");
     expect(r.diagnostics.find((d) => d.code === "LUCENT3004")!.message).toMatch(/Android SDK.*not found.*ANDROID_HOME/s);
   });
@@ -317,7 +317,7 @@ describe("platform declarations in one module", () => {
   }, 600_000);
 
   it.skipIf(!android)("compiles for Android where the iOS SDK is missing (its declarations untyped)", () => {
-    const r = compile(project(tracker), { platforms: ["android", "host"], sdk: { ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") }, prebuilt: false } });
+    const r = compile(project(tracker), { platforms: ["android", "host"], sdk: { ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") } } });
     expect(r.diagnostics).toEqual([]);
     expect(r.files.get("android/m_tracker.cpp")).toContain("label");
   });
@@ -476,7 +476,7 @@ describe("platform branches in one module", () => {
   });
 
   it.skipIf(!ios)("type-checks the other platform's branch as untyped when its SDK is missing", () => {
-    const r = compile(project(device), { platforms: ["ios"], sdk: { android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] }, prebuilt: false } });
+    const r = compile(project(device), { platforms: ["ios"], sdk: { android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] } } });
     expect(r.diagnostics).toEqual([]);
     expect(r.files.get("ios/m_device.mm")).toContain("UIDevice");
   });

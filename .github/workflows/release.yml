@@ -65,12 +65,11 @@ jobs:
       # Pushed before publishing on purpose: if publishing fails part-way, a
       # re-run bumps to a fresh version instead of colliding with the subset
       # already on npm.
-      # An app installs @lucent-lang/lucent; the prebuilt SDK packages are its
-      # dependencies. Everything else is bundled into it.
+      # An app installs @lucent-lang/lucent; everything else is bundled into it.
       - name: Publish to npm
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: pnpm publish -r --no-git-checks --filter @lucent-lang/lucent --filter "@lucent-lang/sdk-*"
+        run: pnpm publish -r --no-git-checks --filter @lucent-lang/lucent
 
       - name: Create GitHub release
         env:

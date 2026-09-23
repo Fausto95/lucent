@@ -191,24 +191,12 @@ importers:
       '@lucent-lang/runtime':
         specifier: workspace:*
         version: link:../runtime
-      '@lucent-lang/sdk-android':
-        specifier: workspace:*
-        version: link:../sdk-android
-      '@lucent-lang/sdk-ios':
-        specifier: workspace:*
-        version: link:../sdk-ios
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
 
   packages/lucent:
     dependencies:
-      '@lucent-lang/sdk-android':
-        specifier: workspace:*
-        version: link:../sdk-android
-      '@lucent-lang/sdk-ios':
-        specifier: workspace:*
-        version: link:../sdk-ios
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
@@ -230,10 +218,6 @@ importers:
         version: 4.23.15
 
   packages/runtime: {}
-
-  packages/sdk-android: {}
-
-  packages/sdk-ios: {}
 
 packages:
 

@@ -21,8 +21,6 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
-    "@lucent-lang/sdk-android": "workspace:*",
-    "@lucent-lang/sdk-ios": "workspace:*",
     "typescript": "~5.9.3"
   },
   "devDependencies": {

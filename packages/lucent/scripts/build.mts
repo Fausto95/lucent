@@ -26,8 +26,8 @@ await build({
   format: "esm",
   platform: "node",
   target: "node22",
-  // Dependencies of the published package, resolved from where it is installed.
-  external: ["typescript", "@lucent-lang/sdk-ios", "@lucent-lang/sdk-android"],
+  // The published package's dependency, resolved from where it is installed.
+  external: ["typescript"],
   logLevel: "warning",
 });
 fs.writeFileSync(path.join(pkg, "dist/package.json"), `${JSON.stringify({ type: "module" }, null, 2)}\n`);

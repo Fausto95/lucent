@@ -124,10 +124,9 @@ extracts again. `$LUCENT_CACHE_DIR` moves the cache; `$ANDROID_HOME` (or
 - `lucent sdk prefetch [--ios A,B] [--android p.q] [--all]` extracts ahead of
   time (default: what the project imports).
 - Without an SDK: a clear LUCENT3004 names the fix; `lucent build` builds the
-  platforms whose SDK is installed and says which it skipped. Machines with no
-  local SDK at all (editors, Linux CI) can use `@lucent-lang/sdk-ios` and
-  `@lucent-lang/sdk-android`, prebuilt for every module by the
-  `sdk-prebuilt` workflow; nothing is committed.
+  platforms whose SDK is installed and says which it skipped. Where a
+  platform's SDK is missing, its `lucent:<platform>/*` modules are untyped,
+  so shared code still type-checks.
 
 ## Binding schemas
 
