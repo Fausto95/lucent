@@ -174,6 +174,14 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     });
   });
 
+  it("binds Swift's value types as the Objective-C classes they bridge to", () => {
+    const r = sdkModule("ios", "Players", { cacheDir: tmp("lucent-cache-"), ios: { includePaths: [path.join(fixtures, "objc")] } });
+    const player = "schema" in r ? r.schema.types.find((t) => t.name === "PLYPlayer") : undefined;
+    // Swift says IndexPath and URLRequest; Foundation's ReferenceConvertible names the classes.
+    expect(player?.kind === "class" && player.properties?.find((p) => p.name === "position")?.type).toEqual(T("Foundation.NSIndexPath"));
+    expect(player?.kind === "class" && player.methods?.find((m) => m.selector === "openRequest:")?.params).toEqual([{ name: "request", type: T("Foundation.NSURLRequest") }]);
+  });
+
   it("keys the app's pods on Podfile.lock, not on every header", () => {
     const dir = tmp("lucent-pods-");
     fs.cpSync(path.join(fixtures, "pods"), dir, { recursive: true });

@@ -8,6 +8,8 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic) MSRSpan loop;
 @property (nonatomic, readonly) MSRTrackID track;
 @property (nonatomic) MSRRange selection;
+@property (nonatomic, copy) NSIndexPath *position;
+- (void)openRequest:(NSURLRequest *)request;
 @end
 
 NS_ASSUME_NONNULL_END
