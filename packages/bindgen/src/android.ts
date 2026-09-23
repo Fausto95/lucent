@@ -196,6 +196,7 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
           throw new Unsupported("wildcard");
         case "class":
           if (t.name === "java/lang/String") return nullable("string");
+          if (t.name === "java/lang/CharSequence") return nullable("CharSequence");
           if (t.name === "java/lang/Class") {
             const arg = t.args[0];
             if (arg?.k === "var" && tparams.includes(arg.name)) return nullable(`Class<${arg.name}>`);
