@@ -15,6 +15,7 @@ inline constexpr double kInfinity = std::numeric_limits<double>::infinity();
 /// ECMAScript ToInt32.
 inline int32_t toInt32(double v) {
   if (v >= -2147483648.0 && v <= 2147483647.0) return static_cast<int32_t>(v);  // fast path, truncates
+  if (v >= 0 && v < 4294967296.0) return static_cast<int32_t>(static_cast<uint32_t>(v));  // results of >>> 0
   if (!std::isfinite(v)) return 0;
   double m = std::fmod(std::trunc(v), 4294967296.0);
   if (m < 0) m += 4294967296.0;
@@ -22,7 +23,19 @@ inline int32_t toInt32(double v) {
 }
 inline uint32_t toUint32(double v) { return static_cast<uint32_t>(toInt32(v)); }
 
-inline double jsMod(double a, double b) { return std::fmod(a, b); }
+inline double jsMod(double a, double b) {
+  // Integer operands with a positive divisor: an integer remainder, keeping
+  // the dividend's sign (including -0) as JavaScript does.
+  if (a >= -2147483648.0 && a <= 2147483647.0 && b >= 1.0 && b <= 2147483647.0) {
+    auto ia = static_cast<int32_t>(a);
+    auto ib = static_cast<int32_t>(b);
+    if (ia == a && ib == b) {
+      int32_t r = ia % ib;
+      return r == 0 && std::signbit(a) ? -0.0 : static_cast<double>(r);
+    }
+  }
+  return std::fmod(a, b);
+}
 inline double jsShl(double a, double b) { return static_cast<double>(static_cast<int32_t>(toUint32(a) << (toUint32(b) & 31))); }
 inline double jsSar(double a, double b) { return static_cast<double>(toInt32(a) >> (toUint32(b) & 31)); }
 inline double jsShr(double a, double b) { return static_cast<double>(toUint32(a) >> (toUint32(b) & 31)); }

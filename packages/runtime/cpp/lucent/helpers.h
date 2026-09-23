@@ -141,6 +141,7 @@ inline double monotonicNow() {
 // --- strings ----------------------------------------------------------------------------------
 
 inline String stringFromCharCodes(std::initializer_list<double> codes) {
+  if (codes.size() == 1) return String::fromCodeUnit(static_cast<char16_t>(toUint32(*codes.begin()) & 0xFFFF));
   std::u16string out;
   for (double c : codes) out.push_back(static_cast<char16_t>(toUint32(c) & 0xFFFF));
   return String::fromUtf16(out);

@@ -1,6 +1,7 @@
 #include "jsstring.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstring>
 
@@ -202,7 +203,16 @@ String String::fromUtf8(std::string_view s) {
 String String::fromUtf16(const char16_t* units, size_t length) { return make(std::u16string(units, length)); }
 
 String String::fromCodeUnit(char16_t unit) {
-  if (unit <= 0xFF) return make(std::string(1, static_cast<char>(unit)));
+  if (unit <= 0xFF) {
+    // Shared, like JavaScript engines' single-character strings. `+=` never
+    // grows a shared string in place, so the cache cannot change.
+    static const auto* cache = [] {
+      auto* c = new std::array<String, 256>();
+      for (int i = 0; i < 256; i++) (*c)[i] = make(std::string(1, static_cast<char>(i)));
+      return c;
+    }();
+    return (*cache)[unit];
+  }
   return make(std::u16string(1, unit));
 }
 
