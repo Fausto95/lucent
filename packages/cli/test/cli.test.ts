@@ -164,6 +164,14 @@ describe("the app's Android dependencies", () => {
     expect(app.count()).toBe(3);
   });
 
+  it("does not run Gradle for a host build, which needs no SDK", () => {
+    const app = gradleApp();
+    const r = spawnSync(process.execPath, [bin, "build", "--platforms", "host", "--root", app.root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: app.cache, LUCENT_ANDROID_PLATFORM: "nope", LUCENT_XCRUN: "/nonexistent" } });
+    expect(r.stdout + r.stderr).not.toMatch(/resolving the app's Android dependencies/);
+    expect(app.count()).toBe(0);
+    expect(r.status).toBe(0);
+  });
+
   it.skipIf(!android)("does not retry a failed resolution until the inputs change", () => {
     const app = gradleApp(1);
     expect(app.build().stderr).toMatch(/Gradle could not resolve/);
