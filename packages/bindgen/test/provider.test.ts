@@ -138,10 +138,18 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
       moduleMaps: [path.join(root, "Headers/Public/WidgetsPod/WidgetsPod.modulemap")],
     });
     const r = sdkModule("ios", "WidgetsPod", { cacheDir: tmp("lucent-cache-"), ios: pods });
+    // Imported through the umbrella header its module map names, as <Pod/…>;
+    // linked by the pod itself, not as a framework.
+    expect("schema" in r && { header: r.schema.header, frameworks: r.schema.frameworks }).toEqual({ header: "WidgetsPod/WidgetsPod-umbrella.h", frameworks: [] });
     expect("schema" in r && r.schema.types.find((t) => t.name === "WPGaugeMode")).toMatchObject({ cases: [{ name: "linear", value: 0 }, { name: "radial", value: 4 }] });
     // A Foundation type in its signatures: the SDK and the pods, together.
     const gauge = "schema" in r ? r.schema.types.find((t) => t.name === "WPGauge") : undefined;
     expect(gauge?.kind === "class" && gauge.properties?.find((p) => p.name === "documentation")?.type).toBe("Foundation.NSURL");
+  });
+
+  it("imports and links an SDK module as its framework", () => {
+    const r = sdkModule("ios", "Security");
+    expect("schema" in r && { header: r.schema.header, frameworks: r.schema.frameworks }).toEqual({ header: "Security/Security.h", frameworks: ["Security"] });
   });
 
   it("names the fix when there is no Xcode", () => {

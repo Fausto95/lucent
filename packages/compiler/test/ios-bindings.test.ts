@@ -3,11 +3,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { sdkAvailable } from "@lucent-lang/bindgen";
-import { compile, runtimeDir } from "../src/index.ts";
+import { podsSearchPaths, sdkAvailable } from "@lucent-lang/bindgen";
+import { fileURLToPath } from "node:url";
+import { compile, runtimeDir, type SdkOptions } from "../src/index.ts";
 
 /** iOS output for a platform module whose iOS side is `src` (exporting run()). */
-function ios(src: string) {
+function ios(src: string, sdk?: SdkOptions) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-ios-"));
   const files = {
     "m.lucent.ts": "export declare function run(): Promise<string>;\n",
@@ -15,7 +16,7 @@ function ios(src: string) {
     "m.android.lucent.ts": 'export async function run(): Promise<string> {\n  return "";\n}\n',
   };
   for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), text);
-  const r = compile(Object.keys(files).map((f) => path.join(dir, f)), { platforms: ["ios"] });
+  const r = compile(Object.keys(files).map((f) => path.join(dir, f)), { platforms: ["ios"], sdk });
   return { r, mm: r.files.get("ios/m_m.mm") ?? "", dir };
 }
 
@@ -70,6 +71,16 @@ export async function run(): Promise<string> {
 }
 `;
 
+const pods = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../bindgen/test/fixtures/pods");
+
+const gauge = `import { WPGauge, WPGaugeMode } from "lucent:ios/WidgetsPod";
+export async function run(): Promise<string> {
+  const g = new WPGauge(WPGaugeMode.radial);
+  g.value = 2;
+  return \`\${g.value} \${g.documentation !== null}\`;
+}
+`;
+
 describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
   it("reads and writes properties", () => {
     const { r, mm } = ios(clipboard);
@@ -101,11 +112,20 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(mm).toContain("(__bridge NSString*)kSecClass");
   });
 
+  it("imports a pod's module through its umbrella header and links no framework for it", () => {
+    const { r, mm } = ios(gauge, { ios: podsSearchPaths(pods) });
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("#import <WidgetsPod/WidgetsPod-umbrella.h>");
+    expect(mm).not.toContain("<WidgetsPod/WidgetsPod.h>");
+    expect(r.frameworks).not.toContain("WidgetsPod");
+    expect(r.frameworks).toContain("Foundation");
+  });
+
   it("generates Objective-C++ that compiles against the iOS SDK", () => {
     const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
     if (process.platform !== "darwin" || sdk.status !== 0) return;
-    for (const src of [clipboard, files, keychain]) {
-      const { r, dir } = ios(src);
+    for (const [src, sdk] of [[clipboard], [files], [keychain], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
+      const { r, dir } = ios(src, sdk);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {
         fs.mkdirSync(path.dirname(path.join(dir, "out", k)), { recursive: true });
@@ -113,7 +133,7 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
       }
       const cc = spawnSync(
         "xcrun",
-        ["--sdk", "iphonesimulator", "clang++", "-std=c++20", "-fobjc-arc", "-fsyntax-only", "-target", "arm64-apple-ios15.1-simulator", "-Werror", "-Wno-gnu-statement-expression", "-Wno-unused-label", "-Wno-parentheses-equality", "-Wno-comma", `-I${path.join(runtimeDir(), "cpp")}`, `-I${path.join(dir, "out/ios")}`, "-x", "objective-c++", path.join(dir, "out/ios/m_m.mm")],
+        ["--sdk", "iphonesimulator", "clang++", "-std=c++20", "-fobjc-arc", "-fsyntax-only", "-target", "arm64-apple-ios15.1-simulator", "-Werror", "-Wno-gnu-statement-expression", "-Wno-unused-label", "-Wno-parentheses-equality", "-Wno-comma", `-I${path.join(runtimeDir(), "cpp")}`, `-I${path.join(dir, "out/ios")}`, `-I${path.join(pods, "Pods/Headers/Public")}`, "-x", "objective-c++", path.join(dir, "out/ios/m_m.mm")],
         { encoding: "utf8" },
       );
       expect(cc.stderr).toBe("");
