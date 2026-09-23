@@ -178,9 +178,22 @@ async function referenceRun(c: Case): Promise<string> {
     vm.runInThisContext(`(function (module, exports) {${fs.readFileSync(p, "utf8")}\n})`)(m, m.exports);
     return m.exports;
   };
-  const out: string[] = [];
   const mods: Record<string, unknown> = {};
   for (const f of c.files) mods[path.basename(f).replace(/\.lucent\.ts$/, "")] = load(f);
+  // The example apps run a case again (Run again, switching tabs) against the
+  // same loaded modules: a case must print the same thing every time.
+  const once = await runTest(c, mods);
+  const again = await runTest(c, mods);
+  if (again !== once) {
+    const a = once.split("\n"), b = again.split("\n");
+    const i = a.findIndex((l, k) => l !== b[k]);
+    throw new Error(`prints something else when run again with the same modules (line ${i + 1}: ${JSON.stringify(a[i])}, then ${JSON.stringify(b[i])}); report what a run changes, not module state`);
+  }
+  return once;
+}
+
+async function runTest(c: Case, mods: Record<string, unknown>): Promise<string> {
+  const out: string[] = [];
   const first = mods[path.basename(c.files[0]!).replace(/\.lucent\.ts$/, "")];
   const sandbox = {
     print: (...args: unknown[]) => out.push(args.map((a) => String(a)).join(" ")),
