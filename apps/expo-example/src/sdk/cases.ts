@@ -3,6 +3,7 @@
 // devices and simulators; the Hermes host has stubs of them.
 import { Platform } from "react-native";
 import * as Application from "./application.lucent";
+import { mainThreadCallback } from "./callbacks.lucent";
 import * as Clipboard from "./clipboard.lucent";
 import * as Device from "./device.lucent";
 import { impactAsync, notificationAsync, selectionAsync } from "./haptics.lucent";
@@ -24,6 +25,7 @@ export const sdkCases: SdkCase[] = [
   { name: "probe.systemName()", run: systemName, expected: ios ? "iOS" : /^Android \d+/ },
   { name: "probe.identity()", run: identity, expected: ios ? "true" : "false|true" },
   { name: "probe.errorCode()", run: errorCode, expected: ios ? "none" : "java.lang.IllegalArgumentException" },
+  { name: "callbacks: the platform calls Lucent back", run: mainThreadCallback, expected: "called back" },
   // M2.1 parity ports.
   {
     name: "clipboard: set, get, has",

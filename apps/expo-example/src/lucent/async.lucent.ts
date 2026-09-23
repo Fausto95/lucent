@@ -139,3 +139,44 @@ export async function allTicks(): Promise<string> {
   await t;
   return log.join(", ");
 }
+
+/** new Promise: the executor runs at once; resolve and reject settle it once. */
+export function promised(v: number): Promise<number> {
+  return new Promise((resolve) => {
+    const later = async () => {
+      await delay(1);
+      resolve(v * 2);
+    };
+    void later();
+  });
+}
+
+export function promiseRejects(): Promise<number> {
+  return new Promise((_resolve, reject) => reject(new RangeError("nope")));
+}
+
+export function promiseThrows(): Promise<number> {
+  return new Promise(() => {
+    throw new TypeError("thrown");
+  });
+}
+
+export function promiseSettlesOnce(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    resolve("first");
+    resolve("second");
+    reject(new Error("late"));
+  });
+}
+
+export async function promiseOfNothing(): Promise<string> {
+  const order: string[] = [];
+  const p = new Promise<void>((resolve) => {
+    order.push("executor");
+    resolve();
+  });
+  order.push("constructed");
+  await p;
+  order.push("after");
+  return order.join(",");
+}
