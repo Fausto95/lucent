@@ -60,9 +60,9 @@ must keep the overridden member's native signature (`LUCENT1005` otherwise).
 Interfaces implemented by classes are *nominal*: a class must say
 `implements Shape` to be used as a `Shape` (`LUCENT2008` otherwise), and object
 literals cannot stand in for them. Each implementing member must have the same
-native signature as the interface member (`LUCENT2009`). Generic interfaces,
-interfaces that extend others, and optional or generic methods are not
-supported for classes yet.
+native signature as the interface member (`LUCENT2009`). Interfaces may be
+generic (`Source<T>`) and may extend other interfaces; optional and generic
+methods cannot be dispatched virtually yet.
 
 ## Statements and expressions
 

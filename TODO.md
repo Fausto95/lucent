@@ -40,7 +40,7 @@ concrete work. Checked items are implemented and covered by tests.
 - [x] `#line` directives
 - [x] Interfaces implemented by classes: virtual dispatch, accessors for properties, boundary conversion (e2e `interfaces`)
 - [x] Class inheritance: virtual dispatch, `super`, abstract classes, inherited statics and constructors (e2e `inheritance`)
-- [ ] Generic interfaces and interfaces extending interfaces
+- [x] Generic interfaces and interfaces extending interfaces (e2e `interfaces`)
 - [x] Integer inference: int32/uint32/int64 locals and `for` counters (e2e `integers`, `scripts/bench.ts`)
 - [ ] Incremental compilation (cache per module)
 - [ ] Source maps for native crash symbolication

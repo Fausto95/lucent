@@ -68,12 +68,10 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
   const ancestry: ClassChain = baseT ? reg.chain(baseT) : [];
   const inherited = (name: string, test: (m: InstanceMember) => boolean) => findMember(ancestry, name, test);
   const inHierarchy = !!info.base || reg.descendants(info.id).length > 0;
-  const ancestorIfaces = new Set(reg.ancestors(info).flatMap((a) => ifacesOf(ctx, a).map((i) => i.id)));
   const bases = [
     baseT ? reg.cppClass(baseT) : info.isError ? "lucent::ErrorObject" : "lucent::Object",
-    ...ifacesOf(ctx, info)
-      .filter((i) => !ancestorIfaces.has(i.id))
-      .map((i) => `lucent_app::${i.cppName}`),
+    // Virtual, so a class implementing both A and B extends A has one A.
+    ...ifacesOf(ctx, info).map((i) => `virtual ${reg.cppIface(i)}`),
   ];
   const body: string[] = [];
   const members: string[] = [];

@@ -22,7 +22,7 @@ export type LType =
   | { k: "dict"; val: LType }
   | { k: "struct"; id: string }
   | { k: "class"; id: string; args: LType[] }
-  | { k: "iface"; id: string }
+  | { k: "iface"; id: string; args: LType[] }
   | { k: "opt"; inner: LType }
   | { k: "union"; ms: LType[] }
   | { k: "fn"; params: LType[]; ret: LType }
@@ -64,7 +64,7 @@ export function typeKey(t: LType): string {
     case "class":
       return t.args.length ? `C:${t.id}<${t.args.map(typeKey).join(",")}>` : `C:${t.id}`;
     case "iface":
-      return `I:${t.id}`;
+      return t.args.length ? `I:${t.id}<${t.args.map(typeKey).join(",")}>` : `I:${t.id}`;
     case "opt":
       return `${typeKey(t.inner)}?`;
     case "union":
@@ -136,6 +136,8 @@ export function substitute(t: LType, map: Map<string, LType>): LType {
       return { k: "fn", params: t.params.map((p) => substitute(p, map)), ret: substitute(t.ret, map) };
     case "class":
       return { k: "class", id: t.id, args: t.args.map((a) => substitute(a, map)) };
+    case "iface":
+      return { k: "iface", id: t.id, args: t.args.map((a) => substitute(a, map)) };
     default:
       return t;
   }
@@ -191,9 +193,12 @@ export interface IfaceInfo {
   id: string;
   cppName: string;
   decl: ts.InterfaceDeclaration;
-  /** Ids of the classes that declare `implements` for it. */
-  implementers: Set<string>;
+  typeParams: string[];
+  /** Classes that declare `implements`, with this interface's type arguments in the class's terms. */
+  implementers: Map<string, LType[]>;
 }
+
+export type IfaceT = LType & { k: "iface" };
 
 const RESERVED = new Set(
   (
@@ -260,8 +265,13 @@ export class TypeRegistry {
     for (const h of info.decl.heritageClauses ?? []) {
       if (h.token !== ts.SyntaxKind.ImplementsKeyword) continue;
       for (const t of h.types) {
-        const decl = this.lucentInterface(this.checker.getTypeAtLocation(t).getSymbol());
-        if (decl) this.registerInterface(decl, t).implementers.add(info.id);
+        const type = this.checker.getTypeAtLocation(t);
+        const decl = this.lucentInterface(type.getSymbol());
+        if (!decl) continue;
+        const iface = this.registerInterface(decl);
+        const args = (type as ts.TypeReference).target ? this.checker.getTypeArguments(type as ts.TypeReference).slice(0, iface.typeParams.length) : [];
+        // Lowered lazily: argument types may name classes not registered yet.
+        this.pendingImplements.push(() => iface.implementers.set(info.id, args.map((a) => this.lower(a, t))));
       }
     }
   }
@@ -274,20 +284,93 @@ export class TypeRegistry {
     return decl;
   }
 
-  private registerInterface(decl: ts.InterfaceDeclaration, node: ts.Node): IfaceInfo {
+  private registerInterface(decl: ts.InterfaceDeclaration): IfaceInfo {
     const name = decl.name.text;
     const id = `${decl.getSourceFile().fileName}#${name}`;
     const existing = this.ifaces.get(id);
     if (existing) return existing;
-    if (decl.typeParameters?.length) fail(node, Codes.InterfaceMismatch, `generic interface ${name} cannot be implemented by classes yet`);
-    if (decl.heritageClauses?.length) fail(node, Codes.InterfaceMismatch, `interface ${name} extends another type; interfaces implemented by classes cannot extend yet`);
     let cppName = `I_${cppIdent(name)}`;
     let n = 2;
     while (this.structNames.has(cppName)) cppName = `I_${cppIdent(name)}_${n++}`;
     this.structNames.add(cppName);
-    const info: IfaceInfo = { id, cppName, decl, implementers: new Set() };
+    const info: IfaceInfo = { id, cppName, decl, typeParams: decl.typeParameters?.map((p) => p.name.text) ?? [], implementers: new Map() };
     this.ifaces.set(id, info);
+    // Base interfaces dispatch virtually too, even without methods of their own.
+    for (const h of decl.heritageClauses ?? []) {
+      for (const t of h.types) {
+        const base = this.lucentInterface(this.checker.getTypeAtLocation(t).getSymbol());
+        if (!base) fail(t, Codes.InterfaceMismatch, `interface ${name} can only extend other Lucent interfaces`);
+        this.registerInterface(base);
+      }
+    }
     return info;
+  }
+
+  private readonly pendingImplements: (() => void)[] = [];
+
+  /** Lowers the type arguments of every `implements` clause (after all classes are registered). */
+  resolveImplements(): void {
+    for (const f of this.pendingImplements.splice(0)) f();
+  }
+
+  /** Whether an interface declares methods, itself or through the interfaces it extends. */
+  private hasMethods(decl: ts.InterfaceDeclaration): boolean {
+    if (decl.members.some(ts.isMethodSignature)) return true;
+    return (decl.heritageClauses ?? []).some((h) =>
+      h.types.some((t) => {
+        const base = this.lucentInterface(this.checker.getTypeAtLocation(t).getSymbol());
+        return !!base && this.hasMethods(base);
+      }),
+    );
+  }
+
+  /** The interfaces `t` extends, with type arguments substituted. */
+  ifaceBases(t: IfaceT): IfaceT[] {
+    const info = this.iface(t.id);
+    const map = new Map(info.typeParams.map((p, i) => [p, t.args[i] ?? ({ k: "tparam", name: p } as LType)] as [string, LType]));
+    const out: IfaceT[] = [];
+    for (const h of info.decl.heritageClauses ?? []) {
+      for (const ht of h.types) {
+        const b = this.lower(this.checker.getTypeAtLocation(ht), ht);
+        if (b.k === "iface") out.push(substitute(b, map) as IfaceT);
+      }
+    }
+    return out;
+  }
+
+  /** `t` and every interface it extends, transitively. */
+  ifaceChain(t: IfaceT): IfaceT[] {
+    const out = new Map<string, IfaceT>();
+    const add = (x: IfaceT) => {
+      if (out.has(typeKey(x))) return;
+      out.set(typeKey(x), x);
+      this.ifaceBases(x).forEach(add);
+    };
+    add(t);
+    return [...out.values()];
+  }
+
+  /** The interface instantiations a class declares with `implements`, in its own terms. */
+  declaredIfaces(info: ClassInfo): IfaceT[] {
+    return [...this.ifaces.values()].filter((i) => i.implementers.has(info.id)).map((i) => ({ k: "iface", id: i.id, args: i.implementers.get(info.id)! }));
+  }
+
+  /** Whether class type `c` (or an ancestor) implements `target` or an interface extending it. */
+  implementsIface(c: LType & { k: "class" }, target: IfaceT): boolean {
+    const want = typeKey(target);
+    for (const link of this.chain(c)) {
+      const map = new Map(link.info.typeParams.map((p, i) => [p, link.t.args[i] ?? ({ k: "tparam", name: p } as LType)] as [string, LType]));
+      for (const i of this.declaredIfaces(link.info)) {
+        if (this.ifaceChain(substitute(i, map) as IfaceT).some((x) => typeKey(x) === want)) return true;
+      }
+    }
+    return false;
+  }
+
+  /** Non-generic classes whose instances are `target`s, deepest first. */
+  implementations(target: IfaceT): ClassInfo[] {
+    const all = [...this.classes.values()].filter((c) => !c.typeParams.length && this.implementsIface({ k: "class", id: c.id, args: [] }, target));
+    return all.sort((a, b) => this.ancestors(b).length - this.ancestors(a).length);
   }
 
   /** Resolves `extends` once every class is registered. */
@@ -451,7 +534,11 @@ export class TypeRegistry {
     const iface = this.lucentInterface(sym);
     if (iface) {
       const id = `${iface.getSourceFile().fileName}#${iface.name.text}`;
-      if (this.ifaces.has(id) || iface.members.some(ts.isMethodSignature)) return { k: "iface", id: this.registerInterface(iface, node).id };
+      if (this.ifaces.has(id) || this.hasMethods(iface)) {
+        const info = this.registerInterface(iface);
+        const args = (type as ts.TypeReference).target ? c.getTypeArguments(type as ts.TypeReference).slice(0, info.typeParams.length) : [];
+        return { k: "iface", id: info.id, args: args.map((a) => this.lower(a, node)) };
+      }
     }
     const calls = type.getCallSignatures();
     const props = c.getPropertiesOfType(type);
@@ -613,7 +700,7 @@ export class TypeRegistry {
         return `lucent::Ref<lucent_app::${info.cppName}${args}>`;
       }
       case "iface":
-        return `lucent::Ref<lucent_app::${this.iface(t.id).cppName}>`;
+        return `lucent::Ref<${this.cppIface(t)}>`;
       case "opt":
         return `lucent::Opt<${this.cpp(t.inner)}>`;
       case "union":
@@ -639,6 +726,12 @@ export class TypeRegistry {
   cppRet(t: LType): string {
     if (t.k === "void" || t.k === "undefined" || t.k === "never") return "void";
     return this.cpp(t);
+  }
+
+  /** The interface name without Ref<>. */
+  cppIface(t: IfaceT): string {
+    const args = t.args.length ? `<${t.args.map((a) => this.cpp(a)).join(", ")}>` : "";
+    return `lucent_app::${this.iface(t.id).cppName}${args}`;
   }
 
   /** The class name without Ref<>, for `make_shared` and member access. */

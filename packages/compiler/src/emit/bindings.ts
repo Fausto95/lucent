@@ -22,7 +22,7 @@ const q = cppQuoted;
 export class BindingsEmitter {
   private readonly structs = new Set<string>();
   private readonly classes = new Set<string>();
-  private readonly ifaces = new Set<string>();
+  private readonly ifaces = new Map<string, LType & { k: "iface" }>();
   private readonly unions = new Map<string, LType & { k: "union" }>();
   private readonly unionSites = new Map<string, ts.Node>();
   private readonly flows = new Set<string>();
@@ -55,9 +55,10 @@ export class BindingsEmitter {
         return;
       }
       case "iface": {
-        if (this.ifaces.has(t.id)) return;
-        this.ifaces.add(t.id);
-        for (const id of this.reg.iface(t.id).implementers) this.use({ k: "class", id, args: [] }, node);
+        if (t.args.some((a) => typeKey(a).includes("T:"))) fail(node, Codes.GenericBoundary, "generic interface values cannot cross the JavaScript boundary");
+        if (this.ifaces.has(typeKey(t))) return;
+        this.ifaces.set(typeKey(t), t);
+        for (const c of this.reg.implementations(t)) this.use({ k: "class", id: c.id, args: [] }, node);
         return;
       }
       case "union":
@@ -109,7 +110,7 @@ export class BindingsEmitter {
       case "class":
         return this.classFlow(t.id);
       case "iface":
-        return this.reg.iface(t.id).implementers.forEach((id) => this.classFlow(id));
+        return this.reg.implementations(t).forEach((c) => this.classFlow(c.id));
       case "union":
         return t.ms.forEach((m) => this.flow(m, out, node));
       case "tuple":
@@ -188,7 +189,7 @@ export class BindingsEmitter {
     const specs: string[] = [];
     for (const id of this.structs) specs.push(this.reg.cpp({ k: "struct", id }));
     for (const id of this.classes) specs.push(this.reg.cpp({ k: "class", id, args: [] }));
-    for (const id of this.ifaces) specs.push(this.reg.cpp({ k: "iface", id }));
+    for (const t of this.ifaces.values()) specs.push(this.reg.cpp(t));
     for (const u of this.unions.values()) specs.push(this.reg.cpp(u));
     for (const s of specs) {
       out.push(`template <>\nstruct Convert<${s}> {\n  static ${s} fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);\n  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const ${s}& v);\n};`);
@@ -196,7 +197,7 @@ export class BindingsEmitter {
     out.push("");
     for (const id of this.structs) out.push(this.structConvert(id));
     for (const id of this.classes) out.push(this.classConvert(id));
-    for (const id of this.ifaces) out.push(this.ifaceConvert(id));
+    for (const t of this.ifaces.values()) out.push(this.ifaceConvert(t));
     for (const [key, u] of this.unions) {
       const code = this.ctx.guard(() => {
         try {
@@ -282,14 +283,14 @@ export class BindingsEmitter {
   }
 
   /** Interface values cross as their concrete class: every implementer is known. */
-  private ifaceConvert(id: string): string {
-    const info = this.reg.iface(id);
-    const s = this.reg.cpp({ k: "iface", id });
-    const impls = [...info.implementers].map((c) => this.reg.cls(c));
+  private ifaceConvert(t: LType & { k: "iface" }): string {
+    const info = this.reg.iface(t.id);
+    const s = this.reg.cpp(t);
+    const impls = this.reg.implementations(t);
     const expected = `a ${info.decl.name.text} (${impls.map((c) => c.decl.name!.text).join(", ") || "no implementations"})`;
     return [
       `inline ${s} Convert<${s}>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {`,
-      `  auto c = std::dynamic_pointer_cast<lucent_app::${info.cppName}>(instanceOf(rt, v));`,
+      `  auto c = std::dynamic_pointer_cast<${this.reg.cppIface(t)}>(instanceOf(rt, v));`,
       `  if (!c) throwBoundaryError(rt, p, ${q(expected)}, v);`,
       `  return c;`,
       `}`,

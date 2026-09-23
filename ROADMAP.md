@@ -57,7 +57,7 @@ structures, sync engines) can be written in Lucent.
 - ✅ `class X extends Error`.
 - ✅ Interfaces implemented by classes (virtual dispatch).
 - ✅ Class inheritance.
-- ⏳ Generic interfaces; interfaces extending interfaces.
+- ✅ Generic interfaces; interfaces extending interfaces.
 - ✅ Integer inference (`int32`/`uint32`/`int64` locals and loop counters).
 
 Exit criteria: conformance suite (differential tests vs. plain JS) covering

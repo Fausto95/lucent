@@ -53,7 +53,9 @@ Notable lowering choices:
   Implementing classes inherit them, fields get generated overrides, and
   values are `Ref<I_Shape>`. Because every implementer is known at compile
   time, the JS boundary converts an interface value by trying each
-  implementing class in turn.
+  implementing class in turn. Generic interfaces are class templates, and an
+  interface that extends others inherits them `virtual`ly, so a class
+  implementing both `A` and `B extends A` has a single `A`.
 * **Integer inference** (`emit/integers.ts`): a local whose every write is
   a bitwise result (`|`, `^`, `>>>`, `Math.imul`, …) or an integer literal
   lives in an `int32_t`, `uint32_t` or `int64_t`, and a `for` counter stepped

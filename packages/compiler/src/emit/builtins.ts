@@ -6,7 +6,7 @@ import { type ClassInfo, cppIdent, isVoidish, type LType, stripOpt, T, typeKey, 
 import { findMember } from "./classes.ts";
 import type { E } from "./context.ts";
 import { type FnEmitter, substitute } from "./function.ts";
-import { type IfaceMember, ifaceMembers } from "./interfaces.ts";
+import { type IfaceMember, membersOf } from "./interfaces.ts";
 import { numberLiteral, stringLiteral } from "./literals.ts";
 
 type FnT = LType & { k: "fn" };
@@ -159,7 +159,7 @@ export function classMemberLvalue(em: FnEmitter, obj: E, t0: LType & { k: "class
 
 function ifaceMemberOf(em: FnEmitter, t: LType & { k: "iface" }, name: string, node: ts.Node): IfaceMember {
   const info = em.reg.iface(t.id);
-  const m = ifaceMembers(em.ctx, info).find((x) => x.name === name);
+  const m = membersOf(em.ctx, t).find((x) => x.name === name);
   if (!m) fail(node, Codes.UnsupportedSyntax, `unknown member ${name} of ${info.decl.name.text}`);
   return m;
 }

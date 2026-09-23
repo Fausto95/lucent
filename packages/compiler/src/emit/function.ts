@@ -269,10 +269,15 @@ export class FnEmitter {
     const name = info.decl.name.text;
     if (e.t.k === "class") {
       const cls = this.reg.cls(e.t.id);
-      if (![cls, ...this.reg.ancestors(cls)].some((c) => info.implementers.has(c.id))) {
-        fail(node, Codes.InterfaceNotImplemented, `class ${cls.decl.name!.text} must declare \`implements ${name}\` to be used as ${name}`);
+      if (!this.reg.implementsIface(e.t, to)) {
+        fail(node, Codes.InterfaceNotImplemented, `class ${cls.decl.name!.text} must declare \`implements ${name}\` (with these type arguments) to be used as ${name}`);
       }
-      return `std::static_pointer_cast<lucent_app::${info.cppName}>(${e.c})`;
+      return `std::static_pointer_cast<${this.reg.cppIface(to)}>(${e.c})`;
+    }
+    if (e.t.k === "iface") {
+      // An interface that extends the target: an upcast to a virtual base.
+      if (this.reg.ifaceChain(e.t).some((x) => typeKey(x) === typeKey(to))) return `std::static_pointer_cast<${this.reg.cppIface(to)}>(${e.c})`;
+      fail(node, Codes.InterfaceNotImplemented, `${this.reg.iface(e.t.id).decl.name.text} does not extend ${name}`);
     }
     this.notAnImplementation(e.t.k === "struct" ? "an object" : typeKey(e.t), to, node);
   }
