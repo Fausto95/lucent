@@ -88,6 +88,17 @@ and Gradle recompile only the modules that changed and their importers.
 **Expo:** add `"@lucent-lang/expo"` to `plugins` in `app.json`. `expo prebuild`
 runs `lucent build` and links the package.
 
+**Editor:** `npm i -D @lucent-lang/ts-plugin` and add it to `tsconfig.json`:
+
+```json
+{ "compilerOptions": { "plugins": [{ "name": "@lucent-lang/ts-plugin" }] } }
+```
+
+Editors using the workspace TypeScript (in VS Code: *TypeScript: Select
+TypeScript Version → Use Workspace Version*) then show Lucent diagnostics
+(``LUCENT1001: use `let` or `const` instead of `var` ``) on `*.lucent.ts` files as you type,
+next to TypeScript's own.
+
 ## Repository
 
 | Path | What |
@@ -97,6 +108,7 @@ runs `lucent build` and links the package.
 | `packages/cli` | `lucent build`, `lucent check`, `lucent init` |
 | `packages/metro` | Metro transformer that swaps `*.lucent.ts` for proxies |
 | `packages/expo` | Expo config plugin |
+| `packages/ts-plugin` | TypeScript language-service plugin: Lucent diagnostics in the editor |
 | `packages/core` | `@lucent-lang/core`: `delay`, `error`, `utf8Encode`… (native + JS implementations) |
 | `apps/bare-example`, `apps/expo-example` | Example apps with an on-device test screen |
 | `scripts/` | `sync-examples.ts` (copies the e2e cases into the apps), `app-check.ts` (headless app pipeline check) |

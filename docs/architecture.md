@@ -138,6 +138,19 @@ On the JavaScript side, each proxy calls
 Resolving `react-native` from the app's own location avoids picking up a second
 copy in monorepos.
 
+## Editor diagnostics
+
+`@lucent-lang/ts-plugin` is a TypeScript language-service plugin. tsserver
+loads it with `require()` and its own `typescript`, which may be a different
+version from the compiler's; the lowering matches on `ts.SyntaxKind`, so the
+plugin never hands the editor's AST to the compiler. It `import()`s the
+compiler (an ES module) asynchronously, refreshes diagnostics once loaded, and
+calls `checkSources(files, readSource)` with the project's `*.lucent.ts` paths
+and the editor's unsaved buffer text. The compiler builds its own program
+(library declarations are parsed once per process) and returns diagnostics
+with offsets and lengths. One check serves every file until a Lucent source
+changes version. TypeScript errors are left to TypeScript.
+
 ## Tests
 
 * `packages/runtime/test/run.sh`: runtime unit tests, including under

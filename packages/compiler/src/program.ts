@@ -81,9 +81,36 @@ export function findLucentFiles(root: string): string[] {
   return out.sort();
 }
 
-export function createLucentProgram(files: string[]): LucentProgram {
-  const options = compilerOptions();
+/** Text of a file that differs from disk (an editor's unsaved buffer), if any. */
+export type ReadSource = (file: string) => string | undefined;
+
+// Library and dependency declarations parse once per process: editors check
+// on every edit, and re-parsing lib.es2022 dominates otherwise.
+const declarationCache = new Map<string, { text: string; sf: ts.SourceFile }>();
+
+function compilerHost(options: ts.CompilerOptions, readSource: ReadSource | undefined): ts.CompilerHost {
   const host = ts.createCompilerHost(options, true);
+  const readFile = host.readFile.bind(host);
+  host.readFile = (f) => readSource?.(path.resolve(f)) ?? readFile(f);
+  const fileExists = host.fileExists.bind(host);
+  host.fileExists = (f) => readSource?.(path.resolve(f)) !== undefined || fileExists(f);
+  const getSourceFile = host.getSourceFile.bind(host);
+  host.getSourceFile = (f, language, onError, shouldCreate) => {
+    if (!f.endsWith(".d.ts")) return getSourceFile(f, language, onError, shouldCreate);
+    const text = host.readFile(f);
+    if (text === undefined) return getSourceFile(f, language, onError, shouldCreate);
+    const cached = declarationCache.get(f);
+    if (cached?.text === text) return cached.sf;
+    const sf = ts.createSourceFile(f, text, language, true);
+    declarationCache.set(f, { text, sf });
+    return sf;
+  };
+  return host;
+}
+
+export function createLucentProgram(files: string[], readSource?: ReadSource): LucentProgram {
+  const options = compilerOptions();
+  const host = compilerHost(options, readSource);
   const program = ts.createProgram([...files.map((f) => path.resolve(f)), globalsPath()], options, host);
   const checker = program.getTypeChecker();
   const diagnostics: Diagnostic[] = [];
@@ -113,7 +140,7 @@ function fromTs(d: ts.Diagnostic): Diagnostic {
   const message = ts.flattenDiagnosticMessageText(d.messageText, "\n");
   if (d.file && d.start !== undefined) {
     const { line, character } = d.file.getLineAndCharacterOfPosition(d.start);
-    return { code: Codes.TypeScript, message: `TS${d.code}: ${message}`, file: d.file.fileName, line: line + 1, column: character + 1 };
+    return { code: Codes.TypeScript, message: `TS${d.code}: ${message}`, file: d.file.fileName, line: line + 1, column: character + 1, start: d.start, length: d.length ?? 0 };
   }
   return { code: Codes.TypeScript, message: `TS${d.code}: ${message}` };
 }

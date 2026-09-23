@@ -87,7 +87,7 @@ Goal: `import { AVCaptureDevice } from "lucent:ios/AVFoundation"` and
 - 🚧 npm publishing of `@lucent-lang/*`: packages build and install from tarballs (smoke test in CI); the release workflow publishes once an `NPM_TOKEN` secret exists.
 - ✅ Incremental builds and caching; watch mode tied to Metro.
 - ✅ Native crashes symbolicate back to `.lucent.ts` (DWARF line table), and JS error stacks name the Lucent frame that threw.
-- 🔭 Language server (diagnostics for the Lucent subset in the editor).
+- ✅ Editor diagnostics for the Lucent subset: `@lucent-lang/ts-plugin`, a TypeScript language-service plugin (checked through a real tsserver in the fresh-install smoke test).
 - 🔭 Performance budgets and benchmarks vs. hand-written C++/Swift/Kotlin.
 
 ## Non-goals (for now)

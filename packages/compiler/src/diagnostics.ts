@@ -36,6 +36,9 @@ export interface Diagnostic {
   file?: string;
   line?: number;
   column?: number;
+  /** Offset and length of the offending code in the file, for editors. */
+  start?: number;
+  length?: number;
 }
 
 export class CompileError extends Error {
@@ -55,8 +58,9 @@ export function fail(node: ts.Node | undefined, code: string, message: string): 
 export function toDiagnostic(e: CompileError): Diagnostic {
   if (!e.node) return { code: e.code, message: e.message };
   const sf = e.node.getSourceFile();
-  const { line, character } = sf.getLineAndCharacterOfPosition(e.node.getStart(sf));
-  return { code: e.code, message: e.message, file: sf.fileName, line: line + 1, column: character + 1 };
+  const start = e.node.getStart(sf);
+  const { line, character } = sf.getLineAndCharacterOfPosition(start);
+  return { code: e.code, message: e.message, file: sf.fileName, line: line + 1, column: character + 1, start, length: e.node.getEnd() - start };
 }
 
 export function formatDiagnostic(d: Diagnostic): string {

@@ -1,9 +1,9 @@
 import { type Diagnostic, formatDiagnostic } from "./diagnostics.ts";
 import { emitProgram, type EmitResult } from "./emit/index.ts";
-import { createLucentProgram, findLucentFiles } from "./program.ts";
+import { createLucentProgram, findLucentFiles, type ReadSource } from "./program.ts";
 
 export { Codes, formatDiagnostic, type Diagnostic } from "./diagnostics.ts";
-export { findLucentFiles, moduleNameOf, LUCENT_EXTENSION, coreTypesPath } from "./program.ts";
+export { findLucentFiles, moduleNameOf, LUCENT_EXTENSION, coreTypesPath, type ReadSource } from "./program.ts";
 export type { EmitResult } from "./emit/index.ts";
 export { inputsKey, isUpToDate, writeNativePackage, runtimeDir, type WriteResult } from "./native-package.ts";
 export { watchBuild, type WatchEvent } from "./watch.ts";
@@ -21,6 +21,16 @@ export function compile(files: string[]): CompileResult {
   }
   const result = emitProgram(program);
   return { ...result, ok: result.diagnostics.length === 0 };
+}
+
+/**
+ * Diagnostics for editors: checks `files` (the project's `*.lucent.ts`
+ * modules) as `compile` does, reading unsaved text through `readSource`.
+ */
+export function checkSources(files: string[], readSource?: ReadSource): Diagnostic[] {
+  const program = createLucentProgram(files, readSource);
+  if (program.diagnostics.length) return program.diagnostics;
+  return emitProgram(program).diagnostics;
 }
 
 export function compileDirectory(root: string): CompileResult {

@@ -7,7 +7,7 @@ Swift or Kotlin runs on the native side.
 ## Layout
 
 ```
-cli / metro / expo  →  compiler  →  typescript
+cli / metro / expo / ts-plugin  →  compiler  →  typescript
                           │
                           └─ writes .lucent/native from runtime/{cpp,native} + generated C++
 runtime/cpp/lucent   C++ runtime (no deps) + lucent/jsi (JSI boundary)

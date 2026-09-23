@@ -5,14 +5,14 @@
  *
  *   tsx scripts/smoke-install.ts
  */
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const packages = ["core", "runtime", "compiler", "cli", "metro", "expo"];
+const packages = ["core", "runtime", "compiler", "cli", "metro", "expo", "ts-plugin"];
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-smoke-"));
 
 function sh(cmd: string, args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): string {
@@ -34,6 +34,7 @@ const app = path.join(work, "app");
 fs.mkdirSync(path.join(app, "src"), { recursive: true });
 fs.writeFileSync(path.join(app, "package.json"), JSON.stringify({ name: "smoke", private: true, dependencies: tarballs, overrides: tarballs }, null, 2));
 sh("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error"], app);
+sh("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error", "--save-dev", "typescript@~5.9.3"], app);
 
 const installed = path.join(app, "node_modules/@lucent-lang");
 for (const p of ["compiler/src", "cli/src"]) if (fs.existsSync(path.join(installed, p))) throw new Error(`${p} should not be published`);
@@ -62,4 +63,48 @@ sh("clang++", ["-std=c++20", "-fsyntax-only", `-I${native}/cpp`, `-I${native}/cp
 console.log("• Metro and Expo integrations load");
 sh(process.execPath, ["-e", 'require("@lucent-lang/metro").withLucent({}); require.resolve("@lucent-lang/expo")'], app, { LUCENT_WATCH: "0" });
 
+console.log("• editor diagnostics through tsserver and @lucent-lang/ts-plugin");
+fs.writeFileSync(path.join(app, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, module: "esnext", moduleResolution: "bundler", target: "es2022", noEmit: true, plugins: [{ name: "@lucent-lang/ts-plugin" }] }, include: ["src"] }));
+const bad = path.join(app, "src/bad.lucent.ts");
+fs.writeFileSync(bad, "export function f(): number {\n  var x = 1;\n  return x;\n}\n");
+const codes = await editorDiagnostics(bad);
+if (!codes.includes(1001)) throw new Error(`expected LUCENT1001 from the plugin, got ${JSON.stringify(codes)}`);
+fs.rmSync(bad);
+
 console.log(`✓ fresh install works (${work})`);
+
+/** Opens `file` in the installed tsserver and polls until Lucent diagnostics appear (the plugin loads the compiler asynchronously). */
+async function editorDiagnostics(file: string): Promise<number[]> {
+  const server = spawn(process.execPath, [path.join(app, "node_modules/typescript/lib/tsserver.js"), "--disableAutomaticTypingAcquisition"], { cwd: app, stdio: ["pipe", "pipe", "inherit"] });
+  const pending = new Map<number, (body: unknown) => void>();
+  let buffer = "";
+  server.stdout.setEncoding("utf8");
+  server.stdout.on("data", (chunk: string) => {
+    buffer += chunk;
+    for (let nl; (nl = buffer.indexOf("\n")) >= 0; ) {
+      const line = buffer.slice(0, nl).trim();
+      buffer = buffer.slice(nl + 1);
+      if (!line.startsWith("{")) continue;
+      const msg = JSON.parse(line) as { type: string; request_seq?: number; body?: unknown };
+      if (msg.type === "response" && msg.request_seq !== undefined) pending.get(msg.request_seq)?.(msg.body);
+    }
+  });
+  let seq = 0;
+  const request = (command: string, args: object) =>
+    new Promise<unknown>((resolve) => {
+      pending.set(++seq, resolve);
+      server.stdin.write(`${JSON.stringify({ seq, type: "request", command, arguments: args })}\n`);
+    });
+  try {
+    await request("open", { file });
+    for (let attempt = 0; attempt < 100; attempt++) {
+      const diags = (await request("semanticDiagnosticsSync", { file })) as { code: number; source?: string }[];
+      const lucent = diags.filter((d) => d.source === "lucent").map((d) => d.code);
+      if (lucent.length) return lucent;
+      await new Promise((r) => setTimeout(r, 200));
+    }
+    return [];
+  } finally {
+    server.kill();
+  }
+}
