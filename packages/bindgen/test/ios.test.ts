@@ -73,6 +73,11 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     expect(method("save")[0]).toMatchObject({ selector: "saveToPath:error:", throws: true, params: [{ name: "path", type: "string" }], returns: "void" });
   });
 
+  it("keeps NSError** out-parameters where Swift does (NS_SWIFT_NOTHROW)", () => {
+    expect(method("canFrob")[0]).toMatchObject({ selector: "canFrob:error:", params: [{ name: "level", type: "NSInteger" }, { name: "error", type: "Out<error>?" }], returns: "bool" });
+    expect(method("canFrob")[0]).not.toHaveProperty("throws");
+  });
+
   it("appends labels to overloads that collide once labels are dropped", () => {
     expect(method("impact").map((m) => m.selector)).toEqual(["impact", "impactWithIntensity:"]);
     expect(method("resize").map((m) => m.selector)).toEqual(["resizeToWidth:"]);

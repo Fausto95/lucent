@@ -109,6 +109,17 @@ export async function run(): Promise<string> {
 }
 `;
 
+const errorOut = `import { LAContext, LAPolicy } from "lucent:ios/LocalAuthentication";
+import { Out } from "lucent:ios";
+import { errorCode } from "@lucent-lang/core";
+export async function run(): Promise<string> {
+  const error = new Out<Error>();
+  const ok = new LAContext().canEvaluatePolicy(LAPolicy.deviceOwnerAuthenticationWithBiometrics, error);
+  const e = error.value;
+  return \`\${ok} \${e ? errorCode(e) : "none"} \${e?.message ?? ""}\`;
+}
+`;
+
 const promises = `import { LAContext, LAPolicy } from "lucent:ios/LocalAuthentication";
 import { UNUserNotificationCenter } from "lucent:ios/UserNotifications";
 import { errorCode } from "@lucent-lang/core";
@@ -217,6 +228,14 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(mm).toContain("objc_setAssociatedObject(");
   });
 
+  it("reads NSError out-parameters as Lucent errors", () => {
+    const { r, mm } = ios(errorOut);
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("canEvaluatePolicy:");
+    expect(mm).toContain("error:lucent::objc::ErrorOut(");
+    expect(mm).toContain("lucent::objc::outError(");
+  });
+
   it("allows main-thread APIs only in blocks that run on the main thread", () => {
     const { r } = ios(`import { UIView } from "lucent:ios/UIKit";
 import { Timer } from "lucent:ios/Foundation";
@@ -233,7 +252,7 @@ export async function run(): Promise<string> {
   it("generates Objective-C++ that compiles against the iOS SDK", () => {
     const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
     if (process.platform !== "darwin" || sdk.status !== 0) return;
-    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
+    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
       const { r, dir } = ios(src, sdk);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {

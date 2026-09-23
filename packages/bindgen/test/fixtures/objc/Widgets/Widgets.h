@@ -45,6 +45,7 @@ NS_SWIFT_UI_ACTOR
 - (void)setObject:(id)value forKey:(NSString *)key;
 - (nullable NSDate *)modified;
 - (BOOL)saveToPath:(NSString *)path error:(NSError **)error;
+- (BOOL)canFrob:(NSInteger)level error:(NSError **)error NS_SWIFT_NOTHROW;
 - (void)fetchWithCompletion:(void (^)(BOOL ok))completion;
 - (void)impact;
 - (void)impactWithIntensity:(CGFloat)intensity NS_SWIFT_NAME(impact(intensity:));

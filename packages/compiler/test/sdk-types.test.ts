@@ -8,6 +8,7 @@ describe("schema types", () => {
     expect(parseSdkType("Foundation.NSURL[]")).toEqual({ k: "array", of: { k: "ref", module: "Foundation", name: "NSURL", nullable: false }, nullable: false });
     expect(parseSdkType("Record<id>?")).toEqual({ k: "record", of: { k: "id", nullable: false }, nullable: true });
     expect(parseSdkType("Out<CFTypeRef>?")).toEqual({ k: "out", of: { k: "id", nullable: false, cf: true }, nullable: true });
+    expect(parseSdkType("Out<error>?")).toEqual({ k: "out", of: { k: "error", nullable: false }, nullable: true });
     expect(parseSdkType("Widget", "com.example")).toEqual({ k: "ref", module: "com.example", name: "Widget", nullable: false });
     expect(parseSdkType("T[]", "", ["T"])).toEqual({ k: "array", of: { k: "tparam", name: "T", nullable: false }, nullable: false });
   });
