@@ -106,6 +106,9 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     expect(method("fetch")[0]).toMatchObject({ selector: "fetchWithCompletion:", params: [{ name: "completion", type: "@escaping @main (bool) => void" }], async: { returns: "bool" } });
     expect(on("load")).toMatchObject({ selector: "loadWithReply:", params: [{ name: "reply", type: "@escaping (NSData?, error?) => void" }], async: { returns: "NSData", throws: true } });
     expect(method("animate")[0]).toMatchObject({ async: { returns: "bool" } });
+    // Swift names the async form itself: get… drops its prefix.
+    expect(on("getItems")).toMatchObject({ selector: "getItemsWithCompletionHandler:", async: { returns: "string[]", name: "items" } });
+    expect(on("load")!.async).not.toHaveProperty("name");
     // Several results (a tuple), or NS_SWIFT_DISABLE_ASYNC: the block form only.
     expect(on("observe")).not.toHaveProperty("async");
     expect(on("onDone")).not.toHaveProperty("async");

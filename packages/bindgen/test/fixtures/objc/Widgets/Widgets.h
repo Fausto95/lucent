@@ -62,6 +62,7 @@ NS_SWIFT_UI_ACTOR
 - (void)observeWithBlock:(void (^)(NSString *name, NSInteger count))block;
 - (void)loadWithReply:(void (^)(NSData *_Nullable data, NSError *_Nullable error))reply;
 - (void)onDone:(void (^)(void))done NS_SWIFT_DISABLE_ASYNC;
+- (void)getItemsWithCompletionHandler:(void (^)(NSArray<NSString *> *items))completionHandler;
 @end
 
 double WDGDistance(WDGWidget *a, WDGWidget *b);

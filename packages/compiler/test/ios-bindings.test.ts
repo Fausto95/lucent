@@ -110,8 +110,13 @@ export async function run(): Promise<string> {
 `;
 
 const promises = `import { LAContext, LAPolicy } from "lucent:ios/LocalAuthentication";
+import { UNUserNotificationCenter } from "lucent:ios/UserNotifications";
 import { errorCode } from "@lucent-lang/core";
 export async function run(): Promise<string> {
+  // The async form's own name; a promise of nothing.
+  const center = UNUserNotificationCenter.current();
+  const pending = await center.pendingNotificationRequests();
+  if (pending.length > 0) await center.add(pending[0]!);
   try {
     const ok = await new LAContext().evaluatePolicy(LAPolicy.deviceOwnerAuthenticationWithBiometrics, "Unlock");
     return \`ok \${ok}\`;
@@ -175,6 +180,8 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(mm).toMatch(/evaluatePolicy:.* localizedReason:.* reply:lucent::objc::block<void \(\^\)\(BOOL, NSError\*\)>\(\[p_\]\(BOOL a0_, NSError\* a1_\) \{ lucent::postCallback\(/);
     expect(mm).toContain("p_.reject(lucent::objc::fromNSError(a1_");
     expect(mm).toContain("p_.resolve(static_cast<bool>(a0_))");
+    expect(mm).toContain("getPendingNotificationRequestsWithCompletionHandler:lucent::objc::block<");
+    expect(mm).toContain("p_.resolve(lucent::undefined)");
   });
 
   it("allows main-thread APIs only in blocks that run on the main thread", () => {

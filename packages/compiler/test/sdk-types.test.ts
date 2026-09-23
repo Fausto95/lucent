@@ -42,6 +42,7 @@ describe("SDK declarations", () => {
           { name: "observe", selector: "observeWithBlock:", params: [{ name: "block", type: "@escaping (string, NSInteger, id) => void" }], returns: "void" },
           { name: "load", selector: "loadWithReply:", params: [{ name: "reply", type: "@escaping (NSData?, error?) => void" }], returns: "void", async: { returns: "NSData", throws: true } },
           { name: "countWhere", selector: "countWhere:", params: [{ name: "predicate", type: "@main (string) => bool" }], returns: "NSInteger" },
+          { name: "getItems", selector: "getItemsWithCompletionHandler:", params: [{ name: "completionHandler", type: "@escaping (string[]) => void" }], returns: "void", async: { returns: "string[]", name: "items" } },
         ],
       },
     ],
@@ -55,5 +56,8 @@ describe("SDK declarations", () => {
   it("adds a promise overload for completion handlers Swift imports as async", () => {
     expect(dts).toContain("  load(reply: (arg0: Uint8Array | null, arg1: Error | null) => void): void;");
     expect(dts).toContain("  load(): Promise<Uint8Array>;");
+    // Under the name Swift gives the async form.
+    expect(dts).toContain("  getItems(completionHandler: (arg0: string[]) => void): void;");
+    expect(dts).toContain("  items(): Promise<string[]>;");
   });
 });
