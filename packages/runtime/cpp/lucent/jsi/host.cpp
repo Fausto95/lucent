@@ -248,6 +248,18 @@ jsi::Value Host::errorToJs(jsi::Runtime& rt, const Error& e) {
                         .getObject(rt);
   if (name != ctor) err.setProperty(rt, "name", jsi::String::createFromUtf8(rt, name));
   if (e->code.has()) err.setProperty(rt, "code", jsi::String::createFromUtf8(rt, e->code.get().toUtf8()));
+  if (e->stack.has()) {
+    // An error that came from JavaScript keeps its original stack.
+    err.setProperty(rt, "stack", jsi::String::createFromUtf8(rt, e->stack.get().toUtf8()));
+  } else if (e->site.has()) {
+    // The Lucent frame where the error was created, above the JavaScript frames.
+    jsi::Value current = err.getProperty(rt, "stack");
+    std::string stack = current.isString() ? current.getString(rt).utf8(rt) : "";
+    size_t firstFrame = stack.find('\n');
+    std::string head = firstFrame == std::string::npos ? stack : stack.substr(0, firstFrame);
+    std::string frames = firstFrame == std::string::npos ? "" : stack.substr(firstFrame);
+    err.setProperty(rt, "stack", jsi::String::createFromUtf8(rt, head + "\n    at " + e->site.get().toUtf8() + frames));
+  }
   return jsi::Value(rt, err);
 }
 

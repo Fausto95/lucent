@@ -19,6 +19,8 @@ struct ErrorObject : Object {
   Opt<String> code;
   /// For errors that came from JavaScript: the original stack.
   Opt<String> stack;
+  /// Where Lucent code created the error: `fn (file.lucent.ts:line)`.
+  Opt<String> site;
   /// Class name when a Lucent class extends Error, for `instanceof`.
   const char* kind = "Error";
 };
@@ -26,6 +28,14 @@ using Error = Ref<ErrorObject>;
 
 Error makeError(const String& name, const String& message);
 inline Error makeError(const String& message) { return makeError(String::fromLatin1("Error"), message); }
+
+/// Records where Lucent code created `e` (generated code passes __FILE__ and
+/// __LINE__, which #line directives point at the .lucent.ts source).
+template <class E>
+E withSite(E e, const char* file, int line, const char* function) {
+  if (e && !e->site.has()) e->site = String::fromUtf8(std::string(function) + " (" + file + ":" + std::to_string(line) + ")");
+  return e;
+}
 
 class Exception : public std::exception {
  public:

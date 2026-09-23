@@ -164,8 +164,10 @@ Only exported functions, classes and constants are visible from JavaScript.
 * **Unions of object types** need a string-literal discriminant (for example
   `kind: "circle"`) so incoming values can be told apart.
 * **Errors** become JS `Error` / `TypeError` / `RangeError` objects with the same
-  `name`, `message` and `code`. JS exceptions thrown by callbacks become Lucent
-  errors that `catch` can handle.
+  `name`, `message` and `code`. Their `stack` starts with the Lucent frame
+  that created the error (`at parse (/abs/path/config.lucent.ts:12)`). JS
+  exceptions thrown by callbacks become Lucent errors that `catch` can handle,
+  and keep their original `stack` if they reach JavaScript again.
 * **Callbacks** (`(x: number) => void` parameters):
   * called while the JS thread is inside a synchronous call, they run
     synchronously and may return values;

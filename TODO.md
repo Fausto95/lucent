@@ -43,7 +43,7 @@ concrete work. Checked items are implemented and covered by tests.
 - [x] Generic interfaces and interfaces extending interfaces (e2e `interfaces`)
 - [x] Integer inference: int32/uint32/int64 locals and `for` counters (e2e `integers`, `scripts/bench.ts`)
 - [x] Incremental builds: a header per module (native rebuilds touch changed modules and their importers) and an input-hash cache for `lucent build`
-- [ ] Source maps for native crash symbolication
+- [x] Source locations: absolute `#line` paths in the DWARF line table for crash symbolication, and the creating `.lucent.ts` frame in JS error stacks (e2e `errors`, `debuginfo.test.ts`)
 - [x] Object destructuring in assignments (`({ a, b: c = 1 } = obj)`, defaults in array patterns)
 - [x] `Date` (e2e `dates`, runtime tests for daylight-saving rules)
 - [x] `JSON.parse` into typed values (e2e `json`)

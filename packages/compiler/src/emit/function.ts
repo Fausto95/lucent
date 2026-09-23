@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import type { LucentModule } from "../program.ts";
@@ -569,7 +571,8 @@ export class FnEmitter {
   private lineDirective(node: ts.Node): void {
     const sf = node.getSourceFile();
     const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
-    this.lines.push(`#line ${line + 1} "${sf.fileName.replace(/\\/g, "/").split("/").pop()}"`);
+    // Absolute, so debuggers and crash symbolication open the source file.
+    this.lines.push(`#line ${line + 1} "${sourcePath(sf.fileName)}"`);
   }
 
   private stmtInner(s: ts.Statement): void {
@@ -2292,3 +2295,15 @@ function unify(pattern: LType, actual: LType, map: Map<string, LType>): void {
 }
 
 export { containsAwait };
+
+const sourcePaths = new Map<string, string>();
+/** The canonical absolute path of a source file, as debuggers resolve it. */
+function sourcePath(fileName: string): string {
+  let p = sourcePaths.get(fileName);
+  if (p === undefined) {
+    const abs = path.resolve(fileName);
+    p = (fs.existsSync(abs) ? fs.realpathSync(abs) : abs).replace(/\\/g, "/");
+    sourcePaths.set(fileName, p);
+  }
+  return p;
+}

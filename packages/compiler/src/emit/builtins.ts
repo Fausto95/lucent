@@ -7,7 +7,7 @@ import { findMember } from "./classes.ts";
 import type { E } from "./context.ts";
 import { type FnEmitter, substitute } from "./function.ts";
 import { type IfaceMember, membersOf } from "./interfaces.ts";
-import { numberLiteral, stringLiteral } from "./literals.ts";
+import { cppQuoted, numberLiteral, stringLiteral } from "./literals.ts";
 
 type FnT = LType & { k: "fn" };
 const fn = (params: LType[], ret: LType): FnT => ({ k: "fn", params, ret });
@@ -274,6 +274,25 @@ const NUMBER_CONSTANTS: Record<string, string> = {
   NEGATIVE_INFINITY: "(-lucent::kInfinity)",
   NaN: "lucent::kNaN",
 };
+
+/** The name JavaScript stacks give the function around `node`. */
+function functionName(node: ts.Node): string {
+  for (let n: ts.Node | undefined = node.parent; n; n = n.parent) {
+    if (ts.isFunctionDeclaration(n) || ts.isFunctionExpression(n)) return n.name?.text ?? "<anonymous>";
+    if (ts.isMethodDeclaration(n) || ts.isGetAccessorDeclaration(n) || ts.isSetAccessorDeclaration(n)) {
+      const cls = ts.isClassLike(n.parent) ? n.parent.name?.text : undefined;
+      return `${cls ? `${cls}.` : ""}${n.name.getText()}`;
+    }
+    if (ts.isConstructorDeclaration(n)) return `new ${ts.isClassLike(n.parent) ? (n.parent.name?.text ?? "") : ""}`;
+    if (ts.isArrowFunction(n)) return ts.isVariableDeclaration(n.parent) && ts.isIdentifier(n.parent.name) ? n.parent.name.text : "<anonymous>";
+  }
+  return "<module>";
+}
+
+/** An error-creating expression that records its .lucent.ts site. */
+export function withSite(expr: string, node: ts.Node): string {
+  return `lucent::withSite(${expr}, __FILE__, __LINE__, ${cppQuoted(functionName(node))})`;
+}
 
 export function isJsonParse(em: FnEmitter, node: ts.CallExpression): boolean {
   const c = node.expression;
@@ -956,7 +975,7 @@ export function globalCall(em: FnEmitter, node: ts.CallExpression, name: string,
         return { c: `lucent::delay(${ms}${signal})`, t: { k: "promise", inner: T.void } };
       }
       case "error":
-        return { c: `lucent::errorWithCode(${argAs(em, node, 0, T.string)}, ${argAs(em, node, 1, T.string)})`, t: T.error };
+        return { c: withSite(`lucent::errorWithCode(${argAs(em, node, 0, T.string)}, ${argAs(em, node, 1, T.string)})`, node), t: T.error };
       case "errorCode":
         return { c: `(${argAs(em, node, 0, T.error)})->code`, t: unionOf([T.string, T.undefined]) };
       case "utf8Encode":
@@ -1054,7 +1073,7 @@ export function newBuiltin(em: FnEmitter, node: ts.NewExpression, callee: ts.Exp
     case "error": {
       const kind = ["TypeError", "RangeError"].includes(name) ? name : "Error";
       const msg = a[0] ? em.exprAs(a[0], T.string) : "lucent::String()";
-      return { c: `lucent::makeError(LUCENT_STR("${kind}"), ${msg})`, t };
+      return { c: withSite(`lucent::makeError(LUCENT_STR("${kind}"), ${msg})`, node), t };
     }
   }
   fail(node, Codes.UnsupportedBuiltin, `new ${name || callee.getText()}() is not supported`);

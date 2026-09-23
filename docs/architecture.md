@@ -81,8 +81,12 @@ Notable lowering choices:
 * **Evaluation order**: when more than one argument or operand could have side
   effects, they are evaluated into temporaries left to right (GNU statement
   expressions, supported by clang and GCC).
-* **`#line` directives** point compiler errors and debugger stepping at the
-  `.lucent.ts` source.
+* **`#line` directives** use the source's canonical absolute path, so compiler
+  errors, debugger stepping and the DWARF line table (crash symbolication
+  with the app's dSYM or unstripped `.so`) point at the `.lucent.ts` file.
+  Errors created in Lucent code record the same `__FILE__`/`__LINE__` and
+  enclosing function (`lucent::withSite`), and the JSI boundary puts that
+  frame at the top of the JS error's `stack`.
 
 ## Runtime
 
