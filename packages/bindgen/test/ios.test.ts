@@ -81,7 +81,7 @@ describe.skipIf(!xcode)("iOS extractor", () => {
 
   it("records availability, C functions and constants, and what it skips", () => {
     expect(method("modern")[0]!.since).toBe("16.0");
-    expect(mod().functions).toEqual([{ name: "WDGDistance", params: [{ name: "a", type: "Widgets.WDGWidget" }, { name: "b", type: "Widgets.WDGWidget" }], returns: "double" }]);
+    expect(mod().functions).toEqual(expect.arrayContaining([{ name: "WDGDistance", params: [{ name: "a", type: "Widgets.WDGWidget" }, { name: "b", type: "Widgets.WDGWidget" }], returns: "double" }]));
     expect(mod().constants).toEqual(expect.arrayContaining([{ name: "WDGVersionString", type: "string" }]));
     expect(mod().skipped!.some((s) => s.startsWith("WDGWidget.fetch(completion:)"))).toBe(true);
   });

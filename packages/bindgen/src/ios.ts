@@ -153,6 +153,30 @@ const SWIFT_PRIM: Record<string, string> = {
   "s:10Foundation4DateV": "NSDate",
 };
 
+/** CoreFoundation types, toll-free bridged to Lucent values in the glue. */
+const CF_TYPES: Record<string, string> = {
+  "c:@T@CFStringRef": "CFString",
+  "c:@T@CFDataRef": "CFData",
+  "c:@T@CFDictionaryRef": "CFDictionary",
+  "c:@T@CFArrayRef": "CFArray",
+  "c:@T@CFTypeRef": "CFTypeRef",
+  "c:@T@CFBooleanRef": "CFBoolean",
+  "c:@T@CFNumberRef": "CFNumber",
+};
+
+/** C typedefs from modules outside the extraction (MacTypes, CoreFoundation). */
+const C_TYPEDEFS: Record<string, string> = {
+  "c:@T@OSStatus": "int32",
+  "c:@T@OSType": "uint32",
+  "c:@T@CFIndex": "int64",
+  "c:@T@CFTimeInterval": "double",
+  "c:@T@CFAbsoluteTime": "double",
+  "c:@T@NSTimeInterval": "double",
+  "c:@T@Boolean": "bool",
+  "c:@T@UInt32": "uint32",
+  "c:@T@SInt32": "int32",
+};
+
 /** Swift value types that bridge to Foundation classes, typed as those classes. */
 const BRIDGED_CLASS: Record<string, string> = {
   "s:10Foundation3URLV": "NSURL",
@@ -177,7 +201,7 @@ function tokens(frags: Fragment[]): (Fragment | string)[] {
     else if (f.kind === "keyword" && (f.spelling === "Any" || f.spelling === "AnyObject" || f.spelling === "Self")) out.push(f.spelling);
     else if (f.spelling.trim() === "()") out.push("()");
     else {
-      for (const t of f.spelling.split(/(\?|!|\[|\]|:|<|>|,|\(|\)|->|@escaping|any |some |inout )/)) {
+      for (const t of f.spelling.split(/(\?|!|\[|\]|:|<|>|,|\(|\)|->|@escaping|any |some |inout |\.)/)) {
         const s = t.trim();
         if (s) out.push(s);
       }
@@ -187,7 +211,8 @@ function tokens(frags: Fragment[]): (Fragment | string)[] {
 }
 
 function parseType(frags: Fragment[], r: Resolver): string {
-  const toks = tokens(frags);
+  // `UIControl.State`: a reference to the nested type is its last identifier.
+  const toks = tokens(frags).filter((t, i, all) => !(typeof t !== "string" && all[i + 1] === "." && typeof all[i + 2] !== "string")).filter((t) => t !== ".");
   let p = 0;
   const type = (): string => {
     let t = primary();
@@ -221,8 +246,25 @@ function parseType(frags: Fragment[], r: Resolver): string {
       return r.self;
     }
     if (typeof tok === "string") throw new Unsupported(`type syntax ${tok}`);
-    if (toks[p] === "<") throw new Unsupported(`generic ${tok.spelling}`);
     const usr = tok.preciseIdentifier ?? "";
+    // `UnsafeMutablePointer<CFTypeRef?>`: an out-parameter for a reference.
+    if (usr === "s:Sp" && toks[p] === "<") {
+      p++;
+      const inner = type();
+      if (toks[p++] !== ">") throw new Unsupported("pointer");
+      if (!inner.endsWith("?") || !/^(CF\w+|id|\w+\.\w+)\?$/.test(inner)) throw new Unsupported(`pointer to ${inner}`);
+      return `Out<${inner.slice(0, -1)}>`;
+    }
+    // Unmanaged<X>: ownership follows CoreFoundation's Create/Copy rule in the glue.
+    if (usr === "s:s9UnmanagedV" && toks[p] === "<") {
+      p++;
+      const inner = type();
+      if (toks[p++] !== ">") throw new Unsupported("Unmanaged");
+      return inner;
+    }
+    if (toks[p] === "<") throw new Unsupported(`generic ${tok.spelling}`);
+    if (usr in CF_TYPES) return CF_TYPES[usr]!;
+    if (usr in C_TYPEDEFS) return C_TYPEDEFS[usr]!;
     if (usr === "s:s4Voida") return "void";
     if (tok.spelling === "Self" && !usr) {
       if (!r.self) throw new Unsupported("Self");
@@ -243,6 +285,23 @@ function parseType(frags: Fragment[], r: Resolver): string {
   const t = type();
   if (p < toks.length) throw new Unsupported(`type ${frags.map((f) => f.spelling).join("")}`);
   return t;
+}
+
+/** The type part of `name: Type` fragments (the colon can share a fragment with `[`). */
+function afterColon(frags: Fragment[]): Fragment[] {
+  const i = frags.findIndex((f) => f.kind === "text" && f.spelling.includes(":"));
+  if (i < 0) return frags;
+  const rest = frags[i]!.spelling.slice(frags[i]!.spelling.indexOf(":") + 1);
+  return [...(rest.trim() ? [{ kind: "text", spelling: rest }] : []), ...frags.slice(i + 1)];
+}
+
+/** A property's type: between the colon and `{ get }`. */
+function propertyType(frags: Fragment[]): Fragment[] {
+  const t = afterColon(frags);
+  const end = t.findIndex((f) => f.spelling.includes("{"));
+  if (end < 0) return t;
+  const head = t[end]!.spelling.split("{")[0]!;
+  return [...t.slice(0, end), ...(head.trim() ? [{ kind: "text", spelling: head }] : [])];
 }
 
 // --- extraction ----------------------------------------------------------------------
@@ -372,10 +431,7 @@ export function buildIosSchemas(graphs: Map<string, SymbolGraph>, values: (enums
         const memberSince = since(mem);
         try {
           if (kind === "py" || kind === "cpy") {
-            const typeFrags = (mem.declarationFragments ?? []).slice((mem.declarationFragments ?? []).findIndex((f) => f.spelling.includes(":")) + 1);
-            const end = typeFrags.findIndex((f) => f.spelling.includes("{"));
-            const typeText = end >= 0 ? typeFrags.slice(0, end).concat([{ kind: "text", spelling: typeFrags[end]!.spelling.split("{")[0]! }]) : typeFrags;
-            const p: SdkPropertySchema = { name: mem.names.title, type: parseType(typeText, r) };
+            const p: SdkPropertySchema = { name: mem.names.title, type: parseType(propertyType(mem.declarationFragments ?? []), r) };
             if (kind === "cpy") p.static = true;
             const readonly = !/\bset\b/.test(text);
             if (readonly) p.readonly = true;
@@ -388,7 +444,7 @@ export function buildIosSchemas(graphs: Map<string, SymbolGraph>, values: (enums
             continue;
           }
           const sig = mem.functionSignature;
-          const params = (sig?.parameters ?? []).map((pp) => ({ name: pp.internalName ?? pp.name, type: parseType(pp.declarationFragments.slice(pp.declarationFragments.findIndex((f) => f.spelling.includes(":")) + 1), r) }));
+          const params = (sig?.parameters ?? []).map((pp) => ({ name: pp.internalName ?? pp.name, type: parseType(afterColon(pp.declarationFragments), r) }));
           if (mem.kind.identifier === "swift.init") {
             if (kind === "cm") continue;
             const c: SdkCallable = { params, selector };
@@ -425,15 +481,13 @@ export function buildIosSchemas(graphs: Map<string, SymbolGraph>, values: (enums
       try {
         if (s.kind.identifier === "swift.func" && usr.startsWith("c:@F@")) {
           const sig = s.functionSignature;
-          const params = (sig?.parameters ?? []).map((pp) => ({ name: pp.internalName ?? pp.name, type: parseType(pp.declarationFragments.slice(pp.declarationFragments.findIndex((f) => f.spelling.includes(":")) + 1), resolver()) }));
+          const params = (sig?.parameters ?? []).map((pp) => ({ name: pp.internalName ?? pp.name, type: parseType(afterColon(pp.declarationFragments), resolver()) }));
           const f: SdkMethodSchema = { name: s.names.title.replace(/\(.*$/, ""), params, returns: sig?.returns?.length ? parseType(sig.returns, resolver()) : "void" };
           const v = since(s);
           if (v) f.since = v;
           (mod.functions ??= []).push(f);
         } else if (s.kind.identifier === "swift.var" && /^c:@[^@]+$/.test(usr)) {
-          const frags = s.declarationFragments ?? [];
-          const typeFrags = frags.slice(frags.findIndex((f) => f.spelling.includes(":")) + 1);
-          const c: SdkPropertySchema = { name: s.names.title, type: parseType(typeFrags, resolver()) };
+          const c: SdkPropertySchema = { name: s.names.title, type: parseType(afterColon(s.declarationFragments ?? []), resolver()) };
           (mod.constants ??= []).push(c);
         }
       } catch (e) {
