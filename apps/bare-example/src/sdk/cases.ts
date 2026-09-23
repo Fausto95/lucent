@@ -7,6 +7,7 @@ import { mainThreadCallback } from "./callbacks.lucent";
 import * as Clipboard from "./clipboard.lucent";
 import * as Device from "./device.lucent";
 import * as LocalAuthentication from "./localAuthentication.lucent";
+import * as Location from "./location.lucent";
 import { impactAsync, notificationAsync, selectionAsync } from "./haptics.lucent";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "./hapticsTypes.lucent";
 import { parityCases } from "./parity";
@@ -17,6 +18,10 @@ import type { SdkCase } from "./types";
 
 const ios = Platform.OS === "ios";
 const done = (p: Promise<void>) => p.then(() => "ok");
+/** A promise that fails after `ms`, so a position that never comes fails the case. */
+const within = <T,>(ms: number, p: Promise<T>) => Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`no answer in ${ms} ms`)), ms))]);
+/** A position to two decimals; where it is depends on the device (parity cases compare with the original). */
+const place = (l: { coords: { latitude: number; longitude: number } }) => `${l.coords.latitude.toFixed(2)},${l.coords.longitude.toFixed(2)}`;
 
 export const sdkCases: SdkCase[] = [
   { name: "haptics.impactAsync()", run: () => done(impactAsync()), expected: "ok" },
@@ -91,6 +96,29 @@ export const sdkCases: SdkCase[] = [
       return `${r.success} ${r.error}`;
     },
     expected: /^false (not_enrolled|missing_usage_description|not_available)$/,
+  },
+  {
+    name: "location: services and permission",
+    run: async () => `${await Location.hasServicesEnabledAsync()} ${(await Location.getForegroundPermissionsAsync()).status}`,
+    expected: /^(true|false) (granted|denied|undetermined)$/,
+  },
+  {
+    name: "location: current position (a delegate / a listener)",
+    run: async () => place(await within(15000, Location.getCurrentPositionAsync())),
+    expected: /^-?\d+\.\d\d,-?\d+\.\d\d$/,
+  },
+  {
+    name: "location: watch position until stopped",
+    run: async () => {
+      let stop = () => {};
+      const first = new Promise<string>((resolve) => {
+        void Location.watchPositionAsync((l) => resolve(place(l))).then((id) => (stop = () => void Location.stopWatching(id)));
+      });
+      const result = await within(15000, first);
+      stop();
+      return result;
+    },
+    expected: /^-?\d+\.\d\d,-?\d+\.\d\d$/,
   },
   ...parityCases,
 ];

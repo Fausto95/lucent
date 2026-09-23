@@ -5,12 +5,14 @@ import * as ExpoClipboard from "expo-clipboard";
 import * as ExpoDevice from "expo-device";
 import * as Haptics from "expo-haptics";
 import * as ExpoLocalAuthentication from "expo-local-authentication";
+import * as ExpoLocation from "expo-location";
 import * as ExpoSecureStore from "expo-secure-store";
 import * as Application from "./application.lucent";
 import * as Clipboard from "./clipboard.lucent";
 import * as Device from "./device.lucent";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "./hapticsTypes.lucent";
 import * as LocalAuthentication from "./localAuthentication.lucent";
+import * as Location from "./location.lucent";
 import * as SecureStore from "./secureStore.lucent";
 import * as Storage from "./storage.lucent";
 import type { SdkCase } from "./types";
@@ -33,7 +35,31 @@ async function authSteps(m: { hasHardwareAsync(): Promise<boolean>; isEnrolledAs
   return JSON.stringify([await m.hasHardwareAsync(), await m.isEnrolledAsync(), await m.supportedAuthenticationTypesAsync(), await m.getEnrolledLevelAsync()]);
 }
 
+/** A position to three decimals (about 100 m), for comparing two providers' fixes. */
+const near = (l: { coords: { latitude: number; longitude: number } } | null) => (l ? `${l.coords.latitude.toFixed(3)},${l.coords.longitude.toFixed(3)}` : "none");
+
 export const parityCases: SdkCase[] = [
+  {
+    name: "same as expo-location: permission, services, provider",
+    run: async () => {
+      const steps = async (m: { getForegroundPermissionsAsync(): Promise<{ status: string; granted: boolean }>; hasServicesEnabledAsync(): Promise<boolean>; getProviderStatusAsync(): Promise<{ locationServicesEnabled: boolean }> }) => {
+        const p = await m.getForegroundPermissionsAsync();
+        return JSON.stringify([p.status, p.granted, await m.hasServicesEnabledAsync(), (await m.getProviderStatusAsync()).locationServicesEnabled]);
+      };
+      const [a, b] = [await steps(Location), await steps(ExpoLocation)];
+      return a === b ? "same" : `lucent ${a} expo ${b}`;
+    },
+    expected: "same",
+  },
+  {
+    name: "same current position as expo-location",
+    run: async () => {
+      // High accuracy (GPS), as the port asks: simulators' and emulators' fixes come through it.
+      const [a, b] = [near(await Location.getCurrentPositionAsync()), near(await ExpoLocation.getCurrentPositionAsync({ accuracy: ExpoLocation.Accuracy.High }))];
+      return a === b ? `same ${a}` : `lucent ${a} expo ${b}`;
+    },
+    expected: /^same /,
+  },
   {
     name: "same as expo-local-authentication",
     run: async () => {

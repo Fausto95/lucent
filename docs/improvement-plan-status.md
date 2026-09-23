@@ -42,17 +42,18 @@ Done:
 - [x] Device check: the SDK tab's callbacks case passes in the bare app on the
       iOS simulator and the Android emulator.
 
-In progress:
-
-- [ ] expo-local-authentication port. Passes on iOS (bare 17/17, and Expo 28/28
-      with parity against the original) and Expo Android (28/28). Bare Android
-      failed on the USE_BIOMETRIC permission, which is fixed now (declared from
-      the SDK's annotations); a rerun is pending.
+- [x] expo-local-authentication port. Passes on iOS and Android, bare and
+      Expo, with parity against the original in the Expo app.
+- [x] expo-location port (permission, services, provider status, last known,
+      current and watched position). Passes on iOS and Android, bare and Expo;
+      in the Expo app the current position matches expo-location's.
+- [x] Also found on devices: Java default methods' bodies run through
+      MethodHandles (LocationListener's onLocationChanged(List)); uncaught
+      errors log to logcat and the unified log; Lucent names no longer shadow
+      the glue's (`id`); parameter-property functions can be called.
 
 Left:
 
-- [ ] expo-location port (permissions, services, last known and current
-      position, watchPosition).
 - [ ] netinfo port. iOS needs the Network framework's C API: opaque handle
       types (`nw_path_t`), typealiased block types, and a dispatch queue.
 - [ ] Tests of callback release, and no leaks under ASan.
@@ -75,6 +76,12 @@ Postponed:
 - Factory initializers (`+requestWithIdentifier:…`, which Swift imports as
   `init`) are dropped by the extractor. This belongs to Phase 4's total
   mapping.
+- Generic Java classes' methods (`Consumer<T>.accept`) and `java.util`
+  collections (`List`) are not bound yet: Phase 4's real type parameters. The
+  location port uses a LocationListener and the platform's providers instead.
+- On Android API 24 and 25, a default method Lucent does not implement
+  returns its zero value (Java's MethodHandles are missing there), and the
+  reason is logged.
 
 ## Phase 2: build and test reliability
 
