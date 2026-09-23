@@ -111,12 +111,17 @@ function resolveAndroidDependencies(root: string, files: string[], sdk: SdkOptio
   const stateFile = path.join(root, ".lucent/android-classpath.state.json");
   const inputs = gradleInputsHash(root);
   const state = fs.existsSync(stateFile) ? (JSON.parse(fs.readFileSync(stateFile, "utf8")) as { inputs?: string; ok?: boolean }) : {};
-  if (state.inputs === inputs && (state.ok === false || fs.existsSync(sdk.android!.classpath!))) return;
+  const force = process.argv.includes("--force");
+  if (!force && state.inputs === inputs && state.ok === false) {
+    process.stderr.write("! Gradle could not resolve the app's Android dependencies for these build files before; lucent build --force retries.\n");
+    return;
+  }
+  if (!force && state.inputs === inputs && fs.existsSync(sdk.android!.classpath!)) return;
   process.stdout.write("• resolving the app's Android dependencies (Gradle :app:lucentClasspath)\n");
   const script = path.join(runtimeDir(), "gradle/lucent-classpath.init.gradle");
   const r = spawnSync(gradlew, ["-q", "--init-script", script, ":app:lucentClasspath"], { cwd: android, encoding: "utf8" });
   if (r.status !== 0) {
-    process.stderr.write(`! Gradle could not resolve them (not retried until the build files or the lockfile change):\n${(r.stderr || r.stdout).trim().split("\n").slice(-8).join("\n")}\n`);
+    process.stderr.write(`! Gradle could not resolve them (retried when the build files or the lockfile change, or with lucent build --force):\n${(r.stderr || r.stdout).trim().split("\n").slice(-8).join("\n")}\n`);
   }
   fs.mkdirSync(path.dirname(stateFile), { recursive: true });
   fs.writeFileSync(stateFile, JSON.stringify({ inputs, ok: r.status === 0 }) + "\n");
