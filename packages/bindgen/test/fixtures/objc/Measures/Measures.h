@@ -14,3 +14,9 @@ struct MSRSpan {
   MSRTime start;
   MSRTime duration;
 };
+
+// A typedef of a struct whose tag Swift hides, as NSRange's `_NSRange`.
+typedef struct _MSRRange {
+  NSUInteger location;
+  NSUInteger length;
+} MSRRange;

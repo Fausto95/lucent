@@ -7,6 +7,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic) MSRTime currentTime;
 @property (nonatomic) MSRSpan loop;
 @property (nonatomic, readonly) MSRTrackID track;
+@property (nonatomic) MSRRange selection;
 @end
 
 NS_ASSUME_NONNULL_END

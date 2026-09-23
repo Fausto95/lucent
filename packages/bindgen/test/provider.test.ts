@@ -160,6 +160,18 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     expect(type("currentTime")).toEqual(T("Measures.MSRTime"));
     expect(type("loop")).toEqual(T("Measures.MSRSpan"));
     expect(type("track")).toEqual(T("int32"));
+    // Swift hides the tag `_MSRRange` and names the typedef without a USR, as it does NSRange.
+    expect(type("selection")).toEqual(T("Measures.MSRRange"));
+    const measures = sdkModule("ios", "Measures", { cacheDir: tmp("lucent-cache-"), ios: { includePaths: [path.join(fixtures, "objc")] } });
+    expect("schema" in measures && measures.schema.types.find((t) => t.name === "MSRRange")).toEqual({
+      kind: "struct",
+      name: "MSRRange",
+      native: "MSRRange",
+      fields: [
+        { name: "location", type: T("NSUInteger") },
+        { name: "length", type: T("NSUInteger") },
+      ],
+    });
   });
 
   it("keys the app's pods on Podfile.lock, not on every header", () => {
