@@ -3,7 +3,7 @@ import type { DocPage } from "../../types";
 export const page: DocPage = {
   slug: "reference/metro",
   title: "Metro",
-  description: "`withLucent` from @lucent-lang/metro: bundles each `*.lucent.ts` import as its native proxy and rebuilds while the dev server runs.",
+  description: "`withLucent` from @lucent-lang/lucent/metro: bundles each `*.lucent.ts` import as its native proxy and rebuilds while the dev server runs.",
   blocks: [
     {
       kind: "p",
@@ -16,7 +16,7 @@ export const page: DocPage = {
           label: "React Native CLI",
           filename: "metro.config.js",
           code: `const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
-const { withLucent } = require("@lucent-lang/metro");
+const { withLucent } = require("@lucent-lang/lucent/metro");
 
 module.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), {}));`,
         },
@@ -24,7 +24,7 @@ module.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), {}));`,
           label: "Expo",
           filename: "metro.config.js",
           code: `const { getDefaultConfig } = require("expo/metro-config");
-const { withLucent } = require("@lucent-lang/metro");
+const { withLucent } = require("@lucent-lang/lucent/metro");
 
 module.exports = withLucent(getDefaultConfig(__dirname));`,
         },
@@ -66,7 +66,7 @@ module.exports = withLucent(getDefaultConfig(__dirname));`,
     },
     {
       kind: "p",
-      text: "The watcher needs `@lucent-lang/cli` installed; without it, Metro prints a warning and you run `lucent build` yourself. It stops when Metro exits.",
+      text: "The watcher runs the `lucent` command of the same package. It stops when Metro exits.",
     },
     { kind: "h2", text: "Options" },
     {

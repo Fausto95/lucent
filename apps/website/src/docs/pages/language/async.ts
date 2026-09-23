@@ -8,7 +8,7 @@ export const page: DocPage = {
     { kind: "h2", text: "async and await" },
     {
       kind: "p",
-      text: "`async` functions, methods and arrow functions, `await`, `Promise.all`, `Promise.resolve` and `Promise.reject` work as in JavaScript. Timing comes from `delay(ms, signal?)` in `@lucent-lang/core`, the equivalent of a `setTimeout` wrapped in a promise.",
+      text: "`async` functions, methods and arrow functions, `await`, `Promise.all`, `Promise.resolve` and `Promise.reject` work as in JavaScript. Timing comes from `delay(ms, signal?)` in `lucent:core`, the equivalent of a `setTimeout` wrapped in a promise.",
     },
     {
       kind: "code",

@@ -3,11 +3,11 @@ import type { DocPage } from "../../types";
 export const page: DocPage = {
   slug: "reference/cli",
   title: "CLI",
-  description: "The `lucent` command from @lucent-lang/cli: build, check and init.",
+  description: "The `lucent` command from @lucent-lang/lucent: build, check and init.",
   blocks: [
     {
       kind: "p",
-      text: "Install `@lucent-lang/cli` as a dev dependency. It provides one command, `lucent`, with three subcommands. Every subcommand finds the `*.lucent.ts` files under the root directory, skipping `node_modules`, `ios`, `android` and dot-directories.",
+      text: "Install `@lucent-lang/lucent` as a dev dependency. It provides one command, `lucent`, with three subcommands. Every subcommand finds the `*.lucent.ts` files under the root directory, skipping `node_modules`, `ios`, `android` and dot-directories.",
     },
     {
       kind: "code",
@@ -79,8 +79,9 @@ $ npx lucent build
     {
       kind: "list",
       items: [
-        "Writes `react-native.config.js` with a `lucent-native` dependency pointing at `.lucent/native`, so autolinking picks up the generated package. If the file exists without that entry, it prints the entry for you to add.",
+        "Writes `react-native.config.js` with a `lucent` dependency pointing at `.lucent/native`, so autolinking picks up the generated package. If the file exists without that entry, it prints the entry for you to add.",
         "Adds `.lucent/` to `.gitignore`: the native package is generated, like a build output.",
+        "Maps `lucent:*` in the `paths` of `tsconfig.json` to `.lucent/native/types`, where `lucent build` writes the declarations of `lucent:core` and the SDK modules, so your editor resolves them as the compiler does. It keeps the file's comments and layout; `lucent build` adds the mapping too if it is missing.",
         "Prints the remaining steps: wrap the Metro config with [`withLucent()`](/docs/reference/metro/), and enable `\"noUncheckedIndexedAccess\": true` in `tsconfig.json` so your editor checks what the compiler checks.",
       ],
     },
@@ -89,13 +90,13 @@ $ npx lucent build
       filename: "react-native.config.js",
       code: `module.exports = {
   dependencies: {
-    "lucent-native": { root: require("path").join(__dirname, ".lucent", "native") },
+    lucent: { root: require("path").join(__dirname, ".lucent", "native") },
   },
 };`,
     },
     {
       kind: "p",
-      text: "Expo apps don't need `lucent init`: the [Expo plugin](/docs/reference/expo/) writes the same entry during prebuild. A full walkthrough is in [Getting started](/docs/getting-started/).",
+      text: "In Expo apps the [Expo plugin](/docs/reference/expo/) writes the same `react-native.config.js` entry during prebuild; `lucent init` still sets up `.gitignore` and `tsconfig.json`. A full walkthrough is in [Getting started](/docs/getting-started/).",
     },
   ],
 };

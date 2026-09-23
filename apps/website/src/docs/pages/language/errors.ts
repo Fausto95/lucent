@@ -49,7 +49,7 @@ export function explain(age: number): string {
     { kind: "h2", text: "Error codes" },
     {
       kind: "p",
-      text: "`error(code, message)` from `@lucent-lang/core` creates an `Error` with a machine-readable `code`, and `errorCode(e)` reads it back (or returns `undefined`). JavaScript sees the code as `error.code`, which is the usual way to let callers branch on a failure without parsing messages.",
+      text: "`error(code, message)` from `lucent:core` creates an `Error` with a machine-readable `code`, and `errorCode(e)` reads it back (or returns `undefined`). JavaScript sees the code as `error.code`, which is the usual way to let callers branch on a failure without parsing messages.",
     },
     {
       kind: "code",

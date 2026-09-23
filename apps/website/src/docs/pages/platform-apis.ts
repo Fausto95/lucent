@@ -23,7 +23,7 @@ export const page: DocPage = {
       kind: "table",
       head: ["File", "Contains", "May import"],
       rows: [
-        ["`haptics.lucent.ts`", "Only `export declare function`s, types and imports", "Other Lucent modules, `@lucent-lang/core`"],
+        ["`haptics.lucent.ts`", "Only `export declare function`s, types and imports", "Other Lucent modules, `lucent:core`"],
         ["`haptics.ios.lucent.ts`", "The iOS implementation of every declared export", "Also `lucent:ios/<Framework>`, `lucent:ios`, `lucent:thread`"],
         ["`haptics.android.lucent.ts`", "The Android implementation of every declared export", "Also `lucent:android/<package>`, `lucent:android`, `lucent:thread`"],
       ],

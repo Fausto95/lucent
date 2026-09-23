@@ -12,23 +12,22 @@ export const page: DocPage = {
     {
       kind: "note",
       tone: "warn",
-      text: "The `@lucent-lang/*` packages are **not published to npm yet**. Until they are, install them from the repository: link the workspace packages, or build tarballs with `pnpm pack` in each package and install those.",
+      text: "`@lucent-lang/lucent` is **not published to npm yet**. Until it is, build its tarball from the repository with `pnpm pack` in `packages/lucent` (and in `packages/sdk-ios` and `packages/sdk-android`, which it depends on), then install the tarball.",
     },
     {
       kind: "steps",
       steps: [
         {
-          title: "Install the packages",
+          title: "Install Lucent",
           blocks: [
             {
               kind: "code",
               filename: "terminal",
-              code: `npm i @lucent-lang/runtime @lucent-lang/core
-npm i -D @lucent-lang/cli @lucent-lang/metro`,
+              code: "npm i -D @lucent-lang/lucent",
             },
             {
               kind: "p",
-              text: "`runtime` holds the C++ runtime and the JS loader the proxies use; `core` holds small helpers such as `delay` (see [@lucent-lang/core](/docs/reference/core/)). The CLI and the Metro integration are build-time only.",
+              text: "One package holds everything: the `lucent` command, the compiler, the C++ runtime, the Metro integration and the editor plugin. It is build-time only. `lucent build` writes into your app what the app needs at run time, the native package and the JS loader its modules use. Helpers such as `delay` are built in as [`lucent:core`](/docs/reference/core/).",
             },
           ],
         },
@@ -38,7 +37,7 @@ npm i -D @lucent-lang/cli @lucent-lang/metro`,
             { kind: "code", filename: "terminal", code: "npx lucent init" },
             {
               kind: "p",
-              text: "It adds a `lucent-native` entry to `react-native.config.js`, so autolinking picks up the generated native package in `.lucent/native`, and adds `.lucent/` to `.gitignore`. If `react-native.config.js` already exists, it prints the entry for you to add:",
+              text: "It adds a `lucent` entry to `react-native.config.js`, so autolinking picks up the generated native package in `.lucent/native`, adds `.lucent/` to `.gitignore`, and maps `lucent:*` imports in `tsconfig.json` to the declarations `lucent build` writes. If `react-native.config.js` already exists, it prints the entry for you to add:",
             },
             {
               kind: "code",
@@ -47,7 +46,7 @@ npm i -D @lucent-lang/cli @lucent-lang/metro`,
 
 module.exports = {
   dependencies: {
-    "lucent-native": {
+    lucent: {
       root: path.join(__dirname, ".lucent", "native"),
     },
   },
@@ -66,7 +65,7 @@ module.exports = {
               kind: "code",
               filename: "metro.config.js",
               code: `const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
-const { withLucent } = require("@lucent-lang/metro");
+const { withLucent } = require("@lucent-lang/lucent/metro");
 
 module.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), {}));`,
             },
@@ -150,7 +149,7 @@ npx react-native run-ios      # or: npx react-native run-android`,
     { kind: "h2", text: "Editor diagnostics" },
     {
       kind: "p",
-      text: "TypeScript itself accepts code that Lucent rejects (`var`, `any`, and so on). To see Lucent's diagnostics as you type, install `@lucent-lang/ts-plugin` as a dev dependency and add it to `tsconfig.json`. In VS Code, select the workspace TypeScript version so the plugin loads.",
+      text: "TypeScript itself accepts code that Lucent rejects (`var`, `any`, and so on). To see Lucent's diagnostics as you type, add the plugin `@lucent-lang/lucent` ships to `tsconfig.json`. In VS Code, select the workspace TypeScript version so the plugin loads.",
     },
     {
       kind: "code",
@@ -158,7 +157,7 @@ npx react-native run-ios      # or: npx react-native run-android`,
       code: `{
   "compilerOptions": {
     "noUncheckedIndexedAccess": true,
-    "plugins": [{ "name": "@lucent-lang/ts-plugin" }]
+    "plugins": [{ "name": "@lucent-lang/lucent/ts-plugin" }]
   }
 }`,
     },

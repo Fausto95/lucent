@@ -62,7 +62,7 @@ await load("x").catch((e) => e.code); // "E_PORT"`,
       rows: [
         ["`new Error(m)`", "`Error` with the same `message`"],
         ["`new TypeError(m)`, `new RangeError(m)`", "`TypeError`, `RangeError`"],
-        ["`error(code, m)` from `@lucent-lang/core`", "`Error` whose `code` is `code`"],
+        ["`error(code, m)` from `lucent:core`", "`Error` whose `code` is `code`"],
         ["`class X extends Error`", "`Error` whose `name` is the class's `name`; other fields are not copied"],
       ],
     },

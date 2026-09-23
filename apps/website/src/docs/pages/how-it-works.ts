@@ -70,7 +70,7 @@ export const page: DocPage = {
     },
     {
       kind: "p",
-      text: "Both the React Native CLI and Expo find the package through the `lucent-native` entry in `react-native.config.js`, which points at `.lucent/native`.",
+      text: "Both the React Native CLI and Expo find the package through the `lucent` entry in `react-native.config.js`, which points at `.lucent/native`.",
     },
     { kind: "h2", text: "Metro proxies" },
     {
@@ -82,7 +82,7 @@ export const page: DocPage = {
       kind: "table",
       head: ["Path", "Contents"],
       rows: [
-        ["`cpp/lucent/`, `cpp/third_party/`", "The C++ runtime, copied from `@lucent-lang/runtime`."],
+        ["`cpp/lucent/`, `cpp/third_party/`", "The C++ runtime, copied from `@lucent-lang/lucent`."],
         ["`cpp/rn/`", "The `Lucent` TurboModule."],
         ["`cpp/generated/`", "Your modules: `lucent_app.h`, `m_<module>.h` and `m_<module>.cpp` per module, and `lucent_bindings.cpp` (the JSI bindings)."],
         ["`ios/`, `LucentNative.podspec`", "iOS registration and the CocoaPods spec."],
