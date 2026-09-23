@@ -84,6 +84,26 @@ describe("Lucent packages' native needs", () => {
   });
 });
 
+describe("lucent sdk coverage", () => {
+  it.skipIf(!android)("reports idiomatic, raw and unrepresentable members per module, and fails when coverage drops", () => {
+    const root = project();
+    const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-"));
+    const run = (...args: string[]) => spawnSync(process.execPath, [bin, "sdk", "coverage", ...args, "--root", root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: cache } });
+    const r = run("--android", "android.os", "--json");
+    expect(r.status).toBe(0);
+    const [os_] = JSON.parse(r.stdout) as { module: string; idiomatic: number; raw: number; unrepresentable: number; total: number }[];
+    expect(os_).toMatchObject({ module: "android.os" });
+    expect(os_!.idiomatic + os_!.raw + os_!.unrepresentable).toBe(os_!.total);
+    expect(os_!.total).toBeGreaterThan(1000);
+    // A baseline with fewer unrepresentable members than now: coverage dropped.
+    const baseline = path.join(root, "coverage.json");
+    fs.writeFileSync(baseline, JSON.stringify([{ ...os_, unrepresentable: 0 }]));
+    const check = run("--android", "android.os", "--check", baseline);
+    expect(check.status).toBe(1);
+    expect(check.stderr).toMatch(/android\.os: .*unrepresentable/);
+  });
+});
+
 describe("lucent init", () => {
   it("links the native package as the `lucent` dependency", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
