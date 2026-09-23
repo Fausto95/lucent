@@ -22,5 +22,6 @@ export default function run(mod, print, lucentClass, mods) {
   const seen = [];
   a.onEach((n) => seen.push(n));
   print(seen.join(","));
+  print(mod.presence(c, "s", 1));
 
 }
