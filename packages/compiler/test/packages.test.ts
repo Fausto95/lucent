@@ -55,6 +55,15 @@ describe("Lucent packages", () => {
     expect(new Set(headers).size).toBe(4);
   });
 
+  it("lets Lucent modules import other packages' modules by path", () => {
+    const root = app();
+    fs.writeFileSync(path.join(root, "src/uses.lucent.ts"), 'import { where } from "lucent-a/src/storage.lucent";\nimport { depth } from "lucent-a/src/nested/deep.lucent";\nexport function both(): string { return `${where()} ${depth()}`; }\n');
+    const r = compile(projectFiles(root));
+    expect(r.diagnostics).toEqual([]);
+    const uses = [...r.files.entries()].find(([k]) => k.endsWith("m_uses.cpp"))?.[1] ?? "";
+    expect(uses).toMatch(/lucent_app::m_lucent_\w*storage::where\(\)/);
+  });
+
   it("reads a package's lucent.json", () => {
     const root = app();
     fs.writeFileSync(path.join(root, "node_modules/lucent-b/lucent.json"), JSON.stringify({ android: { permissions: ["android.permission.VIBRATE"] } }));
