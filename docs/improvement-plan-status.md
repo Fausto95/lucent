@@ -185,11 +185,14 @@ Coverage (unrepresentable members):
 Totals shrink a little as members that now type-check merge with overloads
 of the same signature.
 
-Top reasons left: pointers (ObjCBool, generic UnsafePointer and
-AutoreleasingUnsafeMutablePointer, raw pointers, pointers to structs),
-Selector, AnyClass, generic Objective-C classes (NSMapTable, NSHashTable,
-NSLayoutAnchor), protocol compositions (`any UIView &
-UITextDroppable`); on Android, generics.
+Scope (decided 2026-09-23): bind the types apps commonly use, not every
+type. The plan's "under 1% unrepresentable" target is dropped; the coverage
+report stays as a regression check (CI fails when a share grows). What is
+left is deliberately out of scope unless a port needs it: pointers
+(ObjCBool stop flags, UnsafePointer, AutoreleasingUnsafeMutablePointer, raw
+buffers, pointers to structs), Selector, AnyClass, generic Objective-C
+classes (NSMapTable, NSHashTable, NSLayoutAnchor), protocol compositions
+(`any UIView & UITextDroppable`); on Android, generics.
 
 - [x] Structs of modules a program does not import (CGRect, reached through
       UIKit) have their fields: the names index carries the fields of structs
