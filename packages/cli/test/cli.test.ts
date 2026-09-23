@@ -59,3 +59,37 @@ describe("lucent init", () => {
     expect(fs.readFileSync(path.join(root, "react-native.config.js"), "utf8")).toBe('module.exports = { dependencies: { "lucent": { root: ".lucent/native" } } };\n');
   });
 });
+
+describe("lucent sdk prefetch", () => {
+  const run = (root: string, env: Record<string, string>, ...args: string[]) => {
+    const r = spawnSync(process.execPath, [bin, ...args, "--root", root], { encoding: "utf8", env: { ...process.env, ...env } });
+    return { status: r.status, out: r.stdout + r.stderr };
+  };
+
+  it("extracts the modules it is given into the cache", () => {
+    const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-"));
+    const r = run(project(), { LUCENT_CACHE_DIR: cache }, "sdk", "prefetch", "--android", "android.os");
+    expect(r.out).toMatch(/android\.os/);
+    expect(r.status).toBe(0);
+    const [key] = fs.readdirSync(path.join(cache, "sdk/android"));
+    expect(fs.existsSync(path.join(cache, "sdk/android", key!, "android.os.json"))).toBe(true);
+  });
+
+  it("fails for modules the SDK does not have, saying where it looked", () => {
+    const r = run(project(), { LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")) }, "sdk", "prefetch", "--android", "com.nope");
+    expect(r.status).toBe(1);
+    expect(r.out).toMatch(/com\.nope.*not found/s);
+  });
+
+  it("builds the platforms whose SDK is installed, and says which it skipped", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-"));
+    fs.writeFileSync(path.join(root, "m.lucent.ts"), "export declare function f(): Promise<string>;\n");
+    fs.writeFileSync(path.join(root, "m.ios.lucent.ts"), 'import { UIDevice } from "lucent:ios/UIKit";\nimport { main } from "lucent:thread";\nexport function f(): Promise<string> { return main(() => UIDevice.current.model); }\n');
+    fs.writeFileSync(path.join(root, "m.android.lucent.ts"), 'import { Build } from "lucent:android/android.os";\nexport async function f(): Promise<string> { return Build.MODEL ?? ""; }\n');
+    const r = run(root, { LUCENT_XCRUN: path.join(os.tmpdir(), "no-such-xcrun"), LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")) }, "build");
+    expect(r.out).toMatch(/iOS SDK was not found.*skipped iOS/s);
+    expect(r.status).toBe(0);
+    expect(fs.existsSync(path.join(root, ".lucent/native/cpp/generated/android/m_m.cpp"))).toBe(true);
+    expect(fs.existsSync(path.join(root, ".lucent/native/cpp/generated/ios"))).toBe(false);
+  });
+});

@@ -2,11 +2,11 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import ts from "typescript";
 import { compile, runtimeDir, writeNativePackage } from "../src/index.ts";
 import { createLucentProgram } from "../src/program.ts";
+import { androidJars, sdkAvailable } from "@lucent-lang/bindgen";
 import { jniDescriptor, loadSdkModule } from "../src/sdk/schema.ts";
 
 function project(sources: Record<string, string>) {
@@ -25,6 +25,10 @@ function tsErrors(platform: "ios" | "android", source: string): string[] {
 }
 
 const codes = (r: { diagnostics: { code: string }[] }) => r.diagnostics.map((d) => d.code);
+
+// Most of these compile both platforms: they need an iOS SDK (Xcode, or the
+// prebuilt @lucent-lang/sdk-ios); hosts without one run the Android suites.
+const ios = sdkAvailable("ios");
 
 const haptics = {
   "haptics.lucent.ts": "export declare function impact(): Promise<void>;\nexport declare function model(): Promise<string>;\n",
@@ -62,7 +66,7 @@ export async function model(): Promise<string> {
 };
 
 describe("SDK bindings: types", () => {
-  it("types iOS classes nominally, with Swift names, enums and class properties", () => {
+  it.skipIf(!ios)("types iOS classes nominally, with Swift names, enums and class properties", () => {
     const src = `import { UIApplicationDelegate, UIDevice, UIFeedbackGenerator, UIImpactFeedbackGenerator, UIImpactFeedbackGenerator_FeedbackStyle as Style, UISelectionFeedbackGenerator } from "lucent:ios/UIKit";
 export function f(): string {
   const g = new UIImpactFeedbackGenerator(Style.heavy);
@@ -94,10 +98,8 @@ export function f(): number {
   });
 
   it("derives JNI descriptors that exist in android.jar", () => {
-    const sdk = process.env.ANDROID_HOME ?? path.join(os.homedir(), "Library/Android/sdk");
-    // The platform the schemas were generated from (packages/sdk-android/SOURCE).
-    const platform = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "../../sdk-android/SOURCE"), "utf8").split(" ")[0]!;
-    const jar = [path.join(sdk, "platforms", platform, "android.jar")].find((j) => fs.existsSync(j));
+    // The jar the schemas are extracted from.
+    const jar = androidJars()?.[0];
     const javap = spawnSync("javap", ["-version"]).status === 0;
     if (!jar || !javap) return;
     for (const mod of ["android.os", "android.content"]) {
@@ -117,7 +119,7 @@ export function f(): number {
   });
 });
 
-describe("platform modules", () => {
+describe.skipIf(!ios)("platform modules", () => {
   it("compiles each platform's implementation against the shared declaration", () => {
     const r = compile(project(haptics));
     expect(r.diagnostics).toEqual([]);
@@ -149,6 +151,18 @@ describe("platform modules", () => {
     expect(ts.getPreEmitDiagnostics(program).map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n"))).toEqual([]);
   });
 
+  it("types other frameworks in signatures by name, without extracting them", () => {
+    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cache-"));
+    const r = compile(project(haptics), { platforms: ["ios"], sdk: { cacheDir } });
+    expect(r.diagnostics).toEqual([]);
+    const [key] = fs.readdirSync(path.join(cacheDir, "sdk/ios"));
+    const schemas = fs.readdirSync(path.join(cacheDir, "sdk/ios", key!)).filter((f) => f.endsWith(".json") && !f.endsWith(".names.json") && f !== "headers.json");
+    // Only what the program imports gets a full schema.
+    expect(schemas).toEqual(["UIKit.json"]);
+    expect(r.types!.get("ios/Foundation.d.ts")).toMatch(/Names only: import lucent:ios\/Foundation/);
+    fs.rmSync(cacheDir, { recursive: true, force: true });
+  }, 600_000);
+
   it("keeps the single layout for projects without platform files", () => {
     const r = compile(project({ "plain.lucent.ts": "export function one(): number { return 1; }\n" }));
     expect([...r.files.keys()].sort()).toEqual(["lucent_app.h", "lucent_bindings.cpp", "m_plain.cpp", "m_plain.h"]);
@@ -160,6 +174,12 @@ describe("platform modules", () => {
     const stub = r.files.get("host/m_haptics.cpp")!;
     expect(stub).toContain("is not available on this platform");
     expect([...r.files.keys()].some((k) => k.startsWith("ios/"))).toBe(false);
+  });
+
+  it("reports a missing SDK with the fix", () => {
+    const r = compile(project(haptics), { platforms: ["android"], sdk: { android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] }, prebuilt: false } });
+    expect(r.diagnostics.map((d) => d.code)).toContain("LUCENT3004");
+    expect(r.diagnostics.find((d) => d.code === "LUCENT3004")!.message).toMatch(/Android SDK.*not found.*ANDROID_HOME/s);
   });
 
   it("rejects SDK imports from the other platform and unknown SDK modules", () => {
@@ -199,7 +219,7 @@ describe("platform modules", () => {
   });
 });
 
-describe("platform glue", () => {
+describe.skipIf(!ios)("platform glue", () => {
   it("sends Objective-C messages with the SDK's own names and checks enum values", () => {
     const mm = compile(project(haptics)).files.get("ios/m_haptics.mm")!;
     expect(mm).toContain("[[UIImpactFeedbackGenerator alloc] initWithStyle:");

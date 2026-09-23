@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { sdkAvailable } from "@lucent-lang/bindgen";
 import { compile, runtimeDir } from "../src/index.ts";
 
 /** iOS output for a platform module whose iOS side is `src` (exporting run()). */
@@ -69,7 +70,7 @@ export async function run(): Promise<string> {
 }
 `;
 
-describe("iOS bindings from the SDK", () => {
+describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
   it("reads and writes properties", () => {
     const { r, mm } = ios(clipboard);
     expect(r.diagnostics).toEqual([]);
