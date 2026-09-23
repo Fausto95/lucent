@@ -129,6 +129,41 @@ function isOtherWrite(id: ts.Identifier): boolean {
   return false;
 }
 
+/**
+ * Symbols a destructuring pattern writes: `[a, b = 1] = …`, `({ a, b: c } = …)`,
+ * `for ([a] of …)`. Defaults are reads, and shorthand names resolve to the
+ * local, not the property.
+ */
+export function destructuredSymbols(root: ts.Node, checker: ts.TypeChecker): Set<ts.Symbol> {
+  const out = new Set<ts.Symbol>();
+  const target = (n: ts.Node): void => {
+    if (ts.isParenthesizedExpression(n)) return target(n.expression);
+    if (ts.isIdentifier(n)) {
+      const sym = checker.getSymbolAtLocation(n);
+      if (sym) out.add(sym);
+    } else if (ts.isArrayLiteralExpression(n)) {
+      for (const el of n.elements) target(ts.isSpreadElement(el) ? el.expression : el);
+    } else if (ts.isObjectLiteralExpression(n)) {
+      for (const p of n.properties) {
+        if (ts.isShorthandPropertyAssignment(p)) {
+          const sym = checker.getShorthandAssignmentValueSymbol(p);
+          if (sym) out.add(sym);
+        } else if (ts.isPropertyAssignment(p)) target(p.initializer);
+        else if (ts.isSpreadAssignment(p)) target(p.expression);
+      }
+    } else if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+      target(n.left);
+    }
+  };
+  const visit = (n: ts.Node): void => {
+    if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && (ts.isArrayLiteralExpression(n.left) || ts.isObjectLiteralExpression(n.left))) target(n.left);
+    if ((ts.isForOfStatement(n) || ts.isForInStatement(n)) && !ts.isVariableDeclarationList(n.initializer)) target(n.initializer);
+    ts.forEachChild(n, visit);
+  };
+  visit(root);
+  return out;
+}
+
 function isFunctionBoundary(n: ts.Node): boolean {
   return ts.isFunctionLike(n) || ts.isClassLike(n);
 }
@@ -137,16 +172,17 @@ export function inferIntegers(body: ts.Node, opts: InferOptions): IntegerFacts {
   const { checker } = opts;
   const decls = new Map<ts.Symbol, ts.VariableDeclaration>();
   const counters = new Set<ts.Symbol>();
+  const destructured = destructuredSymbols(body, checker);
   const collect = (n: ts.Node): void => {
     if (ts.isForStatement(n)) {
-      const c = loopCounter(n, checker, opts.isBoxed);
+      const c = loopCounter(n, checker, (sym) => opts.isBoxed(sym) || destructured.has(sym));
       if (c) counters.add(c);
     }
     if (ts.isVariableDeclaration(n) && ts.isIdentifier(n.name) && n.initializer) {
       const list = n.parent;
       const inForOf = ts.isForOfStatement(list.parent) || ts.isForInStatement(list.parent);
       const sym = checker.getSymbolAtLocation(n.name);
-      if (sym && !counters.has(sym) && !inForOf && ts.isVariableDeclarationList(list) && list.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const) && opts.candidate(n, sym)) decls.set(sym, n);
+      if (sym && !counters.has(sym) && !destructured.has(sym) && !inForOf && ts.isVariableDeclarationList(list) && list.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const) && opts.candidate(n, sym)) decls.set(sym, n);
     }
     if (n !== body && isFunctionBoundary(n)) return;
     ts.forEachChild(n, collect);
