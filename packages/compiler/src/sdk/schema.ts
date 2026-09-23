@@ -52,7 +52,7 @@ export function loadSdkModule(platform: Platform, module: string): SdkModuleSche
 }
 
 /** A type's kind and native name, from the module's names (no schema needed). */
-export function sdkTypeInfo(platform: Platform, module: string, name: string): { kind: "class" | "protocol" | "enum" | "struct"; native: string } | undefined {
+export function sdkTypeInfo(platform: Platform, module: string, name: string): NamesIndex["types"][string] | undefined {
   const n = sdkNames(platform, module, sdkOptions);
   return "names" in n ? n.names.types[name] : undefined;
 }

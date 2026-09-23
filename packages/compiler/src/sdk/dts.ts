@@ -171,9 +171,16 @@ export function stubDts(platform: Platform, module: string, names: NamesIndex): 
   // By name: the graph's order changes between extractions.
   for (const [name, t] of Object.entries(names.types).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
     if (t.kind === "enum") out.push(`export declare enum ${name} {}`);
+    else if (t.kind === "struct" && t.fields) out.push(`export declare type ${name} = { ${t.fields.map((f) => `${f.name}: ${stubFieldType(parseSdkType(f.type, module))}`).join("; ")} };`);
     else if (t.kind === "struct") out.push(`export declare type ${name} = { readonly __lucent_struct_${name}?: never };`);
     else if (t.kind === "protocol") out.push(`export declare abstract class ${name} {}`);
     else out.push(`export declare class ${name}${platform === "ios" ? " extends NSObject" : ""} {`, `  private readonly __lucent_${name}: never;`, "  protected constructor();", "}");
   }
   return out.join("\n");
+}
+
+/** A names-only struct field's type: a number, or a type of the same module. */
+function stubFieldType(t: SdkType): string {
+  if (t.k === "ref") return t.name;
+  return t.k === "prim" && (t.name === "bool" || t.name === "boolean") ? "boolean" : "number";
 }

@@ -190,11 +190,16 @@ AutoreleasingUnsafeMutablePointer, pointers to structs), Selector, AnyClass,
 generic Set, AnyHashable, opaque CoreFoundation-style handles (CMSampleBuffer,
 CVBuffer, CMFormatDescription); on Android, generics.
 
+- [x] Structs of modules a program does not import (CGRect, reached through
+      UIKit) have their fields: the names index carries the fields of structs
+      made of numbers and the module's own types, and both the names-only
+      declarations and the glue read them there.
+
 Found along the way, left:
 
-- A struct of a module the program does not import (CGRect, reached through
-  UIKit) is declared without fields until its type is imported
-  (`import type { CGRect } from "lucent:ios/CoreFoundation"`).
+- A method and a property with the same base name collide: UIView's
+  `frame(forAlignmentRect:)` hides its `frame` property. For the
+  stable-naming step.
 
 ## Phase 5: typed IR
 

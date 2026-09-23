@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { formatSchemaType, parseSchemaType, type SchemaType, type SdkCallable, type SdkClassSchema, type SdkEnumSchema, type SdkMethodSchema, type SdkModuleSchema, type SdkPropertySchema } from "./schema.ts";
+import { formatSchemaType, parseSchemaType, type SchemaType, type SdkCallable, type SdkClassSchema, type SdkEnumSchema, type SdkMethodSchema, type SdkModuleSchema, type SdkParam, type SdkPropertySchema } from "./schema.ts";
 
 /**
  * Binding schemas for Clang modules (Apple frameworks, and Objective-C pods
@@ -379,6 +379,24 @@ function propertyType(frags: Fragment[]): Fragment[] {
 /** A C typedef's name from its USR: `c:@T@NSRange`, or `c:Measures.h@T@MSRRange` outside system headers. */
 const typedefName = (usr: string) => /^c:[^@]*@T@(\w+)$/.exec(usr)?.[1];
 
+/** Typedef name → USR, among these USRs. */
+const typedefsAmong = (usrs: Iterable<string>) => new Map([...usrs].flatMap((u): [string, string][] => (typedefName(u) ? [[typedefName(u)!, u]] : [])));
+
+/** A C struct's fields, among its members: numbers, enums and structs. */
+function structFields(members: SymbolGraphSymbol[], r: Resolver, kinds: Map<string, string>): SdkParam[] {
+  const fields = members
+    .filter((m) => m.kind.identifier === "swift.property" && structField(m.identifier.precise))
+    .map((m) => {
+      const type = parseType(propertyType(m.declarationFragments ?? []), r);
+      const written = formatSchemaType(type);
+      const nested = kinds.get(written) === "struct" || kinds.get(written) === "enum";
+      if (!nested && !/^(double|float|CGFloat|NSInteger|NSUInteger|u?int(8|16|32|64)|bool)$/.test(written)) throw new Unsupported(`struct field ${written}`);
+      return { name: m.pathComponents[m.pathComponents.length - 1]!, type };
+    });
+  if (!fields.length) throw new Unsupported("struct without fields");
+  return fields;
+}
+
 /** A C struct field's USR, synthesized onto the typedef (group 2) when Swift hides the struct's tag. */
 const structField = (usr: string) => /^c:@SA?@\w+@FI@(\w+)(?:::SYNTHESIZED::(.+))?$/.exec(usr);
 
@@ -443,8 +461,11 @@ export interface NamesIndex {
   refs: Record<string, string>;
   /** Typealias and typed-string-enum USR → the fragments they stand for. */
   aliases: Record<string, Fragment[]>;
-  /** Schema name → what the glue needs to use a type without its schema. */
-  types: Record<string, { kind: "class" | "protocol" | "enum" | "struct"; native: string }>;
+  /**
+   * Schema name → what the glue needs to use a type without its schema;
+   * structs' fields too, when they are this module's types or numbers.
+   */
+  types: Record<string, { kind: "class" | "protocol" | "enum" | "struct"; native: string; fields?: SdkParam[] }>;
 }
 
 export function namesOf(module: string, g: SymbolGraph): NamesIndex {
@@ -487,6 +508,18 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
     if (r.kind !== "memberOf" || !bridged.has(r.target) || member?.kind.identifier !== "swift.typealias" || member.pathComponents.at(-1) !== "ReferenceType") continue;
     const cls = member.declarationFragments?.find((f) => f.kind === "typeIdentifier" && objcClass(f.preciseIdentifier ?? ""));
     if (cls) aliases[r.target] = [cls];
+  }
+  const members = new Map<string, SymbolGraphSymbol[]>();
+  for (const r of g.relationships) if (r.kind === "memberOf" && byUsr.has(r.source)) members.set(r.target, [...(members.get(r.target) ?? []), byUsr.get(r.source)!]);
+  const kinds = new Map(Object.entries(types).map(([name, t]): [string, string] => [`${module}.${name}`, t.kind]));
+  const typedefs = typedefsAmong([...Object.keys(refs), ...Object.keys(aliases)]);
+  const own: Resolver = { ref: (u) => refs[u], alias: (u) => aliases[u], typedef: (n) => typedefs.get(n) };
+  for (const [usr, { symbol }] of structs) {
+    try {
+      types[symbol.pathComponents.join("_")]!.fields = structFields(members.get(usr) ?? [], own, kinds);
+    } catch (e) {
+      if (!(e instanceof Unsupported)) throw e;
+    }
   }
   return { module, refs, aliases, types };
 }
@@ -539,7 +572,7 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
       members.set(rel.target, list);
     }
     const byUsr = new Map(g.symbols.map((s) => [s.identifier.precise, s]));
-    const typedefs = new Map([...refs.keys(), ...aliases.keys()].flatMap((u): [string, string][] => (typedefName(u) ? [[typedefName(u)!, u]] : [])));
+    const typedefs = typedefsAmong([...refs.keys(), ...aliases.keys()]);
     const resolver = (self?: string, mainActor?: boolean): Resolver => ({ ref: (u) => refs.get(u), alias: (u) => aliases.get(u), typedef: (n) => typedefs.get(n), self, mainActor });
     const skip = (owner: string, s: SymbolGraphSymbol, reason: string) => mod.skipped!.push(`${owner}.${s.names.title}: ${reason}`);
 
@@ -574,17 +607,7 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
       if (unavailable(s)) continue;
       const name = s.pathComponents.join("_");
       try {
-        const fields = (members.get(usr) ?? [])
-          .filter((m) => m.kind.identifier === "swift.property" && structField(m.identifier.precise))
-          .map((m) => {
-            const type = parseType(propertyType(m.declarationFragments ?? []), resolver());
-            const written = formatSchemaType(type);
-            const nested = kinds.get(written) === "struct" || kinds.get(written) === "enum";
-            if (!nested && !/^(double|float|CGFloat|NSInteger|NSUInteger|u?int(8|16|32|64)|bool)$/.test(written)) throw new Unsupported(`struct field ${written}`);
-            return { name: m.pathComponents[m.pathComponents.length - 1]!, type };
-          });
-        if (!fields.length) throw new Unsupported("struct without fields");
-        mod.types.push({ kind: "struct", name, native, fields });
+        mod.types.push({ kind: "struct", name, native, fields: structFields(members.get(usr) ?? [], resolver(), kinds) });
       } catch (e) {
         if (e instanceof Unsupported) mod.skipped!.push(`${name}: ${e.message}`);
         else throw e;

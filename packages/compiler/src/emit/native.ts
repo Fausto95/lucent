@@ -187,9 +187,14 @@ function sdkEnum(platform: Platform, t: SdkType): { native: string } | undefined
   return info?.kind === "enum" ? info : undefined;
 }
 
-/** A C struct's schema (iOS), when `t` names one. */
+/**
+ * A C struct's schema (iOS), when `t` names one: from its module's names,
+ * which hold most structs' fields, else from its schema.
+ */
 function sdkStruct(t: SdkType): SdkStructSchema | undefined {
-  if (t.k !== "ref" || sdkTypeInfo("ios", t.module, t.name)?.kind !== "struct") return undefined;
+  const info = t.k === "ref" ? sdkTypeInfo("ios", t.module, t.name) : undefined;
+  if (t.k !== "ref" || info?.kind !== "struct") return undefined;
+  if (info.fields) return { kind: "struct", name: t.name, native: info.native, fields: info.fields };
   const s = findSdkType("ios", t.module, t.name);
   return s?.kind === "struct" ? s : undefined;
 }
