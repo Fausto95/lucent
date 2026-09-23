@@ -67,7 +67,8 @@ every item above passes under ASan/UBSan on Linux and on both simulators.
 
 Design: [`docs/m2-platform-bindings.md`](docs/m2-platform-bindings.md). Implemented so far: [`docs/platform-bindings.md`](docs/platform-bindings.md).
 
-- 🚧 M2.0 spike: `.ios`/`.android` platform modules checked against a shared declaration; hand-written binding schemas typed as `lucent:ios/<module>` / `lucent:android/<package>`; Objective-C++ message sends and JNI calls; Java exceptions as errors; `main()` with main-thread-only APIs checked at compile time; `available()`, `appContext()`; host stubs for tests. Acceptance: the `expo-haptics` parity port on both simulators.
+- ✅ M2.0 spike (accepted: the `expo-haptics` port passes next to the original package on the iOS simulator and the Android emulator, bare and Expo): `.ios`/`.android` platform modules checked against a shared declaration; hand-written binding schemas typed as `lucent:ios/<module>` / `lucent:android/<package>`; Objective-C++ message sends and JNI calls; Java exceptions as errors; `main()` with main-thread-only APIs checked at compile time; `available()`, `appContext()`; host stubs for tests.
+- 🔭 Distributing Lucent libraries: `lucent build` compiles only the app's own `*.lucent.ts`. Planned: packages ship sources (a `"lucent"` field in package.json), the app's build compiles them with its own modules into the one native package, module names namespaced by package; native dependencies through `lucent.json` (M2.4).
 
 Goal: `import { AVCaptureDevice } from "lucent:ios/AVFoundation"` and
 `import { BatteryManager } from "lucent:android/android.os"` just work.

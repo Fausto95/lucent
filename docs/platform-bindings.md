@@ -109,6 +109,16 @@ running OS; `appContext()` returns the Android `Application`
 - Generated glue compiles with `-Werror` against the iOS simulator SDK and
   the NDK (`packages/compiler/test/platforms.test.ts`); derived JNI
   descriptors match `android.jar`.
+- On devices (Release, iOS 27 simulator and Android 14 emulator, bare and
+  Expo apps), the example apps' SDK tab passes: the `expo-haptics` port
+  (`scripts/example-app/src/sdk`), SDK values, identity across threads,
+  a Java exception's code, and, in the Expo app, the original
+  `expo-haptics` through the same JavaScript API.
+- Threads the app did not start (the Lucent thread) see only the system
+  class loader on Android: framework classes resolve, app classes
+  (fbjni's `NativeRunnable` and `HybridData`, AndroidX, Play services) do
+  not. The main-thread hop runs inside `ThreadScope::WithClassLoader`, and
+  `findClass` falls back to the Application's class loader.
 
 ## Not yet
 
