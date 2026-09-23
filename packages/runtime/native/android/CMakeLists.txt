@@ -5,11 +5,15 @@ set(CMAKE_VERBOSE_MAKEFILE on)
 
 set(LUCENT_ROOT ${CMAKE_CURRENT_LIST_DIR}/..)
 file(GLOB_RECURSE LUCENT_SOURCES CONFIGURE_DEPENDS ${LUCENT_ROOT}/cpp/*.cpp)
-# The vendored regular expression engine is C, compiled without warnings.
-file(GLOB LUCENT_C_SOURCES CONFIGURE_DEPENDS ${LUCENT_ROOT}/cpp/third_party/quickjs/*.c)
-set_source_files_properties(${LUCENT_C_SOURCES} PROPERTIES COMPILE_OPTIONS "-w")
 
-add_library(lucentnative OBJECT ${LUCENT_SOURCES} ${LUCENT_C_SOURCES})
+# The vendored regular expression engine is C. It is a library of its own so
+# that React Native's C++ compile options never reach it.
+file(GLOB LUCENT_C_SOURCES CONFIGURE_DEPENDS ${LUCENT_ROOT}/cpp/third_party/quickjs/*.c)
+add_library(lucentregexp STATIC ${LUCENT_C_SOURCES})
+set_target_properties(lucentregexp PROPERTIES POSITION_INDEPENDENT_CODE ON C_STANDARD 11)
+target_compile_options(lucentregexp PRIVATE -w -O2)
+
+add_library(lucentnative OBJECT ${LUCENT_SOURCES})
 
 target_include_directories(lucentnative PUBLIC
   ${LUCENT_ROOT}/cpp
@@ -35,4 +39,4 @@ target_compile_options(lucentnative PRIVATE
   $<$<COMPILE_LANGUAGE:CXX>:-Wno-comma>
 )
 
-target_link_libraries(lucentnative jsi reactnative fbjni log)
+target_link_libraries(lucentnative jsi reactnative fbjni log lucentregexp)
