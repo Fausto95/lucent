@@ -59,7 +59,7 @@ function createPlugin(loadCompiler) {
             start: d.start ?? 0,
             length: d.length ?? 0,
             messageText: `${d.code}: ${d.message}`,
-            category: ts.DiagnosticCategory.Error,
+            category: d.severity === "warning" ? ts.DiagnosticCategory.Warning : ts.DiagnosticCategory.Error,
             code: Number(d.code.replace(/^LUCENT/, "")),
             source: "lucent",
           }));

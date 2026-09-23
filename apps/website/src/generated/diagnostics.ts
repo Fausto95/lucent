@@ -75,7 +75,7 @@ export const diagnosticCodes: { code: string; description: string }[] = [
   },
   {
     "code": "LUCENT3001",
-    "description": "An import from something other than another `*.lucent.ts` file, `@lucent-lang/core`, or a platform SDK in a platform file."
+    "description": "An import from something other than another `*.lucent.ts` file or a built-in `lucent:` module."
   },
   {
     "code": "LUCENT3002",
@@ -100,6 +100,10 @@ export const diagnosticCodes: { code: string; description: string }[] = [
   {
     "code": "LUCENT3007",
     "description": "A platform API newer than the oldest supported OS version, used without an `available()` or `SDK_INT` check around it."
+  },
+  {
+    "code": "LUCENT3008",
+    "description": "A warning: an import from `@lucent-lang/core`, the name `lucent:core` had before it was built in. It still compiles for one release."
   },
   {
     "code": "LUCENT9001",

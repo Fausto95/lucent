@@ -26,7 +26,7 @@ process.env.TZ = process.env.LUCENT_TEST_TZ ?? "America/New_York";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const casesDir = path.join(here, "cases");
 const runtimeDir = path.resolve(here, "../../../runtime");
-const coreJs = path.resolve(here, "../../../core/index.js");
+const coreJs = path.join(here, "core.js");
 const abortPolyfill = path.resolve(here, "../../../runtime/test/jsi/abort-polyfill.js");
 const hermes = process.env.HERMES_DIR ?? path.join(os.homedir(), "hermes");
 const sanitize = process.env.SANITIZE === "1";
@@ -165,7 +165,7 @@ async function referenceRun(c: Case): Promise<string> {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
     }).outputText;
     const req = (spec: string) => {
-      if (spec === "@lucent-lang/core") return require_(coreJs);
+      if (spec === "lucent:core" || spec === "@lucent-lang/core") return require_(coreJs);
       const base = path.resolve(path.dirname(key), spec);
       for (const candidate of [base, `${base}.ts`, base.replace(/\.js$/, ".ts")]) if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return load(candidate);
       throw new Error(`cannot resolve ${spec}`);

@@ -23,9 +23,6 @@ importers:
 
   apps/bare-example:
     dependencies:
-      '@lucent-lang/core':
-        specifier: workspace:*
-        version: link:../../packages/core
       '@lucent-lang/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -93,9 +90,6 @@ importers:
 
   apps/expo-example:
     dependencies:
-      '@lucent-lang/core':
-        specifier: workspace:*
-        version: link:../../packages/core
       '@lucent-lang/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
@@ -222,9 +216,6 @@ importers:
       '@lucent-lang/bindgen':
         specifier: workspace:*
         version: link:../bindgen
-      '@lucent-lang/core':
-        specifier: workspace:*
-        version: link:../core
       '@lucent-lang/runtime':
         specifier: workspace:*
         version: link:../runtime
@@ -237,8 +228,6 @@ importers:
       typescript:
         specifier: ~5.9.3
         version: 5.9.3
-
-  packages/core: {}
 
   packages/expo:
     dependencies:

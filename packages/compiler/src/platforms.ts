@@ -231,7 +231,8 @@ export function platformScopes(checker: ts.TypeChecker, sf: ts.SourceFile): Plat
       if (!ts.isStringLiteral(s.moduleSpecifier) || !s.importClause) continue;
       const spec = s.moduleSpecifier.text;
       const scope = /^lucent:(\w+)/.exec(spec)?.[1];
-      if (!scope || scope === "platform") continue;
+      // lucent:core and lucent:platform run on every platform.
+      if (!scope || scope === "core" || scope === "platform") continue;
       const platform = (PLATFORMS as readonly string[]).includes(scope) ? (scope as Platform) : undefined;
       const names = [s.importClause.name, ...(s.importClause.namedBindings && ts.isNamedImports(s.importClause.namedBindings) ? s.importClause.namedBindings.elements.map((e) => e.name) : [])];
       for (const n of names) {

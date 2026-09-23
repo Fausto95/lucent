@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { compile, forgetLoadedSdks, formatDiagnostic, inputsKey, isUpToDate, platformOf, usesPlatforms, lucentPackages, nativeDependencies, sdkCoverage, type SdkCoverage, type NativeDependencies, podsSearchPaths, prefetchSdk, projectFiles, withGradleDependencies, sdkAvailable, sdkModule, sdkModules, runtimeDir, type SdkOptions, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
+import { compile, forgetLoadedSdks, formatDiagnostic, inputsKey, isError, isUpToDate, platformOf, usesPlatforms, lucentPackages, nativeDependencies, sdkCoverage, type SdkCoverage, type NativeDependencies, podsSearchPaths, prefetchSdk, projectFiles, withGradleDependencies, sdkAvailable, sdkModule, sdkModules, runtimeDir, type SdkOptions, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
 
 const HELP = `lucent — compile *.lucent.ts modules into a native React Native package
 
@@ -92,7 +92,7 @@ function run(): number {
   const result = compile(files, { platforms, sdk });
   for (const d of result.diagnostics) process.stderr.write(formatDiagnostic({ ...d, file: d.file && path.relative(root, d.file) }) + "\n");
   if (!result.ok) {
-    process.stderr.write(`\n✗ ${result.diagnostics.length} problem(s); nothing was written.\n`);
+    process.stderr.write(`\n✗ ${result.diagnostics.filter(isError).length} problem(s); nothing was written.\n`);
     return 1;
   }
   const names = [...result.proxies.keys()];

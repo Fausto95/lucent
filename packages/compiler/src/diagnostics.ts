@@ -31,6 +31,7 @@ export const Codes = {
   PlatformConformance: "LUCENT3005",
   MainThreadOnly: "LUCENT3006",
   Unavailable: "LUCENT3007",
+  DeprecatedImport: "LUCENT3008",
   TypeScript: "LUCENT9001",
 } as const;
 
@@ -56,19 +57,22 @@ export const CodeDescriptions = {
   LUCENT2007: "A generic function or class exported to JavaScript; export a concrete wrapper.",
   LUCENT2008: "A value used as an interface its class does not declare with `implements`.",
   LUCENT2009: "A class member whose native signature differs from the interface member it implements.",
-  LUCENT3001: "An import from something other than another `*.lucent.ts` file, `@lucent-lang/core`, or a platform SDK in a platform file.",
+  LUCENT3001: "An import from something other than another `*.lucent.ts` file or a built-in `lucent:` module.",
   LUCENT3002: "A top-level statement that is not a declaration.",
   LUCENT3003: "An export form Lucent does not support: export lists, re-exports, default exports.",
   LUCENT3004: "A platform SDK import in a file whose platform cannot use it, or an SDK module without bindings.",
   LUCENT3005: "Platform implementations that do not match their shared declaration file.",
   LUCENT3006: "A main-thread-only platform API used outside `main(() => …)`.",
   LUCENT3007: "A platform API newer than the oldest supported OS version, used without an `available()` or `SDK_INT` check around it.",
+  LUCENT3008: "A warning: an import from `@lucent-lang/core`, the name `lucent:core` had before it was built in. It still compiles for one release.",
   LUCENT9001: "A TypeScript error. Lucent stops at type errors, because its lowering relies on the checker's types.",
 } satisfies Record<Code, string>;
 
 export interface Diagnostic {
   code: string;
   message: string;
+  /** Warnings do not stop a build; everything else is an error. */
+  severity?: "warning";
   file?: string;
   line?: number;
   column?: number;
@@ -99,7 +103,11 @@ export function toDiagnostic(e: CompileError): Diagnostic {
   return { code: e.code, message: e.message, file: sf.fileName, line: line + 1, column: character + 1, start, length: e.node.getEnd() - start };
 }
 
+export function isError(d: Diagnostic): boolean {
+  return d.severity !== "warning";
+}
+
 export function formatDiagnostic(d: Diagnostic): string {
   const where = d.file ? `${d.file}:${d.line}:${d.column}: ` : "";
-  return `${where}${d.code}: ${d.message}`;
+  return `${where}${isError(d) ? "" : "warning "}${d.code}: ${d.message}`;
 }

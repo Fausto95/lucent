@@ -236,10 +236,10 @@ function collect(ctx: Ctx, m: LucentModule, s: ts.Statement, exp: ModuleExports,
     const target = sym?.valueDeclaration ?? sym?.declarations?.[0];
     const file = target && ts.isSourceFile(target) ? path.resolve(target.fileName) : undefined;
     if (file && path.resolve(coreTypesPath()) === file) return;
-    // Platform SDKs and lucent:thread (checked by createLucentProgram).
+    // Platform SDKs, lucent:thread and lucent:platform (checked by createLucentProgram).
     if (spec.startsWith("lucent:")) return;
     const dep = file ? byFile.get(file) : undefined;
-    if (!dep) fail(s.moduleSpecifier, Codes.UnsupportedImport, `Lucent modules can only import other *.lucent.ts files and @lucent-lang/core (got "${spec}")`);
+    if (!dep) fail(s.moduleSpecifier, Codes.UnsupportedImport, `Lucent modules can only import other *.lucent.ts files and lucent: modules (got "${spec}")`);
     deps.push(dep);
     return;
   }

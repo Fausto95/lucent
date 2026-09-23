@@ -1,7 +1,7 @@
 /**
  * Helpers available to Lucent modules. Each one has a native implementation
- * in the Lucent runtime and a JavaScript implementation (index.js) so the
- * same source also runs as plain TypeScript, e.g. in unit tests.
+ * in the Lucent runtime and a JavaScript implementation (the e2e harness's
+ * core.js) so the same source also runs as plain TypeScript.
  */
 
 /** Resolves after `ms` milliseconds; rejects with the signal's reason if it aborts first. */

@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@lucent-lang/bindgen": "workspace:*",
-    "@lucent-lang/core": "workspace:*",
     "@lucent-lang/runtime": "workspace:*",
     "@lucent-lang/sdk-android": "workspace:*",
     "@lucent-lang/sdk-ios": "workspace:*",
