@@ -2,15 +2,19 @@
 // Two screens: the end-to-end cases run natively, and a benchmark comparing
 // Lucent with the same code run as JavaScript.
 import { useState } from "react";
-import { Platform, Pressable, StatusBar, Text, View } from "react-native";
+import { Platform, Pressable, Settings, StatusBar, Text, View } from "react-native";
 import { BenchScreen } from "./src/screens/BenchScreen";
 import { styles } from "./src/screens/styles";
 import { TestsScreen } from "./src/screens/TestsScreen";
 
 type Tab = "tests" | "bench";
 
+// Automation: `xcrun simctl launch <device> <bundle> -lucentTab bench` opens
+// the benchmark (launch arguments become user defaults, which Settings reads).
+const initialTab: Tab = Platform.OS === "ios" && Settings.get("lucentTab") === "bench" ? "bench" : "tests";
+
 export default function App() {
-  const [tab, setTab] = useState<Tab>("tests");
+  const [tab, setTab] = useState<Tab>(initialTab);
   return (
     <View style={styles.root}>
       <StatusBar barStyle="dark-content" />
