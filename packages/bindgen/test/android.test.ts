@@ -1,0 +1,94 @@
+import { spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { extractAndroid } from "../src/android.ts";
+
+const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
+const javac = spawnSync("javac", ["-version"]).status === 0 && spawnSync("jar", ["--version"]).status === 0;
+
+/** The fixture sources compiled into a jar, as android.jar is. */
+function fixtureJar(): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-bindgen-"));
+  const sources = spawnSync("find", [path.join(fixtures, "java"), "-name", "*.java"], { encoding: "utf8" }).stdout.trim().split("\n");
+  const classes = path.join(dir, "classes");
+  const cc = spawnSync("javac", ["--release", "11", "-d", classes, ...sources], { encoding: "utf8" });
+  if (cc.status !== 0) throw new Error(cc.stderr);
+  const jar = path.join(dir, "fixture.jar");
+  const j = spawnSync("jar", ["cf", jar, "-C", classes, "."], { encoding: "utf8" });
+  if (j.status !== 0) throw new Error(j.stderr);
+  return jar;
+}
+
+describe.skipIf(!javac)("Android extractor", () => {
+  const modules = javac ? extractAndroid({ jars: [fixtureJar()], apiVersions: path.join(fixtures, "api-versions.xml"), packages: ["com.example.widgets", "com.example.base"] }) : [];
+  const mod = (name: string) => modules.find((m) => m.module === name)!;
+  const cls = (m: string, name: string) => {
+    const t = mod(m).types.find((x) => x.name === name);
+    if (t?.kind !== "class") throw new Error(`no class ${name}`);
+    return t;
+  };
+  const widget = () => cls("com.example.widgets", "Widget");
+
+  it("reads public classes, interfaces and nested classes with their JNI names", () => {
+    expect(mod("com.example.widgets").platform).toBe("android");
+    expect(widget()).toMatchObject({ native: "com/example/widgets/Widget", implements: ["com.example.base.Shape"], since: 21 });
+    expect(cls("com.example.base", "Shape")).toMatchObject({ native: "com/example/base/Shape", interface: true });
+    expect(cls("com.example.widgets", "Widget_Config")).toMatchObject({ native: "com/example/widgets/Widget$Config" });
+    expect(cls("com.example.widgets", "Widget_Listener")).toMatchObject({ abstract: true });
+    expect(cls("com.example.widgets", "Widget_Listener").constructors ?? []).toEqual([]);
+  });
+
+  it("keeps public constructors with exact descriptors", () => {
+    expect(widget().constructors).toEqual([
+      { params: [], descriptor: "()V" },
+      { params: [{ name: "arg0", type: "string" }], descriptor: "(Ljava/lang/String;)V" },
+    ]);
+  });
+
+  it("maps nullability annotations, strict by default", () => {
+    const m = (name: string) => widget().methods!.find((x) => x.name === name)!;
+    expect(m("getName").returns).toBe("string");
+    expect(m("getLabel")).toMatchObject({ returns: "string?", since: 29 });
+    expect(m("getURL").returns).toBe("string?");
+    expect(m("touch").params.map((p) => p.type)).toEqual(["com.example.base.Shape", "com.example.widgets.Widget?"]);
+    expect(m("create")).toMatchObject({ static: true, params: [{ type: "long[]?" }, { type: "int" }], returns: "com.example.widgets.Widget", descriptor: "([JI)Lcom/example/widgets/Widget;" });
+    expect(m("getBytes").returns).toBe("byte[]?");
+    expect(m("old").deprecated).toBe(true);
+  });
+
+  it("types generic methods with their exact erasure", () => {
+    const m = (name: string) => widget().methods!.find((x) => x.name === name)!;
+    expect(m("get")).toMatchObject({ typeParams: ["T"], params: [{ type: "Class<T>" }], returns: "T?", descriptor: "(Ljava/lang/Class;)Ljava/lang/Object;" });
+    expect(m("shape")).toMatchObject({ typeParams: ["T"], returns: "T?", descriptor: "(Ljava/lang/Class;)Lcom/example/base/Shape;" });
+  });
+
+  it("renames overloads that TypeScript cannot tell apart", () => {
+    const sets = widget().methods!.filter((x) => x.java === "setValue" || x.name.startsWith("setValue"));
+    expect(sets.map((x) => [x.name, x.descriptor])).toEqual([
+      ["setValue", "(I)V"],
+      ["setValue_long", "(J)V"],
+      ["setValue", "(Ljava/lang/String;)V"],
+    ]);
+    expect(sets[1]!.java).toBe("setValue");
+  });
+
+  it("exposes constants as values, fields and getters as properties", () => {
+    const p = (name: string) => widget().properties!.find((x) => x.name === name);
+    expect(p("KIND_SMALL")).toMatchObject({ static: true, readonly: true, type: "int", value: 1, since: 24 });
+    expect(p("DEFAULT_NAME")).toMatchObject({ static: true, readonly: true, type: "string", value: "widget" });
+    expect(p("counter")).toMatchObject({ static: true, readonly: false, type: "int" });
+    expect(p("name")).toMatchObject({ readonly: true, getter: "getName", type: "string" });
+    expect(p("enabled")).toMatchObject({ getter: "isEnabled", type: "boolean" });
+    expect(p("url")).toMatchObject({ getter: "getURL", type: "string?" });
+    expect(p("label")).toMatchObject({ getter: "getLabel", since: 29 });
+    expect(cls("com.example.widgets", "Widget_Config").properties).toEqual([{ name: "TIMEOUT", static: true, readonly: true, type: "long", value: 30 }]);
+  });
+
+  it("leaves out what cannot be typed yet, and says so", () => {
+    expect(widget().methods!.some((x) => x.name === "names" || x.name === "secret")).toBe(false);
+    expect(mod("com.example.widgets").skipped).toContain("com.example.widgets.Widget.names()Ljava/util/List;: java.util.List");
+  });
+});

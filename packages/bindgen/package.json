@@ -1,0 +1,11 @@
+{
+  "name": "@lucent-lang/bindgen",
+  "version": "0.1.0-cpp",
+  "description": "Extracts binding schemas from platform SDKs (android.jar, Apple SDK symbol graphs)",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@lucent-lang/compiler": "workspace:*"
+  }
+}
