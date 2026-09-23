@@ -176,13 +176,6 @@ namespace lucent {
 void postToMain(std::function<void()> job) {
   using facebook::jni::JNativeRunnable;
   JNIEnv* e = jni::env();
-  // NativeRunnable is an app class: resolve it once with the app's class
-  // loader, whichever thread gets here first.
-  static bool primed = [] {
-    facebook::jni::ThreadScope::WithClassLoader([] { JNativeRunnable::javaClassStatic(); });
-    return true;
-  }();
-  (void)primed;
   static jobject handler = [e] {
     jclass looperCls = jni::findClass("android/os/Looper");
     jobject looper = e->CallStaticObjectMethod(looperCls, jni::staticMethod(looperCls, "getMainLooper", "()Landroid/os/Looper;"));
@@ -192,8 +185,13 @@ void postToMain(std::function<void()> job) {
     return e->NewGlobalRef(h);
   }();
   static jmethodID post = jni::method(jni::findClass("android/os/Handler"), "post", "(Ljava/lang/Runnable;)Z");
-  auto runnable = JNativeRunnable::newObjectCxxArgs(std::move(job));
-  e->CallBooleanMethod(handler, post, runnable.get());
+  // NativeRunnable and the HybridData behind it are app classes, which the
+  // Lucent thread's class loader cannot see: create and post the runnable
+  // with the app's loader.
+  facebook::jni::ThreadScope::WithClassLoader([&] {
+    auto runnable = JNativeRunnable::newObjectCxxArgs(std::move(job));
+    e->CallBooleanMethod(handler, post, runnable.get());
+  });
   jni::check(e);
 }
 
