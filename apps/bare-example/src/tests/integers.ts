@@ -7,5 +7,6 @@ export default function run(mod, print, lucentClass, mods) {
   print(mod.signedZero());
   print(mod.counters());
   print(mod.unsignedAccumulate(0), mod.unsignedAccumulate(1000));
+  print(mod.destructured({ z: 1.5 }, []), mod.destructured({ z: -0.25 }, [0.5]));
 
 }

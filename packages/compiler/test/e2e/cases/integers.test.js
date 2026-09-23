@@ -4,3 +4,4 @@ print(mod.mixed(5), mod.mixed(-7), mod.mixed(2.5), mod.mixed(4294967301));
 print(mod.signedZero());
 print(mod.counters());
 print(mod.unsignedAccumulate(0), mod.unsignedAccumulate(1000));
+print(mod.destructured({ z: 1.5 }, []), mod.destructured({ z: -0.25 }, [0.5]));

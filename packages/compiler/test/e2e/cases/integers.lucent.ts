@@ -65,3 +65,16 @@ export function unsignedAccumulate(n: number): number {
   }
   return h;
 }
+
+export function destructured(p: { z: number }, xs: number[]): string {
+  let z = 0;
+  ({ z } = p);
+  let b = 0;
+  [b = 8] = xs;
+  let total = 0;
+  for (let i = 0; i < 3; i++) {
+    total += i;
+    if (i === 1) [i] = [2.5];
+  }
+  return `${z} ${b} ${total}`;
+}
