@@ -4,11 +4,12 @@ import { conformanceErrors, declarationErrors, missingImplementations, planModul
 import { createLucentProgram, findLucentFiles, type ReadSource } from "./program.ts";
 import { PLATFORMS } from "./sdk/schema.ts";
 
-export { Codes, formatDiagnostic, type Diagnostic } from "./diagnostics.ts";
+export { CodeDescriptions, Codes, formatDiagnostic, type Code, type Diagnostic } from "./diagnostics.ts";
 export { findLucentFiles, moduleNameOf, platformOf, LUCENT_EXTENSION, coreTypesPath, type ReadSource } from "./program.ts";
 export type { EmitResult } from "./emit/index.ts";
 export type { Target } from "./platforms.ts";
-export type { Platform } from "./sdk/schema.ts";
+export type { Platform, SdkCallable, SdkClassSchema, SdkEnumSchema, SdkMethodSchema, SdkModuleSchema, SdkParam, SdkPropertySchema } from "./sdk/schema.ts";
+export { sdkDts } from "./sdk/dts.ts";
 export { inputsKey, isUpToDate, writeNativePackage, runtimeDir, type WriteResult } from "./native-package.ts";
 export { watchBuild, type WatchEvent } from "./watch.ts";
 

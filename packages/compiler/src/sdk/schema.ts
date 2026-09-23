@@ -20,6 +20,8 @@ export interface SdkModuleSchema {
   /** Frameworks to link (iOS). */
   frameworks?: string[];
   types: (SdkClassSchema | SdkEnumSchema)[];
+  /** Members an extractor could not type yet (`Class.member: reason`). */
+  skipped?: string[];
 }
 
 export interface SdkEnumSchema {
@@ -42,6 +44,9 @@ export interface SdkCallable {
   selector?: string;
   /** API level (Android) or OS version (iOS) that introduced it. */
   since?: number | string;
+  /** Exact JNI descriptor (Android), when the types alone do not give it (generic erasure). */
+  descriptor?: string;
+  deprecated?: boolean;
 }
 
 export interface SdkMethodSchema extends SdkCallable {
@@ -50,6 +55,8 @@ export interface SdkMethodSchema extends SdkCallable {
   static?: boolean;
   typeParams?: string[];
   mainActor?: boolean;
+  /** The Java method name, when `name` was changed to tell overloads apart. */
+  java?: string;
 }
 
 export interface SdkPropertySchema {
@@ -61,6 +68,10 @@ export interface SdkPropertySchema {
   selector?: string;
   /** Getter method, for Kotlin-style properties (Android); fields otherwise. */
   getter?: string;
+  /** A compile-time constant (`static final` primitives and strings). */
+  value?: number | string | boolean;
+  since?: number | string;
+  deprecated?: boolean;
 }
 
 export interface SdkClassSchema {
@@ -70,6 +81,11 @@ export interface SdkClassSchema {
   native: string;
   /** Superclass, as a type reference. */
   extends?: string;
+  /** Implemented interfaces (Java), as type references. */
+  implements?: string[];
+  /** A Java interface. */
+  interface?: boolean;
+  abstract?: boolean;
   /** Isolated to the main thread (`@MainActor`, `@UiThread`). */
   mainActor?: boolean;
   since?: number | string;
