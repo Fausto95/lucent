@@ -140,11 +140,14 @@ export async function run(): Promise<string> {
 `;
 
 const cgImages = `import { UIImage } from "lucent:ios/UIKit";
+import { CIContext, CIImage } from "lucent:ios/CoreImage";
 import { main } from "lucent:thread";
 export async function run(): Promise<string> {
   return main(() => {
     const cg = new UIImage(new Uint8Array(0)).cgImage;
-    return cg === null ? "none" : \`\${new UIImage(cg).size.width}\`;
+    if (cg === null) return "none";
+    const drawn = new CIContext().createCGImage(new CIImage(cg), { origin: { x: 0, y: 0 }, size: { width: 1, height: 1 } });
+    return \`\${new UIImage(cg).size.width} \${drawn === null}\`;
   });
 }
 `;
@@ -338,6 +341,8 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(r.diagnostics).toEqual([]);
     expect(mm).toContain("lucent::objc::wrapOpt((__bridge id)");
     expect(mm).toContain("initWithCGImage:((__bridge CGImageRef)lucent::objc::unwrap(");
+    // Methods named create/copy/new return handles the caller owns (Cocoa's naming rule).
+    expect(mm).toContain("lucent::objc::wrapOpt((__bridge_transfer id)[");
   });
 
   it("monitors network paths: OS objects, anonymous enums, blocks, the main queue", () => {
