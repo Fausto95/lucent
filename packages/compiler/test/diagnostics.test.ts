@@ -156,4 +156,18 @@ export function f(b: B): number { return take(b); }`;
       expect(out).toMatch(/double z = /);
     });
   });
+
+  describe("JSON.parse", () => {
+    it("accepts a target type from as or an annotation", () => {
+      expect(codes('export function f(s: string): number { const a = JSON.parse(s) as number[]; const b: { x: number } = JSON.parse(s); return a.length + b.x; }')).toEqual([]);
+    });
+
+    it("needs a target type", () => {
+      expect(codes("export function f(s: string): number { const v = JSON.parse(s); return v; }")).toEqual(expect.arrayContaining([expect.stringMatching(/LUCENT(1003|2001)/)]));
+    });
+
+    it("cannot create class instances", () => {
+      expect(codes("class P { x = 1; }\nexport function f(s: string): number { return (JSON.parse(s) as P).x; }")).toContain("LUCENT1003");
+    });
+  });
 });
