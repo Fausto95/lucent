@@ -56,4 +56,10 @@ NS_SWIFT_UI_ACTOR
 
 double WDGDistance(WDGWidget *a, WDGWidget *b);
 
+CF_IMPLICIT_BRIDGING_ENABLED
+extern const CFStringRef WDGKeyClass;
+OSStatus WDGItemCopy(CFDictionaryRef query, CFTypeRef _Nullable * _Nullable result);
+CFDataRef _Nullable WDGCopyData(CFStringRef name) CF_RETURNS_RETAINED;
+CF_IMPLICIT_BRIDGING_DISABLED
+
 NS_ASSUME_NONNULL_END

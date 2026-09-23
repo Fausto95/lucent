@@ -85,4 +85,11 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     expect(mod().constants).toEqual(expect.arrayContaining([{ name: "WDGVersionString", type: "string" }]));
     expect(mod().skipped!.some((s) => s.startsWith("WDGWidget.fetch(completion:)"))).toBe(true);
   });
+
+  it("bridges CoreFoundation types, and out-pointers of C functions", () => {
+    expect(mod().constants).toEqual(expect.arrayContaining([{ name: "WDGKeyClass", type: "CFString" }]));
+    const fn = (name: string) => mod().functions!.find((f) => f.name === name);
+    expect(fn("WDGItemCopy")).toEqual({ name: "WDGItemCopy", params: [{ name: "query", type: "CFDictionary" }, { name: "result", type: "Out<CFTypeRef>?" }], returns: "int32" });
+    expect(fn("WDGCopyData")).toEqual({ name: "WDGCopyData", params: [{ name: "name", type: "CFString" }], returns: "CFData?" });
+  });
 });
