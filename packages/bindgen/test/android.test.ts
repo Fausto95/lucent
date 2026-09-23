@@ -5,6 +5,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { extractAndroid } from "../src/android.ts";
+import { parseSchemaType } from "../src/schema.ts";
+
+/** A schema type from its written form (`string?`, `Widgets.WDGWidget`). */
+const T = (s: string, typeParams: string[] = []) => parseSchemaType(s, "", typeParams);
 
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 const javac = spawnSync("javac", ["-version"]).status === 0 && spawnSync("jar", ["--version"]).status === 0;
@@ -52,7 +56,7 @@ describe.skipIf(!javac)("Android extractor", () => {
   it("marks abstract methods, and interfaces with one (which functions implement)", () => {
     const onEvent = cls("com.example.widgets", "OnEvent");
     expect(onEvent).toMatchObject({ interface: true, functional: "onEvent" });
-    expect(onEvent.methods!.find((m) => m.name === "onEvent")).toMatchObject({ abstract: true, params: [{ type: "string" }, { type: "int" }] });
+    expect(onEvent.methods!.find((m) => m.name === "onEvent")).toMatchObject({ abstract: true, params: [{ type: T("string") }, { type: T("int") }] });
     expect(onEvent.methods!.find((m) => m.name === "reset")).not.toHaveProperty("abstract");
     expect(cls("com.example.widgets", "Watcher")).not.toHaveProperty("functional");
     expect(cls("com.example.widgets", "Widget_Listener").methods![0]).toMatchObject({ name: "onChange", abstract: true });
@@ -68,28 +72,28 @@ describe.skipIf(!javac)("Android extractor", () => {
   it("keeps public constructors with exact descriptors", () => {
     expect(widget().constructors).toEqual([
       { params: [], descriptor: "()V" },
-      { params: [{ name: "arg0", type: "string" }], descriptor: "(Ljava/lang/String;)V" },
+      { params: [{ name: "arg0", type: T("string") }], descriptor: "(Ljava/lang/String;)V" },
     ]);
   });
 
   it("maps nullability annotations, strict by default", () => {
     const m = (name: string) => widget().methods!.find((x) => x.name === name)!;
-    expect(m("getName").returns).toBe("string");
-    expect(m("getLabel")).toMatchObject({ returns: "string?", since: 29 });
-    expect(m("getURL").returns).toBe("string?");
-    expect(m("touch").params.map((p) => p.type)).toEqual(["com.example.base.Shape", "com.example.widgets.Widget?"]);
-    expect(m("create")).toMatchObject({ static: true, params: [{ type: "long[]?" }, { type: "int" }], returns: "com.example.widgets.Widget", descriptor: "([JI)Lcom/example/widgets/Widget;" });
-    expect(m("getBytes").returns).toBe("byte[]?");
+    expect(m("getName").returns).toEqual(T("string"));
+    expect(m("getLabel")).toMatchObject({ returns: T("string?"), since: 29 });
+    expect(m("getURL").returns).toEqual(T("string?"));
+    expect(m("touch").params.map((p) => p.type)).toEqual(["com.example.base.Shape", "com.example.widgets.Widget?"].map((x) => T(x)));
+    expect(m("create")).toMatchObject({ static: true, params: [{ type: T("long[]?") }, { type: T("int") }], returns: T("com.example.widgets.Widget"), descriptor: "([JI)Lcom/example/widgets/Widget;" });
+    expect(m("getBytes").returns).toEqual(T("byte[]?"));
     expect(m("old").deprecated).toBe(true);
     // CharSequence is a string at the boundary, as String is.
-    expect(m("getTitle")).toMatchObject({ returns: "CharSequence", descriptor: "()Ljava/lang/CharSequence;" });
-    expect(m("setTitle").params[0]!.type).toBe("CharSequence?");
+    expect(m("getTitle")).toMatchObject({ returns: T("CharSequence"), descriptor: "()Ljava/lang/CharSequence;" });
+    expect(m("setTitle").params[0]!.type).toEqual(T("CharSequence?"));
   });
 
   it("types generic methods with their exact erasure", () => {
     const m = (name: string) => widget().methods!.find((x) => x.name === name)!;
-    expect(m("get")).toMatchObject({ typeParams: ["T"], params: [{ type: "Class<T>" }], returns: "T?", descriptor: "(Ljava/lang/Class;)Ljava/lang/Object;" });
-    expect(m("shape")).toMatchObject({ typeParams: ["T"], returns: "T?", descriptor: "(Ljava/lang/Class;)Lcom/example/base/Shape;" });
+    expect(m("get")).toMatchObject({ typeParams: ["T"], params: [{ type: T("Class<T>") }], returns: T("T?", ["T"]), descriptor: "(Ljava/lang/Class;)Ljava/lang/Object;" });
+    expect(m("shape")).toMatchObject({ typeParams: ["T"], returns: T("T?", ["T"]), descriptor: "(Ljava/lang/Class;)Lcom/example/base/Shape;" });
   });
 
   it("renames overloads that TypeScript cannot tell apart", () => {
@@ -110,14 +114,14 @@ describe.skipIf(!javac)("Android extractor", () => {
 
   it("exposes constants as values, fields and getters as properties", () => {
     const p = (name: string) => widget().properties!.find((x) => x.name === name);
-    expect(p("KIND_SMALL")).toMatchObject({ static: true, readonly: true, type: "int", value: 1, since: 24 });
-    expect(p("DEFAULT_NAME")).toMatchObject({ static: true, readonly: true, type: "string", value: "widget" });
-    expect(p("counter")).toMatchObject({ static: true, readonly: false, type: "int" });
-    expect(p("name")).toMatchObject({ readonly: true, getter: "getName", type: "string" });
-    expect(p("enabled")).toMatchObject({ getter: "isEnabled", type: "boolean" });
-    expect(p("url")).toMatchObject({ getter: "getURL", type: "string?" });
+    expect(p("KIND_SMALL")).toMatchObject({ static: true, readonly: true, type: T("int"), value: 1, since: 24 });
+    expect(p("DEFAULT_NAME")).toMatchObject({ static: true, readonly: true, type: T("string"), value: "widget" });
+    expect(p("counter")).toMatchObject({ static: true, readonly: false, type: T("int") });
+    expect(p("name")).toMatchObject({ readonly: true, getter: "getName", type: T("string") });
+    expect(p("enabled")).toMatchObject({ getter: "isEnabled", type: T("boolean") });
+    expect(p("url")).toMatchObject({ getter: "getURL", type: T("string?") });
     expect(p("label")).toMatchObject({ getter: "getLabel", since: 29 });
-    expect(cls("com.example.widgets", "Widget_Config").properties).toEqual([{ name: "TIMEOUT", static: true, readonly: true, type: "long", value: 30 }]);
+    expect(cls("com.example.widgets", "Widget_Config").properties).toEqual([{ name: "TIMEOUT", static: true, readonly: true, type: T("long"), value: 30 }]);
   });
 
   it("leaves out what cannot be typed yet, and says so", () => {

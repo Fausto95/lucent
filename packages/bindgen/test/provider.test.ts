@@ -6,6 +6,10 @@ import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 import { podsSearchPaths } from "../src/pods.ts";
 import { extractionCount, forgetLoadedSdks, sdkAvailable, sdkModule, sdkNames } from "../src/provider.ts";
+import { parseSchemaType } from "../src/schema.ts";
+
+/** A schema type from its written form (`string?`, `Widgets.WDGWidget`). */
+const T = (s: string, typeParams: string[] = []) => parseSchemaType(s, "", typeParams);
 
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 const javac = spawnSync("javac", ["-version"]).status === 0 && spawnSync("jar", ["--version"]).status === 0;
@@ -146,7 +150,7 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     expect("schema" in r && r.schema.types.find((t) => t.name === "WPGaugeMode")).toMatchObject({ cases: [{ name: "linear", value: 0 }, { name: "radial", value: 4 }] });
     // A Foundation type in its signatures: the SDK and the pods, together.
     const gauge = "schema" in r ? r.schema.types.find((t) => t.name === "WPGauge") : undefined;
-    expect(gauge?.kind === "class" && gauge.properties?.find((p) => p.name === "documentation")?.type).toBe("Foundation.NSURL");
+    expect(gauge?.kind === "class" && gauge.properties?.find((p) => p.name === "documentation")?.type).toEqual(T("Foundation.NSURL"));
   });
 
   it("keys the app's pods on Podfile.lock, not on every header", () => {
