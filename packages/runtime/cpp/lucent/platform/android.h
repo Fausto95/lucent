@@ -3,6 +3,10 @@
 
 #include <jni.h>
 
+#include <functional>
+#include <initializer_list>
+#include <utility>
+
 #include "../array.h"
 #include "../bytes.h"
 #include "../jsstring.h"
@@ -71,6 +75,31 @@ class LocalFrame {
  private:
   JNIEnv* env_;
 };
+
+// --- Java interfaces implemented by Lucent code --------------------------------------
+
+/// Handles one method of a proxy: its arguments (boxed), its result (boxed,
+/// or null for void).
+using ProxyMethod = std::function<jobject(JNIEnv*, jobjectArray)>;
+
+/**
+ * A dev.lucent.NativeProxy implementing `iface` (a JNI class name) whose
+ * methods are `methods`, by name. One per `identity` (a Lucent function or
+ * object) while Java holds it, so passing the same function twice passes
+ * the same object. A local reference.
+ */
+jobject proxyFor(JNIEnv* env, const char* iface, const void* identity, std::initializer_list<std::pair<const char*, ProxyMethod>> methods);
+
+/// The i-th argument of a proxy call (a local reference; boxed primitives).
+jobject arg(JNIEnv* env, jobjectArray args, int i);
+/// Primitive values of boxed arguments, and boxed results.
+double unboxNumber(JNIEnv* env, jobject boxed);
+bool unboxBoolean(JNIEnv* env, jobject boxed);
+jobject boxInt(JNIEnv* env, jint v);
+jobject boxLong(JNIEnv* env, jlong v);
+jobject boxDouble(JNIEnv* env, jdouble v);
+jobject boxFloat(JNIEnv* env, jfloat v);
+jobject boxBoolean(JNIEnv* env, bool v);
 
 /// `appContext()` from lucent:android: the Application.
 NativeRef appContext();

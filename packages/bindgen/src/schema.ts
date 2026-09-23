@@ -69,6 +69,8 @@ export interface SdkMethodSchema extends SdkCallable {
   async?: { returns: string; throws?: boolean; name?: string };
   /** An optional protocol requirement (iOS): implementations may leave it out. */
   optional?: boolean;
+  /** Abstract (Java): implementations and subclasses must provide it. */
+  abstract?: boolean;
 }
 
 export interface SdkPropertySchema {
@@ -106,6 +108,8 @@ export interface SdkClassSchema {
   /** Objective-C: declares no initializers but inherits its superclass's. */
   inheritsInit?: boolean;
   abstract?: boolean;
+  /** A Java interface with one abstract method, named here: functions implement it. */
+  functional?: string;
   /** Isolated to the main thread (`@MainActor`, `@UiThread`). */
   mainActor?: boolean;
   since?: number | string;

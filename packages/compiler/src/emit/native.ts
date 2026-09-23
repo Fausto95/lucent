@@ -440,12 +440,68 @@ function toJni(em: FnEmitter, ref: SdkClassRef, arg: ts.Expression, t: SdkType):
     }
     case "ref": {
       const lt: LType = { k: "native", platform: ref.platform, module: t.module, name: t.name };
-      return `lucent::jni::unwrap(${em.exprAs(arg, t.nullable ? unionOf([lt, T.null]) : lt)})`;
+      const value = em.expr(arg);
+      if (value.t.k === "fn") return javaProxy(em, arg, value, t);
+      return `lucent::jni::unwrap(${em.coerce(value, t.nullable ? unionOf([lt, T.null]) : lt, arg)})`;
     }
     case "tparam":
       fail(arg, Codes.UnsupportedType, "generic parameters are not supported in Android SDK calls yet");
     default:
       fail(arg, Codes.UnsupportedType, `${t.k} values are not Java types`);
+  }
+}
+
+/**
+ * A Lucent function where Java takes an interface with one abstract method:
+ * a NativeProxy (one per function) whose method converts its arguments on
+ * the calling thread, then queues the call on the Lucent thread, or, when
+ * Java waits for a result, runs it now holding the lock.
+ */
+function javaProxy(em: FnEmitter, arg: ts.Expression, f: E, t: SdkType & { k: "ref" }): string {
+  const iface = findSdkType("android", t.module, t.name);
+  const sam = iface?.kind === "class" && iface.functional ? iface.methods?.find((m) => m.name === iface.functional && m.abstract) : undefined;
+  if (iface?.kind !== "class" || !sam) fail(arg, Codes.UnsupportedType, `${t.name} has more than one method to implement: pass an object of a class implementing it`);
+  const fn = f.t as LType & { k: "fn" };
+  const params = sam.params.map((p) => parseSdkType(p.type, t.module));
+  const n = Math.min(fn.params.length, params.length);
+  const what = `${t.name}.${sam.name}`;
+  const args = params.slice(0, n).map((p, i) => {
+    const a = `lucent::jni::arg(env, args_, ${i})`;
+    if (p.k === "prim") {
+      if (p.name === "boolean") return `lucent::jni::unboxBoolean(env, ${a})`;
+      if (p.name === "char") fail(arg, Codes.UnsupportedType, `${what} takes a char, which is not supported yet`);
+      return `lucent::jni::unboxNumber(env, ${a})`;
+    }
+    return fromJni(em, a, p, fn.params[i]!, what).c;
+  });
+  const names = args.map((_, i) => `a${i}_`);
+  const convert = args.map((a, i) => `auto ${names[i]} = ${a};`).join(" ");
+  const call = `f_(${names.join(", ")})`;
+  const ret = parseSdkType(sam.returns, t.module);
+  let body: string;
+  if (ret.k === "prim" && ret.name === "void") {
+    body = `${convert} lucent::postCallback([${["f_", ...names].join(", ")}]() { (void)${call}; }); return nullptr;`;
+  } else {
+    body = `${convert} return lucent::callNow([&]() -> jobject { auto r_ = ${call}; return ${boxJava(arg, ret, "r_", what)}; });`;
+  }
+  return `({ auto f_ = ${f.c}; lucent::jni::proxyFor(env, ${cppQuoted(iface.native)}, f_.identity(), {{${cppQuoted(sam.java ?? sam.name)}, [f_](JNIEnv* env, jobjectArray args_) -> jobject { ${body} }}}); })`;
+}
+
+/** A Lucent result as the boxed object a proxy method returns. */
+function boxJava(node: ts.Node, t: SdkType, c: string, what: string): string {
+  if (t.k === "string") return `lucent::jni::toJString(env, ${c})`;
+  if (t.k !== "prim") fail(node, Codes.UnsupportedType, `${what} returns a ${t.k}, which Lucent functions cannot return to Java yet`);
+  switch (t.name) {
+    case "boolean":
+      return `lucent::jni::boxBoolean(env, ${c})`;
+    case "long":
+      return `lucent::jni::boxLong(env, static_cast<jlong>(${c}))`;
+    case "double":
+      return `lucent::jni::boxDouble(env, ${c})`;
+    case "float":
+      return `lucent::jni::boxFloat(env, static_cast<jfloat>(${c}))`;
+    default:
+      return `lucent::jni::boxInt(env, lucent::toInt32(${c}))`;
   }
 }
 

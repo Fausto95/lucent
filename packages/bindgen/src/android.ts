@@ -298,6 +298,7 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
       }
       const method: SdkMethodSchema = { name: m.name, params, returns, descriptor: m.descriptor };
       if (m.access & ACC.STATIC) method.static = true;
+      if (m.access & ACC.ABSTRACT) method.abstract = true;
       if (sig.typeParams.length) method.typeParams = sig.typeParams;
       if (since) method.since = since;
       if (m.deprecated) method.deprecated = true;
@@ -315,6 +316,12 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
       }
     }
     renameOverloads(methods);
+    if (isInterface) {
+      // Java's rule for what a lambda implements: one abstract method, inherited ones counted.
+      const abstract = abstractMethods(internal, classes);
+      const only = abstract.length === 1 ? methods.find((x) => x.abstract && `${x.java ?? x.name}${x.descriptor}` === abstract[0]) : undefined;
+      if (only) cls.functional = only.name;
+    }
 
     if (ctors.length) cls.constructors = ctors;
     if (methods.length) cls.methods = methods;
@@ -322,6 +329,21 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
     mod.types.push(cls);
   }
   return [...modules.values()];
+}
+
+/** Public methods of Object an interface may redeclare: they do not count as abstract. */
+const OBJECT_METHODS = new Set(["equals(Ljava/lang/Object;)Z", "hashCode()I", "toString()Ljava/lang/String;"]);
+
+/** An interface's abstract methods (`name+descriptor`), its superinterfaces' included. */
+function abstractMethods(internal: string, classes: Map<string, ClassFile>, seen = new Set<string>()): string[] {
+  const c = classes.get(internal);
+  if (!c || seen.has(internal)) return [];
+  seen.add(internal);
+  const own = c.methods.filter((m) => m.access & ACC.ABSTRACT && !(m.access & ACC.STATIC)).map((m) => `${m.name}${m.descriptor}`);
+  // A superinterface's abstract method this interface implements with a default is not abstract here.
+  const defaults = new Set(c.methods.filter((m) => !(m.access & ACC.ABSTRACT)).map((m) => `${m.name}${m.descriptor}`));
+  const inherited = c.interfaces.flatMap((i) => abstractMethods(i, classes, seen)).filter((m) => !defaults.has(m));
+  return [...new Set([...own, ...inherited])].filter((m) => !OBJECT_METHODS.has(m));
 }
 
 /** What TypeScript sees of a parameter list: overloads that map to the same one collide. */

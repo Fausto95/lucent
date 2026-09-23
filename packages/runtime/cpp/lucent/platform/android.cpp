@@ -220,6 +220,135 @@ jintArray toIntArray(JNIEnv* e, const Array<double>& a) {
   return out;
 }
 
+// --- proxies ---------------------------------------------------------------------------
+
+namespace {
+
+struct ProxyTarget {
+  std::pair<const void*, std::string> key;
+  std::unordered_map<std::string, ProxyMethod> methods;
+};
+
+struct ProxyEntry {
+  jweak ref = nullptr;
+  ProxyTarget* target = nullptr;
+};
+
+struct KeyHash {
+  size_t operator()(const std::pair<const void*, std::string>& k) const { return std::hash<const void*>()(k.first) ^ std::hash<std::string>()(k.second); }
+};
+
+std::mutex proxiesMutex;
+std::unordered_map<std::pair<const void*, std::string>, ProxyEntry, KeyHash>& proxies() {
+  static auto* m = new std::unordered_map<std::pair<const void*, std::string>, ProxyEntry, KeyHash>();
+  return *m;
+}
+
+jobject JNICALL proxyCall(JNIEnv* e, jclass, jlong handle, jstring method, jobjectArray args) {
+  auto* t = reinterpret_cast<ProxyTarget*>(handle);
+  const char* chars = e->GetStringUTFChars(method, nullptr);
+  std::string name(chars);
+  e->ReleaseStringUTFChars(method, chars);
+  auto it = t->methods.find(name);
+  if (it == t->methods.end()) {
+    e->ThrowNew(e->FindClass("java/lang/UnsupportedOperationException"), ("Lucent does not implement " + name).c_str());
+    return nullptr;
+  }
+  try {
+    return it->second(e, args);
+  } catch (...) {
+    reportUncaught(std::current_exception(), "Java callback");
+    return nullptr;
+  }
+}
+
+void JNICALL proxyRelease(JNIEnv* e, jclass, jlong handle) {
+  auto* t = reinterpret_cast<ProxyTarget*>(handle);
+  {
+    std::lock_guard<std::mutex> g(proxiesMutex);
+    auto it = proxies().find(t->key);
+    if (it != proxies().end() && it->second.target == t) {
+      e->DeleteWeakGlobalRef(it->second.ref);
+      proxies().erase(it);
+    }
+  }
+  // Called on Java's finalizer thread: what the methods captured (Lucent
+  // values) is released on the Lucent thread.
+  postCallback([t] { delete t; });
+}
+
+jclass nativeProxyClass(JNIEnv* e) {
+  static jclass cls = [&] {
+    jclass c = findClass("dev/lucent/NativeProxy");
+    JNINativeMethod natives[] = {
+        {const_cast<char*>("call"), const_cast<char*>("(JLjava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;"), reinterpret_cast<void*>(proxyCall)},
+        {const_cast<char*>("release"), const_cast<char*>("(J)V"), reinterpret_cast<void*>(proxyRelease)},
+    };
+    e->RegisterNatives(c, natives, 2);
+    check(e);
+    return c;
+  }();
+  return cls;
+}
+
+jobject boxWith(JNIEnv* e, const char* cls, const char* sig, jvalue v) {
+  jclass c = findClass(cls);
+  jmethodID valueOf = staticMethod(c, "valueOf", sig);
+  jobject r = e->CallStaticObjectMethodA(c, valueOf, &v);
+  check(e);
+  return r;
+}
+
+}  // namespace
+
+jobject proxyFor(JNIEnv* e, const char* iface, const void* identity, std::initializer_list<std::pair<const char*, ProxyMethod>> methods) {
+  jclass cls = nativeProxyClass(e);
+  std::pair<const void*, std::string> key(identity, iface);
+  {
+    std::lock_guard<std::mutex> g(proxiesMutex);
+    auto it = proxies().find(key);
+    if (it != proxies().end()) {
+      jobject local = e->NewLocalRef(it->second.ref);
+      if (local) return local;
+    }
+  }
+  auto* t = new ProxyTarget{key, {}};
+  for (const auto& [name, fn] : methods) t->methods.emplace(name, fn);
+  static jmethodID create = staticMethod(cls, "create", "(Ljava/lang/Class;J)Ljava/lang/Object;");
+  jobject p = e->CallStaticObjectMethod(cls, create, findClass(iface), reinterpret_cast<jlong>(t));
+  if (e->ExceptionCheck()) {
+    delete t;
+    rethrowPending(e);
+  }
+  std::lock_guard<std::mutex> g(proxiesMutex);
+  ProxyEntry& slot = proxies()[key];
+  if (slot.ref) e->DeleteWeakGlobalRef(slot.ref);
+  slot = {e->NewWeakGlobalRef(p), t};
+  return p;
+}
+
+jobject arg(JNIEnv* e, jobjectArray args, int i) { return e->GetObjectArrayElement(args, i); }
+
+double unboxNumber(JNIEnv* e, jobject boxed) {
+  static jmethodID doubleValue = method(findClass("java/lang/Number"), "doubleValue", "()D");
+  double v = e->CallDoubleMethod(boxed, doubleValue);
+  check(e);
+  return v;
+}
+
+bool unboxBoolean(JNIEnv* e, jobject boxed) {
+  static jmethodID booleanValue = method(findClass("java/lang/Boolean"), "booleanValue", "()Z");
+  bool v = e->CallBooleanMethod(boxed, booleanValue) == JNI_TRUE;
+  check(e);
+  return v;
+}
+
+jobject boxInt(JNIEnv* e, jint v) { return boxWith(e, "java/lang/Integer", "(I)Ljava/lang/Integer;", jvalue{.i = v}); }
+jobject boxLong(JNIEnv* e, jlong v) { return boxWith(e, "java/lang/Long", "(J)Ljava/lang/Long;", jvalue{.j = v}); }
+jobject boxDouble(JNIEnv* e, jdouble v) { return boxWith(e, "java/lang/Double", "(D)Ljava/lang/Double;", jvalue{.d = v}); }
+jobject boxFloat(JNIEnv* e, jfloat v) { return boxWith(e, "java/lang/Float", "(F)Ljava/lang/Float;", jvalue{.f = v}); }
+jobject boxBoolean(JNIEnv* e, bool v) { return boxWith(e, "java/lang/Boolean", "(Z)Ljava/lang/Boolean;", jvalue{.z = static_cast<jboolean>(v ? JNI_TRUE : JNI_FALSE)}); }
+
 NativeRef appContext() {
   static NativeRef* app = [] {
     JNIEnv* e = env();
