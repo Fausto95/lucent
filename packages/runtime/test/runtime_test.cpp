@@ -94,6 +94,21 @@ static void numbers() {
   CHECK(toInt32(2147483648.0) == -2147483647 - 1);
   CHECK(toInt32(-1.9) == -1);
   CHECK(toInt32(kNaN) == 0);
+  CHECK(toInt32(4294967295.0) == -1);
+  CHECK(toInt32(2147483648.0 + 0.5) == -2147483647 - 1);
+  CHECK(toInt32(-2147483649.0) == 2147483647);
+  CHECK(toInt32(-4294967296.0 - 3) == -3);
+  CHECK(toUint32(4294967295.9) == 4294967295u);
+  CHECK(toInt32(-0.0) == 0);
+  CHECK(std::signbit(jsMod(-5, 5)));
+  CHECK(std::signbit(jsMod(-0.0, 3)));
+  CHECK(!std::signbit(jsMod(5, -5)));
+  CHECK(jsMod(-7, 3) == -1);
+  CHECK(jsMod(7, -3) == 1);
+  CHECK(std::isnan(jsMod(1, 0)));
+  CHECK(jsMod(5.5, 2) == 1.5);
+  CHECK(jsMod(-2147483648.0, -1) == 0 && std::signbit(jsMod(-2147483648.0, -1)));
+  CHECK(jsMod(1e17, 7) == std::fmod(1e17, 7));
   CHECK(toUint32(-1) == 4294967295u);
   CHECK(jsShr(-1, 0) == 4294967295.0);
   CHECK(jsShl(1, 31) == -2147483648.0);
@@ -161,6 +176,16 @@ static void strings() {
   CHECK(S("Z") < S("a"));
   CHECK(S("ab") < S("abc"));
   CHECK(S("é") == String::fromUtf16(u"é"));
+  CHECK_STR(stringFromCharCodes({97}), "a");
+  CHECK_STR(stringFromCharCodes({97.9}), "a");
+  CHECK_STR(stringFromCharCodes({65536 + 98}), "b");
+  CHECK_STR(stringFromCharCodes({0xe9}), "é");
+  CHECK(stringFromCharCodes({0x3a9}).charCodeAt(0) == 0x3a9);
+  {
+    String a = stringFromCharCodes({120});
+    a += S("y");
+    CHECK_STR(stringFromCharCodes({120}), "x");
+  }
   CHECK(S("a").localeCompare(S("B")) < 0);
   String built;
   for (int i = 0; i < 1000; i++) built += S("x");
