@@ -252,6 +252,13 @@ struct Convert<Error> {
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Error& e) { return h.errorToJs(rt, e); }
 };
 
+/// Dates cross as copies of their time value, like arrays.
+template <>
+struct Convert<Date> {
+  static Date fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Date& d);
+};
+
 /// An AbortSignal from JavaScript becomes a native signal that a listener on
 /// the JS signal aborts. The native signal is cached on the JS object, so one
 /// JS signal always maps to one native signal. Signals do not go the other way.

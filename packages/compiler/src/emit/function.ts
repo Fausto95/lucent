@@ -248,6 +248,8 @@ export class FnEmitter {
     if (to.k === "error" && from.k === "class" && this.reg.cls(from.id).isError) return `lucent::Error(${e.c})`;
     if (from.k === "error" && to.k === "class" && this.reg.cls(to.id).isError) return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
     if (to.k === "iface") return this.toIface(e, to, node);
+    // Date.prototype.valueOf: relational operators and unary plus.
+    if (from.k === "date" && to.k === "number") return `(${e.c})->getTime()`;
     if (from.k === "iface" && to.k === "class") return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
     if (from.k === "class" && to.k === "class") {
       // Upcasts are implicit; downcasts follow instanceof narrowing and are checked.

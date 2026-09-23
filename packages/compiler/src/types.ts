@@ -29,6 +29,7 @@ export type LType =
   | { k: "promise"; inner: LType }
   | { k: "bytes" }
   | { k: "error" }
+  | { k: "date" }
   | { k: "abortSignal" }
   | { k: "abortController" }
   | { k: "tparam"; name: string };
@@ -43,6 +44,7 @@ export const T = {
   never: { k: "never" } as LType,
   error: { k: "error" } as LType,
   bytes: { k: "bytes" } as LType,
+  date: { k: "date" } as LType,
   abortSignal: { k: "abortSignal" } as LType,
   abortController: { k: "abortController" } as LType,
 };
@@ -507,6 +509,8 @@ export class TypeRegistry {
         case "TypeError":
         case "RangeError":
           return T.error;
+        case "Date":
+          return T.date;
         case "AbortSignal":
           return T.abortSignal;
         case "AbortController":
@@ -713,6 +717,8 @@ export class TypeRegistry {
         return "lucent::Bytes";
       case "error":
         return "lucent::Error";
+      case "date":
+        return "lucent::Date";
       case "abortSignal":
         return "lucent::AbortSignal";
       case "abortController":

@@ -49,6 +49,7 @@ let counter = 0;                                      // module state, reset on 
 | `(a: A) => R` | function value (closures capture by reference) |
 | `Promise<T>` | promise (C++20 coroutine) |
 | `Uint8Array` | byte view over a shared buffer |
+| `Date` | shared mutable time value; local time from the device's time zone database |
 | `Error`, `TypeError`, `RangeError`, `class X extends Error` | error object with `name`, `message`, `code` |
 | unconstrained generics `<T>` | C++ templates (functions and classes) |
 
@@ -191,6 +192,8 @@ explicitly, for example by clearing a field.
 | `toPrecision` / `toExponential` round exact binary ties up | may round ties to even (rare) |
 | deep recursion throws `RangeError` | may overflow the native stack |
 | `console.log(obj)` pretty-prints | prints `String(obj)` |
+| `Date` objects passed to native code are shared | copied at the boundary (inside Lucent they are shared) |
+| `date.toString()` includes the zone name in some engines | `Mon Jul 22 2019 15:51:50 GMT-0700`, like Hermes; `toLocale…` methods are not supported |
 | `abort()` without a reason uses an `AbortError` whose message depends on the engine | `AbortError: signal is aborted without reason`, as in React Native and browsers (Node says "This operation was aborted") |
 | an abort reason can be any value | reasons from JavaScript become errors (`String(reason)` as the message when it is not an object); `abort()` in Lucent takes an `Error` |
 | a subclass field read from a base constructor is `undefined` until the subclass initializes it | it reads the type's default (`0`, `""`, `false`, empty object) |

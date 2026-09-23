@@ -173,4 +173,20 @@ AbortSignal Convert<AbortSignal>::fromJs(jsi::Runtime& rt, const jsi::Value& v, 
   return signal;
 }
 
+Date Convert<Date>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  if (v.isObject()) {
+    jsi::Object o = v.getObject(rt);
+    jsi::Value getTime = o.getProperty(rt, "getTime");
+    if (getTime.isObject() && getTime.getObject(rt).isFunction(rt)) {
+      jsi::Value t = getTime.getObject(rt).getFunction(rt).callWithThis(rt, o);
+      if (t.isNumber()) return makeDate(t.getNumber());
+    }
+  }
+  throwBoundaryError(rt, p, "a Date", v);
+}
+
+jsi::Value Convert<Date>::toJs(jsi::Runtime& rt, Host&, const Date& d) {
+  return rt.global().getPropertyAsFunction(rt, "Date").callAsConstructor(rt, d->getTime());
+}
+
 }  // namespace lucent::js

@@ -316,6 +316,12 @@ export function staticCall(em: FnEmitter, node: ts.CallExpression, callee: ts.Pr
     }
     return num(`lucent::math::${name}(${a.map((x) => em.exprAs(x, T.number)).join(", ")})`);
   }
+  if (isLibGlobal(em, obj, "Date")) {
+    if (name === "now") return num("lucent::dateNow()");
+    if (name === "UTC") return num(`lucent::dateUTC(${a.map((x) => em.exprAs(x, T.number)).join(", ")})`);
+    if (name === "parse") return num(`lucent::dateParse(${argAs(em, node, 0, T.string)})`);
+    fail(node, Codes.UnsupportedBuiltin, `Date.${name} is not supported`);
+  }
   if (isLibGlobal(em, obj, "Number")) {
     switch (name) {
       case "isInteger":
@@ -524,6 +530,16 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
     case "error":
       if (name === "toString") return str(`lucent::errorToString(${o})`);
       break;
+    case "date": {
+      if (name === "toString" || name === "toISOString" || name === "toDateString" || name === "toTimeString" || name === "toUTCString") return str(`(${o})->${name}()`);
+      if (name === "toJSON") return str(`(${o})->toISOString()`);
+      if (/^get(UTC)?(FullYear|Month|Date|Day|Hours|Minutes|Seconds|Milliseconds)$|^(getTime|valueOf|getTimezoneOffset)$/.test(name)) return num(`(${o})->${name}()`);
+      if (/^set(UTC)?(FullYear|Month|Date|Hours|Minutes|Seconds|Milliseconds)$|^setTime$/.test(name)) {
+        return num(`(${o})->${name}(${a.map((x) => em.exprAs(x, T.number)).join(", ")})`);
+      }
+      if (name.startsWith("toLocale")) fail(node, Codes.UnsupportedBuiltin, `Date.${name} depends on the locale and is not supported; use toISOString() or the get… methods`);
+      break;
+    }
     case "abortSignal":
       if (name === "throwIfAborted") return { c: `(${o})->throwIfAborted()`, t: T.undefined };
       if (name === "addEventListener") {
@@ -874,6 +890,18 @@ export function newBuiltin(em: FnEmitter, node: ts.NewExpression, callee: ts.Exp
   switch (t.k) {
     case "abortController":
       return { c: "std::make_shared<lucent::AbortControllerObject>()", t };
+    case "date": {
+      if (a.length === 0) return { c: "lucent::makeDate(lucent::dateNow())", t };
+      if (a.length === 1) {
+        const v = em.expr(a[0]!);
+        const vt = v.t;
+        if (vt.k === "number") return { c: `lucent::makeDate(${v.c})`, t };
+        if (vt.k === "string") return { c: `lucent::dateFromString(${v.c})`, t };
+        if (vt.k === "date") return { c: `lucent::makeDate((${v.c})->getTime())`, t };
+        fail(a[0], Codes.UnsupportedBuiltin, "new Date() takes a number, a string or a Date");
+      }
+      return { c: `lucent::dateFromLocal(${a.map((x) => em.exprAs(x, T.number)).join(", ")})`, t };
+    }
     case "map": {
       if (!a[0]) return { c: `${em.cpp(t)}()`, t };
       return { c: `lucent::mapFromEntries<${em.cpp(t.key)}, ${em.cpp(t.val)}>(${em.exprAs(a[0], { k: "array", e: { k: "tuple", es: [t.key, t.val] } })})`, t };
@@ -928,7 +956,7 @@ export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {
       return bool(`lucent::isInstance<lucent_app::${g.info.cppName}>(${v.c})`);
     }
     if (isLibGlobal(em, right, right.text)) {
-      const kinds: Record<string, string> = { Array: "array", Map: "map", Set: "set", Uint8Array: "bytes" };
+      const kinds: Record<string, string> = { Array: "array", Map: "map", Set: "set", Uint8Array: "bytes", Date: "date" };
       const k = kinds[right.text];
       if (k) {
         const vt = stripOpt(v.t);

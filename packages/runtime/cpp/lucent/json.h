@@ -9,6 +9,7 @@
 
 #include "array.h"
 #include "bytes.h"
+#include "date.h"
 #include "core.h"
 #include "jserror.h"
 #include "function.h"
@@ -111,6 +112,11 @@ void jsonWrite(JsonWriter& w, const Map<K, V>&) {
 template <class T>
 void jsonWrite(JsonWriter& w, const Set<T>&) {
   w.raw("{}");
+}
+/// Date.prototype.toJSON: the ISO string, or null for an invalid date.
+inline void jsonWrite(JsonWriter& w, const Date& d) {
+  if (std::isnan(d->getTime())) w.raw("null");
+  else w.quote(d->toISOString());
 }
 inline void jsonWrite(JsonWriter& w, const Bytes& b) {
   w.raw("{");

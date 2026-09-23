@@ -7,6 +7,7 @@
 #include "bytes.h"
 #include "console.h"
 #include "core.h"
+#include "date.h"
 #include "equality.h"
 #include "jserror.h"
 #include "function.h"

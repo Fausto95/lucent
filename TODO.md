@@ -45,7 +45,8 @@ concrete work. Checked items are implemented and covered by tests.
 - [ ] Incremental compilation (cache per module)
 - [ ] Source maps for native crash symbolication
 - [x] Object destructuring in assignments (`({ a, b: c = 1 } = obj)`, defaults in array patterns)
-- [ ] `RegExp`, `Date`, `JSON.parse` (typed), iterators/generators
+- [x] `Date` (e2e `dates`, runtime tests for daylight-saving rules)
+- [ ] `RegExp`, `JSON.parse` (typed), iterators/generators
 
 ## Host & tooling
 
