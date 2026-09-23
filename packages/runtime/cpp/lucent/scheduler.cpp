@@ -2,16 +2,36 @@
 
 #include <cstdio>
 #include <exception>
+#include <string>
+
+#if defined(__ANDROID__)
+#include <android/log.h>
+#elif defined(__APPLE__)
+#include <os/log.h>
+#endif
 
 namespace lucent {
+
+namespace {
+/// Where each platform shows an app's errors: logcat, the unified log, and
+/// stderr (host runs; Android and release iOS apps drop it).
+void writeError(const std::string& message) {
+#if defined(__ANDROID__)
+  __android_log_write(ANDROID_LOG_ERROR, "Lucent", message.c_str());
+#elif defined(__APPLE__)
+  os_log_error(OS_LOG_DEFAULT, "%{public}s", message.c_str());
+#endif
+  std::fprintf(stderr, "%s\n", message.c_str());
+}
+}  // namespace
 
 void reportUncaught(std::exception_ptr e, const char* where) {
   try {
     std::rethrow_exception(e);
   } catch (const std::exception& x) {
-    std::fprintf(stderr, "[lucent] uncaught exception in %s: %s\n", where, x.what());
+    writeError(std::string("[lucent] uncaught exception in ") + where + ": " + x.what());
   } catch (...) {
-    std::fprintf(stderr, "[lucent] uncaught exception in %s\n", where);
+    writeError(std::string("[lucent] uncaught exception in ") + where);
   }
 }
 
