@@ -1,7 +1,7 @@
 import ts from "typescript";
 import { Codes, CompileError, fail } from "../diagnostics.ts";
 import type { LucentModule } from "../program.ts";
-import { type ClassInfo, cppIdent, isVoidish, type LType, stripOpt, T, typeKey } from "../types.ts";
+import { type ClassInfo, cppIdent, isVoidish, type LType, stripOpt, substitute, T, typeKey } from "../types.ts";
 import { memberName, parameterProperties } from "./classes.ts";
 import type { Ctx, Global, ParamInfo } from "./context.ts";
 import { FnEmitter } from "./function.ts";
@@ -48,6 +48,10 @@ export class BindingsEmitter {
         if (this.classes.has(t.id)) return;
         this.classes.add(t.id);
         for (const m of publicMembers(this.ctx, info)) for (const ty of m.types) this.use(ty, m.node);
+        // A base-typed value may hold any subclass, and a subclass's prototype
+        // extends its base's.
+        if (info.base) this.use({ k: "class", id: info.base.id, args: [] }, node);
+        for (const d of this.reg.descendants(t.id)) if (!d.typeParams.length) this.use({ k: "class", id: d.id, args: [] }, node);
         return;
       }
       case "iface": {
@@ -265,6 +269,11 @@ export class BindingsEmitter {
       `  return c;`,
       `}`,
       `inline jsi::Value Convert<${s}>::toJs(jsi::Runtime& rt, Host& h, const ${s}& v) {`,
+      // The JS object of the most derived class, deepest subclasses first.
+      ...this.reg
+        .descendants(id)
+        .filter((d) => !d.typeParams.length)
+        .map((d) => `  if (auto d = std::dynamic_pointer_cast<lucent_app::${d.cppName}>(v)) return Convert<${this.reg.cpp({ k: "class", id: d.id, args: [] })}>::toJs(rt, h, d);`),
       `  return h.wrap(rt, v, ${q(info.id)}, proto_${info.cppName});`,
       `}`,
       proto,
@@ -318,6 +327,11 @@ export class BindingsEmitter {
         }
         lines.push(`  defineAccessor(rt, proto, ${q(m.name)}, ${getter}, ${setter});`);
       }
+    }
+    if (info.base) {
+      const base = this.reg.cls(info.base.id);
+      lines.push(`  jsi::Object& baseProto = host.prototype(rt, ${q(base.id)}, proto_${base.cppName});`);
+      lines.push(`  rt.global().getPropertyAsObject(rt, "Object").getPropertyAsFunction(rt, "setPrototypeOf").call(rt, proto, baseProto);`);
     }
     lines.push("}");
     return lines.join("\n");
@@ -373,12 +387,17 @@ export class BindingsEmitter {
     for (const c of m.classes) {
       if (c.typeParams.length) continue;
       const name = c.decl.name!.text;
-      const ctor = c.decl.members.find(ts.isConstructorDeclaration);
+      // The nearest constructor in the chain; subclasses may inherit theirs.
+      const owner = this.reg.chain({ k: "class", id: c.id, args: [] }).find((x) => x.info.decl.members.some(ts.isConstructorDeclaration));
+      const ctor = owner?.info.decl.members.find(ts.isConstructorDeclaration);
       const em = new FnEmitter(this.ctx, { module: m.module, async: false, returnType: T.void });
       const ctorType = ctor ? (this.reg.lowerSignature(this.ctx.checker.getSignatureFromDeclaration(ctor)!, ctor) as LType & { k: "fn" }) : { k: "fn" as const, params: [], ret: T.void };
-      const params = ctor ? em.paramInfos(ctor, ctorType) : [];
+      const map = owner ? new Map(owner.info.typeParams.map((p, i) => [p, owner.t.args[i]!] as [string, LType])) : new Map<string, LType>();
+      const params = (ctor ? em.paramInfos(ctor, ctorType) : []).map((p) => ({ ...p, type: substitute(p.type, map), cppType: substitute(p.cppType, map) }));
       const selfT: LType = { k: "class", id: c.id, args: [] };
-      const body = this.callBody(name, params, selfT, false, `lucent_app::${c.cppName}::create`);
+      const body = c.abstract
+        ? `    throw jsi::JSError(rt, ${q(`${name} is abstract and cannot be constructed`)});`
+        : this.callBody(name, params, selfT, false, `lucent_app::${c.cppName}::create`);
       lines.push(`  defineClass(rt, host, exports, ${q(name)}, ${q(c.id)}, proto_${c.cppName}, ${params.length}, [](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {\n${body}\n  });`);
       // Static methods live on the constructor.
       const statics = c.decl.members.filter((x): x is ts.MethodDeclaration => ts.isMethodDeclaration(x) && isStaticPublic(x));

@@ -111,6 +111,36 @@ export function unionOf(members: LType[]): LType {
   return optional ? { k: "opt", inner: core } : core;
 }
 
+/** Replaces type parameters by name. */
+export function substitute(t: LType, map: Map<string, LType>): LType {
+  switch (t.k) {
+    case "tparam":
+      return map.get(t.name) ?? t;
+    case "array":
+      return { k: "array", e: substitute(t.e, map) };
+    case "set":
+      return { k: "set", e: substitute(t.e, map) };
+    case "dict":
+      return { k: "dict", val: substitute(t.val, map) };
+    case "map":
+      return { k: "map", key: substitute(t.key, map), val: substitute(t.val, map) };
+    case "opt":
+      return unionOf([substitute(t.inner, map), T.undefined]);
+    case "union":
+      return unionOf(t.ms.map((m) => substitute(m, map)));
+    case "tuple":
+      return { k: "tuple", es: t.es.map((e) => substitute(e, map)) };
+    case "promise":
+      return { k: "promise", inner: substitute(t.inner, map) };
+    case "fn":
+      return { k: "fn", params: t.params.map((p) => substitute(p, map)), ret: substitute(t.ret, map) };
+    case "class":
+      return { k: "class", id: t.id, args: t.args.map((a) => substitute(a, map)) };
+    default:
+      return t;
+  }
+}
+
 export function stripOpt(t: LType): LType {
   return t.k === "opt" ? t.inner : t;
 }
@@ -145,7 +175,13 @@ export interface ClassInfo {
   typeParams: string[];
   boundary: boolean;
   isError: boolean;
+  abstract: boolean;
+  /** The Lucent class this one extends, with type arguments in terms of this class's parameters. */
+  base?: { id: string; args: LType[] };
 }
+
+/** A class type and its ancestors, nearest first, with type arguments substituted. */
+export type ClassChain = { info: ClassInfo; t: LType & { k: "class" } }[];
 
 /**
  * An interface that classes implement: an abstract C++ base with virtual
@@ -213,6 +249,7 @@ export class TypeRegistry {
       typeParams: decl.typeParameters?.map((p) => p.name.text) ?? [],
       boundary: false,
       isError,
+      abstract: !!ts.getModifiers(decl)?.some((m) => m.kind === ts.SyntaxKind.AbstractKeyword),
     };
     this.classes.set(id, info);
     return info;
@@ -251,6 +288,52 @@ export class TypeRegistry {
     const info: IfaceInfo = { id, cppName, decl, implementers: new Set() };
     this.ifaces.set(id, info);
     return info;
+  }
+
+  /** Resolves `extends` once every class is registered. */
+  resolveBase(info: ClassInfo): void {
+    const h = info.decl.heritageClauses?.find((c) => c.token === ts.SyntaxKind.ExtendsKeyword);
+    const expr = h?.types[0];
+    if (!expr || expr.expression.getText() === "Error") return;
+    const t = this.lower(this.checker.getTypeAtLocation(expr), expr);
+    if (t.k !== "class") fail(expr, Codes.UnsupportedClassFeature, "classes can only extend Lucent classes and Error");
+    info.base = { id: t.id, args: t.args };
+  }
+
+  /** Marks subclasses of Error classes as errors (after resolveBase). */
+  propagateErrors(): void {
+    for (const c of this.classes.values()) if (this.ancestors(c).some((a) => a.isError)) c.isError = true;
+  }
+
+  /** Base classes, nearest first. */
+  ancestors(info: ClassInfo): ClassInfo[] {
+    const out: ClassInfo[] = [];
+    for (let b = info.base; b; b = this.cls(b.id).base) out.push(this.cls(b.id));
+    return out;
+  }
+
+  /** `t` and its ancestors, with type arguments substituted along the chain. */
+  chain(t: LType & { k: "class" }): ClassChain {
+    const out: ClassChain = [];
+    let cur: (LType & { k: "class" }) | undefined = t;
+    while (cur) {
+      const info = this.cls(cur.id);
+      out.push({ info, t: cur });
+      const map = new Map(info.typeParams.map((p, i) => [p, cur!.args[i] ?? { k: "tparam", name: p }] as [string, LType]));
+      cur = info.base ? { k: "class", id: info.base.id, args: info.base.args.map((a) => substitute(a, map)) } : undefined;
+    }
+    return out;
+  }
+
+  /** Every class that extends `id`, directly or not, deepest first. */
+  descendants(id: string): ClassInfo[] {
+    const out = [...this.classes.values()].filter((c) => this.ancestors(c).some((a) => a.id === id));
+    return out.sort((a, b) => this.ancestors(b).length - this.ancestors(a).length);
+  }
+
+  /** Whether `sub` is `sup` or extends it. */
+  derives(sub: string, sup: string): boolean {
+    return sub === sup || this.ancestors(this.cls(sub)).some((a) => a.id === sup);
   }
 
   classForDecl(decl: ts.ClassDeclaration): ClassInfo | undefined {
@@ -358,7 +441,8 @@ export class TypeRegistry {
       if (decl && this.isLucentFile(decl.getSourceFile())) {
         const info = this.classForDecl(decl);
         if (info) {
-          const args = (type as ts.TypeReference).target ? c.getTypeArguments(type as ts.TypeReference) : [];
+          // Class references also carry the polymorphic `this` type as a last argument.
+          const args = (type as ts.TypeReference).target ? c.getTypeArguments(type as ts.TypeReference).slice(0, info.typeParams.length) : [];
           return { k: "class", id: info.id, args: args.map((a) => this.lower(a, node)) };
         }
       }

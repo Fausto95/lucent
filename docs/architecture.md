@@ -43,6 +43,11 @@ Notable lowering choices:
 
 * **Structs are deduplicated by shape.** `type Point = {x, y}`, an interface with
   the same fields, and an object literal `{ x: 1, y: 2 }` all share one C++ struct.
+* **Class inheritance** maps to C++ inheritance: methods and accessors in a
+  hierarchy are `virtual`, overrides are checked to keep the native
+  signature, and `super(...)` runs the base's `construct()` and then the
+  subclass's field initializers. A base-typed value converts to JavaScript
+  as its most derived class, whose prototype's `__proto__` is the base's.
 * **Interfaces implemented by classes** become abstract C++ bases (`I_Shape`)
   with pure-virtual methods and `get_`/`set_` accessors for properties.
   Implementing classes inherit them, fields get generated overrides, and

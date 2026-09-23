@@ -43,6 +43,8 @@ export function emitProgram(lp: LucentProgram): EmitResult {
       }
     }
   }
+  for (const info of ctx.reg.classes.values()) ctx.guard(() => ctx.reg.resolveBase(info));
+  ctx.reg.propagateErrors();
   for (const m of lp.modules) {
     for (const s of m.sourceFile.statements) {
       ctx.guard(() => collect(ctx, m, s, exportsOf.get(m)!, imports.get(m)!, byFile));
@@ -64,11 +66,13 @@ export function emitProgram(lp: LucentProgram): EmitResult {
     staticInits.set(m, []);
   }
 
-  for (const info of ctx.reg.classes.values()) {
+  // Base classes first: a C++ base must be complete where it is derived from.
+  const byDepth = [...ctx.reg.classes.values()].sort((a, b) => ctx.reg.ancestors(a).length - ctx.reg.ancestors(b).length);
+  for (const info of byDepth) {
     const m = lp.modules.find((x) => x.name === info.module)!;
     const out = ctx.guard(() => emitClass(ctx, m, info));
     if (!out) continue;
-    (info.typeParams.length ? genericClassDefs : classDefs).push(out.definition);
+    (info.typeParams.length || byDepth.some((c) => c.typeParams.length && ctx.reg.derives(info.id, c.id)) ? genericClassDefs : classDefs).push(out.definition);
     if (out.members) moduleDefs.get(m)!.push(out.members);
     staticInits.get(m)!.push(...out.staticInits);
   }

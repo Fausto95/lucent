@@ -42,7 +42,7 @@ let counter = 0;                                      // module state, reset on 
 | `Record<string, V>`, `{ [k: string]: V }` | string-keyed dictionary, JS key order |
 | `Map<K, V>`, `Set<T>` | insertion-ordered, SameValueZero keys |
 | object types (`type`, `interface`, literals) | shared struct; types with the same shape share one struct |
-| classes | shared object with methods, accessors, statics |
+| classes | shared object with methods, accessors, statics; `extends` another Lucent class (virtual dispatch, `super`, abstract classes) |
 | interfaces with methods, or named in a class's `implements` | abstract base with virtual methods and property accessors; implemented only by classes that declare `implements` |
 | `T \| undefined`, `T \| null`, `x?: T` | optional that remembers `undefined` vs `null` |
 | other unions | tagged union (`string \| number`, discriminated object unions, …) |
@@ -54,7 +54,8 @@ let counter = 0;                                      // module state, reset on 
 
 Not supported: `any`, `unknown` (except in `catch`), intersections, `symbol`,
 `bigint`, `object`, getters in object literals, index signatures mixed with
-properties, and inheritance other than `extends Error`.
+properties, and extending built-in classes other than `Error`. An override
+must keep the overridden member's native signature (`LUCENT1005` otherwise).
 
 Interfaces implemented by classes are *nominal*: a class must say
 `implements Shape` to be used as a `Shape` (`LUCENT2008` otherwise), and object
@@ -192,6 +193,7 @@ explicitly, for example by clearing a field.
 | `console.log(obj)` pretty-prints | prints `String(obj)` |
 | `abort()` without a reason uses an `AbortError` whose message depends on the engine | `AbortError: signal is aborted without reason`, as in React Native and browsers (Node says "This operation was aborted") |
 | an abort reason can be any value | reasons from JavaScript become errors (`String(reason)` as the message when it is not an object); `abort()` in Lucent takes an `Error` |
+| a subclass field read from a base constructor is `undefined` until the subclass initializes it | it reads the type's default (`0`, `""`, `false`, empty object) |
 | any object with the right members satisfies an interface | only classes that declare `implements`; plain JS objects are rejected at the boundary with a `TypeError` |
 
 ## Diagnostics

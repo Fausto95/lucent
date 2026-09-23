@@ -1,11 +1,12 @@
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import type { LucentModule } from "../program.ts";
-import { type ClassInfo, cppIdent, isVoidish, type LType, sameType, stripOpt, T, typeKey, unionOf } from "../types.ts";
+import { type ClassInfo, cppIdent, isVoidish, type LType, sameType, stripOpt, substitute, T, typeKey, unionOf } from "../types.ts";
 import { containsAwait, freeVariables, type FunctionLike, symbolOf } from "./analysis.ts";
 import * as builtins from "./builtins.ts";
 import type { Ctx, E, IntKind, ParamInfo } from "./context.ts";
 import { inferIntegers } from "./integers.ts";
+export { substitute } from "../types.ts";
 import { numberLiteral, stringLiteral } from "./literals.ts";
 
 interface Local {
@@ -42,6 +43,8 @@ export interface FnOptions {
   /** How `this` is spelled as a Ref (for passing it as a value). */
   thisRef?: string;
   isConstructor?: boolean;
+  /** In a subclass constructor: the base construct() call and what follows super(). */
+  superCtor?: { call: string; params: LType[]; after: (em: FnEmitter) => void };
 }
 
 const ASSIGN_OPS = new Map<ts.SyntaxKind, string>([
@@ -246,6 +249,11 @@ export class FnEmitter {
     if (from.k === "error" && to.k === "class" && this.reg.cls(to.id).isError) return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
     if (to.k === "iface") return this.toIface(e, to, node);
     if (from.k === "iface" && to.k === "class") return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
+    if (from.k === "class" && to.k === "class") {
+      // Upcasts are implicit; downcasts follow instanceof narrowing and are checked.
+      if (this.reg.derives(from.id, to.id)) return `std::static_pointer_cast<${this.reg.cppClass(to)}>(${e.c})`;
+      if (this.reg.derives(to.id, from.id)) return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
+    }
     if (from.k === "struct" && to.k === "struct") {
       fail(node, Codes.InexactObject, `object types must match exactly to share a native representation (${this.describe(from)} vs ${this.describe(to)})`);
     }
@@ -261,7 +269,7 @@ export class FnEmitter {
     const name = info.decl.name.text;
     if (e.t.k === "class") {
       const cls = this.reg.cls(e.t.id);
-      if (!info.implementers.has(cls.id)) {
+      if (![cls, ...this.reg.ancestors(cls)].some((c) => info.implementers.has(c.id))) {
         fail(node, Codes.InterfaceNotImplemented, `class ${cls.decl.name!.text} must declare \`implements ${name}\` to be used as ${name}`);
       }
       return `std::static_pointer_cast<lucent_app::${info.cppName}>(${e.c})`;
@@ -504,6 +512,12 @@ export class FnEmitter {
         return this.varStatement((s as ts.VariableStatement).declarationList);
       case ts.SyntaxKind.ExpressionStatement: {
         const x = (s as ts.ExpressionStatement).expression;
+        const sc = this.opts.superCtor;
+        if (sc && ts.isCallExpression(x) && x.expression.kind === ts.SyntaxKind.SuperKeyword) {
+          this.line(`${sc.call}(${this.args(x.arguments, sc.params, x).join(", ")});`);
+          sc.after(this);
+          return;
+        }
         const e = this.expr(ts.isVoidExpression(x) ? x.expression : x);
         this.line(`(void)(${e.c});`);
         return;
@@ -1120,7 +1134,8 @@ export class FnEmitter {
     }
     if (t.k === "never" || sameType(t, e.t)) return e;
     // Only narrow (never widen) based on the checker.
-    if (e.t.k === "opt" || e.t.k === "union" || ((e.t.k === "error" || e.t.k === "iface") && t.k === "class")) {
+    const toSubclass = e.t.k === "class" && t.k === "class" && e.t.id !== t.id && this.reg.derives(t.id, e.t.id);
+    if (e.t.k === "opt" || e.t.k === "union" || ((e.t.k === "error" || e.t.k === "iface") && t.k === "class") || toSubclass) {
       return { c: this.coerce(e, t, node), t };
     }
     return e;
@@ -1604,6 +1619,7 @@ export class FnEmitter {
     if (isOptionalChain(node)) return this.chainPart(node).e;
     const staticE = builtins.staticProperty(this, node);
     if (staticE) return staticE;
+    if (node.expression.kind === ts.SyntaxKind.SuperKeyword) return builtins.superMember(this, node.name.text, node);
     const obj = this.receiver(node.expression);
     return this.member(obj, node.name.text, node);
   }
@@ -1741,6 +1757,7 @@ export class FnEmitter {
   private callInner(node: ts.CallExpression): E {
     const callee = node.expression;
     if (callee.kind === ts.SyntaxKind.SuperKeyword) return builtins.superCall(this, node);
+    if (ts.isPropertyAccessExpression(callee) && callee.expression.kind === ts.SyntaxKind.SuperKeyword) return builtins.superMember(this, callee.name.text, callee, node);
     if (ts.isPropertyAccessExpression(callee)) {
       const s = builtins.staticCall(this, node, callee);
       if (s) return s;
@@ -1818,13 +1835,15 @@ export class FnEmitter {
     const callee = node.expression;
     const t = this.lt(node);
     if (t.k === "class") {
-      const info = this.reg.cls(t.id);
-      const ctor = info.decl.members.find(ts.isConstructorDeclaration);
+      // The nearest constructor in the class chain (subclasses may inherit it).
+      const owner = this.reg.chain(t).find((c) => c.info.decl.members.some(ts.isConstructorDeclaration));
+      const ctor = owner?.info.decl.members.find(ts.isConstructorDeclaration);
       const fnType: LType = ctor ? (this.reg.lowerSignature(this.checker.getSignatureFromDeclaration(ctor)!, ctor) as LType) : { k: "fn", params: [], ret: T.void };
       const params = ctor ? this.paramInfos(ctor, fnType as LType & { k: "fn" }) : [];
       let paramTypes = params.map((p) => p.cppType);
-      if (t.args.length) {
-        const map = new Map(info.typeParams.map((p, i) => [p, t.args[i]!]));
+      if (owner && owner.t.args.length) {
+        const oi = owner.info;
+        const map = new Map(oi.typeParams.map((p, i) => [p, owner.t.args[i]!]));
         paramTypes = paramTypes.map((p) => substitute(p, map));
       }
       const rest = params.length && params[params.length - 1]!.rest ? paramTypes[paramTypes.length - 1] : undefined;
@@ -2020,35 +2039,6 @@ function assignedWithin(checker: ts.TypeChecker, node: ts.Node, sym: ts.Symbol):
 }
 
 /** Replaces type parameters in `t`. */
-export function substitute(t: LType, map: Map<string, LType>): LType {
-  switch (t.k) {
-    case "tparam":
-      return map.get(t.name) ?? t;
-    case "array":
-      return { k: "array", e: substitute(t.e, map) };
-    case "set":
-      return { k: "set", e: substitute(t.e, map) };
-    case "dict":
-      return { k: "dict", val: substitute(t.val, map) };
-    case "map":
-      return { k: "map", key: substitute(t.key, map), val: substitute(t.val, map) };
-    case "opt":
-      return unionOf([substitute(t.inner, map), T.undefined]);
-    case "union":
-      return unionOf(t.ms.map((m) => substitute(m, map)));
-    case "tuple":
-      return { k: "tuple", es: t.es.map((e) => substitute(e, map)) };
-    case "promise":
-      return { k: "promise", inner: substitute(t.inner, map) };
-    case "fn":
-      return { k: "fn", params: t.params.map((p) => substitute(p, map)), ret: substitute(t.ret, map) };
-    case "class":
-      return { k: "class", id: t.id, args: t.args.map((a) => substitute(a, map)) };
-    default:
-      return t;
-  }
-}
-
 /** Type arguments the checker inferred for a call to a generic function. */
 function inferTypeArguments(em: FnEmitter, decl: ts.FunctionDeclaration, sig: ts.Signature | undefined, node: ts.CallExpression): LType[] {
   const tps = decl.typeParameters ?? ts.factory.createNodeArray();

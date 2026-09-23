@@ -2,7 +2,8 @@ import path from "node:path";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import { coreTypesPath, isLibFile } from "../program.ts";
-import { cppIdent, isVoidish, type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
+import { type ClassInfo, cppIdent, isVoidish, type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
+import { findMember } from "./classes.ts";
 import type { E } from "./context.ts";
 import { type FnEmitter, substitute } from "./function.ts";
 import { type IfaceMember, ifaceMembers } from "./interfaces.ts";
@@ -89,18 +90,10 @@ export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E
 
 // --- classes ---------------------------------------------------------------------------
 
-function classMemberDecl(em: FnEmitter, t: LType & { k: "class" }, name: string): ts.ClassElement | ts.ParameterDeclaration | undefined {
-  const info = em.reg.cls(t.id);
-  for (const m of info.decl.members) {
-    if (m.name && (ts.isIdentifier(m.name) || ts.isPrivateIdentifier(m.name) || ts.isStringLiteral(m.name)) && m.name.text === name) return m;
-  }
-  const ctor = info.decl.members.find(ts.isConstructorDeclaration);
-  for (const p of ctor?.parameters ?? []) {
-    if (ts.isIdentifier(p.name) && p.name.text === name && ts.getModifiers(p)?.some((m) => m.kind === ts.SyntaxKind.PrivateKeyword || m.kind === ts.SyntaxKind.PublicKeyword || m.kind === ts.SyntaxKind.ProtectedKeyword || m.kind === ts.SyntaxKind.ReadonlyKeyword)) {
-      return p;
-    }
-  }
-  return undefined;
+/** An instance member of `t` or its ancestors, with the class type that declares it. */
+function classMemberDecl(em: FnEmitter, t: LType & { k: "class" }, name: string): { decl: ts.ClassElement | ts.ParameterDeclaration; owner: LType & { k: "class" } } | undefined {
+  const found = findMember(em.reg.chain(t), name, () => true);
+  return found && { decl: found.decl, owner: found.owner.t };
 }
 
 function isStatic(m: ts.Node): boolean {
@@ -115,11 +108,12 @@ export function memberType(em: FnEmitter, t: LType & { k: "class" }, decl: ts.No
   return substitute(declared, new Map(info.typeParams.map((p, i) => [p, t.args[i]!])));
 }
 
-export function classMember(em: FnEmitter, obj: E, t: LType & { k: "class" }, name: string, node: ts.Node): E {
-  const info = em.reg.cls(t.id);
+export function classMember(em: FnEmitter, obj: E, t0: LType & { k: "class" }, name: string, node: ts.Node): E {
+  const info = em.reg.cls(t0.id);
   if (info.isError && (name === "message" || name === "name")) return str(`(${obj.c})->${name}`);
-  const decl = classMemberDecl(em, t, name);
-  if (!decl) fail(node, Codes.UnsupportedClassFeature, `unknown member ${name}`);
+  const found = classMemberDecl(em, t0, name);
+  if (!found) fail(node, Codes.UnsupportedClassFeature, `unknown member ${name}`);
+  const { decl, owner: t } = found;
   if (ts.isGetAccessorDeclaration(decl)) {
     const type = memberType(em, t, decl);
     return { c: `(${obj.c})->get_${cppIdent(name)}()`, t: type };
@@ -139,14 +133,15 @@ export function classMember(em: FnEmitter, obj: E, t: LType & { k: "class" }, na
   fail(node, Codes.UnsupportedClassFeature, `unsupported member ${name}`);
 }
 
-export function classMemberLvalue(em: FnEmitter, obj: E, t: LType & { k: "class" }, name: string, node: ts.Node) {
-  const info = em.reg.cls(t.id);
+export function classMemberLvalue(em: FnEmitter, obj: E, t0: LType & { k: "class" }, name: string, node: ts.Node) {
+  const info = em.reg.cls(t0.id);
   if (info.isError && (name === "message" || name === "name")) {
     const c = `(${obj.c})->${name}`;
     return { direct: c, get: c, type: T.string };
   }
-  const decl = classMemberDecl(em, t, name);
-  if (!decl) fail(node, Codes.UnsupportedClassFeature, `unknown member ${name}`);
+  const found = classMemberDecl(em, t0, name);
+  if (!found) fail(node, Codes.UnsupportedClassFeature, `unknown member ${name}`);
+  const { decl, owner: t } = found;
   if (ts.isPropertyDeclaration(decl) || ts.isParameter(decl)) {
     const c = `(${obj.c})->${cppIdent(name)}`;
     return { direct: c, get: c, type: memberType(em, t, decl) };
@@ -194,6 +189,32 @@ function ifaceMethodCall(em: FnEmitter, obj: E, t: LType & { k: "iface" }, name:
   return { c: `(${obj.c})->${cppIdent(name)}(${as.join(", ")})`, t: isVoidish(m.fn.ret) ? T.undefined : m.fn.ret };
 }
 
+/** A static member of a class or its ancestors (statics are inherited in JavaScript). */
+function staticMember(em: FnEmitter, info: ClassInfo, name: string): { decl: ts.ClassElement | undefined; owner: ClassInfo } {
+  for (const c of [info, ...em.reg.ancestors(info)]) {
+    const decl = c.decl.members.find((m) => m.name && ts.isIdentifier(m.name) && m.name.text === name && isStatic(m));
+    if (decl) return { decl, owner: c };
+  }
+  return { decl: undefined, owner: info };
+}
+
+/** `super.name` / `super.name(...)` inside a subclass. */
+export function superMember(em: FnEmitter, name: string, node: ts.Node, call?: ts.CallExpression): E {
+  const cls = em.opts.cls;
+  if (!cls?.base) fail(node, Codes.UnsupportedClassFeature, "`super` members are only available in subclasses");
+  const found = classMemberDecl(em, { k: "class", id: cls.base.id, args: cls.base.args }, name);
+  if (!found) fail(node, Codes.UnsupportedClassFeature, `unknown member ${name}`);
+  const qual = `${em.thisAccess()}${em.reg.cppClass(found.owner)}::`;
+  const d = found.decl;
+  if (call) {
+    if (!ts.isMethodDeclaration(d)) fail(node, Codes.UnsupportedClassFeature, `super.${name} is not a method`);
+    return callMethodDecl(em, `${qual}${cppIdent(name)}`, d, call, found.owner);
+  }
+  if (ts.isGetAccessorDeclaration(d)) return { c: `${qual}get_${cppIdent(name)}()`, t: memberType(em, found.owner, d) };
+  if (ts.isPropertyDeclaration(d) || ts.isParameter(d)) return { c: `${qual}${cppIdent(name)}`, t: memberType(em, found.owner, d) };
+  fail(node, Codes.UnsupportedClassFeature, `super.${name} cannot be used as a value`);
+}
+
 function staticClass(em: FnEmitter, id: ts.Expression) {
   if (!ts.isIdentifier(id)) return undefined;
   const sym0 = em.checker.getSymbolAtLocation(id);
@@ -206,9 +227,9 @@ export function staticMemberLvalue(em: FnEmitter, target: ts.PropertyAccessExpre
   const g = staticClass(em, target.expression);
   if (!g) return undefined;
   const name = target.name.text;
-  const decl = g.info.decl.members.find((m) => m.name && ts.isIdentifier(m.name) && m.name.text === name && isStatic(m));
+  const { decl, owner } = staticMember(em, g.info, name);
   if (!decl || !ts.isPropertyDeclaration(decl)) fail(target, Codes.UnsupportedAssignmentTarget, `unknown static field ${name}`);
-  const c = `lucent_app::${g.info.cppName}::${cppIdent(name)}`;
+  const c = `lucent_app::${owner.cppName}::${cppIdent(name)}`;
   return { direct: c, get: c, type: em.reg.lower(em.checker.getTypeAtLocation(decl), decl) };
 }
 
@@ -261,10 +282,10 @@ export function staticProperty(em: FnEmitter, node: ts.PropertyAccessExpression)
   if (constant !== undefined) return typeof constant === "number" ? num(numberLiteral(constant)) : str(stringLiteral(constant));
   const g = staticClass(em, obj);
   if (g) {
-    const decl = g.info.decl.members.find((m) => m.name && ts.isIdentifier(m.name) && m.name.text === name && isStatic(m));
+    const { decl, owner } = staticMember(em, g.info, name);
     if (!decl) fail(node, Codes.UnsupportedClassFeature, `unknown static member ${name}`);
-    if (ts.isPropertyDeclaration(decl)) return { c: `lucent_app::${g.info.cppName}::${cppIdent(name)}`, t: em.reg.lower(em.checker.getTypeAtLocation(decl), decl) };
-    if (ts.isGetAccessorDeclaration(decl)) return { c: `lucent_app::${g.info.cppName}::get_${cppIdent(name)}()`, t: em.reg.lower(em.checker.getTypeAtLocation(decl), decl) };
+    if (ts.isPropertyDeclaration(decl)) return { c: `lucent_app::${owner.cppName}::${cppIdent(name)}`, t: em.reg.lower(em.checker.getTypeAtLocation(decl), decl) };
+    if (ts.isGetAccessorDeclaration(decl)) return { c: `lucent_app::${owner.cppName}::get_${cppIdent(name)}()`, t: em.reg.lower(em.checker.getTypeAtLocation(decl), decl) };
     fail(node, Codes.UnsupportedClassFeature, `static methods cannot be used as values`);
   }
   return undefined;
@@ -420,9 +441,9 @@ export function staticCall(em: FnEmitter, node: ts.CallExpression, callee: ts.Pr
   }
   const g = staticClass(em, obj);
   if (g) {
-    const decl = g.info.decl.members.find((m) => m.name && ts.isIdentifier(m.name) && m.name.text === name && isStatic(m));
+    const { decl, owner } = staticMember(em, g.info, name);
     if (!decl || !ts.isMethodDeclaration(decl)) fail(node, Codes.UnsupportedClassFeature, `unknown static method ${name}`);
-    return callMethodDecl(em, `lucent_app::${g.info.cppName}::${cppIdent(name)}`, decl, node, undefined);
+    return callMethodDecl(em, `lucent_app::${owner.cppName}::${cppIdent(name)}`, decl, node, undefined);
   }
   return undefined;
 }
@@ -454,8 +475,9 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
     case "class": {
       const info = em.reg.cls(t.id);
       if (info.isError && name === "toString") return str(`lucent::errorToString(${o})`);
-      const decl = info.decl.members.find((m) => m.name && (ts.isIdentifier(m.name) || ts.isPrivateIdentifier(m.name)) && m.name.text === name);
-      if (decl && ts.isMethodDeclaration(decl)) return callMethodDecl(em, `(${o})->${cppIdent(name)}`, decl, node, t);
+      const found = classMemberDecl(em, t, name);
+      const decl = found?.decl;
+      if (decl && ts.isMethodDeclaration(decl)) return callMethodDecl(em, `(${o})->${cppIdent(name)}`, decl, node, found.owner);
       if (decl && (ts.isPropertyDeclaration(decl) || ts.isGetAccessorDeclaration(decl))) {
         const f = classMember(em, obj, t, name, node);
         const ft = stripOpt(f.t);
@@ -921,7 +943,8 @@ export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {
 
 export function superCall(em: FnEmitter, node: ts.CallExpression): E {
   const cls = em.opts.cls;
-  if (!cls || !cls.isError) fail(node, Codes.UnsupportedClassFeature, "`super(...)` is only supported in classes that extend Error");
+  if (cls?.base) fail(node, Codes.UnsupportedClassFeature, "call `super(...)` as a statement of its own");
+  if (!cls || !cls.isError) fail(node, Codes.UnsupportedClassFeature, "`super(...)` is only supported in subclasses");
   const msg = node.arguments[0] ? em.exprAs(node.arguments[0], T.string) : "lucent::String()";
   return { c: `(this->message = ${msg}, lucent::undefined)`, t: T.undefined };
 }

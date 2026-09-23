@@ -1,7 +1,7 @@
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
-import { type ClassInfo, cppIdent, type IfaceInfo, type LType, T } from "../types.ts";
-import { memberName, parameterProperties } from "./classes.ts";
+import { type ClassInfo, cppIdent, type IfaceInfo, type LType, substitute, T } from "../types.ts";
+import { argMap, findMember } from "./classes.ts";
 import type { Ctx, ParamInfo } from "./context.ts";
 import { FnEmitter } from "./function.ts";
 
@@ -93,38 +93,51 @@ export function ifacesOf(ctx: Ctx, cls: ClassInfo): IfaceInfo[] {
 export function ifaceOverrides(ctx: Ctx, cls: ClassInfo): string[] {
   const out: string[] = [];
   const className = cls.decl.name!.text;
-  const ctor = cls.decl.members.find(ts.isConstructorDeclaration);
+  const chain = ctx.reg.chain({ k: "class", id: cls.id, args: cls.typeParams.map((p) => ({ k: "tparam", name: p }) as LType) });
   const em = emitterFor(ctx, cls.decl);
   for (const iface of ifacesOf(ctx, cls)) {
     const ifaceName = iface.decl.name.text;
     for (const m of ifaceMembers(ctx, iface)) {
       const where = `${className}.${m.name}`;
-      const members = cls.decl.members.filter((x) => x.name && !ts.isPrivateIdentifier(x.name) && memberName(x) === m.name);
       if (m.kind === "method") {
-        const decl = members.find(ts.isMethodDeclaration);
-        if (!decl) fail(cls.decl, Codes.InterfaceMismatch, `${where} must be a method to implement ${ifaceName}.${m.name}`);
+        const found = findMember(chain, m.name, (x) => ts.isMethodDeclaration(x));
+        if (!found) fail(cls.decl, Codes.InterfaceMismatch, `${where} must be a method to implement ${ifaceName}.${m.name}`);
+        const decl = found.decl as ts.MethodDeclaration;
         const fn = ctx.reg.lowerSignature(ctx.checker.getSignatureFromDeclaration(decl)!, decl) as FnT;
-        const actual = signature(ctx, fn, em.paramInfos(decl, fn));
+        const map = argMap(ctx, found.owner.t);
+        const actual = `${ctx.reg.cppRet(substitute(fn.ret, map))}(${em.paramInfos(decl, fn).map((p) => ctx.reg.cpp(substitute(p.cppType, map))).join(", ")})`;
         const expected = ifaceMethodSignature(ctx, m);
         if (actual !== expected) {
           fail(decl, Codes.InterfaceMismatch, `${where} has native signature ${actual}, but ${ifaceName}.${m.name} needs ${expected}; declare the same parameter and return types`);
         }
+        // A method inherited from a class base does not override the
+        // interface's virtual; forward to it.
+        if (found.owner.info !== cls) {
+          const ps = m.params.map((p, i) => `${ctx.reg.cpp(p.cppType)} a${i}`).join(", ");
+          const as = m.params.map((_, i) => `a${i}`).join(", ");
+          out.push(`  ${ctx.reg.cppRet(m.fn.ret)} ${cppIdent(m.name)}(${ps}) override { return this->${ctx.reg.cppClass(found.owner.t)}::${cppIdent(m.name)}(${as}); }`);
+        }
         continue;
       }
       const t = ctx.reg.cpp(m.type);
-      const mismatch = (node: ts.Node, actual: LType) => {
-        if (ctx.reg.cpp(actual) !== t) fail(node, Codes.InterfaceMismatch, `${where} has type ${ctx.reg.cpp(actual)}, but ${ifaceName}.${m.name} needs ${t}`);
+      const typed = (node: ts.Node, owner: (typeof chain)[number]) => {
+        const actual = ctx.reg.cpp(substitute(ctx.lowerAt(node), argMap(ctx, owner.t)));
+        if (actual !== t) fail(node, Codes.InterfaceMismatch, `${where} has type ${actual}, but ${ifaceName}.${m.name} needs ${t}`);
       };
-      const getter = members.find(ts.isGetAccessorDeclaration);
+      const getter = findMember(chain, m.name, (x) => ts.isGetAccessorDeclaration(x));
       if (getter) {
-        mismatch(getter, ctx.lowerAt(getter));
-        if (!m.readonly && !members.some(ts.isSetAccessorDeclaration)) fail(getter, Codes.InterfaceMismatch, `${where} needs a setter: ${ifaceName}.${m.name} is writable`);
+        typed(getter.decl, getter.owner);
+        const setter = findMember(chain, m.name, (x) => ts.isSetAccessorDeclaration(x));
+        if (!m.readonly && !setter) fail(getter.decl, Codes.InterfaceMismatch, `${where} needs a setter: ${ifaceName}.${m.name} is writable`);
+        const f = cppIdent(m.name);
+        if (getter.owner.info !== cls) out.push(`  ${t} get_${f}() override { return this->${ctx.reg.cppClass(getter.owner.t)}::get_${f}(); }`);
+        if (!m.readonly && setter && setter.owner.info !== cls) out.push(`  void set_${f}(${t} v) override { this->${ctx.reg.cppClass(setter.owner.t)}::set_${f}(std::move(v)); }`);
         continue;
       }
-      const field = members.find(ts.isPropertyDeclaration) ?? parameterProperties(ctor).find((p) => memberName(p) === m.name);
+      const field = findMember(chain, m.name, (x) => ts.isPropertyDeclaration(x) || ts.isParameter(x));
       if (!field) fail(cls.decl, Codes.InterfaceMismatch, `${className} does not implement ${ifaceName}.${m.name}`);
-      mismatch(field, ctx.lowerAt(field));
-      if (!m.readonly && isReadonly(field)) fail(field, Codes.InterfaceMismatch, `${where} is readonly, but ${ifaceName}.${m.name} is writable`);
+      typed(field.decl, field.owner);
+      if (!m.readonly && isReadonly(field.decl)) fail(field.decl, Codes.InterfaceMismatch, `${where} is readonly, but ${ifaceName}.${m.name} is writable`);
       const f = cppIdent(m.name);
       out.push(`  ${t} get_${f}() override { return this->${f}; }`);
       if (!m.readonly) out.push(`  void set_${f}(${t} v) override { this->${f} = std::move(v); }`);

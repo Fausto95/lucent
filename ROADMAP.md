@@ -56,7 +56,8 @@ structures, sync engines) can be written in Lucent.
 - ✅ `AbortSignal` cancellation for exported async functions.
 - ✅ `class X extends Error`.
 - ✅ Interfaces implemented by classes (virtual dispatch).
-- 🔭 General class inheritance; generic interfaces.
+- ✅ Class inheritance.
+- ⏳ Generic interfaces; interfaces extending interfaces.
 - ✅ Integer inference (`int32`/`uint32`/`int64` locals and loop counters).
 
 Exit criteria: conformance suite (differential tests vs. plain JS) covering
