@@ -67,8 +67,12 @@ export function f(b: B): number { return take(b); }`;
     expect(codes(src)).toContain("LUCENT2005");
   });
 
-  it("rejects regular expressions", () => {
-    expect(codes('export function f(s: string): boolean { return /a/.test(s); }').length).toBeGreaterThan(0);
+  it("accepts regular expressions", () => {
+    expect(codes('export function f(s: string): boolean { return /a/.test(s); }')).toEqual([]);
+  });
+
+  it("rejects invalid regular expression literals", () => {
+    expect(codes('export function f(s: string): boolean { return /(?<n>a)(?<n>b)/.test(s); }').length).toBeGreaterThan(0);
   });
 
   it("rejects extending built-in classes other than Error", () => {
