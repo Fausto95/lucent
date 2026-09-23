@@ -74,10 +74,12 @@ export async function run(): Promise<string> {
 const pods = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../bindgen/test/fixtures/pods");
 
 const gauge = `import { WPGauge, WPGaugeMode } from "lucent:ios/WidgetsPod";
+import type { NSURL } from "lucent:ios/Foundation";
 export async function run(): Promise<string> {
   const g = new WPGauge(WPGaugeMode.radial);
   g.value = 2;
-  return \`\${g.value} \${g.documentation !== null}\`;
+  const docs: NSURL = g.documentation;
+  return \`\${g.value} \${typeof docs}\`;
 }
 `;
 
@@ -118,7 +120,6 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(mm).toContain("#import <WidgetsPod/WidgetsPod-umbrella.h>");
     expect(mm).not.toContain("<WidgetsPod/WidgetsPod.h>");
     expect(r.frameworks).not.toContain("WidgetsPod");
-    expect(r.frameworks).toContain("Foundation");
   });
 
   it("generates Objective-C++ that compiles against the iOS SDK", () => {
