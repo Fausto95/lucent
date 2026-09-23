@@ -61,8 +61,9 @@ export function sdkDts(schema: SdkModuleSchema): string {
           return t.name;
         case "ref": {
           if (t.module !== schema.module) use(`${schema.platform}/${t.module}`, t.name);
-          // Where a Java interface with one abstract method is taken, so is a function.
-          const target = out ? undefined : t.module === schema.module ? schema.types.find((x) => x.name === t.name) : findSdkType(schema.platform, t.module, t.name);
+          // Where a Java interface with one abstract method is taken, so is a
+          // function (Android only: other iOS modules are not extracted for names).
+          const target = out || schema.platform !== "android" ? undefined : t.module === schema.module ? schema.types.find((x) => x.name === t.name) : findSdkType(schema.platform, t.module, t.name);
           const sam = target?.kind === "class" && target.functional ? target.methods?.find((m) => m.name === target.functional && m.abstract) : undefined;
           if (!sam) return t.name;
           const ps = sam.params.map((p, i) => `arg${i}: ${tsType(parseSdkType(p.type, t.module), true)}`).join(", ");
