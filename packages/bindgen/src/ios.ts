@@ -209,6 +209,9 @@ const C_TYPEDEFS: Record<string, string> = {
 const ERROR_POINTERS = new Set(["s:10Foundation14NSErrorPointera"]);
 
 /** Swift value types that bridge to Foundation classes, typed as those classes. */
+/** Swift's AnyHashable: an Objective-C object (id), as untyped NSDictionary keys and NSSet elements are. */
+const ANY_HASHABLE = "s:s11AnyHashableV";
+
 /** The protocol of Swift value types that bridge to an Objective-C class, its `ReferenceType`. */
 const REFERENCE_CONVERTIBLE = "s:10Foundation20ReferenceConvertibleP";
 
@@ -299,13 +302,15 @@ function parseType(frags: Fragment[], r: Resolver): SchemaType {
         p++;
         const value = type();
         if (toks[p++] !== "]") throw new Unsupported("dictionary");
-        if (key.k !== "string" || key.nullable) throw new Unsupported(`dictionary keyed by ${formatSchemaType(key)}`);
+        // Keys of any type (AnyHashable) as well: those that are not strings are left out when read.
+        if ((key.k !== "string" && key.k !== "id") || key.nullable) throw new Unsupported(`dictionary keyed by ${formatSchemaType(key)}`);
         return { k: "record", of: value, nullable: false };
       }
       if (toks[p++] !== "]") throw new Unsupported("array");
       return { k: "array", of: key, nullable: false };
     }
     if (tok === "Any" || tok === "AnyObject") return named("id");
+    if (typeof tok !== "string" && tok.preciseIdentifier === ANY_HASHABLE) return named("id");
     if (tok === "()") return named("void");
     if (tok === "Self") {
       if (!r.self) throw new Unsupported("Self");
