@@ -34,6 +34,9 @@ runtime/js           loader used by generated proxies
   apps' test screens stay in sync.
 - Keep headers free of names that shadow system headers (hence `jsstring.h`,
   `jserror.h`).
+- Every build of Lucent C++ (podspec, CMake, test harnesses) passes
+  `-ffp-contract=off`: JavaScript rounds `a * b + c` twice, and a fused
+  multiply-add would not.
 
 ## Commands
 

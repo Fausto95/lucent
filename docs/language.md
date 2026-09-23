@@ -34,7 +34,7 @@ let counter = 0;                                      // module state, reset on 
 
 | TypeScript | Native representation |
 |---|---|
-| `number` | `double`, with ECMAScript arithmetic (`%`, `**`, bitwise ops through ToInt32, …) |
+| `number` | `double`, with ECMAScript arithmetic (`%`, `**`, bitwise ops through ToInt32, …); every operation rounds separately, as in JavaScript (no fused multiply-add) |
 | `boolean` | `bool` |
 | `string` (and string literal types) | immutable UTF-16 string, stored one byte per unit when possible |
 | `T[]`, `readonly T[]` | shared array (assignment aliases, like JS) |

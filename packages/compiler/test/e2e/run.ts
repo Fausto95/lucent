@@ -34,6 +34,7 @@ const deviceFlags = cxx.includes("clang") ? ["-Werror", "-Wno-gnu-statement-expr
 
 const baseFlags = [
   "-std=c++20",
+  "-ffp-contract=off",
   "-g",
   "-O1",
   "-Wall",

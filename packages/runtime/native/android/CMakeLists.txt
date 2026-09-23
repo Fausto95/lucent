@@ -20,6 +20,7 @@ if(COMMAND target_compile_reactnative_options)
 endif()
 target_compile_options(lucentnative PRIVATE
   -std=c++20
+  -ffp-contract=off
   -fexceptions
   -frtti
   -O2

@@ -8,7 +8,7 @@ cpp="$here/../../cpp"
 hermes="${HERMES_DIR:-$HOME/hermes}"
 out="$1"
 shift
-flags=(-std=c++20 -g -O1 -Wall -Wno-unused-parameter -Wno-unused-function -I"$cpp" -I"$hermes/API" -I"$hermes/API/jsi" -I"$hermes/public" -I"$hermes/build/lib/config")
+flags=(-std=c++20 -ffp-contract=off -g -O1 -Wall -Wno-unused-parameter -Wno-unused-function -I"$cpp" -I"$hermes/API" -I"$hermes/API/jsi" -I"$hermes/public" -I"$hermes/build/lib/config")
 if [[ "${SANITIZE:-0}" == "1" ]]; then
   flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer)
 fi

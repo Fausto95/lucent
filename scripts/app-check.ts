@@ -33,7 +33,7 @@ sh(process.execPath, [path.join(root, "packages/cli/bin/lucent.cjs"), "build", "
 
 console.log("• compiling native code");
 const cpp = path.join(app, ".lucent/native/cpp");
-const flags = ["-std=c++20", "-O1", "-g", "-w", `-I${cpp}`, `-I${cpp}/generated`, `-I${hermes}/API`, `-I${hermes}/API/jsi`, `-I${hermes}/public`];
+const flags = ["-std=c++20", "-ffp-contract=off", "-O1", "-g", "-w", `-I${cpp}`, `-I${cpp}/generated`, `-I${hermes}/API`, `-I${hermes}/API/jsi`, `-I${hermes}/public`];
 const sources = [
   ...fs.readdirSync(path.join(cpp, "generated")).filter((f) => f.endsWith(".cpp")).map((f) => path.join(cpp, "generated", f)),
   ...fs.readdirSync(path.join(cpp, "lucent")).filter((f) => f.endsWith(".cpp")).map((f) => path.join(cpp, "lucent", f)),
