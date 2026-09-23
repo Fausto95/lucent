@@ -129,6 +129,16 @@ export async function run(): Promise<string> {
 }
 `;
 
+const unimportedStruct = `import { UITableView } from "lucent:ios/UIKit";
+import { main } from "lucent:thread";
+export async function run(): Promise<string> {
+  return main(() => {
+    const t = new UITableView({ origin: { x: 0, y: 0 }, size: { width: 10, height: 10 } }, 0);
+    return \`\${t.bounds.size.width}\`;
+  });
+}
+`;
+
 const mediaTimes = `import { AVPlayer } from "lucent:ios/AVFoundation";
 import { CMTimeCompare, CMTimeMake } from "lucent:ios/CoreMedia";
 import { NSUnionRange } from "lucent:ios/Foundation";
@@ -307,6 +317,12 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(mm).toContain("NSUnionRange(NSRange{");
   });
 
+  it("passes structs of modules the program does not import (CGRect, through UIKit)", () => {
+    const { r, mm } = ios(unimportedStruct);
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("initWithFrame:CGRect{CGPoint{");
+  });
+
   it("monitors network paths: OS objects, anonymous enums, blocks, the main queue", () => {
     const { r, mm } = ios(pathMonitor);
     expect(r.diagnostics).toEqual([]);
@@ -330,7 +346,7 @@ export async function run(): Promise<string> {
   it("generates Objective-C++ that compiles against the iOS SDK", () => {
     const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
     if (process.platform !== "darwin" || sdk.status !== 0) return;
-    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [mediaTimes], [shadowing], [pathMonitor], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
+    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [unimportedStruct], [mediaTimes], [shadowing], [pathMonitor], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
       const { r, dir } = ios(src, sdk);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {

@@ -143,4 +143,19 @@ describe("names-only declarations", () => {
     expect(a).toBe(b);
     expect(a.indexOf("KAlpha")).toBeLessThan(a.indexOf("KBeta"));
   });
+
+  it("declare structs' fields, so values of them can be written", () => {
+    const d = stubDts("ios", "Kit", {
+      module: "Kit",
+      refs: {},
+      aliases: {},
+      types: {
+        KPoint: { kind: "struct", native: "KPoint", fields: [{ name: "x", type: parseSdkType("double") }, { name: "y", type: parseSdkType("double") }] },
+        KRect: { kind: "struct", native: "KRect", fields: [{ name: "origin", type: parseSdkType("Kit.KPoint") }, { name: "edge", type: parseSdkType("Kit.KEdge") }] },
+        KEdge: { kind: "enum", native: "KEdge" },
+      },
+    });
+    expect(d).toContain("export declare type KPoint = { x: number; y: number };");
+    expect(d).toContain("export declare type KRect = { origin: KPoint; edge: KEdge };");
+  });
 });

@@ -129,6 +129,16 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     expect("names" in names && names.names.types.WDGWidget).toEqual({ kind: "class", native: "WDGWidget" });
     expect("names" in names && names.names.types.WDGShape).toEqual({ kind: "protocol", native: "WDGShape" });
     expect("names" in names && names.names.types.WDGStyle).toEqual({ kind: "enum", native: "WDGStyle" });
+    // Structs keep their fields: other modules' signatures pass them by value.
+    const measures = sdkNames("ios", "Measures", opts);
+    expect("names" in measures && measures.names.types.MSRSpan).toEqual({
+      kind: "struct",
+      native: "MSRSpan",
+      fields: [
+        { name: "start", type: T("Measures.MSRTime") },
+        { name: "duration", type: T("Measures.MSRTime") },
+      ],
+    });
     // Names come from the symbol graph alone: no schema is built.
     const [key] = fs.readdirSync(path.join(cacheDir, "sdk/ios"));
     expect(fs.existsSync(path.join(cacheDir, "sdk/ios", key!, "Widgets.json"))).toBe(false);
