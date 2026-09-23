@@ -60,6 +60,30 @@ describe("Lucent packages", () => {
   });
 });
 
+describe("Lucent packages' native needs", () => {
+  it("writes them into the native package, and names Info.plist keys the app lacks", () => {
+    const root = project();
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app", dependencies: { "lucent-auth": "1.0.0" } }));
+    const pkg = path.join(root, "node_modules/lucent-auth");
+    fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
+    fs.writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ name: "lucent-auth", version: "1.0.0", lucent: { sources: "src" } }));
+    fs.writeFileSync(path.join(pkg, "lucent.json"), JSON.stringify({ ios: { pods: { LucentAuthKit: "~> 1.0" }, infoPlist: { NSFaceIDUsageDescription: "Unlock" } }, android: { dependencies: { "androidx.biometric:biometric": "1.1.0" } } }));
+    fs.writeFileSync(path.join(pkg, "src/auth.lucent.ts"), "export function ok(): boolean { return true; }\n");
+    fs.mkdirSync(path.join(root, "ios/App"), { recursive: true });
+    fs.writeFileSync(path.join(root, "ios/App/Info.plist"), '<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleName</key><string>App</string></dict></plist>\n');
+    const r = lucent(root, "build");
+    expect(r.status).toBe(0);
+    expect(fs.readFileSync(path.join(root, ".lucent/native/LucentNative.podspec"), "utf8")).toContain('s.dependency "LucentAuthKit", "~> 1.0"');
+    expect(fs.readFileSync(path.join(root, ".lucent/native/android/build.gradle"), "utf8")).toContain('api("androidx.biometric:biometric:1.1.0")');
+    // The app's files are not edited: the build says what to add.
+    expect(r.out).toMatch(/lucent-auth needs NSFaceIDUsageDescription in ios\/App\/Info\.plist/);
+    // lucent.json changes rebuild.
+    fs.writeFileSync(path.join(pkg, "lucent.json"), JSON.stringify({ android: { dependencies: { "androidx.biometric:biometric": "1.2.0" } } }));
+    expect(lucent(root, "build").out).not.toMatch(/up to date/);
+    expect(fs.readFileSync(path.join(root, ".lucent/native/android/build.gradle"), "utf8")).toContain('api("androidx.biometric:biometric:1.2.0")');
+  });
+});
+
 describe("lucent init", () => {
   it("links the native package as the `lucent` dependency", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
