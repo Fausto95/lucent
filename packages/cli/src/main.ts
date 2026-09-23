@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { compile, findLucentFiles, formatDiagnostic, inputsKey, isUpToDate, writeNativePackage } from "@lucent-lang/compiler";
+import { compile, findLucentFiles, formatDiagnostic, inputsKey, isUpToDate, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
 
 const HELP = `lucent — compile *.lucent.ts modules into a native React Native package
 
@@ -8,6 +8,7 @@ Usage:
   lucent build [--root <dir>] [--out <dir>] [--force]
                                              Compile and write the native package (default out: <root>/.lucent/native);
                                              skipped when nothing changed since the last build, unless --force
+  lucent build --watch [--root <dir>]         Build, then rebuild whenever a *.lucent.ts file changes
   lucent check [--root <dir>]                 Type-check and validate without writing anything
   lucent init  [--root <dir>]                 Wire an app: react-native.config.js, .gitignore, tsconfig
 `;
@@ -29,6 +30,7 @@ function run(): number {
     process.stderr.write(`Unknown command: ${command}\n\n${HELP}`);
     return 1;
   }
+  if (command === "build" && process.argv.includes("--watch")) return watch(root);
   const files = findLucentFiles(root);
   if (files.length === 0) {
     process.stdout.write(`No *.lucent.ts files under ${root}\n`);
@@ -60,6 +62,21 @@ function run(): number {
   return 0;
 }
 
+function watch(root: string): number {
+  const out = path.resolve(arg("--out", path.join(root, ".lucent/native")));
+  process.stdout.write(`Lucent: watching ${root} for *.lucent.ts changes\n`);
+  watchBuild(root, out, (e) => {
+    const time = new Date().toLocaleTimeString();
+    if (!e.ok) {
+      process.stderr.write(`[${time}] ✗ Lucent build failed:\n${e.messages.map((m) => `  ${m}`).join("\n")}\n`);
+      return;
+    }
+    process.stdout.write(`[${time}] ✓ Lucent: ${e.messages.join("; ")}\n`);
+    if (e.nativeChanged) process.stdout.write("  Native code changed: rebuild the app (Xcode / Gradle) to run it.\n");
+  });
+  return -1;
+}
+
 function init(root: string): number {
   const rnConfig = path.join(root, "react-native.config.js");
   const entry = `"lucent-native": { root: require("path").join(__dirname, ".lucent", "native") }`;
@@ -82,4 +99,6 @@ function init(root: string): number {
   return 0;
 }
 
-process.exit(run());
+const status = run();
+// Watch mode keeps running.
+if (status >= 0) process.exit(status);

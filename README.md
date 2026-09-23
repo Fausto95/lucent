@@ -75,10 +75,15 @@ module.exports = withLucent(getDefaultConfig(__dirname));
 Then, whenever native code changes:
 
 ```sh
-npx lucent build          # writes .lucent/native (C++ + build files)
+npx lucent build          # writes .lucent/native (C++ + build files); instant when nothing changed
 cd ios && pod install     # iOS, when files were added or removed
 npx react-native run-ios  # or run-android
 ```
+
+While Metro's dev server runs, `withLucent` keeps `.lucent/native` up to date
+as you edit (`lucent build --watch` does the same on its own); rebuild the app
+to run changed native code. Each module has its own generated header, so Xcode
+and Gradle recompile only the modules that changed and their importers.
 
 **Expo:** add `"@lucent-lang/expo"` to `plugins` in `app.json`. `expo prebuild`
 runs `lucent build` and links the package.

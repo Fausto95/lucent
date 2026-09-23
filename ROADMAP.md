@@ -85,7 +85,7 @@ Goal: `import { AVCaptureDevice } from "lucent:ios/AVFoundation"` and
 ## M4 — Production readiness
 
 - 🔭 npm publishing of `@lucent-lang/*`, fresh-install smoke test.
-- 🔭 Incremental builds and caching; watch mode tied to Metro.
+- ✅ Incremental builds and caching; watch mode tied to Metro.
 - 🔭 Source maps for native crashes (symbolicated back to `.lucent.ts`).
 - 🔭 Language server (diagnostics for the Lucent subset in the editor).
 - 🔭 Performance budgets and benchmarks vs. hand-written C++/Swift/Kotlin.
