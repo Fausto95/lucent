@@ -1,9 +1,17 @@
 #include "jsstring.h"
 
+#if defined(__APPLE__) && !defined(LUCENT_PORTABLE_COLLATION)
+#include <CoreFoundation/CoreFoundation.h>
+#elif defined(__ANDROID__) && !defined(LUCENT_PORTABLE_COLLATION)
+#include <fbjni/fbjni.h>
+#endif
+
 #include <algorithm>
+#include <cctype>
 #include <array>
 #include <cmath>
 #include <cstring>
+#include <vector>
 
 #include "number.h"
 
@@ -470,10 +478,118 @@ String String::substring(double start, double end) const {
   return a <= b ? sub(a, b) : sub(b, a);
 }
 
+namespace {
+
+#include "unicode_data.inc"
+
+template <class Table, size_t N>
+const Table* findByCodePoint(const Table (&table)[N], uint32_t cp) {
+  size_t lo = 0, hi = N;
+  while (lo < hi) {
+    size_t mid = (lo + hi) / 2;
+    if (table[mid].cp < cp) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo < N && table[lo].cp == cp ? &table[lo] : nullptr;
+}
+
+template <size_t N>
+bool inRanges(const CodePointRange (&table)[N], uint32_t cp) {
+  size_t lo = 0, hi = N;
+  while (lo < hi) {
+    size_t mid = (lo + hi) / 2;
+    if (table[mid].last < cp) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo < N && table[lo].first <= cp;
+}
+
+/// The code point at `i` (lone surrogates are code points of their own).
+uint32_t codePointAt(const String& s, size_t i, size_t& width) {
+  char16_t c = s.unit(i);
+  width = 1;
+  if (c >= 0xD800 && c <= 0xDBFF && i + 1 < s.length()) {
+    char16_t d = s.unit(i + 1);
+    if (d >= 0xDC00 && d <= 0xDFFF) {
+      width = 2;
+      return 0x10000 + ((c - 0xD800) << 10) + (d - 0xDC00);
+    }
+  }
+  return c;
+}
+
+/// The code point that ends before `i`.
+uint32_t codePointBefore(const String& s, size_t i, size_t& width) {
+  char16_t c = s.unit(i - 1);
+  width = 1;
+  if (c >= 0xDC00 && c <= 0xDFFF && i >= 2) {
+    char16_t h = s.unit(i - 2);
+    if (h >= 0xD800 && h <= 0xDBFF) {
+      width = 2;
+      return 0x10000 + ((h - 0xD800) << 10) + (c - 0xDC00);
+    }
+  }
+  return c;
+}
+
+void appendCodePoint(std::u16string& out, uint32_t cp) {
+  if (cp < 0x10000) {
+    out.push_back(static_cast<char16_t>(cp));
+  } else {
+    cp -= 0x10000;
+    out.push_back(static_cast<char16_t>(0xD800 + (cp >> 10)));
+    out.push_back(static_cast<char16_t>(0xDC00 + (cp & 0x3FF)));
+  }
+}
+
+/// Unicode's Final_Sigma: a cased letter before (past case-ignorables), none after.
+bool isFinalSigma(const String& s, size_t i) {
+  bool casedBefore = false;
+  for (size_t j = i; j > 0;) {
+    size_t w;
+    uint32_t cp = codePointBefore(s, j, w);
+    j -= w;
+    if (inRanges(kCaseIgnorable, cp)) continue;
+    casedBefore = inRanges(kCased, cp);
+    break;
+  }
+  if (!casedBefore) return false;
+  for (size_t k = i + 1; k < s.length();) {
+    size_t w;
+    uint32_t cp = codePointAt(s, k, w);
+    k += w;
+    if (inRanges(kCaseIgnorable, cp)) continue;
+    return !inRanges(kCased, cp);
+  }
+  return true;
+}
+
+template <size_t N>
+String mapCase(const String& s, const CaseMapping (&table)[N], bool lower) {
+  std::u16string out;
+  out.reserve(s.length());
+  for (size_t i = 0; i < s.length();) {
+    size_t w;
+    uint32_t cp = codePointAt(s, i, w);
+    if (lower && cp == 0x03A3) {
+      out.push_back(isFinalSigma(s, i) ? u'\u03C2' : u'\u03C3');
+    } else if (const CaseMapping* m = findByCodePoint(table, cp)) {
+      out.append(m->units, m->length);
+    } else {
+      appendCodePoint(out, cp);
+    }
+    i += w;
+  }
+  return String::fromUtf16(out);
+}
+
+}  // namespace
+
 String String::toUpperCase() const {
   size_t n = length();
   if (n == 0) return *this;
   if (isOneByte()) {
+    // Latin-1 maps within Latin-1 except ß (SS), µ (Μ) and ÿ (Ÿ).
     bool special = false;
     std::string out(d_->bytes);
     for (auto& ch : out) {
@@ -486,18 +602,7 @@ String String::toUpperCase() const {
     }
     if (!special) return make(std::move(out));
   }
-  std::u16string out;
-  out.reserve(n);
-  for (size_t i = 0; i < n; i++) {
-    char16_t c = unit(i);
-    if (c == 0xDF) {
-      out.push_back('S');
-      out.push_back('S');
-    } else {
-      out.push_back(upperOf(c));
-    }
-  }
-  return make(std::move(out));
+  return mapCase(*this, kUpperCase, false);
 }
 
 String String::toLowerCase() const {
@@ -508,10 +613,7 @@ String String::toLowerCase() const {
     for (auto& ch : out) ch = static_cast<char>(lowerOf(static_cast<unsigned char>(ch)));
     return make(std::move(out));
   }
-  std::u16string out;
-  out.reserve(n);
-  for (size_t i = 0; i < n; i++) out.push_back(lowerOf(unit(i)));
-  return make(std::move(out));
+  return mapCase(*this, kLowerCase, true);
 }
 
 String String::trim() const {
@@ -601,20 +703,103 @@ String String::replaceAll(const String& search, const String& replacement) const
   return make(std::move(out));
 }
 
+#if defined(__APPLE__) && !defined(LUCENT_PORTABLE_COLLATION)
+
+// Like Hermes on Apple platforms: CoreFoundation with the current locale,
+// comparing canonically equivalent strings as equal.
 double String::localeCompare(const String& other) const {
-  // Approximation of root-locale collation: compare case-insensitively first,
-  // then break ties by code unit order with lowercase first.
-  size_t n = std::min(length(), other.length());
-  for (size_t i = 0; i < n; i++) {
-    char16_t a = lowerOf(unit(i)), b = lowerOf(other.unit(i));
-    if (a != b) return a < b ? -1 : 1;
-  }
-  if (length() != other.length()) return length() < other.length() ? -1 : 1;
-  for (size_t i = 0; i < n; i++) {
-    char16_t a = unit(i), b = other.unit(i);
-    if (a != b) return a > b ? -1 : 1;
-  }
-  return 0;
+  std::u16string a = toUtf16(), b = other.toUtf16();
+  CFStringRef s1 = CFStringCreateWithCharacters(nullptr, reinterpret_cast<const UniChar*>(a.data()), static_cast<CFIndex>(a.size()));
+  CFStringRef s2 = CFStringCreateWithCharacters(nullptr, reinterpret_cast<const UniChar*>(b.data()), static_cast<CFIndex>(b.size()));
+  CFLocaleRef locale = CFLocaleCopyCurrent();
+  CFComparisonResult r = CFStringCompareWithOptionsAndLocale(s1, s2, CFRangeMake(0, CFStringGetLength(s1)), kCFCompareLocalized | kCFCompareNonliteral, locale);
+  CFRelease(s1);
+  CFRelease(s2);
+  CFRelease(locale);
+  return r == kCFCompareLessThan ? -1 : r == kCFCompareGreaterThan ? 1 : 0;
 }
+
+#elif defined(__ANDROID__) && !defined(LUCENT_PORTABLE_COLLATION)
+
+// Like Hermes on Android: java.text.Collator for the default locale.
+double String::localeCompare(const String& other) const {
+  JNIEnv* env = facebook::jni::Environment::ensureCurrentThreadIsAttached();
+  static jclass collatorClass = static_cast<jclass>(env->NewGlobalRef(env->FindClass("java/text/Collator")));
+  static jmethodID getInstance = env->GetStaticMethodID(collatorClass, "getInstance", "()Ljava/text/Collator;");
+  static jmethodID compare = env->GetMethodID(collatorClass, "compare", "(Ljava/lang/String;Ljava/lang/String;)I");
+  std::u16string a = toUtf16(), b = other.toUtf16();
+  jstring ja = env->NewString(reinterpret_cast<const jchar*>(a.data()), static_cast<jsize>(a.size()));
+  jstring jb = env->NewString(reinterpret_cast<const jchar*>(b.data()), static_cast<jsize>(b.size()));
+  jobject collator = env->CallStaticObjectMethod(collatorClass, getInstance);
+  jint r = env->CallIntMethod(collator, compare, ja, jb);
+  env->DeleteLocalRef(collator);
+  env->DeleteLocalRef(ja);
+  env->DeleteLocalRef(jb);
+  return r < 0 ? -1 : r > 0 ? 1 : 0;
+}
+
+#else
+
+namespace {
+
+// A small approximation of root collation for hosts without a platform
+// collator (tests on Linux): base letters first (whitespace, then
+// punctuation and symbols, then digits, then letters), then accents, then
+// case with lowercase first.
+struct CollationElement {
+  int group;
+  uint32_t base;
+  uint32_t accent;
+  bool upper;
+};
+
+std::vector<CollationElement> collationElements(const String& s) {
+  std::vector<CollationElement> out;
+  for (size_t i = 0; i < s.length();) {
+    size_t w;
+    uint32_t cp = codePointAt(s, i, w);
+    i += w;
+    uint32_t base = cp, accent = 0;
+    if (cp < 0x10000) {
+      if (const Decomposition* d = findByCodePoint(kDecompositions, cp)) {
+        base = d->base;
+        accent = d->accent;
+      }
+    }
+    bool upper = false;
+    if (const CaseMapping* m = findByCodePoint(kLowerCase, base); m && m->length == 1) {
+      base = m->units[0];
+      upper = true;
+    }
+    int group = 3;
+    if (base == ' ' || base == '\t' || base == '\n' || base == '\r') group = 0;
+    else if (base < 0x80 && std::ispunct(static_cast<int>(base))) group = 1;
+    else if (base >= '0' && base <= '9') group = 2;
+    out.push_back({group, base, accent, upper});
+  }
+  return out;
+}
+
+template <class Key>
+int compareLevel(const std::vector<CollationElement>& a, const std::vector<CollationElement>& b, Key key) {
+  size_t n = std::min(a.size(), b.size());
+  for (size_t i = 0; i < n; i++) {
+    auto x = key(a[i]), y = key(b[i]);
+    if (x != y) return x < y ? -1 : 1;
+  }
+  return a.size() == b.size() ? 0 : a.size() < b.size() ? -1 : 1;
+}
+
+}  // namespace
+
+double String::localeCompare(const String& other) const {
+  auto a = collationElements(*this), b = collationElements(other);
+  if (int r = compareLevel(a, b, [](const CollationElement& e) { return std::make_pair(e.group, e.base); })) return r;
+  if (int r = compareLevel(a, b, [](const CollationElement& e) { return e.accent; })) return r;
+  if (int r = compareLevel(a, b, [](const CollationElement& e) { return e.upper; })) return r;
+  return static_cast<double>(compare(*this, other));
+}
+
+#endif
 
 }  // namespace lucent

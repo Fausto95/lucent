@@ -132,6 +132,7 @@ function nativeRun(c: Case, lib: string): string {
     "-lhermesvm",
     "-ljsi",
     "-lpthread",
+    ...(process.platform === "darwin" ? ["-framework", "CoreFoundation"] : []),
     `-Wl,-rpath,${path.join(hermes, "build/lib")}`,
     `-Wl,-rpath,${path.join(hermes, "build/jsi")}`,
     "-o",

@@ -21,7 +21,7 @@ concrete work. Checked items are implemented and covered by tests.
 - [x] `rn/LucentModule`: C++ TurboModule; iOS `+load` registration; Android autolinking header
 - [x] Unit tests (195 checks), clean under ASan/UBSan with libstdc++ (Linux) and libc++ (macOS); async e2e clean under TSan
 - [x] `Promise.all` rejects on the first rejection and fulfils one tick after the last input (e2e `async`)
-- [ ] Full Unicode case mapping and ICU-like `localeCompare`
+- [x] Full Unicode case mapping (generated tables) and platform `localeCompare`, like Hermes
 - [x] Exact tie rounding for `toPrecision` / `toExponential` (fuzzed against V8: 0 of 20,000 differ)
 
 ## Compiler (`packages/compiler`)

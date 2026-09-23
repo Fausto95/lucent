@@ -171,14 +171,14 @@ static void strings() {
   CHECK_STR(s.slice(7, 12), "Wörld");
   CHECK_STR(s.substring(12, 7), "Wörld");
   CHECK_STR(s.toUpperCase(), "HELLO, WÖRLD 🌍");
-  CHECK_STR(S("ÀÉÎ ΣΑΣ Привет").toLowerCase(), "àéî σασ привет");
+  CHECK_STR(S("ÀÉÎ ΣΑΣ Привет").toLowerCase(), "àéî σας привет");
   CHECK_STR(S("straße").toUpperCase(), "STRASSE");
   // Full Unicode case mapping, including the final sigma rule.
   CHECK_STR(S("ΟΔΟΣ").toLowerCase(), "οδος");
   CHECK_STR(S("ΣΑΣ ΣΑΣ").toLowerCase(), "σας σας");
   CHECK_STR(S("Σ").toLowerCase(), "σ");
   CHECK_STR(S("Α.Σ").toLowerCase(), "α.ς");
-  CHECK_STR(S("ﬁ ŉ և ǰ ΐ").toUpperCase(), "FI ʼN ԵՒ J̌ Ϊ́");
+  CHECK_STR(S("ﬁ ŉ և ǰ ΐ").toUpperCase(), "FI \u02BCN \u0535\u0552 J\u030C \u0399\u0308\u0301");
   CHECK_STR(S("İ").toLowerCase(), "i̇");
   CHECK_STR(S("𐐨𐐩").toUpperCase(), "𐐀𐐁");
   CHECK_STR(S("ǅ").toUpperCase(), "Ǆ");

@@ -46,7 +46,7 @@ const objs = sources.map((s, i) => {
   return o;
 });
 const exe = path.join(work, "apphost");
-sh(process.env.CXX ?? "clang++", [...objs, `-L${hermes}/build/lib`, `-L${hermes}/build/jsi`, "-lhermesvm", "-ljsi", "-lpthread", `-Wl,-rpath,${hermes}/build/lib`, `-Wl,-rpath,${hermes}/build/jsi`, "-o", exe]);
+sh(process.env.CXX ?? "clang++", [...objs, `-L${hermes}/build/lib`, `-L${hermes}/build/jsi`, "-lhermesvm", "-ljsi", "-lpthread", ...(process.platform === "darwin" ? ["-framework", "CoreFoundation"] : []), `-Wl,-rpath,${hermes}/build/lib`, `-Wl,-rpath,${hermes}/build/jsi`, "-o", exe]);
 
 console.log("• bundling with Metro");
 const entry = path.join(app, "lucent-app-check.entry.js");

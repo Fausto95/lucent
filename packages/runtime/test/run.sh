@@ -8,5 +8,8 @@ flags=(-std=c++20 -ffp-contract=off -g -O1 -Wall -Wextra -Wno-unused-parameter -
 if [[ "${SANITIZE:-0}" == "1" ]]; then
   flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=undefined)
 fi
-${CXX:-clang++} "${flags[@]}" "$here/runtime_test.cpp" "$cpp"/lucent/*.cpp -lpthread -o "$out"
+libs=(-lpthread)
+# localeCompare uses CoreFoundation on Apple platforms, as on iOS.
+[[ "$(uname)" == "Darwin" ]] && libs+=(-framework CoreFoundation)
+${CXX:-clang++} "${flags[@]}" "$here/runtime_test.cpp" "$cpp"/lucent/*.cpp "${libs[@]}" -o "$out"
 "$out"

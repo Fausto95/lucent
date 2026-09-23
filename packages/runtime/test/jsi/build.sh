@@ -13,5 +13,5 @@ if [[ "${SANITIZE:-0}" == "1" ]]; then
   flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer)
 fi
 ${CXX:-clang++} "${flags[@]}" "$here/harness.cpp" "$@" "$cpp"/lucent/*.cpp "$cpp"/lucent/jsi/*.cpp \
-  -L"$hermes/build/lib" -L"$hermes/build/jsi" -lhermesvm -ljsi -lpthread \
+  -L"$hermes/build/lib" -L"$hermes/build/jsi" -lhermesvm -ljsi -lpthread $([[ "$(uname)" == "Darwin" ]] && echo -framework CoreFoundation) \
   -Wl,-rpath,"$hermes/build/lib" -Wl,-rpath,"$hermes/build/jsi" -o "$out"

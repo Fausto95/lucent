@@ -47,7 +47,7 @@ const objs = sources.map((s, i) => {
   return o;
 });
 const exe = path.join(work, "bench-host");
-sh(cxx, [...objs, `-L${hermes}/build/lib`, `-L${hermes}/build/jsi`, "-lhermesvm", "-ljsi", "-lpthread", `-Wl,-rpath,${hermes}/build/lib`, `-Wl,-rpath,${hermes}/build/jsi`, "-o", exe]);
+sh(cxx, [...objs, `-L${hermes}/build/lib`, `-L${hermes}/build/jsi`, "-lhermesvm", "-ljsi", "-lpthread", ...(process.platform === "darwin" ? ["-framework", "CoreFoundation"] : []), `-Wl,-rpath,${hermes}/build/lib`, `-Wl,-rpath,${hermes}/build/jsi`, "-o", exe]);
 
 // JavaScript: the same source, transpiled, in the same Hermes runtime.
 const js = ts.transpileModule(fs.readFileSync(kernels, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2019 } }).outputText;
