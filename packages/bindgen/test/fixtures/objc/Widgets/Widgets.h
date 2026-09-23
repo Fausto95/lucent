@@ -51,7 +51,17 @@ NS_SWIFT_UI_ACTOR
 - (void)resizeToWidth:(double)width NS_SWIFT_NAME(resize(width:));
 - (void)resizeToHeight:(double)height NS_SWIFT_NAME(resize(height:));
 - (void)modern API_AVAILABLE(ios(16.0));
+- (void)animate:(void (^)(void))changes completion:(void (^_Nullable)(BOOL finished))completion;
+- (NSInteger)countWhere:(BOOL (NS_NOESCAPE ^)(NSString *item))predicate;
+- (void)frame:(CGRect)rect;
 
+@end
+
+/// Not main-actor: its callbacks can come from any thread.
+@interface WDGLoader : NSObject
+- (void)observeWithBlock:(void (^)(NSString *name, NSInteger count))block;
+- (void)loadWithReply:(void (^)(NSData *_Nullable data, NSError *_Nullable error))reply;
+- (void)onDone:(void (^)(void))done NS_SWIFT_DISABLE_ASYNC;
 @end
 
 double WDGDistance(WDGWidget *a, WDGWidget *b);

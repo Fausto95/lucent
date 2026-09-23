@@ -83,7 +83,32 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     expect(method("modern")[0]!.since).toBe("16.0");
     expect(mod().functions).toEqual(expect.arrayContaining([{ name: "WDGDistance", params: [{ name: "a", type: "Widgets.WDGWidget" }, { name: "b", type: "Widgets.WDGWidget" }], returns: "double" }]));
     expect(mod().constants).toEqual(expect.arrayContaining([{ name: "WDGVersionString", type: "string" }]));
-    expect(mod().skipped!.some((s) => s.startsWith("WDGWidget.fetch(completion:)"))).toBe(true);
+    expect(mod().skipped!.some((s) => s.startsWith("WDGWidget.frame(_:): CGRect"))).toBe(true);
+  });
+
+  it("types blocks as functions: whether they escape, and the thread they run on", () => {
+    const loader = type("WDGLoader");
+    if (loader.kind !== "class") throw new Error("not a class");
+    const on = (name: string) => loader.methods!.find((m) => m.name === name)!;
+    // @Sendable, on a class that is not main-actor: any thread.
+    expect(on("observe")).toMatchObject({ selector: "observeWithBlock:", params: [{ name: "block", type: "@escaping (string, NSInteger) => void" }], returns: "void" });
+    expect(on("onDone")).toMatchObject({ selector: "onDone:", params: [{ name: "done", type: "@escaping () => void" }] });
+    // Not @Sendable, on a main-actor class: the main thread. Called during
+    // the call (no @escaping), or later; an optional block always escapes.
+    expect(method("countWhere")[0]).toMatchObject({ selector: "countWhere:", params: [{ name: "predicate", type: "@main (string) => bool" }], returns: "NSInteger" });
+    expect(method("animate")[0]).toMatchObject({ selector: "animate:completion:", params: [{ name: "changes", type: "@escaping @main () => void" }, { name: "completion", type: "(@main (bool) => void)?" }] });
+  });
+
+  it("turns completion handlers into promises where Swift imports them as async", () => {
+    const loader = type("WDGLoader");
+    if (loader.kind !== "class") throw new Error("not a class");
+    const on = (name: string) => loader.methods!.find((m) => m.name === name)!;
+    expect(method("fetch")[0]).toMatchObject({ selector: "fetchWithCompletion:", params: [{ name: "completion", type: "@escaping @main (bool) => void" }], async: { returns: "bool" } });
+    expect(on("load")).toMatchObject({ selector: "loadWithReply:", params: [{ name: "reply", type: "@escaping (NSData?, error?) => void" }], async: { returns: "NSData", throws: true } });
+    expect(method("animate")[0]).toMatchObject({ async: { returns: "bool" } });
+    // Several results (a tuple), or NS_SWIFT_DISABLE_ASYNC: the block form only.
+    expect(on("observe")).not.toHaveProperty("async");
+    expect(on("onDone")).not.toHaveProperty("async");
   });
 
   it("reads typed string keys (NS_TYPED_ENUM) as string constants of their C globals", () => {
