@@ -1952,7 +1952,8 @@ export class FnEmitter {
         if (g && g.kind === "function") return this.callUserFunction(g, node);
         const n = native.nativeBuiltinCall(this, node);
         if (n) return n;
-        const b = builtins.globalCall(this, node, callee.text, sym);
+        // By the imported name: `import { errorCode as codeOf }` calls errorCode.
+        const b = builtins.globalCall(this, node, sym.name, sym);
         if (b) return b;
       }
     }
