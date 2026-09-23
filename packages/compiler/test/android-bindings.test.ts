@@ -138,6 +138,8 @@ export async function run(): Promise<string> {
   const bytes = Base64.decode(Base64.encodeToString(new Uint8Array([1, 2]), Base64.NO_WRAP) ?? "", 0);
   // Optional calls of void methods are values too.
   appContext().getSystemService(Vibrator)?.cancel();
+  // A native value whose type is not nullable, compared with null.
+  if (appContext() === null) return "";
   // The checker narrows Build.MODEL here; the glue still returns string | null.
   if (Build.MODEL) return Build.MODEL;
   return \`\${ClipData.newPlainText("l", "t")?.getItemAt(0)?.getText()} \${Context.VIBRATOR_SERVICE} \${info?.versionName} \${bytes?.length} \${Uri.parse("x")?.describeContents()} \${(Build.SUPPORTED_ABIS ?? []).join()}\`;

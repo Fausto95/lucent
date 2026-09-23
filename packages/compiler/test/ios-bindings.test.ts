@@ -79,7 +79,7 @@ export async function run(): Promise<string> {
   const g = new WPGauge(WPGaugeMode.radial);
   g.value = 2;
   const docs: NSURL = g.documentation;
-  return \`\${g.value} \${typeof docs}\`;
+  return \`\${g.value} \${typeof docs} \${docs !== null}\`;
 }
 `;
 

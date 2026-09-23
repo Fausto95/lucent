@@ -110,3 +110,16 @@ export class Account {
     this.history.forEach((n) => f(n));
   }
 }
+
+let checks = 0;
+function checked(c: Counter): Counter {
+  checks++;
+  return c;
+}
+
+/** A value whose type is not nullable is never null or undefined; the operand is still evaluated. */
+export function presence(c: Counter, s: string, n: number): string {
+  const strict = `${c !== null} ${c === undefined} ${null === s} ${undefined !== n} ${checked(c) !== null}`;
+  const loose = `${c == null} ${s != undefined} ${checked(c) != null}`;
+  return `${strict} | ${loose} | ${checks}`;
+}

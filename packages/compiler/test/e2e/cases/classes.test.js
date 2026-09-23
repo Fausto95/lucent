@@ -19,3 +19,4 @@ try { a.deposit(-1); } catch (e) { print(e.name, e.message); }
 const seen = [];
 a.onEach((n) => seen.push(n));
 print(seen.join(","));
+print(mod.presence(c, "s", 1));
