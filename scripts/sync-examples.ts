@@ -201,10 +201,23 @@ export const parityCases: SdkCase[] = [
   { name: "same enums as expo-haptics", run: async () => \`\${values(ImpactFeedbackStyle) === values(Haptics.ImpactFeedbackStyle)} \${values(NotificationFeedbackType) === values(Haptics.NotificationFeedbackType)}\`, expected: "true true" },
 ];
 `
-    : `import type { SdkCase } from "./types";
+    : `import { Platform } from "react-native";
+import { linkedLibraries } from "./linked.lucent";
+import type { SdkCase } from "./types";
 
-// This app does not depend on expo-haptics.
-export const parityCases: SdkCase[] = [];
+// Lucent binds what the app already links like the SDK: React Native's pods
+// on iOS, AndroidX on Android (scripts/example-app-bare).
+export const parityCases: SdkCase[] = [
+  {
+    name: "linked libraries (React Native's pods; AndroidX)",
+    run: linkedLibraries,
+    expected: Platform.OS === "ios" ? /^\\d+ request handlers, \\d+ image decoders$/ : "INTERNET granted true",
+  },
+];
 `;
+  if (!pkg.dependencies?.["expo-haptics"]) {
+    const extra = path.join(root, "scripts/example-app-bare/src/sdk");
+    for (const f of fs.readdirSync(extra)) fs.copyFileSync(path.join(extra, f), path.join(appDir, "src/sdk", f));
+  }
   fs.writeFileSync(path.join(appDir, "src/sdk/parity.ts"), header + body);
 }
