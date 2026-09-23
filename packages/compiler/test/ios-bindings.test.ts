@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -399,22 +399,36 @@ export async function run(): Promise<string> {
     expect(r.diagnostics.map((d) => d.code)).toEqual(["LUCENT3006"]);
   });
 
-  it("generates Objective-C++ that compiles against the iOS SDK", () => {
+  // The compilers run in parallel and off the test's thread: one after another
+  // they outlast the default timeout on CI, and block vitest's worker.
+  it("generates Objective-C++ that compiles against the iOS SDK", async () => {
     const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
     if (process.platform !== "darwin" || sdk.status !== 0) return;
-    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [unimportedStruct], [cgImages], [sets], [mediaTimes], [shadowing], [pathMonitor], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
+    const units = ([[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [unimportedStruct], [cgImages], [sets], [mediaTimes], [shadowing], [pathMonitor], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]).map(([src, sdk]) => {
       const { r, dir } = ios(src, sdk);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {
         fs.mkdirSync(path.dirname(path.join(dir, "out", k)), { recursive: true });
         fs.writeFileSync(path.join(dir, "out", k), v);
       }
-      const cc = spawnSync(
-        "xcrun",
-        ["--sdk", "iphonesimulator", "clang++", "-std=c++20", "-fobjc-arc", "-fsyntax-only", "-target", "arm64-apple-ios15.1-simulator", "-Werror", "-Wno-gnu-statement-expression", "-Wno-unused-label", "-Wno-parentheses-equality", "-Wno-comma", `-I${path.join(runtimeDir(), "cpp")}`, `-I${path.join(dir, "out/ios")}`, `-I${path.join(pods, "Pods/Headers/Public")}`, "-x", "objective-c++", path.join(dir, "out/ios/m_m.mm")],
-        { encoding: "utf8" },
-      );
-      expect(cc.stderr).toBe("");
-    }
-  });
+      return dir;
+    });
+    const stderrs = await Promise.all(
+      units.map((dir) =>
+        stderrOf("xcrun", ["--sdk", "iphonesimulator", "clang++", "-std=c++20", "-fobjc-arc", "-fsyntax-only", "-target", "arm64-apple-ios15.1-simulator", "-Werror", "-Wno-gnu-statement-expression", "-Wno-unused-label", "-Wno-parentheses-equality", "-Wno-comma", `-I${path.join(runtimeDir(), "cpp")}`, `-I${path.join(dir, "out/ios")}`, `-I${path.join(pods, "Pods/Headers/Public")}`, "-x", "objective-c++", path.join(dir, "out/ios/m_m.mm")]),
+      ),
+    );
+    expect(stderrs).toEqual(units.map(() => ""));
+  }, 600_000);
 });
+
+/** What a command writes to stderr, without blocking the test's thread. */
+function stderrOf(cmd: string, args: string[]): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { stdio: ["ignore", "ignore", "pipe"] });
+    let err = "";
+    child.stderr.on("data", (d: Buffer) => (err += d.toString()));
+    child.on("error", reject);
+    child.on("close", () => resolve(err));
+  });
+}
