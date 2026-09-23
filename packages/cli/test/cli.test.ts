@@ -45,6 +45,21 @@ describe("lucent build", () => {
   });
 });
 
+describe("Lucent packages", () => {
+  it("builds the app's Lucent packages into its native package", () => {
+    const root = project();
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app", dependencies: { "lucent-greet": "1.0.0" } }));
+    const pkg = path.join(root, "node_modules/lucent-greet");
+    fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
+    fs.writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ name: "lucent-greet", version: "1.0.0", lucent: { sources: "src" } }));
+    fs.writeFileSync(path.join(pkg, "src/greet.lucent.ts"), "export function hello(name: string): string { return `hi ${name}`; }\n");
+    const r = lucent(root, "build");
+    expect(r.status).toBe(0);
+    expect(r.out).toMatch(/lucent-greet\/greet/);
+    expect(fs.existsSync(path.join(root, ".lucent/native/js/lucent-greet/greet.js"))).toBe(true);
+  });
+});
+
 describe("lucent init", () => {
   it("links the native package as the `lucent` dependency", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
