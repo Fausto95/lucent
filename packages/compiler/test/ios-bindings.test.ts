@@ -23,6 +23,8 @@ import { main } from "lucent:thread";
 export function run(): Promise<string> {
   return main(() => {
     const board = UIPasteboard.general;
+    // Optional calls of void methods are values too.
+    (null as UIPasteboard | null)?.setData(new Uint8Array(0), "public.data");
     board.string = "hello";
     board.strings = ["a", "b"];
     return \`\${board.string ?? ""} \${board.hasStrings}\`;

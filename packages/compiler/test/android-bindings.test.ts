@@ -128,7 +128,7 @@ export async function run(): Promise<string> {
     const bin = fs.readdirSync(path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt")).map((h) => path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt", h, "bin/clang++"))[0]!;
     const { r, dir } = android(`import { ClipData, Context, Intent } from "lucent:android/android.content";
 import { Uri } from "lucent:android/android.net";
-import { Build } from "lucent:android/android.os";
+import { Build, Vibrator } from "lucent:android/android.os";
 import { Base64 } from "lucent:android/android.util";
 import { appContext } from "lucent:android";
 export async function run(): Promise<string> {
@@ -136,6 +136,8 @@ export async function run(): Promise<string> {
   const info = context.getPackageManager()?.getPackageInfo(context.getPackageName() ?? "", 0);
   new Intent().putExtra("a", 1).putExtra_string_long("b", 2);
   const bytes = Base64.decode(Base64.encodeToString(new Uint8Array([1, 2]), Base64.NO_WRAP) ?? "", 0);
+  // Optional calls of void methods are values too.
+  appContext().getSystemService(Vibrator)?.cancel();
   // The checker narrows Build.MODEL here; the glue still returns string | null.
   if (Build.MODEL) return Build.MODEL;
   return \`\${ClipData.newPlainText("l", "t")?.getItemAt(0)?.getText()} \${Context.VIBRATOR_SERVICE} \${info?.versionName} \${bytes?.length} \${Uri.parse("x")?.describeContents()} \${(Build.SUPPORTED_ABIS ?? []).join()}\`;
