@@ -4,7 +4,7 @@ import type { NativeDependencies } from "./packages.ts";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import type { EmitResult } from "./emit/index.ts";
+import { type EmitResult, LOADER } from "./emit/index.ts";
 import { coreTypesPath } from "./program.ts";
 import { currentSdkIdentity } from "./sdk/schema.ts";
 
@@ -104,6 +104,7 @@ export function writeNativePackage(result: EmitResult, outDir: string, options: 
   const gradle = path.join(outDir, "android/build.gradle");
   want.set(gradle, withGradleDependencies(want.get(gradle)!.toString(), native));
   for (const [name, content] of result.proxies) want.set(path.join(outDir, "js", `${name}.js`), content);
+  want.set(path.join(outDir, "js", LOADER), fs.readFileSync(path.join(rt, "js/index.js")));
   for (const [name, content] of result.java ?? []) want.set(path.join(outDir, "android/src/main/java", name), content);
   // The permissions of the SDK methods the platform code calls, merged into the app's manifest.
   const uses = [...new Set([...(result.androidPermissions ?? []), ...(native?.permissions ?? [])])].sort().map((p) => `  <uses-permission android:name="${p}" />`);

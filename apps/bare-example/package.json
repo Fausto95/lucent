@@ -10,7 +10,6 @@
     "pods": "lucent build && cd ios && bundle exec pod install"
   },
   "dependencies": {
-    "@lucent-lang/runtime": "workspace:*",
     "@react-native-community/netinfo": "12.0.1",
     "lucent-haptics": "workspace:*",
     "lucent-secure-store": "workspace:*",

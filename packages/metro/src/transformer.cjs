@@ -30,10 +30,21 @@ function moduleName(filename) {
 function proxyFor(filename, projectRoot) {
   const name = moduleName(filename);
   const generated = path.join(projectRoot, ".lucent", "native", "js", `${name}.js`);
-  if (fs.existsSync(generated)) return fs.readFileSync(generated, "utf8");
+  if (fs.existsSync(generated)) return rebase(fs.readFileSync(generated, "utf8"), generated, filename);
   return (
     `throw new Error(${JSON.stringify(`Lucent: ${path.basename(filename)} has not been compiled. Run \`lucent build\` and rebuild the app.`)});\n`
   );
+}
+
+/**
+ * The proxy's relative requires (the JS loader), which are relative to the
+ * generated file, made relative to the source file Metro bundles it as.
+ */
+function rebase(proxy, generated, filename) {
+  return proxy.replace(/require\("(\.\.?\/[^"]+)"\)/g, (_, spec) => {
+    const rel = path.relative(path.dirname(filename), path.resolve(path.dirname(generated), spec)).split(path.sep).join("/");
+    return `require(${JSON.stringify(rel.startsWith(".") ? rel : `./${rel}`)})`;
+  });
 }
 
 module.exports = {
