@@ -12,7 +12,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const packages = ["core", "runtime", "compiler", "cli", "metro", "expo", "ts-plugin"];
+const packages = ["core", "sdk-ios", "sdk-android", "runtime", "compiler", "cli", "metro", "expo", "ts-plugin"];
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-smoke-"));
 
 function sh(cmd: string, args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): string {
@@ -52,13 +52,24 @@ export async function later(ms: number): Promise<number> {
 `,
 );
 
+// A platform module: the SDK schemas and lucent:* declarations are published too.
+fs.writeFileSync(path.join(app, "src/device.lucent.ts"), "export declare function systemName(): Promise<string>;\n");
+fs.writeFileSync(
+  path.join(app, "src/device.ios.lucent.ts"),
+  'import { UIDevice } from "lucent:ios/UIKit";\nimport { main } from "lucent:thread";\nexport function systemName(): Promise<string> {\n  return main(() => UIDevice.current.systemName);\n}\n',
+);
+fs.writeFileSync(
+  path.join(app, "src/device.android.lucent.ts"),
+  'import { Build_VERSION } from "lucent:android/android.os";\nexport async function systemName(): Promise<string> {\n  return `Android ${Build_VERSION.RELEASE ?? ""}`;\n}\n',
+);
+
 console.log("• lucent build (installed CLI)");
 console.log(sh(path.join(app, "node_modules/.bin/lucent"), ["build"], app).trim());
 const native = path.join(app, ".lucent/native");
-for (const f of ["LucentNative.podspec", "android/CMakeLists.txt", "cpp/generated/m_hello.cpp", "cpp/third_party/quickjs/libregexp.c", "js/hello.js"]) {
+for (const f of ["LucentNative.podspec", "android/CMakeLists.txt", "cpp/generated/ios/m_hello.cpp", "cpp/generated/ios/m_device.mm", "cpp/generated/android/m_device.cpp", "cpp/third_party/quickjs/libregexp.c", "js/hello.js", "js/device.js"]) {
   if (!fs.existsSync(path.join(native, f))) throw new Error(`missing ${f}`);
 }
-sh("clang++", ["-std=c++20", "-fsyntax-only", `-I${native}/cpp`, `-I${native}/cpp/generated`, path.join(native, "cpp/generated/m_hello.cpp")], app);
+sh("clang++", ["-std=c++20", "-fsyntax-only", `-I${native}/cpp`, `-I${native}/cpp/generated/ios`, path.join(native, "cpp/generated/ios/m_hello.cpp")], app);
 
 console.log("• Metro and Expo integrations load");
 sh(process.execPath, ["-e", 'require("@lucent-lang/metro").withLucent({}); require.resolve("@lucent-lang/expo")'], app, { LUCENT_WATCH: "0" });
