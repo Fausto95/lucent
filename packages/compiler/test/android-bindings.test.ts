@@ -42,6 +42,29 @@ export async function run(): Promise<string> {
 }
 `;
 
+const watcher = `import { ConnectivityManager, ConnectivityManager_NetworkCallback, Network } from "lucent:android/android.net";
+import { appContext } from "lucent:android";
+class Watcher extends ConnectivityManager_NetworkCallback {
+  events: string[] = [];
+  constructor() {
+    super();
+  }
+  onAvailable(network: Network): void {
+    this.events.push(\`available \${network.toString()}\`);
+  }
+  onLost(network: Network): void {
+    this.events.push("lost");
+  }
+}
+export async function run(): Promise<string> {
+  const manager = appContext().getSystemService(ConnectivityManager);
+  const watcher = new Watcher();
+  manager?.registerDefaultNetworkCallback(watcher);
+  manager?.unregisterNetworkCallback(watcher);
+  return watcher.events.join(",");
+}
+`;
+
 const listener = `import { Location, LocationManager } from "lucent:android/android.location";
 import { Context } from "lucent:android/android.content";
 import { appContext } from "lucent:android";
@@ -176,6 +199,25 @@ export async function run(): Promise<string> {
     expect(cpp).toContain('{"onProviderDisabled(Ljava/lang/String;)", ');
   });
 
+  it("extends abstract SDK classes with Lucent classes, through a generated Java subclass", () => {
+    const { r, cpp } = android(watcher);
+    expect(r.diagnostics).toEqual([]);
+    const java = r.java?.get("dev/lucent/generated/Watcher.java") ?? "";
+    expect(java).toContain("public final class Watcher extends android.net.ConnectivityManager.NetworkCallback {");
+    expect(java).toContain("  public void onAvailable(android.net.Network a0) {");
+    expect(java).toContain('    NativeProxy.dispatch(handle, "onAvailable(Landroid/net/Network;)", new Object[] {a0});');
+    // Methods the Lucent class leaves out keep the SDK's body.
+    expect(java).not.toContain("onUnavailable");
+    expect(cpp).toContain('lucent::jni::subclassFor(lucent::jni::env(), "dev/lucent/generated/Watcher", o_.get(), {');
+    const jar = androidJars()?.[0];
+    if (!jar || spawnSync("javac", ["-version"]).status !== 0) return;
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-java-"));
+    fs.mkdirSync(path.join(dir, "src/dev/lucent/generated"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "src/dev/lucent/generated/Watcher.java"), java);
+    const cc = spawnSync("javac", ["--release", "11", "-Xlint:-options", "-cp", jar, "-d", path.join(dir, "out"), path.join(runtimeDir(), "native/android/src/main/java/dev/lucent/NativeProxy.java"), path.join(dir, "src/dev/lucent/generated/Watcher.java")], { encoding: "utf8" });
+    expect(cc.stderr).toBe("");
+  });
+
   it("ships a NativeProxy that compiles against android.jar", () => {
     const jar = androidJars()?.[0];
     if (!jar || spawnSync("javac", ["-version"]).status !== 0) return;
@@ -208,7 +250,7 @@ export async function run(): Promise<string> {
   return \`\${ClipData.newPlainText("l", "t")?.getItemAt(0)?.getText()} \${Context.VIBRATOR_SERVICE} \${info?.versionName} \${bytes?.length} \${Uri.parse("x")?.describeContents()} \${(Build.SUPPORTED_ABIS ?? []).join()}\`;
 }
 `;
-    for (const src of [calls, listener, tracker]) {
+    for (const src of [calls, listener, tracker, watcher]) {
       const { r, dir } = android(src);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {
