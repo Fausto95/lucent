@@ -99,7 +99,8 @@ Postponed:
       the end.
 - [x] A Gradle resolution, a failed one included, is recorded with its inputs'
       hash (`.lucent/android-classpath.state.json`) and runs again only when
-      they change; watch mode resolves too, once.
+      they change; watch mode resolves too, once. A build that skips a recorded
+      failure says so, and `lucent build --force` retries it.
 - [x] The inputs: settings.gradle, both build.gradle files, gradle.properties,
       gradle/libs.versions.toml, and the JS lockfile (found up to the
       workspace root).
@@ -109,6 +110,9 @@ Postponed:
       (LUCENT_ANDROID_PLATFORM=nope, LUCENT_XCRUN=/nonexistent).
 - [x] Installed pods are keyed on Podfile.lock's content; development pods
       (files outside Pods/) keep their files' identities.
+
+Phase 2 is complete (2026-09-23). Its acceptance holds with the SDKs hidden
+on macOS; no Linux machine was available to run it on one.
 
 ## Phase 3: publishing Lucent libraries
 
