@@ -28,9 +28,7 @@
     "react-native": "0.88.0-rc.1"
   },
   "devDependencies": {
-    "@lucent-lang/cli": "workspace:*",
-    "@lucent-lang/expo": "workspace:*",
-    "@lucent-lang/metro": "workspace:*",
+    "@lucent-lang/lucent": "workspace:*",
     "@types/react": "~19.3.0",
     "typescript": "~6.0.3"
   }

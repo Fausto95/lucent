@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import * as compiler from "@lucent-lang/compiler";
 
 const require = createRequire(import.meta.url);
-const { createPlugin } = require("../src/index.cjs") as {
+const { createPlugin } = require("../ts-plugin/index.cjs") as {
   createPlugin: (load: () => Promise<typeof compiler>) => ts.server.PluginModuleFactory;
 };
 
@@ -63,7 +63,7 @@ function service(files: Record<string, string>) {
 
 const lucent = (ds: readonly ts.Diagnostic[]) => ds.filter((d) => d.source === "lucent");
 
-describe("@lucent-lang/ts-plugin", () => {
+describe("@lucent-lang/lucent/ts-plugin", () => {
   it("adds Lucent diagnostics to .lucent.ts files once the compiler loads", async () => {
     const s = service({ "a.lucent.ts": "export function f(): number {\n  var x = 1;\n  return x;\n}\n" });
     await s.ready;

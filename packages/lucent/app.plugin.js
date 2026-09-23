@@ -11,7 +11,7 @@ let built = false;
 function buildOnce(projectRoot) {
   if (built) return;
   built = true;
-  const cli = require.resolve("@lucent-lang/cli/bin/lucent.cjs");
+  const cli = path.join(__dirname, "bin/lucent.cjs");
   const r = spawnSync(process.execPath, [cli, "build", "--root", projectRoot], { stdio: "inherit" });
   if (r.status !== 0) throw new Error("lucent build failed; fix the errors above and run prebuild again");
   const rnConfig = path.join(projectRoot, "react-native.config.js");

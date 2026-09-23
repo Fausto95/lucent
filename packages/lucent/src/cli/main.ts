@@ -331,7 +331,7 @@ function init(root: string): number {
     process.stdout.write("✓ added .lucent/ to .gitignore\n");
   }
   process.stdout.write(
-    "Next: wrap your Metro config with withLucent() from @lucent-lang/metro, and enable\n" +
+    "Next: wrap your Metro config with withLucent() from @lucent-lang/lucent/metro, and enable\n" +
       '"noUncheckedIndexedAccess": true in tsconfig.json (Lucent requires it).\n' +
       'Platform code imports lucent:* (branch with PLATFORM from lucent:platform); for your editor and tsc, add\n' +
       '  "paths": { "lucent:*": ["./.lucent/native/types/*"] }\n' +

@@ -18,7 +18,7 @@ function createPlugin(loadCompiler) {
           compiler = c;
           info.project.refreshDiagnostics();
         },
-        (e) => log(`could not load @lucent-lang/compiler: ${e && e.stack ? e.stack : e}`),
+        (e) => log(`could not load the Lucent compiler: ${e && e.stack ? e.stack : e}`),
       );
 
       // One check serves every file until any Lucent source changes.

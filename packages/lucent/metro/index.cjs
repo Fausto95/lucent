@@ -51,13 +51,7 @@ let watcher;
 function startWatcher(root) {
   // Metro may load the config more than once in a process.
   if (watcher || process.env.LUCENT_WATCH_CHILD) return;
-  let bin;
-  try {
-    bin = require.resolve("@lucent-lang/cli/bin/lucent.cjs", { paths: [root, __dirname] });
-  } catch {
-    console.warn("Lucent: @lucent-lang/cli is not installed; run `lucent build` yourself after editing *.lucent.ts files");
-    return;
-  }
+  const bin = path.join(__dirname, "../bin/lucent.cjs");
   watcher = spawn(process.execPath, [bin, "build", "--watch", "--root", root], { stdio: "inherit", env: { ...process.env, LUCENT_WATCH_CHILD: "1" } });
   // Ctrl-C reaches the watcher through the process group; this covers the rest.
   process.on("exit", () => watcher.kill());

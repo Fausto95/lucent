@@ -19,7 +19,7 @@ describe("Metro transformer", () => {
     fs.writeFileSync(path.join(root, ".lucent/native/js/lucent-a/storage.js"), "// the proxy of lucent-a/storage\n");
     fs.mkdirSync(path.join(root, ".lucent/native/js"), { recursive: true });
     fs.writeFileSync(path.join(root, ".lucent/native/js/storage.js"), "// the app's storage\n");
-    const t = require("../src/transformer.cjs") as { transform(a: { filename: string; src: string; options: { projectRoot: string } }): string };
+    const t = require("../metro/transformer.cjs") as { transform(a: { filename: string; src: string; options: { projectRoot: string } }): string };
     expect(t.transform({ filename: path.join(pkg, "src/storage.lucent.ts"), src: "", options: { projectRoot: root } })).toBe("// the proxy of lucent-a/storage\n");
     fs.mkdirSync(path.join(root, "src"), { recursive: true });
     expect(t.transform({ filename: path.join(root, "src/storage.lucent.ts"), src: "", options: { projectRoot: root } })).toBe("// the app's storage\n");
@@ -36,7 +36,7 @@ describe("Metro transformer", () => {
     fs.mkdirSync(path.join(root, ".lucent/native/js/lucent-a"), { recursive: true });
     fs.writeFileSync(path.join(root, ".lucent/native/js/lucent-a/storage.js"), 'const r = require("../_lucent/runtime.js");\n');
     fs.writeFileSync(path.join(root, ".lucent/native/js/app.js"), 'const r = require("./_lucent/runtime.js");\n');
-    const t = require("../src/transformer.cjs") as { transform(a: { filename: string; src: string; options: { projectRoot: string } }): string };
+    const t = require("../metro/transformer.cjs") as { transform(a: { filename: string; src: string; options: { projectRoot: string } }): string };
     expect(t.transform({ filename: path.join(root, "src/deep/app.lucent.ts"), src: "", options: { projectRoot: root } })).toBe('const r = require("../../.lucent/native/js/_lucent/runtime.js");\n');
     expect(t.transform({ filename: path.join(pkg, "src/storage.lucent.ts"), src: "", options: { projectRoot: root } })).toBe('const r = require("../../../.lucent/native/js/_lucent/runtime.js");\n');
   });

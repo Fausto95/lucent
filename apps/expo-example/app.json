@@ -14,7 +14,7 @@
       "package": "dev.lucent.expoexample"
     },
     "plugins": [
-      "@lucent-lang/expo",
+      "@lucent-lang/lucent",
       "expo-location"
     ]
   }

@@ -6,8 +6,8 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { spawnSync } = require("node:child_process");
 
-const dist = path.join(__dirname, "../dist/main.js");
-const main = path.join(__dirname, "../src/main.ts");
+const dist = path.join(__dirname, "../dist/cli.js");
+const main = path.join(__dirname, "../src/cli/main.ts");
 if (!fs.existsSync(main)) {
   import(require("node:url").pathToFileURL(dist).href);
 } else {
