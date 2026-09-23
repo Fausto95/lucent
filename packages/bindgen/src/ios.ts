@@ -541,6 +541,8 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
       const props: SdkPropertySchema[] = [];
       const seenUsr = new Set<string>();
       let initUnavailable = false;
+      // Optional protocol requirements.
+      const optionalUsrs = new Set(g.relationships.filter((rel) => rel.kind === "optionalRequirementOf" && rel.target === s.identifier.precise).map((rel) => rel.source));
       // Completion-handler methods Swift imports a second time as async.
       const asyncTwins = new Map((members.get(s.identifier.precise) ?? []).filter((mem) => /\basync\b/.test(declText(mem))).map((mem) => [mem.identifier.precise, mem]));
       for (const mem of members.get(s.identifier.precise) ?? []) {
@@ -567,6 +569,7 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
             if (mem.names.title !== selector) p.selector = selector === mem.names.title ? undefined : getterSelector(mem.names.title, selector);
             if (p.selector === undefined) delete p.selector;
             if (!readonly) p.setter = `set${selector.charAt(0).toUpperCase()}${selector.slice(1)}:`;
+            if (/\bweak\b/.test(head)) p.weak = true;
             if (memberSince && memberSince !== cls.since) p.since = memberSince;
             if (head.includes("@MainActor") && !cls.mainActor) (p as SdkPropertySchema & { mainActor?: boolean }).mainActor = true;
             props.push(p);
@@ -583,8 +586,12 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
             continue;
           }
           const returns = sig?.returns?.length ? parseType(sig.returns, r) : "void";
-          const { base } = splitName(mem.names.title);
-          const method: SdkMethodSchema = { name: base, selector, params, returns };
+          const { base, labels } = splitName(mem.names.title);
+          // Protocol requirements, which Lucent classes implement, are named
+          // from their own Swift name: base and labels, as in the selector.
+          const name = cls.interface ? [base, ...labels.filter((l) => l !== "_")].join("_") : base;
+          const method: SdkMethodSchema = { name, selector, params, returns };
+          if (optionalUsrs.has(mem.identifier.precise)) method.optional = true;
           if (kind === "cm") method.static = true;
           if (/\bthrows\b/.test(text)) method.throws = true;
           if (memberSince && memberSince !== cls.since) method.since = memberSince;
@@ -609,7 +616,17 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
           else throw e;
         }
       }
-      disambiguate(methods);
+      if (cls.interface) {
+        // Names from the requirement alone: a clash is skipped, never renamed.
+        const seen = new Set<string>();
+        for (const x of [...methods]) {
+          if (!seen.has(`${!!x.static}:${x.name}`)) seen.add(`${!!x.static}:${x.name}`);
+          else {
+            mod.skipped!.push(`${name}.${x.name}: another requirement has this name`);
+            methods.splice(methods.indexOf(x), 1);
+          }
+        }
+      } else disambiguate(methods);
       for (const x of methods) delete (x as SdkMethodSchema & { swiftName?: string }).swiftName;
       // Objective-C initializers are inherited (NSObject's init at the root)
       // unless the class makes init unavailable.

@@ -67,6 +67,8 @@ export interface SdkMethodSchema extends SdkCallable {
    * when Swift names the async form differently.
    */
   async?: { returns: string; throws?: boolean; name?: string };
+  /** An optional protocol requirement (iOS): implementations may leave it out. */
+  optional?: boolean;
 }
 
 export interface SdkPropertySchema {
@@ -78,6 +80,8 @@ export interface SdkPropertySchema {
   selector?: string;
   /** Objective-C setter selector, for writable properties (iOS). */
   setter?: string;
+  /** A weak reference (iOS): setting it does not keep the value alive. */
+  weak?: boolean;
   /** Getter method, for Kotlin-style properties (Android); fields otherwise. */
   getter?: string;
   /** A C global holding the value (iOS typed string keys: `NSFileCreationDate`). */

@@ -14,14 +14,14 @@ import { cppQuoted, numberLiteral, stringLiteral } from "./literals.ts";
  * declaration leads back to its binding schema, which has the native names.
  */
 
-interface SdkClassRef {
+export interface SdkClassRef {
   platform: Platform;
   module: string;
   cls: SdkClassSchema;
 }
 
 /** The schema class a declaration in an SDK .d.ts belongs to. */
-function classOfDecl(decl: ts.Node): SdkClassRef | undefined {
+export function classOfDecl(decl: ts.Node): SdkClassRef | undefined {
   const sdk = sdkModuleOf(decl.getSourceFile());
   if (!sdk) return undefined;
   const owner = ts.isClassDeclaration(decl) ? decl : decl.parent;
@@ -64,9 +64,51 @@ function inMainContext(em: FnEmitter, node: ts.Node): boolean {
       const b = builtinNamed(em, call.expression);
       return b?.module === "lucent:thread" && b.name === "main";
     }
+    // A Lucent class's implementation of a protocol requirement run on the main thread.
+    if (ts.isMethodDeclaration(n)) return requirementOf(em, n)?.main ?? false;
     if (ts.isFunctionLike(n)) return false;
   }
   return false;
+}
+
+/** The SDK protocols (and Java interfaces) a Lucent class names in `implements`. */
+export function sdkInterfacesOf(checker: ts.TypeChecker, decl: ts.ClassLikeDeclaration): SdkClassRef[] {
+  const out: SdkClassRef[] = [];
+  for (const h of decl.heritageClauses ?? []) {
+    if (h.token !== ts.SyntaxKind.ImplementsKeyword) continue;
+    for (const t of h.types) {
+      const d = checker.getTypeAtLocation(t).getSymbol()?.declarations?.find(ts.isClassDeclaration);
+      const ref = d ? classOfDecl(d) : undefined;
+      if (ref?.cls.interface) out.push(ref);
+    }
+  }
+  return out;
+}
+
+/**
+ * The protocol requirement a Lucent class's method implements, and whether
+ * the platform calls it on the main thread.
+ */
+export function requirementOf(em: FnEmitter, m: ts.MethodDeclaration): { protocol: SdkClassRef; method: SdkMethodSchema; main: boolean } | undefined {
+  const cls = m.parent;
+  if (!ts.isClassLike(cls) || !ts.isIdentifier(m.name)) return undefined;
+  for (const protocol of sdkInterfacesOf(em.checker, cls)) {
+    const method = protocol.cls.methods?.find((x) => !x.static && x.name === (m.name as ts.Identifier).text);
+    if (method) return { protocol, method, main: !!(protocol.cls.mainActor || method.mainActor) };
+  }
+  return undefined;
+}
+
+/** A Lucent class instance where an SDK protocol is taken: the Objective-C object that forwards to it. */
+export function nativeOfClass(em: FnEmitter, e: E, to: LType & { k: "native" }, node: ts.Node | undefined): string {
+  if (e.t.k !== "class") throw new Error("not a class instance");
+  const info = em.reg.cls(e.t.id);
+  const name = info.decl.name?.text ?? "class";
+  if (to.platform !== "ios") fail(node, Codes.UnsupportedType, `Lucent classes cannot implement ${to.name} on ${to.platform} yet`);
+  if (!sdkInterfacesOf(em.checker, info.decl).some((p) => p.module === to.module && p.cls.name === to.name)) {
+    fail(node, Codes.InterfaceNotImplemented, `class ${name} must declare \`implements ${to.name}\` to be used as ${to.name}`);
+  }
+  return `lucent_app::objcObjectOf(${e.c})`;
 }
 
 /**
@@ -149,7 +191,7 @@ function objcRefType(t: SdkType & { k: "ref" }): string {
 }
 
 /** Objective-C spelling of a schema type, for block signatures. */
-function objcTypeName(t: SdkType): string {
+export function objcTypeName(t: SdkType): string {
   switch (t.k) {
     case "prim":
       return t.name === "void" ? "void" : t.name === "bool" || t.name === "boolean" ? "BOOL" : (OBJC_NUMBER[t.name] ?? "double");
@@ -208,7 +250,7 @@ function objcBlock(em: FnEmitter, node: ts.Node, f: string, lt: LType, t: SdkTyp
  * the (non-absent) Lucent value. Collections convert their elements with a
  * generic lambda, so they accept any Lucent representation the checker allowed.
  */
-function toObjcCode(t: SdkType, c: string, owned: boolean): string {
+export function toObjcCode(t: SdkType, c: string, owned: boolean): string {
   switch (t.k) {
     case "prim":
       if (t.name === "bool" || t.name === "boolean") return `(${c} ? YES : NO)`;
@@ -279,7 +321,7 @@ function toObjc(em: FnEmitter, arg: ts.Expression, t: SdkType, owned = false): s
 }
 
 /** Objective-C value of schema type `t` → Lucent value of type `lt`. */
-function fromObjc(em: FnEmitter, code: string, t: SdkType, lt: LType, what: string, owned = false): E {
+export function fromObjc(em: FnEmitter, code: string, t: SdkType, lt: LType, what: string, owned = false): E {
   const w = cppQuoted(what);
   const cast = (objc: string) => (owned ? `(__bridge_transfer ${objc})` : `(__bridge ${objc})`);
   const elem = (x: LType): LType => (x.k === "opt" ? x.inner : x);
@@ -780,7 +822,9 @@ export function nativeLvalue(em: FnEmitter, target: ts.PropertyAccessExpression,
     if (!prop.setter) fail(target, Codes.UnsupportedAssignmentTarget, `${ref.cls.name}.${prop.name} has no setter`);
     const set = (v: string) => {
       const conv = t.nullable ? `lucent::objc::ifPresent(v_, [&](const auto& x_) { return ${toObjcCode({ ...t, nullable: false } as SdkType, "x_", false)}; })` : toObjcCode(t, "v_", false);
-      return `({ auto v_ = ${v}; ${send(objcReceiver(ref, obj), prop.setter!, [conv])}; v_; })`;
+      if (!prop.weak) return `({ auto v_ = ${v}; ${send(objcReceiver(ref, obj), prop.setter!, [conv])}; v_; })`;
+      // A weak property: its owner keeps the value alive, as long as it holds it.
+      return `({ auto v_ = ${v}; auto r_ = ${objcReceiver(ref, obj)}; id o_ = ${conv}; objc_setAssociatedObject(r_, @selector(${prop.setter}), o_, OBJC_ASSOCIATION_RETAIN_NONATOMIC); ${send("r_", prop.setter!, ["o_"])}; v_; })`;
     };
     return { get: get.c, set, type };
   }
@@ -818,7 +862,7 @@ export function nativeConstant(em: FnEmitter, id: ts.Identifier): E | undefined 
 }
 
 /** Imports an iOS module's header and links what it needs, as its schema says. */
-function noteFramework(em: FnEmitter, module: string): void {
+export function noteFramework(em: FnEmitter, module: string): void {
   const schema = loadSdkModule("ios", module);
   if (!schema.header) throw new Error(`the lucent:ios/${module} binding schema names no header`);
   const n = em.ctx.nativeUnit(em.opts.module);

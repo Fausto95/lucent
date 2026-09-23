@@ -85,7 +85,11 @@ function virtualSdkText(file: string, direct: Set<string>): string | undefined {
     return names ? stubDts(platform, module, names) : undefined;
   }
   const schema = findSdkModule(platform, module);
-  return schema ? sdkDts(schema) : undefined;
+  if (!schema) return undefined;
+  const text = sdkDts(schema);
+  // Modules it re-exports are used as directly as it is.
+  for (const r of text.matchAll(/^export \* from "lucent:(ios\/_\w+)";$/gm)) direct.add(r[1]!);
+  return text;
 }
 
 /** `lucent:<platform>/<module>` imports written in these files. */

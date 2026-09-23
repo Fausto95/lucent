@@ -216,6 +216,13 @@ function locateIos(opts: SdkOptions): Located | { missing: string } {
   return { dir: path.join(cacheRoot(opts), "sdk/ios", key), describe: `iOS ${version} SDK (${build})`, ios: { sdk, ios: { modules: [], includePaths, frameworkPaths, moduleMaps, xcrun }, frameworks, modules, umbrellas } };
 }
 
+/** The umbrella header an SDK framework's module map names (not always `<M>.h`). */
+function frameworkUmbrella(frameworks: string, module: string): string {
+  const map = path.join(frameworks, `${module}.framework/Modules/module.modulemap`);
+  const text = fs.existsSync(map) ? fs.readFileSync(map, "utf8") : "";
+  return /umbrella\s+header\s+"([^"]+)"/.exec(text)?.[1] ?? `${module}.h`;
+}
+
 /** `header` as `#import <…>` names it: relative to the outermost include path that holds it. */
 function includeOf(header: string, includePaths: string[]): string {
   const rel = includePaths.map((p) => path.relative(p, header)).filter((r) => !r.startsWith("..") && !path.isAbsolute(r));
@@ -314,7 +321,7 @@ function extractIosModule(sdk: Located, module: string): SdkLookup {
   // SDK frameworks are linked; the app's dependencies link themselves.
   // Module maps name their umbrella header; frameworks have <M/M.h>.
   const umbrella = sdk.ios!.umbrellas.get(module);
-  return { schema: { ...schema, header: umbrella ? includeOf(umbrella, ios.includePaths ?? []) : `${module}/${module}.h`, frameworks: modules.get(module) ? [] : [module] } };
+  return { schema: { ...schema, header: umbrella ? includeOf(umbrella, ios.includePaths ?? []) : `${module}/${frameworkUmbrella(sdk.ios!.frameworks, module)}`, frameworks: modules.get(module) ? [] : [module] } };
 }
 
 // --- cache and locks -----------------------------------------------------------------

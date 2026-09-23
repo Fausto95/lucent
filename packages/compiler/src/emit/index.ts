@@ -5,6 +5,7 @@ import { coreTypesPath, type LucentModule, type LucentProgram } from "../program
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
 import { BindingsEmitter, type ModuleExports, publicMembers } from "./bindings.ts";
 import { emitClass } from "./classes.ts";
+import { objcDelegate } from "./delegates.ts";
 import { Ctx, type Global } from "./context.ts";
 import { FnEmitter } from "./function.ts";
 import { emitIface } from "./interfaces.ts";
@@ -86,6 +87,7 @@ export function emitProgram(lp: LucentProgram): EmitResult {
   const moduleDefs = new Map<LucentModule, string[]>();
   const genericFns = new Map<LucentModule, string[]>();
   const staticInits = new Map<LucentModule, string[]>();
+  const nativeDecls: string[] = [];
   for (const m of lp.modules) {
     moduleDecls.set(m, []);
     genericFns.set(m, []);
@@ -102,6 +104,12 @@ export function emitProgram(lp: LucentProgram): EmitResult {
     (info.typeParams.length || byDepth.some((c) => c.typeParams.length && ctx.reg.derives(info.id, c.id)) ? genericClassDefs : classDefs).push(out.definition);
     if (out.members) moduleDefs.get(m)!.push(out.members);
     staticInits.get(m)!.push(...out.staticInits);
+    // Classes implementing SDK protocols: an Objective-C object per instance.
+    const objc = ctx.guard(() => objcDelegate(ctx, m, info));
+    if (objc) {
+      ctx.nativeUnit(m).lines.add(objc.lines);
+      nativeDecls.push(objc.decl);
+    }
   }
 
   // Platform modules' declarations alias their implementations: emit each once.
@@ -167,6 +175,7 @@ export function emitProgram(lp: LucentProgram): EmitResult {
   header.push(...ifaceDefs, "");
   header.push(...classDefs, "");
   header.push(...genericClassDefs, "");
+  header.push(...nativeDecls, "");
   header.push(...json.decls, "");
   header.push(...json.defs);
   header.push("}  // namespace lucent_app", "");

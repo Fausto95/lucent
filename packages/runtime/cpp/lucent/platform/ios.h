@@ -2,6 +2,7 @@
 // (compiled as Objective-C++ with ARC).
 #pragma once
 
+#import <objc/runtime.h>
 #import <Foundation/Foundation.h>
 
 #include <variant>
@@ -191,6 +192,19 @@ inline void throwIfError(NSError* e) {
 }
 
 // --- blocks ----------------------------------------------------------------------------
+
+/// One Objective-C object per `key` (a Lucent object) while the object is
+/// alive: `make` creates it. Callers hold the Lucent lock.
+inline id cachedObject(const void* key, id (^make)(void)) {
+  static NSMapTable* objects = [NSMapTable strongToWeakObjectsMapTable];
+  NSValue* k = [NSValue valueWithPointer:key];
+  id o = [objects objectForKey:k];
+  if (!o) {
+    o = make();
+    [objects setObject:o forKey:k];
+  }
+  return o;
+}
 
 /// A C++ callable as a heap block of type `Block` (the platform may keep it).
 template <class Block, class F>

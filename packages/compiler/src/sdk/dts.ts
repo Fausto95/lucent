@@ -85,7 +85,16 @@ export function sdkDts(schema: SdkModuleSchema): string {
     const spec = module.startsWith("lucent:") ? module : `lucent:${module}`;
     head.push(`import type { ${[...names].sort().join(", ")} } from "${spec}";`);
   }
+  // Implementation modules (`_LocationEssentials`) are re-exported by the
+  // modules that use them, as their module maps' `export *` does: CLLocation
+  // is imported from lucent:ios/CoreLocation.
+  for (const module of reexports(schema, [...imports.keys()])) head.push(`export * from "lucent:${module}";`);
   return [...head, "", ...body].join("\n");
+}
+
+/** The implementation modules (`ios/_Name`) a module's declarations re-export. */
+export function reexports(schema: SdkModuleSchema, imported: string[]): string[] {
+  return schema.platform === "ios" ? imported.filter((m) => /^ios\/_/.test(m)) : [];
 }
 
 const RESERVED = new Set(["break", "case", "catch", "class", "const", "continue", "debugger", "default", "delete", "do", "else", "enum", "export", "extends", "false", "finally", "for", "function", "if", "import", "in", "instanceof", "new", "null", "return", "super", "switch", "this", "throw", "true", "try", "typeof", "var", "void", "while", "with", "yield", "let", "static", "implements", "interface", "package", "private", "protected", "public", "await"]);
@@ -112,15 +121,17 @@ function classDts(schema: SdkModuleSchema, cls: SdkClassSchema, tsType: (t: SdkT
   // Interfaces and abstract classes cannot be constructed; implemented
   // interfaces merge into the class type below, so values convert to them.
   out.push(`export declare ${cls.interface || cls.abstract ? "abstract " : ""}class ${cls.name}${ext} {`);
-  out.push(`  private readonly __lucent_${cls.name}: never;`);
-  if (!cls.constructors?.length && !cls.inheritsInit) out.push("  protected constructor();");
+  // Protocols and Java interfaces are structural, so Lucent classes can
+  // implement them; other classes are nominal.
+  if (!cls.interface) out.push(`  private readonly __lucent_${cls.name}: never;`);
+  if (!cls.constructors?.length && !cls.inheritsInit && !cls.interface) out.push("  protected constructor();");
   for (const c of cls.constructors ?? []) out.push(`${memberDoc(c)}  constructor(${params(c.params)});`);
   // A TypeScript class cannot have a property and a method of one name: the method stays.
   const methodNames = new Set((cls.methods ?? []).map((m) => `${!!m.static}:${m.name}`));
   for (const p of (cls.properties ?? []).filter((x) => !methodNames.has(`${!!x.static}:${x.name}`))) out.push(`${memberDoc(p)}  ${p.static ? "static " : ""}${p.readonly ? "readonly " : ""}${p.name}: ${tsType(parse(p.type))};`);
   for (const m of cls.methods ?? []) {
     const tps = m.typeParams ?? [];
-    const head = `${memberDoc(m)}  ${m.static ? "static " : ""}${m.name}${tps.length ? `<${tps.join(", ")}>` : ""}`;
+    const head = `${memberDoc(m)}  ${m.static ? "static " : ""}${m.name}${m.optional ? "?" : ""}${tps.length ? `<${tps.join(", ")}>` : ""}`;
     out.push(`${head}(${params(m.params, tps)}): ${tsType(parse(m.returns, tps))};`);
     // Without its completion handler: a promise of what the handler receives.
     if (m.async) {
@@ -144,7 +155,8 @@ export function stubDts(platform: Platform, module: string, names: NamesIndex): 
   out.push("");
   for (const [name, t] of Object.entries(names.types)) {
     if (t.kind === "enum") out.push(`export declare enum ${name} {}`);
-    else out.push(`export declare ${t.kind === "protocol" ? "abstract " : ""}class ${name}${t.kind === "class" && platform === "ios" ? " extends NSObject" : ""} {`, `  private readonly __lucent_${name}: never;`, "  protected constructor();", "}");
+    else if (t.kind === "protocol") out.push(`export declare abstract class ${name} {}`);
+    else out.push(`export declare class ${name}${platform === "ios" ? " extends NSObject" : ""} {`, `  private readonly __lucent_${name}: never;`, "  protected constructor();", "}");
   }
   return out.join("\n");
 }

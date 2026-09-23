@@ -276,6 +276,8 @@ export class FnEmitter {
     if ((from.k === "array" && to.k === "array") || (from.k === "map" && to.k === "map")) {
       fail(node, Codes.ArrayVariance, `collection element types must match exactly (${typeKey(from)} vs ${typeKey(to)}); annotate the value with the target type`);
     }
+    // A Lucent class implementing an SDK protocol, where the SDK takes one.
+    if (from.k === "class" && to.k === "native") return native.nativeOfClass(this, e, to, node);
     fail(node, Codes.UnsupportedType, `cannot convert ${typeKey(from)} to ${typeKey(to)}`);
   }
 
