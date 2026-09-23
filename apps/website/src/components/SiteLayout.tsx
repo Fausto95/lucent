@@ -10,7 +10,7 @@ import { ThemeToggle } from "./ThemeToggle";
 export function SiteLayout() {
   const pathname = useLocation({ select: (location) => location.pathname });
   const inDocs = pathname.startsWith("/docs");
-  const inApi = pathname.startsWith("/docs/api");
+  const inReference = pathname.startsWith("/docs/reference");
   const inHowItWorks = pathname.startsWith("/docs/how-it-works");
   return (
     <ThemeProvider>
@@ -26,7 +26,7 @@ export function SiteLayout() {
               <Link
                 to="/docs/$/"
                 params={{ _splat: "" }}
-                {...stylex.props(styles.languageNavLink, inDocs && !inApi && !inHowItWorks && styles.activeNav)}
+                {...stylex.props(styles.languageNavLink, inDocs && !inReference && !inHowItWorks && styles.activeNav)}
               >
                 Docs
               </Link>
@@ -39,10 +39,10 @@ export function SiteLayout() {
               </Link>
               <Link
                 to="/docs/$/"
-                params={{ _splat: "api" }}
-                {...stylex.props(styles.languageNavLink, inApi && styles.activeNav)}
+                params={{ _splat: "reference/cli" }}
+                {...stylex.props(styles.languageNavLink, inReference && styles.activeNav)}
               >
-                API
+                Reference
               </Link>
               <ThemeToggle />
               <a href="https://github.com/Fausto95/lucent" {...stylex.props(styles.githubLink)}>
@@ -61,8 +61,8 @@ export function SiteLayout() {
               <Link to="/docs/$/" params={{ _splat: "" }} {...stylex.props(styles.footerLink)}>
                 Docs
               </Link>
-              <Link to="/docs/$/" params={{ _splat: "examples" }} {...stylex.props(styles.footerLink)}>
-                Examples
+              <Link to="/docs/$/" params={{ _splat: "comparison" }} {...stylex.props(styles.footerLink)}>
+                Comparison
               </Link>
               <a href="https://github.com/Fausto95/lucent" {...stylex.props(styles.footerLink)}>
                 GitHub ↗

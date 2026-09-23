@@ -66,16 +66,16 @@ export const styles = stylex.create({
   },
   heroHeading: {
     fontSize: {
-      default: "clamp(58px, 5.6vw, 81px)",
-      "@media (min-width: 1500px)": "5.375rem",
-      "@media (max-width: 1150px)": "4rem",
-      "@media (max-width: 850px)": "4.75rem",
-      "@media (max-width: 540px)": "clamp(47px, 11.7vw, 64px)",
+      default: "clamp(46px, 4.3vw, 64px)",
+      "@media (min-width: 1500px)": "4.25rem",
+      "@media (max-width: 1150px)": "3.25rem",
+      "@media (max-width: 850px)": "3.75rem",
+      "@media (max-width: 540px)": "clamp(38px, 9.4vw, 52px)",
     },
     fontWeight: 500,
     letterSpacing: {
-      default: "-4.3px",
-      "@media (max-width: 540px)": "-2.7px",
+      default: "-3px",
+      "@media (max-width: 540px)": "-2px",
     },
     lineHeight: 1.07,
     margin: {
@@ -311,6 +311,20 @@ export const styles = stylex.create({
     marginTop: {
       default: null,
       "@media (max-width: 850px)": "18px",
+    },
+  },
+  sectionFootnote: {
+    fontSize: "0.875rem",
+    lineHeight: 1.7,
+    color: tokens.textSubtle,
+    margin: "14px 0 0",
+  },
+  footnoteLink: {
+    color: tokens.textSecondary,
+    textDecoration: "underline",
+    textUnderlineOffset: "3px",
+    ":hover": {
+      color: tokens.accent,
     },
   },
   sectionInlineCode: {
