@@ -198,6 +198,12 @@ const C_TYPEDEFS: Record<string, string> = {
   "c:@T@SInt32": "int32",
 };
 
+/**
+ * Swift's spelling of Objective-C's error convention: an NSError** a method
+ * writes (NSErrorPointer, where Swift does not import it as throws).
+ */
+const ERROR_POINTERS = new Set(["s:10Foundation14NSErrorPointera"]);
+
 /** Swift value types that bridge to Foundation classes, typed as those classes. */
 const BRIDGED_CLASS: Record<string, string> = {
   "s:10Foundation3URLV": "NSURL",
@@ -305,6 +311,13 @@ function parseType(frags: Fragment[], r: Resolver): string {
     }
     if (typeof tok === "string") throw new Unsupported(`type syntax ${tok}`);
     const usr = tok.preciseIdentifier ?? "";
+    if (ERROR_POINTERS.has(usr)) return "Out<error>?";
+    // `AutoreleasingUnsafeMutablePointer<NSError?>`, spelled out.
+    const next = toks[p + 1];
+    if ((usr === "s:SA" || usr === "s:Sp") && toks[p] === "<" && typeof next !== "string" && next?.preciseIdentifier === "c:objc(cs)NSError" && toks[p + 2] === "?" && toks[p + 3] === ">") {
+      p += 4;
+      return "Out<error>";
+    }
     // `UnsafeMutablePointer<CFTypeRef?>`: an out-parameter for a reference.
     if (usr === "s:Sp" && toks[p] === "<") {
       p++;

@@ -237,6 +237,32 @@ inline CFTypeRef* outSlot(const NativeRef& r, bool owned) {
 inline CFTypeRef* outSlot(const Opt<NativeRef>& r, bool owned) { return r.has() ? outSlot(r.get(), owned) : nullptr; }
 inline Opt<NativeRef> outValue(const NativeRef& r) { return wrapOpt((__bridge id) static_cast<OutSlot*>(r.get())->value); }
 
+/**
+ * An NSError** argument writing into an Out<Error>: the method writes an
+ * autoreleased error, which the slot retains when the call's full
+ * expression ends (before any autorelease pool drains).
+ */
+class ErrorOut {
+ public:
+  explicit ErrorOut(const NativeRef& out) : slot_(static_cast<OutSlot*>(out.get())) {}
+  explicit ErrorOut(const Opt<NativeRef>& out) : slot_(out.has() ? static_cast<OutSlot*>(out.get().get()) : nullptr) {}
+  ~ErrorOut() {
+    if (!slot_) return;
+    if (slot_->value && slot_->owned) CFRelease(slot_->value);
+    slot_->value = error_ ? CFBridgingRetain(error_) : nullptr;
+    slot_->owned = true;
+  }
+  ErrorOut(const ErrorOut&) = delete;
+  ErrorOut& operator=(const ErrorOut&) = delete;
+  NSError* __autoreleasing* ptr() { return slot_ ? reinterpret_cast<NSError* __autoreleasing*>(&error_) : nullptr; }
+
+ private:
+  OutSlot* slot_;
+  NSError* __unsafe_unretained error_ = nil;
+};
+
+inline Opt<Error> outError(const NativeRef& r) { return fromNSErrorOpt((__bridge NSError*) static_cast<OutSlot*>(r.get())->value); }
+
 /// `available("ios", major, minor)`.
 inline bool available(double major, double minor = 0) {
   NSOperatingSystemVersion v = {static_cast<NSInteger>(major), static_cast<NSInteger>(minor), 0};

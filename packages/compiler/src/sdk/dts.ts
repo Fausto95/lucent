@@ -40,6 +40,7 @@ export function sdkDts(schema: SdkModuleSchema): string {
         }
         case "out":
           use("lucent:ios", "Out");
+          if (t.of.k === "error") return "Out<Error>";
           use("lucent:ios", "NSObject");
           return "Out<NSObject>";
         case "array": {

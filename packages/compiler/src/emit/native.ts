@@ -276,6 +276,7 @@ export function toObjcCode(t: SdkType, c: string, owned: boolean): string {
       return t.cf ? `(__bridge CFDictionaryRef)${dict}` : dict;
     }
     case "out":
+      if (t.of.k === "error") return `lucent::objc::ErrorOut(${c}).ptr()`;
       return `lucent::objc::outSlot(${c}, ${owned})`;
     case "ref": {
       const e = sdkEnum("ios", t);
@@ -816,6 +817,9 @@ export function nativeStaticProperty(em: FnEmitter, node: ts.PropertyAccessExpre
 export function nativeMember(em: FnEmitter, obj: E, node: ts.Node): E {
   const name = ts.isPropertyAccessExpression(node) ? node.name : node;
   if (obj.t.k === "native" && obj.t.module === "lucent:ios" && obj.t.name === "Out" && ts.isIdentifier(name) && name.text === "value") {
+    // Out<Error>: the error an NSError** out-parameter received.
+    const value = em.lt(name.parent);
+    if (value.k === "opt" && value.inner.k === "error") return { c: `lucent::objc::outError(${obj.c})`, t: value };
     return { c: `lucent::objc::outValue(${obj.c})`, t: unionOf([{ k: "native", platform: "ios", module: "lucent:ios", name: "NSObject" }, T.null]) };
   }
   const decl = resolved(em, name)?.valueDeclaration;
