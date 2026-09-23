@@ -151,9 +151,10 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
   it("passes functions as blocks: queued, or run while the platform waits", () => {
     const { r, mm } = ios(callbacks);
     expect(r.diagnostics).toEqual([]);
-    expect(mm).toMatch(/scheduledTimerWithTimeInterval:.* repeats:.* block:\^\(Timer\* a0_\) \{ lucent::postCallback\(/);
-    expect(mm).toMatch(/initWithKey:.* ascending:.* comparator:\^NSComparisonResult\(id a0_, id a1_\) \{ return lucent::callNow\(/);
-    expect(mm).toMatch(/animateWithDuration:.* animations:\^\(\) \{ lucent::callNow\(/);
+    // Heap blocks made from C++ lambdas, which own the Lucent function.
+    expect(mm).toMatch(/block:lucent::objc::block<void \(\^\)\(NSTimer\*\)>\(\[f_ = [^]*?\]\(NSTimer\* a0_\) \{ lucent::postCallback\(\[f_, a0_\]/);
+    expect(mm).toMatch(/comparator:lucent::objc::block<NSComparisonResult \(\^\)\(id, id\)>\([^]*?\(id a0_, id a1_\) \{ return lucent::callNow\(/);
+    expect(mm).toMatch(/animations:lucent::objc::block<void \(\^\)\(\)>\([^]*?\]\(\) \{ lucent::callNow\(/);
   });
 
   it("allows main-thread APIs only in blocks that run on the main thread", () => {
