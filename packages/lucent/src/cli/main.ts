@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
+import { withLucentPaths } from "./tsconfig.ts";
 import { compile, forgetLoadedSdks, formatDiagnostic, inputsKey, isError, isUpToDate, platformOf, usesPlatforms, lucentPackages, nativeDependencies, sdkCoverage, type SdkCoverage, type NativeDependencies, podsSearchPaths, prefetchSdk, projectFiles, withGradleDependencies, sdkAvailable, sdkModule, sdkModules, runtimeDir, type SdkOptions, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
 
 const HELP = `lucent — compile *.lucent.ts modules into a native React Native package
@@ -84,6 +85,8 @@ function run(): number {
     platforms = installed;
     if (command === "build") backgroundPrefetch(root, files);
   }
+  // The mapping points at the default output.
+  if (command === "build" && out === path.join(root, ".lucent/native")) mapLucentPaths(root);
   const key = inputsKey(files, out) + (platforms ? `:${platforms.join(",")}` : "") + `:${createHash("sha256").update(JSON.stringify(native)).digest("hex").slice(0, 12)}`;
   if (command === "build" && !process.argv.includes("--force") && isUpToDate(out, key)) {
     process.stdout.write(`✓ ${path.relative(root, out)} is up to date (${files.length} module(s), ${Date.now() - t0} ms)\n`);
@@ -108,6 +111,22 @@ function run(): number {
     process.stdout.write(`  Native files were added or removed: run \`pod install\` (iOS) before the next build.\n`);
   }
   return 0;
+}
+
+/** Points `lucent:*` in the app's tsconfig.json at the declarations lucent build writes, for editors and tsc. */
+function mapLucentPaths(root: string): void {
+  const file = path.join(root, "tsconfig.json");
+  if (!fs.existsSync(file)) return;
+  let text: string | undefined;
+  try {
+    text = withLucentPaths(fs.readFileSync(file, "utf8"));
+  } catch (e) {
+    process.stderr.write(`! ${(e as Error).message}; add "paths": { "lucent:*": ["./.lucent/native/types/*"] } to its compilerOptions yourself\n`);
+    return;
+  }
+  if (text === undefined) return;
+  fs.writeFileSync(file, text);
+  process.stdout.write("✓ mapped lucent:* in tsconfig.json\n");
 }
 
 /** Where this project's bindings come from: the SDKs, and what the app links. */
@@ -330,12 +349,10 @@ function init(root: string): number {
     fs.appendFileSync(gitignore, `${ignored.endsWith("\n") || !ignored ? "" : "\n"}.lucent/\n`);
     process.stdout.write("✓ added .lucent/ to .gitignore\n");
   }
+  mapLucentPaths(root);
   process.stdout.write(
     "Next: wrap your Metro config with withLucent() from @lucent-lang/lucent/metro, and enable\n" +
-      '"noUncheckedIndexedAccess": true in tsconfig.json (Lucent requires it).\n' +
-      'Platform code imports lucent:* (branch with PLATFORM from lucent:platform); for your editor and tsc, add\n' +
-      '  "paths": { "lucent:*": ["./.lucent/native/types/*"] }\n' +
-      'to the compilerOptions of tsconfig.json (lucent build writes those declarations).\n',
+      '"noUncheckedIndexedAccess": true in tsconfig.json (Lucent requires it).\n',
   );
   return 0;
 }
