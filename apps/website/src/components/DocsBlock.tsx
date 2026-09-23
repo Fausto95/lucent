@@ -3,6 +3,7 @@ import type { Block } from "../docs/types";
 import { styles } from "./DocsContent.stylex";
 import { CodeBlock } from "./CodeBlock";
 import { CodeTabs } from "./CodeTabs";
+import { DocsDiagram } from "./DocsDiagram";
 import { DocsHeading } from "./DocsHeading";
 import { Inline } from "./Inline";
 import { SmartLink } from "./SmartLink";
@@ -76,11 +77,10 @@ export function DocsBlock({ block }: { block: Block }) {
           </table>
         </div>
       );
-    case "diagram": {
-      const Diagram = block.component;
+    case "diagram":
       return (
         <figure {...stylex.props(styles.diagram)}>
-          <Diagram />
+          <DocsDiagram name={block.diagram} />
           {block.caption && (
             <figcaption {...stylex.props(styles.caption)}>
               <Inline text={block.caption} />
@@ -88,7 +88,6 @@ export function DocsBlock({ block }: { block: Block }) {
           )}
         </figure>
       );
-    }
     case "steps":
       return (
         <ol {...stylex.props(styles.steps)}>
