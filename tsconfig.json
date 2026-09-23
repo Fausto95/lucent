@@ -17,5 +17,5 @@
     "skipLibCheck": true
   },
   "include": ["packages/*/src", "packages/*/test", "scripts"],
-  "exclude": ["node_modules", "apps", "**/.lucent", "packages/compiler/test/e2e/cases"]
+  "exclude": ["node_modules", "apps", "**/.lucent", "packages/compiler/test/e2e/cases", "scripts/example-app"]
 }
