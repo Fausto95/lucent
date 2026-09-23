@@ -708,12 +708,42 @@ export function nativeCall(em: FnEmitter, node: ts.CallExpression, obj: E | unde
   if (isStatic === !!obj) return undefined;
   const name = (decl.name as ts.Identifier).text;
   const { method, promise } = schemaMethod(ref, decl);
-  if (promise) fail(node, Codes.UnsupportedCall, `${ref.cls.name}.${name}() as a promise is not supported yet: pass the completion handler`);
+  if (promise && ref.platform !== "ios") fail(node, Codes.UnsupportedCall, `${ref.cls.name}.${name}() as a promise is not supported on ${ref.platform}`);
   requireMain(em, node, ref, method);
   if (!obj) requireAvailable(em, node, ref, ref.cls.since, ref.cls.name);
   requireAvailable(em, node, ref, method.since, `${ref.cls.name}.${method.name}`);
   noteIncludes(em, ref);
+  if (promise) return iosPromiseCall(em, node, ref, method, obj);
   return ref.platform === "ios" ? iosCall(em, node, ref, method, obj) : androidCall(em, node, ref, method, obj);
+}
+
+/**
+ * A completion-handler method called without its handler: a promise the
+ * glue's block settles on the Lucent thread. The block's error rejects it;
+ * its other argument, read as Swift's async form types it, resolves it
+ * (nothing, when that form returns nothing).
+ */
+function iosPromiseCall(em: FnEmitter, node: ts.CallExpression, ref: SdkClassRef, m: SdkMethodSchema, obj: E | undefined): E {
+  const tps = m.typeParams ?? [];
+  const handler = parseSdkType(m.params[m.params.length - 1]!.type, ref.module, tps);
+  if (handler.k !== "fn") throw new Error(`${ref.cls.name}.${m.name}: the completion handler is not a block`);
+  const a = argsOf(node).map((x, i) => toObjc(em, x, parseSdkType(m.params[i]!.type, ref.module, tps)));
+  const result = parseSdkType(m.async!.returns, ref.module, tps);
+  const isVoid = result.k === "prim" && result.name === "void";
+  const names = handler.params.map((_, i) => `a${i}_`);
+  const errorAt = handler.params.findIndex((p) => p.k === "error");
+  const valueAt = handler.params.findIndex((p) => p.k !== "error");
+  const lt: LType = isVoid ? T.undefined : declaredLt(em, "ios", result, node);
+  const what = `${ref.cls.name}.${m.name}()`;
+  const settle = [
+    errorAt >= 0 ? `if (${names[errorAt]}) { p_.reject(lucent::objc::fromNSError(${names[errorAt]}, ${cppQuoted(what)})); return; }` : "",
+    isVoid ? "p_.resolve(lucent::undefined);" : `p_.resolve(${fromObjc(em, names[valueAt]!, result, lt, what).c});`,
+  ].join(" ");
+  const params = handler.params.map((p, i) => `${objcTypeName(p)} ${names[i]}`).join(", ");
+  const block = `lucent::objc::block<${objcTypeName({ ...handler, nullable: false })}>([p_](${params}) { lucent::postCallback([${["p_", ...names].join(", ")}]() mutable { ${settle} }); })`;
+  const promise: LType = { k: "promise", inner: lt };
+  const pt = em.cpp(promise);
+  return { c: `({ ${pt} p_; (void)${send(objcReceiver(ref, obj), m.selector ?? m.name, [...a, block])}; p_; })`, t: promise };
 }
 
 function iosCall(em: FnEmitter, node: ts.CallExpression, ref: SdkClassRef, m: SdkMethodSchema, obj: E | undefined): E {
