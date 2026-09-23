@@ -6,7 +6,7 @@ import { sdkAvailable } from "@lucent-lang/bindgen";
 import { PLATFORMS, platformSdkAvailable, type SdkOptions, withSdkOptions } from "./sdk/schema.ts";
 
 export { CodeDescriptions, Codes, formatDiagnostic, type Code, type Diagnostic } from "./diagnostics.ts";
-export { findLucentFiles, moduleNameOf, platformOf, projectFiles, LUCENT_EXTENSION, coreTypesPath, type ReadSource } from "./program.ts";
+export { findLucentFiles, moduleNameOf, platformOf, projectFiles, usesPlatforms, LUCENT_EXTENSION, coreTypesPath, type ReadSource } from "./program.ts";
 export { withGradleDependencies } from "./native-package.ts";
 export { coverage as sdkCoverage, type Coverage as SdkCoverage } from "@lucent-lang/bindgen";
 export { lucentPackages, lucentVersion, nativeDependencies, satisfies, type LucentPackage, type NativeDependencies, type PackageNative } from "./packages.ts";

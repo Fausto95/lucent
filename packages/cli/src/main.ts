@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { compile, forgetLoadedSdks, formatDiagnostic, inputsKey, isUpToDate, platformOf, lucentPackages, nativeDependencies, sdkCoverage, type SdkCoverage, type NativeDependencies, podsSearchPaths, prefetchSdk, projectFiles, withGradleDependencies, sdkAvailable, sdkModule, sdkModules, runtimeDir, type SdkOptions, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
+import { compile, forgetLoadedSdks, formatDiagnostic, inputsKey, isUpToDate, platformOf, usesPlatforms, lucentPackages, nativeDependencies, sdkCoverage, type SdkCoverage, type NativeDependencies, podsSearchPaths, prefetchSdk, projectFiles, withGradleDependencies, sdkAvailable, sdkModule, sdkModules, runtimeDir, type SdkOptions, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
 
 const HELP = `lucent — compile *.lucent.ts modules into a native React Native package
 
@@ -68,7 +68,8 @@ function run(): number {
     writeGradleDependencies(out, native);
     resolveAndroidDependencies(root, files, sdk, native);
   }
-  if (!platforms && files.some((f) => platformOf(f))) {
+  // Platform code: split platform files, or modules branching on PLATFORM.
+  if (!platforms && files.some((f) => platformOf(f) || usesPlatforms(f))) {
     // Build what this machine can: an Android-only Linux host, a Mac without the Android SDK.
     const installed = (["ios", "android"] as const).filter((p) => sdkAvailable(p, sdk));
     for (const p of ["ios", "android"] as const) {
