@@ -7,7 +7,7 @@ import { type ClassInfo, cppIdent, isVoidish, type LType, sameType, stripOpt, su
 import { containsAwait, freeVariables, type FunctionLike, symbolOf } from "./analysis.ts";
 import * as builtins from "./builtins.ts";
 import * as native from "./native.ts";
-import type { Ctx, E, IntKind, ParamInfo } from "./context.ts";
+import { AlreadyReported, type Ctx, type E, type IntKind, type ParamInfo } from "./context.ts";
 import { inferIntegers } from "./integers.ts";
 export { substitute } from "../types.ts";
 import { numberLiteral, stringLiteral } from "./literals.ts";
@@ -80,6 +80,8 @@ export class FnEmitter {
   /** Locals and loop counters that live in integer registers (integers.ts). */
   private ints = new Map<ts.Symbol, IntKind>();
   private readonly counters = new Set<ts.Symbol>();
+  /** Locals whose type could not be lowered; their diagnostic is reported once, at the declaration. */
+  private readonly failed = new Set<ts.Symbol>();
 
   constructor(
     readonly ctx: Ctx,
@@ -652,7 +654,13 @@ export class FnEmitter {
     for (const d of list.declarations) {
       if (ts.isIdentifier(d.name)) {
         const sym = this.checker.getSymbolAtLocation(d.name)!;
-        const declared = this.reg.lower(this.checker.getTypeOfSymbolAtLocation(sym, d.name), d.name);
+        let declared: LType;
+        try {
+          declared = this.reg.lower(this.checker.getTypeOfSymbolAtLocation(sym, d.name), d.name);
+        } catch (e) {
+          this.failed.add(sym);
+          throw e;
+        }
         const type = declared.k === "never" ? T.undefined : declared;
         if (this.ctx.capture.isBoxed(sym)) {
           // Declare the box first so a closure in the initializer can refer
@@ -1345,6 +1353,7 @@ export class FnEmitter {
       fail(id, Codes.UnsupportedSyntax, `unknown identifier ${text}`);
     }
     const sym = this.ctx.resolve(sym0);
+    if (this.failed.has(sym)) throw new AlreadyReported();
     const local = this.findLocal(sym);
     if (local?.int) return this.intE(local.cpp, local.int);
     if (local) {

@@ -629,26 +629,36 @@ export class TypeRegistry {
     return { k: "fn", params, ret: this.lower(c.getReturnTypeOfSignature(sig), node) };
   }
 
-  private registerStruct(type: ts.Type, props: ts.Symbol[], node: ts.Node): LType {
+  private structField(p: ts.Symbol, node: ts.Node): StructField {
     const c = this.checker;
+    const accessor = p.declarations?.find((d) => ts.isGetAccessorDeclaration(d) || ts.isSetAccessorDeclaration(d));
+    if (accessor && ts.isObjectLiteralExpression(accessor.parent)) fail(accessor, Codes.UnsupportedSyntax, `getters and setters in object literals are not supported (${p.name}); use a property or a class`);
+    if (p.flags & ts.SymbolFlags.Method) fail(node, Codes.UnsupportedType, `object types with methods are not supported (${p.name}); use a class or a function-valued property`);
+    if (p.flags & ts.SymbolFlags.GetAccessor) fail(node, Codes.UnsupportedType, `getters in object types are not supported (${p.name})`);
+    const decl = p.valueDeclaration ?? p.declarations?.[0];
+    const pt = c.getTypeOfSymbolAtLocation(p, decl ?? node);
+    const optional = !!(p.flags & ts.SymbolFlags.Optional);
+    let lt = this.lower(optional ? c.getNonNullableType(pt) : pt, decl ?? node);
+    if (optional) lt = unionOf([lt, T.undefined]);
+    let literal: string | undefined;
+    if (pt.flags & ts.TypeFlags.StringLiteral) literal = (pt as ts.StringLiteralType).value;
+    const readonly = !!decl && ts.canHaveModifiers(decl) && !!ts.getModifiers(decl)?.some((m) => m.kind === ts.SyntaxKind.ReadonlyKeyword);
+    return { name: p.name, type: lt, optional, literal, readonly };
+  }
+
+  private registerStruct(type: ts.Type, props: ts.Symbol[], node: ts.Node): LType {
     const pending = this.inProgress.get(type);
     if (pending) return { k: "struct", id: pending };
     // Provisional id so recursive references resolve.
     const provisional = `pending${this.anon++}`;
     this.inProgress.set(type, provisional);
-    const fields: StructField[] = [];
-    for (const p of props) {
-      if (p.flags & ts.SymbolFlags.Method) fail(node, Codes.UnsupportedType, `object types with methods are not supported (${p.name}); use a class or a function-valued property`);
-      if (p.flags & ts.SymbolFlags.GetAccessor) fail(node, Codes.UnsupportedType, `getters in object types are not supported (${p.name})`);
-      const decl = p.valueDeclaration ?? p.declarations?.[0];
-      const pt = c.getTypeOfSymbolAtLocation(p, decl ?? node);
-      const optional = !!(p.flags & ts.SymbolFlags.Optional);
-      let lt = this.lower(optional ? c.getNonNullableType(pt) : pt, decl ?? node);
-      if (optional) lt = unionOf([lt, T.undefined]);
-      let literal: string | undefined;
-      if (pt.flags & ts.TypeFlags.StringLiteral) literal = (pt as ts.StringLiteralType).value;
-      const readonly = !!decl && ts.canHaveModifiers(decl) && !!ts.getModifiers(decl)?.some((m) => m.kind === ts.SyntaxKind.ReadonlyKeyword);
-      fields.push({ name: p.name, type: lt, optional, literal, readonly });
+    let fields: StructField[];
+    try {
+      fields = props.map((p) => this.structField(p, node));
+    } catch (e) {
+      // Leave no provisional id behind: a later lowering of this type would resolve to it.
+      this.inProgress.delete(type);
+      throw e;
     }
     const key = fields
       .map((f) => `${f.name}${f.optional ? "?" : ""}:${f.type.k === "struct" && f.type.id.startsWith("pending") ? "self" : typeKey(f.type)}`)

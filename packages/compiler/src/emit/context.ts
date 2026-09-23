@@ -31,6 +31,9 @@ export type Global =
   | { kind: "class"; cpp: string; module: LucentModule; info: ClassInfo };
 
 /** Program-wide state shared by every emitter. */
+/** Abandons code that uses a declaration whose own diagnostic was already reported. */
+export class AlreadyReported extends Error {}
+
 export class Ctx {
   readonly reg: TypeRegistry;
   readonly capture: CaptureAnalysis;
@@ -76,6 +79,7 @@ export class Ctx {
         this.diagnostics.push(toDiagnostic(e));
         return undefined;
       }
+      if (e instanceof AlreadyReported) return undefined;
       throw e;
     }
   }
