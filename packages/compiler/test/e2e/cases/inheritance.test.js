@@ -10,3 +10,8 @@ const p = mod.makePuppy();
 print(p instanceof Puppy, p instanceof Dog, p instanceof Animal, p.speak(), p.describe(), p.legs);
 print(d.describe(), d.learn("jump") === d);
 print(mod.counted());
+const Kitten = lucentClass(mod.Kitten);
+const Cat = lucentClass(mod.Cat);
+const ps = mod.pets();
+print(ps.map((p) => `${p.speak()} ${p instanceof Cat} ${p instanceof Kitten}`).join(" / "));
+print(mod.greet(ps[1]), ps[1].name, mod.greet(new Kitten("mia")));

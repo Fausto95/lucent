@@ -107,3 +107,31 @@ export function counted(): number {
 export function makePuppy(): Animal {
   return new Puppy("pip", "beagle");
 }
+
+export interface Pet {
+  name: string;
+  speak(): string;
+}
+
+export class Cat extends Animal implements Pet {
+  override speak(): string {
+    return `${this.name} purrs`;
+  }
+}
+
+export class Kitten extends Cat {
+  override speak(): string {
+    return `${super.speak()} softly`;
+  }
+}
+
+export class Lion extends Animal implements Pet {}
+
+export function pets(): Pet[] {
+  return [new Cat("tom"), new Kitten("kit"), new Lion("leo")];
+}
+
+export function greet(p: Pet): string {
+  p.name = p.name.toUpperCase();
+  return p.speak();
+}
