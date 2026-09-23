@@ -63,9 +63,10 @@ export interface SdkMethodSchema extends SdkCallable {
   /**
    * The last parameter is a completion block that Swift also imports as
    * `async` (iOS): the method can be called without it, for a promise of
-   * `returns`, rejected with the block's error when `throws`.
+   * `returns`, rejected with the block's error when `throws`; under `name`
+   * when Swift names the async form differently.
    */
-  async?: { returns: string; throws?: boolean };
+  async?: { returns: string; throws?: boolean; name?: string };
 }
 
 export interface SdkPropertySchema {

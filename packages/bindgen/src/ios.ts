@@ -595,6 +595,8 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
               const tr = twin.functionSignature?.returns;
               method.async = { returns: tr?.length ? parseType(tr, r) : "void" };
               if (/\bthrows\b/.test(declText(twin))) method.async.throws = true;
+              const asyncName = splitName(twin.names.title).base;
+              if (asyncName !== base) method.async.name = asyncName;
             } catch (e) {
               // Several results (a tuple): the block form only.
               if (!(e instanceof Unsupported)) throw e;

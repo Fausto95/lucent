@@ -123,7 +123,10 @@ function classDts(schema: SdkModuleSchema, cls: SdkClassSchema, tsType: (t: SdkT
     const head = `${memberDoc(m)}  ${m.static ? "static " : ""}${m.name}${tps.length ? `<${tps.join(", ")}>` : ""}`;
     out.push(`${head}(${params(m.params, tps)}): ${tsType(parse(m.returns, tps))};`);
     // Without its completion handler: a promise of what the handler receives.
-    if (m.async) out.push(`${head}(${params(m.params.slice(0, -1), tps)}): Promise<${tsType(parse(m.async.returns, tps))}>;`);
+    if (m.async) {
+      const promiseHead = `${memberDoc(m)}  ${m.static ? "static " : ""}${m.async.name ?? m.name}${tps.length ? `<${tps.join(", ")}>` : ""}`;
+      out.push(`${promiseHead}(${params(m.params.slice(0, -1), tps)}): Promise<${tsType(parse(m.async.returns, tps))}>;`);
+    }
   }
   out.push("}");
   if (cls.implements?.length) out.push(`export declare interface ${cls.name} extends ${cls.implements.map((i) => tsType(parse(i))).join(", ")} {}`);

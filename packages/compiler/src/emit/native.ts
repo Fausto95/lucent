@@ -69,11 +69,14 @@ function inMainContext(em: FnEmitter, node: ts.Node): boolean {
   return false;
 }
 
-/** The schema method an SDK class's method declaration stands for: sdkDts writes each, then its promise form. */
+/**
+ * The schema method an SDK class's method declaration stands for: sdkDts
+ * writes each method, then its promise form (under the async form's name).
+ */
 function schemaMethod(ref: SdkClassRef, decl: ts.MethodDeclaration): { method: SdkMethodSchema; promise: boolean } {
   const name = (decl.name as ts.Identifier).text;
   const index = (decl.parent as ts.ClassDeclaration).members.filter((m) => ts.isMethodDeclaration(m) && (m.name as ts.Identifier).text === name).indexOf(decl);
-  return (ref.cls.methods ?? []).filter((m) => m.name === name).flatMap((m) => [{ method: m, promise: false }, ...(m.async ? [{ method: m, promise: true }] : [])])[index]!;
+  return (ref.cls.methods ?? []).flatMap((m) => [...(m.name === name ? [{ method: m, promise: false }] : []), ...(m.async && (m.async.name ?? m.name) === name ? [{ method: m, promise: true }] : [])])[index]!;
 }
 
 function schemaConstructor(ref: SdkClassRef, decl: ts.ConstructorDeclaration): SdkCallable {
@@ -706,8 +709,8 @@ export function nativeCall(em: FnEmitter, node: ts.CallExpression, obj: E | unde
   if (!ref) return undefined;
   const isStatic = !!ts.getModifiers(decl)?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword);
   if (isStatic === !!obj) return undefined;
-  const name = (decl.name as ts.Identifier).text;
   const { method, promise } = schemaMethod(ref, decl);
+  const name = method.name;
   if (promise && ref.platform !== "ios") fail(node, Codes.UnsupportedCall, `${ref.cls.name}.${name}() as a promise is not supported on ${ref.platform}`);
   requireMain(em, node, ref, method);
   if (!obj) requireAvailable(em, node, ref, ref.cls.since, ref.cls.name);
