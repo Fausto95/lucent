@@ -1,7 +1,8 @@
 /**
  * Fresh-install smoke test: packs every @lucent-lang package as it would be
  * published, installs the tarballs into an empty project with npm, and runs
- * the installed CLI there (no tsx, no workspace links).
+ * the installed CLI there (no tsx, no workspace links), with a Lucent
+ * package (examples/lucent-haptics) installed from its tarball too.
  *
  *   tsx scripts/smoke-install.ts
  */
@@ -28,6 +29,10 @@ for (const p of packages) {
   const name = JSON.parse(fs.readFileSync(path.join(root, "packages", p, "package.json"), "utf8")).name as string;
   tarballs[name] = `file:${path.isAbsolute(out) ? out : path.join(work, path.basename(out))}`;
 }
+
+// A Lucent package, as an app would install one from npm.
+const haptics = sh("pnpm", ["pack", "--pack-destination", work], path.join(root, "examples/lucent-haptics")).trim().split("\n").pop()!;
+tarballs["lucent-haptics"] = `file:${path.isAbsolute(haptics) ? haptics : path.join(work, path.basename(haptics))}`;
 
 console.log("• installing into an empty project");
 const app = path.join(work, "app");
@@ -66,10 +71,13 @@ fs.writeFileSync(
 console.log("• lucent build (installed CLI)");
 console.log(sh(path.join(app, "node_modules/.bin/lucent"), ["build"], app).trim());
 const native = path.join(app, ".lucent/native");
-for (const f of ["LucentNative.podspec", "android/CMakeLists.txt", "cpp/generated/ios/m_hello.cpp", "cpp/generated/ios/m_device.mm", "cpp/generated/android/m_device.cpp", "cpp/third_party/quickjs/libregexp.c", "js/hello.js", "js/device.js"]) {
+for (const f of ["LucentNative.podspec", "android/CMakeLists.txt", "cpp/generated/ios/m_hello.cpp", "cpp/generated/ios/m_device.mm", "cpp/generated/android/m_device.cpp", "cpp/third_party/quickjs/libregexp.c", "js/hello.js", "js/device.js", "js/lucent-haptics/haptics.js"]) {
   if (!fs.existsSync(path.join(native, f))) throw new Error(`missing ${f}`);
 }
 sh("clang++", ["-std=c++20", "-fsyntax-only", `-I${native}/cpp`, `-I${native}/cpp/generated/ios`, path.join(native, "cpp/generated/ios/m_hello.cpp")], app);
+// The installed Lucent package's modules are built under its name.
+const modules = JSON.parse(fs.readFileSync(path.join(native, "manifest.json"), "utf8")).modules as string[];
+for (const m of ["lucent-haptics/haptics", "lucent-haptics/hapticsTypes"]) if (!modules.includes(m)) throw new Error(`the installed lucent-haptics was not built: ${modules.join(", ")}`);
 
 console.log("• Metro and Expo integrations load");
 sh(process.execPath, ["-e", 'require("@lucent-lang/metro").withLucent({}); require.resolve("@lucent-lang/expo")'], app, { LUCENT_WATCH: "0" });

@@ -116,7 +116,33 @@ on macOS; no Linux machine was available to run it on one.
 
 ## Phase 3: publishing Lucent libraries
 
-Not started.
+Done (docs/lucent-packages.md):
+
+- [x] Package format: `"lucent": { "sources", "compatible" }` in package.json,
+      and lucent.json for native needs. Sources only.
+- [x] Discovery: the app's Lucent packages, transitively, as Node resolves
+      them (links followed), for build, check and watch.
+- [x] Namespacing: `<package>/<module>` for the C++ namespace, the registry
+      and the proxies; the Metro transformer names files the same way.
+- [x] Imports: through the package's entry; Metro swaps `.lucent` modules for
+      their proxies.
+- [x] Versioning: an app on a Lucent outside a package's `compatible` range
+      fails to build, and the error names the package.
+- [x] Native dependencies: pods, Gradle artifacts (api), permissions and
+      Info.plist entries merged; two packages that disagree are an error
+      naming both. The Expo plugin writes Info.plist entries; bare apps are
+      told which keys are missing.
+- [x] Acceptance: examples/lucent-haptics and examples/lucent-secure-store,
+      installed in both apps, pass on the iOS simulator and the Android
+      emulator (bare 23/23, Expo 36/36); smoke-install builds lucent-haptics
+      installed from its tarball.
+
+Left, or postponed:
+
+- Watch mode notices changes under the app's root only; workspace packages
+  outside it are rebuilt on the next change inside it.
+- A lucent.json pod added after the first build takes a `pod install` before
+  it can be bound.
 
 ## Phase 4: bindings from platform metadata
 

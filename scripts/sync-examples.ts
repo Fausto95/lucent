@@ -118,10 +118,10 @@ import * as ExpoSecureStore from "expo-secure-store";
 import * as Application from "./application.lucent";
 import * as Clipboard from "./clipboard.lucent";
 import * as Device from "./device.lucent";
-import { ImpactFeedbackStyle, NotificationFeedbackType } from "./hapticsTypes.lucent";
+import { ImpactFeedbackStyle, NotificationFeedbackType } from "lucent-haptics";
 import * as LocalAuthentication from "./localAuthentication.lucent";
 import * as Location from "./location.lucent";
-import * as SecureStore from "./secureStore.lucent";
+import * as SecureStore from "lucent-secure-store";
 import * as Storage from "./storage.lucent";
 import type { SdkCase } from "./types";
 

@@ -1,0 +1,12 @@
+{
+  "name": "lucent-secure-store",
+  "version": "0.1.0",
+  "private": true,
+  "description": "expo-secure-store's API in Lucent: the Keychain (iOS) and the Android Keystore with encrypted SharedPreferences. An example Lucent package.",
+  "main": "index.ts",
+  "files": ["index.ts", "src"],
+  "lucent": {
+    "sources": "src",
+    "compatible": ">=0.1.0"
+  }
+}

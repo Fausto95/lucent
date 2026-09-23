@@ -10,11 +10,11 @@ import * as Device from "./device.lucent";
 import * as LocalAuthentication from "./localAuthentication.lucent";
 import * as Location from "./location.lucent";
 import * as NetInfoPort from "./netInfo.lucent";
-import { impactAsync, notificationAsync, selectionAsync } from "./haptics.lucent";
-import { ImpactFeedbackStyle, NotificationFeedbackType } from "./hapticsTypes.lucent";
+// Ports shipped as Lucent packages (examples/), installed like any npm package.
+import { ImpactFeedbackStyle, impactAsync, NotificationFeedbackType, notificationAsync, selectionAsync } from "lucent-haptics";
 import { parityCases } from "./parity";
 import { errorCode, identity, systemName } from "./probe.lucent";
-import * as SecureStore from "./secureStore.lucent";
+import * as SecureStore from "lucent-secure-store";
 import * as Storage from "./storage.lucent";
 import type { SdkCase } from "./types";
 
