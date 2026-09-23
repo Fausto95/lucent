@@ -109,6 +109,9 @@ static void numbers() {
   CHECK(jsMod(5.5, 2) == 1.5);
   CHECK(jsMod(-2147483648.0, -1) == 0 && std::signbit(jsMod(-2147483648.0, -1)));
   CHECK(jsMod(1e17, 7) == std::fmod(1e17, 7));
+  CHECK(jsMod(-5000000000.0, 3) == -2);
+  CHECK(jsMod(-6000000000.0, 3) == 0 && std::signbit(jsMod(-6000000000.0, 3)));
+  CHECK(jsMod(9007199254740991.0, 1000000007) == std::fmod(9007199254740991.0, 1000000007));
   CHECK(toUint32(-1) == 4294967295u);
   CHECK(jsShr(-1, 0) == 4294967295.0);
   CHECK(jsShl(1, 31) == -2147483648.0);
@@ -219,6 +222,9 @@ static void arrays() {
   a.sort([](double x, double y) { return x - y; });
   CHECK_STR(a.join(S("|")), "1|2|3|10");
   CHECK(a.get(99).isUndefined());
+  CHECK(a.getIndex(int64_t{1}).get() == 2);
+  CHECK(a.getIndex(int64_t{-1}).isUndefined());
+  CHECK(a.getIndex(int64_t{1} << 40).isUndefined());
   CHECK(a.get(1).get() == 2);
   CHECK_THROWS(a.set(10, 5), "RangeError");
   a.set(4, 11);
