@@ -695,10 +695,25 @@ static void platformCallbacks() {
   CHECK(Scheduler::instance().waitIdle(2000));
 }
 
+/// The native references Lucent holds are counted: debug builds report what
+/// is left when the module goes.
+static void nativeReferenceCount() {
+  static int released = 0;
+  long before = liveNativeRefs();
+  {
+    NativeRef a(new int(1), [](void* p) { delete static_cast<int*>(p); released++; }, nullptr);
+    NativeRef b = a;
+    NativeRef empty;
+    CHECK(liveNativeRefs() == before + 1);
+  }
+  CHECK(liveNativeRefs() == before && released == 1);
+}
+
 int main() {
   numbers();
   mainThread();
   platformCallbacks();
+  nativeReferenceCount();
   concatenation();
   strings();
   arrays();

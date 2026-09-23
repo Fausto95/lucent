@@ -20,3 +20,9 @@ for c in "$cpp"/third_party/quickjs/*.c; do
 done
 ${CXX:-clang++} "${flags[@]}" "$here/runtime_test.cpp" "$cpp"/lucent/*.cpp "${cobjs[@]}" "${libs[@]}" -o "$out"
 "$out"
+
+# The Objective-C glue helpers, on the macOS host (ARC).
+if [[ "$(uname)" == "Darwin" ]]; then
+  ${CXX:-clang++} "${flags[@]}" -fobjc-arc -x objective-c++ "$here/objc_test.mm" -x none "$cpp"/lucent/*.cpp "${cobjs[@]}" "${libs[@]}" -framework Foundation -o "${out}_objc"
+  "${out}_objc"
+fi
