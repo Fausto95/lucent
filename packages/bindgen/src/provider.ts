@@ -25,6 +25,12 @@ export interface SdkOptions {
     sdkRoots?: string[];
     /** platforms/<name> to use (default: $LUCENT_ANDROID_PLATFORM, else the newest installed). */
     platform?: string;
+    /**
+     * The app's resolved compile classpath (.lucent/android-classpath.json,
+     * written by the lucentClasspath Gradle task): its jars and AARs are
+     * bindable too.
+     */
+    classpath?: string;
   };
   ios?: {
     /** Directories with module maps, for modules outside the SDK. */
@@ -62,7 +68,7 @@ interface Located {
   dir: string;
   /** What the SDK is, for messages. */
   describe: string;
-  android?: { jars: string[]; apiVersions?: string };
+  android?: { jars: string[]; apiVersions?: string; dependencies: number; classpath?: string };
   ios?: { sdk: string; ios: IosOptions; frameworks: string; modules: Map<string, string | undefined> };
 }
 
@@ -116,14 +122,28 @@ function locateAndroid(opts: SdkOptions): Located | { missing: string } {
   }
   const missingJar = jars.find((j) => !fs.existsSync(j));
   if (missingJar) return { missing: `the Android SDK jar ${missingJar} was not found` };
-  const key = `${path.basename(path.dirname(jars[0]!))}-${hash([extractorVersion(), ...fileIdentity([...jars, ...(apiVersions ? [apiVersions] : [])])])}`;
-  return { dir: path.join(cacheRoot(opts), "sdk/android", key), describe, android: { jars, apiVersions } };
+  // The app's dependencies, after the platform: the platform's classes win.
+  const classpath = opts.android?.classpath;
+  let dependencies: string[] = [];
+  if (classpath && fs.existsSync(classpath)) {
+    const cp = JSON.parse(fs.readFileSync(classpath, "utf8")) as { jars?: string[]; aars?: string[] };
+    dependencies = [...(cp.jars ?? []), ...(cp.aars ?? [])].filter((f) => fs.existsSync(f));
+  }
+  const all = [...jars, ...dependencies];
+  const key = `${path.basename(path.dirname(jars[0]!))}-${hash([extractorVersion(), ...fileIdentity([...all, ...(apiVersions ? [apiVersions] : [])])])}`;
+  return { dir: path.join(cacheRoot(opts), "sdk/android", key), describe, android: { jars: all, apiVersions, dependencies: dependencies.length, classpath } };
 }
 
 function extractAndroidModule(sdk: Located, module: string): SdkLookup {
-  const { jars, apiVersions } = sdk.android!;
+  const { jars, apiVersions, dependencies, classpath } = sdk.android!;
   const index = jarIndex(jars, apiVersions);
-  if (!index.packages.has(module)) return { missing: `lucent:android/${module} was not found in the SDK or the app's dependencies (looked in ${jars.join(", ")})` };
+  if (!index.packages.has(module)) {
+    const platformJars = jars.slice(0, jars.length - dependencies);
+    let where = `looked in ${platformJars.join(", ")}`;
+    if (dependencies) where += ` and ${dependencies} dependency jar${dependencies === 1 ? "" : "s"} from ${classpath}`;
+    else if (classpath) where += `; the app's dependencies are not resolved yet: run ./gradlew :app:lucentClasspath in android/ (lucent build runs it when an import is not in the SDK)`;
+    return { missing: `lucent:android/${module} was not found in the SDK or the app's dependencies (${where})` };
+  }
   extractions++;
   return { schema: extractAndroid({ jars, apiVersions, packages: [module] })[0]! };
 }

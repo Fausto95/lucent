@@ -151,8 +151,13 @@ export function jarIndex(jars: string[], apiVersions: string | undefined): JarIn
   const cached = jarIndexes.get(identity);
   if (cached) return cached;
   const classes = new Map<string, ClassFile>();
-  for (const jar of jars) {
-    const zip = new ZipArchive(jar);
+  // AARs carry their classes in classes.jar (and libs/*.jar).
+  const archives = jars.flatMap((file): ZipArchive[] => {
+    const zip = new ZipArchive(file);
+    if (!file.endsWith(".aar")) return [zip];
+    return zip.names().filter((n) => n === "classes.jar" || /^libs\/[^/]+\.jar$/.test(n)).map((n) => new ZipArchive(zip.read(n)!));
+  });
+  for (const zip of archives) {
     for (const entry of zip.names()) {
       if (!entry.endsWith(".class") || entry.includes("-") || entry.startsWith("META-INF/")) continue;
       const internal = entry.slice(0, -".class".length);
