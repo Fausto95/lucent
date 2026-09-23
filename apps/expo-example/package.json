@@ -12,17 +12,18 @@
   },
   "dependencies": {
     "@lucent-lang/core": "workspace:*",
+    "@lucent-lang/runtime": "workspace:*",
     "expo": "~58.0.0-preview.4",
+    "expo-haptics": "~58.0.1",
     "expo-status-bar": "~58.0.1",
     "react": "19.3.0",
-    "react-native": "0.88.0-rc.1",
-    "@lucent-lang/runtime": "workspace:*"
+    "react-native": "0.88.0-rc.1"
   },
   "devDependencies": {
     "@lucent-lang/cli": "workspace:*",
-    "@types/react": "~19.3.0",
-    "typescript": "~6.0.3",
+    "@lucent-lang/expo": "workspace:*",
     "@lucent-lang/metro": "workspace:*",
-    "@lucent-lang/expo": "workspace:*"
+    "@types/react": "~19.3.0",
+    "typescript": "~6.0.3"
   }
 }
