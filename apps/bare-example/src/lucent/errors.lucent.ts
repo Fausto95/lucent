@@ -45,3 +45,11 @@ export function rethrow(): string {
 export function outOfBounds(xs: number[]): number {
   return xs[10]!;
 }
+
+export function failDeep(): number {
+  throw new TypeError("deep");
+}
+
+export function passThrough(f: () => number): number {
+  return f();
+}

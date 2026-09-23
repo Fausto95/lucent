@@ -170,7 +170,7 @@ async function referenceRun(c: Case): Promise<string> {
       for (const candidate of [base, `${base}.ts`, base.replace(/\.js$/, ".ts")]) if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return load(candidate);
       throw new Error(`cannot resolve ${spec}`);
     };
-    vm.runInThisContext(`(function (exports, require) {${src}\n})`)(exports, req);
+    vm.runInThisContext(`(function (exports, require) {${src}\n})`, { filename: key })(exports, req);
     return exports;
   };
   const require_ = (p: string) => {
