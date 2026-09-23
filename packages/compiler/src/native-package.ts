@@ -96,7 +96,9 @@ export function writeNativePackage(result: EmitResult, outDir: string, options: 
     JSON.stringify({ generator: "lucent", modules: [...result.proxies.keys()].sort(), inputs: options.inputsKey }, null, 2) + "\n",
   );
 
-  const existing = new Set(listFiles(outDir));
+  // Gradle builds android/ in place: its outputs are not the package's files.
+  const buildOutput = /^android[\\/](build|\.cxx|\.gradle)[\\/]/;
+  const existing = new Set(listFiles(outDir).filter((f) => !buildOutput.test(path.relative(outDir, f))));
   const before = new Set(existing);
   const written: string[] = [];
   let unchanged = 0;
