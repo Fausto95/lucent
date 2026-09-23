@@ -69,6 +69,30 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
     expect(r).toEqual({ missing: expect.stringMatching(/com\.example\.nope.*not found.*fixture\.jar/s) });
   });
 
+  it("binds the app's dependencies: jars and AARs on its resolved classpath", () => {
+    const dir = tmp("lucent-deps-");
+    const jar = fixtureJar(dir);
+    // An AAR: classes.jar inside a zip, as Gradle downloads them.
+    const aarDir = path.join(dir, "aar");
+    fs.mkdirSync(aarDir);
+    fs.copyFileSync(jar, path.join(aarDir, "classes.jar"));
+    fs.writeFileSync(path.join(aarDir, "AndroidManifest.xml"), "<manifest/>");
+    const aar = path.join(dir, "widgets.aar");
+    spawnSync("jar", ["cf", aar, "-C", aarDir, "."]);
+    const classpath = path.join(dir, "android-classpath.json");
+    fs.writeFileSync(classpath, JSON.stringify({ aars: [aar], jars: [] }));
+    const sdk = { cacheDir: tmp("lucent-cache-"), android: { classpath } };
+    const r = sdkModule("android", "com.example.widgets", sdk);
+    expect("schema" in r && r.schema.types.some((t) => t.name === "Widget")).toBe(true);
+    // Where it looked, when a package is in neither.
+    expect(sdkModule("android", "com.example.nope", sdk)).toEqual({ missing: expect.stringMatching(/not found in the SDK or the app's dependencies.*android\.jar.*1 dependency/s) });
+  });
+
+  it("says how to resolve the app's dependencies when it has not", () => {
+    const r = sdkModule("android", "androidx.biometric", { cacheDir: tmp("lucent-cache-"), android: { classpath: path.join(tmp("lucent-app-"), ".lucent/android-classpath.json") } });
+    expect(r).toEqual({ missing: expect.stringMatching(/androidx\.biometric.*not found.*lucentClasspath/s) });
+  });
+
   it("names the fix when there is no Android SDK", () => {
     const r = sdkModule("android", "android.os", { cacheDir: tmp("lucent-cache-"), android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] }, prebuilt: false });
     expect(r).toEqual({ missing: expect.stringMatching(/Android SDK.*not found.*ANDROID_HOME/s) });
