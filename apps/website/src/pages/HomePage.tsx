@@ -75,7 +75,6 @@ export function HomePage() {
           <span aria-hidden="true" {...stylex.props(styles.platformLogo, styles.expoLogo)} />
           {" Expo"}
         </div>
-        <div {...stylex.props(styles.platformItem)}>New Architecture</div>
         <span {...stylex.props(styles.platformNote)}>
           iOS & Android
           <br />

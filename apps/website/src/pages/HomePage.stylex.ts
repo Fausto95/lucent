@@ -191,10 +191,7 @@ export const styles = stylex.create({
       "@media (max-width: 540px)": "23px 0",
     },
     display: "flex",
-    justifyContent: {
-      default: "space-between",
-      "@media (max-width: 540px)": "flex-start",
-    },
+    justifyContent: "flex-start",
     alignItems: "center",
     gap: {
       default: "25px",
@@ -206,7 +203,8 @@ export const styles = stylex.create({
       "@media (max-width: 850px)": "wrap",
     },
     columnGap: {
-      default: null,
+      default: "56px",
+      "@media (max-width: 850px)": "40px",
       "@media (max-width: 540px)": "16px",
     },
     rowGap: {
@@ -268,6 +266,7 @@ export const styles = stylex.create({
     maskSize: "contain",
   },
   platformNote: {
+    marginLeft: "auto",
     fontSize: "0.75rem",
     lineHeight: 1.6,
     color: tokens.textMuted,
