@@ -20,6 +20,10 @@ export interface SdkModuleSchema {
   /** Frameworks to link (iOS). */
   frameworks?: string[];
   types: (SdkClassSchema | SdkEnumSchema)[];
+  /** C functions (iOS). */
+  functions?: SdkMethodSchema[];
+  /** C global constants (iOS): `kSecClass`, `NSFileCreationDate`… */
+  constants?: SdkPropertySchema[];
   /** Members an extractor could not type yet (`Class.member: reason`). */
   skipped?: string[];
 }
@@ -57,6 +61,8 @@ export interface SdkMethodSchema extends SdkCallable {
   mainActor?: boolean;
   /** The Java method name, when `name` was changed to tell overloads apart. */
   java?: string;
+  /** Reports failure through a trailing NSError** (Swift `throws`). */
+  throws?: boolean;
 }
 
 export interface SdkPropertySchema {
@@ -66,6 +72,8 @@ export interface SdkPropertySchema {
   readonly?: boolean;
   /** Objective-C getter selector, when it differs from `name` (iOS). */
   selector?: string;
+  /** Objective-C setter selector, for writable properties (iOS). */
+  setter?: string;
   /** Getter method, for Kotlin-style properties (Android); fields otherwise. */
   getter?: string;
   /** A compile-time constant (`static final` primitives and strings). */
@@ -104,7 +112,7 @@ export type SdkType =
   | { k: "tparam"; name: string; nullable: boolean }
   | { k: "ref"; module: string; name: string; nullable: boolean };
 
-const PRIMS = ["void", "boolean", "bool", "byte", "char", "short", "int", "long", "float", "double", "CGFloat", "NSInteger", "NSUInteger"] as const;
+const PRIMS = ["void", "boolean", "bool", "byte", "char", "short", "int", "long", "float", "double", "CGFloat", "NSInteger", "NSUInteger", "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64"] as const;
 export type PrimName = (typeof PRIMS)[number];
 
 const JNI_PRIM: Record<string, string> = { void: "V", boolean: "Z", bool: "Z", byte: "B", char: "C", short: "S", int: "I", long: "J", float: "F", double: "D" };
