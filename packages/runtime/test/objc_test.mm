@@ -1,5 +1,5 @@
 // Lucent runtime — Objective-C glue helpers (lucent/platform/ios.h) on the
-// macOS host: blocks, the object cache and NSError out-parameters, checked
+// macOS host: blocks, the object cache, NSError out-parameters and sets, checked
 // for what they keep alive (run.sh builds it with ARC, and ASan with SANITIZE=1).
 #include <cstdio>
 #include <memory>
@@ -88,11 +88,31 @@ static void nativeReferencesAreCounted() {
   CHECK(liveNativeRefs() == before);
 }
 
+/// NSSet ⇄ Lucent Set: every element once, whichever way; wrapped objects
+/// stay themselves, so a set of them round-trips to the same NSObjects.
+static void setsRoundTrip() {
+  @autoreleasepool {
+    NSSet* words = [NSSet setWithObjects:@"a", @"b", @"a", nil];
+    Set<String> s = objc::fromNSSet<String>(words, [](id e) { return objc::fromNSString((NSString*)e, "test"); }, "test");
+    CHECK(s.size() == 2);
+    CHECK(s.has(String::fromLatin1("a")) && s.has(String::fromLatin1("b")));
+    NSSet* back = objc::toNSSet(s, [](const String& e) -> id { return objc::toNSString(e); });
+    CHECK([back isEqualToSet:words]);
+
+    NSObject* o = [NSObject new];
+    Set<NativeRef> refs = objc::fromNSSet<NativeRef>([NSSet setWithObject:o], [](id e) { return objc::wrap(e, "test"); }, "test");
+    NSSet* objects = objc::toNSSet(refs, [](const NativeRef& e) -> id { return objc::unwrap(e); });
+    CHECK(objects.count == 1 && objects.anyObject == o);
+    CHECK(!objc::fromNSSetOpt<String>(nil, [](id e) { return objc::fromNSString((NSString*)e, "test"); }).has());
+  }
+}
+
 int main() {
   blocksReleaseWhatTheyHold();
   cachedObjectsAreWeak();
   errorOutRetainsOnce();
   nativeReferencesAreCounted();
+  setsRoundTrip();
   std::printf("objc: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;
 }

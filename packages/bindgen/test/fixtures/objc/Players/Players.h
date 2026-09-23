@@ -12,6 +12,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)openRequest:(NSURLRequest *)request;
 @property (nonatomic, nullable) MSRBufferRef buffer;
 - (nullable MSRBufferRef)copyBuffer CF_RETURNS_RETAINED;
+@property (nonatomic, copy) NSSet<NSString *> *tags;
+- (void)followPlayers:(NSSet<PLYPlayer *> *)players;
 @end
 
 NS_ASSUME_NONNULL_END

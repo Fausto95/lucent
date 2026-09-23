@@ -206,6 +206,13 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     expect(player?.kind === "class" && player.properties?.find((p) => p.name === "buffer")?.type).toEqual(T("Measures.MSRBuffer?"));
   });
 
+  it("binds NSSet as a set of its element type", () => {
+    const r = sdkModule("ios", "Players", { cacheDir: tmp("lucent-cache-"), ios: { includePaths: [path.join(fixtures, "objc")] } });
+    const player = "schema" in r ? r.schema.types.find((t) => t.name === "PLYPlayer") : undefined;
+    expect(player?.kind === "class" && player.properties?.find((p) => p.name === "tags")?.type).toEqual(T("Set<string>"));
+    expect(player?.kind === "class" && player.methods?.find((m) => m.selector === "followPlayers:")?.params).toEqual([{ name: "players", type: T("Set<Players.PLYPlayer>") }]);
+  });
+
   it("keys the app's pods on Podfile.lock, not on every header", () => {
     const dir = tmp("lucent-pods-");
     fs.cpSync(path.join(fixtures, "pods"), dir, { recursive: true });

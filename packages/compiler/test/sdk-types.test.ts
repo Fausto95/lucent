@@ -25,6 +25,7 @@ describe("schema types", () => {
     expect(parseSdkType("Out<error>?")).toEqual({ k: "out", of: { k: "error", nullable: false }, nullable: true });
     expect(parseSdkType("Widget", "com.example")).toEqual({ k: "ref", module: "com.example", name: "Widget", nullable: false });
     expect(parseSdkType("T[]", "", ["T"])).toEqual({ k: "array", of: { k: "tparam", name: "T", nullable: false }, nullable: false });
+    expect(parseSdkType("Set<UIKit.UITouch>?")).toEqual({ k: "set", of: { k: "ref", module: "UIKit", name: "UITouch", nullable: false }, nullable: true });
   });
 
   it("parses blocks: parameters, result, whether they escape and run on the main thread", () => {

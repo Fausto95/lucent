@@ -152,6 +152,17 @@ export async function run(): Promise<string> {
 }
 `;
 
+const sets = `import { UIApplication, UIEvent, UIView, type UITouch } from "lucent:ios/UIKit";
+import { main } from "lucent:thread";
+export async function run(): Promise<string> {
+  return main(() => {
+    const scenes = UIApplication.shared.connectedScenes;
+    new UIView().touchesBegan(new Set<UITouch>(), new UIEvent());
+    return \`\${scenes.size}\`;
+  });
+}
+`;
+
 const mediaTimes = `import { AVPlayer } from "lucent:ios/AVFoundation";
 import { CMTimeCompare, CMTimeMake } from "lucent:ios/CoreMedia";
 import { NSUnionRange } from "lucent:ios/Foundation";
@@ -345,6 +356,13 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(mm).toContain("lucent::objc::wrapOpt((__bridge_transfer id)[");
   });
 
+  it("passes NSSets as Lucent sets", () => {
+    const { r, mm } = ios(sets);
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("lucent::objc::fromNSSet<");
+    expect(mm).toContain("touchesBegan:lucent::objc::toNSSet(");
+  });
+
   it("monitors network paths: OS objects, anonymous enums, blocks, the main queue", () => {
     const { r, mm } = ios(pathMonitor);
     expect(r.diagnostics).toEqual([]);
@@ -368,7 +386,7 @@ export async function run(): Promise<string> {
   it("generates Objective-C++ that compiles against the iOS SDK", () => {
     const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
     if (process.platform !== "darwin" || sdk.status !== 0) return;
-    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [unimportedStruct], [cgImages], [mediaTimes], [shadowing], [pathMonitor], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
+    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [unimportedStruct], [cgImages], [sets], [mediaTimes], [shadowing], [pathMonitor], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
       const { r, dir } = ios(src, sdk);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {
