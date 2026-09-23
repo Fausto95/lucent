@@ -486,6 +486,27 @@ static void abortSignals() {
   }
 }
 
+static void dates() {
+  // Local-time rules need a zone with daylight saving time.
+  setenv("TZ", "America/New_York", 1);
+  tzset();
+  CHECK(dateUTC(2024, 1, 29, 13, 45, 30, 123) == 1709214330123.0);
+  CHECK_STR(makeDate(1709214330123.0)->toISOString(), "2024-02-29T13:45:30.123Z");
+  CHECK(dateParse(S("2024-02-29T13:45:30+02:00")) == 1709207130000.0);
+  CHECK(dateParse(S("Mon Jul 22 2019 15:51:50 GMT-0700")) == 1563835910000.0);
+  // A local time in the spring-forward gap uses the offset before the
+  // transition; one that happens twice in the fall-back overlap, the earlier.
+  CHECK_STR(dateFromLocal(2024, 2, 10, 2, 30, 0, 0)->toISOString(), "2024-03-10T07:30:00.000Z");
+  CHECK(dateFromLocal(2024, 2, 10, 2, 30, 0, 0)->getHours() == 3);
+  CHECK_STR(dateFromLocal(2024, 10, 3, 1, 30, 0, 0)->toISOString(), "2024-11-03T05:30:00.000Z");
+  // Hermes's format: no zone name.
+  CHECK_STR(makeDate(1563835910000.0)->toString(), "Mon Jul 22 2019 18:51:50 GMT-0400");
+  CHECK_STR(makeDate(1563835910000.0)->toUTCString(), "Mon, 22 Jul 2019 22:51:50 GMT");
+  CHECK(std::isnan(makeDate(8.64e15 + 1)->getTime()));
+  CHECK_STR(makeDate(kNaN)->toString(), "Invalid Date");
+  CHECK_THROWS(makeDate(kNaN)->toISOString(), "RangeError");
+}
+
 static void bytes() {
   Bytes b = Bytes::fromArray(Array<double>{1, 2, 300, -1});
   CHECK_STR(b.join(), "1,2,44,255");
@@ -509,6 +530,7 @@ int main() {
   async();
   timersPostedWhileWaiting();
   abortSignals();
+  dates();
   bytes();
   std::printf("%d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

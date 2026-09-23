@@ -18,6 +18,10 @@ import vm from "node:vm";
 import ts from "typescript";
 import { compile, report } from "../../src/index.ts";
 
+// One time zone with daylight saving time for both runs (the native host
+// inherits it), so local-time code is exercised even on UTC machines.
+process.env.TZ = process.env.LUCENT_TEST_TZ ?? "America/New_York";
+
 const here = path.dirname(fileURLToPath(import.meta.url));
 const casesDir = path.join(here, "cases");
 const runtimeDir = path.resolve(here, "../../../runtime");
@@ -191,6 +195,7 @@ async function referenceRun(c: Case): Promise<string> {
     Map,
     Set,
     Uint8Array,
+    Date,
     AbortController,
     AbortSignal,
     String,
