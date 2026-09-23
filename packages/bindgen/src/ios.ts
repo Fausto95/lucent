@@ -169,6 +169,7 @@ const SWIFT_PRIM: Record<string, string> = {
   "s:s6UInt64V": "uint64",
   "s:14CoreFoundation7CGFloatV": "CGFloat",
   "s:SS": "string",
+  "s:s5ErrorP": "error",
   "s:10Foundation4DataV": "NSData",
   "s:10Foundation4DateV": "NSDate",
 };
@@ -211,6 +212,8 @@ interface Resolver {
   /** Typealiases and typed string enums: USR to the fragments they stand for. */
   alias(usr: string): Fragment[] | undefined;
   self?: string;
+  /** The member is main-actor: its blocks that are not @Sendable run on the main thread. */
+  mainActor?: boolean;
 }
 
 /** Tokens of a type written in declaration fragments. */
@@ -221,7 +224,7 @@ function tokens(frags: Fragment[]): (Fragment | string)[] {
     else if (f.kind === "keyword" && (f.spelling === "Any" || f.spelling === "AnyObject" || f.spelling === "Self")) out.push(f.spelling);
     else if (f.spelling.trim() === "()") out.push("()");
     else {
-      for (const t of f.spelling.split(/(\?|!|\[|\]|:|<|>|,|\(|\)|->|@escaping|any |some |inout |\.)/)) {
+      for (const t of f.spelling.split(/(\?|!|\[|\]|:|<|>|,|\(|\)|->|@\w+|any |some |inout |\.)/)) {
         const s = t.trim();
         if (s) out.push(s);
       }
@@ -234,19 +237,54 @@ function parseType(frags: Fragment[], r: Resolver): string {
   // `UIControl.State`: a reference to the nested type is its last identifier.
   const toks = tokens(frags).filter((t, i, all) => !(typeof t !== "string" && all[i + 1] === "." && typeof all[i + 2] !== "string")).filter((t) => t !== ".");
   let p = 0;
+  const isFn = (t: string) => t.includes("=>") && !t.endsWith("?");
   const type = (): string => {
     let t = primary();
     while (toks[p] === "?" || toks[p] === "!") {
       p++;
-      if (!t.endsWith("?")) t = `${t}?`;
+      if (!t.endsWith("?")) t = isFn(t) ? `(${t})?` : `${t}?`;
     }
     return t;
   };
+  /**
+   * A block: `@escaping` when it outlives the call, `@main` when it runs on
+   * the main thread (Swift's isolation: an explicit @MainActor, or not
+   * @Sendable in a main-actor member).
+   */
+  const closure = (params: string[], attrs: string[]): string => {
+    const ret = type();
+    const main = attrs.includes("@MainActor") || (!attrs.includes("@Sendable") && !!r.mainActor);
+    const flags = [attrs.includes("@escaping") ? "@escaping " : "", main ? "@main " : ""].join("");
+    return `${flags}(${params.join(", ")}) => ${ret}`;
+  };
   const primary = (): string => {
+    const attrs: string[] = [];
+    while (typeof toks[p] === "string" && (toks[p] as string).startsWith("@")) attrs.push(toks[p++] as string);
     const tok = toks[p++];
     if (tok === undefined) throw new Unsupported("empty type");
     if (tok === "any" || tok === "some") return primary();
-    if (tok === "(" || tok === "->" || tok === "@escaping" || tok === "inout") throw new Unsupported("closures and tuples");
+    if (tok === "inout") throw new Unsupported("inout");
+    if (tok === "()" && toks[p] === "->") {
+      p++;
+      return closure([], attrs);
+    }
+    if (tok === "(") {
+      const items: string[] = [];
+      while (toks[p] !== ")") {
+        items.push(type());
+        if (toks[p] === ",") p++;
+        else break;
+      }
+      if (toks[p++] !== ")") throw new Unsupported("closures and tuples");
+      if (toks[p] === "->") {
+        p++;
+        return closure(items, attrs);
+      }
+      if (items.length === 1 && !attrs.length) return items[0]!;
+      throw new Unsupported("tuples");
+    }
+    if (tok === "->") throw new Unsupported("closures and tuples");
+    if (attrs.length) throw new Unsupported(`type syntax ${attrs.join(" ")}`);
     if (tok === "[") {
       const key = type();
       if (toks[p] === ":") {
@@ -257,7 +295,7 @@ function parseType(frags: Fragment[], r: Resolver): string {
         return `Record<${value}>`;
       }
       if (toks[p++] !== "]") throw new Unsupported("array");
-      return `${key}[]`;
+      return isFn(key) ? `(${key})[]` : `${key}[]`;
     }
     if (tok === "Any" || tok === "AnyObject") return "id";
     if (tok === "()") return "void";
@@ -436,16 +474,17 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
   {
     const mod: SdkModuleSchema = { platform: "ios", module, frameworks: [module], types: [], skipped: [] };
     const members = new Map<string, SymbolGraphSymbol[]>();
+    // Several symbols can share a USR: a completion-handler method and its async form.
+    const symbolsOf = new Map<string, SymbolGraphSymbol[]>();
+    for (const s of g.symbols) symbolsOf.set(s.identifier.precise, [...(symbolsOf.get(s.identifier.precise) ?? []), s]);
     for (const rel of g.relationships) {
       if (rel.kind !== "memberOf" && rel.kind !== "requirementOf" && rel.kind !== "optionalRequirementOf") continue;
-      const sym = g.symbols.find((s) => s.identifier.precise === rel.source);
-      if (!sym) continue;
       const list = members.get(rel.target) ?? [];
-      if (!list.includes(sym)) list.push(sym);
+      for (const sym of symbolsOf.get(rel.source) ?? []) if (!list.includes(sym)) list.push(sym);
       members.set(rel.target, list);
     }
     const byUsr = new Map(g.symbols.map((s) => [s.identifier.precise, s]));
-    const resolver = (self?: string): Resolver => ({ ref: (u) => refs.get(u), alias: (u) => aliases.get(u), self });
+    const resolver = (self?: string, mainActor?: boolean): Resolver => ({ ref: (u) => refs.get(u), alias: (u) => aliases.get(u), self, mainActor });
     const skip = (owner: string, s: SymbolGraphSymbol, reason: string) => mod.skipped!.push(`${owner}.${s.names.title}: ${reason}`);
 
     // Enums and options.
@@ -502,18 +541,22 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
       const props: SdkPropertySchema[] = [];
       const seenUsr = new Set<string>();
       let initUnavailable = false;
+      // Completion-handler methods Swift imports a second time as async.
+      const asyncTwins = new Map((members.get(s.identifier.precise) ?? []).filter((mem) => /\basync\b/.test(declText(mem))).map((mem) => [mem.identifier.precise, mem]));
       for (const mem of members.get(s.identifier.precise) ?? []) {
         const mm = objcMember(mem.identifier.precise);
         if (mm && unavailable(mem) && mem.kind.identifier === "swift.init") initUnavailable = true;
         if (!mm || unavailable(mem)) continue;
         const text = declText(mem);
-        // A completion-handler method is imported twice: keep the handler form.
+        // The async form of a completion-handler method: read with the handler form.
         if (/\basync\b/.test(text)) continue;
+        // Attributes of the member itself, not of its parameters' blocks.
+        const head = text.slice(0, Math.max(0, text.search(/\b(func|init|var|subscript)\b/)));
         if (seenUsr.has(mem.identifier.precise)) continue;
         seenUsr.add(mem.identifier.precise);
         const kind = mm[3]!;
         const selector = mm[4]!;
-        const r = resolver(self);
+        const r = resolver(self, !!cls.mainActor || head.includes("@MainActor"));
         const memberSince = since(mem);
         try {
           if (kind === "py" || kind === "cpy") {
@@ -525,12 +568,13 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
             if (p.selector === undefined) delete p.selector;
             if (!readonly) p.setter = `set${selector.charAt(0).toUpperCase()}${selector.slice(1)}:`;
             if (memberSince && memberSince !== cls.since) p.since = memberSince;
-            if (declText(mem).includes("@MainActor") && !cls.mainActor) (p as SdkPropertySchema & { mainActor?: boolean }).mainActor = true;
+            if (head.includes("@MainActor") && !cls.mainActor) (p as SdkPropertySchema & { mainActor?: boolean }).mainActor = true;
             props.push(p);
             continue;
           }
           const sig = mem.functionSignature;
-          const params = (sig?.parameters ?? []).map((pp) => ({ name: pp.internalName ?? pp.name, type: parseType(afterColon(pp.declarationFragments), r) }));
+          const escaping = escapingParams(mem);
+          const params = (sig?.parameters ?? []).map((pp, i) => ({ name: pp.internalName ?? pp.name, type: withEscaping(parseType(afterColon(pp.declarationFragments), r), escaping[i]) }));
           if (mem.kind.identifier === "swift.init") {
             if (kind === "cm") continue;
             const c: SdkCallable = { params, selector };
@@ -544,7 +588,18 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
           if (kind === "cm") method.static = true;
           if (/\bthrows\b/.test(text)) method.throws = true;
           if (memberSince && memberSince !== cls.since) method.since = memberSince;
-          if (text.includes("@MainActor") && !cls.mainActor) method.mainActor = true;
+          if (head.includes("@MainActor") && !cls.mainActor) method.mainActor = true;
+          const twin = asyncTwins.get(mem.identifier.precise);
+          if (twin) {
+            try {
+              const tr = twin.functionSignature?.returns;
+              method.async = { returns: tr?.length ? parseType(tr, r) : "void" };
+              if (/\bthrows\b/.test(declText(twin))) method.async.throws = true;
+            } catch (e) {
+              // Several results (a tuple): the block form only.
+              if (!(e instanceof Unsupported)) throw e;
+            }
+          }
           (method as SdkMethodSchema & { swiftName?: string }).swiftName = mem.names.title;
           methods.push(method);
         } catch (e) {
@@ -590,6 +645,20 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
     void byUsr;
     return mod;
   }
+}
+
+/** Which parameters are `@escaping`: the declaration says so, the parameters' own fragments do not. */
+function escapingParams(s: SymbolGraphSymbol): boolean[] {
+  const out: boolean[] = [];
+  for (const f of s.declarationFragments ?? []) {
+    if (f.kind === "externalParam") out.push(false);
+    else if (out.length && f.spelling.includes("@escaping")) out[out.length - 1] = true;
+  }
+  return out;
+}
+
+function withEscaping(type: string, escaping: boolean | undefined): string {
+  return escaping && !type.endsWith("?") && type.includes("=>") && !type.startsWith("@escaping") ? `@escaping ${type}` : type;
 }
 
 /** The getter selector of a property whose Swift name differs from its Objective-C name (`isEnabled`). */
