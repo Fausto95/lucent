@@ -27,8 +27,23 @@ function buildOnce(projectRoot) {
   }
 }
 
+/** Info.plist entries Lucent packages need (their lucent.json), as the last build recorded them. */
+function packagesInfoPlist(projectRoot) {
+  const manifest = path.join(projectRoot, ".lucent", "native", "manifest.json");
+  if (!fs.existsSync(manifest)) return {};
+  return JSON.parse(fs.readFileSync(manifest, "utf8")).infoPlist || {};
+}
+
 function withLucent(config) {
-  const { withDangerousMod } = require("expo/config-plugins");
+  const { withDangerousMod, withInfoPlist } = require("expo/config-plugins");
+  // Keys the app sets itself win.
+  config = withInfoPlist(config, (c) => {
+    buildOnce(c.modRequest.projectRoot);
+    for (const [key, { value }] of Object.entries(packagesInfoPlist(c.modRequest.projectRoot))) {
+      if (c.modResults[key] === undefined) c.modResults[key] = value;
+    }
+    return c;
+  });
   for (const platform of ["ios", "android"]) {
     config = withDangerousMod(config, [
       platform,

@@ -3,6 +3,7 @@ import path from "node:path";
 import { formatDiagnostic } from "./diagnostics.ts";
 import { compile, type CompileOptions } from "./index.ts";
 import { inputsKey, isUpToDate, writeNativePackage } from "./native-package.ts";
+import type { NativeDependencies } from "./packages.ts";
 import { LUCENT_EXTENSION, projectFiles } from "./program.ts";
 
 export interface WatchEvent {
@@ -18,7 +19,7 @@ export interface WatchEvent {
  * Builds `root` into `outDir`, then again whenever a `*.lucent.ts` file under
  * it changes. Returns a function that stops watching.
  */
-export function watchBuild(root: string, outDir: string, onBuild: (e: WatchEvent) => void, options: CompileOptions = {}, hooks: { beforeBuild?: (files: string[]) => void } = {}): () => void {
+export function watchBuild(root: string, outDir: string, onBuild: (e: WatchEvent) => void, options: CompileOptions = {}, hooks: { beforeBuild?: (files: string[]) => void; native?: () => NativeDependencies } = {}): () => void {
   let timer: NodeJS.Timeout | undefined;
   let building = false;
   let again = false;
@@ -40,7 +41,7 @@ export function watchBuild(root: string, outDir: string, onBuild: (e: WatchEvent
         onBuild({ ok: false, modules, messages: result.diagnostics.map((d) => formatDiagnostic({ ...d, file: d.file && path.relative(root, d.file) })), nativeChanged: false });
         return;
       }
-      const w = writeNativePackage(result, outDir, { inputsKey: key });
+      const w = writeNativePackage(result, outDir, { inputsKey: key, native: hooks.native?.() });
       const nativeChanged = w.written.some((f) => !f.includes(`${path.sep}js${path.sep}`)) || w.removed.length > 0;
       onBuild({ ok: true, modules, messages: [`${modules.length} module(s), ${w.written.length} file(s) written`], nativeChanged });
     } finally {

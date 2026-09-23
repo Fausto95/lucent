@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { compile, forgetLoadedSdks, formatDiagnostic, inputsKey, isUpToDate, platformOf, podsSearchPaths, prefetchSdk, projectFiles, sdkAvailable, sdkModule, sdkModules, runtimeDir, type SdkOptions, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
+import { compile, forgetLoadedSdks, formatDiagnostic, inputsKey, isUpToDate, platformOf, lucentPackages, nativeDependencies, type NativeDependencies, podsSearchPaths, prefetchSdk, projectFiles, withGradleDependencies, sdkAvailable, sdkModule, sdkModules, runtimeDir, type SdkOptions, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
 
 const HELP = `lucent — compile *.lucent.ts modules into a native React Native package
 
@@ -40,8 +40,10 @@ function run(): number {
   }
   if (command === "build" && process.argv.includes("--watch")) return watch(root);
   let files: string[];
+  let native: NativeDependencies;
   try {
     files = projectFiles(root);
+    native = nativeDependencies(lucentPackages(root));
   } catch (e) {
     process.stderr.write(`✗ ${(e as Error).message}\n`);
     return 1;
@@ -55,7 +57,12 @@ function run(): number {
   const platformsArg = arg("--platforms", "");
   let platforms = platformsArg ? (platformsArg.split(",") as Target[]) : undefined;
   // A host build has the platform modules' stubs: no Android dependencies to resolve.
-  if (command === "build" && (!platforms || platforms.includes("android"))) resolveAndroidDependencies(root, files, sdk);
+  if (command === "build" && (!platforms || platforms.includes("android"))) {
+    // Packages' Gradle artifacts are on the classpath Lucent binds from: the
+    // library declares them before Gradle resolves it.
+    writeGradleDependencies(out, native);
+    resolveAndroidDependencies(root, files, sdk, native);
+  }
   if (!platforms && files.some((f) => platformOf(f))) {
     // Build what this machine can: an Android-only Linux host, a Mac without the Android SDK.
     const installed = (["ios", "android"] as const).filter((p) => sdkAvailable(p, sdk));
@@ -71,7 +78,7 @@ function run(): number {
     platforms = installed;
     if (command === "build") backgroundPrefetch(root, files);
   }
-  const key = inputsKey(files, out) + (platforms ? `:${platforms.join(",")}` : "");
+  const key = inputsKey(files, out) + (platforms ? `:${platforms.join(",")}` : "") + `:${createHash("sha256").update(JSON.stringify(native)).digest("hex").slice(0, 12)}`;
   if (command === "build" && !process.argv.includes("--force") && isUpToDate(out, key)) {
     process.stdout.write(`✓ ${path.relative(root, out)} is up to date (${files.length} module(s), ${Date.now() - t0} ms)\n`);
     return 0;
@@ -87,7 +94,8 @@ function run(): number {
     process.stdout.write(`✓ ${names.length} module(s) OK: ${names.join(", ")} (${Date.now() - t0} ms)\n`);
     return 0;
   }
-  const w = writeNativePackage(result, out, { inputsKey: key });
+  const w = writeNativePackage(result, out, { inputsKey: key, native });
+  warnInfoPlist(root, native);
   process.stdout.write(`✓ Compiled ${names.length} module(s): ${names.join(", ")} (${Date.now() - t0} ms)\n`);
   process.stdout.write(`  ${path.relative(root, out)}: ${w.written.length} written, ${w.unchanged} unchanged, ${w.removed.length} removed\n`);
   if (w.structureChanged) {
@@ -110,12 +118,12 @@ function projectSdk(root: string): SdkOptions {
  * a failure included, so neither builds nor watch rebuilds rerun Gradle for
  * the same inputs.
  */
-function resolveAndroidDependencies(root: string, files: string[], sdk: SdkOptions): void {
+function resolveAndroidDependencies(root: string, files: string[], sdk: SdkOptions, native: NativeDependencies): void {
   const android = path.join(root, "android");
   const gradlew = path.join(android, process.platform === "win32" ? "gradlew.bat" : "gradlew");
   if (!sdkImports(files).android.length || !fs.existsSync(gradlew)) return;
   const stateFile = path.join(root, ".lucent/android-classpath.state.json");
-  const inputs = gradleInputsHash(root);
+  const inputs = gradleInputsHash(root, native);
   const state = fs.existsSync(stateFile) ? (JSON.parse(fs.readFileSync(stateFile, "utf8")) as { inputs?: string; ok?: boolean }) : {};
   const force = process.argv.includes("--force");
   if (!force && state.inputs === inputs && state.ok === false) {
@@ -134,12 +142,36 @@ function resolveAndroidDependencies(root: string, files: string[], sdk: SdkOptio
   forgetLoadedSdks();
 }
 
+/** The native package's build.gradle with the Lucent packages' Gradle artifacts, before the rest is written. */
+function writeGradleDependencies(out: string, native: NativeDependencies): void {
+  const file = path.join(out, "android/build.gradle");
+  const text = withGradleDependencies(fs.readFileSync(path.join(runtimeDir(), "native/android/build.gradle"), "utf8"), native);
+  if (fs.existsSync(file) && fs.readFileSync(file, "utf8") === text) return;
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, text);
+}
+
+/** Info.plist keys Lucent packages need that the app's Info.plist lacks: named, since the app's files are its own. */
+function warnInfoPlist(root: string, native: NativeDependencies): void {
+  const keys = Object.entries(native.infoPlist);
+  if (!keys.length) return;
+  const ios = path.join(root, "ios");
+  const plists = fs.existsSync(ios) ? fs.readdirSync(ios).map((d) => path.join(ios, d, "Info.plist")).filter((f) => fs.existsSync(f)) : [];
+  for (const plist of plists) {
+    const text = fs.readFileSync(plist, "utf8");
+    for (const [key, { from }] of keys) {
+      if (!text.includes(`<key>${key}</key>`)) process.stdout.write(`! ${from} needs ${key} in ${path.relative(root, plist)} (the Expo config plugin adds it)\n`);
+    }
+  }
+}
+
 /** What decides the app's Android classpath: Gradle's files, and the JS lockfile (autolinked packages). */
-function gradleInputsHash(root: string): string {
+function gradleInputsHash(root: string, native: NativeDependencies): string {
   const android = path.join(root, "android");
   const gradle = ["settings.gradle", "settings.gradle.kts", "build.gradle", "build.gradle.kts", "app/build.gradle", "app/build.gradle.kts", "gradle.properties", "gradle/libs.versions.toml"].map((f) => path.join(android, f));
   const h = createHash("sha256");
   for (const f of [...gradle, ...lockfiles(root)]) h.update(`${f}\0${fs.existsSync(f) ? fs.readFileSync(f) : ""}\0`);
+  h.update(JSON.stringify(native.gradle));
   return h.digest("hex").slice(0, 16);
 }
 
@@ -216,7 +248,14 @@ function watch(root: string): number {
     }
     process.stdout.write(`[${time}] ✓ Lucent: ${e.messages.join("; ")}\n`);
     if (e.nativeChanged) process.stdout.write("  Native code changed: rebuild the app (Xcode / Gradle) to run it.\n");
-  }, { sdk: projectSdk(root) }, { beforeBuild: (files) => resolveAndroidDependencies(root, files, projectSdk(root)) });
+  }, { sdk: projectSdk(root) }, {
+    native: () => nativeDependencies(lucentPackages(root)),
+    beforeBuild: (files) => {
+      const native = nativeDependencies(lucentPackages(root));
+      writeGradleDependencies(out, native);
+      resolveAndroidDependencies(root, files, projectSdk(root), native);
+    },
+  });
   return -1;
 }
 

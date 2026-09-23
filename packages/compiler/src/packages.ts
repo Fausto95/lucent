@@ -21,6 +21,53 @@ export interface LucentPackage {
   sources: string;
   /** Lucent versions it supports (an npm range). */
   compatible?: string;
+  /** Its lucent.json: what its platform code needs from the app. */
+  native?: PackageNative;
+}
+
+/** A package's lucent.json. */
+export interface PackageNative {
+  ios?: { pods?: Record<string, string>; infoPlist?: Record<string, string> };
+  android?: { dependencies?: Record<string, string>; permissions?: string[] };
+}
+
+/** What all of an app's Lucent packages need, merged. */
+export interface NativeDependencies {
+  /** Pod name → version requirement. */
+  pods: Record<string, string>;
+  /** Gradle `group:artifact` → version. */
+  gradle: Record<string, string>;
+  permissions: string[];
+  /** Info.plist key → value, and the package that wants it. */
+  infoPlist: Record<string, { value: string; from: string }>;
+}
+
+/**
+ * The native needs of `packages`, merged: one version of each pod and
+ * artifact, one value for each Info.plist key. Two packages that disagree
+ * are an error naming both.
+ */
+export function nativeDependencies(packages: LucentPackage[]): NativeDependencies {
+  const out: NativeDependencies = { pods: {}, gradle: {}, permissions: [], infoPlist: {} };
+  const owners = new Map<string, string>();
+  const merge = (kind: string, into: Record<string, string>, key: string, value: string, from: string) => {
+    const id = `${kind} ${key}`;
+    if (into[key] !== undefined && into[key] !== value) throw new Error(`${kind}${key}: ${owners.get(id)} wants ${into[key]}, ${from} wants ${value}`);
+    into[key] = value;
+    if (!owners.has(id)) owners.set(id, from);
+  };
+  for (const p of packages) {
+    for (const [pod, version] of Object.entries(p.native?.ios?.pods ?? {})) merge("pod ", out.pods, pod, version, p.name);
+    for (const [artifact, version] of Object.entries(p.native?.android?.dependencies ?? {})) merge("", out.gradle, artifact, version, p.name);
+    for (const perm of p.native?.android?.permissions ?? []) if (!out.permissions.includes(perm)) out.permissions.push(perm);
+    for (const [key, value] of Object.entries(p.native?.ios?.infoPlist ?? {})) {
+      const values = Object.fromEntries(Object.entries(out.infoPlist).map(([k, v]) => [k, v.value]));
+      merge("Info.plist ", values, key, value, p.name);
+      out.infoPlist[key] ??= { value, from: p.name };
+    }
+  }
+  out.permissions.sort();
+  return out;
 }
 
 interface PackageJson {
@@ -42,7 +89,11 @@ const read = (file: string): PackageJson | undefined => {
 export function lucentPackageOf(file: string): LucentPackage | undefined {
   for (let dir = path.dirname(path.resolve(file)); ; dir = path.dirname(dir)) {
     const pkg = read(path.join(dir, "package.json"));
-    if (pkg) return pkg.lucent && pkg.name ? { name: pkg.name, version: pkg.version ?? "0.0.0", dir, sources: path.join(dir, pkg.lucent.sources ?? "."), compatible: pkg.lucent.compatible } : undefined;
+    if (pkg) {
+      if (!pkg.lucent || !pkg.name) return undefined;
+      const native = fs.existsSync(path.join(dir, "lucent.json")) ? (JSON.parse(fs.readFileSync(path.join(dir, "lucent.json"), "utf8")) as PackageNative) : undefined;
+      return { name: pkg.name, version: pkg.version ?? "0.0.0", dir, sources: path.join(dir, pkg.lucent.sources ?? "."), compatible: pkg.lucent.compatible, ...(native ? { native } : {}) };
+    }
     if (path.dirname(dir) === dir) return undefined;
   }
 }
