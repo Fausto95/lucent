@@ -20,3 +20,4 @@ const seen = [];
 a.onEach((n) => seen.push(n));
 print(seen.join(","));
 print(mod.presence(c, "s", 1));
+print(mod.relayed());
