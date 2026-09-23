@@ -1682,11 +1682,20 @@ export class FnEmitter {
   equality(a: E, b: E, strict: boolean): string {
     const at = a.t, bt = b.t;
     const absent = (t: LType) => t.k === "undefined" || t.k === "null";
+    // Types that can hold null or undefined: a template parameter may be
+    // instantiated with an optional type.
+    const mayBeAbsent = (t: LType): boolean => t.k === "opt" || t.k === "void" || t.k === "tparam" || t.k === "never" || absent(t) || (t.k === "union" && t.ms.some(mayBeAbsent));
+    // A present value is never null or undefined; it is still evaluated.
+    const never = (e: E) => `((void)(${e.c}), false)`;
     if (!strict && (absent(bt) || absent(at))) {
       const other = absent(bt) ? a : b;
       if (other.t.k === "opt") return `(!(${other.c}).has())`;
       if (absent(other.t)) return "true";
-      return "false";
+      return never(other);
+    }
+    if (absent(at) !== absent(bt)) {
+      const other = absent(bt) ? a : b;
+      if (!mayBeAbsent(other.t)) return never(other);
     }
     if (at.k === "number" && bt.k === "number") return `(${a.c} == ${b.c})`;
     if (at.k === "boolean" && bt.k === "boolean") return `(${a.c} == ${b.c})`;
