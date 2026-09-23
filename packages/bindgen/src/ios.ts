@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { SdkCallable, SdkClassSchema, SdkEnumSchema, SdkMethodSchema, SdkModuleSchema, SdkPropertySchema } from "./schema.ts";
+import { formatSchemaType, parseSchemaType, type SchemaType, type SdkCallable, type SdkClassSchema, type SdkEnumSchema, type SdkMethodSchema, type SdkModuleSchema, type SdkPropertySchema } from "./schema.ts";
 
 /**
  * Binding schemas for Clang modules (Apple frameworks, and Objective-C pods
@@ -243,31 +243,31 @@ function tokens(frags: Fragment[]): (Fragment | string)[] {
   return out;
 }
 
-function parseType(frags: Fragment[], r: Resolver): string {
+function parseType(frags: Fragment[], r: Resolver): SchemaType {
   // `UIControl.State`: a reference to the nested type is its last identifier.
   const toks = tokens(frags).filter((t, i, all) => !(typeof t !== "string" && all[i + 1] === "." && typeof all[i + 2] !== "string")).filter((t) => t !== ".");
   let p = 0;
-  const isFn = (t: string) => t.includes("=>") && !t.endsWith("?");
-  const type = (): string => {
+  const named = (name: string) => parseSchemaType(name);
+  const type = (): SchemaType => {
     let t = primary();
     while (toks[p] === "?" || toks[p] === "!") {
       p++;
-      if (!t.endsWith("?")) t = isFn(t) ? `(${t})?` : `${t}?`;
+      // An optional block is stored, so it escapes.
+      t = t.k === "fn" ? { ...t, nullable: true, escaping: true } : { ...t, nullable: true };
     }
     return t;
   };
   /**
-   * A block: `@escaping` when it outlives the call, `@main` when it runs on
+   * A block: `escaping` when it outlives the call, `main` when it runs on
    * the main thread (Swift's isolation: an explicit @MainActor, or not
    * @Sendable in a main-actor member).
    */
-  const closure = (params: string[], attrs: string[]): string => {
+  const closure = (params: SchemaType[], attrs: string[]): SchemaType => {
     const ret = type();
     const main = attrs.includes("@MainActor") || (!attrs.includes("@Sendable") && !!r.mainActor);
-    const flags = [attrs.includes("@escaping") ? "@escaping " : "", main ? "@main " : ""].join("");
-    return `${flags}(${params.join(", ")}) => ${ret}`;
+    return { k: "fn", params, ret, escaping: attrs.includes("@escaping"), main, nullable: false };
   };
-  const primary = (): string => {
+  const primary = (): SchemaType => {
     const attrs: string[] = [];
     while (typeof toks[p] === "string" && (toks[p] as string).startsWith("@")) attrs.push(toks[p++] as string);
     const tok = toks[p++];
@@ -279,7 +279,7 @@ function parseType(frags: Fragment[], r: Resolver): string {
       return closure([], attrs);
     }
     if (tok === "(") {
-      const items: string[] = [];
+      const items: SchemaType[] = [];
       while (toks[p] !== ")") {
         items.push(type());
         if (toks[p] === ",") p++;
@@ -301,34 +301,35 @@ function parseType(frags: Fragment[], r: Resolver): string {
         p++;
         const value = type();
         if (toks[p++] !== "]") throw new Unsupported("dictionary");
-        if (key !== "string") throw new Unsupported(`dictionary keyed by ${key}`);
-        return `Record<${value}>`;
+        if (key.k !== "string" || key.nullable) throw new Unsupported(`dictionary keyed by ${formatSchemaType(key)}`);
+        return { k: "record", of: value, nullable: false };
       }
       if (toks[p++] !== "]") throw new Unsupported("array");
-      return isFn(key) ? `(${key})[]` : `${key}[]`;
+      return { k: "array", of: key, nullable: false };
     }
-    if (tok === "Any" || tok === "AnyObject") return "id";
-    if (tok === "()") return "void";
+    if (tok === "Any" || tok === "AnyObject") return named("id");
+    if (tok === "()") return named("void");
     if (tok === "Self") {
       if (!r.self) throw new Unsupported("Self");
-      return r.self;
+      return named(r.self);
     }
     if (typeof tok === "string") throw new Unsupported(`type syntax ${tok}`);
     const usr = tok.preciseIdentifier ?? "";
-    if (ERROR_POINTERS.has(usr)) return "Out<error>?";
+    if (ERROR_POINTERS.has(usr)) return { k: "out", of: named("error"), nullable: true };
     // `AutoreleasingUnsafeMutablePointer<NSError?>`, spelled out.
     const next = toks[p + 1];
     if ((usr === "s:SA" || usr === "s:Sp") && toks[p] === "<" && typeof next !== "string" && next?.preciseIdentifier === "c:objc(cs)NSError" && toks[p + 2] === "?" && toks[p + 3] === ">") {
       p += 4;
-      return "Out<error>";
+      return { k: "out", of: named("error"), nullable: false };
     }
     // `UnsafeMutablePointer<CFTypeRef?>`: an out-parameter for a reference.
     if (usr === "s:Sp" && toks[p] === "<") {
       p++;
       const inner = type();
       if (toks[p++] !== ">") throw new Unsupported("pointer");
-      if (!inner.endsWith("?") || !/^(CF\w+|id|\w+\.\w+)\?$/.test(inner)) throw new Unsupported(`pointer to ${inner}`);
-      return `Out<${inner.slice(0, -1)}>`;
+      const reference = inner.k === "id" || inner.k === "ref" || ("cf" in inner && !!inner.cf);
+      if (!inner.nullable || !reference) throw new Unsupported(`pointer to ${formatSchemaType(inner)}`);
+      return { k: "out", of: { ...inner, nullable: false }, nullable: false };
     }
     // Unmanaged<X>: ownership follows CoreFoundation's Create/Copy rule in the glue.
     if (usr === "s:s9UnmanagedV" && toks[p] === "<") {
@@ -338,23 +339,23 @@ function parseType(frags: Fragment[], r: Resolver): string {
       return inner;
     }
     if (toks[p] === "<") throw new Unsupported(`generic ${tok.spelling}`);
-    if (usr in CF_TYPES) return CF_TYPES[usr]!;
-    if (usr in C_TYPEDEFS) return C_TYPEDEFS[usr]!;
-    if (usr === "s:s4Voida") return "void";
+    if (usr in CF_TYPES) return named(CF_TYPES[usr]!);
+    if (usr in C_TYPEDEFS) return named(C_TYPEDEFS[usr]!);
+    if (usr === "s:s4Voida") return named("void");
     if (tok.spelling === "Self" && !usr) {
       if (!r.self) throw new Unsupported("Self");
-      return r.self;
+      return named(r.self);
     }
-    if (usr in SWIFT_PRIM) return SWIFT_PRIM[usr]!;
+    if (usr in SWIFT_PRIM) return named(SWIFT_PRIM[usr]!);
     if (usr in BRIDGED_CLASS) {
       const ref = r.ref(`c:objc(cs)${BRIDGED_CLASS[usr]}`);
       if (!ref) throw new Unsupported(tok.spelling);
-      return ref;
+      return named(ref);
     }
     const aliased = r.alias(usr);
     if (aliased) return parseType(aliased, r);
     const ref = r.ref(usr);
-    if (ref) return ref;
+    if (ref) return named(ref);
     throw new Unsupported(tok.spelling);
   };
   const t = type();
@@ -549,8 +550,9 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
           .filter((m) => m.kind.identifier === "swift.property" && m.identifier.precise.startsWith(`${s.identifier.precise}@FI@`))
           .map((m) => {
             const type = parseType(propertyType(m.declarationFragments ?? []), resolver());
-            const isStruct = kinds.get(type) === "struct";
-            if (!isStruct && !/^(double|float|CGFloat|NSInteger|NSUInteger|u?int(8|16|32|64)|bool)$/.test(type)) throw new Unsupported(`struct field ${type}`);
+            const written = formatSchemaType(type);
+            const isStruct = kinds.get(written) === "struct";
+            if (!isStruct && !/^(double|float|CGFloat|NSInteger|NSUInteger|u?int(8|16|32|64)|bool)$/.test(written)) throw new Unsupported(`struct field ${written}`);
             return { name: m.pathComponents[m.pathComponents.length - 1]!, type };
           });
         if (!fields.length) throw new Unsupported("struct without fields");
@@ -568,7 +570,7 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
       for (const mem of members.get(s.identifier.precise) ?? []) {
         const global = /^c:@([A-Za-z_]\w*)$/.exec(mem.identifier.precise)?.[1];
         if (!global || mem.kind.identifier !== "swift.type.property" || unavailable(mem)) continue;
-        props.push({ name: mem.pathComponents[mem.pathComponents.length - 1]!, static: true, readonly: true, type: "string", global });
+        props.push({ name: mem.pathComponents[mem.pathComponents.length - 1]!, static: true, readonly: true, type: parseSchemaType("string"), global });
       }
       if (props.length) mod.types.push({ kind: "class", name: s.pathComponents.join("_"), native: s.identifier.precise.replace(/^.*@T@/, ""), properties: props });
     }
@@ -639,7 +641,7 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
             ctors.push(c);
             continue;
           }
-          const returns = sig?.returns?.length ? parseType(sig.returns, r) : "void";
+          const returns = sig?.returns?.length ? parseType(sig.returns, r) : parseSchemaType("void");
           const { base, labels } = splitName(mem.names.title);
           // Protocol requirements, which Lucent classes implement, are named
           // from their own Swift name: base and labels, as in the selector.
@@ -654,7 +656,7 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
           if (twin) {
             try {
               const tr = twin.functionSignature?.returns;
-              method.async = { returns: tr?.length ? parseType(tr, r) : "void" };
+              method.async = { returns: tr?.length ? parseType(tr, r) : parseSchemaType("void") };
               if (/\bthrows\b/.test(declText(twin))) method.async.throws = true;
               const asyncName = splitName(twin.names.title).base;
               if (asyncName !== base) method.async.name = asyncName;
@@ -703,7 +705,7 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
           const sig = s.functionSignature;
           const escaping = escapingParams(s);
           const params = (sig?.parameters ?? []).map((pp, i) => ({ name: pp.internalName ?? pp.name, type: withEscaping(parseType(afterColon(pp.declarationFragments), resolver()), escaping[i]) }));
-          const f: SdkMethodSchema = { name: s.names.title.replace(/\(.*$/, ""), params, returns: sig?.returns?.length ? parseType(sig.returns, resolver()) : "void" };
+          const f: SdkMethodSchema = { name: s.names.title.replace(/\(.*$/, ""), params, returns: sig?.returns?.length ? parseType(sig.returns, resolver()) : parseSchemaType("void") };
           const v = since(s);
           if (v) f.since = v;
           (mod.functions ??= []).push(f);
@@ -731,8 +733,8 @@ function escapingParams(s: SymbolGraphSymbol): boolean[] {
   return out;
 }
 
-function withEscaping(type: string, escaping: boolean | undefined): string {
-  return escaping && !type.endsWith("?") && type.includes("=>") && !type.startsWith("@escaping") ? `@escaping ${type}` : type;
+function withEscaping(type: SchemaType, escaping: boolean | undefined): SchemaType {
+  return escaping && type.k === "fn" && !type.nullable ? { ...type, escaping: true } : type;
 }
 
 /** The getter selector of a property whose Swift name differs from its Objective-C name (`isEnabled`). */
@@ -745,7 +747,7 @@ function getterSelector(swiftName: string, property: string): string {
  * get their labels appended (`resize(height:)` → `resizeHeight`).
  */
 function disambiguate(methods: SdkMethodSchema[]): void {
-  const key = (m: SdkMethodSchema) => `${m.static ? "static " : ""}${m.name}(${m.params.map((p) => tsKind(p.type)).join(",")})`;
+  const key = (m: SdkMethodSchema) => `${m.static ? "static " : ""}${m.name}(${m.params.map((p) => tsKind(formatSchemaType(p.type))).join(",")})`;
   const seen = new Set<string>();
   for (const m of methods) {
     if (!seen.has(key(m))) {

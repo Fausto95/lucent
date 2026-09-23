@@ -4,132 +4,21 @@
  * the type grammar, JNI descriptors, and module lookup.
  */
 
-import { type Platform, PLATFORMS, type SdkClassSchema, type SdkEnumSchema, type SdkStructSchema, type NamesIndex, type SdkLookup, type SdkModuleSchema, sdkIdentity, sdkModule, sdkNames, type SdkOptions } from "@lucent-lang/bindgen";
+import { formatSchemaType, parseSchemaType, type Platform, PLATFORMS, type PrimName, type SchemaType, type SdkClassSchema, type SdkEnumSchema, type SdkStructSchema, type NamesIndex, type SdkLookup, type SdkModuleSchema, sdkIdentity, sdkModule, sdkNames, type SdkOptions } from "@lucent-lang/bindgen";
 
-export { PLATFORMS };
+export { formatSchemaType, PLATFORMS };
+export type { PrimName };
 export type { SdkOptions } from "@lucent-lang/bindgen";
 export type { Platform, SdkCallable, SdkClassSchema, SdkEnumSchema, SdkMethodSchema, SdkModuleSchema, SdkParam, SdkPropertySchema, SdkStructSchema } from "@lucent-lang/bindgen";
 
-/** A parsed schema type: `int`, `string?`, `long[]`, `Class<T>`, `android.os.Vibrator`, `UIDevice`. */
-export type SdkType =
-  | { k: "prim"; name: PrimName; nullable: boolean }
-  /** Java's String, or CharSequence (`charSequence`: results are read through toString()). */
-  | { k: "string"; nullable: boolean; charSequence?: boolean; cf?: boolean }
-  | { k: "array"; of: SdkType; nullable: boolean; cf?: boolean }
-  /** NSData / CFData: Uint8Array. */
-  | { k: "bytes"; nullable: boolean; cf?: boolean }
-  /** NSDate: Date. */
-  | { k: "date"; nullable: boolean }
-  /** Objective-C `Any` (id) / CFTypeRef. */
-  | { k: "id"; nullable: boolean; cf?: boolean }
-  /** [String: T] / CFDictionary: Record<string, T>. */
-  | { k: "record"; of: SdkType; nullable: boolean; cf?: boolean }
-  /** A C out-parameter (`CFTypeRef *`). */
-  | { k: "out"; of: SdkType; nullable: boolean }
-  | { k: "classOf"; param: string; nullable: boolean }
-  /** A block (iOS): `escaping` when it outlives the call, `main` when it runs on the main thread. */
-  | { k: "fn"; params: SdkType[]; ret: SdkType; escaping: boolean; main: boolean; nullable: boolean }
-  /** Swift's Error (an NSError): a Lucent Error. */
-  | { k: "error"; nullable: boolean }
-  | { k: "tparam"; name: string; nullable: boolean }
-  | { k: "ref"; module: string; name: string; nullable: boolean };
-
-const PRIMS = ["void", "boolean", "bool", "byte", "char", "short", "int", "long", "float", "double", "CGFloat", "NSInteger", "NSUInteger", "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64"] as const;
-export type PrimName = (typeof PRIMS)[number];
+/** A schema type: `int`, `string?`, `long[]`, `Class<T>`, `android.os.Vibrator` (bindgen's format). */
+export type SdkType = SchemaType;
 
 const JNI_PRIM: Record<string, string> = { void: "V", boolean: "Z", bool: "Z", byte: "B", char: "C", short: "S", int: "I", long: "J", float: "F", double: "D" };
 
-/** Parses a schema type; bare names refer to `module`. */
-export function parseSdkType(s: string, module = "", typeParams: readonly string[] = []): SdkType {
-  const toks = s.match(/@\w+|=>|[()[\]<>?,]|[\w.$]+/g) ?? [];
-  let p = 0;
-  const expect = (t: string) => {
-    if (toks[p++] !== t) throw new Error(`schema type ${s}: expected ${t}`);
-  };
-  const type = (): SdkType => {
-    let t = primary();
-    for (;;) {
-      if (toks[p] === "?") {
-        p++;
-        // An optional block is stored, so it escapes.
-        t = t.k === "fn" ? { ...t, escaping: true, nullable: true } : { ...t, nullable: true };
-      } else if (toks[p] === "[" && toks[p + 1] === "]") {
-        p += 2;
-        t = { k: "array", of: t, nullable: false };
-      } else return t;
-    }
-  };
-  const primary = (): SdkType => {
-    const attrs: string[] = [];
-    while (toks[p]?.startsWith("@")) attrs.push(toks[p++]!);
-    if (toks[p] === "(") {
-      p++;
-      const items: SdkType[] = [];
-      while (toks[p] !== ")") {
-        items.push(type());
-        if (toks[p] === ",") p++;
-        else break;
-      }
-      expect(")");
-      if (toks[p] === "=>") {
-        p++;
-        return { k: "fn", params: items, ret: type(), escaping: attrs.includes("@escaping"), main: attrs.includes("@main"), nullable: false };
-      }
-      if (items.length !== 1 || attrs.length) throw new Error(`schema type ${s}: expected =>`);
-      return items[0]!;
-    }
-    const name = toks[p++];
-    if (!name || !/^[\w.$]+$/.test(name)) throw new Error(`schema type ${s}: unexpected ${name ?? "end"}`);
-    if (toks[p] === "<") {
-      p++;
-      if (name === "Class") {
-        const param = toks[p++]!;
-        expect(">");
-        return { k: "classOf", param, nullable: false };
-      }
-      const of = type();
-      expect(">");
-      if (name === "Record") return { k: "record", of, nullable: false };
-      if (name === "Out") return { k: "out", of, nullable: false };
-      throw new Error(`schema type ${s}: unknown generic ${name}`);
-    }
-    return named(name, module, typeParams);
-  };
-  const t = type();
-  if (p !== toks.length) throw new Error(`schema type ${s}: unexpected ${toks[p]}`);
-  return t;
-}
-
-function named(s: string, module: string, typeParams: readonly string[]): SdkType {
-  switch (s) {
-    case "NSData":
-      return { k: "bytes", nullable: false };
-    case "CFData":
-      return { k: "bytes", nullable: false, cf: true };
-    case "NSDate":
-      return { k: "date", nullable: false };
-    case "id":
-      return { k: "id", nullable: false };
-    case "error":
-      return { k: "error", nullable: false };
-    case "CFTypeRef":
-    case "CFNumber":
-      return { k: "id", nullable: false, cf: true };
-    case "CFString":
-      return { k: "string", nullable: false, cf: true };
-    case "CFDictionary":
-      return { k: "record", of: { k: "id", nullable: false }, nullable: false, cf: true };
-    case "CFArray":
-      return { k: "array", of: { k: "id", nullable: false }, nullable: false, cf: true };
-    case "CFBoolean":
-      return { k: "prim", name: "bool", nullable: false };
-  }
-  if (s === "string") return { k: "string", nullable: false };
-  if (s === "CharSequence") return { k: "string", nullable: false, charSequence: true };
-  if ((PRIMS as readonly string[]).includes(s)) return { k: "prim", name: s as PrimName, nullable: false };
-  if (typeParams.includes(s)) return { k: "tparam", name: s, nullable: false };
-  const dot = s.lastIndexOf(".");
-  return dot < 0 ? { k: "ref", module, name: s, nullable: false } : { k: "ref", module: s.slice(0, dot), name: s.slice(dot + 1), nullable: false };
+/** A schema type, as is, or from its written form (hand-written schemas); bare names refer to `module`. */
+export function parseSdkType(s: string | SchemaType, module = "", typeParams: readonly string[] = []): SdkType {
+  return typeof s === "string" ? parseSchemaType(s, module, typeParams) : s;
 }
 
 let sdkOptions: SdkOptions = {};
@@ -184,7 +73,7 @@ export function findSdkType(platform: Platform, module: string, name: string): S
 }
 
 /** The JNI descriptor of a method with these schema parameter and return types. */
-export function jniDescriptor(params: string[], returns: string, typeParams: readonly string[] = []): string {
+export function jniDescriptor(params: (string | SchemaType)[], returns: string | SchemaType, typeParams: readonly string[] = []): string {
   const one = (t: SdkType): string => {
     switch (t.k) {
       case "prim":

@@ -116,8 +116,8 @@ function safeName(n: string): string {
 }
 
 function classDts(schema: SdkModuleSchema, cls: SdkClassSchema, tsType: (t: SdkType, out?: boolean) => string, use: (module: string, name: string) => void): string[] {
-  const parse = (s: string, tps: readonly string[] = []) => parseSdkType(s, schema.module, tps);
-  const params = (ps: { name: string; type: string }[], tps: readonly string[] = []) => ps.map((p) => `${safeName(p.name)}: ${tsType(parse(p.type, tps), false)}`).join(", ");
+  const parse = (s: string | SdkType, tps: readonly string[] = []) => parseSdkType(s, schema.module, tps);
+  const params = (ps: { name: string; type: string | SdkType }[], tps: readonly string[] = []) => ps.map((p) => `${safeName(p.name)}: ${tsType(parse(p.type, tps), false)}`).join(", ");
   const sinceText = (v: number | string | undefined) => (v === undefined ? undefined : `Since ${schema.platform === "android" ? "API " : "iOS "}${v}.`);
   const memberDoc = (m: { since?: number | string; deprecated?: boolean }) => {
     const parts = [sinceText(m.since), m.deprecated ? "@deprecated" : undefined].filter(Boolean);

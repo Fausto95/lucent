@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import type { SdkCallable, SdkClassSchema, SdkMethodSchema, SdkModuleSchema, SdkPropertySchema } from "./schema.ts";
+import { formatSchemaType, parseSchemaType, type SchemaType, type SdkCallable, type SdkClassSchema, type SdkMethodSchema, type SdkModuleSchema, type SdkPropertySchema } from "./schema.ts";
 import { ACC, type ClassFile, type MemberInfo, parseClass } from "./classfile.ts";
 import { ZipArchive } from "./zip.ts";
 
@@ -208,31 +208,31 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
 
     const skip = (m: MemberInfo, reason: string) => mod.skipped!.push(`${internal.replace(/\//g, ".")}.${m.name}${m.descriptor}: ${reason}`);
 
-    const typeOf = (t: JType, nonNull: boolean, tparams: readonly string[]): string => {
-      const nullable = (s: string) => (nonNull ? s : `${s}?`);
+    const typeOf = (t: JType, nonNull: boolean, tparams: readonly string[]): SchemaType => {
+      const nullable = (x: SchemaType): SchemaType => (nonNull ? x : { ...x, nullable: true });
       switch (t.k) {
         case "prim":
-          return PRIM[t.d]!;
+          return parseSchemaType(PRIM[t.d]!);
         case "array": {
           const inner = typeOf(t.of, true, tparams);
-          if (inner.endsWith("?")) throw new Unsupported("nullable array element");
-          return nullable(`${inner}[]`);
+          if (inner.nullable) throw new Unsupported("nullable array element");
+          return nullable({ k: "array", of: inner, nullable: false });
         }
         case "var":
           if (!tparams.includes(t.name)) throw new Unsupported(`type variable ${t.name}`);
-          return nullable(t.name);
+          return nullable({ k: "tparam", name: t.name, nullable: false });
         case "wildcard":
           throw new Unsupported("wildcard");
         case "class":
-          if (t.name === "java/lang/String") return nullable("string");
-          if (t.name === "java/lang/CharSequence") return nullable("CharSequence");
+          if (t.name === "java/lang/String") return nullable(parseSchemaType("string"));
+          if (t.name === "java/lang/CharSequence") return nullable(parseSchemaType("CharSequence"));
           if (t.name === "java/lang/Class") {
             const arg = t.args[0];
-            if (arg?.k === "var" && tparams.includes(arg.name)) return nullable(`Class<${arg.name}>`);
+            if (arg?.k === "var" && tparams.includes(arg.name)) return nullable({ k: "classOf", param: arg.name, nullable: false });
             throw new Unsupported("java.lang.Class");
           }
           if (!known.has(t.name)) throw new Unsupported(t.name.replace(/\//g, "."));
-          return nullable(refOf(t.name));
+          return nullable(parseSchemaType(refOf(t.name)));
       }
     };
     const nonNull = (anns: string[] | undefined) => !!anns?.some((a) => NON_NULL.has(a));
@@ -240,7 +240,7 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
     const props: SdkPropertySchema[] = [];
     for (const f of c.fields) {
       if (!(f.access & ACC.PUBLIC) || f.access & ACC.SYNTHETIC) continue;
-      let type: string;
+      let type: SchemaType;
       try {
         type = typeOf(new SigReader(f.signature ?? f.descriptor).type(), nonNull(f.annotations), []);
       } catch (e) {
@@ -254,8 +254,8 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
       if (f.access & ACC.STATIC) p.static = true;
       p.readonly = !!(f.access & ACC.FINAL);
       if (f.access & ACC.STATIC && f.access & ACC.FINAL && f.constant !== undefined) {
-        p.value = type === "boolean" ? f.constant === 1 : f.constant;
-        if (typeof p.value === "string") p.type = "string";
+        p.value = formatSchemaType(type) === "boolean" ? f.constant === 1 : f.constant;
+        if (typeof p.value === "string") p.type = parseSchemaType("string");
       }
       const fs = levels.member.get(`${internal}#${f.name}`);
       if (fs && fs > (cls.since as number | undefined ?? 1)) p.since = fs;
@@ -278,8 +278,8 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
         skip(m, "unreadable signature");
         continue;
       }
-      let params: { name: string; type: string }[];
-      let returns: string;
+      let params: { name: string; type: SchemaType }[];
+      let returns: SchemaType;
       try {
         params = sig.params.map((t, i) => ({ name: `arg${i}`, type: typeOf(t, nonNull(m.paramAnnotations[i]), sig.typeParams) }));
         returns = typeOf(sig.ret, nonNull(m.annotations), sig.typeParams);
@@ -311,7 +311,7 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
 
       // Kotlin-style properties for getters.
       const getter = /^(get|is)([A-Z].*)$/.exec(m.name);
-      if (getter && !method.static && !params.length && returns !== "void" && (getter[1] === "get" || returns === "boolean")) {
+      if (getter && !method.static && !params.length && formatSchemaType(returns) !== "void" && (getter[1] === "get" || formatSchemaType(returns) === "boolean")) {
         const name = propertyName(getter[2]!);
         if (!props.some((p) => p.name === name)) {
           const p: SdkPropertySchema = { name, readonly: true, getter: m.name, type: returns };
@@ -406,12 +406,12 @@ function tsKey(m: SdkMethodSchema): string {
     if (["byte", "char", "short", "int", "long", "float", "double"].includes(base)) return "number";
     return base;
   };
-  return `${m.static ? "static " : ""}${m.name}(${m.params.map((p) => one(p.type)).join(",")})`;
+  return `${m.static ? "static " : ""}${m.name}(${m.params.map((p) => one(formatSchemaType(p.type))).join(",")})`;
 }
 
 // Which overload a JavaScript number picks when several collide: int first.
 const NUMBER_RANK: Record<string, number> = { int: 0, long: 1, double: 2, float: 3, short: 4, byte: 5, char: 6 };
-const rank = (m: SdkMethodSchema) => m.params.map((p) => NUMBER_RANK[p.type] ?? 0);
+const rank = (m: SdkMethodSchema) => m.params.map((p) => NUMBER_RANK[formatSchemaType(p.type)] ?? 0);
 const before = (a: number[], b: number[]) => {
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i]! < b[i]!;
   return false;
@@ -433,7 +433,7 @@ function renameDefaultOverloads(methods: SdkMethodSchema[]): void {
 }
 
 function overloadName(m: SdkMethodSchema): string {
-  return `${m.java ?? m.name}_${m.params.map((p) => p.type.replace(/\?$/, "").replace(/\[\]/g, "Array").split(".").pop()).join("_")}`;
+  return `${m.java ?? m.name}_${m.params.map((p) => formatSchemaType(p.type).replace(/\?$/, "").replace(/\[\]/g, "Array").split(".").pop()).join("_")}`;
 }
 
 function renameOverloads(methods: SdkMethodSchema[]): void {
