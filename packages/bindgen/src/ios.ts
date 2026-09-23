@@ -757,7 +757,13 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
             methods.splice(methods.indexOf(x), 1);
           }
         }
-      } else disambiguate(methods);
+      } else {
+        // A method named as one of the class's properties keeps its labels; the
+        // property keeps the name (UIView's frame, frameForAlignmentRect).
+        const taken = new Set(props.map((x) => `${!!x.static}:${x.name}`));
+        for (const x of methods) if (taken.has(`${!!x.static}:${x.name}`)) x.name = withLabels(x);
+        disambiguate(methods);
+      }
       for (const x of methods) delete (x as SdkMethodSchema & { swiftName?: string }).swiftName;
       // Objective-C initializers are inherited (NSObject's init at the root)
       // unless the class makes init unavailable.
@@ -831,10 +837,15 @@ function disambiguate(methods: SdkMethodSchema[]): void {
       seen.add(key(m));
       continue;
     }
-    const { labels } = splitName((m as SdkMethodSchema & { swiftName?: string }).swiftName ?? m.name);
-    m.name = m.name + labels.filter((l) => l !== "_").map((l) => l.charAt(0).toUpperCase() + l.slice(1)).join("");
+    m.name = withLabels(m);
     seen.add(key(m));
   }
+}
+
+/** A method's name with its Swift labels appended (`resize(height:)` → `resizeHeight`). */
+function withLabels(m: SdkMethodSchema): string {
+  const { labels } = splitName((m as SdkMethodSchema & { swiftName?: string }).swiftName ?? m.name);
+  return m.name + labels.filter((l) => l !== "_").map((l) => l.charAt(0).toUpperCase() + l.slice(1)).join("");
 }
 
 function tsKind(t: string): string {

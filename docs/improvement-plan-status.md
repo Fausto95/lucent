@@ -212,11 +212,9 @@ classes (NSMapTable, NSHashTable, NSLayoutAnchor), protocol compositions
       keys that are not strings are left out when read, and untyped NSSet a
       set of NSObjects.
 
-Found along the way, left:
-
-- A method and a property with the same base name collide: UIView's
-  `frame(forAlignmentRect:)` hides its `frame` property. For the
-  stable-naming step.
+- [x] A method named as a property of its class once its labels are dropped
+      keeps its labels, and the property keeps the name: UIView's `frame` and
+      `frameForAlignmentRect` (the method used to hide the property).
 
 ## Phase 5: typed IR
 
