@@ -235,6 +235,7 @@ function structToObjc(c: string, s: SdkStructSchema, module: string): string {
 function objcRefType(t: SdkType & { k: "ref" }): string {
   const info = sdkTypeInfo("ios", t.module, t.name);
   if (!info || info.kind === "enum") throw new Error(`unknown Objective-C type ${t.module}.${t.name}`);
+  if (info.cf) return info.native;
   return info.kind === "protocol" ? `id<${info.native}>` : `${info.native}*`;
 }
 
@@ -327,7 +328,8 @@ export function toObjcCode(t: SdkType, c: string, owned: boolean): string {
       if (e) return `static_cast<${e.native}>(${c})`;
       const s = sdkStruct(t);
       if (s) return structToObjc(c, s, t.module);
-      return `((${objcRefType(t)})lucent::objc::unwrap(${c}))`;
+      const bridge = sdkTypeInfo("ios", t.module, t.name)?.cf ? "__bridge " : "";
+      return `((${bridge}${objcRefType(t)})lucent::objc::unwrap(${c}))`;
     }
     default:
       throw new Error(`no Objective-C form for ${t.k}`);
@@ -418,7 +420,8 @@ export function fromObjc(em: FnEmitter, code: string, t: SdkType, lt: LType, wha
       if (sdkEnum("ios", t)) return { c: `static_cast<double>(${code})`, t: T.number };
       const s = sdkStruct(t);
       if (s) return { c: structFromObjc(em, code, s, t.module, lt), t: lt };
-      return lt.k === "opt" ? { c: `lucent::objc::wrapOpt(${code})`, t: lt } : { c: `lucent::objc::wrap(${code}, ${w})`, t: lt };
+      const o = sdkTypeInfo("ios", t.module, t.name)?.cf ? `${cast("id")}${code}` : code;
+      return lt.k === "opt" ? { c: `lucent::objc::wrapOpt(${o})`, t: lt } : { c: `lucent::objc::wrap(${o}, ${w})`, t: lt };
     }
     case "error":
       return lt.k === "opt" ? { c: `lucent::objc::fromNSErrorOpt(${code})`, t: lt } : { c: `lucent::objc::fromNSError(${code}, ${w})`, t: lt };

@@ -123,6 +123,8 @@ export interface SdkClassSchema {
   functional?: string;
   /** Isolated to the main thread (`@MainActor`, `@UiThread`). */
   mainActor?: boolean;
+  /** An opaque CoreFoundation-style handle (`CGImageRef`): `native` is its C type. */
+  cf?: boolean;
   since?: number | string;
   constructors?: SdkCallable[];
   methods?: SdkMethodSchema[];

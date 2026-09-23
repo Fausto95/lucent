@@ -465,7 +465,7 @@ export interface NamesIndex {
    * Schema name → what the glue needs to use a type without its schema;
    * structs' fields too, when they are this module's types or numbers.
    */
-  types: Record<string, { kind: "class" | "protocol" | "enum" | "struct"; native: string; fields?: SdkParam[] }>;
+  types: Record<string, { kind: "class" | "protocol" | "enum" | "struct"; native: string; fields?: SdkParam[]; cf?: boolean }>;
 }
 
 export function namesOf(module: string, g: SymbolGraph): NamesIndex {
@@ -481,6 +481,12 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
     if ((k === "swift.class" || k === "swift.protocol") && cls) {
       refs[usr] = `${module}.${name}`;
       types[name] = { kind: k === "swift.class" ? "class" : "protocol", native: cls[2]! };
+    }
+    // Opaque CoreFoundation-style handles: typedefs of pointers to bridged structs.
+    const handle = k === "swift.class" ? typedefName(usr) : undefined;
+    if (handle) {
+      refs[usr] = `${module}.${name}`;
+      types[name] = { kind: "class", native: handle, cf: true };
     }
     // C enums, named (c:@E@) or typedefs of anonymous ones (c:@EA@).
     const cEnum = k === "swift.enum" || k === "swift.struct" ? /^c:@EA?@(\w+)$/.exec(usr) : null;
@@ -624,6 +630,12 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
         props.push({ name: mem.pathComponents[mem.pathComponents.length - 1]!, static: true, readonly: true, type: parseSchemaType("string"), global });
       }
       if (props.length) mod.types.push({ kind: "class", name: s.pathComponents.join("_"), native: s.identifier.precise.replace(/^.*@T@/, ""), properties: props });
+    }
+
+    // Opaque CoreFoundation-style handles, passed through as they are.
+    for (const s of g.symbols) {
+      const handle = s.kind.identifier === "swift.class" ? typedefName(s.identifier.precise) : undefined;
+      if (handle && !unavailable(s)) mod.types.push({ kind: "class", name: s.pathComponents.join("_"), native: handle, cf: true });
     }
 
     // Classes and protocols.
@@ -790,7 +802,9 @@ function withEscaping(type: SchemaType, escaping: boolean | undefined): SchemaTy
 
 /** The getter selector of a property whose Swift name differs from its Objective-C name (`isEnabled`). */
 function getterSelector(swiftName: string, property: string): string {
-  return swiftName.toLowerCase().includes(property.toLowerCase()) ? swiftName : property;
+  // Swift lowercases acronyms (CGImage → cgImage); a longer name is a custom getter (isHidden).
+  const [swift, objc] = [swiftName.toLowerCase(), property.toLowerCase()];
+  return swift !== objc && swift.includes(objc) ? swiftName : property;
 }
 
 /**
