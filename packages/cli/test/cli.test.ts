@@ -95,16 +95,13 @@ describe("lucent sdk prefetch", () => {
 });
 
 describe("the app's Android dependencies", () => {
-  const gradleLine = 'rootProject.file("../.lucent/native/android/lucent.gradle")';
-
-  it("lucent init applies lucent.gradle in the app's build.gradle, once", () => {
+  it("lucent init leaves the app's Gradle files alone", () => {
     const root = project();
     fs.mkdirSync(path.join(root, "android/app"), { recursive: true });
-    fs.writeFileSync(path.join(root, "android/app/build.gradle"), 'apply plugin: "com.android.application"\n');
+    const gradle = 'apply plugin: "com.android.application"\n';
+    fs.writeFileSync(path.join(root, "android/app/build.gradle"), gradle);
     lucent(root, "init");
-    lucent(root, "init");
-    const gradle = fs.readFileSync(path.join(root, "android/app/build.gradle"), "utf8");
-    expect(gradle.split(gradleLine).length - 1).toBe(1);
+    expect(fs.readFileSync(path.join(root, "android/app/build.gradle"), "utf8")).toBe(gradle);
   });
 
   it("lucent build resolves them with Gradle when an import is not in the SDK", () => {
@@ -122,7 +119,12 @@ describe("the app's Android dependencies", () => {
     fs.writeFileSync(path.join(root, "android/gradlew"), `#!/bin/sh\necho "$@" > ${path.join(root, "gradle-args")}\nmkdir -p ${path.join(root, ".lucent")}\necho '{"jars":["${jar}"],"aars":[]}' > ${path.join(root, ".lucent/android-classpath.json")}\n`, { mode: 0o755 });
     const r = spawnSync(process.execPath, [bin, "build", "--platforms", "android", "--root", root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")) } });
     expect(r.stdout + r.stderr).toMatch(/resolving the app's Android dependencies/);
-    expect(fs.readFileSync(path.join(root, "gradle-args"), "utf8")).toMatch(/:app:lucentClasspath/);
+    // The task comes from an init script Lucent ships: nothing in the app applies it.
+    const args = fs.readFileSync(path.join(root, "gradle-args"), "utf8").trim().split(/\s+/);
+    const script = args[args.indexOf("--init-script") + 1]!;
+    expect(fs.readFileSync(script, "utf8")).toMatch(/lucentClasspath/);
+    expect(args).toContain(":app:lucentClasspath");
+    expect(fs.existsSync(path.join(root, ".lucent/native/android/lucent.gradle"))).toBe(false);
     expect(r.status).toBe(0);
   });
 });
