@@ -35,16 +35,19 @@ Done:
       (`Out<Error>`), modules re-exported by module maps (`_LocationEssentials`),
       SDK frameworks' umbrella headers, R8 keep rules for JNI-named classes,
       Gradle outputs left alone in the native package, and comparisons of
-      non-nullable values with null.
+      non-nullable values with null, C structs by value, and Android
+      permissions read from `@RequiresPermission` in the SDK's `annotations.zip`
+      and declared in the library's manifest. AARs' own `annotations.zip` files
+      are not read yet.
 - [x] Device check: the SDK tab's callbacks case passes in the bare app on the
       iOS simulator and the Android emulator.
 
 In progress:
 
-- [ ] expo-local-authentication port: written. Device runs (bare and Expo,
-      both platforms) are pending.
-- [ ] C structs by value (CLLocationCoordinate2D, for expo-location). The
-      tests are written.
+- [ ] expo-local-authentication port. Passes on iOS (bare 17/17, and Expo 28/28
+      with parity against the original) and Expo Android (28/28). Bare Android
+      failed on the USE_BIOMETRIC permission, which is fixed now (declared from
+      the SDK's annotations); a rerun is pending.
 
 Left:
 
@@ -92,8 +95,8 @@ Not started.
 
 Not started. Parts pulled forward for Phase 1: function and error types in
 the schema grammar, a recursive-descent schema type parser, requirement
-names from their own Swift names, NSError out-parameters, and C structs
-(in progress).
+names from their own Swift names, NSError out-parameters, C structs, and
+@RequiresPermission from the platform's annotations.zip.
 
 ## Phase 5: typed IR
 

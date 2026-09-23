@@ -1051,6 +1051,7 @@ export function noteFramework(em: FnEmitter, module: string): void {
 
 function androidCall(em: FnEmitter, node: ts.CallExpression, ref: SdkClassRef, m: SdkMethodSchema, obj: E | undefined): E {
   const tps = m.typeParams ?? [];
+  for (const p of m.permissions ?? []) em.ctx.androidPermissions.add(p);
   const a = argsOf(node).map((x, i) => toJni(em, ref, x, parseSdkType(m.params[i]!.type, ref.module, tps)));
   const desc = m.descriptor ?? jniDescriptor(m.params.map((p) => p.type), m.returns, tps);
   const ret = parseSdkType(m.returns, ref.module, tps);

@@ -80,6 +80,8 @@ export interface SdkMethodSchema extends SdkCallable {
   optional?: boolean;
   /** Abstract (Java): implementations and subclasses must provide it. */
   abstract?: boolean;
+  /** Android permissions the method requires (@RequiresPermission: value, anyOf, allOf). */
+  permissions?: string[];
 }
 
 export interface SdkPropertySchema {

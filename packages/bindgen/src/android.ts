@@ -14,6 +14,8 @@ export interface AndroidOptions {
   apiVersions?: string;
   /** Java packages to extract; references to classes outside them are not typed. */
   packages: string[];
+  /** The SDK's platforms/android-N/data/annotations.zip: @RequiresPermission, per package. */
+  annotations?: string;
 }
 
 const NON_NULL = new Set(["Landroid/annotation/NonNull;", "Landroidx/annotation/NonNull;", "Landroidx/annotation/RecentlyNonNull;", "Lorg/jetbrains/annotations/NotNull;", "Ljavax/annotation/Nonnull;", "Llibcore/util/NonNull;"]);
@@ -188,6 +190,7 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
   const modules = new Map<string, SdkModuleSchema>();
   for (const pkg of opts.packages) modules.set(pkg, { platform: "android", module: pkg, types: [], skipped: [] });
 
+  const permissions = requiredPermissions(opts.annotations, opts.packages);
   for (const internal of [...known].sort()) {
     const mod = modules.get(packageOf(internal));
     if (!mod) continue;
@@ -299,6 +302,8 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
       const method: SdkMethodSchema = { name: m.name, params, returns, descriptor: m.descriptor };
       if (m.access & ACC.STATIC) method.static = true;
       if (m.access & ACC.ABSTRACT) method.abstract = true;
+      const needs = permissions.get(`${internal.replace(/[/$]/g, ".")} ${m.name}(${javaParams(m.descriptor).join(", ")})`);
+      if (needs) method.permissions = needs;
       if (sig.typeParams.length) method.typeParams = sig.typeParams;
       if (since) method.since = since;
       if (m.deprecated) method.deprecated = true;
@@ -330,6 +335,52 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
     mod.types.push(cls);
   }
   return [...modules.values()];
+}
+
+/**
+ * @RequiresPermission of methods, from the SDK's annotations.zip (one
+ * annotations.xml per package), keyed `pkg.Class name(param, …)` with
+ * erased parameter types.
+ */
+function requiredPermissions(zipPath: string | undefined, packages: string[]): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  if (!zipPath || !fs.existsSync(zipPath)) return out;
+  const zip = new ZipArchive(zipPath);
+  const unescape = (s: string) => s.replace(/&quot;/g, '"').replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  for (const pkg of packages) {
+    const xml = zip.read(`${pkg.replace(/\./g, "/")}/annotations.xml`)?.toString("utf8");
+    if (!xml) continue;
+    for (const item of xml.matchAll(/<item name="([^"]*)">([\s\S]*?)<\/item>/g)) {
+      const perm = /<annotation name="androidx\.annotation\.RequiresPermission">([\s\S]*?)<\/annotation>/.exec(item[2]!);
+      if (!perm) continue;
+      const names = [...perm[1]!.matchAll(/<val name="(?:value|anyOf|allOf)" val="([^"]*)"/g)].flatMap((v) => [...unescape(v[1]!).matchAll(/"([^"]+)"/g)].map((m) => m[1]!));
+      // `pkg.Class ret name(params)`: the owner, then the method with erased parameters.
+      const m = /^(\S+) \S+ (\w+)\((.*)\)$/.exec(unescape(item[1]!).replace(/<[^<>]*(?:<[^<>]*>[^<>]*)*>/g, ""));
+      if (!m || !names.length) continue;
+      const params = m[3]!.split(",").map((p) => p.trim().replace(/\.\.\.$/, "[]")).filter(Boolean);
+      out.set(`${m[1]} ${m[2]}(${params.join(", ")})`, names);
+    }
+  }
+  return out;
+}
+
+/** A method descriptor's parameters as Java source types (`android.location.Location`). */
+function javaParams(descriptor: string): string[] {
+  const out: string[] = [];
+  let p = 1;
+  const one = (): string => {
+    const c = descriptor[p++]!;
+    if (c === "[") return `${one()}[]`;
+    if (c === "L") {
+      const end = descriptor.indexOf(";", p);
+      const name = descriptor.slice(p, end).replace(/[/$]/g, ".");
+      p = end + 1;
+      return name;
+    }
+    return PRIM[c]!;
+  };
+  while (descriptor[p] !== ")") out.push(one());
+  return out;
 }
 
 /** Public methods of Object an interface may redeclare: they do not count as abstract. */

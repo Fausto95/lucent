@@ -68,6 +68,7 @@ function compileWith(files: string[], options: CompileOptions): CompileResult {
     if (target === "android") {
       out.java = result.java;
       out.javaKeep = result.javaKeep;
+      out.androidPermissions = result.androidPermissions;
     }
   }
   out.diagnostics = dedupe(out.diagnostics);

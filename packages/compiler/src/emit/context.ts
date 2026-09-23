@@ -45,6 +45,8 @@ export class Ctx {
   readonly frameworks = new Set<string>();
   /** Java classes the Android glue names (JNI), which the app's shrinker must keep. */
   readonly javaClasses = new Set<string>();
+  /** Android permissions the SDK methods the program calls require. */
+  readonly androidPermissions = new Set<string>();
   readonly nativeUnits = new Map<LucentModule, { includes: Set<string>; lines: Set<string> }>();
   /** Target types of JSON.parse, which get generated readers. */
   readonly jsonReads = new Map<string, LType>();

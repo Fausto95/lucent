@@ -24,6 +24,8 @@ export interface EmitResult {
   java?: Map<string, string>;
   /** Java classes the Android glue names (JNI names), for the app's shrinker to keep. */
   javaKeep?: string[];
+  /** Android permissions the SDK methods the program calls require (declared in the library's manifest). */
+  androidPermissions?: string[];
   /**
    * Declarations of the lucent:* modules the platform modules use
    * (`ios/UIKit.d.ts`, `thread.d.ts`…), for the app's own TypeScript:
@@ -210,7 +212,7 @@ export function emitProgram(lp: LucentProgram): EmitResult {
 
   const proxies = new Map<string, string>();
   for (const m of mods) proxies.set(m.module.name, jsProxy(m));
-  return { files, proxies, diagnostics: [...lp.diagnostics, ...ctx.diagnostics], frameworks: [...ctx.frameworks].sort(), java, javaKeep: [...ctx.javaClasses].sort() };
+  return { files, proxies, diagnostics: [...lp.diagnostics, ...ctx.diagnostics], frameworks: [...ctx.frameworks].sort(), java, javaKeep: [...ctx.javaClasses].sort(), androidPermissions: [...ctx.androidPermissions].sort() };
 }
 
 function isExported(n: ts.Node): boolean {

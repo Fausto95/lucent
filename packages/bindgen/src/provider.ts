@@ -71,7 +71,7 @@ interface Located {
   dir: string;
   /** What the SDK is, for messages. */
   describe: string;
-  android?: { jars: string[]; apiVersions?: string; dependencies: number; classpath?: string };
+  android?: { jars: string[]; apiVersions?: string; annotations?: string; dependencies: number; classpath?: string };
   /** modules: module name → its headers (undefined: an SDK framework, <M>/<M>.h). */
   ios?: { sdk: string; ios: IosOptions; frameworks: string; modules: Map<string, string[] | undefined>; umbrellas: Map<string, string> };
 }
@@ -106,6 +106,7 @@ function androidRoots(opts: SdkOptions): string[] {
 function locateAndroid(opts: SdkOptions): Located | { missing: string } {
   let jars = opts.android?.jars ?? (process.env.LUCENT_ANDROID_JARS ? process.env.LUCENT_ANDROID_JARS.split(path.delimiter) : undefined);
   let apiVersions: string | undefined;
+  let annotations: string | undefined;
   let describe: string;
   if (!jars) {
     const roots = androidRoots(opts);
@@ -120,6 +121,8 @@ function locateAndroid(opts: SdkOptions): Located | { missing: string } {
     jars = [path.join(root, "platforms", platform, "android.jar")];
     const xml = path.join(root, "platforms", platform, "data/api-versions.xml");
     if (fs.existsSync(xml)) apiVersions = xml;
+    const zip = path.join(root, "platforms", platform, "data/annotations.zip");
+    if (fs.existsSync(zip)) annotations = zip;
     describe = `${path.basename(platform)} (${root})`;
   } else {
     describe = jars.join(", ");
@@ -134,12 +137,12 @@ function locateAndroid(opts: SdkOptions): Located | { missing: string } {
     dependencies = [...(cp.jars ?? []), ...(cp.aars ?? [])].filter((f) => fs.existsSync(f));
   }
   const all = [...jars, ...dependencies];
-  const key = `${path.basename(path.dirname(jars[0]!))}-${hash([extractorVersion(), ...fileIdentity([...all, ...(apiVersions ? [apiVersions] : [])])])}`;
-  return { dir: path.join(cacheRoot(opts), "sdk/android", key), describe, android: { jars: all, apiVersions, dependencies: dependencies.length, classpath } };
+  const key = `${path.basename(path.dirname(jars[0]!))}-${hash([extractorVersion(), ...fileIdentity([...all, ...(apiVersions ? [apiVersions] : []), ...(annotations ? [annotations] : [])])])}`;
+  return { dir: path.join(cacheRoot(opts), "sdk/android", key), describe, android: { jars: all, apiVersions, annotations, dependencies: dependencies.length, classpath } };
 }
 
 function extractAndroidModule(sdk: Located, module: string): SdkLookup {
-  const { jars, apiVersions, dependencies, classpath } = sdk.android!;
+  const { jars, apiVersions, annotations, dependencies, classpath } = sdk.android!;
   const index = jarIndex(jars, apiVersions);
   if (!index.packages.has(module)) {
     const platformJars = jars.slice(0, jars.length - dependencies);
@@ -149,7 +152,7 @@ function extractAndroidModule(sdk: Located, module: string): SdkLookup {
     return { missing: `lucent:android/${module} was not found in the SDK or the app's dependencies (${where})` };
   }
   extractions++;
-  return { schema: extractAndroid({ jars, apiVersions, packages: [module] })[0]! };
+  return { schema: extractAndroid({ jars, apiVersions, annotations, packages: [module] })[0]! };
 }
 
 // --- iOS -----------------------------------------------------------------------------
