@@ -4,7 +4,7 @@
  * the type grammar, JNI descriptors, and module lookup.
  */
 
-import { formatSchemaType, parseSchemaType, type Platform, PLATFORMS, type PrimName, type SchemaType, type SdkClassSchema, type SdkEnumSchema, type SdkStructSchema, type NamesIndex, type SdkLookup, type SdkModuleSchema, sdkIdentity, sdkModule, sdkNames, type SdkOptions } from "@lucent-lang/bindgen";
+import { formatSchemaType, parseSchemaType, type Platform, PLATFORMS, type PrimName, type SchemaType, type SdkClassSchema, type SdkEnumSchema, type SdkStructSchema, type NamesIndex, type SdkLookup, type SdkModuleSchema, sdkAvailable, sdkIdentity, sdkModule, sdkNames, type SdkOptions } from "@lucent-lang/bindgen";
 
 export { formatSchemaType, PLATFORMS };
 export type { PrimName };
@@ -35,6 +35,11 @@ export function withSdkOptions<T>(opts: SdkOptions | undefined, f: () => T): T {
 }
 
 /** `lucent:<platform>/<module>`: its schema (extracted on first use), or why there is none. */
+/** Whether a platform's SDK is installed (or prebuilt), under the current options. */
+export function platformSdkAvailable(platform: Platform): boolean {
+  return sdkAvailable(platform, sdkOptions);
+}
+
 export function sdkLookup(platform: Platform, module: string): SdkLookup {
   return sdkModule(platform, module, sdkOptions);
 }

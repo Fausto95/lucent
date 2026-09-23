@@ -151,7 +151,11 @@ complete file set under `<target>/`. Declarations of SDK classes lower to the
 its schema entry through the checker's resolved declaration and emits
 Objective-C++ message sends or JNI calls. The runtime side is
 `lucent/native.h` (NativeRef, `runOnMain`) and `lucent/platform/{ios,android}`.
-Details: [platform-bindings.md](platform-bindings.md).
+A shared module can also branch on `PLATFORM` (lucent:platform): every
+target's program resolves both platforms' SDK modules (untyped where an SDK
+is missing), `branchErrors` keeps each SDK's uses inside its branch, and the
+emitter compiles the target's branch only (`platformTest` in
+`src/platforms.ts`). Details: [platform-bindings.md](platform-bindings.md).
 
 ## Editor diagnostics
 

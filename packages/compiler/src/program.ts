@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { Codes, type Diagnostic } from "./diagnostics.ts";
 import { sdkDts, stubDts } from "./sdk/dts.ts";
-import { findSdkModule, type Platform, PLATFORMS, sdkLookup, sdkNamesOf } from "./sdk/schema.ts";
+import { findSdkModule, type Platform, PLATFORMS, platformSdkAvailable, sdkLookup, sdkNamesOf } from "./sdk/schema.ts";
 import { cppIdent } from "./types.ts";
 
 export interface LucentModule {
@@ -78,6 +78,17 @@ export function platformOf(file: string): Platform | undefined {
 // virtual directory: lucent:ios/UIKit is <SDK_ROOT>/ios/UIKit.d.ts.
 const SDK_ROOT = path.resolve("/__lucent_sdk__");
 
+/**
+ * Modules of platforms whose SDK is not installed, untyped: a shared module's
+ * branch for such a platform type-checks, and is never emitted where it is
+ * missing (a target's own missing SDK is reported by sdkImportErrors).
+ */
+const UNTYPED = path.join(SDK_ROOT, "untyped.d.ts");
+
+function untypedSdkText(): string {
+  return `${PLATFORMS.filter((p) => !platformSdkAvailable(p)).map((p) => `declare module "lucent:${p}/*";`).join("\n")}\n`;
+}
+
 function sdkLibPath(name: string): string {
   return path.resolve(here, `../lib/sdk/${name}.d.ts`);
 }
@@ -88,6 +99,7 @@ function sdkLibPath(name: string): string {
  * their schemas (and their dependencies' names) would cost minutes cold.
  */
 function virtualSdkText(file: string, direct: Set<string>): string | undefined {
+  if (path.resolve(file) === UNTYPED) return untypedSdkText();
   const rel = path.relative(SDK_ROOT, path.resolve(file));
   const m = /^(ios|android)[\\/]([\w.]+)\.d\.ts$/.exec(rel);
   if (!m) return undefined;
@@ -115,6 +127,12 @@ function directSdkImports(files: string[], readSource: ReadSource | undefined): 
   return out;
 }
 
+/** Whether a file imports lucent:platform or a platform's SDK: a shared module that branches on the platform. */
+export function usesPlatforms(file: string, readSource?: ReadSource): boolean {
+  const text = readSource?.(path.resolve(file)) ?? (fs.existsSync(file) ? fs.readFileSync(file, "utf8") : "");
+  return /["']lucent:(platform|ios|android)(\/[\w.]+)?["']/.test(text);
+}
+
 /** Whether a declaration comes from an SDK binding module. */
 export function sdkModuleOf(sf: ts.SourceFile): { platform: Platform; module: string } | undefined {
   const m = /^(ios|android)[\\/]([\w.]+)\.d\.ts$/.exec(path.relative(SDK_ROOT, path.resolve(sf.fileName)));
@@ -123,11 +141,11 @@ export function sdkModuleOf(sf: ts.SourceFile): { platform: Platform; module: st
 
 /** The built-in lucent:thread / lucent:ios / lucent:android module a declaration comes from. */
 export function builtinSdkModuleOf(sf: ts.SourceFile): string | undefined {
-  for (const name of ["thread", ...PLATFORMS]) if (path.resolve(sf.fileName) === sdkLibPath(name)) return `lucent:${name}`;
+  for (const name of ["thread", "platform", ...PLATFORMS]) if (path.resolve(sf.fileName) === sdkLibPath(name)) return `lucent:${name}`;
   return undefined;
 }
 
-export function compilerOptions(platform?: Platform): ts.CompilerOptions {
+export function compilerOptions(): ts.CompilerOptions {
   return {
     strict: true,
     target: ts.ScriptTarget.ES2022,
@@ -142,15 +160,13 @@ export function compilerOptions(platform?: Platform): ts.CompilerOptions {
     exactOptionalPropertyTypes: false,
     // Reading a missing index yields undefined at runtime; the types must say so.
     noUncheckedIndexedAccess: true,
+    // Every platform's modules resolve in every program: a shared module
+    // branches on `PLATFORM`, and each target type-checks both branches.
     paths: {
       "@lucent-lang/core": [coreTypesPath()],
-      ...(platform
-        ? {
-            "lucent:thread": [sdkLibPath("thread")],
-            [`lucent:${platform}`]: [sdkLibPath(platform)],
-            [`lucent:${platform}/*`]: [path.join(SDK_ROOT, platform, "*.d.ts")],
-          }
-        : {}),
+      "lucent:thread": [sdkLibPath("thread")],
+      "lucent:platform": [sdkLibPath("platform")],
+      ...Object.fromEntries(PLATFORMS.flatMap((p) => [[`lucent:${p}`, [sdkLibPath(p)]], [`lucent:${p}/*`, [path.join(SDK_ROOT, p, "*.d.ts")]]])),
     },
   };
 }
@@ -219,9 +235,9 @@ function compilerHost(options: ts.CompilerOptions, readSource: ReadSource | unde
 export function createLucentProgram(files: string[], readSource?: ReadSource, platform?: Platform, extra: { references?: string[]; stubs?: string[] } = {}): LucentProgram {
   const references = extra.references ?? [];
   const stubs = new Set((extra.stubs ?? []).map((f) => path.resolve(f)));
-  const options = compilerOptions(platform);
+  const options = compilerOptions();
   const host = compilerHost(options, readSource, directSdkImports(files, readSource));
-  const program = ts.createProgram([...files.map((f) => path.resolve(f)), ...references.map((f) => path.resolve(f)), globalsPath()], options, host);
+  const program = ts.createProgram([...files.map((f) => path.resolve(f)), ...references.map((f) => path.resolve(f)), globalsPath(), UNTYPED], options, host);
   const checker = program.getTypeChecker();
   const diagnostics: Diagnostic[] = [];
   const modules: LucentModule[] = [];
@@ -252,8 +268,14 @@ export function createLucentProgram(files: string[], readSource?: ReadSource, pl
   return { program, platform, checker, modules, diagnostics };
 }
 
-/** `lucent:` imports this file may not use: another platform's, unknown SDK modules, or any outside platform files. */
+/**
+ * `lucent:` imports this file may not use: another platform's in a platform
+ * file, and unknown SDK modules. Shared files import every platform's (their
+ * branches decide where each is used); a platform whose SDK is not installed
+ * is untyped there, unless the program targets it.
+ */
 function sdkImportErrors(sf: ts.SourceFile, platform: Platform | undefined): Diagnostic[] {
+  const shared = !platformOf(sf.fileName);
   const out: Diagnostic[] = [];
   for (const s of sf.statements) {
     if (!ts.isImportDeclaration(s) || !ts.isStringLiteral(s.moduleSpecifier)) continue;
@@ -262,15 +284,15 @@ function sdkImportErrors(sf: ts.SourceFile, platform: Platform | undefined): Dia
     if (!m) continue;
     const [, scope, module] = m;
     let message: string | undefined;
-    if (!platform) message = `${spec} can only be imported by platform files (*.ios.lucent.ts, *.android.lucent.ts)`;
-    else if (scope === "thread" && !module) continue;
-    else if (scope !== platform) message = `${spec} is only available in *.${scope}.lucent.ts files`;
-    else if (module) {
-      const found = sdkLookup(platform, module);
+    if ((scope === "thread" || scope === "platform") && !module) continue;
+    const target = scope as Platform;
+    if (!(PLATFORMS as readonly string[]).includes(scope!)) message = `${spec} is not a Lucent module`;
+    else if (!shared && scope !== platform) message = `${spec} is only available in *.${scope}.lucent.ts files, or in shared files inside \`if (PLATFORM === "${scope}")\``;
+    else if (module && (target === platform || platformSdkAvailable(target))) {
+      const found = sdkLookup(target, module);
       if ("missing" in found) message = found.missing;
       else continue;
-    }
-    else continue;
+    } else continue;
     const start = s.moduleSpecifier.getStart(sf);
     const { line, character } = sf.getLineAndCharacterOfPosition(start);
     out.push({ code: Codes.SdkImport, message, file: sf.fileName, line: line + 1, column: character + 1, start, length: s.moduleSpecifier.getEnd() - start });

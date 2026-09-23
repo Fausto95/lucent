@@ -20,12 +20,45 @@ haptics.android.lucent.ts  the Android implementation (imports lucent:android/â€
   assignable to the declarations (LUCENT3005). JavaScript imports the shared
   file, so it sees one API; the proxy and the JSI bindings are the same on
   both platforms.
-- Each platform is checked in its own program: `lucent:ios/*` and
-  `lucent:ios` resolve only in `.ios.lucent.ts` files, `lucent:android/*` and
-  `lucent:android` only in `.android.lucent.ts` files, and `lucent:thread` in
-  both (LUCENT3004 otherwise, and for SDK modules without a schema).
+- Each platform is checked in its own program: in platform files,
+  `lucent:ios/*` and `lucent:ios` resolve only in `.ios.lucent.ts` files,
+  `lucent:android/*` and `lucent:android` only in `.android.lucent.ts` files,
+  and `lucent:thread` in both (LUCENT3004 otherwise, and for SDK modules
+  without a schema).
 - Other modules import a platform module as usual (`./haptics.lucent`); calls
   go to the platform's implementation.
+
+### Platform branches in one module
+
+A module without platform files can branch on `PLATFORM` from
+`lucent:platform` and use both platforms' SDKs:
+
+```ts
+import { PLATFORM } from "lucent:platform";
+import { UIDevice } from "lucent:ios/UIKit";
+import { Build } from "lucent:android/android.os";
+import { main } from "lucent:thread";
+
+export async function model(): Promise<string> {
+  if (PLATFORM === "ios") return main(() => UIDevice.current.model);
+  else return Build.MODEL ?? "unknown";
+}
+```
+
+- The tests are `PLATFORM === "ios"` and `!==` (either side, either
+  platform), in `if`/`else` and in `? :`. Each target compiles its own branch
+  only; the host target throws there ("this code runs only on iOS and
+  Android"). `PLATFORM` as a value is the target's name.
+- A platform's imports may only be used inside its branch, and
+  `lucent:thread` inside a branch of either platform (LUCENT3004 otherwise).
+  Classes implementing SDK protocols and module-level state of SDK types
+  belong in platform files.
+- Every target type-checks both branches. Where the other platform's SDK is
+  not installed, its modules are untyped there (the branch is never emitted
+  on that target); values that flow out of such a branch need a type
+  annotation.
+- A module that branches is built per target, like platform modules, and is
+  Objective-C++ (`.mm`) on iOS.
 
 ### Output
 

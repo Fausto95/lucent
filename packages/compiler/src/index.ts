@@ -1,7 +1,7 @@
 import { type Diagnostic, formatDiagnostic } from "./diagnostics.ts";
 import { emitProgram, type EmitResult } from "./emit/index.ts";
-import { conformanceErrors, declarationErrors, missingImplementations, planModules, type Target } from "./platforms.ts";
-import { builtinSdkModuleOf, createLucentProgram, findLucentFiles, type LucentProgram, type ReadSource, sdkModuleOf } from "./program.ts";
+import { branchErrors, conformanceErrors, declarationErrors, missingImplementations, planModules, type Target } from "./platforms.ts";
+import { builtinSdkModuleOf, createLucentProgram, findLucentFiles, type LucentProgram, platformOf, type ReadSource, sdkModuleOf, usesPlatforms } from "./program.ts";
 import { sdkAvailable } from "@lucent-lang/bindgen";
 import { PLATFORMS, type SdkOptions, withSdkOptions } from "./sdk/schema.ts";
 
@@ -44,7 +44,9 @@ export function compile(files: string[], options: CompileOptions = {}): CompileR
 
 function compileWith(files: string[], options: CompileOptions): CompileResult {
   const plan = planModules(files);
-  if (!plan.platformModules.length && !plan.diagnostics.length) return compileOnce(createLucentProgram(files, options.readSource));
+  // Shared modules that branch on the platform are compiled per target too.
+  const branching = plan.shared.some((f) => usesPlatforms(f, options.readSource));
+  if (!plan.platformModules.length && !plan.diagnostics.length && !branching) return compileOnce(createLucentProgram(files, options.readSource));
 
   const out: CompileResult = { files: new Map(), proxies: new Map(), diagnostics: [...plan.diagnostics], ok: false };
   const declarations = plan.platformModules.map((pm) => pm.declaration!);
@@ -94,7 +96,7 @@ function collectTypes(lp: LucentProgram, into: Map<string, string>): void {
 }
 
 function compileOnce(lp: ReturnType<typeof createLucentProgram>, declarations: string[] = []): CompileResult {
-  const checks = [...lp.diagnostics, ...declarations.flatMap((d) => declarationErrors(lp, d))];
+  const checks = [...lp.diagnostics, ...declarations.flatMap((d) => declarationErrors(lp, d)), ...lp.modules.filter((m) => !platformOf(m.file)).flatMap((m) => branchErrors(lp.checker, m.sourceFile))];
   // Stop at TypeScript errors: the checker's types are unreliable past them.
   if (checks.length) return { files: new Map(), proxies: new Map(), diagnostics: checks, ok: false };
   const conformance = conformanceErrors(lp);

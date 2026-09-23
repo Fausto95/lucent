@@ -50,6 +50,12 @@ class Exception : public std::exception {
 
 [[noreturn]] void throwError(const Error& error);
 [[noreturn]] void throwError(const String& name, const String& message);
+/// A platform branch (`if (PLATFORM === "ios")`) reached on a target that is
+/// neither platform, the host; typed as the value it stands for.
+template <class T = void>
+[[noreturn]] T platformOnly(const String& message) {
+  throwError(String::fromLatin1("Error"), message);
+}
 
 /// Converts whatever is being caught into a Lucent Error, including C++
 /// exceptions from the standard library.

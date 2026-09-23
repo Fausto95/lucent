@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
+import { isPlatformValue, liveBranch, platformTest } from "../platforms.ts";
 import type { LucentModule } from "../program.ts";
 import { type ClassInfo, cppIdent, isVoidish, type LType, sameType, stripOpt, substitute, T, typeKey, unionOf } from "../types.ts";
 import { containsAwait, freeVariables, type FunctionLike, symbolOf } from "./analysis.ts";
@@ -848,7 +849,25 @@ export class FnEmitter {
     this.line(`{ ${fin.finVar} = ${code}; goto ${fin.finLabel}; }`);
   }
 
+  /** Code that runs on iOS or Android only, reached on the host: throws, typed as `cpp`. */
+  private platformOnly(node: ts.Node, cpp: string): string {
+    const sf = node.getSourceFile();
+    const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
+    return `lucent::platformOnly<${cpp}>(${stringLiteral(`${path.basename(sf.fileName)}:${line}: this code runs only on iOS and Android`)})`;
+  }
+
   private ifStmt(s: ts.IfStatement): void {
+    // `if (PLATFORM === "ios")`: this target's branch only; the host has neither.
+    const test = platformTest(this.checker, s.expression);
+    if (test) {
+      if (!this.ctx.platform) return this.line(`${this.platformOnly(s, "void")};`);
+      const live = liveBranch(test, this.ctx.platform, s.thenStatement, s.elseStatement);
+      if (!live) return;
+      this.open("{");
+      this.nested(live);
+      this.close();
+      return;
+    }
     this.open(`if (${this.cond(s.expression)}) {`);
     this.nested(s.thenStatement);
     if (s.elseStatement) {
@@ -1348,6 +1367,7 @@ export class FnEmitter {
   }
 
   private identifier(id: ts.Identifier): E {
+    if (isPlatformValue(this.checker, id)) return this.ctx.platform ? { c: stringLiteral(this.ctx.platform), t: T.string } : { c: this.platformOnly(id, "lucent::String"), t: T.string };
     const text = id.text;
     const sym0 = symbolOf(this.checker, id);
     if (!sym0) {
@@ -1768,6 +1788,16 @@ export class FnEmitter {
   }
 
   private conditional(node: ts.ConditionalExpression): E {
+    const test = platformTest(this.checker, node.condition);
+    if (test) {
+      // The live branch's type: the other's may be untyped (its SDK missing here).
+      if (!this.ctx.platform) {
+        const typed = [node.whenTrue, node.whenFalse].find((b) => !(this.checker.getTypeAtLocation(b).flags & ts.TypeFlags.Any)) ?? node;
+        const t = this.lt(typed);
+        return { c: this.platformOnly(node, this.ctx.reg.cpp(t)), t };
+      }
+      return this.expr(liveBranch(test, this.ctx.platform, node.whenTrue, node.whenFalse));
+    }
     const t = this.lt(node);
     const c = this.cond(node.condition);
     const a = this.expr(node.whenTrue, t);
