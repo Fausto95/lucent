@@ -35,6 +35,8 @@ export class Ctx {
   readonly capture: CaptureAnalysis;
   readonly globals = new Map<ts.Symbol, Global>();
   readonly diagnostics: Diagnostic[] = [];
+  /** Target types of JSON.parse, which get generated readers. */
+  readonly jsonReads = new Map<string, LType>();
   private tmp = 0;
 
   constructor(

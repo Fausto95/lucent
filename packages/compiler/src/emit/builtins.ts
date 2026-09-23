@@ -256,6 +256,11 @@ const NUMBER_CONSTANTS: Record<string, string> = {
   NaN: "lucent::kNaN",
 };
 
+export function isJsonParse(em: FnEmitter, node: ts.CallExpression): boolean {
+  const c = node.expression;
+  return ts.isPropertyAccessExpression(c) && c.name.text === "parse" && isLibGlobal(em, c.expression, "JSON");
+}
+
 export function isMathGlobal(em: FnEmitter, id: ts.Expression): boolean {
   return isLibGlobal(em, id, "Math");
 }

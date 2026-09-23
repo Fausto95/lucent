@@ -84,6 +84,10 @@ Supported:
   (hoisted), recursion. Closures share variables with their enclosing scope,
   and `let` loop variables get a fresh binding per iteration.
 * `async`/`await`, `Promise.all`, `Promise.resolve`/`reject`, `delay(ms, signal?)`.
+* `JSON.parse(text) as T` (or into an annotated variable) builds a typed value:
+  plain data only (numbers, strings, booleans, `null`, arrays, tuples,
+  records, object types, and unions that JSON kinds or a string-literal
+  discriminant can tell apart). Revivers are not supported.
 * Cancellation: `AbortSignal` (`aborted`, `throwIfAborted()`,
   `addEventListener("abort", listener)`) and `new AbortController()`
   (`signal`, `abort(error?)`). `delay(ms, signal)` rejects with the abort
@@ -192,6 +196,8 @@ explicitly, for example by clearing a field.
 | `toPrecision` / `toExponential` round exact binary ties up | may round ties to even (rare) |
 | deep recursion throws `RangeError` | may overflow the native stack |
 | `console.log(obj)` pretty-prints | prints `String(obj)` |
+| `JSON.parse` returns whatever the text contains | the text must match the target type: a mismatch throws `TypeError` naming the path (`expected a number at .items[2].price, got a string`) |
+| `JSON.stringify` of parsed data keeps the text's key order | keys follow the declared type's order |
 | `Date` objects passed to native code are shared | copied at the boundary (inside Lucent they are shared) |
 | `date.toString()` includes the zone name in some engines | `Mon Jul 22 2019 15:51:50 GMT-0700`, like Hermes; `toLocale…` methods are not supported |
 | `abort()` without a reason uses an `AbortError` whose message depends on the engine | `AbortError: signal is aborted without reason`, as in React Native and browsers (Node says "This operation was aborted") |

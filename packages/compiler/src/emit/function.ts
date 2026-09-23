@@ -265,6 +265,42 @@ export class FnEmitter {
     fail(node, Codes.UnsupportedType, `cannot convert ${typeKey(from)} to ${typeKey(to)}`);
   }
 
+  /** `JSON.parse(text) as T`: a typed parse into the target type. */
+  private jsonParse(node: ts.CallExpression, hint?: LType): E {
+    if (!hint || hint.k === "void") fail(node, Codes.UnsupportedBuiltin, "JSON.parse needs a target type: write `JSON.parse(text) as T` or annotate the variable");
+    if (node.arguments.length !== 1) fail(node, Codes.UnsupportedBuiltin, "JSON.parse reviver functions are not supported");
+    this.jsonReadable(hint, node, new Set());
+    this.ctx.jsonReads.set(typeKey(hint), hint);
+    return { c: `lucent::jsonParse<${this.cpp(hint)}>(${this.exprAs(node.arguments[0]!, T.string)})`, t: hint };
+  }
+
+  /** Types JSON.parse can build: plain data, like JSON itself. */
+  private jsonReadable(t: LType, node: ts.Node, seen: Set<string>): void {
+    if (seen.has(typeKey(t))) return;
+    seen.add(typeKey(t));
+    switch (t.k) {
+      case "number":
+      case "boolean":
+      case "string":
+      case "null":
+        return;
+      case "opt":
+        return this.jsonReadable(t.inner, node, seen);
+      case "array":
+        return this.jsonReadable(t.e, node, seen);
+      case "dict":
+        return this.jsonReadable(t.val, node, seen);
+      case "tuple":
+        return t.es.forEach((e) => this.jsonReadable(e, node, seen));
+      case "struct":
+        return this.reg.struct(t.id).fields.forEach((f) => this.jsonReadable(f.type, node, seen));
+      case "union":
+        return t.ms.forEach((m) => this.jsonReadable(m, node, seen));
+      default:
+        fail(node, Codes.UnsupportedBuiltin, `JSON.parse cannot create ${t.k === "class" ? "class instances" : typeKey(t)}; parse into plain data types`);
+    }
+  }
+
   /** Upcasts a class instance to an interface it declares with `implements`. */
   private toIface(e: E, to: LType & { k: "iface" }, node?: ts.Node): string {
     const info = this.reg.iface(to.id);
@@ -1101,6 +1137,7 @@ export class FnEmitter {
       case ts.SyntaxKind.ConditionalExpression:
         return this.conditional(node as ts.ConditionalExpression);
       case ts.SyntaxKind.CallExpression:
+        if (builtins.isJsonParse(this, node as ts.CallExpression)) return this.jsonParse(node as ts.CallExpression, hint);
         return this.narrowed(node, this.call(node as ts.CallExpression));
       case ts.SyntaxKind.NewExpression:
         return this.newExpr(node as ts.NewExpression);

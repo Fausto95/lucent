@@ -13,6 +13,7 @@
 #include "function.h"
 #include "helpers.h"
 #include "json.h"
+#include "json_parse.h"
 #include "map.h"
 #include "number.h"
 #include "ops.h"
