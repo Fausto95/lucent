@@ -43,7 +43,7 @@ concrete work. Checked items are implemented and covered by tests.
 - [x] Integer inference: int32/uint32/int64 locals and `for` counters (e2e `integers`, `scripts/bench.ts`)
 - [ ] Incremental compilation (cache per module)
 - [ ] Source maps for native crash symbolication
-- [ ] Object destructuring in assignments (`({ a } = obj)`)
+- [x] Object destructuring in assignments (`({ a, b: c = 1 } = obj)`, defaults in array patterns)
 - [ ] `RegExp`, `Date`, `JSON.parse` (typed), iterators/generators
 
 ## Host & tooling

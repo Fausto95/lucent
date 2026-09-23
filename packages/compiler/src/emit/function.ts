@@ -1317,9 +1317,27 @@ export class FnEmitter {
       const vt = stripOpt(value.t);
       target.elements.forEach((el, i) => {
         if (ts.isOmittedExpression(el)) return;
+        if (ts.isSpreadElement(el)) fail(el, Codes.UnsupportedDestructuring, "rest elements in destructuring assignments are not supported");
         const v: E = vt.k === "tuple" ? { c: `std::get<${i}>(${tmp})`, t: vt.es[i]! } : vt.k === "array" ? { c: `${tmp}.get(${i}.0)`, t: unionOf([vt.e, T.undefined]) } : fail(el, Codes.UnsupportedDestructuring, "cannot destructure this value");
-        parts.push(`${this.assignTo(el, v, el)};`);
+        parts.push(`(void)(${this.assignElement(el, v)});`);
       });
+      return `({ ${parts.join(" ")} ${tmp}; })`;
+    }
+    if (ts.isObjectLiteralExpression(target)) {
+      const tmp = this.ctx.fresh("do");
+      const parts: string[] = [`auto ${tmp} = ${value.c};`];
+      const src: E = { c: tmp, t: value.t };
+      for (const p of target.properties) {
+        if (ts.isShorthandPropertyAssignment(p)) {
+          let v = this.member(src, p.name.text, p);
+          if (p.objectAssignmentInitializer) v = this.withDefault(v, p.objectAssignmentInitializer, p);
+          parts.push(`(void)(${this.assignTo(p.name, v, p)});`);
+        } else if (ts.isPropertyAssignment(p) && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name))) {
+          parts.push(`(void)(${this.assignElement(p.initializer, this.member(src, p.name.text, p))});`);
+        } else {
+          fail(p, Codes.UnsupportedDestructuring, "only named properties can be destructured in assignments");
+        }
+      }
       return `({ ${parts.join(" ")} ${tmp}; })`;
     }
     const il = this.intLocal(target);
@@ -1328,6 +1346,14 @@ export class FnEmitter {
     const v = this.coerce(value, lv.type, node);
     if (lv.direct) return `(${lv.direct} = ${v})`;
     return lv.set!(v);
+  }
+
+  /** One element of a destructuring assignment: `x`, `x = default`, or a nested pattern. */
+  private assignElement(el: ts.Expression, v: E): string {
+    if (ts.isBinaryExpression(el) && el.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+      return this.assignTo(el.left, this.withDefault(v, el.right, el), el);
+    }
+    return this.assignTo(el, v, el);
   }
 
   private binary(node: ts.BinaryExpression): E {
