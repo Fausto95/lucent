@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
+import { podsSearchPaths } from "../src/pods.ts";
 import { extractionCount, forgetLoadedSdks, sdkModule, sdkNames } from "../src/provider.ts";
 
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
@@ -126,6 +127,21 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     // Names come from the symbol graph alone: no schema is built.
     const [key] = fs.readdirSync(path.join(cacheDir, "sdk/ios"));
     expect(fs.existsSync(path.join(cacheDir, "sdk/ios", key!, "Widgets.json"))).toBe(false);
+  });
+
+  it("binds pods: module maps and search paths from the Pods xcconfig", () => {
+    const pods = podsSearchPaths(path.join(fixtures, "pods"));
+    const root = path.join(fixtures, "pods/Pods");
+    expect(pods).toEqual({
+      includePaths: [path.join(root, "Headers/Public"), path.join(root, "Headers/Public/WidgetsPod")],
+      frameworkPaths: [],
+      moduleMaps: [path.join(root, "Headers/Public/WidgetsPod/WidgetsPod.modulemap")],
+    });
+    const r = sdkModule("ios", "WidgetsPod", { cacheDir: tmp("lucent-cache-"), ios: pods });
+    expect("schema" in r && r.schema.types.find((t) => t.name === "WPGaugeMode")).toMatchObject({ cases: [{ name: "linear", value: 0 }, { name: "radial", value: 4 }] });
+    // A Foundation type in its signatures: the SDK and the pods, together.
+    const gauge = "schema" in r ? r.schema.types.find((t) => t.name === "WPGauge") : undefined;
+    expect(gauge?.kind === "class" && gauge.properties?.find((p) => p.name === "documentation")?.type).toBe("Foundation.NSURL");
   });
 
   it("names the fix when there is no Xcode", () => {
