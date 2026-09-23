@@ -43,6 +43,8 @@ export function sdkDts(schema: SdkModuleSchema): string {
           if (t.of.k === "error") return "Out<Error>";
           use("lucent:ios", "NSObject");
           return "Out<NSObject>";
+        case "set":
+          return `Set<${tsType(t.of, out)}>`;
         case "array": {
           if (t.of.k === "prim" && t.of.name === "byte") return "Uint8Array";
           const inner = tsType(t.of, out);

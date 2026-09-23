@@ -90,6 +90,7 @@ export function jniDescriptor(params: (string | SchemaType)[], returns: string |
       case "date":
       case "id":
       case "record":
+      case "set":
       case "out":
       case "fn":
       case "error":

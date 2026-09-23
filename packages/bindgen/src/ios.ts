@@ -336,6 +336,13 @@ function parseType(frags: Fragment[], r: Resolver): SchemaType {
       if (toks[p++] !== ">") throw new Unsupported("Unmanaged");
       return inner;
     }
+    // Swift's Set (NSSet): a Lucent set.
+    if (usr === "s:Sh" && toks[p] === "<") {
+      p++;
+      const of = type();
+      if (toks[p++] !== ">") throw new Unsupported("generic Set");
+      return { k: "set", of, nullable: false };
+    }
     if (toks[p] === "<") throw new Unsupported(`generic ${tok.spelling}`);
     if (usr in CF_TYPES) return named(CF_TYPES[usr]!);
     if (usr in C_TYPEDEFS) return named(C_TYPEDEFS[usr]!);

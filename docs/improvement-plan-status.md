@@ -175,19 +175,19 @@ from the platform's annotations.zip.
 
 Coverage (unrepresentable members):
 
-| Module | 2026-09-23 baseline | Other modules' C types | Bridged value types | Opaque handles |
-| --- | --- | --- | --- | --- |
-| UIKit | 584 of 6,067 (9.6%) | 498 of 6,065 (8.2%) | 264 of 6,054 (4.4%) | 243 of 6,049 (4.0%) |
-| Foundation | 723 of 3,906 (18.5%) | 617 of 3,902 (15.8%) | 493 of 3,901 (12.6%) | 487 of 3,900 (12.5%) |
-| AVFoundation | 451 of 3,527 (12.8%) | 165 of 3,516 (4.7%) | 160 of 3,516 (4.6%) | 78 of 3,515 (2.2%) |
-| android.* (214 packages) | 207 of 79,136 (0.3%) | unchanged | unchanged | unchanged |
+| Module | 2026-09-23 baseline | Other modules' C types | Bridged value types | Opaque handles | Sets |
+| --- | --- | --- | --- | --- | --- |
+| UIKit | 584 of 6,067 (9.6%) | 498 of 6,065 (8.2%) | 264 of 6,054 (4.4%) | 243 of 6,049 (4.0%) | 201 of 6,047 (3.3%) |
+| Foundation | 723 of 3,906 (18.5%) | 617 of 3,902 (15.8%) | 493 of 3,901 (12.6%) | 487 of 3,900 (12.5%) | 477 of 3,899 (12.2%) |
+| AVFoundation | 451 of 3,527 (12.8%) | 165 of 3,516 (4.7%) | 160 of 3,516 (4.6%) | 78 of 3,515 (2.2%) | 69 of 3,515 (2.0%) |
+| android.* (214 packages) | 207 of 79,136 (0.3%) | unchanged | unchanged | unchanged | unchanged |
 
 Totals shrink a little as members that now type-check merge with overloads
 of the same signature.
 
 Top reasons left: pointers (ObjCBool, generic UnsafePointer and
-AutoreleasingUnsafeMutablePointer, pointers to structs), Selector, AnyClass,
-generic Set, AnyHashable, protocol compositions (`any UIView &
+AutoreleasingUnsafeMutablePointer, raw pointers, pointers to structs),
+AnyHashable, Selector, AnyClass, protocol compositions (`any UIView &
 UITextDroppable`); on Android, generics.
 
 - [x] Structs of modules a program does not import (CGRect, reached through
@@ -200,7 +200,10 @@ UITextDroppable`); on Android, generics.
       C type, bridged in the glue. Their functions that Swift imports as
       members (`cgImage.width`) are not bound yet.
 - [x] Fixed on the way: a property whose Swift name only lowercases an acronym
-      (`CGImage` → `cgImage`) was read with Swift's name as the selector.
+      (`CGImage` → `cgImage`) was read with Swift's name as the selector; ObjC
+      methods named create/copy/new return CoreFoundation handles owned.
+- [x] NSSet (Swift's `Set<T>`) as a Lucent `Set<T>` (UIApplication's
+      connectedScenes, UIResponder's touches). Sets of AnyHashable remain.
 
 Found along the way, left:
 

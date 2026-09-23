@@ -139,6 +139,8 @@ export type SchemaType =
   /** Java's String, or CharSequence (`charSequence`: results are read through toString()). */
   | { k: "string"; nullable: boolean; charSequence?: boolean; cf?: boolean }
   | { k: "array"; of: SchemaType; nullable: boolean; cf?: boolean }
+  /** NSSet (Swift's Set): a Lucent Set. */
+  | { k: "set"; of: SchemaType; nullable: boolean }
   /** NSData / CFData: Uint8Array. */
   | { k: "bytes"; nullable: boolean; cf?: boolean }
   /** NSDate: Date. */
@@ -212,6 +214,7 @@ export function parseSchemaType(s: string, module = "", typeParams: readonly str
       expect(">");
       if (name === "Record") return { k: "record", of, nullable: false };
       if (name === "Out") return { k: "out", of, nullable: false };
+      if (name === "Set") return { k: "set", of, nullable: false };
       throw new Error(`schema type ${s}: unknown generic ${name}`);
     }
     return named(name, module, typeParams);
@@ -276,6 +279,8 @@ export function formatSchemaType(t: SchemaType): string {
     }
     case "record":
       return t.cf ? `CFDictionary${q}` : `Record<${formatSchemaType(t.of)}>${q}`;
+    case "set":
+      return `Set<${formatSchemaType(t.of)}>${q}`;
     case "out":
       return `Out<${formatSchemaType(t.of)}>${q}`;
     case "classOf":

@@ -89,6 +89,28 @@ Opt<Array<T>> fromNSArrayOpt(NSArray* a, F fromObject) {
   return a ? Opt<Array<T>>(fromNSArray<T>(a, fromObject, "")) : Opt<Array<T>>(null);
 }
 
+template <class T, class F>
+NSSet* toNSSet(const Set<T>& s, F toObject) {
+  NSMutableSet* out = [NSMutableSet setWithCapacity:static_cast<NSUInteger>(s.size())];
+  Array<T> items = s.values();
+  for (size_t i = 0; i < items.size(); i++) {
+    id v = toObject(items.at(i));
+    [out addObject:v ?: [NSNull null]];
+  }
+  return out;
+}
+template <class T, class F>
+Set<T> fromNSSet(NSSet* s, F fromObject, const char* what) {
+  if (!s) returnedNil(what);
+  Set<T> out;
+  for (id v in s) out.add(fromObject(v));
+  return out;
+}
+template <class T, class F>
+Opt<Set<T>> fromNSSetOpt(NSSet* s, F fromObject) {
+  return s ? Opt<Set<T>>(fromNSSet<T>(s, fromObject, "")) : Opt<Set<T>>(null);
+}
+
 template <class V, class F>
 NSDictionary* toNSDictionary(const Dict<V>& d, F toObject) {
   NSMutableDictionary* out = [NSMutableDictionary dictionary];

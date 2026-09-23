@@ -256,6 +256,8 @@ export function objcTypeName(t: SdkType): string {
       return "NSError*";
     case "array":
       return "NSArray*";
+    case "set":
+      return "NSSet*";
     case "record":
       return "NSDictionary*";
     case "ref":
@@ -316,6 +318,8 @@ export function toObjcCode(t: SdkType, c: string, owned: boolean): string {
       const arr = `lucent::objc::toNSArray(${c}, [&](const auto& e_) -> id { return ${boxed(t.of, "e_")}; })`;
       return t.cf ? `(__bridge CFArrayRef)${arr}` : arr;
     }
+    case "set":
+      return `lucent::objc::toNSSet(${c}, [&](const auto& e_) -> id { return ${boxed(t.of, "e_")}; })`;
     case "record": {
       const dict = `lucent::objc::toNSDictionary(${c}, [&](const auto& e_) -> id { return ${boxed(t.of, "e_")}; })`;
       return t.cf ? `(__bridge CFDictionaryRef)${dict}` : dict;
@@ -405,15 +409,16 @@ export function fromObjc(em: FnEmitter, code: string, t: SdkType, lt: LType, wha
       return lt.k === "opt" ? { c: `lucent::objc::wrapOpt(${o})`, t: lt } : { c: `lucent::objc::wrap(${o}, ${w})`, t: lt };
     }
     case "array":
+    case "set":
     case "record": {
       const container = elem(lt);
-      const itemLt = container.k === "array" ? container.e : container.k === "dict" ? container.val : undefined;
+      const itemLt = container.k === "array" || container.k === "set" ? container.e : container.k === "dict" ? container.val : undefined;
       if (!itemLt) throw new Error(`unexpected Lucent type for ${t.k}`);
       const item = fromObjcItem(t.of, itemLt, what);
       const lambda = `[&](id e_) -> ${em.cpp(itemLt)} { return ${item}; }`;
-      const objcType = t.k === "array" ? "NSArray*" : "NSDictionary*";
-      const src = t.cf ? `${cast(objcType)}${code}` : code;
-      const fn = t.k === "array" ? "fromNSArray" : "fromNSDictionary";
+      const objcType = objcTypeName({ ...t, nullable: false });
+      const src = t.k !== "set" && t.cf ? `${cast(objcType)}${code}` : code;
+      const fn = { array: "fromNSArray", set: "fromNSSet", record: "fromNSDictionary" }[t.k];
       return t.nullable ? { c: `lucent::objc::${fn}Opt<${em.cpp(itemLt)}>(${src}, ${lambda})`, t: lt } : { c: `lucent::objc::${fn}<${em.cpp(itemLt)}>(${src}, ${lambda}, ${w})`, t: container };
     }
     case "ref": {
