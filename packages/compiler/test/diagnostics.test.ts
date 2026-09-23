@@ -106,8 +106,12 @@ export function f(b: B): number { return take(b); }`;
       expect(codes(`interface P { at(i: number): string | undefined; }\nclass Q implements P { at(i?: number): string { return "x"; } }\nexport function f(): number { return 1; }`)).toContain("LUCENT2009");
     });
 
-    it("rejects generic interfaces implemented by classes", () => {
-      expect(codes(`interface Box<T> { get(): T; }\nclass N implements Box<number> { get(): number { return 1; } }\nexport function f(): number { return 1; }`)).toContain("LUCENT2009");
+    it("accepts generic interfaces implemented by classes", () => {
+      expect(codes(`interface Box<T> { get(): T; }\nclass N implements Box<number> { get(): number { return 1; } }\nexport function f(): number { const b: Box<number> = new N(); return b.get(); }`)).toEqual([]);
+    });
+
+    it("rejects a class used through an interface instantiation it does not implement", () => {
+      expect(codes(`interface Box<T> { get(): T | undefined; }\nclass N implements Box<number> { get(): number | undefined { return 1; } }\nexport function f(): number { const b: Box<string> = new N() as unknown as Box<string>; return 1; }`)).not.toEqual([]);
     });
   });
 

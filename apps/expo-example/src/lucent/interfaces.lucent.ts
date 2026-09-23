@@ -110,3 +110,78 @@ export async function loadVia(key: string): Promise<string> {
   const s: Source = new Echo();
   return `${await s.load(key)} ${await s.load(key.toUpperCase())}`;
 }
+
+export interface Feed<T> {
+  readonly count: number;
+  next(): T | undefined;
+}
+
+class Countdown implements Feed<number> {
+  count = 0;
+  constructor(private n: number) {}
+  next(): number | undefined {
+    if (this.n <= 0) return undefined;
+    this.count++;
+    return this.n--;
+  }
+}
+
+class ListSource<T> implements Feed<T> {
+  count = 0;
+  private i = 0;
+  constructor(private items: T[]) {}
+  next(): T | undefined {
+    const v = this.items[this.i];
+    if (v !== undefined) {
+      this.i++;
+      this.count++;
+    }
+    return v;
+  }
+}
+
+function drain<T>(s: Feed<T>, show: (v: T) => string): string {
+  const out: string[] = [];
+  for (let v = s.next(); v !== undefined; v = s.next()) out.push(show(v));
+  return `${out.join(",")} (${s.count})`;
+}
+
+export function feeds(): string {
+  const words: Feed<string> = new ListSource(["a", "b"]);
+  return [drain(new Countdown(3), (n) => `${n}`), drain(words, (s) => s.toUpperCase()), drain(new ListSource([1, 2]), (n) => `${n * 10}`)].join(" | ");
+}
+
+export interface Labelled {
+  readonly label: string;
+}
+
+export interface Tagged extends Labelled {
+  tag(): string;
+}
+
+class Item implements Tagged {
+  constructor(public label: string) {}
+  tag(): string {
+    return `#${this.label}`;
+  }
+}
+
+class Special implements Tagged, Labelled {
+  label = "special";
+  tag(): string {
+    return "!";
+  }
+}
+
+function labelOf(l: Labelled): string {
+  return l.label;
+}
+
+export function tagged(): string {
+  const xs: Tagged[] = [new Item("x"), new Special()];
+  return xs.map((t) => `${labelOf(t)}${t.tag()}`).join(" ");
+}
+
+export function exportTagged(): Tagged {
+  return new Item("out");
+}

@@ -18,5 +18,9 @@ export default function run(mod, print, lucentClass, mods) {
     print(mod.counters());
     print(await mod.loadVia("k"));
   })();
+  print(mod.feeds());
+  print(mod.tagged());
+  const t = mod.exportTagged();
+  print(t.label, t.tag());
 
 }
