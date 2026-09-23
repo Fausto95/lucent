@@ -4,8 +4,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { compile } from "../src/index.ts";
 
-function build(sources: Record<string, string>) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-inc-"));
+// Rebuilds compare sources in the same directory, as a project would.
+function build(sources: Record<string, string>, dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-inc-"))) {
   const files = Object.entries(sources).map(([name, src]) => {
     const f = path.join(dir, `${name}.lucent.ts`);
     fs.writeFileSync(f, src);
@@ -31,15 +31,17 @@ describe("generated files for incremental native builds", () => {
   });
 
   it("changes only the module's own files when a function body changes", () => {
-    const before = build({ a, b, c });
-    const after = build({ a: a.replace("n * 2", "n + n"), b, c });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-inc-"));
+    const before = build({ a, b, c }, dir);
+    const after = build({ a: a.replace("n * 2", "n + n"), b, c }, dir);
     const changed = [...before.keys()].filter((k) => before.get(k) !== after.get(k));
     expect(changed).toEqual(["m_a.cpp"]);
   });
 
   it("leaves unrelated headers alone when a module's exports change", () => {
-    const before = build({ a, b, c });
-    const after = build({ a: `${a}\nexport function thrice(n: number): number { return n * 3; }`, b, c });
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-inc-"));
+    const before = build({ a, b, c }, dir);
+    const after = build({ a: `${a}\nexport function thrice(n: number): number { return n * 3; }`, b, c }, dir);
     const changed = [...before.keys()].filter((k) => before.get(k) !== after.get(k)).sort();
     expect(changed).toEqual(["lucent_bindings.cpp", "m_a.cpp", "m_a.h"]);
   });

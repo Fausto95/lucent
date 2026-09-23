@@ -18,8 +18,10 @@ describe("debug information", () => {
     const cc = spawnSync("clang++", ["-std=c++20", "-g", "-c", `-I${path.join(runtimeDir(), "cpp")}`, `-I${dir}`, path.join(dir, "m_sample.cpp"), "-o", obj], { encoding: "utf8" });
     expect(cc.stderr).toBe("");
     const lines = spawnSync(dwarfdump!, ["--debug-line", obj], { encoding: "utf8" }).stdout;
-    // The line table names the source file by absolute path, so debuggers and
-    // crash symbolication open the right file.
-    expect(lines).toContain(fs.realpathSync(src).replace(/\\/g, "/"));
+    // The line table names the source file by its canonical absolute path
+    // (DWARF splits it into a directory and a name), so debuggers and crash
+    // symbolication open the right file.
+    expect(lines).toContain(`"${fs.realpathSync(dir).replace(/\\/g, "/")}"`);
+    expect(lines).toContain('name: "sample.lucent.ts"');
   });
 });
