@@ -66,16 +66,16 @@ export const styles = stylex.create({
   },
   heroHeading: {
     fontSize: {
-      default: "clamp(58px, 5.6vw, 81px)",
-      "@media (min-width: 1500px)": "5.375rem",
-      "@media (max-width: 1150px)": "4rem",
-      "@media (max-width: 850px)": "4.75rem",
-      "@media (max-width: 540px)": "clamp(47px, 11.7vw, 64px)",
+      default: "clamp(46px, 4.3vw, 64px)",
+      "@media (min-width: 1500px)": "4.25rem",
+      "@media (max-width: 1150px)": "3.25rem",
+      "@media (max-width: 850px)": "3.75rem",
+      "@media (max-width: 540px)": "clamp(38px, 9.4vw, 52px)",
     },
     fontWeight: 500,
     letterSpacing: {
-      default: "-4.3px",
-      "@media (max-width: 540px)": "-2.7px",
+      default: "-3px",
+      "@media (max-width: 540px)": "-2px",
     },
     lineHeight: 1.07,
     margin: {
@@ -191,10 +191,7 @@ export const styles = stylex.create({
       "@media (max-width: 540px)": "23px 0",
     },
     display: "flex",
-    justifyContent: {
-      default: "space-between",
-      "@media (max-width: 540px)": "flex-start",
-    },
+    justifyContent: "flex-start",
     alignItems: "center",
     gap: {
       default: "25px",
@@ -206,7 +203,8 @@ export const styles = stylex.create({
       "@media (max-width: 850px)": "wrap",
     },
     columnGap: {
-      default: null,
+      default: "56px",
+      "@media (max-width: 850px)": "40px",
       "@media (max-width: 540px)": "16px",
     },
     rowGap: {
@@ -215,6 +213,10 @@ export const styles = stylex.create({
     },
   },
   stripIntro: {
+    flex: {
+      default: "1 1 0",
+      "@media (max-width: 850px)": "none",
+    },
     fontSize: {
       default: "0.75rem",
       "@media (max-width: 850px)": "0.75rem",
@@ -230,6 +232,28 @@ export const styles = stylex.create({
     display: {
       default: null,
       "@media (max-width: 850px)": "none",
+    },
+  },
+  /**
+   * Centred on the strip: on wide screens the intro and the note split the
+   * rest equally; below 850px the intro takes its own line, the note is hidden
+   * and the group takes the row.
+   */
+  platformGroup: {
+    flex: {
+      default: "none",
+      "@media (max-width: 850px)": "1",
+    },
+    display: "flex",
+    justifyContent: {
+      default: "center",
+      "@media (max-width: 540px)": "flex-start",
+    },
+    alignItems: "center",
+    columnGap: {
+      default: "72px",
+      "@media (max-width: 850px)": "48px",
+      "@media (max-width: 540px)": "22px",
     },
   },
   platformItem: {
@@ -259,14 +283,23 @@ export const styles = stylex.create({
     objectFit: "contain",
     flexShrink: 0,
   },
+  // A mask, so the single-colour mark takes the theme's text colour.
+  expoLogo: {
+    backgroundColor: tokens.text,
+    maskImage: "url(/brand/expo.svg)",
+    maskRepeat: "no-repeat",
+    maskPosition: "center",
+    maskSize: "contain",
+  },
   platformNote: {
+    flex: "1 1 0",
     fontSize: "0.75rem",
     lineHeight: 1.6,
     color: tokens.textMuted,
     textAlign: "right",
     display: {
       default: null,
-      "@media (max-width: 1150px)": "none",
+      "@media (max-width: 850px)": "none",
     },
   },
   sectionIntro: {
@@ -311,6 +344,20 @@ export const styles = stylex.create({
     marginTop: {
       default: null,
       "@media (max-width: 850px)": "18px",
+    },
+  },
+  sectionFootnote: {
+    fontSize: "0.875rem",
+    lineHeight: 1.7,
+    color: tokens.textSubtle,
+    margin: "14px 0 0",
+  },
+  footnoteLink: {
+    color: tokens.textSecondary,
+    textDecoration: "underline",
+    textUnderlineOffset: "3px",
+    ":hover": {
+      color: tokens.accent,
     },
   },
   sectionInlineCode: {

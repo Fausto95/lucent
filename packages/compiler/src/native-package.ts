@@ -1,0 +1,149 @@
+import crypto from "node:crypto";
+import fs from "node:fs";
+import type { NativeDependencies } from "./packages.ts";
+import path from "node:path";
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import type { EmitResult } from "./emit/index.ts";
+import { coreTypesPath } from "./program.ts";
+import { currentSdkIdentity } from "./sdk/schema.ts";
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+
+/** Location of @lucent-lang/runtime (C++ runtime and native templates). */
+export function runtimeDir(): string {
+  return path.dirname(createRequire(import.meta.url).resolve("@lucent-lang/runtime/package.json"));
+}
+
+export interface WriteResult {
+  outDir: string;
+  written: string[];
+  unchanged: number;
+  removed: string[];
+  /** True when files were added or removed (pods / Gradle need a resync). */
+  structureChanged: boolean;
+}
+
+/**
+ * A key for everything a build depends on: the sources, the compiler, the
+ * runtime and templates it copies, and the output location. Content, not
+ * versions, so edits to the compiler or runtime invalidate it too.
+ */
+export function inputsKey(files: string[], outDir: string): string {
+  const hash = crypto.createHash("sha256");
+  hash.update(path.resolve(outDir));
+  // The compiler itself: its sources in this repository, dist when installed.
+  const compilerRoot = path.resolve(here, "..");
+  const compilerFiles = ["src", "dist", "lib"].flatMap((d) => listFiles(path.join(compilerRoot, d)));
+  const deps = [...compilerFiles, ...listFiles(runtimeDir()).filter((f) => !f.includes(`${path.sep}test${path.sep}`) && !f.includes(`${path.sep}node_modules${path.sep}`)), coreTypesPath()];
+  // The SDKs bindings come from (their schemas are derived from them).
+  hash.update(currentSdkIdentity());
+  for (const f of [...files.map((f) => path.resolve(f)).sort(), ...deps.sort()]) {
+    hash.update(f);
+    hash.update(fs.readFileSync(f));
+  }
+  return hash.digest("hex");
+}
+
+/** Whether `outDir` was written by a build with the same inputs. */
+export function isUpToDate(outDir: string, key: string): boolean {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf8")).inputs === key;
+  } catch {
+    return false;
+  }
+}
+
+function listFiles(dir: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  const out: string[] = [];
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, e.name);
+    if (e.isDirectory()) out.push(...listFiles(full));
+    else out.push(full);
+  }
+  return out;
+}
+
+/** The library's build.gradle with Lucent packages' Gradle artifacts (api: the app's compile classpath sees them). */
+export function withGradleDependencies(template: string, native: NativeDependencies | undefined): string {
+  const deps = Object.entries(native?.gradle ?? {}).map(([artifact, version]) => `  api(${JSON.stringify(`${artifact}:${version}`)})`);
+  return deps.length ? template.replace(/^dependencies \{\n/m, `dependencies {\n${deps.join("\n")}\n`) : template;
+}
+
+/**
+ * Writes the native package React Native autolinks: the C++ runtime, the
+ * generated module code, the TurboModule host, build files for both
+ * platforms, and the JavaScript proxies. Files whose content did not change
+ * are left alone so native builds stay incremental.
+ */
+export function writeNativePackage(result: EmitResult, outDir: string, options: { inputsKey?: string; native?: NativeDependencies } = {}): WriteResult {
+  const rt = runtimeDir();
+  const want = new Map<string, string | Buffer>();
+  const copyTree = (from: string, to: string, filter: (f: string) => boolean) => {
+    for (const f of listFiles(from)) {
+      if (!filter(f)) continue;
+      want.set(path.join(to, path.relative(from, f)), fs.readFileSync(f));
+    }
+  };
+  copyTree(path.join(rt, "cpp/lucent"), path.join(outDir, "cpp/lucent"), () => true);
+  copyTree(path.join(rt, "cpp/rn"), path.join(outDir, "cpp/rn"), () => true);
+  copyTree(path.join(rt, "cpp/third_party"), path.join(outDir, "cpp/third_party"), () => true);
+  copyTree(path.join(rt, "native"), outDir, () => true);
+  // Frameworks the iOS platform code uses join the podspec's.
+  const podspec = path.join(outDir, "LucentNative.podspec");
+  const frameworks = ["CoreFoundation", ...(result.frameworks ?? [])];
+  want.set(podspec, want.get(podspec)!.toString().replace(/s\.frameworks\s*=.*$/m, `s.frameworks   = ${JSON.stringify([...new Set(frameworks)]).replace(/,/g, ", ")}`));
+  for (const [name, content] of result.files) want.set(path.join(outDir, "cpp/generated", name), content);
+  const native = options.native;
+  // Lucent packages' pods and Gradle artifacts.
+  if (native && Object.keys(native.pods).length) {
+    const deps = Object.entries(native.pods).map(([pod, version]) => `  s.dependency ${JSON.stringify(pod)}, ${JSON.stringify(version)}`).join("\n");
+    want.set(podspec, want.get(podspec)!.toString().replace(/^end\s*$/m, `${deps}\nend`));
+  }
+  const gradle = path.join(outDir, "android/build.gradle");
+  want.set(gradle, withGradleDependencies(want.get(gradle)!.toString(), native));
+  for (const [name, content] of result.proxies) want.set(path.join(outDir, "js", `${name}.js`), content);
+  for (const [name, content] of result.java ?? []) want.set(path.join(outDir, "android/src/main/java", name), content);
+  // The permissions of the SDK methods the platform code calls, merged into the app's manifest.
+  const uses = [...new Set([...(result.androidPermissions ?? []), ...(native?.permissions ?? [])])].sort().map((p) => `  <uses-permission android:name="${p}" />`);
+  want.set(path.join(outDir, "android/src/main/AndroidManifest.xml"), `<?xml version="1.0" encoding="utf-8"?>\n<!-- Generated by Lucent. Do not edit. -->\n<manifest xmlns:android="http://schemas.android.com/apk/res/android">\n${uses.map((u) => `${u}\n`).join("")}</manifest>\n`);
+  // What JNI finds by name must survive the app's shrinker (R8): the library's consumer rules.
+  const keep = ["-keep class dev.lucent.** { *; }", ...(result.javaKeep ?? []).map((c) => `-keep class ${c.replace(/\//g, ".")} { *; }`)];
+  want.set(path.join(outDir, "android/consumer-rules.pro"), `# Generated by Lucent. Do not edit.\n# Classes Lucent's JNI glue uses by name.\n${keep.join("\n")}\n`);
+  for (const [name, content] of result.types ?? []) want.set(path.join(outDir, "types", name), content);
+  want.set(
+    path.join(outDir, "manifest.json"),
+    JSON.stringify({ generator: "lucent", modules: [...result.proxies.keys()].sort(), inputs: options.inputsKey, ...(native && Object.keys(native.infoPlist).length ? { infoPlist: native.infoPlist } : {}) }, null, 2) + "\n",
+  );
+
+  // Gradle builds android/ in place: its outputs are not the package's files.
+  const buildOutput = /^android[\\/](build|\.cxx|\.gradle)[\\/]/;
+  const existing = new Set(listFiles(outDir).filter((f) => !buildOutput.test(path.relative(outDir, f))));
+  const before = new Set(existing);
+  const written: string[] = [];
+  let unchanged = 0;
+  for (const [file, content] of want) {
+    existing.delete(file);
+    const buf = typeof content === "string" ? Buffer.from(content) : content;
+    if (fs.existsSync(file) && fs.readFileSync(file).equals(buf)) {
+      unchanged++;
+      continue;
+    }
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, buf);
+    written.push(file);
+  }
+  const removed: string[] = [];
+  for (const stale of existing) {
+    fs.rmSync(stale);
+    removed.push(stale);
+  }
+  return {
+    outDir,
+    written,
+    unchanged,
+    removed,
+    structureChanged: removed.length > 0 || written.some((f) => !before.has(f)),
+  };
+}

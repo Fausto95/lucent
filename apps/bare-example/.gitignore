@@ -8,3 +8,5 @@ android/app/build/
 android/app/.cxx/
 .lucent/
 *.log
+Gemfile.lock
+vendor/

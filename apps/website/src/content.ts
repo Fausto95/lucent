@@ -1,40 +1,16 @@
-/** Prewritten samples for the homepage. The Swift/Kotlin switcher shows real compiler output for `fixtures/clamp.lucent.ts`. */
-export const examples = {
-  swift: {
-    platform: "iOS",
-    extension: ".swift",
-    code: "func clamp(\n  value: Double, min: Double, max: Double\n) throws -> Double {\n  if value < min { return min }\n  if value > max { return max }\n  return value\n}",
-  },
-  kotlin: {
-    platform: "Android",
-    extension: ".kt",
-    code: "fun clamp(\n  value: Double, min: Double, max: Double\n): Double {\n  if (value < min) { return min }\n  if (value > max) { return max }\n  return value\n}",
-  },
-};
+/** Homepage samples. The Lucent source and its C++ live in generated/compiler-demo.ts. */
+export const appUsage = `import { squaredDistance } from "./src/geo.lucent";
 
-export const source =
-  "export function clamp(value: number, min: number, max: number): number {\n  if (value < min) return min;\n  if (value > max) return max;\n  return value;\n}";
+// A synchronous call into the compiled C++.
+squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25`;
 
-export const commands =
-  "npx expo install @lucent-lang/core";
+export const commands = `npm install @lucent-lang/runtime @lucent-lang/core
+npm install -D @lucent-lang/cli @lucent-lang/metro
+npx lucent init`;
 
-export const nativeCard = `import { VStack, Text, TextField, Button,
-  type NativeProps, type NativeView } from "@lucent-lang/core/ui";
-import type { Event } from "@lucent-lang/core/events";
+/** Planned, not implemented: shown as a teaser on the homepage (roadmap M2). */
+export const platformTeaser = `import { CLLocationManager } from "lucent:ios/CoreLocation";
 
-type Props = {
-  title: string;
-  name: string;
-  onName: Event<string>;
-  onPress: Event<void>;
-};
-
-export function Card(props: NativeProps<Props>): NativeView {
-  return (
-    <VStack padding={16} spacing={12}>
-      <Text size={20}>{props.title}</Text>
-      <TextField value={props.name} onChange={props.onName} />
-      <Button title="Continue" onPress={props.onPress} />
-    </VStack>
-  );
+export function authorization(): number {
+  return new CLLocationManager().authorizationStatus;
 }`;

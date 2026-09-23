@@ -1,37 +1,11 @@
 {
   "name": "@lucent-lang/metro",
-  "version": "0.0.3",
+  "version": "0.1.0-cpp",
+  "description": "Metro integration: *.lucent.ts imports resolve to generated JSI proxies",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Fausto95/lucent.git",
-    "directory": "packages/metro"
-  },
+  "main": "./src/index.cjs",
+  "types": "./src/index.d.ts",
   "files": [
-    "dist",
-    "src",
-    "public.d.ts"
-  ],
-  "type": "module",
-  "main": "./dist/index.cjs",
-  "exports": {
-    ".": {
-      "types": "./public.d.ts",
-      "default": "./dist/index.cjs"
-    },
-    "./transformer": {
-      "types": "./src/transformer.ts",
-      "default": "./dist/transformer.cjs"
-    }
-  },
-  "publishConfig": {
-    "access": "public"
-  },
-  "dependencies": {
-    "@lucent-lang/compiler": "workspace:*",
-    "@lucent-lang/host-core": "workspace:*",
-    "@lucent-lang/host-expo": "workspace:*",
-    "@lucent-lang/host-nitro": "workspace:*",
-    "oxc-parser": "0.151.0"
-  }
+    "src"
+  ]
 }

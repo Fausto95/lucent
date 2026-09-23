@@ -1,63 +1,75 @@
+import { diagnosticCodes } from "../../../generated/diagnostics";
 import type { DocPage } from "../../types";
 
 export const page: DocPage = {
   slug: "language/diagnostics",
   title: "Diagnostics",
-  description: "Every rejection has an `LUCENT` code, a message, a code frame, and usually a hint. Nothing outside the subset reaches native code.",
+  description:
+    "Every `LUCENT` code the compiler reports, what it means, and how to fix the common ones.",
   blocks: [
+    {
+      kind: "p",
+      text: "Code outside the subset fails the build with a diagnostic that points at the source. Nothing is written until every diagnostic is fixed. `lucent build`, `lucent check`, Metro and the [editor plugin](/docs/reference/core/) all report the same diagnostics.",
+    },
     {
       kind: "code",
       filename: "terminal",
-      code: "npx lucent check\n\nsrc/geo.lucent.ts:4:14 LUCENT1014 Missing type annotation\n  4 | export function scale(value) {\n    |                       ^^^^^\n  help: parameters and return types must be annotated",
+      code: "src/geo.lucent.ts:2:3: LUCENT1001: use `let` or `const` instead of `var`\n\n✗ 1 problem(s); nothing was written.",
     },
     {
       kind: "p",
-      text: "`lucent check` reports without generating. `lucent build`, the Expo plugin and Metro report the same diagnostics; errors fail the build, warnings do not.",
+      text: "Codes are stable. The first digit groups them: `1xxx` for syntax and built-ins, `2xxx` for types without a native representation, `3xxx` for module structure, and `9001` for TypeScript errors, because Lucent compiles only programs that type-check.",
     },
-    { kind: "h2", text: "Language" },
+    { kind: "h2", text: "All codes" },
     {
       kind: "table",
-      head: ["Code", "Meaning", "Typical fix"],
-      rows: [
-        ["`LUCENT1000`", "Syntax error from the parser", "Also raised for `await` outside `async`."],
-        ["`LUCENT1001`", "Unsupported syntax", "Spread, `switch`, `try`, `==`, async arrows, non-`LucentError` throws… Rewrite with the [supported forms](/docs/language/functions-and-control-flow/)."],
-        ["`LUCENT1002`", "Dynamic property access", "`obj[key]` on a record. Use `obj.field`, or a `Record<string, T>`."],
-        ["`LUCENT1003`", "Unsupported type", "Tuples, generics, interfaces, enums, `never`, `object`, `symbol`, `bigint`, untagged unions."],
-        ["`LUCENT1004`", "`any` / `unknown` is prohibited", "Give the value a concrete type."],
-        ["`LUCENT1005`", "Function value cannot cross the native boundary", "Use an [event](/docs/language/events/) for JS callbacks, `NativeCallback` for native-to-native."],
-        ["`LUCENT1006`", "Unsupported dependency", "Only Lucent files, `@lucent-lang/*` and registered libraries can be imported. Check the path, the export, and cycles."],
-        ["`LUCENT1007`", "Too many parameters", "Group arguments into a record."],
-        ["`LUCENT1010`", "Unknown identifier", ""],
-        ["`LUCENT1011`", "Type mismatch", "Includes `int32 + number` and non-boolean conditions."],
-        ["`LUCENT1012`", "Wrong number of arguments", ""],
-        ["`LUCENT1013`", "`await` outside an async function", ""],
-        ["`LUCENT1014`", "Missing type annotation", "Annotate parameters and return types."],
-        ["`LUCENT1015`", "Missing return", "Every path must return when the return type is not `void`."],
-        ["`LUCENT1016`", "Assignment to a constant", "Use `let`."],
-        ["`LUCENT1018`", "Borrowed value escapes its scope", "Do not return, store, or use a borrow after `await` or `close`."],
-        ["`LUCENT1019`", "Native call is on the wrong executor", "Match `@MainThread`, `@Background`, or keep a serial object on the caller."],
-      ],
+      head: ["Code", "Meaning"],
+      rows: diagnosticCodes.map(({ code, description }) => [`\`${code}\``, description]),
     },
-    { kind: "h2", text: "Platform" },
+    { kind: "h2", text: "Common fixes" },
+    { kind: "h3", text: "Give every value a native type" },
     {
-      kind: "table",
-      head: ["Code", "Meaning", "Typical fix"],
-      rows: [
-        ["`LUCENT2001`", "Missing native capability", "Add the capability to `lucent.config.ts`."],
-        ["`LUCENT2004`", "Platform-specific API", "Wrap the call in a `Platform.OS` guard."],
-      ],
+      kind: "p",
+      text: "Native code needs to know each value's layout, so `any` and `unknown` are rejected (`unknown` is allowed only in `catch`). Use a concrete type, or a union.",
     },
-    { kind: "h2", text: "Warnings" },
     {
-      kind: "table",
-      head: ["Code", "Meaning", "Typical fix"],
-      rows: [
-        ["`LUCENT3002`", "Potentially expensive main-thread work", "Move loops, recursion or `cost`-marked bindings behind a `@Background` hop. See [threads](/docs/language/threads/)."],
-      ],
+      kind: "code",
+      filename: "parse.lucent.ts",
+      expect: "LUCENT2001",
+      code: "export function size(value: any): number {\n  return value.length;\n}",
+    },
+    { kind: "h3", text: "Tell union members apart" },
+    {
+      kind: "p",
+      text: "Values that come from JavaScript carry no type, so Lucent must be able to tell which member of an object union it received. Add a string-literal field such as `kind`.",
+    },
+    {
+      kind: "code",
+      filename: "shapes.lucent.ts",
+      expect: "LUCENT2005",
+      code: "export function area(shape: { radius: number } | { side: number }): number {\n  return \"radius\" in shape ? Math.PI * shape.radius ** 2 : shape.side ** 2;\n}",
+    },
+    { kind: "h3", text: "Wrap generic exports" },
+    {
+      kind: "p",
+      text: "Generic functions compile to C++ templates, which JavaScript cannot call without a concrete type. Export a concrete wrapper instead.",
+    },
+    {
+      kind: "code",
+      filename: "stack.lucent.ts",
+      expect: "LUCENT2007",
+      code: "export function last<T>(items: T[]): T | undefined {\n  return items[items.length - 1];\n}",
+    },
+    { kind: "h3", text: "Throw errors, not values" },
+    {
+      kind: "code",
+      filename: "config.lucent.ts",
+      expect: "LUCENT1006",
+      code: 'export function port(text: string): number {\n  const n = Number(text);\n  if (!Number.isInteger(n)) throw "not a port";\n  return n;\n}',
     },
     {
       kind: "p",
-      text: "Configuration and manifest problems (unknown capability, invalid library metadata, two config files) fail the build with a plain error rather than an `LUCENT` code, since they are not attached to a source position.",
+      text: "Throw `new Error(…)`, `new TypeError(…)`, or a class that extends `Error`. See [Errors](/docs/language/errors/).",
     },
   ],
 };

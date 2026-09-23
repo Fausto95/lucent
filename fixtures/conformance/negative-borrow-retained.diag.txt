@@ -1,9 +1,0 @@
-error LUCENT1018: Borrowed value escapes
-
-A borrowed value cannot be passed out of its scope.
-
-  ┌─ negative-borrow-retained.lucent.ts:6:12
-6 │     retain(frame);
-  │            ^^^^^
-
-The borrow originates at a parameter or borrowed call result earlier in this scope. This use is unsafe because it would be passed out of its scope and outlive the owner's guarantee. Process the borrow before `await`, or copy needed data into owned memory.

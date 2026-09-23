@@ -1,0 +1,3 @@
+# Schemas are generated in CI (scripts/prebuild-sdk.ts) and published, never committed.
+*.json
+!package.json

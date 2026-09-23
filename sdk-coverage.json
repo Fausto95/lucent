@@ -1,0 +1,1934 @@
+[
+  {
+    "module": "UIKit",
+    "idiomatic": 41,
+    "raw": 5824,
+    "unrepresentable": 181,
+    "total": 6046,
+    "reasons": {
+      "struct without fields": 1,
+      "Selector": 49,
+      "UNNotificationResponse": 1,
+      "AnyClass": 18,
+      "pointer to CoreFoundation.CGRect": 5,
+      "UIRectEdge": 4,
+      "type  any NSItemProviderReading.Type": 5,
+      "__UIPointerAccessoryPosition": 1,
+      "another requirement has this name": 7,
+      "ObjCBool": 7,
+      "generic NSLayoutAnchor": 8,
+      "type  any UIResponder & UIKeyInput": 1,
+      "__UITextSearching": 2,
+      "type  any UIView & UITextDraggable": 5,
+      "closures and tuples": 9,
+      "pointer to CGFloat": 7,
+      "pointer to Foundation.NSRange": 10,
+      "generic UnsafePointer": 6,
+      "pointer to uint16": 1,
+      "pointer to NSInteger": 1,
+      "type  any UILayoutGuide & UILayoutGuideAspectFitting": 1,
+      "__UICollectionViewDiffableDataSourceReorderingHandlers": 1,
+      "__UICollectionViewDiffableDataSourceSectionSnapshotHandlers": 1,
+      "UnsafeMutableRawPointer": 1,
+      "UICoordinateSpace": 7,
+      "array": 3,
+      "type  any UIView & UITextCursorView": 1,
+      "type  any UIView & UITextSelectionHighlightView": 1,
+      "type  any UIView & UITextDroppable": 8,
+      "pointer to CoreFoundation.CGPoint": 1,
+      "NSObjectProtocol": 2,
+      "type syntax @": 3,
+      "type  any UIResponder & UITextInput": 1,
+      "UIAxis": 1,
+      "CChar": 1
+    }
+  },
+  {
+    "module": "Foundation",
+    "idiomatic": 34,
+    "raw": 3434,
+    "unrepresentable": 431,
+    "total": 3899,
+    "reasons": {
+      "generic AutoreleasingUnsafeMutablePointer": 32,
+      "struct without fields": 3,
+      "generic NSMapTable": 22,
+      "generic NSHashTable": 22,
+      "pointer to Foundation.NSRange": 11,
+      "pointer to Foundation.MassFormatter_Unit": 1,
+      "pointer to NSInteger": 12,
+      "ObjCBool": 53,
+      "generic UnsafePointer": 47,
+      "pointer to uint8": 4,
+      "KeyType": 4,
+      "ObjectType": 10,
+      "generic NSCache": 1,
+      "AnyClass": 24,
+      "NSObject": 13,
+      "pointer to Foundation.NSFastEnumerationState": 1,
+      "another requirement has this name": 4,
+      "UnsafeRawPointer": 18,
+      "UnsafeMutableRawPointer": 24,
+      "Selector": 26,
+      "pointer to Foundation.Decimal": 11,
+      "pointer to int32": 1,
+      "pointer to int64": 1,
+      "pointer to uint64": 2,
+      "pointer to float": 2,
+      "pointer to double": 2,
+      "pointer to uint32": 1,
+      "generic Measurement": 6,
+      "NSObjectProtocol": 4,
+      "pointer to Foundation.LengthFormatter_Unit": 1,
+      "NSInvocation": 3,
+      "UTF32Char": 1,
+      "CChar": 6,
+      "dictionary keyed by Foundation.URLProtectionSpace": 1,
+      "NSZone": 4,
+      "CVaListPointer": 6,
+      "pointer to uint16": 4,
+      "pointer to NSUInteger": 4,
+      "generic CollectionDifference": 1,
+      "xpc_object_t": 1,
+      "xpc_type_t": 2,
+      "au_asid_t": 1,
+      "pid_t": 1,
+      "uid_t": 1,
+      "gid_t": 1,
+      "Protocol": 5,
+      "NSPortMessage": 1,
+      "pointer to Foundation.FileManager_URLRelationship": 2,
+      "closures and tuples": 1,
+      "Sendable": 1,
+      "type  any NSItemProviderWriting.Type": 1,
+      "type  any NSItemProviderReading.Type": 2,
+      "pointer to Foundation.EnergyFormatter_Unit": 1,
+      "pointer to Foundation.PropertyListSerialization_PropertyListFormat": 3,
+      "type Int { get }": 2,
+      "pointer to Foundation.NSMapEnumerator": 2,
+      "type NSPointerFunctions.Options { get }": 8,
+      "pointer to Foundation.NSHashEnumerator": 2
+    }
+  },
+  {
+    "module": "AVFoundation",
+    "idiomatic": 74,
+    "raw": 3373,
+    "unrepresentable": 65,
+    "total": 3512,
+    "reasons": {
+      "ObjCBool": 6,
+      "Sendable": 14,
+      "NSZone": 2,
+      "dictionary keyed by AVFoundation.AVMediaPresentationSelector": 3,
+      "type syntax sending": 2,
+      "type syntax @": 2,
+      "another requirement has this name": 5,
+      "pointer to CoreMedia.CMTime": 3,
+      "__CMTaggedBufferGroup": 1,
+      "generic AutoreleasingUnsafeMutablePointer": 4,
+      "Float64": 2,
+      "AnyClass": 1,
+      "CGImagePropertyOrientation": 3,
+      "pointer to float": 2,
+      "closures and tuples": 6,
+      "type  any NSCopying & NSObjectProtocol": 1,
+      "type  any AVAsset & AVFragmentMinding": 3,
+      "array": 1,
+      "matrix_float3x3": 1,
+      "matrix_float4x3": 1,
+      "pointer to CoreFoundation.CGAffineTransform": 1,
+      "pointer to CoreFoundation.CGRect": 1
+    }
+  },
+  {
+    "module": "android.accessibilityservice",
+    "idiomatic": 55,
+    "raw": 326,
+    "unrepresentable": 0,
+    "total": 381,
+    "reasons": {}
+  },
+  {
+    "module": "android.accounts",
+    "idiomatic": 5,
+    "raw": 159,
+    "unrepresentable": 2,
+    "total": 166,
+    "reasons": {
+      "type variable V": 2
+    }
+  },
+  {
+    "module": "android.adservices",
+    "idiomatic": 0,
+    "raw": 1,
+    "unrepresentable": 0,
+    "total": 1,
+    "reasons": {}
+  },
+  {
+    "module": "android.adservices.adid",
+    "idiomatic": 2,
+    "raw": 10,
+    "unrepresentable": 0,
+    "total": 12,
+    "reasons": {}
+  },
+  {
+    "module": "android.adservices.adselection",
+    "idiomatic": 59,
+    "raw": 199,
+    "unrepresentable": 0,
+    "total": 258,
+    "reasons": {}
+  },
+  {
+    "module": "android.adservices.appsetid",
+    "idiomatic": 2,
+    "raw": 9,
+    "unrepresentable": 0,
+    "total": 11,
+    "reasons": {}
+  },
+  {
+    "module": "android.adservices.common",
+    "idiomatic": 17,
+    "raw": 104,
+    "unrepresentable": 2,
+    "total": 123,
+    "reasons": {
+      "type variable E": 1,
+      "type variable R": 1
+    }
+  },
+  {
+    "module": "android.adservices.customaudience",
+    "idiomatic": 37,
+    "raw": 131,
+    "unrepresentable": 0,
+    "total": 168,
+    "reasons": {}
+  },
+  {
+    "module": "android.adservices.exceptions",
+    "idiomatic": 0,
+    "raw": 2,
+    "unrepresentable": 0,
+    "total": 2,
+    "reasons": {}
+  },
+  {
+    "module": "android.adservices.measurement",
+    "idiomatic": 20,
+    "raw": 91,
+    "unrepresentable": 0,
+    "total": 111,
+    "reasons": {}
+  },
+  {
+    "module": "android.adservices.ondevicepersonalization",
+    "idiomatic": 77,
+    "raw": 293,
+    "unrepresentable": 0,
+    "total": 370,
+    "reasons": {}
+  },
+  {
+    "module": "android.adservices.signals",
+    "idiomatic": 1,
+    "raw": 9,
+    "unrepresentable": 0,
+    "total": 10,
+    "reasons": {}
+  },
+  {
+    "module": "android.adservices.topics",
+    "idiomatic": 9,
+    "raw": 29,
+    "unrepresentable": 0,
+    "total": 38,
+    "reasons": {}
+  },
+  {
+    "module": "android.animation",
+    "idiomatic": 37,
+    "raw": 274,
+    "unrepresentable": 4,
+    "total": 315,
+    "reasons": {
+      "type variable V": 1,
+      "java.lang.Class": 1,
+      "type variable T": 2
+    }
+  },
+  {
+    "module": "android.app",
+    "idiomatic": 583,
+    "raw": 3350,
+    "unrepresentable": 5,
+    "total": 3938,
+    "reasons": {
+      "type variable E": 1,
+      "java.lang.Class": 3,
+      "type variable D": 1
+    }
+  },
+  {
+    "module": "android.app.admin",
+    "idiomatic": 84,
+    "raw": 832,
+    "unrepresentable": 0,
+    "total": 916,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.appfunctions",
+    "idiomatic": 42,
+    "raw": 175,
+    "unrepresentable": 0,
+    "total": 217,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.appsearch",
+    "idiomatic": 177,
+    "raw": 689,
+    "unrepresentable": 19,
+    "total": 885,
+    "reasons": {
+      "type variable KeyType": 3,
+      "type variable ValueType": 1,
+      "type variable BuilderType": 15
+    }
+  },
+  {
+    "module": "android.app.appsearch.exceptions",
+    "idiomatic": 1,
+    "raw": 5,
+    "unrepresentable": 0,
+    "total": 6,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.appsearch.observer",
+    "idiomatic": 9,
+    "raw": 26,
+    "unrepresentable": 0,
+    "total": 35,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.appsearch.util",
+    "idiomatic": 0,
+    "raw": 2,
+    "unrepresentable": 0,
+    "total": 2,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.assist",
+    "idiomatic": 79,
+    "raw": 100,
+    "unrepresentable": 0,
+    "total": 179,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.backup",
+    "idiomatic": 16,
+    "raw": 65,
+    "unrepresentable": 0,
+    "total": 81,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.blob",
+    "idiomatic": 9,
+    "raw": 34,
+    "unrepresentable": 0,
+    "total": 43,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.jank",
+    "idiomatic": 10,
+    "raw": 31,
+    "unrepresentable": 0,
+    "total": 41,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.job",
+    "idiomatic": 60,
+    "raw": 213,
+    "unrepresentable": 0,
+    "total": 273,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.people",
+    "idiomatic": 7,
+    "raw": 37,
+    "unrepresentable": 0,
+    "total": 44,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.permissionui",
+    "idiomatic": 16,
+    "raw": 57,
+    "unrepresentable": 0,
+    "total": 73,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.privatecompute",
+    "idiomatic": 3,
+    "raw": 24,
+    "unrepresentable": 0,
+    "total": 27,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.role",
+    "idiomatic": 0,
+    "raw": 13,
+    "unrepresentable": 0,
+    "total": 13,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.sdksandbox",
+    "idiomatic": 13,
+    "raw": 60,
+    "unrepresentable": 0,
+    "total": 73,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.sdksandbox.sdkprovider",
+    "idiomatic": 4,
+    "raw": 12,
+    "unrepresentable": 0,
+    "total": 16,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.slice",
+    "idiomatic": 19,
+    "raw": 117,
+    "unrepresentable": 0,
+    "total": 136,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.usage",
+    "idiomatic": 55,
+    "raw": 170,
+    "unrepresentable": 0,
+    "total": 225,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.voiceinteraction",
+    "idiomatic": 1,
+    "raw": 6,
+    "unrepresentable": 0,
+    "total": 7,
+    "reasons": {}
+  },
+  {
+    "module": "android.app.wallpaper",
+    "idiomatic": 11,
+    "raw": 33,
+    "unrepresentable": 0,
+    "total": 44,
+    "reasons": {}
+  },
+  {
+    "module": "android.appwidget",
+    "idiomatic": 14,
+    "raw": 150,
+    "unrepresentable": 0,
+    "total": 164,
+    "reasons": {}
+  },
+  {
+    "module": "android.bluetooth",
+    "idiomatic": 136,
+    "raw": 1123,
+    "unrepresentable": 0,
+    "total": 1259,
+    "reasons": {}
+  },
+  {
+    "module": "android.bluetooth.le",
+    "idiomatic": 73,
+    "raw": 332,
+    "unrepresentable": 0,
+    "total": 405,
+    "reasons": {}
+  },
+  {
+    "module": "android.companion",
+    "idiomatic": 35,
+    "raw": 218,
+    "unrepresentable": 0,
+    "total": 253,
+    "reasons": {}
+  },
+  {
+    "module": "android.companion.virtual",
+    "idiomatic": 6,
+    "raw": 16,
+    "unrepresentable": 0,
+    "total": 22,
+    "reasons": {}
+  },
+  {
+    "module": "android.content",
+    "idiomatic": 208,
+    "raw": 1871,
+    "unrepresentable": 12,
+    "total": 2091,
+    "reasons": {
+      "type variable D": 5,
+      "java.lang.Class": 6,
+      "type variable T": 1
+    }
+  },
+  {
+    "module": "android.content.om",
+    "idiomatic": 5,
+    "raw": 35,
+    "unrepresentable": 0,
+    "total": 40,
+    "reasons": {}
+  },
+  {
+    "module": "android.content.pm",
+    "idiomatic": 223,
+    "raw": 1507,
+    "unrepresentable": 0,
+    "total": 1730,
+    "reasons": {}
+  },
+  {
+    "module": "android.content.pm.verify.domain",
+    "idiomatic": 4,
+    "raw": 14,
+    "unrepresentable": 0,
+    "total": 18,
+    "reasons": {}
+  },
+  {
+    "module": "android.content.pm.webapp",
+    "idiomatic": 4,
+    "raw": 25,
+    "unrepresentable": 0,
+    "total": 29,
+    "reasons": {}
+  },
+  {
+    "module": "android.content.res",
+    "idiomatic": 28,
+    "raw": 323,
+    "unrepresentable": 0,
+    "total": 351,
+    "reasons": {}
+  },
+  {
+    "module": "android.content.res.loader",
+    "idiomatic": 1,
+    "raw": 15,
+    "unrepresentable": 0,
+    "total": 16,
+    "reasons": {}
+  },
+  {
+    "module": "android.credentials",
+    "idiomatic": 27,
+    "raw": 127,
+    "unrepresentable": 0,
+    "total": 154,
+    "reasons": {}
+  },
+  {
+    "module": "android.crypto.hpke",
+    "idiomatic": 11,
+    "raw": 52,
+    "unrepresentable": 0,
+    "total": 63,
+    "reasons": {}
+  },
+  {
+    "module": "android.database",
+    "idiomatic": 50,
+    "raw": 354,
+    "unrepresentable": 2,
+    "total": 406,
+    "reasons": {
+      "type variable T": 2
+    }
+  },
+  {
+    "module": "android.database.sqlite",
+    "idiomatic": 41,
+    "raw": 274,
+    "unrepresentable": 0,
+    "total": 315,
+    "reasons": {}
+  },
+  {
+    "module": "android.devicelock",
+    "idiomatic": 2,
+    "raw": 14,
+    "unrepresentable": 0,
+    "total": 16,
+    "reasons": {}
+  },
+  {
+    "module": "android.drm",
+    "idiomatic": 21,
+    "raw": 157,
+    "unrepresentable": 0,
+    "total": 178,
+    "reasons": {}
+  },
+  {
+    "module": "android.gesture",
+    "idiomatic": 29,
+    "raw": 142,
+    "unrepresentable": 0,
+    "total": 171,
+    "reasons": {}
+  },
+  {
+    "module": "android.graphics",
+    "idiomatic": 232,
+    "raw": 1742,
+    "unrepresentable": 0,
+    "total": 1974,
+    "reasons": {}
+  },
+  {
+    "module": "android.graphics.drawable",
+    "idiomatic": 231,
+    "raw": 769,
+    "unrepresentable": 0,
+    "total": 1000,
+    "reasons": {}
+  },
+  {
+    "module": "android.graphics.drawable.shapes",
+    "idiomatic": 4,
+    "raw": 38,
+    "unrepresentable": 0,
+    "total": 42,
+    "reasons": {}
+  },
+  {
+    "module": "android.graphics.fonts",
+    "idiomatic": 12,
+    "raw": 61,
+    "unrepresentable": 0,
+    "total": 73,
+    "reasons": {}
+  },
+  {
+    "module": "android.graphics.pdf",
+    "idiomatic": 37,
+    "raw": 118,
+    "unrepresentable": 0,
+    "total": 155,
+    "reasons": {}
+  },
+  {
+    "module": "android.graphics.pdf.component",
+    "idiomatic": 26,
+    "raw": 80,
+    "unrepresentable": 0,
+    "total": 106,
+    "reasons": {}
+  },
+  {
+    "module": "android.graphics.pdf.content",
+    "idiomatic": 11,
+    "raw": 32,
+    "unrepresentable": 0,
+    "total": 43,
+    "reasons": {}
+  },
+  {
+    "module": "android.graphics.pdf.models",
+    "idiomatic": 22,
+    "raw": 69,
+    "unrepresentable": 0,
+    "total": 91,
+    "reasons": {}
+  },
+  {
+    "module": "android.graphics.pdf.models.selection",
+    "idiomatic": 7,
+    "raw": 16,
+    "unrepresentable": 0,
+    "total": 23,
+    "reasons": {}
+  },
+  {
+    "module": "android.graphics.text",
+    "idiomatic": 14,
+    "raw": 100,
+    "unrepresentable": 0,
+    "total": 114,
+    "reasons": {}
+  },
+  {
+    "module": "android.hardware",
+    "idiomatic": 105,
+    "raw": 607,
+    "unrepresentable": 0,
+    "total": 712,
+    "reasons": {}
+  },
+  {
+    "module": "android.hardware.biometrics",
+    "idiomatic": 30,
+    "raw": 136,
+    "unrepresentable": 0,
+    "total": 166,
+    "reasons": {}
+  },
+  {
+    "module": "android.hardware.camera2",
+    "idiomatic": 44,
+    "raw": 831,
+    "unrepresentable": 3,
+    "total": 878,
+    "reasons": {
+      "java.lang.Class": 3
+    }
+  },
+  {
+    "module": "android.hardware.camera2.params",
+    "idiomatic": 83,
+    "raw": 322,
+    "unrepresentable": 0,
+    "total": 405,
+    "reasons": {}
+  },
+  {
+    "module": "android.hardware.display",
+    "idiomatic": 30,
+    "raw": 137,
+    "unrepresentable": 0,
+    "total": 167,
+    "reasons": {}
+  },
+  {
+    "module": "android.hardware.input",
+    "idiomatic": 5,
+    "raw": 22,
+    "unrepresentable": 0,
+    "total": 27,
+    "reasons": {}
+  },
+  {
+    "module": "android.hardware.lights",
+    "idiomatic": 19,
+    "raw": 75,
+    "unrepresentable": 0,
+    "total": 94,
+    "reasons": {}
+  },
+  {
+    "module": "android.hardware.serial",
+    "idiomatic": 6,
+    "raw": 19,
+    "unrepresentable": 0,
+    "total": 25,
+    "reasons": {}
+  },
+  {
+    "module": "android.hardware.usb",
+    "idiomatic": 46,
+    "raw": 143,
+    "unrepresentable": 0,
+    "total": 189,
+    "reasons": {}
+  },
+  {
+    "module": "android.health.connect",
+    "idiomatic": 56,
+    "raw": 469,
+    "unrepresentable": 13,
+    "total": 538,
+    "reasons": {
+      "type variable T": 3,
+      "java.lang.Class": 10
+    }
+  },
+  {
+    "module": "android.health.connect.changelog",
+    "idiomatic": 16,
+    "raw": 49,
+    "unrepresentable": 1,
+    "total": 66,
+    "reasons": {
+      "java.lang.Class": 1
+    }
+  },
+  {
+    "module": "android.health.connect.datatypes",
+    "idiomatic": 226,
+    "raw": 1272,
+    "unrepresentable": 0,
+    "total": 1498,
+    "reasons": {}
+  },
+  {
+    "module": "android.health.connect.datatypes.units",
+    "idiomatic": 11,
+    "raw": 66,
+    "unrepresentable": 0,
+    "total": 77,
+    "reasons": {}
+  },
+  {
+    "module": "android.icu.lang",
+    "idiomatic": 1,
+    "raw": 1602,
+    "unrepresentable": 0,
+    "total": 1603,
+    "reasons": {}
+  },
+  {
+    "module": "android.icu.math",
+    "idiomatic": 4,
+    "raw": 96,
+    "unrepresentable": 0,
+    "total": 100,
+    "reasons": {}
+  },
+  {
+    "module": "android.icu.number",
+    "idiomatic": 5,
+    "raw": 137,
+    "unrepresentable": 20,
+    "total": 162,
+    "reasons": {
+      "type variable T": 20
+    }
+  },
+  {
+    "module": "android.icu.text",
+    "idiomatic": 264,
+    "raw": 2002,
+    "unrepresentable": 5,
+    "total": 2271,
+    "reasons": {
+      "type variable V": 2,
+      "java.lang.Class": 3
+    }
+  },
+  {
+    "module": "android.icu.util",
+    "idiomatic": 86,
+    "raw": 934,
+    "unrepresentable": 4,
+    "total": 1024,
+    "reasons": {
+      "type variable T": 4
+    }
+  },
+  {
+    "module": "android.inputmethodservice",
+    "idiomatic": 32,
+    "raw": 260,
+    "unrepresentable": 0,
+    "total": 292,
+    "reasons": {}
+  },
+  {
+    "module": "android.location",
+    "idiomatic": 145,
+    "raw": 693,
+    "unrepresentable": 0,
+    "total": 838,
+    "reasons": {}
+  },
+  {
+    "module": "android.location.altitude",
+    "idiomatic": 0,
+    "raw": 3,
+    "unrepresentable": 0,
+    "total": 3,
+    "reasons": {}
+  },
+  {
+    "module": "android.location.provider",
+    "idiomatic": 2,
+    "raw": 32,
+    "unrepresentable": 0,
+    "total": 34,
+    "reasons": {}
+  },
+  {
+    "module": "android.media",
+    "idiomatic": 561,
+    "raw": 4030,
+    "unrepresentable": 1,
+    "total": 4592,
+    "reasons": {
+      "java.lang.Class": 1
+    }
+  },
+  {
+    "module": "android.media.audiofx",
+    "idiomatic": 71,
+    "raw": 409,
+    "unrepresentable": 0,
+    "total": 480,
+    "reasons": {}
+  },
+  {
+    "module": "android.media.browse",
+    "idiomatic": 10,
+    "raw": 37,
+    "unrepresentable": 0,
+    "total": 47,
+    "reasons": {}
+  },
+  {
+    "module": "android.media.effect",
+    "idiomatic": 2,
+    "raw": 38,
+    "unrepresentable": 0,
+    "total": 40,
+    "reasons": {}
+  },
+  {
+    "module": "android.media.metrics",
+    "idiomatic": 75,
+    "raw": 378,
+    "unrepresentable": 0,
+    "total": 453,
+    "reasons": {}
+  },
+  {
+    "module": "android.media.midi",
+    "idiomatic": 21,
+    "raw": 99,
+    "unrepresentable": 0,
+    "total": 120,
+    "reasons": {}
+  },
+  {
+    "module": "android.media.projection",
+    "idiomatic": 12,
+    "raw": 57,
+    "unrepresentable": 0,
+    "total": 69,
+    "reasons": {}
+  },
+  {
+    "module": "android.media.quality",
+    "idiomatic": 48,
+    "raw": 414,
+    "unrepresentable": 0,
+    "total": 462,
+    "reasons": {}
+  },
+  {
+    "module": "android.media.session",
+    "idiomatic": 47,
+    "raw": 221,
+    "unrepresentable": 0,
+    "total": 268,
+    "reasons": {}
+  },
+  {
+    "module": "android.media.tv",
+    "idiomatic": 127,
+    "raw": 1037,
+    "unrepresentable": 0,
+    "total": 1164,
+    "reasons": {}
+  },
+  {
+    "module": "android.media.tv.ad",
+    "idiomatic": 6,
+    "raw": 121,
+    "unrepresentable": 0,
+    "total": 127,
+    "reasons": {}
+  },
+  {
+    "module": "android.media.tv.interactive",
+    "idiomatic": 10,
+    "raw": 264,
+    "unrepresentable": 0,
+    "total": 274,
+    "reasons": {}
+  },
+  {
+    "module": "android.mtp",
+    "idiomatic": 53,
+    "raw": 216,
+    "unrepresentable": 0,
+    "total": 269,
+    "reasons": {}
+  },
+  {
+    "module": "android.net",
+    "idiomatic": 194,
+    "raw": 993,
+    "unrepresentable": 1,
+    "total": 1188,
+    "reasons": {
+      "type variable T": 1
+    }
+  },
+  {
+    "module": "android.net.dns",
+    "idiomatic": 9,
+    "raw": 10,
+    "unrepresentable": 0,
+    "total": 19,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.eap",
+    "idiomatic": 20,
+    "raw": 57,
+    "unrepresentable": 0,
+    "total": 77,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.http",
+    "idiomatic": 62,
+    "raw": 259,
+    "unrepresentable": 0,
+    "total": 321,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.ipsec.ike",
+    "idiomatic": 43,
+    "raw": 223,
+    "unrepresentable": 0,
+    "total": 266,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.ipsec.ike.exceptions",
+    "idiomatic": 7,
+    "raw": 32,
+    "unrepresentable": 0,
+    "total": 39,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.nsd",
+    "idiomatic": 19,
+    "raw": 112,
+    "unrepresentable": 0,
+    "total": 131,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.rtp",
+    "idiomatic": 12,
+    "raw": 41,
+    "unrepresentable": 0,
+    "total": 53,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.sip",
+    "idiomatic": 24,
+    "raw": 142,
+    "unrepresentable": 0,
+    "total": 166,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.ssl",
+    "idiomatic": 2,
+    "raw": 15,
+    "unrepresentable": 0,
+    "total": 17,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.vcn",
+    "idiomatic": 26,
+    "raw": 94,
+    "unrepresentable": 0,
+    "total": 120,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.wifi",
+    "idiomatic": 173,
+    "raw": 782,
+    "unrepresentable": 0,
+    "total": 955,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.wifi.aware",
+    "idiomatic": 59,
+    "raw": 271,
+    "unrepresentable": 0,
+    "total": 330,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.wifi.hotspot2",
+    "idiomatic": 6,
+    "raw": 19,
+    "unrepresentable": 0,
+    "total": 25,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.wifi.hotspot2.omadm",
+    "idiomatic": 0,
+    "raw": 1,
+    "unrepresentable": 0,
+    "total": 1,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.wifi.hotspot2.pps",
+    "idiomatic": 22,
+    "raw": 84,
+    "unrepresentable": 0,
+    "total": 106,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.wifi.p2p",
+    "idiomatic": 65,
+    "raw": 358,
+    "unrepresentable": 0,
+    "total": 423,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.wifi.p2p.nsd",
+    "idiomatic": 7,
+    "raw": 48,
+    "unrepresentable": 0,
+    "total": 55,
+    "reasons": {}
+  },
+  {
+    "module": "android.net.wifi.rtt",
+    "idiomatic": 71,
+    "raw": 278,
+    "unrepresentable": 0,
+    "total": 349,
+    "reasons": {}
+  },
+  {
+    "module": "android.nfc",
+    "idiomatic": 30,
+    "raw": 151,
+    "unrepresentable": 0,
+    "total": 181,
+    "reasons": {}
+  },
+  {
+    "module": "android.nfc.cardemulation",
+    "idiomatic": 10,
+    "raw": 101,
+    "unrepresentable": 0,
+    "total": 111,
+    "reasons": {}
+  },
+  {
+    "module": "android.nfc.tech",
+    "idiomatic": 57,
+    "raw": 142,
+    "unrepresentable": 0,
+    "total": 199,
+    "reasons": {}
+  },
+  {
+    "module": "android.opengl",
+    "idiomatic": 8,
+    "raw": 2871,
+    "unrepresentable": 0,
+    "total": 2879,
+    "reasons": {}
+  },
+  {
+    "module": "android.os",
+    "idiomatic": 128,
+    "raw": 1637,
+    "unrepresentable": 20,
+    "total": 1785,
+    "reasons": {
+      "type variable Params": 2,
+      "type variable Result": 2,
+      "java.lang.Class": 3,
+      "type variable E": 9,
+      "type variable R": 1,
+      "type variable T": 3
+    }
+  },
+  {
+    "module": "android.os.ext",
+    "idiomatic": 0,
+    "raw": 3,
+    "unrepresentable": 0,
+    "total": 3,
+    "reasons": {}
+  },
+  {
+    "module": "android.os.flagging",
+    "idiomatic": 2,
+    "raw": 12,
+    "unrepresentable": 0,
+    "total": 14,
+    "reasons": {}
+  },
+  {
+    "module": "android.os.health",
+    "idiomatic": 13,
+    "raw": 121,
+    "unrepresentable": 0,
+    "total": 134,
+    "reasons": {}
+  },
+  {
+    "module": "android.os.storage",
+    "idiomatic": 14,
+    "raw": 70,
+    "unrepresentable": 0,
+    "total": 84,
+    "reasons": {}
+  },
+  {
+    "module": "android.os.storage.operations",
+    "idiomatic": 13,
+    "raw": 43,
+    "unrepresentable": 0,
+    "total": 56,
+    "reasons": {}
+  },
+  {
+    "module": "android.os.storage.operations.sources",
+    "idiomatic": 1,
+    "raw": 4,
+    "unrepresentable": 0,
+    "total": 5,
+    "reasons": {}
+  },
+  {
+    "module": "android.os.storage.operations.targets",
+    "idiomatic": 0,
+    "raw": 4,
+    "unrepresentable": 0,
+    "total": 4,
+    "reasons": {}
+  },
+  {
+    "module": "android.os.strictmode",
+    "idiomatic": 2,
+    "raw": 8,
+    "unrepresentable": 0,
+    "total": 10,
+    "reasons": {}
+  },
+  {
+    "module": "android.os.vibrator",
+    "idiomatic": 11,
+    "raw": 26,
+    "unrepresentable": 0,
+    "total": 37,
+    "reasons": {}
+  },
+  {
+    "module": "android.preference",
+    "idiomatic": 69,
+    "raw": 304,
+    "unrepresentable": 0,
+    "total": 373,
+    "reasons": {}
+  },
+  {
+    "module": "android.print",
+    "idiomatic": 52,
+    "raw": 285,
+    "unrepresentable": 0,
+    "total": 337,
+    "reasons": {}
+  },
+  {
+    "module": "android.print.pdf",
+    "idiomatic": 3,
+    "raw": 5,
+    "unrepresentable": 0,
+    "total": 8,
+    "reasons": {}
+  },
+  {
+    "module": "android.printservice",
+    "idiomatic": 17,
+    "raw": 50,
+    "unrepresentable": 0,
+    "total": 67,
+    "reasons": {}
+  },
+  {
+    "module": "android.provider",
+    "idiomatic": 41,
+    "raw": 2509,
+    "unrepresentable": 0,
+    "total": 2550,
+    "reasons": {}
+  },
+  {
+    "module": "android.ranging",
+    "idiomatic": 74,
+    "raw": 252,
+    "unrepresentable": 0,
+    "total": 326,
+    "reasons": {}
+  },
+  {
+    "module": "android.ranging.ble",
+    "idiomatic": 2,
+    "raw": 9,
+    "unrepresentable": 0,
+    "total": 11,
+    "reasons": {}
+  },
+  {
+    "module": "android.ranging.ble.cs",
+    "idiomatic": 6,
+    "raw": 29,
+    "unrepresentable": 0,
+    "total": 35,
+    "reasons": {}
+  },
+  {
+    "module": "android.ranging.ble.rssi",
+    "idiomatic": 2,
+    "raw": 10,
+    "unrepresentable": 0,
+    "total": 12,
+    "reasons": {}
+  },
+  {
+    "module": "android.ranging.oob",
+    "idiomatic": 11,
+    "raw": 50,
+    "unrepresentable": 0,
+    "total": 61,
+    "reasons": {}
+  },
+  {
+    "module": "android.ranging.raw",
+    "idiomatic": 12,
+    "raw": 49,
+    "unrepresentable": 0,
+    "total": 61,
+    "reasons": {}
+  },
+  {
+    "module": "android.ranging.uwb",
+    "idiomatic": 37,
+    "raw": 133,
+    "unrepresentable": 0,
+    "total": 170,
+    "reasons": {}
+  },
+  {
+    "module": "android.ranging.wifi.pd",
+    "idiomatic": 15,
+    "raw": 38,
+    "unrepresentable": 0,
+    "total": 53,
+    "reasons": {}
+  },
+  {
+    "module": "android.ranging.wifi.rtt",
+    "idiomatic": 13,
+    "raw": 46,
+    "unrepresentable": 0,
+    "total": 59,
+    "reasons": {}
+  },
+  {
+    "module": "android.renderscript",
+    "idiomatic": 73,
+    "raw": 837,
+    "unrepresentable": 0,
+    "total": 910,
+    "reasons": {}
+  },
+  {
+    "module": "android.sax",
+    "idiomatic": 1,
+    "raw": 16,
+    "unrepresentable": 0,
+    "total": 17,
+    "reasons": {}
+  },
+  {
+    "module": "android.se.omapi",
+    "idiomatic": 13,
+    "raw": 31,
+    "unrepresentable": 0,
+    "total": 44,
+    "reasons": {}
+  },
+  {
+    "module": "android.security",
+    "idiomatic": 20,
+    "raw": 118,
+    "unrepresentable": 0,
+    "total": 138,
+    "reasons": {}
+  },
+  {
+    "module": "android.security.advancedprotection",
+    "idiomatic": 1,
+    "raw": 4,
+    "unrepresentable": 0,
+    "total": 5,
+    "reasons": {}
+  },
+  {
+    "module": "android.security.identity",
+    "idiomatic": 27,
+    "raw": 116,
+    "unrepresentable": 0,
+    "total": 143,
+    "reasons": {}
+  },
+  {
+    "module": "android.security.keystore",
+    "idiomatic": 81,
+    "raw": 216,
+    "unrepresentable": 0,
+    "total": 297,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.assist.classification",
+    "idiomatic": 2,
+    "raw": 7,
+    "unrepresentable": 0,
+    "total": 9,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.autofill",
+    "idiomatic": 46,
+    "raw": 308,
+    "unrepresentable": 0,
+    "total": 354,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.carrier",
+    "idiomatic": 15,
+    "raw": 104,
+    "unrepresentable": 1,
+    "total": 120,
+    "reasons": {
+      "type variable T": 1
+    }
+  },
+  {
+    "module": "android.service.chooser",
+    "idiomatic": 15,
+    "raw": 60,
+    "unrepresentable": 0,
+    "total": 75,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.controls",
+    "idiomatic": 13,
+    "raw": 123,
+    "unrepresentable": 0,
+    "total": 136,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.controls.actions",
+    "idiomatic": 10,
+    "raw": 31,
+    "unrepresentable": 0,
+    "total": 41,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.controls.templates",
+    "idiomatic": 27,
+    "raw": 59,
+    "unrepresentable": 0,
+    "total": 86,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.credentials",
+    "idiomatic": 30,
+    "raw": 122,
+    "unrepresentable": 0,
+    "total": 152,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.dreams",
+    "idiomatic": 5,
+    "raw": 49,
+    "unrepresentable": 0,
+    "total": 54,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.media",
+    "idiomatic": 5,
+    "raw": 25,
+    "unrepresentable": 1,
+    "total": 31,
+    "reasons": {
+      "type variable T": 1
+    }
+  },
+  {
+    "module": "android.service.messaging",
+    "idiomatic": 0,
+    "raw": 5,
+    "unrepresentable": 0,
+    "total": 5,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.notification",
+    "idiomatic": 59,
+    "raw": 268,
+    "unrepresentable": 0,
+    "total": 327,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.persistentdata",
+    "idiomatic": 1,
+    "raw": 1,
+    "unrepresentable": 0,
+    "total": 2,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.quickaccesswallet",
+    "idiomatic": 21,
+    "raw": 66,
+    "unrepresentable": 0,
+    "total": 87,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.quicksettings",
+    "idiomatic": 10,
+    "raw": 47,
+    "unrepresentable": 0,
+    "total": 57,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.restrictions",
+    "idiomatic": 0,
+    "raw": 2,
+    "unrepresentable": 0,
+    "total": 2,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.settings.preferences",
+    "idiomatic": 30,
+    "raw": 129,
+    "unrepresentable": 0,
+    "total": 159,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.textservice",
+    "idiomatic": 3,
+    "raw": 12,
+    "unrepresentable": 0,
+    "total": 15,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.voice",
+    "idiomatic": 28,
+    "raw": 138,
+    "unrepresentable": 0,
+    "total": 166,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.vr",
+    "idiomatic": 0,
+    "raw": 4,
+    "unrepresentable": 0,
+    "total": 4,
+    "reasons": {}
+  },
+  {
+    "module": "android.service.wallpaper",
+    "idiomatic": 7,
+    "raw": 33,
+    "unrepresentable": 0,
+    "total": 40,
+    "reasons": {}
+  },
+  {
+    "module": "android.speech",
+    "idiomatic": 15,
+    "raw": 212,
+    "unrepresentable": 0,
+    "total": 227,
+    "reasons": {}
+  },
+  {
+    "module": "android.speech.tts",
+    "idiomatic": 26,
+    "raw": 157,
+    "unrepresentable": 0,
+    "total": 183,
+    "reasons": {}
+  },
+  {
+    "module": "android.system",
+    "idiomatic": 3,
+    "raw": 719,
+    "unrepresentable": 0,
+    "total": 722,
+    "reasons": {}
+  },
+  {
+    "module": "android.telecom",
+    "idiomatic": 182,
+    "raw": 1096,
+    "unrepresentable": 0,
+    "total": 1278,
+    "reasons": {}
+  },
+  {
+    "module": "android.telephony",
+    "idiomatic": 396,
+    "raw": 2949,
+    "unrepresentable": 0,
+    "total": 3345,
+    "reasons": {}
+  },
+  {
+    "module": "android.telephony.cdma",
+    "idiomatic": 5,
+    "raw": 15,
+    "unrepresentable": 0,
+    "total": 20,
+    "reasons": {}
+  },
+  {
+    "module": "android.telephony.data",
+    "idiomatic": 44,
+    "raw": 186,
+    "unrepresentable": 0,
+    "total": 230,
+    "reasons": {}
+  },
+  {
+    "module": "android.telephony.emergency",
+    "idiomatic": 7,
+    "raw": 32,
+    "unrepresentable": 0,
+    "total": 39,
+    "reasons": {}
+  },
+  {
+    "module": "android.telephony.euicc",
+    "idiomatic": 7,
+    "raw": 72,
+    "unrepresentable": 0,
+    "total": 79,
+    "reasons": {}
+  },
+  {
+    "module": "android.telephony.gsm",
+    "idiomatic": 27,
+    "raw": 74,
+    "unrepresentable": 0,
+    "total": 101,
+    "reasons": {}
+  },
+  {
+    "module": "android.telephony.ims",
+    "idiomatic": 27,
+    "raw": 292,
+    "unrepresentable": 0,
+    "total": 319,
+    "reasons": {}
+  },
+  {
+    "module": "android.telephony.ims.feature",
+    "idiomatic": 0,
+    "raw": 10,
+    "unrepresentable": 0,
+    "total": 10,
+    "reasons": {}
+  },
+  {
+    "module": "android.telephony.ims.stub",
+    "idiomatic": 0,
+    "raw": 6,
+    "unrepresentable": 0,
+    "total": 6,
+    "reasons": {}
+  },
+  {
+    "module": "android.telephony.mbms",
+    "idiomatic": 16,
+    "raw": 122,
+    "unrepresentable": 0,
+    "total": 138,
+    "reasons": {}
+  },
+  {
+    "module": "android.telephony.satellite",
+    "idiomatic": 1,
+    "raw": 17,
+    "unrepresentable": 0,
+    "total": 18,
+    "reasons": {}
+  },
+  {
+    "module": "android.text",
+    "idiomatic": 61,
+    "raw": 632,
+    "unrepresentable": 6,
+    "total": 699,
+    "reasons": {
+      "java.lang.Class": 6
+    }
+  },
+  {
+    "module": "android.text.format",
+    "idiomatic": 1,
+    "raw": 137,
+    "unrepresentable": 0,
+    "total": 138,
+    "reasons": {}
+  },
+  {
+    "module": "android.text.method",
+    "idiomatic": 9,
+    "raw": 162,
+    "unrepresentable": 0,
+    "total": 171,
+    "reasons": {}
+  },
+  {
+    "module": "android.text.style",
+    "idiomatic": 89,
+    "raw": 502,
+    "unrepresentable": 8,
+    "total": 599,
+    "reasons": {
+      "java.lang.Class": 1,
+      "type variable C": 7
+    }
+  },
+  {
+    "module": "android.text.util",
+    "idiomatic": 3,
+    "raw": 40,
+    "unrepresentable": 0,
+    "total": 43,
+    "reasons": {}
+  },
+  {
+    "module": "android.transition",
+    "idiomatic": 33,
+    "raw": 222,
+    "unrepresentable": 7,
+    "total": 262,
+    "reasons": {
+      "java.lang.Class": 7
+    }
+  },
+  {
+    "module": "android.util",
+    "idiomatic": 39,
+    "raw": 626,
+    "unrepresentable": 47,
+    "total": 712,
+    "reasons": {
+      "type variable V": 5,
+      "type variable K": 5,
+      "type variable E": 19,
+      "type variable T": 14,
+      "type variable F": 2,
+      "type variable S": 1,
+      "java.lang.Class": 1
+    }
+  },
+  {
+    "module": "android.util.proto",
+    "idiomatic": 2,
+    "raw": 58,
+    "unrepresentable": 0,
+    "total": 60,
+    "reasons": {}
+  },
+  {
+    "module": "android.view",
+    "idiomatic": 702,
+    "raw": 3661,
+    "unrepresentable": 1,
+    "total": 4364,
+    "reasons": {
+      "java.lang.Class": 1
+    }
+  },
+  {
+    "module": "android.view.accessibility",
+    "idiomatic": 176,
+    "raw": 737,
+    "unrepresentable": 0,
+    "total": 913,
+    "reasons": {}
+  },
+  {
+    "module": "android.view.animation",
+    "idiomatic": 30,
+    "raw": 206,
+    "unrepresentable": 0,
+    "total": 236,
+    "reasons": {}
+  },
+  {
+    "module": "android.view.autofill",
+    "idiomatic": 25,
+    "raw": 82,
+    "unrepresentable": 0,
+    "total": 107,
+    "reasons": {}
+  },
+  {
+    "module": "android.view.contentcapture",
+    "idiomatic": 17,
+    "raw": 81,
+    "unrepresentable": 0,
+    "total": 98,
+    "reasons": {}
+  },
+  {
+    "module": "android.view.displayhash",
+    "idiomatic": 5,
+    "raw": 23,
+    "unrepresentable": 0,
+    "total": 28,
+    "reasons": {}
+  },
+  {
+    "module": "android.view.inputmethod",
+    "idiomatic": 147,
+    "raw": 732,
+    "unrepresentable": 0,
+    "total": 879,
+    "reasons": {}
+  },
+  {
+    "module": "android.view.inspector",
+    "idiomatic": 0,
+    "raw": 44,
+    "unrepresentable": 1,
+    "total": 45,
+    "reasons": {
+      "type variable T": 1
+    }
+  },
+  {
+    "module": "android.view.textclassifier",
+    "idiomatic": 104,
+    "raw": 394,
+    "unrepresentable": 9,
+    "total": 507,
+    "reasons": {
+      "type variable T": 9
+    }
+  },
+  {
+    "module": "android.view.textservice",
+    "idiomatic": 27,
+    "raw": 87,
+    "unrepresentable": 0,
+    "total": 114,
+    "reasons": {}
+  },
+  {
+    "module": "android.view.translation",
+    "idiomatic": 28,
+    "raw": 144,
+    "unrepresentable": 0,
+    "total": 172,
+    "reasons": {}
+  },
+  {
+    "module": "android.webkit",
+    "idiomatic": 118,
+    "raw": 617,
+    "unrepresentable": 1,
+    "total": 736,
+    "reasons": {
+      "type variable T": 1
+    }
+  },
+  {
+    "module": "android.widget",
+    "idiomatic": 714,
+    "raw": 2803,
+    "unrepresentable": 11,
+    "total": 3528,
+    "reasons": {
+      "type variable T": 10,
+      "java.lang.Class": 1
+    }
+  },
+  {
+    "module": "android.widget.inline",
+    "idiomatic": 5,
+    "raw": 20,
+    "unrepresentable": 0,
+    "total": 25,
+    "reasons": {}
+  },
+  {
+    "module": "android.widget.photopicker",
+    "idiomatic": 21,
+    "raw": 81,
+    "unrepresentable": 0,
+    "total": 102,
+    "reasons": {}
+  },
+  {
+    "module": "android.window",
+    "idiomatic": 11,
+    "raw": 54,
+    "unrepresentable": 0,
+    "total": 65,
+    "reasons": {}
+  }
+]

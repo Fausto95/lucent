@@ -1,0 +1,12 @@
+<root>
+  <item name="com.example.widgets.Widget void setValue(int)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.VIBRATE&quot;" />
+    </annotation>
+  </item>
+  <item name="com.example.widgets.Widget void touch(com.example.base.Shape, com.example.widgets.Widget)">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="anyOf" val="{&quot;android.permission.ACCESS_COARSE_LOCATION&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+    </annotation>
+  </item>
+</root>

@@ -1,0 +1,17 @@
+{
+  "name": "@lucent-lang/ts-plugin",
+  "version": "0.1.0-cpp",
+  "description": "TypeScript language-service plugin: Lucent diagnostics for *.lucent.ts in the editor",
+  "license": "MIT",
+  "main": "./src/index.cjs",
+  "types": "./src/index.d.ts",
+  "dependencies": {
+    "@lucent-lang/compiler": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  },
+  "files": [
+    "src"
+  ]
+}

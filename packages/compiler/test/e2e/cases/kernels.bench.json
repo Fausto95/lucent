@@ -1,0 +1,11 @@
+{
+  "murmur": 1000000,
+  "fnv1a": 3000000,
+  "crc32": 2000000,
+  "xorshift": 2000000,
+  "sieve": 1000000,
+  "mandelbrot": 200000,
+  "sortNumbers": 200000,
+  "wordCount": 300000,
+  "strings": 300000
+}

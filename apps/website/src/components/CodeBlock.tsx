@@ -8,7 +8,7 @@ export function CodeBlock({ filename, code }: { filename: string; code: string }
   return (
     <div {...stylex.props(styles.referenceCode)}>
       <div {...stylex.props(styles.referenceCodeBar)}>
-        <span>{filename}</span>
+        <span {...stylex.props(styles.referenceFileName)}>{filename}</span>
         <button
           type="button"
           aria-label={`Copy ${filename}`}

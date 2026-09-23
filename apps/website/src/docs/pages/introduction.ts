@@ -3,76 +3,92 @@ import type { DocPage } from "../types";
 export const page: DocPage = {
   slug: "",
   title: "Introduction",
-  description:
-    "Lucent compiles a typed subset of TypeScript to Swift and Kotlin ahead of time. Write native React Native modules and views without leaving TypeScript.",
+  description: "Lucent compiles a checked subset of TypeScript to C++ and calls it from React Native through JSI.",
   blocks: [
     {
       kind: "note",
       tone: "warn",
-      text: "**Experimental — do not use Lucent in production.** The language, generated native code and `@lucent-lang/*` APIs change without a migration path. The Expo example app exercises the native contract on simulator; full device matrices and a 1.0 release are still open.",
+      text: "Lucent is **experimental** and not ready for production. The language subset and the APIs change without a migration path, and the packages are not on npm yet.",
     },
-    { kind: "h2", text: "What it is" },
     {
       kind: "p",
-      text: "A `*.lucent.ts` file is a native module. A `*.lucent.tsx` file is a native view. Lucent type-checks and compiles them to Swift and Kotlin, then wraps the result as an Expo Module or a Nitro HybridObject. Your app imports the file like TypeScript; the call runs as compiled native code.",
+      text: "Lucent lets you write React Native native modules in TypeScript. You put the code in `*.lucent.ts` files; the compiler checks it with the real TypeScript type checker and turns it into C++20. Your app calls it through JSI, the same way it calls any native module.",
     },
     {
+      kind: "p",
+      text: "It is for apps that want native speed for self-contained logic (parsers, codecs, hashing, geometry, data structures) without adding Swift, Kotlin or C++ to the codebase: the module stays in the language, review and tooling of the rest of the app. There is no JavaScript engine on the native side and no Swift or Kotlin is generated.",
+    },
+    { kind: "h2", text: "An example" },
+    {
       kind: "code",
-      filename: "src/geo.lucent.ts",
-      code: "export type Point = { x: number; y: number };\n\nexport function squaredDistance(a: Point, b: Point): number {\n  const dx = a.x - b.x;\n  const dy = a.y - b.y;\n  return dx * dx + dy * dy;\n}",
+      filename: "geo.lucent.ts",
+      code: `export type Point = { x: number; y: number };
+
+export function squaredDistance(a: Point, b: Point): number {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return dx * dx + dy * dy;
+}`,
     },
     {
       kind: "code",
       filename: "App.tsx",
-      code: 'import { squaredDistance } from "./src/geo.lucent";\n\nsquaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25, computed in Swift / Kotlin',
+      code: `import { squaredDistance } from "./src/geo.lucent";
+
+squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25, computed in C++`,
     },
     {
       kind: "p",
-      text: "There is no JavaScript engine on the native side. What you write compiles to readable Swift and Kotlin.",
+      text: "The import looks like an ordinary TypeScript import, and your editor type-checks it against the source. When Metro bundles the app, it replaces the module with a small proxy that calls the compiled C++. The call is synchronous; the object literals are converted to a C++ struct at the boundary.",
     },
-    { kind: "h2", text: "What you can build" },
+    {
+      kind: "p",
+      text: "Lucent works in bare React Native (0.88) and Expo (SDK 58, development builds). It ships as one pure C++ TurboModule, autolinked by CocoaPods on iOS and CMake on Android. It does not depend on Expo Modules or Nitro.",
+    },
+    { kind: "h2", text: "What works today" },
     {
       kind: "list",
       items: [
-        "**Functions** over numbers, strings, records, unions, arrays, maps, bytes — sync or async. [Language →](/docs/language/)",
-        "**Native classes**, resources, subscriptions, task scopes and events. [Native classes →](/docs/language/native-classes/)",
-        "**Views** in TSX with `state()`, `resource()` and `effect()`, rendered by SwiftUI and Compose. [Native views →](/docs/language/native-views/)",
-        "**SDK packages** through manifests and overlays — camera and friends as CI stubs today. [What you can build today →](/docs/what-you-can-build/)",
+        "The language minus platform SDKs and views: structs, unions, classes with inheritance and interfaces, closures, generics, `async`/`await`, errors, generators, `RegExp`, `JSON`, `Date`. See [the language](/docs/language/).",
+        "JS callbacks, promises and `AbortSignal` across the boundary. See [exports](/docs/boundary/exports/).",
+        "`lucent build` and `lucent check`, the Metro integration, the Expo config plugin, and editor diagnostics through a TypeScript plugin.",
+        "Early platform modules (`*.ios.lucent.ts` / `*.android.lucent.ts`): Android bindings generated from `android.jar`, and a hand-written subset of UIKit on iOS. See [platform APIs](/docs/platform-apis/).",
       ],
     },
-    { kind: "h2", text: "Why not write Swift and Kotlin twice" },
+    { kind: "h2", text: "Not yet" },
     {
-      kind: "p",
-      text: "Shared feature logic drifts when it lives in two languages. Lucent keeps one checked source for the Expo / Nitro boundary and generates both backends. Use hand-written Swift or Kotlin when you need the full language or an SDK the subset cannot express.",
+      kind: "list",
+      items: [
+        "Testing on physical devices. The example apps pass on the iOS simulator and the Android emulator.",
+        "Bindings generated from the iOS SDK.",
+        "Native views.",
+        "Packages on npm.",
+      ],
     },
-    { kind: "h2", text: "What it is not" },
-    {
-      kind: "p",
-      text: "Not full TypeScript: no `any`, user generics, `switch`, or `try`/`catch` inside Lucent. Outside the subset fails with an `LUCENT` diagnostic at build time. Not a UI framework: React owns the app shell; Lucent views own native control and resource state.",
-    },
-    { kind: "h2", text: "Where to go next" },
+    { kind: "p", text: "[Status & roadmap](/docs/status/) has the details." },
+    { kind: "h2", text: "Next steps" },
     {
       kind: "cards",
       items: [
         {
-          title: "What you can build today",
-          text: "Covered shapes, CI stubs, and what still needs devices.",
-          href: "/docs/what-you-can-build/",
-        },
-        {
           title: "Getting started",
-          text: "Wire Expo or bare React Native and run a first module.",
+          text: "Add Lucent to a bare React Native app and call your first module.",
           href: "/docs/getting-started/",
         },
         {
+          title: "Getting started with Expo",
+          text: "Use the config plugin in an Expo development build.",
+          href: "/docs/getting-started-expo/",
+        },
+        {
           title: "How it works",
-          text: "Parse → check → HIR → Swift / Kotlin → host package.",
+          text: "From a .lucent.ts file to C++ in your app binary.",
           href: "/docs/how-it-works/",
         },
         {
-          title: "Examples",
-          text: "Modules and views from the example apps.",
-          href: "/docs/examples/",
+          title: "The language",
+          text: "What the TypeScript subset supports and where it differs from JavaScript.",
+          href: "/docs/language/",
         },
       ],
     },

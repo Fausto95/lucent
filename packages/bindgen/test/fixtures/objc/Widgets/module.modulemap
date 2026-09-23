@@ -1,0 +1,4 @@
+module Widgets {
+  header "Widgets.h"
+  export *
+}

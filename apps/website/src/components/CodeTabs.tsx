@@ -33,7 +33,7 @@ export function CodeTabs({ tabs }: { tabs: CodeTab[] }) {
             </button>
           ))}
         </div>
-        <span>{current.filename}</span>
+        <span {...stylex.props(code.referenceFileName, code.referenceFileNameEnd)}>{current.filename}</span>
         <button
           type="button"
           aria-label={`Copy ${current.filename}`}

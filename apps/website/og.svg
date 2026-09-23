@@ -10,6 +10,6 @@
   <text x="186" y="152" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="46" font-weight="600" fill="#f0f2eb">lucent<tspan fill="#c4f778">.</tspan></text>
   <text x="88" y="316" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="96" font-weight="600" letter-spacing="-4" fill="#f0f2eb">TypeScript in.</text>
   <text x="88" y="420" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="96" font-weight="600" letter-spacing="-4" fill="#c4f778">Native out.</text>
-  <text x="88" y="500" font-family="Menlo, Courier New, monospace" font-size="24" fill="#a0a79a">*.lucent.ts  →  Swift + Kotlin  →  Expo Modules / Nitro</text>
+  <text x="88" y="500" font-family="Menlo, Courier New, monospace" font-size="24" fill="#a0a79a">*.lucent.ts  →  C++  →  JSI  ·  bare React Native + Expo</text>
   <text x="88" y="562" font-family="Menlo, Courier New, monospace" font-size="20" letter-spacing="2" fill="#93a781">AHEAD-OF-TIME · NO JS ON THE NATIVE SIDE · MIT</text>
 </svg>

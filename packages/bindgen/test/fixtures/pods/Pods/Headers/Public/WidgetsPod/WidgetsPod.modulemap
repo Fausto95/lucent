@@ -1,0 +1,4 @@
+module WidgetsPod {
+  umbrella header "WidgetsPod-umbrella.h"
+  export *
+}

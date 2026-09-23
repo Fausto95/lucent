@@ -28,9 +28,10 @@ export const styles = stylex.create({
       default: "16px",
       "@media (max-width: 540px)": "8px",
     },
+    // Same inline padding as referencePre, so the file name lines up with the code.
     padding: {
-      default: "10px 17px",
-      "@media (max-width: 540px)": "8px 12px",
+      default: "10px 21px",
+      "@media (max-width: 540px)": "8px 17px",
     },
     borderBottomWidth: "1px",
     borderBottomStyle: "solid",
@@ -41,7 +42,18 @@ export const styles = stylex.create({
     lineHeight: "normal",
     fontFamily: '"IBM Plex Mono", monospace',
   },
+  referenceFileName: {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  /** In a tabbed block the tabs lead, so the file name sits beside the copy button. */
+  referenceFileNameEnd: {
+    marginLeft: "auto",
+  },
   referenceCopyButton: {
+    flexShrink: 0,
     borderWidth: "1px",
     borderStyle: "solid",
     borderColor: tokens.border,

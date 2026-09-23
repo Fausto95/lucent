@@ -1,295 +1,284 @@
-import { describe, expect, test } from "vite-plus/test";
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
-import { COMPILER_VERSION } from "@lucent-lang/compiler";
-import { run } from "../src/cli.ts";
-import { BAD, fakeIO, MATH, project, wiredExpoProject } from "./helpers.ts";
+import { spawn, spawnSync } from "node:child_process";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vitest";
+import { sdkAvailable } from "@lucent-lang/compiler";
 
-const ESC = String.fromCharCode(27);
+const android = sdkAvailable("android");
+const bin = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../bin/lucent.cjs");
 
-describe("global flags", () => {
-  test("--version prints the cli and compiler versions", async () => {
-    const io = fakeIO(project({}));
-    expect(await run(["--version"], io)).toBe(0);
-    expect(io.out()).toMatch(/lucent \d+\.\d+\.\d+/);
-    expect(io.out()).toContain(`compiler ${COMPILER_VERSION}`);
-  });
+function lucent(root: string, ...args: string[]) {
+  const r = spawnSync(process.execPath, [bin, ...args, "--root", root], { encoding: "utf8" });
+  return { status: r.status, out: r.stdout + r.stderr };
+}
 
-  test("--help lists every command with its emoji", async () => {
-    const io = fakeIO(project({}));
-    expect(await run(["--help"], io)).toBe(0);
-    for (const name of ["build", "check", "init", "doctor", "explain", "ir", "pack", "clean", "sdk"])
-      expect(io.out()).toContain(name);
-    expect(io.out()).toContain("🔨");
-    expect(io.out()).toContain("--no-color");
-  });
-
-  test("no arguments shows help", async () => {
-    const io = fakeIO(project({}));
-    expect(await run([], io)).toBe(0);
-    expect(io.out()).toContain("Usage");
-  });
-
-  test("help <command> and <command> --help show the flags and examples", async () => {
-    for (const argv of [
-      ["help", "build"],
-      ["build", "--help"],
-    ]) {
-      const io = fakeIO(project({}));
-      expect(await run(argv, io)).toBe(0);
-      expect(io.out()).toContain("--emit-ir");
-      expect(io.out()).toContain("--emit");
-      expect(io.out()).toContain("--watch");
-      expect(io.out()).toContain("Examples");
-    }
-  });
-
-  test("--no-emoji swaps glyphs for plain symbols", async () => {
-    const io = fakeIO(project({}));
-    await run(["--help", "--no-emoji"], io);
-    expect(io.out()).not.toContain("🔨");
-  });
-
-  test("an unknown command suggests the closest one", async () => {
-    const io = fakeIO(project({}));
-    expect(await run(["buidl"], io)).toBe(1);
-    expect(io.err()).toContain('Unknown command "buidl"');
-    expect(io.err()).toContain('Did you mean "build"?');
-  });
-
-  test("an unknown flag fails with a hint", async () => {
-    const io = fakeIO(project({}));
-    expect(await run(["build", "--hots", "expo"], io)).toBe(1);
-    expect(io.err()).toContain("--hots");
-    expect(io.err()).toContain("--host");
-  });
-});
-
-describe("lucent pack", () => {
-  test("lists publishable packages and publish steps", async () => {
-    const root = project({
-      "packages/compiler/package.json": JSON.stringify({
-        name: "@lucent-lang/compiler",
-        version: "0.0.1",
-        publishConfig: { access: "public" },
-      }),
-      "packages/bench/package.json": JSON.stringify({
-        name: "@lucent-lang/bench",
-        version: "0.0.1",
-        private: true,
-      }),
-    });
-    const io = fakeIO(root);
-    expect(await run(["pack"], io)).toBe(0);
-    expect(io.out()).toContain("@lucent-lang/compiler@0.0.1");
-    expect(io.out()).toContain("publish steps");
-    expect(io.out()).toContain("smoke-fresh-install.md");
-  });
-});
+function project(): string {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-"));
+  fs.writeFileSync(path.join(root, "a.lucent.ts"), "export function one(): number { return 1; }\n");
+  return root;
+}
 
 describe("lucent build", () => {
-  test("compiles, then reports cache hits", async () => {
-    const root = wiredExpoProject();
-    const first = fakeIO(root);
-    expect(await run(["build"], first)).toBe(0);
-    expect(first.out()).toContain("2 compiled");
-    expect(first.out()).toContain("modules/lucent");
-    expect(first.out()).toContain("✅");
-    expect(first.out()).toContain("expo prebuild");
-    const second = fakeIO(root);
-    expect(await run(["build"], second)).toBe(0);
-    expect(second.out()).toContain("2 cached");
+  it("skips work when nothing changed", () => {
+    const root = project();
+    expect(lucent(root, "build").out).toContain("Compiled 1 module");
+    const second = lucent(root, "build");
+    expect(second.status).toBe(0);
+    expect(second.out).toContain("up to date");
   });
 
-  test("--json prints a machine-readable result only", async () => {
-    const io = fakeIO(wiredExpoProject());
-    expect(await run(["build", "--json"], io)).toBe(0);
-    const result = JSON.parse(io.out()) as Record<string, unknown>;
-    expect(result).toMatchObject({ ok: true, host: "expo", outDir: "modules/lucent", cached: [] });
-    expect(result.compiled).toEqual(["src/native/math.lucent.ts", "src/native/text.lucent.ts"]);
-    expect(typeof result.durationMs).toBe("number");
+  it("rebuilds when a source changes, and with --force", () => {
+    const root = project();
+    lucent(root, "build");
+    fs.writeFileSync(path.join(root, "a.lucent.ts"), "export function one(): number { return 2; }\n");
+    expect(lucent(root, "build").out).toContain("Compiled 1 module");
+    expect(lucent(root, "build", "--force").out).toContain("Compiled 1 module");
   });
 
-  test("--analyze prints static IR estimates", async () => {
-    const io = fakeIO(wiredExpoProject());
-    expect(await run(["build", "--analyze"], io)).toBe(0);
-    expect(io.out()).toContain("static estimates");
-    expect(io.out()).toContain("Native calls");
-    expect(io.out()).toContain("Async calls");
-    expect(io.out()).toContain("JS exports");
+  it("rebuilds when the output was deleted", () => {
+    const root = project();
+    lucent(root, "build");
+    fs.rmSync(path.join(root, ".lucent"), { recursive: true });
+    expect(lucent(root, "build").out).toContain("Compiled 1 module");
+  });
+});
+
+describe("Lucent packages", () => {
+  it("builds the app's Lucent packages into its native package", () => {
+    const root = project();
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app", dependencies: { "lucent-greet": "1.0.0" } }));
+    const pkg = path.join(root, "node_modules/lucent-greet");
+    fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
+    fs.writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ name: "lucent-greet", version: "1.0.0", lucent: { sources: "src" } }));
+    fs.writeFileSync(path.join(pkg, "src/greet.lucent.ts"), "export function hello(name: string): string { return `hi ${name}`; }\n");
+    const r = lucent(root, "build");
+    expect(r.status).toBe(0);
+    expect(r.out).toMatch(/lucent-greet\/greet/);
+    expect(fs.existsSync(path.join(root, ".lucent/native/js/lucent-greet/greet.js"))).toBe(true);
+  });
+});
+
+describe("Lucent packages' native needs", () => {
+  it("writes them into the native package, and names Info.plist keys the app lacks", () => {
+    const root = project();
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app", dependencies: { "lucent-auth": "1.0.0" } }));
+    const pkg = path.join(root, "node_modules/lucent-auth");
+    fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
+    fs.writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ name: "lucent-auth", version: "1.0.0", lucent: { sources: "src" } }));
+    fs.writeFileSync(path.join(pkg, "lucent.json"), JSON.stringify({ ios: { pods: { LucentAuthKit: "~> 1.0" }, infoPlist: { NSFaceIDUsageDescription: "Unlock" } }, android: { dependencies: { "androidx.biometric:biometric": "1.1.0" } } }));
+    fs.writeFileSync(path.join(pkg, "src/auth.lucent.ts"), "export function ok(): boolean { return true; }\n");
+    fs.mkdirSync(path.join(root, "ios/App"), { recursive: true });
+    fs.writeFileSync(path.join(root, "ios/App/Info.plist"), '<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleName</key><string>App</string></dict></plist>\n');
+    const r = lucent(root, "build");
+    expect(r.status).toBe(0);
+    expect(fs.readFileSync(path.join(root, ".lucent/native/LucentNative.podspec"), "utf8")).toContain('s.dependency "LucentAuthKit", "~> 1.0"');
+    expect(fs.readFileSync(path.join(root, ".lucent/native/android/build.gradle"), "utf8")).toContain('api("androidx.biometric:biometric:1.1.0")');
+    // The app's files are not edited: the build says what to add.
+    expect(r.out).toMatch(/lucent-auth needs NSFaceIDUsageDescription in ios\/App\/Info\.plist/);
+    // lucent.json changes rebuild.
+    fs.writeFileSync(path.join(pkg, "lucent.json"), JSON.stringify({ android: { dependencies: { "androidx.biometric:biometric": "1.2.0" } } }));
+    expect(lucent(root, "build").out).not.toMatch(/up to date/);
+    expect(fs.readFileSync(path.join(root, ".lucent/native/android/build.gradle"), "utf8")).toContain('api("androidx.biometric:biometric:1.2.0")');
+  });
+});
+
+describe("lucent sdk coverage", () => {
+  it.skipIf(!android)("reports idiomatic, raw and unrepresentable members per module, and fails when coverage drops", () => {
+    const root = project();
+    const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-"));
+    const run = (...args: string[]) => spawnSync(process.execPath, [bin, "sdk", "coverage", ...args, "--root", root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: cache } });
+    const r = run("--android", "android.os", "--json");
+    expect(r.status).toBe(0);
+    const [os_] = JSON.parse(r.stdout) as { module: string; idiomatic: number; raw: number; unrepresentable: number; total: number }[];
+    expect(os_).toMatchObject({ module: "android.os" });
+    expect(os_!.idiomatic + os_!.raw + os_!.unrepresentable).toBe(os_!.total);
+    expect(os_!.total).toBeGreaterThan(1000);
+    // A baseline with a smaller unrepresentable share than now: coverage dropped.
+    // Shares, not counts, so CI's SDK version need not be this machine's.
+    const baseline = path.join(root, "coverage.json");
+    fs.writeFileSync(baseline, JSON.stringify([{ ...os_, unrepresentable: 0 }]));
+    const check = run("--android", "android.os", "--check", baseline);
+    expect(check.status).toBe(1);
+    expect(check.stderr).toMatch(/android\.os: .*% unrepresentable, .*% in the baseline/);
+    fs.writeFileSync(baseline, JSON.stringify([{ ...os_, unrepresentable: os_!.unrepresentable * 2, total: os_!.total * 2 }]));
+    expect(run("--android", "android.os", "--check", baseline).status).toBe(0);
+    // Every package with a prefix.
+    const all = JSON.parse(run("--android", "android.os.*", "--json").stdout) as { module: string }[];
+    expect(all.length).toBeGreaterThan(3);
+    expect(all.every((c) => c.module.startsWith("android.os."))).toBe(true);
+  });
+});
+
+describe("lucent init", () => {
+  it("links the native package as the `lucent` dependency", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
+    expect(lucent(root, "init").status).toBe(0);
+    const config = fs.readFileSync(path.join(root, "react-native.config.js"), "utf8");
+    expect(config).toContain('"lucent": { root: require("path").join(__dirname, ".lucent", "native") }');
+    expect(config).not.toContain("lucent-native");
   });
 
-  test("--explain without --optimize reports disabled", async () => {
-    const io = fakeIO(wiredExpoProject());
-    expect(await run(["build", "--explain"], io)).toBe(0);
-    expect(io.out()).toContain("Optimization disabled");
+  it("renames an existing `lucent-native` entry", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
+    fs.writeFileSync(path.join(root, "react-native.config.js"), 'module.exports = { dependencies: { "lucent-native": { root: ".lucent/native" } } };\n');
+    expect(lucent(root, "init").status).toBe(0);
+    expect(fs.readFileSync(path.join(root, "react-native.config.js"), "utf8")).toBe('module.exports = { dependencies: { "lucent": { root: ".lucent/native" } } };\n');
+  });
+});
+
+describe.skipIf(!android)("lucent sdk prefetch", () => {
+  const run = (root: string, env: Record<string, string>, ...args: string[]) => {
+    const r = spawnSync(process.execPath, [bin, ...args, "--root", root], { encoding: "utf8", env: { ...process.env, ...env } });
+    return { status: r.status, out: r.stdout + r.stderr };
+  };
+
+  it("extracts the modules it is given into the cache", () => {
+    const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-"));
+    const r = run(project(), { LUCENT_CACHE_DIR: cache }, "sdk", "prefetch", "--android", "android.os");
+    expect(r.out).toMatch(/android\.os/);
+    expect(r.status).toBe(0);
+    const [key] = fs.readdirSync(path.join(cache, "sdk/android"));
+    expect(fs.existsSync(path.join(cache, "sdk/android", key!, "android.os.json"))).toBe(true);
   });
 
-  test("--optimize --explain prints the optimization log", async () => {
-    const io = fakeIO(
-      wiredExpoProject({
-        "src/native/fold.lucent.ts": "export function f(): number { 1; return 2 + 3; }\n",
-      }),
+  it("fails for modules the SDK does not have, saying where it looked", () => {
+    const r = run(project(), { LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")) }, "sdk", "prefetch", "--android", "com.nope");
+    expect(r.status).toBe(1);
+    expect(r.out).toMatch(/com\.nope.*not found/s);
+  });
+
+  it("builds the platforms whose SDK is installed, and says which it skipped", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-"));
+    fs.writeFileSync(path.join(root, "m.lucent.ts"), "export declare function f(): Promise<string>;\n");
+    fs.writeFileSync(path.join(root, "m.ios.lucent.ts"), 'import { UIDevice } from "lucent:ios/UIKit";\nimport { main } from "lucent:thread";\nexport function f(): Promise<string> { return main(() => UIDevice.current.model); }\n');
+    fs.writeFileSync(path.join(root, "m.android.lucent.ts"), 'import { Build } from "lucent:android/android.os";\nexport async function f(): Promise<string> { return Build.MODEL ?? ""; }\n');
+    const r = run(root, { LUCENT_XCRUN: path.join(os.tmpdir(), "no-such-xcrun"), LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")) }, "build");
+    expect(r.out).toMatch(/iOS SDK was not found.*skipped iOS/s);
+    expect(r.status).toBe(0);
+    expect(fs.existsSync(path.join(root, ".lucent/native/cpp/generated/android/m_m.cpp"))).toBe(true);
+    expect(fs.existsSync(path.join(root, ".lucent/native/cpp/generated/ios"))).toBe(false);
+  });
+
+  it("says which platforms it skipped for a module that branches on PLATFORM too", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-"));
+    fs.writeFileSync(
+      path.join(root, "m.lucent.ts"),
+      'import { PLATFORM } from "lucent:platform";\nimport { UIDevice } from "lucent:ios/UIKit";\nimport { Build } from "lucent:android/android.os";\nimport { main } from "lucent:thread";\nexport async function f(): Promise<string> {\n  if (PLATFORM === "ios") return main(() => UIDevice.current.model);\n  else return Build.MODEL ?? "";\n}\n',
     );
-    expect(await run(["build", "--optimize", "--explain"], io)).toBe(0);
-    expect(io.out()).toContain("constant-fold:");
-    expect(io.out()).toContain("dce:");
+    const r = run(root, { LUCENT_XCRUN: path.join(os.tmpdir(), "no-such-xcrun"), LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")) }, "build");
+    expect(r.out).toMatch(/iOS SDK was not found.*skipped iOS/s);
+    expect(r.status).toBe(0);
+    expect(fs.existsSync(path.join(root, ".lucent/native/cpp/generated/android/m_m.cpp"))).toBe(true);
+  });
+});
+
+describe("the app's Android dependencies", () => {
+  it("lucent init leaves the app's Gradle files alone", () => {
+    const root = project();
+    fs.mkdirSync(path.join(root, "android/app"), { recursive: true });
+    const gradle = 'apply plugin: "com.android.application"\n';
+    fs.writeFileSync(path.join(root, "android/app/build.gradle"), gradle);
+    lucent(root, "init");
+    expect(fs.readFileSync(path.join(root, "android/app/build.gradle"), "utf8")).toBe(gradle);
   });
 
-  test("--emit hir writes IR text like --emit-ir", async () => {
-    const root = wiredExpoProject();
-    const io = fakeIO(root);
-    expect(await run(["build", "--emit", "hir", "src/native/math.lucent.ts"], io)).toBe(0);
-    expect(readFileSync(join(root, ".lucent", "ir", "math.ir.txt"), "utf8")).toContain("export fn add");
-    const map = JSON.parse(readFileSync(join(root, ".lucent", "ir", "math.lucent.map.json"), "utf8")) as {
-      version: number;
-      functions: { name: string }[];
+  it.skipIf(!android)("lucent build resolves them with Gradle when an import is not in the SDK", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-"));
+    fs.writeFileSync(path.join(root, "m.lucent.ts"), "export declare function f(): Promise<string>;\n");
+    fs.writeFileSync(path.join(root, "m.android.lucent.ts"), 'import { Widget } from "lucent:android/com.example.widgets";\nexport async function f(): Promise<string> { return new Widget().getName(); }\n');
+    fs.writeFileSync(path.join(root, "m.ios.lucent.ts"), 'export async function f(): Promise<string> { return ""; }\n');
+    // A stand-in gradlew: records the call and writes the classpath with a fixture jar.
+    const jar = path.join(root, "widgets.jar");
+    const classes = path.join(root, "classes");
+    const sources = spawnSync("find", [path.join(path.dirname(bin), "../../bindgen/test/fixtures/java"), "-name", "*.java"], { encoding: "utf8" }).stdout.trim().split("\n");
+    spawnSync("javac", ["--release", "11", "-d", classes, ...sources]);
+    spawnSync("jar", ["cf", jar, "-C", classes, "."]);
+    fs.mkdirSync(path.join(root, "android"));
+    fs.writeFileSync(path.join(root, "android/gradlew"), `#!/bin/sh\necho "$@" > ${path.join(root, "gradle-args")}\nmkdir -p ${path.join(root, ".lucent")}\necho '{"jars":["${jar}"],"aars":[]}' > ${path.join(root, ".lucent/android-classpath.json")}\n`, { mode: 0o755 });
+    const r = spawnSync(process.execPath, [bin, "build", "--platforms", "android", "--root", root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")) } });
+    expect(r.stdout + r.stderr).toMatch(/resolving the app's Android dependencies/);
+    // The task comes from an init script Lucent ships: nothing in the app applies it.
+    const args = fs.readFileSync(path.join(root, "gradle-args"), "utf8").trim().split(/\s+/);
+    const script = args[args.indexOf("--init-script") + 1]!;
+    expect(fs.readFileSync(script, "utf8")).toMatch(/lucentClasspath/);
+    expect(args).toContain(":app:lucentClasspath");
+    expect(fs.existsSync(path.join(root, ".lucent/native/android/lucent.gradle"))).toBe(false);
+    expect(r.status).toBe(0);
+  });
+
+  /** An app with an Android import no dependency has, and a gradlew that counts its runs. */
+  function gradleApp(exitCode = 0) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-"));
+    fs.writeFileSync(path.join(root, "m.lucent.ts"), "export declare function f(): Promise<string>;\n");
+    fs.writeFileSync(path.join(root, "m.android.lucent.ts"), 'import { Nope } from "lucent:android/com.example.nope";\nexport async function f(): Promise<string> { return `${Nope}`; }\n');
+    fs.writeFileSync(path.join(root, "m.ios.lucent.ts"), 'export async function f(): Promise<string> { return ""; }\n');
+    fs.writeFileSync(path.join(root, "package-lock.json"), "{}\n");
+    fs.mkdirSync(path.join(root, "android/app"), { recursive: true });
+    fs.mkdirSync(path.join(root, "android/gradle"), { recursive: true });
+    fs.writeFileSync(path.join(root, "android/app/build.gradle"), 'apply plugin: "com.android.application"\n');
+    fs.writeFileSync(path.join(root, "android/gradle/libs.versions.toml"), "[versions]\n");
+    const runs = path.join(root, "gradle-runs");
+    fs.writeFileSync(path.join(root, "android/gradlew"), `#!/bin/sh\necho run >> ${runs}\nmkdir -p ${path.join(root, ".lucent")}\necho '{"jars":[],"aars":[]}' > ${path.join(root, ".lucent/android-classpath.json")}\nexit ${exitCode}\n`, { mode: 0o755 });
+    const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-"));
+    const build = () => spawnSync(process.execPath, [bin, "build", "--platforms", "android", "--root", root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: cache } });
+    const count = () => (fs.existsSync(runs) ? fs.readFileSync(runs, "utf8").trim().split("\n").length : 0);
+    return { root, build, count, cache };
+  }
+
+  it.skipIf(!android)("runs Gradle once per change of the build's inputs, not once per build", () => {
+    const app = gradleApp();
+    app.build();
+    app.build();
+    expect(app.count()).toBe(1);
+    // The JS lockfile: autolinked packages add Android dependencies.
+    fs.writeFileSync(path.join(app.root, "package-lock.json"), '{"lockfileVersion":3}\n');
+    app.build();
+    app.build();
+    expect(app.count()).toBe(2);
+    fs.writeFileSync(path.join(app.root, "android/gradle/libs.versions.toml"), '[versions]\nbiometric = "1.1.0"\n');
+    app.build();
+    expect(app.count()).toBe(3);
+  });
+
+  it("does not run Gradle for a host build, which needs no SDK", () => {
+    const app = gradleApp();
+    const r = spawnSync(process.execPath, [bin, "build", "--platforms", "host", "--root", app.root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: app.cache, LUCENT_ANDROID_PLATFORM: "nope", LUCENT_XCRUN: "/nonexistent" } });
+    expect(r.stdout + r.stderr).not.toMatch(/resolving the app's Android dependencies/);
+    expect(app.count()).toBe(0);
+    expect(r.status).toBe(0);
+  });
+
+  it.skipIf(!android)("does not retry a failed resolution until the inputs change", () => {
+    const app = gradleApp(1);
+    expect(app.build().stderr).toMatch(/Gradle could not resolve/);
+    app.build();
+    expect(app.count()).toBe(1);
+    fs.writeFileSync(path.join(app.root, "android/app/build.gradle"), 'apply plugin: "com.android.application"\n// fixed\n');
+    app.build();
+    expect(app.count()).toBe(2);
+    // A failure that was not the build files' (a stopped daemon, the network): --force retries.
+    expect(app.build().stderr).toMatch(/--force/);
+    spawnSync(process.execPath, [bin, "build", "--force", "--platforms", "android", "--root", app.root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: app.cache } });
+    expect(app.count()).toBe(3);
+  });
+
+  it.skipIf(!android)("resolves once in a watch session that rebuilds", async () => {
+    const app = gradleApp();
+    const child = spawn(process.execPath, [bin, "build", "--watch", "--root", app.root], { env: { ...process.env, LUCENT_CACHE_DIR: app.cache } });
+    let output = "";
+    child.stdout.on("data", (d) => (output += String(d)));
+    child.stderr.on("data", (d) => (output += String(d)));
+    const builds = () => (output.match(/Lucent build failed|✓ Lucent:/g) ?? []).length;
+    const until = async (n: number) => {
+      for (let i = 0; i < 300 && builds() < n; i++) await new Promise((r) => setTimeout(r, 100));
     };
-    expect(map.version).toBe(1);
-    expect(map.functions.some((f) => f.name === "add")).toBe(true);
-  });
-
-  test("--emit ast prints surface function names", async () => {
-    const io = fakeIO(wiredExpoProject());
-    expect(await run(["build", "--emit", "ast", "src/native/math.lucent.ts"], io)).toBe(0);
-    expect(io.out()).toContain("ast (surface functions)");
-    expect(io.out()).toContain("add");
-  });
-
-  test("--no-color --no-emoji produces plain text", async () => {
-    const io = fakeIO(wiredExpoProject(), { env: { FORCE_COLOR: "1" } });
-    await run(["build", "--no-color", "--no-emoji"], io);
-    expect(io.out()).not.toContain(ESC);
-    expect(io.out()).not.toContain("✅");
-    expect(io.out()).toContain("✓");
-  });
-
-  test("colors diagnostics and exits 1 on errors", async () => {
-    const io = fakeIO(wiredExpoProject({ "src/bad.lucent.ts": BAD }), { env: { FORCE_COLOR: "1" } });
-    expect(await run(["build"], io)).toBe(1);
-    expect(io.err()).toContain("LUCENT1004");
-    expect(io.err()).toContain(`${ESC}[31merror${ESC}[39m`);
-    expect(io.err()).toContain("1 error");
-  });
-
-  test("detects the nitro host from package.json", async () => {
-    const root = project({
-      "package.json": JSON.stringify({ dependencies: { "react-native-nitro-modules": "*" } }),
-      "src/math.lucent.ts": MATH,
-    });
-    const io = fakeIO(root);
-    expect(await run(["build", "--json", "--no-postgen"], io)).toBe(0);
-    expect(JSON.parse(io.out())).toMatchObject({ host: "nitro", outDir: ".lucent/nitro" });
-  });
-
-  test("explains what to do when there are no Lucent files", async () => {
-    const io = fakeIO(project({ "package.json": "{}" }));
-    expect(await run(["build"], io)).toBe(0);
-    expect(io.out()).toContain("No Lucent files");
-    expect(io.out()).toContain("lucent init");
-  });
-});
-
-describe("lucent check", () => {
-  test("lists each clean file and a summary", async () => {
-    const io = fakeIO(wiredExpoProject());
-    expect(await run(["check"], io)).toBe(0);
-    expect(io.out()).toContain("✅ src/native/math.lucent.ts");
-    expect(io.out()).toContain("2 files");
-  });
-
-  test("reports errors with codeframes and a count", async () => {
-    const io = fakeIO(wiredExpoProject({ "src/bad.lucent.ts": BAD }));
-    expect(await run(["check"], io)).toBe(1);
-    expect(io.out()).toContain("❌ src/bad.lucent.ts");
-    expect(io.err()).toContain("LUCENT1004");
-    expect(io.err()).toContain("1 error");
-  });
-
-  test("--json carries structured diagnostics", async () => {
-    const io = fakeIO(wiredExpoProject({ "src/bad.lucent.ts": BAD }));
-    expect(await run(["check", "--json"], io)).toBe(1);
-    const result = JSON.parse(io.out()) as { ok: boolean; files: { file: string; diagnostics: unknown[] }[] };
-    expect(result.ok).toBe(false);
-    const bad = result.files.find((f) => f.file === "src/bad.lucent.ts")!;
-    expect(bad.diagnostics[0]).toMatchObject({ code: "LUCENT1004", severity: "error", line: 1 });
-  });
-});
-
-describe("lucent explain", () => {
-  test("describes a diagnostic code", async () => {
-    const io = fakeIO(project({}));
-    expect(await run(["explain", "lucent1004"], io)).toBe(0);
-    expect(io.out()).toContain("LUCENT1004");
-    expect(io.out()).toContain("`any` is prohibited");
-    expect(io.out()).toContain("Language");
-  });
-
-  test("lists every code when called without one", async () => {
-    const io = fakeIO(project({}));
-    expect(await run(["explain"], io)).toBe(0);
-    expect(io.out()).toContain("LUCENT1000");
-    expect(io.out()).toContain("LUCENT3002");
-  });
-
-  test("suggests a close code", async () => {
-    const io = fakeIO(project({}));
-    expect(await run(["explain", "LUCENT100"], io)).toBe(1);
-    expect(io.err()).toContain("Unknown diagnostic code");
-    expect(io.err()).toContain('Did you mean "LUCENT1000"?');
-  });
-
-  test("--json", async () => {
-    const io = fakeIO(project({}));
-    await run(["explain", "LUCENT3002", "--json"], io);
-    expect(JSON.parse(io.out())).toEqual({
-      code: "LUCENT3002",
-      title: "Potentially expensive main-thread work",
-      category: "warning",
-      severity: "warning",
-    });
-  });
-});
-
-describe("lucent ir", () => {
-  test("prints the IR of one module", async () => {
-    const io = fakeIO(wiredExpoProject());
-    expect(await run(["ir", "src/native/math.lucent.ts"], io)).toBe(0);
-    expect(io.out()).toContain("export fn add");
-  });
-
-  test("--json prints the module", async () => {
-    const io = fakeIO(wiredExpoProject());
-    await run(["ir", "src/native/math.lucent.ts", "--json"], io);
-    expect(JSON.parse(io.out())).toMatchObject({ name: "math" });
-  });
-
-  test("needs a file", async () => {
-    const io = fakeIO(wiredExpoProject());
-    expect(await run(["ir"], io)).toBe(1);
-    expect(io.err()).toContain("file");
-  });
-});
-
-describe("lucent clean", () => {
-  test("--dry-run lists targets without removing them", async () => {
-    const root = wiredExpoProject();
-    await run(["build"], fakeIO(root));
-    const io = fakeIO(root);
-    expect(await run(["clean", "--dry-run"], io)).toBe(0);
-    expect(io.out()).toContain("modules/lucent");
-    expect(io.out()).toContain(".lucent/cache.json");
-    expect(existsSync(join(root, "modules/lucent"))).toBe(true);
-  });
-
-  test("removes generated output and the cache", async () => {
-    const root = wiredExpoProject();
-    await run(["build"], fakeIO(root));
-    expect(await run(["clean"], fakeIO(root))).toBe(0);
-    expect(existsSync(join(root, "modules/lucent"))).toBe(false);
-    expect(existsSync(join(root, ".lucent/cache.json"))).toBe(false);
-    const again = fakeIO(root);
-    await run(["clean"], again);
-    expect(again.out()).toContain("Nothing to clean");
-  });
+    await until(1);
+    fs.appendFileSync(path.join(app.root, "m.android.lucent.ts"), "// edited\n");
+    await until(2);
+    child.kill();
+    expect(builds()).toBeGreaterThanOrEqual(2);
+    expect(app.count()).toBe(1);
+  }, 60_000);
 });

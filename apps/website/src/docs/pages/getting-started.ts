@@ -1,197 +1,171 @@
 import type { DocPage } from "../types";
 
-const MODULE =
-  "export type Point = { x: number; y: number };\n\nexport function squaredDistance(a: Point, b: Point): number {\n  const dx = a.x - b.x;\n  const dy = a.y - b.y;\n  return dx * dx + dy * dy;\n}";
-
-const USE =
-  'import { squaredDistance } from "./src/geo.lucent";\n\nsquaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25';
-
 export const page: DocPage = {
   slug: "getting-started",
-  title: "Getting started",
-  description:
-    "Add Lucent to an Expo app or a bare React Native app, write one `*.lucent.ts` file, and run it on a device.",
+  title: "Getting started (bare React Native)",
+  description: "Add Lucent to a bare React Native 0.88 app, compile a module and call it from JavaScript.",
   blocks: [
+    {
+      kind: "p",
+      text: "This page wires Lucent into an existing React Native app (0.88, New Architecture). Using Expo? Follow [Getting started (Expo)](/docs/getting-started-expo/) instead. The repository's `apps/bare-example` is a complete, working version of this setup.",
+    },
     {
       kind: "note",
       tone: "warn",
-      text: "**Very early and experimental — do not use Lucent in production.** Every API here changes without notice. Install it into a throwaway or side project, not an app you ship.",
-    },
-    {
-      kind: "note",
-      text: "Lucent generates native code, so it needs a development build. Expo Go cannot load it, the same as any other native module. Node 22.12+ is required.",
-    },
-    {
-      kind: "code",
-      filename: "terminal",
-      code: "npx @lucent-lang/cli init      # detects Expo or bare React Native and wires the app\nnpx @lucent-lang/cli doctor    # verifies the toolchain and the wiring",
-    },
-    {
-      kind: "p",
-      text: "`init` adds the dependencies, `lucent.config.ts`, a Metro config, the Expo plugin or the Nitro autolink entry, and a starter module. The steps below show what it produces, for wiring things by hand. The [CLI reference](/docs/api/cli/) covers every command.",
-    },
-    { kind: "h2", text: "Expo" },
-    {
-      kind: "p",
-      text: "The config plugin compiles your modules during `expo prebuild` into an autolinked Expo Module. The Metro plugin swaps each Lucent file for its JavaScript proxy at bundle time.",
+      text: "The `@lucent-lang/*` packages are **not published to npm yet**. Until they are, install them from the repository: link the workspace packages, or build tarballs with `pnpm pack` in each package and install those.",
     },
     {
       kind: "steps",
       steps: [
         {
-          title: "Install",
+          title: "Install the packages",
           blocks: [
             {
               kind: "code",
               filename: "terminal",
-              code: "npx expo install @lucent-lang/core",
+              code: `npm i @lucent-lang/runtime @lucent-lang/core
+npm i -D @lucent-lang/cli @lucent-lang/metro`,
             },
-          ],
-        },
-        {
-          title: "Configure Metro",
-          blocks: [
-            {
-              kind: "code",
-              filename: "metro.config.js",
-              code: 'const { getDefaultConfig } = require("expo/metro-config");\nconst { withLucent } = require("@lucent-lang/core/metro");\n\nmodule.exports = withLucent(getDefaultConfig(__dirname), { host: "expo" });',
-            },
-          ],
-        },
-        {
-          title: "Add the config plugin",
-          blocks: [
-            {
-              kind: "code",
-              filename: "app.json",
-              code: '{\n  "expo": {\n    "plugins": [["@lucent-lang/core/expo", { "host": "expo" }]]\n  }\n}',
-            },
-          ],
-        },
-        {
-          title: "Write a module",
-          blocks: [{ kind: "code", filename: "src/geo.lucent.ts", code: MODULE }],
-        },
-        {
-          title: "Use it",
-          blocks: [{ kind: "code", filename: "App.tsx", code: USE }],
-        },
-        {
-          title: "Build and run",
-          blocks: [
-            { kind: "code", filename: "terminal", code: "npx expo prebuild\nnpx expo run:ios   # or run:android" },
             {
               kind: "p",
-              text: "Generated code lands in `modules/lucent/`, which Expo autolinks. Unchanged modules are cached between builds.",
+              text: "`runtime` holds the C++ runtime and the JS loader the proxies use; `core` holds small helpers such as `delay` (see [@lucent-lang/core](/docs/reference/core/)). The CLI and the Metro integration are build-time only.",
             },
           ],
         },
-      ],
-    },
-    { kind: "h2", text: "Bare React Native" },
-    {
-      kind: "p",
-      text: "Without Expo, Lucent targets [Nitro Modules](https://nitro.margelo.com/). The CLI generates a local library under `.lucent/nitro/`, runs nitrogen, and React Native autolinks it.",
-    },
-    {
-      kind: "steps",
-      steps: [
         {
-          title: "Install",
+          title: "Run `lucent init`",
           blocks: [
+            { kind: "code", filename: "terminal", code: "npx lucent init" },
             {
-              kind: "code",
-              filename: "terminal",
-              code: "npm install @lucent-lang/core react-native-nitro-modules\nnpm install -D @lucent-lang/cli nitrogen",
+              kind: "p",
+              text: "It adds a `lucent-native` entry to `react-native.config.js`, so autolinking picks up the generated native package in `.lucent/native`, and adds `.lucent/` to `.gitignore`. If `react-native.config.js` already exists, it prints the entry for you to add:",
             },
-          ],
-        },
-        {
-          title: "Configure Metro",
-          blocks: [
-            {
-              kind: "code",
-              filename: "metro.config.js",
-              code: 'const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");\nconst { withLucent } = require("@lucent-lang/core/metro");\n\nmodule.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), {}), { host: "nitro" });',
-            },
-          ],
-        },
-        {
-          title: "Register the generated library",
-          blocks: [
             {
               kind: "code",
               filename: "react-native.config.js",
-              code: 'const path = require("path");\n\nmodule.exports = {\n  dependencies: {\n    "lucent-native": { root: path.join(__dirname, ".lucent", "nitro") },\n  },\n};',
+              code: `const path = require("path");
+
+module.exports = {
+  dependencies: {
+    "lucent-native": {
+      root: path.join(__dirname, ".lucent", "native"),
+    },
+  },
+};`,
             },
             {
               kind: "p",
-              text: "Linking by path instead of a `file:` dependency means regenerated output is picked up without reinstalling.",
+              text: "Lucent checks modules with `noUncheckedIndexedAccess`. Enable it in `tsconfig.json` too, so your editor agrees with the compiler (see [editor diagnostics](#editor-diagnostics) below).",
+            },
+          ],
+        },
+        {
+          title: "Wrap the Metro config",
+          blocks: [
+            {
+              kind: "code",
+              filename: "metro.config.js",
+              code: `const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
+const { withLucent } = require("@lucent-lang/metro");
+
+module.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), {}));`,
+            },
+            {
+              kind: "p",
+              text: "`withLucent` makes Metro bundle a generated proxy in place of each `*.lucent.ts` file, and keeps the native package current while the dev server runs. Options are in the [Metro reference](/docs/reference/metro/).",
             },
           ],
         },
         {
           title: "Write a module",
-          blocks: [{ kind: "code", filename: "src/geo.lucent.ts", code: MODULE }],
+          blocks: [
+            {
+              kind: "p",
+              text: "Any file named `*.lucent.ts` in the project is a Lucent module (`node_modules`, `ios`, `android` and dot-directories are skipped).",
+            },
+            {
+              kind: "code",
+              filename: "geo.lucent.ts",
+              code: `export type Point = { x: number; y: number };
+
+export function squaredDistance(a: Point, b: Point): number {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  return dx * dx + dy * dy;
+}`,
+            },
+            {
+              kind: "code",
+              filename: "App.tsx",
+              code: `import { Text } from "react-native";
+import { squaredDistance } from "./src/geo.lucent";
+
+export default function App() {
+  return <Text>{squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 })}</Text>;
+}`,
+            },
+          ],
         },
         {
-          title: "Build and run",
+          title: "Build the native package",
+          blocks: [
+            { kind: "code", filename: "terminal", code: "npx lucent build" },
+            {
+              kind: "p",
+              text: "This compiles every module and writes `.lucent/native`: the C++ runtime, the generated C++, the podspec and CMake files, and the JS proxies. Type errors and unsupported code stop the build with a `LUCENT` diagnostic, and nothing is written. When nothing changed since the last build, it returns immediately.",
+            },
+          ],
+        },
+        {
+          title: "Install pods and run",
           blocks: [
             {
               kind: "code",
               filename: "terminal",
-              code: "npx lucent build --host nitro\ncd ios && pod install && cd ..\nnpx react-native run-ios   # or run-android",
+              code: `cd ios && pod install && cd ..
+npx react-native run-ios      # or: npx react-native run-android`,
             },
             {
               kind: "p",
-              text: "Run `npx lucent build --host nitro` again whenever a Lucent file changes. Nitro views require the new architecture.",
+              text: "Android needs no extra step: Gradle adds the package's CMake project to the app's native build. The screen shows `25`, computed in C++.",
             },
           ],
         },
       ],
     },
-    { kind: "h2", text: "Beyond functions" },
-    {
-      kind: "p",
-      text: "All authoring subpaths below are included in @lucent-lang/core; no additional Lucent packages need to be installed.",
-    },
-    {
-      kind: "table",
-      head: ["Package", "Gives you"],
-      rows: [
-        ["`@lucent-lang/core/objects`", "`SharedObject` base for [native classes](/docs/language/native-classes/)"],
-        ["`@lucent-lang/core/events`", "`event<T>()` and `Event<T>` for [events](/docs/language/events/) and view callbacks"],
-        ["`@lucent-lang/core/ui`", "`VStack`, `Text`, `Button`, `TextField`… for [native views](/docs/language/native-views/)"],
-        ["`@lucent-lang/core`, `@lucent-lang/core/platform`", "the [built-in library](/docs/api/std/)"],
-        ["`@lucent-lang/core/config`", "`defineNativeConfig` for [capabilities and libraries](/docs/api/config/)"],
-      ],
-    },
-    {
-      kind: "p",
-      text: "Capabilities such as `filesystem` or `network` are a build-time allowlist. Declare them once per app:",
-    },
-    {
-      kind: "code",
-      filename: "lucent.config.ts",
-      code: 'import { defineNativeConfig } from "@lucent-lang/core/config";\n\nexport default defineNativeConfig({\n  capabilities: { filesystem: true, network: true, crypto: true },\n});',
-    },
-    { kind: "h2", text: "Development loop" },
+    { kind: "h2", text: "The dev loop" },
     {
       kind: "list",
       items: [
-        "Changing a `.lucent.ts(x)` file changes native code. Rebuild the app (`expo run:ios` or `lucent build` + Xcode/Gradle). There is no native hot reload.",
-        "Generated Swift and Kotlin are overwritten on the next build. Do not edit `modules/lucent/` or `.lucent/nitro/`. There are no source maps; a native crash is a native stack trace.",
-        "Changing React code that calls into Lucent works as usual with Fast Refresh.",
-        "Run `lucent check` for diagnostics without generating anything. Metro reports the same errors with a code frame when it bundles.",
-        "When files are added to the generated package, refresh CocoaPods or Gradle (`pod install`, Gradle sync).",
+        "While Metro's dev server runs (`react-native start`, or the one `run-ios`/`run-android` starts), `withLucent` runs `lucent build --watch`, so `.lucent/native` follows your edits. Outside Metro, run `npx lucent build --watch` yourself.",
+        "Changed native code only runs after you **rebuild the app** (Xcode or Gradle); reloading the JavaScript does not replace the C++ in the running binary. Each module has its own header, so the native build recompiles only the modules that changed and the modules that import them.",
+        "When modules are added or removed, run `pod install` again before the iOS build; `lucent build` tells you when.",
+        "`npx lucent check` type-checks and validates every module without writing anything. Use it in CI.",
       ],
     },
     {
-      kind: "cards",
-      items: [
-        { title: "How it works", text: "What the build actually produces and where it runs.", href: "/docs/how-it-works/" },
-        { title: "Examples", text: "Annotated modules and views from the example apps.", href: "/docs/examples/" },
-      ],
+      kind: "p",
+      text: "If the app throws `geo.lucent.ts has not been compiled`, Metro found no proxy for the module: run `npx lucent build`, then rebuild the app.",
+    },
+    { kind: "h2", text: "Editor diagnostics" },
+    {
+      kind: "p",
+      text: "TypeScript itself accepts code that Lucent rejects (`var`, `any`, and so on). To see Lucent's diagnostics as you type, install `@lucent-lang/ts-plugin` as a dev dependency and add it to `tsconfig.json`. In VS Code, select the workspace TypeScript version so the plugin loads.",
+    },
+    {
+      kind: "code",
+      filename: "tsconfig.json",
+      code: `{
+  "compilerOptions": {
+    "noUncheckedIndexedAccess": true,
+    "plugins": [{ "name": "@lucent-lang/ts-plugin" }]
+  }
+}`,
+    },
+    { kind: "h2", text: "Next" },
+    {
+      kind: "p",
+      text: "Read [how it works](/docs/how-it-works/), then [the language](/docs/language/) and [how values cross the boundary](/docs/boundary/exports/). All commands and flags are in the [CLI reference](/docs/reference/cli/).",
     },
   ],
 };

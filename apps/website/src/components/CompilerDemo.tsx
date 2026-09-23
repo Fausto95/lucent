@@ -1,38 +1,52 @@
 import * as stylex from "@stylexjs/stylex";
 import { useState, type KeyboardEvent } from "react";
 import { styles } from "./CompilerDemo.stylex";
-import { styles as sharedStyles } from "../styles/shared.stylex";
-import { examples, source } from "../content";
+import { demoCpp, demoSource } from "../generated/compiler-demo";
+import { appUsage } from "../content";
 import { HighlightedCode } from "./HighlightedCode";
 import { useClipboard } from "./ClipboardProvider";
 
+/** The output tabs, in order. The C++ is the compiler's real output (scripts/website.ts). */
+const outputs = [
+  { id: "cpp", symbol: "C++", label: "Generated C++", file: "m_geo.cpp", code: demoCpp, footer: "Compiled by Xcode and Gradle" },
+  { id: "app", symbol: "JS", label: "Your app", file: "App.tsx", code: appUsage, footer: "A synchronous call over JSI" },
+] as const;
+
 export function CompilerDemo() {
-  const [language, setLanguage] = useState<keyof typeof examples>("swift");
+  const [index, setIndex] = useState(0);
   const { copy } = useClipboard();
-  const example = examples[language];
+  const output = outputs[index]!;
+  function select(next: number) {
+    setIndex(next);
+    document.getElementById(`demo-tab-${outputs[next]!.id}`)?.focus();
+  }
   function handleTabKey(event: KeyboardEvent<HTMLButtonElement>) {
-    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    const last = outputs.length - 1;
+    const moves: Record<string, number> = {
+      ArrowLeft: index === 0 ? last : index - 1,
+      ArrowRight: index === last ? 0 : index + 1,
+      Home: 0,
+      End: last,
+    };
+    const next = moves[event.key];
+    if (next === undefined) return;
     event.preventDefault();
-    const next =
-      event.key === "Home" ? "swift" : event.key === "End" ? "kotlin" : language === "swift" ? "kotlin" : "swift";
-    setLanguage(next);
-    document.getElementById(`tab-${next}`)?.focus();
+    select(next);
   }
   return (
     <div aria-label="An example of Lucent's generated native code" {...stylex.props(styles.compilerDemo)}>
       <div {...stylex.props(styles.demoTopline)}>
-        <span {...stylex.props(styles.demoToplineLabel)}>{"ONE SOURCE. TWO PLATFORMS."}</span>
-        <span {...stylex.props(styles.demoIndex)}>{language === "swift" ? "01 / 02" : "02 / 02"}</span>
+        <span {...stylex.props(styles.demoToplineLabel)}>{"ONE TYPESCRIPT MODULE. REAL C++."}</span>
+        <span {...stylex.props(styles.demoIndex)}>{`0${index + 1} / 0${outputs.length}`}</span>
       </div>
       <div {...stylex.props(styles.codeWindow)}>
         <div {...stylex.props(styles.windowBar)}>
           <span {...stylex.props(styles.fileLabel)}>
             <span {...stylex.props(styles.languageIcon)}>{"TS"}</span>
-            {"clamp.lucent.ts"}
+            {"geo.lucent.ts"}
           </span>
           <button
-            onClick={() => copy(source)}
-            id="copy-code"
+            onClick={() => copy(demoSource)}
             aria-label="Copy TypeScript example"
             title="Copy TypeScript example"
             {...stylex.props(styles.iconButton)}
@@ -44,81 +58,7 @@ export function CompilerDemo() {
           </button>
         </div>
         <pre {...stylex.props(styles.sourceCode)}>
-          <code>
-            <span {...stylex.props(styles.line)}>
-              <span aria-hidden="true" {...stylex.props(styles.codeNumber)}>
-                1
-              </span>
-              <span {...stylex.props(styles.purple)}>{"export function"}</span>{" "}
-              <span {...stylex.props(sharedStyles.brandPeriod)}>{"clamp"}</span>
-              {"("}
-            </span>
-            <span {...stylex.props(styles.line)}>
-              <span aria-hidden="true" {...stylex.props(styles.codeNumber)}>
-                2
-              </span>
-              {"  value: "}
-              <span {...stylex.props(styles.yellow)}>{"number"}</span>
-              {","}
-            </span>
-            <span {...stylex.props(styles.line)}>
-              <span aria-hidden="true" {...stylex.props(styles.codeNumber)}>
-                3
-              </span>
-              {"  min: "}
-              <span {...stylex.props(styles.yellow)}>{"number"}</span>
-              {","}
-            </span>
-            <span {...stylex.props(styles.line)}>
-              <span aria-hidden="true" {...stylex.props(styles.codeNumber)}>
-                4
-              </span>
-              {"  max: "}
-              <span {...stylex.props(styles.yellow)}>{"number"}</span>
-            </span>
-            <span {...stylex.props(styles.line)}>
-              <span aria-hidden="true" {...stylex.props(styles.codeNumber)}>
-                5
-              </span>
-              {"): "}
-              <span {...stylex.props(styles.yellow)}>{"number"}</span>
-              {" {"}
-            </span>
-            <span {...stylex.props(styles.line)}>
-              <span aria-hidden="true" {...stylex.props(styles.codeNumber)}>
-                6
-              </span>
-              {"  "}
-              <span {...stylex.props(styles.purple)}>{"if"}</span>
-              {" (value < min) "}
-              <span {...stylex.props(styles.purple)}>{"return"}</span>
-              {" min;"}
-            </span>
-            <span {...stylex.props(styles.line)}>
-              <span aria-hidden="true" {...stylex.props(styles.codeNumber)}>
-                7
-              </span>
-              {"  "}
-              <span {...stylex.props(styles.purple)}>{"if"}</span>
-              {" (value > max) "}
-              <span {...stylex.props(styles.purple)}>{"return"}</span>
-              {" max;"}
-            </span>
-            <span {...stylex.props(styles.line)}>
-              <span aria-hidden="true" {...stylex.props(styles.codeNumber)}>
-                8
-              </span>
-              {"  "}
-              <span {...stylex.props(styles.purple)}>{"return"}</span>
-              {" value;"}
-            </span>
-            <span {...stylex.props(styles.line)}>
-              <span aria-hidden="true" {...stylex.props(styles.codeNumber)}>
-                9
-              </span>
-              {"}"}
-            </span>
-          </code>
+          <HighlightedCode code={demoSource} />
         </pre>
       </div>
       <div {...stylex.props(styles.compileConnector)}>
@@ -133,62 +73,49 @@ export function CompilerDemo() {
       </div>
       <div {...stylex.props(styles.outputWindow)}>
         <div {...stylex.props(styles.outputWindowBar)}>
-          <div role="tablist" aria-label="Generated language" {...stylex.props(styles.languageTabs)}>
-            <button
-              aria-selected={language === "swift"}
-              tabIndex={language === "swift" ? 0 : -1}
-              onClick={() => setLanguage("swift")}
-              onKeyDown={handleTabKey}
-              id="tab-swift"
-              role="tab"
-              aria-controls="generated-code"
-              {...stylex.props(styles.languageTab, language === "swift" && styles.selectedTab)}
-            >
-              <span aria-hidden="true" {...stylex.props(styles.tabSymbol)}>
-                {"S"}
-              </span>
-              {"Swift"}
-            </button>
-            <button
-              aria-selected={language === "kotlin"}
-              tabIndex={language === "kotlin" ? 0 : -1}
-              onClick={() => setLanguage("kotlin")}
-              onKeyDown={handleTabKey}
-              id="tab-kotlin"
-              role="tab"
-              aria-controls="generated-code"
-              {...stylex.props(styles.languageTab, language === "kotlin" && styles.selectedTab)}
-            >
-              <span aria-hidden="true" {...stylex.props(styles.tabSymbol2)}>
-                {"K"}
-              </span>
-              {"Kotlin"}
-            </button>
+          <div role="tablist" aria-label="Output" {...stylex.props(styles.languageTabs)}>
+            {outputs.map((tab, i) => (
+              <button
+                key={tab.id}
+                aria-selected={i === index}
+                tabIndex={i === index ? 0 : -1}
+                onClick={() => setIndex(i)}
+                onKeyDown={handleTabKey}
+                id={`demo-tab-${tab.id}`}
+                role="tab"
+                aria-controls="demo-output"
+                {...stylex.props(styles.languageTab, i === index && styles.selectedTab)}
+              >
+                <span aria-hidden="true" {...stylex.props(styles.tabSymbol)}>
+                  {tab.symbol}
+                </span>
+                {tab.label}
+              </button>
+            ))}
           </div>
-          <span id="platform-label" {...stylex.props(styles.outputLabel)}>
-            {example.platform}
-          </span>
+          <span {...stylex.props(styles.outputLabel)}>{output.file}</span>
         </div>
         <pre
-          aria-labelledby={`tab-${language}`}
-          id="generated-code"
+          aria-labelledby={`demo-tab-${output.id}`}
+          id="demo-output"
           role="tabpanel"
           tabIndex={0}
           {...stylex.props(styles.generatedCode)}
         >
-          <HighlightedCode code={example.code} />
+          <HighlightedCode code={output.code} />
         </pre>
         <div {...stylex.props(styles.outputFooter)}>
           <span>
             <span aria-hidden="true" {...stylex.props(styles.check)}>
               {"✓"}
             </span>
-            {" Ahead-of-time compiled"}
+            {` ${output.footer}`}
           </span>
-          <span>{example.extension}</span>
         </div>
       </div>
-      <p {...stylex.props(styles.demoCaption)}>{"Real native source. Ready for your platform’s toolchain."}</p>
+      <p {...stylex.props(styles.demoCaption)}>
+        {"The C++ is the compiler’s actual output, checked against the compiler in CI."}
+      </p>
     </div>
   );
 }

@@ -1,51 +1,25 @@
 {
   "name": "@lucent-lang/cli",
-  "version": "0.0.3",
-  "description": "The lucent command line: build, check, scaffold and diagnose native React Native modules written in TypeScript.",
-  "keywords": [
-    "cli",
-    "compiler",
-    "expo",
-    "kotlin",
-    "lucent",
-    "nitro",
-    "react-native",
-    "swift"
-  ],
-  "homepage": "https://github.com/Fausto95/lucent#readme",
-  "bugs": "https://github.com/Fausto95/lucent/issues",
+  "version": "0.1.0-cpp",
+  "description": "lucent build: compiles *.lucent.ts into a native React Native package",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/Fausto95/lucent.git",
-    "directory": "packages/cli"
-  },
-  "bin": {
-    "lucent": "./dist/main.cjs"
-  },
-  "files": [
-    "dist",
-    "src"
-  ],
   "type": "module",
-  "exports": {
-    ".": {
-      "types": "./src/index.ts",
-      "default": "./src/index.ts"
-    }
-  },
-  "publishConfig": {
-    "access": "public"
+  "bin": {
+    "lucent": "./bin/lucent.cjs"
   },
   "dependencies": {
     "@lucent-lang/compiler": "workspace:*",
-    "@lucent-lang/host-core": "workspace:*",
-    "@lucent-lang/host-expo": "workspace:*",
-    "@lucent-lang/host-nitro": "workspace:*",
-    "@lucent-lang/sdk": "workspace:*",
-    "oxc-parser": "0.151.0"
+    "@lucent-lang/runtime": "workspace:*"
   },
-  "engines": {
-    "node": ">=22.12"
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "pnpm run build"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.6"
   }
 }

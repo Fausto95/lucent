@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<api version="3">
+	<class name="com/example/widgets/Widget" since="21">
+		<method name="getLabel()Ljava/lang/String;" since="29"/>
+		<field name="KIND_SMALL" since="24"/>
+	</class>
+</api>

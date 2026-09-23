@@ -1,130 +1,27 @@
-import { describe, expect, test } from "vite-plus/test";
-import { configFingerprint, createTransformer, type UpstreamTransformer } from "../src/transformer.ts";
-import { withLucent } from "../src/index.ts";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
+import fs from "node:fs";
+import { createRequire } from "node:module";
+import os from "node:os";
+import path from "node:path";
+import { describe, expect, it } from "vitest";
 
-const calls: { src: string; filename: string }[] = [];
-const upstream: UpstreamTransformer = {
-  transform: (args) => {
-    calls.push({ src: args.src, filename: args.filename });
-    return { ast: { type: "File" } };
-  },
-  getCacheKey: () => "upstream-key",
-};
+const require = createRequire(import.meta.url);
 
-describe("lucent metro transformer", () => {
-  test("resolves relative Metro filenames against projectRoot", async () => {
-    const root = mkdtempSync(join(tmpdir(), "lucent-metro-"));
-    try {
-      writeFileSync(join(root, "package.json"), "{}");
-      writeFileSync(join(root, "helper.lucent.ts"), "export function helper():number{return 42;}");
-      const t = createTransformer({ upstream, host: "expo" });
-      await expect(
-        t.transform({
-          src: 'import {helper} from "./helper.lucent"; export function answer():number{return helper();}',
-          filename: "main.lucent.ts",
-          options: { projectRoot: root },
-        }),
-      ).resolves.toBeDefined();
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
-  test("replaces .lucent.ts sources with the host proxy before delegating", async () => {
-    calls.length = 0;
-    const t = createTransformer({ upstream, host: "expo" });
-    await t.transform({
-      src: "export function add(a: number, b: number): number { return a + b; }",
-      filename: "/app/src/math.lucent.ts",
-      options: {},
-    });
-    expect(calls).toHaveLength(1);
-    expect(calls[0]!.filename).toBe("/app/src/math.lucent.ts");
-    expect(calls[0]!.src).toContain('requireNativeModule("Lucent_math")');
-    expect(calls[0]!.src).toContain("export function add(a, b)");
-  });
-
-  test("uses the nitro proxy when configured", async () => {
-    calls.length = 0;
-    const t = createTransformer({ upstream, host: "nitro" });
-    await t.transform({
-      src: "export function add(a: number, b: number): number { return a + b; }",
-      filename: "/app/math.lucent.ts",
-      options: {},
-    });
-    expect(calls[0]!.src).toContain('createHybridObject("Math")');
-  });
-
-  test("passes other files through untouched", async () => {
-    calls.length = 0;
-    const t = createTransformer({ upstream, host: "expo" });
-    await t.transform({ src: "const x = 1;", filename: "/app/App.tsx", options: {} });
-    expect(calls[0]!.src).toBe("const x = 1;");
-  });
-
-  test("throws a rendered diagnostic for invalid lucent code", async () => {
-    const t = createTransformer({ upstream, host: "expo" });
-    await expect(
-      t.transform({
-        src: "export function f(x: any): number { return 1; }",
-        filename: "/app/bad.lucent.ts",
-        options: {},
-      }),
-    ).rejects.toThrow(/LUCENT1004/);
-  });
-
-  test("cache key includes upstream, compiler version and host", () => {
-    const t = createTransformer({ upstream, host: "nitro" });
-    expect(t.getCacheKey()).toContain("upstream-key");
-    expect(t.getCacheKey()).toContain("nitro");
-  });
-});
-
-describe("withLucent", () => {
-  test("points babelTransformerPath at the lucent transformer and records the host", () => {
-    const config = withLucent({ transformer: { babelTransformerPath: "/x/upstream.js" } }, { host: "nitro" });
-    expect(config.transformer.babelTransformerPath).toMatch(/packages\/metro\/dist\/transformer\.cjs$/);
-    expect(process.env.LUCENT_HOST).toBe("nitro");
-    expect(process.env.LUCENT_UPSTREAM_TRANSFORMER).toBe("/x/upstream.js");
-  });
-});
-
-describe("cache key", () => {
-  test("changes when a project's library manifests change", () => {
-    const root = mkdtempSync(join(tmpdir(), "lucent-metro-"));
-    writeFileSync(join(root, "package.json"), JSON.stringify({ name: "app" }));
-    const library = {
-      source: "export declare function one():number;",
-      bindings: { one: { swift: ["return 1"], kotlin: ["return 1.0"] } },
-    };
-    writeFileSync(join(root, "lucent.config.json"), JSON.stringify({ libraries: { "@lucent-lang/a": library } }));
-    const first = configFingerprint(root);
-    writeFileSync(
-      join(root, "lucent.config.json"),
-      JSON.stringify({
-        libraries: {
-          "@lucent-lang/a": { ...library, bindings: { one: { swift: ["return 2"], kotlin: ["return 2.0"] } } },
-        },
-      }),
-    );
-    expect(configFingerprint(root)).not.toBe(first);
-  });
-
-  test("changes when the minimum targets change", () => {
-    const root = mkdtempSync(join(tmpdir(), "lucent-metro-"));
-    writeFileSync(join(root, "package.json"), JSON.stringify({ name: "app" }));
-    writeFileSync(join(root, "lucent.config.json"), JSON.stringify({ targets: { ios: "16.0" } }));
-    const first = configFingerprint(root);
-    writeFileSync(join(root, "lucent.config.json"), JSON.stringify({ targets: { ios: "17.0" } }));
-    expect(configFingerprint(root)).not.toBe(first);
-  });
-
-  test("an unreadable config does not crash the key", () => {
-    const root = mkdtempSync(join(tmpdir(), "lucent-metro-"));
-    writeFileSync(join(root, "package.json"), JSON.stringify({ name: "app" }));
-    writeFileSync(join(root, "lucent.config.json"), "{ not json");
-    expect(configFingerprint(root)).toBe("unresolved-config");
+describe("Metro transformer", () => {
+  it("swaps a package's Lucent module for its proxy, named <package>/<module>", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-metro-"));
+    const upstream = path.join(root, "upstream.cjs");
+    fs.writeFileSync(upstream, "module.exports = { transform: (a) => a.src };\n");
+    process.env.LUCENT_UPSTREAM_TRANSFORMER = upstream;
+    const pkg = path.join(root, "node_modules/lucent-a");
+    fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
+    fs.writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ name: "lucent-a", lucent: { sources: "src" } }));
+    fs.mkdirSync(path.join(root, ".lucent/native/js/lucent-a"), { recursive: true });
+    fs.writeFileSync(path.join(root, ".lucent/native/js/lucent-a/storage.js"), "// the proxy of lucent-a/storage\n");
+    fs.mkdirSync(path.join(root, ".lucent/native/js"), { recursive: true });
+    fs.writeFileSync(path.join(root, ".lucent/native/js/storage.js"), "// the app's storage\n");
+    const t = require("../src/transformer.cjs") as { transform(a: { filename: string; src: string; options: { projectRoot: string } }): string };
+    expect(t.transform({ filename: path.join(pkg, "src/storage.lucent.ts"), src: "", options: { projectRoot: root } })).toBe("// the proxy of lucent-a/storage\n");
+    fs.mkdirSync(path.join(root, "src"), { recursive: true });
+    expect(t.transform({ filename: path.join(root, "src/storage.lucent.ts"), src: "", options: { projectRoot: root } })).toBe("// the app's storage\n");
   });
 });

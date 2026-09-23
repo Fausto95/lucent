@@ -5,12 +5,12 @@
 <h1 align="center">Lucent</h1>
 
 > [!WARNING]
-> **Experimental — not for production.** APIs and the language subset change
+> **Experimental: not for production.** APIs and the language subset change
 > without a migration path.
 
 Write native React Native modules in TypeScript. Lucent compiles a checked
-subset to Swift and Kotlin ahead of time. Nothing runs in a JS engine on the
-native side.
+subset to C++ and calls it through JSI. There's no Swift or Kotlin to write,
+and nothing runs in a JS engine on the native side.
 
 ```ts
 // src/geo.lucent.ts
@@ -25,43 +25,47 @@ export function squaredDistance(a: Point, b: Point): number {
 
 ```ts
 import { squaredDistance } from "./src/geo.lucent";
-squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25 — Swift / Kotlin
+squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25, computed in C++
 ```
 
-Works with [Expo Modules](https://docs.expo.dev/modules/overview/) (SDK 58)
-and [Nitro Modules](https://nitro.margelo.com/).
+Works in bare React Native (0.88) and Expo (SDK 58). No Expo Modules or Nitro
+dependency.
 
 ## Today
 
-- Functions, records, unions, bytes, async, errors
-- Native classes with handles, events, background work, task scopes
-- Resources, subscriptions, `resourceScope`, move/copy
-- `.lucent.tsx` views with `state()`, `resource()`, and `effect()`
-- Camera / BLE / SQLite / location packages as CI stubs (not device-complete)
+- The full language minus platform SDKs and views: structs, unions, classes,
+  closures, generics, `async`/`await`, errors
+- JS callbacks, promises and `AbortSignal` across the boundary
+- `lucent build` / `lucent check`, the Metro transformer and the Expo plugin
+- Early platform modules (`*.ios.lucent.ts` / `*.android.lucent.ts`):
+  Android bindings generated from `android.jar`, iOS a hand-written UIKit
+  subset
 
 ## Not yet
 
-- Real-device camera / BLE / background OS APIs
-- Full IDE and source maps from native toolchains
-- npm publish and a stable 1.0
-
-See [what you can build](https://lucent-lang.dev/docs/what-you-can-build/) and
-the [roadmap](ROADMAP.md).
+- Testing on physical devices (simulators and emulators pass)
+- Generated iOS bindings, delegates and protocols (M2)
+- Views (M3)
+- npm publish
 
 ## Docs
 
-- [Getting started](docs/getting-started.md)
-- [Language](docs/language.md) · [Semantics](docs/semantics.md)
-- [Website](https://lucent-lang.dev)
+[Getting started](https://lucent-lang.dev/docs/getting-started/) ·
+[Language](https://lucent-lang.dev/docs/language/) ·
+[How it works](https://lucent-lang.dev/docs/how-it-works/) ·
+[Comparison](https://lucent-lang.dev/docs/comparison/) ·
+[Roadmap](ROADMAP.md)
 
 ## Develop
 
 ```sh
 pnpm install
-pnpm test
-pnpm verify
+pnpm test           # compiler unit tests
+pnpm test:runtime   # C++ runtime tests
+pnpm test:e2e       # compiled modules vs. the same code as JavaScript
 ```
 
-Node 22.12+, pnpm. Native verifies need Xcode and `kotlinc`.
+The e2e harness needs a local Hermes build (`HERMES_DIR`); see
+[docs/testing.md](docs/testing.md). Contributor docs live in [docs/](docs/).
 
 MIT © Lucent

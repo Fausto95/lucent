@@ -1,33 +1,22 @@
 /**
- * Moves the root package.json and every packages/* package.json to the next lockstep version.
- * Usage: tsx scripts/bump-version.ts <major|minor|patch>. Prints the new version.
+ * Bumps the version of every published @lucent-lang package together and
+ * prints the new version.
+ *
+ *   tsx scripts/bump-version.ts patch|minor|major
  */
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import fs from "node:fs";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { bumpKinds, bumpVersion, isBump, replaceVersion } from "./version.ts";
 
-const bump = process.argv[2];
-if (!isBump(bump)) {
-  console.error(`Usage: tsx scripts/bump-version.ts <${bumpKinds.join("|")}>`);
-  process.exit(1);
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const kind = process.argv[2] ?? "patch";
+const dirs = fs.readdirSync(path.join(root, "packages")).map((d) => path.join(root, "packages", d, "package.json")).filter((f) => fs.existsSync(f));
+const manifests = dirs.map((f) => ({ f, pkg: JSON.parse(fs.readFileSync(f, "utf8")) })).filter((m) => !m.pkg.private && m.pkg.name?.startsWith("@lucent-lang/"));
+const current = manifests[0]!.pkg.version as string;
+const [major, minor, patch] = current.split("-")[0]!.split(".").map(Number) as [number, number, number];
+const next = kind === "major" ? `${major + 1}.0.0` : kind === "minor" ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`;
+for (const m of manifests) {
+  m.pkg.version = next;
+  fs.writeFileSync(m.f, JSON.stringify(m.pkg, null, 2) + "\n");
 }
-
-const root = fileURLToPath(new URL("..", import.meta.url));
-const packageDirs = readdirSync(join(root, "packages"), { withFileTypes: true }).filter((entry) => entry.isDirectory());
-const files = ["package.json", ...packageDirs.map((entry) => join("packages", entry.name, "package.json"))];
-
-const sources = files.map((file) => {
-  const text = readFileSync(join(root, file), "utf8");
-  return { file, text, version: (JSON.parse(text) as { version: string }).version };
-});
-
-const current = sources[0]!.version;
-const drifted = sources.filter((source) => source.version !== current).map((source) => source.file);
-if (drifted.length > 0) {
-  throw new Error(`Every package must be at ${current} before bumping; drifted: ${drifted.join(", ")}`);
-}
-
-const next = bumpVersion(current, bump);
-for (const { file, text } of sources) writeFileSync(join(root, file), replaceVersion(text, current, next));
-console.log(next);
+process.stdout.write(next);

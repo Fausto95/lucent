@@ -1,21 +1,30 @@
-import type { ComponentType } from "react";
-
 /**
- * Docs pages are data. Paragraph-like strings accept a tiny inline markup:
- * `code`, **strong**, and [text](href). Internal hrefs start with "/".
+ * Docs pages are plain data with no React imports, so tools can load them in
+ * Node (scripts/website.ts checks every Lucent sample). Paragraph-like
+ * strings accept a tiny inline markup: `code`, **strong**, and [text](href).
+ * Internal hrefs start with "/".
+ *
+ * Code whose filename ends in `.lucent.ts` must compile: the samples of a
+ * page are checked together, as one app. A sample that demonstrates a
+ * diagnostic sets `expect` to its code and is checked on its own.
  */
 export type Block =
   | { kind: "p"; text: string }
   | { kind: "h2"; text: string }
   | { kind: "h3"; text: string }
-  | { kind: "code"; filename: string; code: string }
+  | { kind: "code"; filename: string; code: string; expect?: string }
   | { kind: "tabs"; tabs: { label: string; filename: string; code: string }[] }
   | { kind: "note"; text: string; tone?: "info" | "warn" }
   | { kind: "list"; items: string[]; ordered?: boolean }
   | { kind: "table"; head: string[]; rows: string[][] }
-  | { kind: "diagram"; component: ComponentType; caption?: string }
+  | { kind: "diagram"; diagram: DiagramName; caption?: string }
+  /** The Lucent / Expo Modules / Nitro / Turbo Native Modules table (docs/comparison-table.ts). */
+  | { kind: "comparison" }
   | { kind: "steps"; steps: { title: string; blocks: Block[] }[] }
   | { kind: "cards"; items: { title: string; text: string; href: string }[] };
+
+/** Diagrams are components, looked up by name in components/DocsDiagram.tsx. */
+export type DiagramName = "pipeline" | "runtime";
 
 export interface DocPage {
   /** Path under /docs/, without slashes. "" is the index. */

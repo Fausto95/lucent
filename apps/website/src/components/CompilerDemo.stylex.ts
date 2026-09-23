@@ -151,16 +151,6 @@ export const styles = stylex.create({
     overflow: "auto",
     color: tokens.textCode,
   },
-  line: {
-    display: "block",
-    whiteSpace: "pre",
-  },
-  purple: {
-    color: tokens.syntaxKeyword,
-  },
-  yellow: {
-    color: tokens.syntaxType,
-  },
   compileConnector: {
     display: "flex",
     alignItems: "center",
@@ -233,6 +223,7 @@ export const styles = stylex.create({
     gap: "5px",
   },
   languageTab: {
+    whiteSpace: "nowrap",
     borderTopWidth: "0",
     borderTopStyle: "none",
     borderTopColor: "currentColor",
@@ -262,14 +253,7 @@ export const styles = stylex.create({
     fontSize: "0.75rem",
     lineHeight: "normal",
     fontFamily: '"DM Sans", sans-serif',
-    color: tokens.swift,
-  },
-  tabSymbol2: {
-    fontWeight: 600,
-    fontSize: "0.75rem",
-    lineHeight: "normal",
-    fontFamily: '"DM Sans", sans-serif',
-    color: tokens.kotlin,
+    color: tokens.accent,
   },
   outputLabel: {
     fontSize: "0.75rem",
@@ -336,13 +320,5 @@ export const styles = stylex.create({
       right: 10,
       backgroundColor: tokens.accentFill,
     },
-  },
-  codeNumber: {
-    display: "inline-block",
-    width: 25,
-    marginRight: 13,
-    color: tokens.textSubtle,
-    fontSize: ".75rem",
-    userSelect: "none",
   },
 });

@@ -1,7 +1,0 @@
-error LUCENT1018: Borrowed value escapes
-
-Cannot use `buffer` after it was closed.
-
-  ┌─ negative-use-after-close.lucent.ts:8:10
-8 │   return buffer.length;
-  │          ^^^^^^

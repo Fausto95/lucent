@@ -1,0 +1,9 @@
+{
+  "name": "@lucent-lang/sdk-ios",
+  "version": "0.1.0-cpp",
+  "description": "Prebuilt binding schemas for every framework of an iOS SDK, used by Lucent only when no local Xcode is available (lucent:ios/<module>)",
+  "license": "MIT",
+  "files": [
+    "*.json"
+  ]
+}

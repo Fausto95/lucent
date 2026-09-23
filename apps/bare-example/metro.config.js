@@ -1,5 +1,5 @@
 const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
-const { withLucent } = require("@lucent-lang/core/metro");
+const { withLucent } = require("@lucent-lang/metro");
 const path = require("path");
 
 const root = path.resolve(__dirname, "../..");
@@ -12,4 +12,4 @@ const config = {
   },
 };
 
-module.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), config), { host: "nitro" });
+module.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), config));
