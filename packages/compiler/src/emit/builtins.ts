@@ -1072,6 +1072,22 @@ export function newBuiltin(em: FnEmitter, node: ts.NewExpression, callee: ts.Exp
       if (vt.k === "bytes") return { c: `(${v.c}).slice()`, t };
       fail(node, Codes.UnsupportedBuiltin, `new Uint8Array(${typeKey(v.t)})`);
     }
+    case "promise": {
+      // The executor runs now, with functions that settle the promise once;
+      // one that throws rejects it.
+      const exec = a[0];
+      if (!exec || !(ts.isArrowFunction(exec) || ts.isFunctionExpression(exec))) fail(node, Codes.UnsupportedBuiltin, "new Promise() takes an executor function: new Promise((resolve, reject) => …)");
+      const none = t.inner.k === "void" || t.inner.k === "undefined";
+      const resolveT: LType = { k: "fn", params: none ? [] : [t.inner], ret: T.void };
+      const rejectT: LType = { k: "fn", params: [T.error], ret: T.void };
+      const executor = em.closure(exec, { k: "fn", params: [resolveT, rejectT], ret: T.void });
+      const resolve = none ? `${em.cpp(resolveT)}([p_]() { p_.resolve(lucent::undefined); })` : `${em.cpp(resolveT)}([p_](${em.cpp(t.inner)} v_) { p_.resolve(std::move(v_)); })`;
+      const reject = `${em.cpp(rejectT)}([p_](lucent::Error e_) { p_.reject(std::move(e_)); })`;
+      return {
+        c: `({ ${em.cpp(t)} p_; try { (${executor.c})(${resolve}, ${reject}); } catch (...) { p_.reject(lucent::currentError(std::current_exception())); } p_; })`,
+        t,
+      };
+    }
     case "error": {
       const kind = ["TypeError", "RangeError"].includes(name) ? name : "Error";
       const msg = a[0] ? em.exprAs(a[0], T.string) : "lucent::String()";
