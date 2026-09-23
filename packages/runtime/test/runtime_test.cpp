@@ -601,8 +601,23 @@ static void bytes() {
   CHECK(utf8Encode(S("é")).size() == 2);
 }
 
+static void concatenation() {
+  CHECK_STR(concat(S("w"), 42.0), "w42");
+  CHECK_STR(concat(S("["), -0.0, S("]"), 0.0), "[0]0");
+  CHECK_STR(concat(0.1 + 0.2, S(" "), 1e21, S(" "), 1.5e-7, S(" "), -1.25), "0.30000000000000004 1e+21 1.5e-7 -1.25");
+  CHECK_STR(concat(std::nan(""), S(" "), INFINITY, S(" "), -INFINITY), "NaN Infinity -Infinity");
+  CHECK_STR(concat(9007199254740992.0, S(" "), -123456789012.0), "9007199254740992 -123456789012");
+  CHECK_STR(concat(int32_t{-5}, S(" "), uint32_t{4294967295u}, S(" "), int64_t{-9007199254740991}), "-5 4294967295 -9007199254740991");
+  CHECK_STR(concat(S("é"), S("ω"), 1.0), "éω1");
+  CHECK_STR(concat(S("ω"), S("é")), "ωé");
+  CHECK(concat(S(""), S("")).empty());
+  CHECK(concat(S("ab"), S("")) == S("ab"));
+  CHECK_STR(concat(S("same")), "same");
+}
+
 int main() {
   numbers();
+  concatenation();
   strings();
   arrays();
   maps();

@@ -9,3 +9,4 @@ print(mod.compare("a", "b"), mod.compare("b", "a"), mod.compare("x", "x"), mod.c
 print(mod.unicode());
 print(mod.unicodeCase(["ΟΔΟΣ", "Α.Σ", "Straße", "ﬁ", "𐐨", "ǅ", "İ", "ΐ"]));
 print(mod.collate(["b", "a", "B", "é", "e", "f", "Z", "ä", "A", "z", "1", "10", "2", " ", "-", "ö", "o", "Ö", "O"]));
+print(JSON.stringify(mod.templates([0, -0, NaN, Infinity, -Infinity, 1e21, 1e-7, 1.5e-7, 0.1 + 0.2, 2 ** 53, 2 ** 53 + 2, -123456789012, 4294967295, 0.5, -1.25], -7, true, "ω🌍", undefined)));
