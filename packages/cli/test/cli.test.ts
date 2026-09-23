@@ -42,3 +42,20 @@ describe("lucent build", () => {
     expect(lucent(root, "build").out).toContain("Compiled 1 module");
   });
 });
+
+describe("lucent init", () => {
+  it("links the native package as the `lucent` dependency", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
+    expect(lucent(root, "init").status).toBe(0);
+    const config = fs.readFileSync(path.join(root, "react-native.config.js"), "utf8");
+    expect(config).toContain('"lucent": { root: require("path").join(__dirname, ".lucent", "native") }');
+    expect(config).not.toContain("lucent-native");
+  });
+
+  it("renames an existing `lucent-native` entry", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
+    fs.writeFileSync(path.join(root, "react-native.config.js"), 'module.exports = { dependencies: { "lucent-native": { root: ".lucent/native" } } };\n');
+    expect(lucent(root, "init").status).toBe(0);
+    expect(fs.readFileSync(path.join(root, "react-native.config.js"), "utf8")).toBe('module.exports = { dependencies: { "lucent": { root: ".lucent/native" } } };\n');
+  });
+});
