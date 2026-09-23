@@ -91,6 +91,14 @@ NS_SWIFT_UI_ACTOR
 
 double WDGDistance(WDGWidget *a, WDGWidget *b);
 
+typedef enum {
+  wdg_state_idle = 0,
+  wdg_state_busy = 3,
+  wdg_state_done,
+} wdg_state_t;
+typedef void (^wdg_handler_t)(wdg_state_t state);
+void WDGWatch(wdg_handler_t handler);
+
 CF_IMPLICIT_BRIDGING_ENABLED
 extern const CFStringRef WDGKeyClass;
 OSStatus WDGItemCopy(CFDictionaryRef query, CFTypeRef _Nullable * _Nullable result);

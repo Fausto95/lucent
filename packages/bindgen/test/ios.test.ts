@@ -146,6 +146,20 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     expect(widget().properties!.find((p) => p.name === "circle")).toMatchObject({ type: "Widgets.WDGCircle", setter: "setCircle:" });
   });
 
+  it("reads anonymous C enums (typedef enum {…} name_t), and C functions' escaping blocks", () => {
+    expect(type("wdg_state_t")).toEqual({
+      kind: "enum",
+      name: "wdg_state_t",
+      native: "wdg_state_t",
+      cases: [
+        { name: "wdg_state_idle", native: "wdg_state_idle", value: 0 },
+        { name: "wdg_state_busy", native: "wdg_state_busy", value: 3 },
+        { name: "wdg_state_done", native: "wdg_state_done", value: 4 },
+      ],
+    });
+    expect(mod().functions!.find((f) => f.name === "WDGWatch")).toEqual({ name: "WDGWatch", params: [{ name: "handler", type: "@escaping (Widgets.wdg_state_t) => void" }], returns: "void" });
+  });
+
   it("reads typed string keys (NS_TYPED_ENUM) as string constants of their C globals", () => {
     expect(type("WDGKey")).toMatchObject({ kind: "class", properties: [{ name: "name", static: true, readonly: true, type: "string", global: "WDGKeyName" }] });
   });

@@ -146,6 +146,21 @@ export async function run(): Promise<string> {
 }
 `;
 
+const pathMonitor = `import { nw_interface_type_t, nw_path_get_status, nw_path_monitor_create, nw_path_monitor_set_queue, nw_path_monitor_set_update_handler, nw_path_monitor_start, nw_path_status_t, nw_path_uses_interface_type } from "lucent:ios/Network";
+import { mainQueue } from "lucent:ios";
+export function run(): Promise<string> {
+  return new Promise((resolve) => {
+    const monitor = nw_path_monitor_create();
+    nw_path_monitor_set_update_handler(monitor, (path) => {
+      const connected = nw_path_get_status(path) === nw_path_status_t.nw_path_status_satisfied;
+      resolve(\`\${connected} \${nw_path_uses_interface_type(path, nw_interface_type_t.nw_interface_type_wifi)}\`);
+    });
+    nw_path_monitor_set_queue(monitor, mainQueue());
+    nw_path_monitor_start(monitor);
+  });
+}
+`;
+
 const promises = `import { LAContext, LAPolicy } from "lucent:ios/LocalAuthentication";
 import { UNUserNotificationCenter } from "lucent:ios/UserNotifications";
 import { errorCode } from "@lucent-lang/core";
@@ -270,6 +285,13 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(mm).toContain("CLLocationCoordinate2DIsValid(CLLocationCoordinate2D{");
   });
 
+  it("monitors network paths: OS objects, anonymous enums, blocks, the main queue", () => {
+    const { r, mm } = ios(pathMonitor);
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("nw_path_monitor_set_queue(");
+    expect(mm).toContain("lucent::objc::mainQueue()");
+  });
+
   it("allows main-thread APIs only in blocks that run on the main thread", () => {
     const { r } = ios(`import { UIView } from "lucent:ios/UIKit";
 import { Timer } from "lucent:ios/Foundation";
@@ -286,7 +308,7 @@ export async function run(): Promise<string> {
   it("generates Objective-C++ that compiles against the iOS SDK", () => {
     const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
     if (process.platform !== "darwin" || sdk.status !== 0) return;
-    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [shadowing], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
+    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [shadowing], [pathMonitor], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
       const { r, dir } = ios(src, sdk);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {
