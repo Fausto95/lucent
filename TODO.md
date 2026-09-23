@@ -40,7 +40,7 @@ concrete work. Checked items are implemented and covered by tests.
 - [x] `#line` directives
 - [x] Interfaces implemented by classes: virtual dispatch, accessors for properties, boundary conversion (e2e `interfaces`)
 - [ ] Class inheritance (`extends` other than `Error`); generic interfaces and interfaces extending interfaces
-- [ ] `int32` inference for integer loops (performance)
+- [x] Integer inference: int32/uint32/int64 locals and `for` counters (e2e `integers`, `scripts/bench.ts`)
 - [ ] Incremental compilation (cache per module)
 - [ ] Source maps for native crash symbolication
 - [ ] Object destructuring in assignments (`({ a } = obj)`)
@@ -64,7 +64,7 @@ concrete work. Checked items are implemented and covered by tests.
 - [x] Differential e2e tests (12 suites) vs. the same source run as JavaScript
 - [x] `scripts/app-check.ts`: the example apps' real Metro bundles + generated C++ in Hermes (bare and Expo)
 - [x] Negative suite (diagnostics)
-- [ ] CI workflow (GitHub Actions: build Hermes, run all suites, iOS/Android builds of the examples)
+- [x] CI workflow (GitHub Actions: build Hermes, run all suites, iOS/Android builds of the bare example)
 
 ## Apps
 

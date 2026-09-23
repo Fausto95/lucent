@@ -4,10 +4,15 @@ import type { LucentModule } from "../program.ts";
 import { type ClassInfo, type LType, TypeRegistry } from "../types.ts";
 import { CaptureAnalysis } from "./analysis.ts";
 
+/** Integer registers a number can live in (see integers.ts). */
+export type IntKind = "i32" | "u32" | "i64";
+
 /** A C++ expression and the Lucent type of the value it produces. */
 export interface E {
   c: string;
   t: LType;
+  /** The same number as an exact integer expression, when one is known. */
+  int?: { c: string; kind: IntKind };
 }
 
 export interface ParamInfo {

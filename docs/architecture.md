@@ -49,6 +49,14 @@ Notable lowering choices:
   values are `Ref<I_Shape>`. Because every implementer is known at compile
   time, the JS boundary converts an interface value by trying each
   implementing class in turn.
+* **Integer inference** (`emit/integers.ts`): a local whose every write is
+  a bitwise result (`|`, `^`, `>>>`, `Math.imul`, …) or an integer literal
+  lives in an `int32_t`, `uint32_t` or `int64_t`, and a `for` counter stepped
+  by an integer is an `int64_t`. Values are exact in both representations, so
+  reads convert to `double` without changing results; expressions also carry
+  their integer form, so chains of bitwise operations never round-trip through
+  `double`. Increments and arithmetic writes keep a local a `double`, because
+  `x + 1` does not wrap in JavaScript.
 * **Closures** are C++ lambdas wrapped in `lucent::Fn`. A local captured by a
   closure *and* written after its declaration lives in a `lucent::Box`, so both
   sides see one variable (analysis in `emit/analysis.ts`).

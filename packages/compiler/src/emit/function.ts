@@ -4,14 +4,19 @@ import type { LucentModule } from "../program.ts";
 import { type ClassInfo, cppIdent, isVoidish, type LType, sameType, stripOpt, T, typeKey, unionOf } from "../types.ts";
 import { containsAwait, freeVariables, type FunctionLike, symbolOf } from "./analysis.ts";
 import * as builtins from "./builtins.ts";
-import type { Ctx, E, ParamInfo } from "./context.ts";
+import type { Ctx, E, IntKind, ParamInfo } from "./context.ts";
+import { inferIntegers } from "./integers.ts";
 import { numberLiteral, stringLiteral } from "./literals.ts";
 
 interface Local {
   cpp: string;
   type: LType;
   boxed: boolean;
+  /** Set when the number lives in an integer register. */
+  int?: IntKind;
 }
+
+const INT_CPP: Record<IntKind, string> = { i32: "int32_t", u32: "uint32_t", i64: "int64_t" };
 
 interface ControlEntry {
   kind: "loop" | "switch" | "block" | "finally";
@@ -64,6 +69,9 @@ export class FnEmitter {
   private readonly prologue: string[] = [];
   /** Nodes replaced during optional-chain lowering. */
   private readonly subst = new Map<ts.Node, E>();
+  /** Locals and loop counters that live in integer registers (integers.ts). */
+  private ints = new Map<ts.Symbol, IntKind>();
+  private readonly counters = new Set<ts.Symbol>();
 
   constructor(
     readonly ctx: Ctx,
@@ -135,6 +143,65 @@ export class FnEmitter {
     if (l.boxed) this.line(init !== undefined ? `lucent::Box<${ct}> ${l.cpp}(${init});` : `lucent::Box<${ct}> ${l.cpp};`);
     else this.line(init !== undefined ? `${ct} ${l.cpp} = ${init};` : `${ct} ${l.cpp}{};`);
     return l;
+  }
+
+  // --- integers --------------------------------------------------------------------
+
+  private isNumberLocal(d: ts.VariableDeclaration, sym: ts.Symbol): boolean {
+    try {
+      return this.reg.lower(this.checker.getTypeOfSymbolAtLocation(sym, d.name), d.name).k === "number";
+    } catch {
+      return false;
+    }
+  }
+
+  /** A number known to equal the exact integer expression `c`. */
+  intE(c: string, kind: IntKind): E {
+    return { c: `static_cast<double>(${c})`, t: T.number, int: { c, kind } };
+  }
+
+  /** ToInt32 as a C++ int32_t. */
+  i32(e: E, node: ts.Node): string {
+    if (e.int) return e.int.kind === "i32" ? e.int.c : `static_cast<int32_t>(${e.int.c})`;
+    return `lucent::toInt32(${this.num(e, node)})`;
+  }
+
+  /** ToUint32 as a C++ uint32_t. */
+  u32(e: E, node: ts.Node): string {
+    if (e.int) return e.int.kind === "u32" ? e.int.c : `static_cast<uint32_t>(${e.int.c})`;
+    return `lucent::toUint32(${this.num(e, node)})`;
+  }
+
+  /** A value the analysis proved fits `kind`, as that register type. */
+  private toKind(e: E, kind: IntKind, node: ts.Node): string {
+    if (e.int?.kind === kind) return e.int.c;
+    if (kind === "i32") return this.i32(e, node);
+    if (kind === "u32") return this.u32(e, node);
+    return `static_cast<int64_t>(${e.int ? e.int.c : this.num(e, node)})`;
+  }
+
+  /** `a op b` for the int32 operators, on integer registers. */
+  bitwise(op: string, a: E, b: E, node: ts.Node): E {
+    switch (op) {
+      case "&":
+      case "|":
+      case "^":
+        return this.intE(`(${this.i32(a, node)} ${op} ${this.i32(b, node)})`, "i32");
+      case "<<":
+        return this.intE(`static_cast<int32_t>(${this.u32(a, node)} << (${this.u32(b, node)} & 31u))`, "i32");
+      case ">>":
+        return this.intE(`(${this.i32(a, node)} >> (${this.u32(b, node)} & 31u))`, "i32");
+      case ">>>":
+        return this.intE(`(${this.u32(a, node)} >> (${this.u32(b, node)} & 31u))`, "u32");
+    }
+    fail(node, Codes.UnsupportedOperator, `unsupported operator ${op}`);
+  }
+
+  private intLocal(target: ts.Expression): Local | undefined {
+    if (!ts.isIdentifier(target)) return undefined;
+    const sym = symbolOf(this.checker, target);
+    const local = sym ? this.findLocal(this.ctx.resolve(sym)) : undefined;
+    return local?.int ? local : undefined;
   }
 
   // --- types ---------------------------------------------------------------------
@@ -342,6 +409,14 @@ export class FnEmitter {
   emitFunctionBody(node: FunctionLike): void {
     const body = node.body;
     if (!body) return;
+    const facts = inferIntegers(body, {
+      checker: this.checker,
+      candidate: (d, sym) => !this.ctx.capture.isBoxed(sym) && this.isNumberLocal(d, sym),
+      isBoxed: (sym) => this.ctx.capture.isBoxed(sym),
+      isMath: (id) => builtins.isMathGlobal(this, id),
+    });
+    this.ints = facts.locals;
+    for (const c of facts.counters) this.counters.add(c);
     const ret = this.opts.returnType;
     if (ts.isBlock(body)) {
       this.hoistFunctions(body.statements);
@@ -482,6 +557,14 @@ export class FnEmitter {
           const l = this.declareVar(sym, d.name.text, type, undefined);
           if (d.initializer) this.line(`*${l.cpp} = ${this.exprAs(d.initializer, type)};`);
         } else {
+          const kind = this.counters.has(sym) ? "i64" : type.k === "number" ? this.ints.get(sym) : undefined;
+          if (kind && d.initializer) {
+            const init = this.toKind(this.expr(d.initializer, T.number), kind, d);
+            const l = this.declare(sym, d.name.text, type);
+            l.int = kind;
+            this.line(`${INT_CPP[kind]} ${l.cpp} = ${init};`);
+            continue;
+          }
           const init = d.initializer ? this.exprAs(d.initializer, type) : undefined;
           this.declareVar(sym, d.name.text, type, init);
         }
@@ -673,7 +756,7 @@ export class FnEmitter {
     }
     const entry = this.loopEntry(labels);
     const cond = s.condition ? this.cond(s.condition) : "true";
-    const inc = s.incrementor ? this.expr(s.incrementor).c : "";
+    const inc = s.incrementor ? `(void)(${this.expr(s.incrementor).c})` : "";
     this.open(`for (; ${cond}; ${inc}) {`);
     this.loopBody(s.statement, entry, () => {
       for (const p of perIteration) {
@@ -948,8 +1031,13 @@ export class FnEmitter {
     const s = this.subst.get(node);
     if (s) return s;
     switch (node.kind) {
-      case ts.SyntaxKind.NumericLiteral:
-        return { c: numberLiteral(Number((node as ts.NumericLiteral).text.replace(/_/g, ""))), t: T.number };
+      case ts.SyntaxKind.NumericLiteral: {
+        const v = Number((node as ts.NumericLiteral).text.replace(/_/g, ""));
+        const c = numberLiteral(v);
+        if (Number.isInteger(v) && v >= 0 && v <= 2147483647) return { c, t: T.number, int: { c: String(v), kind: "i32" } };
+        if (Number.isInteger(v) && v > 2147483647 && v <= 4294967295) return { c, t: T.number, int: { c: `${v}u`, kind: "u32" } };
+        return { c, t: T.number };
+      }
       case ts.SyntaxKind.StringLiteral:
       case ts.SyntaxKind.NoSubstitutionTemplateLiteral:
         return { c: stringLiteral((node as ts.StringLiteral).text), t: T.string };
@@ -967,7 +1055,7 @@ export class FnEmitter {
         return this.thisValue(node);
       case ts.SyntaxKind.ParenthesizedExpression: {
         const e = this.expr((node as ts.ParenthesizedExpression).expression, hint);
-        return { c: `(${e.c})`, t: e.t };
+        return { c: `(${e.c})`, t: e.t, int: e.int && { c: `(${e.int.c})`, kind: e.int.kind } };
       }
       case ts.SyntaxKind.AsExpression:
       case ts.SyntaxKind.TypeAssertionExpression:
@@ -1072,6 +1160,7 @@ export class FnEmitter {
     }
     const sym = this.ctx.resolve(sym0);
     const local = this.findLocal(sym);
+    if (local?.int) return this.intE(local.cpp, local.int);
     if (local) {
       const e: E = { c: local.boxed ? `(*${local.cpp})` : local.cpp, t: local.type };
       return this.narrowed(id, e);
@@ -1127,7 +1216,7 @@ export class FnEmitter {
         if (stripOpt(e.t).k === "string") return { c: `lucent::stringToNumber(${this.coerce(e, T.string, node)})`, t: T.number };
         return { c: this.coerce(e, T.number, node), t: T.number };
       case ts.SyntaxKind.TildeToken:
-        return { c: `lucent::jsNot(${this.coerce(e, T.number, node)})`, t: T.number };
+        return this.intE(`(~${this.i32(e, node)})`, "i32");
     }
     fail(node, Codes.UnsupportedOperator, "unsupported prefix operator");
   }
@@ -1139,6 +1228,8 @@ export class FnEmitter {
   /** ++x, x++, --x, x-- on locals, fields and elements. */
   private increment(target: ts.Expression, sign: "+" | "-", postfix: boolean, _node: ts.Node): E {
     const op = sign === "+" ? "++" : "--";
+    const il = this.intLocal(target);
+    if (il) return { c: `static_cast<double>(${postfix ? `${il.cpp}${op}` : `${op}${il.cpp}`})`, t: T.number };
     const lv = this.lvalue(target);
     if (lv.direct) return { c: postfix ? `(${lv.direct}${op})` : `(${op}${lv.direct})`, t: T.number };
     const tmp = this.ctx.fresh("v");
@@ -1158,6 +1249,11 @@ export class FnEmitter {
     if (ts.isIdentifier(target)) {
       const sym = this.ctx.resolve(symbolOf(this.checker, target)!);
       const local = this.findLocal(sym);
+      if (local?.int) {
+        const kind = local.int;
+        const x = local.cpp;
+        return { get: `static_cast<double>(${x})`, set: (v) => `(${x} = ${this.toKind({ c: v, t: T.number }, kind, target)})`, type: T.number };
+      }
       if (local) {
         const c = local.boxed ? `(*${local.cpp})` : local.cpp;
         return { direct: c, get: c, type: local.type };
@@ -1226,6 +1322,8 @@ export class FnEmitter {
       });
       return `({ ${parts.join(" ")} ${tmp}; })`;
     }
+    const il = this.intLocal(target);
+    if (il) return `static_cast<double>(${il.cpp} = ${this.toKind(value, il.int!, node)})`;
     const lv = this.lvalue(target);
     const v = this.coerce(value, lv.type, node);
     if (lv.direct) return `(${lv.direct} = ${v})`;
@@ -1306,17 +1404,17 @@ export class FnEmitter {
       case ts.SyntaxKind.AsteriskAsteriskToken:
         return { c: `lucent::jsPow(${this.num(a, node)}, ${this.num(b, node)})`, t: T.number };
       case ts.SyntaxKind.AmpersandToken:
-        return { c: `lucent::jsAnd(${this.num(a, node)}, ${this.num(b, node)})`, t: T.number };
+        return this.bitwise("&", a, b, node);
       case ts.SyntaxKind.BarToken:
-        return { c: `lucent::jsOr(${this.num(a, node)}, ${this.num(b, node)})`, t: T.number };
+        return this.bitwise("|", a, b, node);
       case ts.SyntaxKind.CaretToken:
-        return { c: `lucent::jsXor(${this.num(a, node)}, ${this.num(b, node)})`, t: T.number };
+        return this.bitwise("^", a, b, node);
       case ts.SyntaxKind.LessThanLessThanToken:
-        return { c: `lucent::jsShl(${this.num(a, node)}, ${this.num(b, node)})`, t: T.number };
+        return this.bitwise("<<", a, b, node);
       case ts.SyntaxKind.GreaterThanGreaterThanToken:
-        return { c: `lucent::jsSar(${this.num(a, node)}, ${this.num(b, node)})`, t: T.number };
+        return this.bitwise(">>", a, b, node);
       case ts.SyntaxKind.GreaterThanGreaterThanGreaterThanToken:
-        return { c: `lucent::jsShr(${this.num(a, node)}, ${this.num(b, node)})`, t: T.number };
+        return this.bitwise(">>>", a, b, node);
       case ts.SyntaxKind.LessThanToken:
       case ts.SyntaxKind.GreaterThanToken:
       case ts.SyntaxKind.LessThanEqualsToken:
@@ -1364,6 +1462,15 @@ export class FnEmitter {
   }
 
   private compoundAssign(node: ts.BinaryExpression, op: string): E {
+    const BITWISE = ["&", "|", "^", "<<", ">>", ">>>"];
+    const il = this.intLocal(node.left);
+    if (il?.int === "i64" && (op === "+" || op === "-")) {
+      return { c: `static_cast<double>(${il.cpp} ${op}= ${this.toKind(this.expr(node.right), "i64", node)})`, t: T.number };
+    }
+    if (il && BITWISE.includes(op)) {
+      const r = this.bitwise(op, this.intE(il.cpp, il.int!), this.expr(node.right), node);
+      return { c: `static_cast<double>(${il.cpp} = ${this.toKind(r, il.int!, node)})`, t: T.number };
+    }
     const lv = this.lvalue(node.left);
     const rhs = this.expr(node.right);
     const lt = stripOpt(lv.type);
@@ -1378,7 +1485,8 @@ export class FnEmitter {
       if (["+", "-", "*", "/"].includes(op)) {
         if (lv.direct && lv.type.k === "number") return { c: `(${lv.direct} ${op}= ${r})`, t: T.number };
         combine = (cur) => `(${cur} ${op} ${r})`;
-      } else combine = (cur) => `lucent::${fnOps[op]}(${cur}, ${r})`;
+      } else if (BITWISE.includes(op)) combine = (cur) => this.bitwise(op, { c: cur, t: T.number }, rhs, node).c;
+      else combine = (cur) => `lucent::${fnOps[op]}(${cur}, ${r})`;
     }
     const cur = this.coerce({ c: lv.get, t: lv.type }, lt, node);
     if (lv.direct) return { c: `(${lv.direct} = ${combine(cur)})`, t: lt };
@@ -1491,8 +1599,11 @@ export class FnEmitter {
   elementOf(obj: E, arg: ts.Expression, node: ts.Node): E {
     const t = obj.t;
     switch (t.k) {
-      case "array":
-        return { c: `(${obj.c}).get(${this.exprAs(arg, T.number)})`, t: unionOf([t.e, T.undefined]) };
+      case "array": {
+        const i = this.expr(arg, T.number);
+        const index = i.int ? `static_cast<int64_t>(${i.int.c})` : this.coerce(i, T.number, arg);
+        return { c: i.int ? `(${obj.c}).getIndex(${index})` : `(${obj.c}).get(${index})`, t: unionOf([t.e, T.undefined]) };
+      }
       case "tuple": {
         if (!ts.isNumericLiteral(arg)) fail(arg, Codes.UnsupportedSyntax, "tuple elements need a literal index");
         const i = Number(arg.text);
@@ -1582,12 +1693,14 @@ export class FnEmitter {
         const target = ts.isSpreadElement(a) ? a.expression : a;
         const e = this.expr(target);
         const tmp = this.ctx.fresh("arg");
-        temps.push(`auto ${tmp} = ${e.c};`);
-        this.subst.set(target, { c: tmp, t: e.t });
+        // Integer operands stay integers in their temporaries.
+        temps.push(`auto ${tmp} = ${e.int ? e.int.c : e.c};`);
+        this.subst.set(target, e.int ? this.intE(tmp, e.int.kind) : { c: tmp, t: e.t });
         saved.push(target);
       }
       const r = build();
-      return { c: `({ ${temps.join(" ")} ${r.c}; })`, t: r.t };
+      const pre = temps.join(" ");
+      return { c: `({ ${pre} ${r.c}; })`, t: r.t, int: r.int && { c: `({ ${pre} ${r.int.c}; })`, kind: r.int.kind } };
     } finally {
       for (const s of saved) this.subst.delete(s);
     }

@@ -235,6 +235,10 @@ const NUMBER_CONSTANTS: Record<string, string> = {
   NaN: "lucent::kNaN",
 };
 
+export function isMathGlobal(em: FnEmitter, id: ts.Expression): boolean {
+  return isLibGlobal(em, id, "Math");
+}
+
 function isLibGlobal(em: FnEmitter, id: ts.Expression, name: string): boolean {
   if (!ts.isIdentifier(id) || id.text !== name) return false;
   const sym = em.checker.getSymbolAtLocation(id);
@@ -284,6 +288,11 @@ export function staticCall(em: FnEmitter, node: ts.CallExpression, callee: ts.Pr
       return num(`lucent::math::${name}Of(${em.exprAs(a[0]!.expression, { k: "array", e: T.number })})`);
     }
     if (a.some(ts.isSpreadElement)) fail(node, Codes.UnsupportedBuiltin, `spread is only supported as Math.${name}(...array)`);
+    if (name === "imul" && a.length === 2) {
+      const x = em.expr(a[0]!);
+      const y = em.expr(a[1]!);
+      return em.intE(`static_cast<int32_t>(${em.u32(x, node)} * ${em.u32(y, node)})`, "i32");
+    }
     return num(`lucent::math::${name}(${a.map((x) => em.exprAs(x, T.number)).join(", ")})`);
   }
   if (isLibGlobal(em, obj, "Number")) {
