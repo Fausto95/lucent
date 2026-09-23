@@ -313,25 +313,7 @@ describe("platform declarations in one module", () => {
   });
 
   it.skipIf(!ios || !android || process.platform !== "darwin")("generates code each target compiles", () => {
-    const r = compile(project(tracker), { platforms: ["ios", "android", "host"] });
-    expect(r.diagnostics).toEqual([]);
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-scoped-glue-"));
-    for (const [k, v] of r.files) {
-      fs.mkdirSync(path.dirname(path.join(dir, k)), { recursive: true });
-      fs.writeFileSync(path.join(dir, k), v);
-    }
-    const flags = ["-std=c++20", "-fsyntax-only", "-Werror", "-Wno-gnu-statement-expression", "-Wno-unused-label", "-Wno-parentheses-equality", "-Wno-comma", `-I${path.join(runtimeDir(), "cpp")}`];
-    const ndkRoot = path.join(process.env.ANDROID_HOME ?? path.join(os.homedir(), "Library/Android/sdk"), "ndk");
-    const ndk = fs.existsSync(ndkRoot) ? fs.readdirSync(ndkRoot).sort().pop() : undefined;
-    const runs: [string, string[]][] = [
-      ["xcrun", ["--sdk", "iphonesimulator", "clang++", ...flags, "-fobjc-arc", "-target", "arm64-apple-ios15.1-simulator", `-I${path.join(dir, "ios")}`, "-x", "objective-c++", path.join(dir, "ios/m_tracker.mm")]],
-      ["clang++", [...flags, `-I${path.join(dir, "host")}`, path.join(dir, "host/m_tracker.cpp")]],
-    ];
-    if (ndk) {
-      const bin = fs.readdirSync(path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt")).map((h) => path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt", h, "bin/clang++"))[0]!;
-      runs.push([bin, ["--target=aarch64-linux-android24", ...flags, `-I${path.join(dir, "android")}`, path.join(dir, "android/m_tracker.cpp")]]);
-    }
-    for (const [cmd, args] of runs) expect(spawnSync(cmd, args, { encoding: "utf8" }).stderr).toBe("");
+    compilesEverywhere(tracker, "tracker");
   }, 600_000);
 
   it.skipIf(!android)("compiles for Android where the iOS SDK is missing (its declarations untyped)", () => {
@@ -369,6 +351,114 @@ export function f(): string {
   });
 });
 
+const guarded = {
+  "guarded.lucent.ts": `import { PLATFORM } from "lucent:platform";
+import { ProcessInfo } from "lucent:ios/Foundation";
+import { Build } from "lucent:android/android.os";
+
+export function name(verbose: boolean): string {
+  switch (PLATFORM) {
+    case "ios":
+      return verbose ? ProcessInfo.processInfo.processName : "ios";
+    case "android":
+      return Build.MODEL ?? "";
+  }
+}
+
+export function kind(): string {
+  switch (PLATFORM) {
+    case "ios":
+    case "android":
+      // Both platforms fall through here: shared code.
+      return "mobile";
+    default:
+      return "other";
+  }
+}
+
+export function process(verbose: boolean): string {
+  if (PLATFORM === "ios" && verbose) {
+    return ProcessInfo.processInfo.processName;
+  }
+  return "plain";
+}
+
+export function maker(verbose: boolean): string {
+  return PLATFORM === "android" && verbose ? (Build.MANUFACTURER ?? "") : "short";
+}
+`,
+};
+
+/** Compiles the module for iOS, Android (NDK) and the host, and each target's C++ with its toolchain. */
+function compilesEverywhere(sources: Record<string, string>, module: string): void {
+  const r = compile(project(sources), { platforms: ["ios", "android", "host"] });
+  expect(r.diagnostics).toEqual([]);
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-glue-"));
+  for (const [k, v] of r.files) {
+    fs.mkdirSync(path.dirname(path.join(dir, k)), { recursive: true });
+    fs.writeFileSync(path.join(dir, k), v);
+  }
+  const flags = ["-std=c++20", "-fsyntax-only", "-Werror", "-Wno-gnu-statement-expression", "-Wno-unused-label", "-Wno-parentheses-equality", "-Wno-comma", `-I${path.join(runtimeDir(), "cpp")}`];
+  const ndkRoot = path.join(process.env.ANDROID_HOME ?? path.join(os.homedir(), "Library/Android/sdk"), "ndk");
+  const ndk = fs.existsSync(ndkRoot) ? fs.readdirSync(ndkRoot).sort().pop() : undefined;
+  const runs: [string, string[]][] = [
+    ["xcrun", ["--sdk", "iphonesimulator", "clang++", ...flags, "-fobjc-arc", "-target", "arm64-apple-ios15.1-simulator", `-I${path.join(dir, "ios")}`, "-x", "objective-c++", path.join(dir, `ios/m_${module}.mm`)]],
+    ["clang++", [...flags, `-I${path.join(dir, "host")}`, path.join(dir, `host/m_${module}.cpp`)]],
+  ];
+  if (ndk) {
+    const bin = fs.readdirSync(path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt")).map((h) => path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt", h, "bin/clang++"))[0]!;
+    runs.push([bin, ["--target=aarch64-linux-android24", ...flags, `-I${path.join(dir, "android")}`, path.join(dir, `android/m_${module}.cpp`)]]);
+  }
+  for (const [cmd, args] of runs) expect(spawnSync(cmd, args, { encoding: "utf8" }).stderr).toBe("");
+}
+
+describe("switch (PLATFORM) and PLATFORM === … && …", () => {
+  it.skipIf(!ios || !android)("compiles each platform's cases and guarded branches only", () => {
+    const r = compile(project(guarded), { platforms: ["ios", "android"] });
+    expect(r.diagnostics).toEqual([]);
+    const mm = r.files.get("ios/m_guarded.mm")!;
+    expect(mm).toContain("processName");
+    expect(mm).not.toContain("android/os/Build");
+    const cpp = r.files.get("android/m_guarded.cpp")!;
+    expect(cpp).toContain("android/os/Build");
+    expect(cpp).not.toContain("processName");
+    for (const f of [mm, cpp]) expect(f).toContain('LUCENT_STR("mobile")');
+  });
+
+  it.skipIf(!ios || !android || process.platform !== "darwin")("generates code each target compiles", () => {
+    compilesEverywhere(guarded, "guarded");
+  }, 600_000);
+
+  it("treats code both platforms reach as shared: fall-through cases, and the else of a guarded test", () => {
+    const r = compile(
+      project({
+        "m.lucent.ts": `import { PLATFORM } from "lucent:platform";
+import { UIDevice } from "lucent:ios/UIKit";
+import { Build } from "lucent:android/android.os";
+export function f(flag: boolean): string {
+  switch (PLATFORM) {
+    case "ios":
+      if (flag) break;
+    case "android":
+      return Build.MODEL ?? "";
+  }
+  return "";
+}
+export function g(flag: boolean): string {
+  if (PLATFORM === "ios" && flag) return "ios";
+  else return UIDevice.current.name;
+}
+`,
+      }),
+      { platforms: ["host"] },
+    );
+    expect(r.diagnostics.map((d) => [d.line, d.code])).toEqual([
+      [9, "LUCENT3004"],
+      [15, "LUCENT3004"],
+    ]);
+  });
+});
+
 describe("platform branches in one module", () => {
   it.skipIf(!ios || !android)("compiles each target's branch only", () => {
     const r = compile(project(device));
@@ -399,25 +489,7 @@ describe("platform branches in one module", () => {
   });
 
   it.skipIf(!ios || !android || process.platform !== "darwin")("generates code each target compiles: iOS, Android (NDK) and the host", () => {
-    const r = compile(project(device), { platforms: ["ios", "android", "host"] });
-    expect(r.diagnostics).toEqual([]);
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-branch-glue-"));
-    for (const [k, v] of r.files) {
-      fs.mkdirSync(path.dirname(path.join(dir, k)), { recursive: true });
-      fs.writeFileSync(path.join(dir, k), v);
-    }
-    const flags = ["-std=c++20", "-fsyntax-only", "-Werror", "-Wno-gnu-statement-expression", "-Wno-unused-label", "-Wno-parentheses-equality", "-Wno-comma", `-I${path.join(runtimeDir(), "cpp")}`];
-    const ndkRoot = path.join(process.env.ANDROID_HOME ?? path.join(os.homedir(), "Library/Android/sdk"), "ndk");
-    const ndk = fs.existsSync(ndkRoot) ? fs.readdirSync(ndkRoot).sort().pop() : undefined;
-    const runs: [string, string[]][] = [
-      ["xcrun", ["--sdk", "iphonesimulator", "clang++", ...flags, "-fobjc-arc", "-target", "arm64-apple-ios15.1-simulator", `-I${path.join(dir, "ios")}`, "-x", "objective-c++", path.join(dir, "ios/m_device.mm")]],
-      ["clang++", [...flags, `-I${path.join(dir, "host")}`, path.join(dir, "host/m_device.cpp")]],
-    ];
-    if (ndk) {
-      const bin = fs.readdirSync(path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt")).map((h) => path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt", h, "bin/clang++"))[0]!;
-      runs.push([bin, ["--target=aarch64-linux-android24", ...flags, `-I${path.join(dir, "android")}`, path.join(dir, "android/m_device.cpp")]]);
-    }
-    for (const [cmd, args] of runs) expect(spawnSync(cmd, args, { encoding: "utf8" }).stderr).toBe("");
+    compilesEverywhere(device, "device");
   }, 600_000);
 
   it("requires a platform's SDK to be used inside its branch", () => {
