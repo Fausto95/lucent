@@ -16,7 +16,9 @@ const initialTab: Tab = Platform.OS === "ios" && Settings.get("lucentTab") === "
 export default function App() {
   const [tab, setTab] = useState<Tab>(initialTab);
   return (
-    <View style={styles.root}>
+    // Read at render time: the status bar height is not known yet when this
+    // module loads on Android (edge-to-edge).
+    <View style={[styles.root, { paddingTop: Platform.OS === "ios" ? 54 : (StatusBar.currentHeight ?? 24) }]}>
       <StatusBar barStyle="dark-content" />
       <View style={styles.tabs}>
         {(["tests", "bench"] as const).map((t) => (
