@@ -20,6 +20,15 @@ describe("native package", () => {
     }
   });
 
+  it("writes the lucent:core declarations for the app's tsconfig paths", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const src = path.join(dir, "sample.lucent.ts");
+    fs.writeFileSync(src, "export function one(): number { return 1; }");
+    const out = path.join(dir, "native");
+    writeNativePackage(compile([src]), out);
+    expect(fs.readFileSync(path.join(out, "types/core.d.ts"), "utf8")).toContain("export declare function delay(");
+  });
+
   it("leaves the build outputs of the Android library alone", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
     const src = path.join(dir, "sample.lucent.ts");

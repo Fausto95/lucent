@@ -81,6 +81,13 @@ describe("@lucent-lang/ts-plugin", () => {
     expect(lucent(s.ls.getSemanticDiagnostics(s.file("a.lucent.ts"))).map((d) => d.code)).toEqual([2001]);
   });
 
+  it("shows Lucent warnings as warnings", async () => {
+    const s = service({ "a.lucent.ts": 'import { now } from "@lucent-lang/core";\nexport function f(): number { return now(); }\n' });
+    await s.ready;
+    const [d] = lucent(s.ls.getSemanticDiagnostics(s.file("a.lucent.ts")));
+    expect(d).toMatchObject({ code: 3008, category: ts.DiagnosticCategory.Warning });
+  });
+
   it("leaves TypeScript errors and other files to TypeScript", async () => {
     const s = service({ "a.lucent.ts": "export function f(): number { return 'x'; }\n", "b.ts": "var y = 1;\nexport {};\n" });
     await s.ready;
