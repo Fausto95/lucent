@@ -40,6 +40,15 @@ Done:
       tsconfig paths (JSONC-preserving edit).
 - [x] Docs: README install section, website getting-started (bare, Expo),
       references, `docs/architecture.md`, `AGENTS.md`.
+- [x] Device runs, Release (2026-09-24): bare iOS 21/21 tests + 23/23 SDK,
+      bare Android 21/21 + 23/23, Expo iOS 21/21 + 36/36, Expo Android
+      21/21 + 36/36. Expo's plugin ran `lucent build` from the new package
+      during `expo prebuild --clean`. The emulator's location cases need fixes
+      sent to its mock GPS provider (`cmd location providers
+      set-test-provider-location gps …`).
+- [x] Tests tab failures after switching tabs: three e2e cases printed module
+      state, which persists across runs as in JavaScript. They now print what
+      a run changes, and the e2e reference run executes every case twice.
 
 Differences from the plan:
 
@@ -56,8 +65,6 @@ Differences from the plan:
 
 Left:
 
-- [ ] Device runs: both example apps' test screens on the iOS simulator and
-      Android emulator (bare and Expo, Release).
 - [ ] A fresh bare app and a fresh Expo app from the tarball + `npx lucent
       init` to a working module on both platforms.
 - [ ] `npm deprecate` the six 0.0.3 packages (the user runs it).
