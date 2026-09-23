@@ -143,7 +143,11 @@ export async function allTicks(): Promise<string> {
 /** new Promise: the executor runs at once; resolve and reject settle it once. */
 export function promised(v: number): Promise<number> {
   return new Promise((resolve) => {
-    void delay(1).then(() => resolve(v * 2));
+    const later = async () => {
+      await delay(1);
+      resolve(v * 2);
+    };
+    void later();
   });
 }
 
