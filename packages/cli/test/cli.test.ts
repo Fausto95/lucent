@@ -93,3 +93,36 @@ describe("lucent sdk prefetch", () => {
     expect(fs.existsSync(path.join(root, ".lucent/native/cpp/generated/ios"))).toBe(false);
   });
 });
+
+describe("the app's Android dependencies", () => {
+  const gradleLine = 'rootProject.file("../.lucent/native/android/lucent.gradle")';
+
+  it("lucent init applies lucent.gradle in the app's build.gradle, once", () => {
+    const root = project();
+    fs.mkdirSync(path.join(root, "android/app"), { recursive: true });
+    fs.writeFileSync(path.join(root, "android/app/build.gradle"), 'apply plugin: "com.android.application"\n');
+    lucent(root, "init");
+    lucent(root, "init");
+    const gradle = fs.readFileSync(path.join(root, "android/app/build.gradle"), "utf8");
+    expect(gradle.split(gradleLine).length - 1).toBe(1);
+  });
+
+  it("lucent build resolves them with Gradle when an import is not in the SDK", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-"));
+    fs.writeFileSync(path.join(root, "m.lucent.ts"), "export declare function f(): Promise<string>;\n");
+    fs.writeFileSync(path.join(root, "m.android.lucent.ts"), 'import { Widget } from "lucent:android/com.example.widgets";\nexport async function f(): Promise<string> { return new Widget().getName(); }\n');
+    fs.writeFileSync(path.join(root, "m.ios.lucent.ts"), 'export async function f(): Promise<string> { return ""; }\n');
+    // A stand-in gradlew: records the call and writes the classpath with a fixture jar.
+    const jar = path.join(root, "widgets.jar");
+    const classes = path.join(root, "classes");
+    const sources = spawnSync("find", [path.join(path.dirname(bin), "../../bindgen/test/fixtures/java"), "-name", "*.java"], { encoding: "utf8" }).stdout.trim().split("\n");
+    spawnSync("javac", ["--release", "11", "-d", classes, ...sources]);
+    spawnSync("jar", ["cf", jar, "-C", classes, "."]);
+    fs.mkdirSync(path.join(root, "android"));
+    fs.writeFileSync(path.join(root, "android/gradlew"), `#!/bin/sh\necho "$@" > ${path.join(root, "gradle-args")}\nmkdir -p ${path.join(root, ".lucent")}\necho '{"jars":["${jar}"],"aars":[]}' > ${path.join(root, ".lucent/android-classpath.json")}\n`, { mode: 0o755 });
+    const r = spawnSync(process.execPath, [bin, "build", "--platforms", "android", "--root", root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")) } });
+    expect(r.stdout + r.stderr).toMatch(/resolving the app's Android dependencies/);
+    expect(fs.readFileSync(path.join(root, "gradle-args"), "utf8")).toMatch(/:app:lucentClasspath/);
+    expect(r.status).toBe(0);
+  });
+});
