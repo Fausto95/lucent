@@ -2,7 +2,7 @@ import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import { builtinSdkModuleOf, sdkModuleOf } from "../program.ts";
 import { findSdkModule, findSdkType, loadSdkModule, jniDescriptor, sdkTypeInfo, parseSdkType, type Platform, type SdkCallable, type SdkClassSchema, type SdkMethodSchema, type SdkPropertySchema, type SdkType } from "../sdk/schema.ts";
-import { type LType, T, unionOf } from "../types.ts";
+import { cppIdent, type LType, T, unionOf } from "../types.ts";
 import type { E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
 import { cppQuoted, numberLiteral, stringLiteral } from "./literals.ts";
@@ -104,10 +104,10 @@ export function nativeOfClass(em: FnEmitter, e: E, to: LType & { k: "native" }, 
   if (e.t.k !== "class") throw new Error("not a class instance");
   const info = em.reg.cls(e.t.id);
   const name = info.decl.name?.text ?? "class";
-  if (to.platform !== "ios") fail(node, Codes.UnsupportedType, `Lucent classes cannot implement ${to.name} on ${to.platform} yet`);
   if (!sdkInterfacesOf(em.checker, info.decl).some((p) => p.module === to.module && p.cls.name === to.name)) {
     fail(node, Codes.InterfaceNotImplemented, `class ${name} must declare \`implements ${to.name}\` to be used as ${to.name}`);
   }
+  if (to.platform === "android") return `lucent::jni::wrap(lucent::jni::env(), ${javaObjectOfClass(em, e, to, node)}, ${cppQuoted(name)})`;
   return `lucent_app::objcObjectOf(${e.c})`;
 }
 
@@ -453,38 +453,68 @@ function toJni(em: FnEmitter, ref: SdkClassRef, arg: ts.Expression, t: SdkType):
 
 /**
  * A Lucent function where Java takes an interface with one abstract method:
- * a NativeProxy (one per function) whose method converts its arguments on
- * the calling thread, then queues the call on the Lucent thread, or, when
- * Java waits for a result, runs it now holding the lock.
+ * a NativeProxy (one per function and interface) implementing that method.
  */
 function javaProxy(em: FnEmitter, arg: ts.Expression, f: E, t: SdkType & { k: "ref" }): string {
   const iface = findSdkType("android", t.module, t.name);
   const sam = iface?.kind === "class" && iface.functional ? iface.methods?.find((m) => m.name === iface.functional && m.abstract) : undefined;
   if (iface?.kind !== "class" || !sam) fail(arg, Codes.UnsupportedType, `${t.name} has more than one method to implement: pass an object of a class implementing it`);
-  const fn = f.t as LType & { k: "fn" };
-  const params = sam.params.map((p) => parseSdkType(p.type, t.module));
+  const entry = proxyEntry(em, arg, t.module, iface.name, sam, f.t as LType & { k: "fn" }, "f_", (a) => `f_(${a.join(", ")})`);
+  return `({ auto f_ = ${f.c}; lucent::jni::proxyFor(env, ${cppQuoted(iface.native)}, f_.identity(), {${entry}}); })`;
+}
+
+/**
+ * One method of a proxy: `capture` is what it holds (the function or the
+ * object). Its boxed arguments are converted on the calling thread (local
+ * references do not outlive it), then the call is queued on the Lucent
+ * thread, or, when Java waits for a result, made now holding the lock.
+ */
+function proxyEntry(em: FnEmitter, node: ts.Node, module: string, owner: string, m: SdkMethodSchema, fn: LType & { k: "fn" }, capture: string, call: (args: string[]) => string): string {
+  const params = m.params.map((p) => parseSdkType(p.type, module, m.typeParams ?? []));
   const n = Math.min(fn.params.length, params.length);
-  const what = `${t.name}.${sam.name}`;
+  const what = `${owner}.${m.name}`;
   const args = params.slice(0, n).map((p, i) => {
     const a = `lucent::jni::arg(env, args_, ${i})`;
     if (p.k === "prim") {
       if (p.name === "boolean") return `lucent::jni::unboxBoolean(env, ${a})`;
-      if (p.name === "char") fail(arg, Codes.UnsupportedType, `${what} takes a char, which is not supported yet`);
+      if (p.name === "char") fail(node, Codes.UnsupportedType, `${what} takes a char, which is not supported yet`);
       return `lucent::jni::unboxNumber(env, ${a})`;
     }
     return fromJni(em, a, p, fn.params[i]!, what).c;
   });
   const names = args.map((_, i) => `a${i}_`);
   const convert = args.map((a, i) => `auto ${names[i]} = ${a};`).join(" ");
-  const call = `f_(${names.join(", ")})`;
-  const ret = parseSdkType(sam.returns, t.module);
-  let body: string;
-  if (ret.k === "prim" && ret.name === "void") {
-    body = `${convert} lucent::postCallback([${["f_", ...names].join(", ")}]() { (void)${call}; }); return nullptr;`;
-  } else {
-    body = `${convert} return lucent::callNow([&]() -> jobject { auto r_ = ${call}; return ${boxJava(arg, ret, "r_", what)}; });`;
+  const ret = parseSdkType(m.returns, module, m.typeParams ?? []);
+  const holder = capture.split(" = ")[0]!;
+  const body =
+    ret.k === "prim" && ret.name === "void"
+      ? `${convert} lucent::postCallback([${[holder, ...names].join(", ")}]() { (void)${call(names)}; }); return nullptr;`
+      : `${convert} return lucent::callNow([&]() -> jobject { auto r_ = ${call(names)}; return ${boxJava(node, ret, "r_", what)}; });`;
+  const descriptor = m.descriptor ?? jniDescriptor(m.params.map((p) => p.type), m.returns, m.typeParams);
+  const key = `${m.java ?? m.name}${descriptor.slice(0, descriptor.indexOf(")") + 1)}`;
+  return `{${cppQuoted(key)}, [${capture}](JNIEnv* env, jobjectArray args_) -> jobject { ${body} }}`;
+}
+
+/**
+ * A Lucent class instance where Java takes an interface it implements: a
+ * NativeProxy (one per instance and interface) implementing the methods
+ * the class defines; the others keep their Java default.
+ */
+function javaObjectOfClass(em: FnEmitter, e: E, to: LType & { k: "native" }, node: ts.Node | undefined): string {
+  if (e.t.k !== "class") throw new Error("not a class instance");
+  const info = em.reg.cls(e.t.id);
+  const iface = findSdkType("android", to.module, to.name);
+  if (iface?.kind !== "class" || !iface.interface) fail(node, Codes.UnsupportedType, `Lucent classes cannot extend ${to.name} yet`);
+  const entries: string[] = [];
+  for (const m of iface.methods ?? []) {
+    if (m.static) continue;
+    const impl = info.decl.members.find((x): x is ts.MethodDeclaration => ts.isMethodDeclaration(x) && ts.isIdentifier(x.name) && x.name.text === m.name && !!x.body);
+    if (!impl) continue;
+    const fn = em.reg.lowerSignature(em.checker.getSignatureFromDeclaration(impl)!, impl) as LType & { k: "fn" };
+    entries.push(proxyEntry(em, impl, to.module, iface.name, m, fn, "s_ = o_", (a) => `s_->${cppIdent(m.name)}(${a.join(", ")})`));
   }
-  return `({ auto f_ = ${f.c}; lucent::jni::proxyFor(env, ${cppQuoted(iface.native)}, f_.identity(), {{${cppQuoted(sam.java ?? sam.name)}, [f_](JNIEnv* env, jobjectArray args_) -> jobject { ${body} }}}); })`;
+  em.ctx.nativeUnit(em.opts.module).includes.add("#include <lucent/platform/android.h>");
+  return `({ auto o_ = ${e.c}; lucent::jni::proxyFor(lucent::jni::env(), ${cppQuoted(iface.native)}, o_.get(), {${entries.join(", ")}}); })`;
 }
 
 /** A Lucent result as the boxed object a proxy method returns. */

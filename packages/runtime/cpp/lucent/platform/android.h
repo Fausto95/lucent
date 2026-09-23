@@ -84,7 +84,8 @@ using ProxyMethod = std::function<jobject(JNIEnv*, jobjectArray)>;
 
 /**
  * A dev.lucent.NativeProxy implementing `iface` (a JNI class name) whose
- * methods are `methods`, by name. One per `identity` (a Lucent function or
+ * methods are `methods`, keyed by name and parameter descriptor
+ * (`onLocationChanged(Landroid/location/Location;)`). One per `identity` (a Lucent function or
  * object) while Java holds it, so passing the same function twice passes
  * the same object. A local reference.
  */

@@ -7,9 +7,11 @@ import java.lang.reflect.Proxy;
 
 /**
  * Java interfaces implemented by Lucent code: a java.lang.reflect.Proxy whose
- * calls go to C++ by method name. One class serves every interface, so no
- * Java is generated per interface. The handle is a C++ object released when
- * the proxy is collected.
+ * calls go to C++. One class serves every interface, so no Java is generated
+ * per interface. Methods are keyed by name and parameter descriptor
+ * (`onLocationChanged(Landroid/location/Location;)`), so overloads stay
+ * apart; default methods Lucent does not implement keep their Java body. The
+ * handle is a C++ object released when the proxy is collected.
  */
 public final class NativeProxy implements InvocationHandler {
   private final long handle;
@@ -31,10 +33,58 @@ public final class NativeProxy implements InvocationHandler {
         case "hashCode":
           return System.identityHashCode(proxy);
         default:
-          return "Lucent " + method.getDeclaringClass().getName();
+          return "Lucent " + proxy.getClass().getInterfaces()[0].getName();
       }
     }
-    return call(handle, method.getName(), args == null ? new Object[0] : args);
+    String key = key(method);
+    Object[] a = args == null ? new Object[0] : args;
+    if (!has(handle, key) && method.isDefault()) return invokeDefault(proxy, method, a);
+    return call(handle, key, a);
+  }
+
+  /** Name and parameter descriptor, as JNI writes them. */
+  static String key(Method method) {
+    StringBuilder b = new StringBuilder(method.getName()).append('(');
+    for (Class<?> p : method.getParameterTypes()) b.append(descriptor(p));
+    return b.append(')').toString();
+  }
+
+  private static String descriptor(Class<?> c) {
+    if (c.isArray()) return "[" + descriptor(c.getComponentType());
+    if (c == int.class) return "I";
+    if (c == long.class) return "J";
+    if (c == boolean.class) return "Z";
+    if (c == double.class) return "D";
+    if (c == float.class) return "F";
+    if (c == short.class) return "S";
+    if (c == byte.class) return "B";
+    if (c == char.class) return "C";
+    if (c == void.class) return "V";
+    return "L" + c.getName().replace('.', '/') + ";";
+  }
+
+  /** A default method's own body (InvocationHandler.invokeDefault, where the platform has it). */
+  private static Object invokeDefault(Object proxy, Method method, Object[] args) throws Throwable {
+    try {
+      Method invoke = InvocationHandler.class.getMethod("invokeDefault", Object.class, Method.class, Object[].class);
+      return invoke.invoke(null, proxy, method, args);
+    } catch (NoSuchMethodException e) {
+      return zero(method.getReturnType());
+    } catch (java.lang.reflect.InvocationTargetException e) {
+      throw e.getCause();
+    }
+  }
+
+  private static Object zero(Class<?> type) {
+    if (type == boolean.class) return false;
+    if (type == int.class) return 0;
+    if (type == long.class) return 0L;
+    if (type == double.class) return 0.0;
+    if (type == float.class) return 0f;
+    if (type == short.class) return (short) 0;
+    if (type == byte.class) return (byte) 0;
+    if (type == char.class) return (char) 0;
+    return null;
   }
 
   @Override
@@ -47,7 +97,9 @@ public final class NativeProxy implements InvocationHandler {
     }
   }
 
-  private static native Object call(long handle, String method, Object[] args);
+  private static native boolean has(long handle, String key);
+
+  private static native Object call(long handle, String key, Object[] args);
 
   private static native void release(long handle);
 }

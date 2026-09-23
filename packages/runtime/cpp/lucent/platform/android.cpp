@@ -251,7 +251,7 @@ jobject JNICALL proxyCall(JNIEnv* e, jclass, jlong handle, jstring method, jobje
   e->ReleaseStringUTFChars(method, chars);
   auto it = t->methods.find(name);
   if (it == t->methods.end()) {
-    e->ThrowNew(e->FindClass("java/lang/UnsupportedOperationException"), ("Lucent does not implement " + name).c_str());
+    e->ThrowNew(e->FindClass("java/lang/AbstractMethodError"), ("Lucent does not implement " + name).c_str());
     return nullptr;
   }
   try {
@@ -260,6 +260,14 @@ jobject JNICALL proxyCall(JNIEnv* e, jclass, jlong handle, jstring method, jobje
     reportUncaught(std::current_exception(), "Java callback");
     return nullptr;
   }
+}
+
+jboolean JNICALL proxyHas(JNIEnv* e, jclass, jlong handle, jstring key) {
+  auto* t = reinterpret_cast<ProxyTarget*>(handle);
+  const char* chars = e->GetStringUTFChars(key, nullptr);
+  bool found = t->methods.count(chars) > 0;
+  e->ReleaseStringUTFChars(key, chars);
+  return found ? JNI_TRUE : JNI_FALSE;
 }
 
 void JNICALL proxyRelease(JNIEnv* e, jclass, jlong handle) {
@@ -281,10 +289,11 @@ jclass nativeProxyClass(JNIEnv* e) {
   static jclass cls = [&] {
     jclass c = findClass("dev/lucent/NativeProxy");
     JNINativeMethod natives[] = {
+        {const_cast<char*>("has"), const_cast<char*>("(JLjava/lang/String;)Z"), reinterpret_cast<void*>(proxyHas)},
         {const_cast<char*>("call"), const_cast<char*>("(JLjava/lang/String;[Ljava/lang/Object;)Ljava/lang/Object;"), reinterpret_cast<void*>(proxyCall)},
         {const_cast<char*>("release"), const_cast<char*>("(J)V"), reinterpret_cast<void*>(proxyRelease)},
     };
-    e->RegisterNatives(c, natives, 2);
+    e->RegisterNatives(c, natives, 3);
     check(e);
     return c;
   }();

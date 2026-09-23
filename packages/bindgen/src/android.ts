@@ -316,6 +316,7 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
       }
     }
     renameOverloads(methods);
+    if (isInterface) renameDefaultOverloads(methods);
     if (isInterface) {
       // Java's rule for what a lambda implements: one abstract method, inherited ones counted.
       const abstract = abstractMethods(internal, classes);
@@ -365,6 +366,25 @@ const before = (a: number[], b: number[]) => {
   return false;
 };
 
+/**
+ * In an interface, default methods that overload an abstract one get their
+ * parameter types in their names (onLocationChanged(List) →
+ * onLocationChanged_List): a class implementing the abstract method then
+ * implements nothing else.
+ */
+function renameDefaultOverloads(methods: SdkMethodSchema[]): void {
+  const abstractNames = new Set(methods.filter((m) => m.abstract && !m.static).map((m) => m.name));
+  for (const m of methods) {
+    if (m.abstract || m.static || !abstractNames.has(m.name)) continue;
+    m.java = m.java ?? m.name;
+    m.name = overloadName(m);
+  }
+}
+
+function overloadName(m: SdkMethodSchema): string {
+  return `${m.java ?? m.name}_${m.params.map((p) => p.type.replace(/\?$/, "").replace(/\[\]/g, "Array").split(".").pop()).join("_")}`;
+}
+
 function renameOverloads(methods: SdkMethodSchema[]): void {
   const keepers = new Map<string, SdkMethodSchema>();
   for (const m of methods) {
@@ -376,7 +396,7 @@ function renameOverloads(methods: SdkMethodSchema[]): void {
   for (const m of methods) {
     if (keepers.get(tsKey(m)) === m) continue;
     const javaName = m.name;
-    m.name = `${javaName}_${m.params.map((p) => p.type.replace(/\?$/, "").replace(/\[\]/g, "Array").split(".").pop()).join("_")}`;
+    m.name = overloadName(m);
     m.java = javaName;
     seen.add(tsKey(m));
   }

@@ -138,7 +138,9 @@ function classDts(schema: SdkModuleSchema, cls: SdkClassSchema, tsType: (t: SdkT
   for (const p of (cls.properties ?? []).filter((x) => !methodNames.has(`${!!x.static}:${x.name}`))) out.push(`${memberDoc(p)}  ${p.static ? "static " : ""}${p.readonly ? "readonly " : ""}${p.name}: ${tsType(parse(p.type))};`);
   for (const m of cls.methods ?? []) {
     const tps = m.typeParams ?? [];
-    const head = `${memberDoc(m)}  ${m.static ? "static " : ""}${m.name}${m.optional ? "?" : ""}${tps.length ? `<${tps.join(", ")}>` : ""}`;
+    // Optional protocol requirements, and Java interfaces' default methods, need no implementation.
+    const optional = m.optional || (schema.platform === "android" && cls.interface && !m.abstract && !m.static);
+    const head = `${memberDoc(m)}  ${m.static ? "static " : ""}${m.name}${optional ? "?" : ""}${tps.length ? `<${tps.join(", ")}>` : ""}`;
     out.push(`${head}(${params(m.params, tps)}): ${tsType(parse(m.returns, tps))};`);
     // Without its completion handler: a promise of what the handler receives.
     if (m.async) {
