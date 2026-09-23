@@ -22,7 +22,7 @@ pnpm ios                                   # or: pnpm android
 
 ## What gets linked
 
-`react-native.config.js` points the `lucent-native` dependency at
+`react-native.config.js` points the `lucent` dependency at
 `.lucent/native`. React Native autolinks it:
 
 * iOS: the `LucentNative` pod; the TurboModule registers itself at load time.

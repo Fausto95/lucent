@@ -15,10 +15,14 @@ function buildOnce(projectRoot) {
   const r = spawnSync(process.execPath, [cli, "build", "--root", projectRoot], { stdio: "inherit" });
   if (r.status !== 0) throw new Error("lucent build failed; fix the errors above and run prebuild again");
   const rnConfig = path.join(projectRoot, "react-native.config.js");
-  const entry = `"lucent-native": { root: require("path").join(__dirname, ".lucent", "native") }`;
-  if (!fs.existsSync(rnConfig)) {
+  const entry = `"lucent": { root: require("path").join(__dirname, ".lucent", "native") }`;
+  const text = fs.existsSync(rnConfig) ? fs.readFileSync(rnConfig, "utf8") : undefined;
+  if (text === undefined) {
     fs.writeFileSync(rnConfig, `module.exports = {\n  dependencies: {\n    ${entry},\n  },\n};\n`);
-  } else if (!fs.readFileSync(rnConfig, "utf8").includes("lucent-native")) {
+  } else if (text.includes('"lucent-native"')) {
+    // Earlier versions named the dependency lucent-native.
+    fs.writeFileSync(rnConfig, text.replace('"lucent-native"', '"lucent"'));
+  } else if (!/["']lucent["']\s*:/.test(text)) {
     throw new Error(`Add ${entry} to the "dependencies" of react-native.config.js`);
   }
 }

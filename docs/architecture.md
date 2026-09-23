@@ -131,7 +131,7 @@ exports object of the Lucent module `name`, built on first access.
   generates `autolinking_cxxModuleProvider`, which instantiates `LucentModule`.
 
 Both React Native CLI and Expo autolinking read the app's
-`react-native.config.js`, whose `lucent-native` entry points at `.lucent/native`.
+`react-native.config.js`, whose `lucent` entry points at `.lucent/native`.
 
 On the JavaScript side, each proxy calls
 `loadModule(name, () => require("react-native").TurboModuleRegistry)`.

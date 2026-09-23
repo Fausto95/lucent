@@ -83,11 +83,16 @@ function watch(root: string): number {
 
 function init(root: string): number {
   const rnConfig = path.join(root, "react-native.config.js");
-  const entry = `"lucent-native": { root: require("path").join(__dirname, ".lucent", "native") }`;
-  if (!fs.existsSync(rnConfig)) {
+  const entry = `"lucent": { root: require("path").join(__dirname, ".lucent", "native") }`;
+  const text = fs.existsSync(rnConfig) ? fs.readFileSync(rnConfig, "utf8") : undefined;
+  if (text === undefined) {
     fs.writeFileSync(rnConfig, `module.exports = {\n  dependencies: {\n    ${entry},\n  },\n};\n`);
     process.stdout.write("✓ wrote react-native.config.js\n");
-  } else if (!fs.readFileSync(rnConfig, "utf8").includes("lucent-native")) {
+  } else if (text.includes('"lucent-native"')) {
+    // Earlier versions named the dependency lucent-native.
+    fs.writeFileSync(rnConfig, text.replace('"lucent-native"', '"lucent"'));
+    process.stdout.write("✓ renamed the lucent-native dependency to lucent in react-native.config.js\n");
+  } else if (!/["']lucent["']\s*:/.test(text)) {
     process.stdout.write(`! add this to the "dependencies" of react-native.config.js:\n    ${entry}\n`);
   }
   const gitignore = path.join(root, ".gitignore");
