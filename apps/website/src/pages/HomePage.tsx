@@ -63,7 +63,7 @@ export function HomePage() {
 
       <section aria-label="Supported platforms" {...stylex.props(styles.platformStrip)}>
         <span {...stylex.props(styles.stripIntro)}>
-          Runs where
+          Runs where{" "}
           <br {...stylex.props(styles.br)} />
           your app runs.
         </span>

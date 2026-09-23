@@ -223,6 +223,7 @@ export const styles = stylex.create({
     gap: "5px",
   },
   languageTab: {
+    whiteSpace: "nowrap",
     borderTopWidth: "0",
     borderTopStyle: "none",
     borderTopColor: "currentColor",
