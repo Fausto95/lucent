@@ -198,7 +198,8 @@ function fromObjc(em: FnEmitter, code: string, t: SdkType, lt: LType, what: stri
   const elem = (x: LType): LType => (x.k === "opt" ? x.inner : x);
   switch (t.k) {
     case "prim":
-      if (t.name === "void") return { c: `(void)(${code})`, t: T.undefined };
+      // A value, so optional chains can use it (`obj?.voidMethod()`).
+      if (t.name === "void") return { c: `({ (void)(${code}); lucent::undefined; })`, t: T.undefined };
       if (t.name === "bool" || t.name === "boolean") return { c: `static_cast<bool>(${code})`, t: T.boolean };
       return { c: `static_cast<double>(${code})`, t: T.number };
     case "string": {
@@ -267,7 +268,7 @@ function send(receiver: string, selector: string, args: string[], throws = false
 
 /** A message send whose NSError** result becomes a thrown Lucent error. */
 function throwing(sendCode: string, out: (r: string) => E, isVoid: boolean): E {
-  if (isVoid) return { c: `({ NSError* __autoreleasing err_ = nil; (void)${sendCode}; lucent::objc::throwIfError(err_); })`, t: T.undefined };
+  if (isVoid) return { c: `({ NSError* __autoreleasing err_ = nil; (void)${sendCode}; lucent::objc::throwIfError(err_); lucent::undefined; })`, t: T.undefined };
   const e = out("r_");
   return { c: `({ NSError* __autoreleasing err_ = nil; auto r_ = ${sendCode}; lucent::objc::throwIfError(err_); ${e.c}; })`, t: e.t };
 }
@@ -358,7 +359,8 @@ function fromJni(em: FnEmitter, code: string, t: SdkType, lt: LType, what: strin
 function jniCall(em: FnEmitter, opts: { cls: SdkClassSchema; lookup: string; name: string; desc: string; access: (id: string) => string; ret: SdkType; lt: LType; what: string; pre?: string[] }): E {
   const result = opts.ret.k === "prim" && opts.ret.name === "void";
   const out = fromJni(em, "r_", opts.ret, opts.lt, opts.what);
-  const retCpp = result ? "void" : em.cpp(out.t);
+  // Void calls are values too, so optional chains can use them.
+  const retCpp = result ? "lucent::Undefined" : em.cpp(out.t);
   const body = [
     "JNIEnv* env = lucent::jni::env();",
     ...(opts.pre ?? []),
@@ -367,7 +369,7 @@ function jniCall(em: FnEmitter, opts: { cls: SdkClassSchema; lookup: string; nam
     `static auto id_ = lucent::jni::${opts.lookup}(cls_, ${cppQuoted(opts.name)}, ${cppQuoted(opts.desc)});`,
     result ? `${opts.access("id_")};` : `auto r_ = ${opts.access("id_")};`,
     "lucent::jni::check(env);",
-    ...(result ? [] : [`return ${out.c};`]),
+    result ? "return lucent::undefined;" : `return ${out.c};`,
   ];
   return { c: `([&]() -> ${retCpp} { ${body.join(" ")} }())`, t: result ? T.undefined : out.t };
 }
