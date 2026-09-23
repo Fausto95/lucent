@@ -5,7 +5,7 @@ import { FileManager, FileManager_SearchPathDirectory as Directory, FileManager_
 import { File } from "lucent:android/java.io";
 import { AtomicFile } from "lucent:android/android.util";
 import { appContext } from "lucent:android";
-import { error } from "@lucent-lang/core";
+import { error } from "lucent:core";
 
 function directory(): string {
   const base = FileManager.default.urls(Directory.applicationSupportDirectory, Domain.userDomainMask)[0]?.path;

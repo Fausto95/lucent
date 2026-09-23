@@ -13,7 +13,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "jobs.lucent.ts",
-      code: `import { delay } from "@lucent-lang/core";
+      code: `import { delay } from "lucent:core";
 
 async function fetchScore(id: number): Promise<number> {
   await delay(10);
@@ -55,7 +55,7 @@ const result = await scores([1, 2, 3]); // [2, 4, 6]`,
     {
       kind: "code",
       filename: "poll.lucent.ts",
-      code: `import { delay } from "@lucent-lang/core";
+      code: `import { delay } from "lucent:core";
 
 export async function poll(check: () => Promise<boolean>, signal: AbortSignal): Promise<number> {
   let attempts = 0;

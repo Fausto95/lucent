@@ -12,7 +12,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "counter.lucent.ts",
-      code: `import { delay } from "@lucent-lang/core";
+      code: `import { delay } from "lucent:core";
 
 export enum Mode {
   Fast = "fast",

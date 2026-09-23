@@ -36,7 +36,7 @@ export function run(): Promise<string> {
 
 const files = `import { FileAttributeKey, FileManager, FileManager_SearchPathDirectory as Dir, FileManager_SearchPathDomainMask as Mask, ProcessInfo } from "lucent:ios/Foundation";
 import { asDate, asNumber } from "lucent:ios";
-import { errorCode } from "@lucent-lang/core";
+import { errorCode } from "lucent:core";
 export async function run(): Promise<string> {
   const fm = FileManager.default;
   const dir = fm.urls(Dir.documentDirectory, Mask.userDomainMask)[0]?.path ?? "";
@@ -111,7 +111,7 @@ export async function run(): Promise<string> {
 
 const errorOut = `import { LAContext, LAPolicy } from "lucent:ios/LocalAuthentication";
 import { Out } from "lucent:ios";
-import { errorCode } from "@lucent-lang/core";
+import { errorCode } from "lucent:core";
 export async function run(): Promise<string> {
   const error = new Out<Error>();
   const ok = new LAContext().canEvaluatePolicy(LAPolicy.deviceOwnerAuthenticationWithBiometrics, error);
@@ -209,7 +209,7 @@ export function run(): Promise<string> {
 
 const promises = `import { LAContext, LAPolicy } from "lucent:ios/LocalAuthentication";
 import { UNUserNotificationCenter } from "lucent:ios/UserNotifications";
-import { errorCode } from "@lucent-lang/core";
+import { errorCode } from "lucent:core";
 export async function run(): Promise<string> {
   // The async form's own name; a promise of nothing.
   const center = UNUserNotificationCenter.current();

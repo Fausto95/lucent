@@ -25,7 +25,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "checksum.lucent.ts",
-      code: `import { delay, error, errorCode, now, utf8Decode, utf8Encode } from "@lucent-lang/core";
+      code: `import { delay, error, errorCode, now, utf8Decode, utf8Encode } from "lucent:core";
 
 export function checksum(text: string): number {
   let sum = 0;

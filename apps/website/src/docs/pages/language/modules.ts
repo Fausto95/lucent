@@ -67,7 +67,7 @@ export function lookup(key: string): number | undefined {
     {
       kind: "code",
       filename: "paths.lucent.ts",
-      code: `import { now } from "@lucent-lang/core";
+      code: `import { now } from "lucent:core";
 import { Vec, type Point } from "./shapes.lucent";
 
 export function sum(points: Point[]): Point {

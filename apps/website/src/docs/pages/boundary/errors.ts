@@ -13,7 +13,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "config.lucent.ts",
-      code: `import { error } from "@lucent-lang/core";
+      code: `import { error } from "lucent:core";
 
 export class ConfigError extends Error {
   constructor(message: string) {
@@ -83,7 +83,7 @@ await load("x").catch((e) => e.code); // "E_PORT"`,
     {
       kind: "code",
       filename: "jobs.lucent.ts",
-      code: `import { errorCode } from "@lucent-lang/core";
+      code: `import { errorCode } from "lucent:core";
 
 export async function runAll(jobs: string[], run: (job: string) => Promise<void>): Promise<string[]> {
   const failed: string[] = [];

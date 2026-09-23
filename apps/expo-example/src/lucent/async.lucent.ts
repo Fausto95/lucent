@@ -1,4 +1,4 @@
-import { delay } from "@lucent-lang/core";
+import { delay } from "lucent:core";
 
 export async function double(n: number): Promise<number> {
   await delay(5);

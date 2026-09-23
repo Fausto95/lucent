@@ -6,7 +6,7 @@ import { Bundle, FileAttributeKey, FileManager, FileManager_SearchPathDirectory 
 import { asDate, asString } from "lucent:ios";
 import type { PackageInfo } from "lucent:android/android.content.pm";
 import { appContext, available } from "lucent:android";
-import { error } from "@lucent-lang/core";
+import { error } from "lucent:core";
 
 function info(key: string): string | null {
   return asString(Bundle.main.object(key));

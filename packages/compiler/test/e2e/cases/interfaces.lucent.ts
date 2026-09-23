@@ -1,4 +1,4 @@
-import { delay } from "@lucent-lang/core";
+import { delay } from "lucent:core";
 
 export interface Shape {
   readonly kind: string;

@@ -47,7 +47,7 @@ for (const p of ["compiler/src", "cli/src"]) if (fs.existsSync(path.join(install
 
 fs.writeFileSync(
   path.join(app, "src/hello.lucent.ts"),
-  `import { delay } from "@lucent-lang/core";
+  `import { delay } from "lucent:core";
 export function greet(name: string): string {
   return \`hello \${name.toUpperCase()}\`.replace(/L+/g, "l");
 }

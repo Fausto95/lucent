@@ -54,7 +54,7 @@ export function explain(age: number): string {
     {
       kind: "code",
       filename: "math.lucent.ts",
-      code: `import { error, errorCode } from "@lucent-lang/core";
+      code: `import { error, errorCode } from "lucent:core";
 
 export function divide(a: number, b: number): number {
   if (b === 0) throw error("DIVIDE_BY_ZERO", "cannot divide by zero");

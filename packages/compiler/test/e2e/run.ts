@@ -165,7 +165,7 @@ async function referenceRun(c: Case): Promise<string> {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
     }).outputText;
     const req = (spec: string) => {
-      if (spec === "lucent:core" || spec === "@lucent-lang/core") return require_(coreJs);
+      if (spec === "lucent:core") return require_(coreJs);
       const base = path.resolve(path.dirname(key), spec);
       for (const candidate of [base, `${base}.ts`, base.replace(/\.js$/, ".ts")]) if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return load(candidate);
       throw new Error(`cannot resolve ${spec}`);

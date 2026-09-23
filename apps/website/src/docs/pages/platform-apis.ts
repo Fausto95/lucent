@@ -82,7 +82,7 @@ export function deviceName(): Promise<string> {
           filename: "haptics.android.lucent.ts",
           code: `import { Build, Build_VERSION, VibrationEffect, Vibrator, VibratorManager } from "lucent:android/android.os";
 import { appContext, available } from "lucent:android";
-import { error } from "@lucent-lang/core";
+import { error } from "lucent:core";
 type Impact = "light" | "medium" | "heavy";
 
 function vibrator(): Vibrator {
