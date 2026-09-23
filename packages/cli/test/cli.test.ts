@@ -180,6 +180,10 @@ describe("the app's Android dependencies", () => {
     fs.writeFileSync(path.join(app.root, "android/app/build.gradle"), 'apply plugin: "com.android.application"\n// fixed\n');
     app.build();
     expect(app.count()).toBe(2);
+    // A failure that was not the build files' (a stopped daemon, the network): --force retries.
+    expect(app.build().stderr).toMatch(/--force/);
+    spawnSync(process.execPath, [bin, "build", "--force", "--platforms", "android", "--root", app.root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: app.cache } });
+    expect(app.count()).toBe(3);
   });
 
   it.skipIf(!android)("resolves once in a watch session that rebuilds", async () => {
