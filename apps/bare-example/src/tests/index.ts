@@ -19,6 +19,8 @@ import * as errorsModule from "../lucent/errors.lucent";
 import errorsRun from "./errors";
 import * as genericsModule from "../lucent/generics.lucent";
 import genericsRun from "./generics";
+import * as inheritanceModule from "../lucent/inheritance.lucent";
+import inheritanceRun from "./inheritance";
 import * as integersModule from "../lucent/integers.lucent";
 import integersRun from "./integers";
 import * as interfacesModule from "../lucent/interfaces.lucent";
@@ -44,6 +46,7 @@ export const cases: TestCase[] = [
   { name: "control", module: controlModule, run: controlRun, expected: ["zero small / small / medium20 / medium30 / big","01,10,12,21","2 -1 try,finally,try,after,finally","body0,inner0,outer0,inner1,outer1,inner2,outer2","type:bad type RangeError:out of range Error:plain none","[2,4,6,10,6,2]","[\"pos\",\"neg\",\"zero\",\"u\"]","default||99|0 x|set|3|3","1,b,a","2 -1"] },
   { name: "errors", module: errorsModule, run: errorsRun, expected: ["2","true DIVIDE_BY_ZERO Cannot divide by zero","ValidationError age must be positive","ok failed: DIVIDE_BY_ZERO Cannot divide by zero 0.25","wrapped age: age must be positive"] },
   { name: "generics", module: genericsModule, run: genericsRun, expected: ["a 1 1 3 x true [[1,\"#1\"],[2,\"#2\"]] a:apple+avocado b:banana"] },
+  { name: "inheritance", module: inheritanceModule, run: inheritanceRun, expected: ["animal: generic says ... legs=4 dog=false | dog(lab): rex says woof legs=4 dog=true | puppy of dog(pug): bit says woof! legs=4 dog=true | animal: tweety says tweet legs=2 dog=false | animal: x says ... legs=4 dog=false","area 4.0, area 3.1","sit,roll sit+roll fido true true false","3 not a dog","true true true pip says woof! puppy of dog(beagle): pip says woof! 4","dog(mutt): fido says woof true","8"] },
   { name: "integers", module: integersModule, run: integersRun, expected: ["-2147483648,2147483647,4294967295,0,1","-98760,-1544,536869368,98759,98752 -2,1073741823,1073741823,1,1 -2147483648,0,0,2147483647,0 -1,-1,4294967295,0,0 6,1,1,-7,1","2.5 6 3 -6 true 6.25 1 6 6 -3.5 -6 -3 6 false -5.75 -1 -6 -6 1 1 0.5 -1 false 1.25 1 1 1 2.5 6 3 -6 true 6.25 1 6 6","-Infinity Infinity","10,7,4,1,-1,-0.5,0,0.5,1,0,1,2,-5,-3,-1,350000,0,10,20","2166136261 1700552701","1.5 8 1 -0.25 0.5 1"] },
   { name: "interfaces", module: interfacesModule, run: interfacesRun, expected: ["9.14","circle: > circle r=1; rect: > rect 2x3","false circle 12.566370614359172","undefined","true false","z z","z,d","1,3,2,2,3,1","k! K!"] },
   { name: "kernels", module: kernelsModule, run: kernelsRun, expected: ["murmur 3397915750 596281939 2281115324","fnv1a 84696351 850699257 2368165789","crc32 3523407757 985464046 3526989537","xorshift 723471715 442044715 5279539","sieve 0 62 669","mandelbrot 1 4918 85352","sortNumbers 50421 143217 149398","wordCount 1001 300001 997006","strings 6 2290 43890"] },

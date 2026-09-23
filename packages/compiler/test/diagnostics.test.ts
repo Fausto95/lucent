@@ -71,8 +71,13 @@ export function f(b: B): number { return take(b); }`;
     expect(codes('export function f(s: string): boolean { return /a/.test(s); }').length).toBeGreaterThan(0);
   });
 
-  it("rejects class inheritance other than Error", () => {
-    const src = "class A { x = 1; }\nclass B extends A {}\nexport function f(): number { return new B().x; }";
+  it("rejects extending built-in classes other than Error", () => {
+    const src = "class B extends Map<string, number> {}\nexport function f(): number { return new B().size; }";
+    expect(codes(src)).toContain("LUCENT1005");
+  });
+
+  it("rejects overrides whose native signature differs", () => {
+    const src = "class A { f(x: number): number { return x; } }\nclass B extends A { override f(x?: number): number { return 1; } }\nexport function g(): number { return new B().f(1); }";
     expect(codes(src)).toContain("LUCENT1005");
   });
 
