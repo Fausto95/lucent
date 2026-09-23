@@ -96,10 +96,12 @@ Postponed:
 - [ ] Tests leave temporary projects behind: 5,291 `lucent-*` directories
       (9 GB) in the temp directory after a day of runs. Helpers should remove
       what they make.
-- [ ] A failed Gradle resolution is recorded with its input hash, so it is
-      retried only when the inputs change.
-- [ ] Classpath staleness hashes settings.gradle, libs.versions.toml,
-      gradle.properties, both build.gradle files and the JS lockfile.
+- [x] A Gradle resolution, a failed one included, is recorded with its inputs'
+      hash (`.lucent/android-classpath.state.json`) and runs again only when
+      they change; watch mode resolves too, once.
+- [x] The inputs: settings.gradle, both build.gradle files, gradle.properties,
+      gradle/libs.versions.toml, and the JS lockfile (found up to the
+      workspace root).
 - [ ] Headless app check without an SDK (platform modules become throwing
       stubs).
 - [ ] Pods staleness keyed on the Podfile.lock hash.

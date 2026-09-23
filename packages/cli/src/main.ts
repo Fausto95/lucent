@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
@@ -96,26 +97,47 @@ function projectSdk(root: string): SdkOptions {
 
 /**
  * An Android import that android.jar does not have is looked up in the app's
- * dependencies: resolve them with Gradle (the lucentClasspath task, from
- * an init script, so the app's build files stay as they are) when that has not happened yet or the build files changed.
+ * dependencies: resolve them with Gradle (the lucentClasspath task, from an
+ * init script, so the app's build files stay as they are) once per change of
+ * what decides the classpath. The inputs' hash is recorded with the outcome,
+ * a failure included, so neither builds nor watch rebuilds rerun Gradle for
+ * the same inputs.
  */
 function resolveAndroidDependencies(root: string, files: string[], sdk: SdkOptions): void {
-  const imports = sdkImports(files).android;
   const android = path.join(root, "android");
   const gradlew = path.join(android, process.platform === "win32" ? "gradlew.bat" : "gradlew");
-  const classpath = sdk.android!.classpath!;
-  if (!imports.length || !fs.existsSync(gradlew)) return;
-  const age = fs.existsSync(classpath) ? fs.statSync(classpath).mtimeMs : 0;
-  const changed = [path.join(android, "build.gradle"), path.join(android, "app/build.gradle")].some((f) => fs.existsSync(f) && fs.statSync(f).mtimeMs > age);
-  const unresolved = imports.some((m) => "missing" in sdkModule("android", m, sdk));
-  if (!unresolved && !(changed && age)) return;
+  if (!sdkImports(files).android.length || !fs.existsSync(gradlew)) return;
+  const stateFile = path.join(root, ".lucent/android-classpath.state.json");
+  const inputs = gradleInputsHash(root);
+  const state = fs.existsSync(stateFile) ? (JSON.parse(fs.readFileSync(stateFile, "utf8")) as { inputs?: string; ok?: boolean }) : {};
+  if (state.inputs === inputs && (state.ok === false || fs.existsSync(sdk.android!.classpath!))) return;
   process.stdout.write("• resolving the app's Android dependencies (Gradle :app:lucentClasspath)\n");
   const script = path.join(runtimeDir(), "gradle/lucent-classpath.init.gradle");
   const r = spawnSync(gradlew, ["-q", "--init-script", script, ":app:lucentClasspath"], { cwd: android, encoding: "utf8" });
   if (r.status !== 0) {
-    process.stderr.write(`! Gradle could not resolve them:\n${(r.stderr || r.stdout).trim().split("\n").slice(-8).join("\n")}\n`);
+    process.stderr.write(`! Gradle could not resolve them (not retried until the build files or the lockfile change):\n${(r.stderr || r.stdout).trim().split("\n").slice(-8).join("\n")}\n`);
   }
+  fs.mkdirSync(path.dirname(stateFile), { recursive: true });
+  fs.writeFileSync(stateFile, JSON.stringify({ inputs, ok: r.status === 0 }) + "\n");
   forgetLoadedSdks();
+}
+
+/** What decides the app's Android classpath: Gradle's files, and the JS lockfile (autolinked packages). */
+function gradleInputsHash(root: string): string {
+  const android = path.join(root, "android");
+  const gradle = ["settings.gradle", "settings.gradle.kts", "build.gradle", "build.gradle.kts", "app/build.gradle", "app/build.gradle.kts", "gradle.properties", "gradle/libs.versions.toml"].map((f) => path.join(android, f));
+  const h = createHash("sha256");
+  for (const f of [...gradle, ...lockfiles(root)]) h.update(`${f}\0${fs.existsSync(f) ? fs.readFileSync(f) : ""}\0`);
+  return h.digest("hex").slice(0, 16);
+}
+
+/** The JS lockfile, in the app or up to the workspace root (monorepos). */
+function lockfiles(root: string): string[] {
+  const names = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb"];
+  for (let dir = path.resolve(root); ; dir = path.dirname(dir)) {
+    const found = names.map((n) => path.join(dir, n)).filter((f) => fs.existsSync(f));
+    if (found.length || path.dirname(dir) === dir) return found;
+  }
 }
 
 /** `lucent:<platform>/<module>` imports of the project's files. */
@@ -182,7 +204,7 @@ function watch(root: string): number {
     }
     process.stdout.write(`[${time}] ✓ Lucent: ${e.messages.join("; ")}\n`);
     if (e.nativeChanged) process.stdout.write("  Native code changed: rebuild the app (Xcode / Gradle) to run it.\n");
-  }, { sdk: projectSdk(root) });
+  }, { sdk: projectSdk(root) }, { beforeBuild: (files) => resolveAndroidDependencies(root, files, projectSdk(root)) });
   return -1;
 }
 

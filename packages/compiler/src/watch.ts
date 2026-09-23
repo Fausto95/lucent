@@ -18,7 +18,7 @@ export interface WatchEvent {
  * Builds `root` into `outDir`, then again whenever a `*.lucent.ts` file under
  * it changes. Returns a function that stops watching.
  */
-export function watchBuild(root: string, outDir: string, onBuild: (e: WatchEvent) => void, options: CompileOptions = {}): () => void {
+export function watchBuild(root: string, outDir: string, onBuild: (e: WatchEvent) => void, options: CompileOptions = {}, hooks: { beforeBuild?: (files: string[]) => void } = {}): () => void {
   let timer: NodeJS.Timeout | undefined;
   let building = false;
   let again = false;
@@ -31,6 +31,7 @@ export function watchBuild(root: string, outDir: string, onBuild: (e: WatchEvent
     building = true;
     try {
       const files = findLucentFiles(root);
+      hooks.beforeBuild?.(files);
       const key = inputsKey(files, outDir);
       if (isUpToDate(outDir, key)) return;
       const result = compile(files, options);
