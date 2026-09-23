@@ -12,7 +12,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const packages = ["core", "sdk-ios", "sdk-android", "runtime", "compiler", "cli", "metro", "expo", "ts-plugin"];
+const packages = ["core", "sdk-ios", "sdk-android", "bindgen", "runtime", "compiler", "cli", "metro", "expo", "ts-plugin"];
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-smoke-"));
 
 function sh(cmd: string, args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): string {

@@ -3,9 +3,26 @@
   "version": "0.1.0-cpp",
   "description": "Extracts binding schemas from platform SDKs (android.jar, Apple SDK symbol graphs)",
   "license": "MIT",
-  "private": true,
   "type": "module",
-  "dependencies": {
-    "@lucent-lang/compiler": "workspace:*"
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "pnpm run build"
+  },
+  "publishConfig": {
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    }
   }
 }

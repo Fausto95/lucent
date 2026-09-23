@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { SdkCallable, SdkClassSchema, SdkEnumSchema, SdkMethodSchema, SdkModuleSchema, SdkPropertySchema } from "@lucent-lang/compiler";
+import type { SdkCallable, SdkClassSchema, SdkEnumSchema, SdkMethodSchema, SdkModuleSchema, SdkPropertySchema } from "./schema.ts";
 
 /**
  * Binding schemas for Clang modules (Apple frameworks, and Objective-C pods

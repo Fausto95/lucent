@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import type { SdkCallable, SdkClassSchema, SdkMethodSchema, SdkModuleSchema, SdkPropertySchema } from "@lucent-lang/compiler";
+import type { SdkCallable, SdkClassSchema, SdkMethodSchema, SdkModuleSchema, SdkPropertySchema } from "./schema.ts";
 import { ACC, type ClassFile, type MemberInfo, parseClass } from "./classfile.ts";
 import { ZipArchive } from "./zip.ts";
 
