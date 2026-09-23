@@ -18,9 +18,11 @@ export interface IosOptions {
   includePaths?: string[];
   /** Deployment target (the design's availability baseline). */
   target?: string;
+  /** The xcrun to run (default: xcrun on PATH). */
+  xcrun?: string;
 }
 
-interface Fragment {
+export interface Fragment {
   kind: string;
   spelling: string;
   preciseIdentifier?: string;
@@ -36,7 +38,7 @@ interface SymbolGraphSymbol {
   availability?: { domain?: string; introduced?: { major: number; minor?: number }; isUnconditionallyUnavailable?: boolean; obsoleted?: unknown }[];
 }
 
-interface SymbolGraph {
+export interface SymbolGraph {
   symbols: SymbolGraphSymbol[];
   relationships: { kind: string; source: string; target: string }[];
 }
@@ -45,17 +47,28 @@ const DEFAULT_TARGET = "arm64-apple-ios15.1-simulator";
 
 function sdkPath(): string {
   const r = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
+  // (extractIos only; the provider locates the SDK itself.)
   if (r.status !== 0) throw new Error("xcrun: no iphonesimulator SDK");
   return r.stdout.trim();
 }
 
-function symbolGraph(module: string, opts: IosOptions, sdk: string): SymbolGraph {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-symbolgraph-"));
+/** Arguments of xcrun that write `module`'s symbol graph into `dir`. */
+export function symbolGraphArgs(module: string, opts: IosOptions, sdk: string, dir: string): string[] {
   const args = ["swift-symbolgraph-extract", "-module-name", module, "-target", opts.target ?? DEFAULT_TARGET, "-sdk", sdk, "-output-dir", dir, "-minimum-access-level", "public"];
   for (const i of opts.includePaths ?? []) args.push("-I", i);
-  const r = spawnSync("xcrun", args, { encoding: "utf8", maxBuffer: 64 << 20 });
-  if (r.status !== 0) throw new Error(`swift-symbolgraph-extract ${module}: ${r.stderr}`);
-  return JSON.parse(fs.readFileSync(path.join(dir, `${module}.symbols.json`), "utf8")) as SymbolGraph;
+  return args;
+}
+
+export function symbolGraph(module: string, opts: IosOptions, sdk: string): SymbolGraph {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-symbolgraph-"));
+  const args = symbolGraphArgs(module, opts, sdk, dir);
+  try {
+    const r = spawnSync(opts.xcrun ?? "xcrun", args, { encoding: "utf8", maxBuffer: 64 << 20 });
+    if (r.status !== 0) throw new Error(`swift-symbolgraph-extract ${module}: ${r.stderr}`);
+    return JSON.parse(fs.readFileSync(path.join(dir, `${module}.symbols.json`), "utf8")) as SymbolGraph;
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 }
 
 // --- enum values from clang --------------------------------------------------------
@@ -98,14 +111,14 @@ function constantValue(n: ClangNode): number | undefined {
 }
 
 /** Values of the enumerators of each C enum, following C's rule for implicit ones. */
-function enumValues(enums: string[], headers: string[], opts: IosOptions, sdk: string): Map<string, Map<string, number>> {
+export function enumValues(enums: string[], headers: string[], opts: IosOptions, sdk: string): Map<string, Map<string, number>> {
   const out = new Map<string, Map<string, number>>();
   if (!enums.length) return out;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-enums-"));
   const source = path.join(dir, "enums.m");
   fs.writeFileSync(source, headers.map((h) => `#import <${h}>\n`).join(""));
   const q = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
-  const clang = ["xcrun", "clang", "-x", "objective-c", "-target", opts.target ?? DEFAULT_TARGET, "-isysroot", sdk, ...(opts.includePaths ?? []).map((i) => `-I${i}`), "-fsyntax-only", "-Xclang", "-ast-dump=json", "-Xclang", "-ast-dump-filter", "-Xclang"].map(q).join(" ");
+  const clang = [opts.xcrun ?? "xcrun", "clang", "-x", "objective-c", "-target", opts.target ?? DEFAULT_TARGET, "-isysroot", sdk, ...(opts.includePaths ?? []).map((i) => `-I${i}`), "-fsyntax-only", "-Xclang", "-ast-dump=json", "-Xclang", "-ast-dump-filter", "-Xclang"].map(q).join(" ");
   // One clang run per enum, eight at a time.
   const lines = enums.map((e, i) => `${clang} ${q(e)} ${q(source)} > ${q(path.join(dir, `${e}.json`))} 2>/dev/null &${(i + 1) % 8 === 0 ? "\nwait" : ""}`);
   fs.writeFileSync(path.join(dir, "run.sh"), `${lines.join("\n")}\nwait\n`);
@@ -126,6 +139,7 @@ function enumValues(enums: string[], headers: string[], opts: IosOptions, sdk: s
     }
     out.set(name, values);
   }
+  fs.rmSync(dir, { recursive: true, force: true });
   return out;
 }
 
@@ -340,28 +354,74 @@ export function extractIos(opts: IosOptions): SdkModuleSchema[] {
   );
 }
 
+/** What other modules need from a module's graph: its types' names, typealiases, typed string keys. */
+export interface NamesIndex {
+  module: string;
+  /** Objective-C class/protocol/enum USR → schema reference (`Module.Name`). */
+  refs: Record<string, string>;
+  /** Typealias and typed-string-enum USR → the fragments they stand for. */
+  aliases: Record<string, Fragment[]>;
+  /** Schema name → what the glue needs to use a type without its schema. */
+  types: Record<string, { kind: "class" | "protocol" | "enum"; native: string }>;
+}
+
+export function namesOf(module: string, g: SymbolGraph): NamesIndex {
+  const refs: Record<string, string> = {};
+  const aliases: Record<string, Fragment[]> = {};
+  const types: NamesIndex["types"] = {};
+  for (const s of g.symbols) {
+    const usr = s.identifier.precise;
+    const k = s.kind.identifier;
+    const name = s.pathComponents.join("_");
+    const cls = objcClass(usr);
+    if ((k === "swift.class" || k === "swift.protocol") && cls) {
+      refs[usr] = `${module}.${name}`;
+      types[name] = { kind: k === "swift.class" ? "class" : "protocol", native: cls[2]! };
+    }
+    if ((k === "swift.enum" || k === "swift.struct") && usr.startsWith("c:@E@")) {
+      refs[usr] = `${module}.${name}`;
+      types[name] = { kind: "enum", native: usr.slice("c:@E@".length) };
+    }
+    if (k === "swift.typealias") {
+      const eq = (s.declarationFragments ?? []).findIndex((f) => f.spelling.includes("="));
+      if (eq >= 0) aliases[usr] = [{ kind: "text", spelling: (s.declarationFragments![eq]!.spelling.split("=")[1] ?? "").trim() }, ...s.declarationFragments!.slice(eq + 1)];
+    }
+    // Typed string enums (NS_TYPED_ENUM): strings at the boundary.
+    if (k === "swift.struct" && /^c:.*@T@/.test(usr)) aliases[usr] = [{ kind: "typeIdentifier", spelling: "String", preciseIdentifier: "s:SS" }];
+  }
+  return { module, refs, aliases, types };
+}
+
+/** Clang USRs a graph refers to but does not declare: types of other modules. */
+export function externalUsrs(g: SymbolGraph): Set<string> {
+  const declared = new Set(g.symbols.map((s) => s.identifier.precise));
+  const out = new Set<string>();
+  const visit = (frags: Fragment[] | undefined) => {
+    for (const f of frags ?? []) if (f.preciseIdentifier?.startsWith("c:") && !declared.has(f.preciseIdentifier)) out.add(f.preciseIdentifier);
+  };
+  for (const s of g.symbols) {
+    visit(s.declarationFragments);
+    for (const p of s.functionSignature?.parameters ?? []) visit(p.declarationFragments);
+    visit(s.functionSignature?.returns);
+  }
+  for (const r of g.relationships) if (r.target.startsWith("c:") && !declared.has(r.target)) out.add(r.target);
+  return out;
+}
+
 /** The schemas for symbol graphs; `values` looks up enum values by C enum name. */
 export function buildIosSchemas(graphs: Map<string, SymbolGraph>, values: (enums: string[]) => Map<string, Map<string, number>>): SdkModuleSchema[] {
-  // Every Objective-C type of every module, for references across modules.
-  const refs = new Map<string, string>();
-  const aliases = new Map<string, Fragment[]>();
-  for (const [module, g] of graphs) {
-    for (const s of g.symbols) {
-      const usr = s.identifier.precise;
-      const k = s.kind.identifier;
-      if ((k === "swift.class" || k === "swift.protocol") && objcClass(usr)) refs.set(usr, `${module}.${s.pathComponents.join("_")}`);
-      if ((k === "swift.enum" || k === "swift.struct") && usr.startsWith("c:@E@")) refs.set(usr, `${module}.${s.pathComponents.join("_")}`);
-      if (k === "swift.typealias") {
-        const eq = (s.declarationFragments ?? []).findIndex((f) => f.spelling.includes("="));
-        if (eq >= 0) aliases.set(usr, [{ kind: "text", spelling: (s.declarationFragments![eq]!.spelling.split("=")[1] ?? "").trim() }, ...s.declarationFragments!.slice(eq + 1)]);
-      }
-      // Typed string enums (NS_TYPED_ENUM): strings at the boundary.
-      if (k === "swift.struct" && /^c:.*@T@/.test(usr)) aliases.set(usr, [{ kind: "typeIdentifier", spelling: "String", preciseIdentifier: "s:SS" }]);
-    }
-  }
+  const names = [...graphs].map(([m, g]) => namesOf(m, g));
+  return [...graphs].map(([m, g]) => buildIosSchema(m, g, names, values));
+}
 
-  const out: SdkModuleSchema[] = [];
-  for (const [module, g] of graphs) {
+/**
+ * One module's schema from its graph and the names of every module it
+ * refers to (its own included).
+ */
+export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex[], values: (enums: string[]) => Map<string, Map<string, number>>): SdkModuleSchema {
+  const refs = new Map<string, string>(names.flatMap((n) => Object.entries(n.refs)));
+  const aliases = new Map<string, Fragment[]>(names.flatMap((n) => Object.entries(n.aliases)));
+  {
     const mod: SdkModuleSchema = { platform: "ios", module, frameworks: [module], types: [], skipped: [] };
     const members = new Map<string, SymbolGraphSymbol[]>();
     for (const rel of g.relationships) {
@@ -516,9 +576,8 @@ export function buildIosSchemas(graphs: Map<string, SymbolGraph>, values: (enums
       }
     }
     void byUsr;
-    out.push(mod);
+    return mod;
   }
-  return out;
 }
 
 /** The getter selector of a property whose Swift name differs from its Objective-C name (`isEnabled`). */

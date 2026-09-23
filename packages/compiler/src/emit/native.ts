@@ -1,7 +1,7 @@
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import { builtinSdkModuleOf, sdkModuleOf } from "../program.ts";
-import { findSdkModule, findSdkType, jniDescriptor, parseSdkType, type Platform, type SdkClassSchema, type SdkEnumSchema, type SdkMethodSchema, type SdkPropertySchema, type SdkType } from "../sdk/schema.ts";
+import { findSdkModule, findSdkType, jniDescriptor, sdkTypeInfo, parseSdkType, type Platform, type SdkClassSchema, type SdkMethodSchema, type SdkPropertySchema, type SdkType } from "../sdk/schema.ts";
 import { type LType, T, unionOf } from "../types.ts";
 import type { E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
@@ -109,17 +109,18 @@ const OBJC_NUMBER: Record<string, string> = {
   uint64: "uint64_t",
 };
 
-function sdkEnum(platform: Platform, t: SdkType): SdkEnumSchema | undefined {
+/** An enum type's native name (from the module's names: no schema needed). */
+function sdkEnum(platform: Platform, t: SdkType): { native: string } | undefined {
   if (t.k !== "ref") return undefined;
-  const e = findSdkType(platform, t.module, t.name);
-  return e?.kind === "enum" ? e : undefined;
+  const info = sdkTypeInfo(platform, t.module, t.name);
+  return info?.kind === "enum" ? info : undefined;
 }
 
 /** Objective-C (or CoreFoundation) spelling of a reference type, for casts. */
 function objcRefType(t: SdkType & { k: "ref" }): string {
-  const cls = findSdkType("ios", t.module, t.name);
-  if (cls?.kind !== "class") throw new Error(`unknown Objective-C type ${t.module}.${t.name}`);
-  return cls.interface ? `id<${cls.native}>` : `${cls.native}*`;
+  const info = sdkTypeInfo("ios", t.module, t.name);
+  if (!info || info.kind === "enum") throw new Error(`unknown Objective-C type ${t.module}.${t.name}`);
+  return info.kind === "protocol" ? `id<${info.native}>` : `${info.native}*`;
 }
 
 /**

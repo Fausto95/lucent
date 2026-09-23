@@ -1,15 +1,13 @@
-import fs from "node:fs";
-import path from "node:path";
-import { createRequire } from "node:module";
 
 /**
  * The compiler's side of binding schemas (the format is @lucent-lang/bindgen's):
  * the type grammar, JNI descriptors, and module lookup.
  */
 
-import { type Platform, PLATFORMS, type SdkClassSchema, type SdkEnumSchema, type SdkModuleSchema } from "@lucent-lang/bindgen";
+import { type Platform, PLATFORMS, type SdkClassSchema, type SdkEnumSchema, type NamesIndex, type SdkLookup, type SdkModuleSchema, sdkIdentity, sdkModule, sdkNames, type SdkOptions } from "@lucent-lang/bindgen";
 
 export { PLATFORMS };
+export type { SdkOptions } from "@lucent-lang/bindgen";
 export type { Platform, SdkCallable, SdkClassSchema, SdkEnumSchema, SdkMethodSchema, SdkModuleSchema, SdkParam, SdkPropertySchema } from "@lucent-lang/bindgen";
 
 /** A parsed schema type: `int`, `string?`, `long[]`, `Class<T>`, `android.os.Vibrator`, `UIDevice`. */
@@ -77,36 +75,51 @@ export function parseSdkType(s: string, module = "", typeParams: readonly string
   return dot < 0 ? { k: "ref", module, name: s, nullable: false } : { k: "ref", module: s.slice(0, dot), name: s.slice(dot + 1), nullable: false };
 }
 
-const packageDirs: Record<Platform, string> = {} as never;
-function schemaDir(platform: Platform): string {
-  packageDirs[platform] ??= path.dirname(createRequire(import.meta.url).resolve(`@lucent-lang/sdk-${platform}/package.json`));
-  return packageDirs[platform];
+let sdkOptions: SdkOptions = {};
+
+/** Runs `f` with the SDK locations a compile uses (compile options, else the defaults). */
+export function withSdkOptions<T>(opts: SdkOptions | undefined, f: () => T): T {
+  const saved = sdkOptions;
+  sdkOptions = opts ?? {};
+  try {
+    return f();
+  } finally {
+    sdkOptions = saved;
+  }
 }
 
-const cache = new Map<string, SdkModuleSchema | null>();
+/** `lucent:<platform>/<module>`: its schema (extracted on first use), or why there is none. */
+export function sdkLookup(platform: Platform, module: string): SdkLookup {
+  return sdkModule(platform, module, sdkOptions);
+}
 
 /** The schema of `lucent:<platform>/<module>`, or undefined when there is none. */
 export function findSdkModule(platform: Platform, module: string): SdkModuleSchema | undefined {
-  const key = `${platform}:${module}`;
-  if (!cache.has(key)) {
-    const file = path.join(schemaDir(platform), `${module}.json`);
-    cache.set(key, /^[\w.]+$/.test(module) && fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, "utf8")) as SdkModuleSchema) : null);
-  }
-  return cache.get(key) ?? undefined;
+  const r = sdkLookup(platform, module);
+  return "schema" in r ? r.schema : undefined;
 }
 
 export function loadSdkModule(platform: Platform, module: string): SdkModuleSchema {
-  const m = findSdkModule(platform, module);
-  if (!m) throw new Error(`no binding schema for lucent:${platform}/${module}`);
-  return m;
+  const r = sdkLookup(platform, module);
+  if ("missing" in r) throw new Error(r.missing);
+  return r.schema;
 }
 
-/** Every schema a platform ships (for inputs hashing). */
-export function sdkSchemaFiles(): string[] {
-  return (["ios", "android"] as const).flatMap((p) => {
-    const dir = schemaDir(p);
-    return fs.readdirSync(dir).filter((f) => f.endsWith(".json") && f !== "package.json").map((f) => path.join(dir, f));
-  });
+/** A type's kind and native name, from the module's names (no schema needed). */
+export function sdkTypeInfo(platform: Platform, module: string, name: string): { kind: "class" | "protocol" | "enum"; native: string } | undefined {
+  const n = sdkNames(platform, module, sdkOptions);
+  return "names" in n ? n.names.types[name] : undefined;
+}
+
+/** A module's type names, for typing other modules' signatures (iOS). */
+export function sdkNamesOf(platform: Platform, module: string): NamesIndex | undefined {
+  const n = sdkNames(platform, module, sdkOptions);
+  return "names" in n ? n.names : undefined;
+}
+
+/** What identifies the SDKs in use, for build caches. */
+export function currentSdkIdentity(): string {
+  return sdkIdentity(sdkOptions);
 }
 
 export function findSdkType(platform: Platform, module: string, name: string): SdkClassSchema | SdkEnumSchema | undefined {

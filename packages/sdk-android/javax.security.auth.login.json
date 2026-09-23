@@ -1,1 +1,0 @@
-{"platform":"android","module":"javax.security.auth.login","types":[{"kind":"class","name":"LoginException","native":"javax/security/auth/login/LoginException","extends":"java.security.GeneralSecurityException","constructors":[{"params":[],"descriptor":"()V"},{"params":[{"name":"arg0","type":"string?"}],"descriptor":"(Ljava/lang/String;)V"}]}],"skipped":[]}

@@ -1,9 +1,9 @@
 # Platform bindings — what is implemented
 
-This is the M2.0 spike of [the design](m2-platform-bindings.md): platform
-modules, hand-written binding schemas, Objective-C++ and JNI glue, and
-`main()`. This page describes the current behavior; the design document
-describes where it is going.
+The implemented part of [the design](m2-platform-bindings.md): platform
+modules, binding schemas extracted on demand from the installed SDKs,
+Objective-C++ and JNI glue, and `main()`. This page describes the current
+behavior; the design document describes where it is going.
 
 ## Platform modules
 
@@ -41,10 +41,44 @@ modules' exports throw (or reject) "`<module>.<name>` is not available on this
 platform". `scripts/app-check.ts` uses it to run the rest of an app in the
 Hermes host.
 
+## Where bindings come from
+
+There is no list of frameworks or packages. The first time a program imports
+`lucent:ios/X` or `lucent:android/p.q`, `@lucent-lang/bindgen` extracts that
+module from the installed SDK and caches its schema per machine:
+
+```
+~/.cache/lucent/sdk/android/<platform>-<hash>/<package>.json   (android.jar: paths, sizes, mtimes)
+~/.cache/lucent/sdk/ios/iphonesimulator<version>-<build>-<hash>/<Module>.json   (Xcode's SDK)
+```
+
+The hash also covers bindgen's own code, so a new SDK or a new extractor
+extracts again. `$LUCENT_CACHE_DIR` moves the cache; `$ANDROID_HOME` (or
+`$LUCENT_ANDROID_JARS`) and `$LUCENT_ANDROID_PLATFORM` choose the Android SDK;
+`$LUCENT_XCRUN` (or `xcode-select`) chooses Xcode.
+
+- **Android**: the jar is read once per process (a few hundred ms for
+  android.jar), and every package it has can be imported.
+- **iOS**: a module costs its symbol graph (UIKit: about 40 s, once per Xcode)
+  plus clang for its enum values. Frameworks the program only meets in
+  signatures (UIKit's methods take Foundation types) get **names only**: their
+  types as opaque nominal classes, from their symbol graphs; importing such a
+  framework gives it full declarations. Which framework declares a type comes
+  from a scan of the SDK headers, once per SDK.
+- Extractions take a lock per module, so a build and a prefetch never do the
+  same work twice. `lucent build` starts one background extraction per cold
+  module it imports, then waits for them.
+- `lucent sdk prefetch [--ios A,B] [--android p.q] [--all]` extracts ahead of
+  time (default: what the project imports).
+- Without an SDK: a clear LUCENT3004 names the fix; `lucent build` builds the
+  platforms whose SDK is installed and says which it skipped. Machines with no
+  local SDK at all (editors, Linux CI) can use `@lucent-lang/sdk-ios` and
+  `@lucent-lang/sdk-android`, prebuilt for every module by the
+  `sdk-prebuilt` workflow; nothing is committed.
+
 ## Binding schemas
 
-`@lucent-lang/sdk-ios/<Module>.json` and `@lucent-lang/sdk-android/<package>.json`
-describe classes (native name, superclass, constructors, methods, properties,
+A module's schema describes classes (native name, superclass, constructors, methods, properties,
 thread rule, availability) and enums in a small type grammar: `int`, `long`,
 `CGFloat`, `string`, `string?`, `long[]`, `Class<T>`, `android.os.Vibrator`,
 `UIDevice`. The compiler turns each into a `.d.ts` served from a virtual
@@ -61,9 +95,10 @@ directory:
 - `Class<T>` parameters take the class itself:
   `context.getSystemService(Vibrator)` is `Vibrator | null`.
 
-The spike ships UIKit's feedback generators and `UIDevice`, and Android's
-`Build`, `Build.VERSION`, `VibrationEffect`, `Vibrator`, `VibratorManager`,
-`Looper` and `Context`.
+Coverage today: all of android.jar types but 1.1% of its members; Apple
+frameworks lose the members that use C structs, closures, generics or
+Swift-only types (about 19% for Foundation, UIKit and Security), which the
+next steps fix.
 
 ## Calls
 

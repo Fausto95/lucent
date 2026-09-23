@@ -1,7 +1,7 @@
 {
   "name": "@lucent-lang/sdk-android",
   "version": "0.1.0-cpp",
-  "description": "Binding schemas for the Android SDK, imported by Lucent modules as lucent:android/<package>",
+  "description": "Prebuilt binding schemas for every package of android.jar, used by Lucent only when no local Android SDK is available (lucent:android/<package>)",
   "license": "MIT",
   "files": [
     "*.json"

@@ -5,7 +5,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import type { EmitResult } from "./emit/index.ts";
 import { coreTypesPath } from "./program.ts";
-import { sdkSchemaFiles } from "./sdk/schema.ts";
+import { currentSdkIdentity } from "./sdk/schema.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -34,7 +34,9 @@ export function inputsKey(files: string[], outDir: string): string {
   // The compiler itself: its sources in this repository, dist when installed.
   const compilerRoot = path.resolve(here, "..");
   const compilerFiles = ["src", "dist", "lib"].flatMap((d) => listFiles(path.join(compilerRoot, d)));
-  const deps = [...compilerFiles, ...listFiles(runtimeDir()).filter((f) => !f.includes(`${path.sep}test${path.sep}`) && !f.includes(`${path.sep}node_modules${path.sep}`)), coreTypesPath(), ...sdkSchemaFiles()];
+  const deps = [...compilerFiles, ...listFiles(runtimeDir()).filter((f) => !f.includes(`${path.sep}test${path.sep}`) && !f.includes(`${path.sep}node_modules${path.sep}`)), coreTypesPath()];
+  // The SDKs bindings come from (their schemas are derived from them).
+  hash.update(currentSdkIdentity());
   for (const f of [...files.map((f) => path.resolve(f)).sort(), ...deps.sort()]) {
     hash.update(f);
     hash.update(fs.readFileSync(f));

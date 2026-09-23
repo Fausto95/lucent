@@ -4,8 +4,8 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { Codes, type Diagnostic } from "./diagnostics.ts";
-import { sdkDts } from "./sdk/dts.ts";
-import { findSdkModule, type Platform, PLATFORMS } from "./sdk/schema.ts";
+import { sdkDts, stubDts } from "./sdk/dts.ts";
+import { findSdkModule, type Platform, PLATFORMS, sdkLookup, sdkNamesOf } from "./sdk/schema.ts";
 import { cppIdent } from "./types.ts";
 
 export interface LucentModule {
@@ -69,11 +69,33 @@ function sdkLibPath(name: string): string {
   return path.resolve(here, `../lib/sdk/${name}.d.ts`);
 }
 
-function virtualSdkText(file: string): string | undefined {
+/**
+ * Modules the program's files import get full declarations. On iOS, modules
+ * only other modules' signatures mention get their types' names: extracting
+ * their schemas (and their dependencies' names) would cost minutes cold.
+ */
+function virtualSdkText(file: string, direct: Set<string>): string | undefined {
   const rel = path.relative(SDK_ROOT, path.resolve(file));
   const m = /^(ios|android)[\\/]([\w.]+)\.d\.ts$/.exec(rel);
-  const schema = m ? findSdkModule(m[1] as Platform, m[2]!) : undefined;
+  if (!m) return undefined;
+  const platform = m[1] as Platform;
+  const module = m[2]!;
+  if (platform === "ios" && !direct.has(`${platform}/${module}`)) {
+    const names = sdkNamesOf(platform, module);
+    return names ? stubDts(platform, module, names) : undefined;
+  }
+  const schema = findSdkModule(platform, module);
   return schema ? sdkDts(schema) : undefined;
+}
+
+/** `lucent:<platform>/<module>` imports written in these files. */
+function directSdkImports(files: string[], readSource: ReadSource | undefined): Set<string> {
+  const out = new Set<string>();
+  for (const f of files) {
+    const text = readSource?.(path.resolve(f)) ?? (fs.existsSync(f) ? fs.readFileSync(f, "utf8") : "");
+    for (const m of text.matchAll(/["']lucent:(ios|android)\/([\w.]+)["']/g)) out.add(`${m[1]}/${m[2]}`);
+  }
+  return out;
 }
 
 /** Whether a declaration comes from an SDK binding module. */
@@ -138,14 +160,19 @@ export type ReadSource = (file: string) => string | undefined;
 // on every edit, and re-parsing lib.es2022 dominates otherwise.
 const declarationCache = new Map<string, { text: string; sf: ts.SourceFile }>();
 
-function compilerHost(options: ts.CompilerOptions, readSource: ReadSource | undefined): ts.CompilerHost {
+function compilerHost(options: ts.CompilerOptions, readSource: ReadSource | undefined, direct: Set<string>): ts.CompilerHost {
   const host = ts.createCompilerHost(options, true);
+  const sdkTexts = new Map<string, string | undefined>();
+  const virtualSdk = (f: string) => {
+    if (!sdkTexts.has(f)) sdkTexts.set(f, virtualSdkText(f, direct));
+    return sdkTexts.get(f);
+  };
   const readFile = host.readFile.bind(host);
   host.readFile = (f) => readSource?.(path.resolve(f)) ?? readFile(f);
   const fileExists = host.fileExists.bind(host);
-  host.fileExists = (f) => readSource?.(path.resolve(f)) !== undefined || virtualSdkText(f) !== undefined || fileExists(f);
+  host.fileExists = (f) => readSource?.(path.resolve(f)) !== undefined || virtualSdk(f) !== undefined || fileExists(f);
   const readDisk = host.readFile;
-  host.readFile = (f) => virtualSdkText(f) ?? readDisk(f);
+  host.readFile = (f) => virtualSdk(f) ?? readDisk(f);
   // Module resolution skips files in directories that do not exist.
   const directoryExists = host.directoryExists?.bind(host);
   host.directoryExists = (d) => {
@@ -176,7 +203,7 @@ export function createLucentProgram(files: string[], readSource?: ReadSource, pl
   const references = extra.references ?? [];
   const stubs = new Set((extra.stubs ?? []).map((f) => path.resolve(f)));
   const options = compilerOptions(platform);
-  const host = compilerHost(options, readSource);
+  const host = compilerHost(options, readSource, directSdkImports(files, readSource));
   const program = ts.createProgram([...files.map((f) => path.resolve(f)), ...references.map((f) => path.resolve(f)), globalsPath()], options, host);
   const checker = program.getTypeChecker();
   const diagnostics: Diagnostic[] = [];
@@ -221,7 +248,11 @@ function sdkImportErrors(sf: ts.SourceFile, platform: Platform | undefined): Dia
     if (!platform) message = `${spec} can only be imported by platform files (*.ios.lucent.ts, *.android.lucent.ts)`;
     else if (scope === "thread" && !module) continue;
     else if (scope !== platform) message = `${spec} is only available in *.${scope}.lucent.ts files`;
-    else if (module && !findSdkModule(platform, module)) message = `no binding schema for ${spec}`;
+    else if (module) {
+      const found = sdkLookup(platform, module);
+      if ("missing" in found) message = found.missing;
+      else continue;
+    }
     else continue;
     const start = s.moduleSpecifier.getStart(sf);
     const { line, character } = sf.getLineAndCharacterOfPosition(start);

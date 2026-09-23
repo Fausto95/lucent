@@ -1,1 +1,0 @@
-{"platform":"android","module":"android.adservices","types":[{"kind":"class","name":"AdServicesState","native":"android/adservices/AdServicesState","since":34,"methods":[{"name":"isAdServicesStateEnabled","params":[],"returns":"boolean","descriptor":"()Z","static":true,"deprecated":true}]}],"skipped":[]}

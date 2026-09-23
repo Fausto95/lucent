@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
-import { compile, findLucentFiles, formatDiagnostic, inputsKey, isUpToDate, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
+import { spawn } from "node:child_process";
+import { compile, findLucentFiles, formatDiagnostic, inputsKey, isUpToDate, platformOf, prefetchSdk, sdkAvailable, sdkModule, sdkModules, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
 
 const HELP = `lucent — compile *.lucent.ts modules into a native React Native package
 
@@ -12,6 +13,9 @@ Usage:
                                              --platforms (default ios,android; host: stubs, for tests and tools)
   lucent build --watch [--root <dir>]         Build, then rebuild whenever a *.lucent.ts file changes
   lucent check [--root <dir>]                 Type-check and validate without writing anything
+  lucent sdk prefetch [--ios A,B] [--android p.q,…] [--all] [--root <dir>]
+                                             Extract SDK bindings into the cache ahead of use (default: the
+                                             lucent:* modules the project imports; --all: every module)
   lucent init  [--root <dir>]                 Wire an app: react-native.config.js, .gitignore, tsconfig
 `;
 
@@ -28,6 +32,7 @@ function run(): number {
     return command ? 0 : 1;
   }
   if (command === "init") return init(root);
+  if (command === "sdk" && process.argv[3] === "prefetch") return sdkPrefetch(root);
   if (command !== "build" && command !== "check") {
     process.stderr.write(`Unknown command: ${command}\n\n${HELP}`);
     return 1;
@@ -40,8 +45,23 @@ function run(): number {
   const t0 = Date.now();
   const out = path.resolve(arg("--out", path.join(root, ".lucent/native")));
   const platformsArg = arg("--platforms", "");
-  const platforms = platformsArg ? (platformsArg.split(",") as Target[]) : undefined;
-  const key = inputsKey(files, out) + (platformsArg ? `:${platformsArg}` : "");
+  let platforms = platformsArg ? (platformsArg.split(",") as Target[]) : undefined;
+  if (!platforms && files.some((f) => platformOf(f))) {
+    // Build what this machine can: an Android-only Linux host, a Mac without the Android SDK.
+    const installed = (["ios", "android"] as const).filter((p) => sdkAvailable(p));
+    for (const p of ["ios", "android"] as const) {
+      if (installed.includes(p)) continue;
+      const why = sdkModule(p, p === "ios" ? "Foundation" : "android.os");
+      process.stderr.write(`! ${"missing" in why ? why.missing : `no ${p} SDK`}; skipped ${p === "ios" ? "iOS" : "Android"} (build it with --platforms ${p} once the SDK is installed).\n`);
+    }
+    if (!installed.length) {
+      process.stderr.write("✗ no platform SDK is installed.\n");
+      return 1;
+    }
+    platforms = installed;
+    if (command === "build") backgroundPrefetch(root, files);
+  }
+  const key = inputsKey(files, out) + (platforms ? `:${platforms.join(",")}` : "");
   if (command === "build" && !process.argv.includes("--force") && isUpToDate(out, key)) {
     process.stdout.write(`✓ ${path.relative(root, out)} is up to date (${files.length} module(s), ${Date.now() - t0} ms)\n`);
     return 0;
@@ -64,6 +84,59 @@ function run(): number {
     process.stdout.write(`  Native files were added or removed: run \`pod install\` (iOS) before the next build.\n`);
   }
   return 0;
+}
+
+/** `lucent:<platform>/<module>` imports of the project's files. */
+function sdkImports(files: string[]): { ios: string[]; android: string[] } {
+  const out = { ios: new Set<string>(), android: new Set<string>() };
+  for (const f of files) for (const m of fs.readFileSync(f, "utf8").matchAll(/["']lucent:(ios|android)\/([\w.]+)["']/g)) out[m[1] as "ios" | "android"].add(m[2]!);
+  return { ios: [...out.ios].sort(), android: [...out.android].sort() };
+}
+
+/**
+ * Extracts each imported module in its own background process: the build
+ * then waits on their locks instead of extracting them one after another.
+ */
+function backgroundPrefetch(root: string, files: string[]): void {
+  const imports = sdkImports(files);
+  for (const p of ["ios", "android"] as const) {
+    for (const m of imports[p]) {
+      const child = spawn(process.execPath, [process.argv[1]!, "sdk", "prefetch", `--${p}`, m, "--root", root], { detached: true, stdio: "ignore" });
+      child.unref();
+    }
+  }
+}
+
+function sdkPrefetch(root: string): number {
+  const listed = (p: string) => {
+    const i = process.argv.indexOf(`--${p}`);
+    return i < 0 ? undefined : (process.argv[i + 1] && !process.argv[i + 1]!.startsWith("--") ? process.argv[i + 1]!.split(",") : []);
+  };
+  const all = process.argv.includes("--all");
+  let wanted = { ios: listed("ios"), android: listed("android") };
+  if (!wanted.ios && !wanted.android && !all) wanted = sdkImports(findLucentFiles(root));
+  let failed = 0;
+  for (const p of ["ios", "android"] as const) {
+    let modules = wanted[p];
+    if (all || (modules && !modules.length)) {
+      const everything = sdkModules(p);
+      if (!Array.isArray(everything)) {
+        process.stderr.write(`✗ ${everything.missing}\n`);
+        failed++;
+        continue;
+      }
+      modules = everything;
+    }
+    for (const [i, r] of prefetchSdk(p, modules ?? []).entries()) {
+      const name = `lucent:${p}/${modules![i]}`;
+      if ("schema" in r) process.stdout.write(`✓ ${name}\n`);
+      else {
+        process.stderr.write(`✗ ${r.missing}\n`);
+        failed++;
+      }
+    }
+  }
+  return failed ? 1 : 0;
 }
 
 function watch(root: string): number {

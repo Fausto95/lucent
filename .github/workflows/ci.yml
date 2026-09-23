@@ -44,6 +44,11 @@ jobs:
           cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
           ninja -C build hermesvm jsi
 
+      - name: SDK binding cache (schemas extracted on demand, keyed by SDK and extractor)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/lucent
+          key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
       - run: pnpm typecheck
       - run: pnpm test
       - name: Runtime unit tests
@@ -96,6 +101,13 @@ jobs:
           ruby-version: "3.3"
           bundler-cache: true
           working-directory: apps/bare-example
+      - name: SDK binding cache (schemas extracted on demand, keyed by SDK and extractor)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/lucent
+          key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
+      - name: Compiler and bindgen tests with the iOS SDK (the Linux job skips them)
+        run: pnpm test
       - name: Runtime unit tests (ASan/UBSan, libc++)
         run: SANITIZE=1 packages/runtime/test/run.sh
       - name: Generate the native package

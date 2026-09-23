@@ -16,6 +16,6 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["packages/*/src", "packages/*/test", "scripts"],
+  "include": ["packages/*/src", "packages/*/test", "scripts", "vitest.setup-sdk.ts"],
   "exclude": ["node_modules", "apps", "**/.lucent", "packages/compiler/test/e2e/cases", "scripts/example-app"]
 }

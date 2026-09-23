@@ -2,16 +2,19 @@ import { type Diagnostic, formatDiagnostic } from "./diagnostics.ts";
 import { emitProgram, type EmitResult } from "./emit/index.ts";
 import { conformanceErrors, declarationErrors, missingImplementations, planModules, type Target } from "./platforms.ts";
 import { builtinSdkModuleOf, createLucentProgram, findLucentFiles, type LucentProgram, type ReadSource, sdkModuleOf } from "./program.ts";
-import { PLATFORMS } from "./sdk/schema.ts";
+import { sdkAvailable } from "@lucent-lang/bindgen";
+import { PLATFORMS, type SdkOptions, withSdkOptions } from "./sdk/schema.ts";
 
 export { CodeDescriptions, Codes, formatDiagnostic, type Code, type Diagnostic } from "./diagnostics.ts";
 export { findLucentFiles, moduleNameOf, platformOf, LUCENT_EXTENSION, coreTypesPath, type ReadSource } from "./program.ts";
 export type { EmitResult } from "./emit/index.ts";
 export type { Target } from "./platforms.ts";
+export type { SdkOptions } from "./sdk/schema.ts";
 export type { Platform, SdkCallable, SdkClassSchema, SdkEnumSchema, SdkMethodSchema, SdkModuleSchema, SdkParam, SdkPropertySchema } from "./sdk/schema.ts";
 export { sdkDts } from "./sdk/dts.ts";
 export { inputsKey, isUpToDate, writeNativePackage, runtimeDir, type WriteResult } from "./native-package.ts";
 export { watchBuild, type WatchEvent } from "./watch.ts";
+export { prefetch as prefetchSdk, sdkAvailable, sdkModule, sdkModules } from "@lucent-lang/bindgen";
 
 export interface CompileResult extends EmitResult {
   ok: boolean;
@@ -21,21 +24,29 @@ export interface CompileOptions {
   /**
    * Targets to generate code for when the project has platform modules
    * (`*.ios.lucent.ts`, `*.android.lucent.ts`); each gets a complete set of
-   * files under `<target>/`. Default: ios and android.
+   * files under `<target>/`. Default: the platforms whose SDK is installed
+   * (all of them when none is, so the diagnostics say what is missing).
    */
   platforms?: Target[];
   /** Unsaved editor text, for files that differ from disk. */
   readSource?: ReadSource;
+  /** Where the platform SDKs are, and the schema cache (default: the installed SDKs, ~/.cache/lucent). */
+  sdk?: SdkOptions;
 }
 
 /** Compiles `*.lucent.ts` files to C++ sources and JS proxies. */
 export function compile(files: string[], options: CompileOptions = {}): CompileResult {
+  return withSdkOptions(options.sdk, () => compileWith(files, options));
+}
+
+function compileWith(files: string[], options: CompileOptions): CompileResult {
   const plan = planModules(files);
   if (!plan.platformModules.length && !plan.diagnostics.length) return compileOnce(createLucentProgram(files, options.readSource));
 
   const out: CompileResult = { files: new Map(), proxies: new Map(), diagnostics: [...plan.diagnostics], ok: false };
   const declarations = plan.platformModules.map((pm) => pm.declaration!);
-  for (const target of options.platforms ?? PLATFORMS) {
+  const installed = PLATFORMS.filter((p) => sdkAvailable(p, options.sdk));
+  for (const target of options.platforms ?? (installed.length ? installed : PLATFORMS)) {
     let result: CompileResult;
     if (target === "host") {
       result = compileOnce(createLucentProgram([...plan.shared, ...declarations], options.readSource, undefined, { stubs: declarations }), declarations);

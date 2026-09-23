@@ -94,7 +94,7 @@ class SigReader {
 
 // --- api-versions.xml ------------------------------------------------------------------
 
-interface ApiLevels {
+export interface ApiLevels {
   cls: Map<string, number>;
   member: Map<string, number>;
 }
@@ -133,19 +133,33 @@ function propertyName(suffix: string): string {
 
 // --- extraction ------------------------------------------------------------------------
 
-export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
-  const wanted = new Set(opts.packages);
+/** Every class of a set of jars, and which are visible (public, nested in public). */
+export interface JarIndex {
+  classes: Map<string, ClassFile>;
+  known: Set<string>;
+  nestedAccess: Map<string, number>;
+  /** Java packages with at least one visible class. */
+  packages: Set<string>;
+  levels: ApiLevels;
+}
+
+const jarIndexes = new Map<string, JarIndex>();
+
+/** Reads all classes of `jars` (once per process per identity: a few hundred ms for android.jar). */
+export function jarIndex(jars: string[], apiVersions: string | undefined): JarIndex {
+  const identity = [...jars, apiVersions ?? ""].map((f) => (f && fs.existsSync(f) ? `${f}:${fs.statSync(f).size}:${fs.statSync(f).mtimeMs}` : f)).join("|");
+  const cached = jarIndexes.get(identity);
+  if (cached) return cached;
   const classes = new Map<string, ClassFile>();
-  for (const jar of opts.jars) {
+  for (const jar of jars) {
     const zip = new ZipArchive(jar);
     for (const entry of zip.names()) {
       if (!entry.endsWith(".class") || entry.includes("-") || entry.startsWith("META-INF/")) continue;
       const internal = entry.slice(0, -".class".length);
-      if (!wanted.has(packageOf(internal))) continue;
-      classes.set(internal, parseClass(zip.read(entry)!));
+      // The first jar on the classpath wins, as in the class loader.
+      if (!classes.has(internal)) classes.set(internal, parseClass(zip.read(entry)!));
     }
   }
-
   // Public top-level classes, and public nested classes of public classes.
   const nestedAccess = new Map<string, number>();
   for (const c of classes.values()) for (const ic of c.innerClasses) if (ic.inner === c.name) nestedAccess.set(c.name, ic.access);
@@ -158,14 +172,21 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
     return visible(internal.slice(0, internal.lastIndexOf("$")));
   };
   const known = new Set([...classes.keys()].filter(visible));
-  const levels = readApiLevels(opts.apiVersions);
+  const index: JarIndex = { classes, known, nestedAccess, packages: new Set([...known].map(packageOf)), levels: readApiLevels(apiVersions) };
+  jarIndexes.set(identity, index);
+  return index;
+}
+
+export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
+  const { classes, known, nestedAccess, levels } = jarIndex(opts.jars, opts.apiVersions);
 
   const modules = new Map<string, SdkModuleSchema>();
   for (const pkg of opts.packages) modules.set(pkg, { platform: "android", module: pkg, types: [], skipped: [] });
 
   for (const internal of [...known].sort()) {
+    const mod = modules.get(packageOf(internal));
+    if (!mod) continue;
     const c = classes.get(internal)!;
-    const mod = modules.get(packageOf(internal))!;
     const isInterface = !!(c.access & ACC.INTERFACE);
     const innerClass = internal.includes("$") && !((nestedAccess.get(internal) ?? 0) & ACC.STATIC) && !isInterface;
     const cls: SdkClassSchema = { kind: "class", name: simpleOf(internal), native: internal };
