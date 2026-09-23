@@ -133,7 +133,9 @@ export function enumValues(enums: string[], headers: string[], opts: IosOptions,
     const file = path.join(dir, `${name}.json`);
     if (!fs.existsSync(file)) continue;
     const decls = jsonObjects(fs.readFileSync(file, "utf8")) as ClangNode[];
-    const decl = decls.find((d) => d.kind === "EnumDecl" && d.name === name && d.inner?.some((c) => c.kind === "EnumConstantDecl"));
+    const hasCases = (d: ClangNode) => d.kind === "EnumDecl" && !!d.inner?.some((c) => c.kind === "EnumConstantDecl");
+    // A typedef of an anonymous enum dumps the enum without a name.
+    const decl = decls.find((d) => hasCases(d) && d.name === name) ?? decls.find((d) => hasCases(d) && !d.name);
     if (!decl) continue;
     const values = new Map<string, number>();
     let next = 0;
@@ -195,6 +197,8 @@ const C_TYPEDEFS: Record<string, string> = {
   "c:@T@NSTimeInterval": "double",
   "c:@T@Boolean": "bool",
   "c:@T@UInt32": "uint32",
+  // An OS object (dispatch_queue_t is NSObject<OS_dispatch_queue> *): any Objective-C object.
+  "c:@T@dispatch_queue_t": "id",
   "c:@T@SInt32": "int32",
 };
 
@@ -435,9 +439,11 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
       refs[usr] = `${module}.${name}`;
       types[name] = { kind: k === "swift.class" ? "class" : "protocol", native: cls[2]! };
     }
-    if ((k === "swift.enum" || k === "swift.struct") && usr.startsWith("c:@E@")) {
+    // C enums, named (c:@E@) or typedefs of anonymous ones (c:@EA@).
+    const cEnum = k === "swift.enum" || k === "swift.struct" ? /^c:@EA?@(\w+)$/.exec(usr) : null;
+    if (cEnum) {
       refs[usr] = `${module}.${name}`;
-      types[name] = { kind: "enum", native: usr.slice("c:@E@".length) };
+      types[name] = { kind: "enum", native: cEnum[1]! };
     }
     // C structs (`typedef struct {…} X` or `struct X`).
     const record = k === "swift.struct" ? /^c:@S[A]?@(\w+)$/.exec(usr) : null;
@@ -508,12 +514,16 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
     const skip = (owner: string, s: SymbolGraphSymbol, reason: string) => mod.skipped!.push(`${owner}.${s.names.title}: ${reason}`);
 
     // Enums and options.
-    const enumSyms = g.symbols.filter((s) => (s.kind.identifier === "swift.enum" || s.kind.identifier === "swift.struct") && s.identifier.precise.startsWith("c:@E@"));
-    const cNames = enumSyms.map((s) => s.identifier.precise.slice("c:@E@".length));
+    const cEnumName = (s: SymbolGraphSymbol) => (s.kind.identifier === "swift.enum" || s.kind.identifier === "swift.struct" ? /^c:@EA?@(\w+)$/.exec(s.identifier.precise)?.[1] : undefined);
+    const enumSyms = g.symbols.filter((s) => cEnumName(s) !== undefined);
+    const cNames = enumSyms.map((s) => cEnumName(s)!);
     const enumValueMap = values(cNames);
     for (const s of enumSyms) {
-      const cName = s.identifier.precise.slice("c:@E@".length);
-      const cases = (members.get(s.identifier.precise) ?? [])
+      const cName = cEnumName(s)!;
+      // A named enum's cases are its members; an anonymous one's are global values under its USR.
+      const anonymous = s.identifier.precise.startsWith("c:@EA@");
+      const candidates = anonymous ? g.symbols.filter((m) => m.kind.identifier === "swift.var") : (members.get(s.identifier.precise) ?? []);
+      const cases = candidates
         .filter((m) => m.identifier.precise.startsWith(`${s.identifier.precise}@`) && !unavailable(m))
         .map((m) => {
           const native = m.identifier.precise.slice(s.identifier.precise.length + 1);
@@ -523,6 +533,8 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
         mod.skipped!.push(`${s.pathComponents.join(".")}: enum values unknown`);
         continue;
       }
+      // Global values come in the graph's order: an anonymous enum's cases go by value.
+      if (anonymous) cases.sort((a, b) => a.value! - b.value!);
       const e: SdkEnumSchema = { kind: "enum", name: s.pathComponents.join("_"), native: cName, cases: cases as SdkEnumSchema["cases"] };
       mod.types.push(e);
     }
@@ -689,7 +701,8 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
       try {
         if (s.kind.identifier === "swift.func" && usr.startsWith("c:@F@")) {
           const sig = s.functionSignature;
-          const params = (sig?.parameters ?? []).map((pp) => ({ name: pp.internalName ?? pp.name, type: parseType(afterColon(pp.declarationFragments), resolver()) }));
+          const escaping = escapingParams(s);
+          const params = (sig?.parameters ?? []).map((pp, i) => ({ name: pp.internalName ?? pp.name, type: withEscaping(parseType(afterColon(pp.declarationFragments), resolver()), escaping[i]) }));
           const f: SdkMethodSchema = { name: s.names.title.replace(/\(.*$/, ""), params, returns: sig?.returns?.length ? parseType(sig.returns, resolver()) : "void" };
           const v = since(s);
           if (v) f.since = v;

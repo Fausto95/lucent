@@ -13,6 +13,8 @@ export declare class NSObject {
 export type ObjCValue = string | number | boolean | Uint8Array | Date | NSObject | null;
 
 /** Swift's `as? String`: the string an `Any` holds, or null. */
+/** The main dispatch queue (dispatch_get_main_queue()), for APIs that take a queue. */
+export declare function mainQueue(): NSObject;
 export declare function asString(value: NSObject | null): string | null;
 /** Swift's `as? Double` (an NSNumber). */
 export declare function asNumber(value: NSObject | null): number | null;

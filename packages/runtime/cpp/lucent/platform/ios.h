@@ -263,6 +263,9 @@ class ErrorOut {
 
 inline Opt<Error> outError(const NativeRef& r) { return fromNSErrorOpt((__bridge NSError*) static_cast<OutSlot*>(r.get())->value); }
 
+/// `mainQueue()` from lucent:ios: the main dispatch queue (an OS object).
+inline NativeRef mainQueue() { return wrap(dispatch_get_main_queue(), "mainQueue"); }
+
 /// `available("ios", major, minor)`.
 inline bool available(double major, double minor = 0) {
   NSOperatingSystemVersion v = {static_cast<NSInteger>(major), static_cast<NSInteger>(minor), 0};

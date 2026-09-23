@@ -1097,6 +1097,9 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
       const value: Record<string, LType> = { asString: T.string, asNumber: T.number, asBoolean: T.boolean, asData: T.bytes, asDate: T.date };
       return { c: `lucent::objc::${b.name}(${em.exprAs(args[0]!, unionOf([nsObject, T.null]))})`, t: unionOf([value[b.name]!, T.null]) };
     }
+    case "lucent:ios.mainQueue":
+      unit.includes.add("#include <lucent/platform/ios.h>");
+      return { c: "lucent::objc::mainQueue()", t: { k: "native", platform: "ios", module: "lucent:ios", name: "NSObject" } };
     case "lucent:ios.available":
       unit.includes.add("#include <lucent/platform/ios.h>");
       return { c: `lucent::objc::available(${args.slice(1).map((a) => em.exprAs(a, T.number)).join(", ")})`, t: T.boolean };
