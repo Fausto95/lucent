@@ -123,4 +123,28 @@ export function f(b: B): number { return take(b); }`;
       expect(codes("export function f(s: AbortSignal): boolean { return s.reason === undefined; }")).toEqual(expect.arrayContaining([expect.stringMatching(/LUCENT(1003|2001)/)]));
     });
   });
+
+  describe("integer inference", () => {
+    const hash = `export function hash(input: string, seed: number = 0): number {
+  let h = seed | 0;
+  for (let i = 0; i < input.length; i++) {
+    h = Math.imul(h ^ input.charCodeAt(i), 0x5bd1e995);
+    h ^= h >>> 15;
+  }
+  return h >>> 0;
+}`;
+    const cpp = (src: string) => compileSource(src).files.get("m_sample.cpp") ?? "";
+
+    it("keeps int32 locals and loop counters in integer registers", () => {
+      const out = cpp(hash);
+      expect(out).toMatch(/int32_t h = /);
+      expect(out).toMatch(/int64_t i = /);
+    });
+
+    it("leaves locals with fractional or non-bitwise writes as doubles", () => {
+      const out = cpp("export function f(x: number): number {\n  let a = x | 0;\n  a += 1;\n  let z = 0;\n  z = -0;\n  return a + z;\n}");
+      expect(out).toMatch(/double a = /);
+      expect(out).toMatch(/double z = /);
+    });
+  });
 });
