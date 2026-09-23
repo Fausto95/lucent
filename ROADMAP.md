@@ -64,6 +64,8 @@ every item above passes under ASan/UBSan on Linux and on both simulators.
 
 ## M2 — Platform APIs (import AVFoundation, android.*)
 
+Design: [`docs/m2-platform-bindings.md`](docs/m2-platform-bindings.md) (proposal, awaiting decisions).
+
 Goal: `import { AVCaptureDevice } from "lucent:ios/AVFoundation"` and
 `import { BatteryManager } from "lucent:android/android.os"` just work.
 
