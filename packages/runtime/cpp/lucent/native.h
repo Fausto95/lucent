@@ -16,12 +16,22 @@
 
 namespace lucent {
 
+/// How many platform objects Lucent holds (NativeRefs, not copies): debug
+/// builds report what is left when the module goes.
+long liveNativeRefs();
+
+namespace detail {
+void countNativeRef(int delta);
+}
+
 class NativeRef {
  public:
   NativeRef() = default;
   /// Takes ownership of `handle`; `release` runs when the last copy goes.
   NativeRef(void* handle, void (*release)(void*), bool (*same)(void*, void*))
-      : p_(handle, release), same_(same) {}
+      : p_(handle, Release{release}), same_(same) {
+    if (handle) detail::countNativeRef(1);
+  }
 
   void* get() const { return p_.get(); }
   explicit operator bool() const { return p_ != nullptr; }
@@ -35,6 +45,14 @@ class NativeRef {
   }
 
  private:
+  struct Release {
+    void (*release)(void*);
+    void operator()(void* p) const {
+      if (!p) return;
+      detail::countNativeRef(-1);
+      release(p);
+    }
+  };
   std::shared_ptr<void> p_;
   bool (*same_)(void*, void*) = nullptr;
 };

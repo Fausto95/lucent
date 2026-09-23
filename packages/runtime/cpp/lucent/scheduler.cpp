@@ -25,6 +25,8 @@ void writeError(const std::string& message) {
 }
 }  // namespace
 
+void logError(const char* message) { writeError(message); }
+
 void reportUncaught(std::exception_ptr e, const char* where) {
   try {
     std::rethrow_exception(e);

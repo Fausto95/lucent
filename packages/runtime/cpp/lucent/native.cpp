@@ -2,9 +2,19 @@
 // and Android implement postToMain in lucent/platform.
 #include "native.h"
 
+#include <atomic>
+
 #if defined(__APPLE__)
 #include <TargetConditionals.h>
 #endif
+
+namespace lucent {
+namespace {
+std::atomic<long> nativeRefs{0};
+}
+long liveNativeRefs() { return nativeRefs.load(); }
+void detail::countNativeRef(int delta) { nativeRefs += delta; }
+}  // namespace lucent
 
 #if !defined(__ANDROID__) && !(defined(TARGET_OS_IOS) && TARGET_OS_IOS)
 

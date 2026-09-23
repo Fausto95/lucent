@@ -24,6 +24,9 @@ namespace lucent {
 /// The one place errors no Lucent code can catch are reported: thrown by a
 /// job, or by a callback the platform made.
 void reportUncaught(std::exception_ptr e, const char* where);
+/// Logs an error where the platform shows an app's errors (logcat, the
+/// unified log) and to stderr.
+void logError(const char* message);
 
 class Scheduler {
  public:
