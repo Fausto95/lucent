@@ -11,6 +11,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { sdkAvailable } from "../packages/bindgen/src/provider.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const packages = ["core", "sdk-ios", "sdk-android", "bindgen", "runtime", "compiler", "cli", "metro", "expo", "ts-plugin"];
@@ -66,10 +67,14 @@ fs.writeFileSync(
 console.log("• lucent build (installed CLI)");
 console.log(sh(path.join(app, "node_modules/.bin/lucent"), ["build"], app).trim());
 const native = path.join(app, ".lucent/native");
-for (const f of ["LucentNative.podspec", "android/CMakeLists.txt", "cpp/generated/ios/m_hello.cpp", "cpp/generated/ios/m_device.mm", "cpp/generated/android/m_device.cpp", "cpp/third_party/quickjs/libregexp.c", "js/hello.js", "js/device.js", "js/lucent-haptics/haptics.js"]) {
+// The platforms this machine has an SDK for (a Linux runner has no iOS SDK).
+const targets = (["ios", "android"] as const).filter((p) => sdkAvailable(p));
+if (!targets.length) throw new Error("no platform SDK on this machine");
+const generated = { ios: ["cpp/generated/ios/m_hello.cpp", "cpp/generated/ios/m_device.mm"], android: ["cpp/generated/android/m_hello.cpp", "cpp/generated/android/m_device.cpp"] };
+for (const f of ["LucentNative.podspec", "android/CMakeLists.txt", ...targets.flatMap((t) => generated[t]), "cpp/third_party/quickjs/libregexp.c", "js/hello.js", "js/device.js", "js/lucent-haptics/haptics.js"]) {
   if (!fs.existsSync(path.join(native, f))) throw new Error(`missing ${f}`);
 }
-sh("clang++", ["-std=c++20", "-fsyntax-only", `-I${native}/cpp`, `-I${native}/cpp/generated/ios`, path.join(native, "cpp/generated/ios/m_hello.cpp")], app);
+sh("clang++", ["-std=c++20", "-fsyntax-only", `-I${native}/cpp`, `-I${native}/cpp/generated/${targets[0]}`, path.join(native, `cpp/generated/${targets[0]}/m_hello.cpp`)], app);
 // The installed Lucent package's modules are built under its name.
 const modules = JSON.parse(fs.readFileSync(path.join(native, "manifest.json"), "utf8")).modules as string[];
 for (const m of ["lucent-haptics/haptics"]) if (!modules.includes(m)) throw new Error(`the installed lucent-haptics was not built: ${modules.join(", ")}`);
