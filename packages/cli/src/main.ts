@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { compile, findLucentFiles, forgetLoadedSdks, formatDiagnostic, inputsKey, isUpToDate, platformOf, podsSearchPaths, prefetchSdk, sdkAvailable, sdkModule, sdkModules, type SdkOptions, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
+import { compile, findLucentFiles, forgetLoadedSdks, formatDiagnostic, inputsKey, isUpToDate, platformOf, podsSearchPaths, prefetchSdk, sdkAvailable, sdkModule, sdkModules, runtimeDir, type SdkOptions, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
 
 const HELP = `lucent — compile *.lucent.ts modules into a native React Native package
 
@@ -17,13 +17,6 @@ Usage:
                                              Extract SDK bindings into the cache ahead of use (default: the
                                              lucent:* modules the project imports; --all: every module)
   lucent init  [--root <dir>]                 Wire an app: react-native.config.js, .gitignore, tsconfig
-`;
-
-const LUCENT_GRADLE = 'rootProject.file("../.lucent/native/android/lucent.gradle")';
-const LUCENT_GRADLE_APPLY = `
-// Lucent: lucent:android bindings for the app's dependencies (the file is written by lucent build).
-def lucentGradle = ${LUCENT_GRADLE}
-if (lucentGradle.exists()) apply from: lucentGradle
 `;
 
 function arg(name: string, fallback: string): string {
@@ -103,8 +96,8 @@ function projectSdk(root: string): SdkOptions {
 
 /**
  * An Android import that android.jar does not have is looked up in the app's
- * dependencies: resolve them with Gradle (the lucentClasspath task of
- * lucent.gradle) when that has not happened yet or the build files changed.
+ * dependencies: resolve them with Gradle (the lucentClasspath task, from
+ * an init script, so the app's build files stay as they are) when that has not happened yet or the build files changed.
  */
 function resolveAndroidDependencies(root: string, files: string[], sdk: SdkOptions): void {
   const imports = sdkImports(files).android;
@@ -117,9 +110,10 @@ function resolveAndroidDependencies(root: string, files: string[], sdk: SdkOptio
   const unresolved = imports.some((m) => "missing" in sdkModule("android", m, sdk));
   if (!unresolved && !(changed && age)) return;
   process.stdout.write("• resolving the app's Android dependencies (Gradle :app:lucentClasspath)\n");
-  const r = spawnSync(gradlew, ["-q", ":app:lucentClasspath"], { cwd: android, encoding: "utf8" });
+  const script = path.join(runtimeDir(), "gradle/lucent-classpath.init.gradle");
+  const r = spawnSync(gradlew, ["-q", "--init-script", script, ":app:lucentClasspath"], { cwd: android, encoding: "utf8" });
   if (r.status !== 0) {
-    process.stderr.write(`! Gradle could not resolve them:\n${(r.stderr || r.stdout).trim().split("\n").slice(-8).join("\n")}\n  Does android/app/build.gradle apply lucent.gradle? (lucent init adds it)\n`);
+    process.stderr.write(`! Gradle could not resolve them:\n${(r.stderr || r.stdout).trim().split("\n").slice(-8).join("\n")}\n`);
   }
   forgetLoadedSdks();
 }
@@ -205,11 +199,6 @@ function init(root: string): number {
     process.stdout.write("✓ renamed the lucent-native dependency to lucent in react-native.config.js\n");
   } else if (!/["']lucent["']\s*:/.test(text)) {
     process.stdout.write(`! add this to the "dependencies" of react-native.config.js:\n    ${entry}\n`);
-  }
-  const appGradle = path.join(root, "android/app/build.gradle");
-  if (fs.existsSync(appGradle) && !fs.readFileSync(appGradle, "utf8").includes(LUCENT_GRADLE)) {
-    fs.appendFileSync(appGradle, LUCENT_GRADLE_APPLY);
-    process.stdout.write("✓ applied lucent.gradle in android/app/build.gradle (bindings for the app's dependencies)\n");
   }
   const gitignore = path.join(root, ".gitignore");
   const ignored = fs.existsSync(gitignore) ? fs.readFileSync(gitignore, "utf8") : "";

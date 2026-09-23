@@ -27,17 +27,8 @@ function buildOnce(projectRoot) {
   }
 }
 
-const LUCENT_GRADLE = 'rootProject.file("../.lucent/native/android/lucent.gradle")';
-
 function withLucent(config) {
-  const { withAppBuildGradle, withDangerousMod } = require("expo/config-plugins");
-  // Bindings for the app's Android dependencies (lucent:android/androidx…).
-  config = withAppBuildGradle(config, (c) => {
-    if (!c.modResults.contents.includes(LUCENT_GRADLE)) {
-      c.modResults.contents += `\n// Lucent: lucent:android bindings for the app's dependencies (the file is written by lucent build).\ndef lucentGradle = ${LUCENT_GRADLE}\nif (lucentGradle.exists()) apply from: lucentGradle\n`;
-    }
-    return c;
-  });
+  const { withDangerousMod } = require("expo/config-plugins");
   for (const platform of ["ios", "android"]) {
     config = withDangerousMod(config, [
       platform,
