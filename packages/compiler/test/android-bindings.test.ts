@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { sdkAvailable } from "@lucent-lang/bindgen";
+import { androidJars } from "@lucent-lang/bindgen";
 import { compile, runtimeDir } from "../src/index.ts";
 
 /** Android output for a platform module whose Android side is `src` (exporting run()). */
@@ -20,6 +21,21 @@ function android(src: string) {
 }
 
 const codes = (r: { diagnostics: { code: string }[] }) => r.diagnostics.map((d) => d.code);
+
+const listener = `import { Location, LocationManager } from "lucent:android/android.location";
+import { Context } from "lucent:android/android.content";
+import { appContext } from "lucent:android";
+export async function run(): Promise<string> {
+  const manager = appContext().getSystemService(LocationManager);
+  let latest = "";
+  const onLocation = (location: Location) => {
+    latest = \`\${location.getLatitude()},\${location.getLongitude()}\`;
+  };
+  manager?.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, onLocation);
+  manager?.removeUpdates(onLocation);
+  return \`\${latest} \${Context.LOCATION_SERVICE}\`;
+}
+`;
 
 describe.skipIf(!sdkAvailable("android"))("Android bindings from android.jar", () => {
   it("passes CharSequence as strings", () => {
@@ -122,12 +138,29 @@ export async function run(): Promise<string> {
     expect(guarded.r.diagnostics).toEqual([]);
   });
 
+  it("passes functions where Java takes an interface with one abstract method", () => {
+    const { r, cpp } = android(listener);
+    expect(r.diagnostics).toEqual([]);
+    // One proxy per function, so removeUpdates gets the object requestLocationUpdates did.
+    expect(cpp).toContain('lucent::jni::proxyFor(env, "android/location/LocationListener"');
+    expect(cpp).toMatch(/\{"onLocationChanged", \[f_\]\(JNIEnv\* env, jobjectArray args_\) -> jobject \{/);
+    expect(cpp).toContain("lucent::postCallback(");
+  });
+
+  it("ships a NativeProxy that compiles against android.jar", () => {
+    const jar = androidJars()?.[0];
+    if (!jar || spawnSync("javac", ["-version"]).status !== 0) return;
+    const out = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-java-"));
+    const cc = spawnSync("javac", ["--release", "11", "-Xlint:-options", "-cp", jar, "-d", out, path.join(runtimeDir(), "native/android/src/main/java/dev/lucent/NativeProxy.java")], { encoding: "utf8" });
+    expect(cc.stderr).toBe("");
+  });
+
   it("generates JNI C++ that compiles with the NDK", () => {
     const ndkRoot = path.join(process.env.ANDROID_HOME ?? path.join(os.homedir(), "Library/Android/sdk"), "ndk");
     const ndk = fs.existsSync(ndkRoot) ? fs.readdirSync(ndkRoot).sort().pop() : undefined;
     if (!ndk) return;
     const bin = fs.readdirSync(path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt")).map((h) => path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt", h, "bin/clang++"))[0]!;
-    const { r, dir } = android(`import { ClipData, Context, Intent } from "lucent:android/android.content";
+    const calls = `import { ClipData, Context, Intent } from "lucent:android/android.content";
 import { Uri } from "lucent:android/android.net";
 import { Build, Vibrator } from "lucent:android/android.os";
 import { Base64 } from "lucent:android/android.util";
@@ -145,17 +178,20 @@ export async function run(): Promise<string> {
   if (Build.MODEL) return Build.MODEL;
   return \`\${ClipData.newPlainText("l", "t")?.getItemAt(0)?.getText()} \${Context.VIBRATOR_SERVICE} \${info?.versionName} \${bytes?.length} \${Uri.parse("x")?.describeContents()} \${(Build.SUPPORTED_ABIS ?? []).join()}\`;
 }
-`);
-    expect(r.diagnostics).toEqual([]);
-    for (const [k, v] of r.files) {
-      fs.mkdirSync(path.dirname(path.join(dir, "out", k)), { recursive: true });
-      fs.writeFileSync(path.join(dir, "out", k), v);
+`;
+    for (const src of [calls, listener]) {
+      const { r, dir } = android(src);
+      expect(r.diagnostics).toEqual([]);
+      for (const [k, v] of r.files) {
+        fs.mkdirSync(path.dirname(path.join(dir, "out", k)), { recursive: true });
+        fs.writeFileSync(path.join(dir, "out", k), v);
+      }
+      const cc = spawnSync(
+        bin,
+        ["--target=aarch64-linux-android24", "-std=c++20", "-fsyntax-only", "-Werror", "-Wno-gnu-statement-expression", "-Wno-unused-label", "-Wno-parentheses-equality", "-Wno-comma", `-I${path.join(runtimeDir(), "cpp")}`, `-I${path.join(dir, "out/android")}`, path.join(dir, "out/android/m_m.cpp")],
+        { encoding: "utf8" },
+      );
+      expect(cc.stderr).toBe("");
     }
-    const cc = spawnSync(
-      bin,
-      ["--target=aarch64-linux-android24", "-std=c++20", "-fsyntax-only", "-Werror", "-Wno-gnu-statement-expression", "-Wno-unused-label", "-Wno-parentheses-equality", "-Wno-comma", `-I${path.join(runtimeDir(), "cpp")}`, `-I${path.join(dir, "out/android")}`, path.join(dir, "out/android/m_m.cpp")],
-      { encoding: "utf8" },
-    );
-    expect(cc.stderr).toBe("");
   });
 });

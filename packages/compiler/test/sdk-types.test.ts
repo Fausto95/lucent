@@ -86,6 +86,18 @@ describe("SDK declarations", () => {
     expect(d).toContain('export * from "lucent:ios/_LocationEssentials";');
   });
 
+  it("lets functions stand for Java interfaces with one abstract method", () => {
+    const d = sdkDts({
+      platform: "android",
+      module: "com.example.widgets",
+      types: [
+        { kind: "class", name: "OnEvent", native: "com/example/widgets/OnEvent", interface: true, functional: "onEvent", methods: [{ name: "onEvent", params: [{ name: "arg0", type: "string" }, { name: "arg1", type: "int" }], returns: "void", abstract: true }] },
+        { kind: "class", name: "Widget", native: "com/example/widgets/Widget", methods: [{ name: "setOnEvent", params: [{ name: "arg0", type: "OnEvent?" }], returns: "void" }] },
+      ],
+    });
+    expect(d).toContain("  setOnEvent(arg0: OnEvent | ((arg0: string, arg1: number) => void) | null): void;");
+  });
+
   it("adds a promise overload for completion handlers Swift imports as async", () => {
     expect(dts).toContain("  load(reply: (arg0: Uint8Array | null, arg1: Error | null) => void): void;");
     expect(dts).toContain("  load(): Promise<Uint8Array>;");

@@ -41,6 +41,15 @@ describe.skipIf(!javac)("Android extractor", () => {
     expect(cls("com.example.widgets", "Widget_Listener").constructors ?? []).toEqual([]);
   });
 
+  it("marks abstract methods, and interfaces with one (which functions implement)", () => {
+    const onEvent = cls("com.example.widgets", "OnEvent");
+    expect(onEvent).toMatchObject({ interface: true, functional: "onEvent" });
+    expect(onEvent.methods!.find((m) => m.name === "onEvent")).toMatchObject({ abstract: true, params: [{ type: "string" }, { type: "int" }] });
+    expect(onEvent.methods!.find((m) => m.name === "reset")).not.toHaveProperty("abstract");
+    expect(cls("com.example.widgets", "Watcher")).not.toHaveProperty("functional");
+    expect(cls("com.example.widgets", "Widget_Listener").methods![0]).toMatchObject({ name: "onChange", abstract: true });
+  });
+
   it("keeps public constructors with exact descriptors", () => {
     expect(widget().constructors).toEqual([
       { params: [], descriptor: "()V" },

@@ -32,6 +32,7 @@ public class Widget implements Shape {
   public java.util.List<String> names() { return null; }
   @Deprecated public void old() {}
   public void touch(@NonNull Shape s, @Nullable Widget other) {}
+  public void setOnEvent(@Nullable OnEvent listener) {}
   private void secret() {}
 
   public static class Config {
