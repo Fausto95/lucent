@@ -1,7 +1,7 @@
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import { builtinSdkModuleOf, sdkModuleOf } from "../program.ts";
-import { findSdkModule, findSdkType, loadSdkModule, jniDescriptor, sdkTypeInfo, parseSdkType, type Platform, type SdkClassSchema, type SdkMethodSchema, type SdkPropertySchema, type SdkType } from "../sdk/schema.ts";
+import { findSdkModule, findSdkType, loadSdkModule, jniDescriptor, sdkTypeInfo, parseSdkType, type Platform, type SdkCallable, type SdkClassSchema, type SdkMethodSchema, type SdkPropertySchema, type SdkType } from "../sdk/schema.ts";
 import { type LType, T, unionOf } from "../types.ts";
 import type { E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
@@ -55,6 +55,11 @@ function inMainContext(em: FnEmitter, node: ts.Node): boolean {
   for (let n: ts.Node | undefined = node.parent; n; n = n.parent) {
     if (ts.isArrowFunction(n) || ts.isFunctionExpression(n)) {
       const call = n.parent;
+      // A function the SDK calls back on the main thread.
+      if ((ts.isCallExpression(call) || ts.isNewExpression(call)) && call.arguments) {
+        const param = sdkParamType(em, call, call.arguments.indexOf(n as ts.Expression));
+        if (param?.k === "fn") return param.main;
+      }
       if (!ts.isCallExpression(call) || call.arguments[0] !== n) return false;
       const b = builtinNamed(em, call.expression);
       return b?.module === "lucent:thread" && b.name === "main";
@@ -62,6 +67,34 @@ function inMainContext(em: FnEmitter, node: ts.Node): boolean {
     if (ts.isFunctionLike(n)) return false;
   }
   return false;
+}
+
+/** The schema method an SDK class's method declaration stands for: sdkDts writes each, then its promise form. */
+function schemaMethod(ref: SdkClassRef, decl: ts.MethodDeclaration): { method: SdkMethodSchema; promise: boolean } {
+  const name = (decl.name as ts.Identifier).text;
+  const index = (decl.parent as ts.ClassDeclaration).members.filter((m) => ts.isMethodDeclaration(m) && (m.name as ts.Identifier).text === name).indexOf(decl);
+  return (ref.cls.methods ?? []).filter((m) => m.name === name).flatMap((m) => [{ method: m, promise: false }, ...(m.async ? [{ method: m, promise: true }] : [])])[index]!;
+}
+
+function schemaConstructor(ref: SdkClassRef, decl: ts.ConstructorDeclaration): SdkCallable {
+  return ref.cls.constructors![(decl.parent as ts.ClassDeclaration).members.filter(ts.isConstructorDeclaration).indexOf(decl)]!;
+}
+
+/** The schema type of argument `index` of a call of an SDK method, constructor or function. */
+function sdkParamType(em: FnEmitter, call: ts.CallExpression | ts.NewExpression, index: number): SdkType | undefined {
+  if (index < 0) return undefined;
+  const decl = em.checker.getResolvedSignature(call)?.declaration;
+  if (!decl) return undefined;
+  if (ts.isFunctionDeclaration(decl)) {
+    const sdk = sdkModuleOf(decl.getSourceFile());
+    const f = sdk ? findSdkModule(sdk.platform, sdk.module)?.functions?.find((x) => x.name === decl.name?.text) : undefined;
+    return f?.params[index] && sdk ? parseSdkType(f.params[index].type, sdk.module) : undefined;
+  }
+  const ref = classOfDecl(decl);
+  if (!ref) return undefined;
+  const callable = ts.isMethodDeclaration(decl) ? schemaMethod(ref, decl).method : ts.isConstructorDeclaration(decl) ? schemaConstructor(ref, decl) : undefined;
+  const p = callable?.params[index];
+  return p ? parseSdkType(p.type, ref.module, (callable as SdkMethodSchema).typeParams ?? []) : undefined;
 }
 
 function requireMain(em: FnEmitter, node: ts.Node, ref: SdkClassRef, member?: { mainActor?: boolean }): void {
@@ -112,6 +145,61 @@ function objcRefType(t: SdkType & { k: "ref" }): string {
   return info.kind === "protocol" ? `id<${info.native}>` : `${info.native}*`;
 }
 
+/** Objective-C spelling of a schema type, for block signatures. */
+function objcTypeName(t: SdkType): string {
+  switch (t.k) {
+    case "prim":
+      return t.name === "void" ? "void" : t.name === "bool" || t.name === "boolean" ? "BOOL" : (OBJC_NUMBER[t.name] ?? "double");
+    case "string":
+      return "NSString*";
+    case "bytes":
+      return "NSData*";
+    case "date":
+      return "NSDate*";
+    case "id":
+      return "id";
+    case "error":
+      return "NSError*";
+    case "array":
+      return "NSArray*";
+    case "record":
+      return "NSDictionary*";
+    case "ref":
+      return sdkEnum("ios", t)?.native ?? objcRefType(t);
+    case "fn":
+      return `${objcTypeName(t.ret)} (^)(${t.params.map(objcTypeName).join(", ")})`;
+    default:
+      throw new Error(`no Objective-C spelling for ${t.k}`);
+  }
+}
+
+/**
+ * A Lucent function (code `f` of type `lt`) as an Objective-C block. A block
+ * the platform waits for (it returns a value, runs during the call, or on
+ * the main thread) runs Lucent code right away, holding the lock; the others
+ * queue it on the Lucent thread. The function takes as many of the block's
+ * arguments as it declares, as JavaScript callbacks do.
+ */
+function objcBlock(em: FnEmitter, node: ts.Node, f: string, lt: LType, t: SdkType & { k: "fn" }): string {
+  const fn = lt.k === "opt" ? lt.inner : lt;
+  if (fn.k !== "fn") fail(node, Codes.UnsupportedType, "pass a function");
+  if (t.params.some((p) => p.k === "fn" || ("cf" in p && p.cf))) fail(node, Codes.UnsupportedType, "blocks that take blocks or CoreFoundation values are not supported yet");
+  const n = Math.min(fn.params.length, t.params.length);
+  const names = t.params.map((_, i) => `a${i}_`);
+  const call = `f_(${names.slice(0, n).map((a, i) => fromObjc(em, a, t.params[i]!, fn.params[i]!, "callback").c).join(", ")})`;
+  const isVoid = t.ret.k === "prim" && t.ret.name === "void";
+  let body: string;
+  if (!isVoid) {
+    const r = t.ret.nullable ? `lucent::objc::ifPresent(r_, [&](const auto& x_) { return ${toObjcCode({ ...t.ret, nullable: false } as SdkType, "x_", false)}; })` : toObjcCode(t.ret, "r_", false);
+    body = `return lucent::callNow([&]() -> ${objcTypeName(t.ret)} { auto r_ = ${call}; return ${r}; });`;
+  } else if (!t.escaping || t.main) {
+    body = `lucent::callNow([&]() { ${call}; });`;
+  } else {
+    body = `lucent::postCallback([${["f_", ...names.slice(0, n)].join(", ")}]() { ${call}; });`;
+  }
+  return `lucent::objc::block<${objcTypeName({ ...t, nullable: false })}>([f_ = ${f}](${t.params.map((p, i) => `${objcTypeName(p)} ${names[i]}`).join(", ")}) { ${body} })`;
+}
+
 /**
  * Lucent value → Objective-C value of schema type `t`, for code `c` holding
  * the (non-absent) Lucent value. Collections convert their elements with a
@@ -158,7 +246,12 @@ function boxed(t: SdkType, c: string): string {
 }
 
 function toObjc(em: FnEmitter, arg: ts.Expression, t: SdkType, owned = false): string {
-  if (t.k === "fn" || t.k === "error") fail(arg, Codes.UnsupportedType, `passing ${t.k === "fn" ? "functions" : "errors"} to Objective-C is not supported yet`);
+  if (t.k === "error") fail(arg, Codes.UnsupportedType, "passing errors to Objective-C is not supported yet");
+  if (t.k === "fn") {
+    const f = em.expr(arg);
+    if (!t.nullable) return objcBlock(em, arg, f.c, f.t, t);
+    return `lucent::objc::ifPresent(${f.c}, [&](const auto& x_) { return ${objcBlock(em, arg, "x_", f.t, t)}; })`;
+  }
   const scalar = ((): LType | undefined => {
     switch (t.k) {
       case "prim":
@@ -222,6 +315,8 @@ function fromObjc(em: FnEmitter, code: string, t: SdkType, lt: LType, what: stri
     case "ref":
       if (sdkEnum("ios", t)) return { c: `static_cast<double>(${code})`, t: T.number };
       return lt.k === "opt" ? { c: `lucent::objc::wrapOpt(${code})`, t: lt } : { c: `lucent::objc::wrap(${code}, ${w})`, t: lt };
+    case "error":
+      return lt.k === "opt" ? { c: `lucent::objc::fromNSErrorOpt(${code})`, t: lt } : { c: `lucent::objc::fromNSError(${code}, ${w})`, t: lt };
     default:
       throw new Error(`no Lucent form for Objective-C ${t.k}`);
   }
@@ -513,8 +608,7 @@ export function nativeNew(em: FnEmitter, node: ts.NewExpression, t: LType & { k:
   if (!ref || !decl || !ts.isConstructorDeclaration(decl)) fail(node, Codes.UnsupportedCall, `${t.name} cannot be constructed`);
   requireMain(em, node, ref);
   noteIncludes(em, ref);
-  const index = (decl.parent as ts.ClassDeclaration).members.filter(ts.isConstructorDeclaration).indexOf(decl);
-  const ctor = ref.cls.constructors![index]!;
+  const ctor = schemaConstructor(ref, decl);
   // An inherited initializer allocates the class being constructed.
   const own = findSdkType(t.platform, t.module, t.name);
   if (own?.kind === "class" && own !== ref.cls) ref = { ...ref, module: t.module, cls: own };
@@ -613,9 +707,7 @@ export function nativeCall(em: FnEmitter, node: ts.CallExpression, obj: E | unde
   const isStatic = !!ts.getModifiers(decl)?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword);
   if (isStatic === !!obj) return undefined;
   const name = (decl.name as ts.Identifier).text;
-  const index = (decl.parent as ts.ClassDeclaration).members.filter((m) => ts.isMethodDeclaration(m) && (m.name as ts.Identifier).text === name).indexOf(decl);
-  // The declarations' order: each method, then its promise form (sdkDts).
-  const { method, promise } = (ref.cls.methods ?? []).filter((m) => m.name === name).flatMap((m) => [{ method: m, promise: false }, ...(m.async ? [{ method: m, promise: true }] : [])])[index]!;
+  const { method, promise } = schemaMethod(ref, decl);
   if (promise) fail(node, Codes.UnsupportedCall, `${ref.cls.name}.${name}() as a promise is not supported yet: pass the completion handler`);
   requireMain(em, node, ref, method);
   if (!obj) requireAvailable(em, node, ref, ref.cls.since, ref.cls.name);

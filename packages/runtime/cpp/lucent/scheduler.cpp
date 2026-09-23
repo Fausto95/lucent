@@ -5,14 +5,22 @@
 
 namespace lucent {
 
+void reportUncaught(std::exception_ptr e, const char* where) {
+  try {
+    std::rethrow_exception(e);
+  } catch (const std::exception& x) {
+    std::fprintf(stderr, "[lucent] uncaught exception in %s: %s\n", where, x.what());
+  } catch (...) {
+    std::fprintf(stderr, "[lucent] uncaught exception in %s\n", where);
+  }
+}
+
 namespace {
 void runGuarded(const Scheduler::Job& job) {
   try {
     job();
-  } catch (const std::exception& e) {
-    std::fprintf(stderr, "[lucent] uncaught exception in job: %s\n", e.what());
   } catch (...) {
-    std::fprintf(stderr, "[lucent] uncaught exception in job\n");
+    reportUncaught(std::current_exception(), "job");
   }
 }
 }  // namespace

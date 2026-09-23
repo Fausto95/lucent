@@ -176,12 +176,27 @@ inline Opt<Date> asDate(const Opt<NativeRef>& o) {
 
 // --- errors ----------------------------------------------------------------------------
 
-/// A method's NSError** result as a Lucent error: code "<domain>:<code>".
-inline void throwIfError(NSError* e) {
-  if (!e) return;
+/// An NSError as a Lucent error: code "<domain>:<code>".
+inline Error fromNSError(NSError* e, const char* what) {
+  if (!e) throw Exception(makeError(String::fromLatin1("TypeError"), String::fromUtf8(std::string(what) + " got no error")));
   Error err = makeError(String::fromLatin1("Error"), fromNSString(e.localizedDescription ?: @"", ""));
   err->code = fromNSString([NSString stringWithFormat:@"%@:%ld", e.domain, (long)e.code], "");
-  throw Exception(err);
+  return err;
+}
+inline Opt<Error> fromNSErrorOpt(NSError* e) { return e ? Opt<Error>(fromNSError(e, "")) : Opt<Error>(null); }
+
+/// A method's NSError** result as a thrown Lucent error.
+inline void throwIfError(NSError* e) {
+  if (e) throw Exception(fromNSError(e, ""));
+}
+
+// --- blocks ----------------------------------------------------------------------------
+
+/// A C++ callable as a heap block of type `Block` (the platform may keep it).
+template <class Block, class F>
+Block block(F f) {
+  Block b = std::move(f);
+  return b;
 }
 
 // --- out-parameters --------------------------------------------------------------------

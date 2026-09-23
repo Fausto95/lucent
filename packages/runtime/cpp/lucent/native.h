@@ -48,6 +48,30 @@ inline String toJsString(const NativeRef&) { return String::fromLatin1("[object 
 void postToMain(std::function<void()> job);
 bool onMainThread();
 
+/// A platform callback into Lucent code that returns nothing and outlives
+/// the call: queued on the Lucent thread, so the platform never waits for
+/// Lucent code. `f` owns what it captured and is released after it runs.
+template <class F>
+void postCallback(F f) {
+  Scheduler::instance().post(std::move(f));
+}
+
+/// A platform callback the platform waits for (for its result, or because
+/// it runs during the call or on the main thread): runs on the calling
+/// thread, holding the Lucent lock. A Lucent error is reported and the
+/// platform gets a default result.
+template <class F>
+auto callNow(F f) -> std::invoke_result_t<F&> {
+  using R = std::invoke_result_t<F&>;
+  LucentScope scope;
+  try {
+    return f();
+  } catch (...) {
+    reportUncaught(std::current_exception(), "callback");
+    if constexpr (!std::is_void_v<R>) return R{};
+  }
+}
+
 /// `main(f)` from lucent:thread: runs `f` on the main thread holding the
 /// Lucent lock, and settles the promise with its result. The caller never
 /// waits for the main thread, so the lock order stays deadlock-free.

@@ -12,6 +12,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <deque>
+#include <exception>
 #include <functional>
 #include <mutex>
 #include <queue>
@@ -19,6 +20,10 @@
 #include <vector>
 
 namespace lucent {
+
+/// The one place errors no Lucent code can catch are reported: thrown by a
+/// job, or by a callback the platform made.
+void reportUncaught(std::exception_ptr e, const char* where);
 
 class Scheduler {
  public:
