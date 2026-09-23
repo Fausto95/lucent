@@ -45,10 +45,11 @@ function run(): number {
   }
   const t0 = Date.now();
   const sdk = projectSdk(root);
-  if (command === "build") resolveAndroidDependencies(root, files, sdk);
   const out = path.resolve(arg("--out", path.join(root, ".lucent/native")));
   const platformsArg = arg("--platforms", "");
   let platforms = platformsArg ? (platformsArg.split(",") as Target[]) : undefined;
+  // A host build has the platform modules' stubs: no Android dependencies to resolve.
+  if (command === "build" && (!platforms || platforms.includes("android"))) resolveAndroidDependencies(root, files, sdk);
   if (!platforms && files.some((f) => platformOf(f))) {
     // Build what this machine can: an Android-only Linux host, a Mac without the Android SDK.
     const installed = (["ios", "android"] as const).filter((p) => sdkAvailable(p, sdk));

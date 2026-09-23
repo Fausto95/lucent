@@ -29,8 +29,11 @@ function sh(cmd: string, args: string[], cwd = root): string {
 }
 
 fs.mkdirSync(work, { recursive: true });
-console.log("• lucent build");
-sh(process.execPath, [path.join(root, "packages/cli/bin/lucent.cjs"), "build", "--root", app]);
+// The device build needs a platform SDK; the rest of the check does not.
+const device = spawnSync(process.execPath, [path.join(root, "packages/cli/bin/lucent.cjs"), "build", "--root", app], { cwd: root, encoding: "utf8" });
+if (device.status === 0) console.log("• lucent build");
+else if (/no platform SDK is installed/.test(device.stderr)) console.log("• lucent build: skipped (no platform SDK here; the host build below needs none)");
+else throw new Error(`lucent build\n${device.stderr}\n${device.stdout}`);
 
 // Platform modules run only on devices; the host gets stubs of them, built
 // next to the app's own package so that package stays the device build.

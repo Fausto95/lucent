@@ -102,8 +102,10 @@ Postponed:
 - [x] The inputs: settings.gradle, both build.gradle files, gradle.properties,
       gradle/libs.versions.toml, and the JS lockfile (found up to the
       workspace root).
-- [ ] Headless app check without an SDK (platform modules become throwing
-      stubs).
+- [x] Headless app check without an SDK: the host build (platform modules as
+      throwing stubs) runs no Gradle, and app-check skips the device build
+      where no SDK is installed. Both apps pass with the SDKs hidden
+      (LUCENT_ANDROID_PLATFORM=nope, LUCENT_XCRUN=/nonexistent).
 - [x] Installed pods are keyed on Podfile.lock's content; development pods
       (files outside Pods/) keep their files' identities.
 
