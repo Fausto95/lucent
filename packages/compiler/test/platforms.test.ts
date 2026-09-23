@@ -39,10 +39,10 @@ export function impact(): Promise<void> {
 }
 
 export function model(): Promise<string> {
-  return main(() => UIDevice.current.model);
+  return main(() => (UIDevice.current === UIDevice.current ? UIDevice.current.model : ""));
 }
 `,
-  "haptics.android.lucent.ts": `import { Build, Build_VERSION, VibrationEffect, Vibrator, VibratorManager } from "lucent:android/android.os";
+  "haptics.android.lucent.ts": `import { Build, Build_VERSION, Looper, VibrationEffect, Vibrator, VibratorManager } from "lucent:android/android.os";
 import { appContext, available } from "lucent:android";
 
 export async function impact(): Promise<void> {
@@ -54,7 +54,7 @@ export async function impact(): Promise<void> {
 }
 
 export async function model(): Promise<string> {
-  return Build.MODEL ?? "unknown";
+  return Looper.myLooper() === Looper.getMainLooper() ? "main" : (Build.MODEL ?? "unknown");
 }
 `,
 };
@@ -158,7 +158,7 @@ describe("platform modules", () => {
     expect(codes(missing)).toEqual(["LUCENT3005"]);
     expect(missing.diagnostics[0]!.message).toMatch(/haptics\.android\.lucent\.ts does not export model/);
 
-    const mismatch = compile(project({ ...haptics, "haptics.android.lucent.ts": haptics["haptics.android.lucent.ts"].replace("async function model(): Promise<string>", "async function model(): Promise<number>").replace('?? "unknown"', "? 1 : 0") }));
+    const mismatch = compile(project({ ...haptics, "haptics.android.lucent.ts": haptics["haptics.android.lucent.ts"].replace("async function model(): Promise<string>", "async function model(): Promise<number>").replace('"main" : (Build.MODEL ?? "unknown")', "1 : 0") }));
     expect(codes(mismatch)).toEqual(["LUCENT3005"]);
     expect(mismatch.diagnostics[0]!.message).toMatch(/model/);
 
@@ -191,7 +191,7 @@ describe("platform glue", () => {
   });
 
   it("rejects main-only APIs outside main()", () => {
-    const src = haptics["haptics.ios.lucent.ts"].replace("return main(() => UIDevice.current.model);", "const m = UIDevice.current.model;\n  return main(() => m);");
+    const src = haptics["haptics.ios.lucent.ts"].replace('return main(() => (UIDevice.current === UIDevice.current ? UIDevice.current.model : ""));', "const m = UIDevice.current.model;\n  return main(() => m);");
     const r = compile(project({ ...haptics, "haptics.ios.lucent.ts": src }));
     expect(codes(r)).toEqual(["LUCENT3006"]);
     expect(r.diagnostics[0]!.message).toMatch(/UIDevice.*main thread.*main\(\(\) =>/);
