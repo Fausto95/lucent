@@ -151,6 +151,10 @@ grammar, a recursive-descent schema type parser, requirement names from their
 own Swift names, NSError out-parameters, C structs, and @RequiresPermission
 from the platform's annotations.zip.
 
+- [x] Structured schema types: types are JSON objects (SchemaType) that both
+      extractors build and the compiler uses as they are; the written form is
+      only for names and hand-written schemas. Output unchanged except a fix
+      (optional blocks returning optionals kept their outer optionality).
 - [x] Coverage report: `lucent sdk coverage` (idiomatic / raw /
       unrepresentable per module, the reasons tallied); CI records it and fails
       when a module's unrepresentable share grows past sdk-coverage.json.
