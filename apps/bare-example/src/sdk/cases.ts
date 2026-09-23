@@ -2,10 +2,15 @@
 // Platform modules calling the iOS and Android SDKs (M2.0). They run only on
 // devices and simulators; the Hermes host has stubs of them.
 import { Platform } from "react-native";
+import * as Application from "./application.lucent";
+import * as Clipboard from "./clipboard.lucent";
+import * as Device from "./device.lucent";
 import { impactAsync, notificationAsync, selectionAsync } from "./haptics.lucent";
 import { ImpactFeedbackStyle, NotificationFeedbackType } from "./hapticsTypes.lucent";
 import { parityCases } from "./parity";
 import { errorCode, identity, systemName } from "./probe.lucent";
+import * as SecureStore from "./secureStore.lucent";
+import * as Storage from "./storage.lucent";
 import type { SdkCase } from "./types";
 
 const ios = Platform.OS === "ios";
@@ -19,5 +24,55 @@ export const sdkCases: SdkCase[] = [
   { name: "probe.systemName()", run: systemName, expected: ios ? "iOS" : /^Android \d+/ },
   { name: "probe.identity()", run: identity, expected: ios ? "true" : "false|true" },
   { name: "probe.errorCode()", run: errorCode, expected: ios ? "none" : "java.lang.IllegalArgumentException" },
+  // M2.1 parity ports.
+  {
+    name: "clipboard: set, get, has",
+    run: async () => `${await Clipboard.setStringAsync("lucent ✓")} ${await Clipboard.getStringAsync()} ${await Clipboard.hasStringAsync()}`,
+    expected: "true lucent ✓ true",
+  },
+  {
+    name: "application: id, versions",
+    run: async () => `${Application.applicationId()} ${Application.nativeApplicationVersion()} ${Application.nativeBuildVersion()}`,
+    expected: /^[\w.]*example\w* 1\.0(\.0)? 1$/i,
+  },
+  {
+    name: "application: installation time",
+    run: async () => {
+      const t = (await Application.getInstallationTimeAsync()).getTime();
+      return t > Date.UTC(2020, 0, 1) && t <= Date.now() ? "in the past" : `bad: ${t}`;
+    },
+    expected: "in the past",
+  },
+  {
+    name: "device: OS and memory",
+    run: async () => {
+      const d = await Device.getDeviceInfoAsync();
+      return `${d.osName} ${!!d.osVersion} ${!!d.manufacturer} ${(d.totalMemory ?? 0) > 0}`;
+    },
+    expected: ios ? "iOS true true true" : "Android true true true",
+  },
+  {
+    name: "async-storage: set, multiSet, remove, keys, multiGet",
+    run: async () => {
+      await Storage.clear();
+      await Storage.setItem("a", "1");
+      await Storage.multiSet([["b", "2"], ["c", "3"]]);
+      await Storage.removeItem("c");
+      const keys = (await Storage.getAllKeys()).sort();
+      return `${JSON.stringify(keys)} ${JSON.stringify(await Storage.multiGet(["a", "b", "c"]))} ${await Storage.getItem("b")}`;
+    },
+    expected: '["a","b"] [["a","1"],["b","2"],["c",null]] 2',
+  },
+  {
+    name: "secure-store: set, update, get, delete",
+    run: async () => {
+      await SecureStore.setItemAsync("token", "first");
+      await SecureStore.setItemAsync("token", "s3cr3t ✓");
+      const value = await SecureStore.getItemAsync("token");
+      await SecureStore.deleteItemAsync("token");
+      return `${value} ${await SecureStore.getItemAsync("token")}`;
+    },
+    expected: "s3cr3t ✓ null",
+  },
   ...parityCases,
 ];
