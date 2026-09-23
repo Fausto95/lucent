@@ -3,6 +3,7 @@ import type { Block } from "../docs/types";
 import { styles } from "./DocsContent.stylex";
 import { CodeBlock } from "./CodeBlock";
 import { CodeTabs } from "./CodeTabs";
+import { ComparisonTable } from "./ComparisonTable";
 import { DocsDiagram } from "./DocsDiagram";
 import { DocsHeading } from "./DocsHeading";
 import { Inline } from "./Inline";
@@ -88,6 +89,8 @@ export function DocsBlock({ block }: { block: Block }) {
           )}
         </figure>
       );
+    case "comparison":
+      return <ComparisonTable />;
     case "steps":
       return (
         <ol {...stylex.props(styles.steps)}>

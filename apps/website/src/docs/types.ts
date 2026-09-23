@@ -18,6 +18,8 @@ export type Block =
   | { kind: "list"; items: string[]; ordered?: boolean }
   | { kind: "table"; head: string[]; rows: string[][] }
   | { kind: "diagram"; diagram: DiagramName; caption?: string }
+  /** The Lucent / Expo Modules / Nitro / Turbo Native Modules table (docs/comparison-table.ts). */
+  | { kind: "comparison" }
   | { kind: "steps"; steps: { title: string; blocks: Block[] }[] }
   | { kind: "cards"; items: { title: string; text: string; href: string }[] };
 

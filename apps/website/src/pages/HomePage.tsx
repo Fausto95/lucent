@@ -5,11 +5,10 @@ import { styles as sharedStyles } from "../styles/shared.stylex";
 import { CompilerDemo } from "../components/CompilerDemo";
 import { FeatureCard } from "../components/FeatureCard";
 import { CodeBlock } from "../components/CodeBlock";
-import { DocsBlock } from "../components/DocsBlock";
+import { ComparisonTable } from "../components/ComparisonTable";
 import { useClipboard } from "../components/ClipboardProvider";
 import { useDocumentMeta } from "../components/useDocumentMeta";
 import { commands, platformTeaser } from "../content";
-import { comparisonSummary } from "../docs/comparison-table";
 
 export function HomePage() {
   const { copy } = useClipboard();
@@ -176,7 +175,7 @@ export function HomePage() {
             </Link>
           </p>
         </div>
-        <DocsBlock block={comparisonSummary} />
+        <ComparisonTable compact />
       </section>
 
       <section id="get-started" aria-labelledby="start-heading" {...stylex.props(styles.startSection)}>
