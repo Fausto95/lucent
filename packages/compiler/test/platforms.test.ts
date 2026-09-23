@@ -79,8 +79,8 @@ export function f(): string {
   return UIDevice.current.systemName;
 }
 `;
-    // Protocols cannot be constructed; classes inherit NSObject's init as in Swift.
-    expect(tsErrors("ios", src)).toEqual(["6: TS2739", "8: TS2674"]);
+    // Protocols are types, not values; classes inherit NSObject's init as in Swift.
+    expect(tsErrors("ios", src)).toEqual(["6: TS2739", "8: TS2693"]);
   });
 
   it.skipIf(!android)("types Java classes: nullability, primitive arrays, Class<T> and getter properties", () => {

@@ -114,6 +114,25 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     expect(on("onDone")).not.toHaveProperty("async");
   });
 
+  it("names protocol requirements from their own Swift names, and marks optional ones", () => {
+    const d = type("WDGLoaderDelegate");
+    if (d.kind !== "class") throw new Error("not a class");
+    // Swift's base name and labels, as in the selector: stable whatever else the protocol declares.
+    expect(d).toMatchObject({ interface: true });
+    expect(d.methods).toEqual([
+      { name: "loader_didLoad", selector: "loader:didLoadData:", params: [{ name: "loader", type: "Widgets.WDGLoader" }, { name: "data", type: "NSData" }], returns: "void" },
+      { name: "loader_didFailWithError", selector: "loader:didFailWithError:", params: [{ name: "loader", type: "Widgets.WDGLoader" }, { name: "error", type: "error" }], returns: "void", optional: true },
+      { name: "loaderShouldRetry", selector: "loaderShouldRetry:", params: [{ name: "loader", type: "Widgets.WDGLoader" }], returns: "bool", optional: true },
+    ]);
+    expect(method("area")).toHaveLength(1);
+  });
+
+  it("marks weak properties, which do not keep their value alive", () => {
+    const loader = type("WDGLoader");
+    if (loader.kind !== "class") throw new Error("not a class");
+    expect(loader.properties!.find((p) => p.name === "delegate")).toMatchObject({ type: "Widgets.WDGLoaderDelegate?", setter: "setDelegate:", weak: true });
+  });
+
   it("reads typed string keys (NS_TYPED_ENUM) as string constants of their C globals", () => {
     expect(type("WDGKey")).toMatchObject({ kind: "class", properties: [{ name: "name", static: true, readonly: true, type: "string", global: "WDGKeyName" }] });
   });

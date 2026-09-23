@@ -126,6 +126,30 @@ export async function run(): Promise<string> {
 }
 `;
 
+const delegate = `import { CLLocation, CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";
+import { main } from "lucent:thread";
+class Tracker implements CLLocationManagerDelegate {
+  updates = 0;
+  failures = 0;
+  locationManager_didUpdateLocations(manager: CLLocationManager, locations: CLLocation[]): void {
+    this.updates += locations.length;
+  }
+  locationManager_didFailWithError(manager: CLLocationManager, error: Error): void {
+    this.failures++;
+  }
+}
+export async function run(): Promise<string> {
+  const tracker = new Tracker();
+  return main(() => {
+    const manager = new CLLocationManager();
+    // A weak property: the manager keeps the delegate alive.
+    manager.delegate = tracker;
+    manager.requestWhenInUseAuthorization();
+    return \`\${tracker.updates} \${tracker.failures} \${manager.delegate !== null}\`;
+  });
+}
+`;
+
 describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
   it("reads and writes properties", () => {
     const { r, mm } = ios(clipboard);
@@ -184,6 +208,15 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(mm).toContain("p_.resolve(lucent::undefined)");
   });
 
+  it("implements protocols with Lucent classes, retained by the objects they delegate for", () => {
+    const { r, mm } = ios(delegate);
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toMatch(/@interface LucentTracker : NSObject <CLLocationManagerDelegate>/);
+    expect(mm).toMatch(/- \(void\)locationManager:\(CLLocationManager\*\)a0_ didUpdateLocations:\(NSArray\*\)a1_ \{ lucent::postCallback\(/);
+    expect(mm).toMatch(/- \(void\)locationManager:\(CLLocationManager\*\)a0_ didFailWithError:\(NSError\*\)a1_ \{/);
+    expect(mm).toContain("objc_setAssociatedObject(");
+  });
+
   it("allows main-thread APIs only in blocks that run on the main thread", () => {
     const { r } = ios(`import { UIView } from "lucent:ios/UIKit";
 import { Timer } from "lucent:ios/Foundation";
@@ -200,7 +233,7 @@ export async function run(): Promise<string> {
   it("generates Objective-C++ that compiles against the iOS SDK", () => {
     const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
     if (process.platform !== "darwin" || sdk.status !== 0) return;
-    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
+    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
       const { r, dir } = ios(src, sdk);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {

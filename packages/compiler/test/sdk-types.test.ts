@@ -53,6 +53,31 @@ describe("SDK declarations", () => {
     expect(dts).toContain("  countWhere(predicate: (arg0: string) => boolean): number;");
   });
 
+  it("declares protocols as interfaces Lucent classes implement, optional requirements optional", () => {
+    const d = sdkDts({
+      platform: "ios",
+      module: "Widgets",
+      types: [
+        {
+          kind: "class",
+          name: "WDGLoaderDelegate",
+          native: "WDGLoaderDelegate",
+          interface: true,
+          methods: [
+            { name: "loader_didLoad", selector: "loader:didLoadData:", params: [{ name: "loader", type: "WDGLoader" }, { name: "data", type: "NSData" }], returns: "void" },
+            { name: "loaderShouldRetry", selector: "loaderShouldRetry:", params: [{ name: "loader", type: "WDGLoader" }], returns: "bool", optional: true },
+          ],
+        },
+        { kind: "class", name: "WDGLoader", native: "WDGLoader", implements: ["WDGLoaderDelegate"], properties: [{ name: "delegate", type: "WDGLoaderDelegate?", setter: "setDelegate:", weak: true }] },
+      ],
+    });
+    expect(d).toContain("export declare interface WDGLoaderDelegate {");
+    expect(d).toContain("  loader_didLoad(loader: WDGLoader, data: Uint8Array): void;");
+    expect(d).toContain("  loaderShouldRetry?(loader: WDGLoader): boolean;");
+    expect(d).toContain("export declare interface WDGLoader extends WDGLoaderDelegate {}");
+    expect(d).toContain("  delegate: WDGLoaderDelegate | null;");
+  });
+
   it("adds a promise overload for completion handlers Swift imports as async", () => {
     expect(dts).toContain("  load(reply: (arg0: Uint8Array | null, arg1: Error | null) => void): void;");
     expect(dts).toContain("  load(): Promise<Uint8Array>;");

@@ -57,8 +57,19 @@ NS_SWIFT_UI_ACTOR
 
 @end
 
+@class WDGLoader;
+
+/// A delegate protocol: requirements Lucent classes implement.
+@protocol WDGLoaderDelegate <NSObject>
+- (void)loader:(WDGLoader *)loader didLoadData:(NSData *)data;
+@optional
+- (void)loader:(WDGLoader *)loader didFailWithError:(NSError *)error;
+- (BOOL)loaderShouldRetry:(WDGLoader *)loader;
+@end
+
 /// Not main-actor: its callbacks can come from any thread.
 @interface WDGLoader : NSObject
+@property (nonatomic, weak, nullable) id<WDGLoaderDelegate> delegate;
 - (void)observeWithBlock:(void (^)(NSString *name, NSInteger count))block;
 - (void)loadWithReply:(void (^)(NSData *_Nullable data, NSError *_Nullable error))reply;
 - (void)onDone:(void (^)(void))done NS_SWIFT_DISABLE_ASYNC;
