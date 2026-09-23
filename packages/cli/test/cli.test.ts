@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -129,4 +129,66 @@ describe("the app's Android dependencies", () => {
     expect(fs.existsSync(path.join(root, ".lucent/native/android/lucent.gradle"))).toBe(false);
     expect(r.status).toBe(0);
   });
+
+  /** An app with an Android import no dependency has, and a gradlew that counts its runs. */
+  function gradleApp(exitCode = 0) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-"));
+    fs.writeFileSync(path.join(root, "m.lucent.ts"), "export declare function f(): Promise<string>;\n");
+    fs.writeFileSync(path.join(root, "m.android.lucent.ts"), 'import { Nope } from "lucent:android/com.example.nope";\nexport async function f(): Promise<string> { return `${Nope}`; }\n');
+    fs.writeFileSync(path.join(root, "m.ios.lucent.ts"), 'export async function f(): Promise<string> { return ""; }\n');
+    fs.writeFileSync(path.join(root, "package-lock.json"), "{}\n");
+    fs.mkdirSync(path.join(root, "android/app"), { recursive: true });
+    fs.mkdirSync(path.join(root, "android/gradle"), { recursive: true });
+    fs.writeFileSync(path.join(root, "android/app/build.gradle"), 'apply plugin: "com.android.application"\n');
+    fs.writeFileSync(path.join(root, "android/gradle/libs.versions.toml"), "[versions]\n");
+    const runs = path.join(root, "gradle-runs");
+    fs.writeFileSync(path.join(root, "android/gradlew"), `#!/bin/sh\necho run >> ${runs}\nmkdir -p ${path.join(root, ".lucent")}\necho '{"jars":[],"aars":[]}' > ${path.join(root, ".lucent/android-classpath.json")}\nexit ${exitCode}\n`, { mode: 0o755 });
+    const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-"));
+    const build = () => spawnSync(process.execPath, [bin, "build", "--platforms", "android", "--root", root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: cache } });
+    const count = () => (fs.existsSync(runs) ? fs.readFileSync(runs, "utf8").trim().split("\n").length : 0);
+    return { root, build, count, cache };
+  }
+
+  it.skipIf(!android)("runs Gradle once per change of the build's inputs, not once per build", () => {
+    const app = gradleApp();
+    app.build();
+    app.build();
+    expect(app.count()).toBe(1);
+    // The JS lockfile: autolinked packages add Android dependencies.
+    fs.writeFileSync(path.join(app.root, "package-lock.json"), '{"lockfileVersion":3}\n');
+    app.build();
+    app.build();
+    expect(app.count()).toBe(2);
+    fs.writeFileSync(path.join(app.root, "android/gradle/libs.versions.toml"), '[versions]\nbiometric = "1.1.0"\n');
+    app.build();
+    expect(app.count()).toBe(3);
+  });
+
+  it.skipIf(!android)("does not retry a failed resolution until the inputs change", () => {
+    const app = gradleApp(1);
+    expect(app.build().stderr).toMatch(/Gradle could not resolve/);
+    app.build();
+    expect(app.count()).toBe(1);
+    fs.writeFileSync(path.join(app.root, "android/app/build.gradle"), 'apply plugin: "com.android.application"\n// fixed\n');
+    app.build();
+    expect(app.count()).toBe(2);
+  });
+
+  it.skipIf(!android)("resolves once in a watch session that rebuilds", async () => {
+    const app = gradleApp();
+    const child = spawn(process.execPath, [bin, "build", "--watch", "--root", app.root], { env: { ...process.env, LUCENT_CACHE_DIR: app.cache } });
+    let output = "";
+    child.stdout.on("data", (d) => (output += String(d)));
+    child.stderr.on("data", (d) => (output += String(d)));
+    const builds = () => (output.match(/Lucent build failed|✓ Lucent:/g) ?? []).length;
+    const until = async (n: number) => {
+      for (let i = 0; i < 300 && builds() < n; i++) await new Promise((r) => setTimeout(r, 100));
+    };
+    await until(1);
+    fs.appendFileSync(path.join(app.root, "m.android.lucent.ts"), "// edited\n");
+    await until(2);
+    child.kill();
+    expect(builds()).toBeGreaterThanOrEqual(2);
+    expect(app.count()).toBe(1);
+  }, 60_000);
 });
