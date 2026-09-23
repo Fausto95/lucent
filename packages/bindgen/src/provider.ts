@@ -35,6 +35,9 @@ export interface SdkOptions {
   ios?: {
     /** Directories with module maps, for modules outside the SDK. */
     includePaths?: string[];
+    /** Framework search paths, and module maps loaded explicitly (the app's pods: see podsSearchPaths). */
+    frameworkPaths?: string[];
+    moduleMaps?: string[];
     xcrun?: string;
   };
   /** Fall back to @lucent-lang/sdk-<platform> prebuilt caches when there is no local SDK (default true). */
@@ -69,7 +72,8 @@ interface Located {
   /** What the SDK is, for messages. */
   describe: string;
   android?: { jars: string[]; apiVersions?: string; dependencies: number; classpath?: string };
-  ios?: { sdk: string; ios: IosOptions; frameworks: string; modules: Map<string, string | undefined> };
+  /** modules: module name → its headers (undefined: an SDK framework, <M>/<M>.h). */
+  ios?: { sdk: string; ios: IosOptions; frameworks: string; modules: Map<string, string[] | undefined> };
 }
 
 const hash = (parts: string[]) => crypto.createHash("sha256").update(parts.join("\n")).digest("hex").slice(0, 16);
@@ -175,19 +179,37 @@ function locateIos(opts: SdkOptions): Located | { missing: string } {
     return { missing: `the iOS SDK was not found (${xcrun} --sdk iphonesimulator failed). Install Xcode and select it: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer` };
   }
   const includePaths = opts.ios?.includePaths ?? [];
-  // Modules: the SDK's frameworks, and module maps on the include paths.
+  const frameworkPaths = opts.ios?.frameworkPaths ?? [];
+  const moduleMaps = opts.ios?.moduleMaps ?? [];
+  // Modules: the SDK's frameworks, frameworks on the framework paths, and
+  // the module maps on the include paths or loaded explicitly (pods).
   const frameworks = path.join(sdk, "System/Library/Frameworks");
-  const modules = new Map<string, string | undefined>();
+  const modules = new Map<string, string[] | undefined>();
   for (const f of fs.existsSync(frameworks) ? fs.readdirSync(frameworks) : []) if (f.endsWith(".framework")) modules.set(f.slice(0, -".framework".length), undefined);
-  const extraFiles: string[] = [];
+  const readMap = (map: string) => {
+    const text = fs.readFileSync(map, "utf8");
+    const headers = [...text.matchAll(/(?:umbrella\s+)?header\s+"([^"]+)"/g)].map((h) => path.resolve(path.dirname(map), h[1]!));
+    for (const m of text.matchAll(/^\s*(?:framework\s+)?module\s+([\w.]+)/gm)) modules.set(m[1]!, headers.length ? headers : filesUnder(path.dirname(map), /\.h$/));
+  };
+  const keyFiles: string[] = [...moduleMaps];
   for (const inc of includePaths) {
     for (const map of filesUnder(inc, /^module\.modulemap$/)) {
-      for (const m of fs.readFileSync(map, "utf8").matchAll(/^\s*(?:framework\s+)?module\s+([\w.]+)/gm)) modules.set(m[1]!, path.dirname(map));
+      readMap(map);
+      keyFiles.push(map);
     }
-    extraFiles.push(...filesUnder(inc, /\.(h|modulemap)$/));
   }
-  const key = `iphonesimulator${version}-${build}-${hash([extractorVersion(), ...includePaths, ...fileIdentity(extraFiles)])}`;
-  return { dir: path.join(cacheRoot(opts), "sdk/ios", key), describe: `iOS ${version} SDK (${build})`, ios: { sdk, ios: { modules: [], includePaths, xcrun }, frameworks, modules } };
+  for (const map of moduleMaps) readMap(map);
+  for (const dir of frameworkPaths) {
+    for (const f of fs.existsSync(dir) ? fs.readdirSync(dir) : []) {
+      if (!f.endsWith(".framework")) continue;
+      const name = f.slice(0, -".framework".length);
+      modules.set(name, filesUnder(path.join(dir, f, "Headers"), /\.h$/));
+      keyFiles.push(path.join(dir, f));
+    }
+  }
+  for (const headers of modules.values()) keyFiles.push(...(headers ?? []));
+  const key = `iphonesimulator${version}-${build}-${hash([extractorVersion(), ...includePaths, ...frameworkPaths, ...fileIdentity(keyFiles.filter((f) => fs.existsSync(f)))])}`;
+  return { dir: path.join(cacheRoot(opts), "sdk/ios", key), describe: `iOS ${version} SDK (${build})`, ios: { sdk, ios: { modules: [], includePaths, frameworkPaths, moduleMaps, xcrun }, frameworks, modules } };
 }
 
 /** Which module declares each Objective-C type, from a scan of the headers (cheap, once per SDK). */
@@ -209,8 +231,10 @@ function headerIndex(sdk: Located): Record<string, string> {
       for (const re of patterns) for (const m of text.matchAll(re)) index[m[1]!] ??= module;
     }
   };
-  for (const [module, dir] of sdk.ios!.modules) {
-    scan(module, dir ? filesUnder(dir, /\.h$/) : filesUnder(path.join(sdk.ios!.frameworks, `${module}.framework/Headers`), /\.h$/));
+  for (const [module, headers] of sdk.ios!.modules) {
+    // A module's own headers, and the ones its umbrella header includes next to it.
+    const files = headers ? [...new Set(headers.flatMap((h) => [h, ...filesUnder(path.dirname(h), /\.h$/)]))] : filesUnder(path.join(sdk.ios!.frameworks, `${module}.framework/Headers`), /\.h$/);
+    scan(module, files);
   }
   write(file, index);
   return index;
@@ -267,11 +291,11 @@ function extractIosModule(sdk: Located, module: string): SdkLookup {
   const own = namesOf(module, g);
   write(path.join(sdk.dir, `${module}.names.json`), own);
   // Types of other modules keep their Swift names: those modules' graphs supply them.
-  const headers = headerIndex(sdk);
-  const deps = [...new Set([...externalUsrs(g)].map((u) => ownerOf(u, headers)).filter((m): m is string => !!m && m !== module && modules.has(m)))];
+  const owners = headerIndex(sdk);
+  const deps = [...new Set([...externalUsrs(g)].map((u) => ownerOf(u, owners)).filter((m): m is string => !!m && m !== module && modules.has(m)))];
   const names = [own, ...namesFor(sdk, deps)];
-  const header = modules.get(module) ? `${module}/${module}.h` : `${module}/${module}.h`;
-  const schema = buildIosSchema(module, g, names, (enums) => enumValues(enums, [header], ios, sdkPath));
+  const headers = modules.get(module) ?? [`${module}/${module}.h`];
+  const schema = buildIosSchema(module, g, names, (enums) => enumValues(enums, headers, ios, sdkPath));
   return { schema };
 }
 

@@ -20,6 +20,10 @@ export interface IosOptions {
   target?: string;
   /** The xcrun to run (default: xcrun on PATH). */
   xcrun?: string;
+  /** Framework search paths (-F), for frameworks outside the SDK. */
+  frameworkPaths?: string[];
+  /** Module maps to load (-fmodule-map-file), as pods declare their modules. */
+  moduleMaps?: string[];
 }
 
 export interface Fragment {
@@ -56,6 +60,8 @@ function sdkPath(): string {
 export function symbolGraphArgs(module: string, opts: IosOptions, sdk: string, dir: string): string[] {
   const args = ["swift-symbolgraph-extract", "-module-name", module, "-target", opts.target ?? DEFAULT_TARGET, "-sdk", sdk, "-output-dir", dir, "-minimum-access-level", "public"];
   for (const i of opts.includePaths ?? []) args.push("-I", i);
+  for (const f of opts.frameworkPaths ?? []) args.push("-F", f);
+  for (const m of opts.moduleMaps ?? []) args.push("-Xcc", `-fmodule-map-file=${m}`);
   return args;
 }
 
@@ -116,9 +122,9 @@ export function enumValues(enums: string[], headers: string[], opts: IosOptions,
   if (!enums.length) return out;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-enums-"));
   const source = path.join(dir, "enums.m");
-  fs.writeFileSync(source, headers.map((h) => `#import <${h}>\n`).join(""));
+  fs.writeFileSync(source, headers.map((h) => (path.isAbsolute(h) ? `#import "${h}"\n` : `#import <${h}>\n`)).join(""));
   const q = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
-  const clang = [opts.xcrun ?? "xcrun", "clang", "-x", "objective-c", "-target", opts.target ?? DEFAULT_TARGET, "-isysroot", sdk, ...(opts.includePaths ?? []).map((i) => `-I${i}`), "-fsyntax-only", "-Xclang", "-ast-dump=json", "-Xclang", "-ast-dump-filter", "-Xclang"].map(q).join(" ");
+  const clang = [opts.xcrun ?? "xcrun", "clang", "-x", "objective-c", "-target", opts.target ?? DEFAULT_TARGET, "-isysroot", sdk, ...(opts.includePaths ?? []).map((i) => `-I${i}`), ...(opts.frameworkPaths ?? []).map((f) => `-F${f}`), ...(opts.moduleMaps ?? []).map((m) => `-fmodule-map-file=${m}`), "-fsyntax-only", "-Xclang", "-ast-dump=json", "-Xclang", "-ast-dump-filter", "-Xclang"].map(q).join(" ");
   // One clang run per enum, eight at a time.
   const lines = enums.map((e, i) => `${clang} ${q(e)} ${q(source)} > ${q(path.join(dir, `${e}.json`))} 2>/dev/null &${(i + 1) % 8 === 0 ? "\nwait" : ""}`);
   fs.writeFileSync(path.join(dir, "run.sh"), `${lines.join("\n")}\nwait\n`);
@@ -397,7 +403,13 @@ export function externalUsrs(g: SymbolGraph): Set<string> {
   const declared = new Set(g.symbols.map((s) => s.identifier.precise));
   const out = new Set<string>();
   const visit = (frags: Fragment[] | undefined) => {
-    for (const f of frags ?? []) if (f.preciseIdentifier?.startsWith("c:") && !declared.has(f.preciseIdentifier)) out.add(f.preciseIdentifier);
+    for (const f of frags ?? []) {
+      const usr = f.preciseIdentifier;
+      if (!usr) continue;
+      // Swift value types that bridge to Foundation classes (URL → NSURL).
+      if (usr in BRIDGED_CLASS) out.add(`c:objc(cs)${BRIDGED_CLASS[usr]}`);
+      else if (usr.startsWith("c:") && !declared.has(usr)) out.add(usr);
+    }
   };
   for (const s of g.symbols) {
     visit(s.declarationFragments);
