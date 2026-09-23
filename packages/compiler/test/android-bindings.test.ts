@@ -22,6 +22,26 @@ function android(src: string) {
 
 const codes = (r: { diagnostics: { code: string }[] }) => r.diagnostics.map((d) => d.code);
 
+const tracker = `import { Location, LocationListener, LocationManager } from "lucent:android/android.location";
+import { appContext } from "lucent:android";
+class Tracker implements LocationListener {
+  fixes = 0;
+  onLocationChanged(location: Location): void {
+    this.fixes += location.getAccuracy() > 0 ? 1 : 0;
+  }
+  onProviderDisabled(provider: string): void {
+    this.fixes = -1;
+  }
+}
+export async function run(): Promise<string> {
+  const tracker = new Tracker();
+  const manager = appContext().getSystemService(LocationManager);
+  manager?.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, tracker);
+  manager?.removeUpdates(tracker);
+  return \`\${tracker.fixes}\`;
+}
+`;
+
 const listener = `import { Location, LocationManager } from "lucent:android/android.location";
 import { Context } from "lucent:android/android.content";
 import { appContext } from "lucent:android";
@@ -143,8 +163,17 @@ export async function run(): Promise<string> {
     expect(r.diagnostics).toEqual([]);
     // One proxy per function, so removeUpdates gets the object requestLocationUpdates did.
     expect(cpp).toContain('lucent::jni::proxyFor(env, "android/location/LocationListener"');
-    expect(cpp).toMatch(/\{"onLocationChanged", \[f_\]\(JNIEnv\* env, jobjectArray args_\) -> jobject \{/);
+    // Keyed by name and parameters: the default onLocationChanged(List) keeps its Java body.
+    expect(cpp).toMatch(/\{"onLocationChanged\(Landroid\/location\/Location;\)", \[f_\]\(JNIEnv\* env, jobjectArray args_\) -> jobject \{/);
     expect(cpp).toContain("lucent::postCallback(");
+  });
+
+  it("implements Java interfaces with Lucent classes, one proxy per instance", () => {
+    const { r, cpp } = android(tracker);
+    expect(r.diagnostics).toEqual([]);
+    expect(cpp).toContain('lucent::jni::proxyFor(lucent::jni::env(), "android/location/LocationListener", o_.get(), {');
+    expect(cpp).toMatch(/\{"onLocationChanged\(Landroid\/location\/Location;\)", \[s_ = o_\]\(JNIEnv\* env, jobjectArray args_\) -> jobject \{/);
+    expect(cpp).toContain('{"onProviderDisabled(Ljava/lang/String;)", ');
   });
 
   it("ships a NativeProxy that compiles against android.jar", () => {
@@ -179,7 +208,7 @@ export async function run(): Promise<string> {
   return \`\${ClipData.newPlainText("l", "t")?.getItemAt(0)?.getText()} \${Context.VIBRATOR_SERVICE} \${info?.versionName} \${bytes?.length} \${Uri.parse("x")?.describeContents()} \${(Build.SUPPORTED_ABIS ?? []).join()}\`;
 }
 `;
-    for (const src of [calls, listener]) {
+    for (const src of [calls, listener, tracker]) {
       const { r, dir } = android(src);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {
