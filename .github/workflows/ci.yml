@@ -108,6 +108,14 @@ jobs:
           key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
       - name: Compiler and bindgen tests with the iOS SDK (the Linux job skips them)
         run: pnpm test
+      - name: SDK coverage (fails when a module's unrepresentable share grows past sdk-coverage.json)
+        run: node packages/cli/bin/lucent.cjs sdk coverage --ios UIKit,Foundation,AVFoundation --android 'android.*' --json --check sdk-coverage.json > sdk-coverage.current.json
+      - name: Keep the coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-coverage
+          path: sdk-coverage.current.json
       - name: Runtime unit tests (ASan/UBSan, libc++)
         run: SANITIZE=1 packages/runtime/test/run.sh
       - name: Generate the native package

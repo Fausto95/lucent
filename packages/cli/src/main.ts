@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { compile, forgetLoadedSdks, formatDiagnostic, inputsKey, isUpToDate, platformOf, lucentPackages, nativeDependencies, type NativeDependencies, podsSearchPaths, prefetchSdk, projectFiles, withGradleDependencies, sdkAvailable, sdkModule, sdkModules, runtimeDir, type SdkOptions, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
+import { compile, forgetLoadedSdks, formatDiagnostic, inputsKey, isUpToDate, platformOf, lucentPackages, nativeDependencies, sdkCoverage, type SdkCoverage, type NativeDependencies, podsSearchPaths, prefetchSdk, projectFiles, withGradleDependencies, sdkAvailable, sdkModule, sdkModules, runtimeDir, type SdkOptions, type Target, watchBuild, writeNativePackage } from "@lucent-lang/compiler";
 
 const HELP = `lucent — compile *.lucent.ts modules into a native React Native package
 
@@ -17,6 +17,9 @@ Usage:
   lucent sdk prefetch [--ios A,B] [--android p.q,…] [--all] [--root <dir>]
                                              Extract SDK bindings into the cache ahead of use (default: the
                                              lucent:* modules the project imports; --all: every module)
+  lucent sdk coverage [--ios A,B] [--android p.q,…] [--json] [--check <baseline.json>]
+                                             Members Lucent code can call per module: idiomatic, raw,
+                                             unrepresentable (--check fails when that grows past a baseline)
   lucent init  [--root <dir>]                 Wire an app: react-native.config.js, .gitignore, tsconfig
 `;
 
@@ -34,6 +37,7 @@ function run(): number {
   }
   if (command === "init") return init(root);
   if (command === "sdk" && process.argv[3] === "prefetch") return sdkPrefetch(root);
+  if (command === "sdk" && process.argv[3] === "coverage") return sdkCoverageReport(root);
   if (command !== "build" && command !== "check") {
     process.stderr.write(`Unknown command: ${command}\n\n${HELP}`);
     return 1;
@@ -257,6 +261,51 @@ function watch(root: string): number {
     },
   });
   return -1;
+}
+
+/** `lucent sdk coverage`: per module, how much Lucent code can call, and how. */
+function sdkCoverageReport(root: string): number {
+  const sdk = projectSdk(root);
+  const list = (flag: string) => arg(flag, "").split(",").filter(Boolean);
+  const wanted = { ios: list("--ios"), android: list("--android") };
+  if (!wanted.ios.length && !wanted.android.length) Object.assign(wanted, sdkImports(projectFiles(root)));
+  const reports: SdkCoverage[] = [];
+  for (const platform of ["ios", "android"] as const) {
+    // `android.*`: every module with the prefix.
+    const listed = () => {
+      const all = sdkModules(platform, sdk);
+      return "missing" in all ? [] : all;
+    };
+    const modules = wanted[platform].flatMap((m) => (m.endsWith(".*") ? listed().filter((x) => x.startsWith(m.slice(0, -1))) : [m]));
+    for (const m of modules) {
+      const r = sdkModule(platform, m, sdk);
+      if ("missing" in r) {
+        process.stderr.write(`✗ ${r.missing}\n`);
+        return 1;
+      }
+      reports.push(sdkCoverage(r.schema));
+    }
+  }
+  if (process.argv.includes("--json")) process.stdout.write(`${JSON.stringify(reports, null, 2)}\n`);
+  else {
+    const pct = (n: number, t: number) => `${t ? ((100 * n) / t).toFixed(1) : "0.0"}%`;
+    process.stdout.write(`${"module".padEnd(28)} ${"total".padStart(7)} ${"idiomatic".padStart(10)} ${"raw".padStart(8)} ${"unrepresentable".padStart(16)}\n`);
+    for (const c of reports) process.stdout.write(`${c.module.padEnd(28)} ${String(c.total).padStart(7)} ${String(c.idiomatic).padStart(10)} ${String(c.raw).padStart(8)} ${`${c.unrepresentable} (${pct(c.unrepresentable, c.total)})`.padStart(16)}\n`);
+  }
+  const baselineFile = arg("--check", "");
+  if (!baselineFile) return 0;
+  const baseline = new Map((JSON.parse(fs.readFileSync(baselineFile, "utf8")) as SdkCoverage[]).map((c) => [c.module, c]));
+  // Shares, not counts: another SDK version has other members.
+  const share = (c: SdkCoverage) => (c.total ? (100 * c.unrepresentable) / c.total : 0);
+  let dropped = false;
+  for (const c of reports) {
+    const b = baseline.get(c.module);
+    if (b && share(c) > share(b) + 0.05) {
+      process.stderr.write(`✗ ${c.module}: ${share(c).toFixed(2)}% unrepresentable, ${share(b).toFixed(2)}% in the baseline\n`);
+      dropped = true;
+    }
+  }
+  return dropped ? 1 : 0;
 }
 
 function init(root: string): number {

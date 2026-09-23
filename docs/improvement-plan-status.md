@@ -146,10 +146,27 @@ Left, or postponed:
 
 ## Phase 4: bindings from platform metadata
 
-Not started. Parts pulled forward for Phase 1: function and error types in
-the schema grammar, a recursive-descent schema type parser, requirement
-names from their own Swift names, NSError out-parameters, C structs, and
-@RequiresPermission from the platform's annotations.zip.
+Parts pulled forward for Phase 1: function and error types in the schema
+grammar, a recursive-descent schema type parser, requirement names from their
+own Swift names, NSError out-parameters, C structs, and @RequiresPermission
+from the platform's annotations.zip.
+
+- [x] Coverage report: `lucent sdk coverage` (idiomatic / raw /
+      unrepresentable per module, the reasons tallied); CI records it and fails
+      when a module's unrepresentable share grows past sdk-coverage.json.
+
+Coverage (unrepresentable members):
+
+| Module | 2026-09-23 baseline |
+| --- | --- |
+| UIKit | 584 of 6,067 (9.6%) |
+| Foundation | 723 of 3,906 (18.5%) |
+| AVFoundation | 451 of 3,527 (12.8%) |
+| android.* (214 packages) | 207 of 79,136 (0.3%) |
+
+Top reasons: Swift's bridged value types (IndexPath, DateComponents,
+URLRequest, CharacterSet), structs of other modules (NSRange, CMTime,
+CMTimeRange), pointers, Selector, AnyClass; on Android, generics.
 
 ## Phase 5: typed IR
 
