@@ -11,6 +11,7 @@
 #include "equality.h"
 #include "jserror.h"
 #include "function.h"
+#include "generator.h"
 #include "helpers.h"
 #include "json.h"
 #include "json_parse.h"

@@ -259,6 +259,16 @@ struct Convert<Date> {
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Date& d);
 };
 
+/// A JavaScript iterable arrives as a snapshot (Array.from), iterated lazily.
+template <class T>
+struct Convert<Iter<T>> {
+  static Iter<T> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+    if (!v.isObject() && !v.isString()) throwBoundaryError(rt, p, "an iterable", v);
+    jsi::Function from = rt.global().getPropertyAsObject(rt, "Array").getPropertyAsFunction(rt, "from");
+    return iterOf(Convert<Array<T>>::fromJs(rt, from.call(rt, v), p));
+  }
+};
+
 /// An AbortSignal from JavaScript becomes a native signal that a listener on
 /// the JS signal aborts. The native signal is cached on the JS object, so one
 /// JS signal always maps to one native signal. Signals do not go the other way.

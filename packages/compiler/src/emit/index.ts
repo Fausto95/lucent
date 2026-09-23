@@ -232,8 +232,10 @@ function collect(ctx: Ctx, m: LucentModule, s: ts.Statement, exp: ModuleExports,
 
 function emitFunction(ctx: Ctx, g: Extract<Global, { kind: "function" }>, decls: string[], defs: string[], genericFns: string[]): void {
   const s = g.decl;
+  const generator = !!g.decl.asteriskToken;
+  if (generator && g.async) fail(g.decl, Codes.UnsupportedSyntax, "async generators are not supported");
   const ret = g.async ? (g.type.ret.k === "promise" ? g.type.ret.inner : g.type.ret) : g.type.ret;
-  const em = new FnEmitter(ctx, { module: g.module, async: g.async, returnType: ret });
+  const em = new FnEmitter(ctx, { module: g.module, async: g.async, generator, returnType: generator ? T.void : ret });
   let params: string[] = [];
   ctx.guard(() => {
     params = em.emitParams(s, g.params);

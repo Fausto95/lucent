@@ -67,6 +67,11 @@ Notable lowering choices:
 * **Closures** are C++ lambdas wrapped in `lucent::Fn`. A local captured by a
   closure *and* written after its declaration lives in a `lucent::Box`, so both
   sides see one variable (analysis in `emit/analysis.ts`).
+* **Generators** are coroutines whose declared return type is
+  `lucent::Iter<T>` (a `coroutine_traits` specialization supplies the
+  promise). `iterator.return()` resumes a suspended generator so that its
+  pending `co_yield` throws `lucent::GeneratorReturn`, which unwinds through
+  the generated `finally` code; JS `catch` clauses rethrow it.
 * **Coroutines** never reference lambda captures: an async arrow becomes a
   capture-less coroutine that receives its captures as parameters.
 * **`try/finally`** uses completion codes: `return`, `break` and `continue` inside

@@ -87,6 +87,10 @@ export class BindingsEmitter {
         return this.use(t.ret, node);
       case "tparam":
         fail(node, Codes.GenericBoundary, "generic values cannot cross the JavaScript boundary");
+      case "iter":
+        return this.use(t.e, node);
+      case "iterResult":
+        fail(node, Codes.BoundaryType, "iterator results cannot cross the JavaScript boundary");
     }
   }
 
@@ -105,6 +109,10 @@ export class BindingsEmitter {
         return;
       case "abortController":
         fail(node, Codes.BoundaryType, "an AbortController cannot cross the JavaScript boundary; pass its signal instead");
+      case "iter":
+        // JavaScript iterables come in as a snapshot; iterators do not go out.
+        if (out) fail(node, Codes.BoundaryType, "iterators and generators cannot be returned to JavaScript; collect them into an array");
+        return this.flow(t.e, out, node);
       case "struct":
         return this.reg.struct(t.id).fields.forEach((f) => this.flow(f.type, out, node));
       case "class":

@@ -30,6 +30,8 @@ export type LType =
   | { k: "bytes" }
   | { k: "error" }
   | { k: "date" }
+  | { k: "iter"; e: LType }
+  | { k: "iterResult"; e: LType }
   | { k: "abortSignal" }
   | { k: "abortController" }
   | { k: "tparam"; name: string };
@@ -67,6 +69,10 @@ export function typeKey(t: LType): string {
       return t.args.length ? `C:${t.id}<${t.args.map(typeKey).join(",")}>` : `C:${t.id}`;
     case "iface":
       return t.args.length ? `I:${t.id}<${t.args.map(typeKey).join(",")}>` : `I:${t.id}`;
+    case "iter":
+      return `Iter<${typeKey(t.e)}>`;
+    case "iterResult":
+      return `IterResult<${typeKey(t.e)}>`;
     case "opt":
       return `${typeKey(t.inner)}?`;
     case "union":
@@ -140,6 +146,10 @@ export function substitute(t: LType, map: Map<string, LType>): LType {
       return { k: "class", id: t.id, args: t.args.map((a) => substitute(a, map)) };
     case "iface":
       return { k: "iface", id: t.id, args: t.args.map((a) => substitute(a, map)) };
+    case "iter":
+      return { k: "iter", e: substitute(t.e, map) };
+    case "iterResult":
+      return { k: "iterResult", e: substitute(t.e, map) };
     default:
       return t;
   }
@@ -462,6 +472,11 @@ export class TypeRegistry {
     if (f & ts.TypeFlags.EnumLike && f & ts.TypeFlags.Union) {
       return unionOf((type as ts.UnionType).types.map((t) => this.lower(t, node)));
     }
+    // IteratorResult<T, TReturn> is a lib alias for a union whose return half
+    // carries TReturn (often any); only the yielded type matters here.
+    if (type.aliasSymbol?.name === "IteratorResult" && type.aliasTypeArguments?.[0] && this.libName(type)) {
+      return { k: "iterResult", e: this.lower(type.aliasTypeArguments[0], node) };
+    }
     if (type.isUnion()) {
       return unionOf(type.types.map((t) => this.lower(t, node)));
     }
@@ -511,6 +526,21 @@ export class TypeRegistry {
           return T.error;
         case "Date":
           return T.date;
+        // Iterables: generators, built-in iterators and Iterable<T> parameters.
+        case "Generator":
+        case "Iterable":
+        case "IterableIterator":
+        case "Iterator":
+        case "IteratorObject":
+        case "ArrayIterator":
+        case "MapIterator":
+        case "SetIterator":
+        case "StringIterator":
+          return { k: "iter", e: this.lower(args[0]!, node) };
+        case "IteratorResult":
+        case "IteratorYieldResult":
+        case "IteratorReturnResult":
+          return { k: "iterResult", e: this.lower(args[0]!, node) };
         case "AbortSignal":
           return T.abortSignal;
         case "AbortController":
@@ -719,6 +749,10 @@ export class TypeRegistry {
         return "lucent::Error";
       case "date":
         return "lucent::Date";
+      case "iter":
+        return `lucent::Iter<${this.cpp(t.e)}>`;
+      case "iterResult":
+        return `lucent::IterResult<${this.cpp(t.e)}>`;
       case "abortSignal":
         return "lucent::AbortSignal";
       case "abortController":

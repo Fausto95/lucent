@@ -507,6 +507,62 @@ static void dates() {
   CHECK_THROWS(makeDate(kNaN)->toISOString(), "RangeError");
 }
 
+static Iter<double> counter(double n, std::string* log) {
+  try {
+    for (double i = 0; i < n; i++) co_yield i;
+  } catch (...) {
+    *log += "finally ";
+    throw;
+  }
+  *log += "end ";
+}
+
+static Iter<double> failingGen() {
+  co_yield 1;
+  throwError(S("Error"), S("boom"));
+}
+
+static void generators() {
+  std::string log;
+  Iter<double> g = counter(3, &log);
+  CHECK(log.empty());  // lazy
+  CHECK(*g->next() == 0);
+  CHECK(*g->next() == 1);
+  CHECK(*g->next() == 2);
+  CHECK(!g->next());
+  CHECK(log == "end ");
+  CHECK(!g->next());
+
+  log.clear();
+  Iter<double> h = counter(3, &log);
+  CHECK(*h->next() == 0);
+  h->ret();  // runs the finally path, not the normal end
+  CHECK(log == "finally ");
+  CHECK(!h->next());
+
+  log.clear();
+  Iter<double> unstarted = counter(3, &log);
+  unstarted->ret();
+  CHECK(log.empty());
+  CHECK(!unstarted->next());
+
+  Iter<double> f = failingGen();
+  CHECK(*f->next() == 1);
+  CHECK_THROWS(f->next(), "Error");
+  CHECK(!f->next());
+
+  CHECK_STR(iterToArray(iterOf(Array<double>{1, 2})).join(), "1,2");
+  CHECK_STR(iterToArray(iterOf(S("a🌍"))).join(S("|")), "a|🌍");
+
+  log.clear();
+  {
+    Iter<double> c = counter(5, &log);
+    IterCloser<double> closer(c);
+    c->next();
+  }
+  CHECK(log == "finally ");
+}
+
 static void bytes() {
   Bytes b = Bytes::fromArray(Array<double>{1, 2, 300, -1});
   CHECK_STR(b.join(), "1,2,44,255");
@@ -531,6 +587,7 @@ int main() {
   timersPostedWhileWaiting();
   abortSignals();
   dates();
+  generators();
   bytes();
   std::printf("%d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

@@ -84,6 +84,12 @@ Supported:
   (hoisted), recursion. Closures share variables with their enclosing scope,
   and `let` loop variables get a fresh binding per iteration.
 * `async`/`await`, `Promise.all`, `Promise.resolve`/`reject`, `delay(ms, signal?)`.
+* Generators (`function*`, generator methods and function expressions) with
+  `yield`, `yield*` and `return;`, lazy like JavaScript's; `for…of`, spread,
+  `Array.from` and `Iterable<T>` parameters over generators, arrays, sets,
+  maps, strings and `Uint8Array`. Leaving a `for…of` early runs the
+  generator's `finally` blocks. Not supported: the value of `yield`
+  (`next(x)`), returning a value from a generator, async generators.
 * `JSON.parse(text) as T` (or into an annotated variable) builds a typed value:
   plain data only (numbers, strings, booleans, `null`, arrays, tuples,
   records, object types, and unions that JSON kinds or a string-literal
@@ -153,6 +159,8 @@ Only exported functions, classes and constants are visible from JavaScript.
     synchronously and may return values;
   * called from async code, they are posted to the JS thread, so they must
     return `void` or a `Promise` (which Lucent can `await`).
+* **Iterables** can be passed from JavaScript (a snapshot, taken with
+  `Array.from`); iterators and generators cannot be returned to JavaScript.
 * **AbortSignals** can be passed from JavaScript (for example to an exported
   `async` function) and abort the native side as soon as JavaScript calls
   `controller.abort()`. They cannot be returned to JavaScript, and an

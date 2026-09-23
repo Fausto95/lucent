@@ -72,6 +72,10 @@ export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E
     case "bytes":
       if (name === "length" || name === "byteLength") return num(`(${o}).length()`);
       break;
+    case "iterResult":
+      if (name === "done") return bool(`(${o}).done`);
+      if (name === "value") return { c: `(${o}).value`, t: unionOf([t.e, T.undefined]) };
+      break;
     case "abortSignal":
       if (name === "aborted") return bool(`(${o})->aborted.load()`);
       if (name === "reason") fail(node, Codes.UnsupportedBuiltin, "signal.reason has no type; catch the error from throwIfAborted() or delay() instead");
@@ -395,6 +399,7 @@ export function staticCall(em: FnEmitter, node: ts.CallExpression, callee: ts.Pr
       else if (st.k === "set") base = { c: `(${s.c}).values()`, t: { k: "array", e: st.e } };
       else if (st.k === "map") base = { c: `lucent::mapEntries(${s.c})`, t: { k: "array", e: { k: "tuple", es: [st.key, st.val] } } };
       else if (st.k === "bytes") base = { c: `(${s.c}).toArray()`, t: { k: "array", e: T.number } };
+      else if (st.k === "iter") base = { c: `lucent::iterToArray(${em.coerce(s, st, src)})`, t: { k: "array", e: st.e } };
       else fail(src, Codes.UnsupportedBuiltin, `Array.from over ${typeKey(s.t)}`);
       if (!a[1]) return { c: em.coerce(base, rt, node), t: rt };
       const be = (base.t as LType & { k: "array" }).e;
@@ -535,6 +540,10 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
     case "error":
       if (name === "toString") return str(`lucent::errorToString(${o})`);
       break;
+    case "iter":
+      if (name === "next" && a.length === 0) return { c: `lucent::iterNext(${o})`, t: { k: "iterResult", e: t.e } };
+      if (name === "return" && a.length === 0) return { c: `((${o})->ret(), lucent::IterResult<${em.cpp(t.e)}>{})`, t: { k: "iterResult", e: t.e } };
+      fail(node, Codes.UnsupportedBuiltin, `iterator.${name}() is not supported`);
     case "date": {
       if (name === "toString" || name === "toISOString" || name === "toDateString" || name === "toTimeString" || name === "toUTCString") return str(`(${o})->${name}()`);
       if (name === "toJSON") return str(`(${o})->toISOString()`);

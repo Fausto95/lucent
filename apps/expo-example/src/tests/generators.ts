@@ -8,5 +8,6 @@ export default function run(mod, print, lucentClass, mods) {
   print(mod.tree());
   print(mod.closures());
   print(mod.iterables());
+  print(mod.sumIterable([1, 2, 3]), mod.sumIterable(new Set([4, 5])), mod.sumIterable("") );
 
 }

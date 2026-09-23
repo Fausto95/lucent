@@ -43,6 +43,8 @@ export interface FnOptions {
   /** How `this` is spelled as a Ref (for passing it as a value). */
   thisRef?: string;
   isConstructor?: boolean;
+  /** A generator body: `yield` becomes co_yield and `return` co_return. */
+  generator?: boolean;
   /** In a subclass constructor: the base construct() call and what follows super(). */
   superCtor?: { call: string; params: LType[]; after: (em: FnEmitter) => void };
 }
@@ -248,6 +250,11 @@ export class FnEmitter {
     if (to.k === "error" && from.k === "class" && this.reg.cls(from.id).isError) return `lucent::Error(${e.c})`;
     if (from.k === "error" && to.k === "class" && this.reg.cls(to.id).isError) return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
     if (to.k === "iface") return this.toIface(e, to, node);
+    if (to.k === "iter") {
+      const src = this.iterExpr(e, node ?? ts.factory.createIdentifier("value"));
+      if (this.cpp(src.e) !== this.cpp(to.e)) fail(node, Codes.ArrayVariance, `iterable element types must match exactly (${typeKey(src.e)} vs ${typeKey(to.e)})`);
+      return src.c;
+    }
     // Date.prototype.valueOf: relational operators and unary plus.
     if (from.k === "date" && to.k === "number") return `(${e.c})->getTime()`;
     if (from.k === "iface" && to.k === "class") return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
@@ -400,9 +407,11 @@ export class FnEmitter {
       fnType = this.reg.lowerSignature(sig, node) as LType & { k: "fn" };
     }
     const isAsync = !!ts.getModifiers(node)?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword);
-    const ret = isAsync ? (fnType.ret.k === "promise" ? fnType.ret.inner : fnType.ret) : fnType.ret;
+    const isGen = !ts.isArrowFunction(node) && !!node.asteriskToken;
+    if (isAsync && isGen) fail(node, Codes.UnsupportedSyntax, "async generators are not supported");
+    const ret = isAsync ? (fnType.ret.k === "promise" ? fnType.ret.inner : fnType.ret) : isGen ? T.void : fnType.ret;
     const params = this.paramInfos(node, fnType);
-    const inner = new FnEmitter(this.ctx, { ...this.opts, async: isAsync, returnType: ret, thisExpr: this.opts.thisExpr ? "self" : undefined, thisRef: this.opts.thisRef ? "self" : undefined, isConstructor: false }, this.allScopes());
+    const inner = new FnEmitter(this.ctx, { ...this.opts, async: isAsync, generator: isGen, returnType: ret, thisExpr: this.opts.thisExpr ? "self" : undefined, thisRef: this.opts.thisRef ? "self" : undefined, isConstructor: false }, this.allScopes());
     const free = freeVariables(this.checker, node);
     const captures: string[] = [];
     for (const sym of free) {
@@ -415,10 +424,10 @@ export class FnEmitter {
     // Callbacks may be called with more arguments than they declare.
     for (let i = node.parameters.length; i < fnType.params.length; i++) decls.push(`${this.cpp(fnType.params[i]!)} unused${i}`);
     inner.emitFunctionBody(node);
-    const retCpp = isAsync ? `lucent::Promise<${this.reg.cppRet(ret)}>` : this.reg.cppRet(ret);
+    const retCpp = isAsync ? `lucent::Promise<${this.reg.cppRet(ret)}>` : isGen ? this.cpp(fnType.ret) : this.reg.cppRet(ret);
     const body = inner.body().map((l) => "  ".repeat(this.depth) + l);
     let code: string;
-    if (isAsync) {
+    if (isAsync || isGen) {
       // Coroutine frames must not reference the lambda's captures: pass them
       // as coroutine parameters instead.
       const capNames = captures.map((c) => c.split(" = ")[0]!);
@@ -474,7 +483,7 @@ export class FnEmitter {
       for (const s of body.statements) this.stmt(s);
       const last = body.statements[body.statements.length - 1];
       const endsInReturn = last && (ts.isReturnStatement(last) || ts.isThrowStatement(last));
-      if (!endsInReturn) {
+      if (!endsInReturn && !this.opts.generator) {
         if (this.opts.async) {
           if (isVoidish(ret)) this.line("co_return;");
           else if (ret.k === "opt") this.line("co_return lucent::undefined;");
@@ -509,12 +518,41 @@ export class FnEmitter {
       l.boxed = true;
       this.line(`lucent::Box<${this.cpp(t)}> ${l.cpp};`);
     }
-    for (const f of fns) {
-      const sym = this.checker.getSymbolAtLocation(f.name!)!;
-      const l = this.findLocal(sym)!;
-      const e = this.closure(f);
-      this.line(`*${l.cpp} = ${e.c};`);
+    // A function that captures a variable declared later in this block is
+    // defined where it is written (the variable is in its temporal dead zone
+    // before that anyway); the others are available from the block's start.
+    const laterDecls = new Set<ts.Symbol>();
+    for (const st of stmts) {
+      if (!ts.isVariableStatement(st)) continue;
+      for (const d of st.declarationList.declarations) {
+        const names: ts.Identifier[] = [];
+        const collect = (n: ts.Node): void => {
+          if (ts.isIdentifier(n) && (ts.isVariableDeclaration(n.parent) || ts.isBindingElement(n.parent))) names.push(n);
+          ts.forEachChild(n, collect);
+        };
+        collect(d.name);
+        for (const id of names) {
+          const sym = this.checker.getSymbolAtLocation(id);
+          if (sym) laterDecls.add(sym);
+        }
+      }
     }
+    for (const f of fns) {
+      if (freeVariables(this.checker, f).some((v) => laterDecls.has(v))) {
+        this.deferredFns.add(f);
+        continue;
+      }
+      this.defineFunction(f);
+    }
+  }
+
+  private readonly deferredFns = new Set<ts.FunctionDeclaration>();
+
+  private defineFunction(f: ts.FunctionDeclaration): void {
+    const sym = this.checker.getSymbolAtLocation(f.name!)!;
+    const l = this.findLocal(sym)!;
+    const e = this.closure(f);
+    this.line(`*${l.cpp} = ${e.c};`);
   }
 
   selfRef(): string {
@@ -550,11 +588,13 @@ export class FnEmitter {
       case ts.SyntaxKind.EmptyStatement:
         return;
       case ts.SyntaxKind.FunctionDeclaration:
-        return; // hoisted
+        if (this.deferredFns.has(s as ts.FunctionDeclaration)) this.defineFunction(s as ts.FunctionDeclaration);
+        return; // otherwise hoisted
       case ts.SyntaxKind.VariableStatement:
         return this.varStatement((s as ts.VariableStatement).declarationList);
       case ts.SyntaxKind.ExpressionStatement: {
         const x = (s as ts.ExpressionStatement).expression;
+        if (ts.isYieldExpression(x)) return this.yieldStmt(x);
         const sc = this.opts.superCtor;
         if (sc && ts.isCallExpression(x) && x.expression.kind === ts.SyntaxKind.SuperKeyword) {
           this.line(`${sc.call}(${this.args(x.arguments, sc.params, x).join(", ")});`);
@@ -682,7 +722,8 @@ export class FnEmitter {
 
   private returnStmt(s: ts.ReturnStatement): void {
     const ret = this.opts.returnType;
-    const kw = this.opts.async ? "co_return" : "return";
+    const kw = this.opts.async || this.opts.generator ? "co_return" : "return";
+    if (this.opts.generator && s.expression) fail(s, Codes.UnsupportedSyntax, "generators cannot return a value; use `return;`");
     let value: string | undefined;
     if (s.expression) {
       let e = this.expr(s.expression, ret);
@@ -714,10 +755,62 @@ export class FnEmitter {
     this.line(value !== undefined ? `${kw} ${value};` : `${kw};`);
   }
 
+  /** `yield x;` and `yield* iterable;` (a yield's own value is not supported). */
+  private yieldStmt(y: ts.YieldExpression): void {
+    if (!this.opts.generator) fail(y, Codes.UnsupportedSyntax, "`yield` outside a generator");
+    const elem = this.generatorElement(y);
+    if (!y.asteriskToken) {
+      this.line(y.expression ? `co_yield ${this.exprAs(y.expression, elem)};` : `co_yield ${this.coerce({ c: "lucent::undefined", t: T.undefined }, elem, y)};`);
+      return;
+    }
+    // Delegation: forward each value; closing the outer generator closes the inner one.
+    const src = this.iterExpr(this.expr(y.expression!), y.expression!);
+    const it = this.ctx.fresh("deleg");
+    this.open("{");
+    this.line(`auto ${it} = ${src.c};`);
+    this.line(`lucent::IterCloser<${this.cpp(src.e)}> ${it}_close(${it});`);
+    this.open("for (;;) {");
+    this.line(`auto ${it}_v = ${it}->next();`);
+    this.line(`if (!${it}_v) { ${it}_close.exhausted(); break; }`);
+    this.line(`co_yield ${this.coerce({ c: `std::move(*${it}_v)`, t: src.e }, elem, y)};`);
+    this.close();
+    this.close();
+  }
+
+  /** The element type the current generator yields. */
+  private generatorElement(node: ts.Node): LType {
+    let fn: ts.Node | undefined = node.parent;
+    while (fn && !ts.isFunctionLike(fn)) fn = fn.parent;
+    const sig = fn ? this.checker.getSignatureFromDeclaration(fn as ts.SignatureDeclaration) : undefined;
+    const ret = sig ? this.reg.lower(this.checker.getReturnTypeOfSignature(sig), node) : undefined;
+    if (!ret || ret.k !== "iter") fail(node, Codes.UnsupportedSyntax, "annotate generators with Generator<T> or Iterable<T>");
+    return ret.e;
+  }
+
+  /** Any iterable as an Iter<T>. */
+  iterExpr(e: E, node: ts.Node): { c: string; e: LType } {
+    const t = stripOpt(e.t);
+    const v = e.t.k === "opt" ? this.coerce(e, t, node) : e.c;
+    switch (t.k) {
+      case "iter":
+        return { c: v, e: t.e };
+      case "array":
+      case "set":
+        return { c: `lucent::iterOf(${v})`, e: t.e };
+      case "map":
+        return { c: `lucent::iterOf(${v})`, e: { k: "tuple", es: [t.key, t.val] } };
+      case "string":
+        return { c: `lucent::iterOf(${v})`, e: T.string };
+      case "bytes":
+        return { c: `lucent::iterOf(${v})`, e: T.number };
+    }
+    fail(node, Codes.UnsupportedLoop, `${typeKey(e.t)} is not iterable`);
+  }
+
   private emitReturnAfterFinally(fin: ControlEntry): void {
     const idx = this.ctl.indexOf(fin);
     const outer = this.ctl.slice(0, idx).findLast((c) => c.kind === "finally");
-    const kw = this.opts.async ? "co_return" : "return";
+    const kw = this.opts.async || this.opts.generator ? "co_return" : "return";
     if (outer) {
       this.routeThroughFinally(outer, 1, () => this.emitReturnAfterFinally(outer));
       return;
@@ -865,6 +958,14 @@ export class FnEmitter {
       if (it.k === "set") elem = { c: `${coll}.table().slot(${idx}).key`, t: it.e };
       else if (it.k === "map") elem = { c: `std::tuple<${this.cpp(it.key)}, ${this.cpp(it.val)}>(${coll}.table().slot(${idx}).key, ${coll}.table().slot(${idx}).value)`, t: { k: "tuple", es: [it.key, it.val] } };
       else elem = { c: `std::tuple<lucent::String, ${this.cpp(it.val)}>(${coll}.table().slot(${idx}).key, ${coll}.table().slot(${idx}).value)`, t: { k: "tuple", es: [T.string, it.val] } };
+    } else if (it.k === "iter") {
+      // Leaving early (break, return, throw) closes the iterator, which runs
+      // a generator's finally blocks; running out does not.
+      this.line(`lucent::IterCloser<${this.cpp(it.e)}> ${coll}_close(${coll});`);
+      this.open("for (;;) {");
+      this.line(`auto ${coll}_v = ${coll}->next();`);
+      this.line(`if (!${coll}_v) { ${coll}_close.exhausted(); break; }`);
+      elem = { c: `std::move(*${coll}_v)`, t: it.e };
     } else {
       fail(s.expression, Codes.UnsupportedLoop, `cannot iterate over ${typeKey(iterable.t)}`);
     }
@@ -1044,6 +1145,10 @@ export class FnEmitter {
       this.line(`std::exception_ptr ${ex};`);
       this.open("try {");
       this.nested(s.tryBlock);
+      // iterator.return() unwinds a generator through finally blocks only.
+      this.close("} catch (const lucent::GeneratorReturn&) {");
+      this.depth++;
+      this.line("throw;");
       this.close("} catch (...) {");
       this.depth++;
       this.line(`${ex} = std::current_exception();`);
@@ -1136,6 +1241,8 @@ export class FnEmitter {
         return this.binary(node as ts.BinaryExpression);
       case ts.SyntaxKind.ConditionalExpression:
         return this.conditional(node as ts.ConditionalExpression);
+      case ts.SyntaxKind.YieldExpression:
+        fail(node, Codes.UnsupportedSyntax, "`yield` can only be used as a statement; its value is not supported");
       case ts.SyntaxKind.CallExpression:
         if (builtins.isJsonParse(this, node as ts.CallExpression)) return this.jsonParse(node as ts.CallExpression, hint);
         return this.narrowed(node, this.call(node as ts.CallExpression));
@@ -1928,6 +2035,7 @@ export class FnEmitter {
         const st = stripOpt(s.t);
         if (st.k === "string") parts.push(`${tmp}.append(lucent::splitCodePoints(${s.c}));`);
         else if (st.k === "set") parts.push(`${tmp}.append((${s.c}).values());`);
+        else if (st.k === "iter" && sameType(st.e, elemT)) parts.push(`${tmp}.append(lucent::iterToArray(${this.coerce(s, st, el)}));`);
         else if (st.k === "array" && sameType(st.e, elemT)) parts.push(`${tmp}.append(${s.c});`);
         else if (st.k === "array") parts.push(`for (const auto& e : (${s.c}).items()) ${tmp}.push(${this.coerce({ c: `static_cast<${this.cpp(st.e)}>(e)`, t: st.e }, elemT, el)});`);
         else fail(el, Codes.UnsupportedSyntax, `cannot spread ${typeKey(s.t)}`);
@@ -2115,6 +2223,13 @@ function inferTypeArguments(em: FnEmitter, decl: ts.FunctionDeclaration, sig: ts
 function unify(pattern: LType, actual: LType, map: Map<string, LType>): void {
   if (pattern.k === "tparam") {
     if (!map.has(pattern.name)) map.set(pattern.name, actual);
+    return;
+  }
+  if (pattern.k === "iter") {
+    // Any iterable matches Iterable<T>.
+    const a = stripOpt(actual);
+    const e = a.k === "iter" || a.k === "array" || a.k === "set" ? a.e : a.k === "string" ? T.string : a.k === "bytes" ? T.number : a.k === "map" ? ({ k: "tuple", es: [a.key, a.val] } as LType) : undefined;
+    if (e) unify(pattern.e, e, map);
     return;
   }
   if (pattern.k !== actual.k) {

@@ -170,4 +170,14 @@ export function f(b: B): number { return take(b); }`;
       expect(codes("class P { x = 1; }\nexport function f(s: string): number { return (JSON.parse(s) as P).x; }")).toContain("LUCENT1003");
     });
   });
+
+  describe("generators", () => {
+    it("rejects returning a generator to JavaScript", () => {
+      expect(codes("export function* f(): Generator<number> { yield 1; }")).toContain("LUCENT2006");
+    });
+
+    it("rejects using the value of yield", () => {
+      expect(codes("function* g(): Generator<number, void, number> { const x = yield 1; }\nexport function f(): number { g(); return 1; }")).toContain("LUCENT1001");
+    });
+  });
 });

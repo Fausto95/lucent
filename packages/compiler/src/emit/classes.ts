@@ -143,7 +143,8 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
     const fnType = reg.lowerSignature(sig, node) as LType & { k: "fn" };
     const asyncM = isAsync(node);
     const isCtor = ts.isConstructorDeclaration(node);
-    let ret: LType = isCtor ? T.void : fnType.ret;
+    const gen = ts.isMethodDeclaration(node) && !!node.asteriskToken;
+    let ret: LType = isCtor || gen ? T.void : fnType.ret;
     if (asyncM) ret = ret.k === "promise" ? ret.inner : ret;
     const em = new FnEmitter(ctx, {
       module,
@@ -153,16 +154,18 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
       thisExpr: staticMember ? undefined : "this",
       isConstructor: isCtor,
       superCtor,
+      generator: gen,
     });
     const params = em.paramInfos(node, fnType);
     let decls: string[] = [];
     ctx.guard(() => {
-      if (asyncM && !staticMember) em.line("auto self = lucent::selfRef(this);");
+      // Coroutines outlive the call: keep the object alive in the frame.
+      if ((asyncM || gen) && !staticMember) em.line("auto self = lucent::selfRef(this);");
       decls = em.emitParams(node, params);
       prelude?.(em);
       em.emitFunctionBody(node);
     });
-    const retCpp = asyncM ? `lucent::Promise<${reg.cppRet(ret)}>` : reg.cppRet(ret);
+    const retCpp = asyncM ? `lucent::Promise<${reg.cppRet(ret)}>` : gen ? reg.cpp(fnType.ret) : reg.cppRet(ret);
     const d = staticMember || ts.isConstructorDeclaration(node) ? { prefix: "", suffix: "" } : dispatch(node, cppName);
     const sigText = `${retCpp} ${cppName}(${decls.join(", ")})${d.suffix}`;
     const bodyText = em.body().join("\n");

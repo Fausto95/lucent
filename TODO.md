@@ -47,7 +47,8 @@ concrete work. Checked items are implemented and covered by tests.
 - [x] Object destructuring in assignments (`({ a, b: c = 1 } = obj)`, defaults in array patterns)
 - [x] `Date` (e2e `dates`, runtime tests for daylight-saving rules)
 - [x] `JSON.parse` into typed values (e2e `json`)
-- [ ] `RegExp`, iterators/generators
+- [x] Generators and iterables (e2e `generators`)
+- [ ] `RegExp`
 
 ## Host & tooling
 
