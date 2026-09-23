@@ -2,10 +2,11 @@
 // iterating in insertion order like their JavaScript counterparts.
 #pragma once
 
+#include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
 #include <memory>
-#include <unordered_map>
 #include <vector>
 
 #include "array.h"
@@ -42,8 +43,10 @@ struct KeyEq {
   bool operator()(const K& a, const K& b) const { return sameValueZero(a, b); }
 };
 
-// Insertion-ordered hash table. Deleted entries leave tombstones so an
-// iteration in progress keeps its position; they are compacted later.
+// Insertion-ordered hash table: entries in insertion order, plus an
+// open-addressing index (power-of-two buckets, linear probing) from key hash
+// to entry. Deleted entries leave tombstones so an iteration in progress
+// keeps its position; they are compacted later.
 template <class K, class V>
 class OrderedTable {
  public:
@@ -60,31 +63,33 @@ class OrderedTable {
   Entry& slot(size_t i) { return entries_[i]; }
 
   Entry* find(const K& k) {
-    auto it = index_.find(k);
-    return it == index_.end() ? nullptr : &entries_[it->second];
+    size_t b = lookup(k, hashOf(k));
+    return b == kNone ? nullptr : &entries_[buckets_[b].entry];
   }
-  const Entry* find(const K& k) const {
-    auto it = index_.find(k);
-    return it == index_.end() ? nullptr : &entries_[it->second];
-  }
+  const Entry* find(const K& k) const { return const_cast<OrderedTable*>(this)->find(k); }
   void set(const K& k, V v) {
-    auto it = index_.find(k);
-    if (it != index_.end()) {
-      entries_[it->second].value = std::move(v);
+    size_t h = hashOf(k);
+    size_t b = lookup(k, h);
+    if (b != kNone) {
+      entries_[buckets_[b].entry].value = std::move(v);
       return;
     }
     maybeCompact();
-    index_.emplace(k, entries_.size());
+    if ((used_ + 1) * 2 > buckets_.size()) rebuild(std::max<size_t>(8, live_ * 4));
+    size_t i = h & (buckets_.size() - 1);
+    while (buckets_[i].entry != kEmpty && buckets_[i].entry != kDeleted) i = (i + 1) & (buckets_.size() - 1);
+    if (buckets_[i].entry == kEmpty) used_++;
+    buckets_[i] = Bucket{h, static_cast<uint32_t>(entries_.size())};
     entries_.push_back(Entry{k, std::move(v), true});
     live_++;
   }
   bool remove(const K& k) {
-    auto it = index_.find(k);
-    if (it == index_.end()) return false;
-    Entry& e = entries_[it->second];
+    size_t b = lookup(k, hashOf(k));
+    if (b == kNone) return false;
+    Entry& e = entries_[buckets_[b].entry];
     e.live = false;
     e.value = V();
-    index_.erase(it);
+    buckets_[b].entry = kDeleted;
     live_--;
     return true;
   }
@@ -93,7 +98,8 @@ class OrderedTable {
       e.live = false;
       e.value = V();
     }
-    index_.clear();
+    for (auto& b : buckets_) b.entry = kEmpty;
+    used_ = 0;
     live_ = 0;
   }
   /// Iteration guard: compaction is deferred while any iteration is active.
@@ -104,6 +110,51 @@ class OrderedTable {
   };
 
  private:
+  static constexpr uint32_t kEmpty = UINT32_MAX;
+  static constexpr uint32_t kDeleted = UINT32_MAX - 1;
+  static constexpr size_t kNone = SIZE_MAX;
+  struct Bucket {
+    size_t hash;
+    uint32_t entry = kEmpty;
+  };
+
+  static size_t hashOf(const K& k) {
+    // Integer and pointer hashes are the identity in common standard
+    // libraries; mix so that the low bits the index masks with vary.
+    uint64_t x = KeyHash<K>()(k);
+    x ^= x >> 33;
+    x *= 0xff51afd7ed558ccdULL;
+    x ^= x >> 33;
+    return static_cast<size_t>(x);
+  }
+
+  /// The bucket holding `k`, or kNone.
+  size_t lookup(const K& k, size_t h) const {
+    if (buckets_.empty()) return kNone;
+    size_t mask = buckets_.size() - 1;
+    for (size_t i = h & mask;; i = (i + 1) & mask) {
+      const Bucket& b = buckets_[i];
+      if (b.entry == kEmpty) return kNone;
+      if (b.entry != kDeleted && b.hash == h && KeyEq<K>()(entries_[b.entry].key, k)) return i;
+    }
+  }
+
+  /// Re-indexes the live entries into `capacity` (rounded up to a power of two) buckets.
+  void rebuild(size_t capacity) {
+    size_t n = 8;
+    while (n < capacity) n <<= 1;
+    buckets_.assign(n, Bucket{});
+    used_ = 0;
+    for (size_t e = 0; e < entries_.size(); e++) {
+      if (!entries_[e].live) continue;
+      size_t h = hashOf(entries_[e].key);
+      size_t i = h & (n - 1);
+      while (buckets_[i].entry != kEmpty) i = (i + 1) & (n - 1);
+      buckets_[i] = Bucket{h, static_cast<uint32_t>(e)};
+      used_++;
+    }
+  }
+
   void maybeCompact() {
     if (iterators_ > 0 || entries_.size() < 16 || live_ * 2 > entries_.size()) return;
     std::vector<Entry> kept;
@@ -112,12 +163,13 @@ class OrderedTable {
       if (e.live) kept.push_back(std::move(e));
     }
     entries_.swap(kept);
-    index_.clear();
-    for (size_t i = 0; i < entries_.size(); i++) index_.emplace(entries_[i].key, i);
+    rebuild(std::max<size_t>(8, live_ * 4));
   }
 
   std::vector<Entry> entries_;
-  std::unordered_map<K, size_t, KeyHash<K>, KeyEq<K>> index_;
+  std::vector<Bucket> buckets_;
+  /// Buckets that are not empty (live or tombstones): probes stop at empty ones.
+  size_t used_ = 0;
   size_t live_ = 0;
   int iterators_ = 0;
 };
