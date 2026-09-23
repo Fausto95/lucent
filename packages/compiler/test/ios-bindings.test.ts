@@ -83,6 +83,32 @@ export async function run(): Promise<string> {
 }
 `;
 
+const callbacks = `import { UIView } from "lucent:ios/UIKit";
+import { ComparisonResult, NSSortDescriptor, Timer } from "lucent:ios/Foundation";
+import { main } from "lucent:thread";
+export async function run(): Promise<string> {
+  let fired = 0;
+  // Escaping and @Sendable: queued on the Lucent thread.
+  Timer.scheduledTimer(0.01, false, (t) => {
+    fired++;
+    t.invalidate();
+  });
+  // The platform waits for the comparator's result.
+  const sorter = new NSSortDescriptor(null, true, (a, b) => (a === b ? ComparisonResult.orderedSame : ComparisonResult.orderedAscending));
+  const order = sorter.compare("a", "b");
+  await main(() => {
+    const view = new UIView();
+    // Not @Sendable, in a main-actor method: on the main thread, where UIKit may be used.
+    UIView.animate(0.1, () => {
+      view.alpha = 0;
+    }, (finished) => {
+      view.alpha = finished ? 1 : 0.5;
+    });
+  });
+  return \`\${fired} \${order}\`;
+}
+`;
+
 describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
   it("reads and writes properties", () => {
     const { r, mm } = ios(clipboard);
@@ -122,10 +148,31 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(r.frameworks).not.toContain("WidgetsPod");
   });
 
+  it("passes functions as blocks: queued, or run while the platform waits", () => {
+    const { r, mm } = ios(callbacks);
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toMatch(/scheduledTimerWithTimeInterval:.* repeats:.* block:\^\(Timer\* a0_\) \{ lucent::postCallback\(/);
+    expect(mm).toMatch(/initWithKey:.* ascending:.* comparator:\^NSComparisonResult\(id a0_, id a1_\) \{ return lucent::callNow\(/);
+    expect(mm).toMatch(/animateWithDuration:.* animations:\^\(\) \{ lucent::callNow\(/);
+  });
+
+  it("allows main-thread APIs only in blocks that run on the main thread", () => {
+    const { r } = ios(`import { UIView } from "lucent:ios/UIKit";
+import { Timer } from "lucent:ios/Foundation";
+export async function run(): Promise<string> {
+  Timer.scheduledTimer(0.01, false, () => {
+    new UIView();
+  });
+  return "";
+}
+`);
+    expect(r.diagnostics.map((d) => d.code)).toEqual(["LUCENT3006"]);
+  });
+
   it("generates Objective-C++ that compiles against the iOS SDK", () => {
     const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
     if (process.platform !== "darwin" || sdk.status !== 0) return;
-    for (const [src, sdk] of [[clipboard], [files], [keychain], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
+    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
       const { r, dir } = ios(src, sdk);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {

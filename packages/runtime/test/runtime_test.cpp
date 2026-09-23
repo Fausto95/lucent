@@ -646,9 +646,59 @@ static void mainThread() {
   CHECK(!failed.fulfilled() && failed.error()->message == S("on main"));
 }
 
+/// Whether another thread could take the Lucent lock right now.
+static bool lockFree() {
+  bool free = false;
+  std::thread([&] {
+    free = Scheduler::instance().lock().try_lock();
+    if (free) Scheduler::instance().lock().unlock();
+  }).join();
+  return free;
+}
+
+static void platformCallbacks() {
+  // A callback that returns nothing and outlives the call: queued on the
+  // Lucent thread, which holds the lock; what it captured goes with it.
+  std::atomic<bool> onLucent{false}, locked{false};
+  auto captured = std::make_shared<int>(1);
+  std::weak_ptr<int> watch = captured;
+  std::thread([&, captured = std::move(captured)]() mutable {
+    postCallback([&, captured = std::move(captured)] {
+      onLucent = Scheduler::instance().onLucentThread();
+      locked = !lockFree();
+    });
+  }).join();
+  Scheduler::instance().waitIdle(2000);
+  CHECK(onLucent && locked);
+  CHECK(watch.expired());
+
+  // One the platform waits for (a result, or during the call): on the
+  // calling thread, holding the lock.
+  std::thread::id caller, ran;
+  double result = 0;
+  bool heldDuring = false;
+  std::thread([&] {
+    caller = std::this_thread::get_id();
+    result = callNow([&] {
+      ran = std::this_thread::get_id();
+      heldDuring = !lockFree();
+      return 2.5;
+    });
+  }).join();
+  CHECK(ran == caller && heldDuring && result == 2.5);
+  CHECK(lockFree());
+
+  // Lucent errors do not reach the platform: reported, and a default result.
+  double failed = callNow([]() -> double { throw Exception(makeError(String::fromLatin1("RangeError"), S("in a callback"))); });
+  CHECK(failed == 0);
+  postCallback([] { throw Exception(makeError(S("queued"))); });
+  CHECK(Scheduler::instance().waitIdle(2000));
+}
+
 int main() {
   numbers();
   mainThread();
+  platformCallbacks();
   concatenation();
   strings();
   arrays();
