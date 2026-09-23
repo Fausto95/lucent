@@ -137,6 +137,7 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
       includePaths: [path.join(root, "Headers/Public"), path.join(root, "Headers/Public/WidgetsPod")],
       frameworkPaths: [],
       moduleMaps: [path.join(root, "Headers/Public/WidgetsPod/WidgetsPod.modulemap")],
+      lockfile: path.join(fixtures, "pods/Podfile.lock"),
     });
     const r = sdkModule("ios", "WidgetsPod", { cacheDir: tmp("lucent-cache-"), ios: pods });
     // Imported through the umbrella header its module map names, as <Pod/…>;
@@ -146,6 +147,26 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     // A Foundation type in its signatures: the SDK and the pods, together.
     const gauge = "schema" in r ? r.schema.types.find((t) => t.name === "WPGauge") : undefined;
     expect(gauge?.kind === "class" && gauge.properties?.find((p) => p.name === "documentation")?.type).toBe("Foundation.NSURL");
+  });
+
+  it("keys the app's pods on Podfile.lock, not on every header", () => {
+    const dir = tmp("lucent-pods-");
+    fs.cpSync(path.join(fixtures, "pods"), dir, { recursive: true });
+    const pods = podsSearchPaths(dir)!;
+    expect(pods.lockfile).toBe(path.join(dir, "Podfile.lock"));
+    const cacheDir = tmp("lucent-cache-");
+    const keys = () => fs.readdirSync(path.join(cacheDir, "sdk/ios"));
+    sdkModule("ios", "WidgetsPod", { cacheDir, ios: pods });
+    // pod install rewrites headers; the pods are the same while Podfile.lock is.
+    const header = path.join(dir, "Pods/Headers/Public/WidgetsPod/WPGauge.h");
+    fs.utimesSync(header, new Date(), new Date(Date.now() + 60_000));
+    forgetLoadedSdks();
+    sdkModule("ios", "WidgetsPod", { cacheDir, ios: pods });
+    expect(keys()).toHaveLength(1);
+    fs.appendFileSync(path.join(dir, "Podfile.lock"), "\n# another install\n");
+    forgetLoadedSdks();
+    sdkModule("ios", "WidgetsPod", { cacheDir, ios: pods });
+    expect(keys()).toHaveLength(2);
   });
 
   it("imports and links an SDK module as its framework", () => {

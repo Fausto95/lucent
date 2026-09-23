@@ -1,0 +1,10 @@
+PODS:
+  - WidgetsPod (1.0.0)
+
+DEPENDENCIES:
+  - WidgetsPod
+
+SPEC CHECKSUMS:
+  WidgetsPod: 0123456789abcdef
+
+COCOAPODS: 1.16.2
