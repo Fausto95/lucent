@@ -71,7 +71,7 @@ class Parser {
           ws();
           if (!eat(':')) unexpected();
           ws();
-          v.members.emplace_back(std::move(key), value(depth + 1));
+          v.members.push_back(JsonMember{std::move(key), value(depth + 1)});
           ws();
           if (eat('}')) return v;
           if (!eat(',')) unexpected();
@@ -210,7 +210,7 @@ class Parser {
 
 const JsonValue* JsonValue::find(const String& key) const {
   for (auto it = members.rbegin(); it != members.rend(); ++it) {
-    if (it->first == key) return &it->second;
+    if (it->key == key) return &it->value;
   }
   return nullptr;
 }

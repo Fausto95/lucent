@@ -18,6 +18,8 @@
 
 namespace lucent {
 
+struct JsonMember;
+
 struct JsonValue {
   enum class Kind : uint8_t { Null, Bool, Number, String, Array, Object };
   Kind kind = Kind::Null;
@@ -25,12 +27,18 @@ struct JsonValue {
   double number = 0;
   String string;
   std::vector<JsonValue> items;
-  std::vector<std::pair<String, JsonValue>> members;
+  // A named struct, not std::pair: pair needs JsonValue complete here.
+  std::vector<JsonMember> members;
 
   /// The member named `key`; the last one wins when a key repeats.
   const JsonValue* find(const String& key) const;
   /// "a number", "an object", … for error messages.
   const char* describe() const;
+};
+
+struct JsonMember {
+  String key;
+  JsonValue value;
 };
 
 /// Parses JSON text; throws SyntaxError.
