@@ -306,8 +306,10 @@ function typedefNames(header: string): string[] {
   return out;
 }
 
-/** The module a clang USR's declaration comes from. */
+/** The module a USR's declaration comes from: a Swift USR names it, a clang one is looked up. */
 function ownerOf(usr: string, headers: Record<string, string>): string | undefined {
+  const swift = /^s:(\d+)/.exec(usr);
+  if (swift) return usr.slice(swift[0].length, swift[0].length + Number(swift[1]));
   const name = /^c:(?:objc\((?:cs|pl)\)|.*@(?:[ETS]|EA|SA)@)(\w+)$/.exec(usr)?.[1];
   return name ? headers[name] : undefined;
 }

@@ -209,12 +209,8 @@ const C_TYPEDEFS: Record<string, string> = {
 const ERROR_POINTERS = new Set(["s:10Foundation14NSErrorPointera"]);
 
 /** Swift value types that bridge to Foundation classes, typed as those classes. */
-const BRIDGED_CLASS: Record<string, string> = {
-  "s:10Foundation3URLV": "NSURL",
-  "s:10Foundation4UUIDV": "NSUUID",
-  "s:10Foundation6LocaleV": "NSLocale",
-  "s:10Foundation8TimeZoneV": "NSTimeZone",
-};
+/** The protocol of Swift value types that bridge to an Objective-C class, its `ReferenceType`. */
+const REFERENCE_CONVERTIBLE = "s:10Foundation20ReferenceConvertibleP";
 
 interface Resolver {
   /** A class/protocol/enum USR to its schema reference (`Module.Name`), if extracted. */
@@ -349,11 +345,6 @@ function parseType(frags: Fragment[], r: Resolver): SchemaType {
       return named(r.self);
     }
     if (usr in SWIFT_PRIM) return named(SWIFT_PRIM[usr]!);
-    if (usr in BRIDGED_CLASS) {
-      const ref = r.ref(`c:objc(cs)${BRIDGED_CLASS[usr]}`);
-      if (!ref) throw new Unsupported(tok.spelling);
-      return named(ref);
-    }
     const key = usr || (r.typedef(tok.spelling) ?? "");
     const aliased = r.alias(key);
     if (aliased) return parseType(aliased, r);
@@ -488,10 +479,19 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
     // Typed string enums (NS_TYPED_ENUM): strings at the boundary.
     if (k === "swift.struct" && /^c:.*@T@/.test(usr)) aliases[usr] = [{ kind: "typeIdentifier", spelling: "String", preciseIdentifier: "s:SS" }];
   }
+  // Swift value types that bridge to Objective-C classes (IndexPath): the class their ReferenceType names.
+  const bridged = new Set(g.relationships.filter((r) => r.kind === "conformsTo" && r.target === REFERENCE_CONVERTIBLE).map((r) => r.source));
+  const byUsr = new Map(g.symbols.map((s) => [s.identifier.precise, s]));
+  for (const r of g.relationships) {
+    const member = byUsr.get(r.source);
+    if (r.kind !== "memberOf" || !bridged.has(r.target) || member?.kind.identifier !== "swift.typealias" || member.pathComponents.at(-1) !== "ReferenceType") continue;
+    const cls = member.declarationFragments?.find((f) => f.kind === "typeIdentifier" && objcClass(f.preciseIdentifier ?? ""));
+    if (cls) aliases[r.target] = [cls];
+  }
   return { module, refs, aliases, types };
 }
 
-/** Clang USRs a graph refers to but does not declare: types of other modules. */
+/** USRs a graph refers to but does not declare: types of other modules. */
 export function externalUsrs(g: SymbolGraph): Set<string> {
   const declared = new Set(g.symbols.map((s) => s.identifier.precise));
   const out = new Set<string>();
@@ -500,9 +500,7 @@ export function externalUsrs(g: SymbolGraph): Set<string> {
       // Swift leaves the USR off some references to C typedefs (NSRange); the owner is found by name.
       const usr = f.preciseIdentifier ?? (f.kind === "typeIdentifier" ? `c:@T@${f.spelling}` : undefined);
       if (!usr) continue;
-      // Swift value types that bridge to Foundation classes (URL → NSURL).
-      if (usr in BRIDGED_CLASS) out.add(`c:objc(cs)${BRIDGED_CLASS[usr]}`);
-      else if (usr.startsWith("c:") && !declared.has(usr)) out.add(usr);
+      if (/^[cs]:/.test(usr) && !declared.has(usr)) out.add(usr);
     }
   };
   for (const s of g.symbols) {
