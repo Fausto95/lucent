@@ -52,6 +52,8 @@ jobs:
         run: SANITIZE=1 CXX=g++ packages/runtime/test/run.sh
       - name: End-to-end (native vs. JavaScript)
         run: pnpm test:e2e
+      - name: Performance budgets (kernels vs. the same code as JavaScript)
+        run: pnpm exec tsx scripts/bench.ts --check
       - name: App check (bare)
         run: pnpm exec tsx scripts/app-check.ts apps/bare-example
       - name: App check (Expo)

@@ -45,5 +45,6 @@ pnpm install
 packages/runtime/test/run.sh
 HERMES_DIR=~/hermes npx tsx packages/compiler/test/e2e/run.ts [case…]
 HERMES_DIR=~/hermes npx tsx scripts/app-check.ts apps/bare-example
+HERMES_DIR=~/hermes npx tsx scripts/bench.ts --check   # performance budgets
 npx tsc --noEmit -p tsconfig.json
 ```

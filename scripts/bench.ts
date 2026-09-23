@@ -3,7 +3,10 @@
  * in one Hermes runtime: compiled by Lucent to C++ and called over JSI, against
  * the same TypeScript run as JavaScript. Sizes come from kernels.bench.json.
  *
- *   HERMES_DIR=~/hermes tsx scripts/bench.ts [scale]
+ *   HERMES_DIR=~/hermes tsx scripts/bench.ts [scale] [--check]
+ *
+ * --check fails when a kernel's speedup is below its minimum in
+ * scripts/bench-budgets.json (the performance budget CI enforces).
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -17,7 +20,10 @@ import { cFlags, hostLibs, runtimeSources } from "../packages/runtime/test/sourc
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const hermes = process.env.HERMES_DIR ?? path.join(os.homedir(), "hermes");
 const cxx = process.env.CXX ?? "clang++";
-const scale = Number(process.argv[2] ?? "1");
+const args = process.argv.slice(2);
+const check = args.includes("--check");
+const scale = Number(args.find((a) => !a.startsWith("--")) ?? "1");
+const budgets: Record<string, number> = JSON.parse(fs.readFileSync(path.join(root, "scripts/bench-budgets.json"), "utf8"));
 const kernels = path.join(root, "packages/compiler/test/e2e/cases/kernels.lucent.ts");
 const sizes: Record<string, number> = JSON.parse(fs.readFileSync(kernels.replace(/\.lucent\.ts$/, ".bench.json"), "utf8"));
 const work = path.join(os.tmpdir(), "lucent-bench");
@@ -61,12 +67,19 @@ fs.writeFileSync(
 var native = __lucent.kernels;
 var sizes = ${JSON.stringify(sizes)};
 var scale = ${scale};
+// Milliseconds per call: the best of 5 rounds, each repeating the call for
+// at least 30 ms so that fast kernels are measured beyond the clock's
+// resolution.
 function best(f, n) {
   var min = Infinity;
   for (var r = 0; r < 5; r++) {
-    var t = Date.now();
-    f(n);
-    min = Math.min(min, Date.now() - t);
+    var t = Date.now(), calls = 0, elapsed;
+    do {
+      f(n);
+      calls++;
+      elapsed = Date.now() - t;
+    } while (elapsed < 30);
+    min = Math.min(min, elapsed / calls);
   }
   return min;
 }
@@ -80,9 +93,19 @@ for (var name in sizes) {
 const r = spawnSync(exe, [script], { encoding: "utf8", timeout: 600000 });
 if (r.status !== 0) throw new Error(`bench failed:\n${r.stderr}\n${r.stdout}`);
 const rows = r.stdout.trim().split("\n").map((l) => JSON.parse(l) as { name: string; n: number; js: number; native: number; same: boolean });
-console.log(`kernel        size       JS (ms)  Lucent (ms)  speedup`);
+console.log(`kernel        size       JS (ms)  Lucent (ms)  speedup  budget`);
+const failures: string[] = [];
 for (const row of rows) {
-  const speedup = row.native > 0 ? `${(row.js / row.native).toFixed(1)}x` : "∞";
-  console.log(`${row.name.padEnd(13)} ${String(row.n).padEnd(10)} ${String(row.js).padStart(7)}  ${String(row.native).padStart(11)}  ${speedup.padStart(7)}${row.same ? "" : "  RESULTS DIFFER"}`);
+  const speedup = row.js / row.native;
+  const budget = budgets[row.name];
+  if (budget === undefined) failures.push(`${row.name}: no budget in scripts/bench-budgets.json`);
+  else if (speedup < budget) failures.push(`${row.name}: ${speedup.toFixed(1)}x, budget ${budget}x`);
+  if (!row.same) failures.push(`${row.name}: results differ from JavaScript`);
+  console.log(
+    `${row.name.padEnd(13)} ${String(row.n).padEnd(10)} ${row.js.toFixed(1).padStart(7)}  ${row.native.toFixed(2).padStart(11)}  ${`${speedup.toFixed(1)}x`.padStart(7)}  ${budget === undefined ? "-" : `${budget}x`}${row.same ? "" : "  RESULTS DIFFER"}`,
+  );
 }
-if (rows.some((row) => !row.same)) process.exit(1);
+if (rows.some((row) => !row.same) || (check && failures.length)) {
+  console.error(`\n${failures.join("\n")}`);
+  process.exit(1);
+}
