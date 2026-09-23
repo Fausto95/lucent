@@ -51,6 +51,18 @@ describe("diagnostics", () => {
     expect(codes("export function f(): number { var x = 1; return x; }")).toContain("LUCENT1001");
   });
 
+  it("rejects getters in object literals", () => {
+    expect(codes("export function f(): number { const o = { get x() { return 1; } }; return o.x; }")).toEqual(["LUCENT1001"]);
+  });
+
+  it("rejects setters in object literals", () => {
+    expect(codes("export function f(): number { let v = 0; const o = { set x(n: number) { v = n; } }; o.x = 1; return v; }")).toEqual(["LUCENT1001"]);
+  });
+
+  it("rejects getters in object literals of a declared type", () => {
+    expect(codes("type P = { x: number };\nexport function f(): number { const o: P = { get x() { return 1; } }; return o.x; }")).toEqual(["LUCENT1001"]);
+  });
+
   it("rejects throwing non-errors", () => {
     expect(codes('export function f(): number { throw "nope"; }')).toContain("LUCENT1006");
   });
