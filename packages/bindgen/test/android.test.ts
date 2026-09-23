@@ -57,6 +57,9 @@ describe.skipIf(!javac)("Android extractor", () => {
     expect(m("create")).toMatchObject({ static: true, params: [{ type: "long[]?" }, { type: "int" }], returns: "com.example.widgets.Widget", descriptor: "([JI)Lcom/example/widgets/Widget;" });
     expect(m("getBytes").returns).toBe("byte[]?");
     expect(m("old").deprecated).toBe(true);
+    // CharSequence is a string at the boundary, as String is.
+    expect(m("getTitle")).toMatchObject({ returns: "CharSequence", descriptor: "()Ljava/lang/CharSequence;" });
+    expect(m("setTitle").params[0]!.type).toBe("CharSequence?");
   });
 
   it("types generic methods with their exact erasure", () => {
