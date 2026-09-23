@@ -99,6 +99,19 @@ describe("SDK declarations", () => {
     expect(d).toContain("  setOnEvent(arg0: OnEvent | ((arg0: string, arg1: number) => void) | null): void;");
   });
 
+  it("declares C structs as object types", () => {
+    const d = sdkDts({
+      platform: "ios",
+      module: "Widgets",
+      types: [
+        { kind: "struct", name: "WDGPoint", native: "WDGPoint", fields: [{ name: "x", type: "double" }, { name: "y", type: "double" }] },
+        { kind: "struct", name: "WDGCircle", native: "WDGCircle", fields: [{ name: "center", type: "WDGPoint" }, { name: "radius", type: "double" }] },
+      ],
+    });
+    expect(d).toContain("export declare type WDGPoint = { x: number; y: number };");
+    expect(d).toContain("export declare type WDGCircle = { center: WDGPoint; radius: number };");
+  });
+
   it("adds a promise overload for completion handlers Swift imports as async", () => {
     expect(dts).toContain("  load(reply: (arg0: Uint8Array | null, arg1: Error | null) => void): void;");
     expect(dts).toContain("  load(): Promise<Uint8Array>;");

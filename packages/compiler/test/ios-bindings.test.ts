@@ -120,6 +120,15 @@ export async function run(): Promise<string> {
 }
 `;
 
+const structs = `import { CLLocation, CLLocationCoordinate2DIsValid } from "lucent:ios/CoreLocation";
+export async function run(): Promise<string> {
+  const location = new CLLocation(48.85, 2.35);
+  const c = location.coordinate;
+  const moved = { latitude: c.latitude + 1, longitude: c.longitude };
+  return \`\${c.latitude},\${c.longitude} \${CLLocationCoordinate2DIsValid(moved)}\`;
+}
+`;
+
 const promises = `import { LAContext, LAPolicy } from "lucent:ios/LocalAuthentication";
 import { UNUserNotificationCenter } from "lucent:ios/UserNotifications";
 import { errorCode } from "@lucent-lang/core";
@@ -236,6 +245,13 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(mm).toContain("lucent::objc::outError(");
   });
 
+  it("reads and passes C structs by value, as Lucent objects", () => {
+    const { r, mm } = ios(structs);
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toMatch(/auto s_ = \[.*coordinate\]; auto o_ = std::make_shared<lucent_app::S_CLLocationCoordinate2D>\(\); o_->latitude = s_\.latitude; o_->longitude = s_\.longitude;/);
+    expect(mm).toContain("CLLocationCoordinate2DIsValid(CLLocationCoordinate2D{");
+  });
+
   it("allows main-thread APIs only in blocks that run on the main thread", () => {
     const { r } = ios(`import { UIView } from "lucent:ios/UIKit";
 import { Timer } from "lucent:ios/Foundation";
@@ -252,7 +268,7 @@ export async function run(): Promise<string> {
   it("generates Objective-C++ that compiles against the iOS SDK", () => {
     const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
     if (process.platform !== "darwin" || sdk.status !== 0) return;
-    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
+    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
       const { r, dir } = ios(src, sdk);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {

@@ -139,6 +139,13 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     expect(loader.properties!.find((p) => p.name === "delegate")).toMatchObject({ type: "Widgets.WDGLoaderDelegate?", setter: "setDelegate:", weak: true });
   });
 
+  it("reads C structs of numbers and structs, by value", () => {
+    expect(type("WDGPoint")).toEqual({ kind: "struct", name: "WDGPoint", native: "WDGPoint", fields: [{ name: "x", type: "double" }, { name: "y", type: "double" }] });
+    expect(type("WDGCircle")).toEqual({ kind: "struct", name: "WDGCircle", native: "WDGCircle", fields: [{ name: "center", type: "Widgets.WDGPoint" }, { name: "radius", type: "double" }] });
+    expect(method("origin")[0]).toMatchObject({ selector: "origin", returns: "Widgets.WDGPoint" });
+    expect(widget().properties!.find((p) => p.name === "circle")).toMatchObject({ type: "Widgets.WDGCircle", setter: "setCircle:" });
+  });
+
   it("reads typed string keys (NS_TYPED_ENUM) as string constants of their C globals", () => {
     expect(type("WDGKey")).toMatchObject({ kind: "class", properties: [{ name: "name", static: true, readonly: true, type: "string", global: "WDGKeyName" }] });
   });

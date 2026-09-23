@@ -14,6 +14,16 @@ typedef NS_OPTIONS(NSUInteger, WDGEdges) {
   WDGEdgesBottom = 1 << 1,
 };
 
+typedef struct {
+  double x;
+  double y;
+} WDGPoint;
+
+typedef struct {
+  WDGPoint center;
+  double radius;
+} WDGCircle;
+
 typedef NSString *WDGKey NS_TYPED_ENUM;
 extern WDGKey const WDGKeyName;
 
@@ -55,6 +65,8 @@ NS_SWIFT_UI_ACTOR
 - (void)animate:(void (^)(void))changes completion:(void (^_Nullable)(BOOL finished))completion;
 - (NSInteger)countWhere:(BOOL (NS_NOESCAPE ^)(NSString *item))predicate;
 - (void)frame:(CGRect)rect;
+- (WDGPoint)origin;
+@property (nonatomic) WDGCircle circle;
 
 @end
 
