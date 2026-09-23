@@ -9,5 +9,8 @@
   },
   "peerDependencies": {
     "expo": "*"
-  }
+  },
+  "files": [
+    "app.plugin.js"
+  ]
 }

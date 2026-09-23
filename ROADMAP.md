@@ -84,7 +84,7 @@ Goal: `import { AVCaptureDevice } from "lucent:ios/AVFoundation"` and
 
 ## M4 — Production readiness
 
-- 🔭 npm publishing of `@lucent-lang/*`, fresh-install smoke test.
+- 🚧 npm publishing of `@lucent-lang/*`: packages build and install from tarballs (smoke test in CI); the release workflow publishes once an `NPM_TOKEN` secret exists.
 - ✅ Incremental builds and caching; watch mode tied to Metro.
 - 🔭 Source maps for native crashes (symbolicated back to `.lucent.ts`).
 - 🔭 Language server (diagnostics for the Lucent subset in the editor).

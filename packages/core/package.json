@@ -6,9 +6,14 @@
   "main": "./index.js",
   "types": "./index.d.ts",
   "exports": {
-    ".": { "types": "./index.d.ts", "default": "./index.js" },
-    "./metro": "./metro.cjs",
-    "./expo": "./expo.cjs",
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    },
     "./package.json": "./package.json"
-  }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts"
+  ]
 }

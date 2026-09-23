@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { Codes, type Diagnostic } from "./diagnostics.ts";
@@ -22,6 +23,7 @@ export interface LucentProgram {
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const require = createRequire(import.meta.url);
 
 /** Globals Lucent code may use besides the ES2022 library (console, …). */
 export function globalsPath(): string {
@@ -35,7 +37,8 @@ export function isLibFile(sf: ts.SourceFile): boolean {
 
 /** Path of `@lucent-lang/core` type declarations. */
 export function coreTypesPath(): string {
-  return path.resolve(here, "../../core/index.d.ts");
+  // Resolved as a package, so it works both in this repository and when installed.
+  return path.join(path.dirname(require.resolve("@lucent-lang/core/package.json")), "index.d.ts");
 }
 
 export const LUCENT_EXTENSION = /\.lucent\.tsx?$/;

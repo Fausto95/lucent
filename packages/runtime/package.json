@@ -5,7 +5,11 @@
   "license": "MIT",
   "main": "./js/index.js",
   "types": "./js/index.d.ts",
-  "files": ["cpp", "js"],
+  "files": [
+    "cpp",
+    "js",
+    "native"
+  ],
   "exports": {
     ".": "./js/index.js",
     "./js": "./js/index.js",

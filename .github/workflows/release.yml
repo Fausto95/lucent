@@ -46,11 +46,11 @@ jobs:
       # Same gate as ci.yml, run against the bumped tree. Pushes made with
       # GITHUB_TOKEN never trigger ci.yml, so this is the only check the
       # release commit gets.
-      - run: pnpm build:packages
       - run: pnpm typecheck
-      - run: pnpm lint
-      - run: pnpm format:check
       - run: pnpm test
+      - run: packages/runtime/test/run.sh
+      - name: Fresh install from the packed packages
+        run: pnpm exec tsx scripts/smoke-install.ts
 
       - name: Commit and tag
         env:

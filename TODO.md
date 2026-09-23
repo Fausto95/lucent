@@ -60,7 +60,7 @@ concrete work. Checked items are implemented and covered by tests.
 - [x] Verified: RN CLI and Expo autolinking resolve the package as a pure C++ dependency; Android CMake integration builds (host simulation); TurboModule compiles against RN 0.88 headers
 - [x] `AbortSignal` / `AbortController`, `delay(ms, signal)`; JS signals abort native work (e2e `abort`)
 - [x] Watch mode: `lucent build --watch`, started by `withLucent` inside Metro dev servers
-- [ ] Publishable build of the TypeScript packages (currently run from source via tsx)
+- [x] Publishable packages: compiled `dist` through `publishConfig`, runtime templates included, fresh-install smoke test (`scripts/smoke-install.ts`, in CI)
 
 ## Tests
 

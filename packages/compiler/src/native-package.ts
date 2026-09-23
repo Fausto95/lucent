@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import type { EmitResult } from "./emit/index.ts";
 import { coreTypesPath } from "./program.ts";
@@ -9,7 +10,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 
 /** Location of @lucent-lang/runtime (C++ runtime and native templates). */
 export function runtimeDir(): string {
-  return path.resolve(here, "../../runtime");
+  return path.dirname(createRequire(import.meta.url).resolve("@lucent-lang/runtime/package.json"));
 }
 
 export interface WriteResult {
@@ -29,8 +30,10 @@ export interface WriteResult {
 export function inputsKey(files: string[], outDir: string): string {
   const hash = crypto.createHash("sha256");
   hash.update(path.resolve(outDir));
+  // The compiler itself: its sources in this repository, dist when installed.
   const compilerRoot = path.resolve(here, "..");
-  const deps = [...listFiles(path.join(compilerRoot, "src")), ...listFiles(path.join(compilerRoot, "lib")), ...listFiles(runtimeDir()).filter((f) => !f.includes(`${path.sep}test${path.sep}`)), coreTypesPath()];
+  const compilerFiles = ["src", "dist", "lib"].flatMap((d) => listFiles(path.join(compilerRoot, d)));
+  const deps = [...compilerFiles, ...listFiles(runtimeDir()).filter((f) => !f.includes(`${path.sep}test${path.sep}`) && !f.includes(`${path.sep}node_modules${path.sep}`)), coreTypesPath()];
   for (const f of [...files.map((f) => path.resolve(f)).sort(), ...deps.sort()]) {
     hash.update(f);
     hash.update(fs.readFileSync(f));

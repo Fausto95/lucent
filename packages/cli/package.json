@@ -9,7 +9,17 @@
   },
   "dependencies": {
     "@lucent-lang/compiler": "workspace:*",
-    "@lucent-lang/runtime": "workspace:*",
+    "@lucent-lang/runtime": "workspace:*"
+  },
+  "files": [
+    "bin",
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "pnpm run build"
+  },
+  "devDependencies": {
     "tsx": "^4.20.6"
   }
 }
