@@ -97,7 +97,8 @@ export interface SdkClassSchema {
 /** A parsed schema type: `int`, `string?`, `long[]`, `Class<T>`, `android.os.Vibrator`, `UIDevice`. */
 export type SdkType =
   | { k: "prim"; name: PrimName; nullable: boolean }
-  | { k: "string"; nullable: boolean }
+  /** Java's String, or CharSequence (`charSequence`: results are read through toString()). */
+  | { k: "string"; nullable: boolean; charSequence?: boolean }
   | { k: "array"; of: SdkType; nullable: boolean }
   | { k: "classOf"; param: string; nullable: boolean }
   | { k: "tparam"; name: string; nullable: boolean }
@@ -115,6 +116,7 @@ export function parseSdkType(s: string, module = "", typeParams: readonly string
   const classOf = /^Class<(\w+)>$/.exec(s);
   if (classOf) return { k: "classOf", param: classOf[1]!, nullable: false };
   if (s === "string") return { k: "string", nullable: false };
+  if (s === "CharSequence") return { k: "string", nullable: false, charSequence: true };
   if ((PRIMS as readonly string[]).includes(s)) return { k: "prim", name: s as PrimName, nullable: false };
   if (typeParams.includes(s)) return { k: "tparam", name: s, nullable: false };
   const dot = s.lastIndexOf(".");
@@ -164,7 +166,7 @@ export function jniDescriptor(params: string[], returns: string, typeParams: rea
       case "prim":
         return JNI_PRIM[t.name] ?? fail(`${t.name} is not a Java type`);
       case "string":
-        return "Ljava/lang/String;";
+        return t.charSequence ? "Ljava/lang/CharSequence;" : "Ljava/lang/String;";
       case "array":
         return `[${one(t.of)}`;
       case "classOf":

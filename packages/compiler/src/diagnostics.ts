@@ -62,6 +62,7 @@ export const CodeDescriptions = {
   LUCENT3004: "A platform SDK import in a file whose platform cannot use it, or an SDK module without bindings.",
   LUCENT3005: "Platform implementations that do not match their shared declaration file.",
   LUCENT3006: "A main-thread-only platform API used outside `main(() => …)`.",
+  LUCENT3007: "A platform API newer than the oldest supported OS version, used without an `available()` or `SDK_INT` check around it.",
   LUCENT9001: "A TypeScript error. Lucent stops at type errors, because its lowering relies on the checker's types.",
 } satisfies Record<Code, string>;
 

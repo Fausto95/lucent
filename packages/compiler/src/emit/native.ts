@@ -5,7 +5,7 @@ import { findSdkType, jniDescriptor, parseSdkType, type Platform, type SdkClassS
 import { type LType, T, unionOf } from "../types.ts";
 import type { E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
-import { cppQuoted } from "./literals.ts";
+import { cppQuoted, numberLiteral, stringLiteral } from "./literals.ts";
 
 /**
  * Calls into platform SDKs from *.ios.lucent.ts and *.android.lucent.ts:
@@ -155,13 +155,16 @@ function toJni(em: FnEmitter, ref: SdkClassRef, arg: ts.Expression, t: SdkType):
       return `static_cast<${JNI_PRIM[t.name] ?? "jdouble"}>(${em.exprAs(arg, T.number)})`;
     case "string":
       return t.nullable ? `({ auto s_ = ${em.exprAs(arg, unionOf([T.string, T.null]))}; s_.has() ? lucent::jni::toJString(env, s_.get()) : nullptr; })` : `lucent::jni::toJString(env, ${em.exprAs(arg, T.string)})`;
-    case "array":
-      if (t.of.k === "prim" && t.of.name === "long") return `lucent::jni::toLongArray(env, ${em.exprAs(arg, { k: "array", e: T.number })})`;
-      if (t.of.k === "prim" && t.of.name === "int") return `lucent::jni::toIntArray(env, ${em.exprAs(arg, { k: "array", e: T.number })})`;
-      fail(arg, Codes.UnsupportedType, "only long[] and int[] arrays are supported in Android SDK calls so far");
+    case "array": {
+      const a = jniArray(t);
+      if (!a) fail(arg, Codes.UnsupportedType, "only byte[], int[], long[] and String[] arrays are supported in Android SDK calls so far");
+      if (t.nullable) return `lucent::jni::toArrayOpt(env, ${em.exprAs(arg, unionOf([a.lt, T.null]))}, lucent::jni::to${a.name})`;
+      return `lucent::jni::to${a.name}(env, ${em.exprAs(arg, a.lt)})`;
+    }
     case "classOf": {
       const named = sdkClassNamed(em, arg);
       if (!named) fail(arg, Codes.UnsupportedSyntax, "pass the class itself (for example `Vibrator`)");
+      requireAvailable(em, arg, named, named.cls.since, named.cls.name);
       return `lucent::jni::findClass(${cppQuoted(named.cls.native)})`;
     }
     case "ref": {
@@ -173,14 +176,32 @@ function toJni(em: FnEmitter, ref: SdkClassRef, arg: ts.Expression, t: SdkType):
   }
 }
 
-function fromJni(code: string, t: SdkType, lt: LType, what: string): E {
+/** byte[] ↔ Uint8Array, String[] ↔ string[], int[]/long[] ↔ number[]: copied. */
+function jniArray(t: SdkType & { k: "array" }): { name: string; cast: string; lt: LType } | undefined {
+  const of = t.of;
+  if (of.k === "string" && !of.charSequence) return { name: "StringArray", cast: "jobjectArray", lt: { k: "array", e: T.string } };
+  if (of.k !== "prim") return undefined;
+  if (of.name === "byte") return { name: "ByteArray", cast: "jbyteArray", lt: T.bytes };
+  if (of.name === "int") return { name: "IntArray", cast: "jintArray", lt: { k: "array", e: T.number } };
+  if (of.name === "long") return { name: "LongArray", cast: "jlongArray", lt: { k: "array", e: T.number } };
+  return undefined;
+}
+
+function fromJni(em: FnEmitter, code: string, t: SdkType, lt: LType, what: string): E {
   switch (t.k) {
     case "prim":
       if (t.name === "void") return { c: code, t: T.undefined };
       if (t.name === "boolean") return { c: `(${code} == JNI_TRUE)`, t: T.boolean };
       return { c: `static_cast<double>(${code})`, t: T.number };
     case "string":
+      if (t.charSequence) return t.nullable ? { c: `lucent::jni::charSequenceToStringOpt(env, ${code})`, t: lt } : { c: `lucent::jni::charSequenceToString(env, ${code}, ${cppQuoted(what)})`, t: T.string };
       return t.nullable ? { c: `lucent::jni::fromJStringOpt(env, static_cast<jstring>(${code}))`, t: lt } : { c: `lucent::jni::fromJString(env, static_cast<jstring>(${code}), ${cppQuoted(what)})`, t: T.string };
+    case "array": {
+      const a = jniArray(t);
+      if (!a) throw new Error(`unsupported Java array result ${JSON.stringify(t)}`);
+      if (t.nullable) return { c: `lucent::jni::fromArrayOpt<${em.cpp(a.lt)}>(env, static_cast<${a.cast}>(${code}), lucent::jni::from${a.name})`, t: lt };
+      return { c: `lucent::jni::from${a.name}(env, static_cast<${a.cast}>(${code}), ${cppQuoted(what)})`, t: a.lt };
+    }
     case "ref":
     case "tparam":
       return lt.k === "opt" ? { c: `lucent::jni::wrapOpt(env, ${code})`, t: lt } : { c: `lucent::jni::wrap(env, ${code}, ${cppQuoted(what)})`, t: lt };
@@ -195,7 +216,7 @@ function fromJni(code: string, t: SdkType, lt: LType, what: string): E {
  */
 function jniCall(em: FnEmitter, opts: { cls: SdkClassSchema; lookup: string; name: string; desc: string; access: (id: string) => string; ret: SdkType; lt: LType; what: string; pre?: string[] }): E {
   const result = opts.ret.k === "prim" && opts.ret.name === "void";
-  const out = fromJni("r_", opts.ret, opts.lt, opts.what);
+  const out = fromJni(em, "r_", opts.ret, opts.lt, opts.what);
   const retCpp = result ? "void" : em.cpp(out.t);
   const body = [
     "JNIEnv* env = lucent::jni::env();",
@@ -216,6 +237,98 @@ function argsOf(node: ts.CallExpression | ts.NewExpression): readonly ts.Express
   return args;
 }
 
+// --- availability --------------------------------------------------------------------
+
+/** The oldest OS the app runs on (React Native's minimum). */
+const MIN_ANDROID_API = 24;
+
+/**
+ * APIs newer than the minimum must be used where the code has checked the
+ * OS: under `if (available("android", N))`, `Build_VERSION.SDK_INT >= N`,
+ * their `?:` / `&&` forms, or after an early exit on the opposite check.
+ */
+function requireAvailable(em: FnEmitter, node: ts.Node, ref: SdkClassRef, since: number | string | undefined, what: string): void {
+  if (ref.platform !== "android" || typeof since !== "number" || since <= MIN_ANDROID_API) return;
+  if (guarded(em, node, since)) return;
+  fail(node, Codes.Unavailable, `${what} needs API ${since} (apps run from API ${MIN_ANDROID_API}): use it under if (available("android", ${since})) or Build_VERSION.SDK_INT >= ${since}`);
+}
+
+function apiLevelRead(em: FnEmitter, e: ts.Expression): boolean {
+  if (!ts.isPropertyAccessExpression(e) || e.name.text !== "SDK_INT") return false;
+  const decl = resolved(em, e)?.valueDeclaration;
+  return !!decl && sdkModuleOf(decl.getSourceFile())?.module === "android.os";
+}
+
+function literal(e: ts.Expression): number | undefined {
+  if (ts.isNumericLiteral(e)) return Number(e.text);
+  return undefined;
+}
+
+/** `cond` true ⇒ the API level is at least `n`. */
+function atLeast(em: FnEmitter, cond: ts.Expression, n: number): boolean {
+  const c = ts.skipPartiallyEmittedExpressions(cond);
+  if (ts.isParenthesizedExpression(c)) return atLeast(em, c.expression, n);
+  if (ts.isCallExpression(c)) {
+    const b = builtinNamed(em, c.expression);
+    const level = c.arguments[1] && literal(c.arguments[1]);
+    return b?.module === "lucent:android" && b.name === "available" && level !== undefined && level >= n;
+  }
+  if (!ts.isBinaryExpression(c)) return false;
+  const op = c.operatorToken.kind;
+  if (op === ts.SyntaxKind.AmpersandAmpersandToken) return atLeast(em, c.left, n) || atLeast(em, c.right, n);
+  const k = literal(c.right) ?? literal(c.left);
+  if (k === undefined) return false;
+  if (apiLevelRead(em, c.left)) return (op === ts.SyntaxKind.GreaterThanEqualsToken && k >= n) || (op === ts.SyntaxKind.GreaterThanToken && k + 1 >= n);
+  if (apiLevelRead(em, c.right)) return (op === ts.SyntaxKind.LessThanEqualsToken && k >= n) || (op === ts.SyntaxKind.LessThanToken && k + 1 >= n);
+  return false;
+}
+
+/** `cond` true ⇒ the API level is below `n`. */
+function below(em: FnEmitter, cond: ts.Expression, n: number): boolean {
+  const c = ts.skipPartiallyEmittedExpressions(cond);
+  if (ts.isParenthesizedExpression(c)) return below(em, c.expression, n);
+  if (ts.isPrefixUnaryExpression(c) && c.operator === ts.SyntaxKind.ExclamationToken) return atLeast(em, c.operand, n);
+  if (!ts.isBinaryExpression(c)) return false;
+  const op = c.operatorToken.kind;
+  if (op === ts.SyntaxKind.BarBarToken) return below(em, c.left, n) || below(em, c.right, n);
+  const k = literal(c.right) ?? literal(c.left);
+  if (k === undefined) return false;
+  if (apiLevelRead(em, c.left)) return (op === ts.SyntaxKind.LessThanToken && k >= n) || (op === ts.SyntaxKind.LessThanEqualsToken && k + 1 >= n);
+  if (apiLevelRead(em, c.right)) return (op === ts.SyntaxKind.GreaterThanToken && k >= n) || (op === ts.SyntaxKind.GreaterThanEqualsToken && k + 1 >= n);
+  return false;
+}
+
+function exits(s: ts.Statement): boolean {
+  if (ts.isReturnStatement(s) || ts.isThrowStatement(s) || ts.isBreakOrContinueStatement(s)) return true;
+  if (ts.isBlock(s)) return s.statements.length > 0 && exits(s.statements[s.statements.length - 1]!);
+  return false;
+}
+
+function guarded(em: FnEmitter, node: ts.Node, n: number): boolean {
+  for (let child: ts.Node = node, p = node.parent; p; child = p, p = p.parent) {
+    if (ts.isIfStatement(p)) {
+      if (child === p.thenStatement && atLeast(em, p.expression, n)) return true;
+      if (child === p.elseStatement && below(em, p.expression, n)) return true;
+    }
+    if (ts.isConditionalExpression(p)) {
+      if (child === p.whenTrue && atLeast(em, p.condition, n)) return true;
+      if (child === p.whenFalse && below(em, p.condition, n)) return true;
+    }
+    if (ts.isBinaryExpression(p) && child === p.right) {
+      if (p.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken && atLeast(em, p.left, n)) return true;
+      if (p.operatorToken.kind === ts.SyntaxKind.BarBarToken && below(em, p.left, n)) return true;
+    }
+    if (ts.isBlock(p) || ts.isSourceFile(p) || ts.isCaseClause(p) || ts.isDefaultClause(p)) {
+      const stmts = p.statements as ts.NodeArray<ts.Statement>;
+      for (const s of stmts) {
+        if (s === child) break;
+        if (ts.isIfStatement(s) && !s.elseStatement && exits(s.thenStatement) && below(em, s.expression, n)) return true;
+      }
+    }
+  }
+  return false;
+}
+
 // --- entry points --------------------------------------------------------------------
 
 /** `new C(…)` of an SDK class. */
@@ -228,6 +341,8 @@ export function nativeNew(em: FnEmitter, node: ts.NewExpression, t: LType & { k:
   noteIncludes(em, ref);
   const index = (decl.parent as ts.ClassDeclaration).members.filter(ts.isConstructorDeclaration).indexOf(decl);
   const ctor = ref.cls.constructors![index]!;
+  requireAvailable(em, node, ref, ref.cls.since, t.name);
+  requireAvailable(em, node, ref, ctor.since, `new ${t.name}(…)`);
   const args = argsOf(node);
   const params = ctor.params.map((p) => parseSdkType(p.type, ref.module));
   if (ref.platform === "ios") {
@@ -235,7 +350,7 @@ export function nativeNew(em: FnEmitter, node: ts.NewExpression, t: LType & { k:
     return { c: `lucent::objc::wrap(${send(`[${ref.cls.native} alloc]`, ctor.selector ?? "init", a)}, ${cppQuoted(`new ${t.name}`)})`, t };
   }
   const a = args.map((x, i) => toJni(em, ref, x, params[i]!));
-  const desc = jniDescriptor(ctor.params.map((p) => p.type), "void");
+  const desc = ctor.descriptor ?? jniDescriptor(ctor.params.map((p) => p.type), "void");
   return jniCall(em, { cls: ref.cls, lookup: "method", name: "<init>", desc, access: (id) => `env->NewObject(cls_, ${[id, ...a].join(", ")})`, ret: { k: "ref", module: ref.module, name: ref.cls.name, nullable: false }, lt: t, what: `new ${t.name}` });
 }
 
@@ -275,7 +390,13 @@ export function nativeMember(em: FnEmitter, obj: E, node: ts.Node): E {
 }
 
 function property(em: FnEmitter, node: ts.Node, ref: SdkClassRef, prop: SdkPropertySchema, obj: E | undefined): E {
+  // Compile-time constants need no call, and exist on every API level.
+  if (typeof prop.value === "number") return { c: numberLiteral(prop.value), t: T.number };
+  if (typeof prop.value === "string") return { c: stringLiteral(prop.value), t: T.string };
+  if (typeof prop.value === "boolean") return { c: String(prop.value), t: T.boolean };
   requireMain(em, node, ref);
+  if (!obj) requireAvailable(em, node, ref, ref.cls.since, ref.cls.name);
+  requireAvailable(em, node, ref, prop.since, `${ref.cls.name}.${prop.name}`);
   noteIncludes(em, ref);
   const t = parseSdkType(prop.type, ref.module);
   const lt = em.lt(node);
@@ -285,7 +406,7 @@ function property(em: FnEmitter, node: ts.Node, ref: SdkClassRef, prop: SdkPrope
     return fromObjc(ref, send(receiver, prop.selector ?? prop.name, []), t, lt, what);
   }
   if (prop.getter) {
-    const desc = jniDescriptor([], prop.type);
+    const desc = ref.cls.methods?.find((m) => (m.java ?? m.name) === prop.getter && !m.params.length)?.descriptor ?? jniDescriptor([], prop.type);
     const recv = obj ? `lucent::jni::unwrap(recv_)` : "cls_";
     return jniCall(em, { cls: ref.cls, lookup: obj ? "method" : "staticMethod", name: prop.getter, desc, access: (id) => `env->Call${obj ? "" : "Static"}${jniKind(desc.slice(2))}Method(${recv}, ${id})`, ret: t, lt, what, pre: obj ? [`auto recv_ = ${obj.c};`] : [] });
   }
@@ -316,6 +437,8 @@ export function nativeCall(em: FnEmitter, node: ts.CallExpression, obj: E | unde
   const index = (decl.parent as ts.ClassDeclaration).members.filter((m) => ts.isMethodDeclaration(m) && (m.name as ts.Identifier).text === name).indexOf(decl);
   const method = (ref.cls.methods ?? []).filter((m) => m.name === name)[index]!;
   requireMain(em, node, ref, method);
+  if (!obj) requireAvailable(em, node, ref, ref.cls.since, ref.cls.name);
+  requireAvailable(em, node, ref, method.since, `${ref.cls.name}.${method.name}`);
   noteIncludes(em, ref);
   return ref.platform === "ios" ? iosCall(em, node, ref, method, obj) : androidCall(em, node, ref, method, obj);
 }
@@ -330,14 +453,14 @@ function iosCall(em: FnEmitter, node: ts.CallExpression, ref: SdkClassRef, m: Sd
 function androidCall(em: FnEmitter, node: ts.CallExpression, ref: SdkClassRef, m: SdkMethodSchema, obj: E | undefined): E {
   const tps = m.typeParams ?? [];
   const a = argsOf(node).map((x, i) => toJni(em, ref, x, parseSdkType(m.params[i]!.type, ref.module, tps)));
-  const desc = jniDescriptor(m.params.map((p) => p.type), m.returns, tps);
+  const desc = m.descriptor ?? jniDescriptor(m.params.map((p) => p.type), m.returns, tps);
   const ret = parseSdkType(m.returns, ref.module, tps);
   const kind = jniKind(desc.slice(desc.indexOf(")") + 1));
   const recv = obj ? "lucent::jni::unwrap(recv_)" : "cls_";
   return jniCall(em, {
     cls: ref.cls,
     lookup: obj ? "method" : "staticMethod",
-    name: m.name,
+    name: m.java ?? m.name,
     desc,
     access: (id) => `env->Call${obj ? "" : "Static"}${kind}Method(${[recv, id, ...a].join(", ")})`,
     ret,

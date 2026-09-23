@@ -4,6 +4,7 @@
 #include <jni.h>
 
 #include "../array.h"
+#include "../bytes.h"
 #include "../jsstring.h"
 #include "../native.h"
 
@@ -36,8 +37,28 @@ inline jobject unwrap(const Opt<NativeRef>& r) { return r.has() ? static_cast<jo
 jstring toJString(JNIEnv* env, const String& s);
 String fromJString(JNIEnv* env, jstring s, const char* what);
 Opt<String> fromJStringOpt(JNIEnv* env, jstring s);
+/// A CharSequence (String, SpannableString…) as a string, through toString().
+String charSequenceToString(JNIEnv* env, jobject s, const char* what);
+Opt<String> charSequenceToStringOpt(JNIEnv* env, jobject s);
+
+// Arrays are copied in both directions; a null reference is an absent value.
 jlongArray toLongArray(JNIEnv* env, const Array<double>& a);
 jintArray toIntArray(JNIEnv* env, const Array<double>& a);
+jbyteArray toByteArray(JNIEnv* env, const Bytes& b);
+jobjectArray toStringArray(JNIEnv* env, const Array<String>& a);
+template <class T, class F>
+auto toArrayOpt(JNIEnv* env, const Opt<T>& v, F convert) -> decltype(convert(env, v.get())) {
+  return v.has() ? convert(env, v.get()) : nullptr;
+}
+Array<double> fromLongArray(JNIEnv* env, jlongArray a, const char* what);
+Array<double> fromIntArray(JNIEnv* env, jintArray a, const char* what);
+Bytes fromByteArray(JNIEnv* env, jbyteArray a, const char* what);
+Array<String> fromStringArray(JNIEnv* env, jobjectArray a, const char* what);
+template <class T, class A, class F>
+Opt<T> fromArrayOpt(JNIEnv* env, A a, F convert) {
+  if (!a) return Opt<T>(null);
+  return convert(env, a, "");
+}
 
 /// Frees the local references a glue call creates.
 class LocalFrame {

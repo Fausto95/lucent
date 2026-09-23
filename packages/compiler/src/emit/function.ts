@@ -222,6 +222,8 @@ export class FnEmitter {
   coerce(e: E, to: LType, node?: ts.Node): string {
     const from = e.t;
     if (sameType(from, to)) return e.c;
+    // Different Lucent types with one native representation (platform objects).
+    if (from.k !== "union" && to.k !== "union" && this.cpp(from) === this.cpp(to)) return e.c;
     if (from.k === "never") return e.c;
     if (to.k === "void" || to.k === "never") return e.c;
     if (to.k === "undefined" && (from.k === "void" || from.k === "undefined")) return "lucent::undefined";

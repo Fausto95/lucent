@@ -21,6 +21,7 @@ export function sdkDts(schema: SdkModuleSchema): string {
         case "string":
           return "string";
         case "array": {
+          if (t.of.k === "prim" && t.of.name === "byte") return t.nullable ? "Uint8Array | null" : "Uint8Array";
           const inner = tsType(t.of);
           return inner.includes(" ") ? `(${inner})[]` : `${inner}[]`;
         }
@@ -56,21 +57,29 @@ export function sdkDts(schema: SdkModuleSchema): string {
 function classDts(schema: SdkModuleSchema, cls: SdkClassSchema, tsType: (t: SdkType) => string): string[] {
   const parse = (s: string, tps: readonly string[] = []) => parseSdkType(s, schema.module, tps);
   const params = (ps: { name: string; type: string }[], tps: readonly string[] = []) => ps.map((p) => `${p.name}: ${tsType(parse(p.type, tps))}`).join(", ");
+  const sinceText = (v: number | string | undefined) => (v === undefined ? undefined : `Since ${schema.platform === "android" ? "API " : "iOS "}${v}.`);
+  const memberDoc = (m: { since?: number | string; deprecated?: boolean }) => {
+    const parts = [sinceText(m.since), m.deprecated ? "@deprecated" : undefined].filter(Boolean);
+    return parts.length ? `  /** ${parts.join(" ")} */\n` : "";
+  };
   const doc: string[] = [];
   if (cls.mainActor) doc.push(" * Main thread only: use it inside `main(() => …)` from lucent:thread.");
-  if (cls.since !== undefined) doc.push(` * Since ${schema.platform === "android" ? "API " : "iOS "}${cls.since}.`);
+  if (cls.interface) doc.push(" * A Java interface.");
+  if (cls.since !== undefined) doc.push(` * ${sinceText(cls.since)}`);
   const out = doc.length ? ["/**", ...doc, " */"] : [];
   const ext = cls.extends ? ` extends ${tsType(parse(cls.extends))}` : "";
-  out.push(`export declare class ${cls.name}${ext} {`);
+  // Interfaces and abstract classes cannot be constructed; implemented
+  // interfaces merge into the class type below, so values convert to them.
+  out.push(`export declare ${cls.interface || cls.abstract ? "abstract " : ""}class ${cls.name}${ext} {`);
   out.push(`  private readonly __lucent_${cls.name}: never;`);
   if (!cls.constructors?.length) out.push("  private constructor();");
-  for (const c of cls.constructors ?? []) out.push(`  constructor(${params(c.params)});`);
-  for (const p of cls.properties ?? []) out.push(`  ${p.static ? "static " : ""}${p.readonly ? "readonly " : ""}${p.name}: ${tsType(parse(p.type))};`);
+  for (const c of cls.constructors ?? []) out.push(`${memberDoc(c)}  constructor(${params(c.params)});`);
+  for (const p of cls.properties ?? []) out.push(`${memberDoc(p)}  ${p.static ? "static " : ""}${p.readonly ? "readonly " : ""}${p.name}: ${tsType(parse(p.type))};`);
   for (const m of cls.methods ?? []) {
     const tps = m.typeParams ?? [];
-    const since = m.since !== undefined ? `  /** Since ${schema.platform === "android" ? "API " : "iOS "}${m.since}. */\n` : "";
-    out.push(`${since}  ${m.static ? "static " : ""}${m.name}${tps.length ? `<${tps.join(", ")}>` : ""}(${params(m.params, tps)}): ${tsType(parse(m.returns, tps))};`);
+    out.push(`${memberDoc(m)}  ${m.static ? "static " : ""}${m.name}${tps.length ? `<${tps.join(", ")}>` : ""}(${params(m.params, tps)}): ${tsType(parse(m.returns, tps))};`);
   }
   out.push("}");
+  if (cls.implements?.length) out.push(`export declare interface ${cls.name} extends ${cls.implements.map((i) => tsType(parse(i))).join(", ")} {}`);
   return out;
 }

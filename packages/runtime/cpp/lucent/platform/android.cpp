@@ -130,6 +130,78 @@ Opt<String> fromJStringOpt(JNIEnv* e, jstring s) {
   return fromJString(e, s, "");
 }
 
+String charSequenceToString(JNIEnv* e, jobject s, const char* what) {
+  if (!s) failWith("TypeError", std::string(what) + " returned null");
+  static jmethodID toString = method(findClass("java/lang/CharSequence"), "toString", "()Ljava/lang/String;");
+  auto str = static_cast<jstring>(e->CallObjectMethod(s, toString));
+  check(e);
+  return fromJString(e, str, what);
+}
+
+Opt<String> charSequenceToStringOpt(JNIEnv* e, jobject s) {
+  if (!s) return Opt<String>(null);
+  return charSequenceToString(e, s, "");
+}
+
+jbyteArray toByteArray(JNIEnv* e, const Bytes& b) {
+  auto n = static_cast<jsize>(b.size());
+  jbyteArray out = e->NewByteArray(n);
+  e->SetByteArrayRegion(out, 0, n, reinterpret_cast<const jbyte*>(b.data()));
+  return out;
+}
+
+jobjectArray toStringArray(JNIEnv* e, const Array<String>& a) {
+  auto n = static_cast<jsize>(a.size());
+  jobjectArray out = e->NewObjectArray(n, findClass("java/lang/String"), nullptr);
+  for (jsize i = 0; i < n; i++) {
+    jstring s = toJString(e, a.at(static_cast<size_t>(i)));
+    e->SetObjectArrayElement(out, i, s);
+    e->DeleteLocalRef(s);
+  }
+  return out;
+}
+
+Array<double> fromLongArray(JNIEnv* e, jlongArray a, const char* what) {
+  if (!a) failWith("TypeError", std::string(what) + " returned null");
+  jsize n = e->GetArrayLength(a);
+  std::vector<jlong> buf(static_cast<size_t>(n));
+  e->GetLongArrayRegion(a, 0, n, buf.data());
+  Array<double> out;
+  for (jlong v : buf) out.push(static_cast<double>(v));
+  return out;
+}
+
+Array<double> fromIntArray(JNIEnv* e, jintArray a, const char* what) {
+  if (!a) failWith("TypeError", std::string(what) + " returned null");
+  jsize n = e->GetArrayLength(a);
+  std::vector<jint> buf(static_cast<size_t>(n));
+  e->GetIntArrayRegion(a, 0, n, buf.data());
+  Array<double> out;
+  for (jint v : buf) out.push(static_cast<double>(v));
+  return out;
+}
+
+Bytes fromByteArray(JNIEnv* e, jbyteArray a, const char* what) {
+  if (!a) failWith("TypeError", std::string(what) + " returned null");
+  jsize n = e->GetArrayLength(a);
+  std::vector<uint8_t> buf(static_cast<size_t>(n));
+  e->GetByteArrayRegion(a, 0, n, reinterpret_cast<jbyte*>(buf.data()));
+  return Bytes(std::move(buf));
+}
+
+Array<String> fromStringArray(JNIEnv* e, jobjectArray a, const char* what) {
+  if (!a) failWith("TypeError", std::string(what) + " returned null");
+  jsize n = e->GetArrayLength(a);
+  Array<String> out;
+  for (jsize i = 0; i < n; i++) {
+    auto s = static_cast<jstring>(e->GetObjectArrayElement(a, i));
+    // Null elements have no place in string[]: read them as empty strings.
+    out.push(s ? fromJString(e, s, what) : String());
+    if (s) e->DeleteLocalRef(s);
+  }
+  return out;
+}
+
 jlongArray toLongArray(JNIEnv* e, const Array<double>& a) {
   auto n = static_cast<jsize>(a.size());
   jlongArray out = e->NewLongArray(n);
