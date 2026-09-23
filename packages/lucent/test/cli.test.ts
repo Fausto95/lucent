@@ -37,6 +37,13 @@ describe("lucent build", () => {
     expect(lucent(root, "build", "--force").out).toContain("Compiled 1 module");
   });
 
+  it("maps lucent:* in the app's tsconfig.json, so editors see the modules it writes", () => {
+    const root = project();
+    fs.writeFileSync(path.join(root, "tsconfig.json"), '{ "compilerOptions": { "strict": true } }\n');
+    expect(lucent(root, "build").status).toBe(0);
+    expect(fs.readFileSync(path.join(root, "tsconfig.json"), "utf8")).toContain('"lucent:*": ["./.lucent/native/types/*"]');
+  });
+
   it("rebuilds when the output was deleted", () => {
     const root = project();
     lucent(root, "build");
@@ -118,6 +125,14 @@ describe("lucent init", () => {
     const config = fs.readFileSync(path.join(root, "react-native.config.js"), "utf8");
     expect(config).toContain('"lucent": { root: require("path").join(__dirname, ".lucent", "native") }');
     expect(config).not.toContain("lucent-native");
+  });
+
+  it("maps lucent:* in tsconfig.json to the generated declarations", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
+    fs.writeFileSync(path.join(root, "tsconfig.json"), '{\n  "compilerOptions": {\n    "strict": true\n  }\n}\n');
+    expect(lucent(root, "init").status).toBe(0);
+    const paths = (JSON.parse(fs.readFileSync(path.join(root, "tsconfig.json"), "utf8")) as { compilerOptions: { paths: Record<string, string[]> } }).compilerOptions.paths;
+    expect(paths["lucent:*"]).toEqual(["./.lucent/native/types/*"]);
   });
 
   it("renames an existing `lucent-native` entry", () => {
