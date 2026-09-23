@@ -88,6 +88,12 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     expect(method("resizeHeight").map((m) => m.selector)).toEqual(["resizeToHeight:"]);
   });
 
+  it("keeps the labels of methods named as a property of their class, which keeps the name", () => {
+    expect(method("label")).toEqual([]);
+    expect(method("labelForWidth").map((m) => m.selector)).toEqual(["labelForWidth:"]);
+    expect(widget().properties?.find((p) => p.name === "label")?.type).toEqual(T("string?"));
+  });
+
   it("records availability, C functions and constants, and what it skips", () => {
     expect(method("modern")[0]!.since).toBe("16.0");
     expect(mod().functions).toEqual(expect.arrayContaining([{ name: "WDGDistance", params: [{ name: "a", type: T("Widgets.WDGWidget") }, { name: "b", type: T("Widgets.WDGWidget") }], returns: T("double") }]));

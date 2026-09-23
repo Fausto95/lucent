@@ -363,6 +363,22 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(mm).toContain("touchesBegan:lucent::objc::toNSSet(");
   });
 
+  it("reads UIView's frame, which a method of the same base name no longer hides", () => {
+    const { r, mm } = ios(`import { UIView } from "lucent:ios/UIKit";
+import { main } from "lucent:thread";
+export async function run(): Promise<string> {
+  return main(() => {
+    const v = new UIView({ origin: { x: 0, y: 0 }, size: { width: 10, height: 20 } });
+    const r = v.frameForAlignmentRect(v.frame);
+    return \`\${v.frame.size.height} \${r.size.width}\`;
+  });
+}
+`);
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain(" frame]");
+    expect(mm).toContain("frameForAlignmentRect:");
+  });
+
   it("monitors network paths: OS objects, anonymous enums, blocks, the main queue", () => {
     const { r, mm } = ios(pathMonitor);
     expect(r.diagnostics).toEqual([]);

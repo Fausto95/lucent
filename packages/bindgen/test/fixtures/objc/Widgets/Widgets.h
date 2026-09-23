@@ -60,6 +60,8 @@ NS_SWIFT_UI_ACTOR
 - (void)impact;
 - (void)impactWithIntensity:(CGFloat)intensity NS_SWIFT_NAME(impact(intensity:));
 - (void)resizeToWidth:(double)width NS_SWIFT_NAME(resize(width:));
+// A method named as a property once labels are dropped (UIView's frame(forAlignmentRect:)).
+- (double)labelForWidth:(double)width NS_SWIFT_NAME(label(forWidth:));
 - (void)resizeToHeight:(double)height NS_SWIFT_NAME(resize(height:));
 - (void)modern API_AVAILABLE(ios(16.0));
 - (void)animate:(void (^)(void))changes completion:(void (^_Nullable)(BOOL finished))completion;
