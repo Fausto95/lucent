@@ -6,6 +6,7 @@ import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../ty
 import { BindingsEmitter, type ModuleExports, publicMembers } from "./bindings.ts";
 import { emitClass } from "./classes.ts";
 import { objcDelegate } from "./delegates.ts";
+import { javaSubclass } from "./java.ts";
 import { Ctx, type Global } from "./context.ts";
 import { FnEmitter } from "./function.ts";
 import { emitIface } from "./interfaces.ts";
@@ -19,6 +20,8 @@ export interface EmitResult {
   diagnostics: import("../diagnostics.ts").Diagnostic[];
   /** Apple frameworks the iOS platform code uses. */
   frameworks?: string[];
+  /** Java the Android platform code needs (subclasses of SDK classes), keyed by path under src/main/java. */
+  java?: Map<string, string>;
   /**
    * Declarations of the lucent:* modules the platform modules use
    * (`ios/UIKit.d.ts`, `thread.d.ts`…), for the app's own TypeScript:
@@ -88,6 +91,7 @@ export function emitProgram(lp: LucentProgram): EmitResult {
   const genericFns = new Map<LucentModule, string[]>();
   const staticInits = new Map<LucentModule, string[]>();
   const nativeDecls: string[] = [];
+  const java = new Map<string, string>();
   for (const m of lp.modules) {
     moduleDecls.set(m, []);
     genericFns.set(m, []);
@@ -110,6 +114,9 @@ export function emitProgram(lp: LucentProgram): EmitResult {
       ctx.nativeUnit(m).lines.add(objc.lines);
       nativeDecls.push(objc.decl);
     }
+    // Classes extending Android SDK classes: a Java subclass.
+    const sub = ctx.platform === "android" && info.sdkBase ? ctx.guard(() => javaSubclass(info)) : undefined;
+    if (sub) java.set(sub.path, sub.source);
   }
 
   // Platform modules' declarations alias their implementations: emit each once.
@@ -201,7 +208,7 @@ export function emitProgram(lp: LucentProgram): EmitResult {
 
   const proxies = new Map<string, string>();
   for (const m of mods) proxies.set(m.module.name, jsProxy(m));
-  return { files, proxies, diagnostics: [...lp.diagnostics, ...ctx.diagnostics], frameworks: [...ctx.frameworks].sort() };
+  return { files, proxies, diagnostics: [...lp.diagnostics, ...ctx.diagnostics], frameworks: [...ctx.frameworks].sort(), java };
 }
 
 function isExported(n: ts.Node): boolean {

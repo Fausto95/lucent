@@ -97,6 +97,16 @@ public final class NativeProxy implements InvocationHandler {
     }
   }
 
+  /** For generated subclasses of SDK classes: a call of their Lucent side. */
+  public static Object dispatch(long handle, String key, Object[] args) {
+    return call(handle, key, args);
+  }
+
+  /** For generated subclasses: their Lucent side is released with them. */
+  public static void releaseHandle(long handle) {
+    release(handle);
+  }
+
   private static native boolean has(long handle, String key);
 
   private static native Object call(long handle, String key, Object[] args);

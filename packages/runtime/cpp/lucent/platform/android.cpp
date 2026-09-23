@@ -310,9 +310,11 @@ jobject boxWith(JNIEnv* e, const char* cls, const char* sig, jvalue v) {
 
 }  // namespace
 
-jobject proxyFor(JNIEnv* e, const char* iface, const void* identity, std::initializer_list<std::pair<const char*, ProxyMethod>> methods) {
-  jclass cls = nativeProxyClass(e);
-  std::pair<const void*, std::string> key(identity, iface);
+namespace {
+
+/** The Java object for `key`, made by `make` (given the handle) unless Java still holds one. */
+jobject cachedJavaObject(JNIEnv* e, std::pair<const void*, std::string> key, std::initializer_list<std::pair<const char*, ProxyMethod>> methods, const std::function<jobject(jlong)>& make) {
+  nativeProxyClass(e);
   {
     std::lock_guard<std::mutex> g(proxiesMutex);
     auto it = proxies().find(key);
@@ -323,8 +325,7 @@ jobject proxyFor(JNIEnv* e, const char* iface, const void* identity, std::initia
   }
   auto* t = new ProxyTarget{key, {}};
   for (const auto& [name, fn] : methods) t->methods.emplace(name, fn);
-  static jmethodID create = staticMethod(cls, "create", "(Ljava/lang/Class;J)Ljava/lang/Object;");
-  jobject p = e->CallStaticObjectMethod(cls, create, findClass(iface), reinterpret_cast<jlong>(t));
+  jobject o = make(reinterpret_cast<jlong>(t));
   if (e->ExceptionCheck()) {
     delete t;
     rethrowPending(e);
@@ -332,8 +333,25 @@ jobject proxyFor(JNIEnv* e, const char* iface, const void* identity, std::initia
   std::lock_guard<std::mutex> g(proxiesMutex);
   ProxyEntry& slot = proxies()[key];
   if (slot.ref) e->DeleteWeakGlobalRef(slot.ref);
-  slot = {e->NewWeakGlobalRef(p), t};
-  return p;
+  slot = {e->NewWeakGlobalRef(o), t};
+  return o;
+}
+
+}  // namespace
+
+jobject proxyFor(JNIEnv* e, const char* iface, const void* identity, std::initializer_list<std::pair<const char*, ProxyMethod>> methods) {
+  return cachedJavaObject(e, {identity, iface}, methods, [&](jlong handle) {
+    jclass cls = nativeProxyClass(e);
+    static jmethodID create = staticMethod(cls, "create", "(Ljava/lang/Class;J)Ljava/lang/Object;");
+    return e->CallStaticObjectMethod(cls, create, findClass(iface), handle);
+  });
+}
+
+jobject subclassFor(JNIEnv* e, const char* cls, const void* identity, std::initializer_list<std::pair<const char*, ProxyMethod>> methods) {
+  return cachedJavaObject(e, {identity, cls}, methods, [&](jlong handle) {
+    jclass c = findClass(cls);
+    return e->NewObject(c, method(c, "<init>", "(J)V"), handle);
+  });
 }
 
 jobject arg(JNIEnv* e, jobjectArray args, int i) { return e->GetObjectArrayElement(args, i); }

@@ -201,6 +201,8 @@ export interface ClassInfo {
   abstract: boolean;
   /** The Lucent class this one extends, with type arguments in terms of this class's parameters. */
   base?: { id: string; args: LType[] };
+  /** The SDK class this one extends (Android): a generated Java subclass stands for its instances. */
+  sdkBase?: LType & { k: "native" };
 }
 
 /** A class type and its ancestors, nearest first, with type arguments substituted. */
@@ -400,7 +402,12 @@ export class TypeRegistry {
     const expr = h?.types[0];
     if (!expr || expr.expression.getText() === "Error") return;
     const t = this.lower(this.checker.getTypeAtLocation(expr), expr);
-    if (t.k !== "class") fail(expr, Codes.UnsupportedClassFeature, "classes can only extend Lucent classes and Error");
+    if (t.k === "native" && t.platform === "android") {
+      info.sdkBase = t;
+      return;
+    }
+    if (t.k === "native") fail(expr, Codes.UnsupportedClassFeature, `Lucent classes cannot extend ${t.platform} classes yet`);
+    if (t.k !== "class") fail(expr, Codes.UnsupportedClassFeature, "classes can only extend Lucent classes, Error and Android SDK classes");
     info.base = { id: t.id, args: t.args };
   }
 

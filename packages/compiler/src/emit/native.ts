@@ -2,9 +2,10 @@ import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import { builtinSdkModuleOf, sdkModuleOf } from "../program.ts";
 import { findSdkModule, findSdkType, loadSdkModule, jniDescriptor, sdkTypeInfo, parseSdkType, type Platform, type SdkCallable, type SdkClassSchema, type SdkMethodSchema, type SdkPropertySchema, type SdkType } from "../sdk/schema.ts";
-import { cppIdent, type LType, T, unionOf } from "../types.ts";
+import { type ClassInfo, cppIdent, type LType, T, unionOf } from "../types.ts";
 import type { E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
+import { javaSubclassName, sdkInstanceMethods } from "./java.ts";
 import { cppQuoted, numberLiteral, stringLiteral } from "./literals.ts";
 
 /**
@@ -104,6 +105,9 @@ export function nativeOfClass(em: FnEmitter, e: E, to: LType & { k: "native" }, 
   if (e.t.k !== "class") throw new Error("not a class instance");
   const info = em.reg.cls(e.t.id);
   const name = info.decl.name?.text ?? "class";
+  if (info.sdkBase && extendsSdk(info.sdkBase, to)) {
+    return `lucent::jni::wrap(lucent::jni::env(), ${javaSubclassOf(em, e, info)}, ${cppQuoted(name)})`;
+  }
   if (!sdkInterfacesOf(em.checker, info.decl).some((p) => p.module === to.module && p.cls.name === to.name)) {
     fail(node, Codes.InterfaceNotImplemented, `class ${name} must declare \`implements ${to.name}\` to be used as ${to.name}`);
   }
@@ -493,6 +497,34 @@ function proxyEntry(em: FnEmitter, node: ts.Node, module: string, owner: string,
   const descriptor = m.descriptor ?? jniDescriptor(m.params.map((p) => p.type), m.returns, m.typeParams);
   const key = `${m.java ?? m.name}${descriptor.slice(0, descriptor.indexOf(")") + 1)}`;
   return `{${cppQuoted(key)}, [${capture}](JNIEnv* env, jobjectArray args_) -> jobject { ${body} }}`;
+}
+
+/** Whether SDK class `base` is `to` or extends it. */
+function extendsSdk(base: LType & { k: "native" }, to: LType & { k: "native" }): boolean {
+  for (let t: { module: string; name: string } | undefined = base; t; ) {
+    if (t.module === to.module && t.name === to.name) return true;
+    const cls = findSdkType("android", t.module, t.name);
+    const up = cls?.kind === "class" && cls.extends ? parseSdkType(cls.extends, t.module) : undefined;
+    t = up?.k === "ref" ? up : undefined;
+  }
+  return false;
+}
+
+/**
+ * An instance of a Lucent class extending an SDK class: its generated Java
+ * subclass (one per instance while Java holds it), whose overrides call the
+ * methods the Lucent class defines.
+ */
+function javaSubclassOf(em: FnEmitter, e: E, info: ClassInfo): string {
+  const entries: string[] = [];
+  for (const { module, cls, method } of sdkInstanceMethods(info.sdkBase!)) {
+    const impl = info.decl.members.find((x): x is ts.MethodDeclaration => ts.isMethodDeclaration(x) && ts.isIdentifier(x.name) && x.name.text === method.name && !!x.body);
+    if (!impl) continue;
+    const fn = em.reg.lowerSignature(em.checker.getSignatureFromDeclaration(impl)!, impl) as LType & { k: "fn" };
+    entries.push(proxyEntry(em, impl, module, cls.name, method, fn, "s_ = o_", (a) => `s_->${cppIdent(method.name)}(${a.join(", ")})`));
+  }
+  em.ctx.nativeUnit(em.opts.module).includes.add("#include <lucent/platform/android.h>");
+  return `({ auto o_ = ${e.c}; lucent::jni::subclassFor(lucent::jni::env(), ${cppQuoted(javaSubclassName(info))}, o_.get(), {${entries.join(", ")}}); })`;
 }
 
 /**

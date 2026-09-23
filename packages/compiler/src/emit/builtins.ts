@@ -1129,6 +1129,11 @@ export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {
 export function superCall(em: FnEmitter, node: ts.CallExpression): E {
   const cls = em.opts.cls;
   if (cls?.base) fail(node, Codes.UnsupportedClassFeature, "call `super(...)` as a statement of its own");
+  // An SDK base: its Java object is made where the instance goes to Java.
+  if (cls?.sdkBase) {
+    if (node.arguments.length) fail(node, Codes.UnsupportedClassFeature, `extending ${cls.sdkBase.name}: call super() without arguments`);
+    return { c: "lucent::undefined", t: T.undefined };
+  }
   if (!cls || !cls.isError) fail(node, Codes.UnsupportedClassFeature, "`super(...)` is only supported in subclasses");
   const msg = node.arguments[0] ? em.exprAs(node.arguments[0], T.string) : "lucent::String()";
   return { c: `(this->message = ${msg}, lucent::undefined)`, t: T.undefined };

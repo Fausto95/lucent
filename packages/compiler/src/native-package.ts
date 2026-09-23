@@ -89,6 +89,7 @@ export function writeNativePackage(result: EmitResult, outDir: string, options: 
   want.set(podspec, want.get(podspec)!.toString().replace(/s\.frameworks\s*=.*$/m, `s.frameworks   = ${JSON.stringify([...new Set(frameworks)]).replace(/,/g, ", ")}`));
   for (const [name, content] of result.files) want.set(path.join(outDir, "cpp/generated", name), content);
   for (const [name, content] of result.proxies) want.set(path.join(outDir, "js", `${name}.js`), content);
+  for (const [name, content] of result.java ?? []) want.set(path.join(outDir, "android/src/main/java", name), content);
   for (const [name, content] of result.types ?? []) want.set(path.join(outDir, "types", name), content);
   want.set(
     path.join(outDir, "manifest.json"),

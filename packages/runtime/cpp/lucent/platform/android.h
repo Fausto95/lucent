@@ -91,6 +91,13 @@ using ProxyMethod = std::function<jobject(JNIEnv*, jobjectArray)>;
  */
 jobject proxyFor(JNIEnv* env, const char* iface, const void* identity, std::initializer_list<std::pair<const char*, ProxyMethod>> methods);
 
+/**
+ * An instance of `cls` (a generated Java subclass of an SDK class, made with
+ * its handle) whose overridden methods are `methods`, keyed as proxyFor's.
+ * One per `identity` while Java holds it. A local reference.
+ */
+jobject subclassFor(JNIEnv* env, const char* cls, const void* identity, std::initializer_list<std::pair<const char*, ProxyMethod>> methods);
+
 /// The i-th argument of a proxy call (a local reference; boxed primitives).
 jobject arg(JNIEnv* env, jobjectArray args, int i);
 /// Primitive values of boxed arguments, and boxed results.
