@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { sdkAvailable } from "@lucent-lang/bindgen";
 import { compile, runtimeDir } from "../src/index.ts";
 
 /** Android output for a platform module whose Android side is `src` (exporting run()). */
@@ -20,7 +21,7 @@ function android(src: string) {
 
 const codes = (r: { diagnostics: { code: string }[] }) => r.diagnostics.map((d) => d.code);
 
-describe("Android bindings from android.jar", () => {
+describe.skipIf(!sdkAvailable("android"))("Android bindings from android.jar", () => {
   it("passes CharSequence as strings", () => {
     const { r, cpp } = android(`import { ClipData } from "lucent:android/android.content";
 export async function run(): Promise<string> {

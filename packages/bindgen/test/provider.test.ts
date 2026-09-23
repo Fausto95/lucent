@@ -5,11 +5,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vitest";
 import { podsSearchPaths } from "../src/pods.ts";
-import { extractionCount, forgetLoadedSdks, sdkModule, sdkNames } from "../src/provider.ts";
+import { extractionCount, forgetLoadedSdks, sdkAvailable, sdkModule, sdkNames } from "../src/provider.ts";
 
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 const javac = spawnSync("javac", ["-version"]).status === 0 && spawnSync("jar", ["--version"]).status === 0;
-const xcode = process.platform === "darwin" && spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"]).status === 0;
+const xcode = sdkAvailable("ios", { prebuilt: false });
+const androidSdk = sdkAvailable("android", { prebuilt: false });
 
 function fixtureJar(dir: string): string {
   const sources = spawnSync("find", [path.join(fixtures, "java"), "-name", "*.java"], { encoding: "utf8" }).stdout.trim().split("\n");
@@ -70,7 +71,7 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
     expect(r).toEqual({ missing: expect.stringMatching(/com\.example\.nope.*not found.*fixture\.jar/s) });
   });
 
-  it("binds the app's dependencies: jars and AARs on its resolved classpath", () => {
+  it.skipIf(!androidSdk)("binds the app's dependencies: jars and AARs on its resolved classpath", () => {
     const dir = tmp("lucent-deps-");
     const jar = fixtureJar(dir);
     // An AAR: classes.jar inside a zip, as Gradle downloads them.
@@ -89,7 +90,7 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
     expect(sdkModule("android", "com.example.nope", sdk)).toEqual({ missing: expect.stringMatching(/not found in the SDK or the app's dependencies.*android\.jar.*1 dependency/s) });
   });
 
-  it("says how to resolve the app's dependencies when it has not", () => {
+  it.skipIf(!androidSdk)("says how to resolve the app's dependencies when it has not", () => {
     const r = sdkModule("android", "androidx.biometric", { cacheDir: tmp("lucent-cache-"), android: { classpath: path.join(tmp("lucent-app-"), ".lucent/android-classpath.json") } });
     expect(r).toEqual({ missing: expect.stringMatching(/androidx\.biometric.*not found.*lucentClasspath/s) });
   });

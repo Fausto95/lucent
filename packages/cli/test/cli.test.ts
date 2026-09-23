@@ -4,7 +4,9 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { sdkAvailable } from "@lucent-lang/compiler";
 
+const android = sdkAvailable("android");
 const bin = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../bin/lucent.cjs");
 
 function lucent(root: string, ...args: string[]) {
@@ -60,7 +62,7 @@ describe("lucent init", () => {
   });
 });
 
-describe("lucent sdk prefetch", () => {
+describe.skipIf(!android)("lucent sdk prefetch", () => {
   const run = (root: string, env: Record<string, string>, ...args: string[]) => {
     const r = spawnSync(process.execPath, [bin, ...args, "--root", root], { encoding: "utf8", env: { ...process.env, ...env } });
     return { status: r.status, out: r.stdout + r.stderr };
@@ -104,7 +106,7 @@ describe("the app's Android dependencies", () => {
     expect(fs.readFileSync(path.join(root, "android/app/build.gradle"), "utf8")).toBe(gradle);
   });
 
-  it("lucent build resolves them with Gradle when an import is not in the SDK", () => {
+  it.skipIf(!android)("lucent build resolves them with Gradle when an import is not in the SDK", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-"));
     fs.writeFileSync(path.join(root, "m.lucent.ts"), "export declare function f(): Promise<string>;\n");
     fs.writeFileSync(path.join(root, "m.android.lucent.ts"), 'import { Widget } from "lucent:android/com.example.widgets";\nexport async function f(): Promise<string> { return new Widget().getName(); }\n');

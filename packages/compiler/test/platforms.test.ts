@@ -29,6 +29,7 @@ const codes = (r: { diagnostics: { code: string }[] }) => r.diagnostics.map((d) 
 // Most of these compile both platforms: they need an iOS SDK (Xcode, or the
 // prebuilt @lucent-lang/sdk-ios); hosts without one run the Android suites.
 const ios = sdkAvailable("ios");
+const android = sdkAvailable("android");
 
 const haptics = {
   "haptics.lucent.ts": "export declare function impact(): Promise<void>;\nexport declare function model(): Promise<string>;\n",
@@ -82,7 +83,7 @@ export function f(): string {
     expect(tsErrors("ios", src)).toEqual(["6: TS2739", "8: TS2674"]);
   });
 
-  it("types Java classes: nullability, primitive arrays, Class<T> and getter properties", () => {
+  it.skipIf(!android)("types Java classes: nullability, primitive arrays, Class<T> and getter properties", () => {
     const src = `import { Build, VibrationEffect, Vibrator, VibratorManager } from "lucent:android/android.os";
 import { appContext } from "lucent:android";
 export function f(): number {
