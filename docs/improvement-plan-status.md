@@ -104,7 +104,8 @@ Postponed:
       workspace root).
 - [ ] Headless app check without an SDK (platform modules become throwing
       stubs).
-- [ ] Pods staleness keyed on the Podfile.lock hash.
+- [x] Installed pods are keyed on Podfile.lock's content; development pods
+      (files outside Pods/) keep their files' identities.
 
 ## Phase 3: publishing Lucent libraries
 

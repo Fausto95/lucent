@@ -38,6 +38,8 @@ export interface SdkOptions {
     /** Framework search paths, and module maps loaded explicitly (the app's pods: see podsSearchPaths). */
     frameworkPaths?: string[];
     moduleMaps?: string[];
+    /** Podfile.lock: the pods' files are keyed on it, not on their own identities. */
+    lockfile?: string;
     xcrun?: string;
   };
   /** Fall back to @lucent-lang/sdk-<platform> prebuilt caches when there is no local SDK (default true). */
@@ -215,7 +217,14 @@ function locateIos(opts: SdkOptions): Located | { missing: string } {
     }
   }
   for (const headers of modules.values()) keyFiles.push(...(headers ?? []));
-  const key = `iphonesimulator${version}-${build}-${hash([extractorVersion(), ...includePaths, ...frameworkPaths, ...fileIdentity(keyFiles.filter((f) => fs.existsSync(f)))])}`;
+  // Installed pods are what Podfile.lock says; files outside Pods/ (development
+  // pods, other search paths) are keyed by their identity.
+  const lockfile = opts.ios?.lockfile;
+  const podsDir = lockfile ? `${fs.realpathSync(path.join(path.dirname(lockfile), "Pods"))}${path.sep}` : undefined;
+  const installed = (f: string) => !!podsDir && fs.realpathSync(f).startsWith(podsDir);
+  const identities = fileIdentity(keyFiles.filter((f) => fs.existsSync(f) && !installed(f)));
+  const lock = lockfile && fs.existsSync(lockfile) ? [hash([fs.readFileSync(lockfile, "utf8")])] : [];
+  const key = `iphonesimulator${version}-${build}-${hash([extractorVersion(), ...includePaths, ...frameworkPaths, ...lock, ...identities])}`;
   return { dir: path.join(cacheRoot(opts), "sdk/ios", key), describe: `iOS ${version} SDK (${build})`, ios: { sdk, ios: { modules: [], includePaths, frameworkPaths, moduleMaps, xcrun }, frameworks, modules, umbrellas } };
 }
 

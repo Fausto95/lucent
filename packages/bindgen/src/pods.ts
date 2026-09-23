@@ -6,6 +6,8 @@ export interface PodsSearchPaths {
   includePaths: string[];
   frameworkPaths: string[];
   moduleMaps: string[];
+  /** Podfile.lock: which pods these are, for caches. */
+  lockfile?: string;
 }
 
 /**
@@ -47,5 +49,6 @@ export function podsSearchPaths(iosDir: string, config = "debug"): PodsSearchPat
       if (p && fs.existsSync(p)) maps.add(p);
     }
   }
-  return { includePaths: paths("HEADER_SEARCH_PATHS"), frameworkPaths: paths("FRAMEWORK_SEARCH_PATHS"), moduleMaps: [...maps] };
+  const lockfile = path.join(iosDir, "Podfile.lock");
+  return { includePaths: paths("HEADER_SEARCH_PATHS"), frameworkPaths: paths("FRAMEWORK_SEARCH_PATHS"), moduleMaps: [...maps], ...(fs.existsSync(lockfile) ? { lockfile } : {}) };
 }
