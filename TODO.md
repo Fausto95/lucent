@@ -58,6 +58,7 @@ concrete work. Checked items are implemented and covered by tests.
 - [x] `packages/expo`: config plugin (build on prebuild, links the package)
 - [x] `packages/ts-plugin`: Lucent diagnostics in the editor (TypeScript language-service plugin)
 - [x] Performance budgets in CI: `scripts/bench.ts --check` against `scripts/bench-budgets.json`
+- [ ] `sieve` is 21x faster than JavaScript on macOS but 4.8x on the Linux CI runner (clang + libstdc++); find out why (Array<boolean> storage, allocator, vectorization)
 - [ ] String representation: one allocation per string (units inline with the header, non-atomic refcount for strings that never leave the Lucent thread); allocation dominates `wordCount`/`strings`, which are only 1.5–2× faster than JavaScript
 - [x] `packages/core`: `delay`, `error`, `errorCode`, `utf8Encode`, `utf8Decode`, `now` (native + JS)
 - [x] Verified: RN CLI and Expo autolinking resolve the package as a pure C++ dependency; Android CMake integration builds (host simulation); TurboModule compiles against RN 0.88 headers

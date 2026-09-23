@@ -3,9 +3,9 @@
   "fnv1a": 8,
   "crc32": 1.5,
   "xorshift": 3,
-  "sieve": 5,
+  "sieve": 2.5,
   "mandelbrot": 5,
   "sortNumbers": 3,
   "wordCount": 1.2,
-  "strings": 1
+  "strings": 0.7
 }
