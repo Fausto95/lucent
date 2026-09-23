@@ -93,9 +93,10 @@ Postponed:
 
 - [x] SDK-bound tests skip without the SDK (Android gated like iOS).
 - [x] The android.jar descriptor test runs one javap per package (37 s → 1 s).
-- [ ] Tests leave temporary projects behind: 5,291 `lucent-*` directories
-      (9 GB) in the temp directory after a day of runs. Helpers should remove
-      what they make.
+- [x] Test runs no longer leave temporary projects behind (5,291 `lucent-*`
+      directories, 9 GB, after a day of runs): vitest gives each run its own
+      TMPDIR, which workers and spawned processes inherit, and removes it at
+      the end.
 - [x] A Gradle resolution, a failed one included, is recorded with its inputs'
       hash (`.lucent/android-classpath.state.json`) and runs again only when
       they change; watch mode resolves too, once.
