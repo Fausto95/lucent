@@ -1,4 +1,3 @@
-import { comparisonTable } from "../comparison-table";
 import type { DocPage } from "../types";
 
 export const page: DocPage = {
@@ -10,7 +9,7 @@ export const page: DocPage = {
       kind: "p",
       text: "Expo Modules, Nitro Modules, Turbo Native Modules and Lucent all let JavaScript call native code synchronously over JSI. They differ in what you write: which languages, how the interface to JavaScript is declared, and how much of the platform you can reach today.",
     },
-    comparisonTable,
+    { kind: "comparison" },
     {
       kind: "p",
       text: "Custom native code of any of these kinds needs a development build; it does not run in Expo Go. For what Lucent generates and how the call reaches it, see [How it works](/docs/how-it-works/).",
@@ -31,7 +30,7 @@ export const page: DocPage = {
         "**Expo Modules**: your team already writes Swift and Kotlin, or you need views and full platform SDK access today.",
         "**Nitro Modules**: you want the most performance you can get, are fine writing C++, Swift or Kotlin, and like declaring the interface in TypeScript first.",
         "**Turbo Native Modules**: you are writing a library that should depend only on React Native core.",
-        "**Lucent**: your team works in TypeScript and wants native-speed logic without writing Swift or Kotlin, and today's scope (early platform SDK access, no views) is enough.",
+        "**Lucent**: you want native-speed logic without adding Swift, Kotlin or C++ to the codebase, so the module lives in the same language, review and tooling as the rest of your app, and today's scope (early platform SDK access, no views) is enough.",
       ],
     },
     {

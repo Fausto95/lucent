@@ -16,7 +16,7 @@ export const page: DocPage = {
     },
     {
       kind: "p",
-      text: "It is for TypeScript teams that want native speed for self-contained logic (parsers, codecs, hashing, geometry, data structures) without writing Swift, Kotlin or C++ by hand. There is no JavaScript engine on the native side and no Swift or Kotlin is generated.",
+      text: "It is for apps that want native speed for self-contained logic (parsers, codecs, hashing, geometry, data structures) without adding Swift, Kotlin or C++ to the codebase: the module stays in the language, review and tooling of the rest of the app. There is no JavaScript engine on the native side and no Swift or Kotlin is generated.",
     },
     { kind: "h2", text: "An example" },
     {
