@@ -74,7 +74,8 @@ export interface TestCase {
 
 function installUi(appDir: string): void {
   const ui = path.join(root, "scripts/example-app");
-  fs.rmSync(path.join(appDir, "src/screens"), { recursive: true, force: true });
+  // Generated wholesale: a module that changes layout (split into platform files, or merged) leaves no files behind.
+  for (const dir of ["src/screens", "src/sdk"]) fs.rmSync(path.join(appDir, dir), { recursive: true, force: true });
   const copy = (rel: string) => {
     const from = path.join(ui, rel);
     if (fs.statSync(from).isDirectory()) return fs.readdirSync(from).forEach((f) => copy(path.join(rel, f)));
