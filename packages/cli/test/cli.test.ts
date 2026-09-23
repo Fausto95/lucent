@@ -95,12 +95,19 @@ describe("lucent sdk coverage", () => {
     expect(os_).toMatchObject({ module: "android.os" });
     expect(os_!.idiomatic + os_!.raw + os_!.unrepresentable).toBe(os_!.total);
     expect(os_!.total).toBeGreaterThan(1000);
-    // A baseline with fewer unrepresentable members than now: coverage dropped.
+    // A baseline with a smaller unrepresentable share than now: coverage dropped.
+    // Shares, not counts, so CI's SDK version need not be this machine's.
     const baseline = path.join(root, "coverage.json");
     fs.writeFileSync(baseline, JSON.stringify([{ ...os_, unrepresentable: 0 }]));
     const check = run("--android", "android.os", "--check", baseline);
     expect(check.status).toBe(1);
-    expect(check.stderr).toMatch(/android\.os: .*unrepresentable/);
+    expect(check.stderr).toMatch(/android\.os: .*% unrepresentable, .*% in the baseline/);
+    fs.writeFileSync(baseline, JSON.stringify([{ ...os_, unrepresentable: os_!.unrepresentable * 2, total: os_!.total * 2 }]));
+    expect(run("--android", "android.os", "--check", baseline).status).toBe(0);
+    // Every package with a prefix.
+    const all = JSON.parse(run("--android", "android.os.*", "--json").stdout) as { module: string }[];
+    expect(all.length).toBeGreaterThan(3);
+    expect(all.every((c) => c.module.startsWith("android.os."))).toBe(true);
   });
 });
 
