@@ -110,8 +110,18 @@ export interface SdkClassSchema {
 export type SdkType =
   | { k: "prim"; name: PrimName; nullable: boolean }
   /** Java's String, or CharSequence (`charSequence`: results are read through toString()). */
-  | { k: "string"; nullable: boolean; charSequence?: boolean }
-  | { k: "array"; of: SdkType; nullable: boolean }
+  | { k: "string"; nullable: boolean; charSequence?: boolean; cf?: boolean }
+  | { k: "array"; of: SdkType; nullable: boolean; cf?: boolean }
+  /** NSData / CFData: Uint8Array. */
+  | { k: "bytes"; nullable: boolean; cf?: boolean }
+  /** NSDate: Date. */
+  | { k: "date"; nullable: boolean }
+  /** Objective-C `Any` (id) / CFTypeRef. */
+  | { k: "id"; nullable: boolean; cf?: boolean }
+  /** [String: T] / CFDictionary: Record<string, T>. */
+  | { k: "record"; of: SdkType; nullable: boolean; cf?: boolean }
+  /** A C out-parameter (`CFTypeRef *`). */
+  | { k: "out"; of: SdkType; nullable: boolean }
   | { k: "classOf"; param: string; nullable: boolean }
   | { k: "tparam"; name: string; nullable: boolean }
   | { k: "ref"; module: string; name: string; nullable: boolean };
@@ -125,6 +135,32 @@ const JNI_PRIM: Record<string, string> = { void: "V", boolean: "Z", bool: "Z", b
 export function parseSdkType(s: string, module = "", typeParams: readonly string[] = []): SdkType {
   if (s.endsWith("?")) return { ...parseSdkType(s.slice(0, -1), module, typeParams), nullable: true };
   if (s.endsWith("[]")) return { k: "array", of: parseSdkType(s.slice(0, -2), module, typeParams), nullable: false };
+  const generic = /^(Record|Out)<(.+)>$/.exec(s);
+  if (generic) {
+    const of = parseSdkType(generic[2]!, module, typeParams);
+    return generic[1] === "Record" ? { k: "record", of, nullable: false } : { k: "out", of, nullable: false };
+  }
+  switch (s) {
+    case "NSData":
+      return { k: "bytes", nullable: false };
+    case "CFData":
+      return { k: "bytes", nullable: false, cf: true };
+    case "NSDate":
+      return { k: "date", nullable: false };
+    case "id":
+      return { k: "id", nullable: false };
+    case "CFTypeRef":
+    case "CFNumber":
+      return { k: "id", nullable: false, cf: true };
+    case "CFString":
+      return { k: "string", nullable: false, cf: true };
+    case "CFDictionary":
+      return { k: "record", of: { k: "id", nullable: false }, nullable: false, cf: true };
+    case "CFArray":
+      return { k: "array", of: { k: "id", nullable: false }, nullable: false, cf: true };
+    case "CFBoolean":
+      return { k: "prim", name: "bool", nullable: false };
+  }
   const classOf = /^Class<(\w+)>$/.exec(s);
   if (classOf) return { k: "classOf", param: classOf[1]!, nullable: false };
   if (s === "string") return { k: "string", nullable: false };
@@ -185,6 +221,12 @@ export function jniDescriptor(params: string[], returns: string, typeParams: rea
         return "Ljava/lang/Class;";
       case "tparam":
         return "Ljava/lang/Object;";
+      case "bytes":
+      case "date":
+      case "id":
+      case "record":
+      case "out":
+        return fail(`${t.k} is not a Java type`);
       case "ref": {
         if (t.module === "java.lang") return `Ljava/lang/${t.name};`;
         const cls = findSdkType("android", t.module, t.name);

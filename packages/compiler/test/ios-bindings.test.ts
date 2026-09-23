@@ -73,7 +73,8 @@ describe("iOS bindings from the SDK", () => {
     expect(r.diagnostics).toEqual([]);
     expect(mm).toContain("[UIPasteboard generalPasteboard]");
     expect(mm).toContain("setString:");
-    expect(mm).toContain("setStrings:lucent::objc::toNSArray");
+    // strings is nullable: absent clears the pasteboard's strings.
+    expect(mm).toMatch(/setStrings:lucent::objc::ifPresent\(.*lucent::objc::toNSArray/);
   });
 
   it("copies Data, arrays and dictionaries, reads Any through helpers, and throws NSErrors", () => {

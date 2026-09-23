@@ -1,7 +1,7 @@
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import { builtinSdkModuleOf, sdkModuleOf } from "../program.ts";
-import { findSdkType, jniDescriptor, parseSdkType, type Platform, type SdkClassSchema, type SdkEnumSchema, type SdkMethodSchema, type SdkPropertySchema, type SdkType } from "../sdk/schema.ts";
+import { findSdkModule, findSdkType, jniDescriptor, parseSdkType, type Platform, type SdkClassSchema, type SdkEnumSchema, type SdkMethodSchema, type SdkPropertySchema, type SdkType } from "../sdk/schema.ts";
 import { type LType, T, unionOf } from "../types.ts";
 import type { E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
@@ -88,54 +88,193 @@ function findSdkModuleFrameworks(ref: SdkClassRef): string[] {
 
 // --- iOS -----------------------------------------------------------------------------
 
-const OBJC_NUMBER: Record<string, string> = { double: "double", float: "float", CGFloat: "CGFloat", NSInteger: "NSInteger", NSUInteger: "NSUInteger", int: "int", long: "long", short: "short", byte: "int8_t", char: "unichar" };
+const OBJC_NUMBER: Record<string, string> = {
+  double: "double",
+  float: "float",
+  CGFloat: "CGFloat",
+  NSInteger: "NSInteger",
+  NSUInteger: "NSUInteger",
+  int: "int",
+  long: "long",
+  short: "short",
+  byte: "int8_t",
+  char: "unichar",
+  int8: "int8_t",
+  uint8: "uint8_t",
+  int16: "int16_t",
+  uint16: "uint16_t",
+  int32: "int32_t",
+  uint32: "uint32_t",
+  int64: "int64_t",
+  uint64: "uint64_t",
+};
 
-function sdkEnum(ref: SdkClassRef, t: SdkType): SdkEnumSchema | undefined {
+function sdkEnum(platform: Platform, t: SdkType): SdkEnumSchema | undefined {
   if (t.k !== "ref") return undefined;
-  const e = findSdkType(ref.platform, t.module, t.name);
+  const e = findSdkType(platform, t.module, t.name);
   return e?.kind === "enum" ? e : undefined;
 }
 
-function toObjc(em: FnEmitter, ref: SdkClassRef, arg: ts.Expression, t: SdkType): string {
-  if (t.nullable && t.k !== "ref") fail(arg, Codes.UnsupportedType, "optional values of this type are not supported in SDK calls yet");
+/** Objective-C (or CoreFoundation) spelling of a reference type, for casts. */
+function objcRefType(t: SdkType & { k: "ref" }): string {
+  const cls = findSdkType("ios", t.module, t.name);
+  if (cls?.kind !== "class") throw new Error(`unknown Objective-C type ${t.module}.${t.name}`);
+  return cls.interface ? `id<${cls.native}>` : `${cls.native}*`;
+}
+
+/**
+ * Lucent value → Objective-C value of schema type `t`, for code `c` holding
+ * the (non-absent) Lucent value. Collections convert their elements with a
+ * generic lambda, so they accept any Lucent representation the checker allowed.
+ */
+function toObjcCode(t: SdkType, c: string, owned: boolean): string {
   switch (t.k) {
     case "prim":
-      if (t.name === "bool" || t.name === "boolean") return `(${em.exprAs(arg, T.boolean)} ? YES : NO)`;
-      return `static_cast<${OBJC_NUMBER[t.name] ?? "double"}>(${em.exprAs(arg, T.number)})`;
+      if (t.name === "bool" || t.name === "boolean") return `(${c} ? YES : NO)`;
+      return `static_cast<${OBJC_NUMBER[t.name] ?? "double"}>(${c})`;
     case "string":
-      return `lucent::objc::toNSString(${em.exprAs(arg, T.string)})`;
+      return t.cf ? `(__bridge CFStringRef)lucent::objc::toNSString(${c})` : `lucent::objc::toNSString(${c})`;
+    case "bytes":
+      return t.cf ? `(__bridge CFDataRef)lucent::objc::toNSData(${c})` : `lucent::objc::toNSData(${c})`;
+    case "date":
+      return `lucent::objc::toNSDate(${c})`;
+    case "id":
+      return t.cf ? `(__bridge CFTypeRef)lucent::objc::toId(${c})` : `lucent::objc::toId(${c})`;
+    case "array": {
+      const arr = `lucent::objc::toNSArray(${c}, [&](const auto& e_) -> id { return ${boxed(t.of, "e_")}; })`;
+      return t.cf ? `(__bridge CFArrayRef)${arr}` : arr;
+    }
+    case "record": {
+      const dict = `lucent::objc::toNSDictionary(${c}, [&](const auto& e_) -> id { return ${boxed(t.of, "e_")}; })`;
+      return t.cf ? `(__bridge CFDictionaryRef)${dict}` : dict;
+    }
+    case "out":
+      return `lucent::objc::outSlot(${c}, ${owned})`;
     case "ref": {
-      const e = sdkEnum(ref, t);
-      if (e) return `static_cast<${e.native}>(${em.exprAs(arg, T.number)})`;
-      const cls = findSdkType(ref.platform, t.module, t.name) as SdkClassSchema;
-      const lt: LType = { k: "native", platform: ref.platform, module: t.module, name: t.name };
-      return `((${cls.native}*)lucent::objc::unwrap(${em.exprAs(arg, t.nullable ? unionOf([lt, T.null]) : lt)}))`;
+      const e = sdkEnum("ios", t);
+      if (e) return `static_cast<${e.native}>(${c})`;
+      return `((${objcRefType(t)})lucent::objc::unwrap(${c}))`;
     }
     default:
-      fail(arg, Codes.UnsupportedType, `${t.k} parameters are not supported in iOS SDK calls yet`);
+      throw new Error(`no Objective-C form for ${t.k}`);
   }
 }
 
-function fromObjc(ref: SdkClassRef, code: string, t: SdkType, lt: LType, what: string): E {
+/** An element of an NSArray/NSDictionary: an object (numbers and booleans boxed). */
+function boxed(t: SdkType, c: string): string {
+  if (t.k === "prim" || (t.k === "ref" && sdkEnum("ios", t))) return `@(${toObjcCode(t, c, false)})`;
+  if (t.k === "id") return `lucent::objc::toId(${c})`;
+  return toObjcCode({ ...t, nullable: false } as SdkType, c, false);
+}
+
+function toObjc(em: FnEmitter, arg: ts.Expression, t: SdkType, owned = false): string {
+  const scalar = ((): LType | undefined => {
+    switch (t.k) {
+      case "prim":
+        return t.name === "bool" || t.name === "boolean" ? T.boolean : T.number;
+      case "string":
+        return T.string;
+      case "bytes":
+        return T.bytes;
+      case "date":
+        return T.date;
+      case "ref":
+        return sdkEnum("ios", t) ? T.number : { k: "native", platform: "ios", module: t.module, name: t.name };
+      default:
+        return undefined;
+    }
+  })();
+  if (t.k === "id") return toObjcCode(t, em.expr(arg).c, owned);
+  if (!t.nullable) return toObjcCode(t, scalar ? em.exprAs(arg, scalar) : em.expr(arg).c, owned);
+  if (t.k === "out") return toObjcCode(t, em.expr(arg).c, owned);
+  const v = scalar ? em.exprAs(arg, unionOf([scalar, T.null])) : em.expr(arg).c;
+  return `lucent::objc::ifPresent(${v}, [&](const auto& x_) { return ${toObjcCode({ ...t, nullable: false } as SdkType, "x_", owned)}; })`;
+}
+
+/** Objective-C value of schema type `t` → Lucent value of type `lt`. */
+function fromObjc(em: FnEmitter, code: string, t: SdkType, lt: LType, what: string, owned = false): E {
+  const w = cppQuoted(what);
+  const cast = (objc: string) => (owned ? `(__bridge_transfer ${objc})` : `(__bridge ${objc})`);
+  const elem = (x: LType): LType => (x.k === "opt" ? x.inner : x);
   switch (t.k) {
     case "prim":
       if (t.name === "void") return { c: `(void)(${code})`, t: T.undefined };
       if (t.name === "bool" || t.name === "boolean") return { c: `static_cast<bool>(${code})`, t: T.boolean };
       return { c: `static_cast<double>(${code})`, t: T.number };
-    case "string":
-      return t.nullable ? { c: `lucent::objc::fromNSStringOpt(${code})`, t: lt } : { c: `lucent::objc::fromNSString(${code}, ${cppQuoted(what)})`, t: T.string };
+    case "string": {
+      const s = t.cf ? `${cast("NSString*")}${code}` : code;
+      return t.nullable ? { c: `lucent::objc::fromNSStringOpt(${s})`, t: lt } : { c: `lucent::objc::fromNSString(${s}, ${w})`, t: T.string };
+    }
+    case "bytes": {
+      const d = t.cf ? `${cast("NSData*")}${code}` : code;
+      return t.nullable ? { c: `lucent::objc::fromNSDataOpt(${d})`, t: lt } : { c: `lucent::objc::fromNSData(${d}, ${w})`, t: T.bytes };
+    }
+    case "date":
+      return t.nullable ? { c: `lucent::objc::fromNSDateOpt(${code})`, t: lt } : { c: `lucent::objc::fromNSDate(${code}, ${w})`, t: T.date };
+    case "id": {
+      const o = t.cf ? `${cast("id")}${code}` : code;
+      return lt.k === "opt" ? { c: `lucent::objc::wrapOpt(${o})`, t: lt } : { c: `lucent::objc::wrap(${o}, ${w})`, t: lt };
+    }
+    case "array":
+    case "record": {
+      const container = elem(lt);
+      const itemLt = container.k === "array" ? container.e : container.k === "dict" ? container.val : undefined;
+      if (!itemLt) throw new Error(`unexpected Lucent type for ${t.k}`);
+      const item = fromObjcItem(t.of, itemLt, what);
+      const lambda = `[&](id e_) -> ${em.cpp(itemLt)} { return ${item}; }`;
+      const objcType = t.k === "array" ? "NSArray*" : "NSDictionary*";
+      const src = t.cf ? `${cast(objcType)}${code}` : code;
+      const fn = t.k === "array" ? "fromNSArray" : "fromNSDictionary";
+      return t.nullable ? { c: `lucent::objc::${fn}Opt<${em.cpp(itemLt)}>(${src}, ${lambda})`, t: lt } : { c: `lucent::objc::${fn}<${em.cpp(itemLt)}>(${src}, ${lambda}, ${w})`, t: container };
+    }
     case "ref":
-      if (sdkEnum(ref, t)) return { c: `static_cast<double>(${code})`, t: T.number };
-      return t.nullable ? { c: `lucent::objc::wrapOpt(${code})`, t: lt } : { c: `lucent::objc::wrap(${code}, ${cppQuoted(what)})`, t: lt };
+      if (sdkEnum("ios", t)) return { c: `static_cast<double>(${code})`, t: T.number };
+      return lt.k === "opt" ? { c: `lucent::objc::wrapOpt(${code})`, t: lt } : { c: `lucent::objc::wrap(${code}, ${w})`, t: lt };
     default:
-      throw new Error(`unsupported iOS result type ${t.k}`);
+      throw new Error(`no Lucent form for Objective-C ${t.k}`);
   }
 }
 
-function send(receiver: string, selector: string, args: string[]): string {
+/** An element (`id e_`) of an NSArray/NSDictionary as a Lucent value. */
+function fromObjcItem(t: SdkType, lt: LType, what: string): string {
+  const w = cppQuoted(what);
+  switch (t.k) {
+    case "prim":
+      return t.name === "bool" || t.name === "boolean" ? "static_cast<bool>([(NSNumber*)e_ boolValue])" : "[(NSNumber*)e_ doubleValue]";
+    case "string":
+      return `lucent::objc::fromNSString((NSString*)e_, ${w})`;
+    case "bytes":
+      return `lucent::objc::fromNSData((NSData*)e_, ${w})`;
+    case "date":
+      return `lucent::objc::fromNSDate((NSDate*)e_, ${w})`;
+    case "ref":
+      if (sdkEnum("ios", t)) return "[(NSNumber*)e_ doubleValue]";
+      return lt.k === "opt" ? "lucent::objc::wrapOpt(e_)" : `lucent::objc::wrap(e_, ${w})`;
+    case "id":
+      return lt.k === "opt" ? "lucent::objc::wrapOpt(e_)" : `lucent::objc::wrap(e_, ${w})`;
+    default:
+      return fail(undefined, Codes.UnsupportedType, `${what}: nested collections from Objective-C are not supported yet`);
+  }
+}
+
+/** `[receiver sel:a …]`, with the trailing `error:` of throwing methods taking `&err_`. */
+function send(receiver: string, selector: string, args: string[], throws = false): string {
   if (!selector.includes(":")) return `[${receiver} ${selector}]`;
   const parts = selector.split(":").slice(0, -1);
-  return `[${receiver} ${parts.map((p, i) => `${p}:${args[i]}`).join(" ")}]`;
+  const all = throws ? [...args, "&err_"] : args;
+  return `[${receiver} ${parts.map((p, i) => `${p}:${all[i]}`).join(" ")}]`;
+}
+
+/** A message send whose NSError** result becomes a thrown Lucent error. */
+function throwing(sendCode: string, out: (r: string) => E, isVoid: boolean): E {
+  if (isVoid) return { c: `({ NSError* __autoreleasing err_ = nil; (void)${sendCode}; lucent::objc::throwIfError(err_); })`, t: T.undefined };
+  const e = out("r_");
+  return { c: `({ NSError* __autoreleasing err_ = nil; auto r_ = ${sendCode}; lucent::objc::throwIfError(err_); ${e.c}; })`, t: e.t };
+}
+
+/** CoreFoundation's Create/Copy rule: such functions return objects the caller owns. */
+function ownsResult(name: string): boolean {
+  return /Create|Copy/.test(name);
 }
 
 // --- Android -------------------------------------------------------------------------
@@ -173,6 +312,8 @@ function toJni(em: FnEmitter, ref: SdkClassRef, arg: ts.Expression, t: SdkType):
     }
     case "tparam":
       fail(arg, Codes.UnsupportedType, "generic parameters are not supported in Android SDK calls yet");
+    default:
+      fail(arg, Codes.UnsupportedType, `${t.k} values are not Java types`);
   }
 }
 
@@ -331,8 +472,48 @@ function guarded(em: FnEmitter, node: ts.Node, n: number): boolean {
 
 // --- entry points --------------------------------------------------------------------
 
+/**
+ * The Lucent type a glue result has: the schema's declared type, not the
+ * checker's view at the use (which narrows `obj.prop` after an assignment
+ * or a check). Uses coerce from it as from any other value. Generic results
+ * (`T`) take the type of the resolved signature.
+ */
+function declaredLt(em: FnEmitter, platform: Platform, t: SdkType, node: ts.Node): LType {
+  const opt = (x: LType) => (t.nullable ? unionOf([x, T.null]) : x);
+  switch (t.k) {
+    case "prim":
+      if (t.name === "void") return T.undefined;
+      return opt(t.name === "bool" || t.name === "boolean" ? T.boolean : T.number);
+    case "string":
+      return opt(T.string);
+    case "bytes":
+      return opt(T.bytes);
+    case "date":
+      return opt(T.date);
+    case "id":
+      return opt({ k: "native", platform: "ios", module: "lucent:ios", name: "NSObject" });
+    case "array":
+      if (t.of.k === "prim" && t.of.name === "byte") return opt(T.bytes);
+      return opt({ k: "array", e: declaredLt(em, platform, { ...t.of, nullable: false } as SdkType, node) });
+    case "record":
+      return opt({ k: "dict", val: declaredLt(em, platform, { ...t.of, nullable: false } as SdkType, node) });
+    case "ref":
+      if (sdkEnum(platform, t)) return opt(T.number);
+      return opt({ k: "native", platform, module: t.module, name: t.name });
+    default: {
+      const sig = ts.isCallExpression(node) ? em.checker.getResolvedSignature(node) : undefined;
+      const ret = sig ? em.checker.getReturnTypeOfSignature(sig) : em.checker.getTypeAtLocation(node);
+      return em.reg.lower(ret, node);
+    }
+  }
+}
+
 /** `new C(…)` of an SDK class. */
 export function nativeNew(em: FnEmitter, node: ts.NewExpression, t: LType & { k: "native" }): E {
+  if (t.module === "lucent:ios" && t.name === "Out") {
+    em.ctx.nativeUnit(em.opts.module).includes.add("#include <lucent/platform/ios.h>");
+    return { c: "lucent::objc::makeOut()", t };
+  }
   const sig = em.checker.getResolvedSignature(node);
   const decl = sig?.declaration;
   let ref = decl ? classOfDecl(decl) : undefined;
@@ -349,7 +530,7 @@ export function nativeNew(em: FnEmitter, node: ts.NewExpression, t: LType & { k:
   const args = argsOf(node);
   const params = ctor.params.map((p) => parseSdkType(p.type, ref.module));
   if (ref.platform === "ios") {
-    const a = args.map((x, i) => toObjc(em, ref, x, params[i]!));
+    const a = args.map((x, i) => toObjc(em, x, params[i]!));
     return { c: `lucent::objc::wrap(${send(`[${ref.cls.native} alloc]`, ctor.selector ?? "init", a)}, ${cppQuoted(`new ${t.name}`)})`, t };
   }
   const a = args.map((x, i) => toJni(em, ref, x, params[i]!));
@@ -385,6 +566,9 @@ export function nativeStaticProperty(em: FnEmitter, node: ts.PropertyAccessExpre
 /** `obj.member` on an SDK object. */
 export function nativeMember(em: FnEmitter, obj: E, node: ts.Node): E {
   const name = ts.isPropertyAccessExpression(node) ? node.name : node;
+  if (obj.t.k === "native" && obj.t.module === "lucent:ios" && obj.t.name === "Out" && ts.isIdentifier(name) && name.text === "value") {
+    return { c: `lucent::objc::outValue(${obj.c})`, t: unionOf([{ k: "native", platform: "ios", module: "lucent:ios", name: "NSObject" }, T.null]) };
+  }
   const decl = resolved(em, name)?.valueDeclaration;
   const ref = decl ? classOfDecl(decl) : undefined;
   if (!ref || !decl || !ts.isPropertyDeclaration(decl)) fail(node, Codes.UnsupportedSyntax, "methods of platform objects must be called directly");
@@ -402,11 +586,11 @@ function property(em: FnEmitter, node: ts.Node, ref: SdkClassRef, prop: SdkPrope
   requireAvailable(em, node, ref, prop.since, `${ref.cls.name}.${prop.name}`);
   noteIncludes(em, ref);
   const t = parseSdkType(prop.type, ref.module);
-  const lt = em.lt(node);
+  const lt = declaredLt(em, ref.platform, t, node);
   const what = `${ref.cls.name}.${prop.name}`;
   if (ref.platform === "ios") {
-    const receiver = obj ? `((${ref.cls.native}*)lucent::objc::unwrap(${obj.c}))` : ref.cls.native;
-    return fromObjc(ref, send(receiver, prop.selector ?? prop.name, []), t, lt, what);
+    if (prop.global) return fromObjc(em, prop.global, t, lt, what);
+    return fromObjc(em, send(objcReceiver(ref, obj), prop.selector ?? prop.name, []), t, lt, what);
   }
   if (prop.getter) {
     const desc = ref.cls.methods?.find((m) => (m.java ?? m.name) === prop.getter && !m.params.length)?.descriptor ?? jniDescriptor([], prop.type);
@@ -448,9 +632,77 @@ export function nativeCall(em: FnEmitter, node: ts.CallExpression, obj: E | unde
 
 function iosCall(em: FnEmitter, node: ts.CallExpression, ref: SdkClassRef, m: SdkMethodSchema, obj: E | undefined): E {
   const tps = m.typeParams ?? [];
-  const a = argsOf(node).map((x, i) => toObjc(em, ref, x, parseSdkType(m.params[i]!.type, ref.module, tps)));
-  const receiver = obj ? `((${ref.cls.native}*)lucent::objc::unwrap(${obj.c}))` : ref.cls.native;
-  return fromObjc(ref, send(receiver, m.selector ?? m.name, a), parseSdkType(m.returns, ref.module, tps), em.lt(node), `${ref.cls.name}.${m.name}()`);
+  const a = argsOf(node).map((x, i) => toObjc(em, x, parseSdkType(m.params[i]!.type, ref.module, tps)));
+  const code = send(objcReceiver(ref, obj), m.selector ?? m.name, a, m.throws);
+  const ret = parseSdkType(m.returns, ref.module, tps);
+  const what = `${ref.cls.name}.${m.name}()`;
+  const lt = declaredLt(em, "ios", ret, node);
+  if (m.throws) return throwing(code, (r) => fromObjc(em, r, ret, lt, what), ret.k === "prim" && ret.name === "void");
+  return fromObjc(em, code, ret, lt, what);
+}
+
+function objcReceiver(ref: SdkClassRef, obj: E | undefined): string {
+  if (!obj) return ref.cls.native;
+  return `((${ref.cls.interface ? `id<${ref.cls.native}>` : `${ref.cls.native}*`})lucent::objc::unwrap(${obj.c}))`;
+}
+
+/** `obj.prop = v` / `Class.prop = v` on a writable SDK property. */
+export function nativeLvalue(em: FnEmitter, target: ts.PropertyAccessExpression, obj: E | undefined): { get: string; set: (v: string) => string; type: LType } | undefined {
+  const decl = resolved(em, target.name)?.valueDeclaration;
+  const ref = decl ? classOfDecl(decl) : undefined;
+  if (!ref || !decl || !ts.isPropertyDeclaration(decl)) return undefined;
+  const prop = ref.cls.properties?.find((p) => p.name === target.name.text);
+  if (!prop || !!prop.static !== !obj) return undefined;
+  if (prop.readonly) fail(target, Codes.UnsupportedAssignmentTarget, `${ref.cls.name}.${prop.name} is read-only`);
+  const get = property(em, target, ref, prop, obj);
+  const t = parseSdkType(prop.type, ref.module);
+  const type = em.lt(target);
+  if (ref.platform === "ios") {
+    if (!prop.setter) fail(target, Codes.UnsupportedAssignmentTarget, `${ref.cls.name}.${prop.name} has no setter`);
+    const set = (v: string) => {
+      const conv = t.nullable ? `lucent::objc::ifPresent(v_, [&](const auto& x_) { return ${toObjcCode({ ...t, nullable: false } as SdkType, "x_", false)}; })` : toObjcCode(t, "v_", false);
+      return `({ auto v_ = ${v}; ${send(objcReceiver(ref, obj), prop.setter!, [conv])}; v_; })`;
+    };
+    return { get: get.c, set, type };
+  }
+  fail(target, Codes.UnsupportedAssignmentTarget, `assigning Java fields is not supported yet (${ref.cls.name}.${prop.name})`);
+}
+
+/** A C function of an SDK module (iOS): `SecItemCopyMatching(query, out)`. */
+export function nativeFunctionCall(em: FnEmitter, node: ts.CallExpression): E | undefined {
+  if (!ts.isIdentifier(node.expression)) return undefined;
+  const decl = resolved(em, node.expression)?.valueDeclaration;
+  const sdk = decl && ts.isFunctionDeclaration(decl) ? sdkModuleOf(decl.getSourceFile()) : undefined;
+  if (!sdk || !decl) return undefined;
+  const schema = findSdkModule(sdk.platform, sdk.module)!;
+  const name = (decl as ts.FunctionDeclaration).name!.text;
+  const f = schema.functions?.find((x) => x.name === name);
+  if (!f) fail(node, Codes.UnsupportedCall, `${name} has no binding`);
+  noteFramework(em, sdk.module);
+  const owned = ownsResult(name);
+  const a = argsOf(node).map((x, i) => toObjc(em, x, parseSdkType(f.params[i]!.type, sdk.module), owned));
+  const ret = parseSdkType(f.returns, sdk.module);
+  return fromObjc(em, `${name}(${a.join(", ")})`, ret, declaredLt(em, "ios", ret, node), `${name}()`, owned);
+}
+
+/** A C global constant of an SDK module (iOS): `kSecClass`. */
+export function nativeConstant(em: FnEmitter, id: ts.Identifier): E | undefined {
+  const decl = resolved(em, id)?.valueDeclaration;
+  const sdk = decl && ts.isVariableDeclaration(decl) ? sdkModuleOf(decl.getSourceFile()) : undefined;
+  if (!sdk) return undefined;
+  const schema = findSdkModule(sdk.platform, sdk.module)!;
+  const c = schema.constants?.find((x) => x.name === id.text);
+  if (!c) fail(id, Codes.UnsupportedSyntax, `${id.text} has no binding`);
+  noteFramework(em, sdk.module);
+  const ct = parseSdkType(c.type, sdk.module);
+  return fromObjc(em, c.name, ct, declaredLt(em, "ios", ct, id), c.name);
+}
+
+function noteFramework(em: FnEmitter, module: string): void {
+  const n = em.ctx.nativeUnit(em.opts.module);
+  n.includes.add("#include <lucent/platform/ios.h>");
+  n.includes.add(`#import <${module}/${module}.h>`);
+  em.ctx.frameworks.add(module);
 }
 
 function androidCall(em: FnEmitter, node: ts.CallExpression, ref: SdkClassRef, m: SdkMethodSchema, obj: E | undefined): E {
@@ -467,7 +719,7 @@ function androidCall(em: FnEmitter, node: ts.CallExpression, ref: SdkClassRef, m
     desc,
     access: (id) => `env->Call${obj ? "" : "Static"}${kind}Method(${[recv, id, ...a].join(", ")})`,
     ret,
-    lt: em.lt(node),
+    lt: declaredLt(em, "android", ret, node),
     what: `${ref.cls.name}.${m.name}()`,
     pre: obj ? [`auto recv_ = ${obj.c};`] : [],
   });
@@ -489,6 +741,16 @@ export function nativeBuiltinCall(em: FnEmitter, node: ts.CallExpression): E | u
       const t = em.lt(node);
       if (t.k === "promise" && t.inner.k === "promise") fail(f, Codes.UnsupportedCall, "the function passed to main cannot return a promise");
       return { c: `lucent::runOnMain(${closure.c})`, t };
+    }
+    case "lucent:ios.asString":
+    case "lucent:ios.asNumber":
+    case "lucent:ios.asBoolean":
+    case "lucent:ios.asData":
+    case "lucent:ios.asDate": {
+      unit.includes.add("#include <lucent/platform/ios.h>");
+      const nsObject: LType = { k: "native", platform: "ios", module: "lucent:ios", name: "NSObject" };
+      const value: Record<string, LType> = { asString: T.string, asNumber: T.number, asBoolean: T.boolean, asData: T.bytes, asDate: T.date };
+      return { c: `lucent::objc::${b.name}(${em.exprAs(args[0]!, unionOf([nsObject, T.null]))})`, t: unionOf([value[b.name]!, T.null]) };
     }
     case "lucent:ios.available":
       unit.includes.add("#include <lucent/platform/ios.h>");

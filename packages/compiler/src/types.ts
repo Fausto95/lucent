@@ -1,6 +1,6 @@
 import ts from "typescript";
 import { Codes, fail } from "./diagnostics.ts";
-import { isLibFile, sdkModuleOf } from "./program.ts";
+import { builtinSdkModuleOf, isLibFile, sdkModuleOf } from "./program.ts";
 import type { Platform } from "./sdk/schema.ts";
 
 /**
@@ -509,6 +509,9 @@ export class TypeRegistry {
     const c = this.checker;
     const sdkSym = type.getSymbol();
     const decl = sdkSym?.declarations?.[0];
+    // lucent:ios's NSObject and Out are platform objects too.
+    const builtin = decl && ts.isClassDeclaration(decl) ? builtinSdkModuleOf(decl.getSourceFile()) : undefined;
+    if (builtin && sdkSym) return { k: "native", platform: builtin === "lucent:android" ? "android" : "ios", module: builtin, name: sdkSym.name };
     const sdk = decl && ts.isClassDeclaration(decl) ? sdkModuleOf(decl.getSourceFile()) : undefined;
     if (sdk && sdkSym) {
       if (type.getConstructSignatures().length || c.getTypeOfSymbolAtLocation(sdkSym, decl!) === type) {

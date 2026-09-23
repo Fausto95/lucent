@@ -1374,6 +1374,8 @@ export class FnEmitter {
       }
       fail(id, Codes.UnsupportedSyntax, `a class cannot be used as a value here`);
     }
+    const sdkConstant = native.nativeConstant(this, id);
+    if (sdkConstant) return sdkConstant;
     switch (text) {
       case "undefined":
         return { c: "lucent::undefined", t: T.undefined };
@@ -1460,11 +1462,17 @@ export class FnEmitter {
     if (ts.isPropertyAccessExpression(target)) {
       const name = target.name.text;
       if (ts.isIdentifier(target.expression)) {
+        const nativeStatic = native.nativeLvalue(this, target, undefined);
+        if (nativeStatic) return nativeStatic;
         const staticLv = builtins.staticMemberLvalue(this, target);
         if (staticLv) return staticLv;
       }
       const obj = this.receiver(target.expression);
       const ot = stripOpt(obj.t);
+      if (ot.k === "native") {
+        const lv = native.nativeLvalue(this, target, obj);
+        if (lv) return lv;
+      }
       if (ot.k === "struct") {
         const f = this.reg.struct(ot.id).fields.find((x) => x.name === name);
         if (!f) fail(target, Codes.UnsupportedAssignmentTarget, `unknown field ${name}`);
@@ -1961,7 +1969,7 @@ export class FnEmitter {
       if (sym && !this.findLocal(sym)) {
         const g = this.ctx.globals.get(sym);
         if (g && g.kind === "function") return this.callUserFunction(g, node);
-        const n = native.nativeBuiltinCall(this, node);
+        const n = native.nativeBuiltinCall(this, node) ?? native.nativeFunctionCall(this, node);
         if (n) return n;
         // By the imported name: `import { errorCode as codeOf }` calls errorCode.
         const b = builtins.globalCall(this, node, sym.name, sym);

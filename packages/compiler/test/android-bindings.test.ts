@@ -136,6 +136,8 @@ export async function run(): Promise<string> {
   const info = context.getPackageManager()?.getPackageInfo(context.getPackageName() ?? "", 0);
   new Intent().putExtra("a", 1).putExtra_string_long("b", 2);
   const bytes = Base64.decode(Base64.encodeToString(new Uint8Array([1, 2]), Base64.NO_WRAP) ?? "", 0);
+  // The checker narrows Build.MODEL here; the glue still returns string | null.
+  if (Build.MODEL) return Build.MODEL;
   return \`\${ClipData.newPlainText("l", "t")?.getItemAt(0)?.getText()} \${Context.VIBRATOR_SERVICE} \${info?.versionName} \${bytes?.length} \${Uri.parse("x")?.describeContents()} \${(Build.SUPPORTED_ABIS ?? []).join()}\`;
 }
 `);
