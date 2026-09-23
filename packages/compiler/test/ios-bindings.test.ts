@@ -129,6 +129,18 @@ export async function run(): Promise<string> {
 }
 `;
 
+const mediaTimes = `import { AVPlayer } from "lucent:ios/AVFoundation";
+import { CMTimeCompare, CMTimeMake } from "lucent:ios/CoreMedia";
+import { NSUnionRange } from "lucent:ios/Foundation";
+import { main } from "lucent:thread";
+export async function run(): Promise<string> {
+  const now = await main(() => new AVPlayer().currentTime());
+  const later = CMTimeMake(now.value + 600, 600);
+  const r = NSUnionRange({ location: 0, length: 2 }, { location: 5, length: 1 });
+  return \`\${later.value}/\${later.timescale} \${later.flags} \${CMTimeCompare(later, now)} \${r.location}+\${r.length}\`;
+}
+`;
+
 const shadowing = `import { CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";
 import { main } from "lucent:thread";
 class D implements CLLocationManagerDelegate {}
@@ -285,6 +297,16 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(mm).toContain("CLLocationCoordinate2DIsValid(CLLocationCoordinate2D{");
   });
 
+  it("passes other modules' structs, enum fields and typedefs Swift names without a USR", () => {
+    const { r, mm } = ios(mediaTimes);
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("CMTimeMake(");
+    // Fields take their own C types: an option set, and NSUInteger where Swift says Int.
+    expect(mm).toContain("static_cast<decltype(CMTime::flags)>(");
+    expect(mm).toContain("static_cast<decltype(NSRange::length)>(");
+    expect(mm).toContain("NSUnionRange(NSRange{");
+  });
+
   it("monitors network paths: OS objects, anonymous enums, blocks, the main queue", () => {
     const { r, mm } = ios(pathMonitor);
     expect(r.diagnostics).toEqual([]);
@@ -308,7 +330,7 @@ export async function run(): Promise<string> {
   it("generates Objective-C++ that compiles against the iOS SDK", () => {
     const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
     if (process.platform !== "darwin" || sdk.status !== 0) return;
-    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [shadowing], [pathMonitor], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
+    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [mediaTimes], [shadowing], [pathMonitor], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
       const { r, dir } = ios(src, sdk);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {
