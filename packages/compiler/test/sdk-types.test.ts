@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sdkDts } from "../src/sdk/dts.ts";
+import { sdkDts, stubDts } from "../src/sdk/dts.ts";
 import { parseSdkType, type SdkModuleSchema } from "../src/sdk/schema.ts";
 
 /**
@@ -132,5 +132,15 @@ describe("SDK declarations", () => {
     // Under the name Swift gives the async form.
     expect(dts).toContain("  getItems(completionHandler: (arg0: string[]) => void): void;");
     expect(dts).toContain("  items(): Promise<string[]>;");
+  });
+});
+
+describe("names-only declarations", () => {
+  it("do not depend on the symbol graph's order, which changes between extractions", () => {
+    const types = (order: string[]) => Object.fromEntries(order.map((n) => [n, { kind: "class" as const, native: n }]));
+    const a = stubDts("ios", "Kit", { module: "Kit", refs: {}, aliases: {}, types: types(["KBeta", "KAlpha"]) });
+    const b = stubDts("ios", "Kit", { module: "Kit", refs: {}, aliases: {}, types: types(["KAlpha", "KBeta"]) });
+    expect(a).toBe(b);
+    expect(a.indexOf("KAlpha")).toBeLessThan(a.indexOf("KBeta"));
   });
 });
