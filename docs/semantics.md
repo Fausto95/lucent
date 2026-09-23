@@ -17,7 +17,7 @@ here is covered by a differential case ([testing.md](testing.md)).
 ## Modules
 
 ```ts
-import { delay, error } from "@lucent-lang/core";   // helpers with native implementations
+import { delay, error } from "lucent:core";          // helpers with native implementations
 import { parse, type Token } from "./lexer.lucent"; // other Lucent modules
 
 export function f(x: number): number { ... }         // callable from JavaScript
@@ -31,7 +31,7 @@ let counter = 0;                                      // module state, reset on 
 ```
 
 * The top level may only contain declarations.
-* Imports are limited to other `*.lucent.ts` files, `@lucent-lang/core`, and
+* Imports are limited to other `*.lucent.ts` files, `lucent:core`, and
   the `lucent:` platform modules (below).
 * Module names are file names without `.lucent.ts`, and must be unique within an app.
 
@@ -155,7 +155,7 @@ unspecified.
   Android).
 * **console.log / info / debug / warn / error**: written to os_log (iOS) or logcat (Android).
 * **Date**: `new Date(…)`, `Date.now()`, `Date.parse`, `Date.UTC`, `get…`/`set…` in local time and UTC, `getTimezoneOffset`, `toISOString`, `toString`, `toDateString`, `toTimeString`, `toUTCString`; not the `toLocale…` methods.
-* **@lucent-lang/core**: `delay`, `error(code, message)`, `errorCode(e)`,
+* **lucent:core**: `delay`, `error(code, message)`, `errorCode(e)`,
   `utf8Encode`, `utf8Decode`, `now()`.
 
 Not supported: `Intl`, `Symbol`, `WeakMap`, `Proxy`, `eval`. Each gives a
