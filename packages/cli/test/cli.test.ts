@@ -160,6 +160,18 @@ describe.skipIf(!android)("lucent sdk prefetch", () => {
     expect(fs.existsSync(path.join(root, ".lucent/native/cpp/generated/android/m_m.cpp"))).toBe(true);
     expect(fs.existsSync(path.join(root, ".lucent/native/cpp/generated/ios"))).toBe(false);
   });
+
+  it("says which platforms it skipped for a module that branches on PLATFORM too", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-"));
+    fs.writeFileSync(
+      path.join(root, "m.lucent.ts"),
+      'import { PLATFORM } from "lucent:platform";\nimport { UIDevice } from "lucent:ios/UIKit";\nimport { Build } from "lucent:android/android.os";\nimport { main } from "lucent:thread";\nexport async function f(): Promise<string> {\n  if (PLATFORM === "ios") return main(() => UIDevice.current.model);\n  else return Build.MODEL ?? "";\n}\n',
+    );
+    const r = run(root, { LUCENT_XCRUN: path.join(os.tmpdir(), "no-such-xcrun"), LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")) }, "build");
+    expect(r.out).toMatch(/iOS SDK was not found.*skipped iOS/s);
+    expect(r.status).toBe(0);
+    expect(fs.existsSync(path.join(root, ".lucent/native/cpp/generated/android/m_m.cpp"))).toBe(true);
+  });
 });
 
 describe("the app's Android dependencies", () => {
