@@ -10,8 +10,14 @@ import { currentSdkIdentity } from "./sdk/schema.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
-/** Location of @lucent-lang/runtime (C++ runtime and native templates). */
+/**
+ * Location of the C++ runtime, the native templates and the JS loader:
+ * runtime/ next to dist/ when bundled into @lucent-lang/lucent, the runtime
+ * package in this repository.
+ */
 export function runtimeDir(): string {
+  const bundled = path.resolve(here, "../runtime");
+  if (fs.existsSync(path.join(bundled, "cpp/lucent"))) return bundled;
   return path.dirname(createRequire(import.meta.url).resolve("@lucent-lang/runtime/package.json"));
 }
 

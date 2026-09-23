@@ -15,7 +15,7 @@
     },
     "./ts-plugin": {
       "types": "./ts-plugin/index.d.ts",
-      "default": "./ts-plugin/index.cjs"
+      "default": "./ts-plugin/index.js"
     },
     "./app.plugin.js": "./app.plugin.js",
     "./package.json": "./package.json"
@@ -29,12 +29,20 @@
     "@lucent-lang/bindgen": "workspace:*",
     "@lucent-lang/compiler": "workspace:*",
     "@lucent-lang/runtime": "workspace:*",
+    "esbuild": "^0.28.2",
     "tsx": "^4.20.6"
   },
   "files": [
     "app.plugin.js",
     "bin",
+    "dist",
+    "lib",
     "metro",
+    "runtime",
     "ts-plugin"
-  ]
+  ],
+  "scripts": {
+    "build": "tsx scripts/build.mts",
+    "prepack": "pnpm run build"
+  }
 }

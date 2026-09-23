@@ -1,5 +1,6 @@
 "use strict";
 // TypeScript language-service plugin: adds Lucent diagnostics to *.lucent.ts
+// (index.js, not .cjs: tsserver resolves plugin paths without "exports").
 // files. tsserver loads plugins with require() and its own `typescript`,
 // while the compiler is an ES module that walks ASTs from its own
 // `typescript`; so the plugin imports the compiler asynchronously and hands
@@ -75,5 +76,12 @@ function createPlugin(loadCompiler) {
   };
 }
 
-module.exports = createPlugin(() => import("@lucent-lang/compiler"));
+// Published, the compiler is bundled into dist/; in this repository (which
+// has the sources) it is the workspace package.
+const path = require("node:path");
+const fs = require("node:fs");
+const { pathToFileURL } = require("node:url");
+const compiler = fs.existsSync(path.join(__dirname, "../src")) ? "@lucent-lang/compiler" : pathToFileURL(path.join(__dirname, "../dist/compiler.js")).href;
+
+module.exports = createPlugin(() => import(compiler));
 module.exports.createPlugin = createPlugin;

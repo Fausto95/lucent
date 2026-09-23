@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import * as compiler from "@lucent-lang/compiler";
 
 const require = createRequire(import.meta.url);
-const { createPlugin } = require("../ts-plugin/index.cjs") as {
+const { createPlugin } = require("../ts-plugin/index.js") as {
   createPlugin: (load: () => Promise<typeof compiler>) => ts.server.PluginModuleFactory;
 };
 

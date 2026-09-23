@@ -88,7 +88,7 @@ const modules = JSON.parse(fs.readFileSync(path.join(native, "manifest.json"), "
 for (const m of ["lucent-haptics/haptics"]) if (!modules.includes(m)) throw new Error(`the installed lucent-haptics was not built: ${modules.join(", ")}`);
 
 console.log("• Metro and Expo integrations load");
-sh(process.execPath, ["-e", 'require("@lucent-lang/lucent/metro").withLucent({}); if (typeof require("@lucent-lang/lucent/app.plugin.js") !== "function") process.exit(1)'], app, { LUCENT_WATCH: "0" });
+sh(process.execPath, ["-e", 'require("@lucent-lang/lucent/metro").withLucent({ transformer: { babelTransformerPath: "metro-babel-transformer" } }); if (typeof require("@lucent-lang/lucent/app.plugin.js") !== "function") process.exit(1)'], app, { LUCENT_WATCH: "0" });
 
 console.log("• editor diagnostics through tsserver and @lucent-lang/lucent/ts-plugin");
 fs.writeFileSync(path.join(app, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, module: "esnext", moduleResolution: "bundler", target: "es2022", noEmit: true, plugins: [{ name: "@lucent-lang/lucent/ts-plugin" }] }, include: ["src"] }));
