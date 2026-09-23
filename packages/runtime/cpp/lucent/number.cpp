@@ -32,6 +32,32 @@ Decimal parseScientific(const char* buf) {
   return d;
 }
 
+/// `a` (positive, finite) rounded to `significant` digits, with exact ties
+/// rounded up, as Number.prototype.toPrecision/toExponential specify. printf
+/// with 800 digits prints the exact binary value (at most 767 significant
+/// digits), so the rounding decision sees every digit.
+Decimal roundHalfUp(double a, int significant) {
+  static thread_local char buf[1024];
+  std::snprintf(buf, sizeof buf, "%.800e", a);
+  Decimal exact = parseScientific(buf);
+  Decimal d{exact.digits, exact.n};
+  d.digits.resize(std::max<size_t>(d.digits.size(), static_cast<size_t>(significant) + 1), '0');
+  bool up = d.digits[static_cast<size_t>(significant)] >= '5';
+  d.digits.resize(static_cast<size_t>(significant));
+  if (up) {
+    int i = significant - 1;
+    while (i >= 0 && d.digits[static_cast<size_t>(i)] == '9') d.digits[static_cast<size_t>(i--)] = '0';
+    if (i >= 0) {
+      d.digits[static_cast<size_t>(i)]++;
+    } else {
+      d.digits.insert(d.digits.begin(), '1');
+      d.digits.pop_back();
+      d.n++;
+    }
+  }
+  return d;
+}
+
 Decimal withPrecision(double v, int precision) {
   char buf[64];
   std::snprintf(buf, sizeof buf, "%.*e", precision - 1, v);
@@ -229,10 +255,7 @@ String numberToExponential(double v, double digitsValue) {
     d.digits = std::string(static_cast<size_t>(f) + 1, '0');
     d.n = 1;
   } else {
-    char buf[256];
-    std::snprintf(buf, sizeof buf, "%.*e", static_cast<int>(f), a);
-    d = parseScientific(buf);
-    d.digits.resize(static_cast<size_t>(f) + 1, '0');
+    d = roundHalfUp(a, static_cast<int>(f) + 1);
   }
   out += d.digits.substr(0, 1);
   if (f > 0) out += "." + d.digits.substr(1);
@@ -270,10 +293,7 @@ String numberToPrecision(double v, double precisionValue) {
     d.digits = std::string(static_cast<size_t>(p), '0');
     e = 0;
   } else {
-    char buf[256];
-    std::snprintf(buf, sizeof buf, "%.*e", p - 1, a);
-    d = parseScientific(buf);
-    d.digits.resize(static_cast<size_t>(p), '0');
+    d = roundHalfUp(a, p);
     e = d.n - 1;
   }
   if (e < -6 || e >= p) {

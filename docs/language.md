@@ -201,7 +201,6 @@ explicitly, for example by clearing a field.
 | garbage collection frees cycles | reference counting leaks cycles |
 | `toUpperCase` / `toLowerCase` use full Unicode tables | Latin, Greek and Cyrillic (including `ß` → `SS`); other scripts unchanged |
 | `localeCompare` uses ICU collation | case-insensitive code unit order, then lowercase first |
-| `toPrecision` / `toExponential` round exact binary ties up | may round ties to even (rare) |
 | deep recursion throws `RangeError` | may overflow the native stack |
 | `console.log(obj)` pretty-prints | prints `String(obj)` |
 | `JSON.parse` returns whatever the text contains | the text must match the target type: a mismatch throws `TypeError` naming the path (`expected a number at .items[2].price, got a string`) |
