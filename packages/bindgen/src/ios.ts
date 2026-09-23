@@ -221,6 +221,8 @@ interface Resolver {
   ref(usr: string): string | undefined;
   /** Typealiases and typed string enums: USR to the fragments they stand for. */
   alias(usr: string): Fragment[] | undefined;
+  /** A C typedef's USR from its name, for references Swift leaves without one (NSRange). */
+  typedef(name: string): string | undefined;
   self?: string;
   /** The member is main-actor: its blocks that are not @Sendable run on the main thread. */
   mainActor?: boolean;
@@ -352,9 +354,10 @@ function parseType(frags: Fragment[], r: Resolver): SchemaType {
       if (!ref) throw new Unsupported(tok.spelling);
       return named(ref);
     }
-    const aliased = r.alias(usr);
+    const key = usr || (r.typedef(tok.spelling) ?? "");
+    const aliased = r.alias(key);
     if (aliased) return parseType(aliased, r);
-    const ref = r.ref(usr);
+    const ref = r.ref(key);
     if (ref) return named(ref);
     throw new Unsupported(tok.spelling);
   };
@@ -381,6 +384,32 @@ function propertyType(frags: Fragment[]): Fragment[] {
 }
 
 // --- extraction ----------------------------------------------------------------------
+
+/** A C typedef's name from its USR: `c:@T@NSRange`, or `c:Measures.h@T@MSRRange` outside system headers. */
+const typedefName = (usr: string) => /^c:[^@]*@T@(\w+)$/.exec(usr)?.[1];
+
+/** A C struct field's USR, synthesized onto the typedef (group 2) when Swift hides the struct's tag. */
+const structField = (usr: string) => /^c:@SA?@\w+@FI@(\w+)(?:::SYNTHESIZED::(.+))?$/.exec(usr);
+
+/**
+ * The C structs a graph declares, by USR: `typedef struct {…} X` and
+ * `struct X`, and typedefs of a struct whose tag Swift hides (NSRange's
+ * `_NSRange`), which take the struct's fields as members.
+ */
+function cStructs(g: SymbolGraph): Map<string, { symbol: SymbolGraphSymbol; native: string }> {
+  const byUsr = new Map(g.symbols.map((s) => [s.identifier.precise, s]));
+  const out = new Map<string, { symbol: SymbolGraphSymbol; native: string }>();
+  for (const s of g.symbols) {
+    const usr = s.identifier.precise;
+    const record = s.kind.identifier === "swift.struct" ? /^c:@SA?@(\w+)$/.exec(usr) : null;
+    if (record) out.set(usr, { symbol: s, native: record[1]! });
+    const typedef = structField(usr)?.[2];
+    const symbol = typedef ? byUsr.get(typedef) : undefined;
+    const native = typedef ? typedefName(typedef) : undefined;
+    if (symbol && native) out.set(typedef!, { symbol, native });
+  }
+  return out;
+}
 
 const objcClass = (usr: string) => /^c:objc\((cs|pl)\)([^(]+)$/.exec(usr);
 const objcMember = (usr: string) => /^c:objc\((cs|pl)\)([^(]+)\((im|cm|py|cpy)\)(.+)$/.exec(usr);
@@ -431,6 +460,7 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
   const refs: Record<string, string> = {};
   const aliases: Record<string, Fragment[]> = {};
   const types: NamesIndex["types"] = {};
+  const structs = cStructs(g);
   for (const s of g.symbols) {
     const usr = s.identifier.precise;
     const k = s.kind.identifier;
@@ -446,13 +476,12 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
       refs[usr] = `${module}.${name}`;
       types[name] = { kind: "enum", native: cEnum[1]! };
     }
-    // C structs (`typedef struct {…} X` or `struct X`).
-    const record = k === "swift.struct" ? /^c:@S[A]?@(\w+)$/.exec(usr) : null;
+    const record = structs.get(usr);
     if (record) {
       refs[usr] = `${module}.${name}`;
-      types[name] = { kind: "struct", native: record[1]! };
+      types[name] = { kind: "struct", native: record.native };
     }
-    if (k === "swift.typealias") {
+    if (k === "swift.typealias" && !record) {
       const eq = (s.declarationFragments ?? []).findIndex((f) => f.spelling.includes("="));
       if (eq >= 0) aliases[usr] = [{ kind: "text", spelling: (s.declarationFragments![eq]!.spelling.split("=")[1] ?? "").trim() }, ...s.declarationFragments!.slice(eq + 1)];
     }
@@ -468,7 +497,8 @@ export function externalUsrs(g: SymbolGraph): Set<string> {
   const out = new Set<string>();
   const visit = (frags: Fragment[] | undefined) => {
     for (const f of frags ?? []) {
-      const usr = f.preciseIdentifier;
+      // Swift leaves the USR off some references to C typedefs (NSRange); the owner is found by name.
+      const usr = f.preciseIdentifier ?? (f.kind === "typeIdentifier" ? `c:@T@${f.spelling}` : undefined);
       if (!usr) continue;
       // Swift value types that bridge to Foundation classes (URL → NSURL).
       if (usr in BRIDGED_CLASS) out.add(`c:objc(cs)${BRIDGED_CLASS[usr]}`);
@@ -511,7 +541,8 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
       members.set(rel.target, list);
     }
     const byUsr = new Map(g.symbols.map((s) => [s.identifier.precise, s]));
-    const resolver = (self?: string, mainActor?: boolean): Resolver => ({ ref: (u) => refs.get(u), alias: (u) => aliases.get(u), self, mainActor });
+    const typedefs = new Map([...refs.keys(), ...aliases.keys()].flatMap((u): [string, string][] => (typedefName(u) ? [[typedefName(u)!, u]] : [])));
+    const resolver = (self?: string, mainActor?: boolean): Resolver => ({ ref: (u) => refs.get(u), alias: (u) => aliases.get(u), typedef: (n) => typedefs.get(n), self, mainActor });
     const skip = (owner: string, s: SymbolGraphSymbol, reason: string) => mod.skipped!.push(`${owner}.${s.names.title}: ${reason}`);
 
     // Enums and options.
@@ -540,23 +571,22 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
       mod.types.push(e);
     }
 
-    // C structs: their fields, numbers and structs.
-    for (const s of g.symbols) {
-      const record = s.kind.identifier === "swift.struct" ? /^c:@S[A]?@(\w+)$/.exec(s.identifier.precise) : null;
-      if (!record || unavailable(s)) continue;
+    // C structs: their fields, numbers, enums and structs.
+    for (const [usr, { symbol: s, native }] of cStructs(g)) {
+      if (unavailable(s)) continue;
       const name = s.pathComponents.join("_");
       try {
-        const fields = (members.get(s.identifier.precise) ?? [])
-          .filter((m) => m.kind.identifier === "swift.property" && m.identifier.precise.startsWith(`${s.identifier.precise}@FI@`))
+        const fields = (members.get(usr) ?? [])
+          .filter((m) => m.kind.identifier === "swift.property" && structField(m.identifier.precise))
           .map((m) => {
             const type = parseType(propertyType(m.declarationFragments ?? []), resolver());
             const written = formatSchemaType(type);
-            const isStruct = kinds.get(written) === "struct";
-            if (!isStruct && !/^(double|float|CGFloat|NSInteger|NSUInteger|u?int(8|16|32|64)|bool)$/.test(written)) throw new Unsupported(`struct field ${written}`);
+            const nested = kinds.get(written) === "struct" || kinds.get(written) === "enum";
+            if (!nested && !/^(double|float|CGFloat|NSInteger|NSUInteger|u?int(8|16|32|64)|bool)$/.test(written)) throw new Unsupported(`struct field ${written}`);
             return { name: m.pathComponents[m.pathComponents.length - 1]!, type };
           });
         if (!fields.length) throw new Unsupported("struct without fields");
-        mod.types.push({ kind: "struct", name, native: record[1]!, fields });
+        mod.types.push({ kind: "struct", name, native, fields });
       } catch (e) {
         if (e instanceof Unsupported) mod.skipped!.push(`${name}: ${e.message}`);
         else throw e;

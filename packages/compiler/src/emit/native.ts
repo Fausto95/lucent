@@ -220,7 +220,8 @@ function structToObjc(c: string, s: SdkStructSchema, module: string): string {
     const inner = sdkStruct(ft);
     const v = `(${c})->${cppIdent(f.name)}`;
     if (inner) return structToObjc(v, inner, ft.k === "ref" ? ft.module : module);
-    return ft.k === "prim" && (ft.name === "bool" || ft.name === "boolean") ? `(${v} ? YES : NO)` : `static_cast<${OBJC_NUMBER[(ft as SdkType & { k: "prim" }).name] ?? "double"}>(${v})`;
+    // The field's own C type: Swift's can differ (NSRange's NSUInteger fields are Int).
+    return ft.k === "prim" && (ft.name === "bool" || ft.name === "boolean") ? `(${v} ? YES : NO)` : `static_cast<decltype(${s.native}::${f.name})>(${v})`;
   });
   return `${s.native}{${fields.join(", ")}}`;
 }

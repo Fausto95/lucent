@@ -159,18 +159,32 @@ from the platform's annotations.zip.
       unrepresentable per module, the reasons tallied); CI records it and fails
       when a module's unrepresentable share grows past sdk-coverage.json.
 
+- [x] Other modules' C types: the header index reads every typedef whatever
+      surrounds its name (availability after it, bridging macros before it)
+      and tagged struct definitions, so CoreMedia's CMTime, CMTimeRange and
+      CMPersistentTrackID resolve in AVFoundation. Typedefs of a struct whose
+      tag Swift hides (NSRange's `_NSRange`) are structs, and the references
+      Swift leaves without a USR resolve by the typedef's name. Struct fields
+      may be enums, and the glue casts each field to its own C type (Swift
+      imports NSRange's NSUInteger fields as Int).
+
 Coverage (unrepresentable members):
 
-| Module | 2026-09-23 baseline |
-| --- | --- |
-| UIKit | 584 of 6,067 (9.6%) |
-| Foundation | 723 of 3,906 (18.5%) |
-| AVFoundation | 451 of 3,527 (12.8%) |
-| android.* (214 packages) | 207 of 79,136 (0.3%) |
+| Module | 2026-09-23 baseline | Other modules' C types |
+| --- | --- | --- |
+| UIKit | 584 of 6,067 (9.6%) | 498 of 6,065 (8.2%) |
+| Foundation | 723 of 3,906 (18.5%) | 617 of 3,902 (15.8%) |
+| AVFoundation | 451 of 3,527 (12.8%) | 165 of 3,516 (4.7%) |
+| android.* (214 packages) | 207 of 79,136 (0.3%) | unchanged |
 
-Top reasons: Swift's bridged value types (IndexPath, DateComponents,
-URLRequest, CharacterSet), structs of other modules (NSRange, CMTime,
-CMTimeRange), pointers, Selector, AnyClass; on Android, generics.
+Totals shrink a little as members that now type-check merge with overloads
+of the same signature.
+
+Top reasons left: Swift's bridged value types (IndexPath, DateComponents,
+URLRequest, CharacterSet, IndexSet), opaque CoreFoundation-style handles
+(CMSampleBuffer, CVBuffer, CMFormatDescription), pointers (generic
+UnsafePointer, ObjCBool, pointers to structs), Selector, AnyClass, generic
+Set; on Android, generics.
 
 ## Phase 5: typed IR
 
