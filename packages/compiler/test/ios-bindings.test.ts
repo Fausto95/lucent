@@ -129,6 +129,23 @@ export async function run(): Promise<string> {
 }
 `;
 
+const shadowing = `import { CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";
+import { main } from "lucent:thread";
+class D implements CLLocationManagerDelegate {}
+export async function run(): Promise<string> {
+  // Lucent names that are Objective-C's, or look like the glue's temporaries.
+  const id = 1;
+  const YES = 2;
+  const nil = 3;
+  const v_ = new D();
+  return main(() => {
+    const r_ = new CLLocationManager();
+    r_.delegate = v_;
+    return \`\${id + YES + nil} \${r_.delegate !== null}\`;
+  });
+}
+`;
+
 const promises = `import { LAContext, LAPolicy } from "lucent:ios/LocalAuthentication";
 import { UNUserNotificationCenter } from "lucent:ios/UserNotifications";
 import { errorCode } from "@lucent-lang/core";
@@ -269,7 +286,7 @@ export async function run(): Promise<string> {
   it("generates Objective-C++ that compiles against the iOS SDK", () => {
     const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
     if (process.platform !== "darwin" || sdk.status !== 0) return;
-    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
+    for (const [src, sdk] of [[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [shadowing], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]) {
       const { r, dir } = ios(src, sdk);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {

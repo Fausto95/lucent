@@ -267,7 +267,15 @@ export async function run(): Promise<string> {
   return \`\${ClipData.newPlainText("l", "t")?.getItemAt(0)?.getText()} \${Context.VIBRATOR_SERVICE} \${info?.versionName} \${bytes?.length} \${Uri.parse("x")?.describeContents()} \${(Build.SUPPORTED_ABIS ?? []).join()}\`;
 }
 `;
-    for (const src of [calls, listener, tracker, watcher]) {
+    // Lucent names the JNI glue uses (env), or that look like its temporaries.
+    const shadowing = `import { Build } from "lucent:android/android.os";
+export async function run(): Promise<string> {
+  const env = "x";
+  const r_ = Build.MODEL ?? env;
+  return r_;
+}
+`;
+    for (const src of [calls, listener, tracker, watcher, shadowing]) {
       const { r, dir } = android(src);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {
