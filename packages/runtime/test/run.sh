@@ -11,5 +11,12 @@ fi
 libs=(-lpthread)
 # localeCompare uses CoreFoundation on Apple platforms, as on iOS.
 [[ "$(uname)" == "Darwin" ]] && libs+=(-framework CoreFoundation)
-${CXX:-clang++} "${flags[@]}" "$here/runtime_test.cpp" "$cpp"/lucent/*.cpp "${libs[@]}" -o "$out"
+# The vendored regular expression engine is C.
+cobjs=()
+for c in "$cpp"/third_party/quickjs/*.c; do
+  o="${out}_$(basename "$c" .c).o"
+  ${CC:-clang} -std=c11 -O2 -w $([[ "${SANITIZE:-0}" == "1" ]] && echo -fsanitize=address,undefined) -c "$c" -o "$o"
+  cobjs+=("$o")
+done
+${CXX:-clang++} "${flags[@]}" "$here/runtime_test.cpp" "$cpp"/lucent/*.cpp "${cobjs[@]}" "${libs[@]}" -o "$out"
 "$out"

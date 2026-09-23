@@ -104,6 +104,9 @@ beyond the standard library, plus JSI for the boundary (`lucent/jsi`).
   An anchor object on `global` invalidates it while the runtime tears down.
   Native code refers to JSI objects only by id and hops to the JS thread to use
   them.
+* `regexp.h`: `RegExp` on QuickJS's `libregexp` (vendored, MIT, in
+  `cpp/third_party/quickjs`), which matches Latin-1 and UTF-16 buffers
+  directly; compiled patterns are cached by source and flags.
 * `jsi/convert.h`: `Convert<T>` between JSI values and Lucent values. The
   compiler emits specializations for structs, classes and unions.
 * `abort.h`: `AbortController` / `AbortSignal`. A signal from JavaScript is

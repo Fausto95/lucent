@@ -12,6 +12,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { compile, report } from "../packages/compiler/src/index.ts";
+import { cFlags, hostLibs, runtimeSources } from "../packages/runtime/test/sources.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const hermes = process.env.HERMES_DIR ?? path.join(os.homedir(), "hermes");
@@ -35,19 +36,21 @@ const result = compile([kernels]);
 if (!result.ok) throw new Error(report(result.diagnostics));
 for (const [name, content] of result.files) fs.writeFileSync(path.join(work, name), content);
 const flags = ["-std=c++20", "-ffp-contract=off", "-O2", "-DNDEBUG", "-w", `-I${runtime}`, `-I${work}`, `-I${hermes}/API`, `-I${hermes}/API/jsi`, `-I${hermes}/public`];
+const rs = runtimeSources(runtime);
 const sources = [
   ...[...result.files.keys()].filter((f) => f.endsWith(".cpp")).map((f) => path.join(work, f)),
-  ...fs.readdirSync(path.join(runtime, "lucent")).filter((f) => f.endsWith(".cpp")).map((f) => path.join(runtime, "lucent", f)),
-  ...fs.readdirSync(path.join(runtime, "lucent/jsi")).filter((f) => f.endsWith(".cpp")).map((f) => path.join(runtime, "lucent/jsi", f)),
+  ...rs.cxx,
+  ...rs.c,
   path.join(root, "packages/runtime/test/jsi/harness.cpp"),
 ];
 const objs = sources.map((s, i) => {
-  const o = path.join(work, `${i}_${path.basename(s, ".cpp")}.o`);
-  sh(cxx, [...flags, "-c", s, "-o", o]);
+  const o = path.join(work, `${i}_${path.basename(s).replace(/\.(cpp|c)$/, "")}.o`);
+  if (s.endsWith(".c")) sh(process.env.CC ?? "clang", [...cFlags, "-c", s, "-o", o]);
+  else sh(cxx, [...flags, "-c", s, "-o", o]);
   return o;
 });
 const exe = path.join(work, "bench-host");
-sh(cxx, [...objs, `-L${hermes}/build/lib`, `-L${hermes}/build/jsi`, "-lhermesvm", "-ljsi", "-lpthread", ...(process.platform === "darwin" ? ["-framework", "CoreFoundation"] : []), `-Wl,-rpath,${hermes}/build/lib`, `-Wl,-rpath,${hermes}/build/jsi`, "-o", exe]);
+sh(cxx, [...objs, `-L${hermes}/build/lib`, `-L${hermes}/build/jsi`, "-lhermesvm", "-ljsi", "-lpthread", ...hostLibs, `-Wl,-rpath,${hermes}/build/lib`, `-Wl,-rpath,${hermes}/build/jsi`, "-o", exe]);
 
 // JavaScript: the same source, transpiled, in the same Hermes runtime.
 const js = ts.transpileModule(fs.readFileSync(kernels, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2019 } }).outputText;

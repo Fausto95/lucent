@@ -30,6 +30,8 @@ export type LType =
   | { k: "bytes" }
   | { k: "error" }
   | { k: "date" }
+  | { k: "regexp" }
+  | { k: "regexMatch" }
   | { k: "iter"; e: LType }
   | { k: "iterResult"; e: LType }
   | { k: "abortSignal" }
@@ -47,6 +49,8 @@ export const T = {
   error: { k: "error" } as LType,
   bytes: { k: "bytes" } as LType,
   date: { k: "date" } as LType,
+  regexp: { k: "regexp" } as LType,
+  regexMatch: { k: "regexMatch" } as LType,
   abortSignal: { k: "abortSignal" } as LType,
   abortController: { k: "abortController" } as LType,
 };
@@ -526,6 +530,11 @@ export class TypeRegistry {
           return T.error;
         case "Date":
           return T.date;
+        case "RegExp":
+          return T.regexp;
+        case "RegExpMatchArray":
+        case "RegExpExecArray":
+          return T.regexMatch;
         // Iterables: generators, built-in iterators and Iterable<T> parameters.
         case "Generator":
         case "Iterable":
@@ -536,6 +545,7 @@ export class TypeRegistry {
         case "MapIterator":
         case "SetIterator":
         case "StringIterator":
+        case "RegExpStringIterator":
           return { k: "iter", e: this.lower(args[0]!, node) };
         case "IteratorResult":
         case "IteratorYieldResult":
@@ -749,6 +759,10 @@ export class TypeRegistry {
         return "lucent::Error";
       case "date":
         return "lucent::Date";
+      case "regexp":
+        return "lucent::RegExp";
+      case "regexMatch":
+        return "lucent::RegExpMatch";
       case "iter":
         return `lucent::Iter<${this.cpp(t.e)}>`;
       case "iterResult":

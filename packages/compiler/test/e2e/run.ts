@@ -17,6 +17,7 @@ import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import ts from "typescript";
 import { compile, report } from "../../src/index.ts";
+import { cFlags, hostLibs, runtimeSources } from "../../../runtime/test/sources.ts";
 
 // One time zone with daylight saving time for both runs (the native host
 // inherits it), so local-time code is exercised even on UTC machines.
@@ -61,9 +62,10 @@ function sh(cmd: string, args: string[], opts: { cwd?: string } = {}): void {
 
 /** Builds the runtime + harness objects once (cached by content hash). */
 function runtimeLib(): string {
+  const rs = runtimeSources(path.join(runtimeDir, "cpp"));
   const sources = [
-    ...fs.readdirSync(path.join(runtimeDir, "cpp/lucent")).filter((f) => f.endsWith(".cpp")).map((f) => path.join(runtimeDir, "cpp/lucent", f)),
-    ...fs.readdirSync(path.join(runtimeDir, "cpp/lucent/jsi")).filter((f) => f.endsWith(".cpp")).map((f) => path.join(runtimeDir, "cpp/lucent/jsi", f)),
+    ...rs.cxx,
+    ...rs.c,
     path.join(runtimeDir, "test/jsi/harness.cpp"),
   ];
   const headers = [
@@ -80,7 +82,8 @@ function runtimeLib(): string {
   const objs: string[] = [];
   for (const src of sources) {
     const obj = path.join(dir, path.basename(src).replace(/\.cpp$/, ".o"));
-    sh(cxx, [...baseFlags, "-c", src, "-o", obj]);
+    if (src.endsWith(".c")) sh(process.env.CC ?? "clang", [...cFlags, ...(sanitize ? ["-fsanitize=address,undefined"] : []), "-c", src, "-o", obj]);
+    else sh(cxx, [...baseFlags, "-c", src, "-o", obj]);
     objs.push(obj);
   }
   sh("ar", ["rcs", lib, ...objs]);
@@ -132,7 +135,7 @@ function nativeRun(c: Case, lib: string): string {
     "-lhermesvm",
     "-ljsi",
     "-lpthread",
-    ...(process.platform === "darwin" ? ["-framework", "CoreFoundation"] : []),
+    ...hostLibs,
     `-Wl,-rpath,${path.join(hermes, "build/lib")}`,
     `-Wl,-rpath,${path.join(hermes, "build/jsi")}`,
     "-o",

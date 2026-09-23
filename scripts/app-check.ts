@@ -15,6 +15,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { cFlags, hostLibs, runtimeSources } from "../packages/runtime/test/sources.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const app = path.resolve(root, process.argv[2] ?? "apps/bare-example");
@@ -34,19 +35,21 @@ sh(process.execPath, [path.join(root, "packages/cli/bin/lucent.cjs"), "build", "
 console.log("• compiling native code");
 const cpp = path.join(app, ".lucent/native/cpp");
 const flags = ["-std=c++20", "-ffp-contract=off", "-O1", "-g", "-w", `-I${cpp}`, `-I${cpp}/generated`, `-I${hermes}/API`, `-I${hermes}/API/jsi`, `-I${hermes}/public`];
+const rs = runtimeSources(cpp);
 const sources = [
   ...fs.readdirSync(path.join(cpp, "generated")).filter((f) => f.endsWith(".cpp")).map((f) => path.join(cpp, "generated", f)),
-  ...fs.readdirSync(path.join(cpp, "lucent")).filter((f) => f.endsWith(".cpp")).map((f) => path.join(cpp, "lucent", f)),
-  ...fs.readdirSync(path.join(cpp, "lucent/jsi")).filter((f) => f.endsWith(".cpp")).map((f) => path.join(cpp, "lucent/jsi", f)),
+  ...rs.cxx,
+  ...rs.c,
   path.join(root, "packages/runtime/test/jsi/harness.cpp"),
 ];
 const objs = sources.map((s, i) => {
-  const o = path.join(work, `${i}_${path.basename(s, ".cpp")}.o`);
-  sh(process.env.CXX ?? "clang++", [...flags, "-c", s, "-o", o]);
+  const o = path.join(work, `${i}_${path.basename(s).replace(/\.(cpp|c)$/, "")}.o`);
+  if (s.endsWith(".c")) sh(process.env.CC ?? "clang", [...cFlags, "-c", s, "-o", o]);
+  else sh(process.env.CXX ?? "clang++", [...flags, "-c", s, "-o", o]);
   return o;
 });
 const exe = path.join(work, "apphost");
-sh(process.env.CXX ?? "clang++", [...objs, `-L${hermes}/build/lib`, `-L${hermes}/build/jsi`, "-lhermesvm", "-ljsi", "-lpthread", ...(process.platform === "darwin" ? ["-framework", "CoreFoundation"] : []), `-Wl,-rpath,${hermes}/build/lib`, `-Wl,-rpath,${hermes}/build/jsi`, "-o", exe]);
+sh(process.env.CXX ?? "clang++", [...objs, `-L${hermes}/build/lib`, `-L${hermes}/build/jsi`, "-lhermesvm", "-ljsi", "-lpthread", ...hostLibs, `-Wl,-rpath,${hermes}/build/lib`, `-Wl,-rpath,${hermes}/build/jsi`, "-o", exe]);
 
 console.log("• bundling with Metro");
 const entry = path.join(app, "lucent-app-check.entry.js");

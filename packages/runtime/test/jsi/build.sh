@@ -12,6 +12,12 @@ flags=(-std=c++20 -ffp-contract=off -g -O1 -Wall -Wno-unused-parameter -Wno-unus
 if [[ "${SANITIZE:-0}" == "1" ]]; then
   flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer)
 fi
-${CXX:-clang++} "${flags[@]}" "$here/harness.cpp" "$@" "$cpp"/lucent/*.cpp "$cpp"/lucent/jsi/*.cpp \
+cobjs=()
+for c in "$cpp"/third_party/quickjs/*.c; do
+  o="${out}_$(basename "$c" .c).o"
+  ${CC:-clang} -std=c11 -O2 -w -c "$c" -o "$o"
+  cobjs+=("$o")
+done
+${CXX:-clang++} "${flags[@]}" "$here/harness.cpp" "$@" "$cpp"/lucent/*.cpp "$cpp"/lucent/jsi/*.cpp "${cobjs[@]}" \
   -L"$hermes/build/lib" -L"$hermes/build/jsi" -lhermesvm -ljsi -lpthread $([[ "$(uname)" == "Darwin" ]] && echo -framework CoreFoundation) \
   -Wl,-rpath,"$hermes/build/lib" -Wl,-rpath,"$hermes/build/jsi" -o "$out"

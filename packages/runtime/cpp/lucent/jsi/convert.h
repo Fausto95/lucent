@@ -259,6 +259,22 @@ struct Convert<Date> {
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Date& d);
 };
 
+/// RegExps cross as their source and flags (JavaScript's lastIndex is not kept).
+template <>
+struct Convert<RegExp> {
+  static RegExp fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+    if (v.isObject()) {
+      jsi::Object o = v.getObject(rt);
+      jsi::Value source = o.getProperty(rt, "source"), flags = o.getProperty(rt, "flags");
+      if (source.isString() && flags.isString()) return makeRegExp(stringFromJs(rt, source.getString(rt)), stringFromJs(rt, flags.getString(rt)));
+    }
+    throwBoundaryError(rt, p, "a RegExp", v);
+  }
+  static jsi::Value toJs(jsi::Runtime& rt, Host&, const RegExp& re) {
+    return rt.global().getPropertyAsFunction(rt, "RegExp").callAsConstructor(rt, stringToJs(rt, re->source()), stringToJs(rt, re->flags()));
+  }
+};
+
 /// A JavaScript iterable arrives as a snapshot (Array.from), iterated lazily.
 template <class T>
 struct Convert<Iter<T>> {

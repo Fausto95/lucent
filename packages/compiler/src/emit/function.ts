@@ -941,9 +941,10 @@ export class FnEmitter {
         this.line(";");
       }
     };
-    if (it.k === "array") {
-      this.open(`for (size_t ${idx} = 0; ${idx} < ${coll}.size(); ${idx}++) {`);
-      elem = { c: `${coll}.at(${idx})`, t: it.e };
+    if (it.k === "array" || it.k === "regexMatch") {
+      const items = it.k === "regexMatch" ? `${coll}->items` : coll;
+      this.open(`for (size_t ${idx} = 0; ${idx} < ${items}.size(); ${idx}++) {`);
+      elem = it.k === "regexMatch" ? { c: `${items}.at(${idx})`, t: unionOf([T.string, T.undefined]) } : { c: `${coll}.at(${idx})`, t: it.e };
     } else if (it.k === "string") {
       this.line(`auto ${coll}_cps = lucent::splitCodePoints(${coll});`);
       this.open(`for (size_t ${idx} = 0; ${idx} < ${coll}_cps.size(); ${idx}++) {`);
@@ -1241,6 +1242,11 @@ export class FnEmitter {
         return this.binary(node as ts.BinaryExpression);
       case ts.SyntaxKind.ConditionalExpression:
         return this.conditional(node as ts.ConditionalExpression);
+      case ts.SyntaxKind.RegularExpressionLiteral: {
+        const text = (node as ts.RegularExpressionLiteral).text;
+        const end = text.lastIndexOf("/");
+        return { c: `lucent::makeRegExp(${stringLiteral(text.slice(1, end))}, lucent::Opt<lucent::String>(${stringLiteral(text.slice(end + 1))}))`, t: T.regexp };
+      }
       case ts.SyntaxKind.YieldExpression:
         fail(node, Codes.UnsupportedSyntax, "`yield` can only be used as a statement; its value is not supported");
       case ts.SyntaxKind.CallExpression:
@@ -1444,7 +1450,11 @@ export class FnEmitter {
       }
       if (ot.k === "class") return builtins.classMemberLvalue(this, obj, ot, name, target);
       if (ot.k === "iface") return builtins.ifaceMemberLvalue(this, obj, ot, name, target);
-      if (ot.k === "array" && name === "length") {
+      if (ot.k === "regexp" && name === "lastIndex") {
+      const c = `${obj.c}->lastIndex`;
+      return { direct: c, get: c, type: T.number };
+    }
+    if (ot.k === "array" && name === "length") {
         const tmp = this.ctx.fresh("arr");
         return { get: `${obj.c}.length()`, set: (v) => `${obj.c}.setLength(${v})`, type: T.number, setup: tmp };
       }
@@ -1797,6 +1807,8 @@ export class FnEmitter {
         const index = i.int ? `static_cast<int64_t>(${i.int.c})` : this.coerce(i, T.number, arg);
         return { c: i.int ? `(${obj.c}).getIndex(${index})` : `(${obj.c}).get(${index})`, t: unionOf([t.e, T.undefined]) };
       }
+      case "regexMatch":
+        return { c: `lucent::matchItem(${obj.c}, ${this.exprAs(arg, T.number)})`, t: unionOf([T.string, T.undefined]) };
       case "tuple": {
         if (!ts.isNumericLiteral(arg)) fail(arg, Codes.UnsupportedSyntax, "tuple elements need a literal index");
         const i = Number(arg.text);

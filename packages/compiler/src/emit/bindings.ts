@@ -91,6 +91,8 @@ export class BindingsEmitter {
         return this.use(t.e, node);
       case "iterResult":
         fail(node, Codes.BoundaryType, "iterator results cannot cross the JavaScript boundary");
+      case "regexMatch":
+        fail(node, Codes.BoundaryType, "match results cannot cross the JavaScript boundary; return the strings you need");
     }
   }
 

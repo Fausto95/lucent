@@ -72,6 +72,21 @@ export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E
     case "bytes":
       if (name === "length" || name === "byteLength") return num(`(${o}).length()`);
       break;
+    case "dict":
+      // `record.key` is `record["key"]` on an index signature.
+      return { c: `(${o}).get(${stringLiteral(name)})`, t: unionOf([t.val, T.undefined]) };
+    case "regexp":
+      if (name === "source") return str(`(${o})->source()`);
+      if (name === "flags") return str(`(${o})->canonicalFlags()`);
+      if (["global", "ignoreCase", "multiline", "dotAll", "unicode", "unicodeSets", "sticky", "hasIndices"].includes(name)) return bool(`(${o})->${name}()`);
+      if (name === "lastIndex") return num(`(${o})->lastIndex`);
+      break;
+    case "regexMatch":
+      if (name === "length") return num(`static_cast<double>((${o})->items.size())`);
+      if (name === "index") return { c: `(${o})->index`, t: unionOf([T.number, T.undefined]) };
+      if (name === "input") return { c: `(${o})->input`, t: unionOf([T.string, T.undefined]) };
+      if (name === "groups") return { c: `(${o})->groups`, t: unionOf([{ k: "dict", val: T.string }, T.undefined]) };
+      break;
     case "iterResult":
       if (name === "done") return bool(`(${o}).done`);
       if (name === "value") return { c: `(${o}).value`, t: unionOf([t.e, T.undefined]) };
@@ -540,6 +555,12 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
     case "error":
       if (name === "toString") return str(`lucent::errorToString(${o})`);
       break;
+    case "regexp":
+      if (name === "exec") return { c: `(${o})->exec(${argAs(em, node, 0, T.string)})`, t: unionOf([T.regexMatch, T.null]) };
+      if (name === "test") return bool(`(${o})->test(${argAs(em, node, 0, T.string)})`);
+      break;
+    case "regexMatch":
+      return arrayMethod(em, { c: `(${o})->items`, t: { k: "array", e: unionOf([T.string, T.undefined]) } } as E & { t: { k: "array"; e: LType } }, name, node);
     case "iter":
       if (name === "next" && a.length === 0) return { c: `lucent::iterNext(${o})`, t: { k: "iterResult", e: t.e } };
       if (name === "return" && a.length === 0) return { c: `((${o})->ret(), lucent::IterResult<${em.cpp(t.e)}>{})`, t: { k: "iterResult", e: t.e } };
@@ -579,7 +600,86 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
   fail(node, Codes.UnsupportedBuiltin, `.${name}() is not supported on ${typeKey(t)}`);
 }
 
+/** Capturing groups in a pattern (parentheses, not counting (?: …) or lookarounds). */
+function countGroups(src: string): number {
+  let n = 0;
+  let inClass = false;
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i];
+    if (c === "\\") {
+      i++;
+    } else if (inClass) {
+      if (c === "]") inClass = false;
+    } else if (c === "[") {
+      inClass = true;
+    } else if (c === "(") {
+      if (src[i + 1] !== "?") n++;
+      else if (src[i + 2] === "<" && src[i + 3] !== "=" && src[i + 3] !== "!") n++;
+    }
+  }
+  return n;
+}
+
+/** Capture count of a regular expression known at compile time. */
+function literalGroupCount(node: ts.Expression): number | undefined {
+  if (ts.isRegularExpressionLiteral(node)) return countGroups(node.text.slice(1, node.text.lastIndexOf("/")));
+  if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "RegExp" && node.arguments?.[0] && ts.isStringLiteralLike(node.arguments[0])) return countGroups(node.arguments[0].text);
+  return undefined;
+}
+
+/**
+ * A replacement callback: JavaScript passes (match, p1…pn, offset, input);
+ * the callback's declared parameters say which of them it takes.
+ */
+function replacer(em: FnEmitter, reNode: ts.Expression, cb: ts.Expression): string {
+  const f = em.expr(cb);
+  const ft = stripOpt(f.t);
+  if (ft.k !== "fn") fail(cb, Codes.UnsupportedBuiltin, "the replacement must be a string or a function");
+  const groups = literalGroupCount(reNode);
+  if (ft.params.length > 1 && groups === undefined) fail(cb, Codes.UnsupportedBuiltin, "a replacement callback that takes captures needs a regular expression literal, so the number of groups is known");
+  const n = groups ?? 0;
+  const args = ft.params.map((p, i) => {
+    if (i === 0) return em.coerce({ c: "c.match", t: T.string }, p, cb);
+    if (i <= n) {
+      const cap = `c.captures.at(${i - 1})`;
+      return p.k === "opt" || p.k === "undefined" ? em.coerce({ c: cap, t: unionOf([T.string, T.undefined]) }, p, cb) : em.coerce({ c: `lucent::captureOrThrow(${cap}, ${i})`, t: T.string }, p, cb);
+    }
+    if (i === n + 1) return em.coerce({ c: "c.position", t: T.number }, p, cb);
+    if (i === n + 2) return em.coerce({ c: "c.input", t: T.string }, p, cb);
+    fail(cb, Codes.UnsupportedBuiltin, "the groups argument of replacement callbacks is not supported");
+  });
+  const fv = em.ctx.fresh("repl");
+  const call = em.coerce({ c: `${fv}(${args.join(", ")})`, t: ft.ret }, T.string, cb);
+  return `lucent::Replacer([${fv} = ${em.coerce(f, ft, cb)}](const lucent::ReplaceCall& c) -> lucent::String { return ${call}; })`;
+}
+
+/** String methods that take a RegExp. */
+function regexStringMethod(em: FnEmitter, o: string, name: string, node: ts.CallExpression): E {
+  const a = node.arguments;
+  const re = em.exprAs(a[0]!, T.regexp);
+  switch (name) {
+    case "match":
+      return { c: `lucent::stringMatch(${o}, ${re})`, t: unionOf([T.regexMatch, T.null]) };
+    case "matchAll":
+      return { c: `lucent::stringMatchAll(${o}, ${re})`, t: { k: "iter", e: T.regexMatch } };
+    case "search":
+      return num(`lucent::stringSearch(${o}, ${re})`);
+    case "split":
+      return { c: `lucent::stringSplit(${o}, ${re}${a[1] ? `, lucent::Opt<double>(${argAs(em, node, 1, T.number)})` : ""})`, t: { k: "array", e: T.string } };
+    case "replace":
+    case "replaceAll": {
+      const fn = name === "replace" ? "lucent::stringReplace" : "lucent::stringReplaceAll";
+      const second = a[1]!;
+      if (stripOpt(em.lt(second)).k === "fn") return str(`${fn}(${o}, ${re}, ${replacer(em, a[0]!, second)})`);
+      return str(`${fn}(${o}, ${re}, ${argAs(em, node, 1, T.string)})`);
+    }
+  }
+  fail(node, Codes.UnsupportedBuiltin, `String.${name} does not take a RegExp`);
+}
+
 function stringMethod(em: FnEmitter, o: string, name: string, node: ts.CallExpression): E {
+  const first = node.arguments[0];
+  if (first && ["match", "matchAll", "search", "split", "replace", "replaceAll"].includes(name) && stripOpt(em.lt(first)).k === "regexp") return regexStringMethod(em, o, name, node);
   const n = (i: number) => optArg(em, node, i, T.number);
   const s = (i: number) => optArg(em, node, i, T.string);
   switch (name) {
@@ -904,6 +1004,12 @@ export function newBuiltin(em: FnEmitter, node: ts.NewExpression, callee: ts.Exp
   switch (t.k) {
     case "abortController":
       return { c: "std::make_shared<lucent::AbortControllerObject>()", t };
+    case "regexp": {
+      const flags = a[1] ? `lucent::Opt<lucent::String>(${em.exprAs(a[1], T.string)})` : "lucent::undefined";
+      const p = em.expr(a[0]!);
+      if (stripOpt(p.t).k === "regexp") return { c: `lucent::makeRegExp(${em.coerce(p, T.regexp, a[0])}, ${flags})`, t };
+      return { c: `lucent::makeRegExp(${em.coerce(p, T.string, a[0])}, ${flags})`, t };
+    }
     case "date": {
       if (a.length === 0) return { c: "lucent::makeDate(lucent::dateNow())", t };
       if (a.length === 1) {

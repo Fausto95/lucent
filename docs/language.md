@@ -84,6 +84,13 @@ Supported:
   (hoisted), recursion. Closures share variables with their enclosing scope,
   and `let` loop variables get a fresh binding per iteration.
 * `async`/`await`, `Promise.all`, `Promise.resolve`/`reject`, `delay(ms, signal?)`.
+* Regular expressions: literals and `new RegExp(pattern, flags)` with every
+  ECMAScript feature and flag (`dgimsuvy`: lookbehind, named groups, Unicode
+  property escapes, sets); `exec`, `test`, `lastIndex`; and `match`,
+  `matchAll`, `search`, `replace`, `replaceAll` (with `$` patterns or a
+  callback) and `split`. A replacement callback that takes capture parameters
+  needs a literal pattern; a capture parameter typed `string` throws
+  `TypeError` if its group did not participate (type it `string | undefined`).
 * Generators (`function*`, generator methods and function expressions) with
   `yield`, `yield*` and `return;`, lazy like JavaScript's; `for…of`, spread,
   `Array.from` and `Iterable<T>` parameters over generators, arrays, sets,
@@ -206,6 +213,7 @@ explicitly, for example by clearing a field.
 | garbage collection frees cycles | reference counting leaks cycles |
 | deep recursion throws `RangeError` | may overflow the native stack |
 | `console.log(obj)` pretty-prints | prints `String(obj)` |
+| `str.split(regexp)` inserts `undefined` for a capture group that did not participate | inserts `""` (the result is a `string[]`) |
 | `JSON.parse` returns whatever the text contains | the text must match the target type: a mismatch throws `TypeError` naming the path (`expected a number at .items[2].price, got a string`) |
 | `JSON.stringify` of parsed data keeps the text's key order | keys follow the declared type's order |
 | `Date` objects passed to native code are shared | copied at the boundary (inside Lucent they are shared) |

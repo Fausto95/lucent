@@ -17,6 +17,7 @@
 #include "json_parse.h"
 #include "map.h"
 #include "number.h"
+#include "regexp.h"
 #include "ops.h"
 #include "scheduler.h"
 #include "jsstring.h"

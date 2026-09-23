@@ -15,7 +15,7 @@ describe("native package", () => {
     fs.writeFileSync(src, "export function one(): number { return 1; }");
     const out = path.join(dir, "native");
     writeNativePackage(compile([src]), out);
-    for (const sub of ["cpp/lucent", "cpp/rn"]) {
+    for (const sub of ["cpp/lucent", "cpp/rn", "cpp/third_party"]) {
       expect(files(path.join(out, sub)).sort()).toEqual(files(path.join(runtimeDir(), sub)).sort());
     }
   });

@@ -47,6 +47,7 @@ export function writeNativePackage(result: EmitResult, outDir: string): WriteRes
   };
   copyTree(path.join(rt, "cpp/lucent"), path.join(outDir, "cpp/lucent"), () => true);
   copyTree(path.join(rt, "cpp/rn"), path.join(outDir, "cpp/rn"), () => true);
+  copyTree(path.join(rt, "cpp/third_party"), path.join(outDir, "cpp/third_party"), () => true);
   copyTree(path.join(rt, "native"), outDir, () => true);
   for (const [name, content] of result.files) want.set(path.join(outDir, "cpp/generated", name), content);
   for (const [name, content] of result.proxies) want.set(path.join(outDir, "js", `${name}.js`), content);

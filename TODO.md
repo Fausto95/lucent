@@ -48,7 +48,7 @@ concrete work. Checked items are implemented and covered by tests.
 - [x] `Date` (e2e `dates`, runtime tests for daylight-saving rules)
 - [x] `JSON.parse` into typed values (e2e `json`)
 - [x] Generators and iterables (e2e `generators`)
-- [ ] `RegExp`
+- [x] `RegExp` on QuickJS libregexp (e2e `regexps`)
 
 ## Host & tooling
 
