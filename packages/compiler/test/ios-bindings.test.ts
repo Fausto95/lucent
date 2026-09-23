@@ -248,7 +248,8 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
   it("reads and passes C structs by value, as Lucent objects", () => {
     const { r, mm } = ios(structs);
     expect(r.diagnostics).toEqual([]);
-    expect(mm).toMatch(/auto s_ = \[.*coordinate\]; auto o_ = std::make_shared<lucent_app::S_CLLocationCoordinate2D>\(\); o_->latitude = s_\.latitude; o_->longitude = s_\.longitude;/);
+    // Nested structs number their temporaries (s0_, s1_…) so they do not shadow each other.
+    expect(mm).toMatch(/auto s0_ = \[.*coordinate\]; auto o0_ = std::make_shared<lucent_app::S_CLLocationCoordinate2D>\(\); o0_->latitude = static_cast<double>\(s0_\.latitude\); o0_->longitude = static_cast<double>\(s0_\.longitude\);/);
     expect(mm).toContain("CLLocationCoordinate2DIsValid(CLLocationCoordinate2D{");
   });
 
