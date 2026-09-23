@@ -61,6 +61,22 @@ jobs:
       - name: Fresh install from the packed packages
         run: pnpm exec tsx scripts/smoke-install.ts
 
+  website:
+    name: Website (samples compile, generated files current, build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Every Lucent sample compiles; generated C++ and diagnostics are current
+        run: pnpm exec tsx scripts/website.ts --check
+      - run: pnpm --filter @lucent-lang/website typecheck
+      - run: pnpm website:build
+
   ios:
     name: Bare example (iOS simulator build)
     runs-on: macos-26
