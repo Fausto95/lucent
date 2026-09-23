@@ -7,3 +7,5 @@ print(JSON.stringify(mod.manip("  hello  ")));
 print(JSON.stringify(mod.manip("hello")));
 print(mod.compare("a", "b"), mod.compare("b", "a"), mod.compare("x", "x"), mod.compare("Z", "a"));
 print(mod.unicode());
+print(mod.unicodeCase(["ΟΔΟΣ", "Α.Σ", "Straße", "ﬁ", "𐐨", "ǅ", "İ", "ΐ"]));
+print(mod.collate(["b", "a", "B", "é", "e", "f", "Z", "ä", "A", "z", "1", "10", "2", " ", "-", "ö", "o", "Ö", "O"]));

@@ -59,3 +59,11 @@ export function unicode(): string {
   const s = "héllo wörld 🌍 ÀÉÎ";
   return `${s.length} ${s.toUpperCase()} ${s.toLowerCase()} ${[...s].length} ${s.codePointAt(12)}`;
 }
+
+export function unicodeCase(words: string[]): string {
+  return words.map((w) => `${w.toUpperCase()}/${w.toLowerCase()}`).join(" ");
+}
+
+export function collate(words: string[]): string {
+  return [...words].sort((a, b) => a.localeCompare(b)).join("|");
+}
