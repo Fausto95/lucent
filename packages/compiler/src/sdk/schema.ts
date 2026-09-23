@@ -76,6 +76,8 @@ export interface SdkPropertySchema {
   setter?: string;
   /** Getter method, for Kotlin-style properties (Android); fields otherwise. */
   getter?: string;
+  /** A C global holding the value (iOS typed string keys: `NSFileCreationDate`). */
+  global?: string;
   /** A compile-time constant (`static final` primitives and strings). */
   value?: number | string | boolean;
   since?: number | string;

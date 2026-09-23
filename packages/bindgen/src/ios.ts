@@ -396,6 +396,18 @@ export function buildIosSchemas(graphs: Map<string, SymbolGraph>, values: (enums
       mod.types.push(e);
     }
 
+    // Typed string keys (NS_TYPED_ENUM): string constants read from their C globals.
+    for (const s of g.symbols) {
+      if (s.kind.identifier !== "swift.struct" || !/^c:.*@T@/.test(s.identifier.precise) || unavailable(s)) continue;
+      const props: SdkPropertySchema[] = [];
+      for (const mem of members.get(s.identifier.precise) ?? []) {
+        const global = /^c:@([A-Za-z_]\w*)$/.exec(mem.identifier.precise)?.[1];
+        if (!global || mem.kind.identifier !== "swift.type.property" || unavailable(mem)) continue;
+        props.push({ name: mem.pathComponents[mem.pathComponents.length - 1]!, static: true, readonly: true, type: "string", global });
+      }
+      if (props.length) mod.types.push({ kind: "class", name: s.pathComponents.join("_"), native: s.identifier.precise.replace(/^.*@T@/, ""), properties: props });
+    }
+
     // Classes and protocols.
     for (const s of g.symbols) {
       const k = s.kind.identifier;
