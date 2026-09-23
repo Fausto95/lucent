@@ -105,9 +105,14 @@ export function f(): number {
     if (!jar || !javap) return;
     for (const mod of ["android.os", "android.content"]) {
       const schema = loadSdkModule("android", mod);
-      for (const cls of schema.types) {
+      const classes = schema.types.filter((t) => t.kind === "class");
+      // One javap for the package: each class's dump starts with "Compiled from".
+      const all = spawnSync("javap", ["-s", "-cp", jar, ...classes.map((c) => c.native.replace(/\//g, "."))], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 }).stdout;
+      const dumps = all.split(/^(?=Compiled from )/m).filter((d) => d.startsWith("Compiled from"));
+      expect(dumps).toHaveLength(classes.length);
+      for (const [i, cls] of classes.entries()) {
         if (cls.kind !== "class") continue;
-        const dump = spawnSync("javap", ["-s", "-cp", jar, cls.native.replace(/\//g, ".")], { encoding: "utf8" }).stdout;
+        const dump = dumps[i]!;
         for (const m of [...(cls.methods ?? []), ...(cls.constructors ?? []).map((c) => ({ ...c, name: "<init>", returns: "void", typeParams: [] }))]) {
           expect(dump, `${cls.name}.${m.name}`).toContain(`descriptor: ${m.descriptor ?? jniDescriptor(m.params.map((p) => p.type), m.returns, m.typeParams)}`);
         }
