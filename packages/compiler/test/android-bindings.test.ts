@@ -191,6 +191,18 @@ export async function run(): Promise<string> {
     expect(cpp).toContain("lucent::postCallback(");
   });
 
+  it("declares the permissions of the SDK methods it calls", () => {
+    const { r } = android(`import { BiometricManager, BiometricManager_Authenticators as Authenticators } from "lucent:android/android.hardware.biometrics";
+import { appContext, available } from "lucent:android";
+export async function run(): Promise<string> {
+  if (!available("android", 30)) return "";
+  return \`\${appContext().getSystemService(BiometricManager)?.canAuthenticate(Authenticators.BIOMETRIC_WEAK)}\`;
+}
+`);
+    expect(r.diagnostics).toEqual([]);
+    expect(r.androidPermissions).toEqual(["android.permission.USE_BIOMETRIC"]);
+  });
+
   it("names the Java classes the glue uses by name, for the app's shrinker to keep", () => {
     const { r } = android(tracker);
     expect(r.javaKeep).toEqual(expect.arrayContaining(["android/location/LocationListener", "android/location/LocationManager"]));

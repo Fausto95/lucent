@@ -48,4 +48,14 @@ describe("native package", () => {
     expect(rules).toContain("-keep class android.net.ConnectivityManager$NetworkCallback { *; }");
     expect(fs.readFileSync(path.join(out, "android/build.gradle"), "utf8")).toContain('consumerProguardFiles "consumer-rules.pro"');
   });
+
+  it("declares the permissions the platform code needs in the library's manifest", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const src = path.join(dir, "sample.lucent.ts");
+    fs.writeFileSync(src, "export function one(): number { return 1; }");
+    const out = path.join(dir, "native");
+    writeNativePackage({ ...compile([src]), androidPermissions: ["android.permission.USE_BIOMETRIC"] }, out);
+    const manifest = fs.readFileSync(path.join(out, "android/src/main/AndroidManifest.xml"), "utf8");
+    expect(manifest).toContain('<uses-permission android:name="android.permission.USE_BIOMETRIC" />');
+  });
 });

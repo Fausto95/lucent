@@ -22,8 +22,16 @@ function fixtureJar(): string {
   return jar;
 }
 
+/** The fixture annotations as the SDK ships them: data/annotations.zip, one XML per package. */
+function annotationsZip(): string {
+  const zip = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "lucent-annotations-")), "annotations.zip");
+  const j = spawnSync("jar", ["cfM", zip, "-C", path.join(fixtures, "annotations"), "."], { encoding: "utf8" });
+  if (j.status !== 0) throw new Error(j.stderr);
+  return zip;
+}
+
 describe.skipIf(!javac)("Android extractor", () => {
-  const modules = javac ? extractAndroid({ jars: [fixtureJar()], apiVersions: path.join(fixtures, "api-versions.xml"), packages: ["com.example.widgets", "com.example.base"] }) : [];
+  const modules = javac ? extractAndroid({ jars: [fixtureJar()], apiVersions: path.join(fixtures, "api-versions.xml"), annotations: annotationsZip(), packages: ["com.example.widgets", "com.example.base"] }) : [];
   const mod = (name: string) => modules.find((m) => m.module === name)!;
   const cls = (m: string, name: string) => {
     const t = mod(m).types.find((x) => x.name === name);
@@ -48,6 +56,13 @@ describe.skipIf(!javac)("Android extractor", () => {
     expect(onEvent.methods!.find((m) => m.name === "reset")).not.toHaveProperty("abstract");
     expect(cls("com.example.widgets", "Watcher")).not.toHaveProperty("functional");
     expect(cls("com.example.widgets", "Widget_Listener").methods![0]).toMatchObject({ name: "onChange", abstract: true });
+  });
+
+  it("reads the permissions methods require from the SDK's annotations.zip", () => {
+    const setValue = widget().methods!.find((m) => m.name === "setValue" && m.descriptor === "(I)V");
+    expect(setValue).toMatchObject({ permissions: ["android.permission.VIBRATE"] });
+    expect(widget().methods!.find((m) => m.name === "touch")).toMatchObject({ permissions: ["android.permission.ACCESS_COARSE_LOCATION", "android.permission.ACCESS_FINE_LOCATION"] });
+    expect(widget().methods!.find((m) => m.name === "area")).not.toHaveProperty("permissions");
   });
 
   it("keeps public constructors with exact descriptors", () => {
