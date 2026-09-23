@@ -1,3 +1,2 @@
-// The package's API: its Lucent modules, which Metro turns into their proxies.
+// The package's API: its Lucent module, which Metro turns into its proxy.
 export * from "./src/haptics.lucent";
-export * from "./src/hapticsTypes.lucent";

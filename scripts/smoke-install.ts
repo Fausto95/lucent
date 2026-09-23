@@ -57,15 +57,10 @@ export async function later(ms: number): Promise<number> {
 `,
 );
 
-// A platform module: the SDK schemas and lucent:* declarations are published too.
-fs.writeFileSync(path.join(app, "src/device.lucent.ts"), "export declare function systemName(): Promise<string>;\n");
+// A module for both platforms: the SDK schemas and lucent:* declarations are published too.
 fs.writeFileSync(
-  path.join(app, "src/device.ios.lucent.ts"),
-  'import { UIDevice } from "lucent:ios/UIKit";\nimport { main } from "lucent:thread";\nexport function systemName(): Promise<string> {\n  return main(() => UIDevice.current.systemName);\n}\n',
-);
-fs.writeFileSync(
-  path.join(app, "src/device.android.lucent.ts"),
-  'import { Build_VERSION } from "lucent:android/android.os";\nexport async function systemName(): Promise<string> {\n  return `Android ${Build_VERSION.RELEASE ?? ""}`;\n}\n',
+  path.join(app, "src/device.lucent.ts"),
+  'import { PLATFORM } from "lucent:platform";\nimport { UIDevice } from "lucent:ios/UIKit";\nimport { Build_VERSION } from "lucent:android/android.os";\nimport { main } from "lucent:thread";\nexport async function systemName(): Promise<string> {\n  if (PLATFORM === "ios") return main(() => UIDevice.current.systemName);\n  else return `Android ${Build_VERSION.RELEASE ?? ""}`;\n}\n',
 );
 
 console.log("• lucent build (installed CLI)");
@@ -77,7 +72,7 @@ for (const f of ["LucentNative.podspec", "android/CMakeLists.txt", "cpp/generate
 sh("clang++", ["-std=c++20", "-fsyntax-only", `-I${native}/cpp`, `-I${native}/cpp/generated/ios`, path.join(native, "cpp/generated/ios/m_hello.cpp")], app);
 // The installed Lucent package's modules are built under its name.
 const modules = JSON.parse(fs.readFileSync(path.join(native, "manifest.json"), "utf8")).modules as string[];
-for (const m of ["lucent-haptics/haptics", "lucent-haptics/hapticsTypes"]) if (!modules.includes(m)) throw new Error(`the installed lucent-haptics was not built: ${modules.join(", ")}`);
+for (const m of ["lucent-haptics/haptics"]) if (!modules.includes(m)) throw new Error(`the installed lucent-haptics was not built: ${modules.join(", ")}`);
 
 console.log("• Metro and Expo integrations load");
 sh(process.execPath, ["-e", 'require("@lucent-lang/metro").withLucent({}); require.resolve("@lucent-lang/expo")'], app, { LUCENT_WATCH: "0" });
