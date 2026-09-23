@@ -467,6 +467,14 @@ function throwing(sendCode: string, out: (r: string) => E, isVoid: boolean): E {
   return { c: `({ NSError* __autoreleasing err_ = nil; auto r_ = ${sendCode}; lucent::objc::throwIfError(err_); ${e.c}; })`, t: e.t };
 }
 
+/**
+ * Cocoa's naming rule, for the CoreFoundation values ARC does not manage:
+ * methods named alloc, new, copy, mutableCopy or create return them owned.
+ */
+function methodOwnsResult(selector: string): boolean {
+  return /^(alloc|new|copy|mutableCopy|create)(?![a-z])/.test(selector);
+}
+
 /** CoreFoundation's Create/Copy rule: such functions return objects the caller owns. */
 function ownsResult(name: string): boolean {
   return /Create|Copy/.test(name);
@@ -985,8 +993,9 @@ function iosCall(em: FnEmitter, node: ts.CallExpression, ref: SdkClassRef, m: Sd
   const ret = parseSdkType(m.returns, ref.module, tps);
   const what = `${ref.cls.name}.${m.name}()`;
   const lt = declaredLt(em, "ios", ret, node);
-  if (m.throws) return throwing(code, (r) => fromObjc(em, r, ret, lt, what), ret.k === "prim" && ret.name === "void");
-  return fromObjc(em, code, ret, lt, what);
+  const owned = methodOwnsResult(m.selector ?? m.name);
+  if (m.throws) return throwing(code, (r) => fromObjc(em, r, ret, lt, what, owned), ret.k === "prim" && ret.name === "void");
+  return fromObjc(em, code, ret, lt, what, owned);
 }
 
 function objcReceiver(ref: SdkClassRef, obj: E | undefined): string {
