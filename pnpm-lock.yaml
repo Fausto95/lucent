@@ -193,6 +193,16 @@ importers:
 
   packages/runtime: {}
 
+  packages/ts-plugin:
+    dependencies:
+      '@lucent-lang/compiler':
+        specifier: workspace:*
+        version: link:../compiler
+    devDependencies:
+      typescript:
+        specifier: ~5.9.3
+        version: 5.9.3
+
 packages:
 
   2g@0.4.4:
