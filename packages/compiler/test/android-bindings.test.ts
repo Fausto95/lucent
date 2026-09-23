@@ -191,6 +191,11 @@ export async function run(): Promise<string> {
     expect(cpp).toContain("lucent::postCallback(");
   });
 
+  it("names the Java classes the glue uses by name, for the app's shrinker to keep", () => {
+    const { r } = android(tracker);
+    expect(r.javaKeep).toEqual(expect.arrayContaining(["android/location/LocationListener", "android/location/LocationManager"]));
+  });
+
   it("implements Java interfaces with Lucent classes, one proxy per instance", () => {
     const { r, cpp } = android(tracker);
     expect(r.diagnostics).toEqual([]);

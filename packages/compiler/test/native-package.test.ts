@@ -35,4 +35,17 @@ describe("native package", () => {
     expect(r.removed).toEqual([]);
     expect(fs.existsSync(path.join(out, "android/build/intermediates/classes.jar"))).toBe(true);
   });
+
+  it("keeps what JNI names from the app's shrinker (R8), through the library's consumer rules", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const src = path.join(dir, "sample.lucent.ts");
+    fs.writeFileSync(src, "export function one(): number { return 1; }");
+    const out = path.join(dir, "native");
+    writeNativePackage({ ...compile([src]), javaKeep: ["androidx/core/content/ContextCompat", "android/net/ConnectivityManager$NetworkCallback"] }, out);
+    const rules = fs.readFileSync(path.join(out, "android/consumer-rules.pro"), "utf8");
+    expect(rules).toContain("-keep class dev.lucent.** { *; }");
+    expect(rules).toContain("-keep class androidx.core.content.ContextCompat { *; }");
+    expect(rules).toContain("-keep class android.net.ConnectivityManager$NetworkCallback { *; }");
+    expect(fs.readFileSync(path.join(out, "android/build.gradle"), "utf8")).toContain('consumerProguardFiles "consumer-rules.pro"');
+  });
 });
