@@ -17,5 +17,6 @@ export default function run(mod, print, lucentClass, mods) {
   print(JSON.stringify(mod.pairs([1, 2])), JSON.stringify(mod.swap(["a", 1])));
   print(mod.destructure({ name: "X", age: 3, tags: [] }), mod.destructure({ name: "Y", age: 4, tags: ["a", "b", "c"], nickname: "why" }));
   print(mod.toJson({ name: "Z", age: 1, tags: [] }, { kind: "rect", w: 1, h: 2 }));
+  print(mod.reassign({ x: 1, y: 2, inner: { z: 3 } }, [5]), mod.reassign({ x: 4, y: 5, label: "L", inner: { z: 6 } }, []));
 
 }

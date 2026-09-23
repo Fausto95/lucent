@@ -103,3 +103,23 @@ export function destructure(p: Person): string {
 export function toJson(p: Person, s: Shape): string {
   return JSON.stringify(p) + " " + JSON.stringify(s) + " " + JSON.stringify([1, "two", null]) + " " + JSON.stringify("q\"\n");
 }
+
+export function reassign(p: { x: number; y: number; label?: string; inner: { z: number } }, xs: number[]): string {
+  let x = 0;
+  let y = 0;
+  let label = "none";
+  let z = 0;
+  ({ x, y } = p);
+  const out: string[] = [`${x},${y}`];
+  ({ y: x, x: y } = p);
+  out.push(`${x},${y}`);
+  ({ label = "default", inner: { z } } = p);
+  out.push(`${label} ${z}`);
+  let a = 0;
+  let b = 0;
+  [a = 7, b = 8] = xs;
+  out.push(`${a},${b}`);
+  const r = ({ x: a } = p);
+  out.push(`${a} ${r.y}`);
+  return out.join(" | ");
+}
