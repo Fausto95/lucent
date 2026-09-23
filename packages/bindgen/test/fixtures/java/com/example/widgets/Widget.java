@@ -21,6 +21,8 @@ public class Widget implements Shape {
   public void setValue(int v) {}
   public void setValue(long v) {}
   public void setValue(@NonNull String v) {}
+  public void put(byte b) {}
+  public void put(int i) {}
   public byte[] getBytes() { return new byte[0]; }
   @NonNull public CharSequence getTitle() { return ""; }
   public void setTitle(@Nullable CharSequence title) {}

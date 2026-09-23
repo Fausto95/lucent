@@ -76,6 +76,12 @@ describe.skipIf(!javac)("Android extractor", () => {
       ["setValue", "(Ljava/lang/String;)V"],
     ]);
     expect(sets[1]!.java).toBe("setValue");
+    // JavaScript numbers go to int first, whatever the descriptor order.
+    const puts = widget().methods!.filter((x) => (x.java ?? x.name) === "put");
+    expect(puts.map((x) => [x.name, x.descriptor])).toEqual([
+      ["put_byte", "(B)V"],
+      ["put", "(I)V"],
+    ]);
   });
 
   it("exposes constants as values, fields and getters as properties", () => {

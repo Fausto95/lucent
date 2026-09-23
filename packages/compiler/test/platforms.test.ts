@@ -2,6 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { compile, runtimeDir } from "../src/index.ts";
 import { createLucentProgram } from "../src/program.ts";
@@ -92,7 +93,9 @@ export function f(): number {
 
   it("derives JNI descriptors that exist in android.jar", () => {
     const sdk = process.env.ANDROID_HOME ?? path.join(os.homedir(), "Library/Android/sdk");
-    const jar = fs.existsSync(path.join(sdk, "platforms")) ? fs.readdirSync(path.join(sdk, "platforms")).map((p) => path.join(sdk, "platforms", p, "android.jar")).find((j) => fs.existsSync(j)) : undefined;
+    // The platform the schemas were generated from (packages/sdk-android/SOURCE).
+    const platform = fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), "../../sdk-android/SOURCE"), "utf8").split(" ")[0]!;
+    const jar = [path.join(sdk, "platforms", platform, "android.jar")].find((j) => fs.existsSync(j));
     const javap = spawnSync("javap", ["-version"]).status === 0;
     if (!jar || !javap) return;
     for (const mod of ["android.os", "android.content"]) {
@@ -101,7 +104,7 @@ export function f(): number {
         if (cls.kind !== "class") continue;
         const dump = spawnSync("javap", ["-s", "-cp", jar, cls.native.replace(/\//g, ".")], { encoding: "utf8" }).stdout;
         for (const m of [...(cls.methods ?? []), ...(cls.constructors ?? []).map((c) => ({ ...c, name: "<init>", returns: "void", typeParams: [] }))]) {
-          expect(dump, `${cls.name}.${m.name}`).toContain(`descriptor: ${jniDescriptor(m.params.map((p) => p.type), m.returns, m.typeParams)}`);
+          expect(dump, `${cls.name}.${m.name}`).toContain(`descriptor: ${m.descriptor ?? jniDescriptor(m.params.map((p) => p.type), m.returns, m.typeParams)}`);
         }
         for (const p of cls.properties ?? []) {
           const d = p.getter ? jniDescriptor([], p.type) : jniDescriptor([], p.type).slice(2);
