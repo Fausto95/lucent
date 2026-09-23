@@ -123,3 +123,22 @@ export function presence(c: Counter, s: string, n: number): string {
   const loose = `${c == null} ${s != undefined} ${checked(c) != null}`;
   return `${strict} | ${loose} | ${checks}`;
 }
+
+/** Functions held in fields, parameter properties included, called as methods. */
+export class Relay {
+  last = "";
+  private readonly format = (s: string) => `<${s}>`;
+  constructor(private readonly onValue: (s: string) => void) {}
+  send(s: string): void {
+    this.last = this.format(s);
+    this.onValue(this.last);
+  }
+}
+
+export function relayed(): string {
+  const seen: string[] = [];
+  const r = new Relay((s) => seen.push(s));
+  r.send("a");
+  r.send("b");
+  return `${seen.join(",")} ${r.last}`;
+}
