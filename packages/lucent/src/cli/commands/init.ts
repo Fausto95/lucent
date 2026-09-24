@@ -42,6 +42,8 @@ export async function run({ root, flags, out }: Invocation): Promise<number> {
           theme: t,
           onDone: (a: boolean[]) => setTimeout(() => (app.unmount(), resolve(a)), 20),
         }),
+        // out.terminal already chose the prompt; Ink would otherwise check CI again itself.
+        { interactive: true },
       );
     });
     accepted = plan.changes.filter((_, i) => answers[i]);

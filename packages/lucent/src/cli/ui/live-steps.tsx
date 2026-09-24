@@ -51,7 +51,12 @@ function createStore(): Store {
 /** Steps shown live in an interactive terminal: finished steps stay, the running one spins. */
 export function liveSteps(theme: Theme, stdout: NodeJS.WriteStream = process.stdout): Steps {
   const store = createStore();
-  const app = render(<StepList store={store} theme={theme} />, { patchConsole: false, stdout });
+  // The caller chose the live view; Ink would otherwise check CI again itself.
+  const app = render(<StepList store={store} theme={theme} />, {
+    patchConsole: false,
+    stdout,
+    interactive: true,
+  });
   const results: StepResult[] = [];
   let closed = false;
   return {

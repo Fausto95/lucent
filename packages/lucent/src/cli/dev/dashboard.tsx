@@ -32,6 +32,8 @@ export async function dashboard(options: DashboardOptions): Promise<void> {
     stdin: options.stdin ?? process.stdin,
     exitOnCtrlC: false,
     patchConsole: false,
+    // The caller chose the dashboard; Ink would otherwise check CI again itself.
+    interactive: true,
   });
   const restore = () => stdout.write(LEAVE);
   // A crash or a kill still gives the terminal back.
