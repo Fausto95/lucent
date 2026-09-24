@@ -82,12 +82,15 @@ export class FnEmitter {
   /** Locals and loop counters that live in integer registers (integers.ts). */
   private ints = new Map<ts.Symbol, IntKind>();
   private readonly counters = new Set<ts.Symbol>();
+  readonly ctx: Ctx;
+  readonly opts: FnOptions;
+  private readonly parentScopes: Map<ts.Symbol, Local>[];
 
-  constructor(
-    readonly ctx: Ctx,
-    readonly opts: FnOptions,
-    private readonly parentScopes: Map<ts.Symbol, Local>[] = [],
-  ) {}
+  constructor(ctx: Ctx, opts: FnOptions, parentScopes: Map<ts.Symbol, Local>[] = []) {
+    this.ctx = ctx;
+    this.opts = opts;
+    this.parentScopes = parentScopes;
+  }
 
   get checker(): ts.TypeChecker {
     return this.ctx.checker;

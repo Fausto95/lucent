@@ -18,12 +18,12 @@ export interface Diagnostic {
 }
 
 export class CompileError extends Error {
-  constructor(
-    readonly node: ts.Node | undefined,
-    readonly code: string,
-    message: string,
-  ) {
+  readonly node: ts.Node | undefined;
+  readonly code: string;
+  constructor(node: ts.Node | undefined, code: string, message: string) {
     super(message);
+    this.node = node;
+    this.code = code;
   }
 }
 

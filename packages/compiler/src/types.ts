@@ -260,11 +260,13 @@ export class TypeRegistry {
   private readonly byTsType = new Map<ts.Type, LType>();
   private readonly inProgress = new Map<ts.Type, string>();
   private anon = 0;
+  readonly checker: ts.TypeChecker;
+  readonly isLucentFile: (sf: ts.SourceFile) => boolean;
 
-  constructor(
-    readonly checker: ts.TypeChecker,
-    readonly isLucentFile: (sf: ts.SourceFile) => boolean,
-  ) {}
+  constructor(checker: ts.TypeChecker, isLucentFile: (sf: ts.SourceFile) => boolean) {
+    this.checker = checker;
+    this.isLucentFile = isLucentFile;
+  }
 
   registerClass(decl: ts.ClassDeclaration, module: string, exported: boolean): ClassInfo {
     const name = decl.name!.text;

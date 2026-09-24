@@ -35,7 +35,10 @@ type JType =
 
 class SigReader {
   p = 0;
-  constructor(readonly s: string) {}
+  readonly s: string;
+  constructor(s: string) {
+    this.s = s;
+  }
   peek(): string {
     return this.s[this.p]!;
   }

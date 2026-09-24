@@ -53,11 +53,12 @@ export class Ctx {
   /** Target types of JSON.parse, which get generated readers. */
   readonly jsonReads = new Map<string, LType>();
   private tmp = 0;
+  readonly checker: ts.TypeChecker;
+  readonly modules: LucentModule[];
 
-  constructor(
-    readonly checker: ts.TypeChecker,
-    readonly modules: LucentModule[],
-  ) {
+  constructor(checker: ts.TypeChecker, modules: LucentModule[]) {
+    this.checker = checker;
+    this.modules = modules;
     const files = new Set(modules.map((m) => m.sourceFile));
     this.reg = new TypeRegistry(checker, (sf) => files.has(sf));
     this.capture = new CaptureAnalysis(checker, modules.map((m) => m.sourceFile));

@@ -87,11 +87,10 @@ export class CaptureAnalysis {
   readonly boxed = new Set<ts.Symbol>();
   private readonly captured = new Set<ts.Symbol>();
   private readonly written = new Set<ts.Symbol>();
+  private readonly checker: ts.TypeChecker;
 
-  constructor(
-    private readonly checker: ts.TypeChecker,
-    files: readonly ts.SourceFile[],
-  ) {
+  constructor(checker: ts.TypeChecker, files: readonly ts.SourceFile[]) {
+    this.checker = checker;
     for (const f of files) this.visit(f);
     for (const s of this.captured) if (this.written.has(s)) this.boxed.add(s);
   }

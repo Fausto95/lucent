@@ -27,7 +27,11 @@ export class BindingsEmitter {
   private readonly unionSites = new Map<string, ts.Node>();
   private readonly flows = new Set<string>();
 
-  constructor(private readonly ctx: Ctx) {}
+  private readonly ctx: Ctx;
+
+  constructor(ctx: Ctx) {
+    this.ctx = ctx;
+  }
 
   private get reg() {
     return this.ctx.reg;

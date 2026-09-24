@@ -12,6 +12,7 @@
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": true,
     "isolatedModules": true,
+    "erasableSyntaxOnly": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
     "skipLibCheck": true,
