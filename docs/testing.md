@@ -79,6 +79,20 @@ and called over JSI, against the same code as JavaScript in one Hermes
 runtime. `--check` fails when a kernel's speedup drops below its minimum in
 `scripts/bench-budgets.json`. The budgets are calibrated on the CI runner.
 
+It also times the boundary (`cases/boundary.lucent.ts`): batched calls
+against 1,000 single ones (`scripts/bench-boundary-budgets.json`), and one
+call against the same call to a bare JSI host function that converts like a
+codegen C++ TurboModule (`scripts/bench-floor.cpp`,
+`scripts/bench-floor-budgets.json`).
+
+On devices, the example apps' Compare tab runs NitroBenchmarks
+(github.com/mrousavy/NitroBenchmarks): 100,000 calls of `addNumbers` and
+`addStrings` through a TurboModule, a C++ TurboModule, Nitro modules
+(Swift/Kotlin and C++), an Expo module (the Expo app only) and Lucent. The
+modules are the workspace packages in `benchmarks/`. Use Release builds, and
+repeat runs on the Android emulator: its timings vary by a quarter between
+runs.
+
 ## Devices
 
 CI builds the bare example for the iOS simulator and for Android, but does
