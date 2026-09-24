@@ -1,4 +1,4 @@
-import { utf8Decode, utf8Encode } from "@lucent-lang/core";
+import { utf8Decode, utf8Encode } from "lucent:core";
 
 export enum Color {
   Red = "red",

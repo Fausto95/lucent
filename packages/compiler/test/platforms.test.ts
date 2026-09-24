@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -26,8 +26,28 @@ function tsErrors(platform: "ios" | "android", source: string): string[] {
 
 const codes = (r: { diagnostics: { code: string }[] }) => r.diagnostics.map((d) => d.code);
 
-// Most of these compile both platforms: they need an iOS SDK (Xcode, or the
-// prebuilt @lucent-lang/sdk-ios); hosts without one run the Android suites.
+/**
+ * `compile` in a process of its own. A cold SDK extraction blocks for about a
+ * minute, longer than vitest lets a worker go without answering its RPCs.
+ */
+function compileInChild(files: string[], options: object): Promise<{ diagnostics: unknown[]; types: Record<string, string> }> {
+  const index = path.resolve(import.meta.dirname, "../src/index.ts");
+  const code = `import { compile } from ${JSON.stringify(index)};
+const r = compile(${JSON.stringify(files)}, ${JSON.stringify(options)});
+process.stdout.write(JSON.stringify({ diagnostics: r.diagnostics, types: Object.fromEntries(r.types ?? []) }));`;
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, ["--import", "tsx", "--input-type=module", "-e", code], { stdio: ["ignore", "pipe", "pipe"] });
+    let out = "";
+    let err = "";
+    child.stdout.on("data", (d: Buffer) => (out += d.toString()));
+    child.stderr.on("data", (d: Buffer) => (err += d.toString()));
+    child.on("error", reject);
+    child.on("close", (status) => (status === 0 ? resolve(JSON.parse(out)) : reject(new Error(`compile failed (${status}):\n${err}`))));
+  });
+}
+
+// Most of these compile both platforms: they need an iOS SDK (Xcode); hosts
+// without one run the Android suites.
 const ios = sdkAvailable("ios");
 const android = sdkAvailable("android");
 
@@ -157,15 +177,16 @@ describe.skipIf(!ios)("platform modules", () => {
     expect(ts.getPreEmitDiagnostics(program).map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n"))).toEqual([]);
   });
 
-  it("types other frameworks in signatures by name, without extracting them", () => {
+  it("types other frameworks in signatures by name, without extracting them", async () => {
     const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cache-"));
-    const r = compile(project(haptics), { platforms: ["ios"], sdk: { cacheDir } });
+    // A cold cache on purpose: extracting UIKit must not extract Foundation's schema either.
+    const r = await compileInChild(project(haptics), { platforms: ["ios"], sdk: { cacheDir } });
     expect(r.diagnostics).toEqual([]);
     const [key] = fs.readdirSync(path.join(cacheDir, "sdk/ios"));
     const schemas = fs.readdirSync(path.join(cacheDir, "sdk/ios", key!)).filter((f) => f.endsWith(".json") && !f.endsWith(".names.json") && f !== "headers.json");
     // Only what the program imports gets a full schema.
     expect(schemas).toEqual(["UIKit.json"]);
-    expect(r.types!.get("ios/Foundation.d.ts")).toMatch(/Names only: import lucent:ios\/Foundation/);
+    expect(r.types["ios/Foundation.d.ts"]).toMatch(/Names only: import lucent:ios\/Foundation/);
     fs.rmSync(cacheDir, { recursive: true, force: true });
   }, 600_000);
 
@@ -183,7 +204,7 @@ describe.skipIf(!ios)("platform modules", () => {
   });
 
   it("reports a missing SDK with the fix", () => {
-    const r = compile(project(haptics), { platforms: ["android"], sdk: { android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] }, prebuilt: false } });
+    const r = compile(project(haptics), { platforms: ["android"], sdk: { android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] } } });
     expect(r.diagnostics.map((d) => d.code)).toContain("LUCENT3004");
     expect(r.diagnostics.find((d) => d.code === "LUCENT3004")!.message).toMatch(/Android SDK.*not found.*ANDROID_HOME/s);
   });
@@ -317,7 +338,7 @@ describe("platform declarations in one module", () => {
   }, 600_000);
 
   it.skipIf(!android)("compiles for Android where the iOS SDK is missing (its declarations untyped)", () => {
-    const r = compile(project(tracker), { platforms: ["android", "host"], sdk: { ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") }, prebuilt: false } });
+    const r = compile(project(tracker), { platforms: ["android", "host"], sdk: { ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") } } });
     expect(r.diagnostics).toEqual([]);
     expect(r.files.get("android/m_tracker.cpp")).toContain("label");
   });
@@ -476,7 +497,7 @@ describe("platform branches in one module", () => {
   });
 
   it.skipIf(!ios)("type-checks the other platform's branch as untyped when its SDK is missing", () => {
-    const r = compile(project(device), { platforms: ["ios"], sdk: { android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] }, prebuilt: false } });
+    const r = compile(project(device), { platforms: ["ios"], sdk: { android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] } } });
     expect(r.diagnostics).toEqual([]);
     expect(r.files.get("ios/m_device.mm")).toContain("UIDevice");
   });

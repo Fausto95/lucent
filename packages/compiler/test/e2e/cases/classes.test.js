@@ -1,4 +1,6 @@
 const Counter = lucentClass(mod.Counter);
+// Counters created by earlier runs stay counted: report this run's.
+const created = Counter.total();
 const c = new Counter(5);
 print(c.increment(), c.increment(3), c.value, c.label, c.describe());
 c.value = -10;
@@ -8,7 +10,7 @@ print(mod.advance(c, 3), c.value);
 print(c.reset() === c, c.value);
 const d = mod.makeCounter(2);
 print(d.describe(), d instanceof Counter, mod.same(c, c), mod.same(c, d));
-print(Counter.total());
+print(Counter.total() - created);
 print(mod.useStack([1, 2, 3, 4]));
 const Account = lucentClass(mod.Account);
 const a = new Account("ada");

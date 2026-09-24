@@ -12,7 +12,7 @@ import { KeyStore, KeyStore_SecretKeyEntry, type Key } from "lucent:android/java
 import { Cipher, KeyGenerator } from "lucent:android/javax.crypto";
 import { GCMParameterSpec } from "lucent:android/javax.crypto.spec";
 import { appContext } from "lucent:android";
-import { error, utf8Decode, utf8Encode } from "@lucent-lang/core";
+import { error, utf8Decode, utf8Encode } from "lucent:core";
 
 // --- iOS ---------------------------------------------------------------------
 

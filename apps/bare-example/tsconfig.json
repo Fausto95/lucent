@@ -17,6 +17,7 @@
       "lucent:*": [
         "./.lucent/native/types/*"
       ]
-    }
+    },
+    "noUncheckedIndexedAccess": true
   }
 }

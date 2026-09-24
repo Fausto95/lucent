@@ -8,12 +8,12 @@ export const page: DocPage = {
     { kind: "h2", text: "async and await" },
     {
       kind: "p",
-      text: "`async` functions, methods and arrow functions, `await`, `Promise.all`, `Promise.resolve` and `Promise.reject` work as in JavaScript. Timing comes from `delay(ms, signal?)` in `@lucent-lang/core`, the equivalent of a `setTimeout` wrapped in a promise.",
+      text: "`async` functions, methods and arrow functions, `await`, `Promise.all`, `Promise.resolve` and `Promise.reject` work as in JavaScript. Timing comes from `delay(ms, signal?)` in `lucent:core`, the equivalent of a `setTimeout` wrapped in a promise.",
     },
     {
       kind: "code",
       filename: "jobs.lucent.ts",
-      code: `import { delay } from "@lucent-lang/core";
+      code: `import { delay } from "lucent:core";
 
 async function fetchScore(id: number): Promise<number> {
   await delay(10);
@@ -55,7 +55,7 @@ const result = await scores([1, 2, 3]); // [2, 4, 6]`,
     {
       kind: "code",
       filename: "poll.lucent.ts",
-      code: `import { delay } from "@lucent-lang/core";
+      code: `import { delay } from "lucent:core";
 
 export async function poll(check: () => Promise<boolean>, signal: AbortSignal): Promise<number> {
   let attempts = 0;

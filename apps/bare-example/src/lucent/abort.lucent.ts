@@ -1,4 +1,4 @@
-import { delay } from "@lucent-lang/core";
+import { delay } from "lucent:core";
 
 export async function waitOrStop(ms: number, signal: AbortSignal): Promise<string> {
   try {

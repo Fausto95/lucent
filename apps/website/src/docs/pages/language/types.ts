@@ -152,7 +152,7 @@ export function addDays(d: Date, days: number): Date {
     },
     {
       kind: "p",
-      text: "Numeric and string enums work as in TypeScript; exported enums become frozen JavaScript objects. `Uint8Array` supports indexing, iteration, `subarray` and the usual views over a shared buffer; `utf8Encode` and `utf8Decode` in `@lucent-lang/core` convert strings. `Date` supports construction, parsing, the `get…`/`set…` methods in local time and UTC, and `toISOString`/`toString`, but not the `toLocale…` methods.",
+      text: "Numeric and string enums work as in TypeScript; exported enums become frozen JavaScript objects. `Uint8Array` supports indexing, iteration, `subarray` and the usual views over a shared buffer; `utf8Encode` and `utf8Decode` in `lucent:core` convert strings. `Date` supports construction, parsing, the `get…`/`set…` methods in local time and UTC, and `toISOString`/`toString`, but not the `toLocale…` methods.",
     },
     { kind: "h2", text: "Not supported" },
     {

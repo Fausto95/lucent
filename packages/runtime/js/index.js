@@ -1,6 +1,8 @@
 "use strict";
-// Loads Lucent modules from the native "Lucent" TurboModule. Generated proxies
-// (what Metro bundles in place of each *.lucent.ts file) call loadModule().
+// Loads Lucent modules from the native "Lucent" TurboModule. `lucent build`
+// copies it into the native package (js/_lucent/runtime.js), and the generated
+// proxies (what Metro bundles in place of each *.lucent.ts file) require it
+// from there and call loadModule().
 // This file must not require "react-native" itself: the proxy passes the
 // app's own TurboModuleRegistry in.
 

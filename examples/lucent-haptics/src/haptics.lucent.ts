@@ -12,7 +12,7 @@ import {
 import { VibrationEffect, Vibrator, VibratorManager } from "lucent:android/android.os";
 import { appContext, available } from "lucent:android";
 import { main } from "lucent:thread";
-import { error } from "@lucent-lang/core";
+import { error } from "lucent:core";
 
 export enum ImpactFeedbackStyle {
   Light = "light",

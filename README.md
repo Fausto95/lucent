@@ -31,12 +31,37 @@ squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25, computed in C++
 Works in bare React Native (0.88) and Expo (SDK 58). No Expo Modules or Nitro
 dependency.
 
+## Install
+
+```sh
+npm i -D @lucent-lang/lucent
+npx lucent init
+```
+
+<p align="center">
+  <img src="assets/cli.svg" width="700" alt="lucent build, then lucent check reporting an error with a code frame and its fix">
+</p>
+
+`lucent dev` rebuilds as you edit, `lucent doctor` checks your machine,
+`lucent explain <code>` explains a diagnostic; `lucent --help` lists the rest
+([CLI reference](https://lucent-lang.dev/docs/reference/cli/)).
+
+One package holds the `lucent` command, the compiler, the C++ runtime, the
+Metro integration (`@lucent-lang/lucent/metro`), the Expo config plugin
+(`"plugins": ["@lucent-lang/lucent"]`) and the editor plugin
+(`@lucent-lang/lucent/ts-plugin`). Modules import helpers from the built-in
+`lucent:core`. It isn't on npm yet: until it is, install the tarball
+`pnpm pack` makes in `packages/lucent`. Walkthroughs:
+[bare React Native](https://lucent-lang.dev/docs/getting-started/),
+[Expo](https://lucent-lang.dev/docs/getting-started-expo/).
+
 ## Today
 
 - The full language minus platform SDKs and views: structs, unions, classes,
   closures, generics, `async`/`await`, errors
 - JS callbacks, promises and `AbortSignal` across the boundary
-- `lucent build` / `lucent check`, the Metro transformer and the Expo plugin
+- One package, `@lucent-lang/lucent`: `lucent build` / `lucent check`, the
+  Metro transformer, the Expo plugin and the editor plugin
 - Early platform modules (`*.ios.lucent.ts` / `*.android.lucent.ts`):
   Android bindings generated from `android.jar`, iOS a hand-written UIKit
   subset

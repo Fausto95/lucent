@@ -14,7 +14,7 @@ In `package.json`:
   "main": "index.ts",
   "lucent": {
     "sources": "src",
-    "compatible": ">=0.1.0"
+    "compatible": ">=0.0.3"
   }
 }
 ```

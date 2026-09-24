@@ -1,0 +1,24 @@
+// Lucent's Gradle task. lucent init applies it in android/app/build.gradle
+// (and the Expo config plugin during prebuild):
+//
+//   apply from: new File(new File(["node", "--print", "require.resolve('@lucent-lang/lucent/package.json')"].execute(null, rootDir).text.trim()).parentFile, "gradle/lucent.gradle")
+//
+// Every build then runs `lucent build` first, so .lucent/native matches the
+// *.lucent.ts sources however the app is built: Android Studio, ./gradlew, CI.
+def lucentDir = buildscript.sourceFile.parentFile
+apply from: new File(lucentDir, "lucent-classpath.gradle")
+
+def lucentBuild = tasks.register("lucentBuild", Exec) {
+  description = "Compiles the app's *.lucent.ts modules into .lucent/native"
+  group = "lucent"
+  dependsOn "lucentClasspath"
+  workingDir rootProject.projectDir.parentFile
+  // lucentClasspath just resolved the classpath in this build: lucent build must not start Gradle again.
+  environment "LUCENT_GRADLE_CLASSPATH", "1"
+  commandLine "node", new File(lucentDir, "../bin/lucent.cjs").canonicalPath, "build"
+}
+
+// Before any project's build, the native package's included.
+rootProject.allprojects { p ->
+  p.tasks.matching { it.name == "preBuild" }.configureEach { dependsOn(lucentBuild) }
+}

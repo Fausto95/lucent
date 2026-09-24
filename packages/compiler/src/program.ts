@@ -1,13 +1,12 @@
 import fs from "node:fs";
 import { lucentPackageOf, lucentPackages } from "./packages.ts";
 import path from "node:path";
-import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { Codes, type Diagnostic } from "./diagnostics.ts";
 import { sdkDts, stubDts } from "./sdk/dts.ts";
 import { findSdkModule, type Platform, PLATFORMS, platformSdkAvailable, sdkLookup, sdkNamesOf } from "./sdk/schema.ts";
-import { cppIdent } from "./types.ts";
+import { moduleNamespace } from "./types.ts";
 
 export interface LucentModule {
   /** Module name used from JavaScript: the file name without `.lucent.ts`. */
@@ -31,7 +30,6 @@ export interface LucentProgram {
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
 
 /** Globals Lucent code may use besides the ES2022 library (console, …). */
 export function globalsPath(): string {
@@ -43,10 +41,14 @@ export function isLibFile(sf: ts.SourceFile): boolean {
   return sf.isDeclarationFile && (/[\\/]typescript[\\/]lib[\\/]lib\./.test(sf.fileName) || path.resolve(sf.fileName) === globalsPath());
 }
 
-/** Path of `@lucent-lang/core` type declarations. */
+/** The JavaScript implementations of lucent:core, for running Lucent modules as plain JavaScript (e2e, lucent bench). */
+export function coreJsPath(): string {
+  return path.resolve(here, "../lib/core.js");
+}
+
+/** Path of the `lucent:core` type declarations. */
 export function coreTypesPath(): string {
-  // Resolved as a package, so it works both in this repository and when installed.
-  return path.join(path.dirname(require.resolve("@lucent-lang/core/package.json")), "index.d.ts");
+  return sdkLibPath("core");
 }
 
 export const LUCENT_EXTENSION = /\.lucent\.tsx?$/;
@@ -81,7 +83,7 @@ const SDK_ROOT = path.resolve("/__lucent_sdk__");
 /**
  * Modules of platforms whose SDK is not installed, untyped: a shared module's
  * branch for such a platform type-checks, and is never emitted where it is
- * missing (a target's own missing SDK is reported by sdkImportErrors).
+ * missing (a target's own missing SDK is reported by importDiagnostics).
  */
 const UNTYPED = path.join(SDK_ROOT, "untyped.d.ts");
 
@@ -163,7 +165,7 @@ export function compilerOptions(): ts.CompilerOptions {
     // Every platform's modules resolve in every program: a shared module
     // branches on `PLATFORM`, and each target type-checks both branches.
     paths: {
-      "@lucent-lang/core": [coreTypesPath()],
+      "lucent:core": [coreTypesPath()],
       "lucent:thread": [sdkLibPath("thread")],
       "lucent:platform": [sdkLibPath("platform")],
       ...Object.fromEntries(PLATFORMS.flatMap((p) => [[`lucent:${p}`, [sdkLibPath(p)]], [`lucent:${p}/*`, [path.join(SDK_ROOT, p, "*.d.ts")]]])),
@@ -253,11 +255,11 @@ export function createLucentProgram(files: string[], readSource?: ReadSource, pl
     }
     names.set(name, file);
     const declaration = platformOf(file) ? references.map((r) => program.getSourceFile(path.resolve(r))).find((r) => r && path.dirname(r.fileName) === path.dirname(sf.fileName) && moduleNameOf(r.fileName) === name) : undefined;
-    modules.push({ name, file: sf.fileName, sourceFile: sf, ns: `m_${cppIdent(name)}`, declaration, stub: stubs.has(path.resolve(file)) });
+    modules.push({ name, file: sf.fileName, sourceFile: sf, ns: moduleNamespace(name), declaration, stub: stubs.has(path.resolve(file)) });
   }
   const checked = [...modules.map((m) => m.sourceFile), ...references.map((f) => program.getSourceFile(path.resolve(f))).filter((sf): sf is ts.SourceFile => !!sf)];
   for (const sf of checked) {
-    const bad = sdkImportErrors(sf, platform);
+    const bad = importDiagnostics(sf, platform);
     diagnostics.push(...bad);
     for (const d of [...program.getSyntacticDiagnostics(sf), ...program.getSemanticDiagnostics(sf)]) {
       // An SDK import this program cannot resolve is reported once, as a Lucent error.
@@ -274,7 +276,7 @@ export function createLucentProgram(files: string[], readSource?: ReadSource, pl
  * branches decide where each is used); a platform whose SDK is not installed
  * is untyped there, unless the program targets it.
  */
-function sdkImportErrors(sf: ts.SourceFile, platform: Platform | undefined): Diagnostic[] {
+function importDiagnostics(sf: ts.SourceFile, platform: Platform | undefined): Diagnostic[] {
   const shared = !platformOf(sf.fileName);
   const out: Diagnostic[] = [];
   for (const s of sf.statements) {
@@ -284,7 +286,7 @@ function sdkImportErrors(sf: ts.SourceFile, platform: Platform | undefined): Dia
     if (!m) continue;
     const [, scope, module] = m;
     let message: string | undefined;
-    if ((scope === "thread" || scope === "platform") && !module) continue;
+    if ((scope === "core" || scope === "thread" || scope === "platform") && !module) continue;
     const target = scope as Platform;
     if (!(PLATFORMS as readonly string[]).includes(scope!)) message = `${spec} is not a Lucent module`;
     else if (!shared && scope !== platform) message = `${spec} is only available in *.${scope}.lucent.ts files, or in shared files inside \`if (PLATFORM === "${scope}")\``;
@@ -293,11 +295,15 @@ function sdkImportErrors(sf: ts.SourceFile, platform: Platform | undefined): Dia
       if ("missing" in found) message = found.missing;
       else continue;
     } else continue;
-    const start = s.moduleSpecifier.getStart(sf);
-    const { line, character } = sf.getLineAndCharacterOfPosition(start);
-    out.push({ code: Codes.SdkImport, message, file: sf.fileName, line: line + 1, column: character + 1, start, length: s.moduleSpecifier.getEnd() - start });
+    out.push({ ...at(sf, s.moduleSpecifier), code: Codes.SdkImport, message });
   }
   return out;
+}
+
+function at(sf: ts.SourceFile, node: ts.Node): Pick<Diagnostic, "file" | "line" | "column" | "start" | "length"> {
+  const start = node.getStart(sf);
+  const { line, character } = sf.getLineAndCharacterOfPosition(start);
+  return { file: sf.fileName, line: line + 1, column: character + 1, start, length: node.getEnd() - start };
 }
 
 function fromTs(d: ts.Diagnostic): Diagnostic {

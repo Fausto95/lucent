@@ -51,7 +51,7 @@ countMatching(["tea", "toast", "jam"], (w) => w.startsWith("t")); // 2`,
     {
       kind: "code",
       filename: "sync.lucent.ts",
-      code: `import { delay } from "@lucent-lang/core";
+      code: `import { delay } from "lucent:core";
 
 export async function upload(parts: number, onProgress: (done: number, total: number) => void): Promise<string> {
   for (let i = 1; i <= parts; i++) {
@@ -119,7 +119,7 @@ await syncAll(["photos", "notes"], async (name) => askUser(\`Sync \${name}?\`));
     {
       kind: "code",
       filename: "search.lucent.ts",
-      code: `import { delay } from "@lucent-lang/core";
+      code: `import { delay } from "lucent:core";
 
 export async function search(query: string, signal: AbortSignal): Promise<string[]> {
   const results: string[] = [];

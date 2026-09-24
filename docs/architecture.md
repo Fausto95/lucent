@@ -2,7 +2,7 @@
 
 ```
           app/src/*.lucent.ts
-                  │  lucent build (packages/cli)
+                  │  lucent build (packages/lucent)
                   ▼
  ┌──────────────── packages/compiler ─────────────────┐
  │ program.ts   TypeScript program (strict +          │
@@ -26,7 +26,9 @@
  ├── android/include/lucentnative.h  stub Java-module provider for autolinking
  ├── LucentNative.podspec
  ├── react-native.config.js          pure C++ dependency (cxxModule* fields)
- └── js/<module>.js                  proxies Metro bundles instead of the .ts
+ ├── types/                          lucent:core and SDK declarations (tsconfig paths)
+ └── js/<module>.js                  proxies Metro bundles instead of the .ts,
+     js/_lucent/runtime.js           and the loader they require
 ```
 
 ## Compiler
@@ -133,7 +135,8 @@ exports object of the Lucent module `name`, built on first access.
 Both React Native CLI and Expo autolinking read the app's
 `react-native.config.js`, whose `lucent` entry points at `.lucent/native`.
 
-On the JavaScript side, each proxy calls
+On the JavaScript side, each proxy requires the loader
+(`js/_lucent/runtime.js`) and calls
 `loadModule(name, () => require("react-native").TurboModuleRegistry)`.
 Resolving `react-native` from the app's own location avoids picking up a second
 copy in monorepos.
@@ -161,9 +164,28 @@ Objective-C++ message sends or JNI calls. The runtime side is
 `lucent/native.h` (NativeRef, `runOnMain`) and `lucent/platform/{ios,android}`.
 Details: [platform-bindings.md](platform-bindings.md).
 
+## Packaging
+
+An app installs one package, `@lucent-lang/lucent`, which depends on
+`typescript` only. It holds the CLI (`src/cli`), the Metro integration
+(`metro/`), the Expo config plugin (`app.plugin.js`) and the editor plugin
+(`ts-plugin/`). Publishing bundles the CLI and the compiler (with bindgen) into
+`dist/` with esbuild, and copies what the compiler reads at run time beside
+it: `lib/` (declarations, including `lucent:core`) and `runtime/` (the C++
+runtime, native templates and JS loader). The compiler looks for `runtime/`
+next to its own code before the workspace's `packages/runtime`, so the same
+code runs bundled and from sources. The compiler, bindgen and runtime are
+private workspace packages.
+
+Nothing Lucent ships is needed at run time as a package: `lucent build` copies
+the runtime and the JS loader into `.lucent/native`, and the generated proxies
+require the loader by a relative path, which Metro's transformer rebases onto
+the `*.lucent.ts` file each proxy replaces. `lucent:core` is served by the
+compiler like `lucent:thread`.
+
 ## Editor diagnostics
 
-`@lucent-lang/ts-plugin` is a TypeScript language-service plugin. tsserver
+`@lucent-lang/lucent/ts-plugin` is a TypeScript language-service plugin. tsserver
 loads it with `require()` and its own `typescript`, which may be a different
 version from the compiler's; the lowering matches on `ts.SyntaxKind`, so the
 plugin never hands the editor's AST to the compiler. It `import()`s the

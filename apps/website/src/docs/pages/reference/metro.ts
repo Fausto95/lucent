@@ -3,7 +3,7 @@ import type { DocPage } from "../../types";
 export const page: DocPage = {
   slug: "reference/metro",
   title: "Metro",
-  description: "`withLucent` from @lucent-lang/metro: bundles each `*.lucent.ts` import as its native proxy and rebuilds while the dev server runs.",
+  description: "`withLucent` from @lucent-lang/lucent/metro: bundles each `*.lucent.ts` import as its native proxy and rebuilds while the dev server runs.",
   blocks: [
     {
       kind: "p",
@@ -16,7 +16,7 @@ export const page: DocPage = {
           label: "React Native CLI",
           filename: "metro.config.js",
           code: `const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
-const { withLucent } = require("@lucent-lang/metro");
+const { withLucent } = require("@lucent-lang/lucent/metro");
 
 module.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), {}));`,
         },
@@ -24,7 +24,7 @@ module.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), {}));`,
           label: "Expo",
           filename: "metro.config.js",
           code: `const { getDefaultConfig } = require("expo/metro-config");
-const { withLucent } = require("@lucent-lang/metro");
+const { withLucent } = require("@lucent-lang/lucent/metro");
 
 module.exports = withLucent(getDefaultConfig(__dirname));`,
         },
@@ -55,25 +55,26 @@ module.exports = withLucent(getDefaultConfig(__dirname));`,
     { kind: "h3", text: "Rebuilds while you edit" },
     {
       kind: "p",
-      text: "When Metro runs as a dev server (`react-native start`, `expo start`, `expo run:ios`, `expo run:android`), `withLucent` starts `lucent build --watch` for the project root, in the same terminal. Saving a `*.lucent.ts` file recompiles it; diagnostics are printed next to Metro's output.",
+      text: "When Metro runs as a dev server (`react-native start`, `expo start`, `expo run:ios`, `expo run:android`), `withLucent` starts [`lucent dev --compact`](/docs/reference/cli/#lucent-dev) for the project root, in the same terminal. Saving a `*.lucent.ts` file recompiles it, with one line per build next to Metro's output; it never reads Metro's keys.",
     },
     {
       kind: "code",
       filename: "terminal",
-      code: `Lucent: watching /path/to/app for *.lucent.ts changes
-[10:42:01] ✓ Lucent: 3 module(s), 2 file(s) written
-  Native code changed: rebuild the app (Xcode / Gradle) to run it.`,
+      code: `[10:42:01] ✓ 3 modules  38 ms · rebuild the app
+[10:42:09] ✗ 1 error
+  src/geo.lucent.ts:2:3  LUCENT1001  use \`let\` or \`const\` instead of \`var\`
+    fix: rewrite it with the supported form: \`let\`/\`const\` for \`var\`, a class for an object with accessors`,
     },
     {
       kind: "p",
-      text: "The watcher needs `@lucent-lang/cli` installed; without it, Metro prints a warning and you run `lucent build` yourself. It stops when Metro exits.",
+      text: "It stops when Metro exits. For the full dashboard, run `npx lucent dev` in a terminal of its own.",
     },
     { kind: "h2", text: "Options" },
     {
       kind: "table",
       head: ["Option", "Default", "Meaning"],
       rows: [
-        ["`watch`", "on for dev servers, off otherwise", "Run `lucent build --watch` alongside Metro. `false` turns it off, `true` forces it."],
+        ["`watch`", "on for dev servers, off otherwise", "Run `lucent dev --compact` alongside Metro. `false` turns it off, `true` forces it."],
       ],
     },
     {

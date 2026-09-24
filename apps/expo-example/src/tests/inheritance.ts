@@ -4,6 +4,8 @@ export default function run(mod, print, lucentClass, mods) {
   const Animal = lucentClass(mod.Animal);
   const Dog = lucentClass(mod.Dog);
   const Puppy = lucentClass(mod.Puppy);
+  // Animals created by earlier runs stay counted: report this run's.
+  const animals = mod.counted();
   print(mod.zoo());
   print(mod.shapes());
   const d = new Dog("fido", "mutt");
@@ -12,7 +14,7 @@ export default function run(mod, print, lucentClass, mods) {
   const p = mod.makePuppy();
   print(p instanceof Puppy, p instanceof Dog, p instanceof Animal, p.speak(), p.describe(), p.legs);
   print(d.describe(), d.learn("jump") === d);
-  print(mod.counted());
+  print(mod.counted() - animals);
   const Kitten = lucentClass(mod.Kitten);
   const Cat = lucentClass(mod.Cat);
   const ps = mod.pets();

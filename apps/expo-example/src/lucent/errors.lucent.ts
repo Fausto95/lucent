@@ -1,4 +1,4 @@
-import { error, errorCode } from "@lucent-lang/core";
+import { error, errorCode } from "lucent:core";
 
 export class ValidationError extends Error {
   constructor(message: string, readonly field: string) {

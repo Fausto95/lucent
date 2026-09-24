@@ -2,12 +2,12 @@ import type { DocPage } from "../../types";
 
 export const page: DocPage = {
   slug: "reference/core",
-  title: "@lucent-lang/core",
+  title: "lucent:core",
   description: "The helpers Lucent modules can import, and the editor plugin that shows Lucent diagnostics as you type.",
   blocks: [
     {
       kind: "p",
-      text: "`@lucent-lang/core` is the one package a `*.lucent.ts` file may import besides other Lucent modules. Each helper has a native implementation in the Lucent runtime and a JavaScript one, so the same source also runs as plain TypeScript, for example in unit tests.",
+      text: "`lucent:core` is a module built into the compiler, like `lucent:thread`: nothing to install. It holds the helpers every Lucent module may import, each with a native implementation in the Lucent runtime.",
     },
     { kind: "h2", text: "Exports" },
     {
@@ -25,7 +25,7 @@ export const page: DocPage = {
     {
       kind: "code",
       filename: "checksum.lucent.ts",
-      code: `import { delay, error, errorCode, now, utf8Decode, utf8Encode } from "@lucent-lang/core";
+      code: `import { delay, error, errorCode, now, utf8Decode, utf8Encode } from "lucent:core";
 
 export function checksum(text: string): number {
   let sum = 0;
@@ -60,20 +60,16 @@ export async function timed(ms: number, signal?: AbortSignal): Promise<number> {
     },
     {
       kind: "p",
-      text: "Everything else a module uses is built in: `Math`, `JSON`, `Date`, `Map`, `RegExp`, `console`, `AbortController` and the rest listed in the [Language overview](/docs/language/). `@lucent-lang/core` holds only what JavaScript has no standard spelling for in React Native.",
+      text: "Everything else a module uses is built in: `Math`, `JSON`, `Date`, `Map`, `RegExp`, `console`, `AbortController` and the rest listed in the [Language overview](/docs/language/). `lucent:core` holds only what JavaScript has no standard spelling for in React Native.",
     },
     { kind: "h2", text: "Editor plugin" },
     {
       kind: "p",
-      text: "`@lucent-lang/ts-plugin` is a TypeScript language-service plugin. It shows Lucent diagnostics on `*.lucent.ts` files as you type, next to TypeScript's own, including in unsaved buffers.",
+      text: "`@lucent-lang/lucent/ts-plugin` is a TypeScript language-service plugin. It shows Lucent diagnostics on `*.lucent.ts` files as you type, next to TypeScript's own, including in unsaved buffers.",
     },
     {
       kind: "steps",
       steps: [
-        {
-          title: "Install it",
-          blocks: [{ kind: "code", filename: "terminal", code: "npm install --save-dev @lucent-lang/ts-plugin" }],
-        },
         {
           title: "Add it to tsconfig.json",
           blocks: [
@@ -83,7 +79,7 @@ export async function timed(ms: number, signal?: AbortSignal): Promise<number> {
               code: `{
   "compilerOptions": {
     "noUncheckedIndexedAccess": true,
-    "plugins": [{ "name": "@lucent-lang/ts-plugin" }]
+    "plugins": [{ "name": "@lucent-lang/lucent/ts-plugin" }]
   }
 }`,
             },

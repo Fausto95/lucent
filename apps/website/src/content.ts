@@ -4,8 +4,7 @@ export const appUsage = `import { squaredDistance } from "./src/geo.lucent";
 // A synchronous call into the compiled C++.
 squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25`;
 
-export const commands = `npm install @lucent-lang/runtime @lucent-lang/core
-npm install -D @lucent-lang/cli @lucent-lang/metro
+export const commands = `npm install -D @lucent-lang/lucent
 npx lucent init`;
 
 /** Planned, not implemented: shown as a teaser on the homepage (roadmap M2). */

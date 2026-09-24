@@ -1,0 +1,47 @@
+{
+  "$id": "https://lucent-lang.dev/schemas/sdk-prefetch.schema.json",
+  "title": "lucent sdk prefetch --json",
+  "type": "object",
+  "required": [
+    "ok",
+    "modules"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "module",
+          "status"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "module": {
+            "type": "string",
+            "description": "lucent:<platform>/<module>"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "cached",
+              "failed"
+            ],
+            "description": "ok: extracted now"
+          },
+          "ms": {
+            "type": "number",
+            "minimum": 0
+          },
+          "error": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

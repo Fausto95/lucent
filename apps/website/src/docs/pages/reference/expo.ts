@@ -3,7 +3,7 @@ import type { DocPage } from "../../types";
 export const page: DocPage = {
   slug: "reference/expo",
   title: "Expo plugin",
-  description: "@lucent-lang/expo compiles your Lucent modules during `expo prebuild` and links the native package.",
+  description: "The config plugin of @lucent-lang/lucent compiles your Lucent modules during `expo prebuild` and links the native package.",
   blocks: [
     {
       kind: "p",
@@ -16,13 +16,13 @@ export const page: DocPage = {
   "expo": {
     "name": "My App",
     "newArchEnabled": true,
-    "plugins": ["@lucent-lang/expo"]
+    "plugins": ["@lucent-lang/lucent"]
   }
 }`,
     },
     {
       kind: "p",
-      text: "The plugin takes no options. It depends on `@lucent-lang/cli`, so installing it installs the compiler too. You still need [`withLucent`](/docs/reference/metro/) in `metro.config.js`, and `@lucent-lang/runtime` (plus `@lucent-lang/core` if your modules import it) as dependencies of the app.",
+      text: "The plugin takes no options. It ships in `@lucent-lang/lucent` with the compiler it runs. You still need [`withLucent`](/docs/reference/metro/) in `metro.config.js`; the app needs no other Lucent package.",
     },
     { kind: "h2", text: "What it does on prebuild" },
     {
@@ -42,14 +42,14 @@ export const page: DocPage = {
           blocks: [
             {
               kind: "p",
-              text: "Writes `react-native.config.js` with the `lucent-native` entry if the file does not exist. Expo autolinking reads that file, so `pod install` and Gradle pick up `.lucent/native`. If the file exists without the entry, prebuild stops and tells you which entry to add:",
+              text: "Writes `react-native.config.js` with the `lucent` entry if the file does not exist. Expo autolinking reads that file, so `pod install` and Gradle pick up `.lucent/native`. If the file exists without the entry, prebuild stops and tells you which entry to add:",
             },
             {
               kind: "code",
               filename: "react-native.config.js",
               code: `module.exports = {
   dependencies: {
-    "lucent-native": { root: require("path").join(__dirname, ".lucent", "native") },
+    lucent: { root: require("path").join(__dirname, ".lucent", "native") },
   },
 };`,
             },

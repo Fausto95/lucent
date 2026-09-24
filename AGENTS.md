@@ -7,13 +7,16 @@ Swift or Kotlin runs on the native side.
 ## Layout
 
 ```
-cli / metro / expo / ts-plugin  →  compiler  →  typescript
+lucent (CLI, metro/, app.plugin.js, ts-plugin/)  →  compiler  →  typescript
                           │
-                          └─ writes .lucent/native from runtime/{cpp,native} + generated C++
+                          └─ writes .lucent/native from runtime/{cpp,native,js} + generated C++
+lucent               the one published package (@lucent-lang/lucent); its build
+                     bundles the CLI + compiler into dist/ and copies lib/, runtime/
+compiler, bindgen    private; bundled into lucent
 runtime/cpp/lucent   C++ runtime (no deps) + lucent/jsi (JSI boundary)
 runtime/cpp/rn       LucentModule (TurboModule)
 runtime/native       podspec, CMake, iOS registration, react-native.config.js templates
-runtime/js           loader used by generated proxies
+runtime/js           loader, copied to .lucent/native/js/_lucent/runtime.js
 ```
 
 ## Rules
@@ -47,4 +50,6 @@ HERMES_DIR=~/hermes npx tsx packages/compiler/test/e2e/run.ts [case…]
 HERMES_DIR=~/hermes npx tsx scripts/app-check.ts apps/bare-example
 HERMES_DIR=~/hermes npx tsx scripts/bench.ts --check   # performance budgets
 npx tsc --noEmit -p tsconfig.json
+npx tsx scripts/smoke-install.ts   # packs @lucent-lang/lucent, installs it alone in a fresh app
+npx tsx scripts/cli-recording.ts   # re-records assets/cli.svg (the README's terminal animation) after CLI output changes
 ```

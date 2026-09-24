@@ -12,23 +12,23 @@ export const page: DocPage = {
     {
       kind: "note",
       tone: "warn",
-      text: "The `@lucent-lang/*` packages are **not published to npm yet**. Until they are, install them from the repository: link the workspace packages, or build tarballs with `pnpm pack` in each package and install those.",
+      text: "`@lucent-lang/lucent` is **not published to npm yet**. Until it is, build its tarball from the repository with `pnpm pack` in `packages/lucent`, then install the tarball.",
     },
     {
       kind: "steps",
       steps: [
         {
-          title: "Install the packages",
+          title: "Install Lucent",
           blocks: [
             {
               kind: "code",
               filename: "terminal",
-              code: `npm i @lucent-lang/runtime @lucent-lang/core
-npm i -D @lucent-lang/cli @lucent-lang/metro @lucent-lang/expo`,
+              code: `npm i -D @lucent-lang/lucent
+npx lucent init`,
             },
             {
               kind: "p",
-              text: "The Expo package is a config plugin; it has no runtime code and does not use Expo Modules.",
+              text: "One package holds the `lucent` command, the compiler, the Metro integration and the Expo config plugin. It has no runtime code and does not use Expo Modules. `lucent init` adds `.lucent/` to `.gitignore` and maps `lucent:*` imports in `tsconfig.json`.",
             },
           ],
         },
@@ -40,13 +40,13 @@ npm i -D @lucent-lang/cli @lucent-lang/metro @lucent-lang/expo`,
               filename: "app.json",
               code: `{
   "expo": {
-    "plugins": ["@lucent-lang/expo"]
+    "plugins": ["@lucent-lang/lucent"]
   }
 }`,
             },
             {
               kind: "p",
-              text: "During `expo prebuild`, the plugin runs `lucent build` and makes sure `react-native.config.js` has the `lucent-native` entry that links `.lucent/native`. It creates the file if it is missing, and stops prebuild with the entry to add if the file exists without it. See the [Expo reference](/docs/reference/expo/).",
+              text: "During `expo prebuild`, the plugin runs `lucent build` and makes sure `react-native.config.js` has the `lucent` entry that links `.lucent/native`. It creates the file if it is missing, and stops prebuild with the entry to add if the file exists without it. See the [Expo reference](/docs/reference/expo/).",
             },
           ],
         },
@@ -57,13 +57,13 @@ npm i -D @lucent-lang/cli @lucent-lang/metro @lucent-lang/expo`,
               kind: "code",
               filename: "metro.config.js",
               code: `const { getDefaultConfig } = require("expo/metro-config");
-const { withLucent } = require("@lucent-lang/metro");
+const { withLucent } = require("@lucent-lang/lucent/metro");
 
 module.exports = withLucent(getDefaultConfig(__dirname));`,
             },
             {
               kind: "p",
-              text: "Add `.lucent/` to `.gitignore` (`npx lucent init` does that for you) and enable `noUncheckedIndexedAccess` in `tsconfig.json`, which Lucent requires.",
+              text: "Enable `noUncheckedIndexedAccess` in `tsconfig.json`, which Lucent requires.",
             },
           ],
         },

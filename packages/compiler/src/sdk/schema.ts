@@ -35,7 +35,7 @@ export function withSdkOptions<T>(opts: SdkOptions | undefined, f: () => T): T {
 }
 
 /** `lucent:<platform>/<module>`: its schema (extracted on first use), or why there is none. */
-/** Whether a platform's SDK is installed (or prebuilt), under the current options. */
+/** Whether a platform's SDK is installed, under the current options. */
 export function platformSdkAvailable(platform: Platform): boolean {
   return sdkAvailable(platform, sdkOptions);
 }

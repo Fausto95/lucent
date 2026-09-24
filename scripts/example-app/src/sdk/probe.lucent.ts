@@ -5,7 +5,7 @@ import { UIDevice } from "lucent:ios/UIKit";
 import { Build_VERSION, Looper, VibrationEffect } from "lucent:android/android.os";
 import { available } from "lucent:android";
 import { main } from "lucent:thread";
-import { errorCode as codeOf } from "@lucent-lang/core";
+import { errorCode as codeOf } from "lucent:core";
 
 /** The OS name from the SDK (UIDevice.systemName; "Android" + Build.VERSION.RELEASE). */
 export async function systemName(): Promise<string> {

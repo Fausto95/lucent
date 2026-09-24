@@ -1,7 +1,6 @@
 import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import { extractAndroid, jarIndex } from "./android.ts";
@@ -42,8 +41,6 @@ export interface SdkOptions {
     lockfile?: string;
     xcrun?: string;
   };
-  /** Fall back to @lucent-lang/sdk-<platform> prebuilt caches when there is no local SDK (default true). */
-  prebuilt?: boolean;
 }
 
 export type SdkLookup = { schema: SdkModuleSchema } | { missing: string };
@@ -60,6 +57,7 @@ const located = new Map<string, Located | { missing: string }>();
 export function forgetLoadedSdks(): void {
   loaded.clear();
   located.clear();
+  locatedByObject = new WeakMap();
 }
 
 function cacheRoot(opts: SdkOptions): string {
@@ -410,7 +408,18 @@ function withLock<T>(file: string, done: () => boolean, f: () => T): T | undefin
   }
 }
 
+// The same options object comes back for every lookup of a build: skip serializing it.
+let locatedByObject = new WeakMap<SdkOptions, Map<Platform, Located | { missing: string }>>();
+
 function locate(platform: Platform, opts: SdkOptions): Located | { missing: string } {
+  const byObject = locatedByObject.get(opts)?.get(platform);
+  if (byObject) return byObject;
+  const found = locateByValue(platform, opts);
+  locatedByObject.set(opts, (locatedByObject.get(opts) ?? new Map()).set(platform, found));
+  return found;
+}
+
+function locateByValue(platform: Platform, opts: SdkOptions): Located | { missing: string } {
   const k = `${platform}|${JSON.stringify(opts)}`;
   let l = located.get(k);
   if (!l) {
@@ -420,15 +429,6 @@ function locate(platform: Platform, opts: SdkOptions): Located | { missing: stri
   return l;
 }
 
-function prebuilt(platform: Platform, module: string): SdkModuleSchema | undefined {
-  try {
-    const dir = path.dirname(createRequire(import.meta.url).resolve(`@lucent-lang/sdk-${platform}/package.json`));
-    const file = path.join(dir, `${module}.json`);
-    return fs.existsSync(file) ? (JSON.parse(fs.readFileSync(file, "utf8")) as SdkModuleSchema) : undefined;
-  } catch {
-    return undefined;
-  }
-}
 
 /** The schema of `lucent:<platform>/<module>`, extracting and caching it on first use. */
 export function sdkModule(platform: Platform, module: string, opts: SdkOptions = {}): SdkLookup {
@@ -438,10 +438,8 @@ export function sdkModule(platform: Platform, module: string, opts: SdkOptions =
   const hit = loaded.get(memo);
   if (hit) return hit;
   let result: SdkLookup;
-  if (!("dir" in sdk)) {
-    const p = opts.prebuilt !== false ? prebuilt(platform, module) : undefined;
-    result = p ? { schema: p } : sdk;
-  } else {
+  if (!("dir" in sdk)) result = sdk;
+  else {
     const file = path.join(sdk.dir, `${module}.json`);
     const read = (): SdkLookup | undefined => (fs.existsSync(file) ? { schema: JSON.parse(fs.readFileSync(file, "utf8")) as SdkModuleSchema } : undefined);
     result =
@@ -458,9 +456,9 @@ export function sdkModule(platform: Platform, module: string, opts: SdkOptions =
   return result;
 }
 
-/** Whether a platform's SDK is available (locally or prebuilt). */
+/** Whether a platform's SDK is installed. */
 export function sdkAvailable(platform: Platform, opts: SdkOptions = {}): boolean {
-  return "dir" in locate(platform, opts) || (opts.prebuilt !== false && prebuilt(platform, platform === "ios" ? "Foundation" : "android.os") !== undefined);
+  return "dir" in locate(platform, opts);
 }
 
 /** What identifies the SDKs a build uses (for build caches): stable while the SDKs are. */
@@ -474,6 +472,19 @@ export function sdkIdentity(opts: SdkOptions = {}): string {
 /** Extracts `modules` ahead of use (lucent sdk prefetch). */
 export function prefetch(platform: Platform, modules: string[], opts: SdkOptions = {}): SdkLookup[] {
   return modules.map((m) => sdkModule(platform, m, opts));
+}
+
+/**
+ * The modules of this SDK whose bindings are in the cache, without
+ * extracting any: full schemas, and (iOS) the ones known by name only.
+ */
+export function cachedModules(platform: Platform, opts: SdkOptions = {}): { schemas: string[]; names: string[] } | { missing: string } {
+  const sdk = locate(platform, opts);
+  if (!("dir" in sdk)) return sdk;
+  const files = fs.existsSync(sdk.dir) ? fs.readdirSync(sdk.dir) : [];
+  const schemas = files.filter((f) => f.endsWith(".json") && !f.endsWith(".names.json") && f !== "headers.json").map((f) => f.slice(0, -".json".length));
+  const names = files.filter((f) => f.endsWith(".names.json")).map((f) => f.slice(0, -".names.json".length)).filter((m) => !schemas.includes(m));
+  return { schemas: schemas.sort(), names: names.sort() };
 }
 
 /** Every module a platform's SDK has (no list: the SDK's own contents). */

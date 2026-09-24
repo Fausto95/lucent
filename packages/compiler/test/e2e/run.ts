@@ -16,7 +16,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import ts from "typescript";
-import { compile, report } from "../../src/index.ts";
+import { compile, coreJsPath, report } from "../../src/index.ts";
 import { cFlags, hostLibs, runtimeSources } from "../../../runtime/test/sources.ts";
 
 // One time zone with daylight saving time for both runs (the native host
@@ -26,7 +26,7 @@ process.env.TZ = process.env.LUCENT_TEST_TZ ?? "America/New_York";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const casesDir = path.join(here, "cases");
 const runtimeDir = path.resolve(here, "../../../runtime");
-const coreJs = path.resolve(here, "../../../core/index.js");
+const coreJs = coreJsPath();
 const abortPolyfill = path.resolve(here, "../../../runtime/test/jsi/abort-polyfill.js");
 const hermes = process.env.HERMES_DIR ?? path.join(os.homedir(), "hermes");
 const sanitize = process.env.SANITIZE === "1";
@@ -165,7 +165,7 @@ async function referenceRun(c: Case): Promise<string> {
       compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
     }).outputText;
     const req = (spec: string) => {
-      if (spec === "@lucent-lang/core") return require_(coreJs);
+      if (spec === "lucent:core") return require_(coreJs);
       const base = path.resolve(path.dirname(key), spec);
       for (const candidate of [base, `${base}.ts`, base.replace(/\.js$/, ".ts")]) if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return load(candidate);
       throw new Error(`cannot resolve ${spec}`);
@@ -178,9 +178,22 @@ async function referenceRun(c: Case): Promise<string> {
     vm.runInThisContext(`(function (module, exports) {${fs.readFileSync(p, "utf8")}\n})`)(m, m.exports);
     return m.exports;
   };
-  const out: string[] = [];
   const mods: Record<string, unknown> = {};
   for (const f of c.files) mods[path.basename(f).replace(/\.lucent\.ts$/, "")] = load(f);
+  // The example apps run a case again (Run again, switching tabs) against the
+  // same loaded modules: a case must print the same thing every time.
+  const once = await runTest(c, mods);
+  const again = await runTest(c, mods);
+  if (again !== once) {
+    const a = once.split("\n"), b = again.split("\n");
+    const i = a.findIndex((l, k) => l !== b[k]);
+    throw new Error(`prints something else when run again with the same modules (line ${i + 1}: ${JSON.stringify(a[i])}, then ${JSON.stringify(b[i])}); report what a run changes, not module state`);
+  }
+  return once;
+}
+
+async function runTest(c: Case, mods: Record<string, unknown>): Promise<string> {
+  const out: string[] = [];
   const first = mods[path.basename(c.files[0]!).replace(/\.lucent\.ts$/, "")];
   const sandbox = {
     print: (...args: unknown[]) => out.push(args.map((a) => String(a)).join(" ")),

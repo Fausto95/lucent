@@ -24,7 +24,13 @@ describe("diagnostics", () => {
   });
 
   it("accepts renamed imports of core helpers", () => {
-    expect(codes('import { errorCode as codeOf } from "@lucent-lang/core";\nexport function f(e: Error): string { return codeOf(e) ?? "none"; }')).toEqual([]);
+    expect(codes('import { errorCode as codeOf } from "lucent:core";\nexport function f(e: Error): string { return codeOf(e) ?? "none"; }')).toEqual([]);
+  });
+
+  it("rejects the old @lucent-lang/core specifier", () => {
+    const r = compileSource('import { errorCode } from "@lucent-lang/core";\nexport function f(e: Error): string { return errorCode(e) ?? "none"; }');
+    expect(r.ok).toBe(false);
+    expect(r.diagnostics[0]).toMatchObject({ line: 1, message: expect.stringContaining("@lucent-lang/core") });
   });
 
   it("accepts console", () => {

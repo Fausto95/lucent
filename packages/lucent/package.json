@@ -1,0 +1,54 @@
+{
+  "name": "@lucent-lang/lucent",
+  "version": "0.0.3",
+  "description": "Write native React Native modules in TypeScript: the Lucent compiler, CLI, Metro integration, Expo config plugin and editor plugin",
+  "license": "MIT",
+  "main": "./app.plugin.js",
+  "bin": {
+    "lucent": "./bin/lucent.cjs"
+  },
+  "exports": {
+    ".": "./app.plugin.js",
+    "./metro": {
+      "types": "./metro/index.d.ts",
+      "default": "./metro/index.cjs"
+    },
+    "./ts-plugin": {
+      "types": "./ts-plugin/index.d.ts",
+      "default": "./ts-plugin/index.js"
+    },
+    "./app.plugin.js": "./app.plugin.js",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "ink": "^7.1.1",
+    "picocolors": "^1.1.1",
+    "react": "19.3.0",
+    "typescript": "~5.9.3"
+  },
+  "devDependencies": {
+    "@lucent-lang/bindgen": "workspace:*",
+    "@lucent-lang/compiler": "workspace:*",
+    "@lucent-lang/runtime": "workspace:*",
+    "@types/react": "^19.2.0",
+    "ajv": "^8",
+    "esbuild": "^0.28.2",
+    "ink-testing-library": "^4.0.0",
+    "tsx": "^4.20.6"
+  },
+  "files": [
+    "app.plugin.js",
+    "bin",
+    "dist",
+    "gradle",
+    "lib",
+    "metro",
+    "runtime",
+    "schemas",
+    "ts-plugin"
+  ],
+  "scripts": {
+    "build": "tsx scripts/build.mts",
+    "prepack": "pnpm run build"
+  }
+}

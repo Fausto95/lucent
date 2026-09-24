@@ -23,7 +23,7 @@ export const page: DocPage = {
       kind: "table",
       head: ["File", "Contains", "May import"],
       rows: [
-        ["`haptics.lucent.ts`", "Only `export declare function`s, types and imports", "Other Lucent modules, `@lucent-lang/core`"],
+        ["`haptics.lucent.ts`", "Only `export declare function`s, types and imports", "Other Lucent modules, `lucent:core`"],
         ["`haptics.ios.lucent.ts`", "The iOS implementation of every declared export", "Also `lucent:ios/<Framework>`, `lucent:ios`, `lucent:thread`"],
         ["`haptics.android.lucent.ts`", "The Android implementation of every declared export", "Also `lucent:android/<package>`, `lucent:android`, `lucent:thread`"],
       ],
@@ -82,7 +82,7 @@ export function deviceName(): Promise<string> {
           filename: "haptics.android.lucent.ts",
           code: `import { Build, Build_VERSION, VibrationEffect, Vibrator, VibratorManager } from "lucent:android/android.os";
 import { appContext, available } from "lucent:android";
-import { error } from "@lucent-lang/core";
+import { error } from "lucent:core";
 type Impact = "light" | "medium" | "heavy";
 
 function vibrator(): Vibrator {

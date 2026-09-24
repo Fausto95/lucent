@@ -237,6 +237,11 @@ const RESERVED = new Set(
 );
 
 /** A C++-safe identifier for a TypeScript name. */
+/** The C++ namespace of a module, which also names its generated files (m_<name>.cpp). */
+export function moduleNamespace(name: string): string {
+  return `m_${cppIdent(name)}`;
+}
+
 export function cppIdent(name: string): string {
   let out = name.replace(/[^A-Za-z0-9_]/g, (c) => `_u${c.codePointAt(0)!.toString(16)}_`);
   if (/^[0-9]/.test(out)) out = `_${out}`;

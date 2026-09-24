@@ -119,9 +119,10 @@ function checked(c: Counter): Counter {
 
 /** A value whose type is not nullable is never null or undefined; the operand is still evaluated. */
 export function presence(c: Counter, s: string, n: number): string {
+  const before = checks;
   const strict = `${c !== null} ${c === undefined} ${null === s} ${undefined !== n} ${checked(c) !== null}`;
   const loose = `${c == null} ${s != undefined} ${checked(c) != null}`;
-  return `${strict} | ${loose} | ${checks}`;
+  return `${strict} | ${loose} | ${checks - before}`;
 }
 
 /** Functions held in fields, parameter properties included, called as methods. */

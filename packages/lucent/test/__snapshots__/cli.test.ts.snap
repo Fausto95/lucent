@@ -1,0 +1,42 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`lucent check > shows each problem with a code frame, its fix and where it is explained, then a summary 1`] = `
+"
+  error LUCENT1001  use \`let\` or \`const\` instead of \`var\`
+
+    geo.lucent.ts:2:3
+    1 │ export function total(xs: number[]): number {
+    2 │   var sum = 0;
+      │   ^^^^^^^^^^^
+    3 │   for (const x of xs) sum += x;
+
+  fix  rewrite it with the supported form: \`let\`/\`const\` for \`var\`, a class for
+       an object with accessors
+  docs lucent explain LUCENT1001
+
+  error LUCENT1008  cannot assign to sum
+
+    geo.lucent.ts:3:23
+    2 │   var sum = 0;
+    3 │   for (const x of xs) sum += x;
+      │                       ^^^
+    4 │   return sum;
+
+  fix  assign a variable or a field the type declares
+  docs lucent explain LUCENT1008
+
+  error LUCENT1001  unsupported reference to \`sum\`
+
+    geo.lucent.ts:4:10
+    3 │   for (const x of xs) sum += x;
+    4 │   return sum;
+      │          ^^^
+    5 │ }
+
+  fix  rewrite it with the supported form: \`let\`/\`const\` for \`var\`, a class for
+       an object with accessors
+  docs lucent explain LUCENT1001
+
+  3 errors · 1 module · <time>
+"
+`;

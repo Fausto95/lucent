@@ -21,3 +21,5 @@ packages/bench/results/
 /apps/*/.lucent
 vendor/
 .hermes/
+packages/lucent/lib/
+packages/lucent/runtime/

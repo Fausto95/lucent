@@ -1,0 +1,198 @@
+{
+  "$id": "https://lucent-lang.dev/schemas/build.schema.json",
+  "title": "lucent build --json",
+  "type": "object",
+  "required": [
+    "ok",
+    "upToDate",
+    "out",
+    "modules",
+    "steps",
+    "diagnostics",
+    "notices",
+    "next",
+    "ms"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "ok": {
+      "type": "boolean",
+      "description": "The native package was written (or was up to date); the exit code is 0 exactly then"
+    },
+    "upToDate": {
+      "type": "boolean",
+      "description": "Nothing changed since the last build, so nothing was done"
+    },
+    "out": {
+      "type": "string",
+      "description": "Absolute path of the native package"
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "platforms"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "platforms": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "ios",
+                "android",
+                "shared"
+              ]
+            },
+            "description": "The platforms the module has code for, or shared"
+          }
+        }
+      }
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "label",
+          "status"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "enum": [
+              "android-dependencies",
+              "up-to-date",
+              "sdk",
+              "check",
+              "generate",
+              "package"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "cached",
+              "skipped",
+              "failed"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "ms": {
+            "type": "number",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^LUCENT\\d{4}$",
+            "description": "Stable code; lucent explain <code> describes it"
+          },
+          "message": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string",
+            "description": "Relative to the project root"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "column": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Offset of the span in the file"
+          },
+          "length": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "fix": {
+            "type": "string",
+            "description": "How to fix it, in one line"
+          },
+          "docs": {
+            "type": "string",
+            "description": "Where the code is explained"
+          }
+        }
+      }
+    },
+    "notices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "level",
+          "text"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "level": {
+            "enum": [
+              "ok",
+              "warn"
+            ]
+          },
+          "text": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "next": {
+      "type": "object",
+      "required": [
+        "rebuild",
+        "podInstall",
+        "reload"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "rebuild": {
+          "type": "boolean",
+          "description": "Native code changed: rebuild the app"
+        },
+        "podInstall": {
+          "type": "boolean",
+          "description": "Native files were added or removed: run pod install before the iOS build"
+        },
+        "reload": {
+          "type": "boolean",
+          "description": "Only the JavaScript proxies changed: reloading the app is enough"
+        }
+      }
+    },
+    "ms": {
+      "type": "number",
+      "minimum": 0
+    }
+  }
+}

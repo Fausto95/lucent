@@ -1,37 +1,19 @@
 {
   "name": "@lucent-lang/compiler",
-  "version": "0.1.0-cpp",
+  "version": "0.0.3",
+  "private": true,
   "description": "Compiles *.lucent.ts modules to C++ with JSI bindings",
   "license": "MIT",
   "type": "module",
   "main": "./src/index.ts",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./codes": "./src/codes.ts",
+    "./packages": "./src/packages.ts"
   },
   "dependencies": {
     "@lucent-lang/bindgen": "workspace:*",
-    "@lucent-lang/core": "workspace:*",
     "@lucent-lang/runtime": "workspace:*",
-    "@lucent-lang/sdk-android": "workspace:*",
-    "@lucent-lang/sdk-ios": "workspace:*",
     "typescript": "~5.9.3"
-  },
-  "files": [
-    "dist",
-    "lib"
-  ],
-  "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "prepack": "pnpm run build"
-  },
-  "publishConfig": {
-    "main": "./dist/index.js",
-    "types": "./dist/index.d.ts",
-    "exports": {
-      ".": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      }
-    }
   }
 }

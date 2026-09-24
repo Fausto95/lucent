@@ -1,8 +1,8 @@
 /**
- * Fresh-install smoke test: packs every @lucent-lang package as it would be
- * published, installs the tarballs into an empty project with npm, and runs
- * the installed CLI there (no tsx, no workspace links), with a Lucent
- * package (examples/lucent-haptics) installed from its tarball too.
+ * Fresh-install smoke test: packs @lucent-lang/lucent as it would be
+ * published, installs it alone into an empty project with npm, and runs the
+ * installed CLI there (no tsx, no workspace links), with a Lucent package
+ * (examples/lucent-haptics) installed from its tarball too.
  *
  *   tsx scripts/smoke-install.ts
  */
@@ -14,12 +14,12 @@ import { fileURLToPath } from "node:url";
 import { sdkAvailable } from "../packages/bindgen/src/provider.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const packages = ["core", "sdk-ios", "sdk-android", "bindgen", "runtime", "compiler", "cli", "metro", "expo", "ts-plugin"];
+const packages = ["lucent"];
 const work = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-smoke-"));
 
-function sh(cmd: string, args: string[], cwd: string, env: NodeJS.ProcessEnv = {}): string {
+function sh(cmd: string, args: string[], cwd: string, env: NodeJS.ProcessEnv = {}, ok = [0]): string {
   const r = spawnSync(cmd, args, { cwd, encoding: "utf8", env: { ...process.env, ...env }, maxBuffer: 64 << 20 });
-  if (r.status !== 0) throw new Error(`${cmd} ${args.join(" ")} failed in ${cwd}:\n${r.stdout}\n${r.stderr}`);
+  if (!ok.includes(r.status ?? -1)) throw new Error(`${cmd} ${args.join(" ")} failed in ${cwd}:\n${r.stdout}\n${r.stderr}`);
   return r.stdout;
 }
 
@@ -38,16 +38,18 @@ tarballs["lucent-haptics"] = `file:${path.isAbsolute(haptics) ? haptics : path.j
 console.log("• installing into an empty project");
 const app = path.join(work, "app");
 fs.mkdirSync(path.join(app, "src"), { recursive: true });
-fs.writeFileSync(path.join(app, "package.json"), JSON.stringify({ name: "smoke", private: true, dependencies: tarballs, overrides: tarballs }, null, 2));
+fs.writeFileSync(path.join(app, "package.json"), JSON.stringify({ name: "smoke", private: true, dependencies: tarballs }, null, 2));
 sh("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error"], app);
 sh("npm", ["install", "--no-audit", "--no-fund", "--loglevel=error", "--save-dev", "typescript@~5.9.3"], app);
 
 const installed = path.join(app, "node_modules/@lucent-lang");
-for (const p of ["compiler/src", "cli/src"]) if (fs.existsSync(path.join(installed, p))) throw new Error(`${p} should not be published`);
+const lucentPackages = fs.readdirSync(installed).sort();
+if (lucentPackages.join() !== "lucent") throw new Error(`expected @lucent-lang/lucent only, got ${lucentPackages.join(", ")}`);
+if (fs.existsSync(path.join(installed, "lucent/src"))) throw new Error("lucent/src should not be published");
 
 fs.writeFileSync(
   path.join(app, "src/hello.lucent.ts"),
-  `import { delay } from "@lucent-lang/core";
+  `import { delay } from "lucent:core";
 export function greet(name: string): string {
   return \`hello \${name.toUpperCase()}\`.replace(/L+/g, "l");
 }
@@ -75,15 +77,18 @@ for (const f of ["LucentNative.podspec", "android/CMakeLists.txt", ...targets.fl
   if (!fs.existsSync(path.join(native, f))) throw new Error(`missing ${f}`);
 }
 sh("clang++", ["-std=c++20", "-fsyntax-only", `-I${native}/cpp`, `-I${native}/cpp/generated/${targets[0]}`, path.join(native, `cpp/generated/${targets[0]}/m_hello.cpp`)], app);
+// Nothing generated refers to a Lucent package the app does not install.
+const stale = sh("grep", ["-rlE", "@lucent-lang/(runtime|core)", native], app, {}, [0, 1]).trim();
+if (stale) throw new Error(`generated files refer to old packages:\n${stale}`);
 // The installed Lucent package's modules are built under its name.
 const modules = JSON.parse(fs.readFileSync(path.join(native, "manifest.json"), "utf8")).modules as string[];
 for (const m of ["lucent-haptics/haptics"]) if (!modules.includes(m)) throw new Error(`the installed lucent-haptics was not built: ${modules.join(", ")}`);
 
 console.log("• Metro and Expo integrations load");
-sh(process.execPath, ["-e", 'require("@lucent-lang/metro").withLucent({}); require.resolve("@lucent-lang/expo")'], app, { LUCENT_WATCH: "0" });
+sh(process.execPath, ["-e", 'require("@lucent-lang/lucent/metro").withLucent({ transformer: { babelTransformerPath: "metro-babel-transformer" } }); if (typeof require("@lucent-lang/lucent/app.plugin.js") !== "function") process.exit(1)'], app, { LUCENT_WATCH: "0" });
 
-console.log("• editor diagnostics through tsserver and @lucent-lang/ts-plugin");
-fs.writeFileSync(path.join(app, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, module: "esnext", moduleResolution: "bundler", target: "es2022", noEmit: true, plugins: [{ name: "@lucent-lang/ts-plugin" }] }, include: ["src"] }));
+console.log("• editor diagnostics through tsserver and @lucent-lang/lucent/ts-plugin");
+fs.writeFileSync(path.join(app, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, module: "esnext", moduleResolution: "bundler", target: "es2022", noEmit: true, plugins: [{ name: "@lucent-lang/lucent/ts-plugin" }] }, include: ["src"] }));
 const bad = path.join(app, "src/bad.lucent.ts");
 fs.writeFileSync(bad, "export function f(): number {\n  var x = 1;\n  return x;\n}\n");
 const codes = await editorDiagnostics(bad);

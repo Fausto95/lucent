@@ -6,7 +6,7 @@ import { UIPasteboard } from "lucent:ios/UIKit";
 import { ClipboardManager, ClipData, ClipDescription } from "lucent:android/android.content";
 import { appContext } from "lucent:android";
 import { main } from "lucent:thread";
-import { error } from "@lucent-lang/core";
+import { error } from "lucent:core";
 
 function clipboard(): ClipboardManager {
   const manager = appContext().getSystemService(ClipboardManager);

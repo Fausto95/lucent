@@ -10,7 +10,7 @@ import { Out } from "lucent:ios";
 import { BiometricManager, BiometricManager_Authenticators as Authenticators } from "lucent:android/android.hardware.biometrics";
 import { KeyguardManager } from "lucent:android/android.app";
 import { appContext, available } from "lucent:android";
-import { errorCode } from "@lucent-lang/core";
+import { errorCode } from "lucent:core";
 
 export interface LocalAuthenticationResult {
   success: boolean;

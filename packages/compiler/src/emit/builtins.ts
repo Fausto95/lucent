@@ -987,7 +987,7 @@ export function globalCall(em: FnEmitter, node: ts.CallExpression, name: string,
       case "now":
         return num("lucent::monotonicNow()");
     }
-    fail(node, Codes.UnsupportedBuiltin, `@lucent-lang/core ${name} is not implemented natively`);
+    fail(node, Codes.UnsupportedBuiltin, `lucent:core ${name} is not implemented natively`);
   }
   const decl = sym.declarations?.[0];
   if (!decl || !decl.getSourceFile().isDeclarationFile) return undefined;

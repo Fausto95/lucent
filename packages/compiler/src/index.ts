@@ -1,3 +1,4 @@
+import { type Code, docsUrl, Explanations } from "./codes.ts";
 import { type Diagnostic, formatDiagnostic } from "./diagnostics.ts";
 import { emitProgram, type EmitResult } from "./emit/index.ts";
 import { conformanceErrors, declarationErrors, inUntypedPlatformCode, missingImplementations, planModules, platformScopes, type Target } from "./platforms.ts";
@@ -5,8 +6,10 @@ import { builtinSdkModuleOf, createLucentProgram, findLucentFiles, type LucentPr
 import { sdkAvailable } from "@lucent-lang/bindgen";
 import { PLATFORMS, platformSdkAvailable, type SdkOptions, withSdkOptions } from "./sdk/schema.ts";
 
-export { CodeDescriptions, Codes, formatDiagnostic, type Code, type Diagnostic } from "./diagnostics.ts";
-export { findLucentFiles, moduleNameOf, platformOf, projectFiles, usesPlatforms, LUCENT_EXTENSION, coreTypesPath, type ReadSource } from "./program.ts";
+export { Codes, docsUrl, Explanations, type Code, type Example, type Explanation } from "./codes.ts";
+export { formatDiagnostic, type Diagnostic } from "./diagnostics.ts";
+export { moduleNamespace } from "./types.ts";
+export { findLucentFiles, moduleNameOf, platformOf, projectFiles, usesPlatforms, LUCENT_EXTENSION, coreJsPath, coreTypesPath, type ReadSource } from "./program.ts";
 export { withGradleDependencies } from "./native-package.ts";
 export { coverage as sdkCoverage, type Coverage as SdkCoverage } from "@lucent-lang/bindgen";
 export { lucentPackages, lucentVersion, nativeDependencies, satisfies, type LucentPackage, type NativeDependencies, type PackageNative } from "./packages.ts";
@@ -16,8 +19,7 @@ export type { SdkOptions } from "./sdk/schema.ts";
 export type { Platform, SdkCallable, SdkClassSchema, SdkEnumSchema, SdkMethodSchema, SdkModuleSchema, SdkParam, SdkPropertySchema } from "./sdk/schema.ts";
 export { sdkDts } from "./sdk/dts.ts";
 export { inputsKey, isUpToDate, writeNativePackage, runtimeDir, type WriteResult } from "./native-package.ts";
-export { watchBuild, type WatchEvent } from "./watch.ts";
-export { forgetLoadedSdks, podsSearchPaths, prefetch as prefetchSdk, sdkAvailable, sdkModule, sdkModules } from "@lucent-lang/bindgen";
+export { cachedModules, extractionCount, forgetLoadedSdks, sdkNames, podsSearchPaths, prefetch as prefetchSdk, sdkAvailable, sdkModule, sdkModules } from "@lucent-lang/bindgen";
 
 export interface CompileResult extends EmitResult {
   ok: boolean;
@@ -39,7 +41,14 @@ export interface CompileOptions {
 
 /** Compiles `*.lucent.ts` files to C++ sources and JS proxies. */
 export function compile(files: string[], options: CompileOptions = {}): CompileResult {
-  return withSdkOptions(options.sdk, () => compileWith(files, options));
+  const result = withSdkOptions(options.sdk, () => compileWith(files, options));
+  return { ...result, diagnostics: result.diagnostics.map(explained) };
+}
+
+/** A diagnostic with its code's usual fix, unless it names its own, and where the code is explained. */
+function explained(d: Diagnostic): Diagnostic {
+  const e = Explanations[d.code as Code] as (typeof Explanations)[Code] | undefined;
+  return e ? { ...d, fix: d.fix ?? e.fix, docs: docsUrl(d.code) } : d;
 }
 
 function compileWith(files: string[], options: CompileOptions): CompileResult {

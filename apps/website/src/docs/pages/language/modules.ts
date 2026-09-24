@@ -3,7 +3,7 @@ import type { DocPage } from "../../types";
 export const page: DocPage = {
   slug: "language/modules",
   title: "Modules & imports",
-  description: "Each `*.lucent.ts` file is a module of declarations that can import other Lucent modules and `@lucent-lang/core`, and exports what JavaScript may call.",
+  description: "Each `*.lucent.ts` file is a module of declarations that can import other Lucent modules and `lucent:core`, and exports what JavaScript may call.",
   blocks: [
     { kind: "h2", text: "What a module contains" },
     {
@@ -62,12 +62,12 @@ export function lookup(key: string): number | undefined {
     { kind: "h2", text: "Imports" },
     {
       kind: "p",
-      text: "A module can import from other `*.lucent.ts` files (written without the `.ts` extension) and from `@lucent-lang/core`. Named imports and `type` imports work; anything else, such as an npm package or a plain `.ts` file, is not allowed, because it has no native implementation.",
+      text: "A module can import from other `*.lucent.ts` files (written without the `.ts` extension) and from `lucent:core`. Named imports and `type` imports work; anything else, such as an npm package or a plain `.ts` file, is not allowed, because it has no native implementation.",
     },
     {
       kind: "code",
       filename: "paths.lucent.ts",
-      code: `import { now } from "@lucent-lang/core";
+      code: `import { now } from "lucent:core";
 import { Vec, type Point } from "./shapes.lucent";
 
 export function sum(points: Point[]): Point {
@@ -84,7 +84,7 @@ export function timedSum(points: Point[]): number {
     },
     {
       kind: "p",
-      text: "The helpers in `@lucent-lang/core` (`delay`, `error`, `errorCode`, `utf8Encode`, `utf8Decode`, `now`) are listed in the [core reference](/docs/reference/core/). The package also ships JavaScript implementations, so the same modules run as plain TypeScript in unit tests.",
+      text: "The helpers in `lucent:core` (`delay`, `error`, `errorCode`, `utf8Encode`, `utf8Decode`, `now`) are listed in the [core reference](/docs/reference/core/).",
     },
     { kind: "h2", text: "Module names" },
     {
