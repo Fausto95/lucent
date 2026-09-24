@@ -44,6 +44,23 @@ describe.skipIf(!javac || !android)("lucent sdk", () => {
     expect(r.out).toMatch(/searched \d+ modules?/);
   });
 
+  it("search and prefetch --json match their schemas", async () => {
+    const a = app();
+    const { default: Ajv } = (await import("ajv")) as unknown as { default: new (o: object) => { compile(s: object): ((v: unknown) => boolean) & { errors?: unknown[] } } };
+    for (const [schema, args] of [["sdk-search", ["search", "Widget", "--json"]], ["sdk-prefetch", ["prefetch", "--json"]]] as const) {
+      const check = new Ajv({ allErrors: true }).compile(JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, `../schemas/${schema}.schema.json`), "utf8")) as object);
+      const value = JSON.parse(lucent(a, ...args).stdout) as unknown;
+      expect(check(value), JSON.stringify(check.errors)).toBe(true);
+    }
+  });
+
+  it("prefetch fetches the project's imports only, by default", () => {
+    const a = app();
+    const r = JSON.parse(lucent(a, "prefetch", "--json").stdout) as { modules: { module: string }[] };
+    // No iOS import: nothing of iOS (an empty list is not `--ios` alone, which means every module).
+    expect(r.modules.map((m) => m.module)).toEqual(["lucent:android/com.example.widgets"]);
+  });
+
   it("search --json lists the matches", () => {
     const a = app();
     const matches = JSON.parse(lucent(a, "search", "Widget", "--json").stdout) as { matches: { platform: string; module: string; kind: string; name: string; import: string }[] };
