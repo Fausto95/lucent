@@ -125,13 +125,16 @@ export async function buildOrCheck(command: "build" | "check", { root, flags, ou
     const imports = sdkImports(files);
     const wanted = (["ios", "android"] as const).flatMap((p) => ((platforms ?? []).includes(p) ? imports[p].map((m) => [p, m] as const) : []));
     if (wanted.length) {
-      steps.start("sdk", `SDK bindings  ${wanted.map(([, m]) => m).join(" · ")}`);
+      // The first few modules; an app can import dozens.
+      const names = wanted.map(([, m]) => m);
+      const listed = names.length > 3 ? `${names.slice(0, 3).join(" · ")} +${names.length - 3} more` : names.join(" · ");
+      steps.start("sdk", `SDK bindings  ${listed}`);
       await steps.flush();
       const t = Date.now();
       const before = extractionCount();
       for (const [p, m] of wanted) sdkModule(p, m, sdk);
       const extracted = extractionCount() - before;
-      steps.finish({ name: "sdk", label: "SDK bindings", status: extracted ? "ok" : "cached", detail: wanted.map(([, m]) => m).join(" · "), ms: extracted ? Date.now() - t : undefined });
+      steps.finish({ name: "sdk", label: "SDK bindings", status: extracted ? "ok" : "cached", detail: listed, ms: extracted ? Date.now() - t : undefined });
     }
 
     steps.start("check", `Checking ${plural(moduleNames.length, "module")}`);

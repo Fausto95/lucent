@@ -11,7 +11,16 @@ pluginManager.withPlugin("com.android.application") {
     def artifactType = Attribute.of("artifactType", String)
     def compileClasspath = configurations.findByName("debugCompileClasspath") ?: configurations.findByName("releaseCompileClasspath")
     if (compileClasspath == null) return
-    def viewOf = { String type -> compileClasspath.incoming.artifactView { lenient(true); attributes.attribute(artifactType, type) }.files }
+    // Libraries from repositories only: the app's other projects (autolinked
+    // modules, Lucent's own) would have to be built first, and their preBuild
+    // runs lucentBuild, which needs this classpath.
+    def viewOf = { String type ->
+      compileClasspath.incoming.artifactView {
+        lenient(true)
+        componentFilter { it instanceof org.gradle.api.artifacts.component.ModuleComponentIdentifier }
+        attributes.attribute(artifactType, type)
+      }.files
+    }
     def aars = viewOf("aar")
     def jars = viewOf("jar")
     tasks.register("lucentClasspath") {
