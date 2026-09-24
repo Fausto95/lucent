@@ -19,9 +19,14 @@
     "test:e2e": "node packages/compiler/test/e2e/run.ts",
     "website": "pnpm --filter @lucent-lang/website dev",
     "website:build": "pnpm --filter @lucent-lang/website build",
-    "lucent": "vp run @lucent-lang/lucent#build >&2 && node packages/lucent/bin/lucent.cjs"
+    "lucent": "vp run @lucent-lang/lucent#build >&2 && node packages/lucent/bin/lucent.cjs",
+    "changeset": "changeset",
+    "version-packages": "changeset version && vp fmt",
+    "release": "changeset publish"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "^1.0.1",
+    "@changesets/cli": "^3.0.3",
     "@types/node": "^24.7.0",
     "typescript": "~5.9.3",
     "vite": "catalog:",

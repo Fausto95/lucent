@@ -1,0 +1,21 @@
+{
+  "$schema": "../node_modules/@changesets/config/schema.json",
+  "baseBranch": "main",
+  "access": "public",
+  "changelog": ["@changesets/changelog-github", { "repo": "Fausto95/lucent" }],
+  "commit": false,
+  "format": false,
+  "fixed": [],
+  "linked": [],
+  "ignore": [
+    "bare-example",
+    "expo-example",
+    "lucent-haptics",
+    "lucent-secure-store",
+    "bench-expo",
+    "bench-nitro",
+    "bench-turbo",
+    "bench-turbo-cxx"
+  ],
+  "updateInternalDependencies": "patch"
+}
