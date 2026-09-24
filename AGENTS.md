@@ -51,4 +51,5 @@ HERMES_DIR=~/hermes npx tsx scripts/app-check.ts apps/bare-example
 HERMES_DIR=~/hermes npx tsx scripts/bench.ts --check   # performance budgets
 npx tsc --noEmit -p tsconfig.json
 npx tsx scripts/smoke-install.ts   # packs @lucent-lang/lucent, installs it alone in a fresh app
+npx tsx scripts/cli-recording.ts   # re-records assets/cli.svg (the README's terminal animation) after CLI output changes
 ```

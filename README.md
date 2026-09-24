@@ -38,6 +38,14 @@ npm i -D @lucent-lang/lucent
 npx lucent init
 ```
 
+<p align="center">
+  <img src="assets/cli.svg" width="700" alt="lucent build, then lucent check reporting an error with a code frame and its fix">
+</p>
+
+`lucent dev` rebuilds as you edit, `lucent doctor` checks your machine,
+`lucent explain <code>` explains a diagnostic; `lucent --help` lists the rest
+([CLI reference](https://lucent-lang.dev/docs/reference/cli/)).
+
 One package holds the `lucent` command, the compiler, the C++ runtime, the
 Metro integration (`@lucent-lang/lucent/metro`), the Expo config plugin
 (`"plugins": ["@lucent-lang/lucent"]`) and the editor plugin
