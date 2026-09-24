@@ -23,6 +23,12 @@ export const commands: CommandSpec[] = [
     load: () => import("./commands/check.ts"),
   },
   {
+    name: "doctor",
+    summary: "Check the machine and the app: Node, React Native, Xcode, CocoaPods, the Android SDK, the JDK, the Metro config, versions",
+    flags: [],
+    load: () => import("./commands/doctor.ts"),
+  },
+  {
     name: "init",
     summary: "Set an app up for Lucent: react-native.config.js, .gitignore, tsconfig.json",
     flags: [],

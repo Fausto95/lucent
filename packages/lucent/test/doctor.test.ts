@@ -41,7 +41,7 @@ function machine(home: string, missing: string[] = []): Probe {
   };
   return {
     platform: "darwin",
-    env: {},
+    env: missing.includes("android-sdk") ? {} : { ANDROID_HOME: sdk },
     home,
     nodeVersion: "v24.16.0",
     cliVersion: "0.0.3",

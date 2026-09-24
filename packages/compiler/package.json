@@ -8,7 +8,8 @@
   "main": "./src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./codes": "./src/codes.ts"
+    "./codes": "./src/codes.ts",
+    "./packages": "./src/packages.ts"
   },
   "dependencies": {
     "@lucent-lang/bindgen": "workspace:*",
