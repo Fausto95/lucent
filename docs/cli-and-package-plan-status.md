@@ -121,8 +121,19 @@ Done:
 - [x] `explain`, `new module` (`--ios`, `--android`), `clean` (`--cache`),
       `--version` with the SDKs it sees.
 
+- [x] `sdk search` (classes and members in the project's imports and the
+      SDK cache, grouped, with the import line; `--json`), `sdk show`
+      (the declaration Lucent code sees, members with overloads), `sdk
+      prefetch` per module (live, with times), `sdk coverage` as a table.
+
 Left:
 
-- [ ] `sdk search / show / prefetch`; `coverage` and `diff`
 - [ ] `bench`
 - [ ] Docs: CLI reference generated from the command table; README recording
+
+Postponed:
+
+- `sdk diff` between two SDK versions, filtered to the symbols the code
+  uses: the plan ties it to the bindings work providing the data. The
+  cache keeps one schema set per SDK identity, but nothing yet extracts
+  two versions side by side or records which symbols a build used.
