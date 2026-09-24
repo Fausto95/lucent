@@ -4,6 +4,7 @@
   "private": true,
   "description": "Lucent's C++ runtime, native templates and JS loader (bundled into @lucent-lang/lucent)",
   "license": "MIT",
+  "type": "module",
   "exports": {
     "./package.json": "./package.json",
     "./sources": "./test/sources.ts"
