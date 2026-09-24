@@ -264,6 +264,15 @@ describe("the app's Android dependencies", () => {
     return { root, build, count, cache };
   }
 
+  it.skipIf(!android)("does not run Gradle again when Gradle runs the build (the app's lucentBuild task)", () => {
+    const app = gradleApp();
+    fs.mkdirSync(path.join(app.root, ".lucent"), { recursive: true });
+    fs.writeFileSync(path.join(app.root, ".lucent/android-classpath.json"), '{"jars":[],"aars":[]}\n');
+    const r = spawnSync(process.execPath, [bin, "build", "--platforms", "android", "--root", app.root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: app.cache, LUCENT_GRADLE_CLASSPATH: "1", NO_COLOR: "1" } });
+    expect(app.count()).toBe(0);
+    expect(r.stdout + r.stderr).not.toMatch(/resolved with Gradle/);
+  });
+
   it.skipIf(!android)("runs Gradle once per change of the build's inputs, not once per build", () => {
     const app = gradleApp();
     app.build();
