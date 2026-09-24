@@ -40,6 +40,7 @@
     "app.plugin.js",
     "bin",
     "dist",
+    "gradle",
     "lib",
     "metro",
     "runtime",

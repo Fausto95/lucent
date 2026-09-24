@@ -1,0 +1,6 @@
+// Gradle init script, passed by lucent build with --init-script: registers
+// lucentClasspath in the app project without touching the app's build files.
+def script = new File(buildscript.sourceFile.parentFile, "lucent-classpath.gradle")
+gradle.allprojects { project ->
+  if (project.path == ":app") project.apply(from: script)
+}

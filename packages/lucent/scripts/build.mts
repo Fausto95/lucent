@@ -34,6 +34,6 @@ await build({
 fs.writeFileSync(path.join(pkg, "dist/package.json"), `${JSON.stringify({ type: "module" }, null, 2)}\n`);
 
 fs.cpSync(path.join(packages, "compiler/lib"), path.join(pkg, "lib"), { recursive: true });
-for (const dir of ["cpp", "gradle", "js", "native"]) {
+for (const dir of ["cpp", "js", "native"]) {
   fs.cpSync(path.join(packages, "runtime", dir), path.join(pkg, "runtime", dir), { recursive: true });
 }

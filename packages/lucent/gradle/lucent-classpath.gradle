@@ -1,0 +1,26 @@
+// Registers lucentClasspath in the app project it is applied to: writes the
+// app's resolved compile classpath (AARs and jars) to
+// .lucent/android-classpath.json, so lucent:android/<package> can bind any
+// library the app links (AndroidX, Play services, Firebase…).
+// Applied by lucent.gradle (the app's Gradle task) and by
+// lucent-classpath.init.gradle (when lucent build asks Gradle).
+pluginManager.withPlugin("com.android.application") {
+  // Registered after the Android plugin's own afterEvaluate, which creates the variants' configurations.
+  afterEvaluate {
+    def out = new File(rootProject.projectDir.parentFile, ".lucent/android-classpath.json")
+    def artifactType = Attribute.of("artifactType", String)
+    def compileClasspath = configurations.findByName("debugCompileClasspath") ?: configurations.findByName("releaseCompileClasspath")
+    if (compileClasspath == null) return
+    def viewOf = { String type -> compileClasspath.incoming.artifactView { lenient(true); attributes.attribute(artifactType, type) }.files }
+    def aars = viewOf("aar")
+    def jars = viewOf("jar")
+    tasks.register("lucentClasspath") {
+      inputs.files(aars, jars)
+      outputs.file(out)
+      doLast {
+        out.parentFile.mkdirs()
+        out.text = groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([aars: aars.files*.absolutePath.sort(), jars: jars.files*.absolutePath.sort()]))
+      }
+    }
+  }
+}

@@ -4,6 +4,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { forgetLoadedSdks, type NativeDependencies, podsSearchPaths, runtimeDir, type SdkOptions, withGradleDependencies } from "@lucent-lang/compiler";
 import { withLucentPaths } from "./tsconfig.ts";
+import { packageFile } from "./version.ts";
 
 /** Something a command did to the project, or asks the user to do. */
 export type Notice = { level: "ok" | "warn"; text: string };
@@ -41,6 +42,8 @@ export function resolveAndroidDependencies(root: string, files: string[], sdk: S
   const android = path.join(root, "android");
   const gradlew = path.join(android, process.platform === "win32" ? "gradlew.bat" : "gradlew");
   if (!sdkImports(files).android.length || !fs.existsSync(gradlew)) return { status: "none" };
+  // The app's lucentBuild task runs this build after resolving the classpath in the same Gradle build.
+  if (process.env.LUCENT_GRADLE_CLASSPATH) return { status: "cached" };
   const stateFile = path.join(root, ".lucent/android-classpath.state.json");
   const inputs = gradleInputsHash(root, native);
   const state = fs.existsSync(stateFile) ? (JSON.parse(fs.readFileSync(stateFile, "utf8")) as { inputs?: string; ok?: boolean }) : {};
@@ -48,7 +51,7 @@ export function resolveAndroidDependencies(root: string, files: string[], sdk: S
     return { status: "failed", detail: "Gradle could not resolve them for these build files before; lucent build --force retries" };
   }
   if (!force && state.inputs === inputs && fs.existsSync(sdk.android!.classpath!)) return { status: "cached" };
-  const script = path.join(runtimeDir(), "gradle/lucent-classpath.init.gradle");
+  const script = packageFile("gradle/lucent-classpath.init.gradle");
   const r = spawnSync(gradlew, ["-q", "--init-script", script, ":app:lucentClasspath"], { cwd: android, encoding: "utf8" });
   fs.mkdirSync(path.dirname(stateFile), { recursive: true });
   fs.writeFileSync(stateFile, JSON.stringify({ inputs, ok: r.status === 0 }) + "\n");
