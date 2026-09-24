@@ -59,7 +59,7 @@ function createPlugin(loadCompiler) {
             file,
             start: d.start ?? 0,
             length: d.length ?? 0,
-            messageText: `${d.code}: ${d.message}`,
+            messageText: [`${d.code}: ${d.message}`, d.fix && `fix: ${d.fix}`, d.docs && `docs: ${d.docs}`].filter(Boolean).join("\n"),
             category: ts.DiagnosticCategory.Error,
             code: Number(d.code.replace(/^LUCENT/, "")),
             source: "lucent",
