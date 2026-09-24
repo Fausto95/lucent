@@ -30,6 +30,9 @@ export default defineConfig({
     testTimeout: 60000,
     globalSetup: ["./vitest.setup-tmp.ts", "./vitest.setup-sdk.ts", "./vitest.setup-build.ts"],
     setupFiles: ["./vitest.setup-yield.ts"],
+    // As on CI, wherever the tests run: libraries that change behaviour under CI
+    // (Ink renders only the last frame) do so locally too.
+    env: { CI: "true" },
   },
   // Oxfmt's defaults.
   fmt: { ignorePatterns: generated },
