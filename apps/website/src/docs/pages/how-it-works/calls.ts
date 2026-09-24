@@ -17,7 +17,12 @@ export const blocks: Block[] = [
     kind: "p",
     text: "A wrong value never reaches your code. It throws a `TypeError` that names the function and the argument:",
   },
-  { kind: "code", filename: "terminal", copy: false, code: "TypeError: greet: argument 'name' must be a string, got a number" },
+  {
+    kind: "code",
+    filename: "terminal",
+    copy: false,
+    code: "TypeError: greet: argument 'name' must be a string, got a number",
+  },
   { kind: "h2", text: "An async call" },
   { kind: "diagram", diagram: "call-async" },
   {

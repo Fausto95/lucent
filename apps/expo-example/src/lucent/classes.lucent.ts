@@ -37,7 +37,10 @@ export class Counter {
 }
 
 class Node {
-  constructor(public value: number, public next: Node | undefined = undefined) {}
+  constructor(
+    public value: number,
+    public next: Node | undefined = undefined,
+  ) {}
 }
 
 export class Stack {

@@ -3,10 +3,26 @@
 // SecureStoreModule.kt's values encrypted with an AES/GCM key from the
 // Android Keystore, stored in SharedPreferences.
 import { PLATFORM } from "lucent:platform";
-import { kSecAttrAccount, kSecAttrService, kSecClass, kSecClassGenericPassword, kSecMatchLimit, kSecMatchLimitOne, kSecReturnData, kSecValueData, SecItemAdd, SecItemCopyMatching, SecItemDelete, SecItemUpdate } from "lucent:ios/Security";
+import {
+  kSecAttrAccount,
+  kSecAttrService,
+  kSecClass,
+  kSecClassGenericPassword,
+  kSecMatchLimit,
+  kSecMatchLimitOne,
+  kSecReturnData,
+  kSecValueData,
+  SecItemAdd,
+  SecItemCopyMatching,
+  SecItemDelete,
+  SecItemUpdate,
+} from "lucent:ios/Security";
 import { asData, type NSObject, type ObjCValue, Out } from "lucent:ios";
 import { SharedPreferences } from "lucent:android/android.content";
-import { KeyGenParameterSpec_Builder, KeyProperties } from "lucent:android/android.security.keystore";
+import {
+  KeyGenParameterSpec_Builder,
+  KeyProperties,
+} from "lucent:android/android.security.keystore";
 import { Base64 } from "lucent:android/android.util";
 import { KeyStore, KeyStore_SecretKeyEntry, type Key } from "lucent:android/java.security";
 import { Cipher, KeyGenerator } from "lucent:android/javax.crypto";
@@ -69,7 +85,10 @@ function secretKey(): Key {
   const entry = store?.getEntry(ALIAS, null);
   if (entry) return (entry as KeyStore_SecretKeyEntry).getSecretKey()!;
   const generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
-  const spec = new KeyGenParameterSpec_Builder(ALIAS, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+  const spec = new KeyGenParameterSpec_Builder(
+    ALIAS,
+    KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT,
+  )
     .setBlockModes([KeyProperties.BLOCK_MODE_GCM])
     ?.setEncryptionPaddings([KeyProperties.ENCRYPTION_PADDING_NONE])
     ?.build();
@@ -85,7 +104,8 @@ function encryptedSet(name: string, value: string): void {
   const encrypted = cipher.doFinal(utf8Encode(value)) ?? new Uint8Array(0);
   const iv = cipher.getIV() ?? new Uint8Array(0);
   const stored = `${Base64.encodeToString(iv, Base64.NO_WRAP)}:${Base64.encodeToString(encrypted, Base64.NO_WRAP)}`;
-  if (!prefs().edit()?.putString(name, stored)?.commit()) throw error("ERR_SECURESTORE", "Could not save the value");
+  if (!prefs().edit()?.putString(name, stored)?.commit())
+    throw error("ERR_SECURESTORE", "Could not save the value");
 }
 
 function encryptedGet(name: string): string | null {
@@ -93,8 +113,13 @@ function encryptedGet(name: string): string | null {
   if (!stored) return null;
   const [iv, encrypted] = stored.split(":");
   const cipher = Cipher.getInstance("AES/GCM/NoPadding");
-  if (!cipher || iv === undefined || encrypted === undefined) throw error("ERR_SECURESTORE", "Unreadable stored value");
-  cipher.init(Cipher.DECRYPT_MODE, secretKey(), new GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)));
+  if (!cipher || iv === undefined || encrypted === undefined)
+    throw error("ERR_SECURESTORE", "Unreadable stored value");
+  cipher.init(
+    Cipher.DECRYPT_MODE,
+    secretKey(),
+    new GCMParameterSpec(128, Base64.decode(iv, Base64.NO_WRAP)),
+  );
   const plain = cipher.doFinal(Base64.decode(encrypted, Base64.NO_WRAP));
   return plain ? utf8Decode(plain) : null;
 }

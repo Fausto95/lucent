@@ -16,20 +16,7 @@ exports[`format > frames code with the line before and after, and underlines the
 
 exports[`renderDiagnostic > renders a diagnostic without a location 1`] = `"  error LUCENT9001  TS6053: File not found"`;
 
-exports[`renderDiagnostic > renders code, message, frame, fix and docs at 80 columns 1`] = `
-"  error LUCENT3006  UIApplication.shared is main-thread only
-
-    share.ios.lucent.ts:2:15
-    1 │ export async function share(url: string): Promise<string> {
-    2 │   const app = UIApplication.shared;
-      │               ^^^^^^^^^^^^^^^^^^^^
-    3 │   return url;
-
-  fix  wrap the call in main(() => …)
-  docs lucent explain LUCENT3006"
-`;
-
-exports[`renderDiagnostic > renders code, message, frame, fix and docs at 80 columns 2`] = `
+exports[`renderDiagnostic > renders code, message, frame, fix and docs at 80 columns > coloured 1`] = `
 "  [31merror[39m [1mLUCENT3006[22m  UIApplication.shared is main-thread only
 
     [2mshare.ios.lucent.ts:2:15[22m
@@ -42,7 +29,7 @@ exports[`renderDiagnostic > renders code, message, frame, fix and docs at 80 col
   [36mdocs[39m lucent explain LUCENT3006"
 `;
 
-exports[`renderDiagnostic > renders code, message, frame, fix and docs at 120 columns 1`] = `
+exports[`renderDiagnostic > renders code, message, frame, fix and docs at 80 columns > plain 1`] = `
 "  error LUCENT3006  UIApplication.shared is main-thread only
 
     share.ios.lucent.ts:2:15
@@ -55,7 +42,7 @@ exports[`renderDiagnostic > renders code, message, frame, fix and docs at 120 co
   docs lucent explain LUCENT3006"
 `;
 
-exports[`renderDiagnostic > renders code, message, frame, fix and docs at 120 columns 2`] = `
+exports[`renderDiagnostic > renders code, message, frame, fix and docs at 120 columns > coloured 1`] = `
 "  [31merror[39m [1mLUCENT3006[22m  UIApplication.shared is main-thread only
 
     [2mshare.ios.lucent.ts:2:15[22m
@@ -66,4 +53,17 @@ exports[`renderDiagnostic > renders code, message, frame, fix and docs at 120 co
 
   [32mfix[39m  wrap the call in main(() => …)
   [36mdocs[39m lucent explain LUCENT3006"
+`;
+
+exports[`renderDiagnostic > renders code, message, frame, fix and docs at 120 columns > plain 1`] = `
+"  error LUCENT3006  UIApplication.shared is main-thread only
+
+    share.ios.lucent.ts:2:15
+    1 │ export async function share(url: string): Promise<string> {
+    2 │   const app = UIApplication.shared;
+      │               ^^^^^^^^^^^^^^^^^^^^
+    3 │   return url;
+
+  fix  wrap the call in main(() => …)
+  docs lucent explain LUCENT3006"
 `;

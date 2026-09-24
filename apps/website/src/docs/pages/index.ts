@@ -79,5 +79,8 @@ summarize([3, 1, 4, 1, 5]); // { count: 5, mean: 2.8, max: 5 }`,
       "**Lucent**: you write TypeScript, and the compiler writes the C++ and the calls into the SDK.",
     ],
   },
-  { kind: "p", text: "[The comparison](/docs/comparison/) has the details, with dates and sources." },
+  {
+    kind: "p",
+    text: "[The comparison](/docs/comparison/) has the details, with dates and sources.",
+  },
 ];

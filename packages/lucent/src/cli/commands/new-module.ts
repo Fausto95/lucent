@@ -9,8 +9,14 @@ type Platform = (typeof platforms)[number];
 const branches: Record<Platform, { label: string; imports: string[]; body: string[] }> = {
   ios: {
     label: "iOS",
-    imports: ['import { UIDevice } from "lucent:ios/UIKit";', 'import { main } from "lucent:thread";'],
-    body: ["const system = await main(() => UIDevice.current.systemName);", "return `Hello, ${name}, from ${system}`;"],
+    imports: [
+      'import { UIDevice } from "lucent:ios/UIKit";',
+      'import { main } from "lucent:thread";',
+    ],
+    body: [
+      "const system = await main(() => UIDevice.current.systemName);",
+      "return `Hello, ${name}, from ${system}`;",
+    ],
   },
   android: {
     label: "Android",
@@ -19,7 +25,9 @@ const branches: Record<Platform, { label: string; imports: string[]; body: strin
   },
 };
 
-const unimplemented = (p: Platform) => [`throw error("ERR_UNIMPLEMENTED", "hello is not implemented on ${branches[p].label} yet");`];
+const unimplemented = (p: Platform) => [
+  `throw error("ERR_UNIMPLEMENTED", "hello is not implemented on ${branches[p].label} yet");`,
+];
 
 /** One module for both platforms, branching on PLATFORM; a platform not asked for throws. */
 function platformModule(name: string, wanted: Platform[]): string {
@@ -29,7 +37,8 @@ function platformModule(name: string, wanted: Platform[]): string {
     ...wanted.flatMap((p) => branches[p].imports),
     ...(missing.length ? ['import { error } from "lucent:core";'] : []),
   ];
-  const body = (p: Platform) => (wanted.includes(p) ? branches[p].body : unimplemented(p)).map((l) => `    ${l}`).join("\n");
+  const body = (p: Platform) =>
+    (wanted.includes(p) ? branches[p].body : unimplemented(p)).map((l) => `    ${l}`).join("\n");
   return `// Runs natively on each platform; JavaScript imports it from "./src/${name}.lucent".
 ${imports.join("\n")}
 
@@ -43,7 +52,9 @@ ${body("android")}
 `;
 }
 
-const sharedModule = (name: string) => `// Runs as C++; JavaScript imports it from "./src/${name}.lucent".
+const sharedModule = (
+  name: string,
+) => `// Runs as C++; JavaScript imports it from "./src/${name}.lucent".
 export function hello(name: string): string {
   return \`Hello, \${name}, from native code\`;
 }
@@ -54,7 +65,9 @@ export function run({ root, flags, positionals, out }: Invocation): number {
   const t = out.theme;
   const [name] = positionals;
   if (!name || !/^[A-Za-z_$][\w$]*$/.test(name)) {
-    out.error(`${t.error(t.symbols.fail)} ${name ? `${name} is not a module name: use letters, digits and _, like a JavaScript name` : "name the module: lucent new module <name>"}`);
+    out.error(
+      `${t.error(t.symbols.fail)} ${name ? `${name} is not a module name: use letters, digits and _, like a JavaScript name` : "name the module: lucent new module <name>"}`,
+    );
     return 2;
   }
   const wanted = platforms.filter((p) => flags[p]);
@@ -68,7 +81,8 @@ export function run({ root, flags, positionals, out }: Invocation): number {
   fs.writeFileSync(target, wanted.length ? platformModule(name, wanted) : sharedModule(name));
   out.print(`${t.success(t.symbols.ok)} ${file}`);
   const missing = wanted.length ? platforms.find((p) => !wanted.includes(p)) : undefined;
-  if (missing) out.print(t.dim(`\nThe ${branches[missing].label} branch throws until you implement it.`));
+  if (missing)
+    out.print(t.dim(`\nThe ${branches[missing].label} branch throws until you implement it.`));
   out.print(`\n${t.dim("use it")}  import { hello } from "./src/${name}.lucent";`);
   return 0;
 }

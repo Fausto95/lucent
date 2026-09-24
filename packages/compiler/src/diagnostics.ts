@@ -18,12 +18,12 @@ export interface Diagnostic {
 }
 
 export class CompileError extends Error {
-  constructor(
-    readonly node: ts.Node | undefined,
-    readonly code: string,
-    message: string,
-  ) {
+  readonly node: ts.Node | undefined;
+  readonly code: string;
+  constructor(node: ts.Node | undefined, code: string, message: string) {
     super(message);
+    this.node = node;
+    this.code = code;
   }
 }
 
@@ -36,7 +36,15 @@ export function toDiagnostic(e: CompileError): Diagnostic {
   const sf = e.node.getSourceFile();
   const start = e.node.getStart(sf);
   const { line, character } = sf.getLineAndCharacterOfPosition(start);
-  return { code: e.code, message: e.message, file: sf.fileName, line: line + 1, column: character + 1, start, length: e.node.getEnd() - start };
+  return {
+    code: e.code,
+    message: e.message,
+    file: sf.fileName,
+    line: line + 1,
+    column: character + 1,
+    start,
+    length: e.node.getEnd() - start,
+  };
 }
 
 export function formatDiagnostic(d: Diagnostic): string {

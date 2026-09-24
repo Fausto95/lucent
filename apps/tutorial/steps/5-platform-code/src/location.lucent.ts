@@ -15,7 +15,11 @@ function fromCLLocation(location: CLLocation): Fix {
 // --- Android -----------------------------------------------------------------
 
 function fromLocation(location: Location): Fix {
-  return { latitude: location.getLatitude(), longitude: location.getLongitude(), time: location.getTime() };
+  return {
+    latitude: location.getLatitude(),
+    longitude: location.getLongitude(),
+    time: location.getTime(),
+  };
 }
 
 // --- The module --------------------------------------------------------------

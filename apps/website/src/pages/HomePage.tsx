@@ -38,8 +38,8 @@ export function HomePage() {
             No Swift or Kotlin to write.
           </p>
           <p {...stylex.props(styles.heroDetail)}>
-            Lucent compiles a checked TypeScript subset to C++20 and calls it through JSI. The code behaves as it would
-            in JavaScript, and nothing runs in a JS engine on the native side.
+            Lucent compiles a checked TypeScript subset to C++20 and calls it through JSI. The code
+            behaves as it would in JavaScript, and nothing runs in a JS engine on the native side.
           </p>
           <div {...stylex.props(styles.heroActions)}>
             <Link to="/docs/install/" {...stylex.props(sharedStyles.button)}>
@@ -64,13 +64,19 @@ export function HomePage() {
 
       <section aria-label="Supported platforms" {...stylex.props(styles.platformStrip)}>
         <span {...stylex.props(styles.stripIntro)}>
-          Runs where{" "}
-          <br {...stylex.props(styles.br)} />
+          Runs where <br {...stylex.props(styles.br)} />
           your app runs.
         </span>
         <div {...stylex.props(styles.platformGroup)}>
           <div {...stylex.props(styles.platformItem)}>
-            <img src="/brand/react-native.svg" alt="" aria-hidden="true" width="32" height="32" {...stylex.props(styles.platformLogo)} />
+            <img
+              src="/brand/react-native.svg"
+              alt=""
+              aria-hidden="true"
+              width="32"
+              height="32"
+              {...stylex.props(styles.platformLogo)}
+            />
             {" React Native"}
           </div>
           <div {...stylex.props(styles.platformItem)}>
@@ -85,12 +91,17 @@ export function HomePage() {
         </span>
       </section>
 
-      <section id="how-it-works" aria-labelledby="how-heading" {...stylex.props(sharedStyles.howSection)}>
+      <section
+        id="how-it-works"
+        aria-labelledby="how-heading"
+        {...stylex.props(sharedStyles.howSection)}
+      >
         <div {...stylex.props(styles.sectionIntro)}>
           <div>
             <span {...stylex.props(sharedStyles.eyebrow2)}>HOW IT WORKS</span>
             <h2 id="how-heading" {...stylex.props(styles.howHeading)}>
-              Your logic. <span {...stylex.props(styles.sectionHeadingMuted)}>Compiled, not interpreted.</span>
+              Your logic.{" "}
+              <span {...stylex.props(styles.sectionHeadingMuted)}>Compiled, not interpreted.</span>
             </h2>
           </div>
           <p {...stylex.props(styles.sectionDescription)}>
@@ -136,7 +147,11 @@ export function HomePage() {
         </div>
       </section>
 
-      <section id="platform" aria-labelledby="platform-heading" {...stylex.props(sharedStyles.howSection)}>
+      <section
+        id="platform"
+        aria-labelledby="platform-heading"
+        {...stylex.props(sharedStyles.howSection)}
+      >
         <div {...stylex.props(styles.sectionIntro)}>
           <div>
             <span {...stylex.props(sharedStyles.eyebrow2)}>PLATFORM APIS</span>
@@ -157,7 +172,8 @@ export function HomePage() {
           ]}
         />
         <p {...stylex.props(styles.sectionFootnote)}>
-          From the <code>expo-clipboard</code> port in the example apps. The whole port, and others with delegates and events, are in the{" "}
+          From the <code>expo-clipboard</code> port in the example apps. The whole port, and others
+          with delegates and events, are in the{" "}
           <Link to="/docs/examples/" {...stylex.props(styles.footnoteLink)}>
             examples
           </Link>
@@ -165,12 +181,17 @@ export function HomePage() {
         </p>
       </section>
 
-      <section id="comparison" aria-labelledby="comparison-heading" {...stylex.props(sharedStyles.howSection)}>
+      <section
+        id="comparison"
+        aria-labelledby="comparison-heading"
+        {...stylex.props(sharedStyles.howSection)}
+      >
         <div {...stylex.props(styles.sectionIntro)}>
           <div>
             <span {...stylex.props(sharedStyles.eyebrow2)}>COMPARISON</span>
             <h2 id="comparison-heading" {...stylex.props(styles.howHeading)}>
-              Same JSI call path. <span {...stylex.props(styles.sectionHeadingMuted)}>Different source.</span>
+              Same JSI call path.{" "}
+              <span {...stylex.props(styles.sectionHeadingMuted)}>Different source.</span>
             </h2>
           </div>
           <p {...stylex.props(styles.sectionDescription)}>
@@ -184,7 +205,11 @@ export function HomePage() {
         <ComparisonTable compact />
       </section>
 
-      <section id="get-started" aria-labelledby="start-heading" {...stylex.props(styles.startSection)}>
+      <section
+        id="get-started"
+        aria-labelledby="start-heading"
+        {...stylex.props(styles.startSection)}
+      >
         <div>
           <span {...stylex.props(styles.eyebrow3)}>FROM TYPESCRIPT TO C++</span>
           <h2 id="start-heading" {...stylex.props(styles.startHeading)}>

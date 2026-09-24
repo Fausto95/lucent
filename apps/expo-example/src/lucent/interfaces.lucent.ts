@@ -148,7 +148,11 @@ function drain<T>(s: Feed<T>, show: (v: T) => string): string {
 
 export function feeds(): string {
   const words: Feed<string> = new ListSource(["a", "b"]);
-  return [drain(new Countdown(3), (n) => `${n}`), drain(words, (s) => s.toUpperCase()), drain(new ListSource([1, 2]), (n) => `${n * 10}`)].join(" | ");
+  return [
+    drain(new Countdown(3), (n) => `${n}`),
+    drain(words, (s) => s.toUpperCase()),
+    drain(new ListSource([1, 2]), (n) => `${n * 10}`),
+  ].join(" | ");
 }
 
 export interface Labelled {

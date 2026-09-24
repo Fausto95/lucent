@@ -12,7 +12,9 @@ const LOCKFILES: [string, PackageManager][] = [
 ];
 
 /** The app's package manager, from its lockfile (in the app, or up the tree in a monorepo). */
-export function packageManagerOf(root: string): { name: PackageManager; lockfile: string } | undefined {
+export function packageManagerOf(
+  root: string,
+): { name: PackageManager; lockfile: string } | undefined {
   for (let dir = path.resolve(root); ; dir = path.dirname(dir)) {
     const found = LOCKFILES.find(([f]) => fs.existsSync(path.join(dir, f)));
     if (found) return { name: found[1], lockfile: path.join(dir, found[0]) };

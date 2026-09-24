@@ -18,7 +18,10 @@ function sections(page: DocPage): { heading?: string; text: string }[] {
     if (block.kind === "h2") out.push({ heading: block.text, blocks: [] });
     else out[out.length - 1]!.blocks.push(block);
   }
-  return out.map((s) => ({ ...(s.heading ? { heading: s.heading } : {}), text: plain(proseOf(s.blocks).join(" ")) }));
+  return out.map((s) => ({
+    ...(s.heading ? { heading: s.heading } : {}),
+    text: plain(proseOf(s.blocks).join(" ")),
+  }));
 }
 
 /** src/generated/search-index.ts: what the site's search looks through. */

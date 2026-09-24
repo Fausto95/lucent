@@ -33,7 +33,9 @@ function getNative(registry) {
 function loadModule(name, registry) {
   const m = getNative(registry)[name];
   if (!m) {
-    throw new Error(`Lucent: module "${name}" is not in the native build. Run \`lucent build\` and rebuild the app.`);
+    throw new Error(
+      `Lucent: module "${name}" is not in the native build. Run \`lucent build\` and rebuild the app.`,
+    );
   }
   return m;
 }
@@ -45,7 +47,11 @@ function lucentClass(factory) {
     return factory.apply(undefined, arguments);
   }
   LucentClass.prototype = factory.prototype;
-  Object.defineProperty(LucentClass.prototype, "constructor", { value: LucentClass, configurable: true, writable: true });
+  Object.defineProperty(LucentClass.prototype, "constructor", {
+    value: LucentClass,
+    configurable: true,
+    writable: true,
+  });
   Object.defineProperty(LucentClass, "name", { value: factory.name });
   for (const key of Object.keys(factory)) LucentClass[key] = factory[key];
   return LucentClass;

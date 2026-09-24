@@ -1,5 +1,11 @@
 type Item = { name: string; price: number; tags: string[]; note?: string; discount: number | null };
-type Order = { id: number; items: Item[]; paid: boolean; meta: Record<string, number>; point: [number, number] };
+type Order = {
+  id: number;
+  items: Item[];
+  paid: boolean;
+  meta: Record<string, number>;
+  point: [number, number];
+};
 
 export function summarize(text: string): string {
   const o = JSON.parse(text) as Order;
@@ -14,7 +20,9 @@ export function roundTrip(text: string): string {
 }
 
 export function numbers(): string {
-  const ns = JSON.parse(" [1, -0, 1e21, 0.1, 1E-7, -12.5e3, 123456789012345678901234567890] ") as number[];
+  const ns = JSON.parse(
+    " [1, -0, 1e21, 0.1, 1E-7, -12.5e3, 123456789012345678901234567890] ",
+  ) as number[];
   return ns.map((n) => `${n}${n === 0 && 1 / n < 0 ? "(-0)" : ""}`).join(",");
 }
 

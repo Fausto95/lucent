@@ -3,8 +3,11 @@
   "version": "0.1.0",
   "private": true,
   "description": "expo-haptics' API in Lucent: feedback generators (iOS) and the Vibrator (Android). An example Lucent package.",
+  "files": [
+    "index.ts",
+    "src"
+  ],
   "main": "index.ts",
-  "files": ["index.ts", "src"],
   "lucent": {
     "sources": "src",
     "compatible": ">=0.0.3"

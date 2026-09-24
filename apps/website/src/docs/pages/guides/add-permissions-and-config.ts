@@ -5,9 +5,21 @@ export const blocks: Block[] = [
     kind: "table",
     head: ["What", "Android", "iOS"],
     rows: [
-      ["permissions an SDK method needs", "added for you, from the SDK's `@RequiresPermission`", "an `Info.plist` usage description, which you add"],
-      ["other permissions and entries", "the app's `AndroidManifest.xml`", "the app's `Info.plist`"],
-      ["asking at run time", "`PermissionsAndroid` in JavaScript, or the SDK from Lucent", "the SDK from Lucent, such as `requestWhenInUseAuthorization`"],
+      [
+        "permissions an SDK method needs",
+        "added for you, from the SDK's `@RequiresPermission`",
+        "an `Info.plist` usage description, which you add",
+      ],
+      [
+        "other permissions and entries",
+        "the app's `AndroidManifest.xml`",
+        "the app's `Info.plist`",
+      ],
+      [
+        "asking at run time",
+        "`PermissionsAndroid` in JavaScript, or the SDK from Lucent",
+        "the SDK from Lucent, such as `requestWhenInUseAuthorization`",
+      ],
     ],
   },
   { kind: "h2", text: "Android" },

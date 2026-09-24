@@ -8,8 +8,22 @@ import { useClipboard } from "./ClipboardProvider";
 
 /** The output tabs, in order. The C++ is the compiler's real output (scripts/website.ts). */
 const outputs = [
-  { id: "cpp", symbol: "C++", label: "Generated C++", file: "m_geo.cpp", code: demoCpp, footer: "Compiled by Xcode and Gradle" },
-  { id: "app", symbol: "JS", label: "Your app", file: "App.tsx", code: appUsage, footer: "A synchronous call over JSI" },
+  {
+    id: "cpp",
+    symbol: "C++",
+    label: "Generated C++",
+    file: "m_geo.cpp",
+    code: demoCpp,
+    footer: "Compiled by Xcode and Gradle",
+  },
+  {
+    id: "app",
+    symbol: "JS",
+    label: "Your app",
+    file: "App.tsx",
+    code: appUsage,
+    footer: "A synchronous call over JSI",
+  },
 ] as const;
 
 export function CompilerDemo() {
@@ -34,7 +48,10 @@ export function CompilerDemo() {
     select(next);
   }
   return (
-    <div aria-label="An example of Lucent's generated native code" {...stylex.props(styles.compilerDemo)}>
+    <div
+      aria-label="An example of Lucent's generated native code"
+      {...stylex.props(styles.compilerDemo)}
+    >
       <div {...stylex.props(styles.demoTopline)}>
         <span {...stylex.props(styles.demoToplineLabel)}>{"ONE TYPESCRIPT MODULE. REAL C++."}</span>
         <span {...stylex.props(styles.demoIndex)}>{`0${index + 1} / 0${outputs.length}`}</span>

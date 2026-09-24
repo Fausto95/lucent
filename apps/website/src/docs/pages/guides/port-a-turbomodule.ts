@@ -5,14 +5,23 @@ export const blocks: Block[] = [
     kind: "table",
     head: ["TurboModule or Nitro", "Lucent"],
     rows: [
-      ["the spec: `NativeX.ts`, or a Nitro `.nitro.ts` interface", "the module's exports: its functions, types and classes"],
+      [
+        "the spec: `NativeX.ts`, or a Nitro `.nitro.ts` interface",
+        "the module's exports: its functions, types and classes",
+      ],
       ["codegen, or Nitrogen", "none: `lucent build` compiles the module"],
-      ["Objective-C++, Swift, Kotlin or C++ implementations", "one `.lucent.ts` file, with a branch per platform"],
+      [
+        "Objective-C++, Swift, Kotlin or C++ implementations",
+        "one `.lucent.ts` file, with a branch per platform",
+      ],
       ["a Nitro hybrid object", "an exported class: its instances cross by reference"],
       ["`Promise<T>` methods", "`async` exports; they run on the Lucent thread"],
       ["events through `RCTEventEmitter` or listeners", "a callback parameter and a stop function"],
       ["`ArrayBuffer`", "`Uint8Array`, copied"],
-      ["the library's podspec and Gradle file", "`lucent.json`, if the module needs pods, dependencies or permissions"],
+      [
+        "the library's podspec and Gradle file",
+        "`lucent.json`, if the module needs pods, dependencies or permissions",
+      ],
     ],
   },
   {

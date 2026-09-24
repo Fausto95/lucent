@@ -9,7 +9,10 @@ export const blocks: Block[] = [
       ["A synchronous export, method or getter", "the JS thread, while JavaScript waits"],
       ["An `async` export or method", "the Lucent thread, a background thread"],
       ["Inside `main(() => …)`", "the main thread"],
-      ["An SDK callback: a delegate, a listener, a block", "the Lucent thread, queued, unless the SDK waits for its result"],
+      [
+        "An SDK callback: a delegate, a listener, a block",
+        "the Lucent thread, queued, unless the SDK waits for its result",
+      ],
       ["A JS callback called from async code", "the JS thread, posted there"],
     ],
   },

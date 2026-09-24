@@ -5,7 +5,7 @@
  * by the final sigma rule, and base letters and accents for the fallback
  * collator used where no platform collator exists.
  *
- *   tsx scripts/gen-unicode.ts
+ *   node scripts/gen-unicode.ts
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -14,12 +14,13 @@ import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const out = path.join(root, "packages/runtime/cpp/lucent/unicode_data.inc");
 
-const units = (s: string) => [...s].flatMap((ch) => {
-  const cp = ch.codePointAt(0)!;
-  if (cp < 0x10000) return [cp];
-  const v = cp - 0x10000;
-  return [0xd800 + (v >> 10), 0xdc00 + (v & 0x3ff)];
-});
+const units = (s: string) =>
+  [...s].flatMap((ch) => {
+    const cp = ch.codePointAt(0)!;
+    if (cp < 0x10000) return [cp];
+    const v = cp - 0x10000;
+    return [0xd800 + (v >> 10), 0xdc00 + (v & 0x3ff)];
+  });
 const hex = (n: number) => `0x${n.toString(16).toUpperCase()}`;
 
 function isScalar(cp: number) {
@@ -61,7 +62,8 @@ function collationTable() {
   for (let cp = 0x80; cp < 0x530; cp++) {
     const nfd = String.fromCodePoint(cp).normalize("NFD");
     const chars = [...nfd];
-    if (chars.length < 2 || mark.test(chars[0]!) || !chars.slice(1).every((c) => mark.test(c))) continue;
+    if (chars.length < 2 || mark.test(chars[0]!) || !chars.slice(1).every((c) => mark.test(c)))
+      continue;
     const base = chars[0]!.codePointAt(0)!;
     const accent = chars[1]!.codePointAt(0)!;
     rows.push(`    {${hex(cp)}, ${hex(base)}, ${hex(accent)}},`);

@@ -76,20 +76,39 @@ function impactType(style: ImpactFeedbackStyle): VibrationType {
 function notificationType(type: NotificationFeedbackType): VibrationType {
   switch (type) {
     case NotificationFeedbackType.Success:
-      return { timings: [0, 40, 100, 40], amplitudes: [0, 50, 0, 60], oldSDKPattern: [0, 40, 100, 40] };
+      return {
+        timings: [0, 40, 100, 40],
+        amplitudes: [0, 50, 0, 60],
+        oldSDKPattern: [0, 40, 100, 40],
+      };
     case NotificationFeedbackType.Warning:
-      return { timings: [0, 40, 120, 60], amplitudes: [0, 40, 0, 60], oldSDKPattern: [0, 40, 120, 60] };
+      return {
+        timings: [0, 40, 120, 60],
+        amplitudes: [0, 40, 0, 60],
+        oldSDKPattern: [0, 40, 120, 60],
+      };
     case NotificationFeedbackType.Error:
-      return { timings: [0, 60, 100, 40, 80, 50], amplitudes: [0, 50, 0, 40, 0, 50], oldSDKPattern: [0, 60, 100, 40, 80, 50] };
+      return {
+        timings: [0, 60, 100, 40, 80, 50],
+        amplitudes: [0, 50, 0, 40, 0, 50],
+        oldSDKPattern: [0, 60, 100, 40, 80, 50],
+      };
   }
 }
 
-const selectionType: VibrationType = { timings: [0, 50], amplitudes: [0, 30], oldSDKPattern: [0, 70] };
+const selectionType: VibrationType = {
+  timings: [0, 50],
+  amplitudes: [0, 30],
+  oldSDKPattern: [0, 70],
+};
 
 function vibrator(): Vibrator {
   const context = appContext();
-  const v = available("android", 31) ? context.getSystemService(VibratorManager)?.defaultVibrator : context.getSystemService(Vibrator);
-  if (!v) throw error("E_HAPTICS_NOT_SUPPORTED", "A haptics engine is not available on this device");
+  const v = available("android", 31)
+    ? context.getSystemService(VibratorManager)?.defaultVibrator
+    : context.getSystemService(Vibrator);
+  if (!v)
+    throw error("E_HAPTICS_NOT_SUPPORTED", "A haptics engine is not available on this device");
   return v;
 }
 
@@ -103,7 +122,9 @@ function vibrate(type: VibrationType): void {
 
 // --- The module --------------------------------------------------------------
 
-export async function notificationAsync(type: NotificationFeedbackType = NotificationFeedbackType.Success): Promise<void> {
+export async function notificationAsync(
+  type: NotificationFeedbackType = NotificationFeedbackType.Success,
+): Promise<void> {
   if (PLATFORM === "ios") {
     return main(() => {
       const generator = new UINotificationFeedbackGenerator();
@@ -115,7 +136,9 @@ export async function notificationAsync(type: NotificationFeedbackType = Notific
   }
 }
 
-export async function impactAsync(style: ImpactFeedbackStyle = ImpactFeedbackStyle.Medium): Promise<void> {
+export async function impactAsync(
+  style: ImpactFeedbackStyle = ImpactFeedbackStyle.Medium,
+): Promise<void> {
   if (PLATFORM === "ios") {
     return main(() => {
       const generator = new UIImpactFeedbackGenerator(feedbackStyle(style));

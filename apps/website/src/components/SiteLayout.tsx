@@ -26,7 +26,10 @@ export function SiteLayout() {
             <nav aria-label="Main navigation" {...stylex.props(styles.mainNav)}>
               <Link
                 to="/docs/"
-                {...stylex.props(styles.languageNavLink, inDocs && !inReference && !inHowItWorks && styles.activeNav)}
+                {...stylex.props(
+                  styles.languageNavLink,
+                  inDocs && !inReference && !inHowItWorks && styles.activeNav,
+                )}
               >
                 Docs
               </Link>
@@ -46,7 +49,11 @@ export function SiteLayout() {
               <ThemeToggle />
               <a href="https://github.com/Fausto95/lucent" {...stylex.props(styles.githubLink)}>
                 {"GitHub "}
-                <svg viewBox="0 0 24 24" aria-hidden="true" {...stylex.props(styles.externalLinkIcon)}>
+                <svg
+                  viewBox="0 0 24 24"
+                  aria-hidden="true"
+                  {...stylex.props(styles.externalLinkIcon)}
+                >
                   <path d="M7 17 17 7M7 7h10v10"></path>
                 </svg>
               </a>

@@ -20,7 +20,10 @@ export const blocks: Block[] = [
         label: "Expo",
         blocks: [
           { kind: "code", filename: "terminal", code: install },
-          { kind: "p", text: "`lucent init` shows each change as a diff and asks before applying it. In an Expo app, it:" },
+          {
+            kind: "p",
+            text: "`lucent init` shows each change as a diff and asks before applying it. In an Expo app, it:",
+          },
           {
             kind: "list",
             items: [
@@ -41,7 +44,10 @@ export const blocks: Block[] = [
         label: "Bare React Native",
         blocks: [
           { kind: "code", filename: "terminal", code: install },
-          { kind: "p", text: "`lucent init` shows each change as a diff and asks before applying it. In a bare app, it:" },
+          {
+            kind: "p",
+            text: "`lucent init` shows each change as a diff and asks before applying it. In a bare app, it:",
+          },
           {
             kind: "list",
             items: [

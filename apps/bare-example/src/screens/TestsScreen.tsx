@@ -38,16 +38,33 @@ export function TestsScreen() {
         <Text style={styles.subtitle}>
           {results.length}/{cases.length} run · {passed} passed
         </Text>
-        <Text testID="lucent-summary" style={[styles.summary, done && (passed === cases.length ? styles.ok : styles.bad)]}>
-          {running ? "Running…" : done ? (passed === cases.length ? "ALL PASSED" : `${cases.length - passed} FAILED`) : ""}
+        <Text
+          testID="lucent-summary"
+          style={[styles.summary, done && (passed === cases.length ? styles.ok : styles.bad)]}
+        >
+          {running
+            ? "Running…"
+            : done
+              ? passed === cases.length
+                ? "ALL PASSED"
+                : `${cases.length - passed} FAILED`
+              : ""}
         </Text>
-        <Pressable disabled={running} onPress={runAll} style={({ pressed }) => [styles.button, (pressed || running) && styles.pressed]}>
+        <Pressable
+          disabled={running}
+          onPress={runAll}
+          style={({ pressed }) => [styles.button, (pressed || running) && styles.pressed]}
+        >
           <Text style={styles.buttonText}>Run again</Text>
         </Pressable>
       </View>
       <ScrollView contentContainerStyle={styles.list}>
         {results.map((r) => (
-          <Pressable key={r.name} onPress={() => setOpen(open === r.name ? null : r.name)} style={styles.row}>
+          <Pressable
+            key={r.name}
+            onPress={() => setOpen(open === r.name ? null : r.name)}
+            style={styles.row}
+          >
             <Text style={styles.rowTitle}>
               {r.status === "pass" ? "✅" : "❌"} {r.name} <Text style={styles.ms}>{r.ms} ms</Text>
             </Text>

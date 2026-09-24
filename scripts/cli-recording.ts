@@ -5,7 +5,7 @@
  * session as an animated SVG: each command typed out, its output shown as
  * it came, one screen per command, looping.
  *
- *   tsx scripts/cli-recording.ts
+ *   node scripts/cli-recording.ts
  */
 import { spawn } from "node:child_process";
 import fs from "node:fs";
@@ -36,7 +36,9 @@ function record(args: string[]): Promise<Chunk[]> {
   return new Promise((resolve) => {
     const start = Date.now();
     const chunks: Chunk[] = [];
-    const child = spawn(process.execPath, [bin, ...args, "--root", app], { env: { ...process.env, FORCE_COLOR: "1", COLUMNS: "78" } });
+    const child = spawn(process.execPath, [bin, ...args, "--root", app], {
+      env: { ...process.env, FORCE_COLOR: "1", COLUMNS: "78" },
+    });
     const add = (d: Buffer) => chunks.push({ at: Date.now() - start, text: d.toString() });
     child.stdout.on("data", add);
     child.stderr.on("data", add);
@@ -55,7 +57,13 @@ fs.rmSync(app, { recursive: true, force: true });
 
 // --- rendering ---------------------------------------------------------------------
 
-const PALETTE: Record<string, string> = { 31: "#ff6b6b", 32: "#7ee787", 33: "#f2cc60", 36: "#79c0ff", 90: "#8b949e" };
+const PALETTE: Record<string, string> = {
+  31: "#ff6b6b",
+  32: "#7ee787",
+  33: "#f2cc60",
+  36: "#79c0ff",
+  90: "#8b949e",
+};
 const VIOLET = "#b392f0";
 const FG = "#e6edf3";
 type Style = { fill: string; bold: boolean; dim: boolean };
@@ -65,7 +73,9 @@ type Span = { text: string; style: Style };
 function spans(line: string, style: Style): { spans: Span[]; style: Style } {
   const out: Span[] = [];
   let s = { ...style };
+  // oxlint-disable-next-line eslint/no-control-regex -- splits on the SGR escapes it renders
   for (const part of line.split(/(\x1b\[[0-9;]*m)/)) {
+    // oxlint-disable-next-line eslint/no-control-regex -- reads an SGR escape's codes
     const m = /^\x1b\[([0-9;]*)m$/.exec(part);
     if (!m) {
       if (part) out.push({ text: part, style: { ...s } });
@@ -77,10 +87,14 @@ function spans(line: string, style: Style): { spans: Span[]; style: Style } {
       if (c === "0" || c === "") s = { fill: FG, bold: false, dim: false };
       else if (c === "1") s.bold = true;
       else if (c === "2") s.dim = true;
-      else if (c === "22") (s.bold = false), (s.dim = false);
-      else if (c === "39") s.fill = FG;
-      else if (c === "38" && codes[i + 1] === "5") (s.fill = codes[i + 2] === "141" ? VIOLET : FG), (i += 2);
-      else if (PALETTE[c]) s.fill = PALETTE[c]!;
+      else if (c === "22") {
+        s.bold = false;
+        s.dim = false;
+      } else if (c === "39") s.fill = FG;
+      else if (c === "38" && codes[i + 1] === "5") {
+        s.fill = codes[i + 2] === "141" ? VIOLET : FG;
+        i += 2;
+      } else if (PALETTE[c]) s.fill = PALETTE[c]!;
     }
   }
   return { spans: out, style: s };
@@ -105,7 +119,12 @@ screens.forEach((screen, index) => {
   let typed = "";
   for (const ch of screen.command) {
     typed += ch;
-    lines.push({ at: clock, screen: index, y: 0, spans: [...prompt, { text: typed, style: { fill: FG, bold: true, dim: false } }] });
+    lines.push({
+      at: clock,
+      screen: index,
+      y: 0,
+      spans: [...prompt, { text: typed, style: { fill: FG, bold: true, dim: false } }],
+    });
     clock += TYPE_MS;
   }
   clock += 300;
@@ -126,7 +145,13 @@ screens.forEach((screen, index) => {
       lines.push({ at, screen: index, y: row++, spans: r.spans });
     }
   }
-  if (pending) lines.push({ at: lines.at(-1)?.at ?? start, screen: index, y: row++, spans: spans(pending, style).spans });
+  if (pending)
+    lines.push({
+      at: lines.at(-1)?.at ?? start,
+      screen: index,
+      y: row++,
+      spans: spans(pending, style).spans,
+    });
   maxLines = Math.max(maxLines, row);
   clock = (lines.at(-1)?.at ?? clock) + HOLD_MS;
   windows.push({ from, to: clock });
@@ -143,9 +168,18 @@ lines.forEach((l, i) => {
   const next = lines[i + 1];
   const replaced = next && next.screen === l.screen && next.y === l.y ? next.at : undefined;
   const end = replaced ?? windows[l.screen]!.to;
-  css.push(`@keyframes k${i}{0%,${pct(l.at - 1)}%{opacity:0}${pct(l.at)}%,${pct(end - 1)}%{opacity:1}${pct(end)}%,100%{opacity:0}}#l${i}{animation:k${i} ${total}ms step-end infinite}`);
-  const tspans = l.spans.map((s) => `<tspan fill="${s.style.fill}"${s.style.bold ? ' font-weight="700"' : ""}${s.style.dim ? ' opacity="0.6"' : ""}>${escape(s.text)}</tspan>`).join("");
-  texts.push(`<text id="l${i}" x="${LEFT}" y="${TOP + l.y * LINE}" xml:space="preserve">${tspans}</text>`);
+  css.push(
+    `@keyframes k${i}{0%,${pct(l.at - 1)}%{opacity:0}${pct(l.at)}%,${pct(end - 1)}%{opacity:1}${pct(end)}%,100%{opacity:0}}#l${i}{animation:k${i} ${total}ms step-end infinite}`,
+  );
+  const tspans = l.spans
+    .map(
+      (s) =>
+        `<tspan fill="${s.style.fill}"${s.style.bold ? ' font-weight="700"' : ""}${s.style.dim ? ' opacity="0.6"' : ""}>${escape(s.text)}</tspan>`,
+    )
+    .join("");
+  texts.push(
+    `<text id="l${i}" x="${LEFT}" y="${TOP + l.y * LINE}" xml:space="preserve">${tspans}</text>`,
+  );
 });
 
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="img" aria-label="lucent build, then lucent check reporting an error with a code frame and its fix">
@@ -157,4 +191,6 @@ ${texts.join("\n")}
 `;
 const outFile = path.join(root, "assets/cli.svg");
 fs.writeFileSync(outFile, svg);
-console.log(`✓ ${path.relative(root, outFile)}: ${screens.length} screens, ${(total / 1000).toFixed(1)} s, ${(svg.length / 1024).toFixed(0)} KB`);
+console.log(
+  `✓ ${path.relative(root, outFile)}: ${screens.length} screens, ${(total / 1000).toFixed(1)} s, ${(svg.length / 1024).toFixed(0)} KB`,
+);

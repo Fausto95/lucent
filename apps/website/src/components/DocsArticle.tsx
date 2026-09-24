@@ -15,7 +15,8 @@ const source = "https://github.com/Fausto95/lucent/edit/main/apps/website/src/do
 
 /** The page template: title, the answer, the blocks, one "Next" link, then where to edit it. */
 export function DocsArticle() {
-  const { lookup, blocks }: { lookup?: DocLookup; blocks?: Block[] } = useLoaderData({ strict: false }) ?? {};
+  const { lookup, blocks }: { lookup?: DocLookup; blocks?: Block[] } =
+    useLoaderData({ strict: false }) ?? {};
   if (!lookup || !blocks) throw new Error("DocsArticle renders only under a docs page route");
   const { entry, group, next } = lookup;
   useDocumentMeta(`${entry.title} — Lucent docs`, entry.description);

@@ -23,10 +23,16 @@ export function run({ root, flags, out }: Invocation): number {
     out.print(`${t.success(t.symbols.ok)} removed .lucent  ${t.dim(mb(freed))}`);
   } else out.print(`${t.dim(t.symbols.off)} nothing to remove in the project`);
   if (flags.cache) {
-    const cache = path.join(process.env.LUCENT_CACHE_DIR || path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), ".cache"), "lucent"), "sdk");
+    const cache = path.join(
+      process.env.LUCENT_CACHE_DIR ||
+        path.join(process.env.XDG_CACHE_HOME || path.join(os.homedir(), ".cache"), "lucent"),
+      "sdk",
+    );
     const freed = size(cache);
     fs.rmSync(cache, { recursive: true, force: true });
-    out.print(`${t.success(t.symbols.ok)} removed the SDK cache  ${t.dim(`${mb(freed)}, ${cache.replace(os.homedir(), "~")}; SDK modules are extracted again on first use`)}`);
+    out.print(
+      `${t.success(t.symbols.ok)} removed the SDK cache  ${t.dim(`${mb(freed)}, ${cache.replace(os.homedir(), "~")}; SDK modules are extracted again on first use`)}`,
+    );
   }
   return 0;
 }

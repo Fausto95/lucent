@@ -2,10 +2,7 @@
   "$id": "https://lucent-lang.dev/schemas/doctor.schema.json",
   "title": "lucent doctor --json",
   "type": "object",
-  "required": [
-    "ok",
-    "checks"
-  ],
+  "required": ["ok", "checks"],
   "additionalProperties": false,
   "properties": {
     "ok": {
@@ -16,12 +13,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "id",
-          "label",
-          "status",
-          "detail"
-        ],
+        "required": ["id", "label", "status", "detail"],
         "additionalProperties": false,
         "properties": {
           "id": {
@@ -32,12 +24,7 @@
             "type": "string"
           },
           "status": {
-            "enum": [
-              "ok",
-              "warn",
-              "fail",
-              "skip"
-            ]
+            "enum": ["ok", "warn", "fail", "skip"]
           },
           "detail": {
             "type": "string"

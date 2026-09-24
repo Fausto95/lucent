@@ -18,7 +18,12 @@ import {
   type OS_nw_path_monitor,
 } from "lucent:ios/Network";
 import { mainQueue } from "lucent:ios";
-import { ConnectivityManager, ConnectivityManager_NetworkCallback, Network, NetworkCapabilities } from "lucent:android/android.net";
+import {
+  ConnectivityManager,
+  ConnectivityManager_NetworkCallback,
+  Network,
+  NetworkCapabilities,
+} from "lucent:android/android.net";
 import { appContext, available } from "lucent:android";
 
 export interface NetInfoDetails {
@@ -40,9 +45,17 @@ function pathState(path: OS_nw_path): NetInfoState {
   if (nw_path_get_status(path) !== nw_path_status_t.nw_path_status_satisfied) {
     return { type: "none", isConnected: false, isInternetReachable: false, details: null };
   }
-  const cellular = nw_path_uses_interface_type(path, nw_interface_type_t.nw_interface_type_cellular);
+  const cellular = nw_path_uses_interface_type(
+    path,
+    nw_interface_type_t.nw_interface_type_cellular,
+  );
   // Like SCNetworkReachability, which netinfo reads: only cellular is told apart.
-  return { type: cellular ? "cellular" : "wifi", isConnected: true, isInternetReachable: null, details: { isConnectionExpensive: cellular } };
+  return {
+    type: cellular ? "cellular" : "wifi",
+    isConnected: true,
+    isInternetReachable: null,
+    details: { isConnectionExpensive: cellular },
+  };
 }
 
 const monitors = new Map<number, OS_nw_path_monitor>();
@@ -82,7 +95,8 @@ function connectivity(): ConnectivityManager {
 }
 
 function capabilitiesState(capabilities: NetworkCapabilities | null): NetInfoState {
-  if (!capabilities) return { type: "none", isConnected: false, isInternetReachable: false, details: null };
+  if (!capabilities)
+    return { type: "none", isConnected: false, isInternetReachable: false, details: null };
   const has = (transport: number) => capabilities.hasTransport(transport);
   const type = has(NetworkCapabilities.TRANSPORT_BLUETOOTH)
     ? "bluetooth"
@@ -95,11 +109,24 @@ function capabilitiesState(capabilities: NetworkCapabilities | null): NetInfoSta
           : has(NetworkCapabilities.TRANSPORT_VPN)
             ? "vpn"
             : "unknown";
-  const suspended = available("android", 28) ? !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED) : false;
-  let reachable = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) && capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) && !suspended;
-  if (has(NetworkCapabilities.TRANSPORT_VPN)) reachable = reachable && capabilities.getLinkDownstreamBandwidthKbps() !== 0;
+  const suspended = available("android", 28)
+    ? !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED)
+    : false;
+  let reachable =
+    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+    capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED) &&
+    !suspended;
+  if (has(NetworkCapabilities.TRANSPORT_VPN))
+    reachable = reachable && capabilities.getLinkDownstreamBandwidthKbps() !== 0;
   const isConnected = type !== "unknown";
-  return { type, isConnected, isInternetReachable: reachable, details: isConnected ? { isConnectionExpensive: connectivity().isActiveNetworkMetered() } : null };
+  return {
+    type,
+    isConnected,
+    isInternetReachable: reachable,
+    details: isConnected
+      ? { isConnectionExpensive: connectivity().isActiveNetworkMetered() }
+      : null,
+  };
 }
 
 function currentNetwork(): NetInfoState {
@@ -113,10 +140,10 @@ class Watcher extends ConnectivityManager_NetworkCallback {
   constructor(private readonly onState: (state: NetInfoState) => void) {
     super();
   }
-  onAvailable(network: Network): void {
+  onAvailable(_network: Network): void {
     this.onState(currentNetwork());
   }
-  onLost(network: Network): void {
+  onLost(_network: Network): void {
     this.onState(capabilitiesState(null));
   }
   onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities): void {

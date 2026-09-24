@@ -44,7 +44,13 @@ function utf8Encode(s) {
     if (cp < 0x80) out.push(cp);
     else if (cp < 0x800) out.push(0xc0 | (cp >> 6), 0x80 | (cp & 63));
     else if (cp < 0x10000) out.push(0xe0 | (cp >> 12), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63));
-    else out.push(0xf0 | (cp >> 18), 0x80 | ((cp >> 12) & 63), 0x80 | ((cp >> 6) & 63), 0x80 | (cp & 63));
+    else
+      out.push(
+        0xf0 | (cp >> 18),
+        0x80 | ((cp >> 12) & 63),
+        0x80 | ((cp >> 6) & 63),
+        0x80 | (cp & 63),
+      );
   }
   return new Uint8Array(out);
 }
@@ -66,7 +72,8 @@ function utf8Decode(bytes) {
         len = 2;
       }
     } else if ((c & 0xf0) === 0xe0) {
-      const a = cont(1), b = cont(2);
+      const a = cont(1),
+        b = cont(2);
       if (a >= 0 && b >= 0) {
         const v = ((c & 15) << 12) | (a << 6) | b;
         if (v >= 0x800) {
@@ -75,7 +82,9 @@ function utf8Decode(bytes) {
         }
       }
     } else if ((c & 0xf8) === 0xf0) {
-      const a = cont(1), b = cont(2), d = cont(3);
+      const a = cont(1),
+        b = cont(2),
+        d = cont(3);
       if (a >= 0 && b >= 0 && d >= 0) {
         const v = ((c & 7) << 18) | (a << 12) | (b << 6) | d;
         if (v >= 0x10000 && v <= 0x10ffff) {

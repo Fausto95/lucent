@@ -19,7 +19,9 @@ function StepList({ store, theme }: { store: Store; theme: Theme }) {
   return (
     <>
       <Static items={state.done}>{(r, i) => <Text key={i}>{stepLine(r, theme)}</Text>}</Static>
-      {state.running ? <Text>{`${theme.progress(spinner)} ${state.running.label}${theme.dim(theme.symbols.ellipsis)}`}</Text> : null}
+      {state.running ? (
+        <Text>{`${theme.progress(spinner)} ${state.running.label}${theme.dim(theme.symbols.ellipsis)}`}</Text>
+      ) : null}
     </>
   );
 }

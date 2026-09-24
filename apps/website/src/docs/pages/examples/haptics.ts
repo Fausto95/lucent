@@ -6,7 +6,7 @@ export const blocks: Block[] = [
     kind: "list",
     items: [
       "iOS: UIKit's feedback generators may only run on the main thread, so each call is inside `main()`. The compiler rejects them anywhere else.",
-      "Android: `available(\"android\", 31)` picks `VibratorManager` or `Vibrator`. Calling an API newer than the app's minimum without such a check is a compile error.",
+      'Android: `available("android", 31)` picks `VibratorManager` or `Vibrator`. Calling an API newer than the app\'s minimum without such a check is a compile error.',
       "It ships as an npm package, `lucent-haptics`, with the same API as `expo-haptics`.",
     ],
   },

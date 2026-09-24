@@ -87,7 +87,13 @@ export function shapes(): string {
 }
 
 export function zoo(): string {
-  const all: Animal[] = [new Animal("generic"), new Dog("rex", "lab"), new Puppy("bit", "pug"), new Bird("tweety"), Animal.named("x")];
+  const all: Animal[] = [
+    new Animal("generic"),
+    new Dog("rex", "lab"),
+    new Puppy("bit", "pug"),
+    new Bird("tweety"),
+    Animal.named("x"),
+  ];
   return all.map((a) => `${a.describe()} legs=${a.legs} dog=${a instanceof Dog}`).join(" | ");
 }
 

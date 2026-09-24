@@ -34,7 +34,12 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
   };
 
   return (
-    <dialog ref={dialog} aria-label="Search the docs" onClose={onClose} {...stylex.props(styles.dialog)}>
+    <dialog
+      ref={dialog}
+      aria-label="Search the docs"
+      onClose={onClose}
+      {...stylex.props(styles.dialog)}
+    >
       <input
         type="search"
         autoFocus
@@ -54,7 +59,9 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
         }}
         {...stylex.props(styles.input)}
       />
-      {query.trim() && index && !results.length && <p {...stylex.props(styles.empty)}>Nothing matches “{query.trim()}”.</p>}
+      {query.trim() && index && !results.length && (
+        <p {...stylex.props(styles.empty)}>Nothing matches “{query.trim()}”.</p>
+      )}
       {results.length > 0 && (
         <ul {...stylex.props(styles.results)}>
           {results.map((result, i) => (
@@ -71,7 +78,9 @@ export function SearchDialog({ open, onClose }: { open: boolean; onClose: () => 
               >
                 <span {...stylex.props(styles.resultTitle)}>
                   {result.page}
-                  {result.heading && <span {...stylex.props(styles.resultHeading)}> › {result.heading}</span>}
+                  {result.heading && (
+                    <span {...stylex.props(styles.resultHeading)}> › {result.heading}</span>
+                  )}
                 </span>
                 <span {...stylex.props(styles.resultSnippet)}>{result.snippet}</span>
               </a>

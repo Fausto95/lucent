@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 const pkg = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Resolves as an app would: the package by name, through its exports map.
@@ -27,9 +27,13 @@ describe("@lucent-lang/lucent/core", () => {
   });
 
   it("declares its types with lucent:core's declarations, which the published package ships", () => {
-    const exported = (JSON.parse(fs.readFileSync(path.join(pkg, "package.json"), "utf8")) as { exports: Record<string, { types?: string }> }).exports["./core"];
+    const exported = (
+      JSON.parse(fs.readFileSync(path.join(pkg, "package.json"), "utf8")) as {
+        exports: Record<string, { types?: string }>;
+      }
+    ).exports["./core"];
     expect(exported?.types).toBe("./lib/sdk/core.d.ts");
-    // lib/ is the compiler's lib/, copied by scripts/build.mts.
+    // lib/ is the compiler's lib/, copied by the package build (vite.config.ts).
     expect(fs.existsSync(path.join(pkg, "../compiler/lib/sdk/core.d.ts"))).toBe(true);
   });
 });

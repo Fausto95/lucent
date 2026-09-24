@@ -39,17 +39,25 @@ export const GLOBAL_FLAGS: FlagSpec[] = [
   { name: "help", description: "Show help" },
 ];
 
-export type Parsed = { command: CommandSpec | undefined; flags: Flags; positionals: string[] } | { error: string };
+export type Parsed =
+  | { command: CommandSpec | undefined; flags: Flags; positionals: string[] }
+  | { error: string };
 
 export function parseArgs(argv: string[], commands: CommandSpec[]): Parsed {
   const words = argv.filter((a) => !a.startsWith("-"));
-  const command = [...commands].sort((a, b) => b.name.split(" ").length - a.name.split(" ").length).find((c) => c.name.split(" ").every((w, i) => words[i] === w));
+  const command = [...commands]
+    .sort((a, b) => b.name.split(" ").length - a.name.split(" ").length)
+    .find((c) => c.name.split(" ").every((w, i) => words[i] === w));
   const firstWord = argv[0];
   if (!command && firstWord && !firstWord.startsWith("-")) {
     const near = closest(firstWord, [...new Set(commands.map((c) => c.name.split(" ")[0]!))]);
     return { error: `unknown command ${firstWord}${near ? ` (did you mean ${near}?)` : ""}` };
   }
-  const specs = [...(command?.flags ?? []), ...GLOBAL_FLAGS, ...(command ? [] : [{ name: "version", description: "" }])];
+  const specs = [
+    ...(command?.flags ?? []),
+    ...GLOBAL_FLAGS,
+    ...(command ? [] : [{ name: "version", description: "" }]),
+  ];
   const flags: Flags = {};
   const positionals: string[] = [];
   const nameWords = command ? command.name.split(" ").length : 0;
@@ -63,7 +71,8 @@ export function parseArgs(argv: string[], commands: CommandSpec[]): Parsed {
     }
     const [name, inline] = a.slice(2).split(/=(.*)/s, 2) as [string, string | undefined];
     const spec = specs.find((f) => f.name === name);
-    if (!spec) return { error: `unknown flag --${name}${command ? ` for lucent ${command.name}` : ""}` };
+    if (!spec)
+      return { error: `unknown flag --${name}${command ? ` for lucent ${command.name}` : ""}` };
     if (!spec.value) {
       flags[name] = true;
       continue;

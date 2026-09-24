@@ -21,8 +21,14 @@ export function coverage(schema: SdkModuleSchema): Coverage {
   for (const t of schema.types) {
     if (t.kind !== "class") continue;
     raw += t.constructors?.length ?? 0;
-    for (const m of t.methods ?? []) m.async ? idiomatic++ : raw++;
-    for (const p of t.properties ?? []) p.getter ? idiomatic++ : raw++;
+    for (const m of t.methods ?? []) {
+      if (m.async) idiomatic++;
+      else raw++;
+    }
+    for (const p of t.properties ?? []) {
+      if (p.getter) idiomatic++;
+      else raw++;
+    }
   }
   raw += (schema.functions?.length ?? 0) + (schema.constants?.length ?? 0);
   const reasons: Record<string, number> = {};
@@ -31,5 +37,12 @@ export function coverage(schema: SdkModuleSchema): Coverage {
     reasons[reason] = (reasons[reason] ?? 0) + 1;
   }
   const unrepresentable = schema.skipped?.length ?? 0;
-  return { module: schema.module, idiomatic, raw, unrepresentable, total: idiomatic + raw + unrepresentable, reasons };
+  return {
+    module: schema.module,
+    idiomatic,
+    raw,
+    unrepresentable,
+    total: idiomatic + raw + unrepresentable,
+    reasons,
+  };
 }

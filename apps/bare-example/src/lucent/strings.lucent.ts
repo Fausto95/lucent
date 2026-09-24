@@ -69,10 +69,24 @@ export function collate(words: string[]): string {
 }
 
 /** Template literals: every kind of interpolated value, formatted as JavaScript does. */
-export function templates(xs: number[], k: number, flag: boolean, name: string, maybe: string | undefined): string[] {
+export function templates(
+  xs: number[],
+  k: number,
+  flag: boolean,
+  name: string,
+  maybe: string | undefined,
+): string[] {
   const out: string[] = [];
   for (const x of xs) out.push(`[${x}]`);
   for (let i = 0; i < 3; i++) out.push(`${i}:${i * 0.5}:${i | 0}:${k >>> 0}:${(k * 31) % 997}`);
-  out.push(`${flag}-${!flag}`, `${name}${name}`, `é${name}`, `${maybe}|${maybe ?? "none"}`, `${k}`, `${""}`, `a${""}b`);
+  out.push(
+    `${flag}-${!flag}`,
+    `${name}${name}`,
+    `é${name}`,
+    `${maybe}|${maybe ?? "none"}`,
+    `${k}`,
+    `${""}`,
+    `a${""}b`,
+  );
   return out;
 }

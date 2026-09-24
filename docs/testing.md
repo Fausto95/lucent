@@ -21,15 +21,15 @@ the build.
 
 ## Suites
 
-| Command | What it checks | Needs Hermes |
-|---|---|---|
-| `pnpm test` | compiler unit tests (vitest): diagnostics, platforms, native package, incremental builds, debug info, editor plugin, the CLI (commands, output snapshots, --json schemas, doctor on a fake machine, dev) | no |
-| `pnpm test:runtime` | C++ runtime unit tests (`packages/runtime/test/runtime_test.cpp`) | no |
-| `pnpm test:e2e [case…]` | differential end-to-end cases | yes |
-| `pnpm exec tsx scripts/app-check.ts apps/bare-example` | an example app's real Metro bundle against its generated C++ | yes |
-| `pnpm exec tsx scripts/bench.ts --check` | performance budgets | yes |
-| `pnpm exec tsx scripts/smoke-install.ts` | packed packages install and run in an empty project | no |
-| `pnpm typecheck` | the repository's own TypeScript | no |
+| Command                                       | What it checks                                                                                                                                                                                           | Needs Hermes |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| `pnpm test`                                   | compiler unit tests (vitest): diagnostics, platforms, native package, incremental builds, debug info, editor plugin, the CLI (commands, output snapshots, --json schemas, doctor on a fake machine, dev) | no           |
+| `pnpm test:runtime`                           | C++ runtime unit tests (`packages/runtime/test/runtime_test.cpp`)                                                                                                                                        | no           |
+| `pnpm test:e2e [case…]`                       | differential end-to-end cases                                                                                                                                                                            | yes          |
+| `node scripts/app-check.ts apps/bare-example` | an example app's real Metro bundle against its generated C++                                                                                                                                             | yes          |
+| `node scripts/bench.ts --check`               | performance budgets                                                                                                                                                                                      | yes          |
+| `node scripts/smoke-install.ts`               | packed packages install and run in an empty project                                                                                                                                                      | no           |
+| `pnpm typecheck`                              | the repository's own TypeScript                                                                                                                                                                          | no           |
 
 ## Differential end-to-end cases
 
@@ -49,7 +49,7 @@ local-time code sees daylight saving time even on UTC machines.
 
 Every language feature needs a case. A case that cannot match JavaScript
 documents the deviation in [semantics.md](semantics.md). After changing cases,
-run `pnpm exec tsx scripts/sync-examples.ts`: the example apps' on-device test
+run `node scripts/sync-examples.ts`: the example apps' on-device test
 screens run the same cases.
 
 ## Sanitizers

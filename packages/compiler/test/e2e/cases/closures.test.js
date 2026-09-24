@@ -7,4 +7,12 @@ print(mod.accumulate(1) - base, mod.accumulate(2) - base, mod.accumulate(3) - ba
 const greet = mod.makeGreeter("Hello");
 print(greet("Ada"), greet("Bo"));
 print(mod.callTwice((x) => x * 3, 2));
-print(JSON.stringify(mod.sortBy([{ name: "b", age: 2 }, { name: "a", age: 2 }, { name: "c", age: 1 }])));
+print(
+  JSON.stringify(
+    mod.sortBy([
+      { name: "b", age: 2 },
+      { name: "a", age: 2 },
+      { name: "c", age: 1 },
+    ]),
+  ),
+);

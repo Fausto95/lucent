@@ -25,8 +25,16 @@ export async function askTwice(ask: (question: string) => Promise<number>): Prom
     kind: "table",
     head: ["Called from", "The callback", "It may return"],
     rows: [
-      ["a synchronous export", "runs at once, on the JS thread", "any value that can cross; it's checked"],
-      ["async code", "is posted to the JS thread", "`void`, or a `Promise` that Lucent can `await`"],
+      [
+        "a synchronous export",
+        "runs at once, on the JS thread",
+        "any value that can cross; it's checked",
+      ],
+      [
+        "async code",
+        "is posted to the JS thread",
+        "`void`, or a `Promise` that Lucent can `await`",
+      ],
     ],
   },
   {

@@ -1,23 +1,65 @@
-
 /**
  * The compiler's side of binding schemas (the format is @lucent-lang/bindgen's):
  * the type grammar, JNI descriptors, and module lookup.
  */
 
-import { formatSchemaType, parseSchemaType, type Platform, PLATFORMS, type PrimName, type SchemaType, type SdkClassSchema, type SdkEnumSchema, type SdkStructSchema, type NamesIndex, type SdkLookup, type SdkModuleSchema, sdkAvailable, sdkIdentity, sdkModule, sdkNames, type SdkOptions } from "@lucent-lang/bindgen";
+import {
+  formatSchemaType,
+  parseSchemaType,
+  type Platform,
+  PLATFORMS,
+  type PrimName,
+  type SchemaType,
+  type SdkClassSchema,
+  type SdkEnumSchema,
+  type SdkStructSchema,
+  type NamesIndex,
+  type SdkLookup,
+  type SdkModuleSchema,
+  sdkAvailable,
+  sdkIdentity,
+  sdkModule,
+  sdkNames,
+  type SdkOptions,
+} from "@lucent-lang/bindgen";
 
 export { formatSchemaType, PLATFORMS };
 export type { PrimName };
 export type { SdkOptions } from "@lucent-lang/bindgen";
-export type { Platform, SdkCallable, SdkClassSchema, SdkEnumSchema, SdkMethodSchema, SdkModuleSchema, SdkParam, SdkPropertySchema, SdkStructSchema } from "@lucent-lang/bindgen";
+export type {
+  Platform,
+  SdkCallable,
+  SdkClassSchema,
+  SdkEnumSchema,
+  SdkMethodSchema,
+  SdkModuleSchema,
+  SdkParam,
+  SdkPropertySchema,
+  SdkStructSchema,
+} from "@lucent-lang/bindgen";
 
 /** A schema type: `int`, `string?`, `long[]`, `Class<T>`, `android.os.Vibrator` (bindgen's format). */
 export type SdkType = SchemaType;
 
-const JNI_PRIM: Record<string, string> = { void: "V", boolean: "Z", bool: "Z", byte: "B", char: "C", short: "S", int: "I", long: "J", float: "F", double: "D" };
+const JNI_PRIM: Record<string, string> = {
+  void: "V",
+  boolean: "Z",
+  bool: "Z",
+  byte: "B",
+  char: "C",
+  short: "S",
+  int: "I",
+  long: "J",
+  float: "F",
+  double: "D",
+};
 
 /** A schema type, as is, or from its written form (hand-written schemas); bare names refer to `module`. */
-export function parseSdkType(s: string | SchemaType, module = "", typeParams: readonly string[] = []): SdkType {
+export function parseSdkType(
+  s: string | SchemaType,
+  module = "",
+  typeParams: readonly string[] = [],
+): SdkType {
   return typeof s === "string" ? parseSchemaType(s, module, typeParams) : s;
 }
 
@@ -57,7 +99,11 @@ export function loadSdkModule(platform: Platform, module: string): SdkModuleSche
 }
 
 /** A type's kind and native name, from the module's names (no schema needed). */
-export function sdkTypeInfo(platform: Platform, module: string, name: string): NamesIndex["types"][string] | undefined {
+export function sdkTypeInfo(
+  platform: Platform,
+  module: string,
+  name: string,
+): NamesIndex["types"][string] | undefined {
   const n = sdkNames(platform, module, sdkOptions);
   return "names" in n ? n.names.types[name] : undefined;
 }
@@ -73,12 +119,20 @@ export function currentSdkIdentity(): string {
   return sdkIdentity(sdkOptions);
 }
 
-export function findSdkType(platform: Platform, module: string, name: string): SdkClassSchema | SdkEnumSchema | SdkStructSchema | undefined {
+export function findSdkType(
+  platform: Platform,
+  module: string,
+  name: string,
+): SdkClassSchema | SdkEnumSchema | SdkStructSchema | undefined {
   return findSdkModule(platform, module)?.types.find((t) => t.name === name);
 }
 
 /** The JNI descriptor of a method with these schema parameter and return types. */
-export function jniDescriptor(params: (string | SchemaType)[], returns: string | SchemaType, typeParams: readonly string[] = []): string {
+export function jniDescriptor(
+  params: (string | SchemaType)[],
+  returns: string | SchemaType,
+  typeParams: readonly string[] = [],
+): string {
   const one = (t: SdkType): string => {
     switch (t.k) {
       case "prim":

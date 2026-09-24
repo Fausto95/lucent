@@ -2,7 +2,14 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { forgetLoadedSdks, type NativeDependencies, podsSearchPaths, runtimeDir, type SdkOptions, withGradleDependencies } from "@lucent-lang/compiler";
+import {
+  forgetLoadedSdks,
+  type NativeDependencies,
+  podsSearchPaths,
+  runtimeDir,
+  type SdkOptions,
+  withGradleDependencies,
+} from "@lucent-lang/compiler";
 import { withLucentPaths } from "./tsconfig.ts";
 import { packageFile } from "./version.ts";
 
@@ -17,7 +24,10 @@ export function mapLucentPaths(root: string): Notice | undefined {
   try {
     text = withLucentPaths(fs.readFileSync(file, "utf8"));
   } catch (e) {
-    return { level: "warn", text: `${(e as Error).message}; add "paths": { "lucent:*": ["./.lucent/native/types/*"] } to its compilerOptions yourself` };
+    return {
+      level: "warn",
+      text: `${(e as Error).message}; add "paths": { "lucent:*": ["./.lucent/native/types/*"] } to its compilerOptions yourself`,
+    };
   }
   if (text === undefined) return undefined;
   fs.writeFileSync(file, text);
@@ -27,7 +37,10 @@ export function mapLucentPaths(root: string): Notice | undefined {
 /** Where this project's bindings come from: the SDKs, and what the app links. */
 export function projectSdk(root: string): SdkOptions {
   const pods = podsSearchPaths(path.join(root, "ios"));
-  return { android: { classpath: path.join(root, ".lucent/android-classpath.json") }, ...(pods ? { ios: pods } : {}) };
+  return {
+    android: { classpath: path.join(root, ".lucent/android-classpath.json") },
+    ...(pods ? { ios: pods } : {}),
+  };
 }
 
 /**
@@ -38,7 +51,13 @@ export function projectSdk(root: string): SdkOptions {
  * a failure included, so neither builds nor watch rebuilds rerun Gradle for
  * the same inputs.
  */
-export function resolveAndroidDependencies(root: string, files: string[], sdk: SdkOptions, native: NativeDependencies, force: boolean): AndroidDependencies {
+export function resolveAndroidDependencies(
+  root: string,
+  files: string[],
+  sdk: SdkOptions,
+  native: NativeDependencies,
+  force: boolean,
+): AndroidDependencies {
   const android = path.join(root, "android");
   const gradlew = path.join(android, process.platform === "win32" ? "gradlew.bat" : "gradlew");
   if (!sdkImports(files).android.length || !fs.existsSync(gradlew)) return { status: "none" };
@@ -46,21 +65,35 @@ export function resolveAndroidDependencies(root: string, files: string[], sdk: S
   if (process.env.LUCENT_GRADLE_CLASSPATH) return { status: "cached" };
   // expo prebuild: android/ is being written, and a Gradle run now would cache it half-made
   // (autolinking with the template's package). The Gradle build resolves it later, in lucentBuild.
-  if (process.env.LUCENT_NO_GRADLE) return fs.existsSync(sdk.android!.classpath!) ? { status: "cached" } : { status: "deferred" };
+  if (process.env.LUCENT_NO_GRADLE)
+    return fs.existsSync(sdk.android!.classpath!) ? { status: "cached" } : { status: "deferred" };
   const stateFile = path.join(root, ".lucent/android-classpath.state.json");
   const inputs = gradleInputsHash(root, native);
-  const state = fs.existsSync(stateFile) ? (JSON.parse(fs.readFileSync(stateFile, "utf8")) as { inputs?: string; ok?: boolean }) : {};
+  const state = fs.existsSync(stateFile)
+    ? (JSON.parse(fs.readFileSync(stateFile, "utf8")) as { inputs?: string; ok?: boolean })
+    : {};
   if (!force && state.inputs === inputs && state.ok === false) {
-    return { status: "failed", detail: "Gradle could not resolve them for these build files before; lucent build --force retries" };
+    return {
+      status: "failed",
+      detail:
+        "Gradle could not resolve them for these build files before; lucent build --force retries",
+    };
   }
-  if (!force && state.inputs === inputs && fs.existsSync(sdk.android!.classpath!)) return { status: "cached" };
+  if (!force && state.inputs === inputs && fs.existsSync(sdk.android!.classpath!))
+    return { status: "cached" };
   const script = packageFile("gradle/lucent-classpath.init.gradle");
-  const r = spawnSync(gradlew, ["-q", "--init-script", script, ":app:lucentClasspath"], { cwd: android, encoding: "utf8" });
+  const r = spawnSync(gradlew, ["-q", "--init-script", script, ":app:lucentClasspath"], {
+    cwd: android,
+    encoding: "utf8",
+  });
   fs.mkdirSync(path.dirname(stateFile), { recursive: true });
   fs.writeFileSync(stateFile, JSON.stringify({ inputs, ok: r.status === 0 }) + "\n");
   forgetLoadedSdks();
   if (r.status === 0) return { status: "resolved" };
-  return { status: "failed", detail: `Gradle could not resolve them (retried when the build files or the lockfile change, or with lucent build --force):\n${(r.stderr || r.stdout).trim().split("\n").slice(-8).join("\n")}` };
+  return {
+    status: "failed",
+    detail: `Gradle could not resolve them (retried when the build files or the lockfile change, or with lucent build --force):\n${(r.stderr || r.stdout).trim().split("\n").slice(-8).join("\n")}`,
+  };
 }
 
 /**
@@ -68,12 +101,17 @@ export function resolveAndroidDependencies(root: string, files: string[], sdk: S
  * nothing changed, resolved, left to the Gradle build (no Gradle allowed
  * now, and never resolved), or failed (why).
  */
-export type AndroidDependencies = { status: "none" | "cached" | "resolved" | "deferred" } | { status: "failed"; detail: string };
+export type AndroidDependencies =
+  | { status: "none" | "cached" | "resolved" | "deferred" }
+  | { status: "failed"; detail: string };
 
 /** The native package's build.gradle with the Lucent packages' Gradle artifacts, before the rest is written. */
 export function writeGradleDependencies(out: string, native: NativeDependencies): void {
   const file = path.join(out, "android/build.gradle");
-  const text = withGradleDependencies(fs.readFileSync(path.join(runtimeDir(), "native/android/build.gradle"), "utf8"), native);
+  const text = withGradleDependencies(
+    fs.readFileSync(path.join(runtimeDir(), "native/android/build.gradle"), "utf8"),
+    native,
+  );
   if (fs.existsSync(file) && fs.readFileSync(file, "utf8") === text) return;
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, text);
@@ -85,11 +123,20 @@ export function missingInfoPlistKeys(root: string, native: NativeDependencies): 
   const out: Notice[] = [];
   if (!keys.length) return out;
   const ios = path.join(root, "ios");
-  const plists = fs.existsSync(ios) ? fs.readdirSync(ios).map((d) => path.join(ios, d, "Info.plist")).filter((f) => fs.existsSync(f)) : [];
+  const plists = fs.existsSync(ios)
+    ? fs
+        .readdirSync(ios)
+        .map((d) => path.join(ios, d, "Info.plist"))
+        .filter((f) => fs.existsSync(f))
+    : [];
   for (const plist of plists) {
     const text = fs.readFileSync(plist, "utf8");
     for (const [key, { from }] of keys) {
-      if (!text.includes(`<key>${key}</key>`)) out.push({ level: "warn", text: `${from} needs ${key} in ${path.relative(root, plist)} (the Expo config plugin adds it)` });
+      if (!text.includes(`<key>${key}</key>`))
+        out.push({
+          level: "warn",
+          text: `${from} needs ${key} in ${path.relative(root, plist)} (the Expo config plugin adds it)`,
+        });
     }
   }
   return out;
@@ -98,9 +145,19 @@ export function missingInfoPlistKeys(root: string, native: NativeDependencies): 
 /** What decides the app's Android classpath: Gradle's files, and the JS lockfile (autolinked packages). */
 function gradleInputsHash(root: string, native: NativeDependencies): string {
   const android = path.join(root, "android");
-  const gradle = ["settings.gradle", "settings.gradle.kts", "build.gradle", "build.gradle.kts", "app/build.gradle", "app/build.gradle.kts", "gradle.properties", "gradle/libs.versions.toml"].map((f) => path.join(android, f));
+  const gradle = [
+    "settings.gradle",
+    "settings.gradle.kts",
+    "build.gradle",
+    "build.gradle.kts",
+    "app/build.gradle",
+    "app/build.gradle.kts",
+    "gradle.properties",
+    "gradle/libs.versions.toml",
+  ].map((f) => path.join(android, f));
   const h = createHash("sha256");
-  for (const f of [...gradle, ...lockfiles(root)]) h.update(`${f}\0${fs.existsSync(f) ? fs.readFileSync(f) : ""}\0`);
+  for (const f of [...gradle, ...lockfiles(root)])
+    h.update(`${f}\0${fs.existsSync(f) ? fs.readFileSync(f) : ""}\0`);
   h.update(JSON.stringify(native.gradle));
   return h.digest("hex").slice(0, 16);
 }
@@ -117,7 +174,9 @@ function lockfiles(root: string): string[] {
 /** `lucent:<platform>/<module>` imports of the project's files. */
 export function sdkImports(files: string[]): { ios: string[]; android: string[] } {
   const out = { ios: new Set<string>(), android: new Set<string>() };
-  for (const f of files) for (const m of fs.readFileSync(f, "utf8").matchAll(/["']lucent:(ios|android)\/([\w.]+)["']/g)) out[m[1] as "ios" | "android"].add(m[2]!);
+  for (const f of files)
+    for (const m of fs.readFileSync(f, "utf8").matchAll(/["']lucent:(ios|android)\/([\w.]+)["']/g))
+      out[m[1] as "ios" | "android"].add(m[2]!);
   return { ios: [...out.ios].sort(), android: [...out.android].sort() };
 }
 
@@ -129,7 +188,11 @@ export function backgroundPrefetch(root: string, files: string[]): void {
   const imports = sdkImports(files);
   for (const p of ["ios", "android"] as const) {
     for (const m of imports[p]) {
-      const child = spawn(process.execPath, [process.argv[1]!, "sdk", "prefetch", `--${p}`, m, "--root", root], { detached: true, stdio: "ignore" });
+      const child = spawn(
+        process.execPath,
+        [process.argv[1]!, "sdk", "prefetch", `--${p}`, m, "--root", root],
+        { detached: true, stdio: "ignore" },
+      );
       child.unref();
     }
   }

@@ -1,25 +1,92 @@
 import { type Code, docsUrl, Explanations } from "./codes.ts";
 import { type Diagnostic, formatDiagnostic } from "./diagnostics.ts";
 import { emitProgram, type EmitResult } from "./emit/index.ts";
-import { conformanceErrors, declarationErrors, inUntypedPlatformCode, missingImplementations, planModules, platformScopes, type Target } from "./platforms.ts";
-import { builtinSdkModuleOf, createLucentProgram, findLucentFiles, type LucentProgram, platformOf, type ReadSource, sdkModuleOf, usesPlatforms } from "./program.ts";
+import {
+  conformanceErrors,
+  declarationErrors,
+  inUntypedPlatformCode,
+  missingImplementations,
+  planModules,
+  platformScopes,
+  type Target,
+} from "./platforms.ts";
+import {
+  builtinSdkModuleOf,
+  createLucentProgram,
+  findLucentFiles,
+  type LucentProgram,
+  platformOf,
+  type ReadSource,
+  sdkModuleOf,
+  usesPlatforms,
+} from "./program.ts";
 import { sdkAvailable } from "@lucent-lang/bindgen";
 import { PLATFORMS, platformSdkAvailable, type SdkOptions, withSdkOptions } from "./sdk/schema.ts";
 
-export { Codes, docsUrl, Explanations, type Code, type Example, type Explanation } from "./codes.ts";
+export {
+  Codes,
+  docsUrl,
+  Explanations,
+  type Code,
+  type Example,
+  type Explanation,
+} from "./codes.ts";
 export { formatDiagnostic, type Diagnostic } from "./diagnostics.ts";
 export { moduleNamespace } from "./types.ts";
-export { findLucentFiles, moduleNameOf, platformOf, projectFiles, usesPlatforms, LUCENT_EXTENSION, coreJsPath, coreTypesPath, type ReadSource } from "./program.ts";
+export {
+  findLucentFiles,
+  moduleNameOf,
+  platformOf,
+  projectFiles,
+  usesPlatforms,
+  LUCENT_EXTENSION,
+  coreJsPath,
+  coreTypesPath,
+  type ReadSource,
+} from "./program.ts";
 export { withGradleDependencies } from "./native-package.ts";
 export { coverage as sdkCoverage, type Coverage as SdkCoverage } from "@lucent-lang/bindgen";
-export { lucentPackages, lucentVersion, nativeDependencies, satisfies, type LucentPackage, type NativeDependencies, type PackageNative } from "./packages.ts";
+export {
+  lucentPackages,
+  lucentVersion,
+  nativeDependencies,
+  satisfies,
+  type LucentPackage,
+  type NativeDependencies,
+  type PackageNative,
+} from "./packages.ts";
 export type { EmitResult } from "./emit/index.ts";
 export type { Target } from "./platforms.ts";
 export type { SdkOptions } from "./sdk/schema.ts";
-export type { Platform, SdkCallable, SdkClassSchema, SdkEnumSchema, SdkMethodSchema, SdkModuleSchema, SdkParam, SdkPropertySchema } from "./sdk/schema.ts";
+export type {
+  Platform,
+  SdkCallable,
+  SdkClassSchema,
+  SdkEnumSchema,
+  SdkMethodSchema,
+  SdkModuleSchema,
+  SdkParam,
+  SdkPropertySchema,
+} from "./sdk/schema.ts";
 export { sdkDts } from "./sdk/dts.ts";
-export { inputsKey, isUpToDate, writeNativePackage, runtimeDir, type WriteResult } from "./native-package.ts";
-export { cachedModules, extractionCount, forgetLoadedSdks, sdkNames, podsSearchPaths, prefetch as prefetchSdk, sdkAvailable, sdkModule, sdkModules } from "@lucent-lang/bindgen";
+export {
+  inputsKey,
+  isUpToDate,
+  writeNativePackage,
+  runtimeDir,
+  type WriteResult,
+} from "./native-package.ts";
+export {
+  cachedModules,
+  extractionCount,
+  forgetLoadedSdks,
+  sdkNames,
+  podsSearchPaths,
+  prefetch as prefetchSdk,
+  sdkAvailable,
+  sdkModule,
+  sdkModules,
+} from "@lucent-lang/bindgen";
 
 export interface CompileResult extends EmitResult {
   ok: boolean;
@@ -55,15 +122,26 @@ function compileWith(files: string[], options: CompileOptions): CompileResult {
   const plan = planModules(files);
   // Shared modules that branch on the platform are compiled per target too.
   const branching = plan.shared.some((f) => usesPlatforms(f, options.readSource));
-  if (!plan.platformModules.length && !plan.diagnostics.length && !branching) return compileOnce(createLucentProgram(files, options.readSource));
+  if (!plan.platformModules.length && !plan.diagnostics.length && !branching)
+    return compileOnce(createLucentProgram(files, options.readSource));
 
-  const out: CompileResult = { files: new Map(), proxies: new Map(), diagnostics: [...plan.diagnostics], ok: false };
+  const out: CompileResult = {
+    files: new Map(),
+    proxies: new Map(),
+    diagnostics: [...plan.diagnostics],
+    ok: false,
+  };
   const declarations = plan.platformModules.map((pm) => pm.declaration!);
   const installed = PLATFORMS.filter((p) => sdkAvailable(p, options.sdk));
   for (const target of options.platforms ?? (installed.length ? installed : PLATFORMS)) {
     let result: CompileResult;
     if (target === "host") {
-      result = compileOnce(createLucentProgram([...plan.shared, ...declarations], options.readSource, undefined, { stubs: declarations }), declarations);
+      result = compileOnce(
+        createLucentProgram([...plan.shared, ...declarations], options.readSource, undefined, {
+          stubs: declarations,
+        }),
+        declarations,
+      );
     } else {
       const missing = missingImplementations(plan, target);
       if (missing.length) {
@@ -71,7 +149,9 @@ function compileWith(files: string[], options: CompileOptions): CompileResult {
         continue;
       }
       const impls = plan.platformModules.map((pm) => pm.implementations[target]!);
-      const lp = createLucentProgram([...plan.shared, ...impls], options.readSource, target, { references: declarations });
+      const lp = createLucentProgram([...plan.shared, ...impls], options.readSource, target, {
+        references: declarations,
+      });
       result = compileOnce(lp, declarations);
       collectTypes(lp, (out.types ??= new Map()));
     }
@@ -104,13 +184,24 @@ function collectTypes(lp: LucentProgram, into: Map<string, string>): void {
   }
 }
 
-function compileOnce(lp: ReturnType<typeof createLucentProgram>, declarations: string[] = []): CompileResult {
+function compileOnce(
+  lp: ReturnType<typeof createLucentProgram>,
+  declarations: string[] = [],
+): CompileResult {
   const untyped = PLATFORMS.filter((p) => p !== lp.platform && !platformSdkAvailable(p));
-  const checks = [...lp.diagnostics.filter((d) => !inUntypedPlatformCode(lp, d, untyped)), ...declarations.flatMap((d) => declarationErrors(lp, d)), ...lp.modules.filter((m) => !platformOf(m.file)).flatMap((m) => platformScopes(lp.checker, m.sourceFile).errors)];
+  const checks = [
+    ...lp.diagnostics.filter((d) => !inUntypedPlatformCode(lp, d, untyped)),
+    ...declarations.flatMap((d) => declarationErrors(lp, d)),
+    ...lp.modules
+      .filter((m) => !platformOf(m.file))
+      .flatMap((m) => platformScopes(lp.checker, m.sourceFile).errors),
+  ];
   // Stop at TypeScript errors: the checker's types are unreliable past them.
-  if (checks.length) return { files: new Map(), proxies: new Map(), diagnostics: checks, ok: false };
+  if (checks.length)
+    return { files: new Map(), proxies: new Map(), diagnostics: checks, ok: false };
   const conformance = conformanceErrors(lp);
-  if (conformance.length) return { files: new Map(), proxies: new Map(), diagnostics: conformance, ok: false };
+  if (conformance.length)
+    return { files: new Map(), proxies: new Map(), diagnostics: conformance, ok: false };
   const result = emitProgram(lp);
   return { ...result, ok: result.diagnostics.length === 0 };
 }

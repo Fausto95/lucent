@@ -10,10 +10,12 @@ const ENTRY = '"lucent:*": ["./.lucent/native/types/*"]';
  */
 export function withLucentPaths(text: string): string | undefined {
   const { error } = ts.parseConfigFileTextToJson("tsconfig.json", text);
-  if (error) throw new Error(`tsconfig.json: ${ts.flattenDiagnosticMessageText(error.messageText, "\n")}`);
+  if (error)
+    throw new Error(`tsconfig.json: ${ts.flattenDiagnosticMessageText(error.messageText, "\n")}`);
   const sf = ts.parseJsonText("tsconfig.json", text);
   const root = sf.statements[0]?.expression;
-  if (!root || !ts.isObjectLiteralExpression(root)) throw new Error("tsconfig.json: expected an object");
+  if (!root || !ts.isObjectLiteralExpression(root))
+    throw new Error("tsconfig.json: expected an object");
   const options = property(root, "compilerOptions");
   if (!options) return insert(text, sf, root, `"compilerOptions": { "paths": { ${ENTRY} } }`);
   const paths = property(options, "paths");
@@ -36,10 +38,12 @@ export function withLucentTsconfig(text: string): string | undefined {
 /** tsconfig.json with compilerOptions.<name> set to `value` (JSON text), or undefined when it is. */
 function withCompilerOption(text: string, name: string, value: string): string | undefined {
   const { error } = ts.parseConfigFileTextToJson("tsconfig.json", text);
-  if (error) throw new Error(`tsconfig.json: ${ts.flattenDiagnosticMessageText(error.messageText, "\n")}`);
+  if (error)
+    throw new Error(`tsconfig.json: ${ts.flattenDiagnosticMessageText(error.messageText, "\n")}`);
   const sf = ts.parseJsonText("tsconfig.json", text);
   const root = sf.statements[0]?.expression;
-  if (!root || !ts.isObjectLiteralExpression(root)) throw new Error("tsconfig.json: expected an object");
+  if (!root || !ts.isObjectLiteralExpression(root))
+    throw new Error("tsconfig.json: expected an object");
   const options = property(root, "compilerOptions");
   if (!options) return insert(text, sf, root, `"compilerOptions": { "${name}": ${value} }`);
   const current = named(options, name);
@@ -49,23 +53,36 @@ function withCompilerOption(text: string, name: string, value: string): string |
 }
 
 function named(o: ts.ObjectLiteralExpression, name: string): ts.PropertyAssignment | undefined {
-  return o.properties.find((p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && ts.isStringLiteral(p.name) && p.name.text === name);
+  return o.properties.find(
+    (p): p is ts.PropertyAssignment =>
+      ts.isPropertyAssignment(p) && ts.isStringLiteral(p.name) && p.name.text === name,
+  );
 }
 
-function property(o: ts.ObjectLiteralExpression, name: string): ts.ObjectLiteralExpression | undefined {
+function property(
+  o: ts.ObjectLiteralExpression,
+  name: string,
+): ts.ObjectLiteralExpression | undefined {
   const value = named(o, name)?.initializer;
   if (value === undefined) return undefined;
-  if (!ts.isObjectLiteralExpression(value)) throw new Error(`tsconfig.json: "${name}" should be an object`);
+  if (!ts.isObjectLiteralExpression(value))
+    throw new Error(`tsconfig.json: "${name}" should be an object`);
   return value;
 }
 
 /** `member` added as the last member of `o`, in the object's own layout. */
-function insert(text: string, sf: ts.JsonSourceFile, o: ts.ObjectLiteralExpression, member: string): string {
+function insert(
+  text: string,
+  sf: ts.JsonSourceFile,
+  o: ts.ObjectLiteralExpression,
+  member: string,
+): string {
   const open = o.getStart(sf);
   const last = o.properties.at(-1);
   if (!last) return `${text.slice(0, open)}{ ${member} }${text.slice(o.getEnd())}`;
   const line = (pos: number) => sf.getLineAndCharacterOfPosition(pos).line;
-  if (line(last.getStart(sf)) === line(open)) return `${text.slice(0, last.getEnd())}, ${member}${text.slice(last.getEnd())}`;
+  if (line(last.getStart(sf)) === line(open))
+    return `${text.slice(0, last.getEnd())}, ${member}${text.slice(last.getEnd())}`;
   const lineStart = sf.getPositionOfLineAndCharacter(line(last.getStart(sf)), 0);
   const indent = text.slice(lineStart, last.getStart(sf));
   // A trailing comma after the last member: keep the style.

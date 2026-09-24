@@ -12,7 +12,9 @@ function radians(degrees: number): number {
 export function distance(a: Fix, b: Fix): number {
   const dLat = radians(b.latitude - a.latitude);
   const dLon = radians(b.longitude - a.longitude);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(radians(a.latitude)) * Math.cos(radians(b.latitude)) * Math.sin(dLon / 2) ** 2;
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(radians(a.latitude)) * Math.cos(radians(b.latitude)) * Math.sin(dLon / 2) ** 2;
   return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h));
 }
 
@@ -41,7 +43,10 @@ export class Trip {
   add(fix: Fix): void {
     const last = this.fixes[this.fixes.length - 1];
     if (last && fix.time < last.time) {
-      throw error("E_OUT_OF_ORDER", `A fix at ${fix.time} ms comes before the last one, at ${last.time} ms`);
+      throw error(
+        "E_OUT_OF_ORDER",
+        `A fix at ${fix.time} ms comes before the last one, at ${last.time} ms`,
+      );
     }
     this.fixes.push(fix);
   }

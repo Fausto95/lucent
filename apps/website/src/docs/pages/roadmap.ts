@@ -11,7 +11,11 @@ export const blocks: Block[] = [
     { kind: "h2", text: title },
     ...(goal ? [{ kind: "p" as const, text: goal }] : []),
     items.every((item) => item.status)
-      ? { kind: "table" as const, head: ["Status", "Item"], rows: items.map((item) => [item.status!, item.text]) }
+      ? {
+          kind: "table" as const,
+          head: ["Status", "Item"],
+          rows: items.map((item) => [item.status!, item.text]),
+        }
       : { kind: "list" as const, items: items.map((item) => item.text) },
   ]),
   {

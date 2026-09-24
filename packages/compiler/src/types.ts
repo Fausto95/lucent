@@ -122,7 +122,9 @@ export function unionOf(members: LType[]): LType {
   if (ms.length === 0) {
     if (!optional) return T.never;
     // `undefined` alone: represented as an always-absent optional.
-    return members.some((m) => m.k === "null") && !members.some((m) => m.k === "undefined") ? T.null : T.undefined;
+    return members.some((m) => m.k === "null") && !members.some((m) => m.k === "undefined")
+      ? T.null
+      : T.undefined;
   } else if (ms.length === 1) core = ms[0]!;
   else core = { k: "union", ms };
   return optional ? { k: "opt", inner: core } : core;
@@ -150,7 +152,11 @@ export function substitute(t: LType, map: Map<string, LType>): LType {
     case "promise":
       return { k: "promise", inner: substitute(t.inner, map) };
     case "fn":
-      return { k: "fn", params: t.params.map((p) => substitute(p, map)), ret: substitute(t.ret, map) };
+      return {
+        k: "fn",
+        params: t.params.map((p) => substitute(p, map)),
+        ret: substitute(t.ret, map),
+      };
     case "class":
       return { k: "class", id: t.id, args: t.args.map((a) => substitute(a, map)) };
     case "iface":
@@ -260,11 +266,13 @@ export class TypeRegistry {
   private readonly byTsType = new Map<ts.Type, LType>();
   private readonly inProgress = new Map<ts.Type, string>();
   private anon = 0;
+  readonly checker: ts.TypeChecker;
+  readonly isLucentFile: (sf: ts.SourceFile) => boolean;
 
-  constructor(
-    readonly checker: ts.TypeChecker,
-    readonly isLucentFile: (sf: ts.SourceFile) => boolean,
-  ) {}
+  constructor(checker: ts.TypeChecker, isLucentFile: (sf: ts.SourceFile) => boolean) {
+    this.checker = checker;
+    this.isLucentFile = isLucentFile;
+  }
 
   registerClass(decl: ts.ClassDeclaration, module: string, exported: boolean): ClassInfo {
     const name = decl.name!.text;
@@ -301,9 +309,18 @@ export class TypeRegistry {
         const decl = this.lucentInterface(type.getSymbol());
         if (!decl) continue;
         const iface = this.registerInterface(decl);
-        const args = (type as ts.TypeReference).target ? this.checker.getTypeArguments(type as ts.TypeReference).slice(0, iface.typeParams.length) : [];
+        const args = (type as ts.TypeReference).target
+          ? this.checker
+              .getTypeArguments(type as ts.TypeReference)
+              .slice(0, iface.typeParams.length)
+          : [];
         // Lowered lazily: argument types may name classes not registered yet.
-        this.pendingImplements.push(() => iface.implementers.set(info.id, args.map((a) => this.lower(a, t))));
+        this.pendingImplements.push(() =>
+          iface.implementers.set(
+            info.id,
+            args.map((a) => this.lower(a, t)),
+          ),
+        );
       }
     }
   }
@@ -325,13 +342,24 @@ export class TypeRegistry {
     let n = 2;
     while (this.structNames.has(cppName)) cppName = `I_${cppIdent(name)}_${n++}`;
     this.structNames.add(cppName);
-    const info: IfaceInfo = { id, cppName, decl, typeParams: decl.typeParameters?.map((p) => p.name.text) ?? [], implementers: new Map() };
+    const info: IfaceInfo = {
+      id,
+      cppName,
+      decl,
+      typeParams: decl.typeParameters?.map((p) => p.name.text) ?? [],
+      implementers: new Map(),
+    };
     this.ifaces.set(id, info);
     // Base interfaces dispatch virtually too, even without methods of their own.
     for (const h of decl.heritageClauses ?? []) {
       for (const t of h.types) {
         const base = this.lucentInterface(this.checker.getTypeAtLocation(t).getSymbol());
-        if (!base) fail(t, Codes.InterfaceMismatch, `interface ${name} can only extend other Lucent interfaces`);
+        if (!base)
+          fail(
+            t,
+            Codes.InterfaceMismatch,
+            `interface ${name} can only extend other Lucent interfaces`,
+          );
         this.registerInterface(base);
       }
     }
@@ -359,7 +387,11 @@ export class TypeRegistry {
   /** The interfaces `t` extends, with type arguments substituted. */
   ifaceBases(t: IfaceT): IfaceT[] {
     const info = this.iface(t.id);
-    const map = new Map(info.typeParams.map((p, i) => [p, t.args[i] ?? ({ k: "tparam", name: p } as LType)] as [string, LType]));
+    const map = new Map(
+      info.typeParams.map(
+        (p, i) => [p, t.args[i] ?? ({ k: "tparam", name: p } as LType)] as [string, LType],
+      ),
+    );
     const out: IfaceT[] = [];
     for (const h of info.decl.heritageClauses ?? []) {
       for (const ht of h.types) {
@@ -384,16 +416,23 @@ export class TypeRegistry {
 
   /** The interface instantiations a class declares with `implements`, in its own terms. */
   declaredIfaces(info: ClassInfo): IfaceT[] {
-    return [...this.ifaces.values()].filter((i) => i.implementers.has(info.id)).map((i) => ({ k: "iface", id: i.id, args: i.implementers.get(info.id)! }));
+    return [...this.ifaces.values()]
+      .filter((i) => i.implementers.has(info.id))
+      .map((i) => ({ k: "iface", id: i.id, args: i.implementers.get(info.id)! }));
   }
 
   /** Whether class type `c` (or an ancestor) implements `target` or an interface extending it. */
   implementsIface(c: LType & { k: "class" }, target: IfaceT): boolean {
     const want = typeKey(target);
     for (const link of this.chain(c)) {
-      const map = new Map(link.info.typeParams.map((p, i) => [p, link.t.args[i] ?? ({ k: "tparam", name: p } as LType)] as [string, LType]));
+      const map = new Map(
+        link.info.typeParams.map(
+          (p, i) => [p, link.t.args[i] ?? ({ k: "tparam", name: p } as LType)] as [string, LType],
+        ),
+      );
       for (const i of this.declaredIfaces(link.info)) {
-        if (this.ifaceChain(substitute(i, map) as IfaceT).some((x) => typeKey(x) === want)) return true;
+        if (this.ifaceChain(substitute(i, map) as IfaceT).some((x) => typeKey(x) === want))
+          return true;
       }
     }
     return false;
@@ -401,7 +440,10 @@ export class TypeRegistry {
 
   /** Non-generic classes whose instances are `target`s, deepest first. */
   implementations(target: IfaceT): ClassInfo[] {
-    const all = [...this.classes.values()].filter((c) => !c.typeParams.length && this.implementsIface({ k: "class", id: c.id, args: [] }, target));
+    const all = [...this.classes.values()].filter(
+      (c) =>
+        !c.typeParams.length && this.implementsIface({ k: "class", id: c.id, args: [] }, target),
+    );
     return all.sort((a, b) => this.ancestors(b).length - this.ancestors(a).length);
   }
 
@@ -415,14 +457,25 @@ export class TypeRegistry {
       info.sdkBase = t;
       return;
     }
-    if (t.k === "native") fail(expr, Codes.UnsupportedClassFeature, `Lucent classes cannot extend ${t.platform} classes yet`);
-    if (t.k !== "class") fail(expr, Codes.UnsupportedClassFeature, "classes can only extend Lucent classes, Error and Android SDK classes");
+    if (t.k === "native")
+      fail(
+        expr,
+        Codes.UnsupportedClassFeature,
+        `Lucent classes cannot extend ${t.platform} classes yet`,
+      );
+    if (t.k !== "class")
+      fail(
+        expr,
+        Codes.UnsupportedClassFeature,
+        "classes can only extend Lucent classes, Error and Android SDK classes",
+      );
     info.base = { id: t.id, args: t.args };
   }
 
   /** Marks subclasses of Error classes as errors (after resolveBase). */
   propagateErrors(): void {
-    for (const c of this.classes.values()) if (this.ancestors(c).some((a) => a.isError)) c.isError = true;
+    for (const c of this.classes.values())
+      if (this.ancestors(c).some((a) => a.isError)) c.isError = true;
   }
 
   /** Base classes, nearest first. */
@@ -439,15 +492,23 @@ export class TypeRegistry {
     while (cur) {
       const info = this.cls(cur.id);
       out.push({ info, t: cur });
-      const map = new Map(info.typeParams.map((p, i) => [p, cur!.args[i] ?? { k: "tparam", name: p }] as [string, LType]));
-      cur = info.base ? { k: "class", id: info.base.id, args: info.base.args.map((a) => substitute(a, map)) } : undefined;
+      const map = new Map(
+        info.typeParams.map(
+          (p, i) => [p, cur!.args[i] ?? { k: "tparam", name: p }] as [string, LType],
+        ),
+      );
+      cur = info.base
+        ? { k: "class", id: info.base.id, args: info.base.args.map((a) => substitute(a, map)) }
+        : undefined;
     }
     return out;
   }
 
   /** Every class that extends `id`, directly or not, deepest first. */
   descendants(id: string): ClassInfo[] {
-    const out = [...this.classes.values()].filter((c) => this.ancestors(c).some((a) => a.id === id));
+    const out = [...this.classes.values()].filter((c) =>
+      this.ancestors(c).some((a) => a.id === id),
+    );
     return out.sort((a, b) => this.ancestors(b).length - this.ancestors(a).length);
   }
 
@@ -474,17 +535,36 @@ export class TypeRegistry {
   private lowerUncached(type: ts.Type, node: ts.Node): LType {
     const c = this.checker;
     const f = type.flags;
-    if (f & ts.TypeFlags.Any) fail(node, Codes.AnyType, "`any` has no native representation; give this value a concrete type");
-    if (f & ts.TypeFlags.Unknown) fail(node, Codes.AnyType, "`unknown` has no native representation; narrow it or give it a concrete type");
+    if (f & ts.TypeFlags.Any)
+      fail(
+        node,
+        Codes.AnyType,
+        "`any` has no native representation; give this value a concrete type",
+      );
+    if (f & ts.TypeFlags.Unknown)
+      fail(
+        node,
+        Codes.AnyType,
+        "`unknown` has no native representation; narrow it or give it a concrete type",
+      );
     if (f & (ts.TypeFlags.Number | ts.TypeFlags.NumberLiteral)) return T.number;
-    if (f & (ts.TypeFlags.String | ts.TypeFlags.StringLiteral | ts.TypeFlags.TemplateLiteral | ts.TypeFlags.StringMapping)) return T.string;
+    if (
+      f &
+      (ts.TypeFlags.String |
+        ts.TypeFlags.StringLiteral |
+        ts.TypeFlags.TemplateLiteral |
+        ts.TypeFlags.StringMapping)
+    )
+      return T.string;
     if (f & (ts.TypeFlags.Boolean | ts.TypeFlags.BooleanLiteral)) return T.boolean;
     if (f & ts.TypeFlags.Void) return T.void;
     if (f & ts.TypeFlags.Undefined) return T.undefined;
     if (f & ts.TypeFlags.Null) return T.null;
     if (f & ts.TypeFlags.Never) return T.never;
-    if (f & (ts.TypeFlags.BigInt | ts.TypeFlags.BigIntLiteral)) fail(node, Codes.UnsupportedType, "bigint is not supported yet");
-    if (f & ts.TypeFlags.ESSymbolLike) fail(node, Codes.UnsupportedType, "symbols are not supported");
+    if (f & (ts.TypeFlags.BigInt | ts.TypeFlags.BigIntLiteral))
+      fail(node, Codes.UnsupportedType, "bigint is not supported yet");
+    if (f & ts.TypeFlags.ESSymbolLike)
+      fail(node, Codes.UnsupportedType, "symbols are not supported");
     if (f & ts.TypeFlags.TypeParameter) {
       if ((type as { isThisType?: boolean }).isThisType) {
         // The polymorphic `this` type of a class: its instance type.
@@ -499,15 +579,29 @@ export class TypeRegistry {
     }
     // IteratorResult<T, TReturn> is a lib alias for a union whose return half
     // carries TReturn (often any); only the yielded type matters here.
-    if (type.aliasSymbol?.name === "IteratorResult" && type.aliasTypeArguments?.[0] && this.libName(type)) {
+    if (
+      type.aliasSymbol?.name === "IteratorResult" &&
+      type.aliasTypeArguments?.[0] &&
+      this.libName(type)
+    ) {
       return { k: "iterResult", e: this.lower(type.aliasTypeArguments[0], node) };
     }
     if (type.isUnion()) {
       return unionOf(type.types.map((t) => this.lower(t, node)));
     }
-    if (type.isIntersection()) fail(node, Codes.UnsupportedType, `intersection types are not supported: ${c.typeToString(type)}`);
+    if (type.isIntersection())
+      fail(
+        node,
+        Codes.UnsupportedType,
+        `intersection types are not supported: ${c.typeToString(type)}`,
+      );
     if (f & ts.TypeFlags.Object) return this.lowerObject(type as ts.ObjectType, node);
-    if (f & ts.TypeFlags.NonPrimitive) fail(node, Codes.UnsupportedType, "`object` has no native representation; use a concrete object type");
+    if (f & ts.TypeFlags.NonPrimitive)
+      fail(
+        node,
+        Codes.UnsupportedType,
+        "`object` has no native representation; use a concrete object type",
+      );
     fail(node, Codes.UnsupportedType, `type ${c.typeToString(type)} is not supported`);
   }
 
@@ -526,17 +620,34 @@ export class TypeRegistry {
     const sdkSym = type.getSymbol();
     const decl = sdkSym?.declarations?.[0];
     // lucent:ios's NSObject and Out are platform objects too.
-    const builtin = decl && ts.isClassDeclaration(decl) ? builtinSdkModuleOf(decl.getSourceFile()) : undefined;
-    if (builtin && sdkSym) return { k: "native", platform: builtin === "lucent:android" ? "android" : "ios", module: builtin, name: sdkSym.name };
+    const builtin =
+      decl && ts.isClassDeclaration(decl) ? builtinSdkModuleOf(decl.getSourceFile()) : undefined;
+    if (builtin && sdkSym)
+      return {
+        k: "native",
+        platform: builtin === "lucent:android" ? "android" : "ios",
+        module: builtin,
+        name: sdkSym.name,
+      };
     const sdk = decl && ts.isClassDeclaration(decl) ? sdkModuleOf(decl.getSourceFile()) : undefined;
     if (sdk && sdkSym) {
-      if (type.getConstructSignatures().length || c.getTypeOfSymbolAtLocation(sdkSym, decl!) === type) {
-        fail(node, Codes.UnsupportedSyntax, `the class ${sdkSym.name} can only be used with new, static members, or as a Class<T> argument`);
+      if (
+        type.getConstructSignatures().length ||
+        c.getTypeOfSymbolAtLocation(sdkSym, decl!) === type
+      ) {
+        fail(
+          node,
+          Codes.UnsupportedSyntax,
+          `the class ${sdkSym.name} can only be used with new, static members, or as a Class<T> argument`,
+        );
       }
       return { k: "native", platform: sdk.platform, module: sdk.module, name: sdkSym.name };
     }
     if (c.isTupleType(type)) {
-      return { k: "tuple", es: c.getTypeArguments(type as ts.TypeReference).map((t) => this.lower(t, node)) };
+      return {
+        k: "tuple",
+        es: c.getTypeArguments(type as ts.TypeReference).map((t) => this.lower(t, node)),
+      };
     }
     if (c.isArrayType(type)) {
       const [e] = c.getTypeArguments(type as ts.TypeReference);
@@ -602,7 +713,9 @@ export class TypeRegistry {
         const info = this.classForDecl(decl);
         if (info) {
           // Class references also carry the polymorphic `this` type as a last argument.
-          const args = (type as ts.TypeReference).target ? c.getTypeArguments(type as ts.TypeReference).slice(0, info.typeParams.length) : [];
+          const args = (type as ts.TypeReference).target
+            ? c.getTypeArguments(type as ts.TypeReference).slice(0, info.typeParams.length)
+            : [];
           return { k: "class", id: info.id, args: args.map((a) => this.lower(a, node)) };
         }
       }
@@ -613,26 +726,38 @@ export class TypeRegistry {
       const id = `${iface.getSourceFile().fileName}#${iface.name.text}`;
       if (this.ifaces.has(id) || this.hasMethods(iface)) {
         const info = this.registerInterface(iface);
-        const args = (type as ts.TypeReference).target ? c.getTypeArguments(type as ts.TypeReference).slice(0, info.typeParams.length) : [];
+        const args = (type as ts.TypeReference).target
+          ? c.getTypeArguments(type as ts.TypeReference).slice(0, info.typeParams.length)
+          : [];
         return { k: "iface", id: info.id, args: args.map((a) => this.lower(a, node)) };
       }
     }
     const calls = type.getCallSignatures();
     const props = c.getPropertiesOfType(type);
     if (calls.length > 0) {
-      if (calls.length > 1) fail(node, Codes.UnsupportedType, "overloaded function types are not supported");
-      if (props.length > 0) fail(node, Codes.UnsupportedType, "functions with properties are not supported");
+      if (calls.length > 1)
+        fail(node, Codes.UnsupportedType, "overloaded function types are not supported");
+      if (props.length > 0)
+        fail(node, Codes.UnsupportedType, "functions with properties are not supported");
       return this.lowerSignature(calls[0]!, node);
     }
-    if (type.getConstructSignatures().length > 0) fail(node, Codes.UnsupportedType, "constructor types are not supported");
+    if (type.getConstructSignatures().length > 0)
+      fail(node, Codes.UnsupportedType, "constructor types are not supported");
     const indexInfos = c.getIndexInfosOfType(type);
     if (indexInfos.length > 0) {
-      if (props.length > 0) fail(node, Codes.UnsupportedType, "objects with both an index signature and properties are not supported");
+      if (props.length > 0)
+        fail(
+          node,
+          Codes.UnsupportedType,
+          "objects with both an index signature and properties are not supported",
+        );
       const info = indexInfos[0]!;
-      if (!(info.keyType.flags & ts.TypeFlags.String)) fail(node, Codes.UnsupportedType, "only string-keyed records are supported");
+      if (!(info.keyType.flags & ts.TypeFlags.String))
+        fail(node, Codes.UnsupportedType, "only string-keyed records are supported");
       return { k: "dict", val: this.lower(info.type, node) };
     }
-    if (lib && !["Object"].includes(lib)) fail(node, Codes.UnsupportedType, `${lib} is not supported`);
+    if (lib && !["Object"].includes(lib))
+      fail(node, Codes.UnsupportedType, `${lib} is not supported`);
     return this.registerStruct(type, props, node);
   }
 
@@ -641,8 +766,10 @@ export class TypeRegistry {
     const params = sig.getParameters().map((p) => {
       const decl = p.valueDeclaration;
       let t = this.lower(c.getTypeOfSymbolAtLocation(p, decl ?? node), decl ?? node);
-      if (decl && ts.isParameter(decl) && (decl.questionToken || decl.initializer) && t.k !== "opt") t = { k: "opt", inner: t };
-      if (decl && ts.isParameter(decl) && decl.dotDotDotToken) fail(decl, Codes.UnsupportedType, "rest parameters in function types are not supported");
+      if (decl && ts.isParameter(decl) && (decl.questionToken || decl.initializer) && t.k !== "opt")
+        t = { k: "opt", inner: t };
+      if (decl && ts.isParameter(decl) && decl.dotDotDotToken)
+        fail(decl, Codes.UnsupportedType, "rest parameters in function types are not supported");
       return t;
     });
     return { k: "fn", params, ret: this.lower(c.getReturnTypeOfSignature(sig), node) };
@@ -650,10 +777,23 @@ export class TypeRegistry {
 
   private structField(p: ts.Symbol, node: ts.Node): StructField {
     const c = this.checker;
-    const accessor = p.declarations?.find((d) => ts.isGetAccessorDeclaration(d) || ts.isSetAccessorDeclaration(d));
-    if (accessor && ts.isObjectLiteralExpression(accessor.parent)) fail(accessor, Codes.UnsupportedSyntax, `getters and setters in object literals are not supported (${p.name}); use a property or a class`);
-    if (p.flags & ts.SymbolFlags.Method) fail(node, Codes.UnsupportedType, `object types with methods are not supported (${p.name}); use a class or a function-valued property`);
-    if (p.flags & ts.SymbolFlags.GetAccessor) fail(node, Codes.UnsupportedType, `getters in object types are not supported (${p.name})`);
+    const accessor = p.declarations?.find(
+      (d) => ts.isGetAccessorDeclaration(d) || ts.isSetAccessorDeclaration(d),
+    );
+    if (accessor && ts.isObjectLiteralExpression(accessor.parent))
+      fail(
+        accessor,
+        Codes.UnsupportedSyntax,
+        `getters and setters in object literals are not supported (${p.name}); use a property or a class`,
+      );
+    if (p.flags & ts.SymbolFlags.Method)
+      fail(
+        node,
+        Codes.UnsupportedType,
+        `object types with methods are not supported (${p.name}); use a class or a function-valued property`,
+      );
+    if (p.flags & ts.SymbolFlags.GetAccessor)
+      fail(node, Codes.UnsupportedType, `getters in object types are not supported (${p.name})`);
     const decl = p.valueDeclaration ?? p.declarations?.[0];
     const pt = c.getTypeOfSymbolAtLocation(p, decl ?? node);
     const optional = !!(p.flags & ts.SymbolFlags.Optional);
@@ -661,7 +801,10 @@ export class TypeRegistry {
     if (optional) lt = unionOf([lt, T.undefined]);
     let literal: string | undefined;
     if (pt.flags & ts.TypeFlags.StringLiteral) literal = (pt as ts.StringLiteralType).value;
-    const readonly = !!decl && ts.canHaveModifiers(decl) && !!ts.getModifiers(decl)?.some((m) => m.kind === ts.SyntaxKind.ReadonlyKeyword);
+    const readonly =
+      !!decl &&
+      ts.canHaveModifiers(decl) &&
+      !!ts.getModifiers(decl)?.some((m) => m.kind === ts.SyntaxKind.ReadonlyKeyword);
     return { name: p.name, type: lt, optional, literal, readonly };
   }
 
@@ -680,12 +823,19 @@ export class TypeRegistry {
       throw e;
     }
     const key = fields
-      .map((f) => `${f.name}${f.optional ? "?" : ""}:${f.type.k === "struct" && f.type.id.startsWith("pending") ? "self" : typeKey(f.type)}`)
+      .map(
+        (f) =>
+          `${f.name}${f.optional ? "?" : ""}:${f.type.k === "struct" && f.type.id.startsWith("pending") ? "self" : typeKey(f.type)}`,
+      )
       .sort()
       .join(";");
     let info = this.structs.get(key);
     if (!info) {
-      const hint = type.aliasSymbol?.name ?? (type.getSymbol()?.name && !type.getSymbol()!.name.startsWith("__") ? type.getSymbol()!.name : undefined);
+      const hint =
+        type.aliasSymbol?.name ??
+        (type.getSymbol()?.name && !type.getSymbol()!.name.startsWith("__")
+          ? type.getSymbol()!.name
+          : undefined);
       let base = hint ? `S_${cppIdent(hint)}` : `S_Object${this.structs.size + 1}`;
       let cppName = base;
       let n = 2;

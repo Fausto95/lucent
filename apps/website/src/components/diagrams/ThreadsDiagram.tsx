@@ -11,7 +11,11 @@ const w = 124;
 /** What runs on each of the three threads, and how work moves between them. */
 export function ThreadsDiagram() {
   return (
-    <DiagramSvg viewBox="0 0 440 380" markerId={m} title="The JS thread, the Lucent thread and the main thread, and what runs on each">
+    <DiagramSvg
+      viewBox="0 0 440 380"
+      markerId={m}
+      title="The JS thread, the Lucent thread and the main thread, and what runs on each"
+    >
       <DiagramLane x={8} y={10} w={140} h={310} label="JS" />
       <DiagramLane x={152} y={10} w={140} h={310} label="LUCENT" />
       <DiagramLane x={296} y={10} w={140} h={310} label="MAIN" />
@@ -25,7 +29,14 @@ export function ThreadsDiagram() {
       <DiagramArrow from={[x[1] + w, 150]} to={[x[2] + 20, 180]} marker={m} dashed />
       <DiagramArrow from={[x[2], 290]} to={[x[1] + w, 272]} marker={m} dashed />
       <DiagramArrow from={[x[1], 272]} to={[x[0] + w, 272]} marker={m} />
-      <DiagramNote x={16} y={346} lines={["One lock: Lucent code runs one piece at a time,", "on whichever thread, so it never races itself."]} />
+      <DiagramNote
+        x={16}
+        y={346}
+        lines={[
+          "One lock: Lucent code runs one piece at a time,",
+          "on whichever thread, so it never races itself.",
+        ]}
+      />
     </DiagramSvg>
   );
 }

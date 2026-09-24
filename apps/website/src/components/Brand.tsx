@@ -4,7 +4,11 @@ import { styles } from "./Brand.stylex";
 
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
-    <Link to="/" aria-label="Lucent home" {...stylex.props(styles.brand, compact && styles.compact)}>
+    <Link
+      to="/"
+      aria-label="Lucent home"
+      {...stylex.props(styles.brand, compact && styles.compact)}
+    >
       <img
         src="/brand/lucent-mark.svg"
         width="40"

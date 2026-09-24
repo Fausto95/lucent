@@ -5,7 +5,12 @@ export const blocks: Block[] = [
   {
     kind: "tabs",
     tabs: [
-      { label: "location.lucent.ts", filename: "src/location.lucent.ts", diff: true, code: diffs["src/location.lucent.ts"]! },
+      {
+        label: "location.lucent.ts",
+        filename: "src/location.lucent.ts",
+        diff: true,
+        code: diffs["src/location.lucent.ts"]!,
+      },
       { label: "App.tsx", filename: "App.tsx", diff: true, code: diffs["App.tsx"]! },
     ],
   },
@@ -18,7 +23,12 @@ export const blocks: Block[] = [
     kind: "panels",
     panels: [
       { label: "Expo", blocks: [{ kind: "code", filename: "app.json", code: files["app.json"]! }] },
-      { label: "Bare React Native", blocks: [{ kind: "code", filename: "ios/<App>/Info.plist", code: files["Info.plist.xml"]! }] },
+      {
+        label: "Bare React Native",
+        blocks: [
+          { kind: "code", filename: "ios/<App>/Info.plist", code: files["Info.plist.xml"]! },
+        ],
+      },
     ],
   },
   { kind: "h2", text: "Android" },

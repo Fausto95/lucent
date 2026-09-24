@@ -5,7 +5,12 @@ export const blocks: Block[] = [
   {
     kind: "tabs",
     tabs: [
-      { label: "trip.lucent.ts", filename: "src/trip.lucent.ts", diff: true, code: diffs["src/trip.lucent.ts"]! },
+      {
+        label: "trip.lucent.ts",
+        filename: "src/trip.lucent.ts",
+        diff: true,
+        code: diffs["src/trip.lucent.ts"]!,
+      },
       { label: "App.tsx", filename: "App.tsx", diff: true, code: diffs["App.tsx"]! },
     ],
   },

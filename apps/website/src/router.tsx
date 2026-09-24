@@ -4,7 +4,11 @@ import { docsRoute } from "./routes/docs";
 import { rootRoute } from "./routes/root";
 
 // The homepage is its own chunk: docs pages don't load it.
-const homeRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: lazyRouteComponent(() => import("./pages/HomePage"), "HomePage") });
+const homeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/",
+  component: lazyRouteComponent(() => import("./pages/HomePage"), "HomePage"),
+});
 
 /** The URLs from before /docs/. */
 const languageRoute = createRoute({

@@ -16,7 +16,8 @@ export class ZipArchive {
     const count = this.buf.readUInt16LE(eocd + 10);
     let p = this.buf.readUInt32LE(eocd + 16);
     for (let i = 0; i < count; i++) {
-      if (this.buf.readUInt32LE(p) !== 0x02014b50) throw new Error("zip: corrupt central directory");
+      if (this.buf.readUInt32LE(p) !== 0x02014b50)
+        throw new Error("zip: corrupt central directory");
       const method = this.buf.readUInt16LE(p + 10);
       const size = this.buf.readUInt32LE(p + 20);
       const nameLen = this.buf.readUInt16LE(p + 28);
@@ -36,8 +37,10 @@ export class ZipArchive {
   read(name: string): Buffer | undefined {
     const e = this.entries.get(name);
     if (!e) return undefined;
-    if (this.buf.readUInt32LE(e.offset) !== 0x04034b50) throw new Error(`zip: corrupt entry ${name}`);
-    const start = e.offset + 30 + this.buf.readUInt16LE(e.offset + 26) + this.buf.readUInt16LE(e.offset + 28);
+    if (this.buf.readUInt32LE(e.offset) !== 0x04034b50)
+      throw new Error(`zip: corrupt entry ${name}`);
+    const start =
+      e.offset + 30 + this.buf.readUInt16LE(e.offset + 26) + this.buf.readUInt16LE(e.offset + 28);
     const data = this.buf.subarray(start, start + e.size);
     if (e.method === 0) return data;
     if (e.method === 8) return zlib.inflateRawSync(data);

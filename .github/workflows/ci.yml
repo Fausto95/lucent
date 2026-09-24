@@ -23,9 +23,10 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - run: sudo apt-get update && sudo apt-get install -y ninja-build libicu-dev
 
       - name: Restore Hermes build
@@ -58,13 +59,13 @@ jobs:
       - name: End-to-end (native vs. JavaScript)
         run: pnpm test:e2e
       - name: Performance budgets (kernels vs. the same code as JavaScript)
-        run: pnpm exec tsx scripts/bench.ts --check
+        run: node scripts/bench.ts --check
       - name: App check (bare)
-        run: pnpm exec tsx scripts/app-check.ts apps/bare-example
+        run: node scripts/app-check.ts apps/bare-example
       - name: App check (Expo)
-        run: pnpm exec tsx scripts/app-check.ts apps/expo-example
+        run: node scripts/app-check.ts apps/expo-example
       - name: Fresh install from the packed packages
-        run: pnpm exec tsx scripts/smoke-install.ts
+        run: node scripts/smoke-install.ts
 
   website:
     name: Website (samples compile, prose rules, generated files current, build)
@@ -74,13 +75,13 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Install Vale
         run: curl -sSL https://github.com/errata-ai/vale/releases/download/v3.22.0/vale_3.22.0_Linux_64-bit.tar.gz | sudo tar -xz -C /usr/local/bin vale
       - name: Every Lucent sample compiles; prose follows the rules; generated C++ and diagnostics are current
-        run: pnpm exec tsx scripts/website.ts --check
+        run: node scripts/website.ts --check
       - run: pnpm --filter @lucent-lang/website typecheck
       - run: pnpm website:build
 
@@ -95,9 +96,10 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
@@ -143,7 +145,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .node-version
           cache: pnpm
       - uses: actions/setup-java@v4
         with:
@@ -151,6 +153,7 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - name: Generate the native package
         working-directory: apps/bare-example
         run: pnpm lucent

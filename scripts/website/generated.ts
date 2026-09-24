@@ -27,7 +27,10 @@ export function squaredDistance(a: Point, b: Point): number {
 `;
   const demo = compileSamples("home", [{ filename: "geo.lucent.ts", code: source }]);
   const cpp = demo.files.get("m_geo.cpp");
-  if (!cpp) throw new Error(`the homepage sample does not compile:\n${demo.diagnostics.map(formatDiagnostic).join("\n")}`);
+  if (!cpp)
+    throw new Error(
+      `the homepage sample does not compile:\n${demo.diagnostics.map(formatDiagnostic).join("\n")}`,
+    );
   // The function as the compiler wrote it, minus the #line directives that map it back to the source.
   const fn = cpp
     .slice(cpp.indexOf("double m_geo::squaredDistance"), cpp.indexOf("\n}\n") + 2)
@@ -53,8 +56,13 @@ export async function hasStringAsync(): Promise<boolean> {
   }
 }
 `;
-  const { diagnostics } = compileSamples("home-clipboard", [{ filename: "clipboard.lucent.ts", code: source }]);
-  if (diagnostics.length) throw new Error(`the homepage's clipboard sample does not compile:\n${diagnostics.map(formatDiagnostic).join("\n")}`);
+  const { diagnostics } = compileSamples("home-clipboard", [
+    { filename: "clipboard.lucent.ts", code: source },
+  ]);
+  if (diagnostics.length)
+    throw new Error(
+      `the homepage's clipboard sample does not compile:\n${diagnostics.map(formatDiagnostic).join("\n")}`,
+    );
   return `${header}export const clipboardSource = ${JSON.stringify(source.trimEnd())};\n`;
 }
 
@@ -67,15 +75,23 @@ function proxyDemo(): string {
 `;
   const demo = compileSamples("proxy", [{ filename: "greet.lucent.ts", code: source }]);
   const proxy = demo.proxies.get("greet");
-  if (!proxy) throw new Error(`the proxy sample does not compile:\n${demo.diagnostics.map(formatDiagnostic).join("\n")}`);
+  if (!proxy)
+    throw new Error(
+      `the proxy sample does not compile:\n${demo.diagnostics.map(formatDiagnostic).join("\n")}`,
+    );
   return `${header}export const greetProxy = ${JSON.stringify(proxy.trimEnd())};\n`;
 }
 
 /** The CLI reference, from the command table the CLI parses with. */
 function cli(): string {
-  const flag = (f: { name: string; value?: string; optional?: boolean }) => `--${f.name}${f.value ? (f.optional ? ` [<${f.value}>]` : ` <${f.value}>`) : ""}`;
+  const flag = (f: { name: string; value?: string; optional?: boolean }) =>
+    `--${f.name}${f.value ? (f.optional ? ` [<${f.value}>]` : ` <${f.value}>`) : ""}`;
   return `${header}export const cliCommands: { name: string; summary: string; flags: { flag: string; description: string }[] }[] = ${json(
-    commands.map((c) => ({ name: c.name, summary: c.summary, flags: c.flags.map((f) => ({ flag: flag(f), description: f.description })) })),
+    commands.map((c) => ({
+      name: c.name,
+      summary: c.summary,
+      flags: c.flags.map((f) => ({ flag: flag(f), description: f.description })),
+    })),
   )};\n\nexport const globalFlags: { flag: string; description: string }[] = ${json(
     GLOBAL_FLAGS.map((f) => ({ flag: flag(f), description: f.description })),
   )};\n`;
@@ -84,7 +100,15 @@ function cli(): string {
 /** The same explanations as `lucent explain`; their examples are checked by the compiler's tests. */
 function diagnostics(): string {
   return `${header}export const explanations: { code: string; title: string; summary: string; details: string; fix: string; wrong: Record<string, string>; right: Record<string, string> }[] = ${json(
-    Object.entries(Explanations).map(([code, { title, summary, details, fix, wrong, right }]) => ({ code, title, summary, details, fix, wrong, right })),
+    Object.entries(Explanations).map(([code, { title, summary, details, fix, wrong, right }]) => ({
+      code,
+      title,
+      summary,
+      details,
+      fix,
+      wrong,
+      right,
+    })),
   )};\n`;
 }
 
@@ -94,7 +118,8 @@ function diagnostics(): string {
  */
 function docsRoutes(): string {
   const pages = docsEntries.map(
-    (e) => `  createRoute({ getParentRoute: () => docsRoute, path: ${JSON.stringify(e.slug || "/")}, ...docPage(${JSON.stringify(e.slug)}) }),`,
+    (e) =>
+      `  createRoute({ getParentRoute: () => docsRoute, path: ${JSON.stringify(e.slug || "/")}, ...docPage(${JSON.stringify(e.slug)}) }),`,
   );
   const redirects = Object.entries(docsRedirects).map(
     ([from, to]) => `  createRoute({
@@ -159,7 +184,11 @@ function filesOf(dir: string): string[] {
 
 /** A unified diff of one file, without git's header lines; "" when nothing changed. */
 function diffOf(before: string | undefined, after: string): string {
-  const out = spawnSync("git", ["diff", "--no-index", "--no-color", "-U3", before ?? "/dev/null", after], { encoding: "utf8" });
+  const out = spawnSync(
+    "git",
+    ["diff", "--no-index", "--no-color", "-U3", before ?? "/dev/null", after],
+    { encoding: "utf8" },
+  );
   if (out.status !== 0 && out.status !== 1) throw new Error(`git diff failed: ${out.stderr}`);
   return out.stdout
     .split("\n")
@@ -181,21 +210,35 @@ function tutorialStep(steps: string[], index: number): string {
   const diffs: Record<string, string> = {};
   for (const file of filesOf(dir)) {
     files[file] = fs.readFileSync(path.join(dir, file), "utf8").trimEnd();
-    const match = before.includes(file) ? file : before.find((b) => path.basename(b) === path.basename(file));
-    const diff = diffOf(match && previous ? path.join(previous, match) : undefined, path.join(dir, file));
+    const match = before.includes(file)
+      ? file
+      : before.find((b) => path.basename(b) === path.basename(file));
+    const diff = diffOf(
+      match && previous ? path.join(previous, match) : undefined,
+      path.join(dir, file),
+    );
     if (diff) diffs[file] = diff;
   }
   return `${header}/** apps/tutorial/steps/${steps[index]} */\nexport const files: Record<string, string> = ${json(files)};\n\n/** What changed since the step before, per file. */\nexport const diffs: Record<string, string> = ${json(diffs)};\n`;
 }
 
-type SchemaNode = { type?: string; description?: string; properties?: Record<string, SchemaNode>; additionalProperties?: SchemaNode | boolean; items?: SchemaNode };
+type SchemaNode = {
+  type?: string;
+  description?: string;
+  properties?: Record<string, SchemaNode>;
+  additionalProperties?: SchemaNode | boolean;
+  items?: SchemaNode;
+};
 
 /** The lucent.json reference: every field of its schema, with its type and description. */
 function lucentJson(): string {
-  const schema = JSON.parse(fs.readFileSync(path.join(root, "packages/lucent/schemas/lucent.schema.json"), "utf8")) as SchemaNode;
+  const schema = JSON.parse(
+    fs.readFileSync(path.join(root, "packages/lucent/schemas/lucent.schema.json"), "utf8"),
+  ) as SchemaNode;
   const typeOf = (node: SchemaNode): string => {
     if (node.type === "array") return `${node.items ? typeOf(node.items) : "unknown"}[]`;
-    if (node.type === "object" && typeof node.additionalProperties === "object") return `{ [key]: ${typeOf(node.additionalProperties)} }`;
+    if (node.type === "object" && typeof node.additionalProperties === "object")
+      return `{ [key]: ${typeOf(node.additionalProperties)} }`;
     return node.type ?? "unknown";
   };
   const fields: { field: string; type: string; description: string }[] = [];
@@ -227,12 +270,18 @@ function compatibility(): string {
   return `${header}export const requirements = ${json({ ...REQUIREMENTS, minAndroidApi: MIN_ANDROID_API })} as const;\n`;
 }
 
-const STATUS: Record<string, string> = { "✅": "done", "🚧": "in progress", "⏳": "next", "🔭": "later" };
+const STATUS: Record<string, string> = {
+  "✅": "done",
+  "🚧": "in progress",
+  "⏳": "next",
+  "🔭": "later",
+};
 
 /** The roadmap page's data, parsed from ROADMAP.md: milestones, their goal, their items and each item's status. */
 function roadmap(): string {
   const text = fs.readFileSync(path.join(root, "ROADMAP.md"), "utf8");
-  const milestones: { title: string; goal?: string; items: { status?: string; text: string }[] }[] = [];
+  const milestones: { title: string; goal?: string; items: { status?: string; text: string }[] }[] =
+    [];
   for (const line of text.split("\n")) {
     const heading = /^## (.+)$/.exec(line);
     const goal = /^Goal: (.+)$/.exec(line);
@@ -261,7 +310,11 @@ export function generatedFiles(): Record<string, string> {
     "modules.ts": lucentModules(),
     "compatibility.ts": compatibility(),
     "roadmap.ts": roadmap(),
-    ...Object.fromEntries(Object.entries(exampleSources).map(([name, file]) => [`examples/${name}.ts`, example(file)])),
-    ...Object.fromEntries(tutorialSteps().map((step, i, steps) => [`tutorial/${step}.ts`, tutorialStep(steps, i)])),
+    ...Object.fromEntries(
+      Object.entries(exampleSources).map(([name, file]) => [`examples/${name}.ts`, example(file)]),
+    ),
+    ...Object.fromEntries(
+      tutorialSteps().map((step, i, steps) => [`tutorial/${step}.ts`, tutorialStep(steps, i)]),
+    ),
   };
 }

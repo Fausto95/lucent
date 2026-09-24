@@ -66,7 +66,13 @@ const keywords = new Set([
   "#include",
 ]);
 
-export function HighlightedCode({ code, reference = false }: { code: string; reference?: boolean }) {
+export function HighlightedCode({
+  code,
+  reference = false,
+}: {
+  code: string;
+  reference?: boolean;
+}) {
   const tokens = code.split(/(\/\/[^\n]*|"[^"\n]*"|'[^'\n]*'|@\w+|\b\w+\b)/g);
   return (
     <code {...stylex.props(reference && styles.referenceCodeText)}>

@@ -2,13 +2,7 @@
   "$id": "https://lucent-lang.dev/schemas/check.schema.json",
   "title": "lucent check --json",
   "type": "object",
-  "required": [
-    "ok",
-    "modules",
-    "diagnostics",
-    "errors",
-    "ms"
-  ],
+  "required": ["ok", "modules", "diagnostics", "errors", "ms"],
   "additionalProperties": false,
   "properties": {
     "ok": {
@@ -26,10 +20,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "code",
-          "message"
-        ],
+        "required": ["code", "message"],
         "properties": {
           "code": {
             "type": "string",

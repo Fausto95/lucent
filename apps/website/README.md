@@ -12,18 +12,18 @@ pnpm --filter @lucent-lang/website dev
 
 Open http://127.0.0.1:5173. Routes:
 
-| Path                     | Page                                                   |
-| ------------------------ | ------------------------------------------------------ |
-| `/`                      | Home                                                   |
-| `/docs/`                 | Introduction (Guide)                                   |
-| `/docs/<slug>/`          | Every docs page; see `src/docs/nav.ts` for the list    |
-| `/language/`, `/get-started/` | Redirect to their docs pages (pre-docs URLs)      |
-| retired `/docs/<slug>/`  | Redirect to their replacement (`src/docs/redirects.ts`) |
+| Path                          | Page                                                    |
+| ----------------------------- | ------------------------------------------------------- |
+| `/`                           | Home                                                    |
+| `/docs/`                      | Introduction (Guide)                                    |
+| `/docs/<slug>/`               | Every docs page; see `src/docs/nav.ts` for the list     |
+| `/language/`, `/get-started/` | Redirect to their docs pages (pre-docs URLs)            |
+| retired `/docs/<slug>/`       | Redirect to their replacement (`src/docs/redirects.ts`) |
 
 ## Checks and production
 
 ```sh
-pnpm exec tsx scripts/website.ts            # regenerate src/generated, compile every sample
+node scripts/website.ts            # regenerate src/generated, compile every sample
 pnpm --filter @lucent-lang/website typecheck
 pnpm --filter @lucent-lang/website build
 pnpm --filter @lucent-lang/website preview

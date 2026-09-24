@@ -31,7 +31,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .node-version
           cache: pnpm
           # Writes an npm userconfig that reads NODE_AUTH_TOKEN; pnpm publish honours it.
           registry-url: https://registry.npmjs.org
@@ -41,7 +41,7 @@ jobs:
         id: bump
         env:
           BUMP: ${{ inputs.bump }}
-        run: echo "version=$(pnpm exec tsx scripts/bump-version.ts "$BUMP")" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(node scripts/bump-version.ts "$BUMP")" >> "$GITHUB_OUTPUT"
 
       # Same gate as ci.yml, run against the bumped tree. Pushes made with
       # GITHUB_TOKEN never trigger ci.yml, so this is the only check the
@@ -50,7 +50,7 @@ jobs:
       - run: pnpm test
       - run: packages/runtime/test/run.sh
       - name: Fresh install from the packed packages
-        run: pnpm exec tsx scripts/smoke-install.ts
+        run: node scripts/smoke-install.ts
 
       - name: Commit and tag
         env:

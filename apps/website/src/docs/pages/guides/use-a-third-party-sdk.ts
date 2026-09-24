@@ -2,7 +2,12 @@ import type { Block } from "../../types";
 import { source } from "../../../generated/examples/linked";
 
 export const blocks: Block[] = [
-  { kind: "code", filename: "linked.lucent.ts", from: "apps/bare-example/src/sdk/linked.lucent.ts", code: source },
+  {
+    kind: "code",
+    filename: "linked.lucent.ts",
+    from: "apps/bare-example/src/sdk/linked.lucent.ts",
+    code: source,
+  },
   {
     kind: "p",
     text: "A library the app already links is imported like the SDK: a pod's module on iOS, an AndroidX package on Android. This module is from the example apps, which add nothing for it.",

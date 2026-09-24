@@ -3,23 +3,36 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterAll, describe, expect, it } from "vitest";
+import { afterAll, describe, expect, it } from "vite-plus/test";
 import { podsSearchPaths } from "../src/pods.ts";
-import { extractionCount, forgetLoadedSdks, sdkAvailable, sdkModule, sdkNames } from "../src/provider.ts";
+import {
+  extractionCount,
+  forgetLoadedSdks,
+  sdkAvailable,
+  sdkModule,
+  sdkNames,
+} from "../src/provider.ts";
 import { parseSchemaType } from "../src/schema.ts";
 
 /** A schema type from its written form (`string?`, `Widgets.WDGWidget`). */
 const T = (s: string, typeParams: string[] = []) => parseSchemaType(s, "", typeParams);
 
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
-const javac = spawnSync("javac", ["-version"]).status === 0 && spawnSync("jar", ["--version"]).status === 0;
+const javac =
+  spawnSync("javac", ["-version"]).status === 0 && spawnSync("jar", ["--version"]).status === 0;
 const xcode = sdkAvailable("ios");
 const androidSdk = sdkAvailable("android");
 
 function fixtureJar(dir: string): string {
-  const sources = spawnSync("find", [path.join(fixtures, "java"), "-name", "*.java"], { encoding: "utf8" }).stdout.trim().split("\n");
+  const sources = spawnSync("find", [path.join(fixtures, "java"), "-name", "*.java"], {
+    encoding: "utf8",
+  })
+    .stdout.trim()
+    .split("\n");
   const classes = path.join(dir, "classes");
-  const cc = spawnSync("javac", ["--release", "11", "-d", classes, ...sources], { encoding: "utf8" });
+  const cc = spawnSync("javac", ["--release", "11", "-d", classes, ...sources], {
+    encoding: "utf8",
+  });
   if (cc.status !== 0) throw new Error(cc.stderr);
   const jar = path.join(dir, "fixture.jar");
   spawnSync("jar", ["cf", jar, "-C", classes, "."]);
@@ -46,7 +59,9 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
     expect(extractionCount()).toBe(before + 1);
     const cached = fs.readdirSync(path.join(cacheDir, "sdk/android"));
     expect(cached).toHaveLength(1);
-    expect(fs.existsSync(path.join(cacheDir, "sdk/android", cached[0]!, "com.example.widgets.json"))).toBe(true);
+    expect(
+      fs.existsSync(path.join(cacheDir, "sdk/android", cached[0]!, "com.example.widgets.json")),
+    ).toBe(true);
 
     // A new process: nothing in memory, the cache on disk.
     forgetLoadedSdks();
@@ -71,36 +86,56 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
 
   it("says where it looked for a module it cannot find", () => {
     const jar = fixtureJar(tmp("lucent-jar-"));
-    const r = sdkModule("android", "com.example.nope", { cacheDir: tmp("lucent-cache-"), android: { jars: [jar] } });
-    expect(r).toEqual({ missing: expect.stringMatching(/com\.example\.nope.*not found.*fixture\.jar/s) });
+    const r = sdkModule("android", "com.example.nope", {
+      cacheDir: tmp("lucent-cache-"),
+      android: { jars: [jar] },
+    });
+    expect(r).toEqual({
+      missing: expect.stringMatching(/com\.example\.nope.*not found.*fixture\.jar/s),
+    });
   });
 
-  it.skipIf(!androidSdk)("binds the app's dependencies: jars and AARs on its resolved classpath", () => {
-    const dir = tmp("lucent-deps-");
-    const jar = fixtureJar(dir);
-    // An AAR: classes.jar inside a zip, as Gradle downloads them.
-    const aarDir = path.join(dir, "aar");
-    fs.mkdirSync(aarDir);
-    fs.copyFileSync(jar, path.join(aarDir, "classes.jar"));
-    fs.writeFileSync(path.join(aarDir, "AndroidManifest.xml"), "<manifest/>");
-    const aar = path.join(dir, "widgets.aar");
-    spawnSync("jar", ["cf", aar, "-C", aarDir, "."]);
-    const classpath = path.join(dir, "android-classpath.json");
-    fs.writeFileSync(classpath, JSON.stringify({ aars: [aar], jars: [] }));
-    const sdk = { cacheDir: tmp("lucent-cache-"), android: { classpath } };
-    const r = sdkModule("android", "com.example.widgets", sdk);
-    expect("schema" in r && r.schema.types.some((t) => t.name === "Widget")).toBe(true);
-    // Where it looked, when a package is in neither.
-    expect(sdkModule("android", "com.example.nope", sdk)).toEqual({ missing: expect.stringMatching(/not found in the SDK or the app's dependencies.*android\.jar.*1 dependency/s) });
-  });
+  it.skipIf(!androidSdk)(
+    "binds the app's dependencies: jars and AARs on its resolved classpath",
+    () => {
+      const dir = tmp("lucent-deps-");
+      const jar = fixtureJar(dir);
+      // An AAR: classes.jar inside a zip, as Gradle downloads them.
+      const aarDir = path.join(dir, "aar");
+      fs.mkdirSync(aarDir);
+      fs.copyFileSync(jar, path.join(aarDir, "classes.jar"));
+      fs.writeFileSync(path.join(aarDir, "AndroidManifest.xml"), "<manifest/>");
+      const aar = path.join(dir, "widgets.aar");
+      spawnSync("jar", ["cf", aar, "-C", aarDir, "."]);
+      const classpath = path.join(dir, "android-classpath.json");
+      fs.writeFileSync(classpath, JSON.stringify({ aars: [aar], jars: [] }));
+      const sdk = { cacheDir: tmp("lucent-cache-"), android: { classpath } };
+      const r = sdkModule("android", "com.example.widgets", sdk);
+      expect("schema" in r && r.schema.types.some((t) => t.name === "Widget")).toBe(true);
+      // Where it looked, when a package is in neither.
+      expect(sdkModule("android", "com.example.nope", sdk)).toEqual({
+        missing: expect.stringMatching(
+          /not found in the SDK or the app's dependencies.*android\.jar.*1 dependency/s,
+        ),
+      });
+    },
+  );
 
   it.skipIf(!androidSdk)("says how to resolve the app's dependencies when it has not", () => {
-    const r = sdkModule("android", "androidx.biometric", { cacheDir: tmp("lucent-cache-"), android: { classpath: path.join(tmp("lucent-app-"), ".lucent/android-classpath.json") } });
-    expect(r).toEqual({ missing: expect.stringMatching(/androidx\.biometric.*not found.*lucentClasspath/s) });
+    const r = sdkModule("android", "androidx.biometric", {
+      cacheDir: tmp("lucent-cache-"),
+      android: { classpath: path.join(tmp("lucent-app-"), ".lucent/android-classpath.json") },
+    });
+    expect(r).toEqual({
+      missing: expect.stringMatching(/androidx\.biometric.*not found.*lucentClasspath/s),
+    });
   });
 
   it("names the fix when there is no Android SDK", () => {
-    const r = sdkModule("android", "android.os", { cacheDir: tmp("lucent-cache-"), android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] } });
+    const r = sdkModule("android", "android.os", {
+      cacheDir: tmp("lucent-cache-"),
+      android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] },
+    });
     expect(r).toEqual({ missing: expect.stringMatching(/Android SDK.*not found.*ANDROID_HOME/s) });
   });
 });
@@ -126,9 +161,18 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     const cacheDir = tmp("lucent-cache-");
     const opts = { cacheDir, ios: { includePaths: [path.join(fixtures, "objc")] } };
     const names = sdkNames("ios", "Widgets", opts);
-    expect("names" in names && names.names.types.WDGWidget).toEqual({ kind: "class", native: "WDGWidget" });
-    expect("names" in names && names.names.types.WDGShape).toEqual({ kind: "protocol", native: "WDGShape" });
-    expect("names" in names && names.names.types.WDGStyle).toEqual({ kind: "enum", native: "WDGStyle" });
+    expect("names" in names && names.names.types.WDGWidget).toEqual({
+      kind: "class",
+      native: "WDGWidget",
+    });
+    expect("names" in names && names.names.types.WDGShape).toEqual({
+      kind: "protocol",
+      native: "WDGShape",
+    });
+    expect("names" in names && names.names.types.WDGStyle).toEqual({
+      kind: "enum",
+      native: "WDGStyle",
+    });
     // Structs keep their fields: other modules' signatures pass them by value.
     const measures = sdkNames("ios", "Measures", opts);
     expect("names" in measures && measures.names.types.MSRSpan).toEqual({
@@ -148,7 +192,10 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     const pods = podsSearchPaths(path.join(fixtures, "pods"));
     const root = path.join(fixtures, "pods/Pods");
     expect(pods).toEqual({
-      includePaths: [path.join(root, "Headers/Public"), path.join(root, "Headers/Public/WidgetsPod")],
+      includePaths: [
+        path.join(root, "Headers/Public"),
+        path.join(root, "Headers/Public/WidgetsPod"),
+      ],
       frameworkPaths: [],
       moduleMaps: [path.join(root, "Headers/Public/WidgetsPod/WidgetsPod.modulemap")],
       lockfile: path.join(fixtures, "pods/Podfile.lock"),
@@ -156,24 +203,43 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     const r = sdkModule("ios", "WidgetsPod", { cacheDir: tmp("lucent-cache-"), ios: pods });
     // Imported through the umbrella header its module map names, as <Pod/…>;
     // linked by the pod itself, not as a framework.
-    expect("schema" in r && { header: r.schema.header, frameworks: r.schema.frameworks }).toEqual({ header: "WidgetsPod/WidgetsPod-umbrella.h", frameworks: [] });
-    expect("schema" in r && r.schema.types.find((t) => t.name === "WPGaugeMode")).toMatchObject({ cases: [{ name: "linear", value: 0 }, { name: "radial", value: 4 }] });
+    expect("schema" in r && { header: r.schema.header, frameworks: r.schema.frameworks }).toEqual({
+      header: "WidgetsPod/WidgetsPod-umbrella.h",
+      frameworks: [],
+    });
+    expect("schema" in r && r.schema.types.find((t) => t.name === "WPGaugeMode")).toMatchObject({
+      cases: [
+        { name: "linear", value: 0 },
+        { name: "radial", value: 4 },
+      ],
+    });
     // A Foundation type in its signatures: the SDK and the pods, together.
     const gauge = "schema" in r ? r.schema.types.find((t) => t.name === "WPGauge") : undefined;
-    expect(gauge?.kind === "class" && gauge.properties?.find((p) => p.name === "documentation")?.type).toEqual(T("Foundation.NSURL"));
+    expect(
+      gauge?.kind === "class" && gauge.properties?.find((p) => p.name === "documentation")?.type,
+    ).toEqual(T("Foundation.NSURL"));
   });
 
   it("resolves structs and typedefs other modules declare, attributes and tags included", () => {
-    const r = sdkModule("ios", "Players", { cacheDir: tmp("lucent-cache-"), ios: { includePaths: [path.join(fixtures, "objc")] } });
+    const r = sdkModule("ios", "Players", {
+      cacheDir: tmp("lucent-cache-"),
+      ios: { includePaths: [path.join(fixtures, "objc")] },
+    });
     const player = "schema" in r ? r.schema.types.find((t) => t.name === "PLYPlayer") : undefined;
-    const type = (name: string) => (player?.kind === "class" ? player.properties?.find((p) => p.name === name)?.type : undefined);
+    const type = (name: string) =>
+      player?.kind === "class" ? player.properties?.find((p) => p.name === name)?.type : undefined;
     expect(type("currentTime")).toEqual(T("Measures.MSRTime"));
     expect(type("loop")).toEqual(T("Measures.MSRSpan"));
     expect(type("track")).toEqual(T("int32"));
     // Swift hides the tag `_MSRRange` and names the typedef without a USR, as it does NSRange.
     expect(type("selection")).toEqual(T("Measures.MSRRange"));
-    const measures = sdkModule("ios", "Measures", { cacheDir: tmp("lucent-cache-"), ios: { includePaths: [path.join(fixtures, "objc")] } });
-    expect("schema" in measures && measures.schema.types.find((t) => t.name === "MSRRange")).toEqual({
+    const measures = sdkModule("ios", "Measures", {
+      cacheDir: tmp("lucent-cache-"),
+      ios: { includePaths: [path.join(fixtures, "objc")] },
+    });
+    expect(
+      "schema" in measures && measures.schema.types.find((t) => t.name === "MSRRange"),
+    ).toEqual({
       kind: "struct",
       name: "MSRRange",
       native: "MSRRange",
@@ -185,40 +251,83 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
   });
 
   it("binds Swift's value types as the Objective-C classes they bridge to", () => {
-    const r = sdkModule("ios", "Players", { cacheDir: tmp("lucent-cache-"), ios: { includePaths: [path.join(fixtures, "objc")] } });
+    const r = sdkModule("ios", "Players", {
+      cacheDir: tmp("lucent-cache-"),
+      ios: { includePaths: [path.join(fixtures, "objc")] },
+    });
     const player = "schema" in r ? r.schema.types.find((t) => t.name === "PLYPlayer") : undefined;
     // Swift says IndexPath and URLRequest; Foundation's ReferenceConvertible names the classes.
-    expect(player?.kind === "class" && player.properties?.find((p) => p.name === "position")?.type).toEqual(T("Foundation.NSIndexPath"));
-    expect(player?.kind === "class" && player.methods?.find((m) => m.selector === "openRequest:")?.params).toEqual([{ name: "request", type: T("Foundation.NSURLRequest") }]);
+    expect(
+      player?.kind === "class" && player.properties?.find((p) => p.name === "position")?.type,
+    ).toEqual(T("Foundation.NSIndexPath"));
+    expect(
+      player?.kind === "class" &&
+        player.methods?.find((m) => m.selector === "openRequest:")?.params,
+    ).toEqual([{ name: "request", type: T("Foundation.NSURLRequest") }]);
   });
 
   it("binds opaque CoreFoundation-style handles as classes of their C type", () => {
-    const opts = { cacheDir: tmp("lucent-cache-"), ios: { includePaths: [path.join(fixtures, "objc")] } };
+    const opts = {
+      cacheDir: tmp("lucent-cache-"),
+      ios: { includePaths: [path.join(fixtures, "objc")] },
+    };
     const names = sdkNames("ios", "Measures", opts);
-    expect("names" in names && names.names.types.MSRBuffer).toEqual({ kind: "class", native: "MSRBufferRef", cf: true });
+    expect("names" in names && names.names.types.MSRBuffer).toEqual({
+      kind: "class",
+      native: "MSRBufferRef",
+      cf: true,
+    });
     const measures = sdkModule("ios", "Measures", opts);
     const schema = "schema" in measures ? measures.schema : undefined;
-    expect(schema?.types.find((t) => t.name === "MSRBuffer")).toEqual({ kind: "class", name: "MSRBuffer", native: "MSRBufferRef", cf: true });
-    expect(schema?.functions?.find((f) => f.name === "MSRBufferCreate")?.returns).toEqual(T("Measures.MSRBuffer?"));
-    expect(schema?.functions?.find((f) => f.name === "MSRBufferGetSize")?.params).toEqual([{ name: "buffer", type: T("Measures.MSRBuffer") }]);
+    expect(schema?.types.find((t) => t.name === "MSRBuffer")).toEqual({
+      kind: "class",
+      name: "MSRBuffer",
+      native: "MSRBufferRef",
+      cf: true,
+    });
+    expect(schema?.functions?.find((f) => f.name === "MSRBufferCreate")?.returns).toEqual(
+      T("Measures.MSRBuffer?"),
+    );
+    expect(schema?.functions?.find((f) => f.name === "MSRBufferGetSize")?.params).toEqual([
+      { name: "buffer", type: T("Measures.MSRBuffer") },
+    ]);
     const players = sdkModule("ios", "Players", opts);
-    const player = "schema" in players ? players.schema.types.find((t) => t.name === "PLYPlayer") : undefined;
-    expect(player?.kind === "class" && player.properties?.find((p) => p.name === "buffer")?.type).toEqual(T("Measures.MSRBuffer?"));
+    const player =
+      "schema" in players ? players.schema.types.find((t) => t.name === "PLYPlayer") : undefined;
+    expect(
+      player?.kind === "class" && player.properties?.find((p) => p.name === "buffer")?.type,
+    ).toEqual(T("Measures.MSRBuffer?"));
   });
 
   it("binds NSSet as a set of its element type", () => {
-    const r = sdkModule("ios", "Players", { cacheDir: tmp("lucent-cache-"), ios: { includePaths: [path.join(fixtures, "objc")] } });
+    const r = sdkModule("ios", "Players", {
+      cacheDir: tmp("lucent-cache-"),
+      ios: { includePaths: [path.join(fixtures, "objc")] },
+    });
     const player = "schema" in r ? r.schema.types.find((t) => t.name === "PLYPlayer") : undefined;
-    expect(player?.kind === "class" && player.properties?.find((p) => p.name === "tags")?.type).toEqual(T("Set<string>"));
-    expect(player?.kind === "class" && player.methods?.find((m) => m.selector === "followPlayers:")?.params).toEqual([{ name: "players", type: T("Set<Players.PLYPlayer>") }]);
+    expect(
+      player?.kind === "class" && player.properties?.find((p) => p.name === "tags")?.type,
+    ).toEqual(T("Set<string>"));
+    expect(
+      player?.kind === "class" &&
+        player.methods?.find((m) => m.selector === "followPlayers:")?.params,
+    ).toEqual([{ name: "players", type: T("Set<Players.PLYPlayer>") }]);
   });
 
   it("binds AnyHashable (untyped NSDictionary keys, NSSet elements) as id", () => {
-    const r = sdkModule("ios", "Players", { cacheDir: tmp("lucent-cache-"), ios: { includePaths: [path.join(fixtures, "objc")] } });
+    const r = sdkModule("ios", "Players", {
+      cacheDir: tmp("lucent-cache-"),
+      ios: { includePaths: [path.join(fixtures, "objc")] },
+    });
     const player = "schema" in r ? r.schema.types.find((t) => t.name === "PLYPlayer") : undefined;
     // Keys that are not strings are left out when read, as JavaScript objects' are.
-    expect(player?.kind === "class" && player.properties?.find((p) => p.name === "info")?.type).toEqual(T("Record<id>"));
-    expect(player?.kind === "class" && player.methods?.find((m) => m.selector === "markObjects:")?.params).toEqual([{ name: "objects", type: T("Set<id>") }]);
+    expect(
+      player?.kind === "class" && player.properties?.find((p) => p.name === "info")?.type,
+    ).toEqual(T("Record<id>"));
+    expect(
+      player?.kind === "class" &&
+        player.methods?.find((m) => m.selector === "markObjects:")?.params,
+    ).toEqual([{ name: "objects", type: T("Set<id>") }]);
   });
 
   it("keys the app's pods on Podfile.lock, not on every header", () => {
@@ -243,7 +352,10 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
 
   it("imports and links an SDK module as its framework", () => {
     const r = sdkModule("ios", "Security");
-    expect("schema" in r && { header: r.schema.header, frameworks: r.schema.frameworks }).toEqual({ header: "Security/Security.h", frameworks: ["Security"] });
+    expect("schema" in r && { header: r.schema.header, frameworks: r.schema.frameworks }).toEqual({
+      header: "Security/Security.h",
+      frameworks: ["Security"],
+    });
   });
 
   it("imports an SDK framework through the umbrella header its module map names", () => {
@@ -252,7 +364,10 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
   });
 
   it("names the fix when there is no Xcode", () => {
-    const r = sdkModule("ios", "UIKit", { cacheDir: tmp("lucent-cache-"), ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") } });
+    const r = sdkModule("ios", "UIKit", {
+      cacheDir: tmp("lucent-cache-"),
+      ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") },
+    });
     expect(r).toEqual({ missing: expect.stringMatching(/iOS SDK.*not found.*xcode-select/s) });
   });
 });

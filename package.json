@@ -9,23 +9,36 @@
   ],
   "type": "module",
   "scripts": {
-    "build": "pnpm -r --filter './packages/*' build",
+    "build": "vp run --filter \"./packages/*\" build",
+    "dev": "vp run @lucent-lang/lucent#dev",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run",
+    "check": "vp check && pnpm typecheck",
+    "fix": "vp check --fix",
+    "test": "vp test",
     "test:runtime": "packages/runtime/test/run.sh",
-    "test:e2e": "tsx packages/compiler/test/e2e/run.ts",
+    "test:e2e": "node packages/compiler/test/e2e/run.ts",
     "website": "pnpm --filter @lucent-lang/website dev",
     "website:build": "pnpm --filter @lucent-lang/website build",
-    "lucent": "tsx packages/lucent/src/cli/main.ts"
+    "lucent": "vp run @lucent-lang/lucent#build >&2 && node packages/lucent/bin/lucent.cjs"
   },
   "devDependencies": {
     "@types/node": "^24.7.0",
-    "tsx": "^4.20.6",
     "typescript": "~5.9.3",
-    "vitest": "^3.2.4"
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
   },
   "engines": {
-    "node": ">=22.12"
+    "node": ">=24"
   },
-  "packageManager": "pnpm@9.1.2"
+  "packageManager": "pnpm@9.15.9",
+  "pnpm": {
+    "overrides": {
+      "vite": "catalog:"
+    },
+    "peerDependencyRules": {
+      "allowAny": [
+        "vite"
+      ]
+    }
+  }
 }

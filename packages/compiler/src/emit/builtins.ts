@@ -2,7 +2,16 @@ import path from "node:path";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import { coreTypesPath, isLibFile } from "../program.ts";
-import { type ClassInfo, cppIdent, isVoidish, type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
+import {
+  type ClassInfo,
+  cppIdent,
+  isVoidish,
+  type LType,
+  stripOpt,
+  T,
+  typeKey,
+  unionOf,
+} from "../types.ts";
 import { findMember } from "./classes.ts";
 import type { E } from "./context.ts";
 import { type FnEmitter, substitute } from "./function.ts";
@@ -79,14 +88,27 @@ export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E
     case "regexp":
       if (name === "source") return str(`(${o})->source()`);
       if (name === "flags") return str(`(${o})->canonicalFlags()`);
-      if (["global", "ignoreCase", "multiline", "dotAll", "unicode", "unicodeSets", "sticky", "hasIndices"].includes(name)) return bool(`(${o})->${name}()`);
+      if (
+        [
+          "global",
+          "ignoreCase",
+          "multiline",
+          "dotAll",
+          "unicode",
+          "unicodeSets",
+          "sticky",
+          "hasIndices",
+        ].includes(name)
+      )
+        return bool(`(${o})->${name}()`);
       if (name === "lastIndex") return num(`(${o})->lastIndex`);
       break;
     case "regexMatch":
       if (name === "length") return num(`static_cast<double>((${o})->items.size())`);
       if (name === "index") return { c: `(${o})->index`, t: unionOf([T.number, T.undefined]) };
       if (name === "input") return { c: `(${o})->input`, t: unionOf([T.string, T.undefined]) };
-      if (name === "groups") return { c: `(${o})->groups`, t: unionOf([{ k: "dict", val: T.string }, T.undefined]) };
+      if (name === "groups")
+        return { c: `(${o})->groups`, t: unionOf([{ k: "dict", val: T.string }, T.undefined]) };
       break;
     case "iterResult":
       if (name === "done") return bool(`(${o}).done`);
@@ -94,7 +116,12 @@ export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E
       break;
     case "abortSignal":
       if (name === "aborted") return bool(`(${o})->aborted.load()`);
-      if (name === "reason") fail(node, Codes.UnsupportedBuiltin, "signal.reason has no type; catch the error from throwIfAborted() or delay() instead");
+      if (name === "reason")
+        fail(
+          node,
+          Codes.UnsupportedBuiltin,
+          "signal.reason has no type; catch the error from throwIfAborted() or delay() instead",
+        );
       break;
     case "abortController":
       if (name === "signal") return { c: `(${o})->signal`, t: T.abortSignal };
@@ -111,13 +138,20 @@ export function property(_em: FnEmitter, obj: E, name: string, node: ts.Node): E
 // --- classes ---------------------------------------------------------------------------
 
 /** An instance member of `t` or its ancestors, with the class type that declares it. */
-function classMemberDecl(em: FnEmitter, t: LType & { k: "class" }, name: string): { decl: ts.ClassElement | ts.ParameterDeclaration; owner: LType & { k: "class" } } | undefined {
+function classMemberDecl(
+  em: FnEmitter,
+  t: LType & { k: "class" },
+  name: string,
+): { decl: ts.ClassElement | ts.ParameterDeclaration; owner: LType & { k: "class" } } | undefined {
   const found = findMember(em.reg.chain(t), name, () => true);
   return found && { decl: found.decl, owner: found.owner.t };
 }
 
 function isStatic(m: ts.Node): boolean {
-  return ts.canHaveModifiers(m) && !!ts.getModifiers(m)?.some((x) => x.kind === ts.SyntaxKind.StaticKeyword);
+  return (
+    ts.canHaveModifiers(m) &&
+    !!ts.getModifiers(m)?.some((x) => x.kind === ts.SyntaxKind.StaticKeyword)
+  );
 }
 
 /** Declared (storage) type of a class member, instantiated for `t`'s type arguments. */
@@ -128,7 +162,13 @@ export function memberType(em: FnEmitter, t: LType & { k: "class" }, decl: ts.No
   return substitute(declared, new Map(info.typeParams.map((p, i) => [p, t.args[i]!])));
 }
 
-export function classMember(em: FnEmitter, obj: E, t0: LType & { k: "class" }, name: string, node: ts.Node): E {
+export function classMember(
+  em: FnEmitter,
+  obj: E,
+  t0: LType & { k: "class" },
+  name: string,
+  node: ts.Node,
+): E {
   const info = em.reg.cls(t0.id);
   if (info.isError && (name === "message" || name === "name")) return str(`(${obj.c})->${name}`);
   const found = classMemberDecl(em, t0, name);
@@ -148,12 +188,21 @@ export function classMember(em: FnEmitter, obj: E, t0: LType & { k: "class" }, n
     const r = em.ctx.fresh("recv");
     const ps = ft.params.map((p, i) => `${em.cpp(p)} a${i}`).join(", ");
     const as = ft.params.map((_, i) => `a${i}`).join(", ");
-    return { c: `${em.cpp(ft)}([${r} = ${obj.c === "this" ? "lucent::selfRef(this)" : obj.c}](${ps}) { return ${r}->${cppIdent(name)}(${as}); })`, t: ft };
+    return {
+      c: `${em.cpp(ft)}([${r} = ${obj.c === "this" ? "lucent::selfRef(this)" : obj.c}](${ps}) { return ${r}->${cppIdent(name)}(${as}); })`,
+      t: ft,
+    };
   }
   fail(node, Codes.UnsupportedClassFeature, `unsupported member ${name}`);
 }
 
-export function classMemberLvalue(em: FnEmitter, obj: E, t0: LType & { k: "class" }, name: string, node: ts.Node) {
+export function classMemberLvalue(
+  em: FnEmitter,
+  obj: E,
+  t0: LType & { k: "class" },
+  name: string,
+  node: ts.Node,
+) {
   const info = em.reg.cls(t0.id);
   if (info.isError && (name === "message" || name === "name")) {
     const c = `(${obj.c})->${name}`;
@@ -170,68 +219,134 @@ export function classMemberLvalue(em: FnEmitter, obj: E, t0: LType & { k: "class
     const type = memberType(em, t, decl);
     const recv = em.ctx.fresh("recv");
     void recv;
-    return { get: `(${obj.c})->get_${cppIdent(name)}()`, set: (v: string) => `((${obj.c})->set_${cppIdent(name)}(${v}), ${v})`, type };
+    return {
+      get: `(${obj.c})->get_${cppIdent(name)}()`,
+      set: (v: string) => `((${obj.c})->set_${cppIdent(name)}(${v}), ${v})`,
+      type,
+    };
   }
   fail(node, Codes.UnsupportedAssignmentTarget, `cannot assign to method ${name}`);
 }
 
 // --- interfaces ------------------------------------------------------------------------
 
-function ifaceMemberOf(em: FnEmitter, t: LType & { k: "iface" }, name: string, node: ts.Node): IfaceMember {
+function ifaceMemberOf(
+  em: FnEmitter,
+  t: LType & { k: "iface" },
+  name: string,
+  node: ts.Node,
+): IfaceMember {
   const info = em.reg.iface(t.id);
   const m = membersOf(em.ctx, t).find((x) => x.name === name);
   if (!m) fail(node, Codes.UnsupportedSyntax, `unknown member ${name} of ${info.decl.name.text}`);
   return m;
 }
 
-export function ifaceMember(em: FnEmitter, obj: E, t: LType & { k: "iface" }, name: string, node: ts.Node): E {
+export function ifaceMember(
+  em: FnEmitter,
+  obj: E,
+  t: LType & { k: "iface" },
+  name: string,
+  node: ts.Node,
+): E {
   const m = ifaceMemberOf(em, t, name, node);
-  if (m.kind === "method") fail(node, Codes.UnsupportedClassFeature, `call ${name}() directly; interface methods cannot be used as values`);
+  if (m.kind === "method")
+    fail(
+      node,
+      Codes.UnsupportedClassFeature,
+      `call ${name}() directly; interface methods cannot be used as values`,
+    );
   return { c: `(${obj.c})->get_${cppIdent(name)}()`, t: m.type };
 }
 
-export function ifaceMemberLvalue(em: FnEmitter, obj: E, t: LType & { k: "iface" }, name: string, node: ts.Node) {
+export function ifaceMemberLvalue(
+  em: FnEmitter,
+  obj: E,
+  t: LType & { k: "iface" },
+  name: string,
+  node: ts.Node,
+) {
   const m = ifaceMemberOf(em, t, name, node);
-  if (m.kind === "method" || m.readonly) fail(node, Codes.UnsupportedAssignmentTarget, `cannot assign to ${name}`);
-  return { get: `(${obj.c})->get_${cppIdent(name)}()`, set: (v: string) => `((${obj.c})->set_${cppIdent(name)}(${v}), ${v})`, type: m.type };
+  if (m.kind === "method" || m.readonly)
+    fail(node, Codes.UnsupportedAssignmentTarget, `cannot assign to ${name}`);
+  return {
+    get: `(${obj.c})->get_${cppIdent(name)}()`,
+    set: (v: string) => `((${obj.c})->set_${cppIdent(name)}(${v}), ${v})`,
+    type: m.type,
+  };
 }
 
-function ifaceMethodCall(em: FnEmitter, obj: E, t: LType & { k: "iface" }, name: string, node: ts.CallExpression): E {
+function ifaceMethodCall(
+  em: FnEmitter,
+  obj: E,
+  t: LType & { k: "iface" },
+  name: string,
+  node: ts.CallExpression,
+): E {
   const m = ifaceMemberOf(em, t, name, node);
   if (m.kind === "prop") {
     const ft = stripOpt(m.type);
     if (ft.k !== "fn") fail(node, Codes.UnsupportedCall, `${name} is not a function`);
     const f = ifaceMember(em, obj, t, name, node);
-    return { c: `${em.coerce(f, ft, node)}(${em.args(node.arguments, ft.params, node).join(", ")})`, t: isVoidish(ft.ret) ? T.undefined : ft.ret };
+    return {
+      c: `${em.coerce(f, ft, node)}(${em.args(node.arguments, ft.params, node).join(", ")})`,
+      t: isVoidish(ft.ret) ? T.undefined : ft.ret,
+    };
   }
-  const rest = m.params.length && m.params[m.params.length - 1]!.rest ? m.params[m.params.length - 1]!.cppType : undefined;
-  const as = em.args(node.arguments, m.params.map((p) => p.cppType), node, rest);
-  return { c: `(${obj.c})->${cppIdent(name)}(${as.join(", ")})`, t: isVoidish(m.fn.ret) ? T.undefined : m.fn.ret };
+  const rest =
+    m.params.length && m.params[m.params.length - 1]!.rest
+      ? m.params[m.params.length - 1]!.cppType
+      : undefined;
+  const as = em.args(
+    node.arguments,
+    m.params.map((p) => p.cppType),
+    node,
+    rest,
+  );
+  return {
+    c: `(${obj.c})->${cppIdent(name)}(${as.join(", ")})`,
+    t: isVoidish(m.fn.ret) ? T.undefined : m.fn.ret,
+  };
 }
 
 /** A static member of a class or its ancestors (statics are inherited in JavaScript). */
-function staticMember(em: FnEmitter, info: ClassInfo, name: string): { decl: ts.ClassElement | undefined; owner: ClassInfo } {
+function staticMember(
+  em: FnEmitter,
+  info: ClassInfo,
+  name: string,
+): { decl: ts.ClassElement | undefined; owner: ClassInfo } {
   for (const c of [info, ...em.reg.ancestors(info)]) {
-    const decl = c.decl.members.find((m) => m.name && ts.isIdentifier(m.name) && m.name.text === name && isStatic(m));
+    const decl = c.decl.members.find(
+      (m) => m.name && ts.isIdentifier(m.name) && m.name.text === name && isStatic(m),
+    );
     if (decl) return { decl, owner: c };
   }
   return { decl: undefined, owner: info };
 }
 
 /** `super.name` / `super.name(...)` inside a subclass. */
-export function superMember(em: FnEmitter, name: string, node: ts.Node, call?: ts.CallExpression): E {
+export function superMember(
+  em: FnEmitter,
+  name: string,
+  node: ts.Node,
+  call?: ts.CallExpression,
+): E {
   const cls = em.opts.cls;
-  if (!cls?.base) fail(node, Codes.UnsupportedClassFeature, "`super` members are only available in subclasses");
+  if (!cls?.base)
+    fail(node, Codes.UnsupportedClassFeature, "`super` members are only available in subclasses");
   const found = classMemberDecl(em, { k: "class", id: cls.base.id, args: cls.base.args }, name);
   if (!found) fail(node, Codes.UnsupportedClassFeature, `unknown member ${name}`);
   const qual = `${em.thisAccess()}${em.reg.cppClass(found.owner)}::`;
   const d = found.decl;
   if (call) {
-    if (!ts.isMethodDeclaration(d)) fail(node, Codes.UnsupportedClassFeature, `super.${name} is not a method`);
+    if (!ts.isMethodDeclaration(d))
+      fail(node, Codes.UnsupportedClassFeature, `super.${name} is not a method`);
     return callMethodDecl(em, `${qual}${cppIdent(name)}`, d, call, found.owner);
   }
-  if (ts.isGetAccessorDeclaration(d)) return { c: `${qual}get_${cppIdent(name)}()`, t: memberType(em, found.owner, d) };
-  if (ts.isPropertyDeclaration(d) || ts.isParameter(d)) return { c: `${qual}${cppIdent(name)}`, t: memberType(em, found.owner, d) };
+  if (ts.isGetAccessorDeclaration(d))
+    return { c: `${qual}get_${cppIdent(name)}()`, t: memberType(em, found.owner, d) };
+  if (ts.isPropertyDeclaration(d) || ts.isParameter(d))
+    return { c: `${qual}${cppIdent(name)}`, t: memberType(em, found.owner, d) };
   fail(node, Codes.UnsupportedClassFeature, `super.${name} cannot be used as a value`);
 }
 
@@ -248,7 +363,8 @@ export function staticMemberLvalue(em: FnEmitter, target: ts.PropertyAccessExpre
   if (!g) return undefined;
   const name = target.name.text;
   const { decl, owner } = staticMember(em, g.info, name);
-  if (!decl || !ts.isPropertyDeclaration(decl)) fail(target, Codes.UnsupportedAssignmentTarget, `unknown static field ${name}`);
+  if (!decl || !ts.isPropertyDeclaration(decl))
+    fail(target, Codes.UnsupportedAssignmentTarget, `unknown static field ${name}`);
   const c = `lucent_app::${owner.cppName}::${cppIdent(name)}`;
   return { direct: c, get: c, type: em.reg.lower(em.checker.getTypeAtLocation(decl), decl) };
 }
@@ -279,13 +395,22 @@ const NUMBER_CONSTANTS: Record<string, string> = {
 /** The name JavaScript stacks give the function around `node`. */
 function functionName(node: ts.Node): string {
   for (let n: ts.Node | undefined = node.parent; n; n = n.parent) {
-    if (ts.isFunctionDeclaration(n) || ts.isFunctionExpression(n)) return n.name?.text ?? "<anonymous>";
-    if (ts.isMethodDeclaration(n) || ts.isGetAccessorDeclaration(n) || ts.isSetAccessorDeclaration(n)) {
+    if (ts.isFunctionDeclaration(n) || ts.isFunctionExpression(n))
+      return n.name?.text ?? "<anonymous>";
+    if (
+      ts.isMethodDeclaration(n) ||
+      ts.isGetAccessorDeclaration(n) ||
+      ts.isSetAccessorDeclaration(n)
+    ) {
       const cls = ts.isClassLike(n.parent) ? n.parent.name?.text : undefined;
       return `${cls ? `${cls}.` : ""}${n.name.getText()}`;
     }
-    if (ts.isConstructorDeclaration(n)) return `new ${ts.isClassLike(n.parent) ? (n.parent.name?.text ?? "") : ""}`;
-    if (ts.isArrowFunction(n)) return ts.isVariableDeclaration(n.parent) && ts.isIdentifier(n.parent.name) ? n.parent.name.text : "<anonymous>";
+    if (ts.isConstructorDeclaration(n))
+      return `new ${ts.isClassLike(n.parent) ? (n.parent.name?.text ?? "") : ""}`;
+    if (ts.isArrowFunction(n))
+      return ts.isVariableDeclaration(n.parent) && ts.isIdentifier(n.parent.name)
+        ? n.parent.name.text
+        : "<anonymous>";
   }
   return "<module>";
 }
@@ -297,7 +422,11 @@ export function withSite(expr: string, node: ts.Node): string {
 
 export function isJsonParse(em: FnEmitter, node: ts.CallExpression): boolean {
   const c = node.expression;
-  return ts.isPropertyAccessExpression(c) && c.name.text === "parse" && isLibGlobal(em, c.expression, "JSON");
+  return (
+    ts.isPropertyAccessExpression(c) &&
+    c.name.text === "parse" &&
+    isLibGlobal(em, c.expression, "JSON")
+  );
 }
 
 export function isMathGlobal(em: FnEmitter, id: ts.Expression): boolean {
@@ -318,18 +447,36 @@ export function staticProperty(em: FnEmitter, node: ts.PropertyAccessExpression)
     if (name in MATH_CONSTANTS) return num(numberLiteral(MATH_CONSTANTS[name]!));
     return undefined;
   }
-  if (isLibGlobal(em, obj, "Number") && name in NUMBER_CONSTANTS) return num(NUMBER_CONSTANTS[name]!);
+  if (isLibGlobal(em, obj, "Number") && name in NUMBER_CONSTANTS)
+    return num(NUMBER_CONSTANTS[name]!);
   // Enum members are constants.
   const memberSym = em.checker.getSymbolAtLocation(node);
-  const memberDecl = memberSym && memberSym.flags & ts.SymbolFlags.EnumMember ? memberSym.valueDeclaration : undefined;
-  const constant = memberDecl && ts.isEnumMember(memberDecl) ? em.checker.getConstantValue(memberDecl) : em.checker.getConstantValue(node);
-  if (constant !== undefined) return typeof constant === "number" ? num(numberLiteral(constant)) : str(stringLiteral(constant));
+  const memberDecl =
+    memberSym && memberSym.flags & ts.SymbolFlags.EnumMember
+      ? memberSym.valueDeclaration
+      : undefined;
+  const constant =
+    memberDecl && ts.isEnumMember(memberDecl)
+      ? em.checker.getConstantValue(memberDecl)
+      : em.checker.getConstantValue(node);
+  if (constant !== undefined)
+    return typeof constant === "number"
+      ? num(numberLiteral(constant))
+      : str(stringLiteral(constant));
   const g = staticClass(em, obj);
   if (g) {
     const { decl, owner } = staticMember(em, g.info, name);
     if (!decl) fail(node, Codes.UnsupportedClassFeature, `unknown static member ${name}`);
-    if (ts.isPropertyDeclaration(decl)) return { c: `lucent_app::${owner.cppName}::${cppIdent(name)}`, t: em.reg.lower(em.checker.getTypeAtLocation(decl), decl) };
-    if (ts.isGetAccessorDeclaration(decl)) return { c: `lucent_app::${owner.cppName}::get_${cppIdent(name)}()`, t: em.reg.lower(em.checker.getTypeAtLocation(decl), decl) };
+    if (ts.isPropertyDeclaration(decl))
+      return {
+        c: `lucent_app::${owner.cppName}::${cppIdent(name)}`,
+        t: em.reg.lower(em.checker.getTypeAtLocation(decl), decl),
+      };
+    if (ts.isGetAccessorDeclaration(decl))
+      return {
+        c: `lucent_app::${owner.cppName}::get_${cppIdent(name)}()`,
+        t: em.reg.lower(em.checker.getTypeAtLocation(decl), decl),
+      };
     fail(node, Codes.UnsupportedClassFeature, `static methods cannot be used as values`);
   }
   return undefined;
@@ -338,21 +485,61 @@ export function staticProperty(em: FnEmitter, node: ts.PropertyAccessExpression)
 // --- static calls ----------------------------------------------------------------------
 
 const MATH_FUNCTIONS = new Set([
-  "abs", "floor", "ceil", "trunc", "round", "sign", "sqrt", "cbrt", "exp", "expm1", "log", "log2", "log10", "log1p",
-  "sin", "cos", "tan", "asin", "acos", "atan", "atan2", "sinh", "cosh", "tanh", "asinh", "acosh", "atanh", "pow",
-  "fround", "imul", "clz32", "hypot", "random", "min", "max",
+  "abs",
+  "floor",
+  "ceil",
+  "trunc",
+  "round",
+  "sign",
+  "sqrt",
+  "cbrt",
+  "exp",
+  "expm1",
+  "log",
+  "log2",
+  "log10",
+  "log1p",
+  "sin",
+  "cos",
+  "tan",
+  "asin",
+  "acos",
+  "atan",
+  "atan2",
+  "sinh",
+  "cosh",
+  "tanh",
+  "asinh",
+  "acosh",
+  "atanh",
+  "pow",
+  "fround",
+  "imul",
+  "clz32",
+  "hypot",
+  "random",
+  "min",
+  "max",
 ]);
 
-export function staticCall(em: FnEmitter, node: ts.CallExpression, callee: ts.PropertyAccessExpression): E | undefined {
+export function staticCall(
+  em: FnEmitter,
+  node: ts.CallExpression,
+  callee: ts.PropertyAccessExpression,
+): E | undefined {
   const obj = callee.expression;
   const name = callee.name.text;
   const a = node.arguments;
   if (isLibGlobal(em, obj, "Math")) {
-    if (!MATH_FUNCTIONS.has(name)) fail(node, Codes.UnsupportedBuiltin, `Math.${name} is not supported`);
+    if (!MATH_FUNCTIONS.has(name))
+      fail(node, Codes.UnsupportedBuiltin, `Math.${name} is not supported`);
     if ((name === "min" || name === "max") && a.length === 1 && ts.isSpreadElement(a[0]!)) {
-      return num(`lucent::math::${name}Of(${em.exprAs(a[0]!.expression, { k: "array", e: T.number })})`);
+      return num(
+        `lucent::math::${name}Of(${em.exprAs(a[0]!.expression, { k: "array", e: T.number })})`,
+      );
     }
-    if (a.some(ts.isSpreadElement)) fail(node, Codes.UnsupportedBuiltin, `spread is only supported as Math.${name}(...array)`);
+    if (a.some(ts.isSpreadElement))
+      fail(node, Codes.UnsupportedBuiltin, `spread is only supported as Math.${name}(...array)`);
     if (name === "imul" && a.length === 2) {
       const x = em.expr(a[0]!);
       const y = em.expr(a[1]!);
@@ -362,7 +549,8 @@ export function staticCall(em: FnEmitter, node: ts.CallExpression, callee: ts.Pr
   }
   if (isLibGlobal(em, obj, "Date")) {
     if (name === "now") return num("lucent::dateNow()");
-    if (name === "UTC") return num(`lucent::dateUTC(${a.map((x) => em.exprAs(x, T.number)).join(", ")})`);
+    if (name === "UTC")
+      return num(`lucent::dateUTC(${a.map((x) => em.exprAs(x, T.number)).join(", ")})`);
     if (name === "parse") return num(`lucent::dateParse(${argAs(em, node, 0, T.string)})`);
     fail(node, Codes.UnsupportedBuiltin, `Date.${name} is not supported`);
   }
@@ -374,13 +562,20 @@ export function staticCall(em: FnEmitter, node: ts.CallExpression, callee: ts.Pr
       case "isNaN": {
         const v = em.expr(a[0]!);
         if (stripOpt(v.t).k !== "number" || v.t.k === "opt") return bool("false");
-        const f = { isInteger: "lucent::isInteger", isSafeInteger: "lucent::isSafeInteger", isFinite: "std::isfinite", isNaN: "std::isnan" }[name];
+        const f = {
+          isInteger: "lucent::isInteger",
+          isSafeInteger: "lucent::isSafeInteger",
+          isFinite: "std::isfinite",
+          isNaN: "std::isnan",
+        }[name];
         return bool(`${f}(${v.c})`);
       }
       case "parseFloat":
         return num(`lucent::parseFloat(${argAs(em, node, 0, T.string)})`);
       case "parseInt":
-        return num(`lucent::parseInt(${args(argAs(em, node, 0, T.string), optArg(em, node, 1, T.number))})`);
+        return num(
+          `lucent::parseInt(${args(argAs(em, node, 0, T.string), optArg(em, node, 1, T.number))})`,
+        );
     }
     fail(node, Codes.UnsupportedBuiltin, `Number.${name} is not supported`);
   }
@@ -390,16 +585,27 @@ export function staticCall(em: FnEmitter, node: ts.CallExpression, callee: ts.Pr
     if (t.k === "dict") {
       if (name === "keys") return { c: `(${v.c}).keys()`, t: { k: "array", e: T.string } };
       if (name === "values") return { c: `(${v.c}).values()`, t: { k: "array", e: t.val } };
-      if (name === "entries") return { c: `lucent::dictEntries(${v.c})`, t: { k: "array", e: { k: "tuple", es: [T.string, t.val] } } };
+      if (name === "entries")
+        return {
+          c: `lucent::dictEntries(${v.c})`,
+          t: { k: "array", e: { k: "tuple", es: [T.string, t.val] } },
+        };
     }
     if (t.k === "struct" && name === "keys") {
       const fields = em.reg.struct(t.id).fields.map((f) => stringLiteral(f.name));
-      return { c: `lucent::Array<lucent::String>{${fields.join(", ")}}`, t: { k: "array", e: T.string } };
+      return {
+        c: `lucent::Array<lucent::String>{${fields.join(", ")}}`,
+        t: { k: "array", e: T.string },
+      };
     }
     if (name === "fromEntries") {
       const rt = em.lt(node);
-      if (rt.k !== "dict") fail(node, Codes.UnsupportedBuiltin, "Object.fromEntries must produce a record");
-      return { c: `lucent::dictFromEntries<${em.cpp(rt.val)}>(${em.exprAs(a[0]!, { k: "array", e: { k: "tuple", es: [T.string, rt.val] } })})`, t: rt };
+      if (rt.k !== "dict")
+        fail(node, Codes.UnsupportedBuiltin, "Object.fromEntries must produce a record");
+      return {
+        c: `lucent::dictFromEntries<${em.cpp(rt.val)}>(${em.exprAs(a[0]!, { k: "array", e: { k: "tuple", es: [T.string, rt.val] } })})`,
+        t: rt,
+      };
     }
     fail(node, Codes.UnsupportedBuiltin, `Object.${name} is not supported on ${typeKey(v.t)}`);
   }
@@ -407,34 +613,51 @@ export function staticCall(em: FnEmitter, node: ts.CallExpression, callee: ts.Pr
     const rt = em.lt(node);
     if (name === "isArray") {
       const v = em.expr(a[0]!);
-      return bool(stripOpt(v.t).k === "array" ? (v.t.k === "opt" ? `(${v.c}).has()` : "true") : "false");
+      return bool(
+        stripOpt(v.t).k === "array" ? (v.t.k === "opt" ? `(${v.c}).has()` : "true") : "false",
+      );
     }
     if (name === "of") {
       if (rt.k !== "array") fail(node, Codes.UnsupportedBuiltin, "Array.of");
       return { c: `${em.cpp(rt)}{${a.map((x) => em.exprAs(x, rt.e)).join(", ")}}`, t: rt };
     }
     if (name === "from") {
-      if (rt.k !== "array") fail(node, Codes.UnsupportedBuiltin, "Array.from must produce an array");
+      if (rt.k !== "array")
+        fail(node, Codes.UnsupportedBuiltin, "Array.from must produce an array");
       const src = a[0]!;
       // Array.from({ length: n }, (_, i) => ...)
       if (ts.isObjectLiteralExpression(src)) {
         const lenProp = src.properties.find((p) => p.name && p.name.getText() === "length");
-        if (!lenProp || !ts.isPropertyAssignment(lenProp)) fail(src, Codes.UnsupportedBuiltin, "Array.from needs an iterable or { length: n }");
+        if (!lenProp || !ts.isPropertyAssignment(lenProp))
+          fail(src, Codes.UnsupportedBuiltin, "Array.from needs an iterable or { length: n }");
         const n = em.exprAs(lenProp.initializer, T.number);
-        if (!a[1]) return { c: `${em.cpp(rt)}::filled(static_cast<size_t>(${n}), ${em.cpp(rt.e)}{})`, t: rt };
+        if (!a[1])
+          return {
+            c: `${em.cpp(rt)}::filled(static_cast<size_t>(${n}), ${em.cpp(rt.e)}{})`,
+            t: rt,
+          };
         const cb = callback(em, a[1], [T.undefined, T.number], rt.e);
         const cbv = em.ctx.fresh("cb");
-        return { c: `({ auto ${cbv} = ${cb.c}; ${em.cpp(rt)}::generate(${n}, [&](double i) { return ${cbv}(lucent::undefined, i); }); })`, t: rt };
+        return {
+          c: `({ auto ${cbv} = ${cb.c}; ${em.cpp(rt)}::generate(${n}, [&](double i) { return ${cbv}(lucent::undefined, i); }); })`,
+          t: rt,
+        };
       }
       const s = em.expr(src);
       const st = stripOpt(s.t);
       let base: E;
       if (st.k === "array") base = { c: `(${s.c}).slice()`, t: st };
-      else if (st.k === "string") base = { c: `lucent::splitCodePoints(${s.c})`, t: { k: "array", e: T.string } };
+      else if (st.k === "string")
+        base = { c: `lucent::splitCodePoints(${s.c})`, t: { k: "array", e: T.string } };
       else if (st.k === "set") base = { c: `(${s.c}).values()`, t: { k: "array", e: st.e } };
-      else if (st.k === "map") base = { c: `lucent::mapEntries(${s.c})`, t: { k: "array", e: { k: "tuple", es: [st.key, st.val] } } };
+      else if (st.k === "map")
+        base = {
+          c: `lucent::mapEntries(${s.c})`,
+          t: { k: "array", e: { k: "tuple", es: [st.key, st.val] } },
+        };
       else if (st.k === "bytes") base = { c: `(${s.c}).toArray()`, t: { k: "array", e: T.number } };
-      else if (st.k === "iter") base = { c: `lucent::iterToArray(${em.coerce(s, st, src)})`, t: { k: "array", e: st.e } };
+      else if (st.k === "iter")
+        base = { c: `lucent::iterToArray(${em.coerce(s, st, src)})`, t: { k: "array", e: st.e } };
       else fail(src, Codes.UnsupportedBuiltin, `Array.from over ${typeKey(s.t)}`);
       if (!a[1]) return { c: em.coerce(base, rt, node), t: rt };
       const be = (base.t as LType & { k: "array" }).e;
@@ -444,47 +667,80 @@ export function staticCall(em: FnEmitter, node: ts.CallExpression, callee: ts.Pr
     fail(node, Codes.UnsupportedBuiltin, `Array.${name} is not supported`);
   }
   if (isLibGlobal(em, obj, "String")) {
-    if (name === "fromCharCode") return str(`lucent::stringFromCharCodes({${a.map((x) => em.exprAs(x, T.number)).join(", ")}})`);
-    if (name === "fromCodePoint") return str(`lucent::stringFromCodePoints({${a.map((x) => em.exprAs(x, T.number)).join(", ")}})`);
+    if (name === "fromCharCode")
+      return str(
+        `lucent::stringFromCharCodes({${a.map((x) => em.exprAs(x, T.number)).join(", ")}})`,
+      );
+    if (name === "fromCodePoint")
+      return str(
+        `lucent::stringFromCodePoints({${a.map((x) => em.exprAs(x, T.number)).join(", ")}})`,
+      );
     fail(node, Codes.UnsupportedBuiltin, `String.${name} is not supported`);
   }
   if (isLibGlobal(em, obj, "console")) {
     const level = name === "warn" ? "Warn" : name === "error" ? "Error" : "Log";
-    if (!["log", "info", "debug", "warn", "error"].includes(name)) fail(node, Codes.UnsupportedBuiltin, `console.${name} is not supported`);
+    if (!["log", "info", "debug", "warn", "error"].includes(name))
+      fail(node, Codes.UnsupportedBuiltin, `console.${name} is not supported`);
     const parts = a.map((x) => em.toStringCode(em.expr(x)));
-    const joined = parts.length === 0 ? "lucent::String()" : parts.map((p) => `lucent::String(${p})`).join(' + LUCENT_STR(" ") + ');
+    const joined =
+      parts.length === 0
+        ? "lucent::String()"
+        : parts.map((p) => `lucent::String(${p})`).join(' + LUCENT_STR(" ") + ');
     return { c: `lucent::consoleWrite(lucent::ConsoleLevel::${level}, ${joined})`, t: T.undefined };
   }
   if (isLibGlobal(em, obj, "Date") && name === "now") return num("lucent::dateNow()");
   if (isLibGlobal(em, obj, "JSON")) {
     if (name === "stringify") {
       const v = em.expr(a[0]!);
-      if (a.length > 1) fail(node, Codes.UnsupportedBuiltin, "JSON.stringify replacer/indent arguments are not supported");
+      if (a.length > 1)
+        fail(
+          node,
+          Codes.UnsupportedBuiltin,
+          "JSON.stringify replacer/indent arguments are not supported",
+        );
       return str(`lucent::json::stringify(${v.c})`);
     }
-    fail(node, Codes.UnsupportedBuiltin, `JSON.${name} is not supported (Lucent values are typed; parse with explicit code)`);
+    fail(
+      node,
+      Codes.UnsupportedBuiltin,
+      `JSON.${name} is not supported (Lucent values are typed; parse with explicit code)`,
+    );
   }
   if (isLibGlobal(em, obj, "Promise")) {
     const rt = em.lt(node);
     if (rt.k !== "promise") fail(node, Codes.UnsupportedBuiltin, `Promise.${name}`);
     if (name === "resolve") {
       if (!a[0]) return { c: `lucent::Promise<void>::resolved()`, t: rt };
-      return { c: `lucent::resolvedPromise<${em.reg.cppRet(rt.inner)}>(${em.exprAs(a[0], rt.inner)})`, t: rt };
+      return {
+        c: `lucent::resolvedPromise<${em.reg.cppRet(rt.inner)}>(${em.exprAs(a[0], rt.inner)})`,
+        t: rt,
+      };
     }
-    if (name === "reject") return { c: `lucent::Promise<${em.reg.cppRet(rt.inner)}>::rejected(${em.exprAs(a[0]!, T.error)})`, t: rt };
+    if (name === "reject")
+      return {
+        c: `lucent::Promise<${em.reg.cppRet(rt.inner)}>::rejected(${em.exprAs(a[0]!, T.error)})`,
+        t: rt,
+      };
     if (name === "all") {
       const src = em.expr(a[0]!, em.lt(a[0]!));
       const st = stripOpt(src.t);
       if (st.k === "array" && st.e.k === "promise") {
-        if (isVoidish(st.e.inner)) return { c: `lucent::promiseAllVoid(${src.c})`, t: { k: "promise", inner: T.void } };
-        return { c: `lucent::promiseAll(${src.c})`, t: { k: "promise", inner: { k: "array", e: st.e.inner } } };
+        if (isVoidish(st.e.inner))
+          return { c: `lucent::promiseAllVoid(${src.c})`, t: { k: "promise", inner: T.void } };
+        return {
+          c: `lucent::promiseAll(${src.c})`,
+          t: { k: "promise", inner: { k: "array", e: st.e.inner } },
+        };
       }
       if (st.k === "tuple" && st.es.every((e) => e.k === "promise")) {
         const inners = st.es.map((e) => {
           const inner = (e as LType & { k: "promise" }).inner;
           return isVoidish(inner) ? T.undefined : inner;
         });
-        return { c: `lucent::promiseAllTuple(${src.c})`, t: { k: "promise", inner: { k: "tuple", es: inners } } };
+        return {
+          c: `lucent::promiseAllTuple(${src.c})`,
+          t: { k: "promise", inner: { k: "tuple", es: inners } },
+        };
       }
       fail(node, Codes.UnsupportedBuiltin, "Promise.all needs an array of promises of one type");
     }
@@ -493,14 +749,27 @@ export function staticCall(em: FnEmitter, node: ts.CallExpression, callee: ts.Pr
   const g = staticClass(em, obj);
   if (g) {
     const { decl, owner } = staticMember(em, g.info, name);
-    if (!decl || !ts.isMethodDeclaration(decl)) fail(node, Codes.UnsupportedClassFeature, `unknown static method ${name}`);
-    return callMethodDecl(em, `lucent_app::${owner.cppName}::${cppIdent(name)}`, decl, node, undefined);
+    if (!decl || !ts.isMethodDeclaration(decl))
+      fail(node, Codes.UnsupportedClassFeature, `unknown static method ${name}`);
+    return callMethodDecl(
+      em,
+      `lucent_app::${owner.cppName}::${cppIdent(name)}`,
+      decl,
+      node,
+      undefined,
+    );
   }
   return undefined;
 }
 
 /** Calls a class method declaration with arguments coerced to its parameters. */
-function callMethodDecl(em: FnEmitter, target: string, decl: ts.MethodDeclaration, node: ts.CallExpression, classT: (LType & { k: "class" }) | undefined): E {
+function callMethodDecl(
+  em: FnEmitter,
+  target: string,
+  decl: ts.MethodDeclaration,
+  node: ts.CallExpression,
+  classT: (LType & { k: "class" }) | undefined,
+): E {
   const sig = em.checker.getSignatureFromDeclaration(decl)!;
   let ft = em.reg.lowerSignature(sig, decl) as FnT;
   if (classT?.args.length) {
@@ -509,9 +778,21 @@ function callMethodDecl(em: FnEmitter, target: string, decl: ts.MethodDeclaratio
   }
   const isAsync = !!ts.getModifiers(decl)?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword);
   const params = em.paramInfos(decl, ft);
-  const rest = params.length && params[params.length - 1]!.rest ? params[params.length - 1]!.cppType : undefined;
-  const as = em.args(node.arguments, params.map((p) => p.cppType), node, rest);
-  const ret = isAsync ? (ft.ret.k === "promise" ? ft.ret : ({ k: "promise", inner: ft.ret } as LType)) : ft.ret;
+  const rest =
+    params.length && params[params.length - 1]!.rest
+      ? params[params.length - 1]!.cppType
+      : undefined;
+  const as = em.args(
+    node.arguments,
+    params.map((p) => p.cppType),
+    node,
+    rest,
+  );
+  const ret = isAsync
+    ? ft.ret.k === "promise"
+      ? ft.ret
+      : ({ k: "promise", inner: ft.ret } as LType)
+    : ft.ret;
   return { c: `${target}(${as.join(", ")})`, t: isVoidish(ret) ? T.undefined : ret };
 }
 
@@ -519,7 +800,11 @@ function callMethodDecl(em: FnEmitter, target: string, decl: ts.MethodDeclaratio
 
 export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExpression): E {
   const t = obj.t;
-  if (t.k === "native") return nativeCall(em, node, obj) ?? fail(node, Codes.UnsupportedCall, `${name} is not a method of ${t.name}`);
+  if (t.k === "native")
+    return (
+      nativeCall(em, node, obj) ??
+      fail(node, Codes.UnsupportedCall, `${name} is not a method of ${t.name}`)
+    );
   const o = obj.c;
   const a = node.arguments;
   if (name === "toString" && a.length === 0 && t.k !== "number") return str(em.toStringCode(obj));
@@ -529,12 +814,21 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       if (info.isError && name === "toString") return str(`lucent::errorToString(${o})`);
       const found = classMemberDecl(em, t, name);
       const decl = found?.decl;
-      if (decl && ts.isMethodDeclaration(decl)) return callMethodDecl(em, `(${o})->${cppIdent(name)}`, decl, node, found.owner);
-      if (decl && (ts.isPropertyDeclaration(decl) || ts.isParameter(decl) || ts.isGetAccessorDeclaration(decl))) {
+      if (decl && ts.isMethodDeclaration(decl))
+        return callMethodDecl(em, `(${o})->${cppIdent(name)}`, decl, node, found.owner);
+      if (
+        decl &&
+        (ts.isPropertyDeclaration(decl) ||
+          ts.isParameter(decl) ||
+          ts.isGetAccessorDeclaration(decl))
+      ) {
         const f = classMember(em, obj, t, name, node);
         const ft = stripOpt(f.t);
         if (ft.k !== "fn") fail(node, Codes.UnsupportedCall, `${name} is not a function`);
-        return { c: `${em.coerce(f, ft, node)}(${em.args(a, ft.params, node).join(", ")})`, t: isVoidish(ft.ret) ? T.undefined : ft.ret };
+        return {
+          c: `${em.coerce(f, ft, node)}(${em.args(a, ft.params, node).join(", ")})`,
+          t: isVoidish(ft.ret) ? T.undefined : ft.ret,
+        };
       }
       fail(node, Codes.UnsupportedClassFeature, `unknown method ${name}`);
     }
@@ -544,7 +838,10 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       const f = em.member(obj, name, node);
       const ft = stripOpt(f.t);
       if (ft.k !== "fn") fail(node, Codes.UnsupportedCall, `${name} is not a function`);
-      return { c: `${em.coerce(f, ft, node)}(${em.args(a, ft.params, node).join(", ")})`, t: isVoidish(ft.ret) ? T.undefined : ft.ret };
+      return {
+        c: `${em.coerce(f, ft, node)}(${em.args(a, ft.params, node).join(", ")})`,
+        t: isVoidish(ft.ret) ? T.undefined : ft.ret,
+      };
     }
     case "string":
       return stringMethod(em, o, name, node);
@@ -555,7 +852,11 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
         case "toFixed":
           return str(`lucent::numberToFixed(${o}, ${optArg(em, node, 0, T.number) ?? "0.0"})`);
         case "toPrecision":
-          return str(a[0] ? `lucent::numberToPrecision(${o}, ${argAs(em, node, 0, T.number)})` : `lucent::numberToString(${o})`);
+          return str(
+            a[0]
+              ? `lucent::numberToPrecision(${o}, ${argAs(em, node, 0, T.number)})`
+              : `lucent::numberToString(${o})`,
+          );
         case "toExponential":
           return str(`lucent::numberToExponential(${args(o, optArg(em, node, 0, T.number))})`);
         case "valueOf":
@@ -577,43 +878,88 @@ export function methodCall(em: FnEmitter, obj: E, name: string, node: ts.CallExp
       if (name === "toString") return str(`lucent::errorToString(${o})`);
       break;
     case "regexp":
-      if (name === "exec") return { c: `(${o})->exec(${argAs(em, node, 0, T.string)})`, t: unionOf([T.regexMatch, T.null]) };
+      if (name === "exec")
+        return {
+          c: `(${o})->exec(${argAs(em, node, 0, T.string)})`,
+          t: unionOf([T.regexMatch, T.null]),
+        };
       if (name === "test") return bool(`(${o})->test(${argAs(em, node, 0, T.string)})`);
       break;
     case "regexMatch":
-      return arrayMethod(em, { c: `(${o})->items`, t: { k: "array", e: unionOf([T.string, T.undefined]) } } as E & { t: { k: "array"; e: LType } }, name, node);
+      return arrayMethod(
+        em,
+        { c: `(${o})->items`, t: { k: "array", e: unionOf([T.string, T.undefined]) } } as E & {
+          t: { k: "array"; e: LType };
+        },
+        name,
+        node,
+      );
     case "iter":
-      if (name === "next" && a.length === 0) return { c: `lucent::iterNext(${o})`, t: { k: "iterResult", e: t.e } };
-      if (name === "return" && a.length === 0) return { c: `((${o})->ret(), lucent::IterResult<${em.cpp(t.e)}>{})`, t: { k: "iterResult", e: t.e } };
+      if (name === "next" && a.length === 0)
+        return { c: `lucent::iterNext(${o})`, t: { k: "iterResult", e: t.e } };
+      if (name === "return" && a.length === 0)
+        return {
+          c: `((${o})->ret(), lucent::IterResult<${em.cpp(t.e)}>{})`,
+          t: { k: "iterResult", e: t.e },
+        };
       fail(node, Codes.UnsupportedBuiltin, `iterator.${name}() is not supported`);
     case "date": {
-      if (name === "toString" || name === "toISOString" || name === "toDateString" || name === "toTimeString" || name === "toUTCString") return str(`(${o})->${name}()`);
+      if (
+        name === "toString" ||
+        name === "toISOString" ||
+        name === "toDateString" ||
+        name === "toTimeString" ||
+        name === "toUTCString"
+      )
+        return str(`(${o})->${name}()`);
       if (name === "toJSON") return str(`(${o})->toISOString()`);
-      if (/^get(UTC)?(FullYear|Month|Date|Day|Hours|Minutes|Seconds|Milliseconds)$|^(getTime|valueOf|getTimezoneOffset)$/.test(name)) return num(`(${o})->${name}()`);
-      if (/^set(UTC)?(FullYear|Month|Date|Hours|Minutes|Seconds|Milliseconds)$|^setTime$/.test(name)) {
+      if (
+        /^get(UTC)?(FullYear|Month|Date|Day|Hours|Minutes|Seconds|Milliseconds)$|^(getTime|valueOf|getTimezoneOffset)$/.test(
+          name,
+        )
+      )
+        return num(`(${o})->${name}()`);
+      if (
+        /^set(UTC)?(FullYear|Month|Date|Hours|Minutes|Seconds|Milliseconds)$|^setTime$/.test(name)
+      ) {
         return num(`(${o})->${name}(${a.map((x) => em.exprAs(x, T.number)).join(", ")})`);
       }
-      if (name.startsWith("toLocale")) fail(node, Codes.UnsupportedBuiltin, `Date.${name} depends on the locale and is not supported; use toISOString() or the get… methods`);
+      if (name.startsWith("toLocale"))
+        fail(
+          node,
+          Codes.UnsupportedBuiltin,
+          `Date.${name} depends on the locale and is not supported; use toISOString() or the get… methods`,
+        );
       break;
     }
     case "abortSignal":
       if (name === "throwIfAborted") return { c: `(${o})->throwIfAborted()`, t: T.undefined };
       if (name === "addEventListener") {
-        if (a.length !== 2) fail(node, Codes.UnsupportedBuiltin, 'addEventListener takes the event type and a listener (options are not supported)');
-        return { c: `(${o})->addEventListener(${argAs(em, node, 1, { k: "fn", params: [], ret: T.void })})`, t: T.undefined };
+        if (a.length !== 2)
+          fail(
+            node,
+            Codes.UnsupportedBuiltin,
+            "addEventListener takes the event type and a listener (options are not supported)",
+          );
+        return {
+          c: `(${o})->addEventListener(${argAs(em, node, 1, { k: "fn", params: [], ret: T.void })})`,
+          t: T.undefined,
+        };
       }
       break;
     case "abortController":
       if (name === "abort") {
         if (!a[0]) return { c: `(${o})->abort(lucent::undefined)`, t: T.undefined };
         const reason = em.expr(a[0]);
-        const isError = reason.t.k === "error" || (reason.t.k === "class" && em.reg.cls(reason.t.id).isError);
+        const isError =
+          reason.t.k === "error" || (reason.t.k === "class" && em.reg.cls(reason.t.id).isError);
         if (!isError) fail(a[0], Codes.UnsupportedBuiltin, "abort reasons must be Error objects");
         return { c: `(${o})->abort(${em.coerce(reason, T.error, a[0])})`, t: T.undefined };
       }
       break;
     case "fn":
-      if (name === "call" || name === "apply" || name === "bind") fail(node, Codes.UnsupportedBuiltin, `Function.prototype.${name} is not supported`);
+      if (name === "call" || name === "apply" || name === "bind")
+        fail(node, Codes.UnsupportedBuiltin, `Function.prototype.${name} is not supported`);
       break;
     case "promise":
       fail(node, Codes.UnsupportedBuiltin, `promise.${name}() is not supported; use await`);
@@ -643,8 +989,16 @@ function countGroups(src: string): number {
 
 /** Capture count of a regular expression known at compile time. */
 function literalGroupCount(node: ts.Expression): number | undefined {
-  if (ts.isRegularExpressionLiteral(node)) return countGroups(node.text.slice(1, node.text.lastIndexOf("/")));
-  if (ts.isNewExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "RegExp" && node.arguments?.[0] && ts.isStringLiteralLike(node.arguments[0])) return countGroups(node.arguments[0].text);
+  if (ts.isRegularExpressionLiteral(node))
+    return countGroups(node.text.slice(1, node.text.lastIndexOf("/")));
+  if (
+    ts.isNewExpression(node) &&
+    ts.isIdentifier(node.expression) &&
+    node.expression.text === "RegExp" &&
+    node.arguments?.[0] &&
+    ts.isStringLiteralLike(node.arguments[0])
+  )
+    return countGroups(node.arguments[0].text);
   return undefined;
 }
 
@@ -655,19 +1009,31 @@ function literalGroupCount(node: ts.Expression): number | undefined {
 function replacer(em: FnEmitter, reNode: ts.Expression, cb: ts.Expression): string {
   const f = em.expr(cb);
   const ft = stripOpt(f.t);
-  if (ft.k !== "fn") fail(cb, Codes.UnsupportedBuiltin, "the replacement must be a string or a function");
+  if (ft.k !== "fn")
+    fail(cb, Codes.UnsupportedBuiltin, "the replacement must be a string or a function");
   const groups = literalGroupCount(reNode);
-  if (ft.params.length > 1 && groups === undefined) fail(cb, Codes.UnsupportedBuiltin, "a replacement callback that takes captures needs a regular expression literal, so the number of groups is known");
+  if (ft.params.length > 1 && groups === undefined)
+    fail(
+      cb,
+      Codes.UnsupportedBuiltin,
+      "a replacement callback that takes captures needs a regular expression literal, so the number of groups is known",
+    );
   const n = groups ?? 0;
   const args = ft.params.map((p, i) => {
     if (i === 0) return em.coerce({ c: "c.match", t: T.string }, p, cb);
     if (i <= n) {
       const cap = `c.captures.at(${i - 1})`;
-      return p.k === "opt" || p.k === "undefined" ? em.coerce({ c: cap, t: unionOf([T.string, T.undefined]) }, p, cb) : em.coerce({ c: `lucent::captureOrThrow(${cap}, ${i})`, t: T.string }, p, cb);
+      return p.k === "opt" || p.k === "undefined"
+        ? em.coerce({ c: cap, t: unionOf([T.string, T.undefined]) }, p, cb)
+        : em.coerce({ c: `lucent::captureOrThrow(${cap}, ${i})`, t: T.string }, p, cb);
     }
     if (i === n + 1) return em.coerce({ c: "c.position", t: T.number }, p, cb);
     if (i === n + 2) return em.coerce({ c: "c.input", t: T.string }, p, cb);
-    fail(cb, Codes.UnsupportedBuiltin, "the groups argument of replacement callbacks is not supported");
+    fail(
+      cb,
+      Codes.UnsupportedBuiltin,
+      "the groups argument of replacement callbacks is not supported",
+    );
   });
   const fv = em.ctx.fresh("repl");
   const call = em.coerce({ c: `${fv}(${args.join(", ")})`, t: ft.ret }, T.string, cb);
@@ -686,12 +1052,16 @@ function regexStringMethod(em: FnEmitter, o: string, name: string, node: ts.Call
     case "search":
       return num(`lucent::stringSearch(${o}, ${re})`);
     case "split":
-      return { c: `lucent::stringSplit(${o}, ${re}${a[1] ? `, lucent::Opt<double>(${argAs(em, node, 1, T.number)})` : ""})`, t: { k: "array", e: T.string } };
+      return {
+        c: `lucent::stringSplit(${o}, ${re}${a[1] ? `, lucent::Opt<double>(${argAs(em, node, 1, T.number)})` : ""})`,
+        t: { k: "array", e: T.string },
+      };
     case "replace":
     case "replaceAll": {
       const fn = name === "replace" ? "lucent::stringReplace" : "lucent::stringReplaceAll";
       const second = a[1]!;
-      if (stripOpt(em.lt(second)).k === "fn") return str(`${fn}(${o}, ${re}, ${replacer(em, a[0]!, second)})`);
+      if (stripOpt(em.lt(second)).k === "fn")
+        return str(`${fn}(${o}, ${re}, ${replacer(em, a[0]!, second)})`);
       return str(`${fn}(${o}, ${re}, ${argAs(em, node, 1, T.string)})`);
     }
   }
@@ -700,7 +1070,12 @@ function regexStringMethod(em: FnEmitter, o: string, name: string, node: ts.Call
 
 function stringMethod(em: FnEmitter, o: string, name: string, node: ts.CallExpression): E {
   const first = node.arguments[0];
-  if (first && ["match", "matchAll", "search", "split", "replace", "replaceAll"].includes(name) && stripOpt(em.lt(first)).k === "regexp") return regexStringMethod(em, o, name, node);
+  if (
+    first &&
+    ["match", "matchAll", "search", "split", "replace", "replaceAll"].includes(name) &&
+    stripOpt(em.lt(first)).k === "regexp"
+  )
+    return regexStringMethod(em, o, name, node);
   const n = (i: number) => optArg(em, node, i, T.number);
   const s = (i: number) => optArg(em, node, i, T.string);
   switch (name) {
@@ -709,9 +1084,15 @@ function stringMethod(em: FnEmitter, o: string, name: string, node: ts.CallExpre
     case "charAt":
       return str(`(${o}).charAt(${n(0) ?? "0.0"})`);
     case "at":
-      return { c: `(${o}).at(${argAs(em, node, 0, T.number)})`, t: unionOf([T.string, T.undefined]) };
+      return {
+        c: `(${o}).at(${argAs(em, node, 0, T.number)})`,
+        t: unionOf([T.string, T.undefined]),
+      };
     case "codePointAt":
-      return { c: `(${o}).codePointAt(${argAs(em, node, 0, T.number)})`, t: unionOf([T.number, T.undefined]) };
+      return {
+        c: `(${o}).codePointAt(${argAs(em, node, 0, T.number)})`,
+        t: unionOf([T.number, T.undefined]),
+      };
     case "indexOf":
       return num(`(${o}).indexOf(${args(s(0), n(1))})`);
     case "lastIndexOf":
@@ -730,7 +1111,9 @@ function stringMethod(em: FnEmitter, o: string, name: string, node: ts.CallExpre
       const start = n(0) ?? "0.0";
       const tmp = em.ctx.fresh("s");
       const st = em.ctx.fresh("st");
-      return str(`({ auto ${tmp} = ${o}; double ${st} = ${start}; if (${st} < 0) ${st} = std::max(0.0, ${st} + static_cast<double>(${tmp}.length())); ${tmp}.slice(${st}, ${n(1) ? `${st} + ${n(1)}` : `static_cast<double>(${tmp}.length())`}); })`);
+      return str(
+        `({ auto ${tmp} = ${o}; double ${st} = ${start}; if (${st} < 0) ${st} = std::max(0.0, ${st} + static_cast<double>(${tmp}.length())); ${tmp}.slice(${st}, ${n(1) ? `${st} + ${n(1)}` : `static_cast<double>(${tmp}.length())`}); })`,
+      );
     }
     case "toUpperCase":
     case "toLocaleUpperCase":
@@ -754,15 +1137,21 @@ function stringMethod(em: FnEmitter, o: string, name: string, node: ts.CallExpre
     case "replace":
     case "replaceAll": {
       const second = node.arguments[1];
-      if (second && (ts.isArrowFunction(second) || ts.isFunctionExpression(second))) fail(second, Codes.UnsupportedBuiltin, "replacement functions are not supported");
-      return str(`(${o}).${name}(${argAs(em, node, 0, T.string)}, ${argAs(em, node, 1, T.string)})`);
+      if (second && (ts.isArrowFunction(second) || ts.isFunctionExpression(second)))
+        fail(second, Codes.UnsupportedBuiltin, "replacement functions are not supported");
+      return str(
+        `(${o}).${name}(${argAs(em, node, 0, T.string)}, ${argAs(em, node, 1, T.string)})`,
+      );
     }
     case "split": {
-      if (!node.arguments[0]) return { c: `lucent::Array<lucent::String>{${o}}`, t: { k: "array", e: T.string } };
+      if (!node.arguments[0])
+        return { c: `lucent::Array<lucent::String>{${o}}`, t: { k: "array", e: T.string } };
       return { c: `lucent::split(${args(o, s(0), n(1))})`, t: { k: "array", e: T.string } };
     }
     case "concat":
-      return str(`(lucent::String(${o})${node.arguments.map((x) => ` + ${em.toStringCode(em.expr(x))}`).join("")})`);
+      return str(
+        `(lucent::String(${o})${node.arguments.map((x) => ` + ${em.toStringCode(em.expr(x))}`).join("")})`,
+      );
     case "localeCompare":
       return num(`(${o}).localeCompare(${argAs(em, node, 0, T.string)})`);
     case "normalize":
@@ -773,7 +1162,12 @@ function stringMethod(em: FnEmitter, o: string, name: string, node: ts.CallExpre
   fail(node, Codes.UnsupportedBuiltin, `String.prototype.${name} is not supported`);
 }
 
-function arrayMethod(em: FnEmitter, obj: E & { t: { k: "array"; e: LType } }, name: string, node: ts.CallExpression): E {
+function arrayMethod(
+  em: FnEmitter,
+  obj: E & { t: { k: "array"; e: LType } },
+  name: string,
+  node: ts.CallExpression,
+): E {
   const o = obj.c;
   const e = obj.t.e;
   const at = obj.t;
@@ -783,8 +1177,12 @@ function arrayMethod(em: FnEmitter, obj: E & { t: { k: "array"; e: LType } }, na
   const self: LType = at;
   switch (name) {
     case "push": {
-      if (a.length === 1 && ts.isSpreadElement(a[0]!)) return num(`({ auto& pa = ${o}; pa.append(${em.exprAs(a[0]!.expression, at)}); pa.length(); })`);
-      if (a.some(ts.isSpreadElement)) fail(node, Codes.UnsupportedBuiltin, "push(...items) with other arguments");
+      if (a.length === 1 && ts.isSpreadElement(a[0]!))
+        return num(
+          `({ auto& pa = ${o}; pa.append(${em.exprAs(a[0]!.expression, at)}); pa.length(); })`,
+        );
+      if (a.some(ts.isSpreadElement))
+        fail(node, Codes.UnsupportedBuiltin, "push(...items) with other arguments");
       return num(`(${o}).push(${a.map((x) => em.exprAs(x, e)).join(", ")})`);
     }
     case "pop":
@@ -797,12 +1195,17 @@ function arrayMethod(em: FnEmitter, obj: E & { t: { k: "array"; e: LType } }, na
       return { c: `(${o}).slice(${args(n(0), n(1))})`, t: at };
     case "splice": {
       const items = a.slice(2).map((x) => em.exprAs(x, e));
-      return { c: `(${o}).splice(${[n(0) ?? "0.0", ...(a[1] ? [n(1)!] : items.length ? [`(${o}).length()`] : []), ...items].join(", ")})`, t: at };
+      return {
+        c: `(${o}).splice(${[n(0) ?? "0.0", ...(a[1] ? [n(1)!] : items.length ? [`(${o}).length()`] : []), ...items].join(", ")})`,
+        t: at,
+      };
     }
     case "concat": {
       const parts = a.map((x) => {
         const v = em.expr(x);
-        return stripOpt(v.t).k === "array" ? em.coerce(v, at, x) : `${em.cpp(at)}{${em.coerce(v, e, x)}}`;
+        return stripOpt(v.t).k === "array"
+          ? em.coerce(v, at, x)
+          : `${em.cpp(at)}{${em.coerce(v, e, x)}}`;
       });
       return { c: `(${o}).concat(${parts.join(", ")})`, t: at };
     }
@@ -817,7 +1220,10 @@ function arrayMethod(em: FnEmitter, obj: E & { t: { k: "array"; e: LType } }, na
       return { c: `(${o}).atIndex(${n(0)})`, t: unionOf([e, T.undefined]) };
     case "find":
     case "findLast":
-      return { c: `(${o}).${name}(${cb([e, T.number, self], T.boolean).c})`, t: unionOf([e, T.undefined]) };
+      return {
+        c: `(${o}).${name}(${cb([e, T.number, self], T.boolean).c})`,
+        t: unionOf([e, T.undefined]),
+      };
     case "findIndex":
     case "findLastIndex":
       return num(`(${o}).${name}(${cb([e, T.number, self], T.boolean).c})`);
@@ -831,19 +1237,28 @@ function arrayMethod(em: FnEmitter, obj: E & { t: { k: "array"; e: LType } }, na
     case "map": {
       const rt = em.lt(node);
       if (rt.k !== "array") fail(node, Codes.UnsupportedBuiltin, "map");
-      return { c: `(${o}).template map<${em.cpp(rt.e)}>(${cb([e, T.number, self], rt.e).c})`, t: rt };
+      return {
+        c: `(${o}).template map<${em.cpp(rt.e)}>(${cb([e, T.number, self], rt.e).c})`,
+        t: rt,
+      };
     }
     case "flatMap": {
       const rt = em.lt(node);
       if (rt.k !== "array") fail(node, Codes.UnsupportedBuiltin, "flatMap");
-      return { c: `(${o}).template flatMap<${em.cpp(rt.e)}>(${cb([e, T.number, self], rt).c})`, t: rt };
+      return {
+        c: `(${o}).template flatMap<${em.cpp(rt.e)}>(${cb([e, T.number, self], rt).c})`,
+        t: rt,
+      };
     }
     case "reduce":
     case "reduceRight": {
       const rt = em.lt(node);
       if (a.length < 2) return { c: `(${o}).${name}(${cb([e, e, T.number, self], e).c})`, t: e };
       const init = em.exprAs(a[1]!, rt);
-      return { c: `(${o}).${name}(${cb([rt, e, T.number, self], rt).c}, ${em.cpp(rt)}(${init}))`, t: rt };
+      return {
+        c: `(${o}).${name}(${cb([rt, e, T.number, self], rt).c}, ${em.cpp(rt)}(${init}))`,
+        t: rt,
+      };
     }
     case "sort":
     case "toSorted": {
@@ -858,9 +1273,15 @@ function arrayMethod(em: FnEmitter, obj: E & { t: { k: "array"; e: LType } }, na
     case "values":
       return { c: `(${o}).slice()`, t: at };
     case "keys":
-      return { c: `lucent::Array<double>::generate((${o}).length(), [](double i) { return i; })`, t: { k: "array", e: T.number } };
+      return {
+        c: `lucent::Array<double>::generate((${o}).length(), [](double i) { return i; })`,
+        t: { k: "array", e: T.number },
+      };
     case "entries":
-      return { c: `lucent::arrayEntries(${o})`, t: { k: "array", e: { k: "tuple", es: [T.number, e] } } };
+      return {
+        c: `lucent::arrayEntries(${o})`,
+        t: { k: "array", e: { k: "tuple", es: [T.number, e] } },
+      };
   }
   fail(node, Codes.UnsupportedBuiltin, `Array.prototype.${name} is not supported`);
 }
@@ -877,7 +1298,12 @@ function truthyCallback(em: FnEmitter, arg: ts.Expression | undefined, params: L
   return `[${f} = ${c.c}](${ps}) { return lucent::truthy(${f}(${as})); }`;
 }
 
-function mapMethod(em: FnEmitter, obj: E & { t: { k: "map"; key: LType; val: LType } }, name: string, node: ts.CallExpression): E {
+function mapMethod(
+  em: FnEmitter,
+  obj: E & { t: { k: "map"; key: LType; val: LType } },
+  name: string,
+  node: ts.CallExpression,
+): E {
   const { key, val } = obj.t;
   const o = obj.c;
   const a = node.arguments;
@@ -893,18 +1319,29 @@ function mapMethod(em: FnEmitter, obj: E & { t: { k: "map"; key: LType; val: LTy
     case "clear":
       return { c: `(${o}).clear()`, t: T.undefined };
     case "forEach":
-      return { c: `(${o}).forEach(${callback(em, a[0], [val, key, obj.t], T.void).c})`, t: T.undefined };
+      return {
+        c: `(${o}).forEach(${callback(em, a[0], [val, key, obj.t], T.void).c})`,
+        t: T.undefined,
+      };
     case "keys":
       return { c: `(${o}).keys()`, t: { k: "array", e: key } };
     case "values":
       return { c: `(${o}).values()`, t: { k: "array", e: val } };
     case "entries":
-      return { c: `lucent::mapEntries(${o})`, t: { k: "array", e: { k: "tuple", es: [key, val] } } };
+      return {
+        c: `lucent::mapEntries(${o})`,
+        t: { k: "array", e: { k: "tuple", es: [key, val] } },
+      };
   }
   fail(node, Codes.UnsupportedBuiltin, `Map.prototype.${name} is not supported`);
 }
 
-function setMethod(em: FnEmitter, obj: E & { t: { k: "set"; e: LType } }, name: string, node: ts.CallExpression): E {
+function setMethod(
+  em: FnEmitter,
+  obj: E & { t: { k: "set"; e: LType } },
+  name: string,
+  node: ts.CallExpression,
+): E {
   const e = obj.t.e;
   const o = obj.c;
   const a = node.arguments;
@@ -918,7 +1355,10 @@ function setMethod(em: FnEmitter, obj: E & { t: { k: "set"; e: LType } }, name: 
     case "clear":
       return { c: `(${o}).clear()`, t: T.undefined };
     case "forEach":
-      return { c: `(${o}).forEach(${callback(em, a[0], [e, e, obj.t], T.void).c})`, t: T.undefined };
+      return {
+        c: `(${o}).forEach(${callback(em, a[0], [e, e, obj.t], T.void).c})`,
+        t: T.undefined,
+      };
     case "values":
     case "keys":
       return { c: `(${o}).values()`, t: { k: "array", e } };
@@ -942,17 +1382,27 @@ function bytesMethod(em: FnEmitter, o: string, name: string, node: ts.CallExpres
     case "set": {
       const src = em.expr(a[0]!);
       const st = stripOpt(src.t);
-      if (st.k !== "bytes" && !(st.k === "array" && st.e.k === "number")) fail(node, Codes.UnsupportedBuiltin, "set() needs a Uint8Array or number[]");
+      if (st.k !== "bytes" && !(st.k === "array" && st.e.k === "number"))
+        fail(node, Codes.UnsupportedBuiltin, "set() needs a Uint8Array or number[]");
       return { c: `(${o}).setFrom(${args(src.c, n(1))})`, t: T.undefined };
     }
     case "forEach":
-      return { c: `(${o}).forEach(${callback(em, a[0], [T.number, T.number, T.bytes], T.void).c})`, t: T.undefined };
+      return {
+        c: `(${o}).forEach(${callback(em, a[0], [T.number, T.number, T.bytes], T.void).c})`,
+        t: T.undefined,
+      };
     case "map":
-      return { c: `(${o}).map(${callback(em, a[0], [T.number, T.number, T.bytes], T.number).c})`, t: T.bytes };
+      return {
+        c: `(${o}).map(${callback(em, a[0], [T.number, T.number, T.bytes], T.number).c})`,
+        t: T.bytes,
+      };
     case "reduce": {
       const rt = em.lt(node);
       if (!a[1]) fail(node, Codes.UnsupportedBuiltin, "Uint8Array reduce needs an initial value");
-      return { c: `(${o}).reduce(${callback(em, a[0], [rt, T.number, T.number, T.bytes], rt).c}, ${em.cpp(rt)}(${em.exprAs(a[1], rt)}))`, t: rt };
+      return {
+        c: `(${o}).reduce(${callback(em, a[0], [rt, T.number, T.number, T.bytes], rt).c}, ${em.cpp(rt)}(${em.exprAs(a[1], rt)}))`,
+        t: rt,
+      };
     }
     case "join":
       return str(`(${o}).join(${optArg(em, node, 0, T.string) ?? ""})`);
@@ -967,7 +1417,12 @@ function isCoreSymbol(sym: ts.Symbol): boolean {
   return !!decl && path.resolve(decl.getSourceFile().fileName) === path.resolve(coreTypesPath());
 }
 
-export function globalCall(em: FnEmitter, node: ts.CallExpression, name: string, sym: ts.Symbol): E | undefined {
+export function globalCall(
+  em: FnEmitter,
+  node: ts.CallExpression,
+  name: string,
+  sym: ts.Symbol,
+): E | undefined {
   const a = node.arguments;
   if (isCoreSymbol(sym)) {
     switch (name) {
@@ -977,7 +1432,13 @@ export function globalCall(em: FnEmitter, node: ts.CallExpression, name: string,
         return { c: `lucent::delay(${ms}${signal})`, t: { k: "promise", inner: T.void } };
       }
       case "error":
-        return { c: withSite(`lucent::errorWithCode(${argAs(em, node, 0, T.string)}, ${argAs(em, node, 1, T.string)})`, node), t: T.error };
+        return {
+          c: withSite(
+            `lucent::errorWithCode(${argAs(em, node, 0, T.string)}, ${argAs(em, node, 1, T.string)})`,
+            node,
+          ),
+          t: T.error,
+        };
       case "errorCode":
         return { c: `(${argAs(em, node, 0, T.error)})->code`, t: unionOf([T.string, T.undefined]) };
       case "utf8Encode":
@@ -993,7 +1454,9 @@ export function globalCall(em: FnEmitter, node: ts.CallExpression, name: string,
   if (!decl || !decl.getSourceFile().isDeclarationFile) return undefined;
   switch (name) {
     case "parseInt":
-      return num(`lucent::parseInt(${args(argAs(em, node, 0, T.string), optArg(em, node, 1, T.number))})`);
+      return num(
+        `lucent::parseInt(${args(argAs(em, node, 0, T.string), optArg(em, node, 1, T.number))})`,
+      );
     case "parseFloat":
       return num(`lucent::parseFloat(${argAs(em, node, 0, T.string)})`);
     case "isNaN":
@@ -1019,16 +1482,24 @@ export function globalCall(em: FnEmitter, node: ts.CallExpression, name: string,
 
 // --- new --------------------------------------------------------------------------------------
 
-export function newBuiltin(em: FnEmitter, node: ts.NewExpression, callee: ts.Expression, t: LType): E {
+export function newBuiltin(
+  em: FnEmitter,
+  node: ts.NewExpression,
+  callee: ts.Expression,
+  t: LType,
+): E {
   const a = node.arguments ?? ts.factory.createNodeArray();
   const name = ts.isIdentifier(callee) ? callee.text : "";
   switch (t.k) {
     case "abortController":
       return { c: "std::make_shared<lucent::AbortControllerObject>()", t };
     case "regexp": {
-      const flags = a[1] ? `lucent::Opt<lucent::String>(${em.exprAs(a[1], T.string)})` : "lucent::undefined";
+      const flags = a[1]
+        ? `lucent::Opt<lucent::String>(${em.exprAs(a[1], T.string)})`
+        : "lucent::undefined";
       const p = em.expr(a[0]!);
-      if (stripOpt(p.t).k === "regexp") return { c: `lucent::makeRegExp(${em.coerce(p, T.regexp, a[0])}, ${flags})`, t };
+      if (stripOpt(p.t).k === "regexp")
+        return { c: `lucent::makeRegExp(${em.coerce(p, T.regexp, a[0])}, ${flags})`, t };
       return { c: `lucent::makeRegExp(${em.coerce(p, T.string, a[0])}, ${flags})`, t };
     }
     case "date": {
@@ -1045,13 +1516,17 @@ export function newBuiltin(em: FnEmitter, node: ts.NewExpression, callee: ts.Exp
     }
     case "map": {
       if (!a[0]) return { c: `${em.cpp(t)}()`, t };
-      return { c: `lucent::mapFromEntries<${em.cpp(t.key)}, ${em.cpp(t.val)}>(${em.exprAs(a[0], { k: "array", e: { k: "tuple", es: [t.key, t.val] } })})`, t };
+      return {
+        c: `lucent::mapFromEntries<${em.cpp(t.key)}, ${em.cpp(t.val)}>(${em.exprAs(a[0], { k: "array", e: { k: "tuple", es: [t.key, t.val] } })})`,
+        t,
+      };
     }
     case "set": {
       if (!a[0]) return { c: `${em.cpp(t)}()`, t };
       const src = em.expr(a[0]);
       const st = stripOpt(src.t);
-      if (st.k === "array") return { c: `${em.cpp(t)}(${em.coerce(src, { k: "array", e: t.e }, a[0])})`, t };
+      if (st.k === "array")
+        return { c: `${em.cpp(t)}(${em.coerce(src, { k: "array", e: t.e }, a[0])})`, t };
       if (st.k === "set") return { c: `${em.cpp(t)}((${src.c}).values())`, t };
       if (st.k === "string") return { c: `${em.cpp(t)}(lucent::splitCodePoints(${src.c}))`, t };
       fail(node, Codes.UnsupportedBuiltin, `new Set(${typeKey(src.t)})`);
@@ -1059,7 +1534,11 @@ export function newBuiltin(em: FnEmitter, node: ts.NewExpression, callee: ts.Exp
     case "array": {
       if (a.length === 1) {
         const v = em.expr(a[0]!);
-        if (v.t.k === "number") return { c: `${em.cpp(t)}::filled(static_cast<size_t>(lucent::toUint32(${v.c})), ${em.cpp(t.e)}{})`, t };
+        if (v.t.k === "number")
+          return {
+            c: `${em.cpp(t)}::filled(static_cast<size_t>(lucent::toUint32(${v.c})), ${em.cpp(t.e)}{})`,
+            t,
+          };
       }
       return { c: `${em.cpp(t)}{${a.map((x) => em.exprAs(x, t.e)).join(", ")}}`, t };
     }
@@ -1068,7 +1547,11 @@ export function newBuiltin(em: FnEmitter, node: ts.NewExpression, callee: ts.Exp
       const v = em.expr(a[0]);
       const vt = stripOpt(v.t);
       if (vt.k === "number") return { c: `lucent::Bytes(${v.c})`, t };
-      if (vt.k === "array") return { c: `lucent::Bytes::fromArray(${em.coerce(v, { k: "array", e: T.number }, a[0])})`, t };
+      if (vt.k === "array")
+        return {
+          c: `lucent::Bytes::fromArray(${em.coerce(v, { k: "array", e: T.number }, a[0])})`,
+          t,
+        };
       if (vt.k === "bytes") return { c: `(${v.c}).slice()`, t };
       fail(node, Codes.UnsupportedBuiltin, `new Uint8Array(${typeKey(v.t)})`);
     }
@@ -1076,12 +1559,19 @@ export function newBuiltin(em: FnEmitter, node: ts.NewExpression, callee: ts.Exp
       // The executor runs now, with functions that settle the promise once;
       // one that throws rejects it.
       const exec = a[0];
-      if (!exec || !(ts.isArrowFunction(exec) || ts.isFunctionExpression(exec))) fail(node, Codes.UnsupportedBuiltin, "new Promise() takes an executor function: new Promise((resolve, reject) => …)");
+      if (!exec || !(ts.isArrowFunction(exec) || ts.isFunctionExpression(exec)))
+        fail(
+          node,
+          Codes.UnsupportedBuiltin,
+          "new Promise() takes an executor function: new Promise((resolve, reject) => …)",
+        );
       const none = t.inner.k === "void" || t.inner.k === "undefined";
       const resolveT: LType = { k: "fn", params: none ? [] : [t.inner], ret: T.void };
       const rejectT: LType = { k: "fn", params: [T.error], ret: T.void };
       const executor = em.closure(exec, { k: "fn", params: [resolveT, rejectT], ret: T.void });
-      const resolve = none ? `${em.cpp(resolveT)}([p_]() { p_.resolve(lucent::undefined); })` : `${em.cpp(resolveT)}([p_](${em.cpp(t.inner)} v_) { p_.resolve(std::move(v_)); })`;
+      const resolve = none
+        ? `${em.cpp(resolveT)}([p_]() { p_.resolve(lucent::undefined); })`
+        : `${em.cpp(resolveT)}([p_](${em.cpp(t.inner)} v_) { p_.resolve(std::move(v_)); })`;
       const reject = `${em.cpp(rejectT)}([p_](lucent::Error e_) { p_.reject(std::move(e_)); })`;
       return {
         c: `({ ${em.cpp(t)} p_; try { (${executor.c})(${resolve}, ${reject}); } catch (...) { p_.reject(lucent::currentError(std::current_exception())); } p_; })`,
@@ -1103,22 +1593,37 @@ export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {
   const v = em.expr(node.left);
   const right = node.right;
   if (ts.isIdentifier(right)) {
-    if (["Error", "TypeError", "RangeError"].includes(right.text) && isLibGlobal(em, right, right.text)) {
-      return bool(`lucent::isErrorOf(${v.c}, ${right.text === "Error" ? "nullptr" : `"${right.text}"`})`);
+    if (
+      ["Error", "TypeError", "RangeError"].includes(right.text) &&
+      isLibGlobal(em, right, right.text)
+    ) {
+      return bool(
+        `lucent::isErrorOf(${v.c}, ${right.text === "Error" ? "nullptr" : `"${right.text}"`})`,
+      );
     }
     const sym = em.checker.getSymbolAtLocation(right);
     const g = sym ? em.ctx.globals.get(em.ctx.resolve(sym)) : undefined;
     if (g && g.kind === "class") {
-      if (g.info.typeParams.length) fail(node, Codes.UnsupportedOperator, "instanceof with a generic class is not supported");
+      if (g.info.typeParams.length)
+        fail(node, Codes.UnsupportedOperator, "instanceof with a generic class is not supported");
       return bool(`lucent::isInstance<lucent_app::${g.info.cppName}>(${v.c})`);
     }
     if (isLibGlobal(em, right, right.text)) {
-      const kinds: Record<string, string> = { Array: "array", Map: "map", Set: "set", Uint8Array: "bytes", Date: "date" };
+      const kinds: Record<string, string> = {
+        Array: "array",
+        Map: "map",
+        Set: "set",
+        Uint8Array: "bytes",
+        Date: "date",
+      };
       const k = kinds[right.text];
       if (k) {
         const vt = stripOpt(v.t);
         if (vt.k === k) return bool(v.t.k === "opt" ? `(${v.c}).has()` : "true");
-        if (vt.k === "union") return bool(`std::holds_alternative<${em.cpp(vt.ms.find((m) => m.k === k) ?? T.never)}>(${v.c})`);
+        if (vt.k === "union")
+          return bool(
+            `std::holds_alternative<${em.cpp(vt.ms.find((m) => m.k === k) ?? T.never)}>(${v.c})`,
+          );
         return bool("false");
       }
     }
@@ -1128,13 +1633,20 @@ export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {
 
 export function superCall(em: FnEmitter, node: ts.CallExpression): E {
   const cls = em.opts.cls;
-  if (cls?.base) fail(node, Codes.UnsupportedClassFeature, "call `super(...)` as a statement of its own");
+  if (cls?.base)
+    fail(node, Codes.UnsupportedClassFeature, "call `super(...)` as a statement of its own");
   // An SDK base: its Java object is made where the instance goes to Java.
   if (cls?.sdkBase) {
-    if (node.arguments.length) fail(node, Codes.UnsupportedClassFeature, `extending ${cls.sdkBase.name}: call super() without arguments`);
+    if (node.arguments.length)
+      fail(
+        node,
+        Codes.UnsupportedClassFeature,
+        `extending ${cls.sdkBase.name}: call super() without arguments`,
+      );
     return { c: "lucent::undefined", t: T.undefined };
   }
-  if (!cls || !cls.isError) fail(node, Codes.UnsupportedClassFeature, "`super(...)` is only supported in subclasses");
+  if (!cls || !cls.isError)
+    fail(node, Codes.UnsupportedClassFeature, "`super(...)` is only supported in subclasses");
   const msg = node.arguments[0] ? em.exprAs(node.arguments[0], T.string) : "lucent::String()";
   return { c: `(this->message = ${msg}, lucent::undefined)`, t: T.undefined };
 }

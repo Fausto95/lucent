@@ -89,7 +89,14 @@ export function setters(): string {
 
 export function invalid(): string {
   const d = new Date(Number.NaN);
-  const out = [`${d.getTime()}`, `${Number.isNaN(d.getFullYear())}`, String(d), JSON.stringify({ d }), `${new Date(8.64e15 + 1).getTime()}`, `${new Date(8.64e15).getTime()}`];
+  const out = [
+    `${d.getTime()}`,
+    `${Number.isNaN(d.getFullYear())}`,
+    String(d),
+    JSON.stringify({ d }),
+    `${new Date(8.64e15 + 1).getTime()}`,
+    `${new Date(8.64e15).getTime()}`,
+  ];
   try {
     d.toISOString();
   } catch (e) {
@@ -104,7 +111,17 @@ export function compare(): string {
   const a = new Date(1000);
   const b = new Date(2000);
   const c = new Date(a);
-  return [a < b, a > b, a <= c, a === c, a.getTime() === c.getTime(), +b, b.getTime() - a.getTime(), new Date(-1).toISOString(), new Date(-62198755200000).toISOString()].join(",");
+  return [
+    a < b,
+    a > b,
+    a <= c,
+    a === c,
+    a.getTime() === c.getTime(),
+    +b,
+    b.getTime() - a.getTime(),
+    new Date(-1).toISOString(),
+    new Date(-62198755200000).toISOString(),
+  ].join(",");
 }
 
 export function now(): boolean {

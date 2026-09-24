@@ -9,6 +9,7 @@
       this._aborted = false;
       this._reason = undefined;
       this._listeners = [];
+      // oxlint-disable-next-line unicorn/prefer-add-event-listener -- the polyfill defines onabort, part of the API it reproduces
       this.onabort = null;
     }
     get aborted() {

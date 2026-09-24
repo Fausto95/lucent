@@ -26,7 +26,11 @@ export function SeeCpp({ filename }: { filename: string }) {
       >
         {open ? "▾" : "▸"} See the C++
       </button>
-      {Array.isArray(files) && <CodeTabs tabs={files.map((f) => ({ label: f.label, filename: f.filename, code: f.code }))} />}
+      {Array.isArray(files) && (
+        <CodeTabs
+          tabs={files.map((f) => ({ label: f.label, filename: f.filename, code: f.code }))}
+        />
+      )}
     </div>
   );
 }

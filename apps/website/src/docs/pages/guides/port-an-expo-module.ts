@@ -6,10 +6,10 @@ export const blocks: Block[] = [
     ordered: true,
     items: [
       "Copy the module's TypeScript API: its exported functions, types and enums. That's your module's export list.",
-      "For each function, take the Swift and the Kotlin body and write them as the two branches of one Lucent function, `if (PLATFORM === \"ios\") { … } else { … }`.",
+      'For each function, take the Swift and the Kotlin body and write them as the two branches of one Lucent function, `if (PLATFORM === "ios") { … } else { … }`.',
       "Keep the SDK calls; change the syntax. Swift's names work as they are, nested types join with `_`, and Kotlin's getters are properties.",
       "Replace `AsyncFunction(…).runOnQueue(.main)` with an `async` function whose SDK calls sit in `main()`.",
-      "Replace `throw Exception(…)` with `throw error(\"ERR_CODE\", message)`, keeping the original's codes, so JavaScript can test them.",
+      'Replace `throw Exception(…)` with `throw error("ERR_CODE", message)`, keeping the original\'s codes, so JavaScript can test them.',
       "Replace events (`sendEvent`) with a callback parameter and a stop function. See [Send events to JavaScript](/docs/guides/send-events-to-javascript/).",
       "Delete the Swift, the Kotlin, the podspec, the Gradle file and `expo-module.config.json`. Point the JavaScript imports at the `.lucent` module.",
     ],

@@ -9,7 +9,12 @@ export const blocks: Block[] = [
   {
     kind: "tabs",
     tabs: [
-      { label: "module", filename: "trip.lucent.ts", cpp: true, code: files["src/trip.lucent.ts"]! },
+      {
+        label: "module",
+        filename: "trip.lucent.ts",
+        cpp: true,
+        code: files["src/trip.lucent.ts"]!,
+      },
       { label: "JS usage", filename: "App.tsx", code: files["App.tsx"]! },
     ],
   },

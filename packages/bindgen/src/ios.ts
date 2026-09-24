@@ -2,7 +2,18 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { formatSchemaType, parseSchemaType, type SchemaType, type SdkCallable, type SdkClassSchema, type SdkEnumSchema, type SdkMethodSchema, type SdkModuleSchema, type SdkParam, type SdkPropertySchema } from "./schema.ts";
+import {
+  formatSchemaType,
+  parseSchemaType,
+  type SchemaType,
+  type SdkCallable,
+  type SdkClassSchema,
+  type SdkEnumSchema,
+  type SdkMethodSchema,
+  type SdkModuleSchema,
+  type SdkParam,
+  type SdkPropertySchema,
+} from "./schema.ts";
 
 /**
  * Binding schemas for Clang modules (Apple frameworks, and Objective-C pods
@@ -38,8 +49,16 @@ interface SymbolGraphSymbol {
   pathComponents: string[];
   names: { title: string };
   declarationFragments?: Fragment[];
-  functionSignature?: { parameters?: { name: string; internalName?: string; declarationFragments: Fragment[] }[]; returns?: Fragment[] };
-  availability?: { domain?: string; introduced?: { major: number; minor?: number }; isUnconditionallyUnavailable?: boolean; obsoleted?: unknown }[];
+  functionSignature?: {
+    parameters?: { name: string; internalName?: string; declarationFragments: Fragment[] }[];
+    returns?: Fragment[];
+  };
+  availability?: {
+    domain?: string;
+    introduced?: { major: number; minor?: number };
+    isUnconditionallyUnavailable?: boolean;
+    obsoleted?: unknown;
+  }[];
 }
 
 export interface SymbolGraph {
@@ -50,15 +69,34 @@ export interface SymbolGraph {
 const DEFAULT_TARGET = "arm64-apple-ios15.1-simulator";
 
 function sdkPath(): string {
-  const r = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
+  const r = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], {
+    encoding: "utf8",
+  });
   // (extractIos only; the provider locates the SDK itself.)
   if (r.status !== 0) throw new Error("xcrun: no iphonesimulator SDK");
   return r.stdout.trim();
 }
 
 /** Arguments of xcrun that write `module`'s symbol graph into `dir`. */
-export function symbolGraphArgs(module: string, opts: IosOptions, sdk: string, dir: string): string[] {
-  const args = ["swift-symbolgraph-extract", "-module-name", module, "-target", opts.target ?? DEFAULT_TARGET, "-sdk", sdk, "-output-dir", dir, "-minimum-access-level", "public"];
+export function symbolGraphArgs(
+  module: string,
+  opts: IosOptions,
+  sdk: string,
+  dir: string,
+): string[] {
+  const args = [
+    "swift-symbolgraph-extract",
+    "-module-name",
+    module,
+    "-target",
+    opts.target ?? DEFAULT_TARGET,
+    "-sdk",
+    sdk,
+    "-output-dir",
+    dir,
+    "-minimum-access-level",
+    "public",
+  ];
   for (const i of opts.includePaths ?? []) args.push("-I", i);
   for (const f of opts.frameworkPaths ?? []) args.push("-F", f);
   for (const m of opts.moduleMaps ?? []) args.push("-Xcc", `-fmodule-map-file=${m}`);
@@ -71,7 +109,9 @@ export function symbolGraph(module: string, opts: IosOptions, sdk: string): Symb
   try {
     const r = spawnSync(opts.xcrun ?? "xcrun", args, { encoding: "utf8", maxBuffer: 64 << 20 });
     if (r.status !== 0) throw new Error(`swift-symbolgraph-extract ${module}: ${r.stderr}`);
-    return JSON.parse(fs.readFileSync(path.join(dir, `${module}.symbols.json`), "utf8")) as SymbolGraph;
+    return JSON.parse(
+      fs.readFileSync(path.join(dir, `${module}.symbols.json`), "utf8"),
+    ) as SymbolGraph;
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -117,25 +157,59 @@ function constantValue(n: ClangNode): number | undefined {
 }
 
 /** Values of the enumerators of each C enum, following C's rule for implicit ones. */
-export function enumValues(enums: string[], headers: string[], opts: IosOptions, sdk: string): Map<string, Map<string, number>> {
+export function enumValues(
+  enums: string[],
+  headers: string[],
+  opts: IosOptions,
+  sdk: string,
+): Map<string, Map<string, number>> {
   const out = new Map<string, Map<string, number>>();
   if (!enums.length) return out;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-enums-"));
   const source = path.join(dir, "enums.m");
-  fs.writeFileSync(source, headers.map((h) => (path.isAbsolute(h) ? `#import "${h}"\n` : `#import <${h}>\n`)).join(""));
+  fs.writeFileSync(
+    source,
+    headers.map((h) => (path.isAbsolute(h) ? `#import "${h}"\n` : `#import <${h}>\n`)).join(""),
+  );
   const q = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
-  const clang = [opts.xcrun ?? "xcrun", "clang", "-x", "objective-c", "-target", opts.target ?? DEFAULT_TARGET, "-isysroot", sdk, ...(opts.includePaths ?? []).map((i) => `-I${i}`), ...(opts.frameworkPaths ?? []).map((f) => `-F${f}`), ...(opts.moduleMaps ?? []).map((m) => `-fmodule-map-file=${m}`), "-fsyntax-only", "-Xclang", "-ast-dump=json", "-Xclang", "-ast-dump-filter", "-Xclang"].map(q).join(" ");
+  const clang = [
+    opts.xcrun ?? "xcrun",
+    "clang",
+    "-x",
+    "objective-c",
+    "-target",
+    opts.target ?? DEFAULT_TARGET,
+    "-isysroot",
+    sdk,
+    ...(opts.includePaths ?? []).map((i) => `-I${i}`),
+    ...(opts.frameworkPaths ?? []).map((f) => `-F${f}`),
+    ...(opts.moduleMaps ?? []).map((m) => `-fmodule-map-file=${m}`),
+    "-fsyntax-only",
+    "-Xclang",
+    "-ast-dump=json",
+    "-Xclang",
+    "-ast-dump-filter",
+    "-Xclang",
+  ]
+    .map(q)
+    .join(" ");
   // One clang run per enum, eight at a time.
-  const lines = enums.map((e, i) => `${clang} ${q(e)} ${q(source)} > ${q(path.join(dir, `${e}.json`))} 2>/dev/null &${(i + 1) % 8 === 0 ? "\nwait" : ""}`);
+  const lines = enums.map(
+    (e, i) =>
+      `${clang} ${q(e)} ${q(source)} > ${q(path.join(dir, `${e}.json`))} 2>/dev/null &${(i + 1) % 8 === 0 ? "\nwait" : ""}`,
+  );
   fs.writeFileSync(path.join(dir, "run.sh"), `${lines.join("\n")}\nwait\n`);
   spawnSync("sh", [path.join(dir, "run.sh")], { encoding: "utf8" });
   for (const name of enums) {
     const file = path.join(dir, `${name}.json`);
     if (!fs.existsSync(file)) continue;
     const decls = jsonObjects(fs.readFileSync(file, "utf8")) as ClangNode[];
-    const hasCases = (d: ClangNode) => d.kind === "EnumDecl" && !!d.inner?.some((c) => c.kind === "EnumConstantDecl");
+    const hasCases = (d: ClangNode) =>
+      d.kind === "EnumDecl" && !!d.inner?.some((c) => c.kind === "EnumConstantDecl");
     // A typedef of an anonymous enum dumps the enum without a name.
-    const decl = decls.find((d) => hasCases(d) && d.name === name) ?? decls.find((d) => hasCases(d) && !d.name);
+    const decl =
+      decls.find((d) => hasCases(d) && d.name === name) ??
+      decls.find((d) => hasCases(d) && !d.name);
     if (!decl) continue;
     const values = new Map<string, number>();
     let next = 0;
@@ -232,7 +306,11 @@ function tokens(frags: Fragment[]): (Fragment | string)[] {
   const out: (Fragment | string)[] = [];
   for (const f of frags) {
     if (f.kind === "typeIdentifier") out.push(f);
-    else if (f.kind === "keyword" && (f.spelling === "Any" || f.spelling === "AnyObject" || f.spelling === "Self")) out.push(f.spelling);
+    else if (
+      f.kind === "keyword" &&
+      (f.spelling === "Any" || f.spelling === "AnyObject" || f.spelling === "Self")
+    )
+      out.push(f.spelling);
     else if (f.spelling.trim() === "()") out.push("()");
     else {
       for (const t of f.spelling.split(/(\?|!|\[|\]|:|<|>|,|\(|\)|->|@\w+|any |some |inout |\.)/)) {
@@ -246,7 +324,12 @@ function tokens(frags: Fragment[]): (Fragment | string)[] {
 
 function parseType(frags: Fragment[], r: Resolver): SchemaType {
   // `UIControl.State`: a reference to the nested type is its last identifier.
-  const toks = tokens(frags).filter((t, i, all) => !(typeof t !== "string" && all[i + 1] === "." && typeof all[i + 2] !== "string")).filter((t) => t !== ".");
+  const toks = tokens(frags)
+    .filter(
+      (t, i, all) =>
+        !(typeof t !== "string" && all[i + 1] === "." && typeof all[i + 2] !== "string"),
+    )
+    .filter((t) => t !== ".");
   let p = 0;
   const named = (name: string) => parseSchemaType(name);
   const type = (): SchemaType => {
@@ -270,7 +353,8 @@ function parseType(frags: Fragment[], r: Resolver): SchemaType {
   };
   const primary = (): SchemaType => {
     const attrs: string[] = [];
-    while (typeof toks[p] === "string" && (toks[p] as string).startsWith("@")) attrs.push(toks[p++] as string);
+    while (typeof toks[p] === "string" && (toks[p] as string).startsWith("@"))
+      attrs.push(toks[p++] as string);
     const tok = toks[p++];
     if (tok === undefined) throw new Unsupported("empty type");
     if (tok === "any" || tok === "some") return primary();
@@ -303,7 +387,8 @@ function parseType(frags: Fragment[], r: Resolver): SchemaType {
         const value = type();
         if (toks[p++] !== "]") throw new Unsupported("dictionary");
         // Keys of any type (AnyHashable) as well: those that are not strings are left out when read.
-        if ((key.k !== "string" && key.k !== "id") || key.nullable) throw new Unsupported(`dictionary keyed by ${formatSchemaType(key)}`);
+        if ((key.k !== "string" && key.k !== "id") || key.nullable)
+          throw new Unsupported(`dictionary keyed by ${formatSchemaType(key)}`);
         return { k: "record", of: value, nullable: false };
       }
       if (toks[p++] !== "]") throw new Unsupported("array");
@@ -321,7 +406,14 @@ function parseType(frags: Fragment[], r: Resolver): SchemaType {
     if (ERROR_POINTERS.has(usr)) return { k: "out", of: named("error"), nullable: true };
     // `AutoreleasingUnsafeMutablePointer<NSError?>`, spelled out.
     const next = toks[p + 1];
-    if ((usr === "s:SA" || usr === "s:Sp") && toks[p] === "<" && typeof next !== "string" && next?.preciseIdentifier === "c:objc(cs)NSError" && toks[p + 2] === "?" && toks[p + 3] === ">") {
+    if (
+      (usr === "s:SA" || usr === "s:Sp") &&
+      toks[p] === "<" &&
+      typeof next !== "string" &&
+      next?.preciseIdentifier === "c:objc(cs)NSError" &&
+      toks[p + 2] === "?" &&
+      toks[p + 3] === ">"
+    ) {
       p += 4;
       return { k: "out", of: named("error"), nullable: false };
     }
@@ -331,7 +423,8 @@ function parseType(frags: Fragment[], r: Resolver): SchemaType {
       const inner = type();
       if (toks[p++] !== ">") throw new Unsupported("pointer");
       const reference = inner.k === "id" || inner.k === "ref" || ("cf" in inner && !!inner.cf);
-      if (!inner.nullable || !reference) throw new Unsupported(`pointer to ${formatSchemaType(inner)}`);
+      if (!inner.nullable || !reference)
+        throw new Unsupported(`pointer to ${formatSchemaType(inner)}`);
       return { k: "out", of: { ...inner, nullable: false }, nullable: false };
     }
     // Unmanaged<X>: ownership follows CoreFoundation's Create/Copy rule in the glue.
@@ -392,17 +485,28 @@ function propertyType(frags: Fragment[]): Fragment[] {
 const typedefName = (usr: string) => /^c:[^@]*@T@(\w+)$/.exec(usr)?.[1];
 
 /** Typedef name → USR, among these USRs. */
-const typedefsAmong = (usrs: Iterable<string>) => new Map([...usrs].flatMap((u): [string, string][] => (typedefName(u) ? [[typedefName(u)!, u]] : [])));
+const typedefsAmong = (usrs: Iterable<string>) =>
+  new Map(
+    [...usrs].flatMap((u): [string, string][] => (typedefName(u) ? [[typedefName(u)!, u]] : [])),
+  );
 
 /** A C struct's fields, among its members: numbers, enums and structs. */
-function structFields(members: SymbolGraphSymbol[], r: Resolver, kinds: Map<string, string>): SdkParam[] {
+function structFields(
+  members: SymbolGraphSymbol[],
+  r: Resolver,
+  kinds: Map<string, string>,
+): SdkParam[] {
   const fields = members
     .filter((m) => m.kind.identifier === "swift.property" && structField(m.identifier.precise))
     .map((m) => {
       const type = parseType(propertyType(m.declarationFragments ?? []), r);
       const written = formatSchemaType(type);
       const nested = kinds.get(written) === "struct" || kinds.get(written) === "enum";
-      if (!nested && !/^(double|float|CGFloat|NSInteger|NSUInteger|u?int(8|16|32|64)|bool)$/.test(written)) throw new Unsupported(`struct field ${written}`);
+      if (
+        !nested &&
+        !/^(double|float|CGFloat|NSInteger|NSUInteger|u?int(8|16|32|64)|bool)$/.test(written)
+      )
+        throw new Unsupported(`struct field ${written}`);
       return { name: m.pathComponents[m.pathComponents.length - 1]!, type };
     });
   if (!fields.length) throw new Unsupported("struct without fields");
@@ -434,7 +538,8 @@ function cStructs(g: SymbolGraph): Map<string, { symbol: SymbolGraphSymbol; nati
 
 const objcClass = (usr: string) => /^c:objc\((cs|pl)\)([^(]+)$/.exec(usr);
 const objcMember = (usr: string) => /^c:objc\((cs|pl)\)([^(]+)\((im|cm|py|cpy)\)(.+)$/.exec(usr);
-const declText = (s: SymbolGraphSymbol) => (s.declarationFragments ?? []).map((f) => f.spelling).join("");
+const declText = (s: SymbolGraphSymbol) =>
+  (s.declarationFragments ?? []).map((f) => f.spelling).join("");
 
 function since(s: SymbolGraphSymbol): string | undefined {
   const ios = s.availability?.find((a) => a.domain === "iOS");
@@ -443,7 +548,11 @@ function since(s: SymbolGraphSymbol): string | undefined {
 }
 
 function unavailable(s: SymbolGraphSymbol): boolean {
-  return !!s.availability?.some((a) => (a.domain === "iOS" || a.domain === "*" || a.domain === undefined) && (a.isUnconditionallyUnavailable || a.obsoleted));
+  return !!s.availability?.some(
+    (a) =>
+      (a.domain === "iOS" || a.domain === "*" || a.domain === undefined) &&
+      (a.isUnconditionallyUnavailable || a.obsoleted),
+  );
 }
 
 /** `impact(intensity:)` → base `impact`, labels `["intensity"]`. */
@@ -477,7 +586,15 @@ export interface NamesIndex {
    * Schema name → what the glue needs to use a type without its schema;
    * structs' fields too, when they are this module's types or numbers.
    */
-  types: Record<string, { kind: "class" | "protocol" | "enum" | "struct"; native: string; fields?: SdkParam[]; cf?: boolean }>;
+  types: Record<
+    string,
+    {
+      kind: "class" | "protocol" | "enum" | "struct";
+      native: string;
+      fields?: SdkParam[];
+      cf?: boolean;
+    }
+  >;
 }
 
 export function namesOf(module: string, g: SymbolGraph): NamesIndex {
@@ -513,28 +630,60 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
     }
     if (k === "swift.typealias" && !record) {
       const eq = (s.declarationFragments ?? []).findIndex((f) => f.spelling.includes("="));
-      if (eq >= 0) aliases[usr] = [{ kind: "text", spelling: (s.declarationFragments![eq]!.spelling.split("=")[1] ?? "").trim() }, ...s.declarationFragments!.slice(eq + 1)];
+      if (eq >= 0)
+        aliases[usr] = [
+          {
+            kind: "text",
+            spelling: (s.declarationFragments![eq]!.spelling.split("=")[1] ?? "").trim(),
+          },
+          ...s.declarationFragments!.slice(eq + 1),
+        ];
     }
     // Typed string enums (NS_TYPED_ENUM): strings at the boundary.
-    if (k === "swift.struct" && /^c:.*@T@/.test(usr)) aliases[usr] = [{ kind: "typeIdentifier", spelling: "String", preciseIdentifier: "s:SS" }];
+    if (k === "swift.struct" && /^c:.*@T@/.test(usr))
+      aliases[usr] = [{ kind: "typeIdentifier", spelling: "String", preciseIdentifier: "s:SS" }];
   }
   // Swift value types that bridge to Objective-C classes (IndexPath): the class their ReferenceType names.
-  const bridged = new Set(g.relationships.filter((r) => r.kind === "conformsTo" && r.target === REFERENCE_CONVERTIBLE).map((r) => r.source));
+  const bridged = new Set(
+    g.relationships
+      .filter((r) => r.kind === "conformsTo" && r.target === REFERENCE_CONVERTIBLE)
+      .map((r) => r.source),
+  );
   const byUsr = new Map(g.symbols.map((s) => [s.identifier.precise, s]));
   for (const r of g.relationships) {
     const member = byUsr.get(r.source);
-    if (r.kind !== "memberOf" || !bridged.has(r.target) || member?.kind.identifier !== "swift.typealias" || member.pathComponents.at(-1) !== "ReferenceType") continue;
-    const cls = member.declarationFragments?.find((f) => f.kind === "typeIdentifier" && objcClass(f.preciseIdentifier ?? ""));
+    if (
+      r.kind !== "memberOf" ||
+      !bridged.has(r.target) ||
+      member?.kind.identifier !== "swift.typealias" ||
+      member.pathComponents.at(-1) !== "ReferenceType"
+    )
+      continue;
+    const cls = member.declarationFragments?.find(
+      (f) => f.kind === "typeIdentifier" && objcClass(f.preciseIdentifier ?? ""),
+    );
     if (cls) aliases[r.target] = [cls];
   }
   const members = new Map<string, SymbolGraphSymbol[]>();
-  for (const r of g.relationships) if (r.kind === "memberOf" && byUsr.has(r.source)) members.set(r.target, [...(members.get(r.target) ?? []), byUsr.get(r.source)!]);
-  const kinds = new Map(Object.entries(types).map(([name, t]): [string, string] => [`${module}.${name}`, t.kind]));
+  for (const r of g.relationships)
+    if (r.kind === "memberOf" && byUsr.has(r.source))
+      members.set(r.target, [...(members.get(r.target) ?? []), byUsr.get(r.source)!]);
+  const kinds = new Map(
+    Object.entries(types).map(([name, t]): [string, string] => [`${module}.${name}`, t.kind]),
+  );
   const typedefs = typedefsAmong([...Object.keys(refs), ...Object.keys(aliases)]);
-  const own: Resolver = { ref: (u) => refs[u], alias: (u) => aliases[u], typedef: (n) => typedefs.get(n) };
+  const own: Resolver = {
+    ref: (u) => refs[u],
+    alias: (u) => aliases[u],
+    typedef: (n) => typedefs.get(n),
+  };
   for (const [usr, { symbol }] of structs) {
     try {
-      types[symbol.pathComponents.join("_")]!.fields = structFields(members.get(usr) ?? [], own, kinds);
+      types[symbol.pathComponents.join("_")]!.fields = structFields(
+        members.get(usr) ?? [],
+        own,
+        kinds,
+      );
     } catch (e) {
       if (!(e instanceof Unsupported)) throw e;
     }
@@ -549,7 +698,8 @@ export function externalUsrs(g: SymbolGraph): Set<string> {
   const visit = (frags: Fragment[] | undefined) => {
     for (const f of frags ?? []) {
       // Swift leaves the USR off some references to C typedefs (NSRange); the owner is found by name.
-      const usr = f.preciseIdentifier ?? (f.kind === "typeIdentifier" ? `c:@T@${f.spelling}` : undefined);
+      const usr =
+        f.preciseIdentifier ?? (f.kind === "typeIdentifier" ? `c:@T@${f.spelling}` : undefined);
       if (!usr) continue;
       if (/^[cs]:/.test(usr) && !declared.has(usr)) out.add(usr);
     }
@@ -559,12 +709,16 @@ export function externalUsrs(g: SymbolGraph): Set<string> {
     for (const p of s.functionSignature?.parameters ?? []) visit(p.declarationFragments);
     visit(s.functionSignature?.returns);
   }
-  for (const r of g.relationships) if (r.target.startsWith("c:") && !declared.has(r.target)) out.add(r.target);
+  for (const r of g.relationships)
+    if (r.target.startsWith("c:") && !declared.has(r.target)) out.add(r.target);
   return out;
 }
 
 /** The schemas for symbol graphs; `values` looks up enum values by C enum name. */
-export function buildIosSchemas(graphs: Map<string, SymbolGraph>, values: (enums: string[]) => Map<string, Map<string, number>>): SdkModuleSchema[] {
+export function buildIosSchemas(
+  graphs: Map<string, SymbolGraph>,
+  values: (enums: string[]) => Map<string, Map<string, number>>,
+): SdkModuleSchema[] {
   const names = [...graphs].map(([m, g]) => namesOf(m, g));
   return [...graphs].map(([m, g]) => buildIosSchema(m, g, names, values));
 }
@@ -573,29 +727,60 @@ export function buildIosSchemas(graphs: Map<string, SymbolGraph>, values: (enums
  * One module's schema from its graph and the names of every module it
  * refers to (its own included).
  */
-export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex[], values: (enums: string[]) => Map<string, Map<string, number>>): SdkModuleSchema {
+export function buildIosSchema(
+  module: string,
+  g: SymbolGraph,
+  names: NamesIndex[],
+  values: (enums: string[]) => Map<string, Map<string, number>>,
+): SdkModuleSchema {
   const refs = new Map<string, string>(names.flatMap((n) => Object.entries(n.refs)));
   const aliases = new Map<string, Fragment[]>(names.flatMap((n) => Object.entries(n.aliases)));
-  const kinds = new Map<string, string>(names.flatMap((n) => Object.entries(n.types).map(([name, t]): [string, string] => [`${n.module}.${name}`, t.kind])));
+  const kinds = new Map<string, string>(
+    names.flatMap((n) =>
+      Object.entries(n.types).map(([name, t]): [string, string] => [`${n.module}.${name}`, t.kind]),
+    ),
+  );
   {
-    const mod: SdkModuleSchema = { platform: "ios", module, frameworks: [module], types: [], skipped: [] };
+    const mod: SdkModuleSchema = {
+      platform: "ios",
+      module,
+      frameworks: [module],
+      types: [],
+      skipped: [],
+    };
     const members = new Map<string, SymbolGraphSymbol[]>();
     // Several symbols can share a USR: a completion-handler method and its async form.
     const symbolsOf = new Map<string, SymbolGraphSymbol[]>();
-    for (const s of g.symbols) symbolsOf.set(s.identifier.precise, [...(symbolsOf.get(s.identifier.precise) ?? []), s]);
+    for (const s of g.symbols)
+      symbolsOf.set(s.identifier.precise, [...(symbolsOf.get(s.identifier.precise) ?? []), s]);
     for (const rel of g.relationships) {
-      if (rel.kind !== "memberOf" && rel.kind !== "requirementOf" && rel.kind !== "optionalRequirementOf") continue;
+      if (
+        rel.kind !== "memberOf" &&
+        rel.kind !== "requirementOf" &&
+        rel.kind !== "optionalRequirementOf"
+      )
+        continue;
       const list = members.get(rel.target) ?? [];
       for (const sym of symbolsOf.get(rel.source) ?? []) if (!list.includes(sym)) list.push(sym);
       members.set(rel.target, list);
     }
     const byUsr = new Map(g.symbols.map((s) => [s.identifier.precise, s]));
     const typedefs = typedefsAmong([...refs.keys(), ...aliases.keys()]);
-    const resolver = (self?: string, mainActor?: boolean): Resolver => ({ ref: (u) => refs.get(u), alias: (u) => aliases.get(u), typedef: (n) => typedefs.get(n), self, mainActor });
-    const skip = (owner: string, s: SymbolGraphSymbol, reason: string) => mod.skipped!.push(`${owner}.${s.names.title}: ${reason}`);
+    const resolver = (self?: string, mainActor?: boolean): Resolver => ({
+      ref: (u) => refs.get(u),
+      alias: (u) => aliases.get(u),
+      typedef: (n) => typedefs.get(n),
+      self,
+      mainActor,
+    });
+    const skip = (owner: string, s: SymbolGraphSymbol, reason: string) =>
+      mod.skipped!.push(`${owner}.${s.names.title}: ${reason}`);
 
     // Enums and options.
-    const cEnumName = (s: SymbolGraphSymbol) => (s.kind.identifier === "swift.enum" || s.kind.identifier === "swift.struct" ? /^c:@EA?@(\w+)$/.exec(s.identifier.precise)?.[1] : undefined);
+    const cEnumName = (s: SymbolGraphSymbol) =>
+      s.kind.identifier === "swift.enum" || s.kind.identifier === "swift.struct"
+        ? /^c:@EA?@(\w+)$/.exec(s.identifier.precise)?.[1]
+        : undefined;
     const enumSyms = g.symbols.filter((s) => cEnumName(s) !== undefined);
     const cNames = enumSyms.map((s) => cEnumName(s)!);
     const enumValueMap = values(cNames);
@@ -603,12 +788,20 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
       const cName = cEnumName(s)!;
       // A named enum's cases are its members; an anonymous one's are global values under its USR.
       const anonymous = s.identifier.precise.startsWith("c:@EA@");
-      const candidates = anonymous ? g.symbols.filter((m) => m.kind.identifier === "swift.var") : (members.get(s.identifier.precise) ?? []);
+      const candidates = anonymous
+        ? g.symbols.filter((m) => m.kind.identifier === "swift.var")
+        : (members.get(s.identifier.precise) ?? []);
       const cases = candidates
-        .filter((m) => m.identifier.precise.startsWith(`${s.identifier.precise}@`) && !unavailable(m))
+        .filter(
+          (m) => m.identifier.precise.startsWith(`${s.identifier.precise}@`) && !unavailable(m),
+        )
         .map((m) => {
           const native = m.identifier.precise.slice(s.identifier.precise.length + 1);
-          return { name: m.pathComponents[m.pathComponents.length - 1]!, native, value: enumValueMap.get(cName)?.get(native) };
+          return {
+            name: m.pathComponents[m.pathComponents.length - 1]!,
+            native,
+            value: enumValueMap.get(cName)?.get(native),
+          };
         });
       if (cases.some((c) => c.value === undefined)) {
         mod.skipped!.push(`${s.pathComponents.join(".")}: enum values unknown`);
@@ -616,7 +809,12 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
       }
       // Global values come in the graph's order: an anonymous enum's cases go by value.
       if (anonymous) cases.sort((a, b) => a.value! - b.value!);
-      const e: SdkEnumSchema = { kind: "enum", name: s.pathComponents.join("_"), native: cName, cases: cases as SdkEnumSchema["cases"] };
+      const e: SdkEnumSchema = {
+        kind: "enum",
+        name: s.pathComponents.join("_"),
+        native: cName,
+        cases: cases as SdkEnumSchema["cases"],
+      };
       mod.types.push(e);
     }
 
@@ -625,7 +823,12 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
       if (unavailable(s)) continue;
       const name = s.pathComponents.join("_");
       try {
-        mod.types.push({ kind: "struct", name, native, fields: structFields(members.get(usr) ?? [], resolver(), kinds) });
+        mod.types.push({
+          kind: "struct",
+          name,
+          native,
+          fields: structFields(members.get(usr) ?? [], resolver(), kinds),
+        });
       } catch (e) {
         if (e instanceof Unsupported) mod.skipped!.push(`${name}: ${e.message}`);
         else throw e;
@@ -634,20 +837,44 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
 
     // Typed string keys (NS_TYPED_ENUM): string constants read from their C globals.
     for (const s of g.symbols) {
-      if (s.kind.identifier !== "swift.struct" || !/^c:.*@T@/.test(s.identifier.precise) || unavailable(s)) continue;
+      if (
+        s.kind.identifier !== "swift.struct" ||
+        !/^c:.*@T@/.test(s.identifier.precise) ||
+        unavailable(s)
+      )
+        continue;
       const props: SdkPropertySchema[] = [];
       for (const mem of members.get(s.identifier.precise) ?? []) {
         const global = /^c:@([A-Za-z_]\w*)$/.exec(mem.identifier.precise)?.[1];
         if (!global || mem.kind.identifier !== "swift.type.property" || unavailable(mem)) continue;
-        props.push({ name: mem.pathComponents[mem.pathComponents.length - 1]!, static: true, readonly: true, type: parseSchemaType("string"), global });
+        props.push({
+          name: mem.pathComponents[mem.pathComponents.length - 1]!,
+          static: true,
+          readonly: true,
+          type: parseSchemaType("string"),
+          global,
+        });
       }
-      if (props.length) mod.types.push({ kind: "class", name: s.pathComponents.join("_"), native: s.identifier.precise.replace(/^.*@T@/, ""), properties: props });
+      if (props.length)
+        mod.types.push({
+          kind: "class",
+          name: s.pathComponents.join("_"),
+          native: s.identifier.precise.replace(/^.*@T@/, ""),
+          properties: props,
+        });
     }
 
     // Opaque CoreFoundation-style handles, passed through as they are.
     for (const s of g.symbols) {
-      const handle = s.kind.identifier === "swift.class" ? typedefName(s.identifier.precise) : undefined;
-      if (handle && !unavailable(s)) mod.types.push({ kind: "class", name: s.pathComponents.join("_"), native: handle, cf: true });
+      const handle =
+        s.kind.identifier === "swift.class" ? typedefName(s.identifier.precise) : undefined;
+      if (handle && !unavailable(s))
+        mod.types.push({
+          kind: "class",
+          name: s.pathComponents.join("_"),
+          native: handle,
+          cf: true,
+        });
     }
 
     // Classes and protocols.
@@ -662,9 +889,23 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
       if (declText(s).includes("@MainActor")) cls.mainActor = true;
       const v = since(s);
       if (v) cls.since = v;
-      const superUsr = g.relationships.find((r) => r.kind === "inheritsFrom" && r.source === s.identifier.precise)?.target;
+      const superUsr = g.relationships.find(
+        (r) => r.kind === "inheritsFrom" && r.source === s.identifier.precise,
+      )?.target;
       if (superUsr && refs.has(superUsr)) cls.extends = refs.get(superUsr);
-      const conforms = [...new Set(g.relationships.filter((r) => r.kind === "conformsTo" && r.source === s.identifier.precise && r.target.startsWith("c:objc(pl)") && refs.has(r.target)).map((r) => refs.get(r.target)!))];
+      const conforms = [
+        ...new Set(
+          g.relationships
+            .filter(
+              (r) =>
+                r.kind === "conformsTo" &&
+                r.source === s.identifier.precise &&
+                r.target.startsWith("c:objc(pl)") &&
+                refs.has(r.target),
+            )
+            .map((r) => refs.get(r.target)!),
+        ),
+      ];
       if (conforms.length) cls.implements = conforms;
 
       const ctors: SdkCallable[] = [];
@@ -673,9 +914,19 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
       const seenUsr = new Set<string>();
       let initUnavailable = false;
       // Optional protocol requirements.
-      const optionalUsrs = new Set(g.relationships.filter((rel) => rel.kind === "optionalRequirementOf" && rel.target === s.identifier.precise).map((rel) => rel.source));
+      const optionalUsrs = new Set(
+        g.relationships
+          .filter(
+            (rel) => rel.kind === "optionalRequirementOf" && rel.target === s.identifier.precise,
+          )
+          .map((rel) => rel.source),
+      );
       // Completion-handler methods Swift imports a second time as async.
-      const asyncTwins = new Map((members.get(s.identifier.precise) ?? []).filter((mem) => /\basync\b/.test(declText(mem))).map((mem) => [mem.identifier.precise, mem]));
+      const asyncTwins = new Map(
+        (members.get(s.identifier.precise) ?? [])
+          .filter((mem) => /\basync\b/.test(declText(mem)))
+          .map((mem) => [mem.identifier.precise, mem]),
+      );
       for (const mem of members.get(s.identifier.precise) ?? []) {
         const mm = objcMember(mem.identifier.precise);
         if (mm && unavailable(mem) && mem.kind.identifier === "swift.init") initUnavailable = true;
@@ -693,22 +944,33 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
         const memberSince = since(mem);
         try {
           if (kind === "py" || kind === "cpy") {
-            const p: SdkPropertySchema = { name: mem.names.title, type: parseType(propertyType(mem.declarationFragments ?? []), r) };
+            const p: SdkPropertySchema = {
+              name: mem.names.title,
+              type: parseType(propertyType(mem.declarationFragments ?? []), r),
+            };
             if (kind === "cpy") p.static = true;
             const readonly = !/\bset\b/.test(text);
             if (readonly) p.readonly = true;
-            if (mem.names.title !== selector) p.selector = selector === mem.names.title ? undefined : getterSelector(mem.names.title, selector);
+            if (mem.names.title !== selector)
+              p.selector =
+                selector === mem.names.title
+                  ? undefined
+                  : getterSelector(mem.names.title, selector);
             if (p.selector === undefined) delete p.selector;
             if (!readonly) p.setter = `set${selector.charAt(0).toUpperCase()}${selector.slice(1)}:`;
             if (/\bweak\b/.test(head)) p.weak = true;
             if (memberSince && memberSince !== cls.since) p.since = memberSince;
-            if (head.includes("@MainActor") && !cls.mainActor) (p as SdkPropertySchema & { mainActor?: boolean }).mainActor = true;
+            if (head.includes("@MainActor") && !cls.mainActor)
+              (p as SdkPropertySchema & { mainActor?: boolean }).mainActor = true;
             props.push(p);
             continue;
           }
           const sig = mem.functionSignature;
           const escaping = escapingParams(mem);
-          const params = (sig?.parameters ?? []).map((pp, i) => ({ name: pp.internalName ?? pp.name, type: withEscaping(parseType(afterColon(pp.declarationFragments), r), escaping[i]) }));
+          const params = (sig?.parameters ?? []).map((pp, i) => ({
+            name: pp.internalName ?? pp.name,
+            type: withEscaping(parseType(afterColon(pp.declarationFragments), r), escaping[i]),
+          }));
           if (mem.kind.identifier === "swift.init") {
             if (kind === "cm") continue;
             const c: SdkCallable = { params, selector };
@@ -716,7 +978,9 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
             ctors.push(c);
             continue;
           }
-          const returns = sig?.returns?.length ? parseType(sig.returns, r) : parseSchemaType("void");
+          const returns = sig?.returns?.length
+            ? parseType(sig.returns, r)
+            : parseSchemaType("void");
           const { base, labels } = splitName(mem.names.title);
           // Protocol requirements, which Lucent classes implement, are named
           // from their own Swift name: base and labels, as in the selector.
@@ -750,6 +1014,7 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
       if (cls.interface) {
         // Names from the requirement alone: a clash is skipped, never renamed.
         const seen = new Set<string>();
+        // oxlint-disable-next-line unicorn/no-useless-spread -- the loop splices methods
         for (const x of [...methods]) {
           if (!seen.has(`${!!x.static}:${x.name}`)) seen.add(`${!!x.static}:${x.name}`);
           else {
@@ -785,13 +1050,28 @@ export function buildIosSchema(module: string, g: SymbolGraph, names: NamesIndex
         if (s.kind.identifier === "swift.func" && usr.startsWith("c:@F@")) {
           const sig = s.functionSignature;
           const escaping = escapingParams(s);
-          const params = (sig?.parameters ?? []).map((pp, i) => ({ name: pp.internalName ?? pp.name, type: withEscaping(parseType(afterColon(pp.declarationFragments), resolver()), escaping[i]) }));
-          const f: SdkMethodSchema = { name: s.names.title.replace(/\(.*$/, ""), params, returns: sig?.returns?.length ? parseType(sig.returns, resolver()) : parseSchemaType("void") };
+          const params = (sig?.parameters ?? []).map((pp, i) => ({
+            name: pp.internalName ?? pp.name,
+            type: withEscaping(
+              parseType(afterColon(pp.declarationFragments), resolver()),
+              escaping[i],
+            ),
+          }));
+          const f: SdkMethodSchema = {
+            name: s.names.title.replace(/\(.*$/, ""),
+            params,
+            returns: sig?.returns?.length
+              ? parseType(sig.returns, resolver())
+              : parseSchemaType("void"),
+          };
           const v = since(s);
           if (v) f.since = v;
           (mod.functions ??= []).push(f);
         } else if (s.kind.identifier === "swift.var" && /^c:@[^@]+$/.test(usr)) {
-          const c: SdkPropertySchema = { name: s.names.title, type: parseType(afterColon(s.declarationFragments ?? []), resolver()) };
+          const c: SdkPropertySchema = {
+            name: s.names.title,
+            type: parseType(afterColon(s.declarationFragments ?? []), resolver()),
+          };
           (mod.constants ??= []).push(c);
         }
       } catch (e) {
@@ -830,7 +1110,8 @@ function getterSelector(swiftName: string, property: string): string {
  * get their labels appended (`resize(height:)` → `resizeHeight`).
  */
 function disambiguate(methods: SdkMethodSchema[]): void {
-  const key = (m: SdkMethodSchema) => `${m.static ? "static " : ""}${m.name}(${m.params.map((p) => tsKind(formatSchemaType(p.type))).join(",")})`;
+  const key = (m: SdkMethodSchema) =>
+    `${m.static ? "static " : ""}${m.name}(${m.params.map((p) => tsKind(formatSchemaType(p.type))).join(",")})`;
   const seen = new Set<string>();
   for (const m of methods) {
     if (!seen.has(key(m))) {
@@ -845,7 +1126,13 @@ function disambiguate(methods: SdkMethodSchema[]): void {
 /** A method's name with its Swift labels appended (`resize(height:)` → `resizeHeight`). */
 function withLabels(m: SdkMethodSchema): string {
   const { labels } = splitName((m as SdkMethodSchema & { swiftName?: string }).swiftName ?? m.name);
-  return m.name + labels.filter((l) => l !== "_").map((l) => l.charAt(0).toUpperCase() + l.slice(1)).join("");
+  return (
+    m.name +
+    labels
+      .filter((l) => l !== "_")
+      .map((l) => l.charAt(0).toUpperCase() + l.slice(1))
+      .join("")
+  );
 }
 
 function tsKind(t: string): string {

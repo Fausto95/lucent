@@ -43,8 +43,20 @@ export function symbolOf(checker: ts.TypeChecker, id: ts.Identifier): ts.Symbol 
 export function declaringFunction(sym: ts.Symbol): FunctionLike | undefined {
   const decl = sym.valueDeclaration ?? sym.declarations?.[0];
   if (!decl) return undefined;
-  if (ts.isFunctionDeclaration(decl) && !isFunctionLike(decl.parent) && ts.isSourceFile(decl.parent)) return undefined;
-  if (!(ts.isVariableDeclaration(decl) || ts.isParameter(decl) || ts.isBindingElement(decl) || ts.isFunctionDeclaration(decl))) {
+  if (
+    ts.isFunctionDeclaration(decl) &&
+    !isFunctionLike(decl.parent) &&
+    ts.isSourceFile(decl.parent)
+  )
+    return undefined;
+  if (
+    !(
+      ts.isVariableDeclaration(decl) ||
+      ts.isParameter(decl) ||
+      ts.isBindingElement(decl) ||
+      ts.isFunctionDeclaration(decl)
+    )
+  ) {
     return undefined;
   }
   return enclosingFunction(decl);
@@ -71,7 +83,10 @@ function isWriteTarget(id: ts.Identifier): boolean {
     const k = p.operatorToken.kind;
     return k >= ts.SyntaxKind.FirstAssignment && k <= ts.SyntaxKind.LastAssignment;
   }
-  if ((ts.isPrefixUnaryExpression(p) || ts.isPostfixUnaryExpression(p)) && (p.operator === ts.SyntaxKind.PlusPlusToken || p.operator === ts.SyntaxKind.MinusMinusToken)) {
+  if (
+    (ts.isPrefixUnaryExpression(p) || ts.isPostfixUnaryExpression(p)) &&
+    (p.operator === ts.SyntaxKind.PlusPlusToken || p.operator === ts.SyntaxKind.MinusMinusToken)
+  ) {
     return true;
   }
   if ((ts.isForOfStatement(p) || ts.isForInStatement(p)) && p.initializer === node) return true;
@@ -87,11 +102,10 @@ export class CaptureAnalysis {
   readonly boxed = new Set<ts.Symbol>();
   private readonly captured = new Set<ts.Symbol>();
   private readonly written = new Set<ts.Symbol>();
+  private readonly checker: ts.TypeChecker;
 
-  constructor(
-    private readonly checker: ts.TypeChecker,
-    files: readonly ts.SourceFile[],
-  ) {
+  constructor(checker: ts.TypeChecker, files: readonly ts.SourceFile[]) {
+    this.checker = checker;
     for (const f of files) this.visit(f);
     for (const s of this.captured) if (this.written.has(s)) this.boxed.add(s);
   }
@@ -119,7 +133,13 @@ export class CaptureAnalysis {
       this.captured.add(sym);
       // A closure in the variable's own initializer (a recursive arrow)
       // needs the variable to exist before the closure is created.
-      if (decl && ts.isVariableDeclaration(decl) && decl.initializer && isInside(id, decl.initializer)) this.written.add(sym);
+      if (
+        decl &&
+        ts.isVariableDeclaration(decl) &&
+        decl.initializer &&
+        isInside(id, decl.initializer)
+      )
+        this.written.add(sym);
     }
   }
 

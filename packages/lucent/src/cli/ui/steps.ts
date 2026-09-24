@@ -31,7 +31,12 @@ const TIME_COLUMN = 40;
 
 /** `✓ Checked 7 modules            312 ms`, in the theme's colours. */
 export function stepLine(r: StepResult, theme: Theme): string {
-  const symbol = r.status === "failed" ? theme.error(theme.symbols.fail) : r.status === "skipped" ? theme.dim(theme.symbols.off) : theme.success(theme.symbols.ok);
+  const symbol =
+    r.status === "failed"
+      ? theme.error(theme.symbols.fail)
+      : r.status === "skipped"
+        ? theme.dim(theme.symbols.off)
+        : theme.success(theme.symbols.ok);
   const text = `${symbol} ${r.label}${r.detail ? `  ${theme.dim(r.detail)}` : ""}`;
   const time = r.status === "cached" ? "cached" : r.ms !== undefined ? duration(r.ms) : "";
   if (!time) return text;

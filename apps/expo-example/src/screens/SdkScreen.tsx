@@ -49,10 +49,23 @@ export function SdkScreen() {
         <Text style={styles.subtitle}>
           {results.length}/{sdkCases.length} run · {passed} passed
         </Text>
-        <Text testID="lucent-sdk-summary" style={[styles.summary, done && (passed === sdkCases.length ? styles.ok : styles.bad)]}>
-          {running ? "Running…" : done ? (passed === sdkCases.length ? "ALL PASSED" : `${sdkCases.length - passed} FAILED`) : ""}
+        <Text
+          testID="lucent-sdk-summary"
+          style={[styles.summary, done && (passed === sdkCases.length ? styles.ok : styles.bad)]}
+        >
+          {running
+            ? "Running…"
+            : done
+              ? passed === sdkCases.length
+                ? "ALL PASSED"
+                : `${sdkCases.length - passed} FAILED`
+              : ""}
         </Text>
-        <Pressable disabled={running} onPress={runAll} style={({ pressed }) => [styles.button, (pressed || running) && styles.pressed]}>
+        <Pressable
+          disabled={running}
+          onPress={runAll}
+          style={({ pressed }) => [styles.button, (pressed || running) && styles.pressed]}
+        >
           <Text style={styles.buttonText}>Run again</Text>
         </Pressable>
       </View>
@@ -62,7 +75,9 @@ export function SdkScreen() {
             <Text style={styles.rowTitle}>
               {r.pass ? "✅" : "❌"} {r.name} <Text style={styles.ms}>{r.ms} ms</Text>
             </Text>
-            <Text style={[styles.line, !r.pass && styles.lineBad]}>{r.pass ? r.got : `expected: ${r.expected}\n     got: ${r.got}`}</Text>
+            <Text style={[styles.line, !r.pass && styles.lineBad]}>
+              {r.pass ? r.got : `expected: ${r.expected}\n     got: ${r.got}`}
+            </Text>
           </View>
         ))}
       </ScrollView>

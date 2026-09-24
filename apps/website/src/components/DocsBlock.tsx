@@ -27,7 +27,12 @@ export function DocsBlock({ block }: { block: Block }) {
     case "code":
       return (
         <>
-          <CodeBlock filename={block.filename} code={block.code} copyable={block.copy !== false} diff={block.diff === true} />
+          <CodeBlock
+            filename={block.filename}
+            code={block.code}
+            copyable={block.copy !== false}
+            diff={block.diff === true}
+          />
           {block.cpp && <SeeCpp filename={block.filename} />}
         </>
       );
@@ -35,9 +40,11 @@ export function DocsBlock({ block }: { block: Block }) {
       return (
         <>
           <CodeTabs tabs={block.tabs} />
-          {block.tabs.filter((t) => t.cpp).map((t) => (
-            <SeeCpp key={t.filename} filename={t.filename} />
-          ))}
+          {block.tabs
+            .filter((t) => t.cpp)
+            .map((t) => (
+              <SeeCpp key={t.filename} filename={t.filename} />
+            ))}
         </>
       );
     case "note": {

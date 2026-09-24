@@ -46,7 +46,10 @@ async function main(argv: string[]): Promise<number> {
 function usesLucent(root: string): boolean {
   if (fs.existsSync(path.join(root, ".lucent"))) return true;
   try {
-    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")) as { dependencies?: object; devDependencies?: object };
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")) as {
+      dependencies?: object;
+      devDependencies?: object;
+    };
     return "@lucent-lang/lucent" in { ...pkg.dependencies, ...pkg.devDependencies };
   } catch {
     return false;

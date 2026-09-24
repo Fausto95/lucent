@@ -43,16 +43,27 @@ function wrap(text: string, width: number, indent: string): string {
  * `file` is shown as given (callers make it relative); `source` is the
  * file's text, for the frame.
  */
-export function renderDiagnostic(d: DiagnosticLike, source: string | undefined, theme: Theme): string {
+export function renderDiagnostic(
+  d: DiagnosticLike,
+  source: string | undefined,
+  theme: Theme,
+): string {
   const width = theme.terminal.width;
   const head = `  ${theme.error("error")} ${theme.bold(d.code)}  `;
-  const out = [`${head}${wrap(d.message.split("\n").join(" "), Math.max(20, width - 2 - 6 - d.code.length - 2), " ".repeat(6 + d.code.length + 4))}`];
+  const out = [
+    `${head}${wrap(d.message.split("\n").join(" "), Math.max(20, width - 2 - 6 - d.code.length - 2), " ".repeat(6 + d.code.length + 4))}`,
+  ];
   if (d.file) {
     out.push("", `    ${theme.dim(d.line ? `${d.file}:${d.line}:${d.column ?? 1}` : d.file)}`);
-    if (source !== undefined && d.line) out.push(codeFrame(source, { line: d.line, column: d.column ?? 1, length: d.length ?? 1 }, theme));
+    if (source !== undefined && d.line)
+      out.push(
+        codeFrame(source, { line: d.line, column: d.column ?? 1, length: d.length ?? 1 }, theme),
+      );
   }
   if (d.fix || d.docs) out.push("");
-  if (d.fix) out.push(`  ${theme.success("fix")}  ${wrap(d.fix, Math.max(20, width - 7), "       ")}`);
-  if (d.docs) out.push(`  ${theme.progress("docs")} lucent explain ${link(d.code, d.docs, theme.terminal)}`);
+  if (d.fix)
+    out.push(`  ${theme.success("fix")}  ${wrap(d.fix, Math.max(20, width - 7), "       ")}`);
+  if (d.docs)
+    out.push(`  ${theme.progress("docs")} lucent explain ${link(d.code, d.docs, theme.terminal)}`);
   return out.join("\n");
 }

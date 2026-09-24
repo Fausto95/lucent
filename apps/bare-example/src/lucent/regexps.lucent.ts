@@ -13,7 +13,8 @@ export function named(): string {
 export function globalExec(): string {
   const re = /o(\w)/g;
   const out: string[] = [];
-  for (let m = re.exec("foo boa fox"); m !== null; m = re.exec("foo boa fox")) out.push(`${m[1]}@${m.index}/${re.lastIndex}`);
+  for (let m = re.exec("foo boa fox"); m !== null; m = re.exec("foo boa fox"))
+    out.push(`${m[1]}@${m.index}/${re.lastIndex}`);
   return out.join(",");
 }
 
@@ -36,7 +37,8 @@ export function stringMethods(s: string): string {
 
 export function matchAllGroups(): string {
   const out: string[] = [];
-  for (const m of "k1=v1;k2=v2;k3=".matchAll(/(\w+)=(\w*)/g)) out.push(`${m[1]}:${m[2] || "-"}@${m.index}`);
+  for (const m of "k1=v1;k2=v2;k3=".matchAll(/(\w+)=(\w*)/g))
+    out.push(`${m[1]}:${m[2] || "-"}@${m.index}`);
   return out.join(" ");
 }
 
@@ -79,5 +81,9 @@ export function dynamic(pattern: string, flags: string, input: string): string {
 }
 
 export function callbackReplace(s: string): string {
-  return s.replace(/(\d+)(px)?/g, (whole: string, n: string, unit: string | undefined, offset: number) => `${Number(n) * 2}${unit ?? "!"}@${offset}`);
+  return s.replace(
+    /(\d+)(px)?/g,
+    (whole: string, n: string, unit: string | undefined, offset: number) =>
+      `${Number(n) * 2}${unit ?? "!"}@${offset}`,
+  );
 }

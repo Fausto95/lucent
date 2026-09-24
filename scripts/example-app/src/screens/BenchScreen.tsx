@@ -43,18 +43,41 @@ export function BenchScreen() {
 
   const done = !running && rows.length === Object.keys(sizes).length;
   const allSame = rows.every((r) => r.same);
-  const geomean = Math.exp(rows.reduce((acc, r) => acc + Math.log(r.js / Math.max(r.native, 0.001)), 0) / Math.max(rows.length, 1));
+  const geomean = Math.exp(
+    rows.reduce((acc, r) => acc + Math.log(r.js / Math.max(r.native, 0.001)), 0) /
+      Math.max(rows.length, 1),
+  );
 
   return (
     <>
       <View style={styles.header}>
         <Text style={styles.title}>Lucent vs JavaScript</Text>
-        <Text style={styles.subtitle}>Same TypeScript: compiled to C++ by Lucent, or run by Hermes. Best of 3.</Text>
-        {__DEV__ ? <Text style={styles.warn}>Debug build: use a Release build for representative numbers.</Text> : null}
-        <Text testID="bench-summary" style={[styles.summary, done && (allSame ? styles.ok : styles.bad)]}>
-          {running ? "Running…" : done ? (allSame ? `${geomean.toFixed(1)}x faster (geometric mean)` : "RESULTS DIFFER") : ""}
+        <Text style={styles.subtitle}>
+          Same TypeScript: compiled to C++ by Lucent, or run by Hermes. Best of 3.
         </Text>
-        <Pressable testID="bench-run" disabled={running} onPress={run} style={({ pressed }) => [styles.button, (pressed || running) && styles.pressed]}>
+        {__DEV__ ? (
+          <Text style={styles.warn}>
+            Debug build: use a Release build for representative numbers.
+          </Text>
+        ) : null}
+        <Text
+          testID="bench-summary"
+          style={[styles.summary, done && (allSame ? styles.ok : styles.bad)]}
+        >
+          {running
+            ? "Running…"
+            : done
+              ? allSame
+                ? `${geomean.toFixed(1)}x faster (geometric mean)`
+                : "RESULTS DIFFER"
+              : ""}
+        </Text>
+        <Pressable
+          testID="bench-run"
+          disabled={running}
+          onPress={run}
+          style={({ pressed }) => [styles.button, (pressed || running) && styles.pressed]}
+        >
           <Text style={styles.buttonText}>Run again</Text>
         </Pressable>
       </View>
@@ -70,7 +93,9 @@ export function BenchScreen() {
             <Text style={styles.benchName}>{r.same ? r.name : `❌ ${r.name}`}</Text>
             <Text style={styles.benchCell}>{ms(r.js)}</Text>
             <Text style={styles.benchCell}>{ms(r.native)}</Text>
-            <Text style={styles.benchSpeedup}>{(r.js / Math.max(r.native, 0.001)).toFixed(1)}x</Text>
+            <Text style={styles.benchSpeedup}>
+              {(r.js / Math.max(r.native, 0.001)).toFixed(1)}x
+            </Text>
           </View>
         ))}
       </ScrollView>

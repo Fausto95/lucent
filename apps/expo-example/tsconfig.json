@@ -3,9 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "lucent:*": [
-        "./.lucent/native/types/*"
-      ]
+      "lucent:*": ["./.lucent/native/types/*"]
     },
     "noUncheckedIndexedAccess": true
   }

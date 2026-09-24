@@ -2,17 +2,7 @@
   "$id": "https://lucent-lang.dev/schemas/build.schema.json",
   "title": "lucent build --json",
   "type": "object",
-  "required": [
-    "ok",
-    "upToDate",
-    "out",
-    "modules",
-    "steps",
-    "diagnostics",
-    "notices",
-    "next",
-    "ms"
-  ],
+  "required": ["ok", "upToDate", "out", "modules", "steps", "diagnostics", "notices", "next", "ms"],
   "additionalProperties": false,
   "properties": {
     "ok": {
@@ -31,10 +21,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "name",
-          "platforms"
-        ],
+        "required": ["name", "platforms"],
         "additionalProperties": false,
         "properties": {
           "name": {
@@ -43,11 +30,7 @@
           "platforms": {
             "type": "array",
             "items": {
-              "enum": [
-                "ios",
-                "android",
-                "shared"
-              ]
+              "enum": ["ios", "android", "shared"]
             },
             "description": "The platforms the module has code for, or shared"
           }
@@ -58,33 +41,17 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "name",
-          "label",
-          "status"
-        ],
+        "required": ["name", "label", "status"],
         "additionalProperties": false,
         "properties": {
           "name": {
-            "enum": [
-              "android-dependencies",
-              "up-to-date",
-              "sdk",
-              "check",
-              "generate",
-              "package"
-            ]
+            "enum": ["android-dependencies", "up-to-date", "sdk", "check", "generate", "package"]
           },
           "label": {
             "type": "string"
           },
           "status": {
-            "enum": [
-              "ok",
-              "cached",
-              "skipped",
-              "failed"
-            ]
+            "enum": ["ok", "cached", "skipped", "failed"]
           },
           "detail": {
             "type": "string"
@@ -100,10 +67,7 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "code",
-          "message"
-        ],
+        "required": ["code", "message"],
         "properties": {
           "code": {
             "type": "string",
@@ -149,17 +113,11 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "level",
-          "text"
-        ],
+        "required": ["level", "text"],
         "additionalProperties": false,
         "properties": {
           "level": {
-            "enum": [
-              "ok",
-              "warn"
-            ]
+            "enum": ["ok", "warn"]
           },
           "text": {
             "type": "string"
@@ -169,11 +127,7 @@
     },
     "next": {
       "type": "object",
-      "required": [
-        "rebuild",
-        "podInstall",
-        "reload"
-      ],
+      "required": ["rebuild", "podInstall", "reload"],
       "additionalProperties": false,
       "properties": {
         "rebuild": {

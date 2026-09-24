@@ -58,7 +58,7 @@ Guessed (not in the plan): the length budgets in words and code lines
 - [x] What is Lucent (`/docs/`), Install Lucent (`/docs/install/`, Expo and
       bare as tabs that the next pages remember), Your first module
       (`/docs/first-module/`). Terminal output on them is real: `lucent
-      doctor` (shortened), `lucent dev --compact` and `lucent check` runs.
+doctor` (shortened), `lucent dev --compact` and `lucent check` runs.
 - [x] Replaced and redirected: getting-started, getting-started-expo.
 - [x] New blocks: `panels` (alternative setups), `copy: false` (output).
 - [x] Length budgets checked per kind of page (legacy pages exempt).
@@ -110,7 +110,7 @@ Found on the way, left for their own work:
   explicit `close()`.
 - Found: `delete` on a `Record` compiles (a research note said otherwise);
   some messages show internal type names (`cannot convert
-  S:a:number to Dict<number>`).
+S:a:number to Dict<number>`).
 
 ## 6. The tutorial
 

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 const require = createRequire(import.meta.url);
 
@@ -14,15 +14,35 @@ describe("Metro transformer", () => {
     process.env.LUCENT_UPSTREAM_TRANSFORMER = upstream;
     const pkg = path.join(root, "node_modules/lucent-a");
     fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
-    fs.writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ name: "lucent-a", lucent: { sources: "src" } }));
+    fs.writeFileSync(
+      path.join(pkg, "package.json"),
+      JSON.stringify({ name: "lucent-a", lucent: { sources: "src" } }),
+    );
     fs.mkdirSync(path.join(root, ".lucent/native/js/lucent-a"), { recursive: true });
-    fs.writeFileSync(path.join(root, ".lucent/native/js/lucent-a/storage.js"), "// the proxy of lucent-a/storage\n");
+    fs.writeFileSync(
+      path.join(root, ".lucent/native/js/lucent-a/storage.js"),
+      "// the proxy of lucent-a/storage\n",
+    );
     fs.mkdirSync(path.join(root, ".lucent/native/js"), { recursive: true });
     fs.writeFileSync(path.join(root, ".lucent/native/js/storage.js"), "// the app's storage\n");
-    const t = require("../metro/transformer.cjs") as { transform(a: { filename: string; src: string; options: { projectRoot: string } }): string };
-    expect(t.transform({ filename: path.join(pkg, "src/storage.lucent.ts"), src: "", options: { projectRoot: root } })).toBe("// the proxy of lucent-a/storage\n");
+    const t = require("../metro/transformer.cjs") as {
+      transform(a: { filename: string; src: string; options: { projectRoot: string } }): string;
+    };
+    expect(
+      t.transform({
+        filename: path.join(pkg, "src/storage.lucent.ts"),
+        src: "",
+        options: { projectRoot: root },
+      }),
+    ).toBe("// the proxy of lucent-a/storage\n");
     fs.mkdirSync(path.join(root, "src"), { recursive: true });
-    expect(t.transform({ filename: path.join(root, "src/storage.lucent.ts"), src: "", options: { projectRoot: root } })).toBe("// the app's storage\n");
+    expect(
+      t.transform({
+        filename: path.join(root, "src/storage.lucent.ts"),
+        src: "",
+        options: { projectRoot: root },
+      }),
+    ).toBe("// the app's storage\n");
   });
 
   it("points the proxy's loader require at the generated loader, from where the module is", () => {
@@ -32,12 +52,35 @@ describe("Metro transformer", () => {
     process.env.LUCENT_UPSTREAM_TRANSFORMER = upstream;
     const pkg = path.join(root, "node_modules/lucent-a");
     fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
-    fs.writeFileSync(path.join(pkg, "package.json"), JSON.stringify({ name: "lucent-a", lucent: { sources: "src" } }));
+    fs.writeFileSync(
+      path.join(pkg, "package.json"),
+      JSON.stringify({ name: "lucent-a", lucent: { sources: "src" } }),
+    );
     fs.mkdirSync(path.join(root, ".lucent/native/js/lucent-a"), { recursive: true });
-    fs.writeFileSync(path.join(root, ".lucent/native/js/lucent-a/storage.js"), 'const r = require("../_lucent/runtime.js");\n');
-    fs.writeFileSync(path.join(root, ".lucent/native/js/app.js"), 'const r = require("./_lucent/runtime.js");\n');
-    const t = require("../metro/transformer.cjs") as { transform(a: { filename: string; src: string; options: { projectRoot: string } }): string };
-    expect(t.transform({ filename: path.join(root, "src/deep/app.lucent.ts"), src: "", options: { projectRoot: root } })).toBe('const r = require("../../.lucent/native/js/_lucent/runtime.js");\n');
-    expect(t.transform({ filename: path.join(pkg, "src/storage.lucent.ts"), src: "", options: { projectRoot: root } })).toBe('const r = require("../../../.lucent/native/js/_lucent/runtime.js");\n');
+    fs.writeFileSync(
+      path.join(root, ".lucent/native/js/lucent-a/storage.js"),
+      'const r = require("../_lucent/runtime.js");\n',
+    );
+    fs.writeFileSync(
+      path.join(root, ".lucent/native/js/app.js"),
+      'const r = require("./_lucent/runtime.js");\n',
+    );
+    const t = require("../metro/transformer.cjs") as {
+      transform(a: { filename: string; src: string; options: { projectRoot: string } }): string;
+    };
+    expect(
+      t.transform({
+        filename: path.join(root, "src/deep/app.lucent.ts"),
+        src: "",
+        options: { projectRoot: root },
+      }),
+    ).toBe('const r = require("../../.lucent/native/js/_lucent/runtime.js");\n');
+    expect(
+      t.transform({
+        filename: path.join(pkg, "src/storage.lucent.ts"),
+        src: "",
+        options: { projectRoot: root },
+      }),
+    ).toBe('const r = require("../../../.lucent/native/js/_lucent/runtime.js");\n');
   });
 });

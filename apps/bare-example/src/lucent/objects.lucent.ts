@@ -46,7 +46,8 @@ export function area(s: Shape): number {
 
 export function shapes(n: number): Shape[] {
   const out: Shape[] = [];
-  for (let i = 1; i <= n; i++) out.push(i % 2 ? { kind: "circle", radius: i } : { kind: "rect", w: i, h: 2 });
+  for (let i = 1; i <= n; i++)
+    out.push(i % 2 ? { kind: "circle", radius: i } : { kind: "rect", w: i, h: 2 });
   return out;
 }
 
@@ -101,10 +102,21 @@ export function destructure(p: Person): string {
 }
 
 export function toJson(p: Person, s: Shape): string {
-  return JSON.stringify(p) + " " + JSON.stringify(s) + " " + JSON.stringify([1, "two", null]) + " " + JSON.stringify("q\"\n");
+  return (
+    JSON.stringify(p) +
+    " " +
+    JSON.stringify(s) +
+    " " +
+    JSON.stringify([1, "two", null]) +
+    " " +
+    JSON.stringify('q"\n')
+  );
 }
 
-export function reassign(p: { x: number; y: number; label?: string; inner: { z: number } }, xs: number[]): string {
+export function reassign(
+  p: { x: number; y: number; label?: string; inner: { z: number } },
+  xs: number[],
+): string {
   let x = 0;
   let y = 0;
   let label = "none";
@@ -113,7 +125,10 @@ export function reassign(p: { x: number; y: number; label?: string; inner: { z: 
   const out: string[] = [`${x},${y}`];
   ({ y: x, x: y } = p);
   out.push(`${x},${y}`);
-  ({ label = "default", inner: { z } } = p);
+  ({
+    label = "default",
+    inner: { z },
+  } = p);
   out.push(`${label} ${z}`);
   let a = 0;
   let b = 0;

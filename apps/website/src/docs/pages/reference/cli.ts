@@ -56,8 +56,18 @@ next     rebuild the app (iOS: pod install first)`,
       text: "It shows each change as a diff and applies the ones you confirm; `--yes` applies them all. [Install Lucent](/docs/install/) lists the changes for Expo and bare apps. Running it again changes nothing.",
     },
   ],
-  doctor: [{ kind: "p", text: "Each check passes, warns or fails, with its fix. The exit code is 1 when one fails. It doesn't load the compiler, so it answers even when the project doesn't build." }],
-  explain: [{ kind: "p", text: "Prints a code's entry from the [diagnostics](/docs/reference/diagnostics/): why the rule exists, the fix, and a wrong and a right example. `lucent explain 3006` works too." }],
+  doctor: [
+    {
+      kind: "p",
+      text: "Each check passes, warns or fails, with its fix. The exit code is 1 when one fails. It doesn't load the compiler, so it answers even when the project doesn't build.",
+    },
+  ],
+  explain: [
+    {
+      kind: "p",
+      text: "Prints a code's entry from the [diagnostics](/docs/reference/diagnostics/): why the rule exists, the fix, and a wrong and a right example. `lucent explain 3006` works too.",
+    },
+  ],
   bench: [
     {
       kind: "code",
@@ -79,18 +89,40 @@ export default {
 };
 
 export const blocks: Block[] = [
-    {
-      kind: "p",
-      text: "Every command finds the `*.lucent.ts` files under the project, skipping `node_modules`, `ios`, `android` and dot-directories, and the modules of the Lucent packages the app depends on. With no command, in a terminal, `lucent` opens `lucent dev` in a Lucent project and `lucent init` elsewhere.",
-    },
-    { kind: "table", head: ["Command", "What it does"], rows: cliCommands.map((c) => [`[\`lucent ${c.name}\`](#lucent-${c.name.replace(/ /g, "-")})`, c.summary]) },
-    { kind: "h3", text: "Flags every command takes" },
-    { kind: "table", head: ["Flag", "Meaning"], rows: globalFlags.map((f) => [`\`${f.flag}\``, f.description]) },
-    { kind: "p", text: "Output is in color and animated only in a terminal. `NO_COLOR`, `FORCE_COLOR`, `CI` and `TERM=dumb` are respected. The tables on this page are generated from the command table `lucent --help` reads." },
-    ...cliCommands.flatMap((c): Block[] => [
-      { kind: "h2", text: `lucent ${c.name}` },
-      { kind: "p", text: c.summary },
-      ...(c.flags.length ? [{ kind: "table" as const, head: ["Flag", "Meaning"], rows: c.flags.map((f) => [`\`${f.flag}\``, f.description]) }] : []),
-      ...(notes[c.name] ?? []),
+  {
+    kind: "p",
+    text: "Every command finds the `*.lucent.ts` files under the project, skipping `node_modules`, `ios`, `android` and dot-directories, and the modules of the Lucent packages the app depends on. With no command, in a terminal, `lucent` opens `lucent dev` in a Lucent project and `lucent init` elsewhere.",
+  },
+  {
+    kind: "table",
+    head: ["Command", "What it does"],
+    rows: cliCommands.map((c) => [
+      `[\`lucent ${c.name}\`](#lucent-${c.name.replace(/ /g, "-")})`,
+      c.summary,
     ]),
+  },
+  { kind: "h3", text: "Flags every command takes" },
+  {
+    kind: "table",
+    head: ["Flag", "Meaning"],
+    rows: globalFlags.map((f) => [`\`${f.flag}\``, f.description]),
+  },
+  {
+    kind: "p",
+    text: "Output is in color and animated only in a terminal. `NO_COLOR`, `FORCE_COLOR`, `CI` and `TERM=dumb` are respected. The tables on this page are generated from the command table `lucent --help` reads.",
+  },
+  ...cliCommands.flatMap((c): Block[] => [
+    { kind: "h2", text: `lucent ${c.name}` },
+    { kind: "p", text: c.summary },
+    ...(c.flags.length
+      ? [
+          {
+            kind: "table" as const,
+            head: ["Flag", "Meaning"],
+            rows: c.flags.map((f) => [`\`${f.flag}\``, f.description]),
+          },
+        ]
+      : []),
+    ...(notes[c.name] ?? []),
+  ]),
 ];

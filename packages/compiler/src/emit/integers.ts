@@ -44,7 +44,11 @@ function literalWrite(v: number): Write {
 }
 
 /** The integer kind an expression produces, given the kinds of integer locals. */
-export function writeKind(e: ts.Expression, kinds: ReadonlyMap<ts.Symbol, IntKind | "any">, opts: Pick<InferOptions, "checker" | "isMath">): Write {
+export function writeKind(
+  e: ts.Expression,
+  kinds: ReadonlyMap<ts.Symbol, IntKind | "any">,
+  opts: Pick<InferOptions, "checker" | "isMath">,
+): Write {
   if (ts.isParenthesizedExpression(e)) return writeKind(e.expression, kinds, opts);
   if (ts.isNumericLiteral(e)) return literalWrite(Number(e.text.replace(/_/g, "")));
   if (ts.isPrefixUnaryExpression(e)) {
@@ -69,7 +73,11 @@ export function writeKind(e: ts.Expression, kinds: ReadonlyMap<ts.Symbol, IntKin
     }
     return undefined;
   }
-  if (ts.isCallExpression(e) && ts.isPropertyAccessExpression(e.expression) && opts.isMath(e.expression.expression)) {
+  if (
+    ts.isCallExpression(e) &&
+    ts.isPropertyAccessExpression(e.expression) &&
+    opts.isMath(e.expression.expression)
+  ) {
     const name = e.expression.name.text;
     return name === "imul" || name === "clz32" ? "i32" : undefined;
   }
@@ -80,7 +88,11 @@ export function writeKind(e: ts.Expression, kinds: ReadonlyMap<ts.Symbol, IntKin
     if (k === undefined) return undefined;
     if (a === k || b === k) return k;
     // Two literals stay a literal, so they still combine with either kind.
-    return a === "negative" || b === "negative" ? "negative" : a === "unsigned" || b === "unsigned" ? "unsigned" : "small";
+    return a === "negative" || b === "negative"
+      ? "negative"
+      : a === "unsigned" || b === "unsigned"
+        ? "unsigned"
+        : "small";
   }
   if (ts.isIdentifier(e)) {
     const sym = opts.checker.getSymbolAtLocation(e);
@@ -117,14 +129,24 @@ function isOtherWrite(id: ts.Identifier): boolean {
   let n: ts.Node = id;
   let p = n.parent;
   if (ts.isPrefixUnaryExpression(p) || ts.isPostfixUnaryExpression(p)) {
-    return p.operator === ts.SyntaxKind.PlusPlusToken || p.operator === ts.SyntaxKind.MinusMinusToken;
+    return (
+      p.operator === ts.SyntaxKind.PlusPlusToken || p.operator === ts.SyntaxKind.MinusMinusToken
+    );
   }
   // Destructuring targets: [a, b] = …, ({ a } = …), for (a of …).
-  while (ts.isParenthesizedExpression(p) || ts.isArrayLiteralExpression(p) || ts.isObjectLiteralExpression(p) || ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p) || ts.isSpreadElement(p)) {
+  while (
+    ts.isParenthesizedExpression(p) ||
+    ts.isArrayLiteralExpression(p) ||
+    ts.isObjectLiteralExpression(p) ||
+    ts.isPropertyAssignment(p) ||
+    ts.isShorthandPropertyAssignment(p) ||
+    ts.isSpreadElement(p)
+  ) {
     n = p;
     p = p.parent;
   }
-  if (n !== id && ts.isBinaryExpression(p) && p.left === n && isAssignment(p.operatorToken.kind)) return true;
+  if (n !== id && ts.isBinaryExpression(p) && p.left === n && isAssignment(p.operatorToken.kind))
+    return true;
   if ((ts.isForOfStatement(p) || ts.isForInStatement(p)) && p.initializer === n) return true;
   return false;
 }
@@ -156,8 +178,17 @@ export function destructuredSymbols(root: ts.Node, checker: ts.TypeChecker): Set
     }
   };
   const visit = (n: ts.Node): void => {
-    if (ts.isBinaryExpression(n) && n.operatorToken.kind === ts.SyntaxKind.EqualsToken && (ts.isArrayLiteralExpression(n.left) || ts.isObjectLiteralExpression(n.left))) target(n.left);
-    if ((ts.isForOfStatement(n) || ts.isForInStatement(n)) && !ts.isVariableDeclarationList(n.initializer)) target(n.initializer);
+    if (
+      ts.isBinaryExpression(n) &&
+      n.operatorToken.kind === ts.SyntaxKind.EqualsToken &&
+      (ts.isArrayLiteralExpression(n.left) || ts.isObjectLiteralExpression(n.left))
+    )
+      target(n.left);
+    if (
+      (ts.isForOfStatement(n) || ts.isForInStatement(n)) &&
+      !ts.isVariableDeclarationList(n.initializer)
+    )
+      target(n.initializer);
     ts.forEachChild(n, visit);
   };
   visit(root);
@@ -182,7 +213,16 @@ export function inferIntegers(body: ts.Node, opts: InferOptions): IntegerFacts {
       const list = n.parent;
       const inForOf = ts.isForOfStatement(list.parent) || ts.isForInStatement(list.parent);
       const sym = checker.getSymbolAtLocation(n.name);
-      if (sym && !counters.has(sym) && !destructured.has(sym) && !inForOf && ts.isVariableDeclarationList(list) && list.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const) && opts.candidate(n, sym)) decls.set(sym, n);
+      if (
+        sym &&
+        !counters.has(sym) &&
+        !destructured.has(sym) &&
+        !inForOf &&
+        ts.isVariableDeclarationList(list) &&
+        list.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const) &&
+        opts.candidate(n, sym)
+      )
+        decls.set(sym, n);
     }
     if (n !== body && isFunctionBoundary(n)) return;
     ts.forEachChild(n, collect);
@@ -210,13 +250,19 @@ export function inferIntegers(body: ts.Node, opts: InferOptions): IntegerFacts {
   visit(body);
 
   const kinds = new Map<ts.Symbol, IntKind | "any">([...decls.keys()].map((s) => [s, "any"]));
-  const withCounters = () => new Map<ts.Symbol, IntKind | "any">([...kinds, ...[...counters].map((c): [ts.Symbol, IntKind] => [c, "i64"])]);
-  for (let changed = true; changed; ) {
+  const withCounters = () =>
+    new Map<ts.Symbol, IntKind | "any">([
+      ...kinds,
+      ...[...counters].map((c): [ts.Symbol, IntKind] => [c, "i64"]),
+    ]);
+  for (let changed = true; changed;) {
     changed = false;
     for (const [sym, list] of writes) {
       if (!kinds.has(sym)) continue;
       const known = withCounters();
-      const ws = list.map((w): Write => (w === "other" ? undefined : typeof w === "string" ? w : writeKind(w, known, opts)));
+      const ws = list.map((w): Write =>
+        w === "other" ? undefined : typeof w === "string" ? w : writeKind(w, known, opts),
+      );
       const k = join(ws);
       if (k === undefined) {
         kinds.delete(sym);
@@ -236,9 +282,19 @@ export function inferIntegers(body: ts.Node, opts: InferOptions): IntegerFacts {
  * The counter of `for (let i = <int>; …; i++)` when it can be an i64: an
  * integer start, a step of ±1 or an integer literal, and no other writes.
  */
-export function loopCounter(s: ts.ForStatement, checker: ts.TypeChecker, isBoxed: (sym: ts.Symbol) => boolean): ts.Symbol | undefined {
+export function loopCounter(
+  s: ts.ForStatement,
+  checker: ts.TypeChecker,
+  isBoxed: (sym: ts.Symbol) => boolean,
+): ts.Symbol | undefined {
   const init = s.initializer;
-  if (!init || !ts.isVariableDeclarationList(init) || !(init.flags & ts.NodeFlags.Let) || init.declarations.length !== 1) return undefined;
+  if (
+    !init ||
+    !ts.isVariableDeclarationList(init) ||
+    !(init.flags & ts.NodeFlags.Let) ||
+    init.declarations.length !== 1
+  )
+    return undefined;
   const d = init.declarations[0]!;
   if (!ts.isIdentifier(d.name) || !d.initializer) return undefined;
   const start = writeKind(d.initializer, new Map(), { checker, isMath: () => false });
@@ -246,12 +302,24 @@ export function loopCounter(s: ts.ForStatement, checker: ts.TypeChecker, isBoxed
   const sym = checker.getSymbolAtLocation(d.name);
   if (!sym || isBoxed(sym)) return undefined;
   const inc = s.incrementor;
-  const isCounter = (e: ts.Expression) => ts.isIdentifier(e) && checker.getSymbolAtLocation(e) === sym;
+  const isCounter = (e: ts.Expression) =>
+    ts.isIdentifier(e) && checker.getSymbolAtLocation(e) === sym;
   let stepOk = false;
   if (inc && (ts.isPrefixUnaryExpression(inc) || ts.isPostfixUnaryExpression(inc))) {
-    stepOk = (inc.operator === ts.SyntaxKind.PlusPlusToken || inc.operator === ts.SyntaxKind.MinusMinusToken) && isCounter(inc.operand);
-  } else if (inc && ts.isBinaryExpression(inc) && (inc.operatorToken.kind === ts.SyntaxKind.PlusEqualsToken || inc.operatorToken.kind === ts.SyntaxKind.MinusEqualsToken)) {
-    stepOk = isCounter(inc.left) && ts.isNumericLiteral(inc.right) && literalWrite(Number(inc.right.text.replace(/_/g, ""))) === "small";
+    stepOk =
+      (inc.operator === ts.SyntaxKind.PlusPlusToken ||
+        inc.operator === ts.SyntaxKind.MinusMinusToken) &&
+      isCounter(inc.operand);
+  } else if (
+    inc &&
+    ts.isBinaryExpression(inc) &&
+    (inc.operatorToken.kind === ts.SyntaxKind.PlusEqualsToken ||
+      inc.operatorToken.kind === ts.SyntaxKind.MinusEqualsToken)
+  ) {
+    stepOk =
+      isCounter(inc.left) &&
+      ts.isNumericLiteral(inc.right) &&
+      literalWrite(Number(inc.right.text.replace(/_/g, ""))) === "small";
   }
   if (!stepOk) return undefined;
   let written = false;
@@ -259,7 +327,11 @@ export function loopCounter(s: ts.ForStatement, checker: ts.TypeChecker, isBoxed
     if (written) return;
     if (ts.isIdentifier(n) && checker.getSymbolAtLocation(n) === sym) {
       const p = n.parent;
-      if ((ts.isBinaryExpression(p) && p.left === n && isAssignment(p.operatorToken.kind)) || isOtherWrite(n)) written = true;
+      if (
+        (ts.isBinaryExpression(p) && p.left === n && isAssignment(p.operatorToken.kind)) ||
+        isOtherWrite(n)
+      )
+        written = true;
     }
     ts.forEachChild(n, scan);
   };

@@ -9,13 +9,37 @@ export const blocks: Block[] = [
     kind: "table",
     head: ["In JavaScript", "In Lucent", "Why"],
     rows: [
-      ["`any`", "a concrete type, a union or a generic (`LUCENT2001`)", "Native code needs each value's layout."],
-      ["`obj[key]` on an object type", "a `Record<string, T>` or a `Map` (`LUCENT1001`)", "An object type is a C++ struct with fixed fields."],
-      ["an object literal with methods or getters", "a class (`LUCENT2002`, `LUCENT1001`)", "Methods live on classes."],
+      [
+        "`any`",
+        "a concrete type, a union or a generic (`LUCENT2001`)",
+        "Native code needs each value's layout.",
+      ],
+      [
+        "`obj[key]` on an object type",
+        "a `Record<string, T>` or a `Map` (`LUCENT1001`)",
+        "An object type is a C++ struct with fixed fields.",
+      ],
+      [
+        "an object literal with methods or getters",
+        "a class (`LUCENT2002`, `LUCENT1001`)",
+        "Methods live on classes.",
+      ],
       ["`var`", "`let` or `const` (`LUCENT1001`)", "One scoping rule."],
-      ["`eval`, `new Function`", "not available (`LUCENT1003`)", "No JavaScript engine runs in native code."],
-      ["`JSON.parse(text)`", "`JSON.parse(text) as Settings`", "The result is checked against the type, and a mismatch throws."],
-      ["`throw \"oops\"`", "`throw error(\"E_OOPS\", \"Oops\")` (`LUCENT1006`)", "Only `Error` values cross the boundary with a message and a code."],
+      [
+        "`eval`, `new Function`",
+        "not available (`LUCENT1003`)",
+        "No JavaScript engine runs in native code.",
+      ],
+      [
+        "`JSON.parse(text)`",
+        "`JSON.parse(text) as Settings`",
+        "The result is checked against the type, and a mismatch throws.",
+      ],
+      [
+        '`throw "oops"`',
+        '`throw error("E_OOPS", "Oops")` (`LUCENT1006`)',
+        "Only `Error` values cross the boundary with a message and a code.",
+      ],
       ["`Promise.race`, `.then`", "`await`, `Promise.all` (`LUCENT1003`)", "Not implemented yet."],
       ["`xs.toSorted()`", "`[...xs].sort()`", "The ES2023 methods aren't available yet."],
     ],

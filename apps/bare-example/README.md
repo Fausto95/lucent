@@ -25,14 +25,14 @@ pnpm ios                                   # or: pnpm android
 `react-native.config.js` points the `lucent` dependency at
 `.lucent/native`. React Native autolinks it:
 
-* iOS: the `LucentNative` pod; the TurboModule registers itself at load time.
-* Android: `.lucent/native/android/CMakeLists.txt` is added to the app's
+- iOS: the `LucentNative` pod; the TurboModule registers itself at load time.
+- Android: `.lucent/native/android/CMakeLists.txt` is added to the app's
   `appmodules` library (pure C++ autolinking).
 
 ## If something fails
 
-* **Build error in generated C++**: the file and line are in `.lucent/native/cpp/generated`.
+- **Build error in generated C++**: the file and line are in `.lucent/native/cpp/generated`.
   `#line` directives map most errors back to the `.lucent.ts` source.
-* **"Lucent: the native module is not linked"**: run `lucent build`, then
+- **"Lucent: the native module is not linked"**: run `lucent build`, then
   `pod install` (iOS), then rebuild the app.
-* **A case shows ❌**: tap it to see expected vs actual lines.
+- **A case shows ❌**: tap it to see expected vs actual lines.

@@ -20,7 +20,13 @@ export async function run({ root, flags, out }: Invocation): Promise<number> {
     return 0;
   }
   const { dashboard } = await import("../dev/dashboard.tsx");
-  await dashboard({ session, theme: out.theme, root, open: (file, line) => openInEditor(path.resolve(root, file), line), doctor: () => diagnose(root, systemProbe(version())) });
+  await dashboard({
+    session,
+    theme: out.theme,
+    root,
+    open: (file, line) => openInEditor(path.resolve(root, file), line),
+    doctor: () => diagnose(root, systemProbe(version())),
+  });
   return 0;
 }
 
@@ -29,6 +35,13 @@ function openInEditor(file: string, line: number): void {
   const editor = process.env.VISUAL || process.env.EDITOR || "code";
   const name = path.basename(editor.split(" ")[0]!);
   // Editors spell "at this line" differently.
-  const args = ["code", "cursor", "codium", "windsurf", "zed", "subl"].includes(name) ? ["-g", `${file}:${line}`] : name === "idea" || name === "webstorm" ? ["--line", String(line), file] : [`+${line}`, file];
-  spawn(editor.split(" ")[0]!, [...editor.split(" ").slice(1), ...args], { stdio: "ignore", detached: true }).unref();
+  const args = ["code", "cursor", "codium", "windsurf", "zed", "subl"].includes(name)
+    ? ["-g", `${file}:${line}`]
+    : name === "idea" || name === "webstorm"
+      ? ["--line", String(line), file]
+      : [`+${line}`, file];
+  spawn(editor.split(" ")[0]!, [...editor.split(" ").slice(1), ...args], {
+    stdio: "ignore",
+    detached: true,
+  }).unref();
 }

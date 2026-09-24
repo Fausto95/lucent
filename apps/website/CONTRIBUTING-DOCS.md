@@ -1,17 +1,17 @@
 # Writing Lucent's docs
 
-These rules apply to every page under `src/docs/pages`. `pnpm exec tsx
+These rules apply to every page under `src/docs/pages`. `node
 scripts/website.ts` checks them; CI runs the same script with `--check`.
 
 ## The four kinds of page
 
-| Kind | Reader's question | Style | Length budget |
-| --- | --- | --- | --- |
-| Start | "What is this, and can I get it running?" | Short, linear, no choices | 400 words, 60 code lines |
-| Learn | "How do I think in Lucent?" | Read in order | 800 words, 120 code lines |
-| Guide | "How do I do X?" | One task, read in any order | 400 words, 60 code lines |
-| Reference | "What exactly is the rule?" | Tables and generated lists | none |
-| Example | "What does a real module look like?" | A port from the example apps, its source generated from the file | 400 words |
+| Kind      | Reader's question                         | Style                                                            | Length budget             |
+| --------- | ----------------------------------------- | ---------------------------------------------------------------- | ------------------------- |
+| Start     | "What is this, and can I get it running?" | Short, linear, no choices                                        | 400 words, 60 code lines  |
+| Learn     | "How do I think in Lucent?"               | Read in order                                                    | 800 words, 120 code lines |
+| Guide     | "How do I do X?"                          | One task, read in any order                                      | 400 words, 60 code lines  |
+| Reference | "What exactly is the rule?"               | Tables and generated lists                                       | none                      |
+| Example   | "What does a real module look like?"      | A port from the example apps, its source generated from the file | 400 words                 |
 
 Words count prose only: paragraphs, lists, notes, table cells. Code lines
 count every sample on the page. A page over its budget gets split.
@@ -58,8 +58,8 @@ when the page is visited.
 // src/docs/pages/guides/call-an-ios-api.ts
 export const blocks: Block[] = [
   { kind: "code", filename: "battery.lucent.ts", code: `…` }, // the smallest complete example
-  { kind: "p", text: "…" },                                // only what the code doesn't say
-  { kind: "note", tone: "warn", text: "…" },               // optional: the most common mistake
+  { kind: "p", text: "…" }, // only what the code doesn't say
+  { kind: "note", tone: "warn", text: "…" }, // optional: the most common mistake
 ];
 ```
 
@@ -85,18 +85,18 @@ A removed page gets an entry in `src/docs/redirects.ts`.
 
 Use exactly these terms.
 
-| Term | Meaning |
-| --- | --- |
-| module | one `.lucent.ts` file and what it exports |
-| shared module | a module with no platform imports |
-| platform branch | `if (PLATFORM === "ios")` inside one module (`PLATFORM` from `lucent:platform`) |
-| platform file | `x.ios.lucent.ts` / `x.android.lucent.ts`, the opt-in alternative to branches |
-| declaration file | the shared `x.lucent.ts` that platform files implement |
-| the boundary | where JS calls into Lucent and back |
-| Lucent thread | the background thread async Lucent code runs on |
-| main context | code allowed to call main-thread-only APIs: inside `main()` or a main-thread callback |
-| native package | what `lucent build` writes to `.lucent/native` |
-| SDK bindings | the typed view of iOS/Android APIs imported through `lucent:ios/*` and `lucent:android/*` |
+| Term             | Meaning                                                                                   |
+| ---------------- | ----------------------------------------------------------------------------------------- |
+| module           | one `.lucent.ts` file and what it exports                                                 |
+| shared module    | a module with no platform imports                                                         |
+| platform branch  | `if (PLATFORM === "ios")` inside one module (`PLATFORM` from `lucent:platform`)           |
+| platform file    | `x.ios.lucent.ts` / `x.android.lucent.ts`, the opt-in alternative to branches             |
+| declaration file | the shared `x.lucent.ts` that platform files implement                                    |
+| the boundary     | where JS calls into Lucent and back                                                       |
+| Lucent thread    | the background thread async Lucent code runs on                                           |
+| main context     | code allowed to call main-thread-only APIs: inside `main()` or a main-thread callback     |
+| native package   | what `lucent build` writes to `.lucent/native`                                            |
+| SDK bindings     | the typed view of iOS/Android APIs imported through `lucent:ios/*` and `lucent:android/*` |
 
 Not "Lucent file", "native module file", "bridge", "the native side" or
 "generated package".
@@ -104,7 +104,7 @@ Not "Lucent file", "native module file", "bridge", "the native side" or
 ## Checks
 
 ```sh
-pnpm exec tsx scripts/website.ts   # regenerate, compile samples, write prose, run Vale
+node scripts/website.ts   # regenerate, compile samples, write prose, run Vale
 vale apps/website/.prose           # Vale alone, on the last written prose
 ```
 

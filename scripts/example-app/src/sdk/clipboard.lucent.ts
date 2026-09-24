@@ -45,6 +45,10 @@ export async function hasStringAsync(): Promise<boolean> {
   if (PLATFORM === "ios") {
     return UIPasteboard.general.hasStrings;
   } else {
-    return main(() => clipboard().getPrimaryClipDescription()?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) ?? false);
+    return main(
+      () =>
+        clipboard().getPrimaryClipDescription()?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) ??
+        false,
+    );
   }
 }

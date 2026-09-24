@@ -2,7 +2,13 @@
 
 ## Setup
 
-- Node 22.12 or later and pnpm 9 (`corepack enable`), then `pnpm install`.
+- Node 24 (the version in `.node-version`) and pnpm 9 (`corepack enable`),
+  then `pnpm install` and `pnpm build`.
+- The `lucent` command in the repository runs the bundle in
+  `packages/lucent/dist`, like the published package. `pnpm build` refreshes
+  it (a cache hit when nothing changed); `pnpm test` and `pnpm lucent …` build
+  first. `pnpm dev` rebuilds on every change to the CLI, compiler or bindgen;
+  after editing `packages/runtime` or the compiler's `lib/`, run `pnpm build`.
 - For the native suites, a Hermes build at `~/hermes` (or `HERMES_DIR`):
 
   ```sh
@@ -13,26 +19,33 @@
 
   Without a system CMake and Ninja, the Android SDK's work:
   `PATH=~/Library/Android/sdk/cmake/3.22.1/bin:$PATH`.
+
 - For platform code and the example apps: Xcode with an iOS simulator,
   CocoaPods, the Android SDK and NDK, and JDK 17 to 21. Export
   `ANDROID_HOME`, and `LANG=en_US.UTF-8` before `pod install`.
 - `pnpm lucent doctor --root apps/bare-example` checks the machine.
+- Formatting (Oxfmt) and lint (Oxlint) are configured in `vite.config.ts`;
+  `pnpm fix` applies both. VS Code recommends the Oxc extension, which
+  formats on save. `git config blame.ignoreRevsFile .git-blame-ignore-revs`
+  keeps the one reformatting commit out of `git blame` (GitHub skips it
+  already).
 
 The repository layout, and the rules every change follows, are in
 [AGENTS.md](AGENTS.md).
 
 ## Tests
 
-| Command | Checks | Needs |
-| --- | --- | --- |
-| `pnpm test` | compiler, CLI and website unit tests | |
-| `pnpm test:runtime` | the C++ runtime; add `SANITIZE=1` (and `CXX=g++`) for sanitizers | |
-| `pnpm test:e2e [case…]` | each language feature, native against JavaScript | Hermes |
-| `pnpm exec tsx scripts/app-check.ts apps/bare-example` | an example app's bundle against its C++ | Hermes |
-| `pnpm exec tsx scripts/bench.ts --check` | performance budgets | Hermes |
-| `pnpm exec tsx scripts/smoke-install.ts` | the packed package, installed alone in a fresh app | |
-| `pnpm typecheck` | the repository's TypeScript | |
-| `pnpm exec tsx scripts/website.ts --check` | the website (below) | Vale |
+| Command                                       | Checks                                                           | Needs  |
+| --------------------------------------------- | ---------------------------------------------------------------- | ------ |
+| `pnpm test`                                   | compiler, CLI and website unit tests                             |        |
+| `pnpm test:runtime`                           | the C++ runtime; add `SANITIZE=1` (and `CXX=g++`) for sanitizers |        |
+| `pnpm test:e2e [case…]`                       | each language feature, native against JavaScript                 | Hermes |
+| `node scripts/app-check.ts apps/bare-example` | an example app's bundle against its C++                          | Hermes |
+| `node scripts/bench.ts --check`               | performance budgets                                              | Hermes |
+| `node scripts/smoke-install.ts`               | the packed package, installed alone in a fresh app               |        |
+| `pnpm typecheck`                              | the repository's TypeScript                                      |        |
+| `pnpm check`                                  | formatting (Oxfmt), lint (Oxlint) and `pnpm typecheck`           |        |
+| `node scripts/website.ts --check`             | the website (below)                                              | Vale   |
 
 [docs/testing.md](docs/testing.md) explains the differential suites. Device
 checks run the example apps' test screens on the iOS simulator and the

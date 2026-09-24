@@ -49,7 +49,7 @@ export function optional(c: Config): string {
 export function jsonOut(): string {
   const data = { a: [1, 2, { b: "c" }], d: undefined, e: null, f: true };
   void data;
-  return JSON.stringify({ list: [1.5, -0, 1e21], name: "q\"x", flag: false });
+  return JSON.stringify({ list: [1.5, -0, 1e21], name: 'q"x', flag: false });
 }
 
 export function counterKeys(text: string): string {
