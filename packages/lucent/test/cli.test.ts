@@ -274,6 +274,15 @@ describe("the app's Android dependencies", () => {
     expect(r.stdout + r.stderr).not.toMatch(/resolved with Gradle/);
   });
 
+  it.skipIf(!android || !sdkAvailable("ios"))("does not run Gradle during expo prebuild, and leaves Android to the Gradle build until the classpath exists", () => {
+    const app = gradleApp();
+    const r = spawnSync(process.execPath, [bin, "build", "--root", app.root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: app.cache, LUCENT_NO_GRADLE: "1", NO_COLOR: "1" } });
+    expect(app.count()).toBe(0);
+    expect(r.stdout + r.stderr).toMatch(/skipped Android.*lucentBuild/);
+    expect(r.status).toBe(0);
+    expect(fs.existsSync(path.join(app.root, ".lucent/native/cpp/generated/ios/m_m.mm"))).toBe(true);
+  });
+
   it.skipIf(!android)("runs Gradle once per change of the build's inputs, not once per build", () => {
     const app = gradleApp();
     app.build();
