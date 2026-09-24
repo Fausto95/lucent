@@ -53,7 +53,6 @@
     "ts-plugin"
   ],
   "scripts": {
-    "build": "tsx scripts/build.mts",
-    "prepack": "pnpm run build"
+    "prepack": "vp run build"
   }
 }
