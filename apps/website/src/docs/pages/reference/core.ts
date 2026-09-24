@@ -7,7 +7,7 @@ export const page: DocPage = {
   blocks: [
     {
       kind: "p",
-      text: "`lucent:core` is a module built into the compiler, like `lucent:thread`: nothing to install. It holds the helpers every Lucent module may import, each with a native implementation in the Lucent runtime. Before it was built in it was the `@lucent-lang/core` package; that name still compiles for one release, with warning LUCENT3008.",
+      text: "`lucent:core` is a module built into the compiler, like `lucent:thread`: nothing to install. It holds the helpers every Lucent module may import, each with a native implementation in the Lucent runtime.",
     },
     { kind: "h2", text: "Exports" },
     {

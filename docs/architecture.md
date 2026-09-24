@@ -181,8 +181,7 @@ Nothing Lucent ships is needed at run time as a package: `lucent build` copies
 the runtime and the JS loader into `.lucent/native`, and the generated proxies
 require the loader by a relative path, which Metro's transformer rebases onto
 the `*.lucent.ts` file each proxy replaces. `lucent:core` is served by the
-compiler like `lucent:thread`; the old `@lucent-lang/core` specifier compiles
-for one release with warning LUCENT3008.
+compiler like `lucent:thread`.
 
 ## Editor diagnostics
 

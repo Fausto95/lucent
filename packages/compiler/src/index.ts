@@ -1,11 +1,11 @@
-import { type Diagnostic, formatDiagnostic, isError } from "./diagnostics.ts";
+import { type Diagnostic, formatDiagnostic } from "./diagnostics.ts";
 import { emitProgram, type EmitResult } from "./emit/index.ts";
 import { conformanceErrors, declarationErrors, inUntypedPlatformCode, missingImplementations, planModules, platformScopes, type Target } from "./platforms.ts";
 import { builtinSdkModuleOf, createLucentProgram, findLucentFiles, type LucentProgram, platformOf, type ReadSource, sdkModuleOf, usesPlatforms } from "./program.ts";
 import { sdkAvailable } from "@lucent-lang/bindgen";
 import { PLATFORMS, platformSdkAvailable, type SdkOptions, withSdkOptions } from "./sdk/schema.ts";
 
-export { CodeDescriptions, Codes, formatDiagnostic, isError, type Code, type Diagnostic } from "./diagnostics.ts";
+export { CodeDescriptions, Codes, formatDiagnostic, type Code, type Diagnostic } from "./diagnostics.ts";
 export { findLucentFiles, moduleNameOf, platformOf, projectFiles, usesPlatforms, LUCENT_EXTENSION, coreTypesPath, type ReadSource } from "./program.ts";
 export { withGradleDependencies } from "./native-package.ts";
 export { coverage as sdkCoverage, type Coverage as SdkCoverage } from "@lucent-lang/bindgen";
@@ -77,7 +77,7 @@ function compileWith(files: string[], options: CompileOptions): CompileResult {
     }
   }
   out.diagnostics = dedupe(out.diagnostics);
-  out.ok = !out.diagnostics.some(isError);
+  out.ok = out.diagnostics.length === 0;
   if (!out.ok) {
     out.files.clear();
     out.proxies.clear();
@@ -99,12 +99,11 @@ function compileOnce(lp: ReturnType<typeof createLucentProgram>, declarations: s
   const untyped = PLATFORMS.filter((p) => p !== lp.platform && !platformSdkAvailable(p));
   const checks = [...lp.diagnostics.filter((d) => !inUntypedPlatformCode(lp, d, untyped)), ...declarations.flatMap((d) => declarationErrors(lp, d)), ...lp.modules.filter((m) => !platformOf(m.file)).flatMap((m) => platformScopes(lp.checker, m.sourceFile).errors)];
   // Stop at TypeScript errors: the checker's types are unreliable past them.
-  if (checks.some(isError)) return { files: new Map(), proxies: new Map(), diagnostics: checks, ok: false };
+  if (checks.length) return { files: new Map(), proxies: new Map(), diagnostics: checks, ok: false };
   const conformance = conformanceErrors(lp);
-  if (conformance.length) return { files: new Map(), proxies: new Map(), diagnostics: [...checks, ...conformance], ok: false };
+  if (conformance.length) return { files: new Map(), proxies: new Map(), diagnostics: conformance, ok: false };
   const result = emitProgram(lp);
-  const diagnostics = [...checks, ...result.diagnostics];
-  return { ...result, diagnostics, ok: !diagnostics.some(isError) };
+  return { ...result, ok: result.diagnostics.length === 0 };
 }
 
 /** The same problem, reported by the program of each target, once. */

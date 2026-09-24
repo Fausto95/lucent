@@ -31,7 +31,6 @@ export const Codes = {
   PlatformConformance: "LUCENT3005",
   MainThreadOnly: "LUCENT3006",
   Unavailable: "LUCENT3007",
-  DeprecatedImport: "LUCENT3008",
   TypeScript: "LUCENT9001",
 } as const;
 
@@ -64,15 +63,12 @@ export const CodeDescriptions = {
   LUCENT3005: "Platform implementations that do not match their shared declaration file.",
   LUCENT3006: "A main-thread-only platform API used outside `main(() => …)`.",
   LUCENT3007: "A platform API newer than the oldest supported OS version, used without an `available()` or `SDK_INT` check around it.",
-  LUCENT3008: "A warning: an import from `@lucent-lang/core`, the name `lucent:core` had before it was built in. It still compiles for one release.",
   LUCENT9001: "A TypeScript error. Lucent stops at type errors, because its lowering relies on the checker's types.",
 } satisfies Record<Code, string>;
 
 export interface Diagnostic {
   code: string;
   message: string;
-  /** Warnings do not stop a build; everything else is an error. */
-  severity?: "warning";
   file?: string;
   line?: number;
   column?: number;
@@ -103,11 +99,7 @@ export function toDiagnostic(e: CompileError): Diagnostic {
   return { code: e.code, message: e.message, file: sf.fileName, line: line + 1, column: character + 1, start, length: e.node.getEnd() - start };
 }
 
-export function isError(d: Diagnostic): boolean {
-  return d.severity !== "warning";
-}
-
 export function formatDiagnostic(d: Diagnostic): string {
   const where = d.file ? `${d.file}:${d.line}:${d.column}: ` : "";
-  return `${where}${isError(d) ? "" : "warning "}${d.code}: ${d.message}`;
+  return `${where}${d.code}: ${d.message}`;
 }

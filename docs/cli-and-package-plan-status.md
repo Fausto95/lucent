@@ -16,10 +16,9 @@ Decisions (the plan's open questions):
 
 Done:
 
-- [x] `lucent:core` served by the compiler; `@lucent-lang/core` compiles with
-      warning LUCENT3008 (warnings are a new severity: they never fail a build,
-      and the editor shows them as warnings). The package is gone; its JS
-      helpers serve only the e2e harness.
+- [x] `lucent:core` served by the compiler; the `@lucent-lang/core` package
+      is gone, and its old specifier is an error like any unknown module (no
+      deprecation period). Its JS helpers serve only the e2e harness.
 - [x] Every Lucent source in the repository imports `lucent:core`.
 - [x] The JS loader is generated into `.lucent/native/js/_lucent/runtime.js`;
       proxies require it relatively, and the Metro transformer rebases that

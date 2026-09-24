@@ -37,15 +37,13 @@ export function watchBuild(root: string, outDir: string, onBuild: (e: WatchEvent
       if (isUpToDate(outDir, key)) return;
       const result = compile(files, options);
       const modules = [...result.proxies.keys()];
-      const reported = result.diagnostics.map((d) => formatDiagnostic({ ...d, file: d.file && path.relative(root, d.file) }));
       if (!result.ok) {
-        onBuild({ ok: false, modules, messages: reported, nativeChanged: false });
+        onBuild({ ok: false, modules, messages: result.diagnostics.map((d) => formatDiagnostic({ ...d, file: d.file && path.relative(root, d.file) })), nativeChanged: false });
         return;
       }
       const w = writeNativePackage(result, outDir, { inputsKey: key, native: hooks.native?.() });
       const nativeChanged = w.written.some((f) => !f.includes(`${path.sep}js${path.sep}`)) || w.removed.length > 0;
-      // Warnings follow the summary.
-      onBuild({ ok: true, modules, messages: [`${modules.length} module(s), ${w.written.length} file(s) written`, ...reported], nativeChanged });
+      onBuild({ ok: true, modules, messages: [`${modules.length} module(s), ${w.written.length} file(s) written`], nativeChanged });
     } finally {
       building = false;
       if (again) {

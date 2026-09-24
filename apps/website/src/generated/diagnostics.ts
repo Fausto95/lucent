@@ -102,10 +102,6 @@ export const diagnosticCodes: { code: string; description: string }[] = [
     "description": "A platform API newer than the oldest supported OS version, used without an `available()` or `SDK_INT` check around it."
   },
   {
-    "code": "LUCENT3008",
-    "description": "A warning: an import from `@lucent-lang/core`, the name `lucent:core` had before it was built in. It still compiles for one release."
-  },
-  {
     "code": "LUCENT9001",
     "description": "A TypeScript error. Lucent stops at type errors, because its lowering relies on the checker's types."
   }

@@ -46,9 +46,6 @@ export function coreTypesPath(): string {
   return sdkLibPath("core");
 }
 
-/** The module specifier `lucent:core` had before it was built in, accepted with a warning for one release. */
-export const DEPRECATED_CORE = "@lucent-lang/core";
-
 export const LUCENT_EXTENSION = /\.lucent\.tsx?$/;
 const PLATFORM_EXTENSION = /\.(ios|android)\.lucent\.tsx?$/;
 
@@ -164,7 +161,6 @@ export function compilerOptions(): ts.CompilerOptions {
     // branches on `PLATFORM`, and each target type-checks both branches.
     paths: {
       "lucent:core": [coreTypesPath()],
-      [DEPRECATED_CORE]: [coreTypesPath()],
       "lucent:thread": [sdkLibPath("thread")],
       "lucent:platform": [sdkLibPath("platform")],
       ...Object.fromEntries(PLATFORMS.flatMap((p) => [[`lucent:${p}`, [sdkLibPath(p)]], [`lucent:${p}/*`, [path.join(SDK_ROOT, p, "*.d.ts")]]])),
@@ -273,8 +269,7 @@ export function createLucentProgram(files: string[], readSource?: ReadSource, pl
  * `lucent:` imports this file may not use: another platform's in a platform
  * file, and unknown SDK modules. Shared files import every platform's (their
  * branches decide where each is used); a platform whose SDK is not installed
- * is untyped there, unless the program targets it. The deprecated name of
- * lucent:core gets a warning.
+ * is untyped there, unless the program targets it.
  */
 function importDiagnostics(sf: ts.SourceFile, platform: Platform | undefined): Diagnostic[] {
   const shared = !platformOf(sf.fileName);
@@ -282,10 +277,6 @@ function importDiagnostics(sf: ts.SourceFile, platform: Platform | undefined): D
   for (const s of sf.statements) {
     if (!ts.isImportDeclaration(s) || !ts.isStringLiteral(s.moduleSpecifier)) continue;
     const spec = s.moduleSpecifier.text;
-    if (spec === DEPRECATED_CORE) {
-      out.push({ ...at(sf, s.moduleSpecifier), code: Codes.DeprecatedImport, severity: "warning", message: `${DEPRECATED_CORE} is now lucent:core; import from "lucent:core" (the old name stops working in the next release)` });
-      continue;
-    }
     const m = /^lucent:(\w+)(?:\/(.+))?$/.exec(spec);
     if (!m) continue;
     const [, scope, module] = m;
