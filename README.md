@@ -34,32 +34,60 @@ dependency.
 ## Call iOS and Android
 
 A module imports the platform SDKs directly. One module holds both
-platforms, and each platform's build compiles its own branch:
+platforms, and each platform's build compiles its own branch. This is
+`expo-clipboard`'s API, from the port in the example apps:
 
 ```ts
-// src/location.lucent.ts
+// src/clipboard.lucent.ts
 import { PLATFORM } from "lucent:platform";
-import { CLLocationManager } from "lucent:ios/CoreLocation";
-import { LocationManager } from "lucent:android/android.location";
-import { appContext, available } from "lucent:android";
+import { UIPasteboard } from "lucent:ios/UIKit";
+import { ClipboardManager, ClipData } from "lucent:android/android.content";
+import { appContext } from "lucent:android";
+import { main } from "lucent:thread";
+import { error } from "lucent:core";
 
-export async function hasServicesEnabledAsync(): Promise<boolean> {
+function clipboard(): ClipboardManager {
+  const manager = appContext().getSystemService(ClipboardManager);
+  if (!manager) throw error("ERR_CLIPBOARD_UNAVAILABLE", "The clipboard is not available");
+  return manager;
+}
+
+export async function getStringAsync(): Promise<string> {
   if (PLATFORM === "ios") {
-    return CLLocationManager.locationServicesEnabled();
+    return UIPasteboard.general.string ?? "";
   } else {
-    const manager = appContext().getSystemService(LocationManager);
-    if (!manager) return false;
-    if (available("android", 28)) return manager.isLocationEnabled();
-    return manager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+    return main(() => {
+      const clip = clipboard().getPrimaryClip();
+      if (!clip || clip.getItemCount() === 0) return "";
+      return clip.getItemAt(0)?.coerceToText(appContext()) ?? "";
+    });
+  }
+}
+
+export async function setStringAsync(text: string): Promise<boolean> {
+  if (PLATFORM === "ios") {
+    UIPasteboard.general.string = text;
+    return true;
+  } else {
+    return main(() => {
+      const clip = ClipData.newPlainText(null, text);
+      if (!clip) return false;
+      clipboard().setPrimaryClip(clip);
+      return true;
+    });
   }
 }
 ```
 
-The SDK types come from your installed Xcode and Android SDK. The full
-[`expo-location` port](scripts/example-app/src/sdk/location.lucent.ts) adds a
-CoreLocation delegate, an Android listener and positions sent to a JS
-callback. It runs in the example apps next to ports of netinfo,
-local-authentication, secure-store, haptics and clipboard
+```ts
+import { getStringAsync, setStringAsync } from "./src/clipboard.lucent";
+await setStringAsync("hello");
+await getStringAsync(); // "hello"
+```
+
+The SDK types come from your installed Xcode and Android SDK. The example
+apps also port location, netinfo, local-authentication, secure-store and
+haptics, with delegates, listeners and events sent to JavaScript
 ([examples](https://lucent-lang.dev/docs/examples/)).
 
 ## Install
