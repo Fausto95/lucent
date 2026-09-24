@@ -200,8 +200,18 @@ void Host::release(uint64_t id) {
 jsi::Object& Host::prototype(jsi::Runtime& rt, const char* key, PrototypeInit init) {
   auto it = prototypes_.find(key);
   if (it != prototypes_.end()) return it->second;
-  jsi::Object proto(rt);
+  // A class keeps one prototype per runtime, not per host: JavaScript may
+  // hold a replaced host's exports, and instanceof compares their prototypes
+  // with the ones this host gives new instances. A kept prototype gets this
+  // host's methods, so they call it directly.
+  jsi::Object global = rt.global();
+  jsi::Value storeValue = global.getProperty(rt, "__lucentPrototypes");
+  jsi::Object store = storeValue.isObject() ? storeValue.getObject(rt) : jsi::Object(rt);
+  if (!storeValue.isObject()) global.setProperty(rt, "__lucentPrototypes", store);
+  jsi::Value kept = store.getProperty(rt, key);
+  jsi::Object proto = kept.isObject() ? kept.getObject(rt) : jsi::Object(rt);
   init(rt, *this, proto);
+  if (!kept.isObject()) store.setProperty(rt, key, proto);
   return prototypes_.emplace(key, std::move(proto)).first->second;
 }
 
