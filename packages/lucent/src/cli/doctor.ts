@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { lucentPackages } from "@lucent-lang/compiler/packages";
+import { packageManagerOf } from "./package-manager.ts";
 
 export interface RunResult {
   status: number | null;
@@ -100,12 +101,9 @@ function node(probe: Probe): Check {
 }
 
 function packageManager(root: string): Check {
-  const locks: [string, string][] = [["pnpm-lock.yaml", "pnpm"], ["yarn.lock", "yarn"], ["package-lock.json", "npm"], ["bun.lock", "bun"], ["bun.lockb", "bun"]];
-  for (let dir = root; ; dir = path.dirname(dir)) {
-    const found = locks.find(([f]) => fs.existsSync(path.join(dir, f)));
-    if (found) return ok("package-manager", "Package manager", `${found[1]} (${path.relative(root, path.join(dir, found[0])) || found[0]})`);
-    if (path.dirname(dir) === dir) return warn("package-manager", "Package manager", "no lockfile", "install the app's dependencies (npm install, pnpm install, …)");
-  }
+  const pm = packageManagerOf(root);
+  if (!pm) return warn("package-manager", "Package manager", "no lockfile", "install the app's dependencies (npm install, pnpm install, …)");
+  return ok("package-manager", "Package manager", `${pm.name} (${path.relative(root, pm.lockfile)})`);
 }
 
 function reactNative(root: string): Check {

@@ -22,6 +22,32 @@ export function withLucentPaths(text: string): string | undefined {
   return insert(text, sf, paths, ENTRY);
 }
 
+/**
+ * tsconfig.json as Lucent needs it for editors and tsc: lucent:* mapped,
+ * and noUncheckedIndexedAccess (the compiler always checks with it). Undefined
+ * when it has both.
+ */
+export function withLucentTsconfig(text: string): string | undefined {
+  const indexed = withCompilerOption(text, "noUncheckedIndexedAccess", "true");
+  const paths = withLucentPaths(indexed ?? text);
+  return paths ?? indexed;
+}
+
+/** tsconfig.json with compilerOptions.<name> set to `value` (JSON text), or undefined when it is. */
+function withCompilerOption(text: string, name: string, value: string): string | undefined {
+  const { error } = ts.parseConfigFileTextToJson("tsconfig.json", text);
+  if (error) throw new Error(`tsconfig.json: ${ts.flattenDiagnosticMessageText(error.messageText, "\n")}`);
+  const sf = ts.parseJsonText("tsconfig.json", text);
+  const root = sf.statements[0]?.expression;
+  if (!root || !ts.isObjectLiteralExpression(root)) throw new Error("tsconfig.json: expected an object");
+  const options = property(root, "compilerOptions");
+  if (!options) return insert(text, sf, root, `"compilerOptions": { "${name}": ${value} }`);
+  const current = named(options, name);
+  if (!current) return insert(text, sf, options, `"${name}": ${value}`);
+  if (current.initializer.getText(sf) === value) return undefined;
+  return `${text.slice(0, current.initializer.getStart(sf))}${value}${text.slice(current.initializer.getEnd())}`;
+}
+
 function named(o: ts.ObjectLiteralExpression, name: string): ts.PropertyAssignment | undefined {
   return o.properties.find((p): p is ts.PropertyAssignment => ts.isPropertyAssignment(p) && ts.isStringLiteral(p.name) && p.name.text === name);
 }

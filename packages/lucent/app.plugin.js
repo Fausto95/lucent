@@ -27,6 +27,24 @@ function buildOnce(projectRoot) {
   }
 }
 
+/** The line that applies Lucent's Gradle task (gradle/lucent.gradle) in android/app/build.gradle. */
+const GRADLE_LINE = `apply from: new File(new File(["node", "--print", "require.resolve('@lucent-lang/lucent/package.json')"].execute(null, rootDir).text.trim()).parentFile, "gradle/lucent.gradle")`;
+
+/**
+ * android/app/build.gradle with the Gradle task applied after React
+ * Native's plugin (or the last `apply plugin`, or at the top), or
+ * undefined when it is applied already.
+ */
+function applyGradleTask(text) {
+  if (text.includes("gradle/lucent.gradle")) return undefined;
+  const lines = text.split("\n");
+  const react = lines.findIndex((l) => /^apply plugin: ["']com\.facebook\.react["']/.test(l));
+  const lastApply = lines.reduce((at, l, i) => (/^apply plugin:/.test(l) ? i : at), -1);
+  const after = react >= 0 ? react : lastApply;
+  lines.splice(after + 1, 0, GRADLE_LINE);
+  return lines.join("\n");
+}
+
 /** Info.plist entries Lucent packages need (their lucent.json), as the last build recorded them. */
 function packagesInfoPlist(projectRoot) {
   const manifest = path.join(projectRoot, ".lucent", "native", "manifest.json");
@@ -35,7 +53,12 @@ function packagesInfoPlist(projectRoot) {
 }
 
 function withLucent(config) {
-  const { withDangerousMod, withInfoPlist } = require("expo/config-plugins");
+  const { withAppBuildGradle, withDangerousMod, withInfoPlist } = require("expo/config-plugins");
+  // Gradle builds run lucent build first, like `lucent init` sets up in bare apps.
+  config = withAppBuildGradle(config, (c) => {
+    if (c.modResults.language === "groovy") c.modResults.contents = applyGradleTask(c.modResults.contents) ?? c.modResults.contents;
+    return c;
+  });
   // Keys the app sets itself win.
   config = withInfoPlist(config, (c) => {
     buildOnce(c.modRequest.projectRoot);
@@ -57,3 +80,5 @@ function withLucent(config) {
 }
 
 module.exports = withLucent;
+module.exports.GRADLE_LINE = GRADLE_LINE;
+module.exports.applyGradleTask = applyGradleTask;

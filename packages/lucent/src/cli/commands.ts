@@ -30,8 +30,8 @@ export const commands: CommandSpec[] = [
   },
   {
     name: "init",
-    summary: "Set an app up for Lucent: react-native.config.js, .gitignore, tsconfig.json",
-    flags: [],
+    summary: "Set an app up for Lucent: the Metro config, the Expo plugin or the Gradle task, tsconfig.json, .gitignore, a first module",
+    flags: [{ name: "yes", description: "Apply every change without asking" }],
     load: () => import("./commands/init.ts"),
   },
   {
