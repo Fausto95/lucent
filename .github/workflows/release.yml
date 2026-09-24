@@ -31,7 +31,7 @@ jobs:
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .node-version
           cache: pnpm
           # Writes an npm userconfig that reads NODE_AUTH_TOKEN; pnpm publish honours it.
           registry-url: https://registry.npmjs.org
