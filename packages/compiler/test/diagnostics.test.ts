@@ -62,6 +62,18 @@ describe("diagnostics", () => {
     expect(codes(src)).toEqual(["LUCENT1001"]);
   });
 
+  it("reports only a rejected top-level var, not the uses of its variable", () => {
+    expect(codes("var g = 1;\nexport function f(): number { g += 1; return g; }")).toEqual(["LUCENT3002"]);
+  });
+
+  it("reports only a top-level destructuring, not the uses of its names", () => {
+    expect(codes("const { a } = { a: 1 };\nexport function f(): number { return a; }")).toEqual(["LUCENT3002"]);
+  });
+
+  it("reports only the type of a top-level variable, not the uses of it", () => {
+    expect(codes("let g: any = 1;\nexport function f(): number { g = 2; return g; }")).toEqual(["LUCENT2001"]);
+  });
+
   it("rejects getters in object literals", () => {
     expect(codes("export function f(): number { const o = { get x() { return 1; } }; return o.x; }")).toEqual(["LUCENT1001"]);
   });
