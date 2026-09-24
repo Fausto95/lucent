@@ -137,9 +137,9 @@ export const comparisonRows: ComparisonRow[] = [
       },
       expo: { value: "Production", tone: "available", detail: "the Expo SDK is built on it" },
       nitro: {
-        value: "Pre-1.0",
-        tone: "partial",
-        detail: "0.37 at the time of writing; used by published libraries",
+        value: "Production",
+        tone: "available",
+        detail: "used by widely adopted published libraries",
       },
       turbo: { value: "Production", tone: "available", detail: "part of React Native core" },
     },
