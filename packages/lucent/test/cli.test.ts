@@ -352,6 +352,16 @@ describe("lucent check", () => {
     expect(r.status).toBe(0);
     expect(r.out).toMatch(/✓ 1 module, no problems +\d+ ms/);
   });
+
+  it("answers from the last check while nothing changed, and checks again after an edit", () => {
+    const root = project();
+    expect(lucent(root, "check").out).not.toMatch(/unchanged/);
+    expect(lucent(root, "check").out).toMatch(/✓ 1 module, no problems +\d+ ms \(unchanged since the last check\)/);
+    fs.writeFileSync(path.join(root, "a.lucent.ts"), "export function one(): number { var x = 1; return x; }\n");
+    const r = lucent(root, "check");
+    expect(r.status).toBe(1);
+    expect(r.out).toContain("LUCENT1001");
+  });
 });
 
 describe("--json", () => {
