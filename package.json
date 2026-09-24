@@ -10,6 +10,7 @@
   "type": "module",
   "scripts": {
     "build": "vp run --filter \"./packages/*\" build",
+    "dev": "vp run @lucent-lang/lucent#dev",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vp test",
     "test:runtime": "packages/runtime/test/run.sh",

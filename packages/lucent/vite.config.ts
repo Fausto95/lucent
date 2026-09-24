@@ -53,6 +53,9 @@ export default defineConfig({
         input: [{ auto: true }, "!dist/**", "!lib/**", "!runtime/**"],
         output: ["dist/**", "lib/**", "runtime/**"],
       },
+      // Rebuilds dist/ when a bundled source changes. The copied lib/ and
+      // runtime/ refresh with each rebuild, or with pnpm build.
+      dev: { command: "vp pack --watch", cache: false },
     },
   },
 });

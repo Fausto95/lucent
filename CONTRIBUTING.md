@@ -7,7 +7,8 @@
 - The `lucent` command in the repository runs the bundle in
   `packages/lucent/dist`, like the published package. `pnpm build` refreshes
   it (a cache hit when nothing changed); `pnpm test` and `pnpm lucent …` build
-  first.
+  first. `pnpm dev` rebuilds on every change to the CLI, compiler or bindgen;
+  after editing `packages/runtime` or the compiler's `lib/`, run `pnpm build`.
 - For the native suites, a Hermes build at `~/hermes` (or `HERMES_DIR`):
 
   ```sh
