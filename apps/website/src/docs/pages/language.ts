@@ -1,11 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../types";
 
-export const page: DocPage = {
-  slug: "language",
-  title: "Language overview",
-  description:
-    "Lucent modules are ordinary TypeScript files, restricted to a subset that has a native representation and compiled to C++.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "A Lucent module is a file named `*.lucent.ts`. It must type-check with TypeScript in `strict` mode plus `noUncheckedIndexedAccess`, and it may only use the subset described in this section. The compiler turns each module into C++20; JavaScript calls its exports through JSI.",
@@ -94,5 +89,4 @@ centroid([]); // undefined`,
       kind: "p",
       text: "How values cross between JavaScript and native code (copies, class identity, callbacks, errors) is covered in the [boundary section](/docs/boundary/exports/).",
     },
-  ],
-};
+];

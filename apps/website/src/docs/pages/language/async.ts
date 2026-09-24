@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "language/async",
-  title: "Async & concurrency",
-  description: "Async functions compile to C++20 coroutines that interleave like JavaScript's, and exported async functions run off the JS thread.",
-  blocks: [
+export const blocks: Block[] = [
     { kind: "h2", text: "async and await" },
     {
       kind: "p",
@@ -110,5 +106,4 @@ controller.abort();`,
       kind: "p",
       text: "How callbacks and promises cross the boundary in detail is covered in [Callbacks](/docs/boundary/callbacks/).",
     },
-  ],
-};
+];

@@ -1,10 +1,6 @@
-import type { DocPage } from "../types";
+import type { Block } from "../types";
 
-export const page: DocPage = {
-  slug: "getting-started-expo",
-  title: "Getting started (Expo)",
-  description: "Add Lucent to an Expo SDK 58 app with the config plugin and run it in a development build.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "Lucent adds native code to your app, so it needs a [development build](https://docs.expo.dev/develop/development-builds/introduction/). It does not run in Expo Go. The repository's `apps/expo-example` is a complete, working version of this setup. For a bare React Native app, see [Getting started (bare React Native)](/docs/getting-started/).",
@@ -124,5 +120,4 @@ npx expo run:ios              # or: npx expo run:android`,
       kind: "p",
       text: "The dev loop is the same as in a bare app; [Getting started (bare React Native)](/docs/getting-started/#the-dev-loop) covers it in more detail, and also shows how to set up editor diagnostics.",
     },
-  ],
-};
+];

@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "reference/core",
-  title: "lucent:core",
-  description: "The helpers Lucent modules can import, and the editor plugin that shows Lucent diagnostics as you type.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "`lucent:core` is a module built into the compiler, like `lucent:thread`: nothing to install. It holds the helpers every Lucent module may import, each with a native implementation in the Lucent runtime.",
@@ -109,5 +105,4 @@ export async function timed(ms: number, signal?: AbortSignal): Promise<number> {
       kind: "p",
       text: "The plugin reports the same codes as `lucent build` ([Diagnostics](/docs/language/diagnostics/)). It leaves TypeScript errors to TypeScript. For platform files it reports Lucent diagnostics, but tsserver itself does not resolve `lucent:*` imports yet, so expect unresolved-module errors on those lines.",
     },
-  ],
-};
+];

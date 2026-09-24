@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "boundary/errors",
-  title: "Errors across the boundary",
-  description: "How Lucent errors reach JavaScript, how JavaScript exceptions reach Lucent, and how native crashes map back to your source.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "Errors cross in both directions and keep what matters: `name`, `message`, a machine-readable `code`, and a `stack` that points at the right source. How to throw and catch inside Lucent is covered in [Errors](/docs/language/errors/).",
@@ -120,5 +116,4 @@ await runAll(["a", "b"], async (job) => {
       kind: "p",
       text: "The generated C++ carries `#line` directives that point at your `.lucent.ts` files, so the debug information does too. Crash reports symbolicated with the app's dSYM (iOS) or unstripped `.so` files (Android) name the `.lucent.ts` file and line, and a native debugger steps through your TypeScript source.",
     },
-  ],
-};
+];

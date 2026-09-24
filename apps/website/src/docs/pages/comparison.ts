@@ -1,10 +1,6 @@
-import type { DocPage } from "../types";
+import type { Block } from "../types";
 
-export const page: DocPage = {
-  slug: "comparison",
-  title: "Comparison",
-  description: "How Lucent compares with Expo Modules, Nitro Modules and Turbo Native Modules, and when to pick each.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "Expo Modules, Nitro Modules, Turbo Native Modules and Lucent all let JavaScript call native code synchronously over JSI. They differ in what you write: which languages, how the interface to JavaScript is declared, and how much of the platform you can reach today.",
@@ -37,5 +33,4 @@ export const page: DocPage = {
       kind: "note",
       text: "Last checked: 2026-09-23. Sources: [Expo Modules overview](https://docs.expo.dev/modules/overview/), [Expo Module API](https://docs.expo.dev/modules/module-api/), [Expo modules in bare apps](https://docs.expo.dev/bare/installing-expo-modules/), [Add custom native code](https://docs.expo.dev/workflow/customizing/), [What is Nitro?](https://nitro.margelo.com/docs/what-is-nitro), [Nitro Hybrid Objects](https://nitro.margelo.com/docs/hybrid-objects), [Nitrogen](https://nitro.margelo.com/docs/nitrogen), [Nitro View Components](https://nitro.margelo.com/docs/view-components), [Nitro minimum requirements](https://nitro.margelo.com/docs/getting-started/minimum-requirements), [Turbo Native Modules](https://reactnative.dev/docs/turbo-native-modules-introduction), [Cross-platform C++ modules](https://reactnative.dev/docs/the-new-architecture/pure-cxx-modules), [Swift in native modules](https://reactnative.dev/docs/the-new-architecture/turbo-modules-with-swift), [Fabric Native Components](https://reactnative.dev/docs/fabric-native-components-introduction). Corrections are welcome.",
     },
-  ],
-};
+];

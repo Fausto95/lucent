@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "language/modules",
-  title: "Modules & imports",
-  description: "Each `*.lucent.ts` file is a module of declarations that can import other Lucent modules and `lucent:core`, and exports what JavaScript may call.",
-  blocks: [
+export const blocks: Block[] = [
     { kind: "h2", text: "What a module contains" },
     {
       kind: "p",
@@ -130,5 +126,4 @@ export { area };`,
       kind: "p",
       text: "A module can have per-platform implementations: `haptics.ios.lucent.ts` and `haptics.android.lucent.ts` implement what `haptics.lucent.ts` declares, and only they may import the platform SDKs. See [Platform APIs](/docs/platform-apis/).",
     },
-  ],
-};
+];

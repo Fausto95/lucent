@@ -26,19 +26,48 @@ export type Block =
 /** Diagrams are components, looked up by name in components/DocsDiagram.tsx. */
 export type DiagramName = "pipeline" | "runtime";
 
-export interface DocPage {
+/**
+ * Start: what Lucent is and getting it running. Learn: how to think in it,
+ * read in order. Guide: one task. Reference: the exact rules, generated where
+ * possible. The kind sets the page's length budget (CONTRIBUTING-DOCS.md).
+ */
+export type DocKind = "start" | "learn" | "guide" | "reference" | "other";
+
+/**
+ * A page's metadata; the nav lists these in reading order. The page's blocks
+ * live in `pages/<slug>.ts` (`pages/index.ts` for the empty slug), loaded
+ * when the page is visited.
+ */
+export interface DocEntry {
   /** Path under /docs/, without slashes. "" is the index. */
   slug: string;
+  kind: DocKind;
+  /** The task or the question the page answers. */
   title: string;
-  /** One sentence, used for <meta name="description"> and the page lead. */
+  /** One sentence: the answer, or what the reader has at the end. Also the <meta name="description">. */
   description: string;
-  blocks: Block[];
+  /** The page's one "Next" link, when it isn't the following page in reading order. */
+  next?: string;
+  /** Written before CONTRIBUTING-DOCS.md; Vale only warns. Goes away as each page is replaced. */
+  legacy?: true;
 }
 
 export interface DocGroup {
   label: string;
-  pages: DocPage[];
+  entries: DocEntry[];
 }
+
+/** What a page file exports. */
+export interface DocModule {
+  blocks: Block[];
+}
+
+export interface DocPage extends DocEntry {
+  blocks: Block[];
+}
+
+/** The file holding a page's blocks, relative to src/docs/. */
+export const docFile = (slug: string): string => `pages/${slug || "index"}.ts`;
 
 /** Heading text → URL fragment, shared by the renderer and the table of contents. */
 export function headingId(text: string): string {

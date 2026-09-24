@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "boundary/conversions",
-  title: "Type conversions",
-  description: "How each TypeScript type crosses between JavaScript and native code, and what happens when a caller passes the wrong thing.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "Every value that crosses the boundary is converted according to the declared TypeScript type. Plain data is copied; class instances keep their identity. The declared types are the contract: JavaScript callers can pass anything, so Lucent checks every argument before running any native code.",
@@ -139,5 +135,4 @@ export function describe(value: string | number): string {
   for (let i = 0; i < n; i++) yield i;
 }`,
     },
-  ],
-};
+];

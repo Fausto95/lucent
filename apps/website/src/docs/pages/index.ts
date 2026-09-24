@@ -1,10 +1,6 @@
-import type { DocPage } from "../types";
+import type { Block } from "../types";
 
-export const page: DocPage = {
-  slug: "",
-  title: "Introduction",
-  description: "Lucent compiles a checked subset of TypeScript to C++ and calls it from React Native through JSI.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "note",
       tone: "warn",
@@ -92,5 +88,4 @@ squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25, computed in C++`,
         },
       ],
     },
-  ],
-};
+];

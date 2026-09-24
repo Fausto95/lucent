@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "language/differences",
-  title: "Differences from JavaScript",
-  description: "The complete list of places where a Lucent module behaves differently from the same code in JavaScript, and why.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "Code that type-checks and stays in the subset behaves like JavaScript. Where native code cannot match JavaScript, Lucent throws instead of silently doing something else, and the difference is listed here. Features that are simply not supported give a compile-time diagnostic instead; they are covered on the other pages of this section.",
@@ -86,5 +82,4 @@ export function sum(root: Nested): number {
       kind: "p",
       text: "If you find another difference, it is a bug: Lucent's tests run each feature in both JavaScript and native code and compare the results.",
     },
-  ],
-};
+];

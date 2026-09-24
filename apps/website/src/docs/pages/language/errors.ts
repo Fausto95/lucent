@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "language/errors",
-  title: "Errors",
-  description: "Lucent throws and catches Error values as JavaScript does, and can attach a machine-readable code to them.",
-  blocks: [
+export const blocks: Block[] = [
     { kind: "h2", text: "Throwing and catching" },
     {
       kind: "p",
@@ -115,5 +111,4 @@ try {
       kind: "p",
       text: "How errors cross to JavaScript (class, `name`, `message`, `code`, and a `stack` that starts at the Lucent source line) and how JavaScript exceptions thrown by callbacks become catchable Lucent errors is covered in [Errors at the boundary](/docs/boundary/errors/).",
     },
-  ],
-};
+];

@@ -1,15 +1,11 @@
 import { explanations } from "../../../generated/diagnostics";
-import type { Block, DocPage } from "../../types";
+import type { Block } from "../../types";
 
 /** Example files as tabs; their names end in "(wrong)" or "(right)", so they are shown, not compiled again here. */
 const tabs = (label: "wrong" | "right", files: Record<string, string>) =>
   Object.entries(files).map(([filename, code]) => ({ label: `${label === "wrong" ? "✗" : "✓"} ${filename}`, filename: `${filename} (${label})`, code: code.trimEnd() }));
 
-export const page: DocPage = {
-  slug: "language/diagnostics",
-  title: "Diagnostics",
-  description: "Every `LUCENT` code the compiler reports, what it means, and how to fix it.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "Code outside the subset fails the build with a diagnostic that points at the source and says how to fix it. Nothing is written until every diagnostic is fixed. `lucent build`, `lucent check`, Metro and the [editor plugin](/docs/reference/core/) all report the same diagnostics, and `lucent explain <code>` prints the explanations on this page.",
@@ -35,5 +31,4 @@ export const page: DocPage = {
       { kind: "p", text: `**Fix:** ${fix}.` },
       { kind: "tabs", tabs: [...tabs("wrong", wrong), ...tabs("right", right)] },
     ]),
-  ],
-};
+];

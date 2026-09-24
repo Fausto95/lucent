@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "language/functions",
-  title: "Functions & closures",
-  description: "Lucent supports the statements, expressions and function forms of everyday TypeScript, with closures, generators, regular expressions and typed JSON parsing.",
-  blocks: [
+export const blocks: Block[] = [
     { kind: "h2", text: "Statements and expressions" },
     {
       kind: "table",
@@ -151,5 +147,4 @@ export function total(text: string): number {
       kind: "p",
       text: "Target types must be plain data: numbers, strings, booleans, `null`, arrays, tuples, records, object types, and unions that JSON kinds or a string-literal discriminant can tell apart. Revivers are not supported.",
     },
-  ],
-};
+];

@@ -35,8 +35,23 @@ Guessed (not in the plan): the length budgets in words and code lines
 
 ## 2. Site structure
 
-- [ ] New navigation, page kinds, the page template component, redirects,
-      removal of the old pages.
+- [x] TanStack Router: one route per page, each loading its own chunk
+      (1–7 KB gzipped), preloaded on hover. `scripts/website.ts` writes the
+      route tree from the nav (`src/generated/docs-routes.ts`, drift-checked),
+      so every docs path is a literal type and links to pages type-check.
+- [x] Retired slugs are router redirects that keep the `#anchor`; the pre-docs
+      URLs (`/language/`, `/get-started/`) too.
+- [x] Page model: nav entries hold slug, kind, title, description and an
+      optional `next`; `pages/<slug>.ts` holds the blocks. The template
+      renders one "Next" link, "Edit this page" (the page's own file) and
+      "Verified with Lucent x.y" (the package version at build).
+- [x] Checks: page files match the nav, every page has its "Next" link,
+      internal links and `#anchors` resolve. `scripts/website.ts` is split
+      into modules under `scripts/website/`.
+- [ ] Old pages are removed as their replacements land (they sit in a
+      "Legacy" group meanwhile).
+- The shared JS chunk is 117 KB gzipped (React, the router, the homepage),
+  over the plan's 100 KB per page: for step 10.
 
 ## 3–11
 

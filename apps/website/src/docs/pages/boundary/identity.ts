@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "boundary/identity",
-  title: "Object identity",
-  description: "Class instances cross the boundary by reference: they keep their identity and live as long as either side holds them.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "Plain data is [copied](/docs/boundary/conversions/) at the boundary. Instances of exported classes are not: JavaScript gets a handle to the native object, and every call through it reaches the same instance.",
@@ -125,5 +121,4 @@ largest([{ area: () => 1 }]);
       kind: "p",
       text: "To let JavaScript provide behavior, take a [callback](/docs/boundary/callbacks/) instead of an interface. Classes and interfaces themselves are covered in [Classes](/docs/language/classes/).",
     },
-  ],
-};
+];

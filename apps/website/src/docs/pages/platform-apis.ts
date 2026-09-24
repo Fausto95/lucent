@@ -1,10 +1,6 @@
-import type { DocPage } from "../types";
+import type { Block } from "../types";
 
-export const page: DocPage = {
-  slug: "platform-apis",
-  title: "Platform APIs",
-  description: "Calling iOS and Android SDK APIs from Lucent through platform modules: an early, experimental milestone (M2.0).",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "note",
       tone: "warn",
@@ -196,5 +192,4 @@ await deviceName(); // "iPhone (iOS 27.0)" or "Pixel 9 (Android 16)"`,
       kind: "p",
       text: "Progress is tracked in the [roadmap](https://github.com/Fausto95/lucent/blob/cpp-jsi/ROADMAP.md).",
     },
-  ],
-};
+];

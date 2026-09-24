@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "language/classes",
-  title: "Classes",
-  description: "Lucent classes compile to native objects with fields, methods, accessors, statics, inheritance and interfaces, and behave like JavaScript classes.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "A class instance is a shared, reference-counted native object. Assigning it aliases it, as in JavaScript. An exported class can be constructed from JavaScript with `new`, and the same native object always maps to the same JavaScript object (see [Class identity](/docs/boundary/identity/)).",
@@ -199,5 +195,4 @@ export function area(): number {
         "From JavaScript, an interface parameter only accepts instances of Lucent classes that implement it; plain JS objects are rejected with a `TypeError`.",
       ],
     },
-  ],
-};
+];

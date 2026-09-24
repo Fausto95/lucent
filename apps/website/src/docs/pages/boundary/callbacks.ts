@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "boundary/callbacks",
-  title: "Callbacks",
-  description: "Passing JavaScript functions and abort signals to Lucent, and which thread they run on.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "A parameter with a function type accepts a JavaScript function. Lucent keeps the function alive while it holds it, and releases it on the JS thread when it drops it. JavaScript functions can only run on the JS thread, so what happens when Lucent calls one depends on where the call comes from.",
@@ -145,5 +141,4 @@ await pending; // rejects with AbortError: signal is aborted without reason`,
       kind: "p",
       text: "Signals only go from JavaScript to Lucent: an `AbortSignal` cannot be returned, and an `AbortController` cannot cross at all. Inside Lucent, `new AbortController()` works as in JavaScript. See [Async](/docs/language/async/) for `delay` and cancellation inside Lucent.",
     },
-  ],
-};
+];

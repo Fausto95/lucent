@@ -1,10 +1,6 @@
-import type { DocPage } from "../types";
+import type { Block } from "../types";
 
-export const page: DocPage = {
-  slug: "status",
-  title: "Status & roadmap",
-  description: "What Lucent can do today, what it cannot do yet, and the milestones in between.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "note",
       tone: "warn",
@@ -78,5 +74,4 @@ export const page: DocPage = {
       kind: "p",
       text: "The [roadmap](https://github.com/Fausto95/lucent/blob/cpp-jsi/ROADMAP.md) in the repository tracks each item.",
     },
-  ],
-};
+];

@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "reference/metro",
-  title: "Metro",
-  description: "`withLucent` from @lucent-lang/lucent/metro: bundles each `*.lucent.ts` import as its native proxy and rebuilds while the dev server runs.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "Metro must know that a `*.lucent.ts` file is not JavaScript to bundle. Wrap your Metro config with `withLucent`:",
@@ -85,5 +81,4 @@ module.exports = withLucent(getDefaultConfig(__dirname));`,
       kind: "note",
       text: "Metro only swaps JavaScript. A change to a function body is native code: after the watcher rebuilds, rebuild and relaunch the app to run it. The [CLI](/docs/reference/cli/) page describes the build itself.",
     },
-  ],
-};
+];

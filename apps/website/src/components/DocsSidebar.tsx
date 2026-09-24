@@ -1,8 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
-import type { DocGroup } from "../docs/types";
+import { docsHref, type DocGroup } from "../docs/types";
 import { styles } from "./DocsLayout.stylex";
+import { Inline } from "./Inline";
 
 const NARROW = "(max-width: 850px)";
 
@@ -19,18 +20,17 @@ export function DocsSidebar({ groups, current }: { groups: DocGroup[]; current: 
           {groups.map((group) => (
             <div key={group.label} {...stylex.props(styles.group)}>
               <p {...stylex.props(styles.groupLabel)}>{group.label}</p>
-              {group.pages.map((page) => (
+              {group.entries.map((page) => (
                 <Link
                   key={page.slug}
-                  to="/docs/$/"
-                  params={{ _splat: page.slug }}
+                  to={docsHref(page.slug)}
                   aria-current={page.slug === current ? "page" : undefined}
                   onClick={() => {
                     if (window.matchMedia(NARROW).matches) setOpen(false);
                   }}
                   {...stylex.props(styles.navLink, page.slug === current && styles.navLinkActive)}
                 >
-                  {page.title}
+                  <Inline text={page.title} />
                 </Link>
               ))}
             </div>

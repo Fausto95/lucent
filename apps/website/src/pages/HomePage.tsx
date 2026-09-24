@@ -41,13 +41,13 @@ export function HomePage() {
             in JavaScript, and nothing runs in a JS engine on the native side.
           </p>
           <div {...stylex.props(styles.heroActions)}>
-            <Link to="/docs/$/" params={{ _splat: "getting-started" }} {...stylex.props(sharedStyles.button)}>
+            <Link to="/docs/getting-started/" {...stylex.props(sharedStyles.button)}>
               Get started
               <span aria-hidden="true" {...stylex.props(sharedStyles.buttonArrow)}>
                 ↗
               </span>
             </Link>
-            <Link to="/docs/$/" params={{ _splat: "how-it-works" }} {...stylex.props(styles.textLink)}>
+            <Link to="/docs/how-it-works/" {...stylex.props(styles.textLink)}>
               How it works <span aria-hidden="true">→</span>
             </Link>
           </div>
@@ -152,7 +152,7 @@ export function HomePage() {
         <CodeBlock filename="location.ios.lucent.ts · planned" code={platformTeaser} />
         <p {...stylex.props(styles.sectionFootnote)}>
           Not available yet. See the{" "}
-          <Link to="/docs/$/" params={{ _splat: "platform-apis" }} {...stylex.props(styles.footnoteLink)}>
+          <Link to="/docs/platform-apis/" {...stylex.props(styles.footnoteLink)}>
             platform APIs page
           </Link>{" "}
           for what works today, and the{" "}
@@ -174,7 +174,7 @@ export function HomePage() {
           <p {...stylex.props(styles.sectionDescription)}>
             How Lucent relates to Expo Modules, Nitro and TurboModules.
             <br />
-            <Link to="/docs/$/" params={{ _splat: "comparison" }} {...stylex.props(styles.textLink)}>
+            <Link to="/docs/comparison/" {...stylex.props(styles.textLink)}>
               Full comparison <span aria-hidden="true">→</span>
             </Link>
           </p>
@@ -195,7 +195,7 @@ export function HomePage() {
             <br />
             Packages are not on npm yet: see the setup guide.
           </p>
-          <Link to="/docs/$/" params={{ _splat: "getting-started" }} {...stylex.props(styles.textLink2)}>
+          <Link to="/docs/getting-started/" {...stylex.props(styles.textLink2)}>
             Setup guide <span aria-hidden="true">→</span>
           </Link>
         </div>
@@ -221,7 +221,7 @@ export function HomePage() {
           </pre>
           <div {...stylex.props(styles.terminalNote)}>
             Requires Node 22.12+ and a development build (not Expo Go).{" "}
-            <Link to="/docs/$/" params={{ _splat: "getting-started" }} {...stylex.props(styles.terminalLink)}>
+            <Link to="/docs/getting-started/" {...stylex.props(styles.terminalLink)}>
               Full setup →
             </Link>
           </div>

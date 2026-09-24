@@ -1,10 +1,6 @@
-import type { DocPage } from "../types";
+import type { Block } from "../types";
 
-export const page: DocPage = {
-  slug: "getting-started",
-  title: "Getting started (bare React Native)",
-  description: "Add Lucent to a bare React Native 0.88 app, compile a module and call it from JavaScript.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "This page wires Lucent into an existing React Native app (0.88, New Architecture). Using Expo? Follow [Getting started (Expo)](/docs/getting-started-expo/) instead. The repository's `apps/bare-example` is a complete, working version of this setup.",
@@ -167,5 +163,4 @@ npx react-native run-ios      # or: npx react-native run-android`,
       kind: "p",
       text: "Read [how it works](/docs/how-it-works/), then [the language](/docs/language/) and [how values cross the boundary](/docs/boundary/exports/). All commands and flags are in the [CLI reference](/docs/reference/cli/).",
     },
-  ],
-};
+];

@@ -1,11 +1,7 @@
-import type { DocPage } from "../types";
+import type { Block } from "../types";
 import { demoCpp, demoSource } from "../../generated/compiler-demo";
 
-export const page: DocPage = {
-  slug: "how-it-works",
-  title: "How it works",
-  description: "How a Lucent module becomes C++ in your app binary, and how JavaScript reaches it.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "Lucent has two halves. At build time, a Node program compiles your `*.lucent.ts` files to C++ and writes a native package. At run time, that package is a C++ TurboModule your JavaScript calls through JSI. Nothing on the native side interprets JavaScript.",
@@ -110,5 +106,4 @@ export const page: DocPage = {
       kind: "p",
       text: "Errors thrown in Lucent code record where they were created. When one reaches JavaScript, the top frame of its `stack` names the Lucent function, file and line. See [errors at the boundary](/docs/boundary/errors/).",
     },
-  ],
-};
+];

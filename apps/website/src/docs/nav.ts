@@ -1,60 +1,58 @@
-import type { DocGroup, DocPage } from "./types";
-import { page as introduction } from "./pages/introduction";
-import { page as gettingStarted } from "./pages/getting-started";
-import { page as gettingStartedExpo } from "./pages/getting-started-expo";
-import { page as howItWorks } from "./pages/how-it-works";
-import { page as comparison } from "./pages/comparison";
-import { page as status } from "./pages/status";
-import { page as language } from "./pages/language/overview";
-import { page as types } from "./pages/language/types";
-import { page as functions } from "./pages/language/functions";
-import { page as classes } from "./pages/language/classes";
-import { page as generics } from "./pages/language/generics";
-import { page as async } from "./pages/language/async";
-import { page as errors } from "./pages/language/errors";
-import { page as modules } from "./pages/language/modules";
-import { page as differences } from "./pages/language/differences";
-import { page as diagnostics } from "./pages/language/diagnostics";
-import { page as exportsPage } from "./pages/boundary/exports";
-import { page as conversions } from "./pages/boundary/conversions";
-import { page as callbacks } from "./pages/boundary/callbacks";
-import { page as identity } from "./pages/boundary/identity";
-import { page as boundaryErrors } from "./pages/boundary/errors";
-import { page as cli } from "./pages/reference/cli";
-import { page as metro } from "./pages/reference/metro";
-import { page as expo } from "./pages/reference/expo";
-import { page as core } from "./pages/reference/core";
-import { page as platformApis } from "./pages/platform-apis";
+import type { DocEntry, DocGroup } from "./types";
 
-/** Sidebar order is reading order; prev/next follow it. */
+/**
+ * Every docs page, in reading order: the sidebar, the routes and each page's
+ * default "Next" link follow it.
+ */
 export const docsGroups: DocGroup[] = [
-  { label: "Guide", pages: [introduction, gettingStarted, gettingStartedExpo, howItWorks, comparison, status] },
   {
-    label: "Language",
-    pages: [language, types, functions, classes, generics, async, errors, modules, differences, diagnostics],
+    label: "Legacy",
+    entries: [
+      { slug: "", kind: "start", legacy: true, title: "Introduction", description: "Lucent compiles a checked subset of TypeScript to C++ and calls it from React Native through JSI." },
+      { slug: "getting-started", kind: "start", legacy: true, title: "Getting started (bare React Native)", description: "Add Lucent to a bare React Native 0.88 app, compile a module and call it from JavaScript." },
+      { slug: "getting-started-expo", kind: "start", legacy: true, title: "Getting started (Expo)", description: "Add Lucent to an Expo SDK 58 app with the config plugin and run it in a development build." },
+      { slug: "how-it-works", kind: "learn", legacy: true, title: "How it works", description: "How a Lucent module becomes C++ in your app binary, and how JavaScript reaches it." },
+      { slug: "comparison", kind: "other", legacy: true, title: "Comparison", description: "How Lucent compares with Expo Modules, Nitro Modules and Turbo Native Modules, and when to pick each." },
+      { slug: "status", kind: "other", legacy: true, title: "Status & roadmap", description: "What Lucent can do today, what it cannot do yet, and the milestones in between." },
+      { slug: "language", kind: "learn", legacy: true, title: "Language overview", description: "Lucent modules are ordinary TypeScript files, restricted to a subset that has a native representation and compiled to C++." },
+      { slug: "language/types", kind: "learn", legacy: true, title: "Types & values", description: "Every TypeScript type in a Lucent module maps to one native representation that behaves like the JavaScript value." },
+      { slug: "language/functions", kind: "learn", legacy: true, title: "Functions & closures", description: "Lucent supports the statements, expressions and function forms of everyday TypeScript, with closures, generators, regular expressions and typed JSON parsing." },
+      { slug: "language/classes", kind: "learn", legacy: true, title: "Classes", description: "Lucent classes compile to native objects with fields, methods, accessors, statics, inheritance and interfaces, and behave like JavaScript classes." },
+      { slug: "language/generics", kind: "learn", legacy: true, title: "Generics", description: "Generic functions, classes and interfaces compile to C++ templates, instantiated for each concrete type they are used with." },
+      { slug: "language/async", kind: "learn", legacy: true, title: "Async & concurrency", description: "Async functions compile to C++20 coroutines that interleave like JavaScript's, and exported async functions run off the JS thread." },
+      { slug: "language/errors", kind: "learn", legacy: true, title: "Errors", description: "Lucent throws and catches Error values as JavaScript does, and can attach a machine-readable code to them." },
+      { slug: "language/modules", kind: "learn", legacy: true, title: "Modules & imports", description: "Each `*.lucent.ts` file is a module of declarations that can import other Lucent modules and `lucent:core`, and exports what JavaScript may call." },
+      { slug: "language/differences", kind: "learn", legacy: true, title: "Differences from JavaScript", description: "The complete list of places where a Lucent module behaves differently from the same code in JavaScript, and why." },
+      { slug: "language/diagnostics", kind: "reference", legacy: true, title: "Diagnostics", description: "Every `LUCENT` code the compiler reports, what it means, and how to fix it." },
+      { slug: "boundary/exports", kind: "learn", legacy: true, title: "Exports & proxies", description: "What a Lucent module shows to JavaScript, and how Metro swaps the import for a proxy to the native module." },
+      { slug: "boundary/conversions", kind: "reference", legacy: true, title: "Type conversions", description: "How each TypeScript type crosses between JavaScript and native code, and what happens when a caller passes the wrong thing." },
+      { slug: "boundary/callbacks", kind: "learn", legacy: true, title: "Callbacks", description: "Passing JavaScript functions and abort signals to Lucent, and which thread they run on." },
+      { slug: "boundary/identity", kind: "learn", legacy: true, title: "Object identity", description: "Class instances cross the boundary by reference: they keep their identity and live as long as either side holds them." },
+      { slug: "boundary/errors", kind: "learn", legacy: true, title: "Errors across the boundary", description: "How Lucent errors reach JavaScript, how JavaScript exceptions reach Lucent, and how native crashes map back to your source." },
+      { slug: "reference/cli", kind: "reference", legacy: true, title: "CLI", description: "The `lucent` command from @lucent-lang/lucent: every subcommand and flag." },
+      { slug: "reference/metro", kind: "reference", legacy: true, title: "Metro", description: "`withLucent` from @lucent-lang/lucent/metro: bundles each `*.lucent.ts` import as its native proxy and rebuilds while the dev server runs." },
+      { slug: "reference/expo", kind: "reference", legacy: true, title: "Expo plugin", description: "The config plugin of @lucent-lang/lucent compiles your Lucent modules during `expo prebuild` and links the native package." },
+      { slug: "reference/core", kind: "reference", legacy: true, title: "lucent:core", description: "The helpers Lucent modules can import, and the editor plugin that shows Lucent diagnostics as you type." },
+      { slug: "platform-apis", kind: "guide", legacy: true, title: "Platform APIs", description: "Calling iOS and Android SDK APIs from Lucent through platform modules: an early, experimental milestone (M2.0).", next: "" },
+    ],
   },
-  { label: "JS ↔ native boundary", pages: [exportsPage, conversions, callbacks, identity, boundaryErrors] },
-  { label: "Reference", pages: [cli, metro, expo, core] },
-  { label: "Platform APIs", pages: [platformApis] },
 ];
 
-const flat = docsGroups.flatMap((group) => group.pages.map((page) => ({ page, group })));
+const flat = docsGroups.flatMap((group) => group.entries.map((entry) => ({ entry, group })));
+
+export const docsEntries: DocEntry[] = flat.map(({ entry }) => entry);
 
 export interface DocLookup {
-  page: DocPage;
+  entry: DocEntry;
   group: DocGroup;
-  previous?: DocPage;
-  next?: DocPage;
+  /** The page the "Next" link points to. */
+  next?: DocEntry;
 }
 
-export function findDocPage(slug: string): DocLookup | null {
-  const index = flat.findIndex(({ page }) => page.slug === slug);
-  if (index === -1) return null;
-  const { page, group } = flat[index]!;
-  return {
-    page,
-    group,
-    ...(index > 0 ? { previous: flat[index - 1]!.page } : {}),
-    ...(index < flat.length - 1 ? { next: flat[index + 1]!.page } : {}),
-  };
+export function findDoc(slug: string): DocLookup | undefined {
+  const index = flat.findIndex(({ entry }) => entry.slug === slug);
+  if (index === -1) return undefined;
+  const { entry, group } = flat[index]!;
+  const next = entry.next === undefined ? flat[index + 1]?.entry : flat.find((f) => f.entry.slug === entry.next)?.entry;
+  return { entry, group, ...(next ? { next } : {}) };
 }

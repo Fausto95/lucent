@@ -24,22 +24,19 @@ export function SiteLayout() {
             <Brand />
             <nav aria-label="Main navigation" {...stylex.props(styles.mainNav)}>
               <Link
-                to="/docs/$/"
-                params={{ _splat: "" }}
+                to="/docs/"
                 {...stylex.props(styles.languageNavLink, inDocs && !inReference && !inHowItWorks && styles.activeNav)}
               >
                 Docs
               </Link>
               <Link
-                to="/docs/$/"
-                params={{ _splat: "how-it-works" }}
+                to="/docs/how-it-works/"
                 {...stylex.props(styles.overviewNavLink, inHowItWorks && styles.activeNav)}
               >
                 How it works
               </Link>
               <Link
-                to="/docs/$/"
-                params={{ _splat: "reference/cli" }}
+                to="/docs/reference/cli/"
                 {...stylex.props(styles.languageNavLink, inReference && styles.activeNav)}
               >
                 Reference
@@ -58,10 +55,10 @@ export function SiteLayout() {
             <Brand compact />
             <p {...stylex.props(styles.footerTagline)}>A little TypeScript. A lot more native.</p>
             <div {...stylex.props(styles.footerLinks)}>
-              <Link to="/docs/$/" params={{ _splat: "" }} {...stylex.props(styles.footerLink)}>
+              <Link to="/docs/" {...stylex.props(styles.footerLink)}>
                 Docs
               </Link>
-              <Link to="/docs/$/" params={{ _splat: "comparison" }} {...stylex.props(styles.footerLink)}>
+              <Link to="/docs/comparison/" {...stylex.props(styles.footerLink)}>
                 Comparison
               </Link>
               <a href="https://github.com/Fausto95/lucent" {...stylex.props(styles.footerLink)}>

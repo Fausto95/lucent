@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "reference/expo",
-  title: "Expo plugin",
-  description: "The config plugin of @lucent-lang/lucent compiles your Lucent modules during `expo prebuild` and links the native package.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "Expo apps generate their `ios` and `android` folders with `expo prebuild`. The Lucent config plugin makes sure the native package exists and is linked by then, so CocoaPods and Gradle find it.",
@@ -76,5 +72,4 @@ npx expo run:ios      # builds the dev client; Metro starts the Lucent watcher`,
       kind: "note",
       text: "The plugin builds only during prebuild. While you work, the watcher started by [`withLucent`](/docs/reference/metro/) keeps `.lucent/native` current; after it rebuilds native code, rebuild the app. Add `.lucent/` to `.gitignore`. See [Getting started with Expo](/docs/getting-started-expo/) for a full walkthrough.",
     },
-  ],
-};
+];

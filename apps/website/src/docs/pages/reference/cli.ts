@@ -1,5 +1,5 @@
 import { cliCommands, globalFlags } from "../../../generated/cli";
-import type { Block, DocPage } from "../../types";
+import type { Block } from "../../types";
 
 /** What the command table cannot say: examples and details, by command. */
 const notes: Record<string, Block[]> = {
@@ -96,11 +96,7 @@ export default {
   ],
 };
 
-export const page: DocPage = {
-  slug: "reference/cli",
-  title: "CLI",
-  description: "The `lucent` command from @lucent-lang/lucent: every subcommand and flag.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "`@lucent-lang/lucent` provides one command, `lucent`. Every subcommand finds the `*.lucent.ts` files under the project directory (skipping `node_modules`, `ios`, `android` and dot-directories), and the ones of the Lucent packages it depends on. Run with no subcommand in a terminal, it opens `lucent dev` in a Lucent project and `lucent init` elsewhere. This page is generated from the same command table as `lucent --help`.",
@@ -115,5 +111,4 @@ export const page: DocPage = {
       ...(c.flags.length ? [{ kind: "table" as const, head: ["Flag", "Meaning"], rows: c.flags.map((f) => [`\`${f.flag}\``, f.description]) }] : []),
       ...(notes[c.name] ?? []),
     ]),
-  ],
-};
+];

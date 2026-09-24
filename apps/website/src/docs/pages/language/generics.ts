@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "language/generics",
-  title: "Generics",
-  description: "Generic functions, classes and interfaces compile to C++ templates, instantiated for each concrete type they are used with.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "Type parameters on functions, classes, interfaces and type aliases are supported. Each generic becomes a C++ template, and every use with concrete types (`Queue<string>`, `first<number>`) produces a specialized native version, with no boxing.",
@@ -113,5 +109,4 @@ export function feeds(): string {
   return \`\${drain(new Countdown(3), (n) => \`\${n}\`)} \${drain(new ListFeed(["a", "b"]), (s) => s.toUpperCase())}\`;
 }`,
     },
-  ],
-};
+];

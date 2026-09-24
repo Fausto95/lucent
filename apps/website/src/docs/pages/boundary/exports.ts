@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "boundary/exports",
-  title: "Exports & proxies",
-  description: "What a Lucent module shows to JavaScript, and how Metro swaps the import for a proxy to the native module.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "JavaScript sees only what a module exports. Everything else (helpers, types, module state) stays native. You import a Lucent module like any other TypeScript file.",
@@ -135,5 +131,4 @@ exports.Mode = Object.freeze({ "Fast": "fast", "Safe": "safe" });`,
       kind: "note",
       text: "Editing the body of a function changes native code, so the app binary must be rebuilt to run it. Fast Refresh reloads JavaScript only.",
     },
-  ],
-};
+];

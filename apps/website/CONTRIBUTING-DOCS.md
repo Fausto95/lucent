@@ -38,21 +38,35 @@ count every sample on the page. A page over its budget gets split.
 
 ## Page template
 
-Pages are typed data (`src/docs/types.ts`), not Markdown:
+A page is an entry in `src/docs/nav.ts` and a file of blocks at
+`src/docs/pages/<slug>.ts`. Both are typed data (`src/docs/types.ts`), not
+Markdown. The nav holds what the sidebar and search need; the file is loaded
+when the page is visited.
 
 ```ts
-export const page: DocPage = {
+// src/docs/nav.ts
+{
   slug: "guides/call-an-ios-api",
-  title: "Call an iOS API",                          // the task or question
-  description: "Import the framework from lucent:ios and call it.", // the answer
-  blocks: [
-    { kind: "code", filename: "battery.lucent.ts", code: `…` }, // the smallest complete example
-    { kind: "p", text: "…" },                        // only what the code doesn't say
-    { kind: "note", tone: "warn", text: "…" },       // optional: the most common mistake
-    { kind: "p", text: "Next: [Call an Android API](/docs/guides/call-an-android-api/)." },
-  ],
-};
+  kind: "guide",
+  title: "Call an iOS API",                                  // the task or question
+  description: "Import the framework from lucent:ios and call it.", // the answer, shown first
+}
 ```
+
+```ts
+// src/docs/pages/guides/call-an-ios-api.ts
+export const blocks: Block[] = [
+  { kind: "code", filename: "battery.lucent.ts", code: `…` }, // the smallest complete example
+  { kind: "p", text: "…" },                                // only what the code doesn't say
+  { kind: "note", tone: "warn", text: "…" },               // optional: the most common mistake
+];
+```
+
+The template renders the title, the description, the blocks, then the one
+"Next" link: the following page in the nav, or the entry's `next`.
+`scripts/website.ts` writes the TanStack Router route of each page and
+redirect (`src/generated/docs-routes.ts`), so links to docs pages type-check.
+A removed page gets an entry in `src/docs/redirects.ts`.
 
 ## Samples
 

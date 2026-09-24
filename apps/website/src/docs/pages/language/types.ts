@@ -1,10 +1,6 @@
-import type { DocPage } from "../../types";
+import type { Block } from "../../types";
 
-export const page: DocPage = {
-  slug: "language/types",
-  title: "Types & values",
-  description: "Every TypeScript type in a Lucent module maps to one native representation that behaves like the JavaScript value.",
-  blocks: [
+export const blocks: Block[] = [
     {
       kind: "p",
       text: "Lucent reads your types to decide how each value is stored. You write ordinary TypeScript; this page says what each type becomes and where it differs from what you might expect.",
@@ -164,5 +160,4 @@ export function addDays(d: Date, days: number): Date {
         "Using an object of one shape as another shape (`LUCENT2003`), or changing a collection's element type (`LUCENT2004`).",
       ],
     },
-  ],
-};
+];
