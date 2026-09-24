@@ -21,13 +21,18 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
+    "ink": "^7.1.1",
+    "picocolors": "^1.1.1",
+    "react": "19.3.0",
     "typescript": "~5.9.3"
   },
   "devDependencies": {
     "@lucent-lang/bindgen": "workspace:*",
     "@lucent-lang/compiler": "workspace:*",
     "@lucent-lang/runtime": "workspace:*",
+    "@types/react": "^19.2.0",
     "esbuild": "^0.28.2",
+    "ink-testing-library": "^4.0.0",
     "tsx": "^4.20.6"
   },
   "files": [
