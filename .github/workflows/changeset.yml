@@ -1,0 +1,34 @@
+name: Changeset
+
+# @lucent-lang/lucent bundles every package under packages/, so a change
+# there reaches users and needs a changeset for it. Docs- or test-only
+# changes opt out with the no-changeset label.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+jobs:
+  changeset:
+    name: Changeset for changes under packages/
+    # The version PR removes changesets rather than adding one.
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'no-changeset') && github.head_ref != 'changeset-release/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: A changeset comes with changes under packages/
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          if [ -z "$(git diff --name-only "$BASE"...HEAD -- packages/)" ]; then
+            echo "Nothing under packages/ changed."
+            exit 0
+          fi
+          added=$(git diff --name-only --diff-filter=A "$BASE"...HEAD -- '.changeset/*.md')
+          if [ -z "$added" ]; then
+            echo "::error::This PR changes packages/ without a changeset. Run \`pnpm changeset\` and commit the file it writes, or label the PR no-changeset if users see no change (docs, tests)."
+            exit 1
+          fi
+          echo "Changesets: $added"

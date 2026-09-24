@@ -31,6 +31,9 @@ runtime/js           loader, copied to .lucent/native/js/_lucent/runtime.js
 - Generated C++ must not depend on unspecified evaluation order (see
   `FnEmitter.inOrder`), must not let a coroutine reference lambda captures, and
   must keep JSI objects on the JS thread (use `Host` ids).
+- A change under `packages/` needs a changeset for `@lucent-lang/lucent`
+  (`pnpm changeset`; CONTRIBUTING.md says what to write), unless users can't
+  see it (docs, tests), which takes the `no-changeset` label.
 - Runtime changes: run `packages/runtime/test/run.sh`, and with `SANITIZE=1
 CXX=g++`.
 - After changing e2e cases, run `node scripts/sync-examples.ts` so the example

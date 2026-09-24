@@ -60,6 +60,31 @@ Android emulator before a release.
 - Living docs change in the same commit as the behavior they describe:
   `docs/`, the website, `ROADMAP.md`.
 
+## Changesets
+
+Releases come from changesets: small Markdown files in `.changeset/` that
+say what a change means for people using Lucent.
+
+- **When.** A change under `packages/` needs one: every package there is
+  bundled into `@lucent-lang/lucent`, the only one published, so the
+  changeset names it whichever package the change touched. CI fails a PR
+  that changes `packages/` without one. Changes users can't see (docs,
+  tests, refactors that keep behavior) take the `no-changeset` label
+  instead.
+- **How.** `pnpm changeset` asks for the bump and a summary, and writes the
+  file; commit it with the change. Patch for fixes, minor for features,
+  major for breaking changes.
+- **What to write.** One line for users, in the imperative: what changed and
+  why it matters to them, not how the code did it. "Keep `instanceof`
+  working after an app reinstalls Lucent", not "Store prototypes on the
+  global object".
+- **Release flow.** Merged changesets collect in a "Version packages" PR
+  that the release workflow opens and keeps current: it bumps the version
+  and writes `packages/lucent/CHANGELOG.md`, each entry linking its PR and
+  author. Merging that PR publishes to npm with provenance, tags the
+  release and creates the GitHub release, after `pnpm check`, the tests,
+  the runtime tests and `smoke-install` pass.
+
 ## Docs
 
 The website's docs follow [apps/website/CONTRIBUTING-DOCS.md](apps/website/CONTRIBUTING-DOCS.md):
