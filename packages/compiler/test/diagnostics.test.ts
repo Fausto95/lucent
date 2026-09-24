@@ -57,6 +57,11 @@ describe("diagnostics", () => {
     expect(codes("export function f(): number { var x = 1; return x; }")).toContain("LUCENT1001");
   });
 
+  it("reports only the rejected var, not the uses of its variable", () => {
+    const src = "export function total(xs: number[]): number {\n  var sum = 0;\n  for (const x of xs) sum += x;\n  return sum;\n}\n";
+    expect(codes(src)).toEqual(["LUCENT1001"]);
+  });
+
   it("rejects getters in object literals", () => {
     expect(codes("export function f(): number { const o = { get x() { return 1; } }; return o.x; }")).toEqual(["LUCENT1001"]);
   });
