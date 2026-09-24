@@ -7,7 +7,6 @@ export const docsRedirects: Record<string, string> = {
   "getting-started": "install",
   "getting-started-expo": "install",
   "what-you-can-build": "status",
-  examples: "language",
   "language/functions-and-control-flow": "language/functions",
   "language/async-and-errors": "language/async",
   "language/unions": "language/types",

@@ -11,6 +11,7 @@ scripts/website.ts` checks them; CI runs the same script with `--check`.
 | Learn | "How do I think in Lucent?" | Read in order | 800 words, 120 code lines |
 | Guide | "How do I do X?" | One task, read in any order | 400 words, 60 code lines |
 | Reference | "What exactly is the rule?" | Tables and generated lists | none |
+| Example | "What does a real module look like?" | A port from the example apps, its source generated from the file | 400 words |
 
 Words count prose only: paragraphs, lists, notes, table cells. Code lines
 count every sample on the page. A page over its budget gets split.

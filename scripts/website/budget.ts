@@ -8,6 +8,8 @@ const budgets: Record<DocKind, { words: number; code: number } | undefined> = {
   guide: { words: 400, code: 60 },
   learn: { words: 800, code: 120 },
   other: { words: 800, code: 120 },
+  // A whole module is the point of an example page.
+  example: { words: 400, code: Infinity },
   reference: undefined,
 };
 

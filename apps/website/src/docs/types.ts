@@ -43,9 +43,10 @@ export type DiagramName =
 /**
  * Start: what Lucent is and getting it running. Learn: how to think in it,
  * read in order. Guide: one task. Reference: the exact rules, generated where
- * possible. The kind sets the page's length budget (CONTRIBUTING-DOCS.md).
+ * possible. Example: a whole module from the example apps. The kind sets the
+ * page's length budget (CONTRIBUTING-DOCS.md).
  */
-export type DocKind = "start" | "learn" | "guide" | "reference" | "other";
+export type DocKind = "start" | "learn" | "guide" | "reference" | "example" | "other";
 
 /**
  * A page's metadata; the nav lists these in reading order. The page's blocks

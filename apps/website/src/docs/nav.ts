@@ -52,6 +52,53 @@ export const docsGroups: DocGroup[] = [
     ],
   },
   {
+    label: "Examples",
+    entries: [
+      {
+        slug: "examples",
+        kind: "other",
+        title: "Examples that call iOS and Android",
+        description: "Ports of popular Expo and community modules, each one Lucent module for both platforms, running in the repository's example apps.",
+      },
+      {
+        slug: "examples/location",
+        kind: "example",
+        title: "Location",
+        description: "`expo-location`'s API on CoreLocation and Android's `LocationManager`: permission, current position, and positions sent to JavaScript as they arrive.",
+      },
+      {
+        slug: "examples/netinfo",
+        kind: "example",
+        title: "Network state",
+        description: "`@react-native-community/netinfo`'s API on the Network framework and Android's `ConnectivityManager`, with change events sent to JavaScript.",
+      },
+      {
+        slug: "examples/local-authentication",
+        kind: "example",
+        title: "Local authentication",
+        description: "`expo-local-authentication`'s API on `LAContext` and Android's `BiometricManager`: hardware, enrollment and a Face ID or Touch ID prompt.",
+      },
+      {
+        slug: "examples/secure-store",
+        kind: "example",
+        title: "Secure store",
+        description: "`expo-secure-store`'s API on the iOS Keychain and the Android Keystore, shipped as a Lucent package.",
+      },
+      {
+        slug: "examples/haptics",
+        kind: "example",
+        title: "Haptics",
+        description: "`expo-haptics`' API on UIKit's feedback generators and Android's `Vibrator`, shipped as a Lucent package.",
+      },
+      {
+        slug: "examples/clipboard",
+        kind: "example",
+        title: "Clipboard",
+        description: "`expo-clipboard`'s text API on `UIPasteboard` and Android's `ClipboardManager`.",
+      },
+    ],
+  },
+  {
     label: "Legacy",
     entries: [
       { slug: "comparison", kind: "other", legacy: true, title: "Comparison", description: "How Lucent compares with Expo Modules, Nitro Modules and Turbo Native Modules, and when to pick each." },

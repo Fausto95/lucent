@@ -93,6 +93,20 @@ Found on the way, left for their own work:
 - Pages whose "See the C++" needs an SDK the machine lacks (CI has no
   Xcode) keep their committed C++, with a warning.
 
+## 9. Examples (pulled forward, asked for on 2026-09-24)
+
+- [x] `/docs/examples/`: a table of the ports, then one page each for
+      location, netinfo, local-authentication, secure-store, haptics and
+      clipboard: what to look at, the whole module, JS usage, limits. The
+      source is generated from the ports' files (drift-checked), and each
+      compiles as the page's sample.
+- [x] README: a "Call iOS and Android" section, condensed from the location
+      port and compile-checked, linking the full port and the examples.
+- Found: an early return (`if (PLATFORM === "ios") return …;`) doesn't make
+  the code after it Android code; a branch needs `else`. The platform-code
+  guide must say so.
+- [ ] Comparison, FAQ, Roadmap (the rest of step 9).
+
 ## 10. Website features (pulled forward)
 
 - [x] "See the C++" (`cpp: true` on a sample): the compiler's output for the

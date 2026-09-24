@@ -10,6 +10,13 @@ export const docsPageRoutes = [
   createRoute({ getParentRoute: () => docsRoute, path: "how-it-works", ...docPage("how-it-works") }),
   createRoute({ getParentRoute: () => docsRoute, path: "how-it-works/calls", ...docPage("how-it-works/calls") }),
   createRoute({ getParentRoute: () => docsRoute, path: "how-it-works/platform-calls", ...docPage("how-it-works/platform-calls") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "examples", ...docPage("examples") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "examples/location", ...docPage("examples/location") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "examples/netinfo", ...docPage("examples/netinfo") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "examples/local-authentication", ...docPage("examples/local-authentication") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "examples/secure-store", ...docPage("examples/secure-store") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "examples/haptics", ...docPage("examples/haptics") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "examples/clipboard", ...docPage("examples/clipboard") }),
   createRoute({ getParentRoute: () => docsRoute, path: "comparison", ...docPage("comparison") }),
   createRoute({ getParentRoute: () => docsRoute, path: "status", ...docPage("status") }),
   createRoute({ getParentRoute: () => docsRoute, path: "language", ...docPage("language") }),
@@ -54,13 +61,6 @@ export const docsRedirectRoutes = [
     path: "what-you-can-build",
     beforeLoad: ({ location }) => {
       throw redirect({ to: "/docs/status/", ...keepHash(location), replace: true });
-    },
-  }),
-  createRoute({
-    getParentRoute: () => docsRoute,
-    path: "examples",
-    beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/language/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
