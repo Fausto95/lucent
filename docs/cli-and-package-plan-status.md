@@ -98,10 +98,21 @@ Done:
       check is remembered under the build's inputs key: the example app's
       warm check takes 0.3 s (1.6 s after an edit).
 
+- [x] `doctor`: 15 checks, each ok/warn/fail with a fix, `--json`; tested
+      against a fake machine for the plan's five cases (missing Android SDK,
+      missing CocoaPods, unwrapped Metro config, missing Gradle task,
+      mismatched versions). Loads neither TypeScript nor the compiler.
+- [x] The Lucent Gradle task (`gradle/lucent.gradle`): runs `lucent build`
+      before every project's preBuild, resolving the classpath in the same
+      Gradle build (verified on the bare example app).
+- [x] `init`: bare or Expo, package manager, a diff per change (Ink,
+      confirm each) or `--yes`; Metro, app.json / Gradle task,
+      react-native.config.js, tsconfig (paths, noUncheckedIndexedAccess),
+      .gitignore, `src/hello.lucent.ts`; ends with the next command; a
+      second run changes nothing. Both example apps set up with it.
+
 Left:
 
-- [ ] `doctor`
-- [ ] `init` (Ink, diffs, `--yes`)
 - [ ] `dev` (Ink dashboard), replacing `build --watch`; `withLucent` output
 - [ ] `new module`, `explain`, `clean`, `--version` with SDKs
 - [ ] `sdk search / show / prefetch`; `coverage` and `diff`
