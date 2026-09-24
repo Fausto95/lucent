@@ -18,7 +18,8 @@ export async function run({ root, flags, out }: Invocation): Promise<number> {
   let failed = 0;
   for (const p of ["ios", "android"] as const) {
     let modules = wanted[p];
-    if (flags.all || (modules && !modules.length)) {
+    // Every module: --all, or the platform's flag given without a list. An empty list of imports is nothing.
+    if (flags.all || flags[p] === "") {
       const everything = sdkModules(p, sdk);
       if (!Array.isArray(everything)) {
         out.error(`${t.error(t.symbols.fail)} ${everything.missing}`);
