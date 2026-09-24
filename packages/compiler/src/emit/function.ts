@@ -82,8 +82,6 @@ export class FnEmitter {
   /** Locals and loop counters that live in integer registers (integers.ts). */
   private ints = new Map<ts.Symbol, IntKind>();
   private readonly counters = new Set<ts.Symbol>();
-  /** Locals whose type could not be lowered; their diagnostic is reported once, at the declaration. */
-  private readonly failed = new Set<ts.Symbol>();
 
   constructor(
     readonly ctx: Ctx,
@@ -653,19 +651,9 @@ export class FnEmitter {
     }
   }
 
-  /** Records the names a rejected declaration binds, so their uses are not reported again. */
-  private markFailed(name: ts.BindingName): void {
-    if (ts.isIdentifier(name)) {
-      const sym = this.checker.getSymbolAtLocation(name);
-      if (sym) this.failed.add(sym);
-      return;
-    }
-    for (const e of name.elements) if (!ts.isOmittedExpression(e)) this.markFailed(e.name);
-  }
-
   private varStatement(list: ts.VariableDeclarationList): void {
     if (!(list.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const))) {
-      for (const d of list.declarations) this.markFailed(d.name);
+      for (const d of list.declarations) this.ctx.markFailed(d.name);
       fail(list, Codes.UnsupportedSyntax, "use `let` or `const` instead of `var`");
     }
     for (const d of list.declarations) {
@@ -675,7 +663,7 @@ export class FnEmitter {
         try {
           declared = this.reg.lower(this.checker.getTypeOfSymbolAtLocation(sym, d.name), d.name);
         } catch (e) {
-          this.failed.add(sym);
+          this.ctx.failed.add(sym);
           throw e;
         }
         const type = declared.k === "never" ? T.undefined : declared;
@@ -1416,7 +1404,7 @@ export class FnEmitter {
       fail(id, Codes.UnsupportedSyntax, `unknown identifier ${text}`);
     }
     const sym = this.ctx.resolve(sym0);
-    if (this.failed.has(sym)) throw new AlreadyReported();
+    if (this.ctx.failed.has(sym)) throw new AlreadyReported();
     const local = this.findLocal(sym);
     if (local?.int) return this.intE(local.cpp, local.int);
     if (local) {
@@ -1508,7 +1496,7 @@ export class FnEmitter {
     if (ts.isParenthesizedExpression(target)) return this.lvalue(target.expression);
     if (ts.isIdentifier(target)) {
       const sym = this.ctx.resolve(symbolOf(this.checker, target)!);
-      if (this.failed.has(sym)) throw new AlreadyReported();
+      if (this.ctx.failed.has(sym)) throw new AlreadyReported();
       const local = this.findLocal(sym);
       if (local?.int) {
         const kind = local.int;

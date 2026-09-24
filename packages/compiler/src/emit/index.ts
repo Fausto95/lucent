@@ -273,11 +273,23 @@ function collect(ctx: Ctx, m: LucentModule, s: ts.Statement, exp: ModuleExports,
   }
   if (ts.isVariableStatement(s)) {
     const list = s.declarationList;
-    if (!(list.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const))) fail(s, Codes.UnsupportedTopLevel, "use `let` or `const` instead of `var`");
+    if (!(list.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const))) {
+      for (const d of list.declarations) ctx.markFailed(d.name);
+      fail(s, Codes.UnsupportedTopLevel, "use `let` or `const` instead of `var`");
+    }
     for (const d of list.declarations) {
-      if (!ts.isIdentifier(d.name)) fail(d, Codes.UnsupportedTopLevel, "destructuring at the top level is not supported");
+      if (!ts.isIdentifier(d.name)) {
+        ctx.markFailed(d.name);
+        fail(d, Codes.UnsupportedTopLevel, "destructuring at the top level is not supported");
+      }
       const sym = checker.getSymbolAtLocation(d.name)!;
-      const type = ctx.reg.lower(checker.getTypeOfSymbolAtLocation(sym, d.name), d.name);
+      let type: LType;
+      try {
+        type = ctx.reg.lower(checker.getTypeOfSymbolAtLocation(sym, d.name), d.name);
+      } catch (e) {
+        ctx.failed.add(sym);
+        throw e;
+      }
       const g: Global = { kind: "var", cpp: `lucent_app::${m.ns}::${cppIdent(d.name.text)}`, module: m, decl: d, type, isConst: !!(list.flags & ts.NodeFlags.Const) };
       ctx.globals.set(sym, g);
       if (isExported(s)) exp.consts.push(g as Extract<Global, { kind: "var" }>);
