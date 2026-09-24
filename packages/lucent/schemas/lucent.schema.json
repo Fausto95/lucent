@@ -17,7 +17,7 @@
         },
         "infoPlist": {
           "type": "object",
-          "description": "Info.plist entries: key → string value. The Expo config plugin adds them unless the app sets the key itself; for bare apps, lucent build names the keys the app's Info.plist lacks.",
+          "description": "Info.plist entries: key → string value. The Expo config plugin adds them, unless the app sets the key itself. For bare apps, lucent build names the keys the app's Info.plist lacks.",
           "additionalProperties": { "type": "string" }
         }
       }
