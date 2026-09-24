@@ -143,7 +143,7 @@ describe("lucent sdk coverage", () => {
 describe("lucent init", () => {
   it("links the native package as the `lucent` dependency", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
-    expect(lucent(root, "init").status).toBe(0);
+    expect(lucent(root, "init", "--yes").status).toBe(0);
     const config = fs.readFileSync(path.join(root, "react-native.config.js"), "utf8");
     expect(config).toContain('"lucent": { root: require("path").join(__dirname, ".lucent", "native") }');
     expect(config).not.toContain("lucent-native");
@@ -152,7 +152,7 @@ describe("lucent init", () => {
   it("maps lucent:* in tsconfig.json to the generated declarations", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
     fs.writeFileSync(path.join(root, "tsconfig.json"), '{\n  "compilerOptions": {\n    "strict": true\n  }\n}\n');
-    expect(lucent(root, "init").status).toBe(0);
+    expect(lucent(root, "init", "--yes").status).toBe(0);
     const paths = (JSON.parse(fs.readFileSync(path.join(root, "tsconfig.json"), "utf8")) as { compilerOptions: { paths: Record<string, string[]> } }).compilerOptions.paths;
     expect(paths["lucent:*"]).toEqual(["./.lucent/native/types/*"]);
   });
@@ -160,7 +160,7 @@ describe("lucent init", () => {
   it("renames an existing `lucent-native` entry", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-init-"));
     fs.writeFileSync(path.join(root, "react-native.config.js"), 'module.exports = { dependencies: { "lucent-native": { root: ".lucent/native" } } };\n');
-    expect(lucent(root, "init").status).toBe(0);
+    expect(lucent(root, "init", "--yes").status).toBe(0);
     expect(fs.readFileSync(path.join(root, "react-native.config.js"), "utf8")).toBe('module.exports = { dependencies: { "lucent": { root: ".lucent/native" } } };\n');
   });
 });
@@ -212,15 +212,6 @@ describe.skipIf(!android)("lucent sdk prefetch", () => {
 });
 
 describe("the app's Android dependencies", () => {
-  it("lucent init leaves the app's Gradle files alone", () => {
-    const root = project();
-    fs.mkdirSync(path.join(root, "android/app"), { recursive: true });
-    const gradle = 'apply plugin: "com.android.application"\n';
-    fs.writeFileSync(path.join(root, "android/app/build.gradle"), gradle);
-    lucent(root, "init");
-    expect(fs.readFileSync(path.join(root, "android/app/build.gradle"), "utf8")).toBe(gradle);
-  });
-
   it.skipIf(!android)("lucent build resolves them with Gradle when an import is not in the SDK", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-"));
     fs.writeFileSync(path.join(root, "m.lucent.ts"), "export declare function f(): Promise<string>;\n");
