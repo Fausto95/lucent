@@ -56,7 +56,7 @@ export const blocks: Block[] = [
         "Planned: libraries that ship Lucent sources, compiled into the app's native package.",
       ],
     },
-    { kind: "p", text: "What is available now is described in [platform APIs](/docs/platform-apis/)." },
+    { kind: "p", text: "What is available now is described in [platform APIs](/docs/guides/call-an-ios-api/)." },
     { kind: "h3", text: "M3: Views (planned)" },
     { kind: "p", text: "SwiftUI or UIKit and Compose or Android views written as Lucent components, on Fabric." },
     { kind: "h3", text: "M4: Production readiness (partly done)" },

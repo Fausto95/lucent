@@ -25,6 +25,28 @@ export const docsPageRoutes = [
   createRoute({ getParentRoute: () => docsRoute, path: "thinking/memory", ...docPage("thinking/memory") }),
   createRoute({ getParentRoute: () => docsRoute, path: "thinking/typescript", ...docPage("thinking/typescript") }),
   createRoute({ getParentRoute: () => docsRoute, path: "coming-from-native", ...docPage("coming-from-native") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/call-an-ios-api", ...docPage("guides/call-an-ios-api") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/call-an-android-api", ...docPage("guides/call-an-android-api") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/find-an-sdk-class", ...docPage("guides/find-an-sdk-class") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/implement-a-delegate", ...docPage("guides/implement-a-delegate") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/send-events-to-javascript", ...docPage("guides/send-events-to-javascript") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/accept-a-js-callback", ...docPage("guides/accept-a-js-callback") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/run-work-off-the-js-thread", ...docPage("guides/run-work-off-the-js-thread") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/cancel-work", ...docPage("guides/cancel-work") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/run-on-the-main-thread", ...docPage("guides/run-on-the-main-thread") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/throw-and-handle-errors", ...docPage("guides/throw-and-handle-errors") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/check-the-os-version", ...docPage("guides/check-the-os-version") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/share-code-between-platforms", ...docPage("guides/share-code-between-platforms") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/add-permissions-and-config", ...docPage("guides/add-permissions-and-config") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/use-a-third-party-sdk", ...docPage("guides/use-a-third-party-sdk") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/publish-a-library", ...docPage("guides/publish-a-library") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/use-a-library", ...docPage("guides/use-a-library") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/port-an-expo-module", ...docPage("guides/port-an-expo-module") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/port-a-turbomodule", ...docPage("guides/port-a-turbomodule") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/test-a-module", ...docPage("guides/test-a-module") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/debug-a-crash", ...docPage("guides/debug-a-crash") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/measure-performance", ...docPage("guides/measure-performance") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/upgrade", ...docPage("guides/upgrade") }),
   createRoute({ getParentRoute: () => docsRoute, path: "reference/language", ...docPage("reference/language") }),
   createRoute({ getParentRoute: () => docsRoute, path: "reference/built-ins", ...docPage("reference/built-ins") }),
   createRoute({ getParentRoute: () => docsRoute, path: "reference/boundary-types", ...docPage("reference/boundary-types") }),
@@ -44,10 +66,6 @@ export const docsPageRoutes = [
   createRoute({ getParentRoute: () => docsRoute, path: "examples/haptics", ...docPage("examples/haptics") }),
   createRoute({ getParentRoute: () => docsRoute, path: "comparison", ...docPage("comparison") }),
   createRoute({ getParentRoute: () => docsRoute, path: "status", ...docPage("status") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "language/errors", ...docPage("language/errors") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "boundary/callbacks", ...docPage("boundary/callbacks") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "boundary/errors", ...docPage("boundary/errors") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "platform-apis", ...docPage("platform-apis") }),
 ] as const;
 
 export const docsRedirectRoutes = [
@@ -104,7 +122,7 @@ export const docsRedirectRoutes = [
     getParentRoute: () => docsRoute,
     path: "language/events",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/boundary/callbacks/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/guides/accept-a-js-callback/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
@@ -125,14 +143,14 @@ export const docsRedirectRoutes = [
     getParentRoute: () => docsRoute,
     path: "language/platform-and-capabilities",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/platform-apis/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/guides/call-an-ios-api/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
     getParentRoute: () => docsRoute,
     path: "api/packages",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/platform-apis/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/guides/call-an-ios-api/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
@@ -153,14 +171,14 @@ export const docsRedirectRoutes = [
     getParentRoute: () => docsRoute,
     path: "api/events",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/boundary/callbacks/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/guides/accept-a-js-callback/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
     getParentRoute: () => docsRoute,
     path: "api/ui",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/platform-apis/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/guides/call-an-ios-api/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
@@ -308,6 +326,34 @@ export const docsRedirectRoutes = [
     path: "reference/core",
     beforeLoad: ({ location }) => {
       throw redirect({ to: "/docs/reference/modules/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "language/errors",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/guides/throw-and-handle-errors/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "boundary/callbacks",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/guides/accept-a-js-callback/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "boundary/errors",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/guides/throw-and-handle-errors/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "platform-apis",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/guides/call-an-ios-api/", ...keepHash(location), replace: true });
     },
   }),
 ] as const;

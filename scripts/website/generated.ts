@@ -107,6 +107,8 @@ export const exampleSources: Record<string, string> = {
   "secure-store": "examples/lucent-secure-store/src/secureStore.lucent.ts",
   haptics: "examples/lucent-haptics/src/haptics.lucent.ts",
   clipboard: "scripts/example-app/src/sdk/clipboard.lucent.ts",
+  // Compiles only inside the bare app, which links the libraries it imports.
+  linked: "apps/bare-example/src/sdk/linked.lucent.ts",
 };
 
 /** A port's source without its opening comment, which the page replaces. */

@@ -6,7 +6,7 @@ import path from "node:path";
 import { compileSamples, type Sample } from "./compile.ts";
 import { root, where } from "./context.ts";
 
-const isSample = (b: { filename: string; diff?: true }): boolean => b.filename.endsWith(".lucent.ts") && !b.diff;
+const isSample = (b: { filename: string; diff?: true; from?: string }): boolean => b.filename.endsWith(".lucent.ts") && !b.diff && !b.from;
 
 function samplesOf(blocks: Block[]): Sample[] {
   return blocks.flatMap((b): Sample[] => {

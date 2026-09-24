@@ -151,6 +151,23 @@ Found on the way, left for their own work:
 - Found: a misplaced doc comment in `lucent:ios` (fixed); on main, three red
   diagnostics tests wait for the other session's compiler work.
 
+## 8. Guides
+
+- [x] 22 guides, one task each: iOS and Android APIs, finding SDK classes,
+      delegates and listeners, events to JavaScript, JS callbacks, off-thread
+      work, cancelling, the main thread, errors, OS versions, sharing code,
+      permissions and config, third-party SDKs, publishing and using
+      libraries, porting Expo and TurboModule/Nitro modules, testing,
+      crashes, performance, upgrading. Every sample compiles.
+- [x] `from` on a sample: a module that compiles only in its app (the
+      third-party guide's, which imports the bare app's pods and AndroidX) is
+      generated from its file and checked by the app's build.
+- [x] Retired with redirects: errors, callbacks, boundary errors, platform
+      APIs. Legacy pages left: comparison and status (step 9).
+- Gaps stated as limits: Jest/Vitest can't import `lucent:core` (flagged as
+  a separate task); no SDK pinning or `sdk diff`; no SPM; no iOS
+  compile-time version check.
+
 ## 9. Examples (pulled forward, asked for on 2026-09-24)
 
 - [x] `/docs/examples/`: a table of the ports, then one page each for

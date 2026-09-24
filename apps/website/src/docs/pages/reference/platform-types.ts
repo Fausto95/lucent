@@ -36,7 +36,7 @@ export const blocks: Block[] = [
       ["a package of `android.jar` or of the app's Gradle dependencies", "`import { … } from \"lucent:android/android.os\"`"],
       ["class and member names", "Java's names: `Build.MODEL`, `getSystemService`"],
       ["nested classes", "joined with `_`: `Build_VERSION`, `ConnectivityManager_NetworkCallback`"],
-      ["`getX()` and `isX()` without arguments", "also a read-only property: `vibratorManager.defaultVibrator`"],
+      ["`getX()` and `isX()` without arguments", "also a read-only property: `getDefaultVibrator()` is `defaultVibrator`, `isCharging()` is `charging`"],
       ["references without a `@NonNull` annotation", "`T | null`"],
       ["`Class<T>` parameters", "the class itself: `getSystemService(Vibrator)`"],
       ["arrays", "`byte[]`, `int[]`, `long[]`, `String[]` only"],

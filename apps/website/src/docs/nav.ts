@@ -160,6 +160,143 @@ export const docsGroups: DocGroup[] = [
     ],
   },
   {
+    label: "Guides",
+    entries: [
+      {
+        slug: "guides/call-an-ios-api",
+        kind: "guide",
+        title: "Call an iOS API",
+        description: "Import a framework from `lucent:ios/*` and call it with Swift's names, inside `main()` when it's main-thread only.",
+      },
+      {
+        slug: "guides/call-an-android-api",
+        kind: "guide",
+        title: "Call an Android API",
+        description: "Import a package from `lucent:android/*` and call it with Java's names, from the app's `Context`.",
+      },
+      {
+        slug: "guides/find-an-sdk-class",
+        kind: "guide",
+        title: "Find an SDK class",
+        description: "`lucent sdk search` finds classes and members with the import to copy; `lucent sdk show` prints what Lucent code sees.",
+      },
+      {
+        slug: "guides/implement-a-delegate",
+        kind: "guide",
+        title: "Implement a delegate or listener",
+        description: "A class that `implements` the SDK's protocol or interface, kept alive while the SDK calls it.",
+      },
+      {
+        slug: "guides/send-events-to-javascript",
+        kind: "guide",
+        title: "Send events to JavaScript",
+        description: "Take a JS callback, call it from async code, and return an id that stops it.",
+      },
+      {
+        slug: "guides/accept-a-js-callback",
+        kind: "guide",
+        title: "Accept a JS callback",
+        description: "A function parameter: called at once during a synchronous call, posted to the JS thread from async code.",
+      },
+      {
+        slug: "guides/run-work-off-the-js-thread",
+        kind: "guide",
+        title: "Run work off the JS thread",
+        description: "Make the export `async`: it runs on the Lucent thread, and its result resolves a promise in JavaScript.",
+      },
+      {
+        slug: "guides/cancel-work",
+        kind: "guide",
+        title: "Cancel work",
+        description: "Take an `AbortSignal` from JavaScript and check it; the promise rejects with an `AbortError`.",
+      },
+      {
+        slug: "guides/run-on-the-main-thread",
+        kind: "guide",
+        title: "Run code on the main thread",
+        description: "`main(() => …)` from `lucent:thread` runs a function on the main thread and resolves with its result.",
+      },
+      {
+        slug: "guides/throw-and-handle-errors",
+        kind: "guide",
+        title: "Throw and handle errors",
+        description: "`error(code, message)` throws an error JavaScript receives with its `code`. Errors from JavaScript and the SDK arrive the same way.",
+      },
+      {
+        slug: "guides/check-the-os-version",
+        kind: "guide",
+        title: "Check the OS version",
+        description: "`available(\"ios\", 17)` and `available(\"android\", 31)` guard newer APIs. On Android, the compiler requires it.",
+      },
+      {
+        slug: "guides/share-code-between-platforms",
+        kind: "guide",
+        title: "Share code between iOS and Android",
+        description: "One module with a platform branch per SDK call; platform files only when the halves share nothing.",
+      },
+      {
+        slug: "guides/add-permissions-and-config",
+        kind: "guide",
+        title: "Add permissions and native config",
+        description: "Android permissions come from the SDK; iOS usage descriptions go in `Info.plist` or `app.json`.",
+      },
+      {
+        slug: "guides/use-a-third-party-sdk",
+        kind: "guide",
+        title: "Use a third-party SDK",
+        description: "Add the pod or Gradle dependency to the app as usual, then import it from `lucent:ios/*` or `lucent:android/*`.",
+      },
+      {
+        slug: "guides/publish-a-library",
+        kind: "guide",
+        title: "Publish a Lucent library",
+        description: "An npm package with a `lucent` field in `package.json`, its modules as source, and a `lucent.json` for its native needs.",
+      },
+      {
+        slug: "guides/use-a-library",
+        kind: "guide",
+        title: "Use a Lucent library",
+        description: "Install it with npm: `lucent build` compiles its modules with the app's, with their pods, dependencies and permissions.",
+      },
+      {
+        slug: "guides/port-an-expo-module",
+        kind: "guide",
+        title: "Port an Expo Module",
+        description: "Keep the TypeScript API, and write the Swift and Kotlin bodies as the two branches of one Lucent module.",
+      },
+      {
+        slug: "guides/port-a-turbomodule",
+        kind: "guide",
+        title: "Port a TurboModule or Nitro module",
+        description: "The spec becomes the module's exports, hybrid objects become classes, and codegen goes away.",
+      },
+      {
+        slug: "guides/test-a-module",
+        kind: "guide",
+        title: "Test a module",
+        description: "`lucent bench` compares native and JavaScript results. A host build runs shared code on your computer, and devices check the SDK calls.",
+      },
+      {
+        slug: "guides/debug-a-crash",
+        kind: "guide",
+        title: "Debug a crash",
+        description: "Errors carry their `.lucent.ts` line to JavaScript, logs go to the unified log and logcat, and native crashes point at your source.",
+      },
+      {
+        slug: "guides/measure-performance",
+        kind: "guide",
+        title: "Measure performance",
+        description: "`lucent bench` times each case natively and as JavaScript, and shows the speedup.",
+      },
+      {
+        slug: "guides/upgrade",
+        kind: "guide",
+        title: "Upgrade Xcode, the Android SDK or Lucent",
+        description: "A new SDK is read again on the next build. A new Lucent needs `lucent doctor`, a build, and an app rebuild.",
+      },
+    ],
+  },
+  {
     label: "Reference",
     entries: [
       {
@@ -275,11 +412,7 @@ export const docsGroups: DocGroup[] = [
     label: "Legacy",
     entries: [
       { slug: "comparison", kind: "other", legacy: true, title: "Comparison", description: "How Lucent compares with Expo Modules, Nitro Modules and Turbo Native Modules, and when to pick each." },
-      { slug: "status", kind: "other", legacy: true, title: "Status & roadmap", description: "What Lucent can do today, what it cannot do yet, and the milestones in between." },
-      { slug: "language/errors", kind: "learn", legacy: true, title: "Errors", description: "Lucent throws and catches Error values as JavaScript does, and can attach a machine-readable code to them." },
-      { slug: "boundary/callbacks", kind: "learn", legacy: true, title: "Callbacks", description: "Passing JavaScript functions and abort signals to Lucent, and which thread they run on." },
-      { slug: "boundary/errors", kind: "learn", legacy: true, title: "Errors across the boundary", description: "How Lucent errors reach JavaScript, how JavaScript exceptions reach Lucent, and how native crashes map back to your source." },
-      { slug: "platform-apis", kind: "guide", legacy: true, title: "Platform APIs", description: "Calling iOS and Android SDK APIs from Lucent through platform modules: an early, experimental milestone (M2.0).", next: "" },
+      { slug: "status", kind: "other", legacy: true, title: "Status & roadmap", description: "What Lucent can do today, what it cannot do yet, and the milestones in between.", next: "" },
     ],
   },
 ];
