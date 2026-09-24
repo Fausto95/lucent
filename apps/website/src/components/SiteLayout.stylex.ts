@@ -34,6 +34,7 @@ export const styles = stylex.create({
     display: "flex",
     alignItems: "center",
     justifyContent: "space-between",
+    gap: "16px",
     borderBottomWidth: "1px",
     borderBottomStyle: "solid",
     borderBottomColor: tokens.border,
@@ -80,7 +81,11 @@ export const styles = stylex.create({
     },
   },
   githubLink: {
-    display: "flex",
+    // On phones the footer's GitHub link stands in, so the header keeps search and the theme.
+    display: {
+      default: "flex",
+      "@media (max-width: 480px)": "none",
+    },
     alignItems: "center",
     gap: {
       default: "8px",
