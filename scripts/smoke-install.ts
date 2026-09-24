@@ -1,10 +1,10 @@
 /**
  * Fresh-install smoke test: packs @lucent-lang/lucent as it would be
  * published, installs it alone into an empty project with npm, and runs the
- * installed CLI there (no tsx, no workspace links), with a Lucent package
+ * installed CLI there (from the tarball, no workspace links), with a Lucent package
  * (examples/lucent-haptics) installed from its tarball too.
  *
- *   tsx scripts/smoke-install.ts
+ *   node scripts/smoke-install.ts
  */
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";

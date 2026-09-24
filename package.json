@@ -13,14 +13,13 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vp test",
     "test:runtime": "packages/runtime/test/run.sh",
-    "test:e2e": "tsx packages/compiler/test/e2e/run.ts",
+    "test:e2e": "node packages/compiler/test/e2e/run.ts",
     "website": "pnpm --filter @lucent-lang/website dev",
     "website:build": "pnpm --filter @lucent-lang/website build",
     "lucent": "vp run @lucent-lang/lucent#build >&2 && node packages/lucent/bin/lucent.cjs"
   },
   "devDependencies": {
     "@types/node": "^24.7.0",
-    "tsx": "^4.20.6",
     "typescript": "~5.9.3",
     "vite": "catalog:",
     "vite-plus": "catalog:"

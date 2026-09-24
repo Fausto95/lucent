@@ -2,7 +2,7 @@
  * Bumps the version of every published @lucent-lang package together and
  * prints the new version.
  *
- *   tsx scripts/bump-version.ts patch|minor|major
+ *   node scripts/bump-version.ts patch|minor|major
  */
 import fs from "node:fs";
 import path from "node:path";

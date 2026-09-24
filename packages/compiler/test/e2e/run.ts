@@ -4,7 +4,7 @@
  * module's TypeScript source executed as plain JavaScript (in Node), and the
  * two outputs must match line for line.
  *
- *   tsx packages/compiler/test/e2e/run.ts [case-name...]
+ *   node packages/compiler/test/e2e/run.ts [case-name...]
  *
  * Env: HERMES_DIR (Hermes checkout built into build/), SANITIZE=1, CXX.
  */

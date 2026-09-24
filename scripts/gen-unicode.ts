@@ -5,7 +5,7 @@
  * by the final sigma rule, and base letters and accents for the fallback
  * collator used where no platform collator exists.
  *
- *   tsx scripts/gen-unicode.ts
+ *   node scripts/gen-unicode.ts
  */
 import fs from "node:fs";
 import path from "node:path";

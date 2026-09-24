@@ -82,7 +82,7 @@ pnpm install
 pnpm test                      # compiler and CLI tests
 pnpm test:runtime              # C++ runtime tests
 pnpm test:e2e                  # compiled modules against the same code as JavaScript (needs Hermes)
-pnpm exec tsx scripts/website.ts   # the website's generated files, samples, links and prose
+node scripts/website.ts   # the website's generated files, samples, links and prose
 ```
 
 [CONTRIBUTING.md](CONTRIBUTING.md) covers the setup, every suite and the

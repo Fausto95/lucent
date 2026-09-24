@@ -7,7 +7,7 @@ const main = path.resolve(import.meta.dirname, "../src/cli/main.ts");
 const hook = `data:text/javascript,${encodeURIComponent('import { registerHooks } from "node:module"; registerHooks({ resolve(s, c, next) { process.stderr.write("[resolve] " + s + "\\n"); return next(s, c); } });')}`;
 
 function loaded(...args: string[]): { status: number | null; out: string; modules: string[] } {
-  const r = spawnSync(process.execPath, ["--import", "tsx", "--import", hook, main, ...args], { encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } });
+  const r = spawnSync(process.execPath, ["--import", hook, main, ...args], { encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } });
   const modules = r.stderr.split("\n").filter((l) => l.startsWith("[resolve] ")).map((l) => l.slice("[resolve] ".length));
   return { status: r.status, out: r.stdout + r.stderr.split("\n").filter((l) => !l.startsWith("[resolve] ")).join("\n"), modules };
 }

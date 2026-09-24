@@ -23,7 +23,7 @@ Open http://127.0.0.1:5173. Routes:
 ## Checks and production
 
 ```sh
-pnpm exec tsx scripts/website.ts            # regenerate src/generated, compile every sample
+node scripts/website.ts            # regenerate src/generated, compile every sample
 pnpm --filter @lucent-lang/website typecheck
 pnpm --filter @lucent-lang/website build
 pnpm --filter @lucent-lang/website preview

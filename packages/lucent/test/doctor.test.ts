@@ -113,7 +113,7 @@ describe("lucent doctor", () => {
 
   it("does not load TypeScript or the compiler", () => {
     const hook = `data:text/javascript,${encodeURIComponent('import { registerHooks } from "node:module"; registerHooks({ resolve(s, c, next) { process.stderr.write("[resolve] " + s + "\\n"); return next(s, c); } });')}`;
-    const r = spawnSync(process.execPath, ["--import", "tsx", "--import", hook, path.resolve(import.meta.dirname, "../src/cli/main.ts"), "doctor", "--root", app()], { encoding: "utf8" });
+    const r = spawnSync(process.execPath, ["--import", hook, path.resolve(import.meta.dirname, "../src/cli/main.ts"), "doctor", "--root", app()], { encoding: "utf8" });
     const modules = r.stderr.split("\n").filter((l) => l.startsWith("[resolve] ")).map((l) => l.slice(10));
     expect(modules.filter((m) => m === "typescript" || m === "@lucent-lang/compiler")).toEqual([]);
   });

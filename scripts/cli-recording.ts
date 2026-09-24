@@ -5,7 +5,7 @@
  * session as an animated SVG: each command typed out, its output shown as
  * it came, one screen per command, looping.
  *
- *   tsx scripts/cli-recording.ts
+ *   node scripts/cli-recording.ts
  */
 import { spawn } from "node:child_process";
 import fs from "node:fs";

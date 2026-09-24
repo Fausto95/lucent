@@ -36,7 +36,7 @@ function compileInChild(files: string[], options: object): Promise<{ diagnostics
 const r = compile(${JSON.stringify(files)}, ${JSON.stringify(options)});
 process.stdout.write(JSON.stringify({ diagnostics: r.diagnostics, types: Object.fromEntries(r.types ?? []) }));`;
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ["--import", "tsx", "--input-type=module", "-e", code], { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(process.execPath, ["--input-type=module", "-e", code], { stdio: ["ignore", "pipe", "pipe"] });
     let out = "";
     let err = "";
     child.stdout.on("data", (d: Buffer) => (out += d.toString()));

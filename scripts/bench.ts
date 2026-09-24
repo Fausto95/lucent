@@ -3,7 +3,7 @@
  * in one Hermes runtime: compiled by Lucent to C++ and called over JSI, against
  * the same TypeScript run as JavaScript. Sizes come from kernels.bench.json.
  *
- *   HERMES_DIR=~/hermes tsx scripts/bench.ts [scale] [--check]
+ *   HERMES_DIR=~/hermes node scripts/bench.ts [scale] [--check]
  *
  * --check fails when a kernel's speedup is below its minimum in
  * scripts/bench-budgets.json (the performance budget CI enforces).

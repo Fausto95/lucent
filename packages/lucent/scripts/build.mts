@@ -5,7 +5,7 @@
  * lib/ (declarations) and runtime/ (C++ runtime, native templates, the JS
  * loader).
  *
- *   tsx scripts/build.mts
+ *   node scripts/build.mts
  */
 import fs from "node:fs";
 import path from "node:path";

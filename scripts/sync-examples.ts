@@ -9,7 +9,7 @@
  * with other native module kinds (NitroBenchmarks), over the benchmarks/*
  * packages each app depends on.
  *
- *   tsx scripts/sync-examples.ts
+ *   node scripts/sync-examples.ts
  */
 import fs from "node:fs";
 import path from "node:path";

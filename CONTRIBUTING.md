@@ -2,8 +2,8 @@
 
 ## Setup
 
-- Node 22.12 or later and pnpm 9 (`corepack enable`), then `pnpm install`
-  and `pnpm build`.
+- Node 24 (the version in `.node-version`) and pnpm 9 (`corepack enable`),
+  then `pnpm install` and `pnpm build`.
 - The `lucent` command in the repository runs the bundle in
   `packages/lucent/dist`, like the published package. `pnpm build` refreshes
   it (a cache hit when nothing changed); `pnpm test` and `pnpm lucent …` build
@@ -33,11 +33,11 @@ The repository layout, and the rules every change follows, are in
 | `pnpm test` | compiler, CLI and website unit tests | |
 | `pnpm test:runtime` | the C++ runtime; add `SANITIZE=1` (and `CXX=g++`) for sanitizers | |
 | `pnpm test:e2e [case…]` | each language feature, native against JavaScript | Hermes |
-| `pnpm exec tsx scripts/app-check.ts apps/bare-example` | an example app's bundle against its C++ | Hermes |
-| `pnpm exec tsx scripts/bench.ts --check` | performance budgets | Hermes |
-| `pnpm exec tsx scripts/smoke-install.ts` | the packed package, installed alone in a fresh app | |
+| `node scripts/app-check.ts apps/bare-example` | an example app's bundle against its C++ | Hermes |
+| `node scripts/bench.ts --check` | performance budgets | Hermes |
+| `node scripts/smoke-install.ts` | the packed package, installed alone in a fresh app | |
 | `pnpm typecheck` | the repository's TypeScript | |
-| `pnpm exec tsx scripts/website.ts --check` | the website (below) | Vale |
+| `node scripts/website.ts --check` | the website (below) | Vale |
 
 [docs/testing.md](docs/testing.md) explains the differential suites. Device
 checks run the example apps' test screens on the iOS simulator and the

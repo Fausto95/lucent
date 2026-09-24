@@ -33,7 +33,7 @@ runtime/js           loader, copied to .lucent/native/js/_lucent/runtime.js
   must keep JSI objects on the JS thread (use `Host` ids).
 - Runtime changes: run `packages/runtime/test/run.sh`, and with `SANITIZE=1
   CXX=g++`.
-- After changing e2e cases, run `npx tsx scripts/sync-examples.ts` so the example
+- After changing e2e cases, run `node scripts/sync-examples.ts` so the example
   apps' test screens stay in sync.
 - Keep headers free of names that shadow system headers (hence `jsstring.h`,
   `jserror.h`).
@@ -47,10 +47,10 @@ runtime/js           loader, copied to .lucent/native/js/_lucent/runtime.js
 pnpm install
 pnpm build   # the CLI (bin/lucent.cjs) runs dist/: rebuild after changing packages/ (cached)
 packages/runtime/test/run.sh
-HERMES_DIR=~/hermes npx tsx packages/compiler/test/e2e/run.ts [case…]
-HERMES_DIR=~/hermes npx tsx scripts/app-check.ts apps/bare-example
-HERMES_DIR=~/hermes npx tsx scripts/bench.ts --check   # performance budgets
+HERMES_DIR=~/hermes node packages/compiler/test/e2e/run.ts [case…]
+HERMES_DIR=~/hermes node scripts/app-check.ts apps/bare-example
+HERMES_DIR=~/hermes node scripts/bench.ts --check   # performance budgets
 npx tsc --noEmit -p tsconfig.json
-npx tsx scripts/smoke-install.ts   # packs @lucent-lang/lucent, installs it alone in a fresh app
-npx tsx scripts/cli-recording.ts   # re-records assets/cli.svg (the README's terminal animation) after CLI output changes
+node scripts/smoke-install.ts   # packs @lucent-lang/lucent, installs it alone in a fresh app
+node scripts/cli-recording.ts   # re-records assets/cli.svg (the README's terminal animation) after CLI output changes
 ```

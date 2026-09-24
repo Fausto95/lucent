@@ -1,6 +1,6 @@
 # Writing Lucent's docs
 
-These rules apply to every page under `src/docs/pages`. `pnpm exec tsx
+These rules apply to every page under `src/docs/pages`. `node
 scripts/website.ts` checks them; CI runs the same script with `--check`.
 
 ## The four kinds of page
@@ -104,7 +104,7 @@ Not "Lucent file", "native module file", "bridge", "the native side" or
 ## Checks
 
 ```sh
-pnpm exec tsx scripts/website.ts   # regenerate, compile samples, write prose, run Vale
+node scripts/website.ts   # regenerate, compile samples, write prose, run Vale
 vale apps/website/.prose           # Vale alone, on the last written prose
 ```
 

@@ -6,7 +6,7 @@
  *      (transformer, proxies, runtime loader);
  *   4. runs the bundle in Hermes against the native modules.
  *
- *   tsx scripts/app-check.ts [apps/bare-example]
+ *   node scripts/app-check.ts [apps/bare-example]
  *
  * Needs HERMES_DIR (a Hermes checkout built into build/).
  */
