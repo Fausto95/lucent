@@ -140,10 +140,10 @@ class Watcher extends ConnectivityManager_NetworkCallback {
   constructor(private readonly onState: (state: NetInfoState) => void) {
     super();
   }
-  onAvailable(network: Network): void {
+  onAvailable(_network: Network): void {
     this.onState(currentNetwork());
   }
-  onLost(network: Network): void {
+  onLost(_network: Network): void {
     this.onState(capabilitiesState(null));
   }
   onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities): void {

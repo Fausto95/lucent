@@ -175,7 +175,7 @@ function androidCurrentPosition(): Promise<LocationObject> {
   return new Promise((resolve, reject) => {
     const looper = Looper.getMainLooper();
     if (!looper) return reject(new Error("No main looper"));
-    let listener = (location: Location) => {};
+    let listener = (_location: Location) => {};
     listener = (location: Location) => {
       locationManager().removeUpdates(listener);
       resolve(fromLocation(location));
