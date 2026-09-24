@@ -12,7 +12,7 @@ export const searchIndex: SearchEntry[] = [
   "href": "/docs/#call-ios-and-android",
   "page": "What is Lucent",
   "heading": "Call iOS and Android",
-  "text": "A module imports the SDKs directly, typed from your Xcode and Android SDK. Each platform's build compiles its own branch. This is expo-clipboard's API, from the examples."
+  "text": "A module imports the SDKs directly, typed from your Xcode and Android SDK. Each platform's build compiles its own branch. It's one function of the expo-clipboard port; the examples have the whole port."
  },
  {
   "href": "/docs/#when-to-use-it",

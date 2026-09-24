@@ -1,6 +1,6 @@
 import type { Block } from "../types";
 import { clipboardUsage } from "../../content";
-import { source as clipboard } from "../../generated/examples/clipboard";
+import { clipboardSource } from "../../generated/home-clipboard";
 
 export const blocks: Block[] = [
   {
@@ -44,13 +44,13 @@ summarize([3, 1, 4, 1, 5]); // { count: 5, mean: 2.8, max: 5 }`,
   {
     kind: "tabs",
     tabs: [
-      { label: "module", filename: "clipboard.lucent.ts", cpp: true, code: clipboard },
+      { label: "module", filename: "clipboard.lucent.ts", cpp: true, code: clipboardSource },
       { label: "JS usage", filename: "App.tsx", code: clipboardUsage },
     ],
   },
   {
     kind: "p",
-    text: "A module imports the SDKs directly, typed from your Xcode and Android SDK. Each platform's build compiles its own branch. This is `expo-clipboard`'s API, from the [examples](/docs/examples/).",
+    text: "A module imports the SDKs directly, typed from your Xcode and Android SDK. Each platform's build compiles its own branch. It's one function of the `expo-clipboard` port; the [examples](/docs/examples/clipboard/) have the whole port.",
   },
   { kind: "h2", text: "When to use it" },
   {

@@ -9,7 +9,7 @@ import { ComparisonTable } from "../components/ComparisonTable";
 import { useClipboard } from "../components/ClipboardProvider";
 import { useDocumentMeta } from "../components/useDocumentMeta";
 import { clipboardUsage, commands } from "../content";
-import { source as clipboardSource } from "../generated/examples/clipboard";
+import { clipboardSource } from "../generated/home-clipboard";
 
 export function HomePage() {
   const { copy } = useClipboard();
@@ -157,7 +157,7 @@ export function HomePage() {
           ]}
         />
         <p {...stylex.props(styles.sectionFootnote)}>
-          <code>expo-clipboard</code>&apos;s API, from the example apps. More ports, with delegates and events, are in the{" "}
+          From the <code>expo-clipboard</code> port in the example apps. The whole port, and others with delegates and events, are in the{" "}
           <Link to="/docs/examples/" {...stylex.props(styles.footnoteLink)}>
             examples
           </Link>

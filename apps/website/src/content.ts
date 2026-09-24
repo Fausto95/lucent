@@ -7,8 +7,7 @@ squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25`;
 export const commands = `npm install -D @lucent-lang/lucent
 npx lucent init`;
 
-/** How JavaScript calls the clipboard port (the port's source is generated/examples/clipboard.ts). */
-export const clipboardUsage = `import { getStringAsync, setStringAsync } from "./src/clipboard.lucent";
+/** How JavaScript calls the homepage's clipboard sample (generated/home-clipboard.ts). */
+export const clipboardUsage = `import { hasStringAsync } from "./src/clipboard.lucent";
 
-await setStringAsync("hello");
-await getStringAsync(); // "hello"`;
+await hasStringAsync(); // true when the clipboard holds text`;

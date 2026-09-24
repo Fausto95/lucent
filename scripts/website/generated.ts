@@ -37,6 +37,27 @@ export function squaredDistance(a: Point, b: Point): number {
   return `${header}export const demoSource = ${JSON.stringify(source.trimEnd())};\n\nexport const demoCpp = ${JSON.stringify(fn)};\n`;
 }
 
+/** The homepage's SDK sample: one function of the clipboard port, compiled here so it can't go stale. */
+function homeClipboard(): string {
+  const source = `import { PLATFORM } from "lucent:platform";
+import { UIPasteboard } from "lucent:ios/UIKit";
+import { ClipboardManager, ClipDescription } from "lucent:android/android.content";
+import { appContext } from "lucent:android";
+import { main } from "lucent:thread";
+
+export async function hasStringAsync(): Promise<boolean> {
+  if (PLATFORM === "ios") {
+    return UIPasteboard.general.hasStrings;
+  } else {
+    return main(() => appContext().getSystemService(ClipboardManager)?.getPrimaryClipDescription()?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) ?? false);
+  }
+}
+`;
+  const { diagnostics } = compileSamples("home-clipboard", [{ filename: "clipboard.lucent.ts", code: source }]);
+  if (diagnostics.length) throw new Error(`the homepage's clipboard sample does not compile:\n${diagnostics.map(formatDiagnostic).join("\n")}`);
+  return `${header}export const clipboardSource = ${JSON.stringify(source.trimEnd())};\n`;
+}
+
 /** The proxy Metro bundles in place of a module (How a module becomes native code). */
 function proxyDemo(): string {
   const source = `export function greet(name: string): string {
@@ -232,6 +253,7 @@ export function generatedFiles(): Record<string, string> {
   return {
     "compiler-demo.ts": compilerDemo(),
     "proxy-demo.ts": proxyDemo(),
+    "home-clipboard.ts": homeClipboard(),
     "cli.ts": cli(),
     "diagnostics.ts": diagnostics(),
     "docs-routes.ts": docsRoutes(),
