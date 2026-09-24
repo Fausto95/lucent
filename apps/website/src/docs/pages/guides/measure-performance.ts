@@ -20,8 +20,8 @@ export default {
     copy: false,
     code: `CASE      JS         LUCENT     SPEEDUP
 src/path.bench.ts
-objects   54.1 µs    198.7 µs   0.3x
-native    101.0 µs   8.2 µs     12.3x
+objects   54.0 µs    67.1 µs    0.8x
+native    90.9 µs    7.9 µs     11.5x
 
 per call, best of 5 rounds; desktop Hermes, so devices differ`,
   },

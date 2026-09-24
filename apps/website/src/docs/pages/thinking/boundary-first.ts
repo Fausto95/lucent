@@ -44,10 +44,10 @@ export function spiralLength(count: number): number {
     copy: false,
     code: `CASE      JS         LUCENT     SPEEDUP
 src/path.bench.ts
-chatty    134.5 µs   111.9 µs   1.2x
-objects   54.1 µs    198.7 µs   0.3x
-numbers   74.8 µs    59.3 µs    1.3x
-native    101.0 µs   8.2 µs     12.3x`,
+chatty    128.8 µs   104.9 µs   1.2x
+objects   54.0 µs    67.1 µs    0.8x
+numbers   50.8 µs    18.8 µs    2.7x
+native    90.9 µs    7.9 µs     11.5x`,
   },
   {
     kind: "p",
@@ -59,7 +59,7 @@ native    101.0 µs   8.2 µs     12.3x`,
   },
   {
     kind: "p",
-    text: "Copying 1,000 objects costs more than the computation saves. Numbers are cheaper to copy than objects. Keeping the data in native code wins by far.",
+    text: "Copying 1,000 objects costs more than the computation saves: the call is slower than JavaScript. Numbers are cheaper to copy than objects. Keeping the data in native code wins by far.",
   },
   { kind: "h2", text: "The checklist" },
   {

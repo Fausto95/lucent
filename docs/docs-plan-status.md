@@ -65,9 +65,8 @@ Guessed (not in the plan): the length budgets in words and code lines
 
 Found on the way, left for their own work:
 
-- `lucent new module --ios/--android` scaffolds split platform files, not
-  the standard single module (flagged as a separate task); the docs don't
-  recommend those flags until it changes.
+- `lucent new module --ios/--android` scaffolded split platform files, not
+  the standard single module; fixed on main (merged into this branch).
 - `lucent explain` links to `/docs/language/diagnostics/#…`: update
   `codes.ts` when the diagnostics reference moves.
 - `docs/semantics.md` lists `toSorted`, `toReversed`, `findLast*` as
@@ -101,10 +100,12 @@ Found on the way, left for their own work:
       concept map, and an Expo module (Swift, Kotlin, JS binding, written
       for the page) next to one Lucent module.
 - [x] The boundary page's numbers are a real `lucent bench` run (desktop
-      Hermes, 2026-09-24). They contradict the plan's "few, coarse calls":
-      one call copying 1,000 objects was slower (198.7 µs) than 1,000 calls
-      passing numbers (111.9 µs). The page teaches "move the work, not the
-      data", with the four measured designs.
+      Hermes). They contradict the plan's "few, coarse calls": the first run
+      (2026-09-24) had one call copying 1,000 objects slower (198.7 µs) than
+      1,000 calls passing numbers (111.9 µs). After main's faster struct and
+      array conversion, re-measured: objects 67.1 µs, still slower than
+      JavaScript (54.0 µs); two arrays of numbers 18.8 µs; data kept native
+      7.9 µs. The page teaches "move the work, not the data".
 - The memory page states the limit: no `Weak`, no `using`; sessions get an
   explicit `close()`.
 - Found: `delete` on a `Record` compiles (a research note said otherwise);
