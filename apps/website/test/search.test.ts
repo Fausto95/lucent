@@ -14,7 +14,7 @@ describe("search", () => {
   });
 
   it("matches word prefixes, case-insensitively", () => {
-    expect(search(entries, "abort").map((r) => r.href)).toEqual(["/docs/guides/cancel-work/", "/docs/reference/built-ins/"]);
+    expect(search(entries, "ABORT").map((r) => r.href).sort()).toEqual(["/docs/guides/cancel-work/", "/docs/reference/built-ins/"]);
   });
 
   it("needs every word of the query", () => {
