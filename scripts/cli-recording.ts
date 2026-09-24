@@ -85,11 +85,14 @@ function spans(line: string, style: Style): { spans: Span[]; style: Style } {
       if (c === "0" || c === "") s = { fill: FG, bold: false, dim: false };
       else if (c === "1") s.bold = true;
       else if (c === "2") s.dim = true;
-      else if (c === "22") ((s.bold = false), (s.dim = false));
-      else if (c === "39") s.fill = FG;
-      else if (c === "38" && codes[i + 1] === "5")
-        ((s.fill = codes[i + 2] === "141" ? VIOLET : FG), (i += 2));
-      else if (PALETTE[c]) s.fill = PALETTE[c]!;
+      else if (c === "22") {
+        s.bold = false;
+        s.dim = false;
+      } else if (c === "39") s.fill = FG;
+      else if (c === "38" && codes[i + 1] === "5") {
+        s.fill = codes[i + 2] === "141" ? VIOLET : FG;
+        i += 2;
+      } else if (PALETTE[c]) s.fill = PALETTE[c]!;
     }
   }
   return { spans: out, style: s };

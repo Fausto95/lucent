@@ -16,8 +16,10 @@ export function diffLines(before: string, after: string): DiffLine[] {
   let i = 0;
   let j = 0;
   while (i < a.length || j < b.length) {
-    if (i < a.length && j < b.length && a[i] === b[j])
-      (out.push({ kind: " ", text: a[i++]! }), j++);
+    if (i < a.length && j < b.length && a[i] === b[j]) {
+      out.push({ kind: " ", text: a[i++]! });
+      j++;
+    }
     // Removals first, as diffs read.
     else if (i < a.length && (j >= b.length || lcs[i + 1]![j]! >= lcs[i]![j + 1]!))
       out.push({ kind: "-", text: a[i++]! });
