@@ -66,7 +66,7 @@ Left:
 
 - [ ] A fresh bare app and a fresh Expo app from the tarball + `npx lucent
       init` to a working module on both platforms.
-- [ ] `npm deprecate` the six 0.0.3 packages (the user runs it).
+- [x] `npm deprecate` the six 0.0.3 packages (the user runs it).
 
 Postponed:
 
@@ -91,9 +91,15 @@ Done:
       Diagnostics carry `fix` and `docs`; the editor plugin shows them; the
       website's diagnostics page is generated from the same data.
 
+- [x] `build` and `check`: steps with timings (live with Ink on a TTY, one
+      line each elsewhere), modules with their platforms, what to do next;
+      problems as code frames with fix and `lucent explain`; `--json`
+      validated against `packages/lucent/schemas/*.schema.json`. A passing
+      check is remembered under the build's inputs key: the example app's
+      warm check takes 0.3 s (1.6 s after an edit).
+
 Left:
 
-- [ ] `build` and `check` on the UI module (step list, code frames, `--json`)
 - [ ] `doctor`
 - [ ] `init` (Ink, diffs, `--yes`)
 - [ ] `dev` (Ink dashboard), replacing `build --watch`; `withLucent` output
