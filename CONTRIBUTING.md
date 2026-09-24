@@ -2,7 +2,12 @@
 
 ## Setup
 
-- Node 22.12 or later and pnpm 9 (`corepack enable`), then `pnpm install`.
+- Node 22.12 or later and pnpm 9 (`corepack enable`), then `pnpm install`
+  and `pnpm build`.
+- The `lucent` command in the repository runs the bundle in
+  `packages/lucent/dist`, like the published package. `pnpm build` refreshes
+  it (a cache hit when nothing changed); `pnpm test` and `pnpm lucent …` build
+  first.
 - For the native suites, a Hermes build at `~/hermes` (or `HERMES_DIR`):
 
   ```sh

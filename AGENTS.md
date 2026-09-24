@@ -45,6 +45,7 @@ runtime/js           loader, copied to .lucent/native/js/_lucent/runtime.js
 
 ```sh
 pnpm install
+pnpm build   # the CLI (bin/lucent.cjs) runs dist/: rebuild after changing packages/ (cached)
 packages/runtime/test/run.sh
 HERMES_DIR=~/hermes npx tsx packages/compiler/test/e2e/run.ts [case…]
 HERMES_DIR=~/hermes npx tsx scripts/app-check.ts apps/bare-example

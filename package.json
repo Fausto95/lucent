@@ -16,7 +16,7 @@
     "test:e2e": "tsx packages/compiler/test/e2e/run.ts",
     "website": "pnpm --filter @lucent-lang/website dev",
     "website:build": "pnpm --filter @lucent-lang/website build",
-    "lucent": "tsx packages/lucent/src/cli/main.ts"
+    "lucent": "vp run @lucent-lang/lucent#build >&2 && node packages/lucent/bin/lucent.cjs"
   },
   "devDependencies": {
     "@types/node": "^24.7.0",

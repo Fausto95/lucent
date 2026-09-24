@@ -26,6 +26,7 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - run: sudo apt-get update && sudo apt-get install -y ninja-build libicu-dev
 
       - name: Restore Hermes build
@@ -98,6 +99,7 @@ jobs:
           node-version-file: .node-version
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
@@ -151,6 +153,7 @@ jobs:
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
       - name: Generate the native package
         working-directory: apps/bare-example
         run: pnpm lucent
