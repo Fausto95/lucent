@@ -19,6 +19,6 @@ export const blocks: Block[] = [
   },
   {
     kind: "p",
-    text: "They haven't been tested on physical devices yet ([roadmap](/docs/status/)).",
+    text: "They haven't been tested on physical devices yet ([roadmap](/docs/roadmap/)).",
   },
 ];

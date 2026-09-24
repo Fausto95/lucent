@@ -77,6 +77,6 @@ export function unsubscribe(id: number): void {
   },
   {
     kind: "p",
-    text: "There's no `Weak` reference and no `using` statement yet ([roadmap](/docs/status/)).",
+    text: "There's no `Weak` reference and no `using` statement yet ([roadmap](/docs/roadmap/)).",
   },
 ];

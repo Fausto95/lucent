@@ -65,7 +65,8 @@ export const docsPageRoutes = [
   createRoute({ getParentRoute: () => docsRoute, path: "examples/secure-store", ...docPage("examples/secure-store") }),
   createRoute({ getParentRoute: () => docsRoute, path: "examples/haptics", ...docPage("examples/haptics") }),
   createRoute({ getParentRoute: () => docsRoute, path: "comparison", ...docPage("comparison") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "status", ...docPage("status") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "faq", ...docPage("faq") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "roadmap", ...docPage("roadmap") }),
 ] as const;
 
 export const docsRedirectRoutes = [
@@ -87,7 +88,7 @@ export const docsRedirectRoutes = [
     getParentRoute: () => docsRoute,
     path: "what-you-can-build",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/status/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/roadmap/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
@@ -129,7 +130,7 @@ export const docsRedirectRoutes = [
     getParentRoute: () => docsRoute,
     path: "language/native-views",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/status/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/roadmap/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
@@ -354,6 +355,13 @@ export const docsRedirectRoutes = [
     path: "platform-apis",
     beforeLoad: ({ location }) => {
       throw redirect({ to: "/docs/guides/call-an-ios-api/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "status",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/roadmap/", ...keepHash(location), replace: true });
     },
   }),
 ] as const;

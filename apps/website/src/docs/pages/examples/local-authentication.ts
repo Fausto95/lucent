@@ -29,7 +29,7 @@ if (await LocalAuthentication.hasHardwareAsync()) {
   {
     kind: "note",
     tone: "warn",
-    text: "Android has no biometric prompt yet: it needs the current activity, which `lucent:android` doesn't expose ([roadmap](/docs/status/)).",
+    text: "Android has no biometric prompt yet: it needs the current activity, which `lucent:android` doesn't expose ([roadmap](/docs/roadmap/)).",
   },
   {
     kind: "p",

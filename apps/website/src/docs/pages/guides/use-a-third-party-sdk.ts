@@ -21,7 +21,7 @@ export const blocks: Block[] = [
   {
     kind: "list",
     items: [
-      "Swift Package Manager libraries can't be imported yet; CocoaPods ones can ([roadmap](/docs/status/)).",
+      "Swift Package Manager libraries can't be imported yet; CocoaPods ones can ([roadmap](/docs/roadmap/)).",
       "A library in a Lucent package goes in its `lucent.json` instead, so apps get it when they install the package.",
     ],
   },

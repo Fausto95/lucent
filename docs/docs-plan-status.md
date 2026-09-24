@@ -27,8 +27,8 @@ Decisions on the plan's open questions (2026-09-24):
       25 words), paragraph length (under 4 sentences), emoji, "coming soon".
 - [x] `scripts/website.ts` writes each page's prose to
       `apps/website/.prose/` and runs Vale; CI installs Vale 3.22.
-- Vale only warns on the pages written before these rules (64 findings on
-  26 pages). It blocks on each new page as it lands.
+- Vale warned on the pages written before these rules until the last one
+  was replaced (step 9); it now blocks on every page.
 
 Guessed (not in the plan): the length budgets in words and code lines
 (Start and Guides 400 words / 60 lines, Learn 800 / 120).
@@ -180,7 +180,16 @@ Found on the way, left for their own work:
 - Found: an early return (`if (PLATFORM === "ios") return …;`) doesn't make
   the code after it Android code; a branch needs `else`. The platform-code
   guide must say so.
-- [ ] Comparison, FAQ, Roadmap (the rest of step 9).
+- [x] Roadmap (`/docs/roadmap/`), generated from `ROADMAP.md`, which was
+      rewritten: it still marked delegates, iOS bindings and packages as
+      later. Status redirects there.
+- [x] FAQ: ten questions, each answered in at most three sentences, with a
+      link.
+- [x] Comparison: Lucent's rows updated (SDK access, maturity link), the
+      planned-benchmark paragraph replaced by what exists (`lucent bench`),
+      sources as a list, dated.
+- [x] The last legacy pages are gone, and so is the `legacy` flag: Vale
+      blocks on every page.
 
 ## 10. Website features (pulled forward)
 

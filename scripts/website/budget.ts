@@ -38,11 +38,11 @@ function words(blocks: Block[]): number {
   return own + panels;
 }
 
-/** A page over its budget should be split. Legacy pages are exempt: they are being replaced. */
+/** A page over its budget should be split. */
 export function checkBudgets(pages: DocPage[]): string[] {
   return pages.flatMap((page) => {
     const budget = budgets[page.kind];
-    if (!budget || page.legacy) return [];
+    if (!budget) return [];
     const w = words(page.blocks);
     const c = codeLines(page.blocks);
     const over = [

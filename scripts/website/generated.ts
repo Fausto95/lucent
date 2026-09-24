@@ -206,6 +206,27 @@ function compatibility(): string {
   return `${header}export const requirements = ${json({ ...REQUIREMENTS, minAndroidApi: MIN_ANDROID_API })} as const;\n`;
 }
 
+const STATUS: Record<string, string> = { "✅": "done", "🚧": "in progress", "⏳": "next", "🔭": "later" };
+
+/** The roadmap page's data, parsed from ROADMAP.md: milestones, their goal, their items and each item's status. */
+function roadmap(): string {
+  const text = fs.readFileSync(path.join(root, "ROADMAP.md"), "utf8");
+  const milestones: { title: string; goal?: string; items: { status?: string; text: string }[] }[] = [];
+  for (const line of text.split("\n")) {
+    const heading = /^## (.+)$/.exec(line);
+    const goal = /^Goal: (.+)$/.exec(line);
+    const item = /^- (?:(✅|🚧|⏳|🔭) )?(.+)$/.exec(line);
+    const current = milestones[milestones.length - 1];
+    if (heading) milestones.push({ title: heading[1]!, items: [] });
+    else if (goal && current) current.goal = goal[1]!;
+    else if (item && current) {
+      const status = item[1] ? STATUS[item[1]] : undefined;
+      current.items.push({ ...(status ? { status } : {}), text: item[2]! });
+    }
+  }
+  return `${header}/** From ROADMAP.md. */\nexport const milestones: { title: string; goal?: string; items: { status?: string; text: string }[] }[] = ${json(milestones)};\n`;
+}
+
 /** apps/website/src/generated/<name> → its content. */
 export function generatedFiles(): Record<string, string> {
   return {
@@ -217,6 +238,7 @@ export function generatedFiles(): Record<string, string> {
     "lucent-json.ts": lucentJson(),
     "modules.ts": lucentModules(),
     "compatibility.ts": compatibility(),
+    "roadmap.ts": roadmap(),
     ...Object.fromEntries(Object.entries(exampleSources).map(([name, file]) => [`examples/${name}.ts`, example(file)])),
     ...Object.fromEntries(tutorialSteps().map((step, i, steps) => [`tutorial/${step}.ts`, tutorialStep(steps, i)])),
   };

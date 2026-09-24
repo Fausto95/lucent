@@ -47,6 +47,6 @@ counter.increment(2); // 2`,
   {
     kind: "note",
     tone: "warn",
-    text: "Lucent has no views yet: a Fabric component stays as it is ([roadmap](/docs/status/)).",
+    text: "Lucent has no views yet: a Fabric component stays as it is ([roadmap](/docs/roadmap/)).",
   },
 ];

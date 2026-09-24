@@ -33,6 +33,6 @@ export default {
   {
     kind: "note",
     tone: "warn",
-    text: "Jest or Vitest can't import `lucent:core` yet, so shared modules that use it can't run there as TypeScript ([roadmap](/docs/status/)).",
+    text: "Jest or Vitest can't import `lucent:core` yet, so shared modules that use it can't run there as TypeScript ([roadmap](/docs/roadmap/)).",
   },
 ];

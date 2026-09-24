@@ -57,5 +57,5 @@ export const blocks: Block[] = [
       "Both: SDK objects crossing to JavaScript, and calling a method of an SDK object as a value.",
     ],
   },
-  { kind: "p", text: "The [roadmap](/docs/status/) tracks what comes next." },
+  { kind: "p", text: "The [roadmap](/docs/roadmap/) tracks what comes next." },
 ];

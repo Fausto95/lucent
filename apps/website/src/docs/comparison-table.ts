@@ -74,9 +74,9 @@ export const comparisonRows: ComparisonRow[] = [
     summary: true,
     cells: {
       lucent: {
-        value: "Early",
+        value: "Most",
         tone: "partial",
-        detail: "Android generated from `android.jar`; iOS a UIKit subset. See [Platform APIs](/docs/platform-apis/)",
+        detail: "typed from your Xcode and Android SDK; some gaps, such as Android generics. See [SDK types](/docs/reference/platform-types/)",
       },
       expo: { value: "Full", tone: "available" },
       nitro: { value: "Full", tone: "available" },
@@ -106,7 +106,7 @@ export const comparisonRows: ComparisonRow[] = [
     label: "Maturity",
     summary: true,
     cells: {
-      lucent: { value: "Experimental", tone: "partial", detail: "see [Status](/docs/status/)" },
+      lucent: { value: "Experimental", tone: "partial", detail: "see the [roadmap](/docs/roadmap/)" },
       expo: { value: "Production", tone: "available", detail: "the Expo SDK is built on it" },
       nitro: { value: "Pre-1.0", tone: "partial", detail: "0.37 at the time of writing; used by published libraries" },
       turbo: { value: "Production", tone: "available", detail: "part of React Native core" },

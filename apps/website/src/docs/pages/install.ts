@@ -7,7 +7,7 @@ export const blocks: Block[] = [
   {
     kind: "note",
     tone: "warn",
-    text: "`@lucent-lang/lucent` isn't on npm yet. Until it is, run `pnpm pack` in the repository's `packages/lucent` and install the tarball it writes ([roadmap](/docs/status/)).",
+    text: "`@lucent-lang/lucent` isn't on npm yet. Until it is, run `pnpm pack` in the repository's `packages/lucent` and install the tarball it writes ([roadmap](/docs/roadmap/)).",
   },
   {
     kind: "p",

@@ -38,10 +38,7 @@ export function proseOf(blocks: Block[]): string[] {
 
 const proseDir = path.join(root, "apps/website/.prose");
 
-/**
- * Writes each page's prose to apps/website/.prose/ and runs Vale on it.
- * Findings on legacy pages are warnings; on the others, problems.
- */
+/** Writes each page's prose to apps/website/.prose/ and runs Vale on it. */
 export function checkProse(pages: DocPage[], required: boolean): { ran: boolean; problems: string[]; warnings: string[] } {
   fs.rmSync(proseDir, { recursive: true, force: true });
   const byFile = new Map<string, DocPage>();
@@ -63,7 +60,7 @@ export function checkProse(pages: DocPage[], required: boolean): { ran: boolean;
     const [file = "", at, , rule, ...message] = line.split(":");
     const page = byFile.get(file);
     const finding = `${page ? where(page.slug) : file}: ${message.join(":")} [${rule}, .prose/${path.relative(proseDir, file)}:${at}]`;
-    (page?.legacy ? warnings : problems).push(finding);
+    problems.push(finding);
   }
   return { ran: true, problems, warnings };
 }

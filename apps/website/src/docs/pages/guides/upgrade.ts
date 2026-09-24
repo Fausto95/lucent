@@ -30,6 +30,6 @@ npx lucent build`,
   {
     kind: "note",
     tone: "warn",
-    text: "There's no way yet to pin an SDK version, or to list the SDK changes that affect your code ([roadmap](/docs/status/)).",
+    text: "There's no way yet to pin an SDK version, or to list the SDK changes that affect your code ([roadmap](/docs/roadmap/)).",
   },
 ];

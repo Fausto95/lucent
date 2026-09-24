@@ -409,10 +409,27 @@ export const docsGroups: DocGroup[] = [
     ],
   },
   {
-    label: "Legacy",
+    label: "More",
     entries: [
-      { slug: "comparison", kind: "other", legacy: true, title: "Comparison", description: "How Lucent compares with Expo Modules, Nitro Modules and Turbo Native Modules, and when to pick each." },
-      { slug: "status", kind: "other", legacy: true, title: "Status & roadmap", description: "What Lucent can do today, what it cannot do yet, and the milestones in between.", next: "" },
+      {
+        slug: "comparison",
+        kind: "other",
+        title: "Lucent, Expo Modules, Nitro and Turbo Native Modules",
+        description: "What each one has you write, how it reaches native code, what it can do today, and when to pick it.",
+      },
+      {
+        slug: "faq",
+        kind: "other",
+        title: "Frequently asked questions",
+        description: "Short answers to the questions people ask first, each with a link to the details.",
+      },
+      {
+        slug: "roadmap",
+        kind: "other",
+        title: "Roadmap",
+        description: "What works today, what's next, and what's later, milestone by milestone.",
+        next: "",
+      },
     ],
   },
 ];

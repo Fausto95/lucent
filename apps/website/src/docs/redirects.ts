@@ -6,13 +6,13 @@
 export const docsRedirects: Record<string, string> = {
   "getting-started": "install",
   "getting-started-expo": "install",
-  "what-you-can-build": "status",
+  "what-you-can-build": "roadmap",
   "language/functions-and-control-flow": "reference/language",
   "language/async-and-errors": "thinking/threads",
   "language/unions": "reference/language",
   "language/native-classes": "reference/language",
   "language/events": "guides/accept-a-js-callback",
-  "language/native-views": "status",
+  "language/native-views": "roadmap",
   "language/threads": "thinking/threads",
   "language/platform-and-capabilities": "guides/call-an-ios-api",
   "api/packages": "guides/call-an-ios-api",
@@ -45,4 +45,5 @@ export const docsRedirects: Record<string, string> = {
   "boundary/callbacks": "guides/accept-a-js-callback",
   "boundary/errors": "guides/throw-and-handle-errors",
   "platform-apis": "guides/call-an-ios-api",
+  status: "roadmap",
 };

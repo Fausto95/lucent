@@ -68,8 +68,6 @@ export interface DocEntry {
   description: string;
   /** The page's one "Next" link, when it isn't the following page in reading order. */
   next?: string;
-  /** Written before CONTRIBUTING-DOCS.md; Vale only warns. Goes away as each page is replaced. */
-  legacy?: true;
   /**
    * A directory (from the repository root) whose `*.lucent.ts` files compile with
    * the page's samples, so a page can show one module of a project, or its diff.
