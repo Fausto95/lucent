@@ -1,0 +1,67 @@
+{
+  "$id": "https://lucent-lang.dev/schemas/sdk-search.schema.json",
+  "title": "lucent sdk search --json",
+  "type": "object",
+  "required": [
+    "term",
+    "searched",
+    "matches"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "term": {
+      "type": "string"
+    },
+    "searched": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Modules searched: the project's imports and the SDK cache"
+    },
+    "matches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "platform",
+          "module",
+          "kind",
+          "name",
+          "import"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "platform": {
+            "enum": [
+              "ios",
+              "android"
+            ]
+          },
+          "module": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "class",
+              "protocol",
+              "interface",
+              "enum",
+              "struct",
+              "method",
+              "property",
+              "function",
+              "constant"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "description": "The type, or Type.member(params) for members"
+          },
+          "import": {
+            "type": "string",
+            "description": "The import line that brings the type in"
+          }
+        }
+      }
+    }
+  }
+}

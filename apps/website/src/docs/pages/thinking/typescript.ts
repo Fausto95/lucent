@@ -36,6 +36,6 @@ export function parseSettings(text: string): Settings {
   },
   {
     kind: "p",
-    text: "Where Lucent does behave differently from JavaScript, [the list of differences](/docs/language/differences/) has each case and its reason.",
+    text: "Where Lucent does behave differently from JavaScript, [the list of differences](/docs/reference/language/#differences-from-javascript) has each case and its reason.",
   },
 ];

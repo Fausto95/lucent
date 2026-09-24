@@ -139,6 +139,6 @@ await pending; // rejects with AbortError: signal is aborted without reason`,
     },
     {
       kind: "p",
-      text: "Signals only go from JavaScript to Lucent: an `AbortSignal` cannot be returned, and an `AbortController` cannot cross at all. Inside Lucent, `new AbortController()` works as in JavaScript. See [Async](/docs/language/async/) for `delay` and cancellation inside Lucent.",
+      text: "Signals only go from JavaScript to Lucent: an `AbortSignal` cannot be returned, and an `AbortController` cannot cross at all. Inside Lucent, `new AbortController()` works as in JavaScript. See [Async](/docs/thinking/threads/) for `delay` and cancellation inside Lucent.",
     },
 ];

@@ -1,6 +1,8 @@
 import { Explanations, formatDiagnostic } from "../../packages/compiler/src/index.ts";
 import { GLOBAL_FLAGS } from "../../packages/lucent/src/cli/args.ts";
 import { commands } from "../../packages/lucent/src/cli/commands.ts";
+import { REQUIREMENTS } from "../../packages/lucent/src/cli/doctor.ts";
+import { MIN_ANDROID_API } from "../../packages/compiler/src/emit/native.ts";
 import { docsEntries } from "../../apps/website/src/docs/nav.ts";
 import { docsRedirects } from "../../apps/website/src/docs/redirects.ts";
 import { docsHref } from "../../apps/website/src/docs/types.ts";
@@ -163,6 +165,45 @@ function tutorialStep(steps: string[], index: number): string {
   return `${header}/** apps/tutorial/steps/${steps[index]} */\nexport const files: Record<string, string> = ${json(files)};\n\n/** What changed since the step before, per file. */\nexport const diffs: Record<string, string> = ${json(diffs)};\n`;
 }
 
+type SchemaNode = { type?: string; description?: string; properties?: Record<string, SchemaNode>; additionalProperties?: SchemaNode | boolean; items?: SchemaNode };
+
+/** The lucent.json reference: every field of its schema, with its type and description. */
+function lucentJson(): string {
+  const schema = JSON.parse(fs.readFileSync(path.join(root, "packages/lucent/schemas/lucent.schema.json"), "utf8")) as SchemaNode;
+  const typeOf = (node: SchemaNode): string => {
+    if (node.type === "array") return `${node.items ? typeOf(node.items) : "unknown"}[]`;
+    if (node.type === "object" && typeof node.additionalProperties === "object") return `{ [key]: ${typeOf(node.additionalProperties)} }`;
+    return node.type ?? "unknown";
+  };
+  const fields: { field: string; type: string; description: string }[] = [];
+  const walk = (node: SchemaNode, at: string) => {
+    for (const [name, child] of Object.entries(node.properties ?? {})) {
+      const field = at ? `${at}.${name}` : name;
+      fields.push({ field, type: typeOf(child), description: child.description ?? "" });
+      if (child.properties) walk(child, field);
+    }
+  };
+  walk(schema, "");
+  return `${header}/** From packages/lucent/schemas/lucent.schema.json. */\nexport const lucentJsonDescription = ${JSON.stringify(schema.description ?? "")};\n\nexport const lucentJsonFields: { field: string; type: string; description: string }[] = ${json(fields)};\n`;
+}
+
+/** The lucent:* modules, from the declarations the compiler serves for them. */
+function lucentModules(): string {
+  const dir = path.join(root, "packages/compiler/lib/sdk");
+  const modules = ["core", "platform", "thread", "ios", "android"].map((name) => {
+    const text = fs.readFileSync(path.join(dir, `${name}.d.ts`), "utf8");
+    // The file's opening comment is for contributors; the rest is the module's API.
+    const opening = /^(\/\/[^\n]*\n|\/\*\*[\s\S]*?\*\/\n)\s*/.exec(text);
+    return { name: `lucent:${name}`, declarations: text.slice(opening?.[0].length ?? 0).trimEnd() };
+  });
+  return `${header}/** From packages/compiler/lib/sdk/*.d.ts. */\nexport const lucentModules: { name: string; declarations: string }[] = ${json(modules)};\n`;
+}
+
+/** What Lucent needs, as lucent doctor and the compiler check it. */
+function compatibility(): string {
+  return `${header}export const requirements = ${json({ ...REQUIREMENTS, minAndroidApi: MIN_ANDROID_API })} as const;\n`;
+}
+
 /** apps/website/src/generated/<name> → its content. */
 export function generatedFiles(): Record<string, string> {
   return {
@@ -171,6 +212,9 @@ export function generatedFiles(): Record<string, string> {
     "cli.ts": cli(),
     "diagnostics.ts": diagnostics(),
     "docs-routes.ts": docsRoutes(),
+    "lucent-json.ts": lucentJson(),
+    "modules.ts": lucentModules(),
+    "compatibility.ts": compatibility(),
     ...Object.fromEntries(Object.entries(exampleSources).map(([name, file]) => [`examples/${name}.ts`, example(file)])),
     ...Object.fromEntries(tutorialSteps().map((step, i, steps) => [`tutorial/${step}.ts`, tutorialStep(steps, i)])),
   };

@@ -15,7 +15,7 @@ export const blocks: Block[] = [
           },
           {
             kind: "p",
-            text: "Then Lucent applies its own rules: no `any`, no `var`, no dynamic property access. Breaking one stops the build with a `LUCENT` code, and nothing is written. The [diagnostics](/docs/language/diagnostics/) list every code.",
+            text: "Then Lucent applies its own rules: no `any`, no `var`, no dynamic property access. Breaking one stops the build with a `LUCENT` code, and nothing is written. The [diagnostics](/docs/reference/diagnostics/) list every code.",
           },
         ],
       },
@@ -38,7 +38,7 @@ export const blocks: Block[] = [
           },
           {
             kind: "p",
-            text: "The C++ keeps JavaScript's behavior. A `number` is a `double` with JavaScript's arithmetic, strings are UTF-16, and objects are shared by reference. The few [differences](/docs/language/differences/) are listed.",
+            text: "The C++ keeps JavaScript's behavior. A `number` is a `double` with JavaScript's arithmetic, strings are UTF-16, and objects are shared by reference. The few [differences](/docs/reference/language/#differences-from-javascript) are listed.",
           },
         ],
       },

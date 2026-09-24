@@ -15,7 +15,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { websiteSrc } from "./website/context.ts";
+import { root, websiteSrc } from "./website/context.ts";
 import { checkBudgets } from "./website/budget.ts";
 import { generatedFiles } from "./website/generated.ts";
 import { checkLinks } from "./website/links.ts";
@@ -42,6 +42,18 @@ function write(name: string, content: string): void {
 // Generated files first: pages import some of them.
 const generated: Record<string, string> = generatedFiles();
 for (const [name, content] of Object.entries(generated)) write(name, content);
+
+// The JSON schemas, served where their $id says (https://lucent-lang.dev/schemas/…).
+const schemasDir = path.join(root, "packages/lucent/schemas");
+const publicSchemas = path.join(root, "apps/website/public/schemas");
+fs.mkdirSync(publicSchemas, { recursive: true });
+for (const name of fs.readdirSync(schemasDir)) {
+  const content = fs.readFileSync(path.join(schemasDir, name), "utf8");
+  const file = path.join(publicSchemas, name);
+  if (fs.existsSync(file) && fs.readFileSync(file, "utf8") === content) continue;
+  if (check) problems.push(`apps/website/public/schemas/${name} is stale: run \`pnpm exec tsx scripts/website.ts\``);
+  else fs.writeFileSync(file, content);
+}
 
 const pages = await loadPages();
 problems.push(...checkStructure(pages));

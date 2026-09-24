@@ -6,29 +6,38 @@ const tabs = (label: "wrong" | "right", files: Record<string, string>) =>
   Object.entries(files).map(([filename, code]) => ({ label: `${label === "wrong" ? "✗" : "✓"} ${filename}`, filename: `${filename} (${label})`, code: code.trimEnd() }));
 
 export const blocks: Block[] = [
-    {
-      kind: "p",
-      text: "Code outside the subset fails the build with a diagnostic that points at the source and says how to fix it. Nothing is written until every diagnostic is fixed. `lucent build`, `lucent check`, Metro and the [editor plugin](/docs/reference/core/) all report the same diagnostics, and `lucent explain <code>` prints the explanations on this page.",
-    },
-    {
-      kind: "code",
-      filename: "terminal",
-      code: "src/geo.lucent.ts:2:3: LUCENT1001: use `let` or `const` instead of `var`\n\n✗ 1 problem(s); nothing was written.",
-    },
-    {
-      kind: "p",
-      text: "Codes are stable. The first digit groups them: `1xxx` for syntax and built-ins, `2xxx` for types without a native representation, `3xxx` for module structure, and `9001` for TypeScript errors, because Lucent compiles only programs that type-check.",
-    },
-    { kind: "h2", text: "All codes" },
-    {
-      kind: "table",
-      head: ["Code", "Meaning"],
-      rows: explanations.map(({ code, summary }) => [`[\`${code}\`](#${code.toLowerCase()})`, summary]),
-    },
-    ...explanations.flatMap(({ code, title, details, fix, wrong, right }): Block[] => [
-      { kind: "h3", text: code },
-      { kind: "p", text: `**${title}.** ${details}` },
-      { kind: "p", text: `**Fix:** ${fix}.` },
-      { kind: "tabs", tabs: [...tabs("wrong", wrong), ...tabs("right", right)] },
-    ]),
+  {
+    kind: "code",
+    filename: "terminal",
+    copy: false,
+    code: `  error LUCENT2001  \`any\` has no native representation; give this value a
+                    concrete type
+
+    src/greet.lucent.ts:1:23
+    1 │ export function greet(name: any): string {
+      │                       ^^^^^^^^^
+
+  fix  use a concrete type, a union, or a generic parameter
+  docs lucent explain LUCENT2001`,
+  },
+  {
+    kind: "p",
+    text: "`lucent build`, `lucent check`, `lucent dev` and the [editor plugin](/docs/reference/metro-and-expo/#editor-plugin) report the same diagnostics. A build with one writes nothing. `lucent explain <code>` prints the explanation this page shows.",
+  },
+  {
+    kind: "p",
+    text: "Codes are stable. `1xxx` are syntax and built-ins, `2xxx` types without a native form, `3xxx` modules and platform code. `9001` is a TypeScript error: Lucent compiles only programs that type-check.",
+  },
+  {
+    kind: "table",
+    head: ["Code", "Meaning"],
+    rows: explanations.map(({ code, summary }) => [`[\`${code}\`](#${code.toLowerCase()})`, summary]),
+  },
+  ...explanations.flatMap(({ code, title, details, fix, wrong, right }): Block[] => [
+    { kind: "h2", text: code },
+    { kind: "p", text: `**${title}**` },
+    { kind: "p", text: details },
+    { kind: "p", text: `**Fix:** ${fix}.` },
+    { kind: "tabs", tabs: [...tabs("wrong", wrong), ...tabs("right", right)] },
+  ]),
 ];

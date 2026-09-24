@@ -40,7 +40,7 @@ export const blocks: Block[] = [
     { kind: "h3", text: "M1: The language (done)" },
     {
       kind: "p",
-      text: "Complex, self-contained modules (parsers, codecs, crypto, data structures) can be written in Lucent: the full statement and expression set, classes, closures, generics, coroutines, callbacks, cancellation and integer inference. See [the language](/docs/language/).",
+      text: "Complex, self-contained modules (parsers, codecs, crypto, data structures) can be written in Lucent: the full statement and expression set, classes, closures, generics, coroutines, callbacks, cancellation and integer inference. See [the language](/docs/reference/language/).",
     },
     { kind: "h3", text: "M2: Platform APIs (in progress)" },
     {

@@ -3,7 +3,7 @@ import type { Block } from "../../types";
 export const blocks: Block[] = [
     {
       kind: "p",
-      text: "Errors cross in both directions and keep what matters: `name`, `message`, a machine-readable `code`, and a `stack` that points at the right source. How to throw and catch inside Lucent is covered in [Errors](/docs/language/errors/).",
+      text: "Errors cross in both directions and keep what matters: `name`, `message`, a machine-readable `code`, and a `stack` that points at the right source. How to throw and catch inside Lucent is covered in [Errors](/docs/reference/language/).",
     },
     { kind: "h2", text: "From Lucent to JavaScript" },
     {
@@ -67,7 +67,7 @@ await load("x").catch((e) => e.code); // "E_PORT"`,
       items: [
         "The first line of `stack` below the message is the Lucent frame that created the error: the function, the absolute path of the `.lucent.ts` file and the line. The JavaScript frames of the caller follow.",
         "Async exports reject their promise with the same error.",
-        "Invalid arguments throw a `TypeError` before the function runs (see [Argument validation](/docs/boundary/conversions/#argument-validation)). This happens synchronously, even for async exports, so a `.catch()` on the returned promise does not see it; `await` inside `try` does.",
+        "Invalid arguments throw a `TypeError` before the function runs (see [Argument validation](/docs/reference/boundary-types/#when-a-value-doesn-t-match)). This happens synchronously, even for async exports, so a `.catch()` on the returned promise does not see it; `await` inside `try` does.",
         "Errors thrown by the runtime, such as an out-of-range array write or a failed `!`, are ordinary `TypeError`s and `RangeError`s.",
       ],
     },
@@ -110,7 +110,7 @@ await runAll(["a", "b"], async (job) => {
     { kind: "h2", text: "Native crashes" },
     {
       kind: "p",
-      text: "Lucent throws where JavaScript would, so most mistakes surface as catchable errors. Some cannot: very deep recursion can overflow the native stack instead of throwing `RangeError` (see [Differences from JavaScript](/docs/language/differences/)).",
+      text: "Lucent throws where JavaScript would, so most mistakes surface as catchable errors. Some cannot: very deep recursion can overflow the native stack instead of throwing `RangeError` (see [Differences from JavaScript](/docs/reference/language/#differences-from-javascript)).",
     },
     {
       kind: "p",

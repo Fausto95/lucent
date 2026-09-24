@@ -129,6 +129,28 @@ Found on the way, left for their own work:
 - [ ] Device run of the tutorial on the iOS simulator and the Android
       emulator (with the other device checks, at the end).
 
+## 7. Reference
+
+- [x] Ten pages: language features, built-ins, types across the boundary,
+      SDK types, the `lucent:*` modules, CLI, `lucent.json`, Metro/Expo/editor
+      options, diagnostics, compatibility.
+- [x] Generated, drift-checked: CLI (command table), diagnostics (the same
+      data as `lucent explain`), `lucent:*` (the `.d.ts` files the compiler
+      serves), `lucent.json` (its new schema), compatibility (doctor's
+      `REQUIREMENTS` and the compiler's `MIN_ANDROID_API`). The JSON schemas
+      are served at `/schemas/`, where their `$id` points.
+- [x] `lucent.json` has a JSON schema (test first), kept in step with the
+      fields the build reads.
+- [x] `lucent explain` links to `/docs/reference/diagnostics/`; the old URL
+      redirects with its anchor. The explanations were shortened to pass the
+      writing rules.
+- [x] Retired, with redirects: the language pages, exports, conversions,
+      identity, and the old Metro, Expo and `lucent:core` pages.
+- Written by hand, from verified facts (no data to generate them from):
+  language features, built-ins, boundary types, SDK types.
+- Found: a misplaced doc comment in `lucent:ios` (fixed); on main, three red
+  diagnostics tests wait for the other session's compiler work.
+
 ## 9. Examples (pulled forward, asked for on 2026-09-24)
 
 - [x] `/docs/examples/`: a table of the ports, then one page each for

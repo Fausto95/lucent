@@ -25,6 +25,16 @@ export const docsPageRoutes = [
   createRoute({ getParentRoute: () => docsRoute, path: "thinking/memory", ...docPage("thinking/memory") }),
   createRoute({ getParentRoute: () => docsRoute, path: "thinking/typescript", ...docPage("thinking/typescript") }),
   createRoute({ getParentRoute: () => docsRoute, path: "coming-from-native", ...docPage("coming-from-native") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "reference/language", ...docPage("reference/language") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "reference/built-ins", ...docPage("reference/built-ins") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "reference/boundary-types", ...docPage("reference/boundary-types") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "reference/platform-types", ...docPage("reference/platform-types") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "reference/modules", ...docPage("reference/modules") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "reference/cli", ...docPage("reference/cli") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "reference/lucent-json", ...docPage("reference/lucent-json") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "reference/metro-and-expo", ...docPage("reference/metro-and-expo") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "reference/diagnostics", ...docPage("reference/diagnostics") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "reference/compatibility", ...docPage("reference/compatibility") }),
   createRoute({ getParentRoute: () => docsRoute, path: "examples", ...docPage("examples") }),
   createRoute({ getParentRoute: () => docsRoute, path: "examples/clipboard", ...docPage("examples/clipboard") }),
   createRoute({ getParentRoute: () => docsRoute, path: "examples/location", ...docPage("examples/location") }),
@@ -34,25 +44,9 @@ export const docsPageRoutes = [
   createRoute({ getParentRoute: () => docsRoute, path: "examples/haptics", ...docPage("examples/haptics") }),
   createRoute({ getParentRoute: () => docsRoute, path: "comparison", ...docPage("comparison") }),
   createRoute({ getParentRoute: () => docsRoute, path: "status", ...docPage("status") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "language", ...docPage("language") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "language/types", ...docPage("language/types") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "language/functions", ...docPage("language/functions") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "language/classes", ...docPage("language/classes") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "language/generics", ...docPage("language/generics") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "language/async", ...docPage("language/async") }),
   createRoute({ getParentRoute: () => docsRoute, path: "language/errors", ...docPage("language/errors") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "language/modules", ...docPage("language/modules") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "language/differences", ...docPage("language/differences") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "language/diagnostics", ...docPage("language/diagnostics") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "boundary/exports", ...docPage("boundary/exports") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "boundary/conversions", ...docPage("boundary/conversions") }),
   createRoute({ getParentRoute: () => docsRoute, path: "boundary/callbacks", ...docPage("boundary/callbacks") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "boundary/identity", ...docPage("boundary/identity") }),
   createRoute({ getParentRoute: () => docsRoute, path: "boundary/errors", ...docPage("boundary/errors") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "reference/cli", ...docPage("reference/cli") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "reference/metro", ...docPage("reference/metro") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "reference/expo", ...docPage("reference/expo") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "reference/core", ...docPage("reference/core") }),
   createRoute({ getParentRoute: () => docsRoute, path: "platform-apis", ...docPage("platform-apis") }),
 ] as const;
 
@@ -82,28 +76,28 @@ export const docsRedirectRoutes = [
     getParentRoute: () => docsRoute,
     path: "language/functions-and-control-flow",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/language/functions/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/reference/language/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
     getParentRoute: () => docsRoute,
     path: "language/async-and-errors",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/language/async/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/thinking/threads/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
     getParentRoute: () => docsRoute,
     path: "language/unions",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/language/types/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/reference/language/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
     getParentRoute: () => docsRoute,
     path: "language/native-classes",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/language/classes/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/reference/language/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
@@ -124,7 +118,7 @@ export const docsRedirectRoutes = [
     getParentRoute: () => docsRoute,
     path: "language/threads",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/language/async/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/thinking/threads/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
@@ -145,14 +139,14 @@ export const docsRedirectRoutes = [
     getParentRoute: () => docsRoute,
     path: "api/types",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/boundary/conversions/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/reference/boundary-types/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
     getParentRoute: () => docsRoute,
     path: "api/objects",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/boundary/identity/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/thinking/three-places/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
@@ -173,7 +167,7 @@ export const docsRedirectRoutes = [
     getParentRoute: () => docsRoute,
     path: "api/std",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/reference/core/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/reference/modules/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
@@ -187,7 +181,7 @@ export const docsRedirectRoutes = [
     getParentRoute: () => docsRoute,
     path: "api/runtime",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/reference/core/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/reference/modules/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
@@ -201,14 +195,119 @@ export const docsRedirectRoutes = [
     getParentRoute: () => docsRoute,
     path: "api/integrations",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/reference/metro/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/reference/metro-and-expo/", ...keepHash(location), replace: true });
     },
   }),
   createRoute({
     getParentRoute: () => docsRoute,
     path: "api/library-manifest",
     beforeLoad: ({ location }) => {
-      throw redirect({ to: "/docs/platform-apis/", ...keepHash(location), replace: true });
+      throw redirect({ to: "/docs/reference/lucent-json/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "language",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/reference/language/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "language/types",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/reference/language/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "language/functions",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/reference/language/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "language/classes",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/reference/language/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "language/generics",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/reference/language/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "language/async",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/thinking/threads/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "language/modules",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/reference/language/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "language/differences",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/reference/language/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "language/diagnostics",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/reference/diagnostics/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "boundary/exports",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/how-it-works/calls/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "boundary/conversions",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/reference/boundary-types/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "boundary/identity",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/thinking/three-places/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "reference/metro",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/reference/metro-and-expo/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "reference/expo",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/reference/metro-and-expo/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "reference/core",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/reference/modules/", ...keepHash(location), replace: true });
     },
   }),
 ] as const;

@@ -44,6 +44,6 @@ export const blocks: Block[] = [
   { kind: "h2", text: "What crosses the boundary" },
   {
     kind: "p",
-    text: "Numbers, strings, arrays and objects are copied. Class instances cross by reference and keep their identity, functions become callbacks, and promises stay promises. [Type conversions](/docs/boundary/conversions/) has every type.",
+    text: "Numbers, strings, arrays and objects are copied. Class instances cross by reference and keep their identity, functions become callbacks, and promises stay promises. [Type conversions](/docs/reference/boundary-types/) has every type.",
   },
 ];
