@@ -77,7 +77,7 @@ describe("@lucent-lang/lucent/ts-plugin", () => {
     const s = service({ "a.lucent.ts": "export function f(): number {\n  var x = 1;\n  return x;\n}\n" });
     await s.ready;
     const [d] = lucent(s.ls.getSemanticDiagnostics(s.file("a.lucent.ts")));
-    expect(d!.messageText).toMatch(/\nfix: .*let.*\ndocs: https:\/\/lucent-lang\.dev\/docs\/language\/diagnostics\/#lucent1001$/);
+    expect(d!.messageText).toMatch(/\nfix: .*let.*\ndocs: https:\/\/lucent-lang\.dev\/docs\/reference\/diagnostics\/#lucent1001$/);
   });
 
   it("follows unsaved edits", async () => {

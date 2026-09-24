@@ -21,7 +21,7 @@ describe("lucent explain", () => {
     expect(r.out).toMatch(/Lucent code runs on its own thread/);
     expect(r.out).toMatch(/fix +wrap the call in main\(\(\) => …\) from lucent:thread/);
     expect(r.out).toMatch(/✗ wrong  example\.lucent\.ts[\s\S]*return UIDevice\.current\.model;[\s\S]*✓ right  example\.lucent\.ts[\s\S]*main\(\(\) => UIDevice\.current\.model\)/);
-    expect(r.out).toMatch(/https:\/\/lucent-lang\.dev\/docs\/language\/diagnostics\/#lucent3006/);
+    expect(r.out).toMatch(/https:\/\/lucent-lang\.dev\/docs\/reference\/diagnostics\/#lucent3006/);
   });
 
   it("takes the number alone, in any case", () => {

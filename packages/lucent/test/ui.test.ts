@@ -86,7 +86,7 @@ describe("format", () => {
 
 describe("renderDiagnostic", () => {
   const source = "export async function share(url: string): Promise<string> {\n  const app = UIApplication.shared;\n  return url;\n}\n";
-  const d = { code: "LUCENT3006", message: "UIApplication.shared is main-thread only", file: "share.ios.lucent.ts", line: 2, column: 15, length: 20, fix: "wrap the call in main(() => …)", docs: "https://lucent-lang.dev/docs/language/diagnostics/#lucent3006" };
+  const d = { code: "LUCENT3006", message: "UIApplication.shared is main-thread only", file: "share.ios.lucent.ts", line: 2, column: 15, length: 20, fix: "wrap the call in main(() => …)", docs: "https://lucent-lang.dev/docs/reference/diagnostics/#lucent3006" };
   for (const width of [80, 120]) {
     it(`renders code, message, frame, fix and docs at ${width} columns`, () => {
       expect(renderDiagnostic(d, source, createTheme({ ...plain, width }))).toMatchSnapshot();
