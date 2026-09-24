@@ -16,17 +16,19 @@ std::unordered_map<jsi::Runtime*, std::weak_ptr<Host>>& registry() {
   return *r;
 }
 
-// Changes whenever the registry does, so a thread's cached host is known stale.
-std::atomic<uint64_t>& registryGeneration() {
-  static std::atomic<uint64_t> g{1};
-  return g;
-}
+// Changes whenever the registry does, so a thread's cached host is known
+// stale. Constant-initialized: reading it needs no guard.
+std::atomic<uint64_t> registryGeneration{1};
 
 // The last host this thread looked up: every call from JavaScript asks for
-// it, and a thread nearly always talks to one runtime.
-thread_local jsi::Runtime* cachedRuntime = nullptr;
-thread_local Host* cachedHost = nullptr;
-thread_local uint64_t cachedGeneration = 0;
+// it, and a thread nearly always talks to one runtime. One thread_local, as
+// each costs a lookup on some platforms (__tlv_get_addr on Apple's).
+struct CachedHost {
+  jsi::Runtime* runtime = nullptr;
+  Host* host = nullptr;
+  uint64_t generation = 0;
+};
+thread_local CachedHost cached;
 
 // Installed on the JS global object so the runtime's teardown releases our
 // JSI references on the JS thread while the runtime still exists.
@@ -48,7 +50,7 @@ std::shared_ptr<Host> Host::create(jsi::Runtime& rt, JsPoster poster) {
   {
     std::lock_guard<std::mutex> g(registryMutex());
     registry()[&rt] = host;
-    registryGeneration()++;
+    registryGeneration++;
   }
   rt.global().setProperty(rt, "__lucentHost", jsi::Object::createFromHostObject(rt, std::make_shared<HostAnchor>(host)));
   {
@@ -59,15 +61,14 @@ std::shared_ptr<Host> Host::create(jsi::Runtime& rt, JsPoster poster) {
 }
 
 Host& Host::get(jsi::Runtime& rt) {
-  uint64_t generation = registryGeneration().load(std::memory_order_acquire);
-  if (cachedRuntime == &rt && cachedGeneration == generation) return *cachedHost;
+  uint64_t generation = registryGeneration.load(std::memory_order_acquire);
+  CachedHost& c = cached;
+  if (c.runtime == &rt && c.generation == generation) return *c.host;
   std::lock_guard<std::mutex> g(registryMutex());
   auto it = registry().find(&rt);
   if (it != registry().end()) {
     if (auto h = it->second.lock()) {
-      cachedRuntime = &rt;
-      cachedHost = h.get();
-      cachedGeneration = registryGeneration().load(std::memory_order_relaxed);
+      c = {&rt, h.get(), registryGeneration.load(std::memory_order_relaxed)};
       return *h;
     }
   }
@@ -86,7 +87,7 @@ Host::~Host() {
   std::lock_guard<std::mutex> g(registryMutex());
   auto it = registry().find(&rt_);
   if (it != registry().end() && it->second.expired()) registry().erase(it);
-  registryGeneration()++;
+  registryGeneration++;
 }
 
 void Host::postToJs(JsTask task) {
@@ -110,7 +111,7 @@ void Host::invalidate() {
   std::lock_guard<std::mutex> g(registryMutex());
   auto it = registry().find(&rt_);
   if (it != registry().end()) registry().erase(it);
-  registryGeneration()++;
+  registryGeneration++;
 }
 
 jsi::Value Host::module(jsi::Runtime& rt, const std::string& name) {

@@ -47,12 +47,6 @@ void runGuarded(const Scheduler::Job& job) {
 }
 }  // namespace
 
-Scheduler& Scheduler::instance() {
-  // Leaked on purpose: jobs may still reference the scheduler during static
-  // destruction at process exit.
-  static Scheduler* s = new Scheduler();
-  return *s;
-}
 
 Scheduler::Scheduler() {
   thread_ = std::thread([this] { run(); });
@@ -86,12 +80,16 @@ void Scheduler::postDelayed(double ms, Job job) {
   cv_.notify_one();
 }
 
-void Scheduler::enqueueMicrotask(Job job) { microtasks_.push_back(std::move(job)); }
+void Scheduler::enqueueMicrotask(Job job) {
+  microtasks_.push_back(std::move(job));
+  pendingMicrotasks_++;
+}
 
 void Scheduler::drainMicrotasks() {
   while (!microtasks_.empty()) {
     Job job = std::move(microtasks_.front());
     microtasks_.pop_front();
+    pendingMicrotasks_--;
     runGuarded(job);
   }
 }
@@ -122,7 +120,7 @@ void Scheduler::run() {
       running_++;
       g.unlock();
       {
-        std::lock_guard<std::recursive_mutex> lucent(lock_);
+        std::lock_guard<LucentLock> lucent(lock_);
         runGuarded(job);
         drainMicrotasks();
       }
@@ -142,15 +140,13 @@ void Scheduler::run() {
   }
 }
 
-LucentScope::~LucentScope() {
+void LucentScope::handOffMicrotasks() {
   Scheduler& s = Scheduler::instance();
-  if (s.hasMicrotasks()) {
-    if (s.onLucentThread()) {
-      s.drainMicrotasks();
-    } else {
-      // Continuations run on the Lucent thread, never on the JS thread.
-      s.post([] {});
-    }
+  if (s.onLucentThread()) {
+    s.drainMicrotasks();
+  } else {
+    // Continuations run on the Lucent thread, never on the JS thread.
+    s.post([] {});
   }
 }
 

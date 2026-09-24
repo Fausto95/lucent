@@ -58,9 +58,11 @@ screens run the same cases.
 SANITIZE=1 pnpm test:runtime            # ASan + UBSan, clang and libc++ on macOS
 SANITIZE=1 CXX=g++ pnpm test:runtime    # the same with libstdc++ (CI runs both)
 SANITIZE=1 pnpm test:e2e                # e2e cases under ASan + UBSan
+SANITIZE=thread pnpm test:runtime       # TSan: the Lucent lock and the scheduler
 ```
 
-Run the runtime suite with and without `SANITIZE=1` after every runtime change.
+Run the runtime suite with and without `SANITIZE=1` after every runtime change,
+and with `SANITIZE=thread` after changing the lock or the scheduler.
 
 ## App check
 
