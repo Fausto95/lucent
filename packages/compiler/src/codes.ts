@@ -311,5 +311,5 @@ export const Explanations: Record<Code, Explanation> = {
 
 /** Where a code is explained on the website. */
 export function docsUrl(code: string): string {
-  return `https://lucent-lang.dev/docs/language/diagnostics/#${code.toLowerCase()}`;
+  return `https://lucent-lang.dev/docs/reference/diagnostics/#${code.toLowerCase()}`;
 }
