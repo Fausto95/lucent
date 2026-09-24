@@ -19,7 +19,7 @@ export type { SdkOptions } from "./sdk/schema.ts";
 export type { Platform, SdkCallable, SdkClassSchema, SdkEnumSchema, SdkMethodSchema, SdkModuleSchema, SdkParam, SdkPropertySchema } from "./sdk/schema.ts";
 export { sdkDts } from "./sdk/dts.ts";
 export { inputsKey, isUpToDate, writeNativePackage, runtimeDir, type WriteResult } from "./native-package.ts";
-export { extractionCount, forgetLoadedSdks, podsSearchPaths, prefetch as prefetchSdk, sdkAvailable, sdkModule, sdkModules } from "@lucent-lang/bindgen";
+export { cachedModules, extractionCount, forgetLoadedSdks, sdkNames, podsSearchPaths, prefetch as prefetchSdk, sdkAvailable, sdkModule, sdkModules } from "@lucent-lang/bindgen";
 
 export interface CompileResult extends EmitResult {
   ok: boolean;

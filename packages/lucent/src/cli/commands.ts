@@ -62,6 +62,18 @@ export const commands: CommandSpec[] = [
     load: () => import("./commands/clean.ts"),
   },
   {
+    name: "sdk search",
+    summary: "Find SDK classes and members by name, with the import to copy (your imports and the SDK cache)",
+    flags: [],
+    load: () => import("./commands/sdk-search.ts"),
+  },
+  {
+    name: "sdk show",
+    summary: "Print the declaration Lucent code sees for an SDK type or member: android.os.Vibrator, UIKit.UIDevice.current",
+    flags: [],
+    load: () => import("./commands/sdk-show.ts"),
+  },
+  {
     name: "sdk prefetch",
     summary: "Extract SDK bindings into the cache ahead of use (default: the lucent:* modules the project imports)",
     flags: [

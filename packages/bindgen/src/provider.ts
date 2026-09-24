@@ -474,6 +474,19 @@ export function prefetch(platform: Platform, modules: string[], opts: SdkOptions
   return modules.map((m) => sdkModule(platform, m, opts));
 }
 
+/**
+ * The modules of this SDK whose bindings are in the cache, without
+ * extracting any: full schemas, and (iOS) the ones known by name only.
+ */
+export function cachedModules(platform: Platform, opts: SdkOptions = {}): { schemas: string[]; names: string[] } | { missing: string } {
+  const sdk = locate(platform, opts);
+  if (!("dir" in sdk)) return sdk;
+  const files = fs.existsSync(sdk.dir) ? fs.readdirSync(sdk.dir) : [];
+  const schemas = files.filter((f) => f.endsWith(".json") && !f.endsWith(".names.json") && f !== "headers.json").map((f) => f.slice(0, -".json".length));
+  const names = files.filter((f) => f.endsWith(".names.json")).map((f) => f.slice(0, -".names.json".length)).filter((m) => !schemas.includes(m));
+  return { schemas: schemas.sort(), names: names.sort() };
+}
+
 /** Every module a platform's SDK has (no list: the SDK's own contents). */
 export function sdkModules(platform: Platform, opts: SdkOptions = {}): string[] | { missing: string } {
   const sdk = locate(platform, opts);
