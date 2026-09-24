@@ -180,6 +180,16 @@ describe.skipIf(!android)("lucent sdk prefetch", () => {
     expect(fs.existsSync(path.join(cache, "sdk/android", key!, "android.os.json"))).toBe(true);
   });
 
+  it("reports each module, extracted with its time or cached, then a summary", () => {
+    const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-"));
+    const first = run(project(), { LUCENT_CACHE_DIR: cache, NO_COLOR: "1" }, "sdk", "prefetch", "--android", "android.util");
+    expect(first.out).toMatch(/✓ lucent:android\/android\.util +\d+(\.\d)? m?s/);
+    expect(first.out).toMatch(/1 module: 1 extracted/);
+    const again = run(project(), { LUCENT_CACHE_DIR: cache, NO_COLOR: "1" }, "sdk", "prefetch", "--android", "android.util");
+    expect(again.out).toMatch(/✓ lucent:android\/android\.util +cached/);
+    expect(again.out).toMatch(/1 module: 1 cached/);
+  });
+
   it("fails for modules the SDK does not have, saying where it looked", () => {
     const r = run(project(), { LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")) }, "sdk", "prefetch", "--android", "com.nope");
     expect(r.status).toBe(1);
