@@ -126,10 +126,20 @@ Done:
       (the declaration Lucent code sees, members with overloads), `sdk
       prefetch` per module (live, with times), `sdk coverage` as a table.
 
+- [x] `bench`: `*.bench.ts` cases timed natively (a desktop Hermes JSI host
+      built from the runtime and the generated C++, objects cached) and as
+      JavaScript in the same runtime; results compared; speedup table,
+      `--json`.
+- [x] Docs: the website's CLI reference is generated from the command
+      table; the README has a terminal recording (`assets/cli.svg`, made by
+      `scripts/cli-recording.ts` from real output).
+- [x] `--json` schemas for build, check, doctor, sdk search and sdk prefetch
+      (`packages/lucent/schemas/`), validated in tests.
+
 Left:
 
-- [ ] `bench`
-- [ ] Docs: CLI reference generated from the command table; README recording
+- [ ] Acceptance: device runs of both example apps after Part B, and a
+      fresh bare and Expo app set up with `npx lucent init --yes`.
 
 Postponed:
 
