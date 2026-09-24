@@ -2,4 +2,4 @@
 
 export const demoSource = "export type Point = { x: number; y: number };\n\nexport function squaredDistance(a: Point, b: Point): number {\n  const dx = a.x - b.x;\n  const dy = a.y - b.y;\n  return dx * dx + dy * dy;\n}";
 
-export const demoCpp = "double m_geo::squaredDistance(lucent::Ref<lucent_app::S_Point> p0_a, lucent::Ref<lucent_app::S_Point> p1_b) {\n  lucent::Ref<lucent_app::S_Point> a = p0_a;\n  lucent::Ref<lucent_app::S_Point> b = p1_b;\n  double dx = (a->x - b->x);\n  double dy = (a->y - b->y);\n  return ((dx * dx) + (dy * dy));\n}";
+export const demoCpp = "double m_geo::squaredDistance(lucent::Ref<lucent_app::S_Point> p0_a, lucent::Ref<lucent_app::S_Point> p1_b) {\n  lucent::Ref<lucent_app::S_Point> a = std::move(p0_a);\n  lucent::Ref<lucent_app::S_Point> b = std::move(p1_b);\n  double dx = (a->x - b->x);\n  double dy = (a->y - b->y);\n  return ((dx * dx) + (dy * dy));\n}";
