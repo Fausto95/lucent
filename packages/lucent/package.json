@@ -1,6 +1,6 @@
 {
   "name": "@lucent-lang/lucent",
-  "version": "0.1.0-cpp",
+  "version": "0.0.3",
   "description": "Write native React Native modules in TypeScript: the Lucent compiler, CLI, Metro integration, Expo config plugin and editor plugin",
   "license": "MIT",
   "main": "./app.plugin.js",

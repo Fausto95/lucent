@@ -13,7 +13,7 @@ function app(): string {
   };
   write("package.json", JSON.stringify({ name: "app", dependencies: { "lucent-a": "1.0.0", "plain-js": "1.0.0" } }));
   write("src/storage.lucent.ts", "export function where(): string { return 'app'; }\n");
-  write("node_modules/lucent-a/package.json", JSON.stringify({ name: "lucent-a", version: "1.0.0", lucent: { sources: "src", compatible: ">=0.1.0" }, dependencies: { "lucent-b": "1.0.0" } }));
+  write("node_modules/lucent-a/package.json", JSON.stringify({ name: "lucent-a", version: "1.0.0", lucent: { sources: "src", compatible: ">=0.0.3" }, dependencies: { "lucent-b": "1.0.0" } }));
   write("node_modules/lucent-a/src/storage.lucent.ts", "export function where(): string { return 'a'; }\n");
   write("node_modules/lucent-a/src/nested/deep.lucent.ts", "export function depth(): number { return 2; }\n");
   write("node_modules/lucent-b/package.json", JSON.stringify({ name: "lucent-b", version: "2.0.0", lucent: { sources: "lib" } }));

@@ -2,7 +2,7 @@
  * Lucent packages: npm packages that ship Lucent modules as sources. A
  * package declares them in package.json:
  *
- *   "lucent": { "sources": "src", "compatible": "^0.1.0" }
+ *   "lucent": { "sources": "src", "compatible": ">=0.0.3" }
  *
  * The app's build compiles every Lucent package it depends on (transitively,
  * found as Node resolves them) into its one native package, and names a
