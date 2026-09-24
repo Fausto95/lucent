@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { PassThrough } from "node:stream";
+import { stripVTControlCharacters } from "node:util";
 import { describe, expect, it } from "vite-plus/test";
 
 const bin = path.resolve(import.meta.dirname, "../bin/lucent.cjs");
@@ -71,7 +72,7 @@ function terminal() {
     stdout,
     stdin,
     raw: () => written,
-    text: () => written.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\x1b\][^\x1b]*\x1b\\/g, ""),
+    text: () => stripVTControlCharacters(written),
   };
 }
 

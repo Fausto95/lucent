@@ -1,3 +1,4 @@
+import { stripVTControlCharacters } from "node:util";
 import { describe, expect, it } from "vite-plus/test";
 import { detectTerminal, type Terminal } from "../src/cli/ui/terminal.ts";
 import { createTheme } from "../src/cli/ui/theme.ts";
@@ -96,7 +97,7 @@ describe("format", () => {
       table([
         [t.bold("module"), "ios"],
         ["haptics", t.success("●")],
-      ]).map((l) => l.replace(/\x1b\[[0-9;]*m/g, "")),
+      ]).map((l) => stripVTControlCharacters(l)),
     ).toEqual(["module   ios", "haptics  ●"]);
   });
 
@@ -144,8 +145,12 @@ describe("renderDiagnostic", () => {
   };
   for (const width of [80, 120]) {
     it(`renders code, message, frame, fix and docs at ${width} columns`, () => {
-      expect(renderDiagnostic(d, source, createTheme({ ...plain, width }))).toMatchSnapshot();
-      expect(renderDiagnostic(d, source, createTheme({ ...coloured, width }))).toMatchSnapshot();
+      expect(renderDiagnostic(d, source, createTheme({ ...plain, width }))).toMatchSnapshot(
+        "plain",
+      );
+      expect(renderDiagnostic(d, source, createTheme({ ...coloured, width }))).toMatchSnapshot(
+        "coloured",
+      );
     });
   }
 

@@ -1,4 +1,5 @@
 import { PassThrough } from "node:stream";
+import { stripVTControlCharacters } from "node:util";
 import { describe, expect, it } from "vite-plus/test";
 import { liveSteps } from "../src/cli/ui/live-steps.tsx";
 import { createTheme } from "../src/cli/ui/theme.ts";
@@ -12,7 +13,7 @@ function terminal() {
   }) as unknown as NodeJS.WriteStream;
   let written = "";
   (stream as unknown as PassThrough).on("data", (d: Buffer) => (written += d.toString()));
-  return { stream, text: () => written.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "") };
+  return { stream, text: () => stripVTControlCharacters(written) };
 }
 
 describe("live steps", () => {
