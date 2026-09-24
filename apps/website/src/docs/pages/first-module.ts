@@ -10,6 +10,7 @@ export const blocks: Block[] = [
           {
             kind: "code",
             filename: "greet.lucent.ts",
+            cpp: true,
             code: `export function greet(name: string): string {
   const trimmed = name.trim();
   return trimmed.length > 0 ? \`Hello, \${trimmed}!\` : "Hello, stranger!";

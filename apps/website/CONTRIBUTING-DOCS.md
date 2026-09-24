@@ -74,6 +74,11 @@ A removed page gets an entry in `src/docs/redirects.ts`.
   samples compile together, as one app, so they can import each other.
 - `expect: "LUCENT0xx"` marks a sample that must fail with that code. It
   compiles on its own.
+- `cpp: true` adds "See the C++" under a sample: the file the compiler
+  writes for it, generated into `src/generated/cpp/` when the site is
+  built. Use it on the Start, Learn and How Lucent works examples.
+- `copy: false` hides the copy button, for output the reader reads rather
+  than runs.
 
 ## Glossary
 

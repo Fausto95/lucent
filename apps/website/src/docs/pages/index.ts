@@ -7,6 +7,7 @@ export const blocks: Block[] = [
       {
         label: "shared",
         filename: "stats.lucent.ts",
+        cpp: true,
         code: `export type Summary = { count: number; mean: number; max: number };
 
 export function summarize(values: number[]): Summary {

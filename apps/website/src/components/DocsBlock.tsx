@@ -8,6 +8,7 @@ import { DocsDiagram } from "./DocsDiagram";
 import { DocsHeading } from "./DocsHeading";
 import { DocsPanels } from "./DocsPanels";
 import { Inline } from "./Inline";
+import { SeeCpp } from "./SeeCpp";
 import { SmartLink } from "./SmartLink";
 
 /** Renders one docs block. Pages are arrays of these; see docs/types.ts. */
@@ -24,9 +25,21 @@ export function DocsBlock({ block }: { block: Block }) {
     case "h3":
       return <DocsHeading level={3} text={block.text} />;
     case "code":
-      return <CodeBlock filename={block.filename} code={block.code} copyable={block.copy !== false} />;
+      return (
+        <>
+          <CodeBlock filename={block.filename} code={block.code} copyable={block.copy !== false} />
+          {block.cpp && <SeeCpp filename={block.filename} />}
+        </>
+      );
     case "tabs":
-      return <CodeTabs tabs={block.tabs} />;
+      return (
+        <>
+          <CodeTabs tabs={block.tabs} />
+          {block.tabs.filter((t) => t.cpp).map((t) => (
+            <SeeCpp key={t.filename} filename={t.filename} />
+          ))}
+        </>
+      );
     case "note": {
       const warn = block.tone === "warn";
       return (

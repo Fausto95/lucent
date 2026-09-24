@@ -316,4 +316,20 @@ export const styles = stylex.create({
     borderBottomStyle: "solid",
     borderBottomColor: border,
   },
+  cpp: {
+    marginTop: "-14px",
+    marginBottom: "22px",
+  },
+  cppToggle: {
+    borderWidth: 0,
+    backgroundColor: "transparent",
+    padding: "4px 0",
+    color: tokens.textSubtle,
+    fontFamily: mono,
+    fontSize: "0.75rem",
+    cursor: "pointer",
+    ":hover": {
+      color: accent,
+    },
+  },
 });

@@ -75,6 +75,12 @@ Found on the way, left for their own work:
 - An app's own `lucent.json` is not read, only Lucent packages'. The
   permissions and third-party SDK pages say so.
 
-## 4–11
+## 10. Website features (pulled forward)
+
+- [x] "See the C++" (`cpp: true` on a sample): the compiler's output for the
+      sample, written by `scripts/website.ts` into `src/generated/cpp/<page>.ts`
+      (drift-checked), loaded only when opened. Per platform for platform code.
+
+## 4–9, 11
 
 Not started.

@@ -12,9 +12,12 @@ export type Block =
   | { kind: "p"; text: string }
   | { kind: "h2"; text: string }
   | { kind: "h3"; text: string }
-  /** `copy: false` for output the reader reads rather than runs (a terminal's output). */
-  | { kind: "code"; filename: string; code: string; expect?: string; copy?: false }
-  | { kind: "tabs"; tabs: { label: string; filename: string; code: string }[] }
+  /**
+   * `copy: false` for output the reader reads rather than runs (a terminal's output).
+   * `cpp: true` on a `.lucent.ts` sample adds "See the C++": what the compiler writes for it.
+   */
+  | { kind: "code"; filename: string; code: string; expect?: string; copy?: false; cpp?: true }
+  | { kind: "tabs"; tabs: { label: string; filename: string; code: string; cpp?: true }[] }
   | { kind: "note"; text: string; tone?: "info" | "warn" }
   | { kind: "list"; items: string[]; ordered?: boolean }
   | { kind: "table"; head: string[]; rows: string[][] }
@@ -67,6 +70,19 @@ export interface DocModule {
 
 export interface DocPage extends DocEntry {
   blocks: Block[];
+}
+
+/** One file the compiler writes for a sample, as "See the C++" shows it. */
+export interface CppFile {
+  /** "C++", or the platform for code built per platform. */
+  label: string;
+  filename: string;
+  code: string;
+}
+
+/** What src/generated/cpp/<slug>.ts exports: a page's samples' C++, by sample filename. */
+export interface CppModule {
+  cpp: Record<string, CppFile[]>;
 }
 
 /** The file holding a page's blocks, relative to src/docs/. */
