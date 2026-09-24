@@ -37,6 +37,10 @@ export default defineConfig({
     ignorePatterns: generated,
     plugins: ["eslint", "typescript", "unicorn", "oxc", "import", "promise", "react", "vitest"],
     categories: { correctness: "error", suspicious: "error" },
+    // No type-aware rules or type check (tsgolint): it checks the Lucent
+    // modules tsconfig.json leaves out, whose lucent: imports only resolve
+    // through Lucent's editor plugin, with TypeScript's Go port rather than
+    // the repository's TypeScript. pnpm typecheck runs tsc on the project.
     rules: {
       // Every package compiles JSX with the automatic runtime (react/jsx-runtime).
       "react/react-in-jsx-scope": "off",

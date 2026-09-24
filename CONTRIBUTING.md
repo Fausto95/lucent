@@ -24,6 +24,11 @@
   CocoaPods, the Android SDK and NDK, and JDK 17 to 21. Export
   `ANDROID_HOME`, and `LANG=en_US.UTF-8` before `pod install`.
 - `pnpm lucent doctor --root apps/bare-example` checks the machine.
+- Formatting (Oxfmt) and lint (Oxlint) are configured in `vite.config.ts`;
+  `pnpm fix` applies both. VS Code recommends the Oxc extension, which
+  formats on save. `git config blame.ignoreRevsFile .git-blame-ignore-revs`
+  keeps the one reformatting commit out of `git blame` (GitHub skips it
+  already).
 
 The repository layout, and the rules every change follows, are in
 [AGENTS.md](AGENTS.md).
@@ -39,6 +44,7 @@ The repository layout, and the rules every change follows, are in
 | `node scripts/bench.ts --check`               | performance budgets                                              | Hermes |
 | `node scripts/smoke-install.ts`               | the packed package, installed alone in a fresh app               |        |
 | `pnpm typecheck`                              | the repository's TypeScript                                      |        |
+| `pnpm check`                                  | formatting (Oxfmt), lint (Oxlint) and `pnpm typecheck`           |        |
 | `node scripts/website.ts --check`             | the website (below)                                              | Vale   |
 
 [docs/testing.md](docs/testing.md) explains the differential suites. Device

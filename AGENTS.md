@@ -51,7 +51,7 @@ packages/runtime/test/run.sh
 HERMES_DIR=~/hermes node packages/compiler/test/e2e/run.ts [case…]
 HERMES_DIR=~/hermes node scripts/app-check.ts apps/bare-example
 HERMES_DIR=~/hermes node scripts/bench.ts --check   # performance budgets
-npx tsc --noEmit -p tsconfig.json
+pnpm check   # vp check (Oxfmt, Oxlint) and tsc; pnpm fix formats and applies lint fixes
 node scripts/smoke-install.ts   # packs @lucent-lang/lucent, installs it alone in a fresh app
 node scripts/cli-recording.ts   # re-records assets/cli.svg (the README's terminal animation) after CLI output changes
 ```

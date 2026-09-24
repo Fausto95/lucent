@@ -12,6 +12,8 @@
     "build": "vp run --filter \"./packages/*\" build",
     "dev": "vp run @lucent-lang/lucent#dev",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "check": "vp check && pnpm typecheck",
+    "fix": "vp check --fix",
     "test": "vp test",
     "test:runtime": "packages/runtime/test/run.sh",
     "test:e2e": "node packages/compiler/test/e2e/run.ts",
