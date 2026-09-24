@@ -7,6 +7,12 @@
  *
  * --check fails when a kernel's speedup is below its minimum in
  * scripts/bench-budgets.json (the performance budget CI enforces).
+ *
+ * Then the boundary: what crossing between JavaScript and Lucent costs
+ * (cases/boundary.lucent.ts). Batching work into one call must be cheaper
+ * than calling once per item: --check fails when a batched case costs more
+ * than its budget times 1,000 chatty add() calls
+ * (scripts/bench-boundary-budgets.json).
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -25,6 +31,8 @@ const check = args.includes("--check");
 const scale = Number(args.find((a) => !a.startsWith("--")) ?? "1");
 const budgets: Record<string, number> = JSON.parse(fs.readFileSync(path.join(root, "scripts/bench-budgets.json"), "utf8"));
 const kernels = path.join(root, "packages/compiler/test/e2e/cases/kernels.lucent.ts");
+const boundary = path.join(root, "packages/compiler/test/e2e/cases/boundary.lucent.ts");
+const boundaryBudgets: Record<string, number> = JSON.parse(fs.readFileSync(path.join(root, "scripts/bench-boundary-budgets.json"), "utf8"));
 const sizes: Record<string, number> = JSON.parse(fs.readFileSync(kernels.replace(/\.lucent\.ts$/, ".bench.json"), "utf8"));
 const work = path.join(os.tmpdir(), "lucent-bench");
 const runtime = path.join(root, "packages/runtime/cpp");
@@ -38,7 +46,7 @@ fs.rmSync(work, { recursive: true, force: true });
 fs.mkdirSync(work, { recursive: true });
 
 // Native: the kernels compiled like a release build of the app.
-const result = compile([kernels]);
+const result = compile([kernels, boundary]);
 if (!result.ok) throw new Error(report(result.diagnostics));
 for (const [name, content] of result.files) fs.writeFileSync(path.join(work, name), content);
 const flags = ["-std=c++20", "-ffp-contract=off", "-O2", "-DNDEBUG", "-w", `-I${runtime}`, `-I${work}`, `-I${hermes}/API`, `-I${hermes}/API/jsi`, `-I${hermes}/public`];
@@ -83,6 +91,18 @@ function best(f, n) {
   }
   return min;
 }
+// The boundary, natively: each case in microseconds per run.
+var b = __lucent.boundary;
+var points = []; for (var i = 0; i < 1000; i++) points.push({ x: i, y: 1000 - i });
+var numbers = []; for (var i = 0; i < 1000; i++) numbers.push(i);
+var boundaryCases = {
+  chatty1000: function () { var s = 0; for (var i = 0; i < 1000; i++) s = b.add(s, i); return s; },
+  structsIn1000: function () { return b.sumPoints(points); },
+  structsOut1000: function () { return b.makePoints(1000).length; },
+  numbersIn1000: function () { return b.sumNumbers(numbers); },
+  strings1000: function () { var s = ""; for (var i = 0; i < 1000; i++) s = b.concat("hello ", "world"); return s; },
+};
+for (var name in boundaryCases) print(JSON.stringify({ boundary: name, us: best(boundaryCases[name]) * 1000 }));
 for (var name in sizes) {
   var n = Math.max(1, Math.round(sizes[name] * scale));
   var same = jsKernels[name](n) === native[name](n);
@@ -92,7 +112,9 @@ for (var name in sizes) {
 );
 const r = spawnSync(exe, [script], { encoding: "utf8", timeout: 600000 });
 if (r.status !== 0) throw new Error(`bench failed:\n${r.stderr}\n${r.stdout}`);
-const rows = r.stdout.trim().split("\n").map((l) => JSON.parse(l) as { name: string; n: number; js: number; native: number; same: boolean });
+const lines = r.stdout.trim().split("\n").map((l) => JSON.parse(l) as Record<string, unknown>);
+const rows = lines.filter((l) => "name" in l) as { name: string; n: number; js: number; native: number; same: boolean }[];
+const crossings = lines.filter((l) => "boundary" in l) as { boundary: string; us: number }[];
 console.log(`kernel        size       JS (ms)  Lucent (ms)  speedup  budget`);
 const failures: string[] = [];
 for (const row of rows) {
@@ -104,6 +126,14 @@ for (const row of rows) {
   console.log(
     `${row.name.padEnd(13)} ${String(row.n).padEnd(10)} ${row.js.toFixed(1).padStart(7)}  ${row.native.toFixed(2).padStart(11)}  ${`${speedup.toFixed(1)}x`.padStart(7)}  ${budget === undefined ? "-" : `${budget}x`}${row.same ? "" : "  RESULTS DIFFER"}`,
   );
+}
+const chatty = crossings.find((c) => c.boundary === "chatty1000")!.us;
+console.log(`\nboundary          µs/run   vs 1,000 add() calls  budget`);
+for (const c of crossings) {
+  const ratio = c.us / chatty;
+  const budget = boundaryBudgets[c.boundary];
+  if (budget !== undefined && ratio > budget) failures.push(`${c.boundary}: ${ratio.toFixed(2)}x the cost of 1,000 calls, budget ${budget}x`);
+  console.log(`${c.boundary.padEnd(16)} ${c.us.toFixed(1).padStart(7)}   ${`${ratio.toFixed(2)}x`.padStart(20)}  ${budget === undefined ? "-" : `${budget}x`}`);
 }
 if (rows.some((row) => !row.same) || (check && failures.length)) {
   console.error(`\n${failures.join("\n")}`);
