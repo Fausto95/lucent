@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { detectTerminal, type Terminal } from "../src/cli/ui/terminal.ts";
 import { createTheme } from "../src/cli/ui/theme.ts";
 import { codeFrame, duration, link, table, visibleWidth } from "../src/cli/ui/format.ts";
+import { renderDiagnostic } from "../src/cli/ui/diagnostic.ts";
 
 const tty = { isTTY: true, columns: 120 };
 
@@ -80,5 +81,20 @@ describe("format", () => {
     const long = `const x = ${"a".repeat(200)};\n`;
     const frame = codeFrame(long, { line: 1, column: 7, length: 1 }, createTheme(plain));
     for (const line of frame.split("\n")) expect(visibleWidth(line)).toBeLessThanOrEqual(80);
+  });
+});
+
+describe("renderDiagnostic", () => {
+  const source = "export async function share(url: string): Promise<string> {\n  const app = UIApplication.shared;\n  return url;\n}\n";
+  const d = { code: "LUCENT3006", message: "UIApplication.shared is main-thread only", file: "share.ios.lucent.ts", line: 2, column: 15, length: 20, fix: "wrap the call in main(() => …)", docs: "https://lucent-lang.dev/docs/language/diagnostics/#lucent3006" };
+  for (const width of [80, 120]) {
+    it(`renders code, message, frame, fix and docs at ${width} columns`, () => {
+      expect(renderDiagnostic(d, source, createTheme({ ...plain, width }))).toMatchSnapshot();
+      expect(renderDiagnostic(d, source, createTheme({ ...coloured, width }))).toMatchSnapshot();
+    });
+  }
+
+  it("renders a diagnostic without a location", () => {
+    expect(renderDiagnostic({ code: "LUCENT9001", message: "TS6053: File not found" }, undefined, createTheme(plain))).toMatchSnapshot();
   });
 });

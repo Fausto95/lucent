@@ -10,8 +10,8 @@ const android = sdkAvailable("android");
 const bin = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../bin/lucent.cjs");
 
 function lucent(root: string, ...args: string[]) {
-  const r = spawnSync(process.execPath, [bin, ...args, "--root", root], { encoding: "utf8" });
-  return { status: r.status, out: r.stdout + r.stderr };
+  const r = spawnSync(process.execPath, [bin, ...args, "--root", root], { encoding: "utf8", env: { ...process.env, NO_COLOR: "1" } });
+  return { status: r.status, out: r.stdout + r.stderr, stdout: r.stdout };
 }
 
 function project(): string {
@@ -21,20 +21,42 @@ function project(): string {
 }
 
 describe("lucent build", () => {
+  it("reports each step with its time, the modules, and what to do next", () => {
+    const root = project();
+    const r = lucent(root, "build");
+    expect(r.status).toBe(0);
+    expect(r.out).toMatch(/^◆ lucent \d+\.\d+\.\d+\n\n/);
+    expect(r.out).toMatch(/✓ Checked 1 module +\d+ ms\n/);
+    expect(r.out).toMatch(/✓ Generated C\+\+ +1 changed +\d+ ms\n/);
+    expect(r.out).toMatch(/✓ Native package +\.lucent\/native\n/);
+    expect(r.out).toMatch(/\nmodules +a +shared\n/);
+    expect(r.out).toMatch(/\nnext +rebuild the app \(iOS: pod install first\)\n/);
+  });
+
   it("skips work when nothing changed", () => {
     const root = project();
-    expect(lucent(root, "build").out).toContain("Compiled 1 module");
+    lucent(root, "build");
     const second = lucent(root, "build");
     expect(second.status).toBe(0);
-    expect(second.out).toContain("up to date");
+    expect(second.out).toMatch(/✓ Up to date +1 module/);
+  });
+
+  it("says when the rebuilt native package did not change", () => {
+    const root = project();
+    lucent(root, "build");
+    // A new source, the same C++: a trailing newline moves no #line directive.
+    fs.appendFileSync(path.join(root, "a.lucent.ts"), "\n");
+    const r = lucent(root, "build");
+    expect(r.out).toMatch(/Generated C\+\+ +0 changed, 1 cached/);
+    expect(r.out).toMatch(/\nnext +nothing to do: the native package did not change\n/);
   });
 
   it("rebuilds when a source changes, and with --force", () => {
     const root = project();
     lucent(root, "build");
     fs.writeFileSync(path.join(root, "a.lucent.ts"), "export function one(): number { return 2; }\n");
-    expect(lucent(root, "build").out).toContain("Compiled 1 module");
-    expect(lucent(root, "build", "--force").out).toContain("Compiled 1 module");
+    expect(lucent(root, "build").out).toContain("Checked 1 module");
+    expect(lucent(root, "build", "--force").out).toContain("Checked 1 module");
   });
 
   it("maps lucent:* in the app's tsconfig.json, so editors see the modules it writes", () => {
@@ -48,7 +70,7 @@ describe("lucent build", () => {
     const root = project();
     lucent(root, "build");
     fs.rmSync(path.join(root, ".lucent"), { recursive: true });
-    expect(lucent(root, "build").out).toContain("Compiled 1 module");
+    expect(lucent(root, "build").out).toContain("Checked 1 module");
   });
 });
 
@@ -86,7 +108,7 @@ describe("Lucent packages' native needs", () => {
     expect(r.out).toMatch(/lucent-auth needs NSFaceIDUsageDescription in ios\/App\/Info\.plist/);
     // lucent.json changes rebuild.
     fs.writeFileSync(path.join(pkg, "lucent.json"), JSON.stringify({ android: { dependencies: { "androidx.biometric:biometric": "1.2.0" } } }));
-    expect(lucent(root, "build").out).not.toMatch(/up to date/);
+    expect(lucent(root, "build").out).not.toMatch(/up to date/i);
     expect(fs.readFileSync(path.join(root, ".lucent/native/android/build.gradle"), "utf8")).toContain('api("androidx.biometric:biometric:1.2.0")');
   });
 });
@@ -296,4 +318,64 @@ describe("the app's Android dependencies", () => {
     expect(builds()).toBeGreaterThanOrEqual(2);
     expect(app.count()).toBe(1);
   }, 60_000);
+});
+
+describe("lucent check", () => {
+  function broken(): string {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-"));
+    fs.writeFileSync(path.join(root, "geo.lucent.ts"), "export function total(xs: number[]): number {\n  var sum = 0;\n  for (const x of xs) sum += x;\n  return sum;\n}\n");
+    return root;
+  }
+  const stable = (out: string) => out.replace(/\d+(\.\d+)? (ms|s)\b/g, "<time>");
+
+  it("shows each problem with a code frame, its fix and where it is explained, then a summary", () => {
+    const r = lucent(broken(), "check");
+    expect(r.status).toBe(1);
+    expect(stable(r.out)).toMatchSnapshot();
+  });
+
+  it("prints the same plain output with NO_COLOR, in CI, and on a dumb terminal", () => {
+    const root = broken();
+    const outs = [{ NO_COLOR: "1" }, { CI: "1" }, { TERM: "dumb", NO_COLOR: "" }].map((env) => {
+      const r = spawnSync(process.execPath, [bin, "check", "--root", root], { encoding: "utf8", env: { ...process.env, ...env } });
+      return stable(r.stdout + r.stderr);
+    });
+    expect(outs[1]).toBe(outs[0]);
+    // A dumb terminal gets ASCII symbols.
+    expect(outs[2]).toContain("x LUCENT1001");
+  });
+
+  it("passes a clean project", () => {
+    const r = lucent(project(), "check");
+    expect(r.status).toBe(0);
+    expect(r.out).toMatch(/✓ 1 module, no problems +\d+ ms/);
+  });
+});
+
+describe("--json", () => {
+  const schema = (name: string) => JSON.parse(fs.readFileSync(path.resolve(path.dirname(bin), `../schemas/${name}.schema.json`), "utf8")) as object;
+  async function validate(name: string, value: unknown): Promise<string[]> {
+    const { default: Ajv } = (await import("ajv")) as unknown as { default: new (o: object) => { compile(s: object): ((v: unknown) => boolean) & { errors?: { instancePath: string; message?: string }[] } } };
+    const check = new Ajv({ allErrors: true }).compile(schema(name));
+    return check(value) ? [] : (check.errors ?? []).map((e) => `${e.instancePath} ${e.message}`);
+  }
+
+  it("lucent check --json matches its schema, with or without problems", async () => {
+    for (const root of [project(), (() => { const r = project(); fs.writeFileSync(path.join(r, "a.lucent.ts"), "export function f(x: any): number { return 1; }\n"); return r; })()]) {
+      const r = lucent(root, "check", "--json");
+      const value = JSON.parse(r.stdout) as { ok: boolean };
+      expect(await validate("check", value)).toEqual([]);
+      expect(r.status).toBe(value.ok ? 0 : 1);
+    }
+  });
+
+  it("lucent build --json matches its schema", async () => {
+    const root = project();
+    const r = lucent(root, "build", "--json");
+    expect(r.status).toBe(0);
+    const value = JSON.parse(r.stdout) as { ok: boolean; modules: { name: string }[] };
+    expect(await validate("build", value)).toEqual([]);
+    expect(value.modules.map((m) => m.name)).toEqual(["a"]);
+    expect(await validate("build", JSON.parse(lucent(root, "build", "--json").stdout))).toEqual([]);
+  });
 });
