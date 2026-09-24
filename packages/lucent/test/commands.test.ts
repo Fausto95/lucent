@@ -49,13 +49,30 @@ describe("lucent new module", () => {
     expect(lucent(["check", "--root", root]).status).toBe(0);
   });
 
-  it("scaffolds a declaration and an implementation per platform with --ios --android", () => {
+  it("scaffolds one module that branches on PLATFORM with --ios --android, and it compiles", () => {
     const root = project();
     const r = lucent(["new", "module", "haptics", "--ios", "--android", "--root", root]);
     expect(r.status).toBe(0);
-    for (const f of ["haptics.lucent.ts", "haptics.ios.lucent.ts", "haptics.android.lucent.ts"]) expect(fs.existsSync(path.join(root, "src", f)), f).toBe(true);
-    expect(fs.readFileSync(path.join(root, "src/haptics.lucent.ts"), "utf8")).toMatch(/export declare function/);
-    expect(r.out).toMatch(/src\/haptics\.ios\.lucent\.ts/);
+    expect(fs.readdirSync(path.join(root, "src"))).toEqual(["haptics.lucent.ts"]);
+    const text = fs.readFileSync(path.join(root, "src/haptics.lucent.ts"), "utf8");
+    expect(text).toMatch(/import \{ PLATFORM \} from "lucent:platform"/);
+    expect(text).toMatch(/if \(PLATFORM === "ios"\) \{[\s\S]*UIDevice\.current\.systemName[\s\S]*\} else \{[\s\S]*Build_VERSION\.RELEASE/);
+    expect(text).not.toMatch(/declare/);
+    expect(r.out).toMatch(/src\/haptics\.lucent\.ts/);
+    expect(lucent(["check", "--root", root]).status).toBe(0);
+  });
+
+  it("with one platform flag, still writes one module, whose other branch throws", () => {
+    const root = project();
+    const r = lucent(["new", "module", "haptics", "--android", "--root", root]);
+    expect(r.status).toBe(0);
+    expect(fs.readdirSync(path.join(root, "src"))).toEqual(["haptics.lucent.ts"]);
+    const text = fs.readFileSync(path.join(root, "src/haptics.lucent.ts"), "utf8");
+    expect(text).toMatch(/Build_VERSION\.RELEASE/);
+    expect(text).not.toMatch(/lucent:ios/);
+    expect(text).toMatch(/if \(PLATFORM === "ios"\) \{\s*throw error\("ERR_UNIMPLEMENTED", "hello is not implemented on iOS yet"\);/);
+    expect(r.out).toMatch(/iOS branch throws/);
+    expect(lucent(["check", "--root", root]).status).toBe(0);
   });
 
   it("never overwrites, and wants a module name", () => {

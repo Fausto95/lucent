@@ -51,15 +51,15 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
   },
   {
     "name": "new module",
-    "summary": "Scaffold a module in src/: shared, or with --ios / --android a declaration and a file per platform",
+    "summary": "Scaffold a module in src/: shared, or with --ios / --android one module that branches on PLATFORM",
     "flags": [
       {
         "flag": "--ios",
-        "description": "An iOS implementation (with its shared declaration)"
+        "description": "Implement the iOS branch (without --android, the Android branch throws)"
       },
       {
         "flag": "--android",
-        "description": "An Android implementation (with its shared declaration)"
+        "description": "Implement the Android branch (without --ios, the iOS branch throws)"
       },
       {
         "flag": "--shared",
