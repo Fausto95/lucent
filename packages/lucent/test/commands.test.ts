@@ -127,6 +127,7 @@ describe("lucent --version", () => {
     });
     expect(r.out).toMatch(/^lucent \d+\.\d+\.\d+\n/);
     expect(r.out).toMatch(/Android SDK +not found/);
+    // oxlint-disable-next-line vitest/no-conditional-expect -- only macOS reports an iOS SDK
     if (process.platform === "darwin") expect(r.out).toMatch(/iOS SDK +(\d+\.\d+|not found)/);
   });
 });

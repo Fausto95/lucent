@@ -1014,6 +1014,7 @@ export function buildIosSchema(
       if (cls.interface) {
         // Names from the requirement alone: a clash is skipped, never renamed.
         const seen = new Set<string>();
+        // oxlint-disable-next-line unicorn/no-useless-spread -- the loop splices methods
         for (const x of [...methods]) {
           if (!seen.has(`${!!x.static}:${x.name}`)) seen.add(`${!!x.static}:${x.name}`);
           else {

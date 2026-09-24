@@ -42,6 +42,7 @@ export function createStore(
     get: () => state,
     set(next) {
       state = next;
+      // oxlint-disable-next-line unicorn/no-useless-spread -- a listener may unsubscribe while notified
       for (const l of [...listeners]) l();
     },
     subscribe(listener) {
@@ -90,12 +91,10 @@ export function startSession(root: string): DevSession {
     store.set({
       ...store.get(),
       building: true,
-      modules: store
-        .get()
-        .modules.map((m) => ({
-          ...m,
-          platforms: mapPlatforms(m.platforms, (s) => (s === "none" ? s : "building")),
-        })),
+      modules: store.get().modules.map((m) => ({
+        ...m,
+        platforms: mapPlatforms(m.platforms, (s) => (s === "none" ? s : "building")),
+      })),
     });
     // Let the views show the build before it blocks the event loop.
     await new Promise((resolve) => setTimeout(resolve, 0));

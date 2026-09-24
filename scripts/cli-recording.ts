@@ -73,7 +73,9 @@ type Span = { text: string; style: Style };
 function spans(line: string, style: Style): { spans: Span[]; style: Style } {
   const out: Span[] = [];
   let s = { ...style };
+  // oxlint-disable-next-line eslint/no-control-regex -- splits on the SGR escapes it renders
   for (const part of line.split(/(\x1b\[[0-9;]*m)/)) {
+    // oxlint-disable-next-line eslint/no-control-regex -- reads an SGR escape's codes
     const m = /^\x1b\[([0-9;]*)m$/.exec(part);
     if (!m) {
       if (part) out.push({ text: part, style: { ...s } });

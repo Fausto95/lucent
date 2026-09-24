@@ -14,5 +14,6 @@ export function useScrollToHash(dependency: unknown): void {
       document.getElementById(hash)?.scrollIntoView({ block: "start" });
     });
     return () => cancelAnimationFrame(frame);
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- scroll again once the content that holds the target renders
   }, [hash, dependency]);
 }
