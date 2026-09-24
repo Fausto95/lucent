@@ -123,6 +123,15 @@ int main(int argc, char** argv) {
     // What @lucent-lang/runtime's loader looks for outside React Native.
     rt.global().setProperty(rt, "__lucentModules", rt.global().getProperty(rt, "__lucent"));
     installHarnessExtras(rt);
+    // A new host for this runtime, the old one invalidated, as when an app
+    // reinstalls Lucent without a new runtime (tests of the exports JS kept).
+    rt.global().setProperty(rt, "__lucentReplaceHost",
+                            jsi::Function::createFromHostFunction(rt, jsi::PropNameID::forAscii(rt, "__lucentReplaceHost"), 0,
+                                                                  [&host](jsi::Runtime& rt, const jsi::Value&, const jsi::Value*, size_t) {
+                                                                    host->invalidate();
+                                                                    host = Host::create(rt, post);
+                                                                    return jsi::Value::undefined();
+                                                                  }));
     rt.global().setProperty(
         rt, "print",
         jsi::Function::createFromHostFunction(rt, jsi::PropNameID::forAscii(rt, "print"), 1,

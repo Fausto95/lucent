@@ -23,4 +23,12 @@
   try { await mod.promiseRejects(); } catch (e) { print(e.name, e.message); }
   try { await mod.promiseThrows(); } catch (e) { print(e.name, e.message); }
   print(await mod.promiseSettlesOnce(), await mod.promiseOfNothing());
+  // The runtime gets a new Lucent host while this code holds the old one's
+  // exports (the native host only; a no-op as JavaScript): they keep working.
+  const { double, withProgress, promised, Loader: OldLoader } = mod;
+  if (globalThis.__lucentReplaceHost) globalThis.__lucentReplaceHost();
+  const after = [];
+  print(await double(4), await promised(5), await withProgress(2, (i) => after.push(i)), after.join(","));
+  const old = new OldLoader();
+  print(await old.load("z"), old.loads);
 })();
