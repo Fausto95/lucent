@@ -377,15 +377,18 @@ export class BindingsEmitter {
         conv.push(`auto ${n} = Convert<${t}>::fromJs(rt, arg(args, count, ${i}), Path{${q(fname)}, ${q(`argument '${p.name}'`)}});`);
       }
     });
+    // Each converted argument is used once: synchronous calls move them in;
+    // async ones copy them into the job's lambda.
     const call = `${target}(${names.join(", ")})`;
+    const moved = `${target}(${names.map((n) => `std::move(${n})`).join(", ")})`;
     let result: string;
     if (isAsync) {
       const inner = this.reg.cppRet(ret);
       result = `return callAsync<${inner}>(rt, host, [${[...captures, ...names].join(", ")}]() { return ${call}; });`;
     } else if (isVoidish(ret)) {
-      result = `${call};\n      return jsi::Value::undefined();`;
+      result = `${moved};\n      return jsi::Value::undefined();`;
     } else {
-      result = `return Convert<${this.reg.cpp(ret)}>::toJs(rt, host, ${call});`;
+      result = `return Convert<${this.reg.cpp(ret)}>::toJs(rt, host, ${moved});`;
     }
     return [
       `    Host& host = Host::get(rt);`,

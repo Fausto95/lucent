@@ -384,7 +384,8 @@ export class FnEmitter {
       const info = params[i]!;
       const incoming = `p${i}_${ts.isIdentifier(p.name) ? cppIdent(p.name.text) : "arg"}`;
       out.push(`${this.cpp(info.cppType)} ${incoming}`);
-      let value: string = incoming;
+      // The by-value parameter is only read here: move it into the variable.
+      let value: string = `std::move(${incoming})`;
       let type = info.cppType;
       if (p.initializer) {
         const inner = stripOpt(info.cppType);
