@@ -162,7 +162,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "Testing on physical devices; today, simulators and emulators."
       },
       {
-        "status": "next",
+        "status": "done",
         "text": "A JavaScript `lucent:core`, so Jest and Vitest can run shared modules."
       }
     ],

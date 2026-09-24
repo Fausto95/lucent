@@ -274,7 +274,7 @@ export const docsGroups: DocGroup[] = [
         slug: "guides/test-a-module",
         kind: "guide",
         title: "Test a module",
-        description: "`lucent bench` compares native and JavaScript results. A host build runs shared code on your computer, and devices check the SDK calls.",
+        description: "Run shared modules in Jest or Vitest as TypeScript, compare native and JavaScript with `lucent bench`, and check SDK calls on devices.",
       },
       {
         slug: "guides/debug-a-crash",

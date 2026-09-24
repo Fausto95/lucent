@@ -17,6 +17,10 @@
       "types": "./ts-plugin/index.d.ts",
       "default": "./ts-plugin/index.js"
     },
+    "./core": {
+      "types": "./lib/sdk/core.d.ts",
+      "default": "./core/index.cjs"
+    },
     "./app.plugin.js": "./app.plugin.js",
     "./package.json": "./package.json"
   },
@@ -39,6 +43,7 @@
   "files": [
     "app.plugin.js",
     "bin",
+    "core",
     "dist",
     "gradle",
     "lib",

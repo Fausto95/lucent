@@ -43,7 +43,7 @@ export function isLibFile(sf: ts.SourceFile): boolean {
 
 /** The JavaScript implementations of lucent:core, for running Lucent modules as plain JavaScript (e2e, lucent bench). */
 export function coreJsPath(): string {
-  return path.resolve(here, "../lib/core.js");
+  return path.resolve(here, "../lib/core.cjs");
 }
 
 /** Path of the `lucent:core` type declarations. */
