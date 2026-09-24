@@ -111,10 +111,18 @@ Done:
       .gitignore, `src/hello.lucent.ts`; ends with the next command; a
       second run changes nothing. Both example apps set up with it.
 
+- [x] `dev`: a dashboard (modules × platforms, last build, next step,
+      problems with fix and code frame; r/c/d/o/q, arrows) on the alternate
+      screen, restored on quit; `--compact` (and non-terminals) one line per
+      build: an error shows within a second of saving. `withLucent` runs the
+      compact mode without Metro's stdin. Replaces `build --watch` and the
+      compiler's `watchBuild`; build, check and dev share `buildProject()`.
+      A bare `lucent` opens dev in a project, init elsewhere.
+- [x] `explain`, `new module` (`--ios`, `--android`), `clean` (`--cache`),
+      `--version` with the SDKs it sees.
+
 Left:
 
-- [ ] `dev` (Ink dashboard), replacing `build --watch`; `withLucent` output
-- [ ] `new module`, `explain`, `clean`, `--version` with SDKs
 - [ ] `sdk search / show / prefetch`; `coverage` and `diff`
 - [ ] `bench`
 - [ ] Docs: CLI reference generated from the command table; README recording
