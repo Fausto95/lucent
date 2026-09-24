@@ -108,6 +108,12 @@ export const docsGroups: DocGroup[] = [
         description: "Ports of popular Expo and community modules, each one Lucent module for both platforms, running in the repository's example apps.",
       },
       {
+        slug: "examples/clipboard",
+        kind: "example",
+        title: "Clipboard",
+        description: "`expo-clipboard`'s text API on `UIPasteboard` and Android's `ClipboardManager`.",
+      },
+      {
         slug: "examples/location",
         kind: "example",
         title: "Location",
@@ -136,12 +142,6 @@ export const docsGroups: DocGroup[] = [
         kind: "example",
         title: "Haptics",
         description: "`expo-haptics`' API on UIKit's feedback generators and Android's `Vibrator`, shipped as a Lucent package.",
-      },
-      {
-        slug: "examples/clipboard",
-        kind: "example",
-        title: "Clipboard",
-        description: "`expo-clipboard`'s text API on `UIPasteboard` and Android's `ClipboardManager`.",
       },
     ],
   },

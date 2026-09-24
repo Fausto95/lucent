@@ -119,7 +119,7 @@ export async function setStringAsync(text: string): Promise<void> {
     kind: "list",
     items: [
       "The JS binding is gone: the module's exports are the API, typed from the source.",
-      "`main()` replaces `runOnQueue`, and the compiler rejects UIKit calls outside it.",
+      "`main()` replaces `runOnQueue`. APIs that Swift marks `@MainActor` compile only inside it.",
       "Kotlin's `!!` and `?.` become Lucent's `?.` and `??`, since unannotated Java references are nullable.",
     ],
   },
