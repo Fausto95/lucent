@@ -92,7 +92,8 @@ describe("lucent dev dashboard", () => {
       lastBuild: { at: new Date(2026, 8, 24, 12, 4, 31), ms: 38, ok: false },
       problems: [{ code: "LUCENT3004", message: "androidx.biometric not found", file: "src/location.android.lucent.ts", line: 8, column: 1, length: 4, fix: 'add "androidx.biometric:biometric:1.2.0" to android/app/build.gradle', source: "a\nb\nc\nd\ne\nf\ng\nhere\ni\n" }],
     });
-    await tick();
+    // Ink redraws asynchronously: wait for the frame with the modules.
+    for (let i = 0; i < 100 && !/MODULE/.test(t.text()); i++) await tick();
     const frame = t.text();
     expect(frame).toMatch(/lucent dev/);
     expect(frame).toMatch(/MODULE +IOS +ANDROID +LAST BUILD/);

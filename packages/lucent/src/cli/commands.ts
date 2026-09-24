@@ -12,7 +12,6 @@ export const commands: CommandSpec[] = [
       { name: "force", description: "Rebuild even when nothing changed" },
       { name: "platforms", value: "list", description: "Targets for platform code: ios, android, host (default: the SDKs installed)" },
       { name: "out", value: "dir", description: "Where to write the native package (default: .lucent/native)" },
-      { name: "watch", description: "Rebuild whenever a *.lucent.ts file changes" },
     ],
     load: () => import("./commands/build.ts"),
   },
@@ -21,6 +20,12 @@ export const commands: CommandSpec[] = [
     summary: "Type-check and validate every module without writing anything",
     flags: [],
     load: () => import("./commands/check.ts"),
+  },
+  {
+    name: "dev",
+    summary: "Rebuild on every change: a live dashboard of modules, platforms and problems (one line per build outside a terminal)",
+    flags: [{ name: "compact", description: "One line per build instead of the dashboard (Metro runs it so)" }],
+    load: () => import("./commands/dev.ts"),
   },
   {
     name: "doctor",

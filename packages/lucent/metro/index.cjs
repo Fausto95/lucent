@@ -9,8 +9,10 @@ const { spawn } = require("node:child_process");
  * Wraps a Metro config:
  *   module.exports = withLucent(getDefaultConfig(__dirname));
  *
- * When Metro runs as a dev server, a `lucent build --watch` process keeps
- * `.lucent/native` up to date while you edit *.lucent.ts files. Set
+ * When Metro runs as a dev server, `lucent dev --compact` keeps
+ * `.lucent/native` up to date while you edit *.lucent.ts files, one line
+ * per build in Metro's output (it never reads Metro's keys; for the full
+ * dashboard, run `lucent dev` in a terminal of its own). Set
  * `{ watch: false }` or LUCENT_WATCH=0 to turn that off (LUCENT_WATCH=1 forces it).
  */
 function withLucent(config, options = {}) {
@@ -52,7 +54,8 @@ function startWatcher(root) {
   // Metro may load the config more than once in a process.
   if (watcher || process.env.LUCENT_WATCH_CHILD) return;
   const bin = path.join(__dirname, "../bin/lucent.cjs");
-  watcher = spawn(process.execPath, [bin, "build", "--watch", "--root", root], { stdio: "inherit", env: { ...process.env, LUCENT_WATCH_CHILD: "1" } });
+  // stdin stays Metro's: its keys (r reload, d dev menu) are not ours.
+  watcher = spawn(process.execPath, [bin, "dev", "--compact", "--root", root], { stdio: ["ignore", "inherit", "inherit"], env: { ...process.env, LUCENT_WATCH_CHILD: "1" } });
   // Ctrl-C reaches the watcher through the process group; this covers the rest.
   process.on("exit", () => watcher.kill());
 }

@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "./args.ts";
 import { commands } from "./commands.ts";
@@ -19,6 +20,13 @@ async function main(argv: string[]): Promise<number> {
     out.print(`lucent ${version()}`);
     return 0;
   }
+  const root = path.resolve(typeof flags.root === "string" ? flags.root : process.cwd());
+  if (!command && !flags.help && out.terminal.interactive) {
+    // A bare `lucent`: the dashboard in a Lucent project, setting one up elsewhere.
+    const name = usesLucent(root) ? "dev" : "init";
+    const target = commands.find((c) => c.name === name)!;
+    return (await target.load()).run({ root, flags, positionals, out });
+  }
   if (!command) {
     out.print(help(commands, out.theme));
     return flags.help ? 0 : 1;
@@ -27,9 +35,19 @@ async function main(argv: string[]): Promise<number> {
     out.print(commandHelp(command, out.theme));
     return 0;
   }
-  const root = path.resolve(typeof flags.root === "string" ? flags.root : process.cwd());
   const module = await command.load();
   return module.run({ root, flags, positionals, out });
+}
+
+/** Whether `root` is an app set up for Lucent: it depends on @lucent-lang/lucent, or has built. */
+function usesLucent(root: string): boolean {
+  if (fs.existsSync(path.join(root, ".lucent"))) return true;
+  try {
+    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8")) as { dependencies?: object; devDependencies?: object };
+    return "@lucent-lang/lucent" in { ...pkg.dependencies, ...pkg.devDependencies };
+  } catch {
+    return false;
+  }
 }
 
 installCrashHandler(version());
