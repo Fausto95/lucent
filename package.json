@@ -22,6 +22,7 @@
     "@types/node": "^24.7.0",
     "tsx": "^4.20.6",
     "typescript": "~5.9.3",
+    "vite-plus": "catalog:",
     "vitest": "^3.2.4"
   },
   "engines": {
