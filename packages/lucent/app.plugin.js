@@ -46,7 +46,7 @@ function applyGradleTask(text) {
   if (text.includes("gradle/lucent.gradle")) return undefined;
   const lines = text.split("\n");
   const react = lines.findIndex((l) => /^apply plugin: ["']com\.facebook\.react["']/.test(l));
-  const lastApply = lines.reduce((at, l, i) => (/^apply plugin:/.test(l) ? i : at), -1);
+  const lastApply = lines.reduce((at, l, i) => (l.startsWith("apply plugin:") ? i : at), -1);
   const after = react >= 0 ? react : lastApply;
   lines.splice(after + 1, 0, GRADLE_LINE);
   return lines.join("\n");

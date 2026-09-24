@@ -76,7 +76,7 @@ function declaration(dts: string, name: string): string | undefined {
 /** A member's lines inside a declaration (its overloads too), with the declaration's first line for context. */
 function memberLines(block: string, member: string): string | undefined {
   const lines = block.split("\n");
-  const head = lines.find((l) => /^export /.test(l))!;
+  const head = lines.find((l) => l.startsWith("export "))!;
   const found = lines.filter((l) =>
     new RegExp(`^\\s+(static |readonly |get |set |protected |private )*${member}\\b[?(<:]`).test(l),
   );

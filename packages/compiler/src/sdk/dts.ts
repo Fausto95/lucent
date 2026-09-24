@@ -146,7 +146,7 @@ export function sdkDts(schema: SdkModuleSchema): string {
 
 /** The implementation modules (`ios/_Name`) a module's declarations re-export. */
 export function reexports(schema: SdkModuleSchema, imported: string[]): string[] {
-  return schema.platform === "ios" ? imported.filter((m) => /^ios\/_/.test(m)) : [];
+  return schema.platform === "ios" ? imported.filter((m) => m.startsWith("ios/_")) : [];
 }
 
 const RESERVED = new Set([
