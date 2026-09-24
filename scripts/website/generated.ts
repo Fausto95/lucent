@@ -31,6 +31,19 @@ export function squaredDistance(a: Point, b: Point): number {
   return `${header}export const demoSource = ${JSON.stringify(source.trimEnd())};\n\nexport const demoCpp = ${JSON.stringify(fn)};\n`;
 }
 
+/** The proxy Metro bundles in place of a module (How a module becomes native code). */
+function proxyDemo(): string {
+  const source = `export function greet(name: string): string {
+  const trimmed = name.trim();
+  return trimmed.length > 0 ? \`Hello, \${trimmed}!\` : "Hello, stranger!";
+}
+`;
+  const demo = compileSamples("proxy", [{ filename: "greet.lucent.ts", code: source }]);
+  const proxy = demo.proxies.get("greet");
+  if (!proxy) throw new Error(`the proxy sample does not compile:\n${demo.diagnostics.map(formatDiagnostic).join("\n")}`);
+  return `${header}export const greetProxy = ${JSON.stringify(proxy.trimEnd())};\n`;
+}
+
 /** The CLI reference, from the command table the CLI parses with. */
 function cli(): string {
   const flag = (f: { name: string; value?: string; optional?: boolean }) => `--${f.name}${f.value ? (f.optional ? ` [<${f.value}>]` : ` <${f.value}>`) : ""}`;
@@ -82,5 +95,5 @@ ${redirects.join("\n")}
 
 /** apps/website/src/generated/<name> → its content. */
 export function generatedFiles(): Record<string, string> {
-  return { "compiler-demo.ts": compilerDemo(), "cli.ts": cli(), "diagnostics.ts": diagnostics(), "docs-routes.ts": docsRoutes() };
+  return { "compiler-demo.ts": compilerDemo(), "proxy-demo.ts": proxyDemo(), "cli.ts": cli(), "diagnostics.ts": diagnostics(), "docs-routes.ts": docsRoutes() };
 }

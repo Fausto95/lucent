@@ -75,12 +75,30 @@ Found on the way, left for their own work:
 - An app's own `lucent.json` is not read, only Lucent packages'. The
   permissions and third-party SDK pages say so.
 
+## 4. How Lucent works
+
+- [x] How a module becomes native code (`/docs/how-it-works/`): the check,
+      the C++ (with "See the C++"), the native package with a tour of
+      `.lucent/`, the app build, Metro's proxy (generated from the compiler).
+- [x] How a call reaches native code: sync and async calls, with the thread
+      each step runs on.
+- [x] How an SDK call reaches iOS and Android: where SDK types come from,
+      what a call compiles to (both platforms' real C++), what comes back.
+- [x] Diagrams, vertical so they read on phones, in both themes: the build
+      (one stage highlighted per step), the call path with thread lanes, the
+      platform call. The old pipeline and runtime diagrams are gone (the
+      pipeline one named "lowering").
+- The plan's seven steps are three pages: five build steps on one, the call
+  path, the platform call.
+- Pages whose "See the C++" needs an SDK the machine lacks (CI has no
+  Xcode) keep their committed C++, with a warning.
+
 ## 10. Website features (pulled forward)
 
 - [x] "See the C++" (`cpp: true` on a sample): the compiler's output for the
       sample, written by `scripts/website.ts` into `src/generated/cpp/<page>.ts`
       (drift-checked), loaded only when opened. Per platform for platform code.
 
-## 4–9, 11
+## 5–9, 11
 
 Not started.

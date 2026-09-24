@@ -76,7 +76,7 @@ controller.abort();`,
     { kind: "h2", text: "Which thread runs what" },
     {
       kind: "diagram",
-      diagram: "runtime",
+      diagram: "call-async",
       caption: "Synchronous exports run on the JS thread; async exports start on the Lucent thread. One lock serializes all Lucent code.",
     },
     {

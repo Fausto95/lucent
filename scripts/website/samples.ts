@@ -1,4 +1,5 @@
 import { formatDiagnostic } from "../../packages/compiler/src/index.ts";
+import { PLATFORMS, platformSdkAvailable } from "../../packages/compiler/src/sdk/schema.ts";
 import type { Block, CppFile, DocPage } from "../../apps/website/src/docs/types.ts";
 import { compileSamples, type Sample } from "./compile.ts";
 import { where } from "./context.ts";
@@ -32,9 +33,17 @@ function cppOf(files: Map<string, string>, filename: string): CppFile[] {
  * A page's samples compile together, as one app; a sample with `expect` compiles alone and must fail with that code.
  * Returns the C++ of the samples marked `cpp`, by page slug.
  */
-export function checkSamples(pages: DocPage[]): { checked: number; problems: string[]; cpp: Map<string, Record<string, CppFile[]>> } {
+export function checkSamples(pages: DocPage[]): {
+  checked: number;
+  problems: string[];
+  cpp: Map<string, Record<string, CppFile[]>>;
+  /** Pages whose platform C++ needs an SDK this machine lacks (CI has no Xcode): their generated C++ is left as it is. */
+  unbuilt: Map<string, string[]>;
+} {
   const problems: string[] = [];
   const cpp = new Map<string, Record<string, CppFile[]>>();
+  const unbuilt = new Map<string, string[]>();
+  const missing = PLATFORMS.filter((p) => !platformSdkAvailable(p));
   let checked = 0;
   for (const page of pages) {
     const samples = samplesOf(page.blocks);
@@ -47,7 +56,9 @@ export function checkSamples(pages: DocPage[]): { checked: number; problems: str
       const { diagnostics, files } = compileSamples(page.slug || "index", app);
       for (const d of diagnostics) problems.push(`${where(page.slug)}: ${formatDiagnostic(d)}`);
       const shown = app.filter((s) => s.cpp);
-      if (shown.length && !diagnostics.length) cpp.set(page.slug, Object.fromEntries(shown.map((s) => [s.filename, cppOf(files, s.filename)])));
+      const platformCode = shown.some((s) => /from "lucent:(ios|android)/.test(s.code));
+      if (shown.length && platformCode && missing.length) unbuilt.set(page.slug, missing);
+      else if (shown.length && !diagnostics.length) cpp.set(page.slug, Object.fromEntries(shown.map((s) => [s.filename, cppOf(files, s.filename)])));
     }
     for (const s of samples.filter((x) => x.expect)) {
       const { diagnostics } = compileSamples(`${page.slug}-expect`, [s]);
@@ -58,5 +69,5 @@ export function checkSamples(pages: DocPage[]): { checked: number; problems: str
     }
     checked += samples.length;
   }
-  return { checked, problems, cpp };
+  return { checked, problems, cpp, unbuilt };
 }

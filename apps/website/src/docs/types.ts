@@ -30,7 +30,15 @@ export type Block =
   | { kind: "cards"; items: { title: string; text: string; href: string }[] };
 
 /** Diagrams are components, looked up by name in components/DocsDiagram.tsx. */
-export type DiagramName = "pipeline" | "runtime";
+export type DiagramName =
+  | "build-check"
+  | "build-cpp"
+  | "build-package"
+  | "build-app"
+  | "build-metro"
+  | "call-sync"
+  | "call-async"
+  | "platform-call";
 
 /**
  * Start: what Lucent is and getting it running. Learn: how to think in it,

@@ -29,9 +29,31 @@ export const docsGroups: DocGroup[] = [
     ],
   },
   {
+    label: "How Lucent works",
+    entries: [
+      {
+        slug: "how-it-works",
+        kind: "learn",
+        title: "How a module becomes native code",
+        description: "Five steps turn a `.lucent.ts` file into C++ in your app binary, and into a proxy in your JS bundle.",
+      },
+      {
+        slug: "how-it-works/calls",
+        kind: "learn",
+        title: "How a call reaches native code",
+        description: "A call goes from your JavaScript through a proxy and JSI to your C++. Synchronous calls stay on the JS thread; async ones run on the Lucent thread.",
+      },
+      {
+        slug: "how-it-works/platform-calls",
+        kind: "learn",
+        title: "How an SDK call reaches iOS and Android",
+        description: "An SDK call compiles to an Objective-C message send on iOS and a JNI call on Android, typed from the SDKs on your machine.",
+      },
+    ],
+  },
+  {
     label: "Legacy",
     entries: [
-      { slug: "how-it-works", kind: "learn", legacy: true, title: "How it works", description: "How a Lucent module becomes C++ in your app binary, and how JavaScript reaches it." },
       { slug: "comparison", kind: "other", legacy: true, title: "Comparison", description: "How Lucent compares with Expo Modules, Nitro Modules and Turbo Native Modules, and when to pick each." },
       { slug: "status", kind: "other", legacy: true, title: "Status & roadmap", description: "What Lucent can do today, what it cannot do yet, and the milestones in between." },
       { slug: "language", kind: "learn", legacy: true, title: "Language overview", description: "Lucent modules are ordinary TypeScript files, restricted to a subset that has a native representation and compiled to C++." },
