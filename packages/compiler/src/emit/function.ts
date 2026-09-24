@@ -653,8 +653,21 @@ export class FnEmitter {
     }
   }
 
+  /** Records the names a rejected declaration binds, so their uses are not reported again. */
+  private markFailed(name: ts.BindingName): void {
+    if (ts.isIdentifier(name)) {
+      const sym = this.checker.getSymbolAtLocation(name);
+      if (sym) this.failed.add(sym);
+      return;
+    }
+    for (const e of name.elements) if (!ts.isOmittedExpression(e)) this.markFailed(e.name);
+  }
+
   private varStatement(list: ts.VariableDeclarationList): void {
-    if (!(list.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const))) fail(list, Codes.UnsupportedSyntax, "use `let` or `const` instead of `var`");
+    if (!(list.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const))) {
+      for (const d of list.declarations) this.markFailed(d.name);
+      fail(list, Codes.UnsupportedSyntax, "use `let` or `const` instead of `var`");
+    }
     for (const d of list.declarations) {
       if (ts.isIdentifier(d.name)) {
         const sym = this.checker.getSymbolAtLocation(d.name)!;
@@ -1495,6 +1508,7 @@ export class FnEmitter {
     if (ts.isParenthesizedExpression(target)) return this.lvalue(target.expression);
     if (ts.isIdentifier(target)) {
       const sym = this.ctx.resolve(symbolOf(this.checker, target)!);
+      if (this.failed.has(sym)) throw new AlreadyReported();
       const local = this.findLocal(sym);
       if (local?.int) {
         const kind = local.int;
