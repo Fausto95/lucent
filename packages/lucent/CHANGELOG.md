@@ -1,5 +1,11 @@
 # @lucent-lang/lucent
 
+## 0.0.5
+
+### Patch Changes
+
+- [`be7d600`](https://github.com/Fausto95/lucent/commit/be7d6006c5eca7730fbf69e2d0d9eea912f7a604) Thanks [@Fausto95](https://github.com/Fausto95)! - Add a README to the npm package: what Lucent does, how to install it, what the package contains and where the docs are.
+
 ## 0.0.4
 
 ### Patch Changes
