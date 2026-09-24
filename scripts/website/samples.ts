@@ -8,6 +8,7 @@ function samplesOf(blocks: Block[]): Sample[] {
     if (b.kind === "code") return b.filename.endsWith(".lucent.ts") ? [b] : [];
     if (b.kind === "tabs") return b.tabs.filter((t) => t.filename.endsWith(".lucent.ts"));
     if (b.kind === "steps") return b.steps.flatMap((s) => samplesOf(s.blocks));
+    if (b.kind === "panels") return b.panels.flatMap((p) => samplesOf(p.blocks));
     return [];
   });
 }

@@ -6,7 +6,12 @@ import { proseOf } from "./prose.ts";
 const LINK = /\[[^\]]+\]\((\/[^)]*)\)/g;
 
 function anchorsOf(blocks: Block[]): string[] {
-  return blocks.flatMap((b) => (b.kind === "h2" || b.kind === "h3" ? [headingId(b.text)] : []));
+  return blocks.flatMap((b) => {
+    if (b.kind === "h2" || b.kind === "h3") return [headingId(b.text)];
+    if (b.kind === "steps") return b.steps.flatMap((s) => anchorsOf(s.blocks));
+    if (b.kind === "panels") return b.panels.flatMap((p) => anchorsOf(p.blocks));
+    return [];
+  });
 }
 
 /** Every internal link names a page that exists (not a redirect), and its #anchor a heading on that page. */

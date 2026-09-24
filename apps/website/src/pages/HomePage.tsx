@@ -41,7 +41,7 @@ export function HomePage() {
             in JavaScript, and nothing runs in a JS engine on the native side.
           </p>
           <div {...stylex.props(styles.heroActions)}>
-            <Link to="/docs/getting-started/" {...stylex.props(sharedStyles.button)}>
+            <Link to="/docs/install/" {...stylex.props(sharedStyles.button)}>
               Get started
               <span aria-hidden="true" {...stylex.props(sharedStyles.buttonArrow)}>
                 ↗
@@ -129,7 +129,7 @@ export function HomePage() {
             }
             title="One module. Both platforms, both hosts."
             text="The same source builds for iOS and Android, in bare React Native and in Expo. CocoaPods and CMake autolink it, and Metro swaps each import for a typed proxy."
-            href="/docs/getting-started/"
+            href="/docs/install/"
             linkLabel="Set it up"
           />
         </div>
@@ -195,7 +195,7 @@ export function HomePage() {
             <br />
             Packages are not on npm yet: see the setup guide.
           </p>
-          <Link to="/docs/getting-started/" {...stylex.props(styles.textLink2)}>
+          <Link to="/docs/install/" {...stylex.props(styles.textLink2)}>
             Setup guide <span aria-hidden="true">→</span>
           </Link>
         </div>
@@ -221,7 +221,7 @@ export function HomePage() {
           </pre>
           <div {...stylex.props(styles.terminalNote)}>
             Requires Node 22.12+ and a development build (not Expo Go).{" "}
-            <Link to="/docs/getting-started/" {...stylex.props(styles.terminalLink)}>
+            <Link to="/docs/install/" {...stylex.props(styles.terminalLink)}>
               Full setup →
             </Link>
           </div>

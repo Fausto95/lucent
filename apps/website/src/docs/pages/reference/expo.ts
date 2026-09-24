@@ -70,6 +70,6 @@ npx expo run:ios      # builds the dev client; Metro starts the Lucent watcher`,
     },
     {
       kind: "note",
-      text: "The plugin builds only during prebuild. While you work, the watcher started by [`withLucent`](/docs/reference/metro/) keeps `.lucent/native` current; after it rebuilds native code, rebuild the app. Add `.lucent/` to `.gitignore`. See [Getting started with Expo](/docs/getting-started-expo/) for a full walkthrough.",
+      text: "The plugin builds only during prebuild. While you work, the watcher started by [`withLucent`](/docs/reference/metro/) keeps `.lucent/native` current; after it rebuilds native code, rebuild the app. Add `.lucent/` to `.gitignore`. See [Install Lucent](/docs/install/) for a full walkthrough.",
     },
 ];

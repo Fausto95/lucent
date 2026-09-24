@@ -5,7 +5,8 @@
  *   2. checks the docs' structure: page files match the nav, each page has
  *      its "Next" link, retired slugs redirect to pages that exist;
  *   3. compiles every `*.lucent.ts` sample on the docs pages;
- *   4. checks internal links and their anchors;
+ *   4. checks internal links and their anchors, and each page's length
+ *      budget (words and lines of code, by kind of page);
  *   5. writes each page's prose as Markdown to apps/website/.prose/ and runs
  *      Vale on it (apps/website/CONTRIBUTING-DOCS.md has the rules).
  *
@@ -15,6 +16,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { websiteSrc } from "./website/context.ts";
+import { checkBudgets } from "./website/budget.ts";
 import { generatedFiles } from "./website/generated.ts";
 import { checkLinks } from "./website/links.ts";
 import { checkStructure, loadPages } from "./website/pages.ts";
@@ -38,6 +40,7 @@ problems.push(...checkStructure(pages));
 const samples = checkSamples(pages);
 problems.push(...samples.problems);
 problems.push(...checkLinks(pages));
+problems.push(...checkBudgets(pages));
 const prose = checkProse(pages, check);
 problems.push(...prose.problems);
 

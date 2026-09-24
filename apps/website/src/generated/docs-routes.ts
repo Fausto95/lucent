@@ -5,8 +5,8 @@ import { docPage, docsRoute, keepHash } from "../routes/docs";
 
 export const docsPageRoutes = [
   createRoute({ getParentRoute: () => docsRoute, path: "/", ...docPage("") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "getting-started", ...docPage("getting-started") }),
-  createRoute({ getParentRoute: () => docsRoute, path: "getting-started-expo", ...docPage("getting-started-expo") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "install", ...docPage("install") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "first-module", ...docPage("first-module") }),
   createRoute({ getParentRoute: () => docsRoute, path: "how-it-works", ...docPage("how-it-works") }),
   createRoute({ getParentRoute: () => docsRoute, path: "comparison", ...docPage("comparison") }),
   createRoute({ getParentRoute: () => docsRoute, path: "status", ...docPage("status") }),
@@ -33,6 +33,20 @@ export const docsPageRoutes = [
 ] as const;
 
 export const docsRedirectRoutes = [
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "getting-started",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/install/", ...keepHash(location), replace: true });
+    },
+  }),
+  createRoute({
+    getParentRoute: () => docsRoute,
+    path: "getting-started-expo",
+    beforeLoad: ({ location }) => {
+      throw redirect({ to: "/docs/install/", ...keepHash(location), replace: true });
+    },
+  }),
   createRoute({
     getParentRoute: () => docsRoute,
     path: "what-you-can-build",

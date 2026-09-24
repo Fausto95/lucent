@@ -53,6 +53,28 @@ Guessed (not in the plan): the length budgets in words and code lines
 - The shared JS chunk is 117 KB gzipped (React, the router, the homepage),
   over the plan's 100 KB per page: for step 10.
 
-## 3–11
+## 3. Start
+
+- [x] What is Lucent (`/docs/`), Install Lucent (`/docs/install/`, Expo and
+      bare as tabs that the next pages remember), Your first module
+      (`/docs/first-module/`). Terminal output on them is real: `lucent
+      doctor` (shortened), `lucent dev --compact` and `lucent check` runs.
+- [x] Replaced and redirected: getting-started, getting-started-expo.
+- [x] New blocks: `panels` (alternative setups), `copy: false` (output).
+- [x] Length budgets checked per kind of page (legacy pages exempt).
+
+Found on the way, left for their own work:
+
+- `lucent new module --ios/--android` scaffolds split platform files, not
+  the standard single module (flagged as a separate task); the docs don't
+  recommend those flags until it changes.
+- `lucent explain` links to `/docs/language/diagnostics/#…`: update
+  `codes.ts` when the diagnostics reference moves.
+- `docs/semantics.md` lists `toSorted`, `toReversed`, `findLast*` as
+  supported; they fail to type-check (the compiler loads ES2022's lib).
+- An app's own `lucent.json` is not read, only Lucent packages'. The
+  permissions and third-party SDK pages say so.
+
+## 4–11
 
 Not started.

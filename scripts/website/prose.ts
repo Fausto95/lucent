@@ -24,6 +24,8 @@ export function proseOf(blocks: Block[]): string[] {
         return b.caption ? [b.caption] : [];
       case "steps":
         return b.steps.flatMap((step) => [`### ${step.title}`, ...proseOf(step.blocks)]);
+      case "panels":
+        return b.panels.flatMap((panel) => [`### ${panel.label}`, ...proseOf(panel.blocks)]);
       case "cards":
         return b.items.map((item) => `**${item.title}**: ${item.text}`);
       case "code":

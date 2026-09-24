@@ -6,11 +6,31 @@ import type { DocEntry, DocGroup } from "./types";
  */
 export const docsGroups: DocGroup[] = [
   {
+    label: "Start",
+    entries: [
+      {
+        slug: "",
+        kind: "start",
+        title: "What is Lucent",
+        description: "Lucent compiles TypeScript modules to C++ for React Native: you write a `.lucent.ts` file, and your app calls it as native code.",
+      },
+      {
+        slug: "install",
+        kind: "start",
+        title: "Install Lucent",
+        description: "Add one dev dependency, run `lucent init` to set the app up, and check the machine with `lucent doctor`.",
+      },
+      {
+        slug: "first-module",
+        kind: "start",
+        title: "Your first module",
+        description: "In ten minutes: write a module, call it from a screen, change it, and read a compile error.",
+      },
+    ],
+  },
+  {
     label: "Legacy",
     entries: [
-      { slug: "", kind: "start", legacy: true, title: "Introduction", description: "Lucent compiles a checked subset of TypeScript to C++ and calls it from React Native through JSI." },
-      { slug: "getting-started", kind: "start", legacy: true, title: "Getting started (bare React Native)", description: "Add Lucent to a bare React Native 0.88 app, compile a module and call it from JavaScript." },
-      { slug: "getting-started-expo", kind: "start", legacy: true, title: "Getting started (Expo)", description: "Add Lucent to an Expo SDK 58 app with the config plugin and run it in a development build." },
       { slug: "how-it-works", kind: "learn", legacy: true, title: "How it works", description: "How a Lucent module becomes C++ in your app binary, and how JavaScript reaches it." },
       { slug: "comparison", kind: "other", legacy: true, title: "Comparison", description: "How Lucent compares with Expo Modules, Nitro Modules and Turbo Native Modules, and when to pick each." },
       { slug: "status", kind: "other", legacy: true, title: "Status & roadmap", description: "What Lucent can do today, what it cannot do yet, and the milestones in between." },

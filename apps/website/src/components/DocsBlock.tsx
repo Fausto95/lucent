@@ -6,6 +6,7 @@ import { CodeTabs } from "./CodeTabs";
 import { ComparisonTable } from "./ComparisonTable";
 import { DocsDiagram } from "./DocsDiagram";
 import { DocsHeading } from "./DocsHeading";
+import { DocsPanels } from "./DocsPanels";
 import { Inline } from "./Inline";
 import { SmartLink } from "./SmartLink";
 
@@ -23,7 +24,7 @@ export function DocsBlock({ block }: { block: Block }) {
     case "h3":
       return <DocsHeading level={3} text={block.text} />;
     case "code":
-      return <CodeBlock filename={block.filename} code={block.code} />;
+      return <CodeBlock filename={block.filename} code={block.code} copyable={block.copy !== false} />;
     case "tabs":
       return <CodeTabs tabs={block.tabs} />;
     case "note": {
@@ -109,6 +110,8 @@ export function DocsBlock({ block }: { block: Block }) {
           ))}
         </ol>
       );
+    case "panels":
+      return <DocsPanels panels={block.panels} />;
     case "cards":
       return (
         <div {...stylex.props(styles.cards)}>

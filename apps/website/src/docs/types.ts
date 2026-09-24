@@ -12,7 +12,8 @@ export type Block =
   | { kind: "p"; text: string }
   | { kind: "h2"; text: string }
   | { kind: "h3"; text: string }
-  | { kind: "code"; filename: string; code: string; expect?: string }
+  /** `copy: false` for output the reader reads rather than runs (a terminal's output). */
+  | { kind: "code"; filename: string; code: string; expect?: string; copy?: false }
   | { kind: "tabs"; tabs: { label: string; filename: string; code: string }[] }
   | { kind: "note"; text: string; tone?: "info" | "warn" }
   | { kind: "list"; items: string[]; ordered?: boolean }
@@ -21,6 +22,8 @@ export type Block =
   /** The Lucent / Expo Modules / Nitro / Turbo Native Modules table (docs/comparison-table.ts). */
   | { kind: "comparison" }
   | { kind: "steps"; steps: { title: string; blocks: Block[] }[] }
+  /** One of several setups (Expo, bare React Native): the reader picks a tab, and the choice carries across pages. */
+  | { kind: "panels"; panels: { label: string; blocks: Block[] }[] }
   | { kind: "cards"; items: { title: string; text: string; href: string }[] };
 
 /** Diagrams are components, looked up by name in components/DocsDiagram.tsx. */

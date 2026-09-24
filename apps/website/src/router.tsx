@@ -18,7 +18,7 @@ const getStartedRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/get-started",
   beforeLoad: () => {
-    throw redirect({ to: "/docs/getting-started/", replace: true });
+    throw redirect({ to: "/docs/install/", replace: true });
   },
 });
 
