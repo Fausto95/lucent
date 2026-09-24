@@ -105,6 +105,9 @@ bool runLoop(jsi::Runtime& rt, double timeoutMs) {
 
 }  // namespace
 
+/// Replaced by hosts that add globals of their own (scripts/bench.ts).
+__attribute__((weak)) void installHarnessExtras(jsi::Runtime&) {}
+
 int main(int argc, char** argv) {
   if (argc < 2) {
     std::fprintf(stderr, "usage: harness <script.js>...\n");
@@ -119,6 +122,7 @@ int main(int argc, char** argv) {
     rt.global().setProperty(rt, "__lucent", host->modules(rt));
     // What @lucent-lang/runtime's loader looks for outside React Native.
     rt.global().setProperty(rt, "__lucentModules", rt.global().getProperty(rt, "__lucent"));
+    installHarnessExtras(rt);
     rt.global().setProperty(
         rt, "print",
         jsi::Function::createFromHostFunction(rt, jsi::PropNameID::forAscii(rt, "print"), 1,
