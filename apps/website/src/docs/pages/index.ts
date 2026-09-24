@@ -1,4 +1,6 @@
 import type { Block } from "../types";
+import { clipboardUsage } from "../../content";
+import { source as clipboard } from "../../generated/examples/clipboard";
 
 export const blocks: Block[] = [
   {
@@ -37,6 +39,18 @@ summarize([3, 1, 4, 1, 5]); // { count: 5, mean: 2.8, max: 5 }`,
   {
     kind: "p",
     text: "No JavaScript engine runs your module, and there's no Swift or Kotlin to write. Modules can also call iOS and Android APIs directly.",
+  },
+  { kind: "h2", text: "Call iOS and Android" },
+  {
+    kind: "tabs",
+    tabs: [
+      { label: "module", filename: "clipboard.lucent.ts", cpp: true, code: clipboard },
+      { label: "JS usage", filename: "App.tsx", code: clipboardUsage },
+    ],
+  },
+  {
+    kind: "p",
+    text: "A module imports the SDKs directly, typed from your Xcode and Android SDK. Each platform's build compiles its own branch. This is `expo-clipboard`'s API, from the [examples](/docs/examples/).",
   },
   { kind: "h2", text: "When to use it" },
   {

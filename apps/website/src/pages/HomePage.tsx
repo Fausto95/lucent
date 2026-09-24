@@ -2,13 +2,14 @@ import * as stylex from "@stylexjs/stylex";
 import { Link } from "@tanstack/react-router";
 import { styles } from "./HomePage.stylex";
 import { styles as sharedStyles } from "../styles/shared.stylex";
+import { CodeTabs } from "../components/CodeTabs";
 import { CompilerDemo } from "../components/CompilerDemo";
 import { FeatureCard } from "../components/FeatureCard";
-import { CodeBlock } from "../components/CodeBlock";
 import { ComparisonTable } from "../components/ComparisonTable";
 import { useClipboard } from "../components/ClipboardProvider";
 import { useDocumentMeta } from "../components/useDocumentMeta";
-import { commands, platformTeaser } from "../content";
+import { clipboardUsage, commands } from "../content";
+import { source as clipboardSource } from "../generated/examples/clipboard";
 
 export function HomePage() {
   const { copy } = useClipboard();
@@ -138,27 +139,28 @@ export function HomePage() {
       <section id="platform" aria-labelledby="platform-heading" {...stylex.props(sharedStyles.howSection)}>
         <div {...stylex.props(styles.sectionIntro)}>
           <div>
-            <span {...stylex.props(sharedStyles.eyebrow2)}>PLANNED · PLATFORM APIS</span>
+            <span {...stylex.props(sharedStyles.eyebrow2)}>PLATFORM APIS</span>
             <h2 id="platform-heading" {...stylex.props(styles.howHeading)}>
               Import the SDK. <span {...stylex.props(styles.sectionHeadingMuted)}>Stay typed.</span>
             </h2>
           </div>
           <p {...stylex.props(styles.sectionDescription)}>
-            Typed bindings for iOS and Android APIs, called directly from Lucent.
+            iOS and Android APIs, typed from your Xcode and Android SDK.
             <br />
-            Early today; this is where it is going.
+            One module for both platforms.
           </p>
         </div>
-        <CodeBlock filename="location.ios.lucent.ts · planned" code={platformTeaser} />
+        <CodeTabs
+          tabs={[
+            { label: "module", filename: "clipboard.lucent.ts", code: clipboardSource },
+            { label: "JS usage", filename: "App.tsx", code: clipboardUsage },
+          ]}
+        />
         <p {...stylex.props(styles.sectionFootnote)}>
-          Not available yet. See the{" "}
-          <Link to="/docs/platform-apis/" {...stylex.props(styles.footnoteLink)}>
-            platform APIs page
-          </Link>{" "}
-          for what works today, and the{" "}
-          <a href="https://github.com/Fausto95/lucent/blob/cpp-jsi/ROADMAP.md" {...stylex.props(styles.footnoteLink)}>
-            roadmap
-          </a>
+          <code>expo-clipboard</code>&apos;s API, from the example apps. More ports, with delegates and events, are in the{" "}
+          <Link to="/docs/examples/" {...stylex.props(styles.footnoteLink)}>
+            examples
+          </Link>
           .
         </p>
       </section>
