@@ -96,8 +96,17 @@ export function diagnose(root: string, probe: Probe): Check[] {
   ];
 }
 
+/** What Lucent needs, as doctor checks it. The website's compatibility page is generated from it. */
+export const REQUIREMENTS = {
+  node: "22.12",
+  reactNative: "0.88",
+  expoSdk: 58,
+  jdk: { min: 17, max: 21 },
+} as const;
+
 function node(probe: Probe): Check {
-  return atLeast(probe.nodeVersion, "22.12.0") ? ok("node", "Node.js", probe.nodeVersion) : fail("node", "Node.js", `${probe.nodeVersion}; Lucent needs 22.12 or later`, "install Node.js 22.12 or later (nodejs.org, or your version manager)");
+  const need = REQUIREMENTS.node;
+  return atLeast(probe.nodeVersion, `${need}.0`) ? ok("node", "Node.js", probe.nodeVersion) : fail("node", "Node.js", `${probe.nodeVersion}; Lucent needs ${need} or later`, `install Node.js ${need} or later (nodejs.org, or your version manager)`);
 }
 
 function packageManager(root: string): Check {
@@ -108,14 +117,16 @@ function packageManager(root: string): Check {
 
 function reactNative(root: string): Check {
   const v = installed(root, "react-native");
-  if (!v) return fail("react-native", "React Native", "not installed", "install react-native 0.88 or later in the app");
-  return atLeast(v, "0.88.0") ? ok("react-native", "React Native", v) : fail("react-native", "React Native", `${v}; Lucent needs 0.88 or later (the New Architecture's C++ TurboModules)`, "upgrade react-native to 0.88 or later");
+  const need = REQUIREMENTS.reactNative;
+  if (!v) return fail("react-native", "React Native", "not installed", `install react-native ${need} or later in the app`);
+  return atLeast(v, `${need}.0`) ? ok("react-native", "React Native", v) : fail("react-native", "React Native", `${v}; Lucent needs ${need} or later (the New Architecture's C++ TurboModules)`, `upgrade react-native to ${need} or later`);
 }
 
 function expoSdk(root: string): Check {
   const v = installed(root, "expo");
   if (!v) return fail("expo", "Expo SDK", "expo is a dependency but is not installed", "install the app's dependencies");
-  return atLeast(v, "58.0.0") ? ok("expo", "Expo SDK", `${parse(v)[0]} (expo ${v})`) : fail("expo", "Expo SDK", `expo ${v}; Lucent needs SDK 58 or later`, "upgrade to Expo SDK 58 (npx expo install expo@^58)");
+  const need = REQUIREMENTS.expoSdk;
+  return atLeast(v, `${need}.0.0`) ? ok("expo", "Expo SDK", `${parse(v)[0]} (expo ${v})`) : fail("expo", "Expo SDK", `expo ${v}; Lucent needs SDK ${need} or later`, `upgrade to Expo SDK ${need} (npx expo install expo@^${need})`);
 }
 
 function xcode(probe: Probe): Check {
@@ -158,11 +169,12 @@ function android(probe: Probe): Check[] {
 
 function jdk(probe: Probe): Check {
   const r = probe.run("java", ["-version"]);
-  if (r.status !== 0) return fail("jdk", "JDK", "not found", "install JDK 17 or 21 (e.g. brew install --cask zulu@21) and set JAVA_HOME");
+  const { min, max } = REQUIREMENTS.jdk;
+  if (r.status !== 0) return fail("jdk", "JDK", "not found", `install JDK ${min} or ${max} (e.g. brew install --cask zulu@${max}) and set JAVA_HOME`);
   const m = /version "(\d+)(?:\.(\d+))?/.exec(r.stderr + r.stdout);
   const major = m ? Number(m[1] === "1" ? m[2] : m[1]) : 0;
-  if (major >= 17 && major <= 21) return ok("jdk", "JDK", String(major));
-  return warn("jdk", "JDK", `${major || "unknown version"}; React Native's Gradle build needs 17 to 21`, "set JAVA_HOME to JDK 17 or 21 (macOS: export JAVA_HOME=$(/usr/libexec/java_home -v 21))");
+  if (major >= min && major <= max) return ok("jdk", "JDK", String(major));
+  return warn("jdk", "JDK", `${major || "unknown version"}; React Native's Gradle build needs ${min} to ${max}`, `set JAVA_HOME to JDK ${min} or ${max} (macOS: export JAVA_HOME=$(/usr/libexec/java_home -v ${max}))`);
 }
 
 function gradleTask(root: string, expo: boolean): Check {
