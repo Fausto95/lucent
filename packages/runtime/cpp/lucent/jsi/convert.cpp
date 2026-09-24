@@ -19,7 +19,7 @@ const char* jsTypeName(jsi::Runtime& rt, const jsi::Value& v) {
 }
 
 void throwBoundaryError(jsi::Runtime& rt, const Path& path, const char* expected, const jsi::Value& actual) {
-  std::string message = std::string(path.fn) + ": " + path.where + " must be " + expected + ", got " + jsTypeName(rt, actual);
+  std::string message = std::string(path.fn) + ": " + path.where() + " must be " + expected + ", got " + jsTypeName(rt, actual);
   jsi::Object err = rt.global()
                         .getPropertyAsFunction(rt, "TypeError")
                         .callAsConstructor(rt, jsi::String::createFromUtf8(rt, message))

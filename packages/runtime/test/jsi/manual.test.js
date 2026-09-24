@@ -26,6 +26,9 @@ eq("midpoint", m.midpoint({ x: 0, y: 0 }, { x: 4, y: 2 }), { x: 2, y: 1 });
 throws("midpoint bad field", function () { m.midpoint({ x: 0 }, { x: 1, y: 1 }); }, function (e) {
   return e.message === "midpoint: argument 'a'.y must be a number, got undefined";
 });
+throws("hashMany bad element", function () { m.hashMany(["a", "b", 3]); }, function (e) {
+  return e.message === "hashMany: argument 'inputs'[2] must be a string, got a number";
+});
 throws("divide by zero", function () { m.divide(1, 0); }, function (e) {
   return e instanceof Error && e.code === "DIVIDE_BY_ZERO" && e.message === "Cannot divide by zero";
 });

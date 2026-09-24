@@ -16,6 +16,7 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 #include "../lucent.h"
 
@@ -28,6 +29,21 @@ using JsTask = std::function<void(jsi::Runtime&)>;
 using JsPoster = std::function<void(JsTask)>;
 
 class Host;
+
+/// A property name generated code reads or writes on JavaScript objects
+/// (a struct's fields): its jsi::PropNameID is made once per runtime and kept
+/// by the Host, instead of interning the name on every access.
+struct PropName {
+  const char* text;
+  size_t id;
+  explicit PropName(const char* t) : text(t), id(next()) {}
+
+ private:
+  static size_t next() {
+    static std::atomic<size_t> count{0};
+    return count++;
+  }
+};
 
 /// One Lucent module as seen from JavaScript: fills `exports` with the
 /// module's functions, classes and constants.
@@ -86,6 +102,12 @@ class Host : public std::enable_shared_from_this<Host> {
   /// Converts a caught JS exception into a Lucent error.
   static Error errorFromJs(jsi::Runtime& rt, const jsi::JSError& e);
 
+  /// The runtime's id for a property name, made on first use.
+  const jsi::PropNameID& prop(jsi::Runtime& rt, const PropName& name) {
+    if (name.id < props_.size() && props_[name.id]) return *props_[name.id];
+    return makeProp(rt, name);
+  }
+
  private:
   Host(jsi::Runtime& rt, JsPoster poster);
 
@@ -105,6 +127,8 @@ class Host : public std::enable_shared_from_this<Host> {
   std::unordered_map<std::string, jsi::Value> modules_;
   std::unordered_map<uint64_t, jsi::WeakObject> identities_;
   size_t identitySweep_ = 0;
+  std::vector<std::unique_ptr<jsi::PropNameID>> props_;
+  const jsi::PropNameID& makeProp(jsi::Runtime& rt, const PropName& name);
 };
 
 /// Holds a strong reference to the Host while posting results back to JS.
