@@ -124,6 +124,12 @@ const packageOf = (internal: string) => internal.slice(0, internal.lastIndexOf("
 const simpleOf = (internal: string) => internal.slice(internal.lastIndexOf("/") + 1).replace(/\$/g, "_");
 const refOf = (internal: string) => `${packageOf(internal)}.${simpleOf(internal)}`;
 
+/**
+ * Kotlin mangles the JVM names of functions taking inline classes
+ * (sortArray-4UcCI2c), hiding them from Java: they are not identifiers.
+ */
+const mangled = (name: string) => !/^[\p{ID_Start}$_][\p{ID_Continue}$\u200c\u200d]*$/u.test(name);
+
 /** Kotlin's property name for a getter's suffix: Name → name, URL → url, URLPath → urlPath. */
 function propertyName(suffix: string): string {
   let n = 0;
@@ -240,6 +246,10 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
     const props: SdkPropertySchema[] = [];
     for (const f of c.fields) {
       if (!(f.access & ACC.PUBLIC) || f.access & ACC.SYNTHETIC) continue;
+      if (mangled(f.name)) {
+        skip(f, "Kotlin-mangled name");
+        continue;
+      }
       let type: SchemaType;
       try {
         type = typeOf(new SigReader(f.signature ?? f.descriptor).type(), nonNull(f.annotations), []);
@@ -268,6 +278,10 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
     for (const m of [...c.methods].sort((a, b) => (a.name === b.name ? (a.descriptor < b.descriptor ? -1 : 1) : a.name < b.name ? -1 : 1))) {
       if (!(m.access & ACC.PUBLIC) || m.access & (ACC.SYNTHETIC | ACC.BRIDGE) || m.name === "<clinit>") continue;
       if (m.name === "<init>" && (isInterface || cls.abstract || innerClass)) continue;
+      if (m.name !== "<init>" && mangled(m.name)) {
+        skip(m, "Kotlin-mangled name");
+        continue;
+      }
       let sig: { typeParams: string[]; params: JType[]; ret: JType };
       try {
         sig = new SigReader(m.signature ?? m.descriptor).method();
