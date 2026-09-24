@@ -58,7 +58,7 @@ npx lucent init
 ```
 
 <p align="center">
-  <img src="assets/cli.svg" width="700" alt="lucent build, then lucent check reporting an error with a code frame and its fix">
+  <img src="assets/cli.svg" width="560" alt="lucent build, then lucent check reporting an error with a code frame and its fix">
 </p>
 
 `@lucent-lang/lucent` isn't on npm yet: until it is, install the tarball that
