@@ -12,6 +12,9 @@ node_modules/
 /apps/bare-example/android/build
 /apps/bare-example/android/app/build
 /apps/bare-example/android/app/.cxx
+/benchmarks/*/android/build
+/benchmarks/*/android/.cxx
+/benchmarks/*/android/.gradle
 packages/*/dist/
 packages/bench/results/
 .pnpm-store/

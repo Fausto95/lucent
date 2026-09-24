@@ -2,6 +2,9 @@
 # module autolinking (see react-native.config.js).
 cmake_minimum_required(VERSION 3.13)
 
-add_library(benchturbocxx INTERFACE)
-target_include_directories(benchturbocxx INTERFACE ${CMAKE_CURRENT_LIST_DIR}/../cpp)
-target_link_libraries(benchturbocxx INTERFACE jsi reactnative)
+add_library(benchturbocxx OBJECT ${CMAKE_CURRENT_LIST_DIR}/../cpp/BenchTurboCxx.cpp)
+target_include_directories(benchturbocxx PUBLIC ${CMAKE_CURRENT_LIST_DIR}/../cpp ${CMAKE_CURRENT_LIST_DIR}/include)
+if(COMMAND target_compile_reactnative_options)
+  target_compile_reactnative_options(benchturbocxx PRIVATE)
+endif()
+target_link_libraries(benchturbocxx jsi reactnative)

@@ -8,5 +8,6 @@ export interface AddModule {
 
 export interface CompareModule {
   name: string;
-  module: AddModule;
+  /** The module, or null when the native build does not link it. */
+  load: () => AddModule | null;
 }

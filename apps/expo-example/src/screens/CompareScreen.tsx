@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { modules } from "../compare/modules";
 import { RUNS, timeNumbers, timeStrings, warmup } from "../compare/timeCalls";
-import type { CompareModule } from "../compare/types";
+import type { AddModule } from "../compare/types";
 import { styles } from "./styles";
 
 /** Each loop runs this many times, interleaved across modules; the best counts. */
@@ -29,21 +29,24 @@ export function CompareScreen() {
     setRunning(true);
     const out: Row[] = modules.map((m) => ({ name: m.name, numbers: Infinity, strings: Infinity }));
     setRows(out.map((r) => ({ ...r })));
-    const attempt = (i: number, f: (m: CompareModule) => void) => {
+    const loaded: (AddModule | null)[] = modules.map(() => null);
+    const attempt = (i: number, f: (m: AddModule) => void) => {
       if (out[i]!.error) return;
       try {
-        f(modules[i]!);
+        loaded[i] ??= modules[i]!.load();
+        if (!loaded[i]) throw new Error("not linked");
+        f(loaded[i]!);
       } catch (e) {
         out[i]!.error = e instanceof Error ? e.message : String(e);
       }
     };
-    modules.forEach((_, i) => attempt(i, (m) => warmup(m.module)));
+    modules.forEach((_, i) => attempt(i, warmup));
     for (const key of ["numbers", "strings"] as const) {
       const time = key === "numbers" ? timeNumbers : timeStrings;
       for (let round = 0; round < ROUNDS; round++) {
         for (let i = 0; i < modules.length; i++) {
           await tick();
-          attempt(i, (m) => (out[i]![key] = Math.min(out[i]![key], time(m.module))));
+          attempt(i, (m) => (out[i]![key] = Math.min(out[i]![key], time(m))));
           setRows(out.map((r) => ({ ...r })));
         }
       }
