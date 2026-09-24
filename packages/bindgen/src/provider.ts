@@ -57,6 +57,7 @@ const located = new Map<string, Located | { missing: string }>();
 export function forgetLoadedSdks(): void {
   loaded.clear();
   located.clear();
+  locatedByObject = new WeakMap();
 }
 
 function cacheRoot(opts: SdkOptions): string {
@@ -407,7 +408,18 @@ function withLock<T>(file: string, done: () => boolean, f: () => T): T | undefin
   }
 }
 
+// The same options object comes back for every lookup of a build: skip serializing it.
+let locatedByObject = new WeakMap<SdkOptions, Map<Platform, Located | { missing: string }>>();
+
 function locate(platform: Platform, opts: SdkOptions): Located | { missing: string } {
+  const byObject = locatedByObject.get(opts)?.get(platform);
+  if (byObject) return byObject;
+  const found = locateByValue(platform, opts);
+  locatedByObject.set(opts, (locatedByObject.get(opts) ?? new Map()).set(platform, found));
+  return found;
+}
+
+function locateByValue(platform: Platform, opts: SdkOptions): Located | { missing: string } {
   const k = `${platform}|${JSON.stringify(opts)}`;
   let l = located.get(k);
   if (!l) {

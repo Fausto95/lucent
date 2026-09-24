@@ -104,6 +104,16 @@ export async function buildOrCheck(command: "build" | "check", { root, flags, ou
 
     const moduleNames = [...new Set(files.map(moduleNameOf))];
     const key = inputsKey(files, outDir) + (platforms ? `:${platforms.join(",")}` : "") + `:${createHash("sha256").update(JSON.stringify(native)).digest("hex").slice(0, 12)}`;
+    // A check of the same inputs passed before: every input is in the key.
+    const checked = path.join(root, ".lucent/check.json");
+    if (command === "check") {
+      const last = fs.existsSync(checked) ? (JSON.parse(fs.readFileSync(checked, "utf8")) as { inputs?: string; modules?: string[] }) : {};
+      if (last.inputs === key && last.modules) {
+        if (out.json) out.data(checkReport(true, last.modules, []));
+        else out.print(`${theme.success(theme.symbols.ok)} ${plural(last.modules.length, "module")}, no problems  ${theme.dim(`${duration(Date.now() - t0)} (unchanged since the last check)`)}`);
+        return 0;
+      }
+    }
     if (command === "build" && !flags.force && isUpToDate(outDir, key)) {
       steps.finish({ name: "up-to-date", label: "Up to date", status: "ok", detail: `${plural(moduleNames.length, "module")}, nothing to build`, ms: Date.now() - t0 });
       await steps.close();
@@ -138,6 +148,8 @@ export async function buildOrCheck(command: "build" | "check", { root, flags, ou
     }
     const names = [...result.proxies.keys()];
     if (command === "check") {
+      fs.mkdirSync(path.dirname(checked), { recursive: true });
+      fs.writeFileSync(checked, `${JSON.stringify({ inputs: key, modules: names })}\n`);
       if (out.json) out.data(checkReport(true, names, []));
       else out.print(`${theme.success(theme.symbols.ok)} ${plural(names.length, "module")}, no problems  ${theme.dim(duration(Date.now() - t0))}`);
       return 0;
