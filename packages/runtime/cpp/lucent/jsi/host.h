@@ -62,6 +62,12 @@ class Host : public std::enable_shared_from_this<Host> {
   /// Creates the host for `rt`. Call on the JS thread.
   static std::shared_ptr<Host> create(jsi::Runtime& rt, JsPoster poster);
   static Host& get(jsi::Runtime& rt);
+  /// The host for a call to a function `installed` defined: that host while
+  /// it lives, without get()'s lookup (a thread_local, which Android builds
+  /// for minSdk < 29 emulate with pthread_getspecific), else get()'s.
+  static Host& from(jsi::Runtime& rt, const std::shared_ptr<Host>& installed) {
+    return installed->alive() ? *installed : get(rt);
+  }
   ~Host();
 
   jsi::Runtime& runtime() { return rt_; }

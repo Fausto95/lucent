@@ -339,16 +339,16 @@ export class BindingsEmitter {
         const d = m.node as ts.MethodDeclaration;
         const fname = `${name}.${memberName(d)}`;
         const body = this.callBody(fname, m.params!, m.ret!, m.async!, `self->${cppIdent(memberName(d))}`, `auto self = Convert<${selfT}>::fromJs(rt, thisVal, Path{${q(fname)}, "this"});`, ["self"]);
-        lines.push(`  defineFunction(rt, proto, ${q(memberName(d))}, ${m.params!.length}, [](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {\n${body}\n  });`);
+        lines.push(`  defineFunction(rt, proto, ${q(memberName(d))}, ${m.params!.length}, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {\n${body}\n  });`);
       } else {
         const fname = `${name}.${m.name}`;
         const t = this.reg.cpp(m.types[0]!);
         const getExpr = m.kind === "accessor" ? `self->get_${cppIdent(m.name)}()` : `self->${cppIdent(m.name)}`;
-        const getter = `[](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {\n    Host& host = Host::get(rt);\n    return callSync(rt, host, [&]() -> jsi::Value {\n      auto self = Convert<${selfT}>::fromJs(rt, thisVal, Path{${q(fname)}, "this"});\n      return Convert<${t}>::toJs(rt, host, ${getExpr});\n    });\n  }`;
+        const getter = `[installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*, size_t) -> jsi::Value {\n    Host& host = Host::from(rt, installed);\n    return callSync(rt, host, [&]() -> jsi::Value {\n      auto self = Convert<${selfT}>::fromJs(rt, thisVal, Path{${q(fname)}, "this"});\n      return Convert<${t}>::toJs(rt, host, ${getExpr});\n    });\n  }`;
         let setter = "nullptr";
         if (m.writable) {
           const assign = m.kind === "accessor" ? `self->set_${cppIdent(m.name)}(value)` : `self->${cppIdent(m.name)} = value`;
-          setter = `[](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {\n    Host& host = Host::get(rt);\n    return callSync(rt, host, [&]() -> jsi::Value {\n      auto self = Convert<${selfT}>::fromJs(rt, thisVal, Path{${q(fname)}, "this"});\n      auto value = Convert<${t}>::fromJs(rt, arg(args, count, 0), Path{${q(fname)}, "value"});\n      ${assign};\n      return jsi::Value::undefined();\n    });\n  }`;
+          setter = `[installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args, size_t count) -> jsi::Value {\n    Host& host = Host::from(rt, installed);\n    return callSync(rt, host, [&]() -> jsi::Value {\n      auto self = Convert<${selfT}>::fromJs(rt, thisVal, Path{${q(fname)}, "this"});\n      auto value = Convert<${t}>::fromJs(rt, arg(args, count, 0), Path{${q(fname)}, "value"});\n      ${assign};\n      return jsi::Value::undefined();\n    });\n  }`;
         }
         lines.push(`  defineAccessor(rt, proto, ${q(m.name)}, ${getter}, ${setter});`);
       }
@@ -391,7 +391,7 @@ export class BindingsEmitter {
       result = `return Convert<${this.reg.cpp(ret)}>::toJs(rt, host, ${moved});`;
     }
     return [
-      `    Host& host = Host::get(rt);`,
+      `    Host& host = Host::from(rt, installed);`,
       `    return callSync(rt, host, [&]() -> jsi::Value {`,
       prelude ? `      ${prelude}` : "",
       ...conv.map((c) => `      ${c}`),
@@ -410,7 +410,7 @@ export class BindingsEmitter {
       const name = f.decl.name!.text;
       const ret = f.async ? (f.type.ret.k === "promise" ? f.type.ret.inner : f.type.ret) : f.type.ret;
       const body = this.callBody(name, f.params, ret, f.async, `${ns}::${cppIdent(name)}`);
-      lines.push(`  defineFunction(rt, exports, ${q(name)}, ${f.params.length}, [](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {\n${body}\n  });`);
+      lines.push(`  defineFunction(rt, exports, ${q(name)}, ${f.params.length}, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {\n${body}\n  });`);
     }
     for (const c of m.classes) {
       if (c.typeParams.length) continue;
@@ -424,9 +424,9 @@ export class BindingsEmitter {
       const params = (ctor ? em.paramInfos(ctor, ctorType) : []).map((p) => ({ ...p, type: substitute(p.type, map), cppType: substitute(p.cppType, map) }));
       const selfT: LType = { k: "class", id: c.id, args: [] };
       const body = c.abstract
-        ? `    throw jsi::JSError(rt, ${q(`${name} is abstract and cannot be constructed`)});`
+        ? `    (void)installed;\n    throw jsi::JSError(rt, ${q(`${name} is abstract and cannot be constructed`)});`
         : this.callBody(name, params, selfT, false, `lucent_app::${c.cppName}::create`);
-      lines.push(`  defineClass(rt, host, exports, ${q(name)}, ${q(c.id)}, proto_${c.cppName}, ${params.length}, [](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {\n${body}\n  });`);
+      lines.push(`  defineClass(rt, host, exports, ${q(name)}, ${q(c.id)}, proto_${c.cppName}, ${params.length}, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {\n${body}\n  });`);
       // Static methods live on the constructor.
       const statics = c.decl.members.filter((x): x is ts.MethodDeclaration => ts.isMethodDeclaration(x) && isStaticPublic(x));
       if (statics.length) {
@@ -440,7 +440,7 @@ export class BindingsEmitter {
           ps.forEach((p) => this.ctx.guard(() => this.use(p.cppType, s)));
           const fname = `${name}.${memberName(s)}`;
           const b = this.callBody(fname, ps, ret, isAsync, `lucent_app::${c.cppName}::${cppIdent(memberName(s))}`);
-          lines.push(`    defineFunction(rt, ctor, ${q(memberName(s))}, ${ps.length}, [](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {\n${b}\n    });`);
+          lines.push(`    defineFunction(rt, ctor, ${q(memberName(s))}, ${ps.length}, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {\n${b}\n    });`);
         }
         lines.push("  }");
       }
