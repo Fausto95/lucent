@@ -630,7 +630,7 @@ describe("lucent check", () => {
   it("passes a clean project", () => {
     const r = lucent(project(), "check");
     expect(r.status).toBe(0);
-    expect(r.out).toMatch(/✓ 1 module, no problems +\d+ ms/);
+    expect(r.out).toMatch(/✓ 1 module, no problems +(\d+ ms|\d+\.\d s)/);
   });
 
   it("answers from the last check while nothing changed, and checks again after an edit", () => {
