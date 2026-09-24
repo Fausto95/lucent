@@ -381,6 +381,13 @@ describe("--json", () => {
     }
   });
 
+  it("lucent doctor --json matches its schema", async () => {
+    const r = lucent(project(), "doctor", "--json");
+    const value = JSON.parse(r.stdout) as { ok: boolean };
+    expect(await validate("doctor", value)).toEqual([]);
+    expect(r.status).toBe(value.ok ? 0 : 1);
+  });
+
   it("lucent build --json matches its schema", async () => {
     const root = project();
     const r = lucent(root, "build", "--json");
