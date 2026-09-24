@@ -1,7 +1,10 @@
 import { createRequire } from "node:module";
+import { packageFile } from "../version.ts";
 
-// The Expo config plugin applies the same Gradle line during prebuild: one definition.
-const plugin = createRequire(import.meta.url)("../../../app.plugin.js") as { GRADLE_LINE: string; applyGradleTask(text: string): string | undefined };
+// The Expo config plugin applies the same Gradle line during prebuild: one
+// definition, found from the package's root (the sources and dist/ sit at
+// different depths).
+const plugin = createRequire(import.meta.url)(packageFile("app.plugin.js")) as { GRADLE_LINE: string; applyGradleTask(text: string): string | undefined };
 
 export const GRADLE_LINE = plugin.GRADLE_LINE;
 export const applyGradleTask = plugin.applyGradleTask;
