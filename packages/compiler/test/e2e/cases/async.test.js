@@ -30,5 +30,5 @@
   const after = [];
   print(await double(4), await promised(5), await withProgress(2, (i) => after.push(i)), after.join(","));
   const old = new OldLoader();
-  print(await old.load("z"), old.loads);
+  print(await old.load("z"), old.loads, old instanceof OldLoader);
 })();
