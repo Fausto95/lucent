@@ -5,6 +5,7 @@ import { Brand } from "./Brand";
 import { ClipboardProvider } from "./ClipboardProvider";
 import { ExperimentalBanner } from "./ExperimentalBanner";
 import { ThemeProvider } from "./ThemeProvider";
+import { SearchButton } from "./SearchButton";
 import { ThemeToggle } from "./ThemeToggle";
 
 export function SiteLayout() {
@@ -41,6 +42,7 @@ export function SiteLayout() {
               >
                 Reference
               </Link>
+              <SearchButton />
               <ThemeToggle />
               <a href="https://github.com/Fausto95/lucent" {...stylex.props(styles.githubLink)}>
                 {"GitHub "}

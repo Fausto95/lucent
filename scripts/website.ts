@@ -22,6 +22,7 @@ import { checkLinks } from "./website/links.ts";
 import { checkStructure, loadPages } from "./website/pages.ts";
 import { checkProse } from "./website/prose.ts";
 import { checkSamples } from "./website/samples.ts";
+import { searchIndex } from "./website/search.ts";
 
 const check = process.argv.includes("--check");
 const problems: string[] = [];
@@ -59,6 +60,10 @@ const pages = await loadPages();
 problems.push(...checkStructure(pages));
 const samples = checkSamples(pages);
 problems.push(...samples.problems);
+
+// The search index: one entry per page section, from the same prose Vale reads.
+generated["search-index.ts"] = searchIndex(pages);
+write("search-index.ts", generated["search-index.ts"]);
 
 // The C++ of each page's `cpp` samples, then stale files out.
 for (const [slug, cpp] of samples.cpp) {
