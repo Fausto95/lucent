@@ -1,0 +1,13 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`help > describes a command's flags 1`] = `
+"lucent build
+  Build
+
+Flags
+  --force             Rebuild
+  --platforms <list>  Targets
+  --root <dir>        Project directory (default: the current one)
+  --json              Machine-readable output, for tools and CI
+  --help              Show help"
+`;

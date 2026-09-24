@@ -26,8 +26,8 @@ await build({
   format: "esm",
   platform: "node",
   target: "node22",
-  // The published package's dependency, resolved from where it is installed.
-  external: ["typescript"],
+  // The published package's dependencies, resolved from where it is installed.
+  external: ["typescript", "ink", "react"],
   logLevel: "warning",
 });
 fs.writeFileSync(path.join(pkg, "dist/package.json"), `${JSON.stringify({ type: "module" }, null, 2)}\n`);

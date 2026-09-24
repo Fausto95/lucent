@@ -1,0 +1,15 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`format > frames code in colour 1`] = `
+"    [2m1[22m [2m│[22m export async function share(url: string) {
+    [1m2[22m [2m│[22m   const app = UIApplication.shared;
+      [2m│[22m               [31m^^^^^^^^^^^^^^^^^^^^[39m
+    [2m3[22m [2m│[22m   return app;"
+`;
+
+exports[`format > frames code with the line before and after, and underlines the span 1`] = `
+"    1 │ export async function share(url: string) {
+    2 │   const app = UIApplication.shared;
+      │               ^^^^^^^^^^^^^^^^^^^^
+    3 │   return app;"
+`;
