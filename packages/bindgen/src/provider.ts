@@ -78,15 +78,28 @@ interface Located {
 
 const hash = (parts: string[]) => crypto.createHash("sha256").update(parts.join("\n")).digest("hex").slice(0, 16);
 
+/** Set when bindgen is bundled into @lucent-lang/lucent: the hash of its sources, as extractorVersion computes it here. */
+declare const __LUCENT_EXTRACTOR__: string | undefined;
+
 let extractorHash: string | undefined;
-/** The extractor's own code: a change to it re-extracts, so caches never hold stale schemas. */
+/**
+ * The extractor's own code: a change to it re-extracts, so caches never hold
+ * stale schemas. In the bundle, whose files hold the whole CLI, it is the
+ * hash of these sources taken when bundling, so releases that leave the
+ * extractor alone keep users' caches.
+ */
 function extractorVersion(): string {
   if (extractorHash) return extractorHash;
-  const dir = path.dirname(new URL(import.meta.url).pathname);
+  if (typeof __LUCENT_EXTRACTOR__ === "string") return (extractorHash = __LUCENT_EXTRACTOR__);
+  extractorHash = sourcesHash(path.dirname(new URL(import.meta.url).pathname));
+  return extractorHash;
+}
+
+/** The hash of bindgen's source files in `dir` (the bundle build uses it too). */
+export function sourcesHash(dir: string): string {
   const h = crypto.createHash("sha256");
   for (const f of fs.readdirSync(dir).sort()) if (/\.(ts|js)$/.test(f)) h.update(fs.readFileSync(path.join(dir, f)));
-  extractorHash = h.digest("hex").slice(0, 8);
-  return extractorHash;
+  return h.digest("hex").slice(0, 8);
 }
 
 function fileIdentity(files: string[]): string[] {
