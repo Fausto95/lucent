@@ -1,0 +1,43 @@
+{
+  "$id": "https://lucent-lang.dev/schemas/lucent.schema.json",
+  "title": "lucent.json",
+  "description": "What a Lucent package's platform code needs from the app that installs it. It sits next to the package's package.json. The app's build merges it with its other Lucent packages'; two packages that disagree on a value fail the build.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "ios": {
+      "type": "object",
+      "description": "What the iOS code needs.",
+      "additionalProperties": false,
+      "properties": {
+        "pods": {
+          "type": "object",
+          "description": "CocoaPods the native package depends on: pod name → version requirement, as in a Podfile (\"~> 1.0\"). Their frameworks can be imported from lucent:ios/* once installed.",
+          "additionalProperties": { "type": "string" }
+        },
+        "infoPlist": {
+          "type": "object",
+          "description": "Info.plist entries: key → string value. The Expo config plugin adds them unless the app sets the key itself; for bare apps, lucent build names the keys the app's Info.plist lacks.",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "android": {
+      "type": "object",
+      "description": "What the Android code needs.",
+      "additionalProperties": false,
+      "properties": {
+        "dependencies": {
+          "type": "object",
+          "description": "Gradle artifacts: \"group:artifact\" → version. They become api dependencies of the native package, so lucent:android/* can import their classes.",
+          "additionalProperties": { "type": "string" }
+        },
+        "permissions": {
+          "type": "array",
+          "description": "Android permissions for the manifest, such as \"android.permission.CAMERA\". Permissions the SDK methods you call require are added without listing them here.",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}
