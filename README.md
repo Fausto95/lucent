@@ -8,9 +8,9 @@
 > **Experimental: not for production.** APIs and the language subset change
 > without a migration path.
 
-Write native React Native modules in TypeScript. Lucent compiles a checked
-subset to C++ and calls it through JSI. There's no Swift or Kotlin to write,
-and nothing runs in a JS engine on the native side.
+Write React Native native modules in TypeScript. Lucent compiles a checked
+subset to C++ and calls it through JSI: no Swift or Kotlin to write, and no
+JavaScript engine in native code.
 
 ```ts
 // src/geo.lucent.ts
@@ -28,8 +28,27 @@ import { squaredDistance } from "./src/geo.lucent";
 squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25, computed in C++
 ```
 
-Works in bare React Native (0.88) and Expo (SDK 58). No Expo Modules or Nitro
-dependency.
+A module also calls the iOS and Android SDKs directly, typed from your Xcode
+and Android SDK. One module holds both platforms:
+
+```ts
+// src/clipboard.lucent.ts
+import { PLATFORM } from "lucent:platform";
+import { UIPasteboard } from "lucent:ios/UIKit";
+import { ClipboardManager, ClipDescription } from "lucent:android/android.content";
+import { appContext } from "lucent:android";
+import { main } from "lucent:thread";
+
+export async function hasStringAsync(): Promise<boolean> {
+  if (PLATFORM === "ios") {
+    return UIPasteboard.general.hasStrings;
+  } else {
+    return main(() => appContext().getSystemService(ClipboardManager)?.getPrimaryClipDescription()?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) ?? false);
+  }
+}
+```
+
+Works in bare React Native (0.88+) and Expo (SDK 58+, development builds).
 
 ## Install
 
@@ -42,55 +61,31 @@ npx lucent init
   <img src="assets/cli.svg" width="700" alt="lucent build, then lucent check reporting an error with a code frame and its fix">
 </p>
 
-`lucent dev` rebuilds as you edit, `lucent doctor` checks your machine,
-`lucent explain <code>` explains a diagnostic; `lucent --help` lists the rest
-([CLI reference](https://lucent-lang.dev/docs/reference/cli/)).
-
-One package holds the `lucent` command, the compiler, the C++ runtime, the
-Metro integration (`@lucent-lang/lucent/metro`), the Expo config plugin
-(`"plugins": ["@lucent-lang/lucent"]`) and the editor plugin
-(`@lucent-lang/lucent/ts-plugin`). Modules import helpers from the built-in
-`lucent:core`. It isn't on npm yet: until it is, install the tarball
-`pnpm pack` makes in `packages/lucent`. Walkthroughs:
-[bare React Native](https://lucent-lang.dev/docs/getting-started/),
-[Expo](https://lucent-lang.dev/docs/getting-started-expo/).
-
-## Today
-
-- The full language minus platform SDKs and views: structs, unions, classes,
-  closures, generics, `async`/`await`, errors
-- JS callbacks, promises and `AbortSignal` across the boundary
-- One package, `@lucent-lang/lucent`: `lucent build` / `lucent check`, the
-  Metro transformer, the Expo plugin and the editor plugin
-- Early platform modules (`*.ios.lucent.ts` / `*.android.lucent.ts`):
-  Android bindings generated from `android.jar`, iOS a hand-written UIKit
-  subset
-
-## Not yet
-
-- Testing on physical devices (simulators and emulators pass)
-- Generated iOS bindings, delegates and protocols (M2)
-- Views (M3)
-- npm publish
+`@lucent-lang/lucent` isn't on npm yet: until it is, install the tarball that
+`pnpm pack` writes in `packages/lucent`.
 
 ## Docs
 
-[Getting started](https://lucent-lang.dev/docs/getting-started/) ·
-[Language](https://lucent-lang.dev/docs/language/) ·
+[What is Lucent](https://lucent-lang.dev/docs/) ·
+[Install](https://lucent-lang.dev/docs/install/) ·
+[Tutorial](https://lucent-lang.dev/docs/tutorial/1-shared-logic/) ·
 [How it works](https://lucent-lang.dev/docs/how-it-works/) ·
-[Comparison](https://lucent-lang.dev/docs/comparison/) ·
+[Guides](https://lucent-lang.dev/docs/guides/call-an-ios-api/) ·
+[Reference](https://lucent-lang.dev/docs/reference/language/) ·
+[Examples](https://lucent-lang.dev/docs/examples/) ·
 [Roadmap](ROADMAP.md)
 
 ## Develop
 
 ```sh
 pnpm install
-pnpm test           # compiler unit tests
-pnpm test:runtime   # C++ runtime tests
-pnpm test:e2e       # compiled modules vs. the same code as JavaScript
+pnpm test                      # compiler and CLI tests
+pnpm test:runtime              # C++ runtime tests
+pnpm test:e2e                  # compiled modules against the same code as JavaScript (needs Hermes)
+pnpm exec tsx scripts/website.ts   # the website's generated files, samples, links and prose
 ```
 
-The e2e harness needs a local Hermes build (`HERMES_DIR`); see
-[docs/testing.md](docs/testing.md). Contributor docs live in [docs/](docs/).
+[CONTRIBUTING.md](CONTRIBUTING.md) covers the setup, every suite and the
+commit style; [docs/](docs/) holds the architecture and the specs.
 
 MIT © Lucent

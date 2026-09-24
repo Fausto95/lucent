@@ -1,0 +1,10 @@
+extends: substitution
+message: "Use '%s', not '%s' (glossary in CONTRIBUTING-DOCS.md)."
+level: error
+ignorecase: true
+swap:
+  Lucent files?: module
+  native module files?: module
+  generated package: native package
+  the native side: native code
+  the bridge: the boundary

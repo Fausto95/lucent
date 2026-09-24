@@ -92,7 +92,7 @@ export const Explanations: Record<Code, Explanation> = {
     title: "Unsupported destructuring",
     summary: "A destructuring form outside the subset: object rest, computed keys, or a pattern without an initializer.",
     details:
-      "Object rest (`{ a, ...rest }`) would need a new object type made of the remaining fields at run time, and computed keys a dynamic lookup; neither has a fixed native layout.",
+      "Object rest (`{ a, ...rest }`) would need a new object type, made of the remaining fields at run time. Computed keys would need a dynamic lookup. Neither has a fixed native layout.",
     fix: "name the fields you need, or pass the whole object",
     wrong: ex("type User = { id: number; name: string; email: string };\nexport function contact(u: User): { name: string; email: string } {\n  const { id, ...rest } = u;\n  return rest;\n}\n"),
     right: ex("type User = { id: number; name: string; email: string };\nexport function contact(u: User): { name: string; email: string } {\n  const { name, email } = u;\n  return { name, email };\n}\n"),
@@ -101,7 +101,7 @@ export const Explanations: Record<Code, Explanation> = {
     title: "Unsupported class feature",
     summary: "A class feature outside the subset, such as extending a built-in other than `Error`, or an override that changes the native signature.",
     details:
-      "Classes compile to C++ classes. A subclass of `Map` or `Array` would inherit the runtime's container internals, and an override whose parameters or result differ from the base method's cannot share its native slot.",
+      "Classes compile to C++ classes. A subclass of `Map` or `Array` would inherit the runtime's container internals. An override whose parameters or result differ from the base method's can't share its native slot.",
     fix: "hold the built-in in a field instead of extending it, and keep overrides' signatures the same as the base method's",
     wrong: ex("class Counts extends Map<string, number> {}\nexport function size(): number {\n  return new Counts().size;\n}\n"),
     right: ex("class Counts {\n  readonly map = new Map<string, number>();\n}\nexport function size(): number {\n  return new Counts().map.size;\n}\n"),
@@ -119,7 +119,7 @@ export const Explanations: Record<Code, Explanation> = {
     title: "Call Lucent cannot compile",
     summary: "A call Lucent cannot compile, such as spread arguments outside rest parameters, or a platform class without a constructor binding.",
     details:
-      "Native calls pass a fixed number of arguments of known types. Spreading an array into ordinary parameters, calling a platform API as a promise where the platform has none, or constructing a platform class that cannot be constructed has no native form.",
+      "Native calls pass a fixed number of arguments of known types. Spreading an array into ordinary parameters has no native form. Neither does a platform API called as a promise where it has none, or a platform class without an initializer.",
     fix: "pass the arguments one by one, or declare the callee with a rest parameter",
     wrong: ex("function add(a: number, b: number): number {\n  return a + b;\n}\nexport function sum(pair: [number, number]): number {\n  return add(...pair);\n}\n"),
     right: ex("function add(a: number, b: number): number {\n  return a + b;\n}\nexport function sum(pair: [number, number]): number {\n  return add(pair[0], pair[1]);\n}\n"),
@@ -163,7 +163,7 @@ export const Explanations: Record<Code, Explanation> = {
     title: "Object used as a type with a different shape",
     summary: "An object used as a type with a different shape; object types must match exactly to share a native representation.",
     details:
-      "Object types with the same fields share one native struct. TypeScript lets a value with more fields stand for a type with fewer, but natively they are different structs, and the extra fields would have nowhere to go.",
+      "Object types with the same fields share one native struct. TypeScript lets a value with more fields stand for a type with fewer. Natively they are different structs, and the extra fields would have nowhere to go.",
     fix: "pass exactly the fields the type declares, or widen the parameter's type",
     wrong: ex("type Point = { x: number; y: number };\ntype Point3 = { x: number; y: number; z: number };\nfunction norm(p: Point): number {\n  return Math.hypot(p.x, p.y);\n}\nexport function flat(p: Point3): number {\n  return norm(p);\n}\n"),
     right: ex("type Point = { x: number; y: number };\ntype Point3 = { x: number; y: number; z: number };\nfunction norm(p: Point): number {\n  return Math.hypot(p.x, p.y);\n}\nexport function flat(p: Point3): number {\n  return norm({ x: p.x, y: p.y });\n}\n"),
@@ -172,7 +172,7 @@ export const Explanations: Record<Code, Explanation> = {
     title: "Collection used with another element type",
     summary: "A collection used where its element type would change (`A[]` as `(A | B)[]`); annotate the value with the target type.",
     details:
-      "An array of numbers and an array of `number | string` have different native element types, so one cannot be used as the other: writes through the wider type would not fit.",
+      "An array of numbers and an array of `number | string` have different native element types. One can't be used as the other: writes through the wider type wouldn't fit.",
     fix: "annotate the collection with the element type it is used as",
     wrong: ex("function first(xs: (number | string)[]): string {\n  return String(xs[0]);\n}\nexport function f(): string {\n  const xs = [1, 2];\n  return first(xs);\n}\n"),
     right: ex("function first(xs: (number | string)[]): string {\n  return String(xs[0]);\n}\nexport function f(): string {\n  const xs: (number | string)[] = [1, 2];\n  return first(xs);\n}\n"),
@@ -190,7 +190,7 @@ export const Explanations: Record<Code, Explanation> = {
     title: "Value that cannot cross the JavaScript boundary",
     summary: "A value that cannot cross the JavaScript boundary, such as a generator, a match result, an `AbortSignal` or a platform object.",
     details:
-      "Exports convert their parameters and results between JavaScript and native values. Some native values have no JavaScript form: a generator's state, a platform object, a signal made on the native side.",
+      "Exports convert their parameters and results between JavaScript and native values. Some native values have no JavaScript form: a generator's state, a platform object, a signal made in native code.",
     fix: "return plain data (an array instead of a generator, fields instead of a platform object)",
     wrong: ex("export function* count(n: number): Generator<number> {\n  for (let i = 0; i < n; i++) yield i;\n}\n"),
     right: ex("function* count(n: number): Generator<number> {\n  for (let i = 0; i < n; i++) yield i;\n}\nexport function counted(n: number): number[] {\n  return [...count(n)];\n}\n"),
@@ -283,7 +283,7 @@ export const Explanations: Record<Code, Explanation> = {
     title: "Main-thread API off the main thread",
     summary: "A main-thread-only platform API used outside `main(() => …)`.",
     details:
-      "Lucent code runs on its own thread. UIKit, and other APIs the SDK marks main-thread only, must be called on the main thread: `main(() => …)` from `lucent:thread` runs a function there and resolves with its result.",
+      "Lucent code runs on its own thread. UIKit, and other APIs the SDK marks main-thread only, must be called on the main thread. `main(() => …)` from `lucent:thread` runs a function there, and resolves with its result.",
     fix: "wrap the call in main(() => …) from lucent:thread",
     wrong: ex('import { PLATFORM } from "lucent:platform";\nimport { UIDevice } from "lucent:ios/UIKit";\nexport async function model(): Promise<string> {\n  if (PLATFORM === "ios") return UIDevice.current.model;\n  return "unknown";\n}\n'),
     right: ex('import { PLATFORM } from "lucent:platform";\nimport { UIDevice } from "lucent:ios/UIKit";\nimport { main } from "lucent:thread";\nexport async function model(): Promise<string> {\n  if (PLATFORM === "ios") return main(() => UIDevice.current.model);\n  return "unknown";\n}\n'),
@@ -301,7 +301,7 @@ export const Explanations: Record<Code, Explanation> = {
   },
   LUCENT9001: {
     title: "TypeScript error",
-    summary: "A TypeScript error. Lucent stops at type errors, because its lowering relies on the checker's types.",
+    summary: "A TypeScript error. Lucent stops at type errors, because it compiles from the checker's types.",
     details: "Lucent compiles only programs that type-check: every value's native type comes from the TypeScript checker. The message is TypeScript's own.",
     fix: "fix the type error; your editor shows the same message",
     wrong: ex('export function double(n: number): number {\n  return n + "";\n}\n'),
@@ -311,5 +311,5 @@ export const Explanations: Record<Code, Explanation> = {
 
 /** Where a code is explained on the website. */
 export function docsUrl(code: string): string {
-  return `https://lucent-lang.dev/docs/language/diagnostics/#${code.toLowerCase()}`;
+  return `https://lucent-lang.dev/docs/reference/diagnostics/#${code.toLowerCase()}`;
 }

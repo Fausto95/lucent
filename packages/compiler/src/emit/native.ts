@@ -710,7 +710,7 @@ function argsOf(node: ts.CallExpression | ts.NewExpression): readonly ts.Express
 // --- availability --------------------------------------------------------------------
 
 /** The oldest OS the app runs on (React Native's minimum). */
-const MIN_ANDROID_API = 24;
+export const MIN_ANDROID_API = 24;
 
 /**
  * APIs newer than the minimum must be used where the code has checked the

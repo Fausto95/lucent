@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { useState } from "react";
 import { styles as code } from "./CodeBlock.stylex";
 import { styles } from "./DocsContent.stylex";
+import { DiffCode } from "./DiffCode";
 import { HighlightedCode } from "./HighlightedCode";
 import { useClipboard } from "./ClipboardProvider";
 
@@ -9,6 +10,7 @@ export interface CodeTab {
   label: string;
   filename: string;
   code: string;
+  diff?: boolean;
 }
 
 /** A code block with a tab per variant, e.g. the Swift and Kotlin output of one source. */
@@ -34,17 +36,19 @@ export function CodeTabs({ tabs }: { tabs: CodeTab[] }) {
           ))}
         </div>
         <span {...stylex.props(code.referenceFileName, code.referenceFileNameEnd)}>{current.filename}</span>
-        <button
-          type="button"
-          aria-label={`Copy ${current.filename}`}
-          onClick={() => copy(current.code)}
-          {...stylex.props(code.referenceCopyButton)}
-        >
-          Copy <span aria-hidden="true">⧉</span>
-        </button>
+        {!current.diff && (
+          <button
+            type="button"
+            aria-label={`Copy ${current.filename}`}
+            onClick={() => copy(current.code)}
+            {...stylex.props(code.referenceCopyButton)}
+          >
+            Copy <span aria-hidden="true">⧉</span>
+          </button>
+        )}
       </div>
       <pre tabIndex={0} role="tabpanel" aria-label={current.filename} {...stylex.props(code.referencePre)}>
-        <HighlightedCode code={current.code} reference />
+        {current.diff ? <DiffCode code={current.code} /> : <HighlightedCode code={current.code} reference />}
       </pre>
     </div>
   );

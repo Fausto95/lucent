@@ -1,0 +1,14 @@
+{
+  "name": "trip-tracker",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "files": [
+    "index.ts",
+    "src",
+    "lucent.json"
+  ],
+  "lucent": {
+    "sources": "src",
+    "compatible": ">=0.0.3"
+  }
+}

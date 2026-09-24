@@ -299,4 +299,37 @@ export const styles = stylex.create({
     color: accent,
     backgroundColor: tokens.surfaceStrong,
   },
+  panels: {
+    marginBlock: "22px",
+    borderWidth: "1px",
+    borderStyle: "solid",
+    borderColor: border,
+    borderRadius: "8px",
+    padding: "0 20px 4px",
+  },
+  panelsBar: {
+    display: "flex",
+    gap: "4px",
+    paddingBlock: "10px",
+    marginInline: "-8px",
+    borderBottomWidth: "1px",
+    borderBottomStyle: "solid",
+    borderBottomColor: border,
+  },
+  cpp: {
+    marginTop: "-14px",
+    marginBottom: "22px",
+  },
+  cppToggle: {
+    borderWidth: 0,
+    backgroundColor: "transparent",
+    padding: "4px 0",
+    color: tokens.textSubtle,
+    fontFamily: mono,
+    fontSize: "0.75rem",
+    cursor: "pointer",
+    ":hover": {
+      color: accent,
+    },
+  },
 });

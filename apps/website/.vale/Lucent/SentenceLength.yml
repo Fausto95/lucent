@@ -1,0 +1,6 @@
+extends: occurrence
+message: "Keep sentences under 25 words."
+level: error
+scope: sentence
+max: 24
+token: '\b[\w''`-]+\b'

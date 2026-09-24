@@ -12,8 +12,15 @@ export type Block =
   | { kind: "p"; text: string }
   | { kind: "h2"; text: string }
   | { kind: "h3"; text: string }
-  | { kind: "code"; filename: string; code: string; expect?: string }
-  | { kind: "tabs"; tabs: { label: string; filename: string; code: string }[] }
+  /**
+   * `copy: false` for output the reader reads rather than runs (a terminal's output).
+   * `cpp: true` on a `.lucent.ts` sample adds "See the C++": what the compiler writes for it.
+   * `diff: true` shows a unified diff (what a tutorial step changed); it isn't compiled.
+   * `from` names the repository file the sample is, generated from it: a module that compiles
+   * only in its app (it imports the app's own libraries), so the app's build checks it instead.
+   */
+  | { kind: "code"; filename: string; code: string; expect?: string; copy?: false; cpp?: true; diff?: true; from?: string }
+  | { kind: "tabs"; tabs: { label: string; filename: string; code: string; cpp?: true; diff?: true }[] }
   | { kind: "note"; text: string; tone?: "info" | "warn" }
   | { kind: "list"; items: string[]; ordered?: boolean }
   | { kind: "table"; head: string[]; rows: string[][] }
@@ -21,24 +28,82 @@ export type Block =
   /** The Lucent / Expo Modules / Nitro / Turbo Native Modules table (docs/comparison-table.ts). */
   | { kind: "comparison" }
   | { kind: "steps"; steps: { title: string; blocks: Block[] }[] }
+  /** One of several setups (Expo, bare React Native): the reader picks a tab, and the choice carries across pages. */
+  | { kind: "panels"; panels: { label: string; blocks: Block[] }[] }
   | { kind: "cards"; items: { title: string; text: string; href: string }[] };
 
 /** Diagrams are components, looked up by name in components/DocsDiagram.tsx. */
-export type DiagramName = "pipeline" | "runtime";
+export type DiagramName =
+  | "build-check"
+  | "build-cpp"
+  | "build-package"
+  | "build-app"
+  | "build-metro"
+  | "call-sync"
+  | "call-async"
+  | "platform-call"
+  | "places"
+  | "threads";
 
-export interface DocPage {
+/**
+ * Start: what Lucent is and getting it running. Learn: how to think in it,
+ * read in order. Guide: one task. Reference: the exact rules, generated where
+ * possible. Example: a whole module from the example apps. The kind sets the
+ * page's length budget (CONTRIBUTING-DOCS.md).
+ */
+export type DocKind = "start" | "learn" | "guide" | "reference" | "example" | "other";
+
+/**
+ * A page's metadata; the nav lists these in reading order. The page's blocks
+ * live in `pages/<slug>.ts` (`pages/index.ts` for the empty slug), loaded
+ * when the page is visited.
+ */
+export interface DocEntry {
   /** Path under /docs/, without slashes. "" is the index. */
   slug: string;
+  kind: DocKind;
+  /** The task or the question the page answers. */
   title: string;
-  /** One sentence, used for <meta name="description"> and the page lead. */
+  /** One sentence: the answer, or what the reader has at the end. Also the <meta name="description">. */
   description: string;
-  blocks: Block[];
+  /** The page's one "Next" link, when it isn't the following page in reading order. */
+  next?: string;
+  /**
+   * A directory (from the repository root) whose `*.lucent.ts` files compile with
+   * the page's samples, so a page can show one module of a project, or its diff.
+   */
+  samplesWith?: string;
 }
 
 export interface DocGroup {
   label: string;
-  pages: DocPage[];
+  entries: DocEntry[];
 }
+
+/** What a page file exports. */
+export interface DocModule {
+  blocks: Block[];
+}
+
+export interface DocPage extends DocEntry {
+  blocks: Block[];
+}
+
+/** One file the compiler writes for a sample, as "See the C++" shows it. */
+export interface CppFile {
+  /** "C++", or the platform for code built per platform. */
+  label: string;
+  filename: string;
+  code: string;
+}
+
+/** What src/generated/cpp/<slug>.ts exports: a page's samples' C++, by sample filename. */
+export interface CppModule {
+  cpp: Record<string, CppFile[]>;
+}
+
+/** The file holding a page's blocks, relative to src/docs/. */
+export const docFile = (slug: string): string => `pages/${slug || "index"}.ts`;
 
 /** Heading text → URL fragment, shared by the renderer and the table of contents. */
 export function headingId(text: string): string {

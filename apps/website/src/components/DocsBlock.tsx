@@ -1,12 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
-import type { Block } from "../docs/types";
+import { type Block, headingId } from "../docs/types";
 import { styles } from "./DocsContent.stylex";
 import { CodeBlock } from "./CodeBlock";
 import { CodeTabs } from "./CodeTabs";
 import { ComparisonTable } from "./ComparisonTable";
 import { DocsDiagram } from "./DocsDiagram";
 import { DocsHeading } from "./DocsHeading";
+import { DocsPanels } from "./DocsPanels";
 import { Inline } from "./Inline";
+import { SeeCpp } from "./SeeCpp";
 import { SmartLink } from "./SmartLink";
 
 /** Renders one docs block. Pages are arrays of these; see docs/types.ts. */
@@ -23,9 +25,21 @@ export function DocsBlock({ block }: { block: Block }) {
     case "h3":
       return <DocsHeading level={3} text={block.text} />;
     case "code":
-      return <CodeBlock filename={block.filename} code={block.code} />;
+      return (
+        <>
+          <CodeBlock filename={block.filename} code={block.code} copyable={block.copy !== false} diff={block.diff === true} />
+          {block.cpp && <SeeCpp filename={block.filename} />}
+        </>
+      );
     case "tabs":
-      return <CodeTabs tabs={block.tabs} />;
+      return (
+        <>
+          <CodeTabs tabs={block.tabs} />
+          {block.tabs.filter((t) => t.cpp).map((t) => (
+            <SeeCpp key={t.filename} filename={t.filename} />
+          ))}
+        </>
+      );
     case "note": {
       const warn = block.tone === "warn";
       return (
@@ -96,7 +110,7 @@ export function DocsBlock({ block }: { block: Block }) {
         <ol {...stylex.props(styles.steps)}>
           {block.steps.map((step, i) => (
             <li key={step.title} {...stylex.props(styles.step)}>
-              <h3 {...stylex.props(styles.stepTitle)}>
+              <h3 id={headingId(step.title)} {...stylex.props(styles.stepTitle)}>
                 <span aria-hidden="true" {...stylex.props(styles.stepNumber)}>
                   {i + 1}
                 </span>
@@ -109,6 +123,8 @@ export function DocsBlock({ block }: { block: Block }) {
           ))}
         </ol>
       );
+    case "panels":
+      return <DocsPanels panels={block.panels} />;
     case "cards":
       return (
         <div {...stylex.props(styles.cards)}>

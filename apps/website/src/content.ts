@@ -7,9 +7,7 @@ squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25`;
 export const commands = `npm install -D @lucent-lang/lucent
 npx lucent init`;
 
-/** Planned, not implemented: shown as a teaser on the homepage (roadmap M2). */
-export const platformTeaser = `import { CLLocationManager } from "lucent:ios/CoreLocation";
+/** How JavaScript calls the homepage's clipboard sample (generated/home-clipboard.ts). */
+export const clipboardUsage = `import { hasStringAsync } from "./src/clipboard.lucent";
 
-export function authorization(): number {
-  return new CLLocationManager().authorizationStatus;
-}`;
+await hasStringAsync(); // true when the clipboard holds text`;

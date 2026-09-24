@@ -1,0 +1,7 @@
+{
+  "ios": {
+    "infoPlist": {
+      "NSLocationWhenInUseUsageDescription": "Trip Tracker records your route while you track a trip."
+    }
+  }
+}

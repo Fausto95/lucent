@@ -144,20 +144,14 @@ export const styles = stylex.create({
     color: tokens.textSecondary,
     borderLeftColor: accent,
   },
-  pager: {
-    display: "grid",
-    gridTemplateColumns: {
-      default: "1fr 1fr",
-      "@media (max-width: 540px)": "1fr",
-    },
-    gap: "14px",
+  next: {
     marginTop: "56px",
     paddingTop: "24px",
     borderTopWidth: "1px",
     borderTopStyle: "solid",
     borderTopColor: border,
   },
-  pagerLink: {
+  nextLink: {
     display: "block",
     padding: "14px 18px",
     borderWidth: "1px",
@@ -165,18 +159,12 @@ export const styles = stylex.create({
     borderColor: tokens.borderStrong,
     borderRadius: "7px",
     color: tokens.text,
+    textAlign: "right",
     ":hover": {
       borderColor: accent,
     },
   },
-  pagerNext: {
-    textAlign: "right",
-    gridColumn: {
-      default: 2,
-      "@media (max-width: 540px)": "auto",
-    },
-  },
-  pagerLabel: {
+  nextLabel: {
     display: "block",
     fontFamily: mono,
     fontSize: "0.7rem",
@@ -184,10 +172,16 @@ export const styles = stylex.create({
     color: tokens.textSubtle,
     marginBottom: "4px",
   },
-  editLink: {
-    display: "inline-block",
+  pageFooter: {
+    display: "flex",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: "12px",
     marginTop: "28px",
     fontSize: "0.8rem",
+    color: tokens.textSubtle,
+  },
+  editLink: {
     color: tokens.textSubtle,
     ":hover": {
       color: accent,

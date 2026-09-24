@@ -1,12 +1,12 @@
 import * as stylex from "@stylexjs/stylex";
-import { headingId, type DocPage } from "../docs/types";
+import { type Block, headingId } from "../docs/types";
 import { styles } from "./DocsLayout.stylex";
 import { Inline } from "./Inline";
 import { useActiveHeading } from "./useActiveHeading";
 
 /** "On this page": one link per h2, highlighting the section in view. */
-export function DocsToc({ page }: { page: DocPage }) {
-  const headings = page.blocks.flatMap((block) => (block.kind === "h2" ? [block.text] : []));
+export function DocsToc({ blocks }: { blocks: Block[] }) {
+  const headings = blocks.flatMap((block) => (block.kind === "h2" ? [block.text] : []));
   const ids = headings.map(headingId);
   const active = useActiveHeading(ids);
   if (headings.length < 2) return <div />;

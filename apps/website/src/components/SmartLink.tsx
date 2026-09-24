@@ -18,16 +18,8 @@ export function SmartLink({ href, children, className, style }: SmartLinkProps) 
     );
   }
   const [path, hash] = href.split("#") as [string, string | undefined];
-  if (path.startsWith("/docs")) {
-    const splat = path.slice("/docs".length).replace(/^\/|\/$/g, "");
-    return (
-      <Link to="/docs/$/" params={{ _splat: splat }} hash={hash} className={className} style={style}>
-        {children}
-      </Link>
-    );
-  }
   return (
-    <Link to="/" hash={hash} className={className} style={style}>
+    <Link to={path} hash={hash} className={className} style={style}>
       {children}
     </Link>
   );

@@ -1,0 +1,6 @@
+extends: occurrence
+message: "Keep paragraphs under 4 sentences."
+level: error
+scope: paragraph
+max: 3
+token: '[.!?](?:\s|$)'

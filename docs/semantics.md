@@ -138,10 +138,10 @@ unspecified.
   `replace`/`replaceAll` (string patterns), `split` (string separators),
   `concat`, `localeCompare`; `String.fromCharCode`, `String.fromCodePoint`.
 * **Array**: `length` (read/write), `push`, `pop`, `shift`, `unshift`, `slice`,
-  `splice`, `concat`, `join`, `indexOf`, `lastIndexOf`, `includes`, `find*`,
-  `filter`, `map`, `flatMap`, `forEach`, `some`, `every`, `reduce`,
-  `reduceRight`, `sort` (stable; default sort compares strings like JS),
-  `toSorted`, `reverse`, `toReversed`, `fill`, `at`, `keys`, `values`,
+  `splice`, `concat`, `join`, `indexOf`, `lastIndexOf`, `includes`, `find`,
+  `findIndex`, `filter`, `map`, `flatMap`, `forEach`, `some`, `every`,
+  `reduce`, `reduceRight`, `sort` (stable; default sort compares strings
+  like JS), `reverse`, `fill`, `at`, `keys`, `values`,
   `entries`; `Array.from` (iterables and `{ length }`), `Array.of`,
   `Array.isArray`, `new Array(n)`.
 * **Map / Set**: the full instance API; `new Map(entries)`, `new Set(iterable)`.
@@ -157,6 +157,9 @@ unspecified.
 * **Date**: `new Date(…)`, `Date.now()`, `Date.parse`, `Date.UTC`, `get…`/`set…` in local time and UTC, `getTimezoneOffset`, `toISOString`, `toString`, `toDateString`, `toTimeString`, `toUTCString`; not the `toLocale…` methods.
 * **lucent:core**: `delay`, `error(code, message)`, `errorCode(e)`,
   `utf8Encode`, `utf8Decode`, `now()`.
+
+The ES2023 methods (`toSorted`, `toReversed`, `findLast`, `findLastIndex`)
+are not available: modules are checked against the ES2022 library.
 
 Not supported: `Intl`, `Symbol`, `WeakMap`, `Proxy`, `eval`. Each gives a
 diagnostic.
@@ -246,5 +249,5 @@ explicitly, for example by clearing a field.
 |---|---|
 | `LUCENT1xxx` | unsupported syntax or built-in (`1001` statement/expression, `1003` built-in, `1005` class feature, `1006` throwing a non-Error, …) |
 | `LUCENT2xxx` | types without a native representation (`2001` any/unknown, `2003` inexact object types, `2004` array element variance, `2005` ambiguous union at the boundary, `2007` generics at the boundary, `2008` value is not a declared implementation of an interface, `2009` class member does not match its interface) |
-| `LUCENT3xxx` | module structure (`3001` imports, `3002` top-level statements, `3003` exports, `3004` SDK imports the file's platform cannot use, `3005` a platform module's files do not match its declaration, `3006` a main-thread-only API outside `main(() => …)`) |
+| `LUCENT3xxx` | module structure (`3001` imports, `3002` top-level statements, `3003` exports, `3004` SDK imports the file's platform cannot use, `3005` a platform module's files do not match its declaration, `3006` a main-thread-only API outside `main(() => …)`, `3007` an Android API newer than the oldest supported level, outside a version check) |
 | `LUCENT9001` | a TypeScript error (Lucent stops at type errors) |
