@@ -1,5 +1,5 @@
 import * as stylex from "@stylexjs/stylex";
-import type { Block } from "../docs/types";
+import { type Block, headingId } from "../docs/types";
 import { styles } from "./DocsContent.stylex";
 import { CodeBlock } from "./CodeBlock";
 import { CodeTabs } from "./CodeTabs";
@@ -27,7 +27,7 @@ export function DocsBlock({ block }: { block: Block }) {
     case "code":
       return (
         <>
-          <CodeBlock filename={block.filename} code={block.code} copyable={block.copy !== false} />
+          <CodeBlock filename={block.filename} code={block.code} copyable={block.copy !== false} diff={block.diff === true} />
           {block.cpp && <SeeCpp filename={block.filename} />}
         </>
       );
@@ -110,7 +110,7 @@ export function DocsBlock({ block }: { block: Block }) {
         <ol {...stylex.props(styles.steps)}>
           {block.steps.map((step, i) => (
             <li key={step.title} {...stylex.props(styles.step)}>
-              <h3 {...stylex.props(styles.stepTitle)}>
+              <h3 id={headingId(step.title)} {...stylex.props(styles.stepTitle)}>
                 <span aria-hidden="true" {...stylex.props(styles.stepNumber)}>
                   {i + 1}
                 </span>

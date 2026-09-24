@@ -29,6 +29,67 @@ export const docsGroups: DocGroup[] = [
     ],
   },
   {
+    label: "Tutorial: a trip tracker",
+    entries: [
+      {
+        slug: "tutorial/1-shared-logic",
+        kind: "learn",
+        title: "1. Measure a trip in shared code",
+        description: "A module that measures distance and speed between GPS fixes, called from a screen.",
+        samplesWith: "apps/tutorial/steps/1-shared-logic",
+      },
+      {
+        slug: "tutorial/2-data",
+        kind: "learn",
+        title: "2. Keep the trip in native code",
+        description: "A `Trip` class that holds its fixes natively, and a summary returned as a copied object.",
+        samplesWith: "apps/tutorial/steps/2-data",
+      },
+      {
+        slug: "tutorial/3-async",
+        kind: "learn",
+        title: "3. Simplify the route off the JS thread",
+        description: "An `async` method that runs on the Lucent thread, and stops when JavaScript aborts it.",
+        samplesWith: "apps/tutorial/steps/3-async",
+      },
+      {
+        slug: "tutorial/4-errors",
+        kind: "learn",
+        title: "4. Throw errors JavaScript can handle",
+        description: "Errors with codes, thrown in Lucent and caught by code in JavaScript.",
+        samplesWith: "apps/tutorial/steps/4-errors",
+      },
+      {
+        slug: "tutorial/5-platform-code",
+        kind: "learn",
+        title: "5. Read the position from iOS and Android",
+        description: "One module that calls CoreLocation on iOS and `LocationManager` on Android.",
+        samplesWith: "apps/tutorial/steps/5-platform-code",
+      },
+      {
+        slug: "tutorial/6-callbacks",
+        kind: "learn",
+        title: "6. Send live positions to JavaScript",
+        description: "A CoreLocation delegate and an Android listener that call a JS function with each new position.",
+        samplesWith: "apps/tutorial/steps/6-callbacks",
+      },
+      {
+        slug: "tutorial/7-permissions",
+        kind: "learn",
+        title: "7. Ask for the location permission",
+        description: "The permission prompt, the `Info.plist` entry, and Android permissions added for you.",
+        samplesWith: "apps/tutorial/steps/7-permissions",
+      },
+      {
+        slug: "tutorial/8-publish",
+        kind: "learn",
+        title: "8. Publish the module as a package",
+        description: "The trip tracker as an npm package that apps install and compile with their own modules.",
+        samplesWith: "apps/tutorial/steps/8-publish",
+      },
+    ],
+  },
+  {
     label: "How Lucent works",
     entries: [
       {

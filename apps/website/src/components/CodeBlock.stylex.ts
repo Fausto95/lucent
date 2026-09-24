@@ -118,4 +118,21 @@ export const styles = stylex.create({
     color: tokens.syntaxComment,
     fontStyle: "italic",
   },
+  diffLine: {
+    display: "block",
+    marginInline: "-21px",
+    paddingInline: "21px",
+  },
+  diffAdded: {
+    backgroundColor: tokens.surfaceStrong,
+  },
+  diffRemoved: {
+    backgroundColor: tokens.warnSurface,
+  },
+  diffMark: {
+    display: "inline-block",
+    width: "1.5ch",
+    color: tokens.textSubtle,
+    userSelect: "none",
+  },
 });

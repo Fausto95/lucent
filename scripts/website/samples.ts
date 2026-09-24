@@ -1,17 +1,31 @@
 import { formatDiagnostic } from "../../packages/compiler/src/index.ts";
 import { PLATFORMS, platformSdkAvailable } from "../../packages/compiler/src/sdk/schema.ts";
 import type { Block, CppFile, DocPage } from "../../apps/website/src/docs/types.ts";
+import fs from "node:fs";
+import path from "node:path";
 import { compileSamples, type Sample } from "./compile.ts";
-import { where } from "./context.ts";
+import { root, where } from "./context.ts";
+
+const isSample = (b: { filename: string; diff?: true }): boolean => b.filename.endsWith(".lucent.ts") && !b.diff;
 
 function samplesOf(blocks: Block[]): Sample[] {
   return blocks.flatMap((b): Sample[] => {
-    if (b.kind === "code") return b.filename.endsWith(".lucent.ts") ? [b] : [];
-    if (b.kind === "tabs") return b.tabs.filter((t) => t.filename.endsWith(".lucent.ts"));
+    if (b.kind === "code") return isSample(b) ? [b] : [];
+    if (b.kind === "tabs") return b.tabs.filter(isSample);
     if (b.kind === "steps") return b.steps.flatMap((s) => samplesOf(s.blocks));
     if (b.kind === "panels") return b.panels.flatMap((p) => samplesOf(p.blocks));
     return [];
   });
+}
+
+/** The `*.lucent.ts` files under `dir` that the page doesn't show itself, by file name. */
+function contextOf(dir: string, shown: Sample[]): Sample[] {
+  const names = new Set(shown.map((s) => s.filename));
+  const full = path.join(root, dir);
+  return fs
+    .readdirSync(full, { recursive: true, encoding: "utf8" })
+    .filter((f) => f.endsWith(".lucent.ts") && !names.has(path.basename(f)))
+    .map((f) => ({ filename: path.basename(f), code: fs.readFileSync(path.join(full, f), "utf8") }));
 }
 
 /** The files the compiler wrote for one module: one, or one per platform when it has platform code. */
@@ -47,7 +61,8 @@ export function checkSamples(pages: DocPage[]): {
   let checked = 0;
   for (const page of pages) {
     const samples = samplesOf(page.blocks);
-    const app = samples.filter((s) => !s.expect);
+    const own = samples.filter((s) => !s.expect);
+    const app = [...own, ...(page.samplesWith ? contextOf(page.samplesWith, own) : [])];
     const names = app.map((s) => s.filename);
     for (const dup of new Set(names.filter((n, i) => names.indexOf(n) !== i))) {
       problems.push(`${where(page.slug)}: two samples are named ${dup}; a page's samples form one app`);

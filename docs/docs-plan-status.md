@@ -111,6 +111,24 @@ Found on the way, left for their own work:
   some messages show internal type names (`cannot convert
   S:a:number to Dict<number>`).
 
+## 6. The tutorial
+
+- [x] `apps/tutorial/steps/<n>-<name>/`: the trip tracker at the end of each
+      of the eight steps. Each compiles for iOS and Android; step 8's package
+      builds in an app that depends on it.
+- [x] Eight pages whose code and diffs are generated from the step folders
+      (drift-checked); `samplesWith` compiles each page with its step's
+      modules. Diff blocks (`diff: true`), and anchors on step headings.
+- [x] The numbers on the pages (3.55 km, 1.6 m/s, 4 fixes) come from running
+      the step modules as TypeScript, which the native build matches.
+- Differences from the plan: step folders, not git tags. Step 5 uses the
+  platform `LocationManager`, not the fused provider (Play services isn't in
+  the app). Step 7 has no `lucent.json`: an app's own is not read, so the
+  app adds its `Info.plist` key, and `lucent.json` arrives with the package
+  in step 8.
+- [ ] Device run of the tutorial on the iOS simulator and the Android
+      emulator (with the other device checks, at the end).
+
 ## 9. Examples (pulled forward, asked for on 2026-09-24)
 
 - [x] `/docs/examples/`: a table of the ports, then one page each for

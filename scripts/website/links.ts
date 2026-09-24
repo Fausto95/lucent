@@ -8,7 +8,7 @@ const LINK = /\[[^\]]+\]\((\/[^)]*)\)/g;
 function anchorsOf(blocks: Block[]): string[] {
   return blocks.flatMap((b) => {
     if (b.kind === "h2" || b.kind === "h3") return [headingId(b.text)];
-    if (b.kind === "steps") return b.steps.flatMap((s) => anchorsOf(s.blocks));
+    if (b.kind === "steps") return b.steps.flatMap((s) => [headingId(s.title), ...anchorsOf(s.blocks)]);
     if (b.kind === "panels") return b.panels.flatMap((p) => anchorsOf(p.blocks));
     return [];
   });

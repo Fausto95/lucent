@@ -15,9 +15,10 @@ export type Block =
   /**
    * `copy: false` for output the reader reads rather than runs (a terminal's output).
    * `cpp: true` on a `.lucent.ts` sample adds "See the C++": what the compiler writes for it.
+   * `diff: true` shows a unified diff (what a tutorial step changed); it isn't compiled.
    */
-  | { kind: "code"; filename: string; code: string; expect?: string; copy?: false; cpp?: true }
-  | { kind: "tabs"; tabs: { label: string; filename: string; code: string; cpp?: true }[] }
+  | { kind: "code"; filename: string; code: string; expect?: string; copy?: false; cpp?: true; diff?: true }
+  | { kind: "tabs"; tabs: { label: string; filename: string; code: string; cpp?: true; diff?: true }[] }
   | { kind: "note"; text: string; tone?: "info" | "warn" }
   | { kind: "list"; items: string[]; ordered?: boolean }
   | { kind: "table"; head: string[]; rows: string[][] }
@@ -67,6 +68,11 @@ export interface DocEntry {
   next?: string;
   /** Written before CONTRIBUTING-DOCS.md; Vale only warns. Goes away as each page is replaced. */
   legacy?: true;
+  /**
+   * A directory (from the repository root) whose `*.lucent.ts` files compile with
+   * the page's samples, so a page can show one module of a project, or its diff.
+   */
+  samplesWith?: string;
 }
 
 export interface DocGroup {
