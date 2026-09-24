@@ -20,6 +20,9 @@ function fixtureJar(): string {
   const classes = path.join(dir, "classes");
   const cc = spawnSync("javac", ["--release", "11", "-d", classes, ...sources], { encoding: "utf8" });
   if (cc.status !== 0) throw new Error(cc.stderr);
+  // A Kotlin-mangled JVM name, which only kotlinc writes; same length, so the constant pool stays valid.
+  const mangled = path.join(classes, "com/example/widgets/UArraySorting.class");
+  fs.writeFileSync(mangled, Buffer.from(fs.readFileSync(mangled).toString("latin1").replace("sortArray$4UcCI2c", "sortArray-4UcCI2c"), "latin1"));
   const jar = path.join(dir, "fixture.jar");
   const j = spawnSync("jar", ["cf", jar, "-C", classes, "."], { encoding: "utf8" });
   if (j.status !== 0) throw new Error(j.stderr);
@@ -127,5 +130,10 @@ describe.skipIf(!javac)("Android extractor", () => {
   it("leaves out what cannot be typed yet, and says so", () => {
     expect(widget().methods!.some((x) => x.name === "names" || x.name === "secret")).toBe(false);
     expect(mod("com.example.widgets").skipped).toContain("com.example.widgets.Widget.names()Ljava/util/List;: java.util.List");
+  });
+
+  it("leaves out Kotlin-mangled methods, whose names are not identifiers", () => {
+    expect(cls("com.example.widgets", "UArraySorting").methods!.map((x) => x.name)).toEqual(["sort$all"]);
+    expect(mod("com.example.widgets").skipped).toContain("com.example.widgets.UArraySorting.sortArray-4UcCI2c([BII)V: Kotlin-mangled name");
   });
 });
