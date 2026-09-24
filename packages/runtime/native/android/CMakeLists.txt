@@ -29,7 +29,12 @@ target_include_directories(lucentnative PUBLIC
 if(COMMAND target_compile_reactnative_options)
   target_compile_reactnative_options(lucentnative PRIVATE)
 endif()
+# Hidden: calls between the runtime's files are direct instead of through the
+# PLT of the app's shared library (a string argument made three such calls).
+# Natives are bound with RegisterNatives, so nothing is looked up by name.
 target_compile_options(lucentnative PRIVATE
+  -fvisibility=hidden
+  $<$<COMPILE_LANGUAGE:CXX>:-fvisibility-inlines-hidden>
   $<$<COMPILE_LANGUAGE:CXX>:-std=c++20>
   $<$<COMPILE_LANGUAGE:CXX>:-ffp-contract=off>
   $<$<COMPILE_LANGUAGE:CXX>:-fexceptions>
