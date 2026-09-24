@@ -40,6 +40,6 @@ describe("diagnostics", () => {
   it("carry the fix and where the code is explained", () => {
     const [d] = compileExample({ "a.lucent.ts": "export function f(): number {\n  var x = 1;\n  return x;\n}\n" }).diagnostics;
     expect(d).toMatchObject({ code: "LUCENT1001", fix: Explanations.LUCENT1001.fix, docs: docsUrl("LUCENT1001") });
-    expect(docsUrl("LUCENT1001")).toBe("https://lucent-lang.dev/docs/language/diagnostics/#lucent1001");
+    expect(docsUrl("LUCENT1001")).toBe("https://lucent-lang.dev/docs/reference/diagnostics/#lucent1001");
   });
 });
