@@ -1,0 +1,7 @@
+extends: existence
+message: "State the limit in one line and link to the roadmap instead of '%s'."
+level: error
+ignorecase: true
+tokens:
+  - coming soon
+  - stay tuned

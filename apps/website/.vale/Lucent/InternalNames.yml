@@ -1,0 +1,10 @@
+extends: existence
+message: "'%s' is an internal name: say what the user sees."
+level: error
+ignorecase: false
+tokens:
+  - IR
+  - LType
+  - bindgen
+  - emitter
+  - lowering

@@ -5,11 +5,15 @@
  *   2. compiles every `*.lucent.ts` sample on the docs pages:
  *      a page's samples together, as one app; samples with
  *      `expect` on their own, which must fail with that code;
- *   3. checks that every retired docs slug redirects to a page that exists.
+ *   3. checks that every retired docs slug redirects to a page that exists;
+ *   4. writes each page's prose as Markdown to apps/website/.prose/ and runs
+ *      Vale on it (apps/website/CONTRIBUTING-DOCS.md has the rules). Without
+ *      Vale installed it is skipped, except with --check.
  *
  *   tsx scripts/website.ts           regenerate, then check
  *   tsx scripts/website.ts --check   fail if generated files are stale (CI)
  */
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -131,8 +135,61 @@ for (const [from, to] of Object.entries(docsRedirects)) {
   if (!slugs.has(to)) problems.push(`redirect /docs/${from}/ → /docs/${to}/: no such page`);
 }
 
+// 4. Prose. Code is left out: Vale checks the words around it.
+function proseOf(blocks: Block[]): string[] {
+  return blocks.flatMap((b): string[] => {
+    switch (b.kind) {
+      case "p":
+        return [b.text];
+      case "h2":
+        return [`## ${b.text}`];
+      case "h3":
+        return [`### ${b.text}`];
+      case "note":
+        return [`> ${b.text}`];
+      case "list":
+        return [b.items.map((item, i) => `${b.ordered ? `${i + 1}.` : "-"} ${item}`).join("\n")];
+      case "table":
+        return [[b.head, b.head.map(() => "---"), ...b.rows].map((row) => `| ${row.join(" | ")} |`).join("\n")];
+      case "diagram":
+        return b.caption ? [b.caption] : [];
+      case "steps":
+        return b.steps.flatMap((step) => [`### ${step.title}`, ...proseOf(step.blocks)]);
+      case "cards":
+        return b.items.map((item) => `**${item.title}**: ${item.text}`);
+      case "code":
+      case "tabs":
+      case "comparison":
+        return [];
+    }
+  });
+}
+
+const proseDir = path.join(root, "apps/website/.prose");
+fs.rmSync(proseDir, { recursive: true, force: true });
+const proseFiles = new Map<string, string>();
+for (const page of docsGroups.flatMap((g) => g.pages)) {
+  const file = path.join(proseDir, `${page.slug || "index"}.md`);
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, [`# ${page.title}`, page.description, ...proseOf(page.blocks)].join("\n\n") + "\n");
+  proseFiles.set(file, `/docs/${page.slug}${page.slug ? "/" : ""}`);
+}
+const vale = spawnSync("vale", ["--config", path.join(root, "apps/website/.vale.ini"), "--output=line", proseDir], { encoding: "utf8" });
+if (vale.error) {
+  if (check) problems.push("Vale is not installed (brew install vale)");
+  else console.warn("! prose not checked: Vale is not installed (brew install vale)");
+} else if (vale.status !== 0) {
+  if (vale.stderr.trim()) problems.push(vale.stderr.trim());
+  // Lines read `file:line:column:rule:message`; name the page instead of the file.
+  // The pages written before these rules only warn until they are replaced.
+  for (const line of vale.stdout.trim().split("\n").filter(Boolean)) {
+    const [file = "", at, , rule, ...message] = line.split(":");
+    console.warn(`! ${proseFiles.get(file) ?? file}: ${message.join(":")} [${rule}, .prose/${path.relative(proseDir, file)}:${at}]`);
+  }
+}
+
 if (problems.length) {
   console.error(problems.map((p) => `✗ ${p}`).join("\n"));
   process.exit(1);
 }
-console.log(`✓ website: ${checked} Lucent samples compile, ${Object.keys(docsRedirects).length} redirects resolve, generated files ${check ? "up to date" : "written"}`);
+console.log(`✓ website: ${checked} Lucent samples compile, ${Object.keys(docsRedirects).length} redirects resolve, ${vale.error ? "prose not checked" : `${proseFiles.size} pages checked by Vale`}, generated files ${check ? "up to date" : "written"}`);

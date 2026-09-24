@@ -1,0 +1,17 @@
+extends: existence
+message: "Don't use '%s': say what happens instead."
+level: error
+ignorecase: true
+tokens:
+  - simply
+  - just
+  - easy
+  - easily
+  - powerful
+  - seamless
+  - seamlessly
+  - blazing
+  - robust
+  - leverage
+  - leverages
+  - leveraging

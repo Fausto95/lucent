@@ -1,0 +1,9 @@
+extends: existence
+message: "'%s' says nothing about the page: name the task or the question."
+level: error
+scope: heading
+ignorecase: true
+tokens:
+  - overview
+  - introduction
+  - advanced
