@@ -2,9 +2,11 @@ import fs from "node:fs";
 import { projectFiles, sdkCoverage, type SdkCoverage, sdkModule, sdkModules } from "@lucent-lang/compiler";
 import type { Invocation } from "../args.ts";
 import { projectSdk, sdkImports } from "../project.ts";
+import { table } from "../ui/format.ts";
 
 /** `lucent sdk coverage`: per module, how much Lucent code can call, and how. */
-export function run({ root, flags }: Invocation): number {
+export function run({ root, flags, out }: Invocation): number {
+  const t = out.theme;
   const sdk = projectSdk(root);
   const list = (flag: string) => (typeof flags[flag] === "string" ? (flags[flag] as string) : "").split(",").filter(Boolean);
   const wanted = { ios: list("ios"), android: list("android") };
@@ -20,17 +22,17 @@ export function run({ root, flags }: Invocation): number {
     for (const m of modules) {
       const r = sdkModule(platform, m, sdk);
       if ("missing" in r) {
-        process.stderr.write(`✗ ${r.missing}\n`);
+        out.error(`${t.error(t.symbols.fail)} ${r.missing}`);
         return 1;
       }
       reports.push(sdkCoverage(r.schema));
     }
   }
-  if (flags.json) process.stdout.write(`${JSON.stringify(reports, null, 2)}\n`);
+  if (flags.json) out.data(reports);
   else {
     const pct = (n: number, t: number) => `${t ? ((100 * n) / t).toFixed(1) : "0.0"}%`;
-    process.stdout.write(`${"module".padEnd(28)} ${"total".padStart(7)} ${"idiomatic".padStart(10)} ${"raw".padStart(8)} ${"unrepresentable".padStart(16)}\n`);
-    for (const c of reports) process.stdout.write(`${c.module.padEnd(28)} ${String(c.total).padStart(7)} ${String(c.idiomatic).padStart(10)} ${String(c.raw).padStart(8)} ${`${c.unrepresentable} (${pct(c.unrepresentable, c.total)})`.padStart(16)}\n`);
+    const rows = reports.map((c) => [c.module, String(c.total), String(c.idiomatic), String(c.raw), `${c.unrepresentable} (${pct(c.unrepresentable, c.total)})`]);
+    for (const line of table([["module", "total", "idiomatic", "raw", "unrepresentable"].map((h) => t.dim(h)), ...rows])) out.print(line);
   }
   const baselineFile = typeof flags.check === "string" ? flags.check : "";
   if (!baselineFile) return 0;
@@ -41,7 +43,8 @@ export function run({ root, flags }: Invocation): number {
   for (const c of reports) {
     const b = baseline.get(c.module);
     if (b && share(c) > share(b) + 0.05) {
-      process.stderr.write(`✗ ${c.module}: ${share(c).toFixed(2)}% unrepresentable, ${share(b).toFixed(2)}% in the baseline\n`);
+      // stderr even with --json: CI redirects the report and reads this.
+      process.stderr.write(`${t.symbols.fail} ${c.module}: ${share(c).toFixed(2)}% unrepresentable, ${share(b).toFixed(2)}% in the baseline\n`);
       dropped = true;
     }
   }
