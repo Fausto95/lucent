@@ -75,4 +75,29 @@ Postponed:
 
 ## Part B: the CLI
 
-Not started.
+Done:
+
+- [x] UI foundation: a command table drives parsing, help and (later) the
+      docs; commands load lazily, so `--help`, `--version` and a bare
+      `lucent` load neither TypeScript, the compiler nor Ink (bundled
+      `--help`: 30-50 ms). Terminal detection (NO_COLOR, FORCE_COLOR, CI,
+      TERM=dumb, non-TTY, OSC 8 links), theme tokens with ASCII fallbacks,
+      durations, tables, code frames (snapshots with and without colour, 80
+      columns), `--json` plumbing, a crash handler (message, log path, issue
+      link).
+- [x] Diagnostics data: every code has a title, summary, explanation, fix
+      and wrong/right examples (`packages/compiler/src/codes.ts`), checked
+      against the compiler by a test that also fails for a code without one.
+      Diagnostics carry `fix` and `docs`; the editor plugin shows them; the
+      website's diagnostics page is generated from the same data.
+
+Left:
+
+- [ ] `build` and `check` on the UI module (step list, code frames, `--json`)
+- [ ] `doctor`
+- [ ] `init` (Ink, diffs, `--yes`)
+- [ ] `dev` (Ink dashboard), replacing `build --watch`; `withLucent` output
+- [ ] `new module`, `explain`, `clean`, `--version` with SDKs
+- [ ] `sdk search / show / prefetch`; `coverage` and `diff`
+- [ ] `bench`
+- [ ] Docs: CLI reference generated from the command table; README recording
