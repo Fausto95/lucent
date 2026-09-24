@@ -118,6 +118,7 @@ bool isJsWhitespace(char16_t c) {
 
 String String::make(std::string&& latin1) {
   if (latin1.empty()) return String();
+  if (latin1.size() <= kInline) return inlined(latin1, {});
   auto d = std::make_shared<Data>();
   d->oneByte = true;
   d->bytes = std::move(latin1);
@@ -133,19 +134,53 @@ String String::make(std::u16string&& wide) {
       break;
     }
   }
-  auto d = std::make_shared<Data>();
   if (narrow) {
-    d->oneByte = true;
-    d->bytes.resize(wide.size());
-    for (size_t i = 0; i < wide.size(); i++) d->bytes[i] = static_cast<char>(wide[i]);
-  } else {
-    d->oneByte = false;
-    d->wide = std::move(wide);
+    std::string bytes(wide.size(), '\0');
+    for (size_t i = 0; i < wide.size(); i++) bytes[i] = static_cast<char>(wide[i]);
+    return make(std::move(bytes));
   }
+  auto d = std::make_shared<Data>();
+  d->oneByte = false;
+  d->wide = std::move(wide);
   return String(std::move(d));
 }
 
-String String::fromLatin1(std::string_view bytes) { return make(std::string(bytes)); }
+String String::fromLatin1(std::string_view bytes) {
+  if (bytes.empty()) return String();
+  if (bytes.size() <= kInline) return inlined(bytes, {});
+  return make(std::string(bytes));
+}
+
+namespace {
+// Copies n <= 16 bytes as two overlapping fixed-size copies, which compile
+// to loads and stores: memcpy with a variable size is a library call, and
+// short strings cross the boundary on every call. Reads no byte past n.
+inline void copySmall(char* dst, const char* src, size_t n) {
+  if (n >= 8) {
+    uint64_t x, y;
+    std::memcpy(&x, src, 8);
+    std::memcpy(&y, src + n - 8, 8);
+    std::memcpy(dst, &x, 8);
+    std::memcpy(dst + n - 8, &y, 8);
+  } else if (n >= 4) {
+    uint32_t x, y;
+    std::memcpy(&x, src, 4);
+    std::memcpy(&y, src + n - 4, 4);
+    std::memcpy(dst, &x, 4);
+    std::memcpy(dst + n - 4, &y, 4);
+  } else {
+    for (size_t i = 0; i < n; i++) dst[i] = src[i];
+  }
+}
+}  // namespace
+
+String String::inlined(std::string_view a, std::string_view b) {
+  String out;
+  out.n_ = static_cast<uint8_t>(a.size() + b.size());
+  copySmall(out.s_, a.data(), a.size());
+  copySmall(out.s_ + a.size(), b.data(), b.size());
+  return out;
+}
 
 String String::fromUtf8(std::string_view s) {
   bool ascii = true;
@@ -234,11 +269,11 @@ String String::fromCodePoint(double v) {
 }
 
 std::string String::toUtf8() const {
-  if (!d_) return std::string();
   std::string out;
-  if (d_->oneByte) {
-    out.reserve(d_->bytes.size());
-    for (unsigned char c : d_->bytes) appendUtf8(out, c);
+  if (isOneByte()) {
+    std::string_view b = latin1();
+    out.reserve(b.size());
+    for (unsigned char c : b) appendUtf8(out, c);
     return out;
   }
   const auto& w = d_->wide;
@@ -265,10 +300,10 @@ std::u16string String::toUtf16() const {
 }
 
 void String::appendUnitsTo(std::u16string& out) const {
-  if (!d_) return;
-  if (d_->oneByte) {
-    out.reserve(out.size() + d_->bytes.size());
-    for (unsigned char c : d_->bytes) out.push_back(c);
+  if (isOneByte()) {
+    std::string_view b = latin1();
+    out.reserve(out.size() + b.size());
+    for (unsigned char c : b) out.push_back(c);
   } else {
     out.append(d_->wide);
   }
@@ -277,10 +312,12 @@ void String::appendUnitsTo(std::u16string& out) const {
 String operator+(const String& a, const String& b) {
   if (a.empty()) return b;
   if (b.empty()) return a;
-  if (a.d_->oneByte && b.d_->oneByte) {
+  if (a.isOneByte() && b.isOneByte()) {
+    std::string_view x = a.latin1(), y = b.latin1();
+    if (x.size() + y.size() <= String::kInline) return String::inlined(x, y);
     std::string s;
-    s.reserve(a.d_->bytes.size() + b.d_->bytes.size());
-    s.append(a.d_->bytes).append(b.d_->bytes);
+    s.reserve(x.size() + y.size());
+    s.append(x).append(y);
     return String::make(std::move(s));
   }
   std::u16string w;
@@ -326,15 +363,16 @@ String StringBuilder::build() && {
 
 String& String::operator+=(const String& other) {
   if (other.empty()) return *this;
-  if (!d_) {
+  if (empty()) {
     *this = other;
     return *this;
   }
-  if (d_.use_count() == 1) {
-    // Sole owner: grow in place so a `+=` loop is amortized linear.
+  if (d_ && d_.use_count() == 1 && &other != this) {
+    // Sole owner: grow in place so a `+=` loop is amortized linear. (Inline
+    // strings are short: they grow by concatenation until they move out.)
     d_->hash.store(0, std::memory_order_relaxed);
-    if (d_->oneByte && other.d_->oneByte) {
-      d_->bytes.append(other.d_->bytes);
+    if (d_->oneByte && other.isOneByte()) {
+      d_->bytes.append(other.latin1());
       return *this;
     }
     if (d_->oneByte) {
@@ -354,11 +392,11 @@ String& String::operator+=(const String& other) {
 }
 
 bool operator==(const String& a, const String& b) {
-  if (a.d_ == b.d_) return true;
+  if (a.d_ && a.d_ == b.d_) return true;
   size_t n = a.length();
   if (n != b.length()) return false;
   if (n == 0) return true;
-  if (a.d_->oneByte && b.d_->oneByte) return a.d_->bytes == b.d_->bytes;
+  if (a.isOneByte() && b.isOneByte()) return a.latin1() == b.latin1();
   if (!a.d_->oneByte && !b.d_->oneByte) return a.d_->wide == b.d_->wide;
   // Mixed representations never compare equal: a wide string always holds a
   // unit > 0xFF (make() narrows otherwise).
@@ -376,8 +414,8 @@ int String::compare(const String& a, const String& b) {
 }
 
 size_t String::hash() const {
-  if (!d_) return 0x9e3779b9;
-  size_t h = d_->hash.load(std::memory_order_relaxed);
+  if (empty()) return 0x9e3779b9;
+  size_t h = d_ ? d_->hash.load(std::memory_order_relaxed) : 0;
   if (h != 0) return h;
   // FNV-1a over code units, so both representations hash alike.
   uint64_t x = 1469598103934665603ULL;
@@ -387,7 +425,7 @@ size_t String::hash() const {
     x *= 1099511628211ULL;
   }
   h = static_cast<size_t>(x) | 1;
-  d_->hash.store(h, std::memory_order_relaxed);
+  if (d_) d_->hash.store(h, std::memory_order_relaxed);
   return h;
 }
 
@@ -396,7 +434,7 @@ String String::sub(size_t begin, size_t end) const {
   if (end > n) end = n;
   if (begin >= end) return String();
   if (begin == 0 && end == n) return *this;
-  if (d_->oneByte) return make(d_->bytes.substr(begin, end - begin));
+  if (isOneByte()) return make(std::string(latin1().substr(begin, end - begin)));
   return make(d_->wide.substr(begin, end - begin));
 }
 
@@ -405,7 +443,7 @@ size_t String::find(const String& needle, size_t from) const {
   if (m == 0) return from <= n ? from : std::string::npos;
   if (m > n) return std::string::npos;
   if (isOneByte() && needle.isOneByte()) {
-    return d_->bytes.find(needle.d_->bytes, from);
+    return latin1().find(needle.latin1(), from);
   }
   for (size_t i = from; i + m <= n; i++) {
     size_t j = 0;
@@ -622,7 +660,7 @@ String String::toUpperCase() const {
   if (isOneByte()) {
     // Latin-1 maps within Latin-1 except ß (SS), µ (Μ) and ÿ (Ÿ).
     bool special = false;
-    std::string out(d_->bytes);
+    std::string out(latin1());
     for (auto& ch : out) {
       unsigned char c = static_cast<unsigned char>(ch);
       if (c == 0xDF || c == 0xB5 || c == 0xFF) {
@@ -640,7 +678,7 @@ String String::toLowerCase() const {
   size_t n = length();
   if (n == 0) return *this;
   if (isOneByte()) {
-    std::string out(d_->bytes);
+    std::string out(latin1());
     for (auto& ch : out) ch = static_cast<char>(lowerOf(static_cast<unsigned char>(ch)));
     return make(std::move(out));
   }
@@ -676,7 +714,7 @@ String String::repeat(double count) const {
   if (isOneByte()) {
     std::string out;
     out.reserve(length() * c);
-    for (size_t i = 0; i < c; i++) out.append(d_->bytes);
+    for (size_t i = 0; i < c; i++) out.append(latin1());
     return make(std::move(out));
   }
   std::u16string out;

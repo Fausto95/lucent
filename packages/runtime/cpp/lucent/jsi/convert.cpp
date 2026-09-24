@@ -28,12 +28,21 @@ void throwBoundaryError(jsi::Runtime& rt, const Path& path, const char* expected
 }
 
 String stringFromJs(jsi::Runtime& rt, const jsi::String& s) {
+  // Hermes hands most strings over in one chunk: an ASCII one becomes the
+  // String directly (inline when short). Later chunks go to the accumulator.
   struct Acc {
+    String first;
+    size_t chunks = 0;
     std::string ascii;
     std::u16string wide;
     bool isWide = false;
   } acc;
   auto collect = [&acc](bool ascii, const void* data, size_t num) {
+    if (acc.chunks++ == 0 && ascii) {
+      acc.first = String::fromLatin1(std::string_view(static_cast<const char*>(data), num));
+      return;
+    }
+    if (acc.chunks == 2 && acc.first.length() > 0) acc.ascii.assign(acc.first.latin1());
     if (ascii && !acc.isWide) {
       acc.ascii.append(static_cast<const char*>(data), num);
       return;
@@ -52,7 +61,8 @@ String stringFromJs(jsi::Runtime& rt, const jsi::String& s) {
     }
   };
   s.getStringData(rt, collect);
-  if (!acc.isWide) return String::fromLatin1(acc.ascii);
+  if (acc.chunks == 1 && !acc.isWide && acc.ascii.empty()) return acc.first;
+  if (!acc.isWide) return String::adoptLatin1(std::move(acc.ascii));
   return String::fromUtf16(acc.wide);
 }
 

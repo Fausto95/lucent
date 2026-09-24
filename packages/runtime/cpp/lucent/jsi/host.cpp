@@ -266,7 +266,7 @@ jsi::Value Host::wrap(jsi::Runtime& rt, const Ref<Object>& instance, const char*
     for (uint64_t id : dead) identities_.erase(id);
   }
   identities_.insert_or_assign(instance->jsIdentity, jsi::WeakObject(rt, obj));
-  return jsi::Value(rt, obj);
+  return jsi::Value(std::move(obj));
 }
 
 jsi::Value Host::errorToJs(jsi::Runtime& rt, const Error& e) {
@@ -290,7 +290,7 @@ jsi::Value Host::errorToJs(jsi::Runtime& rt, const Error& e) {
     std::string frames = firstFrame == std::string::npos ? "" : stack.substr(firstFrame);
     err.setProperty(rt, "stack", jsi::String::createFromUtf8(rt, head + "\n    at " + e->site.get().toUtf8() + frames));
   }
-  return jsi::Value(rt, err);
+  return jsi::Value(std::move(err));
 }
 
 Error Host::errorFromJs(jsi::Runtime& rt, const jsi::JSError& e) {

@@ -20,6 +20,8 @@ class String {
 
   /// Bytes that are all < 0x80, or Latin-1 code units.
   static String fromLatin1(std::string_view bytes);
+  /// Takes the buffer instead of copying it (Latin-1, as fromLatin1).
+  static String adoptLatin1(std::string&& bytes) { return make(std::move(bytes)); }
   static String fromUtf8(std::string_view utf8);
   static String fromUtf16(const char16_t* units, size_t length);
   static String fromUtf16(std::u16string_view units) { return fromUtf16(units.data(), units.size()); }
@@ -27,16 +29,19 @@ class String {
   /// String.fromCodePoint for one code point.
   static String fromCodePoint(double codePoint);
 
-  size_t length() const { return d_ ? d_->length() : 0; }
+  size_t length() const { return d_ ? d_->length() : n_; }
   bool empty() const { return length() == 0; }
   /// Unchecked code unit access.
-  char16_t unit(size_t i) const { return d_->oneByte ? static_cast<unsigned char>(d_->bytes[i]) : d_->wide[i]; }
+  char16_t unit(size_t i) const {
+    if (!d_) return static_cast<unsigned char>(s_[i]);
+    return d_->oneByte ? static_cast<unsigned char>(d_->bytes[i]) : d_->wide[i];
+  }
   bool isOneByte() const { return !d_ || d_->oneByte; }
 
   std::string toUtf8() const;
   std::u16string toUtf16() const;
   /// Latin-1 bytes; only valid when isOneByte().
-  std::string_view latin1() const { return d_ ? std::string_view(d_->bytes) : std::string_view(); }
+  std::string_view latin1() const { return d_ ? std::string_view(d_->bytes) : std::string_view(s_, n_); }
   /// UTF-16 units; only valid when !isOneByte().
   std::u16string_view utf16() const { return d_ ? std::u16string_view(d_->wide) : std::u16string_view(); }
 
@@ -89,6 +94,11 @@ class String {
   size_t hash() const;
 
  private:
+  /// Short Latin-1 strings live in the handle, so the strings most calls
+  /// pass (names, keys, words) cost no allocation. make() stores every
+  /// one-byte string this short inline: Data holds longer or two-byte ones.
+  static constexpr size_t kInline = 15;
+
   struct Data {
     bool oneByte = true;
     std::string bytes;
@@ -97,11 +107,15 @@ class String {
     size_t length() const { return oneByte ? bytes.size() : wide.size(); }
   };
   explicit String(std::shared_ptr<Data> d) : d_(std::move(d)) {}
+  /// a + b stored inline; the two fit in kInline bytes.
+  static String inlined(std::string_view a, std::string_view b);
   static String make(std::string&& latin1);
   static String make(std::u16string&& wide);  // narrows to one byte when possible
   void appendUnitsTo(std::u16string& out) const;
 
-  std::shared_ptr<Data> d_;
+  std::shared_ptr<Data> d_;  // null: the string is inline (n_ bytes of s_)
+  uint8_t n_ = 0;
+  char s_[kInline] = {};
   friend class StringBuilder;
 };
 

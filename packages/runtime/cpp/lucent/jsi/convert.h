@@ -106,7 +106,7 @@ struct Convert<String> {
     if (!v.isString()) throwBoundaryError(rt, p, "a string", v);
     return stringFromJs(rt, v.getString(rt));
   }
-  static jsi::Value toJs(jsi::Runtime& rt, Host&, const String& v) { return jsi::Value(rt, stringToJs(rt, v)); }
+  static jsi::Value toJs(jsi::Runtime& rt, Host&, const String& v) { return jsi::Value(stringToJs(rt, v)); }
 };
 
 template <>
@@ -168,7 +168,7 @@ struct Convert<Array<T>> {
     const auto& items = v.items();
     jsi::Array a(rt, items.size());
     for (size_t i = 0; i < items.size(); i++) a.setValueAtIndex(rt, i, Convert<T>::toJs(rt, h, static_cast<T>(items[i])));
-    return jsi::Value(rt, a);
+    return jsi::Value(std::move(a));
   }
 };
 
@@ -184,7 +184,7 @@ struct Convert<std::tuple<Ts...>> {
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const std::tuple<Ts...>& t) {
     jsi::Array a(rt, sizeof...(Ts));
     write(rt, h, a, t, std::index_sequence_for<Ts...>{});
-    return jsi::Value(rt, a);
+    return jsi::Value(std::move(a));
   }
 
  private:
@@ -223,7 +223,7 @@ struct Convert<Dict<V>> {
       if (!t.slotLive(i)) continue;
       o.setProperty(rt, jsi::PropNameID::forString(rt, stringToJs(rt, t.slot(i).key)), Convert<V>::toJs(rt, h, t.slot(i).value));
     }
-    return jsi::Value(rt, o);
+    return jsi::Value(std::move(o));
   }
 };
 
@@ -254,7 +254,7 @@ struct Convert<Map<K, V>> {
       if (!t.slotLive(i)) continue;
       set.callWithThis(rt, out, Convert<K>::toJs(rt, h, t.slot(i).key), Convert<V>::toJs(rt, h, t.slot(i).value));
     }
-    return jsi::Value(rt, out);
+    return jsi::Value(std::move(out));
   }
 };
 
@@ -275,7 +275,7 @@ struct Convert<Set<T>> {
     for (size_t i = 0; i < t.slotCount(); i++) {
       if (t.slotLive(i)) add.callWithThis(rt, out, Convert<T>::toJs(rt, h, t.slot(i).key));
     }
-    return jsi::Value(rt, out);
+    return jsi::Value(std::move(out));
   }
 };
 
