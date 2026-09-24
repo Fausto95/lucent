@@ -31,6 +31,37 @@ squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25, computed in C++
 Works in bare React Native (0.88) and Expo (SDK 58). No Expo Modules or Nitro
 dependency.
 
+## Call iOS and Android
+
+A module imports the platform SDKs directly. One module holds both
+platforms, and each platform's build compiles its own branch:
+
+```ts
+// src/location.lucent.ts
+import { PLATFORM } from "lucent:platform";
+import { CLLocationManager } from "lucent:ios/CoreLocation";
+import { LocationManager } from "lucent:android/android.location";
+import { appContext, available } from "lucent:android";
+
+export async function hasServicesEnabledAsync(): Promise<boolean> {
+  if (PLATFORM === "ios") {
+    return CLLocationManager.locationServicesEnabled();
+  } else {
+    const manager = appContext().getSystemService(LocationManager);
+    if (!manager) return false;
+    if (available("android", 28)) return manager.isLocationEnabled();
+    return manager.isProviderEnabled(LocationManager.GPS_PROVIDER);
+  }
+}
+```
+
+The SDK types come from your installed Xcode and Android SDK. The full
+[`expo-location` port](scripts/example-app/src/sdk/location.lucent.ts) adds a
+CoreLocation delegate, an Android listener and positions sent to a JS
+callback. It runs in the example apps next to ports of netinfo,
+local-authentication, secure-store, haptics and clipboard
+([examples](https://lucent-lang.dev/docs/examples/)).
+
 ## Install
 
 ```sh
@@ -52,30 +83,31 @@ Metro integration (`@lucent-lang/lucent/metro`), the Expo config plugin
 (`@lucent-lang/lucent/ts-plugin`). Modules import helpers from the built-in
 `lucent:core`. It isn't on npm yet: until it is, install the tarball
 `pnpm pack` makes in `packages/lucent`. Walkthroughs:
-[bare React Native](https://lucent-lang.dev/docs/getting-started/),
-[Expo](https://lucent-lang.dev/docs/getting-started-expo/).
+[install](https://lucent-lang.dev/docs/install/),
+[your first module](https://lucent-lang.dev/docs/first-module/).
 
 ## Today
 
-- The full language minus platform SDKs and views: structs, unions, classes,
-  closures, generics, `async`/`await`, errors
+- The language: structs, unions, classes, closures, generics,
+  `async`/`await`, errors
 - JS callbacks, promises and `AbortSignal` across the boundary
 - One package, `@lucent-lang/lucent`: `lucent build` / `lucent check`, the
   Metro transformer, the Expo plugin and the editor plugin
-- Early platform modules (`*.ios.lucent.ts` / `*.android.lucent.ts`):
-  Android bindings generated from `android.jar`, iOS a hand-written UIKit
-  subset
+- iOS and Android SDKs, typed from your Xcode and Android SDK: one module
+  for both platforms, delegates and listeners, completion handlers as
+  promises
+- Lucent packages: npm packages that ship modules
 
 ## Not yet
 
 - Testing on physical devices (simulators and emulators pass)
-- Generated iOS bindings, delegates and protocols (M2)
 - Views (M3)
 - npm publish
 
 ## Docs
 
-[Getting started](https://lucent-lang.dev/docs/getting-started/) ·
+[Install](https://lucent-lang.dev/docs/install/) ·
+[Examples](https://lucent-lang.dev/docs/examples/) ·
 [Language](https://lucent-lang.dev/docs/language/) ·
 [How it works](https://lucent-lang.dev/docs/how-it-works/) ·
 [Comparison](https://lucent-lang.dev/docs/comparison/) ·
