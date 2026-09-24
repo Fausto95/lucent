@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { compile, type LucentPackage, lucentPackages, moduleNameOf, nativeDependencies, projectFiles, writeNativePackage } from "../src/index.ts";
 
 /** An app whose node_modules has Lucent packages (a `lucent` field) and others. */

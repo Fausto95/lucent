@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 const main = path.resolve(import.meta.dirname, "../src/cli/main.ts");
 // Reports every module resolved in the child, so the test sees what a command loads.

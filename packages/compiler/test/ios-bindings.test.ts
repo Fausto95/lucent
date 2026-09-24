@@ -2,7 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { podsSearchPaths, sdkAvailable } from "@lucent-lang/bindgen";
 import { fileURLToPath } from "node:url";
 import { compile, runtimeDir, type SdkOptions } from "../src/index.ts";

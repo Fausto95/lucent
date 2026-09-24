@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { compile, runtimeDir } from "../src/index.ts";
 
 const dwarfdump = ["llvm-dwarfdump", "dwarfdump"].find((t) => spawnSync(t, ["--version"]).status === 0);

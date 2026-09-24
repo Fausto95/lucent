@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 const pkg = path.resolve(import.meta.dirname, "..");
 const bindgen = path.resolve(pkg, "../bindgen/src");

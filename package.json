@@ -11,7 +11,7 @@
   "scripts": {
     "build": "pnpm -r --filter './packages/*' build",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run",
+    "test": "vp test",
     "test:runtime": "packages/runtime/test/run.sh",
     "test:e2e": "tsx packages/compiler/test/e2e/run.ts",
     "website": "pnpm --filter @lucent-lang/website dev",
@@ -22,11 +22,21 @@
     "@types/node": "^24.7.0",
     "tsx": "^4.20.6",
     "typescript": "~5.9.3",
-    "vite-plus": "catalog:",
-    "vitest": "^3.2.4"
+    "vite": "catalog:",
+    "vite-plus": "catalog:"
   },
   "engines": {
     "node": ">=22.12"
   },
-  "packageManager": "pnpm@9.15.9"
+  "packageManager": "pnpm@9.15.9",
+  "pnpm": {
+    "overrides": {
+      "vite": "catalog:"
+    },
+    "peerDependencyRules": {
+      "allowAny": [
+        "vite"
+      ]
+    }
+  }
 }

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { sdkDts, stubDts } from "../src/sdk/dts.ts";
 import { parseSdkType, type SdkModuleSchema } from "../src/sdk/schema.ts";
 

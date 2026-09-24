@@ -2,7 +2,7 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import ts from "typescript";
 import { compile, runtimeDir, writeNativePackage } from "../src/index.ts";
 import { createLucentProgram } from "../src/program.ts";

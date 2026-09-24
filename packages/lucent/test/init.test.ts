@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { addExpoPlugin, applyGradleTask, GRADLE_LINE, wrapMetro } from "../src/cli/init/patch.ts";
 import { withLucentTsconfig } from "../src/cli/tsconfig.ts";
 

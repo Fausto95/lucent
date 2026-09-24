@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { type Check, diagnose, type Probe, type RunResult } from "../src/cli/doctor.ts";
 
 /** A bare React Native app wired for Lucent, as files on disk. */

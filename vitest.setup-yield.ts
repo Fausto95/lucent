@@ -5,6 +5,6 @@
  * to its RPC calls, and past 60 s vitest reports "Timeout calling
  * onTaskUpdate". Yielding a macrotask after each test lets them through.
  */
-import { afterEach } from "vitest";
+import { afterEach } from "vite-plus/test";
 
 afterEach(() => new Promise<void>((resolve) => setImmediate(resolve)));

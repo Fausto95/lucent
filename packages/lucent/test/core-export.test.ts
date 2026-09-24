@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 
 const pkg = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Resolves as an app would: the package by name, through its exports map.

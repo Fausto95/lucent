@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { withLucentPaths } from "../src/cli/tsconfig.ts";
 
 const entry = '"lucent:*": ["./.lucent/native/types/*"]';

@@ -1,5 +1,5 @@
 import { PassThrough } from "node:stream";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { liveSteps } from "../src/cli/ui/live-steps.tsx";
 import { createTheme } from "../src/cli/ui/theme.ts";
 

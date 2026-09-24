@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { detectTerminal, type Terminal } from "../src/cli/ui/terminal.ts";
 import { createTheme } from "../src/cli/ui/theme.ts";
 import { codeFrame, duration, link, table, visibleWidth } from "../src/cli/ui/format.ts";

@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vite-plus/test";
 import { type CommandSpec, parseArgs } from "../src/cli/args.ts";
 import { commandHelp, help } from "../src/cli/help.ts";
 import { commands } from "../src/cli/commands.ts";
