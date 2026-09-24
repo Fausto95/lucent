@@ -3,7 +3,10 @@
 // .lucent/android-classpath.json, so lucent:android/<package> can bind any
 // library the app links (AndroidX, Play services, Firebase…).
 // Applied by lucent.gradle (the app's Gradle task) and by
-// lucent-classpath.init.gradle (when lucent build asks Gradle).
+// lucent-classpath.init.gradle (when lucent build asks Gradle). In an app
+// with lucent.gradle, lucent build's run applies it twice: once registers.
+if (ext.has("lucentClasspathApplied")) return
+ext.lucentClasspathApplied = true
 pluginManager.withPlugin("com.android.application") {
   // Registered after the Android plugin's own afterEvaluate, which creates the variants' configurations.
   afterEvaluate {

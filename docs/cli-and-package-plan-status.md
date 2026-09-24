@@ -108,7 +108,11 @@ Done:
       mismatched versions). Loads neither TypeScript nor the compiler.
 - [x] The Lucent Gradle task (`gradle/lucent.gradle`): runs `lucent build`
       before every project's preBuild, resolving the classpath in the same
-      Gradle build (verified on the bare example app).
+      Gradle build (verified on the bare example app). The classpath
+      script registers its task once when both the app and `lucent build`'s
+      init script apply it (2026-09-24: every `lucent build` Gradle run in
+      such an app failed, hidden by a classpath JSON from an earlier Gradle
+      build until `lucent clean`); tested with real Gradle.
 - [x] `init`: bare or Expo, package manager, a diff per change (Ink,
       confirm each) or `--yes`; Metro, app.json / Gradle task,
       react-native.config.js, tsconfig (paths, noUncheckedIndexedAccess),
