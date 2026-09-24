@@ -53,5 +53,5 @@
     after.join(","),
   );
   const old = new OldLoader();
-  print(await old.load("z"), old.loads);
+  print(await old.load("z"), old.loads, old instanceof OldLoader);
 })();

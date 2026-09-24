@@ -98,6 +98,8 @@ class Host : public std::enable_shared_from_this<Host> {
 
   // --- classes --------------------------------------------------------------
   using PrototypeInit = void (*)(jsi::Runtime& rt, Host& host, jsi::Object& proto);
+  /// The prototype for class `key`: the runtime's own across hosts (kept on
+  /// the global object), with this host's methods.
   jsi::Object& prototype(jsi::Runtime& rt, const char* key, PrototypeInit init);
   /// The JS object for a native instance: the same object each time while
   /// JavaScript still references it.
