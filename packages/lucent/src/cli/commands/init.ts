@@ -3,7 +3,7 @@ import path from "node:path";
 import type { Invocation } from "../args.ts";
 import { mapLucentPaths } from "../project.ts";
 
-export function run({ root }: Invocation): number {
+export function run({ root, out }: Invocation): number {
   const rnConfig = path.join(root, "react-native.config.js");
   const entry = `"lucent": { root: require("path").join(__dirname, ".lucent", "native") }`;
   const text = fs.existsSync(rnConfig) ? fs.readFileSync(rnConfig, "utf8") : undefined;
@@ -23,7 +23,8 @@ export function run({ root }: Invocation): number {
     fs.appendFileSync(gitignore, `${ignored.endsWith("\n") || !ignored ? "" : "\n"}.lucent/\n`);
     process.stdout.write("✓ added .lucent/ to .gitignore\n");
   }
-  mapLucentPaths(root);
+  const mapped = mapLucentPaths(root);
+  if (mapped) out.print(`${mapped.level === "ok" ? "✓" : "!"} ${mapped.text}`);
   process.stdout.write(
     "Next: wrap your Metro config with withLucent() from @lucent-lang/lucent/metro, and enable\n" +
       '"noUncheckedIndexedAccess": true in tsconfig.json (Lucent requires it).\n',

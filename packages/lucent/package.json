@@ -43,6 +43,7 @@
     "lib",
     "metro",
     "runtime",
+    "schemas",
     "ts-plugin"
   ],
   "scripts": {

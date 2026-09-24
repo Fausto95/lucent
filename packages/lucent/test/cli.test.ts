@@ -235,7 +235,7 @@ describe("the app's Android dependencies", () => {
     fs.mkdirSync(path.join(root, "android"));
     fs.writeFileSync(path.join(root, "android/gradlew"), `#!/bin/sh\necho "$@" > ${path.join(root, "gradle-args")}\nmkdir -p ${path.join(root, ".lucent")}\necho '{"jars":["${jar}"],"aars":[]}' > ${path.join(root, ".lucent/android-classpath.json")}\n`, { mode: 0o755 });
     const r = spawnSync(process.execPath, [bin, "build", "--platforms", "android", "--root", root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")) } });
-    expect(r.stdout + r.stderr).toMatch(/resolving the app's Android dependencies/);
+    expect(r.stdout + r.stderr).toMatch(/✓ Android dependencies +resolved with Gradle/);
     // The task comes from an init script Lucent ships: nothing in the app applies it.
     const args = fs.readFileSync(path.join(root, "gradle-args"), "utf8").trim().split(/\s+/);
     const script = args[args.indexOf("--init-script") + 1]!;
@@ -282,21 +282,23 @@ describe("the app's Android dependencies", () => {
   it("does not run Gradle for a host build, which needs no SDK", () => {
     const app = gradleApp();
     const r = spawnSync(process.execPath, [bin, "build", "--platforms", "host", "--root", app.root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: app.cache, LUCENT_ANDROID_PLATFORM: "nope", LUCENT_XCRUN: "/nonexistent" } });
-    expect(r.stdout + r.stderr).not.toMatch(/resolving the app's Android dependencies/);
+    expect(r.stdout + r.stderr).not.toMatch(/resolved with Gradle/);
     expect(app.count()).toBe(0);
     expect(r.status).toBe(0);
   });
 
   it.skipIf(!android)("does not retry a failed resolution until the inputs change", () => {
     const app = gradleApp(1);
-    expect(app.build().stderr).toMatch(/Gradle could not resolve/);
+    const failed = app.build();
+    expect(failed.stdout + failed.stderr).toMatch(/✗ Android dependencies +Gradle could not resolve/);
     app.build();
     expect(app.count()).toBe(1);
     fs.writeFileSync(path.join(app.root, "android/app/build.gradle"), 'apply plugin: "com.android.application"\n// fixed\n');
     app.build();
     expect(app.count()).toBe(2);
     // A failure that was not the build files' (a stopped daemon, the network): --force retries.
-    expect(app.build().stderr).toMatch(/--force/);
+    const again = app.build();
+    expect(again.stdout + again.stderr).toMatch(/--force/);
     spawnSync(process.execPath, [bin, "build", "--force", "--platforms", "android", "--root", app.root], { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: app.cache } });
     expect(app.count()).toBe(3);
   });
@@ -341,8 +343,8 @@ describe("lucent check", () => {
       return stable(r.stdout + r.stderr);
     });
     expect(outs[1]).toBe(outs[0]);
-    // A dumb terminal gets ASCII symbols.
-    expect(outs[2]).toContain("x LUCENT1001");
+    // A dumb terminal gets ASCII: the code frame's gutter.
+    expect(outs[2]).toMatch(/\n +2 \| {3}var sum = 0;\n/);
   });
 
   it("passes a clean project", () => {

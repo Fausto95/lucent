@@ -26,6 +26,7 @@ await build({
   format: "esm",
   platform: "node",
   target: "node22",
+  jsx: "automatic",
   // The published package's dependencies, resolved from where it is installed.
   external: ["typescript", "ink", "react"],
   logLevel: "warning",

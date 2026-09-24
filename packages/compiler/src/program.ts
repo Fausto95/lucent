@@ -6,7 +6,7 @@ import ts from "typescript";
 import { Codes, type Diagnostic } from "./diagnostics.ts";
 import { sdkDts, stubDts } from "./sdk/dts.ts";
 import { findSdkModule, type Platform, PLATFORMS, platformSdkAvailable, sdkLookup, sdkNamesOf } from "./sdk/schema.ts";
-import { cppIdent } from "./types.ts";
+import { moduleNamespace } from "./types.ts";
 
 export interface LucentModule {
   /** Module name used from JavaScript: the file name without `.lucent.ts`. */
@@ -250,7 +250,7 @@ export function createLucentProgram(files: string[], readSource?: ReadSource, pl
     }
     names.set(name, file);
     const declaration = platformOf(file) ? references.map((r) => program.getSourceFile(path.resolve(r))).find((r) => r && path.dirname(r.fileName) === path.dirname(sf.fileName) && moduleNameOf(r.fileName) === name) : undefined;
-    modules.push({ name, file: sf.fileName, sourceFile: sf, ns: `m_${cppIdent(name)}`, declaration, stub: stubs.has(path.resolve(file)) });
+    modules.push({ name, file: sf.fileName, sourceFile: sf, ns: moduleNamespace(name), declaration, stub: stubs.has(path.resolve(file)) });
   }
   const checked = [...modules.map((m) => m.sourceFile), ...references.map((f) => program.getSourceFile(path.resolve(f))).filter((sf): sf is ts.SourceFile => !!sf)];
   for (const sf of checked) {

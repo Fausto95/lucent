@@ -8,6 +8,7 @@ import { PLATFORMS, platformSdkAvailable, type SdkOptions, withSdkOptions } from
 
 export { Codes, docsUrl, Explanations, type Code, type Example, type Explanation } from "./codes.ts";
 export { formatDiagnostic, type Diagnostic } from "./diagnostics.ts";
+export { moduleNamespace } from "./types.ts";
 export { findLucentFiles, moduleNameOf, platformOf, projectFiles, usesPlatforms, LUCENT_EXTENSION, coreTypesPath, type ReadSource } from "./program.ts";
 export { withGradleDependencies } from "./native-package.ts";
 export { coverage as sdkCoverage, type Coverage as SdkCoverage } from "@lucent-lang/bindgen";
@@ -19,7 +20,7 @@ export type { Platform, SdkCallable, SdkClassSchema, SdkEnumSchema, SdkMethodSch
 export { sdkDts } from "./sdk/dts.ts";
 export { inputsKey, isUpToDate, writeNativePackage, runtimeDir, type WriteResult } from "./native-package.ts";
 export { watchBuild, type WatchEvent } from "./watch.ts";
-export { forgetLoadedSdks, podsSearchPaths, prefetch as prefetchSdk, sdkAvailable, sdkModule, sdkModules } from "@lucent-lang/bindgen";
+export { extractionCount, forgetLoadedSdks, podsSearchPaths, prefetch as prefetchSdk, sdkAvailable, sdkModule, sdkModules } from "@lucent-lang/bindgen";
 
 export interface CompileResult extends EmitResult {
   ok: boolean;
