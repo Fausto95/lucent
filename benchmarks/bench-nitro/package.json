@@ -1,0 +1,13 @@
+{
+  "name": "bench-nitro",
+  "version": "0.0.0",
+  "private": true,
+  "description": "NitroBenchmarks' Nitro modules (Swift/Kotlin and C++), for comparing with Lucent.",
+  "main": "src/index",
+  "types": "src/index.ts",
+  "react-native": "src/index",
+  "source": "src/index",
+  "scripts": {
+    "specs": "npx --yes nitrogen@0.37.1"
+  }
+}

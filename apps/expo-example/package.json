@@ -13,6 +13,10 @@
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/netinfo": "12.0.1",
+    "bench-expo": "workspace:*",
+    "bench-nitro": "workspace:*",
+    "bench-turbo": "workspace:*",
+    "bench-turbo-cxx": "workspace:*",
     "expo": "~58.0.0-preview.4",
     "expo-application": "~58.0.1",
     "expo-clipboard": "~58.0.1",
@@ -25,7 +29,8 @@
     "lucent-haptics": "workspace:*",
     "lucent-secure-store": "workspace:*",
     "react": "19.3.0",
-    "react-native": "0.88.0-rc.1"
+    "react-native": "0.88.0-rc.1",
+    "react-native-nitro-modules": "0.37.1"
   },
   "devDependencies": {
     "@lucent-lang/lucent": "workspace:*",

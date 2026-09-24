@@ -1,0 +1,22 @@
+{
+  "name": "bench-turbo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "NitroBenchmarks' TurboModule (Objective-C, Java), for comparing with Lucent.",
+  "main": "src/index",
+  "types": "src/index.ts",
+  "react-native": "src/index",
+  "codegenConfig": {
+    "name": "BenchTurboSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "dev.lucent.bench.turbo"
+    },
+    "ios": {
+      "modulesProvider": {
+        "BenchTurbo": "BenchTurbo"
+      }
+    }
+  }
+}

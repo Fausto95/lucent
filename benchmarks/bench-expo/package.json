@@ -1,0 +1,9 @@
+{
+  "name": "bench-expo",
+  "version": "0.0.0",
+  "private": true,
+  "description": "NitroBenchmarks' Expo module (Swift, Kotlin), for comparing with Lucent.",
+  "main": "src/index",
+  "types": "src/index.ts",
+  "react-native": "src/index"
+}

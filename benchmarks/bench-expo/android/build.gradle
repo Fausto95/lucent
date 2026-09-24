@@ -1,0 +1,11 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'dev.lucent.bench'
+version = '0.0.0'
+
+android {
+  namespace "dev.lucent.bench.expo"
+}
