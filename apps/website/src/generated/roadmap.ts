@@ -138,8 +138,8 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
     "title": "M4: Production",
     "items": [
       {
-        "status": "in progress",
-        "text": "`@lucent-lang/lucent` on npm; today it builds and installs from its tarball in CI."
+        "status": "done",
+        "text": "`@lucent-lang/lucent` on npm, published from CI with provenance."
       },
       {
         "status": "done",

@@ -24,7 +24,7 @@ export const searchIndex: SearchEntry[] = [
   "href": "/docs/#when-not-to-use-it",
   "page": "What is Lucent",
   "heading": "When not to use it",
-  "text": "Native views. Lucent has none until milestone M3 (roadmap). Production apps. Lucent is experimental, its APIs change without a migration path, and it isn't on npm yet. Code that needs any, eval or dynamic property access. Lucent compiles a checked subset of TypeScript."
+  "text": "Native views. Lucent has none until milestone M3 (roadmap). Production apps. Lucent is experimental, and its APIs change without a migration path. Code that needs any, eval or dynamic property access. Lucent compiles a checked subset of TypeScript."
  },
  {
   "href": "/docs/#how-it-compares",
@@ -35,7 +35,7 @@ export const searchIndex: SearchEntry[] = [
  {
   "href": "/docs/install/",
   "page": "Install Lucent",
-  "text": "Add one dev dependency, run lucent init to set the app up, and check the machine with lucent doctor. @lucent-lang/lucent isn't on npm yet. Until it is, run pnpm pack in the repository's packages/lucent and install the tarball it writes (roadmap). You need React Native 0.88 or later, or Expo SDK 58 in a development build, and Node 22.12 or later. ### Expo lucent init shows each change as a diff and asks before applying it. In an Expo app, it: - wraps metro.config.js with withLucent, so Metro bundles each module as a proxy; adds the @lucent-lang/lucent config plugin to app.json, which builds your modules during expo prebuild; maps lucent: imports and turns on noUncheckedIndexedAccess in tsconfig.json; adds .lucent/ to .gitignore; writes a first module, src/hello.lucent.ts, if the app has none. > Lucent adds native code, so it doesn't run in Expo Go. Run the app as a development build, with npx expo run:ios or npx expo run:android. ### Bare React Native lucent init shows each change as a diff and asks before applying it. In a bare app, it: - wraps metro.config.js with withLucent, so Metro bundles each module as a proxy; adds a lucent entry to react-native.config.js, so autolinking finds the native package in .lucent/native; applies a Gradle task in android/app/build.gradle that runs lucent build before each Android build; maps lucent: imports and turns on noUncheckedIndexedAccess in tsconfig.json; adds .lucent/ to .gitignore; writes a first module, src/hello.lucent.ts, if the app has none. Run npx lucent init --yes to apply every change without asking. Running it again changes nothing."
+  "text": "Add one dev dependency, run lucent init to set the app up, and check the machine with lucent doctor. You need React Native 0.88 or later, or Expo SDK 58 in a development build, and Node 22.12 or later. ### Expo lucent init shows each change as a diff and asks before applying it. In an Expo app, it: - wraps metro.config.js with withLucent, so Metro bundles each module as a proxy; adds the @lucent-lang/lucent config plugin to app.json, which builds your modules during expo prebuild; maps lucent: imports and turns on noUncheckedIndexedAccess in tsconfig.json; adds .lucent/ to .gitignore; writes a first module, src/hello.lucent.ts, if the app has none. > Lucent adds native code, so it doesn't run in Expo Go. Run the app as a development build, with npx expo run:ios or npx expo run:android. ### Bare React Native lucent init shows each change as a diff and asks before applying it. In a bare app, it: - wraps metro.config.js with withLucent, so Metro bundles each module as a proxy; adds a lucent entry to react-native.config.js, so autolinking finds the native package in .lucent/native; applies a Gradle task in android/app/build.gradle that runs lucent build before each Android build; maps lucent: imports and turns on noUncheckedIndexedAccess in tsconfig.json; adds .lucent/ to .gitignore; writes a first module, src/hello.lucent.ts, if the app has none. Run npx lucent init --yes to apply every change without asking. Running it again changes nothing."
  },
  {
   "href": "/docs/install/#check-your-machine",
@@ -1090,7 +1090,7 @@ export const searchIndex: SearchEntry[] = [
   "href": "/docs/roadmap/#m4-production",
   "page": "Roadmap",
   "heading": "M4: Production",
-  "text": "Ready for apps in production. Status Item --- --- in progress @lucent-lang/lucent on npm; today it builds and installs from its tarball in CI. done Incremental builds, and rebuilds as you edit. done Crashes and errors that point at .lucent.ts lines. done Lucent's errors in the editor. in progress Performance budgets in CI. next Testing on physical devices; today, simulators and emulators. done A JavaScript lucent:core, so Jest and Vitest can run shared modules."
+  "text": "Ready for apps in production. Status Item --- --- done @lucent-lang/lucent on npm, published from CI with provenance. done Incremental builds, and rebuilds as you edit. done Crashes and errors that point at .lucent.ts lines. done Lucent's errors in the editor. in progress Performance budgets in CI. next Testing on physical devices; today, simulators and emulators. done A JavaScript lucent:core, so Jest and Vitest can run shared modules."
  },
  {
   "href": "/docs/roadmap/#not-planned",

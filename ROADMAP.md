@@ -57,7 +57,7 @@ Goal: Native views from Lucent components.
 
 Goal: Ready for apps in production.
 
-- 🚧 `@lucent-lang/lucent` on npm; today it builds and installs from its tarball in CI.
+- ✅ `@lucent-lang/lucent` on npm, published from CI with provenance.
 - ✅ Incremental builds, and rebuilds as you edit.
 - ✅ Crashes and errors that point at `.lucent.ts` lines.
 - ✅ Lucent's errors in the editor.

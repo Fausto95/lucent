@@ -66,7 +66,7 @@ summarize([3, 1, 4, 1, 5]); // { count: 5, mean: 2.8, max: 5 }`,
     kind: "list",
     items: [
       "Native views. Lucent has none until milestone M3 ([roadmap](/docs/roadmap/)).",
-      "Production apps. Lucent is experimental, its APIs change without a migration path, and it isn't on npm yet.",
+      "Production apps. Lucent is experimental, and its APIs change without a migration path.",
       "Code that needs `any`, `eval` or dynamic property access. Lucent compiles a checked subset of TypeScript.",
     ],
   },

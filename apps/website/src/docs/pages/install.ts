@@ -5,11 +5,6 @@ npx lucent init`;
 
 export const blocks: Block[] = [
   {
-    kind: "note",
-    tone: "warn",
-    text: "`@lucent-lang/lucent` isn't on npm yet. Until it is, run `pnpm pack` in the repository's `packages/lucent` and install the tarball it writes ([roadmap](/docs/roadmap/)).",
-  },
-  {
     kind: "p",
     text: "You need React Native 0.88 or later, or Expo SDK 58 in a development build, and Node 22.12 or later.",
   },

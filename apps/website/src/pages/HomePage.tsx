@@ -219,8 +219,6 @@ export function HomePage() {
           </h2>
           <p {...stylex.props(styles.startDescription)}>
             Add Lucent to a bare React Native or Expo app.
-            <br />
-            Packages are not on npm yet: see the setup guide.
           </p>
           <Link to="/docs/install/" {...stylex.props(styles.textLink2)}>
             Setup guide <span aria-hidden="true">→</span>

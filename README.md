@@ -67,9 +67,6 @@ npx lucent init
   <img src="assets/cli.svg" width="560" alt="lucent build, then lucent check reporting an error with a code frame and its fix">
 </p>
 
-`@lucent-lang/lucent` isn't on npm yet: until it is, install the tarball that
-`pnpm pack` writes in `packages/lucent`.
-
 ## Docs
 
 [What is Lucent](https://lucent-lang.dev/docs/) ·
