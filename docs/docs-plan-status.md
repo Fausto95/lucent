@@ -165,9 +165,10 @@ Found on the way, left for their own work:
       generated from its file and checked by the app's build.
 - [x] Retired with redirects: errors, callbacks, boundary errors, platform
       APIs. Legacy pages left: comparison and status (step 9).
-- Gaps stated as limits: Jest/Vitest can't import `lucent:core` (flagged as
-  a separate task); no SDK pinning or `sdk diff`; no SPM; no iOS
-  compile-time version check.
+- Gaps stated as limits: no SDK pinning or `sdk diff`; no SPM; no iOS
+  compile-time version check. (Jest and Vitest importing `lucent:core` was
+  one; `@lucent-lang/lucent/core` closed it, and Test a module shows the
+  setup.)
 
 ## 9. Examples (pulled forward, asked for on 2026-09-24)
 

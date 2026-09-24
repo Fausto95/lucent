@@ -447,13 +447,19 @@ export const searchIndex: SearchEntry[] = [
  {
   "href": "/docs/guides/test-a-module/",
   "page": "Test a module",
-  "text": "lucent bench compares native and JavaScript results. A host build runs shared code on your computer, and devices check the SDK calls."
+  "text": "Run shared modules in Jest or Vitest as TypeScript, compare native and JavaScript with lucent bench, and check SDK calls on devices."
+ },
+ {
+  "href": "/docs/guides/test-a-module/#run-shared-code-as-typescript",
+  "page": "Test a module",
+  "heading": "Run shared code as TypeScript",
+  "text": "A module is TypeScript, so your test runner can run it as is. @lucent-lang/lucent/core is the JavaScript version of lucent:core, for delay, error and the rest. Modules with platform code can't run this way: their SDK calls need the app."
  },
  {
   "href": "/docs/guides/test-a-module/#compare-native-and-javascript",
   "page": "Test a module",
   "heading": "Compare native and JavaScript",
-  "text": "lucent bench runs each case as your compiled module and as the same TypeScript run as JavaScript, and fails when the results differ. It needs a desktop Hermes, at ~/hermes or in HERMES_DIR."
+  "text": "lucent bench runs each case of your .bench.ts files as the compiled module and as JavaScript, and fails when the results differ. It needs a desktop Hermes, at ~/hermes or in HERMES_DIR."
  },
  {
   "href": "/docs/guides/test-a-module/#test-platform-code-s-neighbors",
@@ -465,7 +471,7 @@ export const searchIndex: SearchEntry[] = [
   "href": "/docs/guides/test-a-module/#run-on-devices",
   "page": "Test a module",
   "heading": "Run on devices",
-  "text": "SDK calls run only in the app. Build it for the simulator and the emulator, and check each platform's branch there. > Jest or Vitest can't import lucent:core yet, so shared modules that use it can't run there as TypeScript (roadmap)."
+  "text": "SDK calls run only in the app. Build it for the simulator and the emulator, and check each platform's branch there."
  },
  {
   "href": "/docs/guides/debug-a-crash/",
@@ -625,7 +631,7 @@ export const searchIndex: SearchEntry[] = [
   "href": "/docs/reference/modules/#lucent-core",
   "page": "The lucent: modules",
   "heading": "lucent:core",
-  "text": "Helpers for any module: delays, errors with codes, UTF-8, a monotonic clock."
+  "text": "Helpers for any module: delays, errors with codes, UTF-8, a monotonic clock. Its JavaScript version, @lucent-lang/lucent/core, lets tests run modules as TypeScript (Test a module)."
  },
  {
   "href": "/docs/reference/modules/#lucent-platform",
@@ -1084,7 +1090,7 @@ export const searchIndex: SearchEntry[] = [
   "href": "/docs/roadmap/#m4-production",
   "page": "Roadmap",
   "heading": "M4: Production",
-  "text": "Ready for apps in production. Status Item --- --- in progress @lucent-lang/lucent on npm; today it builds and installs from its tarball in CI. done Incremental builds, and rebuilds as you edit. done Crashes and errors that point at .lucent.ts lines. done Lucent's errors in the editor. in progress Performance budgets in CI. next Testing on physical devices; today, simulators and emulators. next A JavaScript lucent:core, so Jest and Vitest can run shared modules."
+  "text": "Ready for apps in production. Status Item --- --- in progress @lucent-lang/lucent on npm; today it builds and installs from its tarball in CI. done Incremental builds, and rebuilds as you edit. done Crashes and errors that point at .lucent.ts lines. done Lucent's errors in the editor. in progress Performance budgets in CI. next Testing on physical devices; today, simulators and emulators. done A JavaScript lucent:core, so Jest and Vitest can run shared modules."
  },
  {
   "href": "/docs/roadmap/#not-planned",

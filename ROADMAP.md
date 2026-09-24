@@ -63,7 +63,7 @@ Goal: Ready for apps in production.
 - ✅ Lucent's errors in the editor.
 - 🚧 Performance budgets in CI.
 - ⏳ Testing on physical devices; today, simulators and emulators.
-- ⏳ A JavaScript `lucent:core`, so Jest and Vitest can run shared modules.
+- ✅ A JavaScript `lucent:core`, so Jest and Vitest can run shared modules.
 
 ## Not planned
 
