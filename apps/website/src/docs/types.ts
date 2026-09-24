@@ -38,7 +38,9 @@ export type DiagramName =
   | "build-metro"
   | "call-sync"
   | "call-async"
-  | "platform-call";
+  | "platform-call"
+  | "places"
+  | "threads";
 
 /**
  * Start: what Lucent is and getting it running. Learn: how to think in it,

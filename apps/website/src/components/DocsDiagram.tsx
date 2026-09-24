@@ -2,7 +2,9 @@ import type { ReactElement } from "react";
 import type { DiagramName } from "../docs/types";
 import { BuildDiagram } from "./diagrams/BuildDiagram";
 import { CallDiagram } from "./diagrams/CallDiagram";
+import { PlacesDiagram } from "./diagrams/PlacesDiagram";
 import { PlatformCallDiagram } from "./diagrams/PlatformCallDiagram";
+import { ThreadsDiagram } from "./diagrams/ThreadsDiagram";
 
 const diagrams: Record<DiagramName, () => ReactElement> = {
   "build-check": () => <BuildDiagram step={1} />,
@@ -13,6 +15,8 @@ const diagrams: Record<DiagramName, () => ReactElement> = {
   "call-sync": () => <CallDiagram mode="sync" />,
   "call-async": () => <CallDiagram mode="async" />,
   "platform-call": () => <PlatformCallDiagram />,
+  places: () => <PlacesDiagram />,
+  threads: () => <ThreadsDiagram />,
 };
 
 /** Renders a docs diagram by name, so pages stay plain data. */

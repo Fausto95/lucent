@@ -93,6 +93,24 @@ Found on the way, left for their own work:
 - Pages whose "See the C++" needs an SDK the machine lacks (CI has no
   Xcode) keep their committed C++, with a warning.
 
+## 5. Thinking in Lucent, Coming from Swift or Kotlin
+
+- [x] Six pages: three places (diagram, copy vs reference), design the
+      boundary first, shared first, threads (diagram), memory, what changes
+      from JavaScript (translation table). Coming from Swift or Kotlin: the
+      concept map, and an Expo module (Swift, Kotlin, JS binding, written
+      for the page) next to one Lucent module.
+- [x] The boundary page's numbers are a real `lucent bench` run (desktop
+      Hermes, 2026-09-24). They contradict the plan's "few, coarse calls":
+      one call copying 1,000 objects was slower (198.7 µs) than 1,000 calls
+      passing numbers (111.9 µs). The page teaches "move the work, not the
+      data", with the four measured designs.
+- The memory page states the limit: no `Weak`, no `using`; sessions get an
+  explicit `close()`.
+- Found: `delete` on a `Record` compiles (a research note said otherwise);
+  some messages show internal type names (`cannot convert
+  S:a:number to Dict<number>`).
+
 ## 9. Examples (pulled forward, asked for on 2026-09-24)
 
 - [x] `/docs/examples/`: a table of the ports, then one page each for

@@ -52,6 +52,53 @@ export const docsGroups: DocGroup[] = [
     ],
   },
   {
+    label: "Thinking in Lucent",
+    entries: [
+      {
+        slug: "thinking/three-places",
+        kind: "learn",
+        title: "Three places your code runs",
+        description: "Your code runs in the JS app, crosses the boundary, and runs natively. Values are copied across; class instances, functions and promises keep what they are.",
+      },
+      {
+        slug: "thinking/boundary-first",
+        kind: "learn",
+        title: "Design the boundary first",
+        description: "Decide what JavaScript calls before writing the module: plain data, few calls over data that stays native, `async` for slow work, errors with codes.",
+      },
+      {
+        slug: "thinking/shared-first",
+        kind: "learn",
+        title: "Write shared code first, platform code last",
+        description: "Keep logic in shared code and SDK calls in small platform branches of the same module. Split into platform files only when the halves share nothing.",
+      },
+      {
+        slug: "thinking/threads",
+        kind: "learn",
+        title: "Which thread your code runs on",
+        description: "Sync exports run on the JS thread, async ones on the Lucent thread, and `main()` on the main thread. One lock keeps Lucent code from racing itself.",
+      },
+      {
+        slug: "thinking/memory",
+        kind: "learn",
+        title: "When memory is freed",
+        description: "Objects are freed when their last reference goes. Break cycles, remove delegates and listeners, and close sessions yourself.",
+      },
+      {
+        slug: "thinking/typescript",
+        kind: "learn",
+        title: "What changes from JavaScript",
+        description: "Lucent is TypeScript whose every value has a native type: no `any`, no dynamic property access, no `eval`, and JavaScript's exact number semantics.",
+      },
+      {
+        slug: "coming-from-native",
+        kind: "learn",
+        title: "Coming from Swift or Kotlin",
+        description: "Swift and Kotlin concepts map to Lucent one to one. A module written in Swift, Kotlin and a JS binding becomes one Lucent module.",
+      },
+    ],
+  },
+  {
     label: "Examples",
     entries: [
       {
