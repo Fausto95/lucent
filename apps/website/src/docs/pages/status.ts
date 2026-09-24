@@ -25,7 +25,7 @@ export const page: DocPage = {
           "Out of scope for now: reflection, `eval`, prototypes, cycle collection",
         ],
         ["Boundary", "Sync and async exports, JS callbacks, promises, `AbortSignal`, class instances with stable identity", "—"],
-        ["Tooling", "`lucent build`, `check` and `init`, watch mode in Metro, the Expo plugin, the TypeScript editor plugin", "npm packages"],
+        ["Tooling", "One package, `@lucent-lang/lucent`: `lucent build`, `check`, `dev`, `init`, `doctor`, `explain`, `sdk`, `bench`; the Metro integration, the Expo plugin, the TypeScript editor plugin", "npm packages"],
         [
           "Platform APIs",
           "Platform modules; Android bindings generated from `android.jar`; a hand-written UIKit subset on iOS",

@@ -136,7 +136,8 @@ npx react-native run-ios      # or: npx react-native run-android`,
     {
       kind: "list",
       items: [
-        "While Metro's dev server runs (`react-native start`, or the one `run-ios`/`run-android` starts), `withLucent` runs `lucent build --watch`, so `.lucent/native` follows your edits. Outside Metro, run `npx lucent build --watch` yourself.",
+        "While Metro's dev server runs (`react-native start`, or the one `run-ios`/`run-android` starts), `withLucent` runs `lucent dev --compact`, so `.lucent/native` follows your edits and each build prints one line next to Metro's. For a dashboard of modules, platforms and problems, run `npx lucent dev` in a terminal of its own.",
+        "Android builds run `lucent build` first, through the Gradle task `lucent init` applies, so building from Android Studio is up to date too.",
         "Changed native code only runs after you **rebuild the app** (Xcode or Gradle); reloading the JavaScript does not replace the C++ in the running binary. Each module has its own header, so the native build recompiles only the modules that changed and the modules that import them.",
         "When modules are added or removed, run `pod install` again before the iOS build; `lucent build` tells you when.",
         "`npx lucent check` type-checks and validates every module without writing anything. Use it in CI.",

@@ -23,7 +23,7 @@ the build.
 
 | Command | What it checks | Needs Hermes |
 |---|---|---|
-| `pnpm test` | compiler unit tests (vitest): diagnostics, platforms, native package, incremental builds, watch mode, debug info, editor plugin | no |
+| `pnpm test` | compiler unit tests (vitest): diagnostics, platforms, native package, incremental builds, debug info, editor plugin, the CLI (commands, output snapshots, --json schemas, doctor on a fake machine, dev) | no |
 | `pnpm test:runtime` | C++ runtime unit tests (`packages/runtime/test/runtime_test.cpp`) | no |
 | `pnpm test:e2e [case…]` | differential end-to-end cases | yes |
 | `pnpm exec tsx scripts/app-check.ts apps/bare-example` | an example app's real Metro bundle against its generated C++ | yes |
