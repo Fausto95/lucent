@@ -305,11 +305,12 @@ describe("the app's Android dependencies", () => {
 
   it.skipIf(!android)("resolves once in a watch session that rebuilds", async () => {
     const app = gradleApp();
-    const child = spawn(process.execPath, [bin, "build", "--watch", "--root", app.root], { env: { ...process.env, LUCENT_CACHE_DIR: app.cache } });
+    const child = spawn(process.execPath, [bin, "dev", "--compact", "--root", app.root], { env: { ...process.env, LUCENT_CACHE_DIR: app.cache, NO_COLOR: "1" } });
     let output = "";
     child.stdout.on("data", (d) => (output += String(d)));
     child.stderr.on("data", (d) => (output += String(d)));
-    const builds = () => (output.match(/Lucent build failed|✓ Lucent:/g) ?? []).length;
+    // One line per build in compact mode: ✓ when it passed, ✗ when it did not.
+    const builds = () => (output.match(/^\[[\d:]+\] [✓✗]/gm) ?? []).length;
     const until = async (n: number) => {
       for (let i = 0; i < 300 && builds() < n; i++) await new Promise((r) => setTimeout(r, 100));
     };
