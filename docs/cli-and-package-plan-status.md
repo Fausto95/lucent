@@ -62,10 +62,14 @@ Differences from the plan:
   plugin names without `exports`. So the package root is CommonJS (Expo also
   `require()`s `app.plugin.js`); `src/` and `dist/` are ES module scopes.
 
+- [x] A fresh bare app (`@react-native-community/cli init`, RN 0.88 rc) and
+      a fresh Expo app (`create-expo-app`, SDK 58) with only the packed
+      tarball and `npx lucent init --yes`: the scaffolded module shows
+      "Hello, Ada, from native code" in Release on the iOS simulator and the
+      Android emulator (Gradle ran lucentBuild from the installed package).
+
 Left:
 
-- [ ] A fresh bare app and a fresh Expo app from the tarball + `npx lucent
-      init` to a working module on both platforms.
 - [x] `npm deprecate` the six 0.0.3 packages (the user runs it).
 
 Postponed:
@@ -136,10 +140,15 @@ Done:
 - [x] `--json` schemas for build, check, doctor, sdk search and sdk prefetch
       (`packages/lucent/schemas/`), validated in tests.
 
-Left:
-
-- [ ] Acceptance: device runs of both example apps after Part B, and a
-      fresh bare and Expo app set up with `npx lucent init --yes`.
+- [x] Acceptance (2026-09-24): `--help` from the installed package in
+      30-40 ms; warm check 0.3 s; every suite green (352 unit tests,
+      runtime, 22 e2e, bench budgets, website, app-check, smoke install
+      with init); device runs in Release: bare iOS/Android 21/21 + 23/23,
+      Expo iOS/Android 21/21 + 36/36; fresh bare and Expo apps (above).
+      Found on the way and fixed: init's plugin path in dist/, sdk
+      prefetch extracting every module of a platform the project does not
+      import, SDK caches invalidated by every release, and Gradle run during
+      expo prebuild (the Expo example's stale autolinking).
 
 Postponed:
 

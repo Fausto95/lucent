@@ -12,7 +12,10 @@ function buildOnce(projectRoot) {
   if (built) return;
   built = true;
   const cli = path.join(__dirname, "bin/lucent.cjs");
-  const r = spawnSync(process.execPath, [cli, "build", "--root", projectRoot], { stdio: "inherit" });
+  // No Gradle during prebuild: android/ is half-written, and a Gradle run would cache it so
+  // (autolinking with the template's package). The Gradle task this plugin applies resolves
+  // the classpath and builds Android when the app is built.
+  const r = spawnSync(process.execPath, [cli, "build", "--root", projectRoot], { stdio: "inherit", env: { ...process.env, LUCENT_NO_GRADLE: "1" } });
   if (r.status !== 0) throw new Error("lucent build failed; fix the errors above and run prebuild again");
   const rnConfig = path.join(projectRoot, "react-native.config.js");
   const entry = `"lucent": { root: require("path").join(__dirname, ".lucent", "native") }`;

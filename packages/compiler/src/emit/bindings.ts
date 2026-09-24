@@ -199,7 +199,11 @@ export class BindingsEmitter {
     // Declarations first: conversions can refer to each other recursively.
     for (const id of this.classes) out.push(`void proto_${this.reg.cls(id).cppName}(jsi::Runtime& rt, Host& host, jsi::Object& proto);`);
     const specs: string[] = [];
-    for (const id of this.structs) specs.push(this.reg.cpp({ k: "struct", id }));
+    // Structs also convert from an object the caller owns (array elements): no handle clone.
+    for (const id of this.structs) {
+      const s = this.reg.cpp({ k: "struct", id });
+      out.push(`template <>\nstruct Convert<${s}> {\n  static ${s} fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);\n  static ${s} fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p);\n  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const ${s}& v);\n};`);
+    }
     for (const id of this.classes) specs.push(this.reg.cpp({ k: "class", id, args: [] }));
     for (const t of this.ifaces.values()) specs.push(this.reg.cpp(t));
     for (const u of this.unions.values()) specs.push(this.reg.cpp(u));
@@ -243,28 +247,36 @@ export class BindingsEmitter {
   private structConvert(id: string): string {
     const info = this.reg.struct(id);
     const s = this.reg.cpp({ k: "struct", id });
+    // Field names are interned once per runtime (Host::prop): a struct array
+    // reads and writes them for every element.
+    const names = info.fields.map((f, i) => `  static const PropName n${i}{${q(f.name)}};`);
     const from: string[] = [];
     const to: string[] = [];
-    for (const f of info.fields) {
+    info.fields.forEach((f, i) => {
       const ft = this.reg.cpp(f.type);
       const field = cppIdent(f.name);
-      from.push(`  out->${field} = Convert<${ft}>::fromJs(rt, o.getProperty(rt, ${q(f.name)}), p.field(${q(f.name)}));`);
-      if (f.type.k === "opt") to.push(`  if (!v->${field}.isUndefined()) o.setProperty(rt, ${q(f.name)}, Convert<${ft}>::toJs(rt, h, v->${field}));`);
-      else to.push(`  o.setProperty(rt, ${q(f.name)}, Convert<${ft}>::toJs(rt, h, v->${field}));`);
-    }
+      from.push(`  out->${field} = Convert<${ft}>::fromJs(rt, o.getProperty(rt, h.prop(rt, n${i})), p.field(${q(f.name)}));`);
+      if (f.type.k === "opt") to.push(`  if (!v->${field}.isUndefined()) o.setProperty(rt, h.prop(rt, n${i}), Convert<${ft}>::toJs(rt, h, v->${field}));`);
+      else to.push(`  o.setProperty(rt, h.prop(rt, n${i}), Convert<${ft}>::toJs(rt, h, v->${field}));`);
+    });
     return [
       `inline ${s} Convert<${s}>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {`,
-      `  if (!v.isObject() || v.getObject(rt).isArray(rt) || v.getObject(rt).isFunction(rt)) throwBoundaryError(rt, p, "an object", v);`,
-      `  jsi::Object o = v.getObject(rt);`,
+      `  if (!v.isObject()) throwBoundaryError(rt, p, "an object", v);`,
+      `  return fromObject(rt, v.getObject(rt), p);`,
+      `}`,
+      `inline ${s} Convert<${s}>::fromObject(jsi::Runtime& rt, const jsi::Object& o, const Path& p) {`,
+      `  if (o.isArray(rt) || o.isFunction(rt)) throwBoundaryError(rt, p, "an object", jsi::Value(rt, o));`,
+      ...(info.fields.length ? [`  Host& h = Host::get(rt);`, ...names] : []),
       `  auto out = std::make_shared<lucent_app::${info.cppName}>();`,
       ...from,
       `  return out;`,
       `}`,
       `inline jsi::Value Convert<${s}>::toJs(jsi::Runtime& rt, Host& h, const ${s}& v) {`,
       `  if (!v) return jsi::Value::null();`,
+      ...names,
       `  jsi::Object o(rt);`,
       ...to,
-      `  return jsi::Value(rt, o);`,
+      `  return jsi::Value(std::move(o));`,
       `}`,
       "",
     ].join("\n");

@@ -66,6 +66,17 @@ fs.writeFileSync(
   'import { PLATFORM } from "lucent:platform";\nimport { UIDevice } from "lucent:ios/UIKit";\nimport { Build_VERSION } from "lucent:android/android.os";\nimport { main } from "lucent:thread";\nexport async function systemName(): Promise<string> {\n  if (PLATFORM === "ios") return main(() => UIDevice.current.systemName);\n  else return `Android ${Build_VERSION.RELEASE ?? ""}`;\n}\n',
 );
 
+console.log("• lucent init --yes (installed CLI)");
+fs.writeFileSync(path.join(app, "metro.config.js"), 'const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");\nmodule.exports = mergeConfig(getDefaultConfig(__dirname), {});\n');
+fs.mkdirSync(path.join(app, "android/app"), { recursive: true });
+fs.writeFileSync(path.join(app, "android/app/build.gradle"), 'apply plugin: "com.android.application"\napply plugin: "com.facebook.react"\n');
+sh(path.join(app, "node_modules/.bin/lucent"), ["init", "--yes"], app);
+if (!fs.readFileSync(path.join(app, "metro.config.js"), "utf8").includes("withLucent(")) throw new Error("init did not wrap the Metro config");
+if (!fs.readFileSync(path.join(app, "android/app/build.gradle"), "utf8").includes("gradle/lucent.gradle")) throw new Error("init did not apply the Gradle task");
+// The line init applies finds the task in the installed package.
+if (!fs.existsSync(path.join(app, "node_modules/@lucent-lang/lucent/gradle/lucent.gradle"))) throw new Error("the Gradle task is not in the package");
+fs.rmSync(path.join(app, "android"), { recursive: true });
+
 console.log("• lucent build (installed CLI)");
 console.log(sh(path.join(app, "node_modules/.bin/lucent"), ["build"], app).trim());
 const native = path.join(app, ".lucent/native");

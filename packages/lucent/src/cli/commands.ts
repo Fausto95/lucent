@@ -41,10 +41,10 @@ export const commands: CommandSpec[] = [
   },
   {
     name: "new module",
-    summary: "Scaffold a module in src/: shared, or with --ios / --android a declaration and a file per platform",
+    summary: "Scaffold a module in src/: shared, or with --ios / --android one module that branches on PLATFORM",
     flags: [
-      { name: "ios", description: "An iOS implementation (with its shared declaration)" },
-      { name: "android", description: "An Android implementation (with its shared declaration)" },
+      { name: "ios", description: "Implement the iOS branch (without --android, the Android branch throws)" },
+      { name: "android", description: "Implement the Android branch (without --ios, the iOS branch throws)" },
       { name: "shared", description: "One module for every platform (the default)" },
     ],
     load: () => import("./commands/new-module.ts"),

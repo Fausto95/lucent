@@ -20,13 +20,45 @@
 namespace lucent::js {
 
 /// Where a value sits, for error messages: "fn: argument 'a.b[2]'".
+/// Where a value sits in what JavaScript passed, for error messages:
+/// `sumPoints: argument 'ps'[3].x`. Each step points at its parent on the
+/// stack and is rendered only when a conversion fails, so converting a large
+/// array allocates nothing for paths.
 struct Path {
   const char* fn;
-  std::string where;
+  /// The root: "argument 'ps'", "this", "resolved value".
+  std::string root;
+  const Path* parent = nullptr;
+  enum class Step : unsigned char { Root, Field, Index, Key } step = Step::Root;
+  const char* name = nullptr;
+  size_t idx = 0;
+  const std::string* keyName = nullptr;
 
-  Path field(const char* name) const { return Path{fn, where + "." + name}; }
-  Path index(size_t i) const { return Path{fn, where + "[" + std::to_string(i) + "]"}; }
-  Path key(const std::string& k) const { return Path{fn, where + "[\"" + k + "\"]"}; }
+  Path field(const char* n) const {
+    Path p{fn, {}, this, Step::Field};
+    p.name = n;
+    return p;
+  }
+  Path index(size_t i) const {
+    Path p{fn, {}, this, Step::Index};
+    p.idx = i;
+    return p;
+  }
+  Path key(const std::string& k) const {
+    Path p{fn, {}, this, Step::Key};
+    p.keyName = &k;
+    return p;
+  }
+  /// `argument 'ps'[3].x`
+  std::string where() const {
+    switch (step) {
+      case Step::Root: return root;
+      case Step::Field: return parent->where() + "." + name;
+      case Step::Index: return parent->where() + "[" + std::to_string(idx) + "]";
+      case Step::Key: return parent->where() + "[\"" + *keyName + "\"]";
+    }
+    return root;
+  }
 };
 
 [[noreturn]] void throwBoundaryError(jsi::Runtime& rt, const Path& path, const char* expected, const jsi::Value& actual);
@@ -39,6 +71,11 @@ inline const jsi::Value& arg(const jsi::Value* args, size_t count, size_t i) {
 
 template <class T, class Enable = void>
 struct Convert;
+
+/// Conversions that also take an object the caller owns (generated structs):
+/// an array element is moved into one instead of its handle being cloned.
+template <class T>
+concept ConvertsFromObject = requires(jsi::Runtime& rt, const jsi::Object& o, const Path& p) { Convert<T>::fromObject(rt, o, p); };
 
 // --- primitives ---------------------------------------------------------------
 
@@ -117,7 +154,13 @@ struct Convert<Array<T>> {
     std::vector<typename Array<T>::Elem> items;
     items.reserve(n);
     for (size_t i = 0; i < n; i++) {
-      items.push_back(static_cast<typename Array<T>::Elem>(Convert<T>::fromJs(rt, a.getValueAtIndex(rt, i), p.index(i))));
+      if constexpr (ConvertsFromObject<T>) {
+        jsi::Value e = a.getValueAtIndex(rt, i);
+        if (!e.isObject()) throwBoundaryError(rt, p.index(i), "an object", e);
+        items.push_back(static_cast<typename Array<T>::Elem>(Convert<T>::fromObject(rt, std::move(e).getObject(rt), p.index(i))));
+      } else {
+        items.push_back(static_cast<typename Array<T>::Elem>(Convert<T>::fromJs(rt, a.getValueAtIndex(rt, i), p.index(i))));
+      }
     }
     return Array<T>(std::move(items));
   }
@@ -364,7 +407,7 @@ struct Convert<Fn<R(A...)>> {
     if (!v.isObject() || !v.getObject(rt).isFunction(rt)) throwBoundaryError(rt, p, "a function", v);
     Host& host = Host::get(rt);
     auto cb = std::make_shared<JsCallback>(host, host.retain(rt, v.getObject(rt).getFunction(rt)));
-    std::string where = std::string(p.fn) + " (callback " + p.where + ")";
+    std::string where = std::string(p.fn) + " (callback " + p.where() + ")";
     return Fn<R(A...)>([cb, where](A... args) -> R { return invoke(cb, where, std::move(args)...); });
   }
 
@@ -478,7 +521,7 @@ Promise<T> Convert<Promise<T>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, co
     else out.resolve(Convert<T>::fromJs(rt, v, p));
     return out;
   }
-  std::string where = std::string(p.fn) + " " + p.where;
+  std::string where = std::string(p.fn) + " " + p.where();
   auto onFulfilled = jsi::Function::createFromHostFunction(
       rt, jsi::PropNameID::forAscii(rt, "onFulfilled"), 1,
       [out, where](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {

@@ -38,6 +38,8 @@ export class Ctx {
   readonly reg: TypeRegistry;
   readonly capture: CaptureAnalysis;
   readonly globals = new Map<ts.Symbol, Global>();
+  /** Declarations whose diagnostic was reported; their uses are not reported again. */
+  readonly failed = new Set<ts.Symbol>();
   readonly diagnostics: Diagnostic[] = [];
   /** The platform of the program being emitted (platform files only exist there). */
   platform?: Platform;
@@ -86,6 +88,16 @@ export class Ctx {
       if (e instanceof AlreadyReported) return undefined;
       throw e;
     }
+  }
+
+  /** Records the names a rejected declaration binds. */
+  markFailed(name: ts.BindingName): void {
+    if (ts.isIdentifier(name)) {
+      const sym = this.checker.getSymbolAtLocation(name);
+      if (sym) this.failed.add(sym);
+      return;
+    }
+    for (const e of name.elements) if (!ts.isOmittedExpression(e)) this.markFailed(e.name);
   }
 
   /** Resolves import aliases to the declaring symbol. */

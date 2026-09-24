@@ -11,6 +11,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
+import { sourcesHash } from "../../bindgen/src/provider.ts";
 
 const pkg = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const packages = path.resolve(pkg, "..");
@@ -27,6 +28,8 @@ await build({
   platform: "node",
   target: "node22",
   jsx: "automatic",
+  // SDK caches are keyed on bindgen's code, not on the whole bundle.
+  define: { __LUCENT_EXTRACTOR__: JSON.stringify(sourcesHash(path.join(packages, "bindgen/src"))) },
   // The published package's dependencies, resolved from where it is installed.
   external: ["typescript", "ink", "react"],
   logLevel: "warning",

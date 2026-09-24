@@ -70,6 +70,7 @@ export async function buildProject(root: string, options: BuildOptions, steps: S
   const sdk = projectSdk(root);
   const outDir = path.resolve(root, options.out ?? ".lucent/native");
   let platforms = options.platforms;
+  let deferAndroid = false;
 
   // A host build has the platform modules' stubs: no Android dependencies to resolve.
   if (build && (!platforms || platforms.includes("android"))) {
@@ -84,14 +85,19 @@ export async function buildProject(root: string, options: BuildOptions, steps: S
     if (deps.status === "resolved") steps.finish({ name: "android-dependencies", label, status: "ok", detail: "resolved with Gradle", ms: Date.now() - t });
     else if (deps.status === "cached") steps.finish({ name: "android-dependencies", label, status: "cached" });
     else if (deps.status === "failed") steps.finish({ name: "android-dependencies", label, status: "failed", detail: deps.detail });
+    else if (deps.status === "deferred") {
+      deferAndroid = true;
+      steps.finish({ name: "android-dependencies", label, status: "skipped", detail: "resolved by the Gradle build" });
+      notify({ level: "warn", text: "the app's Android dependencies are not resolved yet: skipped Android here; the Gradle build compiles it (its lucentBuild task)" });
+    }
   }
 
   // Platform code: split platform files, or modules branching on PLATFORM.
   if (!platforms && files.some((f) => platformOf(f) || usesPlatforms(f))) {
     // Build what this machine can: an Android-only Linux host, a Mac without the Android SDK.
-    const installed = (["ios", "android"] as const).filter((p) => sdkAvailable(p, sdk));
+    const installed = (["ios", "android"] as const).filter((p) => sdkAvailable(p, sdk) && !(p === "android" && deferAndroid));
     for (const p of ["ios", "android"] as const) {
-      if (installed.includes(p)) continue;
+      if (installed.includes(p) || (p === "android" && deferAndroid)) continue;
       const why = sdkModule(p, p === "ios" ? "Foundation" : "android.os", sdk);
       notify({ level: "warn", text: `${"missing" in why ? why.missing : `no ${p} SDK`}; skipped ${p === "ios" ? "iOS" : "Android"} (build it with --platforms ${p} once the SDK is installed)` });
     }

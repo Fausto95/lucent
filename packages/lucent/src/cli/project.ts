@@ -44,6 +44,9 @@ export function resolveAndroidDependencies(root: string, files: string[], sdk: S
   if (!sdkImports(files).android.length || !fs.existsSync(gradlew)) return { status: "none" };
   // The app's lucentBuild task runs this build after resolving the classpath in the same Gradle build.
   if (process.env.LUCENT_GRADLE_CLASSPATH) return { status: "cached" };
+  // expo prebuild: android/ is being written, and a Gradle run now would cache it half-made
+  // (autolinking with the template's package). The Gradle build resolves it later, in lucentBuild.
+  if (process.env.LUCENT_NO_GRADLE) return fs.existsSync(sdk.android!.classpath!) ? { status: "cached" } : { status: "deferred" };
   const stateFile = path.join(root, ".lucent/android-classpath.state.json");
   const inputs = gradleInputsHash(root, native);
   const state = fs.existsSync(stateFile) ? (JSON.parse(fs.readFileSync(stateFile, "utf8")) as { inputs?: string; ok?: boolean }) : {};
@@ -60,8 +63,12 @@ export function resolveAndroidDependencies(root: string, files: string[], sdk: S
   return { status: "failed", detail: `Gradle could not resolve them (retried when the build files or the lockfile change, or with lucent build --force):\n${(r.stderr || r.stdout).trim().split("\n").slice(-8).join("\n")}` };
 }
 
-/** What resolving the app's Android dependencies did: nothing to resolve, nothing changed, resolved, or failed (why). */
-export type AndroidDependencies = { status: "none" | "cached" | "resolved" } | { status: "failed"; detail: string };
+/**
+ * What resolving the app's Android dependencies did: nothing to resolve,
+ * nothing changed, resolved, left to the Gradle build (no Gradle allowed
+ * now, and never resolved), or failed (why).
+ */
+export type AndroidDependencies = { status: "none" | "cached" | "resolved" | "deferred" } | { status: "failed"; detail: string };
 
 /** The native package's build.gradle with the Lucent packages' Gradle artifacts, before the rest is written. */
 export function writeGradleDependencies(out: string, native: NativeDependencies): void {
