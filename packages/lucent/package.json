@@ -36,7 +36,6 @@
     "@lucent-lang/runtime": "workspace:*",
     "@types/react": "^19.2.0",
     "ajv": "^8",
-    "esbuild": "^0.28.2",
     "ink-testing-library": "^4.0.0"
   },
   "files": [

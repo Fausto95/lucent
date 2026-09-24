@@ -170,7 +170,7 @@ An app installs one package, `@lucent-lang/lucent`, which depends on
 `typescript` only. It holds the CLI (`src/cli`), the Metro integration
 (`metro/`), the Expo config plugin (`app.plugin.js`) and the editor plugin
 (`ts-plugin/`). Publishing bundles the CLI and the compiler (with bindgen) into
-`dist/` with esbuild, and copies what the compiler reads at run time beside
+`dist/` with `vp pack` (tsdown), and copies what the compiler reads at run time beside
 it: `lib/` (declarations, including `lucent:core`) and `runtime/` (the C++
 runtime, native templates and JS loader). The compiler looks for `runtime/`
 next to its own code before the workspace's `packages/runtime`, so the same
