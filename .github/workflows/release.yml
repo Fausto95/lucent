@@ -1,33 +1,32 @@
 name: Release
 
+# Changesets drive releases. On main, pending changesets (.changeset/*.md)
+# open or update a "Version packages" PR that bumps @lucent-lang/lucent and
+# writes its CHANGELOG.md. Merging that PR publishes the new version to npm
+# with provenance, tags it and creates the GitHub release.
+
 on:
-  workflow_dispatch:
-    inputs:
-      bump:
-        description: Version bump
-        type: choice
-        required: true
-        default: patch
-        options: [patch, minor, major]
+  push:
+    branches: [main]
 
 concurrency:
   group: release
   cancel-in-progress: false
 
 permissions:
-  contents: write
+  contents: write # the version commit, tags and GitHub releases
+  pull-requests: write # the "Version packages" PR
+  id-token: write # npm provenance
 
 jobs:
   release:
-    name: Bump, tag, publish
+    name: Version or publish
     runs-on: ubuntu-latest
     steps:
-      - name: Refuse to release from a branch other than main
-        if: github.ref != 'refs/heads/main'
-        run: |
-          echo "::error::Run the Release workflow from main, not ${GITHUB_REF#refs/heads/}"
-          exit 1
       - uses: actions/checkout@v4
+        with:
+          # The changelog links each entry to the commit that added its changeset.
+          fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -36,43 +35,26 @@ jobs:
           # Writes an npm userconfig that reads NODE_AUTH_TOKEN; pnpm publish honours it.
           registry-url: https://registry.npmjs.org
       - run: pnpm install --frozen-lockfile
+      - run: pnpm build
 
-      - name: Bump version
-        id: bump
-        env:
-          BUMP: ${{ inputs.bump }}
-        run: echo "version=$(node scripts/bump-version.ts "$BUMP")" >> "$GITHUB_OUTPUT"
-
-      # Same gate as ci.yml, run against the bumped tree. Pushes made with
-      # GITHUB_TOKEN never trigger ci.yml, so this is the only check the
-      # release commit gets.
-      - run: pnpm typecheck
+      # The gate before a version PR is opened or a release published. Commits
+      # the action pushes with GITHUB_TOKEN never trigger ci.yml, so the
+      # version PR gets no other check.
+      - run: pnpm check
       - run: pnpm test
       - run: packages/runtime/test/run.sh
       - name: Fresh install from the packed packages
         run: node scripts/smoke-install.ts
 
-      - name: Commit and tag
+      - uses: changesets/action@v1
+        with:
+          version: pnpm run version-packages
+          # An app installs @lucent-lang/lucent; everything else is bundled into it.
+          publish: pnpm run release
+          title: "chore(release): version packages"
+          commit: "chore(release): version packages"
+          createGithubReleases: true
         env:
-          VERSION: ${{ steps.bump.outputs.version }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -am "chore(release): v$VERSION"
-          git tag -a "v$VERSION" -m "v$VERSION"
-          git push origin main "refs/tags/v$VERSION"
-
-      # Pushed before publishing on purpose: if publishing fails part-way, a
-      # re-run bumps to a fresh version instead of colliding with the subset
-      # already on npm.
-      # An app installs @lucent-lang/lucent; everything else is bundled into it.
-      - name: Publish to npm
-        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: pnpm publish -r --no-git-checks --filter @lucent-lang/lucent
-
-      - name: Create GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERSION: ${{ steps.bump.outputs.version }}
-        run: gh release create "v$VERSION" --title "v$VERSION" --generate-notes
+          NPM_CONFIG_PROVENANCE: "true"
