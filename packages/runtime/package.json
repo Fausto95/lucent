@@ -5,6 +5,7 @@
   "description": "Lucent's C++ runtime, native templates and JS loader (bundled into @lucent-lang/lucent)",
   "license": "MIT",
   "exports": {
-    "./package.json": "./package.json"
+    "./package.json": "./package.json",
+    "./sources": "./test/sources.ts"
   }
 }

@@ -56,6 +56,12 @@ export const commands: CommandSpec[] = [
     load: () => import("./commands/explain.ts"),
   },
   {
+    name: "bench",
+    summary: "Time the cases of your *.bench.ts files natively and as JavaScript, and show the speedup (needs a desktop Hermes)",
+    flags: [],
+    load: () => import("./commands/bench.ts"),
+  },
+  {
     name: "clean",
     summary: "Remove the generated .lucent/ (the next build starts over)",
     flags: [{ name: "cache", description: "Also remove the SDK bindings cache" }],

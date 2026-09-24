@@ -1,7 +1,7 @@
 "use strict";
 // JavaScript implementations of lucent:core, used when a Lucent module
-// runs as plain TypeScript in the differential e2e harness. Native builds
-// use the C++ runtime.
+// runs as plain JavaScript: the differential e2e harness, and lucent
+// bench's JavaScript side. Native builds use the C++ runtime.
 
 function delay(ms, signal) {
   return new Promise((resolve, reject) => {

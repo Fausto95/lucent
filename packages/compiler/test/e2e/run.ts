@@ -16,7 +16,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import ts from "typescript";
-import { compile, report } from "../../src/index.ts";
+import { compile, coreJsPath, report } from "../../src/index.ts";
 import { cFlags, hostLibs, runtimeSources } from "../../../runtime/test/sources.ts";
 
 // One time zone with daylight saving time for both runs (the native host
@@ -26,7 +26,7 @@ process.env.TZ = process.env.LUCENT_TEST_TZ ?? "America/New_York";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const casesDir = path.join(here, "cases");
 const runtimeDir = path.resolve(here, "../../../runtime");
-const coreJs = path.join(here, "core.js");
+const coreJs = coreJsPath();
 const abortPolyfill = path.resolve(here, "../../../runtime/test/jsi/abort-polyfill.js");
 const hermes = process.env.HERMES_DIR ?? path.join(os.homedir(), "hermes");
 const sanitize = process.env.SANITIZE === "1";

@@ -9,7 +9,7 @@ import { PLATFORMS, platformSdkAvailable, type SdkOptions, withSdkOptions } from
 export { Codes, docsUrl, Explanations, type Code, type Example, type Explanation } from "./codes.ts";
 export { formatDiagnostic, type Diagnostic } from "./diagnostics.ts";
 export { moduleNamespace } from "./types.ts";
-export { findLucentFiles, moduleNameOf, platformOf, projectFiles, usesPlatforms, LUCENT_EXTENSION, coreTypesPath, type ReadSource } from "./program.ts";
+export { findLucentFiles, moduleNameOf, platformOf, projectFiles, usesPlatforms, LUCENT_EXTENSION, coreJsPath, coreTypesPath, type ReadSource } from "./program.ts";
 export { withGradleDependencies } from "./native-package.ts";
 export { coverage as sdkCoverage, type Coverage as SdkCoverage } from "@lucent-lang/bindgen";
 export { lucentPackages, lucentVersion, nativeDependencies, satisfies, type LucentPackage, type NativeDependencies, type PackageNative } from "./packages.ts";

@@ -41,6 +41,11 @@ export function isLibFile(sf: ts.SourceFile): boolean {
   return sf.isDeclarationFile && (/[\\/]typescript[\\/]lib[\\/]lib\./.test(sf.fileName) || path.resolve(sf.fileName) === globalsPath());
 }
 
+/** The JavaScript implementations of lucent:core, for running Lucent modules as plain JavaScript (e2e, lucent bench). */
+export function coreJsPath(): string {
+  return path.resolve(here, "../lib/core.js");
+}
+
 /** Path of the `lucent:core` type declarations. */
 export function coreTypesPath(): string {
   return sdkLibPath("core");

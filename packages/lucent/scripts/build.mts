@@ -37,3 +37,5 @@ fs.cpSync(path.join(packages, "compiler/lib"), path.join(pkg, "lib"), { recursiv
 for (const dir of ["cpp", "js", "native"]) {
   fs.cpSync(path.join(packages, "runtime", dir), path.join(pkg, "runtime", dir), { recursive: true });
 }
+// lucent bench builds a desktop JSI host around the runtime with it.
+fs.cpSync(path.join(packages, "runtime/test/jsi/harness.cpp"), path.join(pkg, "runtime/test/jsi/harness.cpp"));
