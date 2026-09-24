@@ -1,6 +1,10 @@
 # M2 design: typed platform bindings
 
-Status: **proposal** (2026-09-23). Nothing here is implemented yet.
+Status: **proposal** (2026-09-23), since largely implemented; what exists is
+described in [platform-bindings.md](../platform-bindings.md), and its progress
+in [improvement-plan-status.md](../improvement-plan-status.md). The examples
+here predate the implementation: `lucent:android/context`, for instance, is
+`lucent:android`.
 
 Goal (ROADMAP M2): Lucent code imports platform APIs directly, fully typed,
 and they compile to direct native calls:

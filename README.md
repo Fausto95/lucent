@@ -8,9 +8,9 @@
 > **Experimental: not for production.** APIs and the language subset change
 > without a migration path.
 
-Write native React Native modules in TypeScript. Lucent compiles a checked
-subset to C++ and calls it through JSI. There's no Swift or Kotlin to write,
-and nothing runs in a JS engine on the native side.
+Write React Native native modules in TypeScript. Lucent compiles a checked
+subset to C++ and calls it through JSI: no Swift or Kotlin to write, and no
+JavaScript engine in native code.
 
 ```ts
 // src/geo.lucent.ts
@@ -28,67 +28,27 @@ import { squaredDistance } from "./src/geo.lucent";
 squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25, computed in C++
 ```
 
-Works in bare React Native (0.88) and Expo (SDK 58). No Expo Modules or Nitro
-dependency.
-
-## Call iOS and Android
-
-A module imports the platform SDKs directly. One module holds both
-platforms, and each platform's build compiles its own branch. This is
-`expo-clipboard`'s API, from the port in the example apps:
+A module also calls the iOS and Android SDKs directly, typed from your Xcode
+and Android SDK. One module holds both platforms:
 
 ```ts
 // src/clipboard.lucent.ts
 import { PLATFORM } from "lucent:platform";
 import { UIPasteboard } from "lucent:ios/UIKit";
-import { ClipboardManager, ClipData } from "lucent:android/android.content";
+import { ClipboardManager, ClipDescription } from "lucent:android/android.content";
 import { appContext } from "lucent:android";
 import { main } from "lucent:thread";
-import { error } from "lucent:core";
 
-function clipboard(): ClipboardManager {
-  const manager = appContext().getSystemService(ClipboardManager);
-  if (!manager) throw error("ERR_CLIPBOARD_UNAVAILABLE", "The clipboard is not available");
-  return manager;
-}
-
-export async function getStringAsync(): Promise<string> {
+export async function hasStringAsync(): Promise<boolean> {
   if (PLATFORM === "ios") {
-    return UIPasteboard.general.string ?? "";
+    return UIPasteboard.general.hasStrings;
   } else {
-    return main(() => {
-      const clip = clipboard().getPrimaryClip();
-      if (!clip || clip.getItemCount() === 0) return "";
-      return clip.getItemAt(0)?.coerceToText(appContext()) ?? "";
-    });
-  }
-}
-
-export async function setStringAsync(text: string): Promise<boolean> {
-  if (PLATFORM === "ios") {
-    UIPasteboard.general.string = text;
-    return true;
-  } else {
-    return main(() => {
-      const clip = ClipData.newPlainText(null, text);
-      if (!clip) return false;
-      clipboard().setPrimaryClip(clip);
-      return true;
-    });
+    return main(() => appContext().getSystemService(ClipboardManager)?.getPrimaryClipDescription()?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) ?? false);
   }
 }
 ```
 
-```ts
-import { getStringAsync, setStringAsync } from "./src/clipboard.lucent";
-await setStringAsync("hello");
-await getStringAsync(); // "hello"
-```
-
-The SDK types come from your installed Xcode and Android SDK. The example
-apps also port location, netinfo, local-authentication, secure-store and
-haptics, with delegates, listeners and events sent to JavaScript
-([examples](https://lucent-lang.dev/docs/examples/)).
+Works in bare React Native (0.88+) and Expo (SDK 58+, development builds).
 
 ## Install
 
@@ -101,56 +61,31 @@ npx lucent init
   <img src="assets/cli.svg" width="700" alt="lucent build, then lucent check reporting an error with a code frame and its fix">
 </p>
 
-`lucent dev` rebuilds as you edit, `lucent doctor` checks your machine,
-`lucent explain <code>` explains a diagnostic; `lucent --help` lists the rest
-([CLI reference](https://lucent-lang.dev/docs/reference/cli/)).
-
-One package holds the `lucent` command, the compiler, the C++ runtime, the
-Metro integration (`@lucent-lang/lucent/metro`), the Expo config plugin
-(`"plugins": ["@lucent-lang/lucent"]`) and the editor plugin
-(`@lucent-lang/lucent/ts-plugin`). Modules import helpers from the built-in
-`lucent:core`. It isn't on npm yet: until it is, install the tarball
-`pnpm pack` makes in `packages/lucent`. Walkthroughs:
-[install](https://lucent-lang.dev/docs/install/),
-[your first module](https://lucent-lang.dev/docs/first-module/).
-
-## Today
-
-- The language: structs, unions, classes, closures, generics,
-  `async`/`await`, errors
-- JS callbacks, promises and `AbortSignal` across the boundary
-- One package, `@lucent-lang/lucent`: `lucent build` / `lucent check`, the
-  Metro transformer, the Expo plugin and the editor plugin
-- iOS and Android SDKs, typed from your Xcode and Android SDK: one module
-  for both platforms, delegates and listeners, completion handlers as
-  promises
-- Lucent packages: npm packages that ship modules
-
-## Not yet
-
-- Testing on physical devices (simulators and emulators pass)
-- Views (M3)
-- npm publish
+`@lucent-lang/lucent` isn't on npm yet: until it is, install the tarball that
+`pnpm pack` writes in `packages/lucent`.
 
 ## Docs
 
+[What is Lucent](https://lucent-lang.dev/docs/) ·
 [Install](https://lucent-lang.dev/docs/install/) ·
-[Examples](https://lucent-lang.dev/docs/examples/) ·
-[Language](https://lucent-lang.dev/docs/language/) ·
+[Tutorial](https://lucent-lang.dev/docs/tutorial/1-shared-logic/) ·
 [How it works](https://lucent-lang.dev/docs/how-it-works/) ·
-[Comparison](https://lucent-lang.dev/docs/comparison/) ·
+[Guides](https://lucent-lang.dev/docs/guides/call-an-ios-api/) ·
+[Reference](https://lucent-lang.dev/docs/reference/language/) ·
+[Examples](https://lucent-lang.dev/docs/examples/) ·
 [Roadmap](ROADMAP.md)
 
 ## Develop
 
 ```sh
 pnpm install
-pnpm test           # compiler unit tests
-pnpm test:runtime   # C++ runtime tests
-pnpm test:e2e       # compiled modules vs. the same code as JavaScript
+pnpm test                      # compiler and CLI tests
+pnpm test:runtime              # C++ runtime tests
+pnpm test:e2e                  # compiled modules against the same code as JavaScript (needs Hermes)
+pnpm exec tsx scripts/website.ts   # the website's generated files, samples, links and prose
 ```
 
-The e2e harness needs a local Hermes build (`HERMES_DIR`); see
-[docs/testing.md](docs/testing.md). Contributor docs live in [docs/](docs/).
+[CONTRIBUTING.md](CONTRIBUTING.md) covers the setup, every suite and the
+commit style; [docs/](docs/) holds the architecture and the specs.
 
 MIT © Lucent

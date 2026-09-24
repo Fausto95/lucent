@@ -191,12 +191,43 @@ Found on the way, left for their own work:
 - [x] The last legacy pages are gone, and so is the `legacy` flag: Vale
       blocks on every page.
 
-## 10. Website features (pulled forward)
+## 10. Website features
 
 - [x] "See the C++" (`cpp: true` on a sample): the compiler's output for the
       sample, written by `scripts/website.ts` into `src/generated/cpp/<page>.ts`
       (drift-checked), loaded only when opened. Per platform for platform code.
+- [x] Search: a header button, `/` and Cmd-K open a dialog over an index that
+      `scripts/website.ts` builds from the pages' prose (one entry per
+      section). The ranking is a tested pure function (`src/docs/search.ts`).
+      Pagefind was not used: it needs pre-rendered HTML, and the site renders
+      in the browser.
+- [x] Code tabs, copy buttons (none on output and diffs), "Edit this page",
+      "Verified with Lucent x.y", redirects that keep anchors: in place.
+- [x] The homepage is a lazy route; the header fits on phones (the GitHub link
+      moves to the footer there). Diagrams and pages checked in dark mode and
+      at 375 px.
+- [ ] Performance budget not met: a docs page loads 118 KB of JS gzipped,
+      against the plan's 100 KB. React DOM and TanStack Router alone are about
+      95 KB of it; the site's own code is about 20 KB. Meeting it would take
+      pre-rendering or a smaller framework: a decision for the user.
 
-## 5–9, 11
+## 11. README and repo docs
 
-Not started.
+- [x] README: one page (pitch, a shared module, one SDK function, install,
+      links, develop).
+- [x] CONTRIBUTING.md: setup with Hermes, the suites, the commit style, how
+      the docs are checked.
+- [x] `docs/design/` holds the M2 proposal, marked as since implemented;
+      `platform-bindings.md` and `semantics.md` corrected (ES2023 methods,
+      LUCENT3007); `lucent-packages.md` points users to the site.
+
+## Left
+
+- [ ] Device run of the tutorial on the iOS simulator and the Android
+      emulator.
+- [ ] The acceptance test with two people from outside the project, on a
+      fresh Expo app and a fresh bare app (the user's to run).
+- [ ] Runnable samples in CI (run in Hermes, output compared with the page):
+      not built. The tutorial's numbers were checked by running its modules
+      as TypeScript instead.
+- [ ] External link check, weekly: not set up.

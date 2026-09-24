@@ -1,6 +1,6 @@
 # Platform bindings — what is implemented
 
-The implemented part of [the design](m2-platform-bindings.md): platform
+The implemented part of [the design](design/m2-platform-bindings.md): platform
 modules, binding schemas extracted on demand from the installed SDKs,
 Objective-C++ and JNI glue, and `main()`. This page describes the current
 behavior; the design document describes where it is going.
@@ -147,10 +147,10 @@ directory:
 - `Class<T>` parameters take the class itself:
   `context.getSystemService(Vibrator)` is `Vibrator | null`.
 
-Coverage today: all of android.jar types but 1.1% of its members; Apple
-frameworks lose the members that use C structs, closures, generics or
-Swift-only types (about 19% for Foundation, UIKit and Security), which the
-next steps fix.
+Coverage: `lucent sdk coverage` reports, per module, the members Lucent can
+call and those it can't, with the reasons; CI fails when a module's
+unrepresentable share grows past `sdk-coverage.json`.
+[improvement-plan-status.md](improvement-plan-status.md) records the numbers.
 
 ## Calls
 
@@ -209,8 +209,6 @@ running OS; `appContext()` returns the Android `Application`
 
 ## Not yet
 
-Everything the design lists after M2.0: extractors, availability narrowing,
-delegates and listeners, Swift and Kotlin shims, completion handlers as
-promises, `lucent.json` dependencies and permissions, arrays and optionals in
-iOS calls, editor support for `lucent:*` imports (the TypeScript plugin
-checks platform files, but tsserver itself does not resolve `lucent:*`).
+[ROADMAP.md](../ROADMAP.md) lists what's next under M2, and
+[improvement-plan-status.md](improvement-plan-status.md) what was postponed,
+with the reason.
