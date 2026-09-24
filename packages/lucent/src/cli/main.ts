@@ -17,7 +17,10 @@ async function main(argv: string[]): Promise<number> {
   }
   const { command, flags, positionals } = parsed;
   if (flags.version && !command) {
+    const sdks = (await import("./sdks.ts")).installedSdks();
     out.print(`lucent ${version()}`);
+    if (process.platform === "darwin") out.print(`  iOS SDK      ${sdks.ios ?? "not found"}`);
+    out.print(`  Android SDK  ${sdks.android ?? "not found"}`);
     return 0;
   }
   const root = path.resolve(typeof flags.root === "string" ? flags.root : process.cwd());

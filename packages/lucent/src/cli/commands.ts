@@ -40,6 +40,28 @@ export const commands: CommandSpec[] = [
     load: () => import("./commands/init.ts"),
   },
   {
+    name: "new module",
+    summary: "Scaffold a module in src/: shared, or with --ios / --android a declaration and a file per platform",
+    flags: [
+      { name: "ios", description: "An iOS implementation (with its shared declaration)" },
+      { name: "android", description: "An Android implementation (with its shared declaration)" },
+      { name: "shared", description: "One module for every platform (the default)" },
+    ],
+    load: () => import("./commands/new-module.ts"),
+  },
+  {
+    name: "explain",
+    summary: "What a LUCENT diagnostic code means, and how to fix it (every code without one)",
+    flags: [],
+    load: () => import("./commands/explain.ts"),
+  },
+  {
+    name: "clean",
+    summary: "Remove the generated .lucent/ (the next build starts over)",
+    flags: [{ name: "cache", description: "Also remove the SDK bindings cache" }],
+    load: () => import("./commands/clean.ts"),
+  },
+  {
     name: "sdk prefetch",
     summary: "Extract SDK bindings into the cache ahead of use (default: the lucent:* modules the project imports)",
     flags: [
