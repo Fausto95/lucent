@@ -98,6 +98,9 @@ for (const m of ["lucent-haptics/haptics"]) if (!modules.includes(m)) throw new 
 console.log("• Metro and Expo integrations load");
 sh(process.execPath, ["-e", 'require("@lucent-lang/lucent/metro").withLucent({ transformer: { babelTransformerPath: "metro-babel-transformer" } }); if (typeof require("@lucent-lang/lucent/app.plugin.js") !== "function") process.exit(1)'], app, { LUCENT_WATCH: "0" });
 
+console.log("• lucent:core's JavaScript implementation for tests: @lucent-lang/lucent/core");
+sh(process.execPath, ["-e", 'const core = require("@lucent-lang/lucent/core"); if (core.errorCode(core.error("E_X", "x")) !== "E_X") process.exit(1); core.delay(1).then(() => process.exit(0), () => process.exit(1))'], app);
+
 console.log("• editor diagnostics through tsserver and @lucent-lang/lucent/ts-plugin");
 fs.writeFileSync(path.join(app, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true, module: "esnext", moduleResolution: "bundler", target: "es2022", noEmit: true, plugins: [{ name: "@lucent-lang/lucent/ts-plugin" }] }, include: ["src"] }));
 const bad = path.join(app, "src/bad.lucent.ts");
