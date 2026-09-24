@@ -36,15 +36,27 @@ export async function run({ root, out }: Invocation): Promise<number> {
     return 1;
   };
   const benches = findBenches(root);
-  if (!benches.length) return fail("no *.bench.ts file: next to a module, export default { name: () => call(), … }");
+  if (!benches.length)
+    return fail("no *.bench.ts file: next to a module, export default { name: () => call(), … }");
   const hermes = process.env.HERMES_DIR || path.join(os.homedir(), "hermes");
-  if (!fs.existsSync(path.join(hermes, "build/lib")) || !fs.existsSync(path.join(hermes, "API/jsi"))) return fail(`no Hermes build at ${hermes}. ${HERMES_FIX}`);
+  if (
+    !fs.existsSync(path.join(hermes, "build/lib")) ||
+    !fs.existsSync(path.join(hermes, "API/jsi"))
+  )
+    return fail(`no Hermes build at ${hermes}. ${HERMES_FIX}`);
 
   const files = projectFiles(root);
   // Platform code needs a device: on the desktop its modules are stubs that throw.
   const result = compile(files, { platforms: ["host"] });
   if (!result.ok) {
-    for (const d of result.diagnostics) out.error(renderDiagnostic({ ...d, file: d.file && path.relative(root, d.file) }, d.file && fs.existsSync(d.file) ? fs.readFileSync(d.file, "utf8") : undefined, t));
+    for (const d of result.diagnostics)
+      out.error(
+        renderDiagnostic(
+          { ...d, file: d.file && path.relative(root, d.file) },
+          d.file && fs.existsSync(d.file) ? fs.readFileSync(d.file, "utf8") : undefined,
+          t,
+        ),
+      );
     return 1;
   }
 
@@ -75,11 +87,22 @@ export async function run({ root, out }: Invocation): Promise<number> {
     out.data({ ok: cases.every((c) => c.same && !c.error), cases });
     return cases.every((c) => c.same && !c.error) ? 0 : 1;
   }
-  const time = (ms: number) => (ms < 1 ? `${(ms * 1000).toFixed(1)} µs` : `${ms.toFixed(ms < 10 ? 2 : 1)} ms`);
+  const time = (ms: number) =>
+    ms < 1 ? `${(ms * 1000).toFixed(1)} µs` : `${ms.toFixed(ms < 10 ? 2 : 1)} ms`;
   const row = (c: CaseResult) =>
-    c.error ? [c.name, t.error(c.error), "", ""] : [c.name, time(c.js), time(c.native), `${c.speedup >= 1 ? t.success(`${c.speedup.toFixed(1)}x`) : t.warn(`${c.speedup.toFixed(1)}x`)}${c.same ? "" : t.error("  results differ")}`];
+    c.error
+      ? [c.name, t.error(c.error), "", ""]
+      : [
+          c.name,
+          time(c.js),
+          time(c.native),
+          `${c.speedup >= 1 ? t.success(`${c.speedup.toFixed(1)}x`) : t.warn(`${c.speedup.toFixed(1)}x`)}${c.same ? "" : t.error("  results differ")}`,
+        ];
   // One table, a heading per bench file: the columns line up across files.
-  const lines = table([["CASE", "JS", "LUCENT", "SPEEDUP"].map((h) => t.dim(h)), ...cases.map(row)], 3);
+  const lines = table(
+    [["CASE", "JS", "LUCENT", "SPEEDUP"].map((h) => t.dim(h)), ...cases.map(row)],
+    3,
+  );
   out.print(`\n${lines[0]}`);
   cases.forEach((c, i) => {
     if (c.file !== cases[i - 1]?.file) out.print(t.bold(c.file));
@@ -93,7 +116,13 @@ function findBenches(root: string): string[] {
   const out: string[] = [];
   const walk = (dir: string) => {
     for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (e.name === "node_modules" || e.name.startsWith(".") || e.name === "ios" || e.name === "android") continue;
+      if (
+        e.name === "node_modules" ||
+        e.name.startsWith(".") ||
+        e.name === "ios" ||
+        e.name === "android"
+      )
+        continue;
       const full = path.join(dir, e.name);
       if (e.isDirectory()) walk(full);
       else if (e.name.endsWith(".bench.ts")) out.push(full);
@@ -104,11 +133,20 @@ function findBenches(root: string): string[] {
 }
 
 /** Compiles `sources` to objects under `work/obj`, reusing an object whose source and flags are unchanged; in parallel. */
-async function objects(work: string, sources: { file: string; cc: string; flags: string[] }[]): Promise<string[]> {
+async function objects(
+  work: string,
+  sources: { file: string; cc: string; flags: string[] }[],
+): Promise<string[]> {
   const dir = path.join(work, "obj");
   fs.mkdirSync(dir, { recursive: true });
   const jobs = sources.map((s) => {
-    const key = createHash("sha256").update(s.cc).update(s.flags.join(" ")).update(s.file).update(fs.readFileSync(s.file)).digest("hex").slice(0, 16);
+    const key = createHash("sha256")
+      .update(s.cc)
+      .update(s.flags.join(" "))
+      .update(s.file)
+      .update(fs.readFileSync(s.file))
+      .digest("hex")
+      .slice(0, 16);
     return { ...s, obj: path.join(dir, `${path.basename(s.file).replace(/\.\w+$/, "")}-${key}.o`) };
   });
   const todo = jobs.filter((j) => !fs.existsSync(j.obj));
@@ -117,11 +155,17 @@ async function objects(work: string, sources: { file: string; cc: string; flags:
     while (next < todo.length) {
       const j = todo[next++]!;
       await new Promise<void>((resolve, reject) => {
-        const child = spawn(j.cc, [...j.flags, "-c", j.file, "-o", `${j.obj}.tmp`], { stdio: ["ignore", "ignore", "pipe"] });
+        const child = spawn(j.cc, [...j.flags, "-c", j.file, "-o", `${j.obj}.tmp`], {
+          stdio: ["ignore", "ignore", "pipe"],
+        });
         let err = "";
         child.stderr.on("data", (d: Buffer) => (err += d.toString()));
         child.on("error", reject);
-        child.on("close", (code) => (code === 0 ? (fs.renameSync(`${j.obj}.tmp`, j.obj), resolve()) : reject(new Error(`${j.cc} failed on ${j.file}:\n${err}`))));
+        child.on("close", (code) =>
+          code === 0
+            ? (fs.renameSync(`${j.obj}.tmp`, j.obj), resolve())
+            : reject(new Error(`${j.cc} failed on ${j.file}:\n${err}`)),
+        );
       });
     }
   };
@@ -134,17 +178,47 @@ async function buildHost(work: string, generated: string, hermes: string): Promi
   const cpp = path.join(runtimeDir(), "cpp");
   const cxx = process.env.CXX ?? "clang++";
   // A release build, as the app's: -O2, and no fused multiply-add (JavaScript rounds twice).
-  const flags = ["-std=c++20", "-ffp-contract=off", "-O2", "-DNDEBUG", "-w", `-I${cpp}`, `-I${generated}`, `-I${hermes}/API`, `-I${hermes}/API/jsi`, `-I${hermes}/public`];
+  const flags = [
+    "-std=c++20",
+    "-ffp-contract=off",
+    "-O2",
+    "-DNDEBUG",
+    "-w",
+    `-I${cpp}`,
+    `-I${generated}`,
+    `-I${hermes}/API`,
+    `-I${hermes}/API/jsi`,
+    `-I${hermes}/public`,
+  ];
   const rs = runtimeSources(cpp);
   const sources = [
-    ...fs.readdirSync(generated).filter((f) => f.endsWith(".cpp")).map((f) => ({ file: path.join(generated, f), cc: cxx, flags })),
+    ...fs
+      .readdirSync(generated)
+      .filter((f) => f.endsWith(".cpp"))
+      .map((f) => ({ file: path.join(generated, f), cc: cxx, flags })),
     ...rs.cxx.map((file) => ({ file, cc: cxx, flags })),
     ...rs.c.map((file) => ({ file, cc: process.env.CC ?? "clang", flags: cFlags })),
     { file: path.join(runtimeDir(), "test/jsi/harness.cpp"), cc: cxx, flags },
   ];
   const objs = await objects(work, sources);
   const exe = path.join(work, "bench-host");
-  const r = spawnSync(cxx, [...objs, `-L${hermes}/build/lib`, `-L${hermes}/build/jsi`, "-lhermesvm", "-ljsi", "-lpthread", ...hostLibs, `-Wl,-rpath,${hermes}/build/lib`, `-Wl,-rpath,${hermes}/build/jsi`, "-o", exe], { encoding: "utf8" });
+  const r = spawnSync(
+    cxx,
+    [
+      ...objs,
+      `-L${hermes}/build/lib`,
+      `-L${hermes}/build/jsi`,
+      "-lhermesvm",
+      "-ljsi",
+      "-lpthread",
+      ...hostLibs,
+      `-Wl,-rpath,${hermes}/build/lib`,
+      `-Wl,-rpath,${hermes}/build/jsi`,
+      "-o",
+      exe,
+    ],
+    { encoding: "utf8" },
+  );
   if (r.status !== 0) throw new Error(`linking the benchmark host failed:\n${r.stderr}`);
   return exe;
 }
@@ -154,23 +228,39 @@ async function buildHost(work: string, generated: string, hermes: string): Promi
  * ways to resolve a *.lucent import: its transpiled source (JavaScript) or
  * its generated proxy (native). Each bench file loads in both.
  */
-function benchScript(root: string, files: string[], benches: string[], proxies: Map<string, string>): string {
+function benchScript(
+  root: string,
+  files: string[],
+  benches: string[],
+  proxies: Map<string, string>,
+): string {
   const defs: Record<string, string> = {};
   const jsDeps: Record<string, Record<string, string>> = {};
   const nativeDeps: Record<string, Record<string, string>> = {};
-  const transpile = (source: string) => ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2019, esModuleInterop: false } }).outputText;
+  const transpile = (source: string) =>
+    ts.transpileModule(source, {
+      compilerOptions: {
+        module: ts.ModuleKind.CommonJS,
+        target: ts.ScriptTarget.ES2019,
+        esModuleInterop: false,
+      },
+    }).outputText;
   const loader = fs.readFileSync(path.join(runtimeDir(), "js/index.js"), "utf8");
   defs.core = fs.readFileSync(coreJsPath(), "utf8");
   defs.loader = loader;
   // The loader asks React Native only when no host installed the modules; this host does.
-  defs["react-native"] = "module.exports = { TurboModuleRegistry: { get: function () { return undefined; } } };";
+  defs["react-native"] =
+    "module.exports = { TurboModuleRegistry: { get: function () { return undefined; } } };";
   const resolve = (from: string, spec: string): string | undefined => {
     if (spec === "lucent:core") return "core";
     if (!spec.startsWith(".")) return undefined;
     const base = path.resolve(path.dirname(from), spec);
-    return [`${base}.ts`, base, `${base}.tsx`].find((f) => files.includes(f) || benches.includes(f));
+    return [`${base}.ts`, base, `${base}.tsx`].find(
+      (f) => files.includes(f) || benches.includes(f),
+    );
   };
-  const specs = (source: string) => [...source.matchAll(/(?:from|import)\s+["']([^"']+)["']/g)].map((m) => m[1]!);
+  const specs = (source: string) =>
+    [...source.matchAll(/(?:from|import)\s+["']([^"']+)["']/g)].map((m) => m[1]!);
   for (const file of [...files, ...benches]) {
     const source = fs.readFileSync(file, "utf8");
     defs[file] = transpile(source);
@@ -186,11 +276,16 @@ function benchScript(root: string, files: string[], benches: string[], proxies: 
   }
   for (const [name, proxy] of proxies) {
     defs[`proxy:${name}`] = proxy;
-    nativeDeps[`proxy:${name}`] = { [`${"../".repeat(name.split("/").length - 1) || "./"}_lucent/runtime.js`]: "loader", "react-native": "react-native" };
+    nativeDeps[`proxy:${name}`] = {
+      [`${"../".repeat(name.split("/").length - 1) || "./"}_lucent/runtime.js`]: "loader",
+      "react-native": "react-native",
+    };
   }
   nativeDeps.loader = {};
   return `var defs = {
-${Object.entries(defs).map(([id, code]) => `${JSON.stringify(id)}: function (module, exports, require) {\n${code}\n}`).join(",\n")}
+${Object.entries(defs)
+  .map(([id, code]) => `${JSON.stringify(id)}: function (module, exports, require) {\n${code}\n}`)
+  .join(",\n")}
 };
 var deps = { js: ${JSON.stringify(jsDeps)}, native: ${JSON.stringify(nativeDeps)} };
 var loaded = { js: {}, native: {} };

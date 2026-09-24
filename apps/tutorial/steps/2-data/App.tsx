@@ -17,7 +17,8 @@ export default function App() {
   const summary = trip.summary();
   return (
     <Text>
-      {summary.fixes} fixes, {(summary.meters / 1000).toFixed(2)} km, top speed {summary.topSpeed.toFixed(1)} m/s
+      {summary.fixes} fixes, {(summary.meters / 1000).toFixed(2)} km, top speed{" "}
+      {summary.topSpeed.toFixed(1)} m/s
     </Text>
   );
 }

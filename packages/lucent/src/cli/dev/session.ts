@@ -1,6 +1,12 @@
 import fs from "node:fs";
 import path from "node:path";
-import { type Diagnostic, LUCENT_EXTENSION, lucentPackages, moduleNameOf, platformOf } from "@lucent-lang/compiler";
+import {
+  type Diagnostic,
+  LUCENT_EXTENSION,
+  lucentPackages,
+  moduleNameOf,
+  platformOf,
+} from "@lucent-lang/compiler";
 import { buildProject, type Next, type Platform } from "../pipeline.ts";
 import type { Notice } from "../project.ts";
 import { plainSteps } from "../ui/steps.ts";
@@ -27,7 +33,9 @@ export interface Store<T> {
   subscribe(listener: () => void): () => void;
 }
 
-export function createStore(initial: DevState = { building: false, watching: [], modules: [], problems: [] }): Store<DevState> {
+export function createStore(
+  initial: DevState = { building: false, watching: [], modules: [], problems: [] },
+): Store<DevState> {
   let state = initial;
   const listeners = new Set<() => void>();
   return {
@@ -62,7 +70,13 @@ const DEBOUNCE_MS = 40;
  */
 export function startSession(root: string): DevSession {
   const store = createStore();
-  const theme = createTheme({ color: false, interactive: false, unicode: true, links: false, width: 80 });
+  const theme = createTheme({
+    color: false,
+    interactive: false,
+    unicode: true,
+    links: false,
+    width: 80,
+  });
   let building = false;
   let queued: { force: boolean } | undefined;
   let timer: NodeJS.Timeout | undefined;
@@ -73,12 +87,26 @@ export function startSession(root: string): DevSession {
       return;
     }
     building = true;
-    store.set({ ...store.get(), building: true, modules: store.get().modules.map((m) => ({ ...m, platforms: mapPlatforms(m.platforms, (s) => (s === "none" ? s : "building")) })) });
+    store.set({
+      ...store.get(),
+      building: true,
+      modules: store
+        .get()
+        .modules.map((m) => ({
+          ...m,
+          platforms: mapPlatforms(m.platforms, (s) => (s === "none" ? s : "building")),
+        })),
+    });
     // Let the views show the build before it blocks the event loop.
     await new Promise((resolve) => setTimeout(resolve, 0));
     const notices: Notice[] = [];
     const at = new Date();
-    const r = await buildProject(root, { mode: "build", force }, plainSteps(() => {}, theme), (n) => notices.push(n));
+    const r = await buildProject(
+      root,
+      { mode: "build", force },
+      plainSteps(() => {}, theme),
+      (n) => notices.push(n),
+    );
     const failing = new Map<string, Set<Platform>>();
     for (const d of r.diagnostics) {
       if (!d.file) continue;
@@ -90,7 +118,13 @@ export function startSession(root: string): DevSession {
     }
     const sources = new Map<string, string | undefined>();
     const source = (file: string) => {
-      if (!sources.has(file)) sources.set(file, fs.existsSync(path.resolve(root, file)) ? fs.readFileSync(path.resolve(root, file), "utf8") : undefined);
+      if (!sources.has(file))
+        sources.set(
+          file,
+          fs.existsSync(path.resolve(root, file))
+            ? fs.readFileSync(path.resolve(root, file), "utf8")
+            : undefined,
+        );
       return sources.get(file);
     };
     store.set({
@@ -98,10 +132,17 @@ export function startSession(root: string): DevSession {
       building: false,
       modules: r.modules.map((m) => {
         const has = (p: Platform) => m.platforms.includes(p) || m.platforms.includes("shared");
-        const state = (p: Platform): PlatformState => (!has(p) ? "none" : failing.get(m.name)?.has(p) ? "error" : r.ok ? "ok" : "none");
+        const state = (p: Platform): PlatformState =>
+          !has(p) ? "none" : failing.get(m.name)?.has(p) ? "error" : r.ok ? "ok" : "none";
         return { name: m.name, platforms: { ios: state("ios"), android: state("android") } };
       }),
-      lastBuild: { at, ms: r.ms, ok: r.ok, next: r.ok && !r.upToDate ? r.next : undefined, fatal: r.fatal },
+      lastBuild: {
+        at,
+        ms: r.ms,
+        ok: r.ok,
+        next: r.ok && !r.upToDate ? r.next : undefined,
+        fatal: r.fatal,
+      },
       problems: r.diagnostics.map((d) => ({ ...d, source: d.file ? source(d.file) : undefined })),
       notices,
     });
@@ -114,19 +155,31 @@ export function startSession(root: string): DevSession {
   };
 
   const changed = (name: string | null) => {
-    if (!name || !LUCENT_EXTENSION.test(name) || name.split(path.sep).some((part) => part === "node_modules" || part.startsWith("."))) return;
+    if (
+      !name ||
+      !LUCENT_EXTENSION.test(name) ||
+      name.split(path.sep).some((part) => part === "node_modules" || part.startsWith("."))
+    )
+      return;
     clearTimeout(timer);
     timer = setTimeout(() => void build(false), DEBOUNCE_MS);
   };
   // The app, and Lucent packages that live outside it (workspaces).
   let packages: string[] = [];
   try {
-    packages = lucentPackages(root).map((p) => p.sources).filter((dir) => path.relative(root, dir).startsWith(".."));
+    packages = lucentPackages(root)
+      .map((p) => p.sources)
+      .filter((dir) => path.relative(root, dir).startsWith(".."));
   } catch {
     // The build reports it.
   }
-  const watchers = [root, ...packages].map((dir) => fs.watch(dir, { recursive: true }, (_event, name) => changed(name)));
-  store.set({ ...store.get(), watching: [root, ...packages].map((d) => path.relative(root, d) || ".") });
+  const watchers = [root, ...packages].map((dir) =>
+    fs.watch(dir, { recursive: true }, (_event, name) => changed(name)),
+  );
+  store.set({
+    ...store.get(),
+    watching: [root, ...packages].map((d) => path.relative(root, d) || "."),
+  });
   void build(false);
 
   return {
@@ -144,6 +197,9 @@ export function startSession(root: string): DevSession {
   };
 }
 
-function mapPlatforms(p: Record<Platform, PlatformState>, f: (s: PlatformState) => PlatformState): Record<Platform, PlatformState> {
+function mapPlatforms(
+  p: Record<Platform, PlatformState>,
+  f: (s: PlatformState) => PlatformState,
+): Record<Platform, PlatformState> {
   return { ios: f(p.ios), android: f(p.android) };
 }

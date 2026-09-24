@@ -26,8 +26,24 @@ export interface ParamInfo {
 }
 
 export type Global =
-  | { kind: "function"; cpp: string; module: LucentModule; decl: ts.FunctionDeclaration; type: LType & { k: "fn" }; async: boolean; params: ParamInfo[]; generic: boolean }
-  | { kind: "var"; cpp: string; module: LucentModule; decl: ts.VariableDeclaration; type: LType; isConst: boolean }
+  | {
+      kind: "function";
+      cpp: string;
+      module: LucentModule;
+      decl: ts.FunctionDeclaration;
+      type: LType & { k: "fn" };
+      async: boolean;
+      params: ParamInfo[];
+      generic: boolean;
+    }
+  | {
+      kind: "var";
+      cpp: string;
+      module: LucentModule;
+      decl: ts.VariableDeclaration;
+      type: LType;
+      isConst: boolean;
+    }
   | { kind: "class"; cpp: string; module: LucentModule; info: ClassInfo };
 
 /** Program-wide state shared by every emitter. */
@@ -61,7 +77,10 @@ export class Ctx {
     this.modules = modules;
     const files = new Set(modules.map((m) => m.sourceFile));
     this.reg = new TypeRegistry(checker, (sf) => files.has(sf));
-    this.capture = new CaptureAnalysis(checker, modules.map((m) => m.sourceFile));
+    this.capture = new CaptureAnalysis(
+      checker,
+      modules.map((m) => m.sourceFile),
+    );
   }
 
   nativeUnit(m: LucentModule): { includes: Set<string>; lines: Set<string> } {

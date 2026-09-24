@@ -20,8 +20,17 @@ export type DeviceInfo = {
 
 export async function getDeviceInfoAsync(): Promise<DeviceInfo> {
   if (PLATFORM === "ios") {
-    const os = await main(() => ({ name: UIDevice.current.systemName, version: UIDevice.current.systemVersion }));
-    return { brand: "Apple", manufacturer: "Apple", osName: os.name, osVersion: os.version, totalMemory: ProcessInfo.processInfo.physicalMemory };
+    const os = await main(() => ({
+      name: UIDevice.current.systemName,
+      version: UIDevice.current.systemVersion,
+    }));
+    return {
+      brand: "Apple",
+      manufacturer: "Apple",
+      osName: os.name,
+      osVersion: os.version,
+      totalMemory: ProcessInfo.processInfo.physicalMemory,
+    };
   } else {
     const memory = new ActivityManager_MemoryInfo();
     appContext().getSystemService(ActivityManager)?.getMemoryInfo(memory);

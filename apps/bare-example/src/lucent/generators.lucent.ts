@@ -26,7 +26,13 @@ function* concat<T>(a: Iterable<T>, b: Iterable<T>): Generator<T> {
 }
 
 export function basics(): string {
-  return [[...range(0, 5)].join(","), [...range(1, 10, 3)].join(","), [...take(fib(), 10)].join(","), [...concat([1, 2], new Set([3, 4]))].join(","), Array.from(take("hello", 3)).join("")].join(" | ");
+  return [
+    [...range(0, 5)].join(","),
+    [...range(1, 10, 3)].join(","),
+    [...take(fib(), 10)].join(","),
+    [...concat([1, 2], new Set([3, 4]))].join(","),
+    Array.from(take("hello", 3)).join(""),
+  ].join(" | ");
 }
 
 export function lazy(): string {

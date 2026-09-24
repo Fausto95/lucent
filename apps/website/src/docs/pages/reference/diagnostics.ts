@@ -3,7 +3,11 @@ import type { Block } from "../../types";
 
 /** Example files as tabs; their names end in "(wrong)" or "(right)", so they are shown, not compiled again here. */
 const tabs = (label: "wrong" | "right", files: Record<string, string>) =>
-  Object.entries(files).map(([filename, code]) => ({ label: `${label === "wrong" ? "✗" : "✓"} ${filename}`, filename: `${filename} (${label})`, code: code.trimEnd() }));
+  Object.entries(files).map(([filename, code]) => ({
+    label: `${label === "wrong" ? "✗" : "✓"} ${filename}`,
+    filename: `${filename} (${label})`,
+    code: code.trimEnd(),
+  }));
 
 export const blocks: Block[] = [
   {
@@ -31,7 +35,10 @@ export const blocks: Block[] = [
   {
     kind: "table",
     head: ["Code", "Meaning"],
-    rows: explanations.map(({ code, summary }) => [`[\`${code}\`](#${code.toLowerCase()})`, summary]),
+    rows: explanations.map(({ code, summary }) => [
+      `[\`${code}\`](#${code.toLowerCase()})`,
+      summary,
+    ]),
   },
   ...explanations.flatMap(({ code, title, details, fix, wrong, right }): Block[] => [
     { kind: "h2", text: code },

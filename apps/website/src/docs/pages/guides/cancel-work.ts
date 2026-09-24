@@ -40,7 +40,7 @@ controller.abort(); // results rejects with an AbortError`,
     kind: "list",
     items: [
       "The rejection is an `Error` named `AbortError`, or the reason JavaScript passed to `abort()`.",
-      "`signal.aborted` reads the state, and `signal.addEventListener(\"abort\", …)` runs a function when it's set.",
+      '`signal.aborted` reads the state, and `signal.addEventListener("abort", …)` runs a function when it\'s set.',
       "A signal can come into Lucent, but not go back out, and an `AbortController` can't cross at all.",
     ],
   },

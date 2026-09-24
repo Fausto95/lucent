@@ -1,5 +1,9 @@
 import { PLATFORM } from "lucent:platform";
-import { CLLocation, CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";
+import {
+  CLLocation,
+  CLLocationManager,
+  type CLLocationManagerDelegate,
+} from "lucent:ios/CoreLocation";
 import { Location, LocationManager } from "lucent:android/android.location";
 import { Looper } from "lucent:android/android.os";
 import { appContext } from "lucent:android";
@@ -29,7 +33,11 @@ const managers = new Map<number, CLLocationManager>();
 // --- Android -----------------------------------------------------------------
 
 function fromLocation(location: Location): Fix {
-  return { latitude: location.getLatitude(), longitude: location.getLongitude(), time: location.getTime() };
+  return {
+    latitude: location.getLatitude(),
+    longitude: location.getLongitude(),
+    time: location.getTime(),
+  };
 }
 
 const listeners = new Map<number, (location: Location) => void>();
@@ -64,7 +72,8 @@ export async function watch(onFix: (fix: Fix) => void): Promise<number> {
   } else {
     const manager = appContext().getSystemService(LocationManager);
     const looper = Looper.getMainLooper();
-    if (!manager || !looper) throw error("E_NO_LOCATION", "Location isn't available on this device");
+    if (!manager || !looper)
+      throw error("E_NO_LOCATION", "Location isn't available on this device");
     const listener = (location: Location) => onFix(fromLocation(location));
     listeners.set(id, listener);
     manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, listener, looper);

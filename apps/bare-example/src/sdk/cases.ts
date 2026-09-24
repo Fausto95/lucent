@@ -11,7 +11,13 @@ import * as LocalAuthentication from "./localAuthentication.lucent";
 import * as Location from "./location.lucent";
 import * as NetInfoPort from "./netInfo.lucent";
 // Ports shipped as Lucent packages (examples/), installed like any npm package.
-import { ImpactFeedbackStyle, impactAsync, NotificationFeedbackType, notificationAsync, selectionAsync } from "lucent-haptics";
+import {
+  ImpactFeedbackStyle,
+  impactAsync,
+  NotificationFeedbackType,
+  notificationAsync,
+  selectionAsync,
+} from "lucent-haptics";
 import { parityCases } from "./parity";
 import { errorCode, identity, systemName } from "./probe.lucent";
 import * as SecureStore from "lucent-secure-store";
@@ -21,32 +27,59 @@ import type { SdkCase } from "./types";
 const ios = Platform.OS === "ios";
 const done = (p: Promise<void>) => p.then(() => "ok");
 /** A promise that fails after `ms`, so a position that never comes fails the case. */
-const within = <T,>(ms: number, p: Promise<T>) => Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`no answer in ${ms} ms`)), ms))]);
+const within = <T>(ms: number, p: Promise<T>) =>
+  Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`no answer in ${ms} ms`)), ms)),
+  ]);
 const TYPE = /^(wifi|cellular|ethernet|none|unknown|vpn|bluetooth) (true|false)$/;
 /** What both netinfo implementations report, for comparing them. */
 const netShape = (s: { type: string; isConnected: boolean | null; details: unknown }) =>
-  JSON.stringify([s.type, s.isConnected, (s.details as { isConnectionExpensive?: boolean } | null)?.isConnectionExpensive ?? null]);
+  JSON.stringify([
+    s.type,
+    s.isConnected,
+    (s.details as { isConnectionExpensive?: boolean } | null)?.isConnectionExpensive ?? null,
+  ]);
 /** A position to two decimals; where it is depends on the device (parity cases compare with the original). */
-const place = (l: { coords: { latitude: number; longitude: number } }) => `${l.coords.latitude.toFixed(2)},${l.coords.longitude.toFixed(2)}`;
+const place = (l: { coords: { latitude: number; longitude: number } }) =>
+  `${l.coords.latitude.toFixed(2)},${l.coords.longitude.toFixed(2)}`;
 
 export const sdkCases: SdkCase[] = [
   { name: "haptics.impactAsync()", run: () => done(impactAsync()), expected: "ok" },
-  { name: "haptics.impactAsync(Heavy)", run: () => done(impactAsync(ImpactFeedbackStyle.Heavy)), expected: "ok" },
-  { name: "haptics.notificationAsync(Error)", run: () => done(notificationAsync(NotificationFeedbackType.Error)), expected: "ok" },
+  {
+    name: "haptics.impactAsync(Heavy)",
+    run: () => done(impactAsync(ImpactFeedbackStyle.Heavy)),
+    expected: "ok",
+  },
+  {
+    name: "haptics.notificationAsync(Error)",
+    run: () => done(notificationAsync(NotificationFeedbackType.Error)),
+    expected: "ok",
+  },
   { name: "haptics.selectionAsync()", run: () => done(selectionAsync()), expected: "ok" },
   { name: "probe.systemName()", run: systemName, expected: ios ? "iOS" : /^Android \d+/ },
   { name: "probe.identity()", run: identity, expected: ios ? "true" : "false|true" },
-  { name: "probe.errorCode()", run: errorCode, expected: ios ? "none" : "java.lang.IllegalArgumentException" },
-  { name: "callbacks: the platform calls Lucent back", run: mainThreadCallback, expected: "called back" },
+  {
+    name: "probe.errorCode()",
+    run: errorCode,
+    expected: ios ? "none" : "java.lang.IllegalArgumentException",
+  },
+  {
+    name: "callbacks: the platform calls Lucent back",
+    run: mainThreadCallback,
+    expected: "called back",
+  },
   // M2.1 parity ports.
   {
     name: "clipboard: set, get, has",
-    run: async () => `${await Clipboard.setStringAsync("lucent ✓")} ${await Clipboard.getStringAsync()} ${await Clipboard.hasStringAsync()}`,
+    run: async () =>
+      `${await Clipboard.setStringAsync("lucent ✓")} ${await Clipboard.getStringAsync()} ${await Clipboard.hasStringAsync()}`,
     expected: "true lucent ✓ true",
   },
   {
     name: "application: id, versions",
-    run: async () => `${Application.applicationId()} ${Application.nativeApplicationVersion()} ${Application.nativeBuildVersion()}`,
+    run: async () =>
+      `${Application.applicationId()} ${Application.nativeApplicationVersion()} ${Application.nativeBuildVersion()}`,
     expected: /^[\w.]*example\w* 1\.0(\.0)? 1$/i,
   },
   {
@@ -70,7 +103,10 @@ export const sdkCases: SdkCase[] = [
     run: async () => {
       await Storage.clear();
       await Storage.setItem("a", "1");
-      await Storage.multiSet([["b", "2"], ["c", "3"]]);
+      await Storage.multiSet([
+        ["b", "2"],
+        ["c", "3"],
+      ]);
       await Storage.removeItem("c");
       const keys = (await Storage.getAllKeys()).sort();
       return `${JSON.stringify(keys)} ${JSON.stringify(await Storage.multiGet(["a", "b", "c"]))} ${await Storage.getItem("b")}`;
@@ -98,14 +134,18 @@ export const sdkCases: SdkCase[] = [
     // Biometrics only: without enrollment it fails at once, with no prompt.
     name: "local-authentication: authenticate without enrolled biometrics",
     run: async () => {
-      const r = await LocalAuthentication.authenticateAsync({ promptMessage: "Lucent", disableDeviceFallback: true });
+      const r = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Lucent",
+        disableDeviceFallback: true,
+      });
       return `${r.success} ${r.error}`;
     },
     expected: /^false (not_enrolled|missing_usage_description|not_available)$/,
   },
   {
     name: "location: services and permission",
-    run: async () => `${await Location.hasServicesEnabledAsync()} ${(await Location.getForegroundPermissionsAsync()).status}`,
+    run: async () =>
+      `${await Location.hasServicesEnabledAsync()} ${(await Location.getForegroundPermissionsAsync()).status}`,
     expected: /^(true|false) (granted|denied|undetermined)$/,
   },
   {
@@ -118,7 +158,9 @@ export const sdkCases: SdkCase[] = [
     run: async () => {
       let stop = () => {};
       const first = new Promise<string>((resolve) => {
-        void Location.watchPositionAsync((l) => resolve(place(l))).then((id) => (stop = () => void Location.stopWatching(id)));
+        void Location.watchPositionAsync((l) => resolve(place(l))).then(
+          (id) => (stop = () => void Location.stopWatching(id)),
+        );
       });
       const result = await within(15000, first);
       stop();

@@ -19,7 +19,7 @@ await impactAsync(ImpactFeedbackStyle.Heavy);`,
       "The package's pods, Gradle dependencies and permissions come with it.",
       "`Info.plist` entries it needs are added by the Expo config plugin. In a bare app, `lucent build` names each missing key: `trip-tracker needs NSLocationWhenInUseUsageDescription in ios/App/Info.plist`.",
       "A package that doesn't support your Lucent version fails the build, and `lucent doctor` says which.",
-      "Lucent code can import a package's module too: `import { impactAsync } from \"lucent-haptics/src/haptics.lucent\"`.",
+      'Lucent code can import a package\'s module too: `import { impactAsync } from "lucent-haptics/src/haptics.lucent"`.',
     ],
   },
   {

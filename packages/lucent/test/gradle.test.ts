@@ -17,7 +17,9 @@ function javaHome(): string | undefined {
       if (r.status === 0) return r.stdout.trim();
     }
   }
-  return process.env.JAVA_HOME && fs.existsSync(process.env.JAVA_HOME) ? process.env.JAVA_HOME : undefined;
+  return process.env.JAVA_HOME && fs.existsSync(process.env.JAVA_HOME)
+    ? process.env.JAVA_HOME
+    : undefined;
 }
 const jdk = javaHome();
 
@@ -34,7 +36,9 @@ function app(): string {
     fs.writeFileSync(path.join(android, rel), text);
   };
   fs.cpSync(path.join(wrapper, "gradlew"), path.join(android, "gradlew"));
-  fs.cpSync(path.join(wrapper, "gradle/wrapper"), path.join(android, "gradle/wrapper"), { recursive: true });
+  fs.cpSync(path.join(wrapper, "gradle/wrapper"), path.join(android, "gradle/wrapper"), {
+    recursive: true,
+  });
   write("settings.gradle", `rootProject.name = "app"\ninclude ":app"\n`);
   write(
     "buildSrc/build.gradle",
@@ -54,7 +58,10 @@ public class FakeAndroidApp implements Plugin<Project> {
 }
 `,
   );
-  write("app/build.gradle", `plugins { id "com.android.application" }\napply from: ${JSON.stringify(path.join(gradleDir, "lucent.gradle"))}\n`);
+  write(
+    "app/build.gradle",
+    `plugins { id "com.android.application" }\napply from: ${JSON.stringify(path.join(gradleDir, "lucent.gradle"))}\n`,
+  );
   return root;
 }
 
@@ -66,11 +73,23 @@ describe("Lucent's Gradle scripts", () => {
       // What lucent build runs (resolveAndroidDependencies).
       const r = spawnSync(
         path.join(root, "android/gradlew"),
-        ["-q", "--offline", "--init-script", path.join(gradleDir, "lucent-classpath.init.gradle"), ":app:lucentClasspath"],
-        { cwd: path.join(root, "android"), encoding: "utf8", env: { ...process.env, JAVA_HOME: jdk } },
+        [
+          "-q",
+          "--offline",
+          "--init-script",
+          path.join(gradleDir, "lucent-classpath.init.gradle"),
+          ":app:lucentClasspath",
+        ],
+        {
+          cwd: path.join(root, "android"),
+          encoding: "utf8",
+          env: { ...process.env, JAVA_HOME: jdk },
+        },
       );
       expect(r.status, r.stderr + r.stdout).toBe(0);
-      expect(JSON.parse(fs.readFileSync(path.join(root, ".lucent/android-classpath.json"), "utf8"))).toEqual({ aars: [], jars: [] });
+      expect(
+        JSON.parse(fs.readFileSync(path.join(root, ".lucent/android-classpath.json"), "utf8")),
+      ).toEqual({ aars: [], jars: [] });
     },
     300_000,
   );

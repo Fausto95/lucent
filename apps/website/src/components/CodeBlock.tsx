@@ -4,7 +4,17 @@ import { DiffCode } from "./DiffCode";
 import { HighlightedCode } from "./HighlightedCode";
 import { useClipboard } from "./ClipboardProvider";
 
-export function CodeBlock({ filename, code, copyable = true, diff = false }: { filename: string; code: string; copyable?: boolean; diff?: boolean }) {
+export function CodeBlock({
+  filename,
+  code,
+  copyable = true,
+  diff = false,
+}: {
+  filename: string;
+  code: string;
+  copyable?: boolean;
+  diff?: boolean;
+}) {
   const { copy } = useClipboard();
   return (
     <div {...stylex.props(styles.referenceCode)}>

@@ -3,8 +3,16 @@ import { comparisonRows, tools, type Tone } from "../docs/comparison-table";
 import { styles } from "./ComparisonTable.stylex";
 import { Inline } from "./Inline";
 
-const toneStyles = { available: styles.dotAvailable, partial: styles.dotPartial, planned: styles.dotPlanned };
-const toneLabels: Record<Tone, string> = { available: "available", partial: "partial", planned: "planned" };
+const toneStyles = {
+  available: styles.dotAvailable,
+  partial: styles.dotPartial,
+  planned: styles.dotPlanned,
+};
+const toneLabels: Record<Tone, string> = {
+  available: "available",
+  partial: "partial",
+  planned: "planned",
+};
 
 /**
  * Lucent next to Expo Modules, Nitro and Turbo Native Modules: one column
@@ -25,7 +33,14 @@ export function ComparisonTable({ compact = false }: { compact?: boolean }) {
         <thead>
           <tr>
             {tools.map((tool) => (
-              <th key={tool.id} scope="col" {...stylex.props(styles.head, tool.id === "lucent" && [styles.pinned, styles.headLucent])}>
+              <th
+                key={tool.id}
+                scope="col"
+                {...stylex.props(
+                  styles.head,
+                  tool.id === "lucent" && [styles.pinned, styles.headLucent],
+                )}
+              >
                 {tool.name}
               </th>
             ))}
@@ -46,10 +61,17 @@ export function ComparisonTable({ compact = false }: { compact?: boolean }) {
               {tools.map((tool) => {
                 const cell = row.cells[tool.id];
                 return (
-                  <td key={tool.id} {...stylex.props(styles.cell, tool.id === "lucent" && styles.pinned)}>
+                  <td
+                    key={tool.id}
+                    {...stylex.props(styles.cell, tool.id === "lucent" && styles.pinned)}
+                  >
                     <span {...stylex.props(styles.value)}>
                       {cell.tone && (
-                        <span role="img" aria-label={toneLabels[cell.tone]} {...stylex.props(styles.dot, toneStyles[cell.tone])} />
+                        <span
+                          role="img"
+                          aria-label={toneLabels[cell.tone]}
+                          {...stylex.props(styles.dot, toneStyles[cell.tone])}
+                        />
                       )}
                       {cell.value}
                     </span>

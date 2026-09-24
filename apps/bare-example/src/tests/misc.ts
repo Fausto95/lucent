@@ -7,7 +7,11 @@ export default function run(mod, print, lucentClass, mods) {
   const b = mod.bytesOps(4);
   print(b instanceof Uint8Array, Array.from(b).join(","));
   print(mod.roundTrip("héllo 🌍"));
-  print(mod.optional({ name: "a" }), mod.optional({ name: "b", retries: 0, nested: {} }), mod.optional({ name: "c", nested: { deep: "xyz" } }));
+  print(
+    mod.optional({ name: "a" }),
+    mod.optional({ name: "b", retries: 0, nested: {} }),
+    mod.optional({ name: "c", nested: { deep: "xyz" } }),
+  );
   print(mod.jsonOut());
   print(mod.counterKeys("banana"));
 

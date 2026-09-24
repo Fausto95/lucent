@@ -14,7 +14,12 @@ export interface Output {
   data(value: unknown): void;
 }
 
-export function createOutput(json: boolean, stdout: NodeJS.WriteStream = process.stdout, stderr: NodeJS.WriteStream = process.stderr, env: NodeJS.ProcessEnv = process.env): Output {
+export function createOutput(
+  json: boolean,
+  stdout: NodeJS.WriteStream = process.stdout,
+  stderr: NodeJS.WriteStream = process.stderr,
+  env: NodeJS.ProcessEnv = process.env,
+): Output {
   const terminal = detectTerminal(env, stdout);
   return {
     terminal,

@@ -37,7 +37,10 @@ export const comparisonRows: ComparisonRow[] = [
     cells: {
       lucent: { value: "A TypeScript subset", detail: "`*.lucent.ts`, compiled to C++20" },
       expo: { value: "Swift + Kotlin" },
-      nitro: { value: "C++, or Swift + Kotlin", detail: "Swift and Kotlin each cover one platform" },
+      nitro: {
+        value: "C++, or Swift + Kotlin",
+        detail: "Swift and Kotlin each cover one platform",
+      },
       turbo: { value: "Obj-C++ + Java/Kotlin, or C++", detail: "Swift needs Objective-C++ glue" },
     },
   },
@@ -46,7 +49,10 @@ export const comparisonRows: ComparisonRow[] = [
     cells: {
       lucent: { value: "The implementation", detail: "its exported functions, types and classes" },
       expo: { value: "A Swift/Kotlin DSL", detail: "the module definition" },
-      nitro: { value: "A TypeScript spec", detail: "`*.nitro.ts`; Nitrogen (optional) generates the native interfaces" },
+      nitro: {
+        value: "A TypeScript spec",
+        detail: "`*.nitro.ts`; Nitrogen (optional) generates the native interfaces",
+      },
       turbo: { value: "A TS or Flow spec", detail: "Codegen generates the native interfaces" },
     },
   },
@@ -57,7 +63,10 @@ export const comparisonRows: ComparisonRow[] = [
       lucent: { value: "1" },
       expo: { value: "2" },
       nitro: { value: "1 or 2", detail: "1 in C++; plus the spec" },
-      turbo: { value: "2, or 1 in C++", detail: "C++ still needs a small platform registration layer; plus the spec" },
+      turbo: {
+        value: "2, or 1 in C++",
+        detail: "C++ still needs a small platform registration layer; plus the spec",
+      },
     },
   },
   {
@@ -65,8 +74,14 @@ export const comparisonRows: ComparisonRow[] = [
     cells: {
       lucent: { value: "JSI → C++", detail: "one pure C++ TurboModule" },
       expo: { value: "JSI", detail: "through Expo's module layer" },
-      nitro: { value: "JSI → C++", detail: "Hybrid Objects on `jsi::NativeState`; Swift and Kotlin through generated bridges" },
-      turbo: { value: "JSI", detail: "C++ modules directly, others through the platform interop layer" },
+      nitro: {
+        value: "JSI → C++",
+        detail: "Hybrid Objects on `jsi::NativeState`; Swift and Kotlin through generated bridges",
+      },
+      turbo: {
+        value: "JSI",
+        detail: "C++ modules directly, others through the platform interop layer",
+      },
     },
   },
   {
@@ -76,7 +91,8 @@ export const comparisonRows: ComparisonRow[] = [
       lucent: {
         value: "Most",
         tone: "partial",
-        detail: "typed from your Xcode and Android SDK; some gaps, such as Android generics. See [SDK types](/docs/reference/platform-types/)",
+        detail:
+          "typed from your Xcode and Android SDK; some gaps, such as Android generics. See [SDK types](/docs/reference/platform-types/)",
       },
       expo: { value: "Full", tone: "available" },
       nitro: { value: "Full", tone: "available" },
@@ -89,8 +105,16 @@ export const comparisonRows: ComparisonRow[] = [
     cells: {
       lucent: { value: "Planned", tone: "planned", detail: "milestone M3" },
       expo: { value: "Yes", tone: "available", detail: "`View` in the module definition" },
-      nitro: { value: "Yes", tone: "available", detail: "Nitro Views; React Native 0.78+, New Architecture" },
-      turbo: { value: "Yes", tone: "available", detail: "Fabric Native Components, a separate API" },
+      nitro: {
+        value: "Yes",
+        tone: "available",
+        detail: "Nitro Views; React Native 0.78+, New Architecture",
+      },
+      turbo: {
+        value: "Yes",
+        tone: "available",
+        detail: "Fabric Native Components, a separate API",
+      },
     },
   },
   {
@@ -106,9 +130,17 @@ export const comparisonRows: ComparisonRow[] = [
     label: "Maturity",
     summary: true,
     cells: {
-      lucent: { value: "Experimental", tone: "partial", detail: "see the [roadmap](/docs/roadmap/)" },
+      lucent: {
+        value: "Experimental",
+        tone: "partial",
+        detail: "see the [roadmap](/docs/roadmap/)",
+      },
       expo: { value: "Production", tone: "available", detail: "the Expo SDK is built on it" },
-      nitro: { value: "Pre-1.0", tone: "partial", detail: "0.37 at the time of writing; used by published libraries" },
+      nitro: {
+        value: "Pre-1.0",
+        tone: "partial",
+        detail: "0.37 at the time of writing; used by published libraries",
+      },
       turbo: { value: "Production", tone: "available", detail: "part of React Native core" },
     },
   },

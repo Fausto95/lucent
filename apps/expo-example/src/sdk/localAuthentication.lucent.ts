@@ -7,7 +7,10 @@ import { PLATFORM } from "lucent:platform";
 import { LABiometryType, LAContext, LAError_Code, LAPolicy } from "lucent:ios/LocalAuthentication";
 import { Bundle } from "lucent:ios/Foundation";
 import { Out } from "lucent:ios";
-import { BiometricManager, BiometricManager_Authenticators as Authenticators } from "lucent:android/android.hardware.biometrics";
+import {
+  BiometricManager,
+  BiometricManager_Authenticators as Authenticators,
+} from "lucent:android/android.hardware.biometrics";
 import { KeyguardManager } from "lucent:android/android.app";
 import { appContext, available } from "lucent:android";
 import { errorCode } from "lucent:core";
@@ -73,10 +76,16 @@ function errorName(code: number): string {
   }
 }
 
-async function iosAuthenticate(options: LocalAuthenticationOptions): Promise<LocalAuthenticationResult> {
+async function iosAuthenticate(
+  options: LocalAuthenticationOptions,
+): Promise<LocalAuthenticationResult> {
   let warning: string | undefined = undefined;
-  if (biometryType() === LABiometryType.faceID && Bundle.main.object("NSFaceIDUsageDescription") === null) {
-    warning = "FaceID is available but has not been configured. To enable FaceID, provide `NSFaceIDUsageDescription`.";
+  if (
+    biometryType() === LABiometryType.faceID &&
+    Bundle.main.object("NSFaceIDUsageDescription") === null
+  ) {
+    warning =
+      "FaceID is available but has not been configured. To enable FaceID, provide `NSFaceIDUsageDescription`.";
   }
   const context = new LAContext();
   if (options.fallbackLabel !== undefined) context.localizedFallbackTitle = options.fallbackLabel;
@@ -84,10 +93,16 @@ async function iosAuthenticate(options: LocalAuthenticationOptions): Promise<Loc
   context.interactionNotAllowed = false;
   const disableDeviceFallback = options.disableDeviceFallback ?? false;
   if (disableDeviceFallback && warning !== undefined) {
-    const missing: LocalAuthenticationResult = { success: false, error: "missing_usage_description", warning };
+    const missing: LocalAuthenticationResult = {
+      success: false,
+      error: "missing_usage_description",
+      warning,
+    };
     return missing;
   }
-  const policy = disableDeviceFallback ? LAPolicy.deviceOwnerAuthenticationWithBiometrics : LAPolicy.deviceOwnerAuthentication;
+  const policy = disableDeviceFallback
+    ? LAPolicy.deviceOwnerAuthenticationWithBiometrics
+    : LAPolicy.deviceOwnerAuthentication;
   const result: LocalAuthenticationResult = { success: false };
   if (warning !== undefined) result.warning = warning;
   try {
@@ -118,7 +133,11 @@ function hasSystemFeature(feature: string): boolean {
 }
 
 function androidAuthenticate(): LocalAuthenticationResult {
-  const result: LocalAuthenticationResult = { success: false, error: "not_enrolled", warning: "KeyguardManager#isDeviceSecure() returned false" };
+  const result: LocalAuthenticationResult = {
+    success: false,
+    error: "not_enrolled",
+    warning: "KeyguardManager#isDeviceSecure() returned false",
+  };
   if (isDeviceSecure()) {
     // The prompt needs the current FragmentActivity, which lucent:android does not expose yet.
     result.error = "not_available";
@@ -134,7 +153,10 @@ export async function hasHardwareAsync(): Promise<boolean> {
     const r = canEvaluate(LAPolicy.deviceOwnerAuthenticationWithBiometrics);
     return r.ok || r.code !== LAError_Code.touchIDNotAvailable;
   } else {
-    return canAuthenticate(Authenticators.BIOMETRIC_WEAK) !== BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE;
+    return (
+      canAuthenticate(Authenticators.BIOMETRIC_WEAK) !==
+      BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE
+    );
   }
 }
 
@@ -156,9 +178,17 @@ export async function supportedAuthenticationTypesAsync(): Promise<number[]> {
     if (type === LABiometryType.faceID) types.push(2);
     return types;
   } else {
-    if (canAuthenticate(Authenticators.BIOMETRIC_WEAK) === BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE) return types;
+    if (
+      canAuthenticate(Authenticators.BIOMETRIC_WEAK) ===
+      BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE
+    )
+      return types;
     if (hasSystemFeature("android.hardware.fingerprint")) types.push(1);
-    if (hasSystemFeature("android.hardware.biometrics.face") || hasSystemFeature("com.samsung.android.bio.face")) types.push(2);
+    if (
+      hasSystemFeature("android.hardware.biometrics.face") ||
+      hasSystemFeature("com.samsung.android.bio.face")
+    )
+      types.push(2);
     if (hasSystemFeature("android.hardware.biometrics.iris")) types.push(3);
     return types.filter((t, i) => types.indexOf(t) === i).sort((a, b) => a - b);
   }
@@ -174,13 +204,17 @@ export async function getEnrolledLevelAsync(): Promise<number> {
     if (biometric.ok && biometric.code === null) level = 3;
   } else {
     if (isDeviceSecure()) level = 1;
-    if (canAuthenticate(Authenticators.BIOMETRIC_WEAK) === BiometricManager.BIOMETRIC_SUCCESS) level = 2;
-    if (canAuthenticate(Authenticators.BIOMETRIC_STRONG) === BiometricManager.BIOMETRIC_SUCCESS) level = 3;
+    if (canAuthenticate(Authenticators.BIOMETRIC_WEAK) === BiometricManager.BIOMETRIC_SUCCESS)
+      level = 2;
+    if (canAuthenticate(Authenticators.BIOMETRIC_STRONG) === BiometricManager.BIOMETRIC_SUCCESS)
+      level = 3;
   }
   return level;
 }
 
-export async function authenticateAsync(options: LocalAuthenticationOptions = {}): Promise<LocalAuthenticationResult> {
+export async function authenticateAsync(
+  options: LocalAuthenticationOptions = {},
+): Promise<LocalAuthenticationResult> {
   if (PLATFORM === "ios") {
     return iosAuthenticate(options);
   } else {

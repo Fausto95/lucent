@@ -50,18 +50,32 @@ export interface NativeDependencies {
 export function nativeDependencies(packages: LucentPackage[]): NativeDependencies {
   const out: NativeDependencies = { pods: {}, gradle: {}, permissions: [], infoPlist: {} };
   const owners = new Map<string, string>();
-  const merge = (kind: string, into: Record<string, string>, key: string, value: string, from: string) => {
+  const merge = (
+    kind: string,
+    into: Record<string, string>,
+    key: string,
+    value: string,
+    from: string,
+  ) => {
     const id = `${kind} ${key}`;
-    if (into[key] !== undefined && into[key] !== value) throw new Error(`${kind}${key}: ${owners.get(id)} wants ${into[key]}, ${from} wants ${value}`);
+    if (into[key] !== undefined && into[key] !== value)
+      throw new Error(
+        `${kind}${key}: ${owners.get(id)} wants ${into[key]}, ${from} wants ${value}`,
+      );
     into[key] = value;
     if (!owners.has(id)) owners.set(id, from);
   };
   for (const p of packages) {
-    for (const [pod, version] of Object.entries(p.native?.ios?.pods ?? {})) merge("pod ", out.pods, pod, version, p.name);
-    for (const [artifact, version] of Object.entries(p.native?.android?.dependencies ?? {})) merge("", out.gradle, artifact, version, p.name);
-    for (const perm of p.native?.android?.permissions ?? []) if (!out.permissions.includes(perm)) out.permissions.push(perm);
+    for (const [pod, version] of Object.entries(p.native?.ios?.pods ?? {}))
+      merge("pod ", out.pods, pod, version, p.name);
+    for (const [artifact, version] of Object.entries(p.native?.android?.dependencies ?? {}))
+      merge("", out.gradle, artifact, version, p.name);
+    for (const perm of p.native?.android?.permissions ?? [])
+      if (!out.permissions.includes(perm)) out.permissions.push(perm);
     for (const [key, value] of Object.entries(p.native?.ios?.infoPlist ?? {})) {
-      const values = Object.fromEntries(Object.entries(out.infoPlist).map(([k, v]) => [k, v.value]));
+      const values = Object.fromEntries(
+        Object.entries(out.infoPlist).map(([k, v]) => [k, v.value]),
+      );
       merge("Info.plist ", values, key, value, p.name);
       out.infoPlist[key] ??= { value, from: p.name };
     }
@@ -91,8 +105,17 @@ export function lucentPackageOf(file: string): LucentPackage | undefined {
     const pkg = read(path.join(dir, "package.json"));
     if (pkg) {
       if (!pkg.lucent || !pkg.name) return undefined;
-      const native = fs.existsSync(path.join(dir, "lucent.json")) ? (JSON.parse(fs.readFileSync(path.join(dir, "lucent.json"), "utf8")) as PackageNative) : undefined;
-      return { name: pkg.name, version: pkg.version ?? "0.0.0", dir, sources: path.join(dir, pkg.lucent.sources ?? "."), compatible: pkg.lucent.compatible, ...(native ? { native } : {}) };
+      const native = fs.existsSync(path.join(dir, "lucent.json"))
+        ? (JSON.parse(fs.readFileSync(path.join(dir, "lucent.json"), "utf8")) as PackageNative)
+        : undefined;
+      return {
+        name: pkg.name,
+        version: pkg.version ?? "0.0.0",
+        dir,
+        sources: path.join(dir, pkg.lucent.sources ?? "."),
+        compatible: pkg.lucent.compatible,
+        ...(native ? { native } : {}),
+      };
     }
     if (path.dirname(dir) === dir) return undefined;
   }
@@ -112,7 +135,9 @@ export function lucentPackages(root: string): LucentPackage[] {
       const pkg = lucentPackageOf(path.join(dir, "package.json"));
       if (!pkg || pkg.dir !== dir) continue;
       if (pkg.compatible && !satisfies(lucentVersion(), pkg.compatible)) {
-        throw new Error(`${pkg.name}@${pkg.version} supports Lucent ${pkg.compatible}, not ${lucentVersion()}: update one of them`);
+        throw new Error(
+          `${pkg.name}@${pkg.version} supports Lucent ${pkg.compatible}, not ${lucentVersion()}: update one of them`,
+        );
       }
       found.set(dir, pkg);
       visit(dir, read(path.join(dir, "package.json"))?.dependencies ?? {});
@@ -134,7 +159,9 @@ function resolvePackage(from: string, name: string): string | undefined {
 let version: string | undefined;
 /** This Lucent's version (the compiler's). */
 export function lucentVersion(): string {
-  version ??= (read(path.join(path.dirname(fileURLToPath(import.meta.url)), "../package.json"))?.version ?? "0.0.0");
+  version ??=
+    read(path.join(path.dirname(fileURLToPath(import.meta.url)), "../package.json"))?.version ??
+    "0.0.0";
   return version;
 }
 
@@ -145,13 +172,23 @@ export function lucentVersion(): string {
  */
 export function satisfies(version: string, range: string): boolean {
   const v = parse(version);
-  return range.split("||").some((alt) => alt.trim().split(/\s+/).filter(Boolean).every((c) => comparator(v, c)));
+  return range.split("||").some((alt) =>
+    alt
+      .trim()
+      .split(/\s+/)
+      .filter(Boolean)
+      .every((c) => comparator(v, c)),
+  );
 }
 
 type Triple = [number, number, number];
 
 function parse(v: string): Triple {
-  const [a = 0, b = 0, c = 0] = v.replace(/^v/, "").split("-")[0]!.split(".").map((x) => (/^\d+$/.test(x) ? Number(x) : 0));
+  const [a = 0, b = 0, c = 0] = v
+    .replace(/^v/, "")
+    .split("-")[0]!
+    .split(".")
+    .map((x) => (/^\d+$/.test(x) ? Number(x) : 0));
   return [a, b, c];
 }
 
@@ -173,7 +210,12 @@ function comparator(v: Triple, c: string): boolean {
   }
   if (op === "^") {
     // The leftmost non-zero part stays.
-    const upper: Triple = nums[0] > 0 || wild === 1 ? [nums[0] + 1, 0, 0] : nums[1] > 0 || wild === 2 ? [0, nums[1] + 1, 0] : [0, 0, nums[2] + 1];
+    const upper: Triple =
+      nums[0] > 0 || wild === 1
+        ? [nums[0] + 1, 0, 0]
+        : nums[1] > 0 || wild === 2
+          ? [0, nums[1] + 1, 0]
+          : [0, 0, nums[2] + 1];
     return cmp(v, nums) >= 0 && cmp(v, upper) < 0;
   }
   if (op === "~") {

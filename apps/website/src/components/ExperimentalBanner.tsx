@@ -9,8 +9,9 @@ export function ExperimentalBanner() {
         !
       </span>
       <p {...stylex.props(styles.text)}>
-        <strong {...stylex.props(styles.label)}>Very early and experimental.</strong> The language, the generated native
-        code and every package API change without notice. Do not use Lucent in production.
+        <strong {...stylex.props(styles.label)}>Very early and experimental.</strong> The language,
+        the generated native code and every package API change without notice. Do not use Lucent in
+        production.
       </p>
     </div>
   );

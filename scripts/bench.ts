@@ -32,12 +32,20 @@ const cxx = process.env.CXX ?? "clang++";
 const args = process.argv.slice(2);
 const check = args.includes("--check");
 const scale = Number(args.find((a) => !a.startsWith("--")) ?? "1");
-const budgets: Record<string, number> = JSON.parse(fs.readFileSync(path.join(root, "scripts/bench-budgets.json"), "utf8"));
+const budgets: Record<string, number> = JSON.parse(
+  fs.readFileSync(path.join(root, "scripts/bench-budgets.json"), "utf8"),
+);
 const kernels = path.join(root, "packages/compiler/test/e2e/cases/kernels.lucent.ts");
 const boundary = path.join(root, "packages/compiler/test/e2e/cases/boundary.lucent.ts");
-const boundaryBudgets: Record<string, number> = JSON.parse(fs.readFileSync(path.join(root, "scripts/bench-boundary-budgets.json"), "utf8"));
-const floorBudgets: Record<string, number> = JSON.parse(fs.readFileSync(path.join(root, "scripts/bench-floor-budgets.json"), "utf8"));
-const sizes: Record<string, number> = JSON.parse(fs.readFileSync(kernels.replace(/\.lucent\.ts$/, ".bench.json"), "utf8"));
+const boundaryBudgets: Record<string, number> = JSON.parse(
+  fs.readFileSync(path.join(root, "scripts/bench-boundary-budgets.json"), "utf8"),
+);
+const floorBudgets: Record<string, number> = JSON.parse(
+  fs.readFileSync(path.join(root, "scripts/bench-floor-budgets.json"), "utf8"),
+);
+const sizes: Record<string, number> = JSON.parse(
+  fs.readFileSync(kernels.replace(/\.lucent\.ts$/, ".bench.json"), "utf8"),
+);
 const work = path.join(os.tmpdir(), "lucent-bench");
 const runtime = path.join(root, "packages/runtime/cpp");
 
@@ -53,7 +61,18 @@ fs.mkdirSync(work, { recursive: true });
 const result = compile([kernels, boundary]);
 if (!result.ok) throw new Error(report(result.diagnostics));
 for (const [name, content] of result.files) fs.writeFileSync(path.join(work, name), content);
-const flags = ["-std=c++20", "-ffp-contract=off", "-O2", "-DNDEBUG", "-w", `-I${runtime}`, `-I${work}`, `-I${hermes}/API`, `-I${hermes}/API/jsi`, `-I${hermes}/public`];
+const flags = [
+  "-std=c++20",
+  "-ffp-contract=off",
+  "-O2",
+  "-DNDEBUG",
+  "-w",
+  `-I${runtime}`,
+  `-I${work}`,
+  `-I${hermes}/API`,
+  `-I${hermes}/API/jsi`,
+  `-I${hermes}/public`,
+];
 const rs = runtimeSources(runtime);
 const sources = [
   ...[...result.files.keys()].filter((f) => f.endsWith(".cpp")).map((f) => path.join(work, f)),
@@ -69,10 +88,24 @@ const objs = sources.map((s, i) => {
   return o;
 });
 const exe = path.join(work, "bench-host");
-sh(cxx, [...objs, `-L${hermes}/build/lib`, `-L${hermes}/build/jsi`, "-lhermesvm", "-ljsi", "-lpthread", ...hostLibs, `-Wl,-rpath,${hermes}/build/lib`, `-Wl,-rpath,${hermes}/build/jsi`, "-o", exe]);
+sh(cxx, [
+  ...objs,
+  `-L${hermes}/build/lib`,
+  `-L${hermes}/build/jsi`,
+  "-lhermesvm",
+  "-ljsi",
+  "-lpthread",
+  ...hostLibs,
+  `-Wl,-rpath,${hermes}/build/lib`,
+  `-Wl,-rpath,${hermes}/build/jsi`,
+  "-o",
+  exe,
+]);
 
 // JavaScript: the same source, transpiled, in the same Hermes runtime.
-const js = ts.transpileModule(fs.readFileSync(kernels, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2019 } }).outputText;
+const js = ts.transpileModule(fs.readFileSync(kernels, "utf8"), {
+  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2019 },
+}).outputText;
 const script = path.join(work, "bench.js");
 fs.writeFileSync(
   script,
@@ -120,8 +153,17 @@ for (var name in sizes) {
 );
 const r = spawnSync(exe, [script], { encoding: "utf8", timeout: 600000 });
 if (r.status !== 0) throw new Error(`bench failed:\n${r.stderr}\n${r.stdout}`);
-const lines = r.stdout.trim().split("\n").map((l) => JSON.parse(l) as Record<string, unknown>);
-const rows = lines.filter((l) => "name" in l) as { name: string; n: number; js: number; native: number; same: boolean }[];
+const lines = r.stdout
+  .trim()
+  .split("\n")
+  .map((l) => JSON.parse(l) as Record<string, unknown>);
+const rows = lines.filter((l) => "name" in l) as {
+  name: string;
+  n: number;
+  js: number;
+  native: number;
+  same: boolean;
+}[];
 const crossings = lines.filter((l) => "boundary" in l) as { boundary: string; us: number }[];
 console.log(`kernel        size       JS (ms)  Lucent (ms)  speedup  budget`);
 const failures: string[] = [];
@@ -129,7 +171,8 @@ for (const row of rows) {
   const speedup = row.js / row.native;
   const budget = budgets[row.name];
   if (budget === undefined) failures.push(`${row.name}: no budget in scripts/bench-budgets.json`);
-  else if (speedup < budget) failures.push(`${row.name}: ${speedup.toFixed(1)}x, budget ${budget}x`);
+  else if (speedup < budget)
+    failures.push(`${row.name}: ${speedup.toFixed(1)}x, budget ${budget}x`);
   if (!row.same) failures.push(`${row.name}: results differ from JavaScript`);
   console.log(
     `${row.name.padEnd(13)} ${String(row.n).padEnd(10)} ${row.js.toFixed(1).padStart(7)}  ${row.native.toFixed(2).padStart(11)}  ${`${speedup.toFixed(1)}x`.padStart(7)}  ${budget === undefined ? "-" : `${budget}x`}${row.same ? "" : "  RESULTS DIFFER"}`,
@@ -141,15 +184,21 @@ console.log(`\nboundary          µs/run   vs 1,000 add() calls  budget`);
 for (const c of crossings.filter((c) => !c.boundary.startsWith("floor"))) {
   const ratio = c.us / chatty;
   const budget = boundaryBudgets[c.boundary];
-  if (budget !== undefined && ratio > budget) failures.push(`${c.boundary}: ${ratio.toFixed(2)}x the cost of 1,000 calls, budget ${budget}x`);
-  console.log(`${c.boundary.padEnd(16)} ${c.us.toFixed(1).padStart(7)}   ${`${ratio.toFixed(2)}x`.padStart(20)}  ${budget === undefined ? "-" : `${budget}x`}`);
+  if (budget !== undefined && ratio > budget)
+    failures.push(`${c.boundary}: ${ratio.toFixed(2)}x the cost of 1,000 calls, budget ${budget}x`);
+  console.log(
+    `${c.boundary.padEnd(16)} ${c.us.toFixed(1).padStart(7)}   ${`${ratio.toFixed(2)}x`.padStart(20)}  ${budget === undefined ? "-" : `${budget}x`}`,
+  );
 }
 console.log(`\none call          Lucent µs  C++ TurboModule µs  ratio  budget`);
 for (const [name, budget] of Object.entries(floorBudgets)) {
   const floor = us(`floor${name[0]!.toUpperCase()}${name.slice(1)}`);
   const ratio = us(name) / floor;
-  if (ratio > budget) failures.push(`${name}: ${ratio.toFixed(2)}x a C++ TurboModule's call, budget ${budget}x`);
-  console.log(`${name.padEnd(16)} ${us(name).toFixed(1).padStart(9)}  ${floor.toFixed(1).padStart(18)}  ${`${ratio.toFixed(2)}x`.padStart(5)}  ${budget}x`);
+  if (ratio > budget)
+    failures.push(`${name}: ${ratio.toFixed(2)}x a C++ TurboModule's call, budget ${budget}x`);
+  console.log(
+    `${name.padEnd(16)} ${us(name).toFixed(1).padStart(9)}  ${floor.toFixed(1).padStart(18)}  ${`${ratio.toFixed(2)}x`.padStart(5)}  ${budget}x`,
+  );
 }
 if (rows.some((row) => !row.same) || (check && failures.length)) {
   console.error(`\n${failures.join("\n")}`);

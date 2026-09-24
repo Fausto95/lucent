@@ -5,9 +5,21 @@ export const blocks: Block[] = [
   {
     kind: "tabs",
     tabs: [
-      { label: "package.json", filename: "trip-tracker/package.json", code: files["trip-tracker/package.json"]! },
-      { label: "index.ts", filename: "trip-tracker/index.ts", code: files["trip-tracker/index.ts"]! },
-      { label: "lucent.json", filename: "trip-tracker/lucent.json", code: files["trip-tracker/lucent.json"]! },
+      {
+        label: "package.json",
+        filename: "trip-tracker/package.json",
+        code: files["trip-tracker/package.json"]!,
+      },
+      {
+        label: "index.ts",
+        filename: "trip-tracker/index.ts",
+        code: files["trip-tracker/index.ts"]!,
+      },
+      {
+        label: "lucent.json",
+        filename: "trip-tracker/lucent.json",
+        code: files["trip-tracker/lucent.json"]!,
+      },
     ],
   },
   {

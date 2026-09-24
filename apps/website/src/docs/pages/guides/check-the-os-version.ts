@@ -29,7 +29,7 @@ export async function tap(): Promise<void> {
   {
     kind: "list",
     items: [
-      "`available(\"android\", api)` from `lucent:android` is `Build.VERSION.SDK_INT >= api`. `available(\"ios\", major, minor?)` from `lucent:ios` is Swift's `#available`.",
+      '`available("android", api)` from `lucent:android` is `Build.VERSION.SDK_INT >= api`. `available("ios", major, minor?)` from `lucent:ios` is Swift\'s `#available`.',
       "On Android, a class or member newer than API 24 compiles only behind such a check (`LUCENT3007`). `Build_VERSION.SDK_INT >= 31` works too, and so does an early return on the opposite check.",
       "On iOS, the compiler doesn't check versions yet: guard new APIs yourself. Each SDK member's doc comment says the version it needs.",
     ],

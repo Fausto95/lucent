@@ -44,7 +44,11 @@ counter.count; // 1: the same native object`,
     head: ["Value", "Crosses as", "So"],
     rows: [
       ["`number`, `string`, `boolean`", "a copy", "the same value on the other side"],
-      ["arrays, object types, `Record`, `Map`, `Set`, `Uint8Array`, `Date`", "a copy", "changes on one side don't reach the other"],
+      [
+        "arrays, object types, `Record`, `Map`, `Set`, `Uint8Array`, `Date`",
+        "a copy",
+        "changes on one side don't reach the other",
+      ],
       ["class instances", "a reference", "the same object each time, with its identity"],
       ["functions", "a callback", "Lucent can call JavaScript back"],
       ["promises", "a promise", "`await` works in both directions"],

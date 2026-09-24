@@ -14,8 +14,30 @@ export interface Symbols {
   ellipsis: string;
 }
 
-const UNICODE: Symbols = { brand: "◆", ok: "✓", fail: "✗", warn: "!", busy: "◐", on: "●", off: "○", bar: "│", rule: "─", ellipsis: "…" };
-const ASCII: Symbols = { brand: "*", ok: "+", fail: "x", warn: "!", busy: "~", on: "o", off: ".", bar: "|", rule: "-", ellipsis: "..." };
+const UNICODE: Symbols = {
+  brand: "◆",
+  ok: "✓",
+  fail: "✗",
+  warn: "!",
+  busy: "◐",
+  on: "●",
+  off: "○",
+  bar: "│",
+  rule: "─",
+  ellipsis: "…",
+};
+const ASCII: Symbols = {
+  brand: "*",
+  ok: "+",
+  fail: "x",
+  warn: "!",
+  busy: "~",
+  on: "o",
+  off: ".",
+  bar: "|",
+  rule: "-",
+  ellipsis: "...",
+};
 
 type Paint = (s: string) => string;
 

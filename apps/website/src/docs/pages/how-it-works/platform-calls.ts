@@ -18,7 +18,7 @@ export async function model(): Promise<string> {
   },
   {
     kind: "p",
-    text: "One module holds both platforms. Each platform's build compiles its own branch, and \"See the C++\" shows both results.",
+    text: 'One module holds both platforms. Each platform\'s build compiles its own branch, and "See the C++" shows both results.',
   },
   { kind: "h2", text: "Where the types come from" },
   {

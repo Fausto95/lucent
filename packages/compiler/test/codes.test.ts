@@ -19,7 +19,8 @@ describe("explanations", () => {
     for (const code of Object.values(Codes)) {
       const e = Explanations[code];
       expect(e, code).toBeDefined();
-      for (const field of ["title", "summary", "details", "fix"] as const) expect(e[field].trim(), `${code} ${field}`).not.toBe("");
+      for (const field of ["title", "summary", "details", "fix"] as const)
+        expect(e[field].trim(), `${code} ${field}`).not.toBe("");
       expect(Object.keys(e.wrong).length, `${code} wrong`).toBeGreaterThan(0);
       expect(Object.keys(e.right).length, `${code} right`).toBeGreaterThan(0);
     }
@@ -38,8 +39,16 @@ describe("explanations", () => {
 
 describe("diagnostics", () => {
   it("carry the fix and where the code is explained", () => {
-    const [d] = compileExample({ "a.lucent.ts": "export function f(): number {\n  var x = 1;\n  return x;\n}\n" }).diagnostics;
-    expect(d).toMatchObject({ code: "LUCENT1001", fix: Explanations.LUCENT1001.fix, docs: docsUrl("LUCENT1001") });
-    expect(docsUrl("LUCENT1001")).toBe("https://lucent-lang.dev/docs/reference/diagnostics/#lucent1001");
+    const [d] = compileExample({
+      "a.lucent.ts": "export function f(): number {\n  var x = 1;\n  return x;\n}\n",
+    }).diagnostics;
+    expect(d).toMatchObject({
+      code: "LUCENT1001",
+      fix: Explanations.LUCENT1001.fix,
+      docs: docsUrl("LUCENT1001"),
+    });
+    expect(docsUrl("LUCENT1001")).toBe(
+      "https://lucent-lang.dev/docs/reference/diagnostics/#lucent1001",
+    );
   });
 });

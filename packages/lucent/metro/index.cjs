@@ -17,7 +17,8 @@ const { spawn } = require("node:child_process");
  */
 function withLucent(config, options = {}) {
   if (shouldWatch(options)) startWatcher(config.projectRoot || process.cwd());
-  const upstream = (config.transformer && config.transformer.babelTransformerPath) || defaultTransformer();
+  const upstream =
+    (config.transformer && config.transformer.babelTransformerPath) || defaultTransformer();
   // Transformer workers inherit the environment.
   process.env.LUCENT_UPSTREAM_TRANSFORMER = upstream;
   return {
@@ -30,14 +31,19 @@ function withLucent(config, options = {}) {
 }
 
 function defaultTransformer() {
-  for (const candidate of ["@react-native/metro-babel-transformer", "@expo/metro-config/babel-transformer"]) {
+  for (const candidate of [
+    "@react-native/metro-babel-transformer",
+    "@expo/metro-config/babel-transformer",
+  ]) {
     try {
       return require.resolve(candidate, { paths: [process.cwd()] });
     } catch {
       // try the next one
     }
   }
-  throw new Error("Lucent: could not find Metro's babel transformer; set transformer.babelTransformerPath first");
+  throw new Error(
+    "Lucent: could not find Metro's babel transformer; set transformer.babelTransformerPath first",
+  );
 }
 
 function shouldWatch(options) {
@@ -55,7 +61,10 @@ function startWatcher(root) {
   if (watcher || process.env.LUCENT_WATCH_CHILD) return;
   const bin = path.join(__dirname, "../bin/lucent.cjs");
   // stdin stays Metro's: its keys (r reload, d dev menu) are not ours.
-  watcher = spawn(process.execPath, [bin, "dev", "--compact", "--root", root], { stdio: ["ignore", "inherit", "inherit"], env: { ...process.env, LUCENT_WATCH_CHILD: "1" } });
+  watcher = spawn(process.execPath, [bin, "dev", "--compact", "--root", root], {
+    stdio: ["ignore", "inherit", "inherit"],
+    env: { ...process.env, LUCENT_WATCH_CHILD: "1" },
+  });
   // Ctrl-C reaches the watcher through the process group; this covers the rest.
   process.on("exit", () => watcher.kill());
 }

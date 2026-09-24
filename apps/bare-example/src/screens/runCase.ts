@@ -27,6 +27,14 @@ export async function runCase(c: TestCase): Promise<CaseResult> {
     await new Promise<void>((r) => setTimeout(() => r(), 20));
   }
   await new Promise<void>((r) => setTimeout(() => r(), 50));
-  const pass = !error && lines.length === c.expected.length && lines.every((l, i) => l === c.expected[i]);
-  return { name: c.name, status: pass ? "pass" : "fail", lines, expected: c.expected, error, ms: Date.now() - start };
+  const pass =
+    !error && lines.length === c.expected.length && lines.every((l, i) => l === c.expected[i]);
+  return {
+    name: c.name,
+    status: pass ? "pass" : "fail",
+    lines,
+    expected: c.expected,
+    error,
+    ms: Date.now() - start,
+  };
 }

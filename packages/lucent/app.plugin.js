@@ -15,8 +15,12 @@ function buildOnce(projectRoot) {
   // No Gradle during prebuild: android/ is half-written, and a Gradle run would cache it so
   // (autolinking with the template's package). The Gradle task this plugin applies resolves
   // the classpath and builds Android when the app is built.
-  const r = spawnSync(process.execPath, [cli, "build", "--root", projectRoot], { stdio: "inherit", env: { ...process.env, LUCENT_NO_GRADLE: "1" } });
-  if (r.status !== 0) throw new Error("lucent build failed; fix the errors above and run prebuild again");
+  const r = spawnSync(process.execPath, [cli, "build", "--root", projectRoot], {
+    stdio: "inherit",
+    env: { ...process.env, LUCENT_NO_GRADLE: "1" },
+  });
+  if (r.status !== 0)
+    throw new Error("lucent build failed; fix the errors above and run prebuild again");
   const rnConfig = path.join(projectRoot, "react-native.config.js");
   const entry = `"lucent": { root: require("path").join(__dirname, ".lucent", "native") }`;
   const text = fs.existsSync(rnConfig) ? fs.readFileSync(rnConfig, "utf8") : undefined;
@@ -59,7 +63,8 @@ function withLucent(config) {
   const { withAppBuildGradle, withDangerousMod, withInfoPlist } = require("expo/config-plugins");
   // Gradle builds run lucent build first, like `lucent init` sets up in bare apps.
   config = withAppBuildGradle(config, (c) => {
-    if (c.modResults.language === "groovy") c.modResults.contents = applyGradleTask(c.modResults.contents) ?? c.modResults.contents;
+    if (c.modResults.language === "groovy")
+      c.modResults.contents = applyGradleTask(c.modResults.contents) ?? c.modResults.contents;
     return c;
   });
   // Keys the app sets itself win.

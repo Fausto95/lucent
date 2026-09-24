@@ -153,17 +153,50 @@ export type SchemaType =
   | { k: "out"; of: SchemaType; nullable: boolean }
   | { k: "classOf"; param: string; nullable: boolean }
   /** A block (iOS): `escaping` when it outlives the call, `main` when it runs on the main thread. */
-  | { k: "fn"; params: SchemaType[]; ret: SchemaType; escaping: boolean; main: boolean; nullable: boolean }
+  | {
+      k: "fn";
+      params: SchemaType[];
+      ret: SchemaType;
+      escaping: boolean;
+      main: boolean;
+      nullable: boolean;
+    }
   /** Swift's Error (an NSError): a Lucent Error. */
   | { k: "error"; nullable: boolean }
   | { k: "tparam"; name: string; nullable: boolean }
   | { k: "ref"; module: string; name: string; nullable: boolean };
 
-export const PRIMS = ["void", "boolean", "bool", "byte", "char", "short", "int", "long", "float", "double", "CGFloat", "NSInteger", "NSUInteger", "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64"] as const;
+export const PRIMS = [
+  "void",
+  "boolean",
+  "bool",
+  "byte",
+  "char",
+  "short",
+  "int",
+  "long",
+  "float",
+  "double",
+  "CGFloat",
+  "NSInteger",
+  "NSUInteger",
+  "int8",
+  "uint8",
+  "int16",
+  "uint16",
+  "int32",
+  "uint32",
+  "int64",
+  "uint64",
+] as const;
 export type PrimName = (typeof PRIMS)[number];
 
 /** Parses a schema type; bare names refer to `module`. */
-export function parseSchemaType(s: string, module = "", typeParams: readonly string[] = []): SchemaType {
+export function parseSchemaType(
+  s: string,
+  module = "",
+  typeParams: readonly string[] = [],
+): SchemaType {
   const toks = s.match(/@\w+|=>|[()[\]<>?,]|[\w.$]+/g) ?? [];
   let p = 0;
   const expect = (t: string) => {
@@ -196,13 +229,21 @@ export function parseSchemaType(s: string, module = "", typeParams: readonly str
       expect(")");
       if (toks[p] === "=>") {
         p++;
-        return { k: "fn", params: items, ret: type(), escaping: attrs.includes("@escaping"), main: attrs.includes("@main"), nullable: false };
+        return {
+          k: "fn",
+          params: items,
+          ret: type(),
+          escaping: attrs.includes("@escaping"),
+          main: attrs.includes("@main"),
+          nullable: false,
+        };
       }
       if (items.length !== 1 || attrs.length) throw new Error(`schema type ${s}: expected =>`);
       return items[0]!;
     }
     const name = toks[p++];
-    if (!name || !/^[\w.$]+$/.test(name)) throw new Error(`schema type ${s}: unexpected ${name ?? "end"}`);
+    if (!name || !/^[\w.$]+$/.test(name))
+      throw new Error(`schema type ${s}: unexpected ${name ?? "end"}`);
     if (toks[p] === "<") {
       p++;
       if (name === "Class") {
@@ -250,10 +291,13 @@ function named(s: string, module: string, typeParams: readonly string[]): Schema
   }
   if (s === "string") return { k: "string", nullable: false };
   if (s === "CharSequence") return { k: "string", nullable: false, charSequence: true };
-  if ((PRIMS as readonly string[]).includes(s)) return { k: "prim", name: s as PrimName, nullable: false };
+  if ((PRIMS as readonly string[]).includes(s))
+    return { k: "prim", name: s as PrimName, nullable: false };
   if (typeParams.includes(s)) return { k: "tparam", name: s, nullable: false };
   const dot = s.lastIndexOf(".");
-  return dot < 0 ? { k: "ref", module, name: s, nullable: false } : { k: "ref", module: s.slice(0, dot), name: s.slice(dot + 1), nullable: false };
+  return dot < 0
+    ? { k: "ref", module, name: s, nullable: false }
+    : { k: "ref", module: s.slice(0, dot), name: s.slice(dot + 1), nullable: false };
 }
 
 /** The written form of a schema type (`(@main (bool) => void)?`), as parseSchemaType reads it: for names and messages. */
@@ -296,4 +340,3 @@ export function formatSchemaType(t: SchemaType): string {
     }
   }
 }
-

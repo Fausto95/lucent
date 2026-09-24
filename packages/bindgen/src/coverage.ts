@@ -31,5 +31,12 @@ export function coverage(schema: SdkModuleSchema): Coverage {
     reasons[reason] = (reasons[reason] ?? 0) + 1;
   }
   const unrepresentable = schema.skipped?.length ?? 0;
-  return { module: schema.module, idiomatic, raw, unrepresentable, total: idiomatic + raw + unrepresentable, reasons };
+  return {
+    module: schema.module,
+    idiomatic,
+    raw,
+    unrepresentable,
+    total: idiomatic + raw + unrepresentable,
+    reasons,
+  };
 }

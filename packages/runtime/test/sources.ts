@@ -11,7 +11,10 @@ export function runtimeSources(cppDir: string): { cxx: string[]; c: string[] } {
       .readdirSync(path.join(cppDir, dir))
       .filter((f) => f.endsWith(ext))
       .map((f) => path.join(cppDir, dir, f));
-  return { cxx: [...list("lucent", ".cpp"), ...list("lucent/jsi", ".cpp")], c: list("third_party/quickjs", ".c") };
+  return {
+    cxx: [...list("lucent", ".cpp"), ...list("lucent/jsi", ".cpp")],
+    c: list("third_party/quickjs", ".c"),
+  };
 }
 
 /** Flags for the vendored C sources (third-party code: no warnings). */

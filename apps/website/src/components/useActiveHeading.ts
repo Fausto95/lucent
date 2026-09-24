@@ -7,7 +7,9 @@ export function useActiveHeading(ids: string[], offset = 120): string | null {
     let frame: number | null = null;
     const update = () => {
       const current = ids
-        .filter((id) => (document.getElementById(id)?.getBoundingClientRect().top ?? Infinity) <= offset)
+        .filter(
+          (id) => (document.getElementById(id)?.getBoundingClientRect().top ?? Infinity) <= offset,
+        )
         .at(-1);
       setActive(current ?? null);
       frame = null;

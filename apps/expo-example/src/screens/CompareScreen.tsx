@@ -18,7 +18,9 @@ const tick = () => new Promise<void>((r) => setTimeout(() => r(), 30));
 const ms = (v: number) => (Number.isFinite(v) ? v.toFixed(2) : "–");
 
 function best(rows: Row[], key: "numbers" | "strings", lucent: boolean): number {
-  return Math.min(...rows.filter((r) => (r.name === "Lucent") === lucent && !r.error).map((r) => r[key]));
+  return Math.min(
+    ...rows.filter((r) => (r.name === "Lucent") === lucent && !r.error).map((r) => r[key]),
+  );
 }
 
 export function CompareScreen() {
@@ -59,20 +61,35 @@ export function CompareScreen() {
   }, []);
 
   const done = !running && rows.length > 0;
-  const ratio = (key: "numbers" | "strings") => (best(rows, key, false) / best(rows, key, true)).toFixed(2);
+  const ratio = (key: "numbers" | "strings") =>
+    (best(rows, key, false) / best(rows, key, true)).toFixed(2);
 
   return (
     <>
       <View style={styles.header}>
         <Text style={styles.title}>Lucent vs native modules</Text>
         <Text style={styles.subtitle}>
-          NitroBenchmarks: {RUNS.toLocaleString("en-US")} calls of addNumbers(num, 5) and addStrings("hello ", "world"). Best of {ROUNDS}, in ms.
+          NitroBenchmarks: {RUNS.toLocaleString("en-US")} calls of addNumbers(num, 5) and
+          addStrings("hello ", "world"). Best of {ROUNDS}, in ms.
         </Text>
-        {__DEV__ ? <Text style={styles.warn}>Debug build: use a Release build for representative numbers.</Text> : null}
+        {__DEV__ ? (
+          <Text style={styles.warn}>
+            Debug build: use a Release build for representative numbers.
+          </Text>
+        ) : null}
         <Text testID="compare-summary" style={[styles.summary, done && styles.ok]}>
-          {running ? "Running…" : done ? `fastest other ÷ Lucent: numbers ${ratio("numbers")}x, strings ${ratio("strings")}x` : ""}
+          {running
+            ? "Running…"
+            : done
+              ? `fastest other ÷ Lucent: numbers ${ratio("numbers")}x, strings ${ratio("strings")}x`
+              : ""}
         </Text>
-        <Pressable testID="compare-run" disabled={running} onPress={run} style={({ pressed }) => [styles.button, (pressed || running) && styles.pressed]}>
+        <Pressable
+          testID="compare-run"
+          disabled={running}
+          onPress={run}
+          style={({ pressed }) => [styles.button, (pressed || running) && styles.pressed]}
+        >
           <Text style={styles.buttonText}>Run again</Text>
         </Pressable>
       </View>
@@ -84,7 +101,9 @@ export function CompareScreen() {
         </View>
         {rows.map((r) => (
           <View key={r.name} testID={`compare-${r.name}`} style={styles.benchRow}>
-            <Text style={[styles.benchName, r.name === "Lucent" && styles.ok]}>{r.error ? `❌ ${r.name}` : r.name}</Text>
+            <Text style={[styles.benchName, r.name === "Lucent" && styles.ok]}>
+              {r.error ? `❌ ${r.name}` : r.name}
+            </Text>
             <Text style={styles.benchCell}>{r.error ?? ms(r.numbers)}</Text>
             <Text style={styles.benchCell}>{r.error ? "" : ms(r.strings)}</Text>
           </View>

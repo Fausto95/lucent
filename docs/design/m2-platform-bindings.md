@@ -36,24 +36,24 @@ calls become ObjC++; Android calls become JNI from C++.
 
 **iOS (Xcode 27, iOS 27 SDK).**
 
-* `clang -extract-api` (the symbol-graph extractor behind DocC) lists a
+- `clang -extract-api` (the symbol-graph extractor behind DocC) lists a
   framework's API with categories merged into their classes, typed
   declaration fragments and availability: 450 symbols and 667 KB for
   `AVCaptureDevice.h`, in under a second. It does **not** carry nullability
   or `swift_attr` annotations.
-* `clang -Xclang -ast-dump=json` carries both: every type is spelled with
+- `clang -Xclang -ast-dump=json` carries both: every type is spelled with
   `_Nonnull` / `_Nullable` (16,645 and 9,673 occurrences for AVFoundation's
   translation unit), and `NS_SWIFT_UI_ACTOR` / `NS_SWIFT_SENDABLE` show up
   as `swift_attr`. A full dump is 417 MB for AVFoundation, and `-fmodules`
   hides imported declarations, so it has to be textual and filtered
   (`-ast-dump-filter=<Name>` returns only the matching declarations).
-* AVFoundation has no actor annotations (only `@Sendable`); UIKit marks its
+- AVFoundation has no actor annotations (only `@Sendable`); UIKit marks its
   classes `@MainActor`. Main-thread rules for older frameworks exist only in
   the documentation.
 
 **Android (SDK platform 37).**
 
-* `android.jar` (43 MB) is a stub jar of normal class files. Nullability is
+- `android.jar` (43 MB) is a stub jar of normal class files. Nullability is
   there as `RuntimeInvisibleAnnotations` / parameter annotations
   (`android.annotation.NonNull` / `Nullable`), and so are `@MainThread`,
   `@UiThread` and `@RequiresPermission`. Generic signatures are in the
@@ -77,17 +77,17 @@ calls become ObjC++; Android calls become JNI from C++.
 
 One small JSON schema for both platforms, so the compiler has one lowering:
 
-* **classes**: name, superclass, protocols/interfaces, generic parameters,
+- **classes**: name, superclass, protocols/interfaces, generic parameters,
   instance/static methods, properties (with getter/setter and readonly),
   constructors (`init…` / Java constructors), availability.
-* **methods**: native name (selector or JVM name + descriptor), parameters
+- **methods**: native name (selector or JVM name + descriptor), parameters
   with IR types and nullability, return type, `throws` (NSError** out
   parameter or Java checked exceptions), `thread: "any" | "main"`, and
   `asyncShape` when the last parameter is a completion handler.
-* **protocols / interfaces**, **enums** (`NS_ENUM`, `NS_OPTIONS`, Java
+- **protocols / interfaces**, **enums** (`NS_ENUM`, `NS_OPTIONS`, Java
   `static final int` groups), **constants** (`NS_TYPED_ENUM` strings such as
   `AVMediaTypeVideo`, Java static fields).
-* **IR types**: primitives, string, bytes, array/list, dictionary/map,
+- **IR types**: primitives, string, bytes, array/list, dictionary/map,
   object reference (with nullability), block/functional interface, enum, and
   `unsupported(reason)` (becomes a diagnostic only when used).
 
@@ -99,19 +99,19 @@ a normal build does not run clang or read the jar.
 
 ### Type mapping
 
-| ObjC | Java | Lucent (TypeScript) | Crossing |
-|---|---|---|---|
-| `BOOL`, `NSInteger`, `double`, … | `boolean`, `int`, `long`, `double`, … | `boolean` / `number` | value; `long`/`NSInteger` outside ±2^53 → `RangeError` |
-| `NSString *` | `String` | `string` | copied (UTF-16 both ways) |
-| `NSData *` | `byte[]` | `Uint8Array` | copied |
-| `NSArray<T> *` | `T[]`, `List<T>` | `T[]` | copied |
-| `NSDictionary<NSString*, T> *` | `Map<String, T>` | `Record<string, T>` | copied |
-| any other object | any other object | opaque platform class | reference (ObjC strong ref / JNI global ref) |
-| `_Nullable T` | `@Nullable T` | `T \| null` | `nil` / `null` ↔ `null` |
-| `NS_ENUM` / `NS_OPTIONS` | `@IntDef` groups | `const enum`-like namespace of numbers | value |
-| `NSError **` out parameter | checked exception | method throws `Error` (`name` = domain or class, `code`) | — |
-| completion handler `^(T, NSError *)` last | — | `Promise<T>` | resolved on the Lucent thread |
-| other blocks | functional interfaces | `(…) => R` | Lucent closure wrapped as block / proxy |
+| ObjC                                      | Java                                  | Lucent (TypeScript)                                      | Crossing                                               |
+| ----------------------------------------- | ------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------ |
+| `BOOL`, `NSInteger`, `double`, …          | `boolean`, `int`, `long`, `double`, … | `boolean` / `number`                                     | value; `long`/`NSInteger` outside ±2^53 → `RangeError` |
+| `NSString *`                              | `String`                              | `string`                                                 | copied (UTF-16 both ways)                              |
+| `NSData *`                                | `byte[]`                              | `Uint8Array`                                             | copied                                                 |
+| `NSArray<T> *`                            | `T[]`, `List<T>`                      | `T[]`                                                    | copied                                                 |
+| `NSDictionary<NSString*, T> *`            | `Map<String, T>`                      | `Record<string, T>`                                      | copied                                                 |
+| any other object                          | any other object                      | opaque platform class                                    | reference (ObjC strong ref / JNI global ref)           |
+| `_Nullable T`                             | `@Nullable T`                         | `T \| null`                                              | `nil` / `null` ↔ `null`                                |
+| `NS_ENUM` / `NS_OPTIONS`                  | `@IntDef` groups                      | `const enum`-like namespace of numbers                   | value                                                  |
+| `NSError **` out parameter                | checked exception                     | method throws `Error` (`name` = domain or class, `code`) | —                                                      |
+| completion handler `^(T, NSError *)` last | —                                     | `Promise<T>`                                             | resolved on the Lucent thread                          |
+| other blocks                              | functional interfaces                 | `(…) => R`                                               | Lucent closure wrapped as block / proxy                |
 
 Unannotated (`null_unspecified` / no annotation) references are typed
 `T | null`: safe by default, and `!` documents the assumption.
@@ -129,11 +129,11 @@ plain values.
 
 The compiler lowers a platform call to a direct call in generated glue:
 
-* **iOS**: `[obj requestAccessForMediaType:… completionHandler:…]` in a
+- **iOS**: `[obj requestAccessForMediaType:… completionHandler:…]` in a
   generated `.mm` file compiled by the existing podspec (`ios/**/*.mm`), with
   `@try/@catch` turning `NSException` into a Lucent `Error`, and the used
   frameworks added to `s.frameworks`.
-* **Android**: JNI with class and method IDs cached per process, looked up
+- **Android**: JNI with class and method IDs cached per process, looked up
   once through the app's class loader (captured on the JS thread), an
   exception check after every call, and the Lucent thread attached to the JVM
   as a daemon. The glue is C++ in `android/generated/`, globbed by the
@@ -142,15 +142,15 @@ The compiler lowers a platform call to a direct call in generated glue:
 
 ### Callbacks, delegates and listeners
 
-* **Blocks / functional interfaces** passed as parameters: a Lucent closure
+- **Blocks / functional interfaces** passed as parameters: a Lucent closure
   wrapped as an ObjC block, or a Java object from **one fixed runtime class**
   (`dev.lucent.NativeProxy`, via `java.lang.reflect.Proxy`) whose
   `InvocationHandler` calls back into C++. No per-interface Java is generated.
-* **Implementing a protocol / interface** (`class Delegate implements
-  AVCaptureVideoDataOutputSampleBufferDelegate`): builds on the M1 interface
+- **Implementing a protocol / interface** (`class Delegate implements
+AVCaptureVideoDataOutputSampleBufferDelegate`): builds on the M1 interface
   work. iOS gets a generated ObjC class per implementing Lucent class that
   forwards to the C++ virtuals; Android reuses the proxy class.
-* Callbacks arrive on arbitrary platform threads. They are posted to the
+- Callbacks arrive on arbitrary platform threads. They are posted to the
   Lucent thread and run under the Lucent lock like any async job, so Lucent
   code keeps its single-threaded model.
 
@@ -161,10 +161,10 @@ work), never on the main thread. Main-thread-only APIs (`thread: "main"`:
 `@MainActor` / `@UIActor` on iOS, `@MainThread` / `@UiThread` on Android,
 plus a curated override list for frameworks that only document it) are:
 
-* typed as returning `Promise<T>`, and lowered to a hop onto the main
+- typed as returning `Promise<T>`, and lowered to a hop onto the main
   queue / main `Looper` that `co_await`s the result, releasing the Lucent
   lock while it waits;
-* rejected with a diagnostic when called from a synchronous function.
+- rejected with a diagnostic when called from a synchronous function.
 
 ### Per-platform modules
 
@@ -184,13 +184,13 @@ platform code with the same types as the compiler.
 
 ## Testing
 
-* **Bindgen**: golden IR for a pinned set of headers and classes, checked in
+- **Bindgen**: golden IR for a pinned set of headers and classes, checked in
   and compared in CI (macOS runner for the iOS SDK; `android.jar` from the
   Android SDK on Linux).
-* **Glue without devices**: Foundation bindings run on macOS (the harness
+- **Glue without devices**: Foundation bindings run on macOS (the harness
   links Foundation), and `java.*` bindings run against a desktop JVM through
   JNI on Linux CI. These cover conversions, errors, callbacks and lifetimes.
-* **Devices**: platform cases in the example apps (for example
+- **Devices**: platform cases in the example apps (for example
   battery/device model/camera authorization), with expected output supplied
   per platform, run on the simulator and emulator.
 

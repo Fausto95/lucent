@@ -16,7 +16,10 @@ function android(src: string) {
     "m.android.lucent.ts": src,
   };
   for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), text);
-  const r = compile(Object.keys(files).map((f) => path.join(dir, f)), { platforms: ["android"] });
+  const r = compile(
+    Object.keys(files).map((f) => path.join(dir, f)),
+    { platforms: ["android"] },
+  );
   return { r, cpp: r.files.get("android/m_m.cpp") ?? "", dir };
 }
 
@@ -89,7 +92,9 @@ export async function run(): Promise<string> {
 }
 `);
     expect(r.diagnostics).toEqual([]);
-    expect(cpp).toContain('"(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;"');
+    expect(cpp).toContain(
+      '"(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;"',
+    );
     expect(cpp).toContain("lucent::jni::charSequenceToString");
   });
 
@@ -165,9 +170,12 @@ export async function run(): Promise<string> {
 }
 `);
     expect(codes(unguarded.r)).toEqual(["LUCENT3007"]);
-    expect(unguarded.r.diagnostics[0]!.message).toMatch(/VibrationEffect.*API 26.*available\("android", 26\)/);
+    expect(unguarded.r.diagnostics[0]!.message).toMatch(
+      /VibrationEffect.*API 26.*available\("android", 26\)/,
+    );
 
-    const guarded = android(`import { Build_VERSION, VibrationEffect, Vibrator, VibratorManager } from "lucent:android/android.os";
+    const guarded =
+      android(`import { Build_VERSION, VibrationEffect, Vibrator, VibratorManager } from "lucent:android/android.os";
 import { appContext, available } from "lucent:android";
 export async function run(): Promise<string> {
   const context = appContext();
@@ -187,12 +195,15 @@ export async function run(): Promise<string> {
     // One proxy per function, so removeUpdates gets the object requestLocationUpdates did.
     expect(cpp).toContain('lucent::jni::proxyFor(env, "android/location/LocationListener"');
     // Keyed by name and parameters: the default onLocationChanged(List) keeps its Java body.
-    expect(cpp).toMatch(/\{"onLocationChanged\(Landroid\/location\/Location;\)", \[f_\]\(JNIEnv\* env, jobjectArray args_\) -> jobject \{/);
+    expect(cpp).toMatch(
+      /\{"onLocationChanged\(Landroid\/location\/Location;\)", \[f_\]\(JNIEnv\* env, jobjectArray args_\) -> jobject \{/,
+    );
     expect(cpp).toContain("lucent::postCallback(");
   });
 
   it("declares the permissions of the SDK methods it calls", () => {
-    const { r } = android(`import { BiometricManager, BiometricManager_Authenticators as Authenticators } from "lucent:android/android.hardware.biometrics";
+    const { r } =
+      android(`import { BiometricManager, BiometricManager_Authenticators as Authenticators } from "lucent:android/android.hardware.biometrics";
 import { appContext, available } from "lucent:android";
 export async function run(): Promise<string> {
   if (!available("android", 30)) return "";
@@ -205,14 +216,23 @@ export async function run(): Promise<string> {
 
   it("names the Java classes the glue uses by name, for the app's shrinker to keep", () => {
     const { r } = android(tracker);
-    expect(r.javaKeep).toEqual(expect.arrayContaining(["android/location/LocationListener", "android/location/LocationManager"]));
+    expect(r.javaKeep).toEqual(
+      expect.arrayContaining([
+        "android/location/LocationListener",
+        "android/location/LocationManager",
+      ]),
+    );
   });
 
   it("implements Java interfaces with Lucent classes, one proxy per instance", () => {
     const { r, cpp } = android(tracker);
     expect(r.diagnostics).toEqual([]);
-    expect(cpp).toContain('lucent::jni::proxyFor(lucent::jni::env(), "android/location/LocationListener", o_.get(), {');
-    expect(cpp).toMatch(/\{"onLocationChanged\(Landroid\/location\/Location;\)", \[s_ = o_\]\(JNIEnv\* env, jobjectArray args_\) -> jobject \{/);
+    expect(cpp).toContain(
+      'lucent::jni::proxyFor(lucent::jni::env(), "android/location/LocationListener", o_.get(), {',
+    );
+    expect(cpp).toMatch(
+      /\{"onLocationChanged\(Landroid\/location\/Location;\)", \[s_ = o_\]\(JNIEnv\* env, jobjectArray args_\) -> jobject \{/,
+    );
     expect(cpp).toContain('{"onProviderDisabled(Ljava/lang/String;)", ');
   });
 
@@ -220,18 +240,38 @@ export async function run(): Promise<string> {
     const { r, cpp } = android(watcher);
     expect(r.diagnostics).toEqual([]);
     const java = r.java?.get("dev/lucent/generated/Watcher.java") ?? "";
-    expect(java).toContain("public final class Watcher extends android.net.ConnectivityManager.NetworkCallback {");
+    expect(java).toContain(
+      "public final class Watcher extends android.net.ConnectivityManager.NetworkCallback {",
+    );
     expect(java).toContain("  public void onAvailable(android.net.Network a0) {");
-    expect(java).toContain('    NativeProxy.dispatch(handle, "onAvailable(Landroid/net/Network;)", new Object[] {a0});');
+    expect(java).toContain(
+      '    NativeProxy.dispatch(handle, "onAvailable(Landroid/net/Network;)", new Object[] {a0});',
+    );
     // Methods the Lucent class leaves out keep the SDK's body.
     expect(java).not.toContain("onUnavailable");
-    expect(cpp).toContain('lucent::jni::subclassFor(lucent::jni::env(), "dev/lucent/generated/Watcher", o_.get(), {');
+    expect(cpp).toContain(
+      'lucent::jni::subclassFor(lucent::jni::env(), "dev/lucent/generated/Watcher", o_.get(), {',
+    );
     const jar = androidJars()?.[0];
     if (!jar || spawnSync("javac", ["-version"]).status !== 0) return;
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-java-"));
     fs.mkdirSync(path.join(dir, "src/dev/lucent/generated"), { recursive: true });
     fs.writeFileSync(path.join(dir, "src/dev/lucent/generated/Watcher.java"), java);
-    const cc = spawnSync("javac", ["--release", "11", "-Xlint:-options", "-cp", jar, "-d", path.join(dir, "out"), path.join(runtimeDir(), "native/android/src/main/java/dev/lucent/NativeProxy.java"), path.join(dir, "src/dev/lucent/generated/Watcher.java")], { encoding: "utf8" });
+    const cc = spawnSync(
+      "javac",
+      [
+        "--release",
+        "11",
+        "-Xlint:-options",
+        "-cp",
+        jar,
+        "-d",
+        path.join(dir, "out"),
+        path.join(runtimeDir(), "native/android/src/main/java/dev/lucent/NativeProxy.java"),
+        path.join(dir, "src/dev/lucent/generated/Watcher.java"),
+      ],
+      { encoding: "utf8" },
+    );
     expect(cc.stderr).toBe("");
   });
 
@@ -239,15 +279,33 @@ export async function run(): Promise<string> {
     const jar = androidJars()?.[0];
     if (!jar || spawnSync("javac", ["-version"]).status !== 0) return;
     const out = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-java-"));
-    const cc = spawnSync("javac", ["--release", "11", "-Xlint:-options", "-cp", jar, "-d", out, path.join(runtimeDir(), "native/android/src/main/java/dev/lucent/NativeProxy.java")], { encoding: "utf8" });
+    const cc = spawnSync(
+      "javac",
+      [
+        "--release",
+        "11",
+        "-Xlint:-options",
+        "-cp",
+        jar,
+        "-d",
+        out,
+        path.join(runtimeDir(), "native/android/src/main/java/dev/lucent/NativeProxy.java"),
+      ],
+      { encoding: "utf8" },
+    );
     expect(cc.stderr).toBe("");
   });
 
   it("generates JNI C++ that compiles with the NDK", () => {
-    const ndkRoot = path.join(process.env.ANDROID_HOME ?? path.join(os.homedir(), "Library/Android/sdk"), "ndk");
+    const ndkRoot = path.join(
+      process.env.ANDROID_HOME ?? path.join(os.homedir(), "Library/Android/sdk"),
+      "ndk",
+    );
     const ndk = fs.existsSync(ndkRoot) ? fs.readdirSync(ndkRoot).sort().pop() : undefined;
     if (!ndk) return;
-    const bin = fs.readdirSync(path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt")).map((h) => path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt", h, "bin/clang++"))[0]!;
+    const bin = fs
+      .readdirSync(path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt"))
+      .map((h) => path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt", h, "bin/clang++"))[0]!;
     const calls = `import { ClipData, Context, Intent } from "lucent:android/android.content";
 import { Uri } from "lucent:android/android.net";
 import { Build, Vibrator } from "lucent:android/android.os";
@@ -284,7 +342,19 @@ export async function run(): Promise<string> {
       }
       const cc = spawnSync(
         bin,
-        ["--target=aarch64-linux-android24", "-std=c++20", "-fsyntax-only", "-Werror", "-Wno-gnu-statement-expression", "-Wno-unused-label", "-Wno-parentheses-equality", "-Wno-comma", `-I${path.join(runtimeDir(), "cpp")}`, `-I${path.join(dir, "out/android")}`, path.join(dir, "out/android/m_m.cpp")],
+        [
+          "--target=aarch64-linux-android24",
+          "-std=c++20",
+          "-fsyntax-only",
+          "-Werror",
+          "-Wno-gnu-statement-expression",
+          "-Wno-unused-label",
+          "-Wno-parentheses-equality",
+          "-Wno-comma",
+          `-I${path.join(runtimeDir(), "cpp")}`,
+          `-I${path.join(dir, "out/android")}`,
+          path.join(dir, "out/android/m_m.cpp"),
+        ],
         { encoding: "utf8" },
       );
       expect(cc.stderr).toBe("");

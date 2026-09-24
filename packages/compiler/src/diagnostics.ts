@@ -36,7 +36,15 @@ export function toDiagnostic(e: CompileError): Diagnostic {
   const sf = e.node.getSourceFile();
   const start = e.node.getStart(sf);
   const { line, character } = sf.getLineAndCharacterOfPosition(start);
-  return { code: e.code, message: e.message, file: sf.fileName, line: line + 1, column: character + 1, start, length: e.node.getEnd() - start };
+  return {
+    code: e.code,
+    message: e.message,
+    file: sf.fileName,
+    line: line + 1,
+    column: character + 1,
+    start,
+    length: e.node.getEnd() - start,
+  };
 }
 
 export function formatDiagnostic(d: Diagnostic): string {

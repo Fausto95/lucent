@@ -17,7 +17,11 @@ const a = new Account("ada");
 a.deposit(10);
 a.deposit(5);
 print(a.owner, a.balance, a.secret());
-try { a.deposit(-1); } catch (e) { print(e.name, e.message); }
+try {
+  a.deposit(-1);
+} catch (e) {
+  print(e.name, e.message);
+}
 const seen = [];
 a.onEach((n) => seen.push(n));
 print(seen.join(","));

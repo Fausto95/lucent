@@ -13,20 +13,41 @@ const android = sdkAvailable("android");
 function app(): { root: string; cache: string } {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-sdk-"));
   const classes = path.join(root, "classes");
-  const sources = spawnSync("find", [path.resolve(import.meta.dirname, "../../bindgen/test/fixtures/java"), "-name", "*.java"], { encoding: "utf8" }).stdout.trim().split("\n");
+  const sources = spawnSync(
+    "find",
+    [path.resolve(import.meta.dirname, "../../bindgen/test/fixtures/java"), "-name", "*.java"],
+    { encoding: "utf8" },
+  )
+    .stdout.trim()
+    .split("\n");
   spawnSync("javac", ["--release", "11", "-d", classes, ...sources]);
   const jar = path.join(root, "widgets.jar");
   spawnSync("jar", ["cf", jar, "-C", classes, "."]);
   fs.mkdirSync(path.join(root, ".lucent"), { recursive: true });
-  fs.writeFileSync(path.join(root, ".lucent/android-classpath.json"), JSON.stringify({ jars: [jar], aars: [] }));
-  fs.writeFileSync(path.join(root, "w.android.lucent.ts"), 'import { Widget } from "lucent:android/com.example.widgets";\nexport async function f(): Promise<string> { return new Widget().getName(); }\n');
-  fs.writeFileSync(path.join(root, "w.ios.lucent.ts"), 'export async function f(): Promise<string> { return ""; }\n');
-  fs.writeFileSync(path.join(root, "w.lucent.ts"), "export declare function f(): Promise<string>;\n");
+  fs.writeFileSync(
+    path.join(root, ".lucent/android-classpath.json"),
+    JSON.stringify({ jars: [jar], aars: [] }),
+  );
+  fs.writeFileSync(
+    path.join(root, "w.android.lucent.ts"),
+    'import { Widget } from "lucent:android/com.example.widgets";\nexport async function f(): Promise<string> { return new Widget().getName(); }\n',
+  );
+  fs.writeFileSync(
+    path.join(root, "w.ios.lucent.ts"),
+    'export async function f(): Promise<string> { return ""; }\n',
+  );
+  fs.writeFileSync(
+    path.join(root, "w.lucent.ts"),
+    "export declare function f(): Promise<string>;\n",
+  );
   return { root, cache: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-sdk-cache-")) };
 }
 
 function lucent(a: { root: string; cache: string }, ...args: string[]) {
-  const r = spawnSync(process.execPath, [bin, "sdk", ...args, "--root", a.root], { encoding: "utf8", env: { ...process.env, NO_COLOR: "1", LUCENT_CACHE_DIR: a.cache } });
+  const r = spawnSync(process.execPath, [bin, "sdk", ...args, "--root", a.root], {
+    encoding: "utf8",
+    env: { ...process.env, NO_COLOR: "1", LUCENT_CACHE_DIR: a.cache },
+  });
   return { status: r.status, out: r.stdout + r.stderr, stdout: r.stdout };
 }
 
@@ -46,9 +67,23 @@ describe.skipIf(!javac || !android)("lucent sdk", () => {
 
   it("search and prefetch --json match their schemas", async () => {
     const a = app();
-    const { default: Ajv } = (await import("ajv")) as unknown as { default: new (o: object) => { compile(s: object): ((v: unknown) => boolean) & { errors?: unknown[] } } };
-    for (const [schema, args] of [["sdk-search", ["search", "Widget", "--json"]], ["sdk-prefetch", ["prefetch", "--json"]]] as const) {
-      const check = new Ajv({ allErrors: true }).compile(JSON.parse(fs.readFileSync(path.resolve(import.meta.dirname, `../schemas/${schema}.schema.json`), "utf8")) as object);
+    const { default: Ajv } = (await import("ajv")) as unknown as {
+      default: new (o: object) => {
+        compile(s: object): ((v: unknown) => boolean) & { errors?: unknown[] };
+      };
+    };
+    for (const [schema, args] of [
+      ["sdk-search", ["search", "Widget", "--json"]],
+      ["sdk-prefetch", ["prefetch", "--json"]],
+    ] as const) {
+      const check = new Ajv({ allErrors: true }).compile(
+        JSON.parse(
+          fs.readFileSync(
+            path.resolve(import.meta.dirname, `../schemas/${schema}.schema.json`),
+            "utf8",
+          ),
+        ) as object,
+      );
       const value = JSON.parse(lucent(a, ...args).stdout) as unknown;
       expect(check(value), JSON.stringify(check.errors)).toBe(true);
     }
@@ -56,15 +91,27 @@ describe.skipIf(!javac || !android)("lucent sdk", () => {
 
   it("prefetch fetches the project's imports only, by default", () => {
     const a = app();
-    const r = JSON.parse(lucent(a, "prefetch", "--json").stdout) as { modules: { module: string }[] };
+    const r = JSON.parse(lucent(a, "prefetch", "--json").stdout) as {
+      modules: { module: string }[];
+    };
     // No iOS import: nothing of iOS (an empty list is not `--ios` alone, which means every module).
     expect(r.modules.map((m) => m.module)).toEqual(["lucent:android/com.example.widgets"]);
   });
 
   it("search --json lists the matches", () => {
     const a = app();
-    const matches = JSON.parse(lucent(a, "search", "Widget", "--json").stdout) as { matches: { platform: string; module: string; kind: string; name: string; import: string }[] };
-    expect(matches.matches).toContainEqual(expect.objectContaining({ platform: "android", module: "com.example.widgets", kind: "class", name: "Widget", import: 'import { Widget } from "lucent:android/com.example.widgets";' }));
+    const matches = JSON.parse(lucent(a, "search", "Widget", "--json").stdout) as {
+      matches: { platform: string; module: string; kind: string; name: string; import: string }[];
+    };
+    expect(matches.matches).toContainEqual(
+      expect.objectContaining({
+        platform: "android",
+        module: "com.example.widgets",
+        kind: "class",
+        name: "Widget",
+        import: 'import { Widget } from "lucent:android/com.example.widgets";',
+      }),
+    );
   });
 
   it("show prints the declaration Lucent code sees", () => {

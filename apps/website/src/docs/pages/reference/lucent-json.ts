@@ -21,7 +21,11 @@ export const blocks: Block[] = [
   {
     kind: "table",
     head: ["Field", "Type", "Meaning"],
-    rows: lucentJsonFields.map(({ field, type, description }) => [`\`${field}\``, `\`${type}\``, description]),
+    rows: lucentJsonFields.map(({ field, type, description }) => [
+      `\`${field}\``,
+      `\`${type}\``,
+      description,
+    ]),
   },
   {
     kind: "p",

@@ -13,9 +13,6 @@
     "android": {
       "package": "dev.lucent.expoexample"
     },
-    "plugins": [
-      "@lucent-lang/lucent",
-      "expo-location"
-    ]
+    "plugins": ["@lucent-lang/lucent", "expo-location"]
   }
 }

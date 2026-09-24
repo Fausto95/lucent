@@ -18,6 +18,24 @@
     "skipLibCheck": true,
     "jsx": "react-jsx"
   },
-  "include": ["packages/*/src", "packages/*/test", "packages/*/scripts", "packages/*/vite.config.ts", "scripts", "vite.config.ts", "vitest.setup-build.ts", "vitest.setup-sdk.ts", "vitest.setup-tmp.ts", "vitest.setup-yield.ts"],
-  "exclude": ["node_modules", "apps", "**/.lucent", "packages/compiler/test/e2e/cases", "scripts/example-app", "scripts/example-app-bare"]
+  "include": [
+    "packages/*/src",
+    "packages/*/test",
+    "packages/*/scripts",
+    "packages/*/vite.config.ts",
+    "scripts",
+    "vite.config.ts",
+    "vitest.setup-build.ts",
+    "vitest.setup-sdk.ts",
+    "vitest.setup-tmp.ts",
+    "vitest.setup-yield.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "apps",
+    "**/.lucent",
+    "packages/compiler/test/e2e/cases",
+    "scripts/example-app",
+    "scripts/example-app-bare"
+  ]
 }

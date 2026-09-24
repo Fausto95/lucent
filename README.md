@@ -43,7 +43,13 @@ export async function hasStringAsync(): Promise<boolean> {
   if (PLATFORM === "ios") {
     return UIPasteboard.general.hasStrings;
   } else {
-    return main(() => appContext().getSystemService(ClipboardManager)?.getPrimaryClipDescription()?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) ?? false);
+    return main(
+      () =>
+        appContext()
+          .getSystemService(ClipboardManager)
+          ?.getPrimaryClipDescription()
+          ?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) ?? false,
+    );
   }
 }
 ```

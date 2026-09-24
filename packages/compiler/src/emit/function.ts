@@ -5,7 +5,18 @@ import { Codes, fail } from "../diagnostics.ts";
 import { isPlatformValue, platformGuard, switchPlatforms } from "../platforms.ts";
 import type { Platform } from "../sdk/schema.ts";
 import type { LucentModule } from "../program.ts";
-import { type ClassInfo, cppIdent, isVoidish, type LType, sameType, stripOpt, substitute, T, typeKey, unionOf } from "../types.ts";
+import {
+  type ClassInfo,
+  cppIdent,
+  isVoidish,
+  type LType,
+  sameType,
+  stripOpt,
+  substitute,
+  T,
+  typeKey,
+  unionOf,
+} from "../types.ts";
 import { containsAwait, freeVariables, type FunctionLike, symbolOf } from "./analysis.ts";
 import * as builtins from "./builtins.ts";
 import * as native from "./native.ts";
@@ -153,7 +164,12 @@ export class FnEmitter {
   declareVar(sym: ts.Symbol, name: string, type: LType, init: string | undefined): Local {
     const l = this.declare(sym, name, type);
     const ct = this.cpp(type);
-    if (l.boxed) this.line(init !== undefined ? `lucent::Box<${ct}> ${l.cpp}(${init});` : `lucent::Box<${ct}> ${l.cpp};`);
+    if (l.boxed)
+      this.line(
+        init !== undefined
+          ? `lucent::Box<${ct}> ${l.cpp}(${init});`
+          : `lucent::Box<${ct}> ${l.cpp};`,
+      );
     else this.line(init !== undefined ? `${ct} ${l.cpp} = ${init};` : `${ct} ${l.cpp}{};`);
     return l;
   }
@@ -162,7 +178,9 @@ export class FnEmitter {
 
   private isNumberLocal(d: ts.VariableDeclaration, sym: ts.Symbol): boolean {
     try {
-      return this.reg.lower(this.checker.getTypeOfSymbolAtLocation(sym, d.name), d.name).k === "number";
+      return (
+        this.reg.lower(this.checker.getTypeOfSymbolAtLocation(sym, d.name), d.name).k === "number"
+      );
     } catch {
       return false;
     }
@@ -201,7 +219,10 @@ export class FnEmitter {
       case "^":
         return this.intE(`(${this.i32(a, node)} ${op} ${this.i32(b, node)})`, "i32");
       case "<<":
-        return this.intE(`static_cast<int32_t>(${this.u32(a, node)} << (${this.u32(b, node)} & 31u))`, "i32");
+        return this.intE(
+          `static_cast<int32_t>(${this.u32(a, node)} << (${this.u32(b, node)} & 31u))`,
+          "i32",
+        );
       case ">>":
         return this.intE(`(${this.i32(a, node)} >> (${this.u32(b, node)} & 31u))`, "i32");
       case ">>>":
@@ -231,7 +252,8 @@ export class FnEmitter {
     if (from.k !== "union" && to.k !== "union" && this.cpp(from) === this.cpp(to)) return e.c;
     if (from.k === "never") return e.c;
     if (to.k === "void" || to.k === "never") return e.c;
-    if (to.k === "undefined" && (from.k === "void" || from.k === "undefined")) return "lucent::undefined";
+    if (to.k === "undefined" && (from.k === "void" || from.k === "undefined"))
+      return "lucent::undefined";
     if (to.k === "opt") {
       if (from.k === "undefined" || from.k === "void") return `${this.cpp(to)}(lucent::undefined)`;
       if (from.k === "null") return `${this.cpp(to)}(lucent::null)`;
@@ -246,8 +268,10 @@ export class FnEmitter {
     }
     if (to.k === "union") {
       if (from.k === "union") return `lucent::convert<${this.cpp(to)}>(${e.c})`;
-      const member = to.ms.find((m) => sameType(m, from)) ?? to.ms.find((m) => this.compatible(from, m));
-      if (!member) fail(node, Codes.UnsupportedType, `cannot convert ${typeKey(from)} to ${typeKey(to)}`);
+      const member =
+        to.ms.find((m) => sameType(m, from)) ?? to.ms.find((m) => this.compatible(from, m));
+      if (!member)
+        fail(node, Codes.UnsupportedType, `cannot convert ${typeKey(from)} to ${typeKey(to)}`);
       return `${this.cpp(to)}(${this.coerce(e, member, node)})`;
     }
     if (from.k === "union") {
@@ -257,27 +281,45 @@ export class FnEmitter {
     if (to.k === "fn" && from.k === "fn") return this.adaptFn(e, to, node);
     if (this.cpp(from) === this.cpp(to)) return e.c;
     // Error subclasses: upcast freely, downcast (after instanceof) with a check.
-    if (to.k === "error" && from.k === "class" && this.reg.cls(from.id).isError) return `lucent::Error(${e.c})`;
-    if (from.k === "error" && to.k === "class" && this.reg.cls(to.id).isError) return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
+    if (to.k === "error" && from.k === "class" && this.reg.cls(from.id).isError)
+      return `lucent::Error(${e.c})`;
+    if (from.k === "error" && to.k === "class" && this.reg.cls(to.id).isError)
+      return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
     if (to.k === "iface") return this.toIface(e, to, node);
     if (to.k === "iter") {
       const src = this.iterExpr(e, node ?? ts.factory.createIdentifier("value"));
-      if (this.cpp(src.e) !== this.cpp(to.e)) fail(node, Codes.ArrayVariance, `iterable element types must match exactly (${typeKey(src.e)} vs ${typeKey(to.e)})`);
+      if (this.cpp(src.e) !== this.cpp(to.e))
+        fail(
+          node,
+          Codes.ArrayVariance,
+          `iterable element types must match exactly (${typeKey(src.e)} vs ${typeKey(to.e)})`,
+        );
       return src.c;
     }
     // Date.prototype.valueOf: relational operators and unary plus.
     if (from.k === "date" && to.k === "number") return `(${e.c})->getTime()`;
-    if (from.k === "iface" && to.k === "class") return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
+    if (from.k === "iface" && to.k === "class")
+      return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
     if (from.k === "class" && to.k === "class") {
       // Upcasts are implicit; downcasts follow instanceof narrowing and are checked.
-      if (this.reg.derives(from.id, to.id)) return `std::static_pointer_cast<${this.reg.cppClass(to)}>(${e.c})`;
-      if (this.reg.derives(to.id, from.id)) return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
+      if (this.reg.derives(from.id, to.id))
+        return `std::static_pointer_cast<${this.reg.cppClass(to)}>(${e.c})`;
+      if (this.reg.derives(to.id, from.id))
+        return `lucent::downcast<${this.reg.cppClass(to)}>(${e.c})`;
     }
     if (from.k === "struct" && to.k === "struct") {
-      fail(node, Codes.InexactObject, `object types must match exactly to share a native representation (${this.describe(from)} vs ${this.describe(to)})`);
+      fail(
+        node,
+        Codes.InexactObject,
+        `object types must match exactly to share a native representation (${this.describe(from)} vs ${this.describe(to)})`,
+      );
     }
     if ((from.k === "array" && to.k === "array") || (from.k === "map" && to.k === "map")) {
-      fail(node, Codes.ArrayVariance, `collection element types must match exactly (${typeKey(from)} vs ${typeKey(to)}); annotate the value with the target type`);
+      fail(
+        node,
+        Codes.ArrayVariance,
+        `collection element types must match exactly (${typeKey(from)} vs ${typeKey(to)}); annotate the value with the target type`,
+      );
     }
     // A Lucent class implementing an SDK protocol, where the SDK takes one.
     if (from.k === "class" && to.k === "native") return native.nativeOfClass(this, e, to, node);
@@ -286,11 +328,20 @@ export class FnEmitter {
 
   /** `JSON.parse(text) as T`: a typed parse into the target type. */
   private jsonParse(node: ts.CallExpression, hint?: LType): E {
-    if (!hint || hint.k === "void") fail(node, Codes.UnsupportedBuiltin, "JSON.parse needs a target type: write `JSON.parse(text) as T` or annotate the variable");
-    if (node.arguments.length !== 1) fail(node, Codes.UnsupportedBuiltin, "JSON.parse reviver functions are not supported");
+    if (!hint || hint.k === "void")
+      fail(
+        node,
+        Codes.UnsupportedBuiltin,
+        "JSON.parse needs a target type: write `JSON.parse(text) as T` or annotate the variable",
+      );
+    if (node.arguments.length !== 1)
+      fail(node, Codes.UnsupportedBuiltin, "JSON.parse reviver functions are not supported");
     this.jsonReadable(hint, node, new Set());
     this.ctx.jsonReads.set(typeKey(hint), hint);
-    return { c: `lucent::jsonParse<${this.cpp(hint)}>(${this.exprAs(node.arguments[0]!, T.string)})`, t: hint };
+    return {
+      c: `lucent::jsonParse<${this.cpp(hint)}>(${this.exprAs(node.arguments[0]!, T.string)})`,
+      t: hint,
+    };
   }
 
   /** Types JSON.parse can build: plain data, like JSON itself. */
@@ -316,7 +367,11 @@ export class FnEmitter {
       case "union":
         return t.ms.forEach((m) => this.jsonReadable(m, node, seen));
       default:
-        fail(node, Codes.UnsupportedBuiltin, `JSON.parse cannot create ${t.k === "class" ? "class instances" : typeKey(t)}; parse into plain data types`);
+        fail(
+          node,
+          Codes.UnsupportedBuiltin,
+          `JSON.parse cannot create ${t.k === "class" ? "class instances" : typeKey(t)}; parse into plain data types`,
+        );
     }
   }
 
@@ -327,21 +382,34 @@ export class FnEmitter {
     if (e.t.k === "class") {
       const cls = this.reg.cls(e.t.id);
       if (!this.reg.implementsIface(e.t, to)) {
-        fail(node, Codes.InterfaceNotImplemented, `class ${cls.decl.name!.text} must declare \`implements ${name}\` (with these type arguments) to be used as ${name}`);
+        fail(
+          node,
+          Codes.InterfaceNotImplemented,
+          `class ${cls.decl.name!.text} must declare \`implements ${name}\` (with these type arguments) to be used as ${name}`,
+        );
       }
       return `std::static_pointer_cast<${this.reg.cppIface(to)}>(${e.c})`;
     }
     if (e.t.k === "iface") {
       // An interface that extends the target: an upcast to a virtual base.
-      if (this.reg.ifaceChain(e.t).some((x) => typeKey(x) === typeKey(to))) return `std::static_pointer_cast<${this.reg.cppIface(to)}>(${e.c})`;
-      fail(node, Codes.InterfaceNotImplemented, `${this.reg.iface(e.t.id).decl.name.text} does not extend ${name}`);
+      if (this.reg.ifaceChain(e.t).some((x) => typeKey(x) === typeKey(to)))
+        return `std::static_pointer_cast<${this.reg.cppIface(to)}>(${e.c})`;
+      fail(
+        node,
+        Codes.InterfaceNotImplemented,
+        `${this.reg.iface(e.t.id).decl.name.text} does not extend ${name}`,
+      );
     }
     this.notAnImplementation(e.t.k === "struct" ? "an object" : typeKey(e.t), to, node);
   }
 
   private notAnImplementation(what: string, to: LType & { k: "iface" }, node?: ts.Node): never {
     const name = this.reg.iface(to.id).decl.name.text;
-    fail(node, Codes.InterfaceNotImplemented, `${what} cannot be used as ${name}; ${name} is implemented by classes that declare \`implements ${name}\``);
+    fail(
+      node,
+      Codes.InterfaceNotImplemented,
+      `${what} cannot be used as ${name}; ${name} is implemented by classes that declare \`implements ${name}\``,
+    );
   }
 
   private compatible(from: LType, to: LType): boolean {
@@ -351,7 +419,11 @@ export class FnEmitter {
   }
 
   private describe(t: LType): string {
-    if (t.k === "struct") return `{ ${this.reg.struct(t.id).fields.map((f) => f.name).join(", ")} }`;
+    if (t.k === "struct")
+      return `{ ${this.reg
+        .struct(t.id)
+        .fields.map((f) => f.name)
+        .join(", ")} }`;
     return typeKey(t);
   }
 
@@ -361,9 +433,13 @@ export class FnEmitter {
     if (this.cpp(from) === this.cpp(to)) return e.c;
     const f = this.ctx.fresh("fn");
     const params = to.params.map((p, i) => `${this.cpp(p)} a${i}`).join(", ");
-    const args = from.params.map((p, i) => this.coerce({ c: `a${i}`, t: to.params[i] ?? T.undefined }, p, node)).join(", ");
+    const args = from.params
+      .map((p, i) => this.coerce({ c: `a${i}`, t: to.params[i] ?? T.undefined }, p, node))
+      .join(", ");
     const call = `${f}(${args})`;
-    const body = isVoidish(to.ret) ? `${call};` : `return ${this.coerce({ c: call, t: from.ret }, to.ret, node)};`;
+    const body = isVoidish(to.ret)
+      ? `${call};`
+      : `return ${this.coerce({ c: call, t: from.ret }, to.ret, node)};`;
     return `${this.cpp(to)}([${f} = ${e.c}](${params}) { ${body} })`;
   }
 
@@ -409,22 +485,47 @@ export class FnEmitter {
   }
 
   /** Lowers a nested function or arrow to a C++ lambda wrapped in lucent::Fn. */
-  closure(node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration, target?: LType): E {
+  closure(
+    node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
+    target?: LType,
+  ): E {
     const sig = this.checker.getTypeAtLocation(node).getCallSignatures()[0];
     if (!sig) fail(node, Codes.UnsupportedType, "expected a function type");
     let fnType: LType & { k: "fn" };
     if (target && target.k === "fn" && target.params.length >= node.parameters.length) {
       // Use the contextual parameter list so the lambda matches Fn<...> exactly.
-      fnType = { k: "fn", params: target.params, ret: this.reg.lower(this.checker.getReturnTypeOfSignature(sig), node) };
+      fnType = {
+        k: "fn",
+        params: target.params,
+        ret: this.reg.lower(this.checker.getReturnTypeOfSignature(sig), node),
+      };
     } else {
       fnType = this.reg.lowerSignature(sig, node) as LType & { k: "fn" };
     }
     const isAsync = !!ts.getModifiers(node)?.some((m) => m.kind === ts.SyntaxKind.AsyncKeyword);
     const isGen = !ts.isArrowFunction(node) && !!node.asteriskToken;
     if (isAsync && isGen) fail(node, Codes.UnsupportedSyntax, "async generators are not supported");
-    const ret = isAsync ? (fnType.ret.k === "promise" ? fnType.ret.inner : fnType.ret) : isGen ? T.void : fnType.ret;
+    const ret = isAsync
+      ? fnType.ret.k === "promise"
+        ? fnType.ret.inner
+        : fnType.ret
+      : isGen
+        ? T.void
+        : fnType.ret;
     const params = this.paramInfos(node, fnType);
-    const inner = new FnEmitter(this.ctx, { ...this.opts, async: isAsync, generator: isGen, returnType: ret, thisExpr: this.opts.thisExpr ? "self" : undefined, thisRef: this.opts.thisRef ? "self" : undefined, isConstructor: false }, this.allScopes());
+    const inner = new FnEmitter(
+      this.ctx,
+      {
+        ...this.opts,
+        async: isAsync,
+        generator: isGen,
+        returnType: ret,
+        thisExpr: this.opts.thisExpr ? "self" : undefined,
+        thisRef: this.opts.thisRef ? "self" : undefined,
+        isConstructor: false,
+      },
+      this.allScopes(),
+    );
     const free = freeVariables(this.checker, node);
     const captures: string[] = [];
     for (const sym of free) {
@@ -435,9 +536,14 @@ export class FnEmitter {
     if (usesThisVal) captures.push(`self = ${this.selfRef()}`);
     const decls = inner.emitParams(node, params);
     // Callbacks may be called with more arguments than they declare.
-    for (let i = node.parameters.length; i < fnType.params.length; i++) decls.push(`${this.cpp(fnType.params[i]!)} unused${i}`);
+    for (let i = node.parameters.length; i < fnType.params.length; i++)
+      decls.push(`${this.cpp(fnType.params[i]!)} unused${i}`);
     inner.emitFunctionBody(node);
-    const retCpp = isAsync ? `lucent::Promise<${this.reg.cppRet(ret)}>` : isGen ? this.cpp(fnType.ret) : this.reg.cppRet(ret);
+    const retCpp = isAsync
+      ? `lucent::Promise<${this.reg.cppRet(ret)}>`
+      : isGen
+        ? this.cpp(fnType.ret)
+        : this.reg.cppRet(ret);
     const body = inner.body().map((l) => "  ".repeat(this.depth) + l);
     let code: string;
     if (isAsync || isGen) {
@@ -468,13 +574,23 @@ export class FnEmitter {
       if (p.initializer) {
         // Default parameter: callers pass Opt<T>; the body sees the declared type.
         const sym = ts.isIdentifier(p.name) ? this.checker.getSymbolAtLocation(p.name) : undefined;
-        const bodyType = p.type ? this.checker.getTypeFromTypeNode(p.type) : sym ? this.checker.getTypeOfSymbolAtLocation(sym, p.name) : this.checker.getTypeAtLocation(p);
+        const bodyType = p.type
+          ? this.checker.getTypeFromTypeNode(p.type)
+          : sym
+            ? this.checker.getTypeOfSymbolAtLocation(sym, p.name)
+            : this.checker.getTypeAtLocation(p);
         type = this.reg.lower(bodyType, p);
         cppType = unionOf([type, T.undefined]);
       } else if (optional && declared.k !== "opt") {
         cppType = type = unionOf([declared, T.undefined]);
       }
-      return { name: ts.isIdentifier(p.name) ? p.name.text : `p${i}`, type, cppType, optional, rest };
+      return {
+        name: ts.isIdentifier(p.name) ? p.name.text : `p${i}`,
+        type,
+        cppType,
+        optional,
+        rest,
+      };
     });
   }
 
@@ -515,7 +631,8 @@ export class FnEmitter {
         if (this.opts.async) this.line("co_return;");
       } else {
         let e = this.expr(body, ret);
-        if (this.opts.async && e.t.k === "promise" && ret.k !== "promise") e = { c: `(co_await ${e.c})`, t: e.t.inner };
+        if (this.opts.async && e.t.k === "promise" && ret.k !== "promise")
+          e = { c: `(co_await ${e.c})`, t: e.t.inner };
         this.line(`${this.opts.async ? "co_return" : "return"} ${this.coerce(e, ret, body)};`);
       }
     }
@@ -540,7 +657,11 @@ export class FnEmitter {
       for (const d of st.declarationList.declarations) {
         const names: ts.Identifier[] = [];
         const collect = (n: ts.Node): void => {
-          if (ts.isIdentifier(n) && (ts.isVariableDeclaration(n.parent) || ts.isBindingElement(n.parent))) names.push(n);
+          if (
+            ts.isIdentifier(n) &&
+            (ts.isVariableDeclaration(n.parent) || ts.isBindingElement(n.parent))
+          )
+            names.push(n);
           ts.forEachChild(n, collect);
         };
         collect(d.name);
@@ -602,7 +723,8 @@ export class FnEmitter {
       case ts.SyntaxKind.EmptyStatement:
         return;
       case ts.SyntaxKind.FunctionDeclaration:
-        if (this.deferredFns.has(s as ts.FunctionDeclaration)) this.defineFunction(s as ts.FunctionDeclaration);
+        if (this.deferredFns.has(s as ts.FunctionDeclaration))
+          this.defineFunction(s as ts.FunctionDeclaration);
         return; // otherwise hoisted
       case ts.SyntaxKind.VariableStatement:
         return this.varStatement((s as ts.VariableStatement).declarationList);
@@ -677,7 +799,11 @@ export class FnEmitter {
           const l = this.declareVar(sym, d.name.text, type, undefined);
           if (d.initializer) this.line(`*${l.cpp} = ${this.exprAs(d.initializer, type)};`);
         } else {
-          const kind = this.counters.has(sym) ? "i64" : type.k === "number" ? this.ints.get(sym) : undefined;
+          const kind = this.counters.has(sym)
+            ? "i64"
+            : type.k === "number"
+              ? this.ints.get(sym)
+              : undefined;
           if (kind && d.initializer) {
             const init = this.toKind(this.expr(d.initializer, T.number), kind, d);
             const l = this.declare(sym, d.name.text, type);
@@ -696,7 +822,8 @@ export class FnEmitter {
           this.declareVar(sym, d.name.text, type, init);
         }
       } else {
-        if (!d.initializer) fail(d, Codes.UnsupportedDestructuring, "destructuring requires an initializer");
+        if (!d.initializer)
+          fail(d, Codes.UnsupportedDestructuring, "destructuring requires an initializer");
         const e = this.expr(d.initializer);
         const tmp = this.ctx.fresh("d");
         this.line(`${this.cpp(e.t)} ${tmp} = ${e.c};`);
@@ -715,9 +842,15 @@ export class FnEmitter {
     }
     if (ts.isObjectBindingPattern(pattern)) {
       for (const el of pattern.elements) {
-        if (el.dotDotDotToken) fail(el, Codes.UnsupportedDestructuring, "object rest in destructuring is not supported");
+        if (el.dotDotDotToken)
+          fail(el, Codes.UnsupportedDestructuring, "object rest in destructuring is not supported");
         const key = el.propertyName ?? (el.name as ts.Identifier);
-        if (!ts.isIdentifier(key) && !ts.isStringLiteral(key)) fail(el, Codes.UnsupportedDestructuring, "computed keys in destructuring are not supported");
+        if (!ts.isIdentifier(key) && !ts.isStringLiteral(key))
+          fail(
+            el,
+            Codes.UnsupportedDestructuring,
+            "computed keys in destructuring are not supported",
+          );
         const name = key.text;
         let v = this.member(source, name, el);
         if (el.initializer) v = this.withDefault(v, el.initializer, el);
@@ -729,14 +862,16 @@ export class FnEmitter {
     pattern.elements.forEach((el, i) => {
       if (ts.isOmittedExpression(el)) return;
       if (el.dotDotDotToken) {
-        if (source.t.k !== "array") fail(el, Codes.UnsupportedDestructuring, "rest elements need an array");
+        if (source.t.k !== "array")
+          fail(el, Codes.UnsupportedDestructuring, "rest elements need an array");
         this.bindPattern(el.name, { c: `(${source.c}).slice(${i}.0)`, t: source.t }, _isConst);
         return;
       }
       let v: E;
       const st = stripOpt(source.t);
       if (st.k === "tuple") v = { c: `std::get<${i}>(${source.c})`, t: st.es[i]! };
-      else if (st.k === "array") v = { c: `(${source.c}).get(${i}.0)`, t: unionOf([st.e, T.undefined]) };
+      else if (st.k === "array")
+        v = { c: `(${source.c}).get(${i}.0)`, t: unionOf([st.e, T.undefined]) };
       else fail(el, Codes.UnsupportedDestructuring, `cannot destructure ${typeKey(source.t)}`);
       if (el.initializer) v = this.withDefault(v, el.initializer, el);
       this.bindPattern(el.name, v, _isConst);
@@ -747,18 +882,23 @@ export class FnEmitter {
     if (v.t.k !== "opt") return v;
     const target = this.lt(node);
     const tmp = this.ctx.fresh("dv");
-    return { c: `({ auto ${tmp} = ${v.c}; ${tmp}.isUndefined() ? ${this.exprAs(init, target)} : ${this.coerce({ c: `${tmp}`, t: v.t }, target, node)}; })`, t: target };
+    return {
+      c: `({ auto ${tmp} = ${v.c}; ${tmp}.isUndefined() ? ${this.exprAs(init, target)} : ${this.coerce({ c: `${tmp}`, t: v.t }, target, node)}; })`,
+      t: target,
+    };
   }
 
   private returnStmt(s: ts.ReturnStatement): void {
     const ret = this.opts.returnType;
     const kw = this.opts.async || this.opts.generator ? "co_return" : "return";
-    if (this.opts.generator && s.expression) fail(s, Codes.UnsupportedSyntax, "generators cannot return a value; use `return;`");
+    if (this.opts.generator && s.expression)
+      fail(s, Codes.UnsupportedSyntax, "generators cannot return a value; use `return;`");
     let value: string | undefined;
     if (s.expression) {
       let e = this.expr(s.expression, ret);
       // `return promise` in an async function returns the promised value.
-      if (this.opts.async && e.t.k === "promise" && ret.k !== "promise") e = { c: `(co_await ${e.c})`, t: isVoidish(e.t.inner) ? T.undefined : e.t.inner };
+      if (this.opts.async && e.t.k === "promise" && ret.k !== "promise")
+        e = { c: `(co_await ${e.c})`, t: isVoidish(e.t.inner) ? T.undefined : e.t.inner };
       if (isVoidish(ret)) {
         if (e.c !== "lucent::undefined") this.line(`${e.c};`);
       } else value = this.coerce(e, ret, s.expression);
@@ -790,7 +930,11 @@ export class FnEmitter {
     if (!this.opts.generator) fail(y, Codes.UnsupportedSyntax, "`yield` outside a generator");
     const elem = this.generatorElement(y);
     if (!y.asteriskToken) {
-      this.line(y.expression ? `co_yield ${this.exprAs(y.expression, elem)};` : `co_yield ${this.coerce({ c: "lucent::undefined", t: T.undefined }, elem, y)};`);
+      this.line(
+        y.expression
+          ? `co_yield ${this.exprAs(y.expression, elem)};`
+          : `co_yield ${this.coerce({ c: "lucent::undefined", t: T.undefined }, elem, y)};`,
+      );
       return;
     }
     // Delegation: forward each value; closing the outer generator closes the inner one.
@@ -811,9 +955,12 @@ export class FnEmitter {
   private generatorElement(node: ts.Node): LType {
     let fn: ts.Node | undefined = node.parent;
     while (fn && !ts.isFunctionLike(fn)) fn = fn.parent;
-    const sig = fn ? this.checker.getSignatureFromDeclaration(fn as ts.SignatureDeclaration) : undefined;
+    const sig = fn
+      ? this.checker.getSignatureFromDeclaration(fn as ts.SignatureDeclaration)
+      : undefined;
     const ret = sig ? this.reg.lower(this.checker.getReturnTypeOfSignature(sig), node) : undefined;
-    if (!ret || ret.k !== "iter") fail(node, Codes.UnsupportedSyntax, "annotate generators with Generator<T> or Iterable<T>");
+    if (!ret || ret.k !== "iter")
+      fail(node, Codes.UnsupportedSyntax, "annotate generators with Generator<T> or Iterable<T>");
     return ret.e;
   }
 
@@ -874,7 +1021,9 @@ export class FnEmitter {
       this.close();
       return;
     }
-    this.open(`if (${guard ? guard.rest.map((r) => this.cond(r)).join(" && ") : this.cond(s.expression)}) {`);
+    this.open(
+      `if (${guard ? guard.rest.map((r) => this.cond(r)).join(" && ") : this.cond(s.expression)}) {`,
+    );
     this.nested(s.thenStatement);
     if (s.elseStatement) {
       this.depth--;
@@ -895,7 +1044,12 @@ export class FnEmitter {
   }
 
   private loopEntry(labels: string[]): ControlEntry {
-    const e: ControlEntry = { kind: "loop", labels, breakLabel: this.ctx.fresh("brk"), continueLabel: this.ctx.fresh("cont") };
+    const e: ControlEntry = {
+      kind: "loop",
+      labels,
+      breakLabel: this.ctx.fresh("brk"),
+      continueLabel: this.ctx.fresh("cont"),
+    };
     this.ctl.push(e);
     return e;
   }
@@ -947,7 +1101,8 @@ export class FnEmitter {
           if (ts.isIdentifier(d.name)) {
             const sym = this.checker.getSymbolAtLocation(d.name)!;
             const l = this.findLocal(sym)!;
-            if (l.boxed && !assignedWithin(this.checker, s.statement, sym)) perIteration.push({ sym, name: d.name.text, local: l });
+            if (l.boxed && !assignedWithin(this.checker, s.statement, sym))
+              perIteration.push({ sym, name: d.name.text, local: l });
           }
         }
       } else this.line(`${this.expr(s.initializer).c};`);
@@ -992,7 +1147,10 @@ export class FnEmitter {
     if (it.k === "array" || it.k === "regexMatch") {
       const items = it.k === "regexMatch" ? `${coll}->items` : coll;
       this.open(`for (size_t ${idx} = 0; ${idx} < ${items}.size(); ${idx}++) {`);
-      elem = it.k === "regexMatch" ? { c: `${items}.at(${idx})`, t: unionOf([T.string, T.undefined]) } : { c: `${coll}.at(${idx})`, t: it.e };
+      elem =
+        it.k === "regexMatch"
+          ? { c: `${items}.at(${idx})`, t: unionOf([T.string, T.undefined]) }
+          : { c: `${coll}.at(${idx})`, t: it.e };
     } else if (it.k === "string") {
       this.line(`auto ${coll}_cps = lucent::splitCodePoints(${coll});`);
       this.open(`for (size_t ${idx} = 0; ${idx} < ${coll}_cps.size(); ${idx}++) {`);
@@ -1001,12 +1159,22 @@ export class FnEmitter {
       this.open(`for (size_t ${idx} = 0; ${idx} < ${coll}.size(); ${idx}++) {`);
       elem = { c: `${coll}.at(${idx})`, t: T.number };
     } else if (it.k === "map" || it.k === "set" || it.k === "dict") {
-      this.line(`typename std::decay_t<decltype(${coll}.table())>::Iterating ${coll}_guard(${coll}.table());`);
+      this.line(
+        `typename std::decay_t<decltype(${coll}.table())>::Iterating ${coll}_guard(${coll}.table());`,
+      );
       this.open(`for (size_t ${idx} = 0; ${idx} < ${coll}.table().slotCount(); ${idx}++) {`);
       this.line(`if (!${coll}.table().slotLive(${idx})) continue;`);
       if (it.k === "set") elem = { c: `${coll}.table().slot(${idx}).key`, t: it.e };
-      else if (it.k === "map") elem = { c: `std::tuple<${this.cpp(it.key)}, ${this.cpp(it.val)}>(${coll}.table().slot(${idx}).key, ${coll}.table().slot(${idx}).value)`, t: { k: "tuple", es: [it.key, it.val] } };
-      else elem = { c: `std::tuple<lucent::String, ${this.cpp(it.val)}>(${coll}.table().slot(${idx}).key, ${coll}.table().slot(${idx}).value)`, t: { k: "tuple", es: [T.string, it.val] } };
+      else if (it.k === "map")
+        elem = {
+          c: `std::tuple<${this.cpp(it.key)}, ${this.cpp(it.val)}>(${coll}.table().slot(${idx}).key, ${coll}.table().slot(${idx}).value)`,
+          t: { k: "tuple", es: [it.key, it.val] },
+        };
+      else
+        elem = {
+          c: `std::tuple<lucent::String, ${this.cpp(it.val)}>(${coll}.table().slot(${idx}).key, ${coll}.table().slot(${idx}).value)`,
+          t: { k: "tuple", es: [T.string, it.val] },
+        };
     } else if (it.k === "iter") {
       // Leaving early (break, return, throw) closes the iterator, which runs
       // a generator's finally blocks; running out does not.
@@ -1035,14 +1203,17 @@ export class FnEmitter {
       const names = this.reg.struct(t.id).fields.map((f) => stringLiteral(f.name));
       this.line(`lucent::Array<lucent::String> ${keys}{${names.join(", ")}};`);
     } else if (t.k === "array") {
-      this.line(`lucent::Array<lucent::String> ${keys}; for (size_t k = 0; k < (${obj.c}).size(); k++) ${keys}.push(lucent::numberToString(static_cast<double>(k)));`);
+      this.line(
+        `lucent::Array<lucent::String> ${keys}; for (size_t k = 0; k < (${obj.c}).size(); k++) ${keys}.push(lucent::numberToString(static_cast<double>(k)));`,
+      );
     } else fail(s.expression, Codes.UnsupportedLoop, `cannot use for-in over ${typeKey(obj.t)}`);
     const entry = this.loopEntry(labels);
     this.open(`for (size_t ${idx} = 0; ${idx} < ${keys}.size(); ${idx}++) {`);
     this.loopBody(s.statement, entry, () => {
       const init = s.initializer;
       const value: E = { c: `${keys}.at(${idx})`, t: T.string };
-      if (ts.isVariableDeclarationList(init)) this.bindPattern(init.declarations[0]!.name, value, true);
+      if (ts.isVariableDeclarationList(init))
+        this.bindPattern(init.declarations[0]!.name, value, true);
       else this.line(`${this.assignTo(init, value, init)};`);
     });
     this.close();
@@ -1201,15 +1372,27 @@ export class FnEmitter {
     const e = this.expr(s.expression);
     const t = stripOpt(e.t);
     if (t.k === "error") this.line(`lucent::throwError(${e.c});`);
-    else if (t.k === "class" && this.reg.cls(t.id).isError) this.line(`lucent::throwError(${e.c});`);
-    else fail(s.expression, Codes.UnsupportedThrow, "only Error values can be thrown; use `throw new Error(...)`");
+    else if (t.k === "class" && this.reg.cls(t.id).isError)
+      this.line(`lucent::throwError(${e.c});`);
+    else
+      fail(
+        s.expression,
+        Codes.UnsupportedThrow,
+        "only Error values can be thrown; use `throw new Error(...)`",
+      );
   }
 
   private tryStmt(s: ts.TryStatement): void {
     this.open("{");
     let fin: ControlEntry | undefined;
     if (s.finallyBlock) {
-      fin = { kind: "finally", labels: [], finLabel: this.ctx.fresh("fin"), finVar: this.ctx.fresh("fc"), pending: new Map() };
+      fin = {
+        kind: "finally",
+        labels: [],
+        finLabel: this.ctx.fresh("fin"),
+        finVar: this.ctx.fresh("fc"),
+        pending: new Map(),
+      };
       this.line(`int ${fin.finVar} = 0;`);
       this.line(`std::exception_ptr ${fin.finVar}_ex;`);
       this.ctl.push(fin);
@@ -1233,7 +1416,8 @@ export class FnEmitter {
       this.pushScope();
       const v = s.catchClause.variableDeclaration;
       if (v) {
-        if (!ts.isIdentifier(v.name)) fail(v, Codes.UnsupportedDestructuring, "destructuring in catch is not supported");
+        if (!ts.isIdentifier(v.name))
+          fail(v, Codes.UnsupportedDestructuring, "destructuring in catch is not supported");
         const sym = this.checker.getSymbolAtLocation(v.name)!;
         this.declareVar(sym, v.name.text, T.error, `lucent::currentError(${ex})`);
       }
@@ -1272,8 +1456,10 @@ export class FnEmitter {
       case ts.SyntaxKind.NumericLiteral: {
         const v = Number((node as ts.NumericLiteral).text.replace(/_/g, ""));
         const c = numberLiteral(v);
-        if (Number.isInteger(v) && v >= 0 && v <= 2147483647) return { c, t: T.number, int: { c: String(v), kind: "i32" } };
-        if (Number.isInteger(v) && v > 2147483647 && v <= 4294967295) return { c, t: T.number, int: { c: `${v}u`, kind: "u32" } };
+        if (Number.isInteger(v) && v >= 0 && v <= 2147483647)
+          return { c, t: T.number, int: { c: String(v), kind: "i32" } };
+        if (Number.isInteger(v) && v > 2147483647 && v <= 4294967295)
+          return { c, t: T.number, int: { c: `${v}u`, kind: "u32" } };
         return { c, t: T.number };
       }
       case ts.SyntaxKind.StringLiteral:
@@ -1299,7 +1485,12 @@ export class FnEmitter {
       case ts.SyntaxKind.TypeAssertionExpression:
       case ts.SyntaxKind.SatisfiesExpression: {
         const inner = (node as ts.AsExpression).expression;
-        if (ts.isAsExpression(node) && ts.isTypeReferenceNode(node.type) && node.type.typeName.getText() === "const") return this.expr(inner, hint);
+        if (
+          ts.isAsExpression(node) &&
+          ts.isTypeReferenceNode(node.type) &&
+          node.type.typeName.getText() === "const"
+        )
+          return this.expr(inner, hint);
         const target = this.lt(node);
         const e = this.expr(inner, target);
         return { c: this.coerce(e, target, node), t: target };
@@ -1320,12 +1511,20 @@ export class FnEmitter {
       case ts.SyntaxKind.RegularExpressionLiteral: {
         const text = (node as ts.RegularExpressionLiteral).text;
         const end = text.lastIndexOf("/");
-        return { c: `lucent::makeRegExp(${stringLiteral(text.slice(1, end))}, lucent::Opt<lucent::String>(${stringLiteral(text.slice(end + 1))}))`, t: T.regexp };
+        return {
+          c: `lucent::makeRegExp(${stringLiteral(text.slice(1, end))}, lucent::Opt<lucent::String>(${stringLiteral(text.slice(end + 1))}))`,
+          t: T.regexp,
+        };
       }
       case ts.SyntaxKind.YieldExpression:
-        fail(node, Codes.UnsupportedSyntax, "`yield` can only be used as a statement; its value is not supported");
+        fail(
+          node,
+          Codes.UnsupportedSyntax,
+          "`yield` can only be used as a statement; its value is not supported",
+        );
       case ts.SyntaxKind.CallExpression:
-        if (builtins.isJsonParse(this, node as ts.CallExpression)) return this.jsonParse(node as ts.CallExpression, hint);
+        if (builtins.isJsonParse(this, node as ts.CallExpression))
+          return this.jsonParse(node as ts.CallExpression, hint);
         return this.narrowed(node, this.call(node as ts.CallExpression));
       case ts.SyntaxKind.NewExpression:
         return this.newExpr(node as ts.NewExpression);
@@ -1343,7 +1542,10 @@ export class FnEmitter {
       case ts.SyntaxKind.AwaitExpression:
         return this.awaitExpr(node as ts.AwaitExpression);
       case ts.SyntaxKind.TypeOfExpression:
-        return { c: `lucent::typeOf(${this.expr((node as ts.TypeOfExpression).expression).c})`, t: T.string };
+        return {
+          c: `lucent::typeOf(${this.expr((node as ts.TypeOfExpression).expression).c})`,
+          t: T.string,
+        };
       case ts.SyntaxKind.VoidExpression: {
         const e = this.expr((node as ts.VoidExpression).expression);
         return { c: `((void)(${e.c}), lucent::undefined)`, t: T.undefined };
@@ -1366,8 +1568,14 @@ export class FnEmitter {
     }
     if (t.k === "never" || sameType(t, e.t)) return e;
     // Only narrow (never widen) based on the checker.
-    const toSubclass = e.t.k === "class" && t.k === "class" && e.t.id !== t.id && this.reg.derives(t.id, e.t.id);
-    if (e.t.k === "opt" || e.t.k === "union" || ((e.t.k === "error" || e.t.k === "iface") && t.k === "class") || toSubclass) {
+    const toSubclass =
+      e.t.k === "class" && t.k === "class" && e.t.id !== t.id && this.reg.derives(t.id, e.t.id);
+    if (
+      e.t.k === "opt" ||
+      e.t.k === "union" ||
+      ((e.t.k === "error" || e.t.k === "iface") && t.k === "class") ||
+      toSubclass
+    ) {
       return { c: this.coerce(e, t, node), t };
     }
     return e;
@@ -1400,7 +1608,10 @@ export class FnEmitter {
   }
 
   private identifier(id: ts.Identifier): E {
-    if (isPlatformValue(this.checker, id)) return this.ctx.platform ? { c: stringLiteral(this.ctx.platform), t: T.string } : { c: this.platformOnly(id, "lucent::String"), t: T.string };
+    if (isPlatformValue(this.checker, id))
+      return this.ctx.platform
+        ? { c: stringLiteral(this.ctx.platform), t: T.string }
+        : { c: this.platformOnly(id, "lucent::String"), t: T.string };
     const text = id.text;
     const sym0 = symbolOf(this.checker, id);
     if (!sym0) {
@@ -1419,11 +1630,14 @@ export class FnEmitter {
     if (g) {
       if (g.kind === "var") return this.narrowed(id, { c: g.cpp, t: g.type });
       if (g.kind === "function") {
-        if (g.generic) fail(id, Codes.UnsupportedSyntax, "generic functions cannot be used as values");
+        if (g.generic)
+          fail(id, Codes.UnsupportedSyntax, "generic functions cannot be used as values");
         const fnType = g.type;
         const params = g.params.map((p, i) => `${this.cpp(p.cppType)} a${i}`).join(", ");
         const args = g.params.map((_, i) => `a${i}`).join(", ");
-        const ret = g.async ? `lucent::Promise<${this.reg.cppRet(fnType.ret.k === "promise" ? fnType.ret.inner : fnType.ret)}>` : this.reg.cppRet(fnType.ret);
+        const ret = g.async
+          ? `lucent::Promise<${this.reg.cppRet(fnType.ret.k === "promise" ? fnType.ret.inner : fnType.ret)}>`
+          : this.reg.cppRet(fnType.ret);
         const t: LType = { k: "fn", params: g.params.map((p) => p.cppType), ret: fnType.ret };
         return { c: `${this.cpp(t)}([](${params}) -> ${ret} { return ${g.cpp}(${args}); })`, t };
       }
@@ -1443,7 +1657,8 @@ export class FnEmitter {
   }
 
   private thisValue(node: ts.Node): E {
-    if (!this.opts.cls) fail(node, Codes.UnsupportedSyntax, "`this` is only supported inside class members");
+    if (!this.opts.cls)
+      fail(node, Codes.UnsupportedSyntax, "`this` is only supported inside class members");
     const t = this.lt(node);
     return { c: this.selfRef(), t };
   }
@@ -1456,7 +1671,12 @@ export class FnEmitter {
   private prefix(node: ts.PrefixUnaryExpression): E {
     const op = node.operator;
     if (op === ts.SyntaxKind.PlusPlusToken || op === ts.SyntaxKind.MinusMinusToken) {
-      return this.increment(node.operand, op === ts.SyntaxKind.PlusPlusToken ? "+" : "-", false, node);
+      return this.increment(
+        node.operand,
+        op === ts.SyntaxKind.PlusPlusToken ? "+" : "-",
+        false,
+        node,
+      );
     }
     const e = this.expr(node.operand);
     switch (op) {
@@ -1465,7 +1685,8 @@ export class FnEmitter {
       case ts.SyntaxKind.MinusToken:
         return { c: `(-${this.coerce(e, T.number, node)})`, t: T.number };
       case ts.SyntaxKind.PlusToken:
-        if (stripOpt(e.t).k === "string") return { c: `lucent::stringToNumber(${this.coerce(e, T.string, node)})`, t: T.number };
+        if (stripOpt(e.t).k === "string")
+          return { c: `lucent::stringToNumber(${this.coerce(e, T.string, node)})`, t: T.number };
         return { c: this.coerce(e, T.number, node), t: T.number };
       case ts.SyntaxKind.TildeToken:
         return this.intE(`(~${this.i32(e, node)})`, "i32");
@@ -1474,20 +1695,32 @@ export class FnEmitter {
   }
 
   private postfix(node: ts.PostfixUnaryExpression): E {
-    return this.increment(node.operand, node.operator === ts.SyntaxKind.PlusPlusToken ? "+" : "-", true, node);
+    return this.increment(
+      node.operand,
+      node.operator === ts.SyntaxKind.PlusPlusToken ? "+" : "-",
+      true,
+      node,
+    );
   }
 
   /** ++x, x++, --x, x-- on locals, fields and elements. */
   private increment(target: ts.Expression, sign: "+" | "-", postfix: boolean, _node: ts.Node): E {
     const op = sign === "+" ? "++" : "--";
     const il = this.intLocal(target);
-    if (il) return { c: `static_cast<double>(${postfix ? `${il.cpp}${op}` : `${op}${il.cpp}`})`, t: T.number };
+    if (il)
+      return {
+        c: `static_cast<double>(${postfix ? `${il.cpp}${op}` : `${op}${il.cpp}`})`,
+        t: T.number,
+      };
     const lv = this.lvalue(target);
-    if (lv.direct) return { c: postfix ? `(${lv.direct}${op})` : `(${op}${lv.direct})`, t: T.number };
+    if (lv.direct)
+      return { c: postfix ? `(${lv.direct}${op})` : `(${op}${lv.direct})`, t: T.number };
     const tmp = this.ctx.fresh("v");
     const set = lv.set!(`(${tmp} ${sign} 1)`);
     return {
-      c: postfix ? `({ double ${tmp} = ${lv.get}; ${set}; ${tmp}; })` : `({ double ${tmp} = ${lv.get}; ${set}; ${tmp} ${sign} 1; })`,
+      c: postfix
+        ? `({ double ${tmp} = ${lv.get}; ${set}; ${tmp}; })`
+        : `({ double ${tmp} = ${lv.get}; ${set}; ${tmp} ${sign} 1; })`,
       t: T.number,
     };
   }
@@ -1496,7 +1729,13 @@ export class FnEmitter {
    * An assignable place. `direct` is a C++ lvalue when one exists; otherwise
    * `get`/`set` read and write it (for array elements, setters…).
    */
-  lvalue(target: ts.Expression): { direct?: string; get: string; set?: (v: string) => string; type: LType; setup?: string } {
+  lvalue(target: ts.Expression): {
+    direct?: string;
+    get: string;
+    set?: (v: string) => string;
+    type: LType;
+    setup?: string;
+  } {
     if (ts.isParenthesizedExpression(target)) return this.lvalue(target.expression);
     if (ts.isIdentifier(target)) {
       const sym = this.ctx.resolve(symbolOf(this.checker, target)!);
@@ -1505,7 +1744,11 @@ export class FnEmitter {
       if (local?.int) {
         const kind = local.int;
         const x = local.cpp;
-        return { get: `static_cast<double>(${x})`, set: (v) => `(${x} = ${this.toKind({ c: v, t: T.number }, kind, target)})`, type: T.number };
+        return {
+          get: `static_cast<double>(${x})`,
+          set: (v) => `(${x} = ${this.toKind({ c: v, t: T.number }, kind, target)})`,
+          type: T.number,
+        };
       }
       if (local) {
         const c = local.boxed ? `(*${local.cpp})` : local.cpp;
@@ -1538,14 +1781,23 @@ export class FnEmitter {
       if (ot.k === "class") return builtins.classMemberLvalue(this, obj, ot, name, target);
       if (ot.k === "iface") return builtins.ifaceMemberLvalue(this, obj, ot, name, target);
       if (ot.k === "regexp" && name === "lastIndex") {
-      const c = `${obj.c}->lastIndex`;
-      return { direct: c, get: c, type: T.number };
-    }
-    if (ot.k === "array" && name === "length") {
-        const tmp = this.ctx.fresh("arr");
-        return { get: `${obj.c}.length()`, set: (v) => `${obj.c}.setLength(${v})`, type: T.number, setup: tmp };
+        const c = `${obj.c}->lastIndex`;
+        return { direct: c, get: c, type: T.number };
       }
-      fail(target, Codes.UnsupportedAssignmentTarget, `cannot assign to .${name} of ${typeKey(obj.t)}`);
+      if (ot.k === "array" && name === "length") {
+        const tmp = this.ctx.fresh("arr");
+        return {
+          get: `${obj.c}.length()`,
+          set: (v) => `${obj.c}.setLength(${v})`,
+          type: T.number,
+          setup: tmp,
+        };
+      }
+      fail(
+        target,
+        Codes.UnsupportedAssignmentTarget,
+        `cannot assign to .${name} of ${typeKey(obj.t)}`,
+      );
     }
     if (ts.isElementAccessExpression(target)) {
       const obj = this.expr(target.expression);
@@ -1563,11 +1815,19 @@ export class FnEmitter {
       }
       if (ot.k === "dict") {
         const key = this.exprAs(target.argumentExpression, T.string);
-        return { get: `lucent::entryAt(${obj.c}, ${key})`, set: (v) => `lucent::setEntry(${obj.c}, ${key}, ${v})`, type: ot.val };
+        return {
+          get: `lucent::entryAt(${obj.c}, ${key})`,
+          set: (v) => `lucent::setEntry(${obj.c}, ${key}, ${v})`,
+          type: ot.val,
+        };
       }
       void o;
       void k;
-      fail(target, Codes.UnsupportedAssignmentTarget, `cannot assign to an element of ${typeKey(obj.t)}`);
+      fail(
+        target,
+        Codes.UnsupportedAssignmentTarget,
+        `cannot assign to an element of ${typeKey(obj.t)}`,
+      );
     }
     fail(target, Codes.UnsupportedAssignmentTarget, "unsupported assignment target");
   }
@@ -1580,8 +1840,18 @@ export class FnEmitter {
       const vt = stripOpt(value.t);
       target.elements.forEach((el, i) => {
         if (ts.isOmittedExpression(el)) return;
-        if (ts.isSpreadElement(el)) fail(el, Codes.UnsupportedDestructuring, "rest elements in destructuring assignments are not supported");
-        const v: E = vt.k === "tuple" ? { c: `std::get<${i}>(${tmp})`, t: vt.es[i]! } : vt.k === "array" ? { c: `${tmp}.get(${i}.0)`, t: unionOf([vt.e, T.undefined]) } : fail(el, Codes.UnsupportedDestructuring, "cannot destructure this value");
+        if (ts.isSpreadElement(el))
+          fail(
+            el,
+            Codes.UnsupportedDestructuring,
+            "rest elements in destructuring assignments are not supported",
+          );
+        const v: E =
+          vt.k === "tuple"
+            ? { c: `std::get<${i}>(${tmp})`, t: vt.es[i]! }
+            : vt.k === "array"
+              ? { c: `${tmp}.get(${i}.0)`, t: unionOf([vt.e, T.undefined]) }
+              : fail(el, Codes.UnsupportedDestructuring, "cannot destructure this value");
         parts.push(`(void)(${this.assignElement(el, v)});`);
       });
       return `({ ${parts.join(" ")} ${tmp}; })`;
@@ -1593,12 +1863,22 @@ export class FnEmitter {
       for (const p of target.properties) {
         if (ts.isShorthandPropertyAssignment(p)) {
           let v = this.member(src, p.name.text, p);
-          if (p.objectAssignmentInitializer) v = this.withDefault(v, p.objectAssignmentInitializer, p);
+          if (p.objectAssignmentInitializer)
+            v = this.withDefault(v, p.objectAssignmentInitializer, p);
           parts.push(`(void)(${this.assignTo(p.name, v, p)});`);
-        } else if (ts.isPropertyAssignment(p) && (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name))) {
-          parts.push(`(void)(${this.assignElement(p.initializer, this.member(src, p.name.text, p))});`);
+        } else if (
+          ts.isPropertyAssignment(p) &&
+          (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name))
+        ) {
+          parts.push(
+            `(void)(${this.assignElement(p.initializer, this.member(src, p.name.text, p))});`,
+          );
         } else {
-          fail(p, Codes.UnsupportedDestructuring, "only named properties can be destructured in assignments");
+          fail(
+            p,
+            Codes.UnsupportedDestructuring,
+            "only named properties can be destructured in assignments",
+          );
         }
       }
       return `({ ${parts.join(" ")} ${tmp}; })`;
@@ -1628,10 +1908,19 @@ export class FnEmitter {
     }
     const compound = ASSIGN_OPS.get(op);
     if (compound) return this.compoundAssign(node, compound);
-    if (op === ts.SyntaxKind.QuestionQuestionEqualsToken || op === ts.SyntaxKind.BarBarEqualsToken || op === ts.SyntaxKind.AmpersandAmpersandEqualsToken) {
+    if (
+      op === ts.SyntaxKind.QuestionQuestionEqualsToken ||
+      op === ts.SyntaxKind.BarBarEqualsToken ||
+      op === ts.SyntaxKind.AmpersandAmpersandEqualsToken
+    ) {
       const lv = this.lvalue(node.left);
       const cur: E = { c: lv.get, t: lv.type };
-      const test = op === ts.SyntaxKind.QuestionQuestionEqualsToken ? `!(${lv.get}).has()` : op === ts.SyntaxKind.BarBarEqualsToken ? `!lucent::truthy(${lv.get})` : `lucent::truthy(${lv.get})`;
+      const test =
+        op === ts.SyntaxKind.QuestionQuestionEqualsToken
+          ? `!(${lv.get}).has()`
+          : op === ts.SyntaxKind.BarBarEqualsToken
+            ? `!lucent::truthy(${lv.get})`
+            : `lucent::truthy(${lv.get})`;
       const assign = this.assignTo(node.left, this.expr(node.right, lv.type), node);
       return { c: `({ if (${test}) ${assign}; ${this.coerce(cur, lv.type, node)}; })`, t: lv.type };
     }
@@ -1654,7 +1943,9 @@ export class FnEmitter {
         const key = this.exprAs(node.left, T.string);
         if (ot.k === "dict") return { c: `(${obj.c}).has(${key})`, t: T.boolean };
         if (ot.k === "struct") {
-          const names = this.reg.struct(ot.id).fields.map((f) => `${key} == ${stringLiteral(f.name)}`);
+          const names = this.reg
+            .struct(ot.id)
+            .fields.map((f) => `${key} == ${stringLiteral(f.name)}`);
           return { c: `(${names.join(" || ") || "false"})`, t: T.boolean };
         }
         fail(node, Codes.UnsupportedOperator, "`in` is only supported on records");
@@ -1676,9 +1967,13 @@ export class FnEmitter {
       case ts.SyntaxKind.ExclamationEqualsToken:
         return { c: `(!${this.equality(a, b, false)})`, t: T.boolean };
       case ts.SyntaxKind.PlusToken: {
-        const at = stripOpt(a.t), bt = stripOpt(b.t);
+        const at = stripOpt(a.t),
+          bt = stripOpt(b.t);
         if (at.k === "string" || bt.k === "string") {
-          return { c: `(${at.k === "string" && a.t.k !== "opt" ? `lucent::String(${a.c})` : this.toStringCode(a)} + ${this.toStringCode(b)})`, t: T.string };
+          return {
+            c: `(${at.k === "string" && a.t.k !== "opt" ? `lucent::String(${a.c})` : this.toStringCode(a)} + ${this.toStringCode(b)})`,
+            t: T.string,
+          };
         }
         return this.arith(a, b, "+", node);
       }
@@ -1710,7 +2005,11 @@ export class FnEmitter {
       case ts.SyntaxKind.GreaterThanEqualsToken: {
         const sym = node.operatorToken.getText();
         const at = stripOpt(a.t);
-        if (at.k === "string") return { c: `(${this.coerce(a, T.string, node)} ${sym} ${this.coerce(b, T.string, node)})`, t: T.boolean };
+        if (at.k === "string")
+          return {
+            c: `(${this.coerce(a, T.string, node)} ${sym} ${this.coerce(b, T.string, node)})`,
+            t: T.boolean,
+          };
         return { c: `(${this.num(a, node)} ${sym} ${this.num(b, node)})`, t: T.boolean };
       }
     }
@@ -1736,11 +2035,18 @@ export class FnEmitter {
 
   /** `===` (strict) or `==` between two values. */
   equality(a: E, b: E, strict: boolean): string {
-    const at = a.t, bt = b.t;
+    const at = a.t,
+      bt = b.t;
     const absent = (t: LType) => t.k === "undefined" || t.k === "null";
     // Types that can hold null or undefined: a template parameter may be
     // instantiated with an optional type.
-    const mayBeAbsent = (t: LType): boolean => t.k === "opt" || t.k === "void" || t.k === "tparam" || t.k === "never" || absent(t) || (t.k === "union" && t.ms.some(mayBeAbsent));
+    const mayBeAbsent = (t: LType): boolean =>
+      t.k === "opt" ||
+      t.k === "void" ||
+      t.k === "tparam" ||
+      t.k === "never" ||
+      absent(t) ||
+      (t.k === "union" && t.ms.some(mayBeAbsent));
     // A present value is never null or undefined; it is still evaluated.
     const never = (e: E) => `((void)(${e.c}), false)`;
     if (!strict && (absent(bt) || absent(at))) {
@@ -1763,11 +2069,17 @@ export class FnEmitter {
     const BITWISE = ["&", "|", "^", "<<", ">>", ">>>"];
     const il = this.intLocal(node.left);
     if (il?.int === "i64" && (op === "+" || op === "-")) {
-      return { c: `static_cast<double>(${il.cpp} ${op}= ${this.toKind(this.expr(node.right), "i64", node)})`, t: T.number };
+      return {
+        c: `static_cast<double>(${il.cpp} ${op}= ${this.toKind(this.expr(node.right), "i64", node)})`,
+        t: T.number,
+      };
     }
     if (il && BITWISE.includes(op)) {
       const r = this.bitwise(op, this.intE(il.cpp, il.int!), this.expr(node.right), node);
-      return { c: `static_cast<double>(${il.cpp} = ${this.toKind(r, il.int!, node)})`, t: T.number };
+      return {
+        c: `static_cast<double>(${il.cpp} = ${this.toKind(r, il.int!, node)})`,
+        t: T.number,
+      };
     }
     const lv = this.lvalue(node.left);
     const rhs = this.expr(node.right);
@@ -1779,11 +2091,22 @@ export class FnEmitter {
       combine = (cur) => `(lucent::String(${cur}) + ${r})`;
     } else {
       const r = this.num(rhs, node);
-      const fnOps: Record<string, string> = { "%": "jsMod", "**": "jsPow", "&": "jsAnd", "|": "jsOr", "^": "jsXor", "<<": "jsShl", ">>": "jsSar", ">>>": "jsShr" };
+      const fnOps: Record<string, string> = {
+        "%": "jsMod",
+        "**": "jsPow",
+        "&": "jsAnd",
+        "|": "jsOr",
+        "^": "jsXor",
+        "<<": "jsShl",
+        ">>": "jsSar",
+        ">>>": "jsShr",
+      };
       if (["+", "-", "*", "/"].includes(op)) {
-        if (lv.direct && lv.type.k === "number") return { c: `(${lv.direct} ${op}= ${r})`, t: T.number };
+        if (lv.direct && lv.type.k === "number")
+          return { c: `(${lv.direct} ${op}= ${r})`, t: T.number };
         combine = (cur) => `(${cur} ${op} ${r})`;
-      } else if (BITWISE.includes(op)) combine = (cur) => this.bitwise(op, { c: cur, t: T.number }, rhs, node).c;
+      } else if (BITWISE.includes(op))
+        combine = (cur) => this.bitwise(op, { c: cur, t: T.number }, rhs, node).c;
       else combine = (cur) => `lucent::${fnOps[op]}(${cur}, ${r})`;
     }
     const cur = this.coerce({ c: lv.get, t: lv.type }, lt, node);
@@ -1795,11 +2118,14 @@ export class FnEmitter {
   private logical(node: ts.BinaryExpression, isAnd: boolean): E {
     const a = this.expr(node.left);
     const b = this.expr(node.right);
-    if (a.t.k === "boolean" && b.t.k === "boolean") return { c: `(${a.c} ${isAnd ? "&&" : "||"} ${b.c})`, t: T.boolean };
+    if (a.t.k === "boolean" && b.t.k === "boolean")
+      return { c: `(${a.c} ${isAnd ? "&&" : "||"} ${b.c})`, t: T.boolean };
     const t = this.lt(node);
     const tmp = this.ctx.fresh("l");
     const test = a.t.k === "boolean" ? tmp : `lucent::truthy(${tmp})`;
-    const pick = isAnd ? `${test} ? ${this.coerce(b, t, node)} : ${this.coerceNarrowed({ c: tmp, t: a.t }, t, node)}` : `${test} ? ${this.coerceNarrowed({ c: tmp, t: a.t }, t, node)} : ${this.coerce(b, t, node)}`;
+    const pick = isAnd
+      ? `${test} ? ${this.coerce(b, t, node)} : ${this.coerceNarrowed({ c: tmp, t: a.t }, t, node)}`
+      : `${test} ? ${this.coerceNarrowed({ c: tmp, t: a.t }, t, node)} : ${this.coerce(b, t, node)}`;
     return { c: `({ auto ${tmp} = ${a.c}; ${pick}; })`, t };
   }
 
@@ -1816,16 +2142,25 @@ export class FnEmitter {
     const a = this.expr(node.left);
     const t = this.lt(node);
     const b = this.expr(node.right, t);
-    if (a.t.k !== "opt") return a.t.k === "undefined" || a.t.k === "null" ? { c: this.coerce(b, t, node), t } : { c: this.coerce(a, t, node), t };
+    if (a.t.k !== "opt")
+      return a.t.k === "undefined" || a.t.k === "null"
+        ? { c: this.coerce(b, t, node), t }
+        : { c: this.coerce(a, t, node), t };
     const tmp = this.ctx.fresh("n");
-    return { c: `({ auto ${tmp} = ${a.c}; ${tmp}.has() ? ${this.coerce({ c: `${tmp}.get()`, t: a.t.inner }, t, node)} : ${this.coerce(b, t, node)}; })`, t };
+    return {
+      c: `({ auto ${tmp} = ${a.c}; ${tmp}.has() ? ${this.coerce({ c: `${tmp}.get()`, t: a.t.inner }, t, node)} : ${this.coerce(b, t, node)}; })`,
+      t,
+    };
   }
 
   private conditional(node: ts.ConditionalExpression): E {
     const guard = platformGuard(this.checker, node.condition);
     if (guard && !this.ctx.platform) {
       // A branch's type: the other's may be untyped (its SDK missing here).
-      const typed = [node.whenTrue, node.whenFalse].find((b) => !(this.checker.getTypeAtLocation(b).flags & ts.TypeFlags.Any)) ?? node;
+      const typed =
+        [node.whenTrue, node.whenFalse].find(
+          (b) => !(this.checker.getTypeAtLocation(b).flags & ts.TypeFlags.Any),
+        ) ?? node;
       const t = this.lt(typed);
       return { c: this.platformOnly(node, this.ctx.reg.cpp(t)), t };
     }
@@ -1835,7 +2170,10 @@ export class FnEmitter {
     const c = guard ? guard.rest.map((r) => this.cond(r)).join(" && ") : this.cond(node.condition);
     const a = this.expr(node.whenTrue, t);
     const b = this.expr(node.whenFalse, t);
-    return { c: `(${c} ? ${this.coerce(a, t, node.whenTrue)} : ${this.coerce(b, t, node.whenFalse)})`, t };
+    return {
+      c: `(${c} ? ${this.coerce(a, t, node.whenTrue)} : ${this.coerce(b, t, node.whenFalse)})`,
+      t,
+    };
   }
 
   private awaitExpr(node: ts.AwaitExpression): E {
@@ -1846,7 +2184,8 @@ export class FnEmitter {
       const inner = e.t.inner;
       return { c: `(co_await ${e.c})`, t: isVoidish(inner) ? T.undefined : inner };
     }
-    if (t.k === "promise") fail(node, Codes.UnsupportedSyntax, "awaiting an optional promise is not supported");
+    if (t.k === "promise")
+      fail(node, Codes.UnsupportedSyntax, "awaiting an optional promise is not supported");
     return e;
   }
 
@@ -1854,9 +2193,17 @@ export class FnEmitter {
     const target = node.expression;
     if (ts.isElementAccessExpression(target)) {
       const obj = this.expr(target.expression);
-      if (stripOpt(obj.t).k === "dict") return { c: `(${obj.c}).remove(${this.exprAs(target.argumentExpression, T.string)})`, t: T.boolean };
+      if (stripOpt(obj.t).k === "dict")
+        return {
+          c: `(${obj.c}).remove(${this.exprAs(target.argumentExpression, T.string)})`,
+          t: T.boolean,
+        };
     }
-    fail(node, Codes.UnsupportedOperator, "`delete` is only supported on record entries (`delete record[key]`)");
+    fail(
+      node,
+      Codes.UnsupportedOperator,
+      "`delete` is only supported on record entries (`delete record[key]`)",
+    );
   }
 
   // --- member access ---------------------------------------------------------------
@@ -1864,7 +2211,12 @@ export class FnEmitter {
   /** Reads `name` from a value (struct field, class member, builtin property). */
   member(obj: E, name: string, node: ts.Node): E {
     const t = obj.t;
-    if (t.k === "opt") fail(node, Codes.UnsupportedSyntax, `value may be undefined; check it before reading .${name}`);
+    if (t.k === "opt")
+      fail(
+        node,
+        Codes.UnsupportedSyntax,
+        `value may be undefined; check it before reading .${name}`,
+      );
     if (t.k === "struct") {
       const f = this.reg.struct(t.id).fields.find((x) => x.name === name);
       if (!f) fail(node, Codes.UnsupportedSyntax, `unknown field ${name}`);
@@ -1872,9 +2224,16 @@ export class FnEmitter {
     }
     if (t.k === "union") {
       // A field every member has: read it with std::visit.
-      const types = t.ms.map((m) => (m.k === "struct" || m.k === "class" ? this.member({ c: "v", t: m }, name, node) : fail(node, Codes.UnsupportedSyntax, `cannot read .${name} of ${typeKey(t)}`)));
+      const types = t.ms.map((m) =>
+        m.k === "struct" || m.k === "class"
+          ? this.member({ c: "v", t: m }, name, node)
+          : fail(node, Codes.UnsupportedSyntax, `cannot read .${name} of ${typeKey(t)}`),
+      );
       const rt = unionOf(types.map((x) => x.t));
-      return { c: `std::visit([&](const auto& v) -> ${this.cpp(rt)} { return v->${cppIdent(name)}; }, ${obj.c})`, t: rt };
+      return {
+        c: `std::visit([&](const auto& v) -> ${this.cpp(rt)} { return v->${cppIdent(name)}; }, ${obj.c})`,
+        t: rt,
+      };
     }
     if (t.k === "class") return builtins.classMember(this, obj, t, name, node);
     if (t.k === "native") return native.nativeMember(this, obj, node);
@@ -1888,7 +2247,8 @@ export class FnEmitter {
     if (nativeE) return nativeE;
     const staticE = builtins.staticProperty(this, node);
     if (staticE) return staticE;
-    if (node.expression.kind === ts.SyntaxKind.SuperKeyword) return builtins.superMember(this, node.name.text, node);
+    if (node.expression.kind === ts.SyntaxKind.SuperKeyword)
+      return builtins.superMember(this, node.name.text, node);
     const obj = this.receiver(node.expression);
     return this.member(obj, node.name.text, node);
   }
@@ -1913,21 +2273,37 @@ export class FnEmitter {
       case "array": {
         const i = this.expr(arg, T.number);
         const index = i.int ? `static_cast<int64_t>(${i.int.c})` : this.coerce(i, T.number, arg);
-        return { c: i.int ? `(${obj.c}).getIndex(${index})` : `(${obj.c}).get(${index})`, t: unionOf([t.e, T.undefined]) };
+        return {
+          c: i.int ? `(${obj.c}).getIndex(${index})` : `(${obj.c}).get(${index})`,
+          t: unionOf([t.e, T.undefined]),
+        };
       }
       case "regexMatch":
-        return { c: `lucent::matchItem(${obj.c}, ${this.exprAs(arg, T.number)})`, t: unionOf([T.string, T.undefined]) };
+        return {
+          c: `lucent::matchItem(${obj.c}, ${this.exprAs(arg, T.number)})`,
+          t: unionOf([T.string, T.undefined]),
+        };
       case "tuple": {
-        if (!ts.isNumericLiteral(arg)) fail(arg, Codes.UnsupportedSyntax, "tuple elements need a literal index");
+        if (!ts.isNumericLiteral(arg))
+          fail(arg, Codes.UnsupportedSyntax, "tuple elements need a literal index");
         const i = Number(arg.text);
         return { c: `std::get<${i}>(${obj.c})`, t: t.es[i]! };
       }
       case "dict":
-        return { c: `(${obj.c}).get(${this.exprAs(arg, T.string)})`, t: unionOf([t.val, T.undefined]) };
+        return {
+          c: `(${obj.c}).get(${this.exprAs(arg, T.string)})`,
+          t: unionOf([t.val, T.undefined]),
+        };
       case "string":
-        return { c: `lucent::stringIndex(${obj.c}, ${this.exprAs(arg, T.number)})`, t: unionOf([T.string, T.undefined]) };
+        return {
+          c: `lucent::stringIndex(${obj.c}, ${this.exprAs(arg, T.number)})`,
+          t: unionOf([T.string, T.undefined]),
+        };
       case "bytes":
-        return { c: `(${obj.c}).get(${this.exprAs(arg, T.number)})`, t: unionOf([T.number, T.undefined]) };
+        return {
+          c: `(${obj.c}).get(${this.exprAs(arg, T.number)})`,
+          t: unionOf([T.number, T.undefined]),
+        };
       case "struct": {
         if (ts.isStringLiteral(arg)) return this.member(obj, arg.text, node);
         break;
@@ -1953,13 +2329,23 @@ export class FnEmitter {
     }
     if (ts.isElementAccessExpression(n)) {
       const recv = this.chainPart(n.expression);
-      return this.guarded(recv, !!n.questionDotToken, (x) => this.elementOf(x, n.argumentExpression, n), n);
+      return this.guarded(
+        recv,
+        !!n.questionDotToken,
+        (x) => this.elementOf(x, n.argumentExpression, n),
+        n,
+      );
     }
     if (ts.isCallExpression(n)) {
       const callee = n.expression;
       if (ts.isPropertyAccessExpression(callee) && !n.questionDotToken) {
         const recv = this.chainPart(callee.expression);
-        return this.guarded(recv, !!callee.questionDotToken, (x) => builtins.methodCall(this, x, callee.name.text, n), n);
+        return this.guarded(
+          recv,
+          !!callee.questionDotToken,
+          (x) => builtins.methodCall(this, x, callee.name.text, n),
+          n,
+        );
       }
       const f = this.chainPart(callee);
       return this.guarded(f, !!n.questionDotToken, (x) => this.callValue(x, n), n);
@@ -1967,16 +2353,29 @@ export class FnEmitter {
     return { e: this.expr(n), sc: false };
   }
 
-  private guarded(b: { e: E; sc: boolean }, q: boolean, apply: (x: E) => E, node: ts.Node): { e: E; sc: boolean } {
+  private guarded(
+    b: { e: E; sc: boolean },
+    q: boolean,
+    apply: (x: E) => E,
+    node: ts.Node,
+  ): { e: E; sc: boolean } {
     if (b.e.t.k !== "opt" || (!q && !b.sc)) {
-      if (b.e.t.k === "opt" && !q) fail(node, Codes.UnsupportedSyntax, "value may be undefined here; use ?. or check it first");
+      if (b.e.t.k === "opt" && !q)
+        fail(
+          node,
+          Codes.UnsupportedSyntax,
+          "value may be undefined here; use ?. or check it first",
+        );
       return { e: apply(b.e), sc: b.sc };
     }
     const tmp = this.ctx.fresh("oc");
     const r = apply({ c: `${tmp}.get()`, t: b.e.t.inner });
     const rt = unionOf([r.t, T.undefined]);
     return {
-      e: { c: `({ auto ${tmp} = ${b.e.c}; ${tmp}.has() ? ${this.coerce(r, rt, node)} : ${this.cpp(rt)}(lucent::undefined); })`, t: rt },
+      e: {
+        c: `({ auto ${tmp} = ${b.e.c}; ${tmp}.has() ? ${this.coerce(r, rt, node)} : ${this.cpp(rt)}(lucent::undefined); })`,
+        t: rt,
+      },
       sc: true,
     };
   }
@@ -1984,9 +2383,13 @@ export class FnEmitter {
   /** Calls a function value with the arguments of `node`. */
   private callValue(f: E, node: ts.CallExpression): E {
     const ft = stripOpt(f.t);
-    if (ft.k !== "fn") fail(node.expression, Codes.UnsupportedCall, `cannot call a value of type ${typeKey(f.t)}`);
+    if (ft.k !== "fn")
+      fail(node.expression, Codes.UnsupportedCall, `cannot call a value of type ${typeKey(f.t)}`);
     const args = this.args(node.arguments, ft.params, node);
-    return { c: `${this.coerce(f, ft, node.expression)}(${args.join(", ")})`, t: isVoidish(ft.ret) ? T.undefined : ft.ret };
+    return {
+      c: `${this.coerce(f, ft, node.expression)}(${args.join(", ")})`,
+      t: isVoidish(ft.ret) ? T.undefined : ft.ret,
+    };
   }
 
   // --- calls ------------------------------------------------------------------------------
@@ -1997,7 +2400,9 @@ export class FnEmitter {
    * observed, arguments are evaluated into temporaries first.
    */
   private inOrder(args: readonly ts.Expression[], build: () => E): E {
-    const candidates = args.filter((a) => !isLiteral(a) && !ts.isArrowFunction(a) && !ts.isFunctionExpression(a));
+    const candidates = args.filter(
+      (a) => !isLiteral(a) && !ts.isArrowFunction(a) && !ts.isFunctionExpression(a),
+    );
     if (candidates.length < 2 || candidates.every(isSimple)) return build();
     const temps: string[] = [];
     const saved: ts.Expression[] = [];
@@ -2013,7 +2418,11 @@ export class FnEmitter {
       }
       const r = build();
       const pre = temps.join(" ");
-      return { c: `({ ${pre} ${r.c}; })`, t: r.t, int: r.int && { c: `({ ${pre} ${r.int.c}; })`, kind: r.int.kind } };
+      return {
+        c: `({ ${pre} ${r.c}; })`,
+        t: r.t,
+        int: r.int && { c: `({ ${pre} ${r.int.c}; })`, kind: r.int.kind },
+      };
     } finally {
       for (const s of saved) this.subst.delete(s);
     }
@@ -2028,7 +2437,11 @@ export class FnEmitter {
   private callInner(node: ts.CallExpression): E {
     const callee = node.expression;
     if (callee.kind === ts.SyntaxKind.SuperKeyword) return builtins.superCall(this, node);
-    if (ts.isPropertyAccessExpression(callee) && callee.expression.kind === ts.SyntaxKind.SuperKeyword) return builtins.superMember(this, callee.name.text, callee, node);
+    if (
+      ts.isPropertyAccessExpression(callee) &&
+      callee.expression.kind === ts.SyntaxKind.SuperKeyword
+    )
+      return builtins.superMember(this, callee.name.text, callee, node);
     if (ts.isPropertyAccessExpression(callee)) {
       const n = native.nativeCall(this, node, undefined);
       if (n) return n;
@@ -2061,7 +2474,8 @@ export class FnEmitter {
     for (let i = 0; i < fixed; i++) {
       const p = params[i]!;
       const a = args[i];
-      if (a && ts.isSpreadElement(a)) fail(a, Codes.UnsupportedCall, "spread arguments are only supported for rest parameters");
+      if (a && ts.isSpreadElement(a))
+        fail(a, Codes.UnsupportedCall, "spread arguments are only supported for rest parameters");
       if (a) out.push(this.exprAs(a, p));
       else if (p.k === "opt") out.push(`${this.cpp(p)}(lucent::undefined)`);
       else if (p.k === "undefined") out.push("lucent::undefined");
@@ -2072,7 +2486,8 @@ export class FnEmitter {
       const tmp = this.ctx.fresh("rest");
       const parts: string[] = [`${this.cpp(restT)} ${tmp};`];
       for (const a of args.slice(fixed)) {
-        if (ts.isSpreadElement(a)) parts.push(`${tmp}.append(${this.exprAs(a.expression, restT)});`);
+        if (ts.isSpreadElement(a))
+          parts.push(`${tmp}.append(${this.exprAs(a.expression, restT)});`);
         else parts.push(`${tmp}.push(${this.exprAs(a, restT.e)});`);
       }
       out.push(`({ ${parts.join(" ")} ${tmp}; })`);
@@ -2080,9 +2495,15 @@ export class FnEmitter {
     return out;
   }
 
-  private callUserFunction(g: Extract<import("./context.ts").Global, { kind: "function" }>, node: ts.CallExpression): E {
+  private callUserFunction(
+    g: Extract<import("./context.ts").Global, { kind: "function" }>,
+    node: ts.CallExpression,
+  ): E {
     const params = g.params;
-    const restParam = params.length && params[params.length - 1]!.rest ? params[params.length - 1]!.cppType : undefined;
+    const restParam =
+      params.length && params[params.length - 1]!.rest
+        ? params[params.length - 1]!.cppType
+        : undefined;
     let callee = g.cpp;
     let paramTypes = params.map((p) => p.cppType);
     let ret = g.type.ret;
@@ -2097,7 +2518,9 @@ export class FnEmitter {
       ret = substitute(ret, map);
     }
     const args = this.args(node.arguments, paramTypes, node, restParam);
-    const rt = g.async ? { k: "promise", inner: ret.k === "promise" ? ret.inner : ret } as LType : ret;
+    const rt = g.async
+      ? ({ k: "promise", inner: ret.k === "promise" ? ret.inner : ret } as LType)
+      : ret;
     return { c: `${callee}(${args.join(", ")})`, t: isVoidish(rt) ? T.undefined : rt };
   }
 
@@ -2113,9 +2536,13 @@ export class FnEmitter {
     if (t.k === "native") return native.nativeNew(this, node, t);
     if (t.k === "class") {
       // The nearest constructor in the class chain (subclasses may inherit it).
-      const owner = this.reg.chain(t).find((c) => c.info.decl.members.some(ts.isConstructorDeclaration));
+      const owner = this.reg
+        .chain(t)
+        .find((c) => c.info.decl.members.some(ts.isConstructorDeclaration));
       const ctor = owner?.info.decl.members.find(ts.isConstructorDeclaration);
-      const fnType: LType = ctor ? (this.reg.lowerSignature(this.checker.getSignatureFromDeclaration(ctor)!, ctor) as LType) : { k: "fn", params: [], ret: T.void };
+      const fnType: LType = ctor
+        ? (this.reg.lowerSignature(this.checker.getSignatureFromDeclaration(ctor)!, ctor) as LType)
+        : { k: "fn", params: [], ret: T.void };
       const params = ctor ? this.paramInfos(ctor, fnType as LType & { k: "fn" }) : [];
       let paramTypes = params.map((p) => p.cppType);
       if (owner && owner.t.args.length) {
@@ -2123,8 +2550,16 @@ export class FnEmitter {
         const map = new Map(oi.typeParams.map((p, i) => [p, owner.t.args[i]!]));
         paramTypes = paramTypes.map((p) => substitute(p, map));
       }
-      const rest = params.length && params[params.length - 1]!.rest ? paramTypes[paramTypes.length - 1] : undefined;
-      const args = this.args(node.arguments ?? ts.factory.createNodeArray(), paramTypes, node, rest);
+      const rest =
+        params.length && params[params.length - 1]!.rest
+          ? paramTypes[paramTypes.length - 1]
+          : undefined;
+      const args = this.args(
+        node.arguments ?? ts.factory.createNodeArray(),
+        paramTypes,
+        node,
+        rest,
+      );
       return { c: `${this.reg.cppClass(t)}::create(${args.join(", ")})`, t };
     }
     return builtins.newBuiltin(this, node, callee, t);
@@ -2144,7 +2579,9 @@ export class FnEmitter {
       }
     }
     if (t.k === "tuple") {
-      const parts = node.elements.map((el, i) => this.exprAs(el, t.k === "tuple" ? t.es[i]! : T.never));
+      const parts = node.elements.map((el, i) =>
+        this.exprAs(el, t.k === "tuple" ? t.es[i]! : T.never),
+      );
       return { c: `${this.cpp(t)}(${parts.join(", ")})`, t };
     }
     if (t.k !== "array") fail(node, Codes.UnsupportedType, `array literal of type ${typeKey(t)}`);
@@ -2161,9 +2598,13 @@ export class FnEmitter {
         const st = stripOpt(s.t);
         if (st.k === "string") parts.push(`${tmp}.append(lucent::splitCodePoints(${s.c}));`);
         else if (st.k === "set") parts.push(`${tmp}.append((${s.c}).values());`);
-        else if (st.k === "iter" && sameType(st.e, elemT)) parts.push(`${tmp}.append(lucent::iterToArray(${this.coerce(s, st, el)}));`);
+        else if (st.k === "iter" && sameType(st.e, elemT))
+          parts.push(`${tmp}.append(lucent::iterToArray(${this.coerce(s, st, el)}));`);
         else if (st.k === "array" && sameType(st.e, elemT)) parts.push(`${tmp}.append(${s.c});`);
-        else if (st.k === "array") parts.push(`for (const auto& e : (${s.c}).items()) ${tmp}.push(${this.coerce({ c: `static_cast<${this.cpp(st.e)}>(e)`, t: st.e }, elemT, el)});`);
+        else if (st.k === "array")
+          parts.push(
+            `for (const auto& e : (${s.c}).items()) ${tmp}.push(${this.coerce({ c: `static_cast<${this.cpp(st.e)}>(e)`, t: st.e }, elemT, el)});`,
+          );
         else fail(el, Codes.UnsupportedSyntax, `cannot spread ${typeKey(s.t)}`);
       } else parts.push(`${tmp}.push(${this.exprAs(el, elemT)});`);
     }
@@ -2188,7 +2629,11 @@ export class FnEmitter {
       const own = this.checker.getTypeAtLocation(node);
       const ctxTs = this.checker.getContextualType(node);
       const members = ctxTs && ctxTs.isUnion() ? ctxTs.types : [];
-      const match = members.find((m) => this.checker.isTypeAssignableTo(own, m) && !(m.flags & (ts.TypeFlags.Undefined | ts.TypeFlags.Null)));
+      const match = members.find(
+        (m) =>
+          this.checker.isTypeAssignableTo(own, m) &&
+          !(m.flags & (ts.TypeFlags.Undefined | ts.TypeFlags.Null)),
+      );
       t = match ? this.reg.lower(match, node) : this.lt(node);
     }
     if (t.k === "dict") {
@@ -2196,7 +2641,9 @@ export class FnEmitter {
       const parts: string[] = [`${this.cpp(t)} ${tmp};`];
       for (const p of node.properties) {
         if (ts.isPropertyAssignment(p)) {
-          const key = ts.isComputedPropertyName(p.name) ? this.exprAs(p.name.expression, T.string) : stringLiteral(propName(p.name));
+          const key = ts.isComputedPropertyName(p.name)
+            ? this.exprAs(p.name.expression, T.string)
+            : stringLiteral(propName(p.name));
           parts.push(`${tmp}.set(${key}, ${this.exprAs(p.initializer, t.val)});`);
         } else if (ts.isShorthandPropertyAssignment(p)) {
           parts.push(`${tmp}.set(${stringLiteral(p.name.text)}, ${this.exprAs(p.name, t.val)});`);
@@ -2216,20 +2663,25 @@ export class FnEmitter {
       if (ts.isSpreadAssignment(p)) {
         const s = this.expr(p.expression);
         const st = stripOpt(s.t);
-        if (st.k !== "struct") fail(p, Codes.UnsupportedSyntax, "only objects can be spread into object literals");
+        if (st.k !== "struct")
+          fail(p, Codes.UnsupportedSyntax, "only objects can be spread into object literals");
         const src = this.ctx.fresh("src");
         parts.push(`auto ${src} = ${this.coerce(s, st, p)};`);
         const srcFields = this.reg.struct(st.id).fields;
         for (const f of info.fields) {
           const sf = srcFields.find((x) => x.name === f.name);
-          if (sf) parts.push(`${tmp}->${cppIdent(f.name)} = ${this.coerce({ c: `${src}->${cppIdent(f.name)}`, t: sf.type }, f.type, p)};`);
+          if (sf)
+            parts.push(
+              `${tmp}->${cppIdent(f.name)} = ${this.coerce({ c: `${src}->${cppIdent(f.name)}`, t: sf.type }, f.type, p)};`,
+            );
         }
         continue;
       }
       let name: string;
       let value: E;
       if (ts.isPropertyAssignment(p)) {
-        if (ts.isComputedPropertyName(p.name)) fail(p, Codes.UnsupportedSyntax, "computed keys are only supported in records");
+        if (ts.isComputedPropertyName(p.name))
+          fail(p, Codes.UnsupportedSyntax, "computed keys are only supported in records");
         name = propName(p.name);
         const f = info.fields.find((x) => x.name === name);
         value = this.expr(p.initializer, f?.type);
@@ -2237,7 +2689,11 @@ export class FnEmitter {
         name = p.name.text;
         value = this.expr(p.name);
       } else if (ts.isMethodDeclaration(p)) {
-        fail(p, Codes.UnsupportedSyntax, "methods in object literals are not supported; use `name: (...) => ...`");
+        fail(
+          p,
+          Codes.UnsupportedSyntax,
+          "methods in object literals are not supported; use `name: (...) => ...`",
+        );
       } else fail(p, Codes.UnsupportedSyntax, "unsupported property in object literal");
       const f = info.fields.find((x) => x.name === name);
       if (!f) fail(p, Codes.InexactObject, `property ${name} is not part of the target type`);
@@ -2263,25 +2719,45 @@ function isLiteral(n: ts.Expression): boolean {
 export function isSimple(n: ts.Expression): boolean {
   if (isLiteral(n) || ts.isIdentifier(n) || n.kind === ts.SyntaxKind.ThisKeyword) return true;
   if (ts.isArrowFunction(n) || ts.isFunctionExpression(n)) return true;
-  if (ts.isParenthesizedExpression(n) || ts.isAsExpression(n) || ts.isNonNullExpression(n) || ts.isSatisfiesExpression(n) || ts.isTypeOfExpression(n)) {
+  if (
+    ts.isParenthesizedExpression(n) ||
+    ts.isAsExpression(n) ||
+    ts.isNonNullExpression(n) ||
+    ts.isSatisfiesExpression(n) ||
+    ts.isTypeOfExpression(n)
+  ) {
     return isSimple(n.expression);
   }
   if (ts.isPropertyAccessExpression(n)) return isSimple(n.expression);
-  if (ts.isElementAccessExpression(n)) return isSimple(n.expression) && isSimple(n.argumentExpression);
-  if (ts.isPrefixUnaryExpression(n)) return n.operator !== ts.SyntaxKind.PlusPlusToken && n.operator !== ts.SyntaxKind.MinusMinusToken && isSimple(n.operand);
+  if (ts.isElementAccessExpression(n))
+    return isSimple(n.expression) && isSimple(n.argumentExpression);
+  if (ts.isPrefixUnaryExpression(n))
+    return (
+      n.operator !== ts.SyntaxKind.PlusPlusToken &&
+      n.operator !== ts.SyntaxKind.MinusMinusToken &&
+      isSimple(n.operand)
+    );
   if (ts.isBinaryExpression(n)) {
     const k = n.operatorToken.kind;
     if (k >= ts.SyntaxKind.FirstAssignment && k <= ts.SyntaxKind.LastAssignment) return false;
     return isSimple(n.left) && isSimple(n.right);
   }
-  if (ts.isConditionalExpression(n)) return isSimple(n.condition) && isSimple(n.whenTrue) && isSimple(n.whenFalse);
+  if (ts.isConditionalExpression(n))
+    return isSimple(n.condition) && isSimple(n.whenTrue) && isSimple(n.whenFalse);
   if (ts.isTemplateExpression(n)) return n.templateSpans.every((s) => isSimple(s.expression));
-  if (ts.isArrayLiteralExpression(n)) return n.elements.every((e) => !ts.isSpreadElement(e) && isSimple(e));
+  if (ts.isArrayLiteralExpression(n))
+    return n.elements.every((e) => !ts.isSpreadElement(e) && isSimple(e));
   return false;
 }
 
 function propName(n: ts.PropertyName): string {
-  if (ts.isIdentifier(n) || ts.isStringLiteral(n) || ts.isNumericLiteral(n) || ts.isPrivateIdentifier(n)) return n.text;
+  if (
+    ts.isIdentifier(n) ||
+    ts.isStringLiteral(n) ||
+    ts.isNumericLiteral(n) ||
+    ts.isPrivateIdentifier(n)
+  )
+    return n.text;
   return n.getText();
 }
 
@@ -2308,8 +2784,20 @@ function assignedWithin(checker: ts.TypeChecker, node: ts.Node, sym: ts.Symbol):
   let found = false;
   const visit = (n: ts.Node) => {
     if (found) return;
-    if (ts.isBinaryExpression(n) && n.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && n.operatorToken.kind <= ts.SyntaxKind.LastAssignment && ts.isIdentifier(n.left) && checker.getSymbolAtLocation(n.left) === sym) found = true;
-    if ((ts.isPrefixUnaryExpression(n) || ts.isPostfixUnaryExpression(n)) && ts.isIdentifier(n.operand) && checker.getSymbolAtLocation(n.operand) === sym) found = true;
+    if (
+      ts.isBinaryExpression(n) &&
+      n.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
+      n.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
+      ts.isIdentifier(n.left) &&
+      checker.getSymbolAtLocation(n.left) === sym
+    )
+      found = true;
+    if (
+      (ts.isPrefixUnaryExpression(n) || ts.isPostfixUnaryExpression(n)) &&
+      ts.isIdentifier(n.operand) &&
+      checker.getSymbolAtLocation(n.operand) === sym
+    )
+      found = true;
     ts.forEachChild(n, visit);
   };
   visit(node);
@@ -2318,9 +2806,15 @@ function assignedWithin(checker: ts.TypeChecker, node: ts.Node, sym: ts.Symbol):
 
 /** Replaces type parameters in `t`. */
 /** Type arguments the checker inferred for a call to a generic function. */
-function inferTypeArguments(em: FnEmitter, decl: ts.FunctionDeclaration, sig: ts.Signature | undefined, node: ts.CallExpression): LType[] {
+function inferTypeArguments(
+  em: FnEmitter,
+  decl: ts.FunctionDeclaration,
+  sig: ts.Signature | undefined,
+  node: ts.CallExpression,
+): LType[] {
   const tps = decl.typeParameters ?? ts.factory.createNodeArray();
-  if (node.typeArguments) return node.typeArguments.map((t) => em.ctx.reg.lower(em.checker.getTypeFromTypeNode(t), t));
+  if (node.typeArguments)
+    return node.typeArguments.map((t) => em.ctx.reg.lower(em.checker.getTypeFromTypeNode(t), t));
   if (!sig) fail(node, Codes.UnsupportedCall, "could not resolve this generic call");
   // Unify the declared signature (with type parameters) against the
   // instantiated one the checker resolved.
@@ -2331,7 +2825,10 @@ function inferTypeArguments(em: FnEmitter, decl: ts.FunctionDeclaration, sig: ts
     const q = sig.getParameters()[i];
     if (q) pairs.push([em.checker.getTypeOfSymbol(p), em.checker.getTypeOfSymbol(q)]);
   });
-  pairs.push([em.checker.getReturnTypeOfSignature(declared), em.checker.getReturnTypeOfSignature(sig)]);
+  pairs.push([
+    em.checker.getReturnTypeOfSignature(declared),
+    em.checker.getReturnTypeOfSignature(sig),
+  ]);
   for (const [d, a] of pairs) {
     try {
       unify(em.ctx.reg.lower(d, node), em.ctx.reg.lower(a, node), map);
@@ -2341,7 +2838,12 @@ function inferTypeArguments(em: FnEmitter, decl: ts.FunctionDeclaration, sig: ts
   }
   return tps.map((tp) => {
     const t = map.get(tp.name.text);
-    if (!t) fail(node, Codes.UnsupportedCall, `could not infer type argument ${tp.name.text}; pass it explicitly`);
+    if (!t)
+      fail(
+        node,
+        Codes.UnsupportedCall,
+        `could not infer type argument ${tp.name.text}; pass it explicitly`,
+      );
     return t;
   });
 }
@@ -2354,7 +2856,16 @@ function unify(pattern: LType, actual: LType, map: Map<string, LType>): void {
   if (pattern.k === "iter") {
     // Any iterable matches Iterable<T>.
     const a = stripOpt(actual);
-    const e = a.k === "iter" || a.k === "array" || a.k === "set" ? a.e : a.k === "string" ? T.string : a.k === "bytes" ? T.number : a.k === "map" ? ({ k: "tuple", es: [a.key, a.val] } as LType) : undefined;
+    const e =
+      a.k === "iter" || a.k === "array" || a.k === "set"
+        ? a.e
+        : a.k === "string"
+          ? T.string
+          : a.k === "bytes"
+            ? T.number
+            : a.k === "map"
+              ? ({ k: "tuple", es: [a.key, a.val] } as LType)
+              : undefined;
     if (e) unify(pattern.e, e, map);
     return;
   }

@@ -21,15 +21,15 @@ the build.
 
 ## Suites
 
-| Command | What it checks | Needs Hermes |
-|---|---|---|
-| `pnpm test` | compiler unit tests (vitest): diagnostics, platforms, native package, incremental builds, debug info, editor plugin, the CLI (commands, output snapshots, --json schemas, doctor on a fake machine, dev) | no |
-| `pnpm test:runtime` | C++ runtime unit tests (`packages/runtime/test/runtime_test.cpp`) | no |
-| `pnpm test:e2e [case…]` | differential end-to-end cases | yes |
-| `node scripts/app-check.ts apps/bare-example` | an example app's real Metro bundle against its generated C++ | yes |
-| `node scripts/bench.ts --check` | performance budgets | yes |
-| `node scripts/smoke-install.ts` | packed packages install and run in an empty project | no |
-| `pnpm typecheck` | the repository's own TypeScript | no |
+| Command                                       | What it checks                                                                                                                                                                                           | Needs Hermes |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
+| `pnpm test`                                   | compiler unit tests (vitest): diagnostics, platforms, native package, incremental builds, debug info, editor plugin, the CLI (commands, output snapshots, --json schemas, doctor on a fake machine, dev) | no           |
+| `pnpm test:runtime`                           | C++ runtime unit tests (`packages/runtime/test/runtime_test.cpp`)                                                                                                                                        | no           |
+| `pnpm test:e2e [case…]`                       | differential end-to-end cases                                                                                                                                                                            | yes          |
+| `node scripts/app-check.ts apps/bare-example` | an example app's real Metro bundle against its generated C++                                                                                                                                             | yes          |
+| `node scripts/bench.ts --check`               | performance budgets                                                                                                                                                                                      | yes          |
+| `node scripts/smoke-install.ts`               | packed packages install and run in an empty project                                                                                                                                                      | no           |
+| `pnpm typecheck`                              | the repository's own TypeScript                                                                                                                                                                          | no           |
 
 ## Differential end-to-end cases
 

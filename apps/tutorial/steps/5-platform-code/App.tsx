@@ -33,7 +33,12 @@ export default function App() {
 
   useEffect(() => {
     lastFix().then(
-      (fix) => setHere(fix ? `You are at ${fix.latitude.toFixed(4)}, ${fix.longitude.toFixed(4)}.` : "No position yet."),
+      (fix) =>
+        setHere(
+          fix
+            ? `You are at ${fix.latitude.toFixed(4)}, ${fix.longitude.toFixed(4)}.`
+            : "No position yet.",
+        ),
       (e: Error) => setHere(e.message),
     );
   }, []);
@@ -50,7 +55,8 @@ export default function App() {
   const summary = trip.summary();
   return (
     <Text>
-      {summary.fixes} fixes, {(summary.meters / 1000).toFixed(2)} km, top speed {summary.topSpeed.toFixed(1)} m/s.
+      {summary.fixes} fixes, {(summary.meters / 1000).toFixed(2)} km, top speed{" "}
+      {summary.topSpeed.toFixed(1)} m/s.
       {shape === null ? " Simplifying…" : ` ${shape} fixes shape the route.`} {here}
     </Text>
   );

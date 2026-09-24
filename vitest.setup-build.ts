@@ -6,5 +6,7 @@
 import { execFileSync } from "node:child_process";
 
 export default function setup(): void {
-  execFileSync("pnpm", ["exec", "vp", "run", "@lucent-lang/lucent#build"], { stdio: ["ignore", "ignore", "inherit"] });
+  execFileSync("pnpm", ["exec", "vp", "run", "@lucent-lang/lucent#build"], {
+    stdio: ["ignore", "ignore", "inherit"],
+  });
 }

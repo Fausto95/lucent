@@ -16,7 +16,10 @@ export const blocks: Block[] = [
   return trimmed.length > 0 ? \`Hello, \${trimmed}!\` : "Hello, stranger!";
 }`,
           },
-          { kind: "p", text: "Save it as `src/greet.lucent.ts`. Any `*.lucent.ts` file is a module, and its exports are what JavaScript can call." },
+          {
+            kind: "p",
+            text: "Save it as `src/greet.lucent.ts`. Any `*.lucent.ts` file is a module, and its exports are what JavaScript can call.",
+          },
         ],
       },
       {
@@ -32,7 +35,10 @@ export default function App() {
   return <Text>{greet("  Ada ")}</Text>;
 }`,
           },
-          { kind: "p", text: "The import is typed from the source, so your editor checks the call." },
+          {
+            kind: "p",
+            text: "The import is typed from the source, so your editor checks the call.",
+          },
         ],
       },
       {
@@ -45,7 +51,10 @@ export default function App() {
                 label: "Expo",
                 blocks: [
                   { kind: "code", filename: "terminal", code: "npx expo run:ios" },
-                  { kind: "p", text: "The config plugin builds your modules during prebuild. Xcode then compiles the C++ into the app." },
+                  {
+                    kind: "p",
+                    text: "The config plugin builds your modules during prebuild. Xcode then compiles the C++ into the app.",
+                  },
                 ],
               },
               {
@@ -58,7 +67,10 @@ export default function App() {
 cd ios && pod install && cd ..
 npx react-native run-ios`,
                   },
-                  { kind: "p", text: "On Android, skip the first two lines: the Gradle task runs `lucent build` itself." },
+                  {
+                    kind: "p",
+                    text: "On Android, skip the first two lines: the Gradle task runs `lucent build` itself.",
+                  },
                 ],
               },
             ],
@@ -73,7 +85,12 @@ npx react-native run-ios`,
             kind: "p",
             text: "Change `Hello` to `Hi` and save. While Metro runs, `lucent dev` rebuilds the native package and prints one line in Metro's output:",
           },
-          { kind: "code", filename: "terminal", copy: false, code: "[14:02:11] ✓ 2 modules  36 ms · rebuild the app" },
+          {
+            kind: "code",
+            filename: "terminal",
+            copy: false,
+            code: "[14:02:11] ✓ 2 modules  36 ms · rebuild the app",
+          },
           {
             kind: "p",
             text: "The C++ is part of the app binary, so reloading JavaScript doesn't replace it. Run the app again to see `Hi, Ada!`.",

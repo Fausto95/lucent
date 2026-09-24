@@ -168,7 +168,12 @@ export function parseClass(buf: Buffer): ClassFile {
     innerClasses: InnerClass[];
   }
   const attributes = (): Attrs => {
-    const out: Attrs = { deprecated: false, annotations: [], paramAnnotations: [], innerClasses: [] };
+    const out: Attrs = {
+      deprecated: false,
+      annotations: [],
+      paramAnnotations: [],
+      innerClasses: [],
+    };
     const n = u2();
     for (let k = 0; k < n; k++) {
       const name = utf8(u2());
@@ -203,7 +208,12 @@ export function parseClass(buf: Buffer): ClassFile {
             const outer = u2();
             const simple = u2();
             const access = u2();
-            out.innerClasses.push({ inner: className(inner), outer: outer ? className(outer) : undefined, simpleName: simple ? utf8(simple) : undefined, access });
+            out.innerClasses.push({
+              inner: className(inner),
+              outer: outer ? className(outer) : undefined,
+              simpleName: simple ? utf8(simple) : undefined,
+              access,
+            });
           }
           break;
         }
@@ -225,7 +235,16 @@ export function parseClass(buf: Buffer): ClassFile {
       const memberName = utf8(u2());
       const descriptor = utf8(u2());
       const a = attributes();
-      out.push({ name: memberName, descriptor, access: acc, signature: a.signature, constant: a.constant, deprecated: a.deprecated, annotations: a.annotations, paramAnnotations: a.paramAnnotations });
+      out.push({
+        name: memberName,
+        descriptor,
+        access: acc,
+        signature: a.signature,
+        constant: a.constant,
+        deprecated: a.deprecated,
+        annotations: a.annotations,
+        paramAnnotations: a.paramAnnotations,
+      });
     }
     return out;
   };

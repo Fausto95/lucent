@@ -34,7 +34,10 @@ function words(blocks: Block[]): number {
     .replace(/\]\([^)]*\)/g, "")
     .replace(/[`*#>|[\]-]/g, " ");
   const own = text.split(/\s+/).filter(Boolean).length;
-  const panels = blocks.reduce((n, b) => n + (b.kind === "panels" ? Math.max(...b.panels.map((p) => words(p.blocks))) : 0), 0);
+  const panels = blocks.reduce(
+    (n, b) => n + (b.kind === "panels" ? Math.max(...b.panels.map((p) => words(p.blocks))) : 0),
+    0,
+  );
   return own + panels;
 }
 

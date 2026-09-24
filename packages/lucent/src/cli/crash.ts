@@ -15,11 +15,16 @@ export function installCrashHandler(version: string): void {
     const log = path.join(dir, `crash-${new Date().toISOString().replace(/[:.]/g, "-")}.log`);
     try {
       fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(log, `lucent ${version}\nnode ${process.version} ${process.platform}-${process.arch}\nargv: ${process.argv.slice(2).join(" ")}\n\n${error.stack ?? error.message}\n`);
+      fs.writeFileSync(
+        log,
+        `lucent ${version}\nnode ${process.version} ${process.platform}-${process.arch}\nargv: ${process.argv.slice(2).join(" ")}\n\n${error.stack ?? error.message}\n`,
+      );
     } catch {
       // Nowhere to write it: the message below still says what happened.
     }
-    process.stderr.write(`\nlucent crashed: ${error.message}\n  details: ${log}\n  please report it with that file: ${ISSUES}\n`);
+    process.stderr.write(
+      `\nlucent crashed: ${error.message}\n  details: ${log}\n  please report it with that file: ${ISSUES}\n`,
+    );
     process.exit(70);
   };
   process.on("uncaughtException", crash);

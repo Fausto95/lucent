@@ -21,7 +21,9 @@ function project(sources: Record<string, string>) {
 /** TypeScript diagnostics of one platform program, as "TS<code>" per line (1-based). */
 function tsErrors(platform: "ios" | "android", source: string): string[] {
   const [file] = project({ [`probe.${platform}.lucent.ts`]: source });
-  return createLucentProgram([file!], undefined, platform).diagnostics.map((d) => `${d.line}: ${d.message.split(":")[0]}`);
+  return createLucentProgram([file!], undefined, platform).diagnostics.map(
+    (d) => `${d.line}: ${d.message.split(":")[0]}`,
+  );
 }
 
 const codes = (r: { diagnostics: { code: string }[] }) => r.diagnostics.map((d) => d.code);
@@ -30,19 +32,28 @@ const codes = (r: { diagnostics: { code: string }[] }) => r.diagnostics.map((d) 
  * `compile` in a process of its own. A cold SDK extraction blocks for about a
  * minute, longer than vitest lets a worker go without answering its RPCs.
  */
-function compileInChild(files: string[], options: object): Promise<{ diagnostics: unknown[]; types: Record<string, string> }> {
+function compileInChild(
+  files: string[],
+  options: object,
+): Promise<{ diagnostics: unknown[]; types: Record<string, string> }> {
   const index = path.resolve(import.meta.dirname, "../src/index.ts");
   const code = `import { compile } from ${JSON.stringify(index)};
 const r = compile(${JSON.stringify(files)}, ${JSON.stringify(options)});
 process.stdout.write(JSON.stringify({ diagnostics: r.diagnostics, types: Object.fromEntries(r.types ?? []) }));`;
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ["--input-type=module", "-e", code], { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(process.execPath, ["--input-type=module", "-e", code], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     let out = "";
     let err = "";
     child.stdout.on("data", (d: Buffer) => (out += d.toString()));
     child.stderr.on("data", (d: Buffer) => (err += d.toString()));
     child.on("error", reject);
-    child.on("close", (status) => (status === 0 ? resolve(JSON.parse(out)) : reject(new Error(`compile failed (${status}):\n${err}`))));
+    child.on("close", (status) =>
+      status === 0
+        ? resolve(JSON.parse(out))
+        : reject(new Error(`compile failed (${status}):\n${err}`)),
+    );
   });
 }
 
@@ -52,7 +63,8 @@ const ios = sdkAvailable("ios");
 const android = sdkAvailable("android");
 
 const haptics = {
-  "haptics.lucent.ts": "export declare function impact(): Promise<void>;\nexport declare function model(): Promise<string>;\n",
+  "haptics.lucent.ts":
+    "export declare function impact(): Promise<void>;\nexport declare function model(): Promise<string>;\n",
   "haptics.ios.lucent.ts": `import { UIDevice, UIImpactFeedbackGenerator, UIImpactFeedbackGenerator_FeedbackStyle as Style } from "lucent:ios/UIKit";
 import { main } from "lucent:thread";
 
@@ -87,8 +99,10 @@ export async function model(): Promise<string> {
 };
 
 describe("SDK bindings: types", () => {
-  it.skipIf(!ios)("types iOS classes nominally, with Swift names, enums and class properties", () => {
-    const src = `import { UIApplicationDelegate, UIDevice, UIFeedbackGenerator, UIImpactFeedbackGenerator, UIImpactFeedbackGenerator_FeedbackStyle as Style, UISelectionFeedbackGenerator } from "lucent:ios/UIKit";
+  it.skipIf(!ios)(
+    "types iOS classes nominally, with Swift names, enums and class properties",
+    () => {
+      const src = `import { UIApplicationDelegate, UIDevice, UIFeedbackGenerator, UIImpactFeedbackGenerator, UIImpactFeedbackGenerator_FeedbackStyle as Style, UISelectionFeedbackGenerator } from "lucent:ios/UIKit";
 export function f(): string {
   const g = new UIImpactFeedbackGenerator(Style.heavy);
   const base: UIFeedbackGenerator = g;
@@ -99,12 +113,15 @@ export function f(): string {
   return UIDevice.current.systemName;
 }
 `;
-    // Protocols cannot be constructed; classes inherit NSObject's init as in Swift.
-    expect(tsErrors("ios", src)).toEqual(["6: TS2739", "8: TS2511"]);
-  });
+      // Protocols cannot be constructed; classes inherit NSObject's init as in Swift.
+      expect(tsErrors("ios", src)).toEqual(["6: TS2739", "8: TS2511"]);
+    },
+  );
 
-  it.skipIf(!android)("types Java classes: nullability, primitive arrays, Class<T> and getter properties", () => {
-    const src = `import { Build, VibrationEffect, Vibrator, VibratorManager } from "lucent:android/android.os";
+  it.skipIf(!android)(
+    "types Java classes: nullability, primitive arrays, Class<T> and getter properties",
+    () => {
+      const src = `import { Build, VibrationEffect, Vibrator, VibratorManager } from "lucent:android/android.os";
 import { appContext } from "lucent:android";
 export function f(): number {
   const model: string = Build.MODEL;
@@ -115,8 +132,9 @@ export function f(): number {
   return VibrationEffect.EFFECT_CLICK;
 }
 `;
-    expect(tsErrors("android", src)).toEqual(["4: TS2322"]);
-  });
+      expect(tsErrors("android", src)).toEqual(["4: TS2322"]);
+    },
+  );
 
   it("derives JNI descriptors that exist in android.jar", () => {
     // The jar the schemas are extracted from.
@@ -127,14 +145,35 @@ export function f(): number {
       const schema = loadSdkModule("android", mod);
       const classes = schema.types.filter((t) => t.kind === "class");
       // One javap for the package: each class's dump starts with "Compiled from".
-      const all = spawnSync("javap", ["-s", "-cp", jar, ...classes.map((c) => c.native.replace(/\//g, "."))], { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 }).stdout;
+      const all = spawnSync(
+        "javap",
+        ["-s", "-cp", jar, ...classes.map((c) => c.native.replace(/\//g, "."))],
+        { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
+      ).stdout;
       const dumps = all.split(/^(?=Compiled from )/m).filter((d) => d.startsWith("Compiled from"));
       expect(dumps).toHaveLength(classes.length);
       for (const [i, cls] of classes.entries()) {
         if (cls.kind !== "class") continue;
         const dump = dumps[i]!;
-        for (const m of [...(cls.methods ?? []), ...(cls.constructors ?? []).map((c) => ({ ...c, name: "<init>", returns: "void", typeParams: [] }))]) {
-          expect(dump, `${cls.name}.${m.name}`).toContain(`descriptor: ${m.descriptor ?? jniDescriptor(m.params.map((p) => p.type), m.returns, m.typeParams)}`);
+        for (const m of [
+          ...(cls.methods ?? []),
+          ...(cls.constructors ?? []).map((c) => ({
+            ...c,
+            name: "<init>",
+            returns: "void",
+            typeParams: [],
+          })),
+        ]) {
+          expect(dump, `${cls.name}.${m.name}`).toContain(
+            `descriptor: ${
+              m.descriptor ??
+              jniDescriptor(
+                m.params.map((p) => p.type),
+                m.returns,
+                m.typeParams,
+              )
+            }`,
+          );
         }
         for (const p of cls.properties ?? []) {
           const d = p.getter ? jniDescriptor([], p.type) : jniDescriptor([], p.type).slice(2);
@@ -150,7 +189,16 @@ describe.skipIf(!ios)("platform modules", () => {
     const r = compile(project(haptics));
     expect(r.diagnostics).toEqual([]);
     const keys = [...r.files.keys()];
-    expect(keys).toEqual(expect.arrayContaining(["ios/lucent_app.h", "ios/m_haptics.h", "ios/m_haptics.mm", "ios/lucent_bindings.cpp", "android/m_haptics.cpp", "android/lucent_bindings.cpp"]));
+    expect(keys).toEqual(
+      expect.arrayContaining([
+        "ios/lucent_app.h",
+        "ios/m_haptics.h",
+        "ios/m_haptics.mm",
+        "ios/lucent_bindings.cpp",
+        "android/m_haptics.cpp",
+        "android/lucent_bindings.cpp",
+      ]),
+    );
     expect(keys.filter((k) => !k.startsWith("ios/") && !k.startsWith("android/"))).toEqual([]);
     expect([...r.proxies.keys()]).toEqual(["haptics"]);
     expect(r.proxies.get("haptics")).toContain("impact");
@@ -159,7 +207,16 @@ describe.skipIf(!ios)("platform modules", () => {
   it("writes the SDK declarations it imports, so editors and tsc resolve lucent:*", () => {
     const files = project(haptics);
     const r = compile(files);
-    expect([...r.types!.keys()].sort()).toEqual(expect.arrayContaining(["android.d.ts", "android/android.content.d.ts", "android/android.os.d.ts", "ios.d.ts", "ios/UIKit.d.ts", "thread.d.ts"]));
+    expect([...r.types!.keys()].sort()).toEqual(
+      expect.arrayContaining([
+        "android.d.ts",
+        "android/android.content.d.ts",
+        "android/android.os.d.ts",
+        "ios.d.ts",
+        "ios/UIKit.d.ts",
+        "thread.d.ts",
+      ]),
+    );
     const out = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-types-"));
     writeNativePackage(r, out);
     // An app's own TypeScript program: both platforms at once, lucent:* mapped to the written files.
@@ -174,7 +231,11 @@ describe.skipIf(!ios)("platform modules", () => {
       skipLibCheck: true,
       paths: { "lucent:*": [path.join(out, "types/*")] },
     });
-    expect(ts.getPreEmitDiagnostics(program).map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n"))).toEqual([]);
+    expect(
+      ts
+        .getPreEmitDiagnostics(program)
+        .map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n")),
+    ).toEqual([]);
   });
 
   it("types other frameworks in signatures by name, without extracting them", async () => {
@@ -183,7 +244,9 @@ describe.skipIf(!ios)("platform modules", () => {
     const r = await compileInChild(project(haptics), { platforms: ["ios"], sdk: { cacheDir } });
     expect(r.diagnostics).toEqual([]);
     const [key] = fs.readdirSync(path.join(cacheDir, "sdk/ios"));
-    const schemas = fs.readdirSync(path.join(cacheDir, "sdk/ios", key!)).filter((f) => f.endsWith(".json") && !f.endsWith(".names.json") && f !== "headers.json");
+    const schemas = fs
+      .readdirSync(path.join(cacheDir, "sdk/ios", key!))
+      .filter((f) => f.endsWith(".json") && !f.endsWith(".names.json") && f !== "headers.json");
     // Only what the program imports gets a full schema.
     expect(schemas).toEqual(["UIKit.json"]);
     expect(r.types["ios/Foundation.d.ts"]).toMatch(/Names only: import lucent:ios\/Foundation/);
@@ -191,8 +254,15 @@ describe.skipIf(!ios)("platform modules", () => {
   }, 600_000);
 
   it("keeps the single layout for projects without platform files", () => {
-    const r = compile(project({ "plain.lucent.ts": "export function one(): number { return 1; }\n" }));
-    expect([...r.files.keys()].sort()).toEqual(["lucent_app.h", "lucent_bindings.cpp", "m_plain.cpp", "m_plain.h"]);
+    const r = compile(
+      project({ "plain.lucent.ts": "export function one(): number { return 1; }\n" }),
+    );
+    expect([...r.files.keys()].sort()).toEqual([
+      "lucent_app.h",
+      "lucent_bindings.cpp",
+      "m_plain.cpp",
+      "m_plain.h",
+    ]);
   });
 
   it("compiles platform modules to stubs that throw for the host target", () => {
@@ -204,17 +274,24 @@ describe.skipIf(!ios)("platform modules", () => {
   });
 
   it("reports a missing SDK with the fix", () => {
-    const r = compile(project(haptics), { platforms: ["android"], sdk: { android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] } } });
+    const r = compile(project(haptics), {
+      platforms: ["android"],
+      sdk: { android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] } },
+    });
     expect(r.diagnostics.map((d) => d.code)).toContain("LUCENT3004");
-    expect(r.diagnostics.find((d) => d.code === "LUCENT3004")!.message).toMatch(/Android SDK.*not found.*ANDROID_HOME/s);
+    expect(r.diagnostics.find((d) => d.code === "LUCENT3004")!.message).toMatch(
+      /Android SDK.*not found.*ANDROID_HOME/s,
+    );
   });
 
   it("rejects SDK imports from the other platform and unknown SDK modules", () => {
     const r = compile(
       project({
         "m.lucent.ts": "export declare function f(): number;\n",
-        "m.ios.lucent.ts": 'import { Build } from "lucent:android/android.os";\nexport function f(): number { return 1; }\n',
-        "m.android.lucent.ts": 'import { Nope } from "lucent:android/android.nope";\nexport function f(): number { return 1; }\n',
+        "m.ios.lucent.ts":
+          'import { Build } from "lucent:android/android.os";\nexport function f(): number { return 1; }\n',
+        "m.android.lucent.ts":
+          'import { Nope } from "lucent:android/android.nope";\nexport function f(): number { return 1; }\n',
       }),
     );
     expect(r.diagnostics.map((d) => [d.code, path.basename(d.file ?? "")])).toEqual(
@@ -223,15 +300,34 @@ describe.skipIf(!ios)("platform modules", () => {
         ["LUCENT3004", "m.android.lucent.ts"],
       ]),
     );
-    expect(r.diagnostics.find((d) => d.file?.endsWith("m.ios.lucent.ts"))!.message).toMatch(/lucent:android\/android\.os.*\.android\.lucent\.ts/);
+    expect(r.diagnostics.find((d) => d.file?.endsWith("m.ios.lucent.ts"))!.message).toMatch(
+      /lucent:android\/android\.os.*\.android\.lucent\.ts/,
+    );
   });
 
   it("requires every platform to implement the declared exports with assignable types", () => {
-    const missing = compile(project({ ...haptics, "haptics.android.lucent.ts": "export async function impact(): Promise<void> {}\n" }));
+    const missing = compile(
+      project({
+        ...haptics,
+        "haptics.android.lucent.ts": "export async function impact(): Promise<void> {}\n",
+      }),
+    );
     expect(codes(missing)).toEqual(["LUCENT3005"]);
-    expect(missing.diagnostics[0]!.message).toMatch(/haptics\.android\.lucent\.ts does not export model/);
+    expect(missing.diagnostics[0]!.message).toMatch(
+      /haptics\.android\.lucent\.ts does not export model/,
+    );
 
-    const mismatch = compile(project({ ...haptics, "haptics.android.lucent.ts": haptics["haptics.android.lucent.ts"].replace("async function model(): Promise<string>", "async function model(): Promise<number>").replace('"main" : (Build.MODEL ?? "unknown")', "1 : 0") }));
+    const mismatch = compile(
+      project({
+        ...haptics,
+        "haptics.android.lucent.ts": haptics["haptics.android.lucent.ts"]
+          .replace(
+            "async function model(): Promise<string>",
+            "async function model(): Promise<number>",
+          )
+          .replace('"main" : (Build.MODEL ?? "unknown")', "1 : 0"),
+      }),
+    );
     expect(codes(mismatch)).toEqual(["LUCENT3005"]);
     expect(mismatch.diagnostics[0]!.message).toMatch(/model/);
 
@@ -241,7 +337,12 @@ describe.skipIf(!ios)("platform modules", () => {
   });
 
   it("allows only declarations in a platform module's shared file", () => {
-    const r = compile(project({ ...haptics, "haptics.lucent.ts": `${haptics["haptics.lucent.ts"]}export function extra(): number { return 1; }\n` }));
+    const r = compile(
+      project({
+        ...haptics,
+        "haptics.lucent.ts": `${haptics["haptics.lucent.ts"]}export function extra(): number { return 1; }\n`,
+      }),
+    );
     expect(codes(r)).toContain("LUCENT3005");
   });
 });
@@ -314,34 +415,47 @@ export async function start(): Promise<string> {
 };
 
 describe("platform declarations in one module", () => {
-  it.skipIf(!ios || !android)("compiles each declaration for the platform whose SDK it uses", () => {
-    const r = compile(project(tracker), { platforms: ["ios", "android", "host"] });
-    expect(r.diagnostics).toEqual([]);
-    const mm = r.files.get("ios/m_tracker.mm")!;
-    expect(mm).toContain("CLLocationManager");
-    expect(mm).toContain("describe");
-    expect(mm).not.toContain("android/os/Build");
-    expect(mm).not.toContain("label");
-    const cpp = r.files.get("android/m_tracker.cpp")!;
-    expect(cpp).toContain("android/os/Build");
-    expect(cpp).toContain("label");
-    expect(cpp).not.toContain("CLLocationManager");
-    const host = r.files.get("host/m_tracker.cpp")!;
-    expect(host).not.toContain("CLLocationManager");
-    expect(host).not.toContain("android/os/Build");
-    // Shared state is everywhere.
-    for (const f of [mm, cpp, host]) expect(f).toContain("calls");
-  });
+  it.skipIf(!ios || !android)(
+    "compiles each declaration for the platform whose SDK it uses",
+    () => {
+      const r = compile(project(tracker), { platforms: ["ios", "android", "host"] });
+      expect(r.diagnostics).toEqual([]);
+      const mm = r.files.get("ios/m_tracker.mm")!;
+      expect(mm).toContain("CLLocationManager");
+      expect(mm).toContain("describe");
+      expect(mm).not.toContain("android/os/Build");
+      expect(mm).not.toContain("label");
+      const cpp = r.files.get("android/m_tracker.cpp")!;
+      expect(cpp).toContain("android/os/Build");
+      expect(cpp).toContain("label");
+      expect(cpp).not.toContain("CLLocationManager");
+      const host = r.files.get("host/m_tracker.cpp")!;
+      expect(host).not.toContain("CLLocationManager");
+      expect(host).not.toContain("android/os/Build");
+      // Shared state is everywhere.
+      for (const f of [mm, cpp, host]) expect(f).toContain("calls");
+    },
+  );
 
-  it.skipIf(!ios || !android || process.platform !== "darwin")("generates code each target compiles", () => {
-    compilesEverywhere(tracker, "tracker");
-  }, 600_000);
+  it.skipIf(!ios || !android || process.platform !== "darwin")(
+    "generates code each target compiles",
+    () => {
+      compilesEverywhere(tracker, "tracker");
+    },
+    600_000,
+  );
 
-  it.skipIf(!android)("compiles for Android where the iOS SDK is missing (its declarations untyped)", () => {
-    const r = compile(project(tracker), { platforms: ["android", "host"], sdk: { ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") } } });
-    expect(r.diagnostics).toEqual([]);
-    expect(r.files.get("android/m_tracker.cpp")).toContain("label");
-  });
+  it.skipIf(!android)(
+    "compiles for Android where the iOS SDK is missing (its declarations untyped)",
+    () => {
+      const r = compile(project(tracker), {
+        platforms: ["android", "host"],
+        sdk: { ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") } },
+      });
+      expect(r.diagnostics).toEqual([]);
+      expect(r.files.get("android/m_tracker.cpp")).toContain("label");
+    },
+  );
 
   it("keeps exports shared, and each declaration on one platform", () => {
     const r = compile(
@@ -420,18 +534,56 @@ function compilesEverywhere(sources: Record<string, string>, module: string): vo
     fs.mkdirSync(path.dirname(path.join(dir, k)), { recursive: true });
     fs.writeFileSync(path.join(dir, k), v);
   }
-  const flags = ["-std=c++20", "-fsyntax-only", "-Werror", "-Wno-gnu-statement-expression", "-Wno-unused-label", "-Wno-parentheses-equality", "-Wno-comma", `-I${path.join(runtimeDir(), "cpp")}`];
-  const ndkRoot = path.join(process.env.ANDROID_HOME ?? path.join(os.homedir(), "Library/Android/sdk"), "ndk");
+  const flags = [
+    "-std=c++20",
+    "-fsyntax-only",
+    "-Werror",
+    "-Wno-gnu-statement-expression",
+    "-Wno-unused-label",
+    "-Wno-parentheses-equality",
+    "-Wno-comma",
+    `-I${path.join(runtimeDir(), "cpp")}`,
+  ];
+  const ndkRoot = path.join(
+    process.env.ANDROID_HOME ?? path.join(os.homedir(), "Library/Android/sdk"),
+    "ndk",
+  );
   const ndk = fs.existsSync(ndkRoot) ? fs.readdirSync(ndkRoot).sort().pop() : undefined;
   const runs: [string, string[]][] = [
-    ["xcrun", ["--sdk", "iphonesimulator", "clang++", ...flags, "-fobjc-arc", "-target", "arm64-apple-ios15.1-simulator", `-I${path.join(dir, "ios")}`, "-x", "objective-c++", path.join(dir, `ios/m_${module}.mm`)]],
+    [
+      "xcrun",
+      [
+        "--sdk",
+        "iphonesimulator",
+        "clang++",
+        ...flags,
+        "-fobjc-arc",
+        "-target",
+        "arm64-apple-ios15.1-simulator",
+        `-I${path.join(dir, "ios")}`,
+        "-x",
+        "objective-c++",
+        path.join(dir, `ios/m_${module}.mm`),
+      ],
+    ],
     ["clang++", [...flags, `-I${path.join(dir, "host")}`, path.join(dir, `host/m_${module}.cpp`)]],
   ];
   if (ndk) {
-    const bin = fs.readdirSync(path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt")).map((h) => path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt", h, "bin/clang++"))[0]!;
-    runs.push([bin, ["--target=aarch64-linux-android24", ...flags, `-I${path.join(dir, "android")}`, path.join(dir, `android/m_${module}.cpp`)]]);
+    const bin = fs
+      .readdirSync(path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt"))
+      .map((h) => path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt", h, "bin/clang++"))[0]!;
+    runs.push([
+      bin,
+      [
+        "--target=aarch64-linux-android24",
+        ...flags,
+        `-I${path.join(dir, "android")}`,
+        path.join(dir, `android/m_${module}.cpp`),
+      ],
+    ]);
   }
-  for (const [cmd, args] of runs) expect(spawnSync(cmd, args, { encoding: "utf8" }).stderr).toBe("");
+  for (const [cmd, args] of runs)
+    expect(spawnSync(cmd, args, { encoding: "utf8" }).stderr).toBe("");
 }
 
 describe("switch (PLATFORM) and PLATFORM === … && …", () => {
@@ -447,9 +599,13 @@ describe("switch (PLATFORM) and PLATFORM === … && …", () => {
     for (const f of [mm, cpp]) expect(f).toContain('LUCENT_STR("mobile")');
   });
 
-  it.skipIf(!ios || !android || process.platform !== "darwin")("generates code each target compiles", () => {
-    compilesEverywhere(guarded, "guarded");
-  }, 600_000);
+  it.skipIf(!ios || !android || process.platform !== "darwin")(
+    "generates code each target compiles",
+    () => {
+      compilesEverywhere(guarded, "guarded");
+    },
+    600_000,
+  );
 
   it("treats code both platforms reach as shared: fall-through cases, and the else of a guarded test", () => {
     const r = compile(
@@ -496,11 +652,17 @@ describe("platform branches in one module", () => {
     expect([...r.proxies.keys()]).toEqual(["device"]);
   });
 
-  it.skipIf(!ios)("type-checks the other platform's branch as untyped when its SDK is missing", () => {
-    const r = compile(project(device), { platforms: ["ios"], sdk: { android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] } } });
-    expect(r.diagnostics).toEqual([]);
-    expect(r.files.get("ios/m_device.mm")).toContain("UIDevice");
-  });
+  it.skipIf(!ios)(
+    "type-checks the other platform's branch as untyped when its SDK is missing",
+    () => {
+      const r = compile(project(device), {
+        platforms: ["ios"],
+        sdk: { android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] } },
+      });
+      expect(r.diagnostics).toEqual([]);
+      expect(r.files.get("ios/m_device.mm")).toContain("UIDevice");
+    },
+  );
 
   it("throws in platform branches on the host target", () => {
     const r = compile(project(device), { platforms: ["host"] });
@@ -510,9 +672,13 @@ describe("platform branches in one module", () => {
     expect(cpp).not.toContain("UIDevice");
   });
 
-  it.skipIf(!ios || !android || process.platform !== "darwin")("generates code each target compiles: iOS, Android (NDK) and the host", () => {
-    compilesEverywhere(device, "device");
-  }, 600_000);
+  it.skipIf(!ios || !android || process.platform !== "darwin")(
+    "generates code each target compiles: iOS, Android (NDK) and the host",
+    () => {
+      compilesEverywhere(device, "device");
+    },
+    600_000,
+  );
 
   it("requires a platform's SDK to be used inside its branch", () => {
     const r = compile(
@@ -551,14 +717,19 @@ describe.skipIf(!ios)("platform glue", () => {
   });
 
   it("rejects main-only APIs outside main()", () => {
-    const src = haptics["haptics.ios.lucent.ts"].replace('return main(() => (UIDevice.current === UIDevice.current ? UIDevice.current.model : ""));', "const m = UIDevice.current.model;\n  return main(() => m);");
+    const src = haptics["haptics.ios.lucent.ts"].replace(
+      'return main(() => (UIDevice.current === UIDevice.current ? UIDevice.current.model : ""));',
+      "const m = UIDevice.current.model;\n  return main(() => m);",
+    );
     const r = compile(project({ ...haptics, "haptics.ios.lucent.ts": src }));
     expect(codes(r)).toEqual(["LUCENT3006"]);
     expect(r.diagnostics[0]!.message).toMatch(/UIDevice.*main thread.*main\(\(\) =>/);
   });
 
   it("generates Objective-C++ that compiles against the iOS SDK", () => {
-    const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
+    const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], {
+      encoding: "utf8",
+    });
     if (process.platform !== "darwin" || sdk.status !== 0) return;
     const r = compile(project(haptics));
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-ios-glue-"));
@@ -568,7 +739,26 @@ describe.skipIf(!ios)("platform glue", () => {
     }
     const cc = spawnSync(
       "xcrun",
-      ["--sdk", "iphonesimulator", "clang++", "-std=c++20", "-fobjc-arc", "-fsyntax-only", "-target", "arm64-apple-ios15.1-simulator", "-Werror", "-Wno-gnu-statement-expression", "-Wno-unused-label", "-Wno-parentheses-equality", "-Wno-comma", `-I${path.join(runtimeDir(), "cpp")}`, `-I${path.join(dir, "ios")}`, "-x", "objective-c++", path.join(dir, "ios/m_haptics.mm")],
+      [
+        "--sdk",
+        "iphonesimulator",
+        "clang++",
+        "-std=c++20",
+        "-fobjc-arc",
+        "-fsyntax-only",
+        "-target",
+        "arm64-apple-ios15.1-simulator",
+        "-Werror",
+        "-Wno-gnu-statement-expression",
+        "-Wno-unused-label",
+        "-Wno-parentheses-equality",
+        "-Wno-comma",
+        `-I${path.join(runtimeDir(), "cpp")}`,
+        `-I${path.join(dir, "ios")}`,
+        "-x",
+        "objective-c++",
+        path.join(dir, "ios/m_haptics.mm"),
+      ],
       { encoding: "utf8" },
     );
     expect(cc.stderr).toBe("");
@@ -576,10 +766,15 @@ describe.skipIf(!ios)("platform glue", () => {
   });
 
   it("generates JNI C++ that compiles with the NDK", () => {
-    const ndkRoot = path.join(process.env.ANDROID_HOME ?? path.join(os.homedir(), "Library/Android/sdk"), "ndk");
+    const ndkRoot = path.join(
+      process.env.ANDROID_HOME ?? path.join(os.homedir(), "Library/Android/sdk"),
+      "ndk",
+    );
     const ndk = fs.existsSync(ndkRoot) ? fs.readdirSync(ndkRoot).sort().pop() : undefined;
     if (!ndk) return;
-    const bin = fs.readdirSync(path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt")).map((h) => path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt", h, "bin/clang++"))[0]!;
+    const bin = fs
+      .readdirSync(path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt"))
+      .map((h) => path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt", h, "bin/clang++"))[0]!;
     const r = compile(project(haptics));
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-android-glue-"));
     for (const [k, v] of r.files) {
@@ -588,7 +783,19 @@ describe.skipIf(!ios)("platform glue", () => {
     }
     const cc = spawnSync(
       bin,
-      ["--target=aarch64-linux-android24", "-std=c++20", "-fsyntax-only", "-Werror", "-Wno-gnu-statement-expression", "-Wno-unused-label", "-Wno-parentheses-equality", "-Wno-comma", `-I${path.join(runtimeDir(), "cpp")}`, `-I${path.join(dir, "android")}`, path.join(dir, "android/m_haptics.cpp")],
+      [
+        "--target=aarch64-linux-android24",
+        "-std=c++20",
+        "-fsyntax-only",
+        "-Werror",
+        "-Wno-gnu-statement-expression",
+        "-Wno-unused-label",
+        "-Wno-parentheses-equality",
+        "-Wno-comma",
+        `-I${path.join(runtimeDir(), "cpp")}`,
+        `-I${path.join(dir, "android")}`,
+        path.join(dir, "android/m_haptics.cpp"),
+      ],
       { encoding: "utf8" },
     );
     expect(cc.stderr).toBe("");

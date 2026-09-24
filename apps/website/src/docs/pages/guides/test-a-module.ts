@@ -49,7 +49,11 @@ it("rejects a fix that arrives late", () => {
     text: "`lucent bench` runs each case of your `*.bench.ts` files as the compiled module and as JavaScript, and fails when the results differ. It needs a desktop Hermes, at `~/hermes` or in `HERMES_DIR`.",
   },
   { kind: "h2", text: "Test platform code's neighbors" },
-  { kind: "code", filename: "terminal", code: "npx lucent build --platforms host --out .lucent/host" },
+  {
+    kind: "code",
+    filename: "terminal",
+    code: "npx lucent build --platforms host --out .lucent/host",
+  },
   {
     kind: "p",
     text: "A host build compiles for your computer. Platform code there throws `this code runs only on iOS and Android`, so the shared code around it can run in tests.",

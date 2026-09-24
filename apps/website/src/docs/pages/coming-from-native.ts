@@ -5,15 +5,27 @@ export const blocks: Block[] = [
     kind: "table",
     head: ["Swift", "Kotlin", "Lucent"],
     rows: [
-      ["`struct`", "`data class`", "an object type, `type Point = { x: number; y: number }`: copied at the boundary"],
+      [
+        "`struct`",
+        "`data class`",
+        "an object type, `type Point = { x: number; y: number }`: copied at the boundary",
+      ],
       ["`class`", "`class`", "`class`: reference-counted, as in Swift"],
       ["`protocol`", "`interface`", "`interface`, used with `implements`"],
       ["a delegate", "a listener", "a class that `implements` the SDK's protocol or interface"],
       ["`async`", "`suspend`", "`async`: runs on the Lucent thread"],
       ["`@MainActor`", "`Dispatchers.Main`", "`main(() => …)` from `lucent:thread`"],
       ["`T?`", "`T?`", "`T | null`"],
-      ["`throws`", "exceptions", "`throw error(code, message)`; SDK errors arrive as errors with a `code`"],
-      ["`if #available(iOS 17, *)`", "`Build.VERSION.SDK_INT >= 34`", "`available(\"ios\", 17)`, `available(\"android\", 34)`"],
+      [
+        "`throws`",
+        "exceptions",
+        "`throw error(code, message)`; SDK errors arrive as errors with a `code`",
+      ],
+      [
+        "`if #available(iOS 17, *)`",
+        "`Build.VERSION.SDK_INT >= 34`",
+        '`available("ios", 17)`, `available("android", 34)`',
+      ],
       ["`enum`", "`enum class`", "`enum`"],
     ],
   },
@@ -80,7 +92,10 @@ export const setStringAsync = (text: string): Promise<void> => Clipboard.setStri
       },
     ],
   },
-  { kind: "p", text: "The Lucent module does the same in one file, and JavaScript imports it directly:" },
+  {
+    kind: "p",
+    text: "The Lucent module does the same in one file, and JavaScript imports it directly:",
+  },
   {
     kind: "code",
     filename: "clipboard.lucent.ts",

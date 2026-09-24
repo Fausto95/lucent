@@ -28,7 +28,9 @@ export default defineConfig({
     dts: false,
     clean: ["dist", "lib", "runtime"],
     // SDK caches are keyed on bindgen's code, not on the whole bundle.
-    define: { __LUCENT_EXTRACTOR__: JSON.stringify(sourcesHash(path.join(packages, "bindgen/src"))) },
+    define: {
+      __LUCENT_EXTRACTOR__: JSON.stringify(sourcesHash(path.join(packages, "bindgen/src"))),
+    },
     deps: {
       // The published package's dependencies, resolved from where it is installed.
       neverBundle: ["typescript", "ink", "react"],
@@ -42,7 +44,11 @@ export default defineConfig({
       { from: "../runtime/test/jsi/harness.cpp", to: "runtime/test/jsi" },
     ],
     hooks: {
-      "build:done": () => fs.writeFileSync(path.join(import.meta.dirname, "dist/package.json"), `${JSON.stringify({ type: "module" }, null, 2)}\n`),
+      "build:done": () =>
+        fs.writeFileSync(
+          path.join(import.meta.dirname, "dist/package.json"),
+          `${JSON.stringify({ type: "module" }, null, 2)}\n`,
+        ),
     },
   },
   run: {

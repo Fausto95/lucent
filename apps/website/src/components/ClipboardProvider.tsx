@@ -1,5 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { styles } from "./ClipboardProvider.stylex";
 
 const ClipboardContext = createContext<{ copy: (text: string) => Promise<void> } | null>(null);
@@ -26,7 +34,11 @@ export function ClipboardProvider({ children }: { children: ReactNode }) {
   return (
     <ClipboardContext.Provider value={{ copy }}>
       {children}
-      <div role="status" aria-live="polite" {...stylex.props(styles.toast, Boolean(message) && styles.visibleToast)}>
+      <div
+        role="status"
+        aria-live="polite"
+        {...stylex.props(styles.toast, Boolean(message) && styles.visibleToast)}
+      >
         {message}
       </div>
     </ClipboardContext.Provider>

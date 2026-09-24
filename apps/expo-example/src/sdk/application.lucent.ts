@@ -2,7 +2,13 @@
 // expo-application's API, implemented in Lucent per platform (M2.1 parity
 // port): ApplicationModule.swift and ApplicationModule.kt.
 import { PLATFORM } from "lucent:platform";
-import { Bundle, FileAttributeKey, FileManager, FileManager_SearchPathDirectory as Directory, FileManager_SearchPathDomainMask as Domain } from "lucent:ios/Foundation";
+import {
+  Bundle,
+  FileAttributeKey,
+  FileManager,
+  FileManager_SearchPathDirectory as Directory,
+  FileManager_SearchPathDomainMask as Domain,
+} from "lucent:ios/Foundation";
 import { asDate, asString } from "lucent:ios";
 import type { PackageInfo } from "lucent:android/android.content.pm";
 import { appContext, available } from "lucent:android";
@@ -32,7 +38,9 @@ export function applicationName(): string | null {
 }
 
 export function nativeApplicationVersion(): string | null {
-  return PLATFORM === "ios" ? info("CFBundleShortVersionString") : (packageInfo()?.versionName ?? null);
+  return PLATFORM === "ios"
+    ? info("CFBundleShortVersionString")
+    : (packageInfo()?.versionName ?? null);
 }
 
 export function nativeBuildVersion(): string | null {
@@ -50,7 +58,9 @@ export async function getInstallationTimeAsync(): Promise<Date> {
     const urls = FileManager.default.urls(Directory.documentDirectory, Domain.userDomainMask);
     const documents = urls[urls.length - 1]?.path;
     if (!documents) throw error("ERR_APPLICATION", "Unable to get the documents directory");
-    const created = asDate(FileManager.default.attributesOfItem(documents)[FileAttributeKey.creationDate] ?? null);
+    const created = asDate(
+      FileManager.default.attributesOfItem(documents)[FileAttributeKey.creationDate] ?? null,
+    );
     if (!created) throw error("ERR_APPLICATION", "Unable to get the installation time");
     return created;
   } else {

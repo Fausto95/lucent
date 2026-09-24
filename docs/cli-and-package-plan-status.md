@@ -44,7 +44,7 @@ Done:
       21/21 + 36/36. Expo's plugin ran `lucent build` from the new package
       during `expo prebuild --clean`. The emulator's location cases need fixes
       sent to its mock GPS provider (`cmd location providers
-      set-test-provider-location gps …`).
+set-test-provider-location gps …`).
 - [x] Tests tab failures after switching tabs: three e2e cases printed module
       state, which persists across runs as in JavaScript. They now print what
       a run changes, and the e2e reference run executes every case twice.
@@ -132,7 +132,7 @@ Done:
 - [x] `sdk search` (classes and members in the project's imports and the
       SDK cache, grouped, with the import line; `--json`), `sdk show`
       (the declaration Lucent code sees, members with overloads), `sdk
-      prefetch` per module (live, with times), `sdk coverage` as a table.
+prefetch` per module (live, with times), `sdk coverage` as a table.
 
 - [x] `bench`: `*.bench.ts` cases timed natively (a desktop Hermes JSI host
       built from the runtime and the generated C++, objects cached) and as

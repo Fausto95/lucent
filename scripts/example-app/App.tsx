@@ -11,13 +11,24 @@ import { styles } from "./src/screens/styles";
 import { TestsScreen } from "./src/screens/TestsScreen";
 
 type Tab = "tests" | "bench" | "compare" | "sdk";
-const TABS: Record<Tab, string> = { tests: "Tests", bench: "Benchmark", compare: "Compare", sdk: "SDK" };
-const SCREENS: Record<Tab, ComponentType> = { tests: TestsScreen, bench: BenchScreen, compare: CompareScreen, sdk: SdkScreen };
+const TABS: Record<Tab, string> = {
+  tests: "Tests",
+  bench: "Benchmark",
+  compare: "Compare",
+  sdk: "SDK",
+};
+const SCREENS: Record<Tab, ComponentType> = {
+  tests: TestsScreen,
+  bench: BenchScreen,
+  compare: CompareScreen,
+  sdk: SdkScreen,
+};
 
 // Automation: `xcrun simctl launch <device> <bundle> -lucentTab sdk` opens
 // that tab (launch arguments become user defaults, which Settings reads).
 const requested: unknown = Platform.OS === "ios" ? Settings.get("lucentTab") : undefined;
-const initialTab: Tab = typeof requested === "string" && requested in TABS ? (requested as Tab) : "tests";
+const initialTab: Tab =
+  typeof requested === "string" && requested in TABS ? (requested as Tab) : "tests";
 
 export default function App() {
   const [tab, setTab] = useState<Tab>(initialTab);
@@ -31,7 +42,12 @@ export default function App() {
       <StatusBar barStyle="dark-content" />
       <View style={styles.tabs}>
         {(Object.keys(TABS) as Tab[]).map((t) => (
-          <Pressable key={t} testID={`tab-${t}`} onPress={() => setTab(t)} style={[styles.tab, tab === t && styles.tabActive]}>
+          <Pressable
+            key={t}
+            testID={`tab-${t}`}
+            onPress={() => setTab(t)}
+            style={[styles.tab, tab === t && styles.tabActive]}
+          >
             <Text style={[styles.tabText, tab === t && styles.tabTextActive]}>{TABS[t]}</Text>
           </Pressable>
         ))}

@@ -6,7 +6,12 @@ export function arrays(xs: number[]): string {
   out.push(String(xs.indexOf(3)), String(xs.includes(5)), String(xs.findIndex((x) => x > 2)));
   const found = xs.find((x) => x % 2 === 0);
   out.push(found === undefined ? "none" : String(found));
-  out.push(xs.filter((x) => x > 1).map((x) => x * 10).join("|"));
+  out.push(
+    xs
+      .filter((x) => x > 1)
+      .map((x) => x * 10)
+      .join("|"),
+  );
   out.push(String(xs.reduce((a, b) => a + b, 0)));
   out.push(String(xs.some((x) => x > 4)), String(xs.every((x) => x > 0)));
   const sorted = [...xs].sort((a, b) => b - a);

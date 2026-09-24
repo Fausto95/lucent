@@ -9,7 +9,9 @@ const bin = path.resolve(import.meta.dirname, "../bin/lucent.cjs");
 
 /** `lucent dev --compact` in a project, with its output as it comes. */
 function dev(root: string) {
-  const child = spawn(process.execPath, [bin, "dev", "--compact", "--root", root], { env: { ...process.env, NO_COLOR: "1" } });
+  const child = spawn(process.execPath, [bin, "dev", "--compact", "--root", root], {
+    env: { ...process.env, NO_COLOR: "1" },
+  });
   let out = "";
   child.stdout.on("data", (d: Buffer) => (out += d.toString()));
   child.stderr.on("data", (d: Buffer) => (out += d.toString()));
@@ -52,11 +54,25 @@ describe("lucent dev --compact", () => {
 
 /** A terminal Ink draws into, with keys to press. */
 function terminal() {
-  const stdout = Object.assign(new PassThrough(), { isTTY: true, columns: 100, rows: 30 }) as unknown as NodeJS.WriteStream;
-  const stdin = Object.assign(new PassThrough(), { isTTY: true, setRawMode: () => {}, ref: () => {}, unref: () => {} }) as unknown as NodeJS.ReadStream;
+  const stdout = Object.assign(new PassThrough(), {
+    isTTY: true,
+    columns: 100,
+    rows: 30,
+  }) as unknown as NodeJS.WriteStream;
+  const stdin = Object.assign(new PassThrough(), {
+    isTTY: true,
+    setRawMode: () => {},
+    ref: () => {},
+    unref: () => {},
+  }) as unknown as NodeJS.ReadStream;
   let written = "";
   (stdout as unknown as PassThrough).on("data", (d: Buffer) => (written += d.toString()));
-  return { stdout, stdin, raw: () => written, text: () => written.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\x1b\][^\x1b]*\x1b\\/g, "") };
+  return {
+    stdout,
+    stdin,
+    raw: () => written,
+    text: () => written.replace(/\x1b\[[0-9;?]*[a-zA-Z]/g, "").replace(/\x1b\][^\x1b]*\x1b\\/g, ""),
+  };
 }
 
 describe("lucent dev dashboard", () => {
@@ -73,9 +89,23 @@ describe("lucent dev dashboard", () => {
       stop: () => void calls.push("stop"),
     };
     const t = terminal();
-    const theme = createTheme({ color: false, interactive: true, unicode: true, links: false, width: 100 });
+    const theme = createTheme({
+      color: false,
+      interactive: true,
+      unicode: true,
+      links: false,
+      width: 100,
+    });
     const opened: string[] = [];
-    const running = dashboard({ session, theme, root: "/app", stdout: t.stdout, stdin: t.stdin, open: (file, line) => void opened.push(`${file}:${line}`), doctor: () => [] });
+    const running = dashboard({
+      session,
+      theme,
+      root: "/app",
+      stdout: t.stdout,
+      stdin: t.stdin,
+      open: (file, line) => void opened.push(`${file}:${line}`),
+      doctor: () => [],
+    });
     const tick = () => new Promise((r) => setTimeout(r, 40));
     return { store, calls, t, running, opened, tick };
   }
@@ -90,7 +120,18 @@ describe("lucent dev dashboard", () => {
         { name: "location", platforms: { ios: "ok", android: "error" } },
       ],
       lastBuild: { at: new Date(2026, 8, 24, 12, 4, 31), ms: 38, ok: false },
-      problems: [{ code: "LUCENT3004", message: "androidx.biometric not found", file: "src/location.android.lucent.ts", line: 8, column: 1, length: 4, fix: 'add "androidx.biometric:biometric:1.2.0" to android/app/build.gradle', source: "a\nb\nc\nd\ne\nf\ng\nhere\ni\n" }],
+      problems: [
+        {
+          code: "LUCENT3004",
+          message: "androidx.biometric not found",
+          file: "src/location.android.lucent.ts",
+          line: 8,
+          column: 1,
+          length: 4,
+          fix: 'add "androidx.biometric:biometric:1.2.0" to android/app/build.gradle',
+          source: "a\nb\nc\nd\ne\nf\ng\nhere\ni\n",
+        },
+      ],
     });
     // Ink redraws asynchronously: wait for the frame with the modules.
     for (let i = 0; i < 100 && !/MODULE/.test(t.text()); i++) await tick();
@@ -109,7 +150,21 @@ describe("lucent dev dashboard", () => {
 
   it("rebuilds, clears the cache, opens the selected problem, and quits restoring the terminal", async () => {
     const { store, calls, t, tick, running, opened } = await setup();
-    store.set({ building: false, watching: ["."], modules: [], problems: [{ code: "LUCENT1001", message: "use let", file: "a.lucent.ts", line: 2, column: 3, length: 3 }] });
+    store.set({
+      building: false,
+      watching: ["."],
+      modules: [],
+      problems: [
+        {
+          code: "LUCENT1001",
+          message: "use let",
+          file: "a.lucent.ts",
+          line: 2,
+          column: 3,
+          length: 3,
+        },
+      ],
+    });
     await tick();
     for (const key of ["r", "c", "o"]) {
       t.stdin.write(key);

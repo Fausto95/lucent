@@ -5,7 +5,12 @@
 // LocationManager (the original uses Play services' fused provider, which
 // the bare app lacks).
 import { PLATFORM } from "lucent:platform";
-import { CLAuthorizationStatus, CLLocation, CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";
+import {
+  CLAuthorizationStatus,
+  CLLocation,
+  CLLocationManager,
+  type CLLocationManagerDelegate,
+} from "lucent:ios/CoreLocation";
 import { Location, LocationManager } from "lucent:android/android.location";
 import { PackageManager } from "lucent:android/android.content.pm";
 import { Looper } from "lucent:android/android.os";
@@ -46,7 +51,15 @@ let nextId = 1;
 function fromCLLocation(l: CLLocation): LocationObject {
   const c = l.coordinate;
   return {
-    coords: { latitude: c.latitude, longitude: c.longitude, altitude: l.altitude, accuracy: l.horizontalAccuracy, altitudeAccuracy: l.verticalAccuracy, heading: l.course, speed: l.speed },
+    coords: {
+      latitude: c.latitude,
+      longitude: c.longitude,
+      altitude: l.altitude,
+      accuracy: l.horizontalAccuracy,
+      altitudeAccuracy: l.verticalAccuracy,
+      heading: l.course,
+      speed: l.speed,
+    },
     timestamp: l.timestamp.getTime(),
   };
 }
@@ -126,19 +139,29 @@ function fromLocation(l: Location): LocationObject {
 function locationEnabled(): boolean {
   const m = locationManager();
   if (available("android", 28)) return m.isLocationEnabled();
-  return m.isProviderEnabled(LocationManager.GPS_PROVIDER) || m.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+  return (
+    m.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+    m.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+  );
 }
 
 /** GPS where it is on: a fused request at balanced accuracy uses network location, which emulators lack. */
 function provider(): string {
-  return locationManager().isProviderEnabled(LocationManager.GPS_PROVIDER) ? LocationManager.GPS_PROVIDER : LocationManager.FUSED_PROVIDER;
+  return locationManager().isProviderEnabled(LocationManager.GPS_PROVIDER)
+    ? LocationManager.GPS_PROVIDER
+    : LocationManager.FUSED_PROVIDER;
 }
 
 function lastKnownLocation(): LocationObject | null {
   const m = locationManager();
   let best: Location | null = null;
   // java.util.List is not bridged yet: the platform's providers, by name.
-  for (const p of [LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER, LocationManager.FUSED_PROVIDER, LocationManager.PASSIVE_PROVIDER]) {
+  for (const p of [
+    LocationManager.GPS_PROVIDER,
+    LocationManager.NETWORK_PROVIDER,
+    LocationManager.FUSED_PROVIDER,
+    LocationManager.PASSIVE_PROVIDER,
+  ]) {
     if (!m.isProviderEnabled(p)) continue;
     const l = m.getLastKnownLocation(p);
     if (l && (!best || l.getTime() > best.getTime())) best = l;
@@ -168,12 +191,25 @@ const listeners = new Map<number, (location: Location) => void>();
 export async function getForegroundPermissionsAsync(): Promise<LocationPermissionResponse> {
   if (PLATFORM === "ios") {
     const status = await main(() => new CLLocationManager().authorizationStatus);
-    const allowed = status === CLAuthorizationStatus.authorizedWhenInUse || status === CLAuthorizationStatus.authorizedAlways;
-    const denied = status === CLAuthorizationStatus.denied || status === CLAuthorizationStatus.restricted;
-    return { status: allowed ? "granted" : denied ? "denied" : "undetermined", granted: allowed, canAskAgain: !denied, expires: "never" };
+    const allowed =
+      status === CLAuthorizationStatus.authorizedWhenInUse ||
+      status === CLAuthorizationStatus.authorizedAlways;
+    const denied =
+      status === CLAuthorizationStatus.denied || status === CLAuthorizationStatus.restricted;
+    return {
+      status: allowed ? "granted" : denied ? "denied" : "undetermined",
+      granted: allowed,
+      canAskAgain: !denied,
+      expires: "never",
+    };
   } else {
     const coarse = granted("android.permission.ACCESS_COARSE_LOCATION");
-    return { status: coarse ? "granted" : "undetermined", granted: coarse, canAskAgain: true, expires: "never" };
+    return {
+      status: coarse ? "granted" : "undetermined",
+      granted: coarse,
+      canAskAgain: true,
+      expires: "never",
+    };
   }
 }
 
@@ -183,7 +219,10 @@ export async function hasServicesEnabledAsync(): Promise<boolean> {
 
 export async function getProviderStatusAsync(): Promise<LocationProviderStatus> {
   if (PLATFORM === "ios") {
-    return { locationServicesEnabled: CLLocationManager.locationServicesEnabled(), backgroundModeEnabled: true };
+    return {
+      locationServicesEnabled: CLLocationManager.locationServicesEnabled(),
+      backgroundModeEnabled: true,
+    };
   } else {
     const enabled = locationEnabled();
     return { locationServicesEnabled: enabled, backgroundModeEnabled: enabled };
@@ -204,7 +243,9 @@ export function getCurrentPositionAsync(): Promise<LocationObject> {
 }
 
 /** Calls `callback` with each position until stopWatching(id). */
-export async function watchPositionAsync(callback: (location: LocationObject) => void): Promise<number> {
+export async function watchPositionAsync(
+  callback: (location: LocationObject) => void,
+): Promise<number> {
   const id = nextId++;
   if (PLATFORM === "ios") {
     const updates = new Updates(callback, () => {});

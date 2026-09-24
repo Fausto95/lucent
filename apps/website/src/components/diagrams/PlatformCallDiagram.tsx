@@ -11,9 +11,20 @@ const w = 190;
 /** One SDK call in a module, and what each platform's build turns it into. */
 export function PlatformCallDiagram() {
   return (
-    <DiagramSvg viewBox="0 0 440 330" markerId={m} title="An SDK call compiles to an Objective-C message send on iOS and a JNI call on Android">
+    <DiagramSvg
+      viewBox="0 0 440 330"
+      markerId={m}
+      title="An SDK call compiles to an Objective-C message send on iOS and a JNI call on Android"
+    >
       <DiagramBox x={95} y={14} w={250} label="device.lucent.ts" sub="one module" />
-      <DiagramBox x={cols[0]} y={84} w={w} label="UIDevice.current.model" sub="the iOS branch" accent />
+      <DiagramBox
+        x={cols[0]}
+        y={84}
+        w={w}
+        label="UIDevice.current.model"
+        sub="the iOS branch"
+        accent
+      />
       <DiagramBox x={cols[1]} y={84} w={w} label="Build.MODEL" sub="the Android branch" accent />
       <DiagramArrow from={[cols[0] + w / 2, 58]} to={[cols[0] + w / 2, 84]} marker={m} />
       <DiagramArrow from={[cols[1] + w / 2, 58]} to={[cols[1] + w / 2, 84]} marker={m} />
@@ -27,7 +38,11 @@ export function PlatformCallDiagram() {
       <DiagramArrow from={[cols[1] + w / 2, 128]} to={[cols[1] + w / 2, 168]} marker={m} />
       <DiagramArrow from={[cols[0] + w / 2, 212]} to={[cols[0] + w / 2, 228]} marker={m} />
       <DiagramArrow from={[cols[1] + w / 2, 212]} to={[cols[1] + w / 2, 228]} marker={m} />
-      <DiagramNote x={20} y={306} lines={["Types come from the SDKs on your machine,", "read on first import and cached."]} />
+      <DiagramNote
+        x={20}
+        y={306}
+        lines={["Types come from the SDKs on your machine,", "read on first import and cached."]}
+      />
     </DiagramSvg>
   );
 }

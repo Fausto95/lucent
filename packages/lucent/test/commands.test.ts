@@ -7,7 +7,10 @@ import { describe, expect, it } from "vite-plus/test";
 const bin = path.resolve(import.meta.dirname, "../bin/lucent.cjs");
 
 function lucent(args: string[], env: Record<string, string> = {}) {
-  const r = spawnSync(process.execPath, [bin, ...args], { encoding: "utf8", env: { ...process.env, NO_COLOR: "1", ...env } });
+  const r = spawnSync(process.execPath, [bin, ...args], {
+    encoding: "utf8",
+    env: { ...process.env, NO_COLOR: "1", ...env },
+  });
   return { status: r.status, out: r.stdout + r.stderr };
 }
 
@@ -20,7 +23,9 @@ describe("lucent explain", () => {
     expect(r.out).toMatch(/^LUCENT3006  Main-thread API off the main thread\n/);
     expect(r.out).toMatch(/Lucent code runs on its own thread/);
     expect(r.out).toMatch(/fix +wrap the call in main\(\(\) => …\) from lucent:thread/);
-    expect(r.out).toMatch(/✗ wrong  example\.lucent\.ts[\s\S]*return UIDevice\.current\.model;[\s\S]*✓ right  example\.lucent\.ts[\s\S]*main\(\(\) => UIDevice\.current\.model\)/);
+    expect(r.out).toMatch(
+      /✗ wrong  example\.lucent\.ts[\s\S]*return UIDevice\.current\.model;[\s\S]*✓ right  example\.lucent\.ts[\s\S]*main\(\(\) => UIDevice\.current\.model\)/,
+    );
     expect(r.out).toMatch(/https:\/\/lucent-lang\.dev\/docs\/reference\/diagnostics\/#lucent3006/);
   });
 
@@ -56,7 +61,9 @@ describe("lucent new module", () => {
     expect(fs.readdirSync(path.join(root, "src"))).toEqual(["haptics.lucent.ts"]);
     const text = fs.readFileSync(path.join(root, "src/haptics.lucent.ts"), "utf8");
     expect(text).toMatch(/import \{ PLATFORM \} from "lucent:platform"/);
-    expect(text).toMatch(/if \(PLATFORM === "ios"\) \{[\s\S]*UIDevice\.current\.systemName[\s\S]*\} else \{[\s\S]*Build_VERSION\.RELEASE/);
+    expect(text).toMatch(
+      /if \(PLATFORM === "ios"\) \{[\s\S]*UIDevice\.current\.systemName[\s\S]*\} else \{[\s\S]*Build_VERSION\.RELEASE/,
+    );
     expect(text).not.toMatch(/declare/);
     expect(r.out).toMatch(/src\/haptics\.lucent\.ts/);
     expect(lucent(["check", "--root", root]).status).toBe(0);
@@ -70,7 +77,9 @@ describe("lucent new module", () => {
     const text = fs.readFileSync(path.join(root, "src/haptics.lucent.ts"), "utf8");
     expect(text).toMatch(/Build_VERSION\.RELEASE/);
     expect(text).not.toMatch(/lucent:ios/);
-    expect(text).toMatch(/if \(PLATFORM === "ios"\) \{\s*throw error\("ERR_UNIMPLEMENTED", "hello is not implemented on iOS yet"\);/);
+    expect(text).toMatch(
+      /if \(PLATFORM === "ios"\) \{\s*throw error\("ERR_UNIMPLEMENTED", "hello is not implemented on iOS yet"\);/,
+    );
     expect(r.out).toMatch(/iOS branch throws/);
     expect(lucent(["check", "--root", root]).status).toBe(0);
   });
@@ -112,7 +121,10 @@ describe("lucent clean", () => {
 
 describe("lucent --version", () => {
   it("names the SDKs it sees", () => {
-    const r = lucent(["--version"], { ANDROID_HOME: path.join(os.tmpdir(), "no-android-sdk"), ANDROID_SDK_ROOT: "" });
+    const r = lucent(["--version"], {
+      ANDROID_HOME: path.join(os.tmpdir(), "no-android-sdk"),
+      ANDROID_SDK_ROOT: "",
+    });
     expect(r.out).toMatch(/^lucent \d+\.\d+\.\d+\n/);
     expect(r.out).toMatch(/Android SDK +not found/);
     if (process.platform === "darwin") expect(r.out).toMatch(/iOS SDK +(\d+\.\d+|not found)/);

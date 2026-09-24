@@ -14,7 +14,11 @@ module.exports = withLucent(getDefaultConfig(__dirname), { watch: true });`,
     kind: "table",
     head: ["Option", "Default", "Meaning"],
     rows: [
-      ["`watch`", "on for `start`, `run:ios` and `run:android`", "Runs `lucent dev --compact` next to the dev server, which rebuilds the native package on each save. `LUCENT_WATCH=0` or `1` sets it when `watch` isn't given."],
+      [
+        "`watch`",
+        "on for `start`, `run:ios` and `run:android`",
+        "Runs `lucent dev --compact` next to the dev server, which rebuilds the native package on each save. `LUCENT_WATCH=0` or `1` sets it when `watch` isn't given.",
+      ],
     ],
   },
   {
@@ -66,6 +70,6 @@ module.exports = withLucent(getDefaultConfig(__dirname), { watch: true });`,
   },
   {
     kind: "p",
-    text: "`lucent init` adds the first two; the plugin line is yours to add. The plugin shows Lucent's errors, with their fix and code, in `*.lucent.ts` files. In VS Code, pick \"Use Workspace Version\" of TypeScript so it loads.",
+    text: '`lucent init` adds the first two; the plugin line is yours to add. The plugin shows Lucent\'s errors, with their fix and code, in `*.lucent.ts` files. In VS Code, pick "Use Workspace Version" of TypeScript so it loads.',
   },
 ];

@@ -32,6 +32,6 @@ export const blocks: Block[] = [
   { kind: "code", filename: "terminal", code: "npx lucent doctor" },
   {
     kind: "p",
-    text: "`Lucent: the native module is not linked` means the app was built without the native package: run `lucent build`, then `pod install`, and rebuild. `module \"x\" is not in the native build` means the app is older than the module: rebuild it.",
+    text: '`Lucent: the native module is not linked` means the app was built without the native package: run `lucent build`, then `pod install`, and rebuild. `module "x" is not in the native build` means the app is older than the module: rebuild it.',
   },
 ];

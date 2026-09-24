@@ -19,6 +19,7 @@
 
   Without a system CMake and Ninja, the Android SDK's work:
   `PATH=~/Library/Android/sdk/cmake/3.22.1/bin:$PATH`.
+
 - For platform code and the example apps: Xcode with an iOS simulator,
   CocoaPods, the Android SDK and NDK, and JDK 17 to 21. Export
   `ANDROID_HOME`, and `LANG=en_US.UTF-8` before `pod install`.
@@ -29,16 +30,16 @@ The repository layout, and the rules every change follows, are in
 
 ## Tests
 
-| Command | Checks | Needs |
-| --- | --- | --- |
-| `pnpm test` | compiler, CLI and website unit tests | |
-| `pnpm test:runtime` | the C++ runtime; add `SANITIZE=1` (and `CXX=g++`) for sanitizers | |
-| `pnpm test:e2e [case…]` | each language feature, native against JavaScript | Hermes |
-| `node scripts/app-check.ts apps/bare-example` | an example app's bundle against its C++ | Hermes |
-| `node scripts/bench.ts --check` | performance budgets | Hermes |
-| `node scripts/smoke-install.ts` | the packed package, installed alone in a fresh app | |
-| `pnpm typecheck` | the repository's TypeScript | |
-| `node scripts/website.ts --check` | the website (below) | Vale |
+| Command                                       | Checks                                                           | Needs  |
+| --------------------------------------------- | ---------------------------------------------------------------- | ------ |
+| `pnpm test`                                   | compiler, CLI and website unit tests                             |        |
+| `pnpm test:runtime`                           | the C++ runtime; add `SANITIZE=1` (and `CXX=g++`) for sanitizers |        |
+| `pnpm test:e2e [case…]`                       | each language feature, native against JavaScript                 | Hermes |
+| `node scripts/app-check.ts apps/bare-example` | an example app's bundle against its C++                          | Hermes |
+| `node scripts/bench.ts --check`               | performance budgets                                              | Hermes |
+| `node scripts/smoke-install.ts`               | the packed package, installed alone in a fresh app               |        |
+| `pnpm typecheck`                              | the repository's TypeScript                                      |        |
+| `node scripts/website.ts --check`             | the website (below)                                              | Vale   |
 
 [docs/testing.md](docs/testing.md) explains the differential suites. Device
 checks run the example apps' test screens on the iOS simulator and the

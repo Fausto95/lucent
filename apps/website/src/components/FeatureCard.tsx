@@ -18,7 +18,15 @@ interface FeatureCardProps {
 const positionStyles = { first: styles.article, middle: styles.article2, last: styles.article3 };
 
 /** One numbered feature in the homepage's three-column grids. */
-export function FeatureCard({ number, icon, title, text, href, linkLabel, position }: FeatureCardProps) {
+export function FeatureCard({
+  number,
+  icon,
+  title,
+  text,
+  href,
+  linkLabel,
+  position,
+}: FeatureCardProps) {
   return (
     <article {...stylex.props(positionStyles[position])}>
       <div {...stylex.props(styles.featureTop)}>

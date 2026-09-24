@@ -35,7 +35,9 @@ export function CodeTabs({ tabs }: { tabs: CodeTab[] }) {
             </button>
           ))}
         </div>
-        <span {...stylex.props(code.referenceFileName, code.referenceFileNameEnd)}>{current.filename}</span>
+        <span {...stylex.props(code.referenceFileName, code.referenceFileNameEnd)}>
+          {current.filename}
+        </span>
         {!current.diff && (
           <button
             type="button"
@@ -47,8 +49,17 @@ export function CodeTabs({ tabs }: { tabs: CodeTab[] }) {
           </button>
         )}
       </div>
-      <pre tabIndex={0} role="tabpanel" aria-label={current.filename} {...stylex.props(code.referencePre)}>
-        {current.diff ? <DiffCode code={current.code} /> : <HighlightedCode code={current.code} reference />}
+      <pre
+        tabIndex={0}
+        role="tabpanel"
+        aria-label={current.filename}
+        {...stylex.props(code.referencePre)}
+      >
+        {current.diff ? (
+          <DiffCode code={current.code} />
+        ) : (
+          <HighlightedCode code={current.code} reference />
+        )}
       </pre>
     </div>
   );

@@ -35,7 +35,9 @@ const work = path.join(os.tmpdir(), `lucent-e2e${sanitize ? "-san" : ""}`);
 
 // Generated code builds with -Werror in the NDK's appmodules build; match it
 // (and the podspec/CMake suppressions) so warnings fail here first.
-const deviceFlags = cxx.includes("clang") ? ["-Werror", "-Wno-gnu-statement-expression", "-Wno-parentheses-equality", "-Wno-comma"] : [];
+const deviceFlags = cxx.includes("clang")
+  ? ["-Werror", "-Wno-gnu-statement-expression", "-Wno-parentheses-equality", "-Wno-comma"]
+  : [];
 
 const baseFlags = [
   "-std=c++20",
@@ -57,20 +59,23 @@ const baseFlags = [
 
 function sh(cmd: string, args: string[], opts: { cwd?: string } = {}): void {
   const r = spawnSync(cmd, args, { cwd: opts.cwd, encoding: "utf8", maxBuffer: 64 << 20 });
-  if (r.status !== 0) throw new Error(`${cmd} ${args.slice(-3).join(" ")} failed:\n${r.stderr}\n${r.stdout}`);
+  if (r.status !== 0)
+    throw new Error(`${cmd} ${args.slice(-3).join(" ")} failed:\n${r.stderr}\n${r.stdout}`);
 }
 
 /** Builds the runtime + harness objects once (cached by content hash). */
 function runtimeLib(): string {
   const rs = runtimeSources(path.join(runtimeDir, "cpp"));
-  const sources = [
-    ...rs.cxx,
-    ...rs.c,
-    path.join(runtimeDir, "test/jsi/harness.cpp"),
-  ];
+  const sources = [...rs.cxx, ...rs.c, path.join(runtimeDir, "test/jsi/harness.cpp")];
   const headers = [
-    ...fs.readdirSync(path.join(runtimeDir, "cpp/lucent")).filter((f) => f.endsWith(".h")).map((f) => path.join(runtimeDir, "cpp/lucent", f)),
-    ...fs.readdirSync(path.join(runtimeDir, "cpp/lucent/jsi")).filter((f) => f.endsWith(".h")).map((f) => path.join(runtimeDir, "cpp/lucent/jsi", f)),
+    ...fs
+      .readdirSync(path.join(runtimeDir, "cpp/lucent"))
+      .filter((f) => f.endsWith(".h"))
+      .map((f) => path.join(runtimeDir, "cpp/lucent", f)),
+    ...fs
+      .readdirSync(path.join(runtimeDir, "cpp/lucent/jsi"))
+      .filter((f) => f.endsWith(".h"))
+      .map((f) => path.join(runtimeDir, "cpp/lucent/jsi", f)),
   ];
   const hash = crypto.createHash("sha1");
   for (const f of [...sources, ...headers]) hash.update(fs.readFileSync(f));
@@ -82,7 +87,15 @@ function runtimeLib(): string {
   const objs: string[] = [];
   for (const src of sources) {
     const obj = path.join(dir, path.basename(src).replace(/\.cpp$/, ".o"));
-    if (src.endsWith(".c")) sh(process.env.CC ?? "clang", [...cFlags, ...(sanitize ? ["-fsanitize=address,undefined"] : []), "-c", src, "-o", obj]);
+    if (src.endsWith(".c"))
+      sh(process.env.CC ?? "clang", [
+        ...cFlags,
+        ...(sanitize ? ["-fsanitize=address,undefined"] : []),
+        "-c",
+        src,
+        "-o",
+        obj,
+      ]);
     else sh(cxx, [...baseFlags, "-c", src, "-o", obj]);
     objs.push(obj);
   }
@@ -102,13 +115,19 @@ function cases(filter: string[]): Case[] {
     if (entry.isFile() && entry.name.endsWith(".test.js")) {
       const name = entry.name.replace(/\.test\.js$/, "");
       const dir = path.join(casesDir, name);
-      const files = fs.existsSync(dir) && fs.statSync(dir).isDirectory()
-        ? fs.readdirSync(dir).filter((f) => f.endsWith(".lucent.ts")).map((f) => path.join(dir, f))
-        : [path.join(casesDir, `${name}.lucent.ts`)];
+      const files =
+        fs.existsSync(dir) && fs.statSync(dir).isDirectory()
+          ? fs
+              .readdirSync(dir)
+              .filter((f) => f.endsWith(".lucent.ts"))
+              .map((f) => path.join(dir, f))
+          : [path.join(casesDir, `${name}.lucent.ts`)];
       out.push({ name, files, test: path.join(casesDir, entry.name) });
     }
   }
-  return out.filter((c) => filter.length === 0 || filter.includes(c.name)).sort((a, b) => a.name.localeCompare(b.name));
+  return out
+    .filter((c) => filter.length === 0 || filter.includes(c.name))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 function nativeRun(c: Case, lib: string): string {
@@ -148,8 +167,13 @@ function nativeRun(c: Case, lib: string): string {
     `var mods = __lucent; var mod = __lucent[${JSON.stringify(moduleNames[0])}];\n` +
       `function lucentClass(factory) { function C() { return factory.apply(undefined, arguments); } C.prototype = factory.prototype; Object.defineProperty(C.prototype, "constructor", { value: C }); for (var k of Object.keys(factory)) C[k] = factory[k]; return C; }\n`,
   );
-  const r = spawnSync(exe, [abortPolyfill, prelude, c.test], { encoding: "utf8", timeout: 60000, env: { ...process.env, ASAN_OPTIONS: "detect_leaks=0" } });
-  if (r.status !== 0) throw new Error(`native run failed (${r.status ?? r.signal}):\n${r.stderr}\n${r.stdout}`);
+  const r = spawnSync(exe, [abortPolyfill, prelude, c.test], {
+    encoding: "utf8",
+    timeout: 60000,
+    env: { ...process.env, ASAN_OPTIONS: "detect_leaks=0" },
+  });
+  if (r.status !== 0)
+    throw new Error(`native run failed (${r.status ?? r.signal}):\n${r.stderr}\n${r.stdout}`);
   if (r.stderr.trim()) process.stderr.write(r.stderr);
   return r.stdout;
 }
@@ -167,15 +191,22 @@ async function referenceRun(c: Case): Promise<string> {
     const req = (spec: string) => {
       if (spec === "lucent:core") return require_(coreJs);
       const base = path.resolve(path.dirname(key), spec);
-      for (const candidate of [base, `${base}.ts`, base.replace(/\.js$/, ".ts")]) if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return load(candidate);
+      for (const candidate of [base, `${base}.ts`, base.replace(/\.js$/, ".ts")])
+        if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return load(candidate);
       throw new Error(`cannot resolve ${spec}`);
     };
-    vm.runInThisContext(`(function (exports, require) {${src}\n})`, { filename: key })(exports, req);
+    vm.runInThisContext(`(function (exports, require) {${src}\n})`, { filename: key })(
+      exports,
+      req,
+    );
     return exports;
   };
   const require_ = (p: string) => {
     const m = { exports: {} as unknown };
-    vm.runInThisContext(`(function (module, exports) {${fs.readFileSync(p, "utf8")}\n})`)(m, m.exports);
+    vm.runInThisContext(`(function (module, exports) {${fs.readFileSync(p, "utf8")}\n})`)(
+      m,
+      m.exports,
+    );
     return m.exports;
   };
   const mods: Record<string, unknown> = {};
@@ -185,9 +216,12 @@ async function referenceRun(c: Case): Promise<string> {
   const once = await runTest(c, mods);
   const again = await runTest(c, mods);
   if (again !== once) {
-    const a = once.split("\n"), b = again.split("\n");
+    const a = once.split("\n"),
+      b = again.split("\n");
     const i = a.findIndex((l, k) => l !== b[k]);
-    throw new Error(`prints something else when run again with the same modules (line ${i + 1}: ${JSON.stringify(a[i])}, then ${JSON.stringify(b[i])}); report what a run changes, not module state`);
+    throw new Error(
+      `prints something else when run again with the same modules (line ${i + 1}: ${JSON.stringify(a[i])}, then ${JSON.stringify(b[i])}); report what a run changes, not module state`,
+    );
   }
   return once;
 }
@@ -236,9 +270,11 @@ async function main() {
       if (native !== reference) {
         failed++;
         console.log(`✗ ${c.name}: output differs`);
-        const n = native.split("\n"), r = reference.split("\n");
+        const n = native.split("\n"),
+          r = reference.split("\n");
         for (let i = 0; i < Math.max(n.length, r.length); i++) {
-          if (n[i] !== r[i]) console.log(`  line ${i + 1}\n    native:    ${n[i]}\n    reference: ${r[i]}`);
+          if (n[i] !== r[i])
+            console.log(`  line ${i + 1}\n    native:    ${n[i]}\n    reference: ${r[i]}`);
         }
       } else {
         console.log(`✓ ${c.name} (${native.split("\n").length - 1} lines, ${Date.now() - t0} ms)`);
@@ -255,6 +291,7 @@ async function main() {
 }
 
 void execFileSync;
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+  await main();
 
 export { cases, referenceRun, type Case };

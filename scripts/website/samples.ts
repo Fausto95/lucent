@@ -6,7 +6,8 @@ import path from "node:path";
 import { compileSamples, type Sample } from "./compile.ts";
 import { root, where } from "./context.ts";
 
-const isSample = (b: { filename: string; diff?: true; from?: string }): boolean => b.filename.endsWith(".lucent.ts") && !b.diff && !b.from;
+const isSample = (b: { filename: string; diff?: true; from?: string }): boolean =>
+  b.filename.endsWith(".lucent.ts") && !b.diff && !b.from;
 
 function samplesOf(blocks: Block[]): Sample[] {
   return blocks.flatMap((b): Sample[] => {
@@ -25,7 +26,10 @@ function contextOf(dir: string, shown: Sample[]): Sample[] {
   return fs
     .readdirSync(full, { recursive: true, encoding: "utf8" })
     .filter((f) => f.endsWith(".lucent.ts") && !names.has(path.basename(f)))
-    .map((f) => ({ filename: path.basename(f), code: fs.readFileSync(path.join(full, f), "utf8") }));
+    .map((f) => ({
+      filename: path.basename(f),
+      code: fs.readFileSync(path.join(full, f), "utf8"),
+    }));
 }
 
 /** The files the compiler wrote for one module: one, or one per platform when it has platform code. */
@@ -39,7 +43,9 @@ function cppOf(files: Map<string, string>, filename: string): CppFile[] {
   ];
   return candidates.flatMap(([label, name]) => {
     const code = files.get(name);
-    return code === undefined ? [] : [{ label, filename: name.split("/").pop()!, code: code.trimEnd() }];
+    return code === undefined
+      ? []
+      : [{ label, filename: name.split("/").pop()!, code: code.trimEnd() }];
   });
 }
 
@@ -65,7 +71,9 @@ export function checkSamples(pages: DocPage[]): {
     const app = [...own, ...(page.samplesWith ? contextOf(page.samplesWith, own) : [])];
     const names = app.map((s) => s.filename);
     for (const dup of new Set(names.filter((n, i) => names.indexOf(n) !== i))) {
-      problems.push(`${where(page.slug)}: two samples are named ${dup}; a page's samples form one app`);
+      problems.push(
+        `${where(page.slug)}: two samples are named ${dup}; a page's samples form one app`,
+      );
     }
     if (app.length) {
       const { diagnostics, files } = compileSamples(page.slug || "index", app);
@@ -73,13 +81,21 @@ export function checkSamples(pages: DocPage[]): {
       const shown = app.filter((s) => s.cpp);
       const platformCode = shown.some((s) => /from "lucent:(ios|android)/.test(s.code));
       if (shown.length && platformCode && missing.length) unbuilt.set(page.slug, missing);
-      else if (shown.length && !diagnostics.length) cpp.set(page.slug, Object.fromEntries(shown.map((s) => [s.filename, cppOf(files, s.filename)])));
+      else if (shown.length && !diagnostics.length)
+        cpp.set(
+          page.slug,
+          Object.fromEntries(shown.map((s) => [s.filename, cppOf(files, s.filename)])),
+        );
     }
     for (const s of samples.filter((x) => x.expect)) {
       const { diagnostics } = compileSamples(`${page.slug}-expect`, [s]);
       if (!diagnostics.some((d) => d.code === s.expect)) {
-        const got = diagnostics.length ? diagnostics.map(formatDiagnostic).join("; ") : "it compiled";
-        problems.push(`${where(page.slug)}: ${s.filename} should fail with ${s.expect}, but ${got}`);
+        const got = diagnostics.length
+          ? diagnostics.map(formatDiagnostic).join("; ")
+          : "it compiled";
+        problems.push(
+          `${where(page.slug)}: ${s.filename} should fail with ${s.expect}, but ${got}`,
+        );
       }
     }
     checked += samples.length;

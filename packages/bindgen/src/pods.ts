@@ -21,15 +21,24 @@ export function podsSearchPaths(iosDir: string, config = "debug"): PodsSearchPat
   if (!fs.existsSync(support)) return undefined;
   const target = fs
     .readdirSync(support)
-    .filter((d) => d.startsWith("Pods-") && fs.existsSync(path.join(support, d, `${d}.${config}.xcconfig`)))
+    .filter(
+      (d) =>
+        d.startsWith("Pods-") && fs.existsSync(path.join(support, d, `${d}.${config}.xcconfig`)),
+    )
     .sort((a, b) => Number(/Tests?$/.test(a)) - Number(/Tests?$/.test(b)))[0];
   if (!target) return undefined;
   const settings = new Map<string, string>();
-  for (const line of fs.readFileSync(path.join(support, target, `${target}.${config}.xcconfig`), "utf8").split("\n")) {
+  for (const line of fs
+    .readFileSync(path.join(support, target, `${target}.${config}.xcconfig`), "utf8")
+    .split("\n")) {
     const m = /^\s*([A-Z_]+)\s*=\s*(.*)$/.exec(line);
     if (m) settings.set(m[1]!, m[2]!);
   }
-  const vars: Record<string, string> = { PODS_ROOT: path.join(iosDir, "Pods"), SRCROOT: iosDir, PODS_TARGET_SRCROOT: iosDir };
+  const vars: Record<string, string> = {
+    PODS_ROOT: path.join(iosDir, "Pods"),
+    SRCROOT: iosDir,
+    PODS_TARGET_SRCROOT: iosDir,
+  };
   const expand = (s: string): string | undefined => {
     let unresolved = false;
     const out = s.replace(/\$\{(\w+)\}|\$\((\w+)\)/g, (_, a, b) => {
@@ -39,8 +48,14 @@ export function podsSearchPaths(iosDir: string, config = "debug"): PodsSearchPat
     });
     return unresolved ? undefined : path.normalize(out);
   };
-  const words = (key: string) => [...(settings.get(key) ?? "").matchAll(/"([^"]*)"|(\S+)/g)].map((m) => m[1] ?? m[2]!).filter((w) => w !== "$(inherited)");
-  const paths = (key: string) => words(key).map(expand).filter((p): p is string => !!p && fs.existsSync(p));
+  const words = (key: string) =>
+    [...(settings.get(key) ?? "").matchAll(/"([^"]*)"|(\S+)/g)]
+      .map((m) => m[1] ?? m[2]!)
+      .filter((w) => w !== "$(inherited)");
+  const paths = (key: string) =>
+    words(key)
+      .map(expand)
+      .filter((p): p is string => !!p && fs.existsSync(p));
   const maps = new Set<string>();
   for (const key of ["OTHER_CFLAGS", "OTHER_SWIFT_FLAGS"]) {
     for (const w of words(key)) {
@@ -50,5 +65,10 @@ export function podsSearchPaths(iosDir: string, config = "debug"): PodsSearchPat
     }
   }
   const lockfile = path.join(iosDir, "Podfile.lock");
-  return { includePaths: paths("HEADER_SEARCH_PATHS"), frameworkPaths: paths("FRAMEWORK_SEARCH_PATHS"), moduleMaps: [...maps], ...(fs.existsSync(lockfile) ? { lockfile } : {}) };
+  return {
+    includePaths: paths("HEADER_SEARCH_PATHS"),
+    frameworkPaths: paths("FRAMEWORK_SEARCH_PATHS"),
+    moduleMaps: [...maps],
+    ...(fs.existsSync(lockfile) ? { lockfile } : {}),
+  };
 }

@@ -29,7 +29,7 @@ export async function deviceInfo(): Promise<DeviceInfo> {
   {
     kind: "list",
     items: [
-      "`if (PLATFORM === \"ios\") { … } else { … }` compiles each branch for its own platform. `? :`, `switch (PLATFORM)` and `PLATFORM === \"ios\" && …` work too.",
+      '`if (PLATFORM === "ios") { … } else { … }` compiles each branch for its own platform. `? :`, `switch (PLATFORM)` and `PLATFORM === "ios" && …` work too.',
       "A top-level function, class or variable that uses one platform's SDK outside a branch belongs to that platform, and compiles only there.",
       "Exports run on both platforms, so they branch inside.",
       "Both branches are type-checked on every build. Where a platform's SDK isn't installed, its code is untyped and skipped.",
@@ -38,7 +38,7 @@ export async function deviceInfo(): Promise<DeviceInfo> {
   {
     kind: "note",
     tone: "warn",
-    text: "A branch needs its `else`. After `if (PLATFORM === \"ios\") return …;`, the code that follows is still shared, so an Android call there fails with `LUCENT3004`.",
+    text: 'A branch needs its `else`. After `if (PLATFORM === "ios") return …;`, the code that follows is still shared, so an Android call there fails with `LUCENT3004`.',
   },
   { kind: "h2", text: "When to split into platform files" },
   {

@@ -10,7 +10,10 @@ export const blocks: Block[] = [
       ["Expo", `SDK ${requirements.expoSdk} or later, in a development build`],
       ["Node", `${requirements.node} or later`],
       ["JDK, for Android builds", `${requirements.jdk.min} to ${requirements.jdk.max}`],
-      ["Android", `API ${requirements.minAndroidApi} and later; newer APIs need an \`available\` check`],
+      [
+        "Android",
+        `API ${requirements.minAndroidApi} and later; newer APIs need an \`available\` check`,
+      ],
       ["iOS", "React Native's minimum iOS version"],
       ["Xcode, Android SDK and NDK", "the versions your React Native version needs"],
     ],

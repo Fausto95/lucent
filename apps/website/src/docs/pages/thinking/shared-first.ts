@@ -39,7 +39,7 @@ export async function level(): Promise<number> {
     kind: "list",
     items: [
       "**No SDK call**: shared code, in any module. It also runs in tests on your computer.",
-      "**A few SDK calls in a function**: a platform branch, `if (PLATFORM === \"ios\") { … } else { … }`, in the same module.",
+      '**A few SDK calls in a function**: a platform branch, `if (PLATFORM === "ios") { … } else { … }`, in the same module.',
       "**Helpers, delegates or state that use one SDK**: top-level declarations of the same module. They belong to that platform, and compile only there.",
       "**Two halves that share nothing**: platform files, `x.ios.lucent.ts` and `x.android.lucent.ts`, behind a declaration file `x.lucent.ts`. This is the rare case.",
     ],
@@ -47,7 +47,7 @@ export async function level(): Promise<number> {
   {
     kind: "note",
     tone: "warn",
-    text: "A branch needs its `else`. After `if (PLATFORM === \"ios\") return …;`, the following code is still shared, so an Android call there fails with `LUCENT3004`.",
+    text: 'A branch needs its `else`. After `if (PLATFORM === "ios") return …;`, the following code is still shared, so an Android call there fails with `LUCENT3004`.',
   },
   {
     kind: "p",

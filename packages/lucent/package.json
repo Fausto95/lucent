@@ -3,10 +3,22 @@
   "version": "0.0.3",
   "description": "Write native React Native modules in TypeScript: the Lucent compiler, CLI, Metro integration, Expo config plugin and editor plugin",
   "license": "MIT",
-  "main": "./app.plugin.js",
   "bin": {
     "lucent": "./bin/lucent.cjs"
   },
+  "files": [
+    "app.plugin.js",
+    "bin",
+    "core",
+    "dist",
+    "gradle",
+    "lib",
+    "metro",
+    "runtime",
+    "schemas",
+    "ts-plugin"
+  ],
+  "main": "./app.plugin.js",
   "exports": {
     ".": "./app.plugin.js",
     "./metro": {
@@ -24,6 +36,9 @@
     "./app.plugin.js": "./app.plugin.js",
     "./package.json": "./package.json"
   },
+  "scripts": {
+    "prepack": "vp run build"
+  },
   "dependencies": {
     "ink": "^7.1.1",
     "picocolors": "^1.1.1",
@@ -37,20 +52,5 @@
     "@types/react": "^19.2.0",
     "ajv": "^8",
     "ink-testing-library": "^4.0.0"
-  },
-  "files": [
-    "app.plugin.js",
-    "bin",
-    "core",
-    "dist",
-    "gradle",
-    "lib",
-    "metro",
-    "runtime",
-    "schemas",
-    "ts-plugin"
-  ],
-  "scripts": {
-    "prepack": "vp run build"
   }
 }

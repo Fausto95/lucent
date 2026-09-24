@@ -8,7 +8,9 @@ const { pathToFileURL } = require("node:url");
 
 const dist = path.join(__dirname, "../dist/cli.js");
 if (!fs.existsSync(dist)) {
-  process.stderr.write("lucent: dist/cli.js is missing; run `pnpm build` in the repository first\n");
+  process.stderr.write(
+    "lucent: dist/cli.js is missing; run `pnpm build` in the repository first\n",
+  );
   process.exit(1);
 }
 import(pathToFileURL(dist).href);

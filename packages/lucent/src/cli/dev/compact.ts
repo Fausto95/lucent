@@ -16,14 +16,19 @@ export function compact(session: DevSession, out: Output): () => void {
     if (!last || last === shown || s.building) return;
     shown = last;
     const time = t.dim(`[${last.at.toLocaleTimeString("en-GB")}]`);
-    for (const n of s.notices ?? []) out.print(`${time} ${n.level === "ok" ? t.success(t.symbols.ok) : t.warn(t.symbols.warn)} ${n.text}`);
+    for (const n of s.notices ?? [])
+      out.print(
+        `${time} ${n.level === "ok" ? t.success(t.symbols.ok) : t.warn(t.symbols.warn)} ${n.text}`,
+      );
     if (last.fatal) {
       out.error(`${time} ${t.error(t.symbols.fail)} ${last.fatal}`);
       return;
     }
     if (last.ok) {
       const next = last.next?.rebuild ? ` ${t.dim("·")} ${nextText(last.next)}` : "";
-      out.print(`${time} ${t.success(t.symbols.ok)} ${plural(s.modules.length, "module")}  ${t.dim(`${last.ms} ms`)}${next}`);
+      out.print(
+        `${time} ${t.success(t.symbols.ok)} ${plural(s.modules.length, "module")}  ${t.dim(`${last.ms} ms`)}${next}`,
+      );
       return;
     }
     out.error(`${time} ${t.error(t.symbols.fail)} ${plural(s.problems.length, "error")}`);

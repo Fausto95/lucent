@@ -16,7 +16,10 @@ function ios(src: string, sdk?: SdkOptions) {
     "m.android.lucent.ts": 'export async function run(): Promise<string> {\n  return "";\n}\n',
   };
   for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), text);
-  const r = compile(Object.keys(files).map((f) => path.join(dir, f)), { platforms: ["ios"], sdk });
+  const r = compile(
+    Object.keys(files).map((f) => path.join(dir, f)),
+    { platforms: ["ios"], sdk },
+  );
   return { r, mm: r.files.get("ios/m_m.mm") ?? "", dir };
 }
 
@@ -71,7 +74,10 @@ export async function run(): Promise<string> {
 }
 `;
 
-const pods = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../bindgen/test/fixtures/pods");
+const pods = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../../bindgen/test/fixtures/pods",
+);
 
 const gauge = `import { WPGauge, WPGaugeMode } from "lucent:ios/WidgetsPod";
 import type { NSURL } from "lucent:ios/Foundation";
@@ -291,18 +297,28 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     const { r, mm } = ios(callbacks);
     expect(r.diagnostics).toEqual([]);
     // Heap blocks made from C++ lambdas, which own the Lucent function.
-    expect(mm).toMatch(/block:lucent::objc::block<void \(\^\)\(NSTimer\*\)>\(\[f_ = [^]*?\]\(NSTimer\* a0_\) \{ lucent::postCallback\(\[f_, a0_\]/);
-    expect(mm).toMatch(/comparator:lucent::objc::block<NSComparisonResult \(\^\)\(id, id\)>\([^]*?\(id a0_, id a1_\) \{ return lucent::callNow\(/);
-    expect(mm).toMatch(/animations:lucent::objc::block<void \(\^\)\(\)>\([^]*?\]\(\) \{ lucent::callNow\(/);
+    expect(mm).toMatch(
+      /block:lucent::objc::block<void \(\^\)\(NSTimer\*\)>\(\[f_ = [^]*?\]\(NSTimer\* a0_\) \{ lucent::postCallback\(\[f_, a0_\]/,
+    );
+    expect(mm).toMatch(
+      /comparator:lucent::objc::block<NSComparisonResult \(\^\)\(id, id\)>\([^]*?\(id a0_, id a1_\) \{ return lucent::callNow\(/,
+    );
+    expect(mm).toMatch(
+      /animations:lucent::objc::block<void \(\^\)\(\)>\([^]*?\]\(\) \{ lucent::callNow\(/,
+    );
   });
 
   it("calls completion-handler methods as promises, settled on the Lucent thread", () => {
     const { r, mm } = ios(promises);
     expect(r.diagnostics).toEqual([]);
-    expect(mm).toMatch(/evaluatePolicy:.* localizedReason:.* reply:lucent::objc::block<void \(\^\)\(BOOL, NSError\*\)>\(\[p_\]\(BOOL a0_, NSError\* a1_\) \{ lucent::postCallback\(/);
+    expect(mm).toMatch(
+      /evaluatePolicy:.* localizedReason:.* reply:lucent::objc::block<void \(\^\)\(BOOL, NSError\*\)>\(\[p_\]\(BOOL a0_, NSError\* a1_\) \{ lucent::postCallback\(/,
+    );
     expect(mm).toContain("p_.reject(lucent::objc::fromNSError(a1_");
     expect(mm).toContain("p_.resolve(static_cast<bool>(a0_))");
-    expect(mm).toContain("getPendingNotificationRequestsWithCompletionHandler:lucent::objc::block<");
+    expect(mm).toContain(
+      "getPendingNotificationRequestsWithCompletionHandler:lucent::objc::block<",
+    );
     expect(mm).toContain("p_.resolve(lucent::undefined)");
   });
 
@@ -310,8 +326,12 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     const { r, mm } = ios(delegate);
     expect(r.diagnostics).toEqual([]);
     expect(mm).toMatch(/@interface LucentTracker : NSObject <CLLocationManagerDelegate>/);
-    expect(mm).toMatch(/- \(void\)locationManager:\(CLLocationManager\*\)a0_ didUpdateLocations:\(NSArray\*\)a1_ \{ lucent::postCallback\(/);
-    expect(mm).toMatch(/- \(void\)locationManager:\(CLLocationManager\*\)a0_ didFailWithError:\(NSError\*\)a1_ \{/);
+    expect(mm).toMatch(
+      /- \(void\)locationManager:\(CLLocationManager\*\)a0_ didUpdateLocations:\(NSArray\*\)a1_ \{ lucent::postCallback\(/,
+    );
+    expect(mm).toMatch(
+      /- \(void\)locationManager:\(CLLocationManager\*\)a0_ didFailWithError:\(NSError\*\)a1_ \{/,
+    );
     expect(mm).toContain("objc_setAssociatedObject(");
   });
 
@@ -327,7 +347,9 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     const { r, mm } = ios(structs);
     expect(r.diagnostics).toEqual([]);
     // Nested structs number their temporaries (s0_, s1_…) so they do not shadow each other.
-    expect(mm).toMatch(/auto s0_ = \[.*coordinate\]; auto o0_ = std::make_shared<lucent_app::S_CLLocationCoordinate2D>\(\); o0_->latitude = static_cast<double>\(s0_\.latitude\); o0_->longitude = static_cast<double>\(s0_\.longitude\);/);
+    expect(mm).toMatch(
+      /auto s0_ = \[.*coordinate\]; auto o0_ = std::make_shared<lucent_app::S_CLLocationCoordinate2D>\(\); o0_->latitude = static_cast<double>\(s0_\.latitude\); o0_->longitude = static_cast<double>\(s0_\.longitude\);/,
+    );
     expect(mm).toContain("CLLocationCoordinate2DIsValid(CLLocationCoordinate2D{");
   });
 
@@ -402,9 +424,29 @@ export async function run(): Promise<string> {
   // The compilers run in parallel and off the test's thread: one after another
   // they outlast the default timeout on CI, and block vitest's worker.
   it("generates Objective-C++ that compiles against the iOS SDK", async () => {
-    const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], { encoding: "utf8" });
+    const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], {
+      encoding: "utf8",
+    });
     if (process.platform !== "darwin" || sdk.status !== 0) return;
-    const units = ([[clipboard], [files], [keychain], [callbacks], [promises], [delegate], [errorOut], [structs], [unimportedStruct], [cgImages], [sets], [mediaTimes], [shadowing], [pathMonitor], [gauge, { ios: podsSearchPaths(pods) }]] as [string, SdkOptions?][]).map(([src, sdk]) => {
+    const units = (
+      [
+        [clipboard],
+        [files],
+        [keychain],
+        [callbacks],
+        [promises],
+        [delegate],
+        [errorOut],
+        [structs],
+        [unimportedStruct],
+        [cgImages],
+        [sets],
+        [mediaTimes],
+        [shadowing],
+        [pathMonitor],
+        [gauge, { ios: podsSearchPaths(pods) }],
+      ] as [string, SdkOptions?][]
+    ).map(([src, sdk]) => {
       const { r, dir } = ios(src, sdk);
       expect(r.diagnostics).toEqual([]);
       for (const [k, v] of r.files) {
@@ -415,7 +457,27 @@ export async function run(): Promise<string> {
     });
     const stderrs = await Promise.all(
       units.map((dir) =>
-        stderrOf("xcrun", ["--sdk", "iphonesimulator", "clang++", "-std=c++20", "-fobjc-arc", "-fsyntax-only", "-target", "arm64-apple-ios15.1-simulator", "-Werror", "-Wno-gnu-statement-expression", "-Wno-unused-label", "-Wno-parentheses-equality", "-Wno-comma", `-I${path.join(runtimeDir(), "cpp")}`, `-I${path.join(dir, "out/ios")}`, `-I${path.join(pods, "Pods/Headers/Public")}`, "-x", "objective-c++", path.join(dir, "out/ios/m_m.mm")]),
+        stderrOf("xcrun", [
+          "--sdk",
+          "iphonesimulator",
+          "clang++",
+          "-std=c++20",
+          "-fobjc-arc",
+          "-fsyntax-only",
+          "-target",
+          "arm64-apple-ios15.1-simulator",
+          "-Werror",
+          "-Wno-gnu-statement-expression",
+          "-Wno-unused-label",
+          "-Wno-parentheses-equality",
+          "-Wno-comma",
+          `-I${path.join(runtimeDir(), "cpp")}`,
+          `-I${path.join(dir, "out/ios")}`,
+          `-I${path.join(pods, "Pods/Headers/Public")}`,
+          "-x",
+          "objective-c++",
+          path.join(dir, "out/ios/m_m.mm"),
+        ]),
       ),
     );
     expect(stderrs).toEqual(units.map(() => ""));

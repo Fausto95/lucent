@@ -44,19 +44,41 @@ export function CallDiagram({ mode }: { mode: "sync" | "async" }) {
   const height = top(hops.length) + 4;
   const lanes = mode === "sync" ? ["JS THREAD"] : ["JS THREAD", "LUCENT THREAD"];
   return (
-    <DiagramSvg viewBox={`0 0 440 ${height}`} markerId={m} title={`A ${mode === "sync" ? "synchronous" : "async"} call, step by step, with the thread each step runs on`}>
+    <DiagramSvg
+      viewBox={`0 0 440 ${height}`}
+      markerId={m}
+      title={`A ${mode === "sync" ? "synchronous" : "async"} call, step by step, with the thread each step runs on`}
+    >
       {lanes.map((label, i) => (
-        <DiagramLane key={label} x={laneX[i as Lane] - 10} y={10} w={w + 20} h={height - 14} label={label} />
+        <DiagramLane
+          key={label}
+          x={laneX[i as Lane] - 10}
+          y={10}
+          w={w + 20}
+          h={height - 14}
+          label={label}
+        />
       ))}
       {hops.map((hop, i) => {
         const x = laneX[hop.lane];
         const prev = hops[i - 1];
         return (
           <g key={hop.label}>
-            <DiagramBox x={x} y={top(i)} w={w} label={hop.label} sub={hop.sub} accent={hop.accent} />
+            <DiagramBox
+              x={x}
+              y={top(i)}
+              w={w}
+              label={hop.label}
+              sub={hop.sub}
+              accent={hop.accent}
+            />
             {prev &&
               (prev.lane === hop.lane ? (
-                <DiagramArrow from={[x + w / 2, top(i - 1) + 44]} to={[x + w / 2, top(i)]} marker={m} />
+                <DiagramArrow
+                  from={[x + w / 2, top(i - 1) + 44]}
+                  to={[x + w / 2, top(i)]}
+                  marker={m}
+                />
               ) : (
                 <DiagramArrow
                   from={[laneX[prev.lane] + (hop.lane > prev.lane ? w : 0), top(i - 1) + 22]}
@@ -65,7 +87,14 @@ export function CallDiagram({ mode }: { mode: "sync" | "async" }) {
                   dashed
                 />
               ))}
-            {hop.via && <DiagramLabel x={laneX[1] + 8} y={(top(i - 1) + top(i)) / 2 + 26} text={hop.via} anchor="start" />}
+            {hop.via && (
+              <DiagramLabel
+                x={laneX[1] + 8}
+                y={(top(i - 1) + top(i)) / 2 + 26}
+                text={hop.via}
+                anchor="start"
+              />
+            )}
           </g>
         );
       })}

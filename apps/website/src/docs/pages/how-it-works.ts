@@ -50,14 +50,26 @@ export const blocks: Block[] = [
             kind: "table",
             head: ["In `.lucent/`", "What it holds"],
             rows: [
-              ["`native/cpp/lucent/`, `native/cpp/rn/`", "The C++ runtime, and `Lucent`, the one TurboModule that serves every module."],
-              ["`native/cpp/generated/`", "Your modules' C++, with a folder per platform when a module has platform code."],
-              ["`native/LucentNative.podspec`, `native/ios/`", "The CocoaPods spec, and the iOS registration."],
+              [
+                "`native/cpp/lucent/`, `native/cpp/rn/`",
+                "The C++ runtime, and `Lucent`, the one TurboModule that serves every module.",
+              ],
+              [
+                "`native/cpp/generated/`",
+                "Your modules' C++, with a folder per platform when a module has platform code.",
+              ],
+              [
+                "`native/LucentNative.podspec`, `native/ios/`",
+                "The CocoaPods spec, and the iOS registration.",
+              ],
               ["`native/android/`", "The CMake project, the Gradle file and the Android manifest."],
               ["`native/js/`", "One proxy per module, and the loader they share."],
               ["`native/types/`", "Declarations of the `lucent:*` imports, for your editor."],
               ["`native/manifest.json`", "The module list, and a hash of the build's inputs."],
-              ["`check.json`, `android-classpath*.json`", "What `lucent check` and the Android dependency step remember between runs."],
+              [
+                "`check.json`, `android-classpath*.json`",
+                "What `lucent check` and the Android dependency step remember between runs.",
+              ],
             ],
           },
           {

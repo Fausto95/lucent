@@ -10,10 +10,15 @@ describe("the published build", () => {
   it("keys SDK caches on bindgen's code, not on the whole bundle, so upgrades keep them unless the extractor changed", () => {
     // The hash the workspace computes from bindgen's sources.
     const h = crypto.createHash("sha256");
-    for (const f of fs.readdirSync(bindgen).sort()) if (/\.(ts|js)$/.test(f)) h.update(fs.readFileSync(path.join(bindgen, f)));
+    for (const f of fs.readdirSync(bindgen).sort())
+      if (/\.(ts|js)$/.test(f)) h.update(fs.readFileSync(path.join(bindgen, f)));
     const expected = h.digest("hex").slice(0, 8);
     // The build the run started from (vitest.setup-build.ts).
-    const dist = fs.readdirSync(path.join(pkg, "dist")).filter((f) => f.endsWith(".js")).map((f) => fs.readFileSync(path.join(pkg, "dist", f), "utf8")).join("\n");
+    const dist = fs
+      .readdirSync(path.join(pkg, "dist"))
+      .filter((f) => f.endsWith(".js"))
+      .map((f) => fs.readFileSync(path.join(pkg, "dist", f), "utf8"))
+      .join("\n");
     expect(dist).toContain(`"${expected}"`);
     expect(dist).not.toMatch(/__LUCENT_EXTRACTOR__/);
   });

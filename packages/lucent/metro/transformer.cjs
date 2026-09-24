@@ -30,10 +30,9 @@ function moduleName(filename) {
 function proxyFor(filename, projectRoot) {
   const name = moduleName(filename);
   const generated = path.join(projectRoot, ".lucent", "native", "js", `${name}.js`);
-  if (fs.existsSync(generated)) return rebase(fs.readFileSync(generated, "utf8"), generated, filename);
-  return (
-    `throw new Error(${JSON.stringify(`Lucent: ${path.basename(filename)} has not been compiled. Run \`lucent build\` and rebuild the app.`)});\n`
-  );
+  if (fs.existsSync(generated))
+    return rebase(fs.readFileSync(generated, "utf8"), generated, filename);
+  return `throw new Error(${JSON.stringify(`Lucent: ${path.basename(filename)} has not been compiled. Run \`lucent build\` and rebuild the app.`)});\n`;
 }
 
 /**
@@ -42,7 +41,10 @@ function proxyFor(filename, projectRoot) {
  */
 function rebase(proxy, generated, filename) {
   return proxy.replace(/require\("(\.\.?\/[^"]+)"\)/g, (_, spec) => {
-    const rel = path.relative(path.dirname(filename), path.resolve(path.dirname(generated), spec)).split(path.sep).join("/");
+    const rel = path
+      .relative(path.dirname(filename), path.resolve(path.dirname(generated), spec))
+      .split(path.sep)
+      .join("/");
     return `require(${JSON.stringify(rel.startsWith(".") ? rel : `./${rel}`)})`;
   });
 }

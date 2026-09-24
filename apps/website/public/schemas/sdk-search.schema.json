@@ -2,11 +2,7 @@
   "$id": "https://lucent-lang.dev/schemas/sdk-search.schema.json",
   "title": "lucent sdk search --json",
   "type": "object",
-  "required": [
-    "term",
-    "searched",
-    "matches"
-  ],
+  "required": ["term", "searched", "matches"],
   "additionalProperties": false,
   "properties": {
     "term": {
@@ -21,20 +17,11 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": [
-          "platform",
-          "module",
-          "kind",
-          "name",
-          "import"
-        ],
+        "required": ["platform", "module", "kind", "name", "import"],
         "additionalProperties": false,
         "properties": {
           "platform": {
-            "enum": [
-              "ios",
-              "android"
-            ]
+            "enum": ["ios", "android"]
           },
           "module": {
             "type": "string"

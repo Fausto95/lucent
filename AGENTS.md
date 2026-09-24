@@ -32,7 +32,7 @@ runtime/js           loader, copied to .lucent/native/js/_lucent/runtime.js
   `FnEmitter.inOrder`), must not let a coroutine reference lambda captures, and
   must keep JSI objects on the JS thread (use `Host` ids).
 - Runtime changes: run `packages/runtime/test/run.sh`, and with `SANITIZE=1
-  CXX=g++`.
+CXX=g++`.
 - After changing e2e cases, run `node scripts/sync-examples.ts` so the example
   apps' test screens stay in sync.
 - Keep headers free of names that shadow system headers (hence `jsstring.h`,

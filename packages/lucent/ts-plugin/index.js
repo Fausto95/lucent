@@ -26,11 +26,15 @@ function createPlugin(loadCompiler) {
       let cache = { key: undefined, byFile: new Map() };
       function lucentDiagnostics(fileName) {
         const files = info.project.getFileNames().filter((f) => LUCENT_FILE.test(f));
-        const key = files.map((f) => `${f}@${info.languageServiceHost.getScriptVersion(f)}`).join("|");
+        const key = files
+          .map((f) => `${f}@${info.languageServiceHost.getScriptVersion(f)}`)
+          .join("|");
         if (cache.key !== key) {
           const byFile = new Map();
           const readSource = (f) => {
-            const snap = files.includes(f) ? info.languageServiceHost.getScriptSnapshot(f) : undefined;
+            const snap = files.includes(f)
+              ? info.languageServiceHost.getScriptSnapshot(f)
+              : undefined;
             return snap ? snap.getText(0, snap.getLength()) : undefined;
           };
           for (const d of compiler.checkSources(files, readSource)) {
@@ -59,7 +63,13 @@ function createPlugin(loadCompiler) {
             file,
             start: d.start ?? 0,
             length: d.length ?? 0,
-            messageText: [`${d.code}: ${d.message}`, d.fix && `fix: ${d.fix}`, d.docs && `docs: ${d.docs}`].filter(Boolean).join("\n"),
+            messageText: [
+              `${d.code}: ${d.message}`,
+              d.fix && `fix: ${d.fix}`,
+              d.docs && `docs: ${d.docs}`,
+            ]
+              .filter(Boolean)
+              .join("\n"),
             category: ts.DiagnosticCategory.Error,
             code: Number(d.code.replace(/^LUCENT/, "")),
             source: "lucent",
@@ -81,7 +91,9 @@ function createPlugin(loadCompiler) {
 const path = require("node:path");
 const fs = require("node:fs");
 const { pathToFileURL } = require("node:url");
-const compiler = fs.existsSync(path.join(__dirname, "../src")) ? "@lucent-lang/compiler" : pathToFileURL(path.join(__dirname, "../dist/compiler.js")).href;
+const compiler = fs.existsSync(path.join(__dirname, "../src"))
+  ? "@lucent-lang/compiler"
+  : pathToFileURL(path.join(__dirname, "../dist/compiler.js")).href;
 
 module.exports = createPlugin(() => import(compiler));
 module.exports.createPlugin = createPlugin;

@@ -27,7 +27,11 @@ describe("@lucent-lang/lucent/core", () => {
   });
 
   it("declares its types with lucent:core's declarations, which the published package ships", () => {
-    const exported = (JSON.parse(fs.readFileSync(path.join(pkg, "package.json"), "utf8")) as { exports: Record<string, { types?: string }> }).exports["./core"];
+    const exported = (
+      JSON.parse(fs.readFileSync(path.join(pkg, "package.json"), "utf8")) as {
+        exports: Record<string, { types?: string }>;
+      }
+    ).exports["./core"];
     expect(exported?.types).toBe("./lib/sdk/core.d.ts");
     // lib/ is the compiler's lib/, copied by the package build (vite.config.ts).
     expect(fs.existsSync(path.join(pkg, "../compiler/lib/sdk/core.d.ts"))).toBe(true);

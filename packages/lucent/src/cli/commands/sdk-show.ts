@@ -11,7 +11,9 @@ export function run({ root, positionals, out }: Invocation): number {
   const t = out.theme;
   const [symbol] = positionals;
   if (!symbol) {
-    out.error(`${t.error(t.symbols.fail)} name a symbol: lucent sdk show <module>.<Type>[.<member>], e.g. android.os.Vibrator`);
+    out.error(
+      `${t.error(t.symbols.fail)} name a symbol: lucent sdk show <module>.<Type>[.<member>], e.g. android.os.Vibrator`,
+    );
     return 2;
   }
   const sdk = projectSdk(root);
@@ -30,7 +32,9 @@ export function run({ root, positionals, out }: Invocation): number {
       const dts = sdkDts(r.schema);
       const block = declaration(dts, type!);
       if (!block) {
-        out.error(`${t.error(t.symbols.fail)} no ${type} in lucent:${platform}/${module}: lucent sdk search ${type} finds similar names`);
+        out.error(
+          `${t.error(t.symbols.fail)} no ${type} in lucent:${platform}/${module}: lucent sdk search ${type} finds similar names`,
+        );
         return 1;
       }
       const shown = member ? memberLines(block, member) : block;
@@ -43,14 +47,20 @@ export function run({ root, positionals, out }: Invocation): number {
       return 0;
     }
   }
-  out.error(`${t.error(t.symbols.fail)} no SDK module in ${symbol}: write <module>.<Type>, e.g. android.os.Vibrator or UIKit.UIDevice`);
+  out.error(
+    `${t.error(t.symbols.fail)} no SDK module in ${symbol}: write <module>.<Type>, e.g. android.os.Vibrator or UIKit.UIDevice`,
+  );
   return 1;
 }
 
 /** The declaration of `name` in a module's .d.ts: its doc comment and body. */
 function declaration(dts: string, name: string): string | undefined {
   const lines = dts.split("\n");
-  const start = lines.findIndex((l) => new RegExp(`^export (declare )?(abstract )?(class|interface|enum|const enum|type|function|const) ${name}\\b`).test(l));
+  const start = lines.findIndex((l) =>
+    new RegExp(
+      `^export (declare )?(abstract )?(class|interface|enum|const enum|type|function|const) ${name}\\b`,
+    ).test(l),
+  );
   if (start < 0) return undefined;
   let from = start;
   while (from > 0 && /^\s*(\/\*\*|\*)/.test(lines[from - 1]!)) from--;
@@ -67,7 +77,9 @@ function declaration(dts: string, name: string): string | undefined {
 function memberLines(block: string, member: string): string | undefined {
   const lines = block.split("\n");
   const head = lines.find((l) => /^export /.test(l))!;
-  const found = lines.filter((l) => new RegExp(`^\\s+(static |readonly |get |set |protected |private )*${member}\\b[?(<:]`).test(l));
+  const found = lines.filter((l) =>
+    new RegExp(`^\\s+(static |readonly |get |set |protected |private )*${member}\\b[?(<:]`).test(l),
+  );
   return found.length ? [head, ...found, "}"].join("\n") : undefined;
 }
 
@@ -79,7 +91,14 @@ function highlight(code: string, t: Theme): string {
     .map((line) =>
       /^\s*(\/\/|\/\*\*|\*)/.test(line)
         ? t.dim(line)
-        : line.replace(/\b(export|declare|class|interface|enum|static|readonly|abstract|extends|implements|function|const|type|protected|private|new)\b/g, (k) => t.brand(k)).replace(/\b(string|number|boolean|void|undefined|null|Promise|Uint8Array)\b/g, (k) => t.progress(k)),
+        : line
+            .replace(
+              /\b(export|declare|class|interface|enum|static|readonly|abstract|extends|implements|function|const|type|protected|private|new)\b/g,
+              (k) => t.brand(k),
+            )
+            .replace(/\b(string|number|boolean|void|undefined|null|Promise|Uint8Array)\b/g, (k) =>
+              t.progress(k),
+            ),
     )
     .join("\n");
 }

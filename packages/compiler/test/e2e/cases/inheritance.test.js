@@ -6,7 +6,14 @@ const animals = mod.counted();
 print(mod.zoo());
 print(mod.shapes());
 const d = new Dog("fido", "mutt");
-print(mod.tricks(d), d.tricks.join("+"), d.name, d instanceof Animal, d instanceof Dog, d instanceof Puppy);
+print(
+  mod.tricks(d),
+  d.tricks.join("+"),
+  d.name,
+  d instanceof Animal,
+  d instanceof Dog,
+  d instanceof Puppy,
+);
 print(mod.narrow(d), mod.narrow(new Animal("cat")));
 const p = mod.makePuppy();
 print(p instanceof Puppy, p instanceof Dog, p instanceof Animal, p.speak(), p.describe(), p.legs);

@@ -24,17 +24,28 @@ describe("diagnostics", () => {
   });
 
   it("accepts renamed imports of core helpers", () => {
-    expect(codes('import { errorCode as codeOf } from "lucent:core";\nexport function f(e: Error): string { return codeOf(e) ?? "none"; }')).toEqual([]);
+    expect(
+      codes(
+        'import { errorCode as codeOf } from "lucent:core";\nexport function f(e: Error): string { return codeOf(e) ?? "none"; }',
+      ),
+    ).toEqual([]);
   });
 
   it("rejects the old @lucent-lang/core specifier", () => {
-    const r = compileSource('import { errorCode } from "@lucent-lang/core";\nexport function f(e: Error): string { return errorCode(e) ?? "none"; }');
+    const r = compileSource(
+      'import { errorCode } from "@lucent-lang/core";\nexport function f(e: Error): string { return errorCode(e) ?? "none"; }',
+    );
     expect(r.ok).toBe(false);
-    expect(r.diagnostics[0]).toMatchObject({ line: 1, message: expect.stringContaining("@lucent-lang/core") });
+    expect(r.diagnostics[0]).toMatchObject({
+      line: 1,
+      message: expect.stringContaining("@lucent-lang/core"),
+    });
   });
 
   it("accepts console", () => {
-    expect(codes('export function f(n: number): void { console.log("n", n); console.warn(`w${n}`); }')).toEqual([]);
+    expect(
+      codes('export function f(n: number): void { console.log("n", n); console.warn(`w${n}`); }'),
+    ).toEqual([]);
   });
 
   it("reports TypeScript errors first", () => {
@@ -46,7 +57,9 @@ describe("diagnostics", () => {
   });
 
   it("rejects imports of other packages", () => {
-    expect(codes('import fs from "node:fs";\nexport function f(): number { return 1; }')).toEqual(expect.arrayContaining([expect.stringMatching(/LUCENT(3001|9001)/)]));
+    expect(codes('import fs from "node:fs";\nexport function f(): number { return 1; }')).toEqual(
+      expect.arrayContaining([expect.stringMatching(/LUCENT(3001|9001)/)]),
+    );
   });
 
   it("rejects top-level statements", () => {
@@ -58,32 +71,49 @@ describe("diagnostics", () => {
   });
 
   it("reports only the rejected var, not the uses of its variable", () => {
-    const src = "export function total(xs: number[]): number {\n  var sum = 0;\n  for (const x of xs) sum += x;\n  return sum;\n}\n";
+    const src =
+      "export function total(xs: number[]): number {\n  var sum = 0;\n  for (const x of xs) sum += x;\n  return sum;\n}\n";
     expect(codes(src)).toEqual(["LUCENT1001"]);
   });
 
   it("reports only a rejected top-level var, not the uses of its variable", () => {
-    expect(codes("var g = 1;\nexport function f(): number { g += 1; return g; }")).toEqual(["LUCENT3002"]);
+    expect(codes("var g = 1;\nexport function f(): number { g += 1; return g; }")).toEqual([
+      "LUCENT3002",
+    ]);
   });
 
   it("reports only a top-level destructuring, not the uses of its names", () => {
-    expect(codes("const { a } = { a: 1 };\nexport function f(): number { return a; }")).toEqual(["LUCENT3002"]);
+    expect(codes("const { a } = { a: 1 };\nexport function f(): number { return a; }")).toEqual([
+      "LUCENT3002",
+    ]);
   });
 
   it("reports only the type of a top-level variable, not the uses of it", () => {
-    expect(codes("let g: any = 1;\nexport function f(): number { g = 2; return g; }")).toEqual(["LUCENT2001"]);
+    expect(codes("let g: any = 1;\nexport function f(): number { g = 2; return g; }")).toEqual([
+      "LUCENT2001",
+    ]);
   });
 
   it("rejects getters in object literals", () => {
-    expect(codes("export function f(): number { const o = { get x() { return 1; } }; return o.x; }")).toEqual(["LUCENT1001"]);
+    expect(
+      codes("export function f(): number { const o = { get x() { return 1; } }; return o.x; }"),
+    ).toEqual(["LUCENT1001"]);
   });
 
   it("rejects setters in object literals", () => {
-    expect(codes("export function f(): number { let v = 0; const o = { set x(n: number) { v = n; } }; o.x = 1; return v; }")).toEqual(["LUCENT1001"]);
+    expect(
+      codes(
+        "export function f(): number { let v = 0; const o = { set x(n: number) { v = n; } }; o.x = 1; return v; }",
+      ),
+    ).toEqual(["LUCENT1001"]);
   });
 
   it("rejects getters in object literals of a declared type", () => {
-    expect(codes("type P = { x: number };\nexport function f(): number { const o: P = { get x() { return 1; } }; return o.x; }")).toEqual(["LUCENT1001"]);
+    expect(
+      codes(
+        "type P = { x: number };\nexport function f(): number { const o: P = { get x() { return 1; } }; return o.x; }",
+      ),
+    ).toEqual(["LUCENT1001"]);
   });
 
   it("rejects throwing non-errors", () => {
@@ -102,25 +132,30 @@ export function f(b: B): number { return take(b); }`;
   });
 
   it("rejects ambiguous unions at the boundary", () => {
-    const src = "type A = { a: number }; type B = { b: string };\nexport function f(x: A | B): number { return 1; }";
+    const src =
+      "type A = { a: number }; type B = { b: string };\nexport function f(x: A | B): number { return 1; }";
     expect(codes(src)).toContain("LUCENT2005");
   });
 
   it("accepts regular expressions", () => {
-    expect(codes('export function f(s: string): boolean { return /a/.test(s); }')).toEqual([]);
+    expect(codes("export function f(s: string): boolean { return /a/.test(s); }")).toEqual([]);
   });
 
   it("rejects invalid regular expression literals", () => {
-    expect(codes('export function f(s: string): boolean { return /(?<n>a)(?<n>b)/.test(s); }').length).toBeGreaterThan(0);
+    expect(
+      codes("export function f(s: string): boolean { return /(?<n>a)(?<n>b)/.test(s); }").length,
+    ).toBeGreaterThan(0);
   });
 
   it("rejects extending built-in classes other than Error", () => {
-    const src = "class B extends Map<string, number> {}\nexport function f(): number { return new B().size; }";
+    const src =
+      "class B extends Map<string, number> {}\nexport function f(): number { return new B().size; }";
     expect(codes(src)).toContain("LUCENT1005");
   });
 
   it("rejects overrides whose native signature differs", () => {
-    const src = "class A { f(x: number): number { return x; } }\nclass B extends A { override f(x?: number): number { return 1; } }\nexport function g(): number { return new B().f(1); }";
+    const src =
+      "class A { f(x: number): number { return x; } }\nclass B extends A { override f(x?: number): number { return 1; } }\nexport function g(): number { return new B().f(1); }";
     expect(codes(src)).toContain("LUCENT1005");
   });
 
@@ -134,27 +169,51 @@ export function f(b: B): number { return take(b); }`;
     const shape = "interface Shape { area(): number; }\n";
 
     it("accepts a class that declares implements", () => {
-      expect(codes(`${shape}class Sq implements Shape { area(): number { return 1; } }\nexport function f(): number { const s: Shape = new Sq(); return s.area(); }`)).toEqual([]);
+      expect(
+        codes(
+          `${shape}class Sq implements Shape { area(): number { return 1; } }\nexport function f(): number { const s: Shape = new Sq(); return s.area(); }`,
+        ),
+      ).toEqual([]);
     });
 
     it("rejects a class that matches only structurally", () => {
-      expect(codes(`${shape}class Sq { area(): number { return 1; } }\nexport function f(): number { const s: Shape = new Sq(); return s.area(); }`)).toContain("LUCENT2008");
+      expect(
+        codes(
+          `${shape}class Sq { area(): number { return 1; } }\nexport function f(): number { const s: Shape = new Sq(); return s.area(); }`,
+        ),
+      ).toContain("LUCENT2008");
     });
 
     it("rejects an object literal for an interface with methods", () => {
-      expect(codes(`${shape}export function f(): number { const s: Shape = { area: () => 1 }; return s.area(); }`)).toContain("LUCENT2008");
+      expect(
+        codes(
+          `${shape}export function f(): number { const s: Shape = { area: () => 1 }; return s.area(); }`,
+        ),
+      ).toContain("LUCENT2008");
     });
 
     it("rejects a method whose native signature differs", () => {
-      expect(codes(`interface P { at(i: number): string | undefined; }\nclass Q implements P { at(i?: number): string { return "x"; } }\nexport function f(): number { return 1; }`)).toContain("LUCENT2009");
+      expect(
+        codes(
+          `interface P { at(i: number): string | undefined; }\nclass Q implements P { at(i?: number): string { return "x"; } }\nexport function f(): number { return 1; }`,
+        ),
+      ).toContain("LUCENT2009");
     });
 
     it("accepts generic interfaces implemented by classes", () => {
-      expect(codes(`interface Box<T> { get(): T; }\nclass N implements Box<number> { get(): number { return 1; } }\nexport function f(): number { const b: Box<number> = new N(); return b.get(); }`)).toEqual([]);
+      expect(
+        codes(
+          `interface Box<T> { get(): T; }\nclass N implements Box<number> { get(): number { return 1; } }\nexport function f(): number { const b: Box<number> = new N(); return b.get(); }`,
+        ),
+      ).toEqual([]);
     });
 
     it("rejects a class used through an interface instantiation it does not implement", () => {
-      expect(codes(`interface Box<T> { get(): T | undefined; }\nclass N implements Box<number> { get(): number | undefined { return 1; } }\nexport function f(): number { const b: Box<string> = new N() as unknown as Box<string>; return 1; }`)).not.toEqual([]);
+      expect(
+        codes(
+          `interface Box<T> { get(): T | undefined; }\nclass N implements Box<number> { get(): number | undefined { return 1; } }\nexport function f(): number { const b: Box<string> = new N() as unknown as Box<string>; return 1; }`,
+        ),
+      ).not.toEqual([]);
     });
   });
 
@@ -164,15 +223,21 @@ export function f(b: B): number { return take(b); }`;
     });
 
     it("rejects returning a signal to JavaScript", () => {
-      expect(codes("export function f(): AbortSignal { return new AbortController().signal; }")).toContain("LUCENT2006");
+      expect(
+        codes("export function f(): AbortSignal { return new AbortController().signal; }"),
+      ).toContain("LUCENT2006");
     });
 
     it("rejects abort reasons that are not errors", () => {
-      expect(codes('export function f(): void { new AbortController().abort("stop"); }')).toContain("LUCENT1003");
+      expect(codes('export function f(): void { new AbortController().abort("stop"); }')).toContain(
+        "LUCENT1003",
+      );
     });
 
     it("rejects reading the untyped reason", () => {
-      expect(codes("export function f(s: AbortSignal): boolean { return s.reason === undefined; }")).toEqual(expect.arrayContaining([expect.stringMatching(/LUCENT(1003|2001)/)]));
+      expect(
+        codes("export function f(s: AbortSignal): boolean { return s.reason === undefined; }"),
+      ).toEqual(expect.arrayContaining([expect.stringMatching(/LUCENT(1003|2001)/)]));
     });
   });
 
@@ -194,7 +259,9 @@ export function f(b: B): number { return take(b); }`;
     });
 
     it("leaves locals with fractional or non-bitwise writes as doubles", () => {
-      const out = cpp("export function f(x: number): number {\n  let a = x | 0;\n  a += 1;\n  let z = 0;\n  z = -0;\n  return a + z;\n}");
+      const out = cpp(
+        "export function f(x: number): number {\n  let a = x | 0;\n  a += 1;\n  let z = 0;\n  z = -0;\n  return a + z;\n}",
+      );
       expect(out).toMatch(/double a = /);
       expect(out).toMatch(/double z = /);
     });
@@ -202,15 +269,25 @@ export function f(b: B): number { return take(b); }`;
 
   describe("JSON.parse", () => {
     it("accepts a target type from as or an annotation", () => {
-      expect(codes('export function f(s: string): number { const a = JSON.parse(s) as number[]; const b: { x: number } = JSON.parse(s); return a.length + b.x; }')).toEqual([]);
+      expect(
+        codes(
+          "export function f(s: string): number { const a = JSON.parse(s) as number[]; const b: { x: number } = JSON.parse(s); return a.length + b.x; }",
+        ),
+      ).toEqual([]);
     });
 
     it("needs a target type", () => {
-      expect(codes("export function f(s: string): number { const v = JSON.parse(s); return v; }")).toEqual(expect.arrayContaining([expect.stringMatching(/LUCENT(1003|2001)/)]));
+      expect(
+        codes("export function f(s: string): number { const v = JSON.parse(s); return v; }"),
+      ).toEqual(expect.arrayContaining([expect.stringMatching(/LUCENT(1003|2001)/)]));
     });
 
     it("cannot create class instances", () => {
-      expect(codes("class P { x = 1; }\nexport function f(s: string): number { return (JSON.parse(s) as P).x; }")).toContain("LUCENT1003");
+      expect(
+        codes(
+          "class P { x = 1; }\nexport function f(s: string): number { return (JSON.parse(s) as P).x; }",
+        ),
+      ).toContain("LUCENT1003");
     });
   });
 
@@ -220,7 +297,11 @@ export function f(b: B): number { return take(b); }`;
     });
 
     it("rejects using the value of yield", () => {
-      expect(codes("function* g(): Generator<number, void, number> { const x = yield 1; }\nexport function f(): number { g(); return 1; }")).toContain("LUCENT1001");
+      expect(
+        codes(
+          "function* g(): Generator<number, void, number> { const x = yield 1; }\nexport function f(): number { g(); return 1; }",
+        ),
+      ).toContain("LUCENT1001");
     });
   });
 });

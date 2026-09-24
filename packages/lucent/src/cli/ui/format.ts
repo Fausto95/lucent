@@ -24,8 +24,11 @@ export function duration(ms: number): string {
 /** Rows as lines, columns aligned by visible width. */
 export function table(rows: string[][], gap = 2): string[] {
   const widths: number[] = [];
-  for (const r of rows) r.forEach((cell, i) => (widths[i] = Math.max(widths[i] ?? 0, visibleWidth(cell))));
-  return rows.map((r) => r.map((cell, i) => (i === r.length - 1 ? cell : pad(cell, widths[i]! + gap))).join(""));
+  for (const r of rows)
+    r.forEach((cell, i) => (widths[i] = Math.max(widths[i] ?? 0, visibleWidth(cell))));
+  return rows.map((r) =>
+    r.map((cell, i) => (i === r.length - 1 ? cell : pad(cell, widths[i]! + gap))).join(""),
+  );
 }
 
 /** An OSC 8 hyperlink where the terminal renders them, the text alone elsewhere. */
@@ -55,7 +58,10 @@ export function codeFrame(source: string, span: Span, theme: Theme): string {
   const indent = "    ";
   const room = Math.max(20, theme.terminal.width - indent.length - gutter - 3);
   // One window for every line, so the underline stays under its span.
-  const start = Math.max(0, Math.min(span.column - 1 - Math.floor(room / 3), (lines[span.line - 1] ?? "").length - room));
+  const start = Math.max(
+    0,
+    Math.min(span.column - 1 - Math.floor(room / 3), (lines[span.line - 1] ?? "").length - room),
+  );
   const cut = (text: string) => {
     let s = text.slice(start, start + room);
     if (start > 0) s = ellipsis + s.slice(ellipsis.length);
@@ -67,11 +73,15 @@ export function codeFrame(source: string, span: Span, theme: Theme): string {
     const text = (lines[n - 1] ?? "").replace(/\t/g, " ");
     if (n === last && text.trim() === "" && n !== span.line) continue;
     const num = String(n).padStart(gutter);
-    out.push(`${indent}${n === span.line ? theme.bold(num) : theme.dim(num)} ${theme.dim(bar)} ${cut(text)}`);
+    out.push(
+      `${indent}${n === span.line ? theme.bold(num) : theme.dim(num)} ${theme.dim(bar)} ${cut(text)}`,
+    );
     if (n === span.line) {
       const at = span.column - 1 - start;
       const width = Math.max(1, Math.min(span.length, room - at));
-      out.push(`${indent}${" ".repeat(gutter)} ${theme.dim(bar)} ${" ".repeat(Math.max(0, at))}${theme.error("^".repeat(width))}`);
+      out.push(
+        `${indent}${" ".repeat(gutter)} ${theme.dim(bar)} ${" ".repeat(Math.max(0, at))}${theme.error("^".repeat(width))}`,
+      );
     }
   }
   return out.join("\n");
