@@ -13,7 +13,7 @@ function loaded(...args: string[]): { status: number | null; out: string; module
 }
 
 describe("start-up", () => {
-  for (const args of [["--help"], ["--version"], []]) {
+  for (const args of [["--help"], ["--version"], [], ["explain", "LUCENT1001"]]) {
     it(`lucent ${args.join(" ") || "(no arguments)"} loads neither TypeScript nor the compiler`, () => {
       const r = loaded(...args, "--root", path.join(import.meta.dirname, "no-such-project"));
       expect(r.modules.filter((m) => m === "typescript" || m.includes("compiler") || m === "ink" || m === "react")).toEqual([]);
