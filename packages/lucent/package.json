@@ -54,6 +54,7 @@
   },
   "devDependencies": {
     "@lucent-lang/bindgen": "workspace:*",
+    "@lucent-lang/codegen": "workspace:*",
     "@lucent-lang/compiler": "workspace:*",
     "@lucent-lang/runtime": "workspace:*",
     "@types/react": "^19.2.0",

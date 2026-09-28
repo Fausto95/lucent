@@ -1,0 +1,376 @@
+/**
+ * A toolkit body in its setup's C++ (LUCENT_VIEWS=fabric): the call of the
+ * toolkit's body function (`swiftUI(() => …)`, `compose(() => …)`) makes
+ * the host the toolkit draws in, and feeds the body's slots
+ * (ui/toolkit-body.ts), the same way for every toolkit:
+ *
+ * - each value slot is an effect of the mount: it evaluates the slot's
+ *   expression now, and again whenever what it read changes, and sets the
+ *   toolkit's state, on the main context, so the body never shows a value
+ *   older than the latest commit;
+ * - each action slot is the setup function itself, which enters its mount
+ *   when it runs (lucent/view.h), so what it changes is measured again;
+ *   given a list's item, it is called with the item its key finds (and
+ *   not at all once the item is gone);
+ * - each list slot is an effect too: it evaluates the array, and for each
+ *   item its key and its values, and sets the toolkit's list with records
+ *   of them (`[key, value…]`), which the toolkit merges by key. It keeps
+ *   the items by key (lucent::ui::Items) for the actions.
+ *
+ * What differs (the host, how a slot is set, the file written in Swift or
+ * Kotlin) is each toolkit's emitter's.
+ */
+import { cpp } from "@lucent-lang/codegen";
+import ts from "typescript";
+import { T, type LType } from "../types.ts";
+import {
+  type ActionSlot,
+  type BodyFunction,
+  bodyCallOf,
+  bodyFail,
+  bodyFunction,
+  type Crossings,
+  crossingOf,
+  inSetupCode,
+  type ListSlot,
+  scalarOf,
+  toolkitDeclaration,
+  type ValueSlot,
+} from "../ui/toolkit-body.ts";
+import { TOOLKITS, type ToolkitName } from "../ui/toolkits.ts";
+import { composeEmitter } from "./compose.ts";
+import type { E } from "./context.ts";
+import type { FnEmitter } from "./function.ts";
+import { enterMount, type Setup, setupOf, site } from "./setups.ts";
+import { swiftUIEmitter } from "./swiftui.ts";
+import { encoded, scalarType } from "./toolkit-values.ts";
+
+/** A body's generated file: `views/<registration>.swift`, or Kotlin under the library's sources. */
+export interface ToolkitFile {
+  readonly name: string;
+  readonly text: string;
+}
+
+/** The host a body call made, as the setup's C++ feeds it. */
+export interface ToolkitHost {
+  /** What the effects keeping its values capture (the host's handle). */
+  readonly captures: cpp.Capture[];
+  /** The namespace of the toolkit's runtime, whose functions encode plain data (toolkit-values.ts). */
+  readonly runtime: string;
+  /** The C++ type of what they make (`id`, `jobject`). */
+  readonly encoded: cpp.Type;
+  /**
+   * Sets `slot`'s state to `value`: a number, a boolean or a string as it
+   * is (`as: "scalar"`), or any other value encoded (`as: "encoded"`).
+   */
+  set(slot: ValueSlot, value: cpp.Expr, as: "scalar" | "encoded"): cpp.Expr;
+  /** Gives the host `slot`'s function (a Lucent function of the slot's type). */
+  act(slot: ActionSlot, fn: cpp.Expr): cpp.Stmt;
+  /** Sets `list`'s items to `records`: an array of them, encoded (`[key, value…]` each). */
+  setList(list: ListSlot, records: cpp.Expr): cpp.Expr;
+  /** What ends the host with the mount. */
+  readonly dispose: cpp.Stmt[];
+  /** The body call's value: the component's root. */
+  readonly value: cpp.Expr;
+}
+
+/** What each toolkit writes for a body, and for its other calls in setup code. */
+export interface ToolkitEmitter {
+  /**
+   * Writes the body out in the toolkit's language (kept for the program's
+   * Swift or Kotlin), and emits into `em` the C++ making its host.
+   */
+  body(
+    em: FnEmitter,
+    setup: Setup,
+    fn: BodyFunction,
+    call: ts.CallExpression,
+  ): {
+    crossings: Crossings;
+    host: ToolkitHost;
+    /** The body's file, in the toolkit's language: written once the whole setup is compiled. */
+    file: () => ToolkitFile;
+  };
+  /** A call of the toolkit's in the setup's code that is no body (`withAnimation`), lowered. */
+  call?(em: FnEmitter, node: ts.CallExpression, decl: ts.Declaration): E | undefined;
+}
+
+const EMITTERS: Record<ToolkitName, ToolkitEmitter> = {
+  swiftui: swiftUIEmitter,
+  compose: composeEmitter,
+};
+
+/**
+ * A call of a toolkit's function in Lucent code, lowered: a body call, or
+ * another the toolkit's emitter knows (`withAnimation`). Undefined for any
+ * other call; refused for the toolkit's views and values, which exist
+ * only in a body.
+ */
+export function toolkitCall(em: FnEmitter, node: ts.CallExpression): E | undefined {
+  const found = toolkitDeclaration(em.checker, node.expression);
+
+  if (!found) return undefined;
+
+  const { toolkit, decl } = found;
+  const title = TOOLKITS[toolkit].title;
+
+  if (bodyCallOf(em.checker, node)) return body(em, toolkit, node);
+
+  const lowered = EMITTERS[toolkit].call?.(em, node, decl);
+
+  if (lowered) return lowered;
+
+  return bodyFail(
+    node,
+    `a ${title} view or value is made only in the body a component gives ${TOOLKITS[toolkit].body}(): write \`${made(node)}\` there`,
+  );
+}
+
+/** A toolkit value read in Lucent code, outside a body: refused. */
+export function toolkitMember(em: FnEmitter, node: ts.PropertyAccessExpression): void {
+  const found = toolkitDeclaration(em.checker, node);
+
+  if (!found) return;
+
+  bodyFail(
+    node,
+    `\`${node.getText()}\` is ${TOOLKITS[found.toolkit].title}'s: use it in the body a component gives ${TOOLKITS[found.toolkit].body}()`,
+  );
+}
+
+/** `swiftUI(body)` / `compose(body)`: the host, its actions, and an effect per value. */
+function body(em: FnEmitter, toolkit: ToolkitName, node: ts.CallExpression): E {
+  const { body: name } = TOOLKITS[toolkit];
+  const setup = setupOf(em.ctx, node);
+
+  if (!setup || setup.toolkit !== toolkit || !inSetupCode(node, setup.fn))
+    bodyFail(
+      node,
+      `${name}() makes a component's view: call it once in the setup's own code of a component that returns what it makes`,
+    );
+
+  const emitter = EMITTERS[toolkit];
+
+  if (em.ctx.toolkitFiles.has(setup))
+    bodyFail(node, `${setup.component.export} makes its body once`);
+
+  const fn = bodyFunction(node, toolkit);
+  const graph = cpp.call("lucent::ui::mainGraph");
+  let written: ReturnType<ToolkitEmitter["body"]> | undefined;
+
+  const madeHost = em.collect(() => {
+    written = emitter.body(em, setup, fn, node);
+  });
+  const { host, crossings, file } = written!;
+
+  em.ctx.toolkitFiles.set(setup, { toolkit, file });
+
+  const items = new Map(crossings.lists.map((l) => [l, em.ctx.fresh(`items_${l.index}`)]));
+  const effect = (keep: cpp.Expr, at: ts.Node) =>
+    cpp.exprStmt(cpp.call("lucent::ui::effect", [graph, keep, cpp.str(site(at))]));
+
+  const statements: cpp.Stmt[] = [
+    ...madeHost,
+    ...crossings.lists.map((l) =>
+      cpp.varDecl(cpp.auto, items.get(l)!, cpp.call("std::make_shared", [], [itemsType(em, l)])),
+    ),
+    ...crossings.actions.map((a) => host.act(a, actionFn(em, a, items))),
+    ...crossings.values.map((v) => effect(valueEffect(em, host, v), v.source)),
+    ...crossings.lists.map((l) => effect(listEffect(em, host, l, items.get(l)!), l.site)),
+    cpp.exprStmt(
+      cpp.call(cpp.arrow(graph, "onCleanup"), [cpp.lambda(host.captures, [], host.dispose)]),
+    ),
+  ];
+
+  return { c: cpp.statementExpr(statements, host.value), t: em.lt(node) };
+}
+
+/**
+ * The effect keeping `slot`'s state: it enters the mount, so a change is
+ * measured again. A number, a boolean or a string (never null) crosses
+ * as it is; any other value encoded.
+ */
+function valueEffect(em: FnEmitter, host: ToolkitHost, slot: ValueSlot): cpp.Expr {
+  const scalar = scalarOf(slot.type);
+  const keep = em.lambdaOver(slot.source, host.captures, (inner) => {
+    // A bound signal's value: the signal, read.
+    if (slot.bound) {
+      inner.emit(
+        cpp.exprStmt(host.set(slot, cpp.call(cpp.dot(inner.expr(slot.source).c, "get")), "scalar")),
+      );
+      return;
+    }
+
+    if (scalar && !scalar.nullable) {
+      inner.emit(
+        cpp.exprStmt(host.set(slot, inner.exprAs(slot.source, scalarType(scalar)), "scalar")),
+      );
+      return;
+    }
+
+    const value = inner.expr(slot.source);
+
+    inner.emit(
+      cpp.exprStmt(
+        host.set(slot, encoded(em.ctx, host.runtime, slot.type, value.t, value.c), "encoded"),
+      ),
+    );
+  });
+
+  return enterMount(em, slot.source, keep);
+}
+
+/** The C++ name each list's item has, in the code computing its key and values. */
+const ITEM = "lucent_item";
+
+/** `lucent::ui::Items<Key, Item>`: a list's items by key. */
+function itemsType(em: FnEmitter, list: ListSlot): cpp.Type {
+  const element = em.lt(list.source);
+
+  if (element.k !== "array") throw new Error("a list's source is not an array");
+
+  return cpp.type(
+    "lucent::ui::Items",
+    em.reg.cppType(scalarType(list.keyType)),
+    em.reg.cppType(element.e),
+  );
+}
+
+/**
+ * The function an action slot gives the host: the setup function, or,
+ * when it takes a list's item, a function of the item's key calling it
+ * with the item the key finds (none: the item is gone, nothing runs).
+ */
+function actionFn(em: FnEmitter, a: ActionSlot, items: ReadonlyMap<ListSlot, string>): cpp.Expr {
+  const crossing: LType = {
+    k: "fn",
+    params: a.params.map((p) => scalarType(crossingOf(p))),
+    ret: T.void,
+  };
+
+  // A bound signal's change: the signal is set, in its mount.
+  if (a.writes) {
+    const value = cpp.param(em.reg.cppType(scalarType(crossingOf(a.params[0]!))), "value");
+    const write = cpp.lambda(
+      [{ name: "signal", init: em.expr(a.source).c }],
+      [value],
+      [cpp.exprStmt(cpp.call(cpp.dot(cpp.id("signal"), "set"), [cpp.id("value")]))],
+      { mutable: true },
+    );
+
+    return cpp.construct(em.reg.cppType(crossing), [enterMount(em, a.source, write)]);
+  }
+
+  if (!a.params.some((p) => p.k === "item")) return em.exprAs(a.source, crossing);
+
+  const f = em.expr(a.source);
+  const params = a.params.map((p, i) =>
+    cpp.param(em.reg.cppType(scalarType(crossingOf(p))), `p${i}`),
+  );
+  const body: cpp.Stmt[] = [];
+  const args = a.params.map((p, i) => {
+    if (p.k !== "item") return cpp.id(`p${i}`);
+
+    const found = `found${i}`;
+
+    body.push(
+      cpp.varDecl(
+        cpp.auto,
+        found,
+        cpp.call(cpp.arrow(cpp.id(items.get(p.list)!), "find"), [cpp.id(`p${i}`)]),
+      ),
+      cpp.ifStmt(cpp.not(cpp.call(cpp.dot(cpp.id(found), "has"))), [cpp.ret()]),
+    );
+
+    return cpp.call(cpp.dot(cpp.id(found), "get"));
+  });
+
+  const lists = [...new Set(a.params.flatMap((p) => (p.k === "item" ? [p.list] : [])))];
+  const lambda = cpp.lambda(
+    [{ name: "f", init: f.c }, ...lists.map((l) => items.get(l)!)],
+    params,
+    [...body, cpp.exprStmt(cpp.call(cpp.id("f"), args))],
+    { mutable: true },
+  );
+
+  return cpp.construct(em.reg.cppType(crossing), [lambda]);
+}
+
+/**
+ * The effect keeping a list: the array, then each item's key and values
+ * (in order, the item named ITEM), as records the host merges by key.
+ */
+function listEffect(em: FnEmitter, host: ToolkitHost, list: ListSlot, items: string): cpp.Expr {
+  const keep = em.lambdaOver(list.site, [...host.captures, items], (inner) => {
+    const source = inner.expr(list.source);
+
+    if (source.t.k !== "array") throw new Error("a list's source is not an array");
+
+    const element = source.t.e;
+    const run = (name: string) => cpp.id(`${host.runtime}::${name}`);
+
+    inner.emit(cpp.varDecl(cpp.auto, "lucent_source", source.c));
+    inner.emit(cpp.exprStmt(cpp.call(cpp.arrow(cpp.id(items), "clear"))));
+    inner.pushScope();
+
+    for (const name of list.names) inner.declare(name, ITEM, element);
+
+    const each = inner.collect(() => {
+      inner.emit(
+        cpp.varDecl(cpp.auto, "lucent_key", inner.exprAs(list.key, scalarType(list.keyType))),
+      );
+      inner.emit(
+        cpp.exprStmt(
+          cpp.call(cpp.arrow(cpp.id(items), "add"), [cpp.id("lucent_key"), cpp.id(ITEM)]),
+        ),
+      );
+
+      const fields = list.values.map((v, i) => {
+        const value = inner.expr(v.source);
+        const name = `lucent_v${i}`;
+
+        inner.emit(
+          cpp.varDecl(host.encoded, name, encoded(em.ctx, host.runtime, v.type, value.t, value.c)),
+        );
+
+        return cpp.id(name);
+      });
+
+      inner.emit(
+        cpp.ret(
+          cpp.call(run("record"), [
+            cpp.initList([cpp.call(run("value"), [cpp.id("lucent_key")]), ...fields]),
+          ]),
+        ),
+      );
+    });
+
+    inner.popScope();
+
+    const record = cpp.lambda(
+      ["&"],
+      [cpp.param(cpp.reference(cpp.constType(em.reg.cppType(element))), ITEM)],
+      each,
+    );
+
+    inner.emit(
+      cpp.exprStmt(host.setList(list, cpp.call(run("array"), [cpp.id("lucent_source"), record]))),
+    );
+  });
+
+  return enterMount(em, list.site, keep);
+}
+
+/** The view a chain of modifiers starts from (`Circle()` in `Circle().fill(…)`), as written. */
+function made(e: ts.Expression): string {
+  let out: ts.Expression = e;
+
+  for (;;) {
+    const inner = ts.isCallExpression(out) ? out.expression : out;
+
+    if (!ts.isPropertyAccessExpression(inner) || !ts.isCallExpression(inner.expression))
+      return out.getText();
+
+    out = inner.expression;
+  }
+}

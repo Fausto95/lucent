@@ -18,7 +18,7 @@ function fromLocation(location: Location): Fix {
   return {
     latitude: location.getLatitude(),
     longitude: location.getLongitude(),
-    time: location.getTime(),
+    time: Number(location.getTime()),
   };
 }
 

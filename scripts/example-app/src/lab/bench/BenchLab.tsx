@@ -1,0 +1,100 @@
+import { useState } from "react";
+import { formatMs } from "../../clock";
+import { Stack } from "../../ui/Stack";
+import { TableRow } from "../../ui/TableRow";
+import * as native from "../tests/lucent/kernels.lucent";
+import { logLine } from "../report.lucent";
+import { RunPanel } from "../RunPanel";
+import { summaryLine } from "../summary";
+import { useRun } from "../useRun";
+import * as js from "./kernels";
+import { sizes } from "./sizes";
+import { type Kernel, timeKernel } from "./timeKernel";
+
+/** Phones run JavaScript slower than a desktop; keep a run under a minute. */
+const SCALE = 0.25;
+
+const names = Object.keys(sizes) as (keyof typeof sizes)[];
+
+interface Row {
+  name: string;
+  js: number;
+  native: number;
+  same: boolean;
+}
+
+const tick = () => new Promise<void>((resolve) => setTimeout(resolve, 30));
+
+/** The verdict: how much faster Lucent is overall, if every kernel agreed. */
+function verdict(rows: readonly Row[]): { text: string; ok: boolean } {
+  const differ = rows.filter((r) => !r.same).map((r) => r.name);
+  if (differ.length > 0) return { text: `RESULTS DIFFER: ${differ.join(", ")}`, ok: false };
+
+  const logs = rows.map((r) => Math.log(r.js / Math.max(r.native, 0.001)));
+  const geomean = Math.exp(logs.reduce((a, b) => a + b, 0) / Math.max(rows.length, 1));
+
+  return { text: `${geomean.toFixed(1)}x faster (geometric mean)`, ok: true };
+}
+
+/**
+ * The benchmark kernels (an e2e case) compiled by Lucent against the same
+ * TypeScript run as JavaScript by Hermes, after checking they agree.
+ */
+export function BenchLab() {
+  const [rows, setRows] = useState<Row[]>([]);
+
+  const { running, run } = useRun(async (token) => {
+    setRows([]);
+
+    const out: Row[] = [];
+    for (const name of names) {
+      await tick();
+      if (token.stopped) return;
+
+      const n = Math.max(1, Math.round(sizes[name] * SCALE));
+      const fjs = js[name] as Kernel;
+      const fnative = native[name] as Kernel;
+
+      out.push({
+        name,
+        same: fjs(n) === fnative(n),
+        js: timeKernel(fjs, n),
+        native: timeKernel(fnative, n),
+      });
+      setRows([...out]);
+    }
+
+    logLine(summaryLine("bench", verdict(out).text));
+  });
+
+  const done = !running && rows.length === names.length;
+
+  return (
+    <Stack>
+      <RunPanel
+        running={running}
+        result={done ? verdict(rows) : null}
+        progress={`${rows.length}/${names.length} kernels · best of 3 · JavaScript and Lucent, in ms`}
+        onRun={run}
+        timed
+      />
+
+      <TableRow header cells={["kernel", "JS", "Lucent", "speedup"]} />
+
+      {rows.map((r) => (
+        <TableRow
+          key={r.name}
+          testID={`bench-${r.name}`}
+          tone={r.same ? undefined : "danger"}
+          emphasizeLast
+          cells={[
+            r.name,
+            formatMs(r.js),
+            formatMs(r.native),
+            `${(r.js / Math.max(r.native, 0.001)).toFixed(1)}x`,
+          ]}
+        />
+      ))}
+    </Stack>
+  );
+}

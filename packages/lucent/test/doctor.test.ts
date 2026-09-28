@@ -1,9 +1,9 @@
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { type Check, diagnose, type Probe, type RunResult } from "../src/cli/doctor.ts";
+import { runToExit } from "./run-to-exit.ts";
 
 /** A bare React Native app wired for Lucent, as files on disk. */
 function app(overrides: Record<string, string | undefined> = {}): string {
@@ -179,7 +179,7 @@ describe("lucent doctor", () => {
 
   it("does not load TypeScript or the compiler", () => {
     const hook = `data:text/javascript,${encodeURIComponent('import { registerHooks } from "node:module"; registerHooks({ resolve(s, c, next) { process.stderr.write("[resolve] " + s + "\\n"); return next(s, c); } });')}`;
-    const r = spawnSync(
+    const r = runToExit(
       process.execPath,
       [
         "--import",
@@ -189,7 +189,8 @@ describe("lucent doctor", () => {
         "--root",
         app(),
       ],
-      { encoding: "utf8" },
+      {},
+      "lucent doctor",
     );
     const modules = r.stderr
       .split("\n")

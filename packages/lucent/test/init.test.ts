@@ -1,16 +1,13 @@
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { addExpoPlugin, applyGradleTask, GRADLE_LINE, wrapMetro } from "../src/cli/init/patch.ts";
 import { withLucentTsconfig } from "../src/cli/tsconfig.ts";
-
-const bin = path.resolve(import.meta.dirname, "../bin/lucent.cjs");
+import { runLucent } from "./run-to-exit.ts";
 
 function lucent(root: string, ...args: string[]) {
-  const r = spawnSync(process.execPath, [bin, "init", ...args, "--root", root], {
-    encoding: "utf8",
+  const r = runLucent(["init", ...args, "--root", root], {
     env: { ...process.env, NO_COLOR: "1" },
   });
   return { status: r.status, out: r.stdout + r.stderr };

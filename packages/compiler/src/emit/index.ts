@@ -1,17 +1,41 @@
+import { cpp, ts as js } from "@lucent-lang/codegen";
 import path from "node:path";
 import ts from "typescript";
+import { literalConstant, programFacts, type ProgramFacts } from "../analysis/index.ts";
 import { Codes, fail } from "../diagnostics.ts";
+import { type CppFunction, lowerToCpp, loweringMode, type Lowering } from "../ir/cpp.ts";
 import { platformScopes } from "../platforms.ts";
 import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
 import { BindingsEmitter, type ModuleExports, publicMembers } from "./bindings.ts";
 import { emitClass } from "./classes.ts";
+import { bindCompute, emitTaskVariants, taskHeader } from "./compute.ts";
 import { objcDelegate } from "./delegates.ts";
+import { iosSubclass } from "./objc-subclass.ts";
+import {
+  apiHash,
+  type BuildIdentity,
+  IDENTITY_UNIT,
+  identityUnit,
+  programHash,
+  RUNTIME_ABI,
+} from "./identity.ts";
 import { javaSubclass } from "./java.ts";
+import { kotlinFiles } from "./kotlin.ts";
 import { Ctx, type Global } from "./context.ts";
 import { FnEmitter } from "./function.ts";
 import { emitIface } from "./interfaces.ts";
-import { cppQuoted } from "./literals.ts";
+import { declaredNames, withoutMacros } from "./macros.ts";
+import { stringExpr } from "../lowering/literals.ts";
+import { shimsFile } from "./swift.ts";
+import { proxyParts, swiftDelegate } from "./swift-proxy.ts";
+import type { ComponentDescription } from "../ui/contract.ts";
+import { fabricSources } from "../ui/fabric.ts";
+import { componentExports } from "../ui/proxy.ts";
+import { androidComponentHosts, iosComponentViews } from "./views.ts";
+import type { FunctionLike } from "../ui/roots.ts";
+import { emitSetup, mountUnit, planSetup } from "./setups.ts";
+import type { ToolkitName } from "../ui/toolkits.ts";
 
 export interface EmitResult {
   /** Generated C++ sources, keyed by file name. */
@@ -19,25 +43,55 @@ export interface EmitResult {
   /** JavaScript proxy for each module, keyed by module name. */
   proxies: Map<string, string>;
   diagnostics: import("../diagnostics.ts").Diagnostic[];
+  /** Warnings (severity "warning"): reported, but the code compiles. */
+  warnings?: import("../diagnostics.ts").Diagnostic[];
   /** Apple frameworks the iOS platform code uses. */
   frameworks?: string[];
+  /** Pods whose modules the iOS platform code imports. */
+  pods?: string[];
   /** Java the Android platform code needs (subclasses of SDK classes), keyed by path under src/main/java. */
   java?: Map<string, string>;
   /** Java classes the Android glue names (JNI names), for the app's shrinker to keep. */
   javaKeep?: string[];
+  /** Kotlin shims the Android glue calls, keyed by path under src/main/java. */
+  kotlin?: Map<string, string>;
+  /** Components' content is Compose (Kotlin the Compose compiler builds). */
+  compose?: boolean;
   /** Android permissions the SDK methods the program calls require (declared in the library's manifest). */
   androidPermissions?: string[];
+  /** The components the modules export (`.lucent.tsx` functions returning views): not module functions. */
+  components?: ComponentDescription[];
+  /**
+   * Under the views switch, the React-facing declarations of each module's
+   * components (`ui/proxy.ts` componentDeclarations), by module name.
+   */
+  componentTypes?: Map<string, string>;
   /**
    * Declarations of the lucent:* modules the platform modules use
    * (`ios/UIKit.d.ts`, `thread.d.ts`…), for the app's own TypeScript:
    * map `lucent:*` to them in tsconfig paths.
    */
   types?: Map<string, string>;
+  /** What the native code was built from, which the proxies check it against. Absent when the compile failed. */
+  identity?: BuildIdentity;
 }
 
-export function emitProgram(lp: LucentProgram): EmitResult {
+/**
+ * `target` names the program in its build identity: its platform's, or `all`
+ * for code every target shares. `components` are the declarations of
+ * component exports, left out; `views`, the components whose Fabric sources
+ * and React exports to generate.
+ */
+export function emitProgram(
+  lp: LucentProgram,
+  target = lp.platform ?? "all",
+  components: ReadonlySet<ts.Node> = new Set(),
+  views: readonly ComponentDescription[] = [],
+  setups: ReadonlyMap<string, FunctionLike> = new Map(),
+): EmitResult {
   const ctx = new Ctx(lp.checker, lp.modules);
   ctx.platform = lp.platform;
+  bindCompute(ctx, lp);
   const byFile = new Map(lp.modules.map((m) => [path.resolve(m.sourceFile.fileName), m]));
   // Importers of a platform module see its shared declaration file.
   for (const m of lp.modules)
@@ -50,7 +104,9 @@ export function emitProgram(lp: LucentProgram): EmitResult {
       .filter((m) => !platformOf(m.file))
       .flatMap((m) => [...platformScopes(lp.checker, m.sourceFile).platforms]),
   );
-  const here = (s: ts.Statement) => !scoped.has(s) || scoped.get(s) === ctx.platform;
+  // Components are not module functions: generating views, each setup is compiled apart (setups.ts).
+  const here = (s: ts.Statement) =>
+    !components.has(s) && (!scoped.has(s) || scoped.get(s) === ctx.platform);
 
   // Pass 1: classes, then functions and variables, so every body can refer to
   // any top-level declaration.
@@ -104,15 +160,14 @@ export function emitProgram(lp: LucentProgram): EmitResult {
   }
 
   // Pass 2: code.
-  const header: string[] = [];
-  const structDecls: string[] = [];
-  const classDefs: string[] = [];
-  const genericClassDefs: string[] = [];
-  const moduleDecls = new Map<LucentModule, string[]>();
-  const moduleDefs = new Map<LucentModule, string[]>();
-  const genericFns = new Map<LucentModule, string[]>();
-  const staticInits = new Map<LucentModule, string[]>();
-  const nativeDecls: string[] = [];
+  const structDecls: cpp.Decl[] = [];
+  const classDefs: cpp.Decl[] = [];
+  const genericClassDefs: cpp.Decl[] = [];
+  const moduleDecls = new Map<LucentModule, cpp.Decl[]>();
+  const moduleDefs = new Map<LucentModule, cpp.Decl[]>();
+  const genericFns = new Map<LucentModule, cpp.Decl[]>();
+  const staticInits = new Map<LucentModule, cpp.Stmt[]>();
+  const nativeDecls: cpp.Decl[] = [];
   const java = new Map<string, string>();
   for (const m of lp.modules) {
     moduleDecls.set(m, []);
@@ -134,13 +189,25 @@ export function emitProgram(lp: LucentProgram): EmitResult {
       ? genericClassDefs
       : classDefs
     ).push(out.definition);
-    if (out.members) moduleDefs.get(m)!.push(out.members);
+    moduleDefs.get(m)!.push(...out.members);
     staticInits.get(m)!.push(...out.staticInits);
     // Classes implementing SDK protocols: an Objective-C object per instance.
     const objc = ctx.guard(() => objcDelegate(ctx, m, info));
     if (objc) {
-      ctx.nativeUnit(m).lines.add(objc.lines);
+      ctx.nativeUnit(m).add(`delegate ${info.id}`, objc.native);
       nativeDecls.push(objc.decl);
+    }
+    // Classes implementing Swift-only protocols: a Swift object per instance.
+    const proxy = ctx.guard(() => swiftDelegate(ctx, m, info));
+    if (proxy) {
+      ctx.nativeUnit(m).add(`swift delegate ${info.id}`, proxy.native);
+      nativeDecls.push(proxy.decl);
+    }
+    // Classes extending iOS classes: an Objective-C subclass.
+    const subclass = ctx.guard(() => iosSubclass(ctx, m, info));
+    if (subclass) {
+      ctx.nativeUnit(m).add(`subclass ${info.id}`, subclass.native);
+      nativeDecls.push(...subclass.decls);
     }
     // Classes extending Android SDK classes: a Java subclass.
     const sub =
@@ -149,6 +216,10 @@ export function emitProgram(lp: LucentProgram): EmitResult {
   }
 
   // Platform modules' declarations alias their implementations: emit each once.
+  const lowering = loweringMode();
+  // The IR's effect records come from the program's analysis.
+  const facts = lowering === "legacy" ? undefined : programFacts(lp);
+
   for (const g of new Set(ctx.globals.values())) {
     if (g.kind === "function")
       ctx.guard(() =>
@@ -158,8 +229,32 @@ export function emitProgram(lp: LucentProgram): EmitResult {
           moduleDecls.get(g.module)!,
           moduleDefs.get(g.module)!,
           genericFns.get(g.module)!,
+          lowering,
+          facts,
         ),
       );
+  }
+
+  // Components' setups (setups.ts): each module's, on a platform target.
+  const planned = lp.platform
+    ? views.flatMap((c) => {
+        const fn = setups.get(c.id);
+        const m = fn && lp.modules.find((x) => x.sourceFile === fn.getSourceFile());
+
+        return fn && m ? (ctx.guard(() => planSetup(ctx, c, fn, m)) ?? []) : [];
+      })
+    : [];
+  for (const s of planned) {
+    const out = ctx.guard(() =>
+      emitSetup(
+        ctx,
+        s,
+        (returnType) => new FnEmitter(ctx, { module: s.module, async: false, returnType }),
+      ),
+    );
+    if (!out) continue;
+    moduleDecls.get(s.module)!.push(...out.decls);
+    moduleDefs.get(s.module)!.push(...out.defs);
   }
 
   // Module state and init().
@@ -168,40 +263,52 @@ export function emitProgram(lp: LucentProgram): EmitResult {
     const em = new FnEmitter(ctx, { module: m, async: false, returnType: T.void });
     for (const g of new Set(ctx.globals.values())) {
       if (g.kind !== "var" || g.module !== m) continue;
-      decls.unshift(`inline ${ctx.reg.cpp(g.type)} ${g.cpp.split("::").pop()}{};`);
+      const type = ctx.reg.cppType(g.type);
+      decls.unshift({
+        k: "var",
+        inline: true,
+        stmt: cpp.varDecl(type, g.cpp.split("::").pop()!, undefined, { style: "brace" }),
+      });
+      const target = cpp.id(g.cpp);
       if (g.decl.initializer) {
         const v = ctx.guard(() => em.exprAs(g.decl.initializer!, g.type));
-        if (v !== undefined) em.line(`${g.cpp} = ${v};`);
+        if (v !== undefined) em.emit(cpp.exprStmt(cpp.assign(target, v)));
       } else {
-        em.line(`${g.cpp} = ${ctx.reg.cpp(g.type)}{};`);
+        em.emit(cpp.exprStmt(cpp.assign(target, cpp.construct(type, [], true))));
       }
     }
-    decls.push("void init();");
-    moduleDefs
-      .get(m)!
-      .push(`void ${m.ns}::init() {\n${[...staticInits.get(m)!, ...em.body()].join("\n")}\n}`);
+    decls.push(cpp.fn("init", cpp.voidType, []));
+    moduleDefs.get(m)!.push(
+      cpp.fn("init", cpp.voidType, [], [...staticInits.get(m)!, ...em.body()], {
+        scope: cpp.type(m.ns),
+      }),
+    );
   }
+
+  // What compute tasks run, with their safepoints (after all code that may compute).
+  emitTaskVariants(ctx, moduleDecls, moduleDefs);
 
   // Structs (after everything has been lowered, so the registry is complete).
   const bindings = new BindingsEmitter(ctx);
   const mods = lp.modules.map((m) => exportsOf.get(m)!);
   const initOrder = topoSort(lp.modules, imports);
-  const bindingsCpp = bindings.generate(mods, initOrder);
+  const bindingsDecls = bindings.generate(mods, initOrder);
 
-  for (const s of ctx.reg.structs.values()) structDecls.push(`struct ${s.cppName};`);
-  const structDefs = [...ctx.reg.structs.values()].map((s) => {
-    const fields = s.fields.map((f) => `  ${ctx.reg.cpp(f.type)} ${cppIdent(f.name)}{};`);
-    return `struct ${s.cppName} : lucent::Object {\n${fields.join("\n")}\n};`;
-  });
-  const classFwd = [...ctx.reg.classes.values()].map((c) =>
-    c.typeParams.length
-      ? `template <${c.typeParams.map((p) => `class ${cppIdent(p)}`).join(", ")}>\nstruct ${c.cppName};`
-      : `struct ${c.cppName};`,
+  const templateOf = (ps: string[]) => (ps.length ? { template: ps.map(cppIdent) } : {});
+  for (const s of ctx.reg.structs.values())
+    structDecls.push(cpp.struct(s.cppName, [], { forward: true }));
+  const structDefs = [...ctx.reg.structs.values()].map((s) =>
+    cpp.struct(
+      s.cppName,
+      s.fields.map((f) => cpp.field(ctx.reg.cppType(f.type), cppIdent(f.name))),
+      { bases: [{ type: cpp.type("lucent::Object") }] },
+    ),
   );
-  const tmplOf = (ps: string[]) =>
-    ps.length ? `template <${ps.map((p) => `class ${cppIdent(p)}`).join(", ")}>\n` : "";
-  const ifaceFwd = [...ctx.reg.ifaces.values()].map(
-    (i) => `${tmplOf(i.typeParams)}struct ${i.cppName};`,
+  const classFwd = [...ctx.reg.classes.values()].map((c) =>
+    cpp.struct(c.cppName, [], { ...templateOf(c.typeParams), forward: true }),
+  );
+  const ifaceFwd = [...ctx.reg.ifaces.values()].map((i) =>
+    cpp.struct(i.cppName, [], { ...templateOf(i.typeParams), forward: true }),
   );
   // Base interfaces first: a C++ base must be complete where it is derived from.
   const ifaceDepth = (id: string): number => {
@@ -216,60 +323,66 @@ export function emitProgram(lp: LucentProgram): EmitResult {
   const ifaceDefs = [...ctx.reg.ifaces.values()]
     .sort((a, b) => ifaceDepth(a.id) - ifaceDepth(b.id))
     .map((i) => ctx.guard(() => emitIface(ctx, i)))
-    .filter((d): d is string => d !== undefined);
+    .filter((d): d is cpp.Decl => d !== undefined);
   const json = jsonWriters(ctx);
   const readers = ctx.guard(() => jsonReaders(ctx)) ?? { decls: [], defs: [] };
 
-  header.push("// Generated by Lucent. Do not edit.");
-  header.push("#pragma once");
-  header.push("#include <lucent/lucent.h>");
-  header.push("");
-  header.push("namespace lucent_app {");
-  header.push(...structDecls, ...ifaceFwd, ...classFwd, "");
-  header.push(...structDefs, "");
-  if (readers.decls.length)
-    header.push(
-      "}  // namespace lucent_app",
-      "namespace lucent {",
-      ...readers.decls,
-      "}  // namespace lucent",
-      "namespace lucent_app {",
-      "",
-    );
-  header.push(...ifaceDefs, "");
-  header.push(...classDefs, "");
-  header.push(...genericClassDefs, "");
-  header.push(...nativeDecls, "");
-  header.push(...json.decls, "");
-  header.push(...json.defs);
-  header.push("}  // namespace lucent_app", "");
-  if (readers.defs.length)
-    header.push("namespace lucent {", ...readers.defs, "}  // namespace lucent", "");
-
+  const app = (body: cpp.Decl[]) => cpp.namespace("lucent_app", body);
+  const types = [...structDecls, ...ifaceFwd, ...classFwd, ...structDefs];
+  const defined = [
+    ...ifaceDefs,
+    ...classDefs,
+    ...genericClassDefs,
+    ...nativeDecls,
+    ...json.decls,
+    ...json.defs,
+  ];
   const files = new Map<string, string>();
-  files.set("lucent_app.h", header.join("\n"));
+  // A platform module's exports may declare names (fields, parameters) only in its shared file.
+  const declared = declaredNames(
+    lp.modules.flatMap((m) => (m.declaration ? [m.sourceFile, m.declaration] : [m.sourceFile])),
+  );
+  const shielded = (decls: cpp.Decl[]) => withoutMacros(decls, declared);
+  files.set(
+    "lucent_app.h",
+    cpp.printUnit({
+      banner: "Generated by Lucent. Do not edit.",
+      decls: [
+        { k: "pragmaOnce" },
+        cpp.include("lucent/lucent.h", true),
+        // lucent:ui's types (signals, component props) in any declaration.
+        ...(lp.modules.some((m) => /["']lucent:ui["']/.test(m.sourceFile.text))
+          ? [cpp.include("lucent/view.h", true)]
+          : []),
+        ...shielded([
+          // The JSON readers' declarations come before the classes that use them.
+          ...(readers.decls.length
+            ? [app(types), cpp.namespace("lucent", readers.decls), app(defined)]
+            : [app([...types, ...defined])]),
+          ...(readers.defs.length ? [cpp.namespace("lucent", readers.defs)] : []),
+        ]),
+      ],
+    }),
+  );
   // One header per module, including only the modules it imports: changing a
   // module's exports recompiles its importers, not every module.
   for (const m of lp.modules) {
+    const banner = `Generated by Lucent from ${path.basename(m.file)}. Do not edit.`;
     const deps = [...new Set(imports.get(m)!)]
       .filter((d) => d !== m)
-      .map((d) => `#include "${d.ns}.h"`);
+      .map((d) => cpp.include(`${d.ns}.h`));
     files.set(
       `${m.ns}.h`,
-      [
-        `// Generated by Lucent from ${path.basename(m.file)}. Do not edit.`,
-        "#pragma once",
-        '#include "lucent_app.h"',
-        ...deps,
-        "",
-        "namespace lucent_app {",
-        `namespace ${m.ns} {`,
-        ...moduleDecls.get(m)!,
-        `}  // namespace ${m.ns}`,
-        ...genericFns.get(m)!,
-        "}  // namespace lucent_app",
-        "",
-      ].join("\n"),
+      cpp.printUnit({
+        banner,
+        decls: [
+          { k: "pragmaOnce" },
+          cpp.include("lucent_app.h"),
+          ...deps,
+          ...taskHeader(ctx, m),
+          ...shielded([app([cpp.namespace(m.ns, moduleDecls.get(m)!), ...genericFns.get(m)!])]),
+        ],
+      }),
     );
     // iOS platform code sends Objective-C messages: an Objective-C++ unit
     // (platform files, and shared modules with iOS branches).
@@ -277,30 +390,92 @@ export function emitProgram(lp: LucentProgram): EmitResult {
     const objc =
       lp.platform === "ios" &&
       (!!m.declaration || /["']lucent:ios(\/[\w.]+)?["']/.test(m.sourceFile.text));
-    const nativeHead = unit ? `${[...unit.includes].sort().join("\n")}\n` : "";
-    const nativeChecks = unit?.lines.size ? `\n${[...unit.lines].join("\n")}\n` : "";
     files.set(
       `${m.ns}.${objc ? "mm" : "cpp"}`,
-      `// Generated by Lucent from ${path.basename(m.file)}. Do not edit.\n${nativeHead}#include "${m.ns}.h"\n${nativeChecks}\nnamespace lucent_app {\n\n${moduleDefs.get(m)!.join("\n\n")}\n\n}  // namespace lucent_app\n`,
+      cpp.printUnit({
+        banner,
+        decls: [
+          ...(unit?.includes() ?? []),
+          cpp.include(`${m.ns}.h`),
+          ...shielded([...[...(unit?.decls.values() ?? [])].flat(), app(moduleDefs.get(m)!)]),
+        ],
+      }),
     );
   }
+  // The Swift-only members the iOS glue calls.
+  if (ctx.swiftShims.size || ctx.swiftProxies.length)
+    files.set(
+      "LucentShims.swift",
+      shimsFile(ctx.swiftShims.values(), proxyParts(ctx.swiftProxies)),
+    );
   files.set(
     "lucent_bindings.cpp",
-    bindingsCpp.replace(
-      '#include "lucent_app.h"',
-      lp.modules.map((m) => `#include "${m.ns}.h"`).join("\n") || '#include "lucent_app.h"',
-    ),
+    cpp.printUnit({
+      banner: "Generated by Lucent. Do not edit.",
+      decls: [
+        ...(lp.modules.length
+          ? lp.modules.map((m) => cpp.include(`${m.ns}.h`))
+          : [cpp.include("lucent_app.h")]),
+        // The bindings' own headers (JSI's) come before the names are undefined.
+        ...bindingsDecls.filter((d) => d.k === "include"),
+        ...shielded(bindingsDecls.filter((d) => d.k !== "include")),
+      ],
+    }),
   );
 
+  if (views.length) for (const [name, text] of fabricSources(views)) files.set(name, text);
+  // Each component's Mount, and on iOS the view class React Native's renderer creates, which drives it.
+  for (const s of planned) {
+    const unit = ctx.guard(() => mountUnit(ctx, s));
+    if (unit) files.set(unit.name, unit.text);
+  }
+  if (ctx.platform === "ios")
+    for (const [name, text] of iosComponentViews(ctx, planned)) files.set(name, text);
+  // SwiftUI bodies, written out in Swift.
+  for (const [name, text] of toolkitFiles(ctx, "swiftui")) files.set(name, text);
+  if (ctx.platform === "android")
+    for (const [name, text] of androidComponentHosts(ctx, planned)) files.set(name, text);
+
   const proxies = new Map<string, string>();
-  for (const m of mods) proxies.set(m.module.name, jsProxy(m));
+  for (const m of mods) {
+    const own = views.filter((c) => c.jsModule === m.module.name);
+
+    proxies.set(m.module.name, jsProxy(m, own));
+  }
+
+  // What this program is, for JavaScript to check the app's native code against.
+  const apis = Object.fromEntries(
+    mods.map((m) => [
+      m.module.name,
+      apiHash(
+        ctx,
+        m,
+        views.filter((c) => c.jsModule === m.module.name),
+      ),
+    ]),
+  );
+  const program = programHash([
+    ...files,
+    ...[...java].map(([k, v]) => [`java/${k}`, v] as [string, string]),
+  ]);
+  files.set(IDENTITY_UNIT, identityUnit(target, program, apis));
+
   return {
     files,
     proxies,
+    identity: {
+      runtimeAbi: RUNTIME_ABI,
+      programs: { [target]: program },
+      apis: { [target]: apis },
+    },
     diagnostics: ctx.diagnostics,
+    warnings: ctx.warnings,
     frameworks: [...ctx.frameworks].sort(),
+    pods: [...ctx.pods].sort(),
     java,
     javaKeep: [...ctx.javaClasses].sort(),
+    kotlin: new Map([...kotlinFiles(ctx), ...toolkitFiles(ctx, "compose")]),
+    compose: toolkitFiles(ctx, "compose").length > 0,
     androidPermissions: [...ctx.androidPermissions].sort(),
   };
 }
@@ -408,6 +583,7 @@ function collect(
         ctx.failed.add(sym);
         throw e;
       }
+      const literal = literalConstant(d);
       const g: Global = {
         kind: "var",
         cpp: `lucent_app::${m.ns}::${cppIdent(d.name.text)}`,
@@ -415,6 +591,7 @@ function collect(
         decl: d,
         type,
         isConst: !!(list.flags & ts.NodeFlags.Const),
+        ...(literal ? { literal } : {}),
       };
       ctx.globals.set(sym, g);
       if (isExported(s)) exp.consts.push(g as Extract<Global, { kind: "var" }>);
@@ -440,11 +617,23 @@ function collect(
 function emitFunction(
   ctx: Ctx,
   g: Extract<Global, { kind: "function" }>,
-  decls: string[],
-  defs: string[],
-  genericFns: string[],
+  decls: cpp.Decl[],
+  defs: cpp.Decl[],
+  genericFns: cpp.Decl[],
+  lowering: Lowering,
+  facts: ProgramFacts | undefined,
 ): void {
   const s = g.decl;
+  const ir = lowering === "legacy" || !facts ? undefined : viaIr(ctx, g, lowering, facts);
+
+  if (ir) {
+    const name = cppIdent(s.name!.text);
+
+    decls.push(cpp.fn(name, ir.ret, ir.params));
+    defs.push(cpp.fn(name, ir.ret, ir.params, ir.body, { scope: cpp.type(g.module.ns) }));
+    return;
+  }
+
   const generator = !!g.decl.asteriskToken;
   if (generator && g.async)
     fail(g.decl, Codes.UnsupportedSyntax, "async generators are not supported");
@@ -455,34 +644,107 @@ function emitFunction(
     generator,
     returnType: generator ? T.void : ret,
   });
-  let params: string[] = [];
+  let params: cpp.Param[] = [];
   ctx.guard(() => {
     params = em.emitParams(s, g.params);
     if (s.body) em.emitFunctionBody(s);
     else {
       // A platform module's export on a target without an implementation.
-      const error = `lucent::makeError(LUCENT_STR("Error"), LUCENT_STR(${cppQuoted(`${g.module.name}.${s.name!.text} is not available on this platform`)}))`;
-      em.line(
+      const error = cpp.call("lucent::makeError", [
+        stringExpr("Error"),
+        stringExpr(`${g.module.name}.${s.name!.text} is not available on this platform`),
+      ]);
+      em.emit(
         g.type.ret.k === "promise"
-          ? `return lucent::Promise<${ctx.reg.cppRet(g.type.ret.inner)}>::rejected(${error});`
-          : `throw lucent::Exception(${error});`,
+          ? cpp.ret(
+              cpp.call(
+                cpp.scoped(
+                  cpp.type("lucent::Promise", ctx.reg.cppRetType(g.type.ret.inner)),
+                  "rejected",
+                ),
+                [error],
+              ),
+            )
+          : { k: "throw", value: cpp.construct(cpp.type("lucent::Exception"), [error]) },
       );
     }
   });
-  const retCpp = g.async ? `lucent::Promise<${ctx.reg.cppRet(ret)}>` : ctx.reg.cppRet(ret);
+  const retType = g.async
+    ? cpp.type("lucent::Promise", ctx.reg.cppRetType(ret))
+    : ctx.reg.cppRetType(ret);
   const name = cppIdent(s.name!.text);
   if (g.generic) {
-    const tmpl = `template <${s.typeParameters!.map((p) => `class ${cppIdent(p.name.text)}`).join(", ")}>`;
+    const template = s.typeParameters!.map((p) => cppIdent(p.name.text));
     genericFns.push(
-      `namespace ${g.module.ns} {\n${tmpl}\n${retCpp} ${name}(${params.join(", ")}) {\n${em.body().join("\n")}\n}\n}  // namespace ${g.module.ns}`,
+      cpp.namespace(g.module.ns, [cpp.fn(name, retType, params, em.body(), { template })]),
     );
-    decls.push(`${tmpl}\n${retCpp} ${name}(${params.join(", ")});`);
+    decls.push(cpp.fn(name, retType, params, undefined, { template }));
     return;
   }
-  decls.push(`${retCpp} ${name}(${params.join(", ")});`);
-  defs.push(
-    `${retCpp} ${g.module.ns}::${name}(${params.join(", ")}) {\n${em.body().join("\n")}\n}`,
-  );
+  decls.push(cpp.fn(name, retType, params));
+  defs.push(cpp.fn(name, retType, params, em.body(), { scope: cpp.type(g.module.ns) }));
+}
+
+/** A function through the semantic IR (ir/), when LUCENT_LOWERING selects it and it applies. */
+function viaIr(
+  ctx: Ctx,
+  g: Extract<Global, { kind: "function" }>,
+  lowering: Exclude<Lowering, "legacy">,
+  facts: ProgramFacts,
+): CppFunction | undefined {
+  const effects = (decl: ts.Node) => {
+    const unit = facts.unit(decl);
+
+    return unit ? { effects: facts.effects(unit) } : {};
+  };
+  const input = {
+    decl: g.decl,
+    id: g.cpp,
+    params: g.params.map((p) => p.cppType),
+    result: g.type.ret,
+    async: g.async,
+    generic: g.generic,
+    ...effects(g.decl),
+  };
+  const host = {
+    checker: ctx.checker,
+    typeAt: (node: ts.Node) => ctx.lowerAt(node),
+    typeOf: (sym: ts.Symbol, at: ts.Node) =>
+      ctx.reg.lower(ctx.checker.getTypeOfSymbolAtLocation(sym, at), at),
+    global: (sym: ts.Symbol) => {
+      const resolved = ctx.resolve(sym);
+      const d = ctx.failed.has(resolved) ? undefined : ctx.globals.get(resolved);
+
+      if (d?.kind === "function")
+        return {
+          kind: "function" as const,
+          id: d.cpp,
+          params: d.params.map((p) => p.cppType),
+          result: d.type.ret,
+          callable: !d.generic && !d.async && d.params.every((p) => !p.optional && !p.rest),
+          ...effects(d.decl),
+        };
+
+      if (d?.kind === "var")
+        return {
+          kind: "var" as const,
+          id: d.cpp,
+          name: d.decl.name.getText(),
+          type: d.type,
+          mutable: !d.isConst,
+          ...(d.literal ? { literal: d.literal } : {}),
+        };
+
+      return undefined;
+    },
+  };
+  const backend = {
+    cppType: (t: LType) => ctx.reg.cppType(t),
+    cppRetType: (t: LType) => ctx.reg.cppRetType(t),
+    site: g.decl.name!.text,
+  };
+
+  return lowerToCpp(lowering, input, host, backend);
 }
 
 function topoSort(
@@ -503,40 +765,56 @@ function topoSort(
   return out;
 }
 
-function jsonWriters(ctx: Ctx): { decls: string[]; defs: string[] } {
-  const decls: string[] = [];
-  const defs: string[] = [];
-  for (const s of ctx.reg.structs.values()) {
-    const t = `lucent::Ref<${s.cppName}>`;
-    decls.push(`void jsonWrite(lucent::JsonWriter& w, const ${t}& v);`);
-    const fields = s.fields.map(
-      (f) => `  lucent::jsonField(w, first, ${cppQuoted(f.name)}, v->${cppIdent(f.name)});`,
-    );
+function jsonWriters(ctx: Ctx): { decls: cpp.Decl[]; defs: cpp.Decl[] } {
+  const decls: cpp.Decl[] = [];
+  const defs: cpp.Decl[] = [];
+  const [w, v, first] = [cpp.id("w"), cpp.id("v"), cpp.id("first")];
+  const writer = (name: string, fields: string[]) => {
+    const params = [
+      cpp.param(cpp.reference(cpp.type("lucent::JsonWriter")), "w"),
+      cpp.param(cpp.reference(cpp.constType(cpp.type("lucent::Ref", cpp.type(name)))), "v"),
+    ];
+    const raw = (text: string) => cpp.exprStmt(cpp.call(cpp.dot(w, "raw"), [cpp.str(text)]));
+    decls.push(cpp.fn("jsonWrite", cpp.voidType, params));
     defs.push(
-      `inline void jsonWrite(lucent::JsonWriter& w, const ${t}& v) {\n  if (!v) { w.raw("null"); return; }\n  w.raw("{");\n  bool first = true;\n${fields.join("\n")}\n  (void)first;\n  w.raw("}");\n}`,
+      cpp.fn(
+        "jsonWrite",
+        cpp.voidType,
+        params,
+        [
+          cpp.ifStmt(cpp.not(v), [raw("null"), cpp.ret()]),
+          raw("{"),
+          cpp.varDecl(cpp.type("bool"), "first", cpp.bool(true)),
+          ...fields.map((f) =>
+            cpp.exprStmt(
+              cpp.call("lucent::jsonField", [w, first, cpp.str(f), cpp.arrow(v, cppIdent(f))]),
+            ),
+          ),
+          cpp.exprStmt(cpp.cast("c", cpp.voidType, first)),
+          raw("}"),
+        ],
+        { inline: true },
+      ),
     );
-  }
+  };
+  for (const s of ctx.reg.structs.values())
+    writer(
+      s.cppName,
+      s.fields.map((f) => f.name),
+    );
   for (const c of ctx.reg.classes.values()) {
     if (c.typeParams.length) continue;
-    const t = `lucent::Ref<${c.cppName}>`;
-    decls.push(`void jsonWrite(lucent::JsonWriter& w, const ${t}& v);`);
     const fields: string[] = [];
     ctx.guard(() => {
-      for (const m of publicMembers(ctx, c))
-        if (m.kind === "field")
-          fields.push(
-            `  lucent::jsonField(w, first, ${cppQuoted(m.name)}, v->${cppIdent(m.name)});`,
-          );
+      for (const m of publicMembers(ctx, c)) if (m.kind === "field") fields.push(m.name);
     });
-    defs.push(
-      `inline void jsonWrite(lucent::JsonWriter& w, const ${t}& v) {\n  if (!v) { w.raw("null"); return; }\n  w.raw("{");\n  bool first = true;\n${fields.join("\n")}\n  (void)first;\n  w.raw("}");\n}`,
-    );
+    writer(c.cppName, fields);
   }
   return { decls, defs };
 }
 
 /** JsonRead specializations for the object types and unions JSON.parse builds. */
-function jsonReaders(ctx: Ctx): { decls: string[]; defs: string[] } {
+function jsonReaders(ctx: Ctx): { decls: cpp.Decl[]; defs: cpp.Decl[] } {
   const reg = ctx.reg;
   const structs = new Map<string, LType & { k: "struct" }>();
   const unions = new Map<string, LType & { k: "union" }>();
@@ -561,33 +839,71 @@ function jsonReaders(ctx: Ctx): { decls: string[]; defs: string[] } {
     }
   };
   ctx.jsonReads.forEach(visit);
-  const decls: string[] = [];
-  const defs: string[] = [];
-  const header = (cpp: string) =>
-    `template <>\nstruct JsonRead<${cpp}> {\n  static ${cpp} read(const JsonValue& v, const std::string& p);\n};`;
-  for (const t of structs.values()) {
-    const info = reg.struct(t.id);
-    const cpp = reg.cpp(t);
-    decls.push(header(cpp));
-    const fields = info.fields.map(
-      (f) =>
-        `  out->${cppIdent(f.name)} = jsonMember<${reg.cpp(f.type)}>(v, ${cppQuoted(f.name)}, p);`,
+  const decls: cpp.Decl[] = [];
+  const defs: cpp.Decl[] = [];
+  const [v, p] = [cpp.id("v"), cpp.id("p")];
+  const params = [
+    cpp.param(cpp.reference(cpp.constType(cpp.type("JsonValue"))), "v"),
+    cpp.param(cpp.reference(cpp.constType(cpp.type("std::string"))), "p"),
+  ];
+  const kind = (k: string) => cpp.id(`JsonValue::Kind::${k}`);
+  const shapeError = (path: cpp.Expr, expected: string, got: cpp.Expr) =>
+    cpp.exprStmt(cpp.call("jsonShapeError", [path, cpp.str(expected), got]));
+  const describe = (x: cpp.Expr) => cpp.call(cpp.arrow(x, "describe"));
+  /** `template <> struct JsonRead<T> { static T read(…); };` and its definition. */
+  const reader = (t: LType, body: cpp.Stmt[]) => {
+    const type = reg.cppType(t);
+    decls.push(
+      cpp.struct("JsonRead", [cpp.method("read", type, params, undefined, { static: true })], {
+        template: [],
+        args: [type],
+      }),
     );
     defs.push(
-      `inline ${cpp} JsonRead<${cpp}>::read(const JsonValue& v, const std::string& p) {\n  if (v.kind != JsonValue::Kind::Object) jsonShapeError(p, "an object", v.describe());\n  auto out = std::make_shared<lucent_app::${info.cppName}>();\n${fields.join("\n")}\n  return out;\n}`,
+      cpp.fn("read", type, params, body, {
+        inline: true,
+        scope: cpp.type("JsonRead", type),
+      }),
     );
+  };
+  for (const t of structs.values()) {
+    const info = reg.struct(t.id);
+    const out = cpp.id("out");
+    reader(t, [
+      cpp.ifStmt(cpp.binary(cpp.dot(v, "kind"), "!=", kind("Object")), [
+        shapeError(p, "an object", cpp.call(cpp.dot(v, "describe"))),
+      ]),
+      cpp.varDecl(
+        cpp.auto,
+        "out",
+        cpp.call("std::make_shared", [], [cpp.type(`lucent_app::${info.cppName}`)]),
+      ),
+      ...info.fields.map((f) =>
+        cpp.exprStmt(
+          cpp.assign(
+            cpp.arrow(out, cppIdent(f.name)),
+            cpp.call("jsonMember", [v, cpp.str(f.name), p], [reg.cppType(f.type)]),
+          ),
+        ),
+      ),
+      cpp.ret(out),
+    ]);
   }
   for (const u of unions.values()) {
-    const cpp = reg.cpp(u);
-    decls.push(header(cpp));
+    const type = reg.cppType(u);
     const make = (m: LType) =>
-      `return ${cpp}(std::in_place_type<${reg.cpp(m)}>, JsonRead<${reg.cpp(m)}>::read(v, p));`;
+      cpp.ret(
+        cpp.construct(type, [
+          cpp.templateId("std::in_place_type", [reg.cppType(m)]),
+          cpp.call(cpp.scoped(cpp.type("JsonRead", reg.cppType(m)), "read"), [v, p]),
+        ]),
+      );
     const byKind = (ks: string[]) => u.ms.filter((m) => ks.includes(m.k));
-    const cases: string[] = [];
-    const one = (kind: string, ks: string[]) => {
+    const cases: { values: cpp.Expr[]; isDefault?: boolean; body: cpp.Stmt[] }[] = [];
+    const one = (k: string, ks: string[]) => {
       const ms = byKind(ks);
-      if (ms.length > 1 && kind !== "Object") throw new Error(`ambiguous ${kind}`);
-      if (ms.length === 1) cases.push(`    case JsonValue::Kind::${kind}:\n      ${make(ms[0]!)}`);
+      if (ms.length > 1 && k !== "Object") throw new Error(`ambiguous ${k}`);
+      if (ms.length === 1) cases.push({ values: [kind(k)], body: [make(ms[0]!)] });
     };
     one("Number", ["number"]);
     one("String", ["string"]);
@@ -602,8 +918,7 @@ function jsonReaders(ctx: Ctx): { decls: string[]; defs: string[] } {
       );
     }
     const objects = byKind(["struct", "dict"]);
-    if (objects.length === 1)
-      cases.push(`    case JsonValue::Kind::Object:\n      ${make(objects[0]!)}`);
+    if (objects.length === 1) cases.push({ values: [kind("Object")], body: [make(objects[0]!)] });
     else if (objects.length > 1) {
       // A field every object type has, with a distinct string literal in each.
       const infos = objects.map((o) => (o.k === "struct" ? reg.struct(o.id) : undefined));
@@ -622,16 +937,43 @@ function jsonReaders(ctx: Ctx): { decls: string[]; defs: string[] } {
           Codes.AmbiguousUnion,
           `JSON.parse needs a string-literal discriminant to tell apart the object types in ${typeKey(u)}`,
         );
-      const branches = objects.map(
-        (o, i) => `      if (d->string == LUCENT_STR(${cppQuoted(literals[i]!)})) ${make(o)}`,
-      );
-      cases.push(
-        `    case JsonValue::Kind::Object: {\n      const JsonValue* d = v.find(LUCENT_STR(${cppQuoted(disc.name)}));\n      if (!d || d->kind != JsonValue::Kind::String) jsonShapeError(p + ".${disc.name}", "one of the ${disc.name} values", d ? d->describe() : "undefined");\n${branches.join("\n")}\n      jsonShapeError(p + ".${disc.name}", "one of the ${disc.name} values", "another string");\n    }`,
-      );
+      const d = cpp.id("d");
+      const where = cpp.binary(p, "+", cpp.str(`.${disc.name}`));
+      const expected = `one of the ${disc.name} values`;
+      cases.push({
+        values: [kind("Object")],
+        body: [
+          cpp.block([
+            cpp.varDecl(
+              cpp.pointer(cpp.constType(cpp.type("JsonValue"))),
+              "d",
+              cpp.call(cpp.dot(v, "find"), [stringExpr(disc.name)]),
+            ),
+            cpp.ifStmt(cpp.or(cpp.not(d), cpp.binary(cpp.arrow(d, "kind"), "!=", kind("String"))), [
+              shapeError(where, expected, cpp.conditional(d, describe(d), cpp.str("undefined"))),
+            ]),
+            ...objects.map((o, i) =>
+              cpp.ifStmt(cpp.binary(cpp.arrow(d, "string"), "==", stringExpr(literals[i]!)), [
+                make(o),
+              ]),
+            ),
+            shapeError(where, expected, cpp.str("another string")),
+          ]),
+        ],
+      });
     }
-    defs.push(
-      `inline ${cpp} JsonRead<${cpp}>::read(const JsonValue& v, const std::string& p) {\n  switch (v.kind) {\n${cases.join("\n")}\n    default:\n      jsonShapeError(p, ${cppQuoted(`one of ${u.ms.map((m) => typeKey(m)).join(" | ")}`)}, v.describe());\n  }\n}`,
-    );
+    cases.push({
+      values: [],
+      isDefault: true,
+      body: [
+        shapeError(
+          p,
+          `one of ${u.ms.map((m) => typeKey(m)).join(" | ")}`,
+          cpp.call(cpp.dot(v, "describe")),
+        ),
+      ],
+    });
+    reader(u, [{ k: "switch", on: cpp.dot(v, "kind"), cases }]);
   }
   return { decls, defs };
 }
@@ -642,35 +984,82 @@ function jsonReaders(ctx: Ctx): { decls: string[]; defs: string[] } {
  */
 export const LOADER = "_lucent/runtime.js";
 
+/** The build identity the proxies pass the loader, next to it. */
+export const IDENTITY = "_lucent/identity.js";
+
 /** The JavaScript that replaces a `*.lucent.ts` module in the app bundle. */
-function jsProxy(m: ModuleExports): string {
+function jsProxy(m: ModuleExports, components: readonly ComponentDescription[]): string {
   // Relative to js/<name>.js; Metro's transformer rebases it onto the source file.
-  const loader = `${"../".repeat(m.module.name.split("/").length - 1) || "./"}${LOADER}`;
-  const lines = [
-    "// Generated by Lucent. Do not edit.",
-    '"use strict";',
-    'Object.defineProperty(exports, "__esModule", { value: true });',
-    `const { loadModule, lucentClass } = require(${JSON.stringify(loader)});`,
+  const up = "../".repeat(m.module.name.split("/").length - 1) || "./";
+  const loader = `${up}${LOADER}`;
+  const [exports, mod] = [js.name("exports"), js.name("m")];
+  const require = (spec: string) => js.call(js.name("require"), [js.str(spec)]);
+  const exported = (name: string, value: js.Expr) =>
+    js.stmt(js.exprStmt(js.assign(js.member(exports, name), value)));
+  const decls: js.Decl[] = [
+    js.stmt(js.exprStmt(js.str("use strict"))),
+    js.stmt(
+      js.exprStmt(
+        js.call(js.member(js.name("Object"), "defineProperty"), [
+          exports,
+          js.str("__esModule"),
+          js.objectLit([{ key: "value", value: js.bool(true) }]),
+        ]),
+      ),
+    ),
+    js.stmt({ k: "const", name: ["loadModule", "lucentClass"], init: require(loader) }),
     // `react-native` is required from the app's own location, so the app's
     // copy is used even in monorepos with several versions installed.
-    `const m = loadModule(${JSON.stringify(m.module.name)}, () => require("react-native").TurboModuleRegistry);`,
+    js.stmt({
+      k: "const",
+      name: "m",
+      init: js.call(js.name("loadModule"), [
+        js.str(m.module.name),
+        js.arrow([], js.member(require("react-native"), "TurboModuleRegistry")),
+        // What this JavaScript was built with, which the loader checks the app's native code against.
+        require(`${up}${IDENTITY}`),
+      ]),
+    }),
   ];
-  for (const f of m.functions) lines.push(`exports.${f.decl.name!.text} = m.${f.decl.name!.text};`);
-  for (const c of m.classes)
-    lines.push(`exports.${c.decl.name!.text} = lucentClass(m.${c.decl.name!.text});`);
-  for (const c of m.consts)
-    lines.push(`exports.${c.decl.name.getText()} = m.${c.decl.name.getText()};`);
-  for (const e of m.enums) {
-    const entries: string[] = [];
-    for (const mem of e.members) {
-      entries.push(`${JSON.stringify(mem.name)}: ${JSON.stringify(mem.value)}`);
-      if (typeof mem.value === "number")
-        entries.push(`${JSON.stringify(String(mem.value))}: ${JSON.stringify(mem.name)}`);
-    }
-    lines.push(`exports.${e.name} = Object.freeze({ ${entries.join(", ")} });`);
+  for (const f of m.functions) {
+    const name = f.decl.name!.text;
+    decls.push(exported(name, js.member(mod, name)));
   }
-  return lines.join("\n") + "\n";
+  for (const c of m.classes) {
+    const name = c.decl.name!.text;
+    decls.push(exported(name, js.call(js.name("lucentClass"), [js.member(mod, name)])));
+  }
+  for (const c of m.consts) {
+    const name = c.decl.name.getText();
+    decls.push(exported(name, js.member(mod, name)));
+  }
+  for (const e of m.enums) {
+    const entries: { key: string; value: js.Expr; quoted: true }[] = [];
+    for (const mem of e.members) {
+      const value = typeof mem.value === "number" ? js.num(mem.value) : js.str(mem.value);
+      entries.push({ key: mem.name, value, quoted: true });
+      // Numeric enums map back from value to name, as TypeScript's do.
+      if (typeof mem.value === "number")
+        entries.push({ key: String(mem.value), value: js.str(mem.name), quoted: true });
+    }
+    decls.push(
+      exported(e.name, js.call(js.member(js.name("Object"), "freeze"), [js.objectLit(entries)])),
+    );
+  }
+  decls.push(...componentExports(components, up));
+  return js.printUnit({ banner: "Generated by Lucent. Do not edit.", decls });
 }
 
 export type { ClassInfo };
 export { unionOf };
+
+/** The files of the program's `toolkit` bodies (toolkit.ts), by name. */
+function toolkitFiles(ctx: Ctx, toolkit: ToolkitName): [string, string][] {
+  return [...ctx.toolkitFiles.values()]
+    .filter((f) => f.toolkit === toolkit)
+    .map((f) => {
+      const { name, text } = f.file();
+
+      return [name, text];
+    });
+}

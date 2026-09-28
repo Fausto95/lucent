@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <string>
 #include <type_traits>
 
 #include "jsstring.h"
@@ -69,6 +70,38 @@ inline String toJsString(Null) { return String::fromLatin1("null"); }
 
 inline bool isInteger(double v) { return std::isfinite(v) && std::trunc(v) == v; }
 inline bool isSafeInteger(double v) { return isInteger(v) && std::fabs(v) <= 9007199254740991.0; }
+
+[[noreturn]] void throwInexactInteger(const std::string& value);
+
+/// A native integer (a 64-bit one: Int64, NSInteger, Java's long) as a
+/// number, exactly: RangeError beyond +-(2^53 - 1), which a number cannot
+/// tell apart from its neighbors. Never rounded.
+template <class I>
+  requires std::is_integral_v<I>
+double exactNumber(I v) {
+  constexpr uint64_t kMax = 9007199254740991;  // 2^53 - 1
+  bool fits;
+  if constexpr (std::is_signed_v<I>)
+    fits = v >= -static_cast<int64_t>(kMax) && v <= static_cast<int64_t>(kMax);
+  else
+    fits = static_cast<uint64_t>(v) <= kMax;
+
+  if (!fits) throwInexactInteger(std::to_string(v));
+  return static_cast<double>(v);
+}
+
+/// A number as a native 64-bit integer, as WebIDL's [EnforceRange] long
+/// long converts it: truncated toward zero; RangeError when it is not
+/// finite or beyond what a number holds exactly (below 0 for unsigned).
+template <class I>
+  requires std::is_integral_v<I>
+I toExactInteger(double v) {
+  double t = std::trunc(v);
+  double low = std::is_signed_v<I> ? -9007199254740991.0 : 0.0;
+  if (!(t >= low && t <= 9007199254740991.0)) throwInexactInteger(numberToString(v).toUtf8());
+
+  return static_cast<I>(t);
+}
 
 namespace math {
 inline double abs(double v) { return std::fabs(v); }

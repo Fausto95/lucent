@@ -23,13 +23,19 @@ export interface MemberInfo {
   descriptor: string;
   access: number;
   signature?: string;
-  constant?: number | string;
+  /** A `static final` field's ConstantValue: a long's as a bigint, exactly. */
+  constant?: number | bigint | string;
   deprecated: boolean;
   /** Annotation type descriptors (`Landroid/annotation/NonNull;`), visible and invisible. */
   annotations: string[];
+  /** The string and enum elements of those annotations, by descriptor then element (an enum's as its constant's name). */
+  annotationValues: AnnotationValues;
   /** Per parameter, for methods. */
   paramAnnotations: string[][];
 }
+
+/** `Lkotlin/Deprecated;` → `level` → `ERROR`: annotations' string and enum elements. */
+export type AnnotationValues = Record<string, Record<string, string>>;
 
 export interface InnerClass {
   inner: string;
@@ -47,6 +53,7 @@ export interface ClassFile {
   signature?: string;
   deprecated: boolean;
   annotations: string[];
+  annotationValues: AnnotationValues;
   fields: MemberInfo[];
   methods: MemberInfo[];
   innerClasses: InnerClass[];
@@ -123,54 +130,62 @@ export function parseClass(buf: Buffer): ClassFile {
   }
   const utf8 = (i: number) => cp[i]!.value as string;
   const className = (i: number) => utf8(cp[i]!.a!);
-  const constant = (i: number): number | string => {
+  const constant = (i: number): number | bigint | string => {
     const c = cp[i]!;
     if (c.tag === 8) return utf8(c.a!);
-    if (typeof c.value === "bigint") return Number(c.value);
-    return c.value as number;
+
+    return c.value as number | bigint;
   };
 
-  const skipElementValue = (): void => {
+  /** An element value: a string's or an enum constant's name; undefined for any other. */
+  const elementValue = (): string | undefined => {
     const tag = String.fromCharCode(u1());
-    if ("BCDFIJSZsc".includes(tag)) p += 2;
-    else if (tag === "e") p += 4;
-    else if (tag === "@") skipAnnotation();
+    if (tag === "s") return utf8(u2());
+    if ("BCDFIJSZc".includes(tag)) p += 2;
+    else if (tag === "e") {
+      p += 2;
+      return utf8(u2());
+    } else if (tag === "@") annotation(new Map());
     else if (tag === "[") {
       const n = u2();
-      for (let k = 0; k < n; k++) skipElementValue();
+      for (let k = 0; k < n; k++) elementValue();
     } else throw new Error(`class file: element value tag ${tag}`);
+    return undefined;
   };
-  const annotation = (): string => {
+  const annotation = (values: Map<string, Record<string, string>>): string => {
     const type = utf8(u2());
+    const elements: Record<string, string> = {};
     const pairs = u2();
     for (let k = 0; k < pairs; k++) {
-      p += 2;
-      skipElementValue();
+      const name = utf8(u2());
+      const value = elementValue();
+      if (value !== undefined) elements[name] = value;
     }
+    if (Object.keys(elements).length) values.set(type, elements);
     return type;
   };
-  function skipAnnotation(): void {
-    annotation();
-  }
-  const annotations = (): string[] => {
+  const annotations = (values: Map<string, Record<string, string>>): string[] => {
     const n = u2();
     const out: string[] = [];
-    for (let k = 0; k < n; k++) out.push(annotation());
+    for (let k = 0; k < n; k++) out.push(annotation(values));
     return out;
   };
 
   interface Attrs {
     signature?: string;
-    constant?: number | string;
+    constant?: number | bigint | string;
     deprecated: boolean;
     annotations: string[];
+    annotationValues: AnnotationValues;
     paramAnnotations: string[][];
     innerClasses: InnerClass[];
   }
   const attributes = (): Attrs => {
+    const values = new Map<string, Record<string, string>>();
     const out: Attrs = {
       deprecated: false,
       annotations: [],
+      annotationValues: {},
       paramAnnotations: [],
       innerClasses: [],
     };
@@ -191,13 +206,16 @@ export function parseClass(buf: Buffer): ClassFile {
           break;
         case "RuntimeVisibleAnnotations":
         case "RuntimeInvisibleAnnotations":
-          out.annotations.push(...annotations());
+          out.annotations.push(...annotations(values));
           break;
         case "RuntimeVisibleParameterAnnotations":
         case "RuntimeInvisibleParameterAnnotations": {
           const params = u1();
           for (let q = 0; q < params; q++) {
-            out.paramAnnotations[q] = [...(out.paramAnnotations[q] ?? []), ...annotations()];
+            out.paramAnnotations[q] = [
+              ...(out.paramAnnotations[q] ?? []),
+              ...annotations(new Map()),
+            ];
           }
           break;
         }
@@ -220,6 +238,7 @@ export function parseClass(buf: Buffer): ClassFile {
       }
       p = end;
     }
+    out.annotationValues = Object.fromEntries(values);
     return out;
   };
 
@@ -243,6 +262,7 @@ export function parseClass(buf: Buffer): ClassFile {
         constant: a.constant,
         deprecated: a.deprecated,
         annotations: a.annotations,
+        annotationValues: a.annotationValues,
         paramAnnotations: a.paramAnnotations,
       });
     }
@@ -259,6 +279,7 @@ export function parseClass(buf: Buffer): ClassFile {
     signature: a.signature,
     deprecated: a.deprecated,
     annotations: a.annotations,
+    annotationValues: a.annotationValues,
     fields,
     methods,
     innerClasses: a.innerClasses,

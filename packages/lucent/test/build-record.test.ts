@@ -1,0 +1,206 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { describe, expect, it } from "vite-plus/test";
+import { sdkAvailable } from "@lucent-lang/bindgen";
+import {
+  BuildGraph,
+  type BuildRecord,
+  requiredAction,
+  writeBuildRecord,
+} from "../src/cli/build-graph.ts";
+import { runLucent } from "./run-to-exit.ts";
+
+function lucent(root: string, command: "build" | "check", platforms = "host", env = {}) {
+  // A host build: no platform SDK or Gradle needed. check takes no targets.
+  const targets = command === "build" ? ["--platforms", platforms] : [];
+
+  const r = runLucent([command, ...targets, "--root", root], {
+    env: { ...process.env, NO_COLOR: "1", ...env },
+  });
+
+  return { status: r.status, out: r.stdout + r.stderr };
+}
+
+function project(source = "export function one(): number { return 1; }\n"): string {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-record-"));
+  fs.writeFileSync(path.join(root, "a.lucent.ts"), source);
+
+  return root;
+}
+
+function record(root: string): BuildRecord {
+  return JSON.parse(fs.readFileSync(path.join(root, ".lucent/build-record.json"), "utf8"));
+}
+
+function node(r: BuildRecord, id: string) {
+  return r.nodes.find((n) => n.id === id);
+}
+
+describe("the build graph", () => {
+  it("hashes a node's kind, inputs and outputs, whatever their order, and not its timing", () => {
+    const a = new BuildGraph("build");
+    const b = new BuildGraph("build");
+
+    const x = a.record("check", "check", "ok", {
+      inputs: [
+        { key: "b.lucent.ts", hash: "2" },
+        { key: "a.lucent.ts", hash: "1" },
+      ],
+      ms: 12,
+    });
+    const y = b.record("check", "check", "ok", {
+      inputs: [
+        { key: "a.lucent.ts", hash: "1" },
+        { key: "b.lucent.ts", hash: "2" },
+      ],
+      ms: 99,
+    });
+
+    expect(x.hash).toBe(y.hash);
+    expect(x.inputs.map((i) => i.key)).toEqual(["a.lucent.ts", "b.lucent.ts"]);
+    expect(a.toRecord({ kind: "none" }).timings).toEqual({ check: 12 });
+  });
+
+  it("changes a node's hash when an input's content changes", () => {
+    const g = new BuildGraph("build");
+
+    const before = g.record("one", "check", "ok", { inputs: [{ key: "a", hash: "1" }] });
+    const after = g.record("two", "check", "ok", { inputs: [{ key: "a", hash: "2" }] });
+
+    expect(before.hash).not.toBe(after.hash);
+  });
+
+  it("rejects a node recorded twice", () => {
+    const g = new BuildGraph("check");
+    g.record("check", "check", "ok");
+
+    expect(() => g.record("check", "check", "failed")).toThrow(/recorded twice/);
+  });
+
+  it("derives the required action from what changed", () => {
+    const none = { rebuild: false, podInstall: false, reload: false };
+
+    expect(requiredAction(none, ["ios"], [])).toEqual({ kind: "none" });
+    expect(requiredAction({ ...none, reload: true }, ["ios"], [])).toEqual({ kind: "reload-js" });
+
+    expect(requiredAction({ ...none, rebuild: true }, ["ios"], ["b.cpp", "a.cpp"])).toEqual({
+      kind: "compile-native",
+      targets: ["ios"],
+      changedUnits: ["a.cpp", "b.cpp"],
+    });
+
+    expect(
+      requiredAction({ rebuild: true, podInstall: true, reload: false }, ["ios"], []),
+    ).toMatchObject({ kind: "relink", targets: ["ios"] });
+  });
+
+  it("writes the record whole, leaving no temporary file", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-record-"));
+    const file = path.join(dir, "nested/build-record.json");
+
+    writeBuildRecord(file, new BuildGraph("build").toRecord({ kind: "none" }));
+
+    expect(fs.readdirSync(path.dirname(file))).toEqual(["build-record.json"]);
+    expect(JSON.parse(fs.readFileSync(file, "utf8")).schemaVersion).toBe(1);
+  });
+});
+
+describe("lucent build's record", () => {
+  it("records the check and the generated files, with project-relative paths", () => {
+    const root = project();
+
+    expect(lucent(root, "build").status).toBe(0);
+
+    const r = record(root);
+    expect(r.mode).toBe("build");
+
+    const check = node(r, "check")!;
+    expect(check).toMatchObject({ kind: "check", status: "ok" });
+    expect(check.inputs.map((i) => i.key)).toEqual(["a.lucent.ts", "targets"]);
+
+    const generate = node(r, "generate")!;
+    expect(generate.status).toBe("ok");
+    expect(generate.outputs.length).toBeGreaterThan(0);
+    expect(generate.outputs.every((o) => o.key.startsWith(".lucent/native/"))).toBe(true);
+
+    expect(JSON.stringify(r.nodes)).not.toContain(root);
+    expect(r.requiredAction.kind).toBe("relink");
+    expect(typeof r.timings.check).toBe("number");
+  });
+
+  it("records a build with nothing to do as cached, with no action required", () => {
+    const root = project();
+    lucent(root, "build");
+
+    expect(lucent(root, "build").status).toBe(0);
+
+    const r = record(root);
+    expect(node(r, "check")?.status).toBe("cached");
+    expect(node(r, "generate")?.status).toBe("cached");
+    expect(r.requiredAction).toEqual({ kind: "none" });
+  });
+
+  it("records the failed node and nothing after it", () => {
+    const root = project("export function one(): number { return 'one'; }\n");
+
+    expect(lucent(root, "build").status).toBe(1);
+
+    const r = record(root);
+    expect(node(r, "check")).toMatchObject({ status: "failed", detail: "1 error" });
+    expect(node(r, "generate")).toBeUndefined();
+    expect(r.requiredAction).toEqual({ kind: "none" });
+  });
+
+  it("writes the same nodes for a clean rebuild of the same inputs", () => {
+    const root = project();
+    lucent(root, "build");
+    const first = record(root);
+
+    fs.rmSync(path.join(root, ".lucent"), { recursive: true });
+    lucent(root, "build");
+    const second = record(root);
+
+    expect(second.nodes).toEqual(first.nodes);
+    expect(second.requiredAction).toEqual(first.requiredAction);
+  });
+
+  it("records a check too", () => {
+    const root = project();
+
+    expect(lucent(root, "check").status).toBe(0);
+
+    const r = record(root);
+    expect(r.mode).toBe("check");
+    expect(node(r, "check")?.status).toBe("ok");
+    expect(node(r, "generate")).toBeUndefined();
+  });
+});
+
+describe.skipIf(!sdkAvailable("android"))("lucent build's record: SDK bindings", () => {
+  it("records the artifacts each imported module's schema was read from", () => {
+    const root = project();
+    fs.writeFileSync(
+      path.join(root, "model.lucent.ts"),
+      "export declare function model(): string;\n",
+    );
+    fs.writeFileSync(
+      path.join(root, "model.android.lucent.ts"),
+      `import { Build } from "lucent:android/android.os";\n\nexport function model(): string {\n  return Build.MODEL ?? "";\n}\n`,
+    );
+    const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-record-cache-"));
+
+    const built = lucent(root, "build", "android", { LUCENT_CACHE_DIR: cache });
+    expect(built.out).not.toMatch(/error/i);
+
+    const extract = node(record(root), "extract")!;
+    const hex = expect.stringMatching(/^[0-9a-f]{16}$/);
+
+    // The module, keyed on what its schema read, and the SDK platform it was read from.
+    expect(extract.inputs).toEqual([
+      { key: expect.stringMatching(/^android-sdk:\d/), hash: hex },
+      { key: "android/android.os", hash: hex },
+    ]);
+    expect(JSON.stringify(extract)).not.toContain(cache);
+  });
+});

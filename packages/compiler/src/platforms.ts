@@ -261,20 +261,50 @@ export function switchPlatforms(
     const runs = PLATFORMS.filter((p) => own.includes(p) || falling.includes(p));
     out.push(runs);
     const last = c.statements[c.statements.length - 1];
-    const exits =
-      !!last &&
-      (ts.isBreakStatement(last) ||
-        ts.isReturnStatement(last) ||
-        ts.isThrowStatement(last) ||
-        ts.isContinueStatement(last));
-    falling = exits ? [] : runs;
+    falling = last && alwaysExits(last) ? [] : runs;
   }
   return out;
 }
 
-/** The platform the innermost platform branch or case around `node` runs on; code both platforms reach has none. */
+/** Whether a statement always leaves its block: it ends in return, throw, break or continue. */
+function alwaysExits(s: ts.Statement): boolean {
+  if (ts.isBlock(s)) {
+    const last = s.statements[s.statements.length - 1];
+    return !!last && alwaysExits(last);
+  }
+  return (
+    ts.isReturnStatement(s) ||
+    ts.isThrowStatement(s) ||
+    ts.isBreakStatement(s) ||
+    ts.isContinueStatement(s)
+  );
+}
+
+/**
+ * A guard clause, `if (PLATFORM === "ios") return …` (a plain platform test,
+ * no else, a branch that always exits): the platform that runs the
+ * statements after it in its block, as TypeScript narrows them.
+ */
+export function guardClause(checker: ts.TypeChecker, s: ts.Statement): Platform | undefined {
+  if (!ts.isIfStatement(s) || s.elseStatement || !alwaysExits(s.thenStatement)) return undefined;
+  const guard = platformGuard(checker, s.expression);
+  return guard && !guard.rest.length ? otherPlatform(guard.platform) : undefined;
+}
+
+/**
+ * The platform the innermost platform branch, case or guard clause around
+ * `node` runs on; code both platforms reach has none.
+ */
 export function branchPlatform(checker: ts.TypeChecker, node: ts.Node): Platform | undefined {
   for (let child = node, p = node.parent; p; child = p, p = p.parent) {
+    // Statements after a guard clause in the same block.
+    if ((ts.isBlock(p) || ts.isCaseClause(p) || ts.isDefaultClause(p)) && ts.isStatement(child)) {
+      const at = p.statements.indexOf(child);
+      for (let i = at - 1; i >= 0; i--) {
+        const after = guardClause(checker, p.statements[i]!);
+        if (after) return after;
+      }
+    }
     if (ts.isCaseClause(p) || ts.isDefaultClause(p)) {
       const s = p.parent.parent;
       const runs = switchPlatforms(checker, s)?.[s.caseBlock.clauses.indexOf(p)];
@@ -321,8 +351,8 @@ export function platformScopes(checker: ts.TypeChecker, sf: ts.SourceFile): Plat
       if (!ts.isStringLiteral(s.moduleSpecifier) || !s.importClause) continue;
       const spec = s.moduleSpecifier.text;
       const scope = /^lucent:(\w+)/.exec(spec)?.[1];
-      // lucent:core and lucent:platform run on every platform.
-      if (!scope || scope === "core" || scope === "platform") continue;
+      // lucent:core, lucent:platform and native extensions (C, built for both) run on every platform.
+      if (!scope || scope === "core" || scope === "platform" || scope === "ext") continue;
       const platform = (PLATFORMS as readonly string[]).includes(scope)
         ? (scope as Platform)
         : undefined;

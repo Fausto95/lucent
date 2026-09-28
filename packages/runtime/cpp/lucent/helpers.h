@@ -19,10 +19,16 @@
 
 namespace lucent {
 
-/// `this` as a strong reference, inside a member function.
+/// `this` as a strong reference, inside a member function. An object a
+/// native object owns (a class extending an iOS class declares
+/// `lucentSelf`) is referenced through that native object.
 template <class T>
 Ref<T> selfRef(T* p) {
-  return std::static_pointer_cast<T>(static_cast<Object*>(p)->shared_from_this());
+  if constexpr (requires { lucentSelf(p); }) {
+    return lucentSelf(p);
+  } else {
+    return std::static_pointer_cast<T>(static_cast<Object*>(p)->shared_from_this());
+  }
 }
 template <class T>
 Ref<T> selfRef(const T* p) {
@@ -217,9 +223,10 @@ String toJsString(const std::tuple<Ts...>& t) {
       t);
   return out;
 }
-template <class... Ts>
-bool strictEquals(const std::tuple<Ts...>& a, const std::tuple<Ts...>& b) {
-  // Tuples are values in Lucent; compare element-wise.
+/// Tuples are values in Lucent: they compare element by element.
+template <class... As, class... Bs>
+  requires(sizeof...(As) == sizeof...(Bs))
+bool strictEquals(const std::tuple<As...>& a, const std::tuple<Bs...>& b) {
   return std::apply([&](const auto&... x) { return std::apply([&](const auto&... y) { return (strictEquals(x, y) && ...); }, b); }, a);
 }
 

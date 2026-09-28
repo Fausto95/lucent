@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Diagnostic, Target } from "@lucent-lang/compiler";
 import type { Invocation } from "../args.ts";
+import { ACTION_TEXT, filesText } from "../changes.ts";
 import { buildProject, type BuildOutcome, nextText, plural } from "../pipeline.ts";
 import type { Notice } from "../project.ts";
 import { renderDiagnostic } from "../ui/diagnostic.ts";
@@ -15,6 +16,7 @@ export async function buildOrCheck(
   { root, flags, out }: Invocation,
 ): Promise<number> {
   const theme = out.theme;
+  const sources = new Map<string, string | undefined>();
   const notices: Notice[] = [];
   const notify = (n: Notice) => {
     notices.push(n);
@@ -46,6 +48,7 @@ export async function buildOrCheck(
             : undefined,
         out: typeof flags.out === "string" ? flags.out : undefined,
         prefetch: true,
+        frozen: !!flags.frozen,
       },
       steps,
       notify,
@@ -61,6 +64,7 @@ export async function buildOrCheck(
         ok: result.ok,
         modules: result.modules.map((m) => m.name),
         diagnostics: result.diagnostics,
+        warnings: result.warnings,
         errors: result.diagnostics.length,
         ms: result.ms,
       });
@@ -72,8 +76,10 @@ export async function buildOrCheck(
         modules: result.modules,
         steps: steps.results,
         diagnostics: result.diagnostics,
+        warnings: result.warnings,
         notices,
         next: result.next,
+        actions: result.actions,
         ms: result.ms,
       });
     return result.ok ? 0 : 1;
@@ -83,8 +89,18 @@ export async function buildOrCheck(
     return 1;
   }
   if (!result.ok) {
-    problems(result.diagnostics, result.modules.length, result.ms, command === "build");
+    problems(
+      [...result.diagnostics, ...result.warnings],
+      result.modules.length,
+      result.ms,
+      command === "build",
+    );
     return 1;
+  }
+  if (result.warnings.length) {
+    out.error("");
+    for (const d of result.warnings)
+      out.error(`${renderDiagnostic(d, d.file ? source(d.file) : undefined, theme)}\n`);
   }
   if (command === "check") {
     out.print(
@@ -99,21 +115,34 @@ export async function buildOrCheck(
   ))
     out.print(line);
   out.print(`${theme.dim("next")}     ${nextText(result.next)}`);
+
+  // Each action the changes need, where, and the files that need it.
+  for (const line of table(
+    result.actions.map((a, i) => [
+      i ? "" : theme.dim("actions"),
+      ACTION_TEXT[a.kind],
+      a.targets.join(", "),
+      filesText(a.files),
+    ]),
+  ))
+    out.print(line);
+
   return 0;
 
+  function source(file: string): string | undefined {
+    if (!sources.has(file)) {
+      const abs = path.resolve(root, file);
+      sources.set(file, fs.existsSync(abs) ? fs.readFileSync(abs, "utf8") : undefined);
+    }
+    return sources.get(file);
+  }
+
   function problems(diagnostics: Diagnostic[], modules: number, ms: number, build: boolean): void {
-    const sources = new Map<string, string | undefined>();
-    const source = (file: string) => {
-      if (!sources.has(file)) {
-        const abs = path.resolve(root, file);
-        sources.set(file, fs.existsSync(abs) ? fs.readFileSync(abs, "utf8") : undefined);
-      }
-      return sources.get(file);
-    };
     out.error("");
     for (const d of diagnostics)
       out.error(`${renderDiagnostic(d, d.file ? source(d.file) : undefined, theme)}\n`);
-    const summary = `${plural(diagnostics.length, "error")} ${theme.dim("·")} ${plural(modules, "module")} ${theme.dim("·")} ${duration(ms)}`;
+    const errors = diagnostics.filter((d) => d.severity !== "warning").length;
+    const summary = `${plural(errors, "error")} ${theme.dim("·")} ${plural(modules, "module")} ${theme.dim("·")} ${duration(ms)}`;
     out.error(`  ${theme.error(summary)}${build ? theme.dim("  nothing was written") : ""}`);
   }
 }

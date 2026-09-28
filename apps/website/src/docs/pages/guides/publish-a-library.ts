@@ -28,7 +28,7 @@ export const blocks: Block[] = [
       "`lucent.sources` is the folder with the package's modules. `lucent.compatible` is the range of Lucent versions it supports; an app outside it fails to build, naming the package.",
       "`main` re-exports the modules. Metro swaps each for its proxy in the app.",
       "The package ships sources only. The app compiles them with its own modules, with its own Lucent, into its one native package.",
-      "`lucent.json` lists what the modules need from the app: pods, Gradle dependencies, permissions, `Info.plist` entries. The app's build merges them, and fails if two packages disagree. See [`lucent.json`](/docs/reference/lucent-json/).",
+      "`lucent.json` lists what the modules need from the app: pods, Gradle dependencies, permissions, `Info.plist` entries. The app's build merges them, and fails if two packages' needs cannot both hold. See [`lucent.json`](/docs/reference/lucent-json/).",
       "Modules are named `<package>/<module>`, so two packages can each have a `storage` module.",
     ],
   },

@@ -15,6 +15,8 @@ export interface Diagnostic {
   fix?: string;
   /** Where the code is explained. */
   docs?: string;
+  /** A warning: reported, but the code compiles. Errors leave it out. */
+  severity?: "warning";
 }
 
 export class CompileError extends Error {

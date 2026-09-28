@@ -63,7 +63,10 @@ String utf8Decode(const Bytes& b) {
 
 Promise<void> delay(double ms) {
   Promise<void> p;
-  Scheduler::instance().postDelayed(ms, [p] { p.resolve(undefined); });
+
+  // On the context the promise belongs to: the calling one.
+  ExecutionContext::of(ExecutionContext::currentRef()).postDelayed(ms, [p] { p.resolve(undefined); });
+
   return p;
 }
 

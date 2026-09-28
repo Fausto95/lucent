@@ -1,0 +1,39 @@
+{
+  "ios": { "nativeSources": ["native"] },
+  "android": { "nativeSources": ["native"] },
+  "extensions": {
+    "orbit-filter": {
+      "header": "native/orbit_filter.h",
+      "handles": {
+        "OrbitFilter": {
+          "create": "orbit_filter_create",
+          "destroy": "orbit_filter_destroy",
+          "methods": {
+            "apply": "orbit_filter_apply",
+            "processed": "orbit_filter_processed"
+          }
+        }
+      },
+      "functions": {
+        "orbit_filter_create": {
+          "params": { "error": { "error": "OrbitError" } },
+          "failsWhen": "null"
+        },
+        "orbit_filter_apply": {
+          "params": {
+            "input": { "bytes": "read", "length": "input_length" },
+            "output": { "bytes": "write", "length": "output_length" },
+            "error": { "error": "OrbitError" }
+          },
+          "failsWhen": "negative"
+        },
+        "orbit_filter_label": {
+          "params": { "name": { "string": "utf8" } }
+        }
+      },
+      "errors": {
+        "OrbitError": { "code": "code", "message": "message" }
+      }
+    }
+  }
+}

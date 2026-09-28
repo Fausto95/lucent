@@ -30,6 +30,11 @@ export const blocks: Block[] = [
         no,
         "Export each declaration where it's declared (`LUCENT3003`).",
       ],
+      [
+        "Components: an exported function of a `.lucent.tsx` module that returns a platform view",
+        no,
+        "Not rendered yet. Lucent checks them (`LUCENT3020` to `LUCENT3023`) and leaves them out of the module's JavaScript.",
+      ],
       ["Top-level statements", no, "Only declarations at the top level (`LUCENT3002`)."],
       ["`var`", no, "Use `let` or `const` (`LUCENT1001`)."],
     ],
@@ -43,6 +48,11 @@ export const blocks: Block[] = [
         "`number`, `string`, `boolean`, `null`, `undefined`",
         yes,
         "A `number` is a `double` with JavaScript's arithmetic.",
+      ],
+      [
+        "`bigint`",
+        yes,
+        "Any precision; values that fit in 64 bits don't allocate. Loose `==` with a number or string is rejected (`LUCENT1002`).",
       ],
       ["Object types, interfaces without methods", yes, "Become C++ structs, one per shape."],
       [
@@ -71,11 +81,7 @@ export const blocks: Block[] = [
         no,
         "Use a concrete type, a union or a generic (`LUCENT2001`).",
       ],
-      [
-        "Intersections, `object`, `bigint`, `symbol`",
-        no,
-        "No native representation (`LUCENT2002`).",
-      ],
+      ["Intersections, `object`, `symbol`", no, "No native representation (`LUCENT2002`)."],
       ["Object types with methods or getters", no, "Use a class (`LUCENT2002`)."],
       ["`WeakMap`, `WeakRef`, typed arrays other than `Uint8Array`", no, "`LUCENT2002`."],
     ],
@@ -92,9 +98,14 @@ export const blocks: Block[] = [
         "Only `Error` values can be thrown (`LUCENT1006`).",
       ],
       [
+        "`using` declarations",
+        yes,
+        "Disposed by a class's `[Symbol.dispose]()` on every way out of the block. Not `await using`, or `using` directly in a `case` clause (`LUCENT1001`).",
+      ],
+      [
         "Every operator, `??`, `?.`, `!`, `**`, logical assignment",
         yes,
-        "`!` throws a `TypeError` when the value is missing.",
+        "`!` throws a `TypeError` when the value is missing. `===` compares arrays, maps, sets, records and class instances by reference, tuples by their elements; functions cannot be compared (`LUCENT1002`).",
       ],
       [
         "Template literals, spread, destructuring",
@@ -172,6 +183,22 @@ export const blocks: Block[] = [
       ["values passed to native code are shared", "copied at the boundary; shared inside Lucent"],
       ["garbage collection frees cycles", "reference counting never frees a cycle"],
       ["deep recursion throws a `RangeError`", "may overflow the native stack"],
+      [
+        '`==` converts between numbers, strings and booleans (`1 == "1"`)',
+        "such comparisons are refused (`LUCENT1002`); compare with `===` after converting",
+      ],
+      [
+        "functions compare by reference",
+        "comparing two functions is refused (`LUCENT1002`): a function value has no stable identity",
+      ],
+      [
+        "tuples are arrays and compare by reference",
+        "tuples are values: `===` compares their elements",
+      ],
+      [
+        "two `subarray()` views of one range are different objects",
+        "they are one view: `===` compares a view's buffer and range",
+      ],
       ["`console.log(obj)` pretty-prints", "prints `String(obj)`"],
       ["`str.split(regexp)` gives `undefined` for a group that didn't match", 'gives `""`'],
       [

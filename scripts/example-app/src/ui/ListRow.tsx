@@ -1,0 +1,53 @@
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Monogram } from "./Monogram";
+import { radius, space, type } from "./theme";
+import { useTheme } from "./useTheme";
+
+interface Props {
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  testID?: string;
+}
+
+/** A tappable entry of a list that opens a screen. */
+export function ListRow({ title, subtitle, onPress, testID }: Props) {
+  const { colors } = useTheme();
+
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityHint={subtitle}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.row,
+        { backgroundColor: colors.surface, borderColor: colors.border },
+        pressed && { backgroundColor: colors.surfaceMuted },
+      ]}
+    >
+      <Monogram text={title} />
+
+      <View style={styles.text}>
+        <Text style={[type.headline, { color: colors.text }]}>{title}</Text>
+
+        <Text style={[type.callout, { color: colors.textMuted }]}>{subtitle}</Text>
+      </View>
+
+      <Text style={[type.title, { color: colors.textFaint }]}>›</Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.md,
+    padding: space.md,
+    borderRadius: radius.lg,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  text: { flex: 1, gap: 2 },
+});

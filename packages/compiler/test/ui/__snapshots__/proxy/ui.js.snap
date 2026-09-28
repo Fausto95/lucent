@@ -1,0 +1,58 @@
+"use strict";
+const { lucentComponent } = require("./_lucent/views.js");
+exports.Caption = lucentComponent({
+  name: "LucentCaption_90d454e99718",
+  displayName: "Caption",
+  props: [
+    { name: "text", key: "p0", shape: 0 },
+    { name: "detail", key: "p1", shape: { n: 0 } },
+  ],
+  events: [],
+  commands: [],
+}, require("react"), require("react-native"));
+exports.Gauge = lucentComponent({
+  name: "LucentGauge_9f3932d52a2f",
+  displayName: "Gauge",
+  props: [
+    { name: "value", key: "p0", shape: 0 },
+    { name: "enabled", key: "p1", shape: 0 },
+    { name: "mode", key: "p2", shape: 0 },
+    { name: "points", key: "p3", shape: { a: { o: [{ name: "y", shape: { n: 0 } }] } } },
+    { name: "tags", key: "p4", shape: { a: { n: 0 } } },
+    { name: "aria-label", key: "p5", shape: 0 },
+  ],
+  events: [
+    { name: "onChange", key: "e0", event: "topLucent0" },
+    { name: "onReset", key: "e1", event: "topLucent1" },
+    { name: "onDrag", key: "e2", event: "topLucent2" },
+  ],
+  commands: [
+    { name: "reset", request: false, params: [] },
+    { name: "measure", request: true, params: [0] },
+    { name: "flush", request: true, params: [] },
+  ],
+}, require("react"), require("react-native"));
+exports.Picker = lucentComponent({
+  name: "LucentPicker_8770a845170b",
+  displayName: "Picker",
+  props: [
+    { name: "Values", key: "p0", shape: 0 },
+    { name: "aria-label", key: "p1", shape: 0 },
+    { name: "aria_u2d_label", key: "p2", shape: 0 },
+    { name: "range", key: "p3", shape: 0 },
+  ],
+  events: [
+    { name: "onPick", key: "e0", event: "topLucent0" },
+  ],
+  commands: [],
+}, require("react"), require("react-native"));
+exports.Card = lucentComponent({
+  name: "LucentCard_fd1aaeb7db45",
+  displayName: "Card",
+  children: true,
+  props: [
+    { name: "title", key: "p0", shape: 0 },
+  ],
+  events: [],
+  commands: [],
+}, require("react"), require("react-native"));

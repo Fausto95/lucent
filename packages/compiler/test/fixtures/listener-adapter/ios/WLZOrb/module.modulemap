@@ -1,0 +1,4 @@
+module WLZOrb {
+  header "WLZOrb.h"
+  export *
+}

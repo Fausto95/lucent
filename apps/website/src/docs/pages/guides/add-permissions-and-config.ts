@@ -17,7 +17,7 @@ export const blocks: Block[] = [
       ],
       [
         "asking at run time",
-        "`PermissionsAndroid` in JavaScript, or the SDK from Lucent",
+        "`requestPermissions` from `lucent:android`, or `PermissionsAndroid` in JavaScript",
         "the SDK from Lucent, such as `requestWhenInUseAuthorization`",
       ],
     ],

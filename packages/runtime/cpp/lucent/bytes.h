@@ -31,6 +31,16 @@ class Bytes {
   }
   static Bytes copy(const uint8_t* data, size_t n) { return Bytes(std::vector<uint8_t>(data, data + n)); }
 
+  /// A view of `length` bytes at `offset` in `buffer`, which must hold them.
+  static Bytes view(std::shared_ptr<std::vector<uint8_t>> buffer, size_t offset, size_t length) {
+    return Bytes(std::move(buffer), offset, length);
+  }
+
+  /// The buffer this view is over, and where in it the view starts: what a
+  /// copy needs to keep views of one buffer sharing theirs (transport.h).
+  const std::shared_ptr<std::vector<uint8_t>>& buffer() const { return buf_; }
+  size_t offset() const { return off_; }
+
   static uint8_t toUint8(double v) { return static_cast<uint8_t>(toUint32(v) & 0xFF); }
 
   size_t size() const { return len_; }
@@ -113,14 +123,23 @@ class Bytes {
   }
 
   const void* identity() const { return this->buf_.get(); }
-  friend bool strictEquals(const Bytes& a, const Bytes& b) { return a.buf_ == b.buf_ && a.off_ == b.off_ && a.len_ == b.len_; }
-  friend String toJsString(const Bytes& b) { return b.join(); }
 
  private:
+  Bytes(std::shared_ptr<std::vector<uint8_t>> buffer, size_t offset, size_t length)
+      : buf_(std::move(buffer)), off_(offset), len_(length) {}
+
   std::shared_ptr<std::vector<uint8_t>> buf_;
   size_t off_ = 0;
   size_t len_ = 0;
 };
+
+/// A view is named by its buffer and range, not by the object: two
+/// subarray() views of one range are the same view (docs/semantics.md).
+inline bool strictEquals(const Bytes& a, const Bytes& b) {
+  return a.buffer() == b.buffer() && a.offset() == b.offset() && a.size() == b.size();
+}
+
+inline String toJsString(const Bytes& b) { return b.join(); }
 
 /// TextEncoder().encode / TextDecoder().decode for UTF-8.
 Bytes utf8Encode(const String& s);

@@ -1,4 +1,10 @@
 export type {
+  FactEvidence,
+  KotlinClassFacts,
+  KotlinMemberFacts,
+  KotlinParamFacts,
+  Known,
+  NativeFacts,
   Platform,
   SdkCallable,
   SdkClassSchema,
@@ -8,31 +14,113 @@ export type {
   SdkParam,
   SdkPropertySchema,
   SdkStructSchema,
+  SchemaProvenance,
+  SwiftMember,
+  SwiftParamFacts,
+  SwiftType,
+  SymbolId,
+  TypeParamBounds,
 } from "./schema.ts";
 export {
+  canonicalSchema,
   formatSchemaType,
+  loadSchema,
   parseSchemaType,
   PLATFORMS,
+  SCHEMA_FORMAT,
   type PrimName,
   type SchemaType,
 } from "./schema.ts";
 export { extractAndroid, type AndroidOptions } from "./android.ts";
+export { extractKotlinApi, type KotlinApiOptions } from "./kotlin-api.ts";
+export { kotlinClassOf } from "./kotlin-metadata-decode.ts";
 export { extractIos, buildIosSchemas, type IosOptions } from "./ios.ts";
 export {
   androidJars,
   cachedModules,
+  cachedSchema,
   extractionCount,
   forgetLoadedSdks,
+  type NativeArtifact,
+  nativeArtifacts,
   prefetch,
   sdkAvailable,
   sdkIdentity,
   sdkModule,
+  sdkModuleArtifacts,
   sdkModules,
+  sdkSchemaEntry,
+  sdkSourceModule,
   type SdkLookup,
   sdkNames,
   type SdkNamesLookup,
   type SdkOptions,
 } from "./provider.ts";
 export type { NamesIndex } from "./ios.ts";
-export { podsSearchPaths, type PodsSearchPaths } from "./pods.ts";
-export { coverage, type Coverage } from "./coverage.ts";
+export { type CallForm, type CallPart, callForms } from "./call-form.ts";
+export { buildSourceSchema, isScalarProtocol } from "./swift-source.ts";
+export { boundValue } from "./source-plan.ts";
+export { type PodFramework, podsSearchPaths, type PodsSearchPaths } from "./pods.ts";
+export {
+  coverage,
+  type Coverage,
+  type CoverageEvidence,
+  type CoverageMember,
+  type CoverageStage,
+} from "./coverage.ts";
+export {
+  type ArtifactChange,
+  compareArtifacts,
+  diffModule,
+  diffSymbols,
+  displayName,
+  findSymbol,
+  memberSymbol,
+  sdkSymbols,
+  type SdkSymbol,
+  type SdkUsage,
+  type SymbolChange,
+  type SymbolKind,
+  symbolKey,
+  typeSymbol,
+  USAGE_FORMAT,
+  type UsedModule,
+  type UsedSymbol,
+} from "./usage.ts";
+export { frameworkSearchPath } from "./vendored.ts";
+export {
+  type CFunction,
+  type CHeader,
+  type CHeaderOptions,
+  type CParam,
+  type CRecord,
+  type CType,
+  cLinkage,
+  extractCHeader,
+  findClang,
+  formatCType,
+} from "./c-header.ts";
+export {
+  type Backend,
+  type BindingPlan,
+  type ConversionOp,
+  type ConversionPlan,
+  declarationFacts,
+  explainRefusal,
+  isBigIntType,
+  isUnsignedWide,
+  isWideInteger,
+  type ModuleLookup,
+  omitsKotlinDefault,
+  ownTypes,
+  planBinding,
+  planConversion,
+  planMember,
+  provenanceOf,
+  type Role,
+  SWIFT_SCALARS,
+  takenReason,
+  type TypeFacts,
+  type TypeLookup,
+  unsupportedReason,
+} from "./binding-plan.ts";

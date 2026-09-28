@@ -58,5 +58,6 @@ function usesLucent(root: string): boolean {
 
 installCrashHandler(version());
 const status = await main(process.argv.slice(2));
-// Watch mode keeps running.
-if (status >= 0) process.exit(status);
+// Watch mode keeps running. Exit once stdout has written everything: a
+// pipe takes large output (a --json report) in several writes.
+if (status >= 0) process.stdout.write("", () => process.exit(status));

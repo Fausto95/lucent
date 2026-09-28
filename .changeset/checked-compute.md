@@ -1,0 +1,5 @@
+---
+"@lucent-lang/lucent": minor
+---
+
+Run heavy work on worker threads with `compute(task, input, { signal })` from `lucent:core`. The task is a function declared at the top level of a module, taking one parameter, and runs on a bounded pool of workers without a second JavaScript runtime; the promise settles on the calling thread. The compiler checks everything the task runs (no module state, no main-thread or unknown native code, no function values it cannot follow, nothing asynchronous: LUCENT3011) and that its input and result are data (LUCENT3012), naming the path to what breaks the rule. The input is copied when `compute` is called, keeping aliases and cycles; aborting the signal rejects the promise at once, and a running task stops at the next iteration of a loop in the task or in a module function it calls (loops in closures, methods and generic functions, and native calls, run to their end first). The JavaScript version in `@lucent-lang/lucent/core` behaves the same on the calling thread, for tests.

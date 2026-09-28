@@ -56,6 +56,26 @@ describe("diagnostics", () => {
     expect(codes("export function f(x: any): number { return 1; }")).toContain("LUCENT2001");
   });
 
+  it("reports two modules with one name under their own code", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-diag-"));
+    const files = ["screens", "sdk"].map((sub) => {
+      fs.mkdirSync(path.join(dir, sub));
+      const file = path.join(dir, sub, "clock.lucent.ts");
+      fs.writeFileSync(file, "export function now(): number { return 1; }\n");
+      return file;
+    });
+
+    const r = compile(files);
+
+    expect(r.diagnostics).toHaveLength(1);
+    expect(r.diagnostics[0]).toMatchObject({
+      code: "LUCENT3010",
+      file: files[1],
+      message: expect.stringContaining('two Lucent modules are named "clock"'),
+      fix: expect.stringContaining("rename"),
+    });
+  });
+
   it("rejects imports of other packages", () => {
     expect(codes('import fs from "node:fs";\nexport function f(): number { return 1; }')).toEqual(
       expect.arrayContaining([expect.stringMatching(/LUCENT(3001|9001)/)]),
@@ -68,6 +88,34 @@ describe("diagnostics", () => {
 
   it("rejects var", () => {
     expect(codes("export function f(): number { var x = 1; return x; }")).toContain("LUCENT1001");
+  });
+
+  it("rejects await using and using directly in a case clause", () => {
+    const resource = "class R { [Symbol.dispose](): void {} }\n";
+    const awaited = compileSource(
+      `${resource}export async function f(): Promise<void> { await using r = new R(); }`,
+    );
+    expect(awaited.diagnostics[0]).toMatchObject({
+      code: "LUCENT1001",
+      message: expect.stringContaining("`await using` is not supported"),
+    });
+    const inCase = compileSource(
+      `${resource}export function f(n: number): void { switch (n) { case 1: using r = new R(); } }`,
+    );
+    expect(inCase.diagnostics[0]).toMatchObject({
+      code: "LUCENT1001",
+      message: expect.stringContaining("in a case clause in a block"),
+    });
+  });
+
+  it("rejects computed member names other than Symbol.dispose", () => {
+    const r = compileSource(
+      'const key = "k";\nexport class C { ["x" + key](): number { return 1; } }',
+    );
+    expect(r.diagnostics[0]).toMatchObject({
+      code: "LUCENT1005",
+      message: expect.stringContaining("but for [Symbol.dispose]"),
+    });
   });
 
   it("reports only the rejected var, not the uses of its variable", () => {
@@ -125,6 +173,33 @@ describe("diagnostics", () => {
 function take(a: A): number { return a.x; }
 export function f(b: B): number { return take(b); }`;
     expect(codes(src)).toContain("LUCENT2003");
+  });
+
+  it("rejects inexact object types in a union, rather than throwing at run time", () => {
+    const src = `type Label = { name?: string; size?: number };
+type Sized = { name: string; size: number };
+type Titled = { size: number; title: string };
+export function f(big: boolean, a: Sized, b: Titled): Label {
+  const either = big ? a : b;
+
+  return either;
+}`;
+
+    expect(codes(src)).toContain("LUCENT2003");
+  });
+
+  it("accepts a union converted member by member", () => {
+    const src = `class Shape { area(): number { return 0; } }
+class Square extends Shape { side = 1; }
+class Circle extends Shape { radius = 1; }
+export function f(round: boolean): number {
+  const either = round ? new Circle() : new Square();
+  const shape: Shape = either;
+
+  return shape.area();
+}`;
+
+    expect(codes(src)).toEqual([]);
   });
 
   it("rejects exporting generic functions", () => {

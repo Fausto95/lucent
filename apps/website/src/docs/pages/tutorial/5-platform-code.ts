@@ -25,6 +25,7 @@ export const blocks: Block[] = [
       "`CLLocationManager` is main-thread only on iOS, so it's made inside `main()`. Its result, a `CLLocation`, comes back as a promise.",
       "Both branches turn SDK objects into a `Fix` before returning. SDK objects can't cross to JavaScript.",
       "`import type { Fix }` shares the type with the trip module.",
+      "Java's `getTime()` returns a `long`, which Lucent gives as a `bigint`. Milliseconds since 1970 fit in a number, so `Number()` makes the `Fix` field one.",
     ],
   },
   {

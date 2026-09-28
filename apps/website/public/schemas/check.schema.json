@@ -2,7 +2,7 @@
   "$id": "https://lucent-lang.dev/schemas/check.schema.json",
   "title": "lucent check --json",
   "type": "object",
-  "required": ["ok", "modules", "diagnostics", "errors", "ms"],
+  "required": ["ok", "modules", "diagnostics", "warnings", "errors", "ms"],
   "additionalProperties": false,
   "properties": {
     "ok": {
@@ -58,9 +58,64 @@
           "docs": {
             "type": "string",
             "description": "Where the code is explained"
+          },
+          "severity": {
+            "const": "warning",
+            "description": "Present on warnings only"
           }
         }
       }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^LUCENT\\d{4}$",
+            "description": "Stable code; lucent explain <code> describes it"
+          },
+          "message": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string",
+            "description": "Relative to the project root"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "column": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Offset of the span in the file"
+          },
+          "length": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "fix": {
+            "type": "string",
+            "description": "How to fix it, in one line"
+          },
+          "docs": {
+            "type": "string",
+            "description": "Where the code is explained"
+          },
+          "severity": {
+            "const": "warning",
+            "description": "Present on warnings only"
+          }
+        }
+      },
+      "description": "Warnings: reported, but the build goes on"
     },
     "errors": {
       "type": "integer",

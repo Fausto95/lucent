@@ -30,6 +30,7 @@ describe("generated files for incremental native builds", () => {
     expect([...files.keys()].sort()).toEqual([
       "lucent_app.h",
       "lucent_bindings.cpp",
+      "lucent_identity.cpp",
       "m_a.cpp",
       "m_a.h",
       "m_b.cpp",
@@ -43,12 +44,12 @@ describe("generated files for incremental native builds", () => {
     expect(files.get("m_b.cpp")).toContain('#include "m_b.h"');
   });
 
-  it("changes only the module's own files when a function body changes", () => {
+  it("changes only the module's own files when a function body changes, and the program's identity", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-inc-"));
     const before = build({ a, b, c }, dir);
     const after = build({ a: a.replace("n * 2", "n + n"), b, c }, dir);
-    const changed = [...before.keys()].filter((k) => before.get(k) !== after.get(k));
-    expect(changed).toEqual(["m_a.cpp"]);
+    const changed = [...before.keys()].filter((k) => before.get(k) !== after.get(k)).sort();
+    expect(changed).toEqual(["lucent_identity.cpp", "m_a.cpp"]);
   });
 
   it("leaves unrelated headers alone when a module's exports change", () => {
@@ -59,6 +60,6 @@ describe("generated files for incremental native builds", () => {
       dir,
     );
     const changed = [...before.keys()].filter((k) => before.get(k) !== after.get(k)).sort();
-    expect(changed).toEqual(["lucent_bindings.cpp", "m_a.cpp", "m_a.h"]);
+    expect(changed).toEqual(["lucent_bindings.cpp", "lucent_identity.cpp", "m_a.cpp", "m_a.h"]);
   });
 });

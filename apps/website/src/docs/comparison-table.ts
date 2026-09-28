@@ -92,7 +92,7 @@ export const comparisonRows: ComparisonRow[] = [
         value: "Most",
         tone: "partial",
         detail:
-          "typed from your Xcode and Android SDK; some gaps, such as Android generics. See [SDK types](/docs/reference/platform-types/)",
+          "typed from your Xcode and Android SDK; some gaps, such as Swift-only APIs and Android generic classes' members. See [SDK types](/docs/reference/platform-types/)",
       },
       expo: { value: "Full", tone: "available" },
       nitro: { value: "Full", tone: "available" },

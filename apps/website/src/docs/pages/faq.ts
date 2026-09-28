@@ -23,7 +23,7 @@ const qa: [string, string][] = [
   ],
   [
     "Can I call any iOS or Android API?",
-    "Most of them, typed from your installed SDKs. Some aren't bound yet, such as Android generics and Swift-only APIs ([SDK types](/docs/reference/platform-types/)).",
+    "Most of them, typed from your installed SDKs. Some aren't bound yet, such as Swift-only APIs and Android generic classes' members ([SDK types](/docs/reference/platform-types/)).",
   ],
   [
     "Do I still need Xcode and Android Studio?",

@@ -1,17 +1,19 @@
 /**
  * Fresh-install smoke test: packs @lucent-lang/lucent as it would be
  * published, installs it alone into an empty project with npm, and runs the
- * installed CLI there (from the tarball, no workspace links), with a Lucent package
- * (examples/lucent-haptics) installed from its tarball too.
+ * installed CLI there (from the tarball, no workspace links), with Lucent packages
+ * installed from their tarballs too: examples/lucent-haptics, and the native
+ * extension fixture (packages/compiler/test/fixtures/orbit-filter).
  *
  *   node scripts/smoke-install.ts
  */
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { sdkAvailable } from "../packages/bindgen/src/provider.ts";
+import { runToExit } from "../packages/lucent/test/run-to-exit.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const packages = ["lucent"];
@@ -24,11 +26,12 @@ function sh(
   env: NodeJS.ProcessEnv = {},
   ok = [0],
 ): string {
-  const r = spawnSync(cmd, args, {
+  // An npm install from nothing takes minutes; a hung step fails the smoke test.
+  const r = runToExit(cmd, args, {
     cwd,
-    encoding: "utf8",
     env: { ...process.env, ...env },
     maxBuffer: 64 << 20,
+    timeout: 900_000,
   });
   if (!ok.includes(r.status ?? -1))
     throw new Error(`${cmd} ${args.join(" ")} failed in ${cwd}:\n${r.stdout}\n${r.stderr}`);
@@ -58,6 +61,14 @@ const haptics = sh(
   .pop()!;
 tarballs["lucent-haptics"] =
   `file:${path.isAbsolute(haptics) ? haptics : path.join(work, path.basename(haptics))}`;
+
+// A Lucent package with a native extension (a C interface over C++), from its tarball too.
+const orbitDir = path.join(root, "packages/compiler/test/fixtures/orbit-filter");
+const orbit = sh("npm", ["pack", "--pack-destination", work, "--loglevel=error"], orbitDir)
+  .trim()
+  .split("\n")
+  .pop()!;
+tarballs["lucent-orbit-filter"] = `file:${path.join(work, orbit)}`;
 
 console.log("• installing into an empty project");
 const app = path.join(work, "app");
@@ -99,6 +110,12 @@ fs.writeFileSync(
   'import { PLATFORM } from "lucent:platform";\nimport { UIDevice } from "lucent:ios/UIKit";\nimport { Build_VERSION } from "lucent:android/android.os";\nimport { main } from "lucent:thread";\nexport async function systemName(): Promise<string> {\n  if (PLATFORM === "ios") return main(() => UIDevice.current.systemName);\n  else return `Android ${Build_VERSION.RELEASE ?? ""}`;\n}\n',
 );
 
+// A module of the app's that uses the extension package's Lucent class.
+fs.writeFileSync(
+  path.join(app, "src/brighten.lucent.ts"),
+  'import { Filter } from "lucent-orbit-filter/src/filter.lucent";\nexport function brighten(bytes: Uint8Array): Uint8Array {\n  const f = new Filter(2);\n  try {\n    return f.apply(bytes);\n  } finally {\n    f.close();\n  }\n}\n',
+);
+
 console.log("• lucent init --yes (installed CLI)");
 fs.writeFileSync(
   path.join(app, "metro.config.js"),
@@ -138,6 +155,7 @@ for (const f of [
   "android/CMakeLists.txt",
   ...targets.flatMap((t) => generated[t]),
   "cpp/third_party/quickjs/libregexp.c",
+  "cpp/third_party/dragonbox/dragonbox.h",
   "js/hello.js",
   "js/device.js",
   "js/lucent-haptics/haptics.js",
@@ -155,15 +173,46 @@ sh(
   ],
   app,
 );
+// The extension package: its adapter and header in the one native package, its module calling it.
+const orbitNative = path.join(native, "packages/lucent-orbit-filter/native");
+for (const f of ["orbit_filter.h", "orbit_filter.cpp"])
+  if (!fs.existsSync(path.join(orbitNative, f))) throw new Error(`missing the extension's ${f}`);
+if (
+  !fs
+    .readFileSync(path.join(native, "LucentNative.podspec"), "utf8")
+    .includes("packages/lucent-orbit-filter/native")
+)
+  throw new Error("the podspec does not build the extension's sources");
+if (
+  !fs
+    .readFileSync(path.join(native, "android/packages.cmake"), "utf8")
+    .includes("packages/lucent-orbit-filter/native")
+)
+  throw new Error("the Android library does not build the extension's sources");
+if (!fs.existsSync(path.join(native, "types/ext/orbit-filter.d.ts")))
+  throw new Error("missing the extension's declarations");
+const orbitUnit = path.join(
+  native,
+  `cpp/generated/${targets[0]}/m_lucent_u2d_orbit_u2d_filter_u2f_filter.cpp`,
+);
+if (!fs.readFileSync(orbitUnit, "utf8").includes('#include "orbit_filter.h"'))
+  throw new Error("the extension's module does not include its header");
+// Both compile against the one runtime, as the native package builds them.
+for (const [unit, flags] of [
+  [orbitUnit, ["-fsyntax-only", `-I${native}/cpp`, `-I${native}/cpp/generated/${targets[0]}`]],
+  [path.join(orbitNative, "orbit_filter.cpp"), ["-fsyntax-only"]],
+] as const)
+  sh("clang++", ["-std=c++20", ...flags, `-I${orbitNative}`, unit], app);
+
 // Nothing generated refers to a Lucent package the app does not install.
 const stale = sh("grep", ["-rlE", "@lucent-lang/(runtime|core)", native], app, {}, [0, 1]).trim();
 if (stale) throw new Error(`generated files refer to old packages:\n${stale}`);
 // The installed Lucent package's modules are built under its name.
 const modules = JSON.parse(fs.readFileSync(path.join(native, "manifest.json"), "utf8"))
   .modules as string[];
-for (const m of ["lucent-haptics/haptics"])
+for (const m of ["lucent-haptics/haptics", "lucent-orbit-filter/filter"])
   if (!modules.includes(m))
-    throw new Error(`the installed lucent-haptics was not built: ${modules.join(", ")}`);
+    throw new Error(`the installed ${m.split("/")[0]} was not built: ${modules.join(", ")}`);
 
 console.log("• Metro and Expo integrations load");
 sh(

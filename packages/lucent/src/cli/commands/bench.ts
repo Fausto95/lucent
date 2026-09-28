@@ -3,7 +3,15 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { compile, coreJsPath, moduleNameOf, projectFiles, runtimeDir } from "@lucent-lang/compiler";
+import {
+  type BuildIdentity,
+  compile,
+  coreJsPath,
+  identityScript,
+  moduleNameOf,
+  projectFiles,
+  runtimeDir,
+} from "@lucent-lang/compiler";
 import { cFlags, hostLibs, runtimeSources } from "@lucent-lang/runtime/sources";
 import ts from "typescript";
 import type { Invocation } from "../args.ts";
@@ -72,7 +80,7 @@ export async function run({ root, out }: Invocation): Promise<number> {
   const exe = await buildHost(work, generated, hermes);
 
   const script = path.join(work, "bench.js");
-  fs.writeFileSync(script, benchScript(root, files, benches, result.proxies));
+  fs.writeFileSync(script, benchScript(root, files, benches, result.proxies, result.identity!));
   const r = spawnSync(exe, [script], { encoding: "utf8", timeout: 600_000, maxBuffer: 64 << 20 });
   if (r.status !== 0) return fail(`the benchmark failed:\n${r.stderr || r.stdout}`);
   const cases = r.stdout
@@ -233,6 +241,7 @@ function benchScript(
   files: string[],
   benches: string[],
   proxies: Map<string, string>,
+  identity: BuildIdentity,
 ): string {
   const defs: Record<string, string> = {};
   const jsDeps: Record<string, Record<string, string>> = {};
@@ -248,6 +257,7 @@ function benchScript(
   const loader = fs.readFileSync(path.join(runtimeDir(), "js/index.js"), "utf8");
   defs.core = fs.readFileSync(coreJsPath(), "utf8");
   defs.loader = loader;
+  defs.identity = identityScript(identity);
   // The loader asks React Native only when no host installed the modules; this host does.
   defs["react-native"] =
     "module.exports = { TurboModuleRegistry: { get: function () { return undefined; } } };";
@@ -275,13 +285,17 @@ function benchScript(
     }
   }
   for (const [name, proxy] of proxies) {
+    const up = "../".repeat(name.split("/").length - 1) || "./";
+
     defs[`proxy:${name}`] = proxy;
     nativeDeps[`proxy:${name}`] = {
-      [`${"../".repeat(name.split("/").length - 1) || "./"}_lucent/runtime.js`]: "loader",
+      [`${up}_lucent/runtime.js`]: "loader",
+      [`${up}_lucent/identity.js`]: "identity",
       "react-native": "react-native",
     };
   }
   nativeDeps.loader = {};
+  nativeDeps.identity = {};
   return `var defs = {
 ${Object.entries(defs)
   .map(([id, code]) => `${JSON.stringify(id)}: function (module, exports, require) {\n${code}\n}`)

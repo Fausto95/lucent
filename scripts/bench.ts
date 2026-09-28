@@ -6,7 +6,14 @@
  *   HERMES_DIR=~/hermes node scripts/bench.ts [scale] [--check]
  *
  * --check fails when a kernel's speedup is below its minimum in
- * scripts/bench-budgets.json (the performance budget CI enforces).
+ * scripts/bench-budgets.json (the performance budget CI enforces). Budgets
+ * compare the best round; every round's time is kept as a sample, JS and
+ * Lucent rounds interleaved so that drift affects both alike.
+ *
+ * --json <file> writes the results as data (packages/lucent/src/cli/
+ * bench-results.ts): raw samples, their median and spread, the machine and
+ * toolchain, single-call latencies (each call timed alone, the clock's own
+ * cost measured beside them) and the generated code's object size.
  *
  * Then the boundary: what crossing between JavaScript and Lucent costs
  * (cases/boundary.lucent.ts). Batching work into one call must be cheaper
@@ -24,6 +31,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { compile, report } from "../packages/compiler/src/index.ts";
+import {
+  type BenchmarkResult,
+  benchmarkResult,
+  hostManifest,
+  writeResults,
+} from "../packages/lucent/src/cli/bench-results.ts";
 import { cFlags, hostLibs, runtimeSources } from "../packages/runtime/test/sources.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -31,7 +44,10 @@ const hermes = process.env.HERMES_DIR ?? path.join(os.homedir(), "hermes");
 const cxx = process.env.CXX ?? "clang++";
 const args = process.argv.slice(2);
 const check = args.includes("--check");
-const scale = Number(args.find((a) => !a.startsWith("--")) ?? "1");
+const jsonAt = args.indexOf("--json");
+const jsonFile = jsonAt >= 0 ? args[jsonAt + 1] : undefined;
+if (jsonAt >= 0 && !jsonFile) throw new Error("--json needs a file");
+const scale = Number(args.find((a, i) => !a.startsWith("--") && i !== jsonAt + 1) ?? "1");
 const budgets: Record<string, number> = JSON.parse(
   fs.readFileSync(path.join(root, "scripts/bench-budgets.json"), "utf8"),
 );
@@ -48,6 +64,11 @@ const sizes: Record<string, number> = JSON.parse(
 );
 const work = path.join(os.tmpdir(), "lucent-bench");
 const runtime = path.join(root, "packages/runtime/cpp");
+
+function gitSha(dir: string): string | undefined {
+  const r = spawnSync("git", ["-C", dir, "rev-parse", "HEAD"], { encoding: "utf8" });
+  return r.status === 0 ? r.stdout.trim() : undefined;
+}
 
 function sh(cmd: string, args: string[]): void {
   const r = spawnSync(cmd, args, { encoding: "utf8", maxBuffer: 64 << 20 });
@@ -87,6 +108,12 @@ const objs = sources.map((s, i) => {
   else sh(cxx, [...flags, "-c", s, "-o", o]);
   return o;
 });
+
+// What the generated code weighs, compiled: the objects of the module sources.
+const generatedBytes = objs
+  .filter((_, i) => sources[i]!.startsWith(work))
+  .reduce((sum, o) => sum + fs.statSync(o).size, 0);
+
 const exe = path.join(work, "bench-host");
 sh(cxx, [
   ...objs,
@@ -113,21 +140,39 @@ fs.writeFileSync(
 var native = __lucent.kernels;
 var sizes = ${JSON.stringify(sizes)};
 var scale = ${scale};
-// Milliseconds per call: the best of 5 rounds, each repeating the call for
-// at least 30 ms so that fast kernels are measured beyond the clock's
-// resolution.
-function best(f, n) {
-  var min = Infinity;
-  for (var r = 0; r < 5; r++) {
-    var t = Date.now(), calls = 0, elapsed;
-    do {
-      f(n);
-      calls++;
-      elapsed = Date.now() - t;
-    } while (elapsed < 30);
-    min = Math.min(min, elapsed / calls);
+// Milliseconds per call over one round: the call repeated for at least
+// 30 ms, so that fast kernels are measured beyond the clock's resolution.
+function round(f, n) {
+  var t = Date.now(), calls = 0, elapsed;
+  do {
+    f(n);
+    calls++;
+    elapsed = Date.now() - t;
+  } while (elapsed < 30);
+  return elapsed / calls;
+}
+
+// ROUNDS rounds of each function, alternating between them.
+var ROUNDS = 11;
+function rounds(fs, n) {
+  var samples = fs.map(function () { return []; });
+  for (var r = 0; r < ROUNDS; r++)
+    for (var i = 0; i < fs.length; i++) samples[i].push(round(fs[i], n));
+  return samples;
+}
+function min(xs) { return Math.min.apply(null, xs); }
+
+// Single calls, each timed alone with __now, beside the clock's own cost
+// (an empty function timed the same way).
+function latencies(f, count) {
+  var out = [];
+  for (var i = 0; i < 200; i++) f();
+  for (var i = 0; i < count; i++) {
+    var t = __now();
+    f();
+    out.push((__now() - t) * 1000);
   }
-  return min;
+  return out;
 }
 // The boundary, natively: each case in microseconds per run.
 var b = __lucent.boundary;
@@ -143,11 +188,21 @@ var boundaryCases = {
   floorChatty1000: function () { var f = __floor, s = 0; for (var i = 0; i < 1000; i++) s = f.add(s, i); return s; },
   floorStrings1000: function () { var f = __floor, s = ""; for (var i = 0; i < 1000; i++) s = f.concat("hello ", "world"); return s; },
 };
-for (var name in boundaryCases) print(JSON.stringify({ boundary: name, us: best(boundaryCases[name]) * 1000 }));
+for (var name in boundaryCases) {
+  var us = rounds([boundaryCases[name]])[0].map(function (ms) { return ms * 1000; });
+  print(JSON.stringify({ boundary: name, us: min(us), samples: us }));
+}
+var single = {
+  clock: function () {},
+  lucentAdd: function () { return b.add(1, 2); },
+  floorAdd: function () { return __floor.add(1, 2); },
+};
+for (var name in single) print(JSON.stringify({ latency: name, samples: latencies(single[name], 2000) }));
 for (var name in sizes) {
   var n = Math.max(1, Math.round(sizes[name] * scale));
   var same = jsKernels[name](n) === native[name](n);
-  print(JSON.stringify({ name: name, n: n, js: best(jsKernels[name], n), native: best(native[name], n), same: same }));
+  var both = rounds([jsKernels[name], native[name]], n);
+  print(JSON.stringify({ name: name, n: n, js: min(both[0]), native: min(both[1]), jsSamples: both[0], nativeSamples: both[1], same: same }));
 }
 `,
 );
@@ -162,9 +217,16 @@ const rows = lines.filter((l) => "name" in l) as {
   n: number;
   js: number;
   native: number;
+  jsSamples: number[];
+  nativeSamples: number[];
   same: boolean;
 }[];
-const crossings = lines.filter((l) => "boundary" in l) as { boundary: string; us: number }[];
+const crossings = lines.filter((l) => "boundary" in l) as {
+  boundary: string;
+  us: number;
+  samples: number[];
+}[];
+const singles = lines.filter((l) => "latency" in l) as { latency: string; samples: number[] }[];
 console.log(`kernel        size       JS (ms)  Lucent (ms)  speedup  budget`);
 const failures: string[] = [];
 for (const row of rows) {
@@ -200,6 +262,94 @@ for (const [name, budget] of Object.entries(floorBudgets)) {
     `${name.padEnd(16)} ${us(name).toFixed(1).padStart(9)}  ${floor.toFixed(1).padStart(18)}  ${`${ratio.toFixed(2)}x`.padStart(5)}  ${budget}x`,
   );
 }
+if (jsonFile) {
+  const manifest = hostManifest(
+    {
+      cxx,
+      hermes: gitSha(hermes) ?? "unknown",
+      flags: flags.filter((f) => !f.startsWith("-I")).join(" "),
+    },
+    { cwd: root, notes: [`scale ${scale}`, "host Hermes; not a device measurement"] },
+  );
+  const base = { manifestId: manifest.id };
+  const results: BenchmarkResult[] = [];
+
+  for (const row of rows) {
+    const shared = {
+      ...base,
+      metric: "throughput" as const,
+      unit: "ms/call",
+      outputVerified: row.same,
+    };
+    results.push(
+      benchmarkResult(
+        { ...shared, scenario: `kernels/${row.name}`, implementation: "hermes-js" },
+        row.jsSamples,
+      ),
+      benchmarkResult(
+        { ...shared, scenario: `kernels/${row.name}`, implementation: "lucent" },
+        row.nativeSamples,
+      ),
+    );
+  }
+
+  for (const c of crossings) {
+    const floor = c.boundary.startsWith("floor");
+    results.push(
+      benchmarkResult(
+        {
+          ...base,
+          scenario: `boundary/${floor ? c.boundary[5]!.toLowerCase() + c.boundary.slice(6) : c.boundary}`,
+          implementation: floor ? "cxx-host-function" : "lucent",
+          metric: "throughput",
+          unit: "µs/run",
+          outputVerified: false,
+        },
+        c.samples,
+      ),
+    );
+  }
+
+  for (const l of singles)
+    results.push(
+      benchmarkResult(
+        {
+          ...base,
+          scenario: l.latency === "clock" ? "latency/clock-overhead" : "latency/add",
+          implementation:
+            l.latency === "floorAdd"
+              ? "cxx-host-function"
+              : l.latency === "clock"
+                ? "empty-function"
+                : "lucent",
+          metric: "latency",
+          unit: "µs",
+          outputVerified: false,
+          note: "each call timed alone; includes the clock's cost (latency/clock-overhead)",
+        },
+        l.samples,
+      ),
+    );
+
+  results.push(
+    benchmarkResult(
+      {
+        ...base,
+        scenario: "size/generated-objects",
+        implementation: "lucent",
+        metric: "size",
+        unit: "bytes",
+        outputVerified: false,
+        note: "kernels and boundary modules, -O2",
+      },
+      [generatedBytes],
+    ),
+  );
+
+  writeResults(path.resolve(jsonFile), { manifest, results });
+  console.log(`\nresults: ${path.resolve(jsonFile)}`);
+}
+
 if (rows.some((row) => !row.same) || (check && failures.length)) {
   console.error(`\n${failures.join("\n")}`);
   process.exit(1);

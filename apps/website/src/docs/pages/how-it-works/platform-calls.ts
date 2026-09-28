@@ -48,7 +48,7 @@ export async function model(): Promise<string> {
       "SDK objects stay in native code. JavaScript never sees them, so return plain values.",
       "A Java exception becomes an error whose `code` is the exception's class. An `NSError` becomes an error whose `code` is `domain:code`.",
       "`nil` or `null` where the SDK promises a value throws a `TypeError`.",
-      "APIs marked main-thread only, such as UIKit's, compile only inside `main()` (`LUCENT3006`).",
+      "APIs marked main-thread only, such as UIKit's, compile only inside `main()`, or in a block or protocol requirement the SDK calls on the main thread (`LUCENT3006`).",
     ],
   },
 ];

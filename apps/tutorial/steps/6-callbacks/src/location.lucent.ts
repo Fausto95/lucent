@@ -36,7 +36,7 @@ function fromLocation(location: Location): Fix {
   return {
     latitude: location.getLatitude(),
     longitude: location.getLongitude(),
-    time: location.getTime(),
+    time: Number(location.getTime()),
   };
 }
 
@@ -76,7 +76,7 @@ export async function watch(onFix: (fix: Fix) => void): Promise<number> {
       throw error("E_NO_LOCATION", "Location isn't available on this device");
     const listener = (location: Location) => onFix(fromLocation(location));
     listeners.set(id, listener);
-    manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, listener, looper);
+    manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000n, 0, listener, looper);
   }
   return id;
 }

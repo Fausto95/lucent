@@ -2,6 +2,7 @@
 import { Box, render, Text, useApp, useInput } from "ink";
 import { useState, useSyncExternalStore } from "react";
 import type { Check } from "../doctor.ts";
+import { ACTION_TEXT } from "../changes.ts";
 import { nextText } from "../pipeline.ts";
 import { codeFrame, duration, table } from "../ui/format.ts";
 import type { Theme } from "../ui/theme.ts";
@@ -87,9 +88,13 @@ function Dashboard({ session, theme: t, root, open, doctor }: DashboardOptions) 
   );
   const status = last?.fatal
     ? t.error(`${t.symbols.fail} ${last.fatal}`)
-    : last?.ok && last.next?.rebuild
-      ? t.warn(`next: ${nextText(last.next)}`)
-      : "";
+    : last?.ok && last.actions?.length
+      ? t.warn(
+          `next: ${last.actions.map((a) => `${ACTION_TEXT[a.kind]} (${a.targets.join(", ")})`).join(", ")}`,
+        )
+      : last?.ok && last.next?.rebuild
+        ? t.warn(`next: ${nextText(last.next)}`)
+        : "";
   const rule = (title: string) =>
     t.dim(
       `${t.symbols.rule} ${title} ${t.symbols.rule.repeat(Math.max(3, t.terminal.width - title.length - 4))}`,

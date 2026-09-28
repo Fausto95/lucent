@@ -1,0 +1,29 @@
+// Doubles whose shortest round-tripping digits are not the correctly
+// rounded ones at that length (powers of two), and the edges of the
+// decimal and exponent forms.
+const values = [
+  2 ** 89,
+  2 ** -1022,
+  2 ** 1000,
+  7.120236347223045e-307,
+  5e-324,
+  Number.MAX_VALUE,
+  0.1 + 0.2,
+  1 / 3,
+  123e-20,
+  1e21,
+  999999999999999900000,
+  1e-7,
+  0.000001,
+  2 ** 53 + 2,
+  6.02214076e23,
+  1e300,
+  -1e-10,
+  -0,
+  NaN,
+  Infinity,
+];
+
+for (const line of mod.strings(values)) print(line);
+for (const line of mod.forms(values)) print(line);
+mod.log(values);

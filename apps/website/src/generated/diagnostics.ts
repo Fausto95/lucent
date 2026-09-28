@@ -17,8 +17,8 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT1002",
     "title": "Unsupported operator",
-    "summary": "An operator used outside what the subset supports, such as `delete`, `in` on anything but a record, or `instanceof` with a generic class.",
-    "details": "Objects in Lucent have a fixed native layout, so an operator that adds or removes properties at run time (`delete`) has no native equivalent. `in` works on records (`Record<string, T>`), whose keys are dynamic, and not on objects with a known shape.",
+    "summary": "An operator the subset doesn't support, such as `delete`, `in` on anything but a record, or `instanceof` with a generic class. A loose `==` that JavaScript converts for, or comparing two functions, is refused too.",
+    "details": "Objects in Lucent have a fixed native layout, so an operator that adds or removes properties at run time (`delete`) has no native equivalent. `in` works on records (`Record<string, T>`), whose keys are dynamic, and not on objects with a known shape. Two functions cannot be compared, because a function value has no stable identity (a named function is a new value at each use).",
     "fix": "use a Map or a Record for keys that come and go, or an optional field for one that may be missing",
     "wrong": {
       "example.lucent.ts": "export function clear(tags: { name?: string }): { name?: string } {\n  delete tags.name;\n  return tags;\n}\n"
@@ -119,6 +119,19 @@ export const explanations: { code: string; title: string; summary: string; detai
     }
   },
   {
+    "code": "LUCENT1010",
+    "title": "Await on a native object",
+    "summary": "`await` on a platform SDK object, such as a Play services Task or a Java future: it is not a promise.",
+    "details": "A native object reports its completion through its own API, usually a listener, so awaiting it would give the object back at once. Lucent does not recognize libraries by class name, so it cannot pick that API for you. `fromCallback` from `lucent:core` turns the listener into a promise: register it, then call `resolve` or `reject` from it.",
+    "fix": "wrap the listener or callback that reports its completion in fromCallback (lucent:core), and await that",
+    "wrong": {
+      "example.lucent.ts": "import { PLATFORM } from \"lucent:platform\";\nimport { CompletableFuture } from \"lucent:android/java.util.concurrent\";\nexport async function ready(): Promise<boolean> {\n  if (PLATFORM !== \"android\") return true;\n  const value = await CompletableFuture.completedFuture(\"ready\");\n  return value !== null;\n}\n"
+    },
+    "right": {
+      "example.lucent.ts": "import { fromCallback } from \"lucent:core\";\nimport { PLATFORM } from \"lucent:platform\";\nimport type { Throwable } from \"lucent:android/java.lang\";\nimport { CompletableFuture } from \"lucent:android/java.util.concurrent\";\nexport async function ready(): Promise<boolean> {\n  if (PLATFORM !== \"android\") return true;\n  const future = CompletableFuture.completedFuture(\"ready\");\n  const value = await fromCallback<string | null>((resolve, reject) => {\n    future?.whenComplete((v: string | null, failure: Throwable | null) => {\n      if (failure) reject(new Error(failure.getMessage() ?? \"failed\"));\n      else resolve(v);\n    });\n  });\n  return value !== null;\n}\n"
+    }
+  },
+  {
     "code": "LUCENT2001",
     "title": "Value without a native type",
     "summary": "`any`, or `unknown` outside a `catch` clause: every value needs a native type.",
@@ -134,8 +147,8 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT2002",
     "title": "Type without a native representation",
-    "summary": "A type with no native representation: intersections, `bigint`, `symbol`, `object`, `WeakMap`, `Intl`, or an index signature mixed with properties.",
-    "details": "Each type maps to one native representation. An intersection can combine unrelated layouts, `bigint` and `symbol` are not implemented yet, and `object` says nothing about the layout.",
+    "summary": "A type with no native representation: intersections, `symbol`, `object`, `WeakMap`, `Intl`, or an index signature mixed with properties.",
+    "details": "Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout.",
     "fix": "spell the combined type out as one object type, or use a concrete type",
     "wrong": {
       "example.lucent.ts": "type Named = { name: string };\ntype Aged = { age: number };\nexport function label(p: Named & Aged): string {\n  return `${p.name} (${p.age})`;\n}\n"
@@ -323,12 +336,188 @@ export const explanations: { code: string; title: string; summary: string; detai
     "title": "Platform API newer than the oldest supported OS",
     "summary": "A platform API newer than the oldest supported OS version, used without an `available()` or `SDK_INT` check around it.",
     "details": "Apps run on older OS versions than the SDK they build with. An API introduced later crashes there, so Lucent requires a check that the running OS has it.",
-    "fix": "check first: if (available(\"android\", 26)) … or Build_VERSION.SDK_INT >= 26",
+    "fix": "check first: if (available(\"ios\", 16)) …, if (available(\"android\", 26)) … or Build_VERSION.SDK_INT >= 26",
     "wrong": {
-      "example.lucent.ts": "import { PLATFORM } from \"lucent:platform\";\nimport { VibrationEffect } from \"lucent:android/android.os\";\nexport async function effect(): Promise<string> {\n  if (PLATFORM === \"android\") {\n    VibrationEffect.createOneShot(10, 10);\n    return \"made\";\n  }\n  return \"none\";\n}\n"
+      "example.lucent.ts": "import { PLATFORM } from \"lucent:platform\";\nimport { VibrationEffect } from \"lucent:android/android.os\";\nexport async function effect(): Promise<string> {\n  if (PLATFORM === \"android\") {\n    VibrationEffect.createOneShot(10n, 10);\n    return \"made\";\n  }\n  return \"none\";\n}\n"
     },
     "right": {
-      "example.lucent.ts": "import { PLATFORM } from \"lucent:platform\";\nimport { available } from \"lucent:android\";\nimport { VibrationEffect } from \"lucent:android/android.os\";\nexport async function effect(): Promise<string> {\n  if (PLATFORM === \"android\") {\n    if (!available(\"android\", 26)) return \"too old\";\n    VibrationEffect.createOneShot(10, 10);\n    return \"made\";\n  }\n  return \"none\";\n}\n"
+      "example.lucent.ts": "import { PLATFORM } from \"lucent:platform\";\nimport { available } from \"lucent:android\";\nimport { VibrationEffect } from \"lucent:android/android.os\";\nexport async function effect(): Promise<string> {\n  if (PLATFORM === \"android\") {\n    if (!available(\"android\", 26)) return \"too old\";\n    VibrationEffect.createOneShot(10n, 10);\n    return \"made\";\n  }\n  return \"none\";\n}\n"
+    }
+  },
+  {
+    "code": "LUCENT3008",
+    "title": "Constant outside its group",
+    "summary": "An Android SDK argument that is a constant outside the @IntDef or @StringDef group the SDK allows there.",
+    "details": "The SDK says which constants a parameter takes (@IntDef, @StringDef). A literal or constant outside that group compiles, as in Java, but the platform rejects or misreads it; Lucent warns, as Android lint does.",
+    "fix": "pass one of the constants the warning lists",
+    "wrong": {
+      "example.lucent.ts": "import { PLATFORM } from \"lucent:platform\";\nimport { Toast } from \"lucent:android/android.widget\";\nimport { appContext } from \"lucent:android\";\nexport async function toast(): Promise<boolean> {\n  if (PLATFORM === \"android\") return Toast.makeText(appContext(), \"hi\", 5) !== null;\n  return false;\n}\n"
+    },
+    "right": {
+      "example.lucent.ts": "import { PLATFORM } from \"lucent:platform\";\nimport { Toast } from \"lucent:android/android.widget\";\nimport { appContext } from \"lucent:android\";\nexport async function toast(): Promise<boolean> {\n  if (PLATFORM === \"android\")\n    return Toast.makeText(appContext(), \"hi\", Toast.LENGTH_SHORT) !== null;\n  return false;\n}\n"
+    }
+  },
+  {
+    "code": "LUCENT3009",
+    "title": "Blocking call on the main thread",
+    "summary": "An Android SDK member marked @WorkerThread, called inside main(() => …) or a main-thread callback.",
+    "details": "@WorkerThread members do blocking work (disk, network, IPC). On the main thread they freeze the UI and can trigger an \"application not responding\" dialog. The call compiles, but Lucent warns, as Android lint does.",
+    "fix": "call it outside main(() => …): async Lucent functions run on the Lucent thread",
+    "wrong": {
+      "example.lucent.ts": "import { PLATFORM } from \"lucent:platform\";\nimport { BlockedNumberContract } from \"lucent:android/android.provider\";\nimport { appContext } from \"lucent:android\";\nimport { main } from \"lucent:thread\";\nexport async function blocked(n: string): Promise<boolean> {\n  if (PLATFORM === \"android\") return main(() => BlockedNumberContract.isBlocked(appContext(), n));\n  return false;\n}\n"
+    },
+    "right": {
+      "example.lucent.ts": "import { PLATFORM } from \"lucent:platform\";\nimport { BlockedNumberContract } from \"lucent:android/android.provider\";\nimport { appContext } from \"lucent:android\";\nexport async function blocked(n: string): Promise<boolean> {\n  if (PLATFORM === \"android\") return BlockedNumberContract.isBlocked(appContext(), n);\n  return false;\n}\n"
+    }
+  },
+  {
+    "code": "LUCENT3010",
+    "title": "Two modules with one name",
+    "summary": "Two Lucent modules in one app whose files give them the same module name.",
+    "details": "A module's name is its file name without the directory, the platform suffix and `.lucent.ts` (inside a Lucent package, its path under the package's sources). The app's native side registers each module under that name, so two files that share it would be one module.",
+    "fix": "rename one of the files",
+    "wrong": {
+      "screens/clock.lucent.ts": "export function now(): number {\n  return Date.now();\n}\n",
+      "sdk/clock.lucent.ts": "export function zone(): string {\n  return \"UTC\";\n}\n"
+    },
+    "right": {
+      "screens/clock.lucent.ts": "export function now(): number {\n  return Date.now();\n}\n",
+      "sdk/zones.lucent.ts": "export function zone(): string {\n  return \"UTC\";\n}\n"
+    }
+  },
+  {
+    "code": "LUCENT3011",
+    "title": "Code that cannot run in a compute task",
+    "summary": "A compute() task touches module state or a computed constant, native code unfit for workers, code the compiler cannot follow, or asynchronous work.",
+    "details": "A compute task runs on a worker thread while module code keeps running, so it may only touch its input and what it makes. Module state, non-literal constants (a reload assigns them again), main-thread native code, function values the compiler cannot follow, `await` and timers break that rule. The message gives the path, through every call, to what breaks it.",
+    "fix": "pass what the task needs as its input, and apply its result where you await it",
+    "wrong": {
+      "example.lucent.ts": "import { compute } from \"lucent:core\";\nconst weights: number[] = [1, 2, 3];\nfunction score(x: number): number {\n  return x * (weights[0] ?? 1);\n}\nexport async function run(x: number): Promise<number> {\n  return await compute(score, x);\n}\n"
+    },
+    "right": {
+      "example.lucent.ts": "import { compute } from \"lucent:core\";\nconst weights: number[] = [1, 2, 3];\nfunction score(job: { x: number; weights: number[] }): number {\n  return job.x * (job.weights[0] ?? 1);\n}\nexport async function run(x: number): Promise<number> {\n  return await compute(score, { x, weights });\n}\n"
+    }
+  },
+  {
+    "code": "LUCENT3012",
+    "title": "Value that cannot cross to a compute task",
+    "summary": "A compute() task's input or result holds something other than data, such as a function, a promise or a main-thread native object.",
+    "details": "A compute task's input is copied at submission, and its result comes back to the caller. Both must be numbers, strings, booleans, arrays, tuples, records, maps, sets, byte arrays, dates, or objects made of those. Functions, promises, main-thread native objects and values of unknown or generic type cannot cross, and the message names which part.",
+    "fix": "pass the data the task needs, and keep functions, signals and native objects on the calling side",
+    "wrong": {
+      "example.lucent.ts": "import { compute } from \"lucent:core\";\ntype Job = { values: number[]; report: (n: number) => void };\nfunction total(job: Job): number {\n  return job.values.reduce((a, b) => a + b, 0);\n}\nexport async function run(values: number[]): Promise<number> {\n  return await compute(total, { values, report: () => {} });\n}\n"
+    },
+    "right": {
+      "example.lucent.ts": "import { compute } from \"lucent:core\";\nfunction total(values: number[]): number {\n  return values.reduce((a, b) => a + b, 0);\n}\nexport async function run(values: number[]): Promise<number> {\n  return await compute(total, values);\n}\n"
+    }
+  },
+  {
+    "code": "LUCENT3020",
+    "title": "Export that cannot be a component",
+    "summary": "An exported `.lucent.tsx` function that returns a view but cannot be a component, or Lucent code calling a component.",
+    "details": "An exported `.lucent.tsx` function that returns a platform view (a `UIView`, an Android `View`, or a subclass) is a component. React mounts it through a native host, and Lucent identifies it by its package's name, module path and export name. So it returns its view on every path and synchronously, takes one props object or none, and has no type parameters.",
+    "fix": "return the view on every path, from one props object, and move other work into a separate function",
+    "wrong": {
+      "package.json": "{ \"name\": \"example-app\" }\n",
+      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string; shown: boolean }) {\n  if (!props.shown) return undefined;\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    label.text = props.title;\n    return label;\n  }\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+    },
+    "right": {
+      "package.json": "{ \"name\": \"example-app\" }\n",
+      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string }) {\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    label.text = props.title;\n    return label;\n  }\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+    }
+  },
+  {
+    "code": "LUCENT3021",
+    "title": "Component prop, event or command that cannot cross",
+    "summary": "A component prop, event or ref command whose type views cannot carry, or whose name React or the host keeps.",
+    "details": "Props, event arguments and command arguments and results are plain data: numbers, strings, booleans, string literal unions, arrays and plain objects, possibly null. A function prop is an event named `on…`, whose call from the view posts its arguments to JavaScript, so it returns nothing. `key`, `ref`, `children` and `style` belong to React and the host.",
+    "fix": "pass plain data, make events return nothing, and name them onSomething",
+    "wrong": {
+      "package.json": "{ \"name\": \"example-app\" }\n",
+      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string; onMeasure?: (width: number) => number }) {\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    label.text = props.title;\n    return label;\n  }\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+    },
+    "right": {
+      "package.json": "{ \"name\": \"example-app\" }\n",
+      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string; onMeasure?: (width: number) => void }) {\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    label.text = props.title;\n    return label;\n  }\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+    }
+  },
+  {
+    "code": "LUCENT3022",
+    "title": "Component code that cannot run on the main thread",
+    "summary": "A component's setup, or a function it creates, using module state, code the compiler cannot follow, or native code unfit for the main thread.",
+    "details": "A component sets up its view on the main (UI) thread, where the handlers it gives the view run too. Module variables belong to the module's thread, code the compiler cannot follow may do anything, and blocking or background-only native code freezes the UI. Calling an event prop directly (`props.onChange?.(value)`) is fine: it posts the event to JavaScript.",
+    "fix": "keep the state in the component (a local), or pass it in as a prop",
+    "wrong": {
+      "package.json": "{ \"name\": \"example-app\" }\n",
+      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nlet shown = 0;\nexport function Title(props: { title: string }) {\n  shown++;\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    label.text = props.title;\n    return label;\n  }\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+    },
+    "right": {
+      "package.json": "{ \"name\": \"example-app\" }\n",
+      "title.lucent.tsx": "import { PLATFORM } from \"lucent:platform\";\nimport { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { UILabel } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string }) {\n  if (PLATFORM === \"ios\") {\n    const label = new UILabel();\n    label.text = props.title;\n    return label;\n  }\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+    }
+  },
+  {
+    "code": "LUCENT3023",
+    "title": "Component that differs between platforms",
+    "summary": "A component whose props, events or commands differ between platforms or from its declaration, or that is a component on one platform only.",
+    "details": "React sees one component on every platform, so its props, events and commands are the same in every platform's implementation. A split module's shared declaration states the same contract, and the component returns a view on every platform.",
+    "fix": "give every platform's implementation the declared props",
+    "wrong": {
+      "package.json": "{ \"name\": \"example-app\" }\n",
+      "title.lucent.tsx": "import type { TextView } from \"lucent:android/android.widget\";\nimport type { UILabel } from \"lucent:ios/UIKit\";\nexport declare function Title(props: { title: string; lines: number }): UILabel | TextView;\n",
+      "title.ios.lucent.tsx": "import { UILabel } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string }): UILabel {\n  const label = new UILabel();\n  label.text = props.title;\n  return label;\n}\n",
+      "title.android.lucent.tsx": "import { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nexport function Title(props: { title: string }): TextView {\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+    },
+    "right": {
+      "package.json": "{ \"name\": \"example-app\" }\n",
+      "title.lucent.tsx": "import type { TextView } from \"lucent:android/android.widget\";\nimport type { UILabel } from \"lucent:ios/UIKit\";\nexport declare function Title(props: { title: string; lines: number }): UILabel | TextView;\n",
+      "title.ios.lucent.tsx": "import { UILabel } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string; lines: number }): UILabel {\n  const label = new UILabel();\n  label.text = props.title;\n  return label;\n}\n",
+      "title.android.lucent.tsx": "import { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nexport function Title(props: { title: string; lines: number }): TextView {\n  const text = new TextView(appContext());\n  text.setText(props.title);\n  return text;\n}\n"
+    }
+  },
+  {
+    "code": "LUCENT3024",
+    "title": "SwiftUI or Compose body that cannot be compiled",
+    "summary": "A component's SwiftUI or Jetpack Compose body that Lucent cannot write out in Swift or Kotlin, or toolkit code used outside such a body.",
+    "details": "A component can draw with its platform's toolkit by returning `swiftUI(() => …)` or `compose(() => …)` (internal, under LUCENT_VIEWS=fabric). Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events.",
+    "fix": "make the view in the body, and move logic into a function of the setup that the body calls",
+    "wrong": {
+      "package.json": "{ \"name\": \"example-app\" }\n",
+      "title.lucent.tsx": "import type { TextView } from \"lucent:android/android.widget\";\nimport type { UIHostingController } from \"lucent:swiftui\";\nexport declare function Title(props: { title: string }): UIHostingController | TextView;\n",
+      "title.android.lucent.tsx": "import { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { effect } from \"lucent:ui\";\nexport function Title(props: { title: string }): TextView {\n  const text = new TextView(appContext());\n  effect(() => text.setText(props.title));\n  return text;\n}\n",
+      "title.ios.lucent.tsx": "import { swiftUI, Text, type UIHostingController } from \"lucent:swiftui\";\nimport { signal } from \"lucent:ui\";\nexport function Title(props: { title: string }): UIHostingController {\n  const taps = signal(0);\n  return swiftUI(() => Text(props.title).onTapGesture(() => taps.set(taps.peek() + 1)));\n}\n"
+    },
+    "right": {
+      "package.json": "{ \"name\": \"example-app\" }\n",
+      "title.lucent.tsx": "import type { TextView } from \"lucent:android/android.widget\";\nimport type { UIHostingController } from \"lucent:swiftui\";\nexport declare function Title(props: { title: string }): UIHostingController | TextView;\n",
+      "title.android.lucent.tsx": "import { appContext } from \"lucent:android\";\nimport { TextView } from \"lucent:android/android.widget\";\nimport { effect } from \"lucent:ui\";\nexport function Title(props: { title: string }): TextView {\n  const text = new TextView(appContext());\n  effect(() => text.setText(props.title));\n  return text;\n}\n",
+      "title.ios.lucent.tsx": "import { swiftUI, Text, type UIHostingController } from \"lucent:swiftui\";\nimport { signal } from \"lucent:ui\";\nexport function Title(props: { title: string }): UIHostingController {\n  const taps = signal(0);\n  const tap = () => {\n    taps.set(taps.peek() + 1);\n  };\n  return swiftUI(() => Text(props.title).onTapGesture(() => tap()));\n}\n"
+    }
+  },
+  {
+    "code": "LUCENT3030",
+    "title": "Borrowed bytes that outlive their borrow",
+    "summary": "A span that withRead or withWrite lends escapes its callback: returned, stored, kept by a closure or callee, or held across await.",
+    "details": "withRead and withWrite lend a buffer's bytes for one synchronous call, and refuse conflicting use only while it runs. After it, a task may write, release or move the bytes, so the message shows how the span would outlive the call. Copy what you need inside the callback, or snapshot the buffer with toUint8Array().",
+    "fix": "copy what you need out of the span inside the callback, and return that",
+    "wrong": {
+      "example.lucent.ts": "import { NativeBuffer } from \"lucent:core\";\nexport function first(buffer: NativeBuffer): number {\n  const bytes = buffer.withRead((lent) => lent);\n  return bytes[0] ?? 0;\n}\n"
+    },
+    "right": {
+      "example.lucent.ts": "import { NativeBuffer } from \"lucent:core\";\nexport function first(buffer: NativeBuffer): number {\n  return buffer.withRead((bytes) => bytes[0] ?? 0);\n}\n"
+    }
+  },
+  {
+    "code": "LUCENT3031",
+    "title": "Native buffer used after it moved",
+    "summary": "A NativeBuffer is used after transfer() or after it was handed to compute(), which move its bytes to another buffer.",
+    "details": "Moving a buffer hands its bytes, uncopied, to a new owner: the buffer that transfer returns, or a compute task. The old buffer then throws an InvalidStateError on every use, and where the move certainly came first, the compiler reports the use. Use the buffer the move gave you, or copy the bytes before moving them.",
+    "fix": "use the buffer transfer() returned, or what the task gives back",
+    "wrong": {
+      "example.lucent.ts": "import { NativeBuffer } from \"lucent:core\";\nexport function size(): number {\n  const buffer = NativeBuffer.allocate(8);\n  const moved = buffer.transfer();\n  return buffer.byteLength + moved.byteLength;\n}\n"
+    },
+    "right": {
+      "example.lucent.ts": "import { NativeBuffer } from \"lucent:core\";\nexport function size(): number {\n  const buffer = NativeBuffer.allocate(8);\n  const moved = buffer.transfer();\n  return moved.byteLength;\n}\n"
     }
   },
   {

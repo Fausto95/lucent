@@ -1,18 +1,21 @@
+import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import type { LucentModule } from "../program.ts";
 import { type ClassChain, type ClassInfo, cppIdent, type LType, substitute, T } from "../types.ts";
+import { parameterSymbol } from "../analysis/scopes.ts";
 import type { Ctx } from "./context.ts";
 import { FnEmitter } from "./function.ts";
 import { ifaceOverrides, ifacesOf, virtualMembers } from "./interfaces.ts";
+import { subclassImplicitSuper } from "./objc-subclass.ts";
 
 export interface ClassOutput {
   /** Class definition for the header. */
-  definition: string;
-  /** Out-of-line member definitions (empty for generic classes). */
-  members: string;
+  definition: cpp.Decl;
+  /** Out-of-line member definitions (none for generic classes). */
+  members: cpp.Decl[];
   /** Static field initializers, run by the module's init(). */
-  staticInits: string[];
+  staticInits: cpp.Stmt[];
 }
 
 function modifiers(n: ts.Node): ts.SyntaxKind[] {
@@ -21,11 +24,37 @@ function modifiers(n: ts.Node): ts.SyntaxKind[] {
 const isStatic = (n: ts.Node) => modifiers(n).includes(ts.SyntaxKind.StaticKeyword);
 const isAsync = (n: ts.Node) => modifiers(n).includes(ts.SyntaxKind.AsyncKeyword);
 
-export function memberName(m: ts.ClassElement | ts.ParameterDeclaration): string {
-  const n = m.name;
-  if (!n) fail(m, Codes.UnsupportedClassFeature, "unnamed class member");
+/** The name of a class's `[Symbol.dispose]()` method: the one symbol-keyed member Lucent classes have. */
+export const DISPOSE = "[Symbol.dispose]";
+
+/** `Symbol.dispose`, as written. */
+export function isSymbolDispose(e: ts.Expression): boolean {
+  return (
+    ts.isPropertyAccessExpression(e) &&
+    ts.isIdentifier(e.expression) &&
+    e.expression.text === "Symbol" &&
+    e.name.text === "dispose"
+  );
+}
+
+/** A member's name, or undefined when it has none Lucent supports. */
+function nameOf(n: ts.PropertyName | ts.BindingName | undefined): string | undefined {
+  if (!n) return undefined;
   if (ts.isIdentifier(n) || ts.isPrivateIdentifier(n) || ts.isStringLiteral(n)) return n.text;
-  fail(m, Codes.UnsupportedClassFeature, "computed member names are not supported");
+  if (ts.isComputedPropertyName(n) && isSymbolDispose(n.expression)) return DISPOSE;
+  return undefined;
+}
+
+export function memberName(m: ts.ClassElement | ts.ParameterDeclaration): string {
+  if (!m.name) fail(m, Codes.UnsupportedClassFeature, "unnamed class member");
+  return (
+    nameOf(m.name) ??
+    fail(
+      m,
+      Codes.UnsupportedClassFeature,
+      "computed member names are not supported, but for [Symbol.dispose]",
+    )
+  );
 }
 
 /** Parameter properties: `constructor(private x: number)`. */
@@ -57,15 +86,8 @@ export function findMember(
       ...owner.info.decl.members,
       ...parameterProperties(owner.info.decl.members.find(ts.isConstructorDeclaration)),
     ];
-    for (const m of decls) {
-      if (!m.name || ts.isComputedPropertyName(m.name) || isStatic(m)) continue;
-      if (
-        (ts.isIdentifier(m.name) || ts.isPrivateIdentifier(m.name) || ts.isStringLiteral(m.name)) &&
-        m.name.text === name &&
-        test(m)
-      )
-        return { decl: m, owner };
-    }
+    for (const m of decls)
+      if (!isStatic(m) && nameOf(m.name) === name && test(m)) return { decl: m, owner };
   }
   return undefined;
 }
@@ -84,15 +106,8 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
   const decl = info.decl;
   const reg = ctx.reg;
   const generic = info.typeParams.length > 0;
-  const tmpl = generic
-    ? `template <${info.typeParams.map((p) => `class ${cppIdent(p)}`).join(", ")}>\n`
-    : "";
-  const selfType: LType = {
-    k: "class",
-    id: info.id,
-    args: info.typeParams.map((p) => ({ k: "tparam", name: p }) as LType),
-  };
-  const qual = `${info.cppName}${generic ? `<${info.typeParams.map(cppIdent).join(", ")}>` : ""}`;
+  const template = generic ? info.typeParams.map(cppIdent) : undefined;
+  const selfType = cpp.type(info.cppName, ...info.typeParams.map((p) => cpp.type(cppIdent(p))));
   const baseT: (LType & { k: "class" }) | undefined = info.base
     ? { k: "class", id: info.base.id, args: info.base.args }
     : undefined;
@@ -100,14 +115,18 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
   const inherited = (name: string, test: (m: InstanceMember) => boolean) =>
     findMember(ancestry, name, test);
   const inHierarchy = !!info.base || reg.descendants(info.id).length > 0;
-  const bases = [
-    baseT ? reg.cppClass(baseT) : info.isError ? "lucent::ErrorObject" : "lucent::Object",
+  const bases: cpp.Base[] = [
+    {
+      type: baseT
+        ? reg.cppClassType(baseT)
+        : cpp.type(info.isError ? "lucent::ErrorObject" : "lucent::Object"),
+    },
     // Virtual, so a class implementing both A and B extends A has one A.
-    ...ifacesOf(ctx, info).map((i) => `virtual ${reg.cppIface(i)}`),
+    ...ifacesOf(ctx, info).map((i) => ({ type: reg.cppIfaceType(i), virtual: true })),
   ];
-  const body: string[] = [];
-  const members: string[] = [];
-  const staticInits: string[] = [];
+  const body: cpp.Member[] = [];
+  const members: cpp.Decl[] = [];
+  const staticInits: cpp.Stmt[] = [];
   const ctor = decl.members.find(ts.isConstructorDeclaration);
   const virtuals = ctx.guard(() => virtualMembers(ctx, info)) ?? new Set<string>();
 
@@ -116,7 +135,7 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
   const declareField = (m: ts.PropertyDeclaration | ts.ParameterDeclaration, t: LType) => {
     const name = memberName(m);
     const base = inherited(name, isField);
-    if (!base) return body.push(`  ${reg.cpp(t)} ${cppIdent(name)}{};`);
+    if (!base) return body.push(cpp.field(reg.cppType(t), cppIdent(name)));
     const baseType = substitute(fieldType(base.decl), argMap(ctx, base.owner.t));
     if (reg.cpp(baseType) !== reg.cpp(t))
       fail(
@@ -126,6 +145,9 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
       );
   };
   // Fields
+  const nativeSubclass = ctx.platform === "ios" && info.sdkBase?.platform === "ios";
+  // Its native object, held while the constructor runs (objc-subclass.ts).
+  if (nativeSubclass) body.push(cpp.field(cpp.type("lucent::NativeRef"), "lucentNative_"));
   for (const p of parameterProperties(ctor)) declareField(p, fieldType(p));
   for (const m of decl.members) {
     if (!ts.isPropertyDeclaration(m)) continue;
@@ -138,11 +160,15 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
           Codes.UnsupportedClassFeature,
           "static fields in generic classes are not supported",
         );
-      body.push(`  static inline ${reg.cpp(t)} ${name}{};`);
+      body.push(cpp.field(reg.cppType(t), name, { static: true, inline: true }));
       if (m.initializer) {
         const em = new FnEmitter(ctx, { module, async: false, returnType: T.void });
         const v = ctx.guard(() => em.exprAs(m.initializer!, t));
-        if (v !== undefined) staticInits.push(...em.lines, `  ${info.cppName}::${name} = ${v};`);
+        if (v !== undefined)
+          staticInits.push(
+            ...em.body(),
+            cpp.exprStmt(cpp.assign(cpp.scoped(cpp.type(info.cppName), name), v)),
+          );
       }
     } else {
       declareField(m, t);
@@ -171,7 +197,7 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
   const dispatch = (
     node: ts.MethodDeclaration | ts.GetAccessorDeclaration | ts.SetAccessorDeclaration,
     cppName: string,
-  ): { prefix: string; suffix: string } => {
+  ): { virtual?: boolean; override?: boolean } => {
     const name = memberName(node);
     const kind = ts.isMethodDeclaration(node)
       ? ts.isMethodDeclaration
@@ -190,11 +216,23 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
         );
       if (ts.isMethodDeclaration(node) && node.typeParameters?.length)
         fail(node, Codes.UnsupportedClassFeature, "generic methods cannot be overridden");
-      return { prefix: "", suffix: " override" };
+      return { override: true };
     }
-    if (virtuals.has(cppName)) return { prefix: "", suffix: " override" };
+    if (virtuals.has(cppName)) return { override: true };
     const generic = ts.isMethodDeclaration(node) && !!node.typeParameters?.length;
-    return { prefix: inHierarchy && !generic ? "virtual " : "", suffix: "" };
+    return inHierarchy && !generic ? { virtual: true } : {};
+  };
+  /** A member function: defined in the class if it is generic, out of line otherwise. */
+  const define = (
+    name: string,
+    ret: cpp.Type,
+    params: cpp.Param[],
+    fnBody: cpp.Stmt[],
+    opts: { static?: boolean; virtual?: boolean; override?: boolean } = {},
+  ) => {
+    if (generic) return body.push(cpp.method(name, ret, params, fnBody, opts));
+    body.push(cpp.method(name, ret, params, undefined, opts));
+    members.push(cpp.fn(name, ret, params, fnBody, { scope: cpp.type(info.cppName) }));
   };
 
   const emitMethod = (
@@ -206,7 +244,7 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
     cppName: string,
     staticMember: boolean,
     prelude?: (em: FnEmitter) => void,
-    superCtor?: { call: string; params: LType[]; after: (em: FnEmitter) => void },
+    superCtor?: { call: cpp.Expr; params: LType[]; after: (em: FnEmitter) => void },
   ) => {
     const sig = ctx.checker.getSignatureFromDeclaration(node)!;
     const fnType = reg.lowerSignature(sig, node) as LType & { k: "fn" };
@@ -226,59 +264,59 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
       generator: gen,
     });
     const params = em.paramInfos(node, fnType);
-    let decls: string[] = [];
+    let decls: cpp.Param[] = [];
     ctx.guard(() => {
       // Coroutines outlive the call: keep the object alive in the frame.
-      if ((asyncM || gen) && !staticMember) em.line("auto self = lucent::selfRef(this);");
+      if ((asyncM || gen) && !staticMember)
+        em.emit(cpp.varDecl(cpp.auto, "self", cpp.call("lucent::selfRef", [cpp.self])));
       decls = em.emitParams(node, params);
       prelude?.(em);
       em.emitFunctionBody(node);
     });
-    const retCpp = asyncM
-      ? `lucent::Promise<${reg.cppRet(ret)}>`
+    const retType = asyncM
+      ? cpp.type("lucent::Promise", reg.cppRetType(ret))
       : gen
-        ? reg.cpp(fnType.ret)
-        : reg.cppRet(ret);
-    const d =
-      staticMember || ts.isConstructorDeclaration(node)
-        ? { prefix: "", suffix: "" }
-        : dispatch(node, cppName);
-    const sigText = `${retCpp} ${cppName}(${decls.join(", ")})${d.suffix}`;
-    const bodyText = em.body().join("\n");
-    if (generic) {
-      body.push(`  ${staticMember ? "static " : d.prefix}${sigText} {\n${indent(bodyText)}\n  }`);
-    } else {
-      body.push(`  ${staticMember ? "static " : d.prefix}${sigText};`);
-      members.push(`${retCpp} ${info.cppName}::${cppName}(${decls.join(", ")}) {\n${bodyText}\n}`);
-    }
+        ? reg.cppType(fnType.ret)
+        : reg.cppRetType(ret);
+    const d = staticMember || ts.isConstructorDeclaration(node) ? {} : dispatch(node, cppName);
+    define(cppName, retType, decls, em.body(), { ...(staticMember ? { static: true } : {}), ...d });
     return { decls, params };
   };
 
   // Constructor: construct() runs field initializers, then the body.
+  const self = (name: string) => cpp.arrow(cpp.self, name);
   const initFields = (em: FnEmitter) => {
-    if (info.isError) em.line(`this->name = LUCENT_STR("Error");`);
+    if (info.isError)
+      em.emit(cpp.exprStmt(cpp.assign(self("name"), cpp.call("LUCENT_STR", [cpp.str("Error")]))));
     for (const p of parameterProperties(ctor)) {
-      const sym = ctx.checker.getSymbolAtLocation(p.name as ts.Identifier)!;
+      const sym = parameterSymbol(
+        ctx.checker,
+        p as ts.ParameterDeclaration & { name: ts.Identifier },
+      );
       const local = em
         .allScopes()
         .map((s) => s.get(sym))
         .find(Boolean)!;
-      em.line(`this->${cppIdent(memberName(p))} = ${local.boxed ? `*${local.cpp}` : local.cpp};`);
+      const value = cpp.id(local.cpp);
+      em.emit(
+        cpp.exprStmt(
+          cpp.assign(self(cppIdent(memberName(p))), local.boxed ? cpp.deref(value) : value),
+        ),
+      );
     }
     for (const m of decl.members) {
       if (!ts.isPropertyDeclaration(m) || isStatic(m) || !m.initializer) continue;
       const t = fieldType(m);
       const v = ctx.guard(() => em.exprAs(m.initializer!, t));
-      if (v !== undefined) em.line(`this->${cppIdent(memberName(m))} = ${v};`);
+      if (v !== undefined) em.emit(cpp.exprStmt(cpp.assign(self(cppIdent(memberName(m))), v)));
     }
   };
-  let ctorDecls: string[] = [];
-  let ctorArgs: string[] = [];
+  let ctorDecls: cpp.Param[] = [];
   // With a Lucent base class, super(...) runs the base's construct() and
   // then this class's field initializers, as in JavaScript.
   const superCtor = baseT
     ? {
-        call: `this->${reg.cppClass(baseT)}::construct`,
+        call: cpp.baseMember(cpp.self, reg.cppClassType(baseT), "construct"),
         params: inheritedCtorParams(ctx, ancestry),
         after: initFields,
       }
@@ -288,28 +326,8 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
       ? emitMethod(ctor, "construct", false, undefined, superCtor)
       : emitMethod(ctor, "construct", false, initFields);
     ctorDecls = r.decls;
-    ctorArgs = r.decls.map((d) => d.split(" ").pop()!);
-  } else if (superCtor) {
-    // Implicit constructor(...args) { super(...args); }
-    const em = new FnEmitter(ctx, {
-      module,
-      async: false,
-      returnType: T.void,
-      cls: info,
-      thisExpr: "this",
-      isConstructor: true,
-    });
-    ctorDecls = superCtor.params.map((p, i) => `${reg.cpp(p)} a${i}`);
-    ctorArgs = superCtor.params.map((_, i) => `a${i}`);
-    em.line(`${superCtor.call}(${ctorArgs.join(", ")});`);
-    initFields(em);
-    const bodyText = em.body().join("\n");
-    if (generic) body.push(`  void construct(${ctorDecls.join(", ")}) {\n${indent(bodyText)}\n  }`);
-    else {
-      body.push(`  void construct(${ctorDecls.join(", ")});`);
-      members.push(`void ${info.cppName}::construct(${ctorDecls.join(", ")}) {\n${bodyText}\n}`);
-    }
   } else {
+    // Implicit constructor(...args) { super(...args); }, or the field initializers alone.
     const em = new FnEmitter(ctx, {
       module,
       async: false,
@@ -318,25 +336,50 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
       thisExpr: "this",
       isConstructor: true,
     });
+    ctorDecls = (superCtor?.params ?? []).map((p, i) => cpp.param(reg.cppType(p), `a${i}`));
+    if (nativeSubclass) ctx.guard(() => em.emit(subclassImplicitSuper(info)));
+    if (superCtor)
+      em.emit(
+        cpp.exprStmt(
+          cpp.call(
+            superCtor.call,
+            ctorDecls.map((p) => cpp.id(p.name!)),
+          ),
+        ),
+      );
     initFields(em);
-    const bodyText = em.body().join("\n");
-    if (generic) body.push(`  void construct() {\n${indent(bodyText)}\n  }`);
-    else {
-      body.push("  void construct();");
-      members.push(`void ${info.cppName}::construct() {\n${bodyText}\n}`);
-    }
+    define("construct", cpp.voidType, ctorDecls, em.body());
   }
-  const createBody = `  auto self = std::make_shared<${qual}>();\n  self->construct(${ctorArgs.join(", ")});\n  return self;`;
-  if (info.abstract) {
+  if (!info.abstract) {
     // Abstract classes are only constructed through subclasses.
-  } else if (generic)
-    body.push(
-      `  static lucent::Ref<${qual}> create(${ctorDecls.join(", ")}) {\n${indent(createBody)}\n  }`,
+    const created = cpp.id("self");
+    const construct = cpp.exprStmt(
+      cpp.call(
+        cpp.arrow(created, "construct"),
+        ctorDecls.map((p) => cpp.id(p.name!)),
+      ),
     );
-  else {
-    body.push(`  static lucent::Ref<${info.cppName}> create(${ctorDecls.join(", ")});`);
-    members.push(
-      `lucent::Ref<${info.cppName}> ${info.cppName}::create(${ctorDecls.join(", ")}) {\n${createBody}\n}`,
+    // Extending an Objective-C class: the native object made by super(…)
+    // owns the Lucent one, and what create() gives holds the native object.
+    const letGo = cpp.exprStmt(cpp.assign(cpp.arrow(created, "lucentNative_"), cpp.initList([])));
+    const made: cpp.Stmt[] = nativeSubclass
+      ? [
+          { k: "try", body: [construct], catches: [{ body: [letGo, { k: "throw" }] }] },
+          cpp.varDecl(
+            cpp.auto,
+            "r_",
+            cpp.call("lucent::selfRef", [cpp.call(cpp.dot(created, "get"))]),
+          ),
+          letGo,
+          cpp.ret(cpp.id("r_")),
+        ]
+      : [construct, cpp.ret(created)];
+    define(
+      "create",
+      cpp.type("lucent::Ref", selfType),
+      ctorDecls,
+      [cpp.varDecl(cpp.auto, "self", cpp.call("std::make_shared", [], [selfType])), ...made],
+      { static: true },
     );
   }
 
@@ -350,11 +393,14 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
             k: "fn";
           };
           const em = new FnEmitter(ctx, { module, async: false, returnType: T.void });
-          const ps = em
-            .paramInfos(m, fn)
-            .map((p, i) => `${reg.cpp(p.cppType)} a${i}`)
-            .join(", ");
-          body.push(`  virtual ${reg.cppRet(fn.ret)} ${name}(${ps})${d.suffix} = 0;`);
+          const ps = em.paramInfos(m, fn).map((p, i) => cpp.param(reg.cppType(p.cppType), `a${i}`));
+          body.push(
+            cpp.method(name, reg.cppRetType(fn.ret), ps, undefined, {
+              virtual: true,
+              ...(d.override ? { override: true } : {}),
+              pure: true,
+            }),
+          );
         }
         continue;
       }
@@ -376,16 +422,11 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
     }
   }
   const overrides = ctx.guard(() => ifaceOverrides(ctx, info)) ?? [];
-  void selfType;
-  const definition = `${tmpl}struct ${info.cppName} : ${bases.join(", ")} {\n${[...body, ...overrides].join("\n")}\n};`;
-  return { definition, members: generic ? "" : members.join("\n\n"), staticInits };
-}
-
-function indent(s: string): string {
-  return s
-    .split("\n")
-    .map((l) => (l.startsWith("#line") ? l : `  ${l}`))
-    .join("\n");
+  const definition = cpp.struct(info.cppName, [...body, ...overrides], {
+    ...(template ? { template } : {}),
+    bases,
+  });
+  return { definition, members, staticInits };
 }
 
 /** Parameters of the nearest ancestor constructor, in terms of the subclass's type arguments. */

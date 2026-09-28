@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   formatSchemaType,
   parseSchemaType,
+  SCHEMA_FORMAT,
   type SchemaType,
   type SdkCallable,
   type SdkClassSchema,
@@ -14,6 +15,31 @@ import {
   type SdkParam,
   type SdkPropertySchema,
 } from "./schema.ts";
+import {
+  afterColon,
+  bridgedSwiftType,
+  declText,
+  escapingParams,
+  type Fragment,
+  mainActorFacts,
+  objcClass,
+  objcMember,
+  parseType,
+  propertyType,
+  REFERENCE_CONVERTIBLE,
+  type Resolver,
+  since,
+  splitName,
+  type SymbolGraph,
+  type SymbolGraphSymbol,
+  unavailable,
+  Unsupported,
+  withEscaping,
+} from "./symbols.ts";
+import { undeclaredReason, undeclaredType } from "./binding-plan.ts";
+import { classThreadFlags, memberFacts, memberThreadFlags } from "./facts.ts";
+import { graphSymbol, type IosModuleSource, iosProvenance } from "./provenance.ts";
+import { addSwiftDeclarations, associatedTypesOf, swiftName, swiftTypeKinds } from "./swift.ts";
 
 /**
  * Binding schemas for Clang modules (Apple frameworks, and Objective-C pods
@@ -35,45 +61,22 @@ export interface IosOptions {
   frameworkPaths?: string[];
   /** Module maps to load (-fmodule-map-file), as pods declare their modules. */
   moduleMaps?: string[];
-}
-
-export interface Fragment {
-  kind: string;
-  spelling: string;
-  preciseIdentifier?: string;
-}
-
-interface SymbolGraphSymbol {
-  kind: { identifier: string };
-  identifier: { precise: string };
-  pathComponents: string[];
-  names: { title: string };
-  declarationFragments?: Fragment[];
-  functionSignature?: {
-    parameters?: { name: string; internalName?: string; declarationFragments: Fragment[] }[];
-    returns?: Fragment[];
-  };
-  availability?: {
-    domain?: string;
-    introduced?: { major: number; minor?: number };
-    isUnconditionallyUnavailable?: boolean;
-    obsoleted?: unknown;
-  }[];
-}
-
-export interface SymbolGraph {
-  symbols: SymbolGraphSymbol[];
-  relationships: { kind: string; source: string; target: string }[];
+  /** Preprocessor definitions (-D), as the app's pods compile with. */
+  defines?: string[];
 }
 
 const DEFAULT_TARGET = "arm64-apple-ios15.1-simulator";
 
-function sdkPath(): string {
-  const r = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], {
+/** The target triple declarations are read for. */
+export const iosTarget = (opts: Pick<IosOptions, "target">) => opts.target ?? DEFAULT_TARGET;
+
+/** The simulator SDK's path or version, from xcrun (extractIos only; the provider locates the SDK itself). */
+function sdkInfo(what: "path" | "version"): string {
+  const r = spawnSync("xcrun", ["--sdk", "iphonesimulator", `--show-sdk-${what}`], {
     encoding: "utf8",
   });
-  // (extractIos only; the provider locates the SDK itself.)
   if (r.status !== 0) throw new Error("xcrun: no iphonesimulator SDK");
+
   return r.stdout.trim();
 }
 
@@ -89,7 +92,7 @@ export function symbolGraphArgs(
     "-module-name",
     module,
     "-target",
-    opts.target ?? DEFAULT_TARGET,
+    iosTarget(opts),
     "-sdk",
     sdk,
     "-output-dir",
@@ -100,6 +103,7 @@ export function symbolGraphArgs(
   for (const i of opts.includePaths ?? []) args.push("-I", i);
   for (const f of opts.frameworkPaths ?? []) args.push("-F", f);
   for (const m of opts.moduleMaps ?? []) args.push("-Xcc", `-fmodule-map-file=${m}`);
+  for (const d of opts.defines ?? []) args.push("-Xcc", `-D${d}`);
   return args;
 }
 
@@ -178,12 +182,13 @@ export function enumValues(
     "-x",
     "objective-c",
     "-target",
-    opts.target ?? DEFAULT_TARGET,
+    iosTarget(opts),
     "-isysroot",
     sdk,
     ...(opts.includePaths ?? []).map((i) => `-I${i}`),
     ...(opts.frameworkPaths ?? []).map((f) => `-F${f}`),
     ...(opts.moduleMaps ?? []).map((m) => `-fmodule-map-file=${m}`),
+    ...(opts.defines ?? []).map((d) => `-D${d}`),
     "-fsyntax-only",
     "-Xclang",
     "-ast-dump=json",
@@ -223,260 +228,6 @@ export function enumValues(
   }
   fs.rmSync(dir, { recursive: true, force: true });
   return out;
-}
-
-// --- Swift types to schema types ---------------------------------------------------
-
-class Unsupported extends Error {}
-
-const SWIFT_PRIM: Record<string, string> = {
-  "s:Sb": "bool",
-  "s:Sd": "double",
-  "s:Sf": "float",
-  "s:Si": "NSInteger",
-  "s:Su": "NSUInteger",
-  "s:s4Int8V": "int8",
-  "s:s5UInt8V": "uint8",
-  "s:s5Int16V": "int16",
-  "s:s6UInt16V": "uint16",
-  "s:s5Int32V": "int32",
-  "s:s6UInt32V": "uint32",
-  "s:s5Int64V": "int64",
-  "s:s6UInt64V": "uint64",
-  "s:14CoreFoundation7CGFloatV": "CGFloat",
-  "s:SS": "string",
-  "s:s5ErrorP": "error",
-  "s:10Foundation4DataV": "NSData",
-  "s:10Foundation4DateV": "NSDate",
-};
-
-/** CoreFoundation types, toll-free bridged to Lucent values in the glue. */
-const CF_TYPES: Record<string, string> = {
-  "c:@T@CFStringRef": "CFString",
-  "c:@T@CFDataRef": "CFData",
-  "c:@T@CFDictionaryRef": "CFDictionary",
-  "c:@T@CFArrayRef": "CFArray",
-  "c:@T@CFTypeRef": "CFTypeRef",
-  "c:@T@CFBooleanRef": "CFBoolean",
-  "c:@T@CFNumberRef": "CFNumber",
-};
-
-/** C typedefs from modules outside the extraction (MacTypes, CoreFoundation). */
-const C_TYPEDEFS: Record<string, string> = {
-  "c:@T@OSStatus": "int32",
-  "c:@T@OSType": "uint32",
-  "c:@T@CFIndex": "int64",
-  "c:@T@CFTimeInterval": "double",
-  "c:@T@CFAbsoluteTime": "double",
-  "c:@T@NSTimeInterval": "double",
-  "c:@T@Boolean": "bool",
-  "c:@T@UInt32": "uint32",
-  // An OS object (dispatch_queue_t is NSObject<OS_dispatch_queue> *): any Objective-C object.
-  "c:@T@dispatch_queue_t": "id",
-  "c:@T@SInt32": "int32",
-};
-
-/**
- * Swift's spelling of Objective-C's error convention: an NSError** a method
- * writes (NSErrorPointer, where Swift does not import it as throws).
- */
-const ERROR_POINTERS = new Set(["s:10Foundation14NSErrorPointera"]);
-
-/** Swift value types that bridge to Foundation classes, typed as those classes. */
-/** Swift's AnyHashable: an Objective-C object (id), as untyped NSDictionary keys and NSSet elements are. */
-const ANY_HASHABLE = "s:s11AnyHashableV";
-
-/** The protocol of Swift value types that bridge to an Objective-C class, its `ReferenceType`. */
-const REFERENCE_CONVERTIBLE = "s:10Foundation20ReferenceConvertibleP";
-
-interface Resolver {
-  /** A class/protocol/enum USR to its schema reference (`Module.Name`), if extracted. */
-  ref(usr: string): string | undefined;
-  /** Typealiases and typed string enums: USR to the fragments they stand for. */
-  alias(usr: string): Fragment[] | undefined;
-  /** A C typedef's USR from its name, for references Swift leaves without one (NSRange). */
-  typedef(name: string): string | undefined;
-  self?: string;
-  /** The member is main-actor: its blocks that are not @Sendable run on the main thread. */
-  mainActor?: boolean;
-}
-
-/** Tokens of a type written in declaration fragments. */
-function tokens(frags: Fragment[]): (Fragment | string)[] {
-  const out: (Fragment | string)[] = [];
-  for (const f of frags) {
-    if (f.kind === "typeIdentifier") out.push(f);
-    else if (
-      f.kind === "keyword" &&
-      (f.spelling === "Any" || f.spelling === "AnyObject" || f.spelling === "Self")
-    )
-      out.push(f.spelling);
-    else if (f.spelling.trim() === "()") out.push("()");
-    else {
-      for (const t of f.spelling.split(/(\?|!|\[|\]|:|<|>|,|\(|\)|->|@\w+|any |some |inout |\.)/)) {
-        const s = t.trim();
-        if (s) out.push(s);
-      }
-    }
-  }
-  return out;
-}
-
-function parseType(frags: Fragment[], r: Resolver): SchemaType {
-  // `UIControl.State`: a reference to the nested type is its last identifier.
-  const toks = tokens(frags)
-    .filter(
-      (t, i, all) =>
-        !(typeof t !== "string" && all[i + 1] === "." && typeof all[i + 2] !== "string"),
-    )
-    .filter((t) => t !== ".");
-  let p = 0;
-  const named = (name: string) => parseSchemaType(name);
-  const type = (): SchemaType => {
-    let t = primary();
-    while (toks[p] === "?" || toks[p] === "!") {
-      p++;
-      // An optional block is stored, so it escapes.
-      t = t.k === "fn" ? { ...t, nullable: true, escaping: true } : { ...t, nullable: true };
-    }
-    return t;
-  };
-  /**
-   * A block: `escaping` when it outlives the call, `main` when it runs on
-   * the main thread (Swift's isolation: an explicit @MainActor, or not
-   * @Sendable in a main-actor member).
-   */
-  const closure = (params: SchemaType[], attrs: string[]): SchemaType => {
-    const ret = type();
-    const main = attrs.includes("@MainActor") || (!attrs.includes("@Sendable") && !!r.mainActor);
-    return { k: "fn", params, ret, escaping: attrs.includes("@escaping"), main, nullable: false };
-  };
-  const primary = (): SchemaType => {
-    const attrs: string[] = [];
-    while (typeof toks[p] === "string" && (toks[p] as string).startsWith("@"))
-      attrs.push(toks[p++] as string);
-    const tok = toks[p++];
-    if (tok === undefined) throw new Unsupported("empty type");
-    if (tok === "any" || tok === "some") return primary();
-    if (tok === "inout") throw new Unsupported("inout");
-    if (tok === "()" && toks[p] === "->") {
-      p++;
-      return closure([], attrs);
-    }
-    if (tok === "(") {
-      const items: SchemaType[] = [];
-      while (toks[p] !== ")") {
-        items.push(type());
-        if (toks[p] === ",") p++;
-        else break;
-      }
-      if (toks[p++] !== ")") throw new Unsupported("closures and tuples");
-      if (toks[p] === "->") {
-        p++;
-        return closure(items, attrs);
-      }
-      if (items.length === 1 && !attrs.length) return items[0]!;
-      throw new Unsupported("tuples");
-    }
-    if (tok === "->") throw new Unsupported("closures and tuples");
-    if (attrs.length) throw new Unsupported(`type syntax ${attrs.join(" ")}`);
-    if (tok === "[") {
-      const key = type();
-      if (toks[p] === ":") {
-        p++;
-        const value = type();
-        if (toks[p++] !== "]") throw new Unsupported("dictionary");
-        // Keys of any type (AnyHashable) as well: those that are not strings are left out when read.
-        if ((key.k !== "string" && key.k !== "id") || key.nullable)
-          throw new Unsupported(`dictionary keyed by ${formatSchemaType(key)}`);
-        return { k: "record", of: value, nullable: false };
-      }
-      if (toks[p++] !== "]") throw new Unsupported("array");
-      return { k: "array", of: key, nullable: false };
-    }
-    if (tok === "Any" || tok === "AnyObject") return named("id");
-    if (typeof tok !== "string" && tok.preciseIdentifier === ANY_HASHABLE) return named("id");
-    if (tok === "()") return named("void");
-    if (tok === "Self") {
-      if (!r.self) throw new Unsupported("Self");
-      return named(r.self);
-    }
-    if (typeof tok === "string") throw new Unsupported(`type syntax ${tok}`);
-    const usr = tok.preciseIdentifier ?? "";
-    if (ERROR_POINTERS.has(usr)) return { k: "out", of: named("error"), nullable: true };
-    // `AutoreleasingUnsafeMutablePointer<NSError?>`, spelled out.
-    const next = toks[p + 1];
-    if (
-      (usr === "s:SA" || usr === "s:Sp") &&
-      toks[p] === "<" &&
-      typeof next !== "string" &&
-      next?.preciseIdentifier === "c:objc(cs)NSError" &&
-      toks[p + 2] === "?" &&
-      toks[p + 3] === ">"
-    ) {
-      p += 4;
-      return { k: "out", of: named("error"), nullable: false };
-    }
-    // `UnsafeMutablePointer<CFTypeRef?>`: an out-parameter for a reference.
-    if (usr === "s:Sp" && toks[p] === "<") {
-      p++;
-      const inner = type();
-      if (toks[p++] !== ">") throw new Unsupported("pointer");
-      const reference = inner.k === "id" || inner.k === "ref" || ("cf" in inner && !!inner.cf);
-      if (!inner.nullable || !reference)
-        throw new Unsupported(`pointer to ${formatSchemaType(inner)}`);
-      return { k: "out", of: { ...inner, nullable: false }, nullable: false };
-    }
-    // Unmanaged<X>: ownership follows CoreFoundation's Create/Copy rule in the glue.
-    if (usr === "s:s9UnmanagedV" && toks[p] === "<") {
-      p++;
-      const inner = type();
-      if (toks[p++] !== ">") throw new Unsupported("Unmanaged");
-      return inner;
-    }
-    // Swift's Set (NSSet): a Lucent set.
-    if (usr === "s:Sh" && toks[p] === "<") {
-      p++;
-      const of = type();
-      if (toks[p++] !== ">") throw new Unsupported("generic Set");
-      return { k: "set", of, nullable: false };
-    }
-    if (toks[p] === "<") throw new Unsupported(`generic ${tok.spelling}`);
-    if (usr in CF_TYPES) return named(CF_TYPES[usr]!);
-    if (usr in C_TYPEDEFS) return named(C_TYPEDEFS[usr]!);
-    if (usr === "s:s4Voida") return named("void");
-    if (tok.spelling === "Self" && !usr) {
-      if (!r.self) throw new Unsupported("Self");
-      return named(r.self);
-    }
-    if (usr in SWIFT_PRIM) return named(SWIFT_PRIM[usr]!);
-    const key = usr || (r.typedef(tok.spelling) ?? "");
-    const aliased = r.alias(key);
-    if (aliased) return parseType(aliased, r);
-    const ref = r.ref(key);
-    if (ref) return named(ref);
-    throw new Unsupported(tok.spelling);
-  };
-  const t = type();
-  if (p < toks.length) throw new Unsupported(`type ${frags.map((f) => f.spelling).join("")}`);
-  return t;
-}
-
-/** The type part of `name: Type` fragments (the colon can share a fragment with `[`). */
-function afterColon(frags: Fragment[]): Fragment[] {
-  const i = frags.findIndex((f) => f.kind === "text" && f.spelling.includes(":"));
-  if (i < 0) return frags;
-  const rest = frags[i]!.spelling.slice(frags[i]!.spelling.indexOf(":") + 1);
-  return [...(rest.trim() ? [{ kind: "text", spelling: rest }] : []), ...frags.slice(i + 1)];
-}
-
-/** A property's type: between the colon and `{ get }`. */
-function propertyType(frags: Fragment[]): Fragment[] {
-  const t = afterColon(frags);
-  const end = t.findIndex((f) => f.spelling.includes("{"));
-  if (end < 0) return t;
-  const head = t[end]!.spelling.split("{")[0]!;
-  return [...t.slice(0, end), ...(head.trim() ? [{ kind: "text", spelling: head }] : [])];
 }
 
 // --- extraction ----------------------------------------------------------------------
@@ -536,36 +287,11 @@ function cStructs(g: SymbolGraph): Map<string, { symbol: SymbolGraphSymbol; nati
   return out;
 }
 
-const objcClass = (usr: string) => /^c:objc\((cs|pl)\)([^(]+)$/.exec(usr);
-const objcMember = (usr: string) => /^c:objc\((cs|pl)\)([^(]+)\((im|cm|py|cpy)\)(.+)$/.exec(usr);
-const declText = (s: SymbolGraphSymbol) =>
-  (s.declarationFragments ?? []).map((f) => f.spelling).join("");
-
-function since(s: SymbolGraphSymbol): string | undefined {
-  const ios = s.availability?.find((a) => a.domain === "iOS");
-  if (!ios?.introduced) return undefined;
-  return `${ios.introduced.major}.${ios.introduced.minor ?? 0}`;
-}
-
-function unavailable(s: SymbolGraphSymbol): boolean {
-  return !!s.availability?.some(
-    (a) =>
-      (a.domain === "iOS" || a.domain === "*" || a.domain === undefined) &&
-      (a.isUnconditionallyUnavailable || a.obsoleted),
-  );
-}
-
-/** `impact(intensity:)` → base `impact`, labels `["intensity"]`. */
-function splitName(title: string): { base: string; labels: string[] } {
-  const m = /^([^(]+)\((.*)\)$/.exec(title);
-  if (!m) return { base: title, labels: [] };
-  return { base: m[1]!, labels: m[2]!.split(":").filter((l) => l !== "") };
-}
-
 export function extractIos(opts: IosOptions): SdkModuleSchema[] {
-  const sdk = sdkPath();
+  const sdk = sdkInfo("path");
+  const version = sdkInfo("version");
   const graphs = new Map(opts.modules.map((m) => [m, symbolGraph(m, opts, sdk)]));
-  return buildIosSchemas(graphs, (enums) =>
+  const schemas = buildIosSchemas(graphs, (enums) =>
     enumValues(
       enums,
       opts.modules.map((m) => `${m}/${m}.h`),
@@ -573,6 +299,24 @@ export function extractIos(opts: IosOptions): SdkModuleSchema[] {
       sdk,
     ),
   );
+
+  // Where each module is: the SDK's, a Swift module or else a module map on the include paths.
+  const sourceOf = (module: string): IosModuleSource => {
+    if (fs.existsSync(path.join(sdk, "System/Library/Frameworks", `${module}.framework`)))
+      return { kind: "sdk", files: [] };
+
+    const swiftmodule = (opts.includePaths ?? [])
+      .map((i) => path.join(i, `${module}.swiftmodule`))
+      .find((f) => fs.existsSync(f));
+    return swiftmodule
+      ? { kind: "swift-module", files: [swiftmodule] }
+      : { kind: "clang-module", files: [] };
+  };
+
+  return schemas.map((s) => ({
+    ...s,
+    provenance: iosProvenance(s.module, sourceOf(s.module), version, iosTarget(opts)),
+  }));
 }
 
 /** What other modules need from a module's graph: its types' names, typealiases, typed string keys. */
@@ -593,8 +337,42 @@ export interface NamesIndex {
       native: string;
       fields?: SdkParam[];
       cf?: boolean;
+      /** A Swift-only type, called through shims: `native` is its Swift name. */
+      swift?: boolean;
+      /** How many type parameters it declares. */
+      typeParams?: number;
+      /** An enum that is an option set: 0 is its empty value. */
+      options?: boolean;
+      /** An Objective-C class's superclass, by USR. */
+      inherits?: string;
+      /** The Objective-C protocols a class conforms to, by USR, its superclasses' included. */
+      conforms?: string[];
+      /**
+       * An Objective-C protocol's requirements, by Lucent name: `m:name` a
+       * method, `p:name` a nullable and `pn:name` a non-null property, `s`
+       * before a static one.
+       */
+      requires?: string[];
     }
   >;
+}
+
+const OPTION_SET = "s:s9OptionSetP";
+const optionSetMemo = new WeakMap<SymbolGraph, Set<string>>();
+
+/** The C enums Swift imports as option sets (NS_OPTIONS): they conform to OptionSet. */
+function optionSets(g: SymbolGraph): Set<string> {
+  let found = optionSetMemo.get(g);
+  if (!found) {
+    found = new Set(
+      g.relationships
+        .filter((r) => r.kind === "conformsTo" && r.target === OPTION_SET)
+        .map((r) => r.source),
+    );
+    optionSetMemo.set(g, found);
+  }
+
+  return found;
 }
 
 export function namesOf(module: string, g: SymbolGraph): NamesIndex {
@@ -602,6 +380,19 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
   const aliases: Record<string, Fragment[]> = {};
   const types: NamesIndex["types"] = {};
   const structs = cStructs(g);
+  const lineage = classLineage(g);
+  const requirements = protocolRequirements(g);
+  // Structs with at least one field (`c:@SA@Name@FI@field`), by the record's
+  // USR and by the typedef a synthesized field names.
+  const hasFields = new Set<string>();
+  for (const m of g.symbols) {
+    const f = m.kind.identifier === "swift.property" ? structField(m.identifier.precise) : null;
+    if (!f) continue;
+
+    hasFields.add(m.identifier.precise.slice(0, m.identifier.precise.indexOf("@FI@")));
+    if (f[2]) hasFields.add(f[2]);
+  }
+
   for (const s of g.symbols) {
     const usr = s.identifier.precise;
     const k = s.kind.identifier;
@@ -610,6 +401,15 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
     if ((k === "swift.class" || k === "swift.protocol") && cls) {
       refs[usr] = `${module}.${name}`;
       types[name] = { kind: k === "swift.class" ? "class" : "protocol", native: cls[2]! };
+      const n = s.swiftGenerics?.parameters?.length;
+      if (n) types[name]!.typeParams = n;
+
+      const reqs = k === "swift.protocol" ? requirements.get(usr) : undefined;
+      if (reqs?.length) types[name]!.requires = reqs;
+
+      const line = k === "swift.class" ? lineage.get(usr) : undefined;
+      if (line?.inherits) types[name]!.inherits = line.inherits;
+      if (line?.conforms.length) types[name]!.conforms = line.conforms;
     }
     // Opaque CoreFoundation-style handles: typedefs of pointers to bridged structs.
     const handle = k === "swift.class" ? typedefName(usr) : undefined;
@@ -621,10 +421,15 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
     const cEnum = k === "swift.enum" || k === "swift.struct" ? /^c:@EA?@(\w+)$/.exec(usr) : null;
     if (cEnum) {
       refs[usr] = `${module}.${name}`;
-      types[name] = { kind: "enum", native: cEnum[1]! };
+      types[name] = {
+        kind: "enum",
+        native: cEnum[1]!,
+        ...(optionSets(g).has(usr) ? { options: true } : {}),
+      };
     }
+    // A struct without fields is never declared (buildIosSchema skips it).
     const record = structs.get(usr);
-    if (record) {
+    if (record && hasFields.has(usr)) {
       refs[usr] = `${module}.${name}`;
       types[name] = { kind: "struct", native: record.native };
     }
@@ -642,6 +447,19 @@ export function namesOf(module: string, g: SymbolGraph): NamesIndex {
     // Typed string enums (NS_TYPED_ENUM): strings at the boundary.
     if (k === "swift.struct" && /^c:.*@T@/.test(usr))
       aliases[usr] = [{ kind: "typeIdentifier", spelling: "String", preciseIdentifier: "s:SS" }];
+  }
+  // Swift types (structs, classes, enums, protocols), called through shims;
+  // a protocol's associated types are its type parameters.
+  const associated = associatedTypesOf(g);
+  for (const [s, kind] of swiftTypeKinds(g, (usr) => bridgedSwiftType(usr) || usr in aliases)) {
+    const name = s.pathComponents.join("_");
+    refs[s.identifier.precise] = `${module}.${name}`;
+    types[name] = { kind, native: swiftName(module, s), swift: true };
+    const n =
+      kind === "protocol"
+        ? associated.get(s.identifier.precise)?.length
+        : s.swiftGenerics?.parameters?.length;
+    if (n) types[name]!.typeParams = n;
   }
   // Swift value types that bridge to Objective-C classes (IndexPath): the class their ReferenceType names.
   const bridged = new Set(
@@ -724,6 +542,247 @@ export function buildIosSchemas(
 }
 
 /**
+ * A property a subclass redeclares without a nullability contract of its own
+ * (`T!`: unaudited or null_resettable) keeps its superclass's non-null one:
+ * reading it never gives nil. Superclasses in the same module only.
+ */
+function keepInheritedNonNull(mod: SdkModuleSchema, unaudited: Set<SdkPropertySchema>): void {
+  const classes = new Map(
+    mod.types.filter((t): t is SdkClassSchema => t.kind === "class").map((c) => [c.name, c]),
+  );
+
+  const inheritedNonNull = (cls: SdkClassSchema, p: SdkPropertySchema): boolean => {
+    for (let at = cls.extends, depth = 0; at && depth < 64; depth++) {
+      const [owner, ...rest] = at.split(".");
+      if (owner !== mod.module) return false;
+
+      const sup = classes.get(rest.join("."));
+      const same = sup?.properties?.find((x) => x.name === p.name && !!x.static === !!p.static);
+      if (same) return !same.type.nullable;
+
+      at = sup?.extends;
+    }
+
+    return false;
+  };
+
+  for (const cls of classes.values())
+    for (const p of cls.properties ?? [])
+      if (unaudited.has(p) && p.type.nullable && inheritedNonNull(cls, p))
+        p.type = { ...p.type, nullable: false };
+}
+
+/**
+ * One name is a property or a method throughout a type hierarchy (as the
+ * rule within one class already says: a method named like a property is left
+ * out). A method named like a superclass's property is left out; a protocol
+ * whose requirement the class declares as the other kind, or with another
+ * type, is not declared as a conformance (its members stay callable).
+ * Superclasses and protocols in the same module only.
+ */
+function resolveMemberKinds(mod: SdkModuleSchema, names: NamesIndex[]): void {
+  const classes = new Map(
+    mod.types.filter((t): t is SdkClassSchema => t.kind === "class").map((c) => [c.name, c]),
+  );
+  const local = (ref: string | undefined) => {
+    const [owner, ...rest] = (ref ?? "").split(".");
+    return owner === mod.module ? classes.get(rest.join(".")) : undefined;
+  };
+
+  // A class's properties, its own and its superclasses', by static-ness and name.
+  const properties = (cls: SdkClassSchema) => {
+    const out = new Map<string, SdkPropertySchema>();
+    for (let c: SdkClassSchema | undefined = cls, depth = 0; c && depth < 64; depth++) {
+      for (const p of c.properties ?? []) {
+        const key = `${!!p.static}:${p.name}`;
+        if (!out.has(key)) out.set(key, p);
+      }
+      c = local(c.extends);
+    }
+    return out;
+  };
+
+  const methodNames = (cls: SdkClassSchema) => {
+    const out = new Set<string>();
+    for (let c: SdkClassSchema | undefined = cls, depth = 0; c && depth < 64; depth++) {
+      for (const m of c.methods ?? []) out.add(`${!!m.static}:${m.name}`);
+      c = local(c.extends);
+    }
+    return out;
+  };
+
+  // Another module's protocol, known by its names index's requirements.
+  const foreignClash = (
+    ref: string,
+    props: Map<string, SdkPropertySchema>,
+    methods: Set<string>,
+    cls: SdkClassSchema,
+  ): boolean => {
+    const dot = ref.lastIndexOf(".");
+    const requires = names.find((n) => n.module === ref.slice(0, dot))?.types[ref.slice(dot + 1)]
+      ?.requires;
+
+    const clash = requires?.find((r) => {
+      const [kind, name] = r.split(":") as [string, string];
+      const isStatic = kind.startsWith("s");
+      const key = `${isStatic}:${name}`;
+      const own = props.get(key);
+
+      if (kind.endsWith("m")) return !!own;
+      return methods.has(key) || (kind.endsWith("pn") && !!own?.type.nullable);
+    });
+    if (!clash) return false;
+
+    mod.skipped!.push(
+      `${cls.name}: conforms to ${ref.slice(dot + 1)}, whose ${clash.split(":")[1]} it declares differently: not declared as ${ref.slice(dot + 1)}`,
+    );
+    return true;
+  };
+
+  for (const cls of classes.values()) {
+    if (cls.interface) continue;
+
+    // Methods named like a superclass's property take their labels, as beside
+    // the class's own (count(for:) → countFor); one without labels is left out.
+    const inherited = local(cls.extends) ? properties(local(cls.extends)!) : new Map();
+    const kept = (cls.methods ?? []).filter((m) => {
+      const p = inherited.get(`${!!m.static}:${m.name}`);
+      if (!p) return true;
+
+      const labeled = withLabels(m);
+      if (labeled !== m.name) {
+        m.name = labeled;
+        return true;
+      }
+
+      const owner = [...classes.values()].find((c) => c.properties?.includes(p));
+      mod.skipped!.push(
+        `${cls.name}.${m.name}: named like ${owner?.name ?? "a superclass"}.${p.name}, a property`,
+      );
+      return false;
+    });
+    if (cls.methods) {
+      cls.methods = kept;
+      disambiguate(cls.methods);
+    }
+
+    // Protocols whose requirements it declares as the other kind, or with another type.
+    if (!cls.implements?.length) continue;
+
+    const props = properties(cls);
+    const methods = methodNames(cls);
+    cls.implements = cls.implements.filter((ref) => {
+      const protocol = local(ref);
+      if (!protocol) return !foreignClash(ref, props, methods, cls);
+
+      const clash =
+        (protocol.methods ?? []).find((m) => props.has(`${!!m.static}:${m.name}`))?.name ??
+        (protocol.properties ?? []).find((p) => {
+          const own = props.get(`${!!p.static}:${p.name}`);
+          // Nullable where the requirement is not: the one type difference
+          // TypeScript cannot accept (a narrower type is fine).
+          const nullableForNonNull =
+            !!own &&
+            own.type.nullable &&
+            !p.type.nullable &&
+            formatSchemaType({ ...own.type, nullable: false }) ===
+              formatSchemaType({ ...p.type, nullable: false });
+
+          return methods.has(`${!!p.static}:${p.name}`) || nullableForNonNull;
+        })?.name;
+      if (!clash) return true;
+
+      mod.skipped!.push(
+        `${cls.name}: conforms to ${protocol.name}, whose ${clash} it declares differently: not declared as ${protocol.name}`,
+      );
+      return false;
+    });
+    if (!cls.implements.length) delete cls.implements;
+  }
+}
+
+/** Each Objective-C class's superclass and the protocols it conforms to, by USR, from the graph's relationships. */
+function classLineage(g: SymbolGraph): Map<string, { inherits?: string; conforms: string[] }> {
+  const out = new Map<string, { inherits?: string; conforms: string[] }>();
+  const of = (usr: string) => {
+    let e = out.get(usr);
+    if (!e) out.set(usr, (e = { conforms: [] }));
+    return e;
+  };
+
+  for (const r of g.relationships) {
+    if (!r.source.startsWith("c:objc(cs)")) continue;
+
+    if (r.kind === "inheritsFrom") of(r.source).inherits = r.target;
+    else if (r.kind === "conformsTo" && r.target.startsWith("c:objc(pl)")) {
+      const e = of(r.source);
+      if (!e.conforms.includes(r.target)) e.conforms.push(r.target);
+    }
+  }
+
+  // In no stable order in the graph.
+  for (const e of out.values()) e.conforms.sort();
+
+  return out;
+}
+
+/** Each Objective-C protocol's requirements, encoded as NamesIndex `requires` says. */
+function protocolRequirements(g: SymbolGraph): Map<string, string[]> {
+  const byUsr = new Map(g.symbols.map((x) => [x.identifier.precise, x]));
+  const out = new Map<string, string[]>();
+
+  for (const r of g.relationships) {
+    if (r.kind !== "requirementOf" && r.kind !== "optionalRequirementOf") continue;
+    if (!r.target.startsWith("c:objc(pl)")) continue;
+
+    const m = byUsr.get(r.source);
+    if (!m) continue;
+
+    const k = m.kind.identifier;
+    const isStatic = k === "swift.type.property" || k === "swift.type.method" ? "s" : "";
+    let entry: string | undefined;
+
+    if (k === "swift.property" || k === "swift.type.property") {
+      const text = propertyType(m.declarationFragments ?? [])
+        .map((f) => f.spelling)
+        .join("");
+      entry = `${isStatic}${/[?!]\s*$/.test(text) ? "p" : "pn"}:${m.names.title}`;
+    } else if (k === "swift.method" || k === "swift.type.method") {
+      // Named as Lucent names protocol requirements: base and labels.
+      const { base, labels } = splitName(m.names.title);
+      entry = `${isStatic}m:${[base, ...labels.filter((l) => l !== "_")].join("_")}`;
+    }
+
+    if (!entry) continue;
+    const list = out.get(r.target) ?? [];
+    if (!list.includes(entry)) list.push(entry);
+    out.set(r.target, list);
+  }
+
+  return out;
+}
+
+/**
+ * The protocols (by USR) a class's superclasses conform to, from the names of
+ * every module the schema refers to: what a class inherits, so its schema
+ * lists only the protocols it adopts itself.
+ */
+function inheritedConformances(
+  classUsr: string,
+  lineage: Map<string, { inherits?: string; conforms?: string[] }>,
+): Set<string> {
+  const out = new Set<string>();
+
+  for (let usr = lineage.get(classUsr)?.inherits, seen = 0; usr && seen < 64; seen++) {
+    const line = lineage.get(usr);
+    for (const p of line?.conforms ?? []) out.add(p);
+    usr = line?.inherits;
+  }
+
+  return out;
+}
+
+/**
  * One module's schema from its graph and the names of every module it
  * refers to (its own included).
  */
@@ -735,6 +794,19 @@ export function buildIosSchema(
 ): SdkModuleSchema {
   const refs = new Map<string, string>(names.flatMap((n) => Object.entries(n.refs)));
   const aliases = new Map<string, Fragment[]>(names.flatMap((n) => Object.entries(n.aliases)));
+
+  // Properties Swift imports as `T!`, which may keep a superclass's non-null contract.
+  const unaudited = new Set<SdkPropertySchema>();
+
+  // Every known class's superclass and conformances, this module's and those it refers to.
+  const lineage = new Map<string, { inherits?: string; conforms?: string[] }>();
+  for (const n of names)
+    for (const [usr, ref] of Object.entries(n.refs)) {
+      const t = n.types[ref.slice(ref.lastIndexOf(".") + 1)];
+      if (t?.kind === "class" && (t.inherits || t.conforms)) lineage.set(usr, t);
+    }
+  for (const [usr, line] of classLineage(g)) if (!lineage.has(usr)) lineage.set(usr, line);
+
   const kinds = new Map<string, string>(
     names.flatMap((n) =>
       Object.entries(n.types).map(([name, t]): [string, string] => [`${n.module}.${name}`, t.kind]),
@@ -742,6 +814,7 @@ export function buildIosSchema(
   );
   {
     const mod: SdkModuleSchema = {
+      format: SCHEMA_FORMAT,
       platform: "ios",
       module,
       frameworks: [module],
@@ -766,12 +839,17 @@ export function buildIosSchema(
     }
     const byUsr = new Map(g.symbols.map((s) => [s.identifier.precise, s]));
     const typedefs = typedefsAmong([...refs.keys(), ...aliases.keys()]);
-    const resolver = (self?: string, mainActor?: boolean): Resolver => ({
+    const resolver = (
+      self?: string,
+      mainActor?: boolean,
+      typeParams?: readonly string[],
+    ): Resolver => ({
       ref: (u) => refs.get(u),
       alias: (u) => aliases.get(u),
       typedef: (n) => typedefs.get(n),
       self,
       mainActor,
+      typeParams,
     });
     const skip = (owner: string, s: SymbolGraphSymbol, reason: string) =>
       mod.skipped!.push(`${owner}.${s.names.title}: ${reason}`);
@@ -813,7 +891,9 @@ export function buildIosSchema(
         kind: "enum",
         name: s.pathComponents.join("_"),
         native: cName,
+        symbol: graphSymbol(s.identifier.precise),
         cases: cases as SdkEnumSchema["cases"],
+        ...(optionSets(g).has(s.identifier.precise) ? { options: true as const } : {}),
       };
       mod.types.push(e);
     }
@@ -827,6 +907,7 @@ export function buildIosSchema(
           kind: "struct",
           name,
           native,
+          symbol: graphSymbol(usr),
           fields: structFields(members.get(usr) ?? [], resolver(), kinds),
         });
       } catch (e) {
@@ -853,6 +934,7 @@ export function buildIosSchema(
           readonly: true,
           type: parseSchemaType("string"),
           global,
+          symbol: graphSymbol(mem.identifier.precise),
         });
       }
       if (props.length)
@@ -860,6 +942,7 @@ export function buildIosSchema(
           kind: "class",
           name: s.pathComponents.join("_"),
           native: s.identifier.precise.replace(/^.*@T@/, ""),
+          symbol: graphSymbol(s.identifier.precise),
           properties: props,
         });
     }
@@ -874,25 +957,40 @@ export function buildIosSchema(
           name: s.pathComponents.join("_"),
           native: handle,
           cf: true,
+          symbol: graphSymbol(s.identifier.precise),
         });
     }
 
     // Classes and protocols.
+    const objcClasses = new Map<string, SdkClassSchema>();
     for (const s of g.symbols) {
       const k = s.kind.identifier;
       const m = objcClass(s.identifier.precise);
       if (!m || (k !== "swift.class" && k !== "swift.protocol") || unavailable(s)) continue;
       const name = s.pathComponents.join("_");
       const self = `${module}.${name}`;
-      const cls: SdkClassSchema = { kind: "class", name, native: m[2]! };
+      const cls: SdkClassSchema = {
+        kind: "class",
+        name,
+        native: m[2]!,
+        symbol: graphSymbol(s.identifier.precise),
+      };
+      objcClasses.set(s.identifier.precise, cls);
       if (k === "swift.protocol") cls.interface = true;
-      if (declText(s).includes("@MainActor")) cls.mainActor = true;
+      const classFacts = mainActorFacts(declText(s));
+      if (classFacts) cls.facts = classFacts;
+      Object.assign(cls, classThreadFlags(cls.facts));
+      const typeParams = s.swiftGenerics?.parameters?.map((x) => x.name) ?? [];
+      if (typeParams.length) cls.typeParams = typeParams;
       const v = since(s);
       if (v) cls.since = v;
       const superUsr = g.relationships.find(
         (r) => r.kind === "inheritsFrom" && r.source === s.identifier.precise,
       )?.target;
       if (superUsr && refs.has(superUsr)) cls.extends = refs.get(superUsr);
+      // Only the protocols it adopts itself: its superclasses' come with `extends`.
+      // Sorted: swift-symbolgraph-extract writes them in no stable order.
+      const inherited = inheritedConformances(s.identifier.precise, lineage);
       const conforms = [
         ...new Set(
           g.relationships
@@ -901,11 +999,12 @@ export function buildIosSchema(
                 r.kind === "conformsTo" &&
                 r.source === s.identifier.precise &&
                 r.target.startsWith("c:objc(pl)") &&
+                !inherited.has(r.target) &&
                 refs.has(r.target),
             )
             .map((r) => refs.get(r.target)!),
         ),
-      ];
+      ].sort();
       if (conforms.length) cls.implements = conforms;
 
       const ctors: SdkCallable[] = [];
@@ -930,7 +1029,9 @@ export function buildIosSchema(
       for (const mem of members.get(s.identifier.precise) ?? []) {
         const mm = objcMember(mem.identifier.precise);
         if (mm && unavailable(mem) && mem.kind.identifier === "swift.init") initUnavailable = true;
-        if (!mm || unavailable(mem)) continue;
+        // Synthesized from a protocol the class conforms to (initWithCoder: from
+        // NSCoding): the protocol has the requirement, and the USR is no selector.
+        if (!mm || unavailable(mem) || mem.identifier.precise.includes("::SYNTHESIZED::")) continue;
         const text = declText(mem);
         // The async form of a completion-handler method: read with the handler form.
         if (/\basync\b/.test(text)) continue;
@@ -940,14 +1041,26 @@ export function buildIosSchema(
         seenUsr.add(mem.identifier.precise);
         const kind = mm[3]!;
         const selector = mm[4]!;
-        const r = resolver(self, !!cls.mainActor || head.includes("@MainActor"));
+        const facts = mainActorFacts(head);
+        const main = memberFacts(cls, { facts }).affinity === "main";
+        const r = resolver(self, main, typeParams);
         const memberSince = since(mem);
+        const symbol = graphSymbol(mem.identifier.precise);
+        // Its own attribute's facts, and the flags that follow from them and its class's.
+        const thread = { ...(facts ? { facts } : {}), ...memberThreadFlags(cls.facts, facts) };
+
         try {
           if (kind === "py" || kind === "cpy") {
+            const typeFrags = propertyType(mem.declarationFragments ?? []);
             const p: SdkPropertySchema = {
               name: mem.names.title,
-              type: parseType(propertyType(mem.declarationFragments ?? []), r),
+              type: parseType(typeFrags, r),
+              symbol,
             };
+
+            // `T!`: unaudited or null_resettable, not an explicit optional.
+            if (/!\s*$/.test(typeFrags.map((f) => f.spelling).join(""))) unaudited.add(p);
+
             if (kind === "cpy") p.static = true;
             const readonly = !/\bset\b/.test(text);
             if (readonly) p.readonly = true;
@@ -960,8 +1073,7 @@ export function buildIosSchema(
             if (!readonly) p.setter = `set${selector.charAt(0).toUpperCase()}${selector.slice(1)}:`;
             if (/\bweak\b/.test(head)) p.weak = true;
             if (memberSince && memberSince !== cls.since) p.since = memberSince;
-            if (head.includes("@MainActor") && !cls.mainActor)
-              (p as SdkPropertySchema & { mainActor?: boolean }).mainActor = true;
+            Object.assign(p, thread);
             props.push(p);
             continue;
           }
@@ -973,7 +1085,8 @@ export function buildIosSchema(
           }));
           if (mem.kind.identifier === "swift.init") {
             if (kind === "cm") continue;
-            const c: SdkCallable = { params, selector };
+            const c: SdkCallable = { params, selector, symbol };
+            if (facts) c.facts = facts;
             if (memberSince && memberSince !== cls.since) c.since = memberSince;
             ctors.push(c);
             continue;
@@ -985,12 +1098,12 @@ export function buildIosSchema(
           // Protocol requirements, which Lucent classes implement, are named
           // from their own Swift name: base and labels, as in the selector.
           const name = cls.interface ? [base, ...labels.filter((l) => l !== "_")].join("_") : base;
-          const method: SdkMethodSchema = { name, selector, params, returns };
+          const method: SdkMethodSchema = { name, selector, params, returns, symbol };
           if (optionalUsrs.has(mem.identifier.precise)) method.optional = true;
           if (kind === "cm") method.static = true;
           if (/\bthrows\b/.test(text)) method.throws = true;
           if (memberSince && memberSince !== cls.since) method.since = memberSince;
-          if (head.includes("@MainActor") && !cls.mainActor) method.mainActor = true;
+          Object.assign(method, thread);
           const twin = asyncTwins.get(mem.identifier.precise);
           if (twin) {
             try {
@@ -1029,7 +1142,12 @@ export function buildIosSchema(
         for (const x of methods) if (taken.has(`${!!x.static}:${x.name}`)) x.name = withLabels(x);
         disambiguate(methods);
       }
-      for (const x of methods) delete (x as SdkMethodSchema & { swiftName?: string }).swiftName;
+      // Kept for the module-wide pass, which may label a method again.
+      for (const x of methods) {
+        const swiftName = (x as SdkMethodSchema & { swiftName?: string }).swiftName;
+        if (swiftName) swiftNames.set(x, swiftName);
+        delete (x as SdkMethodSchema & { swiftName?: string }).swiftName;
+      }
       // Objective-C initializers are inherited (NSObject's init at the root)
       // unless the class makes init unavailable.
       if (!ctors.length && !initUnavailable && k === "swift.class") {
@@ -1063,6 +1181,7 @@ export function buildIosSchema(
             returns: sig?.returns?.length
               ? parseType(sig.returns, resolver())
               : parseSchemaType("void"),
+            symbol: graphSymbol(usr),
           };
           const v = since(s);
           if (v) f.since = v;
@@ -1071,6 +1190,7 @@ export function buildIosSchema(
           const c: SdkPropertySchema = {
             name: s.names.title,
             type: parseType(afterColon(s.declarationFragments ?? []), resolver()),
+            symbol: graphSymbol(usr),
           };
           (mod.constants ??= []).push(c);
         }
@@ -1079,26 +1199,39 @@ export function buildIosSchema(
         else throw e;
       }
     }
+    // Swift-only types and members: called through shims.
+    addSwiftDeclarations({
+      module,
+      g,
+      mod,
+      members,
+      kinds: swiftTypeKinds(g, (usr) => bridgedSwiftType(usr) || aliases.has(usr)),
+      resolver: (o) => ({
+        ...resolver(o.self, o.mainActor, o.typeParams),
+        typeArgs: o.typeArgs,
+        associated: o.associated,
+        selfType: o.selfType,
+      }),
+      objcClasses,
+    });
+    dropUndeclared(mod, (ref, arity) => {
+      const [owner, ...rest] = ref.split(".");
+      const name = rest.join(".");
+      if (owner === module) {
+        const t = mod.types.find((x) => x.name === name);
+        return !!t && ((t.kind === "class" && t.typeParams?.length) || 0) === arity;
+      }
+      const t = names.find((n) => n.module === owner)?.types[name];
+      return !!t && (t.typeParams ?? 0) === arity;
+    });
+    keepInheritedNonNull(mod, unaudited);
+    resolveMemberKinds(mod, names);
+
     void byUsr;
     return mod;
   }
 }
 
-/** Which parameters are `@escaping`: the declaration says so, the parameters' own fragments do not. */
-function escapingParams(s: SymbolGraphSymbol): boolean[] {
-  const out: boolean[] = [];
-  for (const f of s.declarationFragments ?? []) {
-    if (f.kind === "externalParam") out.push(false);
-    else if (out.length && f.spelling.includes("@escaping")) out[out.length - 1] = true;
-  }
-  return out;
-}
-
-function withEscaping(type: SchemaType, escaping: boolean | undefined): SchemaType {
-  return escaping && type.k === "fn" && !type.nullable ? { ...type, escaping: true } : type;
-}
-
-/** The getter selector of a property whose Swift name differs from its Objective-C name (`isEnabled`). */
 function getterSelector(swiftName: string, property: string): string {
   // Swift lowercases acronyms (CGImage → cgImage); a longer name is a custom getter (isHidden).
   const [swift, objc] = [swiftName.toLowerCase(), property.toLowerCase()];
@@ -1123,9 +1256,14 @@ function disambiguate(methods: SdkMethodSchema[]): void {
   }
 }
 
+/** Objective-C methods' Swift names (`count(for:)`), for labeling them again. */
+const swiftNames = new WeakMap<SdkMethodSchema, string>();
+
 /** A method's name with its Swift labels appended (`resize(height:)` → `resizeHeight`). */
 function withLabels(m: SdkMethodSchema): string {
-  const { labels } = splitName((m as SdkMethodSchema & { swiftName?: string }).swiftName ?? m.name);
+  const { labels } = splitName(
+    (m as SdkMethodSchema & { swiftName?: string }).swiftName ?? swiftNames.get(m) ?? m.name,
+  );
   return (
     m.name +
     labels
@@ -1140,4 +1278,55 @@ function tsKind(t: string): string {
   if (["bool"].includes(base)) return "boolean";
   if (/^(double|float|CGFloat|NSInteger|NSUInteger|u?int(8|16|32|64))$/.test(base)) return "number";
   return base;
+}
+
+/**
+ * Leaves out the members naming a type the declarations will not have (a
+ * type skipped, or a reference with the wrong number of type arguments): a
+ * member is bound only when every type it names is declared.
+ */
+function dropUndeclared(
+  mod: SdkModuleSchema,
+  declared: (ref: string, arity: number) => boolean,
+): void {
+  const missing = (t: SchemaType) => undeclaredType(t, declared);
+  const typesOf = (m: { params?: SdkParam[]; returns?: SchemaType; type?: SchemaType }) => [
+    ...(m.params ?? []).map((p) => p.type),
+    ...(m.returns ? [m.returns] : []),
+    ...(m.type ? [m.type] : []),
+  ];
+  const keep = <T extends { params?: SdkParam[]; returns?: SchemaType; type?: SchemaType }>(
+    owner: string,
+    list: T[] | undefined,
+    title: (m: T) => string,
+  ): T[] | undefined => {
+    if (!list) return list;
+    const out = list.filter((m) => {
+      const name = typesOf(m).map(missing).find(Boolean);
+      if (name) mod.skipped!.push(`${owner}.${title(m)}: ${undeclaredReason(name)}`);
+      return !name;
+    });
+    return out.length ? out : undefined;
+  };
+  const named = (m: { name?: string; swift?: { name: string }; selector?: string }) =>
+    m.swift?.name ?? m.name ?? m.selector ?? "init";
+  for (const t of mod.types) {
+    if (t.kind !== "class") continue;
+    const set = <K extends "constructors" | "methods" | "properties">(
+      k: K,
+      v: SdkClassSchema[K],
+    ) => {
+      if (v) t[k] = v;
+      else delete t[k];
+    };
+    set("constructors", keep(t.name, t.constructors, named));
+    set("methods", keep(t.name, t.methods, named));
+    set("properties", keep(t.name, t.properties, named));
+  }
+  const functions = keep(mod.module, mod.functions, named);
+  if (functions) mod.functions = functions;
+  else delete mod.functions;
+  const constants = keep(mod.module, mod.constants, named);
+  if (constants) mod.constants = constants;
+  else delete mod.constants;
 }

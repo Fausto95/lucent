@@ -1,4 +1,4 @@
-// Lucent runtime — iOS: the main queue, and releasing objects there.
+// Lucent runtime — iOS: the main queue.
 #include "ios.h"
 
 #import <dispatch/dispatch.h>
@@ -15,17 +15,4 @@ void postToMain(std::function<void()> job) {
 
 bool onMainThread() { return [NSThread isMainThread]; }
 
-namespace objc {
-
-// UIKit objects must be deallocated on the main thread; the last Lucent
-// reference can go on any thread.
-void releaseOnMain(void* retained) {
-  if ([NSThread isMainThread]) {
-    CFRelease(retained);
-    return;
-  }
-  dispatch_async_f(dispatch_get_main_queue(), retained, [](void* p) { CFRelease(p); });
-}
-
-}  // namespace objc
 }  // namespace lucent

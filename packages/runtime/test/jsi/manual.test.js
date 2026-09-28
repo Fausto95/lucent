@@ -104,6 +104,74 @@ throws(
 eq("union number", m.parse("42"), 42);
 eq("union string", m.parse("abc"), "abc");
 
+// A NativeBuffer is an opaque handle: JavaScript is lent copies of its bytes.
+var buffer = m.bufferOf(new Uint8Array([1, 2, 3]));
+eq("buffer size", buffer.byteLength, 3);
+eq("buffer identity", m.bufferEcho(buffer) === buffer, true);
+eq("buffer is no ArrayBuffer", buffer instanceof ArrayBuffer || ArrayBuffer.isView(buffer), false);
+var snapshot = buffer.toUint8Array();
+snapshot[0] = 100;
+eq("buffer snapshot", Array.from(snapshot), [100, 2, 3]);
+eq("buffer after snapshot", m.bufferSum(buffer), 6);
+eq(
+  "buffer read",
+  buffer.withRead(function (bytes) {
+    return bytes[2] * 10 + bytes.length;
+  }),
+  33,
+);
+throws(
+  "buffer write inside a read",
+  function () {
+    buffer.withRead(function () {
+      buffer.withWrite(function () {});
+    });
+  },
+  function (e) {
+    return e.name === "InvalidStateError" && e.message === "NativeBuffer is borrowed";
+  },
+);
+buffer.withWrite(function (bytes) {
+  bytes[0] = 10;
+  bytes.fill(5, 1);
+});
+eq("buffer written", m.bufferSum(buffer), 20);
+var moved = buffer.transfer();
+eq("buffer moved", [buffer.byteLength, moved.byteLength, m.bufferSum(moved)], [0, 3, 20]);
+throws(
+  "buffer used after its transfer",
+  function () {
+    m.bufferSum(buffer);
+  },
+  function (e) {
+    return e.name === "InvalidStateError" && e.message === "NativeBuffer was transferred";
+  },
+);
+moved.close();
+moved.close();
+eq("buffer closed", moved.byteLength, 0);
+throws(
+  "buffer read after close",
+  function () {
+    moved.toUint8Array();
+  },
+  function (e) {
+    return e.name === "InvalidStateError" && e.message === "NativeBuffer is closed";
+  },
+);
+throws(
+  "not a buffer",
+  function () {
+    m.bufferSum(new Uint8Array(2));
+  },
+  function (e) {
+    return (
+      e instanceof TypeError &&
+      e.message === "bufferSum: argument 'buffer' must be a NativeBuffer, got an object"
+    );
+  },
+);
+
 var Counter = lucentClass(m.Counter);
 var c = new Counter(5);
 eq("class method", c.increment(2), 7);
@@ -134,6 +202,61 @@ m.askJs(function () {
   },
   function (e) {
     eq("rejection passes through", e.message, "no");
+  },
+);
+// bigint: exact both ways, within 64 bits and beyond them.
+function eqBig(label, actual, expected) {
+  if (typeof actual === "bigint" && actual === expected) {
+    __passes++;
+  } else {
+    __failures++;
+    print(
+      "FAIL " +
+        label +
+        ": got " +
+        String(actual) +
+        " (" +
+        typeof actual +
+        "), expected " +
+        String(expected),
+    );
+  }
+}
+[
+  0n,
+  1n,
+  -1n,
+  9007199254740993n,
+  2n ** 63n - 1n,
+  -(2n ** 63n),
+  2n ** 63n,
+  2n ** 64n - 1n,
+  2n ** 64n,
+  -(2n ** 64n) - 1n,
+  2n ** 200n + 12345n,
+  -(3n ** 150n),
+].forEach(function (x) {
+  eqBig("bigint round trip " + String(x), m.bigEcho(x), x);
+});
+eqBig("bigint add across 64 bits", m.bigAdd(2n ** 64n - 1n, 1n), 2n ** 64n);
+eqBig("bigint add back within", m.bigAdd(2n ** 64n, -(2n ** 64n) + 5n), 5n);
+eqBig("bigint through int64_t", m.bigInt64(-(2n ** 63n)), -(2n ** 63n));
+throws(
+  "bigint beyond int64_t",
+  function () {
+    m.bigInt64(2n ** 63n);
+  },
+  function (e) {
+    return e instanceof RangeError;
+  },
+);
+throws(
+  "a number is not a bigint",
+  function () {
+    m.bigEcho(1);
+  },
+  function (e) {
+    return e instanceof TypeError && /argument 'x' must be a bigint/.test(e.message);
   },
 );
 setTimeout(function () {

@@ -12,6 +12,11 @@ export const blocks: Block[] = [
         "",
       ],
       [
+        "`BigInt`",
+        "`BigInt(value)` of a number, string, boolean or bigint; `BigInt.asIntN`, `BigInt.asUintN`; `toString(radix)`, `valueOf`.",
+        "No `toLocaleString`.",
+      ],
+      [
         "Globals",
         "`parseInt`, `parseFloat`, `isNaN`, `isFinite`, `String()`, `Number()`, `Boolean()`.",
         "",
@@ -60,7 +65,7 @@ export const blocks: Block[] = [
       [
         "`console`",
         "`log`, `info`, `debug`, `warn`, `error`: to the unified log on iOS, logcat on Android (tag `Lucent`).",
-        "Arguments print as `String(value)`.",
+        "Arguments print as `String(value)`; a bigint with its `n`, as in JavaScript.",
       ],
       [
         "`AbortController`, `AbortSignal`",

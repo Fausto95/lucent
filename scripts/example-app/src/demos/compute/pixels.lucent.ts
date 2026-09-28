@@ -1,0 +1,187 @@
+// An image pipeline in plain TypeScript: draw a picture, blur it, find its
+// edges (Sobel), encode the result as a BMP. Lucent compiles it to C++;
+// scripts/sync-examples.ts also copies it as src/demos/compute/pixels.ts,
+// which the app runs as JavaScript to compare. No lucent:* imports, so the
+// same file is valid in both.
+
+export interface Preview {
+  /** Base64 BMP files, for `data:image/bmp;base64,` URIs. */
+  picture: string;
+  edges: string;
+}
+
+function clamp(v: number): number {
+  return v < 0 ? 0 : v > 255 ? 255 : Math.floor(v);
+}
+
+/** A landscape: a sky gradient, a sun, two hills and a checkered field. RGBA. */
+export function drawPicture(width: number, height: number): Uint8Array {
+  const out = new Uint8Array(width * height * 4);
+
+  const sunX = width * 0.7;
+  const sunY = height * 0.3;
+  const sunR = height * 0.12;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const t = y / height;
+      let r = 40 + 120 * t;
+      let g = 110 + 90 * t;
+      let b = 220 - 40 * t;
+
+      const dx = x - sunX;
+      const dy = y - sunY;
+      if (Math.sqrt(dx * dx + dy * dy) < sunR) {
+        r = 255;
+        g = 214;
+        b = 90;
+      }
+
+      const u = x / width;
+      const hill1 = height * (0.55 + 1.5 * (u - 0.25) * (u - 0.25));
+      const hill2 = height * (0.62 + 2 * (u - 0.8) * (u - 0.8));
+      if (y > hill1 || y > hill2) {
+        r = 60;
+        g = y > hill2 ? 150 : 120;
+        b = 70;
+      }
+
+      if (y > height * 0.82) {
+        const check = (Math.floor(x / 16) + Math.floor(y / 16)) % 2;
+        r = check ? 190 : 150;
+        g = check ? 160 : 120;
+        b = 60;
+      }
+
+      const i = (y * width + x) * 4;
+      out[i] = clamp(r);
+      out[i + 1] = clamp(g);
+      out[i + 2] = clamp(b);
+      out[i + 3] = 255;
+    }
+  }
+
+  return out;
+}
+
+/** Luminance, blurred with a 3×3 box, then the Sobel gradient's magnitude. RGBA. */
+export function findEdges(rgba: Uint8Array, width: number, height: number): Uint8Array {
+  const gray = new Uint8Array(width * height);
+  for (let i = 0; i < width * height; i++) {
+    gray[i] = clamp(0.299 * rgba[i * 4]! + 0.587 * rgba[i * 4 + 1]! + 0.114 * rgba[i * 4 + 2]!);
+  }
+
+  const blurred = new Uint8Array(width * height);
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      let sum = 0;
+      for (let ky = -1; ky <= 1; ky++) {
+        for (let kx = -1; kx <= 1; kx++) sum += gray[(y + ky) * width + x + kx]!;
+      }
+      blurred[y * width + x] = Math.floor(sum / 9);
+    }
+  }
+
+  const out = new Uint8Array(width * height * 4);
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const i = y * width + x;
+      const nw = blurred[i - width - 1]!;
+      const n = blurred[i - width]!;
+      const ne = blurred[i - width + 1]!;
+      const w = blurred[i - 1]!;
+      const e = blurred[i + 1]!;
+      const sw = blurred[i + width - 1]!;
+      const s = blurred[i + width]!;
+      const se = blurred[i + width + 1]!;
+
+      const gx = ne + 2 * e + se - nw - 2 * w - sw;
+      const gy = sw + 2 * s + se - nw - 2 * n - ne;
+      const v = 255 - clamp(Math.sqrt(gx * gx + gy * gy));
+
+      out[i * 4] = v;
+      out[i * 4 + 1] = v;
+      out[i * 4 + 2] = v;
+      out[i * 4 + 3] = 255;
+    }
+  }
+
+  return out;
+}
+
+/** A 32-bit FNV-1a hash, to tell two results apart. */
+export function checksum(bytes: Uint8Array): number {
+  let h = 2166136261;
+  for (let i = 0; i < bytes.length; i++) {
+    h ^= bytes[i]!;
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h;
+}
+
+/** What the demo times: the picture drawn and filtered, as a checksum. */
+export function run(size: number): number {
+  return checksum(findEdges(drawPicture(size, size), size, size));
+}
+
+const BASE64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+function base64(bytes: Uint8Array): string {
+  const parts: string[] = [];
+  for (let i = 0; i < bytes.length; i += 3) {
+    const a = bytes[i]!;
+    const b = i + 1 < bytes.length ? bytes[i + 1]! : 0;
+    const c = i + 2 < bytes.length ? bytes[i + 2]! : 0;
+    const n = (a << 16) | (b << 8) | c;
+    parts.push(
+      BASE64[(n >> 18) & 63]! +
+        BASE64[(n >> 12) & 63]! +
+        (i + 1 < bytes.length ? BASE64[(n >> 6) & 63]! : "=") +
+        (i + 2 < bytes.length ? BASE64[n & 63]! : "="),
+    );
+  }
+  return parts.join("");
+}
+
+/** A 24-bit, top-down BMP file of an RGBA image, in base64. */
+export function bmp(rgba: Uint8Array, width: number, height: number): string {
+  const row = Math.ceil((width * 3) / 4) * 4;
+  const size = 54 + row * height;
+  const out = new Uint8Array(size);
+
+  const u32 = (at: number, n: number) => {
+    for (let i = 0; i < 4; i++) out[at + i] = (n >>> (8 * i)) & 255;
+  };
+
+  out[0] = 66;
+  out[1] = 77;
+  u32(2, size);
+  u32(10, 54);
+  u32(14, 40);
+  u32(18, width);
+  u32(22, -height);
+  out[26] = 1;
+  out[28] = 24;
+  u32(34, row * height);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const from = (y * width + x) * 4;
+      const to = 54 + y * row + x * 3;
+      out[to] = rgba[from + 2]!;
+      out[to + 1] = rgba[from + 1]!;
+      out[to + 2] = rgba[from]!;
+    }
+  }
+
+  return base64(out);
+}
+
+/** The picture and its edges, as the screen shows them. */
+export function preview(size: number): Preview {
+  const picture = drawPicture(size, size);
+  return {
+    picture: bmp(picture, size, size),
+    edges: bmp(findEdges(picture, size, size), size, size),
+  };
+}

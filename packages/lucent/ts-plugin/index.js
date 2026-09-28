@@ -37,7 +37,11 @@ function createPlugin(loadCompiler) {
               : undefined;
             return snap ? snap.getText(0, snap.getLength()) : undefined;
           };
-          for (const d of compiler.checkSources(files, readSource)) {
+          // Bound again each check: headers (and packages) change too; unchanged ones are read once.
+          const extensions = compiler.projectExtensions(
+            info.languageServiceHost.getCurrentDirectory(),
+          );
+          for (const d of compiler.checkSources(files, readSource, { extensions })) {
             if (d.code === TYPESCRIPT_PASSTHROUGH || !d.file) continue;
             const list = byFile.get(d.file) || [];
             list.push(d);
@@ -70,7 +74,10 @@ function createPlugin(loadCompiler) {
             ]
               .filter(Boolean)
               .join("\n"),
-            category: ts.DiagnosticCategory.Error,
+            category:
+              d.severity === "warning"
+                ? ts.DiagnosticCategory.Warning
+                : ts.DiagnosticCategory.Error,
             code: Number(d.code.replace(/^LUCENT/, "")),
             source: "lucent",
           }));

@@ -385,8 +385,6 @@ class Array {
   }
 
   const void* identity() const { return d_.get(); }
-  friend bool strictEquals(const Array& a, const Array& b) { return a.d_ == b.d_; }
-  friend String toJsString(const Array& a) { return a.join(); }
 
   /// Raw storage, for the JSI boundary and for-of loops.
   const std::vector<Elem>& items() const { return *d_; }
@@ -420,6 +418,18 @@ class Array {
 
   std::shared_ptr<std::vector<Elem>> d_;
 };
+
+/// String(array): its elements joined with ",".
+template <class T>
+String toJsString(const Array<T>& a) {
+  return a.join();
+}
+
+/// `===`: the same array.
+template <class T>
+bool strictEquals(const Array<T>& a, const Array<T>& b) {
+  return a.identity() == b.identity();
+}
 
 template <class T>
 struct IsArray : std::false_type {};

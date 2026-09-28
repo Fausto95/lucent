@@ -99,19 +99,19 @@ a normal build does not run clang or read the jar.
 
 ### Type mapping
 
-| ObjC                                      | Java                                  | Lucent (TypeScript)                                      | Crossing                                               |
-| ----------------------------------------- | ------------------------------------- | -------------------------------------------------------- | ------------------------------------------------------ |
-| `BOOL`, `NSInteger`, `double`, …          | `boolean`, `int`, `long`, `double`, … | `boolean` / `number`                                     | value; `long`/`NSInteger` outside ±2^53 → `RangeError` |
-| `NSString *`                              | `String`                              | `string`                                                 | copied (UTF-16 both ways)                              |
-| `NSData *`                                | `byte[]`                              | `Uint8Array`                                             | copied                                                 |
-| `NSArray<T> *`                            | `T[]`, `List<T>`                      | `T[]`                                                    | copied                                                 |
-| `NSDictionary<NSString*, T> *`            | `Map<String, T>`                      | `Record<string, T>`                                      | copied                                                 |
-| any other object                          | any other object                      | opaque platform class                                    | reference (ObjC strong ref / JNI global ref)           |
-| `_Nullable T`                             | `@Nullable T`                         | `T \| null`                                              | `nil` / `null` ↔ `null`                                |
-| `NS_ENUM` / `NS_OPTIONS`                  | `@IntDef` groups                      | `const enum`-like namespace of numbers                   | value                                                  |
-| `NSError **` out parameter                | checked exception                     | method throws `Error` (`name` = domain or class, `code`) | —                                                      |
-| completion handler `^(T, NSError *)` last | —                                     | `Promise<T>`                                             | resolved on the Lucent thread                          |
-| other blocks                              | functional interfaces                 | `(…) => R`                                               | Lucent closure wrapped as block / proxy                |
+| ObjC                                      | Java                                  | Lucent (TypeScript)                                      | Crossing                                              |
+| ----------------------------------------- | ------------------------------------- | -------------------------------------------------------- | ----------------------------------------------------- |
+| `BOOL`, `NSInteger`, `double`, …          | `boolean`, `int`, `long`, `double`, … | `boolean` / `number`; 64-bit integers `bigint`           | value; a bigint beyond the native type → `RangeError` |
+| `NSString *`                              | `String`                              | `string`                                                 | copied (UTF-16 both ways)                             |
+| `NSData *`                                | `byte[]`                              | `Uint8Array`                                             | copied                                                |
+| `NSArray<T> *`                            | `T[]`, `List<T>`                      | `T[]`                                                    | copied                                                |
+| `NSDictionary<NSString*, T> *`            | `Map<String, T>`                      | `Record<string, T>`                                      | copied                                                |
+| any other object                          | any other object                      | opaque platform class                                    | reference (ObjC strong ref / JNI global ref)          |
+| `_Nullable T`                             | `@Nullable T`                         | `T \| null`                                              | `nil` / `null` ↔ `null`                               |
+| `NS_ENUM` / `NS_OPTIONS`                  | `@IntDef` groups                      | `const enum`-like namespace of numbers                   | value                                                 |
+| `NSError **` out parameter                | checked exception                     | method throws `Error` (`name` = domain or class, `code`) | —                                                     |
+| completion handler `^(T, NSError *)` last | —                                     | `Promise<T>`                                             | resolved on the Lucent thread                         |
+| other blocks                              | functional interfaces                 | `(…) => R`                                               | Lucent closure wrapped as block / proxy               |
 
 Unannotated (`null_unspecified` / no annotation) references are typed
 `T | null`: safe by default, and `!` documents the assumption.

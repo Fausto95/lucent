@@ -37,6 +37,8 @@ public class Widget implements Shape {
 
   public static class Config {
     public static final long TIMEOUT = 30L;
+    /** Beyond what a number holds exactly: a bigint, exactly. */
+    public static final long NEVER = Long.MAX_VALUE;
     public Config() {}
   }
 

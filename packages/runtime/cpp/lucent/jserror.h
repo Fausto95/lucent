@@ -26,6 +26,13 @@ struct ErrorObject : Object {
 };
 using Error = Ref<ErrorObject>;
 
+/// What a `using` declaration throws when disposing fails while an error is
+/// pending: JavaScript's SuppressedError, with both.
+struct SuppressedErrorObject : ErrorObject {
+  Error error;
+  Error suppressed;
+};
+
 Error makeError(const String& name, const String& message);
 inline Error makeError(const String& message) { return makeError(String::fromLatin1("Error"), message); }
 
@@ -62,5 +69,9 @@ template <class T = void>
 Error currentError(std::exception_ptr ex);
 
 String errorToString(const Error& e);
+
+/// A SuppressedError of `error` (thrown while disposing) and `suppressed` (the
+/// error pending then), as an exception to rethrow.
+std::exception_ptr suppressedError(std::exception_ptr error, std::exception_ptr suppressed);
 
 }  // namespace lucent

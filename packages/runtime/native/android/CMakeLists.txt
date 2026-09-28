@@ -48,4 +48,7 @@ target_compile_options(lucentnative PRIVATE
   $<$<COMPILE_LANGUAGE:CXX>:-Wno-comma>
 )
 
-target_link_libraries(lucentnative jsi reactnative fbjni log lucentregexp)
+target_link_libraries(lucentnative jsi reactnative fbjni log android lucentregexp)
+
+# Lucent packages' C and C++ sources, when any (written by lucent build).
+include(${CMAKE_CURRENT_LIST_DIR}/packages.cmake OPTIONAL)

@@ -2,18 +2,14 @@ import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "@lucent-lang/compiler";
+import { bin, runLucent } from "./run-to-exit.ts";
 
 const android = sdkAvailable("android");
-const bin = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../bin/lucent.cjs");
 
 function lucent(root: string, ...args: string[]) {
-  const r = spawnSync(process.execPath, [bin, ...args, "--root", root], {
-    encoding: "utf8",
-    env: { ...process.env, NO_COLOR: "1" },
-  });
+  const r = runLucent([...args, "--root", root], { env: { ...process.env, NO_COLOR: "1" } });
   return { status: r.status, out: r.stdout + r.stderr, stdout: r.stdout };
 }
 
@@ -29,8 +25,8 @@ describe("lucent build", () => {
     const r = lucent(root, "build");
     expect(r.status).toBe(0);
     expect(r.out).toMatch(/^◆ lucent \d+\.\d+\.\d+\n\n/);
-    expect(r.out).toMatch(/✓ Checked 1 module +\d+ ms\n/);
-    expect(r.out).toMatch(/✓ Generated C\+\+ +1 changed +\d+ ms\n/);
+    expect(r.out).toMatch(/✓ Checked 1 module +(\d+ ms|\d+\.\d s)\n/);
+    expect(r.out).toMatch(/✓ Generated C\+\+ +1 changed +(\d+ ms|\d+\.\d s)\n/);
     expect(r.out).toMatch(/✓ Native package +\.lucent\/native\n/);
     expect(r.out).toMatch(/\nmodules +a +shared\n/);
     expect(r.out).toMatch(/\nnext +rebuild the app \(iOS: pod install first\)\n/);
@@ -127,7 +123,11 @@ describe("Lucent packages' native needs", () => {
       JSON.stringify({
         ios: {
           pods: { LucentAuthKit: "~> 1.0" },
-          infoPlist: { NSFaceIDUsageDescription: "Unlock" },
+          infoPlist: { NSFaceIDUsageDescription: "Unlock", UIBackgroundModes: ["audio", "fetch"] },
+          entitlements: {
+            "com.apple.developer.healthkit": true,
+            "keychain-access-groups": ["$(AppIdentifierPrefix)dev.orbit"],
+          },
         },
         android: { dependencies: { "androidx.biometric:biometric": "1.1.0" } },
       }),
@@ -139,18 +139,37 @@ describe("Lucent packages' native needs", () => {
     fs.mkdirSync(path.join(root, "ios/App"), { recursive: true });
     fs.writeFileSync(
       path.join(root, "ios/App/Info.plist"),
-      '<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleName</key><string>App</string></dict></plist>\n',
+      '<?xml version="1.0"?><plist version="1.0"><dict><key>CFBundleName</key><string>App</string><key>UIBackgroundModes</key><array><string>fetch</string></array></dict></plist>\n',
+    );
+    fs.writeFileSync(
+      path.join(root, "ios/App/App.entitlements"),
+      '<?xml version="1.0"?><plist version="1.0"><dict><key>com.apple.developer.healthkit</key><true/></dict></plist>\n',
     );
     const r = lucent(root, "build");
     expect(r.status).toBe(0);
     expect(
       fs.readFileSync(path.join(root, ".lucent/native/LucentNative.podspec"), "utf8"),
     ).toContain('s.dependency "LucentAuthKit", "~> 1.0"');
+    // Entitlements too, in the app's entitlements file.
+    expect(r.out).toMatch(
+      /lucent-auth needs keychain-access-groups in ios\/App\/App\.entitlements/,
+    );
+    expect(r.out).not.toMatch(/healthkit in ios/);
     expect(
       fs.readFileSync(path.join(root, ".lucent/native/android/build.gradle"), "utf8"),
     ).toContain('api("androidx.biometric:biometric:1.1.0")');
     // The app's files are not edited: the build says what to add.
     expect(r.out).toMatch(/lucent-auth needs NSFaceIDUsageDescription in ios\/App\/Info\.plist/);
+    // An array names the values it lacks.
+    expect(r.out).toMatch(
+      /lucent-auth needs "audio" in UIBackgroundModes in ios\/App\/Info\.plist/,
+    );
+    expect(r.out).not.toMatch(/"fetch" in UIBackgroundModes/);
+    // What the packages contribute, and from which package, is recorded.
+    const resolved = JSON.parse(
+      fs.readFileSync(path.join(root, ".lucent/native/resolved.json"), "utf8"),
+    );
+    expect(resolved.ios.pods).toEqual({ LucentAuthKit: { "~> 1.0": ["lucent-auth"] } });
     // lucent.json changes rebuild.
     fs.writeFileSync(
       path.join(pkg, "lucent.json"),
@@ -170,8 +189,7 @@ describe("lucent sdk coverage", () => {
       const root = project();
       const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-"));
       const run = (...args: string[]) =>
-        spawnSync(process.execPath, [bin, "sdk", "coverage", ...args, "--root", root], {
-          encoding: "utf8",
+        runLucent(["sdk", "coverage", ...args, "--root", root], {
           env: { ...process.env, LUCENT_CACHE_DIR: cache },
         });
       const r = run("--android", "android.os", "--json");
@@ -206,6 +224,87 @@ describe("lucent sdk coverage", () => {
       }[];
       expect(all.length).toBeGreaterThan(3);
       expect(all.every((c) => c.module.startsWith("android.os."))).toBe(true);
+    },
+  );
+});
+
+describe("lucent sdk coverage of SwiftUI", () => {
+  const ios = process.platform === "darwin" && sdkAvailable("ios");
+
+  it.skipIf(!ios)(
+    "reports lucent:swiftui, written as source, beside the SwiftUI module when views are on",
+    () => {
+      const root = project();
+      const run = (views: boolean) => {
+        const env = { ...process.env };
+        delete env.LUCENT_VIEWS;
+        if (views) env.LUCENT_VIEWS = "fabric";
+
+        // Extracting SwiftUI's declarations takes minutes on a cold cache.
+        const r = runLucent(["sdk", "coverage", "--ios", "SwiftUI", "--json", "--root", root], {
+          env,
+          timeout: 600_000,
+        });
+        expect(r.status, r.stderr).toBe(0);
+
+        return JSON.parse(r.stdout) as { module: string; reasons: Record<string, number> }[];
+      };
+
+      const on = run(true);
+      expect(on.map((c) => c.module)).toEqual(["SwiftUI", "lucent:swiftui"]);
+      // A refused constraint is named after the reason.
+      expect(Object.keys(on[1]!.reasons)).toContainEqual(
+        expect.stringMatching(/^generic constraints the call form cannot write yet \(/),
+      );
+
+      // lucent:swiftui is internal: without the switch, only the SDK module.
+      expect(run(false).map((c) => c.module)).toEqual(["SwiftUI"]);
+    },
+    600_000,
+  );
+});
+
+describe("lucent sdk and Compose's bindings", () => {
+  const sdk = (root: string, env: NodeJS.ProcessEnv, ...args: string[]) =>
+    runLucent(["sdk", ...args, "--root", root], {
+      env: {
+        ...Object.fromEntries(Object.entries(process.env).filter(([k]) => k !== "LUCENT_VIEWS")),
+        ...env,
+      },
+    });
+
+  it.skipIf(!android)(
+    "report and show Compose's modules, which Lucent ships, when views are on",
+    () => {
+      const root = project();
+      const views = { LUCENT_VIEWS: "fabric" };
+
+      const r = sdk(root, views, "coverage", "--android", "androidx.compose.*", "--json");
+      expect(r.status).toBe(0);
+
+      const reports = JSON.parse(r.stdout) as {
+        module: string;
+        raw: number;
+        total: number;
+        reasons: Record<string, number>;
+      }[];
+      const layout = reports.find((c) => c.module === "androidx.compose.foundation.layout");
+      expect(layout?.raw).toBeGreaterThan(50);
+      // Scope members are written through their lambda's receiver: none is refused for its scope.
+      expect(Object.keys(layout!.reasons)).not.toContainEqual(
+        expect.stringMatching(/^it runs in (Row|Column|Box)Scope, the receiver of a lambda/),
+      );
+      expect(reports.every((c) => c.module.startsWith("androidx.compose."))).toBe(true);
+
+      // Declared as lucent:compose declares them.
+      const box = sdk(root, views, "show", "androidx.compose.foundation.layout.Box");
+      expect(box.status).toBe(0);
+      expect(box.stdout).toContain("// lucent:compose");
+      expect(box.stdout).toContain("export declare function Box(args: {");
+
+      // Without views, Compose is no SDK module of Lucent's.
+      const off = sdk(root, {}, "coverage", "--android", "androidx.compose.*", "--json");
+      expect(JSON.parse(off.stdout)).toEqual([]);
     },
   );
 });
@@ -251,10 +350,7 @@ describe("lucent init", () => {
 
 describe.skipIf(!android)("lucent sdk prefetch", () => {
   const run = (root: string, env: Record<string, string>, ...args: string[]) => {
-    const r = spawnSync(process.execPath, [bin, ...args, "--root", root], {
-      encoding: "utf8",
-      env: { ...process.env, ...env },
-    });
+    const r = runLucent([...args, "--root", root], { env: { ...process.env, ...env } });
     return { status: r.status, out: r.stdout + r.stderr };
   };
 
@@ -270,8 +366,10 @@ describe.skipIf(!android)("lucent sdk prefetch", () => {
     );
     expect(r.out).toMatch(/android\.os/);
     expect(r.status).toBe(0);
+    // The package's schema, under the SDK's directory and its own.
     const [key] = fs.readdirSync(path.join(cache, "sdk/android"));
-    expect(fs.existsSync(path.join(cache, "sdk/android", key!, "android.os.json"))).toBe(true);
+    const entries = fs.readdirSync(path.join(cache, "sdk/android", key!, "android.os"));
+    expect(entries.filter((f) => /^[0-9a-f]+\.json$/.test(f))).toHaveLength(1);
   });
 
   it("reports each module, extracted with its time or cached, then a summary", () => {
@@ -398,17 +496,12 @@ describe("the app's Android dependencies", () => {
         `#!/bin/sh\necho "$@" > ${path.join(root, "gradle-args")}\nmkdir -p ${path.join(root, ".lucent")}\necho '{"jars":["${jar}"],"aars":[]}' > ${path.join(root, ".lucent/android-classpath.json")}\n`,
         { mode: 0o755 },
       );
-      const r = spawnSync(
-        process.execPath,
-        [bin, "build", "--platforms", "android", "--root", root],
-        {
-          encoding: "utf8",
-          env: {
-            ...process.env,
-            LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")),
-          },
+      const r = runLucent(["build", "--platforms", "android", "--root", root], {
+        env: {
+          ...process.env,
+          LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")),
         },
-      );
+      });
       expect(r.stdout + r.stderr).toMatch(/✓ Android dependencies +resolved with Gradle/);
       // The task comes from an init script Lucent ships: nothing in the app applies it.
       const args = fs.readFileSync(path.join(root, "gradle-args"), "utf8").trim().split(/\s+/);
@@ -420,7 +513,12 @@ describe("the app's Android dependencies", () => {
     },
   );
 
-  /** An app with an Android import no dependency has, and a gradlew that counts its runs. */
+  /**
+   * An app with an Android import no dependency has, and a gradlew that
+   * counts its runs. Like React Native's settings plugin, each run reads
+   * the app's autolinking config, and caches it until the lockfile
+   * changes: it links the native package when autolinking can resolve it.
+   */
   function gradleApp(exitCode = 0) {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-"));
     fs.writeFileSync(
@@ -444,21 +542,131 @@ describe("the app's Android dependencies", () => {
     );
     fs.writeFileSync(path.join(root, "android/gradle/libs.versions.toml"), "[versions]\n");
     const runs = path.join(root, "gradle-runs");
+    const links = path.join(root, "android/build/generated/autolinking");
+    const pkg = path.join(root, ".lucent/native");
+    // What React Native's CLI reads to resolve the package's Android side.
+    const resolvable = [
+      "react-native.config.js",
+      "package.json",
+      "android/build.gradle",
+      "android/src/main/java/dev/lucent/LucentPackage.java",
+    ]
+      .map((f) => `[ -f ${path.join(pkg, f)} ]`)
+      .join(" && ");
     fs.writeFileSync(
       path.join(root, "android/gradlew"),
-      `#!/bin/sh\necho run >> ${runs}\nmkdir -p ${path.join(root, ".lucent")}\necho '{"jars":[],"aars":[]}' > ${path.join(root, ".lucent/android-classpath.json")}\nexit ${exitCode}\n`,
+      [
+        "#!/bin/sh",
+        `echo run >> ${runs}`,
+        `mkdir -p ${links}`,
+        `sum=$(cksum < ${path.join(root, "package-lock.json")})`,
+        `if [ ! -s ${links}/autolinking.json ] || [ "$(cat ${links}/package-lock.json.sha 2>/dev/null)" != "$sum" ]; then`,
+        `  if ${resolvable}; then echo '{"dependencies":{"lucent":{}}}'; else echo '{"dependencies":{}}'; fi > ${links}/autolinking.json`,
+        `  echo "$sum" > ${links}/package-lock.json.sha`,
+        "fi",
+        `mkdir -p ${path.join(root, ".lucent")}`,
+        `echo '{"jars":[],"aars":[]}' > ${path.join(root, ".lucent/android-classpath.json")}`,
+        `exit ${exitCode}`,
+        "",
+      ].join("\n"),
       { mode: 0o755 },
     );
     const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-"));
-    const build = () =>
-      spawnSync(process.execPath, [bin, "build", "--platforms", "android", "--root", root], {
-        encoding: "utf8",
-        env: { ...process.env, LUCENT_CACHE_DIR: cache },
+    const build = (env: Record<string, string> = {}) =>
+      runLucent(["build", "--platforms", "android", "--root", root], {
+        env: { ...process.env, LUCENT_CACHE_DIR: cache, NO_COLOR: "1", ...env },
       });
     const count = () =>
       fs.existsSync(runs) ? fs.readFileSync(runs, "utf8").trim().split("\n").length : 0;
-    return { root, build, count, cache };
+    // The app's own Gradle build (./gradlew assembleRelease, an IDE sync).
+    const gradle = () =>
+      spawnSync(path.join(root, "android/gradlew"), [], { cwd: path.join(root, "android") });
+    const linked = () =>
+      "lucent" in
+      (
+        JSON.parse(fs.readFileSync(path.join(links, "autolinking.json"), "utf8")) as {
+          dependencies: Record<string, unknown>;
+        }
+      ).dependencies;
+    return { root, build, count, cache, gradle, linked };
   }
+
+  it.skipIf(!android)(
+    "links the native package in the first Gradle build of a fresh checkout",
+    () => {
+      const app = gradleApp();
+
+      // lucent build resolves the classpath with Gradle, then the app is built.
+      app.build();
+      app.gradle();
+
+      expect(app.linked()).toBe(true);
+    },
+  );
+
+  it.skipIf(!android)(
+    "has Gradle read the autolinking config again once the native package exists",
+    () => {
+      const app = gradleApp();
+
+      // A Gradle run before the first lucent build (an IDE sync) caches the config without it.
+      app.gradle();
+      expect(app.linked()).toBe(false);
+
+      app.build();
+      app.gradle();
+
+      expect(app.linked()).toBe(true);
+    },
+  );
+
+  it.skipIf(!android)(
+    "has Gradle read the autolinking config again when a build rewrites the package's",
+    () => {
+      const app = gradleApp();
+      const config = path.join(app.root, ".lucent/native/react-native.config.js");
+      const links = path.join(app.root, "android/build/generated/autolinking");
+
+      // A module that compiles, so the build writes the whole package.
+      fs.writeFileSync(
+        path.join(app.root, "m.android.lucent.ts"),
+        'export async function f(): Promise<string> {\n  return "";\n}\n',
+      );
+      app.build();
+      // As an older build wrote it (components registered through autolinking change it).
+      fs.writeFileSync(config, `${fs.readFileSync(config, "utf8")}// older\n`);
+      app.gradle();
+      expect(fs.readdirSync(links).some((f) => f.endsWith(".sha"))).toBe(true);
+
+      runLucent(["build", "--force", "--platforms", "android", "--root", app.root], {
+        env: { ...process.env, LUCENT_CACHE_DIR: app.cache, NO_COLOR: "1" },
+      });
+
+      expect(fs.readFileSync(config, "utf8")).not.toMatch(/older/);
+      expect(fs.readdirSync(links).some((f) => f.endsWith(".sha"))).toBe(false);
+    },
+  );
+
+  it.skipIf(!android)(
+    "fails the Gradle build that read the autolinking config before the native package existed",
+    () => {
+      const app = gradleApp();
+
+      // The app's first build runs lucent build (its lucentBuild task) after reading the config.
+      app.gradle();
+      const first = app.build({ LUCENT_GRADLE_CLASSPATH: "1" });
+
+      expect(first.status).toBe(1);
+      expect(first.stdout + first.stderr).toMatch(/build again/);
+
+      // The next build links it, and builds it.
+      app.gradle();
+      const next = app.build({ LUCENT_GRADLE_CLASSPATH: "1" });
+
+      expect(app.linked()).toBe(true);
+      expect(next.stdout + next.stderr).not.toMatch(/build again/);
+    },
+  );
 
   it.skipIf(!android)(
     "does not run Gradle again when Gradle runs the build (the app's lucentBuild task)",
@@ -469,19 +677,14 @@ describe("the app's Android dependencies", () => {
         path.join(app.root, ".lucent/android-classpath.json"),
         '{"jars":[],"aars":[]}\n',
       );
-      const r = spawnSync(
-        process.execPath,
-        [bin, "build", "--platforms", "android", "--root", app.root],
-        {
-          encoding: "utf8",
-          env: {
-            ...process.env,
-            LUCENT_CACHE_DIR: app.cache,
-            LUCENT_GRADLE_CLASSPATH: "1",
-            NO_COLOR: "1",
-          },
+      const r = runLucent(["build", "--platforms", "android", "--root", app.root], {
+        env: {
+          ...process.env,
+          LUCENT_CACHE_DIR: app.cache,
+          LUCENT_GRADLE_CLASSPATH: "1",
+          NO_COLOR: "1",
         },
-      );
+      });
       expect(app.count()).toBe(0);
       expect(r.stdout + r.stderr).not.toMatch(/resolved with Gradle/);
     },
@@ -491,8 +694,7 @@ describe("the app's Android dependencies", () => {
     "does not run Gradle during expo prebuild, and leaves Android to the Gradle build until the classpath exists",
     () => {
       const app = gradleApp();
-      const r = spawnSync(process.execPath, [bin, "build", "--root", app.root], {
-        encoding: "utf8",
+      const r = runLucent(["build", "--root", app.root], {
         env: { ...process.env, LUCENT_CACHE_DIR: app.cache, LUCENT_NO_GRADLE: "1", NO_COLOR: "1" },
       });
       expect(app.count()).toBe(0);
@@ -501,6 +703,87 @@ describe("the app's Android dependencies", () => {
       expect(fs.existsSync(path.join(app.root, ".lucent/native/cpp/generated/ios/m_m.mm"))).toBe(
         true,
       );
+    },
+  );
+
+  it.skipIf(!android || !sdkAvailable("ios"))(
+    "builds iOS during expo prebuild when a shared module's Android branch needs the app's dependencies",
+    () => {
+      const app = gradleApp();
+
+      // One module for both platforms: its Android branch imports a library of the app's.
+      fs.rmSync(path.join(app.root, "m.android.lucent.ts"));
+      fs.rmSync(path.join(app.root, "m.ios.lucent.ts"));
+      fs.writeFileSync(
+        path.join(app.root, "m.lucent.ts"),
+        [
+          'import { PLATFORM } from "lucent:platform";',
+          'import { Nope } from "lucent:android/com.example.nope";',
+          "export async function f(): Promise<string> {",
+          '  if (PLATFORM === "android") return `${Nope.hello()}`;',
+          '  return "ios";',
+          "}",
+          "",
+        ].join("\n"),
+      );
+      const build = (env: Record<string, string>) =>
+        runLucent(["build", "--root", app.root], {
+          env: { ...process.env, LUCENT_CACHE_DIR: app.cache, NO_COLOR: "1", ...env },
+        });
+
+      // expo prebuild: the classpath is resolved later, by the Gradle build.
+      const prebuild = build({ LUCENT_NO_GRADLE: "1" });
+
+      expect(prebuild.stdout + prebuild.stderr).not.toMatch(/LUCENT3004/);
+      expect(prebuild.stdout + prebuild.stderr).toMatch(/skipped Android.*lucentBuild/);
+      expect(prebuild.status).toBe(0);
+      expect(app.count()).toBe(0);
+      expect(fs.existsSync(path.join(app.root, ".lucent/native/cpp/generated/ios/m_m.cpp"))).toBe(
+        true,
+      );
+
+      // The Gradle build's lucentBuild, with the classpath resolved: the import is missing
+      // from it, and that is an error, not a skipped platform.
+      app.gradle();
+      const gradle = build({ LUCENT_GRADLE_CLASSPATH: "1" });
+
+      expect(gradle.status).toBe(1);
+      expect(gradle.stdout + gradle.stderr).toMatch(
+        /LUCENT3004[\s\S]*lucent:android\/com\.example\.nope was not found/,
+      );
+    },
+  );
+
+  it.skipIf(!android || !sdkAvailable("ios"))(
+    "configures the Android library after expo prebuild so the first Gradle build builds it",
+    () => {
+      const app = gradleApp();
+      fs.writeFileSync(
+        path.join(app.root, "m.android.lucent.ts"),
+        'import { Build } from "lucent:android/android.os";\nexport async function f(): Promise<string> { return Build.MODEL ?? ""; }\n',
+      );
+      const libraryGradle = path.join(app.root, ".lucent/native/android/build.gradle");
+      const build = (env: Record<string, string>) =>
+        runLucent(["build", "--root", app.root], {
+          env: { ...process.env, LUCENT_CACHE_DIR: app.cache, NO_COLOR: "1", ...env },
+        });
+
+      // Before Android is built, whether it needs Kotlin shims is unknown: the library is
+      // configured for them.
+      expect(build({ LUCENT_NO_GRADLE: "1" }).status).toBe(0);
+      expect(fs.readFileSync(libraryGradle, "utf8")).toMatch(/org\.jetbrains\.kotlin\.android/);
+
+      // The Gradle build configured it so: its lucentBuild builds Android without asking for
+      // another build, and leaves the library as Android needs it for the next one.
+      app.gradle();
+      const first = build({ LUCENT_GRADLE_CLASSPATH: "1" });
+
+      expect(first.stdout + first.stderr).not.toMatch(/build again/);
+      expect(first.status).toBe(0);
+      expect(
+        fs.existsSync(path.join(app.root, ".lucent/native/cpp/generated/android/m_m.cpp")),
+      ).toBe(true);
+      expect(fs.readFileSync(libraryGradle, "utf8")).not.toMatch(/kotlin/);
     },
   );
 
@@ -527,19 +810,14 @@ describe("the app's Android dependencies", () => {
 
   it("does not run Gradle for a host build, which needs no SDK", () => {
     const app = gradleApp();
-    const r = spawnSync(
-      process.execPath,
-      [bin, "build", "--platforms", "host", "--root", app.root],
-      {
-        encoding: "utf8",
-        env: {
-          ...process.env,
-          LUCENT_CACHE_DIR: app.cache,
-          LUCENT_ANDROID_PLATFORM: "nope",
-          LUCENT_XCRUN: "/nonexistent",
-        },
+    const r = runLucent(["build", "--platforms", "host", "--root", app.root], {
+      env: {
+        ...process.env,
+        LUCENT_CACHE_DIR: app.cache,
+        LUCENT_ANDROID_PLATFORM: "nope",
+        LUCENT_XCRUN: "/nonexistent",
       },
-    );
+    });
     expect(r.stdout + r.stderr).not.toMatch(/resolved with Gradle/);
     expect(app.count()).toBe(0);
     expect(r.status).toBe(0);
@@ -562,11 +840,9 @@ describe("the app's Android dependencies", () => {
     // A failure that was not the build files' (a stopped daemon, the network): --force retries.
     const again = app.build();
     expect(again.stdout + again.stderr).toMatch(/--force/);
-    spawnSync(
-      process.execPath,
-      [bin, "build", "--force", "--platforms", "android", "--root", app.root],
-      { encoding: "utf8", env: { ...process.env, LUCENT_CACHE_DIR: app.cache } },
-    );
+    runLucent(["build", "--force", "--platforms", "android", "--root", app.root], {
+      env: { ...process.env, LUCENT_CACHE_DIR: app.cache },
+    });
     expect(app.count()).toBe(3);
   });
 
@@ -616,10 +892,7 @@ describe("lucent check", () => {
   it("prints the same plain output with NO_COLOR, in CI, and on a dumb terminal", () => {
     const root = broken();
     const outs = [{ NO_COLOR: "1" }, { CI: "1" }, { TERM: "dumb", NO_COLOR: "" }].map((env) => {
-      const r = spawnSync(process.execPath, [bin, "check", "--root", root], {
-        encoding: "utf8",
-        env: { ...process.env, ...env },
-      });
+      const r = runLucent(["check", "--root", root], { env: { ...process.env, ...env } });
       return stable(r.stdout + r.stderr);
     });
     expect(outs[1]).toBe(outs[0]);

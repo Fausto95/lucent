@@ -2,7 +2,19 @@
   "$id": "https://lucent-lang.dev/schemas/build.schema.json",
   "title": "lucent build --json",
   "type": "object",
-  "required": ["ok", "upToDate", "out", "modules", "steps", "diagnostics", "notices", "next", "ms"],
+  "required": [
+    "ok",
+    "upToDate",
+    "out",
+    "modules",
+    "steps",
+    "diagnostics",
+    "warnings",
+    "notices",
+    "next",
+    "actions",
+    "ms"
+  ],
   "additionalProperties": false,
   "properties": {
     "ok": {
@@ -105,9 +117,64 @@
           "docs": {
             "type": "string",
             "description": "Where the code is explained"
+          },
+          "severity": {
+            "const": "warning",
+            "description": "Present on warnings only"
           }
         }
       }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^LUCENT\\d{4}$",
+            "description": "Stable code; lucent explain <code> describes it"
+          },
+          "message": {
+            "type": "string"
+          },
+          "file": {
+            "type": "string",
+            "description": "Relative to the project root"
+          },
+          "line": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "column": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Offset of the span in the file"
+          },
+          "length": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "fix": {
+            "type": "string",
+            "description": "How to fix it, in one line"
+          },
+          "docs": {
+            "type": "string",
+            "description": "Where the code is explained"
+          },
+          "severity": {
+            "const": "warning",
+            "description": "Present on warnings only"
+          }
+        }
+      },
+      "description": "Warnings: reported, but the build goes on"
     },
     "notices": {
       "type": "array",
@@ -141,6 +208,34 @@
         "reload": {
           "type": "boolean",
           "description": "Only the JavaScript proxies changed: reloading the app is enough"
+        }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "description": "Every action the build's changes need, strongest first, each with the targets and the native-package files that need it. Empty when nothing changed.",
+      "items": {
+        "type": "object",
+        "required": ["kind", "targets", "files"],
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": ["reinstall", "relink", "compile-native", "repackage", "reload-js"],
+            "description": "reinstall: the app's configuration (Info.plist, entitlements, manifest) changed; relink: native dependencies or build files changed; compile-native: native code changed; repackage: resources or assets changed; reload-js: only JavaScript proxies changed"
+          },
+          "targets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Relative to the native package; resolved.json#ios.infoPlist names a part of the resolved manifest"
+          }
         }
       }
     },

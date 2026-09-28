@@ -1,3 +1,4 @@
+import path from "node:path";
 import { type Code, docsUrl, Explanations } from "./codes.ts";
 import { type Diagnostic, formatDiagnostic } from "./diagnostics.ts";
 import { emitProgram, type EmitResult } from "./emit/index.ts";
@@ -20,8 +21,28 @@ import {
   sdkModuleOf,
   usesPlatforms,
 } from "./program.ts";
-import { sdkAvailable } from "@lucent-lang/bindgen";
-import { PLATFORMS, platformSdkAvailable, type SdkOptions, withSdkOptions } from "./sdk/schema.ts";
+import { sdkAvailable, type UsedSymbol } from "@lucent-lang/bindgen";
+import {
+  type Platform,
+  PLATFORMS,
+  platformSdkTyped,
+  type SdkOptions,
+  withSdkOptions,
+} from "./sdk/schema.ts";
+import type { ExtensionBinding } from "./extensions/bind.ts";
+import { bindExtensions } from "./extensions/bind.ts";
+import { extensionDts } from "./extensions/dts.ts";
+import { withExtensions } from "./extensions/registry.ts";
+import { resolveNative } from "./package-config.ts";
+import { fileHashes } from "./package-files.ts";
+import { lucentPackages } from "./packages.ts";
+import { recordSdkUses } from "./sdk/usage.ts";
+import { analyzeViews, hasComponentModules } from "./ui/analyze.ts";
+import { ts as js } from "@lucent-lang/codegen";
+import type { ComponentDescription } from "./ui/contract.ts";
+import { fabricViews } from "./ui/fabric.ts";
+import { componentDeclarations } from "./ui/proxy.ts";
+import { mergeComponents, type TargetComponents } from "./ui/merge.ts";
 
 export {
   Codes,
@@ -32,6 +53,7 @@ export {
   type Explanation,
 } from "./codes.ts";
 export { formatDiagnostic, type Diagnostic } from "./diagnostics.ts";
+export { type BuildIdentity, identityScript, RUNTIME_ABI } from "./emit/identity.ts";
 export { moduleNamespace } from "./types.ts";
 export {
   findLucentFiles,
@@ -44,18 +66,38 @@ export {
   coreTypesPath,
   type ReadSource,
 } from "./program.ts";
-export { withGradleDependencies } from "./native-package.ts";
+export { libraryBuildGradle } from "./native-build-files.ts";
+export { fileHashes, type FileHashes, inNativePackage } from "./package-files.ts";
 export { coverage as sdkCoverage, type Coverage as SdkCoverage } from "@lucent-lang/bindgen";
+export { toolkitsFrom } from "./ui/toolkit-modules.ts";
+export { lucentPackages, lucentVersion, satisfies, type LucentPackage } from "./packages.ts";
 export {
-  lucentPackages,
-  lucentVersion,
-  nativeDependencies,
-  satisfies,
-  type LucentPackage,
-  type NativeDependencies,
+  EXTENSION_FIELDS,
+  PACKAGE_FIELDS,
+  resolveNative,
+  type ExtensionDeclaration,
+  type ExtensionInput,
+  type ResolvedExtension,
+  type Agreed,
+  type From,
+  type PackagePath,
+  type NativeInputs,
   type PackageNative,
-} from "./packages.ts";
+  type PlistValue,
+  type ResolvedNative,
+} from "./package-config.ts";
 export type { EmitResult } from "./emit/index.ts";
+export {
+  VIEW_CONTRACT_VERSION,
+  type CommandDescription,
+  type CommandResult,
+  type ComponentDescription,
+  type EventDelivery,
+  type EventDescription,
+  type PlatformBinding,
+  type ViewField,
+  type ViewType,
+} from "./ui/contract.ts";
 export type { Target } from "./platforms.ts";
 export type { SdkOptions } from "./sdk/schema.ts";
 export type {
@@ -70,6 +112,15 @@ export type {
 } from "./sdk/schema.ts";
 export { sdkDts } from "./sdk/dts.ts";
 export {
+  bindExtensions,
+  forgetExtensionHeaders,
+  type ExtensionBinding,
+  type FunctionBinding,
+  type HandleBinding,
+} from "./extensions/bind.ts";
+export { extensionDts } from "./extensions/dts.ts";
+export {
+  deferredLibraryGradle,
   inputsKey,
   isUpToDate,
   writeNativePackage,
@@ -84,12 +135,13 @@ export {
   podsSearchPaths,
   prefetch as prefetchSdk,
   sdkAvailable,
-  sdkModule,
-  sdkModules,
 } from "@lucent-lang/bindgen";
+export { sdkDeclarations, sdkModule, sdkModules } from "./sdk/modules.ts";
 
 export interface CompileResult extends EmitResult {
   ok: boolean;
+  /** The SDK symbols the code uses, sorted by key; absent when the compile failed. */
+  sdkUses?: UsedSymbol[];
 }
 
 export interface CompileOptions {
@@ -104,12 +156,42 @@ export interface CompileOptions {
   readSource?: ReadSource;
   /** Where the platform SDKs are, and the schema cache (default: the installed SDKs, ~/.cache/lucent). */
   sdk?: SdkOptions;
+  /** The native extensions `lucent:ext/<name>` imports, bound (bindExtensions). */
+  extensions?: readonly ExtensionBinding[];
+  /**
+   * Platforms whose SDK imports resolve only later (Android's, from the
+   * app's dependencies, which its Gradle build resolves). They are not
+   * targets (asking for one throws), and the other targets' programs leave
+   * their code untyped, as for a platform whose SDK is not installed: their
+   * own build checks it.
+   */
+  deferred?: Platform[];
 }
 
 /** Compiles `*.lucent.ts` files to C++ sources and JS proxies. */
 export function compile(files: string[], options: CompileOptions = {}): CompileResult {
-  const result = withSdkOptions(options.sdk, () => compileWith(files, options));
-  return { ...result, diagnostics: result.diagnostics.map(explained) };
+  const deferred = options.deferred ?? [];
+  const targeted = deferred.filter((p) => options.platforms?.includes(p));
+  if (targeted.length)
+    throw new Error(`deferred platforms cannot be targets: ${targeted.join(", ")}`);
+
+  const { value: result, uses } = recordSdkUses(() =>
+    withExtensions(options.extensions, () =>
+      withSdkOptions(options.sdk, () => compileWith(files, options), deferred),
+    ),
+  );
+
+  // Every extension's declarations, for editors and tsc: what an import resolves to.
+  const types = new Map(result.types ?? []);
+  for (const ext of options.extensions ?? []) types.set(`ext/${ext.name}.d.ts`, extensionDts(ext));
+
+  return {
+    ...result,
+    ...(types.size ? { types } : {}),
+    ...(result.ok ? { sdkUses: uses } : {}),
+    diagnostics: result.diagnostics.map(explained),
+    warnings: (result.warnings ?? []).map(explained),
+  };
 }
 
 /** A diagnostic with its code's usual fix, unless it names its own, and where the code is explained. */
@@ -132,7 +214,10 @@ function compileWith(files: string[], options: CompileOptions): CompileResult {
     ok: false,
   };
   const declarations = plan.platformModules.map((pm) => pm.declaration!);
-  const installed = PLATFORMS.filter((p) => sdkAvailable(p, options.sdk));
+  const installed = PLATFORMS.filter(
+    (p) => sdkAvailable(p, options.sdk) && !options.deferred?.includes(p),
+  );
+  const components: TargetComponents[] = [];
   for (const target of options.platforms ?? (installed.length ? installed : PLATFORMS)) {
     let result: CompileResult;
     if (target === "host") {
@@ -141,6 +226,7 @@ function compileWith(files: string[], options: CompileOptions): CompileResult {
           stubs: declarations,
         }),
         declarations,
+        target,
       );
     } else {
       const missing = missingImplementations(plan, target);
@@ -156,20 +242,44 @@ function compileWith(files: string[], options: CompileOptions): CompileResult {
       collectTypes(lp, (out.types ??= new Map()));
     }
     out.diagnostics.push(...result.diagnostics);
+    (out.warnings ??= []).push(...(result.warnings ?? []));
+    if (result.ok) components.push({ target, components: result.components ?? [] });
     for (const [name, content] of result.files) out.files.set(`${target}/${name}`, content);
     for (const [name, proxy] of result.proxies) out.proxies.set(name, proxy);
-    if (target === "ios") out.frameworks = result.frameworks;
+    if (result.identity) {
+      const identity = (out.identity ??= { ...result.identity, programs: {}, apis: {} });
+
+      Object.assign(identity.programs, result.identity.programs);
+      Object.assign(identity.apis, result.identity.apis);
+    }
+    if (target === "ios") {
+      out.frameworks = result.frameworks;
+      out.pods = result.pods;
+    }
     if (target === "android") {
       out.java = result.java;
       out.javaKeep = result.javaKeep;
+      out.kotlin = result.kotlin;
+      out.compose = result.compose;
       out.androidPermissions = result.androidPermissions;
     }
   }
+  // Targets that failed have no descriptions to compare.
+  if (!out.diagnostics.length) {
+    const merged = mergeComponents(components);
+
+    out.diagnostics.push(...merged.diagnostics);
+    if (merged.components.length) out.components = merged.components;
+    if (merged.components.length && fabricViews())
+      out.componentTypes = componentTypeFiles(merged.components);
+  }
   out.diagnostics = dedupe(out.diagnostics);
+  out.warnings = dedupe(out.warnings ?? []);
   out.ok = out.diagnostics.length === 0;
   if (!out.ok) {
     out.files.clear();
     out.proxies.clear();
+    delete out.identity;
   }
   return out;
 }
@@ -187,8 +297,9 @@ function collectTypes(lp: LucentProgram, into: Map<string, string>): void {
 function compileOnce(
   lp: ReturnType<typeof createLucentProgram>,
   declarations: string[] = [],
+  target?: Target,
 ): CompileResult {
-  const untyped = PLATFORMS.filter((p) => p !== lp.platform && !platformSdkAvailable(p));
+  const untyped = PLATFORMS.filter((p) => p !== lp.platform && !platformSdkTyped(p));
   const checks = [
     ...lp.diagnostics.filter((d) => !inUntypedPlatformCode(lp, d, untyped)),
     ...declarations.flatMap((d) => declarationErrors(lp, d)),
@@ -202,8 +313,36 @@ function compileOnce(
   const conformance = conformanceErrors(lp);
   if (conformance.length)
     return { files: new Map(), proxies: new Map(), diagnostics: conformance, ok: false };
-  const result = emitProgram(lp);
-  return { ...result, ok: result.diagnostics.length === 0 };
+  // Components are described, not emitted as module functions.
+  const views = hasComponentModules(lp) ? analyzeViews(lp) : undefined;
+  if (views?.diagnostics.length)
+    return { files: new Map(), proxies: new Map(), diagnostics: views.diagnostics, ok: false };
+
+  const fabric = views?.components.length && fabricViews() ? views.components : undefined;
+  const { identity, ...result } = emitProgram(
+    lp,
+    target,
+    views?.declarations,
+    fabric,
+    fabric ? views?.setups : undefined,
+  );
+  const ok = result.diagnostics.length === 0;
+  const components = views?.components.length ? { components: views.components } : {};
+
+  return { ...result, ...components, ...(ok ? { identity } : {}), ok };
+}
+
+/** Each module's components' React-facing declarations. */
+function componentTypeFiles(components: readonly ComponentDescription[]): Map<string, string> {
+  const out = new Map<string, string>();
+
+  for (const name of [...new Set(components.map((c) => c.jsModule))].sort())
+    out.set(
+      name,
+      js.printUnit(componentDeclarations(components.filter((c) => c.jsModule === name))),
+    );
+
+  return out;
 }
 
 /** The same problem, reported by the program of each target, once. */
@@ -221,8 +360,31 @@ function dedupe(ds: Diagnostic[]): Diagnostic[] {
  * Diagnostics for editors: checks `files` (the project's `*.lucent.ts`
  * modules) as `compile` does, reading unsaved text through `readSource`.
  */
-export function checkSources(files: string[], readSource?: ReadSource): Diagnostic[] {
-  return compile(files, { readSource }).diagnostics;
+export function checkSources(
+  files: string[],
+  readSource?: ReadSource,
+  options: { extensions?: readonly ExtensionBinding[] } = {},
+): Diagnostic[] {
+  const r = compile(files, { readSource, ...options });
+  return [...r.diagnostics, ...(r.warnings ?? [])];
+}
+
+/**
+ * The native extensions of the Lucent packages `root` depends on, bound;
+ * none when they cannot be (the build reports why): for editors, whose
+ * checks should not fail on what the build explains.
+ */
+export function projectExtensions(root: string): ExtensionBinding[] {
+  // The build's file hashes, by their stats: a check re-reads only what changed.
+  const hashes = fileHashes(path.join(root, ".lucent/file-hashes.json"));
+
+  try {
+    const bound = bindExtensions(resolveNative(lucentPackages(root), { hashes }).extensions);
+    hashes.save();
+    return bound;
+  } catch {
+    return [];
+  }
 }
 
 export function compileDirectory(root: string): CompileResult {

@@ -6,7 +6,7 @@ export const blocks: Block[] = [
     kind: "list",
     items: [
       "iOS: `Updates` implements `CLLocationManagerDelegate`. The managers are made on the main thread with `main()`, since they deliver to the thread that made them.",
-      "Android: a plain function is the `LocationListener`, and `removeUpdates` takes the same function back.",
+      "Android: the current position is Play services' fused location, a `Task` whose completion listener `fromCallback` turns into a promise. Watching uses a plain function as the `LocationListener`, and `removeUpdates` takes the same function back.",
       "`watchPositionAsync` sends each position to a JS callback until `stopWatching(id)`.",
       "Android's location permissions reach the app's manifest by themselves: the SDK marks `requestLocationUpdates` with them.",
     ],
@@ -14,7 +14,14 @@ export const blocks: Block[] = [
   {
     kind: "tabs",
     tabs: [
-      { label: "module", filename: "location.lucent.ts", code: source },
+      {
+        label: "module",
+        filename: "location.lucent.ts",
+        // Play services' fused location is on the example apps' classpath, not the samples':
+        // the apps' builds check it.
+        from: "scripts/example-app/src/sdk/location.lucent.ts",
+        code: source,
+      },
       {
         label: "JS usage",
         filename: "App.tsx",
@@ -37,6 +44,6 @@ await Location.stopWatching(id);`,
   },
   {
     kind: "p",
-    text: "Android uses the platform's `LocationManager`, not Play services' fused provider. Generic Java interfaces such as `Consumer<Location>` aren't bound yet, so the module listens for one fix instead of calling `getCurrentLocation`. Source: [location.lucent.ts](https://github.com/Fausto95/lucent/blob/main/scripts/example-app/src/sdk/location.lucent.ts).",
+    text: "The current position comes from Play services, as in expo-location, so the app depends on `play-services-location` (the example apps do). Source: [location.lucent.ts](https://github.com/Fausto95/lucent/blob/main/scripts/example-app/src/sdk/location.lucent.ts).",
   },
 ];

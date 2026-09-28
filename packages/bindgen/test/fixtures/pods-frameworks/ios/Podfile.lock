@@ -1,0 +1,14 @@
+PODS:
+  - gauge-kit (2.0.0)
+
+DEPENDENCIES:
+  - gauge-kit (from `../gauge-kit`)
+
+EXTERNAL SOURCES:
+  gauge-kit:
+    :path: "../gauge-kit"
+
+SPEC CHECKSUMS:
+  gauge-kit: 0123456789abcdef
+
+COCOAPODS: 1.16.2

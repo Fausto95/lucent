@@ -2,15 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import {
-  compile,
-  type LucentPackage,
-  lucentPackages,
-  moduleNameOf,
-  nativeDependencies,
-  projectFiles,
-  writeNativePackage,
-} from "../src/index.ts";
+import { compile, lucentPackages, moduleNameOf, projectFiles } from "../src/index.ts";
 
 /** An app whose node_modules has Lucent packages (a `lucent` field) and others. */
 function app(): string {
@@ -115,15 +107,12 @@ describe("Lucent packages", () => {
     expect(uses).toMatch(/lucent_app::m_lucent_\w*storage::where\(\)/);
   });
 
-  it("reads a package's lucent.json", () => {
+  it("leaves lucent.json to the build: an invalid one does not stop finding packages", () => {
     const root = app();
-    fs.writeFileSync(
-      path.join(root, "node_modules/lucent-b/lucent.json"),
-      JSON.stringify({ android: { permissions: ["android.permission.VIBRATE"] } }),
-    );
-    expect(lucentPackages(root).find((p) => p.name === "lucent-b")?.native).toEqual({
-      android: { permissions: ["android.permission.VIBRATE"] },
-    });
+    fs.writeFileSync(path.join(root, "node_modules/lucent-b/lucent.json"), "{ not json");
+
+    expect(lucentPackages(root).map((p) => p.name)).toEqual(["lucent-a", "lucent-b"]);
+    expect(projectFiles(root)).toHaveLength(4);
   });
 
   it("fails for a package whose Lucent versions do not include this one, naming it", () => {
@@ -140,92 +129,5 @@ describe("Lucent packages", () => {
     expect(() => lucentPackages(root)).toThrow(
       /lucent-b@2\.0\.0 supports Lucent \^9\.0\.0, not \d+\.\d+\.\d+/,
     );
-  });
-});
-
-describe("Lucent packages' native dependencies (lucent.json)", () => {
-  const pkg = (name: string, native: object): LucentPackage & { native: object } => ({
-    name,
-    version: "1.0.0",
-    dir: `/p/${name}`,
-    sources: `/p/${name}/src`,
-    native,
-  });
-
-  it("merges pods, Gradle artifacts, permissions and Info.plist entries", () => {
-    const deps = nativeDependencies([
-      pkg("lucent-auth", {
-        ios: {
-          pods: { LucentAuthKit: "~> 1.0" },
-          infoPlist: { NSFaceIDUsageDescription: "Unlock with Face ID" },
-        },
-        android: {
-          dependencies: { "androidx.biometric:biometric": "1.1.0" },
-          permissions: ["android.permission.USE_BIOMETRIC"],
-        },
-      }),
-      pkg("lucent-maps", {
-        ios: { pods: { LucentAuthKit: "~> 1.0" } },
-        android: { dependencies: { "com.google.android.gms:play-services-maps": "19.0.0" } },
-      }),
-    ]);
-    expect(deps).toEqual({
-      pods: { LucentAuthKit: "~> 1.0" },
-      gradle: {
-        "androidx.biometric:biometric": "1.1.0",
-        "com.google.android.gms:play-services-maps": "19.0.0",
-      },
-      permissions: ["android.permission.USE_BIOMETRIC"],
-      infoPlist: {
-        NSFaceIDUsageDescription: { value: "Unlock with Face ID", from: "lucent-auth" },
-      },
-    });
-  });
-
-  it("fails when two packages want different versions of one dependency, naming both", () => {
-    expect(() =>
-      nativeDependencies([
-        pkg("lucent-a", { ios: { pods: { Kit: "~> 1.0" } } }),
-        pkg("lucent-b", { ios: { pods: { Kit: "~> 2.0" } } }),
-      ]),
-    ).toThrow(/pod Kit: lucent-a wants ~> 1\.0, lucent-b wants ~> 2\.0/);
-    expect(() =>
-      nativeDependencies([
-        pkg("lucent-a", { android: { dependencies: { "g:a": "1" } } }),
-        pkg("lucent-b", { android: { dependencies: { "g:a": "2" } } }),
-      ]),
-    ).toThrow(/g:a: lucent-a wants 1, lucent-b wants 2/);
-  });
-
-  it("writes them into the native package: podspec, library build.gradle and manifest, Info.plist entries", () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkgs-"));
-    const src = path.join(dir, "a.lucent.ts");
-    fs.writeFileSync(src, "export function one(): number { return 1; }\n");
-    const out = path.join(dir, "native");
-    const native = nativeDependencies([
-      pkg("lucent-auth", {
-        ios: {
-          pods: { LucentAuthKit: "~> 1.0" },
-          infoPlist: { NSFaceIDUsageDescription: "Unlock" },
-        },
-        android: {
-          dependencies: { "androidx.biometric:biometric": "1.1.0" },
-          permissions: ["android.permission.USE_BIOMETRIC"],
-        },
-      }),
-    ]);
-    writeNativePackage(compile([src]), out, { native });
-    expect(fs.readFileSync(path.join(out, "LucentNative.podspec"), "utf8")).toContain(
-      's.dependency "LucentAuthKit", "~> 1.0"',
-    );
-    expect(fs.readFileSync(path.join(out, "android/build.gradle"), "utf8")).toContain(
-      'api("androidx.biometric:biometric:1.1.0")',
-    );
-    expect(
-      fs.readFileSync(path.join(out, "android/src/main/AndroidManifest.xml"), "utf8"),
-    ).toContain('android:name="android.permission.USE_BIOMETRIC"');
-    expect(JSON.parse(fs.readFileSync(path.join(out, "manifest.json"), "utf8")).infoPlist).toEqual({
-      NSFaceIDUsageDescription: { value: "Unlock", from: "lucent-auth" },
-    });
   });
 });

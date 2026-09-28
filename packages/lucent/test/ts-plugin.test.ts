@@ -110,6 +110,22 @@ describe("@lucent-lang/lucent/ts-plugin", () => {
     );
   });
 
+  it.skipIf(!compiler.sdkAvailable("android"))("shows warnings as warnings", async () => {
+    const s = service({
+      "a.lucent.ts": `import { PLATFORM } from "lucent:platform";
+import { Toast } from "lucent:android/android.widget";
+import { appContext } from "lucent:android";
+export async function toast(): Promise<boolean> {
+  if (PLATFORM === "android") return Toast.makeText(appContext(), "hi", 5) !== null;
+  return false;
+}
+`,
+    });
+    await s.ready;
+    const [d] = lucent(s.ls.getSemanticDiagnostics(s.file("a.lucent.ts")));
+    expect(d).toMatchObject({ code: 3008, category: ts.DiagnosticCategory.Warning });
+  });
+
   it("follows unsaved edits", async () => {
     const s = service({ "a.lucent.ts": "export function f(): number { return 1; }\n" });
     await s.ready;

@@ -7,6 +7,7 @@
 
 #include "array.h"
 #include "async.h"
+#include "bigint.h"
 #include "bytes.h"
 #include "core.h"
 #include "jserror.h"
@@ -21,6 +22,7 @@ namespace lucent {
 inline bool truthy(bool v) { return v; }
 inline bool truthy(double v) { return v != 0 && !std::isnan(v); }
 inline bool truthy(const String& s) { return !s.empty(); }
+inline bool truthy(const BigInt& v) { return !v.isZero(); }
 inline bool truthy(Undefined) { return false; }
 inline bool truthy(Null) { return false; }
 template <class T>
@@ -59,6 +61,7 @@ String toJsString(const std::variant<Ts...>& v) {
 inline String typeOf(double) { return String::fromLatin1("number"); }
 inline String typeOf(bool) { return String::fromLatin1("boolean"); }
 inline String typeOf(const String&) { return String::fromLatin1("string"); }
+inline String typeOf(const BigInt&) { return String::fromLatin1("bigint"); }
 inline String typeOf(Undefined) { return String::fromLatin1("undefined"); }
 inline String typeOf(Null) { return String::fromLatin1("object"); }
 template <class Sig>
@@ -81,11 +84,6 @@ String typeOf(const T&) {
 }
 
 // --- unions -------------------------------------------------------------------
-template <class T>
-struct IsVariant : std::false_type {};
-template <class... Ts>
-struct IsVariant<std::variant<Ts...>> : std::true_type {};
-
 template <class T, class V>
 constexpr bool variantHolds() {
   if constexpr (IsVariant<V>::value) {
@@ -109,16 +107,25 @@ To convertImpl(const From& from) {
     return from;
   } else if constexpr (IsOpt<To>::value) {
     using Inner = typename To::ValueType;
+    // `null | undefined` (Opt<Undefined>) holds no value: narrowing proved
+    // any present one away.
+    const auto held = [](const auto& value) -> To {
+      if constexpr (IsAbsent<Inner>) {
+        throwTypeError("Value does not match the expected type");
+      } else {
+        return To(convert<Inner>(value));
+      }
+    };
     if constexpr (IsOpt<F>::value) {
       if (from.isUndefined()) return To(undefined);
       if (from.isNull()) return To(null);
-      return To(convert<Inner>(from.get()));
+      return held(from.get());
     } else if constexpr (std::is_same_v<F, Undefined>) {
       return To(undefined);
     } else if constexpr (std::is_same_v<F, Null>) {
       return To(null);
     } else {
-      return To(convert<Inner>(from));
+      return held(from);
     }
   } else if constexpr (IsOpt<F>::value) {
     // Proven present by narrowing; still checked.

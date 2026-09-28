@@ -1,9 +1,11 @@
 /**
  * Headless check of an example app's full JavaScript + native pipeline:
  *   1. `lucent build` (the exact C++ the app compiles on device);
- *   2. builds that C++ with the Hermes test host;
+ *   2. `lucent build --platforms host`, platform modules as stubs, built
+ *      with the Hermes test host;
  *   3. bundles the app's test cases with the app's own Metro config
- *      (transformer, proxies, runtime loader);
+ *      (transformer, runtime loader) and the host build's proxies, whose
+ *      build identity is the one the host native code carries;
  *   4. runs the bundle in Hermes against the native modules.
  *
  *   node scripts/app-check.ts [apps/bare-example]
@@ -15,6 +17,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { runLucent, runToExit } from "../packages/lucent/test/run-to-exit.ts";
 import { cFlags, hostLibs, runtimeSources } from "../packages/runtime/test/sources.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -22,19 +25,23 @@ const app = path.resolve(root, process.argv[2] ?? "apps/bare-example");
 const hermes = process.env.HERMES_DIR ?? path.join(os.homedir(), "hermes");
 const work = path.join(os.tmpdir(), "lucent-app-check", path.basename(app));
 
-function sh(cmd: string, args: string[], cwd = root): string {
-  const r = spawnSync(cmd, args, { cwd, encoding: "utf8", maxBuffer: 256 << 20 });
+/** Long enough for any one step (a runtime compile, a Metro bundle): a hung step fails the check. */
+const STEP_TIMEOUT = 600_000;
+
+function sh(cmd: string, args: string[], cwd = root, env: NodeJS.ProcessEnv = {}): string {
+  const r = runToExit(cmd, args, {
+    cwd,
+    maxBuffer: 256 << 20,
+    env: { ...process.env, ...env },
+    timeout: STEP_TIMEOUT,
+  });
   if (r.status !== 0) throw new Error(`${cmd} ${args.join(" ")}\n${r.stderr}\n${r.stdout}`);
   return r.stdout;
 }
 
 fs.mkdirSync(work, { recursive: true });
 // The device build needs a platform SDK; the rest of the check does not.
-const device = spawnSync(
-  process.execPath,
-  [path.join(root, "packages/lucent/bin/lucent.cjs"), "build", "--root", app],
-  { cwd: root, encoding: "utf8" },
-);
+const device = runLucent(["build", "--root", app], { cwd: root, timeout: STEP_TIMEOUT });
 if (device.status === 0) console.log("• lucent build");
 else if (/no platform SDK is installed/.test(device.stderr))
   console.log("• lucent build: skipped (no platform SDK here; the host build below needs none)");
@@ -107,7 +114,7 @@ console.log("• bundling with Metro");
 const entry = path.join(app, "lucent-app-check.entry.js");
 fs.writeFileSync(
   entry,
-  `import { cases } from "./src/tests";
+  `import { cases } from "./src/lab/tests/cases";
 async function main() {
   let failed = 0;
   for (const c of cases) {
@@ -124,14 +131,15 @@ async function main() {
   }
   print(failed ? failed + " FAILED" : "ALL PASSED");
 }
-main();
+// Loading the cases can throw too (the loader refusing the native code).
+main().catch((e) => print("FAIL loading the cases: " + e));
 `,
 );
 const metroConfig = path.join(work, "metro.config.js");
 fs.writeFileSync(
   metroConfig,
   `const base = require(${JSON.stringify(path.join(app, "metro.config.js"))});
-module.exports = { ...base, projectRoot: ${JSON.stringify(app)}, serializer: { ...base.serializer, getModulesRunBeforeMainModule: () => [], getPolyfills: () => [] } };
+module.exports = { ...base, projectRoot: ${JSON.stringify(app)}, watchFolders: [...(base.watchFolders || []), ${JSON.stringify(hostOut)}], serializer: { ...base.serializer, getModulesRunBeforeMainModule: () => [], getPolyfills: () => [] } };
 `,
 );
 const bundle = path.join(work, "bundle.js");
@@ -156,6 +164,9 @@ try {
       "--reset-cache",
     ],
     app,
+    // The device build's proxies expect its ios and android programs: the
+    // loader rightly refuses them the host program compiled above.
+    { LUCENT_OUT: hostOut },
   );
 } finally {
   fs.rmSync(entry);

@@ -60,6 +60,10 @@ export function parseSettings(text: string): Settings {
   },
   {
     kind: "p",
+    text: "A native 64-bit integer, such as a Java `long` or an `NSInteger` count, is a `bigint`, so no value is rounded. `Number(list.count)` makes it a number when you need one.",
+  },
+  {
+    kind: "p",
     text: "Where Lucent does behave differently from JavaScript, [the list of differences](/docs/reference/language/#differences-from-javascript) has each case and its reason.",
   },
 ];

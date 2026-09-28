@@ -1,0 +1,70 @@
+{
+  "$id": "https://lucent-lang.dev/schemas/sdk-diff.schema.json",
+  "title": "lucent sdk diff --json",
+  "type": "object",
+  "required": ["ok", "unavailable", "artifacts", "used"],
+  "additionalProperties": false,
+  "definitions": {
+    "change": {
+      "type": "object",
+      "required": ["change", "platform", "module", "key", "display", "signature", "details"],
+      "additionalProperties": false,
+      "properties": {
+        "change": { "enum": ["removed", "changed", "added", "unchanged"] },
+        "platform": { "enum": ["ios", "android"] },
+        "module": { "type": "string" },
+        "key": { "type": "string", "description": "The symbol's key in the lock" },
+        "display": { "type": "string", "description": "As the lock names it: Tracker.level" },
+        "signature": { "type": "string", "description": "As installed (as locked, when removed)" },
+        "details": {
+          "type": "array",
+          "description": "What changed; why, for a removed module",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  },
+  "properties": {
+    "ok": {
+      "type": "boolean",
+      "description": "Every locked target has its SDK, and no used symbol was removed or changed"
+    },
+    "unavailable": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["platform", "reason"],
+        "additionalProperties": false,
+        "properties": {
+          "platform": { "enum": ["ios", "android"] },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "array",
+      "description": "Used modules now read from other artifacts than the lock records",
+      "items": {
+        "type": "object",
+        "required": ["module", "found"],
+        "additionalProperties": false,
+        "properties": {
+          "module": { "type": "string" },
+          "locked": { "type": "array", "items": { "type": "string" } },
+          "found": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "used": { "type": "array", "items": { "$ref": "#/definitions/change" } },
+    "others": {
+      "type": "array",
+      "description": "With --all: changes to the other members of the used modules",
+      "items": { "$ref": "#/definitions/change" }
+    },
+    "uncached": {
+      "type": "array",
+      "description": "With --all: modules whose locked schema this machine's SDK cache does not hold",
+      "items": { "type": "string" }
+    }
+  }
+}

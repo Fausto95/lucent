@@ -1,0 +1,41 @@
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+
+/** Tells a run whether it was superseded or its screen closed. */
+export interface RunToken {
+  stopped: boolean;
+}
+
+/**
+ * Runs `task` on mount and on run(). Starting a run, or leaving the screen,
+ * stops the one in progress: the task checks `token.stopped` between steps.
+ */
+export function useRun(task: (token: RunToken) => Promise<void>): {
+  running: boolean;
+  run: () => void;
+} {
+  const [running, setRunning] = useState(false);
+  const current = useRef<RunToken>({ stopped: false });
+
+  async function start(token: RunToken) {
+    setRunning(true);
+    await task(token);
+    if (!token.stopped) setRunning(false);
+  }
+
+  function run() {
+    current.current.stopped = true;
+    current.current = { stopped: false };
+    void start(current.current);
+  }
+
+  const runOnMount = useEffectEvent(run);
+
+  useEffect(() => {
+    runOnMount();
+    return () => {
+      current.current.stopped = true;
+    };
+  }, []);
+
+  return { running, run };
+}

@@ -91,15 +91,39 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "next",
-        "text": "Android generics, such as `Consumer<T>`, and `java.util` collections."
+        "text": "Members of Android generic classes, such as `Consumer<T>.accept` and `List<E>.get`."
+      },
+      {
+        "status": "done",
+        "text": "Play services' `Task` and Java futures as promises, through their listeners and `fromCallback`."
       },
       {
         "status": "next",
-        "text": "`Task<T>` and `ListenableFuture<T>` as promises, and the current `Activity`."
+        "text": "`using` to close Java `Closeable`s, such as database cursors."
+      },
+      {
+        "status": "next",
+        "text": "Generic Objective-C classes, blocks taking blocks, and more out-parameters."
+      },
+      {
+        "status": "next",
+        "text": "Android `@IntDef` constants as enums, and `@MainThread` checked at compile time."
       },
       {
         "status": "later",
-        "text": "Swift-only and Kotlin-only APIs, and subclassing iOS classes."
+        "text": "Swift-only APIs, such as StoreKit 2 and CryptoKit, through generated Swift."
+      },
+      {
+        "status": "later",
+        "text": "Kotlin-only APIs, such as `suspend` functions and `Flow`, through generated Kotlin."
+      },
+      {
+        "status": "later",
+        "text": "API notes to adjust a binding, and a CI report of what SDKs still skip."
+      },
+      {
+        "status": "later",
+        "text": "The current `Activity`, and subclassing iOS classes."
       },
       {
         "status": "later",
@@ -107,7 +131,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "later",
-        "text": "Weak references, and `using` for sessions and files."
+        "text": "Weak references."
       },
       {
         "status": "later",

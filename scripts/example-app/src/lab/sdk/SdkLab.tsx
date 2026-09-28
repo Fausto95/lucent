@@ -1,0 +1,28 @@
+import { Stack } from "../../ui/Stack";
+import { RunPanel } from "../RunPanel";
+import { useChecks } from "../useChecks";
+import { sdkCases } from "./cases";
+import { ProbeRow } from "./ProbeRow";
+import { runProbe } from "./runProbe";
+
+/** The platform probes: Lucent modules calling the iOS and Android SDKs, with known answers. */
+export function SdkLab() {
+  const { results, running, summary, run } = useChecks("sdk", sdkCases, runProbe);
+
+  const passed = results.filter((r) => r.pass).length;
+
+  return (
+    <Stack>
+      <RunPanel
+        running={running}
+        result={summary}
+        progress={`${results.length}/${sdkCases.length} run · ${passed} passed`}
+        onRun={run}
+      />
+
+      {results.map((result) => (
+        <ProbeRow key={result.name} result={result} />
+      ))}
+    </Stack>
+  );
+}

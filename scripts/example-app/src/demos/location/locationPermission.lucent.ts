@@ -1,0 +1,72 @@
+// Asking for location access while the app is in use: on iOS,
+// CLLocationManager shows the system prompt and tells its delegate the
+// answer; on Android, the runtime permission request, asked from the
+// Activity in front.
+import { PLATFORM } from "lucent:platform";
+import {
+  CLAuthorizationStatus,
+  CLLocationManager,
+  type CLLocationManagerDelegate,
+} from "lucent:ios/CoreLocation";
+import { requestPermissions } from "lucent:android";
+import { main } from "lucent:thread";
+
+export type PermissionStatus = "granted" | "denied" | "undetermined";
+
+function statusOf(status: CLAuthorizationStatus): PermissionStatus {
+  if (
+    status === CLAuthorizationStatus.authorizedWhenInUse ||
+    status === CLAuthorizationStatus.authorizedAlways
+  )
+    return "granted";
+
+  if (status === CLAuthorizationStatus.denied || status === CLAuthorizationStatus.restricted)
+    return "denied";
+
+  return "undetermined";
+}
+
+/** Resolves with the first answer other than "not determined yet". */
+class Answer implements CLLocationManagerDelegate {
+  constructor(private readonly onAnswer: (status: PermissionStatus) => void) {}
+
+  locationManagerDidChangeAuthorization(manager: CLLocationManager): void {
+    const status = statusOf(manager.authorizationStatus);
+    if (status !== "undetermined") this.onAnswer(status);
+  }
+}
+
+// A manager must live until its delegate hears back.
+const asking = new Set<CLLocationManager>();
+
+/** Shows the "while using the app" prompt if the person has not answered yet. */
+export function requestForegroundPermissionAsync(): Promise<PermissionStatus> {
+  if (PLATFORM === "android") return androidPermission();
+
+  return new Promise((resolve) => {
+    void main(() => {
+      const manager = new CLLocationManager();
+      const settle = (status: PermissionStatus) => {
+        asking.delete(manager);
+        resolve(status);
+      };
+
+      const status = statusOf(manager.authorizationStatus);
+      if (status !== "undetermined") return settle(status);
+
+      manager.delegate = new Answer(settle);
+      asking.add(manager);
+      manager.requestWhenInUseAuthorization();
+    });
+  });
+}
+
+/** Fine or coarse location: coarse is enough for "while using the app". */
+async function androidPermission(): Promise<PermissionStatus> {
+  const [, coarse] = await requestPermissions([
+    "android.permission.ACCESS_FINE_LOCATION",
+    "android.permission.ACCESS_COARSE_LOCATION",
+  ]);
+
+  return coarse ? "granted" : "denied";
+}

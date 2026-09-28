@@ -38,11 +38,17 @@ Goal: Call the iOS and Android SDKs directly from Lucent.
 - ✅ Libraries the app links: its pods on iOS, its Gradle dependencies on Android.
 - ✅ Lucent packages on npm, with `lucent.json` for their native needs.
 - ✅ Ports of nine Expo and community modules, checked against the originals.
-- ⏳ Android generics, such as `Consumer<T>`, and `java.util` collections.
-- ⏳ `Task<T>` and `ListenableFuture<T>` as promises, and the current `Activity`.
-- 🔭 Swift-only and Kotlin-only APIs, and subclassing iOS classes.
+- ⏳ Members of Android generic classes, such as `Consumer<T>.accept` and `List<E>.get`.
+- ✅ Play services' `Task` and Java futures as promises, through their listeners and `fromCallback`.
+- ⏳ `using` to close Java `Closeable`s, such as database cursors.
+- ⏳ Generic Objective-C classes, blocks taking blocks, and more out-parameters.
+- ⏳ Android `@IntDef` constants as enums, and `@MainThread` checked at compile time.
+- 🔭 Swift-only APIs, such as StoreKit 2 and CryptoKit, through generated Swift.
+- 🔭 Kotlin-only APIs, such as `suspend` functions and `Flow`, through generated Kotlin.
+- 🔭 API notes to adjust a binding, and a CI report of what SDKs still skip.
+- 🔭 The current `Activity`, and subclassing iOS classes.
 - 🔭 iOS version checks at compile time.
-- 🔭 Weak references, and `using` for sessions and files.
+- 🔭 Weak references.
 - 🔭 Swift Package Manager libraries.
 - 🔭 Pinning an SDK version, and listing what an SDK update changes for your code.
 - 🔭 Rarer SDK types, such as pointers and selectors, as ports need them.

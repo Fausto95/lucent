@@ -154,6 +154,15 @@ describe("renderDiagnostic", () => {
     });
   }
 
+  it("labels warnings as warnings", () => {
+    const text = renderDiagnostic(
+      { ...d, code: "LUCENT3008", message: "5 is not one of the constants", severity: "warning" },
+      source,
+      createTheme(plain),
+    );
+    expect(text.split("\n")[0]).toMatch(/^ {2}warning LUCENT3008 {2}5 is not one/);
+  });
+
   it("renders a diagnostic without a location", () => {
     expect(
       renderDiagnostic(

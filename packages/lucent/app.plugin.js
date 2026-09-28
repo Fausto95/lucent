@@ -21,6 +21,11 @@ function buildOnce(projectRoot) {
   });
   if (r.status !== 0)
     throw new Error("lucent build failed; fix the errors above and run prebuild again");
+  linkNativePackage(projectRoot);
+}
+
+/** Makes the app's react-native.config.js link the native package lucent build writes. */
+function linkNativePackage(projectRoot) {
   const rnConfig = path.join(projectRoot, "react-native.config.js");
   const entry = `"lucent": { root: require("path").join(__dirname, ".lucent", "native") }`;
   const text = fs.existsSync(rnConfig) ? fs.readFileSync(rnConfig, "utf8") : undefined;
@@ -29,7 +34,7 @@ function buildOnce(projectRoot) {
   } else if (text.includes('"lucent-native"')) {
     // Earlier versions named the dependency lucent-native.
     fs.writeFileSync(rnConfig, text.replace('"lucent-native"', '"lucent"'));
-  } else if (!/["']lucent["']\s*:/.test(text)) {
+  } else if (!/(^|[{,\s])(["']?)lucent\2\s*:/m.test(text)) {
     throw new Error(`Add ${entry} to the "dependencies" of react-native.config.js`);
   }
 }
@@ -52,15 +57,39 @@ function applyGradleTask(text) {
   return lines.join("\n");
 }
 
-/** Info.plist entries Lucent packages need (their lucent.json), as the last build recorded them. */
-function packagesInfoPlist(projectRoot) {
-  const manifest = path.join(projectRoot, ".lucent", "native", "manifest.json");
-  if (!fs.existsSync(manifest)) return {};
-  return JSON.parse(fs.readFileSync(manifest, "utf8")).infoPlist || {};
+/** What Lucent packages need (their lucent.json), as the last build resolved it. */
+function resolvedNative(projectRoot) {
+  const file = path.join(projectRoot, ".lucent", "native", "resolved.json");
+  if (!fs.existsSync(file)) return { ios: {} };
+  return JSON.parse(fs.readFileSync(file, "utf8"));
+}
+
+/**
+ * The app's plist entries (Info.plist, entitlements) with the packages'
+ * added: a key the app sets keeps the app's value, except arrays, which
+ * gain the values they lack.
+ */
+function withPackageEntries(app, packages) {
+  const out = { ...app };
+
+  for (const [key, { value }] of Object.entries(packages)) {
+    const own = out[key];
+
+    if (own === undefined) out[key] = value;
+    else if (Array.isArray(own) && Array.isArray(value))
+      out[key] = [...own, ...value.filter((v) => !own.includes(v))];
+  }
+
+  return out;
 }
 
 function withLucent(config) {
-  const { withAppBuildGradle, withDangerousMod, withInfoPlist } = require("expo/config-plugins");
+  const {
+    withAppBuildGradle,
+    withDangerousMod,
+    withEntitlementsPlist,
+    withInfoPlist,
+  } = require("expo/config-plugins");
   // Gradle builds run lucent build first, like `lucent init` sets up in bare apps.
   config = withAppBuildGradle(config, (c) => {
     if (c.modResults.language === "groovy")
@@ -70,9 +99,14 @@ function withLucent(config) {
   // Keys the app sets itself win.
   config = withInfoPlist(config, (c) => {
     buildOnce(c.modRequest.projectRoot);
-    for (const [key, { value }] of Object.entries(packagesInfoPlist(c.modRequest.projectRoot))) {
-      if (c.modResults[key] === undefined) c.modResults[key] = value;
-    }
+    const { ios } = resolvedNative(c.modRequest.projectRoot);
+    c.modResults = withPackageEntries(c.modResults, ios.infoPlist || {});
+    return c;
+  });
+  config = withEntitlementsPlist(config, (c) => {
+    buildOnce(c.modRequest.projectRoot);
+    const { ios } = resolvedNative(c.modRequest.projectRoot);
+    c.modResults = withPackageEntries(c.modResults, ios.entitlements || {});
     return c;
   });
   for (const platform of ["ios", "android"]) {
@@ -90,3 +124,5 @@ function withLucent(config) {
 module.exports = withLucent;
 module.exports.GRADLE_LINE = GRADLE_LINE;
 module.exports.applyGradleTask = applyGradleTask;
+module.exports.linkNativePackage = linkNativePackage;
+module.exports.withPackageEntries = withPackageEntries;

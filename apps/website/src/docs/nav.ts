@@ -227,7 +227,7 @@ export const docsGroups: DocGroup[] = [
         kind: "guide",
         title: "Run work off the JS thread",
         description:
-          "Make the export `async`: it runs on the Lucent thread, and its result resolves a promise in JavaScript.",
+          "Make the export `async` to run it on the Lucent thread, or run heavy work on worker threads with `compute`.",
       },
       {
         slug: "guides/cancel-work",
@@ -242,6 +242,13 @@ export const docsGroups: DocGroup[] = [
         title: "Run code on the main thread",
         description:
           "`main(() => …)` from `lucent:thread` runs a function on the main thread and resolves with its result.",
+      },
+      {
+        slug: "guides/present-a-view-controller",
+        kind: "guide",
+        title: "Present a view controller",
+        description:
+          "`present()` from `lucent:ios` shows a view controller or a system sheet and resolves with its result.",
       },
       {
         slug: "guides/throw-and-handle-errors",
@@ -332,7 +339,7 @@ export const docsGroups: DocGroup[] = [
         kind: "guide",
         title: "Upgrade Xcode, the Android SDK or Lucent",
         description:
-          "A new SDK is read again on the next build. A new Lucent needs `lucent doctor`, a build, and an app rebuild.",
+          "A new SDK is read again on the next build; `lucent sdk diff` lists what it changes for your code. A new Lucent needs `lucent doctor`, a build, and an app rebuild.",
       },
     ],
   },

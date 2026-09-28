@@ -2,9 +2,10 @@
   "expo": {
     "name": "Lucent Expo Example",
     "slug": "lucent-expo-example",
+    "scheme": "lucentexpo",
     "version": "1.0.0",
     "orientation": "portrait",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
@@ -13,6 +14,15 @@
     "android": {
       "package": "dev.lucent.expoexample"
     },
-    "plugins": ["@lucent-lang/lucent", "expo-location"]
+    "plugins": [
+      "@lucent-lang/lucent",
+      "expo-location",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow $(PRODUCT_NAME) to sign you in with Face ID."
+        }
+      ]
+    ]
   }
 }

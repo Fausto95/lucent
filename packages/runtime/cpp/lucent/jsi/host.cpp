@@ -20,6 +20,9 @@ std::unordered_map<jsi::Runtime*, std::weak_ptr<Host>>& registry() {
 // stale. Constant-initialized: reading it needs no guard.
 std::atomic<uint64_t> registryGeneration{1};
 
+// Constant-initialized: safe to use during static initialization.
+std::atomic<RuntimeId> nextRuntimeId{1};
+
 // The last host this thread looked up: every call from JavaScript asks for
 // it, and a thread nearly always talks to one runtime. One thread_local, as
 // each costs a lookup on some platforms (__tlv_get_addr on Apple's).
@@ -30,29 +33,109 @@ struct CachedHost {
 };
 thread_local CachedHost cached;
 
-// Installed on the JS global object so the runtime's teardown releases our
-// JSI references on the JS thread while the runtime still exists.
-class HostAnchor : public jsi::HostObject {
- public:
-  explicit HostAnchor(std::shared_ptr<Host> host) : host_(std::move(host)) {}
-  ~HostAnchor() override {
-    if (host_) host_->invalidate();
+/// Runs `job` on the legacy module context: here if this thread is in it,
+/// else as a turn there. Either way `job` is destroyed there, holding the
+/// Lucent lock, like the values it carries.
+void onModuleContext(Job job) {
+  if (!Scheduler::lock().heldByCurrentThread()) {
+    Scheduler::instance().post(std::move(job));
+    return;
   }
+
+  detail::runGuarded(job, "job");
+}
+
+/// Counts one task or job in flight for a host while it lives.
+class Counted {
+ public:
+  explicit Counted(std::shared_ptr<std::atomic<size_t>> count) : count_(std::move(count)) { ++*count_; }
+
+  ~Counted() { --*count_; }
+
+  Counted(const Counted&) = delete;
+  Counted& operator=(const Counted&) = delete;
+
+ private:
+  std::shared_ptr<std::atomic<size_t>> count_;
+};
+
+/// A task for the JS thread. If it never runs there, it is released on the
+/// legacy module context, after `dropped`: the values it carries are the
+/// module context's, whichever thread gave up on the task. It counts as in
+/// flight until then.
+struct Parcel {
+  std::shared_ptr<Counted> counted;
+  JsTask task;
+  Job dropped;
+  std::atomic<bool> ran{false};
+
+  Parcel(std::shared_ptr<Counted> c, JsTask t, Job d) : counted(std::move(c)), task(std::move(t)), dropped(std::move(d)) {}
+
+  ~Parcel() {
+    if (ran.load()) return;
+
+    onModuleContext([counted = std::move(counted), task = std::move(task), dropped = std::move(dropped)]() mutable {
+      if (dropped) dropped();
+
+      task = nullptr;
+      dropped = nullptr;
+    });
+  }
+};
+
+}  // namespace
+
+// Installed on the JS global object so the runtime's teardown releases our
+// JSI references on the JS thread while the runtime still exists. It runs
+// no JavaScript: the runtime may be being destroyed.
+class Host::Anchor : public jsi::HostObject {
+ public:
+  explicit Anchor(std::shared_ptr<Host> host) : host_(std::move(host)) {}
+
+  ~Anchor() override { host_->tearDown(false); }
+
+#ifndef NDEBUG
+  jsi::Value get(jsi::Runtime& rt, const jsi::PropNameID& name) override {
+    if (name.utf8(rt) != "ownership") return jsi::Value::undefined();
+
+    Ownership held = host_->ownership();
+    jsi::Object o(rt);
+    o.setProperty(rt, "runtime", static_cast<double>(held.runtime));
+    o.setProperty(rt, "promises", static_cast<double>(held.promises));
+    o.setProperty(rt, "callbacks", static_cast<double>(held.callbacks));
+    o.setProperty(rt, "identities", static_cast<double>(held.identities));
+    o.setProperty(rt, "prototypes", static_cast<double>(held.prototypes));
+    o.setProperty(rt, "modules", static_cast<double>(held.modules));
+    o.setProperty(rt, "registrations", static_cast<double>(held.registrations));
+    o.setProperty(rt, "inFlight", static_cast<double>(held.inFlight));
+    return o;
+  }
+#endif
 
  private:
   std::shared_ptr<Host> host_;
 };
 
-}  // namespace
-
 std::shared_ptr<Host> Host::create(jsi::Runtime& rt, JsPoster poster) {
+  std::shared_ptr<Host> previous;
+  {
+    std::lock_guard<std::mutex> g(registryMutex());
+    auto it = registry().find(&rt);
+    if (it != registry().end()) previous = it->second.lock();
+  }
+
+  if (previous) previous->invalidate();
+
   std::shared_ptr<Host> host(new Host(rt, std::move(poster)));
   {
     std::lock_guard<std::mutex> g(registryMutex());
     registry()[&rt] = host;
     registryGeneration++;
   }
-  rt.global().setProperty(rt, "__lucentHost", jsi::Object::createFromHostObject(rt, std::make_shared<HostAnchor>(host)));
+  rt.global().setProperty(rt, "__lucentHost", jsi::Object::createFromHostObject(rt, std::make_shared<Anchor>(host)));
+
+  // Module code's work from now on belongs to this runtime: tearing it down cancels that work.
+  setModuleScope(host->scope());
   {
     LucentScope scope;
     resetModuleState();
@@ -81,7 +164,12 @@ const jsi::PropNameID& Host::makeProp(jsi::Runtime& rt, const PropName& name) {
   return *props_[name.id];
 }
 
-Host::Host(jsi::Runtime& rt, JsPoster poster) : rt_(rt), poster_(std::move(poster)), jsThread_(std::this_thread::get_id()) {}
+Host::Host(jsi::Runtime& rt, JsPoster poster)
+    : id_(nextRuntimeId.fetch_add(1, std::memory_order_relaxed)),
+      rt_(rt),
+      poster_(std::move(poster)),
+      jsThread_(std::this_thread::get_id()),
+      scope_(Scope::create(id_, Scheduler::instance().root())) {}
 
 Host::~Host() {
   std::lock_guard<std::mutex> g(registryMutex());
@@ -90,31 +178,102 @@ Host::~Host() {
   registryGeneration++;
 }
 
-void Host::postToJs(JsTask task) {
-  if (!alive_.load()) return;
+bool Host::postToJs(JsTask task, Job dropped) {
+  auto parcel = std::make_shared<Parcel>(std::make_shared<Counted>(inFlight_), std::move(task), std::move(dropped));
+
+  if (!alive_.load()) return false;
+
   std::weak_ptr<Host> weak = weak_from_this();
-  poster_([weak, task = std::move(task)](jsi::Runtime& rt) {
+  poster_([weak, parcel](jsi::Runtime& rt) {
     auto self = weak.lock();
     if (!self || !self->alive()) return;
-    task(rt);
+
+    parcel->ran = true;
+    parcel->task(rt);
   });
+
+  return true;
 }
 
-void Host::invalidate() {
+void Host::postToModule(Job job) {
+  std::weak_ptr<Host> weak = weak_from_this();
+
+  // The scope drops the job once disposed; until its disposal has run on
+  // the module context, the host's own state says it is torn down.
+  Scheduler::instance().post(
+      [weak, counted = std::make_shared<Counted>(inFlight_), job = std::move(job)]() mutable {
+        auto self = weak.lock();
+        if (self && self->alive()) job();
+
+        job = nullptr;
+      },
+      scope_);
+}
+
+Host::Ownership Host::ownership() const {
+  size_t identities = 0;
+  for (auto& [native, weak] : identities_) {
+    if (weak.lock(rt_).isObject()) identities++;
+  }
+
+  return {id_,
+          promises_.size(),
+          functions_.size(),
+          identities,
+          prototypes_.size(),
+          modules_.size(),
+          scope_->registrations(),
+          inFlight_->load()};
+}
+
+Error Host::goneError() { return makeError(String::fromLatin1("AbortError"), String::fromLatin1("The JavaScript runtime is gone")); }
+
+void Host::invalidate() { tearDown(true); }
+
+void Host::tearDown(bool runtimeUsable) {
   if (!alive_.exchange(false)) return;
+
+  // JavaScript still waiting for Lucent learns that it never will.
+  auto owed = std::move(promises_);
   promises_.clear();
+
+  if (runtimeUsable && !owed.empty()) {
+    Error torn = makeError(String::fromLatin1("AbortError"), String::fromLatin1("Lucent was torn down for this JavaScript runtime"));
+
+    for (auto& [id, resolvers] : owed) {
+      try {
+        resolvers.reject.call(rt_, errorToJs(rt_, torn));
+      } catch (...) {
+        reportUncaught(std::current_exception(), "host");
+      }
+    }
+  }
+
+  owed.clear();
+
+  // Cancels its operations and runs its cleanups on the module context.
+  if (auto e = scope_->dispose()) reportUncaught(e, "host");
+
   functions_.clear();
   prototypes_.clear();
   modules_.clear();
   identities_.clear();
   props_.clear();
+
+  // Only its own entry: the runtime may have a newer host by now.
+  std::weak_ptr<Host> self = weak_from_this();
   std::lock_guard<std::mutex> g(registryMutex());
   auto it = registry().find(&rt_);
-  if (it != registry().end()) registry().erase(it);
+  if (it != registry().end() && !it->second.owner_before(self) && !self.owner_before(it->second)) registry().erase(it);
   registryGeneration++;
 }
 
 jsi::Value Host::module(jsi::Runtime& rt, const std::string& name) {
+  // A replaced host's module (a TurboModule that kept it) is the new one's.
+  if (!alive()) return get(rt).module(rt, name);
+
+  if (name == kIdentityName) return identity(rt);
+
   auto it = modules_.find(name);
   if (it != modules_.end()) return jsi::Value(rt, it->second);
   size_t count = 0;
@@ -139,7 +298,25 @@ jsi::Object Host::modules(jsi::Runtime& rt) {
   size_t count = 0;
   const ModuleDef* defs = registeredModules(count);
   for (size_t i = 0; i < count; i++) all.setProperty(rt, defs[i].name, module(rt, defs[i].name));
+  all.setProperty(rt, kIdentityName, identity(rt));
   return all;
+}
+
+jsi::Object Host::identity(jsi::Runtime& rt) {
+  const BuildIdentity& built = buildIdentity();
+
+  jsi::Object modules(rt);
+  for (size_t i = 0; i < built.moduleCount; i++)
+    modules.setProperty(rt, built.modules[i].name, jsi::String::createFromUtf8(rt, built.modules[i].api));
+
+  jsi::Object o(rt);
+  o.setProperty(rt, "host", static_cast<double>(id_));
+  o.setProperty(rt, "runtimeAbi", kRuntimeAbi);
+  o.setProperty(rt, "target", jsi::String::createFromUtf8(rt, built.target));
+  o.setProperty(rt, "program", jsi::String::createFromUtf8(rt, built.program));
+  o.setProperty(rt, "modules", modules);
+
+  return o;
 }
 
 jsi::Value Host::createPromise(jsi::Runtime& rt, uint64_t& id) {
@@ -215,16 +392,20 @@ jsi::Object& Host::prototype(jsi::Runtime& rt, const char* key, PrototypeInit in
   return prototypes_.emplace(key, std::move(proto)).first->second;
 }
 
-namespace {
-std::atomic<uint64_t> nextIdentity{1};
-}  // namespace
-
 Ref<Object> instanceOf(jsi::Runtime& rt, const jsi::Value& v) {
   if (!v.isObject()) return nullptr;
   jsi::Object o = v.getObject(rt);
   if (!o.hasNativeState(rt)) return nullptr;
   auto s = std::dynamic_pointer_cast<InstanceState>(o.getNativeState(rt));
-  return s ? s->object : nullptr;
+  if (!s) return nullptr;
+
+  // One host per runtime: a live one is this runtime's.
+  if (!s->host->alive()) {
+    jsi::Value error = rt.global().getPropertyAsFunction(rt, "TypeError").callAsConstructor(rt, "This Lucent object belongs to a host that was torn down");
+    throw jsi::JSError(rt, std::move(error));
+  }
+
+  return s->object;
 }
 
 void defineFunction(jsi::Runtime& rt, jsi::Object& target, const char* name, unsigned argc, HostFn fn) {
@@ -254,34 +435,31 @@ void defineClass(jsi::Runtime& rt, Host& host, jsi::Object& exports, const char*
 
 jsi::Value Host::wrap(jsi::Runtime& rt, const Ref<Object>& instance, const char* key, PrototypeInit init) {
   if (!instance) return jsi::Value::null();
-  if (instance->jsIdentity != 0) {
-    auto it = identities_.find(instance->jsIdentity);
-    if (it != identities_.end()) {
-      jsi::Value v = it->second.lock(rt);
-      if (v.isObject()) return v;
-    }
-  } else {
-    instance->jsIdentity = nextIdentity.fetch_add(1);
+  auto it = identities_.find(instance.get());
+  if (it != identities_.end()) {
+    jsi::Value v = it->second.lock(rt);
+    if (v.isObject()) return v;
   }
   jsi::Object& proto = prototype(rt, key, init);
   jsi::Object obj = jsi::Object::create(rt, jsi::Value(rt, proto));
-  obj.setNativeState(rt, std::make_shared<InstanceState>(instance));
+  obj.setNativeState(rt, std::make_shared<InstanceState>(instance, shared_from_this()));
   // Periodically drop cache entries whose JS objects were collected.
   if (++identitySweep_ >= 256) {
     identitySweep_ = 0;
-    std::vector<uint64_t> dead;
-    for (auto& [id, weak] : identities_) {
-      if (!weak.lock(rt).isObject()) dead.push_back(id);
+    std::vector<const Object*> dead;
+    for (auto& [native, weak] : identities_) {
+      if (!weak.lock(rt).isObject()) dead.push_back(native);
     }
-    for (uint64_t id : dead) identities_.erase(id);
+    for (const Object* native : dead) identities_.erase(native);
   }
-  identities_.insert_or_assign(instance->jsIdentity, jsi::WeakObject(rt, obj));
+  identities_.insert_or_assign(instance.get(), jsi::WeakObject(rt, obj));
   return jsi::Value(std::move(obj));
 }
 
 jsi::Value Host::errorToJs(jsi::Runtime& rt, const Error& e) {
   std::string name = e->name.toUtf8();
-  const char* ctor = (name == "TypeError" || name == "RangeError") ? name.c_str() : "Error";
+  // The kinds Lucent throws (SyntaxError from BigInt(string)), as JavaScript's own.
+  const char* ctor = (name == "TypeError" || name == "RangeError" || name == "SyntaxError") ? name.c_str() : "Error";
   jsi::Object err = rt.global()
                         .getPropertyAsFunction(rt, ctor)
                         .callAsConstructor(rt, jsi::String::createFromUtf8(rt, e->message.toUtf8()))
