@@ -23,7 +23,14 @@ import { moduleNamespace } from "./types.ts";
 import { sdkLibFile } from "./lib-files.ts";
 import { composeModuleText } from "./ui/compose-dts.ts";
 import { fabricRequested } from "./ui/switch.ts";
-import { TOOLKITS, type ToolkitName, toolkitOfModule, toolkitSource } from "./ui/toolkits.ts";
+import {
+  JSX_SOURCE,
+  TOOLKITS,
+  type ToolkitName,
+  toolkitOfModule,
+  toolkitOfPlatform,
+  toolkitSource,
+} from "./ui/toolkits.ts";
 
 export interface LucentModule {
   /** Module name used from JavaScript: the file name without `.lucent.ts`. */
@@ -256,6 +263,8 @@ export function compilerOptions(): ts.CompilerOptions {
     exactOptionalPropertyTypes: false,
     // Reading a missing index yields undefined at runtime; the types must say so.
     noUncheckedIndexedAccess: true,
+    // A body's JSX is its platform's toolkit's (compilerHost resolves the runtime per file).
+    ...(fabricRequested() ? { jsx: ts.JsxEmit.ReactJSX, jsxImportSource: JSX_SOURCE } : {}),
     // Every platform's modules resolve in every program: a shared module
     // branches on `PLATFORM`, and each target type-checks both branches.
     paths: {
@@ -341,6 +350,28 @@ function compilerHost(
       (directoryExists?.(d) ?? ts.sys.directoryExists(d))
     );
   };
+  // `lucent:jsx/jsx-runtime`, the JSX runtime every file imports implicitly, is the
+  // toolkit of the importing file's platform: its module declares the JSX namespace.
+  const cache = ts.createModuleResolutionCache(
+    host.getCurrentDirectory(),
+    host.getCanonicalFileName,
+    options,
+  );
+  host.resolveModuleNameLiterals = (literals, containing, redirected, opts, sf) =>
+    literals.map((literal) => {
+      const runtime = jsxRuntimeOf(literal.text, containing);
+      if (runtime === null) return { resolvedModule: undefined };
+
+      return ts.resolveModuleName(
+        runtime ?? literal.text,
+        containing,
+        opts,
+        host,
+        cache,
+        redirected,
+        ts.getModeForUsageLocation(sf, literal, opts),
+      );
+    });
   const getSourceFile = host.getSourceFile.bind(host);
   host.getSourceFile = (f, language, onError, shouldCreate) => {
     if (!f.endsWith(".d.ts")) return getSourceFile(f, language, onError, shouldCreate);
@@ -353,6 +384,60 @@ function compilerHost(
     return sf;
   };
   return host;
+}
+
+/**
+ * What `specifier` imported from `file` resolves as: for Lucent's JSX
+ * runtime, the toolkit module of the file's platform, or null where no
+ * toolkit's JSX may be written (a shared file); undefined for any other
+ * import, which resolves as it is.
+ */
+export function jsxRuntimeOf(specifier: string, file: string): string | null | undefined {
+  if (!new RegExp(`^${JSX_SOURCE}/jsx-(dev-)?runtime$`).test(specifier)) return undefined;
+
+  const toolkit = toolkitOfPlatform(platformOf(file));
+
+  return toolkit ? `lucent:${toolkit}` : null;
+}
+
+/**
+ * JSX in a file whose platform has no toolkit (a shared module): LUCENT3024
+ * at its first element, and the ranges of its JSX, where TypeScript's own
+ * errors (no JSX runtime) say nothing more.
+ */
+function jsxDiagnostics(sf: ts.SourceFile): { diagnostics: Diagnostic[]; ranges: ts.TextRange[] } {
+  if (!fabricRequested() || toolkitOfPlatform(platformOf(sf.fileName)))
+    return { diagnostics: [], ranges: [] };
+
+  const found: ts.Node[] = [];
+  const visit = (n: ts.Node): void => {
+    if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isJsxFragment(n)) {
+      found.push(n);
+      return;
+    }
+
+    ts.forEachChild(n, visit);
+  };
+
+  visit(sf);
+
+  const [first] = found;
+  const toolkits = (Object.keys(TOOLKITS) as ToolkitName[])
+    .map((t) => `\`*.${TOOLKITS[t].platform}.lucent.tsx\` for ${TOOLKITS[t].title}`)
+    .join(", ");
+
+  return {
+    ranges: found.map((n) => ({ pos: n.getStart(sf), end: n.getEnd() })),
+    diagnostics: first
+      ? [
+          {
+            ...at(sf, first),
+            code: Codes.ToolkitBody,
+            message: `JSX is a component's body, written with its platform's toolkit: write it in a platform file (${toolkits})`,
+          },
+        ]
+      : [],
+  };
 }
 
 /**
@@ -430,11 +515,15 @@ export function createLucentProgram(
   ];
   for (const sf of checked) {
     const bad = importDiagnostics(sf, platform);
-    diagnostics.push(...bad);
+    const jsx = jsxDiagnostics(sf);
+    diagnostics.push(...bad, ...jsx.diagnostics);
     for (const d of [
       ...program.getSyntacticDiagnostics(sf),
       ...program.getSemanticDiagnostics(sf),
     ]) {
+      // JSX where no toolkit's may be written is reported once, as a Lucent error.
+      if (d.start !== undefined && jsx.ranges.some((r) => d.start! >= r.pos && d.start! < r.end))
+        continue;
       // An SDK import this program cannot resolve is reported once, as a Lucent error.
       if (
         d.code === 2307 &&

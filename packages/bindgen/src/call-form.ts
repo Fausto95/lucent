@@ -10,6 +10,14 @@
  *   VStack(spacing: 8) { Text("a") }   VStack({ spacing: 8 }, [Text("a")])
  *   onTapGesture { flip() }            onTapGesture(() => flip())
  *
+ * A view is written as JSX (`jsxForm`), each call form's arguments as its
+ * attributes and children; a modifier as an attribute whose value is its
+ * arguments (`argumentsShape`):
+ *
+ *   VStack(spacing: 8) { Text("a") }   <VStack spacing={8}><Text>a</Text></VStack>
+ *   .frame(width: 56, height: 32)      frame={{ width: 56, height: 32 }}
+ *   .animation(.spring, value: on)     animation={[Animation.spring(), { value: on.get() }]}
+ *
  * The declarations and the code that writes the Swift both read this, so
  * the declared signature and the written call cannot disagree.
  */
@@ -90,4 +98,82 @@ function expand(parts: CallPart[]): CallForm[] {
       });
 
   return forms.sort((a, b) => a.parts.length - b.parts.length);
+}
+
+/** An attribute of a JSX form: the Swift parameter it gives, by index. */
+export interface JsxAttribute {
+  name: string;
+  param: number;
+  optional: boolean;
+}
+
+/**
+ * How a view's initializer is written as JSX, for one call form: each
+ * argument an attribute, named by its Swift label, or, unlabeled, by its
+ * parameter's name (a trailing action too); the children give a trailing
+ * builder's content, or else a first unlabeled string (`<Text>hi</Text>`).
+ */
+export interface JsxForm {
+  attributes: JsxAttribute[];
+  children?: { kind: "text" | "builder"; param: number; optional: boolean };
+}
+
+export function jsxForm(params: readonly SdkParam[], form: CallForm): JsxForm {
+  const trailing = form.parts.find((p) => p.k === "trailing");
+  const builder =
+    trailing && params[trailing.param]!.swift?.kind === "builder" ? trailing : undefined;
+  const text = builder
+    ? undefined
+    : form.parts.find(
+        (p) =>
+          p.k === "positional" &&
+          params[p.param]!.type.k === "string" &&
+          !params[p.param]!.type.nullable,
+      );
+  const children = builder ?? text;
+
+  const taken = new Set<string>();
+  const unique = (name: string) => {
+    let out = name;
+    while (taken.has(out)) out = `${out}_`;
+    taken.add(out);
+    return out;
+  };
+  const attribute = (param: number, optional: boolean): JsxAttribute => {
+    const p = params[param]!;
+
+    return { name: unique(p.swift?.label ?? p.name), param, optional };
+  };
+
+  const attributes = form.parts.flatMap((part): JsxAttribute[] => {
+    if (part === children) return [];
+
+    if (part.k !== "labeled") return [attribute(part.param, part.optional)];
+
+    return part.params.map((i) =>
+      attribute(i, part.optional || params[i]!.defaulted === "optional"),
+    );
+  });
+
+  return {
+    attributes,
+    ...(children && children.k !== "labeled"
+      ? {
+          children: {
+            kind: children === builder ? "builder" : "text",
+            param: children.param,
+            optional: children.optional,
+          },
+        }
+      : {}),
+  };
+}
+
+/**
+ * How a modifier's arguments are written as one attribute's value, for a
+ * call form: none (the attribute alone), one argument as it is, or more as
+ * a tuple, each as the call form gives it (an object of the labeled ones).
+ */
+export function argumentsShape(form: CallForm): "none" | "one" | "tuple" {
+  return form.parts.length === 0 ? "none" : form.parts.length === 1 ? "one" : "tuple";
 }

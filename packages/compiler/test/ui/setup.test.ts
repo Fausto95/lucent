@@ -46,10 +46,10 @@ import type { TextView } from "lucent:android/android.widget";
 export declare function Label(props: ${props}): UILabel | TextView;
 `,
     "label.ios.lucent.tsx": `import { UILabel } from "lucent:ios/UIKit";
-import { effect, expose, invalidateSize, native, onDispose, signal } from "lucent:ui";
+import { effect, expose, invalidateSize, onDispose, signal } from "lucent:ui";
 ${extra}
 export function Label(props: ${props}): UILabel {
-  const label = native(() => new UILabel());
+  const label = new UILabel();
 ${body}
   return label;
 }
@@ -170,10 +170,10 @@ import type { Coalesced, Continuous } from "lucent:ui";
 export declare function Label(props: ${props}): UILabel | TextView;
 `,
           "label.ios.lucent.tsx": `import { UILabel } from "lucent:ios/UIKit";
-import { type Coalesced, type Continuous, effect, native } from "lucent:ui";
+import { type Coalesced, type Continuous, effect } from "lucent:ui";
 
 export function Label(props: ${props}): UILabel {
-  const label = native(() => new UILabel());
+  const label = new UILabel();
 
   effect(() => {
     label.text = props.text;
@@ -283,14 +283,13 @@ import type { EditText } from "lucent:android/android.widget";
 export declare function Field(props: { text: string }): UITextField | EditText;
 `,
           "field.ios.lucent.tsx": `import { UITextField, type UITextFieldDelegate } from "lucent:ios/UIKit";
-import { native } from "lucent:ui";
 
 class Edits implements UITextFieldDelegate {
   textFieldDidEndEditing(_field: UITextField): void {}
 }
 
 export function Field(props: { text: string }): UITextField {
-  const field = native(() => new UITextField({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } }));
+  const field = new UITextField({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } });
   field.delegate = new Edits();
   return field;
 }

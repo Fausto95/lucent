@@ -24,6 +24,13 @@ describe("Swift types", () => {
       "(@convention(c) () -> Void)?",
     );
   });
+
+  it("print Swift function types, parenthesized where optional", () => {
+    const fn = swift.fn([swift.type("Double"), swift.type("String")], swift.type("Void"));
+
+    expect(printType(fn)).toBe("(Double, String) -> Void");
+    expect(printType(swift.optional(fn))).toBe("((Double, String) -> Void)?");
+  });
 });
 
 describe("Swift expressions", () => {

@@ -1,5 +1,14 @@
 /** Constructors for TypeScript and JavaScript syntax trees. */
-import type { Decl, Expr, Keyword, Param, PropertySignature, Stmt, Type } from "./ast.ts";
+import type {
+  Decl,
+  Expr,
+  Keyword,
+  Param,
+  PropertySignature,
+  Stmt,
+  TupleElement,
+  Type,
+} from "./ast.ts";
 import { printType } from "./print.ts";
 
 // --- types -----------------------------------------------------------------------------
@@ -26,6 +35,10 @@ export const union = (members: Type[]): Type => {
   const all = [...flat.values()];
   return all.length === 1 ? all[0]! : { k: "union", members: all };
 };
+/** An intersection; one member is itself. */
+export const intersection = (members: Type[]): Type =>
+  members.length === 1 ? members[0]! : { k: "intersection", members };
+export const tuple = (elements: TupleElement[]): Type => ({ k: "tuple", elements });
 export const param = (name: string, t: Type): Param => ({ name, type: t });
 
 // --- expressions and statements --------------------------------------------------------

@@ -1,7 +1,7 @@
 import { delay } from "lucent:core";
 import { Timer } from "lucent:ios/Foundation";
 import { UIColor, UIFont, UIFont_TextStyle, UIImage, UIImageView, UILabel } from "lucent:ios/UIKit";
-import { effect, expose, invalidateSize, native } from "lucent:ui";
+import { effect, expose, invalidateSize } from "lucent:ui";
 
 // A 96x48 blue PNG: at scale 1, a 96x48 point image.
 function png(): Uint8Array {
@@ -16,7 +16,7 @@ function png(): Uint8Array {
 }
 
 export function Blurb(props: { text: string }): UILabel {
-  const label = native(() => new UILabel());
+  const label = new UILabel();
 
   // Wraps within the width its layout gives it, at the text size the user chose.
   label.numberOfLines = 0n;
@@ -44,7 +44,7 @@ export function Blurb(props: { text: string }): UILabel {
 }
 
 export function Picture(_props: { name: string }): UIImageView {
-  const view = native(() => new UIImageView(null));
+  const view = new UIImageView(null);
 
   view.backgroundColor = UIColor.systemGreen;
 

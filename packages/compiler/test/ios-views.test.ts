@@ -9,7 +9,7 @@ const ios = process.platform === "darwin" && sdkAvailable("ios");
 
 /** A control: every kind of prop and event argument, a command and requests; its setup runs once. */
 const GAUGE = `import { UILabel } from "lucent:ios/UIKit";
-import { effect, expose, native } from "lucent:ui";
+import { effect, expose } from "lucent:ui";
 
 type Point = { x: number; y?: number | null };
 
@@ -23,7 +23,7 @@ type Props = {
 };
 
 export function Gauge(props: Props): UILabel {
-  const text = native(() => new UILabel());
+  const text = new UILabel();
 
   effect(() => {
     text.text = \`\${props.label ?? "gauge"}: \${props.value}\`;
@@ -233,8 +233,8 @@ describe("components' iOS hosts", () => {
       process.env.LUCENT_VIEWS = "fabric";
 
       const aliased = GAUGE.replace(
-        'import { effect, expose, native } from "lucent:ui";',
-        'import { effect, expose as give, native } from "lucent:ui";',
+        'import { effect, expose } from "lucent:ui";',
+        'import { effect, expose as give } from "lucent:ui";',
       ).replace("  expose({", "  give({");
       const { result } = compileApp(aliased);
 

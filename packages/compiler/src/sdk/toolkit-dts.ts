@@ -17,10 +17,12 @@
  * plan refuses is declared with the reason, for the body's diagnostic.
  */
 import {
+  argumentsShape,
   boundValue,
   type CallForm,
   callForms,
   isScalarProtocol,
+  jsxForm,
   ownTypes,
   planBinding,
   unsupportedReason,
@@ -41,14 +43,20 @@ import {
   type SdkType,
 } from "./schema.ts";
 
-/** The JSDoc tag leading a declaration back to its member: `@swift <symbol> [form]`. */
+/** The JSDoc tag leading a declaration back to its member: `@swift <symbol> [form] [jsx]`. */
 export const SOURCE_TAG = "swift";
+
+/** Marks a view's JSX signature in its `@swift` tag: its form written as JSX (bindgen's jsxForm). */
+export const JSX_FORM = "jsx";
 
 /** The unique symbol every type's brand is keyed by. */
 const BRAND = "toolkit";
 
 /** What a builder makes: the toolkit's content type. */
 const CONTENT = "Content";
+
+/** The namespace typing the JSX of the toolkit's platform files. */
+const JSX = "JSX";
 
 /**
  * Standard Swift types a body writes in lucent:ui's forms, by name in
@@ -69,6 +77,8 @@ interface Overload {
   params: ts.Param[];
   ret: ts.Type;
   doc: string[];
+  /** The member's call form and parameters, for a call (what its JSX and attribute forms follow). */
+  call?: { form: CallForm; params: SdkParam[]; symbol: string; index: number; view: boolean };
   /**
    * Kept first: what the body may write, on every iOS the app runs on;
    * then those whose actions take more values (TypeScript types a
@@ -89,14 +99,35 @@ export function toolkitDts(
   const types = new Map(
     schema.types.filter((t): t is SdkClassSchema => t.kind === "class").map((t) => [t.name, t]),
   );
-  const fixed = [BRAND, CONTENT, BOUND, ...Object.values(UI_FORMS), toolkit.root, toolkit.body];
+  const fixed = [BRAND, CONTENT, BOUND, JSX, ...Object.values(UI_FORMS), toolkit.root];
   const taken = fixed.find((n) => types.has(n));
   if (taken)
-    throw new Error(`${schema.module} declares ${taken}, a name lucent:${toolkit.body} gives`);
+    throw new Error(`${schema.module} declares ${taken}, a name its toolkit's module gives`);
 
   const own = (t: SdkType) =>
     t.k === "ref" && t.module === schema.module ? types.get(t.name) : undefined;
   const lookup = ownTypes(schema);
+  // A view: the toolkit's view protocol, or a type conforming to it.
+  const viewName = toolkit.source.view;
+  const views = new Map<string, boolean>();
+  const isView = (cls: SdkClassSchema): boolean => {
+    const known = views.get(cls.name);
+    if (known !== undefined) return known;
+
+    views.set(cls.name, cls.name === viewName);
+    const found =
+      cls.name === viewName ||
+      (cls.implements ?? []).some((r) => {
+        const parent = types.get(r.slice(r.lastIndexOf(".") + 1));
+        return !!parent && parent !== cls && isView(parent);
+      });
+    views.set(cls.name, found);
+    return found;
+  };
+  const isViewRef = (t: SdkType): boolean => {
+    const cls = own(t);
+    return !!cls && isView(cls);
+  };
   // The lucent:ui types the declarations name, which the module imports.
   const forms = new Set<string>();
   const uiForm = (t: SdkType) =>
@@ -222,6 +253,14 @@ export function toolkitDts(
       params: formParams(m.params, form, paramType),
       ret: ret ? value(ret) : owner ? ts.ref(owner.name) : ts.keyword("void"),
       doc: doc(i),
+      call: {
+        form,
+        params: m.params,
+        symbol: m.symbol ?? "",
+        index: i,
+        // What it makes (an initializer's type, a modifier's result) is a view.
+        view: ret ? isViewRef(ret) : !!owner && isView(owner),
+      },
       rank,
     }));
   };
@@ -241,6 +280,140 @@ export function toolkitDts(
     }
 
     return [...seen].sort();
+  };
+
+  const methodsOf = (cls: SdkClassSchema): Overload[] => {
+    const own = declared.get(cls.name)!;
+
+    return inherit(
+      own.methods,
+      ancestors(cls).map((a) => declared.get(a)!.methods),
+      own.properties,
+    );
+  };
+
+  // A view's modifiers as attributes (`padding={8}`): an interface per view type
+  // declaring any, over its bases' (those it declares again left out of them).
+  const modifierDecls: ts.Decl[] = [];
+  const modifiers = new Map<string, { ref?: ts.Type; names: ReadonlySet<string> }>();
+  const modifiersOf = (cls: SdkClassSchema): { ref?: ts.Type; names: ReadonlySet<string> } => {
+    const known = modifiers.get(cls.name);
+    if (known) return known;
+
+    const bases = (cls.implements ?? [])
+      .map((r) => types.get(r.slice(r.lastIndexOf(".") + 1)))
+      .filter((b): b is SdkClassSchema => !!b && b !== cls && isView(b))
+      .map((b) => modifiersOf(b))
+      .filter((b) => b.ref);
+    const attributes = new Map<string, ts.Type[]>();
+    for (const o of methodsOf(cls))
+      if (o.call?.view)
+        attributes.set(o.name, [...(attributes.get(o.name) ?? []), ...argumentValues(o)]);
+
+    const names = new Set([...bases.flatMap((b) => [...b.names]), ...attributes.keys()]);
+    const reuse = !attributes.size && bases.length === 1 && cls.name !== viewName;
+    const found = reuse ? bases[0]! : { ref: ts.ref(`${cls.name}$Modifiers`), names };
+    modifiers.set(cls.name, found);
+
+    if (!reuse)
+      modifierDecls.push({
+        k: "interface",
+        name: `${cls.name}$Modifiers`,
+        local: true,
+        ...(bases.length
+          ? {
+              extends: bases.map((b) =>
+                omitted(
+                  b.ref!,
+                  [...attributes.keys()].filter((n) => b.names.has(n)),
+                ),
+              ),
+            }
+          : {}),
+        members: [...attributes].map(([name, values]): ts.Member => ({
+          k: "property",
+          name,
+          type: ts.union(values),
+          optional: true,
+        })),
+      });
+
+    return found;
+  };
+
+  /**
+   * A modifier's arguments as an attribute's value, for each scalar its
+   * type parameters may be: none (`true`), one value, or a tuple; trailing
+   * optional arguments may be left out, down to one value or none.
+   */
+  const argumentValues = (o: Overload): ts.Type[] =>
+    scalarChoices(o.typeParams).flatMap((choice) => {
+      const params = o.params.map((p) => ({ ...p, type: substitute(p.type, choice) }));
+      const required = params.findLastIndex((p) => !p.optional) + 1;
+      const [first] = params;
+
+      return [
+        ...(argumentsShape(o.call!.form) === "tuple"
+          ? [
+              ts.tuple(
+                params.map((p) => ({ type: p.type, ...(p.optional ? { optional: true } : {}) })),
+              ),
+            ]
+          : []),
+        ...(first && required <= 1 ? [first.type] : []),
+        ...(required === 0 ? [ts.literal(true)] : []),
+      ];
+    });
+
+  /** A view's JSX, per form of its initializer: its arguments as attributes and children. */
+  const jsxSignatures = (cls: SdkClassSchema, inits: Overload[]): ts.Member[] => {
+    const mods = modifiersOf(cls);
+    const seen = new Set<string>();
+
+    return inits.flatMap((o): ts.Member[] => {
+      if (!o.call) return [];
+
+      const { params, form } = o.call;
+      const jsx = jsxForm(params, form);
+      const fields = [
+        ...jsx.attributes.map((a) => ({
+          name: a.name,
+          type: paramType(params[a.param]!),
+          ...(a.optional ? { optional: true } : {}),
+        })),
+        ...(jsx.children
+          ? [
+              {
+                name: "children",
+                type:
+                  jsx.children.kind === "text"
+                    ? ts.keyword("string")
+                    : paramType(params[jsx.children.param]!),
+                ...(jsx.children.optional ? { optional: true } : {}),
+              },
+            ]
+          : []),
+      ];
+      // A label wins over a modifier of its name, which stays a method for the chain.
+      const clashes = jsx.attributes.map((a) => a.name).filter((n) => mods.names.has(n));
+      const props = ts.intersection([
+        ts.object(fields),
+        ...(mods.ref ? [omitted(mods.ref, clashes)] : []),
+      ]);
+      const key = ts.printType(props);
+      if (seen.has(key)) return [];
+
+      seen.add(key);
+      return [
+        {
+          k: "call",
+          ...generic(o),
+          params: [ts.param("props", props)],
+          ret: o.ret,
+          doc: docOf([...o.doc.slice(0, -1), `${o.doc.at(-1)!} ${JSX_FORM}`]),
+        },
+      ];
+    });
   };
 
   const decls: ts.Decl[] = [
@@ -263,7 +436,10 @@ export function toolkitDts(
       const p = pathOf(t);
       return p.length === path.length + 1 && p.slice(0, -1).join(".") === path.join(".");
     });
+    const view = isView(cls);
+    if (view) modifiersOf(cls);
     const statics = [
+      ...(view ? jsxSignatures(cls, own.inits) : []),
       ...own.inits.map((o): ts.Member => ({
         k: "call",
         ...generic(o),
@@ -335,6 +511,7 @@ export function toolkitDts(
         ? [{ k: "importType" as const, names: [...forms].sort(), from: "lucent:ui" }]
         : []),
       ...decls,
+      ...modifierDecls,
       ...namespaces,
       { k: "exportNothing" },
     ],
@@ -343,7 +520,7 @@ export function toolkitDts(
   // Lucent's own forms (toolkit-forms.ts) go before the module's end.
   return text.replace(
     /export \{\};\n$/,
-    `${toolkitForms(toolkit.body, (n) => types.has(n))}export {};\n`,
+    `${toolkitForms(toolkit.source.module, (n) => types.has(n))}export {};\n`,
   );
 }
 
@@ -554,9 +731,13 @@ const method = (o: Overload): ts.Member => ({
   doc: docOf(o.doc),
 });
 
-/** The toolkit's own declarations: its root class, its body function and its content type. */
+/**
+ * The toolkit's own declarations: its root class, its body function (while
+ * a body is still given to one), its content type and its JSX namespace.
+ */
 function fixedDecls(toolkit: Toolkit & { source: NonNullable<Toolkit["source"]> }): ts.Decl[] {
   const view = ts.ref(toolkit.source.view);
+  const shown = ts.union([view, ts.literal(false), ts.nullType, ts.keyword("undefined")]);
 
   return [
     {
@@ -578,30 +759,71 @@ function fixedDecls(toolkit: Toolkit & { source: NonNullable<Toolkit["source"]> 
       ],
     },
     {
-      k: "function",
-      name: toolkit.body,
-      params: [ts.param("body", ts.fn([], view))],
-      ret: ts.ref(toolkit.root),
-      doc: [
-        `The component's body, drawn by ${toolkit.title}: a function returning its view, which`,
-        `${toolkit.title} evaluates again whenever a value it shows changes. Setup calls it once,`,
-        "in its own code, and returns what it makes.",
-        "",
-        "In the body, Swift's unlabeled arguments are given in order, its labeled ones",
-        "as one object (`frame({ width: 40 })`), and a closure last (a view's content",
-        "as an array, an action as a function).",
-      ],
-    },
-    {
       k: "typeAlias",
       name: CONTENT,
-      // A view, or nothing where a condition leaves it out (`shown && Text("a")`).
-      type: ts.readonlyArray(
-        ts.union([view, ts.literal(false), ts.nullType, ts.keyword("undefined")]),
-      ),
+      // Views, or nothing where a condition leaves one out (`{shown && <Text>a</Text>}`).
+      type: ts.union([shown, ts.readonlyArray(shown)]),
+    },
+    {
+      k: "namespace",
+      name: JSX,
+      decls: [
+        // What a JSX element is: a view, a body's (the program resolves each iOS file's JSX here).
+        { k: "typeAlias", name: "Element", type: view },
+        {
+          k: "interface",
+          name: "ElementChildrenAttribute",
+          members: [{ k: "property", name: "children", type: ts.object([]) }],
+        },
+        { k: "interface", name: "IntrinsicElements", members: [] },
+      ],
     },
   ];
 }
 
 /** A documentation comment on one line when it is one line. */
 const docOf = (lines: string[]): ts.Doc => (lines.length === 1 ? lines[0]! : lines);
+
+/** `Omit<type, names>`, or `type` when it leaves out none. */
+function omitted(type: ts.Type, names: string[]): ts.Type {
+  return names.length ? ts.ref("Omit", type, ts.union(names.map((n) => ts.literal(n)))) : type;
+}
+
+/** Each way to choose a scalar for every type parameter: one of Lucent's number, string, boolean. */
+function scalarChoices(params: readonly ts.TypeParam[]): Map<string, ts.Type>[] {
+  const scalars = [ts.keyword("boolean"), ts.keyword("number"), ts.keyword("string")];
+
+  return params.reduce<Map<string, ts.Type>[]>(
+    (choices, p) => choices.flatMap((c) => scalars.map((t) => new Map([...c, [p.name, t]]))),
+    [new Map()],
+  );
+}
+
+/** `t` with each type parameter `choice` names replaced by its choice. */
+function substitute(t: ts.Type, choice: ReadonlyMap<string, ts.Type>): ts.Type {
+  if (!choice.size) return t;
+
+  const at = (x: ts.Type) => substitute(x, choice);
+
+  switch (t.k) {
+    case "ref":
+      return choice.get(t.name) ?? (t.args ? ts.ref(t.name, ...t.args.map(at)) : t);
+    case "array":
+      return { ...t, of: at(t.of) };
+    case "union":
+      return ts.union(t.members.map(at));
+    case "intersection":
+      return ts.intersection(t.members.map(at));
+    case "tuple":
+      return { ...t, elements: t.elements.map((e) => ({ ...e, type: at(e.type) })) };
+    case "fn":
+      return ts.fn(
+        t.params.map((p) => ({ ...p, type: at(p.type) })),
+        at(t.ret),
+      );
+    case "object":
+      return ts.object(t.members.map((m) => ({ ...m, type: at(m.type) })));
+    default:
+      return t;
+  }
+}

@@ -30,11 +30,11 @@ export type Props = ${props};
 
 export declare function Form(props: Props): View;
 `,
-    "form.android.lucent.tsx": `import { ${imports}, compose, type ComposeView } from "lucent:compose";
+    "form.android.lucent.tsx": `import { ${imports} } from "lucent:compose";
 import { ${ui} } from "lucent:ui";
 import type { Props } from "./form.lucent";
 
-export function Form(props: Props): ComposeView {
+export function Form(props: Props) {
 ${body}
 }
 `,
@@ -68,12 +68,12 @@ describe.skipIf(!android)("a Compose body", () => {
 
   expose({ draft: (): string => draft.peek() });
 
-  return compose(() =>
-    Column({}, () => [
-      BasicTextField({ value: draft.get(), onValueChange: (text) => typed(text) }),
-      Box({ modifier: Modifier.toggleable(on.get(), (value) => turned(value)).size(dp(24)) }),
-      BasicText({ text: "pick", modifier: Modifier.clickable(() => pick(props.title, 2)) }),
-    ]),
+  return (
+    <Column>
+      <BasicTextField value={draft.get()} onValueChange={(text) => typed(text)} />
+      <Box modifier={Modifier.toggleable(on.get(), (value) => turned(value)).size(dp(24))} />
+      <BasicText text="pick" modifier={Modifier.clickable(() => pick(props.title, 2))} />
+    </Column>
   );`,
       ),
     );
@@ -93,7 +93,7 @@ describe.skipIf(!android)("a Compose body", () => {
   it("takes arrays, objects and nulls from its setup", () => {
     const { built, kotlin } = kotlinOf(
       component(
-        "BasicText, Column",
+        "BasicText, Column, LaunchedEffect",
         `{ title: string; note?: string }`,
         `  type Stats = { label: string; done: number; total: number; note: string | null; tags: string[] };
 
@@ -103,26 +103,35 @@ describe.skipIf(!android)("a Compose body", () => {
     stats.set({ ...s, done: s.done + 1, note: props.note ?? null });
   };
 
+  const seen = () => {
+    console.log("seen");
+  };
+
   expose({ bump });
 
-  return compose(() => {
-    const s = stats.get();
+  LaunchedEffect(stats.get(), async () => {
+    seen();
+  });
 
-    return Column({}, () => [
-      BasicText({ text: \`\${s.label}: \${s.done} of \${s.total}\` }),
-      s.note !== null && BasicText({ text: s.note }),
-    ]);
-  });`,
+  return (
+    <Column>
+      <BasicText text={\`\${stats.get().label}: \${stats.get().done} of \${stats.get().total}\`} />
+      {stats.get().note !== null && <BasicText text={stats.get().note ?? ""} />}
+    </Column>
+  );`,
       ),
     );
 
     expect(diagnostics(built.result)).toEqual([]);
-    // An object crosses as a Kotlin data class, whose fields the body reads.
+    // An object crosses as a Kotlin data class: equal values key the effect alike.
     expect(kotlin).toMatch(
       /data class \w+Value\d+\(val label: String = "", val done: Double = 0\.0, val total: Double = 0\.0, val note: String\? = null, val tags: List<String> = emptyList\(\)\)/,
     );
-    expect(kotlin).toMatch(/val s = lucent\.stats\d+\.value/);
-    expect(kotlin).toMatch(/if \(s\.note != null\) \{\n\s+BasicText\(text = s\.note\)/);
+    expect(kotlin).toMatch(/LaunchedEffect\(key1 = lucent\.stats\d+\.value\)/);
+    // What the content shows of it, the setup computes.
+    expect(kotlin).toMatch(
+      /if \(lucent\.\w+\.value\) \{\n\s+BasicText\(text = lucent\.\w+\.value\)/,
+    );
 
     const glue = generated(built.result, /^android\/m_form\.cpp$/);
 
@@ -150,27 +159,30 @@ describe.skipIf(!android)("a Compose body", () => {
 
   expose({ count: (): number => todos.peek().length });
 
-  return compose(() =>
-    Column({}, (column) => [
-      LazyColumn({
-        modifier: column.Modifier.weight(1).height(dp(200)),
-        content: (list) => {
-          list.items(
-            todos.get(),
-            (_, t) => [
-              Row({}, (row) => [
-                BasicText({
-                  text: \`\${t.done ? "done" : "todo"} \${t.title}\`,
-                  modifier: row.Modifier.weight(1).clickable(() => toggle(t)),
-                }),
-                BasicText({ text: "remove", modifier: Modifier.clickable(() => remove(t.id)) }),
-              ]),
-            ],
-            { key: (t) => t.id },
-          );
-        },
-      }),
-    ]),
+  return (
+    <Column>
+      {(column) => (
+        <LazyColumn modifier={column.Modifier.weight(1).height(dp(200))}>
+          {(list) => (
+            <list.items items={todos.get()} key={(t) => t.id}>
+              {(_, t) => (
+                <Row>
+                  {(row) => (
+                    <>
+                      <BasicText
+                        text={\`\${t.done ? "done" : "todo"} \${t.title}\`}
+                        modifier={row.Modifier.weight(1).clickable(() => toggle(t))}
+                      />
+                      <BasicText text="remove" modifier={Modifier.clickable(() => remove(t.id))} />
+                    </>
+                  )}
+                </Row>
+              )}
+            </list.items>
+          )}
+        </LazyColumn>
+      )}
+    </Column>
   );`,
       ),
     );
@@ -202,14 +214,18 @@ describe.skipIf(!android)("a Compose body", () => {
         "{ title: string }",
         `  const names = signal(["a", "b"]);
 
-  return compose(() =>
-    LazyColumn({ content: (list) => list.items(names.get(), (_, n) => [BasicText({ text: n })]) }),
+  return (
+    <LazyColumn>
+      {(list) => <list.items items={names.get()}>{(_, n) => <BasicText text={n} />}</list.items>}
+    </LazyColumn>
   );`,
       ),
     );
 
     expect(diagnostics(built.result)).toContainEqual(
-      expect.stringMatching(/^LUCENT3024 a Compose list keys its items: \{ key: \(item\) => /),
+      expect.stringMatching(
+        /^LUCENT3024 a Compose list keys its items: <list\.items key=\{\(item\) => /,
+      ),
     );
   }, 300_000);
 
@@ -223,11 +239,11 @@ describe.skipIf(!android)("a Compose body", () => {
 
   expose({ draft: (): string => draft.peek() });
 
-  return compose(() =>
-    Column({}, () => [
-      BasicTextField({ value: bind(draft) }),
-      Box({ modifier: Modifier.toggleable(bind(on)).size(dp(24)) }),
-    ]),
+  return (
+    <Column>
+      <BasicTextField value={bind(draft)} />
+      <Box modifier={Modifier.toggleable(bind(on)).size(dp(24))} />
+    </Column>
   );`,
         "bind, expose, signal",
       ),
@@ -259,16 +275,18 @@ describe.skipIf(!android)("a Compose body", () => {
     console.log(\`dark \${dark} \${density}\`);
   };
 
-  return compose(() => {
-    const density = LocalDensity.current.density;
-    const dark = isSystemInDarkTheme();
+  const density = LocalDensity.current.density;
+  const dark = isSystemInDarkTheme();
 
-    LaunchedEffect(dark, async () => {
-      seen(dark, density);
-    });
+  LaunchedEffect(dark, async () => {
+    seen(dark, density);
+  });
 
-    return Column({}, () => [BasicText({ text: \`\${density}x, \${dark ? "dark" : "light"}\` })]);
-  });`,
+  return (
+    <Column>
+      <BasicText text={\`\${density}x, \${dark ? "dark" : "light"}\`} />
+    </Column>
+  );`,
       ),
     );
 
@@ -289,11 +307,8 @@ describe.skipIf(!android)("a Compose body", () => {
     console.log(\`\${density}\`);
   };
 
-  return compose(() =>
-    BasicText({
-      text: "x",
-      modifier: Modifier.clickable(() => dense(LocalDensity.current.density)),
-    }),
+  return (
+    <BasicText text="x" modifier={Modifier.clickable(() => dense(LocalDensity.current.density))} />
   );`,
       ),
     );
@@ -315,21 +330,20 @@ describe.skipIf(!android)("a Compose body", () => {
 
   expose({ toggle: () => open.set(!open.peek()) });
 
-  return compose(() => {
-    const size = animateDpAsState(open.get() ? dp(80) : dp(40), spring({ stiffness: stiffness.get() }));
+  const size = animateDpAsState(open.get() ? dp(80) : dp(40), spring({ stiffness: stiffness.get() }));
 
-    return Column({ modifier: Modifier.animateContentSize() }, () => [
-      AnimatedVisibility(
-        {
-          visible: open.get(),
-          enter: fadeIn().plus(expandVertically()),
-          exit: fadeOut().plus(shrinkVertically()),
-        },
-        () => [BasicText({ text: "details" })],
-      ),
-      Box({ modifier: Modifier.size(size.value) }),
-    ]);
-  });`,
+  return (
+    <Column modifier={Modifier.animateContentSize()}>
+      <AnimatedVisibility
+        visible={open.get()}
+        enter={fadeIn().plus(expandVertically())}
+        exit={fadeOut().plus(shrinkVertically())}
+      >
+        <BasicText text="details" />
+      </AnimatedVisibility>
+      <Box modifier={Modifier.size(size.value)} />
+    </Column>
+  );`,
       ),
     );
 
@@ -351,8 +365,8 @@ describe.skipIf(!android)("a Compose body", () => {
     console.log(\`\${range.min}\`);
   };
 
-  return compose(() =>
-    BasicText({ text: "x", modifier: Modifier.clickable(() => choose({ min: 1 })) }),
+  return (
+    <BasicText text="x" modifier={Modifier.clickable(() => choose({ min: 1 }))} />
   );`,
       ),
     );

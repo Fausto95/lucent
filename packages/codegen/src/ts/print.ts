@@ -4,13 +4,24 @@ const INDENT = "  ";
 
 // --- types -----------------------------------------------------------------------------
 
-/** Where a type goes: an array element binds tighter than a union member, which binds tighter than anything else. */
-const At = { top: 0, unionMember: 1, arrayElement: 2 } as const;
+/**
+ * Where a type goes: an array element (or an optional tuple element) binds
+ * tighter than an intersection member, which binds tighter than a union
+ * member, which binds tighter than anything else.
+ */
+const At = { top: 0, unionMember: 1, intersectionMember: 2, arrayElement: 3 } as const;
 type At = (typeof At)[keyof typeof At];
 
 function type(t: Type, at: At): string {
   const text = bareType(t);
-  const loose = t.k === "fn" ? At.top : t.k === "union" ? At.unionMember : At.arrayElement;
+  const loose =
+    t.k === "fn"
+      ? At.top
+      : t.k === "union"
+        ? At.unionMember
+        : t.k === "intersection"
+          ? At.intersectionMember
+          : At.arrayElement;
   return loose < at ? `(${text})` : text;
 }
 
@@ -24,6 +35,10 @@ function bareType(t: Type): string {
       return `${t.readonly ? "readonly " : ""}${type(t.of, At.arrayElement)}[]`;
     case "union":
       return t.members.map((m) => type(m, At.unionMember)).join(" | ");
+    case "intersection":
+      return t.members.map((m) => type(m, At.intersectionMember)).join(" & ");
+    case "tuple":
+      return `[${t.elements.map((e) => (e.optional ? `${type(e.type, At.arrayElement)}?` : printType(e.type))).join(", ")}]`;
     case "fn":
       return `(${params(t.params)}) => ${printType(t.ret)}`;
     case "object":
@@ -137,7 +152,7 @@ function member(m: Member): string[] {
     case "property": {
       const mods = `${m.private ? "private " : ""}${m.static ? "static " : ""}${m.readonly ? "readonly " : ""}`;
       const name = m.computed ? `[${m.name}]` : propertyName(m.name);
-      return [...doc, `${INDENT}${mods}${name}: ${printType(m.type)};`];
+      return [...doc, `${INDENT}${mods}${name}${m.optional ? "?" : ""}: ${printType(m.type)};`];
     }
     case "call":
       return [

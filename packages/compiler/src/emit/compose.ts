@@ -1,25 +1,42 @@
 /**
- * Compose bodies (Android): `compose(() => …)` in a component's setup. The
- * body's Kotlin (ui/compose.ts) joins the program's Kotlin, and the setup
- * makes the state holder it reads (runtime lucent/platform/compose.h),
- * which toolkit.ts feeds: an effect per value slot calls the holder's
- * `set`, and each action slot is given to it as a Kotlin function object
- * that enters the main context.
+ * Compose bodies (Android): the JSX a component returns, and the
+ * composition statements of its setup (ui/composition.ts). The body's
+ * Kotlin (ui/compose.ts) joins the program's Kotlin, and the setup makes
+ * the state holder it reads (runtime lucent/platform/compose.h), which
+ * toolkit.ts feeds: an effect per value slot calls the holder's `set`, and
+ * each action slot is given to it as a Kotlin function object that enters
+ * the main context.
  *
- * The call's value is the ComposeView; the mount's scope disposes its
- * composition when the mount ends.
+ * The returned JSX's value is the ComposeView; the mount's scope disposes
+ * its composition when the mount ends.
  */
 import { cpp } from "@lucent-lang/codegen";
 import { composeContent } from "../ui/compose.ts";
-import { Crossings } from "../ui/toolkit-body.ts";
+import { checkComposition, compositionStatements } from "../ui/composition.ts";
+import { bodyFail, Crossings, isJsx, skipParentheses } from "../ui/toolkit-body.ts";
 import { bodySetup, site } from "./setups.ts";
 import type { ToolkitEmitter } from "./toolkit.ts";
 
 export const composeEmitter: ToolkitEmitter = {
-  body(em, setup, fn, call) {
+  lifted(em, setup) {
+    checkComposition(em.checker, setup.fn);
+
+    return compositionStatements(em.checker, setup.fn);
+  },
+
+  body(em, setup, body, call) {
+    const jsx = skipParentheses(body);
+
+    if (!isJsx(jsx))
+      bodyFail(
+        body,
+        "a Compose body is JSX: its root element takes its modifier as a prop (`modifier={…}`)",
+      );
+
     const owner = bodySetup(setup);
-    const crossings = new Crossings(em.checker, "compose", owner, fn);
-    const content = composeContent(em.checker, owner, fn, crossings);
+    const lifted = compositionStatements(em.checker, setup.fn);
+    const crossings = new Crossings(em.checker, "compose", owner, jsx, lifted);
+    const content = composeContent(em.checker, owner, jsx, lifted, crossings);
     const holder = em.ctx.fresh("content");
     const where = cpp.str(site(call));
 

@@ -7,7 +7,7 @@ import { kotlinToolchain } from "../../../bindgen/test/kotlin-toolchain.ts";
 import { compile, runtimeDir, sdkAvailable } from "../../src/index.ts";
 import { composeDeclarations } from "../../src/ui/compose-dts.ts";
 import { composeArtifacts, kotlinClasspath } from "./compose-artifacts.ts";
-import { TOGGLE, withBody } from "./compose-fixture.ts";
+import { TOGGLE, withContent } from "./compose-fixture.ts";
 import { SLICE } from "./compose-slice-fixture.ts";
 
 /*
@@ -46,19 +46,19 @@ describe("lucent:compose's declarations", () => {
     return start < 0 ? "" : text().slice(start, text().indexOf("\n}\n", start));
   };
 
-  it("take a composable's named arguments as one object and its content last", () => {
+  it("declare composables showing UI as elements: named arguments as props, content as children", () => {
     expect(text()).toContain(
-      "export declare function Box(args: { modifier?: Modifier; contentAlignment?: Alignment; propagateMinConstraints?: boolean }, content: ScopedContent<BoxScope>): Composed;",
+      "export declare function Box(props: { modifier?: Modifier; contentAlignment?: Alignment; propagateMinConstraints?: boolean; children: ScopedChildren<BoxScope> }): Composed;",
     );
     // Kotlin's other Box takes a modifier, and no content.
     expect(text()).toContain(
-      "export declare function Box(args: { modifier: Modifier }): Composed;",
+      "export declare function Box(props: { modifier: Modifier }): Composed;",
     );
     expect(text()).toContain(
-      "export declare function Column(args: { modifier?: Modifier; verticalArrangement?: Arrangement.Vertical; horizontalAlignment?: Alignment.Horizontal }, content: ScopedContent<ColumnScope>): Composed;",
+      "export declare function Column(props: { modifier?: Modifier; verticalArrangement?: Arrangement.Vertical; horizontalAlignment?: Alignment.Horizontal; children: ScopedChildren<ColumnScope> }): Composed;",
     );
     expect(text()).toContain(
-      "export declare function Spacer(args: { modifier: Modifier }): Composed;",
+      "export declare function Spacer(props: { modifier: Modifier }): Composed;",
     );
   });
 
@@ -100,10 +100,10 @@ describe("lucent:compose's declarations", () => {
 
   it("declare material3's composables", () => {
     expect(text()).toMatch(
-      /export declare function Text\(args: \{ text: string; modifier\?: Modifier; color\?: Color;/,
+      /export declare function Text\(props: \{ text: string; modifier\?: Modifier; color\?: Color;/,
     );
     expect(text()).toMatch(
-      /export declare function Button\(args: \{ onClick: \(\) => void; modifier\?: Modifier;[^\n]*\}, content: ScopedContent<RowScope>\): Composed;/,
+      /export declare function Button\(props: \{ onClick: \(\) => void; modifier\?: Modifier;[^\n]*; children: ScopedChildren<RowScope> \}\): Composed;/,
     );
   });
 
@@ -127,29 +127,36 @@ describe("lucent:compose's declarations", () => {
     expect(block("interface BoxScope_Modifier extends Modifier")).toMatch(
       /\n {2}align\(alignment: Alignment\): this;/,
     );
-    // A scope's extensions are its methods: ColumnScope.AnimatedVisibility.
+    // A scope's extensions are its methods, a composable showing UI an element: <column.AnimatedVisibility>.
     expect(block("interface ColumnScope")).toMatch(
-      /\n {2}AnimatedVisibility\(args: \{ visible: boolean;/,
+      /\n {2}AnimatedVisibility\(props: \{ visible: boolean;[^\n]*; children: ScopedChildren<AnimatedVisibilityScope> \}\): Composed;/,
     );
-    // A lazy list's items, whose content gets its scope, then the item.
-    expect(block("interface LazyListScope")).toMatch(
-      /\n {2}items<T>\(items: T\[\], itemContent: \(scope: LazyItemScope, arg0: T\) => readonly Shown\[\], options\?: \{ key\?: \(\(arg0: T\) => unknown\) \| null;/,
+    // A lazy list's items are elements of its scope, whose content gets the item's scope, then the item.
+    expect(block("interface LazyListScope")).toContain(
+      "\n  items<T>(props: { items: T[]; key?: ((arg0: T) => unknown) | null; contentType?: (arg0: T) => unknown; children: (scope: LazyItemScope, arg0: T) => Shown }): Composed;",
     );
-    // A callback with a receiver: LazyColumn's content, which gives its items.
+    expect(block("interface LazyListScope")).toContain(
+      "\n  item(props: { key?: unknown; contentType?: unknown; children: ScopedChildren<LazyItemScope> }): Composed;",
+    );
+    // A callback with a receiver whose scope has elements: LazyColumn's content, which gives its items.
     expect(text()).toMatch(
-      /export declare function LazyColumn\(args: \{ modifier\?: Modifier;[^\n]*content: \(scope: LazyListScope\) => void \}\): Composed;/,
+      /export declare function LazyColumn\(props: \{ modifier\?: Modifier;[^\n]*; children: \(scope: LazyListScope\) => Shown \}\): Composed;/,
+    );
+    // One whose scope has none stays a callback: Canvas draws in DrawScope.
+    expect(text()).toContain(
+      "export declare function Canvas(props: { modifier: Modifier; onDraw: (scope: DrawScope) => void }): Composed;",
     );
   });
 
   it("give callbacks their arguments, and leave to Kotlin the defaults content cannot write", () => {
     // Switch calls back with its new state.
     expect(text()).toContain(
-      "export declare function Switch(args: { checked: boolean | Bound<boolean>; onCheckedChange?: ((arg0: boolean) => void) | null;",
+      "export declare function Switch(props: { checked: boolean | Bound<boolean>; onCheckedChange?: ((arg0: boolean) => void) | null; modifier?: Modifier; thumbContent?: Content | null;",
     );
     // BasicTextField's decorationBox (a composable lambda given a composable one): its default.
     // Its value and onValueChange are paired: a bound signal gives both.
     expect(text()).toContain(
-      "export declare function BasicTextField(args: { value: string | Bound<string>; onValueChange?: (arg0: string) => void; modifier?: Modifier;",
+      "export declare function BasicTextField(props: { value: string | Bound<string>; onValueChange?: (arg0: string) => void; modifier?: Modifier;",
     );
   });
 });
@@ -205,14 +212,11 @@ describe.skipIf(!android)("content written from the bindings", () => {
   it("keep a number's Kotlin type through a generic result (rememberSaveable's T)", () => {
     process.env.LUCENT_VIEWS = "fabric";
 
-    const files = withBody(
-      "() => {\n    const count = rememberSaveable(() => 3);\n    const spin = rememberSaveable(() => Animatable(0));\n\n    return Box({ modifier: Modifier.alpha(spin.value).scale(count) });\n  }",
+    const files = withContent(
+      "  const count = rememberSaveable(() => 3);\n  const spin = rememberSaveable(() => Animatable(0));\n\n  return <Box modifier={Modifier.alpha(spin.value).scale(count)} />;",
+      { compose: ["rememberSaveable"] },
     );
-    const file = files["toggle.android.lucent.tsx"]!.replace(
-      "  remember,\n",
-      "  remember,\n  rememberSaveable,\n",
-    );
-    const { result, text } = compileApp({ ...files, "toggle.android.lucent.tsx": file });
+    const { result, text } = compileApp(files);
 
     expect(result.diagnostics).toEqual([]);
     // A JavaScript number is a Double; an Animatable<Float, …>'s value stays a Float.
@@ -225,7 +229,7 @@ describe.skipIf(!android)("content written from the bindings", () => {
     process.env.LUCENT_VIEWS = "fabric";
 
     const { result } = compileApp(
-      withBody("() => Column({ modifier: Modifier.weight(1) }, () => [])"),
+      withContent("  return <Column modifier={Modifier.weight(1)}>{null}</Column>;"),
     );
 
     expect(result.diagnostics.map((d) => `${d.code} ${d.message}`)).toContainEqual(

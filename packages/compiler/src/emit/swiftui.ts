@@ -1,7 +1,7 @@
 /**
  * SwiftUI bodies (iOS, under the internal LUCENT_VIEWS=fabric switch): the
- * function a component's setup gives `swiftUI(() => …)`, written out as
- * SwiftUI (`views/<registration>.swift`). The rest of the setup is compiled
+ * JSX an iOS component returns, written out as SwiftUI
+ * (`views/<registration>.swift`). The rest of the setup is compiled
  * into C++ as any setup's; toolkit.ts feeds the body's slots
  * (ui/toolkit-body.ts) through the C functions of lucent/platform/swiftui.h.
  *
@@ -13,12 +13,15 @@
  * calls by index.
  *
  * lucent:swiftui is generated from SwiftUI's own declarations, and each
- * call is written as its member's schema says (ui/source-members.ts):
- * Swift's unlabeled arguments are given in order, its labeled ones as one
- * object literal, and a closure last (a view's content as an array
- * literal, which becomes a trailing view builder, or an action); each
- * argument goes back where its parameter is, with its label. A
- * conditional view in content is SwiftUI's `if`.
+ * view and modifier is written as its member's schema says
+ * (ui/source-members.ts). An element is a view's initializer: its
+ * attributes named by the initializer's labels are its arguments, and its
+ * children a trailing builder's content or its text (bindgen's jsxForm).
+ * Every other attribute is a modifier, applied in the order written, its
+ * value its arguments in the call form: one value, an object of labeled
+ * ones, or a tuple of them. Each argument goes back where its parameter
+ * is, with its label. Values (`Color.green`, `Animation.spring({…})`) are
+ * calls in the call form. A conditional view in content is SwiftUI's `if`.
  *
  * `withAnimation(animation, body)` in the setup's code runs SwiftUI's
  * withAnimation (a `@_cdecl` shim per call site, the animation written out
@@ -33,19 +36,26 @@
  *   @_cdecl lucent_swiftui_<registration>_set<n>    (one per value slot)
  *   @_cdecl lucent_swiftui_<registration>_animate<n> (one per withAnimation)
  */
-import { type CallPart, SWIFT_SCALARS, unsupportedReason } from "@lucent-lang/bindgen";
+import {
+  type CallForm,
+  type CallPart,
+  jsxForm,
+  SWIFT_SCALARS,
+  unsupportedReason,
+} from "@lucent-lang/bindgen";
 import { cpp, swift } from "@lucent-lang/codegen";
 import path from "node:path";
 import ts from "typescript";
 import { compareVersions } from "../package-versions.ts";
-import { MIN_IOS, type SdkParam } from "../sdk/schema.ts";
+import { MIN_IOS, type SdkClassSchema, type SdkParam } from "../sdk/schema.ts";
+import { JSX_FORM, SOURCE_TAG } from "../sdk/toolkit-dts.ts";
 import { cppIdent, T } from "../types.ts";
 import type { ViewType } from "../ui/contract.ts";
 import { type SourceMember, sourceMemberOf } from "../ui/source-members.ts";
 import {
   bodyFail,
-  type BodyFunction,
   isBind,
+  jsxRoot,
   isUiForm,
   Crossings,
   type ListSlot,
@@ -54,7 +64,18 @@ import {
   skipParentheses,
   toolkitOfDeclaration,
   toolkitDeclaration,
+  keyOfUse,
+  valueName,
 } from "../ui/toolkit-body.ts";
+import type { FunctionLike } from "../ui/roots.ts";
+import {
+  chainUse,
+  type HelperCallback,
+  helperArgs,
+  helperAt,
+  type HelperUse,
+  type ViewHelper,
+} from "../ui/view-helpers.ts";
 import type { E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
 import { bodySetup, mountContent, type Setup, setupOf } from "./setups.ts";
@@ -265,11 +286,12 @@ class SwiftValues {
 class SwiftUIBody {
   /** The Swift of each withAnimation call's animation, by call site. */
   readonly animations: { animation: swift.Expr; args: readonly ScalarType[] }[] = [];
-  /** The body's slots, its view and its lists' rows, once its swiftUI() call is compiled. */
+  /** The body's slots, its view and its lists' rows, once the JSX its setup returns is compiled. */
   written?: {
     crossings: Crossings;
     view: swift.Expr;
     rows: readonly Row[];
+    helpers: readonly HelperView[];
     environment: ReadonlyMap<string, swift.Type>;
   };
 
@@ -318,16 +340,23 @@ export const swiftUIEmitter: ToolkitEmitter = {
   body(em, setup, fn) {
     const body = swiftUIBodyOf(setup);
     const crossings = new Crossings(em.checker, "swiftui", bodySetup(setup), fn);
-    const rows: Row[] = [];
-    const writer = new BodyWriter(em.checker, crossings, ROOT, rows);
-    const view = writer.view(returnedView(fn));
+    const shared: Shared = { rows: [], helpers: new Map() };
+    const writer = new BodyWriter(em.checker, crossings, ROOT, shared);
+    const view = writer.view(fn);
+    const { rows } = shared;
     const unit = em.ctx.nativeUnit(em.opts.module);
     const actions = em.ctx.fresh("lucent_actions");
     const host = em.ctx.fresh("lucent_host");
     const make = body.symbol("make");
     const raw = cpp.pointer(cpp.voidType);
 
-    body.written = { crossings, view, rows, environment: writer.environment };
+    body.written = {
+      crossings,
+      view,
+      rows,
+      helpers: [...shared.helpers.values()],
+      environment: writer.environment,
+    };
 
     unit.include("lucent/platform/swiftui.h");
     unit.include("lucent/platform/ios.h");
@@ -423,18 +452,6 @@ export const swiftUIEmitter: ToolkitEmitter = {
   },
 };
 
-/** The one view a body returns: its expression, or a block's only statement. */
-function returnedView(fn: BodyFunction): ts.Expression {
-  if (!ts.isBlock(fn.body)) return fn.body;
-
-  const [only] = fn.body.statements;
-
-  if (fn.body.statements.length !== 1 || !only || !ts.isReturnStatement(only) || !only.expression)
-    bodyFail(fn.body, "a SwiftUI body is one view: return it, `swiftUI(() => VStack([…]))`");
-
-  return only.expression;
-}
-
 /** Declares a C function of the component's Swift file for the module's glue. */
 function declare(em: FnEmitter, name: string, ret: cpp.Type, params: cpp.Param[]): void {
   em.ctx
@@ -510,6 +527,48 @@ const ROOT: Scope = {
 
 const ROW: Scope = { values: swift.name("item"), actions: swift.name("actions") };
 
+/**
+ * What the writers of one body share: its lists' rows, and its helper
+ * views, each written once, as the file declares them.
+ */
+interface Shared {
+  readonly rows: Row[];
+  readonly helpers: Map<FunctionLike, HelperView>;
+}
+
+/**
+ * A helper view as a Swift View (ui/view-helpers.ts): its values, which
+ * the setup computes where it is used, and its callbacks, what its user
+ * gives it.
+ */
+interface HelperView {
+  readonly helper: ViewHelper;
+  readonly name: string;
+  readonly values: readonly HelperValue[];
+  readonly body: swift.Expr;
+  readonly environment: ReadonlyMap<string, swift.Type>;
+}
+
+/**
+ * A value of a helper view: `source`, in its code or in a helper it uses
+ * (`via`: those uses, innermost first, the last in this helper's code).
+ */
+interface HelperValue {
+  readonly name: string;
+  readonly source: ts.Expression;
+  readonly type: ViewType;
+  readonly via?: HelperUse;
+}
+
+/** The helper view a writer writes, and the values it has met so far. */
+interface Frame {
+  readonly helper: ViewHelper;
+  readonly values: HelperValue[];
+}
+
+/** A helper view's own values are its properties. */
+const HELPER: Scope = { values: swift.self, actions: swift.self };
+
 /** A list's row view: what each of its items shows, and the environment it reads. */
 interface Row {
   readonly list: ListSlot;
@@ -525,18 +584,30 @@ class BodyWriter {
   private readonly checker: ts.TypeChecker;
   private readonly crossings?: Crossings;
   private readonly scope: Scope;
-  /** The rows of the lists written so far, which the file declares. */
-  private readonly rows: Row[];
+  /** The rows and helper views written so far, which the file declares. */
+  private readonly shared: Shared;
+  /** The helper view written, when the writer writes one; the helpers it is in, outermost first. */
+  private readonly frame?: Frame;
+  private readonly stack: readonly FunctionLike[];
   /** The body's own names (a callback's parameters): their Swift names. */
   private readonly locals = new Map<ts.Symbol, string>();
   /** The environment values the view reads, by key path: its properties' types. */
   readonly environment = new Map<string, swift.Type>();
 
-  constructor(checker: ts.TypeChecker, crossings?: Crossings, scope = ROOT, rows: Row[] = []) {
+  constructor(
+    checker: ts.TypeChecker,
+    crossings?: Crossings,
+    scope = ROOT,
+    shared: Shared = { rows: [], helpers: new Map() },
+    frame?: Frame,
+    stack: readonly FunctionLike[] = [],
+  ) {
     this.checker = checker;
     this.crossings = crossings;
     this.scope = scope;
-    this.rows = rows;
+    this.shared = shared;
+    this.stack = stack;
+    if (frame) this.frame = frame;
   }
 
   /** A view: a call of SwiftUI's, with its modifiers. */
@@ -616,16 +687,33 @@ class BodyWriter {
 
     if (constant) return constant;
 
-    if (this.crossings && ts.isCallExpression(e) && isBind(this.checker, e)) return this.binding(e);
+    if (this.crossings && ts.isCallExpression(e) && isBind(this.checker, e)) {
+      if (this.frame)
+        bodyFail(e, "a helper view binds no signal: its user binds the view that changes one");
+
+      return this.binding(e);
+    }
+
+    const helper = ts.isCallExpression(e) ? helperAt(this.checker, e.expression) : undefined;
+
+    if (helper && ts.isCallExpression(e)) return this.used(e, helper);
 
     if (ts.isCallExpression(e) && isUiForm(this.checker, e, "range")) return this.range(e);
 
+    if (ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e)) return this.element(e);
+
+    if (ts.isJsxFragment(e))
+      bodyFail(e, "a SwiftUI view is one view: put these in a stack, `<VStack>…</VStack>`");
+
     if (ts.isCallExpression(e) && isEnvironment(this.checker, e)) return this.environmentValue(e);
 
-    // What the setup computes: the model's property its effect keeps.
-    if (this.crossings?.computedBySetup(e)) return this.slot(e);
-
-    if (ts.isCallExpression(e) && this.crossings && isList(this.checker, e)) return this.list(e);
+    // What the setup computes: the model's property its effect keeps; a helper's own value.
+    if (
+      this.frame
+        ? this.crossings?.computedIn(e, this.frame.helper)
+        : this.crossings?.computedBySetup(e)
+    )
+      return this.slot(e);
 
     if (ts.isCallExpression(e) && toolkitDeclaration(this.checker, e.expression))
       return this.call(e);
@@ -683,11 +771,109 @@ class BodyWriter {
     return this.crossings?.symbol(e)?.declarations?.[0];
   }
 
-  /** A value the setup computes: its model's property, or its item's in a row. */
-  private slot(e: ts.Expression): swift.Expr {
-    const slot = this.crossings!.value(e);
+  /** A value the setup computes: its model's property, its item's in a row, a helper's own. */
+  private slot(e: ts.Expression, via?: HelperUse): swift.Expr {
+    if (this.frame) return swift.name(this.frameValue(e, via));
+
+    const slot = this.crossings!.value(e, via);
 
     return swift.member(this.scope.values, slot.name);
+  }
+
+  /** The helper view's value of `source` (one per use and expression): a property of its own. */
+  private frameValue(source: ts.Expression, via?: HelperUse): string {
+    const values = this.frame!.values;
+    const key = `${keyOfUse(via)}${source.getText()}`;
+    const found = values.find((v) => `${keyOfUse(v.via)}${v.source.getText()}` === key);
+
+    if (found) return found.name;
+
+    const value: HelperValue = {
+      name: valueName(source, values.length),
+      source,
+      type: this.crossings!.typeOf(source),
+      ...(via ? { via } : {}),
+    };
+
+    values.push(value);
+
+    return value.name;
+  }
+
+  /**
+   * An element (or a call) using a helper view: its Swift View, given the
+   * values it computes from its props (the setup computes them here, or a
+   * helper using this one gives them), and the callbacks it is given.
+   */
+  private used(
+    node: ts.JsxElement | ts.JsxSelfClosingElement | ts.CallExpression,
+    helper: ViewHelper,
+  ): swift.Expr {
+    const where = ts.isCallExpression(node)
+      ? node.expression
+      : (ts.isJsxElement(node) ? node.openingElement : node).tagName;
+
+    if (this.stack.includes(helper.fn))
+      bodyFail(where, `the helper view \`${helper.name}\` uses itself: a helper's views end`);
+
+    const args = helperArgs(node, helper);
+    const callbacks = new Set(helper.callbacks.map((c) => c.name));
+
+    for (const [name, arg] of args)
+      if (!callbacks.has(name) && !this.crossings!.givesValue(arg, this.frame?.helper))
+        bodyFail(
+          arg,
+          `\`${helper.name}\`'s \`${name}\` is plain data the setup computes (its props, signals, values, a list's item) or a literal`,
+        );
+
+    const view = this.helperView(helper);
+    const use: HelperUse = { helper, args, site: node };
+
+    return swift.call(swift.name(view.name), [
+      ...view.values.map((v) => ({
+        label: v.name,
+        value: this.slot(v.source, chainUse(v.via, use)),
+      })),
+      ...helper.callbacks.map((c) => {
+        const arg = args.get(c.name);
+        const arity = c.params.length;
+
+        return {
+          label: c.name,
+          value: arg ? this.callback(arg, arity) : closure(padded([], arity), []),
+        };
+      }),
+    ]);
+  }
+
+  /** A helper view, written once per body. */
+  private helperView(helper: ViewHelper): HelperView {
+    const found = this.shared.helpers.get(helper.fn);
+
+    if (found) return found;
+
+    const frame: Frame = { helper, values: [] };
+    const writer = new BodyWriter(this.checker, this.crossings, HELPER, this.shared, frame, [
+      ...this.stack,
+      helper.fn,
+    ]);
+    const body = writer.view(helper.jsx);
+    const taken = new Set([...this.shared.helpers.values()].map((h) => h.name));
+    let name = `${cppIdent(this.crossings!.component)}View_${helper.name}`;
+
+    while (taken.has(name)) name = `${name}_`;
+
+    const view: HelperView = {
+      helper,
+      name,
+      values: frame.values,
+      body,
+      environment: writer.environment,
+    };
+
+    this.shared.helpers.set(helper.fn, view);
+
+    return view;
   }
 
   /**
@@ -759,28 +945,32 @@ class BodyWriter {
   }
 
   /**
-   * A keyed list (`ForEach(data, { id }, content)`, Lucent's form): SwiftUI's
-   * ForEach over the models of its items, each shown by a row view of its
-   * own, which the file declares.
+   * A keyed list (`<ForEach data={items} id={(item) => item.id}>{(item) => …}</ForEach>`,
+   * Lucent's form): SwiftUI's ForEach over the models of its items, each
+   * shown by a row view of its own, which the file declares. Its other
+   * attributes are modifiers.
    */
-  private list(node: ts.CallExpression): swift.Expr {
-    const [data, identified, content] = node.arguments;
-    const literal = identified && skipParentheses(identified);
-    const id =
-      literal && ts.isObjectLiteralExpression(literal)
-        ? literal.properties.find((p) => p.name?.getText() === "id")
-        : undefined;
-    const keyFn = id && ts.isPropertyAssignment(id) ? skipParentheses(id.initializer) : undefined;
+  private list(node: ts.JsxElement | ts.JsxSelfClosingElement): swift.Expr {
+    if (this.frame)
+      bodyFail(node, "a helper view shows no list of its own: its user's list may show helpers");
+
+    const attributes = this.attributes(node);
+    const data = attributes.get("data");
+    const keyFn = attributes.get("id");
+    const shown = this.childNodes(node);
+    const [only] = shown;
+    const content = only && ts.isJsxExpression(only) ? only.expression : undefined;
 
     if (
       !data ||
-      !content ||
       !keyFn ||
-      !(ts.isArrowFunction(keyFn) || ts.isFunctionExpression(keyFn))
+      !(ts.isArrowFunction(keyFn) || ts.isFunctionExpression(keyFn)) ||
+      shown.length !== 1 ||
+      !content
     )
       bodyFail(
         node,
-        "a SwiftUI list is `ForEach(items, { id: (item) => item.id }, (item) => [...])`",
+        "a SwiftUI list is `<ForEach data={items} id={(item) => item.id}>{(item) => <Text>…</Text>}</ForEach>`",
       );
 
     const key = returned(keyFn, "a list's key function returns the key: `(item) => item.id`");
@@ -788,17 +978,15 @@ class BodyWriter {
       ...(keyFn.parameters[0] ? { param: keyFn.parameters[0] } : {}),
       expression: key,
     });
-    const row = new BodyWriter(this.checker, this.crossings, ROW, this.rows);
-    const shown = list.content.body;
-    const body = ts.isBlock(shown)
+    const row = new BodyWriter(this.checker, this.crossings, ROW, this.shared);
+    const drawn = list.content.body;
+    const body = ts.isBlock(drawn)
       ? row.content(returned(list.content, "a list's item shows what its function returns"))
-      : ts.isArrayLiteralExpression(skipParentheses(shown))
-        ? row.content(shown)
-        : row.item(shown);
+      : row.content(drawn);
 
-    this.rows.push({ list, body, environment: row.environment });
+    this.shared.rows.push({ list, body, environment: row.environment });
 
-    return swift.call(
+    const each = swift.call(
       swift.name("ForEach"),
       [{ value: swift.member(swift.name("model"), list.name) }],
       closure(
@@ -813,12 +1001,314 @@ class BodyWriter {
         ],
       ),
     );
+    const opening = ts.isJsxElement(node) ? node.openingElement : node;
+    const signature = this.checker.getResolvedSignature(opening);
+
+    return this.modified(
+      each,
+      signature ? this.checker.getReturnTypeOfSignature(signature) : undefined,
+      opening.attributes.properties.filter(
+        (a): a is ts.JsxAttribute =>
+          ts.isJsxAttribute(a) && !["data", "id"].includes(a.name.getText()),
+      ),
+      "ForEach",
+    );
   }
 
   /**
-   * A call of SwiftUI's: a view, a modifier, a static function. Each
-   * argument goes back where its Swift parameter is, with its label, as
-   * the member's call form says.
+   * An element: a view's initializer, its attributes named by the
+   * initializer's labels its arguments and its children its content or
+   * text (the member's JSX form), then its other attributes, the
+   * modifiers, in the order written.
+   */
+  private element(node: ts.JsxElement | ts.JsxSelfClosingElement): swift.Expr {
+    const opening = ts.isJsxElement(node) ? node.openingElement : node;
+    const tag = opening.tagName;
+    const named = ts.isIdentifier(tag) || ts.isPropertyAccessExpression(tag);
+    const helper = helperAt(this.checker, tag);
+
+    if (helper) return this.used(node, helper);
+
+    if (!named || !toolkitDeclaration(this.checker, tag))
+      bodyFail(
+        tag,
+        `\`<${tag.getText()}>\` is no SwiftUI view: a SwiftUI body is SwiftUI's views, written as JSX`,
+      );
+
+    if (isList(this.checker, opening)) return this.list(node);
+
+    const signature = this.checker.getResolvedSignature(opening);
+    const decl = signature?.declaration;
+    const found = decl && !ts.isJSDocSignature(decl) ? sourceMemberOf("swiftui", decl) : undefined;
+
+    if (!signature || !found?.form || !("params" in found.member))
+      bodyFail(opening, `\`<${tag.getText()}>\` has no declaration of SwiftUI's`);
+
+    writable(opening, found);
+
+    const params = found.member.params;
+    const form = jsxForm(params, found.form);
+    const type = this.checker.getReturnTypeOfSignature(signature);
+    const args = new Map<number, swift.Arg>();
+    const modifiers: ts.JsxAttribute[] = [];
+    const trailingPart = found.form.parts.find((p) => p.k === "trailing");
+    const trailingParam = trailingPart?.k === "trailing" ? trailingPart.param : undefined;
+    let trailing: (swift.Expr & { k: "closure" }) | undefined;
+
+    for (const attribute of opening.attributes.properties) {
+      if (!ts.isJsxAttribute(attribute))
+        bodyFail(
+          attribute,
+          "write each attribute of a SwiftUI view as `name={value}`: `{...}` is not supported",
+        );
+
+      const name = attribute.name.getText();
+      // A label wins over a modifier of the same name, which the chain after the element writes.
+      const argument = form.attributes.find((a) => a.name === name);
+
+      if (argument && argument.param === trailingParam) {
+        const value = attributeValue(attribute);
+
+        trailing = value
+          ? this.closure(params[argument.param]!, value)
+          : bodyFail(attribute, `\`${name}\` is a function: \`${name}={…}\``);
+      } else if (argument) {
+        const param = params[argument.param]!;
+        const value = attributeValue(attribute);
+
+        args.set(
+          argument.param,
+          value ? this.argument(param, value) : { ...labelOf(param), value: swift.bool(true) },
+        );
+      } else modifiers.push(attribute);
+    }
+
+    const children = this.childNodes(node);
+
+    if (form.children?.kind === "builder") trailing = closure([], this.children(children));
+    else if (form.children?.kind === "text") {
+      const param = params[form.children.param]!;
+      const [text] = children;
+
+      if (children.length > 1)
+        bodyFail(
+          children[1]!,
+          `\`<${tag.getText()}>\`'s text is one string: write it as one, a template in braces`,
+        );
+
+      if (text)
+        args.set(form.children.param, {
+          ...labelOf(param),
+          value: ts.isJsxText(text)
+            ? swift.str(jsxText(text))
+            : this.valueAs(param.type, textOf(text)),
+        });
+    } else if (children.length)
+      bodyFail(
+        children[0]!,
+        `\`<${tag.getText()}>\` shows no children: \`${found.display}\` takes none`,
+      );
+
+    const inOrder = [...args].sort(([a], [b]) => a - b).map(([, a]) => a);
+    // The view's Swift name: its type's, whatever name the module imports it by.
+    const made = swift.call(swift.name(swiftPath(found.owner!)), inOrder, trailing);
+
+    return this.modified(made, type, modifiers, tag.getText());
+  }
+
+  /**
+   * `view` with each modifier applied, in order: an attribute naming a
+   * method of what the modifiers before it made (TypeScript's `type`), its
+   * value the method's arguments in one of its forms.
+   */
+  private modified(
+    view: swift.Expr,
+    type: ts.Type | undefined,
+    modifiers: readonly ts.JsxAttribute[],
+    tag: string,
+  ): swift.Expr {
+    let out = view;
+    let current = type;
+
+    for (const attribute of modifiers) {
+      const name = attribute.name.getText();
+      const method = current?.getProperty(name);
+
+      if (!current || !method)
+        bodyFail(
+          attribute,
+          `\`${name}\` is no modifier of what \`<${tag}>\`'s modifiers before it make (\`${current ? this.checker.typeToString(current) : "?"}\`): write it earlier, or after the element, \`(<${tag} …/>).${name}(…)\``,
+        );
+
+      const chosen = this.modifierForm(attribute, method);
+
+      out = this.written(swift.member(out, name), name, chosen.found, chosen.args, attribute);
+      current = this.checker.getReturnTypeOfSignature(chosen.signature);
+    }
+
+    return out;
+  }
+
+  /**
+   * The form of a modifier an attribute's value gives: its arguments
+   * (none for the attribute alone or `true`… `={true}` only where the form
+   * takes nothing, one value, or a tuple of them), matched with the
+   * declared forms in order by their kinds (an object for the labeled
+   * ones, a function for an action) and their types.
+   */
+  private modifierForm(
+    attribute: ts.JsxAttribute,
+    method: ts.Symbol,
+  ): { signature: ts.Signature; found: SourceMember & { form: CallForm }; args: ts.Expression[] } {
+    const name = attribute.name.getText();
+    const value = attributeValue(attribute);
+    const inner = value && skipParentheses(value);
+    const readings: ts.Expression[][] = [
+      ...(!value || inner?.kind === ts.SyntaxKind.TrueKeyword ? [[]] : []),
+      ...(inner && ts.isArrayLiteralExpression(inner) && !inner.elements.some(ts.isSpreadElement)
+        ? [[...inner.elements]]
+        : []),
+      ...(value ? [[value]] : []),
+    ];
+
+    const signatures = this.checker
+      .getTypeOfSymbolAtLocation(method, attribute)
+      .getCallSignatures()
+      .flatMap((signature) => {
+        const decl = signature.declaration;
+        const found =
+          decl && !ts.isJSDocSignature(decl) ? sourceMemberOf("swiftui", decl) : undefined;
+        const params = found && "params" in found.member ? found.member.params : undefined;
+        const form = found?.form;
+
+        return found && form && params ? [{ signature, found: { ...found, form }, params }] : [];
+      });
+
+    // A tuple is the arguments, where a form takes them; else the value is one.
+    for (const args of readings)
+      for (const { signature, found, params } of signatures)
+        if (this.fits(args, found.form, params, signature)) return { signature, found, args };
+
+    bodyFail(
+      attribute,
+      `\`${name}\`'s value gives no form of the modifier: its arguments are one value, an object of its labeled ones, or a tuple of them (\`${name}={[a, { label: b }]}\`)`,
+    );
+  }
+
+  /** Whether `args` are a form's arguments: as many as it takes, each of its part's kind and type. */
+  private fits(
+    args: readonly ts.Expression[],
+    form: CallForm,
+    params: readonly SdkParam[],
+    signature: ts.Signature,
+  ): boolean {
+    const required = form.parts.findLastIndex((p) => !p.optional) + 1;
+
+    if (args.length < required || args.length > form.parts.length) return false;
+
+    return args.every((arg, i) => {
+      const part = form.parts[i]!;
+      const e = skipParentheses(arg);
+      const object = ts.isObjectLiteralExpression(e);
+
+      if (part.k === "labeled") {
+        if (!object) return false;
+
+        const labels = new Set(part.params.map((p) => params[p]!.swift?.label));
+        const given = new Set(e.properties.map((p) => p.name?.getText()));
+
+        return (
+          [...given].every((l) => labels.has(l)) &&
+          part.params.every(
+            (p) => params[p]!.defaulted === "optional" || given.has(params[p]!.swift?.label),
+          )
+        );
+      }
+
+      const param = params[part.param]!;
+
+      // An action is a function (or names one); a builder's content is views.
+      if (param.swift?.kind === "action")
+        return (
+          ts.isArrowFunction(e) ||
+          ts.isFunctionExpression(e) ||
+          ts.isIdentifier(e) ||
+          ts.isPropertyAccessExpression(e)
+        );
+
+      if (param.swift?.kind === "builder") return !object;
+
+      const declared = signature.parameters[i];
+      const expected = declared && this.checker.getTypeOfSymbol(declared);
+      const bound = expected && (this.checker.getBaseConstraintOfType(expected) ?? expected);
+
+      return (
+        !object &&
+        (!bound || this.checker.isTypeAssignableTo(this.checker.getTypeAtLocation(arg), bound))
+      );
+    });
+  }
+
+  /** An element's children, less the whitespace JSX leaves between them. */
+  private childNodes(node: ts.JsxElement | ts.JsxSelfClosingElement): ts.JsxChild[] {
+    if (!ts.isJsxElement(node)) return [];
+
+    return node.children.filter(
+      (c) =>
+        !(ts.isJsxText(c) && c.containsOnlyTriviaWhiteSpaces) &&
+        !(ts.isJsxExpression(c) && !c.expression),
+    );
+  }
+
+  /** An element's attributes by name (`data`, `id`: a list's). */
+  private attributes(node: ts.JsxElement | ts.JsxSelfClosingElement): Map<string, ts.Expression> {
+    const opening = ts.isJsxElement(node) ? node.openingElement : node;
+    const out = new Map<string, ts.Expression>();
+
+    for (const a of opening.attributes.properties) {
+      const value = ts.isJsxAttribute(a) ? attributeValue(a) : undefined;
+
+      if (ts.isJsxAttribute(a) && value) out.set(a.name.getText(), value);
+    }
+
+    return out;
+  }
+
+  /** A builder's content given as an element's children: views, and SwiftUI's `if` for conditions. */
+  private children(children: readonly ts.JsxChild[]): swift.Stmt[] {
+    return children.flatMap((c): swift.Stmt[] => {
+      if (ts.isJsxText(c))
+        bodyFail(c, "text in a SwiftUI view's content is a view of its own: `<Text>…</Text>`");
+
+      if (ts.isJsxExpression(c)) {
+        if (c.dotDotDotToken || !c.expression)
+          bodyFail(
+            c,
+            "a SwiftUI view's content is its views: `...` is not supported in a SwiftUI body",
+          );
+
+        return this.item(c.expression);
+      }
+
+      if (ts.isJsxFragment(c)) return this.children(this.fragment(c));
+
+      return [swift.exprStmt(this.value(c))];
+    });
+  }
+
+  private fragment(f: ts.JsxFragment): ts.JsxChild[] {
+    return f.children.filter(
+      (c) =>
+        !(ts.isJsxText(c) && c.containsOnlyTriviaWhiteSpaces) &&
+        !(ts.isJsxExpression(c) && !c.expression),
+    );
+  }
+
+  /**
+   * A call of SwiftUI's: a value's initializer or static function
+   * (`Animation.spring({ response: 0.3 })`), or a modifier after an
+   * element (`(<Text>a</Text>).padding(4)`). Each argument goes back where
+   * its Swift parameter is, with its label, as the member's call form says.
    */
   private call(node: ts.CallExpression): swift.Expr {
     const callee = skipParentheses(node.expression);
@@ -828,18 +1318,78 @@ class BodyWriter {
     if (!found?.form || !("params" in found.member))
       bodyFail(node, `\`${callee.getText()}\` has no declaration of SwiftUI's`);
 
-    writable(node, found);
-
     const name = ts.isPropertyAccessExpression(callee) ? callee.name.text : callee.getText();
+
+    // A view made as a value (`Capsule({ style: … })`, a shape a modifier takes) whose
+    // object TypeScript matched with its JSX form: its keys are that form's attributes.
+    if (decl && isJsxSignature(decl)) return this.madeAsValue(node, { ...found, form: found.form });
+
     const target = ts.isPropertyAccessExpression(callee)
       ? swift.member(this.value(callee.expression), name)
       : swift.name(name);
-    const params = found.member.params;
+
+    return this.written(target, name, { ...found, form: found.form }, node.arguments, node);
+  }
+
+  /**
+   * A view's initializer called with one object of its JSX form's
+   * attributes: its arguments, by their names, in the parameters' order.
+   */
+  private madeAsValue(
+    node: ts.CallExpression,
+    found: SourceMember & { form: CallForm },
+  ): swift.Expr {
+    const [only] = node.arguments;
+    const object = only && skipParentheses(only);
+    const params = "params" in found.member ? found.member.params : [];
+    const form = jsxForm(params, found.form);
+
+    writable(node, found);
+
+    if (!object || !ts.isObjectLiteralExpression(object) || node.arguments.length !== 1)
+      bodyFail(node, `\`${found.display}\` takes its labeled arguments as one object`);
+
     const args = new Map<number, swift.Arg>();
+
+    for (const p of object.properties) {
+      const key = p.name?.getText();
+      const argument = form.attributes.find((a) => a.name === key);
+
+      if (!argument || !(ts.isPropertyAssignment(p) || ts.isShorthandPropertyAssignment(p)))
+        bodyFail(
+          p,
+          `\`${found.display}\` takes no argument \`${key ?? p.getText()}\`: a view made as a value takes its initializer's arguments, and modifiers after it`,
+        );
+
+      args.set(
+        argument.param,
+        this.argument(params[argument.param]!, ts.isPropertyAssignment(p) ? p.initializer : p.name),
+      );
+    }
+
+    const inOrder = [...args].sort(([a], [b]) => a - b).map(([, a]) => a);
+
+    return swift.call(swift.name(swiftPath(found.owner!)), inOrder);
+  }
+
+  /** A call of `target`, `found`'s member, with `args` in its call form. */
+  private written(
+    target: swift.Expr,
+    name: string,
+    found: SourceMember & { form: CallForm },
+    args: readonly ts.Expression[],
+    at: ts.Node,
+  ): swift.Expr {
+    if (!("params" in found.member)) throw new Error(`${found.display} is no call`);
+
+    writable(at, found);
+
+    const params = found.member.params;
+    const given = new Map<number, swift.Arg>();
     let trailing: (swift.Expr & { k: "closure" }) | undefined;
 
     found.form.parts.forEach((part, i) => {
-      const arg = node.arguments[i];
+      const arg = args[i];
 
       if (!arg) return;
 
@@ -849,10 +1399,10 @@ class BodyWriter {
       }
 
       for (const [index, value] of this.given(name, part, params, arg))
-        args.set(index, this.argument(params[index]!, value));
+        given.set(index, this.argument(params[index]!, value));
     });
 
-    const inOrder = [...args].sort(([a], [b]) => a - b).map(([, a]) => a);
+    const inOrder = [...given].sort(([a], [b]) => a - b).map(([, a]) => a);
 
     return swift.call(target, inOrder, trailing);
   }
@@ -949,11 +1499,9 @@ class BodyWriter {
   private content(arg: ts.Expression): swift.Stmt[] {
     const list = skipParentheses(arg);
 
-    if (!ts.isArrayLiteralExpression(list))
-      bodyFail(
-        arg,
-        'a SwiftUI view\'s content is an array literal of views: `[Text("a"), Text("b")]`',
-      );
+    if (ts.isJsxFragment(list)) return this.children(this.fragment(list));
+
+    if (!ts.isArrayLiteralExpression(list)) return this.item(list);
 
     return list.elements.flatMap((item) => this.item(item));
   }
@@ -963,7 +1511,7 @@ class BodyWriter {
     if (ts.isSpreadElement(item))
       bodyFail(
         item,
-        "a SwiftUI view's content is an array literal of views: `...` is not supported in a SwiftUI body",
+        "a SwiftUI view's content is its views: `...` is not supported in a SwiftUI body",
       );
 
     const e = skipParentheses(item);
@@ -985,6 +1533,13 @@ class BodyWriter {
 
     if (ts.isBinaryExpression(e) && e.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken)
       return [{ k: "if", test: this.condition(e.left), body: this.item(e.right) }];
+
+    if (ts.isJsxFragment(e)) return this.children(this.fragment(e));
+
+    const helperCall = ts.isCallExpression(e) && !!helperAt(this.checker, e.expression);
+
+    if (!jsxRoot(e) && !helperCall && !this.crossings?.computedBySetup(e))
+      bodyFail(e, `a SwiftUI view in content is JSX: \`${e.getText()}\` is not`);
 
     return [swift.exprStmt(this.value(e))];
   }
@@ -1013,6 +1568,8 @@ class BodyWriter {
     const crossings = this.crossings;
 
     if (!crossings) bodyFail(arg, "an animation has no actions");
+
+    if (this.frame) return this.helperCallback(arg, arity);
 
     const e = skipParentheses(arg);
 
@@ -1079,6 +1636,89 @@ class BodyWriter {
         return this.action(callee, call.arguments);
       }),
     );
+  }
+
+  /**
+   * A helper view's callback: one of its callback props, given on or
+   * called, with values it computes, literals and the callback's own
+   * parameters.
+   */
+  private helperCallback(arg: ts.Expression, arity: number): swift.Expr & { k: "closure" } {
+    const helper = this.frame!.helper;
+    const e = skipParentheses(arg);
+    const prop = this.callbackProp(e);
+
+    if (prop) {
+      const params = prop.params.map((_, i) => `p${i}`);
+
+      return closure(padded(params, arity), [
+        swift.exprStmt(
+          swift.call(
+            swift.name(prop.name),
+            params.map((p) => ({ value: swift.name(p) })),
+          ),
+        ),
+      ]);
+    }
+
+    if (!(ts.isArrowFunction(e) || ts.isFunctionExpression(e)))
+      bodyFail(
+        arg,
+        `a callback of the helper view \`${helper.name}\` is one of its callback props, or \`() => props.onTap()\` calling them`,
+      );
+
+    const params = e.parameters.map((p) => {
+      if (!ts.isIdentifier(p.name))
+        bodyFail(p, "a SwiftUI callback's parameters are names: `(value) => …`");
+
+      const symbol = this.crossings!.symbol(p.name);
+
+      if (symbol) this.locals.set(symbol, p.name.text);
+
+      return p.name.text;
+    });
+    const calls = ts.isBlock(e.body)
+      ? e.body.statements.map((s) =>
+          ts.isExpressionStatement(s)
+            ? s.expression
+            : bodyFail(s, "a helper view's callback calls its callback props, one statement each"),
+        )
+      : [e.body];
+
+    return closure(
+      padded(params, arity),
+      calls.map((c) => {
+        const call = skipParentheses(c);
+        const called = ts.isCallExpression(call)
+          ? this.callbackProp(skipParentheses(call.expression))
+          : undefined;
+
+        if (!called || !ts.isCallExpression(call))
+          bodyFail(
+            c,
+            `a callback of the helper view \`${helper.name}\` calls its callback props (\`props.onTap()\`): logic is its setup's`,
+          );
+
+        return swift.exprStmt(
+          swift.call(
+            swift.name(called.name),
+            call.arguments.map((a) => ({ value: this.value(a) })),
+          ),
+        );
+      }),
+    );
+  }
+
+  /** The callback prop `e` reads (`props.onTap`), in the helper view written. */
+  private callbackProp(e: ts.Expression): HelperCallback | undefined {
+    const helper = this.frame?.helper;
+
+    if (!helper?.props || !ts.isPropertyAccessExpression(e) || !ts.isIdentifier(e.expression))
+      return undefined;
+
+    if (this.crossings!.symbol(e.expression) !== helper.props) return undefined;
+
+    return helper.callbacks.find((c) => c.name === e.name.text);
   }
 
   /**
@@ -1162,11 +1802,74 @@ function isClosedRange(
   return t.k === "ref" && t.module === "Swift" && t.name === "ClosedRange" && t.args?.length === 1;
 }
 
-/** Whether a call is of Lucent's list form (`@list`). */
-function isList(checker: ts.TypeChecker, call: ts.CallExpression): boolean {
-  const decl = checker.getResolvedSignature(call)?.declaration;
+/** Whether an element is of Lucent's list form (`@list`). */
+function isList(checker: ts.TypeChecker, element: ts.JsxOpeningLikeElement): boolean {
+  const decl = checker.getResolvedSignature(element)?.declaration;
 
   return !!decl && ts.getJSDocTags(decl).some((t) => t.tagName.text === "list");
+}
+
+/** Whether a signature is a view's JSX (`@swift <symbol> <form> jsx`). */
+function isJsxSignature(decl: ts.Node): boolean {
+  return ts
+    .getJSDocTags(decl)
+    .some(
+      (t) =>
+        t.tagName.text === SOURCE_TAG &&
+        (ts.getTextOfJSDocComment(t.comment) ?? "").trim().split(/\s+/)[2] === JSX_FORM,
+    );
+}
+
+/** An attribute's value: its expression, or its string; none for the attribute alone. */
+function attributeValue(a: ts.JsxAttribute): ts.Expression | undefined {
+  const init = a.initializer;
+
+  if (!init) return undefined;
+
+  if (ts.isJsxExpression(init))
+    return init.expression ?? bodyFail(init, "write the attribute's value in its braces");
+
+  if (ts.isStringLiteral(init)) return init;
+
+  return bodyFail(init, "a SwiftUI attribute's value is `{value}` or a string");
+}
+
+/** The string an element's one child gives as its text: `{title}`. */
+function textOf(child: ts.JsxChild): ts.Expression {
+  if (ts.isJsxExpression(child) && child.expression && !child.dotDotDotToken)
+    return child.expression;
+
+  return bodyFail(child, "a SwiftUI view's text is a string: its text, or `{…}` giving one");
+}
+
+/** A type's Swift name in its module: `Toggle`, `Edge.Set`. */
+function swiftPath(owner: SdkClassSchema): string {
+  return owner.native.split(".").slice(1).join(".");
+}
+
+/** A parameter's label, as a Swift argument has it. */
+const labelOf = (param: SdkParam) => (param.swift?.label ? { label: param.swift.label } : {});
+
+/**
+ * The string JSX text is, as JavaScript's JSX gives it: lines trimmed,
+ * blank ones left out, the rest joined by a space.
+ */
+function jsxText(text: ts.JsxText): string {
+  const lines = text.text.split(/\r\n|\n|\r/);
+
+  if (lines.length === 1) return text.text;
+
+  return lines
+    .map((line, i) => {
+      let out = line.replace(/\t/g, " ");
+
+      if (i !== 0) out = out.replace(/^ +/, "");
+      if (i !== lines.length - 1) out = out.replace(/ +$/, "");
+
+      return out;
+    })
+    .filter((line) => line)
+    .join(" ");
 }
 
 /** What a function returns: its expression, or a block's one return. */
@@ -1268,7 +1971,7 @@ function literal(e: ts.Expression): swift.Expr | undefined {
 function swiftUIFile(body: SwiftUIBody): ToolkitFile {
   const c = body.setup.component;
   const names = body.names;
-  const { crossings, view: drawn, rows, environment } = body.written!;
+  const { crossings, view: drawn, rows, helpers, environment } = body.written!;
   const values = new SwiftValues(cppIdent(c.export));
 
   const raw = swift.type("UnsafeMutableRawPointer");
@@ -1394,6 +2097,7 @@ function swiftUIFile(body: SwiftUIBody): ToolkitFile {
 
   const items = crossings.lists.map((l) => itemClass(values, crossings, l));
   const rowViews = rows.map((r) => rowView(crossings, r, names.actions));
+  const helperViews = helpers.map((h) => helperStruct(values, h));
 
   const view: swift.Decl = {
     k: "struct",
@@ -1650,6 +2354,7 @@ function swiftUIFile(body: SwiftUIBody): ToolkitFile {
         modelClass,
         view,
         ...rowViews,
+        ...helperViews,
         hostingClass,
         make,
         ...setters,
@@ -1859,6 +2564,44 @@ function rowView(crossings: Crossings, row: Row, actions: string): swift.Decl {
         name: "body",
         type: swift.opaque(swift.type("View")),
         get: row.body,
+      },
+    ],
+  };
+}
+
+/**
+ * A helper view's struct: its values (each computed by the setup where it
+ * is used), its callbacks, the environment it reads, and its body.
+ */
+function helperStruct(values: SwiftValues, view: HelperView): swift.Decl {
+  return {
+    k: "struct",
+    name: view.name,
+    modifiers: ["fileprivate"],
+    protocols: [swift.type("View")],
+    members: [
+      ...view.values.map((v): swift.Member => ({
+        k: "let",
+        modifiers: [],
+        name: v.name,
+        type: values.type(v.type),
+      })),
+      ...view.helper.callbacks.map((c): swift.Member => ({
+        k: "let",
+        modifiers: [],
+        name: c.name,
+        type: swift.fn(
+          c.params.map((k) => VALUE_TYPES[k].swift),
+          swift.type("Void"),
+        ),
+      })),
+      ...environmentProperties(view.environment),
+      {
+        k: "property",
+        modifiers: [],
+        name: "body",
+        type: swift.opaque(swift.type("View")),
+        get: [swift.exprStmt(view.body)],
       },
     ],
   };

@@ -16,11 +16,13 @@ const EXPECTED = [
   "not listening: second [off], Go / 3 changes, heard 1",
   "commands: not selected, answer 7 = 4, heard 2",
   "disposed: callback gone, Go / 4 changes, answer 8 the view is gone",
+  // Setup made the button directly: the mount's end releases it.
+  "released: native references all released, button gone",
 ];
 
 describe("a compiled setup, mounted", () => {
   it.skipIf(!canRunMounted)(
-    "tracks commits, sends events along replaceable routes, answers commands and ends with its mount",
+    "tracks commits, sends events along replaceable routes, answers commands and ends with its mount, releasing what setup made",
     () => {
       expect(runMounted(METER, "mount_run_test.mm")).toEqual(EXPECTED);
     },

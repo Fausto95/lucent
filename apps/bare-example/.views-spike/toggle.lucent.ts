@@ -6,7 +6,7 @@
 // scales it. Internal, like the views spike (scripts/views-spike.ts
 // --entry toggle.js).
 import type { ComposeView } from "lucent:compose";
-import type { UIHostingController } from "lucent:swiftui";
+import type { View } from "lucent:swiftui";
 
 export type ToggleProps = {
   title: string;
@@ -16,4 +16,4 @@ export type ToggleProps = {
   onChange?: (on: boolean, taps: number, at: number) => void;
 };
 
-export declare function Toggle(props: ToggleProps): UIHostingController | ComposeView;
+export declare function Toggle(props: ToggleProps): View | ComposeView;

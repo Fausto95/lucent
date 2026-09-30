@@ -16,11 +16,11 @@ export declare function Ticket(props: Props): UILabel | TextView;
 `,
   "ticket.ios.lucent.tsx": `import { delay } from "lucent:core";
 import { UILabel } from "lucent:ios/UIKit";
-import { effect, expose, native } from "lucent:ui";
+import { effect, expose } from "lucent:ui";
 import type { Props } from "./ticket.lucent";
 
 export function Ticket(props: Props): UILabel {
-  const label = native(() => new UILabel());
+  const label = new UILabel();
   let issued = 0;
 
   effect(() => {

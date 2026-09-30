@@ -10,7 +10,7 @@ import ts from "typescript";
 import { branchPlatform } from "../platforms.ts";
 import { builtinSdkModuleOf, sdkModuleOf } from "../program.ts";
 import type { Platform } from "../sdk/schema.ts";
-import { TOOLKITS, type ToolkitName, toolkitOfModule } from "./toolkits.ts";
+import { toolkit, TOOLKITS, type ToolkitName, toolkitOfModule } from "./toolkits.ts";
 
 /** The class each platform's Fabric host mounts. */
 export const ROOT_VIEWS: Record<Platform, { readonly module: string; readonly name: string }> = {
@@ -164,6 +164,8 @@ function viewClass(
 ): { decl: ts.ClassDeclaration; platform: Platform } | undefined {
   const decl = t.getSymbol()?.declarations?.[0];
 
+  if (decl && ts.isInterfaceDeclaration(decl)) return toolkitElement(decl);
+
   if (!decl || !ts.isClassDeclaration(decl)) return undefined;
 
   for (const c of ancestors(checker, decl)) {
@@ -173,6 +175,38 @@ function viewClass(
   }
 
   return undefined;
+}
+
+/**
+ * A toolkit's JSX element type (SwiftUI's `View`): what a component whose
+ * body it is returns, whose root is the toolkit's root class.
+ */
+function toolkitElement(
+  decl: ts.InterfaceDeclaration,
+): { decl: ts.ClassDeclaration; platform: Platform } | undefined {
+  const sf = decl.getSourceFile();
+  const name = toolkitOfModule(builtinSdkModuleOf(sf));
+  const found = name && toolkit(name);
+
+  if (!found || found.element !== decl.name.text) return undefined;
+
+  const root = sf.statements.find(
+    (s): s is ts.ClassDeclaration => ts.isClassDeclaration(s) && s.name?.text === found.root,
+  );
+
+  return root && { decl: root, platform: found.platform };
+}
+
+/**
+ * The type of the view a toolkit's element type makes (a SwiftUI View's
+ * UIHostingController, Compose's Composed's ComposeView): what a function
+ * returning `t` returns as a component; none for any other type.
+ */
+export function toolkitRootType(checker: ts.TypeChecker, t: ts.Type): ts.Type | undefined {
+  const decl = t.getSymbol()?.declarations?.[0];
+  const root = decl && ts.isInterfaceDeclaration(decl) ? toolkitElement(decl) : undefined;
+
+  return root?.decl.name && checker.getTypeAtLocation(root.decl.name);
 }
 
 /** A class and the classes it derives from, nearest first. */

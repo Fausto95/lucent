@@ -37,10 +37,10 @@ import type { TextView } from "lucent:android/android.widget";
 export declare function Caption(props: { text: string }): UILabel | TextView;
 `,
   "caption.ios.lucent.tsx": `import { UILabel } from "lucent:ios/UIKit";
-import { expose, native } from "lucent:ui";
+import { expose } from "lucent:ui";
 
 export function Caption(props: { text: string }): UILabel {
-  const label = native(() => new UILabel());
+  const label = new UILabel();
 
   expose({
     clear: () => {
@@ -68,6 +68,21 @@ describe("lucent:ui", () => {
     process.env.LUCENT_VIEWS = "fabric";
 
     expect(createLucentProgram([file!]).diagnostics).toEqual([]);
+  });
+
+  it("has no `native`: a setup, run once per mount, makes its views directly", () => {
+    process.env.LUCENT_VIEWS = "fabric";
+
+    const [file] = app({
+      "m.lucent.ts": `import { native } from "lucent:ui";
+
+export type Native = typeof native;
+`,
+    });
+
+    expect(createLucentProgram([file!]).diagnostics.map((d) => d.message)).toEqual([
+      `TS2305: Module '"lucent:ui"' has no exported member 'native'.`,
+    ]);
   });
 
   it.skipIf(!ios)(

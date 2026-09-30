@@ -11,7 +11,7 @@ import {
   runtimeDir,
   sdkAvailable,
 } from "../../src/index.ts";
-import { TOGGLE, withBody } from "./compose-fixture.ts";
+import { TOGGLE, withContent } from "./compose-fixture.ts";
 import { androidToolchain, compileErrors } from "./react-native-headers.ts";
 import { composeClasspath } from "./toolkit-build.ts";
 
@@ -59,7 +59,7 @@ describe.skipIf(!android)("components whose content is Compose", () => {
 
     const { text, registration } = kotlinOf(result);
 
-    // Call form: named arguments as one object, content as a lambda returning an array.
+    // Elements: props are named arguments, children the content lambda.
     expect(text).toContain("Column(horizontalAlignment = Alignment.CenterHorizontally) {");
     expect(text).toContain("Modifier.offset(x = knob.value)");
     expect(text).toMatch(/if \(lucent\.on\d+\.value\) \{\n\s+Text\(text = "on"\)/);
@@ -237,134 +237,177 @@ describe.skipIf(!android)("components whose content is Compose", () => {
     600_000,
   );
 
-  const REFUSED: [string, string, string, RegExp][] = [
+  /** Refused content: the composition statements and returned JSX, and more names they import. */
+  const REFUSED: [string, string, string, RegExp, { compose?: string[]; ui?: string[] }?][] = [
     [
-      "a let in the body",
-      '() => {\n    let n = 1;\n    return Text({ text: "x" });\n  }',
+      "a let composition statement",
+      '  let n = remember(() => 1);\n\n  return <Text text="x" />;',
       "LUCENT3024",
       /declares values with const/,
     ],
     [
-      "an event sent from the body",
-      "() => {\n    props.onChange?.(true, 1);\n    return Box({ modifier: Modifier });\n  }",
+      "an event sent from the composition",
+      "  LaunchedEffect(true, async () => {\n    props.onChange?.(true, 1);\n  });\n\n  return <Box modifier={Modifier} />;",
       "LUCENT3024",
       /`props\.onChange` is an event/,
     ],
     [
-      "a signal set from the body",
-      "() => Box({ modifier: Modifier.clickable(() => {\n    taps.set(1);\n  }) })",
+      "a signal set from the content",
+      "  return <Box modifier={Modifier.clickable(() => {\n    taps.set(1);\n  })} />;",
       "LUCENT3024",
       /changes `taps` through a setup function it calls/,
     ],
     [
       "a composable called from a callback",
-      "() => Box({ modifier: Modifier.clickable(() => {\n    remember(() => 1);\n  }) })",
+      "  return <Box modifier={Modifier.clickable(() => {\n    remember(() => 1);\n  })} />;",
       "LUCENT3024",
       /remember is composable/,
     ],
     [
-      "a suspend function called where the body composes",
-      "() => {\n    const s = remember(() => Animatable(1));\n    s.snapTo(2);\n    return Box({ modifier: Modifier });\n  }",
+      "a suspend function called outside a coroutine",
+      "  const s = remember(() => Animatable(1));\n\n  DisposableEffect(true, () => {\n    s.snapTo(2);\n    return () => {};\n  });\n\n  return <Box modifier={Modifier} />;",
       "LUCENT3024",
       /s\.snapTo suspends/,
     ],
     [
-      "a handler called where the body composes",
-      "() => {\n    flip();\n    return Box({ modifier: Modifier });\n  }",
+      "a handler called where the content composes",
+      "  LaunchedEffect(flip(), async () => {});\n\n  return <Box modifier={Modifier} />;",
       "LUCENT3024",
       /`flip\(\)` would run each time Compose evaluates the body/,
     ],
     [
-      "arguments spread on a composable",
-      "() => Box({ ...{ modifier: Modifier } })",
+      "props spread on an element",
+      "  return <Box {...{ modifier: Modifier }} />;",
       "LUCENT3024",
-      /write each of Box's named arguments as `name: value`/,
+      /Box's props are written one by one: `name=\{value\}`/,
     ],
     [
       "a composable called for nothing",
-      "() => {\n    Box({ modifier: Modifier });\n    return Box({ modifier: Modifier });\n  }",
+      "  Box({ modifier: Modifier });\n\n  return <Box modifier={Modifier} />;",
       "LUCENT3024",
-      /`Box\(\)` shows content: return it in the body's or a content lambda's array/,
+      /`Box` shows content: write it as an element, `<Box …\/>`/,
     ],
     [
-      "content that is not an array",
-      "() => Column({}, () => Box({ modifier: Modifier }))",
-      "LUCENT9001",
-      /Type 'Composed' is missing the following properties from type 'readonly Shown\[\]'/,
+      "a composable returned rather than written as an element",
+      "  return Box({ modifier: Modifier });",
+      "LUCENT3024",
+      /a Compose component returns its body: JSX of Compose's views/,
     ],
-    ["JSX", "() => <Box />", "LUCENT9001", /--jsx/],
+    [
+      "a Compose value made by setup code",
+      "  const spec = spring();\n\n  return <Box modifier={Modifier} />;",
+      "LUCENT3024",
+      /`spring\(\)` is Compose's: make it in the JSX the component returns, or in a composition statement/,
+    ],
     [
       "a call the content cannot make",
-      "() => Text({ text: [1].join() })",
+      "  return <Text text={[1].join()} />;",
       "LUCENT3024",
       /cannot call `\[1\]\.join`/,
     ],
+    [
+      "a composition value read by setup code",
+      "  const dark = isSystemInDarkTheme();\n\n  effect(() => {\n    console.log(`${dark}`);\n  });\n\n  return <Box modifier={Modifier} />;",
+      "LUCENT3024",
+      /`dark` is a value of the composition: setup code, which runs before the content composes, cannot read it/,
+      { compose: ["isSystemInDarkTheme"], ui: ["effect"] },
+    ],
+    [
+      "a composition statement in an if",
+      '  if (props.title === "") LaunchedEffect(true, async () => {});\n\n  return <Box modifier={Modifier} />;',
+      "LUCENT3024",
+      /`LaunchedEffect` composes: a composition statement stands in the component's own code, not in an if, a loop or a block/,
+    ],
+    [
+      "a composable used in a function of the setup",
+      "  const dark = () => isSystemInDarkTheme();\n\n  return <Box modifier={Modifier} />;",
+      "LUCENT3024",
+      /`isSystemInDarkTheme` composes: use it in a statement of the component's own code, which is lifted into the content, not in a function of the setup/,
+      { compose: ["isSystemInDarkTheme"] },
+    ],
+    [
+      "JSX the component does not return",
+      "  const later = [<Box modifier={Modifier} />];\n\n  return <Box modifier={Modifier} />;",
+      "LUCENT3024",
+      /Compose's views are made in the body/,
+    ],
+    [
+      "a composable property read from a callback",
+      "  return <Box modifier={Modifier.clickable(() => {\n    const density = LocalDensity.current;\n  })} />;",
+      "LUCENT3024",
+      /LocalDensity\.current is composable: read it where the body composes, not in a callback/,
+      { compose: ["LocalDensity"] },
+    ],
   ];
 
-  it("keep saveable state and read the theme where the content composes", () => {
+  it("conform to a declaration by the view the returned JSX makes: a ComposeView", () => {
     process.env.LUCENT_VIEWS = "fabric";
 
-    const files = withBody(
-      '() => {\n    const first = rememberSaveable(() => "saved");\n\n    return Text({ text: isSystemInDarkTheme() ? first : "light" });\n  }',
+    // A ComposeView is a View (the fixture's declaration), not a TextView.
+    const declared = TOGGLE["toggle.lucent.ts"]
+      .replace(
+        'import type { View } from "lucent:android/android.view";',
+        'import type { TextView } from "lucent:android/android.widget";',
+      )
+      .replace("): View;", "): TextView;");
+    const { result } = compileApp({ ...TOGGLE, "toggle.lucent.ts": declared });
+
+    expect(result.diagnostics.map((d) => `${d.code} ${d.message}`)).toEqual([
+      "LUCENT3005 Toggle in toggle.android.lucent.tsx has type (props: Props) => Composed, which does not match (props: Props) => TextView declared in toggle.lucent.ts",
+    ]);
+  }, 300_000);
+
+  it("lift the component's composition statements into its content, in order", () => {
+    process.env.LUCENT_VIEWS = "fabric";
+
+    const { result } = compileApp(
+      withContent(
+        '  const dark = isSystemInDarkTheme();\n  const label = `${props.title}!`;\n  const first = rememberSaveable(() => label);\n\n  return <Text text={dark ? first : "light"} />;',
+        { compose: ["isSystemInDarkTheme", "rememberSaveable"] },
+      ),
     );
-    const file = files["toggle.android.lucent.tsx"]!.replace(
-      "  remember,\n",
-      "  isSystemInDarkTheme,\n  remember,\n  rememberSaveable,\n",
-    );
-    const { result } = compileApp({ ...files, "toggle.android.lucent.tsx": file });
 
     expect(result.diagnostics).toEqual([]);
 
     const { text } = kotlinOf(result);
 
-    expect(text).toContain('val first = rememberSaveable { "saved" }');
-    expect(text).toContain('Text(text = if (isSystemInDarkTheme()) first else "light")');
+    // Composition statements compose, in order, before what the JSX shows; they read the
+    // setup's values (`label`, setup code between them) as the JSX does, from the holder.
+    expect(text).toMatch(
+      /val dark = isSystemInDarkTheme\(\)\n\s+val first = rememberSaveable \{ lucent\.label\d+\.value \}\n\s+Text\(text = if \(dark\) first else "light"\)/,
+    );
+
+    // The setup's C++ computes `label`, and composes nothing.
+    const glue = result.files.get("android/m_toggle.cpp") ?? "";
+
+    expect(glue).toMatch(/\.set\(\d+, label\);/);
+    expect(glue).not.toContain("isSystemInDarkTheme");
+    expect(glue).not.toContain("rememberSaveable");
   }, 300_000);
 
-  for (const [name, body, code, message] of REFUSED)
+  for (const [name, content, code, message, imports] of REFUSED)
     it(`refuse ${name}`, () => {
       process.env.LUCENT_VIEWS = "fabric";
 
-      const { result } = compileApp(withBody(body));
+      const { result } = compileApp(withContent(content, imports));
 
       expect(result.diagnostics.map((d) => `${d.code} ${d.message}`)).toContainEqual(
         expect.stringMatching(new RegExp(`^${code} .*${message.source}`)),
       );
     }, 300_000);
 
-  it("refuse a composable property read from a callback", () => {
+  it("take a function returning Compose's JSX as a helper view", () => {
     process.env.LUCENT_VIEWS = "fabric";
 
-    const files = withBody(
-      "() => Box({ modifier: Modifier.clickable(() => {\n    const density = LocalDensity.current;\n  }) })",
-    );
+    const files = withContent("  return <Knob />;", { compose: ["type Composed"] });
     const file = files["toggle.android.lucent.tsx"]!.replace(
-      "  spring,\n",
-      "  spring,\n  LocalDensity,\n",
+      "export function Toggle(",
+      "function Knob(): Composed {\n  return <Box modifier={Modifier} />;\n}\n\nexport function Toggle(",
     );
     const { result } = compileApp({ ...files, "toggle.android.lucent.tsx": file });
 
-    expect(result.diagnostics.map((d) => `${d.code} ${d.message}`)).toContainEqual(
-      expect.stringMatching(
-        /^LUCENT3024 LocalDensity\.current is composable: read it where the body composes, not in a callback/,
-      ),
-    );
-  }, 300_000);
-
-  it("refuse content made outside the setup's own code", () => {
-    process.env.LUCENT_VIEWS = "fabric";
-
-    const file = TOGGLE["toggle.android.lucent.tsx"].replace(
-      "  return compose(",
-      "  const later = () => compose(() => Box({ modifier: Modifier }));\n\n  return compose(",
-    );
-    const { result } = compileApp({ ...TOGGLE, "toggle.android.lucent.tsx": file });
-
-    expect(result.diagnostics.map((d) => `${d.code} ${d.message}`)).toContainEqual(
-      expect.stringMatching(
-        /^LUCENT3024 compose\(\) makes a component's view: call it once in the setup's own code/,
-      ),
-    );
+    // Not exported, it is no component: a composable of the body's (compose-helpers.test.ts).
+    expect(result.diagnostics).toEqual([]);
   }, 300_000);
 
   it.skipIf(!sdkAvailable("ios"))(

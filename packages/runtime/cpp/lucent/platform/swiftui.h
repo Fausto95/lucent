@@ -1,8 +1,8 @@
 // Lucent runtime — what the glue of SwiftUI components shares (iOS,
 // Objective-C++ with ARC).
 //
-// A SwiftUI component's body is Swift, generated from the function its
-// setup gives swiftUI(); the rest of the setup is Lucent code. The
+// A SwiftUI component's body is Swift, generated from the JSX its setup
+// returns; the rest of the setup is Lucent code. The
 // generated Swift calls back into it through C functions: the body's
 // actions (the setup's functions a tap… calls) by index, with the
 // arguments the Swift gives them, the Lucent code `withAnimation`

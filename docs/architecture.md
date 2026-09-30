@@ -263,10 +263,12 @@ Notable lowering choices:
   sent while the view is not mounted fails with an `InvalidStateError`.
 
   Under the same switch, each component's setup is compiled
-  (`emit/setups.ts`), with `lucent:ui`'s helpers (`native`, `effect`,
-  `signal`, `expose`, `onDispose`, `slot`, `invalidateSize`, and the
-  event marks `Continuous` and `Coalesced`: experimental, resolving only
-  under the switch). In the module's namespace, `<Export>_Props` holds a
+  (`emit/setups.ts`), with `lucent:ui`'s helpers (`effect`, `signal`,
+  `expose`, `onDispose`, `slot`, `invalidateSize`, and the event marks
+  `Continuous` and `Coalesced`: experimental, resolving only under the
+  switch). Setup runs once per mount, so it constructs the native
+  objects it shows and owns directly (`new UILabel()`), as any Lucent
+  code does; the mount holds them until the host destroys it. In the module's namespace, `<Export>_Props` holds a
   signal (`lucent/view.h`, on the main context's reactive graph) per
   prop and a route per event, `<Export>_Commands` the functions setup
   exposes, and `<Export>_setup(props, commands)` returns the view: a
@@ -360,14 +362,18 @@ Notable lowering choices:
 
   An Android component may write its content as Jetpack Compose
   (`lucent:compose`, experimental, resolving only under the switch, in
-  `.android.lucent.tsx` files): setup returns `compose(() => …)`, whose
-  body (`ui/compose.ts`) is compiled to Kotlin, never to C++
+  `.android.lucent.tsx` files): the component returns JSX, its body,
+  which (`ui/compose.ts`) is compiled to Kotlin, never to C++
   (`ui/toolkit-body.ts` finds toolkit bodies, and keeps them out of the
-  analysis and the emitter).
-  The body is in call form, as SwiftUI's: a composable takes Kotlin's
-  named arguments as one object literal, and its trailing content lambda
-  is a function returning an array of what it shows. Its calls, modifier
-  chains, `remember`, effects and animations are Compose's own.
+  analysis and the emitter). A composable showing UI is an element, whose
+  props are Kotlin's named arguments and whose children are its trailing
+  content lambda (Android files' JSX is typed by `lucent:compose`'s JSX
+  namespace). The component's statements that compose, by Compose's
+  bindings, are lifted into the content before what the JSX shows
+  (`ui/composition.ts` finds them and checks the setup code against
+  them; the setup's C++ leaves them out, `emit/toolkit.ts`'s
+  `liftedStatements`). Its calls, modifier chains, `remember`, effects
+  and animations are Compose's own.
   `lucent:compose` declares them from Compose's bindings: Lucent ships
   the schemas of the Compose release its Android library builds with
   (`lib/sdk/compose.schemas.json.gz`, made by `scripts/compose-bindings.ts`
@@ -441,11 +447,10 @@ Notable lowering choices:
   content asks for a layout (the shell's coalesced relayout: a backstop
   for a native change no Lucent code made).
   An iOS component may draw with SwiftUI instead (`lucent:swiftui`,
-  internal under the same switch): its setup returns `swiftUI(() => …)`,
-  whose function is its body, in call form, and whose value, the
-  `UIHostingController` the Swift side makes, is the component's root
-  (`ui/toolkits.ts` lists each toolkit's body function, root class and,
-  for SwiftUI, the module its declarations come from). `lucent:swiftui`
+  internal under the same switch): its setup returns its body, JSX of
+  SwiftUI's views, and its root is the `UIHostingController` the Swift
+  side makes (`ui/toolkits.ts` lists each toolkit's element type, root
+  class and, for SwiftUI, the module its declarations come from). `lucent:swiftui`
   is generated from the SDK's SwiftUI, extracted as a module written as
   source (bindgen's `swift-source.ts`, `sdkSourceModule`: SwiftUI and
   SwiftUICore, which is publicly part of it, cached like the SDK's
@@ -453,13 +458,20 @@ Notable lowering choices:
   value, an action or a builder's content, `callForms` (`call-form.ts`)
   turns those into Lucent's call form, and `sdk/toolkit-dts.ts` declares
   one overload per form, tagged `@swift <symbol> <form>`, served from
-  the SDK's virtual directory. What the call form cannot write yet is
+  the SDK's virtual directory. A view's type also takes one JSX
+  signature per form before them (`jsxForm`: its labels as attributes, a
+  trailing builder's content or its first unlabeled string as children;
+  tagged `… jsx`), whose props end with the view's modifiers as
+  attributes (`<Type>$Modifiers`, each modifier's forms as its value:
+  one, an object, a tuple, or `true`). What the call form cannot write yet is
   skipped, or refused by the member's plan (`source-plan.ts`, backend
   `swift-source`); `lucent sdk coverage --ios SwiftUI` counts both, in a
   `lucent:swiftui` row after SwiftUI's while views are on. `emit/swiftui.ts` writes the body out as Swift
   (`views/<registration>.swift`: the view, an `ObservableObject` model,
-  and `@_cdecl` functions), each call from its member's facts
-  (`ui/source-members.ts` follows the tag back), refusing what the plan
+  and `@_cdecl` functions), each element and call from its member's facts
+  (`ui/source-members.ts` follows the tag back; a modifier attribute's
+  form is the first of the method's, in declaration order, its value's
+  arguments fit by kind and type), refusing what the plan
   refuses and members newer than the oldest iOS apps run on; the rest of
   the setup is compiled as any setup's. Literals and SwiftUI's own values stay Swift; a value slot is
   a property of the model, which an effect of the setup sets; an action
@@ -474,6 +486,28 @@ Notable lowering choices:
   ideal size (iOS 16), and each change marks the mount's content
   (`lucent::swiftui::resized`, `invalidateSize`), so a size SwiftUI
   changes on its own is measured again.
+  A platform file's JSX is its toolkit's (`*.ios.lucent.tsx`: SwiftUI's,
+  `*.android.lucent.tsx`: Compose's). Under the switch the program types
+  JSX with an automatic runtime imported from `lucent:jsx`, and its
+  compiler host resolves each file's implicit `lucent:jsx/jsx-runtime`
+  import to its platform's toolkit module (`jsxRuntimeOf`), whose `JSX`
+  namespace types the elements; a shared file's JSX resolves to none
+  and fails with LUCENT3024. A function returning a toolkit's JSX element
+  type (`TOOLKITS[t].element`, SwiftUI's `View`) returns the toolkit's
+  root class, as far as components go (`ui/roots.ts`). Such a
+  component's body is the JSX its setup returns, once, as its last
+  statement, with the modifiers chained after it (`bodyOf` in
+  `ui/toolkit-body.ts`); `emit/toolkit.ts` makes the host from it where
+  the setup returns it, and refuses a toolkit's JSX anywhere else. Its
+  code is the toolkit's: the analyses take it as making the host, and
+  leave its callbacks out. A helper view (`ui/view-helpers.ts`: a
+  function of the platform file, not exported, returning the toolkit's
+  JSX) is written once per component in the toolkit's language, and
+  never as C++ (the emitter, module registration and the analyses leave
+  it out). What it computes from its props is a value of the body (or a
+  list's item) for each place it is used: the value slot carries the
+  helper's use (`ValueSlot.use`), and its effect binds each `props.name`
+  read to what the element gives it (`FnEmitter.bind`), evaluated once.
   [design/views.md](design/views.md) records what the hosts do at run
   time: registration, the mount lifecycle, routing, threads, sizing,
   toolkit bodies and the limitations accepted.
@@ -1026,6 +1060,16 @@ packages' native extensions, bound once per session (`projectExtensions`). The c
 (library declarations are parsed once per process) and returns diagnostics
 with offsets and lengths. One check serves every file until a Lucent source
 changes version. TypeScript errors are left to TypeScript.
+
+The plugin also types each platform Lucent file's JSX with its toolkit,
+as the compiler does: it wraps the host's module resolution, and a
+`*.ios.lucent.tsx` or `*.android.lucent.tsx` file's implicit JSX runtime
+import (a synthesized import of `<jsxImportSource>/jsx-runtime`) resolves
+to `lucent:swiftui` or `lucent:compose`, through the app's `lucent:*`
+path. The app's other files keep their JSX runtime. An app whose JSX
+imports no runtime (React Native's `jsx: react-native`) gets React's as
+its import source once it has platform Lucent files: its files' JSX is
+then typed by `react/jsx-runtime`, whose `JSX` is React's.
 
 ## Tests
 

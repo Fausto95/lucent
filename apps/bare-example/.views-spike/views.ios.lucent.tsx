@@ -6,10 +6,10 @@ import {
   UILabel,
 } from "lucent:ios/UIKit";
 import { Timer } from "lucent:ios/Foundation";
-import { type Coalesced, effect, expose, native, onDispose, signal } from "lucent:ui";
+import { type Coalesced, effect, expose, onDispose, signal } from "lucent:ui";
 
 export function Caption(props: { text: string; detail?: string | null }): UILabel {
-  const label = native(() => new UILabel());
+  const label = new UILabel();
 
   effect(() => {
     label.text =
@@ -25,7 +25,7 @@ export function Gauge(props: {
   onChange?: (value: number, source?: string) => void;
   onReset?: () => void;
 }): UILabel {
-  const text = native(() => new UILabel());
+  const text = new UILabel();
   // Setup runs once per mount: its own count goes on across commits.
   let runs = 0;
 
@@ -67,9 +67,7 @@ export function Meter(props: {
   subtitle?: string | null;
   onChange?: (selected: boolean) => void;
 }): UIButton {
-  const button = native(
-    () => new UIButton({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } }),
-  );
+  const button = new UIButton({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } });
   const selected = signal(false);
   const changes = signal(0);
 
@@ -127,7 +125,7 @@ export function Pulse(props: {
   onTick?: (n: number, at: number) => void;
   onLevel?: Coalesced<(n: number, at: number) => void>;
 }): UILabel {
-  const label = native(() => new UILabel());
+  const label = new UILabel();
   let n = 0;
 
   label.backgroundColor = UIColor.systemTeal;

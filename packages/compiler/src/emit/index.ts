@@ -36,6 +36,7 @@ import { androidComponentHosts, iosComponentViews } from "./views.ts";
 import type { FunctionLike } from "../ui/roots.ts";
 import { emitSetup, mountUnit, planSetup } from "./setups.ts";
 import type { ToolkitName } from "../ui/toolkits.ts";
+import { helperStatement } from "../ui/view-helpers.ts";
 
 export interface EmitResult {
   /** Generated C++ sources, keyed by file name. */
@@ -105,8 +106,11 @@ export function emitProgram(
       .flatMap((m) => [...platformScopes(lp.checker, m.sourceFile).platforms]),
   );
   // Components are not module functions: generating views, each setup is compiled apart (setups.ts).
+  // Helper views are their toolkit's code (ui/view-helpers.ts): no C++.
   const here = (s: ts.Statement) =>
-    !components.has(s) && (!scoped.has(s) || scoped.get(s) === ctx.platform);
+    !components.has(s) &&
+    !helperStatement(lp.checker, s) &&
+    (!scoped.has(s) || scoped.get(s) === ctx.platform);
 
   // Pass 1: classes, then functions and variables, so every body can refer to
   // any top-level declaration.

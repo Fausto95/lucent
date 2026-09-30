@@ -2,17 +2,18 @@
 // (Mac Catalyst, UIKit): props as React Native's renderer builds them,
 // commits, the button toggled (its native state callback, subscribed once
 // in setup), a new emitter, JavaScript no longer listening, commands and
-// their answers, and unmounting. The host enters the mount for each of
-// its calls and hears when the mount's code ran (its content may have
-// changed size), once per call, and once per tap: the callback setup made
-// enters the mount itself. Prints one line per step; mount-run.test.ts
-// compares them.
+// their answers, and unmounting, which releases the button setup made. The
+// host enters the mount for each of its calls and hears when the mount's
+// code ran (its content may have changed size), once per call, and once
+// per tap: the callback setup made enters the mount itself. Prints one
+// line per step; mount-run.test.ts compares them.
 #import <UIKit/UIKit.h>
 
 #include <views/REGISTRATION.h>
 
 #include <folly/json.h>
 #include <hermes/hermes.h>
+#include <lucent/native.h>
 #include <lucent/platform/ios.h>
 #include <lucent/view.h>
 #include <react/renderer/core/RawPropsParser.h>
@@ -64,6 +65,7 @@ void toggle(UIButton* button) {
 }
 
 void run() {
+  const long refs = lucent::liveNativeRefs();
   auto hermes = facebook::hermes::makeHermesRuntime();
   react::RawPropsParser parser;
   parser.prepare<meter::Props>();
@@ -103,6 +105,7 @@ void run() {
   host([&] { mount = meter::Mount::create(*p1, record(first)); });
 
   UIButton* button = (UIButton*)lucent::objc::unwrap(mount->view());
+  __weak UIButton* made = button;
 
   say("mounted: " + titles(button) + since());
 
@@ -150,6 +153,12 @@ void run() {
   say(std::string("disposed: callback ") + (button.configurationUpdateHandler ? "kept" : "gone") + ", " +
       titles(button) + ", answer " + std::to_string(int(answers.at(1).request)) + " " +
       answers.at(1).error.value_or("(none)"));
+
+  // The host lets the disposed mount go (~LucentMounted): what setup made goes with it.
+  mount.reset();
+  button = nil;
+  say(std::string("released: native references ") + (lucent::liveNativeRefs() == refs ? "all released" : "held") +
+      ", button " + (made ? "kept" : "gone"));
 }
 
 }  // namespace

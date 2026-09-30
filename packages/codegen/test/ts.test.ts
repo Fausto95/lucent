@@ -36,6 +36,38 @@ describe("TypeScript types", () => {
     expect(printType(ts.typeOf("Toast.LENGTH_SHORT"))).toBe("typeof Toast.LENGTH_SHORT");
   });
 
+  it("print tuples, their optional elements parenthesized by precedence", () => {
+    expect(printType(ts.tuple([{ type: A }, { type: num, optional: true }]))).toBe("[A, number?]");
+    expect(printType(ts.tuple([{ type: union([A, ts.nullType]), optional: true }]))).toBe(
+      "[(A | null)?]",
+    );
+    expect(printType(ts.array(ts.tuple([{ type: A }])))).toBe("[A][]");
+  });
+
+  it("print optional properties", () => {
+    expect(
+      ts.printUnit({
+        decls: [
+          {
+            k: "interface",
+            name: "Attributes",
+            members: [{ k: "property", name: "padding", type: num, optional: true }],
+          },
+        ],
+      }),
+    ).toBe("export declare interface Attributes {\n  padding?: number;\n}\n");
+  });
+
+  it("print intersections, parenthesized by precedence", () => {
+    expect(printType(ts.intersection([ts.object([{ name: "a", type: A }]), ref("B")]))).toBe(
+      "{ a: A } & B",
+    );
+    expect(printType(ts.intersection([union([A, ts.nullType]), ref("B")]))).toBe("(A | null) & B");
+    expect(printType(union([ts.intersection([A, ref("B")]), ts.nullType]))).toBe("A & B | null");
+    expect(printType(ts.array(ts.intersection([A, ref("B")])))).toBe("(A & B)[]");
+    expect(printType(ts.intersection([A]))).toBe("A");
+  });
+
   it("print bigints and their literals", () => {
     expect(printType(ts.keyword("bigint"))).toBe("bigint");
     expect(printType(ts.literal(9223372036854775807n))).toBe("9223372036854775807n");

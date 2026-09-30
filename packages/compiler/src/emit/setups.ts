@@ -28,7 +28,7 @@ import type { ComponentDescription } from "../ui/contract.ts";
 import { fabricNames } from "../ui/fabric.ts";
 import { assignFieldRepr, assignRepr, fieldToLucent, toLucent } from "./view-values.ts";
 import { type FunctionLike, toolkitOf } from "../ui/roots.ts";
-import type { BodySetup } from "../ui/toolkit-body.ts";
+import { type BodySetup, bodyOf, isJsx } from "../ui/toolkit-body.ts";
 import type { ToolkitName } from "../ui/toolkits.ts";
 import type { Ctx, E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
@@ -184,6 +184,9 @@ export function emitSetup(
   const { names, fn } = setup;
   const ns = cpp.type(setup.module.ns);
 
+  // A toolkit's component returns its body, the host it makes: checked before its code is.
+  if (setup.toolkit) bodyOf(fn, setup.toolkit);
+
   const propsStruct = cpp.struct(names.props, [
     ...setup.props.map((p) =>
       cpp.field(cpp.type("lucent::ui::Signal", reg.cppType(p.type)), p.field),
@@ -283,9 +286,6 @@ export function uiCall(em: FnEmitter, node: ts.CallExpression): E | undefined {
   };
 
   switch (helper) {
-    case "native":
-      return { c: cpp.call(em.closure(fnArg()).c), t: em.lt(node) };
-
     case "effect":
       return {
         c: cpp.call("lucent::ui::effect", [graph, em.closure(fnArg()).c, cpp.str(site(node))]),
@@ -370,7 +370,7 @@ export function propMember(em: FnEmitter, obj: E, name: string, node: ts.Node): 
   const prop = setup.props.find((p) => p.name === name);
 
   if (prop) {
-    if (readOnce(em, setup, node))
+    if (readOnce(setup, node))
       em.ctx.warn(
         node,
         Codes.ComponentContract,
@@ -468,23 +468,14 @@ export function callbackEntry(
 
 // --- helpers ---------------------------------------------------------------------------
 
-/**
- * Whether code at `node` runs only while the setup runs: in the setup's own
- * body, or in a function given to `native`, which runs at once.
- */
-function readOnce(em: FnEmitter, setup: Setup, node: ts.Node): boolean {
+/** Whether code at `node` runs only while the setup runs: in the setup's own body. */
+function readOnce(setup: Setup, node: ts.Node): boolean {
   for (let n: ts.Node | undefined = node.parent; n; n = n.parent) {
+    // A toolkit body's values are its slots, each an effect.
+    if (isJsx(n)) return false;
+
     if (n === setup.fn) return true;
-
-    if (!ts.isFunctionLike(n)) continue;
-
-    const call = n.parent;
-    const atOnce =
-      ts.isCallExpression(call) &&
-      call.arguments[0] === n &&
-      uiHelper(em.checker, call.expression) === "native";
-
-    if (!atOnce) return false;
+    if (ts.isFunctionLike(n)) return false;
   }
 
   return false;
@@ -517,7 +508,6 @@ function wholeProps(
 }
 
 const HELPERS = [
-  "native",
   "effect",
   "signal",
   "expose",

@@ -1,11 +1,11 @@
 import { appContext } from "lucent:android";
 import type { ViewGroup } from "lucent:android/android.view";
 import { FrameLayout, FrameLayout_LayoutParams } from "lucent:android/android.widget";
-import { type Children, effect, expose, native, slot } from "lucent:ui";
+import { type Children, effect, expose, slot } from "lucent:ui";
 
 export function Card(props: { title: string; inset: number; children?: Children }): FrameLayout {
-  const card = native(() => new FrameLayout(appContext()));
-  const inner = native(() => new FrameLayout(appContext()));
+  const card = new FrameLayout(appContext());
+  const inner = new FrameLayout(appContext());
   const content = slot<ViewGroup>();
   const density = appContext().getResources()?.getDisplayMetrics()?.density ?? 1;
 
@@ -59,9 +59,9 @@ export function Card(props: { title: string; inset: number; children?: Children 
 }
 
 export function Panel(props: { header: number; children?: Children }): FrameLayout {
-  const panel = native(() => new FrameLayout(appContext()));
-  const head = native(() => new FrameLayout(appContext()));
-  const body = native(() => new FrameLayout(appContext()));
+  const panel = new FrameLayout(appContext());
+  const head = new FrameLayout(appContext());
+  const body = new FrameLayout(appContext());
   const content = slot<ViewGroup>();
   const density = appContext().getResources()?.getDisplayMetrics()?.density ?? 1;
 

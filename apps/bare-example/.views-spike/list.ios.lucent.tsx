@@ -9,11 +9,9 @@ import {
   HorizontalAlignment,
   HStack,
   Slider,
-  swiftUI,
   Text,
   TextField,
   Toggle,
-  type UIHostingController,
   VStack,
   withAnimation,
 } from "lucent:swiftui";
@@ -22,7 +20,24 @@ import type { TodoListProps } from "./list.lucent";
 
 type Todo = { id: number; title: string; done: boolean };
 
-export function TodoList(props: TodoListProps): UIHostingController {
+/** One todo, a helper view: tapping its mark toggles it, its button removes it. */
+function TodoRow(props: {
+  id: number;
+  title: string;
+  done: boolean;
+  onToggle: () => void;
+  onRemove: (id: number) => void;
+}) {
+  return (
+    <HStack transition={AnyTransition.slide}>
+      <Text onTapGesture={props.onToggle}>{props.done ? "[x]" : "[ ]"}</Text>
+      <Text>{props.title}</Text>
+      <Button action={() => props.onRemove(props.id)}>remove</Button>
+    </HStack>
+  );
+}
+
+export function TodoList(props: TodoListProps) {
   const todos = signal<Todo[]>([]);
   const draft = signal("");
   const showDone = signal(true);
@@ -105,41 +120,48 @@ export function TodoList(props: TodoListProps): UIHostingController {
     state: (): string => summary(),
   });
 
-  return swiftUI(() =>
-    VStack({ alignment: HorizontalAlignment.leading, spacing: 8 }, [
-      Text(heading()).font(Font.headline),
-      HStack([
-        TextField("New todo", { text: bind(draft) }).onSubmit(() => addDraft()),
-        Button("Add", () => addDraft()),
-      ]),
-      Text(`draft: ${draft.get()}`)
-        .font(Font.caption)
-        .onTapGesture(() => typed()),
-      Toggle("Show done", { isOn: bind(showDone) }),
-      HStack([
-        Text(`level ${tenths(level.get())}`).font(Font.caption),
-        Slider({ value: bind(level), in: range(0, 1), step: 0.1 }).onChange(
-          { of: level.get() },
-          (now) => leveled(now),
-        ),
-      ]),
-      ForEach(shown(), { id: (t) => t.id }, (t) =>
-        HStack([
-          Text(t.done ? "[x]" : "[ ]").onTapGesture(() => toggle(t)),
-          Text(t.title),
-          Button("remove", () => remove(t.id)),
-        ]).transition(AnyTransition.slide),
-      ),
-      shown().length === 0 && Text("nothing to do").transition(AnyTransition.opacity),
-      Text(
-        Environment((values) => values.colorScheme) === ColorScheme.dark
+  return (
+    <VStack alignment={HorizontalAlignment.leading} spacing={8} padding={8} frame={{ width: 320 }}>
+      <Text font={Font.headline}>{heading()}</Text>
+      <HStack>
+        <TextField text={bind(draft)} onSubmit={() => addDraft()}>
+          New todo
+        </TextField>
+        <Button action={() => addDraft()}>Add</Button>
+      </HStack>
+      <Text font={Font.caption} onTapGesture={() => typed()}>
+        {`draft: ${draft.get()}`}
+      </Text>
+      <Toggle isOn={bind(showDone)}>Show done</Toggle>
+      <HStack>
+        <Text font={Font.caption}>{`level ${tenths(level.get())}`}</Text>
+        <Slider
+          value={bind(level)}
+          in={range(0, 1)}
+          step={0.1}
+          onChange={[{ of: level.get() }, (now: number) => leveled(now)]}
+        />
+      </HStack>
+      <ForEach data={shown()} id={(t) => t.id}>
+        {(t) => (
+          <TodoRow
+            id={t.id}
+            title={t.title}
+            done={t.done}
+            onToggle={() => toggle(t)}
+            onRemove={remove}
+          />
+        )}
+      </ForEach>
+      {shown().length === 0 && <Text transition={AnyTransition.opacity}>nothing to do</Text>}
+      <Text
+        font={Font.caption}
+        onAppear={() => seen(Environment((values) => values.colorScheme) === ColorScheme.dark)}
+      >
+        {Environment((values) => values.colorScheme) === ColorScheme.dark
           ? "dark scheme"
-          : "light scheme",
-      )
-        .font(Font.caption)
-        .onAppear(() => seen(Environment((values) => values.colorScheme) === ColorScheme.dark)),
-    ])
-      .padding(8)
-      .frame({ width: 320 }),
+          : "light scheme"}
+      </Text>
+    </VStack>
   );
 }

@@ -8,6 +8,8 @@
  */
 import ts from "typescript";
 import type { Platform } from "../sdk/schema.ts";
+import { isToolkitBody, type Jsx, jsxToolkitOf } from "../ui/toolkit-body.ts";
+import { helperStatement, isViewHelper } from "../ui/view-helpers.ts";
 import { type Cause, code, step, SummaryBuilder } from "./facts.ts";
 import { type LibraryEffect, type LibraryMember, libraryMember } from "./library.ts";
 import type { NativeFactsSource, NativeUse } from "./native.ts";
@@ -215,11 +217,15 @@ const LOOPS = new Set([
 /** Syntax whose code the analyses do not model yet: it may do anything. */
 const UNMODELED: Partial<Record<ts.SyntaxKind, string>> = {
   [ts.SyntaxKind.TaggedTemplateExpression]: "a tagged template",
-  [ts.SyntaxKind.JsxElement]: "a JSX element",
-  [ts.SyntaxKind.JsxSelfClosingElement]: "a JSX element",
-  [ts.SyntaxKind.JsxFragment]: "a JSX fragment",
   [ts.SyntaxKind.ClassExpression]: "a class expression",
 };
+
+/** JSX: a toolkit's body, whose code is the toolkit's (Swift, Kotlin). */
+const JSX = [
+  ts.SyntaxKind.JsxElement,
+  ts.SyntaxKind.JsxSelfClosingElement,
+  ts.SyntaxKind.JsxFragment,
+] as const;
 
 /** What a library member's result is, by how it relates to its receiver. */
 const RESULTS: Record<NonNullable<LibraryEffect["result"]> | "new" | "call", NodeKind> = {
@@ -380,6 +386,20 @@ export class Collector {
 
   private visit(n: ts.Node): void {
     if (this.pruned(n)) return;
+
+    // A statement a toolkit's body takes (Compose's composition statements): its code is Kotlin.
+    if (
+      (ts.isVariableStatement(n) || ts.isExpressionStatement(n)) &&
+      isToolkitBody(this.checker, n)
+    )
+      return;
+
+    // A helper view: Swift or Kotlin, used by a body.
+    if (
+      helperStatement(this.checker, n) ||
+      (ts.isVariableDeclaration(n) && !!n.initializer && isViewHelper(this.checker, n.initializer))
+    )
+      return;
 
     if (ts.isExpression(n)) {
       this.expr(n);
@@ -594,6 +614,7 @@ export class Collector {
         (c: Collector, e: ts.Expression) => c.unmodeled(e, what),
       ]),
     ),
+    ...Object.fromEntries(JSX.map((kind) => [kind, (c: Collector, e: Jsx) => c.jsx(e)])),
     [ts.SyntaxKind.ParenthesizedExpression]: (c, e: ts.ParenthesizedExpression) =>
       c.expr(e.expression),
     [ts.SyntaxKind.AsExpression]: (c, e: ts.AsExpression) => c.expr(e.expression),
@@ -682,6 +703,19 @@ export class Collector {
     const unit = decl && this.p.units.byNode.get(decl);
 
     return !!unit?.generator;
+  }
+
+  /**
+   * JSX: in a platform file, its toolkit's body, which makes the host the
+   * toolkit draws in (its code is the toolkit's);
+   * anywhere else, syntax the analyses do not model.
+   */
+  private jsx(e: Jsx): Value[] {
+    if (!jsxToolkitOf(e))
+      return this.unmodeled(e, ts.isJsxFragment(e) ? "a JSX fragment" : "a JSX element");
+
+    this.own("allocates", "yes", e, "makes a toolkit's body");
+    return this.made(e, "fresh");
   }
 
   /** Syntax the analyses do not model: anything may happen. */
@@ -1214,6 +1248,16 @@ export class Collector {
     }
 
     const decl = this.declarationOf(callee);
+
+    // A helper view, called: it makes views, its code the toolkit's (the emitter refuses it outside a body).
+    const helper =
+      decl && ts.isVariableDeclaration(decl) && decl.initializer ? decl.initializer : decl;
+
+    if (helper && isViewHelper(this.checker, helper)) {
+      this.own("allocates", "yes", e, "makes a toolkit's views");
+      return this.made(e, "fresh");
+    }
+
     const text = `calls ${code(callee.text)}`;
     const unit = decl && ts.isFunctionDeclaration(decl) ? this.p.units.byNode.get(decl) : undefined;
     const local = !!decl && !decl.getSourceFile().isDeclarationFile && !unit;

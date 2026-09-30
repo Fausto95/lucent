@@ -9,13 +9,17 @@ export function printType(t: Type): string {
     case "named":
       return t.args?.length ? `${t.name}<${t.args.map(printType).join(", ")}>` : t.name;
     case "optional":
-      return t.of.k === "cFunction" ? `(${printType(t.of)})?` : `${printType(t.of)}?`;
+      return t.of.k === "cFunction" || t.of.k === "function"
+        ? `(${printType(t.of)})?`
+        : `${printType(t.of)}?`;
     case "array":
       return `[${printType(t.of)}]`;
     case "dictionary":
       return `[${printType(t.key)}: ${printType(t.value)}]`;
     case "cFunction":
       return `@convention(c) (${t.params.map(printType).join(", ")}) -> ${printType(t.ret)}`;
+    case "function":
+      return `(${t.params.map(printType).join(", ")}) -> ${printType(t.ret)}`;
     case "opaque":
       return `some ${printType(t.of)}`;
   }

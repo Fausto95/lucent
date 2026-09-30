@@ -3,10 +3,10 @@ import { GradientDrawable } from "lucent:android/android.graphics.drawable";
 import { Handler, Looper } from "lucent:android/android.os";
 import { ImageView, TextView } from "lucent:android/android.widget";
 import { delay } from "lucent:core";
-import { effect, expose, invalidateSize, native } from "lucent:ui";
+import { effect, expose, invalidateSize } from "lucent:ui";
 
 export function Blurb(props: { text: string }): TextView {
-  const label = native(() => new TextView(appContext()));
+  const label = new TextView(appContext());
 
   // Yellow (ARGB), as on iOS.
   label.setBackgroundColor(0xffffeb3b | 0);
@@ -31,7 +31,7 @@ export function Blurb(props: { text: string }): TextView {
 }
 
 export function Picture(_props: { name: string }): ImageView {
-  const view = native(() => new ImageView(appContext()));
+  const view = new ImageView(appContext());
 
   view.setBackgroundColor(0xff4caf50 | 0);
 

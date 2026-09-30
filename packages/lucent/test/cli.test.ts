@@ -300,7 +300,7 @@ describe("lucent sdk and Compose's bindings", () => {
       const box = sdk(root, views, "show", "androidx.compose.foundation.layout.Box");
       expect(box.status).toBe(0);
       expect(box.stdout).toContain("// lucent:compose");
-      expect(box.stdout).toContain("export declare function Box(args: {");
+      expect(box.stdout).toContain("export declare function Box(props: {");
 
       // Without views, Compose is no SDK module of Lucent's.
       const off = sdk(root, {}, "coverage", "--android", "androidx.compose.*", "--json");

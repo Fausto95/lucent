@@ -14,6 +14,8 @@ import {
   type ComposeBinding,
   composeDeclarations,
   type DeclarationKind,
+  givesElementsIn,
+  listScopes,
 } from "./compose-dts.ts";
 import { composeModule } from "./compose-schemas.ts";
 
@@ -156,4 +158,13 @@ export function receivesScope(param: SdkParam): boolean {
   const cls = composeModule(r.module)?.types.find((t) => t.name === r.name);
 
   return cls?.kind === "class" && !!cls.kotlin?.scope;
+}
+
+/**
+ * Whether a callback parameter is a lambda of a list's scope
+ * (LazyColumn's content, a LazyListScope's): it adds the elements its
+ * function returns (`{(list) => <list.items …/>}`).
+ */
+export function givesElements(param: SdkParam): boolean {
+  return givesElementsIn(listScopes(), param);
 }

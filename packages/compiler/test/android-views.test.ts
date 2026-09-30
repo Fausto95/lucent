@@ -21,11 +21,11 @@ export declare function Gauge(props: Props): TextView;
 `,
   "gauge.android.lucent.tsx": `import { appContext } from "lucent:android";
 import { TextView } from "lucent:android/android.widget";
-import { effect, expose, native } from "lucent:ui";
+import { effect, expose } from "lucent:ui";
 import type { Props } from "./gauge.lucent";
 
 export function Gauge(props: Props): TextView {
-  const text = native(() => new TextView(appContext()));
+  const text = new TextView(appContext());
 
   effect(() => {
     text.setText(String(props.value));
@@ -55,11 +55,11 @@ export declare function Caption(props: Props): TextView;
 `,
   "caption.android.lucent.tsx": `import { appContext } from "lucent:android";
 import { TextView } from "lucent:android/android.widget";
-import { effect, native } from "lucent:ui";
+import { effect } from "lucent:ui";
 import type { Props } from "./caption.lucent";
 
 export function Caption(props: Props): TextView {
-  const label = native(() => new TextView(appContext()));
+  const label = new TextView(appContext());
 
   effect(() => {
     label.setText(props.text);

@@ -7,7 +7,7 @@
 // width). Internal, like the views spike (scripts/views-spike.ts --entry
 // list.js).
 import type { ComposeView } from "lucent:compose";
-import type { UIHostingController } from "lucent:swiftui";
+import type { View } from "lucent:swiftui";
 
 export type TodoListProps = {
   title: string;
@@ -15,4 +15,4 @@ export type TodoListProps = {
   onChange?: (change: string, summary: string, at: number) => void;
 };
 
-export declare function TodoList(props: TodoListProps): UIHostingController | ComposeView;
+export declare function TodoList(props: TodoListProps): View | ComposeView;

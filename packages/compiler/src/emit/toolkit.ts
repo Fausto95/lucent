@@ -1,8 +1,7 @@
 /**
- * A toolkit body in its setup's C++ (LUCENT_VIEWS=fabric): the call of the
- * toolkit's body function (`swiftUI(() => …)`, `compose(() => …)`) makes
- * the host the toolkit draws in, and feeds the body's slots
- * (ui/toolkit-body.ts), the same way for every toolkit:
+ * A toolkit body in its setup's C++ (LUCENT_VIEWS=fabric): the JSX a
+ * component returns makes the host the toolkit draws in, and feeds the
+ * body's slots (ui/toolkit-body.ts), the same way for every toolkit:
  *
  * - each value slot is an effect of the mount: it evaluates the slot's
  *   expression now, and again whenever what it read changes, and sets the
@@ -25,18 +24,22 @@ import ts from "typescript";
 import { T, type LType } from "../types.ts";
 import {
   type ActionSlot,
-  type BodyFunction,
-  bodyCallOf,
+  type Body,
   bodyFail,
-  bodyFunction,
+  bodyOf,
   type Crossings,
   crossingOf,
   inSetupCode,
+  jsxRoot,
+  jsxToolkitOf,
   type ListSlot,
   scalarOf,
+  skipParentheses,
   toolkitDeclaration,
+  usedAt,
   type ValueSlot,
 } from "../ui/toolkit-body.ts";
+import { helperAt, type HelperUse, propReads } from "../ui/view-helpers.ts";
 import { TOOLKITS, type ToolkitName } from "../ui/toolkits.ts";
 import { composeEmitter } from "./compose.ts";
 import type { E } from "./context.ts";
@@ -78,13 +81,14 @@ export interface ToolkitHost {
 export interface ToolkitEmitter {
   /**
    * Writes the body out in the toolkit's language (kept for the program's
-   * Swift or Kotlin), and emits into `em` the C++ making its host.
+   * Swift or Kotlin), and emits into `em` the C++ making its host. `site`
+   * is where the setup makes it: the returned JSX, or the body call.
    */
   body(
     em: FnEmitter,
     setup: Setup,
-    fn: BodyFunction,
-    call: ts.CallExpression,
+    body: Body,
+    site: ts.Expression,
   ): {
     crossings: Crossings;
     host: ToolkitHost;
@@ -93,6 +97,12 @@ export interface ToolkitEmitter {
   };
   /** A call of the toolkit's in the setup's code that is no body (`withAnimation`), lowered. */
   call?(em: FnEmitter, node: ts.CallExpression, decl: ts.Declaration): E | undefined;
+  /**
+   * The statements of a setup's own code the body takes (Compose's
+   * composition statements), which its C++ leaves out; the setup's code is
+   * checked against them first.
+   */
+  lifted?(em: FnEmitter, setup: Setup): readonly ts.Statement[];
 }
 
 const EMITTERS: Record<ToolkitName, ToolkitEmitter> = {
@@ -100,21 +110,50 @@ const EMITTERS: Record<ToolkitName, ToolkitEmitter> = {
   compose: composeEmitter,
 };
 
+const liftedBySetup = new WeakMap<Setup, ReadonlySet<ts.Statement>>();
+
+/** The statements of `setup`'s own code its body takes, checked once, before its C++ is written. */
+export function liftedStatements(em: FnEmitter, setup: Setup): ReadonlySet<ts.Statement> {
+  let found = liftedBySetup.get(setup);
+
+  if (!found) {
+    found = new Set(setup.toolkit ? (EMITTERS[setup.toolkit].lifted?.(em, setup) ?? []) : []);
+    liftedBySetup.set(setup, found);
+  }
+
+  return found;
+}
+
+/** Whether a statement of a setup's own code is its body's (lifted): the setup's C++ leaves it out. */
+export function liftedStatement(em: FnEmitter, s: ts.Statement): boolean {
+  const setup = ts.isBlock(s.parent) ? em.ctx.setups.get(s.parent.parent) : undefined;
+
+  return !!setup && liftedStatements(em, setup).has(s);
+}
+
 /**
- * A call of a toolkit's function in Lucent code, lowered: a body call, or
- * another the toolkit's emitter knows (`withAnimation`). Undefined for any
- * other call; refused for the toolkit's views and values, which exist
+ * A call of a toolkit's function in Lucent code, lowered: the body (the
+ * returned JSX with modifiers chained after it, or a body call), or
+ * another call the toolkit's emitter knows (`withAnimation`). Undefined for
+ * any other call; refused for the toolkit's views and values, which exist
  * only in a body.
  */
 export function toolkitCall(em: FnEmitter, node: ts.CallExpression): E | undefined {
+  if (jsxRoot(node)) return toolkitJsx(em, node);
+
+  const helper = helperAt(em.checker, node.expression);
+
+  if (helper)
+    bodyFail(
+      node,
+      `\`${helper.name}\` is a helper view: use it in the JSX the component returns, \`<${helper.name} …/>\``,
+    );
+
   const found = toolkitDeclaration(em.checker, node.expression);
 
   if (!found) return undefined;
 
   const { toolkit, decl } = found;
-  const title = TOOLKITS[toolkit].title;
-
-  if (bodyCallOf(em.checker, node)) return body(em, toolkit, node);
 
   const lowered = EMITTERS[toolkit].call?.(em, node, decl);
 
@@ -122,7 +161,7 @@ export function toolkitCall(em: FnEmitter, node: ts.CallExpression): E | undefin
 
   return bodyFail(
     node,
-    `a ${title} view or value is made only in the body a component gives ${TOOLKITS[toolkit].body}(): write \`${made(node)}\` there`,
+    `a ${TOOLKITS[toolkit].title} view or value is made only in ${BODY_PLACE}: write \`${made(node)}\` there`,
   );
 }
 
@@ -134,32 +173,55 @@ export function toolkitMember(em: FnEmitter, node: ts.PropertyAccessExpression):
 
   bodyFail(
     node,
-    `\`${node.getText()}\` is ${TOOLKITS[found.toolkit].title}'s: use it in the body a component gives ${TOOLKITS[found.toolkit].body}()`,
+    `\`${node.getText()}\` is ${TOOLKITS[found.toolkit].title}'s: use it in ${BODY_PLACE}`,
   );
 }
 
-/** `swiftUI(body)` / `compose(body)`: the host, its actions, and an effect per value. */
-function body(em: FnEmitter, toolkit: ToolkitName, node: ts.CallExpression): E {
-  const { body: name } = TOOLKITS[toolkit];
+/** Where a toolkit's views are made: its body. */
+const BODY_PLACE = "the body a component returns";
+
+/**
+ * JSX in Lucent code: the body its setup returns, which makes the host;
+ * refused anywhere else (a toolkit's views are made only in the body).
+ */
+export function toolkitJsx(em: FnEmitter, node: ts.Expression): E {
+  const toolkit = jsxToolkitOf(node);
   const setup = setupOf(em.ctx, node);
+
+  if (!toolkit) throw new Error("JSX in a file of no toolkit (the program refuses it)");
+
+  const { title } = TOOLKITS[toolkit];
 
   if (!setup || setup.toolkit !== toolkit || !inSetupCode(node, setup.fn))
     bodyFail(
       node,
-      `${name}() makes a component's view: call it once in the setup's own code of a component that returns what it makes`,
+      `${title}'s views are a component's body: JSX the component returns, as the last statement of its setup`,
     );
 
+  const body = bodyOf(setup.fn, toolkit);
+
+  if (skipParentheses(body) !== skipParentheses(node))
+    bodyFail(
+      node,
+      `${title}'s views are made in the body, the JSX the component returns: write this view in it`,
+    );
+
+  return host(em, setup, body, node);
+}
+
+/** A body: the host, its actions, and an effect per value. */
+function host(em: FnEmitter, setup: Setup, bodyNode: Body, where: ts.Expression): E {
+  const toolkit = setup.toolkit!;
   const emitter = EMITTERS[toolkit];
 
   if (em.ctx.toolkitFiles.has(setup))
-    bodyFail(node, `${setup.component.export} makes its body once`);
+    bodyFail(where, `${setup.component.export} makes its body once`);
 
-  const fn = bodyFunction(node, toolkit);
   const graph = cpp.call("lucent::ui::mainGraph");
   let written: ReturnType<ToolkitEmitter["body"]> | undefined;
 
   const madeHost = em.collect(() => {
-    written = emitter.body(em, setup, fn, node);
+    written = emitter.body(em, setup, bodyNode, where);
   });
   const { host, crossings, file } = written!;
 
@@ -175,14 +237,14 @@ function body(em: FnEmitter, toolkit: ToolkitName, node: ts.CallExpression): E {
       cpp.varDecl(cpp.auto, items.get(l)!, cpp.call("std::make_shared", [], [itemsType(em, l)])),
     ),
     ...crossings.actions.map((a) => host.act(a, actionFn(em, a, items))),
-    ...crossings.values.map((v) => effect(valueEffect(em, host, v), v.source)),
+    ...crossings.values.map((v) => effect(valueEffect(em, host, v), slotSite(v))),
     ...crossings.lists.map((l) => effect(listEffect(em, host, l, items.get(l)!), l.site)),
     cpp.exprStmt(
       cpp.call(cpp.arrow(graph, "onCleanup"), [cpp.lambda(host.captures, [], host.dispose)]),
     ),
   ];
 
-  return { c: cpp.statementExpr(statements, host.value), t: em.lt(node) };
+  return { c: cpp.statementExpr(statements, host.value), t: setup.root };
 }
 
 /**
@@ -192,32 +254,79 @@ function body(em: FnEmitter, toolkit: ToolkitName, node: ts.CallExpression): E {
  */
 function valueEffect(em: FnEmitter, host: ToolkitHost, slot: ValueSlot): cpp.Expr {
   const scalar = scalarOf(slot.type);
-  const keep = em.lambdaOver(slot.source, host.captures, (inner) => {
-    // A bound signal's value: the signal, read.
-    if (slot.bound) {
+  const keep = em.lambdaOver(
+    slot.source,
+    host.captures,
+    (inner) => {
+      bindUses(inner, slot.source, slot.use);
+
+      // A bound signal's value: the signal, read.
+      if (slot.bound) {
+        inner.emit(
+          cpp.exprStmt(
+            host.set(slot, cpp.call(cpp.dot(inner.expr(slot.source).c, "get")), "scalar"),
+          ),
+        );
+        return;
+      }
+
+      if (scalar && !scalar.nullable) {
+        inner.emit(
+          cpp.exprStmt(host.set(slot, inner.exprAs(slot.source, scalarType(scalar)), "scalar")),
+        );
+        return;
+      }
+
+      const value = inner.expr(slot.source);
+
       inner.emit(
-        cpp.exprStmt(host.set(slot, cpp.call(cpp.dot(inner.expr(slot.source).c, "get")), "scalar")),
+        cpp.exprStmt(
+          host.set(slot, encoded(em.ctx, host.runtime, slot.type, value.t, value.c), "encoded"),
+        ),
       );
-      return;
+    },
+    usesGiven(slot.use),
+  );
+
+  return enterMount(em, slotSite(slot), keep);
+}
+
+/** Where the setup computes a value: its expression, or, for a helper's, where the body uses the helper. */
+function slotSite(slot: ValueSlot): ts.Node {
+  return slot.use ? usedAt(slot.use) : slot.source;
+}
+
+/** What a helper's users give its props, in the body and in the helpers using it. */
+function usesGiven(use: HelperUse | undefined): ts.Node[] {
+  return use ? [...use.args.values(), ...usesGiven(use.outer)] : [];
+}
+
+/**
+ * Binds each of `node`'s reads of a helper's props (`props.title`) to what
+ * the helper's user gives it (`t.title`), itself bound where a helper
+ * gives it, each evaluated once, in order, before `node` is: so the
+ * setup computes a helper's value as JavaScript would, the helper called
+ * with its props.
+ */
+function bindUses(inner: FnEmitter, node: ts.Node, use: HelperUse | undefined): void {
+  if (!use) return;
+
+  for (const read of propReads(inner.checker, node, use.helper)) {
+    const arg = use.args.get(read.name.text);
+
+    if (!arg) {
+      inner.bind(read, { c: cpp.id("lucent::undefined"), t: T.undefined });
+      continue;
     }
 
-    if (scalar && !scalar.nullable) {
-      inner.emit(
-        cpp.exprStmt(host.set(slot, inner.exprAs(slot.source, scalarType(scalar)), "scalar")),
-      );
-      return;
-    }
+    bindUses(inner, arg, use.outer);
 
-    const value = inner.expr(slot.source);
+    const value = inner.expr(arg);
+    const name = inner.ctx.fresh("lucent_prop");
 
-    inner.emit(
-      cpp.exprStmt(
-        host.set(slot, encoded(em.ctx, host.runtime, slot.type, value.t, value.c), "encoded"),
-      ),
-    );
-  });
-
-  return enterMount(em, slot.source, keep);
+    inner.emit(cpp.varDecl(cpp.auto, name, value.c));
+    inner.bind(read, { c: cpp.id(name), t: value.t });
+  }
 }
 
 /** The C++ name each list's item has, in the code computing its key and values. */
@@ -326,6 +435,8 @@ function listEffect(em: FnEmitter, host: ToolkitHost, list: ListSlot, items: str
       );
 
       const fields = list.values.map((v, i) => {
+        bindUses(inner, v.source, v.use);
+
         const value = inner.expr(v.source);
         const name = `lucent_v${i}`;
 

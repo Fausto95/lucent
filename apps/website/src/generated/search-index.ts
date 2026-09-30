@@ -1028,7 +1028,7 @@ export const searchIndex: SearchEntry[] = [
   "href": "/docs/reference/diagnostics/#lucent3024",
   "page": "Diagnostics",
   "heading": "LUCENT3024",
-  "text": "SwiftUI or Compose body that cannot be compiled A component can draw with its platform's toolkit by returning swiftUI(() => …) or compose(() => …) (internal, under LUCENT_VIEWS=fabric). Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events. Fix: make the view in the body, and move logic into a function of the setup that the body calls."
+  "text": "SwiftUI or Compose body that cannot be compiled A component can draw with its platform's toolkit, SwiftUI or Jetpack Compose (internal, under LUCENT_VIEWS=fabric). Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events. Fix: make the view in the body, and move logic into a function of the setup that the body calls."
  },
  {
   "href": "/docs/reference/diagnostics/#lucent3030",

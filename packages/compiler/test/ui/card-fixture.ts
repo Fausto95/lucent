@@ -13,10 +13,10 @@ import type { Children } from "lucent:ui";
 export declare function Card(props: { title: string; children?: Children }): UIView | FrameLayout;
 `,
   "card.ios.lucent.tsx": `import { UIColor, UIView } from "lucent:ios/UIKit";
-import { type Children, effect, native, slot } from "lucent:ui";
+import { type Children, effect, slot } from "lucent:ui";
 
 export function Card(props: { title: string; children?: Children }): UIView {
-  const card = native(() => new UIView({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } }));
+  const card = new UIView({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } });
   const content = slot<UIView>();
 
   card.backgroundColor = UIColor.systemYellow;
@@ -32,10 +32,10 @@ export function Card(props: { title: string; children?: Children }): UIView {
   "card.android.lucent.tsx": `import { appContext } from "lucent:android";
 import type { ViewGroup } from "lucent:android/android.view";
 import { FrameLayout } from "lucent:android/android.widget";
-import { type Children, effect, native, slot } from "lucent:ui";
+import { type Children, effect, slot } from "lucent:ui";
 
 export function Card(props: { title: string; children?: Children }): FrameLayout {
-  const card = native(() => new FrameLayout(appContext()));
+  const card = new FrameLayout(appContext());
   const content = slot<ViewGroup>();
 
   card.addView(content);
@@ -59,18 +59,18 @@ export declare function Pocket(props: { children?: Children }): UIView;
 export declare function Label(props: { text: string }): UILabel;
 `,
   "hosted.ios.lucent.tsx": `import { UILabel, UIView } from "lucent:ios/UIKit";
-import { type Children, effect, native, slot } from "lucent:ui";
+import { type Children, effect, slot } from "lucent:ui";
 
 export function Pocket(props: { children?: Children }): UIView {
   const content = slot<UIView>();
 
   content.alpha = 1;
 
-  return native(() => new UIView({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } }));
+  return new UIView({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } });
 }
 
 export function Label(props: { text: string }): UILabel {
-  const label = native(() => new UILabel());
+  const label = new UILabel();
 
   effect(() => {
     label.text = props.text;

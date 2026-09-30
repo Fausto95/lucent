@@ -78,8 +78,14 @@ export interface ComposeWrite {
   receiverArg?: true;
 }
 
-/** A TypeScript parameter: one Kotlin parameter (an index of the member's `params`), or an object of named ones. */
-export type ComposeArg = { k: "param"; index: number } | { k: "named"; indices: number[] };
+/**
+ * A TypeScript parameter: one Kotlin parameter (an index of the member's
+ * `params`), or an object of named ones; an element's props give its
+ * trailing content lambda as their `children`.
+ */
+export type ComposeArg =
+  | { k: "param"; index: number }
+  | { k: "named"; indices: number[]; children?: number };
 
 /** What a declaration of lucent:compose stands for. */
 export interface ComposeBinding {
@@ -121,6 +127,70 @@ export function emitsUi(member: ComposeMember): boolean {
     member.returns.k === "prim" &&
     member.returns.name === "void"
   );
+}
+
+/**
+ * Whether a member is a list's element (LazyListScope's `items`): a
+ * function of a scope, emitting nothing itself, that takes the content it
+ * adds last. Its scope is one whose receiver lambdas give elements.
+ */
+function addsContent(member: ComposeMember, owner: SdkClassSchema | undefined): boolean {
+  return (
+    !member.kotlin?.composable &&
+    (!!member.kotlin?.scope || !!owner?.kotlin?.scope) &&
+    "returns" in member &&
+    member.returns.k === "prim" &&
+    member.returns.name === "void" &&
+    member.params.at(-1)?.kotlin?.role === "content"
+  );
+}
+
+/**
+ * Whether a member is written as a JSX element: a composable showing UI
+ * (`<Box>`), or what a list's scope adds (`<list.items>`).
+ */
+export function isElement(member: ComposeMember, owner?: SdkClassSchema): boolean {
+  return emitsUi(member) || addsContent(member, owner);
+}
+
+/**
+ * Whether a callback parameter is a lambda of one of `scopes` (LazyColumn's
+ * content, a LazyListScope's): it adds the elements its function returns.
+ */
+export function givesElementsIn(scopes: ReadonlySet<string>, param: SdkParam): boolean {
+  const r = param.kotlin?.receiver;
+
+  return (
+    param.kotlin?.role === "callback" &&
+    !param.kotlin.suspendFunction &&
+    r?.k === "ref" &&
+    scopes.has(`${r.module}.${r.name}`)
+  );
+}
+
+let scopesOfElements: ReadonlySet<string> | undefined;
+
+/** The scopes of Compose's schemas whose receiver lambdas give elements (LazyListScope), by class key. */
+export function listScopes(): ReadonlySet<string> {
+  scopesOfElements ??= elementScopes(composeSchemas().modules);
+  return scopesOfElements;
+}
+
+/** The scopes whose receiver lambdas give elements, by class key. */
+function elementScopes(modules: readonly SdkModuleSchema[]): Set<string> {
+  const out = new Set<string>();
+
+  for (const module of modules) {
+    for (const f of module.functions ?? [])
+      if (f.kotlin?.scope && addsContent(f, undefined)) out.add(f.kotlin.scope);
+
+    for (const cls of module.types)
+      if (cls.kind === "class" && cls.kotlin?.scope)
+        for (const m of cls.methods ?? [])
+          if (addsContent(m, cls)) out.add(`${module.module}.${cls.name}`);
+  }
+
+  return out;
 }
 
 /** Branded Kotlin numbers, by schema primitive: lucent:compose's own declarations declare them. */
@@ -217,17 +287,18 @@ export function composeModuleText(header: string): string {
 }
 
 /**
- * Names lucent:compose's own declarations take (the content types, the
- * body function, its root view, Kotlin's numbers): Compose's of the same
+ * Names lucent:compose's own declarations take (the content types, its
+ * root view, the JSX namespace, Kotlin's numbers): Compose's of the same
  * name are not declared.
  */
 const OWN = new Set([
-  "compose",
   "ComposeView",
   "Composed",
   "Content",
   "ScopedContent",
+  "ScopedChildren",
   "Shown",
+  "JSX",
   "Float",
   "Int",
   "Long",
@@ -270,6 +341,8 @@ function generate(modules: readonly SdkModuleSchema[], only?: string): ComposeDe
 
       classes.set(key, declared);
     }
+
+  const listScopes = elementScopes(modules);
 
   const types: TypeLookup = (module, name) => {
     const d = classes.get(`${module}.${name}`) ?? companions.get(`${module}.${name}`);
@@ -330,6 +403,26 @@ function generate(modules: readonly SdkModuleSchema[], only?: string): ComposeDe
     return d?.cls.kotlin?.scope && !k?.returnsThrough ? [ts.param("scope", tsType(r!))] : [];
   };
 
+  /**
+   * An element's children: its content (a scope's may be a function of
+   * it; content given more than its scope is one), or what a lambda of a
+   * list's scope adds (a function of the scope).
+   */
+  const childrenType = (p: SdkParam): ts.Type => {
+    const fn = p.type;
+    if (fn.k !== "fn") throw new Missing("children");
+
+    const scope = scopeOf(p.kotlin);
+    const params = [...scope, ...fn.params.map((x, i) => ts.param(`arg${i}`, tsType(x)))];
+    const nullable = (x: ts.Type) => (fn.nullable ? ts.union([x, ts.nullType]) : x);
+
+    if (!params.length) return nullable(ts.ref("Shown"));
+    if (params.length === 1 && scope.length && p.kotlin?.role === "content")
+      return nullable(ts.ref("ScopedChildren", scope[0]!.type));
+
+    return nullable(ts.fn(params, ts.ref("Shown")));
+  };
+
   /** A parameter's type: content, a callback (a promise when it suspends), a value. */
   const paramType = (p: SdkParam): ts.Type => {
     const k = p.kotlin;
@@ -345,7 +438,7 @@ function generate(modules: readonly SdkModuleSchema[], only?: string): ComposeDe
       if (params.length === 1 && scope.length)
         return nullable(ts.ref("ScopedContent", scope[0]!.type));
 
-      return nullable(ts.fn(params, ts.readonlyArray(ts.ref("Shown"))));
+      return nullable(ts.fn(params, ts.ref("Shown")));
     }
 
     let ret = tsType({ ...fn.ret, nullable: false });
@@ -395,6 +488,7 @@ function generate(modules: readonly SdkModuleSchema[], only?: string): ComposeDe
    */
   const callForm = (
     member: SdkMethodSchema | SdkCallable,
+    owner: SdkClassSchema | undefined,
     from: number,
     dropped: ReadonlySet<number>,
   ): { params: ts.Param[]; args: ComposeArg[] } => {
@@ -420,34 +514,42 @@ function generate(modules: readonly SdkModuleSchema[], only?: string): ComposeDe
       ...(omissible(i) ? { optional: true } : {}),
     });
 
-    // A composable showing UI: its named arguments, then its trailing content.
-    if ("returns" in member && emitsUi(member)) {
+    // An element: its named arguments are props, its trailing content its children.
+    if ("returns" in member && isElement(member, owner)) {
       const last = indices.at(-1);
-      const trailing = last !== undefined && p(last).kotlin?.role === "content" ? last : undefined;
+      const trailing =
+        last !== undefined &&
+        (p(last).kotlin?.role === "content" || givesElementsIn(listScopes, p(last)))
+          ? last
+          : undefined;
       const keyed = indices.filter((i) => i !== trailing);
-      const params: ts.Param[] = [];
-      const args: ComposeArg[] = [];
+      const members = keyed.map((i) => ({
+        name: p(i).name,
+        type: typeOf(i),
+        optional: omissible(i),
+      }));
 
-      if (keyed.length) {
-        const optionalObject =
-          keyed.every(optional) && (trailing === undefined || optional(trailing));
-        params.push({
-          name: "args",
-          type: named(keyed),
-          ...(optionalObject ? { optional: true } : {}),
+      if (trailing !== undefined)
+        members.push({
+          name: "children",
+          type: childrenType(p(trailing)),
+          optional: optional(trailing),
         });
-        args.push({ k: "named", indices: keyed });
-      }
-      if (trailing !== undefined) {
-        params.push({
-          name: "content",
-          type: typeOf(trailing),
-          ...(optional(trailing) ? { optional: true } : {}),
-        });
-        args.push({ k: "param", index: trailing });
-      }
 
-      return { params, args };
+      if (!members.length) return { params: [], args: [] };
+
+      return {
+        params: [
+          {
+            name: "props",
+            type: ts.object(members),
+            ...(members.every((m) => m.optional) ? { optional: true } : {}),
+          },
+        ],
+        args: [
+          { k: "named", indices: keyed, ...(trailing !== undefined ? { children: trailing } : {}) },
+        ],
+      };
     }
 
     const defaulted = indices.filter(optional);
@@ -672,7 +774,7 @@ function generate(modules: readonly SdkModuleSchema[], only?: string): ComposeDe
     doc: string,
   ) => {
     const member = binding.member as SdkMethodSchema | SdkCallable;
-    const { params, args } = callForm(member, from, dropped);
+    const { params, args } = callForm(member, binding.owner, from, dropped);
     const decl: ts.Decl = {
       k: "function",
       name,
@@ -689,8 +791,8 @@ function generate(modules: readonly SdkModuleSchema[], only?: string): ComposeDe
     });
   };
 
-  const resultOf = (member: SdkMethodSchema): ts.Type => {
-    if (emitsUi(member)) return ts.ref("Composed");
+  const resultOf = (member: SdkMethodSchema, owner?: SdkClassSchema): ts.Type => {
+    if (isElement(member, owner)) return ts.ref("Composed");
 
     const ret = tsType(member.returns);
     return member.kotlin?.suspend ? ts.ref("Promise", ret) : ret;
@@ -775,7 +877,7 @@ function generate(modules: readonly SdkModuleSchema[], only?: string): ComposeDe
             m.typeParams ?? [],
             0,
             plan.dropped,
-            resultOf(m),
+            resultOf(m, cls),
             doc,
           );
           return;
@@ -790,7 +892,7 @@ function generate(modules: readonly SdkModuleSchema[], only?: string): ComposeDe
               : undefined;
           if (!target) return;
 
-          const form = callForm(m, 1, plan.dropped);
+          const form = callForm(m, cls, 1, plan.dropped);
           target.members.push({
             decl: {
               k: "method",
@@ -815,14 +917,14 @@ function generate(modules: readonly SdkModuleSchema[], only?: string): ComposeDe
           return;
         }
 
-        const { params, args } = callForm(m, 0, plan.dropped);
+        const { params, args } = callForm(m, cls, 0, plan.dropped);
         iface.members.push({
           decl: {
             k: "method",
             name: m.name,
             ...(m.typeParams?.length ? { typeParams: m.typeParams.map((name) => ({ name })) } : {}),
             params,
-            ret: resultOf(m),
+            ret: resultOf(m, cls),
             doc,
           },
           binding: {
@@ -995,7 +1097,7 @@ function generate(modules: readonly SdkModuleSchema[], only?: string): ComposeDe
           return;
         }
 
-        const { params, args } = callForm(f, 1, plan.dropped);
+        const { params, args } = callForm(f, undefined, 1, plan.dropped);
         // A modifier's extension gives back the modifier: the same one's type, a scope's keeps its methods.
         const modifies =
           `${receiver.module}.${receiver.name}` === MODIFIER &&

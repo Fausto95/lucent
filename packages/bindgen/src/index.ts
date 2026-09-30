@@ -57,7 +57,15 @@ export {
   type SdkOptions,
 } from "./provider.ts";
 export type { NamesIndex } from "./ios.ts";
-export { type CallForm, type CallPart, callForms } from "./call-form.ts";
+export {
+  argumentsShape,
+  type CallForm,
+  type CallPart,
+  callForms,
+  type JsxAttribute,
+  type JsxForm,
+  jsxForm,
+} from "./call-form.ts";
 export { buildSourceSchema, isScalarProtocol } from "./swift-source.ts";
 export { boundValue } from "./source-plan.ts";
 export { type PodFramework, podsSearchPaths, type PodsSearchPaths } from "./pods.ts";

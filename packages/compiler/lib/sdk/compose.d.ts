@@ -5,18 +5,21 @@
  * LUCENT_VIEWS environment variable is `fabric`, and changes without notice
  * until Lucent's views are public.
  *
- * A component's setup returns `compose(() => …)`: the function is the
- * content's composable body, compiled to Kotlin. It reads the setup's
- * props, signals and functions: a number, boolean or string the setup
- * computes is Compose state, and a setup function the body calls from a
- * callback runs as Lucent code. Everything else in the body is Compose
- * itself, in call form: a composable showing UI takes Kotlin's named
- * arguments as one object (`Box({ modifier })`), and its trailing content
- * lambda is a function returning an array of what it shows (`Column({},
- * () => [A(), B()])`); other functions take Kotlin's parameters in order,
- * an options object holding the defaulted ones where Kotlin's order cannot
- * (`spring({ stiffness })`); its modifiers, animations and effects are
- * Compose's.
+ * A component returns its content: JSX, compiled to Kotlin. A composable
+ * showing UI is an element (`<Box modifier={…}>`), whose props are
+ * Kotlin's named arguments and whose children are its trailing content
+ * lambda, or a function of the lambda's scope (`{(row) => …}`); a lazy
+ * list's items are elements of its scope (`{(list) => <list.items
+ * items={…} key={…}>…</list.items>}`). The component's statements that
+ * compose (`animateDpAsState(…)`, `remember(…)`, `LaunchedEffect(…)`)
+ * run in the content, in order, before what the JSX shows; the rest of
+ * its code is its setup, which runs once and reads none of their values.
+ * The content reads the setup's props, signals and functions: a number,
+ * boolean or string the setup computes is Compose state, and a setup
+ * function the content calls from a callback runs as Lucent code. Other
+ * functions take Kotlin's parameters in order, an options object holding
+ * the defaulted ones where Kotlin's order cannot (`spring({ stiffness })`);
+ * modifiers, animations and effects are Compose's.
  *
  * A value Compose pairs with the callback of its changes (`value` and
  * `onValueChange`) takes a setup signal bound to both instead,
@@ -44,32 +47,48 @@ export type Short = number & { readonly "lucent:compose.Short"?: never };
 export type Byte = number & { readonly "lucent:compose.Byte"?: never };
 
 /**
- * What a composable call shows: an item of the content a body or a content
- * lambda returns, never a value setup holds.
+ * What an element shows (`<Box …/>`): an item of content, the value of
+ * JSX, never a value setup holds.
  */
 export interface Composed {
   readonly "lucent:compose.Composed": true;
 }
 
-/** Content: what a composable shows, in order, or nothing where a condition is false. */
+/** Content: what composables show, in order, or nothing where a condition is false. */
 export type Shown = Composed | false | null | undefined | readonly Shown[];
 
-/** A @Composable content lambda: its statements compose, and it returns what it shows. */
-export type Content = () => readonly Shown[];
+/** A @Composable content lambda given as a prop: its statements compose, and it returns what it shows. */
+export type Content = () => Shown;
 
 /**
- * Content composed in a receiver scope (a Row's RowScope): the lambda's
- * first parameter is the scope, whose methods and Modifier run in it.
+ * A content lambda composed in a receiver scope (a Row's RowScope), given
+ * as a prop: its first parameter is the scope, whose methods and Modifier
+ * run in it.
  */
-export type ScopedContent<S> = (scope: S) => readonly Shown[];
+export type ScopedContent<S> = (scope: S) => Shown;
 
 /**
- * The view showing `body`'s composition: what a component's setup returns.
- * Setup calls it once, in its own code.
+ * An element's children composed in a receiver scope: what they show, or
+ * a function of the scope showing it, for children that use the scope
+ * (`{(row) => <Text modifier={row.Modifier.weight(1)} … />}`).
  */
-export declare function compose(body: () => Shown): ComposeView;
+export type ScopedChildren<S> = Shown | ((scope: S) => Shown);
 
-/** The Android view hosting a composition. */
+/**
+ * How TypeScript types an Android file's JSX: an element is a composable,
+ * a function of its props whose children are its `children` prop.
+ */
+export declare namespace JSX {
+  type Element = Composed;
+
+  interface ElementChildrenAttribute {
+    children: {};
+  }
+
+  interface IntrinsicElements {}
+}
+
+/** The Android view hosting a composition: the view a component returning JSX makes. */
 export declare class ComposeView extends ViewGroup {
   private constructor();
 }

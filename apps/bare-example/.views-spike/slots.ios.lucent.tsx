@@ -1,9 +1,9 @@
 import { UIColor, UIView, UIView_AutoresizingMask } from "lucent:ios/UIKit";
-import { type Children, effect, expose, native, slot } from "lucent:ui";
+import { type Children, effect, expose, slot } from "lucent:ui";
 
 export function Card(props: { title: string; inset: number; children?: Children }): UIView {
-  const card = native(() => new UIView({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } }));
-  const inner = native(() => new UIView({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } }));
+  const card = new UIView({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } });
+  const inner = new UIView({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } });
   const content = slot<UIView>();
 
   // A yellow frame, clipping a teal view as large as itself, `inset` in: the slot fills the teal view.
@@ -57,15 +57,9 @@ export function Card(props: { title: string; inset: number; children?: Children 
 }
 
 export function Panel(props: { header: number; children?: Children }): UIView {
-  const panel = native(
-    () => new UIView({ origin: { x: 0, y: 0 }, size: { width: 100, height: 100 } }),
-  );
-  const head = native(
-    () => new UIView({ origin: { x: 0, y: 0 }, size: { width: 100, height: 0 } }),
-  );
-  const body = native(
-    () => new UIView({ origin: { x: 0, y: 0 }, size: { width: 100, height: 100 } }),
-  );
+  const panel = new UIView({ origin: { x: 0, y: 0 }, size: { width: 100, height: 100 } });
+  const head = new UIView({ origin: { x: 0, y: 0 }, size: { width: 100, height: 0 } });
+  const body = new UIView({ origin: { x: 0, y: 0 }, size: { width: 100, height: 100 } });
   const content = slot<UIView>();
 
   // An orange header across the top, the slot filling the teal body below it.

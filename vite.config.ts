@@ -85,6 +85,16 @@ export default defineConfig({
     },
     overrides: [
       {
+        // A platform Lucent file's JSX is its toolkit's (SwiftUI's, Compose's),
+        // not React's: its component's setup runs once, and its body's calls
+        // are the toolkit's (`Environment(…)`).
+        files: ["**/*.ios.lucent.tsx", "**/*.android.lucent.tsx"],
+        rules: {
+          "react/purity": "off",
+          "react/capitalized-calls": "off",
+        },
+      },
+      {
         // Each e2e case exercises JavaScript semantics, including the ones
         // these rules warn about (lost precision, errors without a cause,
         // settling a promise twice); the code is the test's data, run on Node

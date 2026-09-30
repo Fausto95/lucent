@@ -10,6 +10,7 @@ import ts from "typescript";
 import { branchPlatform, platformScopes } from "../platforms.ts";
 import type { Platform } from "../sdk/schema.ts";
 import { isToolkitBody } from "../ui/toolkit-body.ts";
+import { isViewHelper } from "../ui/view-helpers.ts";
 import { type FunctionLike, isFunctionLike } from "./scopes.ts";
 
 export type UnitKind =
@@ -163,7 +164,8 @@ class Finder {
     this.inits.set(m.name, init);
 
     for (const s of here) {
-      if (ts.isFunctionDeclaration(s) && s.body && s.name)
+      // A helper view is its toolkit's code: none of it runs as the program's.
+      if (ts.isFunctionDeclaration(s) && s.body && s.name && !isViewHelper(this.checker, s))
         this.function(s, m.name, undefined, s.name.text, exportedStatement(s));
 
       if (ts.isClassDeclaration(s) && s.name) this.class(s, m.name, init, exportedStatement(s));
@@ -385,7 +387,7 @@ class Finder {
 
       if (isFunctionLike(n) && !ts.isConstructorDeclaration(n)) {
         // A toolkit's body is Swift or Kotlin: none of its code runs as the program's.
-        if (!n.body || isToolkitBody(this.checker, n)) return;
+        if (!n.body || isToolkitBody(this.checker, n) || isViewHelper(this.checker, n)) return;
 
         this.function(n, module, parent, closureName(n, parent), false);
         return;

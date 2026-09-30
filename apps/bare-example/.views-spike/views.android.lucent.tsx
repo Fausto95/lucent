@@ -2,10 +2,10 @@ import { appContext } from "lucent:android";
 import { TimeAnimator } from "lucent:android/android.animation";
 import { ViewGroup } from "lucent:android/android.view";
 import { TextView, ToggleButton } from "lucent:android/android.widget";
-import { type Coalesced, effect, expose, native, onDispose, signal } from "lucent:ui";
+import { type Coalesced, effect, expose, onDispose, signal } from "lucent:ui";
 
 export function Caption(props: { text: string; detail?: string | null }): TextView {
-  const label = native(() => new TextView(appContext()));
+  const label = new TextView(appContext());
 
   effect(() => {
     label.setText(
@@ -22,7 +22,7 @@ export function Gauge(props: {
   onChange?: (value: number, source?: string) => void;
   onReset?: () => void;
 }): TextView {
-  const text = native(() => new TextView(appContext()));
+  const text = new TextView(appContext());
   // Setup runs once per mount: its own count goes on across commits.
   let runs = 0;
 
@@ -64,7 +64,7 @@ export function Meter(props: {
   subtitle?: string | null;
   onChange?: (selected: boolean) => void;
 }): ToggleButton {
-  const toggle = native(() => new ToggleButton(appContext()));
+  const toggle = new ToggleButton(appContext());
   const selected = signal(false);
   const changes = signal(0);
 
@@ -118,7 +118,7 @@ export function Pulse(props: {
   onTick?: (n: number, at: number) => void;
   onLevel?: Coalesced<(n: number, at: number) => void>;
 }): TextView {
-  const label = native(() => new TextView(appContext()));
+  const label = new TextView(appContext());
   const animator = new TimeAnimator();
   let n = 0;
   let last = 0;

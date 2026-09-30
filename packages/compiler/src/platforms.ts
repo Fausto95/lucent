@@ -3,6 +3,7 @@ import ts from "typescript";
 import { Codes, type Diagnostic } from "./diagnostics.ts";
 import { builtinSdkModuleOf, type LucentProgram, moduleNameOf, platformOf } from "./program.ts";
 import { type Platform, PLATFORMS } from "./sdk/schema.ts";
+import { toolkitRootType } from "./ui/roots.ts";
 
 /** What a build targets: a platform, or `host` (tests and tools: platform modules become stubs). */
 export type Target = Platform | "host";
@@ -92,6 +93,28 @@ export function declarationErrors(lp: LucentProgram, declaration: string): Diagn
   return out;
 }
 
+/**
+ * Whether a component returning a toolkit's element (its body, JSX)
+ * conforms to a declaration by the view it makes: the toolkit's root view
+ * (a ComposeView is an Android View). Its parameters take what the
+ * declaration's do.
+ */
+function conformsByRoot(checker: ts.TypeChecker, impl: ts.Type, declared: ts.Type): boolean {
+  const [i, more] = impl.getCallSignatures();
+  const [d] = declared.getCallSignatures();
+  const root = i && !more && toolkitRootType(checker, checker.getReturnTypeOfSignature(i));
+
+  if (!i || !d || !root || i.parameters.length > d.parameters.length) return false;
+
+  const typeOf = (p: ts.Symbol) =>
+    checker.getTypeOfSymbolAtLocation(p, p.valueDeclaration ?? p.declarations![0]!);
+
+  return (
+    checker.isTypeAssignableTo(root, checker.getReturnTypeOfSignature(d)) &&
+    i.parameters.every((p, k) => checker.isTypeAssignableTo(typeOf(d.parameters[k]!), typeOf(p)))
+  );
+}
+
 /** The platform file exports exactly the declared values, with assignable types. */
 export function conformanceErrors(lp: LucentProgram): Diagnostic[] {
   const checker = lp.checker;
@@ -123,7 +146,10 @@ export function conformanceErrors(lp: LucentProgram): Diagnostic[] {
       if (!decl || !declared) continue;
       const implType = checker.getTypeOfSymbolAtLocation(i, decl);
       const declType = checker.getTypeOfSymbolAtLocation(d, declared);
-      if (!checker.isTypeAssignableTo(implType, declType)) {
+      if (
+        !checker.isTypeAssignableTo(implType, declType) &&
+        !conformsByRoot(checker, implType, declType)
+      ) {
         out.push(
           at(
             decl,

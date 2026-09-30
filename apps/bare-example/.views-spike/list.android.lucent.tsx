@@ -4,8 +4,6 @@ import {
   BasicTextField,
   Color,
   Column,
-  compose,
-  type ComposeView,
   dp,
   expandVertically,
   fadeIn,
@@ -24,7 +22,34 @@ import type { TodoListProps } from "./list.lucent";
 
 type Todo = { id: number; title: string; done: boolean };
 
-export function TodoList(props: TodoListProps): ComposeView {
+/** One todo, a helper view: tapping its mark toggles it, its button removes it. */
+function TodoRow(props: {
+  id: number;
+  title: string;
+  done: boolean;
+  onToggle: () => void;
+  onRemove: (id: number) => void;
+}) {
+  return (
+    <Row verticalAlignment={Alignment.CenterVertically}>
+      {(row) => (
+        <>
+          <BasicText
+            text={props.done ? "[x]" : "[ ]"}
+            modifier={Modifier.clickable(props.onToggle).padding(dp(6))}
+          />
+          <BasicText text={props.title} modifier={row.Modifier.weight(1)} />
+          <BasicText
+            text="remove"
+            modifier={Modifier.clickable(() => props.onRemove(props.id)).padding(dp(6))}
+          />
+        </>
+      )}
+    </Row>
+  );
+}
+
+export function TodoList(props: TodoListProps) {
   const todos = signal<Todo[]>([]);
   const draft = signal("");
   const showDone = signal(true);
@@ -90,62 +115,68 @@ export function TodoList(props: TodoListProps): ComposeView {
     state: (): string => summary(),
   });
 
-  return compose(() => {
-    const density = LocalDensity.current.density;
-    const dark = isSystemInDarkTheme();
+  // What composes: lifted into the content.
+  const density = LocalDensity.current.density;
+  const dark = isSystemInDarkTheme();
 
-    LaunchedEffect(dark, async () => {
-      seen(dark, density);
-    });
-
-    return Column(
-      { modifier: Modifier.width(dp(320)).padding(dp(8)).animateContentSize() },
-      (column) => [
-        BasicText({ text: heading() }),
-        Row({ verticalAlignment: Alignment.CenterVertically }, (row) => [
-          BasicTextField({
-            value: bind(draft),
-            singleLine: true,
-            modifier: row.Modifier.weight(1).background(Color(0xffeeeeee)).padding(dp(6)),
-          }),
-          BasicText({ text: "Add", modifier: Modifier.clickable(() => addDraft()).padding(dp(8)) }),
-        ]),
-        BasicText({ text: `draft: ${draft.get()}` }),
-        Row({ verticalAlignment: Alignment.CenterVertically }, (row) => [
-          BasicText({ text: "Show done", modifier: row.Modifier.weight(1) }),
-          Switch({ checked: bind(showDone) }),
-        ]),
-        LazyColumn({
-          modifier: Modifier.height(dp(180)),
-          content: (list) =>
-            list.items(
-              shown(),
-              (_, t) => [
-                Row({ verticalAlignment: Alignment.CenterVertically }, (row) => [
-                  BasicText({
-                    text: t.done ? "[x]" : "[ ]",
-                    modifier: Modifier.clickable(() => toggle(t)).padding(dp(6)),
-                  }),
-                  BasicText({ text: t.title, modifier: row.Modifier.weight(1) }),
-                  BasicText({
-                    text: "remove",
-                    modifier: Modifier.clickable(() => remove(t.id)).padding(dp(6)),
-                  }),
-                ]),
-              ],
-              { key: (t) => t.id },
-            ),
-        }),
-        column.AnimatedVisibility(
-          {
-            visible: shown().length === 0,
-            enter: fadeIn().plus(expandVertically()),
-            exit: fadeOut().plus(shrinkVertically()),
-          },
-          () => [BasicText({ text: "nothing to do" })],
-        ),
-        BasicText({ text: `${density}x density, ${dark ? "dark" : "light"}` }),
-      ],
-    );
+  LaunchedEffect(dark, async () => {
+    seen(dark, density);
   });
+
+  return (
+    <Column modifier={Modifier.width(dp(320)).padding(dp(8)).animateContentSize()}>
+      {(column) => (
+        <>
+          <BasicText text={heading()} />
+          <Row verticalAlignment={Alignment.CenterVertically}>
+            {(row) => (
+              <>
+                <BasicTextField
+                  value={bind(draft)}
+                  singleLine
+                  modifier={row.Modifier.weight(1).background(Color(0xffeeeeee)).padding(dp(6))}
+                />
+                <BasicText
+                  text="Add"
+                  modifier={Modifier.clickable(() => addDraft()).padding(dp(8))}
+                />
+              </>
+            )}
+          </Row>
+          <BasicText text={`draft: ${draft.get()}`} />
+          <Row verticalAlignment={Alignment.CenterVertically}>
+            {(row) => (
+              <>
+                <BasicText text="Show done" modifier={row.Modifier.weight(1)} />
+                <Switch checked={bind(showDone)} />
+              </>
+            )}
+          </Row>
+          <LazyColumn modifier={Modifier.height(dp(180))}>
+            {(list) => (
+              <list.items items={shown()} key={(t) => t.id}>
+                {(_, t) => (
+                  <TodoRow
+                    id={t.id}
+                    title={t.title}
+                    done={t.done}
+                    onToggle={() => toggle(t)}
+                    onRemove={remove}
+                  />
+                )}
+              </list.items>
+            )}
+          </LazyColumn>
+          <column.AnimatedVisibility
+            visible={shown().length === 0}
+            enter={fadeIn().plus(expandVertically())}
+            exit={fadeOut().plus(shrinkVertically())}
+          >
+            <BasicText text="nothing to do" />
+          </column.AnimatedVisibility>
+          <BasicText text={`${density}x density, ${dark ? "dark" : "light"}`} />
+        </>
+      )}
+    </Column>
+  );
 }

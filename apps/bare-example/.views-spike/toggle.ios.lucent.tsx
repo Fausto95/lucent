@@ -6,9 +6,7 @@ import {
   Circle,
   Color,
   Font,
-  swiftUI,
   Text,
-  type UIHostingController,
   VStack,
   withAnimation,
   ZStack,
@@ -16,7 +14,7 @@ import {
 import { effect, expose, onDispose, signal } from "lucent:ui";
 import type { ToggleProps } from "./toggle.lucent";
 
-export function Toggle(props: ToggleProps): UIHostingController {
+export function Toggle(props: ToggleProps) {
   const on = signal(false);
   const taps = signal(0);
   const scale = signal(1);
@@ -63,19 +61,24 @@ export function Toggle(props: ToggleProps): UIHostingController {
     state: (): string => `${on.peek() ? "on" : "off"} taps=${taps.peek()} scale=${scale.peek()}`,
   });
 
-  return swiftUI(() =>
-    VStack({ spacing: 6 }, [
-      ZStack({ alignment: on.get() ? Alignment.trailing : Alignment.leading }, [
-        Capsule().fill(on.get() ? Color.green : Color.gray),
-        Circle().fill(Color.white).padding(3),
-      ])
-        .frame({ width: 64, height: 36 })
-        .scaleEffect(scale.get())
-        .animation(Animation.spring({ response: 0.6, dampingFraction: 0.55 }), { value: on.get() })
-        .onTapGesture(() => tap())
-        .onAppear(() => appeared())
-        .onDisappear(() => disappeared()),
-      Text(`${props.title}: ${taps.get()} flips`).font(Font.caption),
-    ]),
+  return (
+    <VStack spacing={6}>
+      <ZStack
+        alignment={on.get() ? Alignment.trailing : Alignment.leading}
+        frame={{ width: 64, height: 36 }}
+        scaleEffect={scale.get()}
+        animation={[
+          Animation.spring({ response: 0.6, dampingFraction: 0.55 }),
+          { value: on.get() },
+        ]}
+        onTapGesture={tap}
+        onAppear={appeared}
+        onDisappear={disappeared}
+      >
+        <Capsule fill={on.get() ? Color.green : Color.gray} />
+        <Circle fill={Color.white} padding={3} />
+      </ZStack>
+      <Text font={Font.caption}>{`${props.title}: ${taps.get()} flips`}</Text>
+    </VStack>
   );
 }

@@ -81,7 +81,9 @@ view shows that component instance.
   Then it calls `Mount::create` with the committed props and the host's
   event route. Setup runs once in the mount's scope, and its view
   becomes the host's content: iOS `contentView`, Android the shell's
-  child. Android waits for the attach because React Native can create
+  child. Setup makes the native objects it shows and owns directly
+  (`const label = new UILabel()`): they go with the mount, when the host
+  destroys it. Android waits for the attach because React Native can create
   (preallocate) a view before its props are committed.
 - **Update.** `Mount::update(props, previous)` puts the props that
   changed, and which events JavaScript listens to, into the mount's prop
@@ -249,14 +251,22 @@ A component can draw its view with the platform's declarative toolkit
 instead of platform views: SwiftUI on iOS (`lucent:swiftui`), Jetpack
 Compose on Android (`lucent:compose`). Both modules resolve under the
 same internal switch. `lucent:swiftui` declares SwiftUI as the SDK
-declares it; `lucent:compose` a few of Compose's own names. The
-setup gives its body, a function, to the toolkit's body function
-(`swiftUI(() => …)`, `compose(() => …)`) in its own code, once, and
-returns what that makes: the object the host shows. The body is written
-out in the toolkit's language; the rest of the setup is Lucent code, as
-in any component (signals, effects, commands, timers, events). Bodies are
-calls of the toolkit's own functions, never JSX; the component's module
-is a `.lucent.tsx` file, as every component's is.
+declares it; `lucent:compose` Compose as its Kotlin metadata declares
+it. A component returns its body: JSX of its toolkit's views, once, as
+the last statement of its setup. Its root, the object the host shows, is
+the toolkit's: the `UIHostingController` Lucent makes for an iOS body,
+the `ComposeView` it makes for an Android one. The body is written out
+in the toolkit's language, with, on Android, the setup's statements that
+compose (see Compose content); the rest of the setup is Lucent code, as
+in any component (signals, effects, commands, timers, events). The component's module is
+a `.lucent.tsx` file, as every component's is.
+
+A platform file's JSX is its toolkit's: the JSX of a
+`*.ios.lucent.tsx` file is typed by `lucent:swiftui`, that of a
+`*.android.lucent.tsx` file by `lucent:compose`, in the compiler and in
+editors through the Lucent TypeScript plugin; the app's own `.tsx`
+files keep React's. A shared `.lucent.tsx` file writes no JSX
+(LUCENT3024).
 
 The body and its setup meet through slots, the same way on both
 platforms (`ui/toolkit-body.ts`, `emit/toolkit.ts`):
@@ -283,7 +293,7 @@ platforms (`ui/toolkit-body.ts`, `emit/toolkit.ts`):
   through the action's C function; Compose, as the boxed arguments of a
   Kotlin function object.
 - An array the setup computes, shown item by item, is a list slot:
-  SwiftUI's `ForEach(items, { id: (item) => item.id }, (item) => […])`,
+  SwiftUI's `<ForEach data={items} id={(item) => item.id}>{(item) => …}</ForEach>`,
   a Compose list form, LazyListScope's `items` in a `LazyColumn`'s
   content (`list.items(items, (_, item) => […], { key: (item) => item.id
 })`), which Lucent recognizes by its schema (a list of T, a content
@@ -303,8 +313,9 @@ platforms (`ui/toolkit-body.ts`, `emit/toolkit.ts`):
   now.
 - `bind(signal)` (lucent:ui) gives a setup signal of a number, a
   boolean or a string to a view that changes it: SwiftUI's `Binding`
-  (`TextField("New", { text: bind(draft) })`, `Toggle("Done", { isOn:
-bind(done) })`), or Compose's value and its change callback, where a
+  (`<TextField text={bind(draft)}>New</TextField>`,
+  `<Toggle isOn={bind(done)}>Done</Toggle>`), or Compose's value and its
+  change callback, where a
   declaration pairs them (`BasicTextField({ value: bind(draft) })`). The
   view reads the signal's value slot. A change the user makes is an
   action setting the signal on the main thread, in its mount; the slot's
@@ -325,6 +336,34 @@ bind(done) })`), or Compose's value and its change callback, where a
   setup's other values. A body Lucent can't write out, and the toolkit's
   views and values used outside a body, fail with LUCENT3024.
 
+**Helper views.** A body may split its views into helpers: functions of
+the same platform file, at its top level or in the setup, not exported
+(an exported one is a component), returning the toolkit's JSX. The body
+uses one as an element, `<Row title={t.title} onToggle={() => toggle(t)} />`,
+or calls it in its content, `{Row({ … })}`; helpers may use helpers.
+Lucent writes each once per component in the toolkit's language (a
+Swift `View` struct, a Kotlin `@Composable` function), never as C++
+(`ui/view-helpers.ts`):
+
+- A helper takes one props object, read where it is used as
+  `props.name`. Its props are plain data and callbacks taking numbers,
+  booleans and strings and returning nothing.
+- What a helper computes from its props (the largest expression reading
+  them, as a body's values are) is a value of its own, which the setup
+  computes where the helper is used, as JavaScript would call it: its
+  props read what the element gives them, each once, in order. Used in
+  the body, a helper's values are the body's; in a list's item, the
+  item's. A helper using another gives it its own values.
+- A helper's callbacks call its callback props, or give them on, with
+  its values, literals and the callback's parameters. What its user gives
+  a callback prop follows the body's rules (a setup function, or `() =>`
+  calling them, a list's item crossing as its key).
+- A helper reads nothing of its setup's but its props (a setup's helper
+  may use its other helpers), and doesn't use itself. A helper destructuring
+  its props or taking several, taking a toolkit's value (a `Color`), or
+  showing a list or binding a signal, fails with LUCENT3024: its user
+  does those.
+
 The views spike's list screen (`scripts/views-spike.ts --entry list.js`)
 ran on the iOS simulator and on the Android emulator (view recycling on),
 a todo list written once for each toolkit. Commands added todos (each
@@ -340,37 +379,90 @@ the list is a LazyColumn's items, its rows weighted through their Row's
 scope, and the switch material3's Switch bound to a signal. The color
 scheme (iOS) and the screen's density with the dark theme (Android),
 read where the body draws, reached the setup through a callback.
+Each list's item is a helper view (`TodoRow`): on both platforms, real
+taps on an item's mark and on its remove button reached the setup
+through the helper's callback props, toggling the item by its key and
+removing it by its id, and the helper's values followed each item.
 
 ## SwiftUI content
 
-An iOS component draws with SwiftUI by returning `swiftUI(() => …)`. The
-body is SwiftUI's own calls, by their Swift names:
+An iOS component draws with SwiftUI by returning JSX of SwiftUI's views,
+with no wrapper:
 
 ```tsx
-export function Toggle(props: { title: string }): UIHostingController {
+export function Toggle(props: { title: string }) {
   const on = signal(false);
-  const flip = () => {
-    on.set(!on.peek());
-  };
+  const flip = () => on.set(!on.get());
 
-  return swiftUI(() =>
-    VStack({ spacing: 8 }, [
-      Capsule()
-        .fill(on.get() ? Color.green : Color.gray)
-        .frame({ width: 56, height: 32 })
-        .animation(Animation.spring({ response: 0.35 }), { value: on.get() })
-        .onTapGesture(() => flip()),
-      Text(`${props.title}: ${on.get() ? "on" : "off"}`),
-    ]),
+  return (
+    <VStack spacing={8}>
+      <ZStack
+        alignment={on.get() ? Alignment.trailing : Alignment.leading}
+        animation={[Animation.spring({ duration: 0.3 }), { value: on.get() }]}
+        onTapGesture={flip}
+      >
+        <Capsule fill={on.get() ? Color.green : Color.gray} frame={{ width: 52, height: 32 }} />
+        <Circle fill={Color.white} padding={3} />
+      </ZStack>
+      <Text>{`${props.title}: ${on.get() ? "on" : "off"}`}</Text>
+    </VStack>
   );
 }
 ```
 
-Swift's unlabeled arguments are given in order, its labeled ones as one
-object literal, a view's content as an array after them, and a trailing
-action as a function. The body is one view: the function returns it.
-Content given in the object (a `Slider`'s `label: [Text("Level")]`) is a
-closure too, wherever Swift takes it.
+The file is the component's iOS one (`toggle.ios.lucent.tsx`), whose JSX
+is SwiftUI's; the shared declaration says the component returns
+SwiftUI's `View` (`View | ComposeView` where Android draws with
+Compose). The body is one view, returned once as the setup's last
+statement: its conditions are written in it.
+
+**Elements.** An element is a view's initializer, called by its Swift
+type's name. An attribute named like one of the initializer's labels is
+that argument (`<Image systemName="star" />`, `<ZStack
+alignment={…}>`); an unlabeled argument is named after its Swift
+parameter (`<Picker titleKey="Size" …>`), and a trailing action after
+its label (`<Button action={add}>`), or its parameter where it has none.
+The children are the trailing `@ViewBuilder`'s content, or else the
+first unlabeled string: `<Text>hi</Text>`, `<Text>{title()}</Text>`,
+`<Button action={add}>Add</Button>`. Text children are one string; write
+a template in braces to join values. Content given elsewhere (a
+`Slider`'s `label={<Text>Level</Text>}`) is a closure too, wherever Swift
+takes it. `lucent:swiftui` declares one JSX form for each of the
+initializer's call forms.
+
+**Modifiers.** Every other attribute is a modifier, applied in the order
+written, after the initializer. Its value is the modifier's arguments,
+as the call form gives them: one value (`padding={8}`,
+`fill={Color.green}`), an object of its labeled ones (`frame={{ width:
+52 }}`), or a tuple of both (`animation={[Animation.spring(), { value:
+on.get() }]}`, `padding={[Edge.Set.horizontal, 16]}`), and the attribute
+alone for none (`padding`). Trailing optional arguments may be left out:
+`background={Color.red}`. Where a modifier's value could be a tuple or
+one array, it is the tuple. Each modifier applies to what the ones before
+it made, so one a view no longer has (a `Shape`'s `stroke` after `fill`)
+is refused. JSX writes an attribute once: a modifier given again chains
+after the element, as a method, with the call form's arguments:
+`(<Text padding={8} background={Color.red}>a</Text>).padding(4)`. A
+modifier of a type parameter takes each scalar's form
+(`onChange={[{ of: level.get() }, (now: number) => leveled(now)]}`): its
+callback names its parameter's type. A name that is both an argument of
+the view's initializer and a modifier (`Color`'s `opacity`,
+`RoundedRectangle`'s `cornerRadius`) is the argument, as any attribute
+named like a label is: `<RoundedRectangle cornerRadius={8} />`. The
+modifier of that name chains after the element:
+`(<Color red={1} green={0} blue={0} opacity={0.5} />).opacity(0.8)`.
+
+SwiftUI's values are calls in the call form: Swift's unlabeled arguments
+in order, its labeled ones as one object literal, a closure last
+(`Animation.spring({ response: 0.3 })`, `Color.blue.opacity(0.15)`,
+`Angle.degrees(angle.get())`). A view given as a value (`clipShape`'s
+shape) is one too: `Circle()`. In content, views are JSX.
+
+A helper view is a `fileprivate` Swift `View` of the component's file,
+`<Component>View_<Name>`: a `let` property per value it computes and per
+callback (`let onToggle: () -> Void`), and an `@Environment` property
+per environment value it reads. Its user writes it with them:
+`TodosView_Row(done0: item.done7, …, onToggle: { actions(2, [item.id]) })`.
 
 **Declarations.** `lucent:swiftui` is generated from the SwiftUI of the
 installed SDK (with SwiftUICore, which is part of it), not written by
@@ -392,16 +484,16 @@ bounds literals or values the setup computes. Like `bind`, it is
 written only where a view takes it:
 
 ```tsx
-Slider({ value: bind(level), in: range(0, 1), step: 0.1 });
-Stepper("Count", { value: bind(count), in: range(1, props.max) });
+<Slider value={bind(level)} in={range(0, 1)} step={0.1} />
+<Stepper value={bind(count)} in={range(1, props.max)}>Count</Stepper>
 ```
 
 **Values of any scalar type.** A value of a type parameter that any
 Lucent number, string or boolean fits (SwiftUI's `V: Equatable`,
 `SelectionValue: Hashable`) is a TypeScript type parameter too, one per
-Swift one: `onChange({ of: level.get() }, (now) => leveled(now))` gives
-its callback a number, and a `Picker`'s selection binds a signal of any
-of them (`Picker("Size", { selection: bind(size) }, [Text("S").tag("s")])`).
+Swift one: `onChange` gives its callback a number where it watches one,
+and a `Picker`'s selection binds a signal of any of them
+(`<Picker titleKey="Size" selection={bind(size)}><Text tag="s">S</Text></Picker>`).
 A number literal given as one is a Double in Swift, the type of a number
 signal's Binding. A callback may take fewer values than SwiftUI gives
 it. Where SwiftUI has several forms of a member, the declarations offer
@@ -415,8 +507,8 @@ the app's other Swift. SwiftUI's views, modifiers and values, and
 literals, are Swift. A value slot is a `@Published` property of the
 model, which the slot's effect sets. A callback is a Swift closure
 calling the setup's functions by index. A conditional view in a view's
-content is SwiftUI's `if`: `shown.get() && Text("a")`, or a ternary,
-whose branch may be `null` (content takes `false`, `null` and
+content is SwiftUI's `if`: `{shown.get() && <Text>a</Text>}`, or a
+ternary, whose branch may be `null` (content takes `false`, `null` and
 `undefined` for a view left out). The condition is a boolean, which the
 setup computes like any value; one that is not (a number, a boolean
 that may be undefined) fails with LUCENT3024.
@@ -505,6 +597,8 @@ component's Swift built in the Lucent pod), Release and Debug:
 Limitations of SwiftUI content:
 
 - A body's callbacks only call the setup's functions.
+- A SwiftUI helper view returns its JSX as its only statement: it
+  computes its values in the JSX.
 - `ForEach` in a body is Lucent's keyed list: the generated declarations
   end with its form, which merges into SwiftUI's `ForEach`.
 - SwiftUI members a body can't write yet are left out of the
@@ -526,72 +620,115 @@ Limitations of SwiftUI content:
 
 ## Compose content
 
-An Android component draws with Jetpack Compose by returning
-`compose(() => …)` from `lucent:compose`. The body is compiled to a Kotlin
-composable, in the same call form as SwiftUI's: a composable takes
-Kotlin's named arguments as one object literal, and its trailing
-`@Composable` content lambda is a function returning an array of what it
-shows. Statements such as `remember`, `animate*AsState` and
-`LaunchedEffect` go in the body, or in a content lambda, where they
-compose.
+An Android component draws with Jetpack Compose by returning JSX of
+`lucent:compose`'s elements, with no wrapper. The component's root view
+is a ComposeView. The JSX is compiled to a Kotlin composable: a
+composable showing UI is an element, whose props are Kotlin's named
+arguments and whose children are its trailing `@Composable` content
+lambda. The component's statements that compose (`animate*AsState`,
+`remember`, `LaunchedEffect`) are lifted into that composable. The rest
+of its code is its setup, as in any component.
 
 ```tsx
-export function Toggle(props: Props): ComposeView {
+// toggle.android.lucent.tsx
+import { Box, Modifier, animateDpAsState, spring, dp } from "lucent:compose";
+import { signal } from "lucent:ui";
+
+export function Toggle(props: { title: string }) {
   const on = signal(false);
-  const flip = () => {
-    on.set(!on.peek());
-    props.onChange?.(on.peek());
-  };
+  const flip = () => on.set(!on.get());
+  const x = animateDpAsState(on.get() ? dp(20) : dp(0), spring());
 
-  return compose(() => {
-    const x = animateDpAsState(on.get() ? dp(20) : dp(0), spring());
-
-    return Box({ modifier: Modifier.size(dp(52), dp(32)).clickable(() => flip()) }, () => [
-      Box({ modifier: Modifier.offset({ x: x.value }).size(dp(26)) }),
-    ]);
-  });
+  return (
+    <Box modifier={Modifier.size(dp(52), dp(32)).clickable(flip)}>
+      <Box modifier={Modifier.offset({ x: x.value }).size(dp(26))} />
+    </Box>
+  );
 }
 ```
 
+- **Composition statements.** A statement of the component's own code
+  composes when it calls a composable or reads a composable property
+  (`remember(…)`, `rememberSaveable(…)`, `animateDpAsState(…)`,
+  `LaunchedEffect(…)`, `DisposableEffect(…)`, `isSystemInDarkTheme()`,
+  `LocalDensity.current`), as Compose's bindings say. Such statements
+  run in the content, in their order, before what the JSX shows, each
+  time the content composes. The setup runs once, before the content
+  first composes, so the rules follow from when each runs:
+  - a composition statement stands in the component's own code, never
+    in an `if`, a loop or a block, as Compose calls composables the same
+    way at every composition; a composable in a function of the setup
+    (an effect, a handler) is refused too;
+  - it may read the setup's values, which cross as the JSX's reads do
+    (each a slot the setup keeps set), and the values of the
+    composition statements before it; where it stands among the setup's
+    statements changes nothing else;
+  - setup code never reads a composition value (it has none when it
+    runs): only the JSX and later composition statements do;
+  - Compose's other values (`spring()`, `Color.Red`) are made in the JSX
+    or in a composition statement, never by setup code.
+
+  What breaks a rule fails with LUCENT3024.
+
+- **Helper views.** A helper (see Toolkit bodies) is a Kotlin
+  `@Composable` function of the component's file,
+  `<registration>_<Name>`: a parameter per value it computes and per
+  callback (`onToggle: () -> Unit`). Its statements before its JSX are
+  composition statements (`const width = animateDpAsState(…)`), which
+  compose where it does; it has no other statements. Its user calls it
+  with named arguments: `done0 = lucent_item.done5.value`, and a
+  callback's lambda.
+
 - **Compose as it is.** `lucent:compose` declares the Compose release
   Lucent builds with (material3 too, which the Android library depends
-  on when content uses it), from its Kotlin metadata, by rules: a composable
-  showing UI takes its named arguments as one object and its content
-  last, and returns `Composed`; other functions (composables giving a
-  value, effects, factories) take Kotlin's parameters in order, the
-  defaulted ones optional, or in one options object when they all have
-  defaults (`spring({ stiffness })`) or come before one without
+  on when content uses it), from its Kotlin metadata, by rules: a
+  composable showing UI is a function of its props (Kotlin's named
+  arguments, and `children` for its trailing content), which JSX calls,
+  returning `Composed`; other functions (composables giving a value,
+  effects, factories) take Kotlin's parameters in order, the defaulted
+  ones optional, or in one options object when they all have defaults
+  (`spring({ stiffness })`) or come before one without
   (`clickable(onClick, { enabled })`). A class's extensions are its
   methods (`Modifier.padding(…)`), its companion's members its statics
   (`Color.White`), its constructors functions of its name (`Dp(20)`); an
   extension property of a number is a function of it (`dp(20)`).
   Kotlin's Float, Int and Long stay what they are through generics
   (`State<Float>`), and a suspend function returns a promise. What
-  content cannot call yet is left out: members of a lambda's receiver
-  scope (RowScope's `weight`), experimental APIs, reified type
-  parameters, callbacks taking arguments.
-- **Scopes.** A lambda Compose runs in a receiver scope (a Row's
-  RowScope, a LazyColumn's LazyListScope, a list item's LazyItemScope)
-  gets the scope as its first parameter, which may be left out:
-  `Row({}, (row) => […])`. The scope's extensions are its methods
-  (`column.AnimatedVisibility(…)`, `list.items(…)`), and its member
-  extensions of Modifier start from its `Modifier`
-  (`row.Modifier.weight(1)`); Modifier's extensions give back the
-  modifier they are called on, so a chain keeps the scope's. The Kotlin
-  is the lambda with its receiver: the scope's calls and its Modifier are
-  written unqualified.
+  content cannot call yet is left out: experimental APIs, reified type
+  parameters.
+- **Elements.** Children are what the element shows, in order: elements,
+  fragments (`<>…</>`), `cond && <A …/>` and `cond ? <A …/> : <B …/>`,
+  which are Kotlin's `if`. A prop written alone (`singleLine`) is true. A
+  content lambda given as a prop other than the children (Switch's
+  `thumbContent`) is a function returning what it shows. Calling a
+  composable that shows UI (`Box({ … })`), spreading props, and elements
+  that are not Compose's are refused.
+- **Scopes.** Content Compose runs in a receiver scope (a Row's
+  RowScope, a Column's ColumnScope) may be given as a function of the
+  scope, for children that use it:
+  `<Row>{(row) => <Text modifier={row.Modifier.weight(1)} … />}</Row>`.
+  The scope's extensions are its methods, and its composables elements
+  (`<column.AnimatedVisibility visible={…}>`); its member extensions of
+  Modifier start from its `Modifier` (`row.Modifier.weight(1)`), and
+  Modifier's extensions give back the modifier they are called on, so a
+  chain keeps the scope's. A lazy list's content is a function of its
+  LazyListScope whose items are elements of it, the item content their
+  children, a function of the item's scope and the item:
+  `<LazyColumn>{(list) => <list.items items={todos.get()} key={(t) => t.id}>{(_, t) => …}</list.items>}</LazyColumn>`.
+  The Kotlin is the lambda with its receiver: the scope's calls and its
+  Modifier are written unqualified.
 - **What is Kotlin.** Compose's calls, modifier chains, animations and
-  effects, and what the body computes from them (`remember`ed objects,
-  layout), are Kotlin. A value slot is Compose state in a generated
-  holder, which the slot's effect sets; the body may keep an object it
-  reads in a `const` and read its fields (`s.label`). A callback is a
+  effects, and what the content computes from them (`remember`ed
+  objects, layout), are Kotlin. A value slot is Compose state in a
+  generated holder, which the slot's effect sets; a content lambda may
+  keep an object it reads in a `const` and read its fields (`s.label`),
+  and an object crosses as a Kotlin data class (an effect keyed by it
+  runs again only when it changes). A callback is a
   Kotlin lambda
   calling the setup's functions, each a Kotlin function object entering
-  the main context. `cond && A(…)` and `cond ? A(…) : B(…)` in content
-  are Kotlin's `if`; `AnimatedVisibility` animates content in and out,
+  the main context. `AnimatedVisibility` animates content in and out,
   and animations take values the setup computes (`spring({ stiffness:
-stiffness.get() })`) as any argument does. A composable called anywhere but in content (where
-  what it shows would be lost), and JSX, are refused.
+stiffness.get() })`) as any argument does.
 - **The composition.** The runtime's `LucentComposition` hosts every
   body: the generated host object only gives it the body's composable.
   It makes the ComposeView with the context of the shell the component
@@ -822,7 +959,7 @@ once, in a `const` at its top level, and puts it in the view it returns:
 
 ```tsx
 export function Card(props: { title: string; children?: Children }): UIView {
-  const card = native(() => new UIView({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } }));
+  const card = new UIView({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } });
   const content = slot<UIView>();
 
   card.addSubview(content);

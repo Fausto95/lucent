@@ -16,3 +16,10 @@ export function toolkitsFrom(platform: Platform, module: string): `lucent:${Tool
     )
     .map((name) => `lucent:${name}` as const);
 }
+
+/** The toolkit whose JSX each platform's files write: what editors type their JSX with. */
+export function jsxToolkits(): Partial<Record<Platform, ToolkitName>> {
+  return Object.fromEntries(
+    (Object.keys(TOOLKITS) as ToolkitName[]).map((name) => [TOOLKITS[name].platform, name]),
+  );
+}

@@ -36,7 +36,13 @@ import * as extensions from "./extensions.ts";
 import * as native from "./native.ts";
 import { requireSubclassMain } from "./objc-subclass.ts";
 import * as views from "./setups.ts";
-import { toolkitCall, toolkitMember } from "./toolkit.ts";
+import {
+  liftedStatement,
+  liftedStatements,
+  toolkitCall,
+  toolkitJsx,
+  toolkitMember,
+} from "./toolkit.ts";
 import {
   AlreadyReported,
   type Ctx,
@@ -59,6 +65,7 @@ import {
 import { looseConversion, looseConversionMessage } from "../lowering/loose-equality.ts";
 import { bigintExpr, bigintLiteralValue, numberExpr, stringExpr } from "../lowering/literals.ts";
 import { sourcePath } from "../lowering/source.ts";
+import { helperStatement, isViewHelper } from "../ui/view-helpers.ts";
 
 interface Local {
   cpp: string;
@@ -747,7 +754,13 @@ export class FnEmitter {
    * emitter, capturing `extra` and the locals `node` reads: code that runs
    * later over an expression, such as an effect keeping its value.
    */
-  lambdaOver(node: ts.Node, extra: cpp.Capture[], write: (inner: FnEmitter) => void): cpp.Expr {
+  lambdaOver(
+    node: ts.Node,
+    extra: cpp.Capture[],
+    write: (inner: FnEmitter) => void,
+    /** More code the lambda runs (what a helper's user gives it): its locals are captured too. */
+    also: readonly ts.Node[] = [],
+  ): cpp.Expr {
     const inner = new FnEmitter(
       this.ctx,
       {
@@ -775,6 +788,7 @@ export class FnEmitter {
     };
 
     visit(node);
+    for (const n of also) visit(n);
     write(inner);
 
     return cpp.lambda(captures, [], inner.body(), { mutable: true });
@@ -815,6 +829,9 @@ export class FnEmitter {
   emitFunctionBody(node: FunctionLike): void {
     const body = node.body;
     if (!body) return;
+    // A setup's code is checked against what its toolkit body takes before any of it is written.
+    const setup = this.ctx.setups.get(node);
+    if (setup) liftedStatements(this, setup);
     const facts = inferIntegers(body, {
       checker: this.checker,
       // Locals of code this target never runs are not lowered: their types stay out of its output.
@@ -876,7 +893,9 @@ export class FnEmitter {
   private hoistFunctions(stmts: ts.NodeArray<ts.Statement>): void {
     // Nested function declarations are hoisted: declare them all first
     // (those after a guard clause that exits on this target are never reached).
-    const fns = stmts.filter(ts.isFunctionDeclaration).filter((f) => this.runsHere(f));
+    const fns = stmts
+      .filter(ts.isFunctionDeclaration)
+      .filter((f) => this.runsHere(f) && !isViewHelper(this.checker, f));
     for (const f of fns) {
       const sym = this.checker.getSymbolAtLocation(f.name!)!;
       const t = this.lt(f);
@@ -933,8 +952,9 @@ export class FnEmitter {
   // --- statements --------------------------------------------------------------------
 
   stmt(s: ts.Statement): void {
-    // After a guard clause that exits on this target: code another platform runs.
-    if (!this.runsHere(s)) return;
+    // After a guard clause that exits on this target: code another platform runs; a toolkit's.
+    // A helper view the setup declares is its toolkit's code (ui/view-helpers.ts).
+    if (!this.runsHere(s) || liftedStatement(this, s) || helperStatement(this.checker, s)) return;
     this.ctx.guard(() => this.stmtInner(s));
   }
 
@@ -1894,6 +1914,11 @@ export class FnEmitter {
 
   // --- expressions --------------------------------------------------------------------------
 
+  /** Makes `node` stand for `value` in what this emitter lowers after it (a helper's prop read). */
+  bind(node: ts.Node, value: E): void {
+    this.subst.set(node, value);
+  }
+
   expr(node: ts.Expression, hint?: LType): E {
     const s = this.subst.get(node);
     if (s) return s;
@@ -1986,9 +2011,14 @@ export class FnEmitter {
           Codes.UnsupportedSyntax,
           "`yield` can only be used as a statement; its value is not supported",
         );
+      // A toolkit's body: the JSX its component returns.
+      case ts.SyntaxKind.JsxElement:
+      case ts.SyntaxKind.JsxSelfClosingElement:
+      case ts.SyntaxKind.JsxFragment:
+        return toolkitJsx(this, node);
       case ts.SyntaxKind.CallExpression: {
         const call = node as ts.CallExpression;
-        // A toolkit's body (`swiftUI(() => …)`, `compose(() => …)`), or withAnimation.
+        // A toolkit's body (JSX with modifiers after it), or withAnimation.
         const drawn = toolkitCall(this, call);
         if (drawn) return drawn;
         this.checkInstance(call);

@@ -20,11 +20,11 @@ export type Props = {
 export declare function Meter(props: Props): UIButton | ToggleButton;
 `,
   "meter.ios.lucent.tsx": `import { UIButton, UIControl_State } from "lucent:ios/UIKit";
-import { effect, expose, native, onDispose, signal } from "lucent:ui";
+import { effect, expose, onDispose, signal } from "lucent:ui";
 import type { Props } from "./meter.lucent";
 
 export function Meter(props: Props): UIButton {
-  const button = native(() => new UIButton({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } }));
+  const button = new UIButton({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } });
   const selected = signal(false);
   const changes = signal(0);
 
@@ -74,11 +74,11 @@ export function Meter(props: Props): UIButton {
 `,
   "meter.android.lucent.tsx": `import { appContext } from "lucent:android";
 import { ToggleButton } from "lucent:android/android.widget";
-import { effect, expose, native, onDispose, signal } from "lucent:ui";
+import { effect, expose, onDispose, signal } from "lucent:ui";
 import type { Props } from "./meter.lucent";
 
 export function Meter(props: Props): ToggleButton {
-  const toggle = native(() => new ToggleButton(appContext()));
+  const toggle = new ToggleButton(appContext());
   const selected = signal(false);
   const changes = signal(0);
 

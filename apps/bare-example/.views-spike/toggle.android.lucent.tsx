@@ -1,8 +1,7 @@
-// The toggle, on Android: its view is Jetpack Compose written here, in
-// call form, and compiled to Kotlin; its logic (flips, the commands, the
+// The toggle, on Android: its view is Jetpack Compose written here, as
+// JSX, and compiled to Kotlin; its logic (flips, the commands, the
 // timer) is Lucent code the body calls or reads.
 import { TimeAnimator } from "lucent:android/android.animation";
-import type { ViewGroup } from "lucent:android/android.view";
 import {
   Alignment,
   Animatable,
@@ -12,8 +11,6 @@ import {
   CircleShape,
   Color,
   Column,
-  compose,
-  type ComposeView,
   DisposableEffect,
   dp,
   isSystemInDarkTheme,
@@ -29,12 +26,10 @@ import {
 import { effect, expose, onDispose, signal } from "lucent:ui";
 import type { ToggleProps } from "./toggle.lucent";
 
-export function Toggle(props: ToggleProps): ComposeView {
+export function Toggle(props: ToggleProps) {
   const on = signal(false);
   const taps = signal(0);
   const pulses = signal(0);
-  // The view setup returns, once it has: the composition reports its host.
-  const shown = signal<ComposeView | null>(null);
   // When this mount was set up: it names the mount in the log.
   const mount = Date.now();
 
@@ -80,22 +75,9 @@ export function Toggle(props: ToggleProps): ComposeView {
     console.log(`LUCENT_TOGGLE ${props.title} disposed mount=${mount}`);
   });
 
-  // The composition's own lifecycle, as the content reports it: entering
-  // it, the view is in its host, which is named the first time (a recycled
-  // host keeps its name, with the new mount's tag).
+  // The composition's own lifecycle, as the content reports it.
   const entered = () => {
-    const parent = shown.peek()?.getParent() ?? null;
-    let host = "none";
-
-    if (parent !== null) {
-      const group = parent as ViewGroup;
-
-      if (group.getContentDescription() === null) group.setContentDescription(`host-${mount}`);
-
-      host = `${group.getContentDescription()?.toString() ?? "?"} tag=${group.getId()}`;
-    }
-
-    console.log(`LUCENT_TOGGLE ${props.title} composition entered mount=${mount} host=${host}`);
+    console.log(`LUCENT_TOGGLE ${props.title} composition entered mount=${mount}`);
   };
   const left = () => {
     console.log(`LUCENT_TOGGLE ${props.title} composition left mount=${mount}`);
@@ -107,59 +89,6 @@ export function Toggle(props: ToggleProps): ComposeView {
   // saveable state, which no other mount restores.
   const named = () => `${mount}`;
 
-  const view = compose(() => {
-    const knob = animateDpAsState(
-      on.get() ? dp(28) : dp(0),
-      spring({ dampingRatio: Spring.DampingRatioMediumBouncy, stiffness: Spring.StiffnessLow }),
-    );
-    const track = animateColorAsState(on.get() ? Color(0xff4caf50) : Color(0xff9e9e9e));
-    const scale = remember(() => Animatable(1));
-    const current = named();
-    const born = rememberSaveable(() => current);
-
-    DisposableEffect(true, () => {
-      entered();
-      return () => left();
-    });
-
-    // pulse(): a coroutine of the composition scales the toggle up and back.
-    LaunchedEffect(pulses.get(), async () => {
-      if (pulses.get() === 0) return;
-
-      await scale.animateTo(1.4, spring({ stiffness: Spring.StiffnessVeryLow }));
-      await scale.animateTo(1, spring({ dampingRatio: Spring.DampingRatioMediumBouncy }));
-      pulsed();
-    });
-
-    return Column({ horizontalAlignment: Alignment.CenterHorizontally }, () => [
-      Box(
-        {
-          modifier: Modifier.scale(scale.value)
-            .size(dp(64), dp(36))
-            .clip(RoundedCornerShape(dp(18)))
-            .background(track.value)
-            .clickable(() => tap()),
-        },
-        () => [
-          Box({
-            modifier: Modifier.offset({ x: knob.value })
-              .padding(dp(3))
-              .size(dp(30))
-              .clip(CircleShape)
-              .background(Color.White),
-          }),
-        ],
-      ),
-      on.get() && Text({ text: "on" }),
-      Text({ text: `${props.title}: ${taps.get()} flips` }),
-      // The configuration the composition has (a change recomposes it), and its mount.
-      Text({ text: isSystemInDarkTheme() ? "dark" : "light" }),
-      Text({ text: `mount ${born}` }),
-    ]);
-  });
-
-  shown.set(view);
-
   expose({
     toggle: () => flip("command"),
     pulse: () => {
@@ -169,5 +98,51 @@ export function Toggle(props: ToggleProps): ComposeView {
     state: (): string => `${on.peek() ? "on" : "off"} taps=${taps.peek()} pulses=${pulses.peek()}`,
   });
 
-  return view;
+  // What composes: lifted into the content, where it runs as the content composes.
+  const knob = animateDpAsState(
+    on.get() ? dp(28) : dp(0),
+    spring({ dampingRatio: Spring.DampingRatioMediumBouncy, stiffness: Spring.StiffnessLow }),
+  );
+  const track = animateColorAsState(on.get() ? Color(0xff4caf50) : Color(0xff9e9e9e));
+  const scale = remember(() => Animatable(1));
+  const born = rememberSaveable(() => named());
+
+  DisposableEffect(true, () => {
+    entered();
+    return () => left();
+  });
+
+  // pulse(): a coroutine of the composition scales the toggle up and back.
+  LaunchedEffect(pulses.get(), async () => {
+    if (pulses.get() === 0) return;
+
+    await scale.animateTo(1.4, spring({ stiffness: Spring.StiffnessVeryLow }));
+    await scale.animateTo(1, spring({ dampingRatio: Spring.DampingRatioMediumBouncy }));
+    pulsed();
+  });
+
+  return (
+    <Column horizontalAlignment={Alignment.CenterHorizontally}>
+      <Box
+        modifier={Modifier.scale(scale.value)
+          .size(dp(64), dp(36))
+          .clip(RoundedCornerShape(dp(18)))
+          .background(track.value)
+          .clickable(() => tap())}
+      >
+        <Box
+          modifier={Modifier.offset({ x: knob.value })
+            .padding(dp(3))
+            .size(dp(30))
+            .clip(CircleShape)
+            .background(Color.White)}
+        />
+      </Box>
+      {on.get() && <Text text="on" />}
+      <Text text={`${props.title}: ${taps.get()} flips`} />
+      {/* The configuration the composition has (a change recomposes it), and its mount. */}
+      <Text text={isSystemInDarkTheme() ? "dark" : "light"} />
+      <Text text={`mount ${born}`} />
+    </Column>
+  );
 }

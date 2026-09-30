@@ -5,18 +5,15 @@
  * LUCENT_VIEWS environment variable is `fabric`, and changes without notice
  * until Lucent's views are public.
  *
- * A component's setup runs once per mount, on the main thread. Its props
- * are read where they are used (`props.value`): inside `effect`, a read
- * tracks the prop, and the effect runs again when a commit changes it.
+ * A component's setup runs once per mount, on the main thread: it makes
+ * the native objects the component shows and owns directly
+ * (`const label = new UILabel()`), and the mount releases them when it
+ * ends. Its props are read where they are used (`props.value`): inside
+ * `effect`, a read tracks the prop, and the effect runs again when a
+ * commit changes it.
  *
  * @experimental
  */
-
-/**
- * Makes the native object the component shows, or another it owns, once,
- * now: `create()`'s result.
- */
-export declare function native<T extends object>(create: () => T): T;
 
 /**
  * Runs `run` now, and again after a prop or signal it read changes. Before

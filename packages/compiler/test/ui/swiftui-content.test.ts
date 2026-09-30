@@ -17,17 +17,17 @@ function component(
   ui = "expose, signal",
 ): Record<string, string> {
   return {
-    "counter.lucent.ts": `import type { UIHostingController } from "lucent:swiftui";
+    "counter.lucent.ts": `import type { View } from "lucent:swiftui";
 
 export type Props = ${props};
 
-export declare function Counter(props: Props): UIHostingController;
+export declare function Counter(props: Props): View;
 `,
-    "counter.ios.lucent.tsx": `import { ${imports}, swiftUI, type UIHostingController } from "lucent:swiftui";
+    "counter.ios.lucent.tsx": `import { ${imports} } from "lucent:swiftui";
 import { ${ui} } from "lucent:ui";
 import type { Props } from "./counter.lucent";
 
-export function Counter(props: Props): UIHostingController {
+export function Counter(props: Props) {
 ${body}
 }
 `,
@@ -57,12 +57,12 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
 
   expose({ count: (): number => count.peek() });
 
-  return swiftUI(() =>
-    VStack([
-      Text(\`\${count.get()} picked\`).onHover((over) => hovered(over)),
-      Button("One", () => pick("one", 1)),
-      Text("two").onTapGesture(() => pick(props.title, count.get() + 2)),
-    ]),
+  return (
+    <VStack>
+      <Text onHover={(over) => hovered(over)}>{\`\${count.get()} picked\`}</Text>
+      <Button action={() => pick("one", 1)}>One</Button>
+      <Text onTapGesture={() => pick(props.title, count.get() + 2)}>two</Text>
+    </VStack>
   );`,
       ),
     );
@@ -101,18 +101,20 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
 
   expose({ count: (): number => todos.peek().length });
 
-  return swiftUI(() =>
-    VStack([
-      Text(props.title),
-      ForEach(todos.get(), { id: (t) => t.id }, (t) => [
-        HStack([
-          Text(\`\${t.done ? "done" : "todo"} \${t.title}\${suffix.get()}\`).onTapGesture(() =>
-            toggle(t),
-          ),
-          Text("remove").onTapGesture(() => remove(t.id)),
-        ]),
-      ]),
-    ]),
+  return (
+    <VStack>
+      <Text>{props.title}</Text>
+      <ForEach data={todos.get()} id={(t) => t.id}>
+        {(t) => (
+          <HStack>
+            <Text onTapGesture={() => toggle(t)}>
+              {\`\${t.done ? "done" : "todo"} \${t.title}\${suffix.get()}\`}
+            </Text>
+            <Text onTapGesture={() => remove(t.id)}>remove</Text>
+          </HStack>
+        )}
+      </ForEach>
+    </VStack>
   );`,
       ),
     );
@@ -153,17 +155,19 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
             "{ title: string }",
             `  const rows = signal([{ id: "a", on: true, cells: ["x"] }]);
 
-  return swiftUI(() => VStack([${content}]));`,
+  return <VStack>{${content}}</VStack>;`,
           ),
         ).built.result,
       );
 
-    expect(refused('ForEach(["a"], { id: (r) => r }, (r) => [Text(r)])')).toContainEqual(
+    expect(
+      refused('<ForEach data={["a"]} id={(r) => r}>{(r) => <Text>{r}</Text>}</ForEach>'),
+    ).toContainEqual(
       'LUCENT3024 a SwiftUI list shows an array the setup computes (a signal, a prop, what a setup function returns): `["a"]` is not one',
     );
     expect(
       refused(
-        "ForEach(rows.get(), { id: (r) => r.id }, (r) => [ForEach(r.cells, { id: (c) => c }, (c) => [Text(c)])])",
+        "<ForEach data={rows.get()} id={(r) => r.id}>{(r) => <ForEach data={r.cells} id={(c) => c}>{(c) => <Text>{c}</Text>}</ForEach>}</ForEach>",
       ),
     ).toContainEqual("LUCENT3024 a SwiftUI list's item shows no list of its own, for now");
   }, 300_000);
@@ -178,12 +182,12 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
 
   expose({ draft: (): string => draft.peek() });
 
-  return swiftUI(() =>
-    VStack([
-      TextField("New todo", { text: bind(draft) }),
-      Toggle("Done", { isOn: bind(done) }),
-      Text(draft.get()),
-    ]),
+  return (
+    <VStack>
+      <TextField text={bind(draft)}>New todo</TextField>
+      <Toggle isOn={bind(done)}>Done</Toggle>
+      <Text>{draft.get()}</Text>
+    </VStack>
   );`,
         "bind, expose, signal",
       ),
@@ -216,14 +220,14 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
 
   expose({ level: (): number => level.peek() });
 
-  return swiftUI(() =>
-    VStack([
-      Slider({ value: bind(level), in: range(0, 1), step: 0.1 }),
-      Slider({ value: bind(level) }),
-      Stepper("Count", { value: bind(count), in: range(1, props.max) }),
-      ProgressView({ value: level.get(), total: 1 }),
-      Text(\`\${level.get()} of \${count.get()}\`),
-    ]),
+  return (
+    <VStack>
+      <Slider value={bind(level)} in={range(0, 1)} step={0.1} />
+      <Slider value={bind(level)} />
+      <Stepper value={bind(count)} in={range(1, props.max)}>Count</Stepper>
+      <ProgressView value={level.get()} total={1} />
+      <Text>{\`\${level.get()} of \${count.get()}\`}</Text>
+    </VStack>
   );`,
         "bind, expose, range, signal",
       ),
@@ -251,17 +255,15 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
     console.log(\`editing \${editing}\`);
   };
 
-  return swiftUI(() =>
-    Slider(
-      {
-        value: bind(level),
-        in: range(0, 1),
-        label: [Text("Level")],
-        minimumValueLabel: [Text("0")],
-        maximumValueLabel: [Text(props.title)],
-      },
-      (editing) => edited(editing),
-    ),
+  return (
+    <Slider
+      value={bind(level)}
+      in={range(0, 1)}
+      label={<Text>Level</Text>}
+      minimumValueLabel={<Text>0</Text>}
+      maximumValueLabel={<Text>{props.title}</Text>}
+      onEditingChanged={(editing) => edited(editing)}
+    />
   );`,
         "bind, range, signal",
       ),
@@ -289,15 +291,20 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
     console.log("moved");
   };
 
-  return swiftUI(() =>
-    VStack([
-      Text(\`\${level.get()}\`)
-        .onChange({ of: level.get() }, (now) => leveled(now))
+  return (
+    <VStack>
+      {(<Text onChange={[{ of: level.get() }, (now: number) => leveled(now)]}>{\`\${level.get()}\`}</Text>)
         .onChange({ of: size.get() }, () => moved())
-        .onChange({ of: count.get() }, leveled),
-      Picker("Size", { selection: bind(size) }, [Text("S").tag("s"), Text("M").tag("m")]),
-      Picker("Count", { selection: bind(count) }, [Text("One").tag(1), Text("Two").tag(2)]),
-    ]),
+        .onChange({ of: count.get() }, leveled)}
+      <Picker titleKey="Size" selection={bind(size)}>
+        <Text tag="s">S</Text>
+        <Text tag="m">M</Text>
+      </Picker>
+      <Picker titleKey="Count" selection={bind(count)}>
+        <Text tag={1}>One</Text>
+        <Text tag={2}>Two</Text>
+      </Picker>
+    </VStack>
   );`,
         "bind, signal",
       ),
@@ -326,14 +333,14 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
         `  const shown = signal(true);
   const count = signal(0);
 
-  return swiftUI(() =>
-    VStack([
-      shown.get() && Text("shown"),
-      count.get() > 2 && Text("many"),
-      shown.get() ? Text("yes") : null,
-      props.title === "" ? null : Text(props.title),
-      shown.get() ? Text("on") : Text("off"),
-    ]),
+  return (
+    <VStack>
+      {shown.get() && <Text>shown</Text>}
+      {count.get() > 2 && <Text>many</Text>}
+      {shown.get() ? <Text>yes</Text> : null}
+      {props.title === "" ? null : <Text>{props.title}</Text>}
+      {shown.get() ? <Text>on</Text> : <Text>off</Text>}
+    </VStack>
   );`,
       ),
     );
@@ -355,7 +362,7 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
         "{ title: string }",
         `  const count = signal(0);
 
-  return swiftUI(() => VStack([count.get() ? Text("some") : Text("none")]));`,
+  return <VStack>{count.get() ? <Text>some</Text> : <Text>none</Text>}</VStack>;`,
       ),
     );
 
@@ -372,7 +379,7 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
         `  const level = signal(0.5);
   const bounds = range(0, 1);
 
-  return swiftUI(() => Slider({ value: bind(level), in: bounds }));`,
+  return <Slider value={bind(level)} in={bounds} />;`,
         "bind, range, signal",
       ),
     );
@@ -390,7 +397,7 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
         `  const draft = signal("");
   const bound = bind(draft);
 
-  return swiftUI(() => Text("x"));`,
+  return <Text>x</Text>;`,
         "bind, signal",
       ),
     );
@@ -410,15 +417,22 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
     console.log(\`dark \${dark}\`);
   };
 
-  return swiftUI(() =>
-    VStack([
-      Text(Environment((values) => values.colorScheme) === ColorScheme.dark ? "dark" : "light")
-        .onAppear(() => seen(Environment((values) => values.colorScheme) === ColorScheme.dark)),
-      Text(Environment((values) => values.colorScheme) === ColorScheme.dark === false ? "day" : "night"),
-      ForEach(names.get(), { id: (n) => n }, (n) =>
-        Text(n).opacity(Environment((values) => values.colorScheme) === ColorScheme.dark ? 0.8 : 1),
-      ),
-    ]),
+  return (
+    <VStack>
+      <Text onAppear={() => seen(Environment((values) => values.colorScheme) === ColorScheme.dark)}>
+        {Environment((values) => values.colorScheme) === ColorScheme.dark ? "dark" : "light"}
+      </Text>
+      <Text>
+        {Environment((values) => values.colorScheme) === ColorScheme.dark === false ? "day" : "night"}
+      </Text>
+      <ForEach data={names.get()} id={(n) => n}>
+        {(n) => (
+          <Text opacity={Environment((values) => values.colorScheme) === ColorScheme.dark ? 0.8 : 1}>
+            {n}
+          </Text>
+        )}
+      </ForEach>
+    </VStack>
   );`,
       ),
     );
@@ -458,15 +472,17 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
     slower: () => speed.set(speed.peek() + 0.1),
   });
 
-  return swiftUI(() =>
-    VStack([
-      shown.get()
-        ? Text("on").transition(AnyTransition.opacity)
-        : Text("off").transition(AnyTransition.slide),
-      Text(props.title).animation(Animation.easeInOut({ duration: speed.get() }), {
-        value: shown.get(),
-      }),
-    ]),
+  return (
+    <VStack>
+      {shown.get() ? (
+        <Text transition={AnyTransition.opacity}>on</Text>
+      ) : (
+        <Text transition={AnyTransition.slide}>off</Text>
+      )}
+      <Text animation={[Animation.easeInOut({ duration: speed.get() }), { value: shown.get() }]}>
+        {props.title}
+      </Text>
+    </VStack>
   );`,
       ),
     );
@@ -498,7 +514,7 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
     console.log(\`\${range.min}\`);
   };
 
-  return swiftUI(() => Text("x").onTapGesture(() => choose({ min: 1 })));`,
+  return <Text onTapGesture={() => choose({ min: 1 })}>x</Text>;`,
       ),
     );
 

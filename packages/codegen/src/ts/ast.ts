@@ -27,11 +27,21 @@ export type Type =
   /** `readonly`: `readonly T[]`, which a call cannot change. */
   | { k: "array"; of: Type; readonly?: boolean }
   | { k: "union"; members: Type[] }
+  /** `A & B`. */
+  | { k: "intersection"; members: Type[] }
+  /** `[A, B?]`. */
+  | { k: "tuple"; elements: TupleElement[] }
   | { k: "fn"; params: Param[]; ret: Type }
   | { k: "object"; members: PropertySignature[] }
   | { k: "literal"; value: string | number | bigint | boolean }
   /** `typeof Toast.LENGTH_SHORT`. */
   | { k: "typeof"; name: string };
+
+export interface TupleElement {
+  type: Type;
+  /** `T?`: a value may leave it out. */
+  optional?: boolean;
+}
 
 export interface Param {
   name: string;
@@ -91,6 +101,8 @@ export type Member =
       private?: boolean;
       /** `[name]`: a property keyed by the value `name` (a unique symbol). */
       computed?: boolean;
+      /** `name?: T`: an object may leave it out. */
+      optional?: boolean;
       doc?: Doc;
     }
   | { k: "constructor"; params: Param[]; protected?: boolean; private?: boolean; doc?: Doc }

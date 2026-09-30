@@ -20,16 +20,13 @@ const SWIFTUI: readonly Form[] = [
   /**
    * A view for each item of \`data\`, an array the setup computes, told
    * apart by \`id\` (a string or a number, unique): an item keeps its model
-   * and its view, updated in place, while its key stays. \`content\` shows
-   * one item; what it reads of the item (and of the setup) is the item's.
+   * and its view, updated in place, while its key stays. Its children, a
+   * function of one item, show it; what they read of the item (and of the
+   * setup) is the item's.
    *
    * @list
    */
-  <T>(
-    data: readonly T[],
-    identified: { id: (item: T) => string | number },
-    content: (item: T) => View | Content,
-  ): View;
+  <T>(props: { data: readonly T[]; id: (item: T) => string | number; children: (item: T) => Content } & Omit<View$Modifiers, "id">): View;
 }
 `,
   },
@@ -47,12 +44,15 @@ export declare function Environment<T>(value: (values: EnvironmentValues) => T):
   },
 ];
 
+/** Each source module's forms. */
+const FORMS: Record<string, readonly Form[]> = { SwiftUI: SWIFTUI };
+
 /**
- * The forms a toolkit's generated declarations end with, by its body
- * function: those whose declarations `declared` has.
+ * The forms a toolkit's generated declarations end with, by its source
+ * module: those whose declarations `declared` has.
  */
-export function toolkitForms(body: string, declared: (name: string) => boolean): string {
-  const forms = body === "swiftUI" ? SWIFTUI : [];
+export function toolkitForms(module: string, declared: (name: string) => boolean): string {
+  const forms = FORMS[module] ?? [];
 
   return forms
     .filter((f) => f.needs.every(declared))

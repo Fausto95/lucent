@@ -6,7 +6,6 @@
 import path from "node:path";
 import ts from "typescript";
 import { builtinSdkModuleOf, coreTypesPath, isLibFile } from "../program.ts";
-import { TOOLKITS } from "../ui/toolkits.ts";
 
 export interface LibraryEffect {
   /** It mutates its receiver. */
@@ -346,9 +345,8 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "lucent:android.appContext": NONE,
   "lucent:android.available": NONE,
   "lucent:ios.available": NONE,
-  // lucent:ui (a component's setup, on the main thread): native runs its
-  // argument at once; effect and onDispose keep theirs for later, there.
-  "lucent:ui.native": { calls: "during" },
+  // lucent:ui (a component's setup, on the main thread): effect and
+  // onDispose keep their argument for later, there.
   "lucent:ui.effect": { allocates: true, calls: "later" },
   "lucent:ui.onDispose": { calls: "later" },
   // The host measures the component again, later.
@@ -360,10 +358,6 @@ const LIBRARY: Record<string, LibraryEffect> = {
   // A body's view reads and writes the signal later, on the main thread.
   "lucent:ui.bind": { keeps: "result" },
   "lucent:ui.range": NONE,
-  // A toolkit's body function makes the host; the body runs as Swift or Kotlin.
-  ...Object.fromEntries(
-    Object.entries(TOOLKITS).map(([name, t]) => [`lucent:${name}.${t.body}`, MAKES]),
-  ),
 
   // lucent:swiftui: withAnimation runs its body at once, on the main thread.
   "lucent:swiftui.withAnimation": { calls: "during" },
@@ -372,10 +366,13 @@ const LIBRARY: Record<string, LibraryEffect> = {
 /**
  * What every other member of a built-in module does. A SwiftUI view,
  * modifier or value only describes a body, which SwiftUI draws later: the
- * actions it is given run then, on the main thread.
+ * actions it is given run then, on the main thread. Compose's are its
+ * content's, which composes later on the main thread (setup code using
+ * one is refused as it is compiled).
  */
 const MODULE_DEFAULTS: Record<string, LibraryEffect> = {
   "lucent:swiftui": { allocates: true, keeps: "result", calls: "later" },
+  "lucent:compose": { allocates: true, keeps: "result", calls: "later" },
 };
 
 /** Interfaces whose members are another's: a readonly view's are the collection's. */

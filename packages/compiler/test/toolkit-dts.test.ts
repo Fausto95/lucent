@@ -223,6 +223,43 @@ const miniature = (): SdkModuleSchema => ({
         },
       ],
     },
+    {
+      kind: "class",
+      name: "Text",
+      native: "SwiftUI.Text",
+      swift: { kind: "struct" },
+      implements: ["SwiftUI.View"],
+      constructors: [
+        {
+          symbol: "swift:Text.init",
+          params: [param("content", "string", undefined)],
+          swift: { name: "init(_:)" },
+        },
+      ],
+      methods: [
+        {
+          name: "bold",
+          symbol: "swift:Text.bold",
+          params: [],
+          returns: T("Text"),
+          swift: { name: "bold()" },
+        },
+      ],
+    },
+    {
+      kind: "class",
+      name: "Padded",
+      native: "SwiftUI.Padded",
+      swift: { kind: "struct" },
+      implements: ["SwiftUI.View"],
+      constructors: [
+        {
+          symbol: "swift:Padded.init",
+          params: [param("padding", "CGFloat", "padding")],
+          swift: { name: "init(padding:)" },
+        },
+      ],
+    },
     { kind: "class", name: "Font", native: "SwiftUI.Font", swift: { kind: "struct" } },
     {
       kind: "class",
@@ -252,14 +289,65 @@ const miniature = (): SdkModuleSchema => ({
 const swiftui = () => toolkitDts(TOOLKITS.swiftui, miniature());
 
 describe("a toolkit's declarations, from its source module", () => {
-  it("declares its root, its body function and its content", () => {
-    expect(swiftui()).toContain("export declare class UIHostingController {");
-    expect(swiftui()).toContain(
-      "export declare function swiftUI(body: () => View): UIHostingController;",
+  it("declares its root, its content and its JSX", () => {
+    const text = swiftui();
+
+    expect(text).toContain("export declare class UIHostingController {");
+    expect(text).not.toContain("swiftUI(");
+    // Views, or nothing where a condition leaves one out (`{shown && <Text>a</Text>}`).
+    expect(text).toContain(
+      "export declare type Content = View | false | null | undefined | readonly (View | false | null | undefined)[];",
     );
-    // A view, or nothing where a condition leaves it out (`shown && Text("a")`).
+    expect(text).toContain("export declare namespace JSX {\n  type Element = View;");
+  });
+
+  it("declares a view's JSX per call form, its attributes its labels and modifiers", () => {
+    const text = swiftui();
+
+    expect(text).toContain(
+      "/** @swift swift:VStack.init 1 jsx */\n  (props: { spacing?: number | null; children: Content } & View$Modifiers): VStack;",
+    );
+    expect(text).toContain(
+      "/** @swift swift:Text.init 0 jsx */\n  (props: { children: string } & Text$Modifiers): Text;",
+    );
+    expect(text).toContain(
+      "(props: { value: Bound<number>; in: ClosedRange<number>; step?: number } & View$Modifiers): Slider;",
+    );
+    expect(text).toContain(
+      "<SelectionValue extends boolean | number | string>(props: { selection: Bound<SelectionValue>; children: Content } & View$Modifiers): Picker;",
+    );
+    expect(text).toContain(
+      "(props: { title: Content; children: Content } & View$Modifiers): Labeled;",
+    );
+    // A JSX form comes before the call forms, which a call cannot take with its one argument.
+    expect(text.indexOf("@swift swift:VStack.init 1 jsx")).toBeLessThan(
+      text.indexOf("@swift swift:VStack.init 0 */"),
+    );
+  });
+
+  it("declares each modifier an attribute, its arguments none, one value or a tuple", () => {
+    const text = swiftui();
+
+    expect(text).toContain("declare interface View$Modifiers {\n");
+    expect(text).toContain("  padding?: number;\n");
+    expect(text).toContain("  onTapGesture?: (() => void) | [{ count?: number }, () => void];\n");
+    expect(text).toContain("  onLongPress?: (arg0: number) => void;\n");
+    // One form per scalar a type parameter may be.
+    expect(text).toMatch(/ {2}onChange\?: .*\[\{ of: number \}, \(arg0: number\) => void\]/);
+    expect(text).toContain(
+      "declare interface Text$Modifiers extends View$Modifiers {\n  bold?: true;\n}",
+    );
+  });
+
+  it("leaves a modifier named like an initializer's label to the label", () => {
     expect(swiftui()).toContain(
-      "export declare type Content = readonly (View | false | null | undefined)[];",
+      '(props: { padding: number } & Omit<View$Modifiers, "padding">): Padded;',
+    );
+  });
+
+  it("declares Lucent's keyed list as JSX", () => {
+    expect(swiftui()).toContain(
+      '<T>(props: { data: readonly T[]; id: (item: T) => string | number; children: (item: T) => Content } & Omit<View$Modifiers, "id">): View;',
     );
   });
 

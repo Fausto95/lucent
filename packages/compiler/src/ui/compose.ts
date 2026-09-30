@@ -1,13 +1,14 @@
 /**
- * A component's Compose content (Android): the body a setup gives
- * lucent:compose's `compose(body)`, compiled to Kotlin, next to the slots
- * through which the setup's C++ reaches it.
+ * A component's Compose content (Android): the JSX the component returns
+ * and its composition statements (ui/composition.ts), compiled to Kotlin,
+ * next to the slots through which the setup's C++ reaches it.
  *
- * The body is Compose written in TypeScript, in call form: a composable
- * takes Kotlin's named arguments as one object literal, and its trailing
- * @Composable content lambda is a function returning an array of what it
- * shows (`Box({ modifier }, () => [BasicText({ text })])`). Calls,
- * modifier chains, `remember`, effects and animations are Compose's own:
+ * The body is Compose written in TypeScript: a composable showing UI is a
+ * JSX element, whose props are Kotlin's named arguments and whose
+ * children are its trailing @Composable content lambda
+ * (`<Box modifier={…}><BasicText text={…} /></Box>`), or a function of
+ * the lambda's scope (`{(row) => …}`). Calls, modifier chains,
+ * `remember`, effects and animations are Compose's own:
  * each declaration's binding (compose-api.ts) says what it is in Kotlin,
  * its parameters' names, kinds and number types. What the
  * body takes from its setup crosses through a generated state holder, one
@@ -36,26 +37,37 @@ import { Codes, fail } from "../diagnostics.ts";
 import type { SdkParam } from "../sdk/schema.ts";
 import {
   bindingOf,
+  givesElements,
   isComposeDeclaration,
   type NumberKind,
   numberKindOf,
   receivesScope,
   schemaNumberKind,
 } from "./compose-api.ts";
-import { type ComposeBinding, type ComposeWrite, emitsUi } from "./compose-dts.ts";
+import { type ComposeBinding, type ComposeWrite, isElement } from "./compose-dts.ts";
 import type { ViewField, ViewType } from "./contract.ts";
 import {
   type ActionSlot,
-  type BodyFunction,
   crossingOf,
   isBind,
   type ListSlot,
   type BodySetup,
   type Crossings,
   isAsync,
+  keyOfUse,
   type ScalarType,
   skipParentheses,
+  valueName,
 } from "./toolkit-body.ts";
+import type { FunctionLike } from "./roots.ts";
+import {
+  chainUse,
+  type HelperCallback,
+  helperArgs,
+  helperAt,
+  type HelperUse,
+  type ViewHelper,
+} from "./view-helpers.ts";
 
 export interface ComposeContent {
   /** JNI names of the state holder and the host object. */
@@ -83,16 +95,21 @@ const BASE_IMPORTS = [
   "androidx.compose.runtime.mutableStateOf",
 ];
 
-/** The Kotlin of `setup`'s body `fn` (given to `compose`), its slots found into `crossings`. */
+/**
+ * The Kotlin of `setup`'s body: its composition statements, then the JSX
+ * it returns, its slots found into `crossings`.
+ */
 export function composeContent(
   checker: ts.TypeChecker,
   setup: BodySetup,
-  fn: BodyFunction,
+  jsx: ts.Expression,
+  lifted: readonly ts.Statement[],
   crossings: Crossings,
 ): ComposeContent {
   const r = setup.registration;
   const values = new KotlinValues(r);
-  const writer = new BodyWriter(checker, fn, crossings);
+  const helpers = new Map<FunctionLike, HelperFunction>();
+  const writer = new BodyWriter(checker, jsx, lifted, crossings, { registration: r, helpers });
   const statements = writer.body();
   const names = { state: `${r}State`, content: `${r}Content`, host: `${r}Host` };
   // Made first: it meets every value type, whose data classes go before it.
@@ -117,6 +134,7 @@ export function composeContent(
         body: statements,
       },
       hostObject(names),
+      ...[...helpers.values()].map((h) => helperFun(values, h)),
       ...(writer.usesText ? [TEXT_FUN] : []),
     ],
   });
@@ -132,6 +150,64 @@ export function composeContent(
 }
 
 // --- the generated declarations --------------------------------------------------------------
+
+/**
+ * A helper view as a Kotlin composable (ui/view-helpers.ts): its values,
+ * which the setup computes where it is used, its callbacks, what its user
+ * gives it, and its code: its composition statements, then its content.
+ */
+interface HelperFunction {
+  readonly helper: ViewHelper;
+  readonly name: string;
+  readonly values: readonly HelperValue[];
+  readonly body: kt.Stmt[];
+}
+
+/**
+ * A value of a helper view: `source`, in its code or in a helper it uses
+ * (`via`: those uses, innermost first, the last in this helper's code).
+ */
+interface HelperValue {
+  readonly name: string;
+  readonly source: ts.Expression;
+  readonly type: ViewType;
+  readonly via?: HelperUse;
+}
+
+/** The helper view a writer writes, and the values it has met so far. */
+interface Frame {
+  readonly helper: ViewHelper;
+  readonly values: HelperValue[];
+}
+
+/** What the writers of one body share: the component's name, and its helper views. */
+interface Shared {
+  readonly registration: string;
+  readonly helpers: Map<FunctionLike, HelperFunction>;
+}
+
+/** A helper view's composable: a parameter per value and per callback. */
+function helperFun(values: KotlinValues, h: HelperFunction): kt.Decl {
+  return {
+    k: "fun",
+    annotations: ["Composable"],
+    modifiers: [],
+    name: h.name,
+    params: [
+      ...h.values.map((v) => kt.param(v.name, values.type(v.type))),
+      ...h.helper.callbacks.map((c) =>
+        kt.param(
+          c.name,
+          kt.fn(
+            c.params.map((k) => kt.type(KOTLIN_TYPES[k])),
+            kt.type("Unit"),
+          ),
+        ),
+      ),
+    ],
+    body: h.body,
+  };
+}
 
 const KOTLIN_TYPES: Record<ScalarType["k"], string> = {
   number: "Double",
@@ -597,6 +673,20 @@ function plainVal(e: kt.Expr, vt: ViewType): Val {
 
 const COMPOSITION: Where = { composable: true, suspending: false };
 
+/** In a lambda of a list's scope: it adds elements, and composes nothing itself. */
+const ADDING: Where = { composable: false, suspending: false };
+
+/**
+ * What a call or an element gives one of Kotlin's parameters (an index of
+ * the member's): an expression, an element's children, or a prop written
+ * alone (`singleLine`), which is true.
+ */
+type Given = { readonly index: number; readonly at: ts.Node } & (
+  | { readonly arg: ts.Expression }
+  | { readonly children: readonly ts.JsxChild[] }
+  | { readonly flag: true }
+);
+
 class BodyWriter {
   readonly imports = new Set<string>();
   usesText = false;
@@ -608,17 +698,38 @@ class BodyWriter {
   >();
 
   private readonly checker: ts.TypeChecker;
-  private readonly fn: BodyFunction;
+  private readonly jsx: ts.Expression;
+  private readonly statements: readonly ts.Statement[];
   private readonly crossings: Crossings;
+  private readonly shared: Shared;
+  /** The helper view written, when the writer writes one; the helpers it is in, outermost first. */
+  private readonly frame?: Frame;
+  private readonly stack: readonly FunctionLike[];
 
-  constructor(checker: ts.TypeChecker, fn: BodyFunction, crossings: Crossings) {
+  constructor(
+    checker: ts.TypeChecker,
+    jsx: ts.Expression,
+    statements: readonly ts.Statement[],
+    crossings: Crossings,
+    shared: Shared,
+    frame?: Frame,
+    stack: readonly FunctionLike[] = [],
+  ) {
     this.checker = checker;
-    this.fn = fn;
+    this.jsx = jsx;
+    this.statements = statements;
     this.crossings = crossings;
+    this.shared = shared;
+    this.stack = stack;
+    if (frame) this.frame = frame;
   }
 
+  /** The content: its composition statements, in order, then what its JSX shows. */
   body(): kt.Stmt[] {
-    return this.composition(this.fn, (e) => this.content(e));
+    return [
+      ...this.statements.flatMap((s) => this.statement(s, COMPOSITION)),
+      ...this.content(this.jsx),
+    ];
   }
 
   /**
@@ -626,7 +737,11 @@ class BodyWriter {
    * statements run where it composes, and what it returns is its content
    * (`show` writes it).
    */
-  private composition(fn: BodyFunction, show: (e: ts.Expression) => kt.Stmt[]): kt.Stmt[] {
+  private composition(
+    fn: ts.ArrowFunction | ts.FunctionExpression,
+    show: (e: ts.Expression) => kt.Stmt[],
+    where: Where = COMPOSITION,
+  ): kt.Stmt[] {
     const b = fn.body;
 
     if (!ts.isBlock(b)) return show(b);
@@ -635,8 +750,8 @@ class BodyWriter {
       ts.isReturnStatement(s)
         ? s.expression
           ? show(s.expression)
-          : fail(s, Codes.ToolkitBody, "a composable body ends by returning its content")
-        : this.statement(s, COMPOSITION),
+          : fail(s, Codes.ToolkitBody, "a content lambda ends by returning what it shows")
+        : this.statement(s, where),
     );
   }
 
@@ -703,57 +818,197 @@ class BodyWriter {
   // --- content ---
 
   /**
-   * Content: a composable call (`Box(…)`), an array of content,
+   * Content: an element (`<Box …/>`), a fragment or an array of content,
    * `cond && …`, `cond ? … : …`, or nothing.
    */
-  private content(e: ts.Expression): kt.Stmt[] {
+  private content(e: ts.Expression, where: Where = COMPOSITION): kt.Stmt[] {
     const x = skipParentheses(e);
+
+    if (ts.isJsxElement(x) || ts.isJsxSelfClosingElement(x))
+      return [kt.exprStmt(this.element(x, where))];
+
+    if (ts.isJsxFragment(x)) return this.children(x.children, where);
 
     if (ts.isArrayLiteralExpression(x))
       return x.elements.flatMap((item) =>
         ts.isSpreadElement(item)
-          ? fail(item, Codes.ToolkitBody, "content is an array literal of composables: no `...`")
-          : this.content(item),
+          ? fail(item, Codes.ToolkitBody, "content is an array literal of elements: no `...`")
+          : this.content(item, where),
       );
 
     if (ts.isConditionalExpression(x))
       return [
         {
           k: "if",
-          test: this.condition(x.condition, COMPOSITION),
-          body: this.content(x.whenTrue),
-          orElse: this.content(x.whenFalse),
+          test: this.condition(x.condition, where),
+          body: this.content(x.whenTrue, where),
+          orElse: this.content(x.whenFalse, where),
         },
       ];
 
     if (ts.isBinaryExpression(x) && x.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken)
-      return [{ k: "if", test: this.condition(x.left, COMPOSITION), body: this.content(x.right) }];
+      return [{ k: "if", test: this.condition(x.left, where), body: this.content(x.right, where) }];
 
     if (x.kind === ts.SyntaxKind.NullKeyword || x.kind === ts.SyntaxKind.FalseKeyword) return [];
 
-    if (ts.isCallExpression(x) && this.shows(x))
-      return [kt.exprStmt(this.call(x, COMPOSITION, true).e)];
+    if (ts.isCallExpression(x) && this.elementBinding(x)) this.refuseCalled(x);
+
+    const helper = ts.isCallExpression(x) ? helperAt(this.checker, x.expression) : undefined;
+
+    if (helper && ts.isCallExpression(x)) return [kt.exprStmt(this.used(x, helper))];
 
     fail(
       x,
       Codes.ToolkitBody,
-      "content is composables: `Box(…)`, an array of them, `cond && Box(…)` or `cond ? A(…) : B(…)`",
+      "content is elements: `<Box …/>`, a fragment of them, `cond && <Box …/>` or `cond ? <A …/> : <B …/>`",
     );
+  }
+
+  /** An element's children, or a fragment's: its elements in order (text is refused). */
+  private children(children: readonly ts.JsxChild[], where: Where): kt.Stmt[] {
+    return children.flatMap((child) => {
+      if (ts.isJsxText(child)) {
+        if (child.containsOnlyTriviaWhiteSpaces) return [];
+
+        fail(child, Codes.ToolkitBody, 'content is elements: write text with `<Text text="…" />`');
+      }
+
+      if (ts.isJsxExpression(child)) {
+        // `{/* … */}`: nothing.
+        if (!child.expression) return [];
+
+        if (child.dotDotDotToken)
+          fail(child, Codes.ToolkitBody, "content is elements: no `{...}` among children");
+
+        return this.content(child.expression, where);
+      }
+
+      return this.content(child, where);
+    });
+  }
+
+  /** The children given as one function (`{(row) => …}`), if they are. */
+  private childFunction(
+    children: readonly ts.JsxChild[],
+  ): ts.ArrowFunction | ts.FunctionExpression | undefined {
+    const given = children.filter((c) => !(ts.isJsxText(c) && c.containsOnlyTriviaWhiteSpaces));
+    const only = given.length === 1 ? given[0] : undefined;
+    const e =
+      only && ts.isJsxExpression(only) && only.expression && skipParentheses(only.expression);
+
+    return e && (ts.isArrowFunction(e) || ts.isFunctionExpression(e)) ? e : undefined;
   }
 
   private refuseContent(node: ts.Node, label: string): never {
     fail(
       node,
       Codes.ToolkitBody,
-      `${label}'s content is a function returning an array of composables: \`() => […]\``,
+      `${label}'s content is a function returning what it shows: \`() => <…/>\``,
     );
   }
 
-  /** Whether a call is of a composable that shows content (it returns `Composed`). */
-  private shows(c: ts.CallExpression): boolean {
-    const binding = bindingOf(this.checker.getResolvedSignature(c)?.declaration);
+  /** Refused: a composable showing content called as a function, where JSX writes it. */
+  private refuseCalled(c: ts.CallExpression): never {
+    const name = skipParentheses(c.expression).getText();
 
-    return !!binding && emitsUi(binding.member);
+    fail(
+      c,
+      Codes.ToolkitBody,
+      `\`${name}\` shows content: write it as an element, \`<${name} …/>\`, in what the body or an element's children show`,
+    );
+  }
+
+  /** The binding of an element's composable, when a call or a tag names one. */
+  private elementBinding(
+    node: ts.CallExpression | ts.JsxOpeningLikeElement,
+  ): ComposeBinding | undefined {
+    const binding = bindingOf(this.checker.getResolvedSignature(node)?.declaration);
+
+    return binding && isElement(binding.member, binding.owner) ? binding : undefined;
+  }
+
+  /**
+   * An element: its composable called with its props as Kotlin's named
+   * arguments, and its children as the content lambda.
+   */
+  private element(x: ts.JsxElement | ts.JsxSelfClosingElement, where: Where): kt.Expr {
+    const opening = ts.isJsxElement(x) ? x.openingElement : x;
+    const tag = opening.tagName;
+    const label = tag.getText();
+    const helper = helperAt(this.checker, tag);
+
+    if (helper) return this.used(x, helper);
+
+    const binding = this.elementBinding(opening);
+
+    if (!binding?.args)
+      fail(
+        tag,
+        Codes.ToolkitBody,
+        `\`${label}\` is not Compose's: content shows lucent:compose's elements`,
+      );
+
+    this.checkWhere(opening, label, binding, where);
+
+    const params = "params" in binding.member ? binding.member.params : [];
+    const [props] = binding.args;
+    const given: Given[] = [];
+
+    for (const a of opening.attributes.properties) {
+      if (ts.isJsxSpreadAttribute(a))
+        fail(a, Codes.ToolkitBody, `${label}'s props are written one by one: \`name={value}\``);
+
+      const name = a.name.getText();
+      const index =
+        props?.k !== "named"
+          ? undefined
+          : name === "children"
+            ? props.children
+            : props.indices.find((k) => params[k]!.name === name);
+
+      if (index === undefined)
+        fail(a, Codes.ToolkitBody, `the content cannot give ${label} \`${name}\``);
+
+      given.push({ index, at: a, ...this.attribute(a) });
+    }
+
+    const children = ts.isJsxElement(x) ? x.children : undefined;
+    const fnChild = children && this.childFunction(children);
+
+    if (children && props?.k === "named" && props.children !== undefined) {
+      if (fnChild) given.push({ index: props.children, at: fnChild, arg: fnChild });
+      else if (children.some((c) => !(ts.isJsxText(c) && c.containsOnlyTriviaWhiteSpaces)))
+        given.push({ index: props.children, at: x, children });
+    }
+
+    const list = listForm(binding);
+
+    if (list && this.frame)
+      fail(
+        x,
+        Codes.ToolkitBody,
+        "a helper view shows no list of its own: its user's list may show helpers",
+      );
+
+    if (list) return this.keyedList(x, binding, list, given);
+
+    const object = ts.isPropertyAccessExpression(tag) ? tag.expression : undefined;
+
+    return this.write(x, binding, given, where, label, object).e;
+  }
+
+  /** An attribute's value: `name="text"`, `name={value}`, or `name` alone (true). */
+  private attribute(a: ts.JsxAttribute): { arg: ts.Expression } | { flag: true } {
+    const init = a.initializer;
+
+    if (!init) return { flag: true };
+
+    if (ts.isStringLiteral(init)) return { arg: init };
+
+    if (ts.isJsxExpression(init) && init.expression)
+      return { arg: skipParentheses(init.expression) };
+
+    fail(a, Codes.ToolkitBody, `write ${a.name.getText()}'s value as \`name={value}\``);
   }
 
   // --- expressions ---
@@ -773,7 +1028,17 @@ class BodyWriter {
     const e = skipParentheses(node);
 
     // What the setup computes (a prop, a signal, what its functions give): Compose state it keeps set.
-    if (this.crossings.computedBySetup(e)) return this.valueSlot(e);
+    // In a helper view, what it computes from its props: a parameter of its own.
+    if (
+      this.frame
+        ? this.crossings.computedIn(e, this.frame.helper)
+        : this.crossings.computedBySetup(e)
+    )
+      return this.valueSlot(e);
+
+    const prop = this.callbackProp(e);
+
+    if (prop) return { e: kt.name(prop.name) };
 
     if (ts.isNumericLiteral(e)) return numberLiteral(e, Number(e.text));
 
@@ -830,6 +1095,13 @@ class BodyWriter {
     if (ts.isCallExpression(e)) return this.call(e, where);
 
     if (ts.isArrowFunction(e) || ts.isFunctionExpression(e)) return { e: this.lambda(e, "") };
+
+    if (ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e) || ts.isJsxFragment(e))
+      fail(
+        e,
+        Codes.ToolkitBody,
+        "an element is content: return it, or give it as an element's children",
+      );
 
     fail(e, Codes.ToolkitBody, `the content cannot compile ${describe(e)} to Compose yet`);
   }
@@ -1039,25 +1311,38 @@ class BodyWriter {
     return names.slice(1).reduce<kt.Expr>((e, n) => kt.member(e, n), kt.name(names[0]!));
   }
 
-  /** A call; `shown` when it is an item of content, where a composable's content goes. */
-  private call(c: ts.CallExpression, where: Where, shown = false): Val {
+  /** A call: of a setup function, or of lucent:compose's. */
+  private call(c: ts.CallExpression, where: Where): Val {
     const callee = skipParentheses(c.expression);
 
-    if (!shown && this.shows(c))
-      fail(
-        c,
-        Codes.ToolkitBody,
-        `\`${callee.getText()}()\` shows content: return it in the body's or a content lambda's array`,
-      );
+    if (this.elementBinding(c)) this.refuseCalled(c);
+
+    // A helper view's callback prop, called (in a callback): its user's lambda.
+    const prop = this.callbackProp(callee);
+
+    if (prop) {
+      if (where.composable)
+        fail(
+          c,
+          Codes.ToolkitBody,
+          `\`${callee.getText()}\` is a callback: call it from a callback, \`() => ${c.getText()}\``,
+        );
+
+      return {
+        e: kt.call(
+          kt.name(prop.name),
+          c.arguments.map((a, i) => ({
+            value: convert(this.expr(a, where), prop.params[i] === "number" ? "Double" : undefined),
+          })),
+        ),
+      };
+    }
 
     if (ts.isIdentifier(callee)) {
       const symbol = this.symbol(callee);
       const decl = symbol?.declarations?.[0];
 
       if (symbol && this.crossings.inSetup(decl)) return this.setupCall(c, callee, symbol, where);
-
-      if (symbol?.name === "compose" && isComposeDeclaration(decl))
-        fail(c, Codes.ToolkitBody, "compose is the setup's: content does not nest another");
     } else if (ts.isPropertyAccessExpression(callee)) this.crossings.setupMember(c);
     else fail(c, Codes.ToolkitBody, `the content cannot call ${describe(callee)}`);
 
@@ -1070,39 +1355,95 @@ class BodyWriter {
         `the content cannot call \`${callee.getText()}\`: it calls lucent:compose and its setup's functions`,
       );
 
-    this.checkWhere(c, binding, where);
+    this.checkWhere(c, callee.getText(), binding, where);
 
-    const list = listForm(binding);
+    const label = binding.write.name;
+    const object = ts.isPropertyAccessExpression(callee) ? callee.expression : undefined;
 
-    if (list) return { e: this.keyedList(c, binding, list) };
+    return this.write(c, binding, this.callGiven(c, binding, label), where, label, object);
+  }
 
+  /** What a call's arguments give Kotlin's parameters, by the binding's map of them. */
+  private callGiven(c: ts.CallExpression, binding: ComposeBinding, label: string): Given[] {
+    const params = "params" in binding.member ? binding.member.params : [];
+    const given: Given[] = [];
+
+    c.arguments.forEach((a, i) => {
+      const slot = binding.args![i];
+      const arg = skipParentheses(a);
+
+      if (!slot || ts.isSpreadElement(a))
+        fail(a, Codes.ToolkitBody, `the content cannot pass this argument of ${label}`);
+
+      if (slot.k === "param") {
+        given.push({ index: slot.index, at: a, arg });
+        return;
+      }
+
+      // An object of Kotlin's named parameters.
+      if (!ts.isObjectLiteralExpression(arg))
+        fail(
+          a,
+          Codes.ToolkitBody,
+          `write ${label}'s ${params[slot.indices[0]!]?.name ?? "arguments"} as an object literal: its fields are Kotlin's named arguments`,
+        );
+
+      for (const p of arg.properties) {
+        const index =
+          ts.isPropertyAssignment(p) && ts.isIdentifier(p.name)
+            ? slot.indices.find((k) => params[k]!.name === (p.name as ts.Identifier).text)
+            : undefined;
+
+        if (index === undefined || !ts.isPropertyAssignment(p))
+          fail(p, Codes.ToolkitBody, `write each of ${label}'s named arguments as \`name: value\``);
+
+        given.push({ index, at: p, arg: skipParentheses(p.initializer) });
+      }
+    });
+
+    return given;
+  }
+
+  /**
+   * A binding's use, a call or an element, given its Kotlin parameters:
+   * an extension of its first argument, a method of `object` (a scope's,
+   * unqualified), or a function.
+   */
+  private write(
+    site: ts.Node,
+    binding: ComposeBinding,
+    given: readonly Given[],
+    where: Where,
+    label: string,
+    object: ts.Expression | undefined,
+  ): Val {
     const w = binding.write;
-    const args = this.args(c, binding, where, w.name);
+    const args = this.args(site, binding, given, where, label);
 
     // `20.dp`, `text.fn(…)`: an extension of the first argument.
     if (w.receiverArg) {
       const [receiver, ...rest] = args.args;
 
-      if (!receiver) fail(c, Codes.ToolkitBody, `${w.name} takes its value`);
+      if (!receiver) fail(site, Codes.ToolkitBody, `${w.name} takes its value`);
 
       const target = kt.member(receiver.value, this.written(w));
       const e = w.property ? target : kt.call(target, rest, args.trailing);
 
-      return this.number(c, e);
+      return this.number(site, e);
     }
 
     // A method: of the object it is called on (a member, an extension; a scope's unqualified); else a function.
-    const object =
-      w.k === "member" || w.k === "extension"
-        ? this.expr(skipParentheses((callee as ts.PropertyAccessExpression).expression), where)
+    const of =
+      (w.k === "member" || w.k === "extension") && object
+        ? this.expr(skipParentheses(object), where)
         : undefined;
-    const target = !object
+    const target = !of
       ? this.path(w)
-      : object.scope
+      : of.scope
         ? kt.name(this.written(w))
-        : kt.member(object.e, this.written(w));
+        : kt.member(of.e, this.written(w));
 
-    return this.number(c, kt.call(target, args.args, args.trailing));
+    return this.number(site, kt.call(target, args.args, args.trailing));
   }
 
   /** A call of a setup function: its value (a slot) where the body composes, the Lucent function in a callback. */
@@ -1135,9 +1476,7 @@ class BodyWriter {
   }
 
   /** A composable runs where the body composes; a suspend function (a promise) in a coroutine. */
-  private checkWhere(c: ts.CallExpression, binding: ComposeBinding, where: Where): void {
-    const name = c.expression.getText();
-
+  private checkWhere(c: ts.Node, name: string, binding: ComposeBinding, where: Where): void {
     if (binding.member.kotlin?.composable && !where.composable)
       fail(
         c,
@@ -1150,13 +1489,14 @@ class BodyWriter {
   }
 
   /**
-   * A call's arguments as Kotlin's, by name, as the binding maps the
-   * TypeScript ones to Kotlin parameters; a function literal given for
-   * the Kotlin declaration's last parameter is its trailing lambda.
+   * A call's or an element's arguments as Kotlin's, by name; a function
+   * literal (or an element's children) given for the Kotlin declaration's
+   * last parameter is its trailing lambda.
    */
   private args(
-    c: ts.CallExpression,
+    site: ts.Node,
     binding: ComposeBinding,
+    given: readonly Given[],
     where: Where,
     label: string,
   ): { args: kt.Arg[]; trailing?: kt.Expr & { k: "lambda" } } {
@@ -1166,27 +1506,13 @@ class BodyWriter {
     let trailing: (kt.Expr & { k: "lambda" }) | undefined;
 
     const bound = new Set<string>();
-    const give = (index: number, arg: ts.Expression) => {
+    const put = (index: number, value: kt.Expr, lambda: boolean) => {
       const param = params[index]!;
-
-      // A bound signal: the value, and the callback of its changes setting the signal.
-      if (ts.isCallExpression(arg) && isBind(this.checker, arg)) {
-        const change = param.kotlin?.changedBy;
-
-        if (!change) fail(arg, Codes.ToolkitBody, `${label}'s ${param.name} takes no bound signal`);
-
-        bound.add(change);
-        args.push(...this.bound(arg, param.name, change));
-        return;
-      }
-
-      const value = this.argument(arg, param, where, label);
-      const literal = ts.isArrowFunction(arg) || ts.isFunctionExpression(arg);
 
       // A trailing lambda is Kotlin's last parameter's: none when a default after it is left out.
       if (
         index === last &&
-        literal &&
+        lambda &&
         value.k === "lambda" &&
         !binding.write.receiverArg &&
         !binding.member.kotlin?.omits
@@ -1198,35 +1524,39 @@ class BodyWriter {
         );
     };
 
-    c.arguments.forEach((a, i) => {
-      const slot = binding.args![i];
-      const arg = skipParentheses(a);
+    for (const g of given) {
+      const param = params[g.index]!;
 
-      if (!slot || ts.isSpreadElement(a))
-        fail(a, Codes.ToolkitBody, `the content cannot pass this argument of ${label}`);
-
-      if (slot.k === "param") return give(slot.index, arg);
-
-      // An object of Kotlin's named parameters.
-      if (!ts.isObjectLiteralExpression(arg))
-        fail(
-          a,
-          Codes.ToolkitBody,
-          `write ${label}'s ${params[slot.indices[0]!]?.name ?? "arguments"} as an object literal: its fields are Kotlin's named arguments`,
-        );
-
-      for (const p of arg.properties) {
-        const index =
-          ts.isPropertyAssignment(p) && ts.isIdentifier(p.name)
-            ? slot.indices.find((k) => params[k]!.name === (p.name as ts.Identifier).text)
-            : undefined;
-
-        if (index === undefined || !ts.isPropertyAssignment(p))
-          fail(p, Codes.ToolkitBody, `write each of ${label}'s named arguments as \`name: value\``);
-
-        give(index, skipParentheses(p.initializer));
+      if ("flag" in g) {
+        put(g.index, kt.bool(true), false);
+        continue;
       }
-    });
+
+      // Children: the content lambda showing them.
+      if ("children" in g) {
+        if (param.kotlin?.role !== "content") this.refuseContent(g.at, label);
+
+        put(g.index, kt.lambda([], this.children(g.children, COMPOSITION)), true);
+        continue;
+      }
+
+      const arg = g.arg;
+
+      // A bound signal: the value, and the callback of its changes setting the signal.
+      if (ts.isCallExpression(arg) && isBind(this.checker, arg)) {
+        const change = param.kotlin?.changedBy;
+
+        if (!change) fail(arg, Codes.ToolkitBody, `${label}'s ${param.name} takes no bound signal`);
+
+        bound.add(change);
+        args.push(...this.bound(arg, param.name, change));
+        continue;
+      }
+
+      const literal = ts.isArrowFunction(arg) || ts.isFunctionExpression(arg);
+
+      put(g.index, this.argument(arg, param, where, label), literal);
+    }
 
     // A value given as it is needs its change callback too, which Kotlin requires.
     for (const p of params) {
@@ -1236,9 +1566,9 @@ class BodyWriter {
 
       if (change && given(p.name) && !given(change))
         fail(
-          c,
+          site,
           Codes.ToolkitBody,
-          `${label} takes ${change} with ${p.name}, or a bound signal: \`${p.name}: bind(signal)\``,
+          `${label} takes ${change} with ${p.name}, or a bound signal: \`${p.name}={bind(signal)}\``,
         );
     }
 
@@ -1247,6 +1577,13 @@ class BodyWriter {
 
   /** `bind(signal)`: the value Compose state holds, and a change setting the signal. */
   private bound(call: ts.CallExpression, value: string, change: string): kt.Arg[] {
+    if (this.frame)
+      fail(
+        call,
+        Codes.ToolkitBody,
+        "a helper view binds no signal: its user binds the view that changes one",
+      );
+
     const slots = this.crossings.bind(call);
 
     return [
@@ -1278,6 +1615,16 @@ class BodyWriter {
       return kt.lambda(
         params,
         this.composition(fn, (e) => this.content(e)),
+      );
+    }
+
+    // A lambda of a list's scope: it adds the elements it returns (LazyColumn's items).
+    if (fn && givesElements(param)) {
+      const params = this.parameters(fn, param);
+
+      return kt.lambda(
+        params,
+        this.composition(fn, (e) => this.content(e, ADDING), ADDING),
       );
     }
 
@@ -1359,47 +1706,43 @@ class BodyWriter {
 
   /**
    * A keyed list (Lucent's, over a Compose list form: LazyListScope's
-   * items): the list's holders, keyed by what its key option computes,
-   * each shown by the item content, whose item is its holder.
+   * items): the list's holders, keyed by what its key prop computes, each
+   * shown by the item content its children give, whose item is its holder.
    */
-  private keyedList(c: ts.CallExpression, binding: ComposeBinding, form: ListForm): kt.Expr {
-    const given = new Map<number, ts.Expression>();
-
-    c.arguments.forEach((a, i) => {
-      const slot = binding.args![i];
-      const arg = skipParentheses(a);
-
-      if (slot?.k === "param") given.set(slot.index, arg);
-      else if (slot && ts.isObjectLiteralExpression(arg))
-        for (const p of arg.properties)
-          if (ts.isPropertyAssignment(p) && ts.isIdentifier(p.name)) {
-            const index = slot.indices.find(
-              (k) => form.params[k]!.name === (p.name as ts.Identifier).text,
-            );
-            if (index !== undefined) given.set(index, skipParentheses(p.initializer));
-          }
-    });
-
-    const source = given.get(form.source);
-    const content = given.get(form.content);
-    const key = given.get(form.key);
+  private keyedList(
+    site: ts.JsxElement | ts.JsxSelfClosingElement,
+    binding: ComposeBinding,
+    form: ListForm,
+    given: readonly Given[],
+  ): kt.Expr {
+    const byIndex = new Map(given.flatMap((g) => ("arg" in g ? [[g.index, g.arg] as const] : [])));
+    const source = byIndex.get(form.source);
+    const content = byIndex.get(form.content);
+    const key = byIndex.get(form.key);
+    const tag = (ts.isJsxElement(site) ? site.openingElement : site).tagName.getText();
 
     if (!key || !(ts.isArrowFunction(key) || ts.isFunctionExpression(key)) || ts.isBlock(key.body))
-      fail(c, Codes.ToolkitBody, "a Compose list keys its items: { key: (item) => item.id }");
+      fail(
+        site,
+        Codes.ToolkitBody,
+        `a Compose list keys its items: <${tag} key={(item) => item.id} …>`,
+      );
 
     if (!source || !content || !(ts.isArrowFunction(content) || ts.isFunctionExpression(content)))
       fail(
-        c,
+        site,
         Codes.ToolkitBody,
-        "a Compose list shows its array with its item content: `(_, item) => […]`",
+        `a Compose list shows its items with a function of the item's scope and the item: <${tag} …>{(_, item) => …}</${tag}>`,
       );
 
-    if ([...given.keys()].some((k) => k !== form.source && k !== form.content && k !== form.key))
-      fail(c, Codes.ToolkitBody, "a Compose list takes its array, its item content and its key");
+    if (
+      given.some((g) => g.index !== form.source && g.index !== form.content && g.index !== form.key)
+    )
+      fail(site, Codes.ToolkitBody, "a Compose list takes its items, its key and its item content");
 
     const scoped = receivesScope(form.params[form.content]!);
     const list = this.crossings.list(
-      c,
+      site,
       source,
       content,
       { ...(key.parameters[0] ? { param: key.parameters[0] } : {}), expression: key.body },
@@ -1474,11 +1817,136 @@ class BodyWriter {
 
   // --- slots ---
 
-  private valueSlot(source: ts.Expression): Val {
-    const slot = this.crossings.value(source);
+  private valueSlot(source: ts.Expression, via?: HelperUse): Val {
+    if (this.frame) {
+      const value = this.frameValue(source, via);
+
+      return plainVal(kt.name(value.name), value.type);
+    }
+
+    const slot = this.crossings.value(source, via);
     const holder = slot.list ? kt.name(ITEM) : kt.name(STATE);
 
     return plainVal(kt.member(kt.member(holder, slot.name), "value"), slot.type);
+  }
+
+  /** The helper view's value of `source` (one per use and expression): a parameter of its own. */
+  private frameValue(source: ts.Expression, via?: HelperUse): HelperValue {
+    const values = this.frame!.values;
+    const key = `${keyOfUse(via)}${source.getText()}`;
+    const found = values.find((v) => `${keyOfUse(v.via)}${v.source.getText()}` === key);
+
+    if (found) return found;
+
+    const value: HelperValue = {
+      name: valueName(source, values.length),
+      source,
+      type: this.crossings.typeOf(source),
+      ...(via ? { via } : {}),
+    };
+
+    values.push(value);
+
+    return value;
+  }
+
+  /** The callback prop `e` reads (`props.onTap`), in the helper view written. */
+  private callbackProp(e: ts.Expression): HelperCallback | undefined {
+    const helper = this.frame?.helper;
+
+    if (!helper?.props || !ts.isPropertyAccessExpression(e) || !ts.isIdentifier(e.expression))
+      return undefined;
+
+    if (this.symbol(e.expression) !== helper.props) return undefined;
+
+    return helper.callbacks.find((c) => c.name === e.name.text);
+  }
+
+  /**
+   * An element (or a call) using a helper view: its composable, given the
+   * values it computes from its props (the setup computes them here, or a
+   * helper using this one gives them), and the callbacks it is given.
+   */
+  private used(
+    node: ts.JsxElement | ts.JsxSelfClosingElement | ts.CallExpression,
+    helper: ViewHelper,
+  ): kt.Expr {
+    const where = ts.isCallExpression(node)
+      ? node.expression
+      : (ts.isJsxElement(node) ? node.openingElement : node).tagName;
+
+    if (this.stack.includes(helper.fn))
+      fail(
+        where,
+        Codes.ToolkitBody,
+        `the helper view \`${helper.name}\` uses itself: a helper's views end`,
+      );
+
+    const args = helperArgs(node, helper);
+    const callbacks = new Set(helper.callbacks.map((c) => c.name));
+
+    for (const [name, arg] of args)
+      if (!callbacks.has(name) && !this.crossings.givesValue(arg, this.frame?.helper))
+        fail(
+          arg,
+          Codes.ToolkitBody,
+          `\`${helper.name}\`'s \`${name}\` is plain data the setup computes (its props, signals, values, a list's item) or a literal`,
+        );
+
+    const fn = this.helperFunction(helper);
+    const use: HelperUse = { helper, args, site: node };
+    const callback = (c: HelperCallback): kt.Expr => {
+      const arg = args.get(c.name);
+
+      if (!arg) return kt.lambda(c.params.length ? c.params.map(() => "_") : [], []);
+
+      const e = skipParentheses(arg);
+
+      return ts.isArrowFunction(e) || ts.isFunctionExpression(e)
+        ? this.lambda(e, "")
+        : this.expr(e, { composable: false, suspending: false }).e;
+    };
+
+    return kt.call(kt.name(fn.name), [
+      ...fn.values.map((v) => ({
+        name: v.name,
+        value: this.valueSlot(v.source, chainUse(v.via, use)).e,
+      })),
+      ...helper.callbacks.map((c) => ({ name: c.name, value: callback(c) })),
+    ]);
+  }
+
+  /** A helper view's composable, written once per body. */
+  private helperFunction(helper: ViewHelper): HelperFunction {
+    const found = this.shared.helpers.get(helper.fn);
+
+    if (found) return found;
+
+    const frame: Frame = { helper, values: [] };
+    const writer = new BodyWriter(
+      this.checker,
+      helper.jsx,
+      helper.statements,
+      this.crossings,
+      this.shared,
+      frame,
+      [...this.stack, helper.fn],
+    );
+    const body = writer.body();
+
+    for (const i of writer.imports) this.imports.add(i);
+    this.usesText ||= writer.usesText;
+
+    const taken = new Set([...this.shared.helpers.values()].map((h) => h.name));
+    let name = `${this.shared.registration}_${helper.name}`;
+
+    while (taken.has(name)) name = `${name}_`;
+
+    const fn: HelperFunction = { helper, name, values: frame.values, body };
+
+    this.shared.helpers.set(helper.fn, fn);
+
+    return fn;
   }
 
   private symbol(id: ts.Identifier | ts.MemberName): ts.Symbol | undefined {

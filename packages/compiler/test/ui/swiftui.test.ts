@@ -1,5 +1,5 @@
-// SwiftUI components written in Lucent (LUCENT_VIEWS=fabric): the function
-// an iOS component gives swiftUI() is its SwiftUI body, generated as Swift;
+// SwiftUI components written in Lucent (LUCENT_VIEWS=fabric): the JSX an
+// iOS component returns is its SwiftUI body, generated as Swift;
 // the rest of its setup is compiled into C++, which keeps the body's
 // observable state and runs its actions (the setup's functions). The Swift type-checks against the iOS SDK,
 // and its glue compiles with the runtime and React Native's headers.
@@ -41,16 +41,14 @@ function toggle(body: string, imports = ""): Record<string, string> {
   Animation,
   Circle,
   Color,
-  swiftUI,
   Text,
-  type UIHostingController,
   VStack,
   withAnimation,
 } from "lucent:swiftui";
 import { expose, signal } from "lucent:ui";
 import type { Props } from "./toggle.lucent";
 ${imports}
-export function Toggle(props: Props): UIHostingController {
+export function Toggle(props: Props) {
 ${body}
 }
 `,
@@ -110,7 +108,7 @@ describe("a SwiftUI component", () => {
   });
 
   it.skipIf(!ios)(
-    "gives swiftUI() its body, written out as SwiftUI, whose state and actions are Lucent's",
+    "returns its body as JSX, written out as SwiftUI, whose state and actions are Lucent's",
     async () => {
       const { result } = build(TOGGLE);
 
@@ -318,7 +316,7 @@ describe("a SwiftUI component", () => {
   );
 
   it.skipIf(!ios)(
-    "writes each call as SwiftUI declares it: labels, order, content and actions",
+    "writes each element as SwiftUI declares it: labels, order, content and actions",
     () => {
       const { result } = build(
         toggle(
@@ -326,15 +324,21 @@ describe("a SwiftUI component", () => {
   const label = signal("x");
   const tap = () => taps.set(taps.peek() + 1);
 
-  return swiftUI(() =>
-    VStack([
-      Text("a").frame({ width: 40 }).onTapGesture({ count: 2 }, () => tap()),
-      HStack({ spacing: 4 }, [Image({ systemName: "star" }), Spacer(), Text(label.get())]),
-      Button("Go", () => tap()),
-      Button({ action: tap }, [Text("x")]),
-      Text("b").padding(Edge.Set.horizontal, 8),
-      Text("c").onTapGesture({ count: taps.get() }, tap),
-    ]),
+  return (
+    <VStack>
+      <Text frame={{ width: 40 }} onTapGesture={[{ count: 2 }, () => tap()]}>a</Text>
+      <HStack spacing={4}>
+        <Image systemName="star" />
+        <Spacer />
+        <Text>{label.get()}</Text>
+      </HStack>
+      <Button action={() => tap()}>Go</Button>
+      <Button action={tap}>
+        <Text>x</Text>
+      </Button>
+      <Text padding={[Edge.Set.horizontal, 8]}>b</Text>
+      <Text onTapGesture={[{ count: taps.get() }, tap]}>c</Text>
+    </VStack>
   );`,
           'import { Button, Edge, HStack, Image, Spacer } from "lucent:swiftui";\n',
         ),
@@ -366,20 +370,95 @@ describe("a SwiftUI component", () => {
   );
 
   it.skipIf(!ios)(
+    "applies modifiers in the order written, a repeated one chained after the element",
+    () => {
+      const { result } = build(
+        toggle(
+          `  return (
+    <ZStack alignment={Alignment.leading} padding={8} background={Color.red}>
+      {(<Text padding={8} background={Color.red}>x</Text>).padding(4)}
+    </ZStack>
+  );`,
+          'import { Alignment, ZStack } from "lucent:swiftui";\n',
+        ),
+      );
+
+      expect(errors(result)).toEqual([]);
+      expect(swiftOf(result)).toContain("ZStack(alignment: Alignment.leading) {");
+      expect(swiftOf(result)).toContain("}.padding(8).background(Color.red)");
+      expect(swiftOf(result)).toContain('Text("x").padding(8).background(Color.red).padding(4)');
+    },
+    180_000,
+  );
+
+  it.skipIf(!ios)(
+    "makes a view given as a value with its initializer's labels",
+    () => {
+      const { dir, result } = build(
+        toggle(
+          `  return (
+    <Text
+      background={Color({ red: 1, green: 0.5, blue: 0 })}
+      clipShape={Capsule({ style: RoundedCornerStyle.continuous })}
+    >
+      x
+    </Text>
+  );`,
+          'import { Capsule, RoundedCornerStyle } from "lucent:swiftui";\n',
+        ),
+      );
+
+      expect(errors(result)).toEqual([]);
+      expect(swiftOf(result)).toContain(
+        'Text("x").background(Color(red: 1, green: 0.5, blue: 0)).clipShape(Capsule(style: RoundedCornerStyle.continuous))',
+      );
+      expect(swiftErrors(dir, result)).toBe("");
+    },
+    180_000,
+  );
+
+  it.skipIf(!ios)(
+    "gives an attribute that is also a modifier's name to the initializer",
+    () => {
+      const { dir, result } = build(
+        toggle(
+          `  return (
+    <VStack>
+      <RoundedRectangle cornerRadius={8} fill={Color.green} />
+      {(<Color red={1} green={0} blue={0} opacity={0.5} />).opacity(0.8)}
+    </VStack>
+  );`,
+          'import { RoundedRectangle } from "lucent:swiftui";\n',
+        ),
+      );
+
+      expect(errors(result)).toEqual([]);
+
+      const swift = swiftOf(result);
+
+      // The label is the initializer's; the modifier of the same name chains after the element.
+      expect(swift).toContain("RoundedRectangle(cornerRadius: 8).fill(Color.green)");
+      expect(swift).toContain("Color(red: 1, green: 0, blue: 0, opacity: 0.5).opacity(0.8)");
+      expect(swiftErrors(dir, result)).toBe("");
+    },
+    180_000,
+  );
+
+  it.skipIf(!ios)(
     "refuses what SwiftUI's declarations say it cannot write yet, with the reason",
     () => {
       const refused = (body: string, imports = "") => errors(build(toggle(body, imports)).result);
 
       expect(
         refused(
-          `  return swiftUI(() => GeometryReader(() => [Text("x")]));`,
+          `  return <GeometryReader>{() => <Text>x</Text>}</GeometryReader>;`,
           'import { GeometryReader } from "lucent:swiftui";\n',
         ),
       ).toContainEqual([
         "LUCENT3024",
         "`GeometryReader(content:)` cannot be written in a SwiftUI body yet: `content` builds its content from values it is given: a body writes result builders that take none, for now",
       ]);
-      expect(refused(`  return swiftUI(() => Text("x").scrollDisabled(true));`)).toContainEqual([
+      expect(refused(`  return <Text scrollDisabled={true}>x</Text>;`)).toContainEqual([
         "LUCENT3024",
         "`scrollDisabled(_:)` needs iOS 16.0 (apps run from iOS 15.1): a SwiftUI body writes what every supported iOS has, for now",
       ]);
@@ -419,15 +498,23 @@ describe("a SwiftUI component", () => {
   it.skipIf(!ios)(
     "builds SwiftUI views only in its body",
     () => {
-      const { result } = build(
-        toggle(`  const dot = Circle().fill(Color.red);
+      const made = (body: string) => errors(build(toggle(body)).result);
 
-  return swiftUI(() => VStack([Text("x")]));`),
-      );
+      expect(
+        made(`  const dot = <Circle fill={Color.red} />;
 
-      expect(errors(result)).toContainEqual([
+  return <Text>x</Text>;`),
+      ).toContainEqual([
         "LUCENT3024",
-        "a SwiftUI view or value is made only in the body a component gives swiftUI(): write `Circle()` there",
+        "SwiftUI's views are made in the body, the JSX the component returns: write this view in it",
+      ]);
+      expect(
+        made(`  const dot = Circle();
+
+  return <Text>x</Text>;`),
+      ).toContainEqual([
+        "LUCENT3024",
+        "a SwiftUI view or value is made only in the body a component returns: write `Circle()` there",
       ]);
     },
     180_000,
@@ -437,22 +524,32 @@ describe("a SwiftUI component", () => {
     "refuses in its body what SwiftUI code cannot be written for",
     () => {
       // One diagnostic per setup: the first thing that cannot be written.
-      const spread = build(
-        toggle(`  return swiftUI(() => VStack([...[Text("a")], Text("b")]));`),
-      ).result;
+      const spread = build(toggle(`  return <Text {...{ padding: 8 }}>a</Text>;`)).result;
       const labels = build(
         toggle(`  const size = { width: 8, height: 8 };
 
-  return swiftUI(() => VStack([Circle().frame(size)]));`),
+  return <Circle frame={size} />;`),
+      ).result;
+      const element = build(
+        toggle(`  return (
+    <VStack>
+      <Toggle title="x" />
+    </VStack>
+  );`),
       ).result;
 
       expect(errors(spread)).toContainEqual([
         "LUCENT3024",
-        "a SwiftUI view's content is an array literal of views: `...` is not supported in a SwiftUI body",
+        "write each attribute of a SwiftUI view as `name={value}`: `{...}` is not supported",
       ]);
       expect(errors(labels)).toContainEqual([
         "LUCENT3024",
-        "`frame` takes Swift's labeled arguments as an object literal: `frame({ width: … })`",
+        "`frame`'s value gives no form of the modifier: its arguments are one value, an object of its labeled ones, or a tuple of them (`frame={[a, { label: b }]}`)",
+      ]);
+      // A component is React's to mount; a function returning JSX that is not exported is a helper.
+      expect(errors(element)).toContainEqual([
+        "LUCENT3020",
+        "`Toggle` is a component: React mounts it through its host, so Lucent code cannot call it or use it as a value",
       ]);
     },
     180_000,
@@ -473,7 +570,7 @@ describe("a SwiftUI component", () => {
     },
   });
 
-  return swiftUI(() => Text("x").scaleEffect(scale.get()));`),
+  return <Text scaleEffect={scale.get()}>x</Text>;`),
       );
 
       // Its Lucent values are numbers, booleans and strings, which cross as they are.
@@ -493,27 +590,28 @@ describe("a SwiftUI component", () => {
       expect(
         refused(`  const on = signal(false);
 
-  return swiftUI(() => Text("x").onTapGesture(() => on.set(true)));`),
+  return <Text onTapGesture={() => on.set(true)}>x</Text>;`),
       ).toContainEqual([
         "LUCENT3024",
         "the body changes `on` through a setup function it calls: logic is the setup's",
       ]);
       expect(
-        refused(`  const make = () => swiftUI(() => Text("x"));
+        refused(`  const make = () => <Text>x</Text>;
 
   return make();`),
       ).toContainEqual([
         "LUCENT3024",
-        "swiftUI() makes a component's view: call it once in the setup's own code of a component that returns what it makes",
+        "a SwiftUI component returns its body: JSX of SwiftUI's views, which the setup's last statement returns",
       ]);
       expect(
-        refused(`  return swiftUI(() => {
-    const title = "x";
-    return Text(title);
-  });`),
+        refused(`  const on = signal(false);
+
+  if (on.peek()) return <Text>on</Text>;
+
+  return <Text>off</Text>;`),
       ).toContainEqual([
         "LUCENT3024",
-        "a SwiftUI body is one view: return it, `swiftUI(() => VStack([…]))`",
+        "a SwiftUI component returns its body once, as the last statement of its setup: the body is one view, and its conditions are written in it (`{shown && <Text>…</Text>}`)",
       ]);
     },
     180_000,

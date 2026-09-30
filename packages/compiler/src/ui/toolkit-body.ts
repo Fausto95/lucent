@@ -1,6 +1,8 @@
 /**
  * What SwiftUI and Compose bodies share (LUCENT_VIEWS=fabric): where a
- * body starts, and what crosses between it and its setup. The body is
+ * body starts, and what crosses between it and its setup. A body is the
+ * JSX a component returns, its toolkit's elements (`bodyOf`), and, for
+ * Compose, the setup's composition statements (ui/composition.ts). It is
  * written out in the toolkit's language (emit/swiftui.ts, ui/compose.ts);
  * the setup is compiled to C++ (emit/toolkit.ts); they meet through slots:
  *
@@ -27,14 +29,22 @@
  */
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
-import { builtinSdkModuleOf } from "../program.ts";
+import { builtinSdkModuleOf, platformOf } from "../program.ts";
+import { inComposition } from "./composition.ts";
 import type { ViewType } from "./contract.ts";
 import type { FunctionLike } from "./roots.ts";
-import { TOOLKITS, type ToolkitName, toolkitOfModule } from "./toolkits.ts";
+import type { HelperUse, ViewHelper } from "./view-helpers.ts";
+import { TOOLKITS, type ToolkitName, toolkitOfModule, toolkitOfPlatform } from "./toolkits.ts";
 import { ViewTypes } from "./values.ts";
 
-/** A body: the function given to its toolkit's body function. */
-export type BodyFunction = ts.ArrowFunction | ts.FunctionExpression;
+/** JSX: an element, or a fragment of them. */
+export type Jsx = ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment;
+
+/**
+ * A body: the JSX the component returns (with the modifiers chained after
+ * it: `(<Text …/>).padding(4)`), or a body function.
+ */
+export type Body = ts.Expression;
 
 /** The component a body belongs to: its setup. */
 export interface BodySetup {
@@ -80,6 +90,11 @@ export interface ValueSlot {
   readonly list?: ListSlot;
   /** A bound signal's value: `source` is the signal, read with get(). */
   readonly bound?: true;
+  /**
+   * A helper view's value (`source` is in its code), computed where the
+   * helper is used: its props read what `use` gives them.
+   */
+  readonly use?: HelperUse;
 }
 
 /** An array the body shows item by item, each item keyed. */
@@ -162,62 +177,77 @@ export function toolkitDeclaration(
   return toolkit && decl ? { toolkit, decl } : undefined;
 }
 
-/** The toolkit whose body function `call` calls (`swiftUI(…)`, `compose(…)`), if it calls one. */
-export function bodyCallOf(
-  checker: ts.TypeChecker,
-  call: ts.CallExpression,
-): ToolkitName | undefined {
-  const callee = skipParentheses(call.expression);
+export function isJsx(n: ts.Node): n is Jsx {
+  return ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isJsxFragment(n);
+}
 
-  if (!ts.isIdentifier(callee)) return undefined;
+/** The JSX an expression starts from: `<Text …/>` of `(<Text …/>).padding(4)`, if it is one. */
+export function jsxRoot(e: ts.Expression): Jsx | undefined {
+  const at = skipParentheses(e);
 
-  const found = toolkitDeclaration(checker, callee);
+  if (isJsx(at)) return at;
 
-  return found &&
-    ts.isFunctionDeclaration(found.decl) &&
-    found.decl.name?.text === TOOLKITS[found.toolkit].body
-    ? found.toolkit
-    : undefined;
+  const callee = ts.isCallExpression(at) ? skipParentheses(at.expression) : undefined;
+
+  return callee && ts.isPropertyAccessExpression(callee) ? jsxRoot(callee.expression) : undefined;
+}
+
+/** The toolkit whose JSX a file writes: its platform's (program.ts resolves its JSX so). */
+export function jsxToolkitOf(node: ts.Node): ToolkitName | undefined {
+  return toolkitOfPlatform(platformOf(node.getSourceFile().fileName));
 }
 
 /**
- * Whether `node` is a body: the function a body call is given. Its code is
- * the toolkit's, so the program's analyses and the C++ emitter leave it out.
+ * A setup's body: the JSX it returns, once, as the last statement of its
+ * own code (an arrow function's expression), with the modifiers chained
+ * after it. Fails for a toolkit's setup returning anything else, or more
+ * than once.
  */
-export function isToolkitBody(checker: ts.TypeChecker, node: ts.Node): boolean {
-  let at: ts.Node = node;
+export function bodyOf(fn: FunctionLike, name: ToolkitName): Body {
+  const { title } = TOOLKITS[name];
+  const refused = `a ${title} component returns its body: JSX of ${title}'s views, which the setup's last statement returns`;
 
-  while (ts.isParenthesizedExpression(at.parent)) at = at.parent;
+  if (fn.body && !ts.isBlock(fn.body)) {
+    if (jsxRoot(fn.body)) return fn.body;
 
-  const call = at.parent;
+    bodyFail(fn.body, refused);
+  }
 
-  return ts.isCallExpression(call) && call.arguments[0] === at && !!bodyCallOf(checker, call);
-}
+  const returns: ts.ReturnStatement[] = [];
+  const visit = (n: ts.Node): void => {
+    if (ts.isFunctionLike(n) || ts.isClassLike(n)) return;
 
-/**
- * The body a body call is given, checked: one function literal, taking
- * nothing (it reads the setup's names), not async (it draws at once).
- */
-export function bodyFunction(call: ts.CallExpression, toolkit: ToolkitName): BodyFunction {
-  const { body: name } = TOOLKITS[toolkit];
-  const body = call.arguments[0] && skipParentheses(call.arguments[0]);
+    if (ts.isReturnStatement(n)) returns.push(n);
 
-  if (
-    !body ||
-    !(ts.isArrowFunction(body) || ts.isFunctionExpression(body)) ||
-    call.arguments.length !== 1
-  )
-    bodyFail(call, `${name} takes the component's body, a function: ${name}(() => …)`);
+    ts.forEachChild(n, visit);
+  };
 
-  if (body.parameters.length)
+  if (fn.body) ts.forEachChild(fn.body, visit);
+
+  const [only, extra] = returns;
+
+  if (extra || (only && only.parent !== fn.body))
     bodyFail(
-      body,
-      "the body takes no parameters: it reads the setup's props, signals and functions",
+      extra ?? only,
+      `a ${title} component returns its body once, as the last statement of its setup: the body is one view, and its conditions are written in it (\`{shown && <Text>…</Text>}\`)`,
     );
 
-  if (isAsync(body)) bodyFail(body, `the body draws at once: it cannot be async`);
+  if (!only?.expression || !jsxRoot(only.expression)) bodyFail(only ?? fn, refused);
 
-  return body;
+  return only.expression;
+}
+
+/**
+ * Whether `node` is in a body: its code is the toolkit's, so the program's
+ * analyses and the C++ emitter leave it out.
+ */
+export function isToolkitBody(checker: ts.TypeChecker, node: ts.Node): boolean {
+  if (!jsxToolkitOf(node)) return false;
+
+  for (let n: ts.Node | undefined = node.parent; n; n = n.parent) if (isJsx(n)) return true;
+
+  // Compose's composition statements, lifted from the setup's code into its content.
+  return inComposition(checker, node);
 }
 
 /**
@@ -267,10 +297,20 @@ export class Crossings {
   private readonly checker: ts.TypeChecker;
   private readonly toolkit: ToolkitName;
   private readonly setup: BodySetup;
-  private readonly body: BodyFunction;
+  private readonly body: Body;
 
-  constructor(checker: ts.TypeChecker, toolkit: ToolkitName, setup: BodySetup, body: BodyFunction) {
+  /** The body's other code: the setup's statements it takes (Compose's composition statements). */
+  private readonly parts: readonly ts.Node[];
+
+  constructor(
+    checker: ts.TypeChecker,
+    toolkit: ToolkitName,
+    setup: BodySetup,
+    body: Body,
+    parts: readonly ts.Node[] = [],
+  ) {
     this.checker = checker;
+    this.parts = parts;
     // What cannot cross is refused as a value of no plain type: the body never transfers it.
     this.types = new ViewTypes(checker, () => undefined);
     this.toolkit = toolkit;
@@ -297,11 +337,51 @@ export class Crossings {
   }
 
   /**
-   * Whether the setup computes `e`, reading its names and `items`: the
-   * names of the item it is computed for, which count as the setup's.
+   * Whether a helper view computes `e` from its props: plain data reading
+   * them, and nothing of its own or of a toolkit's. The setup computes it
+   * where the helper is used (`value` with the use).
    */
-  private computed(e: ts.Expression, items: ReadonlySet<ts.Symbol>): boolean {
-    if (!this.plain(this.checker.getTypeAtLocation(e))) return false;
+  computedIn(e: ts.Expression, helper: ViewHelper): boolean {
+    return (
+      this.reads(e, (symbol, decl) =>
+        symbol === helper.props
+          ? "setup"
+          : within(decl, helper.fn) || toolkitOfDeclaration(decl)
+            ? "other"
+            : undefined,
+      ) === "setup"
+    );
+  }
+
+  /**
+   * Whether a helper's user gives it `e` as a value the setup can compute:
+   * plain data reading nothing of the body's or of a toolkit's (a literal
+   * too), in the body, or in the code of the helper `user`.
+   */
+  givesValue(e: ts.Expression, user?: ViewHelper): boolean {
+    const read = user
+      ? this.reads(e, (symbol, decl) =>
+          symbol === user.props
+            ? "setup"
+            : within(decl, user.fn) || toolkitOfDeclaration(decl)
+              ? "other"
+              : undefined,
+        )
+      : this.reads(e, this.setupReads(new Set(this.listOf(e)?.names)));
+
+    return read === "setup" || read === "none";
+  }
+
+  /**
+   * What `e` reads, when it is plain data: the setup's names (`own` says
+   * "setup"), other names (or a function), or neither (literals, module
+   * names); undefined for a value of no plain type.
+   */
+  private reads(
+    e: ts.Expression,
+    own: (symbol: ts.Symbol, decl: ts.Node | undefined) => "setup" | "other" | undefined,
+  ): "setup" | "other" | "none" | undefined {
+    if (!this.plain(this.checker.getTypeAtLocation(e))) return undefined;
 
     let setup = false;
     let other = false;
@@ -313,33 +393,50 @@ export class Crossings {
         return;
       }
 
-      // A member's name is its object's: `props.on` reads props.
       const named = ts.isPropertyAccessExpression(n.parent) && n.parent.name === n;
+      const symbol = ts.isIdentifier(n) && !named ? this.symbol(n) : undefined;
+      const found = symbol && own(symbol, symbol.declarations?.[0]);
 
-      if (ts.isIdentifier(n) && !named) {
-        const symbol = this.symbol(n);
-        const decl = symbol?.declarations?.[0];
-
-        if (symbol && items.has(symbol)) setup = true;
-        else if (this.inBody(decl) || toolkitOfDeclaration(decl)) other = true;
-        else if (this.inSetup(decl)) setup = true;
-      }
+      if (found === "setup") setup = true;
+      else if (found === "other") other = true;
 
       ts.forEachChild(n, visit);
     };
 
     visit(e);
 
-    return setup && !other;
+    return other ? "other" : setup ? "setup" : "none";
+  }
+
+  /**
+   * Whether the setup computes `e`, reading its names and `items`: the
+   * names of the item it is computed for, which count as the setup's.
+   */
+  private computed(e: ts.Expression, items: ReadonlySet<ts.Symbol>): boolean {
+    return this.reads(e, this.setupReads(items)) === "setup";
+  }
+
+  /** What a name is to the setup's code: its own (and `items`), the body's or a toolkit's, or neither. */
+  private setupReads(
+    items: ReadonlySet<ts.Symbol>,
+  ): (symbol: ts.Symbol, decl: ts.Node | undefined) => "setup" | "other" | undefined {
+    return (symbol, decl) =>
+      items.has(symbol)
+        ? "setup"
+        : this.inBody(decl) || toolkitOfDeclaration(decl)
+          ? "other"
+          : this.inSetup(decl)
+            ? "setup"
+            : undefined;
   }
 
   /**
    * The value slot of `source` (one per expression text): the body's, or,
    * in what a list's item shows, the item's.
    */
-  value(source: ts.Expression): ValueSlot {
-    const list = this.listOf(source);
-    const key = `value:${list?.index ?? ""}:${source.getText()}`;
+  value(source: ts.Expression, use?: HelperUse): ValueSlot {
+    const list = this.listOf(use ? usedAt(use) : source);
+    const key = `value:${list?.index ?? ""}:${keyOfUse(use)}:${source.getText()}`;
     const found = this.byKey.get(key);
 
     if (found?.kind === "value") return found;
@@ -352,6 +449,7 @@ export class Crossings {
       source,
       type: this.valueType(source),
       ...(list ? { list } : {}),
+      ...(use ? { use } : {}),
     };
 
     this.byKey.set(key, slot);
@@ -654,7 +752,7 @@ export class Crossings {
     let inSetup = false;
 
     for (let n: ts.Node | undefined = decl; n; n = n.parent) {
-      if (n === this.body) return false;
+      if (this.ofBody(n)) return false;
 
       if (n === this.setup.fn) inSetup = true;
     }
@@ -664,9 +762,13 @@ export class Crossings {
 
   /** Whether `decl` is the body's own (a local of it, a callback's parameter). */
   inBody(decl: ts.Node | undefined): boolean {
-    for (let n: ts.Node | undefined = decl; n; n = n.parent) if (n === this.body) return true;
+    for (let n: ts.Node | undefined = decl; n; n = n.parent) if (this.ofBody(n)) return true;
 
     return false;
+  }
+
+  private ofBody(n: ts.Node): boolean {
+    return n === this.body || this.parts.includes(n);
   }
 
   /** Whether `symbol` is a function the setup declares. */
@@ -704,6 +806,11 @@ export class Crossings {
   }
 
   // --- types ---
+
+  /** A value's plain type, as it crosses; refused when it is none. */
+  typeOf(node: ts.Node): ViewType {
+    return this.valueType(node);
+  }
 
   private valueType(node: ts.Node, type = this.checker.getTypeAtLocation(node)): ViewType {
     const found = this.convert(type);
@@ -760,6 +867,23 @@ export class Crossings {
 
 // --- helpers -----------------------------------------------------------------------------------
 
+/** Where a helper use is in the body: its outermost user's element. */
+export function usedAt(use: HelperUse): ts.Node {
+  return use.outer ? usedAt(use.outer) : use.site;
+}
+
+/** A helper use by where each of its users is. */
+export function keyOfUse(use: HelperUse | undefined): string {
+  return use ? `${use.site.getStart()}/${keyOfUse(use.outer)}` : "";
+}
+
+/** Whether `decl` is in `of`. */
+function within(decl: ts.Node | undefined, of: ts.Node): boolean {
+  for (let n = decl; n; n = n.parent) if (n === of) return true;
+
+  return false;
+}
+
 /** What a slot is named after: the prop, signal or function it reads. */
 function slotBase(e: ts.Expression): string {
   if (ts.isPropertyAccessExpression(e)) return e.name.text;
@@ -773,6 +897,11 @@ function slotBase(e: ts.Expression): string {
   }
 
   return ts.isIdentifier(e) ? e.text : "value";
+}
+
+/** A value's name: what it reads, and its place (`title3`). */
+export function valueName(e: ts.Expression, order: number): string {
+  return slotName(slotBase(e), order);
 }
 
 function slotName(base: string, order: number): string {

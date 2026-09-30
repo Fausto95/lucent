@@ -104,7 +104,7 @@ const splitTitle = (implProps: string): Example => ({
 const TOOLKIT_TITLE: Example = {
   "package.json": '{ "name": "example-app" }\n',
   "title.lucent.tsx":
-    'import type { TextView } from "lucent:android/android.widget";\nimport type { UIHostingController } from "lucent:swiftui";\nexport declare function Title(props: { title: string }): UIHostingController | TextView;\n',
+    'import type { TextView } from "lucent:android/android.widget";\nimport type { View } from "lucent:swiftui";\nexport declare function Title(props: { title: string }): View | TextView;\n',
   "title.android.lucent.tsx":
     'import { appContext } from "lucent:android";\nimport { TextView } from "lucent:android/android.widget";\nimport { effect } from "lucent:ui";\nexport function Title(props: { title: string }): TextView {\n  const text = new TextView(appContext());\n  effect(() => text.setText(props.title));\n  return text;\n}\n',
 };
@@ -603,17 +603,17 @@ export const Explanations: Record<Code, Explanation> = {
     summary:
       "A component's SwiftUI or Jetpack Compose body that Lucent cannot write out in Swift or Kotlin, or toolkit code used outside such a body.",
     details:
-      "A component can draw with its platform's toolkit by returning `swiftUI(() => …)` or `compose(() => …)` (internal, under LUCENT_VIEWS=fabric). Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events.",
+      "A component can draw with its platform's toolkit, SwiftUI or Jetpack Compose (internal, under LUCENT_VIEWS=fabric). Lucent writes that body out as Swift or Kotlin, showing the numbers, booleans and strings its setup computes. Toolkit views exist only in a body, whose callbacks call the setup's functions: it doesn't change the setup's state or send events.",
     fix: "make the view in the body, and move logic into a function of the setup that the body calls",
     wrong: {
       ...TOOLKIT_TITLE,
       "title.ios.lucent.tsx":
-        'import { swiftUI, Text, type UIHostingController } from "lucent:swiftui";\nimport { signal } from "lucent:ui";\nexport function Title(props: { title: string }): UIHostingController {\n  const taps = signal(0);\n  return swiftUI(() => Text(props.title).onTapGesture(() => taps.set(taps.peek() + 1)));\n}\n',
+        'import { Text } from "lucent:swiftui";\nimport { signal } from "lucent:ui";\nexport function Title(props: { title: string }) {\n  const taps = signal(0);\n  return <Text onTapGesture={() => taps.set(taps.peek() + 1)}>{props.title}</Text>;\n}\n',
     },
     right: {
       ...TOOLKIT_TITLE,
       "title.ios.lucent.tsx":
-        'import { swiftUI, Text, type UIHostingController } from "lucent:swiftui";\nimport { signal } from "lucent:ui";\nexport function Title(props: { title: string }): UIHostingController {\n  const taps = signal(0);\n  const tap = () => {\n    taps.set(taps.peek() + 1);\n  };\n  return swiftUI(() => Text(props.title).onTapGesture(() => tap()));\n}\n',
+        'import { Text } from "lucent:swiftui";\nimport { signal } from "lucent:ui";\nexport function Title(props: { title: string }) {\n  const taps = signal(0);\n  const tap = () => {\n    taps.set(taps.peek() + 1);\n  };\n  return <Text onTapGesture={() => tap()}>{props.title}</Text>;\n}\n',
     },
     sdk: "ios",
     views: true,
