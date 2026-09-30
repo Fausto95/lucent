@@ -440,19 +440,21 @@ function jsxRuntimeText(): string {
             name: "Element",
             type: elements.length
               ? dts.intersection(elements.map((e) => dts.ref(e)))
-              : dts.keyword("never"),
+              : dts.keyword("unknown"),
           },
-          // A tag is a component of either toolkit: it makes that toolkit's element.
+          // A tag is a component of either toolkit: it makes that toolkit's element. An
+          // untyped toolkit's tags (its module untyped) are any component.
           {
             k: "typeAlias",
             name: "ElementType",
-            type: elements.length
-              ? dts.union(
-                  elements.map((e) =>
-                    dts.fn([dts.param("props", dts.keyword("never"))], dts.ref(e)),
-                  ),
-                )
-              : dts.keyword("never"),
+            type: dts.union([
+              ...elements.map((e) =>
+                dts.fn([dts.param("props", dts.keyword("never"))], dts.ref(e)),
+              ),
+              ...(typed.length < Object.keys(TOOLKITS).length
+                ? [dts.fn([dts.param("props", dts.keyword("never"))], dts.keyword("unknown"))]
+                : []),
+            ]),
           },
           {
             k: "interface",

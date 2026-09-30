@@ -59,14 +59,22 @@ export function checkSamples(pages: DocPage[]): {
   cpp: Map<string, Record<string, CppFile[]>>;
   /** Pages whose platform C++ needs an SDK this machine lacks (CI has no Xcode): their generated C++ is left as it is. */
   unbuilt: Map<string, string[]>;
+  /** Pages of view components that no SDK here compiles (a component's view is a platform's). */
+  unchecked: string[];
 } {
   const problems: string[] = [];
   const cpp = new Map<string, Record<string, CppFile[]>>();
   const unbuilt = new Map<string, string[]>();
   const missing = PLATFORMS.filter((p) => !platformSdkTyped(p));
+  const unchecked: string[] = [];
   let checked = 0;
   for (const page of pages) {
     const samples = samplesOf(page.blocks);
+    // A view component compiles for a platform whose SDK is here; one is enough.
+    if (page.views && samples.length && missing.length === PLATFORMS.length) {
+      unchecked.push(page.slug);
+      continue;
+    }
     const own = samples.filter((s) => !s.expect);
     const app = [...own, ...(page.samplesWith ? contextOf(page.samplesWith, own) : [])];
     const names = app.map((s) => s.filename);
@@ -104,5 +112,5 @@ export function checkSamples(pages: DocPage[]): {
     }
     checked += samples.length;
   }
-  return { checked, problems, cpp, unbuilt };
+  return { checked, problems, cpp, unbuilt, unchecked };
 }
