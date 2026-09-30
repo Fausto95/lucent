@@ -35,7 +35,7 @@ import { componentExports } from "../ui/proxy.ts";
 import { androidComponentHosts, iosComponentViews } from "./views.ts";
 import type { FunctionLike } from "../ui/roots.ts";
 import { emitSetup, mountUnit, planSetup } from "./setups.ts";
-import type { ToolkitName } from "../ui/toolkits.ts";
+import { type ToolkitName, toolkitOfPlatform } from "../ui/toolkits.ts";
 import { helperStatement } from "../ui/view-helpers.ts";
 
 export interface EmitResult {
@@ -390,11 +390,14 @@ export function emitProgram(
       }),
     );
     // iOS platform code sends Objective-C messages: an Objective-C++ unit
-    // (platform files, and shared modules with iOS branches).
+    // (platform files, and shared modules with iOS code: the SDK's, or SwiftUI's).
     const unit = ctx.nativeUnits.get(m);
+    const iosToolkit = toolkitOfPlatform("ios");
     const objc =
       lp.platform === "ios" &&
-      (!!m.declaration || /["']lucent:ios(\/[\w.]+)?["']/.test(m.sourceFile.text));
+      (!!m.declaration ||
+        /["']lucent:ios(\/[\w.]+)?["']/.test(m.sourceFile.text) ||
+        (!!iosToolkit && m.sourceFile.text.includes(`"lucent:${iosToolkit}"`)));
     files.set(
       `${m.ns}.${objc ? "mm" : "cpp"}`,
       cpp.printUnit({
