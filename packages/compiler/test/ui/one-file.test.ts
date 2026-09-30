@@ -94,6 +94,8 @@ describe.skipIf(!both)("a one-file component", () => {
     expect(swift).toContain("HStack(spacing: 6) {");
     expect(swift).toMatch(/\.onTapGesture \{ model\.actions\(0\) \}/);
     expect(swiftErrors(built)).toBe("");
+    // Its glue calls the Swift side: an Objective-C++ unit, as a platform file's is.
+    expect([...built.result.files.keys()]).toContain("ios/m_like.mm");
     expect(built.result.components?.[0]?.platforms.ios?.root).toEqual({
       module: "lucent:swiftui",
       name: "UIHostingController",
