@@ -7,7 +7,7 @@ import { compileSamples, type Sample } from "./compile.ts";
 import { root, where } from "./context.ts";
 
 const isSample = (b: { filename: string; diff?: true; from?: string }): boolean =>
-  b.filename.endsWith(".lucent.ts") && !b.diff && !b.from;
+  /\.lucent\.tsx?$/.test(b.filename) && !b.diff && !b.from;
 
 function samplesOf(blocks: Block[]): Sample[] {
   return blocks.flatMap((b): Sample[] => {
@@ -34,7 +34,7 @@ function contextOf(dir: string, shown: Sample[]): Sample[] {
 
 /** The files the compiler wrote for one module: one, or one per platform when it has platform code. */
 function cppOf(files: Map<string, string>, filename: string): CppFile[] {
-  const module = `m_${filename.replace(/\.lucent\.ts$/, "")}`;
+  const module = `m_${filename.replace(/\.lucent\.tsx?$/, "")}`;
   const candidates: [string, string][] = [
     ["C++", `${module}.cpp`],
     ["iOS", `ios/${module}.mm`],
@@ -76,7 +76,9 @@ export function checkSamples(pages: DocPage[]): {
       );
     }
     if (app.length) {
-      const { diagnostics, files } = compileSamples(page.slug || "index", app);
+      const { diagnostics, files } = compileSamples(page.slug || "index", app, {
+        views: page.views === true,
+      });
       for (const d of diagnostics) problems.push(`${where(page.slug)}: ${formatDiagnostic(d)}`);
       const shown = app.filter((s) => s.cpp);
       const platformCode = shown.some((s) => /from "lucent:(ios|android)/.test(s.code));
@@ -88,7 +90,9 @@ export function checkSamples(pages: DocPage[]): {
         );
     }
     for (const s of samples.filter((x) => x.expect)) {
-      const { diagnostics } = compileSamples(`${page.slug}-expect`, [s]);
+      const { diagnostics } = compileSamples(`${page.slug}-expect`, [s], {
+        views: page.views === true,
+      });
       if (!diagnostics.some((d) => d.code === s.expect)) {
         const got = diagnostics.length
           ? diagnostics.map(formatDiagnostic).join("; ")
