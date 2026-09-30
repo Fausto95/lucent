@@ -1,5 +1,0 @@
----
-"@lucent-lang/lucent": minor
----
-
-Hand bytes between Lucent, compute tasks and JavaScript without copying them, with `NativeBuffer` from `lucent:core`. `NativeBuffer.allocate(size)` and `NativeBuffer.from(bytes)` make one; `withRead(read)` and `withWrite(write)` lend a callback the bytes for one call as a span with a `Uint8Array`'s element semantics (reads share the buffer, a write needs it to itself, a conflicting borrow throws an `InvalidStateError`); `transfer()`, or passing the buffer to `compute`, moves the bytes to a new owner and leaves every reference to the old buffer refusing them; `toUint8Array()` and `from` are the only copies, and `NativeBuffer.stats()` counts them. The compiler keeps a span inside its callback (LUCENT3030: not returned, stored, captured by a closure that outlives the call, kept by a callee or held across `await`) and reports a buffer used after it certainly moved (LUCENT3031). JavaScript receives a buffer as an opaque handle with the same methods, whose borrows lend it a copy, so it never holds memory a worker may be writing. `Uint8Array` keeps its copy semantics.
