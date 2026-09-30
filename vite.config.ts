@@ -22,6 +22,8 @@ const generated = [
   // Xcode and Gradle projects.
   "apps/*/ios/**",
   "apps/*/android/**",
+  // The documentation's one-file component, kept byte for byte as it is published.
+  "apps/bare-example/.views-spike/like.lucent.tsx",
 ];
 
 export default defineConfig({

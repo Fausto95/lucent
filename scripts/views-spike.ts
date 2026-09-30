@@ -32,7 +32,9 @@
  * sized by their content), toggle.js (a component drawn with the
  * platform's toolkit: its animations, actions and state, while JavaScript
  * is blocked), list.js (a todo list drawn with the toolkit: keyed items,
- * bound fields, transitions, the toolkit's environment), or hosting.js
+ * bound fields, transitions, the toolkit's environment), like.js (the
+ * documentation's one-file Like button, three of them, for screenshots),
+ * or hosting.js
  * (see --ui). --trace-sizing has the runtime
  * log each sizing step (LUCENT_SIZING lines: LUCENT_SIZING_TRACE on iOS,
  * the debug.lucent.sizing property on Android). --font-scale makes the
