@@ -1,6 +1,6 @@
-import type { Block, DocPage } from "../../apps/website/src/docs/types.ts";
+import type { Block } from "../../apps/website/src/docs/types.ts";
 import { headingId } from "../../apps/website/src/docs/types.ts";
-import { where } from "./context.ts";
+import type { CheckedPage } from "./pages.ts";
 import { proseOf } from "./prose.ts";
 
 const LINK = /\[[^\]]+\]\((\/[^)]*)\)/g;
@@ -15,9 +15,15 @@ function anchorsOf(blocks: Block[]): string[] {
   });
 }
 
-/** Every internal link names a page that exists (not a redirect), and its #anchor a heading on that page. */
-export function checkLinks(pages: DocPage[]): string[] {
-  const anchors = new Map(pages.map((p) => [where(p.slug), new Set(anchorsOf(p.blocks))]));
+/** Pages that aren't checked pages themselves, but links may name: the list of posts. */
+const indexes = ["/blog/"];
+
+/** Every link into the docs or the blog names a page that exists (not a redirect), and its #anchor a heading on that page. */
+export function checkLinks(pages: CheckedPage[]): string[] {
+  const anchors = new Map([
+    ...indexes.map((href) => [href, new Set<string>()] as const),
+    ...pages.map((p) => [p.href, new Set(anchorsOf(p.blocks))] as const),
+  ]);
   const problems: string[] = [];
   for (const page of pages) {
     const hrefs = [
@@ -26,11 +32,11 @@ export function checkLinks(pages: DocPage[]): string[] {
     ];
     for (const href of hrefs) {
       const [pathname = "", anchor] = href.split("#");
-      if (!pathname.startsWith("/docs")) continue;
+      if (!pathname.startsWith("/docs") && !pathname.startsWith("/blog")) continue;
       const target = anchors.get(pathname);
-      if (!target) problems.push(`${where(page.slug)}: link to ${href}, which is not a page`);
+      if (!target) problems.push(`${page.href}: link to ${href}, which is not a page`);
       else if (anchor && !target.has(anchor))
-        problems.push(`${where(page.slug)}: link to ${href}, which has no heading #${anchor}`);
+        problems.push(`${page.href}: link to ${href}, which has no heading #${anchor}`);
     }
   }
   return problems;

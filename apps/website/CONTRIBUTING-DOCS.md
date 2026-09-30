@@ -1,7 +1,8 @@
 # Writing Lucent's docs
 
-These rules apply to every page under `src/docs/pages`. `node
-scripts/website.ts` checks them; CI runs the same script with `--check`.
+These rules apply to every page under `src/docs/pages`, and to blog posts
+as [Blog posts](#blog-posts) says. `node scripts/website.ts` checks them; CI
+runs the same script with `--check`.
 
 ## The four kinds of page
 
@@ -80,6 +81,14 @@ A removed page gets an entry in `src/docs/redirects.ts`.
   built. Use it on the Start, Learn and How Lucent works examples.
 - `copy: false` hides the copy button, for output the reader reads rather
   than runs.
+
+## Blog posts
+
+A post is an entry in `src/blog/posts.ts` (slug, title, date, summary),
+newest first, and a file of blocks at `src/blog/pages/<slug>.ts`, the same
+`Block`s as a docs page. Its samples compile, its links resolve and its
+prose follows these rules, but it has no length budget and no "Next"
+link, and search leaves it out: a post is dated, not kept current.
 
 ## Glossary
 

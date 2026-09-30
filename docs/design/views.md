@@ -253,7 +253,8 @@ Compose on Android (`lucent:compose`). Both modules resolve under the
 same internal switch. `lucent:swiftui` declares SwiftUI as the SDK
 declares it; `lucent:compose` Compose as its Kotlin metadata declares
 it. A component returns its body: JSX of its toolkit's views, once, as
-the last statement of its setup. Its root, the object the host shows, is
+the last statement of its setup (of its platform's code, in a one-file
+component). Its root, the object the host shows, is
 the toolkit's: the `UIHostingController` Lucent makes for an iOS body,
 the `ComposeView` it makes for an Android one. The body is written out
 in the toolkit's language, with, on Android, the setup's statements that
@@ -261,12 +262,100 @@ compose (see Compose content); the rest of the setup is Lucent code, as
 in any component (signals, effects, commands, timers, events). The component's module is
 a `.lucent.tsx` file, as every component's is.
 
-A platform file's JSX is its toolkit's: the JSX of a
+**One file for both platforms.** A component is written in one shared
+`.lucent.tsx` file: its logic once, and its body with each platform's
+toolkit, in that platform's code:
+
+```tsx
+// like.lucent.tsx
+import { PLATFORM } from "lucent:platform";
+import { Animation, Color, Font, HStack, Image, Text } from "lucent:swiftui";
+import {
+  Alignment,
+  animateFloatAsState,
+  Color as CColor,
+  Modifier,
+  Row,
+  spring,
+  Spring,
+  Text as CText,
+} from "lucent:compose";
+import { signal } from "lucent:ui";
+
+export function Like(props: { count: number }) {
+  const liked = signal(false);
+  const toggle = () => liked.set(!liked.get());
+  const count = () => props.count + (liked.get() ? 1 : 0);
+
+  if (PLATFORM === "ios") {
+    return (
+      <HStack spacing={6} onTapGesture={toggle}>
+        <Image
+          systemName={liked.get() ? "heart.fill" : "heart"}
+          scaleEffect={liked.get() ? 1.3 : 1}
+        />
+        <Text font={Font.headline}>{`${count()}`}</Text>
+      </HStack>
+    );
+  }
+
+  const pop = animateFloatAsState(
+    liked.get() ? 1.3 : 1,
+    spring({ dampingRatio: Spring.DampingRatioHighBouncy }),
+  );
+  return (
+    <Row verticalAlignment={Alignment.CenterVertically} modifier={Modifier.clickable(toggle)}>
+      <CText text={liked.get() ? "♥" : "♡"} modifier={Modifier.scale(pop.value)} />
+      <CText text={`${count()}`} />
+    </Row>
+  );
+}
+```
+
+Each toolkit's names are imported by name, aliased where the two clash
+(`Text as CText`). A toolkit's code is its platform's: a SwiftUI name
+stands in iOS code, a Compose name in Android code, as the platform SDKs'
+names do. Platform code is a `PLATFORM` branch (`if (PLATFORM === "ios")`,
+its `else`, a ternary), the code after a guard that returns
+(`if (PLATFORM === "ios") return …`), or a top-level declaration using
+one platform's code (a helper view). A toolkit's name anywhere else fails
+with LUCENT3024 naming its platform. Each platform's program compiles
+the setup with its own code: the setup's logic, shared, is compiled for
+both, and the body is the one return of the platform's toolkit JSX its
+code has, standing in the setup's own code or in its platform branches.
+A component returning a body on one platform only fails with LUCENT3023,
+as a component on some platforms only does. On Android, the statements
+of the Android code that compose are its composition statements (see
+Compose content), whether they follow an iOS guard or stand in an
+Android branch.
+
+The views spike's toggle and list screens are one-file components. Built
+in Release, they ran on the iOS simulator and on the Android emulator
+(view recycling on), each platform's program compiling its own code of
+the same file: on iOS the toggle took commands, pulsed with
+withAnimation, measured a new title and flipped on its timer while
+JavaScript was blocked, and the list took its commands and its slider;
+on Android the toggle's composition statements (its spring, its pulse's
+coroutine, its lifecycle effect) composed from the Android code, and
+real taps toggled and removed the list's items and added the field's
+text.
+
+Split files stay supported: a module may be a shared declaration
+(`like.lucent.ts`) and a file per platform (`like.ios.lucent.tsx`,
+`like.android.lucent.tsx`), each writing its own toolkit.
+
+**Typing.** A platform file's JSX is its toolkit's: the JSX of a
 `*.ios.lucent.tsx` file is typed by `lucent:swiftui`, that of a
-`*.android.lucent.tsx` file by `lucent:compose`, in the compiler and in
-editors through the Lucent TypeScript plugin; the app's own `.tsx`
-files keep React's. A shared `.lucent.tsx` file writes no JSX
-(LUCENT3024).
+`*.android.lucent.tsx` file by `lucent:compose`. A shared `.lucent.tsx`
+file's JSX is typed by both: its JSX runtime is `lucent:jsx`, whose
+element is every toolkit's at once (`View & Composed`) and whose tags are
+either toolkit's views, so each element checks against its own
+toolkit's declaration, and a SwiftUI modifier may chain after an element
+(`(<Text>a</Text>).padding(4)`). Where a platform's SDK is missing, its
+toolkit is left out and its code is untyped, as its SDK's is. The
+compiler and editors (through the Lucent TypeScript plugin, and the
+`lucent:jsx` declarations `lucent build` writes beside the others) type
+them alike; the app's own `.tsx` files keep React's.
 
 The body and its setup meet through slots, the same way on both
 platforms (`ui/toolkit-body.ts`, `emit/toolkit.ts`):
@@ -366,7 +455,7 @@ Swift `View` struct, a Kotlin `@Composable` function), never as C++
 
 The views spike's list screen (`scripts/views-spike.ts --entry list.js`)
 ran on the iOS simulator and on the Android emulator (view recycling on),
-a todo list written once for each toolkit. Commands added todos (each
+a todo list in one file: its logic once, its body with each toolkit. Commands added todos (each
 animated in), toggled one, typed into the bound field, hid and showed the
 done ones through the bound switch, removed one and renamed the list;
 each change reached JavaScript as an event 0 to 30 ms later, and the host
@@ -410,11 +499,13 @@ export function Toggle(props: { title: string }) {
 }
 ```
 
-The file is the component's iOS one (`toggle.ios.lucent.tsx`), whose JSX
-is SwiftUI's; the shared declaration says the component returns
-SwiftUI's `View` (`View | ComposeView` where Android draws with
-Compose). The body is one view, returned once as the setup's last
-statement: its conditions are written in it.
+Written as a split module, this is the component's iOS file
+(`toggle.ios.lucent.tsx`), whose JSX is SwiftUI's, and the shared
+declaration says the component returns SwiftUI's `View`
+(`View | ComposeView` where Android draws with Compose); in one file, the
+body stands in the iOS code (see Toolkit bodies). The body is one view,
+returned once as the last statement of the platform's code: its
+conditions are written in it.
 
 **Elements.** An element is a view's initializer, called by its Swift
 type's name. An attribute named like one of the initializer's labels is

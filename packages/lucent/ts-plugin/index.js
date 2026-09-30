@@ -11,8 +11,12 @@ const TYPESCRIPT_PASSTHROUGH = "LUCENT9001";
 
 // A platform's Lucent files write JSX with its toolkit (the compiler's TOOLKITS,
 // ui/toolkits.ts; a test keeps them equal): their implicit JSX runtime import
-// resolves to lucent:<toolkit>, whose module declares the JSX namespace.
+// resolves to lucent:<toolkit>, whose module declares the JSX namespace. A
+// shared Lucent file writes either toolkit's, each in its platform's code:
+// its runtime is lucent:jsx, which `lucent build` writes beside them.
 const TOOLKIT_JSX = { ios: "swiftui", android: "compose" };
+const SHARED_JSX = "jsx";
+const LUCENT_JSX_FILE = /\.lucent\.tsx$/;
 const PLATFORM_FILE = /\.(ios|android)\.lucent\.tsx$/;
 const JSX_RUNTIME = /\/jsx-(dev-)?runtime$/;
 
@@ -22,7 +26,7 @@ const JSX_RUNTIME = /\/jsx-(dev-)?runtime$/;
  * file, and the host resolves that import. An app whose JSX has no runtime
  * import (React Native's `jsx: react-native`) gets React's as its import
  * source, which types React's JSX alike (react/jsx-runtime's JSX is
- * React.JSX), once it has platform Lucent files.
+ * React.JSX), once it has Lucent files with JSX.
  */
 function withToolkitJsx(ts, host) {
   const settings = host.getCompilationSettings.bind(host);
@@ -33,7 +37,7 @@ function withToolkitJsx(ts, host) {
       options.jsx === ts.JsxEmit.ReactJSXDev ||
       options.jsx === ts.JsxEmit.React ||
       options.jsxImportSource;
-    if (imported || !host.getScriptFileNames().some((f) => PLATFORM_FILE.test(f))) return options;
+    if (imported || !host.getScriptFileNames().some((f) => LUCENT_JSX_FILE.test(f))) return options;
     return { ...options, jsxImportSource: "react" };
   };
 
@@ -42,7 +46,11 @@ function withToolkitJsx(ts, host) {
     : defaultResolution(ts, host);
   host.resolveModuleNameLiterals = (literals, containing, redirected, options, sf, reused) => {
     const platform = PLATFORM_FILE.exec(containing);
-    const toolkit = platform && TOOLKIT_JSX[platform[1]];
+    const toolkit = platform
+      ? TOOLKIT_JSX[platform[1]]
+      : LUCENT_JSX_FILE.test(containing)
+        ? SHARED_JSX
+        : undefined;
     // The implicit import is synthesized: it has no place in the file's text.
     const runtime = (l) => toolkit && l.pos < 0 && JSX_RUNTIME.test(l.text);
     const own = literals.map((l) =>

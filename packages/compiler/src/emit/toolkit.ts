@@ -126,7 +126,7 @@ export function liftedStatements(em: FnEmitter, setup: Setup): ReadonlySet<ts.St
 
 /** Whether a statement of a setup's own code is its body's (lifted): the setup's C++ leaves it out. */
 export function liftedStatement(em: FnEmitter, s: ts.Statement): boolean {
-  const setup = ts.isBlock(s.parent) ? em.ctx.setups.get(s.parent.parent) : undefined;
+  const setup = setupOf(em.ctx, s);
 
   return !!setup && liftedStatements(em, setup).has(s);
 }
@@ -185,7 +185,7 @@ const BODY_PLACE = "the body a component returns";
  * refused anywhere else (a toolkit's views are made only in the body).
  */
 export function toolkitJsx(em: FnEmitter, node: ts.Expression): E {
-  const toolkit = jsxToolkitOf(node);
+  const toolkit = jsxToolkitOf(node, em.checker);
   const setup = setupOf(em.ctx, node);
 
   if (!toolkit) throw new Error("JSX in a file of no toolkit (the program refuses it)");
@@ -198,7 +198,7 @@ export function toolkitJsx(em: FnEmitter, node: ts.Expression): E {
       `${title}'s views are a component's body: JSX the component returns, as the last statement of its setup`,
     );
 
-  const body = bodyOf(setup.fn, toolkit);
+  const body = bodyOf(setup.fn, toolkit, em.checker);
 
   if (skipParentheses(body) !== skipParentheses(node))
     bodyFail(

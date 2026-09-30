@@ -171,7 +171,16 @@ export declare namespace JSX {
   interface IntrinsicElements { div: { id?: string } }
 }
 `,
+      // Both toolkits' JSX, as `lucent build` writes it for a shared file.
+      "types/jsx.d.ts": `import type { View } from "lucent:swiftui";
+export declare namespace JSX {
+  type Element = View;
+  interface ElementChildrenAttribute { children: {} }
+  interface IntrinsicElements {}
+}
+`,
       "hello.ios.lucent.tsx": `import { Text } from "lucent:swiftui";\nexport const hello = <Text padding={4}>hi</Text>;\n`,
+      "both.lucent.tsx": `import { Text } from "lucent:swiftui";\nexport const hello = <Text padding={4}>hi</Text>;\n`,
       "app.tsx": `export const app = <div id="a" />;\n`,
     };
     const paths = { "lucent:*": ["./types/*"] };
@@ -185,6 +194,13 @@ export declare namespace JSX {
       const s = service(typed, { jsx: ts.JsxEmit.ReactJSX, paths });
 
       expect(errors(s, "hello.ios.lucent.tsx")).toEqual([]);
+      expect(errors(s, "app.tsx")).toEqual([]);
+    });
+
+    it("types a shared Lucent file's JSX with both toolkits", () => {
+      const s = service(typed, { jsx: ts.JsxEmit.ReactNative, paths });
+
+      expect(errors(s, "both.lucent.tsx")).toEqual([]);
       expect(errors(s, "app.tsx")).toEqual([]);
     });
 

@@ -1,8 +1,11 @@
-// The views spike's list screen (apps/bare-example/.views-spike/list.*):
-// a todo list written in Lucent with SwiftUI and with Compose, keyed items
-// with their own state and actions, bound fields, transitions and the
-// toolkit's environment. Its generated Swift and Kotlin compile with the
-// real compilers, as the app builds them.
+// The views spike's list and toggle screens (apps/bare-example/.views-spike):
+// one-file components written in Lucent with SwiftUI and with Compose. The
+// list: keyed items, each a helper view, with their own state and actions,
+// bound fields, transitions and the toolkit's environment; the toggle:
+// animations, a native timer and the composition's lifecycle; the like
+// button: the documentation's one-file component, as it is published. Their
+// generated Swift and Kotlin compile with the real compilers, as the app
+// builds them.
 import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
@@ -18,35 +21,35 @@ import {
 
 const spike = path.join(import.meta.dirname, "../../../../apps/bare-example/.views-spike");
 
-const files = (platform: "ios" | "android") =>
-  Object.fromEntries(
-    ["list.lucent.ts", `list.${platform}.lucent.tsx`].map((f) => [
-      f,
-      fs.readFileSync(path.join(spike, f), "utf8"),
-    ]),
-  );
-
-describe("the views spike's list screen", () => {
-  it.skipIf(!ios)(
-    "writes its SwiftUI body, which type-checks",
-    () => {
-      const built = build(files("ios"), "ios");
-
-      expect(diagnostics(built.result)).toEqual([]);
-      expect(swiftErrors(built)).toBe("");
-    },
-    300_000,
-  );
-
-  it.skipIf(!composeCompiles())(
-    "writes its Compose body, which compiles",
-    () => {
-      const built = build(files("android"), "android");
-
-      expect(diagnostics(built.result)).toEqual([]);
-      expect(kotlinErrors(built)).toBe("");
-      expect(androidGlueErrors(built)).toBe("");
-    },
-    600_000,
-  );
+// One file for both platforms: each platform's program compiles its own code.
+const files = (name: string) => ({
+  [name]: fs.readFileSync(path.join(spike, name), "utf8"),
 });
+
+describe.each(["list.lucent.tsx", "toggle.lucent.tsx", "like.lucent.tsx"])(
+  "the views spike's %s",
+  (name) => {
+    it.skipIf(!ios)(
+      "writes its SwiftUI body, which type-checks",
+      () => {
+        const built = build(files(name), "ios");
+
+        expect(diagnostics(built.result)).toEqual([]);
+        expect(swiftErrors(built)).toBe("");
+      },
+      300_000,
+    );
+
+    it.skipIf(!composeCompiles())(
+      "writes its Compose body, which compiles",
+      () => {
+        const built = build(files(name), "android");
+
+        expect(diagnostics(built.result)).toEqual([]);
+        expect(kotlinErrors(built)).toBe("");
+        expect(androidGlueErrors(built)).toBe("");
+      },
+      600_000,
+    );
+  },
+);

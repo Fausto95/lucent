@@ -4,7 +4,7 @@ import { Codes, type Diagnostic } from "./diagnostics.ts";
 import { builtinSdkModuleOf, type LucentProgram, moduleNameOf, platformOf } from "./program.ts";
 import { type Platform, PLATFORMS } from "./sdk/schema.ts";
 import { toolkitRootType } from "./ui/roots.ts";
-import { TOOLKITS, toolkitOfModule } from "./ui/toolkits.ts";
+import { TOOLKITS, type ToolkitName, toolkitOfModule } from "./ui/toolkits.ts";
 
 /** What a build targets: a platform, or `host` (tests and tools: platform modules become stubs). */
 export type Target = Platform | "host";
@@ -378,11 +378,17 @@ export function platformScopes(checker: ts.TypeChecker, sf: ts.SourceFile): Plat
       if (!ts.isStringLiteral(s.moduleSpecifier) || !s.importClause) continue;
       const spec = s.moduleSpecifier.text;
       const scope = /^lucent:(\w+)/.exec(spec)?.[1];
-      // lucent:core, lucent:platform and native extensions (C, built for both) run on every platform.
-      if (!scope || scope === "core" || scope === "platform" || scope === "ext") continue;
-      const platform = (PLATFORMS as readonly string[]).includes(scope)
-        ? (scope as Platform)
-        : undefined;
+      // lucent:core, lucent:platform, lucent:ui (a component's logic) and native extensions
+      // (C, built for both) run on every platform.
+      if (!scope || scope === "core" || scope === "platform" || scope === "ui" || scope === "ext")
+        continue;
+      // A toolkit (lucent:swiftui) is its platform's code.
+      const toolkit = toolkitOfModule(spec);
+      const platform = toolkit
+        ? TOOLKITS[toolkit].platform
+        : (PLATFORMS as readonly string[]).includes(scope)
+          ? (scope as Platform)
+          : undefined;
       const names = [
         s.importClause.name,
         ...(s.importClause.namedBindings && ts.isNamedImports(s.importClause.namedBindings)
@@ -452,6 +458,8 @@ export function platformScopes(checker: ts.TypeChecker, sf: ts.SourceFile): Plat
   }
   // Platforms of statements, to a fixed point through the declarations they use.
   const uses = new Map<ts.Statement, Set<Platform>>();
+  // The toolkit a statement's platform comes from (a helper view), for messages.
+  const toolkits = new Map<ts.Statement, ToolkitName>();
   const add = (stmt: ts.Statement, p: Platform) => {
     const set = uses.get(stmt) ?? new Set<Platform>();
     const grew = !set.has(p);
@@ -464,6 +472,8 @@ export function platformScopes(checker: ts.TypeChecker, sf: ts.SourceFile): Plat
     for (const r of refs) {
       if (r.branch) continue;
       const p = r.platform ?? (r.target ? only(uses.get(r.target)) : undefined);
+      const toolkit = r.spec ? toolkitOfModule(r.spec) : r.target && toolkits.get(r.target);
+      if (toolkit && !toolkits.has(r.stmt)) toolkits.set(r.stmt, toolkit);
       if (p && add(r.stmt, p)) changed = true;
     }
   }
@@ -500,6 +510,17 @@ export function platformScopes(checker: ts.TypeChecker, sf: ts.SourceFile): Plat
       continue;
     }
     if (!needed || home === needed) continue;
+    const toolkit = r.spec ? toolkitOfModule(r.spec) : r.target && toolkits.get(r.target);
+    if (toolkit) {
+      errors.push(
+        at(
+          r.id,
+          `\`${r.id.text}\` is ${TOOLKITS[toolkit].title}'s (${PLATFORM_NAMES[needed]}): use it in the component's ${PLATFORM_NAMES[needed]} code, inside \`if (PLATFORM === "${needed}")\``,
+          Codes.ToolkitBody,
+        ),
+      );
+      continue;
+    }
     const source = r.spec ? `comes from ${r.spec}` : `uses lucent:${needed}`;
     errors.push(
       at(

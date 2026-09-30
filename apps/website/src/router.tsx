@@ -1,5 +1,6 @@
 import { createRoute, createRouter, lazyRouteComponent, redirect } from "@tanstack/react-router";
 import { docsRedirectRoutes, docsPageRoutes } from "./generated/docs-routes";
+import { blogIndexRoute, blogPostRoute, blogRoute } from "./routes/blog";
 import { docsRoute } from "./routes/docs";
 import { rootRoute } from "./routes/root";
 
@@ -30,6 +31,7 @@ export const router = createRouter({
   routeTree: rootRoute.addChildren([
     homeRoute,
     docsRoute.addChildren([...docsPageRoutes, ...docsRedirectRoutes]),
+    blogRoute.addChildren([blogIndexRoute, blogPostRoute]),
     languageRoute,
     getStartedRoute,
   ]),

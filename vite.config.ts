@@ -22,6 +22,8 @@ const generated = [
   // Xcode and Gradle projects.
   "apps/*/ios/**",
   "apps/*/android/**",
+  // The documentation's one-file component, kept byte for byte as it is published.
+  "apps/bare-example/.views-spike/like.lucent.tsx",
 ];
 
 export default defineConfig({
@@ -85,10 +87,10 @@ export default defineConfig({
     },
     overrides: [
       {
-        // A platform Lucent file's JSX is its toolkit's (SwiftUI's, Compose's),
+        // A Lucent file's JSX is its platforms' toolkits' (SwiftUI's, Compose's),
         // not React's: its component's setup runs once, and its body's calls
-        // are the toolkit's (`Environment(…)`).
-        files: ["**/*.ios.lucent.tsx", "**/*.android.lucent.tsx"],
+        // are the toolkit's (`Environment(…)`, `LaunchedEffect(…)`).
+        files: ["**/*.lucent.tsx"],
         rules: {
           "react/purity": "off",
           "react/capitalized-calls": "off",

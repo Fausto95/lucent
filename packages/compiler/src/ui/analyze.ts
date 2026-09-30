@@ -15,7 +15,15 @@ import { analyze, type Cause, type ProgramFacts, type Unit } from "../analysis/i
 import { NO_NATIVE, type NativeFactsSource, SDK_NATIVE } from "../analysis/native.ts";
 import { Codes, type Diagnostic } from "../diagnostics.ts";
 import { platformScopes } from "../platforms.ts";
-import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
+import {
+  builtinSdkModuleOf,
+  coreTypesPath,
+  type LucentModule,
+  type LucentProgram,
+  platformOf,
+} from "../program.ts";
+import type { Platform } from "../sdk/schema.ts";
+import { TOOLKITS, toolkitOfModule } from "./toolkits.ts";
 import {
   artifactName,
   type CommandDescription,
@@ -36,6 +44,7 @@ import { helperCalls, namedFunctions, setupExpose, skipParentheses, strayCalls }
 import { moduleIdentity } from "./identity.ts";
 import {
   classIdentity,
+  elementsOf,
   type FunctionLike,
   returnShape,
   type RootOf,
@@ -244,7 +253,24 @@ function candidate(
     return undefined;
   };
 
-  if (shape.kind === "value") return "value";
+  if (shape.kind === "value") {
+    // A one-file component whose body is some other platform's only.
+    const elsewhere = lp.platform && otherBody(checker, e.fn, lp.platform);
+
+    // As the merge of the targets' components reports it (ui/merge.ts).
+    if (elsewhere) {
+      diagnostics.push(
+        at(
+          e.fn,
+          Codes.ComponentPlatforms,
+          `\`${e.name}\` is a component on ${elsewhere} but not on ${lp.platform}: return a view on every platform`,
+        ),
+      );
+      return undefined;
+    }
+
+    return "value";
+  }
 
   if (shape.kind === "promised")
     return report(
@@ -282,6 +308,31 @@ function candidate(
     );
 
   return { module: m, ...e, root: shape.root, ...(props ? { props } : {}) };
+}
+
+/**
+ * The platform whose toolkit's JSX a function returns, when the target is
+ * not it (a one-file component's JSX is every toolkit's element type, and
+ * the target's branch returns none).
+ */
+function otherBody(
+  checker: ts.TypeChecker,
+  fn: FunctionLike,
+  target: Platform,
+): Platform | undefined {
+  const signature = checker.getSignatureFromDeclaration(fn);
+  const returned = signature && checker.getReturnTypeOfSignature(signature);
+  const types = returned?.isUnion() ? returned.types : returned ? [returned] : [];
+  const platforms = types
+    .flatMap((t) => elementsOf(t) ?? [])
+    .flatMap((t) => {
+      const decl = t.getSymbol()?.declarations?.[0];
+      const toolkit = decl && toolkitOfModule(builtinSdkModuleOf(decl.getSourceFile()));
+
+      return toolkit ? [TOOLKITS[toolkit].platform] : [];
+    });
+
+  return platforms.find((p) => p !== target);
 }
 
 /** A type that can be a props object: an object type that is not an array, tuple or function. */

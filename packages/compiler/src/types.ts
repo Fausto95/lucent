@@ -10,6 +10,7 @@ import {
   sdkModuleOf,
 } from "./program.ts";
 import type { Platform } from "./sdk/schema.ts";
+import { elementsOf } from "./ui/roots.ts";
 import { TOOLKITS, toolkitOfModule } from "./ui/toolkits.ts";
 
 /**
@@ -469,6 +470,8 @@ export class TypeRegistry {
   private anon = 0;
   readonly checker: ts.TypeChecker;
   readonly isLucentFile: (sf: ts.SourceFile) => boolean;
+  /** The platform of the program lowered: a shared file's JSX element is its toolkit's there. */
+  platform?: Platform;
 
   constructor(checker: ts.TypeChecker, isLucentFile: (sf: ts.SourceFile) => boolean) {
     this.checker = checker;
@@ -790,6 +793,16 @@ export class TypeRegistry {
     }
     if (type.isUnion()) {
       return unionOf(type.types.map((t) => this.lower(t, node)));
+    }
+    // A shared file's JSX element (`View & Composed`): the target platform's toolkit's.
+    const elements = type.isIntersection() ? elementsOf(type) : undefined;
+    if (elements) {
+      const own = elements.find((t) => {
+        const decl = t.getSymbol()?.declarations?.[0];
+        const module = decl && builtinSdkModuleOf(decl.getSourceFile());
+        return !!module && toolkitPlatform(module) === this.platform;
+      });
+      return this.lower(own ?? elements[0]!, node);
     }
     if (type.isIntersection())
       fail(

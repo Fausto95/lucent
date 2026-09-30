@@ -4,7 +4,7 @@
  * strings accept a tiny inline markup: `code`, **strong**, and [text](href).
  * Internal hrefs start with "/".
  *
- * Code whose filename ends in `.lucent.ts` must compile: the samples of a
+ * Code whose filename ends in `.lucent.ts` (or `.lucent.tsx`) must compile: the samples of a
  * page are checked together, as one app. A sample that demonstrates a
  * diagnostic sets `expect` to its code and is checked on its own.
  */
@@ -92,6 +92,11 @@ export interface DocEntry {
    * the page's samples, so a page can show one module of a project, or its diff.
    */
   samplesWith?: string;
+  /**
+   * The page's samples include components drawn with SwiftUI and Compose
+   * (`.lucent.tsx`): they compile with the components' views generated.
+   */
+  views?: true;
 }
 
 export interface DocGroup {

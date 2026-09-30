@@ -16,7 +16,7 @@ import ts from "typescript";
 import { platformOf } from "../program.ts";
 import { compositionStatements } from "./composition.ts";
 import { type FunctionLike, toolkitRootType } from "./roots.ts";
-import { bodyFail, jsxRoot, skipParentheses, symbolOf } from "./toolkit-body.ts";
+import { bodyFail, jsxRoot, jsxToolkitOf, skipParentheses, symbolOf } from "./toolkit-body.ts";
 import { TOOLKITS, type ToolkitName, toolkitOfPlatform } from "./toolkits.ts";
 import { ViewTypes } from "./values.ts";
 
@@ -57,7 +57,11 @@ export interface HelperUse {
  * exported (an exported one is a component), returning its toolkit's JSX.
  */
 export function isViewHelper(checker: ts.TypeChecker, fn: ts.Node): boolean {
-  if (!toolkitOfPlatform(platformOf(fn.getSourceFile().fileName))) return false;
+  // A platform file's, or a shared file's writing its platforms' toolkits (one-file components).
+  const file = fn.getSourceFile().fileName;
+  const platform = platformOf(file);
+
+  if (platform ? !toolkitOfPlatform(platform) : !file.endsWith(".tsx")) return false;
 
   const own = ts.isArrowFunction(fn) || ts.isFunctionExpression(fn);
   const declared = ts.isFunctionDeclaration(fn)
@@ -119,11 +123,24 @@ export function helperAt(checker: ts.TypeChecker, name: ts.Node): ViewHelper | u
 }
 
 function check(checker: ts.TypeChecker, fn: FunctionLike, at: ts.Node): ViewHelper {
-  const toolkit = toolkitOfPlatform(platformOf(fn.getSourceFile().fileName))!;
-  const { title } = TOOLKITS[toolkit];
   const named = fn.name ?? (ts.isVariableDeclaration(fn.parent) ? fn.parent.name : undefined);
   const name = named && ts.isIdentifier(named) ? named.text : at.getText();
   const what = `the helper view \`${name}\``;
+  // A platform file's toolkit; in a shared file, the toolkit of the views it shows.
+  const last = fn.body && ts.isBlock(fn.body) ? fn.body.statements.at(-1) : undefined;
+  const shown =
+    fn.body && !ts.isBlock(fn.body)
+      ? fn.body
+      : last && ts.isReturnStatement(last)
+        ? last.expression
+        : undefined;
+  const toolkit =
+    toolkitOfPlatform(platformOf(fn.getSourceFile().fileName)) ??
+    (shown ? jsxToolkitOf(shown, checker) : undefined);
+
+  if (!toolkit) bodyFail(fn, `${what} returns a toolkit's JSX: SwiftUI's or Compose's views`);
+
+  const { title } = TOOLKITS[toolkit];
   const [param, extra] = fn.parameters;
 
   if (

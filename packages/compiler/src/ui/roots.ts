@@ -144,7 +144,23 @@ export function classIdentity(
 }
 
 function members(t: ts.Type): readonly ts.Type[] {
-  return t.isUnion() ? t.types : [t];
+  return t.isUnion() ? t.types.flatMap(members) : (elementsOf(t) ?? [t]);
+}
+
+/**
+ * The toolkits' element types a shared file's JSX element is at once
+ * (`View & Composed`): each is the view of its toolkit's platform.
+ */
+export function elementsOf(t: ts.Type): readonly ts.Type[] | undefined {
+  if (!t.isIntersection()) return undefined;
+
+  const all = t.types.every((m) => {
+    const decl = m.getSymbol()?.declarations?.[0];
+
+    return !!decl && ts.isInterfaceDeclaration(decl) && !!toolkitElement(decl);
+  });
+
+  return all ? t.types : undefined;
 }
 
 /** `T` of a `Promise<T>` (or `PromiseLike<T>`), if the type is one. */
@@ -203,7 +219,8 @@ function toolkitElement(
  * returning `t` returns as a component; none for any other type.
  */
 export function toolkitRootType(checker: ts.TypeChecker, t: ts.Type): ts.Type | undefined {
-  const decl = t.getSymbol()?.declarations?.[0];
+  const [first] = elementsOf(t) ?? [t];
+  const decl = first?.getSymbol()?.declarations?.[0];
   const root = decl && ts.isInterfaceDeclaration(decl) ? toolkitElement(decl) : undefined;
 
   return root?.decl.name && checker.getTypeAtLocation(root.decl.name);

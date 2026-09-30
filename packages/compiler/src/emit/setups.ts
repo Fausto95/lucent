@@ -185,7 +185,7 @@ export function emitSetup(
   const ns = cpp.type(setup.module.ns);
 
   // A toolkit's component returns its body, the host it makes: checked before its code is.
-  if (setup.toolkit) bodyOf(fn, setup.toolkit);
+  if (setup.toolkit) bodyOf(fn, setup.toolkit, ctx.checker);
 
   const propsStruct = cpp.struct(names.props, [
     ...setup.props.map((p) =>

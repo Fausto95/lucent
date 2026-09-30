@@ -711,7 +711,7 @@ export class Collector {
    * anywhere else, syntax the analyses do not model.
    */
   private jsx(e: Jsx): Value[] {
-    if (!jsxToolkitOf(e))
+    if (!jsxToolkitOf(e, this.checker))
       return this.unmodeled(e, ts.isJsxFragment(e) ? "a JSX fragment" : "a JSX element");
 
     this.own("allocates", "yes", e, "makes a toolkit's body");

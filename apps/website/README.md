@@ -17,6 +17,8 @@ Open http://127.0.0.1:5173. Routes:
 | `/`                           | Home                                                    |
 | `/docs/`                      | Introduction (Guide)                                    |
 | `/docs/<slug>/`               | Every docs page; see `src/docs/nav.ts` for the list     |
+| `/blog/`                      | Every blog post, newest first                           |
+| `/blog/<slug>/`               | A post; see `src/blog/posts.ts` for the list            |
 | `/language/`, `/get-started/` | Redirect to their docs pages (pre-docs URLs)            |
 | retired `/docs/<slug>/`       | Redirect to their replacement (`src/docs/redirects.ts`) |
 
@@ -46,7 +48,8 @@ Import this repository with the **Root Directory set to the repository root**
   components update title/description/OG at runtime through
   `useDocumentMeta`.
 - `src/router.tsx`: routes, redirects, and the not-found page.
-- `src/pages/HomePage.tsx`, `src/pages/DocsPage.tsx`: the two route components.
+- `src/pages/HomePage.tsx`: the homepage. `src/routes/`: the docs and blog
+  routes under the root layout.
 - `src/docs/types.ts`: the docs block model. A page is plain data with no
   React imports: paragraphs with a tiny inline markup (`` `code` ``,
   `**strong**`, `[text](href)`), code blocks, tabbed code, tables, notes,
@@ -57,6 +60,11 @@ Import this repository with the **Root Directory set to the repository root**
   source of truth for sidebar order, prev/next, and slug lookup.
 - `src/components/Docs*.tsx`: layout (sidebar, table of contents, pager) and
   the block renderer. One component per file.
+- `src/blog/posts.ts`: every blog post's title, date and summary, newest
+  first; `src/blog/pages/<slug>.ts` holds its blocks, the docs' `Block`s.
+  `scripts/website.ts` checks posts like docs pages (samples, links, Vale)
+  without a length budget, and leaves them out of search: a post is dated,
+  not kept current. `src/components/Blog*.tsx` render the list and a post.
 - `src/components/diagrams/*.tsx`: hand-laid SVG diagrams (the build
   pipeline, where code runs), built from a few primitives (`DiagramBox`,
   `DiagramArrow`, …) with the site palette. `DocsDiagram` maps names to them.
