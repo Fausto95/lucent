@@ -87,7 +87,9 @@ describe("toolkit JSX", () => {
       });
       const element = lp.checker.getTypeAtLocation(firstJsx(lp.modules[0]!.sourceFile));
 
-      expect(lp.checker.typeToString(element)).toBe("View | Composed");
+      expect(
+        element.isIntersection() && element.types.map((t) => lp.checker.typeToString(t)),
+      ).toEqual(["View", "Composed"]);
       expect(lp.diagnostics).toEqual([]);
     },
   );
@@ -123,7 +125,7 @@ describe("toolkit JSX", () => {
       const { lp, fn } = hello(
         `  const on = signal(false);\n  return (<Text>hi</Text>).padding(4);`,
       );
-      const body = bodyOf(fn, "swiftui");
+      const body = bodyOf(fn, "swiftui", lp.checker);
 
       expect(body.getText()).toBe("(<Text>hi</Text>).padding(4)");
       expect(jsxRoot(body)?.getText()).toBe("<Text>hi</Text>");
@@ -132,19 +134,19 @@ describe("toolkit JSX", () => {
     });
 
     it.skipIf(!ios)("is returned once, as the setup's last statement", () => {
-      const { fn } = hello(
+      const { lp, fn } = hello(
         `  const on = signal(false);\n  if (on.peek()) return <Text>on</Text>;\n  return <Text>off</Text>;`,
       );
 
-      expect(() => bodyOf(fn, "swiftui")).toThrow(
+      expect(() => bodyOf(fn, "swiftui", lp.checker)).toThrow(
         "a SwiftUI component returns its body once, as the last statement of its setup: the body is one view, and its conditions are written in it (`{shown && <Text>…</Text>}`)",
       );
     });
 
     it.skipIf(!ios)("is JSX", () => {
-      const { fn } = hello(`  return 1;`);
+      const { lp, fn } = hello(`  return 1;`);
 
-      expect(() => bodyOf(fn, "swiftui")).toThrow(
+      expect(() => bodyOf(fn, "swiftui", lp.checker)).toThrow(
         "a SwiftUI component returns its body: JSX of SwiftUI's views, which the setup's last statement returns",
       );
     });

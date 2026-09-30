@@ -141,6 +141,9 @@ function sdkLibPath(name: string): string {
  * A toolkit's declarations: generated from its source module (SwiftUI's,
  * served from the virtual directory), or written by hand (lib/sdk).
  */
+/** A shared file's JSX runtime (jsxRuntimeText), served from the virtual directory. */
+const JSX_RUNTIME = path.join(SDK_ROOT, "toolkit", "jsx.d.ts");
+
 function toolkitTypesPath(name: ToolkitName): string {
   return toolkitSource(name) ? path.join(SDK_ROOT, "toolkit", `${name}.d.ts`) : sdkLibPath(name);
 }
@@ -173,6 +176,7 @@ function toolkitDeclarations(name: ToolkitName): { text: string } | { missing: s
  */
 function virtualSdkText(file: string, direct: Set<string>): string | undefined {
   if (path.resolve(file) === UNTYPED) return untypedSdkText();
+  if (path.resolve(file) === JSX_RUNTIME && fabricRequested()) return jsxRuntimeText();
   // lucent:compose: its own declarations, then Compose's, made from its bindings.
   if (path.resolve(file) === sdkLibPath("compose") && fabricRequested())
     return composeModuleText(fs.readFileSync(file, "utf8"));
@@ -247,6 +251,7 @@ export function builtinSdkModuleOf(sf: ts.SourceFile): string | undefined {
     if (file === sdkLibPath(name)) return `lucent:${name}`;
   for (const name of Object.keys(TOOLKITS) as ToolkitName[])
     if (file === toolkitTypesPath(name)) return `lucent:${name}`;
+  if (file === JSX_RUNTIME) return JSX_SOURCE;
   return undefined;
 }
 
@@ -278,6 +283,7 @@ export function compilerOptions(): ts.CompilerOptions {
       ...(fabricRequested()
         ? Object.fromEntries([
             ["lucent:ui", [sdkLibPath("ui")]],
+            [JSX_SOURCE, [JSX_RUNTIME]],
             ...(Object.keys(TOOLKITS) as ToolkitName[]).map((name) => [
               `lucent:${name}`,
               [toolkitTypesPath(name)],
@@ -363,8 +369,6 @@ function compilerHost(
   host.resolveModuleNameLiterals = (literals, containing, redirected, opts, sf) =>
     literals.map((literal) => {
       const runtime = jsxRuntimeOf(literal.text, containing);
-      if (runtime === null) return { resolvedModule: undefined };
-
       return ts.resolveModuleName(
         runtime ?? literal.text,
         containing,
@@ -395,52 +399,72 @@ function compilerHost(
  * toolkit's JSX may be written (a shared file); undefined for any other
  * import, which resolves as it is.
  */
-export function jsxRuntimeOf(specifier: string, file: string): string | null | undefined {
+export function jsxRuntimeOf(specifier: string, file: string): string | undefined {
   if (!new RegExp(`^${JSX_SOURCE}/jsx-(dev-)?runtime$`).test(specifier)) return undefined;
 
   const toolkit = toolkitOfPlatform(platformOf(file));
 
-  return toolkit ? `lucent:${toolkit}` : null;
+  return toolkit ? `lucent:${toolkit}` : JSX_SOURCE;
 }
 
 /**
- * JSX in a file whose platform has no toolkit (a shared module): LUCENT3024
- * at its first element, and the ranges of its JSX, where TypeScript's own
- * errors (no JSX runtime) say nothing more.
+ * `lucent:jsx`, a shared file's JSX runtime: its element is every typed
+ * toolkit's at once (`View & Composed`), so an element is content of
+ * either toolkit's elements and takes either's methods, and a tag is
+ * either toolkit's component (`JSX.ElementType`): each element is typed
+ * by its own toolkit's declaration, and which toolkit's code runs on which
+ * platform is the compiler's to check (platformScopes). A toolkit
+ * whose platform is untyped here is left out: its module is
+ * (untypedSdkText).
  */
-function jsxDiagnostics(sf: ts.SourceFile): { diagnostics: Diagnostic[]; ranges: ts.TextRange[] } {
-  if (!fabricRequested() || toolkitOfPlatform(platformOf(sf.fileName)))
-    return { diagnostics: [], ranges: [] };
+function jsxRuntimeText(): string {
+  const typed = (Object.keys(TOOLKITS) as ToolkitName[]).filter((t) =>
+    platformSdkTyped(TOOLKITS[t].platform),
+  );
+  const elements = typed.map((t) => TOOLKITS[t].element);
 
-  const found: ts.Node[] = [];
-  const visit = (n: ts.Node): void => {
-    if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isJsxFragment(n)) {
-      found.push(n);
-      return;
-    }
-
-    ts.forEachChild(n, visit);
-  };
-
-  visit(sf);
-
-  const [first] = found;
-  const toolkits = (Object.keys(TOOLKITS) as ToolkitName[])
-    .map((t) => `\`*.${TOOLKITS[t].platform}.lucent.tsx\` for ${TOOLKITS[t].title}`)
-    .join(", ");
-
-  return {
-    ranges: found.map((n) => ({ pos: n.getStart(sf), end: n.getEnd() })),
-    diagnostics: first
-      ? [
+  return dts.printUnit({
+    banner: "The JSX of a shared Lucent file: each platform's toolkit's, in its code.",
+    decls: [
+      ...typed.map((t) => ({
+        k: "importType" as const,
+        names: [TOOLKITS[t].element],
+        from: `lucent:${t}`,
+      })),
+      {
+        k: "namespace",
+        name: "JSX",
+        decls: [
           {
-            ...at(sf, first),
-            code: Codes.ToolkitBody,
-            message: `JSX is a component's body, written with its platform's toolkit: write it in a platform file (${toolkits})`,
+            k: "typeAlias",
+            name: "Element",
+            type: elements.length
+              ? dts.intersection(elements.map((e) => dts.ref(e)))
+              : dts.keyword("never"),
           },
-        ]
-      : [],
-  };
+          // A tag is a component of either toolkit: it makes that toolkit's element.
+          {
+            k: "typeAlias",
+            name: "ElementType",
+            type: elements.length
+              ? dts.union(
+                  elements.map((e) =>
+                    dts.fn([dts.param("props", dts.keyword("never"))], dts.ref(e)),
+                  ),
+                )
+              : dts.keyword("never"),
+          },
+          {
+            k: "interface",
+            name: "ElementChildrenAttribute",
+            members: [{ k: "property", name: "children", type: dts.object([]) }],
+          },
+          { k: "interface", name: "IntrinsicElements", members: [] },
+        ],
+      },
+      { k: "exportNothing" },
+    ],
+  });
 }
 
 /**
@@ -518,15 +542,11 @@ export function createLucentProgram(
   ];
   for (const sf of checked) {
     const bad = importDiagnostics(sf, platform);
-    const jsx = jsxDiagnostics(sf);
-    diagnostics.push(...bad, ...jsx.diagnostics);
+    diagnostics.push(...bad);
     for (const d of [
       ...program.getSyntacticDiagnostics(sf),
       ...program.getSemanticDiagnostics(sf),
     ]) {
-      // JSX where no toolkit's may be written is reported once, as a Lucent error.
-      if (d.start !== undefined && jsx.ranges.some((r) => d.start! >= r.pos && d.start! < r.end))
-        continue;
       // An SDK import this program cannot resolve is reported once, as a Lucent error.
       if (
         d.code === 2307 &&

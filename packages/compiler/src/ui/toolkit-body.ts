@@ -29,6 +29,7 @@
  */
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
+import { branchPlatform, platformGuard } from "../platforms.ts";
 import { builtinSdkModuleOf, platformOf } from "../program.ts";
 import { inComposition } from "./composition.ts";
 import type { ViewType } from "./contract.ts";
@@ -192,9 +193,62 @@ export function jsxRoot(e: ts.Expression): Jsx | undefined {
   return callee && ts.isPropertyAccessExpression(callee) ? jsxRoot(callee.expression) : undefined;
 }
 
-/** The toolkit whose JSX a file writes: its platform's (program.ts resolves its JSX so). */
-export function jsxToolkitOf(node: ts.Node): ToolkitName | undefined {
-  return toolkitOfPlatform(platformOf(node.getSourceFile().fileName));
+/**
+ * The toolkit whose JSX `node` is: a platform file's (program.ts resolves
+ * its JSX so), or in a shared file, the toolkit of the platform whose
+ * code it is in (a PLATFORM branch), else of the views it shows (a helper
+ * view's, outside any branch).
+ */
+export function jsxToolkitOf(node: ts.Node, checker: ts.TypeChecker): ToolkitName | undefined {
+  const own = toolkitOfPlatform(platformOf(node.getSourceFile().fileName));
+
+  if (own) return own;
+
+  return toolkitOfPlatform(branchPlatform(checker, node)) ?? shownToolkit(node, checker);
+}
+
+/** The toolkit of the first view a shared file's JSX shows (its tag's, or a helper view's). */
+function shownToolkit(
+  node: ts.Node,
+  checker: ts.TypeChecker,
+  seen = new Set<ts.Node>(),
+): ToolkitName | undefined {
+  if (seen.has(node)) return undefined;
+
+  seen.add(node);
+
+  const jsx = ts.isExpression(node) ? jsxRoot(node) : undefined;
+
+  if (jsx && ts.isJsxFragment(jsx)) {
+    for (const c of jsx.children) {
+      const found = isJsx(c) ? shownToolkit(c, checker, seen) : undefined;
+
+      if (found) return found;
+    }
+
+    return undefined;
+  }
+
+  if (!jsx) return undefined;
+
+  const tag = (ts.isJsxElement(jsx) ? jsx.openingElement : jsx).tagName;
+  const decl = symbolOf(checker, tag)?.declarations?.[0];
+  const direct = toolkitOfDeclaration(decl);
+
+  if (direct) return direct;
+
+  // A helper view: its toolkit is what it returns.
+  const fn = decl && ts.isVariableDeclaration(decl) ? decl.initializer : decl;
+  const body = fn && ts.isFunctionLike(fn) && "body" in fn ? fn.body : undefined;
+  const last = body && ts.isBlock(body) ? body.statements.at(-1) : undefined;
+  const returned =
+    body && !ts.isBlock(body)
+      ? body
+      : last && ts.isReturnStatement(last)
+        ? last.expression
+        : undefined;
+
+  return returned ? shownToolkit(returned, checker, seen) : undefined;
 }
 
 /**
@@ -203,8 +257,8 @@ export function jsxToolkitOf(node: ts.Node): ToolkitName | undefined {
  * after it. Fails for a toolkit's setup returning anything else, or more
  * than once.
  */
-export function bodyOf(fn: FunctionLike, name: ToolkitName): Body {
-  const { title } = TOOLKITS[name];
+export function bodyOf(fn: FunctionLike, name: ToolkitName, checker: ts.TypeChecker): Body {
+  const { title, platform } = TOOLKITS[name];
   const refused = `a ${title} component returns its body: JSX of ${title}'s views, which the setup's last statement returns`;
 
   if (fn.body && !ts.isBlock(fn.body)) {
@@ -213,9 +267,14 @@ export function bodyOf(fn: FunctionLike, name: ToolkitName): Body {
     bodyFail(fn.body, refused);
   }
 
+  // What runs on the toolkit's platform: a shared file's other platform's branches are not its code.
   const returns: ts.ReturnStatement[] = [];
   const visit = (n: ts.Node): void => {
     if (ts.isFunctionLike(n) || ts.isClassLike(n)) return;
+
+    const branch = branchPlatform(checker, n);
+
+    if (branch && branch !== platform) return;
 
     if (ts.isReturnStatement(n)) returns.push(n);
 
@@ -226,7 +285,7 @@ export function bodyOf(fn: FunctionLike, name: ToolkitName): Body {
 
   const [only, extra] = returns;
 
-  if (extra || (only && only.parent !== fn.body))
+  if (extra || (only && !topLevel(checker, only, fn)))
     bodyFail(
       extra ?? only,
       `a ${title} component returns its body once, as the last statement of its setup: the body is one view, and its conditions are written in it (\`{shown && <Text>…</Text>}\`)`,
@@ -238,13 +297,32 @@ export function bodyOf(fn: FunctionLike, name: ToolkitName): Body {
 }
 
 /**
+ * Whether a statement stands in `fn`'s own code: in its body, or only in
+ * PLATFORM branches there (`if (PLATFORM === "ios") { … }`), which a
+ * platform's program takes as its code.
+ */
+function topLevel(checker: ts.TypeChecker, s: ts.Statement, fn: FunctionLike): boolean {
+  for (let n: ts.Node = s; n.parent !== fn.body; n = n.parent) {
+    const p = n.parent;
+    const branch =
+      (ts.isBlock(p) &&
+        ts.isIfStatement(p.parent) &&
+        platformGuard(checker, p.parent.expression)) ||
+      (ts.isIfStatement(p) && n !== p.expression && platformGuard(checker, p.expression));
+
+    if (!branch || ts.isFunctionLike(p)) return false;
+  }
+
+  return true;
+}
+
+/**
  * Whether `node` is in a body: its code is the toolkit's, so the program's
  * analyses and the C++ emitter leave it out.
  */
 export function isToolkitBody(checker: ts.TypeChecker, node: ts.Node): boolean {
-  if (!jsxToolkitOf(node)) return false;
-
-  for (let n: ts.Node | undefined = node.parent; n; n = n.parent) if (isJsx(n)) return true;
+  for (let n: ts.Node | undefined = node.parent; n; n = n.parent)
+    if (isJsx(n) && jsxToolkitOf(n, checker)) return true;
 
   // Compose's composition statements, lifted from the setup's code into its content.
   return inComposition(checker, node);

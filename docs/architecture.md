@@ -491,18 +491,33 @@ Notable lowering choices:
   JSX with an automatic runtime imported from `lucent:jsx`, and its
   compiler host resolves each file's implicit `lucent:jsx/jsx-runtime`
   import to its platform's toolkit module (`jsxRuntimeOf`), whose `JSX`
-  namespace types the elements; a shared file's JSX resolves to none
-  and fails with LUCENT3024. A function returning a toolkit's JSX element
-  type (`TOOLKITS[t].element`, SwiftUI's `View`) returns the toolkit's
-  root class, as far as components go (`ui/roots.ts`). Such a
-  component's body is the JSX its setup returns, once, as its last
-  statement, with the modifiers chained after it (`bodyOf` in
-  `ui/toolkit-body.ts`); `emit/toolkit.ts` makes the host from it where
+  namespace types the elements. A shared file's resolves to `lucent:jsx`
+  (the program's virtual `toolkit/jsx.d.ts`, which `lucent build` writes
+  for the app as `jsx.d.ts`): its `JSX.Element` is the typed toolkits'
+  element types at once (`View & Composed`, which content of either
+  takes) and its `JSX.ElementType` either toolkit's view, so a
+  one-file component writes each platform's toolkit in that platform's
+  code. `platformScopes` takes a toolkit module as its platform's code,
+  as it does the SDK's, and refuses a toolkit's name outside it with
+  LUCENT3024; lucent:ui is every platform's. A function returning a
+  toolkit's JSX element type (`TOOLKITS[t].element`, SwiftUI's `View`)
+  returns the toolkit's root class, as far as components go
+  (`ui/roots.ts`; a one-file element's intersection is the target's
+  toolkit's there, and in `TypeRegistry.lower`, the registry knowing the
+  target platform). Such a component's body is the JSX its setup
+  returns in the platform's code, once, as its last statement, standing
+  in the setup's code or in its platform branches, with the modifiers
+  chained after it (`bodyOf` in `ui/toolkit-body.ts`, pruning the other
+  platform's branches with `branchPlatform`; `jsxToolkitOf` tells a
+  shared file's JSX by its branch, else by the views it shows); a
+  component returning a view on some platforms only fails with
+  LUCENT3023, as its merge would; `emit/toolkit.ts` makes the host from it where
   the setup returns it, and refuses a toolkit's JSX anywhere else. Its
   code is the toolkit's: the analyses take it as making the host, and
   leave its callbacks out. A helper view (`ui/view-helpers.ts`: a
-  function of the platform file, not exported, returning the toolkit's
-  JSX) is written once per component in the toolkit's language, and
+  function of the platform file, or of a shared file, not exported,
+  returning a toolkit's JSX; in a shared file, its toolkit is the views
+  it shows, and it is that platform's code) is written once per component in the toolkit's language, and
   never as C++ (the emitter, module registration and the analyses leave
   it out). What it computes from its props is a value of the body (or a
   list's item) for each place it is used: the value slot carries the
@@ -1063,15 +1078,16 @@ packages' native extensions, bound once per session (`projectExtensions`). The c
 with offsets and lengths. One check serves every file until a Lucent source
 changes version. TypeScript errors are left to TypeScript.
 
-The plugin also types each platform Lucent file's JSX with its toolkit,
-as the compiler does: it wraps the host's module resolution, and a
+The plugin also types each Lucent file's JSX with its toolkits, as the
+compiler does: it wraps the host's module resolution, and a
 `*.ios.lucent.tsx` or `*.android.lucent.tsx` file's implicit JSX runtime
 import (a synthesized import of `<jsxImportSource>/jsx-runtime`) resolves
-to `lucent:swiftui` or `lucent:compose`, through the app's `lucent:*`
-path. The app's other files keep their JSX runtime. An app whose JSX
-imports no runtime (React Native's `jsx: react-native`) gets React's as
-its import source once it has platform Lucent files: its files' JSX is
-then typed by `react/jsx-runtime`, whose `JSX` is React's.
+to `lucent:swiftui` or `lucent:compose`, a shared `.lucent.tsx` file's to
+`lucent:jsx`, through the app's `lucent:*` path. The app's other files
+keep their JSX runtime. An app whose JSX imports no runtime (React
+Native's `jsx: react-native`) gets React's as its import source once it
+has Lucent `.tsx` files: its files' JSX is then typed by
+`react/jsx-runtime`, whose `JSX` is React's.
 
 ## Tests
 

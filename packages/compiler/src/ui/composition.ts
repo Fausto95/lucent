@@ -24,6 +24,7 @@
  */
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
+import { branchPlatform, platformGuard } from "../platforms.ts";
 import { platformOf } from "../program.ts";
 import { bindingOf, isComposeDeclaration } from "./compose-api.ts";
 import { isElement } from "./compose-dts.ts";
@@ -71,16 +72,63 @@ function composes(checker: ts.TypeChecker, node: ts.Node): boolean {
   return found;
 }
 
-/** Whether a function is a Compose component's setup: in an Android file, returning JSX. */
-function composeSetup(fn: FunctionLike): fn is FunctionLike & { body: ts.Block } {
-  if (toolkitOfPlatform(platformOf(fn.getSourceFile().fileName)) !== "compose") return false;
+/**
+ * The statements of a Compose component's own code: its body's, and in a
+ * shared file (both toolkits in one), those of its top-level Android
+ * branches (`if (PLATFORM === "android") { … }`, or the `else` of iOS's);
+ * none for a function that is no Compose component's setup (it returns
+ * no JSX on Android).
+ */
+function ownStatements(checker: ts.TypeChecker, fn: FunctionLike): readonly ts.Statement[] {
+  const platform = platformOf(fn.getSourceFile().fileName);
 
-  const last = fn.body && ts.isBlock(fn.body) ? fn.body.statements.at(-1) : undefined;
-  let e = last && ts.isReturnStatement(last) ? last.expression : undefined;
+  if (!fn.body || !ts.isBlock(fn.body)) return [];
 
-  while (e && ts.isParenthesizedExpression(e)) e = e.expression;
+  if (platform) {
+    if (toolkitOfPlatform(platform) !== "compose") return [];
 
-  return !!e && (ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e) || ts.isJsxFragment(e));
+    const last = fn.body.statements.at(-1);
+
+    return last && ts.isReturnStatement(last) && last.expression && returnsJsx(last.expression)
+      ? fn.body.statements
+      : [];
+  }
+
+  const android = (n: ts.Node) => (branchPlatform(checker, n) ?? "android") === "android";
+  const out: ts.Statement[] = [];
+  let returns = false;
+
+  const take = (statements: readonly ts.Statement[]): void => {
+    for (const s of statements) {
+      if (!android(s)) continue;
+
+      const guard = ts.isIfStatement(s) ? platformGuard(checker, s.expression) : undefined;
+
+      if (ts.isIfStatement(s) && guard && !guard.rest.length) {
+        const side = guard.platform === "android" ? s.thenStatement : s.elseStatement;
+
+        if (side) take(ts.isBlock(side) ? side.statements : [side]);
+        continue;
+      }
+
+      if (ts.isReturnStatement(s) && s.expression && returnsJsx(s.expression)) returns = true;
+
+      out.push(s);
+    }
+  };
+
+  take(fn.body.statements);
+
+  return returns ? out : [];
+}
+
+/** Whether an expression is JSX. */
+function returnsJsx(expression: ts.Expression): boolean {
+  let e = expression;
+
+  while (ts.isParenthesizedExpression(e)) e = e.expression;
+
+  return ts.isJsxElement(e) || ts.isJsxSelfClosingElement(e) || ts.isJsxFragment(e);
 }
 
 const found = new WeakMap<FunctionLike, readonly ts.Statement[]>();
@@ -93,11 +141,9 @@ export function compositionStatements(
   let out = found.get(fn);
 
   if (!out) {
-    out = composeSetup(fn)
-      ? fn.body.statements.filter(
-          (s) => (ts.isVariableStatement(s) || ts.isExpressionStatement(s)) && composes(checker, s),
-        )
-      : [];
+    out = ownStatements(checker, fn).filter(
+      (s) => (ts.isVariableStatement(s) || ts.isExpressionStatement(s)) && composes(checker, s),
+    );
     found.set(fn, out);
   }
 
@@ -107,12 +153,16 @@ export function compositionStatements(
 /** Whether `node` is in a composition statement (or is one). */
 export function inComposition(checker: ts.TypeChecker, node: ts.Node): boolean {
   for (let n: ts.Node | undefined = node; n; n = n.parent) {
-    const fn = n.parent && ts.isBlock(n.parent) ? n.parent.parent : undefined;
+    if (!ts.isVariableStatement(n) && !ts.isExpressionStatement(n)) continue;
+
+    let fn: ts.Node | undefined = n.parent;
+
+    while (fn && !ts.isFunctionLike(fn)) fn = fn.parent;
 
     if (
       fn &&
       (ts.isFunctionDeclaration(fn) || ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) &&
-      compositionStatements(checker, fn).includes(n as ts.Statement)
+      compositionStatements(checker, fn).includes(n)
     )
       return true;
   }

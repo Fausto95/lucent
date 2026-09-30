@@ -92,6 +92,7 @@ export function emitProgram(
 ): EmitResult {
   const ctx = new Ctx(lp.checker, lp.modules);
   ctx.platform = lp.platform;
+  if (lp.platform) ctx.reg.platform = lp.platform;
   bindCompute(ctx, lp);
   const byFile = new Map(lp.modules.map((m) => [path.resolve(m.sourceFile.fileName), m]));
   // Importers of a platform module see its shared declaration file.

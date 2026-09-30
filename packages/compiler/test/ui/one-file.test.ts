@@ -113,12 +113,18 @@ describe.skipIf(!both)("a one-file component", () => {
       module: "lucent:compose",
       name: "ComposeView",
     });
+  }, 600_000);
 
-    if (composeCompiles()) {
+  it.skipIf(!composeCompiles())(
+    "compiles its Android body as the app does",
+    () => {
+      const built = build({ "like.lucent.tsx": LIKE }, "android");
+
       expect(kotlinErrors(built)).toBe("");
       expect(androidGlueErrors(built)).toBe("");
-    }
-  }, 600_000);
+    },
+    600_000,
+  );
 
   it("takes its Android body from a branch of its own too", () => {
     const code = `export function Like(props: { count: number }) {
@@ -205,6 +211,27 @@ describe.skipIf(!both)("a one-file component", () => {
       expect(diagnostics(result)).toContainEqual(
         "LUCENT3023 `Like` is a component on ios but not on android: return a view on every platform",
       );
+    } finally {
+      delete process.env.LUCENT_VIEWS;
+    }
+  }, 600_000);
+
+  it("compiles for Android where the iOS SDK is missing, its iOS code untyped", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-one-file-"));
+    const file = path.join(dir, "like.lucent.tsx");
+
+    fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
+    fs.writeFileSync(file, LIKE);
+    process.env.LUCENT_VIEWS = "fabric";
+
+    try {
+      const result = compile([file], {
+        platforms: ["android"],
+        sdk: { ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") } },
+      });
+
+      expect(diagnostics(result)).toEqual([]);
+      expect(result.compose).toBe(true);
     } finally {
       delete process.env.LUCENT_VIEWS;
     }
