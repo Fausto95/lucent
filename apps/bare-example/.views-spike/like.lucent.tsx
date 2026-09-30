@@ -1,7 +1,10 @@
 import { PLATFORM } from "lucent:platform";
-import { Animation, Color, Font, HStack, Image, Text } from "lucent:swiftui";
-import { Alignment, animateFloatAsState, Arrangement, Color as CColor, dp, FontWeight, Modifier, Row, sp, spring, Spring, Text as CText } from "lucent:compose";
 import { signal } from "lucent:ui";
+import { Animation, Color, Font, HStack, Image, Text } from "lucent:swiftui";
+import {
+  Alignment, Arrangement, Color as CColor, FontWeight, Modifier, Row,
+  Spring, Text as CText, animateFloatAsState, dp, sp, spring,
+} from "lucent:compose";
 
 export function Like(props: { count: number }) {
   const liked = signal(false);
@@ -15,14 +18,20 @@ export function Like(props: { count: number }) {
           systemName={liked.get() ? "heart.fill" : "heart"}
           foregroundStyle={liked.get() ? Color.pink : Color.gray}
           scaleEffect={liked.get() ? 1.3 : 1}
-          animation={[Animation.spring({ response: 0.3, dampingFraction: 0.4 }), { value: liked.get() }]}
+          animation={[
+            Animation.spring({ response: 0.3, dampingFraction: 0.4 }),
+            { value: liked.get() },
+          ]}
         />
         <Text font={Font.headline}>{`${count()}`}</Text>
       </HStack>
     );
   }
 
-  const pop = animateFloatAsState(liked.get() ? 1.3 : 1, spring({ dampingRatio: Spring.DampingRatioHighBouncy }));
+  const pop = animateFloatAsState(
+    liked.get() ? 1.3 : 1,
+    spring({ dampingRatio: Spring.DampingRatioHighBouncy }),
+  );
 
   return (
     <Row
