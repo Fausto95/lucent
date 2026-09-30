@@ -57,7 +57,8 @@ describe("toolkit JSX", () => {
     expect(jsxRuntimeOf("lucent:jsx/jsx-dev-runtime", "/a/toggle.android.lucent.tsx")).toBe(
       "lucent:compose",
     );
-    expect(jsxRuntimeOf("lucent:jsx/jsx-runtime", "/a/toggle.lucent.tsx")).toBeNull();
+    // A shared file writes either platform's toolkit, each in its platform's code.
+    expect(jsxRuntimeOf("lucent:jsx/jsx-runtime", "/a/toggle.lucent.tsx")).toBe("lucent:jsx");
     expect(jsxRuntimeOf("lucent:swiftui", "/a/toggle.ios.lucent.tsx")).toBeUndefined();
     expect(jsxToolkits()).toEqual({ ios: "swiftui", android: "compose" });
   });
@@ -78,16 +79,18 @@ describe("toolkit JSX", () => {
     expect(lp.diagnostics.map((d) => d.message).filter((m) => /TS(2875|7026)/.test(m))).toEqual([]);
   });
 
-  it("refuses JSX in a file of no platform", () => {
-    const lp = program({ "a.lucent.tsx": "export const x = <div>{1}</div>;\n" });
+  it.skipIf(!ios || !sdkAvailable("android"))(
+    "types a shared file's JSX with both toolkits",
+    () => {
+      const lp = program({
+        "a.lucent.tsx": `import { PLATFORM } from "lucent:platform";\nimport { Text } from "lucent:swiftui";\nexport const hello = PLATFORM === "ios" ? <Text>hi</Text> : null;\n`,
+      });
+      const element = lp.checker.getTypeAtLocation(firstJsx(lp.modules[0]!.sourceFile));
 
-    expect(lp.diagnostics.map((d) => [d.code, d.message])).toEqual([
-      [
-        "LUCENT3024",
-        "JSX is a component's body, written with its platform's toolkit: write it in a platform file (`*.ios.lucent.tsx` for SwiftUI, `*.android.lucent.tsx` for Compose)",
-      ],
-    ]);
-  });
+      expect(lp.checker.typeToString(element)).toBe("View | Composed");
+      expect(lp.diagnostics).toEqual([]);
+    },
+  );
 
   it.skipIf(!ios)("makes a component returning SwiftUI's JSX a SwiftUI component", () => {
     const lp = program(
