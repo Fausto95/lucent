@@ -13,6 +13,7 @@ export function SiteLayout() {
   const inDocs = pathname.startsWith("/docs");
   const inReference = pathname.startsWith("/docs/reference");
   const inHowItWorks = pathname.startsWith("/docs/how-it-works");
+  const inBlog = pathname.startsWith("/blog");
   return (
     <ThemeProvider>
       <ClipboardProvider>
@@ -45,6 +46,12 @@ export function SiteLayout() {
               >
                 Reference
               </Link>
+              <Link
+                to="/blog/"
+                {...stylex.props(styles.overviewNavLink, inBlog && styles.activeNav)}
+              >
+                Blog
+              </Link>
               <SearchButton />
               <ThemeToggle />
               <a href="https://github.com/Fausto95/lucent" {...stylex.props(styles.githubLink)}>
@@ -69,6 +76,9 @@ export function SiteLayout() {
               </Link>
               <Link to="/docs/comparison/" {...stylex.props(styles.footerLink)}>
                 Comparison
+              </Link>
+              <Link to="/blog/" {...stylex.props(styles.footerLink)}>
+                Blog
               </Link>
               <a href="https://github.com/Fausto95/lucent" {...stylex.props(styles.footerLink)}>
                 GitHub ↗

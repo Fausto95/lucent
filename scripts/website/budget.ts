@@ -1,9 +1,9 @@
-import type { Block, DocKind, DocPage } from "../../apps/website/src/docs/types.ts";
-import { where } from "./context.ts";
+import type { Block } from "../../apps/website/src/docs/types.ts";
+import type { CheckedPage } from "./pages.ts";
 import { proseOf } from "./prose.ts";
 
 /** Words of prose and lines of code a page may have (CONTRIBUTING-DOCS.md); reference pages have no budget. */
-const budgets: Record<DocKind, { words: number; code: number } | undefined> = {
+const budgets: Record<CheckedPage["kind"], { words: number; code: number } | undefined> = {
   start: { words: 400, code: 60 },
   guide: { words: 400, code: 60 },
   learn: { words: 800, code: 120 },
@@ -11,6 +11,8 @@ const budgets: Record<DocKind, { words: number; code: number } | undefined> = {
   // A whole module is the point of an example page.
   example: { words: 400, code: Infinity },
   reference: undefined,
+  // A post is dated and read once, not kept up to date: it says what it needs to.
+  post: undefined,
 };
 
 const lines = (code: string): number => code.split("\n").length;
@@ -42,7 +44,7 @@ function words(blocks: Block[]): number {
 }
 
 /** A page over its budget should be split. */
-export function checkBudgets(pages: DocPage[]): string[] {
+export function checkBudgets(pages: CheckedPage[]): string[] {
   return pages.flatMap((page) => {
     const budget = budgets[page.kind];
     if (!budget) return [];
@@ -52,6 +54,6 @@ export function checkBudgets(pages: DocPage[]): string[] {
       ...(w > budget.words ? [`${w} words (budget ${budget.words})`] : []),
       ...(c > budget.code ? [`${c} lines of code (budget ${budget.code})`] : []),
     ];
-    return over.length ? [`${where(page.slug)} has ${over.join(" and ")}: split it`] : [];
+    return over.length ? [`${page.href} has ${over.join(" and ")}: split it`] : [];
   });
 }

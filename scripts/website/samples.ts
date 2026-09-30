@@ -1,10 +1,11 @@
 import { formatDiagnostic } from "../../packages/compiler/src/index.ts";
 import { PLATFORMS, platformSdkTyped } from "../../packages/compiler/src/sdk/schema.ts";
-import type { Block, CppFile, DocPage } from "../../apps/website/src/docs/types.ts";
+import type { Block, CppFile } from "../../apps/website/src/docs/types.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { compileSamples, type Sample } from "./compile.ts";
-import { root, where } from "./context.ts";
+import { root } from "./context.ts";
+import type { CheckedPage } from "./pages.ts";
 
 const isSample = (b: { filename: string; diff?: true; from?: string }): boolean =>
   /\.lucent\.tsx?$/.test(b.filename) && !b.diff && !b.from;
@@ -51,15 +52,15 @@ function cppOf(files: Map<string, string>, filename: string): CppFile[] {
 
 /**
  * A page's samples compile together, as one app; a sample with `expect` compiles alone and must fail with that code.
- * Returns the C++ of the samples marked `cpp`, by page slug.
+ * Returns the C++ of the samples marked `cpp`, by page URL.
  */
-export function checkSamples(pages: DocPage[]): {
+export function checkSamples(pages: CheckedPage[]): {
   checked: number;
   problems: string[];
   cpp: Map<string, Record<string, CppFile[]>>;
-  /** Pages whose platform C++ needs an SDK this machine lacks (CI has no Xcode): their generated C++ is left as it is. */
+  /** Pages whose platform C++ needs an SDK this machine lacks (CI has no Xcode), by URL: their generated C++ is left as it is. */
   unbuilt: Map<string, string[]>;
-  /** Pages of view components that no SDK here compiles (a component's view is a platform's). */
+  /** Pages of view components that no SDK here compiles (a component's view is a platform's), by URL. */
   unchecked: string[];
 } {
   const problems: string[] = [];
@@ -72,42 +73,41 @@ export function checkSamples(pages: DocPage[]): {
     const samples = samplesOf(page.blocks);
     // A view component compiles for a platform whose SDK is here; one is enough.
     if (page.views && samples.length && missing.length === PLATFORMS.length) {
-      unchecked.push(page.slug);
+      unchecked.push(page.href);
       continue;
     }
     const own = samples.filter((s) => !s.expect);
     const app = [...own, ...(page.samplesWith ? contextOf(page.samplesWith, own) : [])];
     const names = app.map((s) => s.filename);
     for (const dup of new Set(names.filter((n, i) => names.indexOf(n) !== i))) {
-      problems.push(
-        `${where(page.slug)}: two samples are named ${dup}; a page's samples form one app`,
-      );
+      problems.push(`${page.href}: two samples are named ${dup}; a page's samples form one app`);
     }
+    // Each page compiles in its own directory, named after its URL.
+    const dir = page.href.slice(1, -1);
     if (app.length) {
-      const { diagnostics, files } = compileSamples(page.slug || "index", app, {
-        views: page.views === true,
-      });
-      for (const d of diagnostics) problems.push(`${where(page.slug)}: ${formatDiagnostic(d)}`);
+      const { diagnostics, files } = compileSamples(dir, app, { views: page.views === true });
+      for (const d of diagnostics) problems.push(`${page.href}: ${formatDiagnostic(d)}`);
       const shown = app.filter((s) => s.cpp);
       const platformCode = shown.some((s) => /from "lucent:(ios|android)/.test(s.code));
-      if (shown.length && platformCode && missing.length) unbuilt.set(page.slug, missing);
+      // "See the C++" loads a docs page's generated C++ (src/generated/cpp/<slug>.ts).
+      if (shown.length && page.kind === "post")
+        problems.push(`${page.href}: "See the C++" (cpp: true) is for docs pages`);
+      else if (shown.length && platformCode && missing.length) unbuilt.set(page.href, missing);
       else if (shown.length && !diagnostics.length)
         cpp.set(
-          page.slug,
+          page.href,
           Object.fromEntries(shown.map((s) => [s.filename, cppOf(files, s.filename)])),
         );
     }
     for (const s of samples.filter((x) => x.expect)) {
-      const { diagnostics } = compileSamples(`${page.slug}-expect`, [s], {
+      const { diagnostics } = compileSamples(`${dir}-expect`, [s], {
         views: page.views === true,
       });
       if (!diagnostics.some((d) => d.code === s.expect)) {
         const got = diagnostics.length
           ? diagnostics.map(formatDiagnostic).join("; ")
           : "it compiled";
-        problems.push(
-          `${where(page.slug)}: ${s.filename} should fail with ${s.expect}, but ${got}`,
-        );
+        problems.push(`${page.href}: ${s.filename} should fail with ${s.expect}, but ${got}`);
       }
     }
     checked += samples.length;

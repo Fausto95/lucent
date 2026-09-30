@@ -1,8 +1,9 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import type { Block, DocPage } from "../../apps/website/src/docs/types.ts";
-import { root, where } from "./context.ts";
+import type { Block } from "../../apps/website/src/docs/types.ts";
+import { root } from "./context.ts";
+import type { CheckedPage } from "./pages.ts";
 
 /** Everything a reader reads, as Markdown. Code is left out: Vale checks the words around it. */
 export function proseOf(blocks: Block[]): string[] {
@@ -44,13 +45,13 @@ const proseDir = path.join(root, "apps/website/.prose");
 
 /** Writes each page's prose to apps/website/.prose/ and runs Vale on it. */
 export function checkProse(
-  pages: DocPage[],
+  pages: CheckedPage[],
   required: boolean,
 ): { ran: boolean; problems: string[]; warnings: string[] } {
   fs.rmSync(proseDir, { recursive: true, force: true });
-  const byFile = new Map<string, DocPage>();
+  const byFile = new Map<string, CheckedPage>();
   for (const page of pages) {
-    const file = path.join(proseDir, `${page.slug || "index"}.md`);
+    const file = path.join(proseDir, `${page.href}index.md`);
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(
       file,
@@ -75,7 +76,7 @@ export function checkProse(
   for (const line of vale.stdout.trim().split("\n").filter(Boolean)) {
     const [file = "", at, , rule, ...message] = line.split(":");
     const page = byFile.get(file);
-    const finding = `${page ? where(page.slug) : file}: ${message.join(":")} [${rule}, .prose/${path.relative(proseDir, file)}:${at}]`;
+    const finding = `${page ? page.href : file}: ${message.join(":")} [${rule}, .prose/${path.relative(proseDir, file)}:${at}]`;
     problems.push(finding);
   }
   return { ran: true, problems, warnings };
