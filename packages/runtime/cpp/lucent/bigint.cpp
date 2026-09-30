@@ -549,7 +549,10 @@ BigInt BigInt::divide(const BigInt& a, const BigInt& b, bool remainder) {
 
 BigInt BigInt::negateBeyond() const {
   Parts p = A::parts(*this);
-  return A::make(!p.negative && !p.magnitude.empty(), std::move(p.magnitude));
+  // Read before the move: arguments are evaluated in no set order (GCC goes right to left).
+  bool negative = !p.negative && !p.magnitude.empty();
+
+  return A::make(negative, std::move(p.magnitude));
 }
 
 BigInt BigInt::pow(const BigInt& base, const BigInt& exponent) {

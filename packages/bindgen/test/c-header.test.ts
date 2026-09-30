@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { cLinkage, type CType, extractCHeader, formatCType, parseCType } from "../src/c-header.ts";
+import { uint64Name } from "./c-types.ts";
 
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/c");
 const clang = spawnSync(process.env.LUCENT_CLANG ?? "clang", ["--version"]).status === 0;
@@ -89,7 +90,7 @@ describe.skipIf(!clang)("C headers", () => {
   it("resolves typedefs, from other headers too, to what C means", () => {
     const fn = (name: string) => header().functions.find((f) => f.name === name)!;
 
-    expect(fn("gauge_total").result).toEqual(int("unsigned long long", false, 64));
+    expect(fn("gauge_total").result).toEqual(int(uint64Name(), false, 64));
     expect(fn("gauge_total").params[0]!.type).toEqual(ptr(record("Gauge"), true));
     expect(fn("gauge_samples").result).toEqual(int("unsigned int", false, 32));
     expect(fn("gauge_ready").result).toEqual({ k: "bool" });

@@ -43,8 +43,10 @@ fs.mkdirSync(work, { recursive: true });
 // The device build needs a platform SDK; the rest of the check does not.
 const device = runLucent(["build", "--root", app], { cwd: root, timeout: STEP_TIMEOUT });
 if (device.status === 0) console.log("• lucent build");
-else if (/no platform SDK is installed/.test(device.stderr))
-  console.log("• lucent build: skipped (no platform SDK here; the host build below needs none)");
+else if (/no platform SDK is installed|no platform to build here/.test(device.stderr))
+  console.log(
+    "• lucent build: skipped (no platform to build here; the host build below needs none)",
+  );
 else throw new Error(`lucent build\n${device.stderr}\n${device.stdout}`);
 
 // Platform modules run only on devices; the host gets stubs of them, built

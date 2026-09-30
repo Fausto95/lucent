@@ -9,6 +9,7 @@ import {
   android,
   androidGlueErrors,
   build,
+  composeCompiles,
   diagnostics,
   generated,
   kotlinErrors,
@@ -99,35 +100,41 @@ const TODOS = `export function Todos(props: Props) {
 }`;
 
 describe.skipIf(!android)("a Compose body's helper views", () => {
-  it("are composable functions of their own, their values computed where they are used", async () => {
-    const built = build(component(`${HELPERS}\n\n${TODOS}`), "android");
+  it.skipIf(!composeCompiles())(
+    "are composable functions of their own, their values computed where they are used",
+    async () => {
+      const built = build(component(`${HELPERS}\n\n${TODOS}`), "android");
 
-    expect(diagnostics(built.result)).toEqual([]);
+      expect(diagnostics(built.result)).toEqual([]);
 
-    const kotlin = generated(built.result, /^dev\/lucent\/compose\/.*\.kt$/);
+      const kotlin = generated(built.result, /^dev\/lucent\/compose\/.*\.kt$/);
 
-    // A helper is a composable: what it computes from its props, and its callbacks.
-    expect(kotlin).toMatch(/@Composable\nfun \w+_Line\(/);
-    expect(kotlin).toMatch(/value\d+: String/);
-    expect(kotlin).toContain("onToggle: () -> Unit");
-    expect(kotlin).toContain("onRemove: (Double) -> Unit");
-    // Its composition statements compose where it does; a helper using another gives it its values.
-    expect(kotlin).toMatch(/fun \w+_Check\(done\d+: Boolean\) \{\n\s+val width = animateDpAsState/);
-    expect(kotlin).toMatch(/\w+_Check\(done\d+ = done\d+\)/);
-    // Its callbacks call the lambdas its user gives it.
-    expect(kotlin).toMatch(/\.clickable\(onClick = onToggle\)|\.clickable \{ onToggle\(\) \}/);
-    expect(kotlin).toMatch(/\.clickable \{ onRemove\(id\d+\) \}/);
-    // Used in the body, its values are the state's; in a list's item, the item's.
-    expect(kotlin).toMatch(/\w+_Line\(done\d+ = lucent\.\w+\.value, /);
-    expect(kotlin).toMatch(
-      /\w+_Line\(done\d+ = lucent_item\.\w+\.value, .*onToggle = \{ lucent\.toggle\d+\(lucent_item\.key\) \}/,
-    );
+      // A helper is a composable: what it computes from its props, and its callbacks.
+      expect(kotlin).toMatch(/@Composable\nfun \w+_Line\(/);
+      expect(kotlin).toMatch(/value\d+: String/);
+      expect(kotlin).toContain("onToggle: () -> Unit");
+      expect(kotlin).toContain("onRemove: (Double) -> Unit");
+      // Its composition statements compose where it does; a helper using another gives it its values.
+      expect(kotlin).toMatch(
+        /fun \w+_Check\(done\d+: Boolean\) \{\n\s+val width = animateDpAsState/,
+      );
+      expect(kotlin).toMatch(/\w+_Check\(done\d+ = done\d+\)/);
+      // Its callbacks call the lambdas its user gives it.
+      expect(kotlin).toMatch(/\.clickable\(onClick = onToggle\)|\.clickable \{ onToggle\(\) \}/);
+      expect(kotlin).toMatch(/\.clickable \{ onRemove\(id\d+\) \}/);
+      // Used in the body, its values are the state's; in a list's item, the item's.
+      expect(kotlin).toMatch(/\w+_Line\(done\d+ = lucent\.\w+\.value, /);
+      expect(kotlin).toMatch(
+        /\w+_Line\(done\d+ = lucent_item\.\w+\.value, .*onToggle = \{ lucent\.toggle\d+\(lucent_item\.key\) \}/,
+      );
 
-    await expect(kotlin).toMatchFileSnapshot("__snapshots__/android/Helpers.kt.snap");
+      await expect(kotlin).toMatchFileSnapshot("__snapshots__/android/Helpers.kt.snap");
 
-    expect(kotlinErrors(built)).toBe("");
-    expect(androidGlueErrors(built)).toBe("");
-  }, 600_000);
+      expect(kotlinErrors(built)).toBe("");
+      expect(androidGlueErrors(built)).toBe("");
+    },
+    600_000,
+  );
 
   it("refuses what a helper cannot be", () => {
     const refused = (code: string) => diagnostics(build(component(code), "android").result);

@@ -30,6 +30,7 @@ import {
   mapLucentPaths,
   missingAppEntries,
   type Notice,
+  pendingAndroidModules,
   projectHashes,
   projectSdk,
   resolveAndroidDependencies,
@@ -262,6 +263,7 @@ export async function buildProject(
     : undefined;
   let platforms = options.platforms;
   let deferAndroid = false;
+  let deferReason = "its dependencies are resolved by the Gradle build";
 
   // A host build has the platform modules' stubs: no Android dependencies to resolve.
   if (build && (!platforms || platforms.includes("android"))) {
@@ -325,6 +327,21 @@ export async function buildProject(
     }
   }
 
+  // An app without its Android project yet (Expo before prebuild): nothing resolves the modules
+  // its dependencies declare, so Android waits for the project, as for a prebuild.
+  if (!deferAndroid && !platforms?.includes("android")) {
+    const pending = pendingAndroidModules(root, files, sdk).map((m) => `lucent:android/${m}`);
+
+    if (pending.length) {
+      deferAndroid = true;
+      deferReason = "the app has no Android project yet";
+      notify({
+        level: "warn",
+        text: `${pending.join(", ")} ${pending.length === 1 ? "is" : "are"} untyped: the app has no Android project to resolve ${pending.length === 1 ? "it" : "them"} yet. Checked after expo prebuild, or once android/ exists${platforms ? "" : "; skipped Android here"}`,
+      });
+    }
+  }
+
   // Platform code: split platform files, or modules branching on PLATFORM.
   if (!platforms && files.some((f) => platformOf(f) || usesPlatforms(f))) {
     // Build what this machine can: an Android-only Linux host, a Mac without the Android SDK.
@@ -338,21 +355,24 @@ export async function buildProject(
           text: `${why}; skipped ${p === "ios" ? "iOS" : "Android"} (build it with --platforms ${p} once the SDK is installed)`,
         });
       } else if (p === "android" && deferAndroid)
-        skipped.push({ platform: p, reason: "its dependencies are resolved by the Gradle build" });
+        skipped.push({ platform: p, reason: deferReason });
     }
 
     const installed = (["ios", "android"] as const).filter(
       (p) => !skipped.some((s) => s.platform === p),
     );
     if (!installed.length) {
-      graph.record("resolve:platforms", "resolve", "failed", {
-        detail: "no platform SDK is installed",
-      });
-      return outcome({ fatal: "no platform SDK is installed" });
+      // Android waiting for its project (or Gradle) is no missing SDK.
+      const detail = deferAndroid
+        ? `no platform to build here: ${skipped.map((s) => `${s.platform}: ${s.reason}`).join("; ")}`
+        : "no platform SDK is installed";
+
+      graph.record("resolve:platforms", "resolve", "failed", { detail });
+      return outcome({ fatal: detail });
     }
 
     platforms = installed;
-    if (build && options.prefetch) backgroundPrefetch(root, files);
+    if (build && options.prefetch) backgroundPrefetch(root, files, installed);
   }
 
   for (const { platform, reason } of skipped)

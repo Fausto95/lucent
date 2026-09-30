@@ -10,13 +10,19 @@ Scheduler::Scheduler() : ExecutionContext(&microtaskCount_) {
   worker_ = WorkerThread::start([this](Job& job) { runTurn(job); });
 }
 
+namespace {
+/// The scheduler's owner, leaked on purpose (jobs may still reference the
+/// scheduler during static destruction at process exit), and kept
+/// reachable: a leak checker (LeakSanitizer) reports what it cannot reach.
+std::shared_ptr<Scheduler>* keptScheduler = nullptr;
+}  // namespace
+
 Scheduler& Scheduler::instance() {
-  // Leaked on purpose: jobs may still reference the scheduler during static
-  // destruction at process exit.
+  // The scheduler itself, one load away on the call path.
   static Scheduler* s = [] {
-    auto* kept = new std::shared_ptr<Scheduler>(new Scheduler());
-    (*kept)->makeRoot();
-    return kept->get();
+    keptScheduler = new std::shared_ptr<Scheduler>(new Scheduler());
+    (*keptScheduler)->makeRoot();
+    return keptScheduler->get();
   }();
   return *s;
 }

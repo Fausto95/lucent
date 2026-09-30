@@ -12,7 +12,9 @@ out="$1"
 shift
 flags=(-std=c++20 -ffp-contract=off -g -O1 -Wall -Wno-unused-parameter -Wno-unused-function -I"$cpp" -I"$hermes/API" -I"$hermes/API/jsi" -I"$hermes/public" -I"$hermes/build/lib/config")
 if [[ "${SANITIZE:-0}" == "1" ]]; then
-  flags+=(-fsanitize=address,undefined -fno-omit-frame-pointer)
+  # Not vptr: Hermes is built without RTTI, and on Linux its shared_ptr
+  # releases bind to this binary's checked copies, which find no type info.
+  flags+=(-fsanitize=address,undefined -fno-sanitize=vptr -fno-omit-frame-pointer)
 elif [[ "${SANITIZE:-0}" == "thread" ]]; then
   flags+=(-fsanitize=thread -fno-omit-frame-pointer)
 fi

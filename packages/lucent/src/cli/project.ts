@@ -10,12 +10,14 @@ import {
   libraryBuildGradle,
   lucentPackages,
   type NativeInputs,
+  type Platform,
   type PlistValue,
   podsSearchPaths,
   resolveNative,
   type ResolvedNative,
   runtimeDir,
   type SdkOptions,
+  sdkModules,
 } from "@lucent-lang/compiler";
 import { withLucentPaths } from "./tsconfig.ts";
 import { packageFile } from "./version.ts";
@@ -106,8 +108,8 @@ export function resolveAndroidDependencies(
   native: ResolvedNative,
   force: boolean,
 ): AndroidDependencies {
-  const android = path.join(root, "android");
-  const gradlew = path.join(android, process.platform === "win32" ? "gradlew.bat" : "gradlew");
+  const gradlew = gradlewOf(root);
+  const android = path.dirname(gradlew);
 
   if (!sdkImports(files).android.length || !fs.existsSync(gradlew)) return { status: "none" };
 
@@ -425,6 +427,29 @@ function gradleInputsHash(root: string, native: ResolvedNative): string {
   return h.digest("hex").slice(0, 16);
 }
 
+/** The app's Android project's Gradle wrapper, where the project has one. */
+const gradlewOf = (root: string) =>
+  path.join(root, "android", process.platform === "win32" ? "gradlew.bat" : "gradlew");
+
+/**
+ * The Android modules `files` import that neither android.jar nor Lucent
+ * packages' libraries declare, while the app has no Android project whose
+ * Gradle build resolves its dependencies (an Expo app before expo
+ * prebuild): none once it has one, or the classpath one resolved.
+ */
+export function pendingAndroidModules(root: string, files: string[], sdk: SdkOptions): string[] {
+  const imports = sdkImports(files).android;
+  const resolved = sdk.android?.classpath && fs.existsSync(sdk.android.classpath);
+
+  if (!imports.length || resolved || fs.existsSync(gradlewOf(root))) return [];
+
+  const available = sdkModules("android", sdk);
+  if (!Array.isArray(available)) return [];
+
+  const declared = new Set(available);
+  return imports.filter((m) => !declared.has(m));
+}
+
 /** The JS lockfile, in the app or up to the workspace root (monorepos). */
 function lockfiles(root: string): string[] {
   const names = ["package-lock.json", "yarn.lock", "pnpm-lock.yaml", "bun.lock", "bun.lockb"];
@@ -444,19 +469,49 @@ export function sdkImports(files: string[]): { ios: string[]; android: string[] 
 }
 
 /**
- * Extracts each imported module in its own background process: the build
- * then waits on their locks instead of extracting them one after another.
+ * The `lucent sdk prefetch` arguments of each background process: the
+ * built platforms' imports, dealt round robin to at most `slots`
+ * processes, so the build, extracting in order, finds the first ones
+ * under way. Each process loads the compiler: one per module would
+ * exhaust a small machine's memory.
  */
-export function backgroundPrefetch(root: string, files: string[]): void {
-  const imports = sdkImports(files);
-  for (const p of ["ios", "android"] as const) {
-    for (const m of imports[p]) {
-      const child = spawn(
-        process.execPath,
-        [process.argv[1]!, "sdk", "prefetch", `--${p}`, m, "--root", root],
-        { detached: true, stdio: "ignore" },
-      );
-      child.unref();
-    }
+export function prefetchJobs(
+  imports: Record<Platform, string[]>,
+  platforms: readonly Platform[],
+  slots: number,
+): string[][] {
+  const jobs = platforms.flatMap((p) => imports[p].map((m) => [p, m] as const));
+  const count = Math.min(jobs.length, slots);
+
+  return Array.from({ length: count }, (_, i) => {
+    const mine = jobs.filter((_, j) => j % count === i);
+
+    // An empty list would mean every module of the platform.
+    return platforms.flatMap((p) => {
+      const modules = mine.filter(([q]) => q === p).map(([, m]) => m);
+      return modules.length ? [`--${p}`, modules.join(",")] : [];
+    });
+  });
+}
+
+/**
+ * Extracts the built platforms' imported modules in background processes,
+ * one per spare core: the build then waits on their locks instead of
+ * extracting them one after another.
+ */
+export function backgroundPrefetch(
+  root: string,
+  files: string[],
+  platforms: readonly Platform[],
+): void {
+  const slots = Math.max(1, os.availableParallelism() - 1);
+
+  for (const args of prefetchJobs(sdkImports(files), platforms, slots)) {
+    const child = spawn(
+      process.execPath,
+      [process.argv[1]!, "sdk", "prefetch", ...args, "--root", root],
+      { detached: true, stdio: "ignore" },
+    );
+    child.unref();
   }
 }

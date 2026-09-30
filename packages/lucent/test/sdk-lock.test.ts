@@ -10,6 +10,9 @@ const javac = spawnSync("javac", ["-version"]).status === 0;
 const android = sdkAvailable("android");
 const ios = process.platform === "darwin" && sdkAvailable("ios");
 
+/** The app has code for both platforms: locking it needs both SDKs. */
+const locks = javac && android && ios;
+
 /**
  * Versions of a tracking library no Lucent source names. 2 drops track,
  * returns a long from level, deprecates flush, adds a setSize(int) that
@@ -151,66 +154,78 @@ interface Lock {
 }
 
 describe.skipIf(!javac || !android)("the SDK lock", () => {
-  it("records the SDK identities and symbols the code uses, without machine paths", async () => {
-    const a = app();
+  it.skipIf(!locks)(
+    "records the SDK identities and symbols the code uses, without machine paths",
+    async () => {
+      const a = app();
 
-    const r = a.lucent(["sdk", "lock"]);
-    expect(r.status, r.out).toBe(0);
-    expect(r.out).toMatch(/lucent-sdk\.lock\.json/);
+      const r = a.lucent(["sdk", "lock"]);
+      expect(r.status, r.out).toBe(0);
+      expect(r.out).toMatch(/lucent-sdk\.lock\.json/);
 
-    const text = fs.readFileSync(path.join(a.root, "lucent-sdk.lock.json"), "utf8");
-    const lock = JSON.parse(text) as Lock;
-    expect(await validate("sdk-lock", lock)).toEqual([]);
+      const text = fs.readFileSync(path.join(a.root, "lucent-sdk.lock.json"), "utf8");
+      const lock = JSON.parse(text) as Lock;
+      expect(await validate("sdk-lock", lock)).toEqual([]);
 
-    expect(lock.targets).toContain("android");
-    expect(lock.modules["android/dev.orbit.tracking"]!.artifacts).toEqual([
-      expect.stringMatching(/^android-sdk:[\w.]+#\w+$/),
-      expect.stringMatching(/^jar:orbit\.jar#\w+$/),
-    ]);
-    expect(lock.symbols).toContainEqual(
-      expect.objectContaining({ owner: "Tracker", name: "track", kind: "method", roles: ["call"] }),
-    );
-    expect(lock.symbols).toContainEqual(
-      expect.objectContaining({ owner: "Tracker", kind: "constructor", roles: ["new"] }),
-    );
-    expect(text).not.toContain(a.root);
-    expect(text).not.toContain(a.cache);
-    expect(text).not.toContain(os.homedir());
+      expect(lock.targets).toContain("android");
+      expect(lock.modules["android/dev.orbit.tracking"]!.artifacts).toEqual([
+        expect.stringMatching(/^android-sdk:[\w.]+#\w+$/),
+        expect.stringMatching(/^jar:orbit\.jar#\w+$/),
+      ]);
+      expect(lock.symbols).toContainEqual(
+        expect.objectContaining({
+          owner: "Tracker",
+          name: "track",
+          kind: "method",
+          roles: ["call"],
+        }),
+      );
+      expect(lock.symbols).toContainEqual(
+        expect.objectContaining({ owner: "Tracker", kind: "constructor", roles: ["new"] }),
+      );
+      expect(text).not.toContain(a.root);
+      expect(text).not.toContain(a.cache);
+      expect(text).not.toContain(os.homedir());
 
-    // A check reads the same symbols, and records them for other tools.
-    expect(a.lucent(["check"]).status).toBe(0);
-    const usage = readJson(path.join(a.root, ".lucent/sdk-usage.json")) as unknown as Lock;
-    expect(usage.symbols).toEqual(lock.symbols);
-  });
+      // A check reads the same symbols, and records them for other tools.
+      expect(a.lucent(["check"]).status).toBe(0);
+      const usage = readJson(path.join(a.root, ".lucent/sdk-usage.json")) as unknown as Lock;
+      expect(usage.symbols).toEqual(lock.symbols);
+    },
+  );
 
-  it("lets a frozen check through only on the SDKs and symbols it records", () => {
-    const a = app();
-    expect(a.lucent(["sdk", "lock"]).status).toBe(0);
-    expect(a.lucent(["check", "--frozen"]).status).toBe(0);
+  it.skipIf(!locks)(
+    "lets a frozen check through only on the SDKs and symbols it records",
+    () => {
+      const a = app();
+      expect(a.lucent(["sdk", "lock"]).status).toBe(0);
+      expect(a.lucent(["check", "--frozen"]).status).toBe(0);
 
-    // Compatible, but not the artifact the lock records.
-    a.use("1.1");
-    const other = a.lucent(["check", "--frozen"]);
-    expect(other.status).toBe(1);
-    expect(other.out).toMatch(
-      /lucent:android\/dev\.orbit\.tracking: jar:orbit\.jar#\w+ → jar:orbit\.jar#\w+/,
-    );
-    expect(other.out).toMatch(/lucent sdk diff/);
-    expect(a.lucent(["check"]).status).toBe(0);
+      // Compatible, but not the artifact the lock records.
+      a.use("1.1");
+      const other = a.lucent(["check", "--frozen"]);
+      expect(other.status).toBe(1);
+      expect(other.out).toMatch(
+        /lucent:android\/dev\.orbit\.tracking: jar:orbit\.jar#\w+ → jar:orbit\.jar#\w+/,
+      );
+      expect(other.out).toMatch(/lucent sdk diff/);
+      expect(a.lucent(["check"]).status).toBe(0);
 
-    // Recorded again: frozen passes.
-    expect(a.lucent(["sdk", "lock"]).status).toBe(0);
-    expect(a.lucent(["check", "--frozen"]).status).toBe(0);
+      // Recorded again: frozen passes.
+      expect(a.lucent(["sdk", "lock"]).status).toBe(0);
+      expect(a.lucent(["check", "--frozen"]).status).toBe(0);
 
-    // A use the lock does not record.
-    fs.writeFileSync(
-      path.join(a.root, "o.android.lucent.ts"),
-      USE.replace("t.flush();", "t.flush();\n  t.unused();"),
-    );
-    const unlocked = a.lucent(["check", "--frozen"]);
-    expect(unlocked.status).toBe(1);
-    expect(unlocked.out).toMatch(/not in lucent-sdk\.lock\.json.*Tracker\.unused/);
-  }, 180_000);
+      // A use the lock does not record.
+      fs.writeFileSync(
+        path.join(a.root, "o.android.lucent.ts"),
+        USE.replace("t.flush();", "t.flush();\n  t.unused();"),
+      );
+      const unlocked = a.lucent(["check", "--frozen"]);
+      expect(unlocked.status).toBe(1);
+      expect(unlocked.out).toMatch(/not in lucent-sdk\.lock\.json.*Tracker\.unused/);
+    },
+    180_000,
+  );
 
   it("says a frozen check needs a lock it can read", () => {
     const a = app();
@@ -228,49 +243,60 @@ describe.skipIf(!javac || !android)("the SDK lock", () => {
     expect(bogus.out).toMatch(/lucent-sdk\.lock\.json: unknown target windows/);
   });
 
-  it("does not lock a project whose platform has no SDK, unless --platforms leaves it out", () => {
-    const a = app();
-    const missing = { LUCENT_ANDROID_JARS: path.join(a.root, "no-android.jar") };
+  it.skipIf(!locks)(
+    "does not lock a project whose platform has no SDK, unless --platforms leaves it out",
+    () => {
+      const a = app();
+      const missing = { LUCENT_ANDROID_JARS: path.join(a.root, "no-android.jar") };
 
-    const r = a.lucent(["sdk", "lock"], missing);
-    expect(r.status).toBe(1);
-    expect(r.out).toMatch(/android: .*not found.*--platforms/s);
-    expect(fs.existsSync(path.join(a.root, "lucent-sdk.lock.json"))).toBe(false);
+      const r = a.lucent(["sdk", "lock"], missing);
+      expect(r.status).toBe(1);
+      expect(r.out).toMatch(/android: .*not found.*--platforms/s);
+      expect(fs.existsSync(path.join(a.root, "lucent-sdk.lock.json"))).toBe(false);
 
-    expect(a.lucent(["sdk", "lock", "--platforms", "ios"], missing).status === 0).toBe(ios);
-  });
+      expect(a.lucent(["sdk", "lock", "--platforms", "ios"], missing).status === 0).toBe(ios);
+    },
+  );
 
-  it("fails a frozen build that would leave a locked target to the Gradle build", () => {
-    const a = app();
-    expect(a.lucent(["sdk", "lock"]).status).toBe(0);
+  it.skipIf(!locks)(
+    "fails a frozen build that would leave a locked target to the Gradle build",
+    () => {
+      const a = app();
+      expect(a.lucent(["sdk", "lock"]).status).toBe(0);
 
-    // expo prebuild: no classpath yet, and Gradle not to be run now.
-    fs.rmSync(path.join(a.root, ".lucent/android-classpath.json"));
-    fs.mkdirSync(path.join(a.root, "android"));
-    fs.writeFileSync(path.join(a.root, "android/gradlew"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+      // expo prebuild: no classpath yet, and Gradle not to be run now.
+      fs.rmSync(path.join(a.root, ".lucent/android-classpath.json"));
+      fs.mkdirSync(path.join(a.root, "android"));
+      fs.writeFileSync(path.join(a.root, "android/gradlew"), "#!/bin/sh\nexit 1\n", {
+        mode: 0o755,
+      });
 
-    const r = a.lucent(["build", "--frozen"], { LUCENT_NO_GRADLE: "1" });
-    expect(r.status).toBe(1);
-    expect(r.out).toMatch(/the SDK lock requires android, which this build skips/);
-  });
+      const r = a.lucent(["build", "--frozen"], { LUCENT_NO_GRADLE: "1" });
+      expect(r.status).toBe(1);
+      expect(r.out).toMatch(/the SDK lock requires android, which this build skips/);
+    },
+  );
 
-  it("fails a frozen check whose required target has no SDK, where a plain check skips it", () => {
-    const a = app();
-    expect(a.lucent(["sdk", "lock"]).status).toBe(0);
+  it.skipIf(!locks)(
+    "fails a frozen check whose required target has no SDK, where a plain check skips it",
+    () => {
+      const a = app();
+      expect(a.lucent(["sdk", "lock"]).status).toBe(0);
 
-    const missing = { LUCENT_ANDROID_JARS: path.join(a.root, "no-android.jar") };
-    const plain = a.lucent(["check"], missing);
-    expect(plain.out).not.toMatch(/SDK lock/);
-    // Untyped Android modules let the shared code check where iOS builds.
-    expect(plain.status === 0, plain.out).toBe(ios);
+      const missing = { LUCENT_ANDROID_JARS: path.join(a.root, "no-android.jar") };
+      const plain = a.lucent(["check"], missing);
+      expect(plain.out).not.toMatch(/SDK lock/);
+      // Untyped Android modules let the shared code check where iOS builds.
+      expect(plain.status === 0, plain.out).toBe(ios);
 
-    const frozen = a.lucent(["check", "--frozen"], missing);
-    expect(frozen.status).toBe(1);
-    expect(frozen.out).toMatch(/the SDK lock requires android, whose SDK is unavailable/);
-  });
+      const frozen = a.lucent(["check", "--frozen"], missing);
+      expect(frozen.status).toBe(1);
+      expect(frozen.out).toMatch(/the SDK lock requires android, whose SDK is unavailable/);
+    },
+  );
 });
 
-describe.skipIf(!javac || !android)("lucent sdk diff", () => {
+describe.skipIf(!locks)("lucent sdk diff", () => {
   it("shows what a new SDK changes for the symbols the code uses, before rebuilding", async () => {
     const a = app();
     expect(a.lucent(["sdk", "lock"]).status).toBe(0);

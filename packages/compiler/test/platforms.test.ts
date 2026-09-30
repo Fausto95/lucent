@@ -456,6 +456,31 @@ describe("platform declarations in one module", () => {
     },
   );
 
+  it.skipIf(!android)(
+    "compiles for Android where the iOS SDK is missing, a declaration file naming iOS types",
+    () => {
+      const r = compile(
+        project({
+          ...haptics,
+          "haptics.lucent.ts": `import type { UIColor } from "lucent:ios/UIKit";
+import type { Color } from "lucent:android/android.graphics";
+
+export type Tint = UIColor | Color;
+
+${haptics["haptics.lucent.ts"]}`,
+        }),
+        {
+          platforms: ["android"],
+          sdk: { ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") } },
+        },
+      );
+      expect(r.diagnostics).toEqual([]);
+      expect([...r.files.values()].some((f) => f.includes("android/os/VibrationEffect"))).toBe(
+        true,
+      );
+    },
+  );
+
   it("keeps exports shared, and each declaration on one platform", () => {
     const r = compile(
       project({

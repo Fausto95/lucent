@@ -19,6 +19,15 @@ export const ios = process.platform === "darwin" && sdkAvailable("ios");
 
 export const android = sdkAvailable("android");
 
+/**
+ * Whether kotlinErrors and androidGlueErrors can check Compose content
+ * here: kotlinc, Compose's libraries in Gradle's cache (an app build with
+ * Compose content downloads them), and the NDK with React Native's
+ * headers Gradle unpacked.
+ */
+export const composeCompiles = (): boolean =>
+  android && !!kotlinToolchain() && !!composeClasspath() && !!androidToolchain();
+
 export interface Built {
   readonly dir: string;
   readonly result: CompileResult;

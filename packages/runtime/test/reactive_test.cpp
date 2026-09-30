@@ -531,6 +531,8 @@ static void computedCycles() {
       out = e->name.toUtf8() + ": " + e->message.toUtf8();
     }
 
+    // The function holds the computed that holds it: a cycle LeakSanitizer reports.
+    *self = nullptr;
     g->dispose();
     return out;
   });

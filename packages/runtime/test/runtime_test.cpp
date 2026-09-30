@@ -401,6 +401,12 @@ static void optionalsAndUnions() {
   Opt<Union<double, String>> maybe = convert<Opt<Union<double, String>>>(2.0);
   CHECK(maybe.has());
   CHECK_STR(typeOf(Opt<double>(null)), "object");
+
+  // An optional narrowed to `null | undefined` stays the one it holds.
+  for (const Opt<String>& absent : {Opt<String>(null), Opt<String>(undefined)}) {
+    Opt<Undefined> narrowed = convert<Opt<Undefined>>(absent);
+    CHECK(narrowed.isNull() == absent.isNull() && narrowed.isUndefined() == absent.isUndefined());
+  }
 }
 
 // Generated code calls lucent::strictEquals qualified, which finds no

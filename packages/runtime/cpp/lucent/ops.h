@@ -108,24 +108,25 @@ To convertImpl(const From& from) {
   } else if constexpr (IsOpt<To>::value) {
     using Inner = typename To::ValueType;
     // `null | undefined` (Opt<Undefined>) holds no value: narrowing proved
-    // any present one away.
-    const auto held = [](const auto& value) -> To {
-      if constexpr (IsAbsent<Inner>) {
-        throwTypeError("Value does not match the expected type");
-      } else {
-        return To(convert<Inner>(value));
-      }
-    };
+    // any present one away, and throws here. Not in a helper returning To
+    // that only throws: clang 18 (Android NDK r27's) then returns garbage
+    // for the absent values beside it.
     if constexpr (IsOpt<F>::value) {
       if (from.isUndefined()) return To(undefined);
       if (from.isNull()) return To(null);
-      return held(from.get());
+      if constexpr (IsAbsent<Inner>) {
+        throwTypeError("Value does not match the expected type");
+      } else {
+        return To(convert<Inner>(from.get()));
+      }
     } else if constexpr (std::is_same_v<F, Undefined>) {
       return To(undefined);
     } else if constexpr (std::is_same_v<F, Null>) {
       return To(null);
+    } else if constexpr (IsAbsent<Inner>) {
+      throwTypeError("Value does not match the expected type");
     } else {
-      return held(from);
+      return To(convert<Inner>(from));
     }
   } else if constexpr (IsOpt<F>::value) {
     // Proven present by narrowing; still checked.

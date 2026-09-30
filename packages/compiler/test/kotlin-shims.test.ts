@@ -26,6 +26,9 @@ const orbitSources = path.resolve(here, "../../../examples/lucent-orbit/kotlin")
 
 const tc = kotlinToolchain();
 
+/** The kotlinc that wrote examples/lucent-orbit/android/orbit.jar (build-jar.ts). */
+const ORBIT_JAR_KOTLINC = "2.4.20";
+
 const coroutines = tc && path.join(tc.lib, "kotlinx-coroutines-core-jvm.jar");
 
 const toolchain = !!tc && !!coroutines && fs.existsSync(coroutines) && sdkAvailable("android");
@@ -658,8 +661,9 @@ export async function run(): Promise<string> {
     300_000,
   );
 
-  // The jar is byte-identical only from the compiler that wrote it.
-  it.skipIf(!tc?.version.startsWith("2.4."))(
+  // The jar is byte-identical only from the compiler that wrote it: another
+  // patch release (2.4.10) writes other bytes.
+  it.skipIf(tc?.version !== ORBIT_JAR_KOTLINC)(
     "ships, in examples/lucent-orbit, the jar its Kotlin sources compile to",
     () => {
       const out = path.join(dir, "rebuilt.jar");

@@ -10,6 +10,7 @@ import {
   libraryBuildGradle,
   runtimeDir,
   sdkAvailable,
+  type SdkOptions,
 } from "../../src/index.ts";
 import { TOGGLE, withContent } from "./compose-fixture.ts";
 import { androidToolchain, compileErrors } from "./react-native-headers.ts";
@@ -18,7 +19,7 @@ import { composeClasspath } from "./toolkit-build.ts";
 const android = sdkAvailable("android");
 const kotlin = kotlinToolchain();
 
-function compileApp(files: Record<string, string> = TOGGLE) {
+function compileApp(files: Record<string, string> = TOGGLE, sdk?: SdkOptions) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-compose-"));
 
   fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
@@ -27,7 +28,7 @@ function compileApp(files: Record<string, string> = TOGGLE) {
 
   const result = compile(
     Object.keys(files).map((f) => path.join(dir, f)),
-    { platforms: ["android"] },
+    { platforms: ["android"], sdk },
   );
 
   return { dir, result };
@@ -72,6 +73,26 @@ describe.skipIf(!android)("components whose content is Compose", () => {
     await expect(text.replaceAll(registration, "LucentToggle")).toMatchFileSnapshot(
       "__snapshots__/android/Toggle.kt.snap",
     );
+  }, 300_000);
+
+  it("compile where the iOS SDK is missing, a declaration's SwiftUI view untyped", () => {
+    process.env.LUCENT_VIEWS = "fabric";
+
+    const { result } = compileApp(
+      {
+        ...TOGGLE,
+        "toggle.lucent.ts": TOGGLE["toggle.lucent.ts"]
+          .replace(
+            'import type { View } from "lucent:android/android.view";',
+            'import type { ComposeView } from "lucent:compose";\nimport type { View } from "lucent:swiftui";',
+          )
+          .replace("props: Props): View;", "props: Props): View | ComposeView;"),
+      },
+      { ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") } },
+    );
+
+    expect(result.diagnostics).toEqual([]);
+    expect(result.compose).toBe(true);
   }, 300_000);
 
   it("feed the content from the setup: state set by effects, functions it calls", () => {

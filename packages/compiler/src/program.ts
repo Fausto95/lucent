@@ -117,16 +117,19 @@ const SDK_ROOT = path.resolve("/__lucent_sdk__");
  * Modules of platforms whose SDK is not installed (or whose imports are
  * deferred), untyped: a shared module's branch for such a platform
  * type-checks, and is never emitted where it is missing (a target's own
- * missing SDK is reported by importDiagnostics).
+ * missing SDK is reported by importDiagnostics). Where views are
+ * generated, the platform's toolkit (lucent:swiftui) is untyped too.
  */
 const UNTYPED = path.join(SDK_ROOT, "untyped.d.ts");
 
 function untypedSdkText(): string {
+  const untyped = PLATFORMS.filter((p) => !platformSdkTyped(p));
+  const toolkits = fabricRequested() ? untyped.flatMap((p) => toolkitOfPlatform(p) ?? []) : [];
+
   return dts.printUnit({
-    decls: PLATFORMS.filter((p) => !platformSdkTyped(p)).map((p) => ({
-      k: "moduleWildcard",
-      name: `lucent:${p}/*`,
-    })),
+    decls: [...untyped.map((p) => `lucent:${p}/*`), ...toolkits.map((t) => `lucent:${t}`)].map(
+      (name) => ({ k: "moduleWildcard", name }),
+    ),
   });
 }
 

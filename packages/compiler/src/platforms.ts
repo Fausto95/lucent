@@ -4,6 +4,7 @@ import { Codes, type Diagnostic } from "./diagnostics.ts";
 import { builtinSdkModuleOf, type LucentProgram, moduleNameOf, platformOf } from "./program.ts";
 import { type Platform, PLATFORMS } from "./sdk/schema.ts";
 import { toolkitRootType } from "./ui/roots.ts";
+import { TOOLKITS, toolkitOfModule } from "./ui/toolkits.ts";
 
 /** What a build targets: a platform, or `host` (tests and tools: platform modules become stubs). */
 export type Target = Platform | "host";
@@ -540,7 +541,9 @@ function isExported(s: ts.Statement): boolean {
 /**
  * TypeScript errors in a shared module's code for a platform whose SDK is
  * untyped in this program (not installed, and not the target): that code is
- * never emitted here, and its SDK types do not resolve.
+ * never emitted here, and its SDK types do not resolve. A name imported
+ * from such a platform's module is its code wherever it is written: a
+ * component's declaration names each platform's view.
  */
 export function inUntypedPlatformCode(
   lp: LucentProgram,
@@ -566,7 +569,31 @@ export function inUntypedPlatformCode(
   }
   const stmt = sf.statements.find((s) => s.getStart(sf) <= d.start! && d.start! < s.getEnd());
   const p =
+    (ts.isIdentifier(node) ? importedFrom(sf, node.text) : undefined) ??
     branchPlatform(lp.checker, node) ??
     (stmt ? platformScopes(lp.checker, sf).platforms.get(stmt) : undefined);
   return !!p && untyped.includes(p);
+}
+
+/** The platform whose SDK or toolkit module (lucent:ios/UIKit, lucent:swiftui) a file imports `name` from. */
+function importedFrom(sf: ts.SourceFile, name: string): Platform | undefined {
+  for (const s of sf.statements) {
+    if (!ts.isImportDeclaration(s) || !ts.isStringLiteral(s.moduleSpecifier)) continue;
+
+    const bindings = s.importClause?.namedBindings;
+    const names = [
+      s.importClause?.name,
+      ...(bindings && ts.isNamedImports(bindings) ? bindings.elements.map((e) => e.name) : []),
+    ];
+    if (!names.some((n) => n?.text === name)) continue;
+
+    const spec = s.moduleSpecifier.text;
+    const toolkit = toolkitOfModule(spec);
+    if (toolkit) return TOOLKITS[toolkit].platform;
+
+    const scope = /^lucent:(\w+)(?:\/|$)/.exec(spec)?.[1];
+    return PLATFORMS.find((p) => p === scope);
+  }
+
+  return undefined;
 }

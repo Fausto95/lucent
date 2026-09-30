@@ -120,6 +120,21 @@ describe("components' Android hosts", () => {
   );
 
   it.skipIf(!android)(
+    "give the Android host its mount where the iOS SDK is missing, the declaration's iOS view untyped",
+    () => {
+      process.env.LUCENT_VIEWS = "fabric";
+
+      const { result } = compileApp(METER, {
+        ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") },
+      });
+
+      expect(result.diagnostics).toEqual([]);
+      expect([...result.files.keys()].some((f) => HOST.test(f))).toBe(true);
+    },
+    300_000,
+  );
+
+  it.skipIf(!android)(
     "leave the Android host out while the switch is off",
     () => {
       const { result } = compileApp();

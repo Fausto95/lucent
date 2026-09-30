@@ -13,6 +13,7 @@ import {
   type LucentPackage,
   resolveNative,
 } from "../src/index.ts";
+import { uint64Name } from "../../bindgen/test/c-types.ts";
 
 const fixture = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures/orbit-filter");
 const clang = spawnSync(process.env.LUCENT_CLANG ?? "clang", ["--version"]).status === 0;
@@ -80,7 +81,7 @@ describe.skipIf(!clang)("binding a native extension", () => {
 
     // Scalars need no declaration; 64-bit integers are bigints.
     const processed = ext!.functions.find((f) => f.name === "orbit_filter_processed")!;
-    expect(processed.result).toEqual({ kind: "bigint", c: "unsigned long long" });
+    expect(processed.result).toEqual({ kind: "bigint", c: uint64Name() });
 
     // A function with a callback is left out, with the reason.
     expect(ext!.functions.some((f) => f.name === "orbit_filter_each")).toBe(false);
@@ -217,7 +218,7 @@ describe.skipIf(!clang)("binding a native extension", () => {
     expect(
       failure((d) => (d.functions.orbit_filter_processed = { failsWhen: "negative" })),
     ).toThrow(
-      "extensions.orbit-filter.functions.orbit_filter_processed.failsWhen: negative needs a signed result; orbit_filter_processed returns unsigned long long",
+      `extensions.orbit-filter.functions.orbit_filter_processed.failsWhen: negative needs a signed result; orbit_filter_processed returns ${uint64Name()}`,
     );
     expect(failure((d) => delete d.functions.orbit_filter_apply.failsWhen)).toThrow(
       "extensions.orbit-filter.functions.orbit_filter_apply: error fills in OrbitError when the call fails: declare failsWhen, how its result says so",

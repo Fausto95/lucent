@@ -51,7 +51,13 @@ export async function model(): Promise<string> {
   `expo prebuild`, which runs no Gradle: its imports that are not in the
   SDK are untyped in the iOS build, and the Gradle build's `lucentBuild`
   task, which resolves them, builds and checks Android (an import still
-  missing is LUCENT3004 there).
+  missing is LUCENT3004 there). An app with no Android project yet (an Expo
+  app before `expo prebuild`) has nothing to resolve them with: when it
+  imports modules neither android.jar nor its Lucent packages' libraries
+  declare, `lucent check` and `lucent build` (host builds included) name
+  them in a warning, leave Android untyped as above, and skip Android until
+  `android/` exists. An app whose Android imports are all in android.jar
+  builds and checks Android as usual.
 - A module that branches is built per target, like split modules, and is
   Objective-C++ (`.mm`) on iOS.
 
@@ -187,9 +193,11 @@ with the module's name when the format is missing or not the current one.
   same work twice. The lock names its process: a build that finds the lock
   of a process that died takes it over at once. Entries are published whole
   (a write and a rename); one that does not parse is a miss, extracted
-  again, and a failed extraction leaves no entry. `lucent build` starts one
-  background extraction per module it imports (those already cached return
-  at once), then waits for them.
+  again, and a failed extraction leaves no entry. `lucent build` deals the
+  modules the built platforms import, round robin, to one background
+  extraction per spare core (those already cached return at once), then
+  waits for them: a process per module, each loading the compiler, ran a
+  4-core CI runner out of memory.
 - `lucent sdk prefetch [--ios A,B] [--android p.q] [--all]` extracts ahead of
   time (default: what the project imports; `--ios` or `--android` alone:
   every module of that SDK).

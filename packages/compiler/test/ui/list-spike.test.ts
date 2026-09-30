@@ -7,9 +7,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import {
-  android,
   androidGlueErrors,
   build,
+  composeCompiles,
   diagnostics,
   ios,
   kotlinErrors,
@@ -38,7 +38,7 @@ describe("the views spike's list screen", () => {
     300_000,
   );
 
-  it.skipIf(!android)(
+  it.skipIf(!composeCompiles())(
     "writes its Compose body, which compiles",
     () => {
       const built = build(files("android"), "android");

@@ -857,7 +857,9 @@ pass none, and are not checked.
 
 A module branches on `PLATFORM` (lucent:platform), the standard form: every
 target's program resolves both platforms' SDK modules (untyped where an SDK
-is missing). `platformScopes` gives each top-level declaration the platform
+is missing, with the platform's toolkit module where views are generated;
+TypeScript's errors about a name imported from an untyped module are left
+out wherever the name is used, in a declaration file too). `platformScopes` gives each top-level declaration the platform
 whose SDK it uses outside a branch and checks every use of platform code;
 the emitter leaves other platforms' declarations out and compiles the
 target's branch only (`platformTest`, all in `src/platforms.ts`).
