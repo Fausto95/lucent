@@ -112,11 +112,16 @@ function vibrator(): Vibrator {
   return v;
 }
 
+/** Android takes durations as `long[]`: bigints, from the milliseconds the patterns hold. */
+function millis(durations: number[]): bigint[] {
+  return durations.map((ms) => BigInt(ms));
+}
+
 function vibrate(type: VibrationType): void {
   if (available("android", 26)) {
-    vibrator().vibrate(VibrationEffect.createWaveform(type.timings, type.amplitudes, -1));
+    vibrator().vibrate(VibrationEffect.createWaveform(millis(type.timings), type.amplitudes, -1));
   } else {
-    vibrator().vibrate(type.oldSDKPattern, -1);
+    vibrator().vibrate(millis(type.oldSDKPattern), -1);
   }
 }
 

@@ -34,6 +34,7 @@ export const docsPageRoutes = [
   createRoute({ getParentRoute: () => docsRoute, path: "guides/run-work-off-the-js-thread", ...docPage("guides/run-work-off-the-js-thread") }),
   createRoute({ getParentRoute: () => docsRoute, path: "guides/cancel-work", ...docPage("guides/cancel-work") }),
   createRoute({ getParentRoute: () => docsRoute, path: "guides/run-on-the-main-thread", ...docPage("guides/run-on-the-main-thread") }),
+  createRoute({ getParentRoute: () => docsRoute, path: "guides/present-a-view-controller", ...docPage("guides/present-a-view-controller") }),
   createRoute({ getParentRoute: () => docsRoute, path: "guides/throw-and-handle-errors", ...docPage("guides/throw-and-handle-errors") }),
   createRoute({ getParentRoute: () => docsRoute, path: "guides/check-the-os-version", ...docPage("guides/check-the-os-version") }),
   createRoute({ getParentRoute: () => docsRoute, path: "guides/share-code-between-platforms", ...docPage("guides/share-code-between-platforms") }),

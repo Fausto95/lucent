@@ -7,6 +7,7 @@ import {
   moduleNameOf,
   platformOf,
 } from "@lucent-lang/compiler";
+import type { PendingAction } from "../build-graph.ts";
 import { buildProject, type Next, type Platform } from "../pipeline.ts";
 import type { Notice } from "../project.ts";
 import { plainSteps } from "../ui/steps.ts";
@@ -22,7 +23,15 @@ export interface DevState {
   /** Directories watched, relative to the project. */
   watching: string[];
   modules: { name: string; platforms: Record<Platform, PlatformState> }[];
-  lastBuild?: { at: Date; ms: number; ok: boolean; next?: Next; fatal?: string };
+  lastBuild?: {
+    at: Date;
+    ms: number;
+    ok: boolean;
+    next?: Next;
+    /** What the build's changes need from the app. */
+    actions?: PendingAction[];
+    fatal?: string;
+  };
   problems: Problem[];
   notices?: Notice[];
 }
@@ -64,10 +73,18 @@ export interface DevSession {
 // Coalesces an editor's burst of writes (save, format on save) into one build.
 const DEBOUNCE_MS = 40;
 
+/** Files a build may read whatever the last one did: new modules, package manifests, lucent.json. */
+const ALWAYS_READ = (file: string) =>
+  LUCENT_EXTENSION.test(file) || ["lucent.json", "package.json"].includes(path.basename(file));
+
 /**
- * Watches the project and its Lucent packages, and builds on every change
- * to a *.lucent.ts file, one build at a time; `store` holds the state for
- * the views.
+ * Watches the project and its Lucent packages (those outside it too, linked
+ * or in the workspace), and builds, one build at a time, on every change
+ * to a file a build reads: modules, package manifests and lucent.json, and
+ * the native files packages list. What builds write is never read, so they
+ * never trigger one. A change during a build supersedes it: it stops before
+ * publishing, and the next build starts. `store` holds the state for the
+ * views.
  */
 export function startSession(root: string): DevSession {
   const store = createStore();
@@ -78,16 +95,27 @@ export function startSession(root: string): DevSession {
     links: false,
     width: 80,
   });
-  let building = false;
+  let building: AbortController | undefined;
   let queued: { force: boolean } | undefined;
   let timer: NodeJS.Timeout | undefined;
+  // What the last build read of Lucent packages: their lucent.json and listed native paths.
+  let nativeInputs: string[] = [];
+  let stopped = false;
+  // When the last build that published started: it read every input as it was then.
+  let readSince = 0;
 
   const build = async (force: boolean) => {
+    if (stopped) return;
+
     if (building) {
+      // The running build's analysis is stale: it stops before publishing.
+      building.abort();
       queued = { force: force || !!queued?.force };
       return;
     }
-    building = true;
+    const controller = new AbortController();
+    const started = Date.now();
+    building = controller;
     store.set({
       ...store.get(),
       building: true,
@@ -102,10 +130,22 @@ export function startSession(root: string): DevSession {
     const at = new Date();
     const r = await buildProject(
       root,
-      { mode: "build", force },
+      { mode: "build", force, signal: controller.signal },
       plainSteps(() => {}, theme),
       (n) => notices.push(n),
     );
+
+    if (r.superseded) {
+      building = undefined;
+      const again = queued ?? { force };
+      queued = undefined;
+      void build(again.force);
+      return;
+    }
+
+    nativeInputs = r.nativeInputs;
+    readSince = started;
+    watch();
     const failing = new Map<string, Set<Platform>>();
     for (const d of r.diagnostics) {
       if (!d.file) continue;
@@ -140,12 +180,16 @@ export function startSession(root: string): DevSession {
         ms: r.ms,
         ok: r.ok,
         next: r.ok && !r.upToDate ? r.next : undefined,
+        actions: r.actions,
         fatal: r.fatal,
       },
-      problems: r.diagnostics.map((d) => ({ ...d, source: d.file ? source(d.file) : undefined })),
+      problems: [...r.diagnostics, ...r.warnings].map((d) => ({
+        ...d,
+        source: d.file ? source(d.file) : undefined,
+      })),
       notices,
     });
-    building = false;
+    building = undefined;
     if (queued) {
       const again = queued;
       queued = undefined;
@@ -153,32 +197,65 @@ export function startSession(root: string): DevSession {
     }
   };
 
-  const changed = (name: string | null) => {
-    if (
-      !name ||
-      !LUCENT_EXTENSION.test(name) ||
-      name.split(path.sep).some((part) => part === "node_modules" || part.startsWith("."))
-    )
-      return;
+  const relevant = (file: string, dir: string) => {
+    const parts = path.relative(dir, file).split(path.sep);
+
+    // Dependencies, and dot directories (.lucent, where builds write; .git).
+    if (parts.some((part) => part === "node_modules" || part.startsWith("."))) return false;
+
+    return (
+      ALWAYS_READ(file) ||
+      nativeInputs.some((p) => file === p || file.startsWith(`${p}${path.sep}`))
+    );
+  };
+
+  const changed = (dir: string, name: string | null) => {
+    if (!name || !relevant(path.join(dir, name), dir)) return;
+
+    // A file last changed before the last build started is what that build read
+    // (a watcher's first events can report files written before it started).
+    const file = path.join(dir, name);
+    if (fs.existsSync(file) && fs.statSync(file).mtimeMs < readSince) return;
+
     clearTimeout(timer);
     timer = setTimeout(() => void build(false), DEBOUNCE_MS);
   };
-  // The app, and Lucent packages that live outside it (workspaces).
-  let packages: string[] = [];
-  try {
-    packages = lucentPackages(root)
-      .map((p) => p.sources)
-      .filter((dir) => path.relative(root, dir).startsWith(".."));
-  } catch {
-    // The build reports it.
-  }
-  const watchers = [root, ...packages].map((dir) =>
-    fs.watch(dir, { recursive: true }, (_event, name) => changed(name)),
-  );
-  store.set({
-    ...store.get(),
-    watching: [root, ...packages].map((d) => path.relative(root, d) || "."),
-  });
+
+  // The app, and each Lucent package that lives outside it (workspaces, links), whole:
+  // its modules, lucent.json and native files. Updated after each build.
+  const watchers = new Map<string, fs.FSWatcher>();
+
+  const watch = () => {
+    if (stopped) return;
+
+    let packages: string[] = [];
+    try {
+      packages = lucentPackages(root)
+        .map((p) => p.dir)
+        .filter((dir) => path.relative(root, dir).startsWith(".."));
+    } catch {
+      // The build reports it.
+    }
+
+    const dirs = new Set([root, ...packages]);
+
+    for (const [dir, w] of watchers)
+      if (!dirs.has(dir)) {
+        w.close();
+        watchers.delete(dir);
+      }
+
+    for (const dir of dirs)
+      if (!watchers.has(dir))
+        watchers.set(
+          dir,
+          fs.watch(dir, { recursive: true }, (_event, name) => changed(dir, name)),
+        );
+
+    store.set({ ...store.get(), watching: [...dirs].map((d) => path.relative(root, d) || ".") });
+  };
+
+  watch();
   void build(false);
 
   return {
@@ -190,8 +267,10 @@ export function startSession(root: string): DevSession {
       void build(true);
     },
     stop() {
+      stopped = true;
       clearTimeout(timer);
-      for (const w of watchers) w.close();
+      building?.abort();
+      for (const w of watchers.values()) w.close();
     },
   };
 }

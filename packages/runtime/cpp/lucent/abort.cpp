@@ -1,26 +1,51 @@
 #include "abort.h"
 
-#include <cstdio>
 #include <exception>
+#include <memory>
 
+#include "report.h"
 #include "scheduler.h"
 
 namespace lucent {
 
+namespace {
+
+/// Like an event listener: what it throws is reported, and the rest run.
+void runListener(const std::function<void()>& f) {
+  try {
+    f();
+  } catch (...) {
+    reportUncaught(std::current_exception(), "abort listener");
+  }
+}
+
+}  // namespace
+
+bool AbortSignalObject::onOwner() const {
+  return owner_ ? owner_->isCurrent() : Scheduler::lock().heldByCurrentThread();
+}
+
+void AbortSignalObject::toOwner(std::function<void(AbortSignalObject&)> change) {
+  auto self = std::static_pointer_cast<AbortSignalObject>(shared_from_this());
+
+  ExecutionContext::of(owner_).post([self, change = std::move(change)] { change(*self); });
+}
+
 void AbortSignalObject::abort(Error why) {
+  if (!onOwner()) {
+    toOwner([why = std::move(why)](AbortSignalObject& s) { s.abort(why); });
+    return;
+  }
+
   if (aborted.load()) return;
+
   reason = std::move(why);
   aborted.store(true);
+
   auto listeners = std::move(listeners_);
   listeners_.clear();
-  for (auto& [id, f] : listeners) {
-    // Like an event listener: a throwing listener does not stop the others.
-    try {
-      f();
-    } catch (const std::exception& e) {
-      std::fprintf(stderr, "[lucent] uncaught exception in abort listener: %s\n", e.what());
-    }
-  }
+
+  for (auto& [id, f] : listeners) runListener(f);
 }
 
 void AbortSignalObject::throwIfAborted() const {
@@ -28,12 +53,35 @@ void AbortSignalObject::throwIfAborted() const {
 }
 
 uint64_t AbortSignalObject::add(std::function<void()> f) {
+  if (onOwner()) {
+    if (aborted.load()) return 0;
+
+    uint64_t id = nextId_++;
+    listeners_.emplace_back(id, std::move(f));
+    return id;
+  }
+
   uint64_t id = nextId_++;
-  if (!aborted.load()) listeners_.emplace_back(id, std::move(f));
+  toOwner([id, f = std::move(f)](AbortSignalObject& s) mutable { s.join(id, std::move(f)); });
   return id;
 }
 
+void AbortSignalObject::join(uint64_t id, std::function<void()> f) {
+  // Added before this context could see the abort: it happened first.
+  if (aborted.load()) {
+    runListener(f);
+    return;
+  }
+
+  listeners_.emplace_back(id, std::move(f));
+}
+
 void AbortSignalObject::remove(uint64_t id) {
+  if (!onOwner()) {
+    toOwner([id](AbortSignalObject& s) { s.remove(id); });
+    return;
+  }
+
   std::erase_if(listeners_, [id](const auto& l) { return l.first == id; });
 }
 
@@ -51,7 +99,7 @@ Promise<void> delay(double ms, Opt<AbortSignal> signal) {
   if (s->aborted.load()) return Promise<void>::rejected(s->reason);
   Promise<void> p;
   uint64_t id = s->add([p, s] { p.reject(s->reason); });
-  Scheduler::instance().postDelayed(ms, [p, s, id] {
+  ExecutionContext::of(ExecutionContext::currentRef()).postDelayed(ms, [p, s, id] {
     s->remove(id);
     p.resolve(undefined);
   });

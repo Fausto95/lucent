@@ -1,4 +1,19 @@
 <root>
+  <item name="com.example.widgets.Widget">
+    <annotation name="androidx.annotation.UiThread" />
+  </item>
+  <item name="com.example.widgets.Widget double area()">
+    <annotation name="androidx.annotation.AnyThread" />
+  </item>
+  <item name="com.example.widgets.Widget java.lang.String getName()">
+    <annotation name="androidx.annotation.WorkerThread" />
+  </item>
+  <item name="com.example.widgets.Widget.Listener">
+    <annotation name="androidx.annotation.MainThread" />
+  </item>
+  <item name="com.example.widgets.Gauge void setUnit(java.lang.String)">
+    <annotation name="androidx.annotation.MainThread" />
+  </item>
   <item name="com.example.widgets.Widget void setValue(int)">
     <annotation name="androidx.annotation.RequiresPermission">
       <val name="value" val="&quot;android.permission.VIBRATE&quot;" />
@@ -7,6 +22,37 @@
   <item name="com.example.widgets.Widget void touch(com.example.base.Shape, com.example.widgets.Widget)">
     <annotation name="androidx.annotation.RequiresPermission">
       <val name="anyOf" val="{&quot;android.permission.ACCESS_COARSE_LOCATION&quot;, &quot;android.permission.ACCESS_FINE_LOCATION&quot;}" />
+    </annotation>
+  </item>
+  <item name="com.example.widgets.Gauge void setMode(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{com.example.widgets.Gauge.MODE_FAST, com.example.widgets.Gauge.MODE_SLOW}" />
+    </annotation>
+  </item>
+  <item name="com.example.widgets.Gauge int getMode()">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{com.example.widgets.Gauge.MODE_FAST, com.example.widgets.Gauge.MODE_SLOW}" />
+    </annotation>
+  </item>
+  <item name="com.example.widgets.Gauge void setUnit(java.lang.String) 0">
+    <annotation name="androidx.annotation.StringDef">
+      <val name="value" val="{com.example.widgets.Gauge.UNIT_KM, com.example.widgets.Gauge.UNIT_MI}" />
+    </annotation>
+  </item>
+  <item name="com.example.widgets.Gauge void setFlags(int) 0">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="flag" val="true" />
+      <val name="value" val="{com.example.widgets.Gauge.FLAG_A, com.example.widgets.Gauge.FLAG_B}" />
+    </annotation>
+  </item>
+  <item name="com.example.widgets.Gauge void setSpeed(int, int) 1">
+    <annotation name="androidx.annotation.IntDef">
+      <val name="value" val="{com.example.widgets.Gauge.MODE_FAST, com.example.widgets.Gauge.MODE_SLOW, com.example.widgets.Gauge.NO_SUCH_MODE}" />
+    </annotation>
+  </item>
+  <item name="com.example.widgets.Gauge void setWindow(long) 0">
+    <annotation name="androidx.annotation.LongDef">
+      <val name="value" val="{com.example.widgets.Gauge.WINDOW_SHORT, com.example.widgets.Gauge.WINDOW_LONG}" />
     </annotation>
   </item>
 </root>

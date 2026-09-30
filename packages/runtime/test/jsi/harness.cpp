@@ -6,6 +6,9 @@
 // Globals available to scripts:
 //   __lucent            object with every registered Lucent module
 //   print(...args)      writes a line to stdout
+//
+// Lucent's console.log, warn and error write a line to stdout too, in order
+// with print's, so tests compare what Lucent code logs.
 //   __reference         undefined unless a reference script defines it
 //
 // The event loop runs JS tasks posted by Lucent, Hermes microtasks and
@@ -22,6 +25,7 @@
 #include <mutex>
 #include <sstream>
 
+#include "lucent/console.h"
 #include "lucent/jsi/convert.h"
 #include "lucent/jsi/host.h"
 
@@ -113,6 +117,11 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "usage: harness <script.js>...\n");
     return 2;
   }
+  lucent::setConsoleSink([](lucent::ConsoleLevel, const lucent::String& message) {
+    std::printf("%s\n", message.toUtf8().c_str());
+    std::fflush(stdout);
+  });
+
   auto config = ::hermes::vm::RuntimeConfig::Builder().withMicrotaskQueue(true).build();
   std::unique_ptr<jsi::Runtime> runtime = facebook::hermes::makeHermesRuntime(config);
   jsi::Runtime& rt = *runtime;

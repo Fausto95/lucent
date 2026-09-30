@@ -10,6 +10,7 @@ export const blocks: Block[] = [
   "$schema": "https://lucent-lang.dev/schemas/lucent.schema.json",
   "ios": {
     "pods": { "LucentAuthKit": "~> 1.0" },
+    "frameworks": ["LocalAuthentication"],
     "infoPlist": { "NSFaceIDUsageDescription": "Unlock with Face ID" }
   },
   "android": {

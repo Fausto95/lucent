@@ -48,4 +48,13 @@ String errorToString(const Error& e) {
   return e->name + String::fromLatin1(": ") + e->message;
 }
 
+std::exception_ptr suppressedError(std::exception_ptr error, std::exception_ptr suppressed) {
+  auto e = std::make_shared<SuppressedErrorObject>();
+  e->name = String::fromLatin1("SuppressedError");
+  e->message = String::fromLatin1("An error was suppressed during disposal.");
+  e->error = currentError(error);
+  e->suppressed = currentError(suppressed);
+  return std::make_exception_ptr(Exception(e));
+}
+
 }  // namespace lucent

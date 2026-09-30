@@ -81,6 +81,26 @@ Union<double, String> parse(String s) {
   return n;
 }
 
+BigInt bigEcho(BigInt x) { return x; }
+
+BigInt bigAdd(BigInt a, BigInt b) { return a + b; }
+
+/// Through a native int64_t, as a binding passes one: exact, or a
+/// RangeError.
+BigInt bigInt64(BigInt x) { return BigInt::fromInt64(x.toInt64()); }
+
+NativeBuffer bufferOf(Bytes bytes) { return NativeBufferObject::fromBytes(bytes); }
+
+NativeBuffer bufferEcho(NativeBuffer buffer) { return buffer; }
+
+double bufferSum(NativeBuffer buffer) {
+  return withRead(buffer, [](ByteSpan bytes) {
+    double total = 0;
+    for (size_t i = 0; i < bytes.size(); i++) total += bytes.at(i);
+    return total;
+  });
+}
+
 }  // namespace m_manual
 
 namespace lucent::js {
@@ -119,14 +139,7 @@ void counterProto(jsi::Runtime& rt, Host& host, jsi::Object& proto);
 template <>
 struct Convert<Ref<m_manual::Counter>> {
   static Ref<m_manual::Counter> fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
-    if (v.isObject()) {
-      jsi::Object o = v.getObject(rt);
-      if (o.hasNativeState(rt)) {
-        if (auto s = std::dynamic_pointer_cast<InstanceStateBase>(o.getNativeState(rt))) {
-          if (auto c = std::dynamic_pointer_cast<m_manual::Counter>(s->object)) return c;
-        }
-      }
-    }
+    if (auto c = std::dynamic_pointer_cast<m_manual::Counter>(instanceOf(rt, v))) return c;
     throwBoundaryError(rt, p, "a Counter", v);
   }
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Ref<m_manual::Counter>& v) {
@@ -228,6 +241,49 @@ void install(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
       return Convert<Union<double, String>>::toJs(rt, host, m_manual::parse(s));
     });
   });
+  defineFunction(rt, exports, "bigEcho", 1, [](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t n) {
+    Host& host = Host::get(rt);
+    return callSync(rt, host, [&] {
+      BigInt x = Convert<BigInt>::fromJs(rt, arg(args, n, 0), Path{"bigEcho", "argument 'x'"});
+      return Convert<BigInt>::toJs(rt, host, m_manual::bigEcho(x));
+    });
+  });
+  defineFunction(rt, exports, "bigAdd", 2, [](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t n) {
+    Host& host = Host::get(rt);
+    return callSync(rt, host, [&] {
+      BigInt a = Convert<BigInt>::fromJs(rt, arg(args, n, 0), Path{"bigAdd", "argument 'a'"});
+      BigInt b = Convert<BigInt>::fromJs(rt, arg(args, n, 1), Path{"bigAdd", "argument 'b'"});
+      return Convert<BigInt>::toJs(rt, host, m_manual::bigAdd(a, b));
+    });
+  });
+  defineFunction(rt, exports, "bigInt64", 1, [](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t n) {
+    Host& host = Host::get(rt);
+    return callSync(rt, host, [&] {
+      BigInt x = Convert<BigInt>::fromJs(rt, arg(args, n, 0), Path{"bigInt64", "argument 'x'"});
+      return Convert<BigInt>::toJs(rt, host, m_manual::bigInt64(x));
+    });
+  });
+  defineFunction(rt, exports, "bufferOf", 1, [](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t n) {
+    Host& host = Host::get(rt);
+    return callSync(rt, host, [&] {
+      Bytes bytes = Convert<Bytes>::fromJs(rt, arg(args, n, 0), Path{"bufferOf", "argument 'bytes'"});
+      return Convert<NativeBuffer>::toJs(rt, host, m_manual::bufferOf(bytes));
+    });
+  });
+  defineFunction(rt, exports, "bufferEcho", 1, [](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t n) {
+    Host& host = Host::get(rt);
+    return callSync(rt, host, [&] {
+      NativeBuffer buffer = Convert<NativeBuffer>::fromJs(rt, arg(args, n, 0), Path{"bufferEcho", "argument 'buffer'"});
+      return Convert<NativeBuffer>::toJs(rt, host, m_manual::bufferEcho(buffer));
+    });
+  });
+  defineFunction(rt, exports, "bufferSum", 1, [](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t n) {
+    Host& host = Host::get(rt);
+    return callSync(rt, host, [&] {
+      NativeBuffer buffer = Convert<NativeBuffer>::fromJs(rt, arg(args, n, 0), Path{"bufferSum", "argument 'buffer'"});
+      return Convert<double>::toJs(rt, host, m_manual::bufferSum(buffer));
+    });
+  });
   defineClass(rt, host, exports, "Counter", "manual.Counter", counterProto, 1,
               [](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t n) {
                 Host& host = Host::get(rt);
@@ -248,4 +304,9 @@ const ModuleDef* registeredModules(size_t& count) {
   return kModules;
 }
 void resetModuleState() {}
+const BuildIdentity& buildIdentity() {
+  static const ModuleIdentity modules[] = {{"manual", "api-of-manual"}};
+  static const BuildIdentity identity{"all", "program-of-manual", modules, 1};
+  return identity;
+}
 }  // namespace lucent::js

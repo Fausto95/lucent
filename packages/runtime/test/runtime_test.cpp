@@ -4,6 +4,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstdlib>
+#include <future>
 #include <string>
 #include <thread>
 
@@ -83,7 +84,8 @@ static void numbers() {
   CHECK_STR(numberToFixed(-1.5, 0), "-2");
   CHECK_STR(numberToFixed(1.45, 1), "1.4");
   CHECK_STR(numberToFixed(123.456, 2), "123.46");
-  CHECK_STR(numberToFixed(-0.0001, 2), "0.00");
+  CHECK_STR(numberToFixed(-0.0001, 2), "-0.00");
+  CHECK_STR(numberToFixed(-0.0, 2), "0.00");
   CHECK_STR(numberToFixed(1e21, 2), "1e+21");
   CHECK_STR(numberToPrecision(123.456, 4), "123.5");
   CHECK_STR(numberToPrecision(0.000123, 2), "0.00012");
@@ -156,6 +158,31 @@ static void numbers() {
   CHECK(parseFloat(S("3.14abc")) == 3.14);
   CHECK(parseFloat(S("-.5e2x")) == -50);
   CHECK(std::isnan(parseFloat(S("x1"))));
+}
+
+/// Native 64-bit integers cross as numbers exactly, or throw: never rounded.
+static void exactIntegers() {
+  constexpr int64_t kMax = 9007199254740991;  // 2^53 - 1
+
+  CHECK(exactNumber(int64_t{42}) == 42);
+  CHECK(exactNumber(kMax) == 9007199254740991.0);
+  CHECK(exactNumber(-kMax) == -9007199254740991.0);
+  CHECK(exactNumber(uint64_t{7}) == 7);
+  CHECK_THROWS(exactNumber(kMax + 1), "RangeError");
+  CHECK_THROWS(exactNumber(-kMax - 1), "RangeError");
+  CHECK_THROWS(exactNumber(INT64_MAX), "RangeError");
+  CHECK_THROWS(exactNumber(UINT64_MAX), "RangeError");
+
+  // Numbers to 64-bit integers as WebIDL's [EnforceRange] long long: truncated, in range.
+  CHECK(toExactInteger<int64_t>(3.9) == 3);
+  CHECK(toExactInteger<int64_t>(-3.9) == -3);
+  CHECK(toExactInteger<int64_t>(-0.0) == 0);
+  CHECK(toExactInteger<int64_t>(9007199254740991.0) == kMax);
+  CHECK(toExactInteger<uint64_t>(12) == 12);
+  CHECK_THROWS(toExactInteger<int64_t>(9007199254740992.0), "RangeError");
+  CHECK_THROWS(toExactInteger<int64_t>(kNaN), "RangeError");
+  CHECK_THROWS(toExactInteger<int64_t>(kInfinity), "RangeError");
+  CHECK_THROWS(toExactInteger<uint64_t>(-1), "RangeError");
 }
 
 static void strings() {
@@ -374,6 +401,83 @@ static void optionalsAndUnions() {
   Opt<Union<double, String>> maybe = convert<Opt<Union<double, String>>>(2.0);
   CHECK(maybe.has());
   CHECK_STR(typeOf(Opt<double>(null)), "object");
+
+  // An optional narrowed to `null | undefined` stays the one it holds.
+  for (const Opt<String>& absent : {Opt<String>(null), Opt<String>(undefined)}) {
+    Opt<Undefined> narrowed = convert<Opt<Undefined>>(absent);
+    CHECK(narrowed.isNull() == absent.isNull() && narrowed.isUndefined() == absent.isUndefined());
+  }
+}
+
+// Generated code calls lucent::strictEquals qualified, which finds no
+// hidden friend: every overload has to be declared at namespace scope.
+static void qualifiedStrictEquals() {
+  Array<double> a{1, 2};
+  Array<double> sameContents{1, 2};
+  CHECK(lucent::strictEquals(a, Array<double>(a)) && !lucent::strictEquals(a, sameContents));
+
+  Map<String, double> m;
+  CHECK(lucent::strictEquals(m, m.set(S("k"), 1)) && !lucent::strictEquals(m, Map<String, double>()));
+
+  Set<double> s;
+  CHECK(lucent::strictEquals(s, s.add(1)) && !lucent::strictEquals(s, Set<double>()));
+
+  Dict<double> d;
+  Dict<double> alias = d;
+  CHECK(lucent::strictEquals(d, alias) && !lucent::strictEquals(d, Dict<double>()));
+
+  Bytes b = Bytes::fromArray(Array<double>{1, 2, 3});
+  CHECK(lucent::strictEquals(b, Bytes(b)) && !lucent::strictEquals(b, b.subarray(1)) && !lucent::strictEquals(b, b.slice()));
+
+  CHECK(lucent::strictEquals(BigInt::fromInt64(7), BigInt::fromInt64(7)) && !lucent::strictEquals(BigInt::fromInt64(7), BigInt()));
+}
+
+// String(x) in generated code is a qualified lucent::toJsString call too.
+static void qualifiedToJsString() {
+  CHECK_STR(lucent::toJsString(Array<double>{1, 2}), "1,2");
+  CHECK_STR(lucent::toJsString(Map<String, double>()), "[object Map]");
+  CHECK_STR(lucent::toJsString(Set<double>()), "[object Set]");
+  CHECK_STR(lucent::toJsString(Dict<double>()), "[object Object]");
+  CHECK_STR(lucent::toJsString(Bytes::fromArray(Array<double>{1, 255})), "1,255");
+
+  AbortController c = std::make_shared<AbortControllerObject>();
+  CHECK_STR(lucent::toJsString(c), "[object AbortController]");
+  CHECK_STR(lucent::toJsString(c->signal), "[object AbortSignal]");
+}
+
+// Operands of different C++ types: those no JavaScript value can be both
+// of are never ===; optionals, unions and class instances compare what
+// they hold, so they never take that shortcut.
+struct Base : Object {};
+struct Derived : Base {};
+struct Other : Object {};
+
+static_assert(Disjoint<double, BigInt> && Disjoint<Undefined, Null> && Disjoint<Array<double>, Undefined>);
+static_assert(Disjoint<Array<String>, double> && Disjoint<bool, double> && Disjoint<Array<double>, Array<String>>);
+static_assert(!Disjoint<Opt<double>, Opt<String>> && !Disjoint<Opt<double>, Undefined> && !Disjoint<Opt<double>, double>);
+static_assert(!Disjoint<Union<double, String>, Union<bool, String>> && !Disjoint<Union<double, String>, double>);
+static_assert(!Disjoint<Ref<Base>, Ref<Derived>> && !Disjoint<Ref<Derived>, Ref<Other>> && !Disjoint<double, int64_t>);
+static_assert(!Disjoint<std::tuple<double>, std::tuple<Opt<double>>>);
+
+static void mixedStrictEquals() {
+  CHECK(!strictEquals(1.0, BigInt::fromInt64(1)) && !strictEquals(null, undefined) && !strictEquals(Array<double>{0}, 0.0));
+  CHECK(!strictEquals(Array<double>{}, undefined) && !strictEquals(true, 1.0) && strictEquals(int64_t(2), 2.0));
+
+  CHECK(strictEquals(Opt<double>(), Opt<String>()) && !strictEquals(Opt<double>(), Opt<String>(null)));
+  CHECK(!strictEquals(Opt<double>(1.0), Opt<String>(S("1"))) && strictEquals(Opt<double>(1.0), 1.0));
+
+  Union<double, String> number = 1.0, text = S("a");
+  Union<bool, String> other = S("a");
+  CHECK(strictEquals(text, other) && !strictEquals(number, other) && strictEquals(1.0, number) && !strictEquals(number, S("1")));
+
+  auto d = std::make_shared<Derived>();
+  Ref<Base> b = d;
+  CHECK(strictEquals(b, d) && !strictEquals(d, std::make_shared<Other>()));
+
+  CHECK(strictEquals(std::tuple<double, String>(1, S("a")), std::tuple<Opt<double>, String>(1.0, S("a"))));
+
+  CHECK(looseEquals(Opt<double>(), Opt<double>(null)) && looseEqualsNull(undefined) && !looseEqualsNull(Array<double>{}));
+  CHECK(sameValueZero(Union<double, String>(NAN), Union<double, String>(NAN)) && sameValueZero(Opt<double>(NAN), NAN));
 }
 
 static void errors() {
@@ -384,6 +488,15 @@ static void errors() {
   }
   Error e = currentError(std::make_exception_ptr(std::runtime_error("boom")));
   CHECK_STR(e->message, "boom");
+  // A disposal that throws while an error is pending: both, in a SuppressedError.
+  auto closing = std::make_exception_ptr(Exception(makeError(S("cannot close"))));
+  auto pending = std::make_exception_ptr(Exception(makeError(S("boom"))));
+  Error s = currentError(suppressedError(closing, pending));
+  CHECK_STR(errorToString(s), "SuppressedError: An error was suppressed during disposal.");
+  auto both = std::dynamic_pointer_cast<SuppressedErrorObject>(s);
+  CHECK(both != nullptr);
+  CHECK_STR(both->error->message, "cannot close");
+  CHECK_STR(both->suppressed->message, "boom");
 }
 
 static Promise<double> addLater(double a, double b) {
@@ -709,16 +822,119 @@ static void nativeReferenceCount() {
   CHECK(liveNativeRefs() == before && released == 1);
 }
 
+/// What debug builds report when a JavaScript runtime's module goes counts
+/// only what module code made: not what the main context made (views'
+/// setups and the callbacks they give the platform, released as the
+/// renderer drops its views and the platform collects its callbacks, on
+/// their own schedule), nor what is kept for the process.
+static void moduleNativeReferenceCount() {
+  auto release = [](void* p) { delete static_cast<int*>(p); };
+  long module = moduleNativeRefs();
+  long all = liveNativeRefs();
+
+  {
+    // Module code: made holding the Lucent lock.
+    NativeRef made = callNow([&] { return NativeRef(new int(1), release, nullptr); });
+
+    CHECK(moduleNativeRefs() == module + 1 && liveNativeRefs() == all + 1);
+
+    // A view's setup: made in the main context.
+    std::promise<NativeRef> made2;
+    ExecutionContext::main().post([&] { made2.set_value(NativeRef(new int(2), release, nullptr)); });
+    NativeRef view = made2.get_future().get();
+
+    CHECK(moduleNativeRefs() == module + 1 && liveNativeRefs() == all + 2);
+
+    // Kept as long as the process (the Android Application).
+    NativeRef app = callNow([&] { return NativeRef(new int(3), release, nullptr); });
+    app.keepForProcess();
+
+    CHECK(moduleNativeRefs() == module + 1 && liveNativeRefs() == all + 3);
+  }
+
+  CHECK(moduleNativeRefs() == module && liveNativeRefs() == all);
+}
+
+/// Blocks until the main thread has run what was posted to it before.
+static bool mainCaughtUp(int ms) {
+  auto done = std::make_shared<std::atomic<bool>>(false);
+  postToMain([done] { *done = true; });
+
+  auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(ms);
+  while (!*done) {
+    if (std::chrono::steady_clock::now() > deadline) return false;
+    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+  }
+
+  return true;
+}
+
+/// A platform object that must be released on the main thread (a UIKit
+/// object) is, whichever thread drops its last reference: there at once,
+/// else posted. It counts as held until it is released.
+static void nativeReferencesReleaseOnTheirContext() {
+  static std::atomic<int> released{0};
+  static std::atomic<int> releasedOnMain{0};
+  auto release = [](void* p) {
+    delete static_cast<int*>(p);
+    if (onMainThread()) releasedOnMain++;
+    released++;
+  };
+  ExecutionContext& main = ExecutionContext::main();
+  long before = liveNativeRefs();
+
+  {
+    NativeRef a(new int(1), release, nullptr, &main);
+
+    // A copy dropped on another thread leaves it held.
+    std::thread([copy = a] {}).join();
+    CHECK(released == 0);
+  }
+
+  CHECK(mainCaughtUp(2000));
+  CHECK(released == 1 && releasedOnMain == 1);
+  CHECK(liveNativeRefs() == before);
+
+  // Dropped on the main thread, even in a platform callback holding the
+  // Lucent lock: released before the callback returns.
+  std::atomic<bool> inPlace{false};
+  postToMain([&] {
+    callNow([&] {
+      { NativeRef b(new int(2), release, nullptr, &main); }
+      inPlace = released == 2;
+    });
+  });
+
+  CHECK(mainCaughtUp(2000));
+  CHECK(inPlace && releasedOnMain == 2);
+  CHECK(liveNativeRefs() == before);
+}
+
+/// An SDK object, as a struct field, stringifies as a host object does:
+/// no enumerable own properties (issue #11).
+static void nativeRefJson() {
+  NativeRef r(new int(1), [](void* p) { delete static_cast<int*>(p); }, nullptr);
+  CHECK(json::stringify(r).toUtf8() == "{}");
+  CHECK(json::stringify(Opt<NativeRef>(null)).toUtf8() == "null");
+}
+
 int main() {
   numbers();
+  exactIntegers();
+  nativeRefJson();
   mainThread();
   platformCallbacks();
   nativeReferenceCount();
+  moduleNativeReferenceCount();
+  nativeReferencesReleaseOnTheirContext();
   concatenation();
   strings();
   arrays();
   maps();
   optionalsAndUnions();
+  qualifiedStrictEquals();
+  qualifiedToJsString();
+  mixedStrictEquals();
   errors();
   async();
   timersPostedWhileWaiting();

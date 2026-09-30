@@ -1,0 +1,89 @@
+// The battery and power state: UIDevice and ProcessInfo on iOS,
+// BatteryManager and PowerManager on Android.
+import { PLATFORM } from "lucent:platform";
+import { ProcessInfo } from "lucent:ios/Foundation";
+import { UIDevice } from "lucent:ios/UIKit";
+import { BatteryManager, PowerManager } from "lucent:android/android.os";
+import { appContext, available } from "lucent:android";
+import { main } from "lucent:thread";
+
+export type BatteryState = "unknown" | "unplugged" | "charging" | "full";
+
+export type ThermalState = "nominal" | "fair" | "serious" | "critical" | "unknown";
+
+export interface PowerInfo {
+  /** From 0 to 1; null where the platform does not report it (the iOS simulator). */
+  level: number | null;
+  state: BatteryState;
+  lowPowerMode: boolean;
+  thermalState: ThermalState;
+}
+
+/** UIDevice.BatteryState's cases, in order. */
+const IOS_STATES: BatteryState[] = ["unknown", "unplugged", "charging", "full"];
+
+/** ProcessInfo.ThermalState's cases, in order. */
+const IOS_THERMAL: ThermalState[] = ["nominal", "fair", "serious", "critical"];
+
+/** PowerManager.THERMAL_STATUS_NONE to _SHUTDOWN, on iOS's scale. */
+const ANDROID_THERMAL: ThermalState[] = [
+  "nominal",
+  "fair",
+  "fair",
+  "serious",
+  "critical",
+  "critical",
+  "critical",
+];
+
+async function iosPower(): Promise<PowerInfo> {
+  const battery = await main(() => {
+    const device = UIDevice.current;
+    device.isBatteryMonitoringEnabled = true;
+    return { level: device.batteryLevel, state: device.batteryState };
+  });
+
+  const process = ProcessInfo.processInfo;
+
+  return {
+    level: battery.level < 0 ? null : battery.level,
+    state: IOS_STATES[battery.state] ?? "unknown",
+    lowPowerMode: process.isLowPowerModeEnabled,
+    thermalState: IOS_THERMAL[process.thermalState] ?? "unknown",
+  };
+}
+
+function androidState(battery: BatteryManager): BatteryState {
+  if (!available("android", 26)) return battery.isCharging() ? "charging" : "unplugged";
+
+  const status = battery.getIntProperty(BatteryManager.BATTERY_PROPERTY_STATUS);
+
+  if (status === BatteryManager.BATTERY_STATUS_FULL) return "full";
+
+  if (status === BatteryManager.BATTERY_STATUS_CHARGING) return "charging";
+
+  if (status === BatteryManager.BATTERY_STATUS_UNKNOWN) return "unknown";
+
+  return "unplugged";
+}
+
+function androidPower(): PowerInfo {
+  const battery = appContext().getSystemService(BatteryManager);
+  const power = appContext().getSystemService(PowerManager);
+
+  const capacity = battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?? -1;
+
+  const thermal =
+    power && available("android", 29) ? ANDROID_THERMAL[power.getCurrentThermalStatus()] : null;
+
+  return {
+    level: capacity < 0 ? null : capacity / 100,
+    state: battery ? androidState(battery) : "unknown",
+    lowPowerMode: power?.isPowerSaveMode() ?? false,
+    thermalState: thermal ?? "unknown",
+  };
+}
+
+export async function getPowerInfoAsync(): Promise<PowerInfo> {
+  return PLATFORM === "ios" ? iosPower() : androidPower();
+}

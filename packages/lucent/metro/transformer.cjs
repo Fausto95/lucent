@@ -27,9 +27,18 @@ function moduleName(filename) {
   return base(path.basename(filename));
 }
 
+/**
+ * The native package whose proxies Metro bundles: the project's
+ * .lucent/native, or the one LUCENT_OUT names (as `lucent build --out`,
+ * relative to the project).
+ */
+function nativePackage(projectRoot) {
+  return path.resolve(projectRoot, process.env.LUCENT_OUT || path.join(".lucent", "native"));
+}
+
 function proxyFor(filename, projectRoot) {
   const name = moduleName(filename);
-  const generated = path.join(projectRoot, ".lucent", "native", "js", `${name}.js`);
+  const generated = path.join(nativePackage(projectRoot), "js", `${name}.js`);
   if (fs.existsSync(generated))
     return rebase(fs.readFileSync(generated, "utf8"), generated, filename);
   return `throw new Error(${JSON.stringify(`Lucent: ${path.basename(filename)} has not been compiled. Run \`lucent build\` and rebuild the app.`)});\n`;
@@ -63,7 +72,7 @@ module.exports = {
   getCacheKey(...args) {
     const base = typeof upstream.getCacheKey === "function" ? upstream.getCacheKey(...args) : "";
     // Proxies change when `lucent build` runs: include the manifest in the key.
-    const manifest = path.join(process.cwd(), ".lucent", "native", "manifest.json");
+    const manifest = path.join(nativePackage(process.cwd()), "manifest.json");
     const stamp = fs.existsSync(manifest) ? fs.readFileSync(manifest, "utf8") : "";
     return crypto.createHash("sha1").update(base).update(stamp).update("lucent-1").digest("hex");
   },

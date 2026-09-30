@@ -1,0 +1,25 @@
+import { Pressable, StyleSheet, Text } from "react-native";
+import { space, type } from "./theme";
+import { useTheme } from "./useTheme";
+
+export function BackButton({ onPress }: { onPress: () => void }) {
+  const { colors } = useTheme();
+
+  return (
+    <Pressable
+      testID="back"
+      accessibilityRole="button"
+      accessibilityLabel="Back"
+      hitSlop={12}
+      onPress={onPress}
+      style={({ pressed }) => [styles.button, pressed && styles.pressed]}
+    >
+      <Text style={[type.headline, { color: colors.accent }]}>‹ Back</Text>
+    </Pressable>
+  );
+}
+
+const styles = StyleSheet.create({
+  button: { alignSelf: "flex-start", paddingVertical: space.xs },
+  pressed: { opacity: 0.5 },
+});

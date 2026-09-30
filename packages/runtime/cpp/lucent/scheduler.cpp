@@ -1,153 +1,67 @@
 #include "scheduler.h"
 
-#include <cstdio>
-#include <exception>
-#include <string>
-
-#if defined(__ANDROID__)
-#include <android/log.h>
-#elif defined(__APPLE__)
-#include <os/log.h>
-#endif
-
 namespace lucent {
 
-namespace {
-/// Where each platform shows an app's errors: logcat, the unified log, and
-/// stderr (host runs; Android and release iOS apps drop it).
-void writeError(const std::string& message) {
-#if defined(__ANDROID__)
-  __android_log_write(ANDROID_LOG_ERROR, "Lucent", message.c_str());
-#elif defined(__APPLE__)
-  os_log_error(OS_LOG_DEFAULT, "%{public}s", message.c_str());
-#endif
-  std::fprintf(stderr, "%s\n", message.c_str());
-}
-}  // namespace
+Scheduler::Scheduler() : ExecutionContext(&microtaskCount_) {
+  // The module context starts with the first module: tracing asked for by
+  // the environment (LUCENT_TRACE) starts with it.
+  trace::startFromEnvironment();
 
-void logError(const char* message) { writeError(message); }
-
-void reportUncaught(std::exception_ptr e, const char* where) {
-  try {
-    std::rethrow_exception(e);
-  } catch (const std::exception& x) {
-    writeError(std::string("[lucent] uncaught exception in ") + where + ": " + x.what());
-  } catch (...) {
-    writeError(std::string("[lucent] uncaught exception in ") + where);
-  }
+  worker_ = WorkerThread::start([this](Job& job) { runTurn(job); });
 }
 
 namespace {
-void runGuarded(const Scheduler::Job& job) {
-  try {
-    job();
-  } catch (...) {
-    reportUncaught(std::current_exception(), "job");
-  }
-}
+/// The scheduler's owner, leaked on purpose (jobs may still reference the
+/// scheduler during static destruction at process exit), and kept
+/// reachable: a leak checker (LeakSanitizer) reports what it cannot reach.
+std::shared_ptr<Scheduler>* keptScheduler = nullptr;
 }  // namespace
 
-
-Scheduler::Scheduler() {
-  thread_ = std::thread([this] { run(); });
-  threadId_ = thread_.get_id();
+Scheduler& Scheduler::instance() {
+  // The scheduler itself, one load away on the call path.
+  static Scheduler* s = [] {
+    keptScheduler = new std::shared_ptr<Scheduler>(new Scheduler());
+    (*keptScheduler)->makeRoot();
+    return keptScheduler->get();
+  }();
+  return *s;
 }
 
-Scheduler::~Scheduler() {
+void Scheduler::runTurn(Job& job) {
+  if (trace::enabled()) [[unlikely]] {
+    LucentScope::lockTraced(lock_);
+  } else {
+    lock_.lock();
+  }
+
+  std::lock_guard<LucentLock> lucent(lock_, std::adopt_lock);
+
   {
-    std::lock_guard<std::mutex> g(queueMutex_);
-    stopping_ = true;
+    Job local = std::move(job);
+    detail::runGuarded(local, "job");
   }
-  cv_.notify_all();
-  if (thread_.joinable()) thread_.join();
+
+  drainMicrotasks();
 }
 
-void Scheduler::post(Job job) {
-  {
-    std::lock_guard<std::mutex> g(queueMutex_);
-    jobs_.push_back(std::move(job));
+void LucentScope::lockTraced(LucentLock& lock) {
+  // Already held here (a nested call): no wait to record.
+  if (lock.heldByCurrentThread()) {
+    lock.lock();
+    return;
   }
-  cv_.notify_one();
-}
 
-void Scheduler::postDelayed(double ms, Job job) {
-  if (!(ms > 0)) ms = 0;
-  auto at = std::chrono::steady_clock::now() + std::chrono::microseconds(static_cast<int64_t>(ms * 1000));
-  {
-    std::lock_guard<std::mutex> g(queueMutex_);
-    timers_.push(Timer{at, timerSeq_++, std::move(job)});
-  }
-  cv_.notify_one();
-}
-
-void Scheduler::enqueueMicrotask(Job job) {
-  microtasks_.push_back(std::move(job));
-  pendingMicrotasks_++;
-}
-
-void Scheduler::drainMicrotasks() {
-  while (!microtasks_.empty()) {
-    Job job = std::move(microtasks_.front());
-    microtasks_.pop_front();
-    pendingMicrotasks_--;
-    runGuarded(job);
-  }
-}
-
-size_t Scheduler::pendingWork() {
-  std::lock_guard<std::mutex> g(queueMutex_);
-  return jobs_.size() + timers_.size() + running_;
-}
-
-bool Scheduler::waitIdle(double timeoutMs) {
-  std::unique_lock<std::mutex> g(queueMutex_);
-  return idleCv_.wait_for(g, std::chrono::microseconds(static_cast<int64_t>(timeoutMs * 1000)),
-                          [this] { return jobs_.empty() && timers_.empty() && running_ == 0; });
-}
-
-void Scheduler::run() {
-  std::unique_lock<std::mutex> g(queueMutex_);
-  for (;;) {
-    if (stopping_) return;
-    auto now = std::chrono::steady_clock::now();
-    while (!timers_.empty() && timers_.top().at <= now) {
-      jobs_.push_back(std::move(const_cast<Timer&>(timers_.top()).job));
-      timers_.pop();
-    }
-    if (!jobs_.empty()) {
-      Job job = std::move(jobs_.front());
-      jobs_.pop_front();
-      running_++;
-      g.unlock();
-      {
-        std::lock_guard<LucentLock> lucent(lock_);
-        runGuarded(job);
-        drainMicrotasks();
-      }
-      g.lock();
-      running_--;
-      if (jobs_.empty() && timers_.empty() && running_ == 0) idleCv_.notify_all();
-      continue;
-    }
-    if (timers_.empty()) {
-      cv_.wait(g);
-    } else {
-      // A copy: wait_until reads the deadline after unlocking, when a
-      // postDelayed may have reallocated the heap.
-      const auto deadline = timers_.top().at;
-      cv_.wait_until(g, deadline);
-    }
-  }
+  trace::Mark wait = trace::begin(trace::Category::Lock, "lucent-lock");
+  lock.lock();
+  trace::end(wait, trace::Category::Lock, "lucent-lock", {.parent = trace::currentId()});
 }
 
 void LucentScope::handOffMicrotasks() {
   Scheduler& s = Scheduler::instance();
-  if (s.onLucentThread()) {
-    s.drainMicrotasks();
-  } else {
-    // Continuations run on the Lucent thread, never on the JS thread.
-    s.post([] {});
-  }
+
+  // Continuations run on the Lucent thread, never on the JS thread. There,
+  // the turn this scope is nested in runs them after its job.
+  if (!s.onLucentThread()) s.post([] {});
 }
 
 }  // namespace lucent

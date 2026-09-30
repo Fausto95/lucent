@@ -20,8 +20,111 @@ function ios(src: string, sdk?: SdkOptions) {
     Object.keys(files).map((f) => path.join(dir, f)),
     { platforms: ["ios"], sdk },
   );
-  return { r, mm: r.files.get("ios/m_m.mm") ?? "", dir };
+  // Whitespace collapsed: the assertions are about the code, not its layout.
+  return { r, mm: (r.files.get("ios/m_m.mm") ?? "").replace(/\s+/g, " "), dir };
 }
+
+const caches = `import { NSCache } from "lucent:ios/Foundation";
+import { UIImage } from "lucent:ios/UIKit";
+export async function run(): Promise<string> {
+  const names = new NSCache<string, string>();
+  names.setObject("Ada", "first");
+  const sizes = new NSCache<string, number>();
+  sizes.setObject(3, "count");
+  const images = new NSCache<string, UIImage>();
+  const image = images.object("none");
+  return \`\${names.object("first") ?? "none"} \${sizes.object("count") ?? 0} \${image === null}\`;
+}
+`;
+
+const blockArgs = `import {
+  InputStream,
+  NSFileCoordinator,
+  NSFileCoordinator_ReadingOptions,
+  NSFileCoordinator_WritingOptions,
+  URLSession,
+  URLSessionTask,
+  URLSessionTaskDelegate,
+} from "lucent:ios/Foundation";
+import { SecRequestSharedWebCredential } from "lucent:ios/Security";
+class Uploads implements URLSessionTaskDelegate {
+  asked = 0;
+  urlSession_task_needNewBodyStream(
+    session: URLSession,
+    task: URLSessionTask,
+    completionHandler: (arg0: InputStream | null) => void,
+  ): void {
+    this.asked += 1;
+    completionHandler(null);
+  }
+}
+export async function run(): Promise<string> {
+  // A block that takes a block: the accessor gets a completion handler to call.
+  let prepared = 0;
+  const reading = NSFileCoordinator_ReadingOptions.withoutChanges;
+  const writing = NSFileCoordinator_WritingOptions.forMerging;
+  new NSFileCoordinator(null).prepare([], reading, [], writing, null, (done) => {
+    prepared += 1;
+    done();
+  });
+  // A block that takes CoreFoundation values.
+  let shared = -1;
+  SecRequestSharedWebCredential(null, null, (credentials, error) => {
+    shared = error === null ? (credentials?.length ?? 0) : -2;
+  });
+  return \`\${new Uploads().asked} \${prepared} \${shared}\`;
+}
+`;
+
+const outParams = `import { NSLayoutManager, UIColor } from "lucent:ios/UIKit";
+import {
+  NSCalendar,
+  NSCalendar_Unit,
+  NSRange,
+  PropertyListSerialization,
+  PropertyListSerialization_MutabilityOptions,
+  PropertyListSerialization_PropertyListFormat,
+} from "lucent:ios/Foundation";
+import { Out } from "lucent:ios";
+import { main } from "lucent:thread";
+export async function run(): Promise<string> {
+  // Numbers, one pointer left out.
+  const red = new Out<number>();
+  const alpha = new Out<number>();
+  const ok = UIColor.red.getRed(red, null, null, alpha);
+  // A date and a number.
+  const start = new Out<Date>();
+  const interval = new Out<number>();
+  const found = NSCalendar.current.range(NSCalendar_Unit.day, start, interval, new Date());
+  // An enum.
+  const format = new Out<PropertyListSerialization_PropertyListFormat>();
+  const options = PropertyListSerialization_MutabilityOptions.mutableContainers;
+  const plist = PropertyListSerialization.propertyList(new Uint8Array(0), options, format);
+  // A struct, inout: its value goes in, and the method's comes out.
+  const effective = new Out<NSRange>();
+  effective.value = { location: 0n, length: 0n };
+  const container = await main(() => new NSLayoutManager().textContainer(0n, effective));
+  return \`\${ok} \${red.value} \${alpha.value} \${found} \${start.value?.getTime()} \${interval.value} \${format.value} \${plist === null} \${container === null} \${effective.value?.length}\`;
+}
+`;
+
+const enumeration = `import {
+  NSCalendar,
+  NSCalendar_Options,
+  NSDateComponents,
+} from "lucent:ios/Foundation";
+export async function run(): Promise<string> {
+  const nine = new NSDateComponents();
+  nine.hour = 9n;
+  // The block gets BOOL *stop as an Out it sets: the calendar reads it after each date.
+  let seen = 0;
+  NSCalendar.current.enumerateDates(new Date(), nine, NSCalendar_Options.matchNextTime, (date, exact, stop) => {
+    seen += 1;
+    if (seen === 2) stop.value = true;
+  });
+  return \`\${seen}\`;
+}
+`;
 
 const clipboard = `import { UIPasteboard } from "lucent:ios/UIKit";
 import { main } from "lucent:thread";
@@ -169,14 +272,31 @@ export async function run(): Promise<string> {
 }
 `;
 
+// Names Apple's headers define as macros (MIN in Foundation, pascal and
+// TRUE in MacTypes, isset in <sys/param.h>), as a struct, locals and a function.
+const appleMacros = `import { UIView } from "lucent:ios/UIKit";
+import { main } from "lucent:thread";
+interface Range { MIN: number; pascal: string }
+function isset(r: Range): boolean {
+  return r.MIN > 0;
+}
+export async function run(): Promise<string> {
+  const TRUE: Range = { MIN: 1, pascal: "p" };
+  return main(() => {
+    new UIView();
+    return \`\${isset(TRUE)} \${TRUE.pascal}\`;
+  });
+}
+`;
+
 const mediaTimes = `import { AVPlayer } from "lucent:ios/AVFoundation";
 import { CMTimeCompare, CMTimeMake } from "lucent:ios/CoreMedia";
 import { NSUnionRange } from "lucent:ios/Foundation";
 import { main } from "lucent:thread";
 export async function run(): Promise<string> {
   const now = await main(() => new AVPlayer().currentTime());
-  const later = CMTimeMake(now.value + 600, 600);
-  const r = NSUnionRange({ location: 0, length: 2 }, { location: 5, length: 1 });
+  const later = CMTimeMake(now.value + 600n, 600);
+  const r = NSUnionRange({ location: 0n, length: 2n }, { location: 5n, length: 1n });
   return \`\${later.value}/\${later.timescale} \${later.flags} \${CMTimeCompare(later, now)} \${r.location}+\${r.length}\`;
 }
 `;
@@ -254,6 +374,48 @@ export async function run(): Promise<string> {
 }
 `;
 
+const presenting = `import { UIActivityViewController, UIApplication, UIViewController } from "lucent:ios/UIKit";
+import { Timer } from "lucent:ios/Foundation";
+import { onAppEvent, onSceneEvent, present } from "lucent:ios";
+let foregrounds = 0;
+const scenes: string[] = [];
+export async function run(): Promise<string> {
+  // Listeners run on the main thread: main-only APIs need no main() there.
+  const stop = onAppEvent("willEnterForeground", () => {
+    foregrounds += 1;
+    UIApplication.shared.isIdleTimerDisabled = false;
+  });
+  const controller = new AbortController();
+  const stopScenes = onSceneEvent("didActivate", (scene) => {
+    scenes.push(scene);
+  }, controller.signal);
+  // A value from the view controller's completion handler, withdrawn by a signal.
+  const shared = await present<boolean>((resolve) => {
+    const sheet = new UIActivityViewController(["Lucent"], null);
+    sheet.completionHandler = (_type, completed) => resolve(completed);
+    return sheet;
+  }, controller.signal);
+  // Nothing, settled from a timer on the main thread.
+  await present<void>((resolve) => {
+    Timer.scheduledTimer(0.5, false, () => resolve());
+    return new UIViewController(null, null);
+  });
+  // An error.
+  let failed = "";
+  try {
+    await present<number>((_resolve, reject) => {
+      reject(new Error("no"));
+      return new UIViewController(null, null);
+    });
+  } catch (e) {
+    failed = (e as Error).message;
+  }
+  stop();
+  stopScenes();
+  return \`\${shared} \${failed} \${foregrounds} \${scenes.length}\`;
+}
+`;
+
 describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
   it("reads and writes properties", () => {
     const { r, mm } = ios(clipboard);
@@ -291,6 +453,35 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(mm).toContain("#import <WidgetsPod/WidgetsPod-umbrella.h>");
     expect(mm).not.toContain("<WidgetsPod/WidgetsPod.h>");
     expect(r.frameworks).not.toContain("WidgetsPod");
+  }, 600_000);
+
+  it("calls a protocol's method a class hides with its own of the same name", () => {
+    const { r, mm } = ios(`import { NSLock } from "lucent:ios/Foundation";
+export async function run(): Promise<string> {
+  const lock = new NSLock();
+  lock.lock();
+  lock.unlock();
+  return "ok";
+}
+`);
+
+    expect(r.diagnostics).toEqual([]);
+
+    // NSLocking's lock(), beside NSLock's lock(before:).
+    expect(mm).toMatch(/\[\S+ lock\]/);
+  });
+
+  it("depends on the pod whose module it imports, so frameworks builds find its headers", () => {
+    const { r } = ios(gauge, { ios: podsSearchPaths(pods) });
+
+    expect(r.diagnostics).toEqual([]);
+    expect(r.pods).toEqual(["WidgetsPod"]);
+  });
+
+  it("depends on no pod for SDK modules", () => {
+    const { r } = ios(callbacks);
+
+    expect(r.pods ?? []).toEqual([]);
   });
 
   it("passes functions as blocks: queued, or run while the platform waits", () => {
@@ -359,7 +550,12 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     expect(mm).toContain("CMTimeMake(");
     // Fields take their own C types: an option set, and NSUInteger where Swift says Int.
     expect(mm).toContain("static_cast<decltype(CMTime::flags)>(");
-    expect(mm).toContain("static_cast<decltype(NSRange::length)>(");
+    // NSUInteger fields are 64-bit integers: bigints, exactly or RangeError.
+    // Each by the field's own C type: NSUInteger, where Swift says Int.
+    expect(mm).toContain(
+      'lucent::toNativeInteger<decltype(NSRange::length)>(arg_2->length, "NSRange.length")',
+    );
+    expect(mm).toContain("lucent::BigInt{s0_.length}");
     expect(mm).toContain("NSUnionRange(NSRange{");
   });
 
@@ -373,9 +569,48 @@ describe.skipIf(!sdkAvailable("ios"))("iOS bindings from the SDK", () => {
     const { r, mm } = ios(cgImages);
     expect(r.diagnostics).toEqual([]);
     expect(mm).toContain("lucent::objc::wrapOpt((__bridge id)");
-    expect(mm).toContain("initWithCGImage:((__bridge CGImageRef)lucent::objc::unwrap(");
+    expect(mm).toContain("initWithCGImage:(__bridge CGImageRef)lucent::objc::unwrap(");
     // Methods named create/copy/new return handles the caller owns (Cocoa's naming rule).
     expect(mm).toContain("lucent::objc::wrapOpt((__bridge_transfer id)[");
+  });
+
+  it("passes type parameters' values as objects, read back as the type arguments say", () => {
+    const { r, mm } = ios(caches);
+    expect(r.diagnostics).toEqual([]);
+    // Strings and numbers become NSString and NSNumber, and come back through the Any helpers.
+    expect(mm).toContain("lucent::objc::asString(");
+    expect(mm).toContain("lucent::objc::asNumber(");
+    // Objects stay objects.
+    expect(mm).toContain("objectForKey:");
+  });
+
+  it("gives Lucent functions blocks the platform passes, CoreFoundation values in blocks included", () => {
+    const { r, mm } = ios(blockArgs);
+    expect(r.diagnostics).toEqual([]);
+    // The accessor's and the delegate method's completion handlers, as Lucent functions.
+    expect(mm.match(/b_ = \(void \(\^\)\([^)]*\)\)a\d+_/g)?.length).toBe(2);
+    // CFArrayRef and CFErrorRef in the block's signature, bridged to Lucent values.
+    expect(mm).toContain("lucent::objc::block<void (^)(CFArrayRef, CFErrorRef)>");
+    expect(mm).toContain("(CFArrayRef a0_, CFErrorRef a1_)");
+  });
+
+  it("passes numbers, enums, structs and objects through Out, read after the call", () => {
+    const { r, mm } = ios(outParams);
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("lucent::objc::NumberOut<CGFloat>(");
+    expect(mm).toContain("lucent::objc::ObjectOut<NSDate*>(");
+    expect(mm).toContain("lucent::objc::NumberOut<NSPropertyListFormat>(");
+    expect(mm).toContain("lucent::objc::StructOut<NSRange>(");
+    expect(mm).toContain("lucent::objc::outNumber(");
+    expect(mm).toContain("lucent::objc::setOut(");
+  });
+
+  it("gives a block's pointer (BOOL *stop) to the Lucent function as an Out, written back", () => {
+    const { r, mm } = ios(enumeration);
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("(NSDate* a0_, BOOL a1_, BOOL* a2_)");
+    expect(mm).toContain("lucent::objc::outOf(a2_)");
+    expect(mm).toContain("lucent::objc::writeOut(");
   });
 
   it("passes NSSets as Lucent sets", () => {
@@ -399,6 +634,58 @@ export async function run(): Promise<string> {
     expect(r.diagnostics).toEqual([]);
     expect(mm).toContain(" frame]");
     expect(mm).toContain("frameForAlignmentRect:");
+  });
+
+  it("presents view controllers from the scene in use, and follows lifecycle events", () => {
+    const { r, mm } = ios(presenting);
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("#include <lucent/platform/ios_ui.h>");
+    // present's type argument is the promise's: a value, nothing, a number.
+    expect(mm).toContain("lucent::objc::present<bool>(");
+    expect(mm).toContain("lucent::objc::present<void>(");
+    expect(mm).toContain("lucent::objc::present<double>(");
+    expect(mm).toContain("lucent::objc::onAppEvent(");
+    expect(mm).toContain("lucent::objc::onSceneEvent(");
+  });
+
+  it("keeps main-thread APIs to present's function and lifecycle listeners", () => {
+    const outside = ios(`import { UIViewController } from "lucent:ios/UIKit";
+import { present } from "lucent:ios";
+export async function run(): Promise<string> {
+  const made = new UIViewController(null, null);
+  await present<void>(() => made);
+  return "";
+}
+`);
+    expect(outside.r.diagnostics.map((d) => d.code)).toEqual(["LUCENT3006"]);
+
+    const later = ios(`import { UIApplication } from "lucent:ios/UIKit";
+import { onAppEvent } from "lucent:ios";
+export async function run(): Promise<string> {
+  const stop = onAppEvent("didBecomeActive", () => {
+    // A function made there is not known to run on the main thread.
+    const later = () => {
+      UIApplication.shared.isIdleTimerDisabled = false;
+    };
+    later();
+  });
+  stop();
+  return "";
+}
+`);
+    expect(later.r.diagnostics.map((d) => d.code)).toEqual(["LUCENT3006"]);
+  });
+
+  it("takes present's function as a literal", () => {
+    const named = ios(`import { UIViewController } from "lucent:ios/UIKit";
+import { present } from "lucent:ios";
+const build = (resolve: () => void) => new UIViewController(null, null);
+export async function run(): Promise<string> {
+  await present<void>(build);
+  return "";
+}
+`);
+    expect(named.r.diagnostics.map((d) => d.code)).toContain("LUCENT1007");
   });
 
   it("monitors network paths: OS objects, anonymous enums, blocks, the main queue", () => {
@@ -443,7 +730,13 @@ export async function run(): Promise<string> {
         [sets],
         [mediaTimes],
         [shadowing],
+        [appleMacros],
         [pathMonitor],
+        [presenting],
+        [caches],
+        [blockArgs],
+        [outParams],
+        [enumeration],
         [gauge, { ios: podsSearchPaths(pods) }],
       ] as [string, SdkOptions?][]
     ).map(([src, sdk]) => {
@@ -467,6 +760,8 @@ export async function run(): Promise<string> {
           "-target",
           "arm64-apple-ios15.1-simulator",
           "-Werror",
+          // Deprecated APIs are the program's choice (its declarations say @deprecated).
+          "-Wno-deprecated-declarations",
           "-Wno-gnu-statement-expression",
           "-Wno-unused-label",
           "-Wno-parentheses-equality",
@@ -494,3 +789,31 @@ function stderrOf(cmd: string, args: string[]): Promise<string> {
     child.on("close", () => resolve(err));
   });
 }
+
+/** What the docs list as not bound yet: each is a diagnostic or a type error, never invalid C++. */
+describe.skipIf(!sdkAvailable("ios"))("iOS bindings: documented limits", () => {
+  it("keeps NSNumber an object: read it with its own members", () => {
+    const wrong = ios(`import { UITouch } from "lucent:ios/UIKit";
+import { main } from "lucent:thread";
+export function run(): Promise<string> {
+  return main(() => {
+    const n: number | null = new UITouch().estimationUpdateIndex;
+    return \`\${n}\`;
+  });
+}
+`);
+    expect(wrong.r.diagnostics.some((d) => d.message.includes("NSNumber"))).toBe(true);
+    // Its members need Foundation imported (UIKit alone gives its name only).
+    const right = ios(`import { UITouch } from "lucent:ios/UIKit";
+import type { NSNumber } from "lucent:ios/Foundation";
+import { main } from "lucent:thread";
+export function run(): Promise<string> {
+  return main(() => {
+    const n: NSNumber | null = new UITouch().estimationUpdateIndex;
+    return \`\${n?.doubleValue ?? -1}\`;
+  });
+}
+`);
+    expect(right.r.diagnostics.map((d) => d.message)).toEqual([]);
+  });
+});

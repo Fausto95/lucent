@@ -1,10 +1,9 @@
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
+import { runLucent } from "./run-to-exit.ts";
 
-const bin = path.resolve(import.meta.dirname, "../bin/lucent.cjs");
 const hermes = process.env.HERMES_DIR ?? path.join(os.homedir(), "hermes");
 const hasHermes = fs.existsSync(path.join(hermes, "build/lib"));
 
@@ -48,8 +47,7 @@ export default {
 }
 
 function lucent(root: string, env: Record<string, string>, ...args: string[]) {
-  const r = spawnSync(process.execPath, [bin, "bench", ...args, "--root", root], {
-    encoding: "utf8",
+  const r = runLucent(["bench", ...args, "--root", root], {
     env: { ...process.env, NO_COLOR: "1", ...env },
     timeout: 600_000,
   });

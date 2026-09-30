@@ -1,0 +1,2811 @@
+{
+  "kotlinc": "2.4",
+  "inputs": [
+    [
+      {
+        "jvmName": "dev/orbit/search/BaseSource",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/BaseSource",
+        "kind": "class",
+        "visibility": "public",
+        "modality": "abstract",
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "kotlin/Any"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [
+          {
+            "visibility": "public",
+            "parameters": [],
+            "jvm": {
+              "name": "<init>",
+              "descriptor": "()V"
+            }
+          }
+        ],
+        "functions": [
+          {
+            "name": "load",
+            "jvm": {
+              "name": "load-X6dG1pw",
+              "descriptor": "(J)Ldev/orbit/search/SearchHit;"
+            },
+            "visibility": "protected",
+            "modality": "abstract",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "id",
+                "type": {
+                  "classifier": {
+                    "class": "dev/orbit/search/HitId"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                }
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "dev/orbit/search/SearchHit"
+              },
+              "nullable": true,
+              "arguments": []
+            }
+          },
+          {
+            "name": "describe",
+            "jvm": {
+              "name": "describe",
+              "descriptor": "()Ljava/lang/String;"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          }
+        ],
+        "properties": [],
+        "enumEntries": [],
+        "sealedSubclasses": []
+      },
+      {
+        "jvmName": "dev/orbit/search/Experimental",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/Experimental",
+        "kind": "annotation",
+        "visibility": "public",
+        "modality": "final",
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "kotlin/Annotation"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [
+          {
+            "visibility": "public",
+            "parameters": [
+              {
+                "name": "reason",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/String"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                }
+              }
+            ],
+            "jvm": {
+              "name": "<init>",
+              "descriptor": "(Ljava/lang/String;)V"
+            }
+          }
+        ],
+        "functions": [],
+        "properties": [
+          {
+            "name": "reason",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "reason",
+                "descriptor": "()Ljava/lang/String;"
+              }
+            }
+          }
+        ],
+        "enumEntries": [],
+        "sealedSubclasses": []
+      },
+      {
+        "jvmName": "dev/orbit/search/ExtensionsKt",
+        "metadataKind": "file-facade",
+        "functions": [
+          {
+            "name": "defaultClient",
+            "jvm": {
+              "name": "defaultClient",
+              "descriptor": "()Ldev/orbit/search/SearchClient;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "dev/orbit/search/SearchClient"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "toQuery",
+            "jvm": {
+              "name": "toQuery",
+              "descriptor": "(Ljava/lang/String;I)Ljava/lang/String;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "receiver": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "parameters": [
+              {
+                "name": "limit",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Int"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                },
+                "declaresDefault": true
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "first",
+            "jvm": {
+              "name": "first",
+              "descriptor": "(Ldev/orbit/search/SearchClient;Ljava/lang/String;Lkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "suspend": true,
+            "typeParameters": [],
+            "receiver": {
+              "classifier": {
+                "class": "dev/orbit/search/SearchClient"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "parameters": [
+              {
+                "name": "prefix",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/String"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                }
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "dev/orbit/search/SearchHit"
+              },
+              "nullable": true,
+              "arguments": []
+            }
+          },
+          {
+            "name": "id",
+            "jvm": {
+              "name": "id",
+              "descriptor": "(Ldev/orbit/search/SearchHit;)J"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "receiver": {
+              "classifier": {
+                "class": "dev/orbit/search/SearchHit"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "dev/orbit/search/HitId"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "firstOf",
+            "jvm": {
+              "name": "firstOf",
+              "descriptor": "(Ljava/util/List;)Ljava/lang/Object;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "inline": true,
+            "typeParameters": [
+              {
+                "id": 0,
+                "name": "T",
+                "variance": "invariant",
+                "reified": true,
+                "upperBounds": []
+              }
+            ],
+            "receiver": {
+              "classifier": {
+                "class": "kotlin/collections/List"
+              },
+              "nullable": false,
+              "arguments": ["*"]
+            },
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "typeParameter": 0
+              },
+              "nullable": true,
+              "arguments": []
+            }
+          },
+          {
+            "name": "systemName",
+            "jvm": {
+              "name": "systemName",
+              "descriptor": "()Ljava/lang/String;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": [],
+              "platform": true
+            }
+          },
+          {
+            "name": "using",
+            "jvm": {
+              "name": "using",
+              "descriptor": "(Ldev/orbit/search/SearchClient;Lkotlin/jvm/functions/Function1;)V"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "receiver": {
+              "classifier": {
+                "class": "dev/orbit/search/SearchClient"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "parameters": [
+              {
+                "name": "block",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Function1"
+                  },
+                  "nullable": false,
+                  "arguments": [
+                    {
+                      "variance": "invariant",
+                      "type": {
+                        "classifier": {
+                          "class": "dev/orbit/search/SearchClient"
+                        },
+                        "nullable": false,
+                        "arguments": []
+                      }
+                    },
+                    {
+                      "variance": "invariant",
+                      "type": {
+                        "classifier": {
+                          "class": "kotlin/Unit"
+                        },
+                        "nullable": false,
+                        "arguments": []
+                      }
+                    }
+                  ],
+                  "annotations": ["dev/orbit/search/Marked", "kotlin/ExtensionFunctionType"]
+                }
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Unit"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          }
+        ],
+        "properties": [
+          {
+            "name": "MAX_LIMIT",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "const": true,
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/Int"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final"
+            },
+            "field": {
+              "name": "MAX_LIMIT",
+              "descriptor": "I"
+            }
+          },
+          {
+            "name": "VERSION",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getVERSION",
+                "descriptor": "()Ljava/lang/String;"
+              }
+            },
+            "field": {
+              "name": "VERSION",
+              "descriptor": "Ljava/lang/String;"
+            }
+          },
+          {
+            "name": "verbose",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "mutable": true,
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/Boolean"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getVerbose",
+                "descriptor": "()Z"
+              }
+            },
+            "setter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "setVerbose",
+                "descriptor": "(Z)V"
+              }
+            },
+            "field": {
+              "name": "verbose",
+              "descriptor": "Z"
+            }
+          },
+          {
+            "name": "shortTitle",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "receiver": {
+              "classifier": {
+                "class": "dev/orbit/search/SearchHit"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "type": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getShortTitle",
+                "descriptor": "(Ldev/orbit/search/SearchHit;)Ljava/lang/String;"
+              },
+              "notDefault": true
+            }
+          },
+          {
+            "name": "marker",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "mutable": true,
+            "typeParameters": [],
+            "receiver": {
+              "classifier": {
+                "class": "java/lang/StringBuilder"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "type": {
+              "classifier": {
+                "class": "kotlin/Char"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getMarker",
+                "descriptor": "(Ljava/lang/StringBuilder;)C"
+              },
+              "notDefault": true
+            },
+            "setter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "setMarker",
+                "descriptor": "(Ljava/lang/StringBuilder;C)V"
+              },
+              "notDefault": true
+            }
+          }
+        ]
+      },
+      {
+        "jvmName": "dev/orbit/search/ExtensionsKt$first$1",
+        "metadataKind": "synthetic"
+      },
+      {
+        "jvmName": "dev/orbit/search/Filter",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/Filter",
+        "kind": "class",
+        "visibility": "public",
+        "modality": "sealed",
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "kotlin/Any"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [
+          {
+            "visibility": "protected",
+            "parameters": [],
+            "jvm": {
+              "name": "<init>",
+              "descriptor": "()V"
+            }
+          }
+        ],
+        "functions": [],
+        "properties": [],
+        "enumEntries": [],
+        "sealedSubclasses": ["dev/orbit/search/Filter.All", "dev/orbit/search/Filter.Prefix"]
+      },
+      {
+        "jvmName": "dev/orbit/search/Filter$All",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/Filter.All",
+        "kind": "object",
+        "visibility": "public",
+        "modality": "final",
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "dev/orbit/search/Filter"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [],
+        "functions": [],
+        "properties": [],
+        "enumEntries": [],
+        "sealedSubclasses": []
+      },
+      {
+        "jvmName": "dev/orbit/search/Filter$Prefix",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/Filter.Prefix",
+        "kind": "class",
+        "visibility": "public",
+        "modality": "final",
+        "data": true,
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "dev/orbit/search/Filter"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [
+          {
+            "visibility": "public",
+            "parameters": [
+              {
+                "name": "value",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/String"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                }
+              }
+            ],
+            "jvm": {
+              "name": "<init>",
+              "descriptor": "(Ljava/lang/String;)V"
+            }
+          }
+        ],
+        "functions": [
+          {
+            "name": "component1",
+            "jvm": {
+              "name": "component1",
+              "descriptor": "()Ljava/lang/String;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "synthesized",
+            "operator": true,
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "copy",
+            "jvm": {
+              "name": "copy",
+              "descriptor": "(Ljava/lang/String;)Ldev/orbit/search/Filter$Prefix;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "synthesized",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "value",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/String"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                },
+                "declaresDefault": true
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "dev/orbit/search/Filter.Prefix"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "equals",
+            "jvm": {
+              "name": "equals",
+              "descriptor": "(Ljava/lang/Object;)Z"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "synthesized",
+            "operator": true,
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "other",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Any"
+                  },
+                  "nullable": true,
+                  "arguments": []
+                }
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Boolean"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "hashCode",
+            "jvm": {
+              "name": "hashCode",
+              "descriptor": "()I"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "synthesized",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Int"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "toString",
+            "jvm": {
+              "name": "toString",
+              "descriptor": "()Ljava/lang/String;"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "synthesized",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          }
+        ],
+        "properties": [
+          {
+            "name": "value",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getValue",
+                "descriptor": "()Ljava/lang/String;"
+              }
+            },
+            "field": {
+              "name": "value",
+              "descriptor": "Ljava/lang/String;"
+            }
+          }
+        ],
+        "enumEntries": [],
+        "sealedSubclasses": []
+      },
+      {
+        "jvmName": "dev/orbit/search/HitFilter",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/HitFilter",
+        "kind": "interface",
+        "visibility": "public",
+        "modality": "abstract",
+        "fun": true,
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "kotlin/Any"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [],
+        "functions": [
+          {
+            "name": "accept",
+            "jvm": {
+              "name": "accept",
+              "descriptor": "(Ldev/orbit/search/SearchHit;)Z"
+            },
+            "visibility": "public",
+            "modality": "abstract",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "hit",
+                "type": {
+                  "classifier": {
+                    "class": "dev/orbit/search/SearchHit"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                }
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Boolean"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          }
+        ],
+        "properties": [],
+        "enumEntries": [],
+        "sealedSubclasses": []
+      },
+      {
+        "jvmName": "dev/orbit/search/HitId",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/HitId",
+        "kind": "class",
+        "visibility": "public",
+        "modality": "final",
+        "value": true,
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "kotlin/Any"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [
+          {
+            "visibility": "public",
+            "parameters": [
+              {
+                "name": "raw",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Long"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                }
+              }
+            ],
+            "jvm": {
+              "name": "constructor-impl",
+              "descriptor": "(J)J"
+            }
+          }
+        ],
+        "functions": [
+          {
+            "name": "equals",
+            "jvm": {
+              "name": "equals-impl",
+              "descriptor": "(JLjava/lang/Object;)Z"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "synthesized",
+            "operator": true,
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "other",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Any"
+                  },
+                  "nullable": true,
+                  "arguments": []
+                }
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Boolean"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "hashCode",
+            "jvm": {
+              "name": "hashCode-impl",
+              "descriptor": "(J)I"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "synthesized",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Int"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "toString",
+            "jvm": {
+              "name": "toString-impl",
+              "descriptor": "(J)Ljava/lang/String;"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "synthesized",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          }
+        ],
+        "properties": [
+          {
+            "name": "raw",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/Long"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getRaw",
+                "descriptor": "()J"
+              }
+            },
+            "field": {
+              "name": "raw",
+              "descriptor": "J"
+            }
+          }
+        ],
+        "enumEntries": [],
+        "sealedSubclasses": [],
+        "valueClass": {
+          "property": "raw",
+          "type": {
+            "classifier": {
+              "class": "kotlin/Long"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        }
+      },
+      {
+        "jvmName": "dev/orbit/search/Listener",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/Listener",
+        "kind": "interface",
+        "visibility": "public",
+        "modality": "abstract",
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "kotlin/Any"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [],
+        "functions": [
+          {
+            "name": "onHit",
+            "jvm": {
+              "name": "onHit",
+              "descriptor": "(Ldev/orbit/search/SearchHit;)V"
+            },
+            "visibility": "public",
+            "modality": "abstract",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "hit",
+                "type": {
+                  "classifier": {
+                    "class": "dev/orbit/search/SearchHit"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                }
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Unit"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "onDone",
+            "jvm": {
+              "name": "onDone",
+              "descriptor": "()V"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Unit"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          }
+        ],
+        "properties": [],
+        "enumEntries": [],
+        "sealedSubclasses": []
+      },
+      {
+        "jvmName": "dev/orbit/search/Listener$DefaultImpls",
+        "metadataKind": "synthetic"
+      },
+      {
+        "jvmName": "dev/orbit/search/Marked",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/Marked",
+        "kind": "annotation",
+        "visibility": "public",
+        "modality": "final",
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "kotlin/Annotation"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [
+          {
+            "visibility": "public",
+            "parameters": [],
+            "jvm": {
+              "name": "<init>",
+              "descriptor": "()V"
+            }
+          }
+        ],
+        "functions": [],
+        "properties": [],
+        "enumEntries": [],
+        "sealedSubclasses": []
+      },
+      {
+        "jvmName": "dev/orbit/search/Mode",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/Mode",
+        "kind": "enum",
+        "visibility": "public",
+        "modality": "final",
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "kotlin/Enum"
+            },
+            "nullable": false,
+            "arguments": [
+              {
+                "variance": "invariant",
+                "type": {
+                  "classifier": {
+                    "class": "dev/orbit/search/Mode"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                }
+              }
+            ]
+          }
+        ],
+        "constructors": [],
+        "functions": [],
+        "properties": [
+          {
+            "name": "weight",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/Int"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getWeight",
+                "descriptor": "()I"
+              }
+            },
+            "field": {
+              "name": "weight",
+              "descriptor": "I"
+            }
+          }
+        ],
+        "enumEntries": ["FAST", "EXACT"],
+        "sealedSubclasses": []
+      },
+      {
+        "jvmName": "dev/orbit/search/Page",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/Page",
+        "kind": "class",
+        "visibility": "public",
+        "modality": "final",
+        "typeParameters": [
+          {
+            "id": 0,
+            "name": "T",
+            "variance": "out",
+            "upperBounds": []
+          }
+        ],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "kotlin/Any"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [
+          {
+            "visibility": "public",
+            "parameters": [
+              {
+                "name": "items",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/collections/List"
+                  },
+                  "nullable": false,
+                  "arguments": [
+                    {
+                      "variance": "invariant",
+                      "type": {
+                        "classifier": {
+                          "typeParameter": 0
+                        },
+                        "nullable": false,
+                        "arguments": []
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "next",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/String"
+                  },
+                  "nullable": true,
+                  "arguments": []
+                }
+              }
+            ],
+            "jvm": {
+              "name": "<init>",
+              "descriptor": "(Ljava/util/List;Ljava/lang/String;)V"
+            }
+          }
+        ],
+        "functions": [],
+        "properties": [
+          {
+            "name": "items",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/collections/List"
+              },
+              "nullable": false,
+              "arguments": [
+                {
+                  "variance": "invariant",
+                  "type": {
+                    "classifier": {
+                      "typeParameter": 0
+                    },
+                    "nullable": false,
+                    "arguments": []
+                  }
+                }
+              ]
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getItems",
+                "descriptor": "()Ljava/util/List;"
+              }
+            },
+            "field": {
+              "name": "items",
+              "descriptor": "Ljava/util/List;"
+            }
+          },
+          {
+            "name": "next",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": true,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getNext",
+                "descriptor": "()Ljava/lang/String;"
+              }
+            },
+            "field": {
+              "name": "next",
+              "descriptor": "Ljava/lang/String;"
+            }
+          }
+        ],
+        "enumEntries": [],
+        "sealedSubclasses": []
+      },
+      {
+        "jvmName": "dev/orbit/search/Queries",
+        "metadataKind": "multi-file-facade",
+        "parts": [
+          "dev/orbit/search/Queries__QueriesLimitsKt",
+          "dev/orbit/search/Queries__QueriesTextKt"
+        ]
+      },
+      {
+        "jvmName": "dev/orbit/search/Queries__QueriesLimitsKt",
+        "metadataKind": "multi-file-part",
+        "facade": "dev/orbit/search/Queries",
+        "functions": [
+          {
+            "name": "clampLimit",
+            "jvm": {
+              "name": "clampLimit",
+              "descriptor": "(Ljava/lang/Integer;)I"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "limit",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Int"
+                  },
+                  "nullable": true,
+                  "arguments": []
+                }
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Int"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          }
+        ],
+        "properties": []
+      },
+      {
+        "jvmName": "dev/orbit/search/Queries__QueriesTextKt",
+        "metadataKind": "multi-file-part",
+        "facade": "dev/orbit/search/Queries",
+        "functions": [
+          {
+            "name": "normalize",
+            "jvm": {
+              "name": "normalize",
+              "descriptor": "(Ljava/lang/String;)Ljava/lang/String;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "query",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/String"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                }
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          }
+        ],
+        "properties": []
+      },
+      {
+        "jvmName": "dev/orbit/search/SearchClient",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/SearchClient",
+        "kind": "class",
+        "visibility": "public",
+        "modality": "final",
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "kotlin/Any"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [
+          {
+            "visibility": "public",
+            "parameters": [
+              {
+                "name": "endpoint",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/String"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                },
+                "declaresDefault": true
+              },
+              {
+                "name": "token",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/String"
+                  },
+                  "nullable": true,
+                  "arguments": []
+                },
+                "declaresDefault": true
+              }
+            ],
+            "jvm": {
+              "name": "<init>",
+              "descriptor": "(Ljava/lang/String;Ljava/lang/String;)V"
+            }
+          }
+        ],
+        "functions": [
+          {
+            "name": "search",
+            "jvm": {
+              "name": "search",
+              "descriptor": "(Ljava/lang/String;ILkotlin/coroutines/Continuation;)Ljava/lang/Object;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "suspend": true,
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "prefix",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/String"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                }
+              },
+              {
+                "name": "limit",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Int"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                },
+                "declaresDefault": true
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/collections/List"
+              },
+              "nullable": false,
+              "arguments": [
+                {
+                  "variance": "invariant",
+                  "type": {
+                    "classifier": {
+                      "class": "dev/orbit/search/SearchHit"
+                    },
+                    "nullable": false,
+                    "arguments": []
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "searchNow",
+            "jvm": {
+              "name": "searchNow",
+              "descriptor": "(Ljava/lang/String;[Ljava/lang/String;)Ljava/util/List;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "prefix",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/String"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                }
+              },
+              {
+                "name": "tags",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Array"
+                  },
+                  "nullable": false,
+                  "arguments": [
+                    {
+                      "variance": "out",
+                      "type": {
+                        "classifier": {
+                          "class": "kotlin/String"
+                        },
+                        "nullable": false,
+                        "arguments": []
+                      }
+                    }
+                  ]
+                },
+                "vararg": {
+                  "classifier": {
+                    "class": "kotlin/String"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                }
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/collections/List"
+              },
+              "nullable": true,
+              "arguments": [
+                {
+                  "variance": "invariant",
+                  "type": {
+                    "classifier": {
+                      "class": "dev/orbit/search/SearchHit"
+                    },
+                    "nullable": false,
+                    "arguments": []
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "best",
+            "jvm": {
+              "name": "best",
+              "descriptor": "(Ljava/util/List;Ljava/lang/Comparable;)Ljava/lang/Comparable;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [
+              {
+                "id": 0,
+                "name": "T",
+                "variance": "invariant",
+                "upperBounds": [
+                  {
+                    "classifier": {
+                      "class": "kotlin/Comparable"
+                    },
+                    "nullable": false,
+                    "arguments": [
+                      {
+                        "variance": "invariant",
+                        "type": {
+                          "classifier": {
+                            "typeParameter": 0
+                          },
+                          "nullable": false,
+                          "arguments": []
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }
+            ],
+            "parameters": [
+              {
+                "name": "items",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/collections/List"
+                  },
+                  "nullable": false,
+                  "arguments": [
+                    {
+                      "variance": "invariant",
+                      "type": {
+                        "classifier": {
+                          "typeParameter": 0
+                        },
+                        "nullable": false,
+                        "arguments": []
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "fallback",
+                "type": {
+                  "classifier": {
+                    "typeParameter": 0
+                  },
+                  "nullable": true,
+                  "arguments": []
+                },
+                "declaresDefault": true
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "typeParameter": 0
+              },
+              "nullable": true,
+              "arguments": []
+            }
+          },
+          {
+            "name": "copyInto",
+            "jvm": {
+              "name": "copyInto",
+              "descriptor": "(Ljava/util/List;Ljava/util/List;Ljava/util/List;)V"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "target",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/collections/MutableList"
+                  },
+                  "nullable": false,
+                  "arguments": [
+                    {
+                      "variance": "in",
+                      "type": {
+                        "classifier": {
+                          "class": "dev/orbit/search/SearchHit"
+                        },
+                        "nullable": false,
+                        "arguments": []
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "source",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/collections/List"
+                  },
+                  "nullable": false,
+                  "arguments": [
+                    {
+                      "variance": "out",
+                      "type": {
+                        "classifier": {
+                          "class": "dev/orbit/search/SearchHit"
+                        },
+                        "nullable": false,
+                        "arguments": []
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "name": "any",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/collections/List"
+                  },
+                  "nullable": false,
+                  "arguments": ["*"]
+                }
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Unit"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "onResult",
+            "jvm": {
+              "name": "onResult",
+              "descriptor": "(Lkotlin/jvm/functions/Function2;)V"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "block",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Function2"
+                  },
+                  "nullable": false,
+                  "arguments": [
+                    {
+                      "variance": "invariant",
+                      "type": {
+                        "classifier": {
+                          "class": "dev/orbit/search/SearchHit"
+                        },
+                        "nullable": false,
+                        "arguments": []
+                      }
+                    },
+                    {
+                      "variance": "invariant",
+                      "type": {
+                        "classifier": {
+                          "class": "kotlin/coroutines/Continuation"
+                        },
+                        "nullable": false,
+                        "arguments": [
+                          {
+                            "variance": "invariant",
+                            "type": {
+                              "classifier": {
+                                "class": "kotlin/Unit"
+                              },
+                              "nullable": false,
+                              "arguments": []
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "variance": "invariant",
+                      "type": {
+                        "classifier": {
+                          "class": "kotlin/Any"
+                        },
+                        "nullable": true,
+                        "arguments": []
+                      }
+                    }
+                  ],
+                  "suspend": true
+                }
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Unit"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "configure",
+            "jvm": {
+              "name": "configure",
+              "descriptor": "(ILjava/lang/String;)V"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "retries",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Int"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                },
+                "declaresDefault": true
+              },
+              {
+                "name": "label",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/String"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                },
+                "declaresDefault": true
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Unit"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "reset",
+            "jvm": {
+              "name": "resetAll",
+              "descriptor": "()V"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Unit"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          }
+        ],
+        "properties": [
+          {
+            "name": "endpoint",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getEndpoint",
+                "descriptor": "()Ljava/lang/String;"
+              }
+            },
+            "field": {
+              "name": "endpoint",
+              "descriptor": "Ljava/lang/String;"
+            }
+          },
+          {
+            "name": "lastQuery",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "mutable": true,
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": true,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getLastQuery",
+                "descriptor": "()Ljava/lang/String;"
+              }
+            },
+            "field": {
+              "name": "lastQuery",
+              "descriptor": "Ljava/lang/String;"
+            }
+          },
+          {
+            "name": "session",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "mutable": true,
+            "lateinit": true,
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getSession",
+                "descriptor": "()Ljava/lang/String;"
+              }
+            },
+            "setter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "setSession",
+                "descriptor": "(Ljava/lang/String;)V"
+              }
+            },
+            "field": {
+              "name": "session",
+              "descriptor": "Ljava/lang/String;"
+            }
+          },
+          {
+            "name": "pageSize",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "mutable": true,
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/Int"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getPageSize",
+                "descriptor": "()I"
+              }
+            },
+            "setter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "setPageSize",
+                "descriptor": "(I)V"
+              }
+            },
+            "field": {
+              "name": "pageSize",
+              "descriptor": "I"
+            }
+          }
+        ],
+        "companionObject": "Companion",
+        "enumEntries": [],
+        "sealedSubclasses": []
+      },
+      {
+        "jvmName": "dev/orbit/search/SearchClient$Companion",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/SearchClient.Companion",
+        "kind": "companion",
+        "visibility": "public",
+        "modality": "final",
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "kotlin/Any"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [],
+        "functions": [
+          {
+            "name": "create",
+            "jvm": {
+              "name": "create",
+              "descriptor": "()Ldev/orbit/search/SearchClient;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "dev/orbit/search/SearchClient"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          }
+        ],
+        "properties": [
+          {
+            "name": "DEFAULT_LIMIT",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "const": true,
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/Int"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final"
+            },
+            "field": {
+              "name": "DEFAULT_LIMIT",
+              "descriptor": "I"
+            }
+          }
+        ],
+        "enumEntries": [],
+        "sealedSubclasses": []
+      },
+      {
+        "jvmName": "dev/orbit/search/SearchClient$Cursor",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/SearchClient.Cursor",
+        "kind": "class",
+        "visibility": "public",
+        "modality": "final",
+        "inner": true,
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "kotlin/Any"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [
+          {
+            "visibility": "public",
+            "parameters": [
+              {
+                "name": "position",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Int"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                }
+              }
+            ],
+            "jvm": {
+              "name": "<init>",
+              "descriptor": "(Ldev/orbit/search/SearchClient;I)V"
+            }
+          }
+        ],
+        "functions": [],
+        "properties": [
+          {
+            "name": "position",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/Int"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getPosition",
+                "descriptor": "()I"
+              }
+            },
+            "field": {
+              "name": "position",
+              "descriptor": "I"
+            }
+          }
+        ],
+        "enumEntries": [],
+        "sealedSubclasses": []
+      },
+      {
+        "jvmName": "dev/orbit/search/SearchHit",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/SearchHit",
+        "kind": "class",
+        "visibility": "public",
+        "modality": "final",
+        "data": true,
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "kotlin/Any"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [
+          {
+            "visibility": "public",
+            "parameters": [
+              {
+                "name": "title",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/String"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                }
+              },
+              {
+                "name": "score",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Double"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                },
+                "declaresDefault": true
+              }
+            ],
+            "jvm": {
+              "name": "<init>",
+              "descriptor": "(Ljava/lang/String;D)V"
+            }
+          }
+        ],
+        "functions": [
+          {
+            "name": "component1",
+            "jvm": {
+              "name": "component1",
+              "descriptor": "()Ljava/lang/String;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "synthesized",
+            "operator": true,
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "component2",
+            "jvm": {
+              "name": "component2",
+              "descriptor": "()D"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "synthesized",
+            "operator": true,
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Double"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "copy",
+            "jvm": {
+              "name": "copy",
+              "descriptor": "(Ljava/lang/String;D)Ldev/orbit/search/SearchHit;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "synthesized",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "title",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/String"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                },
+                "declaresDefault": true
+              },
+              {
+                "name": "score",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Double"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                },
+                "declaresDefault": true
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "dev/orbit/search/SearchHit"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "equals",
+            "jvm": {
+              "name": "equals",
+              "descriptor": "(Ljava/lang/Object;)Z"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "synthesized",
+            "operator": true,
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "other",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Any"
+                  },
+                  "nullable": true,
+                  "arguments": []
+                }
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Boolean"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "hashCode",
+            "jvm": {
+              "name": "hashCode",
+              "descriptor": "()I"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "synthesized",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Int"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "toString",
+            "jvm": {
+              "name": "toString",
+              "descriptor": "()Ljava/lang/String;"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "synthesized",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          }
+        ],
+        "properties": [
+          {
+            "name": "title",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getTitle",
+                "descriptor": "()Ljava/lang/String;"
+              }
+            },
+            "field": {
+              "name": "title",
+              "descriptor": "Ljava/lang/String;"
+            }
+          },
+          {
+            "name": "score",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/Double"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getScore",
+                "descriptor": "()D"
+              }
+            },
+            "field": {
+              "name": "score",
+              "descriptor": "D"
+            }
+          }
+        ],
+        "enumEntries": [],
+        "sealedSubclasses": []
+      },
+      {
+        "jvmName": "dev/orbit/search/SearchResult",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/SearchResult",
+        "kind": "interface",
+        "visibility": "public",
+        "modality": "sealed",
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "kotlin/Any"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [],
+        "functions": [],
+        "properties": [],
+        "enumEntries": [],
+        "sealedSubclasses": [
+          "dev/orbit/search/SearchResult.Empty",
+          "dev/orbit/search/SearchResult.Failed",
+          "dev/orbit/search/SearchResult.Found"
+        ]
+      },
+      {
+        "jvmName": "dev/orbit/search/SearchResult$Empty",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/SearchResult.Empty",
+        "kind": "object",
+        "visibility": "public",
+        "modality": "final",
+        "data": true,
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "dev/orbit/search/SearchResult"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [],
+        "functions": [
+          {
+            "name": "equals",
+            "jvm": {
+              "name": "equals",
+              "descriptor": "(Ljava/lang/Object;)Z"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "synthesized",
+            "operator": true,
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "other",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Any"
+                  },
+                  "nullable": true,
+                  "arguments": []
+                }
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Boolean"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "hashCode",
+            "jvm": {
+              "name": "hashCode",
+              "descriptor": "()I"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "synthesized",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Int"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "toString",
+            "jvm": {
+              "name": "toString",
+              "descriptor": "()Ljava/lang/String;"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "synthesized",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          }
+        ],
+        "properties": [],
+        "enumEntries": [],
+        "sealedSubclasses": []
+      },
+      {
+        "jvmName": "dev/orbit/search/SearchResult$Failed",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/SearchResult.Failed",
+        "kind": "class",
+        "visibility": "public",
+        "modality": "final",
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "dev/orbit/search/SearchResult"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [
+          {
+            "visibility": "public",
+            "parameters": [
+              {
+                "name": "error",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Throwable"
+                  },
+                  "nullable": false,
+                  "arguments": []
+                }
+              }
+            ],
+            "jvm": {
+              "name": "<init>",
+              "descriptor": "(Ljava/lang/Throwable;)V"
+            }
+          }
+        ],
+        "functions": [],
+        "properties": [
+          {
+            "name": "error",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/Throwable"
+              },
+              "nullable": false,
+              "arguments": []
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getError",
+                "descriptor": "()Ljava/lang/Throwable;"
+              }
+            },
+            "field": {
+              "name": "error",
+              "descriptor": "Ljava/lang/Throwable;"
+            }
+          }
+        ],
+        "enumEntries": [],
+        "sealedSubclasses": []
+      },
+      {
+        "jvmName": "dev/orbit/search/SearchResult$Found",
+        "metadataKind": "class",
+        "name": "dev/orbit/search/SearchResult.Found",
+        "kind": "class",
+        "visibility": "public",
+        "modality": "final",
+        "data": true,
+        "typeParameters": [],
+        "supertypes": [
+          {
+            "classifier": {
+              "class": "dev/orbit/search/SearchResult"
+            },
+            "nullable": false,
+            "arguments": []
+          }
+        ],
+        "constructors": [
+          {
+            "visibility": "public",
+            "parameters": [
+              {
+                "name": "hits",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/collections/List"
+                  },
+                  "nullable": false,
+                  "arguments": [
+                    {
+                      "variance": "invariant",
+                      "type": {
+                        "classifier": {
+                          "class": "dev/orbit/search/SearchHit"
+                        },
+                        "nullable": false,
+                        "arguments": []
+                      }
+                    }
+                  ]
+                }
+              }
+            ],
+            "jvm": {
+              "name": "<init>",
+              "descriptor": "(Ljava/util/List;)V"
+            }
+          }
+        ],
+        "functions": [
+          {
+            "name": "component1",
+            "jvm": {
+              "name": "component1",
+              "descriptor": "()Ljava/util/List;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "synthesized",
+            "operator": true,
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/collections/List"
+              },
+              "nullable": false,
+              "arguments": [
+                {
+                  "variance": "invariant",
+                  "type": {
+                    "classifier": {
+                      "class": "dev/orbit/search/SearchHit"
+                    },
+                    "nullable": false,
+                    "arguments": []
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "copy",
+            "jvm": {
+              "name": "copy",
+              "descriptor": "(Ljava/util/List;)Ldev/orbit/search/SearchResult$Found;"
+            },
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "synthesized",
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "hits",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/collections/List"
+                  },
+                  "nullable": false,
+                  "arguments": [
+                    {
+                      "variance": "invariant",
+                      "type": {
+                        "classifier": {
+                          "class": "dev/orbit/search/SearchHit"
+                        },
+                        "nullable": false,
+                        "arguments": []
+                      }
+                    }
+                  ]
+                },
+                "declaresDefault": true
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "dev/orbit/search/SearchResult.Found"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "equals",
+            "jvm": {
+              "name": "equals",
+              "descriptor": "(Ljava/lang/Object;)Z"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "synthesized",
+            "operator": true,
+            "typeParameters": [],
+            "parameters": [
+              {
+                "name": "other",
+                "type": {
+                  "classifier": {
+                    "class": "kotlin/Any"
+                  },
+                  "nullable": true,
+                  "arguments": []
+                }
+              }
+            ],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Boolean"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "hashCode",
+            "jvm": {
+              "name": "hashCode",
+              "descriptor": "()I"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "synthesized",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/Int"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          },
+          {
+            "name": "toString",
+            "jvm": {
+              "name": "toString",
+              "descriptor": "()Ljava/lang/String;"
+            },
+            "visibility": "public",
+            "modality": "open",
+            "memberKind": "synthesized",
+            "typeParameters": [],
+            "parameters": [],
+            "returnType": {
+              "classifier": {
+                "class": "kotlin/String"
+              },
+              "nullable": false,
+              "arguments": []
+            }
+          }
+        ],
+        "properties": [
+          {
+            "name": "hits",
+            "visibility": "public",
+            "modality": "final",
+            "memberKind": "declaration",
+            "typeParameters": [],
+            "type": {
+              "classifier": {
+                "class": "kotlin/collections/List"
+              },
+              "nullable": false,
+              "arguments": [
+                {
+                  "variance": "invariant",
+                  "type": {
+                    "classifier": {
+                      "class": "dev/orbit/search/SearchHit"
+                    },
+                    "nullable": false,
+                    "arguments": []
+                  }
+                }
+              ]
+            },
+            "getter": {
+              "visibility": "public",
+              "modality": "final",
+              "jvm": {
+                "name": "getHits",
+                "descriptor": "()Ljava/util/List;"
+              }
+            },
+            "field": {
+              "name": "hits",
+              "descriptor": "Ljava/util/List;"
+            }
+          }
+        ],
+        "enumEntries": [],
+        "sealedSubclasses": []
+      }
+    ]
+  ]
+}

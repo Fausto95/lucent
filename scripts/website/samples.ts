@@ -1,5 +1,5 @@
 import { formatDiagnostic } from "../../packages/compiler/src/index.ts";
-import { PLATFORMS, platformSdkAvailable } from "../../packages/compiler/src/sdk/schema.ts";
+import { PLATFORMS, platformSdkTyped } from "../../packages/compiler/src/sdk/schema.ts";
 import type { Block, CppFile, DocPage } from "../../apps/website/src/docs/types.ts";
 import fs from "node:fs";
 import path from "node:path";
@@ -63,7 +63,7 @@ export function checkSamples(pages: DocPage[]): {
   const problems: string[] = [];
   const cpp = new Map<string, Record<string, CppFile[]>>();
   const unbuilt = new Map<string, string[]>();
-  const missing = PLATFORMS.filter((p) => !platformSdkAvailable(p));
+  const missing = PLATFORMS.filter((p) => !platformSdkTyped(p));
   let checked = 0;
   for (const page of pages) {
     const samples = samplesOf(page.blocks);

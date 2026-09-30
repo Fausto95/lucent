@@ -26,7 +26,12 @@ const generated = [
 
 export default defineConfig({
   test: {
-    include: ["packages/*/test/**/*.test.ts", "apps/website/test/**/*.test.ts"],
+    include: [
+      "packages/*/test/**/*.test.ts",
+      "apps/website/test/**/*.test.ts",
+      // The example app's plain logic (routes, summaries), without React Native.
+      "scripts/example-app/**/*.test.ts",
+    ],
     testTimeout: 60000,
     globalSetup: ["./vitest.setup-tmp.ts", "./vitest.setup-sdk.ts", "./vitest.setup-build.ts"],
     setupFiles: ["./vitest.setup-yield.ts"],
@@ -79,6 +84,16 @@ export default defineConfig({
       "import/no-unassigned-import": ["error", { allow: ["**/*.css"] }],
     },
     overrides: [
+      {
+        // A platform Lucent file's JSX is its toolkit's (SwiftUI's, Compose's),
+        // not React's: its component's setup runs once, and its body's calls
+        // are the toolkit's (`Environment(…)`).
+        files: ["**/*.ios.lucent.tsx", "**/*.android.lucent.tsx"],
+        rules: {
+          "react/purity": "off",
+          "react/capitalized-calls": "off",
+        },
+      },
       {
         // Each e2e case exercises JavaScript semantics, including the ones
         // these rules warn about (lost precision, errors without a cause,

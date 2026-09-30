@@ -7,8 +7,13 @@
 //
 // Coroutine parameters are always taken by value: a coroutine frame must not
 // hold references to its caller's locals.
+//
+// A promise belongs to the execution context it was made in, and a
+// continuation to the context that registered it, where it resumes; a
+// coroutine therefore stays on the context it started on.
 #pragma once
 
+#include <atomic>
 #include <coroutine>
 #include <exception>
 #include <functional>
@@ -32,37 +37,102 @@ namespace detail {
 template <class T>
 using Stored = std::conditional_t<std::is_void_v<T>, Undefined, T>;
 
+/// A continuation and the context that registered it, where it runs.
+struct Waiter {
+  ContextRef context;
+  std::function<void()> run;
+};
+
+/// Runs `waiter` as a microtask if its context is the calling thread's,
+/// else posts it there.
+inline void dispatch(Waiter& waiter) {
+  ExecutionContext& target = ExecutionContext::of(waiter.context);
+
+  if (target.isCurrent()) {
+    target.enqueueMicrotask(std::move(waiter.run));
+  } else {
+    target.post(std::move(waiter.run));
+  }
+}
+
+/// A promise's state changes only on its owner, the context it was made
+/// in: settlement or registration from another thread is posted there. Once
+/// settled it never changes, so any thread may read it.
 template <class T>
-struct PromiseState {
+struct PromiseState : std::enable_shared_from_this<PromiseState<T>> {
   enum class Status : uint8_t { Pending, Fulfilled, Rejected };
-  Status status = Status::Pending;
+
+  const ContextRef owner = ExecutionContext::currentRef();
+  std::atomic<Status> status{Status::Pending};
   std::optional<Stored<T>> value;
   Error error;
-  std::vector<std::function<void()>> waiters;
+  std::vector<Waiter> waiters;
+
+  Status settledAs() const { return status.load(std::memory_order_acquire); }
 
   void fulfill(Stored<T> v) {
-    if (status != Status::Pending) return;
+    if (!onOwner()) {
+      toOwner([self = this->shared_from_this(), v = std::move(v)]() mutable { self->fulfill(std::move(v)); });
+      return;
+    }
+
+    if (status.load(std::memory_order_relaxed) != Status::Pending) return;
+
     value = std::move(v);
-    status = Status::Fulfilled;
+    status.store(Status::Fulfilled, std::memory_order_release);
     flush();
   }
+
   void reject(Error e) {
-    if (status != Status::Pending) return;
+    if (!onOwner()) {
+      toOwner([self = this->shared_from_this(), e = std::move(e)]() mutable { self->reject(std::move(e)); });
+      return;
+    }
+
+    if (status.load(std::memory_order_relaxed) != Status::Pending) return;
+
     error = std::move(e);
-    status = Status::Rejected;
+    status.store(Status::Rejected, std::memory_order_release);
     flush();
   }
-  /// Runs `f` as a microtask once settled. Callers hold the Lucent lock.
+
+  /// Runs `f` once settled, as a microtask of the calling thread's context
+  /// (the legacy module context outside any).
   void onSettled(std::function<void()> f) {
-    if (status == Status::Pending) waiters.push_back(std::move(f));
-    else Scheduler::instance().enqueueMicrotask(std::move(f));
+    Waiter waiter{ExecutionContext::currentRef(), std::move(f)};
+
+    if (onOwner()) {
+      add(std::move(waiter));
+      return;
+    }
+
+    if (settledAs() != Status::Pending) {
+      dispatch(waiter);
+      return;
+    }
+
+    toOwner([self = this->shared_from_this(), waiter = std::move(waiter)]() mutable { self->add(std::move(waiter)); });
   }
 
  private:
+  bool onOwner() const { return owner ? owner->isCurrent() : Scheduler::lock().heldByCurrentThread(); }
+
+  /// Dropped, with what it carries, if the owner has shut down.
+  void toOwner(Job job) { ExecutionContext::of(owner).post(std::move(job)); }
+
+  /// A registration posted from another context, now on the owner.
+  void add(Waiter waiter) {
+    if (status.load(std::memory_order_relaxed) == Status::Pending) {
+      waiters.push_back(std::move(waiter));
+    } else {
+      dispatch(waiter);
+    }
+  }
+
   void flush() {
     auto ws = std::move(waiters);
     waiters.clear();
-    for (auto& w : ws) Scheduler::instance().enqueueMicrotask(std::move(w));
+    for (auto& w : ws) dispatch(w);
   }
 };
 
@@ -99,28 +169,29 @@ class Promise {
   Promise() : s_(std::make_shared<State>()) {}
   explicit Promise(std::shared_ptr<State> s) : s_(std::move(s)) {}
 
+  // A new state is not shared yet: it settles here, whatever its owner.
   static Promise resolved(detail::Stored<T> v) {
     Promise p;
-    p.s_->fulfill(std::move(v));
+    p.s_->value = std::move(v);
+    p.s_->status.store(State::Status::Fulfilled, std::memory_order_relaxed);
     return p;
   }
   static Promise resolved()
     requires std::is_void_v<T>
   {
-    Promise p;
-    p.s_->fulfill(undefined);
-    return p;
+    return resolved(undefined);
   }
   static Promise rejected(Error e) {
     Promise p;
-    p.s_->reject(std::move(e));
+    p.s_->error = std::move(e);
+    p.s_->status.store(State::Status::Rejected, std::memory_order_relaxed);
     return p;
   }
 
   void resolve(detail::Stored<T> v) const { s_->fulfill(std::move(v)); }
   void reject(Error e) const { s_->reject(std::move(e)); }
-  bool settled() const { return s_->status != State::Status::Pending; }
-  bool fulfilled() const { return s_->status == State::Status::Fulfilled; }
+  bool settled() const { return s_->settledAs() != State::Status::Pending; }
+  bool fulfilled() const { return s_->settledAs() == State::Status::Fulfilled; }
   const detail::Stored<T>& value() const { return *s_->value; }
   const Error& error() const { return s_->error; }
   void onSettled(std::function<void()> f) const { s_->onSettled(std::move(f)); }
@@ -131,17 +202,26 @@ class Promise {
     s_->onSettled([h]() mutable { h.resume(); });
   }
   T await_resume() const {
-    if (s_->status == State::Status::Rejected) throw Exception(s_->error);
+    if (s_->settledAs() == State::Status::Rejected) throw Exception(s_->error);
     if constexpr (!std::is_void_v<T>) return *s_->value;
   }
 
   const void* identity() const { return s_.get(); }
-  friend bool strictEquals(const Promise& a, const Promise& b) { return a.s_ == b.s_; }
-  friend String toJsString(const Promise&) { return String::fromLatin1("[object Promise]"); }
 
  private:
   std::shared_ptr<State> s_;
 };
+
+template <class T>
+String toJsString(const Promise<T>&) {
+  return String::fromLatin1("[object Promise]");
+}
+
+/// `===`: the same promise.
+template <class T>
+bool strictEquals(const Promise<T>& a, const Promise<T>& b) {
+  return a.identity() == b.identity();
+}
 
 template <class T>
 Promise<T> detail::PromiseTypeBase<T>::get_return_object() {

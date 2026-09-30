@@ -17,13 +17,16 @@ const notes: Record<string, Block[]> = {
 
 modules  trip-tracker/location  ios android
          trip-tracker/trip      shared
-next     rebuild the app (iOS: pod install first)`,
+next     rebuild the app (iOS: pod install first)
+actions  relink native dependencies  ios           LucentNative.podspec, cpp/generated/ios/m_location.mm +3 more
+         recompile native code       ios, android  cpp/generated/ios/m_location.mm, cpp/generated/android/m_location.cpp +2 more`,
     },
     {
       kind: "list",
       items: [
         "When nothing changed since the last build, it says so and writes nothing, unless `--force`. Otherwise it rewrites only the files whose content changed.",
-        "`next` says what the app needs: a rebuild (after `pod install` when files were added or removed), a reload, or nothing.",
+        "`next` says what the app needs: a rebuild (after `pod install` when files were added or removed), a reload, or nothing. `actions` lists each thing the changes need, on which platforms, and the generated files behind it.",
+        "Actions come from what changed. A body edit recompiles native code, and new exports also reload JavaScript. A package's resources are repackaged, its libraries relinked. `Info.plist` entries, entitlements and manifest components need a reinstall. Other JavaScript needs nothing: Metro refreshes it.",
         "A platform whose SDK isn't installed is skipped, with a warning. `--platforms host` builds stubs whose platform code throws, for tests.",
         "On a problem, nothing is written and the exit code is 1.",
       ],
@@ -40,7 +43,7 @@ next     rebuild the app (iOS: pod install first)`,
       kind: "code",
       filename: "terminal",
       copy: false,
-      code: `[14:02:11] ✓ 2 modules  36 ms · rebuild the app
+      code: `[14:02:11] ✓ 2 modules  36 ms · rebuild the app · recompile native code (ios, android)
 [14:03:40] ✗ 1 error
   src/greet.lucent.ts:1:23  LUCENT2001  \`any\` has no native representation; give this value a concrete type
     fix: use a concrete type, a union, or a generic parameter`,
@@ -48,6 +51,10 @@ next     rebuild the app (iOS: pod install first)`,
     {
       kind: "p",
       text: "In a terminal, it shows a dashboard of modules, platforms and problems. Its keys rebuild (`r`), clear the cache (`c`), run the doctor (`d`), open a problem in your editor (`o`) and quit (`q`). With `--compact`, or outside a terminal, it prints one line per build, as above: that's what [`withLucent`](/docs/reference/metro-and-expo/) runs next to Metro.",
+    },
+    {
+      kind: "p",
+      text: "It watches the app and each Lucent package it links from outside it, such as a workspace package. It rebuilds when a file a build reads changes: a module, a `package.json` or `lucent.json`, or a native file a package lists. What builds write never triggers one, and a change during a build stops it before it writes anything.",
     },
   ],
   init: [

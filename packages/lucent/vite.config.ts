@@ -1,6 +1,6 @@
 /**
  * Builds @lucent-lang/lucent for publishing: bundles the CLI and the
- * compiler (with bindgen) into dist/, and copies the files the compiler
+ * compiler (with bindgen and codegen) into dist/, and copies the files the compiler
  * reads at run time next to it, where the bundled code looks for them:
  * lib/ (declarations) and runtime/ (C++ runtime, native templates, the JS
  * loader).

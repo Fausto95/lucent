@@ -1,0 +1,222 @@
+// Presenting UIKit view controllers from the scene in use, and following the
+// app's and its scenes' lifecycle, with lucent:ios's present(),
+// onAppEvent() and onSceneEvent(). Android's side is not in lucent:android
+// yet: there, each probe says "none".
+import { PLATFORM } from "lucent:platform";
+import { UIActivityViewController, UIColor, UIViewController } from "lucent:ios/UIKit";
+import { NotificationCenter, Timer } from "lucent:ios/Foundation";
+import { type AppEvent, onAppEvent, onSceneEvent, present, type SceneEvent } from "lucent:ios";
+import { main } from "lucent:thread";
+import { delay } from "lucent:core";
+
+/** What a presentation showed, to ask UIKit whether it still does. */
+let shown: UIViewController | null = null;
+
+async function stillShown(): Promise<boolean> {
+  return main(() => {
+    const page = shown;
+    // Being dismissed still counts: UIKit refuses another presentation until it is gone.
+    return page !== null && page.presentingViewController !== null;
+  });
+}
+
+/**
+ * Whether UIKit comes to show (or stop showing) the page within `ms`: some
+ * view controllers take a while to appear, the first time above all.
+ */
+async function becomes(showing: boolean, ms: number): Promise<boolean> {
+  for (let waited = 0; waited < ms; waited += 100) {
+    if ((await stillShown()) === showing) return true;
+    await delay(100);
+  }
+
+  return (await stillShown()) === showing;
+}
+
+/** The outcome of a presentation: its value, or its error's name. */
+async function outcome(presented: Promise<string>): Promise<string> {
+  try {
+    return await presented;
+  } catch (e) {
+    return (e as Error).name;
+  }
+}
+
+/** Shown, then withdrawn by a signal: "<shown before> <outcome> <shown after>". */
+export async function withdrawnBySignal(): Promise<string> {
+  if (PLATFORM !== "ios") return "none";
+
+  const controller = new AbortController();
+  const presented = present<string>(() => {
+    const made = new UIViewController(null, null);
+    const view = made.view;
+    if (view) view.backgroundColor = UIColor.systemTeal;
+
+    shown = made;
+    return made;
+  }, controller.signal);
+
+  const before = await becomes(true, 5000);
+
+  controller.abort();
+  const settled = await outcome(presented);
+
+  // The dismissal animates.
+  const after = !(await becomes(false, 3000));
+  shown = null;
+
+  return `${before} ${settled} ${after}`;
+}
+
+/** Resolved from the page itself (a timer on the main thread), then dismissed. */
+export async function resolvedThenDismissed(): Promise<string> {
+  if (PLATFORM !== "ios") return "none";
+
+  const settled = await outcome(
+    present<string>((resolve) => {
+      const made = new UIViewController(null, null);
+      const view = made.view;
+      if (view) view.backgroundColor = UIColor.systemIndigo;
+
+      Timer.scheduledTimer(0.7, false, () => resolve("closed"));
+      shown = made;
+      return made;
+    }),
+  );
+
+  const after = !(await becomes(false, 3000));
+  shown = null;
+
+  return `${settled} ${after}`;
+}
+
+/**
+ * A Lucent class extending UIViewController: UIKit calls its overrides,
+ * which call UIKit's own through super, and it resolves the presentation
+ * once it has appeared.
+ */
+class Greeting extends UIViewController {
+  loaded = 0;
+  appeared = 0;
+  titled = "";
+
+  constructor(
+    text: string,
+    private readonly done: () => void,
+  ) {
+    super(null, null);
+    this.title = text;
+  }
+
+  viewDidLoad(): void {
+    super.viewDidLoad();
+    this.loaded++;
+    const view = this.view;
+    if (view) view.backgroundColor = UIColor.systemGreen;
+  }
+
+  viewDidAppear(animated: boolean): void {
+    super.viewDidAppear(animated);
+    this.appeared++;
+    this.titled = this.title ?? "";
+    this.done();
+  }
+}
+
+/** A Lucent subclass presented: "<outcome> <loads> <appearances> <title> <shown after>". */
+export async function subclassPresented(): Promise<string> {
+  if (PLATFORM !== "ios") return "none";
+
+  const pages: Greeting[] = [];
+  const settled = await outcome(
+    present<string>((resolve) => {
+      const page = new Greeting("Lucent", () => resolve("appeared"));
+      pages.push(page);
+      shown = page;
+      return page;
+    }),
+  );
+
+  const after = !(await becomes(false, 3000));
+  shown = null;
+  const page = pages[0]!;
+
+  return `${settled} ${page.loaded} ${page.appeared} ${page.titled} ${after}`;
+}
+
+/** The system share sheet, withdrawn by a signal before anyone shares. */
+export async function shareSheetWithdrawn(): Promise<string> {
+  if (PLATFORM !== "ios") return "none";
+
+  const controller = new AbortController();
+  const presented = present<string>((resolve) => {
+    const sheet = new UIActivityViewController(["Lucent"], null);
+    sheet.completionHandler = (_type, completed) => resolve(completed ? "shared" : "not shared");
+    shown = sheet;
+    return sheet;
+  }, controller.signal);
+
+  const before = await becomes(true, 5000);
+  // Shown for a moment: long enough to see.
+  await delay(1000);
+
+  controller.abort();
+  const settled = await outcome(presented);
+
+  const after = !(await becomes(false, 3000));
+  shown = null;
+
+  return `${before} ${settled} ${after}`;
+}
+
+let warnings = 0;
+
+function postMemoryWarning(): void {
+  NotificationCenter.default.post("UIApplicationDidReceiveMemoryWarningNotification", null);
+}
+
+/** A listener hears UIKit's notification until it is stopped: how many it heard. */
+export async function appEventUntilStopped(): Promise<string> {
+  if (PLATFORM !== "ios") return "none";
+
+  warnings = 0;
+  const stop = onAppEvent("didReceiveMemoryWarning", () => {
+    warnings += 1;
+  });
+
+  await main(() => postMemoryWarning());
+  stop();
+  await main(() => postMemoryWarning());
+
+  return `${warnings}`;
+}
+
+const APP_EVENTS: AppEvent[] = [
+  "didBecomeActive",
+  "willResignActive",
+  "didEnterBackground",
+  "willEnterForeground",
+];
+
+const SCENE_EVENTS: SceneEvent[] = [
+  "didActivate",
+  "willDeactivate",
+  "didEnterBackground",
+  "willEnterForeground",
+];
+
+let following = false;
+
+/** Logs the app's and its scenes' lifecycle from now on ("[Lucent] lifecycle: …"). */
+export async function followLifecycle(): Promise<string> {
+  if (PLATFORM !== "ios") return "none";
+
+  if (!following) {
+    following = true;
+    for (const event of APP_EVENTS) onAppEvent(event, () => console.log(`lifecycle: app ${event}`));
+    for (const event of SCENE_EVENTS)
+      onSceneEvent(event, (scene) => console.log(`lifecycle: scene ${event} ${scene}`));
+  }
+
+  return "following";
+}

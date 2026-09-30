@@ -16,7 +16,15 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import vm from "node:vm";
 import ts from "typescript";
-import { compile, coreJsPath, report } from "../../src/index.ts";
+import {
+  bindExtensions,
+  compile,
+  coreJsPath,
+  type LucentPackage,
+  type NativeInputs,
+  report,
+  resolveNative,
+} from "../../src/index.ts";
 import { cFlags, hostLibs, runtimeSources } from "../../../runtime/test/sources.ts";
 
 // One time zone with daylight saving time for both runs (the native host
@@ -107,6 +115,8 @@ interface Case {
   name: string;
   files: string[];
   test: string;
+  /** Lucent packages whose native extensions the case imports (extensions.json in its directory). */
+  packages?: string[];
 }
 
 function cases(filter: string[]): Case[] {
@@ -122,7 +132,18 @@ function cases(filter: string[]): Case[] {
               .filter((f) => f.endsWith(".lucent.ts"))
               .map((f) => path.join(dir, f))
           : [path.join(casesDir, `${name}.lucent.ts`)];
-      out.push({ name, files, test: path.join(casesDir, entry.name) });
+      const declared = path.join(dir, "extensions.json");
+      const packages = fs.existsSync(declared)
+        ? (JSON.parse(fs.readFileSync(declared, "utf8")) as { packages: string[] }).packages.map(
+            (p) => path.resolve(dir, p),
+          )
+        : undefined;
+      out.push({
+        name,
+        files,
+        test: path.join(casesDir, entry.name),
+        ...(packages ? { packages } : {}),
+      });
     }
   }
   return out
@@ -130,18 +151,67 @@ function cases(filter: string[]): Case[] {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/** A case's Lucent packages, and their needs resolved: what a build of an app with them reads. */
+function casePackages(c: Case): { native: NativeInputs; packages: LucentPackage[] } | undefined {
+  if (!c.packages) return undefined;
+
+  const packages = c.packages.map((dir): LucentPackage => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8")) as {
+      name: string;
+      version: string;
+      lucent: { sources: string };
+    };
+
+    return {
+      name: pkg.name,
+      version: pkg.version,
+      dir,
+      sources: path.join(dir, pkg.lucent.sources),
+    };
+  });
+
+  return { native: resolveNative(packages), packages };
+}
+
 function nativeRun(c: Case, lib: string): string {
-  const result = compile(c.files);
+  const found = casePackages(c);
+  const extensions = found ? bindExtensions(found.native.extensions) : undefined;
+  const result = compile(c.files, { extensions });
   if (!result.ok) throw new Error(`compile errors:\n${report(result.diagnostics)}`);
   const dir = path.join(work, "cases", c.name);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
   const objs: string[] = [];
+
+  // The packages' native sources, built as the app's native package builds them: each directory
+  // is a header search path of the generated code, and its C and C++ files are compiled in.
+  const dirOf = new Map(found?.packages.map((p) => [p.name, p.dir]));
+  const sourceDirs = (found?.native.manifest.ios.nativeSources ?? []).map((p) =>
+    path.join(dirOf.get(p.package)!, p.path),
+  );
+  for (const src of sourceDirs.flatMap((d) => fs.readdirSync(d).map((f) => path.join(d, f)))) {
+    if (!/\.(c|cc|cpp)$/.test(src)) continue;
+    const obj = path.join(dir, `pkg_${path.basename(src)}.o`);
+    if (src.endsWith(".c")) sh(process.env.CC ?? "clang", [...cFlags, "-c", src, "-o", obj]);
+    else sh(cxx, [...baseFlags, "-c", src, "-o", obj]);
+    objs.push(obj);
+  }
+  const includes = sourceDirs.map((d) => `-I${d}`);
+
   for (const [name, content] of result.files) fs.writeFileSync(path.join(dir, name), content);
   for (const name of result.files.keys()) {
     if (!name.endsWith(".cpp")) continue;
     const obj = path.join(dir, name.replace(/\.cpp$/, ".o"));
-    sh(cxx, [...baseFlags, ...deviceFlags, `-I${dir}`, "-c", path.join(dir, name), "-o", obj]);
+    sh(cxx, [
+      ...baseFlags,
+      ...deviceFlags,
+      `-I${dir}`,
+      ...includes,
+      "-c",
+      path.join(dir, name),
+      "-o",
+      obj,
+    ]);
     objs.push(obj);
   }
   const exe = path.join(dir, "host");
@@ -178,7 +248,24 @@ function nativeRun(c: Case, lib: string): string {
   return r.stdout;
 }
 
-async function referenceRun(c: Case): Promise<string> {
+/** Where the reference's console writes: the lines of the test running, as the harness does. */
+let consoleLines: string[] = [];
+
+/** Lucent's console: each argument as String() gives it (a bigint with its `n`), joined by spaces. */
+const lucentConsole = Object.fromEntries(
+  ["log", "info", "debug", "warn", "error"].map((level) => [
+    level,
+    (...args: unknown[]) =>
+      consoleLines.push(args.map((a) => (typeof a === "bigint" ? `${a}n` : String(a))).join(" ")),
+  ]),
+);
+
+/**
+ * What case `c` prints as plain JavaScript. With `logs`, what its Lucent
+ * code logs too, as the harness prints it; an app's Lab does not see the
+ * console (os_log, logcat), so its expectations leave it out.
+ */
+async function referenceRun(c: Case, { logs = true } = {}): Promise<string> {
   const modules = new Map<string, unknown>();
   const load = (file: string): unknown => {
     const key = path.resolve(file);
@@ -190,14 +277,18 @@ async function referenceRun(c: Case): Promise<string> {
     }).outputText;
     const req = (spec: string) => {
       if (spec === "lucent:core") return require_(coreJs);
+      // A native extension: the case's JavaScript stand-in for it.
+      const ext = /^lucent:ext\/([\w-]+)$/.exec(spec)?.[1];
+      if (ext) return load(path.join(path.dirname(c.files[0]!), "lucent-ext", `${ext}.ts`));
       const base = path.resolve(path.dirname(key), spec);
       for (const candidate of [base, `${base}.ts`, base.replace(/\.js$/, ".ts")])
         if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return load(candidate);
       throw new Error(`cannot resolve ${spec}`);
     };
-    vm.runInThisContext(`(function (exports, require) {${src}\n})`, { filename: key })(
+    vm.runInThisContext(`(function (exports, require, console) {${src}\n})`, { filename: key })(
       exports,
       req,
+      lucentConsole,
     );
     return exports;
   };
@@ -213,8 +304,8 @@ async function referenceRun(c: Case): Promise<string> {
   for (const f of c.files) mods[path.basename(f).replace(/\.lucent\.ts$/, "")] = load(f);
   // The example apps run a case again (Run again, switching tabs) against the
   // same loaded modules: a case must print the same thing every time.
-  const once = await runTest(c, mods);
-  const again = await runTest(c, mods);
+  const once = await runTest(c, mods, logs);
+  const again = await runTest(c, mods, logs);
   if (again !== once) {
     const a = once.split("\n"),
       b = again.split("\n");
@@ -226,8 +317,9 @@ async function referenceRun(c: Case): Promise<string> {
   return once;
 }
 
-async function runTest(c: Case, mods: Record<string, unknown>): Promise<string> {
+async function runTest(c: Case, mods: Record<string, unknown>, logs: boolean): Promise<string> {
   const out: string[] = [];
+  consoleLines = logs ? out : [];
   const first = mods[path.basename(c.files[0]!).replace(/\.lucent\.ts$/, "")];
   const sandbox = {
     print: (...args: unknown[]) => out.push(args.map((a) => String(a)).join(" ")),
@@ -243,6 +335,8 @@ async function runTest(c: Case, mods: Record<string, unknown>): Promise<string> 
     Error,
     TypeError,
     RangeError,
+    SyntaxError,
+    BigInt,
     Map,
     Set,
     Uint8Array,
@@ -294,4 +388,4 @@ void execFileSync;
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
   await main();
 
-export { cases, referenceRun, type Case };
+export { casePackages, cases, referenceRun, type Case };

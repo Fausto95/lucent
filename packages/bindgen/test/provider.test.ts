@@ -12,7 +12,9 @@ import {
   sdkModule,
   sdkNames,
 } from "../src/provider.ts";
-import { parseSchemaType } from "../src/schema.ts";
+import { parseSchemaType, SCHEMA_FORMAT } from "../src/schema.ts";
+import { schemaFiles } from "./cache-files.ts";
+import { swiftModule } from "./swift-module.ts";
 
 /** A schema type from its written form (`string?`, `Widgets.WDGWidget`). */
 const T = (s: string, typeParams: string[] = []) => parseSchemaType(s, "", typeParams);
@@ -60,8 +62,8 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
     const cached = fs.readdirSync(path.join(cacheDir, "sdk/android"));
     expect(cached).toHaveLength(1);
     expect(
-      fs.existsSync(path.join(cacheDir, "sdk/android", cached[0]!, "com.example.widgets.json")),
-    ).toBe(true);
+      schemaFiles(path.join(cacheDir, "sdk/android", cached[0]!), "com.example.widgets"),
+    ).toHaveLength(1);
 
     // A new process: nothing in memory, the cache on disk.
     forgetLoadedSdks();
@@ -70,18 +72,61 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
     expect(extractionCount()).toBe(before + 1);
   });
 
-  it("extracts again when the SDK changes", () => {
+  it("writes schemas in the current format, and extracts again over another format", () => {
     const cacheDir = tmp("lucent-cache-");
     const jar = fixtureJar(tmp("lucent-jar-"));
-    sdkModule("android", "com.example.widgets", { cacheDir, android: { jars: [jar] } });
+    const opts = { cacheDir, android: { jars: [jar] } };
+
+    const cold = sdkModule("android", "com.example.widgets", opts);
+    expect("schema" in cold && cold.schema.format).toBe(SCHEMA_FORMAT);
+
+    // A schema an older Lucent wrote: a cache miss, never an error.
+    const [file] = schemaFiles(cacheDir, "com.example.widgets");
+    const entry = JSON.parse(fs.readFileSync(file!, "utf8"));
+    fs.writeFileSync(file!, JSON.stringify({ ...entry, schema: { ...entry.schema, format: 0 } }));
+    forgetLoadedSdks();
     const before = extractionCount();
-    // Another SDK: the same jar, rebuilt.
-    fs.appendFileSync(jar, Buffer.alloc(0));
+
+    const again = sdkModule("android", "com.example.widgets", opts);
+
+    expect(extractionCount()).toBe(before + 1);
+    expect("schema" in again && again.schema.format).toBe(SCHEMA_FORMAT);
+    expect(JSON.parse(fs.readFileSync(file!, "utf8")).schema.format).toBe(SCHEMA_FORMAT);
+  });
+
+  it("extracts again when the jar's classes change, not its times or other files", () => {
+    const cacheDir = tmp("lucent-cache-");
+    const dir = tmp("lucent-jar-");
+    const jar = fixtureJar(dir);
+    const opts = { cacheDir, android: { jars: [jar] } };
+    sdkModule("android", "com.example.widgets", opts);
+    const before = extractionCount();
+
+    // The same jar, written again.
     fs.utimesSync(jar, new Date(), new Date(Date.now() + 60_000));
     forgetLoadedSdks();
-    sdkModule("android", "com.example.widgets", { cacheDir, android: { jars: [jar] } });
+    sdkModule("android", "com.example.widgets", opts);
+    expect(extractionCount()).toBe(before);
+
+    // Other contents that declare nothing: the same declarations.
+    fs.writeFileSync(path.join(dir, "NOTICE"), "rebuilt\n");
+    spawnSync("jar", ["uf", jar, "-C", dir, "NOTICE"]);
+    forgetLoadedSdks();
+    sdkModule("android", "com.example.widgets", opts);
+    expect(extractionCount()).toBe(before);
+
+    // Another jar: a class more.
+    const extra = path.join(dir, "extra");
+    fs.mkdirSync(path.join(extra, "com/example/widgets"), { recursive: true });
+    fs.writeFileSync(
+      path.join(extra, "com/example/widgets/Extra.java"),
+      "package com.example.widgets; public class Extra {}",
+    );
+    spawnSync("javac", ["--release", "11", path.join(extra, "com/example/widgets/Extra.java")]);
+    spawnSync("jar", ["uf", jar, "-C", extra, "com/example/widgets/Extra.class"]);
+    forgetLoadedSdks();
+    sdkModule("android", "com.example.widgets", opts);
     expect(extractionCount()).toBe(before + 1);
-    expect(fs.readdirSync(path.join(cacheDir, "sdk/android"))).toHaveLength(2);
   });
 
   it("says where it looked for a module it cannot find", () => {
@@ -121,6 +166,16 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
     },
   );
 
+  it.skipIf(!androidSdk)("binds the libraries Lucent packages ship, beside the classpath", () => {
+    const dir = tmp("lucent-libraries-");
+    const jar = fixtureJar(dir);
+    const sdk = { cacheDir: tmp("lucent-cache-"), android: { libraries: [jar] } };
+
+    const r = sdkModule("android", "com.example.widgets", sdk);
+    expect("schema" in r && r.schema.types.some((t) => t.name === "Widget")).toBe(true);
+    expect("schema" in r && r.schema.provenance?.artifact).toBe("jar:fixture.jar");
+  });
+
   it.skipIf(!androidSdk)("says how to resolve the app's dependencies when it has not", () => {
     const r = sdkModule("android", "androidx.biometric", {
       cacheDir: tmp("lucent-cache-"),
@@ -147,6 +202,14 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     const before = extractionCount();
     const cold = sdkModule("ios", "Widgets", opts);
     expect("schema" in cold && cold.schema.types.some((t) => t.name === "WDGWidget")).toBe(true);
+    expect("schema" in cold && cold.schema.format).toBe(SCHEMA_FORMAT);
+    expect("schema" in cold && cold.schema.provenance).toEqual({
+      artifact: "clang-module:Widgets",
+      kind: "clang-module",
+      target: "arm64-apple-ios15.1-simulator",
+      contentHash: expect.stringMatching(/^[0-9a-f]{16}$/),
+      extractor: expect.stringMatching(/^[0-9a-f]{8}$/),
+    });
     expect(extractionCount()).toBeGreaterThan(before);
     const [key] = fs.readdirSync(path.join(cacheDir, "sdk/ios"));
     // The key names the SDK version and the Xcode build.
@@ -164,10 +227,18 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     expect("names" in names && names.names.types.WDGWidget).toEqual({
       kind: "class",
       native: "WDGWidget",
+      inherits: "c:objc(cs)NSObject",
+      conforms: ["c:objc(pl)NSObject", "c:objc(pl)WDGShape"],
     });
+    // A protocol's requirements, for classes of other modules that adopt it.
+    expect("names" in names && names.names.types.WDGFramed?.requires).toEqual(["m:level"]);
+
+    // A struct without fields is not declared: other modules must not name it.
+    expect("names" in names && names.names.types.WDGEmpty).toBeUndefined();
     expect("names" in names && names.names.types.WDGShape).toEqual({
       kind: "protocol",
       native: "WDGShape",
+      requires: ["m:area"],
     });
     expect("names" in names && names.names.types.WDGStyle).toEqual({
       kind: "enum",
@@ -198,6 +269,8 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
       ],
       frameworkPaths: [],
       moduleMaps: [path.join(root, "Headers/Public/WidgetsPod/WidgetsPod.modulemap")],
+      frameworks: [],
+      defines: ["COCOAPODS=1"],
       lockfile: path.join(fixtures, "pods/Podfile.lock"),
     });
     const r = sdkModule("ios", "WidgetsPod", { cacheDir: tmp("lucent-cache-"), ios: pods });
@@ -206,6 +279,12 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     expect("schema" in r && { header: r.schema.header, frameworks: r.schema.frameworks }).toEqual({
       header: "WidgetsPod/WidgetsPod-umbrella.h",
       frameworks: [],
+    });
+    // The pod and version Podfile.lock installed.
+    expect("schema" in r && r.schema.provenance).toMatchObject({
+      artifact: "pod:WidgetsPod@1.0.0",
+      kind: "clang-module",
+      contentHash: expect.stringMatching(/^[0-9a-f]{16}$/),
     });
     expect("schema" in r && r.schema.types.find((t) => t.name === "WPGaugeMode")).toMatchObject({
       cases: [
@@ -243,6 +322,7 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
       kind: "struct",
       name: "MSRRange",
       native: "MSRRange",
+      symbol: "c:c:Measures.h@T@MSRRange",
       fields: [
         { name: "location", type: T("NSUInteger") },
         { name: "length", type: T("NSUInteger") },
@@ -284,6 +364,7 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
       name: "MSRBuffer",
       native: "MSRBufferRef",
       cf: true,
+      symbol: "c:c:Measures.h@T@MSRBufferRef",
     });
     expect(schema?.functions?.find((f) => f.name === "MSRBufferCreate")?.returns).toEqual(
       T("Measures.MSRBuffer?"),
@@ -330,37 +411,50 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     ).toEqual([{ name: "objects", type: T("Set<id>") }]);
   });
 
-  it("keys the app's pods on Podfile.lock, not on every header", () => {
-    const dir = tmp("lucent-pods-");
-    fs.cpSync(path.join(fixtures, "pods"), dir, { recursive: true });
-    const pods = podsSearchPaths(dir)!;
-    expect(pods.lockfile).toBe(path.join(dir, "Podfile.lock"));
-    const cacheDir = tmp("lucent-cache-");
-    const keys = () => fs.readdirSync(path.join(cacheDir, "sdk/ios"));
-    sdkModule("ios", "WidgetsPod", { cacheDir, ios: pods });
-    // pod install rewrites headers; the pods are the same while Podfile.lock is.
-    const header = path.join(dir, "Pods/Headers/Public/WidgetsPod/WPGauge.h");
-    fs.utimesSync(header, new Date(), new Date(Date.now() + 60_000));
-    forgetLoadedSdks();
-    sdkModule("ios", "WidgetsPod", { cacheDir, ios: pods });
-    expect(keys()).toHaveLength(1);
-    fs.appendFileSync(path.join(dir, "Podfile.lock"), "\n# another install\n");
-    forgetLoadedSdks();
-    sdkModule("ios", "WidgetsPod", { cacheDir, ios: pods });
-    expect(keys()).toHaveLength(2);
-  });
-
   it("imports and links an SDK module as its framework", () => {
     const r = sdkModule("ios", "Security");
     expect("schema" in r && { header: r.schema.header, frameworks: r.schema.frameworks }).toEqual({
       header: "Security/Security.h",
       frameworks: ["Security"],
     });
+
+    // The SDK is the artifact: its version names it.
+    const version = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-version"], {
+      encoding: "utf8",
+    }).stdout.trim();
+    expect("schema" in r && r.schema.provenance).toEqual({
+      artifact: `sdk:iphonesimulator${version}`,
+      kind: "sdk",
+      target: "arm64-apple-ios15.1-simulator",
+      extractor: expect.stringMatching(/^[0-9a-f]{8}$/),
+    });
   });
 
   it("imports an SDK framework through the umbrella header its module map names", () => {
     const r = sdkModule("ios", "_LocationEssentials");
     expect("schema" in r && r.schema.header).toBe("_LocationEssentials/LocationEssentials.h");
+  });
+
+  it("binds Swift modules: on the include paths, and SDK frameworks without headers", () => {
+    const opts = { cacheDir: tmp("lucent-cache-"), ios: { includePaths: [swiftModule("Shapes")] } };
+    const shapes = sdkModule("ios", "Shapes", opts);
+    // Nothing to import (the shims call them) and, as the app's own, nothing to link.
+    expect(
+      "schema" in shapes && {
+        header: shapes.schema.header,
+        frameworks: shapes.schema.frameworks,
+        point: shapes.schema.types.find((t) => t.name === "Point")?.native,
+      },
+    ).toEqual({ header: undefined, frameworks: [], point: "Shapes.Point" });
+    expect("schema" in shapes && shapes.schema.provenance).toMatchObject({
+      artifact: "swift-module:Shapes",
+      kind: "swift-module",
+      contentHash: expect.stringMatching(/^[0-9a-f]{16}$/),
+    });
+    const crypto = sdkModule("ios", "CryptoKit");
+    expect(
+      "schema" in crypto && { header: crypto.schema.header, frameworks: crypto.schema.frameworks },
+    ).toEqual({ header: undefined, frameworks: ["CryptoKit"] });
   });
 
   it("names the fix when there is no Xcode", () => {

@@ -36,9 +36,8 @@ export async function deviceInfo(): Promise<DeviceInfo> {
     ],
   },
   {
-    kind: "note",
-    tone: "warn",
-    text: 'A branch needs its `else`. After `if (PLATFORM === "ios") return …;`, the code that follows is still shared, so an Android call there fails with `LUCENT3004`.',
+    kind: "p",
+    text: 'A guard clause works too, as TypeScript narrows it: after `if (PLATFORM === "ios") return …;` the rest of the block is Android code. The test must be `PLATFORM` alone (not `PLATFORM === "ios" && ready`), with no `else`, and its branch must end in `return`, `throw`, `break` or `continue`.',
   },
   { kind: "h2", text: "When to split into platform files" },
   {

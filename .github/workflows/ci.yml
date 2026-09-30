@@ -56,6 +56,10 @@ jobs:
         run: packages/runtime/test/run.sh
       - name: Runtime unit tests (ASan/UBSan, GCC)
         run: SANITIZE=1 CXX=g++ packages/runtime/test/run.sh
+      - name: JSI host lifetime and hand-written module (Hermes)
+        run: packages/runtime/test/jsi/run.sh
+      - name: JSI host lifetime (ASan/UBSan)
+        run: SANITIZE=1 packages/runtime/test/jsi/run.sh
       - name: End-to-end (native vs. JavaScript)
         run: pnpm test:e2e
       - name: Performance budgets (kernels vs. the same code as JavaScript)
@@ -113,7 +117,7 @@ jobs:
       - name: Compiler and bindgen tests with the iOS SDK (the Linux job skips them)
         run: pnpm test
       - name: SDK coverage (fails when a module's unrepresentable share grows past sdk-coverage.json)
-        run: node packages/lucent/bin/lucent.cjs sdk coverage --ios UIKit,Foundation,AVFoundation --android 'android.*' --json --check sdk-coverage.json > sdk-coverage.current.json
+        run: node packages/lucent/bin/lucent.cjs sdk coverage --ios UIKit,Foundation,AVFoundation,StoreKit,CryptoKit --android 'android.*' --json --check sdk-coverage.json > sdk-coverage.current.json
       - name: Keep the coverage report
         if: always()
         uses: actions/upload-artifact@v4

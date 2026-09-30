@@ -24,7 +24,8 @@ export async function isCharging(): Promise<boolean> {
     kind: "list",
     items: [
       "Import from `lucent:android/<package>`: any package of `android.jar`, or of the app's Gradle dependencies.",
-      "`appContext()` from `lucent:android` is the app's `Context`.",
+      "`appContext()` from `lucent:android` is the app's `Context`. `currentActivity()` is the Activity in front, or null: use it now, inside `main()`, rather than keep it.",
+      "`startActivityForResult()` and `requestPermissions()` ask from the Activity in front and resolve with the answer. `onActivityEvent()` reports the Activities' lifecycle.",
       "A `Class<T>` parameter takes the class itself: `getSystemService(BatteryManager)` returns a `BatteryManager | null`.",
       "`isCharging()` is also the property `charging`, as Kotlin makes properties of getters.",
       "References the SDK doesn't mark `@NonNull` are `T | null`, so check them.",

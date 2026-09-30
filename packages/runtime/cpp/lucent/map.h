@@ -10,6 +10,7 @@
 #include <vector>
 
 #include "array.h"
+#include "bigint.h"
 #include "core.h"
 #include "equality.h"
 
@@ -28,10 +29,16 @@ struct KeyHash {
       return std::hash<uint64_t>()(bits);
     } else if constexpr (std::is_same_v<K, bool>) {
       return k ? 1 : 2;
-    } else if constexpr (std::is_same_v<K, String>) {
+    } else if constexpr (std::is_same_v<K, String> || std::is_same_v<K, BigInt>) {
       return k.hash();
     } else if constexpr (IsRef<K>::value) {
       return std::hash<const void*>()(static_cast<const void*>(k.get()));
+    } else if constexpr (IsOpt<K>::value) {
+      if (!k.has()) return k.isNull() ? 3 : 4;
+      return KeyHash<std::decay_t<decltype(k.get())>>()(k.get());
+    } else if constexpr (IsVariant<K>::value) {
+      // Equal members hash alike whichever alternative holds them.
+      return std::visit([](const auto& x) { return KeyHash<std::decay_t<decltype(x)>>()(x); }, k);
     } else {
       return std::hash<const void*>()(k.identity());
     }
@@ -224,12 +231,21 @@ class Map {
 
   Table& table() const { return *t_; }
   const void* identity() const { return t_.get(); }
-  friend bool strictEquals(const Map& a, const Map& b) { return a.t_ == b.t_; }
-  friend String toJsString(const Map&) { return String::fromLatin1("[object Map]"); }
 
  private:
   std::shared_ptr<Table> t_;
 };
+
+template <class K, class V>
+String toJsString(const Map<K, V>&) {
+  return String::fromLatin1("[object Map]");
+}
+
+/// `===`: the same map.
+template <class K, class V>
+bool strictEquals(const Map<K, V>& a, const Map<K, V>& b) {
+  return a.identity() == b.identity();
+}
 
 template <class T>
 class Set {
@@ -268,12 +284,21 @@ class Set {
 
   Table& table() const { return *t_; }
   const void* identity() const { return t_.get(); }
-  friend bool strictEquals(const Set& a, const Set& b) { return a.t_ == b.t_; }
-  friend String toJsString(const Set&) { return String::fromLatin1("[object Set]"); }
 
  private:
   std::shared_ptr<Table> t_;
 };
+
+template <class T>
+String toJsString(const Set<T>&) {
+  return String::fromLatin1("[object Set]");
+}
+
+/// `===`: the same set.
+template <class T>
+bool strictEquals(const Set<T>& a, const Set<T>& b) {
+  return a.identity() == b.identity();
+}
 
 /// `Record<string, V>` / `{ [key: string]: V }`: a plain object used as a
 /// dictionary.
@@ -319,8 +344,6 @@ class Dict {
 
   Table& table() const { return *t_; }
   const void* identity() const { return t_.get(); }
-  friend bool strictEquals(const Dict& a, const Dict& b) { return a.t_ == b.t_; }
-  friend String toJsString(const Dict&) { return String::fromLatin1("[object Object]"); }
 
   static bool isArrayIndex(const String& k, double& out) {
     size_t n = k.length();
@@ -340,5 +363,16 @@ class Dict {
  private:
   std::shared_ptr<Table> t_;
 };
+
+template <class V>
+String toJsString(const Dict<V>&) {
+  return String::fromLatin1("[object Object]");
+}
+
+/// `===`: the same record.
+template <class V>
+bool strictEquals(const Dict<V>& a, const Dict<V>& b) {
+  return a.identity() == b.identity();
+}
 
 }  // namespace lucent

@@ -43,7 +43,7 @@ export async function follow(onDegrees: (degrees: number) => void): Promise<void
   } else {
     const looper = Looper.getMainLooper();
     listener = new Bearing(onDegrees);
-    if (looper) appContext().getSystemService(LocationManager)?.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, listener, looper);
+    if (looper) appContext().getSystemService(LocationManager)?.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000n, 0, listener, looper);
   }
 }`,
   },

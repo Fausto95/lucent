@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { lucentPackageOf, lucentPackages } from "./packages.ts";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ts as dts } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { Codes, type Diagnostic } from "./diagnostics.ts";
 import { sdkDts, stubDts } from "./sdk/dts.ts";
@@ -9,11 +10,27 @@ import {
   findSdkModule,
   type Platform,
   PLATFORMS,
-  platformSdkAvailable,
+  platformSdkTyped,
   sdkLookup,
   sdkNamesOf,
+  type SdkModuleSchema,
+  sourceModuleLookup,
 } from "./sdk/schema.ts";
+import { toolkitDts } from "./sdk/toolkit-dts.ts";
+import { extensionDts } from "./extensions/dts.ts";
+import { boundExtensions, findExtension } from "./extensions/registry.ts";
 import { moduleNamespace } from "./types.ts";
+import { sdkLibFile } from "./lib-files.ts";
+import { composeModuleText } from "./ui/compose-dts.ts";
+import { fabricRequested } from "./ui/switch.ts";
+import {
+  JSX_SOURCE,
+  TOOLKITS,
+  type ToolkitName,
+  toolkitOfModule,
+  toolkitOfPlatform,
+  toolkitSource,
+} from "./ui/toolkits.ts";
 
 export interface LucentModule {
   /** Module name used from JavaScript: the file name without `.lucent.ts`. */
@@ -63,7 +80,7 @@ export function coreTypesPath(): string {
 }
 
 export const LUCENT_EXTENSION = /\.lucent\.tsx?$/;
-const PLATFORM_EXTENSION = /\.(ios|android)\.lucent\.tsx?$/;
+export const PLATFORM_EXTENSION = /\.(ios|android)\.lucent\.tsx?$/;
 
 /** The module a file belongs to: `haptics` for haptics.lucent.ts and haptics.ios.lucent.ts. */
 /**
@@ -97,20 +114,56 @@ export function platformOf(file: string): Platform | undefined {
 const SDK_ROOT = path.resolve("/__lucent_sdk__");
 
 /**
- * Modules of platforms whose SDK is not installed, untyped: a shared module's
- * branch for such a platform type-checks, and is never emitted where it is
- * missing (a target's own missing SDK is reported by importDiagnostics).
+ * Modules of platforms whose SDK is not installed (or whose imports are
+ * deferred), untyped: a shared module's branch for such a platform
+ * type-checks, and is never emitted where it is missing (a target's own
+ * missing SDK is reported by importDiagnostics). Where views are
+ * generated, the platform's toolkit (lucent:swiftui) is untyped too.
  */
 const UNTYPED = path.join(SDK_ROOT, "untyped.d.ts");
 
 function untypedSdkText(): string {
-  return `${PLATFORMS.filter((p) => !platformSdkAvailable(p))
-    .map((p) => `declare module "lucent:${p}/*";`)
-    .join("\n")}\n`;
+  const untyped = PLATFORMS.filter((p) => !platformSdkTyped(p));
+  const toolkits = fabricRequested() ? untyped.flatMap((p) => toolkitOfPlatform(p) ?? []) : [];
+
+  return dts.printUnit({
+    decls: [...untyped.map((p) => `lucent:${p}/*`), ...toolkits.map((t) => `lucent:${t}`)].map(
+      (name) => ({ k: "moduleWildcard", name }),
+    ),
+  });
 }
 
 function sdkLibPath(name: string): string {
-  return path.resolve(here, `../lib/sdk/${name}.d.ts`);
+  return sdkLibFile(`${name}.d.ts`);
+}
+
+/**
+ * A toolkit's declarations: generated from its source module (SwiftUI's,
+ * served from the virtual directory), or written by hand (lib/sdk).
+ */
+function toolkitTypesPath(name: ToolkitName): string {
+  return toolkitSource(name) ? path.join(SDK_ROOT, "toolkit", `${name}.d.ts`) : sdkLibPath(name);
+}
+
+/** Each source module's toolkit declarations, written once per schema. */
+const toolkitTexts = new WeakMap<SdkModuleSchema, string>();
+
+/** A generated toolkit's declarations, or why there are none. */
+function toolkitDeclarations(name: ToolkitName): { text: string } | { missing: string } {
+  const toolkit = TOOLKITS[name];
+  const source = toolkitSource(name);
+  if (!source) return { missing: `lucent:${name} is written by hand` };
+
+  const found = sourceModuleLookup(toolkit.platform, source.module);
+  if ("missing" in found) return found;
+
+  let text = toolkitTexts.get(found.schema);
+  if (text === undefined) {
+    text = toolkitDts({ ...toolkit, source }, found.schema);
+    toolkitTexts.set(found.schema, text);
+  }
+
+  return { text };
 }
 
 /**
@@ -120,7 +173,23 @@ function sdkLibPath(name: string): string {
  */
 function virtualSdkText(file: string, direct: Set<string>): string | undefined {
   if (path.resolve(file) === UNTYPED) return untypedSdkText();
+  // lucent:compose: its own declarations, then Compose's, made from its bindings.
+  if (path.resolve(file) === sdkLibPath("compose") && fabricRequested())
+    return composeModuleText(fs.readFileSync(file, "utf8"));
   const rel = path.relative(SDK_ROOT, path.resolve(file));
+
+  const toolkit = /^toolkit[\\/](\w+)\.d\.ts$/.exec(rel)?.[1];
+  if (toolkit && Object.hasOwn(TOOLKITS, toolkit)) {
+    const found = toolkitDeclarations(toolkit as ToolkitName);
+    return "text" in found ? found.text : undefined;
+  }
+
+  const ext = /^ext[\\/]([\w-]+)\.d\.ts$/.exec(rel);
+  if (ext) {
+    const found = findExtension(ext[1]!);
+    return found ? extensionDts(found) : undefined;
+  }
+
   const m = /^(ios|android)[\\/]([\w.]+)\.d\.ts$/.exec(rel);
   if (!m) return undefined;
   const platform = m[1] as Platform;
@@ -164,10 +233,20 @@ export function sdkModuleOf(sf: ts.SourceFile): { platform: Platform; module: st
   return m ? { platform: m[1] as Platform, module: m[2]! } : undefined;
 }
 
-/** The built-in lucent:thread / lucent:ios / lucent:android module a declaration comes from. */
+/** The native extension (`lucent:ext/<name>`) a declaration comes from. */
+export function extensionModuleOf(sf: ts.SourceFile): string | undefined {
+  return /^ext[\\/]([\w-]+)\.d\.ts$/.exec(path.relative(SDK_ROOT, path.resolve(sf.fileName)))?.[1];
+}
+
+const PLATFORM_NAMES: Record<Platform, string> = { ios: "iOS", android: "Android" };
+
+/** The built-in lucent:thread / lucent:ui / lucent:<toolkit> / lucent:ios / lucent:android module a declaration comes from. */
 export function builtinSdkModuleOf(sf: ts.SourceFile): string | undefined {
-  for (const name of ["thread", "platform", ...PLATFORMS])
-    if (path.resolve(sf.fileName) === sdkLibPath(name)) return `lucent:${name}`;
+  const file = path.resolve(sf.fileName);
+  for (const name of ["thread", "platform", "ui", ...PLATFORMS])
+    if (file === sdkLibPath(name)) return `lucent:${name}`;
+  for (const name of Object.keys(TOOLKITS) as ToolkitName[])
+    if (file === toolkitTypesPath(name)) return `lucent:${name}`;
   return undefined;
 }
 
@@ -177,7 +256,8 @@ export function compilerOptions(): ts.CompilerOptions {
     target: ts.ScriptTarget.ES2022,
     module: ts.ModuleKind.ESNext,
     moduleResolution: ts.ModuleResolutionKind.Bundler,
-    lib: ["lib.es2022.d.ts"],
+    // esnext.disposable: Symbol.dispose, for `using` declarations.
+    lib: ["lib.es2022.d.ts", "lib.esnext.disposable.d.ts"],
     types: [],
     noEmit: true,
     skipLibCheck: true,
@@ -186,18 +266,31 @@ export function compilerOptions(): ts.CompilerOptions {
     exactOptionalPropertyTypes: false,
     // Reading a missing index yields undefined at runtime; the types must say so.
     noUncheckedIndexedAccess: true,
+    // A body's JSX is its platform's toolkit's (compilerHost resolves the runtime per file).
+    ...(fabricRequested() ? { jsx: ts.JsxEmit.ReactJSX, jsxImportSource: JSX_SOURCE } : {}),
     // Every platform's modules resolve in every program: a shared module
     // branches on `PLATFORM`, and each target type-checks both branches.
     paths: {
       "lucent:core": [coreTypesPath()],
       "lucent:thread": [sdkLibPath("thread")],
       "lucent:platform": [sdkLibPath("platform")],
+      // Internal until views are proven: only when compiles generate them.
+      ...(fabricRequested()
+        ? Object.fromEntries([
+            ["lucent:ui", [sdkLibPath("ui")]],
+            ...(Object.keys(TOOLKITS) as ToolkitName[]).map((name) => [
+              `lucent:${name}`,
+              [toolkitTypesPath(name)],
+            ]),
+          ])
+        : {}),
       ...Object.fromEntries(
         PLATFORMS.flatMap((p) => [
           [`lucent:${p}`, [sdkLibPath(p)]],
           [`lucent:${p}/*`, [path.join(SDK_ROOT, p, "*.d.ts")]],
         ]),
       ),
+      "lucent:ext/*": [path.join(SDK_ROOT, "ext", "*.d.ts")],
     },
   };
 }
@@ -254,10 +347,34 @@ function compilerHost(
     const rel = path.relative(SDK_ROOT, path.resolve(d));
     return (
       rel === "" ||
+      rel === "ext" ||
+      rel === "toolkit" ||
       (PLATFORMS as readonly string[]).includes(rel) ||
       (directoryExists?.(d) ?? ts.sys.directoryExists(d))
     );
   };
+  // `lucent:jsx/jsx-runtime`, the JSX runtime every file imports implicitly, is the
+  // toolkit of the importing file's platform: its module declares the JSX namespace.
+  const cache = ts.createModuleResolutionCache(
+    host.getCurrentDirectory(),
+    host.getCanonicalFileName,
+    options,
+  );
+  host.resolveModuleNameLiterals = (literals, containing, redirected, opts, sf) =>
+    literals.map((literal) => {
+      const runtime = jsxRuntimeOf(literal.text, containing);
+      if (runtime === null) return { resolvedModule: undefined };
+
+      return ts.resolveModuleName(
+        runtime ?? literal.text,
+        containing,
+        opts,
+        host,
+        cache,
+        redirected,
+        ts.getModeForUsageLocation(sf, literal, opts),
+      );
+    });
   const getSourceFile = host.getSourceFile.bind(host);
   host.getSourceFile = (f, language, onError, shouldCreate) => {
     if (!f.endsWith(".d.ts")) return getSourceFile(f, language, onError, shouldCreate);
@@ -273,6 +390,60 @@ function compilerHost(
 }
 
 /**
+ * What `specifier` imported from `file` resolves as: for Lucent's JSX
+ * runtime, the toolkit module of the file's platform, or null where no
+ * toolkit's JSX may be written (a shared file); undefined for any other
+ * import, which resolves as it is.
+ */
+export function jsxRuntimeOf(specifier: string, file: string): string | null | undefined {
+  if (!new RegExp(`^${JSX_SOURCE}/jsx-(dev-)?runtime$`).test(specifier)) return undefined;
+
+  const toolkit = toolkitOfPlatform(platformOf(file));
+
+  return toolkit ? `lucent:${toolkit}` : null;
+}
+
+/**
+ * JSX in a file whose platform has no toolkit (a shared module): LUCENT3024
+ * at its first element, and the ranges of its JSX, where TypeScript's own
+ * errors (no JSX runtime) say nothing more.
+ */
+function jsxDiagnostics(sf: ts.SourceFile): { diagnostics: Diagnostic[]; ranges: ts.TextRange[] } {
+  if (!fabricRequested() || toolkitOfPlatform(platformOf(sf.fileName)))
+    return { diagnostics: [], ranges: [] };
+
+  const found: ts.Node[] = [];
+  const visit = (n: ts.Node): void => {
+    if (ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n) || ts.isJsxFragment(n)) {
+      found.push(n);
+      return;
+    }
+
+    ts.forEachChild(n, visit);
+  };
+
+  visit(sf);
+
+  const [first] = found;
+  const toolkits = (Object.keys(TOOLKITS) as ToolkitName[])
+    .map((t) => `\`*.${TOOLKITS[t].platform}.lucent.tsx\` for ${TOOLKITS[t].title}`)
+    .join(", ");
+
+  return {
+    ranges: found.map((n) => ({ pos: n.getStart(sf), end: n.getEnd() })),
+    diagnostics: first
+      ? [
+          {
+            ...at(sf, first),
+            code: Codes.ToolkitBody,
+            message: `JSX is a component's body, written with its platform's toolkit: write it in a platform file (${toolkits})`,
+          },
+        ]
+      : [],
+  };
+}
+
+/**
  * A program of Lucent modules. With a `platform`, it may contain that
  * platform's files and resolves its SDK modules; `references` are files the
  * checker sees (platform modules' shared declarations) that are not
@@ -282,11 +453,15 @@ export function createLucentProgram(
   files: string[],
   readSource?: ReadSource,
   platform?: Platform,
-  extra: { references?: string[]; stubs?: string[] } = {},
+  extra: { references?: string[]; stubs?: string[]; libCheck?: boolean } = {},
 ): LucentProgram {
   const references = extra.references ?? [];
   const stubs = new Set((extra.stubs ?? []).map((f) => path.resolve(f)));
-  const options = compilerOptions();
+
+  // The declaration audit checks the generated SDK declarations themselves,
+  // which apps' tsconfigs (skipLibCheck) never do.
+  const options = { ...compilerOptions(), skipLibCheck: !extra.libCheck };
+
   const host = compilerHost(options, readSource, directSdkImports(files, readSource));
   const program = ts.createProgram(
     [
@@ -309,7 +484,7 @@ export function createLucentProgram(
     const clash = names.get(name);
     if (clash) {
       diagnostics.push({
-        code: Codes.UnsupportedTopLevel,
+        code: Codes.ModuleNameClash,
         message: `two Lucent modules are named "${name}": ${clash} and ${file}`,
         file,
       });
@@ -343,11 +518,15 @@ export function createLucentProgram(
   ];
   for (const sf of checked) {
     const bad = importDiagnostics(sf, platform);
-    diagnostics.push(...bad);
+    const jsx = jsxDiagnostics(sf);
+    diagnostics.push(...bad, ...jsx.diagnostics);
     for (const d of [
       ...program.getSyntacticDiagnostics(sf),
       ...program.getSemanticDiagnostics(sf),
     ]) {
+      // JSX where no toolkit's may be written is reported once, as a Lucent error.
+      if (d.start !== undefined && jsx.ranges.some((r) => d.start! >= r.pos && d.start! < r.end))
+        continue;
       // An SDK import this program cannot resolve is reported once, as a Lucent error.
       if (
         d.code === 2307 &&
@@ -369,8 +548,8 @@ export function createLucentProgram(
 /**
  * `lucent:` imports this file may not use: another platform's in a platform
  * file, and unknown SDK modules. Shared files import every platform's (their
- * branches decide where each is used); a platform whose SDK is not installed
- * is untyped there, unless the program targets it.
+ * branches decide where each is used); a platform whose SDK is not installed,
+ * or whose imports are deferred, is untyped there, unless the program targets it.
  */
 function importDiagnostics(sf: ts.SourceFile, platform: Platform | undefined): Diagnostic[] {
   const shared = !platformOf(sf.fileName);
@@ -383,12 +562,45 @@ function importDiagnostics(sf: ts.SourceFile, platform: Platform | undefined): D
     const [, scope, module] = m;
     let message: string | undefined;
     if ((scope === "core" || scope === "thread" || scope === "platform") && !module) continue;
+    if (scope === "ui" && !module && fabricRequested()) continue;
+    const toolkit = toolkitOfModule(`lucent:${scope}`);
+    if (toolkit && !module && fabricRequested()) {
+      const own = platformOf(sf.fileName);
+      const home = TOOLKITS[toolkit].platform;
+      const declarations = toolkitSource(toolkit) ? toolkitDeclarations(toolkit) : undefined;
+      if (own === home && declarations && "missing" in declarations)
+        out.push({
+          ...at(sf, s.moduleSpecifier),
+          code: Codes.SdkImport,
+          message: `${spec} is generated from ${TOOLKITS[toolkit].title}'s declarations: ${declarations.missing}`,
+        });
+      if (!own || own === home) continue;
+      out.push({
+        ...at(sf, s.moduleSpecifier),
+        code: Codes.SdkImport,
+        message: `${spec} is ${PLATFORM_NAMES[home]}'s: import it in an ${PLATFORM_NAMES[home]} module (.${home}.lucent.ts or .${home}.lucent.tsx)`,
+      });
+      continue;
+    }
     const target = scope as Platform;
-    if (!(PLATFORMS as readonly string[]).includes(scope!))
+    if (scope === "ext") {
+      if (module && findExtension(module)) continue;
+
+      const known = boundExtensions().map((e) => e.name);
+      out.push({
+        ...at(sf, s.moduleSpecifier),
+        code: Codes.SdkImport,
+        message: module
+          ? `${spec}: no Lucent package declares the extension ${module} (${known.length ? `the app's extensions: ${known.join(", ")}` : "the app has none"})`
+          : "lucent:ext needs an extension name: lucent:ext/<name>",
+        fix: "install the Lucent package that declares the extension (its lucent.json extensions)",
+      });
+      continue;
+    } else if (!(PLATFORMS as readonly string[]).includes(scope!))
       message = `${spec} is not a Lucent module`;
     else if (!shared && scope !== platform)
       message = `${spec} is only available in *.${scope}.lucent.ts files, or in shared files inside \`if (PLATFORM === "${scope}")\``;
-    else if (module && (target === platform || platformSdkAvailable(target))) {
+    else if (module && (target === platform || platformSdkTyped(target))) {
       const found = sdkLookup(target, module);
       if ("missing" in found) message = found.missing;
       else continue;

@@ -27,9 +27,24 @@ npx lucent build`,
       "Lucent is experimental, and APIs change without a migration path. Read the release notes first.",
     ],
   },
+  { kind: "h2", text: "Pin the SDKs" },
   {
-    kind: "note",
-    tone: "warn",
-    text: "There's no way yet to pin an SDK version, or to list the SDK changes that affect your code ([roadmap](/docs/roadmap/)).",
+    kind: "code",
+    filename: "terminal",
+    code: `npx lucent sdk lock
+npx lucent build --frozen
+npx lucent sdk diff`,
+  },
+  {
+    kind: "list",
+    items: [
+      "`lucent sdk lock` records the SDKs and the SDK members your code uses in `lucent-sdk.lock.json`. Commit it. It needs the SDK of every platform your project has code for; `--platforms ios` locks iOS alone.",
+      "`--frozen` fails when an SDK or dependency differs from the lock. It also fails when a platform the lock lists has no SDK installed, or would be left to the Gradle build. Use it in CI and for releases, with `--platforms android` on a machine that only builds Android.",
+      "`lucent sdk diff` lists what the installed SDKs remove or change among the members your code uses, before you rebuild the app. `--all` adds the other members of those modules.",
+    ],
+  },
+  {
+    kind: "p",
+    text: "After changing Android dependencies, run `lucent build` first: it resolves the new classpath that `sdk diff` compares.",
   },
 ];

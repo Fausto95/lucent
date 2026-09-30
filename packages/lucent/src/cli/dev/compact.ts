@@ -1,4 +1,5 @@
 import type { Output } from "../output.ts";
+import { ACTION_TEXT } from "../changes.ts";
 import { nextText, plural } from "../pipeline.ts";
 import type { DevSession } from "./session.ts";
 
@@ -26,8 +27,11 @@ export function compact(session: DevSession, out: Output): () => void {
     }
     if (last.ok) {
       const next = last.next?.rebuild ? ` ${t.dim("·")} ${nextText(last.next)}` : "";
+      const actions = (last.actions ?? [])
+        .map((a) => `${ACTION_TEXT[a.kind]} (${a.targets.join(", ")})`)
+        .join(", ");
       out.print(
-        `${time} ${t.success(t.symbols.ok)} ${plural(s.modules.length, "module")}  ${t.dim(`${last.ms} ms`)}${next}`,
+        `${time} ${t.success(t.symbols.ok)} ${plural(s.modules.length, "module")}  ${t.dim(`${last.ms} ms`)}${next}${actions ? ` ${t.dim("·")} ${actions}` : ""}`,
       );
       return;
     }

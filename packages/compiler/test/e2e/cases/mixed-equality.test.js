@@ -1,0 +1,10 @@
+print(mod.literals());
+print(mod.primitives());
+print(mod.optionals());
+print(mod.unions());
+print(mod.objects());
+print(mod.declared());
+print(mod.absents());
+print(mod.cases());
+print(mod.searches());
+print(mod.keys());

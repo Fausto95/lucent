@@ -8,6 +8,7 @@
 #include <variant>
 
 #include "array.h"
+#include "bigint.h"
 #include "bytes.h"
 #include "date.h"
 #include "regexp.h"
@@ -15,6 +16,7 @@
 #include "jserror.h"
 #include "function.h"
 #include "map.h"
+#include "native.h"
 #include "number.h"
 #include "jsstring.h"
 
@@ -51,10 +53,17 @@ inline void jsonWrite(JsonWriter& w, double v) {
   }
 }
 inline void jsonWrite(JsonWriter& w, bool v) { w.raw(v ? "true" : "false"); }
+/// JSON has no bigints: JSON.stringify throws, as in JavaScript.
+inline void jsonWrite(JsonWriter&, const BigInt&) { throwTypeError("Do not know how to serialize a BigInt"); }
 inline void jsonWrite(JsonWriter& w, const String& s) { w.quote(s); }
 inline void jsonWrite(JsonWriter& w, Undefined) { w.raw("null"); }
 inline void jsonWrite(JsonWriter& w, Null) { w.raw("null"); }
 inline void jsonWrite(JsonWriter& w, const Error&) { w.raw("{}"); }
+/// An SDK object: a host object, with no enumerable own properties.
+inline void jsonWrite(JsonWriter& w, const NativeRef&) { w.raw("{}"); }
+class NativeBufferObject;
+/// A NativeBuffer: an opaque handle, with no enumerable own properties either.
+inline void jsonWrite(JsonWriter& w, const Ref<NativeBufferObject>&) { w.raw("{}"); }
 template <class Sig>
 void jsonWrite(JsonWriter& w, const Fn<Sig>&) {
   w.raw("null");
@@ -123,7 +132,9 @@ inline void jsonWrite(JsonWriter& w, const Date& d) {
   if (std::isnan(d->getTime())) w.raw("null");
   else w.quote(d->toISOString());
 }
-inline void jsonWrite(JsonWriter& w, const Bytes& b) {
+/// A Uint8Array, or the bytes a buffer's borrow lends: its indexes as keys.
+template <class B>
+void jsonWriteBytes(JsonWriter& w, const B& b) {
   w.raw("{");
   for (size_t i = 0; i < b.size(); i++) {
     if (i) w.raw(",");
@@ -132,6 +143,13 @@ inline void jsonWrite(JsonWriter& w, const Bytes& b) {
     jsonWrite(w, b.at(i));
   }
   w.raw("}");
+}
+inline void jsonWrite(JsonWriter& w, const Bytes& b) { jsonWriteBytes(w, b); }
+template <bool Writable>
+class BasicByteSpan;
+template <bool Writable>
+void jsonWrite(JsonWriter& w, const BasicByteSpan<Writable>& b) {
+  jsonWriteBytes(w, b);
 }
 /// Helper for generated struct writers: one `"name":value` member.
 template <class T>

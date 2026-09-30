@@ -1,0 +1,67 @@
+{
+  "$id": "https://lucent-lang.dev/schemas/sdk-lock.schema.json",
+  "title": "lucent-sdk.lock.json, and .lucent/sdk-usage.json",
+  "description": "The SDKs a project's modules were read from and the SDK symbols its code uses. No machine paths.",
+  "type": "object",
+  "required": ["format", "targets", "modules", "symbols"],
+  "additionalProperties": false,
+  "properties": {
+    "format": { "const": 1 },
+    "targets": {
+      "type": "array",
+      "description": "The targets platform code was compiled for: a --frozen build needs each one's SDK",
+      "items": { "enum": ["ios", "android"] }
+    },
+    "modules": {
+      "type": "object",
+      "description": "<platform>/<module> → how the build read it",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["artifacts"],
+        "additionalProperties": false,
+        "properties": {
+          "artifacts": {
+            "type": "array",
+            "description": "The artifacts its schema was read from: <id>#<content hash>",
+            "items": { "type": "string", "pattern": "^[^#]+#\\w+$" }
+          },
+          "schema": {
+            "type": "string",
+            "description": "Where the SDK cache keeps that schema: <scope>/<entry>"
+          }
+        }
+      }
+    },
+    "symbols": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["platform", "module", "kind", "name", "signature"],
+        "additionalProperties": false,
+        "properties": {
+          "platform": { "enum": ["ios", "android"] },
+          "module": { "type": "string" },
+          "owner": { "type": "string", "description": "The declaring type's Lucent name" },
+          "kind": { "enum": ["type", "constructor", "method", "property", "function", "constant"] },
+          "name": {
+            "type": "string",
+            "description": "The Lucent name; constructor for constructors"
+          },
+          "static": { "const": true },
+          "symbol": {
+            "type": "string",
+            "description": "The native identity: swift:, objc:, c: or jvm:"
+          },
+          "signature": { "type": "string" },
+          "since": { "type": ["number", "string"] },
+          "deprecated": { "const": true },
+          "cases": { "type": "array", "items": { "type": "string" } },
+          "roles": {
+            "type": "array",
+            "items": { "enum": ["call", "new", "get", "set", "implement"] }
+          }
+        }
+      }
+    }
+  }
+}

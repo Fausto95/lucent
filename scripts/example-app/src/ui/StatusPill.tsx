@@ -1,0 +1,33 @@
+import { StyleSheet, Text } from "react-native";
+import { radius, space } from "./theme";
+import { useTheme } from "./useTheme";
+
+/** PASS or FAIL next to a check's name. */
+export function StatusPill({ pass }: { pass: boolean }) {
+  const { colors } = useTheme();
+
+  return (
+    <Text
+      style={[
+        styles.pill,
+        pass
+          ? { color: colors.success, backgroundColor: colors.successSoft }
+          : { color: colors.danger, backgroundColor: colors.dangerSoft },
+      ]}
+    >
+      {pass ? "PASS" : "FAIL"}
+    </Text>
+  );
+}
+
+const styles = StyleSheet.create({
+  pill: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    borderRadius: radius.sm,
+    overflow: "hidden",
+    paddingHorizontal: space.sm,
+    paddingVertical: 2,
+  },
+});

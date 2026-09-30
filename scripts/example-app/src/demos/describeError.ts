@@ -1,0 +1,8 @@
+/** An error as one line: a Lucent error's code, then its message. */
+export function describeError(e: unknown): string {
+  if (!(e instanceof Error)) return String(e);
+
+  const code = (e as Error & { code?: unknown }).code;
+
+  return typeof code === "string" ? `${code}: ${e.message}` : `${e.name}: ${e.message}`;
+}

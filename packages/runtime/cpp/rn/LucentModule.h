@@ -31,6 +31,9 @@ class LucentModule : public TurboModule {
   jsi::Value create(jsi::Runtime& runtime, const jsi::PropNameID& propName) override;
 
  private:
+  /// What JavaScript connects its view requests with (lucent::views::connectRequests).
+  jsi::Value requestsConnector(jsi::Runtime& runtime);
+
   std::shared_ptr<lucent::js::Host> host_;
 };
 

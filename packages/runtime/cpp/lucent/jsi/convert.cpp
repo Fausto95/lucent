@@ -27,6 +27,28 @@ void throwBoundaryError(jsi::Runtime& rt, const Path& path, const char* expected
   throw jsi::JSError(rt, jsi::Value(rt, err));
 }
 
+BigInt Convert<BigInt>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  if (!v.isBigInt()) throwBoundaryError(rt, p, "a bigint", v);
+
+  jsi::BigInt b = v.getBigInt(rt);
+
+  if (b.isInt64(rt)) return BigInt::fromInt64(b.getInt64(rt));
+  if (b.isUint64(rt)) return BigInt::fromUint64(b.getUint64(rt));
+
+  // Beyond 64 bits: its hex digits, after a "-" when negative.
+  return BigInt::fromDigits(b.toString(rt, 16).utf8(rt), 16);
+}
+
+jsi::Value Convert<BigInt>::toJs(jsi::Runtime& rt, Host&, const BigInt& v) {
+  if (auto i = v.tryInt64()) return jsi::Value(jsi::BigInt::fromInt64(rt, *i));
+  if (auto u = v.tryUint64()) return jsi::Value(jsi::BigInt::fromUint64(rt, *u));
+
+  // Beyond 64 bits: BigInt(string) builds it. Decimal, since BigInt()
+  // takes no sign before a 0x prefix.
+  jsi::Function make = rt.global().getPropertyAsFunction(rt, "BigInt");
+  return make.call(rt, jsi::String::createFromAscii(rt, v.toString().toUtf8()));
+}
+
 String stringFromJs(jsi::Runtime& rt, const jsi::String& s) {
   // Hermes hands most strings over in one chunk: an ASCII one becomes the
   // String directly (inline when short). Later chunks go to the accumulator.
@@ -100,6 +122,23 @@ class OwnedBuffer : public jsi::MutableBuffer {
  private:
   std::vector<uint8_t> data_;
 };
+
+/// Bytes no Lucent code holds (a fresh copy), lent to an ArrayBuffer as they are.
+class FreshBytes : public jsi::MutableBuffer {
+ public:
+  explicit FreshBytes(Bytes bytes) : bytes_(std::move(bytes)) {}
+  size_t size() const override { return bytes_.size(); }
+  uint8_t* data() override { return bytes_.data(); }
+  const Bytes& bytes() const { return bytes_; }
+
+ private:
+  Bytes bytes_;
+};
+
+jsi::Value uint8ArrayOver(jsi::Runtime& rt, const std::shared_ptr<FreshBytes>& bytes) {
+  jsi::ArrayBuffer ab(rt, bytes);
+  return rt.global().getPropertyAsFunction(rt, "Uint8Array").callAsConstructor(rt, ab);
+}
 }  // namespace
 
 Bytes Convert<Bytes>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
@@ -120,6 +159,105 @@ jsi::Value Convert<Bytes>::toJs(jsi::Runtime& rt, Host&, const Bytes& b) {
   auto buffer = std::make_shared<OwnedBuffer>(std::vector<uint8_t>(b.data(), b.data() + b.size()));
   jsi::ArrayBuffer ab(rt, buffer);
   return rt.global().getPropertyAsFunction(rt, "Uint8Array").callAsConstructor(rt, ab);
+}
+
+namespace {
+const char* const kBufferPrototype = "lucent:NativeBuffer";
+
+NativeBuffer bufferThis(jsi::Runtime& rt, const jsi::Value& self, const char* method) {
+  return Convert<NativeBuffer>::fromJs(rt, self, Path{method, "this"});
+}
+
+jsi::Function callbackArg(jsi::Runtime& rt, const jsi::Value* args, size_t count, const char* method) {
+  const jsi::Value& f = arg(args, count, 0);
+  if (!f.isObject() || !f.getObject(rt).isFunction(rt)) throwBoundaryError(rt, Path{method, "argument 0"}, "a function", f);
+
+  return f.getObject(rt).getFunction(rt);
+}
+
+/// A method of the handle, calling `body(rt, host, buffer, args, count)`.
+template <class F>
+jsi::Function bufferMethod(jsi::Runtime& rt, const char* name, unsigned argc, F body) {
+  return jsi::Function::createFromHostFunction(
+      rt, jsi::PropNameID::forAscii(rt, name), argc,
+      [name, body](jsi::Runtime& rt, const jsi::Value& self, const jsi::Value* args, size_t count) -> jsi::Value {
+        Host& host = Host::get(rt);
+        return callSync(rt, host, [&] { return body(rt, host, bufferThis(rt, self, name), args, count); });
+      });
+}
+
+void bufferPrototype(jsi::Runtime& rt, Host&, jsi::Object& proto) {
+  defineAccessor(
+      rt, proto, "byteLength",
+      [](jsi::Runtime& rt, const jsi::Value& self, const jsi::Value*, size_t) {
+        return jsi::Value(static_cast<double>(bufferThis(rt, self, "NativeBuffer.byteLength")->size()));
+      },
+      nullptr);
+
+  proto.setProperty(rt, "toUint8Array",
+                    bufferMethod(rt, "toUint8Array", 0, [](jsi::Runtime& rt, Host&, const NativeBuffer& b, const jsi::Value*, size_t) {
+                      return uint8ArrayOver(rt, std::make_shared<FreshBytes>(b->toBytes()));
+                    }));
+
+  proto.setProperty(rt, "withRead",
+                    bufferMethod(rt, "withRead", 1, [](jsi::Runtime& rt, Host&, const NativeBuffer& b, const jsi::Value* args, size_t count) {
+                      jsi::Function read = callbackArg(rt, args, count, "withRead");
+
+                      return b->withRead([&](std::span<const uint8_t> bytes) {
+                        return read.call(rt, uint8ArrayOver(rt, std::make_shared<FreshBytes>(NativeBufferObject::copyOut(bytes))));
+                      });
+                    }));
+
+  proto.setProperty(rt, "withWrite",
+                    bufferMethod(rt, "withWrite", 1, [](jsi::Runtime& rt, Host&, const NativeBuffer& b, const jsi::Value* args, size_t count) {
+                      jsi::Function write = callbackArg(rt, args, count, "withWrite");
+
+                      return b->withWrite([&](std::span<uint8_t> bytes) {
+                        auto lent = std::make_shared<FreshBytes>(NativeBufferObject::copyOut(bytes));
+
+                        // What the callback wrote comes back, even if it then threw.
+                        struct CopyBack {
+                          std::span<uint8_t> to;
+                          const FreshBytes& from;
+                          ~CopyBack() { NativeBufferObject::copyIn(to, from.bytes()); }
+                        } back{bytes, *lent};
+
+                        return write.call(rt, uint8ArrayOver(rt, lent));
+                      });
+                    }));
+
+  proto.setProperty(rt, "transfer",
+                    bufferMethod(rt, "transfer", 0, [](jsi::Runtime& rt, Host& host, const NativeBuffer& b, const jsi::Value*, size_t) {
+                      return Convert<NativeBuffer>::toJs(rt, host, b->transfer());
+                    }));
+
+  jsi::Function close = bufferMethod(rt, "close", 0, [](jsi::Runtime&, Host&, const NativeBuffer& b, const jsi::Value*, size_t) {
+    b->close();
+    return jsi::Value::undefined();
+  });
+
+  // `using` in JavaScript, where the runtime has Symbol.dispose.
+  jsi::Value dispose = rt.global().getPropertyAsObject(rt, "Symbol").getProperty(rt, "dispose");
+  if (dispose.isSymbol()) {
+    jsi::Object descriptor(rt);
+    descriptor.setProperty(rt, "value", jsi::Value(rt, close));
+    descriptor.setProperty(rt, "configurable", true);
+    descriptor.setProperty(rt, "writable", true);
+    rt.global().getPropertyAsObject(rt, "Object").getPropertyAsFunction(rt, "defineProperty").call(rt, proto, dispose, descriptor);
+  }
+
+  proto.setProperty(rt, "close", std::move(close));
+}
+}  // namespace
+
+NativeBuffer Convert<NativeBuffer>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  if (auto b = std::dynamic_pointer_cast<NativeBufferObject>(instanceOf(rt, v))) return b;
+
+  throwBoundaryError(rt, p, "a NativeBuffer", v);
+}
+
+jsi::Value Convert<NativeBuffer>::toJs(jsi::Runtime& rt, Host& h, const NativeBuffer& b) {
+  return h.wrap(rt, b, kBufferPrototype, bufferPrototype);
 }
 
 Error Convert<Error>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path&) {

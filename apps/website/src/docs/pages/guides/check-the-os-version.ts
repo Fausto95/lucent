@@ -22,7 +22,7 @@ export async function tap(): Promise<void> {
     const vibrator = available("android", 31)
       ? context.getSystemService(VibratorManager)?.defaultVibrator
       : context.getSystemService(Vibrator);
-    vibrator?.vibrate(20);
+    vibrator?.vibrate(20n);
   }
 }`,
   },
@@ -32,6 +32,7 @@ export async function tap(): Promise<void> {
       '`available("android", api)` from `lucent:android` is `Build.VERSION.SDK_INT >= api`. `available("ios", major, minor?)` from `lucent:ios` is Swift\'s `#available`.',
       "On Android, a class or member newer than API 24 compiles only behind such a check (`LUCENT3007`). `Build_VERSION.SDK_INT >= 31` works too, and so does an early return on the opposite check.",
       "On iOS, the compiler doesn't check versions yet: guard new APIs yourself. Each SDK member's doc comment says the version it needs.",
+      "`vibrate(20n)` passes a `bigint`: the milliseconds are a Java `long`, and every native 64-bit integer is a `bigint` in Lucent.",
     ],
   },
 ];

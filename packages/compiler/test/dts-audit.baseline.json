@@ -1,0 +1,19 @@
+{
+  "ios": {
+    "modules": ["UIKit", "Foundation", "AVFoundation", "StoreKit", "CryptoKit"],
+    "errors": {}
+  },
+  "android": {
+    "modules": [
+      "android.os",
+      "android.content",
+      "android.app",
+      "android.view",
+      "android.widget",
+      "android.location",
+      "android.hardware",
+      "android.net"
+    ],
+    "errors": {}
+  }
+}

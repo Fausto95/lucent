@@ -1,0 +1,12 @@
+{
+  "name": "@lucent-lang/codegen",
+  "version": "0.0.3",
+  "private": true,
+  "description": "Syntax trees and printers for the code Lucent generates (C++ and Objective-C++, Java, TypeScript)",
+  "license": "MIT",
+  "type": "module",
+  "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

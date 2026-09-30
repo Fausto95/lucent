@@ -4,8 +4,8 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "@lucent-lang/compiler";
+import { runLucent } from "./run-to-exit.ts";
 
-const bin = path.resolve(import.meta.dirname, "../bin/lucent.cjs");
 const javac = spawnSync("javac", ["-version"]).status === 0;
 const android = sdkAvailable("android");
 
@@ -44,8 +44,7 @@ function app(): { root: string; cache: string } {
 }
 
 function lucent(a: { root: string; cache: string }, ...args: string[]) {
-  const r = spawnSync(process.execPath, [bin, "sdk", ...args, "--root", a.root], {
-    encoding: "utf8",
+  const r = runLucent(["sdk", ...args, "--root", a.root], {
     env: { ...process.env, NO_COLOR: "1", LUCENT_CACHE_DIR: a.cache },
   });
   return { status: r.status, out: r.stdout + r.stderr, stdout: r.stdout };
@@ -123,6 +122,30 @@ describe.skipIf(!javac || !android)("lucent sdk", () => {
     const member = lucent(a, "show", "com.example.widgets.Widget.getName");
     expect(member.out).toMatch(/getName\(\): string;/);
     expect(member.out).not.toMatch(/export declare class OnEvent/);
+  });
+
+  it("binds the libraries the app's Lucent packages ship", () => {
+    const a = app();
+    const pkg = path.join(a.root, "node_modules/lucent-widgets");
+    fs.mkdirSync(path.join(pkg, "android"), { recursive: true });
+    fs.renameSync(path.join(a.root, "widgets.jar"), path.join(pkg, "android/widgets.jar"));
+    fs.rmSync(path.join(a.root, ".lucent/android-classpath.json"));
+    fs.writeFileSync(
+      path.join(pkg, "package.json"),
+      JSON.stringify({ name: "lucent-widgets", version: "1.0.0", lucent: { sources: "src" } }),
+    );
+    fs.writeFileSync(
+      path.join(pkg, "lucent.json"),
+      JSON.stringify({ android: { libraries: ["android/widgets.jar"] } }),
+    );
+    fs.writeFileSync(
+      path.join(a.root, "package.json"),
+      JSON.stringify({ name: "app", dependencies: { "lucent-widgets": "1.0.0" } }),
+    );
+
+    const r = lucent(a, "show", "com.example.widgets.Widget");
+    expect(r.out).toMatch(/export declare class Widget/);
+    expect(r.status).toBe(0);
   });
 
   it("show says when a symbol does not exist", () => {

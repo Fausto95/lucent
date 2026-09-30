@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@lucent-lang/bindgen": "workspace:*",
+    "@lucent-lang/codegen": "workspace:*",
     "@lucent-lang/runtime": "workspace:*",
     "typescript": "~5.9.3"
   }

@@ -22,6 +22,23 @@ function typed(schema: { module: string } & Record<string, unknown>): SdkModuleS
   return walk(schema) as SdkModuleSchema;
 }
 
+describe("names-only declarations", () => {
+  it("declare a generic type's type parameters, so references can pass type arguments", () => {
+    const dts = stubDts("ios", "Media", {
+      module: "Media",
+      refs: {},
+      aliases: {},
+      types: {
+        ReadyBuffer: { kind: "class", native: "Media.ReadyBuffer", swift: true, typeParams: 2 },
+        Plain: { kind: "class", native: "MDPlain" },
+      },
+    });
+
+    expect(dts).toContain("class ReadyBuffer<T0 = unknown, T1 = unknown>");
+    expect(dts).toMatch(/class Plain extends NSObject/);
+  });
+});
+
 describe("schema types", () => {
   it("parses the forms schemas use", () => {
     expect(parseSdkType("string?")).toEqual({ k: "string", nullable: true });
@@ -143,9 +160,62 @@ describe("SDK declarations", () => {
 
   it("types blocks as functions of Lucent values", () => {
     expect(dts).toContain(
-      "  observe(block: (arg0: string, arg1: number, arg2: NSObject) => void): void;",
+      "  observe(block: (arg0: string, arg1: bigint, arg2: NSObject) => void): void;",
     );
-    expect(dts).toContain("  countWhere(predicate: (arg0: string) => boolean): number;");
+    expect(dts).toContain("  countWhere(predicate: (arg0: string) => boolean): bigint;");
+  });
+
+  it("types native 64-bit integers as bigints, a constant group's as numbers", () => {
+    const long = parseSdkType("long");
+    const grouped = { ...long, group: true as const };
+    const windows = ["com.example.clock.Clock.WINDOW_SHORT", "com.example.clock.Clock.WINDOW_LONG"];
+
+    const d = sdkDts(
+      typed({
+        platform: "android",
+        module: "com.example.clock",
+        types: [
+          {
+            kind: "class",
+            name: "Clock",
+            native: "com/example/clock/Clock",
+            properties: [
+              {
+                name: "NEVER",
+                static: true,
+                readonly: true,
+                type: long,
+                value: "9223372036854775807",
+              },
+              { name: "WINDOW_SHORT", static: true, readonly: true, type: grouped, value: 1 },
+              { name: "WINDOW_LONG", static: true, readonly: true, type: grouped, value: 60000 },
+            ],
+            methods: [
+              { name: "elapsed", params: [], returns: "long", static: true },
+              {
+                name: "sleep",
+                params: [{ name: "ms", type: "long" }],
+                returns: "void",
+                static: true,
+              },
+              {
+                name: "setWindow",
+                params: [{ name: "window", type: grouped, oneOf: windows }],
+                returns: "void",
+              },
+              { name: "times", params: [], returns: "long[]" },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(d).toContain("  static readonly NEVER: 9223372036854775807n;");
+    expect(d).toContain("  static readonly WINDOW_LONG: 60000;");
+    expect(d).toContain("  static elapsed(): bigint;");
+    expect(d).toContain("  static sleep(ms: bigint): void;");
+    expect(d).toContain("  setWindow(window: number): void;");
+    expect(d).toContain("  times(): bigint[];");
   });
 
   it("declares protocols structurally, so Lucent classes implement them; optional requirements optional", () => {
@@ -260,6 +330,193 @@ describe("SDK declarations", () => {
     );
   });
 
+  it("imports a class named as one of its own, or as another module's, under an alias", () => {
+    const d = sdkDts(
+      typed({
+        platform: "android",
+        module: "androidx.credentials",
+        types: [
+          {
+            kind: "class",
+            name: "CredentialOption",
+            native: "androidx/credentials/CredentialOption",
+          },
+          {
+            kind: "class",
+            name: "Bridge",
+            native: "androidx/credentials/Bridge",
+            methods: [
+              {
+                name: "convert",
+                params: [
+                  { name: "own", type: "CredentialOption" },
+                  { name: "framework", type: "android.credentials.CredentialOption" },
+                  { name: "first", type: "android.os.Bundle" },
+                  { name: "second", type: "com.example.Bundle" },
+                ],
+                returns: "android.credentials.CredentialOption[]",
+                static: true,
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(d).toContain(
+      'import type { CredentialOption as android_credentials_CredentialOption } from "lucent:android/android.credentials";',
+    );
+    expect(d).toContain(
+      'import type { Bundle as android_os_Bundle } from "lucent:android/android.os";',
+    );
+    expect(d).toContain(
+      'import type { Bundle as com_example_Bundle } from "lucent:android/com.example";',
+    );
+    expect(d).toContain(
+      "  static convert(own: CredentialOption, framework: android_credentials_CredentialOption, first: android_os_Bundle, second: com_example_Bundle): android_credentials_CredentialOption[];",
+    );
+  });
+
+  it("declares java.lang.AutoCloseable disposable, for using declarations", () => {
+    const d = sdkDts(
+      typed({
+        platform: "android",
+        module: "java.lang",
+        types: [
+          {
+            kind: "class",
+            name: "AutoCloseable",
+            native: "java/lang/AutoCloseable",
+            interface: true,
+            methods: [{ name: "close", params: [], returns: "void", abstract: true }],
+          },
+        ],
+      }),
+    );
+    expect(d).toContain("  [Symbol.dispose](): void;");
+  });
+
+  it("documents main-only and blocking members", () => {
+    const d = sdkDts(
+      typed({
+        platform: "android",
+        module: "com.example.widgets",
+        types: [
+          {
+            kind: "class",
+            name: "Widget",
+            native: "com/example/widgets/Widget",
+            methods: [
+              { name: "draw", params: [], returns: "void", mainActor: true },
+              { name: "load", params: [], returns: "void", worker: true, since: 30 },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(d).toContain(
+      "  /** Main thread only: call it inside `main(() => …)`. */\n  draw(): void;",
+    );
+    expect(d).toContain(
+      "  /** Since API 30. Blocks (@WorkerThread): call it outside `main(() => …)`. */\n  load(): void;",
+    );
+  });
+
+  it("types an option set as its cases or 0, the empty set no case names", () => {
+    const d = sdkDts(
+      typed({
+        platform: "ios",
+        module: "Kit",
+        types: [
+          {
+            kind: "enum",
+            name: "KITEdges",
+            native: "KITEdges",
+            options: true,
+            cases: [{ name: "top", native: "KITEdgesTop", value: 1 }],
+          },
+          {
+            kind: "class",
+            name: "KITView",
+            native: "KITView",
+            properties: [{ name: "edges", type: "KITEdges", setter: "setEdges:" }],
+          },
+        ],
+      }),
+    );
+
+    expect(d).toContain("  edges: KITEdges | 0;");
+  });
+
+  it("documents what the binding plans refuse, as declared", () => {
+    const d = sdkDts(
+      typed({
+        platform: "ios",
+        module: "Kit",
+        types: [
+          {
+            kind: "class",
+            name: "KITView",
+            native: "KITView",
+            constructors: [{ params: [], selector: "init" }],
+            methods: [
+              { name: "grid", selector: "grid", params: [], returns: "string[][]" },
+              {
+                name: "fill",
+                selector: "fill:",
+                params: [{ name: "g", type: "string[][]" }],
+                returns: "void",
+              },
+            ],
+            properties: [{ name: "tag", type: "NSInteger" }],
+          },
+        ],
+      }),
+    );
+
+    expect(d).toContain(
+      "  /** Lucent cannot use this yet: nested collections from Objective-C are not supported yet. */\n  grid(): string[][];",
+    );
+    expect(d).toContain("  fill(g: string[][]): void;");
+    // A property without a setter selector: read, never written.
+    expect(d).toContain(
+      "  /** Lucent cannot assign this yet: it has no setter. */\n  tag: bigint;",
+    );
+  });
+
+  it("declares Swift types without NSObject, and plain Swift enums by case index", () => {
+    const d = sdkDts(
+      typed({
+        platform: "ios",
+        module: "Shapes",
+        types: [
+          {
+            kind: "class",
+            name: "Point",
+            native: "Shapes.Point",
+            swift: { kind: "struct" },
+            constructors: [
+              { params: [{ name: "x", type: "double" }], swift: { name: "init(x:)" } },
+            ],
+          },
+          {
+            kind: "enum",
+            name: "Palette",
+            native: "Shapes.Palette",
+            swift: { kind: "enum" },
+            cases: [
+              { name: "red", native: "red", value: 0 },
+              { name: "green", native: "green", value: 1 },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(d).toContain("export declare class Point {");
+    expect(d).not.toContain("NSObject");
+    expect(d).toContain("export declare enum Palette {\n  red = 0,\n  green = 1,\n}");
+  });
+
   it("declares C structs as object types", () => {
     const d = sdkDts(
       typed({
@@ -291,6 +548,213 @@ describe("SDK declarations", () => {
     expect(d).toContain("export declare type WDGCircle = { center: WDGPoint; radius: number };");
   });
 
+  it("declares Swift enums with payloads as unions discriminated by kind", () => {
+    const d = sdkDts(
+      typed({
+        platform: "ios",
+        module: "Shapes",
+        types: [
+          {
+            kind: "class",
+            name: "Shape",
+            native: "Shapes.Shape",
+            swift: {
+              kind: "enum",
+              cases: [
+                {
+                  name: "circle",
+                  params: [
+                    { label: "center", type: "Point" },
+                    { label: "radius", type: "double" },
+                  ],
+                },
+                { name: "square", params: [{ label: "side", type: "double" }] },
+              ],
+            },
+          },
+          {
+            kind: "class",
+            name: "Stroke",
+            native: "Shapes.Stroke",
+            swift: {
+              kind: "enum",
+              cases: [
+                { name: "none", params: [] },
+                { name: "solid", params: [{ type: "double" }] },
+                { name: "dashed", params: [{ type: "double" }, { type: "double" }] },
+              ],
+            },
+          },
+          { kind: "class", name: "Point", native: "Shapes.Point", swift: { kind: "struct" } },
+          {
+            kind: "class",
+            name: "Outcome",
+            native: "Shapes.Outcome",
+            typeParams: ["T"],
+            swift: {
+              kind: "enum",
+              cases: [
+                { name: "done", params: [{ type: "T" }] },
+                { name: "failed", params: [{ type: "string?" }] },
+              ],
+            },
+          },
+        ],
+      }),
+    );
+    // Generic ones are generic unions.
+    expect(d).toContain(
+      'export declare type Outcome<T = unknown> = { kind: "done"; value: T } | { kind: "failed"; value: string | null };',
+    );
+    expect(d).toContain(
+      'export declare type Shape = { kind: "circle"; center: Point; radius: number } | { kind: "square"; side: number };',
+    );
+    // A payload without a label is `value`, several are `_0`, `_1`…
+    expect(d).toContain(
+      'export declare type Stroke = { kind: "none" } | { kind: "solid"; value: number } | { kind: "dashed"; _0: number; _1: number };',
+    );
+  });
+
+  it("declares async Swift members as promises, cancelled by a signal", () => {
+    const d = sdkDts(
+      typed({
+        platform: "ios",
+        module: "Shapes",
+        types: [
+          {
+            kind: "class",
+            name: "Canvas",
+            native: "Shapes.Canvas",
+            swift: { kind: "class" },
+            methods: [
+              {
+                name: "area",
+                params: [],
+                returns: "double",
+                swift: { name: "area()", async: true, throws: true },
+              },
+            ],
+            properties: [
+              {
+                name: "ready",
+                type: "bool",
+                readonly: true,
+                swift: { name: "ready", async: true },
+              },
+            ],
+          },
+        ],
+        functions: [
+          { name: "render", params: [], returns: "void", swift: { name: "render()", async: true } },
+          {
+            name: "greet",
+            params: [
+              { name: "name", type: "string" },
+              { name: "punctuation", type: "string", defaulted: "optional" },
+              { name: "isolation", type: "id", defaulted: "omitted" },
+            ],
+            returns: "string",
+            swift: { name: "greet(_:punctuation:isolation:)", async: true },
+          },
+        ],
+      }),
+    );
+    expect(d).toContain("  area(signal?: AbortSignal): Promise<number>;");
+    // A getter takes no signal.
+    expect(d).toContain("  readonly ready: Promise<boolean>;");
+    expect(d).toContain("export declare function render(signal?: AbortSignal): Promise<void>;");
+    // Default arguments: optional, or left out; the signal after them.
+    expect(d).toContain(
+      "export declare function greet(name: string, punctuation?: string, signal?: AbortSignal): Promise<string>;",
+    );
+  });
+
+  it("declares Kotlin suspend functions as cancellable promises, and defaults a shim leaves out", () => {
+    const search = "(Ljava/lang/String;ILkotlin/coroutines/Continuation;)Ljava/lang/Object;";
+    const d = sdkDts(
+      typed({
+        platform: "android",
+        module: "dev.orbit",
+        types: [
+          {
+            kind: "class",
+            name: "Client",
+            native: "dev/orbit/Client",
+            kotlin: { kind: "class" },
+            constructors: [
+              {
+                params: [
+                  { name: "name", type: "string", kotlin: { default: true } },
+                  { name: "token", type: "string?", kotlin: { default: true } },
+                ],
+              },
+            ],
+            methods: [
+              {
+                name: "search",
+                params: [
+                  { name: "prefix", type: "string" },
+                  { name: "limit", type: "int", kotlin: { default: true } },
+                ],
+                returns: "string",
+                descriptor: search,
+                kotlin: { suspend: true },
+              },
+              {
+                name: "toQuery",
+                static: true,
+                params: [
+                  { name: "receiver", type: "string" },
+                  { name: "limit", type: "int", kotlin: { default: true } },
+                ],
+                returns: "string",
+                kotlin: { extension: true },
+              },
+              {
+                name: "configure",
+                params: [
+                  { name: "retries", type: "int", kotlin: { default: true } },
+                  { name: "label", type: "string" },
+                ],
+                returns: "void",
+              },
+              {
+                name: "pick",
+                typeParams: ["T"],
+                params: [
+                  { name: "items", type: "T[]" },
+                  { name: "fallback", type: "T?", kotlin: { default: true } },
+                ],
+                returns: "T?",
+              },
+              {
+                name: "best",
+                typeParams: ["T"],
+                params: [
+                  { name: "items", type: "T[]" },
+                  { name: "fallback", type: "T?", kotlin: { default: true } },
+                ],
+                returns: "T?",
+                kotlin: { bounds: { T: "other" } },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(d).toContain(
+      "  search(prefix: string, limit?: number, signal?: AbortSignal): Promise<string>;",
+    );
+    expect(d).toContain("  constructor(name?: string, token?: string | null);");
+    expect(d).toContain("  static toQuery(receiver: string, limit?: number): string;");
+    // A default before a parameter without one: undefined leaves it out.
+    expect(d).toContain("  configure(retries: number | undefined, label: string): void;");
+    // A generic member's shim writes its type parameters as Any?, unless Kotlin bounds them.
+    expect(d).toContain("  pick<T>(items: T[], fallback?: T | null): T | null;");
+    expect(d).toContain("  best<T>(items: T[], fallback: T | null): T | null;");
+  });
+
   it("adds a promise overload for completion handlers Swift imports as async", () => {
     expect(dts).toContain(
       "  load(reply: (arg0: Uint8Array | null, arg1: Error | null) => void): void;",
@@ -299,6 +763,35 @@ describe("SDK declarations", () => {
     // Under the name Swift gives the async form.
     expect(dts).toContain("  getItems(completionHandler: (arg0: string[]) => void): void;");
     expect(dts).toContain("  items(): Promise<string[]>;");
+  });
+
+  it("declares protocol requirements in their completion-handler form only, so classes can implement them", () => {
+    const d = sdkDts(
+      typed({
+        platform: "ios",
+        module: "Widgets",
+        types: [
+          {
+            kind: "class",
+            name: "WDGUploadDelegate",
+            native: "WDGUploadDelegate",
+            interface: true,
+            methods: [
+              {
+                name: "needStream",
+                selector: "needStreamWithCompletionHandler:",
+                params: [{ name: "completionHandler", type: "@escaping (id?) => void" }],
+                returns: "void",
+                optional: true,
+                async: { returns: "id?" },
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    expect(d).toContain("  needStream?(completionHandler: (arg0: NSObject | null) => void): void;");
+    expect(d).not.toContain("Promise");
   });
 });
 
@@ -320,6 +813,17 @@ describe("names-only declarations", () => {
     });
     expect(a).toBe(b);
     expect(a.indexOf("KAlpha")).toBeLessThan(a.indexOf("KBeta"));
+  });
+
+  it("declare Swift classes without NSObject", () => {
+    const d = stubDts("ios", "Kit", {
+      module: "Kit",
+      refs: {},
+      aliases: {},
+      types: { KToken: { kind: "class", native: "Kit.KToken", swift: true } },
+    });
+    expect(d).toContain("export declare class KToken {");
+    expect(d).not.toContain("extends NSObject");
   });
 
   it("declare structs' fields, so values of them can be written", () => {

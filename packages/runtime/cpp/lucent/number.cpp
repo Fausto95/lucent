@@ -8,6 +8,12 @@
 #include <random>
 #include <string>
 
+// Dragonbox tests internal macros that may be undefined.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wundef"
+#include "../third_party/dragonbox/dragonbox.h"
+#pragma GCC diagnostic pop
+
 namespace lucent {
 
 namespace {
@@ -58,31 +64,19 @@ Decimal roundHalfUp(double a, int significant) {
   return d;
 }
 
-Decimal withPrecision(double v, int precision) {
-  char buf[64];
-  std::snprintf(buf, sizeof buf, "%.*e", precision - 1, v);
-  return parseScientific(buf);
-}
-
-bool roundTrips(double v, int precision) {
-  char buf[64];
-  std::snprintf(buf, sizeof buf, "%.*e", precision - 1, v);
-  // strtod needs '.', which is what the C locale prints.
-  for (char* c = buf; *c; c++) {
-    if (*c == ',') *c = '.';
-  }
-  return std::strtod(buf, nullptr) == v;
-}
-
-// Shortest digit string that round-trips (ECMA-262 Number::toString step 5).
+/// The fewest digits that read back as `v` (finite, positive), the closest
+/// to it of those (ECMA-262 Number::toString step 5). The correctly rounded
+/// digits at that length are not always among them: below a power of two
+/// the doubles are twice as dense, so only a farther string reads back.
 Decimal shortest(double v) {
-  int lo = 1, hi = 17;
-  while (lo < hi) {
-    int mid = (lo + hi) / 2;
-    if (roundTrips(v, mid)) hi = mid;
-    else lo = mid + 1;
-  }
-  return withPrecision(v, lo);
+  auto decimal = jkj::dragonbox::to_decimal(v);
+  char digits[24];
+  auto end = std::to_chars(digits, digits + sizeof digits, decimal.significand).ptr;
+
+  Decimal d;
+  d.digits.assign(digits, end);
+  d.n = decimal.exponent + static_cast<int>(d.digits.size());
+  return d;
 }
 
 std::string formatDecimal(const Decimal& d) {
@@ -226,18 +220,19 @@ String numberToString(double v, double radixValue) {
       }
     } while (fraction >= delta);
   }
+  // Integer digits, least significant first. Those a double cannot tell
+  // apart (from 2^53 up) are zeros, as V8 prints them.
   std::string intDigits;
-  if (integer == 0) {
-    intDigits = "0";
-  } else {
-    while (integer >= 1) {
-      double q = std::floor(integer / radix);
-      int digit = static_cast<int>(integer - q * radix);
-      intDigits.push_back(chars[digit]);
-      integer = q;
-    }
-    std::reverse(intDigits.begin(), intDigits.end());
+  while (integer / radix >= 9007199254740992.0) {
+    integer /= radix;
+    intDigits.push_back('0');
   }
+  do {
+    double remainder = std::fmod(integer, radix);
+    intDigits.push_back(chars[static_cast<int>(remainder)]);
+    integer = (integer - remainder) / radix;
+  } while (integer > 0);
+  std::reverse(intDigits.begin(), intDigits.end());
   std::string out = negative ? "-" : "";
   out += intDigits;
   if (!fracDigits.empty()) out += "." + fracDigits;
@@ -249,10 +244,10 @@ String numberToFixed(double v, double digitsValue) {
   if (f < 0 || f > 100) throwRangeError("toFixed() digits argument must be between 0 and 100");
   if (std::isnan(v)) return String::fromLatin1("NaN");
   if (std::fabs(v) >= 1e21 || std::isinf(v)) return numberToString(v);
-  std::string digits = fixedDigits(v, static_cast<int>(f));
-  bool allZero = digits.find_first_not_of("0.") == std::string::npos;
-  std::string out = (v < 0 && !allZero) ? "-" : "";
-  return String::fromLatin1(out + digits);
+  // A negative value keeps its sign even when it rounds to zero (-0.00);
+  // only -0 has none.
+  std::string out = v < 0 ? "-" : "";
+  return String::fromLatin1(out + fixedDigits(v, static_cast<int>(f)));
 }
 
 String numberToExponential(double v, double digitsValue) {
@@ -541,5 +536,10 @@ double max(double a, double b) {
 }
 
 }  // namespace math
+
+void throwInexactInteger(const std::string& value) {
+  std::string message = value + " is not an integer a number holds exactly (within +-(2^53 - 1))";
+  throwRangeError(message.c_str());
+}
 
 }  // namespace lucent

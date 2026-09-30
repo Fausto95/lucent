@@ -1,0 +1,10 @@
+{
+  "name": "lucent-orbit-filter",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A Lucent package with a native extension: a C header over a C++ filter, used by the tests",
+  "main": "index.ts",
+  "lucent": {
+    "sources": "src"
+  }
+}

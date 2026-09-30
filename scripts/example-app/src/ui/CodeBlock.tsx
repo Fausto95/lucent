@@ -1,0 +1,26 @@
+import { StyleSheet, Text } from "react-native";
+import { radius, space, type } from "./theme";
+import { useTheme } from "./useTheme";
+
+/** Machine output (a hash, a path, a diff), selectable and monospaced. */
+export function CodeBlock({ text, testID }: { text: string; testID?: string }) {
+  const { colors } = useTheme();
+
+  return (
+    <Text
+      testID={testID}
+      selectable
+      style={[
+        type.code,
+        styles.block,
+        { color: colors.text, backgroundColor: colors.surfaceMuted },
+      ]}
+    >
+      {text}
+    </Text>
+  );
+}
+
+const styles = StyleSheet.create({
+  block: { borderRadius: radius.sm, padding: space.sm, overflow: "hidden" },
+});

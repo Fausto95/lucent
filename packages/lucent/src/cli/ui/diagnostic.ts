@@ -11,6 +11,7 @@ export interface DiagnosticLike {
   length?: number;
   fix?: string;
   docs?: string;
+  severity?: "warning";
 }
 
 /** Wraps `text` at `width` columns, indenting continuation lines by `indent`. */
@@ -49,9 +50,11 @@ export function renderDiagnostic(
   theme: Theme,
 ): string {
   const width = theme.terminal.width;
-  const head = `  ${theme.error("error")} ${theme.bold(d.code)}  `;
+  const label = d.severity === "warning" ? theme.warn("warning") : theme.error("error");
+  const labelWidth = d.severity === "warning" ? 7 : 5;
+  const head = `  ${label} ${theme.bold(d.code)}  `;
   const out = [
-    `${head}${wrap(d.message.split("\n").join(" "), Math.max(20, width - 2 - 6 - d.code.length - 2), " ".repeat(6 + d.code.length + 4))}`,
+    `${head}${wrap(d.message.split("\n").join(" "), Math.max(20, width - 2 - (labelWidth + 1) - d.code.length - 2), " ".repeat(labelWidth + 1 + d.code.length + 4))}`,
   ];
   if (d.file) {
     out.push("", `    ${theme.dim(d.line ? `${d.file}:${d.line}:${d.column ?? 1}` : d.file)}`);

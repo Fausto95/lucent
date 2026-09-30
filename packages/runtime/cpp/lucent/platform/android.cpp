@@ -8,10 +8,14 @@
 #include <fbjni/fbjni.h>
 #include <sys/system_properties.h>
 
+#include <atomic>
+#include <cstdint>
 #include <cstdlib>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 namespace lucent::jni {
 
@@ -84,9 +88,75 @@ jmethodID staticMethod(jclass cls, const char* name, const char* sig) { LUCENT_J
 jfieldID field(jclass cls, const char* name, const char* sig) { LUCENT_JNI_ID(GetFieldID, "field") }
 jfieldID staticField(jclass cls, const char* name, const char* sig) { LUCENT_JNI_ID(GetStaticFieldID, "field") }
 
+namespace {
+
+/// Lucent errors thrown to Java, by the Java exception carrying each (a weak
+/// reference): errorOf gives back the error itself, not a copy.
+struct Thrown {
+  jweak exception;
+  Error error;
+};
+
+std::mutex thrownMutex;
+std::vector<Thrown>& thrown() {
+  static auto* v = new std::vector<Thrown>();
+  return *v;
+}
+
+/// The Lucent error `t` carries, removed from the list; none for other exceptions.
+std::optional<Error> takeThrown(JNIEnv* e, jobject t) {
+  std::lock_guard<std::mutex> g(thrownMutex);
+  auto& v = thrown();
+  for (auto it = v.begin(); it != v.end(); ++it) {
+    if (!e->IsSameObject(it->exception, t)) continue;
+
+    Error error = std::move(it->error);
+    e->DeleteWeakGlobalRef(it->exception);
+    v.erase(it);
+    return error;
+  }
+  return std::nullopt;
+}
+
+}  // namespace
+
+void throwToJava(JNIEnv* e, Error error) {
+  static jclass cls = findClass("java/lang/RuntimeException");
+  static jmethodID init = method(cls, "<init>", "(Ljava/lang/String;)V");
+  jstring message = toJString(e, error->message);
+  auto exception = static_cast<jthrowable>(e->NewObject(cls, init, message));
+  e->DeleteLocalRef(message);
+  if (!exception) return;  // A pending OutOfMemoryError ends the call instead.
+
+  {
+    std::lock_guard<std::mutex> g(thrownMutex);
+    auto& v = thrown();
+    // Exceptions Java dropped without Lucent reading them.
+    std::erase_if(v, [e](Thrown& x) {
+      if (!e->IsSameObject(x.exception, nullptr)) return false;
+      e->DeleteWeakGlobalRef(x.exception);
+      return true;
+    });
+    v.push_back({e->NewWeakGlobalRef(exception), std::move(error)});
+  }
+  e->Throw(exception);
+  e->DeleteLocalRef(exception);
+}
+
 void rethrowPending(JNIEnv* e) {
   jthrowable t = e->ExceptionOccurred();
   e->ExceptionClear();
+  throw Exception(errorOf(e, t));
+}
+
+Error errorOf(JNIEnv* e, jobject t) {
+  if (auto own = t ? takeThrown(e, t) : std::nullopt) return std::move(*own);
+  if (!t) {
+    // No exception to read: a cancelled task.
+    Error err = makeError(String::fromLatin1("Error"), String::fromLatin1("cancelled"));
+    err->code = String::fromLatin1("java.util.concurrent.CancellationException");
+    return err;
+  }
   jclass objectCls = e->FindClass("java/lang/Object");
   jobject cls = e->CallObjectMethod(t, e->GetMethodID(objectCls, "getClass", "()Ljava/lang/Class;"));
   jclass classCls = e->FindClass("java/lang/Class");
@@ -97,7 +167,14 @@ void rethrowPending(JNIEnv* e) {
   String className = name ? fromJString(e, name, "") : String::fromLatin1("java.lang.Throwable");
   Error err = makeError(String::fromLatin1("Error"), message ? fromJString(e, message, "") : className);
   err->code = className;
-  throw Exception(err);
+  return err;
+}
+
+void close(const NativeRef& closeable) {
+  JNIEnv* e = env();
+  static jmethodID m = method(findClass("java/lang/AutoCloseable"), "close", "()V");
+  e->CallVoidMethod(unwrap(closeable), m);
+  check(e);
 }
 
 NativeRef wrap(JNIEnv* e, jobject local, const char* what) {
@@ -161,13 +238,13 @@ jobjectArray toStringArray(JNIEnv* e, const Array<String>& a) {
   return out;
 }
 
-Array<double> fromLongArray(JNIEnv* e, jlongArray a, const char* what) {
+Array<BigInt> fromLongArray(JNIEnv* e, jlongArray a, const char* what) {
   if (!a) failWith("TypeError", std::string(what) + " returned null");
   jsize n = e->GetArrayLength(a);
   std::vector<jlong> buf(static_cast<size_t>(n));
   e->GetLongArrayRegion(a, 0, n, buf.data());
-  Array<double> out;
-  for (jlong v : buf) out.push(static_cast<double>(v));
+  Array<BigInt> out;
+  for (jlong v : buf) out.push(BigInt(v));
   return out;
 }
 
@@ -202,11 +279,11 @@ Array<String> fromStringArray(JNIEnv* e, jobjectArray a, const char* what) {
   return out;
 }
 
-jlongArray toLongArray(JNIEnv* e, const Array<double>& a) {
+jlongArray toLongArray(JNIEnv* e, const Array<BigInt>& a, const char* what) {
   auto n = static_cast<jsize>(a.size());
-  jlongArray out = e->NewLongArray(n);
   std::vector<jlong> buf(static_cast<size_t>(n));
-  for (jsize i = 0; i < n; i++) buf[static_cast<size_t>(i)] = static_cast<jlong>(a.at(static_cast<size_t>(i)));
+  for (jsize i = 0; i < n; i++) buf[static_cast<size_t>(i)] = toNativeInteger<jlong>(a.at(static_cast<size_t>(i)), what);
+  jlongArray out = e->NewLongArray(n);
   e->SetLongArrayRegion(out, 0, n, buf.data());
   return out;
 }
@@ -218,6 +295,94 @@ jintArray toIntArray(JNIEnv* e, const Array<double>& a) {
   for (jsize i = 0; i < n; i++) buf[static_cast<size_t>(i)] = static_cast<jint>(toInt32(a.at(static_cast<size_t>(i))));
   e->SetIntArrayRegion(out, 0, n, buf.data());
   return out;
+}
+
+void returnedNull(const char* what) { failWith("TypeError", std::string(what) + " returned null"); }
+
+jobjectArray listElements(JNIEnv* e, jobject list, const char* what) {
+  if (!list) returnedNull(what);
+
+  static jmethodID toArray = method(findClass("java/util/Collection"), "toArray", "()[Ljava/lang/Object;");
+  auto a = static_cast<jobjectArray>(e->CallObjectMethod(list, toArray));
+  check(e);
+  return a;
+}
+
+jobject newList(JNIEnv* e, jsize n) {
+  static jclass cls = findClass("java/util/ArrayList");
+  static jmethodID init = method(cls, "<init>", "(I)V");
+  jobject list = e->NewObject(cls, init, n);
+  check(e);
+  return list;
+}
+
+void listAdd(JNIEnv* e, jobject list, jobject element) {
+  static jmethodID add = method(findClass("java/util/List"), "add", "(Ljava/lang/Object;)Z");
+  e->CallBooleanMethod(list, add, element);
+  check(e);
+}
+
+namespace {
+
+/// A Java array of primitives as numbers (or booleans), read in one copy.
+template <class R, class A, class J>
+Array<R> fromPrimitives(JNIEnv* e, A a, void (JNIEnv::*get)(A, jsize, jsize, J*), const char* what) {
+  if (!a) returnedNull(what);
+
+  jsize n = e->GetArrayLength(a);
+  std::vector<J> buf(static_cast<size_t>(n));
+  (e->*get)(a, 0, n, buf.data());
+
+  Array<R> out;
+  for (J v : buf) out.push(static_cast<R>(v));
+  return out;
+}
+
+/// Numbers (or booleans) as a Java array of primitives, each converted by `to`.
+template <class A, class J, class T, class F>
+A toPrimitives(JNIEnv* e, const Array<T>& a, A (JNIEnv::*make)(jsize), void (JNIEnv::*set)(A, jsize, jsize, const J*), F to) {
+  auto n = static_cast<jsize>(a.size());
+  A out = (e->*make)(n);
+
+  std::vector<J> buf(static_cast<size_t>(n));
+  for (jsize i = 0; i < n; i++) buf[static_cast<size_t>(i)] = to(a.at(static_cast<size_t>(i)));
+  (e->*set)(out, 0, n, buf.data());
+  return out;
+}
+
+}  // namespace
+
+Array<double> fromShortArray(JNIEnv* e, jshortArray a, const char* what) { return fromPrimitives<double>(e, a, &JNIEnv::GetShortArrayRegion, what); }
+Array<double> fromCharArray(JNIEnv* e, jcharArray a, const char* what) { return fromPrimitives<double>(e, a, &JNIEnv::GetCharArrayRegion, what); }
+Array<double> fromFloatArray(JNIEnv* e, jfloatArray a, const char* what) { return fromPrimitives<double>(e, a, &JNIEnv::GetFloatArrayRegion, what); }
+Array<double> fromDoubleArray(JNIEnv* e, jdoubleArray a, const char* what) { return fromPrimitives<double>(e, a, &JNIEnv::GetDoubleArrayRegion, what); }
+
+Array<bool> fromBooleanArray(JNIEnv* e, jbooleanArray a, const char* what) {
+  if (!a) returnedNull(what);
+
+  jsize n = e->GetArrayLength(a);
+  std::vector<jboolean> buf(static_cast<size_t>(n));
+  e->GetBooleanArrayRegion(a, 0, n, buf.data());
+
+  Array<bool> out;
+  for (jboolean v : buf) out.push(v == JNI_TRUE);
+  return out;
+}
+
+jshortArray toShortArray(JNIEnv* e, const Array<double>& a) {
+  return toPrimitives<jshortArray, jshort>(e, a, &JNIEnv::NewShortArray, &JNIEnv::SetShortArrayRegion, [](double v) { return static_cast<jshort>(toInt32(v)); });
+}
+jcharArray toCharArray(JNIEnv* e, const Array<double>& a) {
+  return toPrimitives<jcharArray, jchar>(e, a, &JNIEnv::NewCharArray, &JNIEnv::SetCharArrayRegion, [](double v) { return static_cast<jchar>(toInt32(v)); });
+}
+jfloatArray toFloatArray(JNIEnv* e, const Array<double>& a) {
+  return toPrimitives<jfloatArray, jfloat>(e, a, &JNIEnv::NewFloatArray, &JNIEnv::SetFloatArrayRegion, [](double v) { return static_cast<jfloat>(v); });
+}
+jdoubleArray toDoubleArray(JNIEnv* e, const Array<double>& a) {
+  return toPrimitives<jdoubleArray, jdouble>(e, a, &JNIEnv::NewDoubleArray, &JNIEnv::SetDoubleArrayRegion, [](double v) { return v; });
+}
+jbooleanArray toBooleanArray(JNIEnv* e, const Array<bool>& a) {
+  return toPrimitives<jbooleanArray, jboolean>(e, a, &JNIEnv::NewBooleanArray, &JNIEnv::SetBooleanArrayRegion, [](bool v) { return static_cast<jboolean>(v ? JNI_TRUE : JNI_FALSE); });
 }
 
 // --- proxies ---------------------------------------------------------------------------
@@ -339,8 +504,10 @@ jobject cachedJavaObject(JNIEnv* e, std::pair<const void*, std::string> key, std
 
 }  // namespace
 
-jobject proxyFor(JNIEnv* e, const char* iface, const void* identity, std::initializer_list<std::pair<const char*, ProxyMethod>> methods) {
-  return cachedJavaObject(e, {identity, iface}, methods, [&](jlong handle) {
+jobject proxyFor(JNIEnv* e, const char* iface, const void* identity, std::initializer_list<std::pair<const char*, ProxyMethod>> methods,
+                 const char* variant) {
+  std::string key = variant ? std::string(iface) + "#" + variant : std::string(iface);
+  return cachedJavaObject(e, {identity, key}, methods, [&](jlong handle) {
     jclass cls = nativeProxyClass(e);
     static jmethodID create = staticMethod(cls, "create", "(Ljava/lang/Class;J)Ljava/lang/Object;");
     return e->CallStaticObjectMethod(cls, create, findClass(iface), handle);
@@ -356,9 +523,29 @@ jobject subclassFor(JNIEnv* e, const char* cls, const void* identity, std::initi
 
 jobject arg(JNIEnv* e, jobjectArray args, int i) { return e->GetObjectArrayElement(args, i); }
 
+jobject detail::completionFor(JNIEnv* e, std::function<void(JNIEnv*, jobject, jobject)> settle) {
+  // A fresh identity for each call: proxies are cached per identity while Java holds them.
+  static std::atomic<uintptr_t> next{1};
+  const void* identity = reinterpret_cast<const void*>(next.fetch_add(1));
+
+  ProxyMethod accept = [settle = std::move(settle)](JNIEnv* env, jobjectArray args) -> jobject {
+    settle(env, arg(env, args, 0), arg(env, args, 1));
+    return nullptr;
+  };
+
+  return proxyFor(e, "java/util/function/BiConsumer", identity, {{"accept(Ljava/lang/Object;Ljava/lang/Object;)", accept}});
+}
+
 double unboxNumber(JNIEnv* e, jobject boxed) {
   static jmethodID doubleValue = method(findClass("java/lang/Number"), "doubleValue", "()D");
   double v = e->CallDoubleMethod(boxed, doubleValue);
+  check(e);
+  return v;
+}
+
+jlong unboxLong(JNIEnv* e, jobject boxed) {
+  static jmethodID longValue = method(findClass("java/lang/Number"), "longValue", "()J");
+  jlong v = e->CallLongMethod(boxed, longValue);
   check(e);
   return v;
 }
@@ -371,6 +558,9 @@ bool unboxBoolean(JNIEnv* e, jobject boxed) {
 }
 
 jobject boxInt(JNIEnv* e, jint v) { return boxWith(e, "java/lang/Integer", "(I)Ljava/lang/Integer;", jvalue{.i = v}); }
+jobject boxShort(JNIEnv* e, jshort v) { return boxWith(e, "java/lang/Short", "(S)Ljava/lang/Short;", jvalue{.s = v}); }
+jobject boxByte(JNIEnv* e, jbyte v) { return boxWith(e, "java/lang/Byte", "(B)Ljava/lang/Byte;", jvalue{.b = v}); }
+jobject boxChar(JNIEnv* e, jchar v) { return boxWith(e, "java/lang/Character", "(C)Ljava/lang/Character;", jvalue{.c = v}); }
 jobject boxLong(JNIEnv* e, jlong v) { return boxWith(e, "java/lang/Long", "(J)Ljava/lang/Long;", jvalue{.j = v}); }
 jobject boxDouble(JNIEnv* e, jdouble v) { return boxWith(e, "java/lang/Double", "(D)Ljava/lang/Double;", jvalue{.d = v}); }
 jobject boxFloat(JNIEnv* e, jfloat v) { return boxWith(e, "java/lang/Float", "(F)Ljava/lang/Float;", jvalue{.f = v}); }
@@ -383,9 +573,32 @@ NativeRef appContext() {
     check(e);
     jmethodID current = e->GetStaticMethodID(cls, "currentApplication", "()Landroid/app/Application;");
     check(e);
-    return new NativeRef(wrap(e, e->CallStaticObjectMethod(cls, current), "ActivityThread.currentApplication()"));
+    auto* kept = new NativeRef(wrap(e, e->CallStaticObjectMethod(cls, current), "ActivityThread.currentApplication()"));
+
+    // Never released: not what a JavaScript runtime's teardown leaves behind.
+    kept->keepForProcess();
+    return kept;
   }();
   return *app;
+}
+
+namespace {
+thread_local jobject hostingView = nullptr;
+}  // namespace
+
+HostViewEntry::HostViewEntry(jobject view) : outer_(hostingView) { hostingView = view; }
+
+HostViewEntry::~HostViewEntry() { hostingView = outer_; }
+
+Opt<NativeRef> hostContext() {
+  if (!hostingView) return Opt<NativeRef>(null);
+
+  JNIEnv* e = env();
+  static jmethodID getContext = method(findClass("android/view/View"), "getContext", "()Landroid/content/Context;");
+  jobject context = e->CallObjectMethod(hostingView, getContext);
+
+  check(e);
+  return wrapOpt(e, context);
 }
 
 bool available(double api) {

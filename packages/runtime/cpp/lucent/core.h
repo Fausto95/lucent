@@ -28,9 +28,6 @@ using Ref = std::shared_ptr<T>;
 /// Base of every struct and class instance.
 struct Object : std::enable_shared_from_this<Object> {
   virtual ~Object() = default;
-  /// Stable identity handed to JavaScript the first time the object crosses
-  /// the boundary (0 = never crossed). Only touched on the JS thread.
-  uint64_t jsIdentity = 0;
 };
 
 struct Undefined {
@@ -51,6 +48,10 @@ inline constexpr Null null{};
 
 /// `T | undefined | null`. Remembers which of the two absent values it holds
 /// so `x === null` and `x === undefined` behave as in JavaScript.
+/// null and undefined: the values an Opt holds as its states, never as its value.
+template <class T>
+inline constexpr bool IsAbsent = std::is_same_v<T, Undefined> || std::is_same_v<T, Null>;
+
 template <class T>
 class Opt {
  public:
@@ -60,8 +61,13 @@ class Opt {
   Opt() = default;
   Opt(Undefined) {}
   Opt(Null) : state_(State::Null) {}
-  Opt(const T& v) : value_(v), state_(State::Value) {}
-  Opt(T&& v) : value_(std::move(v)), state_(State::Value) {}
+  // `null | undefined` is an Opt<Undefined>: absent either way, never a value.
+  Opt(const T& v)
+    requires(!IsAbsent<T>)
+      : value_(v), state_(State::Value) {}
+  Opt(T&& v)
+    requires(!IsAbsent<T>)
+      : value_(std::move(v)), state_(State::Value) {}
   template <class U,
             std::enable_if_t<!std::is_same_v<std::decay_t<U>, Opt> &&
                                  !std::is_same_v<std::decay_t<U>, T> &&
@@ -111,6 +117,11 @@ struct IsRef<std::shared_ptr<T>> : std::true_type {};
 
 template <class... Ts>
 using Union = std::variant<Ts...>;
+
+template <class T>
+struct IsVariant : std::false_type {};
+template <class... Ts>
+struct IsVariant<std::variant<Ts...>> : std::true_type {};
 
 /// Boxes a local that a closure captures and later mutates, so the closure and
 /// the enclosing function share one variable, as in JavaScript.

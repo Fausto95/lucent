@@ -2,7 +2,7 @@ import { Explanations, formatDiagnostic } from "../../packages/compiler/src/inde
 import { GLOBAL_FLAGS } from "../../packages/lucent/src/cli/args.ts";
 import { commands } from "../../packages/lucent/src/cli/commands.ts";
 import { REQUIREMENTS } from "../../packages/lucent/src/cli/doctor.ts";
-import { MIN_ANDROID_API } from "../../packages/compiler/src/emit/native.ts";
+import { MIN_ANDROID_API } from "../../packages/compiler/src/sdk/schema.ts";
 import { docsEntries } from "../../apps/website/src/docs/nav.ts";
 import { docsRedirects } from "../../apps/website/src/docs/redirects.ts";
 import { docsHref } from "../../apps/website/src/docs/types.ts";
@@ -228,6 +228,7 @@ type SchemaNode = {
   properties?: Record<string, SchemaNode>;
   additionalProperties?: SchemaNode | boolean;
   items?: SchemaNode;
+  anyOf?: SchemaNode[];
 };
 
 /** The lucent.json reference: every field of its schema, with its type and description. */
@@ -236,6 +237,10 @@ function lucentJson(): string {
     fs.readFileSync(path.join(root, "packages/lucent/schemas/lucent.schema.json"), "utf8"),
   ) as SchemaNode;
   const typeOf = (node: SchemaNode): string => {
+    if (node.anyOf) {
+      const types = node.anyOf.map(typeOf);
+      return `${types.slice(0, -1).join(", ")} or ${types.at(-1)}`;
+    }
     if (node.type === "array") return `${node.items ? typeOf(node.items) : "unknown"}[]`;
     if (node.type === "object" && typeof node.additionalProperties === "object")
       return `{ [key]: ${typeOf(node.additionalProperties)} }`;

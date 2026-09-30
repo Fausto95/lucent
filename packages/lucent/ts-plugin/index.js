@@ -1,7 +1,7 @@
 "use strict";
 // TypeScript language-service plugin: adds Lucent diagnostics to *.lucent.ts
-// (index.js, not .cjs: tsserver resolves plugin paths without "exports").
-// files. tsserver loads plugins with require() and its own `typescript`,
+// files, and types platform Lucent files' JSX with their toolkit (index.js,
+// not .cjs: tsserver resolves plugin paths without "exports"). tsserver loads plugins with require() and its own `typescript`,
 // while the compiler is an ES module that walks ASTs from its own
 // `typescript`; so the plugin imports the compiler asynchronously and hands
 // it file paths and unsaved text, never the editor's AST.
@@ -9,9 +9,74 @@
 const LUCENT_FILE = /\.lucent\.tsx?$/;
 const TYPESCRIPT_PASSTHROUGH = "LUCENT9001";
 
+// A platform's Lucent files write JSX with its toolkit (the compiler's TOOLKITS,
+// ui/toolkits.ts; a test keeps them equal): their implicit JSX runtime import
+// resolves to lucent:<toolkit>, whose module declares the JSX namespace.
+const TOOLKIT_JSX = { ios: "swiftui", android: "compose" };
+const PLATFORM_FILE = /\.(ios|android)\.lucent\.tsx$/;
+const JSX_RUNTIME = /\/jsx-(dev-)?runtime$/;
+
+/**
+ * Types each platform Lucent file's JSX with its toolkit, the app's other
+ * files' JSX as they are: TypeScript imports a JSX runtime implicitly, per
+ * file, and the host resolves that import. An app whose JSX has no runtime
+ * import (React Native's `jsx: react-native`) gets React's as its import
+ * source, which types React's JSX alike (react/jsx-runtime's JSX is
+ * React.JSX), once it has platform Lucent files.
+ */
+function withToolkitJsx(ts, host) {
+  const settings = host.getCompilationSettings.bind(host);
+  host.getCompilationSettings = () => {
+    const options = settings();
+    const imported =
+      options.jsx === ts.JsxEmit.ReactJSX ||
+      options.jsx === ts.JsxEmit.ReactJSXDev ||
+      options.jsx === ts.JsxEmit.React ||
+      options.jsxImportSource;
+    if (imported || !host.getScriptFileNames().some((f) => PLATFORM_FILE.test(f))) return options;
+    return { ...options, jsxImportSource: "react" };
+  };
+
+  const resolve = host.resolveModuleNameLiterals
+    ? host.resolveModuleNameLiterals.bind(host)
+    : defaultResolution(ts, host);
+  host.resolveModuleNameLiterals = (literals, containing, redirected, options, sf, reused) => {
+    const platform = PLATFORM_FILE.exec(containing);
+    const toolkit = platform && TOOLKIT_JSX[platform[1]];
+    // The implicit import is synthesized: it has no place in the file's text.
+    const runtime = (l) => toolkit && l.pos < 0 && JSX_RUNTIME.test(l.text);
+    const own = literals.map((l) =>
+      runtime(l) ? Object.create(l, { text: { value: `lucent:${toolkit}` } }) : l,
+    );
+    return resolve(own, containing, redirected, options, sf, reused);
+  };
+}
+
+/** Module resolution as the language service does it, for a host that leaves it to it. */
+function defaultResolution(ts, host) {
+  const cache = ts.createModuleResolutionCache(
+    host.getCurrentDirectory(),
+    (f) => f,
+    host.getCompilationSettings(),
+  );
+  return (literals, containing, redirected, options, sf) =>
+    literals.map((l) =>
+      ts.resolveModuleName(
+        l.text,
+        containing,
+        options,
+        host,
+        cache,
+        redirected,
+        ts.getModeForUsageLocation(sf, l, options),
+      ),
+    );
+}
+
 function createPlugin(loadCompiler) {
   return function init({ typescript: ts }) {
     function create(info) {
+      withToolkitJsx(ts, info.languageServiceHost);
       const log = (msg) => info.project.projectService.logger.info(`[lucent] ${msg}`);
       let compiler;
       loadCompiler().then(
@@ -37,7 +102,11 @@ function createPlugin(loadCompiler) {
               : undefined;
             return snap ? snap.getText(0, snap.getLength()) : undefined;
           };
-          for (const d of compiler.checkSources(files, readSource)) {
+          // Bound again each check: headers (and packages) change too; unchanged ones are read once.
+          const extensions = compiler.projectExtensions(
+            info.languageServiceHost.getCurrentDirectory(),
+          );
+          for (const d of compiler.checkSources(files, readSource, { extensions })) {
             if (d.code === TYPESCRIPT_PASSTHROUGH || !d.file) continue;
             const list = byFile.get(d.file) || [];
             list.push(d);
@@ -70,7 +139,10 @@ function createPlugin(loadCompiler) {
             ]
               .filter(Boolean)
               .join("\n"),
-            category: ts.DiagnosticCategory.Error,
+            category:
+              d.severity === "warning"
+                ? ts.DiagnosticCategory.Warning
+                : ts.DiagnosticCategory.Error,
             code: Number(d.code.replace(/^LUCENT/, "")),
             source: "lucent",
           }));
@@ -97,3 +169,4 @@ const compiler = fs.existsSync(path.join(__dirname, "../src"))
 
 module.exports = createPlugin(() => import(compiler));
 module.exports.createPlugin = createPlugin;
+module.exports.TOOLKIT_JSX = TOOLKIT_JSX;

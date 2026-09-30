@@ -1,0 +1,363 @@
+import { describe, expect, it } from "vite-plus/test";
+import { IrBuilder } from "../../src/ir/build.ts";
+import { dump } from "../../src/ir/dump.ts";
+import type {
+  EffectRef,
+  IrFunction,
+  IrOp,
+  PlaceId,
+  RegionId,
+  SourceSpan,
+  ValueId,
+} from "../../src/ir/ir.ts";
+import { IrVerifyError, verify, type VerifyEnv } from "../../src/ir/verify.ts";
+import { type LType, T } from "../../src/types.ts";
+
+const FILE = "/app/order.lucent.ts";
+
+/** A span on line 1 of the fixture file. */
+function at(start: number, end = start + 1): SourceSpan {
+  return { file: FILE, start, end, line: 1, column: start + 1 };
+}
+
+const UNKNOWN: EffectRef = { throws: "unknown" };
+
+const fn = (id: string) => ({ kind: "function", id }) as const;
+
+const SIGNATURES: VerifyEnv = {
+  signature: (id) =>
+    ({
+      next: { params: [T.string], result: T.string },
+      combine: { params: [T.string, T.string], result: T.string },
+    })[id],
+};
+
+/** `return combine(next("l"), next("r"))`: three ordered calls. */
+function pair(): IrFunction {
+  const b = new IrBuilder("pair", T.string, at(0, 100));
+  const l = b.const("l", at(10));
+  const first = b.call(fn("next"), [l], T.string, { ...UNKNOWN, summary: "next" }, at(5, 14));
+  const r = b.const("r", at(20));
+  const second = b.call(fn("next"), [r], T.string, { ...UNKNOWN, summary: "next" }, at(15, 24));
+  const both = b.call(fn("combine"), [first!, second!], T.string, UNKNOWN, at(0, 25));
+
+  b.return(both, at(0, 26));
+  return b.finish();
+}
+
+/** `(a, b) => a * 2 - b`: arithmetic on parameters only. */
+function arithmetic(): IrFunction {
+  const b = new IrBuilder("arith", T.number, at(0, 100));
+  const a = b.param(0, T.number, at(1));
+  const c = b.param(1, T.number, at(3));
+  const two = b.const(2, at(10));
+  const doubled = b.binary("*", a, two, at(8, 11));
+  const diff = b.binary("-", doubled, c, at(8, 15));
+
+  b.return(diff, at(1, 16));
+  return b.finish();
+}
+
+function problemsOf(f: IrFunction, env: VerifyEnv = SIGNATURES): string[] {
+  try {
+    verify(f, env);
+    return [];
+  } catch (e) {
+    if (e instanceof IrVerifyError) return e.problems;
+    throw e;
+  }
+}
+
+/** `f` with the ops of its body replaced. */
+function withOps(f: IrFunction, ops: (ops: IrOp[]) => IrOp[]): IrFunction {
+  return {
+    ...f,
+    regions: f.regions.map((r) => (r.id === f.body ? { ...r, ops: ops([...r.ops]) } : r)),
+  };
+}
+
+const v = (n: number) => n as ValueId;
+
+describe("IR verifier", () => {
+  it("accepts well-formed functions", () => {
+    expect(problemsOf(pair())).toEqual([]);
+
+    expect(problemsOf(arithmetic())).toEqual([]);
+  });
+
+  it("dumps calls in evaluation order", () => {
+    expect(dump(pair())).toBe(
+      [
+        "fn pair() -> string @1:1",
+        "  effects reads=unknown writes=unknown allocates=unknown throws=unknown suspends=false callbacks=unknown affinity=unknown native=unknown",
+        "  r0:",
+        '    v0 = const "l" : string  @1:11',
+        "    v1 = call next(v0) throws=unknown : string  @1:6",
+        '    v2 = const "r" : string  @1:21',
+        "    v3 = call next(v2) throws=unknown : string  @1:16",
+        "    v4 = call combine(v1, v3) throws=unknown : string  @1:1",
+        "    return v4  @1:1",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("summarizes pure arithmetic as pure, and anything else conservatively", () => {
+    expect(arithmetic().effects).toEqual({
+      reads: "none",
+      writes: "none",
+      allocates: false,
+      throws: "no",
+      suspends: false,
+      callbacks: "none",
+      affinity: "any",
+      native: "none",
+    });
+
+    expect(pair().effects).toMatchObject({ reads: "unknown", throws: "unknown", suspends: false });
+  });
+
+  it("rejects a use before the definition", () => {
+    const swapped = withOps(pair(), (ops) => {
+      const [combine] = ops.splice(4, 1);
+      ops.splice(3, 0, combine!);
+      return ops;
+    });
+
+    expect(problemsOf(swapped)).toContain("r0[3] call uses v3 before it is defined");
+  });
+
+  it("rejects values defined twice, never defined, or missing", () => {
+    const twice = withOps(pair(), (ops) => [ops[0]!, ...ops]);
+    const extra = {
+      ...pair(),
+      values: [...pair().values, { id: v(5), type: T.number, source: at(1) }],
+    };
+    const missing = withOps(pair(), (ops) =>
+      ops.map((op) => (op.kind === "return" ? { ...op, value: v(99) } : op)),
+    );
+
+    expect(problemsOf(twice)).toContain("r0[1] const defines v0 again");
+
+    expect(problemsOf(extra)).toContain("v5 is never defined");
+
+    expect(problemsOf(missing)).toContain("r0[5] return uses v99, which does not exist");
+  });
+
+  it("rejects operators on operands they do not take", () => {
+    const f = arithmetic();
+    const onStrings = withOps(pair(), (ops) => [
+      ...ops.slice(0, 4),
+      { kind: "binary", result: v(4), op: "-", left: v(1), right: v(3), source: at(0, 25) },
+      ops[5]!,
+    ]);
+    const unknownOp = withOps(f, (ops) =>
+      ops.map((op) => (op.kind === "binary" ? { ...op, op: "<=>" as never } : op)),
+    );
+
+    expect(problemsOf(onStrings)).toContain("r0[4] binary - does not take a string and a string");
+
+    expect(problemsOf(unknownOp)).toContain('r0[3] binary has an unknown operator "<=>"');
+  });
+
+  it("rejects conversions to another type than their result, or that the IR does not know", () => {
+    const maybe: LType = { k: "opt", inner: T.number };
+    const b = new IrBuilder("conv", maybe, at(0, 100));
+    const n = b.const(1, at(1));
+    const s = b.convert(n, maybe, at(2));
+
+    b.return(s, at(3));
+
+    const good = b.finish();
+    const wrongTarget = withOps(good, (ops) =>
+      ops.map((op) => (op.kind === "convert" ? { ...op, to: T.boolean } : op)),
+    );
+    const unknown = withOps(good, (ops) =>
+      ops.map((op) => (op.kind === "const" ? { ...op, value: "x" } : op)),
+    );
+    const toString = withOps(good, (ops) =>
+      ops.map((op) => (op.kind === "convert" ? { ...op, to: T.string } : op)),
+    );
+
+    expect(problemsOf(good)).toEqual([]);
+
+    expect(problemsOf(wrongTarget)).toContain("r0[1] convert: v1 is number?, expected boolean");
+
+    expect(
+      problemsOf({
+        ...unknown,
+        values: unknown.values.map((x, i) => (i === 0 ? { ...x, type: T.string } : x)),
+      }),
+    ).toContain("r0[1] convert cannot convert a string to number?");
+
+    // ToString is the String operator: a conversion keeps the value.
+    expect(problemsOf(toString)).toContain("r0[1] convert cannot convert a number to string");
+  });
+
+  it("rejects calls that do not match their callee's signature", () => {
+    const arity = withOps(pair(), (ops) =>
+      ops.map((op) => (op.kind === "call" && op.args.length === 2 ? { ...op, args: [v(1)] } : op)),
+    );
+    const argType = withOps(arithmetic(), (ops) => [
+      ...ops.slice(0, 5),
+      {
+        kind: "call",
+        result: undefined,
+        callee: fn("next"),
+        args: [v(4)],
+        effects: UNKNOWN,
+        source: at(20),
+      },
+      ops[5]!,
+    ]);
+
+    expect(problemsOf(arity)).toContain("r0[4] call passes 1 arguments, the callee takes 2");
+
+    expect(problemsOf(argType)).toContain("r0[5] call argument 0: v4 is number, expected string");
+
+    expect(problemsOf(argType)).toContain(
+      "r0[5] call drops the callee's result, which must be defined (and may go unused)",
+    );
+  });
+
+  it("rejects a return of another type than the function's", () => {
+    const f = { ...pair(), result: T.number };
+
+    expect(problemsOf(f)).toContain("r0[5] return: v4 is string, expected number");
+  });
+
+  it("rejects operations after a terminator, and bodies that end without a result", () => {
+    const after = withOps(pair(), (ops) => [
+      ...ops,
+      { kind: "const", result: v(5), value: 1, source: at(30) },
+    ]);
+    const fallsOff = withOps(pair(), (ops) => ops.slice(0, -1));
+
+    expect(
+      problemsOf({
+        ...after,
+        values: [...after.values, { id: v(5), type: T.number, source: at(30) }],
+      }),
+    ).toContain("r0[5] return is not the last operation of r0");
+
+    expect(problemsOf(fallsOff)).toContain("the body can end without giving a string");
+  });
+
+  it("rejects spans outside the function", () => {
+    const outside = withOps(pair(), (ops) =>
+      ops.map((op, i) => (i === 1 ? { ...op, source: at(150, 160) } : op)),
+    );
+    const otherFile = withOps(pair(), (ops) =>
+      ops.map((op, i) => (i === 1 ? { ...op, source: { ...op.source, file: "/other.ts" } } : op)),
+    );
+    const broken = withOps(pair(), (ops) =>
+      ops.map((op, i) => (i === 1 ? { ...op, source: { ...op.source, line: 0 } } : op)),
+    );
+
+    expect(problemsOf(outside)).toContain(
+      `r0[1] call has a span (${FILE}:150-160) outside the function's`,
+    );
+
+    expect(problemsOf(otherFile)).toContain(
+      "r0[1] call has a span (/other.ts:5-14) outside the function's",
+    );
+
+    expect(problemsOf(broken)).toContain("r0[1] call has no valid source span");
+  });
+
+  it("rejects places that are not declared, stores into constants and mistyped stores", () => {
+    const b = new IrBuilder("places", T.void, at(0, 100));
+    const log = b.modulePlace("m::log", "log", T.string, false);
+    const x = b.local("x", T.number, at(1));
+    const one = b.const(1, at(2));
+
+    b.store(x, one, at(3));
+
+    const s = b.load(log, at(4));
+
+    b.store(log, s, at(5));
+    b.store(x, s, at(6));
+
+    const built = b.finish();
+    const f = withOps(
+      { ...built, values: [...built.values, { id: v(2), type: T.number, source: at(7) }] },
+      (ops) => [...ops, { kind: "load", result: v(2), place: 7 as PlaceId, source: at(7) }],
+    );
+
+    expect(problemsOf(f)).toEqual([
+      "r0[4] store stores into the constant p0",
+      "r0[5] store: v1 is string, expected number",
+      "r0[6] load uses p7, which is not declared before it",
+    ]);
+  });
+
+  it("rejects throwing a value that is not an Error", () => {
+    const b = new IrBuilder("boom", T.string, at(0, 100));
+
+    b.throw(b.const("oops", at(1)), at(2));
+
+    expect(problemsOf(b.finish())).toContain("r0[1] throw throws a string, not an Error");
+  });
+
+  it("rejects summaries and effect references that claim less than the operations do", () => {
+    const f = pair();
+    const lies = {
+      ...f,
+      effects: {
+        ...f.effects,
+        throws: "no" as const,
+        reads: "none" as const,
+        writes: "none" as const,
+      },
+    };
+    const builtin = withOps(pair(), (ops) =>
+      ops.map((op) =>
+        op.kind === "call" && op.args.length === 2
+          ? { ...op, callee: { kind: "builtin", name: "Math.max" as never } }
+          : op,
+      ),
+    );
+    const borrowed = withOps(pair(), (ops) =>
+      ops.map((op, i) =>
+        i === 1 && op.kind === "call"
+          ? { ...op, effects: { throws: "unknown", summary: "combine" } }
+          : op,
+      ),
+    );
+
+    expect(problemsOf(lies)).toEqual([
+      "the summary says the function cannot throw, but its call can",
+      "the summary says the function touches no state, but it makes calls",
+    ]);
+
+    expect(problemsOf(builtin)).toContain('r0[4] call calls an unknown builtin "Math.max"');
+
+    expect(problemsOf(borrowed)).toContain("r0[1] call calls next with the effects of combine");
+  });
+
+  it("rejects unknown owners, stray regions and parameters without a param operation", () => {
+    const f = arithmetic();
+    const owned = {
+      ...f,
+      values: f.values.map((x, i) => (i === 0 ? { ...x, owner: "worker" as never } : x)),
+    };
+    const stray = { ...f, regions: [...f.regions, { id: 1 as RegionId, ops: [], parent: f.body }] };
+    const noParam = withOps(f, (ops) =>
+      ops.map((op) => (op.kind === "param" && op.index === 1 ? { ...op, index: 0 } : op)),
+    );
+
+    expect(problemsOf(owned)).toContain('v0 has an unknown owner "worker"');
+
+    expect(problemsOf(stray)).toContain("r1 is not owned by any operation");
+
+    expect(problemsOf(noParam)).toContain("parameter 1 (v1) has no param operation");
+  });
+
+  it("reports the dump with the problems", () => {
+    const f = { ...pair(), result: T.number as LType };
+
+    expect(() => verify(f, SIGNATURES)).toThrow(
+      /invalid IR for pair\n {2}r0\[5\] return[^]*fn pair\(\) -> number/,
+    );
+  });
+});

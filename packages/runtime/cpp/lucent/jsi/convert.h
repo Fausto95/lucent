@@ -11,10 +11,12 @@
 
 #include <jsi/jsi.h>
 
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "../lucent.h"
+#include "../trace.h"
 #include "host.h"
 
 namespace lucent::js {
@@ -107,6 +109,15 @@ struct Convert<String> {
     return stringFromJs(rt, v.getString(rt));
   }
   static jsi::Value toJs(jsi::Runtime& rt, Host&, const String& v) { return jsi::Value(stringToJs(rt, v)); }
+};
+
+/// Bigints cross exactly: through jsi::BigInt's 64-bit forms when the value
+/// fits (no string, no allocation on the Lucent side), else through its
+/// digits, and the JS side's global BigInt for the value it gets.
+template <>
+struct Convert<BigInt> {
+  static BigInt fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const BigInt& v);
 };
 
 template <>
@@ -287,6 +298,20 @@ struct Convert<Bytes> {
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Bytes& b);
 };
 
+// --- native buffers ------------------------------------------------------------------------
+
+/// A NativeBuffer crosses as an opaque handle, the same JS object for the
+/// same buffer while JavaScript holds it. Its methods mirror lucent:core's:
+/// `byteLength`, `toUint8Array()`, `withRead(f)`, `withWrite(f)`,
+/// `transfer()`, `close()`. JavaScript never gets an ArrayBuffer over the
+/// storage: a borrow lends it a copy (a write borrow copies it back when
+/// the callback returns), counted in the buffer stats.
+template <>
+struct Convert<NativeBuffer> {
+  static NativeBuffer fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const NativeBuffer& b);
+};
+
 // --- errors ------------------------------------------------------------------------------
 
 template <>
@@ -338,6 +363,50 @@ struct Convert<AbortSignal> {
 
 // --- promises ------------------------------------------------------------------------------
 
+/// Settles `host`'s JS promise `id` like `p`, once `p` settles: on the JS
+/// thread, where its value converts. If the host is torn down first, the
+/// value is released on the legacy module context instead.
+/// Traced (`traceId`), the result's wait for the JS thread and its
+/// delivery are spans of that id, the delivery named after `site`.
+template <class T>
+void settleLater(Host& host, uint64_t id, const Promise<T>& p, uint64_t traceId = 0, const trace::Site* site = nullptr) {
+  std::weak_ptr<Host> weak = host.weak_from_this();
+
+  p.onSettled([p, weak, id, traceId, site] {
+    auto host = weak.lock();
+    if (!host) return;
+
+    trace::Mark wait = traceId ? trace::begin(trace::Category::Queue, "js.wait") : trace::Mark{};
+
+    host->postToJs([p, id, weak, traceId, site, wait](jsi::Runtime& rt) {
+      auto host = weak.lock();
+      if (!host) return;
+
+      trace::end(wait, trace::Category::Queue, "js.wait", {.id = traceId});
+      std::optional<trace::Scope> delivery;
+      if (traceId) delivery.emplace(trace::Category::Completion, site ? site->name : "completion", site, traceId);
+
+      LucentScope scope;
+      if (!p.fulfilled()) {
+        host->reject(rt, id, host->errorToJs(rt, p.error()));
+        return;
+      }
+
+      jsi::Value value = jsi::Value::undefined();
+      if constexpr (!std::is_void_v<T>) {
+        try {
+          value = Convert<T>::toJs(rt, *host, p.value());
+        } catch (const jsi::JSError& e) {
+          host->reject(rt, id, jsi::Value(rt, e.value()));
+          return;
+        }
+      }
+
+      host->resolve(rt, id, value);
+    });
+  });
+}
+
 /// Hands a Lucent promise to JavaScript: the JS promise settles on the JS
 /// thread when the Lucent one does.
 template <class T>
@@ -345,32 +414,7 @@ struct Convert<Promise<T>> {
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Promise<T>& p) {
     uint64_t id = 0;
     jsi::Value jsPromise = h.createPromise(rt, id);
-    std::weak_ptr<Host> weak = h.weak_from_this();
-    p.onSettled([p, weak, id] {
-      auto host = weak.lock();
-      if (!host) return;
-      host->postToJs([p, id, weak](jsi::Runtime& rt) {
-        auto host = weak.lock();
-        if (!host) return;
-        LucentScope scope;
-        if (p.fulfilled()) {
-          jsi::Value value = jsi::Value::undefined();
-          try {
-            if constexpr (std::is_void_v<T>) {
-              value = jsi::Value::undefined();
-            } else {
-              value = Convert<T>::toJs(rt, *host, p.value());
-            }
-          } catch (const jsi::JSError& e) {
-            host->reject(rt, id, jsi::Value(rt, e.value()));
-            return;
-          }
-          host->resolve(rt, id, value);
-        } else {
-          host->reject(rt, id, host->errorToJs(rt, p.error()));
-        }
-      });
-    });
+    settleLater(h, id, p);
     return jsPromise;
   }
   /// A JS promise passed into Lucent (e.g. returned by a callback).
@@ -415,7 +459,7 @@ struct Convert<Fn<R(A...)>> {
     auto host = cb->host();
     if (!host || !host->alive()) {
       if constexpr (std::is_void_v<R>) return;
-      else throwError(String::fromLatin1("Error"), String::fromLatin1("The JavaScript runtime is gone"));
+      else throwError(Host::goneError());
     }
     if (host->onJsThread()) {
       jsi::Runtime& rt = host->runtime();
@@ -450,6 +494,8 @@ struct Convert<Fn<R(A...)>> {
       return;
     } else if constexpr (IsPromiseType<R>::value) {
       R out;
+      // If the task never runs (the runtime went), the promise rejects.
+      auto gone = [out] { out.reject(Host::goneError()); };
       host->postToJs([cb, out, where, args...](jsi::Runtime& rt) mutable {
         auto host = cb->host();
         jsi::Function* fn = host ? host->retained(cb->id()) : nullptr;
@@ -474,7 +520,7 @@ struct Convert<Fn<R(A...)>> {
         } catch (const Exception& e) {
           out.reject(e.error());
         }
-      });
+      }, gone);
       return out;
     } else {
       throwError(String::fromLatin1("Error"),
@@ -487,13 +533,14 @@ struct Convert<Fn<R(A...)>> {
     return jsi::Function::createFromHostFunction(
         rt, jsi::PropNameID::forAscii(rt, "lucentFunction"), sizeof...(A),
         [f, weak](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
-          auto host = weak.lock();
-          if (!host) throw jsi::JSError(rt, "Lucent host is gone");
+          // A torn-down host's function answers through the runtime's host.
+          auto kept = weak.lock();
+          Host& host = kept && kept->alive() ? *kept : Host::get(rt);
           LucentScope scope;
           try {
-            return call(rt, *host, f, args, count, std::index_sequence_for<A...>{});
+            return call(rt, host, f, args, count, std::index_sequence_for<A...>{});
           } catch (const Exception& e) {
-            throw jsi::JSError(rt, host->errorToJs(rt, e.error()));
+            throw jsi::JSError(rt, host.errorToJs(rt, e.error()));
           }
         });
   }
@@ -521,10 +568,22 @@ Promise<T> Convert<Promise<T>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, co
     else out.resolve(Convert<T>::fromJs(rt, v, p));
     return out;
   }
+
+  // Rejected if the runtime's host is torn down before JavaScript settles
+  // it, so what awaits it goes on (and releases what it holds).
+  const std::shared_ptr<Scope>& scope = Host::get(rt).scope();
+  Scope::CleanupId pending = scope->onDispose([out] { out.reject(Host::goneError()); });
+  if (pending == 0) return out;
+
+  auto settled = [owner = std::weak_ptr<Scope>(scope), pending] {
+    if (auto s = owner.lock()) s->remove(pending);
+  };
+
   std::string where = std::string(p.fn) + " " + p.where();
   auto onFulfilled = jsi::Function::createFromHostFunction(
       rt, jsi::PropNameID::forAscii(rt, "onFulfilled"), 1,
-      [out, where](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+      [out, where, settled](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+        settled();
         LucentScope scope;
         try {
           if constexpr (std::is_void_v<T>) out.resolve(undefined);
@@ -536,7 +595,8 @@ Promise<T> Convert<Promise<T>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, co
       });
   auto onRejected = jsi::Function::createFromHostFunction(
       rt, jsi::PropNameID::forAscii(rt, "onRejected"), 1,
-      [out](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+      [out, settled](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+        settled();
         LucentScope scope;
         out.reject(Convert<Error>::fromJs(rt, arg(args, count, 0), Path{"promise", "rejection"}));
         return jsi::Value::undefined();
@@ -551,6 +611,17 @@ Promise<T> Convert<Promise<T>>::fromJs(jsi::Runtime& rt, const jsi::Value& v, co
 
 /// Runs a synchronous Lucent call from JS, translating Lucent errors into
 /// JS exceptions.
+template <class F>
+jsi::Value callSync(jsi::Runtime& rt, Host& host, F&& body);
+
+/// A synchronous call from JS, traced as an entry at the export's site
+/// (the compiler passes it: LUCENT_TRACE_SITE_AT).
+template <class F>
+jsi::Value callSync(jsi::Runtime& rt, Host& host, const trace::Site* site, F&& body) {
+  trace::Scope entry(trace::Category::Entry, site->name, site);
+  return callSync(rt, host, std::forward<F>(body));
+}
+
 template <class F>
 jsi::Value callSync(jsi::Runtime& rt, Host& host, F&& body) {
   LucentScope scope;
@@ -569,43 +640,41 @@ jsi::Value callSync(jsi::Runtime& rt, Host& host, F&& body) {
 
 /// Starts an exported async function on the Lucent thread and returns a JS
 /// promise for its result. `start` runs on the Lucent thread and returns the
-/// Lucent promise.
+/// Lucent promise; it does not start if the host is torn down first.
 template <class T, class F>
 jsi::Value callAsync(jsi::Runtime& rt, Host& host, F&& start) {
+  return callAsync<T>(rt, host, nullptr, std::forward<F>(start));
+}
+
+/// As above, traced from the export's `site`: the call, the job it posts
+/// (its wait and its run), the result's wait for the JS thread and its
+/// delivery share one id.
+template <class T, class F>
+jsi::Value callAsync(jsi::Runtime& rt, Host& host, const trace::Site* site, F&& start) {
+  uint64_t traceId = site && trace::enabled() ? trace::newId() : 0;
+
+  std::optional<trace::Scope> entry;
+  std::optional<trace::Correlate> correlate;
+  if (traceId) [[unlikely]] {
+    entry.emplace(trace::Category::Entry, site->name, site, traceId);
+    correlate.emplace(traceId);
+  }
+
   uint64_t id = 0;
   jsi::Value jsPromise = host.createPromise(rt, id);
   std::weak_ptr<Host> weak = host.weak_from_this();
-  Scheduler::instance().post([weak, id, start = std::forward<F>(start)]() mutable {
+
+  host.postToModule([weak, id, traceId, site, start = std::forward<F>(start)]() mutable {
     Promise<T> p;
     try {
       p = start();
     } catch (...) {
       p = Promise<T>::rejected(currentError(std::current_exception()));
     }
-    p.onSettled([p, weak, id] {
-      auto host = weak.lock();
-      if (!host) return;
-      host->postToJs([p, id, weak](jsi::Runtime& rt) {
-        auto host = weak.lock();
-        if (!host) return;
-        LucentScope scope;
-        if (p.fulfilled()) {
-          jsi::Value value = jsi::Value::undefined();
-          if constexpr (!std::is_void_v<T>) {
-            try {
-              value = Convert<T>::toJs(rt, *host, p.value());
-            } catch (const jsi::JSError& e) {
-              host->reject(rt, id, jsi::Value(rt, e.value()));
-              return;
-            }
-          }
-          host->resolve(rt, id, value);
-        } else {
-          host->reject(rt, id, host->errorToJs(rt, p.error()));
-        }
-      });
-    });
+
+    if (auto host = weak.lock()) settleLater(*host, id, p, traceId, site);
   });
+
   return jsPromise;
 }
 

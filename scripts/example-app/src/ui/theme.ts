@@ -1,0 +1,85 @@
+import { Platform } from "react-native";
+
+export interface Colors {
+  background: string;
+  surface: string;
+  surfaceMuted: string;
+  border: string;
+  text: string;
+  textMuted: string;
+  textFaint: string;
+  accent: string;
+  onAccent: string;
+  accentSoft: string;
+  success: string;
+  successSoft: string;
+  danger: string;
+  dangerSoft: string;
+  warning: string;
+  warningSoft: string;
+}
+
+export interface Theme {
+  dark: boolean;
+  colors: Colors;
+}
+
+export const light: Theme = {
+  dark: false,
+  colors: {
+    background: "#F3F4F6",
+    surface: "#FFFFFF",
+    surfaceMuted: "#ECEEF2",
+    border: "#D9DCE3",
+    text: "#101318",
+    textMuted: "#565E6C",
+    textFaint: "#8A91A0",
+    accent: "#4B44D6",
+    onAccent: "#FFFFFF",
+    accentSoft: "#E7E6FB",
+    success: "#1A7F37",
+    successSoft: "#E1F3E5",
+    danger: "#C9252D",
+    dangerSoft: "#FBE6E7",
+    warning: "#8A5A00",
+    warningSoft: "#FAF0D7",
+  },
+};
+
+export const dark: Theme = {
+  dark: true,
+  colors: {
+    background: "#0D0F13",
+    surface: "#171A20",
+    surfaceMuted: "#20242C",
+    border: "#2C313B",
+    text: "#F1F3F7",
+    textMuted: "#A5ACBA",
+    textFaint: "#6E7686",
+    accent: "#9A94FF",
+    onAccent: "#0D0F13",
+    accentSoft: "#26244A",
+    success: "#4AC26B",
+    successSoft: "#15301D",
+    danger: "#FF6B6B",
+    dangerSoft: "#3A1A1C",
+    warning: "#E3B341",
+    warningSoft: "#33280F",
+  },
+};
+
+export const space = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32 } as const;
+
+export const radius = { sm: 8, md: 12, lg: 16 } as const;
+
+export const mono = Platform.select({ ios: "Menlo", default: "monospace" });
+
+export const type = {
+  largeTitle: { fontSize: 32, fontWeight: "800", letterSpacing: -0.5 },
+  title: { fontSize: 22, fontWeight: "700" },
+  headline: { fontSize: 17, fontWeight: "600" },
+  body: { fontSize: 15, lineHeight: 21 },
+  callout: { fontSize: 14, lineHeight: 19 },
+  caption: { fontSize: 12, fontWeight: "600", letterSpacing: 0.6, textTransform: "uppercase" },
+  code: { fontFamily: mono, fontSize: 12, lineHeight: 17 },
+} as const;

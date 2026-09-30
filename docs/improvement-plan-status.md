@@ -71,10 +71,14 @@ Postponed:
 - Android `Task<T>` / `ListenableFuture<T>` as promises. It would name
   specific classes in code, which the no-lists rule forbids, so it belongs in
   Phase 4's API notes. None of the three ports needs it.
-- The Android biometric prompt in the local-authentication port. It needs
-  the current `FragmentActivity`, which `lucent:android` does not expose.
-  Without a secure lock screen (the emulator's default) the original returns
-  `not_enrolled` before prompting, and so does the port.
+- The Android biometric prompt in the local-authentication port. The
+  current Activity is now `currentActivity()`, but the platform
+  `BiometricPrompt` needs an `AuthenticationCallback` subclass whose
+  constructor the bindings don't expose, and androidx's needs a
+  `FragmentActivity`. Without a secure lock screen (the emulator's default)
+  the original returns `not_enrolled` before prompting, and so does the
+  port. The Biometrics demo signs in through the system's confirm-credential
+  screen, started for a result.
 - Cycles between Lucent objects and the native objects that retain them as
   delegates or listeners leak until removed. The teardown report (above)
   will make them visible.

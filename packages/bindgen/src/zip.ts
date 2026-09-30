@@ -8,7 +8,10 @@ import zlib from "node:zlib";
  */
 export class ZipArchive {
   private readonly buf: Buffer;
-  private readonly entries = new Map<string, { method: number; size: number; offset: number }>();
+  private readonly entries = new Map<
+    string,
+    { method: number; crc: number; size: number; length: number; offset: number }
+  >();
 
   constructor(file: string | Buffer) {
     this.buf = typeof file === "string" ? fs.readFileSync(file) : file;
@@ -19,19 +22,27 @@ export class ZipArchive {
       if (this.buf.readUInt32LE(p) !== 0x02014b50)
         throw new Error("zip: corrupt central directory");
       const method = this.buf.readUInt16LE(p + 10);
+      const crc = this.buf.readUInt32LE(p + 16);
       const size = this.buf.readUInt32LE(p + 20);
+      const length = this.buf.readUInt32LE(p + 24);
       const nameLen = this.buf.readUInt16LE(p + 28);
       const extraLen = this.buf.readUInt16LE(p + 30);
       const commentLen = this.buf.readUInt16LE(p + 32);
       const offset = this.buf.readUInt32LE(p + 42);
       const name = this.buf.toString("utf8", p + 46, p + 46 + nameLen);
-      this.entries.set(name, { method, size, offset });
+      this.entries.set(name, { method, crc, size, length, offset });
       p += 46 + nameLen + extraLen + commentLen;
     }
   }
 
   names(): string[] {
     return [...this.entries.keys()];
+  }
+
+  /** What identifies an entry's contents without reading them: its CRC-32 and length. */
+  digest(name: string): string | undefined {
+    const e = this.entries.get(name);
+    return e && `${e.crc.toString(16)}:${e.length}`;
   }
 
   read(name: string): Buffer | undefined {

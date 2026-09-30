@@ -9,8 +9,9 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Lucent's module is C++ (autolinked through CMake). This package only lets
- * autolinking include the Java Lucent's platform code needs (NativeProxy).
+ * Lucent's module is C++ (autolinked through CMake). This package lets
+ * autolinking include the Java Lucent's platform code needs (NativeProxy),
+ * and gives React Native the managers of the app's Lucent components.
  */
 public final class LucentPackage implements ReactPackage {
   @Override
@@ -20,6 +21,6 @@ public final class LucentPackage implements ReactPackage {
 
   @Override
   public List<ViewManager> createViewManagers(ReactApplicationContext context) {
-    return Collections.emptyList();
+    return LucentViewManagers.create();
   }
 }

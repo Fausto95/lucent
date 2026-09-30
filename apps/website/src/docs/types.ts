@@ -31,7 +31,14 @@ export type Block =
     }
   | {
       kind: "tabs";
-      tabs: { label: string; filename: string; code: string; cpp?: true; diff?: true }[];
+      tabs: {
+        label: string;
+        filename: string;
+        code: string;
+        cpp?: true;
+        diff?: true;
+        from?: string;
+      }[];
     }
   | { kind: "note"; text: string; tone?: "info" | "warn" }
   | { kind: "list"; items: string[]; ordered?: boolean }

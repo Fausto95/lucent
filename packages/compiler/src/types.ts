@@ -1,7 +1,16 @@
+import { cpp } from "@lucent-lang/codegen";
+import path from "node:path";
 import ts from "typescript";
 import { Codes, fail } from "./diagnostics.ts";
-import { builtinSdkModuleOf, isLibFile, sdkModuleOf } from "./program.ts";
+import {
+  builtinSdkModuleOf,
+  coreTypesPath,
+  extensionModuleOf,
+  isLibFile,
+  sdkModuleOf,
+} from "./program.ts";
 import type { Platform } from "./sdk/schema.ts";
+import { TOOLKITS, toolkitOfModule } from "./ui/toolkits.ts";
 
 /**
  * Lucent types: the native representation of a TypeScript type. Literal
@@ -10,6 +19,8 @@ import type { Platform } from "./sdk/schema.ts";
  */
 export type LType =
   | { k: "number" }
+  /** An arbitrary-precision integer (lucent::BigInt). */
+  | { k: "bigint" }
   | { k: "boolean" }
   | { k: "string" }
   | { k: "void" }
@@ -37,12 +48,23 @@ export type LType =
   | { k: "iterResult"; e: LType }
   | { k: "abortSignal" }
   | { k: "abortController" }
+  /** lucent:core's NativeBuffer: a handle to bytes native code owns. */
+  | { k: "buffer" }
+  /** The bytes a NativeBuffer borrow lends (ByteSpan, or MutableByteSpan when writable). */
+  | { k: "span"; writable: boolean }
   | { k: "tparam"; name: string }
   /** An object of a platform SDK class (lucent:ios/…, lucent:android/…). */
-  | { k: "native"; platform: Platform; module: string; name: string };
+  | { k: "native"; platform: Platform; module: string; name: string }
+  /** A handle of a native extension (lucent:ext/…): an opaque C pointer Lucent owns. */
+  | { k: "handle"; extension: string; name: string }
+  /** A view's own value (lucent:ui's Signal): lucent::ui::Signal<inner>. */
+  | { k: "signal"; inner: LType }
+  /** A component's props parameter in its setup: each prop a signal, each event a route. */
+  | { k: "props"; component: string };
 
 export const T = {
   number: { k: "number" } as LType,
+  bigint: { k: "bigint" } as LType,
   boolean: { k: "boolean" } as LType,
   string: { k: "string" } as LType,
   void: { k: "void" } as LType,
@@ -56,6 +78,16 @@ export const T = {
   regexMatch: { k: "regexMatch" } as LType,
   abortSignal: { k: "abortSignal" } as LType,
   abortController: { k: "abortController" } as LType,
+  buffer: { k: "buffer" } as LType,
+  span: { k: "span", writable: false } as LType,
+  mutableSpan: { k: "span", writable: true } as LType,
+};
+
+/** lucent:core's types that have a native representation of their own, by name. */
+const CORE_TYPES: Record<string, LType> = {
+  NativeBuffer: T.buffer,
+  ByteSpan: T.span,
+  MutableByteSpan: T.mutableSpan,
 };
 
 export function typeKey(t: LType): string {
@@ -92,21 +124,40 @@ export function typeKey(t: LType): string {
       return `T:${t.name}`;
     case "native":
       return `N:${t.platform}:${t.module}.${t.name}`;
+    case "span":
+      return t.writable ? "mutableSpan" : "span";
+    case "handle":
+      return `H:${t.extension}.${t.name}`;
+    case "signal":
+      return `Signal<${typeKey(t.inner)}>`;
+    case "props":
+      return `Props:${t.component}`;
     default:
       return t.k;
   }
+}
+
+/** Whether `sf` is lucent:core's declarations. */
+function isCoreFile(sf: ts.SourceFile): boolean {
+  return path.resolve(sf.fileName) === path.resolve(coreTypesPath());
 }
 
 export function sameType(a: LType, b: LType): boolean {
   return typeKey(a) === typeKey(b);
 }
 
-/** Builds `a | b | ...` in canonical form. */
+/**
+ * Builds `a | b | ...` in canonical form. `void` among other members is
+ * what it gives as a value, undefined (`void | undefined` is undefined).
+ */
 export function unionOf(members: LType[]): LType {
+  if (members.length > 0 && members.every((m) => m.k === "void")) return T.void;
+
+  const undefinedLike = (m: LType) => m.k === "undefined" || m.k === "void";
   let optional = false;
   const flat: LType[] = [];
   const add = (m: LType) => {
-    if (m.k === "undefined" || m.k === "null") optional = true;
+    if (undefinedLike(m) || m.k === "null") optional = true;
     else if (m.k === "opt") {
       optional = true;
       add(m.inner);
@@ -121,14 +172,25 @@ export function unionOf(members: LType[]): LType {
   let core: LType;
   if (ms.length === 0) {
     if (!optional) return T.never;
-    // `undefined` alone: represented as an always-absent optional.
-    return members.some((m) => m.k === "null") && !members.some((m) => m.k === "undefined")
-      ? T.null
-      : T.undefined;
+    const hasNull = members.some(function holdsNull(m): boolean {
+      return m.k === "null" || (m.k === "union" && m.ms.some(holdsNull));
+    });
+    const hasUndefined = members.some(function holdsUndefined(m): boolean {
+      return undefinedLike(m) || m.k === "opt" || (m.k === "union" && m.ms.some(holdsUndefined));
+    });
+    // `null | undefined`: an optional that never holds a value.
+    if (hasNull && hasUndefined) return { k: "opt", inner: T.undefined };
+    return hasNull ? T.null : T.undefined;
   } else if (ms.length === 1) core = ms[0]!;
   else core = { k: "union", ms };
   return optional ? { k: "opt", inner: core } : core;
 }
+
+/** Types an optional absorbs rather than holds: `T | undefined` with T one of them is not Opt<T>. */
+const MERGES_INTO_OPTIONAL: readonly LType["k"][] = ["opt", "undefined", "null", "void", "never"];
+
+/** Types a union absorbs rather than holds as one member: its members flatten into the union. */
+const MERGES_INTO_UNION: readonly LType["k"][] = [...MERGES_INTO_OPTIONAL, "union"];
 
 /** Replaces type parameters by name. */
 export function substitute(t: LType, map: Map<string, LType>): LType {
@@ -143,10 +205,23 @@ export function substitute(t: LType, map: Map<string, LType>): LType {
       return { k: "dict", val: substitute(t.val, map) };
     case "map":
       return { k: "map", key: substitute(t.key, map), val: substitute(t.val, map) };
-    case "opt":
-      return unionOf([substitute(t.inner, map), T.undefined]);
-    case "union":
-      return unionOf(t.ms.map((m) => substitute(m, map)));
+    case "opt": {
+      const inner = substitute(t.inner, map);
+
+      return MERGES_INTO_OPTIONAL.includes(inner.k)
+        ? unionOf([inner, T.undefined])
+        : { k: "opt", inner };
+    }
+    case "union": {
+      // In the order of the generic's declaration, which its C++ template
+      // keeps, when the members stay distinct members (unionShapeBreak).
+      const ms = t.ms.map((m) => substitute(m, map));
+      const distinct = new Set(ms.map(typeKey)).size === ms.length;
+
+      return distinct && !ms.some((m) => MERGES_INTO_UNION.includes(m.k))
+        ? { k: "union", ms }
+        : unionOf(ms);
+    }
     case "tuple":
       return { k: "tuple", es: t.es.map((e) => substitute(e, map)) };
     case "promise":
@@ -170,12 +245,111 @@ export function substitute(t: LType, map: Map<string, LType>): LType {
   }
 }
 
+/**
+ * The first union or optional in `t` holding a type parameter that
+ * substituting `args` would reshape. A generic compiles once, as a C++
+ * template in which `A | B` is std::variant<A, B> and `T | undefined` is
+ * Opt<T>, so it can only be instantiated with types that keep those
+ * shapes: not a union, an optional, null or undefined as a member, nor a
+ * member the union already has. Undefined when every union keeps its shape.
+ */
+export function unionShapeBreak(
+  t: LType,
+  args: Map<string, LType>,
+): { param: string; arg: LType } | undefined {
+  const param = (u: LType) => (u.k === "tparam" && args.has(u.name) ? u.name : undefined);
+  const mentioned = (u: LType): string | undefined =>
+    param(u) ??
+    typeParts(u)
+      .map(mentioned)
+      .find((name) => name !== undefined);
+
+  if (t.k === "opt") {
+    const name = param(t.inner);
+    const arg = name ? args.get(name)! : undefined;
+
+    if (name && arg && MERGES_INTO_OPTIONAL.includes(arg.k)) return { param: name, arg };
+  }
+
+  if (t.k === "union") {
+    const subs = t.ms.map((m) => substitute(m, args));
+    const keys = subs.map(typeKey);
+
+    for (const [i, m] of t.ms.entries()) {
+      const name = param(m);
+      const first = keys.indexOf(keys[i]!);
+      const clash = first !== i ? (mentioned(m) ?? mentioned(t.ms[first]!)) : undefined;
+
+      if (name && MERGES_INTO_UNION.includes(subs[i]!.k)) return { param: name, arg: subs[i]! };
+      if (clash) return { param: clash, arg: subs[i]! };
+    }
+  }
+
+  for (const part of typeParts(t)) {
+    const found = unionShapeBreak(part, args);
+
+    if (found) return found;
+  }
+
+  return undefined;
+}
+
+/** The types a type is made of, one level down. */
+function typeParts(t: LType): readonly LType[] {
+  switch (t.k) {
+    case "array":
+    case "set":
+    case "iter":
+    case "iterResult":
+      return [t.e];
+    case "map":
+      return [t.key, t.val];
+    case "dict":
+      return [t.val];
+    case "opt":
+    case "promise":
+      return [t.inner];
+    case "union":
+      return t.ms;
+    case "tuple":
+      return t.es;
+    case "fn":
+      return [...t.params, t.ret];
+    case "class":
+    case "iface":
+      return t.args;
+    default:
+      return [];
+  }
+}
+
 export function stripOpt(t: LType): LType {
   return t.k === "opt" ? t.inner : t;
 }
 
 export function isVoidish(t: LType): boolean {
   return t.k === "void" || t.k === "undefined" || t.k === "never";
+}
+
+/**
+ * Whether comparing a value of type `t` compares a function: a function,
+ * or an optional, union or tuple (compared element by element) that can
+ * hold one. Arrays, maps and other objects compare by reference instead.
+ */
+export function holdsFunction(t: LType): boolean {
+  if (t.k === "fn") return true;
+
+  const parts = t.k === "opt" ? [t.inner] : t.k === "union" ? t.ms : t.k === "tuple" ? t.es : [];
+
+  return parts.some(holdsFunction);
+}
+
+/**
+ * The diagnostic for comparing functions, which Lucent refuses: `detail`
+ * says where the comparison is (", so `indexOf` cannot search them").
+ */
+export function functionsNotCompared(detail: string): string {
+  return `functions cannot be compared${detail}: Lucent does not keep a function value's identity (a named function is a new value at each use)`;
 }
 
 export interface StructField {
@@ -207,7 +381,10 @@ export interface ClassInfo {
   abstract: boolean;
   /** The Lucent class this one extends, with type arguments in terms of this class's parameters. */
   base?: { id: string; args: LType[] };
-  /** The SDK class this one extends (Android): a generated Java subclass stands for its instances. */
+  /**
+   * The SDK class this one extends: a generated Java (Android) or
+   * Objective-C (iOS) subclass stands for its instances.
+   */
   sdkBase?: LType & { k: "native" };
 }
 
@@ -237,23 +414,45 @@ const RESERVED = new Set(
     "or_eq private protected public register reinterpret_cast requires return short signed sizeof static static_assert static_cast struct " +
     "switch template this thread_local throw true try typedef typeid typename union unsigned using virtual void volatile wchar_t while xor " +
     "xor_eq final override assert errno NULL EOF stdin stdout stderr main std lucent jsi facebook self " +
-    // Objective-C's types, macros and method names, and JNI's environment, which platform glue uses.
-    "id Class SEL IMP BOOL YES NO nil Nil _cmd super env"
+    // Objective-C's types, macros and method names, and JNI's environment and macros, which platform glue uses.
+    "id Class SEL IMP BOOL YES NO nil Nil _cmd super env JNI_TRUE JNI_FALSE"
   ).split(" "),
 );
 
 /** A C++-safe identifier for a TypeScript name. */
 /** The C++ namespace of a module, which also names its generated files (m_<name>.cpp). */
 export function moduleNamespace(name: string): string {
-  return `m_${cppIdent(name)}`;
+  // Behind `m_`, no name spells a glue temporary: file names stay as they were.
+  return `m_${safeIdent(name)}`;
 }
 
+/**
+ * C++ names of the symbol-keyed members Lucent supports, by the name
+ * memberName gives them. No identifier escapes to these, nor to the glue's
+ * temporaries (which end in `_`): a name that would end in `_` gets a `u_`
+ * prefix; reserved words and names with `__` get a `_` appended, and then
+ * an `r_` prefix unless they have one.
+ */
+const SYMBOL_MEMBERS = new Map([["[Symbol.dispose]", "symbol_dispose_"]]);
+
 export function cppIdent(name: string): string {
+  const symbol = SYMBOL_MEMBERS.get(name);
+  if (symbol) return symbol;
+
+  // A reserved word made safe (`id_`) is spelled like a temporary too: a prefix of its own.
+  const out = safeIdent(name);
+  return out.endsWith("_") && !out.startsWith("u_") ? `r_${out}` : out;
+}
+
+/** A C++-safe identifier: characters escaped, reserved words and `__` given a trailing `_`. */
+function safeIdent(name: string): string {
   let out = name.replace(/[^A-Za-z0-9_]/g, (c) => `_u${c.codePointAt(0)!.toString(16)}_`);
   if (/^[0-9]/.test(out)) out = `_${out}`;
   // The glue's temporaries end in `_` (v_, r_, o_): Lucent names that do get a prefix of their own.
   if (out.endsWith("_")) out = `u_${out}`;
-  if (RESERVED.has(out) || out.includes("__") || /^_[A-Z]/.test(out)) out = `${out}_`;
+  // Lucent's own macros (LUCENT_STR) stay defined where generated code undefines the program's names.
+  if (RESERVED.has(out) || out.includes("__") || /^_[A-Z]/.test(out) || out.startsWith("LUCENT_"))
+    out = `${out}_`;
   return out;
 }
 
@@ -262,6 +461,8 @@ export class TypeRegistry {
   readonly structs = new Map<string, StructInfo>();
   readonly classes = new Map<string, ClassInfo>();
   readonly ifaces = new Map<string, IfaceInfo>();
+  /** Components' props structs (emit/views.ts), by component id: their C++ names. */
+  readonly componentStructs = new Map<string, string>();
   private readonly structNames = new Set<string>();
   private readonly byTsType = new Map<ts.Type, LType>();
   private readonly inProgress = new Map<ts.Type, string>();
@@ -272,6 +473,12 @@ export class TypeRegistry {
   constructor(checker: ts.TypeChecker, isLucentFile: (sf: ts.SourceFile) => boolean) {
     this.checker = checker;
     this.isLucentFile = isLucentFile;
+  }
+
+  componentProps(id: string): string {
+    const name = this.componentStructs.get(id);
+    if (!name) throw new Error(`no props struct for the component ${id}`);
+    return name;
   }
 
   registerClass(decl: ts.ClassDeclaration, module: string, exported: boolean): ClassInfo {
@@ -453,21 +660,15 @@ export class TypeRegistry {
     const expr = h?.types[0];
     if (!expr || expr.expression.getText() === "Error") return;
     const t = this.lower(this.checker.getTypeAtLocation(expr), expr);
-    if (t.k === "native" && t.platform === "android") {
+    if (t.k === "native") {
       info.sdkBase = t;
       return;
     }
-    if (t.k === "native")
-      fail(
-        expr,
-        Codes.UnsupportedClassFeature,
-        `Lucent classes cannot extend ${t.platform} classes yet`,
-      );
     if (t.k !== "class")
       fail(
         expr,
         Codes.UnsupportedClassFeature,
-        "classes can only extend Lucent classes, Error and Android SDK classes",
+        "classes can only extend Lucent classes, Error and SDK classes",
       );
     info.base = { id: t.id, args: t.args };
   }
@@ -561,8 +762,7 @@ export class TypeRegistry {
     if (f & ts.TypeFlags.Undefined) return T.undefined;
     if (f & ts.TypeFlags.Null) return T.null;
     if (f & ts.TypeFlags.Never) return T.never;
-    if (f & (ts.TypeFlags.BigInt | ts.TypeFlags.BigIntLiteral))
-      fail(node, Codes.UnsupportedType, "bigint is not supported yet");
+    if (f & (ts.TypeFlags.BigInt | ts.TypeFlags.BigIntLiteral)) return T.bigint;
     if (f & ts.TypeFlags.ESSymbolLike)
       fail(node, Codes.UnsupportedType, "symbols are not supported");
     if (f & ts.TypeFlags.TypeParameter) {
@@ -577,6 +777,8 @@ export class TypeRegistry {
     if (f & ts.TypeFlags.EnumLike && f & ts.TypeFlags.Union) {
       return unionOf((type as ts.UnionType).types.map((t) => this.lower(t, node)));
     }
+    // An enum without members (another SDK module's, declared by name only): numbers.
+    if (f & ts.TypeFlags.Enum) return T.number;
     // IteratorResult<T, TReturn> is a lib alias for a union whose return half
     // carries TReturn (often any); only the yielded type matters here.
     if (
@@ -605,6 +807,20 @@ export class TypeRegistry {
     fail(node, Codes.UnsupportedType, `type ${c.typeToString(type)} is not supported`);
   }
 
+  /** A Map key or Set element: compared on every lookup, so never a function. */
+  private key(type: ts.Type, node: ts.Node): LType {
+    const t = this.lower(type, node);
+
+    if (holdsFunction(t))
+      fail(
+        node,
+        Codes.UnsupportedType,
+        functionsNotCompared(", so they cannot be Map keys or Set elements"),
+      );
+
+    return t;
+  }
+
   private libName(type: ts.Type): string | undefined {
     const sym = type.getSymbol() ?? type.aliasSymbol;
     if (!sym) return undefined;
@@ -619,16 +835,38 @@ export class TypeRegistry {
     const c = this.checker;
     const sdkSym = type.getSymbol();
     const decl = sdkSym?.declarations?.[0];
-    // lucent:ios's NSObject and Out are platform objects too.
-    const builtin =
-      decl && ts.isClassDeclaration(decl) ? builtinSdkModuleOf(decl.getSourceFile()) : undefined;
+    const core =
+      sdkSym &&
+      decl &&
+      isCoreFile(decl.getSourceFile()) &&
+      c.getDeclaredTypeOfSymbol(sdkSym) === type
+        ? CORE_TYPES[sdkSym.name]
+        : undefined;
+    if (core) return core;
+    // lucent:ios's NSObject and Out are platform objects too, and so are a
+    // toolkit's values (SwiftUI's types are interfaces).
+    const declaredIn = decl && builtinSdkModuleOf(decl.getSourceFile());
+    const toolkitValue = !!decl && ts.isInterfaceDeclaration(decl) && !!toolkitOfModule(declaredIn);
+    const builtin = decl && (ts.isClassDeclaration(decl) || toolkitValue) ? declaredIn : undefined;
     if (builtin && sdkSym)
       return {
         k: "native",
-        platform: builtin === "lucent:android" ? "android" : "ios",
+        // A toolkit's classes (Compose's ComposeView) are its platform's.
+        platform: toolkitPlatform(builtin) ?? (builtin === "lucent:android" ? "android" : "ios"),
         module: builtin,
         name: sdkSym.name,
       };
+    const extension =
+      decl && ts.isClassDeclaration(decl) ? extensionModuleOf(decl.getSourceFile()) : undefined;
+    if (extension && sdkSym) {
+      if (
+        type.getConstructSignatures().length ||
+        c.getTypeOfSymbolAtLocation(sdkSym, decl!) === type
+      )
+        fail(node, Codes.UnsupportedSyntax, `the class ${sdkSym.name} can only be used with new`);
+
+      return { k: "handle", extension, name: sdkSym.name };
+    }
     const sdk = decl && ts.isClassDeclaration(decl) ? sdkModuleOf(decl.getSourceFile()) : undefined;
     if (sdk && sdkSym) {
       if (
@@ -653,16 +891,26 @@ export class TypeRegistry {
       const [e] = c.getTypeArguments(type as ts.TypeReference);
       return { k: "array", e: this.lower(e!, node) };
     }
+    // lucent:ui's Signal<T>, a view's own tracked value.
+    if (
+      decl &&
+      ts.isInterfaceDeclaration(decl) &&
+      decl.name.text === "Signal" &&
+      builtinSdkModuleOf(decl.getSourceFile()) === "lucent:ui"
+    ) {
+      const [inner] = c.getTypeArguments(type as ts.TypeReference);
+      return { k: "signal", inner: this.lower(inner!, node) };
+    }
     const lib = this.libName(type);
     if (lib) {
       const args = c.getTypeArguments(type as ts.TypeReference);
       switch (lib) {
         case "Map":
         case "ReadonlyMap":
-          return { k: "map", key: this.lower(args[0]!, node), val: this.lower(args[1]!, node) };
+          return { k: "map", key: this.key(args[0]!, node), val: this.lower(args[1]!, node) };
         case "Set":
         case "ReadonlySet":
-          return { k: "set", e: this.lower(args[0]!, node) };
+          return { k: "set", e: this.key(args[0]!, node) };
         case "Promise":
         case "PromiseLike":
           return { k: "promise", inner: this.lower(args[0]!, node) };
@@ -671,6 +919,7 @@ export class TypeRegistry {
         case "Error":
         case "TypeError":
         case "RangeError":
+        case "SyntaxError":
           return T.error;
         case "Date":
           return T.date;
@@ -903,90 +1152,134 @@ export class TypeRegistry {
   }
 
   /** The C++ spelling of a Lucent type. */
-  cpp(t: LType): string {
+  /** The C++ type of a Lucent value. */
+  cppType(t: LType): cpp.Type {
+    const lucent = (name: string, ...args: cpp.TemplateArg[]) =>
+      cpp.type(`lucent::${name}`, ...args);
     switch (t.k) {
       case "number":
-        return "double";
+        return cpp.type("double");
+      case "bigint":
+        return lucent("BigInt");
       case "boolean":
-        return "bool";
+        return cpp.type("bool");
       case "string":
-        return "lucent::String";
+        return lucent("String");
       case "void":
-        return "void";
+        return cpp.voidType;
       case "undefined":
-        return "lucent::Undefined";
-      case "null":
-        return "lucent::Null";
       case "never":
-        return "lucent::Undefined";
+        return lucent("Undefined");
+      case "null":
+        return lucent("Null");
       case "array":
-        return `lucent::Array<${this.cpp(t.e)}>`;
+        return lucent("Array", this.cppType(t.e));
       case "tuple":
-        return `std::tuple<${t.es.map((e) => this.cpp(e)).join(", ")}>`;
+        return cpp.type("std::tuple", ...t.es.map((e) => this.cppType(e)));
       case "map":
-        return `lucent::Map<${this.cpp(t.key)}, ${this.cpp(t.val)}>`;
+        return lucent("Map", this.cppType(t.key), this.cppType(t.val));
       case "set":
-        return `lucent::Set<${this.cpp(t.e)}>`;
+        return lucent("Set", this.cppType(t.e));
       case "dict":
-        return `lucent::Dict<${this.cpp(t.val)}>`;
+        return lucent("Dict", this.cppType(t.val));
       case "struct":
-        return `lucent::Ref<lucent_app::${this.struct(t.id).cppName}>`;
-      case "class": {
-        const info = this.cls(t.id);
-        const args = t.args.length ? `<${t.args.map((a) => this.cpp(a)).join(", ")}>` : "";
-        return `lucent::Ref<lucent_app::${info.cppName}${args}>`;
-      }
+        return lucent("Ref", cpp.type(`lucent_app::${this.struct(t.id).cppName}`));
+      case "class":
+        return lucent("Ref", this.cppClassType(t));
       case "iface":
-        return `lucent::Ref<${this.cppIface(t)}>`;
+        return lucent("Ref", this.cppIfaceType(t));
       case "opt":
-        return `lucent::Opt<${this.cpp(t.inner)}>`;
+        return lucent("Opt", this.cppType(t.inner));
       case "union":
-        return `std::variant<${t.ms.map((m) => this.cpp(m)).join(", ")}>`;
+        return cpp.type("std::variant", ...t.ms.map((m) => this.cppType(m)));
       case "fn":
-        return `lucent::Fn<${this.cppRet(t.ret)}(${t.params.map((p) => this.cpp(p)).join(", ")})>`;
+        return lucent(
+          "Fn",
+          cpp.fnType(
+            this.cppRetType(t.ret),
+            t.params.map((p) => this.cppType(p)),
+          ),
+        );
       case "promise":
-        return `lucent::Promise<${this.cppRet(t.inner)}>`;
+        return lucent("Promise", this.cppRetType(t.inner));
       case "bytes":
-        return "lucent::Bytes";
+        return lucent("Bytes");
       case "error":
-        return "lucent::Error";
+        return lucent("Error");
       case "date":
-        return "lucent::Date";
+        return lucent("Date");
       case "regexp":
-        return "lucent::RegExp";
+        return lucent("RegExp");
       case "regexMatch":
-        return "lucent::RegExpMatch";
+        return lucent("RegExpMatch");
       case "iter":
-        return `lucent::Iter<${this.cpp(t.e)}>`;
+        return lucent("Iter", this.cppType(t.e));
       case "iterResult":
-        return `lucent::IterResult<${this.cpp(t.e)}>`;
+        return lucent("IterResult", this.cppType(t.e));
       case "abortSignal":
-        return "lucent::AbortSignal";
+        return lucent("AbortSignal");
       case "abortController":
-        return "lucent::AbortController";
+        return lucent("AbortController");
+      case "buffer":
+        return lucent("NativeBuffer");
+      case "span":
+        return lucent(t.writable ? "MutableByteSpan" : "ByteSpan");
       case "tparam":
-        return cppIdent(t.name);
+        return cpp.type(cppIdent(t.name));
       case "native":
-        return "lucent::NativeRef";
+        return lucent("NativeRef");
+      case "handle":
+        return lucent("Handle");
+      case "signal":
+        return cpp.type("lucent::ui::Signal", this.cppType(t.inner));
+      case "props":
+        return cpp.type(this.componentProps(t.component));
     }
+  }
+
+  /** Return-position type: void stays void. */
+  cppRetType(t: LType): cpp.Type {
+    if (t.k === "void" || t.k === "undefined" || t.k === "never") return cpp.voidType;
+    return this.cppType(t);
+  }
+
+  /** The interface type without Ref<>. */
+  cppIfaceType(t: IfaceT): cpp.Type {
+    return cpp.type(
+      `lucent_app::${this.iface(t.id).cppName}`,
+      ...t.args.map((a) => this.cppType(a)),
+    );
+  }
+
+  /** The class type without Ref<>, for `make_shared` and member access. */
+  cppClassType(t: LType & { k: "class" }): cpp.Type {
+    return cpp.type(`lucent_app::${this.cls(t.id).cppName}`, ...t.args.map((a) => this.cppType(a)));
+  }
+
+  /** The C++ spelling of a Lucent value's type (printed cppType). */
+  cpp(t: LType): string {
+    return cpp.printType(this.cppType(t));
   }
 
   /** Return-position spelling: void stays void. */
   cppRet(t: LType): string {
-    if (t.k === "void" || t.k === "undefined" || t.k === "never") return "void";
-    return this.cpp(t);
+    return cpp.printType(this.cppRetType(t));
   }
 
   /** The interface name without Ref<>. */
   cppIface(t: IfaceT): string {
-    const args = t.args.length ? `<${t.args.map((a) => this.cpp(a)).join(", ")}>` : "";
-    return `lucent_app::${this.iface(t.id).cppName}${args}`;
+    return cpp.printType(this.cppIfaceType(t));
   }
 
   /** The class name without Ref<>, for `make_shared` and member access. */
   cppClass(t: LType & { k: "class" }): string {
-    const info = this.cls(t.id);
-    const args = t.args.length ? `<${t.args.map((a) => this.cpp(a)).join(", ")}>` : "";
-    return `lucent_app::${info.cppName}${args}`;
+    return cpp.printType(this.cppClassType(t));
   }
+}
+
+/** The platform of a toolkit's module (`lucent:compose`: Android), if it is one. */
+function toolkitPlatform(module: string): Platform | undefined {
+  const toolkit = toolkitOfModule(module);
+
+  return toolkit && TOOLKITS[toolkit].platform;
 }

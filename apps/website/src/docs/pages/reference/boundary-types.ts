@@ -6,6 +6,7 @@ export const blocks: Block[] = [
     head: ["TypeScript", "C++", "Crosses as", "JavaScript must pass"],
     rows: [
       ["`number`", "`double`", "a copy", "a number"],
+      ["`bigint`", "`lucent::BigInt`", "a copy, exact", "a bigint"],
       ["`boolean`", "`bool`", "a copy", "a boolean"],
       [
         "`string`, string literal types",

@@ -30,7 +30,7 @@ export const blocks: Block[] = [
   },
   {
     kind: "p",
-    text: "Codes are stable. `1xxx` are syntax and built-ins, `2xxx` types without a native form, `3xxx` modules and platform code. `9001` is a TypeScript error: Lucent compiles only programs that type-check.",
+    text: "Codes are stable. `1xxx` are syntax and built-ins, `2xxx` types without a native form, `3xxx` modules, platform code and what may run on which thread. `9001` is a TypeScript error: Lucent compiles only programs that type-check.",
   },
   {
     kind: "table",

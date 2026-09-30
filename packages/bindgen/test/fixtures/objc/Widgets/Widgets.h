@@ -91,6 +91,68 @@ NS_SWIFT_UI_ACTOR
 - (void)getItemsWithCompletionHandler:(void (^)(NSArray<NSString *> *items))completionHandler;
 @end
 
+/// A lightweight generic, as NSCache is: its type parameter's values are objects.
+@interface WDGBox<__covariant ObjectType> : NSObject
+@property (nonatomic, readonly) ObjectType first;
+- (nullable ObjectType)object;
+- (void)setObject:(ObjectType)object;
+@end
+
+@interface WDGBoxes : NSObject
++ (WDGBox<NSString *> *)names;
++ (void)fill:(WDGBox<WDGWidget *> *)box;
+@end
+
+/// Conforms to NSSecureCoding without declaring initWithCoder: (Swift synthesizes it), as NSDateComponents does.
+@interface WDGRecord : NSObject <NSSecureCoding>
+@property (nonatomic) NSInteger count;
+@end
+
+/// A subclass adopting one more protocol: its schema lists that one, not its superclass's.
+@interface WDGGauge : WDGWidget <WDGLoaderDelegate>
+@end
+
+/// A subclass redeclaring a property null_resettable: reading it never gives nil.
+@interface WDGLabelBase : NSObject
+@property (nonatomic, readonly, copy) NSString *text;
+@end
+
+@interface WDGLabel : WDGLabelBase
+@property (nonatomic, copy, null_resettable) NSString *text;
+@end
+
+/// Swift names it text(for:), whose base name is the superclass's property.
+@interface WDGCaption : WDGLabelBase
+- (NSString *)textForState:(NSInteger)state NS_SWIFT_NAME(text(for:));
+@end
+
+/// A protocol a class adopts while declaring its requirement differently.
+@protocol WDGFramed <NSObject>
+- (double)level;
+@end
+
+@interface WDGPanel : NSObject <WDGFramed>
+@property (nonatomic) double level;
+@end
+
+/// Adopts two protocols: which comes first is the extractor's to decide, not the tool's.
+@interface WDGDial : NSObject <WDGShape, WDGFramed>
+@end
+
+/// A struct with no fields: never declared, so its name is not offered either.
+typedef struct {
+} WDGEmpty;
+
+/// Pointers a method writes into, and reads first when they are inout.
+@interface WDGMeter : NSObject
+- (BOOL)getLevel:(CGFloat *)level peak:(nullable CGFloat *)peak;
+- (void)getStyle:(WDGStyle *)style;
+- (void)adjustPoint:(WDGPoint *)point;
+- (BOOL)readSince:(NSDate *_Nullable *_Nullable)since label:(NSString *_Nullable *_Nullable)label;
+- (void)getOn:(BOOL *)on;
+- (void)enumerateLevels:(void (NS_NOESCAPE ^)(double level, BOOL *stop))block;
+@end
+
 double WDGDistance(WDGWidget *a, WDGWidget *b);
 
 typedef enum {

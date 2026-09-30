@@ -53,6 +53,6 @@ export async function hasStringAsync(): Promise<boolean> {
   {
     kind: "note",
     tone: "warn",
-    text: "Some SDK features aren't bound yet, such as Android generics and iOS subclassing. [SDK types](/docs/reference/platform-types/#not-bound-yet) lists them; check before you start.",
+    text: "Some SDK features aren't bound yet, such as Swift-only APIs, Android generic classes' members and iOS subclassing. [SDK types](/docs/reference/platform-types/#not-bound-yet) lists them; check before you start.",
   },
 ];

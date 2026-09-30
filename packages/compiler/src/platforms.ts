@@ -3,6 +3,8 @@ import ts from "typescript";
 import { Codes, type Diagnostic } from "./diagnostics.ts";
 import { builtinSdkModuleOf, type LucentProgram, moduleNameOf, platformOf } from "./program.ts";
 import { type Platform, PLATFORMS } from "./sdk/schema.ts";
+import { toolkitRootType } from "./ui/roots.ts";
+import { TOOLKITS, toolkitOfModule } from "./ui/toolkits.ts";
 
 /** What a build targets: a platform, or `host` (tests and tools: platform modules become stubs). */
 export type Target = Platform | "host";
@@ -92,6 +94,28 @@ export function declarationErrors(lp: LucentProgram, declaration: string): Diagn
   return out;
 }
 
+/**
+ * Whether a component returning a toolkit's element (its body, JSX)
+ * conforms to a declaration by the view it makes: the toolkit's root view
+ * (a ComposeView is an Android View). Its parameters take what the
+ * declaration's do.
+ */
+function conformsByRoot(checker: ts.TypeChecker, impl: ts.Type, declared: ts.Type): boolean {
+  const [i, more] = impl.getCallSignatures();
+  const [d] = declared.getCallSignatures();
+  const root = i && !more && toolkitRootType(checker, checker.getReturnTypeOfSignature(i));
+
+  if (!i || !d || !root || i.parameters.length > d.parameters.length) return false;
+
+  const typeOf = (p: ts.Symbol) =>
+    checker.getTypeOfSymbolAtLocation(p, p.valueDeclaration ?? p.declarations![0]!);
+
+  return (
+    checker.isTypeAssignableTo(root, checker.getReturnTypeOfSignature(d)) &&
+    i.parameters.every((p, k) => checker.isTypeAssignableTo(typeOf(d.parameters[k]!), typeOf(p)))
+  );
+}
+
 /** The platform file exports exactly the declared values, with assignable types. */
 export function conformanceErrors(lp: LucentProgram): Diagnostic[] {
   const checker = lp.checker;
@@ -123,7 +147,10 @@ export function conformanceErrors(lp: LucentProgram): Diagnostic[] {
       if (!decl || !declared) continue;
       const implType = checker.getTypeOfSymbolAtLocation(i, decl);
       const declType = checker.getTypeOfSymbolAtLocation(d, declared);
-      if (!checker.isTypeAssignableTo(implType, declType)) {
+      if (
+        !checker.isTypeAssignableTo(implType, declType) &&
+        !conformsByRoot(checker, implType, declType)
+      ) {
         out.push(
           at(
             decl,
@@ -261,20 +288,50 @@ export function switchPlatforms(
     const runs = PLATFORMS.filter((p) => own.includes(p) || falling.includes(p));
     out.push(runs);
     const last = c.statements[c.statements.length - 1];
-    const exits =
-      !!last &&
-      (ts.isBreakStatement(last) ||
-        ts.isReturnStatement(last) ||
-        ts.isThrowStatement(last) ||
-        ts.isContinueStatement(last));
-    falling = exits ? [] : runs;
+    falling = last && alwaysExits(last) ? [] : runs;
   }
   return out;
 }
 
-/** The platform the innermost platform branch or case around `node` runs on; code both platforms reach has none. */
+/** Whether a statement always leaves its block: it ends in return, throw, break or continue. */
+function alwaysExits(s: ts.Statement): boolean {
+  if (ts.isBlock(s)) {
+    const last = s.statements[s.statements.length - 1];
+    return !!last && alwaysExits(last);
+  }
+  return (
+    ts.isReturnStatement(s) ||
+    ts.isThrowStatement(s) ||
+    ts.isBreakStatement(s) ||
+    ts.isContinueStatement(s)
+  );
+}
+
+/**
+ * A guard clause, `if (PLATFORM === "ios") return …` (a plain platform test,
+ * no else, a branch that always exits): the platform that runs the
+ * statements after it in its block, as TypeScript narrows them.
+ */
+export function guardClause(checker: ts.TypeChecker, s: ts.Statement): Platform | undefined {
+  if (!ts.isIfStatement(s) || s.elseStatement || !alwaysExits(s.thenStatement)) return undefined;
+  const guard = platformGuard(checker, s.expression);
+  return guard && !guard.rest.length ? otherPlatform(guard.platform) : undefined;
+}
+
+/**
+ * The platform the innermost platform branch, case or guard clause around
+ * `node` runs on; code both platforms reach has none.
+ */
 export function branchPlatform(checker: ts.TypeChecker, node: ts.Node): Platform | undefined {
   for (let child = node, p = node.parent; p; child = p, p = p.parent) {
+    // Statements after a guard clause in the same block.
+    if ((ts.isBlock(p) || ts.isCaseClause(p) || ts.isDefaultClause(p)) && ts.isStatement(child)) {
+      const at = p.statements.indexOf(child);
+      for (let i = at - 1; i >= 0; i--) {
+        const after = guardClause(checker, p.statements[i]!);
+        if (after) return after;
+      }
+    }
     if (ts.isCaseClause(p) || ts.isDefaultClause(p)) {
       const s = p.parent.parent;
       const runs = switchPlatforms(checker, s)?.[s.caseBlock.clauses.indexOf(p)];
@@ -321,8 +378,8 @@ export function platformScopes(checker: ts.TypeChecker, sf: ts.SourceFile): Plat
       if (!ts.isStringLiteral(s.moduleSpecifier) || !s.importClause) continue;
       const spec = s.moduleSpecifier.text;
       const scope = /^lucent:(\w+)/.exec(spec)?.[1];
-      // lucent:core and lucent:platform run on every platform.
-      if (!scope || scope === "core" || scope === "platform") continue;
+      // lucent:core, lucent:platform and native extensions (C, built for both) run on every platform.
+      if (!scope || scope === "core" || scope === "platform" || scope === "ext") continue;
       const platform = (PLATFORMS as readonly string[]).includes(scope)
         ? (scope as Platform)
         : undefined;
@@ -484,7 +541,9 @@ function isExported(s: ts.Statement): boolean {
 /**
  * TypeScript errors in a shared module's code for a platform whose SDK is
  * untyped in this program (not installed, and not the target): that code is
- * never emitted here, and its SDK types do not resolve.
+ * never emitted here, and its SDK types do not resolve. A name imported
+ * from such a platform's module is its code wherever it is written: a
+ * component's declaration names each platform's view.
  */
 export function inUntypedPlatformCode(
   lp: LucentProgram,
@@ -510,7 +569,31 @@ export function inUntypedPlatformCode(
   }
   const stmt = sf.statements.find((s) => s.getStart(sf) <= d.start! && d.start! < s.getEnd());
   const p =
+    (ts.isIdentifier(node) ? importedFrom(sf, node.text) : undefined) ??
     branchPlatform(lp.checker, node) ??
     (stmt ? platformScopes(lp.checker, sf).platforms.get(stmt) : undefined);
   return !!p && untyped.includes(p);
+}
+
+/** The platform whose SDK or toolkit module (lucent:ios/UIKit, lucent:swiftui) a file imports `name` from. */
+function importedFrom(sf: ts.SourceFile, name: string): Platform | undefined {
+  for (const s of sf.statements) {
+    if (!ts.isImportDeclaration(s) || !ts.isStringLiteral(s.moduleSpecifier)) continue;
+
+    const bindings = s.importClause?.namedBindings;
+    const names = [
+      s.importClause?.name,
+      ...(bindings && ts.isNamedImports(bindings) ? bindings.elements.map((e) => e.name) : []),
+    ];
+    if (!names.some((n) => n?.text === name)) continue;
+
+    const spec = s.moduleSpecifier.text;
+    const toolkit = toolkitOfModule(spec);
+    if (toolkit) return TOOLKITS[toolkit].platform;
+
+    const scope = /^lucent:(\w+)(?:\/|$)/.exec(spec)?.[1];
+    return PLATFORMS.find((p) => p === scope);
+  }
+
+  return undefined;
 }

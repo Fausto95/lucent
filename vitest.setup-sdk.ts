@@ -6,7 +6,7 @@
 import { prefetch, sdkAvailable } from "./packages/bindgen/src/provider.ts";
 
 export default function setup(): void {
-  if (sdkAvailable("ios")) prefetch("ios", ["UIKit", "Foundation", "Security"]);
+  if (sdkAvailable("ios")) prefetch("ios", ["UIKit", "Foundation", "Security", "AVFoundation"]);
   if (sdkAvailable("android"))
     prefetch("android", ["android.os", "android.content", "android.util"]);
 }

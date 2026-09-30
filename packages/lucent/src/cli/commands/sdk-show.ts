@@ -1,4 +1,4 @@
-import { sdkAvailable, sdkDts, sdkModule, sdkModules } from "@lucent-lang/compiler";
+import { sdkAvailable, sdkDeclarations, sdkModule, sdkModules } from "@lucent-lang/compiler";
 import type { Invocation } from "../args.ts";
 import { projectSdk } from "../project.ts";
 import type { Theme } from "../ui/theme.ts";
@@ -29,7 +29,7 @@ export function run({ root, positionals, out }: Invocation): number {
       const r = sdkModule(platform, module, sdk);
       if ("missing" in r) continue;
       const [type, member] = parts.slice(n);
-      const dts = sdkDts(r.schema);
+      const dts = sdkDeclarations(r.schema);
       const block = declaration(dts, type!);
       if (!block) {
         out.error(
@@ -42,8 +42,10 @@ export function run({ root, positionals, out }: Invocation): number {
         out.error(`${t.error(t.symbols.fail)} ${type} has no member ${member}`);
         return 1;
       }
+      // Compose's modules are declared in lucent:compose.
+      const from = r.schema.form === "source" ? "lucent:compose" : `lucent:${platform}/${module}`;
       if (out.json) out.data({ platform, module, symbol, declaration: shown });
-      else out.print(`${t.dim(`// lucent:${platform}/${module}`)}\n${highlight(shown, t)}`);
+      else out.print(`${t.dim(`// ${from}`)}\n${highlight(shown, t)}`);
       return 0;
     }
   }

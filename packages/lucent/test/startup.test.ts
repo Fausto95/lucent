@@ -1,16 +1,18 @@
-import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
+import { runToExit } from "./run-to-exit.ts";
 
 const main = path.resolve(import.meta.dirname, "../src/cli/main.ts");
 // Reports every module resolved in the child, so the test sees what a command loads.
 const hook = `data:text/javascript,${encodeURIComponent('import { registerHooks } from "node:module"; registerHooks({ resolve(s, c, next) { process.stderr.write("[resolve] " + s + "\\n"); return next(s, c); } });')}`;
 
 function loaded(...args: string[]): { status: number | null; out: string; modules: string[] } {
-  const r = spawnSync(process.execPath, ["--import", hook, main, ...args], {
-    encoding: "utf8",
-    env: { ...process.env, NO_COLOR: "1" },
-  });
+  const r = runToExit(
+    process.execPath,
+    ["--import", hook, main, ...args],
+    { env: { ...process.env, NO_COLOR: "1" } },
+    `lucent ${args.join(" ")}`,
+  );
   const modules = r.stderr
     .split("\n")
     .filter((l) => l.startsWith("[resolve] "))

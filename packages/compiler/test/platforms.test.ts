@@ -6,7 +6,7 @@ import { describe, expect, it } from "vite-plus/test";
 import ts from "typescript";
 import { compile, runtimeDir, writeNativePackage } from "../src/index.ts";
 import { createLucentProgram } from "../src/program.ts";
-import { androidJars, sdkAvailable } from "@lucent-lang/bindgen";
+import { androidJars, cachedModules, sdkAvailable } from "@lucent-lang/bindgen";
 import { jniDescriptor, loadSdkModule } from "../src/sdk/schema.ts";
 
 function project(sources: Record<string, string>) {
@@ -88,8 +88,8 @@ export async function impact(): Promise<void> {
   const context = appContext();
   const vibrator = available("android", 31) ? context.getSystemService(VibratorManager)?.defaultVibrator : context.getSystemService(Vibrator);
   if (!vibrator) return;
-  if (Build_VERSION.SDK_INT >= 26) vibrator.vibrate(VibrationEffect.createWaveform([0, 43], [0, 50], -1));
-  else vibrator.vibrate([0, 43], -1);
+  if (Build_VERSION.SDK_INT >= 26) vibrator.vibrate(VibrationEffect.createWaveform([0n, 43n], [0, 50], -1));
+  else vibrator.vibrate([0n, 43n], -1);
 }
 
 export async function model(): Promise<string> {
@@ -127,7 +127,7 @@ export function f(): number {
   const model: string = Build.MODEL;
   const v: Vibrator | null = appContext().getSystemService(Vibrator);
   const d: Vibrator | undefined = appContext().getSystemService(VibratorManager)?.defaultVibrator;
-  const e = VibrationEffect.createWaveform([0, 40], [0, 50], -1);
+  const e = VibrationEffect.createWaveform([0n, 40n], [0, 50], -1);
   void model; void v; void d; void e;
   return VibrationEffect.EFFECT_CLICK;
 }
@@ -243,12 +243,10 @@ describe.skipIf(!ios)("platform modules", () => {
     // A cold cache on purpose: extracting UIKit must not extract Foundation's schema either.
     const r = await compileInChild(project(haptics), { platforms: ["ios"], sdk: { cacheDir } });
     expect(r.diagnostics).toEqual([]);
-    const [key] = fs.readdirSync(path.join(cacheDir, "sdk/ios"));
-    const schemas = fs
-      .readdirSync(path.join(cacheDir, "sdk/ios", key!))
-      .filter((f) => f.endsWith(".json") && !f.endsWith(".names.json") && f !== "headers.json");
     // Only what the program imports gets a full schema.
-    expect(schemas).toEqual(["UIKit.json"]);
+    const cached = cachedModules("ios", { cacheDir });
+    expect("schemas" in cached && cached.schemas).toEqual(["UIKit"]);
+    expect("names" in cached && cached.names).toContain("Foundation");
     expect(r.types["ios/Foundation.d.ts"]).toMatch(/Names only: import lucent:ios\/Foundation/);
     fs.rmSync(cacheDir, { recursive: true, force: true });
   }, 600_000);
@@ -260,6 +258,7 @@ describe.skipIf(!ios)("platform modules", () => {
     expect([...r.files.keys()].sort()).toEqual([
       "lucent_app.h",
       "lucent_bindings.cpp",
+      "lucent_identity.cpp",
       "m_plain.cpp",
       "m_plain.h",
     ]);
@@ -457,6 +456,31 @@ describe("platform declarations in one module", () => {
     },
   );
 
+  it.skipIf(!android)(
+    "compiles for Android where the iOS SDK is missing, a declaration file naming iOS types",
+    () => {
+      const r = compile(
+        project({
+          ...haptics,
+          "haptics.lucent.ts": `import type { UIColor } from "lucent:ios/UIKit";
+import type { Color } from "lucent:android/android.graphics";
+
+export type Tint = UIColor | Color;
+
+${haptics["haptics.lucent.ts"]}`,
+        }),
+        {
+          platforms: ["android"],
+          sdk: { ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") } },
+        },
+      );
+      expect(r.diagnostics).toEqual([]);
+      expect([...r.files.values()].some((f) => f.includes("android/os/VibrationEffect"))).toBe(
+        true,
+      );
+    },
+  );
+
   it("keeps exports shared, and each declaration on one platform", () => {
     const r = compile(
       project({
@@ -563,7 +587,10 @@ function compilesEverywhere(sources: Record<string, string>, module: string): vo
         `-I${path.join(dir, "ios")}`,
         "-x",
         "objective-c++",
-        path.join(dir, `ios/m_${module}.mm`),
+        // Objective-C++ when the module calls iOS APIs, C++ otherwise.
+        fs.existsSync(path.join(dir, `ios/m_${module}.mm`))
+          ? path.join(dir, `ios/m_${module}.mm`)
+          : path.join(dir, `ios/m_${module}.cpp`),
       ],
     ],
     ["clang++", [...flags, `-I${path.join(dir, "host")}`, path.join(dir, `host/m_${module}.cpp`)]],
@@ -585,6 +612,119 @@ function compilesEverywhere(sources: Record<string, string>, module: string): vo
   for (const [cmd, args] of runs)
     expect(spawnSync(cmd, args, { encoding: "utf8" }).stderr).toBe("");
 }
+
+/** An Android-only helper returning an object type holding an SDK object (issue #11). */
+const torch = {
+  "torch.lucent.ts": `import { PLATFORM } from "lucent:platform";
+import { CameraManager } from "lucent:android/android.hardware.camera2";
+import { appContext } from "lucent:android";
+
+function torch(): { manager: CameraManager; cameraId: string } | null {
+  const manager = appContext().getSystemService(CameraManager);
+  const cameraId = manager?.cameraIdList[0];
+  return manager && cameraId !== undefined ? { manager, cameraId } : null;
+}
+
+export function hasTorch(): boolean {
+  if (PLATFORM === "ios") {
+    return false;
+  } else {
+    const t = torch();
+    return t !== null;
+  }
+}
+`,
+};
+
+describe("object types holding SDK objects", () => {
+  it.skipIf(!ios || !android || process.platform !== "darwin")(
+    "compile on every target, and stay out of the other platforms' code",
+    () => {
+      const r = compile(project(torch), { platforms: ["ios", "android", "host"] });
+      expect(r.diagnostics).toEqual([]);
+      const elsewhere = [...r.files].filter(([name]) => !name.startsWith("android/"));
+      expect(elsewhere.filter(([, code]) => code.includes("NativeRef manager"))).toEqual([]);
+      compilesEverywhere(torch, "torch");
+    },
+    600_000,
+  );
+});
+
+/** Guard clauses (issue #12): what follows an early exit runs on the other platform. */
+const guardClauses = {
+  "guards.lucent.ts": `import { PLATFORM } from "lucent:platform";
+import { UIDevice } from "lucent:ios/UIKit";
+import { ProcessInfo } from "lucent:ios/Foundation";
+import { Build, Build_VERSION } from "lucent:android/android.os";
+import { main } from "lucent:thread";
+
+function androidModel(): string {
+  return Build.MODEL ?? "unknown";
+}
+
+export async function model(): Promise<string> {
+  if (PLATFORM === "ios") return main(() => UIDevice.current.model);
+  // Only Android reaches here.
+  const model = androidModel();
+  return \`\${model} \${Build_VERSION.SDK_INT}\`;
+}
+
+export function kind(names: string[]): string {
+  for (const name of names) {
+    if (PLATFORM === "android") continue;
+    if (name === ProcessInfo.processInfo.processName) return "this process";
+  }
+  if (PLATFORM !== "android") {
+    throw new Error("not on Android");
+  }
+  return Build.MANUFACTURER ?? "";
+}
+`,
+};
+
+describe("guard clauses: if (PLATFORM === …) return", () => {
+  it.skipIf(!ios || !android)("make the rest of the block the other platform's code", () => {
+    const r = compile(project(guardClauses), { platforms: ["ios", "android", "host"] });
+    expect(r.diagnostics).toEqual([]);
+    const mm = r.files.get("ios/m_guards.mm")!;
+    expect(mm).toContain("UIDevice");
+    expect(mm).not.toContain("android/os/Build");
+    const cpp = r.files.get("android/m_guards.cpp")!;
+    expect(cpp).toContain("android/os/Build");
+    expect(cpp).not.toContain("UIDevice");
+  });
+
+  it.skipIf(!ios || !android || process.platform !== "darwin")(
+    "generate code each target compiles",
+    () => {
+      compilesEverywhere(guardClauses, "guards");
+    },
+    600_000,
+  );
+
+  it("need a plain platform test and a branch that always exits", () => {
+    const rest = (guard: string) =>
+      compile(
+        project({
+          "m.lucent.ts": `import { PLATFORM } from "lucent:platform";
+import { Build } from "lucent:android/android.os";
+export function f(ready: boolean): string {
+  ${guard}
+  return Build.MODEL ?? "";
+}
+`,
+        }),
+        { platforms: ["host"] },
+      );
+    expect(codes(rest('if (PLATFORM === "ios") return "";'))).toEqual([]);
+    expect(codes(rest('if (PLATFORM === "ios") { throw new Error("no"); }'))).toEqual([]);
+    expect(codes(rest('if (PLATFORM === "ios" && ready) return "";'))).toEqual(["LUCENT3004"]);
+    expect(codes(rest('if (PLATFORM === "ios") { ready = false; }'))).toEqual(["LUCENT3004"]);
+    expect(codes(rest('if (PLATFORM === "ios") return ""; else ready = false;'))).toEqual([
+      "LUCENT3004",
+    ]);
+  });
+});
 
 describe("switch (PLATFORM) and PLATFORM === … && …", () => {
   it.skipIf(!ios || !android)("compiles each platform's cases and guarded branches only", () => {
@@ -661,6 +801,36 @@ describe("platform branches in one module", () => {
       });
       expect(r.diagnostics).toEqual([]);
       expect(r.files.get("ios/m_device.mm")).toContain("UIDevice");
+    },
+  );
+
+  it.skipIf(!ios || !android)(
+    "leaves a deferred platform's branch untyped, and its imports unresolved, in other targets",
+    () => {
+      // The Android branch uses android.jar and a library only the app's dependencies have.
+      const files = project({
+        "m.lucent.ts": `import { PLATFORM } from "lucent:platform";
+import { Build } from "lucent:android/android.os";
+import { Nope } from "lucent:android/com.example.nope";
+export function f(): string {
+  if (PLATFORM === "android") return \`\${Build.MODEL} \${Nope.hello()}\`;
+  return "ios";
+}
+`,
+      });
+
+      const deferred = compile(files, { platforms: ["ios"], deferred: ["android"] });
+      expect(deferred.diagnostics).toEqual([]);
+      expect(deferred.files.get("ios/m_m.cpp")).toContain('LUCENT_STR("ios")');
+
+      // Not deferred, the import is missing.
+      expect(codes(compile(files, { platforms: ["ios"] }))).toEqual(["LUCENT3004"]);
+
+      // A deferred platform is built later, by its own build.
+      expect(() => compile(files, { platforms: ["android"], deferred: ["android"] })).toThrow(
+        /deferred/,
+      );
+      expect(compile(files, { deferred: ["android"] }).files.has("android/m_m.cpp")).toBe(false);
     },
   );
 

@@ -1,0 +1,8 @@
+{
+  "ios": {
+    "pods": { "WLZOrb": "~> 1.0" }
+  },
+  "android": {
+    "dependencies": { "dev.wlz:orb": "1.0.0" }
+  }
+}
