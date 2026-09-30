@@ -1,6 +1,6 @@
 import { PLATFORM } from "lucent:platform";
 import { Animation, Color, Font, HStack, Image, Text } from "lucent:swiftui";
-import { Alignment, animateFloatAsState, Color as CColor, Modifier, Row, spring, Spring, Text as CText } from "lucent:compose";
+import { Alignment, animateFloatAsState, Arrangement, Color as CColor, dp, FontWeight, Modifier, Row, sp, spring, Spring, Text as CText } from "lucent:compose";
 import { signal } from "lucent:ui";
 
 export function Like(props: { count: number }) {
@@ -25,9 +25,18 @@ export function Like(props: { count: number }) {
   const pop = animateFloatAsState(liked.get() ? 1.3 : 1, spring({ dampingRatio: Spring.DampingRatioHighBouncy }));
 
   return (
-    <Row verticalAlignment={Alignment.CenterVertically} modifier={Modifier.clickable(toggle)}>
-      <CText text={liked.get() ? "♥" : "♡"} color={liked.get() ? CColor(0xffe91e63) : CColor.Gray} modifier={Modifier.scale(pop.value)} />
-      <CText text={`${count()}`} />
+    <Row
+      horizontalArrangement={Arrangement.spacedBy(dp(8))}
+      verticalAlignment={Alignment.CenterVertically}
+      modifier={Modifier.clickable(toggle)}
+    >
+      <CText
+        text={liked.get() ? "♥︎" : "♡"}
+        color={liked.get() ? CColor(0xffff2d55) : CColor.Gray}
+        fontSize={sp(24)}
+        modifier={Modifier.scale(pop.value)}
+      />
+      <CText text={`${count()}`} fontSize={sp(17)} fontWeight={FontWeight.Bold} />
     </Row>
   );
 }
