@@ -329,6 +329,17 @@ of the Android code that compose are its composition statements (see
 Compose content), whether they follow an iOS guard or stand in an
 Android branch.
 
+The views spike's toggle and list screens are one-file components. Built
+in Release, they ran on the iOS simulator and on the Android emulator
+(view recycling on), each platform's program compiling its own code of
+the same file: on iOS the toggle took commands, pulsed with
+withAnimation, measured a new title and flipped on its timer while
+JavaScript was blocked, and the list took its commands and its slider;
+on Android the toggle's composition statements (its spring, its pulse's
+coroutine, its lifecycle effect) composed from the Android code, and
+real taps toggled and removed the list's items and added the field's
+text.
+
 Split files stay supported: a module may be a shared declaration
 (`like.lucent.ts`) and a file per platform (`like.ios.lucent.tsx`,
 `like.android.lucent.tsx`), each writing its own toolkit.
@@ -444,7 +455,7 @@ Swift `View` struct, a Kotlin `@Composable` function), never as C++
 
 The views spike's list screen (`scripts/views-spike.ts --entry list.js`)
 ran on the iOS simulator and on the Android emulator (view recycling on),
-a todo list written once for each toolkit. Commands added todos (each
+a todo list in one file: its logic once, its body with each toolkit. Commands added todos (each
 animated in), toggled one, typed into the bound field, hid and showed the
 done ones through the bound switch, removed one and renamed the list;
 each change reached JavaScript as an event 0 to 30 ms later, and the host
@@ -488,11 +499,13 @@ export function Toggle(props: { title: string }) {
 }
 ```
 
-The file is the component's iOS one (`toggle.ios.lucent.tsx`), whose JSX
-is SwiftUI's; the shared declaration says the component returns
-SwiftUI's `View` (`View | ComposeView` where Android draws with
-Compose). The body is one view, returned once as the setup's last
-statement: its conditions are written in it.
+Written as a split module, this is the component's iOS file
+(`toggle.ios.lucent.tsx`), whose JSX is SwiftUI's, and the shared
+declaration says the component returns SwiftUI's `View`
+(`View | ComposeView` where Android draws with Compose); in one file, the
+body stands in the iOS code (see Toolkit bodies). The body is one view,
+returned once as the last statement of the platform's code: its
+conditions are written in it.
 
 **Elements.** An element is a view's initializer, called by its Swift
 type's name. An attribute named like one of the initializer's labels is
