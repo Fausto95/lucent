@@ -138,12 +138,19 @@ const install = "npx lucent init";
   h1 {
     margin: 0;
     color: var(--foreground-light);
-    font-family: var(--lucent-font-display);
+    font-family: var(--sl-font);
     font-size: clamp(2rem, 7vw, 3.75rem);
-    font-weight: 400;
+    font-weight: 600;
     line-height: 1.04;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.035em;
     text-wrap: balance;
+  }
+  /* The one word in the pixel face, in the brand's lime. */
+  h1 :global(.ts) {
+    color: var(--lucent-lime-ink);
+    font-family: var(--lucent-font-display);
+    font-weight: 400;
+    letter-spacing: 0;
   }
   .tagline {
     max-width: 40rem;
