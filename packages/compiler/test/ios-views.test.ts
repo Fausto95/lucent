@@ -123,7 +123,7 @@ describe("components' iOS hosts", () => {
         "lucent::ui::Signal<lucent::Opt<lucent::Array<lucent::Ref<lucent_app::S_Point>>>> p3_points{};",
       );
       expect(header).toContain(
-        "lucent::NativeRef Gauge_setup(Gauge_Props props, Gauge_Commands& lucent_commands);",
+        "lucent::NativeRef Gauge_setup(lucent_app::m_gauge::Gauge_Props p0_, Gauge_Commands& lucent_commands);",
       );
       expect(module).toContain("lucent_commands.c0_reset = ");
       expect(module).not.toContain("lucent::views::Setup");

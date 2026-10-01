@@ -98,6 +98,11 @@ export interface IrFunction {
   captures: IrCapture[];
   effects: EffectSummary;
   source: SourceSpan;
+  /**
+   * Code it computes from outside its own span: a thunk of a helper
+   * view's code computes what the helper's user gives it first.
+   */
+  elsewhere?: SourceSpan[];
   /** An async function: it gives a promise of its result, and may `await`. */
   async: boolean;
   /** A generator: what it gives its caller, one element at a time (`produce`); its result is void. */
@@ -258,12 +263,15 @@ export type IrOp =
   /**
    * A function value made of `fn`, a nested function: each of its captures
    * is the value `from` gives it, or the box of the place `from` names.
+   * Made in a component's setup, it `enters` the setup's mount whenever it
+   * runs, so its host measures what it changed.
    */
   | {
       kind: "closure";
       result: ValueId;
       fn: IrFunction;
       from: CaptureSource[];
+      enters?: ValueId;
       source: SourceSpan;
     }
   /**
@@ -574,7 +582,10 @@ export function operandsOf(op: IrOp): ValueId[] {
     case "plan":
       return op.args;
     case "closure":
-      return op.from.flatMap((f) => ("value" in f ? [f.value] : []));
+      return [
+        ...op.from.flatMap((f) => ("value" in f ? [f.value] : [])),
+        ...(op.enters === undefined ? [] : [op.enters]),
+      ];
     case "return":
       return op.value === undefined ? [] : [op.value];
     case "throw":

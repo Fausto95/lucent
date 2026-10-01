@@ -85,7 +85,7 @@ describe("a component's compiled setup", () => {
         expect(header).toContain("lucent::Fn<void()> c0_reset{};");
         expect(header).toContain("lucent::Fn<double()> c1_changes{};");
         expect(header).toContain(
-          "lucent::NativeRef Meter_setup(Meter_Props props, Meter_Commands& lucent_commands);",
+          "lucent::NativeRef Meter_setup(lucent_app::m_meter::Meter_Props p0_, Meter_Commands& lucent_commands);",
         );
 
         const unit = file(result, `${platform}/m_meter.${platform === "ios" ? "mm" : "cpp"}`);
@@ -93,8 +93,7 @@ describe("a component's compiled setup", () => {
         // Effects are named by where they are, for loop reports.
         expect(unit).toMatch(
           new RegExp(
-            `lucent::ui::effect\\(lucent::ui::mainGraph\\(\\), .*\\}\\)+, "meter\\.${platform}\\.lucent\\.tsx:\\d+"\\)`,
-            "s",
+            `lucent::ui::effect\\(lucent::ui::mainGraph\\(\\), v\\d+_, "meter\\.${platform}\\.lucent\\.tsx:\\d+"\\)`,
           ),
         );
         expect(unit).toContain("props.e0_onChange(");

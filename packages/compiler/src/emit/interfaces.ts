@@ -9,7 +9,6 @@ import {
   type IfaceT,
   type LType,
   substitute,
-  T,
   typeKey,
 } from "../types.ts";
 import { argMap, findMember } from "./classes.ts";
@@ -25,7 +24,7 @@ export type IfaceMember =
 function emitterFor(ctx: Ctx, node: ts.Node): FnEmitter {
   const sf = node.getSourceFile();
   const module = ctx.modules.find((m) => m.sourceFile === sf)!;
-  return new FnEmitter(ctx, { module, async: false, returnType: T.void });
+  return new FnEmitter(ctx, { module, async: false });
 }
 
 function isReadonly(n: ts.Node): boolean {

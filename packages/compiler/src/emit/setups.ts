@@ -1,10 +1,12 @@
 /**
  * Components' setups, compiled (under the internal LUCENT_VIEWS=fabric
- * switch). A setup runs once per mount, on the main thread, in the mount's
- * scope: each prop is a signal of the main context's reactive graph
- * (lucent/view.h), which effects track where they read `props.name`; each
- * event is a route the mount points at its current event emitter; the
- * object given to `expose` fills the component's command table.
+ * switch) through the semantic IR, as functions are. A setup runs once per
+ * mount, on the main thread, in the mount's scope: each prop is a signal of
+ * the main context's reactive graph (lucent/view.h), which effects track
+ * where they read `props.name`; each event is a route the mount points at
+ * its current event emitter; the object given to `expose` fills the
+ * component's command table. The mount is the IR's ambient CONTENT, which
+ * each function the setup makes enters when it runs.
  *
  * In the module's namespace, for a component `Meter`:
  *
@@ -32,6 +34,9 @@ import { type BodySetup, bodyOf, isJsx } from "../ui/toolkit-body.ts";
 import type { ToolkitName } from "../ui/toolkits.ts";
 import type { Ctx, E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
+import type { CppFunction } from "../ir/cpp.ts";
+import type { IrUnit } from "./through-ir.ts";
+import { liftedStatements } from "./toolkit.ts";
 
 /** A prop, an event or a command of a compiled setup: its C++ member and its Lucent type(s). */
 export interface SetupProp {
@@ -172,20 +177,24 @@ export function planSetup(
 }
 
 /**
- * The props and commands structs and the setup function: declarations for
- * the module's header, the definition for its unit.
+ * The props and commands structs and the setup function, its code lowered
+ * by `lower` (through the IR): declarations for the module's header, the
+ * definition for its unit.
  */
 export function emitSetup(
   ctx: Ctx,
   setup: Setup,
-  makeEmitter: (returnType: LType) => FnEmitter,
+  lower: (unit: IrUnit) => CppFunction,
 ): { decls: cpp.Decl[]; defs: cpp.Decl[] } {
   const reg = ctx.reg;
   const { names, fn } = setup;
   const ns = cpp.type(setup.module.ns);
 
-  // A toolkit's component returns its body, the host it makes: checked before its code is.
+  // A toolkit's component returns its body, the host it makes, and its code is checked against
+  // what the body takes: both before any of its code is lowered.
   if (setup.toolkit) bodyOf(fn, setup.toolkit, ctx.checker);
+
+  liftedStatements(ctx.checker, setup);
 
   const propsStruct = cpp.struct(names.props, [
     ...setup.props.map((p) =>
@@ -206,26 +215,30 @@ export function emitSetup(
     setup.commands.map((c) => cpp.field(reg.cppType(c.type), c.field)),
   );
 
-  const em = makeEmitter(setup.root);
-  const propsName = em.declareParam(setup.propsSymbol, "lucent_props", {
-    k: "props",
-    component: setup.component.id,
+  const props: LType = { k: "props", component: setup.component.id };
+  const lowered = lower({
+    decl: fn,
+    id: `${setup.module.ns}::${names.setup}`,
+    params: [{ name: "props", type: props, cppType: props, optional: false, rest: false }],
+    result: setup.root,
+    async: false,
+    generic: false,
+    opts: { module: setup.module, async: false },
+    site: setup.component.export,
+    ambient: [{ name: CONTENT, type: { k: "mount" }, spelled: CONTENT }],
   });
+  // The props are the IR's parameter; the command table and the slot, names its leaves use.
   const params = [
-    cpp.param(cpp.type(names.props), propsName),
+    ...lowered.params,
     cpp.param(cpp.reference(cpp.type(names.commands)), COMMANDS),
     ...(setup.component.children ? [cpp.param(cpp.type("lucent::NativeRef"), SLOT)] : []),
   ];
-
-  em.emitFunctionBody(fn);
-
-  const ret = reg.cppRetType(setup.root);
   const content = cpp.varDecl(cpp.auto, CONTENT, cpp.call("lucent::ui::activeContent"));
-  const body = em.usesContent ? [content, ...em.body()] : em.body();
+  const body = lowered.ambient.includes(CONTENT) ? [content, ...lowered.body] : lowered.body;
 
   return {
-    decls: [propsStruct, commandsStruct, cpp.fn(names.setup, ret, params)],
-    defs: [cpp.fn(names.setup, ret, params, body, { scope: ns })],
+    decls: [propsStruct, commandsStruct, cpp.fn(names.setup, lowered.ret, params)],
+    defs: [cpp.fn(names.setup, lowered.ret, params, body, { scope: ns })],
   };
 }
 
@@ -241,22 +254,21 @@ export function setupOf(ctx: Ctx, node: ts.Node): Setup | undefined {
   return undefined;
 }
 
-/** The mount's content, named by code of a setup: the setup and each function on the way capture it. */
-export function mountContent(em: FnEmitter): cpp.Expr {
-  em.usesContent = true;
-
-  return cpp.id(CONTENT);
+/** The mount's content, read by code of a setup at `node`: the functions on the way capture it. */
+export function mountContent(em: FnEmitter, node: ts.Node): cpp.Expr {
+  return em.ambient(CONTENT, node).c;
 }
 
 /**
- * `lambda`, the function made at `node`: made in a setup, it enters its
- * mount whenever it runs (whoever calls it: the platform, an effect run, a
- * command), so the host hears that the mount's code ran and measures what
- * it may have changed (lucent/view.h).
+ * `lambda`, a function a plan makes at `node`: made in a setup, it enters
+ * its mount whenever it runs (whoever calls it: the platform, an effect
+ * run, a command), so the host hears that the mount's code ran and
+ * measures what it may have changed (lucent/view.h). The IR's closures
+ * enter it themselves (ir.ts `closure`).
  */
 export function enterMount(em: FnEmitter, node: ts.Node, lambda: cpp.Expr): cpp.Expr {
   return setupOf(em.ctx, node)
-    ? cpp.call("lucent::ui::inContent", [mountContent(em), lambda])
+    ? cpp.call("lucent::ui::inContent", [mountContent(em, node), lambda])
     : lambda;
 }
 
@@ -302,7 +314,10 @@ export function uiCall(em: FnEmitter, node: ts.CallExpression): E | undefined {
       if (node.arguments.length)
         fail(node, Codes.UnsupportedCall, "invalidateSize takes no arguments");
 
-      return { c: cpp.call("lucent::ui::invalidateSize", [mountContent(em)]), t: T.undefined };
+      return {
+        c: cpp.call("lucent::ui::invalidateSize", [mountContent(em, node)]),
+        t: T.undefined,
+      };
 
     case "signal": {
       const t = em.lt(node);
@@ -344,18 +359,24 @@ export function uiCall(em: FnEmitter, node: ts.CallExpression): E | undefined {
       if (!literal || !ts.isObjectLiteralExpression(literal))
         fail(node, Codes.ComponentContract, "expose takes an object literal of commands");
 
-      for (const command of setup.commands) {
-        const p = literal.properties.find((x) => x.name && propertyName(x.name) === command.name)!;
+      // Each command's function, in the order the literal gives them, fills its entry of the table.
+      const entries = literal.properties.flatMap((p) => {
+        const command = setup.commands.find((c) => p.name && propertyName(p.name) === c.name);
+
+        if (!command) return [];
+
         const value = ts.isPropertyAssignment(p)
           ? em.exprAs(p.initializer, command.type)
           : ts.isShorthandPropertyAssignment(p)
             ? em.exprAs(p.name, command.type)
             : fail(p, Codes.ComponentContract, `write the command as \`${command.name}: () => …\``);
 
-        em.emit(cpp.exprStmt(cpp.assign(cpp.dot(cpp.id(COMMANDS), command.field), value)));
-      }
+        return [cpp.assign(cpp.dot(cpp.id(COMMANDS), command.field), value)];
+      });
 
-      return { c: cpp.id("lucent::undefined"), t: T.undefined };
+      if (!entries.length) return { c: cpp.id("lucent::undefined"), t: T.undefined };
+
+      return { c: entries.reduce((all, e) => cpp.comma(all, e)), t: T.void };
     }
   }
 }
@@ -397,27 +418,40 @@ export function propMember(em: FnEmitter, obj: E, name: string, node: ts.Node): 
   fail(node, Codes.ComponentContract, `\`${setup.component.export}\` has no prop \`${name}\``);
 }
 
-/** `props.onChange(…)` or `props.onChange?.(…)` in a setup: sends the event; undefined for any other call. */
-export function eventCall(em: FnEmitter, node: ts.CallExpression): E | undefined {
+/** The event `node` sends: `props.onChange(…)` or `props.onChange?.(…)` in a setup. */
+function eventOf(ctx: Ctx, node: ts.CallExpression): SetupEvent | undefined {
   const callee = skipParentheses(node.expression);
   if (!ts.isPropertyAccessExpression(callee) || !ts.isIdentifier(callee.expression))
     return undefined;
 
-  const symbol = em.checker.getSymbolAtLocation(callee.expression);
-  const setup = symbol && setupOf(em.ctx, node);
+  const symbol = ctx.checker.getSymbolAtLocation(callee.expression);
+  const setup = symbol && setupOf(ctx, node);
 
   if (!setup || setup.propsSymbol !== symbol) return undefined;
 
-  const event = setup.events.find((e) => e.name === callee.name.text);
+  return setup.events.find((e) => e.name === callee.name.text);
+}
+
+/** Whether `node` sends an event: a call, not of a value the code could test. */
+export function isEventCall(ctx: Ctx, node: ts.CallExpression): boolean {
+  return eventOf(ctx, node) !== undefined;
+}
+
+/** `props.onChange(…)` or `props.onChange?.(…)` in a setup: sends the event; undefined for any other call. */
+export function eventCall(em: FnEmitter, node: ts.CallExpression): E | undefined {
+  const event = eventOf(em.ctx, node);
   if (!event) return undefined;
 
+  const callee = skipParentheses(node.expression) as ts.PropertyAccessExpression;
+  // The props, then the arguments: JavaScript's order.
+  const props = em.expr(callee.expression).c;
   const args = event.params.map((t, i) => {
     const given = node.arguments[i];
 
     return given ? em.exprAs(given, t) : cpp.construct(em.reg.cppType(t), [], true);
   });
 
-  return { c: cpp.call(cpp.dot(em.expr(callee.expression).c, event.field), args), t: T.undefined };
+  return { c: cpp.call(cpp.dot(props, event.field), args), t: T.undefined };
 }
 
 /** `signal.get()`, `.peek()`, `.set(value)`. */

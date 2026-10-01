@@ -265,6 +265,35 @@ describe("IR verifier", () => {
     expect(problemsOf(broken)).toContain("r0[1] call has no valid source span");
   });
 
+  it("accepts spans in the code a function computes from elsewhere (a helper view's)", () => {
+    const moved = withOps(pair(), (ops) =>
+      ops.map((op, i) => (i === 1 ? { ...op, source: at(150, 160) } : op)),
+    );
+
+    expect(problemsOf({ ...moved, elsewhere: [at(140, 170)] })).toEqual([]);
+  });
+
+  it("makes a closure enter a mount, which only a mount may be", () => {
+    const made = (enters: LType): IrFunction => {
+      const b = new IrBuilder("setup", T.void, at(0, 100));
+      const mount = b.param(0, enters, at(1));
+      const inner = new IrBuilder("setup$1", T.void, at(20, 40));
+
+      inner.return(undefined, at(30));
+      b.closure(inner.finish(), [], { k: "fn", params: [], ret: T.void }, at(20, 40), mount);
+      b.return(undefined, at(50));
+      return b.finish();
+    };
+
+    expect(problemsOf(made({ k: "mount" }))).toEqual([]);
+
+    expect(dump(made({ k: "mount" }))).toMatch(/= closure setup\$1\(\) enters v0/);
+
+    expect(problemsOf(made(T.number))).toContain(
+      "r0[1] closure enters: v0 is number, expected mount",
+    );
+  });
+
   it("rejects places that are not declared, stores into constants and mistyped stores", () => {
     const b = new IrBuilder("places", T.void, at(0, 100));
     const log = b.modulePlace("m::log", "log", T.string, false);

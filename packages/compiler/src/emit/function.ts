@@ -2,8 +2,7 @@ import { cpp } from "@lucent-lang/codegen";
 import path from "node:path";
 import ts from "typescript";
 import { Codes, CompileError, fail } from "../diagnostics.ts";
-import { branchPlatform, isPlatformValue, platformGuard, switchPlatforms } from "../platforms.ts";
-import type { Platform } from "../sdk/schema.ts";
+import { isPlatformValue, platformGuard } from "../platforms.ts";
 import type { LucentModule } from "../program.ts";
 import {
   type ClassInfo,
@@ -20,29 +19,16 @@ import {
   unionOf,
   unionShapeBreak,
 } from "../types.ts";
-import {
-  containsAwait,
-  freeVariables,
-  type FunctionLike,
-  isFunctionLike,
-  parameterSymbol,
-  symbolOf,
-} from "../analysis/scopes.ts";
+import { containsAwait, type FunctionLike, symbolOf } from "../analysis/scopes.ts";
 import * as builtins from "./builtins.ts";
 import { spanElement } from "./buffers.ts";
 import { DISPOSE, isSymbolDispose } from "./classes.ts";
-import { computeOperands, TASK, taskVariant } from "./compute.ts";
+import { TASK, taskVariant } from "./compute.ts";
 import * as extensions from "./extensions.ts";
 import * as native from "./native.ts";
 import { requireSubclassMain } from "./objc-subclass.ts";
 import * as views from "./setups.ts";
-import {
-  liftedStatement,
-  liftedStatements,
-  toolkitCall,
-  toolkitJsx,
-  toolkitMember,
-} from "./toolkit.ts";
+import { toolkitCall, toolkitJsx, toolkitMember } from "./toolkit.ts";
 import {
   AlreadyReported,
   type Ctx,
@@ -51,9 +37,9 @@ import {
   type ParamInfo,
   type Lvalue,
 } from "./context.ts";
-import { inferIntegers } from "./integers.ts";
 import { genericFacts, instanceAt } from "./instantiations.ts";
 export { substitute } from "../types.ts";
+import type { Thunk } from "../ir/lower.ts";
 import { type ConversionStep, conversionStep } from "../lowering/conversions.ts";
 import { heldAs, throughMembers } from "../lowering/members.ts";
 import {
@@ -64,8 +50,6 @@ import {
 } from "../lowering/bigint.ts";
 import { looseConversion, looseConversionMessage } from "../lowering/loose-equality.ts";
 import { bigintExpr, bigintLiteralValue, numberExpr, stringExpr } from "../lowering/literals.ts";
-import { sourcePath } from "../lowering/source.ts";
-import { helperStatement, isViewHelper } from "../ui/view-helpers.ts";
 
 export interface Local {
   cpp: string;
@@ -75,39 +59,20 @@ export interface Local {
   int?: IntKind;
 }
 
-const INT_CPP: Record<IntKind, string> = { i32: "int32_t", u32: "uint32_t", i64: "int64_t" };
-
-interface ControlEntry {
-  kind: "loop" | "switch" | "block" | "finally";
-  labels: string[];
-  breakLabel?: string;
-  continueLabel?: string;
-  usedBreakLabel?: boolean;
-  usedContinueLabel?: boolean;
-  // finally
-  finLabel?: string;
-  finVar?: string;
-  pending?: Map<number, () => void>;
-}
-
 export interface FnOptions {
   module: LucentModule;
   async: boolean;
-  /** Lucent return type (the promised type for async functions). */
-  returnType: LType;
   cls?: ClassInfo;
   /** How `this` is spelled in the current context. */
   thisExpr?: string;
   /** How `this` is spelled as a Ref (for passing it as a value). */
   thisRef?: string;
-  /** A generator body: `yield` becomes co_yield and `return` co_return. */
-  generator?: boolean;
   /** In a subclass constructor: the base construct() call `super(…)` makes. */
   superCtor?: { call: cpp.Expr; params: LType[] };
   /**
-   * A compute task's variant of a function (compute.ts): each loop
-   * iteration checks for cancellation, and calls of module functions call
-   * their variants. Closures inside run as they are.
+   * A compute task's variant of a function (compute.ts): its calls of
+   * module functions call their variants (the IR checks for cancellation
+   * at each loop iteration). Closures inside run as they are.
    */
   task?: boolean;
 }
@@ -182,24 +147,6 @@ function afterEffects(c: cpp.Expr, value: cpp.Expr): cpp.Expr {
   return cpp.comma(cpp.cast("c", cpp.voidType, c), value);
 }
 
-/**
- * Whether C++ statements co_await, co_return or co_yield, which makes the
- * function they are the body of a coroutine. Lambdas are bodies of their own.
- */
-function isCoroutine(node: unknown): boolean {
-  if (Array.isArray(node)) return node.some(isCoroutine);
-
-  if (typeof node !== "object" || node === null) return false;
-
-  const n = node as { k?: string; co?: boolean };
-
-  if (n.k === "coAwait" || n.k === "coYield" || (n.k === "return" && n.co)) return true;
-
-  if (n.k === "lambda" || n.k === "blockLiteral") return false;
-
-  return Object.values(node).some(isCoroutine);
-}
-
 /** Each conversion step (lowering/conversions.ts) as C++, the steps after it through coerce. */
 const STEPS: { [K in ConversionStep["kind"]]: ApplyStep<K> } = {
   // An undefined from a call that returns nothing is a C++ void: as a value, it is the constant.
@@ -249,29 +196,22 @@ const STEPS: { [K in ConversionStep["kind"]]: ApplyStep<K> } = {
   reshape: (em, e, to) => cpp.call("lucent::convert", [e.c], [em.reg.cppType(to)]),
 };
 
-/** Emits the body of one function (or method, or closure) as C++. */
+/**
+ * Lowers expressions to C++: the code of the semantic IR's leaves
+ * (leaf.ts, whose emitter knows the function's locals and operands), and
+ * the conversions and signatures the platform glue needs.
+ */
 export class FnEmitter {
-  /** Statements, innermost block last: collect() opens one. */
-  private readonly out: cpp.Stmt[][] = [[]];
-  private scopes: Map<ts.Symbol, Local>[] = [new Map()];
-  private ctl: ControlEntry[] = [];
-  private retVar?: string;
-  private readonly prologue: cpp.Stmt[] = [];
+  /** Statements of a statement expression, innermost last: collect() opens one. */
+  private readonly out: cpp.Stmt[][] = [];
   /** Nodes replaced during optional-chain lowering. */
   private readonly subst = new Map<ts.Node, E>();
-  /** Locals and loop counters that live in integer registers (integers.ts). */
-  private ints = new Map<ts.Symbol, IntKind>();
-  private readonly counters = new Set<ts.Symbol>();
-  /** Whether the body names its mount's content: code of a setup (setups.ts). */
-  usesContent = false;
   readonly ctx: Ctx;
   readonly opts: FnOptions;
-  private readonly parentScopes: Map<ts.Symbol, Local>[];
 
-  constructor(ctx: Ctx, opts: FnOptions, parentScopes: Map<ts.Symbol, Local>[] = []) {
+  constructor(ctx: Ctx, opts: FnOptions) {
     this.ctx = ctx;
     this.opts = opts;
-    this.parentScopes = parentScopes;
   }
 
   get checker(): ts.TypeChecker {
@@ -286,8 +226,18 @@ export class FnEmitter {
 
   // --- output ---------------------------------------------------------------
 
+  /** Statements of the block `collect` opened: an expression has no others. */
   emit(...stmts: cpp.Stmt[]): void {
-    this.out[this.out.length - 1]!.push(...stmts);
+    const into = this.out.at(-1);
+
+    if (!into) throw new Error("statements outside a statement expression");
+
+    into.push(...stmts);
+  }
+
+  /** Whether a block `collect` opened takes statements. */
+  protected get collecting(): boolean {
+    return this.out.length > 0;
   }
   /** The statements `f` emits, as a block of their own. */
   collect(f: () => void): cpp.Stmt[] {
@@ -300,66 +250,15 @@ export class FnEmitter {
     }
     return into;
   }
-  /** The finished body: prologue declarations first. */
-  body(): cpp.Stmt[] {
-    return [...this.prologue, ...this.out[0]!];
-  }
 
-  // --- scopes ------------------------------------------------------------------
+  // --- locals ------------------------------------------------------------------
 
-  pushScope(): void {
-    this.scopes.push(new Map());
-  }
-  popScope(): void {
-    this.scopes.pop();
-  }
-  declare(sym: ts.Symbol, name: string, type: LType): Local {
-    const boxed = this.ctx.capture.isBoxed(sym);
-    const local: Local = { cpp: cppIdent(name), type, boxed };
-    this.scopes[this.scopes.length - 1]!.set(sym, local);
-    return local;
-  }
-  /** A parameter the caller passes as it is (a component's props): its C++ name. */
-  declareParam(sym: ts.Symbol | undefined, fallback: string, type: LType): string {
-    return sym ? this.declare(sym, sym.name, type).cpp : fallback;
-  }
-
-  protected findLocal(sym: ts.Symbol): Local | undefined {
-    for (let i = this.scopes.length - 1; i >= 0; i--) {
-      const l = this.scopes[i]!.get(sym);
-      if (l) return l;
-    }
-    for (let i = this.parentScopes.length - 1; i >= 0; i--) {
-      const l = this.parentScopes[i]!.get(sym);
-      if (l) return l;
-    }
+  /** The local `sym` names: the IR's, which only a leaf's emitter knows. */
+  protected findLocal(_sym: ts.Symbol): Local | undefined {
     return undefined;
-  }
-  allScopes(): Map<ts.Symbol, Local>[] {
-    return [...this.parentScopes, ...this.scopes];
-  }
-
-  /** `T name = init;`, boxing when a closure captures and mutates it. */
-  declareVar(sym: ts.Symbol, name: string, type: LType, init: cpp.Expr | undefined): Local {
-    const l = this.declare(sym, name, type);
-    const ct = this.reg.cppType(type);
-    if (l.boxed)
-      this.emit(cpp.varDecl(cpp.type("lucent::Box", ct), l.cpp, init, { style: "construct" }));
-    else this.emit(cpp.varDecl(ct, l.cpp, init, init ? {} : { style: "brace" }));
-    return l;
   }
 
   // --- integers --------------------------------------------------------------------
-
-  private isNumberLocal(d: ts.VariableDeclaration, sym: ts.Symbol): boolean {
-    try {
-      return (
-        this.reg.lower(this.checker.getTypeOfSymbolAtLocation(sym, d.name), d.name).k === "number"
-      );
-    } catch {
-      return false;
-    }
-  }
 
   /** A number known to equal the exact integer expression `c`. */
   intE(c: cpp.Expr, kind: IntKind): E {
@@ -624,46 +523,6 @@ export class FnEmitter {
 
   // --- functions -------------------------------------------------------------------
 
-  /** Emits parameter defaults, destructuring and boxing at the top of a body. */
-  emitParams(decl: FunctionLike, params: ParamInfo[]): cpp.Param[] {
-    const out: cpp.Param[] = [];
-    decl.parameters.forEach((p, i) => {
-      const info = params[i]!;
-      const incomingName = `p${i}_${ts.isIdentifier(p.name) ? cppIdent(p.name.text) : "arg"}`;
-      const incoming = cpp.id(incomingName);
-      out.push(cpp.param(this.reg.cppType(info.cppType), incomingName));
-      // The by-value parameter is only read here: move it into the variable.
-      let value = cpp.call("std::move", [incoming]);
-      let type = info.cppType;
-      if (p.initializer) {
-        const inner = stripOpt(info.cppType);
-        const given = this.coerce(
-          { c: cpp.call(cpp.dot(incoming, "get")), t: inner },
-          info.type,
-          p,
-        );
-        value = cpp.conditional(
-          cpp.call(cpp.dot(incoming, "isUndefined")),
-          this.exprAs(p.initializer, info.type),
-          given,
-        );
-        type = info.type;
-      }
-      if (ts.isIdentifier(p.name)) {
-        const sym = parameterSymbol(
-          this.checker,
-          p as ts.ParameterDeclaration & { name: ts.Identifier },
-        );
-        this.declareVar(sym, p.name.text, type, value);
-      } else {
-        const tmp = this.ctx.fresh("param");
-        this.emit(cpp.varDecl(this.reg.cppType(type), tmp, value));
-        this.bindPattern(p.name, { c: cpp.id(tmp), t: type }, true);
-      }
-    });
-    return out;
-  }
-
   /**
    * A nested function's type (`target`'s parameters, when it becomes a
    * function type taking at least as many, so the lambda matches its Fn
@@ -704,110 +563,6 @@ export class FnEmitter {
     return { fnType, ret, params: this.paramInfos(node, fnType), isAsync, isGen };
   }
 
-  /** Lowers a nested function or arrow to a C++ lambda wrapped in lucent::Fn. */
-  closure(
-    node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
-    target?: LType,
-  ): E {
-    const { fnType, ret, params, isAsync, isGen } = this.closureSignature(node, target);
-    const inner = new FnEmitter(
-      this.ctx,
-      {
-        ...this.opts,
-        async: isAsync,
-        generator: isGen,
-        returnType: ret,
-        thisExpr: this.opts.thisExpr ? "self" : undefined,
-        thisRef: this.opts.thisRef ? "self" : undefined,
-        task: false,
-      },
-      this.allScopes(),
-    );
-    const free = freeVariables(this.checker, node);
-    const captures: cpp.Capture[] = [];
-    for (const sym of free) {
-      const l = this.findLocal(sym);
-      if (l) captures.push(l.cpp);
-    }
-    const usesThisVal = this.opts.thisExpr && usesThisIn(node);
-    if (usesThisVal) captures.push({ name: "self", init: this.selfRefExpr() });
-    const decls = inner.emitParams(node, params);
-    // Callbacks may be called with more arguments than they declare.
-    for (let i = node.parameters.length; i < fnType.params.length; i++)
-      decls.push(cpp.param(this.reg.cppType(fnType.params[i]!), `unused${i}`));
-    inner.emitFunctionBody(node);
-    if (inner.usesContent) captures.push(views.CONTENT);
-    const retType = isAsync
-      ? cpp.type("lucent::Promise", this.reg.cppRetType(ret))
-      : isGen
-        ? this.reg.cppType(fnType.ret)
-        : this.reg.cppRetType(ret);
-    let lambda: cpp.Expr;
-    if (isAsync || isGen) {
-      // Coroutine frames must not reference the lambda's captures: pass them
-      // as coroutine parameters instead.
-      const capNames = captures.map((c) => (typeof c === "string" ? c : c.name));
-      const coroutine = cpp.lambda(
-        [],
-        [...capNames.map((c) => cpp.param(cpp.auto, c)), ...decls],
-        inner.body(),
-        { ret: retType },
-      );
-      const call = cpp.call(coroutine, [...capNames, ...decls.map((d) => d.name!)].map(cpp.id));
-      lambda = cpp.lambda(captures, decls, [cpp.ret(call)], { ret: retType });
-    } else {
-      lambda = cpp.lambda(captures, decls, inner.body(), { ret: retType, mutable: true });
-    }
-    return {
-      c: cpp.construct(this.reg.cppType(fnType), [views.enterMount(this, node, lambda)]),
-      t: fnType,
-    };
-  }
-
-  /**
-   * A C++ lambda without parameters whose body `write` emits with a nested
-   * emitter, capturing `extra` and the locals `node` reads: code that runs
-   * later over an expression, such as an effect keeping its value.
-   */
-  lambdaOver(
-    node: ts.Node,
-    extra: cpp.Capture[],
-    write: (inner: FnEmitter) => void,
-    /** More code the lambda runs (what a helper's user gives it): its locals are captured too. */
-    also: readonly ts.Node[] = [],
-  ): cpp.Expr {
-    const inner = new FnEmitter(
-      this.ctx,
-      {
-        ...this.opts,
-        async: false,
-        generator: false,
-        returnType: T.void,
-        task: false,
-      },
-      this.allScopes(),
-    );
-    const captures = [...extra];
-    const seen = new Set<string>();
-    const visit = (n: ts.Node): void => {
-      const sym = ts.isIdentifier(n) ? symbolOf(this.checker, n) : undefined;
-      const local = sym && this.findLocal(sym);
-
-      if (local && !seen.has(local.cpp)) {
-        seen.add(local.cpp);
-        captures.push(local.cpp);
-      }
-
-      ts.forEachChild(n, visit);
-    };
-
-    visit(node);
-    for (const n of also) visit(n);
-    write(inner);
-
-    return cpp.lambda(captures, [], inner.body(), { mutable: true });
-  }
-
   /** Parameter infos for a function-like node with a known function type. */
   paramInfos(node: FunctionLike, fnType: LType & { k: "fn" }): ParamInfo[] {
     return node.parameters.map((p, i) => {
@@ -839,123 +594,22 @@ export class FnEmitter {
     });
   }
 
-  /** Statements of a function body, plus the implicit return at the end. */
-  emitFunctionBody(node: FunctionLike): void {
-    const body = node.body;
-    if (!body) return;
-    // A setup's code is checked against what its toolkit body takes before any of it is written.
-    const setup = this.ctx.setups.get(node);
-    if (setup) liftedStatements(this, setup);
-    const facts = inferIntegers(body, {
-      checker: this.checker,
-      // Locals of code this target never runs are not lowered: their types stay out of its output.
-      candidate: (d, sym) =>
-        this.runsHere(d) && !this.ctx.capture.isBoxed(sym) && this.isNumberLocal(d, sym),
-      isBoxed: (sym) => this.ctx.capture.isBoxed(sym),
-      isMath: (id) => builtins.isMathGlobal(this, id),
-    });
-    this.ints = facts.locals;
-    for (const c of facts.counters) this.counters.add(c);
-    const ret = this.opts.returnType;
-    if (ts.isBlock(body)) {
-      this.hoistFunctions(body.statements);
-      this.statements(body.statements);
-      const last = body.statements[body.statements.length - 1];
-      // After a using declaration, a final return is routed through its disposal.
-      const endsInReturn =
-        last &&
-        (ts.isReturnStatement(last) || ts.isThrowStatement(last)) &&
-        !body.statements.some((x) => ts.isVariableStatement(x) && isUsing(x.declarationList));
-      if (!endsInReturn && !this.opts.generator) {
-        const unreachable = cpp.exprStmt(cpp.call("lucent::unreachable"));
-        const undef = cpp.id("lucent::undefined");
-        if (this.opts.async) {
-          if (isVoidish(ret)) this.emit(cpp.coReturn());
-          else if (ret.k === "opt") this.emit(cpp.coReturn(undef));
-          else this.emit(unreachable);
-        } else if (ret.k === "opt") {
-          this.emit(cpp.ret(undef));
-        } else if (!isVoidish(ret)) {
-          this.emit(unreachable);
-        }
-      }
-    } else {
-      // Expression body.
-      if (isVoidish(ret)) {
-        const e = this.expr(body);
-        this.emit(cpp.exprStmt(e.c));
-        if (this.opts.async) this.emit(cpp.coReturn());
-      } else if (this.diverges(body)) {
-        // It throws: there is no value to return.
-        this.emit(...this.diverging(this.expr(body)));
-      } else {
-        let e = this.expr(body, ret);
-        if (this.opts.async && e.t.k === "promise" && ret.k !== "promise")
-          e = { c: cpp.coAwait(e.c), t: e.t.inner };
-        const value = this.coerce(e, ret, body);
-        this.emit(this.opts.async ? cpp.coReturn(value) : cpp.ret(value));
-      }
-    }
-
-    // A body that never awaits, returns or yields (it only throws, or does no more) would be a
-    // plain C++ function, whose throw reaches the caller. A co_return after it makes it a
-    // coroutine: what it throws rejects its promise, or runs at a generator's first next().
-    if ((this.opts.async || this.opts.generator) && !isCoroutine(this.out[0]!))
-      this.emit(cpp.coReturn(isVoidish(ret) ? undefined : this.unreachable(ret)));
+  /** A nested function as a function value, `target` the type it becomes: the IR's closure. */
+  closure(
+    node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
+    _target?: LType,
+  ): E {
+    throw new CompileError(node, Codes.UnsupportedSyntax, "a function value outside the IR");
   }
 
-  private hoistFunctions(stmts: ts.NodeArray<ts.Statement>): void {
-    // Nested function declarations are hoisted: declare them all first
-    // (those after a guard clause that exits on this target are never reached).
-    const fns = stmts
-      .filter(ts.isFunctionDeclaration)
-      .filter((f) => this.runsHere(f) && !isViewHelper(this.checker, f));
-    for (const f of fns) {
-      const sym = this.checker.getSymbolAtLocation(f.name!)!;
-      const t = this.lt(f);
-      const l = this.declare(sym, f.name!.text, t);
-      l.boxed = true;
-      this.emit(cpp.varDecl(cpp.type("lucent::Box", this.reg.cppType(t)), l.cpp));
-    }
-    // A function that captures a variable declared later in this block is
-    // defined where it is written (the variable is in its temporal dead zone
-    // before that anyway); the others are available from the block's start.
-    const laterDecls = new Set<ts.Symbol>();
-    for (const st of stmts) {
-      if (!ts.isVariableStatement(st)) continue;
-      for (const d of st.declarationList.declarations) {
-        const names: ts.Identifier[] = [];
-        const collect = (n: ts.Node): void => {
-          if (
-            ts.isIdentifier(n) &&
-            (ts.isVariableDeclaration(n.parent) || ts.isBindingElement(n.parent))
-          )
-            names.push(n);
-          ts.forEachChild(n, collect);
-        };
-        collect(d.name);
-        for (const id of names) {
-          const sym = this.checker.getSymbolAtLocation(id);
-          if (sym) laterDecls.add(sym);
-        }
-      }
-    }
-    for (const f of fns) {
-      if (freeVariables(this.checker, f).some((v) => laterDecls.has(v))) {
-        this.deferredFns.add(f);
-        continue;
-      }
-      this.defineFunction(f);
-    }
+  /** An ambient of the IR's function (a setup's mount): what only the IR's leaves name. */
+  ambient(name: string, _node: ts.Node): E {
+    throw new Error(`the ambient ${name} outside the IR`);
   }
 
-  private readonly deferredFns = new Set<ts.FunctionDeclaration>();
-
-  private defineFunction(f: ts.FunctionDeclaration): void {
-    const sym = this.checker.getSymbolAtLocation(f.name!)!;
-    const l = this.findLocal(sym)!;
-    const e = this.closure(f);
-    this.emit(cpp.exprStmt(cpp.assign(cpp.deref(cpp.id(l.cpp)), e.c)));
+  /** A function computing `node` later (an effect's): what only the IR's leaves make. */
+  thunk(_node: ts.Expression, _thunk?: Thunk): E {
+    throw new Error("a thunk outside the IR");
   }
 
   /** The object `this` is, as a reference (`self` in closures and coroutines). */
@@ -963,207 +617,7 @@ export class FnEmitter {
     return this.opts.thisRef ? cpp.id(this.opts.thisRef) : cpp.call("lucent::selfRef", [cpp.self]);
   }
 
-  // --- statements --------------------------------------------------------------------
-
-  stmt(s: ts.Statement): void {
-    // After a guard clause that exits on this target: code another platform runs; a toolkit's.
-    // A helper view the setup declares is its toolkit's code (ui/view-helpers.ts).
-    if (!this.runsHere(s) || liftedStatement(this, s) || helperStatement(this.checker, s)) return;
-    this.ctx.guard(() => this.stmtInner(s));
-  }
-
-  /**
-   * Whether this target runs `node`, by the platform branches, cases and
-   * guard clauses around it; the host runs no platform's code.
-   */
-  runsHere(node: ts.Node): boolean {
-    const p = branchPlatform(this.checker, node);
-    return p === undefined || p === this.ctx.platform;
-  }
-
-  private lineDirective(node: ts.Node): void {
-    const sf = node.getSourceFile();
-    const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
-    // Absolute, so debuggers and crash symbolication open the source file.
-    this.emit(cpp.lineDirective(line + 1, sourcePath(sf.fileName)));
-  }
-
-  private stmtInner(s: ts.Statement): void {
-    if (!ts.isBlock(s) && !ts.isFunctionDeclaration(s)) this.lineDirective(s);
-    switch (s.kind) {
-      case ts.SyntaxKind.Block: {
-        this.emit(cpp.block(this.nested(s)));
-        return;
-      }
-      case ts.SyntaxKind.EmptyStatement:
-        return;
-      case ts.SyntaxKind.FunctionDeclaration:
-        if (this.deferredFns.has(s as ts.FunctionDeclaration))
-          this.defineFunction(s as ts.FunctionDeclaration);
-        return; // otherwise hoisted
-      case ts.SyntaxKind.VariableStatement:
-        return this.varStatement((s as ts.VariableStatement).declarationList);
-      case ts.SyntaxKind.ExpressionStatement: {
-        const x = (s as ts.ExpressionStatement).expression;
-        if (ts.isYieldExpression(x)) return this.yieldStmt(x);
-        const e = this.expr(ts.isVoidExpression(x) ? x.expression : x);
-        this.emit(cpp.exprStmt(cpp.cast("c", cpp.voidType, e.c)));
-        return;
-      }
-      case ts.SyntaxKind.ReturnStatement:
-        return this.returnStmt(s as ts.ReturnStatement);
-      case ts.SyntaxKind.IfStatement:
-        return this.ifStmt(s as ts.IfStatement);
-      case ts.SyntaxKind.WhileStatement:
-        return this.whileStmt(s as ts.WhileStatement, []);
-      case ts.SyntaxKind.DoStatement:
-        return this.doStmt(s as ts.DoStatement, []);
-      case ts.SyntaxKind.ForStatement:
-        return this.forStmt(s as ts.ForStatement, []);
-      case ts.SyntaxKind.ForOfStatement:
-        return this.forOfStmt(s as ts.ForOfStatement, []);
-      case ts.SyntaxKind.ForInStatement:
-        return this.forInStmt(s as ts.ForInStatement, []);
-      case ts.SyntaxKind.SwitchStatement:
-        return this.switchStmt(s as ts.SwitchStatement, []);
-      case ts.SyntaxKind.LabeledStatement:
-        return this.labeled(s as ts.LabeledStatement);
-      case ts.SyntaxKind.BreakStatement:
-        return this.jump("break", (s as ts.BreakStatement).label?.text, s);
-      case ts.SyntaxKind.ContinueStatement:
-        return this.jump("continue", (s as ts.ContinueStatement).label?.text, s);
-      case ts.SyntaxKind.ThrowStatement:
-        return this.throwStmt(s as ts.ThrowStatement);
-      case ts.SyntaxKind.TryStatement:
-        return this.tryStmt(s as ts.TryStatement);
-      case ts.SyntaxKind.TypeAliasDeclaration:
-      case ts.SyntaxKind.InterfaceDeclaration:
-        return;
-      case ts.SyntaxKind.ClassDeclaration:
-        fail(s, Codes.UnsupportedSyntax, "classes must be declared at the top level of a module");
-      default:
-        fail(s, Codes.UnsupportedSyntax, `unsupported statement: ${ts.SyntaxKind[s.kind]}`);
-    }
-  }
-
-  private varStatement(list: ts.VariableDeclarationList): void {
-    if (!(list.flags & (ts.NodeFlags.Let | ts.NodeFlags.Const))) {
-      for (const d of list.declarations) this.ctx.markFailed(d.name);
-      fail(list, Codes.UnsupportedSyntax, "use `let` or `const` instead of `var`");
-    }
-    for (const d of list.declarations) this.declaration(d, !!(list.flags & ts.NodeFlags.Const));
-  }
-
-  /** One variable of a `let`, `const` or `using` declaration. */
-  private declaration(d: ts.VariableDeclaration, isConst = true): void {
-    if (ts.isIdentifier(d.name)) {
-      const sym = this.checker.getSymbolAtLocation(d.name)!;
-      let declared: LType;
-      try {
-        declared = this.reg.lower(this.checker.getTypeOfSymbolAtLocation(sym, d.name), d.name);
-      } catch (e) {
-        this.ctx.failed.add(sym);
-        throw e;
-      }
-      const type = declared.k === "never" ? T.undefined : declared;
-
-      // `const s: string = fail()` throws before `s` has a value: it is declared without one.
-      if (d.initializer && this.diverges(d.initializer)) {
-        this.emit(...this.diverging(this.expr(d.initializer)));
-        this.declareVar(sym, d.name.text, type, undefined);
-        return;
-      }
-
-      if (this.ctx.capture.isBoxed(sym)) {
-        // Declare the box first so a closure in the initializer can refer
-        // to the variable itself (recursive arrows).
-        const l = this.declareVar(sym, d.name.text, type, undefined);
-        if (d.initializer)
-          this.emit(
-            cpp.exprStmt(cpp.assign(cpp.deref(cpp.id(l.cpp)), this.exprAs(d.initializer, type))),
-          );
-        return;
-      }
-      const kind = this.counters.has(sym)
-        ? "i64"
-        : type.k === "number"
-          ? this.ints.get(sym)
-          : undefined;
-      if (kind && d.initializer) {
-        const init = this.toKind(this.expr(d.initializer, T.number), kind, d);
-        const l = this.declare(sym, d.name.text, type);
-        l.int = kind;
-        this.emit(cpp.varDecl(cpp.type(INT_CPP[kind]), l.cpp, init));
-        return;
-      }
-      let init: cpp.Expr | undefined;
-      try {
-        init = d.initializer ? this.exprAs(d.initializer, type) : undefined;
-      } catch (e) {
-        // Declared anyway, so later uses do not also report it as unknown.
-        this.declareVar(sym, d.name.text, type, undefined);
-        throw e;
-      }
-      this.declareVar(sym, d.name.text, type, init);
-      return;
-    }
-    if (!d.initializer)
-      fail(d, Codes.UnsupportedDestructuring, "destructuring requires an initializer");
-    const e = this.expr(d.initializer);
-    const tmp = this.ctx.fresh("d");
-    this.emit(cpp.varDecl(this.reg.cppType(e.t), tmp, e.c));
-    this.bindPattern(d.name, { c: cpp.id(tmp), t: e.t }, isConst);
-  }
-
-  /** Declares the variables of a destructuring pattern from `source`. */
-  bindPattern(pattern: ts.BindingName, source: E, _isConst: boolean): void {
-    if (ts.isIdentifier(pattern)) {
-      const sym = this.checker.getSymbolAtLocation(pattern)!;
-      const type = this.reg.lower(this.checker.getTypeOfSymbolAtLocation(sym, pattern), pattern);
-      this.declareVar(sym, pattern.text, type, this.coerce(source, type, pattern));
-      return;
-    }
-    if (ts.isObjectBindingPattern(pattern)) {
-      for (const el of pattern.elements) {
-        if (el.dotDotDotToken)
-          fail(el, Codes.UnsupportedDestructuring, "object rest in destructuring is not supported");
-        const key = el.propertyName ?? (el.name as ts.Identifier);
-        if (!ts.isIdentifier(key) && !ts.isStringLiteral(key))
-          fail(
-            el,
-            Codes.UnsupportedDestructuring,
-            "computed keys in destructuring are not supported",
-          );
-        const name = key.text;
-        let v = this.member(source, name, el);
-        if (el.initializer) v = this.withDefault(v, el.initializer, el);
-        this.bindPattern(el.name, v, _isConst);
-      }
-      return;
-    }
-    // Array pattern
-    pattern.elements.forEach((el, i) => {
-      if (ts.isOmittedExpression(el)) return;
-      if (el.dotDotDotToken) {
-        if (source.t.k !== "array")
-          fail(el, Codes.UnsupportedDestructuring, "rest elements need an array");
-        const rest = cpp.call(cpp.dot(source.c, "slice"), [numberExpr(i)]);
-        this.bindPattern(el.name, { c: rest, t: source.t }, _isConst);
-        return;
-      }
-      let v: E;
-      const st = stripOpt(source.t);
-      if (st.k === "tuple") v = { c: cpp.call("std::get", [source.c], [cpp.num(i)]), t: st.es[i]! };
-      else if (st.k === "array")
-        v = {
-          c: cpp.call(cpp.dot(source.c, "get"), [numberExpr(i)]),
-          t: unionOf([st.e, T.undefined]),
-        };
-      else fail(el, Codes.UnsupportedDestructuring, `cannot destructure ${typeKey(source.t)}`);
-      if (el.initializer) v = this.withDefault(v, el.initializer, el);
-      this.bindPattern(el.name, v, _isConst);
-    });
-  }
+  // --- iteration and platforms ----------------------------------------------------
 
   private withDefault(v: E, init: ts.Expression, node: ts.Node): E {
     if (v.t.k !== "opt") return v;
@@ -1177,102 +631,6 @@ export class FnEmitter {
       this.coerce({ c: tmp, t: v.t }, target, node),
     );
     return { c: cpp.statementExpr([cpp.varDecl(cpp.auto, tmpName, v.c)], pick), t: target };
-  }
-
-  private returnStmt(s: ts.ReturnStatement): void {
-    const ret = this.opts.returnType;
-    const co = this.opts.async || this.opts.generator;
-    if (this.opts.generator && s.expression)
-      fail(s, Codes.UnsupportedSyntax, "generators cannot return a value; use `return;`");
-    // `return fail()` throws: there is no value to return, or to route through finally blocks.
-    if (s.expression && !isVoidish(ret) && this.diverges(s.expression)) {
-      this.emit(...this.diverging(this.expr(s.expression)));
-      return;
-    }
-
-    let value: cpp.Expr | undefined;
-    if (s.expression) {
-      let e = this.expr(s.expression, ret);
-      // `return promise` in an async function returns the promised value.
-      if (this.opts.async && e.t.k === "promise" && ret.k !== "promise")
-        e = { c: cpp.coAwait(e.c), t: isVoidish(e.t.inner) ? T.undefined : e.t.inner };
-      if (isVoidish(ret)) {
-        if (!(e.c.k === "id" && e.c.name === "lucent::undefined")) this.emit(cpp.exprStmt(e.c));
-      } else value = this.coerce(e, ret, s.expression);
-    } else if (!isVoidish(ret)) {
-      value = this.coerce({ c: cpp.id("lucent::undefined"), t: T.undefined }, ret, s);
-    }
-    // Route through enclosing finally blocks.
-    const fin = this.ctl.findLast((c) => c.kind === "finally");
-    if (fin) {
-      if (value !== undefined) {
-        if (!this.retVar) {
-          this.retVar = this.ctx.fresh("ret");
-          this.prologue.push(
-            cpp.varDecl(this.reg.cppType(ret), this.retVar, undefined, { style: "brace" }),
-          );
-        }
-        this.emit(cpp.exprStmt(cpp.assign(cpp.id(this.retVar), value)));
-      }
-      this.routeThroughFinally(fin, 1, () => this.emitReturnAfterFinally(fin));
-      return;
-    }
-    this.emit(co ? cpp.coReturn(value) : cpp.ret(value));
-  }
-
-  /** `yield x;` and `yield* iterable;` (a yield's own value is not supported). */
-  private yieldStmt(y: ts.YieldExpression): void {
-    if (!this.opts.generator) fail(y, Codes.UnsupportedSyntax, "`yield` outside a generator");
-    const elem = this.generatorElement(y);
-    if (!y.asteriskToken) {
-      const value = y.expression
-        ? this.exprAs(y.expression, elem)
-        : this.coerce({ c: cpp.id("lucent::undefined"), t: T.undefined }, elem, y);
-      this.emit({ k: "coYield", value });
-      return;
-    }
-    // Delegation: forward each value; closing the outer generator closes the inner one.
-    const src = this.iterExpr(this.expr(y.expression!), y.expression!);
-    const it = this.ctx.fresh("deleg");
-    const [v, close] = [cpp.id(`${it}_v`), cpp.id(`${it}_close`)];
-    const next = { c: cpp.call("std::move", [cpp.deref(v)]), t: src.e };
-    this.emit(
-      cpp.block([
-        cpp.varDecl(cpp.auto, it, src.c),
-        cpp.varDecl(
-          cpp.type("lucent::IterCloser", this.reg.cppType(src.e)),
-          `${it}_close`,
-          cpp.id(it),
-          {
-            style: "construct",
-          },
-        ),
-        {
-          k: "for",
-          body: [
-            cpp.varDecl(cpp.auto, `${it}_v`, cpp.call(cpp.arrow(cpp.id(it), "next"))),
-            cpp.ifStmt(cpp.not(v), [
-              cpp.exprStmt(cpp.call(cpp.dot(close, "exhausted"))),
-              { k: "break" },
-            ]),
-            { k: "coYield", value: this.coerce(next, elem, y) },
-          ],
-        },
-      ]),
-    );
-  }
-
-  /** The element type the current generator yields. */
-  private generatorElement(node: ts.Node): LType {
-    let fn: ts.Node | undefined = node.parent;
-    while (fn && !ts.isFunctionLike(fn)) fn = fn.parent;
-    const sig = fn
-      ? this.checker.getSignatureFromDeclaration(fn as ts.SignatureDeclaration)
-      : undefined;
-    const ret = sig ? this.reg.lower(this.checker.getReturnTypeOfSignature(sig), node) : undefined;
-    if (!ret || ret.k !== "iter")
-      fail(node, Codes.UnsupportedSyntax, "annotate generators with Generator<T> or Iterable<T>");
-    return ret.e;
   }
 
   /** Any iterable as an Iter<T>. */
@@ -1319,29 +677,6 @@ export class FnEmitter {
     fail(node, Codes.UnsupportedLoop, `${typeKey(e.t)} is not iterable`);
   }
 
-  private emitReturnAfterFinally(fin: ControlEntry): void {
-    const idx = this.ctl.indexOf(fin);
-    const outer = this.ctl.slice(0, idx).findLast((c) => c.kind === "finally");
-    const co = this.opts.async || this.opts.generator;
-    if (outer) {
-      this.routeThroughFinally(outer, 1, () => this.emitReturnAfterFinally(outer));
-      return;
-    }
-    const value = this.retVar ? cpp.id(this.retVar) : undefined;
-    this.emit(co ? cpp.coReturn(value) : cpp.ret(value));
-  }
-
-  /** Sets the finally completion code and jumps to the finally block. */
-  private routeThroughFinally(fin: ControlEntry, code: number, after: () => void): void {
-    if (!fin.pending!.has(code)) fin.pending!.set(code, after);
-    this.emit(
-      cpp.block([
-        cpp.exprStmt(cpp.assign(cpp.id(fin.finVar!), cpp.num(code))),
-        { k: "goto", label: fin.finLabel! },
-      ]),
-    );
-  }
-
   /** Code that runs on iOS or Android only, reached on the host: throws, typed as `cpp`. */
   platformOnly(node: ts.Node, type: cpp.Type): cpp.Expr {
     const sf = node.getSourceFile();
@@ -1350,577 +685,7 @@ export class FnEmitter {
     return cpp.call("lucent::platformOnly", [stringExpr(message)], [type]);
   }
 
-  private ifStmt(s: ts.IfStatement): void {
-    // `if (PLATFORM === "ios" && …)`: what this target can run; the host has neither platform.
-    const guard = platformGuard(this.checker, s.expression);
-    if (guard && !this.ctx.platform)
-      return this.emit(cpp.exprStmt(this.platformOnly(s, cpp.voidType)));
-    if (guard && (guard.platform !== this.ctx.platform || !guard.rest.length)) {
-      const live = guard.platform === this.ctx.platform ? s.thenStatement : s.elseStatement;
-      if (live) this.emit(cpp.block(this.nested(live)));
-      return;
-    }
-    const test = guard ? cpp.and(...guard.rest.map((r) => this.cond(r))) : this.cond(s.expression);
-    const body = this.nested(s.thenStatement);
-    this.emit(cpp.ifStmt(test, body, s.elseStatement ? this.nested(s.elseStatement) : undefined));
-  }
-
-  /** A statement as a block body (without extra braces for blocks), in a scope of its own. */
-  private nested(s: ts.Statement, before?: () => void): cpp.Stmt[] {
-    return this.collect(() => {
-      this.pushScope();
-      before?.();
-      if (ts.isBlock(s)) {
-        this.hoistFunctions(s.statements);
-        this.statements(s.statements);
-      } else this.stmt(s);
-      this.popScope();
-    });
-  }
-
-  private loopEntry(labels: string[]): ControlEntry {
-    const e: ControlEntry = {
-      kind: "loop",
-      labels,
-      breakLabel: this.ctx.fresh("brk"),
-      continueLabel: this.ctx.fresh("cont"),
-    };
-    this.ctl.push(e);
-    return e;
-  }
-
-  /** A loop's body: its statements in a block, then the continue label when used. */
-  private loopBody(body: ts.Statement, entry: ControlEntry, before?: () => void): cpp.Stmt[] {
-    const inner = cpp.block(this.nested(body, before));
-    return entry.usedContinueLabel ? [inner, { k: "label", name: entry.continueLabel! }] : [inner];
-  }
-
-  private endLoop(entry: ControlEntry): void {
-    this.ctl.pop();
-    if (entry.usedBreakLabel) this.emit({ k: "label", name: entry.breakLabel! });
-  }
-
-  private whileStmt(s: ts.WhileStatement, labels: string[]): void {
-    const entry = this.loopEntry(labels);
-    const test = this.cond(s.expression);
-    this.emit({ k: "while", test, body: this.loopBody(s.statement, entry) });
-    this.endLoop(entry);
-  }
-
-  private doStmt(s: ts.DoStatement, labels: string[]): void {
-    const entry = this.loopEntry(labels);
-    const body = this.loopBody(s.statement, entry);
-    this.emit({ k: "doWhile", body, test: this.cond(s.expression) });
-    this.endLoop(entry);
-  }
-
-  private forStmt(s: ts.ForStatement, labels: string[]): void {
-    this.emit(cpp.block(this.collect(() => this.forLoop(s, labels))));
-  }
-
-  private forLoop(s: ts.ForStatement, labels: string[]): void {
-    this.pushScope();
-    const perIteration: { sym: ts.Symbol; name: string; local: Local }[] = [];
-    if (s.initializer) {
-      if (ts.isVariableDeclarationList(s.initializer)) {
-        this.varStatement(s.initializer);
-        // `let` loop variables captured by closures get a per-iteration copy.
-        for (const d of s.initializer.declarations) {
-          if (ts.isIdentifier(d.name)) {
-            const sym = this.checker.getSymbolAtLocation(d.name)!;
-            const l = this.findLocal(sym)!;
-            if (l.boxed && !assignedWithin(this.checker, s.statement, sym))
-              perIteration.push({ sym, name: d.name.text, local: l });
-          }
-        }
-      } else this.emit(cpp.exprStmt(this.expr(s.initializer).c));
-    }
-    const entry = this.loopEntry(labels);
-    const test = s.condition ? this.cond(s.condition) : cpp.bool(true);
-    const update = s.incrementor
-      ? cpp.cast("c", cpp.voidType, this.expr(s.incrementor).c)
-      : undefined;
-    const body = this.loopBody(s.statement, entry, () => {
-      for (const p of perIteration) {
-        const copy: Local = { cpp: `${p.local.cpp}_it`, type: p.local.type, boxed: true };
-        const box = cpp.type("lucent::Box", this.reg.cppType(p.local.type));
-        const value = cpp.deref(cpp.id(p.local.cpp));
-        this.emit(cpp.varDecl(box, copy.cpp, value, { style: "construct" }));
-        this.scopes[this.scopes.length - 1]!.set(p.sym, copy);
-      }
-    });
-    this.emit({ k: "for", test, ...(update ? { update } : {}), body });
-    this.endLoop(entry);
-    this.popScope();
-  }
-
-  private forOfStmt(s: ts.ForOfStatement, labels: string[]): void {
-    if (s.awaitModifier) fail(s, Codes.UnsupportedLoop, "`for await` is not supported");
-    const iterable = this.expr(s.expression);
-    const it = stripOpt(iterable.t);
-    const coll = this.ctx.fresh("coll");
-    const idx = this.ctx.fresh("i");
-    const [c, i] = [cpp.id(coll), cpp.id(idx)];
-    const size = cpp.type("size_t");
-    /** `for (size_t i = 0; i < n; i++)` over `items`. */
-    const counted = (items: cpp.Expr, body: cpp.Stmt[]): cpp.Stmt => ({
-      k: "for",
-      init: cpp.varDecl(size, idx, cpp.num(0)),
-      test: cpp.binary(i, "<", cpp.call(cpp.dot(items, "size"))),
-      update: cpp.postfix("++", i),
-      body,
-    });
-    const bindElem = (value: E) => {
-      const init = s.initializer;
-      if (ts.isVariableDeclarationList(init)) {
-        const d = init.declarations[0]!;
-        this.bindPattern(d.name, value, true);
-      } else {
-        this.emit(cpp.exprStmt(this.assignTo(init, value, init)));
-      }
-    };
-    const block = this.collect(() => {
-      this.emit(cpp.varDecl(cpp.auto, coll, iterable.c));
-      const entry = this.loopEntry(labels);
-      const body = (elem: E, head: cpp.Stmt[] = []) => [
-        ...head,
-        ...this.loopBody(s.statement, entry, () => bindElem(elem)),
-      ];
-      const at = (items: cpp.Expr) => cpp.call(cpp.dot(items, "at"), [i]);
-      if (it.k === "array" || it.k === "regexMatch") {
-        const items = it.k === "regexMatch" ? cpp.arrow(c, "items") : c;
-        const elem: E =
-          it.k === "regexMatch"
-            ? { c: at(items), t: unionOf([T.string, T.undefined]) }
-            : { c: at(c), t: it.e };
-        this.emit(counted(items, body(elem)));
-      } else if (it.k === "string") {
-        const cps = cpp.id(`${coll}_cps`);
-        this.emit(cpp.varDecl(cpp.auto, `${coll}_cps`, cpp.call("lucent::splitCodePoints", [c])));
-        this.emit(counted(cps, body({ c: at(cps), t: T.string })));
-      } else if (it.k === "bytes") {
-        this.emit(counted(c, body({ c: at(c), t: T.number })));
-      } else if (it.k === "map" || it.k === "set" || it.k === "dict") {
-        const table = cpp.call(cpp.dot(c, "table"));
-        const guard = cpp.nestedType(cpp.type("std::decay_t", cpp.decltype(table)), "Iterating");
-        this.emit(cpp.varDecl(guard, `${coll}_guard`, table, { style: "construct" }));
-        const slot = cpp.call(cpp.dot(table, "slot"), [i]);
-        const entryOf = (key: cpp.Type): cpp.Expr =>
-          cpp.construct(cpp.type("std::tuple", key, this.reg.cppType((it as { val: LType }).val)), [
-            cpp.dot(slot, "key"),
-            cpp.dot(slot, "value"),
-          ]);
-        const elem: E =
-          it.k === "set"
-            ? { c: cpp.dot(slot, "key"), t: it.e }
-            : it.k === "map"
-              ? { c: entryOf(this.reg.cppType(it.key)), t: { k: "tuple", es: [it.key, it.val] } }
-              : {
-                  c: entryOf(cpp.type("lucent::String")),
-                  t: { k: "tuple", es: [T.string, it.val] },
-                };
-        const live = cpp.ifStmt(cpp.not(cpp.call(cpp.dot(table, "slotLive"), [i])), [
-          { k: "continue" },
-        ]);
-        this.emit({
-          k: "for",
-          init: cpp.varDecl(size, idx, cpp.num(0)),
-          test: cpp.binary(i, "<", cpp.call(cpp.dot(table, "slotCount"))),
-          update: cpp.postfix("++", i),
-          body: body(elem, [live]),
-        });
-      } else if (it.k === "iter") {
-        // Leaving early (break, return, throw) closes the iterator, which runs
-        // a generator's finally blocks; running out does not.
-        const [v, close] = [cpp.id(`${coll}_v`), cpp.id(`${coll}_close`)];
-        const closer = cpp.type("lucent::IterCloser", this.reg.cppType(it.e));
-        this.emit(cpp.varDecl(closer, `${coll}_close`, c, { style: "construct" }));
-        const head = [
-          cpp.varDecl(cpp.auto, `${coll}_v`, cpp.call(cpp.arrow(c, "next"))),
-          cpp.ifStmt(cpp.not(v), [
-            cpp.exprStmt(cpp.call(cpp.dot(close, "exhausted"))),
-            { k: "break" },
-          ]),
-        ];
-        this.emit({
-          k: "for",
-          body: body({ c: cpp.call("std::move", [cpp.deref(v)]), t: it.e }, head),
-        });
-      } else {
-        fail(s.expression, Codes.UnsupportedLoop, `cannot iterate over ${typeKey(iterable.t)}`);
-      }
-      this.endLoop(entry);
-    });
-    this.emit(cpp.block(block));
-  }
-
-  private forInStmt(s: ts.ForInStatement, labels: string[]): void {
-    const obj = this.expr(s.expression);
-    const t = stripOpt(obj.t);
-    const keys = this.ctx.fresh("keys");
-    const idx = this.ctx.fresh("i");
-    const [k, i] = [cpp.id(keys), cpp.id(idx)];
-    const strings = cpp.type("lucent::Array", cpp.type("lucent::String"));
-    const block = this.collect(() => {
-      if (t.k === "dict") this.emit(cpp.varDecl(cpp.auto, keys, cpp.call(cpp.dot(obj.c, "keys"))));
-      else if (t.k === "struct") {
-        const names = this.reg.struct(t.id).fields.map((f) => stringExpr(f.name));
-        this.emit(cpp.varDecl(strings, keys, cpp.comma(...names), { style: "brace" }));
-      } else if (t.k === "array") {
-        const n = cpp.id("k");
-        this.emit(cpp.varDecl(strings, keys), {
-          k: "for",
-          init: cpp.varDecl(cpp.type("size_t"), "k", cpp.num(0)),
-          test: cpp.binary(n, "<", cpp.call(cpp.dot(obj.c, "size"))),
-          update: cpp.postfix("++", n),
-          body: [
-            cpp.exprStmt(
-              cpp.call(cpp.dot(k, "push"), [
-                cpp.call("lucent::numberToString", [cpp.staticCast(cpp.type("double"), n)]),
-              ]),
-            ),
-          ],
-        });
-      } else fail(s.expression, Codes.UnsupportedLoop, `cannot use for-in over ${typeKey(obj.t)}`);
-      const entry = this.loopEntry(labels);
-      const body = this.loopBody(s.statement, entry, () => {
-        const init = s.initializer;
-        const value: E = { c: cpp.call(cpp.dot(k, "at"), [i]), t: T.string };
-        if (ts.isVariableDeclarationList(init))
-          this.bindPattern(init.declarations[0]!.name, value, true);
-        else this.emit(cpp.exprStmt(this.assignTo(init, value, init)));
-      });
-      this.emit({
-        k: "for",
-        init: cpp.varDecl(cpp.type("size_t"), idx, cpp.num(0)),
-        test: cpp.binary(i, "<", cpp.call(cpp.dot(k, "size"))),
-        update: cpp.postfix("++", i),
-        body,
-      });
-      this.endLoop(entry);
-    });
-    this.emit(cpp.block(block));
-  }
-
-  private switchStmt(s: ts.SwitchStatement, labels: string[]): void {
-    const runs = switchPlatforms(this.checker, s);
-    if (runs) return this.platformSwitch(s, labels, runs);
-    const e = this.expr(s.expression);
-    const disc = this.hold(this.ctx.fresh("sw"), e);
-    const m = this.ctx.fresh("case");
-    const matched = cpp.id(m);
-    const block = this.collect(() => {
-      this.emit(...disc.run, cpp.varDecl(cpp.type("int"), m, cpp.num(-1)));
-      // The first case equal to the value, as JavaScript compares them (===).
-      const tests: { test: cpp.Expr; index: number }[] = [];
-      let defaultIndex = -1;
-      s.caseBlock.clauses.forEach((c, i) => {
-        if (ts.isDefaultClause(c)) {
-          defaultIndex = i;
-          return;
-        }
-        const v = this.expr(c.expression);
-        tests.push({ test: this.equality(disc.value, v, true, c.expression), index: i });
-      });
-      const pick = (index: number) => cpp.exprStmt(cpp.assign(matched, cpp.num(index)));
-      let chain: cpp.Stmt[] | undefined = defaultIndex >= 0 ? [pick(defaultIndex)] : undefined;
-      for (const { test, index } of tests.toReversed())
-        chain = [cpp.ifStmt(test, [pick(index)], chain)];
-      if (chain) this.emit(...chain);
-      const entry: ControlEntry = { kind: "switch", labels, breakLabel: this.ctx.fresh("brk") };
-      this.ctl.push(entry);
-      const cases = s.caseBlock.clauses.map((c, i) => ({
-        values: [cpp.num(i)],
-        body: [cpp.block(this.collect(() => this.clause(c)))],
-      }));
-      this.emit({
-        k: "switch",
-        on: matched,
-        cases: [...cases, { values: [], isDefault: true, body: [{ k: "break" }] }],
-      });
-      this.ctl.pop();
-      if (entry.usedBreakLabel) this.emit({ k: "label", name: entry.breakLabel! });
-    });
-    this.emit(cpp.block(block));
-  }
-
-  /** A case clause's statements, in a scope of their own. */
-  private clause(c: ts.CaseOrDefaultClause): void {
-    this.pushScope();
-    for (const x of c.statements) {
-      // Its scope would be the whole switch, disposed after the clauses that fall through.
-      if (ts.isVariableStatement(x) && isUsing(x.declarationList))
-        fail(x, Codes.UnsupportedSyntax, "wrap a using declaration in a case clause in a block");
-      this.stmt(x);
-    }
-    this.popScope();
-  }
-
-  /**
-   * `switch (PLATFORM)`: the clauses this target runs, in order (its case and
-   * what it falls through to), in a C++ switch that `break` leaves.
-   */
-  private platformSwitch(s: ts.SwitchStatement, labels: string[], runs: Platform[][]): void {
-    if (!this.ctx.platform) return this.emit(cpp.exprStmt(this.platformOnly(s, cpp.voidType)));
-    const target = this.ctx.platform;
-    const entry: ControlEntry = { kind: "switch", labels, breakLabel: this.ctx.fresh("brk") };
-    this.ctl.push(entry);
-    const body = s.caseBlock.clauses
-      .filter((_, i) => runs[i]!.includes(target))
-      .map((c) => cpp.block(this.collect(() => this.clause(c))));
-    this.emit({
-      k: "switch",
-      on: cpp.num(0),
-      cases: [
-        { values: [cpp.num(0)], body },
-        { values: [], isDefault: true, body: [{ k: "break" }] },
-      ],
-    });
-    this.ctl.pop();
-    if (entry.usedBreakLabel) this.emit({ k: "label", name: entry.breakLabel! });
-  }
-
-  private labeled(s: ts.LabeledStatement): void {
-    const labels = [s.label.text];
-    let inner: ts.Statement = s.statement;
-    while (ts.isLabeledStatement(inner)) {
-      labels.push(inner.label.text);
-      inner = inner.statement;
-    }
-    switch (inner.kind) {
-      case ts.SyntaxKind.WhileStatement:
-        return this.whileStmt(inner as ts.WhileStatement, labels);
-      case ts.SyntaxKind.DoStatement:
-        return this.doStmt(inner as ts.DoStatement, labels);
-      case ts.SyntaxKind.ForStatement:
-        return this.forStmt(inner as ts.ForStatement, labels);
-      case ts.SyntaxKind.ForOfStatement:
-        return this.forOfStmt(inner as ts.ForOfStatement, labels);
-      case ts.SyntaxKind.ForInStatement:
-        return this.forInStmt(inner as ts.ForInStatement, labels);
-      case ts.SyntaxKind.SwitchStatement:
-        return this.switchStmt(inner as ts.SwitchStatement, labels);
-      default: {
-        const entry: ControlEntry = { kind: "block", labels, breakLabel: this.ctx.fresh("brk") };
-        this.ctl.push(entry);
-        this.emit(cpp.block(this.nested(inner)));
-        this.ctl.pop();
-        if (entry.usedBreakLabel) this.emit({ k: "label", name: entry.breakLabel! });
-      }
-    }
-  }
-
-  private jump(kind: "break" | "continue", label: string | undefined, node: ts.Node): void {
-    // Find the target.
-    let targetIndex = -1;
-    for (let i = this.ctl.length - 1; i >= 0; i--) {
-      const c = this.ctl[i]!;
-      if (c.kind === "finally") continue;
-      if (label) {
-        if (c.labels.includes(label)) {
-          targetIndex = i;
-          break;
-        }
-      } else if (c.kind === "loop" || (kind === "break" && c.kind === "switch")) {
-        targetIndex = i;
-        break;
-      }
-    }
-    if (targetIndex < 0) fail(node, Codes.UnsupportedSyntax, `no target for ${kind}`);
-    this.emitJump(kind, targetIndex);
-  }
-
-  private emitJump(kind: "break" | "continue", targetIndex: number): void {
-    const target = this.ctl[targetIndex]!;
-    const between = this.ctl.slice(targetIndex + 1);
-    const fin = between.findLast((c) => c.kind === "finally");
-    if (fin) {
-      const code = (kind === "break" ? 100 : 200) + targetIndex;
-      this.routeThroughFinally(fin, code, () => this.emitJump(kind, targetIndex));
-      return;
-    }
-    // Plain C++ break/continue reach the innermost loop/switch.
-    const innermostLoopOrSwitch = between.filter((c) => c.kind === "loop" || c.kind === "switch");
-    if (kind === "break" && target.kind !== "block" && innermostLoopOrSwitch.length === 0) {
-      this.emit({ k: "break" });
-      return;
-    }
-    const loopsBetween = between.filter((c) => c.kind === "loop");
-    if (kind === "continue" && loopsBetween.length === 0) {
-      this.emit({ k: "continue" });
-      return;
-    }
-    if (kind === "break") {
-      target.usedBreakLabel = true;
-      this.emit({ k: "goto", label: target.breakLabel! });
-    } else {
-      target.usedContinueLabel = true;
-      this.emit({ k: "goto", label: target.continueLabel! });
-    }
-  }
-
-  private throwStmt(s: ts.ThrowStatement): void {
-    const e = this.expr(s.expression);
-    const t = stripOpt(e.t);
-    if (t.k === "error" || (t.k === "class" && this.reg.cls(t.id).isError))
-      this.emit(cpp.exprStmt(cpp.call("lucent::throwError", [e.c])));
-    else
-      fail(
-        s.expression,
-        Codes.UnsupportedThrow,
-        "only Error values can be thrown; use `throw new Error(...)`",
-      );
-  }
-
-  private tryStmt(s: ts.TryStatement): void {
-    this.emit(cpp.block(this.collect(() => this.tryBody(s))));
-  }
-
-  private tryBody(s: ts.TryStatement): void {
-    const guarded = () => {
-      if (!s.catchClause) return this.emit(...this.nested(s.tryBlock));
-      const exceptionPtr = cpp.type("std::exception_ptr");
-      const ex = this.ctx.fresh("ex");
-      this.emit(cpp.varDecl(exceptionPtr, ex));
-      this.emit({
-        k: "try",
-        body: this.nested(s.tryBlock),
-        catches: [
-          // iterator.return() unwinds a generator through finally blocks only.
-          {
-            param: cpp.param(cpp.reference(cpp.constType(cpp.type("lucent::GeneratorReturn")))),
-            body: [{ k: "throw" }],
-          },
-          { body: [cpp.exprStmt(cpp.assign(cpp.id(ex), cpp.call("std::current_exception")))] },
-        ],
-      });
-      const handler = this.collect(() => {
-        this.pushScope();
-        const v = s.catchClause!.variableDeclaration;
-        if (v) {
-          if (!ts.isIdentifier(v.name))
-            fail(v, Codes.UnsupportedDestructuring, "destructuring in catch is not supported");
-          const sym = this.checker.getSymbolAtLocation(v.name)!;
-          this.declareVar(
-            sym,
-            v.name.text,
-            T.error,
-            cpp.call("lucent::currentError", [cpp.id(ex)]),
-          );
-        }
-        this.statements(s.catchClause!.block.statements);
-        this.popScope();
-      });
-      this.emit(cpp.ifStmt(cpp.id(ex), handler));
-    };
-    if (!s.finallyBlock) return guarded();
-    this.withFinally(guarded, () => this.emit(cpp.block(this.nested(s.finallyBlock!))));
-  }
-
-  /**
-   * `guarded`, then `final` however `guarded` is left, as try/finally does:
-   * returns, breaks and continues out of it run `final` first, and an
-   * exception is rethrown after it. `final` gets the pending exception (null
-   * when there is none), which it may replace.
-   */
-  private withFinally(guarded: () => void, final: (pending: cpp.Expr) => void): void {
-    const fin: ControlEntry = {
-      kind: "finally",
-      labels: [],
-      finLabel: this.ctx.fresh("fin"),
-      finVar: this.ctx.fresh("fc"),
-      pending: new Map(),
-    };
-    const pending = cpp.id(`${fin.finVar}_ex`);
-    this.emit(
-      cpp.varDecl(cpp.type("int"), fin.finVar!, cpp.num(0)),
-      cpp.varDecl(cpp.type("std::exception_ptr"), `${fin.finVar}_ex`),
-    );
-    this.ctl.push(fin);
-    const body = this.collect(guarded);
-    this.ctl.pop();
-    this.emit(
-      {
-        k: "try",
-        body,
-        catches: [
-          { body: [cpp.exprStmt(cpp.assign(pending, cpp.call("std::current_exception")))] },
-        ],
-      },
-      { k: "label", name: fin.finLabel! },
-    );
-    final(pending);
-    this.emit(cpp.ifStmt(pending, [cpp.exprStmt(cpp.call("std::rethrow_exception", [pending]))]));
-    for (const [code, after] of fin.pending!)
-      this.emit(
-        cpp.ifStmt(cpp.binary(cpp.id(fin.finVar!), "==", cpp.num(code)), this.collect(after)),
-      );
-  }
-
-  /**
-   * A list of statements. A `using` declaration disposes its value however
-   * the rest of the list is left: the rest runs guarded, and disposing is
-   * its finally.
-   */
-  private statements(list: readonly ts.Statement[]): void {
-    for (const [i, s] of list.entries()) {
-      if (ts.isVariableStatement(s) && isUsing(s.declarationList)) {
-        this.lineDirective(s);
-        if ((s.declarationList.flags & ts.NodeFlags.AwaitUsing) === ts.NodeFlags.AwaitUsing)
-          fail(s, Codes.UnsupportedSyntax, "`await using` is not supported; use `using`");
-        return this.using(s.declarationList.declarations, () => this.statements(list.slice(i + 1)));
-      }
-      this.stmt(s);
-    }
-  }
-
-  /** `using a = …, b = …;` then `rest`: disposed in reverse, each whatever happens to the others. */
-  private using(decls: readonly ts.VariableDeclaration[], rest: () => void): void {
-    const [d, ...more] = decls;
-    if (!d) return rest();
-    if (!ts.isIdentifier(d.name))
-      fail(d, Codes.UnsupportedDestructuring, "a using declaration names one value");
-    this.declaration(d);
-    const value = this.expr(d.name);
-    this.withFinally(
-      () => this.using(more, rest),
-      (pending) => this.dispose(value, pending, d),
-    );
-  }
-
-  /**
-   * Disposes a `using` value (nothing for null or undefined). Disposing that
-   * throws while an exception is pending replaces it with a SuppressedError
-   * of both, as in JavaScript; otherwise its exception propagates.
-   */
-  private dispose(v: E, pending: cpp.Expr, node: ts.Node): void {
-    const t = stripOpt(v.t);
-    if (t.k === "null" || t.k === "undefined") return;
-    const present = v.t.k === "opt" ? this.coerce(v, t, node) : v.c;
-    const suppressed = cpp.call("lucent::suppressedError", [
-      cpp.call("std::current_exception"),
-      pending,
-    ]);
-    const call: cpp.Stmt = {
-      k: "try",
-      body: [cpp.exprStmt(builtins.disposeCall(this, { c: present, t }, node))],
-      catches: [
-        {
-          body: [
-            cpp.ifStmt(pending, [cpp.exprStmt(cpp.assign(pending, suppressed))], [{ k: "throw" }]),
-          ],
-        },
-      ],
-    };
-    this.emit(v.t.k === "opt" ? cpp.ifStmt(cpp.call(cpp.dot(v.c, "has")), [call]) : call);
-  }
-
   // --- expressions --------------------------------------------------------------------------
-
-  /** Makes `node` stand for `value` in what this emitter lowers after it (a helper's prop read). */
-  bind(node: ts.Node, value: E): void {
-    this.subst.set(node, value);
-  }
 
   expr(node: ts.Expression, hint?: LType): E {
     const s = this.subst.get(node);
@@ -2106,10 +871,7 @@ export class FnEmitter {
   }
 
   private template(node: ts.TemplateExpression): E {
-    return this.inOrder(
-      node.templateSpans.map((s) => s.expression),
-      () => this.templateInner(node),
-    );
+    return this.templateInner(node);
   }
 
   private templateInner(node: ts.TemplateExpression): E {
@@ -2274,7 +1036,7 @@ export class FnEmitter {
 
   /** ++x, x++, --x, x-- on locals, fields and elements. */
   private increment(target: ts.Expression, sign: "+" | "-", postfix: boolean, node: ts.Node): E {
-    return this.onTarget(target, undefined, () => this.incrementPlace(target, sign, postfix, node));
+    return this.incrementPlace(target, sign, postfix, node);
   }
 
   private incrementPlace(
@@ -2528,8 +1290,7 @@ export class FnEmitter {
         return { c: this.assignTo(node.left, value, node), t: lvType ?? value.t };
       };
 
-      // The target is written once: only a right side with effects can tell its parts' order.
-      return isSimple(node.right) ? assign() : this.onTarget(node.left, node.right, assign);
+      return assign();
     }
     const compound = ASSIGN_OPS.get(op);
     if (compound) return this.compoundAssign(node, compound);
@@ -2538,9 +1299,7 @@ export class FnEmitter {
       op === ts.SyntaxKind.BarBarEqualsToken ||
       op === ts.SyntaxKind.AmpersandAmpersandEqualsToken
     )
-      return this.onTarget(node.left, isSimple(node.right) ? undefined : node.right, () =>
-        this.logicalAssign(node, op),
-      );
+      return this.logicalAssign(node, op);
     switch (op) {
       case ts.SyntaxKind.AmpersandAmpersandToken:
       case ts.SyntaxKind.BarBarToken:
@@ -2569,7 +1328,7 @@ export class FnEmitter {
         fail(node, Codes.UnsupportedOperator, "`in` is only supported on records");
       }
     }
-    return this.inOrder([node.left, node.right], () => this.binaryOp(node, op));
+    return this.binaryOp(node, op);
   }
 
   private binaryOp(node: ts.BinaryExpression, op: ts.SyntaxKind): E {
@@ -2812,9 +1571,25 @@ export class FnEmitter {
     const readFirst =
       !isSimple(node.right) && !this.unchangedBy(unwrapTarget(node.left), node.right);
 
-    return this.onTarget(node.left, readFirst ? node.right : undefined, () =>
-      readFirst ? this.readThenAssign(node, op) : this.assignInPlace(node, op),
-    );
+    return readFirst ? this.readThenAssign(node, op) : this.assignInPlace(node, op);
+  }
+
+  /**
+   * `e`, run into a temporary named `name`, and the value that reads it.
+   * Integers stay integers. A call that returns nothing, or always throws,
+   * has no value to hold: it runs, and reads as undefined.
+   */
+  private hold(name: string, e: E): { run: cpp.Stmt[]; value: E } {
+    if (isVoidish(e.t) && !isPure(e.c))
+      return {
+        run: e.t.k === "never" ? this.diverging(e) : [cpp.exprStmt(e.c)],
+        value: { c: cpp.id("lucent::undefined"), t: e.t },
+      };
+
+    return {
+      run: [cpp.varDecl(cpp.auto, name, e.int ? e.int.c : e.c)],
+      value: e.int ? this.intE(cpp.id(name), e.int.kind) : { c: cpp.id(name), t: e.t },
+    };
   }
 
   /** `target op= value` as: read the target, run the right side, combine, store. */
@@ -3186,15 +1961,7 @@ export class FnEmitter {
     if (node.expression.kind === ts.SyntaxKind.SuperKeyword)
       return builtins.superMember(this, node.name.text, node);
 
-    const read = () => this.member(this.receiver(node.expression), node.name.text, node);
-
-    if (
-      awaits(node.expression) &&
-      native.declaredBySdk(this.checker.getSymbolAtLocation(node.name)?.valueDeclaration)
-    )
-      return this.awaitingFirst([node.expression], read);
-
-    return read();
+    return this.member(this.receiver(node.expression), node.name.text, node);
   }
 
   /** The object of a member access; `this` stays a raw pointer. */
@@ -3355,113 +2122,6 @@ export class FnEmitter {
   // --- calls ------------------------------------------------------------------------------
 
   /**
-   * C++ leaves the evaluation order of function arguments (and of `a + b`)
-   * unspecified; JavaScript evaluates left to right. When the order could be
-   * observed, arguments are evaluated into temporaries first.
-   */
-  protected inOrder(args: readonly ts.Expression[], build: () => E): E {
-    const candidates = args.filter(
-      (a) =>
-        !isLiteral(a) &&
-        !ts.isArrowFunction(a) &&
-        !ts.isFunctionExpression(a) &&
-        !this.subst.has(a),
-    );
-    if (candidates.length < 2 || candidates.every(isSimple)) return build();
-    return this.evaluatedFirst(
-      candidates.map((a) => (ts.isSpreadElement(a) ? a.expression : a)),
-      build,
-    );
-  }
-
-  /**
-   * `build()`, after evaluating `nodes` into temporaries, in order: while
-   * it runs, those nodes are their temporaries, so each runs exactly once.
-   */
-  protected evaluatedFirst(nodes: readonly ts.Expression[], build: () => E): E {
-    if (nodes.length === 0) return build();
-
-    const temps: cpp.Stmt[] = [];
-    const saved: ts.Expression[] = [];
-
-    try {
-      for (const target of nodes) {
-        const e = this.expr(target);
-        const { run, value } = this.hold(this.ctx.fresh("arg"), e);
-
-        temps.push(...run);
-        this.subst.set(target, value);
-        saved.push(target);
-      }
-
-      const r = build();
-
-      return {
-        c: cpp.statementExpr(temps, r.c),
-        t: r.t,
-        int: r.int && { c: cpp.statementExpr(temps, r.int.c), kind: r.int.kind },
-      };
-    } finally {
-      for (const s of saved) this.subst.delete(s);
-    }
-  }
-
-  /**
-   * `e`, run into a temporary named `name`, and the value that reads it.
-   * Integers stay integers. A call that returns nothing, or always throws,
-   * has no value to hold: it runs, and reads as undefined.
-   */
-  private hold(name: string, e: E): { run: cpp.Stmt[]; value: E } {
-    if (isVoidish(e.t) && !isPure(e.c))
-      return {
-        run: e.t.k === "never" ? this.diverging(e) : [cpp.exprStmt(e.c)],
-        value: { c: cpp.id("lucent::undefined"), t: e.t },
-      };
-
-    return {
-      run: [cpp.varDecl(cpp.auto, name, e.int ? e.int.c : e.c)],
-      value: e.int ? this.intE(cpp.id(name), e.int.kind) : { c: cpp.id(name), t: e.t },
-    };
-  }
-
-  /**
-   * `build()` for an SDK call, read or construction, whose glue runs in C++
-   * lambdas, where the calling coroutine cannot suspend: the operands up to
-   * the last one that awaits are evaluated first, in order.
-   */
-  protected awaitingFirst(operands: readonly ts.Expression[], build: () => E): E {
-    const last = operands.findLastIndex(awaits);
-
-    if (last < 0) return build();
-
-    const awaiting = operands[last]!;
-    const first = operands
-      .slice(0, last + 1)
-      .filter(
-        (o) =>
-          !ts.isSpreadElement(o) &&
-          !isFunctionLike(o) &&
-          (o === awaiting || !isSimple(o) || !this.unchangedBy(o, awaiting)),
-      );
-
-    return this.evaluatedFirst(first, build);
-  }
-
-  /**
-   * `build()` for an assignment to `target`, whose object and key are
-   * evaluated first and once, as JavaScript does: when they could have an
-   * effect, or when `later` (a right side that runs before the target is
-   * written) could change them.
-   */
-  protected onTarget(target: ts.Expression, later: ts.Expression | undefined, build: () => E): E {
-    const parts = targetParts(target).filter(
-      (p) => !isSimple(p) || (later && !this.unchangedBy(p, later)),
-    );
-
-    return this.evaluatedFirst(parts, build);
-  }
-
-  /**
    * Whether evaluating `node` cannot change what `name` names: it is a
    * literal, `this`, a class, enum or namespace, or a local that only its
    * function's own code writes, and `node` does not.
@@ -3486,27 +2146,8 @@ export class FnEmitter {
 
   private call(node: ts.CallExpression): E {
     if (isOptionalChain(node)) return this.chainPart(node).e;
-    const evaluated = computeOperands(this.checker, node) ?? node.arguments;
 
-    const run = () =>
-      evaluated.length >= 2
-        ? this.inOrder(evaluated, () => this.callInner(node))
-        : this.callInner(node);
-
-    let callee: ts.Expression = node.expression;
-    while (ts.isNonNullExpression(callee)) callee = callee.expression;
-    const operands = [
-      ...(ts.isPropertyAccessExpression(callee) ? [callee.expression] : []),
-      ...node.arguments,
-    ];
-
-    if (
-      operands.some(awaits) &&
-      native.declaredBySdk(this.checker.getResolvedSignature(node)?.declaration)
-    )
-      return this.awaitingFirst(operands, run);
-
-    return run();
+    return this.callInner(node);
   }
 
   private callInner(node: ts.CallExpression): E {
@@ -3631,14 +2272,7 @@ export class FnEmitter {
   }
 
   private newExpr(node: ts.NewExpression): E {
-    const args = node.arguments ?? [];
-
-    const run = () =>
-      args.length >= 2 ? this.inOrder(args, () => this.newInner(node)) : this.newInner(node);
-
-    if (args.some(awaits) && this.lt(node).k === "native") return this.awaitingFirst(args, run);
-
-    return run();
+    return this.newInner(node);
   }
 
   private newInner(node: ts.NewExpression): E {
@@ -3856,26 +2490,6 @@ function unwrapTarget(target: ts.Expression): ts.Expression {
     : target;
 }
 
-/**
- * What evaluating an assignment target runs before it is read or written:
- * its object and key (`super` names no value to evaluate).
- */
-function targetParts(target: ts.Expression): ts.Expression[] {
-  const t = unwrapTarget(target);
-  const parts = ts.isElementAccessExpression(t)
-    ? [t.expression, t.argumentExpression]
-    : ts.isPropertyAccessExpression(t)
-      ? [t.expression]
-      : [];
-
-  return parts.filter((p) => p.kind !== ts.SyntaxKind.SuperKeyword);
-}
-
-/** Whether evaluating `n` awaits: it is an `await`, or holds one outside nested functions. */
-function awaits(n: ts.Expression): boolean {
-  return ts.isAwaitExpression(n) || (!isFunctionLike(n) && containsAwait(n));
-}
-
 /** An expression without side effects (so evaluation order cannot be observed). */
 export function isSimple(n: ts.Expression): boolean {
   if (isLiteral(n) || ts.isIdentifier(n) || n.kind === ts.SyntaxKind.ThisKeyword) return true;
@@ -4078,8 +2692,3 @@ function unify(pattern: LType, actual: LType, map: Map<string, LType>): void {
 }
 
 export { containsAwait };
-
-/** `using` or `await using`. */
-function isUsing(list: ts.VariableDeclarationList): boolean {
-  return (list.flags & ts.NodeFlags.Using) !== 0;
-}

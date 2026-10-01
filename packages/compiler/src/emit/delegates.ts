@@ -1,7 +1,7 @@
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import { parseSdkType, type SdkMethodSchema, type SdkType } from "../sdk/schema.ts";
-import { cppIdent, type ClassInfo, type LType, T } from "../types.ts";
+import { cppIdent, type ClassInfo, type LType } from "../types.ts";
 import { memberName } from "./classes.ts";
 import type { LucentModule } from "../program.ts";
 import { cpp } from "@lucent-lang/codegen";
@@ -40,7 +40,7 @@ export function objcDelegate(
       Codes.UnsupportedClassFeature,
       "generic classes cannot implement SDK protocols",
     );
-  const em = new FnEmitter(ctx, { module, async: false, returnType: T.void });
+  const em = new FnEmitter(ctx, { module, async: false });
   for (const p of protocols) noteFramework(em, p.module);
   const objc = objcClassName(info);
   const self = cpp.type("lucent::Ref", cpp.type(`lucent_app::${info.cppName}`));

@@ -61,7 +61,9 @@ export type LType =
   /** A view's own value (lucent:ui's Signal): lucent::ui::Signal<inner>. */
   | { k: "signal"; inner: LType }
   /** A component's props parameter in its setup: each prop a signal, each event a route. */
-  | { k: "props"; component: string };
+  | { k: "props"; component: string }
+  /** The mount a setup runs in (lucent::ui::Content), which the functions it makes enter. */
+  | { k: "mount" };
 
 export const T = {
   number: { k: "number" } as LType,
@@ -1247,6 +1249,8 @@ export class TypeRegistry {
         return cpp.type("lucent::ui::Signal", this.cppType(t.inner));
       case "props":
         return cpp.type(this.componentProps(t.component));
+      case "mount":
+        return cpp.type("std::weak_ptr", cpp.type("lucent::ui::Content"));
     }
   }
 

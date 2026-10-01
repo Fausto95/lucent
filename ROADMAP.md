@@ -132,7 +132,7 @@ What's next, in order of readiness:
    [T49](#t49) and [T50](#t50).
 4. [T52](#t52) with [TA25](#ta25) and [TA26](#ta26): wrapper ports and the
    views preview (closes G3; needs physical devices).
-5. [T53](#t53) and [T60](#t60), which are ready and independent of the
+5. [T54](#t54) and [T60](#t60), which are ready and independent of the
    view work.
 6. A scope decision on [T51](#t51), which as written conflicts with the
    decision against a cross-platform view vocabulary.
@@ -247,11 +247,11 @@ Installed SDKs and linked dependencies ──► metadata readers ──► bind
   compute tasks and views are checked against facts rather than
   signatures. Lowering produces syntax trees from `packages/codegen`, one
   per output language, which printers write out; the emitters do not build
-  source text from strings. A semantic IR with a verifier carries the families
-  migrated so far (literals, locals, calls, branches, loops, unions, and
-  leaves such as member access and builtin calls as plans) behind an
-  internal selector; the rest still uses the original emitter
-  ([T53](#t53) finishes the migration).
+  source text from strings. A semantic IR with a verifier carries the whole
+  language: every function, method, constructor, module `init()`, compute
+  task variant and component setup lowers through it, with what it does
+  not model itself (member access, builtin and SDK calls) as plans the
+  emitter's leaf code writes.
 - **Order and numbers.** Evaluation order is explicit in the generated C++
   (one statement per ordered operation), never left to C++ argument order.
   Every build passes `-ffp-contract=off`, because JavaScript rounds
@@ -430,6 +430,17 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-02: Component setups lower through the IR.** A setup is
+lowered as functions are, its mount an ambient value of the IR that the
+functions it makes capture and enter (`closure.enters`), and a toolkit
+body's slots thunks: closures of each slot's expression, which the
+effects the toolkit code writes call. _Why:_ the setup's code is the
+program's, so it gets the IR's order, captures and verification; the
+toolkit glue keeps only what no TypeScript expression says (the host,
+the effects, the encoding). _Changed:_ the emitter's statement lowering,
+its lambdas over the setup's locals and its own evaluation-order helpers
+are removed: the IR orders evaluation, and leaves are expressions.
+
 **2026-10-01: The legacy emitter's function paths are retired.** Only the
 IR lowers functions, methods, constructors, modules' `init()` and task
 variants; `LUCENT_LOWERING` and its fallbacks are gone, and what the IR
@@ -456,7 +467,7 @@ existing code for that leaf, its subexpressions being named values.
 _Why:_ the builtin and SDK semantics are some 5,000 lines; writing them
 again for the IR would duplicate them, and the IR's job is order,
 control flow, places, closures, exceptions and suspension, not the C++
-spelling of each runtime call. _Changed:_ [T53](#t53) migrates by moving
+spelling of each runtime call. _Changed:_ T53 migrates by moving
 structure into the IR and keeping leaves where they are; once every
 function goes through the IR, the emitter keeps its leaf code and loses
 its statement and ordering code.
@@ -964,14 +975,13 @@ lists, gestures, media, background targets), the distribution matrix, the
 no-catalog audit, stress tests, physical-device budgets, complete docs and a
 green CI. The gate closes with T67.
 
-T53 and T60 are ready now, and so is making CI green on main. The rest
+T54 and T60 are ready now, and so is making CI green on main. The rest
 follow G1 and G3 work. Several tasks need physical devices, which only the
 maintainer can run.
 
 | Task                    | Title                                                           | Needs                                     | Status               |
 | ----------------------- | --------------------------------------------------------------- | ----------------------------------------- | -------------------- |
-| [T53](#t53)             | Finish the semantic IR migration                                | —                                         | in progress          |
-| [T54](#t54)             | Implement measured compiler and runtime optimizations           | T53                                       | waiting              |
+| [T54](#t54)             | Implement measured compiler and runtime optimizations           | —                                         | ready                |
 | [T55](#t55)             | Implement native recycled and virtualized lists                 | T49, T50, T52                             | waiting (maintainer) |
 | [T56](#t56)             | Add native gestures and frame-driven animation facilities       | T51, T52                                  | waiting (maintainer) |
 | [T59](#t59)             | Prove media pipelines, high-rate streams and callback executors | T52                                       | waiting (maintainer) |
@@ -987,118 +997,6 @@ maintainer can run.
 
 The Needs column lists only open dependencies.
 
-<a id="t53"></a>
-
-### T53: Finish the semantic IR migration
-
-**Goal:** Give the whole supported language one verified semantic pipeline
-before code generation.
-
-- **Status:** in progress.
-- **Area:** Compiler.
-- **Needs:** T18 (done), T19 (done), T20 (done).
-- **Verify:** V1, V2, V3, V4, V7.
-- **Where:** The remaining lowering families; coordinate emitters the UI
-  work uses.
-
-- [x] Migrate objects, classes and interfaces, closure boxes and captures,
-      generic specialization, exceptions and `finally`, `using`, generators
-      and async lowering. Done: every function, method, accessor,
-      constructor, module `init()` and task variant lowers through the
-      IR; generics stay C++ templates their callers instantiate.
-- [x] Preserve coroutine capture ownership, `finally` completion behavior,
-      reentrancy effects, and explicit exceptional and suspension edges.
-      Done: `try` and `await` are operations of the IR; coroutine
-      closures take their captures as parameters; the async, generator,
-      using and compute cases pass under `SANITIZE=1`.
-- [ ] Move the remaining native and boundary operations onto shared binding
-      and IR plans; remove duplicate semantic logic and temporary old-path
-      fallbacks once proven. Done for everything but component setups:
-      native and builtin operations are the IR's plans, written once by
-      the emitter's leaf code, and the fallbacks and the
-      `LUCENT_LOWERING` selector are gone. Setups (behind `LUCENT_VIEWS`)
-      still lower their statements with the emitter's own code.
-- [x] Run the full differential corpus, old/new comparison during migration,
-      platform glue tests and the current performance budgets before
-      retiring the old emitter. Done: e2e 53 of 53 under both lowerings,
-      the full compiler suite and its platform compile tests under the
-      IR, `bench --check`, and the bare app's `app-check` (51 of 51).
-- [x] Carried over from T30: compute task variants still go through the
-      legacy emitter under `LUCENT_LOWERING=ir`; move them onto the IR.
-      Done: a variant is the function lowered with `task`, each loop
-      iteration starting with a safepoint and its calls calling
-      variants; the compute case passes under `ir` and `SANITIZE=1`.
-
-**Done when:** the supported language has one verified semantic pipeline
-before output code generation.
-
-**Notes:**
-
-- What remains: component setups (`emit/setups.ts`, behind
-  `LUCENT_VIEWS=fabric`), whose toolkit bodies write statements and
-  lambdas over the setup's locals through the emitter; lowering them is
-  section 13.3's last step (setup and effects as IR operations plus UI
-  nodes), with the view work. Design reference: section 13.
-- Progress, measured during the migration (by a coverage script since
-  removed) over the e2e corpus (top-level functions lowered through the
-  IR):
-  - Before T53: 104 of 606.
-  - Leaves as plans (member reads and writes, runtime and SDK methods,
-    constructions, array and object literals, conversions, with the
-    operands first and in order), field and element compound
-    assignments, platform tests: 344 of 606. e2e 53 of 53 under both
-    `legacy` and `ir`.
-  - Closures (arrows, function expressions, nested function
-    declarations, captured copies and shared boxes, per-iteration `for`
-    variables), defaulted parameters, calls that never return, `as`:
-    411 of 606.
-  - `for … of`, `for … in`, destructuring of declarations, parameters,
-    loop heads and assignments: 446 of 606.
-  - `try`, `catch`, `finally` (jumps through it, rethrowing after it),
-    `using` with SuppressedError, Error subclasses thrown as themselves,
-    `instanceof` narrowing: 477 of 606.
-  - Optional chains, short-circuiting what follows a `?.`: 488 of 606.
-  - Generic functions, as C++ templates their callers instantiate (one
-    body per instantiation, as before; specializing hot ones is
-    [T54](#t54)'s): 507 of 606.
-  - Async functions and closures (`await` as an operation of its own,
-    captures passed to the coroutine), generators (`yield`, `yield*`):
-    584 of 606; the async, generator and using cases pass under
-    `SANITIZE=1`.
-  - Methods, accessors and static methods (the coverage counts them from
-    here, 681 units in all), a closure in a method capturing `this` as
-    `self`, pure operands a plan asks for out of order: 665 of 681.
-  - Constructors (parameter properties and field initializers before the
-    body, or right after `super(…)`), modules' `init()` (static fields,
-    then variables): 743 of 759.
-  - The long tail (an optional known absent, a union narrowed to a
-    derived class, switch cases the IR does not compare itself, steps
-    of `bigint | number`, compound assignments of what never comes, a
-    chain's own type, operands' type hints): 759 of 759, every e2e case
-    through the IR alone. Both example apps, for iOS, Android and the
-    host, lower every unit through the IR too (911, 912 and 879 for
-    the bare app), the `lucent-orbit` package left out until its
-    Android dependencies resolve on this machine.
-  - Compute task variants: 774 of 774.
-  - The legacy emitter's paths for functions, methods, constructors,
-    `init()` and task variants, its fallbacks and the `LUCENT_LOWERING`
-    selector are removed: what the IR cannot lower is a LUCENT
-    diagnostic.
-  - Implicit constructors (the base's construction on the arguments,
-    then the fields), destructured parameters with defaults: 803 of 803.
-    What the legacy emitter still writes: component setups.
-  - The IR is the default lowering (2026-10-01): the full compiler test
-    suite passes with it, as do e2e (53 of 53), the platform compile
-    tests, `bench --check` and the bare app's `app-check` (51 of 51, its
-    device build for iOS and Android and its host build in Hermes).
-  - Performance under `ir`: integer registers (the analysis's int
-    locals and `for` counters, literals, the int32 operators, `Math.imul`'s
-    integer form), reads of locals spelled in place rather than copied,
-    `s = s + x` appending in place, and pure operations written inline.
-    `scripts/bench.ts --check` passes under both lowerings, the IR at the
-    legacy emitter's speeds (murmur 16.1x, fnv1a 36.9x, crc32 3.3x,
-    sieve 21.0x; sortNumbers varies between 8x and 10.6x under both).
-
 <a id="t54"></a>
 
 ### T54: Implement measured compiler and runtime optimizations
@@ -1106,9 +1004,9 @@ before output code generation.
 **Goal:** Make generated code faster where profiles show it matters, without
 changing JavaScript semantics.
 
-- **Status:** open, waiting on open dependencies.
+- **Status:** open, ready to start.
 - **Area:** Compiler, with runtime and verification review.
-- **Needs:** T10 (done), T30 (done), T32 (done), [T53](#t53) (open).
+- **Needs:** T10 (done), T30 (done), T32 (done), T53 (done).
 - **Verify:** V1, V2, V3, V7.
 - **Where:** Optimization passes and targeted runtime hot paths.
 
@@ -1774,6 +1672,16 @@ iOS simulator and the Android emulator; physical-device checks are
 - **T05, T18** Introduced the semantic IR with a verifier, and lowered
   ordered expressions and structured control flow through it.
 - **T19** Added whole-program effects, captures and owners (`ProgramFacts`).
+- **T53** Finished the semantic IR migration (2026-10-02): every
+  function, method, accessor, constructor, module `init()`, compute task
+  variant and component setup lowers through the IR, with native and
+  builtin operations as plans the emitter's leaf code writes once; a
+  setup's mount is an ambient its closures enter, a toolkit body's slots
+  thunks. The legacy emitter's statement lowering, its fallbacks and the
+  `LUCENT_LOWERING` selector are removed, and what the IR cannot lower
+  is a LUCENT diagnostic. Verified with e2e (53 of 53), the full compiler
+  suite and its views and platform compile tests, `bench --check` at the
+  legacy emitter's speeds, and the bare app's `app-check`.
 - **T30** Added `compute` with checked tasks (`LUCENT3011`, `LUCENT3012`).
 - **T32** Added `NativeBuffer`, scoped spans and moves (`LUCENT3030`,
   `LUCENT3031`), with zero-copy handoff to tasks.
@@ -2096,6 +2004,6 @@ details stay in this file; slice details stay in the
 | S18   | Sizing and slots           | T46, T47                                                     |
 | S19   | JSX, layout and primitives | [T48](#t48), [T49](#t49), [T50](#t50), [T51](#t51)           |
 | S20   | Demanding capabilities     | [T55](#t55), [T56](#t56), T57, T58, [T59](#t59), [T60](#t60) |
-| S21   | IR optimization            | [T53](#t53), [T54](#t54)                                     |
+| S21   | IR optimization            | T53, [T54](#t54)                                             |
 | S22   | Tooling                    | T09, T23, T24, T40, T41, [T61](#t61)                         |
 | S23   | Production and adoption    | [T62](#t62)–[T70](#t70)                                      |

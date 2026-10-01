@@ -46,6 +46,7 @@ const LOOSE: Record<Exclude<LType["k"], "opt" | "union">, Loose> = {
   handle: "object",
   signal: "object",
   props: "object",
+  mount: "object",
 };
 
 /** The kinds `==` converts between, in the order the diagnostic names them. */

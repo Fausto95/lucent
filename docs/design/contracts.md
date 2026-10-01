@@ -31,7 +31,7 @@ so; the code is what runs.
 | Contract | Purpose                                                                         | Current version | Status                             | Main code location                                                                                  |
 | -------- | ------------------------------------------------------------------------------- | --------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
 | C-BIND   | Binding schemas: format, native identity, provenance, facts, binding plans      | v1.5            | v1.2 frozen; v1.3 to v1.5 proposed | `packages/bindgen/src/schema.ts`, `binding-plan.ts`, `usage.ts`, `source-plan.ts`                   |
-| C-IR     | Semantic IR, its verifier, effect summaries, program facts                      | v1.2.1          | v1.2 frozen; v1.2.1 proposed       | `packages/compiler/src/ir/`, `packages/compiler/src/analysis/`                                      |
+| C-IR     | Semantic IR, its verifier, effect summaries, program facts                      | v1.3            | v1.2 frozen; v1.2.1, v1.3 proposed | `packages/compiler/src/ir/`, `packages/compiler/src/analysis/`                                      |
 | C-EXEC   | Runtime identities, scopes, operations, contexts, transport, compute, callbacks | v1.6            | v1.5 frozen; v1.6 proposed         | `packages/runtime/cpp/lucent/` (`scope.h`, `execution.h`, `transport.h`, `compute.h`, `callback.h`) |
 | C-BIGINT | The runtime's `BigInt` and its native integer conversions                       | v1.1            | v1 frozen; v1.1 proposed           | `packages/runtime/cpp/lucent/bigint.h`                                                              |
 | C-BUFFER | Native buffers, borrows and transfers                                           | v1.1            | Proposed                           | `packages/runtime/cpp/lucent/buffer.h`, `lucent:core`                                               |
@@ -722,7 +722,7 @@ Tests keep each of these true.
 
 ## C-IR: semantic IR and program facts
 
-**Current version: v1.2.1 (proposed).** v1.2 is frozen.
+**Current version: v1.3 (proposed).** v1.2 is frozen.
 
 C-IR is the compiler's semantic intermediate representation and the
 analysis contract later tasks consume. Values are defined once by an
@@ -738,15 +738,16 @@ printer or a C++ compiler decides.
   `@lucent-lang/codegen`). Tests live in `packages/compiler/test/ir/`.
 - The IR imports `types.ts` (`LType`) and `typescript`; it never imports
   `emit/**`. The emitter reaches `ir/cpp.ts` through one hook,
-  `emit/through-ir.ts`, for functions, methods and accessors; a closure's
+  `emit/through-ir.ts`, for functions, methods, accessors and
+  components' setups; a closure's
   leaves see `this` as the `self` it captures (`LowerHost.nested`,
   `self`, `siteOf`).
 - Every function, method, accessor, constructor, module `init()` and
   compute task variant lowers through the IR; what it cannot lower is a
   LUCENT diagnostic (`LUCENT1001`), never invalid C++ and never a runtime
-  JavaScript fallback. (Component setups, behind `LUCENT_VIEWS`, still
-  use the emitter's statements.) The `LUCENT_LOWERING` selector of the
-  migration is gone.
+  JavaScript fallback; so does each component's setup, behind
+  `LUCENT_VIEWS`. The `LUCENT_LOWERING` selector of the migration is
+  gone.
 
 ### Data model
 
@@ -890,7 +891,14 @@ export type IrOp =
       source: SourceSpan;
     }
   | { kind: "dispose"; value: ValueId; code: unknown; source: SourceSpan } // in a finally
-  | { kind: "closure"; result: ValueId; fn: IrFunction; from: CaptureSource[]; source: SourceSpan }
+  | {
+      kind: "closure";
+      result: ValueId;
+      fn: IrFunction;
+      from: CaptureSource[];
+      enters?: ValueId; // a mount (`{ k: "mount" }`) it enters whenever it runs
+      source: SourceSpan;
+    }
   | { kind: "await"; result?: ValueId; promise: ValueId; source: SourceSpan } // async only
   | { kind: "produce"; value: ValueId; source: SourceSpan } // a generator's `yield`
   | { kind: "unreachable"; source: SourceSpan } // terminator
@@ -940,6 +948,22 @@ export interface EffectRef {
   the start of their block, defined there (or where written, when they
   capture a variable the block declares); a `for` loop's boxed `let`
   variables get a copy per iteration, as in JavaScript.
+- A function's ambients (`LowerInput.ambient`) are values its backend
+  declares around it (a component setup's mount): code reads one where a
+  leaf asks for it (`LeafOperands.ambient`), as a capture of the
+  function, and of each closure on the way, by its name. A closure made
+  in a setup `enters` its mount (`LowerHost.enters`), so whoever calls
+  it, the mount's host hears that its code ran.
+- A thunk (`LeafOperands.thunk`) is a closure the IR makes of an
+  expression a leaf runs later (a toolkit body's value slot, each time
+  its effect runs): it takes the parameters `Thunk.params` names, gives
+  `Thunk.type`, and computes `Thunk.given` first, in order, for what the
+  expression reads of a helper view's props. Its code may come from
+  elsewhere than the function making it (a helper's), which
+  `IrFunction.elsewhere` lists and the verifier accepts spans in.
+  Making a function runs none of its code, so thunks are made in any
+  order; and a `const`, like a literal or an unassigned parameter, is
+  pure for a plan's operand order.
 - `iterate` is `for … of`: its body runs for each element of an array,
   set, map, record, string (code points), byte array, regular expression
   match or iterator (`elementOf`), which it defines for the body alone;
@@ -1162,7 +1186,12 @@ reference JavaScript's (the e2e cases).
   initializers (`Initializer`, `LowerInput.construct` and `span`,
   `lowerInit`, `LeafHost.superCall`); `Initialization` also for the
   constructor a class does not declare. `LeafHost.step` and `equals`;
-  `LeafOperands.operand` takes a type hint.
+  `LeafOperands.operand` takes a type hint. Components' setups: the
+  `mount` type, `closure.enters` and `LowerHost.enters`, ambients
+  (`LowerInput.ambient`, `LeafOperands.ambient`), thunks
+  (`LeafOperands.thunk`, `Thunk`), `IrFunction.elsewhere`, and
+  `LeafHost.whole` for a chain the backend plans whole (an event's
+  call).
   Migration: none (additive; the default lowering is unchanged).
 
 ## C-EXEC: execution identities, scopes and operations

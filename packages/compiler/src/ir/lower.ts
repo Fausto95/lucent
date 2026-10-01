@@ -16,6 +16,7 @@
  */
 import ts from "typescript";
 import {
+  enclosingFunction,
   type FunctionLike,
   freeVariables,
   isWriteTarget,
@@ -104,7 +105,11 @@ export interface LowerHost {
   platformGuard?(cond: ts.Expression): PlatformBranch | undefined;
   /** Of `switch (PLATFORM)`: whether the platform being built runs each clause, or "nowhere". */
   platformClauses?(s: ts.SwitchStatement): boolean[] | "nowhere" | undefined;
-  /** Whether the platform being built runs `s`, by the platform branches and guard clauses around it. */
+  /**
+   * Whether the IR lowers `s`: the platform being built runs it (by the
+   * platform branches and guard clauses around it), and it is the program's
+   * code, no toolkit's (a component body's statements, a helper view).
+   */
   runsHere?(s: ts.Statement): boolean;
   /** Whether `t`, a class, derives from Error. */
   isError?(t: LType): boolean;
@@ -123,6 +128,8 @@ export interface LowerHost {
   nested?(node: FunctionLike, sig: NestedSignature): LowerHost;
   /** `this` as a value a closure `node` that uses it captures, as `self`; undefined when it has none. */
   self?(node: FunctionLike): Leaf | undefined;
+  /** The ambient mount (see `LowerInput.ambient`) a function made at `node` enters when it runs. */
+  enters?(node: FunctionLike): string | undefined;
   /** The name Errors made in the nested function `node` record as their site. */
   siteOf?(node: FunctionLike): string;
   /** Marks the names of a rejected declaration failed: their uses are not reported again. */
@@ -179,6 +186,37 @@ export interface LeafOperands {
   intOf(v: ValueId): IntKind | undefined;
   /** The function value of `node`, a function the leaf takes, as the type `target` it becomes. */
   closure(node: ts.ArrowFunction | ts.FunctionExpression, target?: LType): ValueId;
+  /** The value of the ambient `name` (see `LowerInput.ambient`), here. */
+  ambient(name: string, node: ts.Node): ValueId;
+  /**
+   * A function computing `node`, an expression the leaf runs later (each
+   * time an effect does): it takes `thunk.params`, gives `thunk.type`.
+   */
+  thunk(node: ts.Expression, thunk?: Thunk): ValueId;
+}
+
+/** What a thunk (`LeafOperands.thunk`) takes and gives. */
+export interface Thunk {
+  /** Its parameters, each the value of the names given, in order. */
+  params?: readonly { names: readonly ts.Symbol[]; type: LType }[];
+  /** What it gives, converted; the type of its expression otherwise. */
+  type?: LType;
+  /** Where the code making it is, when not at its expression (a helper view's, where it is used). */
+  site?: ts.Node;
+  /**
+   * What it computes first, in order, for what the expression reads
+   * (a helper view's props): each `read` is then the value of `value`, or
+   * undefined without one.
+   */
+  given?: readonly { read: ts.Expression; value?: ts.Expression }[];
+}
+
+/** A value a function's code may read that the backend declares around it (a setup's mount). */
+export interface Ambient {
+  name: string;
+  type: LType;
+  /** Its name in the backend's code. */
+  spelled: string;
 }
 
 export interface LeafHost {
@@ -217,6 +255,8 @@ export interface LeafHost {
   superCall(node: ts.CallExpression, operands: LeafOperands): Leaf;
   /** Disposing `value`, a present `from`, as a `using` declaration does. */
   dispose(value: ValueId, from: LType, node: ts.Node): Leaf;
+  /** Whether it plans `node`, an optional chain, whole: one with no value to test (an event's call). */
+  whole?(node: ts.Expression): boolean;
   /** What `node`, code for the platforms, gives in a build for neither: a `type` that throws. */
   platformOnly(node: ts.Node, type: LType): Leaf;
 }
@@ -288,6 +328,12 @@ export interface LowerInput {
   generic: boolean;
   /** A compute task's variant: each loop iteration checks for cancellation. */
   task?: boolean;
+  /**
+   * Values its code may read that the backend declares around it: each
+   * one read is a capture of the function, and of the closures that read
+   * it, by its name.
+   */
+  ambient?: readonly Ambient[];
   /** Its effects, when the program's analysis knows them. */
   effects?: EffectSummary;
 }
@@ -371,8 +417,13 @@ class Lowerer {
   private readonly planned = new Set<ValueId>();
   /** The function this one is nested in, whose variables it captures. */
   private readonly parent?: Lowerer;
-  /** The variables of enclosing functions this one captures, in the order it first uses them. */
-  private readonly captured = new Map<ts.Symbol, { place: PlaceId; outer: Variable }>();
+  /**
+   * The variables of enclosing functions this one captures, and the
+   * ambients (by name), in the order it first uses them.
+   */
+  private readonly captured = new Map<ts.Symbol | string, { place: PlaceId; outer: Variable }>();
+  /** Values that the code it lowers reads instead of what an expression computes (a thunk's given). */
+  private readonly bound = new Map<ts.Node, ValueId>();
   /** The places closures share in a box. */
   private readonly boxed = new Set<PlaceId>();
   /** Nested function declarations defined where they are written: they capture a later variable. */
@@ -1335,7 +1386,11 @@ class Lowerer {
    * `hint` is the type it becomes, which shapes literals the backend plans.
    */
   expr(node: ts.Expression, hint?: LType): ValueId {
-    if (isChain(node)) return this.chain(node);
+    const bound = this.bound.get(node);
+
+    if (bound !== undefined) return bound;
+
+    if (isChain(node) && !this.host.leaves?.whole?.(node)) return this.chain(node);
 
     const lower = EXPRESSIONS[node.kind] as
       | ((n: ts.Expression, lw: Lowerer, hint?: LType) => ValueId)
@@ -1511,6 +1566,19 @@ class Lowerer {
     const operands: LeafOperands = {
       operand: (n, hint) => take(n, () => this.expr(n, hint)),
       closure: (n, target) => take(n, () => this.closure(n, target)),
+      // Making a function runs none of its code: each is its own, made in any order.
+      thunk: (n, thunk) => {
+        const v = this.thunk(n, thunk ?? {});
+
+        args.push(v);
+        return v;
+      },
+      ambient: (name, node) => {
+        const v = this.ambient(name, node);
+
+        args.push(v);
+        return v;
+      },
       typeOf: (v) => this.b.typeOf(v),
       intOf: (v) => this.b.intOf(v),
       isLocal: (sym) => this.variableOf(sym) !== undefined,
@@ -1580,7 +1648,8 @@ class Lowerer {
   /**
    * Whether evaluating `node` has no effect and gives the same whenever it
    * runs: a literal, a function (its closure copies only variables nothing
-   * writes after they are captured), or a parameter the body never assigns.
+   * writes after they are captured), a parameter the body never assigns, or
+   * a `const`.
    */
   pure(node: ts.Expression): boolean {
     const n = skipParentheses(node);
@@ -1592,8 +1661,13 @@ class Lowerer {
     if (!ts.isIdentifier(n)) return false;
 
     const sym = symbolOf(this.host.checker, n);
+    const decl = sym?.valueDeclaration;
+    const constant =
+      decl !== undefined &&
+      ts.isVariableDeclaration(decl) &&
+      (ts.getCombinedNodeFlags(decl) & ts.NodeFlags.Const) !== 0;
 
-    return sym !== undefined && this.params.has(sym);
+    return sym !== undefined && (this.params.has(sym) || constant);
   }
 
   /** Whether `target` is a variable the IR stores into: a local or a module variable. */
@@ -1718,7 +1792,9 @@ class Lowerer {
     const parent = this.parent!;
     const boxed = "place" in outer && parent.boxed.has(outer.place);
     const type = "value" in outer ? parent.b.typeOf(outer.value) : outer.type;
-    const names = new Set([...this.captured.keys()].map((s) => s.name));
+    const names = new Set(
+      [...this.captured.keys()].map((k) => (typeof k === "string" ? k : k.name)),
+    );
     const name = names.has(sym.name) ? `${sym.name}_${names.size}` : sym.name;
     const place = this.b.capture(name, type, boxed);
 
@@ -1771,22 +1847,119 @@ class Lowerer {
     child.b.site = this.host.siteOf?.(node);
 
     const lowered = child.function();
+    const span = spanOf(node);
+    const captured = this.captures(child, lowered, span);
+    const from = self ? [{ value: this.planOf(self, [], span) }, ...captured] : captured;
+    const mount = this.host.enters?.(node);
+    const enters = mount === undefined ? undefined : this.ambient(mount, node);
 
+    return this.b.closure(lowered.fn, from, sig.type, span, enters);
+  }
+
+  /** What the closure `child` lowered captures, from this function; what it calls is known here too. */
+  captures(child: Lowerer, lowered: Lowered, span: SourceSpan): CaptureSource[] {
     for (const [k, v] of lowered.signatures) this.signatures.set(k, v);
 
     for (const [k, v] of lowered.effects) this.effects.set(k, v);
 
-    const span = spanOf(node);
-    const captured = [...child.captured.values()].map(({ outer }): CaptureSource => {
+    return [...child.captured.values()].map(({ outer }): CaptureSource => {
       if ("value" in outer) return { value: outer.value };
 
       return this.boxed.has(outer.place)
         ? { box: outer.place }
         : { value: this.b.load(outer.place, span) };
     });
-    const from = self ? [{ value: this.planOf(self, [], span) }, ...captured] : captured;
+  }
 
-    return this.b.closure(lowered.fn, from, sig.type, span);
+  /** A function of `node`, an expression its caller computes later, as `thunk` describes it. */
+  thunk(node: ts.Expression, thunk: Thunk): ValueId {
+    const params = thunk.params?.map((p) => p.type) ?? [];
+    const result = thunk.type ?? this.typeAt(node);
+    const input: LowerInput = {
+      decl: enclosingFunction(node) ?? node.getSourceFile(),
+      span: node,
+      id: `${this.input.id}$${++this.closures}`,
+      params,
+      result,
+      async: false,
+      generic: false,
+    };
+    const child = new Lowerer(input, this.host, this);
+
+    child.b.site = this.b.site;
+
+    const lowered = child.computes(node, thunk);
+    const span = spanOf(thunk.site ?? node);
+    const type: LType = { k: "fn", params, ret: result };
+
+    return this.b.closure(lowered.fn, this.captures(child, lowered, span), type, span);
+  }
+
+  /** A thunk's body: its parameters named, what it is given computed, then `node` returned. */
+  computes(node: ts.Expression, thunk: Thunk): Lowered {
+    const span = spanOf(node);
+
+    thunk.params?.forEach((p, i) => {
+      const value = this.b.param(i, p.type, span);
+
+      for (const name of p.names) this.params.set(name, value);
+    });
+
+    for (const g of thunk.given ?? []) {
+      const value = g.value;
+
+      if (value) this.b.elsewhere.push(spanOf(value));
+
+      this.bound.set(g.read, value ? this.expr(value) : this.b.const(undefined, span));
+    }
+
+    this.returns(node, span);
+
+    const fn = this.b.finish(this.input.effects);
+
+    return { fn, signatures: this.signatures, effects: this.effects };
+  }
+
+  /** The ambient `name` (`LowerInput.ambient`), read at `node`: captured from the functions around this one. */
+  ambient(name: string, node: ts.Node): ValueId {
+    const found = this.ambientOf(name);
+
+    if (!found) this.unsupported(node, `${name} here`);
+
+    return this.b.load(found.place, spanOf(node));
+  }
+
+  ambientOf(name: string): { place: PlaceId; type: LType } | undefined {
+    const known = this.captured.get(name);
+
+    if (known) return { place: known.place, type: this.b.placeType(known.place) };
+
+    if (!this.parent) {
+      const declared = this.input.ambient?.find((a) => a.name === name);
+
+      if (!declared) return undefined;
+
+      const place = this.b.capture(name, declared.type, false, declared.spelled);
+
+      this.captured.set(name, { place, outer: { place, type: declared.type } });
+      return { place, type: declared.type };
+    }
+
+    const outer = this.parent.ambientOf(name);
+
+    if (!outer) return undefined;
+
+    const place = this.b.capture(name, outer.type, false, this.parent.spelledAmbient(name));
+
+    this.captured.set(name, { place, outer });
+    return { place, type: outer.type };
+  }
+
+  /** The name the backend's code gives the ambient `name`, in every function that reads it. */
+  spelledAmbient(name: string): string | undefined {
+    return this.parent
+      ? this.parent.spelledAmbient(name)
+      : this.input.ambient?.find((a) => a.name === name)?.spelled;
   }
 
   /** A nested function's signature, as the host gives it. */

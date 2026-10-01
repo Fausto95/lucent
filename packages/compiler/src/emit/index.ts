@@ -249,13 +249,7 @@ export function emitProgram(
       })
     : [];
   for (const s of planned) {
-    const out = ctx.guard(() =>
-      emitSetup(
-        ctx,
-        s,
-        (returnType) => new FnEmitter(ctx, { module: s.module, async: false, returnType }),
-      ),
-    );
+    const out = ctx.guard(() => emitSetup(ctx, s, (unit) => throughIr(ctx, unit, ir)));
     if (!out) continue;
     moduleDecls.get(s.module)!.push(...out.decls);
     moduleDefs.get(s.module)!.push(...out.defs);
@@ -575,7 +569,7 @@ function collect(
     const sig = checker.getSignatureFromDeclaration(s)!;
     const type = ctx.reg.lowerSignature(sig, s) as LType & { k: "fn" };
     const isAsync = !!ts.getModifiers(s)?.some((x) => x.kind === ts.SyntaxKind.AsyncKeyword);
-    const em = new FnEmitter(ctx, { module: m, async: isAsync, returnType: T.void });
+    const em = new FnEmitter(ctx, { module: m, async: isAsync });
     const params = em.paramInfos(s, type);
     const g: Global = {
       kind: "function",
@@ -720,7 +714,7 @@ function functionThroughIr(
     async: g.async,
     ...(generator ? { generator } : {}),
     generic: g.generic,
-    opts: { module: g.module, async: g.async, returnType: result },
+    opts: { module: g.module, async: g.async },
     site: g.decl.name!.text,
   };
 

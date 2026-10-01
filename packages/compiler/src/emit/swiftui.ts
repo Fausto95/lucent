@@ -372,7 +372,11 @@ export const swiftUIEmitter: ToolkitEmitter = {
       cpp.varDecl(
         cpp.auto,
         actions,
-        cpp.call("std::make_shared", [mountContent(em)], [cpp.type("lucent::swiftui::Actions")]),
+        cpp.call(
+          "std::make_shared",
+          [mountContent(em, fn)],
+          [cpp.type("lucent::swiftui::Actions")],
+        ),
       ),
     );
     em.emit(

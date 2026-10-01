@@ -206,7 +206,7 @@ export function iosSubclass(
 
   const chain = baseChain(info);
   const base = chain[0]!;
-  const em = new FnEmitter(ctx, { module, async: false, returnType: T.void });
+  const em = new FnEmitter(ctx, { module, async: false });
   for (const ref of chain) noteFramework(em, ref.module);
 
   // Fields the base would not see where it has a property, or a method, of the name.

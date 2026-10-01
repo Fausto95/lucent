@@ -420,6 +420,8 @@ class Checker {
     if (op.from.length !== fn.captures.length)
       this.problem(`${where} gives ${op.from.length} captures, ${fn.id} has ${fn.captures.length}`);
 
+    if (op.enters !== undefined) this.expectType(op.enters, { k: "mount" }, `${where} enters`);
+
     op.from.forEach((from, i) => {
       const capture = fn.captures[i];
 
@@ -513,7 +515,10 @@ class Checker {
       return;
     }
 
-    if (!own && (s.file !== fn.file || s.start < fn.start || s.end > fn.end))
+    const inside = (code: SourceSpan) =>
+      s.file === code.file && s.start >= code.start && s.end <= code.end;
+
+    if (!own && !inside(fn) && !this.fn.elsewhere?.some(inside))
       this.problem(`${what} has a span (${s.file}:${s.start}-${s.end}) outside the function's`);
   }
 

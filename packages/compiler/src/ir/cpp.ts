@@ -94,6 +94,8 @@ export interface CppFunction {
   params: cpp.Param[];
   ret: cpp.Type;
   body: cpp.Stmt[];
+  /** The ambients (`LowerInput.ambient`) its code reads, by name: the caller declares them. */
+  ambient: string[];
 }
 
 /** The C++ of a function, after verifying it: nothing is generated from invalid IR. */
@@ -103,7 +105,12 @@ export function toCpp(fn: IrFunction, backend: CppBackend, env: VerifyEnv = {}):
   const emitter = new Emitter(fn, backend);
   const params = fn.params.map((v, i) => cpp.param(backend.cppType(fn.values[v]!.type), `p${i}_`));
 
-  return { params, ret: returnType(fn, backend), body: emitter.body() };
+  return {
+    params,
+    ret: returnType(fn, backend),
+    body: emitter.body(),
+    ambient: fn.captures.map((c) => c.name),
+  };
 }
 
 /** What a function's C++ returns: its result, a promise of it, or a generator's iterator. */
@@ -941,8 +948,12 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
           { ret },
         )
       : cpp.lambda(captures, params, body, { ret, mutable: true });
+    const made =
+      op.enters === undefined
+        ? lambda
+        : cpp.call("lucent::ui::inContent", [e.value(op.enters), lambda]);
 
-    e.define(op, op.result, cpp.construct(e.backend.cppType(e.typeOf(op.result)), [lambda]));
+    e.define(op, op.result, cpp.construct(e.backend.cppType(e.typeOf(op.result)), [made]));
 
     // The lambda's statements named lines of their own.
     e.lineChanged();
