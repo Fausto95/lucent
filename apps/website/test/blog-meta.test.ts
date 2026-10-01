@@ -7,12 +7,12 @@ const shell = `<!doctype html><html><head>
 <meta property="og:type" content="website" />
 <meta property="og:title" content="Lucent" />
 <meta property="og:description" content="Site." />
-<meta property="og:image" content="https://lucent-lang.dev/og.png" />
+<meta property="og:image" content="https://www.lucent-lang.dev/og.png" />
 <meta property="og:image:alt" content="Lucent." />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Lucent" />
 <meta name="twitter:description" content="Site." />
-<meta name="twitter:image" content="https://lucent-lang.dev/og.png" />
+<meta name="twitter:image" content="https://www.lucent-lang.dev/og.png" />
 </head><body><div id="root"></div></body></html>`;
 
 const post = {
@@ -43,13 +43,13 @@ describe("a post's page for link previews", () => {
     const html = withPostMeta(shell, post);
 
     expect(content(html, "og:type")).toBe("article");
-    expect(content(html, "og:url")).toBe("https://lucent-lang.dev/blog/native-views/");
+    expect(content(html, "og:url")).toBe("https://www.lucent-lang.dev/blog/native-views/");
     expect(content(html, "article:published_time")).toBe("2026-09-30");
-    expect(content(html, "og:image")).toBe("https://lucent-lang.dev/blog/native-views/og.png");
+    expect(content(html, "og:image")).toBe("https://www.lucent-lang.dev/blog/native-views/og.png");
     expect(content(html, "og:image:alt")).toBe("A like button.");
-    expect(content(html, "twitter:image")).toBe("https://lucent-lang.dev/blog/native-views/og.png");
+    expect(content(html, "twitter:image")).toBe("https://www.lucent-lang.dev/blog/native-views/og.png");
     expect(html).toContain(
-      '<link rel="canonical" href="https://lucent-lang.dev/blog/native-views/" />',
+      '<link rel="canonical" href="https://www.lucent-lang.dev/blog/native-views/" />',
     );
   });
 
@@ -57,7 +57,7 @@ describe("a post's page for link previews", () => {
     const { image: _image, imageAlt: _alt, ...plain } = post;
     const html = withPostMeta(shell, plain);
 
-    expect(content(html, "og:image")).toBe("https://lucent-lang.dev/og.png");
+    expect(content(html, "og:image")).toBe("https://www.lucent-lang.dev/og.png");
     expect(content(html, "og:image:alt")).toBe("Lucent.");
   });
 
