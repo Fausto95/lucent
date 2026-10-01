@@ -94,7 +94,8 @@ A post's link preview (Open Graph and X tags) comes from its entry. The
 build writes `blog/<slug>/index.html` with the post's title, summary, date
 and address, since crawlers don't run the app. Give it its own 1200×630
 image with `image` (under `public/`, e.g. `/blog/<slug>/og.png`) and
-`imageAlt`; without one, it uses the site's.
+`imageAlt`; without one, it uses the site's. The build also writes the
+blog's RSS feed, `/blog/rss.xml`, from the same list.
 
 ## Glossary
 

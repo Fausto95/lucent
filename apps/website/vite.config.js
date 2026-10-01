@@ -3,12 +3,13 @@ import react from "@vitejs/plugin-react";
 import stylex from "@stylexjs/unplugin";
 import lucent from "../../packages/lucent/package.json" with { type: "json" };
 import { posts } from "./src/blog/posts.ts";
+import { rssFeed } from "./src/blog/feed.ts";
 import { withPostMeta } from "./src/blog/meta.ts";
 
 /**
- * Writes each blog post's page at its address, with the post's own meta tags:
- * link previews read them without running the app (Vercel serves a file
- * before its rewrite to index.html).
+ * Writes each blog post's page at its address, with the post's own meta tags
+ * (link previews read them without running the app; Vercel serves a file
+ * before its rewrite to index.html), and the blog's RSS feed.
  */
 const postPages = () => ({
   name: "lucent-post-pages",
@@ -26,6 +27,8 @@ const postPages = () => ({
         source: withPostMeta(String(shell.source), post),
       });
     }
+
+    this.emitFile({ type: "asset", fileName: "blog/rss.xml", source: rssFeed(posts) });
   },
 });
 

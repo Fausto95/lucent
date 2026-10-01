@@ -3,7 +3,8 @@ import type { PostEntry } from "./types";
 /** Where the site is served: link previews need absolute addresses. */
 export const SITE = "https://www.lucent-lang.dev";
 
-const escape = (text: string): string =>
+/** Text made safe inside an HTML or XML attribute or element. */
+export const escape = (text: string): string =>
   text
     .replaceAll("&", "&amp;")
     .replaceAll('"', "&quot;")

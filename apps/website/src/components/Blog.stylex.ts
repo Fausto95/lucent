@@ -40,6 +40,15 @@ export const styles = stylex.create({
       color: tokens.accent,
     },
   },
+  feed: {
+    fontFamily: mono,
+    fontSize: "0.75rem",
+    letterSpacing: "1.2px",
+    color: tokens.accent,
+    ":hover": {
+      textDecoration: "underline",
+    },
+  },
   date: {
     fontFamily: mono,
     fontSize: "0.75rem",
