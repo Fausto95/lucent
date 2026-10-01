@@ -39,7 +39,7 @@ class LeafEmitter extends FnEmitter {
     // The leaf itself, or what it reads from elsewhere (a constant's literal), is the emitter's.
     if (node === this.root || !isInside(node, this.root)) return super.expr(node, hint);
 
-    const v = this.operands.operand(node);
+    const v = this.operands.operand(node, hint);
 
     return { c: operand(v), t: this.operands.typeOf(v) };
   }
@@ -229,6 +229,23 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
         if (ts.isPropertyAccessExpression(node)) return em.member(v, node.name.text, node);
 
         return em.elementOf(v, (node as ts.ElementAccessExpression).argumentExpression, node);
+      }),
+
+    step: (value, from, sign, node) =>
+      planned(node, () => ({
+        c: cpp.call("lucent::stepNumeric", [operand(value), cpp.num(sign === "+" ? 1 : -1)]),
+        t: from,
+      })),
+
+    equals: (left, leftType, right, rightType, node) =>
+      planned(node, () => {
+        const em = new LeafEmitter(ctx, opts, node, noOperands(node));
+        const [l, r] = [
+          { c: operand(left), t: leftType },
+          { c: operand(right), t: rightType },
+        ];
+
+        return { c: em.equality(l, r, true, node), t: T.boolean };
       }),
 
     superCall: (node, operands) =>

@@ -281,6 +281,52 @@ export class IrBuilder {
     return id;
   }
 
+  /**
+   * `cond ? absent : present`, whose result type comes from what `present`
+   * gives (built first): `result` makes it of `present`'s type, and each
+   * branch converts its value (`absent` a value of the type, `convert` the
+   * one `present` gave) to it.
+   */
+  choose(
+    cond: ValueId,
+    source: SourceSpan,
+    present: () => ValueId,
+    result: (given: LType) => LType,
+    absent: (type: LType) => ValueId,
+    convert: (given: ValueId, type: LType) => ValueId,
+  ): ValueId {
+    const [thenRegion, elseRegion] = [this.region(), this.region()];
+    let given!: ValueId;
+
+    this.within(elseRegion, () => {
+      given = present();
+    });
+
+    const type = result(this.typeOf(given));
+    const ended = () => {
+      const last = elseRegion.ops[elseRegion.ops.length - 1];
+
+      return last !== undefined && isTerminator(last);
+    };
+
+    // What gave the value may never complete (it throws): the branch ends there.
+    if (!ended()) this.within(elseRegion, () => this.yield(convert(given, type), source));
+
+    this.within(thenRegion, () => this.yield(absent(type), source));
+
+    const id = this.value(type, source);
+
+    this.push({
+      kind: "if",
+      result: id,
+      cond,
+      whenTrue: thenRegion.id,
+      whenFalse: elseRegion.id,
+      source,
+    });
+    return id;
+  }
+
   /** A loop: `body` repeats, and `next` (when given) runs after it and on `continue`. */
   loop(
     source: SourceSpan,

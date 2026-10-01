@@ -1142,7 +1142,8 @@ cases run under both lowerings).
   `await` and `produce` ops, `IrFunction.generator`, async functions'
   results as what their promise fulfils with. Constructors' and modules'
   initializers (`Initializer`, `LowerInput.construct` and `span`,
-  `lowerInit`, `LeafHost.superCall`).
+  `lowerInit`, `LeafHost.superCall`). `LeafHost.step` and `equals`;
+  `LeafOperands.operand` takes a type hint.
   Migration: none (additive; the default lowering is unchanged).
 
 ## C-EXEC: execution identities, scopes and operations

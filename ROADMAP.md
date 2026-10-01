@@ -1037,6 +1037,14 @@ before output code generation.
   - Constructors (parameter properties and field initializers before the
     body, or right after `super(…)`), modules' `init()` (static fields,
     then variables): 743 of 759.
+  - The long tail (an optional known absent, a union narrowed to a
+    derived class, switch cases the IR does not compare itself, steps
+    of `bigint | number`, compound assignments of what never comes, a
+    chain's own type, operands' type hints): 759 of 759, every e2e case
+    through the IR alone. Both example apps, for iOS, Android and the
+    host, lower every unit through the IR too (911, 912 and 879 for
+    the bare app), the `lucent-orbit` package left out until its
+    Android dependencies resolve on this machine.
 
 <a id="t54"></a>
 

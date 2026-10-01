@@ -214,8 +214,10 @@ export function computeCall(em: FnEmitter, node: ts.CallExpression): E {
 
   refuse(em, node, g, facts);
 
-  const signal = signalOf(em, optionsArg);
   const inCpp = cpp.type("std::tuple", em.reg.cppType(param.cppType));
+  // The input, then the signal, as JavaScript evaluates them.
+  const input = cpp.construct(inCpp, [em.exprAs(inputArg, param.cppType)], true);
+  const signal = signalOf(em, optionsArg);
   const outCpp = em.reg.cppRetType(g.type.ret);
 
   transports(em, node, g, param.cppType);
@@ -224,7 +226,6 @@ export function computeCall(em: FnEmitter, node: ts.CallExpression): E {
     refuseLaterUse(em, buffer, node, "it moved to a compute task");
 
   const entry = taskEntry(em, g, inCpp, outCpp);
-  const input = cpp.construct(inCpp, [em.exprAs(inputArg, param.cppType)], true);
   const options = cpp.construct(
     cpp.type("lucent::ComputeOptions"),
     [signal, cpp.call("lucent::moduleScope")],

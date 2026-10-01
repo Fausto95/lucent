@@ -26,7 +26,7 @@ import {
   symbolOf,
 } from "../analysis/scopes.ts";
 import { bigintLiteralValue } from "../lowering/literals.ts";
-import { isVoidish, type LType, sameType, T, typeKey } from "../types.ts";
+import { isVoidish, type LType, sameType, T, typeKey, unionOf } from "../types.ts";
 import { IrBuilder } from "./build.ts";
 import {
   binaryResult,
@@ -158,8 +158,8 @@ export interface Leaf {
 
 /** The subexpressions of a leaf, lowered before it in evaluation order. */
 export interface LeafOperands {
-  /** The value of `node`, a subexpression of the leaf (the same value when asked again). */
-  operand(node: ts.Expression): ValueId;
+  /** The value of `node`, a subexpression of the leaf (the same value when asked again), shaped by `hint`. */
+  operand(node: ts.Expression, hint?: LType): ValueId;
   typeOf(v: ValueId): LType;
   /** Whether `symbol` names a local or a parameter of the function (or of one around it). */
   isLocal(symbol: ts.Symbol): boolean;
@@ -193,6 +193,10 @@ export interface LeafHost {
     kind: "member" | "method" | "call",
     operands: LeafOperands,
   ): Leaf;
+  /** `value`, a `bigint | number`, one up (`+`) or down: the kind it holds, stepped. */
+  step(value: ValueId, from: LType, sign: "+" | "-", node: ts.Node): Leaf;
+  /** `left === right` for operands the IR's operators do not compare (generics, objects). */
+  equals(left: ValueId, leftType: LType, right: ValueId, rightType: LType, node: ts.Node): Leaf;
   /** A constructor's `super(…)`: its base class's construction, given the arguments as operands. */
   superCall(node: ts.CallExpression, operands: LeafOperands): Leaf;
   /** Disposing `value`, a present `from`, as a `using` declaration does. */
@@ -1195,7 +1199,7 @@ class Lowerer {
             if (!next) return this.b.const(fallback >= 0 ? fallback : clauses.length, spanOf(s));
 
             const span = spanOf(next.c);
-            const test = this.operator("===", d, this.expr(next.c.expression), next.c);
+            const test = this.equals(d, this.expr(next.c.expression), next.c);
 
             return this.b.if(
               test,
@@ -1256,6 +1260,17 @@ class Lowerer {
       return v;
     }
 
+    // An optional the checker proved absent here is the constant, once it ran; but `null |
+    // undefined` is lowered as undefined and may hold either, so that optional stays as it is.
+    if (given.k === "opt" && isAbsent(checked)) {
+      const type = this.host.checker.getTypeAtLocation(node);
+      const members = type.isUnion() ? type.types : [type];
+
+      if (checked.k === "undefined" && members.some((m) => m.flags & ts.TypeFlags.Null)) return v;
+
+      return this.b.const(checked.k === "null" ? null : undefined, spanOf(node));
+    }
+
     // The checker narrowed the value here (an optional known present, a union's member).
     const derives = (sub: LType, base: LType) => this.host.derives?.(sub, base) === true;
 
@@ -1311,14 +1326,18 @@ class Lowerer {
       }
     }
 
-    return this.links(this.expr(base), links, this.typeAt(root), root);
+    return this.links(this.expr(base), links, root);
   }
 
-  /** `links` on `v`, in order, giving the `type` of the chain `root` (undefined once a `?.` short-circuits). */
-  links(v: ValueId, links: readonly ChainLink[], type: LType, root: ts.Node): ValueId {
+  /**
+   * `links` on `v`, in order. Once a `?.` may short-circuit, the chain gives
+   * what the links after it give, or undefined: its own type, as the links'
+   * types make it, not the checker's (which may not be its representation).
+   */
+  links(v: ValueId, links: readonly ChainLink[], root: ts.Node): ValueId {
     const [link, ...rest] = links;
 
-    if (!link) return this.coerce(v, type, root);
+    if (!link) return v;
 
     const t = this.b.typeOf(v);
     const span = spanOf(link.node);
@@ -1327,16 +1346,17 @@ class Lowerer {
     if (link.optional && absent) {
       const test = this.b.binary("==", v, this.b.const(null, span), span);
 
-      return this.b.if(
+      return this.b.choose(
         test,
         span,
-        () => this.b.yield(this.coerce(this.b.const(undefined, span), type, link.node), span),
-        () => this.b.yield(this.links(this.present(v, link.node), links, type, root), span),
-        type,
-      )!;
+        () => this.links(this.present(v, link.node), links, root),
+        (given) => unionOf([given, T.undefined]),
+        (type) => this.coerce(this.b.const(undefined, span), type, link.node),
+        (given, type) => this.coerce(given, type, root),
+      );
     }
 
-    return this.links(this.apply(link, v), rest, type, root);
+    return this.links(this.apply(link, v), rest, root);
   }
 
   /** A value known not to be null or undefined: an optional's value, a union without its absent members. */
@@ -1394,7 +1414,7 @@ class Lowerer {
       return v;
     };
     const operands: LeafOperands = {
-      operand: (n) => take(n, () => this.expr(n)),
+      operand: (n, hint) => take(n, () => this.expr(n, hint)),
       closure: (n, target) => take(n, () => this.closure(n, target)),
       typeOf: (v) => this.b.typeOf(v),
       isLocal: (sym) => this.variableOf(sym) !== undefined,
@@ -1768,6 +1788,18 @@ class Lowerer {
 
     const compound = COMPOUND[kind];
 
+    // A right side that never gives a value: the target is read, then it throws.
+    if (compound && this.typeAt(node.right).k === "never") {
+      const target = this.target(node.left);
+
+      target.read();
+
+      const never = this.expr(node.right);
+
+      target.write(this.coerce(never, target.type, node), spanOf(node));
+      return never;
+    }
+
     if (compound && !this.takes(compound, this.typeAt(node.left), this.typeAt(node.right)))
       this.unsupported(node, `${compound}= on a ${typeKey(this.typeAt(node.left))}`);
 
@@ -1790,6 +1822,16 @@ class Lowerer {
     const left = this.expr(node.left);
 
     return this.operator(op, left, this.expr(node.right), node);
+  }
+
+  /** `left === right`: the IR's operator where it takes them, the backend's otherwise. */
+  equals(left: ValueId, right: ValueId, node: ts.Node): ValueId {
+    const [l, r] = [this.b.typeOf(left), this.b.typeOf(right)];
+    const host = this.host.leaves;
+
+    if (this.takes("===", l, r) || !host) return this.operator("===", left, right, node);
+
+    return this.planOf(host.equals(left, l, right, r, node), [left, right], spanOf(node));
   }
 
   /** Whether the IR's operator `op` takes a `left` and a `right` (strings concatenate with what prints). */
@@ -1874,13 +1916,20 @@ class Lowerer {
   ): ValueId {
     const type = this.typeAt(target);
     const one = ONE[type.k];
+    const host = this.host.leaves;
+    // A `bigint | number` steps the kind it holds.
+    const mixed = type.k === "union" && type.ms.every((m) => m.k === "number" || m.k === "bigint");
 
-    if (one === undefined) this.unsupported(node, `${sign}${sign} on a ${typeKey(type)}`);
+    if (one === undefined && (!mixed || !host))
+      this.unsupported(node, `${sign}${sign} on a ${typeKey(type)}`);
 
     const place = this.target(target);
     const span = spanOf(node);
     const current = this.coerce(place.read(), type, target);
-    const next = this.b.binary(sign, current, this.b.const(one, span), span);
+    const next =
+      one === undefined
+        ? this.planOf(host!.step(current, type, sign, node), [current], span)
+        : this.b.binary(sign, current, this.b.const(one, span), span);
 
     place.write(this.coerce(next, place.type, node), span);
     return postfix ? current : next;
@@ -2022,6 +2071,9 @@ function narrows(from: LType, to: LType, derives: (sub: LType, base: LType) => b
   if (to.k === "class" && from.k === "class") return derives(to, from);
 
   if (from.k !== "union") return false;
+
+  // `instanceof` on a union holding a base class: an object of the class tested.
+  if (to.k === "class" && from.ms.some((m) => m.k === "class" && derives(to, m))) return true;
 
   const held = (m: LType) => from.ms.some((f) => sameType(f, m));
 
