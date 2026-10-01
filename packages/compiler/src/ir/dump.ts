@@ -25,11 +25,14 @@ export function dump(fn: IrFunction): string {
     .map(([k, v]) => `${k}=${String(v)}`)
     .join(" ");
   const lines = [
-    `fn ${fn.id}(${params}) -> ${typeKey(fn.result)}${fn.async ? " async" : ""} ${at(fn.source)}`,
+    `fn ${fn.id}(${params}) -> ${typeKey(fn.result)}${fn.async ? " async" : ""}${fn.generator ? ` generates ${typeKey(fn.generator)}` : ""} ${at(fn.source)}`,
     `  effects ${effects}`,
     ...fn.modulePlaces.map(
       (p) =>
         `  module p${p.place} ${p.name}: ${typeKey(p.type)} = ${p.symbol}${p.mutable ? "" : " const"}`,
+    ),
+    ...fn.captures.map(
+      (c) => `  capture p${c.place} ${c.name}: ${typeKey(c.type)}${c.boxed ? " boxed" : ""}`,
     ),
   ];
 
@@ -41,6 +44,13 @@ export function dump(fn: IrFunction): string {
       `${indent}r${region.id}${parent}:`,
       ...region.ops.flatMap((op) => [
         `${indent}  ${dumpOp(op, type)}  ${at(op.source)}`,
+        // A closure's function, nested under it.
+        ...(op.kind === "closure"
+          ? dump(op.fn)
+              .trimEnd()
+              .split("\n")
+              .map((l) => `${indent}    ${l}`)
+          : []),
         ...regionsOf(op).flatMap((id) => {
           const owned = fn.regions[id];
 
@@ -82,7 +92,7 @@ function dumpOp(op: IrOp, type: (v: ValueId) => string): string {
     case "convert":
       return def(op.result, `convert v${op.input}`);
     case "local":
-      return `local p${op.place} ${op.name}: ${typeKey(op.type)}`;
+      return `local p${op.place} ${op.name}: ${typeKey(op.type)}${op.boxed ? " boxed" : ""}`;
     case "load":
       return def(op.result, `load p${op.place}`);
     case "store":
@@ -92,6 +102,27 @@ function dumpOp(op: IrOp, type: (v: ValueId) => string): string {
 
       return op.result === undefined ? text : def(op.result, text);
     }
+    case "plan": {
+      const text = `plan ${JSON.stringify(op.name)}(${list(op.args)})`;
+
+      return op.result === undefined ? text : def(op.result, text);
+    }
+    case "closure": {
+      const from = op.from.map((f) => ("value" in f ? `v${f.value}` : `box p${f.box}`));
+
+      return def(op.result, `closure ${op.fn.id}(${from.join(", ")})`);
+    }
+    case "unreachable":
+      return "unreachable";
+    case "never":
+      return def(op.result, "never");
+    case "await": {
+      const text = `await v${op.promise}`;
+
+      return op.result === undefined ? text : def(op.result, text);
+    }
+    case "produce":
+      return `produce v${op.value}`;
     case "return":
       return op.value === undefined ? "return" : `return v${op.value}`;
     case "throw":
@@ -105,6 +136,16 @@ function dumpOp(op: IrOp, type: (v: ValueId) => string): string {
       return `loop t${op.target} body r${op.body}${op.next === undefined ? "" : ` next r${op.next}`}`;
     case "block":
       return `block${op.target === undefined ? "" : ` t${op.target}`} r${op.body}`;
+    case "try": {
+      const caught = op.catch ? ` catch v${op.catch.error} r${op.catch.region}` : "";
+      const final = op.finally === undefined ? "" : ` finally r${op.finally}`;
+
+      return `try r${op.body}${caught}${final}`;
+    }
+    case "dispose":
+      return `dispose v${op.value}`;
+    case "iterate":
+      return `iterate t${op.target} v${op.iterable} as v${op.element}: ${type(op.element)} body r${op.body}`;
     case "break":
       return `break t${op.target}`;
     case "continue":

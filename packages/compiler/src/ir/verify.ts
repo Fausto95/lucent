@@ -26,7 +26,9 @@
  *    callees whose summaries are known) can make; loads and stores of
  *    constant module variables are not state.
  *    Code generation relies on these claims when it keeps (or one day
- *    changes) the order of operations around an exceptional exit.
+ *    changes) the order of operations around an exceptional exit. A plan's
+ *    effects are the program analysis's to know: the IR cannot see into
+ *    one, so the summary is not checked against it.
  */
 import { isVoidish, type LType, sameType, T, typeKey } from "../types.ts";
 import { dump } from "./dump.ts";
@@ -36,6 +38,7 @@ import {
   completes,
   constantType,
   convertible,
+  elementOf,
   type EffectSummary,
   type FunctionId,
   type IrFunction,
@@ -115,11 +118,13 @@ class Checker {
   /** Every place declared so far, anywhere. */
   private readonly declared = new Set<PlaceId>();
   /** The places the operation being checked can use. */
-  private places = new Map<PlaceId, { type: LType; mutable: boolean }>();
+  private places = new Map<PlaceId, { type: LType; mutable: boolean; boxed?: boolean }>();
   /** The loops and blocks around the operation being checked, innermost last. */
   private readonly enclosing: Enclosing[] = [];
   /** The result type the region being checked yields, when it is a branch of an if giving one. */
   private yields?: LType;
+  /** Whether the region being checked is (inside) a finally region. */
+  inFinally = false;
   private readonly fn: IrFunction;
   private readonly env: VerifyEnv;
 
@@ -198,6 +203,14 @@ class Checker {
       this.declared.add(p.place);
       this.places.set(p.place, { type: p.type, mutable: p.mutable });
     }
+
+    // A capture holds a copy, which is never written, or shares a box, which is.
+    for (const c of fn.captures) {
+      if (this.declared.has(c.place)) this.problem(`p${c.place} is declared twice`);
+
+      this.declared.add(c.place);
+      this.places.set(c.place, { type: c.type, mutable: c.boxed, boxed: c.boxed });
+    }
   }
 
   /** Each region but the body is owned once, by an operation of its parent; each target defined once. */
@@ -210,7 +223,10 @@ class Checker {
       r.ops.forEach((op, i) => {
         const where = `r${r.id}[${i}] ${op.kind}`;
 
-        if ((op.kind === "loop" || op.kind === "block") && op.target !== undefined) {
+        if (
+          (op.kind === "loop" || op.kind === "block" || op.kind === "iterate") &&
+          op.target !== undefined
+        ) {
           if (targets.has(op.target)) this.problem(`${where} defines t${op.target} again`);
 
           targets.add(op.target);
@@ -266,7 +282,7 @@ class Checker {
     else this.problem(`${where} uses v${v} before it is defined`);
   }
 
-  private define(v: ValueId, where: string): void {
+  define(v: ValueId, where: string): void {
     if (!this.fn.values[v]) this.problem(`${where} defines v${v}, which does not exist`);
     else if (this.defined.has(v)) this.problem(`${where} defines v${v} again`);
 
@@ -278,7 +294,16 @@ class Checker {
    * Checks region `id`, owned by an operation of the region being checked,
    * in a scope of its own: what it defines and declares is not visible after it.
    */
-  nested(id: RegionId, how: { enclosing?: Enclosing; yields?: LType } = {}): void {
+  nested(
+    id: RegionId,
+    how: {
+      enclosing?: Enclosing;
+      yields?: LType;
+      defines?: ValueId[];
+      where?: string;
+      finally?: boolean;
+    } = {},
+  ): void {
     const region = this.fn.regions[id];
 
     if (!region) return;
@@ -287,11 +312,17 @@ class Checker {
       visible: new Set(this.visible),
       places: new Map(this.places),
       yields: this.yields,
+      inFinally: this.inFinally,
     };
 
     if (how.enclosing) this.enclosing.push(how.enclosing);
 
     this.yields = how.yields;
+
+    if (how.finally) this.inFinally = true;
+
+    // What the owning operation defines for the region alone (an iteration's element).
+    for (const v of how.defines ?? []) this.define(v, how.where ?? `r${id}`);
 
     try {
       this.region(region);
@@ -346,7 +377,7 @@ class Checker {
       this.problem(`${where}: v${v} is ${typeKey(actual)}, expected ${typeKey(expected)}`);
   }
 
-  place(p: PlaceId, where: string): { type: LType; mutable: boolean } | undefined {
+  place(p: PlaceId, where: string): { type: LType; mutable: boolean; boxed?: boolean } | undefined {
     const place = this.places.get(p);
 
     if (!place) this.problem(`${where} uses p${p}, which is not declared before it`);
@@ -354,11 +385,71 @@ class Checker {
     return place;
   }
 
-  declare(p: PlaceId, type: LType, where: string): void {
+  declare(p: PlaceId, type: LType, where: string, boxed = false): void {
     if (this.declared.has(p)) this.problem(`${where} declares p${p} again`);
 
     this.declared.add(p);
-    this.places.set(p, { type, mutable: true });
+    this.places.set(p, { type, mutable: true, boxed });
+  }
+
+  /** An await, in an async function, of a promise, giving what it fulfils with. */
+  awaits(op: IrOp & { kind: "await" }, where: string): void {
+    const t = this.typeOf(op.promise);
+
+    if (!this.fn.async) this.problemAt(where, "is not in an async function");
+
+    if (t && t.k !== "promise") this.problemAt(where, `awaits a ${typeKey(t)}, not a promise`);
+    else if (t && isVoidish(t.inner) !== (op.result === undefined))
+      this.problemAt(where, "gives a value just when the promise's has one");
+    else if (t && op.result !== undefined) this.expectType(op.result, t.inner, where);
+  }
+
+  /** A produce, in a generator, of an element of its type. */
+  produces(op: IrOp & { kind: "produce" }, where: string): void {
+    if (!this.fn.generator) this.problemAt(where, "is not in a generator");
+    else this.expectType(op.value, this.fn.generator, where);
+  }
+
+  /** A closure: its function is valid, and each capture gets a value of its type or a box. */
+  closure(op: IrOp & { kind: "closure" }, where: string): void {
+    const fn = op.fn;
+
+    for (const problem of new Checker(fn, this.env).run())
+      this.problem(`${where} ${fn.id}: ${problem}`);
+
+    if (op.from.length !== fn.captures.length)
+      this.problem(`${where} gives ${op.from.length} captures, ${fn.id} has ${fn.captures.length}`);
+
+    op.from.forEach((from, i) => {
+      const capture = fn.captures[i];
+
+      if (!capture) return;
+
+      if ("value" in from) {
+        if (capture.boxed)
+          this.problem(`${where} gives a value to the boxed capture ${capture.name}`);
+
+        this.expectType(from.value, capture.type, `${where} capture ${capture.name}`);
+        return;
+      }
+
+      const place = this.place(from.box, where);
+
+      if (place && !place.boxed) this.problem(`${where} shares p${from.box}, which is not boxed`);
+      else if (!capture.boxed) this.problem(`${where} shares a box with the copy ${capture.name}`);
+
+      if (place && !sameType(place.type, capture.type))
+        this.problem(
+          `${where} capture ${capture.name} is ${typeKey(capture.type)}, p${from.box} is ${typeKey(place.type)}`,
+        );
+    });
+
+    const t = this.typeOf(op.result);
+
+    if (t && (t.k !== "fn" || t.params.length !== fn.params.length))
+      this.problem(
+        `${where} gives v${op.result}, which is not a function of ${fn.params.length} parameters`,
+      );
   }
 
   call(op: IrOp & { kind: "call" }, where: string): void {
@@ -533,7 +624,7 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
       c.problemAt(where, `cannot convert a ${typeKey(from)} to ${typeKey(op.to)}`);
   },
 
-  local: (op, c, where) => c.declare(op.place, op.type, where),
+  local: (op, c, where) => c.declare(op.place, op.type, where, op.boxed),
 
   load: (op, c, where) => c.expectType(op.result, c.place(op.place, where)?.type, where),
 
@@ -552,7 +643,9 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
   throw: (op, c, where) => {
     const t = c.typeOf(op.value);
 
-    if (t && t.k !== "error") c.problemAt(where, `throws a ${typeKey(t)}, not an Error`);
+    // An Error, or an object of a class deriving from Error.
+    if (t && t.k !== "error" && t.k !== "class")
+      c.problemAt(where, `throws a ${typeKey(t)}, not an Error`);
   },
 
   if: (op, c, where) => {
@@ -570,6 +663,35 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
       c.nested(op.next, { enclosing: { target: op.target, loop: true, next: true } });
   },
 
+  try: (op, c, where) => {
+    c.nested(op.body);
+
+    if (op.catch) {
+      c.expectType(op.catch.error, T.error, where);
+      c.nested(op.catch.region, { defines: [op.catch.error], where });
+    }
+
+    if (op.finally !== undefined) c.nested(op.finally, { finally: true });
+  },
+
+  dispose: (_op, c, where) => {
+    if (!c.inFinally) c.problemAt(where, "is not in a finally region");
+  },
+
+  iterate: (op, c, where) => {
+    const iterable = c.typeOf(op.iterable);
+    const element = iterable && elementOf(iterable);
+
+    if (iterable && !element) c.problemAt(where, `cannot iterate over a ${typeKey(iterable)}`);
+    else c.expectType(op.element, element, where);
+
+    c.nested(op.body, {
+      enclosing: { target: op.target, loop: true, next: false },
+      defines: [op.element],
+      where,
+    });
+  },
+
   block: (op, c) =>
     c.nested(
       op.body,
@@ -581,6 +703,21 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
   continue: (op, c, where) => c.jump(op, where),
 
   yield: (op, c, where) => c.yield(op, where),
+
+  // Its operands are checked like every operation's; what it does is the backend's.
+  plan: (op, c, where) => {
+    if (!op.name) c.problemAt(where, "has no name");
+  },
+
+  closure: (op, c, where) => c.closure(op, where),
+
+  unreachable: () => {},
+
+  never: (op, c, where) => c.expectType(op.result, T.never, where),
+
+  await: (op, c, where) => c.awaits(op, where),
+
+  produce: (op, c, where) => c.produces(op, where),
 };
 
 function safeDump(fn: IrFunction): string {

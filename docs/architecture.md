@@ -133,27 +133,45 @@ Notable lowering choices:
   points at the `.lucent.ts` declaration rather than at generated code;
   native spans inside Lucent code (`LUCENT_TRACE_SCOPE`) get theirs from
   the `#line` in force.
-- **Semantic IR** (`ir/`, internal and off by default): a typed
-  representation between the checker and the C++ tree, in which every
-  value is defined once by an operation and operations run in list order,
-  so evaluation order is data. Control flow is structured: `if`, `loop`
-  and `block` operations own nested regions, which `break`, `continue`
-  and `yield` (an `if`'s result) leave. `LUCENT_LOWERING=ir` lowers the
-  top-level functions it supports through it (literals, arithmetic,
-  bitwise and comparison operators, on numbers and bigints, string concatenation and templates,
-  locals, parameters and module variables with every assignment form,
-  calls of the module's functions, `new Error`, conditional and logical
-  expressions, `typeof`, blocks, `if`, `while`, `do`, `for`, `switch`,
-  labels, `break`, `continue`, `return` and `throw`, and the checker's
-  narrowing of optionals and unions) and leaves the others to the emitter
-  above; `ir-strict` fails on anything it does not support. Conversions
+- **Semantic IR** (`ir/`): a typed representation between the checker
+  and the C++ tree, in which every value is defined once by an operation
+  and operations run in list order, so evaluation order is data. Control
+  flow is structured: `if`, `loop`, `iterate`, `block` and `try`
+  operations own nested regions, which `break`, `continue` and `yield`
+  (an `if`'s result) leave. Every function, method, accessor,
+  constructor, module `init()` and compute task variant lowers through
+  it; what it cannot lower is a LUCENT diagnostic. Component setups,
+  behind `LUCENT_VIEWS`, still use the emitter's own statements. What the IR
+  does not model itself (member reads and writes, methods of the runtime
+  and the SDK, constructions, array and object literals) is a `plan`: the
+  IR lowers the subexpressions it takes first, in source order, and the
+  emitter's own code for the leaf (`emit/leaf.ts`) gives its C++ over
+  those values, so builtin and SDK semantics are not written twice. A
+  compound assignment of a field or an element reads it through one plan
+  and writes it through another, around the right side. Nested functions
+  are IR functions of their own, made into C++ lambdas that capture copies
+  of what they read, or share the box of a variable code writes after
+  they capture it (`analysis/scopes.ts`). `for … of` is one operation
+  over a collection's elements, which the C++ walks by its kind (a
+  counter, a hash table's live slots, an iterator closed on early exit).
+  `try` is one operation with its catch and finally regions; the C++
+  sends a return, break or continue past a finally through it with a
+  completion code, and a `using` declaration is a finally that disposes.
+  A generic function's IR keeps its type parameters, and its C++ is a
+  template. Exact integers (literals, the int32 operators, the locals
+  `emit/integers.ts` proves integral) are marked in the IR and live in
+  integer registers in the C++. Async functions and generators are coroutines: each `await`
+  is an operation of its own, and `yield* xs` iterates `xs`. Platform tests
+  keep only what the platform being built runs. Conversions
   between optionals, unions and absent values are planned once, in
-  `lowering/conversions.ts`, for both lowerings. A verifier checks each function (definitions before uses and
+  `lowering/conversions.ts`, for the IR and the leaves it plans. A verifier checks each function (definitions before uses and
   inside their region, types, terminators, jump targets, branch results,
   spans, effect claims) before any C++ exists, and the C++ gives every
   call its own statement; a jump is C++'s `break` or `continue` when that
   reaches its target, a `goto` otherwise. The e2e runner compiles under
-  whichever mode is set.
+  whichever mode is set. `emit/through-ir.ts` is the emitter's one hook
+  into the IR, for module functions, methods, accessors, constructors and
+  modules' `init()` alike.
 - **Program analyses** (`analysis/`, internal): for each program and target,
   `programFacts` summarizes once what each unit of code may do: functions,
   closures, methods, accessors, a class's construction and each module's
@@ -200,7 +218,7 @@ Notable lowering choices:
   A `NativeBuffer` borrow (`emit/buffers.ts`) lends its callback a span
   that must not escape by any of those paths; the same module reports a
   buffer used after it certainly moved (`transfer()`, a compute handoff).
-  Under `LUCENT_LOWERING=ir`, each lowered function's effect record, and
+  Each lowered function's effect record, and
   each call's throw claim, is its summary; the verifier checks a record
   admits the mutable module variables it loads and stores and what the
   functions it calls do (a const holding a number is not state).

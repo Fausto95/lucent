@@ -1,57 +1,20 @@
-import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../../src/index.ts";
-import { loweringMode } from "../../src/ir/cpp.ts";
 import { dump } from "../../src/ir/dump.ts";
 import { type IrFunction, type RegionId, regionsOf } from "../../src/ir/ir.ts";
 import { IrUnsupported, lower, type LowerHost } from "../../src/ir/lower.ts";
 import { createLucentProgram } from "../../src/program.ts";
 import { type LType, TypeRegistry } from "../../src/types.ts";
+import { cppOf, module } from "./compile.ts";
 
 const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
 
 const ORDER = path.join(CASES, "order.lucent.ts");
 
 const CONTROL = path.join(CASES, "control-flow.lucent.ts");
-
-function module(source: string): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-ir-"));
-  const file = path.join(dir, "sample.lucent.ts");
-
-  fs.writeFileSync(file, source);
-  return file;
-}
-
-/** Runs `f` with LUCENT_LOWERING set to `mode` (unset when undefined). */
-function withLowering<R>(mode: string | undefined, f: () => R): R {
-  const saved = process.env.LUCENT_LOWERING;
-
-  if (mode === undefined) delete process.env.LUCENT_LOWERING;
-  else process.env.LUCENT_LOWERING = mode;
-
-  try {
-    return f();
-  } finally {
-    if (saved === undefined) delete process.env.LUCENT_LOWERING;
-    else process.env.LUCENT_LOWERING = saved;
-  }
-}
-
-/** The generated C++ of a one-module program. */
-function cppOf(file: string, mode?: string): string {
-  const r = withLowering(mode, () => compile([file]));
-
-  expect(r.diagnostics).toEqual([]);
-
-  const [name, text] = [...r.files].find(([n]) => n.endsWith(".cpp") && n.startsWith("m_"))!;
-
-  expect(name).toMatch(/^m_/);
-  return text.replace(/^#line .*\n/gm, "");
-}
 
 /** Lowers function `name` of `file` with a host over the checker alone. */
 function lowered(file: string, name: string) {
@@ -184,14 +147,13 @@ describe("lowering to the IR", () => {
   });
 
   it("does not lower what it does not support yet", () => {
-    const file = module(
-      "export function first(xs: number[]): number { for (const x of xs) return x; return 0; }\n",
-    );
+    const file = module("export function first(xs: number[]): number { return xs.length; }\n");
 
+    // Without the emitter's leaves, a member read is beyond the IR alone.
     expect(() => lowered(file, "first")).toThrow(IrUnsupported);
 
     expect(() => lowered(file, "first")).toThrow(
-      /does not lower ForOfStatement statements yet .*:1:47/,
+      /does not lower PropertyAccessExpression expressions yet .*:1:54/,
     );
   });
 });
@@ -355,8 +317,8 @@ describe("lowering control flow to the IR", () => {
       expect(switched?.block[0]).toContain("return");
     }
 
-    // TypeScript knows the cases cover the union; the IR does not.
-    expect(() => lowered(file, "weight")).toThrow(IrUnsupported);
+    // TypeScript knows the cases cover the union: the end of the body is unreachable.
+    expect(tree(lowered(file, "weight").fn).at(-1)).toBe("unreachable");
   });
 
   it("leaves statements after a return out", () => {
@@ -375,8 +337,8 @@ describe("lowering control flow to the IR", () => {
     ]);
   });
 
-  it("compiles the control-flow case through the IR alone under ir-strict", () => {
-    const out = cppOf(CONTROL, "ir-strict");
+  it("compiles the control-flow case without a diagnostic", () => {
+    const out = cppOf(CONTROL);
 
     expect(out).toContain("while (true) {");
 
@@ -384,31 +346,16 @@ describe("lowering control flow to the IR", () => {
   });
 });
 
-describe("the lowering selector", () => {
-  it("defaults to the legacy emitter and rejects unknown modes", () => {
-    expect(loweringMode(undefined)).toBe("legacy");
-
-    expect(loweringMode("")).toBe("legacy");
-
-    expect(loweringMode("ir")).toBe("ir");
-
-    expect(loweringMode("ir-strict")).toBe("ir-strict");
-
-    expect(() => loweringMode("fast")).toThrow(
-      /LUCENT_LOWERING must be one of legacy, ir, ir-strict/,
-    );
-  });
-
-  it("compiles the ordering case through the IR alone under ir-strict", () => {
-    const out = cppOf(ORDER, "ir-strict");
+describe("compiling through the IR", () => {
+  it("compiles the ordering case, each call a statement of its own", () => {
+    const out = cppOf(ORDER);
 
     expect(out).toContain(
       [
         "lucent::String m_order::pair() {",
         '  lucent::String v1_ = lucent_app::m_order::next(LUCENT_STR("l"));',
         '  lucent::String v3_ = lucent_app::m_order::next(LUCENT_STR("r"));',
-        "  lucent::String v4_ = lucent_app::m_order::combine(v1_, v3_);",
-        "  return v4_;",
+        "  return lucent_app::m_order::combine(v1_, v3_);",
         "}",
       ].join("\n"),
     );
@@ -416,37 +363,35 @@ describe("the lowering selector", () => {
     expect(out).not.toMatch(/\(\{/);
   });
 
-  it("leaves the default output as the legacy emitter's", () => {
-    const legacy = cppOf(ORDER, "legacy");
-
-    expect(cppOf(ORDER)).toBe(legacy);
-
-    expect(cppOf(ORDER, "ir-strict")).not.toBe(legacy);
-  });
-
-  it("uses the legacy emitter for what the IR does not support under ir, and fails under ir-strict", () => {
+  it("reports what Lucent rejects with its diagnostics", () => {
     const file = module(
-      "export function add(a: number, b: number): number { return a + b; }\n" +
-        "export function first(xs: number[]): number { for (const x of xs) return x; return 0; }\n",
+      [
+        "class R { [Symbol.dispose](): void {} }",
+        "export function f(n: number): number {",
+        "  switch (n) {",
+        "    case 1:",
+        "      using r = new R();",
+        "      return 1;",
+        "  }",
+        "  return 0;",
+        "}",
+        "export function g(): void { throw 1; }",
+        "export async function h(xs: number[]): Promise<number> {",
+        "  for await (const x of xs) return x;",
+        "  return 0;",
+        "}",
+        "export function k(): number { var x = 1; return x; }",
+        "",
+      ].join("\n"),
     );
-    const out = cppOf(file, "ir");
+    const found = compile([file]).diagnostics.map((d) => [d.code, d.message]);
 
-    expect(out).toContain("double v2_ = p0_ + p1_;");
-
-    expect(out).toMatch(/double m_sample::first\(lucent::Array<double> p0_xs\) \{/);
-
-    expect(() => withLowering("ir-strict", () => compile([file]))).toThrow(
-      /does not lower ForOfStatement statements yet/,
-    );
-  });
-
-  it("reports the legacy emitter's diagnostics for what the IR does not lower", () => {
-    const file = module("export function f(): number { var x = 1; return x; }\n");
-    const legacy = withLowering(undefined, () => compile([file])).diagnostics;
-
-    expect(legacy.length).toBeGreaterThan(0);
-
-    expect(withLowering("ir", () => compile([file])).diagnostics).toEqual(legacy);
+    expect(found).toEqual([
+      ["LUCENT1001", "wrap a using declaration in a case clause in a block"],
+      ["LUCENT1006", "only Error values can be thrown; use `throw new Error(...)`"],
+      ["LUCENT1009", "`for await` is not supported"],
+      ["LUCENT1001", "use `let` or `const` instead of `var`"],
+    ]);
   });
 });
 
@@ -490,8 +435,8 @@ describe("lowering bigints", () => {
     ]);
   });
 
-  it("compiles bigint functions through the IR alone under ir-strict", () => {
-    const out = cppOf(file(), "ir-strict");
+  it("compiles bigint functions without a diagnostic", () => {
+    const out = cppOf(file());
 
     expect(out).toContain('LUCENT_BIGINT("18446744073709551616")');
 
@@ -499,11 +444,11 @@ describe("lowering bigints", () => {
 
     expect(out).toContain("lucent::BigInt::fromInt64(3)");
 
-    expect(out).toMatch(/lucent::BigInt v\d+_ = p0_ \* p1_;/);
+    expect(out).toContain("p0_ * p1_");
 
-    expect(out).toMatch(/bool v\d+_ = p0_ < p2_;/);
+    expect(out).toContain("p0_ < p2_");
 
-    expect(out).toMatch(/bool v\d+_ = p0_ == p1_;/);
+    expect(out).toContain("p0_ == p1_");
 
     expect(out).toMatch(/lucent::truthy\(p0_\)/);
 

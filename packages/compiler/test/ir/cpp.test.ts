@@ -81,8 +81,7 @@ describe("IR to C++", () => {
         '#line 3 "/app/order.lucent.ts"',
         '  lucent::String v3_ = next(LUCENT_STR("r"));',
         '#line 4 "/app/order.lucent.ts"',
-        "  lucent::String v4_ = combine(v1_, v3_);",
-        "  return v4_;",
+        "  return combine(v1_, v3_);",
         "}",
       ].join("\n"),
     );
@@ -118,15 +117,9 @@ describe("IR to C++", () => {
       [
         "bool nums(double p0_) {",
         '#line 1 "/app/order.lucent.ts"',
-        "  double v5_ = lucent::jsMod(p0_, -0.0);",
-        "  double v6_ = lucent::jsPow(v5_, lucent::kInfinity);",
-        "  double v7_ = v6_ * 0.1;",
-        "  double v8_ = v7_ + lucent::kNaN;",
-        "  double v9_ = -v8_;",
+        "  double v9_ = -(lucent::jsPow(lucent::jsMod(p0_, -0.0), lucent::kInfinity) * 0.1 + lucent::kNaN);",
         "  bool v10_ = v9_ == p0_;",
-        "  bool v11_ = !(v9_ == p0_);",
-        "  bool v12_ = v10_ == v11_;",
-        "  return v12_;",
+        "  return v10_ == !(v9_ == p0_);",
         "}",
       ].join("\n"),
     );
@@ -147,7 +140,7 @@ describe("IR to C++", () => {
     b.return(joined, at(5));
 
     expect(printed(b.finish())).toContain(
-      '  lucent::String v1_ = lucent::toJsString(p0_);\n  lucent::String v3_ = lucent::String(LUCENT_STR("n=")) + v1_;',
+      '  lucent::String v1_ = lucent::toJsString(p0_);\n  return lucent::String(LUCENT_STR("n=")) + v1_;',
     );
   });
 
@@ -172,9 +165,8 @@ describe("IR to C++", () => {
         "  lucent::String v0_ = lucent_app::m_order::log;",
         "  lucent::String x = v0_;",
         '  lucent::String v2_ = next(LUCENT_STR("a"));',
-        "  lucent::String v3_ = x;",
-        "  lucent::String v4_ = lucent::String(v3_) + v2_;",
-        "  lucent_app::m_order::log = v4_;",
+        // `x` is read where it is used: no call between can change a local.
+        "  lucent_app::m_order::log = lucent::String(x) + v2_;",
         '  (void)next(LUCENT_STR("b"));',
         "}",
       ].join("\n"),
@@ -232,14 +224,13 @@ describe("IR to C++", () => {
     expect(printed(b.finish()).replace(/^#line .*\n/gm, "")).toBe(
       [
         "void ops(double p0_, lucent::Opt<double> p1_) {",
-        "  double v3_ = lucent::jsAnd(p0_, 3.0);",
-        "  double v5_ = lucent::jsShr(v3_, 1.0);",
-        "  double v6_ = lucent::jsNot(v5_);",
+        // The int32 operators work on integer registers, read back as a double where one is needed.
+        "  int32_t v3_ = lucent::toInt32(p0_) & 3;",
+        "  int32_t v6_ = ~static_cast<int32_t>(static_cast<uint32_t>(v3_) >> (static_cast<uint32_t>(1) & 31u));",
         "  bool v7_ = lucent::truthy(p1_);",
         "  bool v9_ = !p1_.has();",
         "  bool v11_ = lucent::strictEquals(p1_, lucent::undefined);",
-        "  lucent::String v12_ = lucent::typeOf(p1_);",
-        "  use(v6_, v7_, v9_, v11_, v12_);",
+        "  use(static_cast<double>(v6_), v7_, v9_, v11_, lucent::typeOf(p1_));",
         "}",
       ].join("\n"),
     );
@@ -259,7 +250,7 @@ describe("IR to C++", () => {
     expect(printed(b.finish())).toContain(
       [
         "  lucent::Opt<std::variant<double, lucent::String>> v2_ = lucent::Opt<std::variant<double, lucent::String>>(std::variant<double, lucent::String>(p0_));",
-        "  lucent::String v3_ = lucent::narrow<lucent::String>(p1_.value());",
+        "  use(v2_, lucent::narrow<lucent::String>(p1_.value()));",
       ].join("\n"),
     );
   });
@@ -288,12 +279,9 @@ describe("IR to C++ for bigints", () => {
     expect(printed(b.finish()).replace(/^#line .*\n/gm, "")).toBe(
       [
         "lucent::BigInt big(lucent::BigInt p0_) {",
-        "  lucent::BigInt v3_ = p0_ % lucent::BigInt::fromInt64(-5);",
-        '  lucent::BigInt v4_ = lucent::BigInt::pow(v3_, LUCENT_BIGINT("18446744073709551616"));',
+        '  lucent::BigInt v4_ = lucent::BigInt::pow(p0_ % lucent::BigInt::fromInt64(-5), LUCENT_BIGINT("18446744073709551616"));',
         "  lucent::BigInt v6_ = v4_ << lucent::BigInt::fromInt64(3);",
-        "  lucent::BigInt v7_ = ~p0_;",
-        "  lucent::BigInt v8_ = v6_ ^ v7_;",
-        "  return v8_;",
+        "  return v6_ ^ ~p0_;",
         "}",
       ].join("\n"),
     );

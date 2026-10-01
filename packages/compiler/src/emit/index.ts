@@ -1,9 +1,9 @@
 import { cpp, ts as js } from "@lucent-lang/codegen";
 import path from "node:path";
 import ts from "typescript";
-import { literalConstant, programFacts, type ProgramFacts } from "../analysis/index.ts";
+import { literalConstant, programFacts } from "../analysis/index.ts";
 import { Codes, fail } from "../diagnostics.ts";
-import { type CppFunction, lowerToCpp, loweringMode, type Lowering } from "../ir/cpp.ts";
+import type { CppFunction } from "../ir/cpp.ts";
 import { platformScopes } from "../platforms.ts";
 import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
@@ -23,6 +23,8 @@ import {
 import { javaSubclass } from "./java.ts";
 import { kotlinFiles } from "./kotlin.ts";
 import { Ctx, type Global } from "./context.ts";
+import { initThroughIr, type IrMode, type IrUnit, throughIr } from "./through-ir.ts";
+import type { Initializer } from "../ir/lower.ts";
 import { FnEmitter } from "./function.ts";
 import { emitIface } from "./interfaces.ts";
 import { declaredNames, withoutMacros } from "./macros.ts";
@@ -165,20 +167,22 @@ export function emitProgram(
   }
 
   // Pass 2: code.
+  // The IR's effect records come from the program's analysis.
+  const ir: IrMode = { facts: programFacts(lp) };
   const structDecls: cpp.Decl[] = [];
   const classDefs: cpp.Decl[] = [];
   const genericClassDefs: cpp.Decl[] = [];
   const moduleDecls = new Map<LucentModule, cpp.Decl[]>();
   const moduleDefs = new Map<LucentModule, cpp.Decl[]>();
   const genericFns = new Map<LucentModule, cpp.Decl[]>();
-  const staticInits = new Map<LucentModule, cpp.Stmt[]>();
+  const statics = new Map<LucentModule, Initializer[]>();
   const nativeDecls: cpp.Decl[] = [];
   const java = new Map<string, string>();
   for (const m of lp.modules) {
     moduleDecls.set(m, []);
     genericFns.set(m, []);
     moduleDefs.set(m, []);
-    staticInits.set(m, []);
+    statics.set(m, []);
   }
 
   // Base classes first: a C++ base must be complete where it is derived from.
@@ -187,7 +191,7 @@ export function emitProgram(
   );
   for (const info of byDepth) {
     const m = lp.modules.find((x) => x.name === info.module)!;
-    const out = ctx.guard(() => emitClass(ctx, m, info));
+    const out = ctx.guard(() => emitClass(ctx, m, info, ir));
     if (!out) continue;
     (info.typeParams.length ||
     byDepth.some((c) => c.typeParams.length && ctx.reg.derives(info.id, c.id))
@@ -195,7 +199,7 @@ export function emitProgram(
       : classDefs
     ).push(out.definition);
     moduleDefs.get(m)!.push(...out.members);
-    staticInits.get(m)!.push(...out.staticInits);
+    statics.get(m)!.push(...out.statics);
     // Classes implementing SDK protocols: an Objective-C object per instance.
     const objc = ctx.guard(() => objcDelegate(ctx, m, info));
     if (objc) {
@@ -221,10 +225,6 @@ export function emitProgram(
   }
 
   // Platform modules' declarations alias their implementations: emit each once.
-  const lowering = loweringMode();
-  // The IR's effect records come from the program's analysis.
-  const facts = lowering === "legacy" ? undefined : programFacts(lp);
-
   for (const g of new Set(ctx.globals.values())) {
     if (g.kind === "function")
       ctx.guard(() =>
@@ -234,8 +234,7 @@ export function emitProgram(
           moduleDecls.get(g.module)!,
           moduleDefs.get(g.module)!,
           genericFns.get(g.module)!,
-          lowering,
-          facts,
+          ir,
         ),
       );
   }
@@ -265,33 +264,53 @@ export function emitProgram(
   // Module state and init().
   for (const m of lp.modules) {
     const decls = moduleDecls.get(m)!;
-    const em = new FnEmitter(ctx, { module: m, async: false, returnType: T.void });
-    for (const g of new Set(ctx.globals.values())) {
-      if (g.kind !== "var" || g.module !== m) continue;
-      const type = ctx.reg.cppType(g.type);
+    const vars = [...new Set(ctx.globals.values())].filter(
+      (g): g is Extract<Global, { kind: "var" }> => g.kind === "var" && g.module === m,
+    );
+
+    for (const g of vars)
       decls.unshift({
         k: "var",
         inline: true,
-        stmt: cpp.varDecl(type, g.cpp.split("::").pop()!, undefined, { style: "brace" }),
+        stmt: cpp.varDecl(ctx.reg.cppType(g.type), g.cpp.split("::").pop()!, undefined, {
+          style: "brace",
+        }),
       });
-      const target = cpp.id(g.cpp);
-      if (g.decl.initializer) {
-        const v = ctx.guard(() => em.exprAs(g.decl.initializer!, g.type));
-        if (v !== undefined) em.emit(cpp.exprStmt(cpp.assign(target, v)));
-      } else {
-        em.emit(cpp.exprStmt(cpp.assign(target, cpp.construct(type, [], true))));
-      }
-    }
+
     decls.push(cpp.fn("init", cpp.voidType, []));
-    moduleDefs.get(m)!.push(
-      cpp.fn("init", cpp.voidType, [], [...staticInits.get(m)!, ...em.body()], {
-        scope: cpp.type(m.ns),
-      }),
-    );
+
+    // Its classes' static fields, then its variables (a type's default without a value).
+    const initializers: Initializer[] = [
+      ...statics.get(m)!,
+      ...vars.map((g) => ({
+        value: g.decl.initializer
+          ? { expr: g.decl.initializer }
+          : {
+              leaf: {
+                name: "default",
+                code: cpp.construct(ctx.reg.cppType(g.type), [], true),
+                type: g.type,
+              },
+            },
+        type: g.type,
+        into: {
+          variable: {
+            kind: "var" as const,
+            id: g.cpp,
+            name: g.decl.name.getText(),
+            type: g.type,
+            mutable: true,
+          },
+        },
+      })),
+    ];
+    const body = ctx.guard(() => initThroughIr(ctx, m, initializers, ir).body) ?? [];
+
+    moduleDefs.get(m)!.push(cpp.fn("init", cpp.voidType, [], body, { scope: cpp.type(m.ns) }));
   }
 
   // What compute tasks run, with their safepoints (after all code that may compute).
-  emitTaskVariants(ctx, moduleDecls, moduleDefs);
+  emitTaskVariants(ctx, moduleDecls, moduleDefs, ir);
 
   // Structs (after everything has been lowered, so the registry is complete).
   const bindings = new BindingsEmitter(ctx);
@@ -628,131 +647,84 @@ function emitFunction(
   decls: cpp.Decl[],
   defs: cpp.Decl[],
   genericFns: cpp.Decl[],
-  lowering: Lowering,
-  facts: ProgramFacts | undefined,
+  ir: IrMode,
 ): void {
   const s = g.decl;
-  const ir = lowering === "legacy" || !facts ? undefined : viaIr(ctx, g, lowering, facts);
+  const name = cppIdent(s.name!.text);
 
-  if (ir) {
-    const name = cppIdent(s.name!.text);
-
-    decls.push(cpp.fn(name, ir.ret, ir.params));
-    defs.push(cpp.fn(name, ir.ret, ir.params, ir.body, { scope: cpp.type(g.module.ns) }));
+  if (!s.body) {
+    platformStub(ctx, g, decls, defs);
     return;
   }
 
-  const generator = !!g.decl.asteriskToken;
-  if (generator && g.async)
-    fail(g.decl, Codes.UnsupportedSyntax, "async generators are not supported");
-  const ret = g.async ? (g.type.ret.k === "promise" ? g.type.ret.inner : g.type.ret) : g.type.ret;
-  const em = new FnEmitter(ctx, {
-    module: g.module,
-    async: g.async,
-    generator,
-    returnType: generator ? T.void : ret,
-  });
-  let params: cpp.Param[] = [];
-  ctx.guard(() => {
-    params = em.emitParams(s, g.params);
-    if (s.body) em.emitFunctionBody(s);
-    else {
-      // A platform module's export on a target without an implementation.
-      const error = cpp.call("lucent::makeError", [
-        stringExpr("Error"),
-        stringExpr(`${g.module.name}.${s.name!.text} is not available on this platform`),
-      ]);
-      em.emit(
-        g.type.ret.k === "promise"
-          ? cpp.ret(
-              cpp.call(
-                cpp.scoped(
-                  cpp.type("lucent::Promise", ctx.reg.cppRetType(g.type.ret.inner)),
-                  "rejected",
-                ),
-                [error],
-              ),
-            )
-          : { k: "throw", value: cpp.construct(cpp.type("lucent::Exception"), [error]) },
-      );
-    }
-  });
-  const retType = g.async
-    ? cpp.type("lucent::Promise", ctx.reg.cppRetType(ret))
-    : ctx.reg.cppRetType(ret);
-  const name = cppIdent(s.name!.text);
+  const lowered = functionThroughIr(ctx, g, ir);
+
+  // A generic function is a C++ template, which its callers instantiate.
   if (g.generic) {
     const template = s.typeParameters!.map((p) => cppIdent(p.name.text));
+
     genericFns.push(
-      cpp.namespace(g.module.ns, [cpp.fn(name, retType, params, em.body(), { template })]),
+      cpp.namespace(g.module.ns, [
+        cpp.fn(name, lowered.ret, lowered.params, lowered.body, { template }),
+      ]),
     );
-    decls.push(cpp.fn(name, retType, params, undefined, { template }));
+    decls.push(cpp.fn(name, lowered.ret, lowered.params, undefined, { template }));
     return;
   }
-  decls.push(cpp.fn(name, retType, params));
-  defs.push(cpp.fn(name, retType, params, em.body(), { scope: cpp.type(g.module.ns) }));
+
+  decls.push(cpp.fn(name, lowered.ret, lowered.params));
+  defs.push(
+    cpp.fn(name, lowered.ret, lowered.params, lowered.body, { scope: cpp.type(g.module.ns) }),
+  );
 }
 
-/** A function through the semantic IR (ir/), when LUCENT_LOWERING selects it and it applies. */
-function viaIr(
+/** A platform module's export on a target without an implementation: it throws, or rejects. */
+function platformStub(
   ctx: Ctx,
   g: Extract<Global, { kind: "function" }>,
-  lowering: Exclude<Lowering, "legacy">,
-  facts: ProgramFacts,
-): CppFunction | undefined {
-  const effects = (decl: ts.Node) => {
-    const unit = facts.unit(decl);
+  decls: cpp.Decl[],
+  defs: cpp.Decl[],
+): void {
+  const name = cppIdent(g.decl.name!.text);
+  const ret = g.type.ret;
+  const params = g.params.map((p, i) => cpp.param(ctx.reg.cppType(p.cppType), `p${i}_`));
+  const error = cpp.call("lucent::makeError", [
+    stringExpr("Error"),
+    stringExpr(`${g.module.name}.${name} is not available on this platform`),
+  ]);
+  const promised = ret.k === "promise" ? ctx.reg.cppRetType(ret.inner) : undefined;
+  const body: cpp.Stmt = promised
+    ? cpp.ret(cpp.call(cpp.scoped(cpp.type("lucent::Promise", promised), "rejected"), [error]))
+    : { k: "throw", value: cpp.construct(cpp.type("lucent::Exception"), [error]) };
+  const retType = promised ? cpp.type("lucent::Promise", promised) : ctx.reg.cppRetType(ret);
 
-    return unit ? { effects: facts.effects(unit) } : {};
-  };
-  const input = {
+  decls.push(cpp.fn(name, retType, params));
+  defs.push(cpp.fn(name, retType, params, [body], { scope: cpp.type(g.module.ns) }));
+}
+
+/** A module's function, through the semantic IR (ir/). */
+function functionThroughIr(
+  ctx: Ctx,
+  g: Extract<Global, { kind: "function" }>,
+  ir: IrMode,
+): CppFunction {
+  const ret = g.type.ret;
+  const generator = g.decl.asteriskToken && ret.k === "iter" ? ret.e : undefined;
+  // An async function's body returns what its promise fulfils with; a generator's, nothing.
+  const result = g.async && ret.k === "promise" ? ret.inner : generator ? T.void : ret;
+  const unit: IrUnit = {
     decl: g.decl,
     id: g.cpp,
-    params: g.params.map((p) => p.cppType),
-    result: g.type.ret,
+    params: g.params,
+    result,
     async: g.async,
+    ...(generator ? { generator } : {}),
     generic: g.generic,
-    ...effects(g.decl),
-  };
-  const host = {
-    checker: ctx.checker,
-    typeAt: (node: ts.Node) => ctx.lowerAt(node),
-    typeOf: (sym: ts.Symbol, at: ts.Node) =>
-      ctx.reg.lower(ctx.checker.getTypeOfSymbolAtLocation(sym, at), at),
-    global: (sym: ts.Symbol) => {
-      const resolved = ctx.resolve(sym);
-      const d = ctx.failed.has(resolved) ? undefined : ctx.globals.get(resolved);
-
-      if (d?.kind === "function")
-        return {
-          kind: "function" as const,
-          id: d.cpp,
-          params: d.params.map((p) => p.cppType),
-          result: d.type.ret,
-          callable: !d.generic && !d.async && d.params.every((p) => !p.optional && !p.rest),
-          ...effects(d.decl),
-        };
-
-      if (d?.kind === "var")
-        return {
-          kind: "var" as const,
-          id: d.cpp,
-          name: d.decl.name.getText(),
-          type: d.type,
-          mutable: !d.isConst,
-          ...(d.literal ? { literal: d.literal } : {}),
-        };
-
-      return undefined;
-    },
-  };
-  const backend = {
-    cppType: (t: LType) => ctx.reg.cppType(t),
-    cppRetType: (t: LType) => ctx.reg.cppRetType(t),
+    opts: { module: g.module, async: g.async, returnType: result },
     site: g.decl.name!.text,
   };
 
-  return lowerToCpp(lowering, input, host, backend);
+  return throughIr(ctx, unit, ir);
 }
 
 function topoSort(

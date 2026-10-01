@@ -76,7 +76,8 @@ export function declaringFunction(sym: ts.Symbol): FunctionLike | undefined {
   return enclosingFunction(decl);
 }
 
-function isWriteTarget(id: ts.Identifier): boolean {
+/** Whether `id` is written: assigned (destructuring included), incremented, or a loop's target. */
+export function isWriteTarget(id: ts.Identifier): boolean {
   let node: ts.Node = id;
   // Destructuring assignment targets: walk up through array/object literals.
   while (

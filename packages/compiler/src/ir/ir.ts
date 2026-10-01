@@ -10,7 +10,7 @@
  */
 import { looseEqualityConverts } from "../lowering/loose-equality.ts";
 import { conversionStep, type Representations } from "../lowering/conversions.ts";
-import { type LType, sameType, T } from "../types.ts";
+import { type LType, sameType, T, unionOf } from "../types.ts";
 
 /** A value, dense per function: `values[id].id === id`. */
 export type ValueId = number & { readonly __value: true };
@@ -45,11 +45,20 @@ export type OwnerId = "legacy-module" | "main" | "task" | "unknown";
 
 export const OWNERS: readonly OwnerId[] = ["legacy-module", "main", "task", "unknown"];
 
+/**
+ * How an exact integer number is held: in an int32, a uint32 or an int64
+ * register. The value is the same number in each, so it reads as a
+ * double without changing any result.
+ */
+export type IntKind = "i32" | "u32" | "i64";
+
 export interface IrValue {
   id: ValueId;
   type: LType;
   source: SourceSpan;
   owner?: OwnerId;
+  /** A number known to be an exact integer of this kind (see `intKindOf`). */
+  int?: IntKind;
 }
 
 /** A module variable the function reads or writes: a place declared outside its body. */
@@ -62,6 +71,21 @@ export interface IrModulePlace {
   mutable: boolean;
 }
 
+/**
+ * A variable of an enclosing function that a closure uses: a place
+ * declared at entry, holding the value it had when the closure was made,
+ * or, `boxed`, sharing the enclosing function's box (a variable some
+ * code writes after closures capture it).
+ */
+export interface IrCapture {
+  place: PlaceId;
+  name: string;
+  type: LType;
+  boxed: boolean;
+  /** Its name in the backend's own code, which names it (`self`, a method's `this`). */
+  spelled?: string;
+}
+
 export interface IrFunction {
   id: FunctionId;
   params: ValueId[];
@@ -70,9 +94,16 @@ export interface IrFunction {
   values: IrValue[];
   regions: IrRegion[];
   modulePlaces: IrModulePlace[];
+  /** What a closure captures, in the order of its `closure` op's `from`. */
+  captures: IrCapture[];
   effects: EffectSummary;
   source: SourceSpan;
+  /** An async function: it gives a promise of its result, and may `await`. */
   async: boolean;
+  /** A generator: what it gives its caller, one element at a time (`produce`); its result is void. */
+  generator?: LType;
+  /** The name the Errors it makes record as where they were made (a closure's own). */
+  site?: string;
 }
 
 export interface IrRegion {
@@ -124,7 +155,20 @@ export type IrOp =
       source: SourceSpan;
     }
   | { kind: "convert"; result: ValueId; input: ValueId; to: LType; source: SourceSpan }
-  | { kind: "local"; place: PlaceId; type: LType; name: string; source: SourceSpan }
+  /**
+   * A local; `boxed`, one closures share, which some code writes after they
+   * capture it; `int`, a number every write of which is an exact integer
+   * of that kind, held in an integer register.
+   */
+  | {
+      kind: "local";
+      place: PlaceId;
+      type: LType;
+      name: string;
+      boxed?: boolean;
+      int?: IntKind;
+      source: SourceSpan;
+    }
   | { kind: "load"; result: ValueId; place: PlaceId; source: SourceSpan }
   | { kind: "store"; place: PlaceId; value: ValueId; source: SourceSpan }
   | {
@@ -154,6 +198,39 @@ export type IrOp =
   | { kind: "loop"; target: TargetId; body: RegionId; next?: RegionId; source: SourceSpan }
   /** Runs `body`, a scope of its own; with a target, `break` leaves it. */
   | { kind: "block"; target?: TargetId; body: RegionId; source: SourceSpan }
+  /**
+   * `try`: runs `body`; when it throws, `catch` runs with the error (its
+   * `error`, defined for the region alone). However they are left (falling
+   * through, a return, a break or continue past the `try`, a throw), the
+   * `finally` region runs first; when it completes, so does what left, and
+   * when it leaves itself, that replaces it.
+   */
+  | {
+      kind: "try";
+      body: RegionId;
+      catch?: { region: RegionId; error: ValueId };
+      finally?: RegionId;
+      source: SourceSpan;
+    }
+  /**
+   * In a `finally` region: disposes `value` with the backend's `code` (a
+   * `using` declaration's). When disposing throws while an exception is
+   * pending, the pending one becomes a SuppressedError of both.
+   */
+  | { kind: "dispose"; value: ValueId; code: unknown; source: SourceSpan }
+  /**
+   * Runs `body` for each element of `iterable` (`for … of`), the element
+   * being `element` there; `break` and `continue` name `target`. Leaving
+   * early closes an iterator (which runs a generator's `finally`).
+   */
+  | {
+      kind: "iterate";
+      target: TargetId;
+      iterable: ValueId;
+      element: ValueId;
+      body: RegionId;
+      source: SourceSpan;
+    }
   | { kind: "return"; value?: ValueId; source: SourceSpan }
   | { kind: "throw"; value: ValueId; source: SourceSpan }
   /** Leaves the loop or block `target`. */
@@ -161,7 +238,51 @@ export type IrOp =
   /** Ends this iteration of the loop `target`. */
   | { kind: "continue"; target: TargetId; source: SourceSpan }
   /** Ends a branch of an `if`, giving its result. */
-  | { kind: "yield"; value?: ValueId; source: SourceSpan };
+  | { kind: "yield"; value?: ValueId; source: SourceSpan }
+  /**
+   * An operation the IR does not model itself (a member read, a method of
+   * the runtime or the SDK, a construction…), on values computed before
+   * it: the backend's `code` for it, which `name` describes. Its effects
+   * are the program analysis's to know; the IR assumes it may do anything.
+   */
+  | {
+      kind: "plan";
+      result?: ValueId;
+      name: string;
+      code: unknown;
+      args: ValueId[];
+      /** Its value as an exact integer too, when the backend's code gives one (`Math.imul`). */
+      int?: { code: unknown; kind: IntKind };
+      source: SourceSpan;
+    }
+  /**
+   * A function value made of `fn`, a nested function: each of its captures
+   * is the value `from` gives it, or the box of the place `from` names.
+   */
+  | {
+      kind: "closure";
+      result: ValueId;
+      fn: IrFunction;
+      from: CaptureSource[];
+      source: SourceSpan;
+    }
+  /**
+   * In an async function: suspends until `promise` settles, giving what it
+   * fulfils with (nothing for a promise of void), or throwing its reason.
+   */
+  | { kind: "await"; result?: ValueId; promise: ValueId; source: SourceSpan }
+  /** In a generator: gives its caller the next element, `value`, and suspends until it asks again. */
+  | { kind: "produce"; value: ValueId; source: SourceSpan }
+  /** A point TypeScript proved no path reaches (a body ending after an exhaustive switch). */
+  | { kind: "unreachable"; source: SourceSpan }
+  /**
+   * The value of what never completes (a call that always throws): of type
+   * `never`, it converts to any type, and no code that uses it runs.
+   */
+  | { kind: "never"; result: ValueId; source: SourceSpan };
+
+/** What a closure's capture holds: a value of the enclosing function, or the box of its place. */
+export type CaptureSource = { value: ValueId } | { box: PlaceId };
 
 export type Callee = { kind: "function"; id: FunctionId } | { kind: "builtin"; name: BuiltinName };
 
@@ -360,6 +481,66 @@ export function convertible(from: LType, to: LType): boolean {
   return true;
 }
 
+/**
+ * The type of the elements `for … of` gives over a `t`: an array's,
+ * a set's, a map's entries, a record's (`[key, value]`), a string's code
+ * points, a byte array's numbers, an iterator's, a match's groups. Not
+ * iterable: undefined.
+ */
+export function elementOf(t: LType): LType | undefined {
+  switch (t.k) {
+    case "array":
+    case "set":
+    case "iter":
+      return t.e;
+    case "map":
+      return { k: "tuple", es: [t.key, t.val] };
+    case "dict":
+      return { k: "tuple", es: [T.string, t.val] };
+    case "string":
+      return T.string;
+    case "bytes":
+      return T.number;
+    case "regexMatch":
+      return unionOf([T.string, T.undefined]);
+    default:
+      return undefined;
+  }
+}
+
+/** What the int32 operators give, as JavaScript defines them: `>>>` a uint32, the others an int32. */
+const INT_OPERATORS: Partial<Record<BinaryOp, IntKind>> = {
+  "&": "i32",
+  "|": "i32",
+  "^": "i32",
+  "<<": "i32",
+  ">>": "i32",
+  ">>>": "u32",
+};
+
+/**
+ * The integer kind a number operation gives: a literal's (but -0, whose
+ * sign an integer loses), an int32 operator's, `~`'s. Undefined for any
+ * other value, which may be any double.
+ */
+export function intKindOf(op: IrOp, type: LType): IntKind | undefined {
+  if (type.k !== "number") return undefined;
+
+  if (op.kind === "const" && typeof op.value === "number") {
+    const v = op.value;
+
+    if (!Number.isInteger(v) || Object.is(v, -0)) return undefined;
+
+    if (v >= -2147483648 && v <= 2147483647) return "i32";
+
+    return v > 0 && v <= 4294967295 ? "u32" : undefined;
+  }
+
+  if (op.kind === "binary") return INT_OPERATORS[op.op];
+
+  return op.kind === "unary" && op.op === "~" ? "i32" : undefined;
+}
+
 /** The type of a constant. */
 export function constantType(value: Constant): LType {
   if (value === null) return T.null;
@@ -390,13 +571,23 @@ export function operandsOf(op: IrOp): ValueId[] {
     case "store":
       return [op.value];
     case "call":
+    case "plan":
       return op.args;
+    case "closure":
+      return op.from.flatMap((f) => ("value" in f ? [f.value] : []));
     case "return":
       return op.value === undefined ? [] : [op.value];
     case "throw":
       return [op.value];
     case "if":
       return [op.cond];
+    case "iterate":
+      return [op.iterable];
+    case "dispose":
+    case "produce":
+      return [op.value];
+    case "await":
+      return [op.promise];
     case "yield":
       return op.value === undefined ? [] : [op.value];
     default:
@@ -412,7 +603,14 @@ export function regionsOf(op: IrOp): RegionId[] {
     case "loop":
       return op.next === undefined ? [op.body] : [op.body, op.next];
     case "block":
+    case "iterate":
       return [op.body];
+    case "try":
+      return [
+        op.body,
+        ...(op.catch ? [op.catch.region] : []),
+        ...(op.finally === undefined ? [] : [op.finally]),
+      ];
     default:
       return [];
   }
@@ -420,7 +618,11 @@ export function regionsOf(op: IrOp): RegionId[] {
 
 /** The target an operation defines (a loop or block) or jumps to (break, continue). */
 export function targetOf(op: IrOp): TargetId | undefined {
-  return op.kind === "loop" || op.kind === "block" || op.kind === "break" || op.kind === "continue"
+  return op.kind === "loop" ||
+    op.kind === "block" ||
+    op.kind === "iterate" ||
+    op.kind === "break" ||
+    op.kind === "continue"
     ? op.target
     : undefined;
 }
@@ -436,13 +638,19 @@ export function placeOf(op: IrOp): PlaceId | undefined {
  * `break` leaves, or a `block` that neither ends nor is left.
  */
 export function completes(fn: Pick<IrFunction, "regions">, id: RegionId): boolean {
+  return runsThrough(fn, fn.regions[id]?.ops ?? []);
+}
+
+/** Whether running `ops`, operations of `fn`, can reach their end (see `completes`). */
+export function runsThrough(fn: Pick<IrFunction, "regions">, ops: readonly IrOp[]): boolean {
   const broken = new Set<TargetId>();
 
   for (const r of fn.regions)
     for (const op of r.ops) if (op.kind === "break") broken.add(op.target);
 
-  const run = (region: RegionId): boolean => {
-    for (const op of fn.regions[region]?.ops ?? []) {
+  const run = (region: RegionId): boolean => through(fn.regions[region]?.ops ?? []);
+  const through = (ops: readonly IrOp[]): boolean => {
+    for (const op of ops) {
       // A yield gives its if's result: what follows the if runs next.
       if (op.kind === "yield") return true;
 
@@ -455,14 +663,28 @@ export function completes(fn: Pick<IrFunction, "regions">, id: RegionId): boolea
       const left = op.kind === "block" && op.target !== undefined && broken.has(op.target);
 
       if (op.kind === "block" && !left && !run(op.body)) return false;
+
+      // A try completes when its body or its catch does, and so does its finally.
+      if (op.kind === "try") {
+        const normal = run(op.body) || (op.catch !== undefined && run(op.catch.region));
+
+        if (!normal || (op.finally !== undefined && !run(op.finally))) return false;
+      }
     }
     return true;
   };
 
-  return run(id);
+  return through(ops);
 }
 
-const TERMINATORS = new Set<IrOp["kind"]>(["return", "throw", "break", "continue", "yield"]);
+const TERMINATORS = new Set<IrOp["kind"]>([
+  "return",
+  "throw",
+  "break",
+  "continue",
+  "yield",
+  "unreachable",
+]);
 
 /** Operations that end their region: nothing may follow them. */
 export function isTerminator(op: IrOp): boolean {

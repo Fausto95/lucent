@@ -737,12 +737,16 @@ printer or a C++ compiler decides.
   `verify.ts`, `dump.ts`, and `cpp.ts` (IR to the C++ AST of
   `@lucent-lang/codegen`). Tests live in `packages/compiler/test/ir/`.
 - The IR imports `types.ts` (`LType`) and `typescript`; it never imports
-  `emit/**`. The emitter reaches `ir/cpp.ts` through one hook.
-- Selection is internal: `LUCENT_LOWERING=legacy | ir | ir-strict` (or
-  an internal compile option). The default is the legacy emitter. With
-  `ir`, a function the IR lowerer does not support takes the legacy path;
-  with `ir-strict` (tests) it throws. There is never a runtime JavaScript
-  fallback.
+  `emit/**`. The emitter reaches `ir/cpp.ts` through one hook,
+  `emit/through-ir.ts`, for functions, methods and accessors; a closure's
+  leaves see `this` as the `self` it captures (`LowerHost.nested`,
+  `self`, `siteOf`).
+- Every function, method, accessor, constructor, module `init()` and
+  compute task variant lowers through the IR; what it cannot lower is a
+  LUCENT diagnostic (`LUCENT1001`), never invalid C++ and never a runtime
+  JavaScript fallback. (Component setups, behind `LUCENT_VIEWS`, still
+  use the emitter's statements.) The `LUCENT_LOWERING` selector of the
+  migration is gone.
 
 ### Data model
 
@@ -763,6 +767,8 @@ export interface SourceSpan {
 
 /** The execution context a value belongs to, or that runs a unit. */
 export type OwnerId = "legacy-module" | "main" | "task" | "unknown";
+
+export type IntKind = "i32" | "u32" | "i64"; // an exact integer's register
 
 export interface IrValue {
   id: ValueId;
@@ -859,7 +865,38 @@ export type IrOp =
   | { kind: "throw"; value: ValueId; source: SourceSpan } // terminator
   | { kind: "break"; target: TargetId; source: SourceSpan } // terminator
   | { kind: "continue"; target: TargetId; source: SourceSpan } // terminator
-  | { kind: "yield"; value?: ValueId; source: SourceSpan }; // ends an `if` branch
+  | { kind: "yield"; value?: ValueId; source: SourceSpan } // ends an `if` branch
+  | {
+      kind: "plan";
+      result?: ValueId;
+      name: string; // what it does, for dumps
+      code: unknown; // the backend's, naming its operands
+      args: ValueId[];
+      source: SourceSpan;
+    }
+  | {
+      kind: "iterate"; // for … of: body runs per element, which it defines
+      target: TargetId;
+      iterable: ValueId;
+      element: ValueId;
+      body: RegionId;
+      source: SourceSpan;
+    }
+  | {
+      kind: "try"; // the finally runs however the body and the catch are left
+      body: RegionId;
+      catch?: { region: RegionId; error: ValueId };
+      finally?: RegionId;
+      source: SourceSpan;
+    }
+  | { kind: "dispose"; value: ValueId; code: unknown; source: SourceSpan } // in a finally
+  | { kind: "closure"; result: ValueId; fn: IrFunction; from: CaptureSource[]; source: SourceSpan }
+  | { kind: "await"; result?: ValueId; promise: ValueId; source: SourceSpan } // async only
+  | { kind: "produce"; value: ValueId; source: SourceSpan } // a generator's `yield`
+  | { kind: "unreachable"; source: SourceSpan } // terminator
+  | { kind: "never"; result: ValueId; source: SourceSpan }; // what never completes gives
+
+export type CaptureSource = { value: ValueId } | { box: PlaceId };
 
 export type Callee = { kind: "function"; id: FunctionId } | { kind: "builtin"; name: BuiltinName };
 
@@ -878,9 +915,92 @@ export interface EffectRef {
   against `null` or `undefined`.
 - Union narrowing is tests (`typeof`, equality) plus a checked `convert`
   where the checker narrows; there is no separate `select` op.
-- `try`, `catch` and `finally` are not in the IR yet: an exceptional exit
-  (a throwing call, or `throw`) leaves every region to the caller, which
-  the C++ gets from C++ exceptions.
+- A `plan` is an operation the IR does not model itself: a member read
+  or write, a method of the runtime or the SDK, a construction, a literal
+  of an array or object, a conversion `convert` does not cover. Lowering
+  asks the backend for it through `LowerHost.leaves` (`LeafHost`), which
+  lowers the subexpressions the leaf takes as operands, each once, in
+  source order (a request out of order is unsupported), before the plan:
+  so a plan runs none of the program's code and decides no order. An
+  assignment, compound assignment or increment of a place that is not a
+  variable asks for the place (`LeafHost.place`): its operands, a read
+  plan and a write plan, with the read before the right side runs.
+  An optional chain is lowered link by link (`LeafHost.link`): at a `?.`
+  whose value is null or undefined, an `if` gives undefined and the rest
+  of the chain (its arguments too) does not run. The C++ backend (`emit/leaf.ts`) plans a leaf with the emitter's
+  own code for it, its operands being named values, so the semantics of
+  builtins and SDK calls are written once.
+- A `closure` makes a function value of a nested `IrFunction` (an arrow,
+  a function expression, a nested function declaration), lowered on its
+  own. Its `captures` are places declared at entry: a copy of a value of
+  the enclosing function (taken when the closure is made), or, for a
+  variable some code writes after closures capture it (`isBoxed`), the
+  enclosing function's box, which they share. A `local` op says when its
+  place is `boxed`. Nested function declarations are boxed locals from
+  the start of their block, defined there (or where written, when they
+  capture a variable the block declares); a `for` loop's boxed `let`
+  variables get a copy per iteration, as in JavaScript.
+- `iterate` is `for … of`: its body runs for each element of an array,
+  set, map, record, string (code points), byte array, regular expression
+  match or iterator (`elementOf`), which it defines for the body alone;
+  `break` and `continue` name its target, and leaving early closes an
+  iterator. `for … in` iterates the keys the backend lists
+  (`LeafHost.keys`). Destructuring (declarations, parameters, loop heads
+  and assignments) reads each part through `LeafHost.part` and applies a
+  default only when the part is undefined; an assignment's targets are
+  evaluated in order, each before the part it gets.
+- A number value may be an exact integer of an `IntKind` (`IrValue.int`):
+  an integer literal, an int32 operator's result, a read of a local the
+  host's analysis proves always holds one (`local.int`, `LowerHost.
+integers`: its int locals, and `for` counters as int64s), or a plan's
+  integer form (`Math.imul`). The C++ backend keeps such values in integer
+  registers and converts to a double where one is needed; a leaf sees an
+  operand's integer form too. Reads of a local nothing can write before
+  their last use are spelled as the variable (no copy), `s = s + x` on a
+  string appends in place, and a pure operation used once by the next
+  is written inline there. Each call stays a statement of its own.
+- An async function (`IrFunction.async`) returns what its promise
+  fulfils with; each `await` is a suspension point of its own, so what
+  runs before and after it is explicit, and returning a promise returns
+  what it fulfils with. A generator (`IrFunction.generator`, its element
+  type) gives each element with `produce`; `yield* xs` iterates `xs`,
+  producing each element. Their C++ is a coroutine: `co_await`,
+  `co_yield`, `co_return`, a body that only throws still being one, an
+  async closure's captures passed to its coroutine as parameters (a
+  coroutine frame must not reference a lambda's captures), and no
+  suspension inside a C++ catch handler (a catch region runs after it).
+- `unreachable` ends a body TypeScript proved always returns (an
+  exhaustive switch at its end); a body that may give undefined gives it.
+  A call that never returns gives a `never` value, which converts to any
+  type and which no code that runs uses.
+- A constructor (`LowerInput.construct`) stores its `Initializer`s
+  (parameter properties, field initializers, an Error's name) where it
+  starts, or, with a Lucent base class, right after its `super(…)`
+  (`LeafHost.superCall`); its span is its class's. A module's `init()`
+  (`lowerInit`) stores its classes' static fields, then its variables, a
+  variable without a value getting its type's default. The constructor a
+  class does not declare is the same kind of code: its parameters, its
+  base's construction on them, then its fields.
+- A compute task's variant (`LowerInput.task`) is its function lowered
+  again: each loop iteration starts with a safepoint
+  (`LeafHost.safepoint`), and its calls of module functions call their
+  variants, which the backend names.
+- A platform test (`PLATFORM === "ios" && …`, `switch (PLATFORM)`, a
+  guard clause) is decided by the host (`platformGuard`,
+  `platformClauses`, `runsHere`): only what the platform being built runs
+  is lowered, and a build for neither platform throws where platform code
+  would run.
+- `try` makes exceptional edges explicit: its `catch` region gets the
+  error (`error`, defined for the region alone), and its `finally` runs
+  however the body and the catch are left. A return, break or continue
+  past a finally runs the finally first and then continues; a finally
+  that leaves (a return in it) replaces what left. Outside a `try`, an
+  exceptional exit (a throwing call, a plan, or `throw`) leaves every
+  region to the caller. `throw` takes an Error or an object of a class
+  deriving from it, which keeps its class. A `using` declaration is a
+  `try` whose `finally` disposes the value (`dispose`, valid only in a
+  finally region): disposing that throws while an exception is pending
+  makes the pending one a SuppressedError of both, as in JavaScript.
 
 ### Verifier invariants
 
@@ -914,7 +1034,9 @@ export interface VerifyEnv {
    statement (or otherwise sequenced), never as nested C++ arguments.
 6. Effect claims never claim less than the ops do: neither a call's
    `EffectRef` nor the function's summary. With `VerifyEnv.effects`, a
-   caller's claims must admit its callees' reads, writes and throws.
+   caller's claims must admit its callees' reads, writes and throws. A
+   plan's effects are the program analysis's to know: the summary is not
+   checked against it.
 7. Every non-body region is owned once, by an op of its parent region.
    `break` names an enclosing target; `continue` names an enclosing loop,
    and never from that loop's own `next`. The branches of an `if` with a
@@ -997,9 +1119,8 @@ export interface ProgramFacts {
 
 A fixture with literals, arithmetic, locals and calls, including
 `combine(next("l"), next("r"))` where `next` logs and the first call may
-throw, compiles with `LUCENT_LOWERING=ir-strict`. Its observable output
-equals both the legacy path's and the reference JavaScript's (the e2e
-cases run under both lowerings).
+throw, compiles through the IR. Its observable output equals the
+reference JavaScript's (the e2e cases).
 
 ### Revisions
 
@@ -1028,6 +1149,21 @@ cases run under both lowerings).
   `"caller"` (propagation already means "the caller's context") and
   `"task"` is produced by compute entries; `AnalysisInput.posts`.
   Migration: none.
+- **v1.3** (2026-10-01, T53, proposed): the `plan` op, `LeafHost`
+  (`plan`, `convert`, `place`, `platformOnly`) and the platform hooks of
+  `LowerHost`; invariant 6 leaves plans to the program analysis. The
+  `closure`, `unreachable` and `never` ops, `IrFunction.captures`, boxed
+  locals, and `LowerHost.isBoxed`, `signatureOf` and `effectsOf`. The
+  `iterate` op and `LeafHost.part` and `keys`. The `try` and `dispose`
+  ops, `LeafHost.dispose`, `LowerHost.isError` and `derives`; `throw`
+  takes Error subclasses. Optional chains through `LeafHost.link`. The
+  `await` and `produce` ops, `IrFunction.generator`, async functions'
+  results as what their promise fulfils with. Constructors' and modules'
+  initializers (`Initializer`, `LowerInput.construct` and `span`,
+  `lowerInit`, `LeafHost.superCall`); `Initialization` also for the
+  constructor a class does not declare. `LeafHost.step` and `equals`;
+  `LeafOperands.operand` takes a type hint.
+  Migration: none (additive; the default lowering is unchanged).
 
 ## C-EXEC: execution identities, scopes and operations
 

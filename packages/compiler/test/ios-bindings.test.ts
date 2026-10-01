@@ -552,8 +552,8 @@ export async function run(): Promise<string> {
     expect(mm).toContain("static_cast<decltype(CMTime::flags)>(");
     // NSUInteger fields are 64-bit integers: bigints, exactly or RangeError.
     // Each by the field's own C type: NSUInteger, where Swift says Int.
-    expect(mm).toContain(
-      'lucent::toNativeInteger<decltype(NSRange::length)>(arg_2->length, "NSRange.length")',
+    expect(mm).toMatch(
+      /lucent::toNativeInteger<decltype\(NSRange::length\)>\(\w+->length, "NSRange\.length"\)/,
     );
     expect(mm).toContain("lucent::BigInt{s0_.length}");
     expect(mm).toContain("NSUnionRange(NSRange{");

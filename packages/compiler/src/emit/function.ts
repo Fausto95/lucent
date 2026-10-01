@@ -31,7 +31,7 @@ import {
 import * as builtins from "./builtins.ts";
 import { spanElement } from "./buffers.ts";
 import { DISPOSE, isSymbolDispose } from "./classes.ts";
-import { computeOperands, safepoint, TASK, taskVariant } from "./compute.ts";
+import { computeOperands, TASK, taskVariant } from "./compute.ts";
 import * as extensions from "./extensions.ts";
 import * as native from "./native.ts";
 import { requireSubclassMain } from "./objc-subclass.ts";
@@ -67,7 +67,7 @@ import { bigintExpr, bigintLiteralValue, numberExpr, stringExpr } from "../lower
 import { sourcePath } from "../lowering/source.ts";
 import { helperStatement, isViewHelper } from "../ui/view-helpers.ts";
 
-interface Local {
+export interface Local {
   cpp: string;
   type: LType;
   boxed: boolean;
@@ -100,11 +100,10 @@ export interface FnOptions {
   thisExpr?: string;
   /** How `this` is spelled as a Ref (for passing it as a value). */
   thisRef?: string;
-  isConstructor?: boolean;
   /** A generator body: `yield` becomes co_yield and `return` co_return. */
   generator?: boolean;
-  /** In a subclass constructor: the base construct() call and what follows super(). */
-  superCtor?: { call: cpp.Expr; params: LType[]; after: (em: FnEmitter) => void };
+  /** In a subclass constructor: the base construct() call `super(…)` makes. */
+  superCtor?: { call: cpp.Expr; params: LType[] };
   /**
    * A compute task's variant of a function (compute.ts): each loop
    * iteration checks for cancellation, and calls of module functions call
@@ -325,7 +324,7 @@ export class FnEmitter {
     return sym ? this.declare(sym, sym.name, type).cpp : fallback;
   }
 
-  private findLocal(sym: ts.Symbol): Local | undefined {
+  protected findLocal(sym: ts.Symbol): Local | undefined {
     for (let i = this.scopes.length - 1; i >= 0; i--) {
       const l = this.scopes[i]!.get(sym);
       if (l) return l;
@@ -665,16 +664,25 @@ export class FnEmitter {
     return out;
   }
 
-  /** Lowers a nested function or arrow to a C++ lambda wrapped in lucent::Fn. */
-  closure(
+  /**
+   * A nested function's type (`target`'s parameters, when it becomes a
+   * function type taking at least as many, so the lambda matches its Fn
+   * exactly), what it returns, and its parameters.
+   */
+  closureSignature(
     node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
     target?: LType,
-  ): E {
+  ): {
+    fnType: LType & { k: "fn" };
+    ret: LType;
+    params: ParamInfo[];
+    isAsync: boolean;
+    isGen: boolean;
+  } {
     const sig = this.checker.getTypeAtLocation(node).getCallSignatures()[0];
     if (!sig) fail(node, Codes.UnsupportedType, "expected a function type");
     let fnType: LType & { k: "fn" };
     if (target && target.k === "fn" && target.params.length >= node.parameters.length) {
-      // Use the contextual parameter list so the lambda matches Fn<...> exactly.
       fnType = {
         k: "fn",
         params: target.params,
@@ -693,7 +701,15 @@ export class FnEmitter {
       : isGen
         ? T.void
         : fnType.ret;
-    const params = this.paramInfos(node, fnType);
+    return { fnType, ret, params: this.paramInfos(node, fnType), isAsync, isGen };
+  }
+
+  /** Lowers a nested function or arrow to a C++ lambda wrapped in lucent::Fn. */
+  closure(
+    node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
+    target?: LType,
+  ): E {
+    const { fnType, ret, params, isAsync, isGen } = this.closureSignature(node, target);
     const inner = new FnEmitter(
       this.ctx,
       {
@@ -703,7 +719,6 @@ export class FnEmitter {
         returnType: ret,
         thisExpr: this.opts.thisExpr ? "self" : undefined,
         thisRef: this.opts.thisRef ? "self" : undefined,
-        isConstructor: false,
         task: false,
       },
       this.allScopes(),
@@ -768,7 +783,6 @@ export class FnEmitter {
         async: false,
         generator: false,
         returnType: T.void,
-        isConstructor: false,
         task: false,
       },
       this.allScopes(),
@@ -861,7 +875,7 @@ export class FnEmitter {
           else this.emit(unreachable);
         } else if (ret.k === "opt") {
           this.emit(cpp.ret(undef));
-        } else if (!isVoidish(ret) && !this.opts.isConstructor) {
+        } else if (!isVoidish(ret)) {
           this.emit(unreachable);
         }
       }
@@ -992,12 +1006,6 @@ export class FnEmitter {
       case ts.SyntaxKind.ExpressionStatement: {
         const x = (s as ts.ExpressionStatement).expression;
         if (ts.isYieldExpression(x)) return this.yieldStmt(x);
-        const sc = this.opts.superCtor;
-        if (sc && ts.isCallExpression(x) && x.expression.kind === ts.SyntaxKind.SuperKeyword) {
-          this.emit(cpp.exprStmt(cpp.call(sc.call, this.args(x.arguments, sc.params, x))));
-          sc.after(this);
-          return;
-        }
         const e = this.expr(ts.isVoidExpression(x) ? x.expression : x);
         this.emit(cpp.exprStmt(cpp.cast("c", cpp.voidType, e.c)));
         return;
@@ -1194,10 +1202,6 @@ export class FnEmitter {
     } else if (!isVoidish(ret)) {
       value = this.coerce({ c: cpp.id("lucent::undefined"), t: T.undefined }, ret, s);
     }
-    if (this.opts.isConstructor) {
-      this.emit(cpp.ret());
-      return;
-    }
     // Route through enclosing finally blocks.
     const fin = this.ctl.findLast((c) => c.kind === "finally");
     if (fin) {
@@ -1339,7 +1343,7 @@ export class FnEmitter {
   }
 
   /** Code that runs on iOS or Android only, reached on the host: throws, typed as `cpp`. */
-  private platformOnly(node: ts.Node, type: cpp.Type): cpp.Expr {
+  platformOnly(node: ts.Node, type: cpp.Type): cpp.Expr {
     const sf = node.getSourceFile();
     const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
     const message = `${path.basename(sf.fileName)}:${line}: this code runs only on iOS and Android`;
@@ -1387,8 +1391,7 @@ export class FnEmitter {
 
   /** A loop's body: its statements in a block, then the continue label when used. */
   private loopBody(body: ts.Statement, entry: ControlEntry, before?: () => void): cpp.Stmt[] {
-    const check = this.opts.task ? [safepoint()] : [];
-    const inner = cpp.block([...check, ...this.nested(body, before)]);
+    const inner = cpp.block(this.nested(body, before));
     return entry.usedContinueLabel ? [inner, { k: "label", name: entry.continueLabel! }] : [inner];
   }
 
@@ -3338,7 +3341,7 @@ export class FnEmitter {
   }
 
   /** Calls a function value with the arguments of `node`. */
-  private callValue(f: E, node: ts.CallExpression): E {
+  callValue(f: E, node: ts.CallExpression): E {
     const ft = stripOpt(f.t);
     if (ft.k !== "fn")
       fail(node.expression, Codes.UnsupportedCall, `cannot call a value of type ${typeKey(f.t)}`);
@@ -3356,7 +3359,7 @@ export class FnEmitter {
    * unspecified; JavaScript evaluates left to right. When the order could be
    * observed, arguments are evaluated into temporaries first.
    */
-  private inOrder(args: readonly ts.Expression[], build: () => E): E {
+  protected inOrder(args: readonly ts.Expression[], build: () => E): E {
     const candidates = args.filter(
       (a) =>
         !isLiteral(a) &&
@@ -3375,7 +3378,7 @@ export class FnEmitter {
    * `build()`, after evaluating `nodes` into temporaries, in order: while
    * it runs, those nodes are their temporaries, so each runs exactly once.
    */
-  private evaluatedFirst(nodes: readonly ts.Expression[], build: () => E): E {
+  protected evaluatedFirst(nodes: readonly ts.Expression[], build: () => E): E {
     if (nodes.length === 0) return build();
 
     const temps: cpp.Stmt[] = [];
@@ -3426,7 +3429,7 @@ export class FnEmitter {
    * lambdas, where the calling coroutine cannot suspend: the operands up to
    * the last one that awaits are evaluated first, in order.
    */
-  private awaitingFirst(operands: readonly ts.Expression[], build: () => E): E {
+  protected awaitingFirst(operands: readonly ts.Expression[], build: () => E): E {
     const last = operands.findLastIndex(awaits);
 
     if (last < 0) return build();
@@ -3450,7 +3453,7 @@ export class FnEmitter {
    * effect, or when `later` (a right side that runs before the target is
    * written) could change them.
    */
-  private onTarget(target: ts.Expression, later: ts.Expression | undefined, build: () => E): E {
+  protected onTarget(target: ts.Expression, later: ts.Expression | undefined, build: () => E): E {
     const parts = targetParts(target).filter(
       (p) => !isSimple(p) || (later && !this.unchangedBy(p, later)),
     );
@@ -3923,7 +3926,7 @@ export function isOptionalChain(node: ts.Node): boolean {
   return !!(node.flags & ts.NodeFlags.OptionalChain);
 }
 
-function usesThisIn(fn: ts.Node): boolean {
+export function usesThisIn(fn: ts.Node): boolean {
   let found = false;
   const visit = (n: ts.Node) => {
     if (found) return;
