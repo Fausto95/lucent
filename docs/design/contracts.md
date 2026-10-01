@@ -876,6 +876,14 @@ export type IrOp =
       body: RegionId;
       source: SourceSpan;
     }
+  | {
+      kind: "try"; // the finally runs however the body and the catch are left
+      body: RegionId;
+      catch?: { region: RegionId; error: ValueId };
+      finally?: RegionId;
+      source: SourceSpan;
+    }
+  | { kind: "dispose"; value: ValueId; code: unknown; source: SourceSpan } // in a finally
   | { kind: "closure"; result: ValueId; fn: IrFunction; from: CaptureSource[]; source: SourceSpan }
   | { kind: "unreachable"; source: SourceSpan } // terminator
   | { kind: "never"; result: ValueId; source: SourceSpan }; // what never completes gives
@@ -941,9 +949,17 @@ export interface EffectRef {
   `platformClauses`, `runsHere`): only what the platform being built runs
   is lowered, and a build for neither platform throws where platform code
   would run.
-- `try`, `catch` and `finally` are not in the IR yet: an exceptional exit
-  (a throwing call, or `throw`) leaves every region to the caller, which
-  the C++ gets from C++ exceptions.
+- `try` makes exceptional edges explicit: its `catch` region gets the
+  error (`error`, defined for the region alone), and its `finally` runs
+  however the body and the catch are left. A return, break or continue
+  past a finally runs the finally first and then continues; a finally
+  that leaves (a return in it) replaces what left. Outside a `try`, an
+  exceptional exit (a throwing call, a plan, or `throw`) leaves every
+  region to the caller. `throw` takes an Error or an object of a class
+  deriving from it, which keeps its class. A `using` declaration is a
+  `try` whose `finally` disposes the value (`dispose`, valid only in a
+  finally region): disposing that throws while an exception is pending
+  makes the pending one a SuppressedError of both, as in JavaScript.
 
 ### Verifier invariants
 
@@ -1098,7 +1114,9 @@ cases run under both lowerings).
   `LowerHost`; invariant 6 leaves plans to the program analysis. The
   `closure`, `unreachable` and `never` ops, `IrFunction.captures`, boxed
   locals, and `LowerHost.isBoxed`, `signatureOf` and `effectsOf`. The
-  `iterate` op and `LeafHost.part` and `keys`.
+  `iterate` op and `LeafHost.part` and `keys`. The `try` and `dispose`
+  ops, `LeafHost.dispose`, `LowerHost.isError` and `derives`; `throw`
+  takes Error subclasses.
   Migration: none (additive; the default lowering is unchanged).
 
 ## C-EXEC: execution identities, scopes and operations

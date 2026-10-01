@@ -98,6 +98,10 @@ export interface LowerHost {
   platformClauses?(s: ts.SwitchStatement): boolean[] | "nowhere" | undefined;
   /** Whether the platform being built runs `s`, by the platform branches and guard clauses around it. */
   runsHere?(s: ts.Statement): boolean;
+  /** Whether `t`, a class, derives from Error. */
+  isError?(t: LType): boolean;
+  /** Whether class `sub` derives from class `base`. */
+  derives?(sub: LType, base: LType): boolean;
   /** Whether closures share the variable `symbol` in a box: some code writes it after they capture it. */
   isBoxed?(symbol: ts.Symbol): boolean;
   /** A nested function's signature, `target` the function type it becomes when it has one. */
@@ -165,6 +169,8 @@ export interface LeafHost {
   part(value: ValueId, from: LType, which: PartOf, node: ts.Node): Leaf;
   /** What `for … in` goes over: `value`'s keys, as an array of strings. */
   keys(value: ValueId, from: LType, node: ts.Node): Leaf;
+  /** Disposing `value`, a present `from`, as a `using` declaration does. */
+  dispose(value: ValueId, from: LType, node: ts.Node): Leaf;
   /** What `node`, code for the platforms, gives in a build for neither: a `type` that throws. */
   platformOnly(node: ts.Node, type: LType): Leaf;
 }
@@ -418,12 +424,119 @@ class Lowerer {
   /** Statements in order, up to one that leaves: what follows it never runs. */
   statements(list: readonly ts.Statement[]): void {
     this.hoist(list);
+    this.rest(list);
+  }
 
-    for (const s of list) {
+  /**
+   * Statements of a list whose functions are hoisted. After a `using`
+   * declaration, the rest of the list runs guarded, and disposing is its
+   * finally.
+   */
+  rest(list: readonly ts.Statement[]): void {
+    for (const [i, s] of list.entries()) {
       if (this.b.ended) return;
+
+      if (ts.isVariableStatement(s) && s.declarationList.flags & ts.NodeFlags.Using) {
+        this.using(s.declarationList, () => this.rest(list.slice(i + 1)));
+        return;
+      }
 
       this.statement(s);
     }
+  }
+
+  /**
+   * `using a = …, b = …;` then `rest`: each value disposed (when it is not
+   * null or undefined) however what follows it is left, in reverse order.
+   */
+  using(list: ts.VariableDeclarationList, rest: () => void): void {
+    if ((list.flags & ts.NodeFlags.AwaitUsing) === ts.NodeFlags.AwaitUsing)
+      this.unsupported(list, "await using");
+
+    const each = (decls: readonly ts.VariableDeclaration[]): void => {
+      const [d, ...more] = decls;
+
+      if (!d) {
+        rest();
+        return;
+      }
+
+      if (!ts.isIdentifier(d.name) || !d.initializer)
+        this.unsupported(d, "a using declaration without one name and a value");
+
+      const sym = this.symbol(d.name);
+      const type = this.declaredType(sym, d.name);
+      const value = this.coerce(this.expr(d.initializer, type), type, d.initializer);
+      const place = this.declareLocal(sym, d.name.text, type, d);
+      const span = spanOf(d);
+
+      this.b.store(place, value, span);
+      this.b.try(
+        span,
+        () => each(more),
+        undefined,
+        () => this.dispose(this.b.load(place, span), d),
+      );
+    };
+
+    each(list.declarations);
+  }
+
+  /** Disposes a `using` value: nothing for null or undefined. */
+  dispose(value: ValueId, node: ts.Node): void {
+    const host = this.host.leaves;
+    const t = this.b.typeOf(value);
+    const span = spanOf(node);
+
+    if (!host) this.unsupported(node, "using");
+
+    if (isAbsent(t)) return;
+
+    if (t.k !== "opt") {
+      this.b.dispose(value, host.dispose(value, t, node).code, span);
+      return;
+    }
+
+    const absent = this.b.binary("==", value, this.b.const(null, span), span);
+
+    this.b.if(
+      absent,
+      span,
+      () => {},
+      () => {
+        const present = this.b.convert(value, t.inner, span);
+
+        this.b.dispose(present, host.dispose(present, t.inner, node).code, span);
+      },
+    );
+  }
+
+  /** `try`: its block; its catch, with the error bound; its finally, however they are left. */
+  tryStatement(s: ts.TryStatement): void {
+    const caught = s.catchClause;
+    const final = s.finallyBlock;
+    const span = spanOf(s);
+
+    this.b.try(
+      span,
+      () => this.statements(s.tryBlock.statements),
+      caught &&
+        ((error) => {
+          const v = caught.variableDeclaration;
+
+          if (v && !ts.isIdentifier(v.name)) this.unsupported(v, "destructuring in catch");
+
+          if (v) {
+            const name = v.name as ts.Identifier;
+            const place = this.declareLocal(this.symbol(name), name.text, T.error, v);
+
+            this.b.store(place, error, spanOf(v));
+          }
+
+          this.statements(caught.block.statements);
+        }),
+      final && (() => this.statements(final.statements)),
+    );
   }
 
   /**
@@ -910,10 +1023,20 @@ class Lowerer {
     // A leaf's type is the backend's: narrowed where the checker narrows, a literal's as its hint shapes it.
     if (this.planned.has(v)) return v;
 
-    const [given, checked] = [this.b.typeOf(v), this.typeAt(node)];
+    const given = this.b.typeOf(v);
+    let checked: LType;
+
+    // A type the compiler cannot represent (a catch variable's `unknown`) narrows nothing.
+    try {
+      checked = this.host.typeAt(node);
+    } catch {
+      return v;
+    }
 
     // The checker narrowed the value here (an optional known present, a union's member).
-    return narrows(given, checked) ? this.coerce(v, checked, node) : v;
+    const derives = (sub: LType, base: LType) => this.host.derives?.(sub, base) === true;
+
+    return narrows(given, checked, derives) ? this.coerce(v, checked, node) : v;
   }
 
   /**
@@ -1532,13 +1655,19 @@ class Lowerer {
 
 /**
  * Whether `to` is what a `from` holds, narrowed: an optional's value or
- * absence, or some of a union's members. Not a value converted to a wider
+ * absence, some of a union's members, or an object of a class it derives. Not a value converted to a wider
  * type (a conditional's branches, already converted to the type it becomes).
  */
-function narrows(from: LType, to: LType): boolean {
+function narrows(from: LType, to: LType, derives: (sub: LType, base: LType) => boolean): boolean {
   if (sameType(from, to) || (isVoidish(from) && isVoidish(to))) return false;
 
-  if (from.k === "opt") return isAbsent(to) || sameType(from.inner, to) || narrows(from.inner, to);
+  if (from.k === "opt")
+    return isAbsent(to) || sameType(from.inner, to) || narrows(from.inner, to, derives);
+
+  // `instanceof`: an Error or an interface known to be a class's object, a class one of its subclass's.
+  if (to.k === "class" && (from.k === "error" || from.k === "iface")) return true;
+
+  if (to.k === "class" && from.k === "class") return derives(to, from);
 
   if (from.k !== "union") return false;
 
@@ -1692,11 +1821,16 @@ const STATEMENTS: Partial<Record<ts.SyntaxKind, StatementLowering>> = {
 
   [ts.SyntaxKind.ThrowStatement]: (s: ts.ThrowStatement, lw: Lowerer) => {
     const v = lw.expr(s.expression);
+    const t = lw.b.typeOf(v);
 
-    if (lw.b.typeOf(v).k !== "error") lw.unsupported(s, "throwing anything but an Error");
+    // An Error, or an object of a class deriving from it (which keeps its class).
+    if (t.k !== "error" && !(t.k === "class" && lw.host.isError?.(t)))
+      lw.unsupported(s, "throwing anything but an Error");
 
     lw.b.throw(v, spanOf(s));
   },
+
+  [ts.SyntaxKind.TryStatement]: (s: ts.TryStatement, lw: Lowerer) => lw.tryStatement(s),
 
   [ts.SyntaxKind.Block]: (s: ts.Block, lw: Lowerer) =>
     lw.b.block(spanOf(s), () => lw.statements(s.statements)),

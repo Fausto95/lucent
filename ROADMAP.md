@@ -1020,6 +1020,9 @@ before output code generation.
     411 of 606.
   - `for … of`, `for … in`, destructuring of declarations, parameters,
     loop heads and assignments: 446 of 606.
+  - `try`, `catch`, `finally` (jumps through it, rethrowing after it),
+    `using` with SuppressedError, Error subclasses thrown as themselves,
+    `instanceof` narrowing: 477 of 606.
 
 <a id="t54"></a>
 

@@ -19,6 +19,7 @@ import {
 } from "../ir/lower.ts";
 import { numberExpr, stringExpr } from "../lowering/literals.ts";
 import { type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
+import { disposeCall } from "./builtins.ts";
 import { AlreadyReported, type Ctx, type E } from "./context.ts";
 import { type FnOptions, FnEmitter, type Local } from "./function.ts";
 
@@ -207,6 +208,13 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
           };
 
         throw new IrUnsupported(node, `destructuring a ${typeKey(from)}`);
+      }),
+
+    dispose: (value, from, node) =>
+      planned(node, () => {
+        const em = new LeafEmitter(ctx, opts, node, noOperands(node));
+
+        return { c: disposeCall(em, { c: operand(value), t: from }, node), t: T.undefined };
       }),
 
     keys: (value, from, node) =>

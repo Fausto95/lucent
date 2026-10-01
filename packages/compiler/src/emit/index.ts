@@ -766,6 +766,9 @@ function viaIr(
       return { runs, rest: guard.rest } as const;
     },
     isBoxed: (sym: ts.Symbol) => ctx.capture.isBoxed(sym),
+    isError: (t: LType) => t.k === "class" && ctx.reg.cls(t.id).isError,
+    derives: (sub: LType, base: LType) =>
+      sub.k === "class" && base.k === "class" && ctx.reg.derives(sub.id, base.id),
     effectsOf: (node: ts.Node) => effects(node).effects,
     signatureOf: (
       node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,

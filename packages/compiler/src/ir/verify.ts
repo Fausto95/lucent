@@ -123,6 +123,8 @@ class Checker {
   private readonly enclosing: Enclosing[] = [];
   /** The result type the region being checked yields, when it is a branch of an if giving one. */
   private yields?: LType;
+  /** Whether the region being checked is (inside) a finally region. */
+  inFinally = false;
   private readonly fn: IrFunction;
   private readonly env: VerifyEnv;
 
@@ -294,7 +296,13 @@ class Checker {
    */
   nested(
     id: RegionId,
-    how: { enclosing?: Enclosing; yields?: LType; defines?: ValueId[]; where?: string } = {},
+    how: {
+      enclosing?: Enclosing;
+      yields?: LType;
+      defines?: ValueId[];
+      where?: string;
+      finally?: boolean;
+    } = {},
   ): void {
     const region = this.fn.regions[id];
 
@@ -304,11 +312,14 @@ class Checker {
       visible: new Set(this.visible),
       places: new Map(this.places),
       yields: this.yields,
+      inFinally: this.inFinally,
     };
 
     if (how.enclosing) this.enclosing.push(how.enclosing);
 
     this.yields = how.yields;
+
+    if (how.finally) this.inFinally = true;
 
     // What the owning operation defines for the region alone (an iteration's element).
     for (const v of how.defines ?? []) this.define(v, how.where ?? `r${id}`);
@@ -614,7 +625,9 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
   throw: (op, c, where) => {
     const t = c.typeOf(op.value);
 
-    if (t && t.k !== "error") c.problemAt(where, `throws a ${typeKey(t)}, not an Error`);
+    // An Error, or an object of a class deriving from Error.
+    if (t && t.k !== "error" && t.k !== "class")
+      c.problemAt(where, `throws a ${typeKey(t)}, not an Error`);
   },
 
   if: (op, c, where) => {
@@ -630,6 +643,21 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
 
     if (op.next !== undefined)
       c.nested(op.next, { enclosing: { target: op.target, loop: true, next: true } });
+  },
+
+  try: (op, c, where) => {
+    c.nested(op.body);
+
+    if (op.catch) {
+      c.expectType(op.catch.error, T.error, where);
+      c.nested(op.catch.region, { defines: [op.catch.error], where });
+    }
+
+    if (op.finally !== undefined) c.nested(op.finally, { finally: true });
+  },
+
+  dispose: (_op, c, where) => {
+    if (!c.inFinally) c.problemAt(where, "is not in a finally region");
   },
 
   iterate: (op, c, where) => {

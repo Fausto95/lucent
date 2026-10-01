@@ -304,6 +304,48 @@ export class IrBuilder {
     this.push({ kind: "iterate", target, iterable, element, body: region.id, source });
   }
 
+  /**
+   * `try`: `body`, then `onError` with the error when it throws, and
+   * `onExit` however they are left.
+   */
+  try(
+    source: SourceSpan,
+    body: () => void,
+    onError?: (error: ValueId) => void,
+    onExit?: () => void,
+  ): void {
+    const region = this.region();
+
+    this.within(region, body);
+
+    let caught: { region: RegionId; error: ValueId } | undefined;
+
+    if (onError) {
+      const handler = this.region();
+      const error = this.value(T.error, source);
+
+      this.within(handler, () => onError(error));
+      caught = { region: handler.id, error };
+    }
+
+    const final = onExit && this.region();
+
+    if (final) this.within(final, onExit!);
+
+    this.push({
+      kind: "try",
+      body: region.id,
+      ...(caught ? { catch: caught } : {}),
+      ...(final ? { finally: final.id } : {}),
+      source,
+    });
+  }
+
+  /** Disposes `value` with the backend's `code`, in a `finally` region. */
+  dispose(value: ValueId, code: unknown, source: SourceSpan): void {
+    this.push({ kind: "dispose", value, code, source });
+  }
+
   /** A scope of its own; when `breakable`, a target that `break` leaves. */
   block(source: SourceSpan, body: (block?: TargetId) => void, breakable = false): void {
     const target = breakable ? (this.targets++ as TargetId) : undefined;

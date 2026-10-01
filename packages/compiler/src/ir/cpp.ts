@@ -26,6 +26,7 @@ import {
   isPrimitive,
   operandsOf,
   type RegionId,
+  runsThrough,
   type TargetId,
   type UnaryOp,
   type ValueId,
@@ -114,7 +115,7 @@ export function toCpp(fn: IrFunction, backend: CppBackend, env: VerifyEnv = {}):
   const emitter = new Emitter(fn, backend);
   const params = fn.params.map((v, i) => cpp.param(backend.cppType(fn.values[v]!.type), `p${i}_`));
 
-  return { params, ret: backend.cppRetType(fn.result), body: emitter.region(fn.body) };
+  return { params, ret: backend.cppRetType(fn.result), body: emitter.body() };
 }
 
 /** A loop or labeled block around the statement being emitted. */
@@ -123,6 +124,22 @@ interface Jump {
   loop: boolean;
   /** A loop with a `next` region, which `continue` must run. */
   next: boolean;
+  /** How many finally frames were around it: a jump from inside more runs theirs first. */
+  frames?: number;
+}
+
+/**
+ * A `try` with a `finally` around the statement being emitted. A jump past
+ * it (a return, a break or continue to a target outside) stores its code
+ * and goes to the finally; after the finally, its code picks what the jump
+ * then does (which may go through the next frame's finally in turn).
+ */
+interface Frame {
+  /** The completion code, the pending exception and the label of the finally. */
+  code: string;
+  pending: string;
+  label: string;
+  routes: { key: string; code: number; after: () => cpp.Stmt[] }[];
 }
 
 class Emitter {
@@ -140,6 +157,14 @@ class Emitter {
   private readonly labels = new Set<string>();
   /** The result the `yield`s of the branch being emitted assign. */
   private yieldTo?: ValueId;
+  /** The finally frames around the statement being emitted, innermost last. */
+  private readonly frames: Frame[] = [];
+  /** The pending exception of each finally region being emitted, innermost last. */
+  private readonly finallies: string[] = [];
+  /** Declarations the body starts with (where a return through a finally keeps its value). */
+  private readonly prologue: cpp.Stmt[] = [];
+  private returned?: string;
+  private framesMade = 0;
   private line?: string;
 
   constructor(fn: IrFunction, backend: CppBackend) {
@@ -192,6 +217,13 @@ class Emitter {
     }
   }
 
+  /** The statements of the function's body, after its prologue. */
+  body(): cpp.Stmt[] {
+    const body = this.region(this.fn.body);
+
+    return [...this.prologue, ...body];
+  }
+
   /** The statements of region `id`. */
   region(id: RegionId): cpp.Stmt[] {
     const saved = this.out;
@@ -229,7 +261,7 @@ class Emitter {
 
   /** The statements of `id` inside the loop or labeled block `jump`. */
   inside(jump: Jump | undefined, id: RegionId): cpp.Stmt[] {
-    if (jump) this.jumps.push(jump);
+    if (jump) this.jumps.push({ ...jump, frames: this.frames.length });
 
     try {
       return this.region(id);
@@ -349,6 +381,10 @@ class Emitter {
     const jump = this.jumps[at]!;
     const innermost = jump.loop && !this.jumps.slice(at + 1).some((j) => j.loop);
 
+    // Past a finally: it runs first.
+    if (this.frames.length > (jump.frames ?? 0))
+      return this.route(`${kind} t${target}`, () => [this.jump(kind, target)]);
+
     if (kind === "break" && innermost) return { k: "break" };
 
     if (kind === "continue" && innermost && !jump.next) return { k: "continue" };
@@ -357,6 +393,104 @@ class Emitter {
 
     this.labels.add(label);
     return { k: "goto", label };
+  }
+
+  /** `return value`; past a finally, the value is kept and the finally runs first. */
+  ret(value: cpp.Expr | undefined): cpp.Stmt {
+    if (!this.frames.length) return cpp.ret(value);
+
+    const kept = value === undefined ? undefined : cpp.id(this.returnVariable());
+    const keep = kept ? [cpp.exprStmt(cpp.assign(kept, value!))] : [];
+
+    return cpp.block([...keep, this.route("return", () => [this.ret(kept)])]);
+  }
+
+  /** Where a return through a finally keeps its value, declared at the start of the body. */
+  private returnVariable(): string {
+    if (!this.returned) {
+      this.returned = "ret_";
+      this.prologue.push(
+        cpp.varDecl(this.backend.cppType(this.fn.result), this.returned, undefined, {
+          style: "brace",
+        }),
+      );
+    }
+    return this.returned;
+  }
+
+  /** A jump past the innermost finally: its code, and the finally; `after` is what it does then. */
+  private route(key: string, after: () => cpp.Stmt[]): cpp.Stmt {
+    const frame = this.frames[this.frames.length - 1]!;
+    let route = frame.routes.find((r) => r.key === key);
+
+    if (!route) {
+      route = { key, code: frame.routes.length + 1, after };
+      frame.routes.push(route);
+    }
+
+    return cpp.block([
+      cpp.exprStmt(cpp.assign(cpp.id(frame.code), cpp.num(route.code))),
+      { k: "goto", label: frame.label },
+    ]);
+  }
+
+  /**
+   * `guarded`, then the finally `final` however `guarded` is left: an
+   * exception is kept and thrown again after it, and each jump past it
+   * continues after it, by its code.
+   */
+  withFinally(guarded: () => cpp.Stmt[], final: () => cpp.Stmt[]): cpp.Stmt[] {
+    const n = this.framesMade++;
+    const frame: Frame = { code: `fc${n}_`, pending: `fc${n}_ex`, label: `fin${n}_`, routes: [] };
+    const pending = cpp.id(frame.pending);
+
+    this.frames.push(frame);
+
+    let body: cpp.Stmt[];
+
+    try {
+      body = guarded();
+    } finally {
+      this.frames.pop();
+    }
+
+    this.finallies.push(frame.pending);
+
+    let after: cpp.Stmt[];
+
+    try {
+      after = final();
+    } finally {
+      this.finallies.pop();
+    }
+
+    return [
+      cpp.varDecl(cpp.type("int"), frame.code, cpp.num(0)),
+      cpp.varDecl(cpp.type("std::exception_ptr"), frame.pending),
+      {
+        k: "try",
+        body,
+        catches: [
+          { body: [cpp.exprStmt(cpp.assign(pending, cpp.call("std::current_exception")))] },
+        ],
+      },
+      { k: "label", name: frame.label },
+      cpp.block(after),
+      cpp.ifStmt(pending, [cpp.exprStmt(cpp.call("std::rethrow_exception", [pending]))]),
+      ...frame.routes.map((r) =>
+        cpp.ifStmt(cpp.binary(cpp.id(frame.code), "==", cpp.num(r.code)), r.after()),
+      ),
+    ];
+  }
+
+  /** Whether running `op` can reach what follows it. */
+  completes(op: IrOp): boolean {
+    return runsThrough(this.fn, [op]);
+  }
+
+  /** The exception pending in the innermost finally region being emitted. */
+  pendingException(): cpp.Expr {
+    return cpp.id(this.finallies[this.finallies.length - 1]!);
   }
 
   /** The label of `target` when some `goto` names it. */
@@ -467,7 +601,7 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
         init: "value" in from ? e.value(from.value) : e.box(from.box),
       };
     });
-    const lambda = cpp.lambda(captures, params, inner.region(fn.body), {
+    const lambda = cpp.lambda(captures, params, inner.body(), {
       ret: e.backend.cppRetType(fn.result),
       mutable: true,
     });
@@ -483,7 +617,69 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
   // No code using it runs: it is spelled as the constant its C++ type holds.
   never: (op, e) => e.inline(op.result, cpp.id("lucent::undefined")),
 
-  return: (op, e) => e.emit(op, cpp.ret(op.value === undefined ? undefined : e.value(op.value))),
+  return: (op, e) => e.emit(op, e.ret(op.value === undefined ? undefined : e.value(op.value))),
+
+  // The catch gets the exception as an Error; iterator.return() unwinds a generator through
+  // finally blocks only, so it passes catches.
+  try: (op, e) =>
+    e.compound(op, () => {
+      const guarded = (): cpp.Stmt[] => {
+        const body = e.region(op.body);
+
+        if (!op.catch) return [cpp.block(body)];
+
+        const ex = `ex${op.catch.error}_`;
+        const error = e.bind(op.catch.error, cpp.call("lucent::currentError", [cpp.id(ex)]));
+        const handler = e.region(op.catch.region);
+
+        return [
+          cpp.varDecl(cpp.type("std::exception_ptr"), ex),
+          {
+            k: "try",
+            body,
+            catches: [
+              {
+                param: cpp.param(cpp.reference(cpp.constType(cpp.type("lucent::GeneratorReturn")))),
+                body: [{ k: "throw" }],
+              },
+              {
+                body: [cpp.exprStmt(cpp.assign(cpp.id(ex), cpp.call("std::current_exception")))],
+              },
+            ],
+          },
+          cpp.ifStmt(cpp.id(ex), [...error, ...handler]),
+        ];
+      };
+      const final = op.finally;
+      const stmts =
+        final === undefined
+          ? [cpp.block(guarded())]
+          : [cpp.block(e.withFinally(guarded, () => e.region(final)))];
+
+      // C++ cannot see that a try whose every way out leaves does not complete.
+      return e.completes(op) ? stmts : [...stmts, cpp.exprStmt(cpp.call("lucent::unreachable"))];
+    }),
+
+  // Disposing that throws while an exception is pending replaces it with a SuppressedError.
+  dispose: (op, e) => {
+    const pending = e.pendingException();
+    const suppressed = cpp.call("lucent::suppressedError", [
+      cpp.call("std::current_exception"),
+      pending,
+    ]);
+
+    e.emit(op, {
+      k: "try",
+      body: [cpp.exprStmt(withOperands(op.code as cpp.Expr, (v) => e.value(v)))],
+      catches: [
+        {
+          body: [
+            cpp.ifStmt(pending, [cpp.exprStmt(cpp.assign(pending, suppressed))], [{ k: "throw" }]),
+          ],
+        },
+      ],
+    });
+  },
 
   throw: (op, e) => e.emit(op, cpp.exprStmt(cpp.call("lucent::throwError", [e.value(op.value)]))),
 

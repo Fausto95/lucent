@@ -178,6 +178,26 @@ export type IrOp =
   /** Runs `body`, a scope of its own; with a target, `break` leaves it. */
   | { kind: "block"; target?: TargetId; body: RegionId; source: SourceSpan }
   /**
+   * `try`: runs `body`; when it throws, `catch` runs with the error (its
+   * `error`, defined for the region alone). However they are left (falling
+   * through, a return, a break or continue past the `try`, a throw), the
+   * `finally` region runs first; when it completes, so does what left, and
+   * when it leaves itself, that replaces it.
+   */
+  | {
+      kind: "try";
+      body: RegionId;
+      catch?: { region: RegionId; error: ValueId };
+      finally?: RegionId;
+      source: SourceSpan;
+    }
+  /**
+   * In a `finally` region: disposes `value` with the backend's `code` (a
+   * `using` declaration's). When disposing throws while an exception is
+   * pending, the pending one becomes a SuppressedError of both.
+   */
+  | { kind: "dispose"; value: ValueId; code: unknown; source: SourceSpan }
+  /**
    * Runs `body` for each element of `iterable` (`for … of`), the element
    * being `element` there; `break` and `continue` name `target`. Leaving
    * early closes an iterator (which runs a generator's `finally`).
@@ -500,6 +520,8 @@ export function operandsOf(op: IrOp): ValueId[] {
       return [op.cond];
     case "iterate":
       return [op.iterable];
+    case "dispose":
+      return [op.value];
     case "yield":
       return op.value === undefined ? [] : [op.value];
     default:
@@ -517,6 +539,12 @@ export function regionsOf(op: IrOp): RegionId[] {
     case "block":
     case "iterate":
       return [op.body];
+    case "try":
+      return [
+        op.body,
+        ...(op.catch ? [op.catch.region] : []),
+        ...(op.finally === undefined ? [] : [op.finally]),
+      ];
     default:
       return [];
   }
@@ -544,13 +572,19 @@ export function placeOf(op: IrOp): PlaceId | undefined {
  * `break` leaves, or a `block` that neither ends nor is left.
  */
 export function completes(fn: Pick<IrFunction, "regions">, id: RegionId): boolean {
+  return runsThrough(fn, fn.regions[id]?.ops ?? []);
+}
+
+/** Whether running `ops`, operations of `fn`, can reach their end (see `completes`). */
+export function runsThrough(fn: Pick<IrFunction, "regions">, ops: readonly IrOp[]): boolean {
   const broken = new Set<TargetId>();
 
   for (const r of fn.regions)
     for (const op of r.ops) if (op.kind === "break") broken.add(op.target);
 
-  const run = (region: RegionId): boolean => {
-    for (const op of fn.regions[region]?.ops ?? []) {
+  const run = (region: RegionId): boolean => through(fn.regions[region]?.ops ?? []);
+  const through = (ops: readonly IrOp[]): boolean => {
+    for (const op of ops) {
       // A yield gives its if's result: what follows the if runs next.
       if (op.kind === "yield") return true;
 
@@ -563,11 +597,18 @@ export function completes(fn: Pick<IrFunction, "regions">, id: RegionId): boolea
       const left = op.kind === "block" && op.target !== undefined && broken.has(op.target);
 
       if (op.kind === "block" && !left && !run(op.body)) return false;
+
+      // A try completes when its body or its catch does, and so does its finally.
+      if (op.kind === "try") {
+        const normal = run(op.body) || (op.catch !== undefined && run(op.catch.region));
+
+        if (!normal || (op.finally !== undefined && !run(op.finally))) return false;
+      }
     }
     return true;
   };
 
-  return run(id);
+  return through(ops);
 }
 
 const TERMINATORS = new Set<IrOp["kind"]>([
