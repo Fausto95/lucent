@@ -131,6 +131,8 @@ class Emitter {
   private readonly fn: IrFunction;
   private readonly exprs = new Map<ValueId, cpp.Expr>();
   private readonly places = new Map<number, cpp.Expr>();
+  /** The box variable of each boxed place (its place reads `*box`). */
+  private readonly boxes = new Map<number, cpp.Expr>();
   private readonly uses = new Map<ValueId, number>();
   /** The loops and labeled blocks around the statement being emitted, innermost last. */
   private readonly jumps: Jump[] = [];
@@ -145,6 +147,9 @@ class Emitter {
     this.backend = backend;
 
     for (const p of fn.modulePlaces) this.places.set(p.place, cpp.id(p.symbol));
+
+    // A lambda's captures, by the names its capture list gives them.
+    for (const c of fn.captures) this.declarePlace(c.place, cppIdent(c.name), c.boxed);
 
     this.countUses();
   }
@@ -259,8 +264,15 @@ class Emitter {
     this.exprs.set(v, c);
   }
 
-  declarePlace(p: number, name: string): void {
-    this.places.set(p, cpp.id(name));
+  declarePlace(p: number, name: string, boxed = false): void {
+    this.places.set(p, boxed ? cpp.deref(cpp.id(name)) : cpp.id(name));
+
+    if (boxed) this.boxes.set(p, cpp.id(name));
+  }
+
+  /** The box variable of the boxed place `p`. */
+  box(p: number): cpp.Expr {
+    return this.boxes.get(p)!;
   }
 
   /** A `#line` when `op` starts another source line. */
@@ -271,6 +283,11 @@ class Emitter {
       this.out.push(cpp.lineDirective(op.source.line, sourcePath(op.source.file)));
       this.line = line;
     }
+  }
+
+  /** Statements nested in the last one named other lines: the next names its line again. */
+  lineChanged(): void {
+    this.line = undefined;
   }
 
   /** A statement for `op`, after a `#line` when it starts another source line. */
@@ -380,11 +397,11 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
   local: (op, e, index, ops) => {
     const name = cppIdent(op.name);
     const next = ops[index + 1];
-    const type = e.backend.cppType(op.type);
+    const type = boxOf(e.backend.cppType(op.type), op.boxed);
 
-    e.declarePlace(op.place, name);
+    e.declarePlace(op.place, name, op.boxed);
 
-    // Declared where it is first stored, as `T x = v;`.
+    // Declared where it is first stored, as `T x = v;` (or `lucent::Box<T> x(v);`).
     if (next?.kind === "store" && next.place === op.place) return;
 
     e.emit(op, cpp.varDecl(type, name, undefined, { style: "brace" }));
@@ -396,7 +413,10 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
     const prev = ops[index - 1];
 
     if (prev?.kind === "local" && prev.place === op.place) {
-      e.emit(op, cpp.varDecl(e.backend.cppType(prev.type), cppIdent(prev.name), e.value(op.value)));
+      const type = boxOf(e.backend.cppType(prev.type), prev.boxed);
+      const style = prev.boxed ? { style: "construct" as const } : {};
+
+      e.emit(op, cpp.varDecl(type, cppIdent(prev.name), e.value(op.value), style));
       return;
     }
 
@@ -421,6 +441,37 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
     if (op.result === undefined) e.emit(op, cpp.exprStmt(cpp.cast("c", cpp.voidType, c)));
     else e.define(op, op.result, c, true);
   },
+
+  // A C++ lambda: its captures are copies of values, or copies of boxes, which share the variable.
+  closure: (op, e) => {
+    const fn = op.fn;
+    const inner = new Emitter(fn, e.backend);
+    const params = fn.params.map((v, i) =>
+      cpp.param(e.backend.cppType(fn.values[v]!.type), `p${i}_`),
+    );
+    const captures = fn.captures.map((c, i) => {
+      const from = op.from[i]!;
+
+      return {
+        name: cppIdent(c.name),
+        init: "value" in from ? e.value(from.value) : e.box(from.box),
+      };
+    });
+    const lambda = cpp.lambda(captures, params, inner.region(fn.body), {
+      ret: e.backend.cppRetType(fn.result),
+      mutable: true,
+    });
+
+    e.define(op, op.result, cpp.construct(e.backend.cppType(e.typeOf(op.result)), [lambda]));
+
+    // The lambda's statements named lines of their own.
+    e.lineChanged();
+  },
+
+  unreachable: (op, e) => e.emit(op, cpp.exprStmt(cpp.call("lucent::unreachable"))),
+
+  // No code using it runs: it is spelled as the constant its C++ type holds.
+  never: (op, e) => e.inline(op.result, cpp.id("lucent::undefined")),
 
   return: (op, e) => e.emit(op, cpp.ret(op.value === undefined ? undefined : e.value(op.value))),
 
@@ -497,6 +548,11 @@ function withOperands(code: cpp.Expr, value: (v: ValueId) => cpp.Expr): cpp.Expr
   };
 
   return replace(code) as cpp.Expr;
+}
+
+/** A place's C++ type: `lucent::Box<T>` when it is boxed. */
+function boxOf(type: cpp.Type, boxed: boolean | undefined): cpp.Type {
+  return boxed ? cpp.type("lucent::Box", type) : type;
 }
 
 const UNARY: Record<UnaryOp, (x: cpp.Expr) => cpp.Expr> = {
@@ -609,6 +665,13 @@ const STEPS: { [K in ConversionStep["kind"]]: ApplyStep<K> } = {
 
 /** `input`, a `from`, as a `to` (the verifier proved the conversion exists). */
 function converted(input: cpp.Expr, from: LType, to: LType, b: CppBackend): cpp.Expr {
+  // What never completes has no value, and a value to pass as a never (one the checker narrowed
+  // away, as in an exhaustive switch) does not exist: a `to` that is never given.
+  if ((from.k === "never" || to.k === "never") && to.k !== "void")
+    return cpp.call(
+      cpp.lambda([], [], [cpp.exprStmt(cpp.call("lucent::unreachable"))], { ret: b.cppType(to) }),
+    );
+
   const step = conversionStep(from, to, EXACT)!;
 
   return (STEPS[step.kind] as ApplyStep<typeof step.kind>)(input, from, to, step, b);

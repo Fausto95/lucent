@@ -701,6 +701,11 @@ function viaIr(
   lowering: Exclude<Lowering, "legacy">,
   facts: ProgramFacts,
 ): CppFunction | undefined {
+  const opts = {
+    module: g.module,
+    async: g.async,
+    returnType: g.async && g.type.ret.k === "promise" ? g.type.ret.inner : g.type.ret,
+  };
   const effects = (decl: ts.Node) => {
     const unit = facts.unit(decl);
 
@@ -710,6 +715,7 @@ function viaIr(
     decl: g.decl,
     id: g.cpp,
     params: g.params.map((p) => p.cppType),
+    defaulted: g.decl.parameters.map((p, i) => (p.initializer ? g.params[i]!.type : undefined)),
     result: g.type.ret,
     async: g.async,
     generic: g.generic,
@@ -759,6 +765,24 @@ function viaIr(
 
       return { runs, rest: guard.rest } as const;
     },
+    isBoxed: (sym: ts.Symbol) => ctx.capture.isBoxed(sym),
+    effectsOf: (node: ts.Node) => effects(node).effects,
+    signatureOf: (
+      node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
+      target?: LType,
+    ) => {
+      const sig = new FnEmitter(ctx, opts).closureSignature(node, target);
+      // A callback takes the parameters of the type it becomes, even those it leaves out.
+      const extra = sig.fnType.params.slice(node.parameters.length);
+
+      return {
+        type: sig.fnType,
+        params: [...sig.params.map((p) => p.cppType), ...extra],
+        defaulted: node.parameters.map((p, i) => (p.initializer ? sig.params[i]!.type : undefined)),
+        async: sig.isAsync,
+        generator: sig.isGen,
+      };
+    },
     runsHere: (s: ts.Statement) => {
       const p = branchPlatform(ctx.checker, s);
 
@@ -772,11 +796,7 @@ function viaIr(
 
       return target ? runs.map((r) => r.includes(target)) : ("nowhere" as const);
     },
-    leaves: leafHost(ctx, {
-      module: g.module,
-      async: g.async,
-      returnType: g.async && g.type.ret.k === "promise" ? g.type.ret.inner : g.type.ret,
-    }),
+    leaves: leafHost(ctx, opts),
   };
   const backend = {
     cppType: (t: LType) => ctx.reg.cppType(t),

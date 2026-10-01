@@ -665,16 +665,25 @@ export class FnEmitter {
     return out;
   }
 
-  /** Lowers a nested function or arrow to a C++ lambda wrapped in lucent::Fn. */
-  closure(
+  /**
+   * A nested function's type (`target`'s parameters, when it becomes a
+   * function type taking at least as many, so the lambda matches its Fn
+   * exactly), what it returns, and its parameters.
+   */
+  closureSignature(
     node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
     target?: LType,
-  ): E {
+  ): {
+    fnType: LType & { k: "fn" };
+    ret: LType;
+    params: ParamInfo[];
+    isAsync: boolean;
+    isGen: boolean;
+  } {
     const sig = this.checker.getTypeAtLocation(node).getCallSignatures()[0];
     if (!sig) fail(node, Codes.UnsupportedType, "expected a function type");
     let fnType: LType & { k: "fn" };
     if (target && target.k === "fn" && target.params.length >= node.parameters.length) {
-      // Use the contextual parameter list so the lambda matches Fn<...> exactly.
       fnType = {
         k: "fn",
         params: target.params,
@@ -693,7 +702,15 @@ export class FnEmitter {
       : isGen
         ? T.void
         : fnType.ret;
-    const params = this.paramInfos(node, fnType);
+    return { fnType, ret, params: this.paramInfos(node, fnType), isAsync, isGen };
+  }
+
+  /** Lowers a nested function or arrow to a C++ lambda wrapped in lucent::Fn. */
+  closure(
+    node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
+    target?: LType,
+  ): E {
+    const { fnType, ret, params, isAsync, isGen } = this.closureSignature(node, target);
     const inner = new FnEmitter(
       this.ctx,
       {

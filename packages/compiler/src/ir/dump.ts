@@ -31,6 +31,9 @@ export function dump(fn: IrFunction): string {
       (p) =>
         `  module p${p.place} ${p.name}: ${typeKey(p.type)} = ${p.symbol}${p.mutable ? "" : " const"}`,
     ),
+    ...fn.captures.map(
+      (c) => `  capture p${c.place} ${c.name}: ${typeKey(c.type)}${c.boxed ? " boxed" : ""}`,
+    ),
   ];
 
   const shown = new Set<IrRegion>();
@@ -41,6 +44,13 @@ export function dump(fn: IrFunction): string {
       `${indent}r${region.id}${parent}:`,
       ...region.ops.flatMap((op) => [
         `${indent}  ${dumpOp(op, type)}  ${at(op.source)}`,
+        // A closure's function, nested under it.
+        ...(op.kind === "closure"
+          ? dump(op.fn)
+              .trimEnd()
+              .split("\n")
+              .map((l) => `${indent}    ${l}`)
+          : []),
         ...regionsOf(op).flatMap((id) => {
           const owned = fn.regions[id];
 
@@ -82,7 +92,7 @@ function dumpOp(op: IrOp, type: (v: ValueId) => string): string {
     case "convert":
       return def(op.result, `convert v${op.input}`);
     case "local":
-      return `local p${op.place} ${op.name}: ${typeKey(op.type)}`;
+      return `local p${op.place} ${op.name}: ${typeKey(op.type)}${op.boxed ? " boxed" : ""}`;
     case "load":
       return def(op.result, `load p${op.place}`);
     case "store":
@@ -97,6 +107,15 @@ function dumpOp(op: IrOp, type: (v: ValueId) => string): string {
 
       return op.result === undefined ? text : def(op.result, text);
     }
+    case "closure": {
+      const from = op.from.map((f) => ("value" in f ? `v${f.value}` : `box p${f.box}`));
+
+      return def(op.result, `closure ${op.fn.id}(${from.join(", ")})`);
+    }
+    case "unreachable":
+      return "unreachable";
+    case "never":
+      return def(op.result, "never");
     case "return":
       return op.value === undefined ? "return" : `return v${op.value}`;
     case "throw":

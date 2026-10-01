@@ -867,7 +867,12 @@ export type IrOp =
       code: unknown; // the backend's, naming its operands
       args: ValueId[];
       source: SourceSpan;
-    };
+    }
+  | { kind: "closure"; result: ValueId; fn: IrFunction; from: CaptureSource[]; source: SourceSpan }
+  | { kind: "unreachable"; source: SourceSpan } // terminator
+  | { kind: "never"; result: ValueId; source: SourceSpan }; // what never completes gives
+
+export type CaptureSource = { value: ValueId } | { box: PlaceId };
 
 export type Callee = { kind: "function"; id: FunctionId } | { kind: "builtin"; name: BuiltinName };
 
@@ -900,6 +905,20 @@ export interface EffectRef {
   them. The C++ backend (`emit/leaf.ts`) plans a leaf with the emitter's
   own code for it, its operands being named values, so the semantics of
   builtins and SDK calls are written once.
+- A `closure` makes a function value of a nested `IrFunction` (an arrow,
+  a function expression, a nested function declaration), lowered on its
+  own. Its `captures` are places declared at entry: a copy of a value of
+  the enclosing function (taken when the closure is made), or, for a
+  variable some code writes after closures capture it (`isBoxed`), the
+  enclosing function's box, which they share. A `local` op says when its
+  place is `boxed`. Nested function declarations are boxed locals from
+  the start of their block, defined there (or where written, when they
+  capture a variable the block declares); a `for` loop's boxed `let`
+  variables get a copy per iteration, as in JavaScript.
+- `unreachable` ends a body TypeScript proved always returns (an
+  exhaustive switch at its end); a body that may give undefined gives it.
+  A call that never returns gives a `never` value, which converts to any
+  type and which no code that runs uses.
 - A platform test (`PLATFORM === "ios" && …`, `switch (PLATFORM)`, a
   guard clause) is decided by the host (`platformGuard`,
   `platformClauses`, `runsHere`): only what the platform being built runs
@@ -1059,7 +1078,9 @@ cases run under both lowerings).
   Migration: none.
 - **v1.3** (2026-10-01, T53, proposed): the `plan` op, `LeafHost`
   (`plan`, `convert`, `place`, `platformOnly`) and the platform hooks of
-  `LowerHost`; invariant 6 leaves plans to the program analysis.
+  `LowerHost`; invariant 6 leaves plans to the program analysis. The
+  `closure`, `unreachable` and `never` ops, `IrFunction.captures`, boxed
+  locals, and `LowerHost.isBoxed`, `signatureOf` and `effectsOf`.
   Migration: none (additive; the default lowering is unchanged).
 
 ## C-EXEC: execution identities, scopes and operations

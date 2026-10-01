@@ -1,19 +1,24 @@
 /**
  * TypeScript → IR for the subset the IR covers so far: literals (bigints
  * too), arithmetic, bitwise and comparison operators, string concatenation and
- * templates, locals, parameters and module variables (assigned, compound
- * assigned, incremented), calls of the module's functions, `new Error(…)`,
- * conditional and logical expressions, `typeof`, `!`, narrowing of
- * optionals and unions where the checker narrows, blocks, `if`, `while`,
- * `do`, `for`, `switch`, labels, `break`, `continue`, `return` and
- * `throw`. Anything else throws IrUnsupported, and the legacy emitter
- * lowers the function instead (or, under `ir-strict`, compilation stops).
+ * templates, locals, parameters (defaulted ones too) and module variables
+ * with every assignment form, calls of the module's functions, `new
+ * Error(…)`, conditional and logical expressions, `typeof`, `!`, `as`,
+ * narrowing of optionals and unions where the checker narrows, blocks,
+ * `if`, `while`, `do`, `for`, `switch`, labels, `break`, `continue`,
+ * `return` and `throw`, platform tests, and nested functions as closures.
+ * What the IR does not model itself (member access, methods of the
+ * runtime and the SDK, constructions, literals of arrays and objects) is a
+ * plan the host's `leaves` give, on operands lowered here first. Anything
+ * else throws IrUnsupported, and the legacy emitter lowers the function
+ * instead (or, under `ir-strict`, compilation stops).
  *
  * Every subexpression becomes operations appended in JavaScript's
  * evaluation order, left to right, so the order is fixed here once; a
  * right side that may not run (`&&`, `||`, `??`, `?:`) goes in a branch.
  */
 import ts from "typescript";
+import { type FunctionLike, freeVariables } from "../analysis/scopes.ts";
 import { bigintLiteralValue } from "../lowering/literals.ts";
 import { isVoidish, type LType, sameType, T, typeKey } from "../types.ts";
 import { IrBuilder } from "./build.ts";
@@ -22,7 +27,7 @@ import {
   isAbsent,
   type BinaryOp,
   type BuiltinName,
-  completes,
+  type CaptureSource,
   type Constant,
   convertible,
   type EffectSummary,
@@ -92,6 +97,27 @@ export interface LowerHost {
   platformClauses?(s: ts.SwitchStatement): boolean[] | "nowhere" | undefined;
   /** Whether the platform being built runs `s`, by the platform branches and guard clauses around it. */
   runsHere?(s: ts.Statement): boolean;
+  /** Whether closures share the variable `symbol` in a box: some code writes it after they capture it. */
+  isBoxed?(symbol: ts.Symbol): boolean;
+  /** A nested function's signature, `target` the function type it becomes when it has one. */
+  signatureOf?(
+    node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
+    target?: LType,
+  ): NestedSignature;
+  /** A nested function's effects, when the program's analysis knows them. */
+  effectsOf?(node: FunctionLike): EffectSummary | undefined;
+}
+
+/** A nested function's type, and what its parameters are. */
+export interface NestedSignature {
+  /** The function value's type. */
+  type: LType & { k: "fn" };
+  /** What the function takes: optionals for parameters with defaults, and those it leaves out. */
+  params: LType[];
+  /** Of a parameter with a default, the type its body sees (the caller passes an optional). */
+  defaulted: (LType | undefined)[];
+  async: boolean;
+  generator: boolean;
 }
 
 export interface PlatformBranch {
@@ -118,8 +144,10 @@ export interface LeafOperands {
   /** The value of `node`, a subexpression of the leaf (the same value when asked again). */
   operand(node: ts.Expression): ValueId;
   typeOf(v: ValueId): LType;
-  /** Whether `symbol` names a local or a parameter of the function. */
+  /** Whether `symbol` names a local or a parameter of the function (or of one around it). */
   isLocal(symbol: ts.Symbol): boolean;
+  /** The function value of `node`, a function the leaf takes, as the type `target` it becomes. */
+  closure(node: ts.ArrowFunction | ts.FunctionExpression, target?: LType): ValueId;
 }
 
 export interface LeafHost {
@@ -143,6 +171,9 @@ export interface LeafPlace {
   set(value: ValueId): Leaf;
 }
 
+/** What a name holds in a function: a parameter's value, or a place. */
+type Variable = { value: ValueId } | { place: PlaceId; type: LType };
+
 /** What an assignment assigns to: a variable, or a place a leaf names. */
 interface Target {
   type: LType;
@@ -152,9 +183,12 @@ interface Target {
 
 /** The function to lower, with the types the compiler gave its signature. */
 export interface LowerInput {
-  decl: ts.FunctionDeclaration;
+  decl: FunctionLike;
   id: FunctionId;
+  /** What callers pass: an optional for a parameter with a default. */
   params: LType[];
+  /** Of a parameter with a default, the type its body sees. */
+  defaulted?: (LType | undefined)[];
   result: LType;
   async: boolean;
   generic: boolean;
@@ -209,11 +243,21 @@ class Lowerer {
   private readonly jumps: Jump[] = [];
   /** The values leaves give. */
   private readonly planned = new Set<ValueId>();
+  /** The function this one is nested in, whose variables it captures. */
+  private readonly parent?: Lowerer;
+  /** The variables of enclosing functions this one captures, in the order it first uses them. */
+  private readonly captured = new Map<ts.Symbol, { place: PlaceId; outer: Variable }>();
+  /** The places closures share in a box. */
+  private readonly boxed = new Set<PlaceId>();
+  /** Nested function declarations defined where they are written: they capture a later variable. */
+  private readonly deferred = new Set<ts.FunctionDeclaration>();
+  private closures = 0;
 
-  constructor(input: LowerInput, host: LowerHost) {
+  constructor(input: LowerInput, host: LowerHost, parent?: Lowerer) {
     this.input = input;
     this.host = host;
     this.result = input.result;
+    this.parent = parent;
     this.b = new IrBuilder(input.id, input.result, spanOf(input.decl), input.async);
   }
 
@@ -222,43 +266,99 @@ class Lowerer {
 
     if (this.input.async) this.unsupported(d, "async functions");
 
-    if (d.asteriskToken) this.unsupported(d, "generators");
+    if (!ts.isArrowFunction(d) && d.asteriskToken) this.unsupported(d, "generators");
 
     if (this.input.generic) this.unsupported(d, "generic functions");
 
     if (!d.body) this.unsupported(d, "functions without a body");
 
     const body = d.body;
-    const values = d.parameters.map((p, i) => {
-      if (!ts.isIdentifier(p.name) || p.initializer || p.questionToken || p.dotDotDotToken)
-        this.unsupported(p, "optional, rest, defaulted or destructured parameters");
+    // A callback takes the parameters of the function type it becomes, even those it leaves out.
+    const values = this.input.params.map((t, i) =>
+      this.b.param(i, t, spanOf(d.parameters[i] ?? d)),
+    );
 
-      return this.b.param(i, this.input.params[i]!, spanOf(p));
-    });
+    d.parameters.forEach((p, i) => this.parameter(p, values[i]!, this.input.defaulted?.[i], body));
 
-    // A parameter the body assigns is a local, starting as the argument.
-    d.parameters.forEach((p, i) => {
-      const sym = this.symbol(p.name as ts.Identifier);
-
-      if (!assignedIn(this.host.checker, body, sym)) {
-        this.params.set(sym, values[i]!);
-        return;
-      }
-
-      const place = this.declareLocal(sym, p.name.getText(), this.input.params[i]!, p);
-
-      this.b.store(place, values[i]!, spanOf(p));
-    });
-
-    this.statements(body.statements);
+    if (ts.isBlock(body)) {
+      this.statements(body.statements);
+      this.end(d);
+    } else this.returns(body, spanOf(body));
 
     const fn = this.b.finish(this.input.effects);
 
-    // TypeScript knows every path returns; a body the IR cannot prove it for is left to the legacy emitter.
-    if (!isVoidish(this.result) && completes(fn, fn.body))
-      this.unsupported(d, "a body that can end without returning a value");
-
     return { fn, signatures: this.signatures, effects: this.effects };
+  }
+
+  /**
+   * A parameter: its value, or a local starting as it when the body assigns
+   * it, closures share it, or a default replaces an undefined argument.
+   */
+  parameter(
+    p: ts.ParameterDeclaration,
+    value: ValueId,
+    defaulted: LType | undefined,
+    body: ts.Node,
+  ): void {
+    if (!ts.isIdentifier(p.name)) this.unsupported(p, "destructured parameters");
+
+    const sym = this.symbol(p.name);
+    const span = spanOf(p);
+    const local =
+      defaulted !== undefined ||
+      assignedIn(this.host.checker, body, sym) ||
+      this.host.isBoxed?.(sym);
+
+    if (!local) {
+      this.params.set(sym, value);
+      return;
+    }
+
+    const type = defaulted ?? this.b.typeOf(value);
+    const place = this.declareLocal(sym, p.name.text, type, p);
+    const init = p.initializer;
+
+    if (!init) {
+      this.b.store(place, value, span);
+      return;
+    }
+
+    const absent = this.b.binary("===", value, this.b.const(undefined, span), span);
+
+    this.b.if(
+      absent,
+      span,
+      () => this.b.store(place, this.coerce(this.expr(init, type), type, init), span),
+      () => this.b.store(place, this.coerce(value, type, p), span),
+    );
+  }
+
+  /**
+   * After the last statement of a body: a function that may give undefined
+   * gives it, and one TypeScript proved always returns (an exhaustive
+   * switch at the end) cannot get here.
+   */
+  end(d: FunctionLike): void {
+    if (!this.b.completes || isVoidish(this.result)) return;
+
+    const span = spanOf(d);
+    const absent = convertible(T.undefined, this.result);
+
+    if (absent) this.b.return(this.coerce(this.b.const(undefined, span), this.result, d), span);
+    else this.b.unreachable(span);
+  }
+
+  /** `return value`: converted to what the function gives (nothing, from a void one). */
+  returns(value: ts.Expression, span: SourceSpan): void {
+    const result = this.result;
+    const v = this.expr(value, isVoidish(result) ? undefined : result);
+
+    if (isVoidish(result)) {
+      this.b.return(undefined, span);
+      return;
+    }
+
+    this.b.return(this.coerce(v, result, value), span);
   }
 
   unsupported(node: ts.Node, what: string): never {
@@ -303,11 +403,76 @@ class Lowerer {
 
   /** Statements in order, up to one that leaves: what follows it never runs. */
   statements(list: readonly ts.Statement[]): void {
+    this.hoist(list);
+
     for (const s of list) {
       if (this.b.ended) return;
 
       this.statement(s);
     }
+  }
+
+  /**
+   * Nested function declarations, which JavaScript hoists: each is a boxed
+   * local from the start of its block, defined there; one that captures a
+   * variable the block declares is defined where it is written, the
+   * variable being in its temporal dead zone before that anyway.
+   */
+  hoist(list: readonly ts.Statement[]): void {
+    const fns = list
+      .filter(ts.isFunctionDeclaration)
+      .filter((f) => this.host.runsHere?.(f) !== false);
+
+    if (!fns.length) return;
+
+    const declared = new Set(
+      list.filter(ts.isVariableStatement).flatMap((v) => this.declaredBy(v)),
+    );
+
+    for (const f of fns) {
+      if (!f.name) this.unsupported(f, "a function declaration without a name");
+
+      const sym = this.symbol(f.name);
+      const type = this.signature(f).type;
+
+      this.declareLocal(sym, f.name.text, type, f, true);
+
+      if (freeVariables(this.host.checker, f).some((v) => declared.has(v))) this.deferred.add(f);
+    }
+
+    for (const f of fns) if (!this.deferred.has(f)) this.define(f);
+  }
+
+  /** The variables a statement declares, destructured ones included. */
+  declaredBy(s: ts.VariableStatement): ts.Symbol[] {
+    const out: ts.Symbol[] = [];
+    const visit = (n: ts.Node): void => {
+      if (
+        ts.isIdentifier(n) &&
+        (ts.isVariableDeclaration(n.parent) || ts.isBindingElement(n.parent))
+      ) {
+        const sym = this.host.checker.getSymbolAtLocation(n);
+
+        if (sym) out.push(sym);
+      }
+
+      ts.forEachChild(n, visit);
+    };
+
+    for (const d of s.declarationList.declarations) visit(d.name);
+    return out;
+  }
+
+  /** A nested function declaration's statement: where one that captures a later variable is defined. */
+  defineDeferred(f: ts.FunctionDeclaration): void {
+    if (this.deferred.has(f)) this.define(f);
+  }
+
+  /** Stores the closure of a nested function declaration into its hoisted local. */
+  define(f: ts.FunctionDeclaration): void {
+    const { place, type } = this.place(f.name!);
+
+    this.b.store(place, this.coerce(this.closure(f), type, f), spanOf(f));
   }
 
   /** The body of an if branch or a loop: its region is already a scope of its own. */
@@ -341,24 +506,68 @@ class Lowerer {
     return jump.target;
   }
 
-  /** A loop over `node`'s body, leaving when `condition` (tested first, or last) is false. */
+  /**
+   * A loop over `node`'s body, leaving when `condition` (tested first, or
+   * last) is false. Each iteration gets its own copy of the `perIteration`
+   * variables (a `for`'s `let` variables closures share), as in JavaScript.
+   */
   loop(
     node: ts.IterationStatement,
     labels: readonly string[],
-    parts: { condition?: ts.Expression; testFirst: boolean; step?: () => void },
+    parts: {
+      condition?: ts.Expression;
+      testFirst: boolean;
+      step?: () => void;
+      perIteration?: readonly ts.Symbol[];
+    },
   ): void {
-    const { condition, testFirst, step } = parts;
+    const { condition, testFirst, step, perIteration = [] } = parts;
     const body = (loop: TargetId) =>
       this.within({ target: loop, kind: "loop", labels }, () => {
         if (condition && testFirst) this.exitUnless(condition, loop);
 
+        const restore = perIteration.map((sym) => this.iterationCopy(sym, node));
+
         this.nested(node.statement);
+        restore.forEach((r) => r());
       });
     const next =
       step ??
       (condition && !testFirst ? (loop: TargetId) => this.exitUnless(condition, loop) : undefined);
 
     this.b.loop(spanOf(node), body, next);
+  }
+
+  /** The variables of a `for`'s declarations that closures share and its body does not assign. */
+  iterationVariables(list: ts.VariableDeclarationList, body: ts.Statement): ts.Symbol[] {
+    return list.declarations.flatMap((d) => {
+      const sym = ts.isIdentifier(d.name)
+        ? this.host.checker.getSymbolAtLocation(d.name)
+        : undefined;
+      const place = sym && this.locals.get(sym);
+
+      return sym &&
+        place !== undefined &&
+        this.boxed.has(place) &&
+        !assignedIn(this.host.checker, body, sym)
+        ? [sym]
+        : [];
+    });
+  }
+
+  /** A copy of the boxed loop variable `sym` for one iteration; the function restores the variable. */
+  iterationCopy(sym: ts.Symbol, node: ts.Node): () => void {
+    const place = this.locals.get(sym)!;
+    const type = this.localTypes.get(place)!;
+    const span = spanOf(node);
+    const copy = this.b.local(`${sym.name}_it`, type, span, true);
+
+    this.b.store(copy, this.b.load(place, span), span);
+    this.boxed.add(copy);
+    this.locals.set(sym, copy);
+    this.localTypes.set(copy, type);
+
+    return () => this.locals.set(sym, place);
   }
 
   /** `if (!condition) break loop;` (nothing for a literal `true`). */
@@ -376,7 +585,11 @@ class Lowerer {
     );
   }
 
-  /** `let`/`const` declarations, each initializer run before its variable exists. */
+  /**
+   * `let`/`const` declarations, each initializer run before its variable
+   * exists; but a variable closures share already has its box, which a
+   * closure in its own initializer (a recursive arrow) captures.
+   */
   declarations(list: ts.VariableDeclarationList): void {
     const scoped = list.flags & ts.NodeFlags.BlockScoped;
 
@@ -389,9 +602,11 @@ class Lowerer {
       const sym = this.symbol(d.name);
       const declared = this.declaredType(sym, d.name);
       const type = declared.k === "never" ? T.undefined : declared;
+      const boxed = this.host.isBoxed?.(sym) === true;
+      const early = boxed ? this.declareLocal(sym, d.name.text, type, d) : undefined;
       const value =
         d.initializer && this.coerce(this.expr(d.initializer, type), type, d.initializer);
-      const place = this.declareLocal(sym, d.name.text, type, d);
+      const place = early ?? this.declareLocal(sym, d.name.text, type, d);
 
       if (value !== undefined) this.b.store(place, value, spanOf(d));
     }
@@ -521,23 +736,25 @@ class Lowerer {
     const args: ValueId[] = [];
     const lowered = new Map<ts.Node, ValueId>();
     let end = -1;
+    const take = (n: ts.Expression, lower: () => ValueId) => {
+      const known = lowered.get(n);
+
+      if (known !== undefined) return known;
+
+      if (n.getStart() < end) this.unsupported(n, "operands a plan takes out of order");
+
+      const v = lower();
+
+      lowered.set(n, v);
+      args.push(v);
+      end = n.getEnd();
+      return v;
+    };
     const operands: LeafOperands = {
-      operand: (n) => {
-        const known = lowered.get(n);
-
-        if (known !== undefined) return known;
-
-        if (n.getStart() < end) this.unsupported(n, "operands a plan takes out of order");
-
-        const v = this.expr(n);
-
-        lowered.set(n, v);
-        args.push(v);
-        end = n.getEnd();
-        return v;
-      },
+      operand: (n) => take(n, () => this.expr(n)),
+      closure: (n, target) => take(n, () => this.closure(n, target)),
       typeOf: (v) => this.b.typeOf(v),
-      isLocal: (sym) => this.locals.has(sym) || this.params.has(sym),
+      isLocal: (sym) => this.variableOf(sym) !== undefined,
     };
 
     return { operands, args };
@@ -547,10 +764,15 @@ class Lowerer {
   planOf(leaf: Leaf, args: ValueId[], span: SourceSpan): ValueId {
     const result = isVoidish(leaf.type) ? undefined : leaf.type;
     const v =
-      this.b.plan(leaf.name, leaf.code, args, result, span) ?? this.b.const(undefined, span);
+      this.b.plan(leaf.name, leaf.code, args, result, span) ?? this.nothing(leaf.type, span);
 
     this.planned.add(v);
     return v;
+  }
+
+  /** What an operation that gives nothing gives: undefined, or no value when it never completes. */
+  nothing(type: LType, span: SourceSpan): ValueId {
+    return type.k === "never" ? this.b.never(span) : this.b.const(undefined, span);
   }
 
   /** What `node` assigns to; a place other than a variable has what it takes lowered now. */
@@ -583,12 +805,28 @@ class Lowerer {
     };
   }
 
+  /** `x as T`: `x`, shaped and converted as a `T` (`as const` changes nothing). */
+  asserted(node: ts.AsExpression | ts.TypeAssertion): ValueId {
+    const inner = node.expression;
+
+    if (ts.isTypeReferenceNode(node.type) && node.type.typeName.getText() === "const")
+      return this.expr(inner);
+
+    const target = this.typeAt(node);
+
+    return this.coerce(this.expr(inner, target), target, node);
+  }
+
   /** Whether `target` is a variable the IR stores into: a local or a module variable. */
   variable(target: ts.Expression): boolean {
     const id = skipParentheses(target);
     const sym = ts.isIdentifier(id) ? this.host.checker.getSymbolAtLocation(id) : undefined;
 
-    return sym !== undefined && (this.locals.has(sym) || this.host.global(sym)?.kind === "var");
+    if (sym === undefined) return false;
+
+    const local = this.variableOf(sym);
+
+    return local ? "place" in local : this.host.global(sym)?.kind === "var";
   }
 
   /** A condition: a boolean as it is, anything else through ToBoolean. */
@@ -639,9 +877,11 @@ class Lowerer {
     if (!ts.isIdentifier(id)) this.unsupported(id, "assigning to anything but a variable");
 
     const sym = this.symbol(id);
-    const local = this.locals.get(sym);
+    const local = this.variableOf(sym);
 
-    if (local !== undefined) return { place: local, type: this.localTypes.get(local)! };
+    if (local && "place" in local) return local;
+
+    if (local) this.unsupported(id, `assigning to the parameter ${id.text}`);
 
     const g = this.host.global(sym);
 
@@ -650,19 +890,118 @@ class Lowerer {
     return { place: this.b.modulePlace(g.id, g.name, g.type, g.mutable), type: g.type };
   }
 
-  declareLocal(sym: ts.Symbol, name: string, type: LType, node: ts.Node): PlaceId {
-    const place = this.b.local(name, type, spanOf(node));
+  /** A local; boxed when closures share it (`always`, a nested function declaration). */
+  declareLocal(sym: ts.Symbol, name: string, type: LType, node: ts.Node, always = false): PlaceId {
+    const boxed = always || this.host.isBoxed?.(sym) === true;
+    const place = this.b.local(name, type, spanOf(node), boxed);
 
     this.locals.set(sym, place);
     this.localTypes.set(place, type);
+
+    if (boxed) this.boxed.add(place);
+
     return place;
+  }
+
+  /** What `sym` names here: a parameter's value, a local, or a variable of an enclosing function. */
+  variableOf(sym: ts.Symbol): Variable | undefined {
+    const param = this.params.get(sym);
+
+    if (param !== undefined) return { value: param };
+
+    const local = this.locals.get(sym);
+
+    if (local !== undefined) return { place: local, type: this.localTypes.get(local)! };
+
+    const known = this.captured.get(sym);
+
+    if (known) return { place: known.place, type: this.b.placeType(known.place) };
+
+    const outer = this.parent?.variableOf(sym);
+
+    if (!outer) return undefined;
+
+    // Captured: a copy of what the enclosing function holds, or its box.
+    const parent = this.parent!;
+    const boxed = "place" in outer && parent.boxed.has(outer.place);
+    const type = "value" in outer ? parent.b.typeOf(outer.value) : outer.type;
+    const names = new Set([...this.captured.keys()].map((s) => s.name));
+    const name = names.has(sym.name) ? `${sym.name}_${names.size}` : sym.name;
+    const place = this.b.capture(name, type, boxed);
+
+    if (boxed) this.boxed.add(place);
+
+    this.captured.set(sym, { place, outer });
+    return { place, type };
+  }
+
+  /**
+   * A nested function as a function value, `target` the type it becomes:
+   * lowered on its own, then made a closure of what it captures (copies of
+   * the values, or the boxes, of the variables of this function and those
+   * around it).
+   */
+  closure(
+    node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
+    target?: LType,
+  ): ValueId {
+    const sig = this.signature(node, target);
+
+    if (sig.async) this.unsupported(node, "async functions");
+
+    if (sig.generator) this.unsupported(node, "generators");
+
+    const id = `${this.input.id}$${++this.closures}`;
+    const input: LowerInput = {
+      decl: node,
+      id,
+      params: sig.params,
+      defaulted: sig.defaulted,
+      result: sig.type.ret,
+      async: false,
+      generic: false,
+    };
+    const effects = this.host.effectsOf?.(node);
+    const child = new Lowerer(effects ? { ...input, effects } : input, this.host, this);
+    const lowered = child.function();
+
+    for (const [k, v] of lowered.signatures) this.signatures.set(k, v);
+
+    for (const [k, v] of lowered.effects) this.effects.set(k, v);
+
+    const span = spanOf(node);
+    const from = [...child.captured.values()].map(({ outer }): CaptureSource => {
+      if ("value" in outer) return { value: outer.value };
+
+      return this.boxed.has(outer.place)
+        ? { box: outer.place }
+        : { value: this.b.load(outer.place, span) };
+    });
+
+    return this.b.closure(lowered.fn, from, sig.type, span);
+  }
+
+  /** A nested function's signature, as the host gives it. */
+  signature(
+    node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
+    target?: LType,
+  ): NestedSignature {
+    if (!this.host.signatureOf) this.unsupported(node, "nested functions");
+
+    try {
+      return this.host.signatureOf(node, target);
+    } catch (e) {
+      if (e instanceof IrUnsupported) throw e;
+
+      this.unsupported(node, "this function's type");
+    }
   }
 
   identifier(id: ts.Identifier): ValueId {
     const sym = this.host.checker.getSymbolAtLocation(id);
-    const param = sym && this.params.get(sym);
+    const local = sym && this.variableOf(sym);
 
-    if (param !== undefined) return param;
+    if (local) return "value" in local ? local.value : this.b.load(local.place, spanOf(id));
 
     // `undefined` has a symbol without declarations; NaN and Infinity are the library's.
     const constant =
@@ -675,10 +1014,10 @@ class Lowerer {
       return this.b.const(LIBRARY_CONSTANTS[id.text], spanOf(id));
     }
 
-    const g = this.locals.has(sym) ? undefined : this.host.global(sym);
+    const g = this.host.global(sym);
 
     // A function as a value, a platform's or the SDK's constant…
-    if (!this.locals.has(sym) && g?.kind !== "var") return this.leaf(id);
+    if (g?.kind !== "var") return this.leaf(id);
 
     // A literal constant is read as its literal, not from module storage.
     if (g?.kind === "var" && g.literal)
@@ -720,7 +1059,7 @@ class Lowerer {
     );
 
     // Calling a function that gives nothing gives undefined.
-    return v ?? this.b.const(undefined, spanOf(node));
+    return v ?? this.nothing(g.result, spanOf(node));
   }
 
   /** `new Error(message)` and its kinds; any other construction is a plan. */
@@ -1096,18 +1435,20 @@ const LABELED: Partial<Record<ts.SyntaxKind, LabeledLowering>> = {
   [ts.SyntaxKind.ForStatement]: (s: ts.ForStatement, labels, lw: Lowerer) => {
     const init = s.initializer;
     const incrementor = s.incrementor;
-    const run = () =>
+    const run = (perIteration: readonly ts.Symbol[] = []) =>
       lw.loop(s, labels, {
         ...(s.condition ? { condition: s.condition } : {}),
         testFirst: true,
         ...(incrementor ? { step: () => void lw.expr(incrementor) } : {}),
+        perIteration,
       });
 
     if (init && ts.isVariableDeclarationList(init)) {
-      // The loop's variables are scoped to it.
+      // The loop's variables are scoped to it; those closures share, and the body does not
+      // assign, are copied for each iteration.
       lw.b.block(spanOf(s), () => {
         lw.declarations(init);
-        run();
+        run(lw.iterationVariables(init, s.statement));
       });
       return;
     }
@@ -1144,26 +1485,18 @@ const STATEMENTS: Partial<Record<ts.SyntaxKind, StatementLowering>> = {
   },
 
   [ts.SyntaxKind.ReturnStatement]: (s: ts.ReturnStatement, lw: Lowerer) => {
-    const result = lw.result;
-
-    if (!s.expression) {
-      if (!isVoidish(result)) lw.unsupported(s, "`return;` from a function giving a value");
-
-      lw.b.return(undefined, spanOf(s));
+    if (s.expression) {
+      lw.returns(s.expression, spanOf(s));
       return;
     }
 
-    const v = lw.expr(s.expression, isVoidish(result) ? undefined : result);
-
-    if (isVoidish(result)) {
-      if (!isVoidish(lw.b.typeOf(v))) lw.unsupported(s, "returning a value from a void function");
-
-      lw.b.return(undefined, spanOf(s));
-      return;
-    }
-
-    lw.b.return(lw.coerce(v, result, s.expression), spanOf(s));
+    // `return;` from a function that may give undefined gives it.
+    if (isVoidish(lw.result)) lw.b.return(undefined, spanOf(s));
+    else lw.b.return(lw.coerce(lw.b.const(undefined, spanOf(s)), lw.result, s), spanOf(s));
   },
+
+  [ts.SyntaxKind.FunctionDeclaration]: (s: ts.FunctionDeclaration, lw: Lowerer) =>
+    lw.defineDeferred(s),
 
   [ts.SyntaxKind.ThrowStatement]: (s: ts.ThrowStatement, lw: Lowerer) => {
     const v = lw.expr(s.expression);
@@ -1294,7 +1627,9 @@ const EXPRESSIONS: Partial<Record<ts.SyntaxKind, ExpressionLowering>> = {
   [ts.SyntaxKind.ParenthesizedExpression]: (n: ts.ParenthesizedExpression, lw) =>
     lw.expr(n.expression),
 
-  [ts.SyntaxKind.AsExpression]: (n: ts.AsExpression, lw) => lw.expr(n.expression),
+  [ts.SyntaxKind.AsExpression]: (n: ts.AsExpression, lw) => lw.asserted(n),
+
+  [ts.SyntaxKind.TypeAssertionExpression]: (n: ts.TypeAssertion, lw) => lw.asserted(n),
 
   [ts.SyntaxKind.SatisfiesExpression]: (n: ts.SatisfiesExpression, lw) => lw.expr(n.expression),
 
@@ -1328,6 +1663,11 @@ const EXPRESSIONS: Partial<Record<ts.SyntaxKind, ExpressionLowering>> = {
   [ts.SyntaxKind.TemplateExpression]: (n: ts.TemplateExpression, lw) => lw.template(n),
 
   [ts.SyntaxKind.CallExpression]: (n: ts.CallExpression, lw, hint?: LType) => lw.call(n, hint),
+
+  [ts.SyntaxKind.ArrowFunction]: (n: ts.ArrowFunction, lw, hint?: LType) => lw.closure(n, hint),
+
+  [ts.SyntaxKind.FunctionExpression]: (n: ts.FunctionExpression, lw, hint?: LType) =>
+    lw.closure(n, hint),
 
   [ts.SyntaxKind.NewExpression]: (n: ts.NewExpression, lw) => lw.newExpr(n),
 };

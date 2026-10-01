@@ -40,6 +40,19 @@ class LeafEmitter extends FnEmitter {
     return { c: operand(v), t: this.operands.typeOf(v) };
   }
 
+  /** A function the leaf takes: the IR's closure. */
+  override closure(
+    node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
+    target?: LType,
+  ): E {
+    if (ts.isFunctionDeclaration(node))
+      throw new IrUnsupported(node, "a function declaration in a plan");
+
+    const v = this.operands.closure(node, target);
+
+    return { c: operand(v), t: this.operands.typeOf(v) };
+  }
+
   /** A plan is one expression: what needs statements stays the legacy emitter's. */
   override emit(): void {
     throw new IrUnsupported(this.root, "code that needs statements of its own");
@@ -141,6 +154,9 @@ function noOperands(node: ts.Node): LeafOperands {
       throw new IrUnsupported(node, "an operand here");
     },
     typeOf: () => {
+      throw new IrUnsupported(node, "an operand here");
+    },
+    closure: () => {
       throw new IrUnsupported(node, "an operand here");
     },
     isLocal: () => false,

@@ -117,7 +117,7 @@ class Checker {
   /** Every place declared so far, anywhere. */
   private readonly declared = new Set<PlaceId>();
   /** The places the operation being checked can use. */
-  private places = new Map<PlaceId, { type: LType; mutable: boolean }>();
+  private places = new Map<PlaceId, { type: LType; mutable: boolean; boxed?: boolean }>();
   /** The loops and blocks around the operation being checked, innermost last. */
   private readonly enclosing: Enclosing[] = [];
   /** The result type the region being checked yields, when it is a branch of an if giving one. */
@@ -199,6 +199,14 @@ class Checker {
 
       this.declared.add(p.place);
       this.places.set(p.place, { type: p.type, mutable: p.mutable });
+    }
+
+    // A capture holds a copy, which is never written, or shares a box, which is.
+    for (const c of fn.captures) {
+      if (this.declared.has(c.place)) this.problem(`p${c.place} is declared twice`);
+
+      this.declared.add(c.place);
+      this.places.set(c.place, { type: c.type, mutable: c.boxed, boxed: c.boxed });
     }
   }
 
@@ -348,7 +356,7 @@ class Checker {
       this.problem(`${where}: v${v} is ${typeKey(actual)}, expected ${typeKey(expected)}`);
   }
 
-  place(p: PlaceId, where: string): { type: LType; mutable: boolean } | undefined {
+  place(p: PlaceId, where: string): { type: LType; mutable: boolean; boxed?: boolean } | undefined {
     const place = this.places.get(p);
 
     if (!place) this.problem(`${where} uses p${p}, which is not declared before it`);
@@ -356,11 +364,53 @@ class Checker {
     return place;
   }
 
-  declare(p: PlaceId, type: LType, where: string): void {
+  declare(p: PlaceId, type: LType, where: string, boxed = false): void {
     if (this.declared.has(p)) this.problem(`${where} declares p${p} again`);
 
     this.declared.add(p);
-    this.places.set(p, { type, mutable: true });
+    this.places.set(p, { type, mutable: true, boxed });
+  }
+
+  /** A closure: its function is valid, and each capture gets a value of its type or a box. */
+  closure(op: IrOp & { kind: "closure" }, where: string): void {
+    const fn = op.fn;
+
+    for (const problem of new Checker(fn, this.env).run())
+      this.problem(`${where} ${fn.id}: ${problem}`);
+
+    if (op.from.length !== fn.captures.length)
+      this.problem(`${where} gives ${op.from.length} captures, ${fn.id} has ${fn.captures.length}`);
+
+    op.from.forEach((from, i) => {
+      const capture = fn.captures[i];
+
+      if (!capture) return;
+
+      if ("value" in from) {
+        if (capture.boxed)
+          this.problem(`${where} gives a value to the boxed capture ${capture.name}`);
+
+        this.expectType(from.value, capture.type, `${where} capture ${capture.name}`);
+        return;
+      }
+
+      const place = this.place(from.box, where);
+
+      if (place && !place.boxed) this.problem(`${where} shares p${from.box}, which is not boxed`);
+      else if (!capture.boxed) this.problem(`${where} shares a box with the copy ${capture.name}`);
+
+      if (place && !sameType(place.type, capture.type))
+        this.problem(
+          `${where} capture ${capture.name} is ${typeKey(capture.type)}, p${from.box} is ${typeKey(place.type)}`,
+        );
+    });
+
+    const t = this.typeOf(op.result);
+
+    if (t && (t.k !== "fn" || t.params.length !== fn.params.length))
+      this.problem(
+        `${where} gives v${op.result}, which is not a function of ${fn.params.length} parameters`,
+      );
   }
 
   call(op: IrOp & { kind: "call" }, where: string): void {
@@ -535,7 +585,7 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
       c.problemAt(where, `cannot convert a ${typeKey(from)} to ${typeKey(op.to)}`);
   },
 
-  local: (op, c, where) => c.declare(op.place, op.type, where),
+  local: (op, c, where) => c.declare(op.place, op.type, where, op.boxed),
 
   load: (op, c, where) => c.expectType(op.result, c.place(op.place, where)?.type, where),
 
@@ -588,6 +638,12 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
   plan: (op, c, where) => {
     if (!op.name) c.problemAt(where, "has no name");
   },
+
+  closure: (op, c, where) => c.closure(op, where),
+
+  unreachable: () => {},
+
+  never: (op, c, where) => c.expectType(op.result, T.never, where),
 };
 
 function safeDump(fn: IrFunction): string {

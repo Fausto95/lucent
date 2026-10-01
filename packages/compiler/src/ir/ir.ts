@@ -62,6 +62,19 @@ export interface IrModulePlace {
   mutable: boolean;
 }
 
+/**
+ * A variable of an enclosing function that a closure uses: a place
+ * declared at entry, holding the value it had when the closure was made,
+ * or, `boxed`, sharing the enclosing function's box (a variable some
+ * code writes after closures capture it).
+ */
+export interface IrCapture {
+  place: PlaceId;
+  name: string;
+  type: LType;
+  boxed: boolean;
+}
+
 export interface IrFunction {
   id: FunctionId;
   params: ValueId[];
@@ -70,6 +83,8 @@ export interface IrFunction {
   values: IrValue[];
   regions: IrRegion[];
   modulePlaces: IrModulePlace[];
+  /** What a closure captures, in the order of its `closure` op's `from`. */
+  captures: IrCapture[];
   effects: EffectSummary;
   source: SourceSpan;
   async: boolean;
@@ -124,7 +139,15 @@ export type IrOp =
       source: SourceSpan;
     }
   | { kind: "convert"; result: ValueId; input: ValueId; to: LType; source: SourceSpan }
-  | { kind: "local"; place: PlaceId; type: LType; name: string; source: SourceSpan }
+  /** A local; `boxed`, one closures share, which some code writes after they capture it. */
+  | {
+      kind: "local";
+      place: PlaceId;
+      type: LType;
+      name: string;
+      boxed?: boolean;
+      source: SourceSpan;
+    }
   | { kind: "load"; result: ValueId; place: PlaceId; source: SourceSpan }
   | { kind: "store"; place: PlaceId; value: ValueId; source: SourceSpan }
   | {
@@ -175,7 +198,28 @@ export type IrOp =
       code: unknown;
       args: ValueId[];
       source: SourceSpan;
-    };
+    }
+  /**
+   * A function value made of `fn`, a nested function: each of its captures
+   * is the value `from` gives it, or the box of the place `from` names.
+   */
+  | {
+      kind: "closure";
+      result: ValueId;
+      fn: IrFunction;
+      from: CaptureSource[];
+      source: SourceSpan;
+    }
+  /** A point TypeScript proved no path reaches (a body ending after an exhaustive switch). */
+  | { kind: "unreachable"; source: SourceSpan }
+  /**
+   * The value of what never completes (a call that always throws): of type
+   * `never`, it converts to any type, and no code that uses it runs.
+   */
+  | { kind: "never"; result: ValueId; source: SourceSpan };
+
+/** What a closure's capture holds: a value of the enclosing function, or the box of its place. */
+export type CaptureSource = { value: ValueId } | { box: PlaceId };
 
 export type Callee = { kind: "function"; id: FunctionId } | { kind: "builtin"; name: BuiltinName };
 
@@ -406,6 +450,8 @@ export function operandsOf(op: IrOp): ValueId[] {
     case "call":
     case "plan":
       return op.args;
+    case "closure":
+      return op.from.flatMap((f) => ("value" in f ? [f.value] : []));
     case "return":
       return op.value === undefined ? [] : [op.value];
     case "throw":
@@ -477,7 +523,14 @@ export function completes(fn: Pick<IrFunction, "regions">, id: RegionId): boolea
   return run(id);
 }
 
-const TERMINATORS = new Set<IrOp["kind"]>(["return", "throw", "break", "continue", "yield"]);
+const TERMINATORS = new Set<IrOp["kind"]>([
+  "return",
+  "throw",
+  "break",
+  "continue",
+  "yield",
+  "unreachable",
+]);
 
 /** Operations that end their region: nothing may follow them. */
 export function isTerminator(op: IrOp): boolean {

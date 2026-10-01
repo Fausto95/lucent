@@ -3,16 +3,19 @@
  * order, to the region being built (the body, or a region of an `if`,
  * `loop` or `block` while its callback runs).
  */
-import type { LType } from "../types.ts";
+import { type LType, T } from "../types.ts";
 import {
   binaryResult,
   type BinaryOp,
+  completes,
   type Callee,
+  type CaptureSource,
   type Constant,
   constantType,
   type EffectRef,
   type EffectSummary,
   type FunctionId,
+  type IrCapture,
   type IrFunction,
   type IrModulePlace,
   type IrOp,
@@ -33,6 +36,7 @@ export class IrBuilder {
   private readonly values: IrValue[] = [];
   private readonly regions: IrRegion[] = [];
   private readonly modulePlaces: IrModulePlace[] = [];
+  private readonly captures: IrCapture[] = [];
   private readonly placeTypes: LType[] = [];
   private readonly params: ValueId[] = [];
   private readonly body: IrRegion;
@@ -74,6 +78,11 @@ export class IrBuilder {
     return last !== undefined && isTerminator(last);
   }
 
+  /** Whether the body built so far can reach its end (see `completes`). */
+  get completes(): boolean {
+    return completes({ regions: this.regions }, this.body.id);
+  }
+
   param(index: number, type: LType, source: SourceSpan): ValueId {
     const result = this.value(type, source);
     this.params[index] = result;
@@ -113,10 +122,35 @@ export class IrBuilder {
     return result;
   }
 
-  local(name: string, type: LType, source: SourceSpan): PlaceId {
+  local(name: string, type: LType, source: SourceSpan, boxed = false): PlaceId {
     const place = this.place(type);
-    this.push({ kind: "local", place, type, name, source });
+    this.push({ kind: "local", place, type, name, ...(boxed ? { boxed } : {}), source });
     return place;
+  }
+
+  /** A variable of an enclosing function this closure uses, declared at entry. */
+  capture(name: string, type: LType, boxed: boolean): PlaceId {
+    const place = this.place(type);
+    this.captures.push({ place, name, type, boxed });
+    return place;
+  }
+
+  /** A function value made of the nested function `fn`, its captures from `from`. */
+  closure(fn: IrFunction, from: CaptureSource[], type: LType, source: SourceSpan): ValueId {
+    const result = this.value(type, source);
+    this.push({ kind: "closure", result, fn, from, source });
+    return result;
+  }
+
+  unreachable(source: SourceSpan): void {
+    this.push({ kind: "unreachable", source });
+  }
+
+  /** The value of what never completes: the operation before it always throws. */
+  never(source: SourceSpan): ValueId {
+    const result = this.value(T.never, source);
+    this.push({ kind: "never", result, source });
+    return result;
   }
 
   /** A module variable, declared with the function rather than in its body. */
@@ -128,6 +162,15 @@ export class IrBuilder {
     const place = this.place(type);
     this.modulePlaces.push({ place, symbol, name, type, mutable });
     return place;
+  }
+
+  /** The type of what `place` holds. */
+  placeType(place: PlaceId): LType {
+    const type = this.placeTypes[place];
+
+    if (!type) throw new Error(`IR place p${place} does not exist`);
+
+    return type;
   }
 
   load(place: PlaceId, source: SourceSpan): ValueId {
@@ -279,6 +322,7 @@ export class IrBuilder {
       values: [...this.values],
       regions: this.regions.map((r) => ({ ...r, ops: [...r.ops] })),
       modulePlaces: [...this.modulePlaces],
+      captures: [...this.captures],
       async: this.async,
     };
 
@@ -363,6 +407,8 @@ const PURE = new Set<IrOp["kind"]>([
   "break",
   "continue",
   "yield",
+  "unreachable",
+  "never",
 ]);
 
 /**

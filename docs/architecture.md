@@ -153,7 +153,10 @@ Notable lowering choices:
   emitter's own code for the leaf (`emit/leaf.ts`) gives its C++ over
   those values, so builtin and SDK semantics are not written twice. A
   compound assignment of a field or an element reads it through one plan
-  and writes it through another, around the right side. Platform tests
+  and writes it through another, around the right side. Nested functions
+  are IR functions of their own, made into C++ lambdas that capture copies
+  of what they read, or share the box of a variable code writes after
+  they capture it (`analysis/scopes.ts`). Platform tests
   keep only what the platform being built runs. `scripts/ir-coverage.ts`
   reports what the e2e corpus lowers and why the rest falls back. Conversions
   between optionals, unions and absent values are planned once, in

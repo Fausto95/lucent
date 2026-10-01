@@ -1014,6 +1014,10 @@ before output code generation.
     operands first and in order), field and element compound
     assignments, platform tests: 344 of 606. e2e 53 of 53 under both
     `legacy` and `ir`.
+  - Closures (arrows, function expressions, nested function
+    declarations, captured copies and shared boxes, per-iteration `for`
+    variables), defaulted parameters, calls that never return, `as`:
+    411 of 606.
 
 <a id="t54"></a>
 
