@@ -133,20 +133,17 @@ Notable lowering choices:
   points at the `.lucent.ts` declaration rather than at generated code;
   native spans inside Lucent code (`LUCENT_TRACE_SCOPE`) get theirs from
   the `#line` in force.
-- **Semantic IR** (`ir/`, internal and off by default): a typed
-  representation between the checker and the C++ tree, in which every
-  value is defined once by an operation and operations run in list order,
-  so evaluation order is data. Control flow is structured: `if`, `loop`
-  and `block` operations own nested regions, which `break`, `continue`
-  and `yield` (an `if`'s result) leave. `LUCENT_LOWERING=ir` lowers the
-  top-level functions it supports through it (literals, arithmetic,
-  bitwise and comparison operators, on numbers and bigints, string concatenation and templates,
-  locals, parameters and module variables with every assignment form,
-  calls of the module's functions, `new Error`, conditional and logical
-  expressions, `typeof`, blocks, `if`, `while`, `do`, `for`, `switch`,
-  labels, `break`, `continue`, `return` and `throw`, and the checker's
-  narrowing of optionals and unions) and leaves the others to the emitter
-  above; `ir-strict` fails on anything it does not support. What the IR
+- **Semantic IR** (`ir/`): a typed representation between the checker
+  and the C++ tree, in which every value is defined once by an operation
+  and operations run in list order, so evaluation order is data. Control
+  flow is structured: `if`, `loop`, `iterate`, `block` and `try`
+  operations own nested regions, which `break`, `continue` and `yield`
+  (an `if`'s result) leave. Every function, method, accessor,
+  constructor, module `init()` and compute task variant lowers through
+  it by default (`LUCENT_LOWERING`, internal, also selects `legacy`, the
+  emitter above alone, for comparisons, and `ir-strict`, which fails on
+  anything the IR does not support); component setups, behind
+  `LUCENT_VIEWS`, still use the emitter's own statements. What the IR
   does not model itself (member reads and writes, methods of the runtime
   and the SDK, constructions, array and object literals) is a `plan`: the
   IR lowers the subexpressions it takes first, in source order, and the

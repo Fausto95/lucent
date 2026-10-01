@@ -430,6 +430,16 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-01: The IR is the default lowering.** Every function, method,
+accessor, constructor, module `init()` and compute task variant compiles
+through the semantic IR; the legacy emitter remains selectable
+(`LUCENT_LOWERING=legacy`) for comparisons until its paths are removed,
+and still writes component setups (behind `LUCENT_VIEWS`). _Why:_ the IR
+lowers the whole e2e corpus and both example apps, with the same
+results, diagnostics and performance budgets. _Changed:_ generated C++
+reads differently (values named `v3_`, parameters `p0_`), which the
+codegen corpus baseline has to take.
+
 **2026-10-01: The IR plans leaves with the emitter's code.** What the IR
 does not model itself (a member read, a builtin or SDK method, a
 construction, a literal of an array or object) is a `plan` operation on
@@ -1052,6 +1062,10 @@ before output code generation.
   - Implicit constructors (the base's construction on the arguments,
     then the fields), destructured parameters with defaults: 803 of 803.
     What the legacy emitter still writes: component setups.
+  - The IR is the default lowering (2026-10-01): the full compiler test
+    suite passes with it, as do e2e (53 of 53), the platform compile
+    tests, `bench --check` and the bare app's `app-check` (51 of 51, its
+    device build for iOS and Android and its host build in Hermes).
   - Performance under `ir`: integer registers (the analysis's int
     locals and `for` counters, literals, the int32 operators, `Math.imul`'s
     integer form), reads of locals spelled in place rather than copied,

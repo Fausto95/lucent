@@ -742,10 +742,10 @@ printer or a C++ compiler decides.
   leaves see `this` as the `self` it captures (`LowerHost.nested`,
   `self`, `siteOf`).
 - Selection is internal: `LUCENT_LOWERING=legacy | ir | ir-strict` (or
-  an internal compile option). The default is the legacy emitter. With
-  `ir`, a function the IR lowerer does not support takes the legacy path;
-  with `ir-strict` (tests) it throws. There is never a runtime JavaScript
-  fallback.
+  an internal compile option). The default is `ir`: a function the IR
+  lowerer does not support takes the legacy path; with `ir-strict`
+  (tests) it throws; `legacy` compiles without the IR, for comparisons.
+  There is never a runtime JavaScript fallback.
 
 ### Data model
 

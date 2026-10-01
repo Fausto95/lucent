@@ -47,17 +47,18 @@ import {
 import { verify, type VerifyEnv } from "./verify.ts";
 
 /**
- * Which lowering compiles functions: the legacy emitter (the default), the
- * IR where it supports the function and the legacy emitter elsewhere
- * (`ir`), or the IR only, failing on anything it does not support
- * (`ir-strict`, for tests). Internal: set with LUCENT_LOWERING.
+ * Which lowering compiles functions: the IR (the default), falling back to
+ * the legacy emitter for what it does not support (`ir`); the IR only,
+ * failing on anything it does not support (`ir-strict`, for tests); or the
+ * legacy emitter alone (`legacy`, for comparisons). Internal: set with
+ * LUCENT_LOWERING.
  */
 export type Lowering = "legacy" | "ir" | "ir-strict";
 
 const LOWERINGS: readonly Lowering[] = ["legacy", "ir", "ir-strict"];
 
 export function loweringMode(value = process.env.LUCENT_LOWERING): Lowering {
-  if (!value) return "legacy";
+  if (!value) return "ir";
 
   if (!(LOWERINGS as readonly string[]).includes(value))
     throw new Error(`LUCENT_LOWERING must be one of ${LOWERINGS.join(", ")} (got "${value}")`);
