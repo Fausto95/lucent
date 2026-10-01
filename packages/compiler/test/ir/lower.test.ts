@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
@@ -11,47 +9,13 @@ import { type IrFunction, type RegionId, regionsOf } from "../../src/ir/ir.ts";
 import { IrUnsupported, lower, type LowerHost } from "../../src/ir/lower.ts";
 import { createLucentProgram } from "../../src/program.ts";
 import { type LType, TypeRegistry } from "../../src/types.ts";
+import { cppOf, module, withLowering } from "./compile.ts";
 
 const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
 
 const ORDER = path.join(CASES, "order.lucent.ts");
 
 const CONTROL = path.join(CASES, "control-flow.lucent.ts");
-
-function module(source: string): string {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-ir-"));
-  const file = path.join(dir, "sample.lucent.ts");
-
-  fs.writeFileSync(file, source);
-  return file;
-}
-
-/** Runs `f` with LUCENT_LOWERING set to `mode` (unset when undefined). */
-function withLowering<R>(mode: string | undefined, f: () => R): R {
-  const saved = process.env.LUCENT_LOWERING;
-
-  if (mode === undefined) delete process.env.LUCENT_LOWERING;
-  else process.env.LUCENT_LOWERING = mode;
-
-  try {
-    return f();
-  } finally {
-    if (saved === undefined) delete process.env.LUCENT_LOWERING;
-    else process.env.LUCENT_LOWERING = saved;
-  }
-}
-
-/** The generated C++ of a one-module program. */
-function cppOf(file: string, mode?: string): string {
-  const r = withLowering(mode, () => compile([file]));
-
-  expect(r.diagnostics).toEqual([]);
-
-  const [name, text] = [...r.files].find(([n]) => n.endsWith(".cpp") && n.startsWith("m_"))!;
-
-  expect(name).toMatch(/^m_/);
-  return text.replace(/^#line .*\n/gm, "");
-}
 
 /** Lowers function `name` of `file` with a host over the checker alone. */
 function lowered(file: string, name: string) {
