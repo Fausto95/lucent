@@ -301,8 +301,6 @@ class Lowerer {
 
     if (!ts.isArrowFunction(d) && d.asteriskToken) this.unsupported(d, "generators");
 
-    if (this.input.generic) this.unsupported(d, "generic functions");
-
     if (!d.body) this.unsupported(d, "functions without a body");
 
     const body = d.body;

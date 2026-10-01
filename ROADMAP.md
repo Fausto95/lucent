@@ -1024,6 +1024,9 @@ before output code generation.
     `using` with SuppressedError, Error subclasses thrown as themselves,
     `instanceof` narrowing: 477 of 606.
   - Optional chains, short-circuiting what follows a `?.`: 488 of 606.
+  - Generic functions, as C++ templates their callers instantiate (one
+    body per instantiation, as before; specializing hot ones is
+    [T54](#t54)'s): 507 of 606.
 
 <a id="t54"></a>
 

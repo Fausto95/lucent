@@ -161,7 +161,9 @@ Notable lowering choices:
   counter, a hash table's live slots, an iterator closed on early exit).
   `try` is one operation with its catch and finally regions; the C++
   sends a return, break or continue past a finally through it with a
-  completion code, and a `using` declaration is a finally that disposes. Platform tests
+  completion code, and a `using` declaration is a finally that disposes.
+  A generic function's IR keeps its type parameters, and its C++ is a
+  template. Platform tests
   keep only what the platform being built runs. `scripts/ir-coverage.ts`
   reports what the e2e corpus lowers and why the rest falls back. Conversions
   between optionals, unions and absent values are planned once, in

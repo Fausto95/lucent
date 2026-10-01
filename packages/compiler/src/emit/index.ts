@@ -638,6 +638,17 @@ function emitFunction(
   if (ir) {
     const name = cppIdent(s.name!.text);
 
+    // A generic function is a C++ template, which its callers instantiate.
+    if (g.generic) {
+      const template = s.typeParameters!.map((p) => cppIdent(p.name.text));
+
+      genericFns.push(
+        cpp.namespace(g.module.ns, [cpp.fn(name, ir.ret, ir.params, ir.body, { template })]),
+      );
+      decls.push(cpp.fn(name, ir.ret, ir.params, undefined, { template }));
+      return;
+    }
+
     decls.push(cpp.fn(name, ir.ret, ir.params));
     defs.push(cpp.fn(name, ir.ret, ir.params, ir.body, { scope: cpp.type(g.module.ns) }));
     return;
