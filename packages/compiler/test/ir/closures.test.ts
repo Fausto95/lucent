@@ -104,7 +104,7 @@ export function pick(ok: boolean): number {
     expect(seeded).toContain("lucent::Opt<double> p0_");
 
     expect(seeded).toMatch(
-      /if \(v\d+_\) \{\n {4}seed = 7\.0;\n {2}\} else \{\n {4}double v\d+_ = p0_\.value\(\);/,
+      /if \(v\d+_\) \{\n {4}seed = 7\.0;\n {2}\} else \{\n {4}seed = p0_\.value\(\);/,
     );
   });
 

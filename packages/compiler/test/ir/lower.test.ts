@@ -370,8 +370,7 @@ describe("the lowering selector", () => {
         "lucent::String m_order::pair() {",
         '  lucent::String v1_ = lucent_app::m_order::next(LUCENT_STR("l"));',
         '  lucent::String v3_ = lucent_app::m_order::next(LUCENT_STR("r"));',
-        "  lucent::String v4_ = lucent_app::m_order::combine(v1_, v3_);",
-        "  return v4_;",
+        "  return lucent_app::m_order::combine(v1_, v3_);",
         "}",
       ].join("\n"),
     );
@@ -446,11 +445,11 @@ describe("lowering bigints", () => {
 
     expect(out).toContain("lucent::BigInt::fromInt64(3)");
 
-    expect(out).toMatch(/lucent::BigInt v\d+_ = p0_ \* p1_;/);
+    expect(out).toContain("p0_ * p1_");
 
-    expect(out).toMatch(/bool v\d+_ = p0_ < p2_;/);
+    expect(out).toContain("p0_ < p2_");
 
-    expect(out).toMatch(/bool v\d+_ = p0_ == p1_;/);
+    expect(out).toContain("p0_ == p1_");
 
     expect(out).toMatch(/lucent::truthy\(p0_\)/);
 

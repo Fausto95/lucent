@@ -91,7 +91,7 @@ export function run(xs: number[], ps: P[]): number {
 
     expect(body(out, "run")).toContain(".get(1.0)");
 
-    expect(body(out, "norm")).toMatch(/double x = v\d+_;/);
+    expect(body(out, "norm")).toContain("double x = p0_->x;");
   });
 
   it("assigns to the targets of a destructuring assignment in order", () => {
@@ -101,7 +101,9 @@ export function run(xs: number[], ps: P[]): number {
 }
 `);
 
-    expect(body(cppOf(file, "ir-strict"), "swap")).toMatch(/a = v\d+_;\n.*\n.*b = v\d+_;/);
+    expect(body(cppOf(file, "ir-strict"), "swap")).toMatch(
+      /a = std::get<0>\((v\d+_)\);\n\s*b = std::get<1>\(\1\);/,
+    );
   });
 
   it("compiles the strings, numbers and kernels cases through the IR alone under ir-strict", () => {
