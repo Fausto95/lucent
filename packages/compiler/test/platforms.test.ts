@@ -550,6 +550,55 @@ export function maker(verbose: boolean): string {
 };
 
 /** Compiles the module for iOS, Android (NDK) and the host, and each target's C++ with its toolchain. */
+// An object type holding an SDK object, used only in one platform's code
+// (issue #11): the struct stays in that platform's output, and its JSON
+// writer compiles (an SDK object serializes as {}).
+const heldSdkObject = {
+  "held.lucent.ts": `import { PLATFORM } from "lucent:platform";
+import { CameraManager } from "lucent:android/android.hardware.camera2";
+import { appContext } from "lucent:android";
+
+function torch(): { manager: CameraManager; cameraId: string } | null {
+  const manager = appContext().getSystemService(CameraManager);
+  const cameraId = manager?.cameraIdList[0];
+  return manager && cameraId !== undefined ? { manager, cameraId } : null;
+}
+
+export function hasTorch(): boolean {
+  if (PLATFORM === "ios") {
+    return false;
+  } else {
+    const t = torch();
+    return t !== null;
+  }
+}
+`,
+};
+
+describe("an SDK object in an object type, used on one platform", () => {
+  it.skipIf(!ios || !android)("keeps the struct in that platform's output", () => {
+    const r = compile(project(heldSdkObject), { platforms: ["ios", "android", "host"] });
+    expect(r.diagnostics).toEqual([]);
+
+    const holding = (target: string) =>
+      [...r.files].filter(
+        ([name, text]) => name.startsWith(`${target}/`) && /NativeRef manager/.test(text),
+      );
+
+    expect(holding("android").length).toBeGreaterThan(0);
+    expect(holding("ios")).toEqual([]);
+    expect(holding("host")).toEqual([]);
+  });
+
+  it.skipIf(!ios || !android || process.platform !== "darwin")(
+    "generates code each target compiles",
+    () => {
+      compilesEverywhere(heldSdkObject, "held");
+    },
+    600_000,
+  );
+});
+
 function compilesEverywhere(sources: Record<string, string>, module: string): void {
   const r = compile(project(sources), { platforms: ["ios", "android", "host"] });
   expect(r.diagnostics).toEqual([]);
