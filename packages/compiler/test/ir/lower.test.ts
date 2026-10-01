@@ -387,22 +387,6 @@ describe("the lowering selector", () => {
     expect(cppOf(ORDER, "ir-strict")).not.toBe(legacy);
   });
 
-  it("uses the legacy emitter for what the IR does not support under ir, and fails under ir-strict", () => {
-    const file = module(
-      "export function add(a: number, b: number): number { return a + b; }\n" +
-        "export function first({ a }: { a: number } = { a: 1 }): number { return a; }\n",
-    );
-    const out = cppOf(file, "ir");
-
-    expect(out).toContain("double v2_ = p0_ + p1_;");
-
-    expect(out).toMatch(/m_sample::first\(lucent::Opt<.*> p0_arg\) \{/);
-
-    expect(() => withLowering("ir-strict", () => compile([file]))).toThrow(
-      /does not lower a destructured parameter with a default yet/,
-    );
-  });
-
   it("reports the legacy emitter's diagnostics for what the IR does not lower", () => {
     const file = module("export function f(): number { var x = 1; return x; }\n");
     const legacy = withLowering(undefined, () => compile([file])).diagnostics;

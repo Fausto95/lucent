@@ -79,6 +79,27 @@ describe("construction in the IR", () => {
     ).toBe(true);
   });
 
+  it("constructs an implicit constructor's base on its arguments, then its fields", () => {
+    const file = module(`class Base {
+  constructor(readonly id: number) {}
+}
+export class Leaf extends Base {
+  tags: string[] = [];
+}
+export function make(): number {
+  return new Leaf(3).tags.length;
+}
+`);
+    const before = coverage.lowered.length;
+    const leaf = definition(cppOf(file, "ir-strict"), "C_Leaf::construct");
+
+    expect(coverage.lowered.slice(before)).toContain("C_Leaf::construct");
+
+    expect(leaf).toMatch(/^C_Leaf::construct\(double p0_\) \{/);
+
+    expect(inOrder(leaf, "C_Base::construct(p0_);", "this->tags = v")).toBe(true);
+  });
+
   it("compiles the classes and inheritance cases, constructors and all, through the IR alone under ir-strict", () => {
     for (const name of ["classes", "inheritance"]) {
       const before = coverage.lowered.length;

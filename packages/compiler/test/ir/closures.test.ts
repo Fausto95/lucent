@@ -108,6 +108,18 @@ export function pick(ok: boolean): number {
     );
   });
 
+  it("gives a destructured parameter its default when the argument is undefined", () => {
+    const file = module(`export function first({ a }: { a: number } = { a: 1 }): number {
+  return a;
+}
+`);
+    const first = body(cppOf(file, "ir-strict"), "first");
+
+    expect(first).toMatch(/if \(v\d+_\) \{\n.*make_shared/);
+
+    expect(first).toContain("p0_.value()");
+  });
+
   it("compiles the closures case through the IR alone under ir-strict", () => {
     const file = path.join(CASES, "closures.lucent.ts");
     const r = withLowering("ir-strict", () => compile([file]));
