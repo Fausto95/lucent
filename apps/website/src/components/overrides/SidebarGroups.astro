@@ -20,9 +20,10 @@ const { sublist } = Astro.props;
         href={entry.href}
         aria-current={entry.isCurrent && "page"}
         class:list={["entry-link", entry.attrs.class]}
+        title={entry.label}
         {...entry.attrs}
       >
-        {entry.label}
+        <span class="entry-label">{entry.label}</span>
         {entry.badge && <span class="entry-badge">{entry.badge.text}</span>}
       </a>
     ) : (
@@ -54,6 +55,17 @@ const { sublist } = Astro.props;
 }
 
 <style>
+  /* A long page name stays on one line and ends in an ellipsis; the link's title shows all of it. */
+  .entry-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .entry-badge {
+    flex-shrink: 0;
+  }
   .container-sidebar-entry {
     display: flex;
     flex-direction: column;

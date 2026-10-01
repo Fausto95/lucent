@@ -6,7 +6,7 @@ import { defineConfig } from "astro/config";
 import { docsGroups } from "./src/docs/nav.ts";
 import { docsRedirects } from "./src/docs/redirects.ts";
 import { docsHref } from "./src/docs/types.ts";
-import { remarkInclude, remarkSeeCpp } from "./src/docs/remark.ts";
+import { remarkFormat, remarkInclude, remarkSeeCpp } from "./src/docs/remark.ts";
 import { pluginNoCopy } from "./src/docs/expressive-code.ts";
 import { SITE } from "./src/blog/meta.ts";
 
@@ -25,7 +25,10 @@ export default defineConfig({
   redirects,
   markdown: {
     // Pages say what they mean in straight quotes: they often quote code.
-    processor: unified({ remarkPlugins: [remarkInclude, remarkSeeCpp], smartypants: false }),
+    processor: unified({
+      remarkPlugins: [remarkInclude, remarkFormat, remarkSeeCpp],
+      smartypants: false,
+    }),
   },
   integrations: [
     starlight({
@@ -77,6 +80,7 @@ export default defineConfig({
       components: {
         Banner: "./src/components/overrides/Banner.astro",
         Head: "./src/components/overrides/Head.astro",
+        Hero: "./src/components/overrides/Hero.astro",
         PageTitle: "./src/components/overrides/PageTitle.astro",
         Sidebar: "./src/components/overrides/Sidebar.astro",
         LastUpdated: "./src/components/overrides/LastUpdated.astro",

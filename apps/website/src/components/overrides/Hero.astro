@@ -1,0 +1,264 @@
+---
+/**
+ * The homepage's hero, in place of Six's: the latest post, the title and
+ * tagline from the frontmatter, the actions, and the command that adds
+ * Lucent to an app, with a copy button. Behind it, the brand's lime glows
+ * through a dot grid.
+ */
+import { Icon } from "@astrojs/starlight/components";
+import { loadPosts } from "../../blog/load";
+
+const { data } = Astro.locals.starlightRoute.entry;
+const { title = data.title, tagline, actions = [] } = data.hero ?? {};
+const [latest] = await loadPosts();
+const install = "npx lucent init";
+---
+
+<section class="lucent-hero">
+  <div class="backdrop" aria-hidden="true"></div>
+  <div class="inner">
+    {
+      latest && (
+        <a class="badge" href={`/blog/${latest.slug}/`}>
+          <span class="badge-tag">New</span>
+          <span class="badge-text">{latest.title}</span>
+          <span aria-hidden="true">→</span>
+        </a>
+      )
+    }
+    <h1 id="_top" data-page-title set:html={title} />
+    {tagline && <p class="tagline" set:html={tagline} />}
+    <div class="actions">
+      {
+        actions.map(({ link, text, variant, icon }) => (
+          <a class:list={["action", variant === "minimal" ? "secondary" : "primary"]} href={link}>
+            {text}
+            {icon?.html && <Fragment set:html={icon.html} />}
+          </a>
+        ))
+      }
+    </div>
+    <div class="install">
+      <span class="prompt" aria-hidden="true">$</span>
+      <code>{install}</code>
+      <button type="button" class="copy" data-copy={install} aria-label="Copy the command">
+        <Icon name="document" size="1rem" class="when-idle" />
+        <Icon name="approve-check" size="1rem" class="when-copied" />
+      </button>
+    </div>
+  </div>
+</section>
+
+<script>
+  for (const button of document.querySelectorAll<HTMLButtonElement>(".lucent-hero .copy")) {
+    button.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(button.dataset.copy ?? "");
+      button.dataset.copied = "";
+      setTimeout(() => delete button.dataset.copied, 1500);
+    });
+  }
+</script>
+
+<style>
+  .lucent-hero {
+    position: relative;
+    isolation: isolate;
+    padding: 4.5rem 1rem 3.5rem;
+    text-align: center;
+  }
+  .backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .backdrop::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(var(--lucent-dot) 1px, transparent 1px);
+    background-size: 22px 22px;
+    mask-image: radial-gradient(ellipse 60% 70% at 50% 35%, black, transparent 75%);
+  }
+  .backdrop::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: -12rem;
+    width: min(56rem, 120vw);
+    aspect-ratio: 2;
+    translate: -50% 0;
+    background: radial-gradient(closest-side, var(--lucent-glow), transparent);
+    filter: blur(8px);
+  }
+  .inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    max-width: 52rem;
+    margin-inline: auto;
+  }
+
+  .badge {
+    display: inline-flex;
+    gap: 0.6rem;
+    align-items: center;
+    max-width: 100%;
+    padding: 0.25rem 0.75rem 0.25rem 0.25rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: color-mix(in oklab, var(--background) 80%, transparent);
+    backdrop-filter: blur(6px);
+    color: var(--foreground);
+    font-size: 0.8125rem;
+    text-decoration: none;
+    transition: border-color 0.15s;
+  }
+  .badge:hover {
+    border-color: var(--lucent-lime-ink);
+    color: var(--foreground-light);
+  }
+  .badge-tag {
+    flex: none;
+    padding: 0.125rem 0.5rem;
+    border-radius: 999px;
+    background: var(--lucent-lime);
+    color: #1a2e05;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+  .badge-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  h1 {
+    margin: 0;
+    color: var(--foreground-light);
+    font-family: var(--sl-font);
+    font-size: clamp(2rem, 7vw, 3.75rem);
+    font-weight: 600;
+    line-height: 1.04;
+    letter-spacing: -0.035em;
+    text-wrap: balance;
+  }
+  /* The one word in the pixel face, in the brand's lime. */
+  h1 :global(.ts) {
+    color: var(--lucent-lime-ink);
+    font-family: var(--lucent-font-display);
+    font-weight: 400;
+    letter-spacing: 0;
+  }
+  .tagline {
+    max-width: 40rem;
+    margin: 0;
+    color: var(--muted-foreground);
+    font-size: 1.125rem;
+    line-height: 1.6;
+    text-wrap: pretty;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-top: 0.5rem;
+  }
+  .action {
+    display: inline-flex;
+    gap: 0.5rem;
+    align-items: center;
+    height: 2.75rem;
+    padding-inline: 1.25rem;
+    border: 1px solid transparent;
+    border-radius: 0.625rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition:
+      background-color 0.15s,
+      border-color 0.15s,
+      translate 0.15s;
+  }
+  .action:hover {
+    translate: 0 -1px;
+  }
+  .primary {
+    border-color: color-mix(in oklab, var(--lucent-lime-ink) 35%, transparent);
+    background: var(--lucent-lime);
+    color: #1a2e05;
+    box-shadow: 0 8px 24px -10px var(--lucent-glow-strong);
+  }
+  .primary:hover {
+    background: #d4fb94;
+    color: #1a2e05;
+  }
+  .secondary {
+    border-color: var(--border);
+    background: color-mix(in oklab, var(--background) 70%, transparent);
+    color: var(--foreground-light);
+  }
+  .secondary:hover {
+    border-color: var(--muted-foreground);
+    color: var(--foreground-light);
+  }
+
+  .install {
+    display: inline-flex;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.375rem 0.375rem 0.375rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.625rem;
+    background: color-mix(in oklab, var(--code-background) 85%, transparent);
+    font-family: var(--sl-font-mono);
+    font-size: 0.875rem;
+  }
+  .install code {
+    padding: 0;
+    background: none;
+    color: var(--foreground-light);
+    font-size: inherit;
+  }
+  .prompt {
+    color: var(--lucent-lime-ink);
+    user-select: none;
+  }
+  .copy {
+    display: grid;
+    place-items: center;
+    width: 2rem;
+    height: 2rem;
+    border: 0;
+    border-radius: 0.4rem;
+    background: transparent;
+    color: var(--muted-foreground);
+    cursor: pointer;
+  }
+  .copy:hover {
+    background: var(--accent);
+    color: var(--foreground-light);
+  }
+  .copy :global(.when-copied),
+  .copy[data-copied] :global(.when-idle) {
+    display: none;
+  }
+  .copy[data-copied] :global(.when-copied) {
+    display: block;
+    color: var(--lucent-lime-ink);
+  }
+
+  @media (max-width: 50rem) {
+    .lucent-hero {
+      padding-top: 3rem;
+      padding-bottom: 2rem;
+    }
+    .tagline {
+      font-size: 1rem;
+    }
+  }
+</style>
