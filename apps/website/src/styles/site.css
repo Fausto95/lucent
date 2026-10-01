@@ -184,3 +184,34 @@ pre,
     --sl-text-h3: 1.0625rem;
   }
 }
+
+/* On a phone: slightly smaller text, less space between sections. */
+@media (max-width: 50rem) {
+  .sl-markdown-content {
+    font-size: 0.9375rem;
+  }
+  .sl-markdown-content p:not(:where(.not-content *)):not(li p) {
+    line-height: 1.65;
+  }
+  .sl-markdown-content hr {
+    margin-top: 2.5rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+  :root[data-has-hero] .container-section h2 {
+    margin-top: 2rem;
+  }
+  :root[data-has-hero] .hero .tagline {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+  /* A wide table scrolls inside its own box, not the page. */
+  .sl-markdown-content table:not(:where(.not-content *)) {
+    display: block;
+    overflow-x: auto;
+    font-size: var(--sl-text-sm);
+  }
+  .sl-markdown-content table:not(:where(.not-content *)) :is(th, td) {
+    padding: 0.4rem 0.6rem;
+    min-width: 7rem;
+  }
+}
