@@ -10,18 +10,21 @@ function setMeta(attribute: "name" | "property", key: string, value: string): vo
   element.setAttribute("content", value);
 }
 
-/** The single writer of <title>, description and the Open Graph mirrors, per page. */
-export function useDocumentMeta(title: string, description: string): void {
+/**
+ * The single writer of <title>, description and the Open Graph mirrors, per
+ * page; `image` is the page's preview under public/, else the site's.
+ */
+export function useDocumentMeta(title: string, description: string, image = "/og.png"): void {
   useEffect(() => {
     document.title = title;
-    const image = `${window.location.origin}/og.png`;
+    const url = `${window.location.origin}${image}`;
     setMeta("name", "description", description);
     setMeta("property", "og:title", title);
     setMeta("property", "og:description", description);
     setMeta("property", "og:url", window.location.href);
-    setMeta("property", "og:image", image);
+    setMeta("property", "og:image", url);
     setMeta("name", "twitter:title", title);
     setMeta("name", "twitter:description", description);
-    setMeta("name", "twitter:image", image);
-  }, [title, description]);
+    setMeta("name", "twitter:image", url);
+  }, [title, description, image]);
 }

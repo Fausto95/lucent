@@ -14,7 +14,7 @@ const route = getRouteApi("/blog/$slug");
 /** A post: its date and title, its blocks (the docs' blocks), then the way back to every post. */
 export function BlogArticle() {
   const { entry, blocks } = route.useLoaderData();
-  useDocumentMeta(`${entry.title} — Lucent blog`, entry.summary);
+  useDocumentMeta(`${entry.title} — Lucent blog`, entry.summary, entry.image);
   useScrollToHash(entry.slug);
   return (
     <div {...stylex.props(styles.post)}>

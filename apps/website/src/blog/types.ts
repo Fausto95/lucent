@@ -19,6 +19,10 @@ export interface PostEntry {
    * (`.lucent.tsx`): they compile with the components' views generated.
    */
   views?: true;
+  /** The post's link-preview image, 1200×630, under public/ (e.g. `/blog/<slug>/og.png`); else the site's. */
+  image?: string;
+  /** What the image shows, for readers who can't see it. */
+  imageAlt?: string;
 }
 
 /** What a post file exports. */
