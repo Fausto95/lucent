@@ -1,0 +1,142 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vite-plus/test";
+import { compile } from "../../src/index.ts";
+import { cppOf, module, withLowering } from "./compile.ts";
+
+const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
+
+/** The body of `fn` in `cpp`, from its signature to its closing brace. */
+function body(cpp: string, fn: string): string {
+  const start = cpp.search(new RegExp(`::${fn}\\(.*\\) \\{$`, "m"));
+
+  expect(start).toBeGreaterThanOrEqual(0);
+
+  return cpp.slice(start, cpp.indexOf("\n}\n", start) + 2);
+}
+
+/** Whether `parts` appear in `text` in this order. */
+function inOrder(text: string, ...parts: string[]): boolean {
+  let at = -1;
+
+  for (const p of parts) {
+    at = text.indexOf(p, at + 1);
+
+    if (at < 0) return false;
+  }
+  return true;
+}
+
+describe("leaves of the IR", () => {
+  it("computes a method call's operands first, in order, each in a statement of its own", () => {
+    const file = module(`const log: string[] = [];
+function note(s: string): string {
+  log.push(s);
+  return s;
+}
+export function run(xs: number[]): number {
+  xs.push(note("a").length, note("b").length);
+  return xs.length + log.length;
+}
+`);
+    const run = body(cppOf(file, "ir-strict"), "run");
+
+    expect(run).toMatch(
+      /^ {2}lucent::String v\d+_ = lucent_app::m_sample::note\(LUCENT_STR\("a"\)\);$/m,
+    );
+
+    expect(run).toMatch(
+      /^ {2}lucent::String v\d+_ = lucent_app::m_sample::note\(LUCENT_STR\("b"\)\);$/m,
+    );
+
+    expect(inOrder(run, 'note(LUCENT_STR("a"))', 'note(LUCENT_STR("b"))', ".push(")).toBe(true);
+  });
+
+  it("reads a field before the right side of a compound assignment runs", () => {
+    const file = module(`interface Box {
+  n: number;
+}
+function bump(b: Box): number {
+  b.n = 50;
+  return 1;
+}
+export function add(): number {
+  const b: Box = { n: 1 };
+  b.n += bump(b);
+  return b.n;
+}
+`);
+    const add = body(cppOf(file, "ir-strict"), "add");
+
+    expect(inOrder(add, "->n;", "m_sample::bump(", "->n = ")).toBe(true);
+  });
+
+  it("gives a conditional the type it becomes, each branch converted to it", () => {
+    const file = module(`class Shape {}
+class Circle extends Shape {}
+export function pick(round: boolean): number {
+  const s: Shape | string = round ? new Circle() : "none";
+  return typeof s === "string" ? 0 : 1;
+}
+`);
+    const pick = body(cppOf(file, "ir-strict"), "pick");
+
+    expect(pick).toContain("std::static_pointer_cast<lucent_app::C_Shape>");
+
+    expect(pick).not.toContain("lucent::convert<");
+  });
+
+  it("keeps platform code out of a build for neither platform", () => {
+    const file = module(`import { PLATFORM } from "lucent:platform";
+export function name(): string {
+  if (PLATFORM === "ios") {
+    return "iPhone";
+  }
+  return PLATFORM === "android" ? "Pixel" : "other";
+}
+export function model(): string {
+  return PLATFORM === "android" ? "Pixel" : "other";
+}
+`);
+    const name = body(cppOf(file, "ir-strict", "host"), "name");
+
+    expect(name).toContain("lucent::platformOnly<lucent::Error>(");
+
+    expect(name).not.toContain("iPhone");
+
+    expect(name).not.toContain("Pixel");
+
+    const model = body(cppOf(file, "ir-strict", "host"), "model");
+
+    expect(model).toContain("lucent::platformOnly<lucent::String>(");
+
+    expect(model).not.toContain("Pixel");
+  });
+
+  it("compiles only the branch, case and code after a guard clause the platform runs", () => {
+    const file = module(`import { PLATFORM } from "lucent:platform";
+export function name(): string {
+  if (PLATFORM === "ios") return "iPhone";
+  switch (PLATFORM) {
+    case "android":
+      return PLATFORM === "android" ? "Pixel" : "nothing";
+  }
+  return "elsewhere";
+}
+`);
+    const name = body(cppOf(file, "ir-strict", "android"), "name");
+
+    expect(name).toContain("Pixel");
+
+    expect(name).not.toContain("iPhone");
+
+    expect(name).not.toContain("nothing");
+  });
+
+  it("compiles the bigint arithmetic case through the IR alone under ir-strict", () => {
+    const file = path.join(CASES, "bigint-arith.lucent.ts");
+    const r = withLowering("ir-strict", () => compile([file]));
+
+    expect(r.diagnostics).toEqual([]);
+  });
+});
