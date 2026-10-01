@@ -319,8 +319,8 @@ describe("lowering control flow to the IR", () => {
       expect(switched?.block[0]).toContain("return");
     }
 
-    // TypeScript knows the cases cover the union; the IR does not.
-    expect(() => lowered(file, "weight")).toThrow(IrUnsupported);
+    // TypeScript knows the cases cover the union: the end of the body is unreachable.
+    expect(tree(lowered(file, "weight").fn).at(-1)).toBe("unreachable");
   });
 
   it("leaves statements after a return out", () => {

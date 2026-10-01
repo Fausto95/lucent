@@ -41,3 +41,24 @@ export function cppOf(file: string, mode?: string, platform?: "host" | "android"
 
   return text.replace(/^#line .*\n/gm, "");
 }
+
+/** The body of `fn` in `cpp`, from its signature to its closing brace. */
+export function body(cpp: string, fn: string): string {
+  const start = cpp.search(new RegExp(`::${fn}\\(.*\\) \\{$`, "m"));
+
+  expect(start).toBeGreaterThanOrEqual(0);
+
+  return cpp.slice(start, cpp.indexOf("\n}\n", start) + 2);
+}
+
+/** Whether `parts` appear in `text` in this order. */
+export function inOrder(text: string, ...parts: string[]): boolean {
+  let at = -1;
+
+  for (const p of parts) {
+    at = text.indexOf(p, at + 1);
+
+    if (at < 0) return false;
+  }
+  return true;
+}

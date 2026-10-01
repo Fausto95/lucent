@@ -2,30 +2,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../../src/index.ts";
-import { cppOf, module, withLowering } from "./compile.ts";
+import { body, cppOf, inOrder, module, withLowering } from "./compile.ts";
 
 const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
-
-/** The body of `fn` in `cpp`, from its signature to its closing brace. */
-function body(cpp: string, fn: string): string {
-  const start = cpp.search(new RegExp(`::${fn}\\(.*\\) \\{$`, "m"));
-
-  expect(start).toBeGreaterThanOrEqual(0);
-
-  return cpp.slice(start, cpp.indexOf("\n}\n", start) + 2);
-}
-
-/** Whether `parts` appear in `text` in this order. */
-function inOrder(text: string, ...parts: string[]): boolean {
-  let at = -1;
-
-  for (const p of parts) {
-    at = text.indexOf(p, at + 1);
-
-    if (at < 0) return false;
-  }
-  return true;
-}
 
 describe("leaves of the IR", () => {
   it("computes a method call's operands first, in order, each in a statement of its own", () => {
