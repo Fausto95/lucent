@@ -80,6 +80,7 @@ export default defineConfig({
       components: {
         Banner: "./src/components/overrides/Banner.astro",
         Head: "./src/components/overrides/Head.astro",
+        Hero: "./src/components/overrides/Hero.astro",
         PageTitle: "./src/components/overrides/PageTitle.astro",
         Sidebar: "./src/components/overrides/Sidebar.astro",
         LastUpdated: "./src/components/overrides/LastUpdated.astro",

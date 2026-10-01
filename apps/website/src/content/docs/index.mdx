@@ -25,23 +25,17 @@ import Feature from "~/components/Feature.astro";
 
 <ContainerSection>
 
-## One TypeScript module. Real C++.
+<div class="showcase">
+<div class="showcase-pane">
+<p class="showcase-label not-content"><span>1</span> You write TypeScript</p>
 
 ```ts title="geo.lucent.ts" include="home/geo.lucent.ts"
 
 ```
 
-<Tabs>
-<TabItem label="Generated C++">
-
-```cpp title="m_geo.cpp" include="home/m_geo.cpp"
-
-```
-
-Compiled by Xcode and Gradle. The C++ is the compiler's actual output, checked against the compiler in CI.
-
-</TabItem>
-<TabItem label="Your app">
+</div>
+<div class="showcase-pane">
+<p class="showcase-label not-content"><span>2</span> Your app calls it, synchronously</p>
 
 ```tsx title="App.tsx"
 import { squaredDistance } from "./src/geo.lucent";
@@ -50,14 +44,24 @@ import { squaredDistance } from "./src/geo.lucent";
 squaredDistance({ x: 0, y: 0 }, { x: 3, y: 4 }); // 25
 ```
 
-A synchronous call over JSI.
+</div>
+<div class="showcase-pane showcase-wide">
+<p class="showcase-label not-content"><span>3</span> Lucent writes the C++ that runs</p>
 
-</TabItem>
-</Tabs>
+```cpp title="m_geo.cpp" include="home/m_geo.cpp"
+
+```
+
+</div>
+</div>
+
+<p class="showcase-note">The compiler's actual output, checked in CI and compiled by Xcode and Gradle.</p>
 
 </ContainerSection>
 
 <ContainerSection>
+
+<p class="eyebrow not-content">Why Lucent</p>
 
 ## Your logic. Compiled, not interpreted.
 
@@ -79,12 +83,14 @@ Write it once in `*.lucent.ts`. The compiler handles the rest.
 
 <ContainerSection>
 
+<p class="eyebrow not-content">Platform SDKs</p>
+
 ## Import the SDK. Stay typed.
 
 iOS and Android APIs, typed from your Xcode and Android SDK. One module for both platforms.
 
 <Tabs>
-<TabItem label="module">
+<TabItem label="Module">
 
 ```ts title="clipboard.lucent.ts" include="home/clipboard.lucent.ts"
 
@@ -108,6 +114,8 @@ From the `expo-clipboard` port in the example apps. The whole port, and others w
 
 <ContainerSection>
 
+<p class="eyebrow not-content">Comparison</p>
+
 ## Same JSI call path. Different source.
 
 How Lucent relates to Expo Modules, Nitro and TurboModules. [Full comparison](/docs/comparison/)
@@ -117,6 +125,8 @@ How Lucent relates to Expo Modules, Nitro and TurboModules. [Full comparison](/d
 </ContainerSection>
 
 <ContainerSection>
+
+<div class="cta">
 
 ## Make your next function native.
 
@@ -128,5 +138,7 @@ npx lucent init
 ```
 
 Requires Node 22.12+ and a development build (not Expo Go). [Full setup](/docs/install/)
+
+</div>
 
 </ContainerSection>

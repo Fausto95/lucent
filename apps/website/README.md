@@ -49,8 +49,8 @@ website:build`, output `apps/website/dist`).
   "See the C++") for the build.
 - `src/components/`: `Diagram.astro` (the hand-laid SVG diagrams in
   `diagrams/`, rendered at build time), `Comparison.astro`, `Feature.astro`,
-  and `overrides/` of Starlight's components (the experimental banner, the
-  page title, "Verified with Lucent").
+  and `overrides/` of Starlight's components (the homepage's hero, the
+  experimental banner, the page title, "Verified with Lucent").
 - `src/styles/site.css`: the Geist fonts, and additions to the theme.
 - `src/generated/`: written by `scripts/website.ts`, never by hand: the
   reference pages' data, the C++ "See the C++" shows (`cpp/`), and the

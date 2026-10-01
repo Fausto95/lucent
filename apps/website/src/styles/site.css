@@ -14,8 +14,7 @@
   --ec-uiFontFml: var(--sl-font);
 }
 h1,
-.sl-markdown-content :is(h2, h3),
-.hero h1 {
+.sl-markdown-content :is(h2, h3) {
   font-family: var(--lucent-font-display);
   font-weight: 400;
   letter-spacing: 0;
@@ -68,25 +67,152 @@ pre,
   font-variant-ligatures: none;
 }
 
+/* The brand's lime (public/brand/lucent-mark.svg), and a darker one for text on a light page. */
+:root {
+  --lucent-lime: #c4f778;
+  --lucent-lime-ink: #4d7c0f;
+  --lucent-glow: rgb(196 247 120 / 0.55);
+  --lucent-glow-strong: rgb(132 204 22 / 0.6);
+  --lucent-dot: rgb(0 0 0 / 0.09);
+}
+:root[data-theme="dark"] {
+  --lucent-lime-ink: #c4f778;
+  --lucent-glow: rgb(196 247 120 / 0.16);
+  --lucent-glow-strong: rgb(196 247 120 / 0.35);
+  --lucent-dot: rgb(255 255 255 / 0.08);
+}
+
 /*
  * The homepage reads as one centred column: wide enough for a line of the
  * generated C++, narrow enough to read down.
  */
 :root[data-has-hero] .container-section .container {
-  max-width: calc(60rem + 3rem);
+  max-width: calc(64rem + 3rem);
 }
-:root[data-has-hero] .hero h1 {
-  font-size: clamp(1.625rem, 6vw, 2.25rem);
-  line-height: 1.1;
+:root[data-has-hero] .container-section h2 {
+  margin-top: 0.25rem;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  line-height: 1.15;
+}
+:root[data-has-hero] .container-section + .container-section {
+  margin-top: 2rem;
+}
+.eyebrow {
+  margin: 0;
+  color: var(--lucent-lime-ink);
+  font-family: var(--sl-font-mono);
+  font-size: var(--sl-text-xs);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 .features {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
-  margin-top: 1.5rem;
+  margin-top: 1.75rem;
 }
-:root[data-has-hero] .container-section h2 {
-  margin-top: 2.5rem;
+@media (max-width: 50rem) {
+  .features {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Source, call and generated C++: two panes side by side over one full-width pane. */
+.showcase {
+  display: grid;
+  grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+  gap: 1.25rem 1rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background:
+    linear-gradient(
+      to bottom,
+      color-mix(in oklab, var(--lucent-glow) 35%, transparent),
+      transparent 40%
+    ),
+    var(--card);
+  box-shadow: 0 24px 60px -32px rgb(0 0 0 / 0.35);
+}
+.showcase > .showcase-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  margin: 0;
+}
+.showcase-pane .expressive-code {
+  --ec-codeFontSize: 0.8125rem;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  margin-top: 0.6rem !important;
+}
+.showcase-pane .expressive-code .frame {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+.showcase-pane .expressive-code pre {
+  flex: 1;
+}
+.showcase-wide {
+  grid-column: 1 / -1;
+}
+.showcase-label {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0;
+  color: var(--foreground-light);
+  font-size: var(--sl-text-sm);
+  font-weight: 500;
+}
+.showcase-label span {
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: var(--lucent-lime);
+  color: #1a2e05;
+  font-family: var(--sl-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1;
+}
+.sl-markdown-content .showcase-note {
+  margin-top: 0.875rem;
+  color: var(--muted-foreground);
+  font-size: var(--sl-text-sm);
+  text-align: center;
+}
+@media (max-width: 50rem) {
+  .showcase {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0.75rem;
+  }
+}
+
+/* The closing call to action: a panel lit from above. */
+.cta {
+  position: relative;
+  overflow: hidden;
+  padding: 3rem clamp(1rem, 5vw, 4rem);
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(ellipse 70% 90% at 50% 0%, var(--lucent-glow), transparent 70%), var(--card);
+  text-align: center;
+}
+.cta > .expressive-code {
+  max-width: 28rem;
+  margin-inline: auto !important;
+  text-align: start;
+}
+:root[data-has-hero] .cta h2 {
+  margin-top: 0;
 }
 
 /* "See the C++" under a sample (src/docs/remark.ts). */
@@ -197,12 +323,8 @@ pre,
     margin-top: 2.5rem !important;
     margin-bottom: 1.5rem !important;
   }
-  :root[data-has-hero] .container-section h2 {
-    margin-top: 2rem;
-  }
-  :root[data-has-hero] .hero .tagline {
-    font-size: 1rem;
-    line-height: 1.6;
+  :root[data-has-hero] .container-section + .container-section {
+    margin-top: 0.5rem;
   }
   /* A wide table scrolls inside its own box, not the page. */
   .sl-markdown-content table:not(:where(.not-content *)) {
