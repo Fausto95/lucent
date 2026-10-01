@@ -390,16 +390,16 @@ describe("the lowering selector", () => {
   it("uses the legacy emitter for what the IR does not support under ir, and fails under ir-strict", () => {
     const file = module(
       "export function add(a: number, b: number): number { return a + b; }\n" +
-        "export async function first(x: number): Promise<number> { return x; }\n",
+        "export function step(x: number | bigint): number | bigint { x++; return x; }\n",
     );
     const out = cppOf(file, "ir");
 
     expect(out).toContain("double v2_ = p0_ + p1_;");
 
-    expect(out).toMatch(/m_sample::first\(double p0_x\) \{/);
+    expect(out).toMatch(/m_sample::step\(std::variant<.*> p0_x\) \{/);
 
     expect(() => withLowering("ir-strict", () => compile([file]))).toThrow(
-      /does not lower async functions yet/,
+      /does not lower \+\+ on a \(bigint\|number\) yet/,
     );
   });
 
