@@ -18,6 +18,12 @@ import { type FnOptions, FnEmitter, usesThisIn } from "./function.ts";
 import { functionName } from "./builtins.ts";
 import { leafHost } from "./leaf.ts";
 
+/** The IR's lowering, when one is selected, and the program facts its records come from. */
+export interface IrMode {
+  lowering: Exclude<Lowering, "legacy">;
+  facts: ProgramFacts;
+}
+
 /** A body to lower: a function's, a method's or an accessor's. */
 export interface IrUnit {
   decl: FunctionLike;
@@ -40,6 +46,8 @@ export interface IrUnit {
   construct?: { initializers: Initializer[]; base: boolean };
   /** What its code spans, when more than its declaration (a class's field initializers). */
   span?: ts.Node;
+  /** A compute task's variant: its loops check for cancellation, its calls call variants. */
+  task?: boolean;
 }
 
 /** `unit` lowered through the IR, or undefined when it falls back to the legacy emitter (`ir`). */
@@ -64,6 +72,7 @@ export function throughIr(
     ...(known ? { effects: facts.effects(known) } : {}),
     ...(unit.construct ? { construct: unit.construct } : {}),
     ...(unit.span ? { span: unit.span } : {}),
+    ...(unit.task ? { task: true } : {}),
   };
   const backend = {
     cppType: (t: LType) => ctx.reg.cppType(t),

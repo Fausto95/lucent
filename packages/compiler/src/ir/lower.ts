@@ -193,6 +193,8 @@ export interface LeafHost {
     kind: "member" | "method" | "call",
     operands: LeafOperands,
   ): Leaf;
+  /** A compute task's check for cancellation. */
+  safepoint(): Leaf;
   /** `value`, a `bigint | number`, one up (`+`) or down: the kind it holds, stepped. */
   step(value: ValueId, from: LType, sign: "+" | "-", node: ts.Node): Leaf;
   /** `left === right` for operands the IR's operators do not compare (generics, objects). */
@@ -270,6 +272,8 @@ export interface LowerInput {
   /** Of a generator, what it gives its caller each time. */
   generator?: LType;
   generic: boolean;
+  /** A compute task's variant: each loop iteration checks for cancellation. */
+  task?: boolean;
   /** Its effects, when the program's analysis knows them. */
   effects?: EffectSummary;
 }
@@ -878,6 +882,8 @@ class Lowerer {
       this.within({ target: loop, kind: "loop", labels }, () => {
         if (condition && testFirst) this.exitUnless(condition, loop);
 
+        this.safepoint(node);
+
         const restore = perIteration.map((sym) => this.iterationCopy(sym, node));
 
         this.nested(node.statement);
@@ -920,6 +926,17 @@ class Lowerer {
     this.localTypes.set(copy, type);
 
     return () => this.locals.set(sym, place);
+  }
+
+  /** In a compute task's variant, where each loop iteration starts: a check for cancellation. */
+  safepoint(node: ts.Node): void {
+    const host = this.host.leaves;
+
+    if (!this.input.task) return;
+
+    if (!host) this.unsupported(node, "a compute task's loops");
+
+    this.planOf(host.safepoint(), [], spanOf(node));
   }
 
   /** `if (!condition) break loop;` (nothing for a literal `true`). */
@@ -1131,6 +1148,8 @@ class Lowerer {
     this.b.iterate(spanOf(s), iterable, element, (target, value) =>
       this.within({ target, kind: "loop", labels }, () => {
         const init = s.initializer;
+
+        this.safepoint(s);
 
         if (ts.isVariableDeclarationList(init)) {
           const scoped = init.flags & ts.NodeFlags.BlockScoped;
@@ -1735,7 +1754,8 @@ class Lowerer {
       g.callable &&
       node.arguments.length === g.params.length;
 
-    if (!direct) return this.leaf(node, hint);
+    // A compute task's code calls the module's functions' task variants, which the backend names.
+    if (!direct || this.input.task) return this.leaf(node, hint);
 
     const args = node.arguments.map((a, i) =>
       this.coerce(this.expr(a, g.params[i]), g.params[i]!, a),

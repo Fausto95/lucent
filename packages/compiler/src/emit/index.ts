@@ -317,7 +317,7 @@ export function emitProgram(
   }
 
   // What compute tasks run, with their safepoints (after all code that may compute).
-  emitTaskVariants(ctx, moduleDecls, moduleDefs);
+  emitTaskVariants(ctx, moduleDecls, moduleDefs, ir);
 
   // Structs (after everything has been lowered, so the registry is complete).
   const bindings = new BindingsEmitter(ctx);

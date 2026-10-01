@@ -5,13 +5,12 @@ import type { LucentModule } from "../program.ts";
 import { type ClassChain, type ClassInfo, cppIdent, type LType, substitute, T } from "../types.ts";
 import { parameterSymbol } from "../analysis/scopes.ts";
 import type { Ctx } from "./context.ts";
-import type { ProgramFacts } from "../analysis/index.ts";
-import { type Lowering, operand } from "../ir/cpp.ts";
+import { operand } from "../ir/cpp.ts";
 import type { ValueId } from "../ir/ir.ts";
 import type { Initializer, Leaf } from "../ir/lower.ts";
 import { functionName } from "./builtins.ts";
 import { type FnOptions, FnEmitter } from "./function.ts";
-import { throughIr } from "./through-ir.ts";
+import { type IrMode, throughIr } from "./through-ir.ts";
 import { ifaceOverrides, ifacesOf, virtualMembers } from "./interfaces.ts";
 import { subclassImplicitSuper } from "./objc-subclass.ts";
 
@@ -119,7 +118,7 @@ export function emitClass(
   ctx: Ctx,
   module: LucentModule,
   info: ClassInfo,
-  ir?: { lowering: Exclude<Lowering, "legacy">; facts: ProgramFacts },
+  ir?: IrMode,
 ): ClassOutput {
   const decl = info.decl;
   const reg = ctx.reg;

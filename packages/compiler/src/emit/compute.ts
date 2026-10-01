@@ -27,6 +27,7 @@ import type { Ctx, E, Global } from "./context.ts";
 import { movedByInput, refuseLaterUse } from "./buffers.ts";
 import { isCoreSymbol } from "./core.ts";
 import { FnEmitter } from "./function.ts";
+import { type IrMode, throughIr } from "./through-ir.ts";
 
 type FunctionGlobal = Extract<Global, { kind: "function" }>;
 
@@ -97,26 +98,59 @@ export function emitTaskVariants(
   ctx: Ctx,
   decls: Map<LucentModule, cpp.Decl[]>,
   defs: Map<LucentModule, cpp.Decl[]>,
+  ir?: IrMode,
 ): void {
   const variants = stateOf(ctx).variants;
 
   for (let pending = [...variants.values()].filter((v) => !v.emitted); pending.length;) {
     for (const v of pending) {
       v.emitted = true;
-      emitVariant(ctx, v.g, decls.get(v.g.module)!, defs.get(v.g.module)!);
+      emitVariant(ctx, v.g, decls.get(v.g.module)!, defs.get(v.g.module)!, ir);
     }
 
     pending = [...variants.values()].filter((v) => !v.emitted);
   }
 }
 
-function emitVariant(ctx: Ctx, g: FunctionGlobal, decls: cpp.Decl[], defs: cpp.Decl[]): void {
-  const em = new FnEmitter(ctx, {
-    module: g.module,
-    async: false,
-    returnType: g.type.ret,
-    task: true,
-  });
+function emitVariant(
+  ctx: Ctx,
+  g: FunctionGlobal,
+  decls: cpp.Decl[],
+  defs: cpp.Decl[],
+  ir: IrMode | undefined,
+): void {
+  const name = `${cppIdent(g.decl.name!.text)}${VARIANT}`;
+  const ret = ctx.reg.cppRetType(g.type.ret);
+  const opts = { module: g.module, async: false, returnType: g.type.ret, task: true };
+  const lowered =
+    ir &&
+    throughIr(
+      ctx,
+      {
+        decl: g.decl,
+        id: `${g.cpp}${VARIANT}`,
+        params: g.params,
+        result: g.type.ret,
+        async: false,
+        generic: false,
+        opts,
+        site: g.decl.name!.text,
+        task: true,
+      },
+      ir.lowering,
+      ir.facts,
+    );
+
+  if (lowered) {
+    const all = [...lowered.params, cpp.param(TASK_CONTEXT, TASK)];
+
+    ctx.nativeUnit(g.module).include("lucent/compute.h");
+    decls.push(cpp.fn(name, ret, all));
+    defs.push(cpp.fn(name, ret, all, lowered.body, { scope: cpp.type(g.module.ns) }));
+    return;
+  }
+
+  const em = new FnEmitter(ctx, opts);
   const before = ctx.diagnostics.length;
   const warned = ctx.warnings.length;
   let params: cpp.Param[] = [];
@@ -133,9 +167,7 @@ function emitVariant(ctx: Ctx, g: FunctionGlobal, decls: cpp.Decl[], defs: cpp.D
   ctx.diagnostics.push(...fresh);
   ctx.warnings.push(...freshWarnings);
 
-  const name = `${cppIdent(g.decl.name!.text)}${VARIANT}`;
   const all = [...params, cpp.param(TASK_CONTEXT, TASK)];
-  const ret = ctx.reg.cppRetType(g.type.ret);
 
   ctx.nativeUnit(g.module).include("lucent/compute.h");
   decls.push(cpp.fn(name, ret, all));

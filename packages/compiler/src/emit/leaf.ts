@@ -21,6 +21,7 @@ import {
 import { numberExpr, stringExpr } from "../lowering/literals.ts";
 import { type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
 import { disposeCall, methodCall } from "./builtins.ts";
+import { TASK } from "./compute.ts";
 import { AlreadyReported, type Ctx, type E } from "./context.ts";
 import { type FnOptions, FnEmitter, type Local } from "./function.ts";
 
@@ -230,6 +231,12 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
 
         return em.elementOf(v, (node as ts.ElementAccessExpression).argumentExpression, node);
       }),
+
+    safepoint: () => ({
+      name: "safepoint",
+      code: cpp.call(cpp.dot(cpp.id(TASK), "checkCancelled")),
+      type: T.void,
+    }),
 
     step: (value, from, sign, node) =>
       planned(node, () => ({

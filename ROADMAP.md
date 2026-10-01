@@ -994,8 +994,11 @@ before code generation.
 - [ ] Run the full differential corpus, old/new comparison during migration,
       platform glue tests and the current performance budgets before
       retiring the old emitter.
-- [ ] Carried over from T30: compute task variants still go through the
+- [x] Carried over from T30: compute task variants still go through the
       legacy emitter under `LUCENT_LOWERING=ir`; move them onto the IR.
+      Done: a variant is the function lowered with `task`, each loop
+      iteration starting with a safepoint and its calls calling
+      variants; the compute case passes under `ir` and `SANITIZE=1`.
 
 **Done when:** the supported language has one verified semantic pipeline
 before output code generation.
@@ -1045,6 +1048,7 @@ before output code generation.
     host, lower every unit through the IR too (911, 912 and 879 for
     the bare app), the `lucent-orbit` package left out until its
     Android dependencies resolve on this machine.
+  - Compute task variants: 774 of 774.
 
 <a id="t54"></a>
 

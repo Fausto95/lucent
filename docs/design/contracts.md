@@ -966,6 +966,10 @@ export interface EffectRef {
   (`LeafHost.superCall`); its span is its class's. A module's `init()`
   (`lowerInit`) stores its classes' static fields, then its variables, a
   variable without a value getting its type's default.
+- A compute task's variant (`LowerInput.task`) is its function lowered
+  again: each loop iteration starts with a safepoint
+  (`LeafHost.safepoint`), and its calls of module functions call their
+  variants, which the backend names.
 - A platform test (`PLATFORM === "ios" && …`, `switch (PLATFORM)`, a
   guard clause) is decided by the host (`platformGuard`,
   `platformClauses`, `runsHere`): only what the platform being built runs
