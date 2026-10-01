@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../../src/index.ts";
-import { body, cppOf, inOrder, module, withLowering } from "./compile.ts";
+import { body, cppOf, inOrder, module } from "./compile.ts";
 
 const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
 
@@ -18,7 +18,7 @@ export function run(xs: number[]): number {
   return xs.length + log.length;
 }
 `);
-    const run = body(cppOf(file, "ir-strict"), "run");
+    const run = body(cppOf(file), "run");
 
     expect(run).toMatch(
       /^ {2}lucent::String v\d+_ = lucent_app::m_sample::note\(LUCENT_STR\("a"\)\);$/m,
@@ -45,7 +45,7 @@ export function add(): number {
   return b.n;
 }
 `);
-    const add = body(cppOf(file, "ir-strict"), "add");
+    const add = body(cppOf(file), "add");
 
     expect(inOrder(add, "->n;", "m_sample::bump(", "->n = ")).toBe(true);
   });
@@ -58,7 +58,7 @@ export function pick(round: boolean): number {
   return typeof s === "string" ? 0 : 1;
 }
 `);
-    const pick = body(cppOf(file, "ir-strict"), "pick");
+    const pick = body(cppOf(file), "pick");
 
     expect(pick).toContain("std::static_pointer_cast<lucent_app::C_Shape>");
 
@@ -77,7 +77,7 @@ export function model(): string {
   return PLATFORM === "android" ? "Pixel" : "other";
 }
 `);
-    const name = body(cppOf(file, "ir-strict", "host"), "name");
+    const name = body(cppOf(file, "host"), "name");
 
     expect(name).toContain("lucent::platformOnly<void>(");
 
@@ -85,7 +85,7 @@ export function model(): string {
 
     expect(name).not.toContain("Pixel");
 
-    const model = body(cppOf(file, "ir-strict", "host"), "model");
+    const model = body(cppOf(file, "host"), "model");
 
     expect(model).toContain("lucent::platformOnly<lucent::String>(");
 
@@ -103,7 +103,7 @@ export function name(): string {
   return "elsewhere";
 }
 `);
-    const name = body(cppOf(file, "ir-strict", "android"), "name");
+    const name = body(cppOf(file, "android"), "name");
 
     expect(name).toContain("Pixel");
 
@@ -112,9 +112,9 @@ export function name(): string {
     expect(name).not.toContain("nothing");
   });
 
-  it("compiles the bigint arithmetic case through the IR alone under ir-strict", () => {
+  it("compiles the bigint arithmetic case without a diagnostic", () => {
     const file = path.join(CASES, "bigint-arith.lucent.ts");
-    const r = withLowering("ir-strict", () => compile([file]));
+    const r = compile([file]);
 
     expect(r.diagnostics).toEqual([]);
   });

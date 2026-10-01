@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vite-plus/test";
-import { coverage } from "../../src/ir/cpp.ts";
 import { body, cppOf, inOrder, module } from "./compile.ts";
 
 const SAMPLE = `import { compute } from "lucent:core";
@@ -19,10 +18,7 @@ export async function run(n: number): Promise<number> {
 
 describe("compute task variants in the IR", () => {
   it("lowers a task's variant, each loop iteration checking for cancellation first", () => {
-    const before = coverage.lowered.length;
-    const spin = body(cppOf(module(SAMPLE), "ir-strict"), "spin_task_");
-
-    expect(coverage.lowered.slice(before)).toContain("lucent_app::m_sample::spin_task_");
+    const spin = body(cppOf(module(SAMPLE)), "spin_task_");
 
     expect(spin).toMatch(/^::spin_task_\(double p0_, lucent::TaskContext& task_\) \{/);
 
@@ -32,7 +28,7 @@ describe("compute task variants in the IR", () => {
   });
 
   it("calls the variants of the functions a task calls", () => {
-    const out = cppOf(module(SAMPLE), "ir-strict");
+    const out = cppOf(module(SAMPLE));
 
     expect(body(out, "spin_task_")).toMatch(/m_sample::step_task_\(v\d+_, task_\)/);
 

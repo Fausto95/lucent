@@ -2,8 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../../src/index.ts";
-import { coverage } from "../../src/ir/cpp.ts";
-import { cppOf, module, withLowering } from "./compile.ts";
+import { cppOf, module } from "./compile.ts";
 
 const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
 
@@ -44,18 +43,15 @@ function member(cpp: string, name: string): string {
 
 describe("methods in the IR", () => {
   it("lowers methods, accessors and static methods through the IR", () => {
-    const before = coverage.lowered.length;
-    const out = cppOf(module(SAMPLE), "ir-strict");
-    const lowered = coverage.lowered.slice(before);
+    const out = cppOf(module(SAMPLE));
 
-    for (const name of ["bump", "get_doubled", "scaled", "slow", "zero"])
-      expect(lowered).toContain(`C_Counter::${name}`);
+    for (const name of ["bump", "get_doubled", "scaled", "slow", "zero"]) member(out, name);
 
     expect(member(out, "bump")).toMatch(/double v\d+_ = this->count;/);
   });
 
   it("captures this as self in a closure of a method", () => {
-    const scaled = member(cppOf(module(SAMPLE), "ir-strict"), "scaled");
+    const scaled = member(cppOf(module(SAMPLE)), "scaled");
 
     expect(scaled).toMatch(/\[self = v\d+_\]/);
 
@@ -63,16 +59,16 @@ describe("methods in the IR", () => {
   });
 
   it("keeps an async method's object alive in its coroutine frame", () => {
-    const slow = member(cppOf(module(SAMPLE), "ir-strict"), "slow");
+    const slow = member(cppOf(module(SAMPLE)), "slow");
 
     expect(slow).toMatch(/^C_Counter::slow\(\) \{\n {2}auto self = lucent::selfRef\(this\);/);
 
     expect(slow).toMatch(/double v\d+_ = co_await v\d+_;/);
   });
 
-  it("compiles the classes, inheritance and interfaces cases through the IR alone under ir-strict", () => {
+  it("compiles the classes, inheritance and interfaces cases without a diagnostic", () => {
     for (const name of ["classes", "inheritance", "interfaces"]) {
-      const r = withLowering("ir-strict", () => compile([path.join(CASES, `${name}.lucent.ts`)]));
+      const r = compile([path.join(CASES, `${name}.lucent.ts`)]);
 
       expect(r.diagnostics).toEqual([]);
     }

@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../../src/index.ts";
-import { body, cppOf, inOrder, module, withLowering } from "./compile.ts";
+import { body, cppOf, inOrder, module } from "./compile.ts";
 
 const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
 
@@ -34,21 +34,21 @@ export function called(f?: (n: number) => number): number | undefined {
 
 describe("optional chains in the IR", () => {
   it("runs the rest of a chain, its arguments included, only when the value is present", () => {
-    const out = cppOf(module(SAMPLE), "ir-strict");
+    const out = cppOf(module(SAMPLE));
 
     for (const fn of ["scaled", "element", "called"])
       expect(inOrder(body(out, fn), "if (", "} else {", "m_sample::next(")).toBe(true);
   });
 
   it("reads past a ?. as on a present value", () => {
-    const deep = body(cppOf(module(SAMPLE), "ir-strict"), "deep");
+    const deep = body(cppOf(module(SAMPLE)), "deep");
 
     expect(deep).toMatch(/->get_b\(\);\n.*->c;/);
   });
 
-  it("compiles the optional-calls, objects and misc cases through the IR alone under ir-strict", () => {
+  it("compiles the optional-calls, objects and misc cases without a diagnostic", () => {
     for (const name of ["optional-calls", "objects", "misc"]) {
-      const r = withLowering("ir-strict", () => compile([path.join(CASES, `${name}.lucent.ts`)]));
+      const r = compile([path.join(CASES, `${name}.lucent.ts`)]);
 
       expect(r.diagnostics).toEqual([]);
     }

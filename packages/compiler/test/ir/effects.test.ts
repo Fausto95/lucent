@@ -146,15 +146,6 @@ describe("IR effect records from the analysis", () => {
   });
 
   it("compiles through the IR with the analysis's claims", () => {
-    const saved = process.env.LUCENT_LOWERING;
-
-    process.env.LUCENT_LOWERING = "ir-strict";
-
-    try {
-      expect(compile([file()]).diagnostics).toEqual([]);
-    } finally {
-      if (saved === undefined) delete process.env.LUCENT_LOWERING;
-      else process.env.LUCENT_LOWERING = saved;
-    }
+    expect(compile([file()]).diagnostics).toEqual([]);
   });
 });

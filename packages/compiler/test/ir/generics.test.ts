@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../../src/index.ts";
-import { module, withLowering } from "./compile.ts";
+import { module } from "./compile.ts";
 
 const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
 
@@ -17,7 +17,7 @@ export function last(xs: number[]): number {
   return pick(xs, -1);
 }
 `);
-    const r = withLowering("ir-strict", () => compile([file]));
+    const r = compile([file]);
 
     expect(r.diagnostics).toEqual([]);
 
@@ -30,9 +30,9 @@ export function last(xs: number[]): number {
     expect(r.files.get("m_sample.cpp")).toContain("lucent_app::m_sample::pick<double>(p0_, ");
   });
 
-  it("compiles the generics, union-generics and function-values cases through the IR alone under ir-strict", () => {
+  it("compiles the generics, union-generics and function-values cases without a diagnostic", () => {
     for (const name of ["generics", "union-generics", "function-values"]) {
-      const r = withLowering("ir-strict", () => compile([path.join(CASES, `${name}.lucent.ts`)]));
+      const r = compile([path.join(CASES, `${name}.lucent.ts`)]);
 
       expect(r.diagnostics).toEqual([]);
     }

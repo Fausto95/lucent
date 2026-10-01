@@ -3,13 +3,12 @@ import { fileURLToPath } from "node:url";
 import ts from "typescript";
 import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../../src/index.ts";
-import { loweringMode } from "../../src/ir/cpp.ts";
 import { dump } from "../../src/ir/dump.ts";
 import { type IrFunction, type RegionId, regionsOf } from "../../src/ir/ir.ts";
 import { IrUnsupported, lower, type LowerHost } from "../../src/ir/lower.ts";
 import { createLucentProgram } from "../../src/program.ts";
 import { type LType, TypeRegistry } from "../../src/types.ts";
-import { cppOf, module, withLowering } from "./compile.ts";
+import { cppOf, module } from "./compile.ts";
 
 const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
 
@@ -338,8 +337,8 @@ describe("lowering control flow to the IR", () => {
     ]);
   });
 
-  it("compiles the control-flow case through the IR alone under ir-strict", () => {
-    const out = cppOf(CONTROL, "ir-strict");
+  it("compiles the control-flow case without a diagnostic", () => {
+    const out = cppOf(CONTROL);
 
     expect(out).toContain("while (true) {");
 
@@ -347,25 +346,9 @@ describe("lowering control flow to the IR", () => {
   });
 });
 
-describe("the lowering selector", () => {
-  it("defaults to the IR and rejects unknown modes", () => {
-    expect(loweringMode(undefined)).toBe("ir");
-
-    expect(loweringMode("")).toBe("ir");
-
-    expect(loweringMode("legacy")).toBe("legacy");
-
-    expect(loweringMode("ir")).toBe("ir");
-
-    expect(loweringMode("ir-strict")).toBe("ir-strict");
-
-    expect(() => loweringMode("fast")).toThrow(
-      /LUCENT_LOWERING must be one of legacy, ir, ir-strict/,
-    );
-  });
-
-  it("compiles the ordering case through the IR alone under ir-strict", () => {
-    const out = cppOf(ORDER, "ir-strict");
+describe("compiling through the IR", () => {
+  it("compiles the ordering case, each call a statement of its own", () => {
+    const out = cppOf(ORDER);
 
     expect(out).toContain(
       [
@@ -380,15 +363,7 @@ describe("the lowering selector", () => {
     expect(out).not.toMatch(/\(\{/);
   });
 
-  it("compiles through the IR by default, the legacy emitter only when selected", () => {
-    const legacy = cppOf(ORDER, "legacy");
-
-    expect(cppOf(ORDER)).toBe(cppOf(ORDER, "ir-strict"));
-
-    expect(cppOf(ORDER)).not.toBe(legacy);
-  });
-
-  it("reports itself, under ir-strict, what the legacy emitter rejects", () => {
+  it("reports what Lucent rejects with its diagnostics", () => {
     const file = module(
       [
         "class R { [Symbol.dispose](): void {} }",
@@ -405,23 +380,18 @@ describe("the lowering selector", () => {
         "  for await (const x of xs) return x;",
         "  return 0;",
         "}",
+        "export function k(): number { var x = 1; return x; }",
         "",
       ].join("\n"),
     );
-    const legacy = withLowering("legacy", () => compile([file])).diagnostics;
+    const found = compile([file]).diagnostics.map((d) => [d.code, d.message]);
 
-    expect(legacy.map((d) => d.code)).toEqual(["LUCENT1001", "LUCENT1006", "LUCENT1009"]);
-
-    expect(withLowering("ir-strict", () => compile([file])).diagnostics).toEqual(legacy);
-  });
-
-  it("reports the legacy emitter's diagnostics for what the IR does not lower", () => {
-    const file = module("export function f(): number { var x = 1; return x; }\n");
-    const legacy = withLowering("legacy", () => compile([file])).diagnostics;
-
-    expect(legacy.length).toBeGreaterThan(0);
-
-    expect(withLowering("ir", () => compile([file])).diagnostics).toEqual(legacy);
+    expect(found).toEqual([
+      ["LUCENT1001", "wrap a using declaration in a case clause in a block"],
+      ["LUCENT1006", "only Error values can be thrown; use `throw new Error(...)`"],
+      ["LUCENT1009", "`for await` is not supported"],
+      ["LUCENT1001", "use `let` or `const` instead of `var`"],
+    ]);
   });
 });
 
@@ -465,8 +435,8 @@ describe("lowering bigints", () => {
     ]);
   });
 
-  it("compiles bigint functions through the IR alone under ir-strict", () => {
-    const out = cppOf(file(), "ir-strict");
+  it("compiles bigint functions without a diagnostic", () => {
+    const out = cppOf(file());
 
     expect(out).toContain('LUCENT_BIGINT("18446744073709551616")');
 

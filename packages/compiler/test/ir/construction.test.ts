@@ -2,8 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../../src/index.ts";
-import { coverage } from "../../src/ir/cpp.ts";
-import { cppOf, inOrder, module, withLowering } from "./compile.ts";
+import { cppOf, inOrder, module } from "./compile.ts";
 
 const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
 
@@ -44,10 +43,7 @@ function definition(cpp: string, name: string): string {
 
 describe("construction in the IR", () => {
   it("initializes parameter properties and fields before the constructor's body", () => {
-    const before = coverage.lowered.length;
-    const out = cppOf(module(SAMPLE), "ir-strict");
-
-    expect(coverage.lowered.slice(before)).toContain("C_Base::construct");
+    const out = cppOf(module(SAMPLE));
 
     const base = definition(out, "C_Base::construct");
 
@@ -55,7 +51,7 @@ describe("construction in the IR", () => {
   });
 
   it("initializes a derived class's fields right after super()", () => {
-    const derived = definition(cppOf(module(SAMPLE), "ir-strict"), "C_Derived::construct");
+    const derived = definition(cppOf(module(SAMPLE)), "C_Derived::construct");
 
     expect(inOrder(derived, "C_Base::construct(", "this->extra = ", ".push(")).toBe(true);
 
@@ -63,10 +59,7 @@ describe("construction in the IR", () => {
   });
 
   it("initializes a module's static fields, then its variables, a variable without a value to its type's default", () => {
-    const before = coverage.lowered.length;
-    const init = definition(cppOf(module(SAMPLE), "ir-strict"), "m_sample::init");
-
-    expect(coverage.lowered.slice(before)).toContain("m_sample::init");
+    const init = definition(cppOf(module(SAMPLE)), "m_sample::init");
 
     expect(
       inOrder(
@@ -90,24 +83,18 @@ export function make(): number {
   return new Leaf(3).tags.length;
 }
 `);
-    const before = coverage.lowered.length;
-    const leaf = definition(cppOf(file, "ir-strict"), "C_Leaf::construct");
-
-    expect(coverage.lowered.slice(before)).toContain("C_Leaf::construct");
+    const leaf = definition(cppOf(file), "C_Leaf::construct");
 
     expect(leaf).toMatch(/^C_Leaf::construct\(double p0_\) \{/);
 
     expect(inOrder(leaf, "C_Base::construct(p0_);", "this->tags = v")).toBe(true);
   });
 
-  it("compiles the classes and inheritance cases, constructors and all, through the IR alone under ir-strict", () => {
+  it("compiles the classes and inheritance cases, constructors and all, without a diagnostic", () => {
     for (const name of ["classes", "inheritance"]) {
-      const before = coverage.lowered.length;
-      const r = withLowering("ir-strict", () => compile([path.join(CASES, `${name}.lucent.ts`)]));
+      const r = compile([path.join(CASES, `${name}.lucent.ts`)]);
 
       expect(r.diagnostics).toEqual([]);
-
-      expect(coverage.lowered.slice(before).some((id) => id.endsWith("::construct"))).toBe(true);
     }
   });
 });

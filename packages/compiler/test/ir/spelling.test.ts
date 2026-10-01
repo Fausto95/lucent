@@ -28,7 +28,7 @@ export function shown(): string {
 
 describe("the IR's C++", () => {
   it("reads a local where it is used, without copying it", () => {
-    const hash = body(cppOf(module(SAMPLE), "ir-strict"), "hash");
+    const hash = body(cppOf(module(SAMPLE)), "hash");
 
     expect(hash).toContain("input.charCodeAt(");
 
@@ -36,11 +36,11 @@ describe("the IR's C++", () => {
   });
 
   it("appends to a string in place", () => {
-    expect(body(cppOf(module(SAMPLE), "ir-strict"), "text")).toMatch(/^ +s \+= /m);
+    expect(body(cppOf(module(SAMPLE)), "text")).toMatch(/^ +s \+= /m);
   });
 
   it("keeps exact integers in integer registers", () => {
-    const hash = body(cppOf(module(SAMPLE), "ir-strict"), "hash");
+    const hash = body(cppOf(module(SAMPLE)), "hash");
 
     expect(hash).toContain("int64_t h = ");
 
@@ -52,7 +52,7 @@ describe("the IR's C++", () => {
   });
 
   it("still runs a call whose absent value its conversion does not read", () => {
-    const shown = body(cppOf(module(SAMPLE), "ir-strict"), "shown");
+    const shown = body(cppOf(module(SAMPLE)), "shown");
 
     expect(shown).toContain("lucent_app::m_sample::nothing()");
 

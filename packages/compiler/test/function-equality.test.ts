@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../src/index.ts";
 
 const PRELUDE = `
@@ -35,20 +35,8 @@ const rejected = (code: string) => [
 
 // Function values have no stable identity in Lucent (a named function is a
 // new value at each use), so every comparison of two functions is refused,
-// in both lowerings, rather than compiled to C++ that cannot build.
-describe.each(["legacy", "ir"])("comparing functions (%s lowering)", (lowering) => {
-  let saved: string | undefined;
-
-  beforeEach(() => {
-    saved = process.env.LUCENT_LOWERING;
-    process.env.LUCENT_LOWERING = lowering;
-  });
-
-  afterEach(() => {
-    if (saved === undefined) delete process.env.LUCENT_LOWERING;
-    else process.env.LUCENT_LOWERING = saved;
-  });
-
+// rather than compiled to C++ that cannot build.
+describe("comparing functions", () => {
   it("rejects === and !== between functions", () => {
     expect(
       diagnostics("export function f(): boolean { const g: F = named; return g === named; }"),

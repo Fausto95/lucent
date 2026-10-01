@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../../src/index.ts";
-import { body, cppOf, module, withLowering } from "./compile.ts";
+import { body, cppOf, module } from "./compile.ts";
 
 const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
 
@@ -12,7 +12,7 @@ describe("closures in the IR", () => {
   return (x) => x + n;
 }
 `);
-    const adder = body(cppOf(file, "ir-strict"), "adder");
+    const adder = body(cppOf(file), "adder");
 
     expect(adder).toContain("lucent::Fn<double(double)>([n = p0_](double p0_) mutable -> double {");
   });
@@ -28,7 +28,7 @@ describe("closures in the IR", () => {
   return count;
 }
 `);
-    const counter = body(cppOf(file, "ir-strict"), "counter");
+    const counter = body(cppOf(file), "counter");
 
     expect(counter).toContain("lucent::Box<double> count{};");
 
@@ -44,7 +44,7 @@ describe("closures in the IR", () => {
   return fs.map((f) => f());
 }
 `);
-    const late = body(cppOf(file, "ir-strict"), "late");
+    const late = body(cppOf(file), "late");
 
     expect(late).toContain("lucent::Box<double> i_it{};");
 
@@ -60,7 +60,7 @@ describe("closures in the IR", () => {
   }
 }
 `);
-    const fn = body(cppOf(file, "ir-strict"), "twiceFib");
+    const fn = body(cppOf(file), "twiceFib");
 
     expect(fn.indexOf("lucent::Box<lucent::Fn<double(double)>> twice{};")).toBeLessThan(
       fn.indexOf("fib"),
@@ -74,7 +74,7 @@ describe("closures in the IR", () => {
   return xs.map((x) => x * k);
 }
 `);
-    const scaled = body(cppOf(file, "ir-strict"), "scaled");
+    const scaled = body(cppOf(file), "scaled");
 
     expect(scaled).toMatch(/\.template map<double>\(v\d+_\)/);
 
@@ -89,7 +89,7 @@ export function pick(ok: boolean): number {
   return ok ? 1 : fail("no");
 }
 `);
-    const pick = body(cppOf(file, "ir-strict"), "pick");
+    const pick = body(cppOf(file), "pick");
 
     expect(pick).toContain("lucent::unreachable();");
   });
@@ -99,7 +99,7 @@ export function pick(ok: boolean): number {
   return seed + 1;
 }
 `);
-    const seeded = body(cppOf(file, "ir-strict"), "seeded");
+    const seeded = body(cppOf(file), "seeded");
 
     expect(seeded).toContain("lucent::Opt<double> p0_");
 
@@ -113,16 +113,16 @@ export function pick(ok: boolean): number {
   return a;
 }
 `);
-    const first = body(cppOf(file, "ir-strict"), "first");
+    const first = body(cppOf(file), "first");
 
     expect(first).toMatch(/if \(v\d+_\) \{\n.*make_shared/);
 
     expect(first).toContain("p0_.value()");
   });
 
-  it("compiles the closures case through the IR alone under ir-strict", () => {
+  it("compiles the closures case without a diagnostic", () => {
     const file = path.join(CASES, "closures.lucent.ts");
-    const r = withLowering("ir-strict", () => compile([file]));
+    const r = compile([file]);
 
     expect(r.diagnostics).toEqual([]);
   });

@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../../src/index.ts";
-import { body, cppOf, inOrder, module, withLowering } from "./compile.ts";
+import { body, cppOf, inOrder, module } from "./compile.ts";
 
 const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
 
@@ -36,7 +36,7 @@ export function counted(): number {
 
 describe("coroutines in the IR", () => {
   it("awaits each promise as a suspension point of its own, in order", () => {
-    const out = cppOf(module(SAMPLE), "ir-strict");
+    const out = cppOf(module(SAMPLE));
     const both = body(out, "both");
 
     expect(out).toContain("lucent::Promise<double> m_sample::both() {");
@@ -49,19 +49,19 @@ describe("coroutines in the IR", () => {
   });
 
   it("returns what a returned promise fulfils with", () => {
-    const forwarded = body(cppOf(module(SAMPLE), "ir-strict"), "forwarded");
+    const forwarded = body(cppOf(module(SAMPLE)), "forwarded");
 
     expect(inOrder(forwarded, "later(3.0)", "co_await", "co_return")).toBe(true);
   });
 
   it("stays a coroutine when it only throws, so the throw rejects its promise", () => {
-    const fails = body(cppOf(module(SAMPLE), "ir-strict"), "fails");
+    const fails = body(cppOf(module(SAMPLE)), "fails");
 
     expect(inOrder(fails, "lucent::throwError(", "co_return []() -> double {")).toBe(true);
   });
 
   it("passes an async closure's captures to its coroutine as parameters", () => {
-    const adder = body(cppOf(module(SAMPLE), "ir-strict"), "adder");
+    const adder = body(cppOf(module(SAMPLE)), "adder");
 
     expect(adder).toContain("[n = p0_]() -> lucent::Promise<double> {");
 
@@ -69,19 +69,17 @@ describe("coroutines in the IR", () => {
   });
 
   it("yields each element, and each of another iterable with yield*", () => {
-    const out = cppOf(module(SAMPLE), "ir-strict");
-    const header = withLowering("ir-strict", () => compile([module(SAMPLE)])).files.get(
-      "m_sample.h",
-    )!;
+    const out = cppOf(module(SAMPLE));
+    const header = compile([module(SAMPLE)]).files.get("m_sample.h")!;
 
     expect(header).toContain("lucent::Iter<double> count();");
 
     expect(inOrder(body(out, "count"), "co_yield 1.0;", "for (size_t", "co_yield v")).toBe(true);
   });
 
-  it("compiles the async, async-throws, generators and using cases through the IR alone under ir-strict", () => {
+  it("compiles the async, async-throws, generators and using cases without a diagnostic", () => {
     for (const name of ["async", "async-throws", "generators", "using"]) {
-      const r = withLowering("ir-strict", () => compile([path.join(CASES, `${name}.lucent.ts`)]));
+      const r = compile([path.join(CASES, `${name}.lucent.ts`)]);
 
       expect(r.diagnostics).toEqual([]);
     }

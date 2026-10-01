@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../../src/index.ts";
-import { body, cppOf, inOrder, module, withLowering } from "./compile.ts";
+import { body, cppOf, inOrder, module } from "./compile.ts";
 
 const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
 
@@ -20,7 +20,7 @@ export function safe(n: number): string {
   }
 }
 `);
-    const safe = body(cppOf(file, "ir-strict"), "safe");
+    const safe = body(cppOf(file), "safe");
 
     expect(safe).toContain("catch (const lucent::GeneratorReturn&) {");
 
@@ -42,7 +42,7 @@ export function walk(xs: number[]): number {
   return -1;
 }
 `);
-    const walk = body(cppOf(file, "ir-strict"), "walk");
+    const walk = body(cppOf(file), "walk");
 
     expect(walk).toContain("double ret_{};");
 
@@ -67,7 +67,7 @@ export function check(field: string): string {
   }
 }
 `);
-    const check = body(cppOf(file, "ir-strict"), "check");
+    const check = body(cppOf(file), "check");
 
     expect(check).toMatch(
       /lucent::Ref<lucent_app::C_Invalid> (v\d+_) = lucent_app::C_Invalid::create\(p0_\);\n\s*lucent::throwError\(\1\);/,
@@ -87,16 +87,16 @@ export function scoped(): string {
   return a.name + b.name;
 }
 `);
-    const scoped = body(cppOf(file, "ir-strict"), "scoped");
+    const scoped = body(cppOf(file), "scoped");
 
     expect(scoped).toContain("lucent::suppressedError(std::current_exception(), fc1_ex)");
 
     expect(inOrder(scoped, "fin1_:", "fin0_:")).toBe(true);
   });
 
-  it("compiles the errors, control and absent-results cases through the IR alone under ir-strict", () => {
+  it("compiles the errors, control and absent-results cases without a diagnostic", () => {
     for (const name of ["errors", "control", "absent-results"]) {
-      const r = withLowering("ir-strict", () => compile([path.join(CASES, `${name}.lucent.ts`)]));
+      const r = compile([path.join(CASES, `${name}.lucent.ts`)]);
 
       expect(r.diagnostics).toEqual([]);
     }

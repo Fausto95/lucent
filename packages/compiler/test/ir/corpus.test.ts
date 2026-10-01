@@ -3,7 +3,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../../src/index.ts";
-import { withLowering } from "./compile.ts";
 
 const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
 
@@ -26,8 +25,8 @@ const cases = fs
   });
 
 describe("the e2e corpus", () => {
-  it.each(cases)("compiles $name through the IR alone under ir-strict", ({ files }) => {
-    const r = withLowering("ir-strict", () => compile(files));
+  it.each(cases)("compiles $name without a diagnostic", ({ files }) => {
+    const r = compile(files);
 
     expect(r.diagnostics).toEqual([]);
   });

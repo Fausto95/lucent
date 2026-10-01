@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../src/index.ts";
 
 const PRELUDE = `
@@ -46,19 +46,7 @@ const refused = (between: string) => [
 // JavaScript's == converts between numbers, strings, booleans and bigints,
 // and an object to a primitive; Lucent compares like === there, so it
 // refuses those operands rather than give another answer.
-describe.each(["legacy", "ir"])("converting loose equality (%s lowering)", (lowering) => {
-  let saved: string | undefined;
-
-  beforeEach(() => {
-    saved = process.env.LUCENT_LOWERING;
-    process.env.LUCENT_LOWERING = lowering;
-  });
-
-  afterEach(() => {
-    if (saved === undefined) delete process.env.LUCENT_LOWERING;
-    else process.env.LUCENT_LOWERING = saved;
-  });
-
+describe("converting loose equality", () => {
   it("refuses == and != between primitives JavaScript converts", () => {
     expect(
       diagnostics('export function f(): boolean { return numOrStr(1) == numOrStr("1"); }'),

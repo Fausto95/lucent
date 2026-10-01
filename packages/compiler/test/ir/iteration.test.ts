@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { compile } from "../../src/index.ts";
-import { body, cppOf, module, withLowering } from "./compile.ts";
+import { body, cppOf, module } from "./compile.ts";
 
 const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
 
@@ -14,7 +14,7 @@ describe("for … of and for … in in the IR", () => {
   return total;
 }
 `);
-    const sum = body(cppOf(file, "ir-strict"), "sum");
+    const sum = body(cppOf(file), "sum");
 
     expect(sum).toContain("for (size_t i0_ = 0; i0_ < coll0_.size(); i0_++) {");
 
@@ -31,7 +31,7 @@ describe("for … of and for … in in the IR", () => {
   return out.join(",");
 }
 `);
-    const walk = body(cppOf(file, "ir-strict"), "walk");
+    const walk = body(cppOf(file), "walk");
 
     expect(walk).toContain("std::tuple<lucent::String, double>(");
 
@@ -53,7 +53,7 @@ describe("for … of and for … in in the IR", () => {
   return seen;
 }
 `);
-    const find = body(cppOf(file, "ir-strict"), "find");
+    const find = body(cppOf(file), "find");
 
     expect(find).toContain("goto brk0_;");
 
@@ -67,7 +67,7 @@ describe("for … of and for … in in the IR", () => {
   return out;
 }
 `);
-    const keys = body(cppOf(file, "ir-strict"), "keys");
+    const keys = body(cppOf(file), "keys");
 
     expect(keys).toContain(".keys()");
   });
@@ -87,7 +87,7 @@ export function run(xs: number[], ps: P[]): number {
   return total + b;
 }
 `);
-    const out = cppOf(file, "ir-strict");
+    const out = cppOf(file);
 
     expect(body(out, "run")).toContain(".get(1.0)");
 
@@ -101,14 +101,14 @@ export function run(xs: number[], ps: P[]): number {
 }
 `);
 
-    expect(body(cppOf(file, "ir-strict"), "swap")).toMatch(
+    expect(body(cppOf(file), "swap")).toMatch(
       /a = std::get<0>\((v\d+_)\);\n\s*b = std::get<1>\(\1\);/,
     );
   });
 
-  it("compiles the strings, numbers and kernels cases through the IR alone under ir-strict", () => {
+  it("compiles the strings, numbers and kernels cases without a diagnostic", () => {
     for (const name of ["strings", "numbers", "kernels"]) {
-      const r = withLowering("ir-strict", () => compile([path.join(CASES, `${name}.lucent.ts`)]));
+      const r = compile([path.join(CASES, `${name}.lucent.ts`)]);
 
       expect(r.diagnostics).toEqual([]);
     }
