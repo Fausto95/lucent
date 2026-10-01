@@ -148,14 +148,13 @@ describe("lowering to the IR", () => {
   });
 
   it("does not lower what it does not support yet", () => {
-    const file = module(
-      "export function first(xs: number[]): number { for (const x of xs) return x; return 0; }\n",
-    );
+    const file = module("export function first(xs: number[]): number { return xs.length; }\n");
 
+    // Without the emitter's leaves, a member read is beyond the IR alone.
     expect(() => lowered(file, "first")).toThrow(IrUnsupported);
 
     expect(() => lowered(file, "first")).toThrow(
-      /does not lower ForOfStatement statements yet .*:1:47/,
+      /does not lower PropertyAccessExpression expressions yet .*:1:54/,
     );
   });
 });
@@ -391,16 +390,16 @@ describe("the lowering selector", () => {
   it("uses the legacy emitter for what the IR does not support under ir, and fails under ir-strict", () => {
     const file = module(
       "export function add(a: number, b: number): number { return a + b; }\n" +
-        "export function first(xs: number[]): number { for (const x of xs) return x; return 0; }\n",
+        "export async function first(x: number): Promise<number> { return x; }\n",
     );
     const out = cppOf(file, "ir");
 
     expect(out).toContain("double v2_ = p0_ + p1_;");
 
-    expect(out).toMatch(/double m_sample::first\(lucent::Array<double> p0_xs\) \{/);
+    expect(out).toMatch(/m_sample::first\(double p0_x\) \{/);
 
     expect(() => withLowering("ir-strict", () => compile([file]))).toThrow(
-      /does not lower ForOfStatement statements yet/,
+      /does not lower async functions yet/,
     );
   });
 
