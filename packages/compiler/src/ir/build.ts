@@ -289,6 +289,21 @@ export class IrBuilder {
     return target;
   }
 
+  /** `for … of`: `body` runs for each element of `iterable`, which it gets as a value. */
+  iterate(
+    source: SourceSpan,
+    iterable: ValueId,
+    elementType: LType,
+    body: (target: TargetId, element: ValueId) => void,
+  ): void {
+    const target = this.targets++ as TargetId;
+    const region = this.region();
+    const element = this.value(elementType, source);
+
+    this.within(region, () => body(target, element));
+    this.push({ kind: "iterate", target, iterable, element, body: region.id, source });
+  }
+
   /** A scope of its own; when `breakable`, a target that `break` leaves. */
   block(source: SourceSpan, body: (block?: TargetId) => void, breakable = false): void {
     const target = breakable ? (this.targets++ as TargetId) : undefined;

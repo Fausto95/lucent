@@ -18,7 +18,7 @@
  * right side that may not run (`&&`, `||`, `??`, `?:`) goes in a branch.
  */
 import ts from "typescript";
-import { type FunctionLike, freeVariables } from "../analysis/scopes.ts";
+import { type FunctionLike, freeVariables, isWriteTarget, symbolOf } from "../analysis/scopes.ts";
 import { bigintLiteralValue } from "../lowering/literals.ts";
 import { isVoidish, type LType, sameType, T, typeKey } from "../types.ts";
 import { IrBuilder } from "./build.ts";
@@ -30,6 +30,7 @@ import {
   type CaptureSource,
   type Constant,
   convertible,
+  elementOf,
   type EffectSummary,
   type FunctionId,
   type IrFunction,
@@ -160,9 +161,16 @@ export interface LeafHost {
   convert(value: ValueId, from: LType, to: LType, node: ts.Node): Leaf;
   /** The place `target` names (a field, an element…), what it takes lowered as operands. */
   place(target: ts.Expression, operands: LeafOperands): LeafPlace;
+  /** A part of `value`, a `from`, that destructuring takes: a field, an element, the rest. */
+  part(value: ValueId, from: LType, which: PartOf, node: ts.Node): Leaf;
+  /** What `for … in` goes over: `value`'s keys, as an array of strings. */
+  keys(value: ValueId, from: LType, node: ts.Node): Leaf;
   /** What `node`, code for the platforms, gives in a build for neither: a `type` that throws. */
   platformOnly(node: ts.Node, type: LType): Leaf;
 }
+
+/** A part destructuring takes: a field by name, an element by index, the elements from an index on. */
+export type PartOf = { name: string } | { index: number } | { rest: number };
 
 /** A place a leaf names: reading it, and writing a value (an operand after the place's own). */
 export interface LeafPlace {
@@ -300,7 +308,12 @@ class Lowerer {
     defaulted: LType | undefined,
     body: ts.Node,
   ): void {
-    if (!ts.isIdentifier(p.name)) this.unsupported(p, "destructured parameters");
+    if (!ts.isIdentifier(p.name)) {
+      if (p.initializer) this.unsupported(p, "a destructured parameter with a default");
+
+      this.bind(p.name, value);
+      return;
+    }
 
     const sym = this.symbol(p.name);
     const span = spanOf(p);
@@ -365,8 +378,9 @@ class Lowerer {
     throw new IrUnsupported(node, what);
   }
 
+  /** The symbol a name refers to: a shorthand property's is the variable's. */
   symbol(id: ts.Identifier): ts.Symbol {
-    const sym = this.host.checker.getSymbolAtLocation(id);
+    const sym = symbolOf(this.host.checker, id);
 
     if (!sym) this.unsupported(id, `the unresolved name ${id.text}`);
 
@@ -597,7 +611,12 @@ class Lowerer {
       this.unsupported(list, "declarations other than let and const");
 
     for (const d of list.declarations) {
-      if (!ts.isIdentifier(d.name)) this.unsupported(d, "destructuring");
+      if (!ts.isIdentifier(d.name)) {
+        if (!d.initializer) this.unsupported(d, "a destructuring declaration without a value");
+
+        this.bind(d.name, this.expr(d.initializer));
+        continue;
+      }
 
       const sym = this.symbol(d.name);
       const declared = this.declaredType(sym, d.name);
@@ -610,6 +629,189 @@ class Lowerer {
 
       if (value !== undefined) this.b.store(place, value, spanOf(d));
     }
+  }
+
+  /**
+   * A binding name given `value`: a new variable, or each part of a
+   * destructuring pattern in order (a field, an element, the rest of an
+   * array), with its default when the part is undefined.
+   */
+  bind(name: ts.BindingName, value: ValueId): void {
+    if (ts.isIdentifier(name)) {
+      const sym = this.symbol(name);
+      const declared = this.declaredType(sym, name);
+      const type = declared.k === "never" ? T.undefined : declared;
+      const place = this.declareLocal(sym, name.text, type, name);
+
+      this.b.store(place, this.coerce(value, type, name), spanOf(name));
+      return;
+    }
+
+    if (ts.isObjectBindingPattern(name)) {
+      for (const el of name.elements) {
+        const key = el.propertyName ?? el.name;
+
+        if (el.dotDotDotToken) this.unsupported(el, "object rest in destructuring");
+
+        if (!ts.isIdentifier(key) && !ts.isStringLiteral(key))
+          this.unsupported(el, "computed keys in destructuring");
+
+        const part = this.part(value, { name: key.text }, el);
+
+        this.bind(el.name, el.initializer ? this.withDefault(part, el.initializer, el) : part);
+      }
+      return;
+    }
+
+    name.elements.forEach((el, i) => {
+      if (ts.isOmittedExpression(el)) return;
+
+      const part = this.part(value, el.dotDotDotToken ? { rest: i } : { index: i }, el);
+
+      this.bind(el.name, el.initializer ? this.withDefault(part, el.initializer, el) : part);
+    });
+  }
+
+  /** A part of a destructured value, as the backend reads it. */
+  part(value: ValueId, which: PartOf, node: ts.Node): ValueId {
+    const host = this.host.leaves;
+
+    if (!host) this.unsupported(node, "destructuring");
+
+    return this.planOf(host.part(value, this.b.typeOf(value), which, node), [value], spanOf(node));
+  }
+
+  /** `v`, or `init` when `v` is undefined (not null), as JavaScript's defaults are. */
+  withDefault(v: ValueId, init: ts.Expression, node: ts.Node): ValueId {
+    if (this.b.typeOf(v).k !== "opt") return v;
+
+    const target = this.typeAt(node);
+    const span = spanOf(node);
+    const absent = this.b.binary("===", v, this.b.const(undefined, span), span);
+
+    return this.b.if(
+      absent,
+      span,
+      () => this.b.yield(this.coerce(this.expr(init, target), target, init), span),
+      () => this.b.yield(this.coerce(v, target, node), span),
+      target,
+    )!;
+  }
+
+  /**
+   * `[a, b] = v`, `({ x, y: z } = v)`: each target in order, evaluated
+   * before the part of `v` it gets, with its default when that is undefined.
+   */
+  assignPattern(pattern: ts.Expression, value: ValueId): void {
+    const assign = (target: ts.Expression, part: () => ValueId) => {
+      const withDefault =
+        ts.isBinaryExpression(target) && target.operatorToken.kind === ts.SyntaxKind.EqualsToken;
+      const into = withDefault ? target.left : target;
+
+      if (ts.isArrayLiteralExpression(into) || ts.isObjectLiteralExpression(into)) {
+        const v = part();
+
+        this.assignPattern(into, withDefault ? this.withDefault(v, target.right, target) : v);
+        return;
+      }
+
+      const t = this.target(into);
+      const v = part();
+      const given = withDefault ? this.withDefault(v, target.right, target) : v;
+
+      t.write(this.coerce(given, t.type, target), spanOf(target));
+    };
+
+    if (ts.isArrayLiteralExpression(pattern)) {
+      pattern.elements.forEach((el, i) => {
+        if (ts.isOmittedExpression(el)) return;
+
+        if (ts.isSpreadElement(el))
+          this.unsupported(el, "rest elements in destructuring assignments");
+
+        assign(el, () => this.part(value, { index: i }, el));
+      });
+      return;
+    }
+
+    if (!ts.isObjectLiteralExpression(pattern)) this.unsupported(pattern, "this assignment target");
+
+    for (const p of pattern.properties) {
+      if (ts.isShorthandPropertyAssignment(p)) {
+        const part = () => this.part(value, { name: p.name.text }, p);
+        const init = p.objectAssignmentInitializer;
+        const t = this.target(p.name);
+        const v = part();
+        const given = init ? this.withDefault(v, init, p) : v;
+
+        t.write(this.coerce(given, t.type, p), spanOf(p));
+      } else if (
+        ts.isPropertyAssignment(p) &&
+        (ts.isIdentifier(p.name) || ts.isStringLiteral(p.name))
+      ) {
+        const key = p.name.text;
+
+        assign(p.initializer, () => this.part(value, { name: key }, p));
+      } else this.unsupported(p, "this destructuring assignment");
+    }
+  }
+
+  /** `for (x of xs)`: the body for each element, bound to a new variable (or assigned). */
+  forOf(s: ts.ForOfStatement, labels: readonly string[]): void {
+    if (s.awaitModifier) this.unsupported(s, "for await");
+
+    const iterable = this.expr(s.expression);
+    const t = this.b.typeOf(iterable);
+    const whole = t.k === "opt" ? this.coerce(iterable, t.inner, s.expression) : iterable;
+
+    this.each(s, labels, whole);
+  }
+
+  /** `for (k in o)`: the body for each key, as strings: a record's, an object's fields, an array's indexes. */
+  forIn(s: ts.ForInStatement, labels: readonly string[]): void {
+    const host = this.host.leaves;
+    const object = this.expr(s.expression);
+
+    if (!host) this.unsupported(s, "for in");
+
+    const keys = host.keys(object, this.b.typeOf(object), s.expression);
+
+    this.each(s, labels, this.planOf(keys, [object], spanOf(s.expression)));
+  }
+
+  /** The body of a `for … of` or `for … in` for each element of `iterable`. */
+  each(
+    s: ts.ForOfStatement | ts.ForInStatement,
+    labels: readonly string[],
+    iterable: ValueId,
+  ): void {
+    const t = this.b.typeOf(iterable);
+    const element = elementOf(t);
+
+    if (!element) this.unsupported(s.expression, `iterating over a ${typeKey(t)}`);
+
+    this.b.iterate(spanOf(s), iterable, element, (target, value) =>
+      this.within({ target, kind: "loop", labels }, () => {
+        const init = s.initializer;
+
+        if (ts.isVariableDeclarationList(init)) {
+          const scoped = init.flags & ts.NodeFlags.BlockScoped;
+
+          if (scoped !== ts.NodeFlags.Let && scoped !== ts.NodeFlags.Const)
+            this.unsupported(init, "declarations other than let and const");
+
+          this.bind(init.declarations[0]!.name, value);
+        } else if (ts.isArrayLiteralExpression(init) || ts.isObjectLiteralExpression(init)) {
+          this.assignPattern(init, value);
+        } else {
+          const target = this.target(init);
+
+          target.write(this.coerce(value, target.type, init), spanOf(init));
+        }
+
+        this.nested(s.statement);
+      }),
+    );
   }
 
   /**
@@ -820,7 +1022,7 @@ class Lowerer {
   /** Whether `target` is a variable the IR stores into: a local or a module variable. */
   variable(target: ts.Expression): boolean {
     const id = skipParentheses(target);
-    const sym = ts.isIdentifier(id) ? this.host.checker.getSymbolAtLocation(id) : undefined;
+    const sym = ts.isIdentifier(id) ? symbolOf(this.host.checker, id) : undefined;
 
     if (sym === undefined) return false;
 
@@ -998,7 +1200,7 @@ class Lowerer {
   }
 
   identifier(id: ts.Identifier): ValueId {
-    const sym = this.host.checker.getSymbolAtLocation(id);
+    const sym = symbolOf(this.host.checker, id);
     const local = sym && this.variableOf(sym);
 
     if (local) return "value" in local ? local.value : this.b.load(local.place, spanOf(id));
@@ -1352,27 +1554,11 @@ function isLibrary(sym: ts.Symbol): boolean {
   return decls.length > 0 && decls.every((d) => d.getSourceFile().isDeclarationFile);
 }
 
-/** Whether `body` assigns (or increments) the variable `sym`. */
+/** Whether `body` writes the variable `sym`: assigns it (destructuring too), increments it, loops over it. */
 function assignedIn(checker: ts.TypeChecker, body: ts.Node, sym: ts.Symbol): boolean {
-  const names = (target: ts.Expression): boolean => {
-    const t = skipParentheses(target);
-
-    return ts.isIdentifier(t) && checker.getSymbolAtLocation(t) === sym;
-  };
-  const visit = (n: ts.Node): boolean => {
-    const assignment =
-      ts.isBinaryExpression(n) &&
-      n.operatorToken.kind >= ts.SyntaxKind.FirstAssignment &&
-      n.operatorToken.kind <= ts.SyntaxKind.LastAssignment &&
-      names(n.left);
-    const step =
-      (ts.isPrefixUnaryExpression(n) || ts.isPostfixUnaryExpression(n)) &&
-      (n.operator === ts.SyntaxKind.PlusPlusToken ||
-        n.operator === ts.SyntaxKind.MinusMinusToken) &&
-      names(n.operand);
-
-    return assignment || step || (ts.forEachChild(n, visit) ?? false);
-  };
+  const visit = (n: ts.Node): boolean =>
+    (ts.isIdentifier(n) && symbolOf(checker, n) === sym && isWriteTarget(n)) ||
+    (ts.forEachChild(n, visit) ?? false);
 
   return visit(body);
 }
@@ -1460,6 +1646,12 @@ const LABELED: Partial<Record<ts.SyntaxKind, LabeledLowering>> = {
 
   [ts.SyntaxKind.SwitchStatement]: (s: ts.SwitchStatement, labels, lw: Lowerer) =>
     lw.switch(s, labels),
+
+  [ts.SyntaxKind.ForOfStatement]: (s: ts.ForOfStatement, labels, lw: Lowerer) =>
+    lw.forOf(s, labels),
+
+  [ts.SyntaxKind.ForInStatement]: (s: ts.ForInStatement, labels, lw: Lowerer) =>
+    lw.forIn(s, labels),
 };
 
 type StatementLowering = (s: never, lw: Lowerer) => void;
@@ -1537,6 +1729,10 @@ const STATEMENTS: Partial<Record<ts.SyntaxKind, StatementLowering>> = {
   [ts.SyntaxKind.ForStatement]: unlabeledForm(ts.SyntaxKind.ForStatement),
 
   [ts.SyntaxKind.SwitchStatement]: unlabeledForm(ts.SyntaxKind.SwitchStatement),
+
+  [ts.SyntaxKind.ForOfStatement]: unlabeledForm(ts.SyntaxKind.ForOfStatement),
+
+  [ts.SyntaxKind.ForInStatement]: unlabeledForm(ts.SyntaxKind.ForInStatement),
 
   [ts.SyntaxKind.BreakStatement]: (s: ts.BreakStatement, lw: Lowerer) =>
     lw.b.break(lw.jumpTarget(s), spanOf(s)),
@@ -1678,6 +1874,16 @@ const BINARY_FORMS: Partial<
 > = {
   // The value of `x = v` is `v`, as it was before becoming the variable's type.
   [ts.SyntaxKind.EqualsToken]: (n, lw) => {
+    const left = skipParentheses(n.left);
+
+    // Destructuring: the value, then each target in order; the assignment gives the value.
+    if (ts.isArrayLiteralExpression(left) || ts.isObjectLiteralExpression(left)) {
+      const value = lw.expr(n.right);
+
+      lw.assignPattern(left, value);
+      return value;
+    }
+
     const target = lw.target(n.left);
     const value = lw.expr(n.right, target.type);
 

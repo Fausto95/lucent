@@ -868,6 +868,14 @@ export type IrOp =
       args: ValueId[];
       source: SourceSpan;
     }
+  | {
+      kind: "iterate"; // for … of: body runs per element, which it defines
+      target: TargetId;
+      iterable: ValueId;
+      element: ValueId;
+      body: RegionId;
+      source: SourceSpan;
+    }
   | { kind: "closure"; result: ValueId; fn: IrFunction; from: CaptureSource[]; source: SourceSpan }
   | { kind: "unreachable"; source: SourceSpan } // terminator
   | { kind: "never"; result: ValueId; source: SourceSpan }; // what never completes gives
@@ -915,6 +923,15 @@ export interface EffectRef {
   the start of their block, defined there (or where written, when they
   capture a variable the block declares); a `for` loop's boxed `let`
   variables get a copy per iteration, as in JavaScript.
+- `iterate` is `for … of`: its body runs for each element of an array,
+  set, map, record, string (code points), byte array, regular expression
+  match or iterator (`elementOf`), which it defines for the body alone;
+  `break` and `continue` name its target, and leaving early closes an
+  iterator. `for … in` iterates the keys the backend lists
+  (`LeafHost.keys`). Destructuring (declarations, parameters, loop heads
+  and assignments) reads each part through `LeafHost.part` and applies a
+  default only when the part is undefined; an assignment's targets are
+  evaluated in order, each before the part it gets.
 - `unreachable` ends a body TypeScript proved always returns (an
   exhaustive switch at its end); a body that may give undefined gives it.
   A call that never returns gives a `never` value, which converts to any
@@ -1080,7 +1097,8 @@ cases run under both lowerings).
   (`plan`, `convert`, `place`, `platformOnly`) and the platform hooks of
   `LowerHost`; invariant 6 leaves plans to the program analysis. The
   `closure`, `unreachable` and `never` ops, `IrFunction.captures`, boxed
-  locals, and `LowerHost.isBoxed`, `signatureOf` and `effectsOf`.
+  locals, and `LowerHost.isBoxed`, `signatureOf` and `effectsOf`. The
+  `iterate` op and `LeafHost.part` and `keys`.
   Migration: none (additive; the default lowering is unchanged).
 
 ## C-EXEC: execution identities, scopes and operations

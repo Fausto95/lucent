@@ -1018,6 +1018,8 @@ before output code generation.
     declarations, captured copies and shared boxes, per-iteration `for`
     variables), defaulted parameters, calls that never return, `as`:
     411 of 606.
+  - `for … of`, `for … in`, destructuring of declarations, parameters,
+    loop heads and assignments: 446 of 606.
 
 <a id="t54"></a>
 

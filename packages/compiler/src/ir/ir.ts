@@ -10,7 +10,7 @@
  */
 import { looseEqualityConverts } from "../lowering/loose-equality.ts";
 import { conversionStep, type Representations } from "../lowering/conversions.ts";
-import { type LType, sameType, T } from "../types.ts";
+import { type LType, sameType, T, unionOf } from "../types.ts";
 
 /** A value, dense per function: `values[id].id === id`. */
 export type ValueId = number & { readonly __value: true };
@@ -177,6 +177,19 @@ export type IrOp =
   | { kind: "loop"; target: TargetId; body: RegionId; next?: RegionId; source: SourceSpan }
   /** Runs `body`, a scope of its own; with a target, `break` leaves it. */
   | { kind: "block"; target?: TargetId; body: RegionId; source: SourceSpan }
+  /**
+   * Runs `body` for each element of `iterable` (`for … of`), the element
+   * being `element` there; `break` and `continue` name `target`. Leaving
+   * early closes an iterator (which runs a generator's `finally`).
+   */
+  | {
+      kind: "iterate";
+      target: TargetId;
+      iterable: ValueId;
+      element: ValueId;
+      body: RegionId;
+      source: SourceSpan;
+    }
   | { kind: "return"; value?: ValueId; source: SourceSpan }
   | { kind: "throw"; value: ValueId; source: SourceSpan }
   /** Leaves the loop or block `target`. */
@@ -418,6 +431,33 @@ export function convertible(from: LType, to: LType): boolean {
   return true;
 }
 
+/**
+ * The type of the elements `for … of` gives over a `t`: an array's,
+ * a set's, a map's entries, a record's (`[key, value]`), a string's code
+ * points, a byte array's numbers, an iterator's, a match's groups. Not
+ * iterable: undefined.
+ */
+export function elementOf(t: LType): LType | undefined {
+  switch (t.k) {
+    case "array":
+    case "set":
+    case "iter":
+      return t.e;
+    case "map":
+      return { k: "tuple", es: [t.key, t.val] };
+    case "dict":
+      return { k: "tuple", es: [T.string, t.val] };
+    case "string":
+      return T.string;
+    case "bytes":
+      return T.number;
+    case "regexMatch":
+      return unionOf([T.string, T.undefined]);
+    default:
+      return undefined;
+  }
+}
+
 /** The type of a constant. */
 export function constantType(value: Constant): LType {
   if (value === null) return T.null;
@@ -458,6 +498,8 @@ export function operandsOf(op: IrOp): ValueId[] {
       return [op.value];
     case "if":
       return [op.cond];
+    case "iterate":
+      return [op.iterable];
     case "yield":
       return op.value === undefined ? [] : [op.value];
     default:
@@ -473,6 +515,7 @@ export function regionsOf(op: IrOp): RegionId[] {
     case "loop":
       return op.next === undefined ? [op.body] : [op.body, op.next];
     case "block":
+    case "iterate":
       return [op.body];
     default:
       return [];
@@ -481,7 +524,11 @@ export function regionsOf(op: IrOp): RegionId[] {
 
 /** The target an operation defines (a loop or block) or jumps to (break, continue). */
 export function targetOf(op: IrOp): TargetId | undefined {
-  return op.kind === "loop" || op.kind === "block" || op.kind === "break" || op.kind === "continue"
+  return op.kind === "loop" ||
+    op.kind === "block" ||
+    op.kind === "iterate" ||
+    op.kind === "break" ||
+    op.kind === "continue"
     ? op.target
     : undefined;
 }

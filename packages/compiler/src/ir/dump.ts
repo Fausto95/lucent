@@ -129,6 +129,8 @@ function dumpOp(op: IrOp, type: (v: ValueId) => string): string {
       return `loop t${op.target} body r${op.body}${op.next === undefined ? "" : ` next r${op.next}`}`;
     case "block":
       return `block${op.target === undefined ? "" : ` t${op.target}`} r${op.body}`;
+    case "iterate":
+      return `iterate t${op.target} v${op.iterable} as v${op.element}: ${type(op.element)} body r${op.body}`;
     case "break":
       return `break t${op.target}`;
     case "continue":

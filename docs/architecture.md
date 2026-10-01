@@ -156,7 +156,9 @@ Notable lowering choices:
   and writes it through another, around the right side. Nested functions
   are IR functions of their own, made into C++ lambdas that capture copies
   of what they read, or share the box of a variable code writes after
-  they capture it (`analysis/scopes.ts`). Platform tests
+  they capture it (`analysis/scopes.ts`). `for … of` is one operation
+  over a collection's elements, which the C++ walks by its kind (a
+  counter, a hash table's live slots, an iterator closed on early exit). Platform tests
   keep only what the platform being built runs. `scripts/ir-coverage.ts`
   reports what the e2e corpus lowers and why the rest falls back. Conversions
   between optionals, unions and absent values are planned once, in

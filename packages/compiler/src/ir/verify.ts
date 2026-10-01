@@ -38,6 +38,7 @@ import {
   completes,
   constantType,
   convertible,
+  elementOf,
   type EffectSummary,
   type FunctionId,
   type IrFunction,
@@ -220,7 +221,10 @@ class Checker {
       r.ops.forEach((op, i) => {
         const where = `r${r.id}[${i}] ${op.kind}`;
 
-        if ((op.kind === "loop" || op.kind === "block") && op.target !== undefined) {
+        if (
+          (op.kind === "loop" || op.kind === "block" || op.kind === "iterate") &&
+          op.target !== undefined
+        ) {
           if (targets.has(op.target)) this.problem(`${where} defines t${op.target} again`);
 
           targets.add(op.target);
@@ -276,7 +280,7 @@ class Checker {
     else this.problem(`${where} uses v${v} before it is defined`);
   }
 
-  private define(v: ValueId, where: string): void {
+  define(v: ValueId, where: string): void {
     if (!this.fn.values[v]) this.problem(`${where} defines v${v}, which does not exist`);
     else if (this.defined.has(v)) this.problem(`${where} defines v${v} again`);
 
@@ -288,7 +292,10 @@ class Checker {
    * Checks region `id`, owned by an operation of the region being checked,
    * in a scope of its own: what it defines and declares is not visible after it.
    */
-  nested(id: RegionId, how: { enclosing?: Enclosing; yields?: LType } = {}): void {
+  nested(
+    id: RegionId,
+    how: { enclosing?: Enclosing; yields?: LType; defines?: ValueId[]; where?: string } = {},
+  ): void {
     const region = this.fn.regions[id];
 
     if (!region) return;
@@ -302,6 +309,9 @@ class Checker {
     if (how.enclosing) this.enclosing.push(how.enclosing);
 
     this.yields = how.yields;
+
+    // What the owning operation defines for the region alone (an iteration's element).
+    for (const v of how.defines ?? []) this.define(v, how.where ?? `r${id}`);
 
     try {
       this.region(region);
@@ -620,6 +630,20 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
 
     if (op.next !== undefined)
       c.nested(op.next, { enclosing: { target: op.target, loop: true, next: true } });
+  },
+
+  iterate: (op, c, where) => {
+    const iterable = c.typeOf(op.iterable);
+    const element = iterable && elementOf(iterable);
+
+    if (iterable && !element) c.problemAt(where, `cannot iterate over a ${typeKey(iterable)}`);
+    else c.expectType(op.element, element, where);
+
+    c.nested(op.body, {
+      enclosing: { target: op.target, loop: true, next: false },
+      defines: [op.element],
+      where,
+    });
   },
 
   block: (op, c) =>

@@ -318,6 +318,16 @@ class Emitter {
     }
   }
 
+  /** `v`, given the value of `c`, as a statement declaring it (none when it is unused). */
+  bind(v: ValueId, c: cpp.Expr): cpp.Stmt[] {
+    if (!this.used(v)) return [];
+
+    const name = `v${v}_`;
+
+    this.exprs.set(v, cpp.id(name));
+    return [cpp.varDecl(this.backend.cppType(this.typeOf(v)), name, c)];
+  }
+
   /** `v` declared empty here, for later statements to assign (an if's result). */
   declareEmpty(op: IrOp, v: ValueId): void {
     const name = `v${v}_`;
@@ -503,6 +513,36 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
       return [{ k: "while", test: cpp.bool(true), body: inner }, ...e.label("break", op.target)];
     }),
 
+  iterate: (op, e) =>
+    e.compound(op, () => {
+      const t = e.typeOf(op.iterable);
+      const name = `coll${op.target}_`;
+      const [coll, idx] = [cpp.id(name), cpp.id(`i${op.target}_`)];
+      const jump = { target: op.target, loop: true, next: false };
+      // The element, then the body, then where a `continue` that is a `goto` lands.
+      const body = (element: cpp.Expr, head: cpp.Stmt[] = []) => {
+        const bound = e.bind(op.element, element);
+        const inner = e.inside(jump, op.body);
+
+        return [...head, ...bound, cpp.block(inner), ...e.label("continue", op.target)];
+      };
+      const counted = (size: cpp.Expr, stmts: cpp.Stmt[]): cpp.Stmt => ({
+        k: "for",
+        init: cpp.varDecl(cpp.type("size_t"), `i${op.target}_`, cpp.num(0)),
+        test: cpp.binary(idx, "<", size),
+        update: cpp.postfix("++", idx),
+        body: stmts,
+      });
+      const at = (items: cpp.Expr) => cpp.call(cpp.dot(items, "at"), [idx]);
+      const size = (items: cpp.Expr) => cpp.call(cpp.dot(items, "size"));
+      const loop = ITERATIONS[t.k]!({ name, coll, idx, t, e, body, counted, at, size });
+
+      return [
+        cpp.block([cpp.varDecl(cpp.auto, name, e.value(op.iterable)), ...loop]),
+        ...e.label("break", op.target),
+      ];
+    }),
+
   block: (op, e) =>
     e.compound(op, () => {
       const jump =
@@ -549,6 +589,95 @@ function withOperands(code: cpp.Expr, value: (v: ValueId) => cpp.Expr): cpp.Expr
 
   return replace(code) as cpp.Expr;
 }
+
+/** What iterating a collection takes: its variable, the counter, and how to make the loop. */
+interface Iteration {
+  /** The collection's variable, which names the loop's others. */
+  name: string;
+  coll: cpp.Expr;
+  idx: cpp.Expr;
+  t: LType;
+  e: Emitter;
+  body(element: cpp.Expr, head?: cpp.Stmt[]): cpp.Stmt[];
+  counted(size: cpp.Expr, body: cpp.Stmt[]): cpp.Stmt;
+  at(items: cpp.Expr): cpp.Expr;
+  size(items: cpp.Expr): cpp.Expr;
+}
+
+/** A hash table's slots, live ones only, while it is guarded against changes that move them. */
+function tableLoop(it: Iteration, element: (slot: cpp.Expr) => cpp.Expr): cpp.Stmt[] {
+  const table = cpp.call(cpp.dot(it.coll, "table"));
+  const guard = cpp.nestedType(cpp.type("std::decay_t", cpp.decltype(table)), "Iterating");
+  const slot = cpp.call(cpp.dot(table, "slot"), [it.idx]);
+  const live = cpp.ifStmt(cpp.not(cpp.call(cpp.dot(table, "slotLive"), [it.idx])), [
+    { k: "continue" },
+  ]);
+
+  return [
+    cpp.varDecl(guard, `${it.name}guard`, table, { style: "construct" }),
+    it.counted(cpp.call(cpp.dot(table, "slotCount")), it.body(element(slot), [live])),
+  ];
+}
+
+/** A map's or a record's `[key, value]` entry of a table slot. */
+function entry(it: Iteration, key: cpp.Type, val: LType): (slot: cpp.Expr) => cpp.Expr {
+  return (slot) =>
+    cpp.construct(cpp.type("std::tuple", key, it.e.backend.cppType(val)), [
+      cpp.dot(slot, "key"),
+      cpp.dot(slot, "value"),
+    ]);
+}
+
+/** How `for … of` goes over each kind of collection, as the legacy emitter's loops do. */
+const ITERATIONS: Partial<Record<LType["k"], (it: Iteration) => cpp.Stmt[]>> = {
+  array: (it) => [it.counted(it.size(it.coll), it.body(it.at(it.coll)))],
+
+  bytes: (it) => [it.counted(it.size(it.coll), it.body(it.at(it.coll)))],
+
+  regexMatch: (it) => {
+    const items = cpp.arrow(it.coll, "items");
+
+    return [it.counted(it.size(items), it.body(it.at(items)))];
+  },
+
+  // Code points, not UTF-16 units.
+  string: (it) => {
+    const cps = cpp.id(`${it.name}cps`);
+
+    return [
+      cpp.varDecl(cpp.auto, `${it.name}cps`, cpp.call("lucent::splitCodePoints", [it.coll])),
+      it.counted(it.size(cps), it.body(it.at(cps))),
+    ];
+  },
+
+  set: (it) => tableLoop(it, (slot) => cpp.dot(slot, "key")),
+
+  map: (it) => {
+    const t = it.t as LType & { k: "map" };
+
+    return tableLoop(it, entry(it, it.e.backend.cppType(t.key), t.val));
+  },
+
+  dict: (it) =>
+    tableLoop(it, entry(it, cpp.type("lucent::String"), (it.t as LType & { k: "dict" }).val)),
+
+  // Leaving early (break, return, throw) closes the iterator, running a generator's finally
+  // blocks; running out does not.
+  iter: (it) => {
+    const t = it.t as LType & { k: "iter" };
+    const [v, close] = [cpp.id(`${it.name}v`), cpp.id(`${it.name}close`)];
+    const closer = cpp.type("lucent::IterCloser", it.e.backend.cppType(t.e));
+    const head = [
+      cpp.varDecl(cpp.auto, `${it.name}v`, cpp.call(cpp.arrow(it.coll, "next"))),
+      cpp.ifStmt(cpp.not(v), [cpp.exprStmt(cpp.call(cpp.dot(close, "exhausted"))), { k: "break" }]),
+    ];
+
+    return [
+      cpp.varDecl(closer, `${it.name}close`, it.coll, { style: "construct" }),
+      { k: "for", body: it.body(cpp.call("std::move", [cpp.deref(v)]), head) },
+    ];
+  },
+};
 
 /** A place's C++ type: `lucent::Box<T>` when it is boxed. */
 function boxOf(type: cpp.Type, boxed: boolean | undefined): cpp.Type {

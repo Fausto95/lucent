@@ -17,7 +17,8 @@ import {
   type LeafOperands,
   type LeafPlace,
 } from "../ir/lower.ts";
-import { type LType, T } from "../types.ts";
+import { numberExpr, stringExpr } from "../lowering/literals.ts";
+import { type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
 import { AlreadyReported, type Ctx, type E } from "./context.ts";
 import { type FnOptions, FnEmitter, type Local } from "./function.ts";
 
@@ -181,6 +182,72 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
 
       return { name: "platformOnly", code: em.platformOnly(node, ctx.reg.cppType(type)), type };
     },
+
+    part: (value, from, which, node) =>
+      planned(node, () => {
+        const em = new LeafEmitter(ctx, opts, node, noOperands(node));
+        const v = { c: operand(value), t: from };
+        const t = stripOpt(from);
+
+        if ("name" in which) return em.member(v, which.name, node);
+
+        if ("rest" in which) {
+          if (t.k !== "array") throw new IrUnsupported(node, `the rest of a ${typeKey(from)}`);
+
+          return { c: cpp.call(cpp.dot(v.c, "slice"), [numberExpr(which.rest)]), t: from };
+        }
+
+        if (t.k === "tuple")
+          return { c: cpp.call("std::get", [v.c], [cpp.num(which.index)]), t: t.es[which.index]! };
+
+        if (t.k === "array")
+          return {
+            c: cpp.call(cpp.dot(v.c, "get"), [numberExpr(which.index)]),
+            t: unionOf([t.e, T.undefined]),
+          };
+
+        throw new IrUnsupported(node, `destructuring a ${typeKey(from)}`);
+      }),
+
+    keys: (value, from, node) =>
+      planned(node, () => {
+        const v = operand(value);
+        const t = stripOpt(from);
+        const strings = cpp.type("lucent::Array", cpp.type("lucent::String"));
+        const keys: E["t"] = { k: "array", e: T.string };
+
+        if (t.k === "dict") return { c: cpp.call(cpp.dot(v, "keys")), t: keys };
+
+        if (t.k === "struct") {
+          const names = ctx.reg.struct(t.id).fields.map((f) => stringExpr(f.name));
+
+          return { c: cpp.construct(strings, names, true), t: keys };
+        }
+
+        if (t.k === "array") {
+          const [k, out] = [cpp.id("k"), cpp.id("keys")];
+          const index = cpp.call("lucent::numberToString", [cpp.staticCast(cpp.type("double"), k)]);
+
+          return {
+            c: cpp.statementExpr(
+              [
+                cpp.varDecl(strings, "keys"),
+                {
+                  k: "for",
+                  init: cpp.varDecl(cpp.type("size_t"), "k", cpp.num(0)),
+                  test: cpp.binary(k, "<", cpp.call(cpp.dot(v, "size"))),
+                  update: cpp.postfix("++", k),
+                  body: [cpp.exprStmt(cpp.call(cpp.dot(out, "push"), [index]))],
+                },
+              ],
+              out,
+            ),
+            t: keys,
+          };
+        }
+
+        throw new IrUnsupported(node, `for in over a ${typeKey(from)}`);
+      }),
 
     place: (target, operands): LeafPlace =>
       rejected(target, () => {
