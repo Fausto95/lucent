@@ -9,7 +9,7 @@ import ts from "typescript";
 import type { ProgramFacts } from "../analysis/index.ts";
 import type { FunctionLike } from "../analysis/scopes.ts";
 import { type CppFunction, type Lowering, lowerToCpp } from "../ir/cpp.ts";
-import type { Initializer, LowerHost, NestedSignature } from "../ir/lower.ts";
+import type { Initialization, Initializer, LowerHost, NestedSignature } from "../ir/lower.ts";
 import type { LucentModule } from "../program.ts";
 import { branchPlatform, platformGuard, switchPlatforms } from "../platforms.ts";
 import { type LType, T } from "../types.ts";
@@ -91,20 +91,32 @@ export function initThroughIr(
   ctx: Ctx,
   module: LucentModule,
   initializers: Initializer[],
-  lowering: Exclude<Lowering, "legacy">,
-  facts: ProgramFacts,
+  ir: IrMode,
 ): CppFunction | undefined {
   // The analysis does not count a module's initializing its own variables as writing state: the
   // IR's record is its own.
   const init = { id: `${module.ns}::init`, source: module.sourceFile, initializers };
+  const opts = { module, async: false, returnType: T.void };
+
+  return initializationThroughIr(ctx, init, opts, "<module>", ir);
+}
+
+/** Code that only initializes (an `init()`, an implicit constructor) through the IR. */
+export function initializationThroughIr(
+  ctx: Ctx,
+  init: Initialization,
+  opts: FnOptions,
+  site: string,
+  ir: IrMode,
+): CppFunction | undefined {
   const backend = {
     cppType: (t: LType) => ctx.reg.cppType(t),
     cppRetType: (t: LType) => ctx.reg.cppRetType(t),
-    site: "<module>",
+    site,
   };
-  const opts = { module, async: false, returnType: T.void };
+  const host = irHost(ctx, ir.facts, opts);
 
-  return reportingOnce(ctx, () => lowerToCpp(lowering, init, irHost(ctx, facts, opts), backend));
+  return reportingOnce(ctx, () => lowerToCpp(ir.lowering, init, host, backend));
 }
 
 /** `lower()`; what planning a leaf reported is the legacy emitter's to report again when it falls back. */

@@ -965,7 +965,9 @@ export interface EffectRef {
   starts, or, with a Lucent base class, right after its `super(…)`
   (`LeafHost.superCall`); its span is its class's. A module's `init()`
   (`lowerInit`) stores its classes' static fields, then its variables, a
-  variable without a value getting its type's default.
+  variable without a value getting its type's default. The constructor a
+  class does not declare is the same kind of code: its parameters, its
+  base's construction on them, then its fields.
 - A compute task's variant (`LowerInput.task`) is its function lowered
   again: each loop iteration starts with a safepoint
   (`LeafHost.safepoint`), and its calls of module functions call their
@@ -1146,7 +1148,8 @@ cases run under both lowerings).
   `await` and `produce` ops, `IrFunction.generator`, async functions'
   results as what their promise fulfils with. Constructors' and modules'
   initializers (`Initializer`, `LowerInput.construct` and `span`,
-  `lowerInit`, `LeafHost.superCall`). `LeafHost.step` and `equals`;
+  `lowerInit`, `LeafHost.superCall`); `Initialization` also for the
+  constructor a class does not declare. `LeafHost.step` and `equals`;
   `LeafOperands.operand` takes a type hint.
   Migration: none (additive; the default lowering is unchanged).
 

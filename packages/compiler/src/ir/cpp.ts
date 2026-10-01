@@ -39,7 +39,7 @@ import {
   type LowerHost,
   type LowerInput,
   lowerInit,
-  type ModuleInit,
+  type Initialization,
 } from "./lower.ts";
 import { verify, type VerifyEnv } from "./verify.ts";
 
@@ -78,7 +78,7 @@ export const coverage: { lowered: string[]; fellBack: { id: string; why: string 
  */
 export function lowerToCpp(
   mode: Exclude<Lowering, "legacy">,
-  input: LowerInput | ModuleInit,
+  input: LowerInput | Initialization,
   host: LowerHost,
   backend: CppBackend,
 ): CppFunction | undefined {

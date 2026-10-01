@@ -1049,6 +1049,9 @@ before output code generation.
     the bare app), the `lucent-orbit` package left out until its
     Android dependencies resolve on this machine.
   - Compute task variants: 774 of 774.
+  - Implicit constructors (the base's construction on the arguments,
+    then the fields), destructured parameters with defaults: 803 of 803.
+    What the legacy emitter still writes: component setups.
 
 <a id="t54"></a>
 

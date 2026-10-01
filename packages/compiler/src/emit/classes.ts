@@ -10,7 +10,7 @@ import type { ValueId } from "../ir/ir.ts";
 import type { Initializer, Leaf } from "../ir/lower.ts";
 import { functionName } from "./builtins.ts";
 import { type FnOptions, FnEmitter } from "./function.ts";
-import { type IrMode, throughIr } from "./through-ir.ts";
+import { initializationThroughIr, type IrMode, throughIr } from "./through-ir.ts";
 import { ifaceOverrides, ifacesOf, virtualMembers } from "./interfaces.ts";
 import { subclassImplicitSuper } from "./objc-subclass.ts";
 
@@ -400,6 +400,45 @@ export function emitClass(
     }
   };
   let ctorDecls: cpp.Param[] = [];
+  /** The implicit constructor through the IR: its base's construction on its arguments, then the fields. */
+  const implicitThroughIr = (mode: IrMode): boolean => {
+    const params = superCtor?.params ?? [];
+    const sc = superCtor;
+    const lowered = initializationThroughIr(
+      ctx,
+      {
+        id: `${info.cppName}::construct`,
+        source: decl,
+        params,
+        ...(sc
+          ? {
+              first: (args: ValueId[]): Leaf => ({
+                name: "super()",
+                code: cpp.call(sc.call, args.map(operand)),
+                type: T.void,
+              }),
+            }
+          : {}),
+        initializers: fieldInitializers(),
+      },
+      {
+        module,
+        async: false,
+        returnType: T.void,
+        cls: info,
+        thisExpr: "this",
+        isConstructor: true,
+      },
+      `new ${decl.name?.text ?? ""}`,
+      mode,
+    );
+
+    if (!lowered) return false;
+
+    ctorDecls = lowered.params;
+    define("construct", cpp.voidType, ctorDecls, lowered.body);
+    return true;
+  };
   // With a Lucent base class, super(...) runs the base's construct() and
   // then this class's field initializers, as in JavaScript.
   const superCtor = baseT
@@ -414,6 +453,8 @@ export function emitClass(
       ? emitMethod(ctor, "construct", false, undefined, superCtor)
       : emitMethod(ctor, "construct", false, initFields);
     ctorDecls = r.decls;
+  } else if (ir && !nativeSubclass && implicitThroughIr(ir)) {
+    // Through the IR: ctorDecls are set.
   } else {
     // Implicit constructor(...args) { super(...args); }, or the field initializers alone.
     const em = new FnEmitter(ctx, {

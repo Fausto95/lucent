@@ -252,8 +252,8 @@ export interface Initializer {
 
 /** The function to lower, with the types the compiler gave its signature. */
 export interface LowerInput {
-  /** The function; for a module's initialization, its source file. */
-  decl: FunctionLike | ts.SourceFile;
+  /** The function; for code that only initializes, its module's file or its class. */
+  decl: FunctionLike | ts.SourceFile | ts.ClassLikeDeclaration;
   /** What the function's code spans, when more than its declaration (a class's field initializers). */
   span?: ts.Node;
   /**
@@ -290,26 +290,34 @@ export function lower(input: LowerInput, host: LowerHost): Lowered {
   return new Lowerer(input, host).function();
 }
 
-/** A module's initialization (its `init()`): what it stores, in order, into what. */
-export interface ModuleInit {
+/**
+ * Code that only initializes: a module's `init()`, or the constructor a
+ * class does not declare. It takes `params`; `first` runs before its
+ * initializers (an implicit constructor's base construction, on the
+ * parameters), then each initializer, in order.
+ */
+export interface Initialization {
   id: FunctionId;
-  source: ts.SourceFile;
+  /** Where its code is: the module's file, or the class. */
+  source: ts.SourceFile | ts.ClassLikeDeclaration;
+  params?: LType[];
+  first?: (params: ValueId[]) => Leaf;
   initializers: Initializer[];
   effects?: EffectSummary;
 }
 
-export function lowerInit(init: ModuleInit, host: LowerHost): Lowered {
+export function lowerInit(init: Initialization, host: LowerHost): Lowered {
   const input: LowerInput = {
     decl: init.source,
     id: init.id,
-    params: [],
+    params: init.params ?? [],
     result: T.void,
     async: false,
     generic: false,
     ...(init.effects ? { effects: init.effects } : {}),
   };
 
-  return new Lowerer(input, host).initialization(init.initializers);
+  return new Lowerer(input, host).initialization(init);
 }
 
 const ERRORS: Record<string, BuiltinName> = {
@@ -374,7 +382,7 @@ class Lowerer {
   function(): Lowered {
     const d = this.input.decl;
 
-    if (ts.isSourceFile(d)) this.unsupported(d, "a module as a function");
+    if (ts.isSourceFile(d) || ts.isClassLike(d)) this.unsupported(d, "initializing as a function");
 
     if (!d.body) this.unsupported(d, "functions without a body");
 
@@ -401,8 +409,13 @@ class Lowerer {
   }
 
   /** A module's initialization: each initializer in order. */
-  initialization(initializers: readonly Initializer[]): Lowered {
-    this.initialize(initializers);
+  initialization(init: Initialization): Lowered {
+    const span = spanOf(init.source);
+    const params = this.input.params.map((t, i) => this.b.param(i, t, span));
+
+    if (init.first) this.planOf(init.first(params), params, span);
+
+    this.initialize(init.initializers);
 
     const fn = this.b.finish(this.input.effects);
 
@@ -483,7 +496,23 @@ class Lowerer {
     body: ts.Node,
   ): void {
     if (!ts.isIdentifier(p.name)) {
-      if (p.initializer) this.unsupported(p, "a destructured parameter with a default");
+      const init = p.initializer;
+
+      // The default when the argument is undefined, then the pattern's parts.
+      if (init && defaulted) {
+        const span = spanOf(p);
+        const absent = this.b.binary("===", value, this.b.const(undefined, span), span);
+        const given = this.b.if(
+          absent,
+          span,
+          () => this.b.yield(this.coerce(this.expr(init, defaulted), defaulted, init), span),
+          () => this.b.yield(this.coerce(value, defaulted, p), span),
+          defaulted,
+        )!;
+
+        this.bind(p.name, given);
+        return;
+      }
 
       this.bind(p.name, value);
       return;

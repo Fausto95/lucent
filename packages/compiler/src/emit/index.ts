@@ -310,7 +310,7 @@ export function emitProgram(
         },
       })),
     ];
-    const lowered = ir && initThroughIr(ctx, m, initializers, ir.lowering, ir.facts);
+    const lowered = ir && initThroughIr(ctx, m, initializers, ir);
     const body = lowered ? lowered.body : [...staticInits.get(m)!, ...legacyInit(ctx, m, vars)];
 
     moduleDefs.get(m)!.push(cpp.fn("init", cpp.voidType, [], body, { scope: cpp.type(m.ns) }));
