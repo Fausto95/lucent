@@ -210,6 +210,9 @@ function classMemberPlan(
   role: Role,
 ): BindingPlan | "constant" | undefined {
   if (ts.isMethodDeclaration(decl)) {
+    // A member the schema does not name ([Symbol.dispose], which disposes an AutoCloseable): no plan.
+    if (!ts.isIdentifier(decl.name)) return undefined;
+
     const { ref: owner, method, promise } = schemaMethod(ref, decl);
 
     return memberPlan(
