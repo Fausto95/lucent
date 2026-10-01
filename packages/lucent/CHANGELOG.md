@@ -1,5 +1,13 @@
 # @lucent-lang/lucent
 
+## 0.1.1
+
+### Patch Changes
+
+- [#56](https://github.com/Fausto95/lucent/pull/56) [`cbe8cd1`](https://github.com/Fausto95/lucent/commit/cbe8cd1c4c53ab1925a735f2f8a7c2cb17660b6e) Thanks [@Fausto95](https://github.com/Fausto95)! - Compile a program that calls `compute` and disposes an Android `AutoCloseable` with `[Symbol.dispose]()`, which crashed the compiler.
+
+- [#56](https://github.com/Fausto95/lucent/pull/56) [`cbe8cd1`](https://github.com/Fausto95/lucent/commit/cbe8cd1c4c53ab1925a735f2f8a7c2cb17660b6e) Thanks [@Fausto95](https://github.com/Fausto95)! - Compile functions, methods and modules through Lucent's semantic IR, which checks evaluation order, types and control flow before it generates native code.
+
 ## 0.1.0
 
 ### Minor Changes
