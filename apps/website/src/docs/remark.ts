@@ -3,12 +3,14 @@
  * markdown.ts:
  *   - `include="…"` fills an empty fence with a file from src/generated/snippets/,
  *     and a diff shows as added and removed lines;
+ *   - TypeScript and JavaScript samples are formatted with Oxfmt;
  *   - a sample flagged `cpp` gets "See the C++" under it (under its tabs, in a
  *     <Tabs>): what the compiler writes for it, from src/generated/cpp/<slug>.json.
  */
 import fs from "node:fs";
 import path from "node:path";
 import type { Code, Root, RootContent } from "mdast";
+import { format } from "oxfmt";
 import type { CppFile } from "./types.ts";
 import { docsSlugOf, formatMeta, langOf, parseMeta } from "./markdown.ts";
 import { readSnippet } from "./mdx-read.ts";
@@ -42,6 +44,29 @@ export function remarkInclude() {
       if (typeof include === "string") code.value = readSnippet(include);
       if (code.lang === "diff") code.value = diffForDisplay(code.value);
     });
+  };
+}
+
+/** The languages Oxfmt formats, as the file extension it reads them by. */
+const formatted: Record<string, string> = { ts: "ts", tsx: "tsx", js: "js", jsx: "jsx" };
+
+/**
+ * A TypeScript or JavaScript sample as the repository formats its own code
+ * (Oxfmt's defaults, as `vp fmt`), whether written on the page or included.
+ * A sample Oxfmt can't parse (a fragment, an elided body) shows as written.
+ */
+export function remarkFormat() {
+  return async (tree: Root) => {
+    const codes: Code[] = [];
+    eachCode(tree, (code) => {
+      if (code.lang && code.lang in formatted) codes.push(code);
+    });
+    await Promise.all(
+      codes.map(async (code) => {
+        const { code: out, errors } = await format(`sample.${formatted[code.lang!]}`, code.value);
+        if (!errors.length) code.value = out.trimEnd();
+      }),
+    );
   };
 }
 

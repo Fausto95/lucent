@@ -230,6 +230,9 @@ importers:
       github-slugger:
         specifier: ^2.0.0
         version: 2.0.0
+      oxfmt:
+        specifier: 0.68.0
+        version: 0.68.0(vite-plus@0.3.3(@types/node@26.6.2)(esbuild@0.28.2)(terser@5.51.2)(typescript@5.9.3)(yaml@2.9.1))
       react:
         specifier: 19.3.0
         version: 19.3.0

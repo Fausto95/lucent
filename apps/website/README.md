@@ -45,7 +45,8 @@ website:build`, output `apps/website/dist`).
 - `src/docs/types.ts`: the docs block model the checks read. `mdx-read.ts`
   reads a page into blocks, `mdx-write.ts` writes the reference pages from
   `src/docs/templates/`, and `markdown.ts` holds the conventions both
-  follow, with `remark.ts` (`include`, "See the C++") for the build.
+  follow, with `remark.ts` (`include`, Oxfmt for TypeScript and JavaScript samples,
+  "See the C++") for the build.
 - `src/components/`: `Diagram.astro` (the hand-laid SVG diagrams in
   `diagrams/`, rendered at build time), `Comparison.astro`, `Feature.astro`,
   and `overrides/` of Starlight's components (the experimental banner, the
