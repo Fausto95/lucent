@@ -123,3 +123,36 @@ pre,
 .lucent-diagram figcaption p {
   margin: 0;
 }
+
+/*
+ * Previous and next: long page names wrap inside their card instead of
+ * running into the other one; on a phone the cards stack, each the full width.
+ */
+:root .pagination-links {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  align-items: stretch;
+}
+:root .pagination-links > a {
+  min-width: 0;
+  margin: 0;
+  white-space: normal;
+}
+:root .pagination-links > .next {
+  grid-column: 2;
+  text-align: end;
+}
+:root .pagination-links .pagination-content {
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+}
+@media (max-width: 30rem) {
+  :root .pagination-links {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  :root .pagination-links > .next {
+    grid-column: 1;
+  }
+}
