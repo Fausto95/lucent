@@ -79,7 +79,7 @@ export function model(): string {
 `);
     const name = body(cppOf(file, "ir-strict", "host"), "name");
 
-    expect(name).toContain("lucent::platformOnly<lucent::Error>(");
+    expect(name).toContain("lucent::platformOnly<void>(");
 
     expect(name).not.toContain("iPhone");
 

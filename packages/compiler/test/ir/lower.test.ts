@@ -386,6 +386,33 @@ describe("the lowering selector", () => {
     expect(cppOf(ORDER, "ir-strict")).not.toBe(legacy);
   });
 
+  it("reports itself, under ir-strict, what the legacy emitter rejects", () => {
+    const file = module(
+      [
+        "class R { [Symbol.dispose](): void {} }",
+        "export function f(n: number): number {",
+        "  switch (n) {",
+        "    case 1:",
+        "      using r = new R();",
+        "      return 1;",
+        "  }",
+        "  return 0;",
+        "}",
+        "export function g(): void { throw 1; }",
+        "export async function h(xs: number[]): Promise<number> {",
+        "  for await (const x of xs) return x;",
+        "  return 0;",
+        "}",
+        "",
+      ].join("\n"),
+    );
+    const legacy = withLowering(undefined, () => compile([file])).diagnostics;
+
+    expect(legacy.map((d) => d.code)).toEqual(["LUCENT1001", "LUCENT1006", "LUCENT1009"]);
+
+    expect(withLowering("ir-strict", () => compile([file])).diagnostics).toEqual(legacy);
+  });
+
   it("reports the legacy emitter's diagnostics for what the IR does not lower", () => {
     const file = module("export function f(): number { var x = 1; return x; }\n");
     const legacy = withLowering(undefined, () => compile([file])).diagnostics;
