@@ -9,7 +9,8 @@ import ts from "typescript";
 import type { ProgramFacts } from "../analysis/index.ts";
 import type { FunctionLike } from "../analysis/scopes.ts";
 import { type CppFunction, type Lowering, lowerToCpp } from "../ir/cpp.ts";
-import type { LowerHost, NestedSignature } from "../ir/lower.ts";
+import type { Initializer, LowerHost, NestedSignature } from "../ir/lower.ts";
+import type { LucentModule } from "../program.ts";
 import { branchPlatform, platformGuard, switchPlatforms } from "../platforms.ts";
 import { type LType, T } from "../types.ts";
 import type { Ctx, ParamInfo } from "./context.ts";
@@ -35,6 +36,10 @@ export interface IrUnit {
   site: string;
   /** Statements its C++ body starts with. */
   prologue?: cpp.Stmt[];
+  /** A constructor's: what it initializes, and whether `super(…)` comes first. */
+  construct?: { initializers: Initializer[]; base: boolean };
+  /** What its code spans, when more than its declaration (a class's field initializers). */
+  span?: ts.Node;
 }
 
 /** `unit` lowered through the IR, or undefined when it falls back to the legacy emitter (`ir`). */
@@ -57,6 +62,8 @@ export function throughIr(
     async: unit.async,
     generic: unit.generic,
     ...(known ? { effects: facts.effects(known) } : {}),
+    ...(unit.construct ? { construct: unit.construct } : {}),
+    ...(unit.span ? { span: unit.span } : {}),
   };
   const backend = {
     cppType: (t: LType) => ctx.reg.cppType(t),
@@ -64,9 +71,37 @@ export function throughIr(
     site: unit.site,
     ...(unit.prologue ? { prologue: unit.prologue } : {}),
   };
-  // What planning a leaf reported is the legacy emitter's to report again, when it lowers the code.
+
+  return reportingOnce(ctx, () =>
+    lowerToCpp(lowering, input, irHost(ctx, facts, unit.opts), backend),
+  );
+}
+
+/** A module's `init()` through the IR: its classes' static fields, then its variables, in order. */
+export function initThroughIr(
+  ctx: Ctx,
+  module: LucentModule,
+  initializers: Initializer[],
+  lowering: Exclude<Lowering, "legacy">,
+  facts: ProgramFacts,
+): CppFunction | undefined {
+  // The analysis does not count a module's initializing its own variables as writing state: the
+  // IR's record is its own.
+  const init = { id: `${module.ns}::init`, source: module.sourceFile, initializers };
+  const backend = {
+    cppType: (t: LType) => ctx.reg.cppType(t),
+    cppRetType: (t: LType) => ctx.reg.cppRetType(t),
+    site: "<module>",
+  };
+  const opts = { module, async: false, returnType: T.void };
+
+  return reportingOnce(ctx, () => lowerToCpp(lowering, init, irHost(ctx, facts, opts), backend));
+}
+
+/** `lower()`; what planning a leaf reported is the legacy emitter's to report again when it falls back. */
+function reportingOnce(ctx: Ctx, lower: () => CppFunction | undefined): CppFunction | undefined {
   const reported = { warnings: ctx.warnings.length, diagnostics: ctx.diagnostics.length };
-  const lowered = lowerToCpp(lowering, input, irHost(ctx, facts, unit.opts), backend);
+  const lowered = lower();
 
   if (!lowered) {
     ctx.warnings.length = reported.warnings;

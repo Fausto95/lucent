@@ -6,7 +6,9 @@ import { type ClassChain, type ClassInfo, cppIdent, type LType, substitute, T } 
 import { parameterSymbol } from "../analysis/scopes.ts";
 import type { Ctx } from "./context.ts";
 import type { ProgramFacts } from "../analysis/index.ts";
-import type { Lowering } from "../ir/cpp.ts";
+import { type Lowering, operand } from "../ir/cpp.ts";
+import type { ValueId } from "../ir/ir.ts";
+import type { Initializer, Leaf } from "../ir/lower.ts";
 import { functionName } from "./builtins.ts";
 import { type FnOptions, FnEmitter } from "./function.ts";
 import { throughIr } from "./through-ir.ts";
@@ -20,6 +22,8 @@ export interface ClassOutput {
   members: cpp.Decl[];
   /** Static field initializers, run by the module's init(). */
   staticInits: cpp.Stmt[];
+  /** The same, for the IR: each static field's initializer and where it goes. */
+  statics: Initializer[];
 }
 
 function modifiers(n: ts.Node): ts.SyntaxKind[] {
@@ -141,6 +145,7 @@ export function emitClass(
   const body: cpp.Member[] = [];
   const members: cpp.Decl[] = [];
   const staticInits: cpp.Stmt[] = [];
+  const statics: Initializer[] = [];
   const ctor = decl.members.find(ts.isConstructorDeclaration);
   const virtuals = ctx.guard(() => virtualMembers(ctx, info)) ?? new Set<string>();
 
@@ -176,6 +181,13 @@ export function emitClass(
         );
       body.push(cpp.field(reg.cppType(t), name, { static: true, inline: true }));
       if (m.initializer) {
+        const field = cpp.scoped(cpp.type(info.cppName), name);
+
+        statics.push({
+          value: { expr: m.initializer },
+          type: t,
+          into: { write: (v) => assigns(`${info.cppName}::${name} =`, field, v) },
+        });
         const em = new FnEmitter(ctx, { module, async: false, returnType: T.void });
         const v = ctx.guard(() => em.exprAs(m.initializer!, t));
         if (v !== undefined)
@@ -285,7 +297,7 @@ export function emitClass(
         ? [cpp.varDecl(cpp.auto, "self", cpp.call("lucent::selfRef", [cpp.self]))]
         : [];
     const lowered =
-      ir && !isCtor
+      ir && !(isCtor && nativeSubclass)
         ? throughIr(
             ctx,
             {
@@ -299,6 +311,12 @@ export function emitClass(
               opts,
               site: functionName(node.body ?? node),
               prologue: keepSelf,
+              ...(isCtor
+                ? {
+                    construct: { initializers: fieldInitializers(), base: !!superCtor },
+                    span: decl,
+                  }
+                : {}),
             },
             ir.lowering,
             ir.facts,
@@ -331,6 +349,31 @@ export function emitClass(
 
   // Constructor: construct() runs field initializers, then the body.
   const self = (name: string) => cpp.arrow(cpp.self, name);
+  /** What construct() initializes, for the IR: an Error's name, parameter properties, fields. */
+  const fieldInitializers = (): Initializer[] => {
+    const write = (name: string) => (v: ValueId) =>
+      assigns(`this.${name} =`, self(cppIdent(name)), v);
+    const fields = decl.members.filter(
+      (m): m is ts.PropertyDeclaration & { initializer: ts.Expression } =>
+        ts.isPropertyDeclaration(m) && !isStatic(m) && !!m.initializer,
+    );
+
+    return [
+      ...(info.isError
+        ? [{ value: { string: "Error" }, type: T.string, into: { write: write("name") } }]
+        : []),
+      ...parameterProperties(ctor).map((p) => ({
+        value: { param: p },
+        type: fieldType(p),
+        into: { write: write(memberName(p)) },
+      })),
+      ...fields.map((m) => ({
+        value: { expr: m.initializer },
+        type: fieldType(m),
+        into: { write: write(memberName(m)) },
+      })),
+    ];
+  };
   const initFields = (em: FnEmitter) => {
     if (info.isError)
       em.emit(cpp.exprStmt(cpp.assign(self("name"), cpp.call("LUCENT_STR", [cpp.str("Error")]))));
@@ -472,7 +515,12 @@ export function emitClass(
     ...(template ? { template } : {}),
     bases,
   });
-  return { definition, members, staticInits };
+  return { definition, members, staticInits, statics };
+}
+
+/** A plan writing `value` into `place`. */
+function assigns(name: string, place: cpp.Expr, value: ValueId): Leaf {
+  return { name, code: cpp.assign(place, operand(value)), type: T.void };
 }
 
 /** Parameters of the nearest ancestor constructor, in terms of the subclass's type arguments. */

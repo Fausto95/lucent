@@ -960,6 +960,12 @@ export interface EffectRef {
   exhaustive switch at its end); a body that may give undefined gives it.
   A call that never returns gives a `never` value, which converts to any
   type and which no code that runs uses.
+- A constructor (`LowerInput.construct`) stores its `Initializer`s
+  (parameter properties, field initializers, an Error's name) where it
+  starts, or, with a Lucent base class, right after its `super(…)`
+  (`LeafHost.superCall`); its span is its class's. A module's `init()`
+  (`lowerInit`) stores its classes' static fields, then its variables, a
+  variable without a value getting its type's default.
 - A platform test (`PLATFORM === "ios" && …`, `switch (PLATFORM)`, a
   guard clause) is decided by the host (`platformGuard`,
   `platformClauses`, `runsHere`): only what the platform being built runs
@@ -1134,7 +1140,9 @@ cases run under both lowerings).
   ops, `LeafHost.dispose`, `LowerHost.isError` and `derives`; `throw`
   takes Error subclasses. Optional chains through `LeafHost.link`. The
   `await` and `produce` ops, `IrFunction.generator`, async functions'
-  results as what their promise fulfils with.
+  results as what their promise fulfils with. Constructors' and modules'
+  initializers (`Initializer`, `LowerInput.construct` and `span`,
+  `lowerInit`, `LeafHost.superCall`).
   Migration: none (additive; the default lowering is unchanged).
 
 ## C-EXEC: execution identities, scopes and operations

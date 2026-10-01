@@ -32,7 +32,15 @@ import {
   type UnaryOp,
   type ValueId,
 } from "./ir.ts";
-import { IrUnsupported, lower, type Lowered, type LowerHost, type LowerInput } from "./lower.ts";
+import {
+  IrUnsupported,
+  lower,
+  type Lowered,
+  type LowerHost,
+  type LowerInput,
+  lowerInit,
+  type ModuleInit,
+} from "./lower.ts";
 import { verify, type VerifyEnv } from "./verify.ts";
 
 /**
@@ -70,14 +78,14 @@ export const coverage: { lowered: string[]; fellBack: { id: string; why: string 
  */
 export function lowerToCpp(
   mode: Exclude<Lowering, "legacy">,
-  input: LowerInput,
+  input: LowerInput | ModuleInit,
   host: LowerHost,
   backend: CppBackend,
 ): CppFunction | undefined {
   let lowered: Lowered;
 
   try {
-    lowered = lower(input, host);
+    lowered = "initializers" in input ? lowerInit(input, host) : lower(input, host);
   } catch (e) {
     if (!(e instanceof IrUnsupported) || mode !== "ir") throw e;
 
@@ -626,7 +634,9 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
     const c = withOperands(op.code as cpp.Expr, (v) => e.value(v));
 
     // What gives nothing may still be a value in C++ (`(void)x, lucent::undefined`): discarded.
-    if (op.result === undefined) e.emit(op, cpp.exprStmt(cpp.cast("c", cpp.voidType, c)));
+    const statement = c.k === "call" || c.k === "assign" ? c : cpp.cast("c", cpp.voidType, c);
+
+    if (op.result === undefined) e.emit(op, cpp.exprStmt(statement));
     else e.define(op, op.result, c, true);
   },
 

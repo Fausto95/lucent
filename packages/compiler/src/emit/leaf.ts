@@ -231,6 +231,17 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
         return em.elementOf(v, (node as ts.ElementAccessExpression).argumentExpression, node);
       }),
 
+    superCall: (node, operands) =>
+      planned(node, () => {
+        const sc = opts.superCtor;
+
+        if (!sc) throw new IrUnsupported(node, "super() outside a constructor with a Lucent base");
+
+        const em = new LeafEmitter(ctx, opts, node, operands);
+
+        return { c: cpp.call(sc.call, em.args(node.arguments, sc.params, node)), t: T.undefined };
+      }),
+
     dispose: (value, from, node) =>
       planned(node, () => {
         const em = new LeafEmitter(ctx, opts, node, noOperands(node));

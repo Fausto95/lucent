@@ -1034,6 +1034,9 @@ before output code generation.
   - Methods, accessors and static methods (the coverage counts them from
     here, 681 units in all), a closure in a method capturing `this` as
     `self`, pure operands a plan asks for out of order: 665 of 681.
+  - Constructors (parameter properties and field initializers before the
+    body, or right after `super(…)`), modules' `init()` (static fields,
+    then variables): 743 of 759.
 
 <a id="t54"></a>
 

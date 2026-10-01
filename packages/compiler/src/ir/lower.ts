@@ -18,7 +18,13 @@
  * right side that may not run (`&&`, `||`, `??`, `?:`) goes in a branch.
  */
 import ts from "typescript";
-import { type FunctionLike, freeVariables, isWriteTarget, symbolOf } from "../analysis/scopes.ts";
+import {
+  type FunctionLike,
+  freeVariables,
+  isWriteTarget,
+  parameterSymbol,
+  symbolOf,
+} from "../analysis/scopes.ts";
 import { bigintLiteralValue } from "../lowering/literals.ts";
 import { isVoidish, type LType, sameType, T, typeKey } from "../types.ts";
 import { IrBuilder } from "./build.ts";
@@ -187,6 +193,8 @@ export interface LeafHost {
     kind: "member" | "method" | "call",
     operands: LeafOperands,
   ): Leaf;
+  /** A constructor's `super(…)`: its base class's construction, given the arguments as operands. */
+  superCall(node: ts.CallExpression, operands: LeafOperands): Leaf;
   /** Disposing `value`, a present `from`, as a `using` declaration does. */
   dispose(value: ValueId, from: LType, node: ts.Node): Leaf;
   /** What `node`, code for the platforms, gives in a build for neither: a `type` that throws. */
@@ -220,9 +228,33 @@ interface Target {
   write(value: ValueId, source: SourceSpan): void;
 }
 
+/**
+ * What a constructor or a module's initialization stores, in order: an
+ * expression's value, a parameter, a string, or what the backend gives (a
+ * type's default), as a `type`, into a module variable or a place the
+ * backend writes (a field of `this`, a class's static field).
+ */
+export interface Initializer {
+  value:
+    | { expr: ts.Expression }
+    | { param: ts.ParameterDeclaration }
+    | { string: string }
+    | { leaf: Leaf };
+  type: LType;
+  into: { variable: IrGlobal & { kind: "var" } } | { write(value: ValueId): Leaf };
+}
+
 /** The function to lower, with the types the compiler gave its signature. */
 export interface LowerInput {
-  decl: FunctionLike;
+  /** The function; for a module's initialization, its source file. */
+  decl: FunctionLike | ts.SourceFile;
+  /** What the function's code spans, when more than its declaration (a class's field initializers). */
+  span?: ts.Node;
+  /**
+   * A constructor: it initializes these first, or, with a Lucent base
+   * class, right after its `super(…)` call.
+   */
+  construct?: { initializers: Initializer[]; base: boolean };
   id: FunctionId;
   /** What callers pass: an optional for a parameter with a default. */
   params: LType[];
@@ -248,6 +280,28 @@ export interface Lowered {
 
 export function lower(input: LowerInput, host: LowerHost): Lowered {
   return new Lowerer(input, host).function();
+}
+
+/** A module's initialization (its `init()`): what it stores, in order, into what. */
+export interface ModuleInit {
+  id: FunctionId;
+  source: ts.SourceFile;
+  initializers: Initializer[];
+  effects?: EffectSummary;
+}
+
+export function lowerInit(init: ModuleInit, host: LowerHost): Lowered {
+  const input: LowerInput = {
+    decl: init.source,
+    id: init.id,
+    params: [],
+    result: T.void,
+    async: false,
+    generic: false,
+    ...(init.effects ? { effects: init.effects } : {}),
+  };
+
+  return new Lowerer(input, host).initialization(init.initializers);
 }
 
 const ERRORS: Record<string, BuiltinName> = {
@@ -303,7 +357,7 @@ class Lowerer {
     this.b = new IrBuilder(
       input.id,
       input.result,
-      spanOf(input.decl),
+      spanOf(input.span ?? input.decl),
       input.async,
       input.generator,
     );
@@ -311,6 +365,8 @@ class Lowerer {
 
   function(): Lowered {
     const d = this.input.decl;
+
+    if (ts.isSourceFile(d)) this.unsupported(d, "a module as a function");
 
     if (!d.body) this.unsupported(d, "functions without a body");
 
@@ -322,6 +378,10 @@ class Lowerer {
 
     d.parameters.forEach((p, i) => this.parameter(p, values[i]!, this.input.defaulted?.[i], body));
 
+    const construct = this.input.construct;
+
+    if (construct && !construct.base) this.initialize(construct.initializers);
+
     if (ts.isBlock(body)) {
       this.statements(body.statements);
       this.end(d);
@@ -330,6 +390,78 @@ class Lowerer {
     const fn = this.b.finish(this.input.effects);
 
     return { fn, signatures: this.signatures, effects: this.effects };
+  }
+
+  /** A module's initialization: each initializer in order. */
+  initialization(initializers: readonly Initializer[]): Lowered {
+    this.initialize(initializers);
+
+    const fn = this.b.finish(this.input.effects);
+
+    return { fn, signatures: this.signatures, effects: this.effects };
+  }
+
+  /** Stores each initializer's value into its variable or place, in order. */
+  initialize(initializers: readonly Initializer[]): void {
+    const host = this.host.leaves;
+
+    for (const init of initializers) {
+      const { value, type, into } = init;
+      const span = spanOf(
+        "expr" in value ? value.expr : "param" in value ? value.param : this.input.decl,
+      );
+      const v =
+        "expr" in value
+          ? this.coerce(this.expr(value.expr, type), type, value.expr)
+          : "param" in value
+            ? this.coerce(this.parameterValue(value.param), type, value.param)
+            : "string" in value
+              ? this.b.const(value.string, span)
+              : this.planOf(value.leaf, [], span);
+
+      if ("variable" in into) {
+        const g = into.variable;
+
+        // Initializing stores into the module's constants too.
+        this.b.store(this.b.modulePlace(g.id, g.name, g.type, true), v, span);
+      } else {
+        if (!host) this.unsupported(this.input.decl, "initializing fields");
+
+        this.planOf(into.write(v), [v], span);
+      }
+    }
+  }
+
+  /** A parameter's value, read where the function starts. */
+  parameterValue(p: ts.ParameterDeclaration): ValueId {
+    const sym = parameterSymbol(
+      this.host.checker,
+      p as ts.ParameterDeclaration & { name: ts.Identifier },
+    );
+    const v = this.variableOf(sym);
+
+    if (!v) this.unsupported(p, "a parameter that is not a name");
+
+    return "value" in v ? v.value : this.b.load(v.place, spanOf(p));
+  }
+
+  /** `super(…)` in a constructor: the base class's construction, then this class's initializers. */
+  superCall(call: ts.CallExpression): void {
+    const host = this.host.leaves;
+    const construct = this.input.construct;
+
+    // Of a class that is not Lucent's (an Error's), it is the emitter's.
+    if (!construct?.base) {
+      this.leaf(call);
+      return;
+    }
+
+    if (!host) this.unsupported(call, "super() here");
+
+    const { operands, args } = this.operands();
+
+    this.planOf(host.superCall(call, operands), args, spanOf(call));
+    this.initialize(construct.initializers);
   }
 
   /**
@@ -349,7 +481,11 @@ class Lowerer {
       return;
     }
 
-    const sym = this.symbol(p.name);
+    // A parameter property's own symbol, which its constructor's body names.
+    const sym = parameterSymbol(
+      this.host.checker,
+      p as ts.ParameterDeclaration & { name: ts.Identifier },
+    );
     const span = spanOf(p);
     const local =
       defaulted !== undefined ||
@@ -2033,6 +2169,8 @@ const STATEMENTS: Partial<Record<ts.SyntaxKind, StatementLowering>> = {
     const e = s.expression;
 
     if (ts.isYieldExpression(e)) lw.yieldStatement(e);
+    else if (ts.isCallExpression(e) && e.expression.kind === ts.SyntaxKind.SuperKeyword)
+      lw.superCall(e);
     else lw.expr(ts.isVoidExpression(e) ? e.expression : e);
   },
 
