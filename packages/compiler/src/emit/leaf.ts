@@ -19,7 +19,7 @@ import {
 } from "../ir/lower.ts";
 import { numberExpr, stringExpr } from "../lowering/literals.ts";
 import { type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
-import { disposeCall } from "./builtins.ts";
+import { disposeCall, methodCall } from "./builtins.ts";
 import { AlreadyReported, type Ctx, type E } from "./context.ts";
 import { type FnOptions, FnEmitter, type Local } from "./function.ts";
 
@@ -208,6 +208,25 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
           };
 
         throw new IrUnsupported(node, `destructuring a ${typeKey(from)}`);
+      }),
+
+    link: (receiver, from, node, kind, operands) =>
+      planned(node, () => {
+        const em = new LeafEmitter(ctx, opts, node, operands);
+        const v = { c: operand(receiver), t: from };
+
+        if (kind === "call") return em.callValue(v, node as ts.CallExpression);
+
+        if (kind === "method") {
+          const call = node as ts.CallExpression;
+          const callee = call.expression as ts.PropertyAccessExpression;
+
+          return methodCall(em, v, callee.name.text, call);
+        }
+
+        if (ts.isPropertyAccessExpression(node)) return em.member(v, node.name.text, node);
+
+        return em.elementOf(v, (node as ts.ElementAccessExpression).argumentExpression, node);
       }),
 
     dispose: (value, from, node) =>

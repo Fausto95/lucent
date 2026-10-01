@@ -169,6 +169,18 @@ export interface LeafHost {
   part(value: ValueId, from: LType, which: PartOf, node: ts.Node): Leaf;
   /** What `for … in` goes over: `value`'s keys, as an array of strings. */
   keys(value: ValueId, from: LType, node: ts.Node): Leaf;
+  /**
+   * A link of an optional chain on `receiver`, a `from`: the member `node`
+   * reads (a property or an element), the method it calls on it, or the
+   * call of it; what else the link takes is lowered as operands.
+   */
+  link(
+    receiver: ValueId,
+    from: LType,
+    node: ts.Expression,
+    kind: "member" | "method" | "call",
+    operands: LeafOperands,
+  ): Leaf;
   /** Disposing `value`, a present `from`, as a `using` declaration does. */
   dispose(value: ValueId, from: LType, node: ts.Node): Leaf;
   /** What `node`, code for the platforms, gives in a build for neither: a `type` that throws. */
@@ -187,6 +199,13 @@ export interface LeafPlace {
 
 /** What a name holds in a function: a parameter's value, or a place. */
 type Variable = { value: ValueId } | { place: PlaceId; type: LType };
+
+/** A link of an optional chain, and whether a `?.` short-circuits there. */
+interface ChainLink {
+  kind: "member" | "method" | "call" | "present";
+  node: ts.Expression;
+  optional: boolean;
+}
 
 /** What an assignment assigns to: a variable, or a place a leaf names. */
 interface Target {
@@ -1015,6 +1034,8 @@ class Lowerer {
    * `hint` is the type it becomes, which shapes literals the backend plans.
    */
   expr(node: ts.Expression, hint?: LType): ValueId {
+    if (isChain(node)) return this.chain(node);
+
     const lower = EXPRESSIONS[node.kind] as
       | ((n: ts.Expression, lw: Lowerer, hint?: LType) => ValueId)
       | undefined;
@@ -1049,11 +1070,101 @@ class Lowerer {
 
     if (!host) this.unsupported(node, `${ts.SyntaxKind[node.kind]} expressions`);
 
-    if (node.flags & ts.NodeFlags.OptionalChain) this.unsupported(node, "optional chains");
-
     const { operands, args } = this.operands();
 
     return this.planOf(host.plan(node, operands, hint), args, spanOf(node));
+  }
+
+  /**
+   * An optional chain (`a?.b.c`, `a?.[i]`, `a?.m()`, `f?.()`): its base,
+   * then each link in turn on the value before it; at a `?.` whose value
+   * is null or undefined, the whole chain is undefined, and nothing after
+   * it (an argument, an index) runs.
+   */
+  chain(root: ts.Expression): ValueId {
+    const links: ChainLink[] = [];
+    let base: ts.Expression = root;
+
+    while (isChain(base)) {
+      const n: ts.Expression = base;
+
+      if (ts.isNonNullExpression(n)) {
+        links.unshift({ kind: "present", node: n, optional: false });
+        base = n.expression;
+      } else if (ts.isPropertyAccessExpression(n) || ts.isElementAccessExpression(n)) {
+        links.unshift({ kind: "member", node: n, optional: !!n.questionDotToken });
+        base = n.expression;
+      } else {
+        const call = n as ts.CallExpression;
+        const callee = call.expression;
+
+        // `a?.m()` calls the method m of `a`; `f?.()` and `a.f?.()` call a function value.
+        if (ts.isPropertyAccessExpression(callee) && !call.questionDotToken) {
+          links.unshift({ kind: "method", node: call, optional: !!callee.questionDotToken });
+          base = callee.expression;
+        } else {
+          links.unshift({ kind: "call", node: call, optional: !!call.questionDotToken });
+          base = callee;
+        }
+      }
+    }
+
+    return this.links(this.expr(base), links, this.typeAt(root), root);
+  }
+
+  /** `links` on `v`, in order, giving the `type` of the chain `root` (undefined once a `?.` short-circuits). */
+  links(v: ValueId, links: readonly ChainLink[], type: LType, root: ts.Node): ValueId {
+    const [link, ...rest] = links;
+
+    if (!link) return this.coerce(v, type, root);
+
+    const t = this.b.typeOf(v);
+    const span = spanOf(link.node);
+    const absent = t.k === "opt" || isAbsent(t) || (t.k === "union" && t.ms.some(isAbsent));
+
+    if (link.optional && absent) {
+      const test = this.b.binary("==", v, this.b.const(null, span), span);
+
+      return this.b.if(
+        test,
+        span,
+        () => this.b.yield(this.coerce(this.b.const(undefined, span), type, link.node), span),
+        () => this.b.yield(this.links(this.present(v, link.node), links, type, root), span),
+        type,
+      )!;
+    }
+
+    return this.links(this.apply(link, v), rest, type, root);
+  }
+
+  /** A value known not to be null or undefined: an optional's value, a union without its absent members. */
+  present(v: ValueId, node: ts.Node): ValueId {
+    const t = this.b.typeOf(v);
+
+    if (t.k === "opt") return this.b.convert(v, t.inner, spanOf(node));
+
+    if (t.k === "union") {
+      const ms = t.ms.filter((m) => !isAbsent(m));
+
+      return this.coerce(v, ms.length === 1 ? ms[0]! : { k: "union", ms }, node);
+    }
+
+    return v;
+  }
+
+  /** One link of a chain on the value before it: a member, a method call, a call, or `!`. */
+  apply(link: ChainLink, receiver: ValueId): ValueId {
+    if (link.kind === "present") return this.present(receiver, link.node);
+
+    const host = this.host.leaves;
+
+    if (!host) this.unsupported(link.node, "optional chains");
+
+    const { operands, args } = this.operands();
+    const from = this.b.typeOf(receiver);
+    const planned = host.link(receiver, from, link.node, link.kind, operands);
+
+    return this.planOf(planned, [receiver, ...args], spanOf(link.node));
   }
 
   /** The operands a leaf asks for, each lowered once, in the order of the source. */
@@ -1674,6 +1785,18 @@ function narrows(from: LType, to: LType, derives: (sub: LType, base: LType) => b
   const held = (m: LType) => from.ms.some((f) => sameType(f, m));
 
   return to.k === "union" ? to.ms.every(held) : held(to);
+}
+
+/** A link of an optional chain: a member access, call or `!` inside one. */
+function isChain(node: ts.Expression): boolean {
+  const kinds = [
+    ts.SyntaxKind.PropertyAccessExpression,
+    ts.SyntaxKind.ElementAccessExpression,
+    ts.SyntaxKind.CallExpression,
+    ts.SyntaxKind.NonNullExpression,
+  ];
+
+  return (node.flags & ts.NodeFlags.OptionalChain) !== 0 && kinds.includes(node.kind);
 }
 
 /** Declared by the TypeScript library (or another declaration file), not by the program. */

@@ -917,8 +917,9 @@ export interface EffectRef {
   assignment, compound assignment or increment of a place that is not a
   variable asks for the place (`LeafHost.place`): its operands, a read
   plan and a write plan, with the read before the right side runs.
-  Optional chains short-circuit and stay unsupported until the IR models
-  them. The C++ backend (`emit/leaf.ts`) plans a leaf with the emitter's
+  An optional chain is lowered link by link (`LeafHost.link`): at a `?.`
+  whose value is null or undefined, an `if` gives undefined and the rest
+  of the chain (its arguments too) does not run. The C++ backend (`emit/leaf.ts`) plans a leaf with the emitter's
   own code for it, its operands being named values, so the semantics of
   builtins and SDK calls are written once.
 - A `closure` makes a function value of a nested `IrFunction` (an arrow,
@@ -1116,7 +1117,7 @@ cases run under both lowerings).
   locals, and `LowerHost.isBoxed`, `signatureOf` and `effectsOf`. The
   `iterate` op and `LeafHost.part` and `keys`. The `try` and `dispose`
   ops, `LeafHost.dispose`, `LowerHost.isError` and `derives`; `throw`
-  takes Error subclasses.
+  takes Error subclasses. Optional chains through `LeafHost.link`.
   Migration: none (additive; the default lowering is unchanged).
 
 ## C-EXEC: execution identities, scopes and operations

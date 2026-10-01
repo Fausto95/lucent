@@ -1023,6 +1023,7 @@ before output code generation.
   - `try`, `catch`, `finally` (jumps through it, rethrowing after it),
     `using` with SuppressedError, Error subclasses thrown as themselves,
     `instanceof` narrowing: 477 of 606.
+  - Optional chains, short-circuiting what follows a `?.`: 488 of 606.
 
 <a id="t54"></a>
 

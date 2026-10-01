@@ -3355,7 +3355,7 @@ export class FnEmitter {
   }
 
   /** Calls a function value with the arguments of `node`. */
-  private callValue(f: E, node: ts.CallExpression): E {
+  callValue(f: E, node: ts.CallExpression): E {
     const ft = stripOpt(f.t);
     if (ft.k !== "fn")
       fail(node.expression, Codes.UnsupportedCall, `cannot call a value of type ${typeKey(f.t)}`);
