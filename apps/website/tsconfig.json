@@ -1,16 +1,13 @@
 {
+  "extends": "astro/tsconfigs/strict",
   "compilerOptions": {
-    "target": "ES2022",
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "moduleResolution": "bundler",
     "jsx": "react-jsx",
-    "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "skipLibCheck": true,
-    "noEmit": true,
-    "types": ["vite/client"]
+    "allowImportingTsExtensions": true,
+    "types": ["node"],
+    "paths": { "~/*": ["./src/*"] }
   },
-  "include": ["src"]
+  "include": [".astro/types.d.ts", "**/*"],
+  "exclude": ["dist", ".prose", "src/generated/snippets"]
 }

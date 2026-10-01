@@ -89,7 +89,7 @@ export function checkSamples(pages: CheckedPage[]): {
       for (const d of diagnostics) problems.push(`${page.href}: ${formatDiagnostic(d)}`);
       const shown = app.filter((s) => s.cpp);
       const platformCode = shown.some((s) => /from "lucent:(ios|android)/.test(s.code));
-      // "See the C++" loads a docs page's generated C++ (src/generated/cpp/<slug>.ts).
+      // "See the C++" reads a docs page's generated C++ (src/generated/cpp/<slug>.json).
       if (shown.length && page.kind === "post")
         problems.push(`${page.href}: "See the C++" (cpp: true) is for docs pages`);
       else if (shown.length && platformCode && missing.length) unbuilt.set(page.href, missing);

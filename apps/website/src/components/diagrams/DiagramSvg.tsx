@@ -1,6 +1,4 @@
-import * as stylex from "@stylexjs/stylex";
 import type { ReactNode } from "react";
-import { styles } from "../DocsContent.stylex";
 import { palette } from "./palette";
 
 interface DiagramSvgProps {
@@ -14,7 +12,7 @@ interface DiagramSvgProps {
 /** Responsive SVG shell with an accessible title and the arrowhead definition. */
 export function DiagramSvg({ viewBox, title, markerId, children }: DiagramSvgProps) {
   return (
-    <svg viewBox={viewBox} role="img" aria-label={title} {...stylex.props(styles.diagramSvg)}>
+    <svg viewBox={viewBox} role="img" aria-label={title} className="lucent-diagram-svg">
       <title>{title}</title>
       <defs>
         <marker

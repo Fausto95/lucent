@@ -1,6 +1,6 @@
 # Writing Lucent's docs
 
-These rules apply to every page under `src/docs/pages`, and to blog posts
+These rules apply to every page under `src/content/docs/docs`, and to blog posts
 as [Blog posts](#blog-posts) says. `node scripts/website.ts` checks them; CI
 runs the same script with `--check`.
 
@@ -40,62 +40,83 @@ count every sample on the page. A page over its budget gets split.
 
 ## Page template
 
-A page is an entry in `src/docs/nav.ts` and a file of blocks at
-`src/docs/pages/<slug>.ts`. Both are typed data (`src/docs/types.ts`), not
-Markdown. The nav holds what the sidebar and search need; the file is loaded
-when the page is visited.
+A page is an MDX file, `src/content/docs/docs/<slug>.mdx`, listed in the
+sidebar in `src/docs/nav.ts`. Its frontmatter says what the page is:
 
-```ts
-// src/docs/nav.ts
-{
-  slug: "guides/call-an-ios-api",
-  kind: "guide",
-  title: "Call an iOS API",                                  // the task or question
-  description: "Import the framework from lucent:ios and call it.", // the answer, shown first
-}
+````mdx
+---
+title: Call an iOS API # the task or question
+description: Import the framework from `lucent:ios` and call it. # the answer, shown first
+kind: guide # start, learn, guide, reference, example, other
+---
+
+```ts title="battery.lucent.ts"
+…the smallest complete example
 ```
 
-```ts
-// src/docs/pages/guides/call-an-ios-api.ts
-export const blocks: Block[] = [
-  { kind: "code", filename: "battery.lucent.ts", code: `…` }, // the smallest complete example
-  { kind: "p", text: "…" }, // only what the code doesn't say
-  { kind: "note", tone: "warn", text: "…" }, // optional: the most common mistake
-];
-```
+Only what the code doesn't say.
 
-The template renders the title, the description, the blocks, then the one
-"Next" link: the following page in the nav, or the entry's `next`.
-`scripts/website.ts` writes the TanStack Router route of each page and
-redirect (`src/generated/docs-routes.ts`), so links to docs pages type-check.
-A removed page gets an entry in `src/docs/redirects.ts`.
+:::caution
+Optional: the most common mistake.
+:::
+````
+
+The page shows the title, the description, the content, then a "Next"
+link: the following page in the sidebar, or the frontmatter's
+`next: { link, label }`. A removed page gets an entry in
+`src/docs/redirects.ts`. Search (Pagefind) indexes every page when the site
+is built.
+
+A page is written in a small vocabulary, the docs blocks of
+`src/docs/types.ts`, so `scripts/website.ts` can check it: paragraphs with
+`code`, **strong** and [links](/docs/), `##` and `###` headings, lists,
+tables, code blocks, `:::note` and `:::caution`, and these components:
+
+| Component                                     | For                                                         |
+| --------------------------------------------- | ----------------------------------------------------------- |
+| `<Tabs>` of `<TabItem>`s, one code block each | variants of a sample (the module and its JS usage)          |
+| `<Tabs syncKey="setup">`                      | Expo and bare React Native instructions; the choice carries |
+| `<Steps>` around a numbered list of `###`s    | a procedure                                                 |
+| `<CardGrid>` of `<LinkCard>`s                 | where to go next                                            |
+| `<Diagram name="…">caption</Diagram>`         | the diagrams in `src/components/diagrams/`                  |
+| `<Comparison />`                              | the comparison table (`src/docs/comparison-table.ts`)       |
+
+Anything else fails the check, so it can't slip past it. The reference
+pages generated from code (CLI, diagnostics, modules, `lucent.json`,
+compatibility, roadmap) are written by `scripts/website.ts` from their
+templates in `src/docs/templates/`: edit the template, not the MDX.
 
 ## Samples
 
-- A `code` block whose filename ends in `.lucent.ts` compiles. A page's
-  samples compile together, as one app, so they can import each other.
-- `expect: "LUCENT0xx"` marks a sample that must fail with that code. It
+A code block's meta names its file and what the check does with it
+(`src/docs/markdown.ts`):
+
+- `title="x.lucent.ts"`: a sample that compiles. A page's samples compile
+  together, as one app, so they can import each other.
+- `expect="LUCENT0xx"`: a sample that must fail with that code. It
   compiles on its own.
-- `cpp: true` adds "See the C++" under a sample: the file the compiler
-  writes for it, generated into `src/generated/cpp/` when the site is
-  built. Use it on the Start, Learn and How Lucent works examples.
-- `copy: false` hides the copy button, for output the reader reads rather
-  than runs.
+- `cpp`: adds "See the C++" under a sample, the file the compiler writes
+  for it, generated into `src/generated/cpp/`. Use it on the Start, Learn
+  and How Lucent works examples.
+- `nocopy`: no copy button, for output the reader reads rather than runs.
+- `include="examples/clipboard.lucent.ts"`: fills an empty block with a
+  file `scripts/website.ts` writes under `src/generated/snippets/`, so a
+  page shows code from the repository (the example ports, the tutorial's
+  steps and diffs) without copying it.
+- ` ```diff lang="ts" `: a unified diff; it isn't compiled.
 
 ## Blog posts
 
-A post is an entry in `src/blog/posts.ts` (slug, title, date, summary),
-newest first, and a file of blocks at `src/blog/pages/<slug>.ts`, the same
-`Block`s as a docs page. Its samples compile, its links resolve and its
-prose follows these rules, but it has no length budget and no "Next"
-link, and search leaves it out: a post is dated, not kept current.
+A post is `src/content/blog/<slug>.mdx`, with a `title`, a quoted `date`
+(`"2026-09-30"`) and a `summary` in its frontmatter. It is written like a
+docs page. Its samples compile, its links resolve and its prose follows
+these rules, but it has no length budget and no "Next" link: a post is
+dated, not kept current.
 
-A post's link preview (Open Graph and X tags) comes from its entry. The
-build writes `blog/<slug>/index.html` with the post's title, summary, date
-and address, since crawlers don't run the app. Give it its own 1200×630
-image with `image` (under `public/`, e.g. `/blog/<slug>/og.png`) and
-`imageAlt`; without one, it uses the site's. The build also writes the
-blog's RSS feed, `/blog/rss.xml`, from the same list.
+A post's link preview (Open Graph and X tags) comes from its frontmatter.
+Give it its own 1200×630 image with `image` (under `public/`, e.g.
+`/blog/<slug>/og.png`) and `imageAlt`; without one, it uses the site's.
+The blog's RSS feed, `/blog/rss.xml`, lists every post, newest first.
 
 ## Glossary
 

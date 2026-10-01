@@ -1,14 +1,18 @@
 /**
  * Keeps the website honest about the compiler and its own rules:
- *   1. regenerates apps/website/src/generated/: the homepage's C++ sample,
- *      the CLI and diagnostics references, and the docs route tree;
- *   2. checks the docs' structure: page files match the nav, each page has
- *      its "Next" link, retired slugs redirect to pages that exist; and the
- *      blog's: post files match the list, dates are days, newest first;
- *   3. compiles every `*.lucent.ts` sample on the docs pages and blog posts;
- *   4. checks internal links and their anchors, and each docs page's length
+ *   1. regenerates apps/website/src/generated/: the data the reference
+ *      templates read, and the snippets pages include (the homepage's C++,
+ *      the example ports, the tutorial's steps and diffs);
+ *   2. writes the reference pages from their templates (src/docs/templates/)
+ *      as MDX, and each page's "See the C++" (src/generated/cpp/<slug>.json);
+ *   3. reads every docs page and blog post from its MDX and checks the
+ *      docs' structure: page files match the sidebar, each page says its
+ *      kind and has its "Next" link, retired slugs redirect to pages that
+ *      exist; and each post's date;
+ *   4. compiles every `*.lucent.ts` sample on the docs pages and blog posts;
+ *   5. checks internal links and their anchors, and each docs page's length
  *      budget (words and lines of code, by kind of page);
- *   5. writes each page's and post's prose as Markdown to apps/website/.prose/
+ *   6. writes each page's and post's prose as Markdown to apps/website/.prose/
  *      and runs Vale on it (apps/website/CONTRIBUTING-DOCS.md has the rules).
  *
  *   node scripts/website.ts           regenerate, then check
@@ -16,88 +20,89 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { root, websiteSrc } from "./website/context.ts";
+import { pageToMdx } from "../apps/website/src/docs/mdx-write.ts";
+import { root, website, docFile } from "./website/context.ts";
 import { checkBudgets } from "./website/budget.ts";
 import { generatedFiles } from "./website/generated.ts";
 import { checkLinks } from "./website/links.ts";
-import { checkedPages, checkPosts, checkStructure, loadPages } from "./website/pages.ts";
+import {
+  checkedPages,
+  checkPosts,
+  checkStructure,
+  loadPages,
+  loadTemplates,
+} from "./website/pages.ts";
 import { checkProse } from "./website/prose.ts";
 import { checkSamples } from "./website/samples.ts";
-import { searchIndex } from "./website/search.ts";
 
 const check = process.argv.includes("--check");
 const problems: string[] = [];
 
-const generatedDir = path.join(websiteSrc, "generated");
-
-/** Writes a generated file, or with --check reports it as stale. */
+/** Writes a file under apps/website/, or with --check reports it as stale. */
 function write(name: string, content: string): void {
-  const file = path.join(generatedDir, name);
+  const file = path.join(website, name);
   if (fs.existsSync(file) && fs.readFileSync(file, "utf8") === content) return;
-  if (check)
-    problems.push(`apps/website/src/generated/${name} is stale: run \`node scripts/website.ts\``);
+  if (check) problems.push(`apps/website/${name} is stale: run \`node scripts/website.ts\``);
   else {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, content);
   }
 }
 
-// Generated files first: pages import some of them.
-const generated: Record<string, string> = generatedFiles();
+// Generated files first: templates read some, and pages include others.
+const generated: Record<string, string> = Object.fromEntries(
+  Object.entries(generatedFiles()).map(([name, content]) => [`src/generated/${name}`, content]),
+);
 for (const [name, content] of Object.entries(generated)) write(name, content);
 
 // The JSON schemas, served where their $id says (https://lucent-lang.dev/schemas/…).
 const schemasDir = path.join(root, "packages/lucent/schemas");
-const publicSchemas = path.join(root, "apps/website/public/schemas");
-fs.mkdirSync(publicSchemas, { recursive: true });
-for (const name of fs.readdirSync(schemasDir)) {
-  const content = fs.readFileSync(path.join(schemasDir, name), "utf8");
-  const file = path.join(publicSchemas, name);
-  if (fs.existsSync(file) && fs.readFileSync(file, "utf8") === content) continue;
-  if (check)
-    problems.push(`apps/website/public/schemas/${name} is stale: run \`node scripts/website.ts\``);
-  else fs.writeFileSync(file, content);
+for (const name of fs.readdirSync(schemasDir))
+  write(`public/schemas/${name}`, fs.readFileSync(path.join(schemasDir, name), "utf8"));
+
+// The reference pages, from their templates.
+const templates = await loadTemplates();
+const pagesWritten: Record<string, string> = {};
+for (const [slug, { frontmatter, blocks }] of Object.entries(templates)) {
+  const name = docFile(slug);
+  pagesWritten[name] = pageToMdx({ ...frontmatter }, blocks, {
+    generatedFrom: `src/docs/templates/${slug}.ts`,
+  });
+  write(name, pagesWritten[name]!);
 }
 
-const { pages, posts } = await loadPages();
+const { pages, posts } = loadPages(pagesWritten);
 problems.push(...checkStructure(pages), ...checkPosts(posts));
 const checked = checkedPages(pages, posts);
 const samples = checkSamples(checked);
 problems.push(...samples.problems);
-
-// The search index: one entry per docs page section, from the same prose Vale reads. Posts
-// are dated and not kept current, so search leaves them out.
-generated["search-index.ts"] = searchIndex(pages);
-write("search-index.ts", generated["search-index.ts"]);
 
 /** A docs page's slug, from its URL. */
 const slugOf = (href: string): string => href.slice("/docs/".length, -1);
 
 // The C++ of each page's `cpp` samples, then stale files out.
 for (const [href, cpp] of samples.cpp) {
-  const slug = slugOf(href);
-  const name = `cpp/${slug || "index"}.ts`;
-  generated[name] =
-    `// Generated by scripts/website.ts from the samples of /docs/${slug}. Do not edit.\n\nimport type { CppFile } from "${"../".repeat((slug || "index").split("/").length + 1)}docs/types";\n\nexport const cpp: Record<string, CppFile[]> = ${JSON.stringify(cpp, null, 2)};\n`;
+  const name = `src/generated/cpp/${slugOf(href) || "index"}.json`;
+  generated[name] = `${JSON.stringify(cpp, null, 2)}\n`;
   write(name, generated[name]!);
 }
 for (const href of samples.unchecked)
   console.warn(`! ${href}: its view samples are not checked here, without an iOS or Android SDK`);
 const unbuilt = new Set(
-  [...samples.unbuilt.keys()].map((href) => `cpp/${slugOf(href) || "index"}.ts`),
+  [...samples.unbuilt.keys()].map((href) => `src/generated/cpp/${slugOf(href) || "index"}.json`),
 );
 for (const [href, platforms] of samples.unbuilt)
   console.warn(
     `! ${href}: its C++ is not rebuilt here, without the ${platforms.join(" and ")} SDK`,
   );
+const generatedDir = path.join(website, "src/generated");
 const existing = fs
   .readdirSync(generatedDir, { recursive: true, encoding: "utf8" })
-  .filter((f) => f.endsWith(".ts"))
-  .map((f) => f.split(path.sep).join("/"));
+  .filter((f) => fs.statSync(path.join(generatedDir, f)).isFile())
+  .map((f) => `src/generated/${f.split(path.sep).join("/")}`);
 for (const name of existing.filter((f) => !(f in generated) && !unbuilt.has(f))) {
-  if (check)
-    problems.push(`apps/website/src/generated/${name} is stale: run \`node scripts/website.ts\``);
-  else fs.rmSync(path.join(generatedDir, name));
+  if (check) problems.push(`apps/website/${name} is stale: run \`node scripts/website.ts\``);
+  else fs.rmSync(path.join(website, name));
 }
 
 problems.push(...checkLinks(checked));

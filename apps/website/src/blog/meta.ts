@@ -11,51 +11,33 @@ export const escape = (text: string): string =>
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;");
 
-/** Sets the content of the meta tag `key` names, adding the tag if the page lacks it. */
-function setMeta(html: string, attribute: "name" | "property", key: string, value: string): string {
-  const tag = `<meta ${attribute}="${key}" content="${escape(value)}" />`;
-  const existing = new RegExp(`<meta\\s+${attribute}="${key}"\\s+content="[^"]*"\\s*/?>`);
-
-  return existing.test(html)
-    ? html.replace(existing, tag)
-    : html.replace("</head>", `${tag}\n</head>`);
+export interface HeadEntry {
+  tag: "meta" | "link";
+  attrs: Record<string, string>;
 }
 
 /**
- * The site's page with a post's own title, summary, image and address:
- * crawlers read these tags without running the page's JavaScript, so the
- * build writes this page at the post's address (vite.config.js).
+ * A post's own link-preview tags: Starlight writes these into the post's
+ * page, replacing the site's tags of the same name (astro.config.ts).
  */
-export function withPostMeta(html: string, post: PostEntry): string {
+export function postHead(post: PostEntry): HeadEntry[] {
   const url = `${SITE}/blog/${post.slug}/`;
-  const title = `${post.title} — Lucent blog`;
-  const properties: [string, string][] = [
-    ["og:type", "article"],
-    ["og:url", url],
-    ["og:title", post.title],
-    ["og:description", post.summary],
-    ["article:published_time", post.date],
+  const meta = (attribute: "name" | "property", key: string, content: string): HeadEntry => ({
+    tag: "meta",
+    attrs: { [attribute]: key, content },
+  });
+  return [
+    meta("property", "og:type", "article"),
+    meta("property", "article:published_time", post.date),
+    meta("name", "twitter:title", post.title),
+    meta("name", "twitter:description", post.summary),
+    ...(post.image
+      ? [
+          meta("property", "og:image", `${SITE}${post.image}`),
+          meta("name", "twitter:image", `${SITE}${post.image}`),
+        ]
+      : []),
+    ...(post.imageAlt ? [meta("property", "og:image:alt", post.imageAlt)] : []),
+    { tag: "link", attrs: { rel: "canonical", href: url } },
   ];
-  const names: [string, string][] = [
-    ["description", post.summary],
-    ["twitter:title", post.title],
-    ["twitter:description", post.summary],
-  ];
-
-  if (post.image) {
-    properties.push(["og:image", `${SITE}${post.image}`]);
-    names.push(["twitter:image", `${SITE}${post.image}`]);
-  }
-  if (post.imageAlt) properties.push(["og:image:alt", post.imageAlt]);
-
-  let page = html.replace(/<title>[^<]*<\/title>/, `<title>${escape(title)}</title>`);
-
-  for (const [key, value] of properties) page = setMeta(page, "property", key, value);
-  for (const [key, value] of names) page = setMeta(page, "name", key, value);
-
-  const canonical = `<link rel="canonical" href="${url}" />`;
-
-  return /<link rel="canonical"[^>]*>/.test(page)
-    ? page.replace(/<link rel="canonical"[^>]*>/, canonical)
-    : page.replace("</head>", `${canonical}\n</head>`);
 }

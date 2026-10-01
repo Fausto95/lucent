@@ -1,0 +1,118 @@
+/**
+ * The site's remark plugins (astro.config.ts), for the conventions in
+ * markdown.ts:
+ *   - `include="…"` fills an empty fence with a file from src/generated/snippets/,
+ *     and a diff shows as added and removed lines;
+ *   - a sample flagged `cpp` gets "See the C++" under it (under its tabs, in a
+ *     <Tabs>): what the compiler writes for it, from src/generated/cpp/<slug>.json.
+ */
+import fs from "node:fs";
+import path from "node:path";
+import type { Code, Root, RootContent } from "mdast";
+import type { CppFile } from "./types.ts";
+import { docsSlugOf, formatMeta, langOf, parseMeta } from "./markdown.ts";
+import { readSnippet } from "./mdx-read.ts";
+
+type Parent = { children: RootContent[] };
+type File = { path?: string; history?: string[] };
+
+function eachCode(node: { children?: unknown[] } | RootContent, visit: (code: Code) => void): void {
+  if ((node as RootContent).type === "code") return visit(node as Code);
+  for (const child of ((node as { children?: unknown[] }).children ?? []) as RootContent[])
+    eachCode(child, visit);
+}
+
+/**
+ * A unified diff as Expressive Code marks one: added and removed lines, with
+ * no `@@` hunk headers (a block that starts with one shows as plain text).
+ * The first header goes; later ones become a "…" line, where code is skipped.
+ */
+export function diffForDisplay(diff: string): string {
+  let hunks = 0;
+  return diff
+    .split("\n")
+    .flatMap((line) => (line.startsWith("@@") ? (hunks++ === 0 ? [] : [" …"]) : [line]))
+    .join("\n");
+}
+
+export function remarkInclude() {
+  return (tree: Root) => {
+    eachCode(tree, (code) => {
+      const { include } = parseMeta(code.meta);
+      if (typeof include === "string") code.value = readSnippet(include);
+      if (code.lang === "diff") code.value = diffForDisplay(code.value);
+    });
+  };
+}
+
+const cppDir = path.resolve(import.meta.dirname, "../generated/cpp");
+
+/** A page's samples' C++, by sample file name: none for a page without `cpp` samples. */
+function cppOf(slug: string): Record<string, CppFile[]> {
+  const file = path.join(cppDir, `${slug || "index"}.json`);
+  return fs.existsSync(file)
+    ? (JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, CppFile[]>)
+    : {};
+}
+
+/** <details><summary>See the C++</summary> one code block per file </details>, as MDX elements. */
+function seeCpp(files: CppFile[]): RootContent {
+  const element = (name: string, children: unknown[], className?: string) =>
+    ({
+      type: "mdxJsxFlowElement",
+      name,
+      attributes: className ? [{ type: "mdxJsxAttribute", name: "class", value: className }] : [],
+      children,
+    }) as unknown as RootContent;
+  return element(
+    "details",
+    [
+      element("summary", [{ type: "text", value: "See the C++" }]),
+      ...files.map((f): Code => ({
+        type: "code",
+        lang: langOf(f.filename),
+        meta: formatMeta({ title: files.length > 1 ? `${f.filename} · ${f.label}` : f.filename }),
+        value: f.code,
+      })),
+    ],
+    "see-cpp",
+  );
+}
+
+export function remarkSeeCpp() {
+  return (tree: Root, file: File) => {
+    const slug = docsSlugOf(file.path ?? file.history?.[0] ?? "");
+    if (slug === undefined) return;
+    const cpp = cppOf(slug);
+    const walk = (parent: Parent) => {
+      for (let i = 0; i < parent.children.length; i++) {
+        const node = parent.children[i]!;
+        const shown: CppFile[][] = [];
+        eachCode(node, (code) => {
+          const meta = parseMeta(code.meta);
+          if (!meta.cpp || typeof meta.title !== "string") return;
+          const files = cpp[meta.title];
+          // Missing when the platform SDK wasn't here to build it: scripts/website.ts says so.
+          if (files?.length) shown.push(files);
+        });
+        if (shown.length && node.type !== "code" && !isTabs(node)) {
+          // Inside a list or a panel: put it under the sample itself.
+          walk(node as unknown as Parent);
+          continue;
+        }
+        if (shown.length) {
+          parent.children.splice(i + 1, 0, ...shown.map(seeCpp));
+          i += shown.length;
+        }
+      }
+    };
+    walk(tree);
+  };
+}
+
+const isTabs = (node: RootContent): boolean =>
+  node.type === ("mdxJsxFlowElement" as string) &&
+  (node as unknown as { name: string; attributes: { name: string }[] }).name === "Tabs" &&
+  !(node as unknown as { attributes: { name: string }[] }).attributes.some(
+    (a) => a.name === "syncKey",
+  );

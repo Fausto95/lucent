@@ -1,0 +1,20 @@
+---
+title: Use a third-party SDK
+description: Add the pod or Gradle dependency to the app as usual, then import it from `lucent:ios/*` or `lucent:android/*`.
+kind: guide
+---
+
+```ts title="linked.lucent.ts" from="apps/bare-example/src/sdk/linked.lucent.ts" include="examples/linked.lucent.ts"
+```
+
+A library the app already links is imported like the SDK: a pod's module on iOS, an AndroidX package on Android. This module is from the example apps, which add nothing for it.
+
+## Add a library
+
+1. Add it to the app as usual: a pod in `ios/Podfile`, or a dependency in `android/app/build.gradle`.
+2. iOS: run `pod install`. Lucent reads the pods' headers from the app's `Pods` folder.
+3. Android: nothing more. `lucent build` asks Gradle for the app's compile classpath, and caches the answer until the Gradle files change.
+4. Import from `lucent:ios/<Module>` or `lucent:android/<package>`.
+
+- Swift Package Manager libraries can't be imported yet; CocoaPods ones can ([roadmap](/docs/roadmap/)).
+- A library in a Lucent package goes in its `lucent.json` instead, so apps get it when they install the package.

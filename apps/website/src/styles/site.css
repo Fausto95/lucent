@@ -1,0 +1,125 @@
+/*
+ * Additions to the Six theme. Unlayered on purpose: unlayered rules win over
+ * Starlight's and Six's cascade layers.
+ */
+
+/* Geist for text and code, Geist Pixel for headings (Six's own fonts are Inter and JetBrains Mono). */
+:root:root {
+  --sl-font: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --sl-font-mono: "Geist Mono", ui-monospace, monospace;
+  --lucent-font-display: "Geist Pixel", "Geist", ui-sans-serif, sans-serif;
+}
+.expressive-code {
+  --ec-codeFontFml: var(--sl-font-mono);
+  --ec-uiFontFml: var(--sl-font);
+}
+h1,
+.sl-markdown-content :is(h2, h3),
+.hero h1 {
+  font-family: var(--lucent-font-display);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/*
+ * Moving between pages: the browser keeps the page on screen until the next
+ * one is ready, then fades only the content; the header and the sidebar,
+ * the same on both pages, stay put. Browsers without cross-document view
+ * transitions load pages as before.
+ */
+@view-transition {
+  navigation: auto;
+}
+.layout__header {
+  view-transition-name: lucent-header;
+}
+.aside .sidebar {
+  view-transition-name: lucent-sidebar;
+}
+::view-transition-group(lucent-header),
+::view-transition-group(lucent-sidebar) {
+  animation: none;
+}
+::view-transition-old(lucent-header),
+::view-transition-old(lucent-sidebar) {
+  display: none;
+}
+::view-transition-new(lucent-header),
+::view-transition-new(lucent-sidebar) {
+  animation: none;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 120ms;
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* Code shows what the reader types: `=>` stays two characters. */
+code,
+pre,
+.expressive-code,
+.lucent-diagram-svg {
+  font-variant-ligatures: none;
+}
+
+/*
+ * The homepage reads as one centred column: wide enough for a line of the
+ * generated C++, narrow enough to read down.
+ */
+:root[data-has-hero] .container-section .container {
+  max-width: calc(60rem + 3rem);
+}
+:root[data-has-hero] .hero h1 {
+  font-size: clamp(2rem, 6vw, 2.75rem);
+  line-height: 1.1;
+}
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+:root[data-has-hero] .container-section h2 {
+  margin-top: 2.5rem;
+}
+
+/* "See the C++" under a sample (src/docs/remark.ts). */
+.sl-markdown-content details.see-cpp {
+  margin-top: 0.5rem;
+}
+.sl-markdown-content details.see-cpp > summary {
+  cursor: pointer;
+  color: var(--sl-color-gray-3);
+  font-family: var(--sl-font-mono);
+  font-size: var(--sl-text-sm);
+}
+.sl-markdown-content details.see-cpp > summary:hover {
+  color: var(--sl-color-white);
+}
+
+/* Diagrams (src/components/Diagram.astro). */
+.lucent-diagram {
+  margin-block: 1.5rem;
+}
+.lucent-diagram-svg {
+  display: block;
+  width: 100%;
+  max-width: 44rem;
+  height: auto;
+  margin-inline: auto;
+}
+.lucent-diagram figcaption {
+  margin-top: 0.75rem;
+  color: var(--sl-color-gray-3);
+  font-size: var(--sl-text-sm);
+  text-align: center;
+}
+.lucent-diagram figcaption p {
+  margin: 0;
+}

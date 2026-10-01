@@ -7,5 +7,5 @@ and the config the step adds.
 
 The tutorial pages take their code from these files, and their diffs
 from one step to the next: `node scripts/website.ts` generates
-both (`apps/website/src/generated/tutorial/`) and compiles each step's
+both (`apps/website/src/generated/snippets/tutorial/`) and compiles each step's
 modules. Change a step here, not on the page, and later steps with it.

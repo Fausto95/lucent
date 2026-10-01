@@ -1,0 +1,60 @@
+---
+import StarlightPage from "@astrojs/starlight/components/StarlightPage.astro";
+import { formatDate } from "../../blog/types";
+import { blogSidebar, loadPosts } from "../../blog/load";
+
+const posts = await loadPosts();
+const sidebar = await blogSidebar();
+---
+
+<StarlightPage
+  frontmatter={{
+    title: "Blog",
+    description: "What's new in Lucent, and how it works.",
+    tableOfContents: false,
+    prev: false,
+    next: false,
+  }}
+  sidebar={sidebar}
+>
+  <ul class="posts not-content">
+    {
+      posts.map((post) => (
+        <li>
+          <time datetime={post.date}>{formatDate(post.date)}</time>
+          <a href={`/blog/${post.slug}/`}>{post.title}</a>
+          <p>{post.summary}</p>
+        </li>
+      ))
+    }
+  </ul>
+  <p><a href="/blog/rss.xml">RSS feed</a></p>
+</StarlightPage>
+
+<style>
+  .posts {
+    display: grid;
+    gap: 2rem;
+    max-width: 46rem;
+    padding: 0;
+    list-style: none;
+  }
+  time {
+    display: block;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-sm);
+  }
+  a {
+    color: var(--sl-color-white);
+    font-size: var(--sl-text-xl);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  a:hover {
+    text-decoration: underline;
+  }
+  p {
+    margin: 0.25rem 0 0;
+    color: var(--sl-color-gray-2);
+  }
+</style>

@@ -1,0 +1,35 @@
+---
+title: 3. Simplify the route off the JS thread
+description: An `async` method that runs on the Lucent thread, and stops when JavaScript aborts it.
+kind: learn
+samplesWith: apps/tutorial/steps/3-async
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+<Tabs>
+<TabItem label="trip.lucent.ts">
+
+```diff lang="ts" title="src/trip.lucent.ts" include="tutorial/3-async/src/trip.lucent.ts.diff"
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```diff lang="tsx" title="App.tsx" include="tutorial/3-async/App.tsx.diff"
+```
+
+</TabItem>
+</Tabs>
+
+`simplify` keeps the fixes that shape the route, and drops those within `tolerance` meters of a straight line. On a long trip that is slow work, so it's `async`: it runs on the Lucent thread, and the JS thread stays free.
+
+The `AbortSignal` comes from an `AbortController` in JavaScript. When the screen goes away, `controller.abort()` sets the signal, and `signal.throwIfAborted()` stops the loop with an `AbortError`.
+
+:::note
+Aborting doesn't stop Lucent code by itself. It only takes effect where the code checks the signal, or passes it to `delay`.
+:::
+
+## Run it
+
+The screen shows `Simplifying…` for a moment, then `4 fixes shape the route.`: one fix sat within 100 meters of the line through its neighbors.

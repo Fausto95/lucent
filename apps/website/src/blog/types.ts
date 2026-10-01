@@ -1,13 +1,6 @@
-import type { Block } from "../docs/types";
-
-/**
- * A blog post's metadata; blog/posts.ts lists these. Like a docs page, the
- * post's blocks live in their own file, `pages/<slug>.ts`, loaded when the
- * post is visited, so scripts/website.ts checks its samples, links and
- * prose the same way.
- */
+/** A blog post's frontmatter (src/content.config.ts validates it), with its slug. */
 export interface PostEntry {
-  /** Path under /blog/, without slashes. */
+  /** Path under /blog/, without slashes: the file's name. */
   slug: string;
   title: string;
   /** The day it was published, as YYYY-MM-DD. */
@@ -25,17 +18,9 @@ export interface PostEntry {
   imageAlt?: string;
 }
 
-/** What a post file exports. */
-export interface PostModule {
-  blocks: Block[];
-}
-
-export interface Post extends PostEntry {
-  blocks: Block[];
-}
-
-/** The file holding a post's blocks, relative to src/blog/. */
-export const postFile = (slug: string): string => `pages/${slug}.ts`;
+/** Newest first, the order of the list at /blog/ and of the feed. */
+export const newestFirst = <T extends { date: string }>(posts: T[]): T[] =>
+  [...posts].sort((a, b) => b.date.localeCompare(a.date));
 
 const longDate = new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" });
 

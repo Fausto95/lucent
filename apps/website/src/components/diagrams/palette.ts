@@ -1,22 +1,20 @@
-import { tokens } from "../../styles/tokens.stylex";
-
 /*
- * Shared look for the hand-laid SVG diagrams. Values are the site's CSS
- * variables, so the diagrams follow the theme. SVG presentation attributes
- * do not accept var(), hence the primitives set these through `style`.
+ * Shared look for the hand-laid SVG diagrams. Values are the theme's CSS
+ * variables, so the diagrams follow light and dark. SVG presentation
+ * attributes do not accept var(), hence the primitives set these through `style`.
  */
-export const FONT = '"IBM Plex Mono", monospace';
+export const FONT = '"Geist Mono", monospace';
 
 export const palette = {
-  boxFill: tokens.bgRaised,
-  boxStroke: tokens.borderStrong,
-  accentFill: tokens.surface,
-  accent: tokens.accent,
-  text: tokens.textCode,
-  muted: tokens.textSubtle,
-  laneFill: tokens.bgSunken,
-  laneStroke: tokens.border,
-  line: tokens.textSubtle,
+  boxFill: "var(--sl-color-gray-6)",
+  boxStroke: "var(--sl-color-gray-4)",
+  accentFill: "var(--sl-color-accent-low)",
+  accent: "var(--sl-color-accent-high)",
+  text: "var(--sl-color-white)",
+  muted: "var(--sl-color-gray-3)",
+  laneFill: "var(--sl-color-black)",
+  laneStroke: "var(--sl-color-gray-5)",
+  line: "var(--sl-color-gray-3)",
 } as const;
 
 export type Point = [number, number];

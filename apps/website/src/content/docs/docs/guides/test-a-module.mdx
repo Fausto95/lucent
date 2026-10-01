@@ -1,0 +1,68 @@
+---
+title: Test a module
+description: Run shared modules in Jest or Vitest as TypeScript, compare native and JavaScript with `lucent bench`, and check SDK calls on devices.
+kind: guide
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+## Run shared code as TypeScript
+
+<Tabs>
+<TabItem label="Vitest">
+
+```ts title="vitest.config.ts"
+import { createRequire } from "node:module";
+import { defineConfig } from "vitest/config";
+
+const require = createRequire(import.meta.url);
+
+export default defineConfig({
+  resolve: { alias: { "lucent:core": require.resolve("@lucent-lang/lucent/core") } },
+});
+```
+
+</TabItem>
+<TabItem label="Jest">
+
+```js title="jest.config.js"
+module.exports = {
+  moduleNameMapper: { "^lucent:core$": "@lucent-lang/lucent/core" },
+};
+```
+
+</TabItem>
+</Tabs>
+
+```ts title="trip.test.ts"
+import { expect, it } from "vitest";
+import { Trip } from "./src/trip.lucent";
+
+it("rejects a fix that arrives late", () => {
+  const trip = new Trip();
+  trip.add({ latitude: 48.85, longitude: 2.29, time: 1000 });
+  expect(() => trip.add({ latitude: 48.86, longitude: 2.3, time: 0 })).toThrow(expect.objectContaining({ code: "E_OUT_OF_ORDER" }));
+});
+```
+
+A module is TypeScript, so your test runner can run it as is. `@lucent-lang/lucent/core` is the JavaScript version of `lucent:core`, for `delay`, `error` and the rest. Modules with platform code can't run this way: their SDK calls need the app.
+
+## Compare native and JavaScript
+
+```sh title="terminal"
+npx lucent bench
+```
+
+`lucent bench` runs each case of your `*.bench.ts` files as the compiled module and as JavaScript, and fails when the results differ. It needs a desktop Hermes, at `~/hermes` or in `HERMES_DIR`.
+
+## Test platform code's neighbors
+
+```sh title="terminal"
+npx lucent build --platforms host --out .lucent/host
+```
+
+A host build compiles for your computer. Platform code there throws `this code runs only on iOS and Android`, so the shared code around it can run in tests.
+
+## Run on devices
+
+SDK calls run only in the app. Build it for the simulator and the emulator, and check each platform's branch there.

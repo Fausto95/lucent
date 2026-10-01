@@ -1,0 +1,17 @@
+---
+/**
+ * Starlight's <head>, with the fonts most pages paint with preloaded: text
+ * then appears in Geist from the first frame instead of swapping in (a jump
+ * on a first visit). The URLs are the same files the font CSS points to.
+ */
+import Default from "@astrojs/starlight/components/Head.astro";
+import geist400 from "@fontsource/geist/files/geist-latin-400-normal.woff2?url";
+import geist600 from "@fontsource/geist/files/geist-latin-600-normal.woff2?url";
+import geistMono400 from "@fontsource/geist-mono/files/geist-mono-latin-400-normal.woff2?url";
+import geistPixel400 from "@fontsource/geist-pixel/files/geist-pixel-latin-400-normal.woff2?url";
+
+const fonts = [geist400, geist600, geistMono400, geistPixel400];
+---
+
+{fonts.map((href) => <link rel="preload" href={href} as="font" type="font/woff2" crossorigin />)}
+<Default />

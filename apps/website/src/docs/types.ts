@@ -1,8 +1,9 @@
 /**
- * Docs pages are plain data with no React imports, so tools can load them in
- * Node (scripts/website.ts checks every Lucent sample). Paragraph-like
- * strings accept a tiny inline markup: `code`, **strong**, and [text](href).
- * Internal hrefs start with "/".
+ * The docs block model: what a page shows, as scripts/website.ts checks it.
+ * Pages are MDX (src/content/docs/docs/); mdx-read.ts reads one into blocks,
+ * and mdx-write.ts writes the generated reference pages from templates
+ * (src/docs/templates/) built of blocks. Paragraph-like strings carry a tiny
+ * inline markup: `code`, **strong**, and [text](href). Internal hrefs start with "/".
  *
  * Code whose filename ends in `.lucent.ts` (or `.lucent.tsx`) must compile: the samples of a
  * page are checked together, as one app. A sample that demonstrates a
@@ -51,7 +52,7 @@ export type Block =
   | { kind: "panels"; panels: { label: string; blocks: Block[] }[] }
   | { kind: "cards"; items: { title: string; text: string; href: string }[] };
 
-/** Diagrams are components, looked up by name in components/DocsDiagram.tsx. */
+/** Diagrams are components, looked up by name in components/Diagram.astro. */
 export type DiagramName =
   | "build-check"
   | "build-cpp"
@@ -73,20 +74,17 @@ export type DiagramName =
 export type DocKind = "start" | "learn" | "guide" | "reference" | "example" | "other";
 
 /**
- * A page's metadata; the nav lists these in reading order. The page's blocks
- * live in `pages/<slug>.ts` (`pages/index.ts` for the empty slug), loaded
- * when the page is visited.
+ * A docs page's frontmatter (src/content.config.ts validates it). Starlight
+ * reads title, description and next; the checks read the rest.
  */
-export interface DocEntry {
-  /** Path under /docs/, without slashes. "" is the index. */
-  slug: string;
-  kind: DocKind;
+export interface DocFrontmatter {
   /** The task or the question the page answers. */
   title: string;
   /** One sentence: the answer, or what the reader has at the end. Also the <meta name="description">. */
   description: string;
-  /** The page's one "Next" link, when it isn't the following page in reading order. */
-  next?: string;
+  kind: DocKind;
+  /** The page's one "Next" link, when it isn't the following page in the sidebar. */
+  next?: { link: string; label: string };
   /**
    * A directory (from the repository root) whose `*.lucent.ts` files compile with
    * the page's samples, so a page can show one module of a project, or its diff.
@@ -99,17 +97,15 @@ export interface DocEntry {
   views?: true;
 }
 
-export interface DocGroup {
-  label: string;
-  entries: DocEntry[];
-}
-
-/** What a page file exports. */
-export interface DocModule {
+/** A docs page: its path under /docs/ ("" is the index), frontmatter and blocks. */
+export interface DocPage extends DocFrontmatter {
+  slug: string;
   blocks: Block[];
 }
 
-export interface DocPage extends DocEntry {
+/** What a template (src/docs/templates/<slug>.ts) exports: a generated page. */
+export interface DocTemplate {
+  frontmatter: DocFrontmatter;
   blocks: Block[];
 }
 
@@ -119,23 +115,6 @@ export interface CppFile {
   label: string;
   filename: string;
   code: string;
-}
-
-/** What src/generated/cpp/<slug>.ts exports: a page's samples' C++, by sample filename. */
-export interface CppModule {
-  cpp: Record<string, CppFile[]>;
-}
-
-/** The file holding a page's blocks, relative to src/docs/. */
-export const docFile = (slug: string): string => `pages/${slug || "index"}.ts`;
-
-/** Heading text → URL fragment, shared by the renderer and the table of contents. */
-export function headingId(text: string): string {
-  return text
-    .toLowerCase()
-    .replace(/[`*]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
 }
 
 export const docsHref = (slug: string): string => (slug ? `/docs/${slug}/` : "/docs/");

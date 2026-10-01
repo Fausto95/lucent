@@ -1,0 +1,43 @@
+---
+title: 6. Send live positions to JavaScript
+description: A CoreLocation delegate and an Android listener that call a JS function with each new position.
+kind: learn
+samplesWith: apps/tutorial/steps/6-callbacks
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+<Tabs>
+<TabItem label="location.lucent.ts">
+
+```diff lang="ts" title="src/location.lucent.ts" include="tutorial/6-callbacks/src/location.lucent.ts.diff"
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```diff lang="tsx" title="App.tsx" include="tutorial/6-callbacks/App.tsx.diff"
+```
+
+</TabItem>
+</Tabs>
+
+## iOS: a delegate
+
+`Updates` implements `CLLocationManagerDelegate`. Lucent makes an Objective-C object for it that forwards `locationManager(_:didUpdateLocations:)` to `locationManager_didUpdateLocations`: Swift's name, with its labels joined by `_`.
+
+## Android: a listener
+
+`LocationListener` has one method to implement, so a plain function is one. `removeUpdates` takes the same function back, which is why `watch` keeps it in `listeners`.
+
+## To JavaScript
+
+`onFix` is a JS function. Each update arrives on the Lucent thread and calls it; the call is posted to the JS thread. `watch` returns an id, and `stop(id)` removes the manager or listener, which lets go of the callback.
+
+:::caution
+Without `stop`, the delegate or listener, and the JS callback it holds, are never freed. See [When memory is freed](/docs/thinking/memory/).
+:::
+
+## Run it
+
+With a permission granted, move the simulated location: the summary updates with each fix.

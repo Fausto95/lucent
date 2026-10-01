@@ -1,0 +1,27 @@
+@@ -30,6 +30,9 @@ class Updates implements CLLocationManagerDelegate {
+ // Managers deliver to the thread that made them: made on the main thread, kept here.
+ const managers = new Map<number, CLLocationManager>();
+ 
++// Kept while the permission prompt is on screen.
++let prompter: CLLocationManager | null = null;
++
+ // --- Android -----------------------------------------------------------------
+ 
+ function fromLocation(location: Location): Fix {
+@@ -46,6 +49,16 @@ const listeners = new Map<number, (location: Location) => void>();
+ 
+ let nextId = 1;
+ 
++/** Shows the system's permission prompt on iOS. Android asks from JavaScript, with PermissionsAndroid. */
++export async function requestPermission(): Promise<void> {
++  if (PLATFORM === "ios") {
++    await main(() => {
++      prompter = new CLLocationManager();
++      prompter.requestWhenInUseAuthorization();
++    });
++  }
++}
++
+ /** The last position the device knows, without waiting for a new one. */
+ export async function lastFix(): Promise<Fix | null> {
+   if (PLATFORM === "ios") {

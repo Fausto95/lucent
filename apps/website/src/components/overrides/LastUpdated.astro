@@ -1,0 +1,19 @@
+---
+/**
+ * The docs say which Lucent they were checked against: scripts/website.ts
+ * compiles their samples with the compiler in this repository.
+ */
+import lucent from "../../../../../packages/lucent/package.json" with { type: "json" };
+
+const { id } = Astro.locals.starlightRoute;
+---
+
+{id.startsWith("docs") && <p class="verified">Verified with Lucent {lucent.version}</p>}
+
+<style>
+  .verified {
+    margin: 0;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-sm);
+  }
+</style>
