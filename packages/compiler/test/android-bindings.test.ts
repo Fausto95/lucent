@@ -699,6 +699,20 @@ describe.skipIf(!sdkAvailable("android"))("using on AutoCloseable", () => {
     expect(cpp.match(/lucent::jni::close\(/g)).toHaveLength(2);
     expect(cpp).toContain("lucent::suppressedError");
   });
+
+  it("is analysed with the program, as compute's checks do", () => {
+    // compute's checks run the program analysis, which met [Symbol.dispose] in the SDK's declarations.
+    const { r } = android(`import { compute } from "lucent:core";
+${closeable}
+function twice(n: number): number {
+  return n * 2;
+}
+async function work(): Promise<number> {
+  return compute(twice, 2);
+}
+`);
+    expect(r.diagnostics).toEqual([]);
+  });
 });
 
 describe.skipIf(!sdkAvailable("android"))("Android thread annotations", () => {
