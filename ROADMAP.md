@@ -248,8 +248,9 @@ Installed SDKs and linked dependencies ──► metadata readers ──► bind
   signatures. Lowering produces syntax trees from `packages/codegen`, one
   per output language, which printers write out; the emitters do not build
   source text from strings. A semantic IR with a verifier carries the families
-  migrated so far (literals, locals, calls, branches, loops, unions) behind
-  an internal selector; the rest still uses the original emitter
+  migrated so far (literals, locals, calls, branches, loops, unions, and
+  leaves such as member access and builtin calls as plans) behind an
+  internal selector; the rest still uses the original emitter
   ([T53](#t53) finishes the migration).
 - **Order and numbers.** Evaluation order is explicit in the generated C++
   (one statement per ordered operation), never left to C++ argument order.
@@ -428,6 +429,19 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
+
+**2026-10-01: The IR plans leaves with the emitter's code.** What the IR
+does not model itself (a member read, a builtin or SDK method, a
+construction, a literal of an array or object) is a `plan` operation on
+values the IR computed first, in order; its C++ comes from the emitter's
+existing code for that leaf, its subexpressions being named values.
+_Why:_ the builtin and SDK semantics are some 5,000 lines; writing them
+again for the IR would duplicate them, and the IR's job is order,
+control flow, places, closures, exceptions and suspension, not the C++
+spelling of each runtime call. _Changed:_ [T53](#t53) migrates by moving
+structure into the IR and keeping leaves where they are; once every
+function goes through the IR, the emitter keeps its leaf code and loses
+its statement and ordering code.
 
 **2026-10-01: Publish the plan.** The native-platform plan was private
 during execution. It is now public: task IDs, contracts and decisions,
@@ -938,7 +952,7 @@ maintainer can run.
 
 | Task                    | Title                                                           | Needs                                     | Status               |
 | ----------------------- | --------------------------------------------------------------- | ----------------------------------------- | -------------------- |
-| [T53](#t53)             | Finish the semantic IR migration                                | —                                         | ready                |
+| [T53](#t53)             | Finish the semantic IR migration                                | —                                         | in progress          |
 | [T54](#t54)             | Implement measured compiler and runtime optimizations           | T53                                       | waiting              |
 | [T55](#t55)             | Implement native recycled and virtualized lists                 | T49, T50, T52                             | waiting (maintainer) |
 | [T56](#t56)             | Add native gestures and frame-driven animation facilities       | T51, T52                                  | waiting (maintainer) |
@@ -962,7 +976,7 @@ The Needs column lists only open dependencies.
 **Goal:** Give the whole supported language one verified semantic pipeline
 before code generation.
 
-- **Status:** open, ready to start.
+- **Status:** in progress.
 - **Area:** Compiler.
 - **Needs:** T18 (done), T19 (done), T20 (done).
 - **Verify:** V1, V2, V3, V4, V7.
@@ -992,6 +1006,14 @@ before output code generation.
   branches, loops and union narrowing (T18), behind the internal
   `LUCENT_LOWERING=ir` selector; the legacy emitter is the default. This
   task can run alongside UI work. Design reference: section 13.
+- Progress, measured by `node scripts/ir-coverage.ts` over the e2e
+  corpus (top-level functions lowered through the IR):
+  - Before T53: 104 of 606.
+  - Leaves as plans (member reads and writes, runtime and SDK methods,
+    constructions, array and object literals, conversions, with the
+    operands first and in order), field and element compound
+    assignments, platform tests: 344 of 606. e2e 53 of 53 under both
+    `legacy` and `ir`.
 
 <a id="t54"></a>
 

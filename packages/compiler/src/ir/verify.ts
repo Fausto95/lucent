@@ -26,7 +26,9 @@
  *    callees whose summaries are known) can make; loads and stores of
  *    constant module variables are not state.
  *    Code generation relies on these claims when it keeps (or one day
- *    changes) the order of operations around an exceptional exit.
+ *    changes) the order of operations around an exceptional exit. A plan's
+ *    effects are the program analysis's to know: the IR cannot see into
+ *    one, so the summary is not checked against it.
  */
 import { isVoidish, type LType, sameType, T, typeKey } from "../types.ts";
 import { dump } from "./dump.ts";
@@ -581,6 +583,11 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
   continue: (op, c, where) => c.jump(op, where),
 
   yield: (op, c, where) => c.yield(op, where),
+
+  // Its operands are checked like every operation's; what it does is the backend's.
+  plan: (op, c, where) => {
+    if (!op.name) c.problemAt(where, "has no name");
+  },
 };
 
 function safeDump(fn: IrFunction): string {

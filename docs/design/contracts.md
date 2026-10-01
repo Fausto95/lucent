@@ -859,7 +859,15 @@ export type IrOp =
   | { kind: "throw"; value: ValueId; source: SourceSpan } // terminator
   | { kind: "break"; target: TargetId; source: SourceSpan } // terminator
   | { kind: "continue"; target: TargetId; source: SourceSpan } // terminator
-  | { kind: "yield"; value?: ValueId; source: SourceSpan }; // ends an `if` branch
+  | { kind: "yield"; value?: ValueId; source: SourceSpan } // ends an `if` branch
+  | {
+      kind: "plan";
+      result?: ValueId;
+      name: string; // what it does, for dumps
+      code: unknown; // the backend's, naming its operands
+      args: ValueId[];
+      source: SourceSpan;
+    };
 
 export type Callee = { kind: "function"; id: FunctionId } | { kind: "builtin"; name: BuiltinName };
 
@@ -878,6 +886,25 @@ export interface EffectRef {
   against `null` or `undefined`.
 - Union narrowing is tests (`typeof`, equality) plus a checked `convert`
   where the checker narrows; there is no separate `select` op.
+- A `plan` is an operation the IR does not model itself: a member read
+  or write, a method of the runtime or the SDK, a construction, a literal
+  of an array or object, a conversion `convert` does not cover. Lowering
+  asks the backend for it through `LowerHost.leaves` (`LeafHost`), which
+  lowers the subexpressions the leaf takes as operands, each once, in
+  source order (a request out of order is unsupported), before the plan:
+  so a plan runs none of the program's code and decides no order. An
+  assignment, compound assignment or increment of a place that is not a
+  variable asks for the place (`LeafHost.place`): its operands, a read
+  plan and a write plan, with the read before the right side runs.
+  Optional chains short-circuit and stay unsupported until the IR models
+  them. The C++ backend (`emit/leaf.ts`) plans a leaf with the emitter's
+  own code for it, its operands being named values, so the semantics of
+  builtins and SDK calls are written once.
+- A platform test (`PLATFORM === "ios" && …`, `switch (PLATFORM)`, a
+  guard clause) is decided by the host (`platformGuard`,
+  `platformClauses`, `runsHere`): only what the platform being built runs
+  is lowered, and a build for neither platform throws where platform code
+  would run.
 - `try`, `catch` and `finally` are not in the IR yet: an exceptional exit
   (a throwing call, or `throw`) leaves every region to the caller, which
   the C++ gets from C++ exceptions.
@@ -914,7 +941,9 @@ export interface VerifyEnv {
    statement (or otherwise sequenced), never as nested C++ arguments.
 6. Effect claims never claim less than the ops do: neither a call's
    `EffectRef` nor the function's summary. With `VerifyEnv.effects`, a
-   caller's claims must admit its callees' reads, writes and throws.
+   caller's claims must admit its callees' reads, writes and throws. A
+   plan's effects are the program analysis's to know: the summary is not
+   checked against it.
 7. Every non-body region is owned once, by an op of its parent region.
    `break` names an enclosing target; `continue` names an enclosing loop,
    and never from that loop's own `next`. The branches of an `if` with a
@@ -1028,6 +1057,10 @@ cases run under both lowerings).
   `"caller"` (propagation already means "the caller's context") and
   `"task"` is produced by compute entries; `AnalysisInput.posts`.
   Migration: none.
+- **v1.3** (2026-10-01, T53, proposed): the `plan` op, `LeafHost`
+  (`plan`, `convert`, `place`, `platformOnly`) and the platform hooks of
+  `LowerHost`; invariant 6 leaves plans to the program analysis.
+  Migration: none (additive; the default lowering is unchanged).
 
 ## C-EXEC: execution identities, scopes and operations
 

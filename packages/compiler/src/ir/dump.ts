@@ -92,6 +92,11 @@ function dumpOp(op: IrOp, type: (v: ValueId) => string): string {
 
       return op.result === undefined ? text : def(op.result, text);
     }
+    case "plan": {
+      const text = `plan ${JSON.stringify(op.name)}(${list(op.args)})`;
+
+      return op.result === undefined ? text : def(op.result, text);
+    }
     case "return":
       return op.value === undefined ? "return" : `return v${op.value}`;
     case "throw":

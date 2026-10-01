@@ -53,6 +53,15 @@ export function loweringMode(value = process.env.LUCENT_LOWERING): Lowering {
 }
 
 /**
+ * What `ir` lowered through the IR, and why the rest fell back to the legacy
+ * emitter: the migration's progress, for scripts/ir-coverage.ts.
+ */
+export const coverage: { lowered: string[]; fellBack: { id: string; why: string }[] } = {
+  lowered: [],
+  fellBack: [],
+};
+
+/**
  * A function lowered through the IR, verified and turned into C++; or,
  * under `ir`, undefined when the IR does not support it yet, for the
  * legacy emitter to lower. Never a JavaScript fallback at runtime.
@@ -68,10 +77,13 @@ export function lowerToCpp(
   try {
     lowered = lower(input, host);
   } catch (e) {
-    if (e instanceof IrUnsupported && mode === "ir") return undefined;
+    if (!(e instanceof IrUnsupported) || mode !== "ir") throw e;
 
-    throw e;
+    coverage.fellBack.push({ id: input.id, why: e.message });
+    return undefined;
   }
+
+  coverage.lowered.push(input.id);
 
   const { fn, signatures, effects } = lowered;
 
@@ -402,6 +414,14 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
     else e.define(op, op.result, c, true);
   },
 
+  plan: (op, e) => {
+    const c = withOperands(op.code as cpp.Expr, (v) => e.value(v));
+
+    // What gives nothing may still be a value in C++ (`(void)x, lucent::undefined`): discarded.
+    if (op.result === undefined) e.emit(op, cpp.exprStmt(cpp.cast("c", cpp.voidType, c)));
+    else e.define(op, op.result, c, true);
+  },
+
   return: (op, e) => e.emit(op, cpp.ret(op.value === undefined ? undefined : e.value(op.value))),
 
   throw: (op, e) => e.emit(op, cpp.exprStmt(cpp.call("lucent::throwError", [e.value(op.value)]))),
@@ -452,6 +472,32 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
       e.emit(op, cpp.exprStmt(cpp.assign(e.value(result), e.value(op.value))));
   },
 };
+
+/** The prefix of the names plan code gives its operands (see `operand`). */
+const OPERAND = "$v";
+
+/** How a plan's code names the value `v`, an operand computed before it. */
+export function operand(v: ValueId): cpp.Expr {
+  return cpp.id(`${OPERAND}${v}`);
+}
+
+/** Plan code, with each operand it names replaced by that value's C++. */
+function withOperands(code: cpp.Expr, value: (v: ValueId) => cpp.Expr): cpp.Expr {
+  const replace = (node: unknown): unknown => {
+    if (Array.isArray(node)) return node.map(replace);
+
+    if (typeof node !== "object" || node === null) return node;
+
+    const n = node as { k?: string; name?: unknown };
+
+    if (n.k === "id" && typeof n.name === "string" && n.name.startsWith(OPERAND))
+      return value(Number(n.name.slice(OPERAND.length)) as ValueId);
+
+    return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, replace(v)]));
+  };
+
+  return replace(code) as cpp.Expr;
+}
 
 const UNARY: Record<UnaryOp, (x: cpp.Expr) => cpp.Expr> = {
   "-": (x) => cpp.unary("-", x),

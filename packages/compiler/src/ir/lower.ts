@@ -19,6 +19,7 @@ import { isVoidish, type LType, sameType, T, typeKey } from "../types.ts";
 import { IrBuilder } from "./build.ts";
 import {
   binaryResult,
+  isAbsent,
   type BinaryOp,
   type BuiltinName,
   completes,
@@ -79,6 +80,74 @@ export interface LowerHost {
   typeOf(symbol: ts.Symbol, at: ts.Node): LType;
   /** A module function or variable (imports resolved), or undefined. */
   global(symbol: ts.Symbol): IrGlobal | undefined;
+  /** Plans the expressions the IR does not model itself; without it, they are unsupported. */
+  readonly leaves?: LeafHost;
+  /**
+   * Where a platform test (`PLATFORM === "ios" && …`) runs its branch: on
+   * the platform being built (when the rest of the test holds), on another
+   * (the other branch runs), or nowhere when the build has no platform.
+   */
+  platformGuard?(cond: ts.Expression): PlatformBranch | undefined;
+  /** Of `switch (PLATFORM)`: whether the platform being built runs each clause, or "nowhere". */
+  platformClauses?(s: ts.SwitchStatement): boolean[] | "nowhere" | undefined;
+  /** Whether the platform being built runs `s`, by the platform branches and guard clauses around it. */
+  runsHere?(s: ts.Statement): boolean;
+}
+
+export interface PlatformBranch {
+  runs: "here" | "elsewhere" | "nowhere";
+  /** What else the test needs, after the platform's. */
+  rest: readonly ts.Expression[];
+}
+
+/**
+ * An expression the IR leaves to the backend (a member read, a method of
+ * the runtime or the SDK, a construction…): its plan, whose code names the
+ * values of the subexpressions it takes as operands.
+ */
+export interface Leaf {
+  /** What it does, for dumps. */
+  name: string;
+  code: unknown;
+  /** What it gives: nothing when void-ish. */
+  type: LType;
+}
+
+/** The subexpressions of a leaf, lowered before it in evaluation order. */
+export interface LeafOperands {
+  /** The value of `node`, a subexpression of the leaf (the same value when asked again). */
+  operand(node: ts.Expression): ValueId;
+  typeOf(v: ValueId): LType;
+  /** Whether `symbol` names a local or a parameter of the function. */
+  isLocal(symbol: ts.Symbol): boolean;
+}
+
+export interface LeafHost {
+  /**
+   * `node` as a plan, with `hint` the type its value becomes (a literal's
+   * shape); throws IrUnsupported when it cannot plan it.
+   */
+  plan(node: ts.Expression, operands: LeafOperands, hint?: LType): Leaf;
+  /** `value`, a `from`, as a `to`, where `convert` does not apply (an interface, a function's shape…). */
+  convert(value: ValueId, from: LType, to: LType, node: ts.Node): Leaf;
+  /** The place `target` names (a field, an element…), what it takes lowered as operands. */
+  place(target: ts.Expression, operands: LeafOperands): LeafPlace;
+  /** What `node`, code for the platforms, gives in a build for neither: a `type` that throws. */
+  platformOnly(node: ts.Node, type: LType): Leaf;
+}
+
+/** A place a leaf names: reading it, and writing a value (an operand after the place's own). */
+export interface LeafPlace {
+  type: LType;
+  get: Leaf;
+  set(value: ValueId): Leaf;
+}
+
+/** What an assignment assigns to: a variable, or a place a leaf names. */
+interface Target {
+  type: LType;
+  read(): ValueId;
+  write(value: ValueId, source: SourceSpan): void;
 }
 
 /** The function to lower, with the types the compiler gave its signature. */
@@ -138,6 +207,8 @@ class Lowerer {
   private readonly localTypes = new Map<PlaceId, LType>();
   /** The loops, labeled blocks and switches around the statement being lowered, innermost last. */
   private readonly jumps: Jump[] = [];
+  /** The values leaves give. */
+  private readonly planned = new Set<ValueId>();
 
   constructor(input: LowerInput, host: LowerHost) {
     this.input = input;
@@ -221,6 +292,8 @@ class Lowerer {
   }
 
   statement(s: ts.Statement): void {
+    if (this.host.runsHere?.(s) === false) return;
+
     const lower = STATEMENTS[s.kind] as ((s: ts.Statement, lw: Lowerer) => void) | undefined;
 
     if (!lower) this.unsupported(s, `${ts.SyntaxKind[s.kind]} statements`);
@@ -316,7 +389,8 @@ class Lowerer {
       const sym = this.symbol(d.name);
       const declared = this.declaredType(sym, d.name);
       const type = declared.k === "never" ? T.undefined : declared;
-      const value = d.initializer && this.coerce(this.expr(d.initializer), type, d.initializer);
+      const value =
+        d.initializer && this.coerce(this.expr(d.initializer, type), type, d.initializer);
       const place = this.declareLocal(sym, d.name.text, type, d);
 
       if (value !== undefined) this.b.store(place, value, spanOf(d));
@@ -332,6 +406,27 @@ class Lowerer {
    */
   switch(s: ts.SwitchStatement, labels: readonly string[]): void {
     const clauses = s.caseBlock.clauses;
+    const platforms = this.host.platformClauses?.(s);
+
+    if (platforms === "nowhere") {
+      this.nowhere(s);
+      return;
+    }
+
+    // `switch (PLATFORM)`: the clauses the platform runs, in order, in a block `break` leaves.
+    if (platforms) {
+      this.b.block(
+        spanOf(s),
+        (target) =>
+          this.within({ target: target!, kind: "switch", labels }, () =>
+            clauses.forEach((c, i) => {
+              if (platforms[i]) this.b.block(spanOf(c), () => this.statements(c.statements));
+            }),
+          ),
+        true,
+      );
+      return;
+    }
 
     if (sharesDeclarations(this.host.checker, clauses))
       this.unsupported(s, "declarations one switch clause shares with another");
@@ -385,23 +480,115 @@ class Lowerer {
     );
   }
 
-  /** Operations computing `node`, in evaluation order; the value they give. */
-  expr(node: ts.Expression): ValueId {
+  /**
+   * Operations computing `node`, in evaluation order; the value they give.
+   * `hint` is the type it becomes, which shapes literals the backend plans.
+   */
+  expr(node: ts.Expression, hint?: LType): ValueId {
     const lower = EXPRESSIONS[node.kind] as
-      | ((n: ts.Expression, lw: Lowerer) => ValueId)
+      | ((n: ts.Expression, lw: Lowerer, hint?: LType) => ValueId)
       | undefined;
+    const v = lower ? lower(node, this, hint) : this.leaf(node, hint);
 
-    if (!lower) this.unsupported(node, `${ts.SyntaxKind[node.kind]} expressions`);
+    // A leaf's type is the backend's: narrowed where the checker narrows, a literal's as its hint shapes it.
+    if (this.planned.has(v)) return v;
 
-    const v = lower(node, this);
     const [given, checked] = [this.b.typeOf(v), this.typeAt(node)];
 
-    if (sameType(given, checked) || (isVoidish(given) && isVoidish(checked))) return v;
-
     // The checker narrowed the value here (an optional known present, a union's member).
-    if (convertible(given, checked)) return this.b.convert(v, checked, spanOf(node));
+    return narrows(given, checked) ? this.coerce(v, checked, node) : v;
+  }
 
-    this.unsupported(node, `a ${typeKey(given)} the checker types as ${typeKey(checked)}`);
+  /**
+   * `node` as a plan of the backend's, after the subexpressions it takes,
+   * each lowered once, in evaluation order (the order of the source).
+   * Optional chains short-circuit, which a plan's operands cannot.
+   */
+  leaf(node: ts.Expression, hint?: LType): ValueId {
+    const host = this.host.leaves;
+
+    if (!host) this.unsupported(node, `${ts.SyntaxKind[node.kind]} expressions`);
+
+    if (node.flags & ts.NodeFlags.OptionalChain) this.unsupported(node, "optional chains");
+
+    const { operands, args } = this.operands();
+
+    return this.planOf(host.plan(node, operands, hint), args, spanOf(node));
+  }
+
+  /** The operands a leaf asks for, each lowered once, in the order of the source. */
+  operands(): { operands: LeafOperands; args: ValueId[] } {
+    const args: ValueId[] = [];
+    const lowered = new Map<ts.Node, ValueId>();
+    let end = -1;
+    const operands: LeafOperands = {
+      operand: (n) => {
+        const known = lowered.get(n);
+
+        if (known !== undefined) return known;
+
+        if (n.getStart() < end) this.unsupported(n, "operands a plan takes out of order");
+
+        const v = this.expr(n);
+
+        lowered.set(n, v);
+        args.push(v);
+        end = n.getEnd();
+        return v;
+      },
+      typeOf: (v) => this.b.typeOf(v),
+      isLocal: (sym) => this.locals.has(sym) || this.params.has(sym),
+    };
+
+    return { operands, args };
+  }
+
+  /** The plan `leaf` on `args`; one that gives nothing gives undefined, once it ran. */
+  planOf(leaf: Leaf, args: ValueId[], span: SourceSpan): ValueId {
+    const result = isVoidish(leaf.type) ? undefined : leaf.type;
+    const v =
+      this.b.plan(leaf.name, leaf.code, args, result, span) ?? this.b.const(undefined, span);
+
+    this.planned.add(v);
+    return v;
+  }
+
+  /** What `node` assigns to; a place other than a variable has what it takes lowered now. */
+  target(node: ts.Expression): Target {
+    if (this.variable(node)) {
+      const { place, type } = this.place(node);
+
+      return {
+        type,
+        read: () => this.b.load(place, spanOf(node)),
+        write: (v, span) => this.b.store(place, v, span),
+      };
+    }
+
+    const host = this.host.leaves;
+    const inner = skipParentheses(node);
+
+    if (!host || ts.isArrayLiteralExpression(inner) || ts.isObjectLiteralExpression(inner))
+      this.unsupported(node, "assigning to anything but a variable");
+
+    if (node.flags & ts.NodeFlags.OptionalChain) this.unsupported(node, "optional chains");
+
+    const { operands, args } = this.operands();
+    const place = host.place(node, operands);
+
+    return {
+      type: place.type,
+      read: () => this.planOf(place.get, args, spanOf(node)),
+      write: (v, span) => void this.planOf(place.set(v), [...args, v], span),
+    };
+  }
+
+  /** Whether `target` is a variable the IR stores into: a local or a module variable. */
+  variable(target: ts.Expression): boolean {
+    const id = skipParentheses(target);
+    const sym = ts.isIdentifier(id) ? this.host.checker.getSymbolAtLocation(id) : undefined;
+
+    return sym !== undefined && (this.locals.has(sym) || this.host.global(sym)?.kind === "var");
   }
 
   /** A condition: a boolean as it is, anything else through ToBoolean. */
@@ -421,7 +608,17 @@ class Lowerer {
 
     if (convertible(from, to)) return this.b.convert(v, to, spanOf(node));
 
-    this.unsupported(node, `converting a ${typeKey(from)} to ${typeKey(to)}`);
+    const host = this.host.leaves;
+
+    if (!host) this.unsupported(node, `converting a ${typeKey(from)} to ${typeKey(to)}`);
+
+    const planned = host.convert(v, from, to, node);
+    const span = spanOf(node);
+
+    return (
+      this.b.plan(planned.name, planned.code, [v], isVoidish(to) ? undefined : to, span) ??
+      this.b.const(undefined, span)
+    );
   }
 
   /** A string for the `+` and template operands that are not strings (ToString). */
@@ -473,14 +670,15 @@ class Lowerer {
       (!sym || !sym.declarations?.length || isLibrary(sym));
 
     if (!sym || constant) {
-      if (!constant) this.unsupported(id, `the name ${id.text}`);
+      if (!constant) return this.leaf(id);
 
       return this.b.const(LIBRARY_CONSTANTS[id.text], spanOf(id));
     }
 
     const g = this.locals.has(sym) ? undefined : this.host.global(sym);
 
-    if (g?.kind === "function") this.unsupported(id, "functions as values");
+    // A function as a value, a platform's or the SDK's constant…
+    if (!this.locals.has(sym) && g?.kind !== "var") return this.leaf(id);
 
     // A literal constant is read as its literal, not from module storage.
     if (g?.kind === "var" && g.literal)
@@ -489,21 +687,24 @@ class Lowerer {
     return this.b.load(this.place(id).place, spanOf(id));
   }
 
-  call(node: ts.CallExpression): ValueId {
+  /** A call of a module function; any other call is a plan. */
+  call(node: ts.CallExpression, hint?: LType): ValueId {
     const callee = node.expression;
+    const sym = ts.isIdentifier(callee) ? this.host.checker.getSymbolAtLocation(callee) : undefined;
+    const local = sym !== undefined && (this.locals.has(sym) || this.params.has(sym));
+    const g = sym === undefined || local ? undefined : this.host.global(sym);
+    const direct =
+      !node.questionDotToken &&
+      !node.typeArguments &&
+      g?.kind === "function" &&
+      g.callable &&
+      node.arguments.length === g.params.length;
 
-    if (node.questionDotToken || node.typeArguments || !ts.isIdentifier(callee))
-      this.unsupported(node, "calls of anything but a module function");
+    if (!direct) return this.leaf(node, hint);
 
-    const sym = this.symbol(callee);
-    const g = this.locals.has(sym) || this.params.has(sym) ? undefined : this.host.global(sym);
-
-    if (g?.kind !== "function" || !g.callable) this.unsupported(node, `calls of ${callee.text}`);
-
-    if (node.arguments.length !== g.params.length)
-      this.unsupported(node, "calls that leave out optional arguments");
-
-    const args = node.arguments.map((a, i) => this.coerce(this.expr(a), g.params[i]!, a));
+    const args = node.arguments.map((a, i) =>
+      this.coerce(this.expr(a, g.params[i]), g.params[i]!, a),
+    );
     const result = isVoidish(g.result) ? undefined : g.result;
 
     this.signatures.set(g.id, { params: g.params, result: g.result });
@@ -522,22 +723,28 @@ class Lowerer {
     return v ?? this.b.const(undefined, spanOf(node));
   }
 
-  newError(node: ts.NewExpression): ValueId {
+  /** `new Error(message)` and its kinds; any other construction is a plan. */
+  newExpr(node: ts.NewExpression): ValueId {
     const callee = node.expression;
     const builtin = ts.isIdentifier(callee) ? ERRORS[callee.text] : undefined;
     const args = node.arguments ?? [];
+    const sym = ts.isIdentifier(callee) ? this.host.checker.getSymbolAtLocation(callee) : undefined;
+    const message = args[0] && this.typeAt(args[0]);
 
-    if (!builtin || !isLibrary(this.symbol(callee as ts.Identifier)) || args.length > 1)
-      this.unsupported(node, "`new` of anything but Error(message)");
+    if (
+      !builtin ||
+      !sym ||
+      !isLibrary(sym) ||
+      args.length > 1 ||
+      (message && message.k !== "string")
+    )
+      return this.leaf(node);
 
-    const message = args[0] ? this.expr(args[0]) : this.b.const("", spanOf(node));
-
-    if (this.b.typeOf(message).k !== "string")
-      this.unsupported(node, "Error messages that are not strings");
+    const text = args[0] ? this.expr(args[0]) : this.b.const("", spanOf(node));
 
     return this.b.call(
       { kind: "builtin", name: builtin },
-      [message],
+      [text],
       T.error,
       { throws: "no" },
       spanOf(node),
@@ -552,23 +759,37 @@ class Lowerer {
 
     const compound = COMPOUND[kind];
 
+    if (compound && !this.takes(compound, this.typeAt(node.left), this.typeAt(node.right)))
+      this.unsupported(node, `${compound}= on a ${typeKey(this.typeAt(node.left))}`);
+
     if (compound) {
-      // The variable is read before the right side runs, as in JavaScript.
-      const target = this.place(node.left);
-      const current = this.b.load(target.place, spanOf(node.left));
+      // The target is read before the right side runs, as in JavaScript.
+      const target = this.target(node.left);
+      const current = this.coerce(target.read(), this.typeAt(node.left), node.left);
       const value = this.operator(compound, current, this.expr(node.right), node);
 
-      this.b.store(target.place, this.coerce(value, target.type, node), spanOf(node));
+      target.write(this.coerce(value, target.type, node), spanOf(node));
       return value;
     }
 
     const op = BINARY[kind];
 
-    if (!op) this.unsupported(node, `the ${node.operatorToken.getText()} operator`);
+    // Decided from the checker's types before anything runs, so no operand is lowered twice.
+    if (!op || !this.takes(op, this.typeAt(node.left), this.typeAt(node.right)))
+      return this.leaf(node);
 
     const left = this.expr(node.left);
 
     return this.operator(op, left, this.expr(node.right), node);
+  }
+
+  /** Whether the IR's operator `op` takes a `left` and a `right` (strings concatenate with what prints). */
+  takes(op: BinaryOp, left: LType, right: LType): boolean {
+    const concat = op === "+" && (left.k === "string" || right.k === "string");
+
+    if (!concat) return binaryResult(op, left, right) !== undefined;
+
+    return [left, right].every((t) => t.k === "string" || unaryResult("String", t) !== undefined);
   }
 
   /** `left op right`, the operands converted as JavaScript does for the types the IR takes. */
@@ -615,18 +836,18 @@ class Lowerer {
   /** `x ??= v`, `x ||= v`, `x &&= v`: `v` runs, and is stored, only when the test passes. */
   logicalAssign(node: ts.BinaryExpression, kind: "&&" | "||" | "??"): ValueId {
     const type = this.typeAt(node);
-    const target = this.place(node.left);
+    const target = this.target(node.left);
     const span = spanOf(node);
-    const current = this.b.load(target.place, spanOf(node.left));
+    const current = target.read();
     const test =
       kind === "??"
         ? this.b.binary("==", current, this.b.const(null, span), span)
         : this.truthy(current, node.left);
     const keep = () => this.b.yield(this.coerce(current, type, node.left), span);
     const assign = () => {
-      const value = this.expr(node.right);
+      const value = this.expr(node.right, target.type);
 
-      this.b.store(target.place, this.coerce(value, target.type, node.right), span);
+      target.write(this.coerce(value, target.type, node.right), span);
       this.b.yield(this.coerce(value, type, node.right), span);
     };
 
@@ -636,31 +857,120 @@ class Lowerer {
   }
 
   /** `x++`, `++x`, `x--`, `--x` on a number or bigint variable: the old value (postfix) or the new one. */
-  increment(target: ts.Expression, sign: "+" | "-", postfix: boolean, node: ts.Node): ValueId {
-    const place = this.place(target);
-    const one = ONE[place.type.k];
+  increment(
+    target: ts.Expression,
+    sign: "+" | "-",
+    postfix: boolean,
+    node: ts.PrefixUnaryExpression | ts.PostfixUnaryExpression,
+  ): ValueId {
+    const type = this.typeAt(target);
+    const one = ONE[type.k];
 
-    if (one === undefined) this.unsupported(node, `${sign}${sign} on a ${typeKey(place.type)}`);
+    if (one === undefined) this.unsupported(node, `${sign}${sign} on a ${typeKey(type)}`);
 
+    const place = this.target(target);
     const span = spanOf(node);
-    const current = this.b.load(place.place, spanOf(target));
+    const current = this.coerce(place.read(), type, target);
     const next = this.b.binary(sign, current, this.b.const(one, span), span);
 
-    this.b.store(place.place, next, span);
+    place.write(this.coerce(next, place.type, node), span);
     return postfix ? current : next;
   }
 
-  /** `c ? a : b`: only the branch the condition picks runs. */
-  conditional(node: ts.ConditionalExpression): ValueId {
-    const type = this.typeAt(node);
-    const cond = this.condition(node.condition);
+  /**
+   * `c ? a : b`: only the branch the condition picks runs. Its type is the
+   * one it becomes, when given (each branch converts to it, as a literal
+   * on its own would), but for promises, which an async function awaits
+   * before converting; the checker's union of the branches' otherwise.
+   */
+  conditional(node: ts.ConditionalExpression, hint?: LType): ValueId {
+    const own = this.typeAt(node);
+    const promised =
+      own.k === "promise" || (own.k === "union" && own.ms.some((m) => m.k === "promise"));
+    const type = hint && !isVoidish(hint) && !promised ? hint : own;
+    const guard = this.host.platformGuard?.(node.condition);
+
+    if (guard?.runs === "nowhere") return this.platformOnly(node, own);
+
+    if (guard && (guard.runs === "elsewhere" || !guard.rest.length)) {
+      const live = guard.runs === "here" ? node.whenTrue : node.whenFalse;
+
+      return this.coerce(this.expr(live, type), type, live);
+    }
+
+    const cond = guard ? this.all(guard.rest) : this.condition(node.condition);
     const branch = (e: ts.Expression) => () =>
-      this.b.yield(this.coerce(this.expr(e), type, e), spanOf(e));
+      this.b.yield(this.coerce(this.expr(e, type), type, e), spanOf(e));
 
     return this.b.if(cond, spanOf(node), branch(node.whenTrue), branch(node.whenFalse), type)!;
   }
 
+  /** `a && b && …` as one condition, each tested only when those before it hold. */
+  all(conds: readonly ts.Expression[]): ValueId {
+    const [first, ...rest] = conds;
+    const test = this.condition(first!);
+
+    if (!rest.length) return test;
+
+    const span = spanOf(first!);
+
+    return this.b.if(
+      test,
+      span,
+      () => this.b.yield(this.all(rest), span),
+      () => this.b.yield(this.b.const(false, span), span),
+      T.boolean,
+    )!;
+  }
+
+  /** Code for the platforms, in a build for neither: it throws when it runs. */
+  platformOnly(node: ts.Node, type: LType): ValueId {
+    const host = this.host.leaves;
+
+    if (!host) this.unsupported(node, "code for the platforms only");
+
+    return this.planOf(host.platformOnly(node, type), [], spanOf(node));
+  }
+
+  /** A statement of platform code, in a build for neither: it throws, and nothing after it runs. */
+  nowhere(s: ts.Statement): void {
+    this.b.throw(this.platformOnly(s, T.error), spanOf(s));
+  }
+
+  /** `if`: the branch a platform test leaves, or both, as the condition picks. */
+  ifStatement(s: ts.IfStatement): void {
+    const otherwise = s.elseStatement;
+    const guard = this.host.platformGuard?.(s.expression);
+
+    if (guard?.runs === "nowhere") {
+      this.nowhere(s);
+      return;
+    }
+
+    if (guard && (guard.runs === "elsewhere" || !guard.rest.length)) {
+      const live = guard.runs === "here" ? s.thenStatement : otherwise;
+
+      if (live) this.b.block(spanOf(s), () => this.nested(live));
+      return;
+    }
+
+    this.b.if(
+      guard ? this.all(guard.rest) : this.condition(s.expression),
+      spanOf(s),
+      () => this.nested(s.thenStatement),
+      () => otherwise && this.nested(otherwise),
+    );
+  }
+
   template(node: ts.TemplateExpression): ValueId {
+    const prints = (e: ts.Expression) => {
+      const t = this.typeAt(e);
+
+      return t.k === "string" || unaryResult("String", t) !== undefined;
+    };
+
+    if (!node.templateSpans.every((s) => prints(s.expression))) return this.leaf(node);
+
     const parts: ValueId[] = [];
     const text = (s: string, at: ts.Node) => {
       if (s) parts.push(this.b.const(s, spanOf(at)));
@@ -677,6 +987,23 @@ class Lowerer {
 
     return rest.reduce((acc, p) => this.b.binary("+", acc, p, spanOf(node)), first);
   }
+}
+
+/**
+ * Whether `to` is what a `from` holds, narrowed: an optional's value or
+ * absence, or some of a union's members. Not a value converted to a wider
+ * type (a conditional's branches, already converted to the type it becomes).
+ */
+function narrows(from: LType, to: LType): boolean {
+  if (sameType(from, to) || (isVoidish(from) && isVoidish(to))) return false;
+
+  if (from.k === "opt") return isAbsent(to) || sameType(from.inner, to) || narrows(from.inner, to);
+
+  if (from.k !== "union") return false;
+
+  const held = (m: LType) => from.ms.some((f) => sameType(f, m));
+
+  return to.k === "union" ? to.ms.every(held) : held(to);
 }
 
 /** Declared by the TypeScript library (or another declaration file), not by the program. */
@@ -826,7 +1153,7 @@ const STATEMENTS: Partial<Record<ts.SyntaxKind, StatementLowering>> = {
       return;
     }
 
-    const v = lw.expr(s.expression);
+    const v = lw.expr(s.expression, isVoidish(result) ? undefined : result);
 
     if (isVoidish(result)) {
       if (!isVoidish(lw.b.typeOf(v))) lw.unsupported(s, "returning a value from a void function");
@@ -849,16 +1176,7 @@ const STATEMENTS: Partial<Record<ts.SyntaxKind, StatementLowering>> = {
   [ts.SyntaxKind.Block]: (s: ts.Block, lw: Lowerer) =>
     lw.b.block(spanOf(s), () => lw.statements(s.statements)),
 
-  [ts.SyntaxKind.IfStatement]: (s: ts.IfStatement, lw: Lowerer) => {
-    const otherwise = s.elseStatement;
-
-    lw.b.if(
-      lw.condition(s.expression),
-      spanOf(s),
-      () => lw.nested(s.thenStatement),
-      () => otherwise && lw.nested(otherwise),
-    );
-  },
+  [ts.SyntaxKind.IfStatement]: (s: ts.IfStatement, lw: Lowerer) => lw.ifStatement(s),
 
   [ts.SyntaxKind.LabeledStatement]: (s: ts.LabeledStatement, lw: Lowerer) => {
     const { labels, statement } = unlabeled(s);
@@ -897,35 +1215,30 @@ const STATEMENTS: Partial<Record<ts.SyntaxKind, StatementLowering>> = {
 /** The step of `++` and `--` by the type they change. */
 const ONE: Partial<Record<LType["k"], number | bigint>> = { number: 1, bigint: 1n };
 
-/** `v`, which the operator at `n` needs to be a number. */
-function number(v: ValueId, n: ts.Node, lw: Lowerer): ValueId {
-  const t = lw.b.typeOf(v);
-
-  if (t.k !== "number") lw.unsupported(n, `this operator on a ${typeKey(t)}`);
-
-  return v;
+/** Unary plus of a number: the number; of anything else, a plan (ToNumber). */
+function plus(n: ts.PrefixUnaryExpression, lw: Lowerer): ValueId {
+  return lw.typeAt(n.operand).k === "number" ? lw.expr(n.operand) : lw.leaf(n);
 }
 
-/** `v`, which the operator at `n` needs to be a number or a bigint. */
-function numeric(v: ValueId, n: ts.Node, lw: Lowerer): ValueId {
-  const t = lw.b.typeOf(v);
+/** `op` on a number or bigint; on anything else, a plan. */
+const numericUnary =
+  (op: "-" | "~"): PrefixLowering =>
+  (n, lw) => {
+    const k = lw.typeAt(n.operand).k;
 
-  if (t.k !== "number" && t.k !== "bigint") lw.unsupported(n, `this operator on a ${typeKey(t)}`);
+    if (k !== "number" && k !== "bigint") return lw.leaf(n);
 
-  return v;
-}
+    return lw.b.unary(op, lw.expr(n.operand), spanOf(n));
+  };
 
 type PrefixLowering = (n: ts.PrefixUnaryExpression, lw: Lowerer) => ValueId;
 
 const PREFIX: Partial<Record<ts.PrefixUnaryOperator, PrefixLowering>> = {
-  // Unary plus on a number is the number.
-  [ts.SyntaxKind.PlusToken]: (n, lw) => number(lw.expr(n.operand), n, lw),
+  [ts.SyntaxKind.PlusToken]: plus,
 
-  [ts.SyntaxKind.MinusToken]: (n, lw) =>
-    lw.b.unary("-", numeric(lw.expr(n.operand), n, lw), spanOf(n)),
+  [ts.SyntaxKind.MinusToken]: numericUnary("-"),
 
-  [ts.SyntaxKind.TildeToken]: (n, lw) =>
-    lw.b.unary("~", numeric(lw.expr(n.operand), n, lw), spanOf(n)),
+  [ts.SyntaxKind.TildeToken]: numericUnary("~"),
 
   [ts.SyntaxKind.ExclamationToken]: (n, lw) => lw.b.unary("!", lw.condition(n.operand), spanOf(n)),
 
@@ -996,7 +1309,7 @@ const EXPRESSIONS: Partial<Record<ts.SyntaxKind, ExpressionLowering>> = {
   [ts.SyntaxKind.PrefixUnaryExpression]: (n: ts.PrefixUnaryExpression, lw: Lowerer) => {
     const lower = PREFIX[n.operator];
 
-    if (!lower) lw.unsupported(n, "this prefix operator");
+    if (!lower) return lw.leaf(n);
 
     return lower(n, lw);
   },
@@ -1009,13 +1322,14 @@ const EXPRESSIONS: Partial<Record<ts.SyntaxKind, ExpressionLowering>> = {
 
   [ts.SyntaxKind.BinaryExpression]: (n: ts.BinaryExpression, lw) => lw.binary(n),
 
-  [ts.SyntaxKind.ConditionalExpression]: (n: ts.ConditionalExpression, lw) => lw.conditional(n),
+  [ts.SyntaxKind.ConditionalExpression]: (n: ts.ConditionalExpression, lw, hint?: LType) =>
+    lw.conditional(n, hint),
 
   [ts.SyntaxKind.TemplateExpression]: (n: ts.TemplateExpression, lw) => lw.template(n),
 
-  [ts.SyntaxKind.CallExpression]: (n: ts.CallExpression, lw) => lw.call(n),
+  [ts.SyntaxKind.CallExpression]: (n: ts.CallExpression, lw, hint?: LType) => lw.call(n, hint),
 
-  [ts.SyntaxKind.NewExpression]: (n: ts.NewExpression, lw) => lw.newError(n),
+  [ts.SyntaxKind.NewExpression]: (n: ts.NewExpression, lw) => lw.newExpr(n),
 };
 
 /** Binary forms that are not an operator on two values: assignment, comma, logic. */
@@ -1024,10 +1338,10 @@ const BINARY_FORMS: Partial<
 > = {
   // The value of `x = v` is `v`, as it was before becoming the variable's type.
   [ts.SyntaxKind.EqualsToken]: (n, lw) => {
-    const target = lw.place(n.left);
-    const value = lw.expr(n.right);
+    const target = lw.target(n.left);
+    const value = lw.expr(n.right, target.type);
 
-    lw.b.store(target.place, lw.coerce(value, target.type, n.right), spanOf(n));
+    target.write(lw.coerce(value, target.type, n.right), spanOf(n));
     return value;
   },
 

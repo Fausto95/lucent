@@ -146,7 +146,16 @@ Notable lowering choices:
   expressions, `typeof`, blocks, `if`, `while`, `do`, `for`, `switch`,
   labels, `break`, `continue`, `return` and `throw`, and the checker's
   narrowing of optionals and unions) and leaves the others to the emitter
-  above; `ir-strict` fails on anything it does not support. Conversions
+  above; `ir-strict` fails on anything it does not support. What the IR
+  does not model itself (member reads and writes, methods of the runtime
+  and the SDK, constructions, array and object literals) is a `plan`: the
+  IR lowers the subexpressions it takes first, in source order, and the
+  emitter's own code for the leaf (`emit/leaf.ts`) gives its C++ over
+  those values, so builtin and SDK semantics are not written twice. A
+  compound assignment of a field or an element reads it through one plan
+  and writes it through another, around the right side. Platform tests
+  keep only what the platform being built runs. `scripts/ir-coverage.ts`
+  reports what the e2e corpus lowers and why the rest falls back. Conversions
   between optionals, unions and absent values are planned once, in
   `lowering/conversions.ts`, for both lowerings. A verifier checks each function (definitions before uses and
   inside their region, types, terminators, jump targets, branch results,

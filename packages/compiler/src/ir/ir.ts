@@ -161,7 +161,21 @@ export type IrOp =
   /** Ends this iteration of the loop `target`. */
   | { kind: "continue"; target: TargetId; source: SourceSpan }
   /** Ends a branch of an `if`, giving its result. */
-  | { kind: "yield"; value?: ValueId; source: SourceSpan };
+  | { kind: "yield"; value?: ValueId; source: SourceSpan }
+  /**
+   * An operation the IR does not model itself (a member read, a method of
+   * the runtime or the SDK, a construction…), on values computed before
+   * it: the backend's `code` for it, which `name` describes. Its effects
+   * are the program analysis's to know; the IR assumes it may do anything.
+   */
+  | {
+      kind: "plan";
+      result?: ValueId;
+      name: string;
+      code: unknown;
+      args: ValueId[];
+      source: SourceSpan;
+    };
 
 export type Callee = { kind: "function"; id: FunctionId } | { kind: "builtin"; name: BuiltinName };
 
@@ -390,6 +404,7 @@ export function operandsOf(op: IrOp): ValueId[] {
     case "store":
       return [op.value];
     case "call":
+    case "plan":
       return op.args;
     case "return":
       return op.value === undefined ? [] : [op.value];

@@ -164,6 +164,26 @@ export class IrBuilder {
     return id;
   }
 
+  /** A plan: the backend's `code` on `args`; `result` is the type it gives, absent when it gives nothing. */
+  plan(
+    name: string,
+    code: unknown,
+    args: ValueId[],
+    result: LType | undefined,
+    source: SourceSpan,
+  ): ValueId | undefined {
+    const id = result && this.value(result, source);
+    this.push({
+      kind: "plan",
+      ...(id === undefined ? {} : { result: id }),
+      name,
+      code,
+      args,
+      source,
+    });
+    return id;
+  }
+
   return(value: ValueId | undefined, source: SourceSpan): void {
     this.push(value === undefined ? { kind: "return", source } : { kind: "return", value, source });
   }

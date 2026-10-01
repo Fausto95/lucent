@@ -4,7 +4,7 @@ import ts from "typescript";
 import { literalConstant, programFacts, type ProgramFacts } from "../analysis/index.ts";
 import { Codes, fail } from "../diagnostics.ts";
 import { type CppFunction, lowerToCpp, loweringMode, type Lowering } from "../ir/cpp.ts";
-import { platformScopes } from "../platforms.ts";
+import { branchPlatform, platformGuard, platformScopes, switchPlatforms } from "../platforms.ts";
 import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
 import { BindingsEmitter, type ModuleExports, publicMembers } from "./bindings.ts";
@@ -23,6 +23,7 @@ import {
 import { javaSubclass } from "./java.ts";
 import { kotlinFiles } from "./kotlin.ts";
 import { Ctx, type Global } from "./context.ts";
+import { leafHost } from "./leaf.ts";
 import { FnEmitter } from "./function.ts";
 import { emitIface } from "./interfaces.ts";
 import { declaredNames, withoutMacros } from "./macros.ts";
@@ -745,14 +746,53 @@ function viaIr(
 
       return undefined;
     },
+    platformGuard: (cond: ts.Expression) => {
+      const guard = platformGuard(ctx.checker, cond);
+
+      if (!guard) return undefined;
+
+      const runs = !ctx.platform
+        ? "nowhere"
+        : guard.platform === ctx.platform
+          ? "here"
+          : "elsewhere";
+
+      return { runs, rest: guard.rest } as const;
+    },
+    runsHere: (s: ts.Statement) => {
+      const p = branchPlatform(ctx.checker, s);
+
+      return p === undefined || p === ctx.platform;
+    },
+    platformClauses: (s: ts.SwitchStatement) => {
+      const runs = switchPlatforms(ctx.checker, s);
+      const target = ctx.platform;
+
+      if (!runs) return undefined;
+
+      return target ? runs.map((r) => r.includes(target)) : ("nowhere" as const);
+    },
+    leaves: leafHost(ctx, {
+      module: g.module,
+      async: g.async,
+      returnType: g.async && g.type.ret.k === "promise" ? g.type.ret.inner : g.type.ret,
+    }),
   };
   const backend = {
     cppType: (t: LType) => ctx.reg.cppType(t),
     cppRetType: (t: LType) => ctx.reg.cppRetType(t),
     site: g.decl.name!.text,
   };
+  // What planning a leaf reported is the legacy emitter's to report again, when it lowers the function.
+  const reported = { warnings: ctx.warnings.length, diagnostics: ctx.diagnostics.length };
+  const lowered = lowerToCpp(lowering, input, host, backend);
 
-  return lowerToCpp(lowering, input, host, backend);
+  if (!lowered) {
+    ctx.warnings.length = reported.warnings;
+    ctx.diagnostics.length = reported.diagnostics;
+  }
+
+  return lowered;
 }
 
 function topoSort(

@@ -67,7 +67,7 @@ import { bigintExpr, bigintLiteralValue, numberExpr, stringExpr } from "../lower
 import { sourcePath } from "../lowering/source.ts";
 import { helperStatement, isViewHelper } from "../ui/view-helpers.ts";
 
-interface Local {
+export interface Local {
   cpp: string;
   type: LType;
   boxed: boolean;
@@ -325,7 +325,7 @@ export class FnEmitter {
     return sym ? this.declare(sym, sym.name, type).cpp : fallback;
   }
 
-  private findLocal(sym: ts.Symbol): Local | undefined {
+  protected findLocal(sym: ts.Symbol): Local | undefined {
     for (let i = this.scopes.length - 1; i >= 0; i--) {
       const l = this.scopes[i]!.get(sym);
       if (l) return l;
@@ -1339,7 +1339,7 @@ export class FnEmitter {
   }
 
   /** Code that runs on iOS or Android only, reached on the host: throws, typed as `cpp`. */
-  private platformOnly(node: ts.Node, type: cpp.Type): cpp.Expr {
+  platformOnly(node: ts.Node, type: cpp.Type): cpp.Expr {
     const sf = node.getSourceFile();
     const line = sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1;
     const message = `${path.basename(sf.fileName)}:${line}: this code runs only on iOS and Android`;
@@ -3356,7 +3356,7 @@ export class FnEmitter {
    * unspecified; JavaScript evaluates left to right. When the order could be
    * observed, arguments are evaluated into temporaries first.
    */
-  private inOrder(args: readonly ts.Expression[], build: () => E): E {
+  protected inOrder(args: readonly ts.Expression[], build: () => E): E {
     const candidates = args.filter(
       (a) =>
         !isLiteral(a) &&
@@ -3375,7 +3375,7 @@ export class FnEmitter {
    * `build()`, after evaluating `nodes` into temporaries, in order: while
    * it runs, those nodes are their temporaries, so each runs exactly once.
    */
-  private evaluatedFirst(nodes: readonly ts.Expression[], build: () => E): E {
+  protected evaluatedFirst(nodes: readonly ts.Expression[], build: () => E): E {
     if (nodes.length === 0) return build();
 
     const temps: cpp.Stmt[] = [];
@@ -3426,7 +3426,7 @@ export class FnEmitter {
    * lambdas, where the calling coroutine cannot suspend: the operands up to
    * the last one that awaits are evaluated first, in order.
    */
-  private awaitingFirst(operands: readonly ts.Expression[], build: () => E): E {
+  protected awaitingFirst(operands: readonly ts.Expression[], build: () => E): E {
     const last = operands.findLastIndex(awaits);
 
     if (last < 0) return build();
@@ -3450,7 +3450,7 @@ export class FnEmitter {
    * effect, or when `later` (a right side that runs before the target is
    * written) could change them.
    */
-  private onTarget(target: ts.Expression, later: ts.Expression | undefined, build: () => E): E {
+  protected onTarget(target: ts.Expression, later: ts.Expression | undefined, build: () => E): E {
     const parts = targetParts(target).filter(
       (p) => !isSimple(p) || (later && !this.unchangedBy(p, later)),
     );
