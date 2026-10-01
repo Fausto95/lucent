@@ -1,0 +1,36 @@
+@@ -1,5 +1,6 @@
+ import { useEffect, useState } from "react";
+ import { Text } from "react-native";
++import { lastFix } from "./src/location.lucent";
+ import { Trip } from "./src/trip.lucent";
+ 
+ // A walk along the Seine, one fix every ten minutes.
+@@ -28,6 +29,19 @@ record({ latitude: 48.86, longitude: 2.33, time: 5 * 60 * 1000 }); // late: skip
+ 
+ export default function App() {
+   const [shape, setShape] = useState<number | null>(null);
++  const [here, setHere] = useState("Locating…");
++
++  useEffect(() => {
++    lastFix().then(
++      (fix) =>
++        setHere(
++          fix
++            ? `You are at ${fix.latitude.toFixed(4)}, ${fix.longitude.toFixed(4)}.`
++            : "No position yet.",
++        ),
++      (e: Error) => setHere(e.message),
++    );
++  }, []);
+ 
+   useEffect(() => {
+     const controller = new AbortController();
+@@ -43,7 +57,7 @@ export default function App() {
+     <Text>
+       {summary.fixes} fixes, {(summary.meters / 1000).toFixed(2)} km, top speed{" "}
+       {summary.topSpeed.toFixed(1)} m/s.
+-      {shape === null ? " Simplifying…" : ` ${shape} fixes shape the route.`}
++      {shape === null ? " Simplifying…" : ` ${shape} fixes shape the route.`} {here}
+     </Text>
+   );
+ }

@@ -1,0 +1,28 @@
+@@ -1,3 +1,5 @@
++import { error } from "lucent:core";
++
+ export type Fix = { latitude: number; longitude: number; time: number };
+ 
+ const EARTH_RADIUS_M = 6371000;
+@@ -39,6 +41,13 @@ export class Trip {
+   private fixes: Fix[] = [];
+ 
+   add(fix: Fix): void {
++    const last = this.fixes[this.fixes.length - 1];
++    if (last && fix.time < last.time) {
++      throw error(
++        "E_OUT_OF_ORDER",
++        `A fix at ${fix.time} ms comes before the last one, at ${last.time} ms`,
++      );
++    }
+     this.fixes.push(fix);
+   }
+ 
+@@ -47,6 +56,7 @@ export class Trip {
+   }
+ 
+   summary(): TripSummary {
++    if (this.fixes.length < 2) throw error("E_TOO_SHORT", "A trip needs at least two fixes");
+     let meters = 0;
+     let topSpeed = 0;
+     for (let i = 1; i < this.fixes.length; i++) {

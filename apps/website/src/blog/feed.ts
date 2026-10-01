@@ -5,8 +5,8 @@ import type { PostEntry } from "./types";
 const rfc822 = (date: string): string => new Date(`${date}T00:00:00Z`).toUTCString();
 
 /**
- * The blog as RSS 2.0, newest first, the way posts.ts lists the posts:
- * the build writes it to /blog/rss.xml (vite.config.js).
+ * The blog as RSS 2.0, newest first, as posts are dated:
+ * served at /blog/rss.xml (src/pages/blog/rss.xml.ts).
  */
 export function rssFeed(posts: Pick<PostEntry, "slug" | "title" | "date" | "summary">[]): string {
   const blog = `${SITE}/blog/`;

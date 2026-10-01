@@ -1,0 +1,31 @@
+---
+title: 4. Throw errors JavaScript can handle
+description: Errors with codes, thrown in Lucent and caught by code in JavaScript.
+kind: learn
+samplesWith: apps/tutorial/steps/4-errors
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+<Tabs>
+<TabItem label="trip.lucent.ts">
+
+```diff lang="ts" title="src/trip.lucent.ts" include="tutorial/4-errors/src/trip.lucent.ts.diff"
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```diff lang="tsx" title="App.tsx" include="tutorial/4-errors/App.tsx.diff"
+```
+
+</TabItem>
+</Tabs>
+
+`error(code, message)` from `lucent:core` makes an `Error` with a `code`. JavaScript receives an ordinary `Error`, with the same `message` and `code`, and a stack whose first frame is the line in `trip.lucent.ts` that threw.
+
+Test the `code`, not the message: codes are for code, messages are for people. Here, a fix that arrives late is skipped, and any other error still reaches React.
+
+## Run it
+
+The screen is unchanged. Metro's output shows the warning for the late fix: `A fix at 300000 ms comes before the last one, at 2400000 ms`.

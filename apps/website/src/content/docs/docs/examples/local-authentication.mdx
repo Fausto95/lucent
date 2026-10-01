@@ -1,0 +1,38 @@
+---
+title: Local authentication
+description: "`expo-local-authentication`'s API on `LAContext` and Android's `BiometricManager`: hardware, enrollment and a Face ID or Touch ID prompt."
+kind: example
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+- iOS: `await context.evaluatePolicy(policy, reason)`. The SDK's completion handler becomes a promise, under the name Swift gives its async form.
+- iOS: `canEvaluatePolicy` reports why it can't with an `NSError` out-parameter, read through `Out<Error>`.
+- Android: the platform's `BiometricManager` and `KeyguardManager`, with API-level checks.
+
+<Tabs>
+<TabItem label="module">
+
+```ts title="localAuthentication.lucent.ts" include="examples/local-authentication.lucent.ts"
+```
+
+</TabItem>
+<TabItem label="JS usage">
+
+```tsx title="App.tsx"
+import * as LocalAuthentication from "./src/localAuthentication.lucent";
+
+if (await LocalAuthentication.hasHardwareAsync()) {
+  const result = await LocalAuthentication.authenticateAsync({ promptMessage: "Unlock" });
+  console.log(result.success);
+}
+```
+
+</TabItem>
+</Tabs>
+
+:::caution
+Android has no biometric prompt yet: it needs the current activity, which `lucent:android` doesn't expose ([roadmap](/docs/roadmap/)).
+:::
+
+Source: [localAuthentication.lucent.ts](https://github.com/Fausto95/lucent/blob/main/scripts/example-app/src/sdk/localAuthentication.lucent.ts).

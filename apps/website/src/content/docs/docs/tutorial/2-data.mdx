@@ -1,0 +1,38 @@
+---
+title: 2. Keep the trip in native code
+description: A `Trip` class that holds its fixes natively, and a summary returned as a copied object.
+kind: learn
+samplesWith: apps/tutorial/steps/2-data
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+<Tabs>
+<TabItem label="trip.lucent.ts">
+
+```diff lang="ts" title="src/trip.lucent.ts" include="tutorial/2-data/src/trip.lucent.ts.diff"
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```diff lang="tsx" title="App.tsx" include="tutorial/2-data/App.tsx.diff"
+```
+
+</TabItem>
+</Tabs>
+
+`Trip` is a class, so JavaScript gets a handle on one native object rather than a copy. Its fixes stay in native code: JavaScript sends each fix once, with `add`.
+
+## What's copied, and what isn't
+
+- `trip.add(fix)` copies the fix. Changing `fix` in JavaScript afterwards doesn't change the trip.
+- `trip.summary()` returns a new object on each call: a copy of a `TripSummary` struct.
+- `trip` itself crosses by reference. Passing it back to Lucent later gives the same object, with its fixes.
+- `trip.count` is a getter: reading it calls into native code.
+
+This is the shape [Design the boundary first](/docs/thinking/boundary-first/) recommends: the data stays native, and small values cross.
+
+## Run it
+
+The screen shows `5 fixes, 3.55 km, top speed 1.6 m/s`.

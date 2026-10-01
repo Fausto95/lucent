@@ -1,0 +1,85 @@
+---
+title: Run work off the JS thread
+description: Make the export `async` to run it on the Lucent thread, or run heavy work on worker threads with `compute`.
+kind: guide
+---
+
+```ts title="primes.lucent.ts"
+/** Counts the primes below `limit`, on the Lucent thread. */
+export async function countPrimes(limit: number): Promise<number> {
+  const composite = new Uint8Array(limit);
+  let count = 0;
+  for (let n = 2; n < limit; n++) {
+    if (composite[n] === 1) continue;
+    count++;
+    for (let m = n * n; m < limit; m += n) composite[m] = 1;
+  }
+  return count;
+}
+```
+
+```tsx title="App.tsx"
+const count = await countPrimes(10_000_000); // the JS thread stays free meanwhile
+```
+
+An `async` export runs on the Lucent thread, a background thread, from its first line. Its arguments are checked and copied on the JS thread first, and its result resolves the promise there.
+
+- `async` methods of exported classes run the same way.
+- Lucent code runs one piece at a time. A synchronous call from JavaScript waits while async Lucent code runs, until that code reaches an `await`.
+- So in long work that JavaScript may call into meanwhile, `await delay(0)` from `lucent:core` now and then lets synchronous calls through.
+
+:::note
+A synchronous export returning a `Promise`, without `async`, runs on the JS thread. Mark exports `async` to move them off it.
+:::
+
+## Run heavy work in parallel
+
+`compute(task, input, { signal })` from `lucent:core` runs a function on a pool of worker threads, so it keeps neither the JS thread nor the Lucent thread busy. Several tasks run at once.
+
+```ts title="edges.lucent.ts"
+import { compute } from "lucent:core";
+
+function edgePositions(bytes: Uint8Array): number[] {
+  const positions: number[] = [];
+  for (let i = 1; i < bytes.length; i++) {
+    if (Math.abs(bytes[i]! - bytes[i - 1]!) > 40) positions.push(i);
+  }
+  return positions;
+}
+
+export async function edges(bytes: Uint8Array, signal?: AbortSignal): Promise<number[]> {
+  return await compute(edgePositions, bytes, { signal });
+}
+```
+
+- The task is a function declared at the top level of a module, with one parameter. The compiler checks all it runs: no module state, no main-thread native code, no `await` ([LUCENT3011](/docs/reference/diagnostics/#lucent3011)). Module constants it reads must be literals, such as numbers or strings: a reload of JavaScript computes the others again.
+- Its input is copied when you call `compute`, so later changes do not reach the task. The input and the result must be data: no functions, promises or native objects ([LUCENT3012](/docs/reference/diagnostics/#lucent3012)).
+- Aborting the signal rejects the promise at once. A running task stops at the next iteration of a loop in the task or a module function it calls. Loops in closures and methods finish first.
+
+## Hand large buffers over without copying
+
+A `Uint8Array` input is copied. A `NativeBuffer` from `lucent:core` moves instead: bytes native code owns, reached through a borrow for one call.
+
+```ts title="scan.lucent.ts"
+import { compute, NativeBuffer } from "lucent:core";
+
+function scan(buffer: NativeBuffer): number {
+  using owned = buffer;
+  return owned.withRead((bytes) => {
+    let total = 0;
+    for (let i = 0; i < bytes.length; i++) total += bytes[i]!;
+    return total;
+  });
+}
+
+export async function sample(): Promise<number> {
+  const buffer = NativeBuffer.allocate(4096);
+  buffer.withWrite((bytes) => bytes.fill(7));
+  return await compute(scan, buffer.transfer());
+}
+```
+
+- `withRead` and `withWrite` lend their callback the bytes. Reads share the buffer, a write needs it to itself, and a conflicting borrow throws an `InvalidStateError`.
+- The bytes stay in the callback: returning, storing or awaiting past them does not compile ([LUCENT3030](/docs/reference/diagnostics/#lucent3030)).
+- `transfer()`, or passing the buffer to `compute`, moves the bytes. The old buffer refuses every use from then on ([LUCENT3031](/docs/reference/diagnostics/#lucent3031) where the compiler can tell).
+- `toUint8Array()` and `NativeBuffer.from(bytes)` copy; `NativeBuffer.stats()` counts the copies, so you can check a path makes none.
