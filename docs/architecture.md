@@ -140,10 +140,8 @@ Notable lowering choices:
   operations own nested regions, which `break`, `continue` and `yield`
   (an `if`'s result) leave. Every function, method, accessor,
   constructor, module `init()` and compute task variant lowers through
-  it by default (`LUCENT_LOWERING`, internal, also selects `legacy`, the
-  emitter above alone, for comparisons, and `ir-strict`, which fails on
-  anything the IR does not support); component setups, behind
-  `LUCENT_VIEWS`, still use the emitter's own statements. What the IR
+  it; what it cannot lower is a LUCENT diagnostic. Component setups,
+  behind `LUCENT_VIEWS`, still use the emitter's own statements. What the IR
   does not model itself (member reads and writes, methods of the runtime
   and the SDK, constructions, array and object literals) is a `plan`: the
   IR lowers the subexpressions it takes first, in source order, and the
@@ -164,10 +162,9 @@ Notable lowering choices:
   `emit/integers.ts` proves integral) are marked in the IR and live in
   integer registers in the C++. Async functions and generators are coroutines: each `await`
   is an operation of its own, and `yield* xs` iterates `xs`. Platform tests
-  keep only what the platform being built runs. `scripts/ir-coverage.ts`
-  reports what the e2e corpus lowers and why the rest falls back. Conversions
+  keep only what the platform being built runs. Conversions
   between optionals, unions and absent values are planned once, in
-  `lowering/conversions.ts`, for both lowerings. A verifier checks each function (definitions before uses and
+  `lowering/conversions.ts`, for the IR and the leaves it plans. A verifier checks each function (definitions before uses and
   inside their region, types, terminators, jump targets, branch results,
   spans, effect claims) before any C++ exists, and the C++ gives every
   call its own statement; a jump is C++'s `break` or `continue` when that
@@ -221,7 +218,7 @@ Notable lowering choices:
   A `NativeBuffer` borrow (`emit/buffers.ts`) lends its callback a span
   that must not escape by any of those paths; the same module reports a
   buffer used after it certainly moved (`transfer()`, a compute handoff).
-  Under `LUCENT_LOWERING=ir`, each lowered function's effect record, and
+  Each lowered function's effect record, and
   each call's throw claim, is its summary; the verifier checks a record
   admits the mutable module variables it loads and stores and what the
   functions it calls do (a const holding a number is not state).

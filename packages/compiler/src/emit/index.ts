@@ -1,9 +1,9 @@
 import { cpp, ts as js } from "@lucent-lang/codegen";
 import path from "node:path";
 import ts from "typescript";
-import { literalConstant, programFacts, type ProgramFacts } from "../analysis/index.ts";
+import { literalConstant, programFacts } from "../analysis/index.ts";
 import { Codes, fail } from "../diagnostics.ts";
-import { type CppFunction, loweringMode, type Lowering } from "../ir/cpp.ts";
+import type { CppFunction } from "../ir/cpp.ts";
 import { platformScopes } from "../platforms.ts";
 import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
@@ -23,7 +23,7 @@ import {
 import { javaSubclass } from "./java.ts";
 import { kotlinFiles } from "./kotlin.ts";
 import { Ctx, type Global } from "./context.ts";
-import { initThroughIr, type IrUnit, throughIr } from "./through-ir.ts";
+import { initThroughIr, type IrMode, type IrUnit, throughIr } from "./through-ir.ts";
 import type { Initializer } from "../ir/lower.ts";
 import { FnEmitter } from "./function.ts";
 import { emitIface } from "./interfaces.ts";
@@ -167,17 +167,14 @@ export function emitProgram(
   }
 
   // Pass 2: code.
-  const lowering = loweringMode();
   // The IR's effect records come from the program's analysis.
-  const facts = lowering === "legacy" ? undefined : programFacts(lp);
-  const ir = lowering !== "legacy" && facts ? { lowering, facts } : undefined;
+  const ir: IrMode = { facts: programFacts(lp) };
   const structDecls: cpp.Decl[] = [];
   const classDefs: cpp.Decl[] = [];
   const genericClassDefs: cpp.Decl[] = [];
   const moduleDecls = new Map<LucentModule, cpp.Decl[]>();
   const moduleDefs = new Map<LucentModule, cpp.Decl[]>();
   const genericFns = new Map<LucentModule, cpp.Decl[]>();
-  const staticInits = new Map<LucentModule, cpp.Stmt[]>();
   const statics = new Map<LucentModule, Initializer[]>();
   const nativeDecls: cpp.Decl[] = [];
   const java = new Map<string, string>();
@@ -185,7 +182,6 @@ export function emitProgram(
     moduleDecls.set(m, []);
     genericFns.set(m, []);
     moduleDefs.set(m, []);
-    staticInits.set(m, []);
     statics.set(m, []);
   }
 
@@ -203,7 +199,6 @@ export function emitProgram(
       : classDefs
     ).push(out.definition);
     moduleDefs.get(m)!.push(...out.members);
-    staticInits.get(m)!.push(...out.staticInits);
     statics.get(m)!.push(...out.statics);
     // Classes implementing SDK protocols: an Objective-C object per instance.
     const objc = ctx.guard(() => objcDelegate(ctx, m, info));
@@ -239,8 +234,7 @@ export function emitProgram(
           moduleDecls.get(g.module)!,
           moduleDefs.get(g.module)!,
           genericFns.get(g.module)!,
-          lowering,
-          facts,
+          ir,
         ),
       );
   }
@@ -310,8 +304,7 @@ export function emitProgram(
         },
       })),
     ];
-    const lowered = ir && initThroughIr(ctx, m, initializers, ir);
-    const body = lowered ? lowered.body : [...staticInits.get(m)!, ...legacyInit(ctx, m, vars)];
+    const body = ctx.guard(() => initThroughIr(ctx, m, initializers, ir).body) ?? [];
 
     moduleDefs.get(m)!.push(cpp.fn("init", cpp.voidType, [], body, { scope: cpp.type(m.ns) }));
   }
@@ -654,112 +647,67 @@ function emitFunction(
   decls: cpp.Decl[],
   defs: cpp.Decl[],
   genericFns: cpp.Decl[],
-  lowering: Lowering,
-  facts: ProgramFacts | undefined,
+  ir: IrMode,
 ): void {
   const s = g.decl;
-  const ir =
-    lowering === "legacy" || !facts ? undefined : functionThroughIr(ctx, g, lowering, facts);
+  const name = cppIdent(s.name!.text);
 
-  if (ir) {
-    const name = cppIdent(s.name!.text);
-
-    // A generic function is a C++ template, which its callers instantiate.
-    if (g.generic) {
-      const template = s.typeParameters!.map((p) => cppIdent(p.name.text));
-
-      genericFns.push(
-        cpp.namespace(g.module.ns, [cpp.fn(name, ir.ret, ir.params, ir.body, { template })]),
-      );
-      decls.push(cpp.fn(name, ir.ret, ir.params, undefined, { template }));
-      return;
-    }
-
-    decls.push(cpp.fn(name, ir.ret, ir.params));
-    defs.push(cpp.fn(name, ir.ret, ir.params, ir.body, { scope: cpp.type(g.module.ns) }));
+  if (!s.body) {
+    platformStub(ctx, g, decls, defs);
     return;
   }
 
-  const generator = !!g.decl.asteriskToken;
-  if (generator && g.async)
-    fail(g.decl, Codes.UnsupportedSyntax, "async generators are not supported");
-  const ret = g.async ? (g.type.ret.k === "promise" ? g.type.ret.inner : g.type.ret) : g.type.ret;
-  const em = new FnEmitter(ctx, {
-    module: g.module,
-    async: g.async,
-    generator,
-    returnType: generator ? T.void : ret,
-  });
-  let params: cpp.Param[] = [];
-  ctx.guard(() => {
-    params = em.emitParams(s, g.params);
-    if (s.body) em.emitFunctionBody(s);
-    else {
-      // A platform module's export on a target without an implementation.
-      const error = cpp.call("lucent::makeError", [
-        stringExpr("Error"),
-        stringExpr(`${g.module.name}.${s.name!.text} is not available on this platform`),
-      ]);
-      em.emit(
-        g.type.ret.k === "promise"
-          ? cpp.ret(
-              cpp.call(
-                cpp.scoped(
-                  cpp.type("lucent::Promise", ctx.reg.cppRetType(g.type.ret.inner)),
-                  "rejected",
-                ),
-                [error],
-              ),
-            )
-          : { k: "throw", value: cpp.construct(cpp.type("lucent::Exception"), [error]) },
-      );
-    }
-  });
-  const retType = g.async
-    ? cpp.type("lucent::Promise", ctx.reg.cppRetType(ret))
-    : ctx.reg.cppRetType(ret);
-  const name = cppIdent(s.name!.text);
+  const lowered = functionThroughIr(ctx, g, ir);
+
+  // A generic function is a C++ template, which its callers instantiate.
   if (g.generic) {
     const template = s.typeParameters!.map((p) => cppIdent(p.name.text));
+
     genericFns.push(
-      cpp.namespace(g.module.ns, [cpp.fn(name, retType, params, em.body(), { template })]),
+      cpp.namespace(g.module.ns, [
+        cpp.fn(name, lowered.ret, lowered.params, lowered.body, { template }),
+      ]),
     );
-    decls.push(cpp.fn(name, retType, params, undefined, { template }));
+    decls.push(cpp.fn(name, lowered.ret, lowered.params, undefined, { template }));
     return;
   }
-  decls.push(cpp.fn(name, retType, params));
-  defs.push(cpp.fn(name, retType, params, em.body(), { scope: cpp.type(g.module.ns) }));
+
+  decls.push(cpp.fn(name, lowered.ret, lowered.params));
+  defs.push(
+    cpp.fn(name, lowered.ret, lowered.params, lowered.body, { scope: cpp.type(g.module.ns) }),
+  );
 }
 
-/** What a module's `init()` stores into its variables, by the legacy emitter. */
-function legacyInit(
+/** A platform module's export on a target without an implementation: it throws, or rejects. */
+function platformStub(
   ctx: Ctx,
-  m: LucentModule,
-  vars: readonly Extract<Global, { kind: "var" }>[],
-): cpp.Stmt[] {
-  const em = new FnEmitter(ctx, { module: m, async: false, returnType: T.void });
+  g: Extract<Global, { kind: "function" }>,
+  decls: cpp.Decl[],
+  defs: cpp.Decl[],
+): void {
+  const name = cppIdent(g.decl.name!.text);
+  const ret = g.type.ret;
+  const params = g.params.map((p, i) => cpp.param(ctx.reg.cppType(p.cppType), `p${i}_`));
+  const error = cpp.call("lucent::makeError", [
+    stringExpr("Error"),
+    stringExpr(`${g.module.name}.${name} is not available on this platform`),
+  ]);
+  const promised = ret.k === "promise" ? ctx.reg.cppRetType(ret.inner) : undefined;
+  const body: cpp.Stmt = promised
+    ? cpp.ret(cpp.call(cpp.scoped(cpp.type("lucent::Promise", promised), "rejected"), [error]))
+    : { k: "throw", value: cpp.construct(cpp.type("lucent::Exception"), [error]) };
+  const retType = promised ? cpp.type("lucent::Promise", promised) : ctx.reg.cppRetType(ret);
 
-  for (const g of vars) {
-    const target = cpp.id(g.cpp);
-
-    if (g.decl.initializer) {
-      const v = ctx.guard(() => em.exprAs(g.decl.initializer!, g.type));
-
-      if (v !== undefined) em.emit(cpp.exprStmt(cpp.assign(target, v)));
-    } else {
-      em.emit(cpp.exprStmt(cpp.assign(target, cpp.construct(ctx.reg.cppType(g.type), [], true))));
-    }
-  }
-  return em.body();
+  decls.push(cpp.fn(name, retType, params));
+  defs.push(cpp.fn(name, retType, params, [body], { scope: cpp.type(g.module.ns) }));
 }
 
-/** A module's function through the semantic IR (ir/), when LUCENT_LOWERING selects it and it applies. */
+/** A module's function, through the semantic IR (ir/). */
 function functionThroughIr(
   ctx: Ctx,
   g: Extract<Global, { kind: "function" }>,
-  lowering: Exclude<Lowering, "legacy">,
-  facts: ProgramFacts,
-): CppFunction | undefined {
+  ir: IrMode,
+): CppFunction {
   const ret = g.type.ret;
   const generator = g.decl.asteriskToken && ret.k === "iter" ? ret.e : undefined;
   // An async function's body returns what its promise fulfils with; a generator's, nothing.
@@ -776,7 +724,7 @@ function functionThroughIr(
     site: g.decl.name!.text,
   };
 
-  return throughIr(ctx, unit, lowering, facts);
+  return throughIr(ctx, unit, ir);
 }
 
 function topoSort(

@@ -1,14 +1,14 @@
 /**
- * The emitter's one hook into the semantic IR (ir/): a function, method or
- * accessor lowered through it, when LUCENT_LOWERING selects it and the IR
- * supports the code; the host it lowers with gives the program's types,
- * declarations and platform, and plans leaves with the emitter's code.
+ * The emitter's one hook into the semantic IR (ir/): a function, method,
+ * accessor, constructor, module `init()` or task variant lowered through
+ * it. The host it lowers with gives the program's types, declarations
+ * and platform, and plans leaves with the emitter's code.
  */
 import type { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import type { ProgramFacts } from "../analysis/index.ts";
 import type { FunctionLike } from "../analysis/scopes.ts";
-import { type CppFunction, type Lowering, lowerToCpp } from "../ir/cpp.ts";
+import { type CppFunction, lowerToCpp } from "../ir/cpp.ts";
 import type { Initialization, Initializer, LowerHost, NestedSignature } from "../ir/lower.ts";
 import type { LucentModule } from "../program.ts";
 import { branchPlatform, platformGuard, switchPlatforms } from "../platforms.ts";
@@ -19,9 +19,8 @@ import { functionName, isMathGlobal } from "./builtins.ts";
 import { inferIntegers } from "./integers.ts";
 import { leafHost } from "./leaf.ts";
 
-/** The IR's lowering, when one is selected, and the program facts its records come from. */
+/** What lowering through the IR needs of the program: the facts its effect records come from. */
 export interface IrMode {
-  lowering: Exclude<Lowering, "legacy">;
   facts: ProgramFacts;
 }
 
@@ -51,14 +50,9 @@ export interface IrUnit {
   task?: boolean;
 }
 
-/** `unit` lowered through the IR, or undefined when it falls back to the legacy emitter (`ir`). */
-export function throughIr(
-  ctx: Ctx,
-  unit: IrUnit,
-  lowering: Exclude<Lowering, "legacy">,
-  facts: ProgramFacts,
-): CppFunction | undefined {
-  const known = facts.unit(unit.decl);
+/** `unit` lowered through the IR (what it does not support is a LUCENT diagnostic). */
+export function throughIr(ctx: Ctx, unit: IrUnit, ir: IrMode): CppFunction {
+  const known = ir.facts.unit(unit.decl);
   const input = {
     decl: unit.decl,
     id: unit.id,
@@ -70,7 +64,7 @@ export function throughIr(
     ...(unit.generator ? { generator: unit.generator } : {}),
     async: unit.async,
     generic: unit.generic,
-    ...(known ? { effects: facts.effects(known) } : {}),
+    ...(known ? { effects: ir.facts.effects(known) } : {}),
     ...(unit.construct ? { construct: unit.construct } : {}),
     ...(unit.span ? { span: unit.span } : {}),
     ...(unit.task ? { task: true } : {}),
@@ -82,9 +76,7 @@ export function throughIr(
     ...(unit.prologue ? { prologue: unit.prologue } : {}),
   };
 
-  return reportingOnce(ctx, () =>
-    lowerToCpp(lowering, input, irHost(ctx, facts, unit.opts), backend),
-  );
+  return lowerToCpp(input, irHost(ctx, ir.facts, unit.opts), backend);
 }
 
 /** A module's `init()` through the IR: its classes' static fields, then its variables, in order. */
@@ -93,7 +85,7 @@ export function initThroughIr(
   module: LucentModule,
   initializers: Initializer[],
   ir: IrMode,
-): CppFunction | undefined {
+): CppFunction {
   // The analysis does not count a module's initializing its own variables as writing state: the
   // IR's record is its own.
   const init = { id: `${module.ns}::init`, source: module.sourceFile, initializers };
@@ -109,28 +101,14 @@ export function initializationThroughIr(
   opts: FnOptions,
   site: string,
   ir: IrMode,
-): CppFunction | undefined {
+): CppFunction {
   const backend = {
     cppType: (t: LType) => ctx.reg.cppType(t),
     cppRetType: (t: LType) => ctx.reg.cppRetType(t),
     site,
   };
-  const host = irHost(ctx, ir.facts, opts);
 
-  return reportingOnce(ctx, () => lowerToCpp(ir.lowering, init, host, backend));
-}
-
-/** `lower()`; what planning a leaf reported is the legacy emitter's to report again when it falls back. */
-function reportingOnce(ctx: Ctx, lower: () => CppFunction | undefined): CppFunction | undefined {
-  const reported = { warnings: ctx.warnings.length, diagnostics: ctx.diagnostics.length };
-  const lowered = lower();
-
-  if (!lowered) {
-    ctx.warnings.length = reported.warnings;
-    ctx.diagnostics.length = reported.diagnostics;
-  }
-
-  return lowered;
+  return lowerToCpp(init, irHost(ctx, ir.facts, opts), backend);
 }
 
 /** The host a body with the emitter's options `opts` lowers with. */
@@ -237,10 +215,10 @@ function irHost(ctx: Ctx, facts: ProgramFacts, opts: FnOptions): LowerHost {
               : sig.type.ret,
         ...(opts.thisExpr ? { thisExpr: "self" } : {}),
         ...(opts.thisRef || opts.thisExpr ? { thisRef: "self" } : {}),
-        isConstructor: false,
         task: false,
       }),
     siteOf: (node) => functionName(node.body ?? node),
+    markFailed: (name) => ctx.markFailed(name),
     integers: (fn) => {
       if (!fn.body) return new Map();
 

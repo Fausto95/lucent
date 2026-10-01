@@ -1,17 +1,14 @@
 /**
- * TypeScript → IR for the subset the IR covers so far: literals (bigints
- * too), arithmetic, bitwise and comparison operators, string concatenation and
- * templates, locals, parameters (defaulted ones too) and module variables
- * with every assignment form, calls of the module's functions, `new
- * Error(…)`, conditional and logical expressions, `typeof`, `!`, `as`,
- * narrowing of optionals and unions where the checker narrows, blocks,
- * `if`, `while`, `do`, `for`, `switch`, labels, `break`, `continue`,
- * `return` and `throw`, platform tests, and nested functions as closures.
- * What the IR does not model itself (member access, methods of the
- * runtime and the SDK, constructions, literals of arrays and objects) is a
- * plan the host's `leaves` give, on operands lowered here first. Anything
- * else throws IrUnsupported, and the legacy emitter lowers the function
- * instead (or, under `ir-strict`, compilation stops).
+ * TypeScript → IR: functions, methods, constructors, modules'
+ * initialization and compute task variants. The IR models evaluation
+ * order, control flow (branches, loops, `for … of`, `switch`, labels,
+ * `try`, `using`), places (locals, boxes closures share, module
+ * variables, integer registers), closures, generics, exceptions and
+ * suspension (`await`, `yield`). What it does not model itself (member
+ * access, methods of the runtime and the SDK, constructions, literals of
+ * arrays and objects) is a plan the host's `leaves` give, on operands
+ * lowered here first. What Lucent rejects is a LUCENT diagnostic; what the
+ * IR cannot lower throws IrUnsupported, which ir/cpp.ts reports as one.
  *
  * Every subexpression becomes operations appended in JavaScript's
  * evaluation order, left to right, so the order is fixed here once; a
@@ -53,6 +50,8 @@ import {
 /** A construct the IR does not lower yet. */
 export class IrUnsupported extends Error {
   readonly node: ts.Node;
+  /** What it is: "async generators", "optional chains"… */
+  readonly what: string;
 
   constructor(node: ts.Node, what: string) {
     const sf = node.getSourceFile();
@@ -60,6 +59,7 @@ export class IrUnsupported extends Error {
     super(`the IR does not lower ${what} yet (${sf.fileName}:${line + 1}:${character + 1})`);
     this.name = "IrUnsupported";
     this.node = node;
+    this.what = what;
   }
 }
 
@@ -125,6 +125,8 @@ export interface LowerHost {
   self?(node: FunctionLike): Leaf | undefined;
   /** The name Errors made in the nested function `node` record as their site. */
   siteOf?(node: FunctionLike): string;
+  /** Marks the names of a rejected declaration failed: their uses are not reported again. */
+  markFailed?(name: ts.BindingName): void;
   /**
    * The locals of `fn` (not of the functions in it) every write of which
    * is an exact integer of a kind, which live in integer registers: `for`
@@ -677,22 +679,14 @@ class Lowerer {
     return sym;
   }
 
-  /** The type at `node`; one the compiler cannot represent is left to the legacy emitter to report. */
+  /** The type at `node`: one the compiler cannot represent is reported (a LUCENT diagnostic). */
   typeAt(node: ts.Node): LType {
-    try {
-      return this.host.typeAt(node);
-    } catch {
-      this.unsupported(node, "this type");
-    }
+    return this.host.typeAt(node);
   }
 
-  /** A variable's declared type; one the compiler cannot represent is left to the legacy emitter. */
+  /** A variable's declared type; one the compiler cannot represent is reported. */
   declaredType(sym: ts.Symbol, at: ts.Node): LType {
-    try {
-      return this.host.typeOf(sym, at);
-    } catch {
-      this.unsupported(at, "this type");
-    }
+    return this.host.typeOf(sym, at);
   }
 
   statement(s: ts.Statement): void {
@@ -1018,8 +1012,7 @@ class Lowerer {
   declarations(list: ts.VariableDeclarationList): void {
     const scoped = list.flags & ts.NodeFlags.BlockScoped;
 
-    if (scoped !== ts.NodeFlags.Let && scoped !== ts.NodeFlags.Const)
-      this.unsupported(list, "declarations other than let and const");
+    if (scoped !== ts.NodeFlags.Let && scoped !== ts.NodeFlags.Const) this.varDeclarations(list);
 
     for (const d of list.declarations) {
       if (!ts.isIdentifier(d.name)) {
@@ -1040,6 +1033,13 @@ class Lowerer {
 
       if (value !== undefined) this.b.store(place, value, spanOf(d));
     }
+  }
+
+  /** `var`, which Lucent rejects: its names are marked failed, so their uses are not reported again. */
+  varDeclarations(list: ts.VariableDeclarationList): never {
+    for (const d of list.declarations) this.host.markFailed?.(d.name);
+
+    fail(list, Codes.UnsupportedSyntax, "use `let` or `const` instead of `var`");
   }
 
   /**
@@ -1225,7 +1225,7 @@ class Lowerer {
           const scoped = init.flags & ts.NodeFlags.BlockScoped;
 
           if (scoped !== ts.NodeFlags.Let && scoped !== ts.NodeFlags.Const)
-            this.unsupported(init, "declarations other than let and const");
+            this.varDeclarations(init);
 
           this.bind(init.declarations[0]!.name, value);
         } else if (ts.isArrayLiteralExpression(init) || ts.isObjectLiteralExpression(init)) {
@@ -2053,21 +2053,25 @@ class Lowerer {
    * one it becomes, when given (each branch converts to it, as a literal
    * on its own would), but for promises, which an async function awaits
    * before converting; the checker's union of the branches' otherwise.
+   * When a platform test picks the branch, the other one, which another
+   * platform's SDK types, plays no part.
    */
   conditional(node: ts.ConditionalExpression, hint?: LType): ValueId {
-    const own = this.typeAt(node);
+    const guard = this.host.platformGuard?.(node.condition);
+    const live =
+      guard && guard.runs !== "nowhere" && (guard.runs === "elsewhere" || !guard.rest.length)
+        ? guard.runs === "here"
+          ? node.whenTrue
+          : node.whenFalse
+        : undefined;
+    const own = this.typeAt(live ?? node);
     const promised =
       own.k === "promise" || (own.k === "union" && own.ms.some((m) => m.k === "promise"));
     const type = hint && !isVoidish(hint) && !promised ? hint : own;
-    const guard = this.host.platformGuard?.(node.condition);
 
     if (guard?.runs === "nowhere") return this.platformOnly(node, own);
 
-    if (guard && (guard.runs === "elsewhere" || !guard.rest.length)) {
-      const live = guard.runs === "here" ? node.whenTrue : node.whenFalse;
-
-      return this.coerce(this.expr(live, type), type, live);
-    }
+    if (live) return this.coerce(this.expr(live, type), type, live);
 
     const cond = guard ? this.all(guard.rest) : this.condition(node.condition);
     const branch = (e: ts.Expression) => () =>
@@ -2188,6 +2192,9 @@ function narrows(from: LType, to: LType, derives: (sub: LType, base: LType) => b
   if (to.k === "class" && (from.k === "error" || from.k === "iface")) return true;
 
   if (to.k === "class" && from.k === "class") return derives(to, from);
+
+  // A platform object of a subclass (`instanceof` on an SDK class): one representation holds both.
+  if (to.k === "native" && from.k === "native") return to.platform === from.platform;
 
   if (from.k !== "union") return false;
 

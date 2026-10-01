@@ -430,6 +430,14 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-01: The legacy emitter's function paths are retired.** Only the
+IR lowers functions, methods, constructors, modules' `init()` and task
+variants; `LUCENT_LOWERING` and its fallbacks are gone, and what the IR
+cannot lower is a LUCENT diagnostic. _Why:_ the IR carries the whole
+corpus with the same results, so a second path only hid gaps. _Changed:_
+component setups still lower their statements with the emitter's code
+until the view work moves them onto the IR.
+
 **2026-10-01: The IR is the default lowering.** Every function, method,
 accessor, constructor, module `init()` and compute task variant compiles
 through the semantic IR; the legacy emitter remains selectable
@@ -993,17 +1001,28 @@ before code generation.
 - **Where:** The remaining lowering families; coordinate emitters the UI
   work uses.
 
-- [ ] Migrate objects, classes and interfaces, closure boxes and captures,
+- [x] Migrate objects, classes and interfaces, closure boxes and captures,
       generic specialization, exceptions and `finally`, `using`, generators
-      and async lowering.
-- [ ] Preserve coroutine capture ownership, `finally` completion behavior,
+      and async lowering. Done: every function, method, accessor,
+      constructor, module `init()` and task variant lowers through the
+      IR; generics stay C++ templates their callers instantiate.
+- [x] Preserve coroutine capture ownership, `finally` completion behavior,
       reentrancy effects, and explicit exceptional and suspension edges.
+      Done: `try` and `await` are operations of the IR; coroutine
+      closures take their captures as parameters; the async, generator,
+      using and compute cases pass under `SANITIZE=1`.
 - [ ] Move the remaining native and boundary operations onto shared binding
       and IR plans; remove duplicate semantic logic and temporary old-path
-      fallbacks once proven.
-- [ ] Run the full differential corpus, old/new comparison during migration,
+      fallbacks once proven. Done for everything but component setups:
+      native and builtin operations are the IR's plans, written once by
+      the emitter's leaf code, and the fallbacks and the
+      `LUCENT_LOWERING` selector are gone. Setups (behind `LUCENT_VIEWS`)
+      still lower their statements with the emitter's own code.
+- [x] Run the full differential corpus, old/new comparison during migration,
       platform glue tests and the current performance budgets before
-      retiring the old emitter.
+      retiring the old emitter. Done: e2e 53 of 53 under both lowerings,
+      the full compiler suite and its platform compile tests under the
+      IR, `bench --check`, and the bare app's `app-check` (51 of 51).
 - [x] Carried over from T30: compute task variants still go through the
       legacy emitter under `LUCENT_LOWERING=ir`; move them onto the IR.
       Done: a variant is the function lowered with `task`, each loop
@@ -1015,12 +1034,14 @@ before output code generation.
 
 **Notes:**
 
-- Today the IR covers literals, locals, calls, conversions, assignment,
-  branches, loops and union narrowing (T18), behind the internal
-  `LUCENT_LOWERING=ir` selector; the legacy emitter is the default. This
-  task can run alongside UI work. Design reference: section 13.
-- Progress, measured by `node scripts/ir-coverage.ts` over the e2e
-  corpus (top-level functions lowered through the IR):
+- What remains: component setups (`emit/setups.ts`, behind
+  `LUCENT_VIEWS=fabric`), whose toolkit bodies write statements and
+  lambdas over the setup's locals through the emitter; lowering them is
+  section 13.3's last step (setup and effects as IR operations plus UI
+  nodes), with the view work. Design reference: section 13.
+- Progress, measured during the migration (by a coverage script since
+  removed) over the e2e corpus (top-level functions lowered through the
+  IR):
   - Before T53: 104 of 606.
   - Leaves as plans (member reads and writes, runtime and SDK methods,
     constructions, array and object literals, conversions, with the
@@ -1059,6 +1080,10 @@ before output code generation.
     the bare app), the `lucent-orbit` package left out until its
     Android dependencies resolve on this machine.
   - Compute task variants: 774 of 774.
+  - The legacy emitter's paths for functions, methods, constructors,
+    `init()` and task variants, its fallbacks and the `LUCENT_LOWERING`
+    selector are removed: what the IR cannot lower is a LUCENT
+    diagnostic.
   - Implicit constructors (the base's construction on the arguments,
     then the fields), destructured parameters with defaults: 803 of 803.
     What the legacy emitter still writes: component setups.
@@ -1923,18 +1948,18 @@ Every task names the profiles it must pass. Build the CLI with `pnpm build`
 after changing `packages/` (it runs `dist/`). Check a test runner's filter
 syntax before relying on it: a filter that runs zero tests proves nothing.
 
-| Profile | Checks                                                                                                                                         | How to run                                                                                                                                                       |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| V0      | Formatting, links and schemas; evidence reconciled                                                                                             | `pnpm check`, `git diff --check`                                                                                                                                 |
-| V1      | Unit tests and typecheck, build, the integrated check and tests                                                                                | `pnpm build`, `pnpm check`, `pnpm test`                                                                                                                          |
-| V2      | V1 plus native-versus-JavaScript e2e cases, codegen corpus review, semantics docs                                                              | `HERMES_DIR=~/hermes node packages/compiler/test/e2e/run.ts [case…]` (also with `LUCENT_LOWERING=ir`), then `node scripts/sync-examples.ts` after changing cases |
-| V3      | Runtime tests and sanitizers, scheduling and lifetime tests                                                                                    | `packages/runtime/test/run.sh`, `SANITIZE=1 CXX=g++ packages/runtime/test/run.sh`, `SANITIZE=thread` where it applies                                            |
-| V4      | Fixture SDKs extracted, declarations type-checked without `skipLibCheck`, platform glue compiled with warnings as errors, availability and R8  | The bindgen, SDK-declaration and glue-compile test suites (part of `pnpm test` where the SDKs exist)                                                             |
-| V5      | Both example apps against their generated C++; Release screens on the iOS simulator and the Android emulator                                   | `HERMES_DIR=~/hermes node scripts/app-check.ts apps/bare-example` and `apps/expo-example`; the apps' Lab screens                                                 |
-| V6      | The packed package in fresh bare and Expo apps; clean and incremental builds, autolinking, lockfiles                                           | `node scripts/smoke-install.ts`                                                                                                                                  |
-| V7      | Performance budgets, output equivalence, native and framework comparisons, allocation, copy and size reports                                   | `HERMES_DIR=~/hermes node scripts/bench.ts --check`                                                                                                              |
-| V8      | Named physical iPhone and Android devices, including a midrange Android phone; frame, latency, memory and lifecycle traces against the budgets | Needs the maintainer                                                                                                                                             |
-| V9      | Public docs, examples and diagnostics; website checks; a changeset or the `no-changeset` label                                                 | `node scripts/website.ts --check`, `pnpm changeset`                                                                                                              |
+| Profile | Checks                                                                                                                                         | How to run                                                                                                                      |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| V0      | Formatting, links and schemas; evidence reconciled                                                                                             | `pnpm check`, `git diff --check`                                                                                                |
+| V1      | Unit tests and typecheck, build, the integrated check and tests                                                                                | `pnpm build`, `pnpm check`, `pnpm test`                                                                                         |
+| V2      | V1 plus native-versus-JavaScript e2e cases, codegen corpus review, semantics docs                                                              | `HERMES_DIR=~/hermes node packages/compiler/test/e2e/run.ts [case…]`, then `node scripts/sync-examples.ts` after changing cases |
+| V3      | Runtime tests and sanitizers, scheduling and lifetime tests                                                                                    | `packages/runtime/test/run.sh`, `SANITIZE=1 CXX=g++ packages/runtime/test/run.sh`, `SANITIZE=thread` where it applies           |
+| V4      | Fixture SDKs extracted, declarations type-checked without `skipLibCheck`, platform glue compiled with warnings as errors, availability and R8  | The bindgen, SDK-declaration and glue-compile test suites (part of `pnpm test` where the SDKs exist)                            |
+| V5      | Both example apps against their generated C++; Release screens on the iOS simulator and the Android emulator                                   | `HERMES_DIR=~/hermes node scripts/app-check.ts apps/bare-example` and `apps/expo-example`; the apps' Lab screens                |
+| V6      | The packed package in fresh bare and Expo apps; clean and incremental builds, autolinking, lockfiles                                           | `node scripts/smoke-install.ts`                                                                                                 |
+| V7      | Performance budgets, output equivalence, native and framework comparisons, allocation, copy and size reports                                   | `HERMES_DIR=~/hermes node scripts/bench.ts --check`                                                                             |
+| V8      | Named physical iPhone and Android devices, including a midrange Android phone; frame, latency, memory and lifecycle traces against the budgets | Needs the maintainer                                                                                                            |
+| V9      | Public docs, examples and diagnostics; website checks; a changeset or the `no-changeset` label                                                 | `node scripts/website.ts --check`, `pnpm changeset`                                                                             |
 
 Evidence levels are kept apart: **code** (written), **host** (host tests),
 **sim** (iOS simulator or Android emulator), **device** (named physical

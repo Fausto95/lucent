@@ -31,7 +31,7 @@ import {
 import * as builtins from "./builtins.ts";
 import { spanElement } from "./buffers.ts";
 import { DISPOSE, isSymbolDispose } from "./classes.ts";
-import { computeOperands, safepoint, TASK, taskVariant } from "./compute.ts";
+import { computeOperands, TASK, taskVariant } from "./compute.ts";
 import * as extensions from "./extensions.ts";
 import * as native from "./native.ts";
 import { requireSubclassMain } from "./objc-subclass.ts";
@@ -100,11 +100,10 @@ export interface FnOptions {
   thisExpr?: string;
   /** How `this` is spelled as a Ref (for passing it as a value). */
   thisRef?: string;
-  isConstructor?: boolean;
   /** A generator body: `yield` becomes co_yield and `return` co_return. */
   generator?: boolean;
-  /** In a subclass constructor: the base construct() call and what follows super(). */
-  superCtor?: { call: cpp.Expr; params: LType[]; after: (em: FnEmitter) => void };
+  /** In a subclass constructor: the base construct() call `super(…)` makes. */
+  superCtor?: { call: cpp.Expr; params: LType[] };
   /**
    * A compute task's variant of a function (compute.ts): each loop
    * iteration checks for cancellation, and calls of module functions call
@@ -720,7 +719,6 @@ export class FnEmitter {
         returnType: ret,
         thisExpr: this.opts.thisExpr ? "self" : undefined,
         thisRef: this.opts.thisRef ? "self" : undefined,
-        isConstructor: false,
         task: false,
       },
       this.allScopes(),
@@ -785,7 +783,6 @@ export class FnEmitter {
         async: false,
         generator: false,
         returnType: T.void,
-        isConstructor: false,
         task: false,
       },
       this.allScopes(),
@@ -878,7 +875,7 @@ export class FnEmitter {
           else this.emit(unreachable);
         } else if (ret.k === "opt") {
           this.emit(cpp.ret(undef));
-        } else if (!isVoidish(ret) && !this.opts.isConstructor) {
+        } else if (!isVoidish(ret)) {
           this.emit(unreachable);
         }
       }
@@ -1009,12 +1006,6 @@ export class FnEmitter {
       case ts.SyntaxKind.ExpressionStatement: {
         const x = (s as ts.ExpressionStatement).expression;
         if (ts.isYieldExpression(x)) return this.yieldStmt(x);
-        const sc = this.opts.superCtor;
-        if (sc && ts.isCallExpression(x) && x.expression.kind === ts.SyntaxKind.SuperKeyword) {
-          this.emit(cpp.exprStmt(cpp.call(sc.call, this.args(x.arguments, sc.params, x))));
-          sc.after(this);
-          return;
-        }
         const e = this.expr(ts.isVoidExpression(x) ? x.expression : x);
         this.emit(cpp.exprStmt(cpp.cast("c", cpp.voidType, e.c)));
         return;
@@ -1211,10 +1202,6 @@ export class FnEmitter {
     } else if (!isVoidish(ret)) {
       value = this.coerce({ c: cpp.id("lucent::undefined"), t: T.undefined }, ret, s);
     }
-    if (this.opts.isConstructor) {
-      this.emit(cpp.ret());
-      return;
-    }
     // Route through enclosing finally blocks.
     const fin = this.ctl.findLast((c) => c.kind === "finally");
     if (fin) {
@@ -1404,8 +1391,7 @@ export class FnEmitter {
 
   /** A loop's body: its statements in a block, then the continue label when used. */
   private loopBody(body: ts.Statement, entry: ControlEntry, before?: () => void): cpp.Stmt[] {
-    const check = this.opts.task ? [safepoint()] : [];
-    const inner = cpp.block([...check, ...this.nested(body, before)]);
+    const inner = cpp.block(this.nested(body, before));
     return entry.usedContinueLabel ? [inner, { k: "label", name: entry.continueLabel! }] : [inner];
   }
 

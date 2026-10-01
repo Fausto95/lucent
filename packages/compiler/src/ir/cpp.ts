@@ -6,6 +6,7 @@
  * (or, for a call, discarded with `(void)`).
  */
 import { cpp } from "@lucent-lang/codegen";
+import { Codes, CompileError } from "../diagnostics.ts";
 import { type ConversionStep, conversionStep } from "../lowering/conversions.ts";
 import { heldAs, throughMembers } from "../lowering/members.ts";
 import { BIGINT_OPERATORS } from "../lowering/bigint.ts";
@@ -47,57 +48,29 @@ import {
 import { verify, type VerifyEnv } from "./verify.ts";
 
 /**
- * Which lowering compiles functions: the IR (the default), falling back to
- * the legacy emitter for what it does not support (`ir`); the IR only,
- * failing on anything it does not support (`ir-strict`, for tests); or the
- * legacy emitter alone (`legacy`, for comparisons). Internal: set with
- * LUCENT_LOWERING.
- */
-export type Lowering = "legacy" | "ir" | "ir-strict";
-
-const LOWERINGS: readonly Lowering[] = ["legacy", "ir", "ir-strict"];
-
-export function loweringMode(value = process.env.LUCENT_LOWERING): Lowering {
-  if (!value) return "ir";
-
-  if (!(LOWERINGS as readonly string[]).includes(value))
-    throw new Error(`LUCENT_LOWERING must be one of ${LOWERINGS.join(", ")} (got "${value}")`);
-
-  return value as Lowering;
-}
-
-/**
- * What `ir` lowered through the IR, and why the rest fell back to the legacy
- * emitter: the migration's progress, for scripts/ir-coverage.ts.
- */
-export const coverage: { lowered: string[]; fellBack: { id: string; why: string }[] } = {
-  lowered: [],
-  fellBack: [],
-};
-
-/**
- * A function lowered through the IR, verified and turned into C++; or,
- * under `ir`, undefined when the IR does not support it yet, for the
- * legacy emitter to lower. Never a JavaScript fallback at runtime.
+ * A function lowered through the IR, verified and turned into C++. What
+ * the IR does not support is a LUCENT diagnostic at the code, never
+ * invalid C++, nor a JavaScript fallback at runtime.
  */
 export function lowerToCpp(
-  mode: Exclude<Lowering, "legacy">,
   input: LowerInput | Initialization,
   host: LowerHost,
   backend: CppBackend,
-): CppFunction | undefined {
+): CppFunction {
   let lowered: Lowered;
 
   try {
     lowered = "initializers" in input ? lowerInit(input, host) : lower(input, host);
   } catch (e) {
-    if (!(e instanceof IrUnsupported) || mode !== "ir") throw e;
+    if (e instanceof IrUnsupported)
+      throw new CompileError(
+        e.node,
+        Codes.UnsupportedSyntax,
+        `Lucent does not compile ${e.what} yet`,
+      );
 
-    coverage.fellBack.push({ id: input.id, why: e.message });
-    return undefined;
+    throw e;
   }
-
-  coverage.lowered.push(input.id);
 
   const { fn, signatures, effects } = lowered;
 

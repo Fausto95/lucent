@@ -741,11 +741,12 @@ printer or a C++ compiler decides.
   `emit/through-ir.ts`, for functions, methods and accessors; a closure's
   leaves see `this` as the `self` it captures (`LowerHost.nested`,
   `self`, `siteOf`).
-- Selection is internal: `LUCENT_LOWERING=legacy | ir | ir-strict` (or
-  an internal compile option). The default is `ir`: a function the IR
-  lowerer does not support takes the legacy path; with `ir-strict`
-  (tests) it throws; `legacy` compiles without the IR, for comparisons.
-  There is never a runtime JavaScript fallback.
+- Every function, method, accessor, constructor, module `init()` and
+  compute task variant lowers through the IR; what it cannot lower is a
+  LUCENT diagnostic (`LUCENT1001`), never invalid C++ and never a runtime
+  JavaScript fallback. (Component setups, behind `LUCENT_VIEWS`, still
+  use the emitter's statements.) The `LUCENT_LOWERING` selector of the
+  migration is gone.
 
 ### Data model
 
@@ -1118,9 +1119,8 @@ export interface ProgramFacts {
 
 A fixture with literals, arithmetic, locals and calls, including
 `combine(next("l"), next("r"))` where `next` logs and the first call may
-throw, compiles with `LUCENT_LOWERING=ir-strict`. Its observable output
-equals both the legacy path's and the reference JavaScript's (the e2e
-cases run under both lowerings).
+throw, compiles through the IR. Its observable output equals the
+reference JavaScript's (the e2e cases).
 
 ### Revisions
 

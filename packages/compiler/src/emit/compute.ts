@@ -70,8 +70,8 @@ const VARIANT = "_task_";
 export const TASK = "task_";
 
 /** A safepoint, at the start of each loop iteration of a task variant. */
-export function safepoint(): cpp.Stmt {
-  return cpp.exprStmt(cpp.call(cpp.dot(cpp.id(TASK), "checkCancelled")));
+export function safepoint(): cpp.Expr {
+  return cpp.call(cpp.dot(cpp.id(TASK), "checkCancelled"));
 }
 
 /**
@@ -98,7 +98,7 @@ export function emitTaskVariants(
   ctx: Ctx,
   decls: Map<LucentModule, cpp.Decl[]>,
   defs: Map<LucentModule, cpp.Decl[]>,
-  ir?: IrMode,
+  ir: IrMode,
 ): void {
   const variants = stateOf(ctx).variants;
 
@@ -117,13 +117,13 @@ function emitVariant(
   g: FunctionGlobal,
   decls: cpp.Decl[],
   defs: cpp.Decl[],
-  ir: IrMode | undefined,
+  ir: IrMode,
 ): void {
   const name = `${cppIdent(g.decl.name!.text)}${VARIANT}`;
   const ret = ctx.reg.cppRetType(g.type.ret);
   const opts = { module: g.module, async: false, returnType: g.type.ret, task: true };
-  const lowered =
-    ir &&
+  // The function's own code reported what its variant would repeat.
+  const lowered = quietly(ctx, () =>
     throughIr(
       ctx,
       {
@@ -137,41 +137,30 @@ function emitVariant(
         site: g.decl.name!.text,
         task: true,
       },
-      ir.lowering,
-      ir.facts,
-    );
+      ir,
+    ),
+  );
 
-  if (lowered) {
-    const all = [...lowered.params, cpp.param(TASK_CONTEXT, TASK)];
+  if (!lowered) return;
 
-    ctx.nativeUnit(g.module).include("lucent/compute.h");
-    decls.push(cpp.fn(name, ret, all));
-    defs.push(cpp.fn(name, ret, all, lowered.body, { scope: cpp.type(g.module.ns) }));
-    return;
-  }
+  const all = [...lowered.params, cpp.param(TASK_CONTEXT, TASK)];
 
-  const em = new FnEmitter(ctx, opts);
+  ctx.nativeUnit(g.module).include("lucent/compute.h");
+  decls.push(cpp.fn(name, ret, all));
+  defs.push(cpp.fn(name, ret, all, lowered.body, { scope: cpp.type(g.module.ns) }));
+}
+
+/** `f()`, keeping only the diagnostics and warnings it reports that are not reported already. */
+function quietly<R>(ctx: Ctx, f: () => R): R | undefined {
   const before = ctx.diagnostics.length;
   const warned = ctx.warnings.length;
-  let params: cpp.Param[] = [];
-
-  ctx.guard(() => {
-    params = em.emitParams(g.decl, g.params);
-    em.emitFunctionBody(g.decl);
-  });
-
-  // The function's own code reported what its variant repeats.
+  const r = ctx.guard(f);
   const fresh = ctx.diagnostics.splice(before).filter((d) => !reported(ctx.diagnostics, d));
   const freshWarnings = ctx.warnings.splice(warned).filter((d) => !reported(ctx.warnings, d));
 
   ctx.diagnostics.push(...fresh);
   ctx.warnings.push(...freshWarnings);
-
-  const all = [...params, cpp.param(TASK_CONTEXT, TASK)];
-
-  ctx.nativeUnit(g.module).include("lucent/compute.h");
-  decls.push(cpp.fn(name, ret, all));
-  defs.push(cpp.fn(name, ret, all, em.body(), { scope: cpp.type(g.module.ns) }));
+  return r;
 }
 
 function reported(list: Ctx["diagnostics"], d: Ctx["diagnostics"][number]): boolean {

@@ -8,7 +8,6 @@
 import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { isInside } from "../analysis/scopes.ts";
-import { CompileError } from "../diagnostics.ts";
 import { intOperand, operand } from "../ir/cpp.ts";
 import type { ValueId } from "../ir/ir.ts";
 import {
@@ -21,8 +20,8 @@ import {
 import { numberExpr, stringExpr } from "../lowering/literals.ts";
 import { type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
 import { disposeCall, methodCall } from "./builtins.ts";
-import { TASK } from "./compute.ts";
-import { AlreadyReported, type Ctx, type E } from "./context.ts";
+import { safepoint } from "./compute.ts";
+import type { Ctx, E } from "./context.ts";
 import { type FnOptions, FnEmitter, type Local } from "./function.ts";
 
 /** The emitter of one leaf: its subexpressions are the IR's operands. */
@@ -64,7 +63,7 @@ class LeafEmitter extends FnEmitter {
     return { c: operand(v), t: this.operands.typeOf(v) };
   }
 
-  /** A plan is one expression: what needs statements stays the legacy emitter's. */
+  /** A plan is one expression: what needs statements is not one (a LUCENT diagnostic). */
   override emit(): void {
     throw new IrUnsupported(this.root, "code that needs statements of its own");
   }
@@ -136,31 +135,19 @@ function nameOf(node: ts.Node): string {
 }
 
 /**
- * Runs `plan`; what the emitter rejects there is unsupported for now, and
- * the legacy emitter, lowering the whole function again, reports it.
+ * The leaf `plan` gives at `node`. What the emitter rejects there it
+ * reports (a LUCENT diagnostic), which reaches the function's compile as
+ * it is.
  */
-function rejected<R>(node: ts.Node, plan: () => R): R {
-  try {
-    return plan();
-  } catch (e) {
-    if (e instanceof CompileError || e instanceof AlreadyReported)
-      throw new IrUnsupported(node, `what the emitter rejects here (${e.message})`);
-
-    throw e;
-  }
-}
-
 function planned(node: ts.Node, plan: () => E): Leaf {
-  return rejected(node, () => {
-    const e = plan();
+  const e = plan();
 
-    return {
-      name: nameOf(node),
-      code: e.c,
-      type: e.t,
-      ...(e.int ? { int: { code: e.int.c, kind: e.int.kind } } : {}),
-    };
-  });
+  return {
+    name: nameOf(node),
+    code: e.c,
+    type: e.t,
+    ...(e.int ? { int: { code: e.int.c, kind: e.int.kind } } : {}),
+  };
 }
 
 /** For a leaf that takes no operands. */
@@ -244,11 +231,7 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
         return em.elementOf(v, (node as ts.ElementAccessExpression).argumentExpression, node);
       }),
 
-    safepoint: () => ({
-      name: "safepoint",
-      code: cpp.call(cpp.dot(cpp.id(TASK), "checkCancelled")),
-      type: T.void,
-    }),
+    safepoint: () => ({ name: "safepoint", code: safepoint(), type: T.void }),
 
     step: (value, from, sign, node) =>
       planned(node, () => ({
@@ -325,23 +308,22 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
         throw new IrUnsupported(node, `for in over a ${typeKey(from)}`);
       }),
 
-    place: (target, operands): LeafPlace =>
-      rejected(target, () => {
-        const lv = new LeafEmitter(ctx, opts, target, operands).lvalue(target);
-        const name = nameOf(target);
-        const { direct, set } = lv;
+    place: (target, operands): LeafPlace => {
+      const lv = new LeafEmitter(ctx, opts, target, operands).lvalue(target);
+      const name = nameOf(target);
+      const { direct, set } = lv;
 
-        if (!direct && !set) throw new IrUnsupported(target, "a place that cannot be written");
+      if (!direct && !set) throw new IrUnsupported(target, "a place that cannot be written");
 
-        return {
-          type: lv.type,
-          get: { name, code: lv.get, type: lv.type },
-          set: (v) => ({
-            name: `${name} =`,
-            code: direct ? cpp.assign(direct, operand(v)) : set!(operand(v)),
-            type: T.void,
-          }),
-        };
-      }),
+      return {
+        type: lv.type,
+        get: { name, code: lv.get, type: lv.type },
+        set: (v) => ({
+          name: `${name} =`,
+          code: direct ? cpp.assign(direct, operand(v)) : set!(operand(v)),
+          type: T.void,
+        }),
+      };
+    },
   };
 }

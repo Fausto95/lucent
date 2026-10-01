@@ -3,7 +3,6 @@ import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import type { LucentModule } from "../program.ts";
 import { type ClassChain, type ClassInfo, cppIdent, type LType, substitute, T } from "../types.ts";
-import { parameterSymbol } from "../analysis/scopes.ts";
 import type { Ctx } from "./context.ts";
 import { operand } from "../ir/cpp.ts";
 import type { ValueId } from "../ir/ir.ts";
@@ -19,9 +18,7 @@ export interface ClassOutput {
   definition: cpp.Decl;
   /** Out-of-line member definitions (none for generic classes). */
   members: cpp.Decl[];
-  /** Static field initializers, run by the module's init(). */
-  staticInits: cpp.Stmt[];
-  /** The same, for the IR: each static field's initializer and where it goes. */
+  /** Each static field's initializer and where it goes, which the module's init() runs. */
   statics: Initializer[];
 }
 
@@ -110,15 +107,14 @@ export function argMap(ctx: Ctx, t: LType & { k: "class" }): Map<string, LType> 
 const isField = (m: InstanceMember) => ts.isPropertyDeclaration(m) || ts.isParameter(m);
 
 /**
- * A class's C++: its definition, members and static initializers. With
- * `ir`, its methods and accessors lower through the semantic IR where it
- * supports them.
+ * A class's C++: its definition, members and static initializers; its
+ * methods, accessors and constructor lower through the semantic IR.
  */
 export function emitClass(
   ctx: Ctx,
   module: LucentModule,
   info: ClassInfo,
-  ir?: IrMode,
+  ir: IrMode,
 ): ClassOutput {
   const decl = info.decl;
   const reg = ctx.reg;
@@ -143,7 +139,6 @@ export function emitClass(
   ];
   const body: cpp.Member[] = [];
   const members: cpp.Decl[] = [];
-  const staticInits: cpp.Stmt[] = [];
   const statics: Initializer[] = [];
   const ctor = decl.members.find(ts.isConstructorDeclaration);
   const virtuals = ctx.guard(() => virtualMembers(ctx, info)) ?? new Set<string>();
@@ -187,13 +182,6 @@ export function emitClass(
           type: t,
           into: { write: (v) => assigns(`${info.cppName}::${name} =`, field, v) },
         });
-        const em = new FnEmitter(ctx, { module, async: false, returnType: T.void });
-        const v = ctx.guard(() => em.exprAs(m.initializer!, t));
-        if (v !== undefined)
-          staticInits.push(
-            ...em.body(),
-            cpp.exprStmt(cpp.assign(cpp.scoped(cpp.type(info.cppName), name), v)),
-          );
       }
     } else {
       declareField(m, t);
@@ -260,6 +248,11 @@ export function emitClass(
     members.push(cpp.fn(name, ret, params, fnBody, { scope: cpp.type(info.cppName) }));
   };
 
+  /**
+   * A method, accessor or constructor, through the IR. What the IR rejects
+   * in it is its diagnostic; the class still declares the member, so the
+   * rest of it compiles on.
+   */
   const emitMethod = (
     node:
       | ts.MethodDeclaration
@@ -268,8 +261,7 @@ export function emitClass(
       | ts.SetAccessorDeclaration,
     cppName: string,
     staticMember: boolean,
-    prelude?: (em: FnEmitter) => void,
-    superCtor?: { call: cpp.Expr; params: LType[]; after: (em: FnEmitter) => void },
+    superCtor?: { call: cpp.Expr; params: LType[] },
   ) => {
     const sig = ctx.checker.getSignatureFromDeclaration(node)!;
     const fnType = reg.lowerSignature(sig, node) as LType & { k: "fn" };
@@ -283,66 +275,57 @@ export function emitClass(
       async: asyncM,
       returnType: ret,
       ...(staticMember ? {} : { cls: info, thisExpr: "this" }),
-      isConstructor: isCtor,
       ...(superCtor ? { superCtor } : {}),
       generator: gen,
     };
-    const em = new FnEmitter(ctx, opts);
-    const params = em.paramInfos(node, fnType);
-    const d = staticMember || ts.isConstructorDeclaration(node) ? {} : dispatch(node, cppName);
+    const params = new FnEmitter(ctx, opts).paramInfos(node, fnType);
+    const flags = {
+      ...(staticMember ? { static: true } : {}),
+      ...(staticMember || isCtor ? {} : dispatch(node, cppName)),
+    };
     // Coroutines outlive the call: keep the object alive in the frame.
     const keepSelf =
       (asyncM || gen) && !staticMember
         ? [cpp.varDecl(cpp.auto, "self", cpp.call("lucent::selfRef", [cpp.self]))]
         : [];
-    const lowered =
-      ir && !(isCtor && nativeSubclass)
-        ? throughIr(
-            ctx,
-            {
-              decl: node,
-              id: `${info.cppName}::${cppName}`,
-              params,
-              result: ret,
-              async: asyncM,
-              ...(gen && fnType.ret.k === "iter" ? { generator: fnType.ret.e } : {}),
-              generic: ts.isMethodDeclaration(node) && !!node.typeParameters?.length,
-              opts,
-              site: functionName(node.body ?? node),
-              prologue: keepSelf,
-              ...(isCtor
-                ? {
-                    construct: { initializers: fieldInitializers(), base: !!superCtor },
-                    span: decl,
-                  }
-                : {}),
-            },
-            ir.lowering,
-            ir.facts,
-          )
-        : undefined;
+    const lowered = ctx.guard(() =>
+      throughIr(
+        ctx,
+        {
+          decl: node,
+          id: `${info.cppName}::${cppName}`,
+          params,
+          result: ret,
+          async: asyncM,
+          ...(gen && fnType.ret.k === "iter" ? { generator: fnType.ret.e } : {}),
+          generic: ts.isMethodDeclaration(node) && !!node.typeParameters?.length,
+          opts,
+          site: functionName(node.body ?? node),
+          prologue: keepSelf,
+          ...(isCtor
+            ? {
+                construct: { initializers: fieldInitializers(), base: !!superCtor },
+                span: decl,
+              }
+            : {}),
+        },
+        ir,
+      ),
+    );
 
     if (lowered) {
-      define(cppName, lowered.ret, lowered.params, lowered.body, {
-        ...(staticMember ? { static: true } : {}),
-        ...d,
-      });
+      define(cppName, lowered.ret, lowered.params, lowered.body, flags);
       return { decls: lowered.params, params };
     }
 
-    let decls: cpp.Param[] = [];
-    ctx.guard(() => {
-      em.emit(...keepSelf);
-      decls = em.emitParams(node, params);
-      prelude?.(em);
-      em.emitFunctionBody(node);
-    });
+    const decls = params.map((p, i) => cpp.param(reg.cppType(p.cppType), `p${i}_`));
     const retType = asyncM
       ? cpp.type("lucent::Promise", reg.cppRetType(ret))
       : gen
         ? reg.cppType(fnType.ret)
         : reg.cppRetType(ret);
-    define(cppName, retType, decls, em.body(), { ...(staticMember ? { static: true } : {}), ...d });
+
+    define(cppName, retType, decls, [cpp.exprStmt(cpp.call("lucent::unreachable"))], flags);
     return { decls, params };
   };
 
@@ -373,35 +356,9 @@ export function emitClass(
       })),
     ];
   };
-  const initFields = (em: FnEmitter) => {
-    if (info.isError)
-      em.emit(cpp.exprStmt(cpp.assign(self("name"), cpp.call("LUCENT_STR", [cpp.str("Error")]))));
-    for (const p of parameterProperties(ctor)) {
-      const sym = parameterSymbol(
-        ctx.checker,
-        p as ts.ParameterDeclaration & { name: ts.Identifier },
-      );
-      const local = em
-        .allScopes()
-        .map((s) => s.get(sym))
-        .find(Boolean)!;
-      const value = cpp.id(local.cpp);
-      em.emit(
-        cpp.exprStmt(
-          cpp.assign(self(cppIdent(memberName(p))), local.boxed ? cpp.deref(value) : value),
-        ),
-      );
-    }
-    for (const m of decl.members) {
-      if (!ts.isPropertyDeclaration(m) || isStatic(m) || !m.initializer) continue;
-      const t = fieldType(m);
-      const v = ctx.guard(() => em.exprAs(m.initializer!, t));
-      if (v !== undefined) em.emit(cpp.exprStmt(cpp.assign(self(cppIdent(memberName(m))), v)));
-    }
-  };
   let ctorDecls: cpp.Param[] = [];
-  /** The implicit constructor through the IR: its base's construction on its arguments, then the fields. */
-  const implicitThroughIr = (mode: IrMode): boolean => {
+  /** The implicit constructor, through the IR: its base's construction on its arguments, then the fields. */
+  const implicitConstructor = (): void => {
     const params = superCtor?.params ?? [];
     const sc = superCtor;
     const lowered = initializationThroughIr(
@@ -418,7 +375,19 @@ export function emitClass(
                 type: T.void,
               }),
             }
-          : {}),
+          : nativeSubclass
+            ? {
+                // Extending an iOS class: its native object, made as super() would.
+                first: (): Leaf => ({
+                  name: "super()",
+                  code: cpp.statementExpr(
+                    [subclassImplicitSuper(info)],
+                    cpp.id("lucent::undefined"),
+                  ),
+                  type: T.void,
+                }),
+              }
+            : {}),
         initializers: fieldInitializers(),
       },
       {
@@ -427,17 +396,13 @@ export function emitClass(
         returnType: T.void,
         cls: info,
         thisExpr: "this",
-        isConstructor: true,
       },
       `new ${decl.name?.text ?? ""}`,
-      mode,
+      ir,
     );
-
-    if (!lowered) return false;
 
     ctorDecls = lowered.params;
     define("construct", cpp.voidType, ctorDecls, lowered.body);
-    return true;
   };
   // With a Lucent base class, super(...) runs the base's construct() and
   // then this class's field initializers, as in JavaScript.
@@ -445,40 +410,10 @@ export function emitClass(
     ? {
         call: cpp.baseMember(cpp.self, reg.cppClassType(baseT), "construct"),
         params: inheritedCtorParams(ctx, ancestry),
-        after: initFields,
       }
     : undefined;
-  if (ctor) {
-    const r = superCtor
-      ? emitMethod(ctor, "construct", false, undefined, superCtor)
-      : emitMethod(ctor, "construct", false, initFields);
-    ctorDecls = r.decls;
-  } else if (ir && !nativeSubclass && implicitThroughIr(ir)) {
-    // Through the IR: ctorDecls are set.
-  } else {
-    // Implicit constructor(...args) { super(...args); }, or the field initializers alone.
-    const em = new FnEmitter(ctx, {
-      module,
-      async: false,
-      returnType: T.void,
-      cls: info,
-      thisExpr: "this",
-      isConstructor: true,
-    });
-    ctorDecls = (superCtor?.params ?? []).map((p, i) => cpp.param(reg.cppType(p), `a${i}`));
-    if (nativeSubclass) ctx.guard(() => em.emit(subclassImplicitSuper(info)));
-    if (superCtor)
-      em.emit(
-        cpp.exprStmt(
-          cpp.call(
-            superCtor.call,
-            ctorDecls.map((p) => cpp.id(p.name!)),
-          ),
-        ),
-      );
-    initFields(em);
-    define("construct", cpp.voidType, ctorDecls, em.body());
-  }
+  if (ctor) ctorDecls = emitMethod(ctor, "construct", false, superCtor).decls;
+  else ctx.guard(implicitConstructor);
   if (!info.abstract) {
     // Abstract classes are only constructed through subclasses.
     const created = cpp.id("self");
@@ -555,7 +490,7 @@ export function emitClass(
     ...(template ? { template } : {}),
     bases,
   });
-  return { definition, members, staticInits, statics };
+  return { definition, members, statics };
 }
 
 /** A plan writing `value` into `place`. */
