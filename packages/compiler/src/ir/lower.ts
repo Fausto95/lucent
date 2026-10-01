@@ -39,6 +39,7 @@ import {
   elementOf,
   type EffectSummary,
   type FunctionId,
+  type IntKind,
   type IrFunction,
   type PlaceId,
   type Signature,
@@ -123,6 +124,12 @@ export interface LowerHost {
   self?(node: FunctionLike): Leaf | undefined;
   /** The name Errors made in the nested function `node` record as their site. */
   siteOf?(node: FunctionLike): string;
+  /**
+   * The locals of `fn` (not of the functions in it) every write of which
+   * is an exact integer of a kind, which live in integer registers: `for`
+   * counters as int64s.
+   */
+  integers?(fn: FunctionLike): ReadonlyMap<ts.Symbol, IntKind>;
 }
 
 /** A nested function's type, and what its parameters are. */
@@ -154,6 +161,8 @@ export interface Leaf {
   code: unknown;
   /** What it gives: nothing when void-ish. */
   type: LType;
+  /** Its value as an exact integer too, when the backend's code gives one. */
+  int?: { code: unknown; kind: IntKind };
 }
 
 /** The subexpressions of a leaf, lowered before it in evaluation order. */
@@ -163,6 +172,8 @@ export interface LeafOperands {
   typeOf(v: ValueId): LType;
   /** Whether `symbol` names a local or a parameter of the function (or of one around it). */
   isLocal(symbol: ts.Symbol): boolean;
+  /** The integer kind `v` is known to be an exact integer of, if any. */
+  intOf(v: ValueId): IntKind | undefined;
   /** The function value of `node`, a function the leaf takes, as the type `target` it becomes. */
   closure(node: ts.ArrowFunction | ts.FunctionExpression, target?: LType): ValueId;
 }
@@ -1465,6 +1476,7 @@ class Lowerer {
       operand: (n, hint) => take(n, () => this.expr(n, hint)),
       closure: (n, target) => take(n, () => this.closure(n, target)),
       typeOf: (v) => this.b.typeOf(v),
+      intOf: (v) => this.b.intOf(v),
       isLocal: (sym) => this.variableOf(sym) !== undefined,
     };
 
@@ -1475,7 +1487,8 @@ class Lowerer {
   planOf(leaf: Leaf, args: ValueId[], span: SourceSpan): ValueId {
     const result = isVoidish(leaf.type) ? undefined : leaf.type;
     const v =
-      this.b.plan(leaf.name, leaf.code, args, result, span) ?? this.nothing(leaf.type, span);
+      this.b.plan(leaf.name, leaf.code, args, result, span, leaf.int) ??
+      this.nothing(leaf.type, span);
 
     this.planned.add(v);
     return v;
@@ -1623,7 +1636,9 @@ class Lowerer {
   /** A local; boxed when closures share it (`always`, a nested function declaration). */
   declareLocal(sym: ts.Symbol, name: string, type: LType, node: ts.Node, always = false): PlaceId {
     const boxed = always || this.host.isBoxed?.(sym) === true;
-    const place = this.b.local(name, type, spanOf(node), boxed);
+    // A number local every write of which is an exact integer lives in an integer register.
+    const int = !boxed && type.k === "number" ? this.integers().get(sym) : undefined;
+    const place = this.b.local(name, type, spanOf(node), boxed, int);
 
     this.locals.set(sym, place);
     this.localTypes.set(place, type);
@@ -1631,6 +1646,18 @@ class Lowerer {
     if (boxed) this.boxed.add(place);
 
     return place;
+  }
+
+  private ints?: ReadonlyMap<ts.Symbol, IntKind>;
+
+  /** The function's locals that live in integer registers, as the host's analysis finds them. */
+  integers(): ReadonlyMap<ts.Symbol, IntKind> {
+    const d = this.input.decl;
+
+    this.ints ??=
+      ts.isSourceFile(d) || ts.isClassLike(d) ? new Map() : (this.host.integers?.(d) ?? new Map());
+
+    return this.ints;
   }
 
   /** What `sym` names here: a parameter's value, a local, or a variable of an enclosing function. */

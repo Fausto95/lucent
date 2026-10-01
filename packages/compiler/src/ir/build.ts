@@ -17,6 +17,8 @@ import {
   type FunctionId,
   type IrCapture,
   type IrFunction,
+  type IntKind,
+  intKindOf,
   type IrModulePlace,
   type IrOp,
   type IrRegion,
@@ -38,6 +40,8 @@ export class IrBuilder {
   private readonly modulePlaces: IrModulePlace[] = [];
   private readonly captures: IrCapture[] = [];
   private readonly placeTypes: LType[] = [];
+  /** The places held in integer registers, by their kind. */
+  private readonly placeInts = new Map<PlaceId, IntKind>();
   private readonly params: ValueId[] = [];
   private readonly body: IrRegion;
   /** The region operations are appended to. */
@@ -70,6 +74,11 @@ export class IrBuilder {
     return value.type;
   }
 
+  /** The integer kind `v` is an exact integer of, if any. */
+  intOf(v: ValueId): IntKind | undefined {
+    return this.values[v]?.int;
+  }
+
   /** The operations appended so far to the body. */
   get ops(): readonly IrOp[] {
     return this.body.ops;
@@ -97,7 +106,7 @@ export class IrBuilder {
   const(value: Constant, source: SourceSpan): ValueId {
     const result = this.value(constantType(value), source);
     this.push({ kind: "const", result, value, source });
-    return result;
+    return this.exact(result);
   }
 
   unary(op: UnaryOp, operand: ValueId, source: SourceSpan): ValueId {
@@ -107,7 +116,7 @@ export class IrBuilder {
 
     const result = this.value(type, source);
     this.push({ kind: "unary", result, op, operand, source });
-    return result;
+    return this.exact(result);
   }
 
   binary(op: BinaryOp, left: ValueId, right: ValueId, source: SourceSpan): ValueId {
@@ -117,7 +126,17 @@ export class IrBuilder {
 
     const result = this.value(type, source);
     this.push({ kind: "binary", result, op, left, right, source });
-    return result;
+    return this.exact(result);
+  }
+
+  /** `v`, just defined by the last operation, marked an exact integer when that gives one. */
+  private exact(v: ValueId): ValueId {
+    const op = this.cursor.ops[this.cursor.ops.length - 1]!;
+    const kind = intKindOf(op, this.typeOf(v));
+
+    if (kind) this.values[v]!.int = kind;
+
+    return v;
   }
 
   convert(input: ValueId, to: LType, source: SourceSpan): ValueId {
@@ -126,9 +145,20 @@ export class IrBuilder {
     return result;
   }
 
-  local(name: string, type: LType, source: SourceSpan, boxed = false): PlaceId {
+  local(name: string, type: LType, source: SourceSpan, boxed = false, int?: IntKind): PlaceId {
     const place = this.place(type);
-    this.push({ kind: "local", place, type, name, ...(boxed ? { boxed } : {}), source });
+
+    if (int) this.placeInts.set(place, int);
+
+    this.push({
+      kind: "local",
+      place,
+      type,
+      name,
+      ...(boxed ? { boxed } : {}),
+      ...(int ? { int } : {}),
+      source,
+    });
     return place;
   }
 
@@ -195,6 +225,10 @@ export class IrBuilder {
     if (!type) throw new Error(`IR place p${place} does not exist`);
 
     const result = this.value(type, source);
+    const int = this.placeInts.get(place);
+
+    if (int) this.values[result]!.int = int;
+
     this.push({ kind: "load", result, place, source });
     return result;
   }
@@ -230,14 +264,20 @@ export class IrBuilder {
     args: ValueId[],
     result: LType | undefined,
     source: SourceSpan,
+    int?: { code: unknown; kind: IntKind },
   ): ValueId | undefined {
     const id = result && this.value(result, source);
+    const exact = id !== undefined && int && result?.k === "number" ? int : undefined;
+
+    if (exact) this.values[id!]!.int = exact.kind;
+
     this.push({
       kind: "plan",
       ...(id === undefined ? {} : { result: id }),
       name,
       code,
       args,
+      ...(exact ? { int: exact } : {}),
       source,
     });
     return id;

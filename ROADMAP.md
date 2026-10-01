@@ -1052,6 +1052,13 @@ before output code generation.
   - Implicit constructors (the base's construction on the arguments,
     then the fields), destructured parameters with defaults: 803 of 803.
     What the legacy emitter still writes: component setups.
+  - Performance under `ir`: integer registers (the analysis's int
+    locals and `for` counters, literals, the int32 operators, `Math.imul`'s
+    integer form), reads of locals spelled in place rather than copied,
+    `s = s + x` appending in place, and pure operations written inline.
+    `scripts/bench.ts --check` passes under both lowerings, the IR at the
+    legacy emitter's speeds (murmur 16.1x, fnv1a 36.9x, crc32 3.3x,
+    sieve 21.0x; sortNumbers varies between 8x and 10.6x under both).
 
 <a id="t54"></a>
 

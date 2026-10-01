@@ -15,7 +15,8 @@ import { branchPlatform, platformGuard, switchPlatforms } from "../platforms.ts"
 import { type LType, T } from "../types.ts";
 import type { Ctx, ParamInfo } from "./context.ts";
 import { type FnOptions, FnEmitter, usesThisIn } from "./function.ts";
-import { functionName } from "./builtins.ts";
+import { functionName, isMathGlobal } from "./builtins.ts";
+import { inferIntegers } from "./integers.ts";
 import { leafHost } from "./leaf.ts";
 
 /** The IR's lowering, when one is selected, and the program facts its records come from. */
@@ -240,6 +241,39 @@ function irHost(ctx: Ctx, facts: ProgramFacts, opts: FnOptions): LowerHost {
         task: false,
       }),
     siteOf: (node) => functionName(node.body ?? node),
+    integers: (fn) => {
+      if (!fn.body) return new Map();
+
+      const em = new FnEmitter(ctx, opts);
+      const isBoxed = (sym: ts.Symbol) => ctx.capture.isBoxed(sym);
+      const number = (d: ts.VariableDeclaration, sym: ts.Symbol) => {
+        try {
+          return (
+            ctx.reg.lower(ctx.checker.getTypeOfSymbolAtLocation(sym, d.name), d.name).k === "number"
+          );
+        } catch {
+          return false;
+        }
+      };
+      const runs = (d: ts.Node) => {
+        const p = branchPlatform(ctx.checker, d);
+
+        return p === undefined || p === ctx.platform;
+      };
+      const facts = inferIntegers(fn.body, {
+        checker: ctx.checker,
+        // Locals of code this target never runs are not lowered: their types stay out of its output.
+        candidate: (d, sym) => runs(d) && !isBoxed(sym) && number(d, sym),
+        isBoxed,
+        isMath: (id) => isMathGlobal(em, id),
+      });
+
+      // A `for` counter is an int64: exact for every value JavaScript can count to.
+      return new Map([
+        ...facts.locals,
+        ...[...facts.counters].map((c) => [c, "i64" as const] as const),
+      ]);
+    },
     leaves: leafHost(ctx, opts),
   };
 }

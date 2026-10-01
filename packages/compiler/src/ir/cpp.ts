@@ -19,6 +19,7 @@ import {
   convertible,
   type EqualityOp,
   EXACT,
+  type IntKind,
   type IrFunction,
   type IrOp,
   isAbsent,
@@ -26,6 +27,8 @@ import {
   isPrimitive,
   completes,
   operandsOf,
+  regionsOf,
+  resultOf,
   type RegionId,
   runsThrough,
   type TargetId,
@@ -167,6 +170,10 @@ class Emitter {
   private out: cpp.Stmt[] = [];
   private readonly fn: IrFunction;
   private readonly exprs = new Map<ValueId, cpp.Expr>();
+  /** The integer register forms of exact integers, which their double forms convert. */
+  private readonly ints = new Map<ValueId, cpp.Expr>();
+  /** The places held in integer registers. */
+  private readonly placeInts = new Map<number, IntKind>();
   private readonly places = new Map<number, cpp.Expr>();
   /** The box variable of each boxed place (its place reads `*box`). */
   private readonly boxes = new Map<number, cpp.Expr>();
@@ -206,6 +213,82 @@ class Emitter {
     for (const c of fn.captures) this.declarePlace(c.place, c.spelled ?? cppIdent(c.name), c.boxed);
 
     this.countUses();
+    this.spellings();
+  }
+
+  /** Loads spelled as their variable, and values spelled where their one use is (see `spellings`). */
+  private readonly aliases = new Set<ValueId>();
+  private readonly inlined = new Set<ValueId>();
+  /** The operation defining each value. */
+  private readonly definitions = new Map<ValueId, IrOp>();
+
+  /**
+   * Which values need no variable of their own. A load of a local nothing
+   * else writes (not boxed, not the module's) before the value's last use
+   * is the variable itself: reading a string does not copy it. And a
+   * value used once, by the operation right after the one defining it, is
+   * spelled there: nothing runs between them, so the order stays the
+   * IR's. A plan's code may have a C++ type of its own, so its value is
+   * spelled in place only where a declaration or an assignment converts it.
+   */
+  private spellings(): void {
+    const plain = new Set<number>();
+
+    for (const r of this.fn.regions)
+      for (const op of r.ops) if (op.kind === "local" && !op.boxed) plain.add(op.place);
+
+    for (const c of this.fn.captures) if (!c.boxed) plain.add(c.place);
+
+    for (const r of this.fn.regions)
+      for (const op of r.ops) {
+        const result = resultOf(op);
+
+        if (result !== undefined) this.definitions.set(result, op);
+      }
+
+    for (const r of this.fn.regions)
+      r.ops.forEach((op, i) => {
+        const result = resultOf(op);
+
+        if (result === undefined || !this.used(result)) return;
+
+        if (op.kind === "load" && plain.has(op.place) && this.unwritten(r.ops, i, op.place, result))
+          this.aliases.add(result);
+        else if (this.inPlace(op, nextUse(r.ops, i), result)) this.inlined.add(result);
+      });
+  }
+
+  /** Whether nothing in `ops` after `at` stores into `place` before the last use of `v`. */
+  private unwritten(ops: readonly IrOp[], at: number, place: number, v: ValueId): boolean {
+    const uses = (op: IrOp) => deep(this.fn, op).some((o) => operandsOf(o).includes(v));
+    const stores = (op: IrOp) =>
+      deep(this.fn, op).some((o) => o.kind === "store" && o.place === place);
+    const last = ops.findLastIndex((op, j) => j > at && uses(op));
+
+    if (last < 0) return false;
+
+    // The last use may itself be the store: it reads the value before writing it.
+    for (let j = at + 1; j <= last; j++) {
+      const op = ops[j]!;
+
+      if (stores(op) && !(j === last && op.kind === "store" && op.place === place)) return false;
+    }
+    return true;
+  }
+
+  /** Whether `v`, defined by `op`, can be spelled in `next`, its one use. */
+  private inPlace(op: IrOp, next: IrOp | undefined, v: ValueId): boolean {
+    if (!next || this.uses.get(v) !== 1 || !operandsOf(next).includes(v)) return false;
+
+    const assigns = next.kind === "store" || next.kind === "return" || next.kind === "yield";
+    // Operations whose C++ spells each operand, once (a plan's code may not, nor may it run it).
+    const spells = assigns || ["call", "unary", "binary", "convert", "throw"].includes(next.kind);
+
+    // A call (or a plan, whose C++ type an assignment converts) only where it is assigned: each
+    // call stays a statement of its own, never a C++ argument of another.
+    if (op.kind === "call" || op.kind === "plan") return assigns;
+
+    return spells && ["unary", "binary", "convert"].includes(op.kind);
   }
 
   /**
@@ -338,13 +421,156 @@ class Emitter {
     return (this.uses.get(v) ?? 0) > 0;
   }
 
+  /**
+   * Of `store p = v` where `v` is `p + x` on strings, spelled in place, its
+   * left side the variable itself: `x`, which the store appends.
+   */
+  appended(op: IrOp & { kind: "store" }): ValueId | undefined {
+    const def = this.definitions.get(op.value);
+
+    if (def?.kind !== "binary" || def.op !== "+" || this.typeOf(def.result).k !== "string")
+      return undefined;
+
+    const left = this.definitions.get(def.left);
+    const same = left?.kind === "load" && left.place === op.place && this.aliases.has(def.left);
+
+    return same && this.inlined.has(def.result) ? def.right : undefined;
+  }
+
+  /** Whether the load `v` is spelled as its variable. */
+  aliased(v: ValueId): boolean {
+    return this.aliases.has(v);
+  }
+
+  /** The integer kind of the exact integer `v`, if it is one. */
+  intKind(v: ValueId): IntKind | undefined {
+    return this.fn.values[v]?.int;
+  }
+
+  /** The kind of integer register the place `p` is, if it is one. */
+  placeInt(p: number): IntKind | undefined {
+    return this.placeInts.get(p);
+  }
+
+  /** The integer register form of `v`, an exact integer. */
+  intValue(v: ValueId): cpp.Expr {
+    const int = this.ints.get(v);
+
+    if (!int) throw new Error(`IR value v${v} has no integer register form`);
+
+    return int;
+  }
+
+  /** `v`'s integer register form is `c`: its double form converts it. */
+  inlineInt(v: ValueId, c: cpp.Expr): void {
+    this.ints.set(v, c);
+
+    if (!this.exprs.has(v)) this.exprs.set(v, cpp.staticCast(cpp.type("double"), c));
+  }
+
+  /**
+   * `v`, an exact integer, computed by `c` in its integer register: a
+   * variable of that type (none when it is unused, or spelled in place),
+   * which its double form converts.
+   */
+  defineInt(op: IrOp, v: ValueId, c: cpp.Expr): void {
+    const kind = this.intKind(v)!;
+
+    if (this.inlined.has(v)) {
+      this.inlineInt(v, c);
+      return;
+    }
+
+    if (!this.used(v)) {
+      if (op.kind === "plan") this.emit(op, cpp.exprStmt(cpp.cast("c", cpp.voidType, c)));
+      return;
+    }
+
+    const name = `v${v}_`;
+
+    this.emit(op, cpp.varDecl(cpp.type(INT_CPP[kind]), name, c));
+    this.inlineInt(v, cpp.id(name));
+  }
+
+  /** ToInt32 of `v`, as an int32_t: its register, converted when another kind, or the double's. */
+  i32(v: ValueId): cpp.Expr {
+    const kind = this.intKind(v);
+
+    if (!kind) return cpp.call("lucent::toInt32", [this.value(v)]);
+
+    return kind === "i32"
+      ? this.intValue(v)
+      : cpp.staticCast(cpp.type("int32_t"), this.intValue(v));
+  }
+
+  /** ToUint32 of `v`, as a uint32_t. */
+  u32(v: ValueId): cpp.Expr {
+    const kind = this.intKind(v);
+
+    if (!kind) return cpp.call("lucent::toUint32", [this.value(v)]);
+
+    return kind === "u32"
+      ? this.intValue(v)
+      : cpp.staticCast(cpp.type("uint32_t"), this.intValue(v));
+  }
+
+  /** `left op right` for an int32 operator, on integer registers: shift counts taken modulo 32. */
+  bitwise(op: BinaryOp, left: ValueId, right: ValueId): cpp.Expr {
+    const count = () => cpp.binary(this.u32(right), "&", cpp.num("31u"));
+
+    if (op === "<<")
+      return cpp.staticCast(cpp.type("int32_t"), cpp.binary(this.u32(left), "<<", count()));
+
+    if (op === ">>") return cpp.binary(this.i32(left), ">>", count());
+
+    if (op === ">>>") return cpp.binary(this.u32(left), ">>", count());
+
+    return cpp.binary(this.i32(left), op as cpp.BinaryOp, this.i32(right));
+  }
+
+  /**
+   * `v` as the integer register `kind` a store writes (the analysis proved
+   * it an exact integer of that kind): its own register converted, or the
+   * double's; a sum or difference of integers, for an int64 (a loop
+   * counter's step), computed in int64.
+   */
+  stored(v: ValueId, kind: IntKind): cpp.Expr {
+    const type = cpp.type(INT_CPP[kind]);
+    const own = this.intKind(v);
+
+    if (own) return own === kind ? this.intValue(v) : cpp.staticCast(type, this.intValue(v));
+
+    const def = this.definitions.get(v);
+
+    if (
+      kind === "i64" &&
+      def?.kind === "binary" &&
+      (def.op === "+" || def.op === "-") &&
+      this.inlined.has(v) &&
+      this.intKind(def.left) &&
+      this.intKind(def.right)
+    ) {
+      const [l, r] = [def.left, def.right].map((x) => cpp.staticCast(type, this.intValue(x)));
+
+      return cpp.binary(l!, def.op, r!);
+    }
+
+    if (kind === "i32") return cpp.call("lucent::toInt32", [this.value(v)]);
+
+    if (kind === "u32") return cpp.call("lucent::toUint32", [this.value(v)]);
+
+    return cpp.staticCast(type, this.value(v));
+  }
+
   /** `v` is spelled `c` wherever it is used (a literal or a parameter). */
   inline(v: ValueId, c: cpp.Expr): void {
     this.exprs.set(v, c);
   }
 
-  declarePlace(p: number, name: string, boxed = false): void {
+  declarePlace(p: number, name: string, boxed = false, int?: IntKind): void {
     this.places.set(p, boxed ? cpp.deref(cpp.id(name)) : cpp.id(name));
+
+    if (int) this.placeInts.set(p, int);
 
     if (boxed) this.boxes.set(p, cpp.id(name));
   }
@@ -387,6 +613,12 @@ class Emitter {
 
   /** `v`'s value, computed by `c` at this point: a named temporary, or nothing when unused. */
   define(op: IrOp, v: ValueId, c: cpp.Expr, effect = false): void {
+    // Spelled where its one use is.
+    if (this.inlined.has(v)) {
+      this.exprs.set(v, c);
+      return;
+    }
+
     if (this.used(v)) {
       const name = `v${v}_`;
 
@@ -565,11 +797,24 @@ type Emit<K extends IrOp["kind"]> = (
 ) => void;
 
 const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
-  const: (op, e) => e.inline(op.result, constant(op.value)),
+  const: (op, e) => {
+    e.inline(op.result, constant(op.value));
+
+    const int = e.intKind(op.result);
+
+    // An exact integer's register form: the literal itself (`7`, `4294967295u`).
+    if (int)
+      e.inlineInt(op.result, cpp.num(int === "u32" ? `${String(op.value)}u` : String(op.value)));
+  },
 
   param: (op, e) => e.inline(op.result, cpp.id(`p${op.index}_`)),
 
   unary: (op, e) => {
+    if (e.intKind(op.result)) {
+      e.defineInt(op, op.result, cpp.unary("~", e.i32(op.operand)));
+      return;
+    }
+
     const operand = e.value(op.operand);
     const bigint = e.typeOf(op.operand).k === "bigint" ? BIGINT_UNARY[op.op] : undefined;
 
@@ -577,6 +822,12 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
   },
 
   binary: (op, e) => {
+    // The int32 operators, on integer registers.
+    if (e.intKind(op.result)) {
+      e.defineInt(op, op.result, e.bitwise(op.op, op.left, op.right));
+      return;
+    }
+
     const [left, right] = [op.left, op.right].map((v) => ({ c: e.value(v), t: e.typeOf(v) }));
     const c = isEqualityOp(op.op)
       ? equality(op.op, left!, right!)
@@ -593,9 +844,9 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
   local: (op, e, index, ops) => {
     const name = cppIdent(op.name);
     const next = ops[index + 1];
-    const type = boxOf(e.backend.cppType(op.type), op.boxed);
+    const type = op.int ? cpp.type(INT_CPP[op.int]) : boxOf(e.backend.cppType(op.type), op.boxed);
 
-    e.declarePlace(op.place, name, op.boxed);
+    e.declarePlace(op.place, name, op.boxed, op.int);
 
     // Declared where it is first stored, as `T x = v;` (or `lucent::Box<T> x(v);`).
     if (next?.kind === "store" && next.place === op.place) return;
@@ -603,16 +854,39 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
     e.emit(op, cpp.varDecl(type, name, undefined, { style: "brace" }));
   },
 
-  load: (op, e) => e.define(op, op.result, e.place(op.place)),
+  load: (op, e) => {
+    const int = e.placeInt(op.place);
+
+    if (int && e.aliased(op.result)) e.inlineInt(op.result, e.place(op.place));
+    else if (int) e.defineInt(op, op.result, e.place(op.place));
+    else if (e.aliased(op.result)) e.inline(op.result, e.place(op.place));
+    else e.define(op, op.result, e.place(op.place));
+  },
 
   store: (op, e, index, ops) => {
     const prev = ops[index - 1];
 
-    if (prev?.kind === "local" && prev.place === op.place) {
-      const type = boxOf(e.backend.cppType(prev.type), prev.boxed);
-      const style = prev.boxed ? { style: "construct" as const } : {};
+    const int = e.placeInt(op.place);
 
-      e.emit(op, cpp.varDecl(type, cppIdent(prev.name), e.value(op.value), style));
+    if (prev?.kind === "local" && prev.place === op.place) {
+      const type = int ? cpp.type(INT_CPP[int]) : boxOf(e.backend.cppType(prev.type), prev.boxed);
+      const style = prev.boxed ? { style: "construct" as const } : {};
+      const value = int ? e.stored(op.value, int) : e.value(op.value);
+
+      e.emit(op, cpp.varDecl(type, cppIdent(prev.name), value, style));
+      return;
+    }
+
+    if (int) {
+      e.emit(op, cpp.exprStmt(cpp.assign(e.place(op.place), e.stored(op.value, int))));
+      return;
+    }
+
+    // `s = s + x` on a string appends to it in place: copying it whole each time is quadratic.
+    const appended = e.appended(op);
+
+    if (appended !== undefined) {
+      e.emit(op, cpp.exprStmt(cpp.assign(e.place(op.place), e.value(appended), "+=")));
       return;
     }
 
@@ -631,7 +905,23 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
   },
 
   plan: (op, e) => {
-    const c = withOperands(op.code as cpp.Expr, (v) => e.value(v));
+    // Its integer register form, when its code has one: the value, held as that.
+    if (op.int && op.result !== undefined) {
+      const int = withOperands(
+        op.int.code as cpp.Expr,
+        (v) => e.value(v),
+        (v) => e.intValue(v),
+      );
+
+      e.defineInt(op, op.result, int);
+      return;
+    }
+
+    const c = withOperands(
+      op.code as cpp.Expr,
+      (v) => e.value(v),
+      (v) => e.intValue(v),
+    );
 
     // What gives nothing may still be a value in C++ (`(void)x, lucent::undefined`): discarded.
     const statement = c.k === "call" || c.k === "assign" ? c : cpp.cast("c", cpp.voidType, c);
@@ -854,14 +1144,29 @@ export function operand(v: ValueId): cpp.Expr {
   return cpp.id(`${OPERAND}${v}`);
 }
 
-/** Plan code, with each operand it names replaced by that value's C++. */
-function withOperands(code: cpp.Expr, value: (v: ValueId) => cpp.Expr): cpp.Expr {
+/** The prefix of the names plan code gives its operands' integer forms. */
+const INT_OPERAND = "$i";
+
+/** How a plan's code names the integer register form of `v`, an exact integer operand. */
+export function intOperand(v: ValueId): cpp.Expr {
+  return cpp.id(`${INT_OPERAND}${v}`);
+}
+
+/** Plan code, with each operand it names replaced by that value's C++ (or its integer form's). */
+function withOperands(
+  code: cpp.Expr,
+  value: (v: ValueId) => cpp.Expr,
+  int: (v: ValueId) => cpp.Expr = value,
+): cpp.Expr {
   const replace = (node: unknown): unknown => {
     if (Array.isArray(node)) return node.map(replace);
 
     if (typeof node !== "object" || node === null) return node;
 
     const n = node as { k?: string; name?: unknown };
+
+    if (n.k === "id" && typeof n.name === "string" && n.name.startsWith(INT_OPERAND))
+      return int(Number(n.name.slice(INT_OPERAND.length)) as ValueId);
 
     if (n.k === "id" && typeof n.name === "string" && n.name.startsWith(OPERAND))
       return value(Number(n.name.slice(OPERAND.length)) as ValueId);
@@ -961,6 +1266,31 @@ const ITERATIONS: Partial<Record<LType["k"], (it: Iteration) => cpp.Stmt[]>> = {
   },
 };
 
+/** `value`, after what evaluating `effect` does (nothing, when it is a name or a literal). */
+function after(effect: cpp.Expr, value: cpp.Expr): cpp.Expr {
+  const pure = ["id", "number", "string", "bool"].includes(effect.k);
+
+  return pure ? value : cpp.comma(cpp.cast("c", cpp.voidType, effect), value);
+}
+
+/** The operation after `ops[at]`, past a local declared where it is first stored (`T x = v;`). */
+function nextUse(ops: readonly IrOp[], at: number): IrOp | undefined {
+  const next = ops[at + 1];
+  const after = ops[at + 2];
+
+  return next?.kind === "local" && after?.kind === "store" && after.place === next.place
+    ? after
+    : next;
+}
+
+/** `op` and the operations in the regions it owns, at any depth. */
+function deep(fn: IrFunction, op: IrOp): IrOp[] {
+  return [op, ...regionsOf(op).flatMap((r) => fn.regions[r]!.ops.flatMap((o) => deep(fn, o)))];
+}
+
+/** The C++ type of each integer register. */
+const INT_CPP: Record<IntKind, string> = { i32: "int32_t", u32: "uint32_t", i64: "int64_t" };
+
 /** A place's C++ type: `lucent::Box<T>` when it is boxed. */
 function boxOf(type: cpp.Type, boxed: boolean | undefined): cpp.Type {
   return boxed ? cpp.type("lucent::Box", type) : type;
@@ -999,7 +1329,7 @@ function equality(op: EqualityOp, left: Operand, right: Operand): cpp.Expr {
     l.k === r.k && isPrimitive(l)
       ? cpp.binary(left.c, "==", right.c)
       : isAbsent(l) && isAbsent(r)
-        ? cpp.bool(loose || l.k === r.k)
+        ? after(left.c, after(right.c, cpp.bool(loose || l.k === r.k)))
         : loose && (isAbsent(l) || isAbsent(r))
           ? cpp.not(cpp.call(cpp.dot((isAbsent(l) ? right : left).c, "has")))
           : cpp.call("lucent::strictEquals", [left.c, right.c]);
@@ -1045,10 +1375,10 @@ type ApplyStep<K extends ConversionStep["kind"]> = (
 const STEPS: { [K in ConversionStep["kind"]]: ApplyStep<K> } = {
   same: (input) => input,
 
-  undefined: () => cpp.id("lucent::undefined"),
+  undefined: (input) => after(input, cpp.id("lucent::undefined")),
 
-  absent: (_, _from, to, step, b) =>
-    cpp.construct(b.cppType(to), [cpp.id(`lucent::${step.value}`)]),
+  absent: (input, _from, to, step, b) =>
+    after(input, cpp.construct(b.cppType(to), [cpp.id(`lucent::${step.value}`)])),
 
   wrap: (input, from, to, step, b) =>
     cpp.construct(b.cppType(to), [converted(input, from, step.inner, b)]),

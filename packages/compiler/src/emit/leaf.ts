@@ -9,7 +9,7 @@ import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { isInside } from "../analysis/scopes.ts";
 import { CompileError } from "../diagnostics.ts";
-import { operand } from "../ir/cpp.ts";
+import { intOperand, operand } from "../ir/cpp.ts";
 import type { ValueId } from "../ir/ir.ts";
 import {
   IrUnsupported,
@@ -41,8 +41,14 @@ class LeafEmitter extends FnEmitter {
     if (node === this.root || !isInside(node, this.root)) return super.expr(node, hint);
 
     const v = this.operands.operand(node, hint);
+    const int = this.operands.intOf(v);
 
-    return { c: operand(v), t: this.operands.typeOf(v) };
+    // An exact integer has its integer register form too (integers.ts), which code like Math.imul's uses.
+    return {
+      c: operand(v),
+      t: this.operands.typeOf(v),
+      ...(int ? { int: { c: intOperand(v), kind: int } } : {}),
+    };
   }
 
   /** A function the leaf takes: the IR's closure. */
@@ -148,7 +154,12 @@ function planned(node: ts.Node, plan: () => E): Leaf {
   return rejected(node, () => {
     const e = plan();
 
-    return { name: nameOf(node), code: e.c, type: e.t };
+    return {
+      name: nameOf(node),
+      code: e.c,
+      type: e.t,
+      ...(e.int ? { int: { code: e.int.c, kind: e.int.kind } } : {}),
+    };
   });
 }
 
@@ -164,6 +175,7 @@ function noOperands(node: ts.Node): LeafOperands {
     closure: () => {
       throw new IrUnsupported(node, "an operand here");
     },
+    intOf: () => undefined,
     isLocal: () => false,
   };
 }

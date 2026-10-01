@@ -45,11 +45,20 @@ export type OwnerId = "legacy-module" | "main" | "task" | "unknown";
 
 export const OWNERS: readonly OwnerId[] = ["legacy-module", "main", "task", "unknown"];
 
+/**
+ * How an exact integer number is held: in an int32, a uint32 or an int64
+ * register. The value is the same number in each, so it reads as a
+ * double without changing any result.
+ */
+export type IntKind = "i32" | "u32" | "i64";
+
 export interface IrValue {
   id: ValueId;
   type: LType;
   source: SourceSpan;
   owner?: OwnerId;
+  /** A number known to be an exact integer of this kind (see `intKindOf`). */
+  int?: IntKind;
 }
 
 /** A module variable the function reads or writes: a place declared outside its body. */
@@ -146,13 +155,18 @@ export type IrOp =
       source: SourceSpan;
     }
   | { kind: "convert"; result: ValueId; input: ValueId; to: LType; source: SourceSpan }
-  /** A local; `boxed`, one closures share, which some code writes after they capture it. */
+  /**
+   * A local; `boxed`, one closures share, which some code writes after they
+   * capture it; `int`, a number every write of which is an exact integer
+   * of that kind, held in an integer register.
+   */
   | {
       kind: "local";
       place: PlaceId;
       type: LType;
       name: string;
       boxed?: boolean;
+      int?: IntKind;
       source: SourceSpan;
     }
   | { kind: "load"; result: ValueId; place: PlaceId; source: SourceSpan }
@@ -237,6 +251,8 @@ export type IrOp =
       name: string;
       code: unknown;
       args: ValueId[];
+      /** Its value as an exact integer too, when the backend's code gives one (`Math.imul`). */
+      int?: { code: unknown; kind: IntKind };
       source: SourceSpan;
     }
   /**
@@ -490,6 +506,39 @@ export function elementOf(t: LType): LType | undefined {
     default:
       return undefined;
   }
+}
+
+/** What the int32 operators give, as JavaScript defines them: `>>>` a uint32, the others an int32. */
+const INT_OPERATORS: Partial<Record<BinaryOp, IntKind>> = {
+  "&": "i32",
+  "|": "i32",
+  "^": "i32",
+  "<<": "i32",
+  ">>": "i32",
+  ">>>": "u32",
+};
+
+/**
+ * The integer kind a number operation gives: a literal's (but -0, whose
+ * sign an integer loses), an int32 operator's, `~`'s. Undefined for any
+ * other value, which may be any double.
+ */
+export function intKindOf(op: IrOp, type: LType): IntKind | undefined {
+  if (type.k !== "number") return undefined;
+
+  if (op.kind === "const" && typeof op.value === "number") {
+    const v = op.value;
+
+    if (!Number.isInteger(v) || Object.is(v, -0)) return undefined;
+
+    if (v >= -2147483648 && v <= 2147483647) return "i32";
+
+    return v > 0 && v <= 4294967295 ? "u32" : undefined;
+  }
+
+  if (op.kind === "binary") return INT_OPERATORS[op.op];
+
+  return op.kind === "unary" && op.op === "~" ? "i32" : undefined;
 }
 
 /** The type of a constant. */

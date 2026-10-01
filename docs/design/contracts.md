@@ -767,6 +767,8 @@ export interface SourceSpan {
 /** The execution context a value belongs to, or that runs a unit. */
 export type OwnerId = "legacy-module" | "main" | "task" | "unknown";
 
+export type IntKind = "i32" | "u32" | "i64"; // an exact integer's register
+
 export interface IrValue {
   id: ValueId;
   type: LType;
@@ -946,6 +948,16 @@ export interface EffectRef {
   and assignments) reads each part through `LeafHost.part` and applies a
   default only when the part is undefined; an assignment's targets are
   evaluated in order, each before the part it gets.
+- A number value may be an exact integer of an `IntKind` (`IrValue.int`):
+  an integer literal, an int32 operator's result, a read of a local the
+  host's analysis proves always holds one (`local.int`, `LowerHost.
+integers`: its int locals, and `for` counters as int64s), or a plan's
+  integer form (`Math.imul`). The C++ backend keeps such values in integer
+  registers and converts to a double where one is needed; a leaf sees an
+  operand's integer form too. Reads of a local nothing can write before
+  their last use are spelled as the variable (no copy), `s = s + x` on a
+  string appends in place, and a pure operation used once by the next
+  is written inline there. Each call stays a statement of its own.
 - An async function (`IrFunction.async`) returns what its promise
   fulfils with; each `await` is a suspension point of its own, so what
   runs before and after it is explicit, and returning a promise returns
