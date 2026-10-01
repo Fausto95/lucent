@@ -47,12 +47,14 @@ export class IrBuilder {
   private readonly result: LType;
   private readonly source: SourceSpan;
   private readonly async: boolean;
+  private readonly generator?: LType;
 
-  constructor(id: FunctionId, result: LType, source: SourceSpan, async = false) {
+  constructor(id: FunctionId, result: LType, source: SourceSpan, async = false, generator?: LType) {
     this.id = id;
     this.result = result;
     this.source = source;
     this.async = async;
+    this.generator = generator;
     this.body = { id: 0 as RegionId, ops: [] };
     this.cursor = this.body;
     this.regions.push(this.body);
@@ -140,6 +142,18 @@ export class IrBuilder {
     const result = this.value(type, source);
     this.push({ kind: "closure", result, fn, from, source });
     return result;
+  }
+
+  /** Waits for `promise`, giving what it fulfils with as a `result` (none for void). */
+  await(promise: ValueId, result: LType | undefined, source: SourceSpan): ValueId | undefined {
+    const id = result && this.value(result, source);
+    this.push({ kind: "await", ...(id === undefined ? {} : { result: id }), promise, source });
+    return id;
+  }
+
+  /** Gives the generator's caller `value`. */
+  produce(value: ValueId, source: SourceSpan): void {
+    this.push({ kind: "produce", value, source });
   }
 
   unreachable(source: SourceSpan): void {
@@ -381,6 +395,7 @@ export class IrBuilder {
       modulePlaces: [...this.modulePlaces],
       captures: [...this.captures],
       async: this.async,
+      ...(this.generator ? { generator: this.generator } : {}),
     };
 
     return {

@@ -11,7 +11,7 @@ import { heldAs, throughMembers } from "../lowering/members.ts";
 import { BIGINT_OPERATORS } from "../lowering/bigint.ts";
 import { bigintExpr, numberExpr, stringExpr } from "../lowering/literals.ts";
 import { sourcePath } from "../lowering/source.ts";
-import { cppIdent, type LType } from "../types.ts";
+import { cppIdent, isVoidish, type LType, T } from "../types.ts";
 import {
   type BinaryOp,
   type BuiltinName,
@@ -24,6 +24,7 @@ import {
   isAbsent,
   isEqualityOp,
   isPrimitive,
+  completes,
   operandsOf,
   type RegionId,
   runsThrough,
@@ -115,7 +116,16 @@ export function toCpp(fn: IrFunction, backend: CppBackend, env: VerifyEnv = {}):
   const emitter = new Emitter(fn, backend);
   const params = fn.params.map((v, i) => cpp.param(backend.cppType(fn.values[v]!.type), `p${i}_`));
 
-  return { params, ret: backend.cppRetType(fn.result), body: emitter.body() };
+  return { params, ret: returnType(fn, backend), body: emitter.body() };
+}
+
+/** What a function's C++ returns: its result, a promise of it, or a generator's iterator. */
+function returnType(fn: IrFunction, b: CppBackend): cpp.Type {
+  if (fn.async) return cpp.type("lucent::Promise", b.cppRetType(fn.result));
+
+  if (fn.generator) return b.cppType({ k: "iter", e: fn.generator });
+
+  return b.cppRetType(fn.result);
 }
 
 /** A loop or labeled block around the statement being emitted. */
@@ -165,11 +175,16 @@ class Emitter {
   private readonly prologue: cpp.Stmt[] = [];
   private returned?: string;
   private framesMade = 0;
+  /** An async function's or a generator's body: a C++ coroutine. */
+  private readonly coroutine: boolean;
+  /** Whether the body emitted so far suspends or returns as a coroutine (co_await, co_yield, co_return). */
+  private suspended = false;
   private line?: string;
 
   constructor(fn: IrFunction, backend: CppBackend) {
     this.fn = fn;
     this.backend = backend;
+    this.coroutine = fn.async || fn.generator !== undefined;
 
     for (const p of fn.modulePlaces) this.places.set(p.place, cpp.id(p.symbol));
 
@@ -217,11 +232,27 @@ class Emitter {
     }
   }
 
-  /** The statements of the function's body, after its prologue. */
+  /**
+   * The statements of the function's body, after its prologue. A
+   * coroutine's ends with `co_return` when it can get there, and has one in
+   * any case: one that only throws must still reject its promise, or throw
+   * at its generator's first next(), rather than at its call.
+   */
   body(): cpp.Stmt[] {
     const body = this.region(this.fn.body);
+    const end = this.coroutine && completes(this.fn, this.fn.body) ? [cpp.coReturn()] : [];
+    const result = this.fn.result;
+    const none = isVoidish(result)
+      ? undefined
+      : converted(cpp.id("lucent::undefined"), T.never, result, this.backend);
+    const still = this.coroutine && !this.suspended && !end.length ? [cpp.coReturn(none)] : [];
 
-    return [...this.prologue, ...body];
+    return [...this.prologue, ...body, ...end, ...still];
+  }
+
+  /** The body suspends or returns as a coroutine here. */
+  suspending(): void {
+    this.suspended = true;
   }
 
   /** The statements of region `id`. */
@@ -397,7 +428,12 @@ class Emitter {
 
   /** `return value`; past a finally, the value is kept and the finally runs first. */
   ret(value: cpp.Expr | undefined): cpp.Stmt {
-    if (!this.frames.length) return cpp.ret(value);
+    if (!this.frames.length) {
+      if (!this.coroutine) return cpp.ret(value);
+
+      this.suspending();
+      return cpp.coReturn(value);
+    }
 
     const kept = value === undefined ? undefined : cpp.id(this.returnVariable());
     const keep = kept ? [cpp.exprStmt(cpp.assign(kept, value!))] : [];
@@ -601,10 +637,28 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
         init: "value" in from ? e.value(from.value) : e.box(from.box),
       };
     });
-    const lambda = cpp.lambda(captures, params, inner.body(), {
-      ret: e.backend.cppRetType(fn.result),
-      mutable: true,
-    });
+    const ret = returnType(fn, e.backend);
+    const body = inner.body();
+    // A coroutine's frame must not reference the lambda's captures: they are its parameters.
+    const coroutine = fn.async || fn.generator !== undefined;
+    const names = captures.map((c) => c.name);
+    const lambda = coroutine
+      ? cpp.lambda(
+          captures,
+          params,
+          [
+            cpp.ret(
+              cpp.call(
+                cpp.lambda([], [...names.map((n) => cpp.param(cpp.auto, n)), ...params], body, {
+                  ret,
+                }),
+                [...names, ...params.map((p) => p.name!)].map((n) => cpp.id(n)),
+              ),
+            ),
+          ],
+          { ret },
+        )
+      : cpp.lambda(captures, params, body, { ret, mutable: true });
 
     e.define(op, op.result, cpp.construct(e.backend.cppType(e.typeOf(op.result)), [lambda]));
 
@@ -613,6 +667,20 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
   },
 
   unreachable: (op, e) => e.emit(op, cpp.exprStmt(cpp.call("lucent::unreachable"))),
+
+  await: (op, e) => {
+    const awaited = cpp.coAwait(e.value(op.promise));
+
+    e.suspending();
+
+    if (op.result === undefined) e.emit(op, cpp.exprStmt(awaited));
+    else e.define(op, op.result, awaited, true);
+  },
+
+  produce: (op, e) => {
+    e.suspending();
+    e.emit(op, { k: "coYield", value: e.value(op.value) });
+  },
 
   // No code using it runs: it is spelled as the constant its C++ type holds.
   never: (op, e) => e.inline(op.result, cpp.id("lucent::undefined")),

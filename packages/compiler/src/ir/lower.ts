@@ -222,8 +222,11 @@ export interface LowerInput {
   params: LType[];
   /** Of a parameter with a default, the type its body sees. */
   defaulted?: (LType | undefined)[];
+  /** What its body returns: for an async function, what its promise fulfils with. */
   result: LType;
   async: boolean;
+  /** Of a generator, what it gives its caller each time. */
+  generator?: LType;
   generic: boolean;
   /** Its effects, when the program's analysis knows them. */
   effects?: EffectSummary;
@@ -291,15 +294,17 @@ class Lowerer {
     this.host = host;
     this.result = input.result;
     this.parent = parent;
-    this.b = new IrBuilder(input.id, input.result, spanOf(input.decl), input.async);
+    this.b = new IrBuilder(
+      input.id,
+      input.result,
+      spanOf(input.decl),
+      input.async,
+      input.generator,
+    );
   }
 
   function(): Lowered {
     const d = this.input.decl;
-
-    if (this.input.async) this.unsupported(d, "async functions");
-
-    if (!ts.isArrowFunction(d) && d.asteriskToken) this.unsupported(d, "generators");
 
     if (!d.body) this.unsupported(d, "functions without a body");
 
@@ -387,7 +392,14 @@ class Lowerer {
   /** `return value`: converted to what the function gives (nothing, from a void one). */
   returns(value: ts.Expression, span: SourceSpan): void {
     const result = this.result;
-    const v = this.expr(value, isVoidish(result) ? undefined : result);
+
+    if (this.input.generator) this.unsupported(value, "returning a value from a generator");
+
+    let v = this.expr(value, isVoidish(result) ? undefined : result);
+
+    // An async function returning a promise returns what it fulfils with.
+    if (this.input.async && this.b.typeOf(v).k === "promise" && result.k !== "promise")
+      v = this.awaited(v, value);
 
     if (isVoidish(result)) {
       this.b.return(undefined, span);
@@ -395,6 +407,56 @@ class Lowerer {
     }
 
     this.b.return(this.coerce(v, result, value), span);
+  }
+
+  /** `await v`: what a promise fulfils with (undefined for a promise of void); any other value as it is. */
+  awaited(v: ValueId, node: ts.Node): ValueId {
+    const t = this.b.typeOf(v);
+
+    if (!this.input.async) this.unsupported(node, "await outside an async function");
+
+    if (t.k !== "promise") {
+      if (t.k === "opt" && t.inner.k === "promise")
+        this.unsupported(node, "awaiting an optional promise");
+
+      if (t.k === "native") this.unsupported(node, "awaiting a native object");
+
+      return v;
+    }
+
+    const span = spanOf(node);
+    const inner = isVoidish(t.inner) ? undefined : t.inner;
+
+    return this.b.await(v, inner, span) ?? this.b.const(undefined, span);
+  }
+
+  /**
+   * `yield x;` gives the generator's caller `x`; `yield* xs;` gives it each
+   * element of `xs` in turn (closing the generator closes an iterator `xs`).
+   */
+  yieldStatement(y: ts.YieldExpression): void {
+    const element = this.input.generator;
+    const span = spanOf(y);
+
+    if (!element) this.unsupported(y, "yield outside a generator");
+
+    if (!y.asteriskToken) {
+      const v = y.expression ? this.expr(y.expression, element) : this.b.const(undefined, span);
+
+      this.b.produce(this.coerce(v, element, y), span);
+      return;
+    }
+
+    const source = this.expr(y.expression!);
+    const t = this.b.typeOf(source);
+    const whole = t.k === "opt" ? this.coerce(source, t.inner, y.expression!) : source;
+    const each = elementOf(this.b.typeOf(whole));
+
+    if (!each) this.unsupported(y, `yield* of a ${typeKey(t)}`);
+
+    this.b.iterate(span, whole, each, (_target, el) =>
+      this.b.produce(this.coerce(el, element, y), span),
+    );
   }
 
   unsupported(node: ts.Node, what: string): never {
@@ -1381,9 +1443,12 @@ class Lowerer {
   ): ValueId {
     const sig = this.signature(node, target);
 
-    if (sig.async) this.unsupported(node, "async functions");
+    const ret = sig.type.ret;
 
-    if (sig.generator) this.unsupported(node, "generators");
+    if (sig.async && sig.generator) this.unsupported(node, "async generators");
+
+    if (sig.generator && ret.k !== "iter")
+      this.unsupported(node, "a generator not typed Generator<T>");
 
     const id = `${this.input.id}$${++this.closures}`;
     const input: LowerInput = {
@@ -1391,8 +1456,10 @@ class Lowerer {
       id,
       params: sig.params,
       defaulted: sig.defaulted,
-      result: sig.type.ret,
-      async: false,
+      // An async function's body returns what its promise fulfils with; a generator's, nothing.
+      result: sig.async && ret.k === "promise" ? ret.inner : sig.generator ? T.void : ret,
+      async: sig.async,
+      ...(sig.generator && ret.k === "iter" ? { generator: ret.e } : {}),
       generic: false,
     };
     const effects = this.host.effectsOf?.(node);
@@ -1502,16 +1569,10 @@ class Lowerer {
     const builtin = ts.isIdentifier(callee) ? ERRORS[callee.text] : undefined;
     const args = node.arguments ?? [];
     const sym = ts.isIdentifier(callee) ? this.host.checker.getSymbolAtLocation(callee) : undefined;
-    const message = args[0] && this.typeAt(args[0]);
 
-    if (
-      !builtin ||
-      !sym ||
-      !isLibrary(sym) ||
-      args.length > 1 ||
-      (message && message.k !== "string")
-    )
-      return this.leaf(node);
+    if (!builtin || !sym || !isLibrary(sym) || args.length > 1) return this.leaf(node);
+
+    if (args[0] && this.typeAt(args[0]).k !== "string") return this.leaf(node);
 
     const text = args[0] ? this.expr(args[0]) : this.b.const("", spanOf(node));
 
@@ -1736,8 +1797,15 @@ class Lowerer {
   }
 
   template(node: ts.TemplateExpression): ValueId {
+    // A part of a type the compiler cannot represent here is the emitter's to convert.
     const prints = (e: ts.Expression) => {
-      const t = this.typeAt(e);
+      let t: LType;
+
+      try {
+        t = this.host.typeAt(e);
+      } catch {
+        return false;
+      }
 
       return t.k === "string" || unaryResult("String", t) !== undefined;
     };
@@ -1923,7 +1991,10 @@ const STATEMENTS: Partial<Record<ts.SyntaxKind, StatementLowering>> = {
     lw.declarations(s.declarationList),
 
   [ts.SyntaxKind.ExpressionStatement]: (s: ts.ExpressionStatement, lw) => {
-    lw.expr(ts.isVoidExpression(s.expression) ? s.expression.expression : s.expression);
+    const e = s.expression;
+
+    if (ts.isYieldExpression(e)) lw.yieldStatement(e);
+    else lw.expr(ts.isVoidExpression(e) ? e.expression : e);
   },
 
   [ts.SyntaxKind.ReturnStatement]: (s: ts.ReturnStatement, lw: Lowerer) => {
@@ -2116,6 +2187,9 @@ const EXPRESSIONS: Partial<Record<ts.SyntaxKind, ExpressionLowering>> = {
   [ts.SyntaxKind.CallExpression]: (n: ts.CallExpression, lw, hint?: LType) => lw.call(n, hint),
 
   [ts.SyntaxKind.ArrowFunction]: (n: ts.ArrowFunction, lw, hint?: LType) => lw.closure(n, hint),
+
+  [ts.SyntaxKind.AwaitExpression]: (n: ts.AwaitExpression, lw) =>
+    lw.awaited(lw.expr(n.expression), n),
 
   [ts.SyntaxKind.FunctionExpression]: (n: ts.FunctionExpression, lw, hint?: LType) =>
     lw.closure(n, hint),

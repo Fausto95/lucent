@@ -885,6 +885,8 @@ export type IrOp =
     }
   | { kind: "dispose"; value: ValueId; code: unknown; source: SourceSpan } // in a finally
   | { kind: "closure"; result: ValueId; fn: IrFunction; from: CaptureSource[]; source: SourceSpan }
+  | { kind: "await"; result?: ValueId; promise: ValueId; source: SourceSpan } // async only
+  | { kind: "produce"; value: ValueId; source: SourceSpan } // a generator's `yield`
   | { kind: "unreachable"; source: SourceSpan } // terminator
   | { kind: "never"; result: ValueId; source: SourceSpan }; // what never completes gives
 
@@ -941,6 +943,16 @@ export interface EffectRef {
   and assignments) reads each part through `LeafHost.part` and applies a
   default only when the part is undefined; an assignment's targets are
   evaluated in order, each before the part it gets.
+- An async function (`IrFunction.async`) returns what its promise
+  fulfils with; each `await` is a suspension point of its own, so what
+  runs before and after it is explicit, and returning a promise returns
+  what it fulfils with. A generator (`IrFunction.generator`, its element
+  type) gives each element with `produce`; `yield* xs` iterates `xs`,
+  producing each element. Their C++ is a coroutine: `co_await`,
+  `co_yield`, `co_return`, a body that only throws still being one, an
+  async closure's captures passed to its coroutine as parameters (a
+  coroutine frame must not reference a lambda's captures), and no
+  suspension inside a C++ catch handler (a catch region runs after it).
 - `unreachable` ends a body TypeScript proved always returns (an
   exhaustive switch at its end); a body that may give undefined gives it.
   A call that never returns gives a `never` value, which converts to any
@@ -1117,7 +1129,9 @@ cases run under both lowerings).
   locals, and `LowerHost.isBoxed`, `signatureOf` and `effectsOf`. The
   `iterate` op and `LeafHost.part` and `keys`. The `try` and `dispose`
   ops, `LeafHost.dispose`, `LowerHost.isError` and `derives`; `throw`
-  takes Error subclasses. Optional chains through `LeafHost.link`.
+  takes Error subclasses. Optional chains through `LeafHost.link`. The
+  `await` and `produce` ops, `IrFunction.generator`, async functions'
+  results as what their promise fulfils with.
   Migration: none (additive; the default lowering is unchanged).
 
 ## C-EXEC: execution identities, scopes and operations

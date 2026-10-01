@@ -87,7 +87,10 @@ export interface IrFunction {
   captures: IrCapture[];
   effects: EffectSummary;
   source: SourceSpan;
+  /** An async function: it gives a promise of its result, and may `await`. */
   async: boolean;
+  /** A generator: what it gives its caller, one element at a time (`produce`); its result is void. */
+  generator?: LType;
 }
 
 export interface IrRegion {
@@ -243,6 +246,13 @@ export type IrOp =
       from: CaptureSource[];
       source: SourceSpan;
     }
+  /**
+   * In an async function: suspends until `promise` settles, giving what it
+   * fulfils with (nothing for a promise of void), or throwing its reason.
+   */
+  | { kind: "await"; result?: ValueId; promise: ValueId; source: SourceSpan }
+  /** In a generator: gives its caller the next element, `value`, and suspends until it asks again. */
+  | { kind: "produce"; value: ValueId; source: SourceSpan }
   /** A point TypeScript proved no path reaches (a body ending after an exhaustive switch). */
   | { kind: "unreachable"; source: SourceSpan }
   /**
@@ -521,7 +531,10 @@ export function operandsOf(op: IrOp): ValueId[] {
     case "iterate":
       return [op.iterable];
     case "dispose":
+    case "produce":
       return [op.value];
+    case "await":
+      return [op.promise];
     case "yield":
       return op.value === undefined ? [] : [op.value];
     default:

@@ -722,12 +722,16 @@ function viaIr(
 
     return unit ? { effects: facts.effects(unit) } : {};
   };
+  const ret = g.type.ret;
+  const generator = g.decl.asteriskToken && ret.k === "iter" ? ret.e : undefined;
   const input = {
     decl: g.decl,
     id: g.cpp,
     params: g.params.map((p) => p.cppType),
     defaulted: g.decl.parameters.map((p, i) => (p.initializer ? g.params[i]!.type : undefined)),
-    result: g.type.ret,
+    // An async function's body returns what its promise fulfils with; a generator's, nothing.
+    result: g.async && ret.k === "promise" ? ret.inner : generator ? T.void : ret,
+    ...(generator ? { generator } : {}),
     async: g.async,
     generic: g.generic,
     ...effects(g.decl),

@@ -25,7 +25,7 @@ export function dump(fn: IrFunction): string {
     .map(([k, v]) => `${k}=${String(v)}`)
     .join(" ");
   const lines = [
-    `fn ${fn.id}(${params}) -> ${typeKey(fn.result)}${fn.async ? " async" : ""} ${at(fn.source)}`,
+    `fn ${fn.id}(${params}) -> ${typeKey(fn.result)}${fn.async ? " async" : ""}${fn.generator ? ` generates ${typeKey(fn.generator)}` : ""} ${at(fn.source)}`,
     `  effects ${effects}`,
     ...fn.modulePlaces.map(
       (p) =>
@@ -116,6 +116,13 @@ function dumpOp(op: IrOp, type: (v: ValueId) => string): string {
       return "unreachable";
     case "never":
       return def(op.result, "never");
+    case "await": {
+      const text = `await v${op.promise}`;
+
+      return op.result === undefined ? text : def(op.result, text);
+    }
+    case "produce":
+      return `produce v${op.value}`;
     case "return":
       return op.value === undefined ? "return" : `return v${op.value}`;
     case "throw":

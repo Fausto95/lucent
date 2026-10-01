@@ -1027,6 +1027,10 @@ before output code generation.
   - Generic functions, as C++ templates their callers instantiate (one
     body per instantiation, as before; specializing hot ones is
     [T54](#t54)'s): 507 of 606.
+  - Async functions and closures (`await` as an operation of its own,
+    captures passed to the coroutine), generators (`yield`, `yield*`):
+    584 of 606; the async, generator and using cases pass under
+    `SANITIZE=1`.
 
 <a id="t54"></a>
 

@@ -392,6 +392,24 @@ class Checker {
     this.places.set(p, { type, mutable: true, boxed });
   }
 
+  /** An await, in an async function, of a promise, giving what it fulfils with. */
+  awaits(op: IrOp & { kind: "await" }, where: string): void {
+    const t = this.typeOf(op.promise);
+
+    if (!this.fn.async) this.problemAt(where, "is not in an async function");
+
+    if (t && t.k !== "promise") this.problemAt(where, `awaits a ${typeKey(t)}, not a promise`);
+    else if (t && isVoidish(t.inner) !== (op.result === undefined))
+      this.problemAt(where, "gives a value just when the promise's has one");
+    else if (t && op.result !== undefined) this.expectType(op.result, t.inner, where);
+  }
+
+  /** A produce, in a generator, of an element of its type. */
+  produces(op: IrOp & { kind: "produce" }, where: string): void {
+    if (!this.fn.generator) this.problemAt(where, "is not in a generator");
+    else this.expectType(op.value, this.fn.generator, where);
+  }
+
   /** A closure: its function is valid, and each capture gets a value of its type or a box. */
   closure(op: IrOp & { kind: "closure" }, where: string): void {
     const fn = op.fn;
@@ -696,6 +714,10 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
   unreachable: () => {},
 
   never: (op, c, where) => c.expectType(op.result, T.never, where),
+
+  await: (op, c, where) => c.awaits(op, where),
+
+  produce: (op, c, where) => c.produces(op, where),
 };
 
 function safeDump(fn: IrFunction): string {
