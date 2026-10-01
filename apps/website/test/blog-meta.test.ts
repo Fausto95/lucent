@@ -47,7 +47,9 @@ describe("a post's page for link previews", () => {
     expect(content(html, "article:published_time")).toBe("2026-09-30");
     expect(content(html, "og:image")).toBe("https://www.lucent-lang.dev/blog/native-views/og.png");
     expect(content(html, "og:image:alt")).toBe("A like button.");
-    expect(content(html, "twitter:image")).toBe("https://www.lucent-lang.dev/blog/native-views/og.png");
+    expect(content(html, "twitter:image")).toBe(
+      "https://www.lucent-lang.dev/blog/native-views/og.png",
+    );
     expect(html).toContain(
       '<link rel="canonical" href="https://www.lucent-lang.dev/blog/native-views/" />',
     );
