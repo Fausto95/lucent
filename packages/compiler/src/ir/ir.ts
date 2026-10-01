@@ -73,6 +73,8 @@ export interface IrCapture {
   name: string;
   type: LType;
   boxed: boolean;
+  /** Its name in the backend's own code, which names it (`self`, a method's `this`). */
+  spelled?: string;
 }
 
 export interface IrFunction {
@@ -91,6 +93,8 @@ export interface IrFunction {
   async: boolean;
   /** A generator: what it gives its caller, one element at a time (`produce`); its result is void. */
   generator?: LType;
+  /** The name the Errors it makes record as where they were made (a closure's own). */
+  site?: string;
 }
 
 export interface IrRegion {

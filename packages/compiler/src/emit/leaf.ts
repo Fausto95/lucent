@@ -7,6 +7,7 @@
  */
 import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
+import { isInside } from "../analysis/scopes.ts";
 import { CompileError } from "../diagnostics.ts";
 import { operand } from "../ir/cpp.ts";
 import type { ValueId } from "../ir/ir.ts";
@@ -35,7 +36,8 @@ class LeafEmitter extends FnEmitter {
   }
 
   override expr(node: ts.Expression, hint?: LType): E {
-    if (node === this.root) return super.expr(node, hint);
+    // The leaf itself, or what it reads from elsewhere (a constant's literal), is the emitter's.
+    if (node === this.root || !isInside(node, this.root)) return super.expr(node, hint);
 
     const v = this.operands.operand(node);
 

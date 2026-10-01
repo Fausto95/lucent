@@ -111,6 +111,12 @@ export interface LowerHost {
   ): NestedSignature;
   /** A nested function's effects, when the program's analysis knows them. */
   effectsOf?(node: FunctionLike): EffectSummary | undefined;
+  /** The host a nested function's body lowers with (its leaves see `this` as the closure does). */
+  nested?(node: FunctionLike, sig: NestedSignature): LowerHost;
+  /** `this` as a value a closure `node` that uses it captures, as `self`; undefined when it has none. */
+  self?(node: FunctionLike): Leaf | undefined;
+  /** The name Errors made in the nested function `node` record as their site. */
+  siteOf?(node: FunctionLike): string;
 }
 
 /** A nested function's type, and what its parameters are. */
@@ -1230,20 +1236,25 @@ class Lowerer {
   /** The operands a leaf asks for, each lowered once, in the order of the source. */
   operands(): { operands: LeafOperands; args: ValueId[] } {
     const args: ValueId[] = [];
-    const lowered = new Map<ts.Node, ValueId>();
+    const lowered = new Map<ts.Expression, ValueId>();
     let end = -1;
     const take = (n: ts.Expression, lower: () => ValueId) => {
       const known = lowered.get(n);
 
       if (known !== undefined) return known;
 
-      if (n.getStart() < end) this.unsupported(n, "operands a plan takes out of order");
+      // An operand asked for after one that follows it in the source: fine when those already
+      // lowered after it are pure, so evaluating them first is not observable.
+      const after = [...lowered.keys()].filter((k) => k.getStart() >= n.getEnd());
+
+      if (n.getStart() < end && !after.every((k) => this.pure(k)))
+        this.unsupported(n, "operands a plan takes out of order");
 
       const v = lower();
 
       lowered.set(n, v);
       args.push(v);
-      end = n.getEnd();
+      end = Math.max(end, n.getEnd());
       return v;
     };
     const operands: LeafOperands = {
@@ -1311,6 +1322,25 @@ class Lowerer {
     const target = this.typeAt(node);
 
     return this.coerce(this.expr(inner, target), target, node);
+  }
+
+  /**
+   * Whether evaluating `node` has no effect and gives the same whenever it
+   * runs: a literal, a function (its closure copies only variables nothing
+   * writes after they are captured), or a parameter the body never assigns.
+   */
+  pure(node: ts.Expression): boolean {
+    const n = skipParentheses(node);
+
+    if (LITERALS[n.kind] || n.kind === ts.SyntaxKind.NullKeyword) return true;
+
+    if (ts.isArrowFunction(n) || ts.isFunctionExpression(n)) return true;
+
+    if (!ts.isIdentifier(n)) return false;
+
+    const sym = symbolOf(this.host.checker, n);
+
+    return sym !== undefined && this.params.has(sym);
   }
 
   /** Whether `target` is a variable the IR stores into: a local or a module variable. */
@@ -1463,7 +1493,15 @@ class Lowerer {
       generic: false,
     };
     const effects = this.host.effectsOf?.(node);
-    const child = new Lowerer(effects ? { ...input, effects } : input, this.host, this);
+    const host = this.host.nested?.(node, sig) ?? this.host;
+    const child = new Lowerer(effects ? { ...input, effects } : input, host, this);
+    // A closure using `this` captures it first, as `self`, which its leaves name.
+    const self = this.host.self?.(node);
+
+    if (self) child.b.capture("this", self.type, false, "self");
+
+    child.b.site = this.host.siteOf?.(node);
+
     const lowered = child.function();
 
     for (const [k, v] of lowered.signatures) this.signatures.set(k, v);
@@ -1471,13 +1509,14 @@ class Lowerer {
     for (const [k, v] of lowered.effects) this.effects.set(k, v);
 
     const span = spanOf(node);
-    const from = [...child.captured.values()].map(({ outer }): CaptureSource => {
+    const captured = [...child.captured.values()].map(({ outer }): CaptureSource => {
       if ("value" in outer) return { value: outer.value };
 
       return this.boxed.has(outer.place)
         ? { box: outer.place }
         : { value: this.b.load(outer.place, span) };
     });
+    const from = self ? [{ value: this.planOf(self, [], span) }, ...captured] : captured;
 
     return this.b.closure(lowered.fn, from, sig.type, span);
   }

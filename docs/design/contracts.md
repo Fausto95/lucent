@@ -737,7 +737,10 @@ printer or a C++ compiler decides.
   `verify.ts`, `dump.ts`, and `cpp.ts` (IR to the C++ AST of
   `@lucent-lang/codegen`). Tests live in `packages/compiler/test/ir/`.
 - The IR imports `types.ts` (`LType`) and `typescript`; it never imports
-  `emit/**`. The emitter reaches `ir/cpp.ts` through one hook.
+  `emit/**`. The emitter reaches `ir/cpp.ts` through one hook,
+  `emit/through-ir.ts`, for functions, methods and accessors; a closure's
+  leaves see `this` as the `self` it captures (`LowerHost.nested`,
+  `self`, `siteOf`).
 - Selection is internal: `LUCENT_LOWERING=legacy | ir | ir-strict` (or
   an internal compile option). The default is the legacy emitter. With
   `ir`, a function the IR lowerer does not support takes the legacy path;

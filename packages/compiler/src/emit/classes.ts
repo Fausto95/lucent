@@ -5,7 +5,11 @@ import type { LucentModule } from "../program.ts";
 import { type ClassChain, type ClassInfo, cppIdent, type LType, substitute, T } from "../types.ts";
 import { parameterSymbol } from "../analysis/scopes.ts";
 import type { Ctx } from "./context.ts";
-import { FnEmitter } from "./function.ts";
+import type { ProgramFacts } from "../analysis/index.ts";
+import type { Lowering } from "../ir/cpp.ts";
+import { functionName } from "./builtins.ts";
+import { type FnOptions, FnEmitter } from "./function.ts";
+import { throughIr } from "./through-ir.ts";
 import { ifaceOverrides, ifacesOf, virtualMembers } from "./interfaces.ts";
 import { subclassImplicitSuper } from "./objc-subclass.ts";
 
@@ -102,7 +106,17 @@ export function argMap(ctx: Ctx, t: LType & { k: "class" }): Map<string, LType> 
 
 const isField = (m: InstanceMember) => ts.isPropertyDeclaration(m) || ts.isParameter(m);
 
-export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): ClassOutput {
+/**
+ * A class's C++: its definition, members and static initializers. With
+ * `ir`, its methods and accessors lower through the semantic IR where it
+ * supports them.
+ */
+export function emitClass(
+  ctx: Ctx,
+  module: LucentModule,
+  info: ClassInfo,
+  ir?: { lowering: Exclude<Lowering, "legacy">; facts: ProgramFacts },
+): ClassOutput {
   const decl = info.decl;
   const reg = ctx.reg;
   const generic = info.typeParams.length > 0;
@@ -253,22 +267,55 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
     const gen = ts.isMethodDeclaration(node) && !!node.asteriskToken;
     let ret: LType = isCtor || gen ? T.void : fnType.ret;
     if (asyncM) ret = ret.k === "promise" ? ret.inner : ret;
-    const em = new FnEmitter(ctx, {
+    const opts: FnOptions = {
       module,
       async: asyncM,
       returnType: ret,
-      cls: staticMember ? undefined : info,
-      thisExpr: staticMember ? undefined : "this",
+      ...(staticMember ? {} : { cls: info, thisExpr: "this" }),
       isConstructor: isCtor,
-      superCtor,
+      ...(superCtor ? { superCtor } : {}),
       generator: gen,
-    });
+    };
+    const em = new FnEmitter(ctx, opts);
     const params = em.paramInfos(node, fnType);
+    const d = staticMember || ts.isConstructorDeclaration(node) ? {} : dispatch(node, cppName);
+    // Coroutines outlive the call: keep the object alive in the frame.
+    const keepSelf =
+      (asyncM || gen) && !staticMember
+        ? [cpp.varDecl(cpp.auto, "self", cpp.call("lucent::selfRef", [cpp.self]))]
+        : [];
+    const lowered =
+      ir && !isCtor
+        ? throughIr(
+            ctx,
+            {
+              decl: node,
+              id: `${info.cppName}::${cppName}`,
+              params,
+              result: ret,
+              async: asyncM,
+              ...(gen && fnType.ret.k === "iter" ? { generator: fnType.ret.e } : {}),
+              generic: ts.isMethodDeclaration(node) && !!node.typeParameters?.length,
+              opts,
+              site: functionName(node.body ?? node),
+              prologue: keepSelf,
+            },
+            ir.lowering,
+            ir.facts,
+          )
+        : undefined;
+
+    if (lowered) {
+      define(cppName, lowered.ret, lowered.params, lowered.body, {
+        ...(staticMember ? { static: true } : {}),
+        ...d,
+      });
+      return { decls: lowered.params, params };
+    }
+
     let decls: cpp.Param[] = [];
     ctx.guard(() => {
-      // Coroutines outlive the call: keep the object alive in the frame.
-      if ((asyncM || gen) && !staticMember)
-        em.emit(cpp.varDecl(cpp.auto, "self", cpp.call("lucent::selfRef", [cpp.self])));
+      em.emit(...keepSelf);
       decls = em.emitParams(node, params);
       prelude?.(em);
       em.emitFunctionBody(node);
@@ -278,7 +325,6 @@ export function emitClass(ctx: Ctx, module: LucentModule, info: ClassInfo): Clas
       : gen
         ? reg.cppType(fnType.ret)
         : reg.cppRetType(ret);
-    const d = staticMember || ts.isConstructorDeclaration(node) ? {} : dispatch(node, cppName);
     define(cppName, retType, decls, em.body(), { ...(staticMember ? { static: true } : {}), ...d });
     return { decls, params };
   };

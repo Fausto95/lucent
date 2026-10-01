@@ -173,7 +173,8 @@ Notable lowering choices:
   spans, effect claims) before any C++ exists, and the C++ gives every
   call its own statement; a jump is C++'s `break` or `continue` when that
   reaches its target, a `goto` otherwise. The e2e runner compiles under
-  whichever mode is set.
+  whichever mode is set. `emit/through-ir.ts` is the emitter's one hook
+  into the IR, for module functions, methods and accessors alike.
 - **Program analyses** (`analysis/`, internal): for each program and target,
   `programFacts` summarizes once what each unit of code may do: functions,
   closures, methods, accessors, a class's construction and each module's

@@ -48,6 +48,8 @@ export class IrBuilder {
   private readonly source: SourceSpan;
   private readonly async: boolean;
   private readonly generator?: LType;
+  /** The name the Errors the function makes record as their site. */
+  site?: string;
 
   constructor(id: FunctionId, result: LType, source: SourceSpan, async = false, generator?: LType) {
     this.id = id;
@@ -131,9 +133,9 @@ export class IrBuilder {
   }
 
   /** A variable of an enclosing function this closure uses, declared at entry. */
-  capture(name: string, type: LType, boxed: boolean): PlaceId {
+  capture(name: string, type: LType, boxed: boolean, spelled?: string): PlaceId {
     const place = this.place(type);
-    this.captures.push({ place, name, type, boxed });
+    this.captures.push({ place, name, type, boxed, ...(spelled ? { spelled } : {}) });
     return place;
   }
 
@@ -396,6 +398,7 @@ export class IrBuilder {
       captures: [...this.captures],
       async: this.async,
       ...(this.generator ? { generator: this.generator } : {}),
+      ...(this.site ? { site: this.site } : {}),
     };
 
     return {

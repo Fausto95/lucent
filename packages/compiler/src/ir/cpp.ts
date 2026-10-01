@@ -101,6 +101,8 @@ export interface CppBackend {
   cppRetType(t: LType): cpp.Type;
   /** The function name the Errors it creates record as their site. */
   site: string;
+  /** Statements the function's body starts with (a method coroutine's `self`). */
+  prologue?: cpp.Stmt[];
 }
 
 export interface CppFunction {
@@ -181,15 +183,19 @@ class Emitter {
   private suspended = false;
   private line?: string;
 
-  constructor(fn: IrFunction, backend: CppBackend) {
+  /** Whether this is the function's own body, not a closure's. */
+  private readonly top: boolean;
+
+  constructor(fn: IrFunction, backend: CppBackend, top = true) {
     this.fn = fn;
     this.backend = backend;
+    this.top = top;
     this.coroutine = fn.async || fn.generator !== undefined;
 
     for (const p of fn.modulePlaces) this.places.set(p.place, cpp.id(p.symbol));
 
     // A lambda's captures, by the names its capture list gives them.
-    for (const c of fn.captures) this.declarePlace(c.place, cppIdent(c.name), c.boxed);
+    for (const c of fn.captures) this.declarePlace(c.place, c.spelled ?? cppIdent(c.name), c.boxed);
 
     this.countUses();
   }
@@ -247,7 +253,9 @@ class Emitter {
       : converted(cpp.id("lucent::undefined"), T.never, result, this.backend);
     const still = this.coroutine && !this.suspended && !end.length ? [cpp.coReturn(none)] : [];
 
-    return [...this.prologue, ...body, ...end, ...still];
+    const first = this.top ? (this.backend.prologue ?? []) : [];
+
+    return [...first, ...this.prologue, ...body, ...end, ...still];
   }
 
   /** The body suspends or returns as a coroutine here. */
@@ -625,7 +633,7 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
   // A C++ lambda: its captures are copies of values, or copies of boxes, which share the variable.
   closure: (op, e) => {
     const fn = op.fn;
-    const inner = new Emitter(fn, e.backend);
+    const inner = new Emitter(fn, { ...e.backend, site: fn.site ?? e.backend.site }, false);
     const params = fn.params.map((v, i) =>
       cpp.param(e.backend.cppType(fn.values[v]!.type), `p${i}_`),
     );
@@ -633,7 +641,7 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
       const from = op.from[i]!;
 
       return {
-        name: cppIdent(c.name),
+        name: c.spelled ?? cppIdent(c.name),
         init: "value" in from ? e.value(from.value) : e.box(from.box),
       };
     });

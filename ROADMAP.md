@@ -1031,6 +1031,9 @@ before output code generation.
     captures passed to the coroutine), generators (`yield`, `yield*`):
     584 of 606; the async, generator and using cases pass under
     `SANITIZE=1`.
+  - Methods, accessors and static methods (the coverage counts them from
+    here, 681 units in all), a closure in a method capturing `this` as
+    `self`, pure operands a plan asks for out of order: 665 of 681.
 
 <a id="t54"></a>
 

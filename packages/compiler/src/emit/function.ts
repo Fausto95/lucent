@@ -3940,7 +3940,7 @@ export function isOptionalChain(node: ts.Node): boolean {
   return !!(node.flags & ts.NodeFlags.OptionalChain);
 }
 
-function usesThisIn(fn: ts.Node): boolean {
+export function usesThisIn(fn: ts.Node): boolean {
   let found = false;
   const visit = (n: ts.Node) => {
     if (found) return;

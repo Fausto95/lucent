@@ -3,8 +3,8 @@ import path from "node:path";
 import ts from "typescript";
 import { literalConstant, programFacts, type ProgramFacts } from "../analysis/index.ts";
 import { Codes, fail } from "../diagnostics.ts";
-import { type CppFunction, lowerToCpp, loweringMode, type Lowering } from "../ir/cpp.ts";
-import { branchPlatform, platformGuard, platformScopes, switchPlatforms } from "../platforms.ts";
+import { type CppFunction, loweringMode, type Lowering } from "../ir/cpp.ts";
+import { platformScopes } from "../platforms.ts";
 import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
 import { BindingsEmitter, type ModuleExports, publicMembers } from "./bindings.ts";
@@ -23,7 +23,7 @@ import {
 import { javaSubclass } from "./java.ts";
 import { kotlinFiles } from "./kotlin.ts";
 import { Ctx, type Global } from "./context.ts";
-import { leafHost } from "./leaf.ts";
+import { type IrUnit, throughIr } from "./through-ir.ts";
 import { FnEmitter } from "./function.ts";
 import { emitIface } from "./interfaces.ts";
 import { declaredNames, withoutMacros } from "./macros.ts";
@@ -166,6 +166,10 @@ export function emitProgram(
   }
 
   // Pass 2: code.
+  const lowering = loweringMode();
+  // The IR's effect records come from the program's analysis.
+  const facts = lowering === "legacy" ? undefined : programFacts(lp);
+  const ir = lowering !== "legacy" && facts ? { lowering, facts } : undefined;
   const structDecls: cpp.Decl[] = [];
   const classDefs: cpp.Decl[] = [];
   const genericClassDefs: cpp.Decl[] = [];
@@ -188,7 +192,7 @@ export function emitProgram(
   );
   for (const info of byDepth) {
     const m = lp.modules.find((x) => x.name === info.module)!;
-    const out = ctx.guard(() => emitClass(ctx, m, info));
+    const out = ctx.guard(() => emitClass(ctx, m, info, ir));
     if (!out) continue;
     (info.typeParams.length ||
     byDepth.some((c) => c.typeParams.length && ctx.reg.derives(info.id, c.id))
@@ -222,10 +226,6 @@ export function emitProgram(
   }
 
   // Platform modules' declarations alias their implementations: emit each once.
-  const lowering = loweringMode();
-  // The IR's effect records come from the program's analysis.
-  const facts = lowering === "legacy" ? undefined : programFacts(lp);
-
   for (const g of new Set(ctx.globals.values())) {
     if (g.kind === "function")
       ctx.guard(() =>
@@ -633,7 +633,8 @@ function emitFunction(
   facts: ProgramFacts | undefined,
 ): void {
   const s = g.decl;
-  const ir = lowering === "legacy" || !facts ? undefined : viaIr(ctx, g, lowering, facts);
+  const ir =
+    lowering === "legacy" || !facts ? undefined : functionThroughIr(ctx, g, lowering, facts);
 
   if (ir) {
     const name = cppIdent(s.name!.text);
@@ -705,132 +706,30 @@ function emitFunction(
   defs.push(cpp.fn(name, retType, params, em.body(), { scope: cpp.type(g.module.ns) }));
 }
 
-/** A function through the semantic IR (ir/), when LUCENT_LOWERING selects it and it applies. */
-function viaIr(
+/** A module's function through the semantic IR (ir/), when LUCENT_LOWERING selects it and it applies. */
+function functionThroughIr(
   ctx: Ctx,
   g: Extract<Global, { kind: "function" }>,
   lowering: Exclude<Lowering, "legacy">,
   facts: ProgramFacts,
 ): CppFunction | undefined {
-  const opts = {
-    module: g.module,
-    async: g.async,
-    returnType: g.async && g.type.ret.k === "promise" ? g.type.ret.inner : g.type.ret,
-  };
-  const effects = (decl: ts.Node) => {
-    const unit = facts.unit(decl);
-
-    return unit ? { effects: facts.effects(unit) } : {};
-  };
   const ret = g.type.ret;
   const generator = g.decl.asteriskToken && ret.k === "iter" ? ret.e : undefined;
-  const input = {
+  // An async function's body returns what its promise fulfils with; a generator's, nothing.
+  const result = g.async && ret.k === "promise" ? ret.inner : generator ? T.void : ret;
+  const unit: IrUnit = {
     decl: g.decl,
     id: g.cpp,
-    params: g.params.map((p) => p.cppType),
-    defaulted: g.decl.parameters.map((p, i) => (p.initializer ? g.params[i]!.type : undefined)),
-    // An async function's body returns what its promise fulfils with; a generator's, nothing.
-    result: g.async && ret.k === "promise" ? ret.inner : generator ? T.void : ret,
-    ...(generator ? { generator } : {}),
+    params: g.params,
+    result,
     async: g.async,
+    ...(generator ? { generator } : {}),
     generic: g.generic,
-    ...effects(g.decl),
-  };
-  const host = {
-    checker: ctx.checker,
-    typeAt: (node: ts.Node) => ctx.lowerAt(node),
-    typeOf: (sym: ts.Symbol, at: ts.Node) =>
-      ctx.reg.lower(ctx.checker.getTypeOfSymbolAtLocation(sym, at), at),
-    global: (sym: ts.Symbol) => {
-      const resolved = ctx.resolve(sym);
-      const d = ctx.failed.has(resolved) ? undefined : ctx.globals.get(resolved);
-
-      if (d?.kind === "function")
-        return {
-          kind: "function" as const,
-          id: d.cpp,
-          params: d.params.map((p) => p.cppType),
-          result: d.type.ret,
-          callable: !d.generic && !d.async && d.params.every((p) => !p.optional && !p.rest),
-          ...effects(d.decl),
-        };
-
-      if (d?.kind === "var")
-        return {
-          kind: "var" as const,
-          id: d.cpp,
-          name: d.decl.name.getText(),
-          type: d.type,
-          mutable: !d.isConst,
-          ...(d.literal ? { literal: d.literal } : {}),
-        };
-
-      return undefined;
-    },
-    platformGuard: (cond: ts.Expression) => {
-      const guard = platformGuard(ctx.checker, cond);
-
-      if (!guard) return undefined;
-
-      const runs = !ctx.platform
-        ? "nowhere"
-        : guard.platform === ctx.platform
-          ? "here"
-          : "elsewhere";
-
-      return { runs, rest: guard.rest } as const;
-    },
-    isBoxed: (sym: ts.Symbol) => ctx.capture.isBoxed(sym),
-    isError: (t: LType) => t.k === "class" && ctx.reg.cls(t.id).isError,
-    derives: (sub: LType, base: LType) =>
-      sub.k === "class" && base.k === "class" && ctx.reg.derives(sub.id, base.id),
-    effectsOf: (node: ts.Node) => effects(node).effects,
-    signatureOf: (
-      node: ts.ArrowFunction | ts.FunctionExpression | ts.FunctionDeclaration,
-      target?: LType,
-    ) => {
-      const sig = new FnEmitter(ctx, opts).closureSignature(node, target);
-      // A callback takes the parameters of the type it becomes, even those it leaves out.
-      const extra = sig.fnType.params.slice(node.parameters.length);
-
-      return {
-        type: sig.fnType,
-        params: [...sig.params.map((p) => p.cppType), ...extra],
-        defaulted: node.parameters.map((p, i) => (p.initializer ? sig.params[i]!.type : undefined)),
-        async: sig.isAsync,
-        generator: sig.isGen,
-      };
-    },
-    runsHere: (s: ts.Statement) => {
-      const p = branchPlatform(ctx.checker, s);
-
-      return p === undefined || p === ctx.platform;
-    },
-    platformClauses: (s: ts.SwitchStatement) => {
-      const runs = switchPlatforms(ctx.checker, s);
-      const target = ctx.platform;
-
-      if (!runs) return undefined;
-
-      return target ? runs.map((r) => r.includes(target)) : ("nowhere" as const);
-    },
-    leaves: leafHost(ctx, opts),
-  };
-  const backend = {
-    cppType: (t: LType) => ctx.reg.cppType(t),
-    cppRetType: (t: LType) => ctx.reg.cppRetType(t),
+    opts: { module: g.module, async: g.async, returnType: result },
     site: g.decl.name!.text,
   };
-  // What planning a leaf reported is the legacy emitter's to report again, when it lowers the function.
-  const reported = { warnings: ctx.warnings.length, diagnostics: ctx.diagnostics.length };
-  const lowered = lowerToCpp(lowering, input, host, backend);
 
-  if (!lowered) {
-    ctx.warnings.length = reported.warnings;
-    ctx.diagnostics.length = reported.diagnostics;
-  }
-
-  return lowered;
+  return throughIr(ctx, unit, lowering, facts);
 }
 
 function topoSort(

@@ -462,7 +462,8 @@ const NUMBER_CONSTANTS: Record<string, () => cpp.Expr> = {
 };
 
 /** The name JavaScript stacks give the function around `node`. */
-function functionName(node: ts.Node): string {
+/** The name of the function `node` is in, as Errors record their site: `Class.method`, `new Class`… */
+export function functionName(node: ts.Node): string {
   for (let n: ts.Node | undefined = node.parent; n; n = n.parent) {
     if (ts.isFunctionDeclaration(n) || ts.isFunctionExpression(n))
       return n.name?.text ?? "<anonymous>";
