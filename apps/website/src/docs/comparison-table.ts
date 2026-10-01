@@ -35,7 +35,10 @@ export const comparisonRows: ComparisonRow[] = [
     label: "You write",
     summary: true,
     cells: {
-      lucent: { value: "A TypeScript subset", detail: "`*.lucent.ts`, compiled to C++20" },
+      lucent: {
+        value: "A TypeScript subset",
+        detail: "modules in `*.lucent.ts` and components in `*.lucent.tsx`, compiled to C++20",
+      },
       expo: { value: "Swift + Kotlin" },
       nitro: {
         value: "C++, or Swift + Kotlin",
@@ -92,7 +95,7 @@ export const comparisonRows: ComparisonRow[] = [
         value: "Most",
         tone: "partial",
         detail:
-          "typed from your Xcode and Android SDK; some gaps, such as Swift-only APIs and Android generic classes' members. See [SDK types](/docs/reference/platform-types/)",
+          "typed from your Xcode and Android SDK, Swift-only and Kotlin-only APIs included through generated Swift and Kotlin; `lucent sdk coverage` lists what can't be bound yet. See [SDK types](/docs/reference/platform-types/)",
       },
       expo: { value: "Full", tone: "available" },
       nitro: { value: "Full", tone: "available" },
@@ -103,7 +106,12 @@ export const comparisonRows: ComparisonRow[] = [
     label: "Views",
     summary: true,
     cells: {
-      lucent: { value: "Planned", tone: "planned", detail: "milestone M3" },
+      lucent: {
+        value: "Experimental",
+        tone: "partial",
+        detail:
+          "UIKit and Android views, and SwiftUI and Jetpack Compose written as JSX, behind an internal switch. See [the announcement](/blog/native-views/)",
+      },
       expo: { value: "Yes", tone: "available", detail: "`View` in the module definition" },
       nitro: {
         value: "Yes",
