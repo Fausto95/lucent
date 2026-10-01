@@ -20,6 +20,7 @@ import { Tabs, TabItem } from "@astrojs/starlight/components";
 import { ContainerSection } from "@six-tech/starlight-theme-six/components";
 import Comparison from "~/components/Comparison.astro";
 import Feature from "~/components/Feature.astro";
+import ModuleStacks from "~/components/ModuleStacks.astro";
 
 {/* The samples are the compiler's real input and output: scripts/website.ts writes them to src/generated/snippets/home/. */}
 
@@ -119,6 +120,8 @@ From the `expo-clipboard` port in the example apps. The whole port, and others w
 ## Same JSI call path. Different source.
 
 How Lucent relates to Expo Modules, Nitro and TurboModules. [Full comparison](/docs/comparison/)
+
+<ModuleStacks />
 
 <Comparison compact />
 

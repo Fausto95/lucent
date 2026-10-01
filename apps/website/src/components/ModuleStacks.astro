@@ -1,0 +1,322 @@
+---
+/**
+ * The comparison's "codebases per module" row as a picture, in isometric
+ * line art: elsewhere a module is a Swift block on iOS and a Kotlin block on
+ * Android; with Lucent it is one TypeScript tile over the C++ it compiles to,
+ * across both. Plain SVG, laid out here at build time: no script reaches the
+ * page, and the faces take the theme's colours.
+ */
+
+type Box = {
+  /** Position and size in grid units: x runs down-right, y down-left, z up. */
+  at: [number, number, number];
+  size: [number, number, number];
+  kind: "plate" | "block" | "lime";
+  /** Text on the top face, and along the right (lower-right) face. */
+  top?: string;
+  side?: string;
+};
+
+const UNIT = 30;
+const COS = Math.cos(Math.PI / 6);
+const SIN = 0.5;
+
+/** A point in grid units to the screen. */
+const project = (x: number, y: number, z: number): [number, number] => [
+  (x - y) * COS * UNIT,
+  (x + y) * SIN * UNIT - z * UNIT,
+];
+const points = (corners: [number, number, number][]) =>
+  corners.map((c) => project(...c).map((n) => n.toFixed(1)).join(",")).join(" ");
+
+function faces({ at: [x, y, z], size: [w, d, h] }: Box) {
+  const t = z + h;
+  return {
+    top: points([
+      [x, y, t],
+      [x + w, y, t],
+      [x + w, y + d, t],
+      [x, y + d, t],
+    ]),
+    right: points([
+      [x + w, y, z],
+      [x + w, y + d, z],
+      [x + w, y + d, t],
+      [x + w, y, t],
+    ]),
+    front: points([
+      [x, y + d, z],
+      [x + w, y + d, z],
+      [x + w, y + d, t],
+      [x, y + d, t],
+    ]),
+  };
+}
+
+/*
+ * Text runs up and to the right, along -y, as on a tile seen from the front:
+ * flat on the top face (centred), or standing on the right face (from its
+ * near end).
+ */
+function onTop({ at: [x, y, z], size: [w, d, h] }: Box): string {
+  const [cx, cy] = project(x + w / 2, y + d / 2, z + h);
+  return `matrix(${COS} ${-SIN} ${COS} ${SIN} ${cx.toFixed(1)} ${cy.toFixed(1)})`;
+}
+function onSide({ at: [x, y, z], size: [w, d, h] }: Box): string {
+  const [cx, cy] = project(x + w, y + d - 0.2, z + h / 2);
+  return `matrix(${COS} ${-SIN} 0 1 ${cx.toFixed(1)} ${cy.toFixed(1)})`;
+}
+
+type Scene = {
+  id: string;
+  title: string;
+  name: string;
+  detail: string;
+  count: string;
+  boxes: Box[];
+};
+
+/** The platforms, side by side along y: iOS in front, Android behind it. */
+const IOS = 0;
+const ANDROID = -2.9;
+const plate = (y: number, label: string): Box => ({
+  at: [0, y, 0],
+  size: [2, 2, 0.28],
+  kind: "plate",
+  side: label,
+});
+
+const scenes: Scene[] = [
+  {
+    id: "two",
+    title: "Expo Modules and Turbo Native Modules: a Swift codebase for iOS and a Kotlin codebase for Android.",
+    name: "Expo Modules · TurboModules",
+    detail: "/swift + /kotlin",
+    count: "2 codebases per module",
+    boxes: [
+      plate(ANDROID, "Android"),
+      { at: [0.15, ANDROID + 0.15, 0.28], size: [1.7, 1.7, 2.3], kind: "block", top: "Kotlin" },
+      plate(IOS, "iOS"),
+      { at: [0.15, IOS + 0.15, 0.28], size: [1.7, 1.7, 2.3], kind: "block", top: "Swift" },
+    ],
+  },
+  {
+    id: "one",
+    title: "Lucent: one TypeScript module, compiled to C++, for both iOS and Android.",
+    name: "Lucent",
+    detail: "/one .lucent.ts",
+    count: "1 codebase per module",
+    boxes: [
+      plate(ANDROID, "Android"),
+      plate(IOS, "iOS"),
+      { at: [0.15, ANDROID + 0.15, 0.28], size: [1.7, 4.6, 0.42], kind: "lime", side: "C++20" },
+      { at: [0.15, ANDROID + 0.15, 0.7], size: [1.7, 4.6, 0.55], kind: "block", top: ".lucent.ts" },
+    ],
+  },
+];
+
+/** Every scene drawn to the same scale: one viewBox fits the tallest. */
+const all = scenes.flatMap((s) =>
+  s.boxes.flatMap(({ at: [x, y, z], size: [w, d, h] }) =>
+    [
+      [x, y, z + h],
+      [x + w, y + d, z],
+      [x, y + d, z],
+      [x + w, y, z + h],
+    ].map((c) => project(...(c as [number, number, number]))),
+  ),
+);
+const pad = 8;
+const minX = Math.min(...all.map((p) => p[0])) - pad;
+const maxX = Math.max(...all.map((p) => p[0])) + pad;
+const minY = Math.min(...all.map((p) => p[1])) - pad;
+const maxY = Math.max(...all.map((p) => p[1])) + pad;
+const viewBox = [minX, minY, maxX - minX, maxY - minY].map((n) => n.toFixed(1)).join(" ");
+---
+
+<div class="module-stacks not-content">
+  {
+    scenes.map((scene) => {
+      return (
+        <figure class:list={["scene", scene.id]}>
+          <svg viewBox={viewBox} role="img" aria-label={scene.title}>
+            <title>{scene.title}</title>
+            <defs>
+              <linearGradient id={`lime-${scene.id}`} x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0" stop-color="#a5d85c" />
+                <stop offset="0.5" stop-color="#c4f778" />
+                <stop offset="1" stop-color="#e3ffb4" />
+              </linearGradient>
+            </defs>
+            <g>
+              {scene.boxes.map((box) => {
+                const f = faces(box);
+                return (
+                  <g class:list={["box", box.kind]}>
+                    <polygon class="face-front" points={f.front} />
+                    <polygon class="face-right" points={f.right} style={box.kind === "lime" ? `fill: url(#lime-${scene.id})` : undefined} />
+                    <polygon class="face-top" points={f.top} />
+                    {box.top && (
+                      <text class="label-top" transform={onTop(box)} text-anchor="middle" dominant-baseline="central">
+                        {box.top}
+                      </text>
+                    )}
+                    {box.side && (
+                      <text class="label-side" transform={onSide(box)} dominant-baseline="central">
+                        {box.side}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+            </g>
+          </svg>
+          <figcaption>
+            <span class="name">{scene.name}</span>
+            <span class="detail">{scene.detail}</span>
+            <span class="count">{scene.count}</span>
+          </figcaption>
+        </figure>
+      );
+    })
+  }
+</div>
+
+<style>
+  .module-stacks {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-block: 1.75rem 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: 1rem;
+    background: var(--card);
+    overflow: hidden;
+  }
+  .scene {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    margin: 0;
+    padding: 1.5rem 1.5rem 1.25rem;
+  }
+  .scene + .scene {
+    border-left: 1px solid var(--border);
+  }
+  .scene.one {
+    background: radial-gradient(ellipse 80% 70% at 50% 60%, var(--lucent-glow), transparent 70%);
+  }
+  svg {
+    display: block;
+    width: 100%;
+    max-width: 22rem;
+    height: auto;
+    margin-inline: auto;
+    overflow: visible;
+  }
+
+  .box polygon {
+    stroke: var(--foreground-light);
+    stroke-width: 1.25;
+    stroke-linejoin: round;
+  }
+  .box .face-top {
+    fill: var(--background);
+  }
+  .box .face-right {
+    fill: color-mix(in oklab, var(--foreground-light) 7%, var(--background));
+  }
+  .box .face-front {
+    fill: color-mix(in oklab, var(--foreground-light) 13%, var(--background));
+  }
+  .plate .face-top {
+    fill: color-mix(in oklab, var(--foreground-light) 4%, var(--background));
+  }
+  .plate polygon {
+    stroke: var(--muted-foreground);
+  }
+  .lime polygon {
+    stroke: #1a2e05;
+  }
+  .lime .face-front {
+    fill: #a5d85c;
+  }
+  .lime .face-top {
+    fill: #e3ffb4;
+  }
+  :global(:root[data-theme="dark"]) .lime polygon {
+    stroke: var(--foreground-light);
+  }
+
+  text {
+    font-family: var(--sl-font-mono);
+    fill: var(--foreground-light);
+    font-variant-ligatures: none;
+  }
+  .label-top {
+    font-family: var(--lucent-font-display);
+    font-size: 15px;
+  }
+  .label-side {
+    font-size: 9px;
+    fill: var(--muted-foreground);
+    letter-spacing: 0.04em;
+  }
+  .lime .label-side {
+    fill: #1a2e05;
+    font-weight: 500;
+  }
+
+  figcaption {
+    display: grid;
+    gap: 0.15rem;
+    text-align: center;
+  }
+  .name {
+    color: var(--foreground-light);
+    font-weight: 600;
+  }
+  .detail {
+    color: var(--muted-foreground);
+    font-family: var(--sl-font-mono);
+    font-size: var(--sl-text-sm);
+  }
+  .count {
+    justify-self: center;
+    margin-top: 0.5rem;
+    padding: 0.2rem 0.65rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    color: var(--foreground-light);
+    font-size: var(--sl-text-xs);
+  }
+  .one .count {
+    border-color: transparent;
+    background: var(--lucent-lime);
+    color: #1a2e05;
+    font-weight: 600;
+  }
+
+  /* Lucent's tile rises off its slab while the panel is under the pointer. */
+  .one .box.block {
+    transition: translate 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .module-stacks:hover .one .box.block {
+    translate: 0 -6px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .one .box.block {
+      transition: none;
+    }
+  }
+
+  @media (max-width: 40rem) {
+    .module-stacks {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .scene + .scene {
+      border-left: 0;
+      border-top: 1px solid var(--border);
+    }
+  }
+</style>

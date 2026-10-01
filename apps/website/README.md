@@ -48,7 +48,8 @@ website:build`, output `apps/website/dist`).
   follow, with `remark.ts` (`include`, Oxfmt for TypeScript and JavaScript samples,
   "See the C++") for the build.
 - `src/components/`: `Diagram.astro` (the hand-laid SVG diagrams in
-  `diagrams/`, rendered at build time), `Comparison.astro`, `Feature.astro`,
+  `diagrams/`, rendered at build time), `Comparison.astro`, `ModuleStacks.astro` (the homepage's isometric
+  picture of it), `Feature.astro`,
   and `overrides/` of Starlight's components (the homepage's hero, the
   experimental banner, the page title, "Verified with Lucent").
 - `src/styles/site.css`: the Geist fonts, and additions to the theme.
