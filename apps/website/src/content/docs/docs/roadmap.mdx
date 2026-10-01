@@ -13,7 +13,7 @@ next:
 Lucent is experimental. Its APIs change without a migration path, and it hasn't been tested on physical devices. Don't ship it in a production app yet.
 :::
 
-## M0: Foundations
+## Foundations
 
 A module runs as C++ in a bare React Native app and an Expo app, on iOS and Android.
 
@@ -25,7 +25,7 @@ A module runs as C++ in a bare React Native app and an Expo app, on iOS and Andr
 | done | `lucent build`, the Metro integration and the Expo config plugin. |
 | done | Every language feature tested against the same code run as JavaScript. |
 
-## M1: The language
+## The language
 
 Self-contained modules, such as parsers, codecs and data structures.
 
@@ -35,9 +35,13 @@ Self-contained modules, such as parsers, codecs and data structures.
 | done | Object types, unions, narrowing, enums and generics. |
 | done | Classes with inheritance and interfaces, closures, generators, regular expressions and JSON. |
 | done | `async` and `await` off the JS thread, `AbortSignal`, JS callbacks and promises. |
+| done | `bigint`, with values of any size crossing to JavaScript exactly. |
+| done | `using` declarations and `Symbol.dispose`. |
 | done | Lucent code runs one piece at a time, so it has no data races. |
+| done | Heavy work on worker threads with `compute`, checked so a task shares no state. |
+| done | `NativeBuffer`, which hands bytes to tasks and JavaScript without copying them. |
 
-## M2: Platform APIs
+## Platform APIs
 
 Call the iOS and Android SDKs directly from Lucent.
 
@@ -46,52 +50,55 @@ Call the iOS and Android SDKs directly from Lucent.
 | done | SDK types read from your Xcode and Android SDK on first import, then cached. |
 | done | One module for both platforms, with platform branches; platform files as an option. |
 | done | Delegates, listeners and blocks; completion handlers as promises. |
-| done | Android classes extended in Lucent, and Android version checks at compile time. |
-| done | iOS main-thread-only APIs checked at compile time. |
+| done | Swift-only APIs, such as StoreKit 2 and CryptoKit, through generated Swift. |
+| done | Kotlin-only APIs, such as `suspend` functions and `Flow`, through generated Kotlin. |
+| done | Native 64-bit integers as `bigint`, so IDs and sizes stay exact. |
+| done | Callback APIs as promises and subscriptions, with `fromCallback` and `subscribe`. |
+| done | Members of generic classes on both platforms, such as `List<E>.get`. |
+| done | Classes extended in Lucent on both platforms, such as a `UIViewController`. |
+| done | OS version checks and main-thread-only APIs, checked at compile time on both platforms. |
+| done | The current `Activity` and iOS scene, activity results and permission requests. |
 | done | Libraries the app links: its pods on iOS, its Gradle dependencies on Android. |
 | done | Lucent packages on npm, with `lucent.json` for their native needs. |
-| done | Ports of nine Expo and community modules, checked against the originals. |
-| next | Members of Android generic classes, such as `Consumer<T>.accept` and `List<E>.get`. |
-| done | Play services' `Task` and Java futures as promises, through their listeners and `fromCallback`. |
-| next | `using` to close Java `Closeable`s, such as database cursors. |
-| next | Generic Objective-C classes, blocks taking blocks, and more out-parameters. |
-| next | Android `@IntDef` constants as enums, and `@MainThread` checked at compile time. |
-| later | Swift-only APIs, such as StoreKit 2 and CryptoKit, through generated Swift. |
-| later | Kotlin-only APIs, such as `suspend` functions and `Flow`, through generated Kotlin. |
-| later | API notes to adjust a binding, and a CI report of what SDKs still skip. |
-| later | The current `Activity`, and subclassing iOS classes. |
-| later | iOS version checks at compile time. |
+| done | Typed native extensions: C code a package ships, checked against its header. |
+| done | A coverage report of what each SDK binds, and why the rest is skipped. |
+| done | Pinning the SDKs a project uses, and listing what an SDK update changes for your code. |
+| done | Ports of Expo and community modules, checked against the originals. |
+| next | Native libraries nobody has seen before, bound and run with no change to Lucent. |
 | later | Weak references. |
-| later | Swift Package Manager libraries. |
-| later | Pinning an SDK version, and listing what an SDK update changes for your code. |
-| later | Rarer SDK types, such as pointers and selectors, as ports need them. |
+| later | Binding the APIs of Swift Package Manager libraries. |
 
-## M3: Views
+## Views
 
-Native views from Lucent components.
+Native views from Lucent components, rendered by React Native's Fabric.
 
 | Status | Item |
 | --- | --- |
-| later | SwiftUI or UIKit views and Compose or Android views, on Fabric. |
+| done | Components in `.lucent.tsx` that render UIKit and Android views, behind an internal switch. |
+| done | SwiftUI and Jetpack Compose bodies written as JSX, from declarations read from your SDKs. |
+| done | One file per component, with each platform's body in a platform branch. |
+| done | Events, commands, requests that answer, recycling, sizing to content and React children. |
+| done | Views that keep updating while JavaScript is blocked. |
+| next | JSX for any SDK view, keyed lists and Yoga layout. |
+| next | A views preview with wrapper ports, such as maps, web views and video. |
+| later | Native lists, gestures and animations, and media pipelines. |
 
-## M4: Production
+## Production
 
 Ready for apps in production.
 
 | Status | Item |
 | --- | --- |
 | done | `@lucent-lang/lucent` on npm, published from CI with provenance. |
-| done | Incremental builds, and rebuilds as you edit. |
+| done | Incremental builds, and rebuilds as you edit, including linked packages. |
 | done | Crashes and errors that point at `.lucent.ts` lines. |
 | done | Lucent's errors in the editor. |
+| done | A warning when the installed app runs an older native build than your code. |
+| done | A JavaScript `lucent:core`, so Jest and Vitest can run shared modules. |
 | in progress | Performance budgets in CI. |
 | next | Testing on physical devices; today, simulators and emulators. |
-| done | A JavaScript `lucent:core`, so Jest and Vitest can run shared modules. |
-
-## Not planned
-
-- Running JavaScript in native code: there's no JavaScript engine there.
-- Reflection, `eval` and prototypes.
-- Freeing reference cycles by itself.
+| later | Background tasks, services and app extensions with no live JavaScript. |
+| later | A tested support window of React Native and Expo versions. |
+| later | Pilots with independent library authors and real apps. |
 
 This page is generated from [ROADMAP.md](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md) in the repository.
