@@ -33,9 +33,10 @@ runtime/js           loader, copied to .lucent/native/js/_lucent/runtime.js
   `docs/semantics.md`.
 - Unsupported features fail with a `LUCENT` diagnostic (`fail(node, Codes.X, …)`),
   never with invalid C++.
-- Generated C++ must not depend on unspecified evaluation order (see
-  `FnEmitter.inOrder`), must not let a coroutine reference lambda captures, and
-  must keep JSI objects on the JS thread (use `Host` ids).
+- Generated C++ must not depend on unspecified evaluation order (the IR's
+  operations are ordered, a plan's operands lowered first in source order: see
+  `operands` in `ir/lower.ts`), must not let a coroutine reference lambda
+  captures, and must keep JSI objects on the JS thread (use `Host` ids).
 - A change under `packages/` needs a changeset for `@lucent-lang/lucent`
   (`pnpm changeset`; CONTRIBUTING.md says what to write), unless users can't
   see it (docs, tests), which takes the `no-changeset` label.

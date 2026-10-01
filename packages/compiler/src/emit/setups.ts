@@ -223,7 +223,7 @@ export function emitSetup(
     result: setup.root,
     async: false,
     generic: false,
-    opts: { module: setup.module, async: false, returnType: setup.root },
+    opts: { module: setup.module, async: false },
     site: setup.component.export,
     ambient: [{ name: CONTENT, type: { k: "mount" }, spelled: CONTENT }],
   });

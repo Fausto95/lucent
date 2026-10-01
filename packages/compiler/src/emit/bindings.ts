@@ -735,7 +735,7 @@ export class BindingsEmitter {
         .chain({ k: "class", id: c.id, args: [] })
         .find((x) => x.info.decl.members.some(ts.isConstructorDeclaration));
       const ctor = owner?.info.decl.members.find(ts.isConstructorDeclaration);
-      const em = new FnEmitter(this.ctx, { module: m.module, async: false, returnType: T.void });
+      const em = new FnEmitter(this.ctx, { module: m.module, async: false });
       const ctorType = ctor
         ? (this.reg.lowerSignature(
             this.ctx.checker.getSignatureFromDeclaration(ctor)!,
@@ -1133,7 +1133,6 @@ export function publicMembers(ctx: Ctx, info: ClassInfo): PublicMember[] {
   const em = new FnEmitter(ctx, {
     module: undefined as unknown as LucentModule,
     async: false,
-    returnType: T.void,
   });
   const ctor = info.decl.members.find(ts.isConstructorDeclaration);
   for (const p of parameterProperties(ctor)) {

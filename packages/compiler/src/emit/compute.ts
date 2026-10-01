@@ -25,7 +25,6 @@ import { cppIdent, type LType, substitute, T, typeKey, unionOf } from "../types.
 import { argMap, memberName, parameterProperties } from "./classes.ts";
 import type { Ctx, E, Global } from "./context.ts";
 import { movedByInput, refuseLaterUse } from "./buffers.ts";
-import { isCoreSymbol } from "./core.ts";
 import { FnEmitter } from "./function.ts";
 import { type IrMode, throughIr } from "./through-ir.ts";
 
@@ -121,7 +120,7 @@ function emitVariant(
 ): void {
   const name = `${cppIdent(g.decl.name!.text)}${VARIANT}`;
   const ret = ctx.reg.cppRetType(g.type.ret);
-  const opts = { module: g.module, async: false, returnType: g.type.ret, task: true };
+  const opts = { module: g.module, async: false, task: true };
   // The function's own code reported what its variant would repeat.
   const lowered = quietly(ctx, () =>
     throughIr(
@@ -183,33 +182,6 @@ export function taskHeader(ctx: Ctx, m: LucentModule): cpp.Decl[] {
 }
 
 const optionalSignal = unionOf([T.abortSignal, T.undefined]);
-
-/**
- * What a call of compute evaluates, in order: its input, then the signal
- * of its options. The task and the options object are not values at run
- * time. Undefined for any other call.
- */
-export function computeOperands(
-  checker: ts.TypeChecker,
-  node: ts.CallExpression,
-): ts.Expression[] | undefined {
-  const found = checker.getSymbolAtLocation(node.expression);
-  const sym = found && found.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(found) : found;
-
-  if (!sym || sym.name !== "compute" || !isCoreSymbol(sym)) return undefined;
-
-  const [, input, options] = node.arguments;
-  const signal =
-    options && ts.isObjectLiteralExpression(options) ? options.properties[0] : undefined;
-  const value =
-    signal && ts.isPropertyAssignment(signal)
-      ? signal.initializer
-      : signal && ts.isShorthandPropertyAssignment(signal)
-        ? signal.name
-        : undefined;
-
-  return [input, value].filter((e): e is ts.Expression => !!e);
-}
 
 /** `compute(task, input, options?)`. */
 export function computeCall(em: FnEmitter, node: ts.CallExpression): E {

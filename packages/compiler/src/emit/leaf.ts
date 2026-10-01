@@ -85,46 +85,15 @@ class LeafEmitter extends FnEmitter {
     return { c: operand(v), t: this.operands.typeOf(v) };
   }
 
-  private collecting = 0;
-
-  /** Statements a plan makes of its own (a statement expression's), out of the program's code. */
-  override collect(f: () => void): cpp.Stmt[] {
-    this.collecting++;
-
-    try {
-      return super.collect(f);
-    } finally {
-      this.collecting--;
-    }
-  }
-
-  /** A plan is one expression: what needs statements outside one is not (a LUCENT diagnostic). */
+  /**
+   * A plan is one expression: its statements are a statement expression's
+   * own; what needs statements outside one is not (a LUCENT diagnostic).
+   */
   override emit(...stmts: cpp.Stmt[]): void {
     if (!this.collecting)
       throw new IrUnsupported(this.root, "code that needs statements of its own");
 
     super.emit(...stmts);
-  }
-
-  // The IR evaluated the operands already, in order.
-  protected override inOrder(_args: readonly ts.Expression[], build: () => E): E {
-    return build();
-  }
-
-  protected override evaluatedFirst(_nodes: readonly ts.Expression[], build: () => E): E {
-    return build();
-  }
-
-  protected override awaitingFirst(_operands: readonly ts.Expression[], build: () => E): E {
-    return build();
-  }
-
-  protected override onTarget(
-    _target: ts.Expression,
-    _later: ts.Expression | undefined,
-    build: () => E,
-  ): E {
-    return build();
   }
 
   /** The IR's locals are its own: code that only asks whether a name is one gets an answer. */

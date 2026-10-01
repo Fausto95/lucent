@@ -17,7 +17,7 @@ import type { LucentModule } from "../program.ts";
 import { type SdkClassRef, sdkInterfacesOf } from "../sdk/declarations.ts";
 import { substitute } from "../sdk/dts.ts";
 import type { SdkMethodSchema, SdkPropertySchema, SdkType, SwiftMember } from "../sdk/schema.ts";
-import { type ClassInfo, cppIdent, type LType, T } from "../types.ts";
+import { type ClassInfo, cppIdent, type LType } from "../types.ts";
 import { classMember, classMemberLvalue } from "./builtins.ts";
 import { findMember } from "./classes.ts";
 import type { Ctx, E } from "./context.ts";
@@ -124,7 +124,7 @@ export function swiftDelegate(
     fail(info.decl, Codes.UnsupportedClassFeature, `${name}: ${why}`);
   if (info.typeParams.length) reject("generic classes cannot implement Swift protocols");
 
-  const em = new FnEmitter(ctx, { module, async: false, returnType: T.void });
+  const em = new FnEmitter(ctx, { module, async: false });
   const hash = createHash("sha1").update(`${module.name}|${info.id}`).digest("hex").slice(0, 12);
   const self = cpp.type("lucent::Ref", cpp.type(`lucent_app::${info.cppName}`));
   const voidPtr = cpp.pointer(cpp.voidType);

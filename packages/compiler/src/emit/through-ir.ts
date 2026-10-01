@@ -18,7 +18,7 @@ import type {
 } from "../ir/lower.ts";
 import type { LucentModule } from "../program.ts";
 import { branchPlatform, platformGuard, switchPlatforms } from "../platforms.ts";
-import { type LType, T } from "../types.ts";
+import type { LType } from "../types.ts";
 import type { Ctx, ParamInfo } from "./context.ts";
 import { type FnOptions, FnEmitter, usesThisIn } from "./function.ts";
 import { functionName, isMathGlobal } from "./builtins.ts";
@@ -101,7 +101,7 @@ export function initThroughIr(
   // The analysis does not count a module's initializing its own variables as writing state: the
   // IR's record is its own.
   const init = { id: `${module.ns}::init`, source: module.sourceFile, initializers };
-  const opts = { module, async: false, returnType: T.void };
+  const opts = { module, async: false };
 
   return initializationThroughIr(ctx, init, opts, "<module>", ir);
 }
@@ -221,13 +221,6 @@ function irHost(ctx: Ctx, facts: ProgramFacts, opts: FnOptions): LowerHost {
       irHost(ctx, facts, {
         ...opts,
         async: sig.async,
-        generator: sig.generator,
-        returnType:
-          sig.async && sig.type.ret.k === "promise"
-            ? sig.type.ret.inner
-            : sig.generator
-              ? T.void
-              : sig.type.ret,
         ...(opts.thisExpr ? { thisExpr: "self" } : {}),
         ...(opts.thisRef || opts.thisExpr ? { thisRef: "self" } : {}),
         task: false,

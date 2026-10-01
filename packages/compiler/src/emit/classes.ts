@@ -197,7 +197,7 @@ export function emitClass(
       k: "fn";
     };
     const map = owner ? argMap(ctx, owner.t) : new Map<string, LType>();
-    const em = new FnEmitter(ctx, { module, async: false, returnType: T.void });
+    const em = new FnEmitter(ctx, { module, async: false });
     const ret = isAsync(node)
       ? ({ k: "promise", inner: fn.ret.k === "promise" ? fn.ret.inner : fn.ret } as LType)
       : fn.ret;
@@ -273,10 +273,8 @@ export function emitClass(
     const opts: FnOptions = {
       module,
       async: asyncM,
-      returnType: ret,
       ...(staticMember ? {} : { cls: info, thisExpr: "this" }),
       ...(superCtor ? { superCtor } : {}),
-      generator: gen,
     };
     const params = new FnEmitter(ctx, opts).paramInfos(node, fnType);
     const flags = {
@@ -393,7 +391,6 @@ export function emitClass(
       {
         module,
         async: false,
-        returnType: T.void,
         cls: info,
         thisExpr: "this",
       },
@@ -456,7 +453,7 @@ export function emitClass(
           const fn = reg.lowerSignature(ctx.checker.getSignatureFromDeclaration(m)!, m) as LType & {
             k: "fn";
           };
-          const em = new FnEmitter(ctx, { module, async: false, returnType: T.void });
+          const em = new FnEmitter(ctx, { module, async: false });
           const ps = em.paramInfos(m, fn).map((p, i) => cpp.param(reg.cppType(p.cppType), `a${i}`));
           body.push(
             cpp.method(name, reg.cppRetType(fn.ret), ps, undefined, {
@@ -508,7 +505,7 @@ function inheritedCtorParams(ctx: Ctx, ancestry: ClassChain): LType[] {
       ctor,
     ) as LType & { k: "fn" };
     const module = ctx.modules.find((m) => m.sourceFile === ctor.getSourceFile())!;
-    const em = new FnEmitter(ctx, { module, async: false, returnType: T.void });
+    const em = new FnEmitter(ctx, { module, async: false });
     const map = argMap(ctx, a.t);
     return em.paramInfos(ctor, fn).map((p) => substitute(p.cppType, map));
   }
