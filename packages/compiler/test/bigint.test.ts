@@ -49,17 +49,17 @@ describe("bigint", () => {
       "export function f(a: bigint, b: bigint, n: number): boolean { return a * b + a ** b > n && a === b; }",
     );
 
-    expect(out).toMatch(/lucent::BigInt::pow\(a, b\)/);
+    expect(out).toMatch(/lucent::BigInt::pow\(p0_, p1_\)/);
 
-    expect(out).toMatch(/a \* b \+ lucent::BigInt::pow\(a, b\) > n/);
+    expect(out).toMatch(/v\d+_ \+ lucent::BigInt::pow\(p0_, p1_\) > p2_/);
 
-    expect(out).toMatch(/a == b/);
+    expect(out).toMatch(/p0_ == p1_/);
   });
 
   it("prints bigints in console output with their n suffix, as JavaScript consoles do", () => {
     const out = cppOf('export function f(a: bigint): void { console.log("a", a, `${a}`); }');
 
-    expect(out).toContain('lucent::toJsString(a) + LUCENT_STR("n")');
+    expect(out).toContain('lucent::toJsString(p0_) + LUCENT_STR("n")');
   });
 
   it("rejects loose equality that would convert between a bigint and a number or string", () => {

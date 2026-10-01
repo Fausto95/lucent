@@ -348,10 +348,12 @@ describe("lowering control flow to the IR", () => {
 });
 
 describe("the lowering selector", () => {
-  it("defaults to the legacy emitter and rejects unknown modes", () => {
-    expect(loweringMode(undefined)).toBe("legacy");
+  it("defaults to the IR and rejects unknown modes", () => {
+    expect(loweringMode(undefined)).toBe("ir");
 
-    expect(loweringMode("")).toBe("legacy");
+    expect(loweringMode("")).toBe("ir");
+
+    expect(loweringMode("legacy")).toBe("legacy");
 
     expect(loweringMode("ir")).toBe("ir");
 
@@ -378,12 +380,12 @@ describe("the lowering selector", () => {
     expect(out).not.toMatch(/\(\{/);
   });
 
-  it("leaves the default output as the legacy emitter's", () => {
+  it("compiles through the IR by default, the legacy emitter only when selected", () => {
     const legacy = cppOf(ORDER, "legacy");
 
-    expect(cppOf(ORDER)).toBe(legacy);
+    expect(cppOf(ORDER)).toBe(cppOf(ORDER, "ir-strict"));
 
-    expect(cppOf(ORDER, "ir-strict")).not.toBe(legacy);
+    expect(cppOf(ORDER)).not.toBe(legacy);
   });
 
   it("reports itself, under ir-strict, what the legacy emitter rejects", () => {
@@ -406,7 +408,7 @@ describe("the lowering selector", () => {
         "",
       ].join("\n"),
     );
-    const legacy = withLowering(undefined, () => compile([file])).diagnostics;
+    const legacy = withLowering("legacy", () => compile([file])).diagnostics;
 
     expect(legacy.map((d) => d.code)).toEqual(["LUCENT1001", "LUCENT1006", "LUCENT1009"]);
 
@@ -415,7 +417,7 @@ describe("the lowering selector", () => {
 
   it("reports the legacy emitter's diagnostics for what the IR does not lower", () => {
     const file = module("export function f(): number { var x = 1; return x; }\n");
-    const legacy = withLowering(undefined, () => compile([file])).diagnostics;
+    const legacy = withLowering("legacy", () => compile([file])).diagnostics;
 
     expect(legacy.length).toBeGreaterThan(0);
 
