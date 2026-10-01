@@ -18,10 +18,10 @@ import { bodySetup, site } from "./setups.ts";
 import type { ToolkitEmitter } from "./toolkit.ts";
 
 export const composeEmitter: ToolkitEmitter = {
-  lifted(em, setup) {
-    checkComposition(em.checker, setup.fn);
+  lifted(checker, setup) {
+    checkComposition(checker, setup.fn);
 
-    return compositionStatements(em.checker, setup.fn);
+    return compositionStatements(checker, setup.fn);
   },
 
   body(em, setup, body, call) {

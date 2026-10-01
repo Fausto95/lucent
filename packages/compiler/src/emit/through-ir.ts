@@ -9,7 +9,13 @@ import ts from "typescript";
 import type { ProgramFacts } from "../analysis/index.ts";
 import type { FunctionLike } from "../analysis/scopes.ts";
 import { type CppFunction, lowerToCpp } from "../ir/cpp.ts";
-import type { Initialization, Initializer, LowerHost, NestedSignature } from "../ir/lower.ts";
+import type {
+  Ambient,
+  Initialization,
+  Initializer,
+  LowerHost,
+  NestedSignature,
+} from "../ir/lower.ts";
 import type { LucentModule } from "../program.ts";
 import { branchPlatform, platformGuard, switchPlatforms } from "../platforms.ts";
 import { type LType, T } from "../types.ts";
@@ -18,6 +24,9 @@ import { type FnOptions, FnEmitter, usesThisIn } from "./function.ts";
 import { functionName, isMathGlobal } from "./builtins.ts";
 import { inferIntegers } from "./integers.ts";
 import { leafHost } from "./leaf.ts";
+import { CONTENT, setupOf } from "./setups.ts";
+import { liftedStatement } from "./toolkit.ts";
+import { helperStatement } from "../ui/view-helpers.ts";
 
 /** What lowering through the IR needs of the program: the facts its effect records come from. */
 export interface IrMode {
@@ -48,6 +57,8 @@ export interface IrUnit {
   span?: ts.Node;
   /** A compute task's variant: its loops check for cancellation, its calls call variants. */
   task?: boolean;
+  /** What its code may read that the caller declares around it (a setup's mount). */
+  ambient?: Ambient[];
 }
 
 /** `unit` lowered through the IR (what it does not support is a LUCENT diagnostic). */
@@ -68,6 +79,7 @@ export function throughIr(ctx: Ctx, unit: IrUnit, ir: IrMode): CppFunction {
     ...(unit.construct ? { construct: unit.construct } : {}),
     ...(unit.span ? { span: unit.span } : {}),
     ...(unit.task ? { task: true } : {}),
+    ...(unit.ambient ? { ambient: unit.ambient } : {}),
   };
   const backend = {
     cppType: (t: LType) => ctx.reg.cppType(t),
@@ -170,10 +182,13 @@ function irHost(ctx: Ctx, facts: ProgramFacts, opts: FnOptions): LowerHost {
 
       return target ? runs.map((r) => r.includes(target)) : ("nowhere" as const);
     },
+    // Neither another platform's code nor a toolkit's own (its body's statements, a helper view).
     runsHere: (s) => {
       const p = branchPlatform(ctx.checker, s);
 
-      return p === undefined || p === ctx.platform;
+      if (p !== undefined && p !== ctx.platform) return false;
+
+      return !liftedStatement(ctx, s) && !helperStatement(ctx.checker, s);
     },
     isBoxed: (sym) => ctx.capture.isBoxed(sym),
     isError: (t) => t.k === "class" && ctx.reg.cls(t.id).isError,
@@ -218,6 +233,7 @@ function irHost(ctx: Ctx, facts: ProgramFacts, opts: FnOptions): LowerHost {
         task: false,
       }),
     siteOf: (node) => functionName(node.body ?? node),
+    enters: (node) => (setupOf(ctx, node) ? CONTENT : undefined),
     markFailed: (name) => ctx.markFailed(name),
     integers: (fn) => {
       if (!fn.body) return new Map();

@@ -54,6 +54,7 @@ import {
 import { inferIntegers } from "./integers.ts";
 import { genericFacts, instanceAt } from "./instantiations.ts";
 export { substitute } from "../types.ts";
+import type { Thunk } from "../ir/lower.ts";
 import { type ConversionStep, conversionStep } from "../lowering/conversions.ts";
 import { heldAs, throughMembers } from "../lowering/members.ts";
 import {
@@ -262,8 +263,6 @@ export class FnEmitter {
   /** Locals and loop counters that live in integer registers (integers.ts). */
   private ints = new Map<ts.Symbol, IntKind>();
   private readonly counters = new Set<ts.Symbol>();
-  /** Whether the body names its mount's content: code of a setup (setups.ts). */
-  usesContent = false;
   readonly ctx: Ctx;
   readonly opts: FnOptions;
   private readonly parentScopes: Map<ts.Symbol, Local>[];
@@ -736,7 +735,6 @@ export class FnEmitter {
     for (let i = node.parameters.length; i < fnType.params.length; i++)
       decls.push(cpp.param(this.reg.cppType(fnType.params[i]!), `unused${i}`));
     inner.emitFunctionBody(node);
-    if (inner.usesContent) captures.push(views.CONTENT);
     const retType = isAsync
       ? cpp.type("lucent::Promise", this.reg.cppRetType(ret))
       : isGen
@@ -845,7 +843,7 @@ export class FnEmitter {
     if (!body) return;
     // A setup's code is checked against what its toolkit body takes before any of it is written.
     const setup = this.ctx.setups.get(node);
-    if (setup) liftedStatements(this, setup);
+    if (setup) liftedStatements(this.checker, setup);
     const facts = inferIntegers(body, {
       checker: this.checker,
       // Locals of code this target never runs are not lowered: their types stay out of its output.
@@ -958,6 +956,16 @@ export class FnEmitter {
     this.emit(cpp.exprStmt(cpp.assign(cpp.deref(cpp.id(l.cpp)), e.c)));
   }
 
+  /** An ambient of the IR's function (a setup's mount): what only the IR's leaves name. */
+  ambient(name: string, _node: ts.Node): E {
+    throw new Error(`the ambient ${name} outside the IR`);
+  }
+
+  /** A function computing `node` later (an effect's): what only the IR's leaves make. */
+  thunk(_node: ts.Expression, _thunk?: Thunk): E {
+    throw new Error("a thunk outside the IR");
+  }
+
   /** The object `this` is, as a reference (`self` in closures and coroutines). */
   selfRefExpr(): cpp.Expr {
     return this.opts.thisRef ? cpp.id(this.opts.thisRef) : cpp.call("lucent::selfRef", [cpp.self]);
@@ -968,7 +976,8 @@ export class FnEmitter {
   stmt(s: ts.Statement): void {
     // After a guard clause that exits on this target: code another platform runs; a toolkit's.
     // A helper view the setup declares is its toolkit's code (ui/view-helpers.ts).
-    if (!this.runsHere(s) || liftedStatement(this, s) || helperStatement(this.checker, s)) return;
+    if (!this.runsHere(s) || liftedStatement(this.ctx, s) || helperStatement(this.checker, s))
+      return;
     this.ctx.guard(() => this.stmtInner(s));
   }
 

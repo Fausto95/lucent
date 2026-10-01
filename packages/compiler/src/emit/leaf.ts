@@ -16,6 +16,7 @@ import {
   type LeafHost,
   type LeafOperands,
   type LeafPlace,
+  type Thunk,
 } from "../ir/lower.ts";
 import { numberExpr, stringExpr } from "../lowering/literals.ts";
 import { type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
@@ -23,6 +24,7 @@ import { disposeCall, methodCall } from "./builtins.ts";
 import { safepoint } from "./compute.ts";
 import type { Ctx, E } from "./context.ts";
 import { type FnOptions, FnEmitter, type Local } from "./function.ts";
+import { isEventCall } from "./setups.ts";
 
 /** The emitter of one leaf: its subexpressions are the IR's operands. */
 class LeafEmitter extends FnEmitter {
@@ -36,8 +38,10 @@ class LeafEmitter extends FnEmitter {
   }
 
   override expr(node: ts.Expression, hint?: LType): E {
-    // The leaf itself, or what it reads from elsewhere (a constant's literal), is the emitter's.
-    if (node === this.root || !isInside(node, this.root)) return super.expr(node, hint);
+    // The leaf itself, or what it reads from elsewhere (a constant's literal), is the emitter's;
+    // but a local read anywhere (an action a component's body takes) is the IR's.
+    if (node === this.root || (!isInside(node, this.root) && !this.readsLocal(node)))
+      return super.expr(node, hint);
 
     const v = this.operands.operand(node, hint);
     const int = this.operands.intOf(v);
@@ -48,6 +52,12 @@ class LeafEmitter extends FnEmitter {
       t: this.operands.typeOf(v),
       ...(int ? { int: { c: intOperand(v), kind: int } } : {}),
     };
+  }
+
+  private readsLocal(node: ts.Expression): boolean {
+    const sym = ts.isIdentifier(node) ? this.checker.getSymbolAtLocation(node) : undefined;
+
+    return sym !== undefined && this.operands.isLocal(sym);
   }
 
   /** A function the leaf takes: the IR's closure. */
@@ -63,9 +73,37 @@ class LeafEmitter extends FnEmitter {
     return { c: operand(v), t: this.operands.typeOf(v) };
   }
 
-  /** A plan is one expression: what needs statements is not one (a LUCENT diagnostic). */
-  override emit(): void {
-    throw new IrUnsupported(this.root, "code that needs statements of its own");
+  override ambient(name: string, node: ts.Node): E {
+    const v = this.operands.ambient(name, node);
+
+    return { c: operand(v), t: this.operands.typeOf(v) };
+  }
+
+  override thunk(node: ts.Expression, thunk?: Thunk): E {
+    const v = this.operands.thunk(node, thunk);
+
+    return { c: operand(v), t: this.operands.typeOf(v) };
+  }
+
+  private collecting = 0;
+
+  /** Statements a plan makes of its own (a statement expression's), out of the program's code. */
+  override collect(f: () => void): cpp.Stmt[] {
+    this.collecting++;
+
+    try {
+      return super.collect(f);
+    } finally {
+      this.collecting--;
+    }
+  }
+
+  /** A plan is one expression: what needs statements outside one is not (a LUCENT diagnostic). */
+  override emit(...stmts: cpp.Stmt[]): void {
+    if (!this.collecting)
+      throw new IrUnsupported(this.root, "code that needs statements of its own");
+
+    super.emit(...stmts);
   }
 
   // The IR evaluated the operands already, in order.
@@ -162,6 +200,12 @@ function noOperands(node: ts.Node): LeafOperands {
     closure: () => {
       throw new IrUnsupported(node, "an operand here");
     },
+    ambient: () => {
+      throw new IrUnsupported(node, "an operand here");
+    },
+    thunk: () => {
+      throw new IrUnsupported(node, "an operand here");
+    },
     intOf: () => undefined,
     isLocal: () => false,
   };
@@ -232,6 +276,8 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
       }),
 
     safepoint: () => ({ name: "safepoint", code: safepoint(), type: T.void }),
+
+    whole: (node) => ts.isCallExpression(node) && isEventCall(ctx, node),
 
     step: (value, from, sign, node) =>
       planned(node, () => ({

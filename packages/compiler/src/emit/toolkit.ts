@@ -6,21 +6,24 @@
  * - each value slot is an effect of the mount: it evaluates the slot's
  *   expression now, and again whenever what it read changes, and sets the
  *   toolkit's state, on the main context, so the body never shows a value
- *   older than the latest commit;
+ *   older than the latest commit; the expression is the IR's thunk (a
+ *   function of the setup's code), which the effect calls;
  * - each action slot is the setup function itself, which enters its mount
  *   when it runs (lucent/view.h), so what it changes is measured again;
  *   given a list's item, it is called with the item its key finds (and
  *   not at all once the item is gone);
  * - each list slot is an effect too: it evaluates the array, and for each
- *   item its key and its values, and sets the toolkit's list with records
- *   of them (`[key, value…]`), which the toolkit merges by key. It keeps
- *   the items by key (lucent::ui::Items) for the actions.
+ *   item its key and its values (thunks of the item), and sets the
+ *   toolkit's list with records of them (`[key, value…]`), which the
+ *   toolkit merges by key. It keeps the items by key (lucent::ui::Items)
+ *   for the actions.
  *
  * What differs (the host, how a slot is set, the file written in Swift or
  * Kotlin) is each toolkit's emitter's.
  */
 import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
+import type { Thunk } from "../ir/lower.ts";
 import { T, type LType } from "../types.ts";
 import {
   type ActionSlot,
@@ -42,7 +45,7 @@ import {
 import { helperAt, type HelperUse, propReads } from "../ui/view-helpers.ts";
 import { TOOLKITS, type ToolkitName } from "../ui/toolkits.ts";
 import { composeEmitter } from "./compose.ts";
-import type { E } from "./context.ts";
+import type { Ctx, E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
 import { enterMount, type Setup, setupOf, site } from "./setups.ts";
 import { swiftUIEmitter } from "./swiftui.ts";
@@ -102,7 +105,7 @@ export interface ToolkitEmitter {
    * composition statements), which its C++ leaves out; the setup's code is
    * checked against them first.
    */
-  lifted?(em: FnEmitter, setup: Setup): readonly ts.Statement[];
+  lifted?(checker: ts.TypeChecker, setup: Setup): readonly ts.Statement[];
 }
 
 const EMITTERS: Record<ToolkitName, ToolkitEmitter> = {
@@ -113,11 +116,11 @@ const EMITTERS: Record<ToolkitName, ToolkitEmitter> = {
 const liftedBySetup = new WeakMap<Setup, ReadonlySet<ts.Statement>>();
 
 /** The statements of `setup`'s own code its body takes, checked once, before its C++ is written. */
-export function liftedStatements(em: FnEmitter, setup: Setup): ReadonlySet<ts.Statement> {
+export function liftedStatements(checker: ts.TypeChecker, setup: Setup): ReadonlySet<ts.Statement> {
   let found = liftedBySetup.get(setup);
 
   if (!found) {
-    found = new Set(setup.toolkit ? (EMITTERS[setup.toolkit].lifted?.(em, setup) ?? []) : []);
+    found = new Set(setup.toolkit ? (EMITTERS[setup.toolkit].lifted?.(checker, setup) ?? []) : []);
     liftedBySetup.set(setup, found);
   }
 
@@ -125,10 +128,10 @@ export function liftedStatements(em: FnEmitter, setup: Setup): ReadonlySet<ts.St
 }
 
 /** Whether a statement of a setup's own code is its body's (lifted): the setup's C++ leaves it out. */
-export function liftedStatement(em: FnEmitter, s: ts.Statement): boolean {
-  const setup = setupOf(em.ctx, s);
+export function liftedStatement(ctx: Ctx, s: ts.Statement): boolean {
+  const setup = setupOf(ctx, s);
 
-  return !!setup && liftedStatements(em, setup).has(s);
+  return !!setup && liftedStatements(ctx.checker, setup).has(s);
 }
 
 /**
@@ -254,41 +257,34 @@ function host(em: FnEmitter, setup: Setup, bodyNode: Body, where: ts.Expression)
  */
 function valueEffect(em: FnEmitter, host: ToolkitHost, slot: ValueSlot): cpp.Expr {
   const scalar = scalarOf(slot.type);
-  const keep = em.lambdaOver(
-    slot.source,
-    host.captures,
-    (inner) => {
-      bindUses(inner, slot.source, slot.use);
-
-      // A bound signal's value: the signal, read.
-      if (slot.bound) {
-        inner.emit(
-          cpp.exprStmt(
-            host.set(slot, cpp.call(cpp.dot(inner.expr(slot.source).c, "get")), "scalar"),
-          ),
-        );
-        return;
-      }
-
-      if (scalar && !scalar.nullable) {
-        inner.emit(
-          cpp.exprStmt(host.set(slot, inner.exprAs(slot.source, scalarType(scalar)), "scalar")),
-        );
-        return;
-      }
-
-      const value = inner.expr(slot.source);
-
-      inner.emit(
-        cpp.exprStmt(
-          host.set(slot, encoded(em.ctx, host.runtime, slot.type, value.t, value.c), "encoded"),
-        ),
-      );
-    },
-    usesGiven(slot.use),
+  const plain = !slot.bound && scalar && !scalar.nullable;
+  const get = em.thunk(slot.source, {
+    site: slotSite(slot),
+    given: givens(em.checker, slot.source, slot.use),
+    ...(plain ? { type: scalarType(scalar) } : {}),
+  });
+  const value = cpp.id("lucent_value");
+  // A bound signal's value: the signal, read.
+  const set = slot.bound
+    ? host.set(slot, cpp.call(cpp.dot(value, "get")), "scalar")
+    : plain
+      ? host.set(slot, value, "scalar")
+      : host.set(slot, encoded(em.ctx, host.runtime, slot.type, returned(get), value), "encoded");
+  const keep = cpp.lambda(
+    [...host.captures, { name: "lucent_get", init: get.c }],
+    [],
+    [cpp.varDecl(cpp.auto, "lucent_value", cpp.call(cpp.id("lucent_get"))), cpp.exprStmt(set)],
+    { mutable: true },
   );
 
   return enterMount(em, slotSite(slot), keep);
+}
+
+/** What a thunk gives. */
+function returned(thunk: E): LType {
+  if (thunk.t.k !== "fn") throw new Error("a thunk is not a function");
+
+  return thunk.t.ret;
 }
 
 /** Where the setup computes a value: its expression, or, for a helper's, where the body uses the helper. */
@@ -296,37 +292,25 @@ function slotSite(slot: ValueSlot): ts.Node {
   return slot.use ? usedAt(slot.use) : slot.source;
 }
 
-/** What a helper's users give its props, in the body and in the helpers using it. */
-function usesGiven(use: HelperUse | undefined): ts.Node[] {
-  return use ? [...use.args.values(), ...usesGiven(use.outer)] : [];
-}
-
 /**
- * Binds each of `node`'s reads of a helper's props (`props.title`) to what
- * the helper's user gives it (`t.title`), itself bound where a helper
- * gives it, each evaluated once, in order, before `node` is: so the
- * setup computes a helper's value as JavaScript would, the helper called
- * with its props.
+ * What a thunk of `node` computes first for its reads of a helper's props
+ * (`props.title`): what the helper's user gives each (`t.title`), itself
+ * given where a helper gives it, each evaluated once, in order, before
+ * `node` is: so the setup computes a helper's value as JavaScript would,
+ * the helper called with its props.
  */
-function bindUses(inner: FnEmitter, node: ts.Node, use: HelperUse | undefined): void {
-  if (!use) return;
+function givens(
+  checker: ts.TypeChecker,
+  node: ts.Node,
+  use: HelperUse | undefined,
+): NonNullable<Thunk["given"]> {
+  if (!use) return [];
 
-  for (const read of propReads(inner.checker, node, use.helper)) {
+  return propReads(checker, node, use.helper).flatMap((read) => {
     const arg = use.args.get(read.name.text);
 
-    if (!arg) {
-      inner.bind(read, { c: cpp.id("lucent::undefined"), t: T.undefined });
-      continue;
-    }
-
-    bindUses(inner, arg, use.outer);
-
-    const value = inner.expr(arg);
-    const name = inner.ctx.fresh("lucent_prop");
-
-    inner.emit(cpp.varDecl(cpp.auto, name, value.c));
-    inner.bind(read, { c: cpp.id(name), t: value.t });
-  }
+    return arg ? [...givens(checker, arg, use.outer), { read, value: arg }] : [{ read }];
+  });
 }
 
 /** The C++ name each list's item has, in the code computing its key and values. */
@@ -410,64 +394,73 @@ function actionFn(em: FnEmitter, a: ActionSlot, items: ReadonlyMap<ListSlot, str
  * (in order, the item named ITEM), as records the host merges by key.
  */
 function listEffect(em: FnEmitter, host: ToolkitHost, list: ListSlot, items: string): cpp.Expr {
-  const keep = em.lambdaOver(list.site, [...host.captures, items], (inner) => {
-    const source = inner.expr(list.source);
+  const source = em.thunk(list.source);
+  const array = returned(source);
 
-    if (source.t.k !== "array") throw new Error("a list's source is not an array");
+  if (array.k !== "array") throw new Error("a list's source is not an array");
 
-    const element = source.t.e;
-    const run = (name: string) => cpp.id(`${host.runtime}::${name}`);
+  const element = array.e;
+  const item: Thunk["params"] = [{ names: list.names, type: element }];
+  const key = em.thunk(list.key, { params: item, type: scalarType(list.keyType) });
+  const values = list.values.map((v) =>
+    em.thunk(v.source, {
+      params: item,
+      site: slotSite(v),
+      given: givens(em.checker, v.source, v.use),
+    }),
+  );
+  const run = (name: string) => cpp.id(`${host.runtime}::${name}`);
+  const of = (name: string) => cpp.call(cpp.id(name), [cpp.id(ITEM)]);
 
-    inner.emit(cpp.varDecl(cpp.auto, "lucent_source", source.c));
-    inner.emit(cpp.exprStmt(cpp.call(cpp.arrow(cpp.id(items), "clear"))));
-    inner.pushScope();
+  const fields = values.map((v, i) => {
+    const name = `lucent_v${i}`;
+    const value = cpp.id(`${name}_value`);
 
-    for (const name of list.names) inner.declare(name, ITEM, element);
-
-    const each = inner.collect(() => {
-      inner.emit(
-        cpp.varDecl(cpp.auto, "lucent_key", inner.exprAs(list.key, scalarType(list.keyType))),
-      );
-      inner.emit(
-        cpp.exprStmt(
-          cpp.call(cpp.arrow(cpp.id(items), "add"), [cpp.id("lucent_key"), cpp.id(ITEM)]),
+    return {
+      stmts: [
+        cpp.varDecl(cpp.auto, `${name}_value`, of(`${name}_of`)),
+        cpp.varDecl(
+          host.encoded,
+          name,
+          encoded(em.ctx, host.runtime, list.values[i]!.type, returned(v), value),
         ),
-      );
-
-      const fields = list.values.map((v, i) => {
-        bindUses(inner, v.source, v.use);
-
-        const value = inner.expr(v.source);
-        const name = `lucent_v${i}`;
-
-        inner.emit(
-          cpp.varDecl(host.encoded, name, encoded(em.ctx, host.runtime, v.type, value.t, value.c)),
-        );
-
-        return cpp.id(name);
-      });
-
-      inner.emit(
-        cpp.ret(
-          cpp.call(run("record"), [
-            cpp.initList([cpp.call(run("value"), [cpp.id("lucent_key")]), ...fields]),
-          ]),
-        ),
-      );
-    });
-
-    inner.popScope();
-
-    const record = cpp.lambda(
-      ["&"],
-      [cpp.param(cpp.reference(cpp.constType(em.reg.cppType(element))), ITEM)],
-      each,
-    );
-
-    inner.emit(
-      cpp.exprStmt(host.setList(list, cpp.call(run("array"), [cpp.id("lucent_source"), record]))),
-    );
+      ],
+      name,
+    };
   });
+  const record = cpp.lambda(
+    ["&"],
+    [cpp.param(cpp.reference(cpp.constType(em.reg.cppType(element))), ITEM)],
+    [
+      cpp.varDecl(cpp.auto, "lucent_key", of("lucent_key_of")),
+      cpp.exprStmt(cpp.call(cpp.arrow(cpp.id(items), "add"), [cpp.id("lucent_key"), cpp.id(ITEM)])),
+      ...fields.flatMap((f) => f.stmts),
+      cpp.ret(
+        cpp.call(run("record"), [
+          cpp.initList([
+            cpp.call(run("value"), [cpp.id("lucent_key")]),
+            ...fields.map((f) => cpp.id(f.name)),
+          ]),
+        ]),
+      ),
+    ],
+  );
+  const keep = cpp.lambda(
+    [
+      ...host.captures,
+      items,
+      { name: "lucent_source_of", init: source.c },
+      { name: "lucent_key_of", init: key.c },
+      ...values.map((v, i) => ({ name: `lucent_v${i}_of`, init: v.c })),
+    ],
+    [],
+    [
+      cpp.varDecl(cpp.auto, "lucent_source", cpp.call(cpp.id("lucent_source_of"))),
+      cpp.exprStmt(cpp.call(cpp.arrow(cpp.id(items), "clear"))),
+      cpp.exprStmt(host.setList(list, cpp.call(run("array"), [cpp.id("lucent_source"), record]))),
+    ],
+    { mutable: true },
+  );
 
   return enterMount(em, list.site, keep);
 }

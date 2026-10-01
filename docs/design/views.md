@@ -363,7 +363,8 @@ platforms (`ui/toolkit-body.ts`, `emit/toolkit.ts`):
 - Plain data the body reads from the setup (`on.get()`, `props.title`, a
   template of them, what a setup function returns, an object, an array)
   is a value slot. The largest such expression is one slot, computed by
-  the setup's C++ with JavaScript's semantics. An effect of the mount
+  the setup's C++ with JavaScript's semantics (a function of the setup's,
+  through the IR, which the slot's effect calls). An effect of the mount
   computes it when the mount starts and again whenever what it read
   changes, on the main thread, and sets the toolkit's state, so the body
   draws again with the value of the latest commit. A number, a boolean or

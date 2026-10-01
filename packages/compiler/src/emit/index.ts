@@ -249,13 +249,7 @@ export function emitProgram(
       })
     : [];
   for (const s of planned) {
-    const out = ctx.guard(() =>
-      emitSetup(
-        ctx,
-        s,
-        (returnType) => new FnEmitter(ctx, { module: s.module, async: false, returnType }),
-      ),
-    );
+    const out = ctx.guard(() => emitSetup(ctx, s, (unit) => throughIr(ctx, unit, ir)));
     if (!out) continue;
     moduleDecls.get(s.module)!.push(...out.decls);
     moduleDefs.get(s.module)!.push(...out.defs);

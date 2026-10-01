@@ -110,7 +110,9 @@ function dumpOp(op: IrOp, type: (v: ValueId) => string): string {
     case "closure": {
       const from = op.from.map((f) => ("value" in f ? `v${f.value}` : `box p${f.box}`));
 
-      return def(op.result, `closure ${op.fn.id}(${from.join(", ")})`);
+      const enters = op.enters === undefined ? "" : ` enters v${op.enters}`;
+
+      return def(op.result, `closure ${op.fn.id}(${from.join(", ")})${enters}`);
     }
     case "unreachable":
       return "unreachable";

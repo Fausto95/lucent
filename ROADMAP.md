@@ -430,6 +430,16 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-02: Component setups lower through the IR.** A setup is
+lowered as functions are, its mount an ambient value of the IR that the
+functions it makes capture and enter (`closure.enters`), and a toolkit
+body's slots thunks: closures of each slot's expression, which the
+effects the toolkit code writes call. _Why:_ the setup's code is the
+program's, so it gets the IR's order, captures and verification; the
+toolkit glue keeps only what no TypeScript expression says (the host,
+the effects, the encoding). _Changed:_ the emitter's statement lowering
+and its lambdas over the setup's locals are no longer used.
+
 **2026-10-01: The legacy emitter's function paths are retired.** Only the
 IR lowers functions, methods, constructors, modules' `init()` and task
 variants; `LUCENT_LOWERING` and its fallbacks are gone, and what the IR
@@ -1011,13 +1021,14 @@ before code generation.
       Done: `try` and `await` are operations of the IR; coroutine
       closures take their captures as parameters; the async, generator,
       using and compute cases pass under `SANITIZE=1`.
-- [ ] Move the remaining native and boundary operations onto shared binding
+- [x] Move the remaining native and boundary operations onto shared binding
       and IR plans; remove duplicate semantic logic and temporary old-path
-      fallbacks once proven. Done for everything but component setups:
-      native and builtin operations are the IR's plans, written once by
-      the emitter's leaf code, and the fallbacks and the
-      `LUCENT_LOWERING` selector are gone. Setups (behind `LUCENT_VIEWS`)
-      still lower their statements with the emitter's own code.
+      fallbacks once proven. Done: native and builtin operations are the
+      IR's plans, written once by the emitter's leaf code, and the
+      fallbacks and the `LUCENT_LOWERING` selector are gone. Component
+      setups (behind `LUCENT_VIEWS`) lower through the IR too: the mount
+      is an ambient the functions setup makes capture and enter, and a
+      toolkit body's slots are thunks its effects call.
 - [x] Run the full differential corpus, old/new comparison during migration,
       platform glue tests and the current performance budgets before
       retiring the old emitter. Done: e2e 53 of 53 under both lowerings,
@@ -1034,11 +1045,16 @@ before output code generation.
 
 **Notes:**
 
-- What remains: component setups (`emit/setups.ts`, behind
-  `LUCENT_VIEWS=fabric`), whose toolkit bodies write statements and
-  lambdas over the setup's locals through the emitter; lowering them is
-  section 13.3's last step (setup and effects as IR operations plus UI
-  nodes), with the view work. Design reference: section 13.
+- Component setups (`emit/setups.ts`, behind `LUCENT_VIEWS=fabric`), section
+  13.3's last step, lower through the IR: the setup's props are its
+  parameter, its mount (`lucent_content`) an ambient value the functions
+  it makes capture where they read it and enter whenever they run (the
+  `closure` op's `enters`), and a toolkit body's value and list slots
+  are thunks (closures of the slot's expression, of a list's item for
+  its key and values, a helper's props given first) that the effects
+  `emit/toolkit.ts` writes call. The views suite (249 tests, the mounted
+  runs on Mac Catalyst and the Compose and SwiftUI builds included)
+  passes. Design reference: section 13.
 - Progress, measured during the migration (by a coverage script since
   removed) over the e2e corpus (top-level functions lowered through the
   IR):

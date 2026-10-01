@@ -140,8 +140,8 @@ Notable lowering choices:
   operations own nested regions, which `break`, `continue` and `yield`
   (an `if`'s result) leave. Every function, method, accessor,
   constructor, module `init()` and compute task variant lowers through
-  it; what it cannot lower is a LUCENT diagnostic. Component setups,
-  behind `LUCENT_VIEWS`, still use the emitter's own statements. What the IR
+  it, and so does each component's setup (behind `LUCENT_VIEWS`); what it
+  cannot lower is a LUCENT diagnostic. What the IR
   does not model itself (member reads and writes, methods of the runtime
   and the SDK, constructions, array and object literals) is a `plan`: the
   IR lowers the subexpressions it takes first, in source order, and the
@@ -280,8 +280,8 @@ Notable lowering choices:
   error, or with an `AbortError` if its view unmounts first. A command
   sent while the view is not mounted fails with an `InvalidStateError`.
 
-  Under the same switch, each component's setup is compiled
-  (`emit/setups.ts`), with `lucent:ui`'s helpers (`effect`, `signal`,
+  Under the same switch, each component's setup is compiled through the
+  IR, as functions are (`emit/setups.ts`), with `lucent:ui`'s helpers (`effect`, `signal`,
   `expose`, `onDispose`, `slot`, `invalidateSize`, and the event marks
   `Continuous` and `Coalesced`: experimental, resolving only under the
   switch). Setup runs once per mount, so it constructs the native
@@ -300,8 +300,9 @@ Notable lowering choices:
   called, never taking the Lucent lock (a Lucent class given to the
   platform from a setup is refused: its methods run in module code).
   Every function setup creates also enters its mount whenever it runs
-  (`lucent::ui::inContent` over `lucent_content`, the mount setup ran
-  for, which the setup and the functions on the way capture), so the
+  (the IR's `closure` op `enters` the setup's ambient mount,
+  `lucent_content`, the mount setup ran for, which the setup and the
+  functions on the way capture where they read it), so the
   host hears that the mount's code ran; `invalidateSize()` marks that
   mount from code that runs in no such function (after an await). A
   prop read while
@@ -539,8 +540,12 @@ Notable lowering choices:
   never as C++ (the emitter, module registration and the analyses leave
   it out). What it computes from its props is a value of the body (or a
   list's item) for each place it is used: the value slot carries the
-  helper's use (`ValueSlot.use`), and its effect binds each `props.name`
-  read to what the element gives it (`FnEmitter.bind`), evaluated once.
+  helper's use (`ValueSlot.use`), and its thunk is given, for each
+  `props.name` read, what the element gives it (`Thunk.given`), evaluated
+  once, first. A slot's code is the IR's: a thunk (`LeafOperands.thunk`),
+  a function of the setup computing the slot's expression (of a list's
+  item, for its key and values), which the effect `emit/toolkit.ts`
+  writes calls.
   [design/views.md](design/views.md) records what the hosts do at run
   time: registration, the mount lifecycle, routing, threads, sizing,
   toolkit bodies and the limitations accepted.

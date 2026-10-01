@@ -54,6 +54,8 @@ export class IrBuilder {
   private readonly generator?: LType;
   /** The name the Errors the function makes record as their site. */
   site?: string;
+  /** Code it computes from outside its own span (`IrFunction.elsewhere`). */
+  readonly elsewhere: SourceSpan[] = [];
 
   constructor(id: FunctionId, result: LType, source: SourceSpan, async = false, generator?: LType) {
     this.id = id;
@@ -169,10 +171,23 @@ export class IrBuilder {
     return place;
   }
 
-  /** A function value made of the nested function `fn`, its captures from `from`. */
-  closure(fn: IrFunction, from: CaptureSource[], type: LType, source: SourceSpan): ValueId {
+  /** A function value made of the nested function `fn`, its captures from `from`; entering a mount. */
+  closure(
+    fn: IrFunction,
+    from: CaptureSource[],
+    type: LType,
+    source: SourceSpan,
+    enters?: ValueId,
+  ): ValueId {
     const result = this.value(type, source);
-    this.push({ kind: "closure", result, fn, from, source });
+    this.push({
+      kind: "closure",
+      result,
+      fn,
+      from,
+      ...(enters === undefined ? {} : { enters }),
+      source,
+    });
     return result;
   }
 
@@ -485,6 +500,7 @@ export class IrBuilder {
       async: this.async,
       ...(this.generator ? { generator: this.generator } : {}),
       ...(this.site ? { site: this.site } : {}),
+      ...(this.elsewhere.length ? { elsewhere: [...this.elsewhere] } : {}),
     };
 
     return {
