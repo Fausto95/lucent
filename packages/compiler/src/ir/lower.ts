@@ -25,6 +25,7 @@ import {
   parameterSymbol,
   symbolOf,
 } from "../analysis/scopes.ts";
+import { Codes, fail } from "../diagnostics.ts";
 import { bigintLiteralValue } from "../lowering/literals.ts";
 import { isVoidish, type LType, sameType, T, typeKey, unionOf } from "../types.ts";
 import { IrBuilder } from "./build.ts";
@@ -583,7 +584,12 @@ class Lowerer {
   returns(value: ts.Expression, span: SourceSpan): void {
     const result = this.result;
 
-    if (this.input.generator) this.unsupported(value, "returning a value from a generator");
+    if (this.input.generator)
+      fail(
+        value.parent,
+        Codes.UnsupportedSyntax,
+        "generators cannot return a value; use `return;`",
+      );
 
     let v = this.expr(value, isVoidish(result) ? undefined : result);
 
@@ -603,13 +609,22 @@ class Lowerer {
   awaited(v: ValueId, node: ts.Node): ValueId {
     const t = this.b.typeOf(v);
 
-    if (!this.input.async) this.unsupported(node, "await outside an async function");
+    const held = t.k === "opt" ? t.inner : t;
+
+    if (!this.input.async) fail(node, Codes.UnsupportedSyntax, "`await` outside an async function");
+
+    // A native object is no promise, whatever its API: the listener or callback that reports its
+    // completion, adapted with fromCallback, is.
+    if (held.k === "native")
+      fail(
+        node,
+        Codes.AwaitNative,
+        `\`await\` does not wait for a native ${held.name}: it is not a promise. Wrap the listener or callback that reports its completion in fromCallback (lucent:core) and await that promise`,
+      );
 
     if (t.k !== "promise") {
-      if (t.k === "opt" && t.inner.k === "promise")
-        this.unsupported(node, "awaiting an optional promise");
-
-      if (t.k === "native") this.unsupported(node, "awaiting a native object");
+      if (held.k === "promise")
+        fail(node, Codes.UnsupportedSyntax, "awaiting an optional promise is not supported");
 
       return v;
     }
@@ -628,7 +643,7 @@ class Lowerer {
     const element = this.input.generator;
     const span = spanOf(y);
 
-    if (!element) this.unsupported(y, "yield outside a generator");
+    if (!element) fail(y, Codes.UnsupportedSyntax, "`yield` outside a generator");
 
     if (!y.asteriskToken) {
       const v = y.expression ? this.expr(y.expression, element) : this.b.const(undefined, span);
@@ -642,7 +657,7 @@ class Lowerer {
     const whole = t.k === "opt" ? this.coerce(source, t.inner, y.expression!) : source;
     const each = elementOf(this.b.typeOf(whole));
 
-    if (!each) this.unsupported(y, `yield* of a ${typeKey(t)}`);
+    if (!each) fail(y.expression!, Codes.UnsupportedLoop, `${typeKey(t)} is not iterable`);
 
     this.b.iterate(span, whole, each, (_target, el) =>
       this.b.produce(this.coerce(el, element, y), span),
@@ -720,7 +735,7 @@ class Lowerer {
    */
   using(list: ts.VariableDeclarationList, rest: () => void): void {
     if ((list.flags & ts.NodeFlags.AwaitUsing) === ts.NodeFlags.AwaitUsing)
-      this.unsupported(list, "await using");
+      fail(list, Codes.UnsupportedSyntax, "`await using` is not supported; use `using`");
 
     const each = (decls: readonly ts.VariableDeclaration[]): void => {
       const [d, ...more] = decls;
@@ -731,7 +746,7 @@ class Lowerer {
       }
 
       if (!ts.isIdentifier(d.name) || !d.initializer)
-        this.unsupported(d, "a using declaration without one name and a value");
+        fail(d, Codes.UnsupportedDestructuring, "a using declaration names one value");
 
       const sym = this.symbol(d.name);
       const type = this.declaredType(sym, d.name);
@@ -793,7 +808,8 @@ class Lowerer {
         ((error) => {
           const v = caught.variableDeclaration;
 
-          if (v && !ts.isIdentifier(v.name)) this.unsupported(v, "destructuring in catch");
+          if (v && !ts.isIdentifier(v.name))
+            fail(v, Codes.UnsupportedDestructuring, "destructuring in catch is not supported");
 
           if (v) {
             const name = v.name as ts.Identifier;
@@ -1046,10 +1062,15 @@ class Lowerer {
       for (const el of name.elements) {
         const key = el.propertyName ?? el.name;
 
-        if (el.dotDotDotToken) this.unsupported(el, "object rest in destructuring");
+        if (el.dotDotDotToken)
+          fail(el, Codes.UnsupportedDestructuring, "object rest in destructuring is not supported");
 
         if (!ts.isIdentifier(key) && !ts.isStringLiteral(key))
-          this.unsupported(el, "computed keys in destructuring");
+          fail(
+            el,
+            Codes.UnsupportedDestructuring,
+            "computed keys in destructuring are not supported",
+          );
 
         const part = this.part(value, { name: key.text }, el);
 
@@ -1122,7 +1143,11 @@ class Lowerer {
         if (ts.isOmittedExpression(el)) return;
 
         if (ts.isSpreadElement(el))
-          this.unsupported(el, "rest elements in destructuring assignments");
+          fail(
+            el,
+            Codes.UnsupportedDestructuring,
+            "rest elements in destructuring assignments are not supported",
+          );
 
         assign(el, () => this.part(value, { index: i }, el));
       });
@@ -1147,13 +1172,18 @@ class Lowerer {
         const key = p.name.text;
 
         assign(p.initializer, () => this.part(value, { name: key }, p));
-      } else this.unsupported(p, "this destructuring assignment");
+      } else
+        fail(
+          p,
+          Codes.UnsupportedDestructuring,
+          "only named properties can be destructured in assignments",
+        );
     }
   }
 
   /** `for (x of xs)`: the body for each element, bound to a new variable (or assigned). */
   forOf(s: ts.ForOfStatement, labels: readonly string[]): void {
-    if (s.awaitModifier) this.unsupported(s, "for await");
+    if (s.awaitModifier) fail(s, Codes.UnsupportedLoop, "`for await` is not supported");
 
     const iterable = this.expr(s.expression);
     const t = this.b.typeOf(iterable);
@@ -1183,7 +1213,7 @@ class Lowerer {
     const t = this.b.typeOf(iterable);
     const element = elementOf(t);
 
-    if (!element) this.unsupported(s.expression, `iterating over a ${typeKey(t)}`);
+    if (!element) fail(s.expression, Codes.UnsupportedLoop, `cannot iterate over ${typeKey(t)}`);
 
     this.b.iterate(spanOf(s), iterable, element, (target, value) =>
       this.within({ target, kind: "loop", labels }, () => {
@@ -1221,6 +1251,12 @@ class Lowerer {
   switch(s: ts.SwitchStatement, labels: readonly string[]): void {
     const clauses = s.caseBlock.clauses;
     const platforms = this.host.platformClauses?.(s);
+
+    // Its scope would be the whole switch, disposed after the clauses that fall through.
+    for (const c of clauses)
+      for (const x of c.statements)
+        if (ts.isVariableStatement(x) && x.declarationList.flags & ts.NodeFlags.Using)
+          fail(x, Codes.UnsupportedSyntax, "wrap a using declaration in a case clause in a block");
 
     if (platforms === "nowhere") {
       this.nowhere(s);
@@ -1706,10 +1742,11 @@ class Lowerer {
 
     const ret = sig.type.ret;
 
-    if (sig.async && sig.generator) this.unsupported(node, "async generators");
+    if (sig.async && sig.generator)
+      fail(node, Codes.UnsupportedSyntax, "async generators are not supported");
 
     if (sig.generator && ret.k !== "iter")
-      this.unsupported(node, "a generator not typed Generator<T>");
+      fail(node, Codes.UnsupportedSyntax, "annotate generators with Generator<T> or Iterable<T>");
 
     const id = `${this.input.id}$${++this.closures}`;
     const input: LowerInput = {
@@ -2066,9 +2103,15 @@ class Lowerer {
     return this.planOf(host.platformOnly(node, type), [], spanOf(node));
   }
 
-  /** A statement of platform code, in a build for neither: it throws, and nothing after it runs. */
+  /**
+   * A statement of platform code, in a build for neither: it throws, and
+   * nothing after it runs. (The analysis, which leaves the platforms'
+   * code out of such a build, knows nothing of the throw: it is the
+   * backend's plan.)
+   */
   nowhere(s: ts.Statement): void {
-    this.b.throw(this.platformOnly(s, T.error), spanOf(s));
+    this.platformOnly(s, T.void);
+    this.b.unreachable(spanOf(s));
   }
 
   /** `if`: the branch a platform test leaves, or both, as the condition picks. */
@@ -2322,7 +2365,11 @@ const STATEMENTS: Partial<Record<ts.SyntaxKind, StatementLowering>> = {
 
     // An Error, or an object of a class deriving from it (which keeps its class).
     if (t.k !== "error" && !(t.k === "class" && lw.host.isError?.(t)))
-      lw.unsupported(s, "throwing anything but an Error");
+      fail(
+        s.expression,
+        Codes.UnsupportedThrow,
+        "only Error values can be thrown; use `throw new Error(...)`",
+      );
 
     lw.b.throw(v, spanOf(s));
   },
