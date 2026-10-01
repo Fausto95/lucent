@@ -1,0 +1,92 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, it } from "vite-plus/test";
+import { compile } from "../../src/index.ts";
+import { coverage } from "../../src/ir/cpp.ts";
+import { cppOf, inOrder, module, withLowering } from "./compile.ts";
+
+const CASES = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../e2e/cases");
+
+const SAMPLE = `let made = 0;
+function count(): number {
+  return ++made;
+}
+let last: number;
+const names: string[] = [];
+export class Base {
+  tag = "base";
+  constructor(readonly id: number) {
+    names.push(this.tag);
+  }
+}
+export class Derived extends Base {
+  static first = count();
+  extra = this.id * 2;
+  constructor(id: number) {
+    super(id + 1);
+    names.push(String(this.extra));
+  }
+}
+export function run(): number {
+  last = new Derived(1).extra;
+  return last;
+}
+`;
+
+/** A definition in `cpp`, from the line naming `name` to its closing brace. */
+function definition(cpp: string, name: string): string {
+  const start = cpp.search(new RegExp(`${name}\\(.*\\) \\{$`, "m"));
+
+  expect(start).toBeGreaterThanOrEqual(0);
+
+  return cpp.slice(start, cpp.indexOf("\n}\n", start) + 2);
+}
+
+describe("construction in the IR", () => {
+  it("initializes parameter properties and fields before the constructor's body", () => {
+    const before = coverage.lowered.length;
+    const out = cppOf(module(SAMPLE), "ir-strict");
+
+    expect(coverage.lowered.slice(before)).toContain("C_Base::construct");
+
+    const base = definition(out, "C_Base::construct");
+
+    expect(inOrder(base, "this->r_id_ = p0_", "this->tag = ", ".push(")).toBe(true);
+  });
+
+  it("initializes a derived class's fields right after super()", () => {
+    const derived = definition(cppOf(module(SAMPLE), "ir-strict"), "C_Derived::construct");
+
+    expect(inOrder(derived, "C_Base::construct(", "this->extra = ", ".push(")).toBe(true);
+
+    expect(derived).toMatch(/this->extra = v\d+_;/);
+  });
+
+  it("initializes a module's static fields, then its variables, a variable without a value to its type's default", () => {
+    const before = coverage.lowered.length;
+    const init = definition(cppOf(module(SAMPLE), "ir-strict"), "m_sample::init");
+
+    expect(coverage.lowered.slice(before)).toContain("m_sample::init");
+
+    expect(
+      inOrder(
+        init,
+        "C_Derived::first = ",
+        "lucent_app::m_sample::made = 0.0;",
+        "lucent_app::m_sample::last = ",
+        "lucent_app::m_sample::names = ",
+      ),
+    ).toBe(true);
+  });
+
+  it("compiles the classes and inheritance cases, constructors and all, through the IR alone under ir-strict", () => {
+    for (const name of ["classes", "inheritance"]) {
+      const before = coverage.lowered.length;
+      const r = withLowering("ir-strict", () => compile([path.join(CASES, `${name}.lucent.ts`)]));
+
+      expect(r.diagnostics).toEqual([]);
+
+      expect(coverage.lowered.slice(before).some((id) => id.endsWith("::construct"))).toBe(true);
+    }
+  });
+});
