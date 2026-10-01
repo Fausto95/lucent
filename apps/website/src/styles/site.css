@@ -13,6 +13,10 @@
   --ec-codeFontFml: var(--sl-font-mono);
   --ec-uiFontFml: var(--sl-font);
 }
+/* Code blocks a step smaller than Starlight's 0.875rem: Expressive Code reads this. */
+:root:root {
+  --sl-text-code: 0.8125rem;
+}
 h1,
 .sl-markdown-content :is(h2, h3) {
   font-family: var(--lucent-font-display);
@@ -141,8 +145,10 @@ pre,
   min-width: 0;
   margin: 0;
 }
+.showcase-pane {
+  --ec-codeFontSize: 0.75rem;
+}
 .showcase-pane .expressive-code {
-  --ec-codeFontSize: 0.8125rem;
   display: flex;
   flex: 1;
   min-width: 0;
