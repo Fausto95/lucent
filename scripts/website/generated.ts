@@ -250,13 +250,20 @@ const STATUS: Record<string, string> = {
   "🔭": "later",
 };
 
-/** The roadmap page's data, parsed from ROADMAP.md: milestones, their goal, their items and each item's status. */
+/**
+ * The roadmap page's data, parsed from ROADMAP.md's "Status at a glance"
+ * section: its areas (### headings), their goal, their items and each
+ * item's status. The rest of ROADMAP.md (tasks, decisions) is for the repository.
+ */
 function roadmap(): string {
   const text = fs.readFileSync(path.join(root, "ROADMAP.md"), "utf8");
+  const section = /^## Status at a glance\n([\s\S]*?)(?=^## )/m.exec(text);
+  if (!section) throw new Error('ROADMAP.md has no "## Status at a glance" section');
+
   const milestones: { title: string; goal?: string; items: { status?: string; text: string }[] }[] =
     [];
-  for (const line of text.split("\n")) {
-    const heading = /^## (.+)$/.exec(line);
+  for (const line of section[1]!.split("\n")) {
+    const heading = /^### (.+)$/.exec(line);
     const goal = /^Goal: (.+)$/.exec(line);
     const item = /^- (?:(✅|🚧|⏳|🔭) )?(.+)$/.exec(line);
     const current = milestones[milestones.length - 1];

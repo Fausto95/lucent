@@ -58,7 +58,9 @@ Android emulator before a release.
 - One unit of meaning per commit. A test lands in its own commit, failing,
   before the commit that makes it pass.
 - Living docs change in the same commit as the behavior they describe:
-  `docs/`, the website, `ROADMAP.md`.
+  `docs/`, the website, `ROADMAP.md`. `ROADMAP.md` is the plan and its
+  status: a commit that finishes, changes or adds a task updates its entry
+  there.
 
 ## Changesets
 

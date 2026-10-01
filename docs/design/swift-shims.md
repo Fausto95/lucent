@@ -1,7 +1,7 @@
 # Swift shims: calling Swift-only iOS APIs
 
-Status: **accepted** (2026-09-24), being implemented in Part 2 of the full
-SDK plan; progress in [full-sdk-plan-status.md](../full-sdk-plan-status.md).
+Status: **accepted** (2026-09-24), implemented in Part 2 of the full SDK
+plan; see [ROADMAP.md](../../ROADMAP.md#earlier-plans).
 
 Goal: Lucent code calls Swift-only APIs (CryptoKit, StoreKit 2, the Swift
 overlays of Foundation and UIKit) the way it calls Objective-C ones:

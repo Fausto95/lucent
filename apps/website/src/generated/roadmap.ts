@@ -3,7 +3,7 @@
 /** From ROADMAP.md. */
 export const milestones: { title: string; goal?: string; items: { status?: string; text: string }[] }[] = [
   {
-    "title": "M0: Foundations",
+    "title": "Foundations",
     "items": [
       {
         "status": "done",
@@ -29,7 +29,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
     "goal": "A module runs as C++ in a bare React Native app and an Expo app, on iOS and Android."
   },
   {
-    "title": "M1: The language",
+    "title": "The language",
     "items": [
       {
         "status": "done",
@@ -49,13 +49,29 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "done",
+        "text": "`bigint`, with values of any size crossing to JavaScript exactly."
+      },
+      {
+        "status": "done",
+        "text": "`using` declarations and `Symbol.dispose`."
+      },
+      {
+        "status": "done",
         "text": "Lucent code runs one piece at a time, so it has no data races."
+      },
+      {
+        "status": "done",
+        "text": "Heavy work on worker threads with `compute`, checked so a task shares no state."
+      },
+      {
+        "status": "done",
+        "text": "`NativeBuffer`, which hands bytes to tasks and JavaScript without copying them."
       }
     ],
     "goal": "Self-contained modules, such as parsers, codecs and data structures."
   },
   {
-    "title": "M2: Platform APIs",
+    "title": "Platform APIs",
     "items": [
       {
         "status": "done",
@@ -71,11 +87,35 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "done",
-        "text": "Android classes extended in Lucent, and Android version checks at compile time."
+        "text": "Swift-only APIs, such as StoreKit 2 and CryptoKit, through generated Swift."
       },
       {
         "status": "done",
-        "text": "iOS main-thread-only APIs checked at compile time."
+        "text": "Kotlin-only APIs, such as `suspend` functions and `Flow`, through generated Kotlin."
+      },
+      {
+        "status": "done",
+        "text": "Native 64-bit integers as `bigint`, so IDs and sizes stay exact."
+      },
+      {
+        "status": "done",
+        "text": "Callback APIs as promises and subscriptions, with `fromCallback` and `subscribe`."
+      },
+      {
+        "status": "done",
+        "text": "Members of generic classes on both platforms, such as `List<E>.get`."
+      },
+      {
+        "status": "done",
+        "text": "Classes extended in Lucent on both platforms, such as a `UIViewController`."
+      },
+      {
+        "status": "done",
+        "text": "OS version checks and main-thread-only APIs, checked at compile time on both platforms."
+      },
+      {
+        "status": "done",
+        "text": "The current `Activity` and iOS scene, activity results and permission requests."
       },
       {
         "status": "done",
@@ -87,47 +127,23 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "done",
-        "text": "Ports of nine Expo and community modules, checked against the originals."
-      },
-      {
-        "status": "next",
-        "text": "Members of Android generic classes, such as `Consumer<T>.accept` and `List<E>.get`."
+        "text": "Typed native extensions: C code a package ships, checked against its header."
       },
       {
         "status": "done",
-        "text": "Play services' `Task` and Java futures as promises, through their listeners and `fromCallback`."
+        "text": "A coverage report of what each SDK binds, and why the rest is skipped."
+      },
+      {
+        "status": "done",
+        "text": "Pinning the SDKs a project uses, and listing what an SDK update changes for your code."
+      },
+      {
+        "status": "done",
+        "text": "Ports of Expo and community modules, checked against the originals."
       },
       {
         "status": "next",
-        "text": "`using` to close Java `Closeable`s, such as database cursors."
-      },
-      {
-        "status": "next",
-        "text": "Generic Objective-C classes, blocks taking blocks, and more out-parameters."
-      },
-      {
-        "status": "next",
-        "text": "Android `@IntDef` constants as enums, and `@MainThread` checked at compile time."
-      },
-      {
-        "status": "later",
-        "text": "Swift-only APIs, such as StoreKit 2 and CryptoKit, through generated Swift."
-      },
-      {
-        "status": "later",
-        "text": "Kotlin-only APIs, such as `suspend` functions and `Flow`, through generated Kotlin."
-      },
-      {
-        "status": "later",
-        "text": "API notes to adjust a binding, and a CI report of what SDKs still skip."
-      },
-      {
-        "status": "later",
-        "text": "The current `Activity`, and subclassing iOS classes."
-      },
-      {
-        "status": "later",
-        "text": "iOS version checks at compile time."
+        "text": "Native libraries nobody has seen before, bound and run with no change to Lucent."
       },
       {
         "status": "later",
@@ -135,31 +151,51 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "later",
-        "text": "Swift Package Manager libraries."
-      },
-      {
-        "status": "later",
-        "text": "Pinning an SDK version, and listing what an SDK update changes for your code."
-      },
-      {
-        "status": "later",
-        "text": "Rarer SDK types, such as pointers and selectors, as ports need them."
+        "text": "Binding the APIs of Swift Package Manager libraries."
       }
     ],
     "goal": "Call the iOS and Android SDKs directly from Lucent."
   },
   {
-    "title": "M3: Views",
+    "title": "Views",
     "items": [
       {
+        "status": "done",
+        "text": "Components in `.lucent.tsx` that render UIKit and Android views, behind an internal switch."
+      },
+      {
+        "status": "done",
+        "text": "SwiftUI and Jetpack Compose bodies written as JSX, from declarations read from your SDKs."
+      },
+      {
+        "status": "done",
+        "text": "One file per component, with each platform's body in a platform branch."
+      },
+      {
+        "status": "done",
+        "text": "Events, commands, requests that answer, recycling, sizing to content and React children."
+      },
+      {
+        "status": "done",
+        "text": "Views that keep updating while JavaScript is blocked."
+      },
+      {
+        "status": "next",
+        "text": "JSX for any SDK view, keyed lists and Yoga layout."
+      },
+      {
+        "status": "next",
+        "text": "A views preview with wrapper ports, such as maps, web views and video."
+      },
+      {
         "status": "later",
-        "text": "SwiftUI or UIKit views and Compose or Android views, on Fabric."
+        "text": "Native lists, gestures and animations, and media pipelines."
       }
     ],
-    "goal": "Native views from Lucent components."
+    "goal": "Native views from Lucent components, rendered by React Native's Fabric."
   },
   {
-    "title": "M4: Production",
+    "title": "Production",
     "items": [
       {
         "status": "done",
@@ -167,7 +203,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "done",
-        "text": "Incremental builds, and rebuilds as you edit."
+        "text": "Incremental builds, and rebuilds as you edit, including linked packages."
       },
       {
         "status": "done",
@@ -178,6 +214,14 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "Lucent's errors in the editor."
       },
       {
+        "status": "done",
+        "text": "A warning when the installed app runs an older native build than your code."
+      },
+      {
+        "status": "done",
+        "text": "A JavaScript `lucent:core`, so Jest and Vitest can run shared modules."
+      },
+      {
         "status": "in progress",
         "text": "Performance budgets in CI."
       },
@@ -186,24 +230,18 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "Testing on physical devices; today, simulators and emulators."
       },
       {
-        "status": "done",
-        "text": "A JavaScript `lucent:core`, so Jest and Vitest can run shared modules."
+        "status": "later",
+        "text": "Background tasks, services and app extensions with no live JavaScript."
+      },
+      {
+        "status": "later",
+        "text": "A tested support window of React Native and Expo versions."
+      },
+      {
+        "status": "later",
+        "text": "Pilots with independent library authors and real apps."
       }
     ],
     "goal": "Ready for apps in production."
-  },
-  {
-    "title": "Not planned",
-    "items": [
-      {
-        "text": "Running JavaScript in native code: there's no JavaScript engine there."
-      },
-      {
-        "text": "Reflection, `eval` and prototypes."
-      },
-      {
-        "text": "Freeing reference cycles by itself."
-      }
-    ]
   }
 ];

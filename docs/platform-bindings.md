@@ -393,7 +393,7 @@ probes write). A stage without evidence is unknown (`-`, `null` in JSON),
 not 0. `--members` lists every member with its stage, symbol key, native
 symbol, artifact and reason. CI fails when a module's unrepresentable
 share grows past `sdk-coverage.json`.
-[full-sdk-plan-status.md](full-sdk-plan-status.md) records the current
+[ROADMAP.md](../ROADMAP.md#done) records the last measured
 numbers.
 
 ## Calls
@@ -749,6 +749,5 @@ covered by unit tests only.
 
 ## Not yet
 
-[ROADMAP.md](../ROADMAP.md) lists what's next under M2, and
-[improvement-plan-status.md](improvement-plan-status.md) what was postponed,
-with the reason.
+[ROADMAP.md](../ROADMAP.md) lists what's next, the known binding gaps
+(under T28), and the limitations kept on purpose, with the reason.
