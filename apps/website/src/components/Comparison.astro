@@ -1,0 +1,128 @@
+---
+/**
+ * Lucent next to Expo Modules, Nitro and Turbo Native Modules
+ * (docs/comparison-table.ts): one column per tool, each attribute a labelled
+ * band, so it fits the docs column; on phones the others scroll past a
+ * pinned Lucent column. `compact` (the homepage) shows the summary rows
+ * without details.
+ */
+import { comparisonRows, tools, type Tone } from "../docs/comparison-table";
+import { inlineHtml } from "../docs/inline-html";
+
+interface Props {
+  compact?: boolean;
+}
+
+const { compact = false } = Astro.props;
+const rows = compact ? comparisonRows.filter((row) => row.summary) : comparisonRows;
+const toneLabels: Record<Tone, string> = { available: "available", partial: "partial", planned: "planned" };
+---
+
+<div class="comparison not-content" role="region" aria-label="Comparison" tabindex="0">
+  <table>
+    <thead>
+      <tr>
+        {tools.map((tool) => <th scope="col" class:list={{ lucent: tool.id === "lucent" }}>{tool.name}</th>)}
+      </tr>
+    </thead>
+    {
+      rows.map((row) => (
+        <tbody>
+          <tr class="band">
+            <th scope="rowgroup" class="lucent">{row.label}</th>
+            {tools.slice(1).map(() => <td aria-hidden="true" />)}
+          </tr>
+          <tr>
+            {tools.map((tool) => {
+              const cell = row.cells[tool.id];
+              return (
+                <td class:list={{ lucent: tool.id === "lucent" }}>
+                  <span class="value">
+                    {cell.tone && <span class:list={["dot", cell.tone]} role="img" aria-label={toneLabels[cell.tone]} />}
+                    {cell.value}
+                  </span>
+                  {!compact && cell.detail && <span class="detail" set:html={inlineHtml(cell.detail)} />}
+                </td>
+              );
+            })}
+          </tr>
+        </tbody>
+      ))
+    }
+  </table>
+</div>
+
+<style>
+  .comparison {
+    overflow-x: auto;
+    margin-block: 1.5rem;
+    border: 1px solid var(--sl-color-gray-5);
+    border-radius: 0.5rem;
+  }
+  table {
+    width: 100%;
+    min-width: 40rem;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: var(--sl-text-sm);
+  }
+  th,
+  td {
+    padding: 0.5rem 0.75rem;
+    text-align: start;
+    vertical-align: top;
+  }
+  thead th {
+    color: var(--sl-color-white);
+    font-weight: 600;
+    border-bottom: 1px solid var(--sl-color-gray-5);
+  }
+  .band th,
+  .band td {
+    padding-block: 0.4rem 0.1rem;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-top: 1px solid var(--sl-color-gray-6);
+  }
+  .lucent {
+    position: sticky;
+    left: 0;
+    background: var(--sl-color-bg);
+    box-shadow: inset -1px 0 var(--sl-color-gray-5);
+  }
+  td.lucent,
+  thead .lucent {
+    color: var(--sl-color-white);
+  }
+  .value {
+    display: flex;
+    gap: 0.45rem;
+    align-items: baseline;
+    color: var(--sl-color-gray-1);
+  }
+  .detail {
+    display: block;
+    margin-top: 0.2rem;
+    color: var(--sl-color-gray-3);
+    font-size: var(--sl-text-xs);
+  }
+  .dot {
+    flex: none;
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 50%;
+    transform: translateY(-0.05rem);
+  }
+  .available {
+    background: var(--sl-color-green);
+  }
+  .partial {
+    background: var(--sl-color-orange);
+  }
+  .planned {
+    background: var(--sl-color-gray-4);
+  }
+</style>

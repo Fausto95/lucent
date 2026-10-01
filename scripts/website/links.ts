@@ -1,5 +1,5 @@
 import type { Block } from "../../apps/website/src/docs/types.ts";
-import { headingId } from "../../apps/website/src/docs/types.ts";
+import { headingId } from "../../apps/website/src/docs/markdown.ts";
 import type { CheckedPage } from "./pages.ts";
 import { proseOf } from "./prose.ts";
 

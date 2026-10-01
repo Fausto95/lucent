@@ -1,0 +1,53 @@
+---
+/** Sitewide notice: Lucent is research-stage, and must not ship in a production app. */
+---
+
+<div class="lucent-banner" role="note">
+  <span class="mark" aria-hidden="true">!</span>
+  <p>
+    <strong>Very early and experimental.</strong> The language, the generated native code and every
+    package API change without notice. Do not use Lucent in production.
+  </p>
+</div>
+
+<style>
+  .lucent-banner {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid color-mix(in oklab, var(--sl-color-orange) 45%, transparent);
+    border-radius: 0.5rem;
+    background: color-mix(in oklab, var(--sl-color-orange) 12%, transparent);
+    color: var(--sl-color-gray-2);
+    font-size: var(--sl-text-sm);
+    line-height: 1.55;
+  }
+  .mark {
+    display: grid;
+    flex: none;
+    place-items: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-top: 0.05rem;
+    border-radius: 50%;
+    background: var(--sl-color-orange);
+    color: var(--sl-color-black);
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+  p {
+    margin: 0;
+  }
+  strong {
+    color: var(--sl-color-white);
+  }
+  /* The homepage: a strip across the top, above the hero. */
+  :global(:root[data-has-hero]) .lucent-banner {
+    justify-content: center;
+    margin: 0;
+    border-width: 0 0 1px;
+    border-radius: 0;
+  }
+</style>

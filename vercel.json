@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "vite",
+  "framework": "astro",
   "buildCommand": "pnpm run website:build",
   "devCommand": "pnpm run website",
   "outputDirectory": "apps/website/dist",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+  "trailingSlash": true
 }

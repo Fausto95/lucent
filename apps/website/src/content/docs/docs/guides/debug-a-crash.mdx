@@ -1,0 +1,37 @@
+---
+title: Debug a crash
+description: Errors carry their `.lucent.ts` line to JavaScript, logs go to the unified log and logcat, and native crashes point at your source.
+kind: guide
+---
+
+## Read the error in JavaScript
+
+```sh title="terminal" nocopy
+Error: The config is empty
+    at parseConfig (/Users/you/app/src/config.lucent.ts:6)
+    at App (App.tsx:12)
+```
+
+An error made in Lucent, with `error()` or `new Error`, reaches JavaScript with its first stack frame at the `.lucent.ts` line that made it.
+
+## Read the logs
+
+- iOS: Console.app or Xcode's console, filtered on `[Lucent]`. `console.log` in a module writes there.
+- Android: `adb logcat -s Lucent`.
+- An error nothing catches, such as one thrown in an SDK callback, is logged as `[lucent] uncaught exception in …`.
+
+## Symbolicate a native crash
+
+The C++ carries `#line` directives, so its debug information points at your `.lucent.ts` files. With the app's dSYM on iOS, or its unstripped `.so` on Android, a crash report names the module's file and line. Xcode and Android Studio also step through `.lucent.ts` lines.
+
+## Check the setup
+
+```sh title="terminal"
+npx lucent doctor
+```
+
+`Lucent: the native module is not linked` means the app was built without the native package: run `lucent build`, then `pod install`, and rebuild. `module "x" is not in the native build` means the app is older than the module: rebuild it.
+
+Each proxy checks that the app's native code was built from the same sources as the JavaScript. When it wasn't, the error says what to do: rebuild and reinstall the app (`compile-native`), or reload JavaScript built for the installed app (`reload-js`). When only function bodies differ, it's a warning.
+
+A JavaScript update, a reload or an update over the air, can't replace native code.

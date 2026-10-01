@@ -1,0 +1,40 @@
+---
+title: Publish a Lucent library
+description: An npm package with a `lucent` field in `package.json`, its modules as source, and a `lucent.json` for its native needs.
+kind: guide
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+<Tabs>
+<TabItem label="package.json">
+
+```json title="trip-tracker/package.json" include="tutorial/8-publish/trip-tracker/package.json"
+```
+
+</TabItem>
+<TabItem label="index.ts">
+
+```ts title="trip-tracker/index.ts" include="tutorial/8-publish/trip-tracker/index.ts"
+```
+
+</TabItem>
+<TabItem label="lucent.json">
+
+```json title="trip-tracker/lucent.json" include="tutorial/8-publish/trip-tracker/lucent.json"
+```
+
+</TabItem>
+</Tabs>
+
+- `lucent.sources` is the folder with the package's modules. `lucent.compatible` is the range of Lucent versions it supports; an app outside it fails to build, naming the package.
+- `main` re-exports the modules. Metro swaps each for its proxy in the app.
+- The package ships sources only. The app compiles them with its own modules, with its own Lucent, into its one native package.
+- `lucent.json` lists what the modules need from the app: pods, Gradle dependencies, permissions, `Info.plist` entries. The app's build merges them, and fails if two packages' needs cannot both hold. See [`lucent.json`](/docs/reference/lucent-json/).
+- Modules are named `<package>/<module>`, so two packages can each have a `storage` module.
+
+```sh title="terminal"
+npm publish
+```
+
+This is the tutorial's package, which [step 8](/docs/tutorial/8-publish/) makes. [examples/lucent-haptics](https://github.com/Fausto95/lucent/tree/main/examples/lucent-haptics) is another.

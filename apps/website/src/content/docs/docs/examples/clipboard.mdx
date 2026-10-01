@@ -1,0 +1,32 @@
+---
+title: Clipboard
+description: "`expo-clipboard`'s text API on `UIPasteboard` and Android's `ClipboardManager`."
+kind: example
+---
+
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+- iOS: `UIPasteboard.general`, read and written like a property.
+- Android: `ClipboardManager`, called inside `main()` because Android lets only the focused app read the clipboard.
+- `error(code, message)` from `lucent:core` throws an error JavaScript can tell apart by its `code`.
+
+<Tabs>
+<TabItem label="module">
+
+```ts title="clipboard.lucent.ts" include="examples/clipboard.lucent.ts"
+```
+
+</TabItem>
+<TabItem label="JS usage">
+
+```tsx title="App.tsx"
+import * as Clipboard from "./src/clipboard.lucent";
+
+await Clipboard.setStringAsync("hello");
+await Clipboard.getStringAsync(); // "hello"
+```
+
+</TabItem>
+</Tabs>
+
+Source: [clipboard.lucent.ts](https://github.com/Fausto95/lucent/blob/main/scripts/example-app/src/sdk/clipboard.lucent.ts).
