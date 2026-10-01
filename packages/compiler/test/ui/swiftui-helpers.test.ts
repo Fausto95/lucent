@@ -108,10 +108,15 @@ describe.skipIf(!ios)("a SwiftUI body's helper views", () => {
 
     await expect(swift).toMatchFileSnapshot("__snapshots__/ios/Helpers.swift.snap");
 
-    // The setup computes each value with the helper's props given what its user gives.
+    // The setup computes each value with the helper's props given what its user gives: the
+    // setup's title, a constant id, a list item's fields.
     const glue = generated(built.result, /^ios\/m_todos\.mm$/);
 
-    expect(glue).toMatch(/lucent_prop\d*/);
+    expect(glue).toContain("lucent::String v1_ = props.p0_title.get();");
+    expect(glue).toContain('return lucent::String(LUCENT_STR("#")) + lucent::toJsString(0.0);');
+    expect(glue).toMatch(
+      /\(lucent::Ref<lucent_app::S_Todo> p0_\) mutable -> lucent::String \{[^}]*lucent::String v\d+_ = p0_->title;/,
+    );
     expect(swiftErrors(built)).toBe("");
   }, 300_000);
 

@@ -501,7 +501,9 @@ describe.skipIf(!ios)("a SwiftUI body", () => {
 
     const glue = generated(built.result, /^ios\/m_counter\.mm$/);
 
-    expect(glue).toMatch(/double lucent_a0 = speed\.peek\(\) \* 2\.0;/);
+    expect(glue).toMatch(
+      /double (v\d+_) = speed\.peek\(\);\n.*double (v\d+_) = \1 \* 2\.0;[^]*double lucent_a0 = \2;/,
+    );
     expect(swiftErrors(built)).toBe("");
   }, 300_000);
 

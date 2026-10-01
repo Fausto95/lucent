@@ -197,7 +197,7 @@ describe("a SwiftUI component", () => {
       const header = file(result, /^ios\/m_toggle\.h$/);
 
       expect(header).toContain(
-        "lucent::NativeRef Toggle_setup(Toggle_Props props, Toggle_Commands& lucent_commands);",
+        "lucent::NativeRef Toggle_setup(lucent_app::m_toggle::Toggle_Props p0_, Toggle_Commands& lucent_commands);",
       );
 
       // The host shows the controller's view, and contains the controller.

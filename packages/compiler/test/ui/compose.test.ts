@@ -108,12 +108,13 @@ describe.skipIf(!android)("components whose content is Compose", () => {
     );
     // A handler the content calls: the Lucent function.
     expect(glue).toMatch(/\.setAction\(\d+, flip, "toggle\.android\.lucent\.tsx:\d+"\)/);
-    // What the content reads from the setup: an effect each, the text computed in C++.
+    // What the content reads from the setup: an effect each, calling the function computing it,
+    // the text computed in C++.
     expect(glue).toMatch(
-      /lucent::ui::effect\(lucent::ui::mainGraph\(\), lucent::ui::inContent\(lucent_content, \[content_\d+, on\]\(\) mutable \{/,
+      /lucent::Fn<bool\(\)> (v\d+_) = lucent::Fn<bool\(\)>\(\[on = on\]\(\) mutable -> bool \{[^}]*return on\.get\(\);[^]*lucent::ui::effect\(lucent::ui::mainGraph\(\), lucent::ui::inContent\(lucent_content, \[content_\d+, lucent_get = \1\]\(\) mutable \{/,
     );
-    expect(glue).toMatch(/\.set\(\d+, pulses\.get\(\) == 0\.0\);/);
-    expect(glue).toContain("lucent::concat(");
+    expect(glue).toMatch(/double (v\d+_) = pulses\.get\(\);[^}]*return \1 == 0\.0;/);
+    expect(glue).toContain('+ LUCENT_STR(" taps")');
     // The mount's end disposes the composition.
     expect(glue).toMatch(/->onCleanup\(\[content_\d+\]\(\) \{\n\s+content_\d+\.dispose\(\);/);
   }, 300_000);
@@ -401,7 +402,7 @@ describe.skipIf(!android)("components whose content is Compose", () => {
     // The setup's C++ computes `label`, and composes nothing.
     const glue = result.files.get("android/m_toggle.cpp") ?? "";
 
-    expect(glue).toMatch(/\.set\(\d+, label\);/);
+    expect(glue).toMatch(/\[label = label\]\(\) mutable -> lucent::String \{[^}]*return label;/);
     expect(glue).not.toContain("isSystemInDarkTheme");
     expect(glue).not.toContain("rememberSaveable");
   }, 300_000);

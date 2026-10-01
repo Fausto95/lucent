@@ -61,7 +61,7 @@ describe("a component's React children", () => {
 
         // Setup gets the host's slot; `slot()` is that view.
         expect(file(result, `${platform}/m_card.h`)).toContain(
-          "lucent::NativeRef Card_setup(Card_Props props, Card_Commands& lucent_commands, lucent::NativeRef lucent_slot);",
+          "lucent::NativeRef Card_setup(lucent_app::m_card::Card_Props p0_, Card_Commands& lucent_commands, lucent::NativeRef lucent_slot);",
         );
         expect(file(result, `${platform}/m_card.${platform === "ios" ? "mm" : "cpp"}`)).toContain(
           "lucent::NativeRef content = lucent_slot;",
