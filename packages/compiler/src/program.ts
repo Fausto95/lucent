@@ -18,6 +18,7 @@ import {
   sdkNamesOf,
   type SdkModuleSchema,
   sourceModuleLookup,
+  WRAP_UNBOUND,
 } from "./sdk/schema.ts";
 import { toolkitDts } from "./sdk/toolkit-dts.ts";
 import { extensionDts } from "./extensions/dts.ts";
@@ -615,9 +616,10 @@ const MISSING_MEMBER = new Set([2339, 2551]);
 /**
  * What to do about a member a native library's type does not have: import
  * its module, when only its name is known (an iOS module only named in
- * other modules' signatures), else use what the installed version declares
- * or install one that has it. Undefined for any other error, and for the
- * SDK's own types, whose version the app does not choose.
+ * other modules' signatures); wrap it, when the module has it but Lucent
+ * does not bind it; else use what the installed version declares or
+ * install one that has it. Undefined for any other error, and for a member
+ * the SDK's own types lack, whose version the app does not choose.
  */
 function nativeMemberHint(
   d: ts.Diagnostic,
@@ -644,13 +646,44 @@ function nativeMemberHint(
     };
 
   const found = sdkLookup(sdk.platform, sdk.module);
-  const provenance = "schema" in found ? found.schema.provenance : undefined;
-  if (!provenance || provenance.kind === "sdk") return undefined;
+  const schema = "schema" in found ? found.schema : undefined;
+  const provenance = schema?.provenance;
+  if (!schema || !provenance) return undefined;
+
+  const skipped = skippedMember(schema, symbol.name, name.text);
+  if (skipped)
+    return {
+      message: `${skipped.api} is in ${provenance.artifact}, but Lucent does not bind it: ${skipped.reason}.`,
+      fix: WRAP_UNBOUND[sdk.platform],
+    };
+
+  if (provenance.kind === "sdk") return undefined;
 
   return {
     message: `${symbol.name} is ${spec}'s, from ${provenance.artifact} as installed, which has no ${name.text}.`,
     fix: `use what ${symbol.name} declares in this version of ${sdk.module}, or install a version that has ${name.text}`,
   };
+}
+
+/**
+ * The member `owner.member` the module's extractor skipped, as it names it
+ * (`Owner.member(…)`, or the class's full name on Android), and why.
+ */
+function skippedMember(
+  schema: SdkModuleSchema,
+  owner: string,
+  member: string,
+): { api: string; reason: string } | undefined {
+  for (const entry of schema.skipped ?? []) {
+    const at = entry.indexOf(": ");
+    const api = entry.slice(0, at);
+    const [type, name] = api.split("(")[0]!.split(/\.(?=[^.]*$)/);
+
+    if (name === member && (type === owner || type?.endsWith(`.${owner}`)))
+      return { api, reason: entry.slice(at + 2) };
+  }
+
+  return undefined;
 }
 
 /** The innermost node at `pos`. */

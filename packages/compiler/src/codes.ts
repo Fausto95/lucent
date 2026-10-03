@@ -263,7 +263,7 @@ export const Explanations: Record<Code, Explanation> = {
     summary:
       "A type with no native representation: intersections, `symbol`, `object`, `WeakMap`, `Intl`, or an index signature mixed with properties.",
     details:
-      "Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout.",
+      "Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout. A native member whose types cannot cross yet is named with its symbol and artifact: wrap it in Swift or Kotlin of your own.",
     fix: "spell the combined type out as one object type, or use a concrete type",
     wrong: ex(
       "type Named = { name: string };\ntype Aged = { age: number };\nexport function label(p: Named & Aged): string {\n  return `${p.name} (${p.age})`;\n}\n",

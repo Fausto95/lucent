@@ -99,6 +99,13 @@ export function withSdkOptions<T>(
   }
 }
 
+/** What to do about a native member Lucent does not bind: call it through code of the app's own. */
+export const WRAP_UNBOUND: Record<Platform, string> = {
+  ios: "wrap it in Swift of your own whose types Lucent binds, in a local pod the app depends on",
+  android:
+    "wrap it in Kotlin of your own whose types Lucent binds, in a Gradle module the app depends on",
+};
+
 /**
  * Whether programs that do not target a platform type its SDK modules: its
  * SDK is installed, and its imports are not deferred. Where they are not,

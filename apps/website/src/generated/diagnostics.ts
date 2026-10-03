@@ -148,7 +148,7 @@ export const explanations: { code: string; title: string; summary: string; detai
     "code": "LUCENT2002",
     "title": "Type without a native representation",
     "summary": "A type with no native representation: intersections, `symbol`, `object`, `WeakMap`, `Intl`, or an index signature mixed with properties.",
-    "details": "Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout.",
+    "details": "Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout. A native member whose types cannot cross yet is named with its symbol and artifact: wrap it in Swift or Kotlin of your own.",
     "fix": "spell the combined type out as one object type, or use a concrete type",
     "wrong": {
       "example.lucent.ts": "type Named = { name: string };\ntype Aged = { age: number };\nexport function label(p: Named & Aged): string {\n  return `${p.name} (${p.age})`;\n}\n"

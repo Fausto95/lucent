@@ -441,7 +441,7 @@ export function size(value: string): number {
 
 **Type without a native representation**
 
-Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout.
+Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout. A native member whose types cannot cross yet is named with its symbol and artifact: wrap it in Swift or Kotlin of your own.
 
 **Fix:** spell the combined type out as one object type, or use a concrete type.
 

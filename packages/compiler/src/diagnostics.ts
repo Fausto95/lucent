@@ -22,19 +22,28 @@ export interface Diagnostic {
 export class CompileError extends Error {
   readonly node: ts.Node | undefined;
   readonly code: string;
-  constructor(node: ts.Node | undefined, code: string, message: string) {
+  /** What to do, when it is this error's own rather than its code's usual fix. */
+  readonly fix: string | undefined;
+  constructor(node: ts.Node | undefined, code: string, message: string, fix?: string) {
     super(message);
     this.node = node;
     this.code = code;
+    this.fix = fix;
   }
 }
 
-export function fail(node: ts.Node | undefined, code: string, message: string): never {
-  throw new CompileError(node, code, message);
+export function fail(
+  node: ts.Node | undefined,
+  code: string,
+  message: string,
+  fix?: string,
+): never {
+  throw new CompileError(node, code, message, fix);
 }
 
 export function toDiagnostic(e: CompileError): Diagnostic {
-  if (!e.node) return { code: e.code, message: e.message };
+  const fix = e.fix ? { fix: e.fix } : {};
+  if (!e.node) return { code: e.code, message: e.message, ...fix };
   const sf = e.node.getSourceFile();
   const start = e.node.getStart(sf);
   const { line, character } = sf.getLineAndCharacterOfPosition(start);
@@ -46,6 +55,7 @@ export function toDiagnostic(e: CompileError): Diagnostic {
     column: character + 1,
     start,
     length: e.node.getEnd() - start,
+    ...fix,
   };
 }
 
