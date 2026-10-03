@@ -430,6 +430,20 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-03: The `structsIn1000` budget is 1.75x.** Passing 1,000
+`{x, y}` structs may cost up to 1.75x as much as 1,000 `add()` calls,
+up from 1.5x. _Why:_ it measured 1.38–1.45x on the development machine
+(Apple silicon) and 1.63–1.67x on the x64 Linux CI runner, before and
+after the IR. A profile puts about a third of it in two JSI
+`getProperty` reads per struct, which Hermes serves without a property
+cache, and most of the rest in reading each element and allocating its
+struct: the conversion's own work, whose cost against a host call
+depends on the CPU. Moving each loop element instead of copying it
+(2026-10-03) removed the one avoidable cost found. 1.75x still fails a
+real regression: the conversion cost 3.2x before T10's optimizations.
+_Changed:_ `scripts/bench-boundary-budgets.json`; the other boundary
+budgets are unchanged.
+
 **2026-10-02: Component setups lower through the IR.** A setup is
 lowered as functions are, its mount an ambient value of the IR that the
 functions it makes capture and enter (`closure.enters`), and a toolkit
@@ -1040,8 +1054,8 @@ the runtime, size and build budgets, rather than only producing shorter C++.
 - T10's host tooling is done; its physical-device baselines are deferred to
   the maintainer and belong to T65. Boundary budgets have thin margins:
   `structsOut1000` measured 2.56–2.71x against 2.75x on the development
-  machine, and `structsIn1000` 1.63x against 1.5x on the CI runner
-  (2026-10-01). Design reference: section 13.4.
+  machine, and `structsIn1000` 1.63–1.67x on the CI runner, now against
+  1.75x (decision of 2026-10-03). Design reference: section 13.4.
 
 <a id="t55"></a>
 
@@ -1422,20 +1436,31 @@ This final sweep does not excuse delaying docs for earlier completed tasks.
 **Goal:** Make every CI job pass on main, so a red build means a new problem
 again.
 
-- **Status:** open, ready to start.
+- **Status:** in progress.
 - **Area:** Tooling and verification.
 - **Needs:** none.
 - **Verify:** The CI workflow (`.github/workflows/ci.yml`).
 - **Where:** CI workflow, benchmark budgets, the bare example's iOS build.
 
-- [ ] Linux job (runtime, e2e, diagnostics, app check): `bench --check`
+- [x] Linux job (runtime, e2e, diagnostics, app check): `bench --check`
       fails on `structsIn1000`, 1.63x against a 1.5x budget on the CI
       runner. Find the cause; fix it, or change the budget through a
       recorded decision (requirements forbid silently weakening one).
-- [ ] macOS job (bare example, iOS simulator build): `lucent build` fails
+      Two JSI property reads and an allocation per struct, whose cost
+      against a host call depends on the CPU; a redundant reference count
+      per loop element is gone, and the budget is 1.75x by the decision of
+      2026-10-03.
+- [x] macOS job (bare example, iOS simulator build): `lucent build` fails
       with LUCENT3004, `lucent:ios/ReactAppDependencyProvider` not found, on
       the runner's Xcode 26.6 and iOS 26.5 SDK. Find out why the pod module
-      is not discovered there.
+      is not discovered there. The job ran `lucent build` before
+      `pod install`: a fresh checkout has no Pods xcconfig, so no pod was
+      searched (React Native's codegen writes that pod at `pod install`).
+      The job now installs pods before and after `lucent build`, and
+      LUCENT3004 says to run `pod install` first when no pods were read.
+      A fresh worktree ran the sequence locally.
+- [x] Website job: the generated C++ samples were stale after the IR
+      (#56, #58); regenerated.
 - [ ] Confirm the remaining jobs stay green (unit tests, Android build,
       website), then record the first fully green run on main.
 
