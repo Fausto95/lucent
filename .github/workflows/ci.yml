@@ -232,11 +232,10 @@ jobs:
       - name: Install pods (their headers, for lucent build)
         working-directory: apps/bare-example/ios
         run: bundle exec pod install
-      # Every platform: with Android's SDK on the runner, an iOS-only build still types the Android
-      # branches, whose dependencies only the Android build resolves.
-      - name: Generate the native package
+      # iOS alone: the Android job builds Android (this one leaves the Android dependencies to it).
+      - name: Generate the native package, for iOS
         working-directory: apps/bare-example
-        run: pnpm lucent
+        run: pnpm lucent --platforms ios
       - name: Install pods (linking the native package)
         working-directory: apps/bare-example/ios
         run: bundle exec pod install
