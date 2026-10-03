@@ -47,6 +47,9 @@ The repository layout, and the rules every change follows, are in
 | `pnpm check`                                  | formatting (Oxfmt), lint (Oxlint) and `pnpm typecheck`           |        |
 | `node scripts/website.ts --check`             | the website (below)                                              | Vale   |
 
+`pnpm test:runtime` and `pnpm test:e2e` build side by side, one compiler
+per core; `LUCENT_TEST_JOBS` and `LUCENT_E2E_JOBS` set how many.
+
 [docs/testing.md](docs/testing.md) explains the differential suites. Device
 checks run the example apps' test screens on the iOS simulator and the
 Android emulator before a release.
