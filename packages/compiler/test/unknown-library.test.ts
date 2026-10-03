@@ -82,6 +82,23 @@ describe.skipIf(!xcode)("an unknown library on iOS", () => {
       stdout: `gauge g at 3.5 | 3 3.5 | 3.5 box | 7.0 ${lower} | Error\n`,
     });
   }, 600_000);
+
+  it("says to import the module of a type only named in the library's signatures", () => {
+    const unimported = use
+      .replace(/^import type .*Core";\n/m, "")
+      .replace(`const unit: ${prefix}Unit =`, "const unit =");
+    const p = iosProgram(unimported, modules);
+
+    expect(p.r.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "LUCENT9001",
+        message: expect.stringContaining(
+          `${prefix}Unit is lucent:ios/${prefix}Core's, which no file imports: only its name is known`,
+        ),
+        fix: `import from lucent:ios/${prefix}Core (a type import is enough) to use ${prefix}Unit's members`,
+      }),
+    ]);
+  }, 600_000);
 });
 
 /** The library's next version, from the same place the first was installed: a pod update. */
@@ -135,6 +152,23 @@ describe.skipIf(!xcode)("an unknown library's next version on iOS", () => {
       status: 0,
       stdout: `gauge g at 3.5 | 3 3.5 | 3.5 box | 7.0 ${lower} | Error\n`,
     });
+  }, 600_000);
+
+  it("says which library and version a missing member's type is from", () => {
+    const p = iosProgram(use, [modules[0]!, next], install(next));
+
+    // One for each call of the method the new version renamed.
+    expect(p.r.diagnostics).toEqual(
+      Array.from({ length: 2 }, () =>
+        expect.objectContaining({
+          code: "LUCENT9001",
+          message: expect.stringContaining(
+            `${prefix}Gauge is lucent:ios/${prefix}Kit's, from swift-module:${prefix}Kit as installed`,
+          ),
+          fix: `use what ${prefix}Gauge declares in this version of ${prefix}Kit, or install a version that has ${lower}Bump`,
+        }),
+      ),
+    );
   }, 600_000);
 });
 
