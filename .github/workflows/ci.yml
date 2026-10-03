@@ -114,7 +114,7 @@ jobs:
           path: ~/.cache/lucent
           key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
       - name: Compiler and bindgen tests with the iOS SDK (the Linux job skips them)
-        run: pnpm test --shard=${{ matrix.shard }}/2
+        run: pnpm exec vp test run --shard=${{ matrix.shard }}/2
 
   ios:
     name: Bare example (iOS simulator build)
