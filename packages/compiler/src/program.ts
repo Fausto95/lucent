@@ -523,7 +523,8 @@ export function createLucentProgram(
   // which apps' tsconfigs (skipLibCheck) never do.
   const options = { ...compilerOptions(), skipLibCheck: !extra.libCheck };
 
-  const host = compilerHost(options, readSource, directSdkImports(files, readSource));
+  const direct = directSdkImports(files, readSource);
+  const host = compilerHost(options, readSource, direct);
   const program = ts.createProgram(
     [
       ...files.map((f) => path.resolve(f)),
@@ -596,10 +597,73 @@ export function createLucentProgram(
         )
       )
         continue;
-      diagnostics.push(fromTs(d));
+      const hint = nativeMemberHint(d, checker, direct);
+      const diagnostic = fromTs(d);
+      diagnostics.push(
+        hint
+          ? { ...diagnostic, message: `${diagnostic.message} ${hint.message}`, fix: hint.fix }
+          : diagnostic,
+      );
     }
   }
   return { program, platform, checker, modules, diagnostics };
+}
+
+/** TypeScript's errors for a member a type does not have (2551: with a suggestion). */
+const MISSING_MEMBER = new Set([2339, 2551]);
+
+/**
+ * What to do about a member a native library's type does not have: import
+ * its module, when only its name is known (an iOS module only named in
+ * other modules' signatures), else use what the installed version declares
+ * or install one that has it. Undefined for any other error, and for the
+ * SDK's own types, whose version the app does not choose.
+ */
+function nativeMemberHint(
+  d: ts.Diagnostic,
+  checker: ts.TypeChecker,
+  direct: Set<string>,
+): { message: string; fix: string } | undefined {
+  if (!MISSING_MEMBER.has(d.code) || !d.file || d.start === undefined) return undefined;
+
+  const name = nodeAt(d.file, d.start);
+  const access = name.parent;
+  if (!ts.isIdentifier(name) || !access || !ts.isPropertyAccessExpression(access)) return undefined;
+
+  const type = checker.getTypeAtLocation(access.expression);
+  const symbol = type.getSymbol() ?? type.aliasSymbol;
+  const declared = symbol?.declarations?.[0]?.getSourceFile();
+  const sdk = declared && sdkModuleOf(declared);
+  if (!symbol || !sdk) return undefined;
+
+  const spec = `lucent:${sdk.platform}/${sdk.module}`;
+  if (sdk.platform === "ios" && !direct.has(`${sdk.platform}/${sdk.module}`))
+    return {
+      message: `${symbol.name} is ${spec}'s, which no file imports: only its name is known.`,
+      fix: `import from ${spec} (a type import is enough) to use ${symbol.name}'s members`,
+    };
+
+  const found = sdkLookup(sdk.platform, sdk.module);
+  const provenance = "schema" in found ? found.schema.provenance : undefined;
+  if (!provenance || provenance.kind === "sdk") return undefined;
+
+  return {
+    message: `${symbol.name} is ${spec}'s, from ${provenance.artifact} as installed, which has no ${name.text}.`,
+    fix: `use what ${symbol.name} declares in this version of ${sdk.module}, or install a version that has ${name.text}`,
+  };
+}
+
+/** The innermost node at `pos`. */
+export function nodeAt(sf: ts.SourceFile, pos: number): ts.Node {
+  let node: ts.Node = sf;
+  for (let inner: ts.Node | undefined = sf; inner;) {
+    node = inner;
+    inner = ts.forEachChild(node, (c) =>
+      c.getStart(sf) <= pos && pos < c.getEnd() ? c : undefined,
+    );
+  }
+
+  return node;
 }
 
 /**

@@ -524,7 +524,7 @@ export const explanations: { code: string; title: string; summary: string; detai
     "code": "LUCENT9001",
     "title": "TypeScript error",
     "summary": "A TypeScript error. Lucent stops at type errors, because it compiles from the checker's types.",
-    "details": "Lucent compiles only programs that type-check: every value's native type comes from the TypeScript checker. The message is TypeScript's own.",
+    "details": "Lucent compiles only programs that type-check: every value's native type comes from the TypeScript checker. The message is TypeScript's own. When a native library's type lacks a member, Lucent adds which module and installed version declare it, or that its iOS module needs importing.",
     "fix": "fix the type error; your editor shows the same message",
     "wrong": {
       "example.lucent.ts": "export function double(n: number): number {\n  return n + \"\";\n}\n"

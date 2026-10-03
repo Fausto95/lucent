@@ -1655,7 +1655,7 @@ export function size(): number {
 
 **TypeScript error**
 
-Lucent compiles only programs that type-check: every value's native type comes from the TypeScript checker. The message is TypeScript's own.
+Lucent compiles only programs that type-check: every value's native type comes from the TypeScript checker. The message is TypeScript's own. When a native library's type lacks a member, Lucent adds which module and installed version declare it, or that its iOS module needs importing.
 
 **Fix:** fix the type error; your editor shows the same message.
 
