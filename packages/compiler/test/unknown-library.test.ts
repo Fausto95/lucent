@@ -18,6 +18,7 @@ import {
   compiles,
   hostRun,
   iosProgram,
+  moduleDir,
   prepareSwiftModules,
   type SwiftFixture,
   xcode,
@@ -75,6 +76,60 @@ describe.skipIf(!xcode)("an unknown library on iOS", () => {
     const p = iosProgram(use, modules);
 
     expect(p.r.diagnostics).toEqual([]);
+    expect(compileErrors(p)).toEqual(compiles);
+    expect(hostRun(p)).toMatchObject({
+      status: 0,
+      stdout: `gauge g at 3.5 | 3 3.5 | 3.5 box | 7.0 ${lower} | Error\n`,
+    });
+  }, 600_000);
+});
+
+/** The library's next version, from the same place the first was installed: a pod update. */
+const next: SwiftFixture = {
+  name: `${prefix}Kit`,
+  source: path.join(root, "ios", `${prefix}Kit-v2`, `${prefix}Kit.swift`),
+};
+
+/** Where the app's build finds the library: one directory, whichever version is in it. */
+const installed = path.join(root, "installed");
+
+function install(version: SwiftFixture): string[] {
+  const all = [modules[0]!, version];
+
+  fs.rmSync(installed, { recursive: true, force: true });
+  fs.cpSync(moduleDir(version, all), installed, { recursive: true });
+  return [moduleDir(modules[0]!, all), installed];
+}
+
+describe.skipIf(!xcode)("an unknown library's next version on iOS", () => {
+  beforeAll(() => {
+    prepareSwiftModules(modules);
+    prepareSwiftModules([modules[0]!, next]);
+  }, 300_000);
+
+  /** Each shim the glue calls, by its symbol: named after what it binds, not after the build. */
+  const shims = (p: { shims: string }) => new Set(p.shims.split(/(?=@_cdecl)/).slice(1));
+
+  /** The app's code, updated for the next version: it moves the gauge where it bumped it. */
+  const moved = use.replaceAll(`${lower}Bump(`, `${lower}Move(`);
+
+  it("binds the version installed now, in the same process, as lucent dev rebuilds", () => {
+    const first = iosProgram(use, modules, install(modules[1]!));
+    expect(first.r.diagnostics).toEqual([]);
+
+    const p = iosProgram(moved, [modules[0]!, next], install(next));
+    expect(p.r.diagnostics).toEqual([]);
+
+    // Only the changed member's shim changed: the rest keep their names and bodies.
+    const before = shims(first);
+    const after = shims(p);
+    expect([...before].filter((s) => !after.has(s))).toEqual([
+      expect.stringContaining(`.${lower}Bump(`),
+    ]);
+    expect([...after].filter((s) => !before.has(s))).toEqual([
+      expect.stringContaining(`.${lower}Move(by:`),
+    ]);
+
     expect(compileErrors(p)).toEqual(compiles);
     expect(hostRun(p)).toMatchObject({
       status: 0,

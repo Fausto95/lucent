@@ -34,7 +34,7 @@ const compiledModules = new Map<string, string>();
  * The directory `-I` finds a Swift module in, compiled for the simulator once
  * per process, seeing the modules listed before it in `modules`.
  */
-function moduleDir(m: SwiftFixture, modules: SwiftFixture[] = [m]): string {
+export function moduleDir(m: SwiftFixture, modules: SwiftFixture[] = [m]): string {
   const key = `${nameOf(m)}\0${sourceOf(m)}`;
   let dir = compiledModules.get(key);
   if (!dir) {
@@ -66,9 +66,14 @@ export interface IosProgram {
 
 /**
  * A program's iOS output: `src` is the iOS side of a module exporting
- * run(), compiled against the Swift fixture `modules` (none: the SDK alone).
+ * run(), compiled against the Swift fixture `modules` (none: the SDK alone),
+ * found on `includePaths`: by default, where each was compiled.
  */
-export function iosProgram(src: string, modules: SwiftFixture[] = []): IosProgram {
+export function iosProgram(
+  src: string,
+  modules: SwiftFixture[] = [],
+  includePaths = modules.map((m) => moduleDir(m, modules)),
+): IosProgram {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-swift-"));
   const files = {
     "m.lucent.ts": "export declare function run(): Promise<string>;\n",
@@ -77,7 +82,6 @@ export function iosProgram(src: string, modules: SwiftFixture[] = []): IosProgra
   };
   for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), text);
 
-  const includePaths = modules.map((m) => moduleDir(m, modules));
   const r = compile(
     Object.keys(files).map((f) => path.join(dir, f)),
     {
