@@ -151,6 +151,14 @@ function toolkitTypesPath(name: ToolkitName): string {
 /** Each source module's toolkit declarations, written once per schema. */
 const toolkitTexts = new WeakMap<SdkModuleSchema, string>();
 
+/**
+ * Each SDK module's declarations, written once per schema (they depend on
+ * nothing else), and each names-only module's, once per names index: every
+ * compile asks for them, and writing UIKit's or Foundation's takes seconds.
+ */
+const sdkTexts = new WeakMap<SdkModuleSchema, string>();
+const stubTexts = new WeakMap<object, string>();
+
 /** A generated toolkit's declarations, or why there are none. */
 function toolkitDeclarations(name: ToolkitName): { text: string } | { missing: string } {
   const toolkit = TOOLKITS[name];
@@ -200,11 +208,17 @@ function virtualSdkText(file: string, direct: Set<string>): string | undefined {
   const module = m[2]!;
   if (platform === "ios" && !direct.has(`${platform}/${module}`)) {
     const names = sdkNamesOf(platform, module);
-    return names ? stubDts(platform, module, names) : undefined;
+    if (!names) return undefined;
+
+    let stub = stubTexts.get(names);
+    if (stub === undefined) stubTexts.set(names, (stub = stubDts(platform, module, names)));
+
+    return stub;
   }
   const schema = findSdkModule(platform, module);
   if (!schema) return undefined;
-  const text = sdkDts(schema);
+  let text = sdkTexts.get(schema);
+  if (text === undefined) sdkTexts.set(schema, (text = sdkDts(schema)));
   // Modules it re-exports are used as directly as it is.
   for (const r of text.matchAll(/^export \* from "lucent:(ios\/_\w+)";$/gm)) direct.add(r[1]!);
   return text;
