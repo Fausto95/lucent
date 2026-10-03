@@ -36,8 +36,14 @@ const KOTLIN_JARS = [
   "kotlinx-coroutines-core-jvm.jar",
 ];
 
-/** This process's server: its socket, null when it could not start, undefined before trying. */
-let socket: string | null | undefined;
+/**
+ * This process's server: its socket, null when it could not start. Kept on
+ * the process, not this module: vitest imports the module again for each
+ * test file, and a server per file would pile up JVMs in each worker.
+ */
+const state = ((globalThis as Record<symbol, unknown>)[Symbol.for("lucent.jvm-tools")] ??= {}) as {
+  socket?: string | null;
+};
 
 const sleep = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
@@ -90,7 +96,7 @@ function serverClasses(): string | undefined {
 
 /** The socket of this process's server, started on first use; undefined when it cannot. */
 function server(): string | undefined {
-  if (socket !== undefined) return socket ?? undefined;
+  if (state.socket !== undefined) return state.socket ?? undefined;
 
   const classes = serverClasses();
   // A short path: a Unix socket's must fit in about a hundred bytes.
@@ -126,7 +132,7 @@ function server(): string | undefined {
   }
 
   const started = !!at && fs.existsSync(at) && child?.exitCode === null;
-  socket = started ? at : null;
+  state.socket = started ? at : null;
 
   return started ? at : undefined;
 }
@@ -149,7 +155,7 @@ function run(tool: string, command: string, args: string[]): ToolResult {
     if (r.status !== UNREACHABLE) return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 
     // The server went away: the commands from now on.
-    socket = null;
+    state.socket = null;
   }
 
   const r = spawnSync(command, args, { encoding: "utf8", maxBuffer: 1 << 26 });
