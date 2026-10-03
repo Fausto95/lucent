@@ -1,5 +1,5 @@
 name: ccache
-description: Compiles through ccache, its cache kept across runs under `key`. On Linux the compilers on the PATH (clang, clang++, g++) become ccache's, so scripts that run them by name use it.
+description: Compiles through ccache, its cache kept across main's runs under `key` and read by pull requests. On Linux the compilers on the PATH (clang, clang++, g++) become ccache's, so scripts that run them by name use it.
 inputs:
   key:
     description: What names this job's cache (its objects differ from other jobs').
@@ -18,8 +18,20 @@ runs:
           HOMEBREW_NO_AUTO_UPDATE=1 HOMEBREW_NO_INSTALL_CLEANUP=1 brew install ccache
         fi
         echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
-    - name: Compiler cache (objects of earlier runs)
+        # Bounded: each run's cache is saved whole, and the repository's caches share 10 GB.
+        echo "CCACHE_MAXSIZE=400M" >> "$GITHUB_ENV"
+    # Saved from main's runs alone, which pull requests read: one per pull request push would
+    # evict the others within a few runs.
+    - name: Compiler cache (objects of main's earlier runs, saved)
+      if: github.ref == 'refs/heads/main'
       uses: actions/cache@v4
+      with:
+        path: ~/.ccache
+        key: ccache-${{ inputs.key }}-${{ github.sha }}
+        restore-keys: ccache-${{ inputs.key }}-
+    - name: Compiler cache (objects of main's runs)
+      if: github.ref != 'refs/heads/main'
+      uses: actions/cache/restore@v4
       with:
         path: ~/.ccache
         key: ccache-${{ inputs.key }}-${{ github.sha }}
