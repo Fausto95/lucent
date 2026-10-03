@@ -32,10 +32,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/lucent
-          key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
-          # An older cache still serves: its entries are keyed by SDK and extractor, and the ones a
-          # changed extractor no longer reads are extracted again beside them.
-          restore-keys: lucent-sdk-${{ runner.os }}-
+          # One per job: each keeps what it extracted (the first job to finish would otherwise save
+          # the only cache, without the others' modules).
+          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
+          # An older cache still serves, another job's too: its entries are keyed by SDK and
+          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
+          restore-keys: |
+            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
+            lucent-sdk-${{ runner.os }}-
       - run: pnpm typecheck
         if: matrix.shard == 1
       - run: pnpm exec vp test run --shard=${{ matrix.shard }}/2
@@ -95,10 +99,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/lucent
-          key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
-          # An older cache still serves: its entries are keyed by SDK and extractor, and the ones a
-          # changed extractor no longer reads are extracted again beside them.
-          restore-keys: lucent-sdk-${{ runner.os }}-
+          # One per job: each keeps what it extracted (the first job to finish would otherwise save
+          # the only cache, without the others' modules).
+          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
+          # An older cache still serves, another job's too: its entries are keyed by SDK and
+          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
+          restore-keys: |
+            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
+            lucent-sdk-${{ runner.os }}-
       - name: ${{ matrix.name }}
         run: ${{ matrix.run }}
       - name: Compiler cache statistics
@@ -123,14 +131,15 @@ jobs:
       - run: pnpm --filter @lucent-lang/website typecheck
       - run: pnpm website:build
 
-  # The tests that need the iOS SDK, in four shards, beside the app build.
+  # The tests that need the iOS SDK, in three shards beside the app build and the checks: five
+  # macOS jobs, as many as the account runs at once.
   ios-test:
-    name: Unit tests with the iOS SDK (${{ matrix.shard }}/4)
+    name: Unit tests with the iOS SDK (${{ matrix.shard }}/3)
     runs-on: macos-26
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3]
     env:
       LANG: en_US.UTF-8
       LC_ALL: en_US.UTF-8
@@ -146,12 +155,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/lucent
-          key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
-          # An older cache still serves: its entries are keyed by SDK and extractor, and the ones a
-          # changed extractor no longer reads are extracted again beside them.
-          restore-keys: lucent-sdk-${{ runner.os }}-
+          # One per job: each keeps what it extracted (the first job to finish would otherwise save
+          # the only cache, without the others' modules).
+          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
+          # An older cache still serves, another job's too: its entries are keyed by SDK and
+          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
+          restore-keys: |
+            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
+            lucent-sdk-${{ runner.os }}-
       - name: Compiler and bindgen tests with the iOS SDK (the Linux job skips them)
-        run: pnpm exec vp test run --shard=${{ matrix.shard }}/4
+        run: pnpm exec vp test run --shard=${{ matrix.shard }}/3
 
   # Beside the app build: SDK coverage and the runtime under libc++'s sanitizers.
   ios-checks:
@@ -164,10 +177,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/lucent
-          key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
-          # An older cache still serves: its entries are keyed by SDK and extractor, and the ones a
-          # changed extractor no longer reads are extracted again beside them.
-          restore-keys: lucent-sdk-${{ runner.os }}-
+          # One per job: each keeps what it extracted (the first job to finish would otherwise save
+          # the only cache, without the others' modules).
+          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
+          # An older cache still serves, another job's too: its entries are keyed by SDK and
+          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
+          restore-keys: |
+            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
+            lucent-sdk-${{ runner.os }}-
       - name: SDK coverage (fails when a module's unrepresentable share grows past sdk-coverage.json)
         run: node packages/lucent/bin/lucent.cjs sdk coverage --ios UIKit,Foundation,AVFoundation,StoreKit,CryptoKit --android 'android.*' --json --check sdk-coverage.json > sdk-coverage.current.json
       - name: Keep the coverage report
@@ -199,10 +216,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/lucent
-          key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
-          # An older cache still serves: its entries are keyed by SDK and extractor, and the ones a
-          # changed extractor no longer reads are extracted again beside them.
-          restore-keys: lucent-sdk-${{ runner.os }}-
+          # One per job: each keeps what it extracted (the first job to finish would otherwise save
+          # the only cache, without the others' modules).
+          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
+          # An older cache still serves, another job's too: its entries are keyed by SDK and
+          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
+          restore-keys: |
+            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
+            lucent-sdk-${{ runner.os }}-
       - uses: ./.github/actions/ccache
         with:
           key: ios
@@ -250,10 +271,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/lucent
-          key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
-          # An older cache still serves: its entries are keyed by SDK and extractor, and the ones a
-          # changed extractor no longer reads are extracted again beside them.
-          restore-keys: lucent-sdk-${{ runner.os }}-
+          # One per job: each keeps what it extracted (the first job to finish would otherwise save
+          # the only cache, without the others' modules).
+          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
+          # An older cache still serves, another job's too: its entries are keyed by SDK and
+          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
+          restore-keys: |
+            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
+            lucent-sdk-${{ runner.os }}-
       - uses: ./.github/actions/ccache
         with:
           key: android
