@@ -107,12 +107,15 @@ interface Loaded {
 
 const loaded = new Map<string, Loaded>();
 const located = new Map<string, Resolved | { missing: string }>();
+/** What each xcrun says of the simulator SDK: its path, version and build, asked once. */
+const iosSdks = new Map<string, (string | undefined)[]>();
 const headerIndexes = new Map<string, Record<string, string>>();
 
 /** Forgets what this process loaded, as a new process would (tests). */
 export function forgetLoadedSdks(): void {
   loaded.clear();
   located.clear();
+  iosSdks.clear();
   headerIndexes.clear();
   locatedByObject = new WeakMap();
 }
@@ -419,9 +422,14 @@ function podOf(files: string[], podsDir: string, pods: Map<string, unknown>): st
 
 function locateIos(opts: SdkOptions): Resolved | { missing: string } {
   const xcrun = opts.ios?.xcrun ?? process.env.LUCENT_XCRUN ?? "xcrun";
-  const sdk = run(xcrun, ["--sdk", "iphonesimulator", "--show-sdk-path"]);
-  const version = run(xcrun, ["--sdk", "iphonesimulator", "--show-sdk-version"]);
-  const build = run(xcrun, ["--sdk", "iphonesimulator", "--show-sdk-build-version"]);
+  let answers = iosSdks.get(xcrun);
+  if (!answers) {
+    answers = ["--show-sdk-path", "--show-sdk-version", "--show-sdk-build-version"].map((q) =>
+      run(xcrun, ["--sdk", "iphonesimulator", q]),
+    );
+    iosSdks.set(xcrun, answers);
+  }
+  const [sdk, version, build] = answers;
   if (!sdk || !version || !build) {
     return {
       missing: `the iOS SDK was not found (${xcrun} --sdk iphonesimulator failed). Install Xcode and select it: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`,
