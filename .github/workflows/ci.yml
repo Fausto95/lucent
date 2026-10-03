@@ -126,10 +126,15 @@ jobs:
           path: sdk-coverage.current.json
       - name: Runtime unit tests (ASan/UBSan, libc++)
         run: SANITIZE=1 packages/runtime/test/run.sh
+      # lucent build reads the pods' headers from the Pods xcconfig, and pod install links the
+      # native package lucent build writes: a fresh checkout installs pods on each side of it.
+      - name: Install pods (their headers, for lucent build)
+        working-directory: apps/bare-example/ios
+        run: bundle exec pod install
       - name: Generate the native package
         working-directory: apps/bare-example
         run: pnpm lucent
-      - name: Install pods
+      - name: Install pods (linking the native package)
         working-directory: apps/bare-example/ios
         run: bundle exec pod install
       - name: Build
