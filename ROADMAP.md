@@ -115,18 +115,19 @@ Everything is tested on hosts, the iOS simulator and the Android emulator.
 Nothing has run on a physical device yet: those checks are deferred to the
 maintainer.
 
-| Gate | Meaning                                      | Closing task | State                |
-| ---- | -------------------------------------------- | ------------ | -------------------- |
-| G0   | Dispatch ready: baseline and first contracts | T00, T01     | done (2026-09-25)    |
-| G1   | Automatic binding ready                      | [T28](#t28)  | open, ready to start |
-| G2   | View architecture proved                     | T44          | done (2026-09-26)    |
-| G3   | Wrapper preview ready                        | [T52](#t52)  | open                 |
-| G4   | Production candidate                         | [T67](#t67)  | open                 |
-| G5   | Production recommendation                    | [T70](#t70)  | open                 |
+| Gate | Meaning                                      | Closing task | State             |
+| ---- | -------------------------------------------- | ------------ | ----------------- |
+| G0   | Dispatch ready: baseline and first contracts | T00, T01     | done (2026-09-25) |
+| G1   | Automatic binding ready                      | [T28](#t28)  | in review         |
+| G2   | View architecture proved                     | T44          | done (2026-09-26) |
+| G3   | Wrapper preview ready                        | [T52](#t52)  | open              |
+| G4   | Production candidate                         | [T67](#t67)  | open              |
+| G5   | Production recommendation                    | [T70](#t70)  | open              |
 
 What's next, in order of readiness:
 
-1. [T28](#t28): prove automatic binding with unknown libraries (closes G1).
+1. [T28](#t28): prove automatic binding with unknown libraries (closes G1):
+   in review; its binding gaps became [TA30](#ta30) to [TA34](#ta34).
 2. [T48](#t48): JSX for any SDK view, building on the toolkit JSX; then
    [T49](#t49) and [T50](#t50).
 3. [T52](#t52) with [TA25](#ta25) and [TA26](#ta26): wrapper ports and the
@@ -184,7 +185,7 @@ Goal: Call the iOS and Android SDKs directly from Lucent.
 - ✅ A coverage report of what each SDK binds, and why the rest is skipped.
 - ✅ Pinning the SDKs a project uses, and listing what an SDK update changes for your code.
 - ✅ Ports of Expo and community modules, checked against the originals.
-- ⏳ Native libraries nobody has seen before, bound and run with no change to Lucent.
+- 🚧 Native libraries nobody has seen before, bound and run with no change to Lucent.
 - 🔭 Weak references.
 - 🔭 Binding the APIs of Swift Package Manager libraries.
 
@@ -430,6 +431,17 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
+
+**2026-10-03: Android glue runs on a desktop JVM in tests.** T28 executes
+an unknown Android library through Lucent's real JNI glue on a JVM the
+test starts (the desktop JNI host), not on an emulator: `android.cpp`'s
+JNI also builds with `LUCENT_JNI_HOST`, and the host supplies the thread's
+`JNIEnv`, the main thread and stand-ins for the two Android classes
+Lucent's Java reads. _Why:_ it runs in CI on any machine with a JDK, in
+seconds, and catches JNI mistakes (`-Xcheck:jni`); an emulator run needs
+the Android build and a device. _Changed:_ views still need Android to
+mount, so an Android view's glue is compile-checked there; the emulator
+remains the example apps' check (V5).
 
 **2026-10-03: CI reports the boundary and floor ratios, a stable machine
 enforces them.** On CI (`bench.ts --check --shared-runner`) the budgets
@@ -709,12 +721,12 @@ with no change to Lucent. The gate closes with T28's evidence: randomized
 fixture libraries, a new artifact version and a transitive dependency,
 extracted, type-checked, compiled and executed on both platforms.
 
-Every dependency of T28 is done, so this gate is ready to start. Scoped
-native work may continue before it closes.
+T28's evidence passes on its branch, so this gate closes when it merges.
+Scoped native work may continue before it closes.
 
-| Task        | Title                                                  | Needs | Status |
-| ----------- | ------------------------------------------------------ | ----- | ------ |
-| [T28](#t28) | Prove automatic binding with unknown fixture libraries | —     | ready  |
+| Task        | Title                                                  | Needs | Status    |
+| ----------- | ------------------------------------------------------ | ----- | --------- |
+| [T28](#t28) | Prove automatic binding with unknown fixture libraries | —     | in review |
 
 The Needs column lists only open dependencies.
 
@@ -725,7 +737,8 @@ The Needs column lists only open dependencies.
 **Goal:** Show that a native library Lucent has never seen binds and runs
 end to end by rule, with no change to Lucent.
 
-- **Status:** open, ready to start.
+- **Status:** in review (2026-10-03): every item below passes on its
+  branch.
 - **Area:** Verification, with a bindings review.
 - **Needs:** T11 (done), T13 (done), T17 (done), T25 (done), T26 (done), T27
   (done).
@@ -733,21 +746,53 @@ end to end by rule, with no change to Lucent.
 - **Where:** Generated, randomized native fixtures and the capability
   evidence.
 
-- [ ] Build Lucent first, then generate and install fixtures with randomized
+- [x] Build Lucent first, then generate and install fixtures with randomized
       module, class, callback, generic and async declaration names.
-- [ ] Extract, type-check, emit, compile and execute their APIs without
+      `packages/compiler/test/unknown-library.test.ts` copies
+      `fixtures/unknown-library` under a prefix drawn at random on every
+      run (file, module, package and member names): Swift modules and an
+      Objective-C view on iOS, Kotlin jars and an `android.view.View`
+      subclass on Android.
+- [x] Extract, type-check, emit, compile and execute their APIs without
       changing Lucent; repeat for a new artifact version and for a
-      transitive dependency.
-- [ ] Assert that supported shapes need no framework-specific override, and
+      transitive dependency. A class hierarchy, a callback implemented by
+      a Lucent class, a generic wrapper, an async (`suspend`) method that
+      succeeds and throws, and a type from a dependency in its own module
+      or jar run on the macOS host (iOS) and on a JVM through the JNI glue
+      (Android, the desktop JNI host), with the same output. The iOS view
+      mounts on Mac Catalyst (props, an event, a command, release); the
+      Android view binds and its glue compiles. A new version installed in
+      place binds in the same process, and only the changed member's shim
+      changes.
+- [x] Assert that supported shapes need no framework-specific override, and
       that unsupported shapes get precise diagnostics naming the raw API or
-      the extension path.
-- [ ] Record the G1 evidence, and turn the remaining type-shape gaps into
-      explicit tasks (start from the known gaps below).
+      the extension path. Nothing in Lucent names the fixtures. A member
+      the new version dropped names its module and artifact
+      (`swift-module:…`, `pod:…@version`); a skipped one (a tuple) says it
+      exists, why it is not bound, and to wrap it in Swift or Kotlin of the
+      app's own; a refused one (a returned function, LUCENT2002) names its
+      symbol and artifact with the same fix; a type only named in another
+      module's signatures says to import its module.
+- [x] Record the G1 evidence, and turn the remaining type-shape gaps into
+      explicit tasks (start from the known gaps below): [TA30](#ta30) to
+      [TA34](#ta34).
 
 **Done when:** unknown names work end to end by rule. Passing only schema
 snapshots, or renaming a class that is already handled, is not enough.
 
 **Notes:**
+
+- Found and fixed on the way: a process resolved a platform's artifacts
+  once, so `lucent dev` and the editor kept a library's old API after a
+  `pod install` (now once per build); a missing member was TypeScript's
+  error alone; Android's JNI runtime reading a `Throwable` skipped
+  exception checks between calls (HotSpot's `-Xcheck:jni` reports it; the
+  desktop JNI host runs with it).
+- New gaps: a Kotlin function type is bound as the `Function1` class; a
+  property of an interface type takes no Lucent function, and a view may
+  not give it an object either, so a view cannot set one (both
+  [TA30](#ta30)); a class whose superclass's module is only named gets a
+  misleading error for its inherited initializers ([TA33](#ta33)).
 
 - The fixture, from the design's acceptance scenario: a random namespace, a
   class hierarchy, a callback interface, a generic wrapper, a view subclass
@@ -755,16 +800,17 @@ snapshots, or renaming a class that is already handled, is not enough.
   method; check cache invalidation, stable unaffected names and an
   actionable missing-member diagnostic. Execute at least one call, one
   callback and one view.
-- Known gaps to classify. From T26: Kotlin shims refuse generic members,
+- Known gaps, now tasks. From T26 ([TA31](#ta31)): Kotlin shims refuse generic members,
   Lucent functions passed as `suspend` functions, assigning value classes,
   and implementing such members; defaults are not optional for generic
-  members. From T11: Swift Package Manager modules are not discovered
-  (packages can declare and link them), the iOS target used for extraction
-  is fixed rather than read from the project, and `use_frameworks!` with
-  dynamic linkage is not built. From T25: a `lucent:android` helper turning
-  a `Throwable` into the `Error` a thrown one becomes would let adapters
-  keep the error's `code`. From the improvement plan (2026-09-23, not
-  rechecked since): factory initializers that Swift imports as `init` are
+  members. From T11 ([TA32](#ta32)): Swift Package Manager modules are not
+  discovered (packages can declare and link them), the iOS target used for
+  extraction is fixed rather than read from the project, and
+  `use_frameworks!` with dynamic linkage is not built ([T62](#t62)). From
+  T25 ([TA34](#ta34)): a `lucent:android` helper turning a `Throwable` into
+  the `Error` a thrown one becomes would let adapters keep the error's
+  `code`. From the improvement plan (2026-09-23, not rechecked since,
+  [TA33](#ta33)): factory initializers that Swift imports as `init` are
   dropped by the extractor, and functions Swift imports as members of
   CoreFoundation-style handles (`cgImage.width`) are not bound.
 
@@ -1061,24 +1107,29 @@ lists, gestures, media, background targets), the distribution matrix, the
 no-catalog audit, stress tests, physical-device budgets, complete docs and a
 green CI. The gate closes with T67.
 
-T54 and T60 are ready now (CI has been green on main since 2026-10-03). The rest
-follow G1 and G3 work. Several tasks need physical devices, which only the
-maintainer can run.
+T54, T60 and T28's binding follow-ups (TA30 to TA34) are ready now (CI has
+been green on main since 2026-10-03). The rest follow G1 and G3 work.
+Several tasks need physical devices, which only the maintainer can run.
 
-| Task        | Title                                                           | Needs                   | Status               |
-| ----------- | --------------------------------------------------------------- | ----------------------- | -------------------- |
-| [T54](#t54) | Implement measured compiler and runtime optimizations           | —                       | ready                |
-| [T55](#t55) | Implement native recycled and virtualized lists                 | T49, T50, T52           | waiting (maintainer) |
-| [T56](#t56) | Add native gestures and frame-driven animation facilities       | T51, T52                | waiting (maintainer) |
-| [T59](#t59) | Prove media pipelines, high-rate streams and callback executors | T52                     | waiting (maintainer) |
-| [T60](#t60) | Implement headless, background and additional native targets    | —                       | ready (maintainer)   |
-| [T61](#t61) | Finish the editor, doctor, SDK and debugging workflows          | T48                     | waiting              |
-| [T62](#t62) | Run the distribution and supported-version compatibility matrix | T52, T60, T61           | waiting              |
-| [T63](#t63) | Run the final no-catalog audit, including views and extensions  | T28, T48, T50           | waiting              |
-| [T64](#t64) | Run lifetime, concurrency and Fabric stress validation          | T49, T55, T59, T60      | waiting (maintainer) |
-| [T65](#t65) | Enforce physical-device performance budgets                     | T54, T55, T56, T59, T64 | waiting (maintainer) |
-| [T66](#t66) | Complete user documentation and migration examples              | T51, T52, T60, T61      | waiting              |
-| [T67](#t67) | Pass the integrated production-candidate gate                   | T62, T63, T64, T65, T66 | waiting (maintainer) |
+| Task          | Title                                                           | Needs                   | Status               |
+| ------------- | --------------------------------------------------------------- | ----------------------- | -------------------- |
+| [T54](#t54)   | Implement measured compiler and runtime optimizations           | —                       | ready                |
+| [T55](#t55)   | Implement native recycled and virtualized lists                 | T49, T50, T52           | waiting (maintainer) |
+| [T56](#t56)   | Add native gestures and frame-driven animation facilities       | T51, T52                | waiting (maintainer) |
+| [T59](#t59)   | Prove media pipelines, high-rate streams and callback executors | T52                     | waiting (maintainer) |
+| [T60](#t60)   | Implement headless, background and additional native targets    | —                       | ready (maintainer)   |
+| [T61](#t61)   | Finish the editor, doctor, SDK and debugging workflows          | T48                     | waiting              |
+| [T62](#t62)   | Run the distribution and supported-version compatibility matrix | T52, T60, T61           | waiting              |
+| [T63](#t63)   | Run the final no-catalog audit, including views and extensions  | T28, T48, T50           | waiting              |
+| [T64](#t64)   | Run lifetime, concurrency and Fabric stress validation          | T49, T55, T59, T60      | waiting (maintainer) |
+| [T65](#t65)   | Enforce physical-device performance budgets                     | T54, T55, T56, T59, T64 | waiting (maintainer) |
+| [T66](#t66)   | Complete user documentation and migration examples              | T51, T52, T60, T61      | waiting              |
+| [TA30](#ta30) | Bind Kotlin function types and callback properties              | —                       | ready                |
+| [TA31](#ta31) | Finish the Kotlin shim shapes                                   | —                       | ready                |
+| [TA32](#ta32) | Read Swift packages and the iOS target from the project         | —                       | ready                |
+| [TA33](#ta33) | Bind the remaining Swift shapes                                 | —                       | ready                |
+| [TA34](#ta34) | Turn a Java Throwable into a Lucent Error                       | —                       | ready                |
+| [T67](#t67)   | Pass the integrated production-candidate gate                   | T62, T63, T64, T65, T66 | waiting (maintainer) |
 
 The Needs column lists only open dependencies.
 
@@ -1499,6 +1550,137 @@ match shipped behavior.
 
 **Done when:** the docs support independent use and match shipped behavior.
 This final sweep does not excuse delaying docs for earlier completed tasks.
+
+<a id="ta30"></a>
+
+### TA30: Bind Kotlin function types and callback properties
+
+**Goal:** Let Lucent functions be Kotlin function types and fill
+callback properties, which T28's unknown Android view could not.
+
+- **Status:** open, ready to start.
+- **Area:** Bindings, Android host.
+- **Needs:** none.
+- **Verify:** V1, V4.
+- **Where:** Kotlin metadata to schema types, Android declarations and
+  JNI glue (`NativeProxy` for `kotlin.jvm.functions`), the view rules.
+
+- [ ] Bind a Kotlin function type (`(Double) -> Unit`, nullable or not) as
+      a TypeScript function type both ways: a Lucent function passed or
+      assigned becomes a `FunctionN` proxy, and a Kotlin one returned is
+      callable.
+- [ ] Let a property of a single-method interface type take a Lucent
+      function, as a method parameter of that type does.
+- [ ] Let a view set such a property with a function (its call runs on the
+      main thread), instead of refusing every way to set it (LUCENT3021).
+- [ ] Extend T28's unknown library: its Android dial takes a Kotlin
+      function-typed property, run on the desktop JNI host where it does
+      not need a view.
+
+**Done when:** the idiomatic Kotlin callback shapes bind by rule, in
+module code and in views.
+
+**Notes:**
+
+- Found by T28: `var onTurn: ((Double) -> Unit)?` is typed as the class
+  `Function1<number, Unit>`; a `fun interface` property rejects a function
+  (TS2322), and a view refuses an object implementing it.
+
+<a id="ta31"></a>
+
+### TA31: Finish the Kotlin shim shapes
+
+**Goal:** Call the Kotlin members T26's shims refuse.
+
+- **Status:** open, ready to start.
+- **Area:** Bindings, Android host.
+- **Needs:** none.
+- **Verify:** V1, V4.
+- **Where:** `packages/compiler/src/emit/kotlin.ts`, the shim plans.
+
+- [ ] Generic members (functions and properties of a type parameter).
+- [ ] Lucent functions passed as `suspend` functions.
+- [ ] Assigning value classes, and implementing members that take them.
+- [ ] Defaults left out for generic members.
+
+**Done when:** each shape is called through a shim and checked by the
+Kotlin shim tests, or refused with a diagnostic naming the member.
+
+<a id="ta32"></a>
+
+### TA32: Read Swift packages and the iOS target from the project
+
+**Goal:** Bind Swift packages an app adds, against the iOS version the app
+targets.
+
+- **Status:** open, ready to start.
+- **Area:** Bindings, Apple host, build.
+- **Needs:** none.
+- **Verify:** V1, V4, V5.
+- **Where:** `packages/bindgen/src/provider.ts` (iOS artifacts), the Xcode
+  project reader.
+
+- [ ] Discover Swift Package Manager modules the app's Xcode project
+      resolves, as pods are, keyed by their resolved versions.
+- [ ] Extract against the deployment target the project sets, not a fixed
+      one.
+
+**Done when:** an app's Swift package binds by rule, and an API newer than
+the app's target needs an availability check.
+
+**Notes:** `use_frameworks!` with dynamic linkage is [T62](#t62)'s.
+
+<a id="ta33"></a>
+
+### TA33: Bind the remaining Swift shapes
+
+**Goal:** Bind or precisely refuse the Swift shapes still left out.
+
+- **Status:** open, ready to start.
+- **Area:** Bindings, Apple host.
+- **Needs:** none.
+- **Verify:** V1, V4.
+- **Where:** `packages/bindgen/src/swift.ts`, `ios.ts`, the Swift shims.
+
+- [ ] Tuples, which the extractor skips (now explained when called).
+- [ ] Functions returned by or passed to Swift (LUCENT2002, "fn values
+      cannot cross to Swift yet").
+- [ ] Factory initializers Swift imports as `init`, which the extractor
+      drops (recheck first: recorded 2026-09-23).
+- [ ] Members Swift imports onto CoreFoundation-style handles
+      (`cgImage.width`; recheck first).
+- [ ] A subclass's initializers inherited from a class whose module is only
+      named: today `new Dial(frame)` fails with TS2674 (UIView's
+      constructor is protected) until UIKit is imported. Type them, or say
+      to import the superclass's module.
+
+**Done when:** each shape binds by rule, or its diagnostic names the member
+and what to do.
+
+<a id="ta34"></a>
+
+### TA34: Turn a Java Throwable into a Lucent Error
+
+**Goal:** Let adapters reject with the `Error` a thrown Java exception
+becomes, its `code` kept.
+
+- **Status:** open, ready to start.
+- **Area:** Runtime, Android host.
+- **Needs:** none.
+- **Verify:** V1, V3.
+- **Where:** `lucent:android`, `packages/runtime/cpp/lucent/platform/android.cpp`
+  (`errorOf`).
+
+- [ ] Add a `lucent:android` function taking a `Throwable` and returning
+      the `Error` Lucent makes of a thrown one (`name`, `message`, `code`
+      as the class name).
+- [ ] Use it in an adapter test where a callback API reports failure with a
+      `Throwable`.
+
+**Done when:** an adapter's rejection has the same `code` as a thrown
+exception's.
+
+**Notes:** From T25, which removed the named awaitable dispatch.
 
 <a id="t67"></a>
 
@@ -2043,7 +2225,7 @@ Last recorded runs:
   typed yet, and extension calls cannot be cancelled.
 - Tracing records allocations for native buffers only, and its buffer
   uses one mutex: fine for debugging, not for continuous production use.
-- The known binding gaps are listed under [T28](#t28).
+- The known binding gaps are tasks [TA30](#ta30) to [TA34](#ta34).
 
 ## Design slices and tasks
 

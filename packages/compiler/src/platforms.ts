@@ -1,7 +1,13 @@
 import path from "node:path";
 import ts from "typescript";
 import { Codes, type Diagnostic } from "./diagnostics.ts";
-import { builtinSdkModuleOf, type LucentProgram, moduleNameOf, platformOf } from "./program.ts";
+import {
+  builtinSdkModuleOf,
+  type LucentProgram,
+  moduleNameOf,
+  nodeAt,
+  platformOf,
+} from "./program.ts";
 import { type Platform, PLATFORMS } from "./sdk/schema.ts";
 import { toolkitRootType } from "./ui/roots.ts";
 import { TOOLKITS, type ToolkitName, toolkitOfModule } from "./ui/toolkits.ts";
@@ -581,13 +587,7 @@ export function inUntypedPlatformCode(
     return false;
   const sf = lp.program.getSourceFile(path.resolve(d.file));
   if (!sf) return false;
-  let node: ts.Node = sf;
-  for (let inner: ts.Node | undefined = sf; inner;) {
-    node = inner;
-    inner = ts.forEachChild(node, (c) =>
-      c.getStart(sf) <= d.start! && d.start! < c.getEnd() ? c : undefined,
-    );
-  }
+  const node = nodeAt(sf, d.start);
   const stmt = sf.statements.find((s) => s.getStart(sf) <= d.start! && d.start! < s.getEnd());
   const p =
     (ts.isIdentifier(node) ? importedFrom(sf, node.text) : undefined) ??

@@ -33,6 +33,26 @@ the build.
 | `node scripts/smoke-install.ts`               | packed packages install and run in an empty project                                                                                                                                                                                                    | no           |
 | `pnpm typecheck`                              | the repository's own TypeScript                                                                                                                                                                                                                        | no           |
 
+## Platform code on the host
+
+Slow tests run a program's platform code without a device:
+
+- **iOS on the macOS host** (`packages/compiler/test/swift-harness.ts`):
+  the Swift shims and Objective-C++ glue, linked with the runtime and Swift
+  fixture modules, call `run()` on the Lucent thread.
+- **Views on Mac Catalyst** (`test/ui/mount-harness.ts`): a component's
+  Fabric glue mounts its UIKit view; a driver commits props, sends events
+  and commands, and unmounts it.
+- **Android on a desktop JVM** (`test/jni-harness.ts`, the desktop JNI
+  host): the JNI glue, `android.cpp`'s JNI (built with `LUCENT_JNI_HOST`)
+  and the host runtime start a JVM on the app's jars and call `run()`
+  under `-Xcheck:jni`. There is no Android OS: the main thread is the host
+  runtime's, `android.os.Build` and `android.util.Log` are stand-ins
+  (`test/jni-host/java`), and an Android view's glue is only compiled.
+
+`unknown-library.test.ts` uses all three on a native library whose names
+are drawn at random on every run (T28).
+
 ## Code generation corpus
 
 `node scripts/codegen-corpus.ts write <dir>` writes everything the compiler

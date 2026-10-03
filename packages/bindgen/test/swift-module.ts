@@ -13,16 +13,22 @@ export const swiftSource = (name: string) => path.join(swiftFixtures, name, `${n
 /**
  * Compiles a Swift fixture module into a directory that `-I` finds it in:
  * once per test run and source (published by rename), shared by the tests
- * and processes that ask for it.
+ * and processes that ask for it. `source` defaults to the fixture of that
+ * name; `includes` are the directories of the modules it imports.
  */
-export function swiftModule(name: string): string {
+export function swiftModule(
+  name: string,
+  source = swiftSource(name),
+  includes: string[] = [],
+): string {
   const sdk = spawnSync("xcrun", ["--sdk", "iphonesimulator", "--show-sdk-path"], {
     encoding: "utf8",
   }).stdout.trim();
   const key = crypto
     .createHash("sha256")
     .update(sdk)
-    .update(fs.readFileSync(swiftSource(name)))
+    .update(fs.readFileSync(source))
+    .update(includes.join("\n"))
     .digest("hex")
     .slice(0, 12);
   const dir = path.join(os.tmpdir(), `lucent-swift-${name}-${key}`);
@@ -44,7 +50,8 @@ export function swiftModule(name: string): string {
       sdk,
       "-emit-module-path",
       path.join(work, `${name}.swiftmodule`),
-      swiftSource(name),
+      ...includes.flatMap((d) => ["-I", d]),
+      source,
     ],
     { encoding: "utf8" },
   );

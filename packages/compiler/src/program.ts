@@ -18,6 +18,7 @@ import {
   sdkNamesOf,
   type SdkModuleSchema,
   sourceModuleLookup,
+  WRAP_UNBOUND,
 } from "./sdk/schema.ts";
 import { toolkitDts } from "./sdk/toolkit-dts.ts";
 import { extensionDts } from "./extensions/dts.ts";
@@ -523,7 +524,8 @@ export function createLucentProgram(
   // which apps' tsconfigs (skipLibCheck) never do.
   const options = { ...compilerOptions(), skipLibCheck: !extra.libCheck };
 
-  const host = compilerHost(options, readSource, directSdkImports(files, readSource));
+  const direct = directSdkImports(files, readSource);
+  const host = compilerHost(options, readSource, direct);
   const program = ts.createProgram(
     [
       ...files.map((f) => path.resolve(f)),
@@ -596,10 +598,105 @@ export function createLucentProgram(
         )
       )
         continue;
-      diagnostics.push(fromTs(d));
+      const hint = nativeMemberHint(d, checker, direct);
+      const diagnostic = fromTs(d);
+      diagnostics.push(
+        hint
+          ? { ...diagnostic, message: `${diagnostic.message} ${hint.message}`, fix: hint.fix }
+          : diagnostic,
+      );
     }
   }
   return { program, platform, checker, modules, diagnostics };
+}
+
+/** TypeScript's errors for a member a type does not have (2551: with a suggestion). */
+const MISSING_MEMBER = new Set([2339, 2551]);
+
+/**
+ * What to do about a member a native library's type does not have: import
+ * its module, when only its name is known (an iOS module only named in
+ * other modules' signatures); wrap it, when the module has it but Lucent
+ * does not bind it; else use what the installed version declares or
+ * install one that has it. Undefined for any other error, and for a member
+ * the SDK's own types lack, whose version the app does not choose.
+ */
+function nativeMemberHint(
+  d: ts.Diagnostic,
+  checker: ts.TypeChecker,
+  direct: Set<string>,
+): { message: string; fix: string } | undefined {
+  if (!MISSING_MEMBER.has(d.code) || !d.file || d.start === undefined) return undefined;
+
+  const name = nodeAt(d.file, d.start);
+  const access = name.parent;
+  if (!ts.isIdentifier(name) || !access || !ts.isPropertyAccessExpression(access)) return undefined;
+
+  const type = checker.getTypeAtLocation(access.expression);
+  const symbol = type.getSymbol() ?? type.aliasSymbol;
+  const declared = symbol?.declarations?.[0]?.getSourceFile();
+  const sdk = declared && sdkModuleOf(declared);
+  if (!symbol || !sdk) return undefined;
+
+  const spec = `lucent:${sdk.platform}/${sdk.module}`;
+  if (sdk.platform === "ios" && !direct.has(`${sdk.platform}/${sdk.module}`))
+    return {
+      message: `${symbol.name} is ${spec}'s, which no file imports: only its name is known.`,
+      fix: `import from ${spec} (a type import is enough) to use ${symbol.name}'s members`,
+    };
+
+  const found = sdkLookup(sdk.platform, sdk.module);
+  const schema = "schema" in found ? found.schema : undefined;
+  const provenance = schema?.provenance;
+  if (!schema || !provenance) return undefined;
+
+  const skipped = skippedMember(schema, symbol.name, name.text);
+  if (skipped)
+    return {
+      message: `${skipped.api} is in ${provenance.artifact}, but Lucent does not bind it: ${skipped.reason}.`,
+      fix: WRAP_UNBOUND[sdk.platform],
+    };
+
+  if (provenance.kind === "sdk") return undefined;
+
+  return {
+    message: `${symbol.name} is ${spec}'s, from ${provenance.artifact} as installed, which has no ${name.text}.`,
+    fix: `use what ${symbol.name} declares in this version of ${sdk.module}, or install a version that has ${name.text}`,
+  };
+}
+
+/**
+ * The member `owner.member` the module's extractor skipped, as it names it
+ * (`Owner.member(…)`, or the class's full name on Android), and why.
+ */
+function skippedMember(
+  schema: SdkModuleSchema,
+  owner: string,
+  member: string,
+): { api: string; reason: string } | undefined {
+  for (const entry of schema.skipped ?? []) {
+    const at = entry.indexOf(": ");
+    const api = entry.slice(0, at);
+    const [type, name] = api.split("(")[0]!.split(/\.(?=[^.]*$)/);
+
+    if (name === member && (type === owner || type?.endsWith(`.${owner}`)))
+      return { api, reason: entry.slice(at + 2) };
+  }
+
+  return undefined;
+}
+
+/** The innermost node at `pos`. */
+export function nodeAt(sf: ts.SourceFile, pos: number): ts.Node {
+  let node: ts.Node = sf;
+  for (let inner: ts.Node | undefined = sf; inner;) {
+    node = inner;
+    inner = ts.forEachChild(node, (c) =>
+      c.getStart(sf) <= pos && pos < c.getEnd() ? c : undefined,
+    );
+  }
+
+  return node;
 }
 
 /**

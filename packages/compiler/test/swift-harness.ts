@@ -17,22 +17,42 @@ import { compileAll } from "./parallel-build.ts";
 
 export const xcode = process.platform === "darwin" && sdkAvailable("ios");
 
+/**
+ * A Swift module a program is compiled against: a fixture of bindgen's by
+ * its name, or any module's name and source file. A program's modules are
+ * listed dependencies first: each sees the ones before it.
+ */
+export type SwiftFixture = string | { name: string; source: string };
+
+const nameOf = (m: SwiftFixture) => (typeof m === "string" ? m : m.name);
+
+const sourceOf = (m: SwiftFixture) => (typeof m === "string" ? swiftSource(m) : m.source);
+
 const compiledModules = new Map<string, string>();
 
-/** The directory `-I` finds a Swift fixture module in, compiled for the simulator once per process. */
-function moduleDir(name: string): string {
-  let dir = compiledModules.get(name);
+/**
+ * The directory `-I` finds a Swift module in, compiled for the simulator once
+ * per process, seeing the modules listed before it in `modules`.
+ */
+export function moduleDir(m: SwiftFixture, modules: SwiftFixture[] = [m]): string {
+  const key = `${nameOf(m)}\0${sourceOf(m)}`;
+  let dir = compiledModules.get(key);
   if (!dir) {
-    dir = swiftModule(name);
-    compiledModules.set(name, dir);
+    const before = modules.slice(0, modules.indexOf(m));
+    dir = swiftModule(
+      nameOf(m),
+      sourceOf(m),
+      before.map((d) => moduleDir(d, modules)),
+    );
+    compiledModules.set(key, dir);
   }
 
   return dir;
 }
 
 /** Compiles Swift fixture modules ahead of the tests using them (in a beforeAll: it takes a while). */
-export function prepareSwiftModules(names: string[]): void {
-  for (const name of names) moduleDir(name);
+export function prepareSwiftModules(modules: SwiftFixture[]): void {
+  for (const m of modules) moduleDir(m, modules);
 }
 
 export interface IosProgram {
@@ -40,15 +60,20 @@ export interface IosProgram {
   dir: string;
   mm: string;
   shims: string;
-  /** The Swift fixture modules it was compiled against. */
-  modules: string[];
+  /** The Swift modules it was compiled against, dependencies first. */
+  modules: SwiftFixture[];
 }
 
 /**
  * A program's iOS output: `src` is the iOS side of a module exporting
- * run(), compiled against the Swift fixture `modules` (none: the SDK alone).
+ * run(), compiled against the Swift fixture `modules` (none: the SDK alone),
+ * found on `includePaths`: by default, where each was compiled.
  */
-export function iosProgram(src: string, modules: string[] = []): IosProgram {
+export function iosProgram(
+  src: string,
+  modules: SwiftFixture[] = [],
+  includePaths = modules.map((m) => moduleDir(m, modules)),
+): IosProgram {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-swift-"));
   const files = {
     "m.lucent.ts": "export declare function run(): Promise<string>;\n",
@@ -57,7 +82,6 @@ export function iosProgram(src: string, modules: string[] = []): IosProgram {
   };
   for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), text);
 
-  const includePaths = modules.map(moduleDir);
   const r = compile(
     Object.keys(files).map((f) => path.join(dir, f)),
     {
@@ -127,7 +151,7 @@ export function compileErrors(p: IosProgram) {
           target,
           "-sdk",
           sdk,
-          ...p.modules.flatMap((m) => ["-I", moduleDir(m)]),
+          ...p.modules.flatMap((m) => ["-I", moduleDir(m, p.modules)]),
           shims,
         ],
         { encoding: "utf8" },
@@ -264,19 +288,22 @@ export function hostRun(p: IosProgram): { status: number | null; stdout: string;
 
   const objects: string[] = [];
   for (const m of p.modules) {
-    const o = path.join(work, `${m}.o`);
+    const o = path.join(work, `${nameOf(m)}.o`);
     run("xcrun", [
       "swiftc",
       "-parse-as-library",
       "-module-name",
-      m,
+      nameOf(m),
+      // The modules before it, which it may import.
+      "-I",
+      modules,
       "-emit-module",
       "-emit-module-path",
-      path.join(modules, `${m}.swiftmodule`),
+      path.join(modules, `${nameOf(m)}.swiftmodule`),
       "-emit-object",
       "-o",
       o,
-      swiftSource(m),
+      sourceOf(m),
     ]);
     objects.push(o);
   }

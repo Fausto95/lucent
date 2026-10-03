@@ -1,0 +1,4 @@
+module QXNDials {
+  header "QXNDials.h"
+  export *
+}

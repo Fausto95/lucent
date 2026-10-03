@@ -12,6 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect } from "vite-plus/test";
 import { compile, runtimeDir, sdkAvailable } from "../../src/index.ts";
+import type { Platform } from "../../src/sdk/schema.ts";
 import { catalystToolchain } from "./react-native-headers.ts";
 import { compileAll, compileOnly } from "../parallel-build.ts";
 
@@ -51,7 +52,7 @@ export function catalystObjects(
   dir: string,
   args: string[],
   sources: string[],
-  include: string,
+  include: string | string[],
 ): string[] {
   // The runtime itself; React Native's glue (rn/) depends on the program's generated headers.
   const shareable = ["lucent", "third_party"].map(
@@ -84,9 +85,14 @@ export function catalystObjects(
         }
       : {
           cmd: toolchain!.command,
-          args: [...compileOnly(toolchain!.args), ...args, ...(own ? [`-I${include}`] : [])].concat(
-            ["-c", source],
-          ),
+          args: [
+            ...compileOnly(toolchain!.args),
+            ...args,
+            ...(own ? [include].flat().map((d) => `-I${d}`) : []),
+          ]
+            // A library's Objective-C (.m), as its pod builds it: no C++ standard.
+            .filter((a) => !(source.endsWith(".m") && a.startsWith("-std=")))
+            .concat(["-c", source]),
         };
 
     if (own) {
@@ -127,11 +133,27 @@ export function quickjsSources(): string[] {
 }
 
 /**
- * Compiles `files` (the modules of package `@acme/app`) under
- * LUCENT_VIEWS=fabric, builds them with `driver` (a file next to this one)
- * and runs the result: its output's lines.
+ * A native library the modules use: where its headers are, and its sources
+ * to build in; and the platforms whose libraries only their own build
+ * resolves (`deferred`: their code is untyped here, as in a build for iOS
+ * alone).
  */
-export function runMounted(files: Record<string, string>, driver: string): string[] {
+export interface MountedLibrary {
+  includePaths: string[];
+  sources: string[];
+  deferred?: Platform[];
+}
+
+/**
+ * Compiles `files` (the modules of package `@acme/app`) under
+ * LUCENT_VIEWS=fabric, builds them with `driver` (a file next to this one,
+ * or a path) and `library`, and runs the result: its output's lines.
+ */
+export function runMounted(
+  files: Record<string, string>,
+  driver: string,
+  library?: MountedLibrary,
+): string[] {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-mount-run-"));
   const previous = process.env.LUCENT_VIEWS;
 
@@ -144,7 +166,11 @@ export function runMounted(files: Record<string, string>, driver: string): strin
     try {
       return compile(
         Object.keys(files).map((f) => path.join(dir, f)),
-        { platforms: ["ios"] },
+        {
+          platforms: ["ios"],
+          ...(library ? { sdk: { ios: { includePaths: library.includePaths } } } : {}),
+          ...(library?.deferred ? { deferred: library.deferred } : {}),
+        },
       );
     } finally {
       if (previous === undefined) delete process.env.LUCENT_VIEWS;
@@ -166,7 +192,7 @@ export function runMounted(files: Record<string, string>, driver: string): strin
   fs.writeFileSync(
     main,
     fs
-      .readFileSync(path.join(import.meta.dirname, driver), "utf8")
+      .readFileSync(path.resolve(import.meta.dirname, driver), "utf8")
       .replaceAll("REGISTRATION", registration),
   );
 
@@ -204,8 +230,8 @@ export function runMounted(files: Record<string, string>, driver: string): strin
   const objects = catalystObjects(
     dir,
     args,
-    [main, ...generated, ...runtime, ...quickjsSources()],
-    path.join(out, "ios"),
+    [main, ...generated, ...(library?.sources ?? []), ...runtime, ...quickjsSources()],
+    [path.join(out, "ios"), ...(library?.includePaths ?? [])],
   );
   const build = spawnSync(
     toolchain!.command,

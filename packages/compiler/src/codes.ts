@@ -263,7 +263,7 @@ export const Explanations: Record<Code, Explanation> = {
     summary:
       "A type with no native representation: intersections, `symbol`, `object`, `WeakMap`, `Intl`, or an index signature mixed with properties.",
     details:
-      "Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout.",
+      "Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout. A native member whose types cannot cross yet is named with its symbol and artifact: wrap it in Swift or Kotlin of your own.",
     fix: "spell the combined type out as one object type, or use a concrete type",
     wrong: ex(
       "type Named = { name: string };\ntype Aged = { age: number };\nexport function label(p: Named & Aged): string {\n  return `${p.name} (${p.age})`;\n}\n",
@@ -651,7 +651,7 @@ export const Explanations: Record<Code, Explanation> = {
     summary:
       "A TypeScript error. Lucent stops at type errors, because it compiles from the checker's types.",
     details:
-      "Lucent compiles only programs that type-check: every value's native type comes from the TypeScript checker. The message is TypeScript's own.",
+      "Lucent compiles only programs that type-check: every value's native type comes from the TypeScript checker. The message is TypeScript's own. When a native library's type lacks a member, Lucent adds which module and installed version declare it, or that its iOS module needs importing.",
     fix: "fix the type error; your editor shows the same message",
     wrong: ex('export function double(n: number): number {\n  return n + "";\n}\n'),
     right: ex("export function double(n: number): number {\n  return n * 2;\n}\n"),

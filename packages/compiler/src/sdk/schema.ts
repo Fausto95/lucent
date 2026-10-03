@@ -80,7 +80,9 @@ let deferredPlatforms: readonly Platform[] = [];
 
 /**
  * Runs `f` with the SDK locations a compile uses (compile options, else the
- * defaults), and the platforms whose SDK imports resolve only later.
+ * defaults), and the platforms whose SDK imports resolve only later. Each
+ * compile gets its own options object: its artifacts are resolved anew,
+ * as installed now.
  */
 export function withSdkOptions<T>(
   opts: SdkOptions | undefined,
@@ -88,7 +90,7 @@ export function withSdkOptions<T>(
   deferred: readonly Platform[] = [],
 ): T {
   const saved = [sdkOptions, deferredPlatforms] as const;
-  sdkOptions = opts ?? {};
+  sdkOptions = { ...opts };
   deferredPlatforms = deferred;
   try {
     return f();
@@ -96,6 +98,13 @@ export function withSdkOptions<T>(
     [sdkOptions, deferredPlatforms] = saved;
   }
 }
+
+/** What to do about a native member Lucent does not bind: call it through code of the app's own. */
+export const WRAP_UNBOUND: Record<Platform, string> = {
+  ios: "wrap it in Swift of your own whose types Lucent binds, in a local pod the app depends on",
+  android:
+    "wrap it in Kotlin of your own whose types Lucent binds, in a Gradle module the app depends on",
+};
 
 /**
  * Whether programs that do not target a platform type its SDK modules: its

@@ -43,6 +43,7 @@ import {
   type SdkStructSchema,
   type SdkType,
   type SwiftMember,
+  WRAP_UNBOUND,
 } from "../sdk/schema.ts";
 import { noteSdkUse } from "../sdk/usage.ts";
 import { type ClassInfo, cppIdent, type LType, stripOpt, T, unionOf } from "../types.ts";
@@ -252,10 +253,9 @@ export function requirePlan(
 
   const why = explainRefusal(plan);
   if (why) {
-    const code = plan.refused
-      ? (REFUSAL_CODES[plan.refused.rule] ?? Codes.UnsupportedCall)
-      : Codes.UnsupportedType;
-    fail(node, code, why);
+    // A refused call breaks a rule of its own; a type that cannot cross yet can be wrapped.
+    if (plan.refused) fail(node, REFUSAL_CODES[plan.refused.rule] ?? Codes.UnsupportedCall, why);
+    fail(node, Codes.UnsupportedType, why, WRAP_UNBOUND[of.platform]);
   }
 
   noteSdkUse(of.platform, of.module, of.cls, declared, plan);
