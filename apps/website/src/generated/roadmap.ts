@@ -142,7 +142,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "Ports of Expo and community modules, checked against the originals."
       },
       {
-        "status": "next",
+        "status": "in progress",
         "text": "Native libraries nobody has seen before, bound and run with no change to Lucent."
       },
       {
