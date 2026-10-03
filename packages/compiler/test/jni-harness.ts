@@ -86,6 +86,49 @@ int main(int, char** argv) {
 }
 `;
 
+/** Writes a compile's files under `<dir>/out`. */
+function writeOut(r: CompileResult, dir: string): string {
+  const out = path.join(dir, "out");
+  for (const [f, text] of r.files) {
+    fs.mkdirSync(path.dirname(path.join(out, f)), { recursive: true });
+    fs.writeFileSync(path.join(out, f), text);
+  }
+
+  return out;
+}
+
+/** How the host compiles Android glue (in `out`): as the Android build does, against the JDK's jni.h. */
+function glueFlags(out: string): string[] {
+  return [
+    "-std=c++20",
+    "-ffp-contract=off",
+    "-O1",
+    "-g",
+    "-Werror",
+    "-Wno-gnu-statement-expression",
+    "-Wno-unused-label",
+    "-Wno-parentheses-equality",
+    "-Wno-comma",
+    `-I${path.join(runtimeDir(), "cpp")}`,
+    `-I${host}`,
+    `-I${path.join(out, "android")}`,
+    `-I${path.join(jdk!.home, "include")}`,
+    `-I${path.join(jdk!.home, "include/darwin")}`,
+  ];
+}
+
+/** What the host's clang says of a compile's Android glue `file` (`android/m_m.cpp`): nothing when it compiles. */
+export function glueErrors(r: CompileResult, dir: string, file: string): string {
+  const out = writeOut(r, dir);
+  const check = spawnSync(
+    "xcrun",
+    ["clang++", ...glueFlags(out), "-fsyntax-only", path.join(out, file)],
+    { encoding: "utf8" },
+  );
+
+  return check.stderr;
+}
+
 /**
  * Builds a program's Android output (written by `compile` into `dir`) for
  * the desktop JNI host and runs it on `classpath` (the app's jars): what
@@ -97,11 +140,7 @@ export function jvmRun(
   classpath: string[],
   tc: KotlinToolchain,
 ): { status: number | null; stdout: string; stderr: string } {
-  const out = path.join(dir, "out");
-  for (const [f, text] of r.files) {
-    fs.mkdirSync(path.dirname(path.join(out, f)), { recursive: true });
-    fs.writeFileSync(path.join(out, f), text);
-  }
+  const out = writeOut(r, dir);
 
   // The program's Kotlin shims, against the app's classpath.
   const jars = [...classpath, runtimeClasses(dir)];
@@ -129,25 +168,12 @@ export function jvmRun(
 
   fs.writeFileSync(path.join(out, "android/main.cpp"), main);
 
-  const cpp = path.join(runtimeDir(), "cpp");
-  const flags = [
-    "-std=c++20",
-    "-ffp-contract=off",
-    "-O1",
-    "-g",
-    "-Werror",
-    "-Wno-gnu-statement-expression",
-    "-Wno-unused-label",
-    "-Wno-parentheses-equality",
-    "-Wno-comma",
-    `-I${cpp}`,
-    `-I${host}`,
-    `-I${path.join(out, "android")}`,
-    `-I${path.join(jdk!.home, "include")}`,
-    `-I${path.join(jdk!.home, "include/darwin")}`,
-  ];
+  const flags = glueFlags(out);
   const jobs = [
-    { source: path.join(cpp, "lucent/platform/android.cpp"), extra: ["-DLUCENT_JNI_HOST"] },
+    {
+      source: path.join(runtimeDir(), "cpp/lucent/platform/android.cpp"),
+      extra: ["-DLUCENT_JNI_HOST"],
+    },
     { source: path.join(host, "jni_host.cpp"), extra: [] },
     { source: path.join(out, "android/m_m.cpp"), extra: [] },
     { source: path.join(out, "android/main.cpp"), extra: [] },

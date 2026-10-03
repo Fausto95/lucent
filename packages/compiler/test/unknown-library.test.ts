@@ -13,11 +13,12 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
-import { sdkAvailable } from "@lucent-lang/bindgen";
+import { androidJars, sdkAvailable } from "@lucent-lang/bindgen";
 import { classpathFile } from "../../bindgen/test/java-fixtures.ts";
 import { compileKotlin, kotlinToolchain } from "../../bindgen/test/kotlin-toolchain.ts";
 import { android } from "./android-harness.ts";
-import { jdk, jvmRun } from "./jni-harness.ts";
+import { compile } from "../src/index.ts";
+import { glueErrors, jdk, jvmRun } from "./jni-harness.ts";
 import {
   compileErrors,
   compiles,
@@ -218,6 +219,17 @@ describe.skipIf(!xcode)("an unknown library's next version on iOS", () => {
   }, 600_000);
 });
 
+/** The library's view, a component of the app's: a dial whose turns become events. */
+const dial = Object.fromEntries(
+  ["dial.lucent.ts", "dial.ios.lucent.tsx", "dial.android.lucent.tsx"].map((f) => [
+    f,
+    fs.readFileSync(path.join(root, "dial", f), "utf8"),
+  ]),
+);
+
+/** Where the iOS dial's module is: its header and module map. */
+const dials = path.join(root, "ios", `${prefix}Dials`);
+
 /** The Kotlin toolchain, with the coroutines the library's suspend function uses. */
 const kotlin = kotlinToolchain();
 const coroutines = kotlin && path.join(kotlin.lib, "kotlinx-coroutines-core-jvm.jar");
@@ -227,6 +239,9 @@ const jvm =
 describe.skipIf(!jvm)("an unknown library on Android", () => {
   /** The app's classpath: the Kotlin runtime, the library, and its dependency in a jar of its own. */
   let jars: string[] = [];
+
+  /** The library's view, in a jar of its own: built against android.jar. */
+  let viewJar = "";
 
   beforeAll(async () => {
     const dir = path.join(root, "jars");
@@ -241,6 +256,10 @@ describe.skipIf(!jvm)("an unknown library on Android", () => {
     });
 
     jars = [stdlib, coroutines!, core, kit];
+
+    viewJar = await compileKotlin(kotlin!, sources(`${lower}dials`), path.join(dir, "dials.jar"), {
+      classpath: androidJars()![0]!,
+    });
   }, 300_000);
 
   it("binds the same shapes by rule, and runs them on a JVM through the JNI glue", () => {
@@ -256,26 +275,44 @@ describe.skipIf(!jvm)("an unknown library on Android", () => {
       stderr: "",
     });
   }, 600_000);
-});
 
-/** The library's view, a component of the app's: a dial whose turns become events. */
-const dial = Object.fromEntries(
-  ["dial.lucent.ts", "dial.ios.lucent.tsx", "dial.android.lucent.tsx"].map((f) => [
-    f,
-    fs.readFileSync(path.join(root, "ios", f), "utf8"),
-  ]),
-);
+  // Mounting a view needs Android itself: the component is bound by rule, and its glue compiles.
+  it("binds its view subclass as a component, whose glue compiles", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-unknown-dial-"));
+    const classpath = classpathFile(path.join(dir, "android-classpath.json"), [
+      path.join(kotlin!.lib, "kotlin-stdlib.jar"),
+      viewJar,
+    ]);
+
+    fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
+    for (const [f, text] of Object.entries(dial)) fs.writeFileSync(path.join(dir, f), text);
+
+    process.env.LUCENT_VIEWS = "fabric";
+    try {
+      const r = compile(
+        Object.keys(dial).map((f) => path.join(dir, f)),
+        { platforms: ["android"], sdk: { ios: { includePaths: [dials] }, android: { classpath } } },
+      );
+
+      expect(r.diagnostics).toEqual([]);
+      expect(r.components).toEqual([expect.objectContaining({ export: "Dial" })]);
+      expect(glueErrors(r, dir, "android/m_dial.cpp")).toBe("");
+    } finally {
+      delete process.env.LUCENT_VIEWS;
+    }
+  }, 600_000);
+});
 
 describe("an unknown library's view on iOS", () => {
   it.skipIf(!canRunMounted)(
     "mounts as a component: props, events and commands by rule, released with its mount",
     () => {
-      const dials = path.join(root, "ios", `${prefix}Dials`);
-
       expect(
         runMounted(dial, path.join(root, "ios/dial_run.mm"), {
           includePaths: [dials],
           sources: [path.join(dials, `${prefix}Dials.m`)],
+          // As in a build for iOS alone: the Android dial's library is the Android build's.
+          deferred: ["android"],
         }),
       ).toEqual([
         "mounted: level 2",

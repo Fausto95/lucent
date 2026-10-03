@@ -12,6 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import { expect } from "vite-plus/test";
 import { compile, runtimeDir, sdkAvailable } from "../../src/index.ts";
+import type { Platform } from "../../src/sdk/schema.ts";
 import { catalystToolchain } from "./react-native-headers.ts";
 import { compileAll, compileOnly } from "../parallel-build.ts";
 
@@ -131,10 +132,16 @@ export function quickjsSources(): string[] {
     .map((f) => path.join(c, f));
 }
 
-/** A native library the modules use: where its headers are, and its sources to build in. */
+/**
+ * A native library the modules use: where its headers are, and its sources
+ * to build in; and the platforms whose libraries only their own build
+ * resolves (`deferred`: their code is untyped here, as in a build for iOS
+ * alone).
+ */
 export interface MountedLibrary {
   includePaths: string[];
   sources: string[];
+  deferred?: Platform[];
 }
 
 /**
@@ -162,6 +169,7 @@ export function runMounted(
         {
           platforms: ["ios"],
           ...(library ? { sdk: { ios: { includePaths: library.includePaths } } } : {}),
+          ...(library?.deferred ? { deferred: library.deferred } : {}),
         },
       );
     } finally {
