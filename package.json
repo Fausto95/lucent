@@ -15,6 +15,7 @@
     "check": "vp check && pnpm typecheck",
     "fix": "vp check --fix",
     "test": "vp test",
+    "test:all": "LUCENT_ALL_TESTS=1 vp test",
     "test:runtime": "packages/runtime/test/run.sh",
     "test:e2e": "node packages/compiler/test/e2e/run.ts",
     "website": "pnpm --filter @lucent-lang/website dev",

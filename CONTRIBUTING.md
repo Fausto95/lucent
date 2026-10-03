@@ -37,7 +37,8 @@ The repository layout, and the rules every change follows, are in
 
 | Command                                       | Checks                                                           | Needs  |
 | --------------------------------------------- | ---------------------------------------------------------------- | ------ |
-| `pnpm test`                                   | compiler, CLI and website unit tests                             |        |
+| `pnpm test`                                   | compiler, CLI and website unit tests, without the slow ones      |        |
+| `pnpm test:all`                               | the unit tests with the slow ones (as CI runs them)              |        |
 | `pnpm test:runtime`                           | the C++ runtime; add `SANITIZE=1` (and `CXX=g++`) for sanitizers |        |
 | `pnpm test:e2e [case…]`                       | each language feature, native against JavaScript                 | Hermes |
 | `node scripts/app-check.ts apps/bare-example` | an example app's bundle against its C++                          | Hermes |

@@ -430,6 +430,16 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-03: `pnpm test` leaves out the slow tests on a workstation.**
+The tests that build and run whole programs with the platforms'
+toolchains (Swift and JVM host runs, Mac Catalyst and Hermes view runs,
+Gradle) or extract an SDK into an empty cache are listed in
+`vite.config.ts`; `pnpm test` skips them, saying so, and `pnpm test:all`
+and CI (`CI` set) run them. _Why:_ they set the edit-test loop's length
+(minutes where the others take seconds) and rarely fail for a change
+that is not theirs. _Changed:_ V1 and the integration gate run
+`pnpm test:all`.
+
 **2026-10-03: CI runs its long work side by side.** Linux has three jobs
 (unit tests; the runtime and JSI host tests; e2e, budgets and app
 checks), and macOS runs the tests that need the iOS SDK in two shards
@@ -1920,7 +1930,7 @@ syntax before relying on it: a filter that runs zero tests proves nothing.
 | Profile | Checks                                                                                                                                         | How to run                                                                                                                      |
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | V0      | Formatting, links and schemas; evidence reconciled                                                                                             | `pnpm check`, `git diff --check`                                                                                                |
-| V1      | Unit tests and typecheck, build, the integrated check and tests                                                                                | `pnpm build`, `pnpm check`, `pnpm test`                                                                                         |
+| V1      | Unit tests and typecheck, build, the integrated check and tests                                                                                | `pnpm build`, `pnpm check`, `pnpm test:all`                                                                                     |
 | V2      | V1 plus native-versus-JavaScript e2e cases, codegen corpus review, semantics docs                                                              | `HERMES_DIR=~/hermes node packages/compiler/test/e2e/run.ts [case…]`, then `node scripts/sync-examples.ts` after changing cases |
 | V3      | Runtime tests and sanitizers, scheduling and lifetime tests                                                                                    | `packages/runtime/test/run.sh`, `SANITIZE=1 CXX=g++ packages/runtime/test/run.sh`, `SANITIZE=thread` where it applies           |
 | V4      | Fixture SDKs extracted, declarations type-checked without `skipLibCheck`, platform glue compiled with warnings as errors, availability and R8  | The bindgen, SDK-declaration and glue-compile test suites (part of `pnpm test` where the SDKs exist)                            |
@@ -1937,7 +1947,7 @@ follows from a lower one, and a check that could not run is reported as
 blocked.
 
 An integration gate runs, in one checkout: `sync-examples`, `pnpm build`,
-`pnpm check`, `pnpm test`, the e2e suite with both lowerings, the runtime
+`pnpm check`, `pnpm test:all`, the e2e suite with both lowerings, the runtime
 tests plain and under ASan and TSan, the JSI host checks, SDK coverage,
 the website check, the smoke install and the bench budgets. On the main
 checkout it then reviews the codegen corpus and runs both app checks.
