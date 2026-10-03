@@ -8,7 +8,7 @@
  *
  * Env: HERMES_DIR (Hermes checkout built into build/), SANITIZE=1, CXX.
  */
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -25,6 +25,7 @@ import {
   report,
   resolveNative,
 } from "../../src/index.ts";
+import { exec, pool } from "../../../runtime/test/parallel.ts";
 import { cFlags, hostLibs, runtimeSources } from "../../../runtime/test/sources.ts";
 
 // One time zone with daylight saving time for both runs (the native host
@@ -65,70 +66,14 @@ const baseFlags = [
   ...(sanitize ? ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"] : []),
 ];
 
-/** How many cases build and run at once, and how many runtime sources compile at once. */
+/** How many cases, and how many runtime sources, compile at once. */
 const jobs = Number(process.env.LUCENT_E2E_JOBS ?? os.availableParallelism());
-
-/** What `cmd` exits with, and what it wrote. */
-function exec(
-  cmd: string,
-  args: string[],
-  opts: { env?: NodeJS.ProcessEnv; timeout?: number } = {},
-): Promise<{
-  status: number | null;
-  signal: NodeJS.Signals | null;
-  stdout: string;
-  stderr: string;
-}> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { env: opts.env });
-    const [stdout, stderr] = [[] as Buffer[], [] as Buffer[]];
-    // Unreferenced, so that a reference run waiting for its own timers does not count it.
-    const limit = opts.timeout
-      ? setTimeout(() => child.kill("SIGKILL"), opts.timeout).unref()
-      : undefined;
-
-    child.stdout.on("data", (d: Buffer) => stdout.push(d));
-    child.stderr.on("data", (d: Buffer) => stderr.push(d));
-    child.on("error", reject);
-    child.on("close", (status, signal) => {
-      clearTimeout(limit);
-      resolve({
-        status,
-        signal,
-        stdout: Buffer.concat(stdout).toString("utf8"),
-        stderr: Buffer.concat(stderr).toString("utf8"),
-      });
-    });
-  });
-}
 
 async function sh(cmd: string, args: string[]): Promise<void> {
   const r = await exec(cmd, args);
 
   if (r.status !== 0)
     throw new Error(`${cmd} ${args.slice(-3).join(" ")} failed:\n${r.stderr}\n${r.stdout}`);
-}
-
-/** `work` over each item, at most `n` at a time: each result in the items' order, as it settles. */
-function pool<T, R>(items: T[], n: number, work: (item: T) => Promise<R>): Promise<R>[] {
-  const results = items.map(() => {
-    const r = {} as { promise: Promise<R>; resolve: (v: R) => void; reject: (e: unknown) => void };
-
-    r.promise = new Promise<R>((resolve, reject) => Object.assign(r, { resolve, reject }));
-    return r;
-  });
-  let next = 0;
-
-  // A result nobody awaits yet must not be an unhandled rejection; its await still throws.
-  for (const r of results) r.promise.catch(() => {});
-
-  const worker = async () => {
-    for (let i = next++; i < items.length; i = next++)
-      await work(items[i]!).then(results[i]!.resolve, results[i]!.reject);
-  };
-
-  for (let k = 0; k < Math.min(n, items.length); k++) void worker();
-  return results.map((r) => r.promise);
 }
 
 /** Builds the runtime + harness objects once (cached by content hash). */
@@ -234,7 +179,8 @@ function casePackages(c: Case): { native: NativeInputs; packages: LucentPackage[
   return { native: resolveNative(packages), packages };
 }
 
-async function nativeRun(c: Case, lib: string): Promise<string> {
+/** Case `c` compiled and built into a host with its prelude: the command that runs it. */
+async function nativeBuild(c: Case, lib: string): Promise<string[]> {
   const found = casePackages(c);
   const extensions = found ? bindExtensions(found.native.extensions) : undefined;
   const result = compile(c.files, { extensions });
@@ -298,7 +244,16 @@ async function nativeRun(c: Case, lib: string): Promise<string> {
     `var mods = __lucent; var mod = __lucent[${JSON.stringify(moduleNames[0])}];\n` +
       `function lucentClass(factory) { function C() { return factory.apply(undefined, arguments); } C.prototype = factory.prototype; Object.defineProperty(C.prototype, "constructor", { value: C }); for (var k of Object.keys(factory)) C[k] = factory[k]; return C; }\n`,
   );
-  const r = await exec(exe, [abortPolyfill, prelude, c.test], {
+  return [exe, abortPolyfill, prelude, c.test];
+}
+
+/**
+ * What a built case prints natively. Hosts run one at a time, after every
+ * build: the harness takes 20 ms without a post as the end of a case's
+ * work, which a busy machine can stretch past.
+ */
+async function nativeRun([exe, ...args]: string[]): Promise<string> {
+  const r = await exec(exe!, args, {
     timeout: 60000,
     env: { ...process.env, ASAN_OPTIONS: "detect_leaks=0" },
   });
@@ -421,14 +376,15 @@ async function main() {
   const filter = process.argv.slice(2);
   const lib = await runtimeLib();
   const all = cases(filter);
-  // Cases build and run natively side by side; the references run one at a time, as they
-  // share the console and the process's timers.
-  const natives = pool(all, jobs, (c) => nativeRun(c, lib));
+  // Cases build side by side; then each runs natively and as JavaScript, one at a time (the
+  // references share the console and the process's timers).
+  const builds = pool(all, jobs, (c) => nativeBuild(c, lib));
+  await Promise.allSettled(builds);
   let failed = 0;
   for (const [i, c] of all.entries()) {
     const t0 = Date.now();
     try {
-      const [native, reference] = [await natives[i]!, await referenceRun(c)];
+      const [native, reference] = [await nativeRun(await builds[i]!), await referenceRun(c)];
       if (native !== reference) {
         failed++;
         console.log(`✗ ${c.name}: output differs`);
