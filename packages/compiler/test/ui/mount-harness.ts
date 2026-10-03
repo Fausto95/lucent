@@ -62,7 +62,7 @@ function runtimeHeaders(): string[] {
       .flatMap((e) =>
         e.isDirectory()
           ? walk(path.join(d, e.name))
-          : /\.h$/.test(e.name)
+          : e.name.endsWith(".h")
             ? [path.join(d, e.name)]
             : [],
       );
@@ -104,10 +104,13 @@ export function catalystObjects(
     const compile = source.endsWith(".c")
       ? {
           cmd: "xcrun",
-          args: [
-            ...["clang", "-target", "arm64-apple-ios15.1-macabi", "-isysroot", macosSdk()],
-            ...["-std=c11", "-O2", "-w", "-c", source],
-          ],
+          args: ["clang", "-target", "arm64-apple-ios15.1-macabi", "-isysroot", macosSdk()].concat(
+            "-std=c11",
+            "-O2",
+            "-w",
+            "-c",
+            source,
+          ),
         }
       : {
           cmd: toolchain!.command,
