@@ -145,6 +145,11 @@ export function sdkNamesOf(platform: Platform, module: string): NamesIndex | und
   return "names" in n ? n.names : undefined;
 }
 
+/** Where the SDK cache is, for the caches kept beside it. */
+export function sdkCacheDir(): string | undefined {
+  return sdkOptions.cacheDir;
+}
+
 /** What identifies the SDKs in use, for build caches. */
 export function currentSdkIdentity(): string {
   return sdkIdentity(sdkOptions);

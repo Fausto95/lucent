@@ -6,12 +6,15 @@ import { ts as dts } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { Codes, type Diagnostic } from "./diagnostics.ts";
 import { sdkDts, stubDts } from "./sdk/dts.ts";
+import { cachedDeclarations } from "./sdk/declaration-cache.ts";
 import {
+  currentSdkIdentity,
   findSdkModule,
   type Platform,
   PLATFORMS,
   platformSdkTyped,
   sdkLookup,
+  sdkCacheDir,
   sdkNamesOf,
   type SdkModuleSchema,
   sourceModuleLookup,
@@ -211,14 +214,32 @@ function virtualSdkText(file: string, direct: Set<string>): string | undefined {
     if (!names) return undefined;
 
     let stub = stubTexts.get(names);
-    if (stub === undefined) stubTexts.set(names, (stub = stubDts(platform, module, names)));
+    if (stub === undefined)
+      stubTexts.set(
+        names,
+        (stub = cachedDeclarations(
+          sdkCacheDir(),
+          currentSdkIdentity(),
+          ["names", platform, module],
+          () => stubDts(platform, module, names),
+        )),
+      );
 
     return stub;
   }
   const schema = findSdkModule(platform, module);
   if (!schema) return undefined;
   let text = sdkTexts.get(schema);
-  if (text === undefined) sdkTexts.set(schema, (text = sdkDts(schema)));
+  if (text === undefined)
+    sdkTexts.set(
+      schema,
+      (text = cachedDeclarations(
+        sdkCacheDir(),
+        currentSdkIdentity(),
+        ["full", platform, module],
+        () => sdkDts(schema),
+      )),
+    );
   // Modules it re-exports are used as directly as it is.
   for (const r of text.matchAll(/^export \* from "lucent:(ios\/_\w+)";$/gm)) direct.add(r[1]!);
   return text;

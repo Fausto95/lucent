@@ -9,6 +9,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { defineConfig } from "vite-plus";
 import { sourcesHash } from "../bindgen/src/provider.ts";
+import { declarationsSourcesHash } from "../compiler/src/sdk/declaration-cache.ts";
 
 const packages = path.resolve(import.meta.dirname, "..");
 
@@ -27,9 +28,11 @@ export default defineConfig({
     outputOptions: { comments: { jsdoc: false } },
     dts: false,
     clean: ["dist", "lib", "runtime"],
-    // SDK caches are keyed on bindgen's code, not on the whole bundle.
+    // SDK caches are keyed on bindgen's code, and SDK declarations on the code that writes them,
+    // not on the whole bundle.
     define: {
       __LUCENT_EXTRACTOR__: JSON.stringify(sourcesHash(path.join(packages, "bindgen/src"))),
+      __LUCENT_DECLARATIONS__: JSON.stringify(declarationsSourcesHash(packages)),
     },
     deps: {
       // The published package's dependencies, resolved from where it is installed.
