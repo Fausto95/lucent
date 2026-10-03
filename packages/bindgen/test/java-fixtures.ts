@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { runJar, runJavac } from "./jvm-tools.ts";
 
 export const javac =
   spawnSync("javac", ["-version"]).status === 0 && spawnSync("jar", ["--version"]).status === 0;
@@ -22,13 +23,11 @@ export function javaJar(jar: string, sources: Record<string, string>, classpath:
   });
 
   const cp = classpath.length ? ["-cp", classpath.join(path.delimiter)] : [];
-  const cc = spawnSync("javac", ["--release", "11", ...cp, "-d", classes, ...files], {
-    encoding: "utf8",
-  });
+  const cc = runJavac(["--release", "11", ...cp, "-d", classes, ...files]);
   if (cc.status !== 0) throw new Error(cc.stderr);
 
   fs.mkdirSync(path.dirname(jar), { recursive: true });
-  spawnSync("jar", ["cf", jar, "-C", classes, "."]);
+  runJar(["cf", jar, "-C", classes, "."]);
   fs.rmSync(dir, { recursive: true, force: true });
 
   return jar;

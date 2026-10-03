@@ -15,6 +15,7 @@ import {
 import { parseSchemaType, SCHEMA_FORMAT } from "../src/schema.ts";
 import { schemaFiles } from "./cache-files.ts";
 import { swiftModule } from "./swift-module.ts";
+import { runJar, runJavac } from "./jvm-tools.ts";
 
 /** A schema type from its written form (`string?`, `Widgets.WDGWidget`). */
 const T = (s: string, typeParams: string[] = []) => parseSchemaType(s, "", typeParams);
@@ -32,12 +33,10 @@ function fixtureJar(dir: string): string {
     .stdout.trim()
     .split("\n");
   const classes = path.join(dir, "classes");
-  const cc = spawnSync("javac", ["--release", "11", "-d", classes, ...sources], {
-    encoding: "utf8",
-  });
+  const cc = runJavac(["--release", "11", "-d", classes, ...sources]);
   if (cc.status !== 0) throw new Error(cc.stderr);
   const jar = path.join(dir, "fixture.jar");
-  spawnSync("jar", ["cf", jar, "-C", classes, "."]);
+  runJar(["cf", jar, "-C", classes, "."]);
   return jar;
 }
 
@@ -110,7 +109,7 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
 
     // Other contents that declare nothing: the same declarations.
     fs.writeFileSync(path.join(dir, "NOTICE"), "rebuilt\n");
-    spawnSync("jar", ["uf", jar, "-C", dir, "NOTICE"]);
+    runJar(["uf", jar, "-C", dir, "NOTICE"]);
     forgetLoadedSdks();
     sdkModule("android", "com.example.widgets", opts);
     expect(extractionCount()).toBe(before);
@@ -122,8 +121,8 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
       path.join(extra, "com/example/widgets/Extra.java"),
       "package com.example.widgets; public class Extra {}",
     );
-    spawnSync("javac", ["--release", "11", path.join(extra, "com/example/widgets/Extra.java")]);
-    spawnSync("jar", ["uf", jar, "-C", extra, "com/example/widgets/Extra.class"]);
+    runJavac(["--release", "11", path.join(extra, "com/example/widgets/Extra.java")]);
+    runJar(["uf", jar, "-C", extra, "com/example/widgets/Extra.class"]);
     forgetLoadedSdks();
     sdkModule("android", "com.example.widgets", opts);
     expect(extractionCount()).toBe(before + 1);
@@ -151,7 +150,7 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
       fs.copyFileSync(jar, path.join(aarDir, "classes.jar"));
       fs.writeFileSync(path.join(aarDir, "AndroidManifest.xml"), "<manifest/>");
       const aar = path.join(dir, "widgets.aar");
-      spawnSync("jar", ["cf", aar, "-C", aarDir, "."]);
+      runJar(["cf", aar, "-C", aarDir, "."]);
       const classpath = path.join(dir, "android-classpath.json");
       fs.writeFileSync(classpath, JSON.stringify({ aars: [aar], jars: [] }));
       const sdk = { cacheDir: tmp("lucent-cache-"), android: { classpath } };

@@ -12,6 +12,7 @@ import { runtimeDir, type SdkOptions } from "../src/index.ts";
 import { withSdkOptions } from "../src/sdk/schema.ts";
 import { android, kotlinClasspath, ndkClang, ndkErrors } from "./android-harness.ts";
 import { auditSdk } from "./dts-audit.ts";
+import { runJar } from "../../bindgen/test/jvm-tools.ts";
 
 const codes = (r: { diagnostics: { code: string }[] }) => r.diagnostics.map((d) => d.code);
 
@@ -477,7 +478,7 @@ function playServicesClasspath(rename: (text: string) => string = (text) => text
 
   const jar = path.join(dir, "play-services-tasks.jar");
   const packages = fs.readdirSync(classes).filter((d) => d !== "android");
-  spawnSync("jar", ["cf", jar, ...packages.flatMap((d) => ["-C", classes, d])]);
+  runJar(["cf", jar, ...packages.flatMap((d) => ["-C", classes, d])]);
 
   const classpath = path.join(dir, "android-classpath.json");
   fs.writeFileSync(classpath, JSON.stringify({ jars: [jar] }));

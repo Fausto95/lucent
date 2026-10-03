@@ -17,6 +17,7 @@ import {
   type SdkModuleSchema,
 } from "../src/schema.ts";
 import { swiftModule } from "./swift-module.ts";
+import { runJar, runJavac } from "./jvm-tools.ts";
 
 /** A schema type from its written form (`string?`, `Widgets.WDGWidget`). */
 const T = (s: string, typeParams: string[] = []) => parseSchemaType(s, "", typeParams);
@@ -389,10 +390,10 @@ describe.skipIf(!javac)("binding plans, Android", () => {
     })
       .stdout.trim()
       .split("\n");
-    spawnSync("javac", ["--release", "11", "-d", path.join(dir, "classes"), ...sources]);
-    spawnSync("jar", ["cf", path.join(dir, "fixture.jar"), "-C", path.join(dir, "classes"), "."]);
+    runJavac(["--release", "11", "-d", path.join(dir, "classes"), ...sources]);
+    runJar(["cf", path.join(dir, "fixture.jar"), "-C", path.join(dir, "classes"), "."]);
     const annotations = path.join(dir, "annotations.zip");
-    spawnSync("jar", ["cfM", annotations, "-C", path.join(fixtures, "annotations"), "."]);
+    runJar(["cfM", annotations, "-C", path.join(fixtures, "annotations"), "."]);
     const modules = extractAndroid({
       jars: [path.join(dir, "fixture.jar")],
       annotations,

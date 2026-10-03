@@ -27,6 +27,7 @@ import {
   runtimeDir,
   type SdkOptions,
 } from "../src/index.ts";
+import { runJar, runJavac } from "../../bindgen/test/jvm-tools.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = path.join(here, "fixtures/listener-adapter");
@@ -218,13 +219,11 @@ describe("a package's adapter around a native listener", () => {
       const sources = fs
         .readdirSync(path.join(java, "dev", lower, "orb"))
         .map((f) => path.join(java, "dev", lower, "orb", f));
-      const cc = spawnSync("javac", ["--release", "11", "-d", classes, ...sources], {
-        encoding: "utf8",
-      });
+      const cc = runJavac(["--release", "11", "-d", classes, ...sources]);
       expect(cc.stderr).toBe("");
 
       const jar = path.join(root, "orb.jar");
-      spawnSync("jar", ["cf", jar, "-C", classes, "dev"]);
+      runJar(["cf", jar, "-C", classes, "dev"]);
       const classpath = path.join(root, "android-classpath.json");
       fs.writeFileSync(classpath, JSON.stringify({ jars: [jar] }));
 

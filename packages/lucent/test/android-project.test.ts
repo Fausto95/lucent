@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "@lucent-lang/compiler";
 import { runLucent } from "./run-to-exit.ts";
+import { runJar, runJavac } from "../../bindgen/test/jvm-tools.ts";
 
 const javac = spawnSync("javac", ["-version"]).status === 0;
 const android = sdkAvailable("android");
@@ -72,8 +73,8 @@ function trackerJar(root: string): string {
     source,
     'package dev.orbit.tracking;\npublic class Tracker {\n  public Tracker() {}\n  public String name() { return ""; }\n}\n',
   );
-  spawnSync("javac", ["--release", "11", "-d", path.join(dir, "classes"), source]);
-  spawnSync("jar", ["cf", path.join(dir, "tracker.jar"), "-C", path.join(dir, "classes"), "."]);
+  runJavac(["--release", "11", "-d", path.join(dir, "classes"), source]);
+  runJar(["cf", path.join(dir, "tracker.jar"), "-C", path.join(dir, "classes"), "."]);
 
   return path.join(dir, "tracker.jar");
 }

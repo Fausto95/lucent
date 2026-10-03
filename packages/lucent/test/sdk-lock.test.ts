@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "@lucent-lang/compiler";
 import { runLucent } from "./run-to-exit.ts";
+import { runJar, runJavac } from "../../bindgen/test/jvm-tools.ts";
 
 const javac = spawnSync("javac", ["-version"]).status === 0;
 const android = sdkAvailable("android");
@@ -87,14 +88,14 @@ function app(): App {
       fs.mkdirSync(path.join(dir, "src/dev/orbit/tracking"), { recursive: true });
       fs.writeFileSync(path.join(dir, "src/dev/orbit/tracking/Tracker.java"), source);
 
-      spawnSync("javac", [
+      runJavac([
         "--release",
         "11",
         "-d",
         path.join(dir, "classes"),
         path.join(dir, "src/dev/orbit/tracking/Tracker.java"),
       ]);
-      spawnSync("jar", ["cf", path.join(dir, "orbit.jar"), "-C", path.join(dir, "classes"), "."]);
+      runJar(["cf", path.join(dir, "orbit.jar"), "-C", path.join(dir, "classes"), "."]);
 
       return [v, path.join(dir, "orbit.jar")];
     }),

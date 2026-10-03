@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, describe, expect, it } from "vite-plus/test";
 import { forgetLoadedSdks, sdkAvailable, sdkModule, sdkModuleArtifacts } from "../src/provider.ts";
 import { frameworkSearchPath } from "../src/vendored.ts";
+import { runJar, runJavac } from "./jvm-tools.ts";
 
 const fixtures = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 const javac =
@@ -139,13 +140,11 @@ describe.skipIf(!javac || !androidSdk)("libraries packages ship", () => {
       .stdout.trim()
       .split("\n");
     const classes = path.join(dir, "classes");
-    const cc = spawnSync("javac", ["--release", "11", "-d", classes, ...sources], {
-      encoding: "utf8",
-    });
+    const cc = runJavac(["--release", "11", "-d", classes, ...sources]);
     if (cc.status !== 0) throw new Error(cc.stderr);
 
     const jar = path.join(dir, "widgets.jar");
-    spawnSync("jar", ["cf", jar, "-C", classes, "."]);
+    runJar(["cf", jar, "-C", classes, "."]);
     return jar;
   }
 

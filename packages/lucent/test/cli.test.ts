@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "@lucent-lang/compiler";
 import { bin, runLucent } from "./run-to-exit.ts";
+import { runJar, runJavac } from "../../bindgen/test/jvm-tools.ts";
 
 const android = sdkAvailable("android");
 
@@ -488,8 +489,8 @@ describe("the app's Android dependencies", () => {
       )
         .stdout.trim()
         .split("\n");
-      spawnSync("javac", ["--release", "11", "-d", classes, ...sources]);
-      spawnSync("jar", ["cf", jar, "-C", classes, "."]);
+      runJavac(["--release", "11", "-d", classes, ...sources]);
+      runJar(["cf", jar, "-C", classes, "."]);
       fs.mkdirSync(path.join(root, "android"));
       fs.writeFileSync(
         path.join(root, "android/gradlew"),
