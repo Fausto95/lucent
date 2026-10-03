@@ -349,6 +349,8 @@ describe("platform declarations in one module", () => {
       // Shared state is everywhere.
       for (const f of [mm, cpp, host]) expect(f).toContain("calls");
     },
+    // The first here to read CoreLocation: on a cold cache it extracts it, a minute on CI.
+    600_000,
   );
 
   it.skipIf(!ios || !android || process.platform !== "darwin")(
