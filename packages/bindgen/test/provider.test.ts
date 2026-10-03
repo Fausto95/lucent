@@ -196,6 +196,7 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
 });
 
 describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
+  // A cold cache on purpose: the SDK modules it names are extracted too, minutes on CI.
   it("extracts a module on first use and caches it per Xcode", () => {
     const cacheDir = tmp("lucent-cache-");
     const opts = { cacheDir, ios: { includePaths: [path.join(fixtures, "objc")] } };
@@ -218,8 +219,9 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     const after = extractionCount();
     expect(sdkModule("ios", "Widgets", opts)).toEqual(cold);
     expect(extractionCount()).toBe(after);
-  });
+  }, 600_000);
 
+  // A cold cache on purpose: the SDK modules it names are extracted too, minutes on CI.
   it("gives modules a program does not import only the names of their types", () => {
     const cacheDir = tmp("lucent-cache-");
     const opts = { cacheDir, ios: { includePaths: [path.join(fixtures, "objc")] } };
@@ -257,8 +259,10 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     // Names come from the symbol graph alone: no schema is built.
     const [key] = fs.readdirSync(path.join(cacheDir, "sdk/ios"));
     expect(fs.existsSync(path.join(cacheDir, "sdk/ios", key!, "Widgets.json"))).toBe(false);
-  });
+  }, 600_000);
 
+  // From here, the shared SDK cache, as an app's builds use it: what these bind is cached by its
+  // content, and the SDK's modules are extracted once rather than for each test.
   it("binds pods: module maps and search paths from the Pods xcconfig", () => {
     const pods = podsSearchPaths(path.join(fixtures, "pods"));
     const root = path.join(fixtures, "pods/Pods");
@@ -273,7 +277,7 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
       defines: ["COCOAPODS=1"],
       lockfile: path.join(fixtures, "pods/Podfile.lock"),
     });
-    const r = sdkModule("ios", "WidgetsPod", { cacheDir: tmp("lucent-cache-"), ios: pods });
+    const r = sdkModule("ios", "WidgetsPod", { ios: pods });
     // Imported through the umbrella header its module map names, as <Pod/…>;
     // linked by the pod itself, not as a framework.
     expect("schema" in r && { header: r.schema.header, frameworks: r.schema.frameworks }).toEqual({
@@ -301,7 +305,6 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
 
   it("resolves structs and typedefs other modules declare, attributes and tags included", () => {
     const r = sdkModule("ios", "Players", {
-      cacheDir: tmp("lucent-cache-"),
       ios: { includePaths: [path.join(fixtures, "objc")] },
     });
     const player = "schema" in r ? r.schema.types.find((t) => t.name === "PLYPlayer") : undefined;
@@ -313,7 +316,6 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     // Swift hides the tag `_MSRRange` and names the typedef without a USR, as it does NSRange.
     expect(type("selection")).toEqual(T("Measures.MSRRange"));
     const measures = sdkModule("ios", "Measures", {
-      cacheDir: tmp("lucent-cache-"),
       ios: { includePaths: [path.join(fixtures, "objc")] },
     });
     expect(
@@ -332,7 +334,6 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
 
   it("binds Swift's value types as the Objective-C classes they bridge to", () => {
     const r = sdkModule("ios", "Players", {
-      cacheDir: tmp("lucent-cache-"),
       ios: { includePaths: [path.join(fixtures, "objc")] },
     });
     const player = "schema" in r ? r.schema.types.find((t) => t.name === "PLYPlayer") : undefined;
@@ -348,7 +349,6 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
 
   it("binds opaque CoreFoundation-style handles as classes of their C type", () => {
     const opts = {
-      cacheDir: tmp("lucent-cache-"),
       ios: { includePaths: [path.join(fixtures, "objc")] },
     };
     const names = sdkNames("ios", "Measures", opts);
@@ -382,7 +382,6 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
 
   it("binds NSSet as a set of its element type", () => {
     const r = sdkModule("ios", "Players", {
-      cacheDir: tmp("lucent-cache-"),
       ios: { includePaths: [path.join(fixtures, "objc")] },
     });
     const player = "schema" in r ? r.schema.types.find((t) => t.name === "PLYPlayer") : undefined;
@@ -397,7 +396,6 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
 
   it("binds AnyHashable (untyped NSDictionary keys, NSSet elements) as id", () => {
     const r = sdkModule("ios", "Players", {
-      cacheDir: tmp("lucent-cache-"),
       ios: { includePaths: [path.join(fixtures, "objc")] },
     });
     const player = "schema" in r ? r.schema.types.find((t) => t.name === "PLYPlayer") : undefined;
@@ -436,7 +434,7 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
   });
 
   it("binds Swift modules: on the include paths, and SDK frameworks without headers", () => {
-    const opts = { cacheDir: tmp("lucent-cache-"), ios: { includePaths: [swiftModule("Shapes")] } };
+    const opts = { ios: { includePaths: [swiftModule("Shapes")] } };
     const shapes = sdkModule("ios", "Shapes", opts);
     // Nothing to import (the shims call them) and, as the app's own, nothing to link.
     expect(
