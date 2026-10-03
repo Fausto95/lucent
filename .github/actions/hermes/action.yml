@@ -1,0 +1,23 @@
+name: Hermes
+description: The Hermes revision HERMES_REF, built into HERMES_DIR (cached), for the harnesses that run Lucent through JSI.
+runs:
+  using: composite
+  steps:
+    - run: sudo apt-get update && sudo apt-get install -y ninja-build libicu-dev
+      shell: bash
+    - name: Restore Hermes build
+      id: hermes-cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.HERMES_DIR }}
+        key: hermes-${{ runner.os }}-${{ env.HERMES_REF }}
+    - name: Build Hermes
+      if: steps.hermes-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        git init "$HERMES_DIR"
+        cd "$HERMES_DIR"
+        git fetch --depth 1 https://github.com/facebook/hermes.git "$HERMES_REF"
+        git checkout FETCH_HEAD
+        cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
+        ninja -C build hermesvm jsi
