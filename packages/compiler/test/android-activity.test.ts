@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { androidJars, sdkAvailable } from "@lucent-lang/bindgen";
 import { compile, runtimeDir } from "../src/index.ts";
+import { runJavac } from "../../bindgen/test/jvm-tools.ts";
 
 /** Android output for a platform module whose Android side is `src` (exporting run()). */
 function android(src: string) {
@@ -146,22 +147,18 @@ describe.skipIf(!sdkAvailable("android"))("the current Activity, results and lif
       "LucentViewManagers.java",
       "LucentViews.java",
     ];
-    const cc = spawnSync(
-      "javac",
-      [
-        "--release",
-        "11",
-        "-Xlint:-options",
-        "-Xlint:deprecation",
-        "-Werror",
-        "-cp",
-        jar,
-        "-d",
-        fs.mkdtempSync(path.join(os.tmpdir(), "lucent-java-")),
-        ...sources.filter((f) => !reactNative.includes(path.basename(f))),
-      ],
-      { encoding: "utf8" },
-    );
+    const cc = runJavac([
+      "--release",
+      "11",
+      "-Xlint:-options",
+      "-Xlint:deprecation",
+      "-Werror",
+      "-cp",
+      jar,
+      "-d",
+      fs.mkdtempSync(path.join(os.tmpdir(), "lucent-java-")),
+      ...sources.filter((f) => !reactNative.includes(path.basename(f))),
+    ]);
     expect(cc.stderr).toBe("");
   });
 });

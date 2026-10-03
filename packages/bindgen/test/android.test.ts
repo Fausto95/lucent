@@ -30,11 +30,13 @@ function fixtureJar(): string {
 
   // android.jar declares java.lang.Object; only a patch of java.base compiles one.
   const object = path.join(fixtures, "jdk", "java", "lang", "Object.java");
-  const oc = spawnSync(
-    "javac",
-    ["--patch-module", `java.base=${path.join(fixtures, "jdk")}`, "-d", classes, object],
-    { encoding: "utf8" },
-  );
+  const oc = runJavac([
+    "--patch-module",
+    `java.base=${path.join(fixtures, "jdk")}`,
+    "-d",
+    classes,
+    object,
+  ]);
   if (oc.status !== 0) throw new Error(oc.stderr);
 
   // A Kotlin-mangled JVM name, which only kotlinc writes; same length, so the constant pool stays valid.
