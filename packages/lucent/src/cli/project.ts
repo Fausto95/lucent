@@ -431,17 +431,26 @@ function gradleInputsHash(root: string, native: ResolvedNative): string {
 const gradlewOf = (root: string) =>
   path.join(root, "android", process.platform === "win32" ? "gradlew.bat" : "gradlew");
 
+/** Whether the app has its Android project (a Gradle wrapper to resolve its dependencies). */
+export const hasAndroidProject = (root: string) => fs.existsSync(gradlewOf(root));
+
 /**
  * The Android modules `files` import that neither android.jar nor Lucent
- * packages' libraries declare, while the app has no Android project whose
- * Gradle build resolves its dependencies (an Expo app before expo
- * prebuild): none once it has one, or the classpath one resolved.
+ * packages' libraries declare, while nothing has resolved the app's
+ * dependencies: none once a Gradle build resolved its classpath. Where the
+ * app has an Android project, this build resolves them unless it leaves
+ * Android out (`withProject`: it builds other platforms alone).
  */
-export function pendingAndroidModules(root: string, files: string[], sdk: SdkOptions): string[] {
+export function pendingAndroidModules(
+  root: string,
+  files: string[],
+  sdk: SdkOptions,
+  withProject = false,
+): string[] {
   const imports = sdkImports(files).android;
   const resolved = sdk.android?.classpath && fs.existsSync(sdk.android.classpath);
 
-  if (!imports.length || resolved || fs.existsSync(gradlewOf(root))) return [];
+  if (!imports.length || resolved || (!withProject && hasAndroidProject(root))) return [];
 
   const available = sdkModules("android", sdk);
   if (!Array.isArray(available)) return [];

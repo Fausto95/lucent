@@ -430,6 +430,17 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-03: A build that leaves Android out defers its dependencies.**
+`lucent build --platforms ios` (or `host`) types Android's imports of the
+app's dependencies only once a Gradle build has resolved the app's
+classpath; before that they are untyped, named in a warning that points
+to the Android build, as for an Expo app before `expo prebuild`. _Why:_
+such a build skips the resolution, so it failed with LUCENT3004 on a fresh
+checkout (seen on CI building the bare example for iOS alone), though
+nothing it builds reads those modules' types. _Changed:_ a build that
+includes Android resolves them with Gradle as before, and reports a
+failed resolution.
+
 **2026-10-03: CI runs its long work side by side.** Linux has three jobs
 (unit tests; the runtime and JSI host tests; e2e, budgets and app
 checks), and macOS runs the tests that need the iOS SDK in two shards

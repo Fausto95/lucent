@@ -56,7 +56,11 @@ export async function model(): Promise<string> {
   imports modules neither android.jar nor its Lucent packages' libraries
   declare, `lucent check` and `lucent build` (host builds included) name
   them in a warning, leave Android untyped as above, and skip Android until
-  `android/` exists. An app whose Android imports are all in android.jar
+  `android/` exists. A build that leaves Android out (`--platforms ios`, or
+  `host`) resolves nothing either, so before a Gradle build has resolved the
+  app's classpath it does the same, its warning naming the Android build
+  (`lucent build --platforms android`, or the app's Gradle build) that
+  resolves them. An app whose Android imports are all in android.jar
   builds and checks Android as usual.
 - A module that branches is built per target, like split modules, and is
   Objective-C++ (`.mm`) on iOS.

@@ -30,6 +30,7 @@ import {
   mapLucentPaths,
   missingAppEntries,
   type Notice,
+  hasAndroidProject,
   pendingAndroidModules,
   projectHashes,
   projectSdk,
@@ -327,17 +328,30 @@ export async function buildProject(
     }
   }
 
-  // An app without its Android project yet (Expo before prebuild): nothing resolves the modules
-  // its dependencies declare, so Android waits for the project, as for a prebuild.
+  // Nothing resolves the modules the app's dependencies declare when it has no Android project
+  // yet (Expo before prebuild), or when this build leaves Android out (--platforms ios): Android
+  // waits for the project, or for the Android build.
   if (!deferAndroid && !platforms?.includes("android")) {
-    const pending = pendingAndroidModules(root, files, sdk).map((m) => `lucent:android/${m}`);
+    const leftOut = !!platforms;
+    const pending = pendingAndroidModules(root, files, sdk, leftOut).map(
+      (m) => `lucent:android/${m}`,
+    );
+    const subject = `${pending.join(", ")} ${pending.length === 1 ? "is" : "are"} untyped`;
+    const them = pending.length === 1 ? "it" : "them";
 
-    if (pending.length) {
+    if (pending.length && leftOut && hasAndroidProject(root)) {
+      deferAndroid = true;
+      deferReason = "its dependencies are resolved by the Android build";
+      notify({
+        level: "warn",
+        text: `${subject}: this build leaves Android out, and the Android build (lucent build --platforms android, or the app's Gradle build) resolves ${them}`,
+      });
+    } else if (pending.length) {
       deferAndroid = true;
       deferReason = "the app has no Android project yet";
       notify({
         level: "warn",
-        text: `${pending.join(", ")} ${pending.length === 1 ? "is" : "are"} untyped: the app has no Android project to resolve ${pending.length === 1 ? "it" : "them"} yet. Checked after expo prebuild, or once android/ exists${platforms ? "" : "; skipped Android here"}`,
+        text: `${subject}: the app has no Android project to resolve ${them} yet. Checked after expo prebuild, or once android/ exists${platforms ? "" : "; skipped Android here"}`,
       });
     }
   }
