@@ -10,12 +10,12 @@ export function Dial(props: Props): QXNDial {
     dial.qxnLevel = props.level;
   });
 
-  dial.qxnSetOnTurn((level) => {
+  dial.setOnQXNTurnListener((level) => {
     props.onTurn?.(level);
   });
 
   onDispose(() => {
-    dial.qxnSetOnTurn(null);
+    dial.setOnQXNTurnListener(null);
   });
 
   expose({ level: (): number => dial.qxnLevel });

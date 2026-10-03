@@ -17,7 +17,7 @@ import { androidJars, sdkAvailable } from "@lucent-lang/bindgen";
 import { classpathFile } from "../../bindgen/test/java-fixtures.ts";
 import { compileKotlin, kotlinToolchain } from "../../bindgen/test/kotlin-toolchain.ts";
 import { android } from "./android-harness.ts";
-import { compile } from "../src/index.ts";
+import { compile, type SdkOptions } from "../src/index.ts";
 import { glueErrors, jdk, jvmRun } from "./jni-harness.ts";
 import {
   compileErrors,
@@ -227,6 +227,37 @@ const dial = Object.fromEntries(
   ]),
 );
 
+/** The dial again, written as JSX (T48): its attributes and construction by rule. */
+const dialJsx = Object.fromEntries(
+  ["dial-jsx.lucent.ts", "dial-jsx.ios.lucent.tsx", "dial-jsx.android.lucent.tsx"].map((f) => [
+    f,
+    fs.readFileSync(path.join(root, "dial-jsx", f), "utf8"),
+  ]),
+);
+
+/** A component's files compiled for `platform` under LUCENT_VIEWS=fabric, in a fresh app. */
+function compiledViews(
+  files: Record<string, string>,
+  platform: "ios" | "android",
+  sdk: SdkOptions,
+) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-unknown-views-"));
+
+  fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
+  for (const [f, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, f), text);
+
+  process.env.LUCENT_VIEWS = "fabric";
+  try {
+    const r = compile(
+      Object.keys(files).map((f) => path.join(dir, f)),
+      { platforms: [platform], sdk, ...(platform === "ios" ? { deferred: ["android"] } : {}) },
+    );
+    return { r, dir };
+  } finally {
+    delete process.env.LUCENT_VIEWS;
+  }
+}
+
 /** Where the iOS dial's module is: its header and module map. */
 const dials = path.join(root, "ios", `${prefix}Dials`);
 
@@ -301,6 +332,22 @@ describe.skipIf(!jvm)("an unknown library on Android", () => {
       delete process.env.LUCENT_VIEWS;
     }
   }, 600_000);
+
+  it("binds its view as JSX: a Kotlin property, a listener event by convention", () => {
+    const classpath = classpathFile(path.join(root, "jars/views-classpath.json"), [
+      path.join(kotlin!.lib, "kotlin-stdlib.jar"),
+      viewJar,
+    ]);
+    const { r, dir } = compiledViews(dialJsx, "android", {
+      ios: { includePaths: [dials] },
+      android: { classpath },
+    });
+    const glue = r.files.get("android/m_dial_u2d_jsx.cpp") ?? "";
+
+    expect(r.diagnostics).toEqual([]);
+    expect(glue).toContain(`"setOn${prefix}TurnListener"`);
+    expect(glueErrors(r, dir, "android/m_dial_u2d_jsx.cpp")).toBe("");
+  }, 600_000);
 });
 
 describe("an unknown library's view on iOS", () => {
@@ -322,6 +369,49 @@ describe("an unknown library's view on iOS", () => {
         "disposed: block gone",
         "released: native references all released, dial gone",
       ]);
+    },
+    600_000,
+  );
+
+  it.skipIf(!canRunMounted)(
+    "mounts as JSX: made by rule, its props kept, its block sending events, released with its mount",
+    () => {
+      expect(
+        runMounted(dialJsx, path.join(root, "ios/dial_jsx_run.mm"), {
+          includePaths: [dials],
+          sources: [path.join(dials, `${prefix}Dials.m`)],
+          deferred: ["android"],
+        }),
+      ).toEqual([
+        "mounted: level 2",
+        "committed: level 5",
+        "turned: level 6, sent 6",
+        "released: native references all released, dial gone",
+      ]);
+    },
+    600_000,
+  );
+
+  it.skipIf(!xcode)(
+    "explains each attribute its JSX takes by the rule and artifact giving it",
+    () => {
+      const { r } = compiledViews(dialJsx, "ios", { ios: { includePaths: [dials] } });
+      const declarations = new Map(r.types ?? []).get(`ios/${prefix}Dials.d.ts`) ?? "";
+      const attributes = declarations.slice(declarations.indexOf("interface __jsx_"));
+      const named = (text: string) =>
+        text
+          .replaceAll(prefix, "QXN")
+          .replaceAll(lower[0]!.toUpperCase() + lower.slice(1), "Qxn")
+          .replaceAll(lower, "qxn");
+
+      expect(r.diagnostics).toEqual([]);
+      expect(named(attributes)).toBe(`interface __jsx_QXNDial<Self> {
+  /** QXNDial.qxnLevel: a writable property (setQxnLevel:), in clang-module:QXNDials */
+  qxnLevel?: number;
+  /** QXNDial.qxnOnTurn: a writable property (setQxnOnTurn:), in clang-module:QXNDials */
+  qxnOnTurn?: ((arg0: number) => void) | null;
+}
+`);
     },
     600_000,
   );
