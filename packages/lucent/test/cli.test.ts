@@ -229,6 +229,54 @@ describe("lucent sdk coverage", () => {
   );
 });
 
+describe("lucent sdk coverage of views", () => {
+  it.skipIf(!android)(
+    "lists each view class's JSX attributes, events, children and construction, with their rules, when views are on",
+    () => {
+      const root = project();
+      const run = (views: boolean) => {
+        const env = { ...process.env };
+        delete env.LUCENT_VIEWS;
+        if (views) env.LUCENT_VIEWS = "fabric";
+
+        const r = runLucent(
+          ["sdk", "coverage", "--android", "android.widget", "--views", "--json", "--root", root],
+          { env },
+        );
+        expect(r.status, r.stderr).toBe(0);
+
+        return JSON.parse(r.stdout) as {
+          views?: {
+            view: string;
+            made: string;
+            events: { name: string; explanation: string }[];
+            leftOut: { name: string; reason: string }[];
+          }[];
+        }[];
+      };
+
+      const [widget] = run(true);
+      const view = (name: string) => widget!.views?.find((v) => v.view === name);
+
+      expect(view("CompoundButton")).toMatchObject({
+        made: "context",
+        events: [
+          {
+            name: "onCheckedChange",
+            explanation: expect.stringContaining("CompoundButton.setOnCheckedChangeListener"),
+          },
+        ],
+      });
+      expect(view("AutoCompleteTextView")?.leftOut).toContainEqual({
+        name: "adapter",
+        reason: expect.stringMatching(/generic/),
+      });
+      // Views are internal: without the switch, no view in the report.
+      expect(run(false)[0]!.views).toBeUndefined();
+    },
+  );
+});
+
 describe("lucent sdk coverage of SwiftUI", () => {
   const ios = process.platform === "darwin" && sdkAvailable("ios");
 
