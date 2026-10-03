@@ -707,7 +707,10 @@ function iosNotFound(r: Resolved, module: string): { missing: string } {
       ? `${ios.frameworkPaths.length} framework path${ios.frameworkPaths.length === 1 ? "" : "s"}`
       : "",
   ].filter(Boolean);
-  const where = `looked in ${r.ios!.frameworks}${extra.length ? ` and the app's pods (${extra.join(", ")}); run pod install after adding a pod` : ""}`;
+  const pods = extra.length
+    ? ` and the app's pods (${extra.join(", ")}); run pod install after adding a pod`
+    : "; no pods were read: when it comes from a pod, run pod install first";
+  const where = `looked in ${r.ios!.frameworks}${pods}`;
   return {
     missing: `lucent:ios/${module} was not found in the SDK or the app's dependencies (${where})`,
   };

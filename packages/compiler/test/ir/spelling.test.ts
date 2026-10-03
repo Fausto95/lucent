@@ -58,4 +58,42 @@ describe("the IR's C++", () => {
 
     expect(shown).toContain("lucent::Opt<lucent::String>(lucent::null)");
   });
+
+  it("moves a loop's element into the variable the body declares, without copying it", () => {
+    const file = module(`interface Point {
+  x: number;
+  y: number;
+}
+export function sum(points: Point[], names: string[], xs: number[]): number {
+  let s = 0;
+  for (const p of points) s += p.x + p.y;
+  for (const name of names) s += name.length;
+  for (const x of xs) s += x;
+  return s;
+}
+`);
+    const sum = body(cppOf(file), "sum");
+
+    expect(sum).toMatch(/lucent::Ref<lucent_app::S_Point> p = std::move\(v\d+_\);/);
+
+    expect(sum).toMatch(/lucent::String name = std::move\(v\d+_\);/);
+
+    expect(sum).toMatch(/double x = v\d+_;/);
+  });
+
+  it("copies a value an inner loop declares, as each of its runs needs it", () => {
+    const file = module(`export function rows(names: string[], n: number): number {
+  let s = 0;
+  for (const name of names) {
+    for (let i = 0; i < n; i++) {
+      const again = name;
+      s += again.length;
+    }
+  }
+  return s;
+}
+`);
+
+    expect(body(cppOf(file), "rows")).toMatch(/lucent::String again = name;/);
+  });
 });

@@ -12,28 +12,26 @@ const slug = id === "docs" ? "" : id.replace(/^docs\//, "");
 const group = docsGroups.find((g) => g.slugs.includes(slug))?.label ?? "Docs";
 ---
 
-{
-  template !== "splash" && (
-    <>
-      {id.startsWith("docs") && <div class="breadcrumb">{group}</div>}
-      <h1 id="_top">{title}</h1>
-      {description && <p set:html={inlineHtml(description)} />}
-    </>
-  )
-}
+{template !== "splash" && (
+  <>
+    {id.startsWith("docs") && <div class="breadcrumb">{group}</div>}
+    <h1 id="_top">{title}</h1>
+    {description && <p set:html={inlineHtml(description)} />}
+  </>
+)}
 
 <style>
   .breadcrumb {
     margin-bottom: 1rem;
     color: var(--muted-foreground);
     font-size: 0.875rem;
-    line-height: 1;
+    line-height: 1.5;
   }
   h1 {
     margin: 0;
     color: var(--foreground-light);
     font-size: 2.25rem;
-    font-weight: 800;
+    font-weight: 600;
     line-height: 1.15;
     letter-spacing: -0.025em;
     scroll-margin: 5rem;
@@ -48,7 +46,7 @@ const group = docsGroups.find((g) => g.slugs.includes(slug))?.label ?? "Docs";
     color: var(--muted-foreground);
     font-size: 1rem;
     line-height: 1.5rem;
-    text-wrap: balance;
+    text-wrap: pretty;
   }
   p :global(code) {
     font-size: 0.9em;

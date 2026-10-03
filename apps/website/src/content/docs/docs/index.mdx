@@ -1,6 +1,6 @@
 ---
 title: What is Lucent
-description: "Lucent compiles TypeScript modules to C++ for React Native: you write a `.lucent.ts` file, and your app calls it as native code."
+description: "Lucent brings native logic and views to React Native through TypeScript. Write modules in `.lucent.ts` and experimental native components in `.lucent.tsx`."
 kind: start
 ---
 
@@ -70,7 +70,7 @@ A module imports the SDKs directly, typed from your Xcode and Android SDK. Each 
 
 ## When not to use it
 
-- Native views. Lucent has none until milestone M3 ([roadmap](/docs/roadmap/)).
+- Shipping native views to production. The [views implementation](/blog/native-views/) is experimental, behind `LUCENT_VIEWS=fabric`, and still needs physical-device validation.
 - Production apps. Lucent is experimental, and its APIs change without a migration path.
 - Code that needs `any`, `eval` or dynamic property access. Lucent compiles a checked subset of TypeScript.
 
