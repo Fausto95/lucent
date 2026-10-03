@@ -1,12 +1,14 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  type ViewCoverage,
   projectFiles,
   sdkCoverage,
   type SdkCoverage,
   sdkModule,
   sdkModules,
   toolkitsFrom,
+  viewCoverage,
 } from "@lucent-lang/compiler";
 import { sdkSourceModule, symbolKey } from "@lucent-lang/bindgen";
 import type { Invocation } from "../args.ts";
@@ -20,6 +22,8 @@ import { table } from "../ui/format.ts";
  * .lucent/sdk-usage.json) and exercised (by the tests or probes an
  * `--exercised` file lists). A toolkit generated from a module (while
  * views are on: lucent:swiftui, from SwiftUI) follows it, under its name.
+ * With `--views` (views on), each module's view classes too: what their
+ * JSX tags take by rule, and what the rules leave out.
  */
 export function run({ root, flags, out }: Invocation): number {
   const t = out.theme;
@@ -45,7 +49,7 @@ export function run({ root, flags, out }: Invocation): number {
     return 1;
   }
 
-  const reports: SdkCoverage[] = [];
+  const reports: (SdkCoverage & { views?: ViewCoverage[] })[] = [];
   for (const platform of ["ios", "android"] as const) {
     // `android.*`: every module with the prefix.
     const listed = () => {
@@ -61,7 +65,12 @@ export function run({ root, flags, out }: Invocation): number {
         out.error(`${t.error(t.symbols.fail)} ${r.missing}`);
         return 1;
       }
-      reports.push(sdkCoverage(r.schema, undefined, evidence));
+      const moduleOf = (name: string) => {
+        const found = sdkModule(platform, name, sdk);
+        return "missing" in found ? undefined : found.schema;
+      };
+      const views = flags.views ? viewCoverage(r.schema, moduleOf) : undefined;
+      reports.push({ ...sdkCoverage(r.schema, undefined, evidence), ...(views ? { views } : {}) });
 
       // A toolkit generated from the module (lucent:swiftui), under its own name.
       for (const toolkit of toolkitsFrom(platform, m)) {
@@ -96,6 +105,31 @@ export function run({ root, flags, out }: Invocation): number {
       ...rows,
     ]))
       out.print(line);
+
+    for (const c of reports) {
+      if (!c.views?.length) continue;
+
+      out.print("");
+      out.print(t.bold(`${c.module} views`));
+      for (const line of table([
+        ["view", "made", "props", "events", "children", "left out"].map((h) => t.dim(h)),
+        ...c.views.map((v) => [
+          v.view,
+          v.made,
+          String(v.props.length),
+          String(v.events.length),
+          v.children ? "yes" : "-",
+          String(v.leftOut.length),
+        ]),
+      ]))
+        out.print(line.trimEnd());
+
+      // Each attribute, with the rule and artifact that made it, on request.
+      if (flags.members)
+        for (const v of c.views)
+          for (const a of [...v.props, ...v.events])
+            out.print(`  ${v.view} ${a.name}: ${t.dim(a.explanation)}`);
+    }
 
     if (flags.members)
       for (const c of reports) {
