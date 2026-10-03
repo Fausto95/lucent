@@ -457,6 +457,21 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     ).toEqual({ header: undefined, frameworks: ["CryptoKit"] });
   });
 
+  it("asks xcrun about the SDK once, whatever else the options say", () => {
+    const dir = tmp("lucent-xcrun-");
+    const calls = path.join(dir, "calls");
+    const xcrun = path.join(dir, "xcrun");
+    fs.writeFileSync(xcrun, `#!/bin/sh\necho "$*" >> "${calls}"\nexec xcrun "$@"\n`, {
+      mode: 0o755,
+    });
+
+    for (const cacheDir of [tmp("lucent-cache-"), tmp("lucent-cache-")])
+      sdkModule("ios", "NoSuchPodModule", { cacheDir, ios: { xcrun } });
+
+    const asked = fs.readFileSync(calls, "utf8").trim().split("\n");
+    expect(asked.filter((a) => a.includes("--show-sdk-path"))).toHaveLength(1);
+  });
+
   it("says to run pod install when it looked for a module without the app's pods", () => {
     const r = sdkModule("ios", "NoSuchPodModule", { cacheDir: tmp("lucent-cache-"), ios: {} });
     expect(r).toEqual({
