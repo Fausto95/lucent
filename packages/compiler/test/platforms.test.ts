@@ -371,6 +371,30 @@ describe("platform declarations in one module", () => {
   );
 
   it.skipIf(!android)(
+    "types a platform ternary for the host by its typed branch, the iOS SDK missing",
+    () => {
+      const r = compile(
+        project({
+          "enabled.lucent.ts": `import { PLATFORM } from "lucent:platform";
+import { CLLocationManager } from "lucent:ios/CoreLocation";
+import { Build } from "lucent:android/android.os";
+
+export async function enabled(): Promise<boolean> {
+  return PLATFORM === "ios" ? CLLocationManager.locationServicesEnabled() : Build.MODEL !== null;
+}
+`,
+        }),
+        {
+          platforms: ["android", "host"],
+          sdk: { ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") } },
+        },
+      );
+      expect(r.diagnostics).toEqual([]);
+      expect(r.files.get("host/m_enabled.cpp")).toContain("is not available on this platform");
+    },
+  );
+
+  it.skipIf(!android)(
     "compiles for Android where the iOS SDK is missing, a declaration file naming iOS types",
     () => {
       const r = compile(
