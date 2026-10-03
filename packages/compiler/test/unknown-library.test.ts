@@ -172,7 +172,15 @@ describe.skipIf(!xcode)("an unknown library's next version on iOS", () => {
   }, 300_000);
 
   /** Each shim the glue calls, by its symbol: named after what it binds, not after the build. */
-  const shims = (p: { shims: string }) => new Set(p.shims.split(/(?=@_cdecl)/).slice(1));
+  // Each up to its function's end: what follows the last one (a proxy class) is no shim, and
+  // which shim is last depends on the names, drawn at random.
+  const shims = (p: { shims: string }) =>
+    new Set(
+      p.shims
+        .split(/(?=@_cdecl)/)
+        .slice(1)
+        .map((s) => s.slice(0, s.indexOf("\n}\n") + 3)),
+    );
 
   /** The app's code, updated for the next version: it moves the gauge where it bumped it. */
   const moved = use.replaceAll(`${lower}Bump(`, `${lower}Move(`);
