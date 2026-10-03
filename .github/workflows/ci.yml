@@ -136,6 +136,8 @@ jobs:
     env:
       LANG: en_US.UTF-8
       LC_ALL: en_US.UTF-8
+      # React Native's pods compile through ccache when pod install sees this.
+      USE_CCACHE: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
@@ -162,6 +164,16 @@ jobs:
           path: sdk-coverage.current.json
       - name: Runtime unit tests (ASan/UBSan, libc++)
         run: SANITIZE=1 packages/runtime/test/run.sh
+      - name: ccache
+        run: |
+          brew install ccache
+          echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
+      - name: Compiler cache (objects of the app's earlier builds)
+        uses: actions/cache@v4
+        with:
+          path: ~/.ccache
+          key: ccache-ios-${{ github.sha }}
+          restore-keys: ccache-ios-
       # lucent build reads the pods' headers from the Pods xcconfig, and pod install links the
       # native package lucent build writes: a fresh checkout installs pods on each side of it.
       - name: Install pods (their headers, for lucent build)
@@ -181,6 +193,9 @@ jobs:
             -configuration Debug -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -n 200
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache --show-stats
 
   android:
     name: Bare example (Android build)
