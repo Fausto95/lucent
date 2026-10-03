@@ -12,7 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { compile, runtimeDir, sdkAvailable } from "../../src/index.ts";
-import { macosSdk, quickjsObjects } from "./mount-harness.ts";
+import { catalystObjects, macosSdk, quickjsSources } from "./mount-harness.ts";
 import { catalystToolchain, reactCommon } from "./react-native-headers.ts";
 import { TOGGLE } from "./swiftui-fixture.ts";
 
@@ -178,24 +178,31 @@ describe("a SwiftUI component in its iOS host", () => {
       fs.mkdirSync(path.dirname(binary), { recursive: true });
       fs.writeFileSync(path.join(app, "Info.plist"), INFO_PLIST);
 
+      const args = [
+        "-fobjc-arc",
+        "-iframework",
+        path.join(support, "System/Library/Frameworks"),
+        `-F${path.join(support, "System/Library/Frameworks")}`,
+        "-isystem",
+        path.join(support, "usr/include"),
+        "-isystem",
+        path.join(reactCommon(), "react/utils/platform/ios"),
+        // The app builds Lucent's modules without -Werror.
+        "-Wno-unused-variable",
+      ];
+      const objects = catalystObjects(
+        dir,
+        args,
+        [...sources, ...quickjsSources()],
+        path.join(out, "ios"),
+      );
       const link = spawnSync(
         toolchain!.command,
         [
           ...toolchain!.args,
-          "-fobjc-arc",
-          "-iframework",
-          path.join(support, "System/Library/Frameworks"),
-          `-F${path.join(support, "System/Library/Frameworks")}`,
-          "-isystem",
-          path.join(support, "usr/include"),
-          "-isystem",
-          path.join(reactCommon(), "react/utils/platform/ios"),
-          // The app builds Lucent's modules without -Werror.
-          "-Wno-unused-variable",
-          `-I${path.join(out, "ios")}`,
-          ...sources,
+          ...args,
+          ...objects,
           swiftObject,
-          ...quickjsObjects(dir),
           "-framework",
           "UIKit",
           "-framework",
