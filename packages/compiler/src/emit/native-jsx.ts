@@ -205,14 +205,17 @@ function element(em: FnEmitter, node: ts.Expression, made: Made): string {
       continue;
     }
 
-    // A prop is an effect of the mount: set now, and again whenever what it read changes.
-    const get = em.thunk(value, { site: value, type });
+    // A prop is an effect of the mount: set now, and again whenever what it read changes. A
+    // property takes its type; a setter's value keeps its own, which chooses the overload.
+    const property = prop.prop.kind === "property";
+    const get = em.thunk(value, { site: value, ...(property ? { type } : {}) });
+    const got = !property && get.t.k === "fn" ? get.t.ret : type;
     const keep = cpp.lambda(
       [view, { name: "lucent_get", init: get.c }],
       [],
       [
         cpp.varDecl(cpp.auto, "lucent_value", cpp.call(cpp.id("lucent_get"))),
-        discarded(set({ c: cpp.id("lucent_value"), t: type })),
+        discarded(set({ c: cpp.id("lucent_value"), t: got })),
       ],
       { mutable: true },
     );

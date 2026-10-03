@@ -3528,6 +3528,29 @@ function takes(t: SdkType, lt: LType): boolean {
   }
 }
 
+/** A value computed already, as jniArgument converts an argument: in its parameter's Lucent type. */
+function jniValue(em: FnEmitter, ref: SdkClassRef, site: ts.Expression, t: SdkType, value: E): E {
+  const as = (lt: LType): E => ({ c: em.coerce(value, lt, site), t: lt });
+
+  switch (t.k) {
+    case "prim":
+      return as(primLt(t));
+    case "string":
+      return as(t.nullable ? unionOf([T.string, T.null]) : T.string);
+    case "array": {
+      const lt = declaredLt(em, ref.platform, { ...t, nullable: false }, site);
+      return as(t.nullable ? unionOf([lt, T.null]) : lt);
+    }
+    case "ref": {
+      if (value.t.k === "fn") return value;
+      const lt: LType = { k: "native", platform: ref.platform, module: t.module, name: t.name };
+      return as(t.nullable ? unionOf([lt, T.null]) : lt);
+    }
+    default:
+      return value;
+  }
+}
+
 /**
  * A one-value setter (Android `setText(value)`) called on `obj` with
  * `value`: the overload whose parameter takes the value's type. `site` is
@@ -3559,7 +3582,12 @@ export function setterCall(
     name: method.java ?? method.name,
     desc: method.descriptor ?? jniDescriptor([method.params[0]!.type], "void"),
     access: (id) =>
-      envCall("CallVoidMethod", jni("unwrap", cpp.id("recv_")), id, jniOf(em, site, t, value)),
+      envCall(
+        "CallVoidMethod",
+        jni("unwrap", cpp.id("recv_")),
+        id,
+        jniOf(em, site, t, jniValue(em, ref, site, t, value)),
+      ),
     ret: VOID,
     lt: T.undefined,
     what,
