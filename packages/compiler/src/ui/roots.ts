@@ -99,8 +99,8 @@ export function returnShape(
 
   if (promised) return members(promised).some(isView) ? { kind: "promised" } : { kind: "value" };
 
-  const returned = returnedExpressions(checker, fn, platform).map((e) =>
-    checker.getTypeAtLocation(e),
+  const returned = returnedExpressions(checker, fn, platform).map(
+    (e) => nativeTagType(checker, e) ?? checker.getTypeAtLocation(e),
   );
   const types = (fn.body ? returned : declared ? [declared] : []).flatMap(members);
   const views: ts.ClassDeclaration[] = [];
@@ -148,19 +148,51 @@ function members(t: ts.Type): readonly ts.Type[] {
 }
 
 /**
- * The toolkits' element types a shared file's JSX element is at once
- * (`View & Composed`): each is the view of its toolkit's platform.
+ * The toolkits' element types a JSX element is at once (`View & Composed`
+ * in a shared file): each is the view of its toolkit's platform. The
+ * platforms' root view classes it also is (`View & UIView`: an element
+ * may be a native view's, T48) are not toolkits'; such an element's view is
+ * its tag's (nativeTagType).
  */
 export function elementsOf(t: ts.Type): readonly ts.Type[] | undefined {
   if (!t.isIntersection()) return undefined;
 
-  const all = t.types.every((m) => {
-    const decl = m.getSymbol()?.declarations?.[0];
+  const declOf = (m: ts.Type) => m.getSymbol()?.declarations?.[0];
+  const elements = t.types.filter((m) => {
+    const decl = declOf(m);
 
     return !!decl && ts.isInterfaceDeclaration(decl) && !!toolkitElement(decl);
   });
+  const rest = t.types.filter((m) => !elements.includes(m));
+  const views = rest.every((m) => {
+    const decl = declOf(m);
 
-  return all ? t.types : undefined;
+    return !!decl && ts.isClassDeclaration(decl) && !!sdkRootView(decl);
+  });
+
+  return elements.length && views ? elements : undefined;
+}
+
+/**
+ * The view a returned JSX element of a native view class makes (T48): an
+ * instance of its tag (`<UILabel/>` a UILabel), which the element's type
+ * (JSX.Element, the same for every tag) does not say.
+ */
+export function nativeTagType(checker: ts.TypeChecker, e: ts.Expression): ts.Type | undefined {
+  let jsx: ts.Node = e;
+  while (ts.isParenthesizedExpression(jsx)) jsx = jsx.expression;
+
+  const tag = ts.isJsxElement(jsx)
+    ? jsx.openingElement.tagName
+    : ts.isJsxSelfClosingElement(jsx)
+      ? jsx.tagName
+      : undefined;
+  const symbol = tag && checker.getSymbolAtLocation(tag);
+  const target =
+    symbol && symbol.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(symbol) : symbol;
+  const decl = target?.declarations?.[0];
+
+  return decl && ts.isClassDeclaration(decl) ? checker.getDeclaredTypeOfSymbol(target!) : undefined;
 }
 
 /** `T` of a `Promise<T>` (or `PromiseLike<T>`), if the type is one. */

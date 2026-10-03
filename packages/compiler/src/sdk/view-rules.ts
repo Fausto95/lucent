@@ -12,6 +12,10 @@
  *   declaring `addAction:forControlEvents:` (UIControl's convention): one
  *   `on<Case>` per single-bit case of the events it takes, called with the
  *   control.
+ * - Children: the views a class inserts at an index, by the method it
+ *   declares for it: on iOS `insert<X>:atIndex:` (a stack view's
+ *   `insertArrangedSubview:atIndex:`, any view's `insertSubview:atIndex:`;
+ *   the nearest class's wins), on Android `addView(View, int)`.
  * - Construction: iOS `initWithFrame:` (a zero frame) else `init`, its own
  *   or inherited; Android the `(Context)` constructor, given the host's
  *   context. Otherwise the element says how: `create={() => new X(…)}`.
@@ -62,9 +66,17 @@ export type ViewEvent =
       explanation: string;
     };
 
+/** How a class inserts the views written as its children: `insert(child, index)`. */
+export interface ViewChildren {
+  insert: SdkMethodSchema;
+  explanation: string;
+}
+
 export interface ViewRules {
   props: ViewProp[];
   events: ViewEvent[];
+  /** Whether the class itself declares how it takes children. */
+  children?: ViewChildren;
   /** Attributes the class would give, and why Lucent does not. */
   refused: { name: string; reason: string }[];
 }
@@ -74,9 +86,16 @@ export type ViewConstruction =
   | { kind: "frame" | "init" | "context"; ctor: SdkCallable; owner: string; module: string }
   | { kind: "create"; reason: string };
 
+/** The class every view is: UIKit's UIView, Android's View. */
+export const ROOT_VIEW = {
+  ios: { module: "UIKit", name: "UIView" },
+  android: { module: "android.view", name: "View" },
+};
+
 const LISTENER = /^setOn([A-Z]\w*)Listener$/;
 const SETTER = /^set([A-Z]\w*)$/;
 const REGISTER = "addAction:forControlEvents:";
+const INSERT_AT = /^insert\w*:atIndex:$/;
 
 const capitalized = (s: string) => s[0]!.toUpperCase() + s.slice(1);
 const decapitalized = (s: string) => s[0]!.toLowerCase() + s.slice(1);
@@ -127,8 +146,27 @@ export function viewRules(cls: SdkClassSchema, schema: SdkModuleSchema, find: Fi
   }
 
   const setters = new Map<string, SdkMethodSchema[]>();
+  let children: ViewChildren | undefined;
   for (const m of cls.methods ?? []) {
     if (m.static) continue;
+
+    const [child, index] = m.params;
+    const inserts =
+      m.params.length === 2 &&
+      child!.type.k === "ref" &&
+      index!.type.k === "prim" &&
+      (schema.platform === "ios"
+        ? !!m.selector && INSERT_AT.test(m.selector)
+        : m.name === "addView" &&
+          child!.type.module === ROOT_VIEW.android.module &&
+          child!.type.name === ROOT_VIEW.android.name);
+    if (inserts && !children) {
+      children = {
+        insert: m,
+        explanation: `${cls.name}.${m.selector ?? m.name}: inserts a view at an index, in ${where}`,
+      };
+      continue;
+    }
 
     const listener = LISTENER.exec(m.name);
     if (listener && m.params.length === 1) {
@@ -187,7 +225,16 @@ export function viewRules(cls: SdkClassSchema, schema: SdkModuleSchema, find: Fi
   for (const [name, overloads] of setters) {
     if (props.some((p) => p.name === name)) continue;
 
-    const usable = overloads.filter((m) => !why(m, "call"));
+    // A generic setter's type is the call's to choose: an attribute gives none.
+    if (overloads.every((m) => m.typeParams?.length)) {
+      refused.push({
+        name,
+        reason: `${overloads[0]!.name} is generic: call it in setup code, which gives its type`,
+      });
+      continue;
+    }
+
+    const usable = overloads.filter((m) => !m.typeParams?.length && !why(m, "call"));
     if (!usable.length) refused.push({ name, reason: why(overloads[0]!, "call")! });
     else
       props.push({
@@ -198,7 +245,38 @@ export function viewRules(cls: SdkClassSchema, schema: SdkModuleSchema, find: Fi
       });
   }
 
-  return { props, events, refused };
+  return { props, events, refused, ...(children ? { children } : {}) };
+}
+
+/**
+ * Whether `cls` is a view: the root view, or a class extending it. On iOS
+ * a superclass in another module is taken to be one, unread: reading it
+ * means extracting that module (UIKit, minutes cold), which only names
+ * other modules' types; a class of it that is no view is no JSX tag anyway.
+ */
+export function isViewClass(cls: SdkClassSchema, schema: SdkModuleSchema, find: FindType): boolean {
+  const root = ROOT_VIEW[schema.platform];
+  let owner: SdkClassSchema | undefined = cls;
+  let module = schema.module;
+
+  for (let depth = 0; owner && depth < 64; depth++) {
+    if (module === root.module && owner.name === root.name) return true;
+    if (owner.interface || !owner.extends) return false;
+
+    const sup = parseSdkType(owner.extends, module);
+    if (sup.k !== "ref") return false;
+    if (sup.module === root.module && sup.name === root.name) return true;
+    if (sup.module !== module && schema.platform === "ios") return true;
+
+    const decl: ReturnType<FindType> =
+      sup.module === schema.module
+        ? schema.types.find((t) => t.name === sup.name)
+        : find(sup.module, sup.name);
+    owner = decl?.kind === "class" ? decl : undefined;
+    module = sup.module;
+  }
+
+  return false;
 }
 
 /** How `cls` is made without `create`: its own or (iOS) its inherited initializers. */

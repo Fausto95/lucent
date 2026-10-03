@@ -97,6 +97,27 @@ export interface Children {
  */
 export declare function slot<T extends object>(): T;
 
+/** A native view class, as a JSX tag: any class whose instances are `V`. */
+export type NativeViewTag<V> = abstract new (...args: never[]) => V;
+
+/**
+ * The JSX attributes of a native view class: what each class in its
+ * hierarchy gives under its own `~jsx:<module>.<class>` key (derived by
+ * rule from its declarations), together. Each key's type takes the class
+ * itself (`this`), so a control event's handler gets the tag's class.
+ */
+export type NativeAttributes<T> = [
+  {
+    [K in keyof T]-?: K extends `~jsx:${string}` ? (x: NonNullable<T[K]>) => void : never;
+  }[keyof T],
+] extends [never]
+  ? {}
+  : {
+        [K in keyof T]-?: K extends `~jsx:${string}` ? (x: NonNullable<T[K]>) => void : never;
+      }[keyof T] extends (x: infer I) => void
+    ? I
+    : never;
+
 /**
  * Has the view measured again, once the main thread's current work ends:
  * for a change to its native content its host would not hear of. The host

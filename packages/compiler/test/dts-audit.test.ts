@@ -7,7 +7,15 @@ import { sdkDts } from "../src/sdk/dts.ts";
 import { toolkitDts } from "../src/sdk/toolkit-dts.ts";
 import { TOOLKITS } from "../src/ui/toolkits.ts";
 import { parseSdkType, type Platform, type SdkModuleSchema } from "../src/sdk/schema.ts";
-import { type Audit, auditSdk, auditTexts, byCategory, type Category, tally } from "./dts-audit.ts";
+import {
+  type Audit,
+  auditSdk,
+  auditTexts,
+  byCategory,
+  type Category,
+  tally,
+  UIKIT,
+} from "./dts-audit.ts";
 
 /**
  * Generated SDK declarations checked without skipLibCheck. Apps never check
@@ -839,7 +847,10 @@ describe("declaration audit of lucent:swiftui", () => {
       const found = sdkSourceModule("ios", "SwiftUI");
       if ("missing" in found) throw new Error(found.missing);
 
-      const a = auditTexts({ "toolkit/swiftui": toolkitDts(TOOLKITS.swiftui, found.schema) });
+      const a = auditTexts({
+        "toolkit/swiftui": toolkitDts(TOOLKITS.swiftui, found.schema),
+        "ios/UIKit": UIKIT,
+      });
 
       expect(byCategory(a)).toEqual({});
     },

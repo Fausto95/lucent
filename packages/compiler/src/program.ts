@@ -20,6 +20,7 @@ import {
   sourceModuleLookup,
   WRAP_UNBOUND,
 } from "./sdk/schema.ts";
+import { NATIVE_JSX_UI, nativeJsxDecls, nativeTags, rootViews } from "./sdk/native-jsx-dts.ts";
 import { toolkitDts } from "./sdk/toolkit-dts.ts";
 import { extensionDts } from "./extensions/dts.ts";
 import { boundExtensions, findExtension } from "./extensions/registry.ts";
@@ -160,7 +161,10 @@ const toolkitTexts = new WeakMap<SdkModuleSchema, string>();
  * nothing else), and each names-only module's, once per names index: every
  * compile asks for them, and writing UIKit's or Foundation's takes seconds.
  */
-const sdkTexts = new WeakMap<SdkModuleSchema, string>();
+const sdkTexts = {
+  plain: new WeakMap<SdkModuleSchema, string>(),
+  jsx: new WeakMap<SdkModuleSchema, string>(),
+};
 const stubTexts = new WeakMap<object, string>();
 
 /** A generated toolkit's declarations, or why there are none. */
@@ -230,15 +234,18 @@ function virtualSdkText(file: string, direct: Set<string>): string | undefined {
   }
   const schema = findSdkModule(platform, module);
   if (!schema) return undefined;
-  let text = sdkTexts.get(schema);
+  // Views' declarations also give each view class its JSX attributes (T48).
+  const jsx = fabricRequested();
+  const texts = sdkTexts[jsx ? "jsx" : "plain"];
+  let text = texts.get(schema);
   if (text === undefined)
-    sdkTexts.set(
+    texts.set(
       schema,
       (text = cachedDeclarations(
         sdkCacheDir(),
         currentSdkIdentity(),
-        ["full", platform, module],
-        () => sdkDts(schema),
+        ["full", platform, module, ...(jsx ? ["jsx"] : [])],
+        () => sdkDts(schema, { jsx }),
       )),
     );
   // Modules it re-exports are used as directly as it is.
@@ -458,6 +465,9 @@ function jsxRuntimeText(): string {
     platformSdkTyped(TOOLKITS[t].platform),
   );
   const elements = typed.map((t) => TOOLKITS[t].element);
+  // The typed platforms' views are tags too (T48), and an element is any of them at once.
+  const platforms = PLATFORMS.filter((p) => platformSdkTyped(p));
+  const { imports: rootImports, types: roots } = rootViews(platforms);
 
   return dts.printUnit({
     banner: "The JSX of a shared Lucent file: each platform's toolkit's, in its code.",
@@ -467,6 +477,8 @@ function jsxRuntimeText(): string {
         names: [TOOLKITS[t].element],
         from: `lucent:${t}`,
       })),
+      { k: "importType", names: NATIVE_JSX_UI, from: "lucent:ui" },
+      ...rootImports,
       {
         k: "namespace",
         name: "JSX",
@@ -474,9 +486,10 @@ function jsxRuntimeText(): string {
           {
             k: "typeAlias",
             name: "Element",
-            type: elements.length
-              ? dts.intersection(elements.map((e) => dts.ref(e)))
-              : dts.keyword("unknown"),
+            type:
+              elements.length || roots.length
+                ? dts.intersection([...elements.map((e) => dts.ref(e)), ...roots])
+                : dts.keyword("unknown"),
           },
           // A tag is a component of either toolkit: it makes that toolkit's element. An
           // untyped toolkit's tags (its module untyped) are any component.
@@ -490,8 +503,10 @@ function jsxRuntimeText(): string {
               ...(typed.length < Object.keys(TOOLKITS).length
                 ? [dts.fn([dts.param("props", dts.keyword("never"))], dts.keyword("unknown"))]
                 : []),
+              ...nativeTags(roots),
             ]),
           },
+          ...nativeJsxDecls(),
           {
             k: "interface",
             name: "ElementChildrenAttribute",

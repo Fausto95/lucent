@@ -24,6 +24,7 @@ import {
   type SdkPropertySchema,
   type SdkType,
 } from "./schema.ts";
+import { isViewClass, ROOT_VIEW, viewRules } from "./view-rules.ts";
 
 /** Module specifier of an SDK module. */
 export function sdkSpecifier(platform: Platform, module: string): string {
@@ -36,11 +37,11 @@ export function sdkSpecifier(platform: Platform, module: string): string {
  * and document their thread rule; the compiler maps the declarations back to
  * the schema by name and overload order.
  */
-export function sdkDts(schema: SdkModuleSchema): string {
-  const plain = emitDts(schema, new Map());
+export function sdkDts(schema: SdkModuleSchema, options: DtsOptions = {}): string {
+  const plain = emitDts(schema, new Map(), options);
   const aliases = importAliases(schema, plain.imports);
 
-  return aliases.size ? emitDts(schema, aliases).text : plain.text;
+  return aliases.size ? emitDts(schema, aliases, options).text : plain.text;
 }
 
 /**
@@ -77,9 +78,16 @@ const moduleIdent = (module: string) =>
     .replace(/\W/g, "_");
 
 /** The declarations, with the imports they use; `aliases` renames colliding imports. */
+/** What the declarations hold beyond the module's API. */
+export interface DtsOptions {
+  /** Each view class's JSX attributes (T48), which only views (LUCENT_VIEWS=fabric) read. */
+  jsx?: boolean;
+}
+
 function emitDts(
   schema: SdkModuleSchema,
   aliases: ReadonlyMap<string, string>,
+  options: DtsOptions,
 ): { text: string; imports: Map<string, Set<string>> } {
   const imports = new Map<string, Set<string>>();
   /** Imports `name` from `module`, and gives the name to reference it by. */
@@ -197,7 +205,7 @@ function emitDts(
         },
         ts.blank,
       );
-    else body.push(...classDts(schema, type, tsType, use), ts.blank);
+    else body.push(...classDts(schema, type, tsType, use, options), ts.blank);
   }
   const refused = refusalDoc(schema);
   for (const f of schema.functions ?? []) {
@@ -431,6 +439,7 @@ function classDts(
   cls: SdkClassSchema,
   tsType: (t: SdkType, out?: boolean) => ts.Type,
   use: (module: string, name: string) => string,
+  options: DtsOptions,
 ): ts.Decl[] {
   const parse = (s: string | SdkType, tps: readonly string[] = []) =>
     parseSdkType(s, schema.module, tps);
@@ -679,6 +688,27 @@ function classDts(
   // (Closeable, Cursor…): a using declaration closes it.
   if (schema.platform === "android" && cls.native === AUTO_CLOSEABLE)
     members.push({ k: "method", name: "[Symbol.dispose]", params: [], ret: ts.keyword("void") });
+  // What the class adds to its JSX tag's attributes (T48), under a key of its own, so that
+  // each class's keeps `this`; the root view's `~jsx` is them all, the tag's attributes.
+  const jsx = options.jsx ? jsxAttributes(schema, cls, tsType, parse) : undefined;
+  if (jsx?.root)
+    members.push({
+      k: "property",
+      name: "~jsx",
+      type: ts.ref(use("lucent:ui", "NativeAttributes"), ts.ref("this")),
+      readonly: true,
+      optional: true,
+      doc: "The JSX attributes of this view's tag: its classes' `~jsx:` keys, together.",
+    });
+  if (jsx?.decl)
+    members.push({
+      k: "property",
+      name: `~jsx:${schema.module}.${cls.name}`,
+      type: ts.ref(jsx.name, ts.ref("this"), ...typeParams.map((t) => ts.ref(t.name))),
+      readonly: true,
+      optional: true,
+      doc: "The JSX attributes this class gives its tag, derived by rule from its declarations.",
+    });
   // Interfaces and abstract classes cannot be constructed; implemented
   // interfaces merge into the class type below, so values convert to them.
   const out: ts.Decl[] = [
@@ -698,7 +728,88 @@ function classDts(
     .map((i) => tsType(parse(i)));
   if (supers.length)
     out.push({ k: "interface", name: cls.name, typeParams, extends: supers, members: [] });
+  if (jsx?.decl) out.push(jsx.decl);
   return out;
+}
+
+/**
+ * The attributes a view class itself gives its JSX tag (T48), as a
+ * module-local interface of the tag's class (`Self`: a control's handler
+ * gets it): props and events, each documented with the rule that made it;
+ * and whether it is the root view, which gathers its subclasses' keys. None
+ * for a class that is no view.
+ */
+function jsxAttributes(
+  schema: SdkModuleSchema,
+  cls: SdkClassSchema,
+  tsType: (t: SdkType, out?: boolean) => ts.Type,
+  parse: (s: string | SdkType) => SdkType,
+): { name: string; root: boolean; decl?: ts.Decl } | undefined {
+  const find = (module: string, name: string) => findSdkType(schema.platform, module, name);
+  if (cls.interface || !isViewClass(cls, schema, find)) return undefined;
+
+  const view = ROOT_VIEW[schema.platform];
+  const root = schema.module === view.module && cls.name === view.name;
+  const rules = viewRules(cls, schema, find);
+  // Children are views of the platform: what a JSX element is, as a component returns it.
+  const childrenMember = (c: { explanation: string }): ts.Member => {
+    const child = tsType(parseSdkType(`${view.module}.${view.name}`), false);
+
+    return {
+      k: "property",
+      name: "children",
+      type: ts.union([child, ts.readonlyArray(child)]),
+      optional: true,
+      doc: c.explanation,
+    };
+  };
+  const name = `__jsx_${cls.name}`;
+  if (!rules.props.length && !rules.events.length && !rules.children)
+    return root ? { name, root } : undefined;
+
+  const props = rules.props.map((p): ts.Member => ({
+    k: "property",
+    name: p.name,
+    type:
+      p.kind === "property"
+        ? tsType(parse(p.member.type), false)
+        : ts.union(p.overloads.map((m) => tsType(parse(m.params[0]!.type), false))),
+    optional: true,
+    doc: p.explanation,
+  }));
+  const events = rules.events.map((e): ts.Member => ({
+    k: "property",
+    name: e.name,
+    type:
+      e.kind === "listener"
+        ? ts.fn(
+            e.method.params.map((x, i) =>
+              ts.param(`arg${i}`, tsType(parseSdkType(x.type, e.listener.module), true)),
+            ),
+            tsType(parseSdkType(e.method.returns, e.listener.module), false),
+          )
+        : ts.fn([ts.param("control", ts.ref("Self"))], ts.keyword("void")),
+    optional: true,
+    doc: e.explanation,
+  }));
+  return {
+    name,
+    root,
+    decl: {
+      k: "interface",
+      name,
+      local: true,
+      // The class's own type parameters too: a generic view's setters take them.
+      typeParams: [
+        { name: "Self" },
+        ...distinctTypeParams(cls.typeParams ?? []).map((name) => ({
+          name,
+          default: ts.keyword("unknown"),
+        })),
+      ],
+      members: [...props, ...events, ...(rules.children ? [childrenMember(rules.children)] : [])],
+    },
+  };
 }
 
 /** Whether a superclass of `cls`, however far up, has its simple name. */

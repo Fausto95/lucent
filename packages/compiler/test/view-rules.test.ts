@@ -175,6 +175,12 @@ describe("view rules on Android", () => {
         { name: "setText", params: [{ name: "id", type: "int" }], returns: "void" },
         { name: "setLevel", params: [{ name: "level", type: "double" }], returns: "void" },
         {
+          name: "setModel",
+          typeParams: ["T"],
+          params: [{ name: "model", type: { k: "tparam", name: "T", nullable: true } }],
+          returns: "void",
+        },
+        {
           name: "setRange",
           params: [
             { name: "a", type: "int" },
@@ -250,6 +256,7 @@ describe("view rules on Android", () => {
     ]);
     expect(rules.refused).toEqual([
       { name: "onDrag", reason: expect.stringMatching(/more than one method/) },
+      { name: "model", reason: expect.stringMatching(/generic/) },
     ]);
   });
 
