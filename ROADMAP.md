@@ -430,6 +430,12 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-03: Separate the marketing homepage from the docs shell.**
+The reviewed Voltage design is a dedicated Astro page; Starlight continues
+to provide docs, search and the mobile drawer. _Why:_ the homepage needs
+its own layout while docs retain their navigation and reading tools.
+Sidebar titles wrap in full rather than relying on truncated hover text.
+
 **2026-10-03: The `structsIn1000` budget is 1.75x.** Passing 1,000
 `{x, y}` structs may cost up to 1.75x as much as 1,000 `add()` calls,
 up from 1.5x. _Why:_ it measured 1.38–1.45x on the development machine
@@ -1798,6 +1804,13 @@ iOS simulator and the Android emulator; physical-device checks are
   both platforms' bodies in one file.
 
 ### Website and release
+
+- **Voltage homepage and docs (2026-10-03)** Implemented the reviewed homepage
+  with native logic and experimental views, a current-blog announcement,
+  animated platform diagram, and React Native/Expo compatibility. Docs use
+  wrapping navigation labels, a keyboard-scrollable sidebar that stops above
+  the footer, attached code tabs, compact filename headers, a shared searchable
+  docs dialog and responsive typography. The homepage is a dedicated Astro page; docs retain Starlight.
 
 - **Release** `@lucent-lang/lucent` 0.1.0 on npm (2026-09-30).
 - **Blog** A blog with its first post (native views), link previews and an

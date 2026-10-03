@@ -34,7 +34,7 @@ export default defineConfig({
     starlight({
       title: "Lucent",
       description:
-        "Write native React Native modules in TypeScript. Lucent compiles a checked subset to C++ and calls it through JSI, with no Swift or Kotlin to write.",
+        "Write native logic and views for React Native in TypeScript. Lucent compiles logic to C++ and toolkit JSX to SwiftUI and Jetpack Compose.",
       logo: { src: "./public/brand/lucent-mark.svg", alt: "Lucent" },
       favicon: "/favicon.svg",
       social: [{ icon: "github", label: "GitHub", href: "https://github.com/Fausto95/lucent" }],
@@ -78,6 +78,8 @@ export default defineConfig({
         "./src/styles/site.css",
       ],
       components: {
+        Header: "./src/components/overrides/Header.astro",
+        Search: "./src/components/overrides/Search.astro",
         Banner: "./src/components/overrides/Banner.astro",
         Head: "./src/components/overrides/Head.astro",
         Hero: "./src/components/overrides/Hero.astro",

@@ -343,3 +343,320 @@ pre,
     min-width: 7rem;
   }
 }
+
+/* Voltage docs: readable navigation and a calmer editorial type hierarchy. */
+:root:root {
+  --lucent-font-display: "Geist", ui-sans-serif, system-ui, sans-serif;
+}
+h1,
+.sl-markdown-content :is(h2, h3) {
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+.aside .sidebar {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+  padding: 1.5rem 1rem 1.5rem 0;
+}
+.aside .container-sidebar {
+  gap: 1rem;
+  min-width: 0;
+}
+.aside .container-group-link {
+  grid-template-columns: minmax(0, 1fr);
+  min-width: 0;
+}
+.aside .entry-link {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-left: 0;
+  padding: 0.55rem 0.75rem;
+  align-items: flex-start;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  font-weight: 400;
+}
+.aside .entry-link[aria-current="page"] {
+  background: color-mix(in srgb, var(--lucent-lime) 18%, var(--background));
+  box-shadow: inset 2px 0 var(--lucent-lime-ink);
+}
+.aside .entry-title-button {
+  gap: 0.75rem;
+}
+.aside .entry-title {
+  font-size: 0.7rem;
+  letter-spacing: 0.065em;
+  line-height: 1.5;
+  padding-inline: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.aside .entry-label {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.container-wrapper-main > * {
+  min-width: 0;
+}
+.sl-markdown-content {
+  overflow-wrap: break-word;
+}
+.expressive-code {
+  min-width: 0;
+  max-width: 100%;
+}
+.expressive-code pre {
+  overflow-x: auto;
+}
+.pagination-links .pagination-content {
+  overflow-wrap: anywhere;
+}
+@media (min-width: 768px) {
+  .aside .sidebar {
+    top: 3.5rem;
+    width: 240px;
+    max-width: 240px;
+    height: calc(100dvh - 3.5rem);
+  }
+}
+@media (min-width: 1440px) {
+  .aside .sidebar {
+    width: 320px;
+    max-width: 320px;
+  }
+}
+@media (max-width: 767px) {
+  .aside {
+    display: none !important;
+  }
+  .drawer .container-sidebar-entry a,
+  .links-docs a {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    min-width: 0;
+  }
+  .sl-markdown-content {
+    min-width: 0;
+  }
+}
+
+/* Keep code tabs attached to their panel instead of stacking markdown margins. */
+starlight-tabs:has(> [role="tabpanel"] > .expressive-code:first-child) > .tablist-wrapper,
+starlight-tabs:has(> [role="tabpanel"] > .expressive-code:first-child)
+  > .tablist-wrapper
+  > [role="tablist"] {
+  margin-block: 0;
+}
+starlight-tabs > [role="tabpanel"]:has(> .expressive-code:first-child) {
+  margin-top: 0;
+}
+@layer six {
+  .sl-markdown-content starlight-tabs > [role="tabpanel"] > .expressive-code:first-child {
+    margin-top: 0 !important;
+  }
+  /* Six makes this pane fixed with !important. Keep it inside the sticky aside
+     so the document's footer pushes the entire sidebar out of the way. */
+  @media (min-width: 768px) {
+    .container-wrapper-main > .aside {
+      height: calc(100dvh - 3.5rem) !important;
+    }
+    .container-wrapper-main > .aside .sidebar {
+      position: static !important;
+    }
+  }
+}
+@media (min-width: 768px) {
+  .container-wrapper-main > .aside .sidebar {
+    width: 100%;
+    max-width: 100%;
+    height: 100%;
+  }
+}
+
+/* A single quiet frame for code tabs, file metadata, and source. */
+starlight-tabs:has(> [role="tabpanel"] > .expressive-code:first-child) {
+  > .tablist-wrapper {
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--border);
+    border-bottom: 0;
+    border-radius: 0.6rem 0.6rem 0 0;
+    background: var(--card);
+  }
+  > .tablist-wrapper [role="tablist"] {
+    gap: 0.25rem;
+    border: 0;
+  }
+  > .tablist-wrapper .tab > [role="tab"] {
+    padding: 0.5rem 0.8rem;
+    min-height: 2.25rem;
+    max-width: none;
+    border-radius: 0.3rem;
+    background: transparent;
+    box-shadow: none;
+    color: var(--muted-foreground);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.25;
+  }
+  > .tablist-wrapper .tab > [aria-selected="true"] {
+    color: var(--lucent-lime-ink);
+    background: color-mix(in srgb, var(--lucent-lime) 18%, var(--card));
+  }
+  > [role="tabpanel"] > .expressive-code:first-child {
+    border: 1px solid var(--border);
+    border-top-color: color-mix(in srgb, var(--border) 65%, transparent);
+    border-radius: 0 0 0.6rem 0.6rem;
+    box-shadow: none;
+  }
+  > [role="tabpanel"] > .expressive-code:first-child .frame {
+    border: 0;
+    border-radius: inherit;
+    box-shadow: none;
+  }
+  > [role="tabpanel"] > .expressive-code:first-child .header {
+    justify-content: flex-start;
+    padding: 0.6rem 1rem 0.25rem;
+    border: 0;
+    border-radius: 0;
+    background: var(--code-background, var(--card));
+  }
+  > [role="tabpanel"] > .expressive-code:first-child .header::before,
+  > [role="tabpanel"] > .expressive-code:first-child .header::after,
+  > [role="tabpanel"] > .expressive-code:first-child .title::after {
+    display: none;
+  }
+  > [role="tabpanel"] > .expressive-code:first-child .title {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+    background: none;
+    color: var(--muted-foreground);
+    font-family: var(--sl-font-mono);
+    font-size: 0.6875rem;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+  > [role="tabpanel"] > .expressive-code:first-child pre {
+    border: 0;
+    box-shadow: none;
+    border-radius: 0 0 0.6rem 0.6rem;
+  }
+}
+
+/* Standalone source files use the same header treatment as selected code tabs. */
+.sl-markdown-content
+  .expressive-code:not(starlight-tabs .expressive-code):has(.frame.has-title:not(.is-terminal)) {
+  border: 1px solid var(--border);
+  border-radius: 0.6rem;
+  box-shadow: none;
+  .frame {
+    border: 0;
+    border-radius: inherit;
+    box-shadow: none;
+  }
+  .frame .header {
+    display: flex;
+    justify-content: flex-start;
+    padding: 0.4rem 0.5rem;
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--border) 65%, transparent);
+    border-radius: 0.6rem 0.6rem 0 0;
+    background: var(--card);
+  }
+  .frame .header::before,
+  .frame .header::after,
+  .frame .title::after {
+    display: none;
+  }
+  .frame .title {
+    display: inline-flex;
+    align-items: center;
+    margin: 0;
+    padding: 0.5rem 0.8rem;
+    min-height: 2.25rem;
+    box-sizing: border-box;
+    border: 0;
+    border-radius: 0.3rem;
+    background: color-mix(in srgb, var(--lucent-lime) 18%, var(--card));
+    color: var(--lucent-lime-ink);
+    font-family: var(--sl-font);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.25;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .frame pre {
+    border: 0;
+    border-radius: 0 0 0.6rem 0.6rem;
+    box-shadow: none;
+  }
+}
+
+/* Keep documentation tables airy, with consistent insets in every column. */
+@layer six {
+  .sl-markdown-content table:not(:where(.not-content *)) :is(th, td) {
+    padding: 1rem 1.25rem !important;
+  }
+}
+.sl-markdown-content table:not(:where(.not-content *)) {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  border-spacing: 0;
+  border-collapse: separate;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  background: var(--card);
+}
+.sl-markdown-content table:not(:where(.not-content *)) :is(th, td) {
+  border: 0;
+  text-align: left;
+  vertical-align: top;
+  min-width: 9rem;
+}
+.sl-markdown-content table:not(:where(.not-content *)) th {
+  background: color-mix(in srgb, var(--lucent-lime) 9%, var(--card));
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.sl-markdown-content table:not(:where(.not-content *)) tr {
+  background: transparent;
+}
+.sl-markdown-content table:not(:where(.not-content *)) td {
+  border-top: 1px solid var(--border);
+}
+.sl-markdown-content table:not(:where(.not-content *)) td:first-child {
+  font-weight: 500;
+}
+.sl-markdown-content table:not(:where(.not-content *)) td code {
+  font-size: 0.8em;
+  overflow-wrap: anywhere;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.sl-markdown-content table:not(:where(.not-content *)) tbody tr:hover {
+  background: color-mix(in srgb, var(--lucent-lime) 4%, var(--card));
+}
+.sl-markdown-content table:not(:where(.not-content *)) td code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  font-size: 0.85em;
+}
+@media (max-width: 50rem) {
+  .sl-markdown-content table:not(:where(.not-content *)) :is(th, td) {
+    min-width: 11rem;
+  }
+}
