@@ -10,7 +10,7 @@ import { compileKotlin, kotlinToolchain } from "../../bindgen/test/kotlin-toolch
 import { compile, type CompileResult, type SdkOptions } from "../src/index.ts";
 import { consumerRules } from "../src/native-build-files.ts";
 import { android, ndkClang, ndkErrors } from "./android-harness.ts";
-import { runKotlinc } from "../../bindgen/test/kotlin-compiler.ts";
+import { runKotlinc } from "../../bindgen/test/jvm-tools.ts";
 
 /*
  * Kotlin members JNI cannot call as Kotlin declares them (suspend

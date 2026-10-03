@@ -8,7 +8,7 @@ import { composeDeclarations } from "../../src/ui/compose-dts.ts";
 import { composeArtifacts, kotlinClasspath } from "./compose-artifacts.ts";
 import { TOGGLE, withContent } from "./compose-fixture.ts";
 import { SLICE } from "./compose-slice-fixture.ts";
-import { runKotlinc } from "../../../bindgen/test/kotlin-compiler.ts";
+import { runKotlinc } from "../../../bindgen/test/jvm-tools.ts";
 
 /*
  * lucent:compose's declarations, made from Compose's bindings by rules,

@@ -14,7 +14,7 @@ import {
 import { TOGGLE, withContent } from "./compose-fixture.ts";
 import { androidToolchain, compileErrors } from "./react-native-headers.ts";
 import { composeClasspath } from "./toolkit-build.ts";
-import { runKotlinc } from "../../../bindgen/test/kotlin-compiler.ts";
+import { runKotlinc } from "../../../bindgen/test/jvm-tools.ts";
 
 const android = sdkAvailable("android");
 const kotlin = kotlinToolchain();
