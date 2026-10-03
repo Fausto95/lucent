@@ -14,6 +14,7 @@ import { kotlinToolchain } from "../../../bindgen/test/kotlin-toolchain.ts";
 import { compile, type CompileResult, runtimeDir, sdkAvailable } from "../../src/index.ts";
 import { composeArtifacts, kotlinClasspath } from "./compose-artifacts.ts";
 import { androidToolchain, compileErrors } from "./react-native-headers.ts";
+import { runKotlinc } from "../../../bindgen/test/kotlin-compiler.ts";
 
 export const ios = process.platform === "darwin" && sdkAvailable("ios");
 
@@ -173,21 +174,17 @@ export function kotlinErrors(built: Built): string | undefined {
       .map((f) => path.join(out, f)),
     ...runtime,
   ];
-  const kotlinc = spawnSync(
-    kotlin.kotlinc,
-    [
-      "-jvm-target",
-      "11",
-      "-Werror",
-      `-Xplugin=${path.join(kotlin.lib, "compose-compiler-plugin.jar")}`,
-      "-cp",
-      jars.join(path.delimiter),
-      ...sources,
-      "-d",
-      path.join(built.dir, "content.jar"),
-    ],
-    { encoding: "utf8", maxBuffer: 1 << 26 },
-  );
+  const kotlinc = runKotlinc(kotlin, [
+    "-jvm-target",
+    "11",
+    "-Werror",
+    `-Xplugin=${path.join(kotlin.lib, "compose-compiler-plugin.jar")}`,
+    "-cp",
+    jars.join(path.delimiter),
+    ...sources,
+    "-d",
+    path.join(built.dir, "content.jar"),
+  ]);
 
   return kotlinc.status === 0 && !kotlinc.stderr ? "" : `kotlinc:\n${kotlinc.stderr}`;
 }

@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -15,6 +14,7 @@ import {
 import { TOGGLE, withContent } from "./compose-fixture.ts";
 import { androidToolchain, compileErrors } from "./react-native-headers.ts";
 import { composeClasspath } from "./toolkit-build.ts";
+import { runKotlinc } from "../../../bindgen/test/kotlin-compiler.ts";
 
 const android = sdkAvailable("android");
 const kotlin = kotlinToolchain();
@@ -198,22 +198,18 @@ describe.skipIf(!android)("components whose content is Compose", () => {
 
       fs.writeFileSync(source, text);
 
-      const kotlinc = spawnSync(
-        kotlin!.kotlinc,
-        [
-          "-jvm-target",
-          "11",
-          "-Werror",
-          `-Xplugin=${plugin}`,
-          "-cp",
-          composeJars!.join(path.delimiter),
-          source,
-          ...runtime,
-          "-d",
-          path.join(dir, "toggle.jar"),
-        ],
-        { encoding: "utf8", maxBuffer: 1 << 26 },
-      );
+      const kotlinc = runKotlinc(kotlin!, [
+        "-jvm-target",
+        "11",
+        "-Werror",
+        `-Xplugin=${plugin}`,
+        "-cp",
+        composeJars!.join(path.delimiter),
+        source,
+        ...runtime,
+        "-d",
+        path.join(dir, "toggle.jar"),
+      ]);
 
       expect(kotlinc.stderr).toBe("");
       expect(kotlinc.status).toBe(0);

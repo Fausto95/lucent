@@ -10,6 +10,7 @@ import { compileKotlin, kotlinToolchain } from "../../bindgen/test/kotlin-toolch
 import { compile, type CompileResult, type SdkOptions } from "../src/index.ts";
 import { consumerRules } from "../src/native-build-files.ts";
 import { android, ndkClang, ndkErrors } from "./android-harness.ts";
+import { runKotlinc } from "../../bindgen/test/kotlin-compiler.ts";
 
 /*
  * Kotlin members JNI cannot call as Kotlin declares them (suspend
@@ -259,20 +260,16 @@ describe.skipIf(!toolchain)("Kotlin shims", () => {
       fs.writeFileSync(full, source);
       return full;
     });
-    const cc = spawnSync(
-      tc!.kotlinc,
-      [
-        "-jvm-target",
-        "11",
-        "-Werror",
-        "-cp",
-        [orbit, coroutines].join(path.delimiter),
-        ...files,
-        "-d",
-        path.join(out, "shims.jar"),
-      ],
-      { encoding: "utf8", maxBuffer: 1 << 26 },
-    );
+    const cc = runKotlinc(tc!, [
+      "-jvm-target",
+      "11",
+      "-Werror",
+      "-cp",
+      [orbit, coroutines].join(path.delimiter),
+      ...files,
+      "-d",
+      path.join(out, "shims.jar"),
+    ]);
 
     return { status: cc.status, stderr: cc.stderr, jar: path.join(out, "shims.jar") };
   };

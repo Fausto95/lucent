@@ -121,7 +121,7 @@ export function warmKotlin(tc: KotlinToolchain): boolean {
 const UNREACHABLE = 99;
 
 /** kotlinc `args` (absolute paths), compiled by this process's warm compiler. */
-export function compileKotlin(tc: KotlinToolchain, args: string[]): KotlinResult {
+export function runKotlinc(tc: KotlinToolchain, args: string[]): KotlinResult {
   const socket = args.some((a) => /[\t\n]/.test(a)) ? undefined : server(tc);
 
   if (socket) {

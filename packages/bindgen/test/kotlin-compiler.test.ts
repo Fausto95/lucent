@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { compileKotlin, warmKotlin } from "./kotlin-compiler.ts";
+import { runKotlinc, warmKotlin } from "./kotlin-compiler.ts";
 import { kotlinToolchain } from "./kotlin-toolchain.ts";
 
 const tc = kotlinToolchain();
@@ -17,7 +17,7 @@ describe.skipIf(!tc)("the warm Kotlin compiler", () => {
     return file;
   };
   const both = (args: (out: string) => string[]) => {
-    const warm = compileKotlin(tc!, args(path.join(dir, "warm")));
+    const warm = runKotlinc(tc!, args(path.join(dir, "warm")));
     const cold = spawnSync(tc!.kotlinc, args(path.join(dir, "cold")), { encoding: "utf8" });
 
     return { warm, cold: { status: cold.status, stderr: cold.stderr } };
@@ -53,7 +53,7 @@ describe.skipIf(!tc)("the warm Kotlin compiler", () => {
 
     for (let i = 0; i < 3; i++)
       expect(
-        compileKotlin(tc!, ["-jvm-target", "11", file, "-d", path.join(dir, `again${i}`)]),
+        runKotlinc(tc!, ["-jvm-target", "11", file, "-d", path.join(dir, `again${i}`)]),
       ).toEqual({
         status: 0,
         stderr: "",
