@@ -80,7 +80,9 @@ let deferredPlatforms: readonly Platform[] = [];
 
 /**
  * Runs `f` with the SDK locations a compile uses (compile options, else the
- * defaults), and the platforms whose SDK imports resolve only later.
+ * defaults), and the platforms whose SDK imports resolve only later. Each
+ * compile gets its own options object: its artifacts are resolved anew,
+ * as installed now.
  */
 export function withSdkOptions<T>(
   opts: SdkOptions | undefined,
@@ -88,7 +90,7 @@ export function withSdkOptions<T>(
   deferred: readonly Platform[] = [],
 ): T {
   const saved = [sdkOptions, deferredPlatforms] as const;
-  sdkOptions = opts ?? {};
+  sdkOptions = { ...opts };
   deferredPlatforms = deferred;
   try {
     return f();

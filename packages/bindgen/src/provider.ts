@@ -106,7 +106,6 @@ interface Loaded {
 }
 
 const loaded = new Map<string, Loaded>();
-const located = new Map<string, Resolved | { missing: string }>();
 /** What each xcrun says of the simulator SDK: its path, version and build, asked once. */
 const iosSdks = new Map<string, (string | undefined)[]>();
 const headerIndexes = new Map<string, Record<string, string>>();
@@ -114,7 +113,6 @@ const headerIndexes = new Map<string, Record<string, string>>();
 /** Forgets what this process loaded, as a new process would (tests). */
 export function forgetLoadedSdks(): void {
   loaded.clear();
-  located.clear();
   iosSdks.clear();
   headerIndexes.clear();
   locatedByObject = new WeakMap();
@@ -886,25 +884,19 @@ export function sdkSourceModule(
 
 // --- lookups -------------------------------------------------------------------------
 
-// The same options object comes back for every lookup of a build: skip serializing it.
+/**
+ * A platform's artifacts, resolved once per options object: a build's.
+ * Another build resolves them again (a millisecond: their contents are
+ * hashed by their files' stats), and sees a library updated in between.
+ */
 let locatedByObject = new WeakMap<SdkOptions, Map<Platform, Resolved | { missing: string }>>();
 
 function locate(platform: Platform, opts: SdkOptions): Resolved | { missing: string } {
   const byObject = locatedByObject.get(opts)?.get(platform);
   if (byObject) return byObject;
-  const found = locateByValue(platform, opts);
+  const found = platform === "android" ? locateAndroid(opts) : locateIos(opts);
   locatedByObject.set(opts, (locatedByObject.get(opts) ?? new Map()).set(platform, found));
   return found;
-}
-
-function locateByValue(platform: Platform, opts: SdkOptions): Resolved | { missing: string } {
-  const k = `${platform}|${JSON.stringify(opts)}`;
-  let l = located.get(k);
-  if (!l) {
-    l = platform === "android" ? locateAndroid(opts) : locateIos(opts);
-    located.set(k, l);
-  }
-  return l;
 }
 
 /** A module's schema from the cache, else extracted once (whoever holds its lock) and published. */
