@@ -44,6 +44,7 @@ const slow = [
   "packages/compiler/test/swift-requirements.test.ts",
   "packages/compiler/test/ios-subclass.test.ts",
   "packages/compiler/test/kotlin-shims.test.ts",
+  "packages/compiler/test/unknown-library.test.ts",
   "packages/compiler/test/ui/*-run.test.ts",
   "packages/lucent/test/android-project.test.ts",
 ];
