@@ -37,14 +37,14 @@ function app(files: Record<string, string>): {
   lucent: (args: string[], env?: Record<string, string>) => { status: number | null; out: string };
 } {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "lucent-android-project-")));
-  const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-android-project-cache-"));
 
   fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app" }));
   for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(root, name), text);
 
   const lucent = (args: string[], env: Record<string, string> = {}) => {
     const r = runLucent([...args, "--root", root], {
-      env: { ...process.env, NO_COLOR: "1", LUCENT_CACHE_DIR: cache, ...env },
+      // The shared SDK cache, as an app's builds use it: android.jar's modules are extracted once.
+      env: { ...process.env, NO_COLOR: "1", ...env },
     });
     return { status: r.status, out: r.stdout + r.stderr };
   };
