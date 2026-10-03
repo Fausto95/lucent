@@ -166,6 +166,7 @@ describe.skipIf(!xcode)("extraction cache: iOS", () => {
     );
   };
 
+  // A cold cache on purpose: the SDK modules its fixture names are extracted too, minutes on CI.
   it("caches no schema for a module that did not compile, and extracts it once it does", () => {
     const dir = tmp("lucent-gizmos-");
     widgets(dir, "- (void)spin:(NoSuchType *)x;");
@@ -181,7 +182,7 @@ describe.skipIf(!xcode)("extraction cache: iOS", () => {
     const fixed = sdkModule("ios", "Gizmos", opts);
 
     expect("schema" in fixed && fixed.schema.types.map((t) => t.name)).toEqual(["GZMGizmo"]);
-  });
+  }, 600_000);
 
   it("takes over the lock of a writer killed mid-extraction", async () => {
     const dir = tmp("lucent-gizmos-");
