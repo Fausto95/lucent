@@ -1,9 +1,9 @@
 /**
  * A component written as JSX of UIKit views (T48): a stack view whose
- * children are a label showing a prop and a switch whose changes are an
- * event. Nothing about these classes is in Lucent: the tags, their
- * attributes, their construction and how the stack takes its children come
- * from UIKit's declarations, by rule.
+ * children are a label showing a prop, a switch whose changes are an
+ * event, and a label its `create` function makes. Nothing about these
+ * classes is in Lucent: the tags, their attributes, their construction and
+ * how the stack takes its children come from UIKit's declarations, by rule.
  */
 export const SETTINGS = {
   "settings.lucent.ts": `import type { UIView } from "lucent:ios/UIKit";
@@ -21,6 +21,10 @@ export function Settings(props: Props): UIView {
     <UIStackView spacing={8}>
       <UILabel text={props.title} numberOfLines={1n} />
       <UISwitch isOn={props.enabled} onValueChanged={(control) => props.onToggle?.(control.isOn)} />
+      <UILabel
+        create={() => new UILabel({ origin: { x: 0, y: 0 }, size: { width: 40, height: 12 } })}
+        text="made"
+      />
     </UIStackView>
   );
 }

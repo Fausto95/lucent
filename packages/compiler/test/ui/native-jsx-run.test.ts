@@ -11,7 +11,7 @@ describe("a component of UIKit JSX, mounted", () => {
     "makes its views by rule, keeps their props, sends their events and releases them",
     () => {
       expect(runMounted(SETTINGS, "native_jsx_run_test.mm")).toEqual([
-        "mounted: 2 arranged, spacing 8, label Hello in 1 line, switch on",
+        "mounted: 3 arranged, spacing 8, label Hello in 1 line, switch on, created made",
         "committed: label Bye, switch on",
         "switched: sent off",
         "disposed: switch actions none",

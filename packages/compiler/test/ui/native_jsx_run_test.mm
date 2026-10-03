@@ -72,10 +72,12 @@ void run() {
   __weak UIStackView* made = stack;
   UILabel* label = (UILabel*)stack.arrangedSubviews[0];
   UISwitch* control = (UISwitch*)stack.arrangedSubviews[1];
+  UILabel* made_label = (UILabel*)stack.arrangedSubviews[2];
 
   say("mounted: " + std::to_string(stack.arrangedSubviews.count) + " arranged, spacing " +
       std::to_string(int(stack.spacing)) + ", label " + text(label.text) + " in " +
-      std::to_string(label.numberOfLines) + " line, switch " + (control.on ? "on" : "off"));
+      std::to_string(label.numberOfLines) + " line, switch " + (control.on ? "on" : "off") +
+      ", created " + text(made_label.text));
 
   auto p2 = commit(parser, p1, R"({"p0": "Bye"})");
   host([&] { mount->update(*p2, *p1); });
@@ -98,6 +100,7 @@ void run() {
   stack = nil;
   label = nil;
   control = nil;
+  made_label = nil;
   say(std::string("released: native references ") + (lucent::liveNativeRefs() == refs ? "all released" : "held") +
       ", stack " + (made ? "kept" : "gone"));
 }
