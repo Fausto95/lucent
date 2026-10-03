@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "@lucent-lang/compiler";
 import { runLucent } from "./run-to-exit.ts";
+import { runJar, runJavac } from "../../bindgen/test/jvm-tools.ts";
 
 const fixtures = path.resolve(import.meta.dirname, "../../bindgen/test/fixtures");
 const javac = spawnSync("javac", ["-version"]).status === 0;
@@ -53,9 +54,9 @@ describe.skipIf(!javac || !sdkAvailable("android"))("a package's Android librari
     })
       .stdout.trim()
       .split("\n");
-    spawnSync("javac", ["--release", "11", "-d", classes, ...sources]);
+    runJavac(["--release", "11", "-d", classes, ...sources]);
     fs.mkdirSync(path.join(a.pkg, "libs"));
-    spawnSync("jar", ["cf", path.join(a.pkg, "libs/widgets.jar"), "-C", classes, "."]);
+    runJar(["cf", path.join(a.pkg, "libs/widgets.jar"), "-C", classes, "."]);
 
     const r = lucent(a, "sdk", "show", "com.example.widgets.Widget");
 

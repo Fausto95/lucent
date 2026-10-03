@@ -74,7 +74,6 @@ const flags = [
   "-std=c++20",
   "-ffp-contract=off",
   "-O1",
-  "-g",
   "-w",
   `-I${cpp}`,
   `-I${generated}`,

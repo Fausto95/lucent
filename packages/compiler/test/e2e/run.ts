@@ -51,8 +51,9 @@ const deviceFlags = cxx.includes("clang")
 const baseFlags = [
   "-std=c++20",
   "-ffp-contract=off",
-  "-g",
   "-O1",
+  // Debug info, for the sanitizers' reports: seconds of every compile otherwise.
+  ...(sanitize ? ["-g"] : []),
   "-Wall",
   "-Wno-unused-parameter",
   "-Wno-unused-variable",

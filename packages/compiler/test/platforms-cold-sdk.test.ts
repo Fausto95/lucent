@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { cachedModules, sdkAvailable } from "@lucent-lang/bindgen";
-import { haptics, project } from "./platforms-fixtures.ts";
+import { project } from "./platforms-fixtures.ts";
 
 // Apart from platforms.test.ts: a cold extraction takes minutes, and a file's tests run one
 // after the other, so the rest of the platform tests run beside it.
@@ -38,15 +38,33 @@ process.stdout.write(JSON.stringify({ diagnostics: r.diagnostics, types: Object.
   });
 }
 
+/** A module whose iOS side imports a small framework, whose signatures name Foundation's types. */
+const authenticating = {
+  "auth.lucent.ts": "export declare function available(): Promise<boolean>;\n",
+  "auth.ios.lucent.ts": `import { LAContext, LAPolicy } from "lucent:ios/LocalAuthentication";
+import { main } from "lucent:thread";
+
+export function available(): Promise<boolean> {
+  return main(() => new LAContext().canEvaluatePolicy(LAPolicy.deviceOwnerAuthentication, null));
+}
+`,
+  "auth.android.lucent.ts":
+    "export async function available(): Promise<boolean> {\n  return false;\n}\n",
+};
+
 describe.skipIf(!sdkAvailable("ios"))("platform modules, from a cold SDK cache", () => {
   it("types other frameworks in signatures by name, without extracting them", async () => {
     const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cache-"));
-    // A cold cache on purpose: extracting UIKit must not extract Foundation's schema either.
-    const r = await compileInChild(project(haptics), { platforms: ["ios"], sdk: { cacheDir } });
+    // A cold cache on purpose: extracting LocalAuthentication must not extract Foundation's
+    // schema, which its signatures name, either. (A small framework: UIKit takes minutes.)
+    const r = await compileInChild(project(authenticating), {
+      platforms: ["ios"],
+      sdk: { cacheDir },
+    });
     expect(r.diagnostics).toEqual([]);
     // Only what the program imports gets a full schema.
     const cached = cachedModules("ios", { cacheDir });
-    expect("schemas" in cached && cached.schemas).toEqual(["UIKit"]);
+    expect("schemas" in cached && cached.schemas).toEqual(["LocalAuthentication"]);
     expect("names" in cached && cached.names).toContain("Foundation");
     expect(r.types["ios/Foundation.d.ts"]).toMatch(/Names only: import lucent:ios\/Foundation/);
     fs.rmSync(cacheDir, { recursive: true, force: true });

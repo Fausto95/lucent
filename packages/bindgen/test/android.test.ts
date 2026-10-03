@@ -7,6 +7,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { extractAndroid } from "../src/android.ts";
 import { parseSchemaType } from "../src/schema.ts";
 import { flagsNotFromFacts } from "./thread-flags.ts";
+import { runJar, runJavac } from "./jvm-tools.ts";
 
 /** A schema type from its written form (`string?`, `Widgets.WDGWidget`). */
 const T = (s: string, typeParams: string[] = []) => parseSchemaType(s, "", typeParams);
@@ -24,18 +25,18 @@ function fixtureJar(): string {
     .stdout.trim()
     .split("\n");
   const classes = path.join(dir, "classes");
-  const cc = spawnSync("javac", ["--release", "11", "-d", classes, ...sources], {
-    encoding: "utf8",
-  });
+  const cc = runJavac(["--release", "11", "-d", classes, ...sources]);
   if (cc.status !== 0) throw new Error(cc.stderr);
 
   // android.jar declares java.lang.Object; only a patch of java.base compiles one.
   const object = path.join(fixtures, "jdk", "java", "lang", "Object.java");
-  const oc = spawnSync(
-    "javac",
-    ["--patch-module", `java.base=${path.join(fixtures, "jdk")}`, "-d", classes, object],
-    { encoding: "utf8" },
-  );
+  const oc = runJavac([
+    "--patch-module",
+    `java.base=${path.join(fixtures, "jdk")}`,
+    "-d",
+    classes,
+    object,
+  ]);
   if (oc.status !== 0) throw new Error(oc.stderr);
 
   // A Kotlin-mangled JVM name, which only kotlinc writes; same length, so the constant pool stays valid.
@@ -48,7 +49,7 @@ function fixtureJar(): string {
     ),
   );
   const jar = path.join(dir, "fixture.jar");
-  const j = spawnSync("jar", ["cf", jar, "-C", classes, "."], { encoding: "utf8" });
+  const j = runJar(["cf", jar, "-C", classes, "."]);
   if (j.status !== 0) throw new Error(j.stderr);
   return jar;
 }
@@ -59,9 +60,7 @@ function annotationsZip(): string {
     fs.mkdtempSync(path.join(os.tmpdir(), "lucent-annotations-")),
     "annotations.zip",
   );
-  const j = spawnSync("jar", ["cfM", zip, "-C", path.join(fixtures, "annotations"), "."], {
-    encoding: "utf8",
-  });
+  const j = runJar(["cfM", zip, "-C", path.join(fixtures, "annotations"), "."]);
   if (j.status !== 0) throw new Error(j.stderr);
   return zip;
 }
@@ -614,14 +613,14 @@ function aarOf(name: string, pkg: string, source: string): string {
   fs.writeFileSync(file, source);
 
   const classes = path.join(dir, "classes");
-  const cc = spawnSync("javac", ["--release", "11", "-d", classes, file], { encoding: "utf8" });
+  const cc = runJavac(["--release", "11", "-d", classes, file]);
   if (cc.status !== 0) throw new Error(cc.stderr);
 
   const aar = path.join(dir, "aar");
   fs.mkdirSync(aar);
-  spawnSync("jar", ["cf", path.join(aar, "classes.jar"), "-C", classes, "."]);
+  runJar(["cf", path.join(aar, "classes.jar"), "-C", classes, "."]);
   const out = path.join(dir, name);
-  spawnSync("jar", ["cfM", out, "-C", aar, "."]);
+  runJar(["cfM", out, "-C", aar, "."]);
 
   return out;
 }
@@ -674,9 +673,7 @@ public class Dial {
 `,
     );
     const classes = path.join(dir, "classes");
-    const cc = spawnSync("javac", ["--release", "11", "-d", classes, path.join(src, "Dial.java")], {
-      encoding: "utf8",
-    });
+    const cc = runJavac(["--release", "11", "-d", classes, path.join(src, "Dial.java")]);
     if (cc.status !== 0) throw new Error(cc.stderr);
     const aar = path.join(dir, "aar");
     fs.mkdirSync(path.join(dir, "ann/com/example/aar"), { recursive: true });
@@ -692,10 +689,10 @@ public class Dial {
 </root>
 `,
     );
-    spawnSync("jar", ["cf", path.join(aar, "classes.jar"), "-C", classes, "."]);
-    spawnSync("jar", ["cfM", path.join(aar, "annotations.zip"), "-C", path.join(dir, "ann"), "."]);
+    runJar(["cf", path.join(aar, "classes.jar"), "-C", classes, "."]);
+    runJar(["cfM", path.join(aar, "annotations.zip"), "-C", path.join(dir, "ann"), "."]);
     const file = path.join(dir, "dial.aar");
-    spawnSync("jar", ["cfM", file, "-C", aar, "."]);
+    runJar(["cfM", file, "-C", aar, "."]);
     const [m] = extractAndroid({ jars: [file], packages: ["com.example.aar"] });
     const dial = m!.types.find((t) => t.name === "Dial");
     if (dial?.kind !== "class") throw new Error("no Dial");

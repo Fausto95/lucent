@@ -168,9 +168,11 @@ COCOAPODS: 1.16.2
     return dir;
   }
 
+  // The shared SDK cache, as an app's builds use it: the SDK's modules are extracted once rather
+  // than for each test, and none of these reads the cache itself.
   it("names the SDK and each pod, with what the pod depends on", () => {
     const dir = pods();
-    const opts = { cacheDir: tmp("lucent-cache-"), ios: podsSearchPaths(dir)! };
+    const opts = { ios: podsSearchPaths(dir)! };
 
     const artifacts = nativeArtifacts("ios", opts);
     if ("missing" in artifacts) throw new Error(artifacts.missing);
@@ -215,7 +217,6 @@ COCOAPODS: 1.16.2
     forgetLoadedSdks();
 
     const r = sdkModule("ios", "WidgetsPod", {
-      cacheDir: tmp("lucent-cache-"),
       ios: podsSearchPaths(dir)!,
     });
     const gauge = "schema" in r ? r.schema.types.find((t) => t.name === "WPGauge") : undefined;
@@ -226,7 +227,7 @@ COCOAPODS: 1.16.2
   });
 
   it("names the artifacts a module's schema was read from", () => {
-    const opts = { cacheDir: tmp("lucent-cache-"), ios: podsSearchPaths(pods())! };
+    const opts = { ios: podsSearchPaths(pods())! };
 
     sdkModule("ios", "WidgetsPod", opts);
     const read = sdkModuleArtifacts("ios", "WidgetsPod", opts).map((a) => a.id);
@@ -271,7 +272,7 @@ describe.skipIf(!xcode)("native artifacts: pods built as frameworks (use_framewo
 
   it("binds a pod's framework module, imported as the framework and linked by the pod", () => {
     const dir = app();
-    const opts = { cacheDir: tmp("lucent-cache-"), ios: podsSearchPaths(path.join(dir, "ios"))! };
+    const opts = { ios: podsSearchPaths(path.join(dir, "ios"))! };
 
     const r = sdkModule("ios", "GaugeKit", opts);
     if ("missing" in r) throw new Error(r.missing);

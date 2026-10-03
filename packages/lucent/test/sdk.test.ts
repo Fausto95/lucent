@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "@lucent-lang/compiler";
 import { runLucent } from "./run-to-exit.ts";
+import { runJar, runJavac } from "../../bindgen/test/jvm-tools.ts";
 
 const javac = spawnSync("javac", ["-version"]).status === 0;
 const android = sdkAvailable("android");
@@ -20,9 +21,9 @@ function app(): { root: string; cache: string } {
   )
     .stdout.trim()
     .split("\n");
-  spawnSync("javac", ["--release", "11", "-d", classes, ...sources]);
+  runJavac(["--release", "11", "-d", classes, ...sources]);
   const jar = path.join(root, "widgets.jar");
-  spawnSync("jar", ["cf", jar, "-C", classes, "."]);
+  runJar(["cf", jar, "-C", classes, "."]);
   fs.mkdirSync(path.join(root, ".lucent"), { recursive: true });
   fs.writeFileSync(
     path.join(root, ".lucent/android-classpath.json"),

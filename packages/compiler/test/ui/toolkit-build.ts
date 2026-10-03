@@ -14,7 +14,7 @@ import { kotlinToolchain } from "../../../bindgen/test/kotlin-toolchain.ts";
 import { compile, type CompileResult, runtimeDir, sdkAvailable } from "../../src/index.ts";
 import { composeArtifacts, kotlinClasspath } from "./compose-artifacts.ts";
 import { androidToolchain, compileErrors } from "./react-native-headers.ts";
-import { runKotlinc } from "../../../bindgen/test/kotlin-compiler.ts";
+import { runKotlinc } from "../../../bindgen/test/jvm-tools.ts";
 
 export const ios = process.platform === "darwin" && sdkAvailable("ios");
 

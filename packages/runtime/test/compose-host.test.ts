@@ -10,7 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { kotlinToolchain } from "../../bindgen/test/kotlin-toolchain.ts";
-import { runKotlinc } from "../../bindgen/test/kotlin-compiler.ts";
+import { runKotlinc } from "../../bindgen/test/jvm-tools.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const rules = path.join(

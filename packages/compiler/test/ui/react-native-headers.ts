@@ -17,6 +17,7 @@ import os from "node:os";
 import path from "node:path";
 import { runtimeDir } from "../../src/index.ts";
 import { ndkClang } from "../android-harness.ts";
+import { runAll } from "../parallel-build.ts";
 
 const ROOT = path.resolve(import.meta.dirname, "../../../..");
 const REACT_NATIVE = path.join(ROOT, "apps/bare-example/node_modules/react-native");
@@ -240,14 +241,16 @@ function prefab(aar: string, module: string): string | undefined {
 
 /** What the compiler says of each file, warnings as errors: empty when all compile. */
 export function compileErrors(toolchain: Toolchain, dir: string, files: readonly string[]): string {
-  return files
-    .map((file) => {
-      const r = spawnSync(toolchain.command, [...toolchain.args, `-I${dir}`, file], {
-        cwd: dir,
-        encoding: "utf8",
-      });
+  // Side by side, one per core: each is seconds of React Native's headers.
+  const results = runAll(
+    files.map((file) => ({
+      cmd: toolchain.command,
+      args: [...toolchain.args, `-I${dir}`, file],
+      cwd: dir,
+    })),
+  );
 
-      return r.status === 0 ? "" : `${file}:\n${r.stderr}${r.error?.message ?? ""}`;
-    })
+  return files
+    .map((file, i) => (results[i]!.status === 0 ? "" : `${file}:\n${results[i]!.output}`))
     .join("");
 }

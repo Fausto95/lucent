@@ -21,5 +21,6 @@ describe("the published build", () => {
       .join("\n");
     expect(dist).toContain(`"${expected}"`);
     expect(dist).not.toMatch(/__LUCENT_EXTRACTOR__/);
+    expect(dist).not.toMatch(/__LUCENT_DECLARATIONS__/);
   });
 });

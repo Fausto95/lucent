@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -26,6 +25,7 @@ import {
   kotlinToolchain,
   versionFixtures,
 } from "./kotlin-toolchain.ts";
+import { runJar } from "./jvm-tools.ts";
 
 /*
  * Android extraction of Kotlin libraries: the fixture library of
@@ -129,7 +129,7 @@ describe.skipIf(!tc || !android)("Android extraction of Kotlin libraries", () =>
       Buffer.from(fs.readFileSync(driftClass).toString("latin1").replace("(I)I", "(J)I"), "latin1"),
     );
     const drift = path.join(dir, "drift.jar");
-    spawnSync("jar", ["cf", drift, "-C", driftDir, "dev"]);
+    runJar(["cf", drift, "-C", driftDir, "dev"]);
 
     jars = [
       ...androidJars()!,

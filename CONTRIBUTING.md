@@ -37,7 +37,8 @@ The repository layout, and the rules every change follows, are in
 
 | Command                                       | Checks                                                           | Needs  |
 | --------------------------------------------- | ---------------------------------------------------------------- | ------ |
-| `pnpm test`                                   | compiler, CLI and website unit tests                             |        |
+| `pnpm test`                                   | compiler, CLI and website unit tests, without the slow ones      |        |
+| `pnpm test:all`                               | the unit tests with the slow ones (as CI runs them)              |        |
 | `pnpm test:runtime`                           | the C++ runtime; add `SANITIZE=1` (and `CXX=g++`) for sanitizers |        |
 | `pnpm test:e2e [case…]`                       | each language feature, native against JavaScript                 | Hermes |
 | `node scripts/app-check.ts apps/bare-example` | an example app's bundle against its C++                          | Hermes |
@@ -46,6 +47,10 @@ The repository layout, and the rules every change follows, are in
 | `pnpm typecheck`                              | the repository's TypeScript                                      |        |
 | `pnpm check`                                  | formatting (Oxfmt), lint (Oxlint) and `pnpm typecheck`           |        |
 | `node scripts/website.ts --check`             | the website (below)                                              | Vale   |
+
+CI shards the unit tests by how long each file takes (`test-timings.json`,
+read by `vitest.sequencer.ts`); after adding or much changing slow tests,
+refresh it with `node scripts/test-timings.ts` on a full run's JSON report.
 
 `pnpm test:runtime`, `pnpm test:e2e`, the app checks and the benchmarks
 build side by side, one compiler per core; `LUCENT_TEST_JOBS` (and, for

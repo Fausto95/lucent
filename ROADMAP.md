@@ -405,7 +405,9 @@ the commands the setup exposes. The design record is
 
 Host budgets are enforced by `node scripts/bench.ts --check` (kernel
 speedups, boundary batching, and a host-call floor of 1.25x a handwritten
-C++ TurboModule). The design's device budgets are targets until physical
+C++ TurboModule). CI's shared runners enforce the kernels' budgets and
+report the boundary and floor ratios, which move with the CPU
+(`--shared-runner`); a stable machine enforces them all. The design's device budgets are targets until physical
 devices measure them; a missed target is recorded and decided, never
 quietly weakened.
 
@@ -430,6 +432,34 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-03: CI reports the boundary and floor ratios, a stable machine
+enforces them.** On CI (`bench.ts --check --shared-runner`) the budgets
+that compare one crossing with another (the boundary's batched cases
+against 1,000 calls, one call against a C++ TurboModule's) are printed
+with the runner's CPU and raised as warnings, not failures; the kernels'
+speedups against JavaScript, on the same machine and with wide margins,
+still fail the run. _Why:_ GitHub's runners differ in CPU from run to
+run, and those ratios with them: the same commit measured `structsIn1000`
+at 1.6x and 2.2x (budget 1.75x), so the job failed by the machine drawn,
+not by the code. _Changed:_ the budgets themselves are unchanged and
+`--check` without the flag enforces them all, as on the development
+machine and the integration gate.
+
+**2026-10-03: CI aims at ten minutes.** Every job runs on its own, most
+under five minutes: the unit tests in two Linux and three macOS shards
+balanced by each file's time (`test-timings.json`), each compiled-code
+harness (e2e, budgets, each app check) in a job, the SDK coverage and
+the libc++ runtime beside the app builds. C and C++ compile through
+ccache (the PATH's compilers on Linux, React Native's wrapper on iOS,
+CMake's launcher on Android), saved from main's runs and read by pull
+requests; each job keeps its own SDK cache; the app checks keep Gradle's.
+At most five macOS jobs run at once, as many as the account allows.
+_Why:_ the two long jobs took about an hour, and the parallel jobs then
+waited on cold caches and on macOS runners. _Changed:_ on the run of
+2026-10-03 every job but the iOS app's took 1 to 8 minutes; that one took
+16, extracting the SDK into its first cache of its own and compiling
+without a warm ccache, which later runs have.
+
 **2026-10-03: A build that leaves Android out defers its dependencies.**
 `lucent build --platforms ios` (or `host`) types Android's imports of the
 app's dependencies only once a Gradle build has resolved the app's
@@ -440,6 +470,16 @@ checkout (seen on CI building the bare example for iOS alone), though
 nothing it builds reads those modules' types. _Changed:_ a build that
 includes Android resolves them with Gradle as before, and reports a
 failed resolution.
+
+**2026-10-03: `pnpm test` leaves out the slow tests on a workstation.**
+The tests that build and run whole programs with the platforms'
+toolchains (Swift and JVM host runs, Mac Catalyst and Hermes view runs,
+Gradle) or extract an SDK into an empty cache are listed in
+`vite.config.ts`; `pnpm test` skips them, saying so, and `pnpm test:all`
+and CI (`CI` set) run them. _Why:_ they set the edit-test loop's length
+(minutes where the others take seconds) and rarely fail for a change
+that is not theirs. _Changed:_ V1 and the integration gate run
+`pnpm test:all`.
 
 **2026-10-03: CI runs its long work side by side.** Linux has three jobs
 (unit tests; the runtime and JSI host tests; e2e, budgets and app
@@ -1931,7 +1971,7 @@ syntax before relying on it: a filter that runs zero tests proves nothing.
 | Profile | Checks                                                                                                                                         | How to run                                                                                                                      |
 | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | V0      | Formatting, links and schemas; evidence reconciled                                                                                             | `pnpm check`, `git diff --check`                                                                                                |
-| V1      | Unit tests and typecheck, build, the integrated check and tests                                                                                | `pnpm build`, `pnpm check`, `pnpm test`                                                                                         |
+| V1      | Unit tests and typecheck, build, the integrated check and tests                                                                                | `pnpm build`, `pnpm check`, `pnpm test:all`                                                                                     |
 | V2      | V1 plus native-versus-JavaScript e2e cases, codegen corpus review, semantics docs                                                              | `HERMES_DIR=~/hermes node packages/compiler/test/e2e/run.ts [case…]`, then `node scripts/sync-examples.ts` after changing cases |
 | V3      | Runtime tests and sanitizers, scheduling and lifetime tests                                                                                    | `packages/runtime/test/run.sh`, `SANITIZE=1 CXX=g++ packages/runtime/test/run.sh`, `SANITIZE=thread` where it applies           |
 | V4      | Fixture SDKs extracted, declarations type-checked without `skipLibCheck`, platform glue compiled with warnings as errors, availability and R8  | The bindgen, SDK-declaration and glue-compile test suites (part of `pnpm test` where the SDKs exist)                            |
@@ -1948,7 +1988,7 @@ follows from a lower one, and a check that could not run is reported as
 blocked.
 
 An integration gate runs, in one checkout: `sync-examples`, `pnpm build`,
-`pnpm check`, `pnpm test`, the e2e suite with both lowerings, the runtime
+`pnpm check`, `pnpm test:all`, the e2e suite with both lowerings, the runtime
 tests plain and under ASan and TSan, the JSI host checks, SDK coverage,
 the website check, the smoke install and the bench budgets. On the main
 checkout it then reviews the codegen corpus and runs both app checks.

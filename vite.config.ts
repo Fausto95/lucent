@@ -1,4 +1,5 @@
 import { defineConfig } from "vite-plus";
+import TimedSequencer from "./vitest.sequencer.ts";
 
 // Left alone by vp fmt and vp lint: what scripts generate (formatting it would
 // only make the next run's output differ), vendored code, and native projects.
@@ -31,6 +32,29 @@ const generated = [
   "apps/bare-example/.views-spike/like.lucent.tsx",
 ];
 
+/**
+ * The slow tests: they build and run whole programs with the platforms'
+ * toolchains (Swift, the JVM, Mac Catalyst, Gradle), or extract an SDK into
+ * an empty cache, minutes where the others take seconds. CI runs them, and
+ * so does `pnpm test:all`; a plain `pnpm test` here leaves them out.
+ */
+const slow = [
+  "packages/compiler/test/platforms-cold-sdk.test.ts",
+  "packages/compiler/test/swift-shims.test.ts",
+  "packages/compiler/test/swift-requirements.test.ts",
+  "packages/compiler/test/ios-subclass.test.ts",
+  "packages/compiler/test/kotlin-shims.test.ts",
+  "packages/compiler/test/ui/*-run.test.ts",
+  "packages/lucent/test/android-project.test.ts",
+];
+const all = !!process.env.CI || !!process.env.LUCENT_ALL_TESTS;
+
+// Only when vitest loads the config: lint and format load it too.
+if (!all && process.env.VITEST)
+  console.log(
+    `Leaving out the ${slow.length} slow test groups (vite.config.ts); pnpm test:all runs them.`,
+  );
+
 export default defineConfig({
   test: {
     include: [
@@ -39,7 +63,10 @@ export default defineConfig({
       // The example app's plain logic (routes, summaries), without React Native.
       "scripts/example-app/**/*.test.ts",
     ],
+    exclude: ["**/node_modules/**", "**/.git/**", ...(all ? [] : slow)],
     testTimeout: 60000,
+    // Shards balanced by each file's time (test-timings.json), not by its path.
+    sequence: { sequencer: TimedSequencer },
     globalSetup: ["./vitest.setup-tmp.ts", "./vitest.setup-sdk.ts", "./vitest.setup-build.ts"],
     setupFiles: ["./vitest.setup-yield.ts"],
     // As on CI, wherever the tests run: libraries that change behaviour under CI

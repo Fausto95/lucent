@@ -15,11 +15,15 @@ env:
   HERMES_DIR: ${{ github.workspace }}/.hermes
 
 jobs:
-  # Three Linux jobs side by side: the unit tests, the runtime's own tests, and the
-  # harnesses that run compiled code (e2e, budgets, app checks, a fresh install).
+  # Linux jobs side by side: the unit tests (two shards), the runtime's own tests, and the
+  # harnesses that run compiled code (below).
   test:
-    name: Unit tests
+    name: Unit tests (${{ matrix.shard }}/2)
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
@@ -28,9 +32,17 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/lucent
-          key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
+          # One per job: each keeps what it extracted (the first job to finish would otherwise save
+          # the only cache, without the others' modules).
+          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
+          # An older cache still serves, another job's too: its entries are keyed by SDK and
+          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
+          restore-keys: |
+            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
+            lucent-sdk-${{ runner.os }}-
       - run: pnpm typecheck
-      - run: pnpm test
+        if: matrix.shard == 1
+      - run: pnpm exec vp test run --shard=${{ matrix.shard }}/2
 
   runtime:
     name: Runtime and JSI host
@@ -39,6 +51,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/hermes
+      - uses: ./.github/actions/ccache
+        with:
+          key: runtime
       - name: Runtime unit tests
         run: packages/runtime/test/run.sh
       - name: Runtime unit tests (ASan/UBSan, GCC)
@@ -47,29 +62,57 @@ jobs:
         run: packages/runtime/test/jsi/run.sh
       - name: JSI host lifetime (ASan/UBSan)
         run: SANITIZE=1 packages/runtime/test/jsi/run.sh
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache --show-stats
 
+  # The harnesses that run compiled code, one job each: each takes minutes.
   e2e:
-    name: End-to-end, budgets, app checks
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: End-to-end (native vs. JavaScript)
+            key: e2e
+            run: pnpm test:e2e
+          - name: Performance budgets, fresh install
+            key: bench
+            # The kernels' budgets enforced; the CPU-bound ratios reported (see scripts/bench.ts).
+            run: node scripts/bench.ts --check --shared-runner && node scripts/smoke-install.ts
+          - name: App check (bare)
+            key: app-check-bare
+            run: node scripts/app-check.ts apps/bare-example
+          - name: App check (Expo)
+            key: app-check-expo
+            run: node scripts/app-check.ts apps/expo-example
     steps:
       - uses: actions/checkout@v4
+      # The app checks' device builds resolve the apps' Android dependencies with Gradle.
+      - uses: gradle/actions/setup-gradle@v4
       - uses: ./.github/actions/setup
       - uses: ./.github/actions/hermes
+      - uses: ./.github/actions/ccache
+        with:
+          key: ${{ matrix.key }}
       - name: SDK binding cache (schemas extracted on demand, keyed by SDK and extractor)
         uses: actions/cache@v4
         with:
           path: ~/.cache/lucent
-          key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
-      - name: End-to-end (native vs. JavaScript)
-        run: pnpm test:e2e
-      - name: Performance budgets (kernels vs. the same code as JavaScript)
-        run: node scripts/bench.ts --check
-      - name: App check (bare)
-        run: node scripts/app-check.ts apps/bare-example
-      - name: App check (Expo)
-        run: node scripts/app-check.ts apps/expo-example
-      - name: Fresh install from the packed packages
-        run: node scripts/smoke-install.ts
+          # One per job: each keeps what it extracted (the first job to finish would otherwise save
+          # the only cache, without the others' modules).
+          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
+          # An older cache still serves, another job's too: its entries are keyed by SDK and
+          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
+          restore-keys: |
+            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
+            lucent-sdk-${{ runner.os }}-
+      - name: ${{ matrix.name }}
+        run: ${{ matrix.run }}
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache --show-stats
 
   website:
     name: Website (samples compile, prose rules, generated files current, build)
@@ -89,14 +132,15 @@ jobs:
       - run: pnpm --filter @lucent-lang/website typecheck
       - run: pnpm website:build
 
-  # The tests that need the iOS SDK, in two shards, beside the app build.
+  # The tests that need the iOS SDK, in three shards beside the app build and the checks: five
+  # macOS jobs, as many as the account runs at once.
   ios-test:
-    name: Unit tests with the iOS SDK (${{ matrix.shard }}/2)
+    name: Unit tests with the iOS SDK (${{ matrix.shard }}/3)
     runs-on: macos-26
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3]
     env:
       LANG: en_US.UTF-8
       LC_ALL: en_US.UTF-8
@@ -112,29 +156,36 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/lucent
-          key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
+          # One per job: each keeps what it extracted (the first job to finish would otherwise save
+          # the only cache, without the others' modules).
+          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
+          # An older cache still serves, another job's too: its entries are keyed by SDK and
+          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
+          restore-keys: |
+            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
+            lucent-sdk-${{ runner.os }}-
       - name: Compiler and bindgen tests with the iOS SDK (the Linux job skips them)
-        run: pnpm exec vp test run --shard=${{ matrix.shard }}/2
+        run: pnpm exec vp test run --shard=${{ matrix.shard }}/3
 
-  ios:
-    name: Bare example (iOS simulator build)
+  # Beside the app build: SDK coverage and the runtime under libc++'s sanitizers.
+  ios-checks:
+    name: SDK coverage, runtime (libc++)
     runs-on: macos-26
-    env:
-      LANG: en_US.UTF-8
-      LC_ALL: en_US.UTF-8
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/setup
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: "3.3"
-          bundler-cache: true
-          working-directory: apps/bare-example
       - name: SDK binding cache (schemas extracted on demand, keyed by SDK and extractor)
         uses: actions/cache@v4
         with:
           path: ~/.cache/lucent
-          key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
+          # One per job: each keeps what it extracted (the first job to finish would otherwise save
+          # the only cache, without the others' modules).
+          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
+          # An older cache still serves, another job's too: its entries are keyed by SDK and
+          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
+          restore-keys: |
+            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
+            lucent-sdk-${{ runner.os }}-
       - name: SDK coverage (fails when a module's unrepresentable share grows past sdk-coverage.json)
         run: node packages/lucent/bin/lucent.cjs sdk coverage --ios UIKit,Foundation,AVFoundation,StoreKit,CryptoKit --android 'android.*' --json --check sdk-coverage.json > sdk-coverage.current.json
       - name: Keep the coverage report
@@ -145,14 +196,47 @@ jobs:
           path: sdk-coverage.current.json
       - name: Runtime unit tests (ASan/UBSan, libc++)
         run: SANITIZE=1 packages/runtime/test/run.sh
+
+  ios:
+    name: Bare example (iOS simulator build)
+    runs-on: macos-26
+    env:
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+      # React Native's pods compile through ccache when pod install sees this.
+      USE_CCACHE: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: apps/bare-example
+      - name: SDK binding cache (schemas extracted on demand, keyed by SDK and extractor)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/lucent
+          # One per job: each keeps what it extracted (the first job to finish would otherwise save
+          # the only cache, without the others' modules).
+          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
+          # An older cache still serves, another job's too: its entries are keyed by SDK and
+          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
+          restore-keys: |
+            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
+            lucent-sdk-${{ runner.os }}-
+      - uses: ./.github/actions/ccache
+        with:
+          key: ios
       # lucent build reads the pods' headers from the Pods xcconfig, and pod install links the
       # native package lucent build writes: a fresh checkout installs pods on each side of it.
       - name: Install pods (their headers, for lucent build)
         working-directory: apps/bare-example/ios
         run: bundle exec pod install
-      - name: Generate the native package
+      # iOS alone: the Android job builds Android (this one leaves the Android dependencies to it).
+      - name: Generate the native package, for iOS
         working-directory: apps/bare-example
-        run: pnpm lucent
+        run: pnpm lucent --platforms ios
       - name: Install pods (linking the native package)
         working-directory: apps/bare-example/ios
         run: bundle exec pod install
@@ -164,27 +248,46 @@ jobs:
             -configuration Debug -sdk iphonesimulator \
             -destination 'generic/platform=iOS Simulator' \
             -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -n 200
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache --show-stats
 
   android:
     name: Bare example (Android build)
     runs-on: ubuntu-latest
+    env:
+      # CMake compiles the native code through ccache (CMake reads these from the environment).
+      CMAKE_C_COMPILER_LAUNCHER: ccache
+      CMAKE_CXX_COMPILER_LAUNCHER: ccache
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          cache: pnpm
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 21
       - uses: gradle/actions/setup-gradle@v4
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - name: Generate the native package
+      - uses: ./.github/actions/setup
+      - name: SDK binding cache (schemas extracted on demand, keyed by SDK and extractor)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/lucent
+          # One per job: each keeps what it extracted (the first job to finish would otherwise save
+          # the only cache, without the others' modules).
+          key: lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-${{ hashFiles('packages/bindgen/src/**') }}
+          # An older cache still serves, another job's too: its entries are keyed by SDK and
+          # extractor, and the ones a changed extractor no longer reads are extracted again beside them.
+          restore-keys: |
+            lucent-sdk-${{ runner.os }}-${{ github.job }}-${{ strategy.job-index }}-
+            lucent-sdk-${{ runner.os }}-
+      - uses: ./.github/actions/ccache
+        with:
+          key: android
+      - name: Generate the native package, for Android (the app this job builds)
         working-directory: apps/bare-example
-        run: pnpm lucent
+        run: pnpm lucent --platforms android
       - name: Build
         working-directory: apps/bare-example/android
-        run: ./gradlew assembleDebug -PreactNativeArchitectures=x86_64
+        run: ./gradlew assembleDebug -PreactNativeArchitectures=x86_64 --build-cache --parallel
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache --show-stats

@@ -10,8 +10,9 @@ import { androidJars } from "@lucent-lang/bindgen";
 import { kotlinToolchain } from "../../bindgen/test/kotlin-toolchain.ts";
 import { runtimeDir, type SdkOptions } from "../src/index.ts";
 import { withSdkOptions } from "../src/sdk/schema.ts";
-import { android, kotlinClasspath, ndkClang, ndkErrors } from "./android-harness.ts";
+import { android, kotlinClasspath, ndkClang, ndkErrors, ndkErrorsAll } from "./android-harness.ts";
 import { auditSdk } from "./dts-audit.ts";
+import { runJar, runJavac } from "../../bindgen/test/jvm-tools.ts";
 
 const codes = (r: { diagnostics: { code: string }[] }) => r.diagnostics.map((d) => d.code);
 
@@ -340,21 +341,17 @@ export async function run(): Promise<string> {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-java-"));
     fs.mkdirSync(path.join(dir, "src/dev/lucent/generated"), { recursive: true });
     fs.writeFileSync(path.join(dir, "src/dev/lucent/generated/Watcher.java"), java);
-    const cc = spawnSync(
-      "javac",
-      [
-        "--release",
-        "11",
-        "-Xlint:-options",
-        "-cp",
-        jar,
-        "-d",
-        path.join(dir, "out"),
-        path.join(runtimeDir(), "native/android/src/main/java/dev/lucent/NativeProxy.java"),
-        path.join(dir, "src/dev/lucent/generated/Watcher.java"),
-      ],
-      { encoding: "utf8" },
-    );
+    const cc = runJavac([
+      "--release",
+      "11",
+      "-Xlint:-options",
+      "-cp",
+      jar,
+      "-d",
+      path.join(dir, "out"),
+      path.join(runtimeDir(), "native/android/src/main/java/dev/lucent/NativeProxy.java"),
+      path.join(dir, "src/dev/lucent/generated/Watcher.java"),
+    ]);
     expect(cc.stderr).toBe("");
   });
 
@@ -362,20 +359,16 @@ export async function run(): Promise<string> {
     const jar = androidJars()?.[0];
     if (!jar || spawnSync("javac", ["-version"]).status !== 0) return;
     const out = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-java-"));
-    const cc = spawnSync(
-      "javac",
-      [
-        "--release",
-        "11",
-        "-Xlint:-options",
-        "-cp",
-        jar,
-        "-d",
-        out,
-        path.join(runtimeDir(), "native/android/src/main/java/dev/lucent/NativeProxy.java"),
-      ],
-      { encoding: "utf8" },
-    );
+    const cc = runJavac([
+      "--release",
+      "11",
+      "-Xlint:-options",
+      "-cp",
+      jar,
+      "-d",
+      out,
+      path.join(runtimeDir(), "native/android/src/main/java/dev/lucent/NativeProxy.java"),
+    ]);
     expect(cc.stderr).toBe("");
   });
 
@@ -428,12 +421,13 @@ export async function run(): Promise<string> {
       [longs],
       [adapters, playServicesClasspath()],
     ];
-    for (const [src, sdk] of units) {
+    const built = units.map(([src, sdk]) => {
       const { r, dir } = android(src, sdk);
       expect(r.diagnostics).toEqual([]);
-      expect(ndkErrors(bin, r.files, dir)).toBe("");
-    }
-    // About 10 s alone; several clang runs, so minutes when the machine is busy.
+      return { files: r.files, dir };
+    });
+    // Checked side by side: several clang runs, minutes one after the other on a busy machine.
+    expect(ndkErrorsAll(bin, built)).toEqual(built.map(() => ""));
   }, 180_000);
 });
 
@@ -461,23 +455,19 @@ function playServicesClasspath(rename: (text: string) => string = (text) => text
   });
 
   const classes = path.join(dir, "classes");
-  const cc = spawnSync(
-    "javac",
-    [
-      "--release",
-      "11",
-      "-d",
-      classes,
-      ...sources,
-      path.join(java, "android/annotation/NonNull.java"),
-    ],
-    { encoding: "utf8" },
-  );
+  const cc = runJavac([
+    "--release",
+    "11",
+    "-d",
+    classes,
+    ...sources,
+    path.join(java, "android/annotation/NonNull.java"),
+  ]);
   if (cc.status !== 0) throw new Error(cc.stderr);
 
   const jar = path.join(dir, "play-services-tasks.jar");
   const packages = fs.readdirSync(classes).filter((d) => d !== "android");
-  spawnSync("jar", ["cf", jar, ...packages.flatMap((d) => ["-C", classes, d])]);
+  runJar(["cf", jar, ...packages.flatMap((d) => ["-C", classes, d])]);
 
   const classpath = path.join(dir, "android-classpath.json");
   fs.writeFileSync(classpath, JSON.stringify({ jars: [jar] }));

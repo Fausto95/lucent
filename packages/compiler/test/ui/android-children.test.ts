@@ -10,6 +10,7 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { runtimeDir } from "../../src/index.ts";
 import { reactCommon } from "./react-native-headers.ts";
+import { runJavac } from "../../../bindgen/test/jvm-tools.ts";
 
 const JAVA = path.join(runtimeDir(), "native/android/src/main/java/dev/lucent");
 const javac = spawnSync("javac", ["-version"]).status === 0;
@@ -35,20 +36,16 @@ function javaErrors(
   classpath: readonly string[],
 ): { dir: string; errors: string } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-android-children-"));
-  const r = spawnSync(
-    "javac",
-    [
-      "--release",
-      "11",
-      "-Xlint:-options",
-      "-nowarn",
-      ...(classpath.length ? ["-cp", classpath.join(path.delimiter)] : []),
-      "-d",
-      dir,
-      ...sources,
-    ],
-    { encoding: "utf8" },
-  );
+  const r = runJavac([
+    "--release",
+    "11",
+    "-Xlint:-options",
+    "-nowarn",
+    ...(classpath.length ? ["-cp", classpath.join(path.delimiter)] : []),
+    "-d",
+    dir,
+    ...sources,
+  ]);
 
   return { dir, errors: r.status === 0 ? "" : r.stderr };
 }

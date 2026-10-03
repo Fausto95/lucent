@@ -17,7 +17,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "@lucent-lang/bindgen";
-import { cFlags, hostLibs, runtimeSources } from "../../runtime/test/sources.ts";
+import { hostLibs } from "../../runtime/test/sources.ts";
+import { hostRuntime } from "./swift-harness.ts";
 import {
   compile,
   lucentPackages,
@@ -27,6 +28,7 @@ import {
   runtimeDir,
   type SdkOptions,
 } from "../src/index.ts";
+import { runJar, runJavac } from "../../bindgen/test/jvm-tools.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = path.join(here, "fixtures/listener-adapter");
@@ -144,8 +146,8 @@ describe("a package's adapter around a native listener", () => {
     expect(found).toEqual([]);
   });
 
-  // Compiled for the macOS host with the runtime: one clang run per source,
-  // in parallel and off the test's thread.
+  // Compiled for the macOS host, one clang run per source in parallel and off
+  // the test's thread, with the runtime the Swift tests build once.
   it.skipIf(!xcode)(
     "settles and cleans up once on iOS, whichever queue the listener reports on",
     async () => {
@@ -163,16 +165,11 @@ describe("a package's adapter around a native listener", () => {
       const flags = ["-std=c++20", "-ffp-contract=off", "-g", "-O1", "-Wall", `-I${cpp}`];
       const unit = path.basename([...r.files.keys()].find((f) => f.endsWith(".mm"))!);
       const objc = [path.join(out, unit), path.join(root, "ios/host.mm")];
-      const { cxx, c } = runtimeSources(cpp);
       const jobs = [
         ...objc.map((src) => [
           "clang++",
           [...flags, "-fobjc-arc", `-I${out}`, `-I${pod}`, "-x", "objective-c++", "-c", src],
         ]),
-        ...cxx
-          .filter((src) => !src.includes(`${path.sep}jsi${path.sep}`))
-          .map((src) => ["clang++", [...flags, "-c", src]]),
-        ...c.map((src) => ["clang", [...cFlags, "-c", src]]),
         ["clang", ["-fobjc-arc", "-Wall", "-c", path.join(pod, `${prefix}Orb.m`)]],
       ] as [string, string[]][];
 
@@ -186,6 +183,7 @@ describe("a package's adapter around a native listener", () => {
       const host = path.join(build, "host");
       await run("clang++", [
         ...objects,
+        hostRuntime(),
         ...hostLibs,
         "-framework",
         "Foundation",
@@ -218,13 +216,11 @@ describe("a package's adapter around a native listener", () => {
       const sources = fs
         .readdirSync(path.join(java, "dev", lower, "orb"))
         .map((f) => path.join(java, "dev", lower, "orb", f));
-      const cc = spawnSync("javac", ["--release", "11", "-d", classes, ...sources], {
-        encoding: "utf8",
-      });
+      const cc = runJavac(["--release", "11", "-d", classes, ...sources]);
       expect(cc.stderr).toBe("");
 
       const jar = path.join(root, "orb.jar");
-      spawnSync("jar", ["cf", jar, "-C", classes, "dev"]);
+      runJar(["cf", jar, "-C", classes, "dev"]);
       const classpath = path.join(root, "android-classpath.json");
       fs.writeFileSync(classpath, JSON.stringify({ jars: [jar] }));
 

@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "@lucent-lang/compiler";
 import { runLucent } from "./run-to-exit.ts";
+import { runJar, runJavac } from "../../bindgen/test/jvm-tools.ts";
 
 const javac = spawnSync("javac", ["-version"]).status === 0;
 const android = sdkAvailable("android");
@@ -36,14 +37,14 @@ function app(files: Record<string, string>): {
   lucent: (args: string[], env?: Record<string, string>) => { status: number | null; out: string };
 } {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "lucent-android-project-")));
-  const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-android-project-cache-"));
 
   fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app" }));
   for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(root, name), text);
 
   const lucent = (args: string[], env: Record<string, string> = {}) => {
     const r = runLucent([...args, "--root", root], {
-      env: { ...process.env, NO_COLOR: "1", LUCENT_CACHE_DIR: cache, ...env },
+      // The shared SDK cache, as an app's builds use it: android.jar's modules are extracted once.
+      env: { ...process.env, NO_COLOR: "1", ...env },
     });
     return { status: r.status, out: r.stdout + r.stderr };
   };
@@ -72,8 +73,8 @@ function trackerJar(root: string): string {
     source,
     'package dev.orbit.tracking;\npublic class Tracker {\n  public Tracker() {}\n  public String name() { return ""; }\n}\n',
   );
-  spawnSync("javac", ["--release", "11", "-d", path.join(dir, "classes"), source]);
-  spawnSync("jar", ["cf", path.join(dir, "tracker.jar"), "-C", path.join(dir, "classes"), "."]);
+  runJavac(["--release", "11", "-d", path.join(dir, "classes"), source]);
+  runJar(["cf", path.join(dir, "tracker.jar"), "-C", path.join(dir, "classes"), "."]);
 
   return path.join(dir, "tracker.jar");
 }

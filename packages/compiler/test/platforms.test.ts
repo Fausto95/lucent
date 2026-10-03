@@ -9,6 +9,7 @@ import { createLucentProgram } from "../src/program.ts";
 import { androidJars, sdkAvailable } from "@lucent-lang/bindgen";
 import { jniDescriptor, loadSdkModule } from "../src/sdk/schema.ts";
 import { haptics, project } from "./platforms-fixtures.ts";
+import { runAll } from "./parallel-build.ts";
 
 /** TypeScript diagnostics of one platform program, as "TS<code>" per line (1-based). */
 function tsErrors(platform: "ios" | "android", source: string): string[] {
@@ -348,6 +349,8 @@ describe("platform declarations in one module", () => {
       // Shared state is everywhere.
       for (const f of [mm, cpp, host]) expect(f).toContain("calls");
     },
+    // The first here to read CoreLocation: on a cold cache it extracts it, a minute on CI.
+    600_000,
   );
 
   it.skipIf(!ios || !android || process.platform !== "darwin")(
@@ -597,8 +600,9 @@ function compilesEverywhere(sources: Record<string, string>, module: string): vo
       ],
     ]);
   }
-  for (const [cmd, args] of runs)
-    expect(spawnSync(cmd, args, { encoding: "utf8" }).stderr).toBe("");
+  // Side by side: each target's headers take seconds.
+  const results = runAll(runs.map(([cmd, args]) => ({ cmd, args })));
+  expect(results.map((r) => r.output)).toEqual(runs.map(() => ""));
 }
 
 /** An Android-only helper returning an object type holding an SDK object (issue #11). */
