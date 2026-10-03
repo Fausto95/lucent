@@ -1,0 +1,26 @@
+name: ccache
+description: Compiles through ccache, its cache kept across runs under `key`. On Linux the compilers on the PATH (clang, clang++, g++) become ccache's, so scripts that run them by name use it.
+inputs:
+  key:
+    description: What names this job's cache (its objects differ from other jobs').
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          sudo apt-get install -y ccache
+          sudo update-ccache-symlinks
+          ls /usr/lib/ccache
+          echo "/usr/lib/ccache" >> "$GITHUB_PATH"
+        else
+          brew install ccache
+        fi
+        echo "CCACHE_DIR=$HOME/.ccache" >> "$GITHUB_ENV"
+    - name: Compiler cache (objects of earlier runs)
+      uses: actions/cache@v4
+      with:
+        path: ~/.ccache
+        key: ccache-${{ inputs.key }}-${{ github.sha }}
+        restore-keys: ccache-${{ inputs.key }}-
