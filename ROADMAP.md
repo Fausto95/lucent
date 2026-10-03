@@ -1805,6 +1805,10 @@ iOS simulator and the Android emulator; physical-device checks are
 
 ### Website and release
 
+- **Generated C++ platform tabs (2026-10-03)** Show iOS and Android output
+  in one tabbed block inside each “See the C++” disclosure. Single-file
+  output keeps its existing code block.
+
 - **Mobile homepage navigation (2026-10-03)** Keep the logo, search, and menu
   control on one row; reveal navigation links in a touch-friendly dropdown.
 
