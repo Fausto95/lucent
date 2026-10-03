@@ -229,7 +229,7 @@ export function viewRules(cls: SdkClassSchema, schema: SdkModuleSchema, find: Fi
     if (overloads.every((m) => m.typeParams?.length)) {
       refused.push({
         name,
-        reason: `${overloads[0]!.name} is generic: call it in setup code, which gives its type`,
+        reason: `${overloads[0]!.name} is generic, and an attribute gives no type for it`,
       });
       continue;
     }
@@ -341,6 +341,8 @@ export interface ViewTag {
   props: Map<string, { prop: ViewProp; owner: ViewOwner }>;
   events: Map<string, { event: ViewEvent; owner: ViewOwner }>;
   children?: { rule: ViewChildren; owner: ViewOwner };
+  /** Attributes a class of the hierarchy would give, and why Lucent does not. */
+  refused: Map<string, string>;
   construction: ViewConstruction;
 }
 
@@ -357,6 +359,7 @@ export function viewTag(
   const find: FindType = (module, name) => moduleOf(module)?.types.find((t) => t.name === name);
   const props: ViewTag["props"] = new Map();
   const events: ViewTag["events"] = new Map();
+  const refused: ViewTag["refused"] = new Map();
   let children: ViewTag["children"];
 
   let owner: ViewOwner | undefined = { cls, schema };
@@ -368,6 +371,7 @@ export function viewTag(
     for (const event of rules.events)
       if (!events.has(event.name)) events.set(event.name, { event, owner });
     if (rules.children && !children) children = { rule: rules.children, owner };
+    for (const r of rules.refused) if (!refused.has(r.name)) refused.set(r.name, r.reason);
 
     const root = ROOT_VIEW[schema.platform];
     if (owner.schema.module === root.module && owner.cls.name === root.name) break;
@@ -383,6 +387,7 @@ export function viewTag(
     props,
     events,
     ...(children ? { children } : {}),
+    refused,
     construction: viewConstruction(cls, schema, find),
   };
 }

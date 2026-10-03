@@ -21,7 +21,10 @@ import {
   WRAP_UNBOUND,
 } from "./sdk/schema.ts";
 import { NATIVE_JSX_UI, nativeJsxDecls, nativeTags, rootViews } from "./sdk/native-jsx-dts.ts";
+import { classOfDecl } from "./sdk/declarations.ts";
 import { toolkitDts } from "./sdk/toolkit-dts.ts";
+import { viewTag } from "./sdk/view-rules.ts";
+import { nativeTagType } from "./ui/roots.ts";
 import { extensionDts } from "./extensions/dts.ts";
 import { boundExtensions, findExtension } from "./extensions/registry.ts";
 import { moduleNamespace } from "./types.ts";
@@ -613,7 +616,7 @@ export function createLucentProgram(
         )
       )
         continue;
-      const hint = nativeMemberHint(d, checker, direct);
+      const hint = nativeMemberHint(d, checker, direct) ?? nativeAttributeHint(d, checker);
       const diagnostic = fromTs(d);
       diagnostics.push(
         hint
@@ -700,6 +703,47 @@ function skippedMember(
 
   return undefined;
 }
+
+/**
+ * What to do about an attribute a native view's tag does not take (T48),
+ * where its class's rules leave it out: the reason, and that setup code
+ * can call it on a view the element's `create` gives. Undefined for any
+ * other error.
+ */
+function nativeAttributeHint(
+  d: ts.Diagnostic,
+  checker: ts.TypeChecker,
+): { message: string; fix: string } | undefined {
+  if (!MISSING_ATTRIBUTE.has(d.code) || !d.file || d.start === undefined) return undefined;
+
+  let element: ts.Node | undefined = nodeAt(d.file, d.start);
+  while (element && !ts.isJsxOpeningElement(element) && !ts.isJsxSelfClosingElement(element))
+    element = element.parent;
+  if (!element) return undefined;
+
+  const type = nativeTagType(checker, ts.isJsxOpeningElement(element) ? element.parent : element);
+  const decl = type?.getSymbol()?.declarations?.[0];
+  const ref = decl && classOfDecl(decl);
+  const schema = ref && findSdkModule(ref.platform, ref.module);
+  if (!ref || !schema) return undefined;
+
+  const tag = viewTag(ref.cls, schema, (m) => findSdkModule(ref.platform, m));
+  for (const a of element.attributes.properties) {
+    const name = ts.isJsxAttribute(a) ? a.name.getText() : undefined;
+    const reason = name && tag.refused.get(name);
+
+    if (reason)
+      return {
+        message: `<${ref.cls.name}> does not take ${name}: ${reason}.`,
+        fix: `call it in setup code, on the view made with create={() => new ${ref.cls.name}(…)}`,
+      };
+  }
+
+  return undefined;
+}
+
+/** TypeScript's errors for an attribute a tag does not take (2769: one per constructor tried). */
+const MISSING_ATTRIBUTE = new Set([2322, 2769]);
 
 /** The innermost node at `pos`. */
 export function nodeAt(sf: ts.SourceFile, pos: number): ts.Node {

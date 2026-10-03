@@ -8,6 +8,7 @@
  */
 import ts from "typescript";
 import type { Platform } from "../sdk/schema.ts";
+import { nativeTagType } from "../ui/roots.ts";
 import { isToolkitBody, type Jsx, jsxToolkitOf } from "../ui/toolkit-body.ts";
 import { helperStatement, isViewHelper } from "../ui/view-helpers.ts";
 import { type Cause, code, step, SummaryBuilder } from "./facts.ts";
@@ -706,11 +707,32 @@ export class Collector {
   }
 
   /**
-   * JSX: in a platform file, its toolkit's body, which makes the host the
-   * toolkit draws in (its code is the toolkit's);
+   * JSX: native views (T48), made by setup code that evaluates their
+   * attributes and children; in a platform file, its toolkit's body, which
+   * makes the host the toolkit draws in (its code is the toolkit's);
    * anywhere else, syntax the analyses do not model.
    */
   private jsx(e: Jsx): Value[] {
+    if (!ts.isJsxFragment(e) && nativeTagType(this.checker, e)) {
+      const opening = ts.isJsxElement(e) ? e.openingElement : e;
+
+      for (const a of opening.attributes.properties) {
+        const value = ts.isJsxAttribute(a)
+          ? a.initializer && ts.isJsxExpression(a.initializer)
+            ? a.initializer.expression
+            : undefined
+          : a.expression;
+        if (value) this.expr(value);
+      }
+      for (const c of ts.isJsxElement(e) ? e.children : []) {
+        if (ts.isJsxExpression(c) && c.expression) this.expr(c.expression);
+        else if (!ts.isJsxText(c)) this.expr(c);
+      }
+
+      this.own("allocates", "yes", e, "makes native views");
+      return this.made(e, "fresh");
+    }
+
     if (!jsxToolkitOf(e, this.checker))
       return this.unmodeled(e, ts.isJsxFragment(e) ? "a JSX fragment" : "a JSX element");
 

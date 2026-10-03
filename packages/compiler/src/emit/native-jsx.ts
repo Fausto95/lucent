@@ -83,8 +83,54 @@ function returnedBy(node: ts.Expression, fn: ts.FunctionLikeDeclaration): boolea
   return body === at || (!!last && ts.isReturnStatement(last) && last.expression === at);
 }
 
+/**
+ * Refuses a prop's value reading a copy setup made of a prop (`const title
+ * = props.title`): it holds the prop as setup first read it, so the
+ * attribute it keeps would never change.
+ */
+function refuseCopies(em: FnEmitter, fn: ts.FunctionLikeDeclaration, value: ts.Expression): void {
+  const props = fn.parameters[0] && em.checker.getSymbolAtLocation(fn.parameters[0].name);
+  const body = fn.body && ts.isBlock(fn.body) ? fn.body : undefined;
+  if (!props || !body) return;
+
+  const visit = (n: ts.Node): void => {
+    if (ts.isFunctionLike(n)) return;
+
+    const sym = ts.isIdentifier(n) ? em.checker.getSymbolAtLocation(n) : undefined;
+    const decl = sym?.valueDeclaration;
+    const statement = decl?.parent?.parent;
+    let read = decl && ts.isVariableDeclaration(decl) ? decl.initializer : undefined;
+    while (read && ts.isParenthesizedExpression(read)) read = read.expression;
+
+    let root: ts.Expression | undefined = read;
+    while (root && ts.isPropertyAccessExpression(root)) root = root.expression;
+
+    if (
+      read &&
+      read !== root &&
+      root &&
+      ts.isIdentifier(root) &&
+      em.checker.getSymbolAtLocation(root) === props &&
+      statement &&
+      ts.isVariableStatement(statement) &&
+      statement.parent === body
+    )
+      fail(
+        n,
+        Codes.NativeViewJsx,
+        `\`${n.getText()}\` is ${read.getText()} as setup first read it: the attribute would never change`,
+        `read ${read.getText()} in the attribute, which keeps it up to date`,
+      );
+
+    ts.forEachChild(n, visit);
+  };
+
+  visit(value);
+}
+
 /** One element: its view made, its attributes and children given; the view's C++ name. */
 function element(em: FnEmitter, node: ts.Expression, made: Made): string {
+  const setup = setupOf(em.ctx, node)!;
   let jsx: ts.Node = node;
   while (ts.isParenthesizedExpression(jsx)) jsx = jsx.expression;
 
@@ -204,6 +250,8 @@ function element(em: FnEmitter, node: ts.Expression, made: Made): string {
       made.statements.push(discarded(set({ c: cpp.id("true"), t: T.boolean })));
       continue;
     }
+
+    refuseCopies(em, setup.fn, value);
 
     // A prop is an effect of the mount: set now, and again whenever what it read changes. A
     // property takes its type; a setter's value keeps its own, which chooses the overload.
