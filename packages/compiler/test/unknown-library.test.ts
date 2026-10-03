@@ -13,6 +13,11 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vite-plus/test";
+import { sdkAvailable } from "@lucent-lang/bindgen";
+import { classpathFile } from "../../bindgen/test/java-fixtures.ts";
+import { compileKotlin, kotlinToolchain } from "../../bindgen/test/kotlin-toolchain.ts";
+import { android } from "./android-harness.ts";
+import { jdk, jvmRun } from "./jni-harness.ts";
 import {
   compileErrors,
   compiles,
@@ -169,6 +174,46 @@ describe.skipIf(!xcode)("an unknown library's next version on iOS", () => {
         }),
       ),
     );
+  }, 600_000);
+});
+
+/** The Kotlin toolchain, with the coroutines the library's suspend function uses. */
+const kotlin = kotlinToolchain();
+const coroutines = kotlin && path.join(kotlin.lib, "kotlinx-coroutines-core-jvm.jar");
+const jvm =
+  !!kotlin && !!jdk && !!coroutines && fs.existsSync(coroutines) && sdkAvailable("android");
+
+describe.skipIf(!jvm)("an unknown library on Android", () => {
+  /** The app's classpath: the Kotlin runtime, the library, and its dependency in a jar of its own. */
+  let jars: string[] = [];
+
+  beforeAll(async () => {
+    const dir = path.join(root, "jars");
+    const stdlib = path.join(kotlin!.lib, "kotlin-stdlib.jar");
+    const sources = (m: string) =>
+      fs.readdirSync(path.join(root, "android", m)).map((f) => path.join(root, "android", m, f));
+
+    fs.mkdirSync(dir);
+    const core = await compileKotlin(kotlin!, sources(`${lower}core`), path.join(dir, "core.jar"));
+    const kit = await compileKotlin(kotlin!, sources(`${lower}kit`), path.join(dir, "kit.jar"), {
+      classpath: [core, coroutines!].join(":"),
+    });
+
+    jars = [stdlib, coroutines!, core, kit];
+  }, 300_000);
+
+  it("binds the same shapes by rule, and runs them on a JVM through the JNI glue", () => {
+    const classpath = classpathFile(path.join(root, "jars/android-classpath.json"), jars);
+    const p = android(fs.readFileSync(path.join(root, "android/use.android.lucent.ts"), "utf8"), {
+      android: { classpath },
+    });
+
+    expect(p.r.diagnostics).toEqual([]);
+    expect(jvmRun(p.r, p.dir, jars, kotlin!)).toEqual({
+      status: 0,
+      stdout: `gauge g at 3.5 | 3 3.5 | 3.5 box | 7.0 ${lower} | Error\n`,
+      stderr: "",
+    });
   }, 600_000);
 });
 
