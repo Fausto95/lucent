@@ -126,6 +126,44 @@ describe.skipIf(!android)("an app without its Android project", () => {
   });
 });
 
+describe.skipIf(!android)("an app whose Android project has not resolved its dependencies", () => {
+  const pending = shared(
+    `import { Tasks } from "lucent:android/${DEPENDENCY}";`,
+    'Tasks.forResult("done");',
+  );
+
+  /** The app with an Android project whose Gradle build has not run: no resolved classpath. */
+  function unresolved() {
+    const a = app({ "m.lucent.ts": pending });
+
+    fs.mkdirSync(path.join(a.root, "android"));
+    fs.writeFileSync(path.join(a.root, "android/gradlew"), "#!/bin/sh\nexit 1\n", { mode: 0o755 });
+    return a;
+  }
+
+  for (const platform of ["host", "ios"] as const)
+    it.skipIf(platform === "ios" && !ios)(
+      `leaves them to the Android build in a build for ${platform} alone`,
+      () => {
+        const a = unresolved();
+
+        const r = a.lucent(["build", "--platforms", platform]);
+        expect(r.status, r.out).toBe(0);
+        expect(r.out).toContain(`lucent:android/${DEPENDENCY}`);
+        expect(r.out).toMatch(/--platforms android/);
+        expect(r.out).not.toMatch(/LUCENT3004|expo prebuild/);
+      },
+    );
+
+  it("still resolves them with Gradle in a build that builds Android", () => {
+    const a = unresolved();
+
+    const r = a.lucent(["build", "--platforms", "android"]);
+    expect(r.status).toBe(1);
+    expect(r.out).toMatch(/Gradle/);
+  });
+});
+
 describe.skipIf(!android || !javac)("an app with its Android project", () => {
   const tracked = (use: string) =>
     shared('import { Tracker } from "lucent:android/dev.orbit.tracking";', use);

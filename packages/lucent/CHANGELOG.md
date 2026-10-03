@@ -1,5 +1,19 @@
 # @lucent-lang/lucent
 
+## 0.1.2
+
+### Patch Changes
+
+- [#63](https://github.com/Fausto95/lucent/pull/63) [`e160e7a`](https://github.com/Fausto95/lucent/commit/e160e7a13361837319c14c2384512e34c412a355) Thanks [@Fausto95](https://github.com/Fausto95)! - Build again where one platform's SDK is missing (Android on a machine without Xcode) when a module picks a value with `PLATFORM === "ios" ? … : …`: the host build no longer reports LUCENT2001 for the side it cannot type.
+
+- [#60](https://github.com/Fausto95/lucent/pull/60) [`820fe5f`](https://github.com/Fausto95/lucent/commit/820fe5f2a1d32d7bce4fcbd04ee84259e7761bd0) Thanks [@Fausto95](https://github.com/Fausto95)! - Make `for … of` over arrays of objects, strings or arrays faster: each element is moved into the loop's variable instead of copied.
+
+- [#63](https://github.com/Fausto95/lucent/pull/63) [`e160e7a`](https://github.com/Fausto95/lucent/commit/e160e7a13361837319c14c2384512e34c412a355) Thanks [@Fausto95](https://github.com/Fausto95)! - Make builds, checks and the editor faster when modules import iOS frameworks: the names of the frameworks they reference are read from the SDK cache once per build instead of once per lookup.
+
+- [#60](https://github.com/Fausto95/lucent/pull/60) [`820fe5f`](https://github.com/Fausto95/lucent/commit/820fe5f2a1d32d7bce4fcbd04ee84259e7761bd0) Thanks [@Fausto95](https://github.com/Fausto95)! - Say to run `pod install` first when an iOS module isn't found and the app's pods haven't been installed yet, instead of naming only the SDK's frameworks.
+
+- [#63](https://github.com/Fausto95/lucent/pull/63) [`e160e7a`](https://github.com/Fausto95/lucent/commit/e160e7a13361837319c14c2384512e34c412a355) Thanks [@Fausto95](https://github.com/Fausto95)! - Ask Xcode where the iOS SDK is once per process, instead of again for each build whose options differ.
+
 ## 0.1.1
 
 ### Patch Changes
