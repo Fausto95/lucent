@@ -126,15 +126,14 @@ maintainer.
 
 What's next, in order of readiness:
 
-1. [Make CI green on main](#ci-green-on-main): two jobs fail.
-2. [T28](#t28): prove automatic binding with unknown libraries (closes G1).
-3. [T48](#t48): JSX for any SDK view, building on the toolkit JSX; then
+1. [T28](#t28): prove automatic binding with unknown libraries (closes G1).
+2. [T48](#t48): JSX for any SDK view, building on the toolkit JSX; then
    [T49](#t49) and [T50](#t50).
-4. [T52](#t52) with [TA25](#ta25) and [TA26](#ta26): wrapper ports and the
+3. [T52](#t52) with [TA25](#ta25) and [TA26](#ta26): wrapper ports and the
    views preview (closes G3; needs physical devices).
-5. [T54](#t54) and [T60](#t60), which are ready and independent of the
+4. [T54](#t54) and [T60](#t60), which are ready and independent of the
    view work.
-6. A scope decision on [T51](#t51), which as written conflicts with the
+5. A scope decision on [T51](#t51), which as written conflicts with the
    decision against a cross-platform view vocabulary.
 
 The website shows the following areas. Each line is one short sentence:
@@ -1062,25 +1061,24 @@ lists, gestures, media, background targets), the distribution matrix, the
 no-catalog audit, stress tests, physical-device budgets, complete docs and a
 green CI. The gate closes with T67.
 
-T54 and T60 are ready now, and so is making CI green on main. The rest
+T54 and T60 are ready now (CI has been green on main since 2026-10-03). The rest
 follow G1 and G3 work. Several tasks need physical devices, which only the
 maintainer can run.
 
-| Task                    | Title                                                           | Needs                                     | Status               |
-| ----------------------- | --------------------------------------------------------------- | ----------------------------------------- | -------------------- |
-| [T54](#t54)             | Implement measured compiler and runtime optimizations           | —                                         | ready                |
-| [T55](#t55)             | Implement native recycled and virtualized lists                 | T49, T50, T52                             | waiting (maintainer) |
-| [T56](#t56)             | Add native gestures and frame-driven animation facilities       | T51, T52                                  | waiting (maintainer) |
-| [T59](#t59)             | Prove media pipelines, high-rate streams and callback executors | T52                                       | waiting (maintainer) |
-| [T60](#t60)             | Implement headless, background and additional native targets    | —                                         | ready (maintainer)   |
-| [T61](#t61)             | Finish the editor, doctor, SDK and debugging workflows          | T48                                       | waiting              |
-| [T62](#t62)             | Run the distribution and supported-version compatibility matrix | T52, T60, T61                             | waiting              |
-| [T63](#t63)             | Run the final no-catalog audit, including views and extensions  | T28, T48, T50                             | waiting              |
-| [T64](#t64)             | Run lifetime, concurrency and Fabric stress validation          | T49, T55, T59, T60                        | waiting (maintainer) |
-| [T65](#t65)             | Enforce physical-device performance budgets                     | T54, T55, T56, T59, T64                   | waiting (maintainer) |
-| [T66](#t66)             | Complete user documentation and migration examples              | T51, T52, T60, T61                        | waiting              |
-| [CI](#ci-green-on-main) | Make CI green on main                                           | —                                         | ready                |
-| [T67](#t67)             | Pass the integrated production-candidate gate                   | T62, T63, T64, T65, T66, CI green on main | waiting (maintainer) |
+| Task        | Title                                                           | Needs                   | Status               |
+| ----------- | --------------------------------------------------------------- | ----------------------- | -------------------- |
+| [T54](#t54) | Implement measured compiler and runtime optimizations           | —                       | ready                |
+| [T55](#t55) | Implement native recycled and virtualized lists                 | T49, T50, T52           | waiting (maintainer) |
+| [T56](#t56) | Add native gestures and frame-driven animation facilities       | T51, T52                | waiting (maintainer) |
+| [T59](#t59) | Prove media pipelines, high-rate streams and callback executors | T52                     | waiting (maintainer) |
+| [T60](#t60) | Implement headless, background and additional native targets    | —                       | ready (maintainer)   |
+| [T61](#t61) | Finish the editor, doctor, SDK and debugging workflows          | T48                     | waiting              |
+| [T62](#t62) | Run the distribution and supported-version compatibility matrix | T52, T60, T61           | waiting              |
+| [T63](#t63) | Run the final no-catalog audit, including views and extensions  | T28, T48, T50           | waiting              |
+| [T64](#t64) | Run lifetime, concurrency and Fabric stress validation          | T49, T55, T59, T60      | waiting (maintainer) |
+| [T65](#t65) | Enforce physical-device performance budgets                     | T54, T55, T56, T59, T64 | waiting (maintainer) |
+| [T66](#t66) | Complete user documentation and migration examples              | T51, T52, T60, T61      | waiting              |
+| [T67](#t67) | Pass the integrated production-candidate gate                   | T62, T63, T64, T65, T66 | waiting (maintainer) |
 
 The Needs column lists only open dependencies.
 
@@ -1502,51 +1500,6 @@ match shipped behavior.
 **Done when:** the docs support independent use and match shipped behavior.
 This final sweep does not excuse delaying docs for earlier completed tasks.
 
-<a id="ci-green-on-main"></a>
-
-### Make CI green on main
-
-**Goal:** Make every CI job pass on main, so a red build means a new problem
-again.
-
-- **Status:** in progress.
-- **Area:** Tooling and verification.
-- **Needs:** none.
-- **Verify:** The CI workflow (`.github/workflows/ci.yml`).
-- **Where:** CI workflow, benchmark budgets, the bare example's iOS build.
-
-- [x] Linux job (runtime, e2e, diagnostics, app check): `bench --check`
-      fails on `structsIn1000`, 1.63x against a 1.5x budget on the CI
-      runner. Find the cause; fix it, or change the budget through a
-      recorded decision (requirements forbid silently weakening one).
-      Two JSI property reads and an allocation per struct, whose cost
-      against a host call depends on the CPU; a redundant reference count
-      per loop element is gone, and the budget is 1.75x by the decision of
-      2026-10-03.
-- [x] macOS job (bare example, iOS simulator build): `lucent build` fails
-      with LUCENT3004, `lucent:ios/ReactAppDependencyProvider` not found, on
-      the runner's Xcode 26.6 and iOS 26.5 SDK. Find out why the pod module
-      is not discovered there. The job ran `lucent build` before
-      `pod install`: a fresh checkout has no Pods xcconfig, so no pod was
-      searched (React Native's codegen writes that pod at `pod install`).
-      The job now installs pods before and after `lucent build`, and
-      LUCENT3004 says to run `pod install` first when no pods were read.
-      A fresh worktree ran the sequence locally.
-- [x] Website job: the generated C++ samples were stale after the IR
-      (#56, #58); regenerated.
-- [ ] Confirm the remaining jobs stay green (unit tests, Android build,
-      website), then record the first fully green run on main.
-
-**Done when:** every CI job passes on main at a recorded commit.
-
-**Notes:**
-
-- CI never passed on the release pull request (#13), which the maintainer
-  merged on 2026-09-30 with failing tests. TA29 then fixed the portability
-  problems it found (Linux toolchains, bounded SDK prefetch, toolchain-gated
-  tests) and several real product bugs. The failures above are from the main
-  run of 2026-10-01; the website job passed.
-
 <a id="t67"></a>
 
 ### T67: Pass the integrated production-candidate gate
@@ -1557,8 +1510,7 @@ that is ready for pilots.
 - **Status:** open, waiting on open dependencies.
 - **Area:** Integration and verification.
 - **Needs:** [T62](#t62) (open), [T63](#t63) (open), [T64](#t64) (open),
-  [T65](#t65) (open), [T66](#t66) (open), [CI green on
-  main](#ci-green-on-main) (open).
+  [T65](#t65) (open), [T66](#t66) (open).
 - **Verify:** V1–V9 as applicable.
 - **Where:** The integrated acceptance report and release-candidate
   artifacts.
@@ -1837,6 +1789,14 @@ iOS simulator and the Android emulator; physical-device checks are
   (Android builds without Xcode, bounded SDK prefetch, a GCC `BigInt`
   evaluation-order bug, a scheduler owner leak, a clang 18 miscompile, Expo
   apps before prebuild).
+- **CI green on main** (2026-10-03): every CI job passes on main, first at
+  `23cc5a1a` (#65) and again at `fe9758de` (#64). The website's generated
+  samples were regenerated after the IR; the iOS job installs pods before
+  and after `lucent build` (LUCENT3004 now names `pod install` when no pods
+  were read); `structsIn1000`'s budget is 1.75x, and CI reports the
+  CPU-bound bench ratios rather than enforcing them (both by recorded
+  decisions). With #63 and #64, a run takes about ten minutes instead of
+  two hour-long jobs.
 
 ### Views
 
@@ -2007,8 +1967,8 @@ Last recorded runs:
   on 2026-09-25 (tests 25/25; SDK 29/29 in the bare app and 42/42 in the
   Expo app; iOS 27 simulator and Pixel 3a API 34 emulator); later runs
   covered the screens each task changed.
-- **CI on main (2026-10-01):** two jobs fail; see
-  [CI green on main](#ci-green-on-main).
+- **CI on main (2026-10-03):** every job green at `23cc5a1a` and
+  `fe9758de`.
 
 ## Known limitations and deferred checks
 
@@ -2037,8 +1997,6 @@ Last recorded runs:
 
 ### Project infrastructure
 
-- **CI is red on main** (2026-10-01): a bench budget on the Linux runner and
-  the bare app's iOS build. Tracked as [CI green on main](#ci-green-on-main).
 - **Vercel.** The "website" project's deploys fail, as they did before the
   Astro move; the "lucent" project serves the site. The project settings
   are the maintainer's.
