@@ -54,16 +54,37 @@ const description =
         </a>
         <div class="navlinks">
           <Search />
-          <a href="/docs/">Docs</a>
-          <a class="optional" href="/docs/examples/">
-            Examples
-          </a>
-          <a class="optional" href="/blog/">
-            Blog
-          </a>
-          <a class="nav-start" href="/docs/install/">
-            Get started ↗
-          </a>
+          <button
+            class="nav-toggle"
+            type="button"
+            aria-label="Toggle navigation"
+            aria-expanded="false"
+            aria-controls="home-menu"
+          >
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              aria-hidden="true"
+            >
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div class="nav-menu" id="home-menu">
+            <a href="/docs/">Docs</a>
+            <a class="optional" href="/docs/examples/">
+              Examples
+            </a>
+            <a class="optional" href="/blog/">
+              Blog
+            </a>
+            <a class="nav-start" href="/docs/install/">
+              Get started ↗
+            </a>
+          </div>
         </div>
       </nav>
 
@@ -552,6 +573,35 @@ npx lucent init</pre>
     </div>
 
     <script>
+      const navToggle =
+        document.querySelector<HTMLButtonElement>(".nav-toggle")!;
+      const homeNav = navToggle.closest("nav")!;
+      const closeNavigation = () =>
+        navToggle.setAttribute("aria-expanded", "false");
+      navToggle.addEventListener("click", () => {
+        navToggle.setAttribute(
+          "aria-expanded",
+          String(navToggle.getAttribute("aria-expanded") !== "true"),
+        );
+      });
+      document.addEventListener("click", (event) => {
+        if (event.target instanceof Node && !homeNav.contains(event.target))
+          closeNavigation();
+      });
+      homeNav.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") {
+          closeNavigation();
+          navToggle.focus();
+        }
+      });
+      document
+        .querySelector("#home-menu")
+        ?.addEventListener("click", closeNavigation);
+      matchMedia("(min-width: 761px)").addEventListener(
+        "change",
+        closeNavigation,
+      );
+
       const root = document.getElementById("voltage-home")!;
       const like = root.querySelector<HTMLButtonElement>(".like-preview")!;
       const toggles = [

@@ -1805,6 +1805,9 @@ iOS simulator and the Android emulator; physical-device checks are
 
 ### Website and release
 
+- **Mobile homepage navigation (2026-10-03)** Keep the logo, search, and menu
+  control on one row; reveal navigation links in a touch-friendly dropdown.
+
 - **Voltage homepage and docs (2026-10-03)** Implemented the reviewed homepage
   with native logic and experimental views, a current-blog announcement,
   animated platform diagram, and React Native/Expo compatibility. Docs use
