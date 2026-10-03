@@ -8,7 +8,7 @@
  *
  * Env: HERMES_DIR (Hermes checkout built into build/), SANITIZE=1, CXX.
  */
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -25,6 +25,7 @@ import {
   report,
   resolveNative,
 } from "../../src/index.ts";
+import { exec, pool } from "../../../runtime/test/parallel.ts";
 import { cFlags, hostLibs, runtimeSources } from "../../../runtime/test/sources.ts";
 
 // One time zone with daylight saving time for both runs (the native host
@@ -65,14 +66,18 @@ const baseFlags = [
   ...(sanitize ? ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"] : []),
 ];
 
-function sh(cmd: string, args: string[], opts: { cwd?: string } = {}): void {
-  const r = spawnSync(cmd, args, { cwd: opts.cwd, encoding: "utf8", maxBuffer: 64 << 20 });
+/** How many cases, and how many runtime sources, compile at once. */
+const jobs = Number(process.env.LUCENT_E2E_JOBS ?? os.availableParallelism());
+
+async function sh(cmd: string, args: string[]): Promise<void> {
+  const r = await exec(cmd, args);
+
   if (r.status !== 0)
     throw new Error(`${cmd} ${args.slice(-3).join(" ")} failed:\n${r.stderr}\n${r.stdout}`);
 }
 
 /** Builds the runtime + harness objects once (cached by content hash). */
-function runtimeLib(): string {
+async function runtimeLib(): Promise<string> {
   const rs = runtimeSources(path.join(runtimeDir, "cpp"));
   const sources = [...rs.cxx, ...rs.c, path.join(runtimeDir, "test/jsi/harness.cpp")];
   const headers = [
@@ -92,22 +97,23 @@ function runtimeLib(): string {
   const lib = path.join(dir, "liblucentrt.a");
   if (fs.existsSync(lib)) return lib;
   fs.mkdirSync(dir, { recursive: true });
-  const objs: string[] = [];
-  for (const src of sources) {
-    const obj = path.join(dir, path.basename(src).replace(/\.cpp$/, ".o"));
-    if (src.endsWith(".c"))
-      sh(process.env.CC ?? "clang", [
-        ...cFlags,
-        ...(sanitize ? ["-fsanitize=address,undefined"] : []),
-        "-c",
-        src,
-        "-o",
-        obj,
-      ]);
-    else sh(cxx, [...baseFlags, "-c", src, "-o", obj]);
-    objs.push(obj);
-  }
-  sh("ar", ["rcs", lib, ...objs]);
+  const objs = await Promise.all(
+    pool(sources, jobs, async (src) => {
+      const obj = path.join(dir, path.basename(src).replace(/\.cpp$/, ".o"));
+      if (src.endsWith(".c"))
+        await sh(process.env.CC ?? "clang", [
+          ...cFlags,
+          ...(sanitize ? ["-fsanitize=address,undefined"] : []),
+          "-c",
+          src,
+          "-o",
+          obj,
+        ]);
+      else await sh(cxx, [...baseFlags, "-c", src, "-o", obj]);
+      return obj;
+    }),
+  );
+  await sh("ar", ["rcs", lib, ...objs]);
   return lib;
 }
 
@@ -173,7 +179,8 @@ function casePackages(c: Case): { native: NativeInputs; packages: LucentPackage[
   return { native: resolveNative(packages), packages };
 }
 
-function nativeRun(c: Case, lib: string): string {
+/** Case `c` compiled and built into a host with its prelude: the command that runs it. */
+async function nativeBuild(c: Case, lib: string): Promise<string[]> {
   const found = casePackages(c);
   const extensions = found ? bindExtensions(found.native.extensions) : undefined;
   const result = compile(c.files, { extensions });
@@ -192,8 +199,8 @@ function nativeRun(c: Case, lib: string): string {
   for (const src of sourceDirs.flatMap((d) => fs.readdirSync(d).map((f) => path.join(d, f)))) {
     if (!/\.(c|cc|cpp)$/.test(src)) continue;
     const obj = path.join(dir, `pkg_${path.basename(src)}.o`);
-    if (src.endsWith(".c")) sh(process.env.CC ?? "clang", [...cFlags, "-c", src, "-o", obj]);
-    else sh(cxx, [...baseFlags, "-c", src, "-o", obj]);
+    if (src.endsWith(".c")) await sh(process.env.CC ?? "clang", [...cFlags, "-c", src, "-o", obj]);
+    else await sh(cxx, [...baseFlags, "-c", src, "-o", obj]);
     objs.push(obj);
   }
   const includes = sourceDirs.map((d) => `-I${d}`);
@@ -202,7 +209,7 @@ function nativeRun(c: Case, lib: string): string {
   for (const name of result.files.keys()) {
     if (!name.endsWith(".cpp")) continue;
     const obj = path.join(dir, name.replace(/\.cpp$/, ".o"));
-    sh(cxx, [
+    await sh(cxx, [
       ...baseFlags,
       ...deviceFlags,
       `-I${dir}`,
@@ -215,7 +222,7 @@ function nativeRun(c: Case, lib: string): string {
     objs.push(obj);
   }
   const exe = path.join(dir, "host");
-  sh(cxx, [
+  await sh(cxx, [
     ...baseFlags,
     ...objs,
     lib,
@@ -237,8 +244,16 @@ function nativeRun(c: Case, lib: string): string {
     `var mods = __lucent; var mod = __lucent[${JSON.stringify(moduleNames[0])}];\n` +
       `function lucentClass(factory) { function C() { return factory.apply(undefined, arguments); } C.prototype = factory.prototype; Object.defineProperty(C.prototype, "constructor", { value: C }); for (var k of Object.keys(factory)) C[k] = factory[k]; return C; }\n`,
   );
-  const r = spawnSync(exe, [abortPolyfill, prelude, c.test], {
-    encoding: "utf8",
+  return [exe, abortPolyfill, prelude, c.test];
+}
+
+/**
+ * What a built case prints natively. Hosts run one at a time, after every
+ * build: the harness takes 20 ms without a post as the end of a case's
+ * work, which a busy machine can stretch past.
+ */
+async function nativeRun([exe, ...args]: string[]): Promise<string> {
+  const r = await exec(exe!, args, {
     timeout: 60000,
     env: { ...process.env, ASAN_OPTIONS: "detect_leaks=0" },
   });
@@ -348,19 +363,28 @@ async function runTest(c: Case, mods: Record<string, unknown>, logs: boolean): P
   };
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(c.test, "utf8"), sandbox);
-  // Let timers and promises settle.
-  for (let i = 0; i < 200; i++) await new Promise((r) => setTimeout(r, 10));
+  // Let timers and promises settle: until no timer is pending, for at most 200 turns of 10 ms.
+  for (let i = 0; i < 200; i++) {
+    await new Promise((r) => setTimeout(r, i ? 10 : 0));
+
+    if (!process.getActiveResourcesInfo().includes("Timeout")) break;
+  }
   return out.join("\n") + (out.length ? "\n" : "");
 }
 
 async function main() {
   const filter = process.argv.slice(2);
-  const lib = runtimeLib();
+  const lib = await runtimeLib();
+  const all = cases(filter);
+  // Cases build side by side; then each runs natively and as JavaScript, one at a time (the
+  // references share the console and the process's timers).
+  const builds = pool(all, jobs, (c) => nativeBuild(c, lib));
+  await Promise.allSettled(builds);
   let failed = 0;
-  for (const c of cases(filter)) {
+  for (const [i, c] of all.entries()) {
     const t0 = Date.now();
     try {
-      const [native, reference] = [nativeRun(c, lib), await referenceRun(c)];
+      const [native, reference] = [await nativeRun(await builds[i]!), await referenceRun(c)];
       if (native !== reference) {
         failed++;
         console.log(`✗ ${c.name}: output differs`);

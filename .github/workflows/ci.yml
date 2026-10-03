@@ -15,36 +15,15 @@ env:
   HERMES_DIR: ${{ github.workspace }}/.hermes
 
 jobs:
+  # Three Linux jobs side by side: the unit tests, the runtime's own tests, and the
+  # harnesses that run compiled code (e2e, budgets, app checks, a fresh install).
   test:
-    name: Runtime, e2e, diagnostics, app check
+    name: Unit tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: sudo apt-get update && sudo apt-get install -y ninja-build libicu-dev
-
-      - name: Restore Hermes build
-        id: hermes-cache
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.HERMES_DIR }}
-          key: hermes-${{ runner.os }}-${{ env.HERMES_REF }}
-      - name: Build Hermes
-        if: steps.hermes-cache.outputs.cache-hit != 'true'
-        run: |
-          git init "$HERMES_DIR"
-          cd "$HERMES_DIR"
-          git fetch --depth 1 https://github.com/facebook/hermes.git "$HERMES_REF"
-          git checkout FETCH_HEAD
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
-          ninja -C build hermesvm jsi
-
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/hermes
       - name: SDK binding cache (schemas extracted on demand, keyed by SDK and extractor)
         uses: actions/cache@v4
         with:
@@ -52,6 +31,14 @@ jobs:
           key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
       - run: pnpm typecheck
       - run: pnpm test
+
+  runtime:
+    name: Runtime and JSI host
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/hermes
       - name: Runtime unit tests
         run: packages/runtime/test/run.sh
       - name: Runtime unit tests (ASan/UBSan, GCC)
@@ -60,6 +47,19 @@ jobs:
         run: packages/runtime/test/jsi/run.sh
       - name: JSI host lifetime (ASan/UBSan)
         run: SANITIZE=1 packages/runtime/test/jsi/run.sh
+
+  e2e:
+    name: End-to-end, budgets, app checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/hermes
+      - name: SDK binding cache (schemas extracted on demand, keyed by SDK and extractor)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/lucent
+          key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
       - name: End-to-end (native vs. JavaScript)
         run: pnpm test:e2e
       - name: Performance budgets (kernels vs. the same code as JavaScript)
@@ -89,21 +89,20 @@ jobs:
       - run: pnpm --filter @lucent-lang/website typecheck
       - run: pnpm website:build
 
-  ios:
-    name: Bare example (iOS simulator build)
+  # The tests that need the iOS SDK, in two shards, beside the app build.
+  ios-test:
+    name: Unit tests with the iOS SDK (${{ matrix.shard }}/2)
     runs-on: macos-26
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     env:
       LANG: en_US.UTF-8
       LC_ALL: en_US.UTF-8
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
+      - uses: ./.github/actions/setup
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.3"
@@ -115,7 +114,27 @@ jobs:
           path: ~/.cache/lucent
           key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
       - name: Compiler and bindgen tests with the iOS SDK (the Linux job skips them)
-        run: pnpm test
+        run: pnpm exec vp test run --shard=${{ matrix.shard }}/2
+
+  ios:
+    name: Bare example (iOS simulator build)
+    runs-on: macos-26
+    env:
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: apps/bare-example
+      - name: SDK binding cache (schemas extracted on demand, keyed by SDK and extractor)
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/lucent
+          key: lucent-sdk-${{ runner.os }}-${{ hashFiles('packages/bindgen/src/**') }}
       - name: SDK coverage (fails when a module's unrepresentable share grows past sdk-coverage.json)
         run: node packages/lucent/bin/lucent.cjs sdk coverage --ios UIKit,Foundation,AVFoundation,StoreKit,CryptoKit --android 'android.*' --json --check sdk-coverage.json > sdk-coverage.current.json
       - name: Keep the coverage report

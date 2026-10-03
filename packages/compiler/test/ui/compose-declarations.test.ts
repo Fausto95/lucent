@@ -1,4 +1,3 @@
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -9,6 +8,7 @@ import { composeDeclarations } from "../../src/ui/compose-dts.ts";
 import { composeArtifacts, kotlinClasspath } from "./compose-artifacts.ts";
 import { TOGGLE, withContent } from "./compose-fixture.ts";
 import { SLICE } from "./compose-slice-fixture.ts";
+import { runKotlinc } from "../../../bindgen/test/kotlin-compiler.ts";
 
 /*
  * lucent:compose's declarations, made from Compose's bindings by rules,
@@ -255,22 +255,18 @@ describe.skipIf(!android)("content written from the bindings", () => {
 
       fs.writeFileSync(source, text);
 
-      const kotlinc = spawnSync(
-        kotlin!.kotlinc,
-        [
-          "-jvm-target",
-          "11",
-          "-Werror",
-          `-Xplugin=${path.join(kotlin!.lib, "compose-compiler-plugin.jar")}`,
-          "-cp",
-          classpath!.join(path.delimiter),
-          source,
-          ...runtime,
-          "-d",
-          path.join(dir, "slice.jar"),
-        ],
-        { encoding: "utf8", maxBuffer: 1 << 26 },
-      );
+      const kotlinc = runKotlinc(kotlin!, [
+        "-jvm-target",
+        "11",
+        "-Werror",
+        `-Xplugin=${path.join(kotlin!.lib, "compose-compiler-plugin.jar")}`,
+        "-cp",
+        classpath!.join(path.delimiter),
+        source,
+        ...runtime,
+        "-d",
+        path.join(dir, "slice.jar"),
+      ]);
 
       expect(kotlinc.stderr).toBe("");
       expect(kotlinc.status).toBe(0);

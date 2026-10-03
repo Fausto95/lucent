@@ -6,6 +6,7 @@
  * REGISTRATION; what it prints is the run's output.
  */
 import { spawnSync } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -21,37 +22,138 @@ export const canRunMounted = !!toolchain && process.platform === "darwin" && sdk
 export const macosSdk = () =>
   spawnSync("xcrun", ["--sdk", "macosx", "--show-sdk-path"], { encoding: "utf8" }).stdout.trim();
 
-/** The C sources of the runtime's regular expression engine, compiled apart into `dir` for Mac Catalyst. */
-export function quickjsObjects(dir: string): string[] {
+/**
+ * Compiles each of `jobs` (a compiler and its arguments, writing `object`)
+ * side by side, one per core: what they printed, together.
+ */
+function compileAll(jobs: { cmd: string; args: string[]; object: string }[]): string {
+  if (!jobs.length) return "";
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-catalyst-build-"));
+  const q = (a: string) => `'${a.replace(/'/g, "'\\''")}'`;
+  const cores = os.availableParallelism();
+  const lines = jobs.map(
+    (j, i) =>
+      `(${[j.cmd, ...j.args, "-o", j.object].map(q).join(" ")}) >${q(path.join(dir, `${i}.log`))} 2>&1 &${(i + 1) % cores === 0 ? "\nwait" : ""}`,
+  );
+
+  fs.writeFileSync(path.join(dir, "build.sh"), `${lines.join("\n")}\nwait\n`);
+  spawnSync("sh", [path.join(dir, "build.sh")]);
+
+  const printed = jobs.map((_, i) => fs.readFileSync(path.join(dir, `${i}.log`), "utf8")).join("");
+
+  fs.rmSync(dir, { recursive: true, force: true });
+  return printed;
+}
+
+/** `args` without what only linking reads (-Wl, -framework): unused, they warn when compiling. */
+function compileOnly(args: readonly string[]): string[] {
+  return args.filter(
+    (a, i) => !a.startsWith("-Wl,") && a !== "-framework" && args[i - 1] !== "-framework",
+  );
+}
+
+/** What the runtime's sources include: a change to any of them rebuilds its objects. */
+function runtimeHeaders(): string[] {
+  const cpp = path.join(runtimeDir(), "cpp");
+  const walk = (d: string): string[] =>
+    fs
+      .readdirSync(d, { withFileTypes: true })
+      .flatMap((e) =>
+        e.isDirectory()
+          ? walk(path.join(d, e.name))
+          : e.name.endsWith(".h")
+            ? [path.join(d, e.name)]
+            : [],
+      );
+
+  return walk(cpp).sort();
+}
+
+/**
+ * Objects of `sources` for Mac Catalyst, compiled side by side with `args`.
+ * The runtime's (not React Native's glue) are built once per test run and shared by the runs that
+ * build them with the same arguments (keyed by their contents, the
+ * runtime's headers and the arguments; published by rename); `program`'s
+ * own sources, with `include` (its generated headers) too, into `dir`.
+ */
+export function catalystObjects(
+  dir: string,
+  args: string[],
+  sources: string[],
+  include: string,
+): string[] {
+  // The runtime itself; React Native's glue (rn/) depends on the program's generated headers.
+  const shareable = ["lucent", "third_party"].map(
+    (d) => path.join(runtimeDir(), "cpp", d) + path.sep,
+  );
+  const headers = crypto.createHash("sha256");
+
+  for (const h of runtimeHeaders()) headers.update(h).update(fs.readFileSync(h));
+  headers.update(JSON.stringify(args));
+
+  const shared = path.join(os.tmpdir(), "lucent-catalyst-objects");
+  const key = headers.digest("hex");
+  const jobs: { cmd: string; args: string[]; object: string; published?: string }[] = [];
+
+  fs.mkdirSync(shared, { recursive: true });
+
+  const objects = sources.map((source, i) => {
+    const own = !shareable.some((d) => source.startsWith(d));
+    // The regular expression engine is C, as the podspec builds it.
+    const compile = source.endsWith(".c")
+      ? {
+          cmd: "xcrun",
+          args: ["clang", "-target", "arm64-apple-ios15.1-macabi", "-isysroot", macosSdk()].concat(
+            "-std=c11",
+            "-O2",
+            "-w",
+            "-c",
+            source,
+          ),
+        }
+      : {
+          cmd: toolchain!.command,
+          args: [...compileOnly(toolchain!.args), ...args, ...(own ? [`-I${include}`] : [])].concat(
+            ["-c", source],
+          ),
+        };
+
+    if (own) {
+      const object = path.join(dir, `${i}_${path.basename(source)}.o`);
+
+      jobs.push({ ...compile, object });
+      return object;
+    }
+
+    const hash = crypto
+      .createHash("sha256")
+      .update(key)
+      .update(source)
+      .update(fs.readFileSync(source));
+    const published = path.join(shared, `${hash.digest("hex").slice(0, 20)}.o`);
+
+    if (!fs.existsSync(published))
+      jobs.push({ ...compile, object: `${published}.${process.pid}.${i}`, published });
+
+    return published;
+  });
+
+  expect(compileAll(jobs)).toBe("");
+
+  for (const j of jobs) if (j.published) fs.renameSync(j.object, j.published);
+
+  return objects;
+}
+
+/** The C sources of the runtime's regular expression engine, for Mac Catalyst. */
+export function quickjsSources(): string[] {
   const c = path.join(runtimeDir(), "cpp/third_party/quickjs");
 
   return fs
     .readdirSync(c)
     .filter((f) => f.endsWith(".c"))
-    .map((f) => {
-      const object = path.join(dir, `${f}.o`);
-      const r = spawnSync(
-        "xcrun",
-        [
-          "clang",
-          "-target",
-          "arm64-apple-ios15.1-macabi",
-          "-isysroot",
-          macosSdk(),
-          "-std=c11",
-          "-O2",
-          "-w",
-          "-c",
-          path.join(c, f),
-          "-o",
-          object,
-        ],
-        { encoding: "utf8" },
-      );
-
-      expect(r.stderr).toBe("");
-      return object;
-    });
+    .map((f) => path.join(c, f));
 }
 
 /**
@@ -100,7 +202,6 @@ export function runMounted(files: Record<string, string>, driver: string): strin
 
   // The runtime (its regular expressions' C engine compiled apart), the module, its views.
   const cpp = path.join(runtimeDir(), "cpp");
-  const objects = quickjsObjects(dir);
   const runtime = [
     ...fs
       .readdirSync(path.join(cpp, "lucent"))
@@ -120,22 +221,27 @@ export function runMounted(files: Record<string, string>, driver: string): strin
   const support = path.join(macosSdk(), "System/iOSSupport");
 
   const binary = path.join(dir, "mount_run");
+  const args = [
+    "-fobjc-arc",
+    "-iframework",
+    path.join(support, "System/Library/Frameworks"),
+    `-F${path.join(support, "System/Library/Frameworks")}`,
+    "-isystem",
+    path.join(support, "usr/include"),
+    // The app builds Lucent's modules without -Werror.
+    "-Wno-unused-variable",
+  ];
+  const objects = catalystObjects(
+    dir,
+    args,
+    [main, ...generated, ...runtime, ...quickjsSources()],
+    path.join(out, "ios"),
+  );
   const build = spawnSync(
     toolchain!.command,
     [
       ...toolchain!.args,
-      "-fobjc-arc",
-      "-iframework",
-      path.join(support, "System/Library/Frameworks"),
-      `-F${path.join(support, "System/Library/Frameworks")}`,
-      "-isystem",
-      path.join(support, "usr/include"),
-      // The app builds Lucent's modules without -Werror.
-      "-Wno-unused-variable",
-      `-I${path.join(out, "ios")}`,
-      main,
-      ...generated,
-      ...runtime,
+      ...args,
       ...objects,
       "-framework",
       "UIKit",

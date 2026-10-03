@@ -61,9 +61,9 @@ export function iosProgram(src: string, modules: string[] = []): IosProgram {
     Object.keys(files).map((f) => path.join(dir, f)),
     {
       platforms: ["ios"],
-      ...(modules.length
-        ? { sdk: { cacheDir: path.join(dir, "cache"), ios: { includePaths } } }
-        : {}),
+      // The shared SDK cache, as an app's builds use it: the SDK's symbol graphs are extracted
+      // once, not for every program, and each fixture module is cached by its content.
+      ...(modules.length ? { sdk: { ios: { includePaths } } } : {}),
     },
   );
 

@@ -2231,8 +2231,18 @@ class Lowerer {
    */
   conditional(node: ts.ConditionalExpression, hint?: LType): ValueId {
     const guard = this.host.platformGuard?.(node.condition);
+    // No platform runs either branch: typed as the one the checker types, as the other platform's
+    // SDK may be missing here (its declarations untyped).
+    if (guard?.runs === "nowhere") {
+      const typed = [node.whenTrue, node.whenFalse].find(
+        (e) => !(this.host.checker.getTypeAtLocation(e).flags & ts.TypeFlags.Any),
+      );
+
+      return this.platformOnly(node, this.typeAt(typed ?? node));
+    }
+
     const live =
-      guard && guard.runs !== "nowhere" && (guard.runs === "elsewhere" || !guard.rest.length)
+      guard && (guard.runs === "elsewhere" || !guard.rest.length)
         ? guard.runs === "here"
           ? node.whenTrue
           : node.whenFalse
@@ -2241,8 +2251,6 @@ class Lowerer {
     const promised =
       own.k === "promise" || (own.k === "union" && own.ms.some((m) => m.k === "promise"));
     const type = hint && !isVoidish(hint) && !promised ? hint : own;
-
-    if (guard?.runs === "nowhere") return this.platformOnly(node, own);
 
     if (live) return this.coerce(this.expr(live, type), type, live);
 

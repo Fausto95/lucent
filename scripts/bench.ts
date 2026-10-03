@@ -37,6 +37,7 @@ import {
   hostManifest,
   writeResults,
 } from "../packages/lucent/src/cli/bench-results.ts";
+import { cores, pool, run } from "../packages/runtime/test/parallel.ts";
 import { cFlags, hostLibs, runtimeSources } from "../packages/runtime/test/sources.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -102,12 +103,19 @@ const sources = [
   path.join(root, "packages/runtime/test/jsi/harness.cpp"),
   path.join(root, "scripts/bench-floor.cpp"),
 ];
-const objs = sources.map((s, i) => {
-  const o = path.join(work, `${i}_${path.basename(s).replace(/\.(cpp|c)$/, "")}.o`);
-  if (s.endsWith(".c")) sh(process.env.CC ?? "clang", [...cFlags, "-c", s, "-o", o]);
-  else sh(cxx, [...flags, "-c", s, "-o", o]);
-  return o;
-});
+// Compiled side by side; the timings below run after, on their own.
+const objs = await Promise.all(
+  pool(
+    sources.map((s, i) => ({ s, i })),
+    cores,
+    async ({ s, i }) => {
+      const o = path.join(work, `${i}_${path.basename(s).replace(/\.(cpp|c)$/, "")}.o`);
+      if (s.endsWith(".c")) await run(process.env.CC ?? "clang", [...cFlags, "-c", s, "-o", o]);
+      else await run(cxx, [...flags, "-c", s, "-o", o]);
+      return o;
+    },
+  ),
+);
 
 // What the generated code weighs, compiled: the objects of the module sources.
 const generatedBytes = objs

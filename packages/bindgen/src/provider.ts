@@ -107,14 +107,18 @@ interface Loaded {
 
 const loaded = new Map<string, Loaded>();
 const located = new Map<string, Resolved | { missing: string }>();
+/** What each xcrun says of the simulator SDK: its path, version and build, asked once. */
+const iosSdks = new Map<string, (string | undefined)[]>();
 const headerIndexes = new Map<string, Record<string, string>>();
 
 /** Forgets what this process loaded, as a new process would (tests). */
 export function forgetLoadedSdks(): void {
   loaded.clear();
   located.clear();
+  iosSdks.clear();
   headerIndexes.clear();
   locatedByObject = new WeakMap();
+  namesRead = new WeakMap();
 }
 
 /** A platform's artifacts as this build resolved them, and where their schemas are cached. */
@@ -419,9 +423,14 @@ function podOf(files: string[], podsDir: string, pods: Map<string, unknown>): st
 
 function locateIos(opts: SdkOptions): Resolved | { missing: string } {
   const xcrun = opts.ios?.xcrun ?? process.env.LUCENT_XCRUN ?? "xcrun";
-  const sdk = run(xcrun, ["--sdk", "iphonesimulator", "--show-sdk-path"]);
-  const version = run(xcrun, ["--sdk", "iphonesimulator", "--show-sdk-version"]);
-  const build = run(xcrun, ["--sdk", "iphonesimulator", "--show-sdk-build-version"]);
+  let answers = iosSdks.get(xcrun);
+  if (!answers) {
+    answers = ["--show-sdk-path", "--show-sdk-version", "--show-sdk-build-version"].map((q) =>
+      run(xcrun, ["--sdk", "iphonesimulator", q]),
+    );
+    iosSdks.set(xcrun, answers);
+  }
+  const [sdk, version, build] = answers;
   if (!sdk || !version || !build) {
     return {
       missing: `the iOS SDK was not found (${xcrun} --sdk iphonesimulator failed). Install Xcode and select it: sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`,
@@ -682,9 +691,19 @@ function graphs(r: Resolved, modules: string[]): Map<string, SymbolGraph> {
   return out;
 }
 
+/** The names each build (each resolved SDK) has read from the cache, by module. */
+let namesRead = new WeakMap<Resolved, Map<string, NamesIndex>>();
+
 /** The names of `modules`' types, each cached on its own artifact. */
 function namesFor(r: Resolved, modules: string[]): NamesIndex[] {
-  const read = (m: string) => findEntry<NamesEntry>(r, path.join(r.scope, m), "names")?.names;
+  const known = namesRead.get(r) ?? new Map<string, NamesIndex>();
+  namesRead.set(r, known);
+  const read = (m: string) => {
+    const names = known.get(m) ?? findEntry<NamesEntry>(r, path.join(r.scope, m), "names")?.names;
+    if (names) known.set(m, names);
+
+    return names;
+  };
   const missing = modules.filter((m) => !read(m));
   for (const [m, g] of graphs(r, missing))
     publishEntry(path.join(r.scope, m), "names", {

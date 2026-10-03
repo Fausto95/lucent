@@ -9,7 +9,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vite-plus/test";
 import { compile, runtimeDir, sdkAvailable } from "../../src/index.ts";
 import { CARD, IOS_HOSTED } from "./card-fixture.ts";
-import { macosSdk, quickjsObjects } from "./mount-harness.ts";
+import { catalystObjects, macosSdk, quickjsSources } from "./mount-harness.ts";
 import { catalystToolchain, reactCommon } from "./react-native-headers.ts";
 
 const toolchain = catalystToolchain();
@@ -92,7 +92,6 @@ describe("React children in the iOS host", () => {
       // Mac Catalyst's UIKit lives in the macOS SDK's iOS support.
       const support = path.join(macosSdk(), "System/iOSSupport");
       const args = [
-        ...toolchain!.args,
         "-fobjc-arc",
         "-iframework",
         path.join(support, "System/Library/Frameworks"),
@@ -103,7 +102,6 @@ describe("React children in the iOS host", () => {
         path.join(reactCommon(), "react/utils/platform/ios"),
         // The app builds Lucent's modules without -Werror.
         "-Wno-unused-variable",
-        `-I${path.join(out, "ios")}`,
       ];
 
       // The runtime, its JSI boundary, the host, the module and its views.
@@ -131,12 +129,18 @@ describe("React children in the iOS host", () => {
       ];
 
       const binary = path.join(dir, "children_run");
+      const objects = catalystObjects(
+        dir,
+        args,
+        [...sources, ...quickjsSources()],
+        path.join(out, "ios"),
+      );
       const link = spawnSync(
         toolchain!.command,
         [
+          ...toolchain!.args,
           ...args,
-          ...sources,
-          ...quickjsObjects(dir),
+          ...objects,
           "-framework",
           "UIKit",
           "-framework",

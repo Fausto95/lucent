@@ -18,6 +18,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { runLucent, runToExit } from "../packages/lucent/test/run-to-exit.ts";
+import { cores, pool, run } from "../packages/runtime/test/parallel.ts";
 import { cFlags, hostLibs, runtimeSources } from "../packages/runtime/test/sources.ts";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -91,12 +92,22 @@ const sources = [
   ...rs.c,
   path.join(root, "packages/runtime/test/jsi/harness.cpp"),
 ];
-const objs = sources.map((s, i) => {
-  const o = path.join(work, `${i}_${path.basename(s).replace(/\.(cpp|c)$/, "")}.o`);
-  if (s.endsWith(".c")) sh(process.env.CC ?? "clang", [...cFlags, "-c", s, "-o", o]);
-  else sh(process.env.CXX ?? "clang++", [...flags, "-c", s, "-o", o]);
-  return o;
-});
+// The app's modules and the runtime, side by side.
+const objs = await Promise.all(
+  pool(
+    sources.map((s, i) => ({ s, i })),
+    cores,
+    async ({ s, i }) => {
+      const o = path.join(work, `${i}_${path.basename(s).replace(/\.(cpp|c)$/, "")}.o`);
+      if (s.endsWith(".c")) await run(process.env.CC ?? "clang", [...cFlags, "-c", s, "-o", o]);
+      else
+        await run(process.env.CXX ?? "clang++", [...flags, "-c", s, "-o", o], {
+          timeout: STEP_TIMEOUT,
+        });
+      return o;
+    },
+  ),
+);
 const exe = path.join(work, "apphost");
 sh(process.env.CXX ?? "clang++", [
   ...objs,

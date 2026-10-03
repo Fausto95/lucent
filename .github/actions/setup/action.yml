@@ -1,0 +1,14 @@
+name: Set up the workspace
+description: pnpm and Node from .node-version, the locked dependencies, and the built CLI (bin/lucent.cjs runs dist/).
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version-file: .node-version
+        cache: pnpm
+    - run: pnpm install --frozen-lockfile
+      shell: bash
+    - run: pnpm build
+      shell: bash

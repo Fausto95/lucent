@@ -10,6 +10,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
 import { kotlinToolchain } from "../../bindgen/test/kotlin-toolchain.ts";
+import { runKotlinc } from "../../bindgen/test/kotlin-compiler.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const rules = path.join(
@@ -24,19 +25,15 @@ describe.skipIf(!kotlin)("the Android host of Compose content", () => {
     const jar = path.join(dir, "rules.jar");
 
     try {
-      const compiled = spawnSync(
-        kotlin!.kotlinc,
-        [
-          "-jvm-target",
-          "11",
-          "-Werror",
-          rules,
-          path.join(here, "compose/CompositionRulesCheck.kt"),
-          "-d",
-          jar,
-        ],
-        { encoding: "utf8", maxBuffer: 1 << 26 },
-      );
+      const compiled = runKotlinc(kotlin!, [
+        "-jvm-target",
+        "11",
+        "-Werror",
+        rules,
+        path.join(here, "compose/CompositionRulesCheck.kt"),
+        "-d",
+        jar,
+      ]);
 
       expect(compiled.stderr).toBe("");
       expect(compiled.status).toBe(0);
