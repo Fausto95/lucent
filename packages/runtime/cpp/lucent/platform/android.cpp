@@ -163,13 +163,16 @@ Error errorOf(JNIEnv* e, jobject t) {
     err->code = String::fromLatin1("java.util.concurrent.CancellationException");
     return err;
   }
-  jclass objectCls = e->FindClass("java/lang/Object");
-  jobject cls = e->CallObjectMethod(t, e->GetMethodID(objectCls, "getClass", "()Ljava/lang/Class;"));
-  jclass classCls = e->FindClass("java/lang/Class");
-  auto name = static_cast<jstring>(e->CallObjectMethod(cls, e->GetMethodID(classCls, "getName", "()Ljava/lang/String;")));
-  jclass throwableCls = e->FindClass("java/lang/Throwable");
-  auto message = static_cast<jstring>(e->CallObjectMethod(t, e->GetMethodID(throwableCls, "getMessage", "()Ljava/lang/String;")));
-  e->ExceptionClear();
+  // These throw only when out of memory, which leaves the defaults below:
+  // cleared after each call, before the next JNI call (as CheckJNI requires).
+  auto read = [e](jobject o, const char* cls, const char* name, const char* sig) {
+    jobject r = e->CallObjectMethod(o, e->GetMethodID(e->FindClass(cls), name, sig));
+    e->ExceptionClear();
+    return r;
+  };
+  jobject cls = read(t, "java/lang/Object", "getClass", "()Ljava/lang/Class;");
+  auto name = static_cast<jstring>(cls ? read(cls, "java/lang/Class", "getName", "()Ljava/lang/String;") : nullptr);
+  auto message = static_cast<jstring>(read(t, "java/lang/Throwable", "getMessage", "()Ljava/lang/String;"));
   String className = name ? fromJString(e, name, "") : String::fromLatin1("java.lang.Throwable");
   Error err = makeError(String::fromLatin1("Error"), message ? fromJString(e, message, "") : className);
   err->code = className;
