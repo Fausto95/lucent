@@ -428,7 +428,6 @@ describe.skipIf(!android)("lucent sdk prefetch", () => {
       root,
       {
         LUCENT_XCRUN: path.join(os.tmpdir(), "no-such-xcrun"),
-        LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")),
       },
       "build",
     );
@@ -450,7 +449,6 @@ describe.skipIf(!android)("lucent sdk prefetch", () => {
       root,
       {
         LUCENT_XCRUN: path.join(os.tmpdir(), "no-such-xcrun"),
-        LUCENT_CACHE_DIR: fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-cache-")),
       },
       "build",
     );

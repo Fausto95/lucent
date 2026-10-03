@@ -12,7 +12,6 @@ const abiModule = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../bindgen/test/fixtures/objc/Abi",
 );
-const cache = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-plans-cache-"));
 
 /** A platform module whose `platform` side is `src` (exporting run()), compiled for that platform. */
 function program(platform: "ios" | "android", src: string, sdk?: SdkOptions) {
@@ -35,7 +34,8 @@ function program(platform: "ios" | "android", src: string, sdk?: SdkOptions) {
 
 /** Against the Abi fixture module. */
 const abi = (src: string) =>
-  program("ios", src, { cacheDir: cache, ios: { includePaths: [abiModule] } });
+  // The shared SDK cache, as an app's builds use it: the fixture is cached by its content.
+  program("ios", src, { ios: { includePaths: [abiModule] } });
 
 const messages = (r: { diagnostics: { code: string; message: string }[] }) =>
   r.diagnostics.map((d) => [d.code, d.message]);
