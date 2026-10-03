@@ -163,7 +163,7 @@ describe("IR to C++", () => {
         "void log() {",
         '#line 1 "/app/order.lucent.ts"',
         "  lucent::String v0_ = lucent_app::m_order::log;",
-        "  lucent::String x = v0_;",
+        "  lucent::String x = std::move(v0_);",
         '  lucent::String v2_ = next(LUCENT_STR("a"));',
         // `x` is read where it is used: no call between can change a local.
         "  lucent_app::m_order::log = lucent::String(x) + v2_;",

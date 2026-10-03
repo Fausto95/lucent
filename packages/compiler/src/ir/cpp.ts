@@ -200,6 +200,10 @@ class Emitter {
   /** Loads spelled as their variable, and values spelled where their one use is (see `spellings`). */
   private readonly aliases = new Set<ValueId>();
   private readonly inlined = new Set<ValueId>();
+  /** The named temporaries, each with the region one run of which defines it once. */
+  private readonly temporaries = new Map<ValueId, RegionId>();
+  /** The region being emitted. */
+  private current?: RegionId;
   /** The operation defining each value. */
   private readonly definitions = new Map<ValueId, IrOp>();
 
@@ -337,10 +341,11 @@ class Emitter {
 
   /** The statements of region `id`. */
   region(id: RegionId): cpp.Stmt[] {
-    const saved = this.out;
+    const [saved, savedRegion] = [this.out, this.current];
     const ops = this.fn.regions[id]!.ops;
 
     this.out = [];
+    this.current = id;
 
     try {
       ops.forEach((op, i) =>
@@ -354,6 +359,7 @@ class Emitter {
       return this.out;
     } finally {
       this.out = saved;
+      this.current = savedRegion;
     }
   }
 
@@ -392,6 +398,20 @@ class Emitter {
 
   value(v: ValueId): cpp.Expr {
     return this.exprs.get(v)!;
+  }
+
+  /**
+   * `v`, given up to the one operation using it: a temporary of the region
+   * being emitted is moved from, where copying a reference or a string
+   * would count it up and down again.
+   */
+  taken(v: ValueId): cpp.Expr {
+    const value = this.value(v);
+    const scalar = ["number", "boolean", "undefined", "null"].includes(this.typeOf(v).k);
+
+    if (scalar || this.uses.get(v) !== 1 || this.temporaries.get(v) !== this.current) return value;
+
+    return cpp.call("std::move", [value]);
   }
 
   place(p: number): cpp.Expr {
@@ -605,18 +625,23 @@ class Emitter {
 
       this.emit(op, cpp.varDecl(this.backend.cppType(this.fn.values[v]!.type), name, c));
       this.exprs.set(v, cpp.id(name));
+      this.temporaries.set(v, this.current!);
     } else if (effect) {
       this.emit(op, cpp.exprStmt(cpp.cast("c", cpp.voidType, c)));
     }
   }
 
-  /** `v`, given the value of `c`, as a statement declaring it (none when it is unused). */
-  bind(v: ValueId, c: cpp.Expr): cpp.Stmt[] {
+  /**
+   * `v`, given the value of `c` once each time `home` runs, as a statement
+   * declaring it (none when it is unused).
+   */
+  bind(v: ValueId, c: cpp.Expr, home: RegionId): cpp.Stmt[] {
     if (!this.used(v)) return [];
 
     const name = `v${v}_`;
 
     this.exprs.set(v, cpp.id(name));
+    this.temporaries.set(v, home);
     return [cpp.varDecl(this.backend.cppType(this.typeOf(v)), name, c)];
   }
 
@@ -852,7 +877,7 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
     if (prev?.kind === "local" && prev.place === op.place) {
       const type = int ? cpp.type(INT_CPP[int]) : boxOf(e.backend.cppType(prev.type), prev.boxed);
       const style = prev.boxed ? { style: "construct" as const } : {};
-      const value = int ? e.stored(op.value, int) : e.value(op.value);
+      const value = int ? e.stored(op.value, int) : e.taken(op.value);
 
       e.emit(op, cpp.varDecl(type, cppIdent(prev.name), value, style));
       return;
@@ -871,7 +896,7 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
       return;
     }
 
-    e.emit(op, cpp.exprStmt(cpp.assign(e.place(op.place), e.value(op.value))));
+    e.emit(op, cpp.exprStmt(cpp.assign(e.place(op.place), e.taken(op.value))));
   },
 
   call: (op, e) => {
@@ -990,7 +1015,11 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
         if (!op.catch) return [cpp.block(body)];
 
         const ex = `ex${op.catch.error}_`;
-        const error = e.bind(op.catch.error, cpp.call("lucent::currentError", [cpp.id(ex)]));
+        const error = e.bind(
+          op.catch.error,
+          cpp.call("lucent::currentError", [cpp.id(ex)]),
+          op.catch.region,
+        );
         const handler = e.region(op.catch.region);
 
         return [
@@ -1078,7 +1107,7 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
       const jump = { target: op.target, loop: true, next: false };
       // The element, then the body, then where a `continue` that is a `goto` lands.
       const body = (element: cpp.Expr, head: cpp.Stmt[] = []) => {
-        const bound = e.bind(op.element, element);
+        const bound = e.bind(op.element, element, op.body);
         const inner = e.inside(jump, op.body);
 
         return [...head, ...bound, cpp.block(inner), ...e.label("continue", op.target)];

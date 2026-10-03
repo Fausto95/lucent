@@ -94,6 +94,6 @@ export function sum(points: Point[], names: string[], xs: number[]): number {
 }
 `);
 
-    expect(body(cppOf(file), "rows")).not.toContain("std::move");
+    expect(body(cppOf(file), "rows")).toMatch(/lucent::String again = name;/);
   });
 });
