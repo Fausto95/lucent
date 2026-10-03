@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterAll, describe, expect, it } from "vite-plus/test";
+import { afterAll, describe, expect, it, vi } from "vite-plus/test";
 import { podsSearchPaths } from "../src/pods.ts";
 import {
   extractionCount,
@@ -455,6 +455,22 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     expect(
       "schema" in crypto && { header: crypto.schema.header, frameworks: crypto.schema.frameworks },
     ).toEqual({ header: undefined, frameworks: ["CryptoKit"] });
+  });
+
+  it("reads a module's names from the cache once, however often a build asks", () => {
+    const opts = { cacheDir: tmp("lucent-cache-") };
+    expect("names" in sdkNames("ios", "CoreFoundation", opts)).toBe(true);
+
+    const read = vi.spyOn(fs, "readFileSync");
+    try {
+      for (let i = 0; i < 3; i++)
+        expect("names" in sdkNames("ios", "CoreFoundation", opts)).toBe(true);
+
+      const names = read.mock.calls.filter(([f]) => String(f).endsWith(".names.json"));
+      expect(names).toHaveLength(0);
+    } finally {
+      read.mockRestore();
+    }
   });
 
   it("asks xcrun about the SDK once, whatever else the options say", () => {
