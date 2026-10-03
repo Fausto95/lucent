@@ -329,3 +329,60 @@ export function viewConstruction(
     reason: `${cls.name} has no initWithFrame: or init to make it with: say how, create={() => new ${cls.name}(…)}`,
   };
 }
+
+/** A class of a tag's hierarchy: where an attribute it takes is declared. */
+export interface ViewOwner {
+  cls: SdkClassSchema;
+  schema: SdkModuleSchema;
+}
+
+/** What a tag of `cls` takes, from it and every class above it: the nearest class's wins. */
+export interface ViewTag {
+  props: Map<string, { prop: ViewProp; owner: ViewOwner }>;
+  events: Map<string, { event: ViewEvent; owner: ViewOwner }>;
+  children?: { rule: ViewChildren; owner: ViewOwner };
+  construction: ViewConstruction;
+}
+
+/**
+ * The attributes a tag of `cls` takes, walking its superclasses (their
+ * modules read with `moduleOf`, which a compile does: unlike declarations,
+ * lowering a tag may read other modules).
+ */
+export function viewTag(
+  cls: SdkClassSchema,
+  schema: SdkModuleSchema,
+  moduleOf: (module: string) => SdkModuleSchema | undefined,
+): ViewTag {
+  const find: FindType = (module, name) => moduleOf(module)?.types.find((t) => t.name === name);
+  const props: ViewTag["props"] = new Map();
+  const events: ViewTag["events"] = new Map();
+  let children: ViewTag["children"];
+
+  let owner: ViewOwner | undefined = { cls, schema };
+  for (let depth = 0; owner && depth < 64; depth++) {
+    const rules = viewRules(owner.cls, owner.schema, find);
+
+    for (const prop of rules.props)
+      if (!props.has(prop.name)) props.set(prop.name, { prop, owner });
+    for (const event of rules.events)
+      if (!events.has(event.name)) events.set(event.name, { event, owner });
+    if (rules.children && !children) children = { rule: rules.children, owner };
+
+    const root = ROOT_VIEW[schema.platform];
+    if (owner.schema.module === root.module && owner.cls.name === root.name) break;
+    if (!owner.cls.extends) break;
+
+    const sup = parseSdkType(owner.cls.extends, owner.schema.module);
+    const next = sup.k === "ref" ? moduleOf(sup.module) : undefined;
+    const decl = sup.k === "ref" ? next?.types.find((t) => t.name === sup.name) : undefined;
+    owner = next && decl?.kind === "class" ? { cls: decl, schema: next } : undefined;
+  }
+
+  return {
+    props,
+    events,
+    ...(children ? { children } : {}),
+    construction: viewConstruction(cls, schema, find),
+  };
+}

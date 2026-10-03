@@ -44,6 +44,7 @@ export const Codes = {
   ComponentMainThread: "LUCENT3022",
   ComponentPlatforms: "LUCENT3023",
   ToolkitBody: "LUCENT3024",
+  NativeViewJsx: "LUCENT3025",
   BorrowEscape: "LUCENT3030",
   UseAfterMove: "LUCENT3031",
   TypeScript: "LUCENT9001",
@@ -107,6 +108,14 @@ const TOOLKIT_TITLE: Example = {
     'import type { TextView } from "lucent:android/android.widget";\nimport type { View } from "lucent:swiftui";\nexport declare function Title(props: { title: string }): View | TextView;\n',
   "title.android.lucent.tsx":
     'import { appContext } from "lucent:android";\nimport { TextView } from "lucent:android/android.widget";\nimport { effect } from "lucent:ui";\nexport function Title(props: { title: string }): TextView {\n  const text = new TextView(appContext());\n  effect(() => text.setText(props.title));\n  return text;\n}\n',
+};
+
+const NATIVE_TITLE: Example = {
+  "package.json": '{ "name": "example-app" }\n',
+  "title.lucent.tsx":
+    'import type { View } from "lucent:android/android.view";\nimport type { UIView } from "lucent:ios/UIKit";\nexport declare function Title(props: { title: string }): UIView | View;\n',
+  "title.android.lucent.tsx":
+    'import type { View } from "lucent:android/android.view";\nimport { TextView } from "lucent:android/android.widget";\nexport function Title(props: { title: string }): View {\n  return <TextView text={props.title} />;\n}\n',
 };
 
 export const Explanations: Record<Code, Explanation> = {
@@ -614,6 +623,26 @@ export const Explanations: Record<Code, Explanation> = {
       ...TOOLKIT_TITLE,
       "title.ios.lucent.tsx":
         'import { Text } from "lucent:swiftui";\nimport { signal } from "lucent:ui";\nexport function Title(props: { title: string }) {\n  const taps = signal(0);\n  const tap = () => {\n    taps.set(taps.peek() + 1);\n  };\n  return <Text onTapGesture={() => tap()}>{props.title}</Text>;\n}\n',
+    },
+    sdk: "ios",
+    views: true,
+  },
+  LUCENT3025: {
+    title: "Native view JSX that cannot be compiled",
+    summary:
+      "JSX of UIKit or Android views that Lucent cannot make: a view, attribute or child its declarations do not provide for.",
+    details:
+      "A component can return its platform's views as JSX, declared as returning UIView or View (internal, under LUCENT_VIEWS=fabric). A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Each attribute is kept up to date like an effect, from when the view mounts.",
+    fix: "write each attribute on its element, and set what the declarations do not provide for in setup code",
+    wrong: {
+      ...NATIVE_TITLE,
+      "title.ios.lucent.tsx":
+        'import { UILabel, type UIView } from "lucent:ios/UIKit";\nexport function Title(props: { title: string }): UIView {\n  const attributes = { text: props.title };\n  return <UILabel {...attributes} />;\n}\n',
+    },
+    right: {
+      ...NATIVE_TITLE,
+      "title.ios.lucent.tsx":
+        'import { UILabel, type UIView } from "lucent:ios/UIKit";\nexport function Title(props: { title: string }): UIView {\n  return <UILabel text={props.title} />;\n}\n',
     },
     sdk: "ios",
     views: true,

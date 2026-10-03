@@ -368,8 +368,9 @@ export function emitProgram(
       decls: [
         { k: "pragmaOnce" },
         cpp.include("lucent/lucent.h", true),
-        // lucent:ui's types (signals, component props) in any declaration.
-        ...(lp.modules.some((m) => /["']lucent:ui["']/.test(m.sourceFile.text))
+        // lucent:ui's types (signals, component props) in any declaration, and any component's
+        // (a setup of native view JSX may import nothing of lucent:ui).
+        ...(setups.size || lp.modules.some((m) => /["']lucent:ui["']/.test(m.sourceFile.text))
           ? [cpp.include("lucent/view.h", true)]
           : []),
         ...shielded([

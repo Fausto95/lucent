@@ -44,7 +44,9 @@ import {
 } from "../ui/toolkit-body.ts";
 import { helperAt, type HelperUse, propReads } from "../ui/view-helpers.ts";
 import { TOOLKITS, type ToolkitName } from "../ui/toolkits.ts";
+import { nativeTagType } from "../ui/roots.ts";
 import { composeEmitter } from "./compose.ts";
+import { nativeJsx } from "./native-jsx.ts";
 import type { Ctx, E } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
 import { enterMount, type Setup, setupOf, site } from "./setups.ts";
@@ -188,6 +190,9 @@ const BODY_PLACE = "the body a component returns";
  * refused anywhere else (a toolkit's views are made only in the body).
  */
 export function toolkitJsx(em: FnEmitter, node: ts.Expression): E {
+  // A native view's (T48): its tag is a UIKit or Android view class.
+  if (nativeTagType(em.checker, node)) return nativeJsx(em, node);
+
   const toolkit = jsxToolkitOf(node, em.checker);
   const setup = setupOf(em.ctx, node);
 

@@ -495,6 +495,25 @@ export const explanations: { code: string; title: string; summary: string; detai
     }
   },
   {
+    "code": "LUCENT3025",
+    "title": "Native view JSX that cannot be compiled",
+    "summary": "JSX of UIKit or Android views that Lucent cannot make: a view, attribute or child its declarations do not provide for.",
+    "details": "A component can return its platform's views as JSX, declared as returning UIView or View (internal, under LUCENT_VIEWS=fabric). A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Each attribute is kept up to date like an effect, from when the view mounts.",
+    "fix": "write each attribute on its element, and set what the declarations do not provide for in setup code",
+    "wrong": {
+      "package.json": "{ \"name\": \"example-app\" }\n",
+      "title.lucent.tsx": "import type { View } from \"lucent:android/android.view\";\nimport type { UIView } from \"lucent:ios/UIKit\";\nexport declare function Title(props: { title: string }): UIView | View;\n",
+      "title.android.lucent.tsx": "import type { View } from \"lucent:android/android.view\";\nimport { TextView } from \"lucent:android/android.widget\";\nexport function Title(props: { title: string }): View {\n  return <TextView text={props.title} />;\n}\n",
+      "title.ios.lucent.tsx": "import { UILabel, type UIView } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string }): UIView {\n  const attributes = { text: props.title };\n  return <UILabel {...attributes} />;\n}\n"
+    },
+    "right": {
+      "package.json": "{ \"name\": \"example-app\" }\n",
+      "title.lucent.tsx": "import type { View } from \"lucent:android/android.view\";\nimport type { UIView } from \"lucent:ios/UIKit\";\nexport declare function Title(props: { title: string }): UIView | View;\n",
+      "title.android.lucent.tsx": "import type { View } from \"lucent:android/android.view\";\nimport { TextView } from \"lucent:android/android.widget\";\nexport function Title(props: { title: string }): View {\n  return <TextView text={props.title} />;\n}\n",
+      "title.ios.lucent.tsx": "import { UILabel, type UIView } from \"lucent:ios/UIKit\";\nexport function Title(props: { title: string }): UIView {\n  return <UILabel text={props.title} />;\n}\n"
+    }
+  },
+  {
     "code": "LUCENT3030",
     "title": "Borrowed bytes that outlive their borrow",
     "summary": "A span that withRead or withWrite lends escapes its callback: returned, stored, kept by a closure or callee, or held across await.",

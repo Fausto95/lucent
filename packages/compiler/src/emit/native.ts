@@ -46,6 +46,7 @@ import {
   WRAP_UNBOUND,
 } from "../sdk/schema.ts";
 import { noteSdkUse } from "../sdk/usage.ts";
+import type { ViewConstruction } from "../sdk/view-rules.ts";
 import { type ClassInfo, cppIdent, type LType, stripOpt, T, unionOf } from "../types.ts";
 import { type E, type Lvalue } from "./context.ts";
 import type { FnEmitter } from "./function.ts";
@@ -2801,14 +2802,31 @@ export function nativeLvalue(
   const found = schemaProperty(declaring, decl);
   if (!found || !!found.property.static !== !obj) return undefined;
   const { ref, property: prop } = found;
-  const plan = requirePlan(target, ref, prop, "set");
-  const get = property(em, target, ref, prop, obj);
-  const t = parseSdkType(prop.type, ref.module);
   const type = em.lt(target);
+  const set = propertySetter(em, target, ref, prop, obj, type);
+  const get = property(em, target, ref, prop, obj);
+  return { get: get.c, set, type };
+}
+
+/**
+ * How a value of Lucent type `type` is assigned to an SDK property of
+ * `obj` (static: none): `set(value)` gives the value assigned, as
+ * JavaScript's assignment does. `site` is where the assignment is written.
+ */
+export function propertySetter(
+  em: FnEmitter,
+  site: ts.Expression,
+  ref: SdkClassRef,
+  prop: SdkPropertySchema,
+  obj: E | undefined,
+  type: LType,
+): (value: cpp.Expr) => cpp.Expr {
+  const plan = requirePlan(site, ref, prop, "set");
+  const t = parseSdkType(prop.type, ref.module);
   if (prop.swift) {
     const what = `${ref.cls.name}.${prop.name}`;
-    const use = swiftUse(target, ref, prop, "set", [t], VOID, what, !obj);
-    return { get: get.c, set: (v) => swiftSet(em, use, obj, v), type };
+    const use = swiftUse(site, ref, prop, "set", [t], VOID, what, !obj);
+    return (v) => swiftSet(em, use, obj, v);
   }
   if (ref.platform === "ios") {
     // Gives the value assigned, as JavaScript's assignment does.
@@ -2817,7 +2835,7 @@ export function nativeLvalue(
       // A function assigned to a block property: a block, as for an argument.
       const one = (x: cpp.Expr) =>
         t.k === "fn"
-          ? objcBlock(em, target, x, type, t, plan)
+          ? objcBlock(em, site, x, type, t, plan)
           : toObjcExpr(
               { ...t, nullable: false } as SdkType,
               x,
@@ -2850,7 +2868,7 @@ export function nativeLvalue(
         v,
       );
     };
-    return { get: get.c, set, type };
+    return set;
   }
   if (!prop.setter) throw new Error(`${plan.display}: a Java field write its plan refuses`);
 
@@ -2860,9 +2878,9 @@ export function nativeLvalue(
       ?.descriptor ?? jniDescriptor([prop.type], "void");
   const set = (value: cpp.Expr) => {
     const v = cpp.id("v_");
-    const converted = jniOf(em, target, t, { c: v, t: type });
+    const converted = jniOf(em, site, t, { c: v, t: type });
     const call = jniCall(em, {
-      node: target,
+      node: site,
       cls: ref.cls,
       lookup: obj ? "method" : "staticMethod",
       name: prop.setter!,
@@ -2883,7 +2901,7 @@ export function nativeLvalue(
     return cpp.statementExpr([cpp.varDecl(cpp.auto, "v_", value), cpp.exprStmt(call.c)], v);
   };
   noteIncludes(em, ref);
-  return { get: get.c, set, type };
+  return set;
 }
 
 /** A C function of an SDK module (iOS): `SecItemCopyMatching(query, out)`. */
@@ -3423,4 +3441,260 @@ export function nativeInstanceOf(em: FnEmitter, node: ts.BinaryExpression): E | 
   ];
 
   return { c: cpp.call(cpp.lambda(["&"], [], body, { ret: cpp.type("bool") })), t: T.boolean };
+}
+
+// --- native views in JSX (T48) ---------------------------------------------------------
+
+/** The SDK class a JSX tag names (`<UILabel/>`), if it names one. */
+export function sdkTagClass(em: FnEmitter, tag: ts.JsxTagNameExpression): SdkClassRef | undefined {
+  return ts.isIdentifier(tag) || ts.isPropertyAccessExpression(tag)
+    ? sdkClassNamed(em, tag)
+    : undefined;
+}
+
+/**
+ * A view a tag makes by rule, at `site` (its tag): iOS a zero frame or
+ * `init`, its own or inherited; Android its `(Context)` constructor, given
+ * the hosting view's context.
+ */
+export function viewNew(
+  em: FnEmitter,
+  site: ts.Expression,
+  ref: SdkClassRef,
+  construction: ViewConstruction & { kind: "frame" | "init" | "context" },
+  lt: LType,
+): E {
+  const owner = findSdkType(ref.platform, construction.module, construction.owner);
+  const declaring =
+    owner?.kind === "class" ? { ...ref, module: construction.module, cls: owner } : ref;
+  const what = `<${ref.cls.name}>`;
+
+  requireMain(em, site, ref);
+  requirePlan(site, declaring, construction.ctor, "new");
+  requireAvailable(em, site, ref, ref.cls.since, ref.cls.name);
+  requireAvailable(em, site, ref, construction.ctor.since, what);
+  if (construction.ctor.swift)
+    fail(
+      site,
+      Codes.NativeViewJsx,
+      `${ref.cls.name} is made through Swift: make it with create={() => new ${ref.cls.name}(…)}`,
+    );
+  noteIncludes(em, ref);
+
+  if (ref.platform === "ios") {
+    const alloc = cpp.send(ref.cls.native, "alloc");
+    const frame = construction.kind === "frame" ? [cpp.id("CGRectZero")] : [];
+    const made = send(alloc, construction.ctor.selector ?? "init", frame);
+
+    return { c: cpp.call("lucent::objc::wrap", [made, cpp.str(what)]), t: lt };
+  }
+
+  const self: SdkType = { k: "ref", module: ref.module, name: ref.cls.name, nullable: false };
+  const desc =
+    construction.ctor.descriptor ??
+    jniDescriptor(
+      construction.ctor.params.map((p) => p.type),
+      "void",
+    );
+  return jniCall(em, {
+    node: site,
+    cls: ref.cls,
+    lookup: "method",
+    name: "<init>",
+    desc,
+    access: (id) => envCall("NewObject", cpp.id("cls_"), id, jni("unwrap", cpp.id("context_"))),
+    ret: self,
+    lt,
+    what,
+    pre: [cpp.varDecl(cpp.auto, "context_", jni("viewContext"))],
+  });
+}
+
+/** The Lucent value's fit for a parameter type, to choose among a setter's overloads. */
+function takes(t: SdkType, lt: LType): boolean {
+  const v = stripOpt(lt);
+
+  switch (t.k) {
+    case "string":
+      return v.k === "string";
+    case "prim":
+      return t.name === "boolean" || t.name === "bool"
+        ? v.k === "boolean"
+        : isWideInteger(t.name)
+          ? v.k === "bigint"
+          : v.k === "number";
+    default:
+      return !["string", "boolean", "number", "bigint"].includes(v.k);
+  }
+}
+
+/**
+ * A one-value setter (Android `setText(value)`) called on `obj` with
+ * `value`: the overload whose parameter takes the value's type. `site` is
+ * the attribute's value.
+ */
+export function setterCall(
+  em: FnEmitter,
+  site: ts.Expression,
+  ref: SdkClassRef,
+  overloads: readonly SdkMethodSchema[],
+  obj: E,
+  value: E,
+): cpp.Expr {
+  const method =
+    overloads.find((m) => takes(parseSdkType(m.params[0]!.type, ref.module), value.t)) ??
+    overloads[0]!;
+  const t = parseSdkType(method.params[0]!.type, ref.module);
+  const what = `${ref.cls.name}.${method.name}`;
+
+  requirePlan(site, ref, method, "call");
+  requireMain(em, site, ref, method);
+  requireAvailable(em, site, ref, method.since, what);
+  noteIncludes(em, ref);
+
+  return jniCall(em, {
+    node: site,
+    cls: ref.cls,
+    lookup: "method",
+    name: method.java ?? method.name,
+    desc: method.descriptor ?? jniDescriptor([method.params[0]!.type], "void"),
+    access: (id) =>
+      envCall("CallVoidMethod", jni("unwrap", cpp.id("recv_")), id, jniOf(em, site, t, value)),
+    ret: VOID,
+    lt: T.undefined,
+    what,
+    pre: [cpp.varDecl(cpp.auto, "recv_", obj.c)],
+  }).c;
+}
+
+/** Inserts `child` at `index` among `parent`'s children, by the method its class declares. */
+export function insertChild(
+  em: FnEmitter,
+  site: ts.Expression,
+  ref: SdkClassRef,
+  method: SdkMethodSchema,
+  parent: E,
+  child: E,
+  index: number,
+): cpp.Expr {
+  const what = `${ref.cls.name}.${method.selector ?? method.name}`;
+  const childType = parseSdkType(method.params[0]!.type, ref.module);
+
+  requirePlan(site, ref, method, "call");
+  requireMain(em, site, ref, method);
+  requireAvailable(em, site, ref, method.since, what);
+  noteIncludes(em, ref);
+
+  if (ref.platform === "ios")
+    return send(objcReceiver(ref, parent), method.selector!, [
+      toObjcExpr({ ...childType, nullable: false } as SdkType, child.c, false, what),
+      cpp.num(index),
+    ]);
+
+  return jniCall(em, {
+    node: site,
+    cls: ref.cls,
+    lookup: "method",
+    name: method.java ?? method.name,
+    desc:
+      method.descriptor ??
+      jniDescriptor(
+        method.params.map((p) => p.type),
+        "void",
+      ),
+    access: (id) =>
+      envCall(
+        "CallVoidMethod",
+        jni("unwrap", cpp.id("recv_")),
+        id,
+        jni("unwrap", cpp.id("child_")),
+        cpp.staticCast(cpp.type("jint"), cpp.num(index)),
+      ),
+    ret: VOID,
+    lt: T.undefined,
+    what,
+    pre: [cpp.varDecl(cpp.auto, "recv_", parent.c), cpp.varDecl(cpp.auto, "child_", child.c)],
+  }).c;
+}
+
+/**
+ * A listener event (Android `onClick`): `handler` given to the setter as
+ * its one-method listener, and taken back with null.
+ */
+export function listenerEvent(
+  em: FnEmitter,
+  site: ts.Expression,
+  ref: SdkClassRef,
+  setter: SdkMethodSchema,
+  obj: E,
+  handler: E,
+): { add: cpp.Expr; remove: cpp.Expr } {
+  const listener = parseSdkType(setter.params[0]!.type, ref.module);
+  if (listener.k !== "ref") throw new Error(`${setter.name}: its listener is no class`);
+  const what = `${ref.cls.name}.${setter.name}`;
+
+  requirePlan(site, ref, setter, "call");
+  requireMain(em, site, ref, setter);
+  requireAvailable(em, site, ref, setter.since, what);
+  noteIncludes(em, ref);
+
+  const call = (given: cpp.Expr) =>
+    jniCall(em, {
+      node: site,
+      cls: ref.cls,
+      lookup: "method",
+      name: setter.java ?? setter.name,
+      desc: setter.descriptor ?? jniDescriptor([setter.params[0]!.type], "void"),
+      access: (id) => envCall("CallVoidMethod", jni("unwrap", cpp.id("recv_")), id, given),
+      ret: VOID,
+      lt: T.undefined,
+      what,
+      pre: [cpp.varDecl(cpp.auto, "recv_", obj.c)],
+    }).c;
+
+  return {
+    add: call(javaProxy(em, site, handler, { ...listener, nullable: false })),
+    remove: call(cpp.id("nullptr")),
+  };
+}
+
+/**
+ * A control event (iOS `onValueChanged`): `handler`, called with the
+ * control (the tag's class `tag`), registered as a UIAction for the
+ * event's mask; `add` gives the action, which `remove(action)` takes back.
+ */
+export function controlEvent(
+  em: FnEmitter,
+  site: ts.Expression,
+  ref: SdkClassRef,
+  tag: SdkClassRef,
+  register: SdkMethodSchema,
+  value: number,
+  obj: E,
+  handler: E,
+): { add: cpp.Expr; remove: (action: cpp.Expr) => cpp.Expr } {
+  const what = `${ref.cls.name}.${register.selector}`;
+  const sender: SdkType = { k: "ref", module: tag.module, name: tag.cls.name, nullable: false };
+  const fn: SdkType & { k: "fn" } = {
+    k: "fn",
+    params: [sender],
+    ret: VOID,
+    escaping: true,
+    main: true,
+    nullable: false,
+  };
+
+  requirePlan(site, ref, register, "call");
+  requireAvailable(em, site, ref, register.since, what);
+  noteIncludes(em, ref);
+  em.ctx.nativeUnit(em.opts.module).include("lucent/platform/ios_ui.h");
+
+  const block = objcBlock(em, site, handler.c, handler.t, fn, { display: what });
+  const control = cpp.call("lucent::objc::unwrap", [obj.c]);
+
+  return {
+    add: cpp.call("lucent::objc::addControlAction", [control, cpp.num(value), block]),
+    remove: (action) =>
+      cpp.call("lucent::objc::removeControlAction", [control, action, cpp.num(value)]),
+  };
 }
