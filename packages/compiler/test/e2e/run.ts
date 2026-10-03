@@ -8,7 +8,7 @@
  *
  * Env: HERMES_DIR (Hermes checkout built into build/), SANITIZE=1, CXX.
  */
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -65,14 +65,74 @@ const baseFlags = [
   ...(sanitize ? ["-fsanitize=address,undefined", "-fno-omit-frame-pointer"] : []),
 ];
 
-function sh(cmd: string, args: string[], opts: { cwd?: string } = {}): void {
-  const r = spawnSync(cmd, args, { cwd: opts.cwd, encoding: "utf8", maxBuffer: 64 << 20 });
+/** How many cases build and run at once, and how many runtime sources compile at once. */
+const jobs = Number(process.env.LUCENT_E2E_JOBS ?? os.availableParallelism());
+
+/** What `cmd` exits with, and what it wrote. */
+function exec(
+  cmd: string,
+  args: string[],
+  opts: { env?: NodeJS.ProcessEnv; timeout?: number } = {},
+): Promise<{
+  status: number | null;
+  signal: NodeJS.Signals | null;
+  stdout: string;
+  stderr: string;
+}> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { env: opts.env });
+    const [stdout, stderr] = [[] as Buffer[], [] as Buffer[]];
+    // Unreferenced, so that a reference run waiting for its own timers does not count it.
+    const limit = opts.timeout
+      ? setTimeout(() => child.kill("SIGKILL"), opts.timeout).unref()
+      : undefined;
+
+    child.stdout.on("data", (d: Buffer) => stdout.push(d));
+    child.stderr.on("data", (d: Buffer) => stderr.push(d));
+    child.on("error", reject);
+    child.on("close", (status, signal) => {
+      clearTimeout(limit);
+      resolve({
+        status,
+        signal,
+        stdout: Buffer.concat(stdout).toString("utf8"),
+        stderr: Buffer.concat(stderr).toString("utf8"),
+      });
+    });
+  });
+}
+
+async function sh(cmd: string, args: string[]): Promise<void> {
+  const r = await exec(cmd, args);
+
   if (r.status !== 0)
     throw new Error(`${cmd} ${args.slice(-3).join(" ")} failed:\n${r.stderr}\n${r.stdout}`);
 }
 
+/** `work` over each item, at most `n` at a time: each result in the items' order, as it settles. */
+function pool<T, R>(items: T[], n: number, work: (item: T) => Promise<R>): Promise<R>[] {
+  const results = items.map(() => {
+    const r = {} as { promise: Promise<R>; resolve: (v: R) => void; reject: (e: unknown) => void };
+
+    r.promise = new Promise<R>((resolve, reject) => Object.assign(r, { resolve, reject }));
+    return r;
+  });
+  let next = 0;
+
+  // A result nobody awaits yet must not be an unhandled rejection; its await still throws.
+  for (const r of results) r.promise.catch(() => {});
+
+  const worker = async () => {
+    for (let i = next++; i < items.length; i = next++)
+      await work(items[i]!).then(results[i]!.resolve, results[i]!.reject);
+  };
+
+  for (let k = 0; k < Math.min(n, items.length); k++) void worker();
+  return results.map((r) => r.promise);
+}
+
 /** Builds the runtime + harness objects once (cached by content hash). */
-function runtimeLib(): string {
+async function runtimeLib(): Promise<string> {
   const rs = runtimeSources(path.join(runtimeDir, "cpp"));
   const sources = [...rs.cxx, ...rs.c, path.join(runtimeDir, "test/jsi/harness.cpp")];
   const headers = [
@@ -92,22 +152,23 @@ function runtimeLib(): string {
   const lib = path.join(dir, "liblucentrt.a");
   if (fs.existsSync(lib)) return lib;
   fs.mkdirSync(dir, { recursive: true });
-  const objs: string[] = [];
-  for (const src of sources) {
-    const obj = path.join(dir, path.basename(src).replace(/\.cpp$/, ".o"));
-    if (src.endsWith(".c"))
-      sh(process.env.CC ?? "clang", [
-        ...cFlags,
-        ...(sanitize ? ["-fsanitize=address,undefined"] : []),
-        "-c",
-        src,
-        "-o",
-        obj,
-      ]);
-    else sh(cxx, [...baseFlags, "-c", src, "-o", obj]);
-    objs.push(obj);
-  }
-  sh("ar", ["rcs", lib, ...objs]);
+  const objs = await Promise.all(
+    pool(sources, jobs, async (src) => {
+      const obj = path.join(dir, path.basename(src).replace(/\.cpp$/, ".o"));
+      if (src.endsWith(".c"))
+        await sh(process.env.CC ?? "clang", [
+          ...cFlags,
+          ...(sanitize ? ["-fsanitize=address,undefined"] : []),
+          "-c",
+          src,
+          "-o",
+          obj,
+        ]);
+      else await sh(cxx, [...baseFlags, "-c", src, "-o", obj]);
+      return obj;
+    }),
+  );
+  await sh("ar", ["rcs", lib, ...objs]);
   return lib;
 }
 
@@ -173,7 +234,7 @@ function casePackages(c: Case): { native: NativeInputs; packages: LucentPackage[
   return { native: resolveNative(packages), packages };
 }
 
-function nativeRun(c: Case, lib: string): string {
+async function nativeRun(c: Case, lib: string): Promise<string> {
   const found = casePackages(c);
   const extensions = found ? bindExtensions(found.native.extensions) : undefined;
   const result = compile(c.files, { extensions });
@@ -192,8 +253,8 @@ function nativeRun(c: Case, lib: string): string {
   for (const src of sourceDirs.flatMap((d) => fs.readdirSync(d).map((f) => path.join(d, f)))) {
     if (!/\.(c|cc|cpp)$/.test(src)) continue;
     const obj = path.join(dir, `pkg_${path.basename(src)}.o`);
-    if (src.endsWith(".c")) sh(process.env.CC ?? "clang", [...cFlags, "-c", src, "-o", obj]);
-    else sh(cxx, [...baseFlags, "-c", src, "-o", obj]);
+    if (src.endsWith(".c")) await sh(process.env.CC ?? "clang", [...cFlags, "-c", src, "-o", obj]);
+    else await sh(cxx, [...baseFlags, "-c", src, "-o", obj]);
     objs.push(obj);
   }
   const includes = sourceDirs.map((d) => `-I${d}`);
@@ -202,7 +263,7 @@ function nativeRun(c: Case, lib: string): string {
   for (const name of result.files.keys()) {
     if (!name.endsWith(".cpp")) continue;
     const obj = path.join(dir, name.replace(/\.cpp$/, ".o"));
-    sh(cxx, [
+    await sh(cxx, [
       ...baseFlags,
       ...deviceFlags,
       `-I${dir}`,
@@ -215,7 +276,7 @@ function nativeRun(c: Case, lib: string): string {
     objs.push(obj);
   }
   const exe = path.join(dir, "host");
-  sh(cxx, [
+  await sh(cxx, [
     ...baseFlags,
     ...objs,
     lib,
@@ -237,8 +298,7 @@ function nativeRun(c: Case, lib: string): string {
     `var mods = __lucent; var mod = __lucent[${JSON.stringify(moduleNames[0])}];\n` +
       `function lucentClass(factory) { function C() { return factory.apply(undefined, arguments); } C.prototype = factory.prototype; Object.defineProperty(C.prototype, "constructor", { value: C }); for (var k of Object.keys(factory)) C[k] = factory[k]; return C; }\n`,
   );
-  const r = spawnSync(exe, [abortPolyfill, prelude, c.test], {
-    encoding: "utf8",
+  const r = await exec(exe, [abortPolyfill, prelude, c.test], {
     timeout: 60000,
     env: { ...process.env, ASAN_OPTIONS: "detect_leaks=0" },
   });
@@ -348,19 +408,27 @@ async function runTest(c: Case, mods: Record<string, unknown>, logs: boolean): P
   };
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(c.test, "utf8"), sandbox);
-  // Let timers and promises settle.
-  for (let i = 0; i < 200; i++) await new Promise((r) => setTimeout(r, 10));
+  // Let timers and promises settle: until no timer is pending, for at most 200 turns of 10 ms.
+  for (let i = 0; i < 200; i++) {
+    await new Promise((r) => setTimeout(r, i ? 10 : 0));
+
+    if (!process.getActiveResourcesInfo().includes("Timeout")) break;
+  }
   return out.join("\n") + (out.length ? "\n" : "");
 }
 
 async function main() {
   const filter = process.argv.slice(2);
-  const lib = runtimeLib();
+  const lib = await runtimeLib();
+  const all = cases(filter);
+  // Cases build and run natively side by side; the references run one at a time, as they
+  // share the console and the process's timers.
+  const natives = pool(all, jobs, (c) => nativeRun(c, lib));
   let failed = 0;
-  for (const c of cases(filter)) {
+  for (const [i, c] of all.entries()) {
     const t0 = Date.now();
     try {
-      const [native, reference] = [nativeRun(c, lib), await referenceRun(c)];
+      const [native, reference] = [await natives[i]!, await referenceRun(c)];
       if (native !== reference) {
         failed++;
         console.log(`✗ ${c.name}: output differs`);
