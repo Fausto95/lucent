@@ -457,6 +457,13 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     ).toEqual({ header: undefined, frameworks: ["CryptoKit"] });
   });
 
+  it("says to run pod install when it looked for a module without the app's pods", () => {
+    const r = sdkModule("ios", "NoSuchPodModule", { cacheDir: tmp("lucent-cache-"), ios: {} });
+    expect(r).toEqual({
+      missing: expect.stringMatching(/NoSuchPodModule.*not found.*no pods.*run pod install/s),
+    });
+  });
+
   it("names the fix when there is no Xcode", () => {
     const r = sdkModule("ios", "UIKit", {
       cacheDir: tmp("lucent-cache-"),
