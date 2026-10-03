@@ -10,7 +10,7 @@ import { androidJars } from "@lucent-lang/bindgen";
 import { kotlinToolchain } from "../../bindgen/test/kotlin-toolchain.ts";
 import { runtimeDir, type SdkOptions } from "../src/index.ts";
 import { withSdkOptions } from "../src/sdk/schema.ts";
-import { android, kotlinClasspath, ndkClang, ndkErrors } from "./android-harness.ts";
+import { android, kotlinClasspath, ndkClang, ndkErrors, ndkErrorsAll } from "./android-harness.ts";
 import { auditSdk } from "./dts-audit.ts";
 import { runJar, runJavac } from "../../bindgen/test/jvm-tools.ts";
 
@@ -421,12 +421,13 @@ export async function run(): Promise<string> {
       [longs],
       [adapters, playServicesClasspath()],
     ];
-    for (const [src, sdk] of units) {
+    const built = units.map(([src, sdk]) => {
       const { r, dir } = android(src, sdk);
       expect(r.diagnostics).toEqual([]);
-      expect(ndkErrors(bin, r.files, dir)).toBe("");
-    }
-    // About 10 s alone; several clang runs, so minutes when the machine is busy.
+      return { files: r.files, dir };
+    });
+    // Checked side by side: several clang runs, minutes one after the other on a busy machine.
+    expect(ndkErrorsAll(bin, built)).toEqual(built.map(() => ""));
   }, 180_000);
 });
 

@@ -9,7 +9,7 @@ import { classpathFile } from "../../bindgen/test/java-fixtures.ts";
 import { compileKotlin, kotlinToolchain } from "../../bindgen/test/kotlin-toolchain.ts";
 import { compile, type CompileResult, type SdkOptions } from "../src/index.ts";
 import { consumerRules } from "../src/native-build-files.ts";
-import { android, ndkClang, ndkErrors } from "./android-harness.ts";
+import { android, ndkClang, ndkErrorsAll } from "./android-harness.ts";
 import { runKotlinc } from "../../bindgen/test/jvm-tools.ts";
 
 /*
@@ -706,7 +706,7 @@ export async function run(): Promise<string> {
   it.skipIf(!ndkClang())(
     "generates JNI C++ for Kotlin shims that compiles with the NDK",
     () => {
-      for (const src of [
+      const units = [
         searching,
         defaults,
         shapes,
@@ -715,12 +715,15 @@ export async function run(): Promise<string> {
         collections,
         flowing,
         subscribing,
-      ]) {
-        const { r, dir: out } = android(src, sdk);
+      ].map((src) => {
+        const { r, dir } = android(src, sdk);
 
         expect(r.diagnostics).toEqual([]);
-        expect(ndkErrors(ndkClang()!, r.files, out)).toBe("");
-      }
+        return { files: r.files, dir };
+      });
+
+      // Checked side by side.
+      expect(ndkErrorsAll(ndkClang()!, units)).toEqual(units.map(() => ""));
     },
     300_000,
   );

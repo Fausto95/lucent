@@ -2,7 +2,6 @@
  * Compiling Android platform code in tests: a module's Android glue, and
  * checking it with the NDK when one is installed.
  */
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -14,6 +13,7 @@ import {
   type KotlinToolchain,
 } from "../../bindgen/test/kotlin-toolchain.ts";
 import { compile, runtimeDir, type SdkOptions } from "../src/index.ts";
+import { type Job, runAll } from "./parallel-build.ts";
 
 /** Android output for a platform module whose Android side is `src` (exporting run()). */
 export function android(src: string, sdk?: SdkOptions) {
@@ -45,16 +45,16 @@ export function ndkClang(): string | undefined {
     .map((h) => path.join(ndkRoot, ndk, "toolchains/llvm/prebuilt", h, "bin/clang++"))[0]!;
 }
 
-/** What the NDK says of a compile's Android glue, warnings as errors: nothing when it compiles. */
-export function ndkErrors(bin: string, files: ReadonlyMap<string, string>, dir: string): string {
+/** The NDK check of a compile's Android glue (written into `dir`), warnings as errors. */
+function ndkJob(bin: string, files: ReadonlyMap<string, string>, dir: string): Job {
   for (const [k, v] of files) {
     fs.mkdirSync(path.dirname(path.join(dir, "out", k)), { recursive: true });
     fs.writeFileSync(path.join(dir, "out", k), v);
   }
 
-  const cc = spawnSync(
-    bin,
-    [
+  return {
+    cmd: bin,
+    args: [
       "--target=aarch64-linux-android24",
       "-std=c++20",
       "-fsyntax-only",
@@ -67,10 +67,20 @@ export function ndkErrors(bin: string, files: ReadonlyMap<string, string>, dir: 
       `-I${path.join(dir, "out/android")}`,
       path.join(dir, "out/android/m_m.cpp"),
     ],
-    { encoding: "utf8" },
-  );
+  };
+}
 
-  return cc.stderr;
+/** What the NDK says of a compile's Android glue, warnings as errors: nothing when it compiles. */
+export function ndkErrors(bin: string, files: ReadonlyMap<string, string>, dir: string): string {
+  return ndkErrorsAll(bin, [{ files, dir }])[0]!;
+}
+
+/** What the NDK says of each compile's Android glue, checked side by side. */
+export function ndkErrorsAll(
+  bin: string,
+  units: { files: ReadonlyMap<string, string>; dir: string }[],
+): string[] {
+  return runAll(units.map((u) => ndkJob(bin, u.files, u.dir))).map((r) => r.output);
 }
 
 /** An app's classpath holding bindgen's Kotlin fixture library and the Kotlin standard library. */
