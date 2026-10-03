@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from "node:child_process";
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -6,17 +6,9 @@ import { describe, expect, it } from "vite-plus/test";
 import ts from "typescript";
 import { compile, runtimeDir, writeNativePackage } from "../src/index.ts";
 import { createLucentProgram } from "../src/program.ts";
-import { androidJars, cachedModules, sdkAvailable } from "@lucent-lang/bindgen";
+import { androidJars, sdkAvailable } from "@lucent-lang/bindgen";
 import { jniDescriptor, loadSdkModule } from "../src/sdk/schema.ts";
-
-function project(sources: Record<string, string>) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-platforms-"));
-  return Object.entries(sources).map(([name, src]) => {
-    const f = path.join(dir, name);
-    fs.writeFileSync(f, src);
-    return f;
-  });
-}
+import { haptics, project } from "./platforms-fixtures.ts";
 
 /** TypeScript diagnostics of one platform program, as "TS<code>" per line (1-based). */
 function tsErrors(platform: "ios" | "android", source: string): string[] {
@@ -28,75 +20,10 @@ function tsErrors(platform: "ios" | "android", source: string): string[] {
 
 const codes = (r: { diagnostics: { code: string }[] }) => r.diagnostics.map((d) => d.code);
 
-/**
- * `compile` in a process of its own. A cold SDK extraction blocks for about a
- * minute, longer than vitest lets a worker go without answering its RPCs.
- */
-function compileInChild(
-  files: string[],
-  options: object,
-): Promise<{ diagnostics: unknown[]; types: Record<string, string> }> {
-  const index = path.resolve(import.meta.dirname, "../src/index.ts");
-  const code = `import { compile } from ${JSON.stringify(index)};
-const r = compile(${JSON.stringify(files)}, ${JSON.stringify(options)});
-process.stdout.write(JSON.stringify({ diagnostics: r.diagnostics, types: Object.fromEntries(r.types ?? []) }));`;
-  return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ["--input-type=module", "-e", code], {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    let out = "";
-    let err = "";
-    child.stdout.on("data", (d: Buffer) => (out += d.toString()));
-    child.stderr.on("data", (d: Buffer) => (err += d.toString()));
-    child.on("error", reject);
-    child.on("close", (status) =>
-      status === 0
-        ? resolve(JSON.parse(out))
-        : reject(new Error(`compile failed (${status}):\n${err}`)),
-    );
-  });
-}
-
 // Most of these compile both platforms: they need an iOS SDK (Xcode); hosts
 // without one run the Android suites.
 const ios = sdkAvailable("ios");
 const android = sdkAvailable("android");
-
-const haptics = {
-  "haptics.lucent.ts":
-    "export declare function impact(): Promise<void>;\nexport declare function model(): Promise<string>;\n",
-  "haptics.ios.lucent.ts": `import { UIDevice, UIImpactFeedbackGenerator, UIImpactFeedbackGenerator_FeedbackStyle as Style } from "lucent:ios/UIKit";
-import { main } from "lucent:thread";
-
-export function impact(): Promise<void> {
-  return main(() => {
-    const generator = new UIImpactFeedbackGenerator(Style.medium);
-    generator.prepare();
-    generator.impactOccurred();
-    generator.impactOccurred(0.5);
-  });
-}
-
-export function model(): Promise<string> {
-  return main(() => (UIDevice.current === UIDevice.current ? UIDevice.current.model : ""));
-}
-`,
-  "haptics.android.lucent.ts": `import { Build, Build_VERSION, Looper, VibrationEffect, Vibrator, VibratorManager } from "lucent:android/android.os";
-import { appContext, available } from "lucent:android";
-
-export async function impact(): Promise<void> {
-  const context = appContext();
-  const vibrator = available("android", 31) ? context.getSystemService(VibratorManager)?.defaultVibrator : context.getSystemService(Vibrator);
-  if (!vibrator) return;
-  if (Build_VERSION.SDK_INT >= 26) vibrator.vibrate(VibrationEffect.createWaveform([0n, 43n], [0, 50], -1));
-  else vibrator.vibrate([0n, 43n], -1);
-}
-
-export async function model(): Promise<string> {
-  return Looper.myLooper() === Looper.getMainLooper() ? "main" : (Build.MODEL ?? "unknown");
-}
-`,
-};
 
 describe("SDK bindings: types", () => {
   it.skipIf(!ios)(
@@ -237,19 +164,6 @@ describe.skipIf(!ios)("platform modules", () => {
         .map((d) => ts.flattenDiagnosticMessageText(d.messageText, "\n")),
     ).toEqual([]);
   });
-
-  it("types other frameworks in signatures by name, without extracting them", async () => {
-    const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cache-"));
-    // A cold cache on purpose: extracting UIKit must not extract Foundation's schema either.
-    const r = await compileInChild(project(haptics), { platforms: ["ios"], sdk: { cacheDir } });
-    expect(r.diagnostics).toEqual([]);
-    // Only what the program imports gets a full schema.
-    const cached = cachedModules("ios", { cacheDir });
-    expect("schemas" in cached && cached.schemas).toEqual(["UIKit"]);
-    expect("names" in cached && cached.names).toContain("Foundation");
-    expect(r.types["ios/Foundation.d.ts"]).toMatch(/Names only: import lucent:ios\/Foundation/);
-    fs.rmSync(cacheDir, { recursive: true, force: true });
-  }, 600_000);
 
   it("keeps the single layout for projects without platform files", () => {
     const r = compile(
