@@ -128,8 +128,8 @@ What's next, in order of readiness:
 
 1. [T28](#t28): prove automatic binding with unknown libraries (closes G1):
    in review; its binding gaps became [TA30](#ta30) to [TA34](#ta34).
-2. [T48](#t48): JSX for any SDK view, building on the toolkit JSX; then
-   [T49](#t49) and [T50](#t50).
+2. [T48](#t48): JSX for any SDK view (in review); then [T49](#t49) and
+   [T50](#t50).
 3. [T52](#t52) with [TA25](#ta25) and [TA26](#ta26): wrapper ports and the
    views preview (closes G3; needs physical devices).
 4. [T54](#t54) and [T60](#t60), which are ready and independent of the
@@ -198,7 +198,7 @@ Goal: Native views from Lucent components, rendered by React Native's Fabric.
 - ✅ One file per component, with each platform's body in a platform branch.
 - ✅ Events, commands, requests that answer, recycling, sizing to content and React children.
 - ✅ Views that keep updating while JavaScript is blocked.
-- ⏳ JSX for any SDK view, keyed lists and Yoga layout.
+- 🚧 JSX for any SDK view, keyed lists and Yoga layout.
 - ⏳ A views preview with wrapper ports, such as maps, web views and video.
 - 🔭 Native lists, gestures and animations, and media pipelines.
 
@@ -431,6 +431,19 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
+
+**2026-10-04: Native views' JSX derives children; no adapters.** A view
+class takes JSX children through the insert-at-index method its
+declarations give (`insertArrangedSubview:atIndex:`,
+`insertSubview:atIndex:`, `addView(View, int)`); the design's
+package-authored `defineChildAdapter` was dropped. A JSX element is the
+toolkit's view and the platform's root view at once (`View & UIView`), so
+native JSX is returned from a component declared as returning the root
+view. _Why:_ an adapter was machinery each component repeated for what the
+declarations already say, and children are as derivable as props and
+events; the intersection keeps one JSX namespace per platform file.
+_Changed:_ T48's scope (children by rule, no adapter API), C-VIEW v2.3,
+and design 16.5's note.
 
 **2026-10-03: Android glue runs on a desktop JVM in tests.** T28 executes
 an unknown Android library through Lucent's real JNI glue on a JVM the
@@ -826,12 +839,12 @@ certifies the preview's exact support matrix.
 G2 (the Fabric and isolation spike, T44) passed on 2026-09-26, and the view
 wave that followed shipped SwiftUI and Compose hosts. Views are still
 behind the internal `LUCENT_VIEWS=fabric` switch. This gate turns them into
-a preview. T48 and T52 are ready to start; TA25 and TA26 are small fixes
-found on the way.
+a preview. T48 is in review and T52 ready to start; TA25 and TA26 are
+small fixes found on the way.
 
 | Task          | Title                                                             | Needs    | Status               |
 | ------------- | ----------------------------------------------------------------- | -------- | -------------------- |
-| [T48](#t48)   | Derive general SDK-view JSX rules and diagnostics                 | —        | ready                |
+| [T48](#t48)   | Derive general SDK-view JSX rules and diagnostics                 | —        | in review            |
 | [T49](#t49)   | Add conditional and keyed-list reactive lowering                  | T48      | waiting              |
 | [T50](#t50)   | Integrate Yoga with explicit layout-owner boundaries              | T48      | waiting (maintainer) |
 | [T51](#t51)   | Implement the small Lucent UI library and examples                | T49, T50 | waiting (maintainer) |
@@ -848,22 +861,44 @@ The Needs column lists only open dependencies.
 **Goal:** Let JSX create and update any representable SDK view from its
 native declarations, with no per-view entry in Lucent.
 
-- **Status:** open, ready to start.
+- **Status:** in review (2026-10-04): every item below passes on its
+  branch.
 - **Area:** Views and compiler.
 - **Needs:** T13 (done), T36 (done), T43 (done), T44 (done).
 - **Verify:** V1, V2, V4.
-- **Where:** Pure, schema-driven UI rules and analysis, and the JSX lowering
-  (the design's `ui/rules.ts`).
+- **Where:** `packages/compiler/src/sdk/view-rules.ts` (the rules, under
+  `sdk/` so the declaration cache follows them), `sdk/dts.ts` and
+  `sdk/native-jsx-dts.ts` (typing), `emit/native-jsx.ts` (lowering),
+  `ui/view-coverage.ts`; [views.md](docs/design/views.md#platform-views-as-jsx).
 
-- [ ] Derive view ancestry, constructors, writable props, type conversions
+- [x] Derive view ancestry, constructors, writable props, type conversions
       and unambiguous platform event conventions from native declarations.
-- [ ] Support an explicit `create` for constructor ambiguity, and raw
+      Props are writable properties and (Android) one-value setters, the
+      value's type picking the overload; events are Android's one-method
+      `setOn<X>Listener` and iOS control events
+      (`addAction:forControlEvents:`'s single-bit cases), the handler
+      given the tag's class; children come from an insert-at-index method.
+      On the real SDKs: UILabel 21 props, UIControl 16 events, TextView 91
+      props, CompoundButton onCheckedChange.
+- [x] Support an explicit `create` for constructor ambiguity, and raw
       listener or delegate code where semantic event sugar cannot be proved.
-- [ ] Emit concrete diagnostics for non-view elements, invalid children,
+      `create={() => new X(…)}` makes any tag's view; multi-method
+      listeners and generic setters are left out, explained, for setup code.
+- [x] Emit concrete diagnostics for non-view elements, invalid children,
       unknown props, bad construction, stale reactive snapshots and affinity
-      violations.
-- [ ] Golden-test randomized fixture view names, and attach rule
+      violations. TypeScript refuses non-view tags, unknown and read-only
+      attributes and children of a class that inserts none; LUCENT3025
+      reports native JSX not returned, spread attributes, a non-view child,
+      no constructor, and a prop reading a setup-time copy of a prop; a
+      left-out attribute gets its rule's reason; LUCENT3022 reaches
+      attributes.
+- [x] Golden-test randomized fixture view names, and attach rule
       explanations and declaration provenance to coverage and editor output.
+      T28's unknown dial as JSX mounts on Mac Catalyst and compiles on
+      Android under random names, its attributes' documented rules compared
+      with the prefix normalized; each attribute's declaration carries its
+      rule and artifact (the editor shows it), and `lucent sdk coverage
+--views` lists them.
 
 **Done when:** a new representable SDK view works without a new Lucent view,
 prop, event or measuring entry.
@@ -880,9 +915,14 @@ prop, event or measuring entry.
   deciding what each attribute does. Today a platform-view component
   constructs its view in setup and returns it.
 - Design reference: section 16.5 of [the
-  design](docs/design/native-platform.md#165-derive-syntax-make-native-behavior-explicit),
-  including package-authored child adapters instead of class-name special
-  cases.
+  design](docs/design/native-platform.md#165-derive-syntax-make-native-behavior-explicit).
+  Its child adapters were replaced by derived children (decisions log,
+  2026-10-04).
+- Evidence: `test/view-rules.test.ts`, `test/ui/native-jsx-types.test.ts`,
+  `test/ui/native-jsx-run.test.ts` (Catalyst), `test/ui/native-jsx-android.test.ts`,
+  `test/ui/native-jsx-diagnostics.test.ts`, `test/unknown-library.test.ts`.
+  Android views mount only on Android; their glue is compiled against
+  jni.h.
 
 <a id="t49"></a>
 
@@ -2204,6 +2244,10 @@ Last recorded runs:
   A two-value `onChange` closure does not type-check, because TypeScript
   tries the one-value overload first.
 - Compose: class names that clash keep the first package's.
+- Native views' JSX (T48) has fixed children (conditional and keyed are
+  [T49](#t49)'s) and no layout for a plain view's children until Yoga
+  ([T50](#t50)); its rules read declarations, not behavior (Android's
+  AdapterView declares `addView(View, int)` and throws from it).
 - The FlatList crash in the bare app ([TA25](#ta25)) and the iOS
   native-only slot move ([TA26](#ta26)) are open.
 

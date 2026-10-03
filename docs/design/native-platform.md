@@ -1660,6 +1660,17 @@ An adapter can also define measurement/invalidation behavior and state
 whether arbitrary children are permitted. A native container that cannot
 host arbitrary children gets a diagnostic rather than best-effort mutation.
 
+**As built (T48, 2026-10-04).** The rules are
+`packages/compiler/src/sdk/view-rules.ts` (under `sdk/`, so the
+declaration cache follows them), as proposed: per class, with
+explanations and binding plans. `create={() => …}` is as proposed. Child
+adapters were not built: a class takes children through the
+insert-at-index method it declares (`insertArrangedSubview:atIndex:`,
+`insertSubview:atIndex:`, `addView(View, int)`), so no adapter is
+written, and a class without one takes none. iOS control events are a
+convention like Android's listeners (`addAction:forControlEvents:`'s
+event cases). See [views.md](views.md#platform-views-as-jsx).
+
 ### 16.6 Layout and React children
 
 Keep three ownership layers clear:

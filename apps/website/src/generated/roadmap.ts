@@ -180,7 +180,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
         "text": "Views that keep updating while JavaScript is blocked."
       },
       {
-        "status": "next",
+        "status": "in progress",
         "text": "JSX for any SDK view, keyed lists and Yoga layout."
       },
       {

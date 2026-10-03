@@ -1761,7 +1761,7 @@ export interface MutableByteSpan extends ByteSpan {
 
 ## C-VIEW: components and views
 
-**Current version: v2.2 (proposed).** `VIEW_CONTRACT_VERSION` in the code
+**Current version: v2.3 (proposed).** `VIEW_CONTRACT_VERSION` in the code
 is 2: it counts layout changes of `ComponentDescription` that consumers
 must follow, not every revision. Views are still behind the internal
 `LUCENT_VIEWS=fabric` switch, off by default. [views.md](views.md)
@@ -2160,6 +2160,31 @@ Jetpack Compose (`lucent:compose`) on Android instead of platform views.
   under a toolkit body sits in a `UIViewRepresentable` or `AndroidView`;
   the toolkit owns only the slot's frame, never the children's layout.
 
+### Platform-view JSX
+
+A component may return its platform's views as JSX (T48): a UIKit or
+Android view class is a tag. [views.md](views.md#platform-views-as-jsx)
+has the details.
+
+- **Rules.** What a tag takes is derived from its class's declarations
+  and its superclasses', the nearest winning, with no view, prop or event
+  listed in Lucent: writable properties and (Android) one-value setters;
+  Android `setOn<X>Listener` of a one-method listener as `on<X>`; iOS
+  control events (`addAction:forControlEvents:`) as `on<Case>`, the
+  handler given the tag's class; children where the class declares an
+  insert-at-index method; construction by a zero frame, `init` or the
+  hosting view's Context, else the element's `create`.
+- **Typing.** A view class's declaration gives its attributes under
+  `"~jsx:<module>.<class>"`; the root view's `"~jsx"` gathers them
+  (`NativeAttributes<this>`), each documented with its rule and artifact.
+  A JSX element is the toolkit's view and the platform's root view at
+  once; a component returning native JSX declares the root view, and its
+  root is the returned tag's class. Present only under the switch.
+- **Lowering.** Views are made at mount, parent first; each prop is an
+  effect of the mount; events are registered once and removed at mount
+  end; children are inserted in order. LUCENT3025 reports what cannot be
+  made; LUCENT3022 holds in attributes.
+
 ### Revisions
 
 - **Invariants** (2026-09-25, T01): recorded, to be frozen by the first
@@ -2206,6 +2231,12 @@ Jetpack Compose (`lucent:compose`) on Android instead of platform views.
     branches.
   - Migration: write bodies as returned JSX; replace `native(() => x)`
     with `x`. A leftover `native(` fails to type-check.
+- **v2.3** (2026-10-04, T48, proposed): platform-view JSX as above,
+  LUCENT3025, and `lucent sdk coverage --views`. A JSX element's type
+  became the toolkit's view and the root view at once; components are
+  classified by the returned element's tag. The design's child adapters
+  (16.5) were replaced by children derived from an insert-at-index
+  method. Migration: none (views are internal).
 
 ## C-BUILD: build records and identities
 

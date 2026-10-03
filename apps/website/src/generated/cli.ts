@@ -181,6 +181,10 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
       {
         "flag": "--members",
         "description": "List every member with its stage, key and reason"
+      },
+      {
+        "flag": "--views",
+        "description": "With views on (LUCENT_VIEWS=fabric), list each view class's JSX attributes by rule"
       }
     ]
   }
