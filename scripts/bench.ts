@@ -23,6 +23,12 @@
  * what a C++ TurboModule's does: add() and concat() are timed again as bare
  * host functions (scripts/bench-floor.cpp), and --check fails when Lucent's
  * costs more than its budget times that (scripts/bench-floor-budgets.json).
+ *
+ * --shared-runner (CI): those two kinds of budget compare one crossing with
+ * another, a ratio that moves with the CPU (CI's runners differ from run to
+ * run), so they are reported, as warnings, rather than enforced; a stable
+ * machine enforces them. The kernels' speedups, against JavaScript on the
+ * same machine and with wide margins, are enforced everywhere.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -45,6 +51,7 @@ const hermes = process.env.HERMES_DIR ?? path.join(os.homedir(), "hermes");
 const cxx = process.env.CXX ?? "clang++";
 const args = process.argv.slice(2);
 const check = args.includes("--check");
+const sharedRunner = args.includes("--shared-runner");
 const jsonAt = args.indexOf("--json");
 const jsonFile = jsonAt >= 0 ? args[jsonAt + 1] : undefined;
 if (jsonAt >= 0 && !jsonFile) throw new Error("--json needs a file");
@@ -235,8 +242,12 @@ const crossings = lines.filter((l) => "boundary" in l) as {
   samples: number[];
 }[];
 const singles = lines.filter((l) => "latency" in l) as { latency: string; samples: number[] }[];
+const cpus = os.cpus();
+console.log(`machine: ${cpus[0]?.model ?? "unknown CPU"}, ${cpus.length} cores\n`);
 console.log(`kernel        size       JS (ms)  Lucent (ms)  speedup  budget`);
 const failures: string[] = [];
+// The ratios' budgets: enforced, or (on a shared runner) reported.
+const ratios: string[] = sharedRunner ? [] : failures;
 for (const row of rows) {
   const speedup = row.js / row.native;
   const budget = budgets[row.name];
@@ -255,7 +266,7 @@ for (const c of crossings.filter((c) => !c.boundary.startsWith("floor"))) {
   const ratio = c.us / chatty;
   const budget = boundaryBudgets[c.boundary];
   if (budget !== undefined && ratio > budget)
-    failures.push(`${c.boundary}: ${ratio.toFixed(2)}x the cost of 1,000 calls, budget ${budget}x`);
+    ratios.push(`${c.boundary}: ${ratio.toFixed(2)}x the cost of 1,000 calls, budget ${budget}x`);
   console.log(
     `${c.boundary.padEnd(16)} ${c.us.toFixed(1).padStart(7)}   ${`${ratio.toFixed(2)}x`.padStart(20)}  ${budget === undefined ? "-" : `${budget}x`}`,
   );
@@ -265,7 +276,7 @@ for (const [name, budget] of Object.entries(floorBudgets)) {
   const floor = us(`floor${name[0]!.toUpperCase()}${name.slice(1)}`);
   const ratio = us(name) / floor;
   if (ratio > budget)
-    failures.push(`${name}: ${ratio.toFixed(2)}x a C++ TurboModule's call, budget ${budget}x`);
+    ratios.push(`${name}: ${ratio.toFixed(2)}x a C++ TurboModule's call, budget ${budget}x`);
   console.log(
     `${name.padEnd(16)} ${us(name).toFixed(1).padStart(9)}  ${floor.toFixed(1).padStart(18)}  ${`${ratio.toFixed(2)}x`.padStart(5)}  ${budget}x`,
   );
@@ -356,6 +367,17 @@ if (jsonFile) {
 
   writeResults(path.resolve(jsonFile), { manifest, results });
   console.log(`\nresults: ${path.resolve(jsonFile)}`);
+}
+
+if (sharedRunner && ratios.length) {
+  // GitHub shows these on the run and the pull request.
+  const prefix = process.env.GITHUB_ACTIONS
+    ? "::warning title=Budget on a shared runner::"
+    : "warning: ";
+  console.log(
+    `\nover their budgets on this shared runner (${cpus[0]?.model ?? "unknown CPU"}), not enforced here:`,
+  );
+  for (const r of ratios) console.log(`${prefix}${r}`);
 }
 
 if (rows.some((row) => !row.same) || (check && failures.length)) {

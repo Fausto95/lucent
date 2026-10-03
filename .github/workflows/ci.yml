@@ -79,7 +79,8 @@ jobs:
             run: pnpm test:e2e
           - name: Performance budgets, fresh install
             key: bench
-            run: node scripts/bench.ts --check && node scripts/smoke-install.ts
+            # The kernels' budgets enforced; the CPU-bound ratios reported (see scripts/bench.ts).
+            run: node scripts/bench.ts --check --shared-runner && node scripts/smoke-install.ts
           - name: App check (bare)
             key: app-check-bare
             run: node scripts/app-check.ts apps/bare-example
