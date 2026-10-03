@@ -12,6 +12,7 @@ import { runtimeDir } from "../../src/index.ts";
 import { fabricSources } from "../../src/ui/fabric.ts";
 import { catalystToolchain, reactCommon } from "./react-native-headers.ts";
 import { CARD, components } from "./views-fixture.ts";
+import { buildObjects, compileOnly } from "../parallel-build.ts";
 
 const toolchain = catalystToolchain();
 
@@ -61,24 +62,35 @@ describe("a component taking React children", () => {
       // Test support React Native's frameworks leave out: building shadow trees from elements.
       const element = path.join(reactCommon(), "react/renderer/element");
       const binary = path.join(dir, "slot_layout");
-      const build = spawnSync(
-        toolchain!.command,
+      // Compiled side by side; React Native's and the runtime's sources, once per run.
+      const own = (source: string) =>
+        !source.startsWith(reactCommon()) && !source.startsWith(runtimeDir());
+      const { objects, printed } = buildObjects(
+        dir,
         [
-          ...toolchain!.args,
-          `-I${dir}`,
           driver,
           path.join(dir, `views/${CARD}.cpp`),
           path.join(runtimeDir(), "cpp/lucent/report.cpp"),
           ...["ComponentBuilder.cpp", "Element.cpp", "ElementFragment.cpp"].map((f) =>
             path.join(element, f),
           ),
-          "-o",
-          binary,
         ],
-        { encoding: "utf8" },
+        (source) => ({
+          cmd: toolchain!.command,
+          args: [
+            ...compileOnly(toolchain!.args),
+            ...(own(source) ? [`-I${dir}`] : []),
+            "-c",
+            source,
+          ],
+        }),
+        (source) => !own(source),
       );
+      const build = spawnSync(toolchain!.command, [...toolchain!.args, ...objects, "-o", binary], {
+        encoding: "utf8",
+      });
 
-      expect(build.stderr).toBe("");
+      expect(printed + build.stderr).toBe("");
 
       const run = spawnSync(binary, { encoding: "utf8" });
 

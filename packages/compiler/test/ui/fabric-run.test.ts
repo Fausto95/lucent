@@ -7,8 +7,9 @@ import { describe, expect, it } from "vite-plus/test";
 import { runtimeDir } from "../../src/index.ts";
 import { fabricSources } from "../../src/ui/fabric.ts";
 import { componentExports, VIEWS_RUNTIME } from "../../src/ui/proxy.ts";
-import { catalystToolchain } from "./react-native-headers.ts";
+import { catalystToolchain, reactCommon } from "./react-native-headers.ts";
 import { components, GAUGE } from "./views-fixture.ts";
+import { buildObjects, compileOnly } from "../parallel-build.ts";
 
 type Props = Record<string, unknown>;
 
@@ -141,21 +142,32 @@ describe("a component's native props", () => {
       }
 
       const binary = path.join(dir, "props_test");
-      const build = spawnSync(
-        toolchain!.command,
+      // Compiled side by side; React Native's and the runtime's sources, once per run.
+      const own = (source: string) =>
+        !source.startsWith(reactCommon()) && !source.startsWith(runtimeDir());
+      const { objects, printed } = buildObjects(
+        dir,
         [
-          ...toolchain!.args,
-          `-I${dir}`,
           path.join(import.meta.dirname, "fabric_props_test.cpp"),
           path.join(dir, `views/${GAUGE}.cpp`),
           path.join(runtimeDir(), "cpp/lucent/report.cpp"),
-          "-o",
-          binary,
         ],
-        { encoding: "utf8" },
+        (source) => ({
+          cmd: toolchain!.command,
+          args: [
+            ...compileOnly(toolchain!.args),
+            ...(own(source) ? [`-I${dir}`] : []),
+            "-c",
+            source,
+          ],
+        }),
+        (source) => !own(source),
       );
+      const build = spawnSync(toolchain!.command, [...toolchain!.args, ...objects, "-o", binary], {
+        encoding: "utf8",
+      });
 
-      expect(build.stderr).toBe("");
+      expect(printed + build.stderr).toBe("");
 
       const render = proxyRenderer();
       let previous: Props = {};

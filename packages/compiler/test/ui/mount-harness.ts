@@ -13,7 +13,7 @@ import path from "node:path";
 import { expect } from "vite-plus/test";
 import { compile, runtimeDir, sdkAvailable } from "../../src/index.ts";
 import { catalystToolchain } from "./react-native-headers.ts";
-import { compileAll } from "../parallel-build.ts";
+import { compileAll, compileOnly } from "../parallel-build.ts";
 
 const toolchain = catalystToolchain();
 
@@ -22,13 +22,6 @@ export const canRunMounted = !!toolchain && process.platform === "darwin" && sdk
 
 export const macosSdk = () =>
   spawnSync("xcrun", ["--sdk", "macosx", "--show-sdk-path"], { encoding: "utf8" }).stdout.trim();
-
-/** `args` without what only linking reads (-Wl, -framework): unused, they warn when compiling. */
-function compileOnly(args: readonly string[]): string[] {
-  return args.filter(
-    (a, i) => !a.startsWith("-Wl,") && a !== "-framework" && args[i - 1] !== "-framework",
-  );
-}
 
 /** What the runtime's sources include: a change to any of them rebuilds its objects. */
 function runtimeHeaders(): string[] {
