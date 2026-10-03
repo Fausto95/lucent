@@ -390,7 +390,8 @@ export async function enabled(): Promise<boolean> {
         },
       );
       expect(r.diagnostics).toEqual([]);
-      expect(r.files.get("host/m_enabled.cpp")).toContain("is not available on this platform");
+      // The Android branch's type: the iOS one is untyped here.
+      expect(r.files.get("host/m_enabled.cpp")).toContain("lucent::platformOnly<bool>(");
     },
   );
 
