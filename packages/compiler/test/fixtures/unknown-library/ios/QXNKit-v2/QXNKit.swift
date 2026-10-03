@@ -53,6 +53,15 @@ public final class QXNGauge: QXNBase {
     QXNUnit(qxnSymbol: "qxn")
   }
 
+  /// Shapes Lucent does not bind yet: a tuple, and a function returned.
+  public func qxnRange() -> (Double, Double) {
+    (0, qxnLevel)
+  }
+
+  public func qxnWatcher() -> () -> Double {
+    { self.qxnLevel }
+  }
+
   /// Twice the level, a moment later; fails below zero.
   public func qxnMeasure() async throws -> Double {
     try await Task.sleep(nanoseconds: 1_000_000)

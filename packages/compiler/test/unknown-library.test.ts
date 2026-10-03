@@ -88,6 +88,47 @@ describe.skipIf(!xcode)("an unknown library on iOS", () => {
     });
   }, 600_000);
 
+  /** What to do about a member Lucent does not bind: call it through code of the app's own. */
+  const wrap =
+    "wrap it in Swift of your own whose types Lucent binds, in a local pod the app depends on";
+
+  /** The library called from a run() whose body is `body`. */
+  const calling = (body: string) =>
+    `import { ${prefix}Gauge } from "lucent:ios/${prefix}Kit";
+
+export async function run(): Promise<string> {
+  const gauge = new ${prefix}Gauge("g", 1);
+  ${body}
+  return "";
+}
+`;
+
+  it("names a member it does not bind, why, and the way around it", () => {
+    const skipped = iosProgram(calling(`gauge.${lower}Range();`), modules);
+    expect(skipped.r.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "LUCENT9001",
+        message: expect.stringContaining(
+          `${prefix}Gauge.${lower}Range() is in swift-module:${prefix}Kit, but Lucent does not bind it: Swift: tuples.`,
+        ),
+        fix: wrap,
+      }),
+    ]);
+
+    const refused = iosProgram(calling(`gauge.${lower}Watcher();`), modules);
+    expect(refused.r.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "LUCENT2002",
+        message: expect.stringMatching(
+          new RegExp(
+            `^${prefix}Gauge\\.${lower}Watcher: .* \\(swift:\\S+ in swift-module:${prefix}Kit\\)$`,
+          ),
+        ),
+        fix: wrap,
+      }),
+    ]);
+  }, 600_000);
+
   it("says to import the module of a type only named in the library's signatures", () => {
     const unimported = use
       .replace(/^import type .*Core";\n/m, "")
