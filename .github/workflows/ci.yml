@@ -58,6 +58,9 @@ jobs:
         run: packages/runtime/test/jsi/run.sh
       - name: JSI host lifetime (ASan/UBSan)
         run: SANITIZE=1 packages/runtime/test/jsi/run.sh
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache --show-stats
 
   # The harnesses that run compiled code, one job each: each takes minutes.
   e2e:
@@ -98,6 +101,9 @@ jobs:
           restore-keys: lucent-sdk-${{ runner.os }}-
       - name: ${{ matrix.name }}
         run: ${{ matrix.run }}
+      - name: Compiler cache statistics
+        if: always()
+        run: ccache --show-stats
 
   website:
     name: Website (samples compile, prose rules, generated files current, build)
