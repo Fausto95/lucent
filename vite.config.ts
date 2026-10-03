@@ -1,4 +1,5 @@
 import { defineConfig } from "vite-plus";
+import TimedSequencer from "./vitest.sequencer.ts";
 
 // Left alone by vp fmt and vp lint: what scripts generate (formatting it would
 // only make the next run's output differ), vendored code, and native projects.
@@ -64,6 +65,8 @@ export default defineConfig({
     ],
     exclude: ["**/node_modules/**", "**/.git/**", ...(all ? [] : slow)],
     testTimeout: 60000,
+    // Shards balanced by each file's time (test-timings.json), not by its path.
+    sequence: { sequencer: TimedSequencer },
     globalSetup: ["./vitest.setup-tmp.ts", "./vitest.setup-sdk.ts", "./vitest.setup-build.ts"],
     setupFiles: ["./vitest.setup-yield.ts"],
     // As on CI, wherever the tests run: libraries that change behaviour under CI
