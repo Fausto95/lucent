@@ -118,6 +118,7 @@ export function forgetLoadedSdks(): void {
   iosSdks.clear();
   headerIndexes.clear();
   locatedByObject = new WeakMap();
+  namesRead = new WeakMap();
 }
 
 /** A platform's artifacts as this build resolved them, and where their schemas are cached. */
@@ -690,9 +691,19 @@ function graphs(r: Resolved, modules: string[]): Map<string, SymbolGraph> {
   return out;
 }
 
+/** The names each build (each resolved SDK) has read from the cache, by module. */
+let namesRead = new WeakMap<Resolved, Map<string, NamesIndex>>();
+
 /** The names of `modules`' types, each cached on its own artifact. */
 function namesFor(r: Resolved, modules: string[]): NamesIndex[] {
-  const read = (m: string) => findEntry<NamesEntry>(r, path.join(r.scope, m), "names")?.names;
+  const known = namesRead.get(r) ?? new Map<string, NamesIndex>();
+  namesRead.set(r, known);
+  const read = (m: string) => {
+    const names = known.get(m) ?? findEntry<NamesEntry>(r, path.join(r.scope, m), "names")?.names;
+    if (names) known.set(m, names);
+
+    return names;
+  };
   const missing = modules.filter((m) => !read(m));
   for (const [m, g] of graphs(r, missing))
     publishEntry(path.join(r.scope, m), "names", {
