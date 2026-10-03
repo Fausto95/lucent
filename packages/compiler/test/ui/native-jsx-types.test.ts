@@ -1,7 +1,7 @@
 // JSX for native views (T48, LUCENT_VIEWS=fabric): a UIKit or Android view
 // class is a tag, typed with the attributes its declarations derive by rule
-// (sdk/view-rules.ts), and `create`, `adapter` and children; anything else is
-// a type error the editor shows.
+// (sdk/view-rules.ts: children too, where its class inserts them), and
+// `create`; anything else is a type error the editor shows.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -32,20 +32,15 @@ describe("native view JSX types", () => {
     delete process.env.LUCENT_VIEWS;
   });
 
-  it.skipIf(!ios)("takes a UIKit view's writable properties and control events", () => {
+  it.skipIf(!ios)("takes a UIKit view's writable properties, control events and children", () => {
     expect(
       typeErrors(
         "a.ios.lucent.tsx",
         `import { UILabel, UIStackView, UISwitch, type UIView } from "lucent:ios/UIKit";
-import { defineChildAdapter } from "lucent:ui";
-
-const arranged = defineChildAdapter<UIStackView, UIView>({
-  insert: (stack, child, index) => stack.insertArrangedSubview(child, BigInt(index)),
-});
 
 export function Settings(title: string, enabled: boolean): UIView {
   return (
-    <UIStackView adapter={arranged} spacing={8}>
+    <UIStackView spacing={8}>
       <UILabel text={title} numberOfLines={1n} alpha={0.5} />
       <UISwitch
         isOn={enabled}
@@ -79,13 +74,16 @@ export const made = <UILabel create={() => new UIView({ origin: { x: 0, y: 0 }, 
       "ios",
     );
 
-    expect(errors.map((e) => e.slice(0, 7))).toEqual([
-      "TS2322:",
-      "TS2322:",
-      "TS2322:",
-      "TS2786:",
-      "TS2322:",
-      "TS2322:",
+    // One error a line: an attribute the class does not take (TS2769 where it has several
+    // initializers, each tried), and a class that is no view.
+    const refused = /^TS(2322|2769):/;
+    expect(errors).toEqual([
+      expect.stringMatching(refused),
+      expect.stringMatching(refused),
+      expect.stringMatching(refused),
+      expect.stringMatching(/^TS2786:/),
+      expect.stringMatching(refused),
+      expect.stringMatching(refused),
     ]);
   });
 
@@ -115,5 +113,27 @@ export const plain = <TextView text="hi" textSize={14} />;
         "android",
       ),
     ).toEqual([]);
+  });
+
+  it.skipIf(!android)("gives children only to views that insert them", () => {
+    const errors = typeErrors(
+      "a.android.lucent.tsx",
+      `import { LinearLayout, TextView } from "lucent:android/android.widget";
+
+export const column = (
+  <LinearLayout orientation={1}>
+    <TextView text="a" />
+  </LinearLayout>
+);
+export const label = (
+  <TextView>
+    <TextView text="a" />
+  </TextView>
+);
+`,
+      "android",
+    );
+
+    expect(errors).toEqual([expect.stringMatching(/^TS(2322|2769):/)]);
   });
 });

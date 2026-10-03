@@ -98,6 +98,15 @@ describe("view rules on iOS", () => {
           returns: "void",
         },
         { name: "layoutSubviews", selector: "layoutSubviews", params: [], returns: "void" },
+        {
+          name: "insertDial",
+          selector: "insertDial:atIndex:",
+          params: [
+            { name: "dial", type: "UIKit.UIView" },
+            { name: "index", type: "long" },
+          ],
+          returns: "void",
+        },
       ],
     },
     { kind: "class", name: `${P}Action`, native: `${P}Action` },
@@ -134,6 +143,14 @@ describe("view rules on iOS", () => {
       value: 64,
       explanation: expect.stringContaining(`addAction:forControlEvents:`),
     });
+  });
+
+  it("takes children through the method its declarations insert them at an index with", () => {
+    expect(viewRules(classOf(kit, `${P}Gauge`), kit, find).children).toMatchObject({
+      insert: { selector: "insertDial:atIndex:" },
+      explanation: expect.stringContaining(`${P}Gauge.insertDial:atIndex:`),
+    });
+    expect(viewRules(classOf(kit, `${P}Base`), kit, find).children).toBeUndefined();
   });
 
   it("is made with a zero frame, through the initializer its superclass declares", () => {
@@ -176,6 +193,14 @@ describe("view rules on Android", () => {
           returns: "void",
         },
         { name: "getLevel", params: [], returns: "double" },
+        {
+          name: "addView",
+          params: [
+            { name: "child", type: "android.view.View?" },
+            { name: "index", type: "int" },
+          ],
+          returns: "void",
+        },
       ],
     },
     {
@@ -226,6 +251,12 @@ describe("view rules on Android", () => {
     expect(rules.refused).toEqual([
       { name: "onDrag", reason: expect.stringMatching(/more than one method/) },
     ]);
+  });
+
+  it("takes children through addView(View, int)", () => {
+    expect(viewRules(classOf(views, `${P}Dial`), views, find).children).toMatchObject({
+      insert: { name: "addView" },
+    });
   });
 
   it("is made with the host's context", () => {
