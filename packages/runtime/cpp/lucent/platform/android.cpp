@@ -1,12 +1,16 @@
 // Lucent runtime — Android: JNI environment, classes, errors, the main
-// Looper. Built only into Android apps (fbjni comes with React Native).
-#ifdef __ANDROID__
+// Looper. Built into Android apps (fbjni comes with React Native); its JNI
+// alone also into the desktop JNI host the tests run on a JVM
+// (LUCENT_JNI_HOST), which defines env(), appContext() and available().
+#if defined(__ANDROID__) || defined(LUCENT_JNI_HOST)
 
 #include "android.h"
 
+#ifdef __ANDROID__
 #include <fbjni/NativeRunnable.h>
 #include <fbjni/fbjni.h>
 #include <sys/system_properties.h>
+#endif
 
 #include <atomic>
 #include <cstdint>
@@ -19,7 +23,9 @@
 
 namespace lucent::jni {
 
+#ifdef __ANDROID__
 JNIEnv* env() { return facebook::jni::Environment::ensureCurrentThreadIsAttached(); }
+#endif
 
 namespace {
 
@@ -566,6 +572,7 @@ jobject boxDouble(JNIEnv* e, jdouble v) { return boxWith(e, "java/lang/Double", 
 jobject boxFloat(JNIEnv* e, jfloat v) { return boxWith(e, "java/lang/Float", "(F)Ljava/lang/Float;", jvalue{.f = v}); }
 jobject boxBoolean(JNIEnv* e, bool v) { return boxWith(e, "java/lang/Boolean", "(Z)Ljava/lang/Boolean;", jvalue{.z = static_cast<jboolean>(v ? JNI_TRUE : JNI_FALSE)}); }
 
+#ifdef __ANDROID__
 NativeRef appContext() {
   static NativeRef* app = [] {
     JNIEnv* e = env();
@@ -581,6 +588,7 @@ NativeRef appContext() {
   }();
   return *app;
 }
+#endif
 
 namespace {
 thread_local jobject hostingView = nullptr;
@@ -601,6 +609,7 @@ Opt<NativeRef> hostContext() {
   return wrapOpt(e, context);
 }
 
+#ifdef __ANDROID__
 bool available(double api) {
   static int level = [] {
     char value[PROP_VALUE_MAX] = {0};
@@ -609,9 +618,11 @@ bool available(double api) {
   }();
   return level >= api;
 }
+#endif
 
 }  // namespace lucent::jni
 
+#ifdef __ANDROID__
 namespace lucent {
 
 void postToMain(std::function<void()> job) {
@@ -646,5 +657,6 @@ bool onMainThread() {
 }
 
 }  // namespace lucent
+#endif
 
-#endif  // __ANDROID__
+#endif
