@@ -384,7 +384,7 @@ h1,
 }
 .aside .entry-link[aria-current="page"] {
   background: color-mix(in srgb, var(--lucent-lime) 18%, var(--background));
-  box-shadow: inset 2px 0 var(--lucent-lime-ink);
+  box-shadow: none;
 }
 .aside .entry-title-button {
   gap: 0.75rem;
