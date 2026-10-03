@@ -131,15 +131,19 @@ static void aQueuedJobWaitsOnItsOwner() {
 
   trace::start();
 
-  // The owner is busy; the second job waits for it.
+  // The owner is busy; the second job waits for it. The first holds until the second is
+  // queued, then works: the wait is its whole 30 ms however late the post comes.
+  std::atomic<bool> queued{false};
   owner->post([&] {
     started = true;
+    while (!queued.load()) std::this_thread::yield();
     busy(30);
   });
   CHECK(within(2000, [&] { return started.load(); }));
 
   std::atomic<bool> done{false};
   owner->post([&] { done = true; });
+  queued = true;
   CHECK(within(2000, [&] { return done.load(); }));
   CHECK(owner->waitIdle(2000));
 
