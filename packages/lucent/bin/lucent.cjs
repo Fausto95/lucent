@@ -13,4 +13,6 @@ if (!fs.existsSync(dist)) {
   );
   process.exit(1);
 }
+// Node keeps the compiled code of the CLI and TypeScript on disk: each run starts about 0.1 s sooner.
+require("node:module").enableCompileCache?.();
 import(pathToFileURL(dist).href);
