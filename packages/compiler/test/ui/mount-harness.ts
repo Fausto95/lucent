@@ -13,6 +13,7 @@ import path from "node:path";
 import { expect } from "vite-plus/test";
 import { compile, runtimeDir, sdkAvailable } from "../../src/index.ts";
 import { catalystToolchain } from "./react-native-headers.ts";
+import { compileAll } from "../parallel-build.ts";
 
 const toolchain = catalystToolchain();
 
@@ -21,30 +22,6 @@ export const canRunMounted = !!toolchain && process.platform === "darwin" && sdk
 
 export const macosSdk = () =>
   spawnSync("xcrun", ["--sdk", "macosx", "--show-sdk-path"], { encoding: "utf8" }).stdout.trim();
-
-/**
- * Compiles each of `jobs` (a compiler and its arguments, writing `object`)
- * side by side, one per core: what they printed, together.
- */
-function compileAll(jobs: { cmd: string; args: string[]; object: string }[]): string {
-  if (!jobs.length) return "";
-
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-catalyst-build-"));
-  const q = (a: string) => `'${a.replace(/'/g, "'\\''")}'`;
-  const cores = os.availableParallelism();
-  const lines = jobs.map(
-    (j, i) =>
-      `(${[j.cmd, ...j.args, "-o", j.object].map(q).join(" ")}) >${q(path.join(dir, `${i}.log`))} 2>&1 &${(i + 1) % cores === 0 ? "\nwait" : ""}`,
-  );
-
-  fs.writeFileSync(path.join(dir, "build.sh"), `${lines.join("\n")}\nwait\n`);
-  spawnSync("sh", [path.join(dir, "build.sh")]);
-
-  const printed = jobs.map((_, i) => fs.readFileSync(path.join(dir, `${i}.log`), "utf8")).join("");
-
-  fs.rmSync(dir, { recursive: true, force: true });
-  return printed;
-}
 
 /** `args` without what only linking reads (-Wl, -framework): unused, they warn when compiling. */
 function compileOnly(args: readonly string[]): string[] {

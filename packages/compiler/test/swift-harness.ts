@@ -13,6 +13,7 @@ import { sdkAvailable } from "@lucent-lang/bindgen";
 import { swiftModule, swiftSource } from "../../bindgen/test/swift-module.ts";
 import { cFlags, runtimeSources } from "../../runtime/test/sources.ts";
 import { compile, runtimeDir } from "../src/index.ts";
+import { compileAll } from "./parallel-build.ts";
 
 export const xcode = process.platform === "darwin" && sdkAvailable("ios");
 
@@ -196,10 +197,11 @@ const run = (cmd: string, args: string[], cwd?: string) => {
 };
 
 /**
- * The runtime as a static library for the host, built once per change of
- * its sources and shared by test processes (published by rename).
+ * The runtime as a static library for the host, compiled side by side once
+ * per change of its sources and shared by test processes (published by
+ * rename).
  */
-function hostRuntime(): string {
+export function hostRuntime(): string {
   const cppDir = path.join(runtimeDir(), "cpp");
   const { cxx, c } = runtimeSources(cppDir);
   const own = [...cxx.filter((f) => !f.includes(`${path.sep}jsi${path.sep}`)), ...c];
@@ -212,23 +214,43 @@ function hostRuntime(): string {
   const lib = path.join(os.tmpdir(), `lucent-host-runtime-${hash.digest("hex").slice(0, 16)}.a`);
   if (fs.existsSync(lib)) return lib;
 
+  // One process builds it; the others wait for it rather than build it too.
+  const lock = `${lib}.lock`;
+  try {
+    fs.mkdirSync(lock);
+  } catch {
+    for (let waited = 0; !fs.existsSync(lib) && waited < 600_000; waited += 100) sleep(100);
+    if (fs.existsSync(lib)) return lib;
+  }
+
   const work = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-host-runtime-"));
-  const objects = own.map((f) => {
-    const o = path.join(work, `${path.basename(f)}.o`);
-    const flags = f.endsWith(".c")
-      ? cFlags
-      : ["-std=c++20", "-ffp-contract=off", "-O1", "-g", `-I${cppDir}`];
-    run("xcrun", ["clang++", ...(f.endsWith(".c") ? ["-x", "c"] : []), ...flags, "-c", f, "-o", o]);
-    return o;
-  });
+  const jobs = own.map((f) => ({
+    cmd: "xcrun",
+    args: [
+      "clang++",
+      ...(f.endsWith(".c")
+        ? ["-x", "c", ...cFlags]
+        : ["-std=c++20", "-ffp-contract=off", "-O1", "-g", `-I${cppDir}`]),
+      "-c",
+      f,
+    ],
+    object: path.join(work, `${path.basename(f)}.o`),
+  }));
+  const printed = compileAll(jobs);
+  const missing = jobs.filter((j) => !fs.existsSync(j.object));
+
+  if (missing.length) throw new Error(`the host runtime did not compile:\n${printed}`);
 
   const tmp = `${lib}.${process.pid}`;
-  run("xcrun", ["libtool", "-static", "-o", tmp, ...objects]);
+  run("xcrun", ["libtool", "-static", "-o", tmp, ...jobs.map((j) => j.object)]);
   fs.renameSync(tmp, lib);
   fs.rmSync(work, { recursive: true, force: true });
+  fs.rmSync(lock, { recursive: true, force: true });
 
   return lib;
 }
+
+const sleep = (ms: number) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
 /**
  * Builds a program for the macOS host (its Swift fixture modules, shims,
