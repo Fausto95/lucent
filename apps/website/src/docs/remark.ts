@@ -11,6 +11,9 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Code, Root, RootContent } from "mdast";
 import { format } from "oxfmt";
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkMdx from "remark-mdx";
 import type { CppFile } from "./types.ts";
 import { docsSlugOf, formatMeta, langOf, parseMeta } from "./markdown.ts";
 import { readSnippet } from "./mdx-read.ts";
@@ -80,27 +83,47 @@ function cppOf(slug: string): Record<string, CppFile[]> {
     : {};
 }
 
-/** <details><summary>See the C++</summary> one code block per file </details>, as MDX elements. */
+/** Use private aliases so pages need no imports and existing sample tabs keep working. */
+const cppTabsImport = unified()
+  .use(remarkParse)
+  .use(remarkMdx)
+  .parse(
+    'import { Tabs as LucentCppTabs, TabItem as LucentCppTabItem } from "@astrojs/starlight/components";',
+  ).children[0]!;
+
+/** A disclosure with platform tabs when the compiler writes more than one file. */
 function seeCpp(files: CppFile[]): RootContent {
-  const element = (name: string, children: unknown[], className?: string) =>
+  const element = (name: string, children: unknown[], props: Record<string, string> = {}) =>
     ({
       type: "mdxJsxFlowElement",
       name,
-      attributes: className ? [{ type: "mdxJsxAttribute", name: "class", value: className }] : [],
+      attributes: Object.entries(props).map(([name, value]) => ({
+        type: "mdxJsxAttribute",
+        name,
+        value,
+      })),
       children,
     }) as unknown as RootContent;
+  const codes = files.map((f): Code => ({
+    type: "code",
+    lang: langOf(f.filename),
+    meta: formatMeta({ title: f.filename }),
+    value: f.code,
+  }));
   return element(
     "details",
     [
       element("summary", [{ type: "text", value: "See the C++" }]),
-      ...files.map((f): Code => ({
-        type: "code",
-        lang: langOf(f.filename),
-        meta: formatMeta({ title: files.length > 1 ? `${f.filename} · ${f.label}` : f.filename }),
-        value: f.code,
-      })),
+      ...(files.length > 1
+        ? [
+            element(
+              "LucentCppTabs",
+              files.map((f, i) => element("LucentCppTabItem", [codes[i]!], { label: f.label })),
+            ),
+          ]
+        : codes),
     ],
-    "see-cpp",
+    { class: "see-cpp" },
   );
 }
 
@@ -109,6 +132,7 @@ export function remarkSeeCpp() {
     const slug = docsSlugOf(file.path ?? file.history?.[0] ?? "");
     if (slug === undefined) return;
     const cpp = cppOf(slug);
+    let needsTabs = false;
     const walk = (parent: Parent) => {
       for (let i = 0; i < parent.children.length; i++) {
         const node = parent.children[i]!;
@@ -126,12 +150,14 @@ export function remarkSeeCpp() {
           continue;
         }
         if (shown.length) {
+          needsTabs ||= shown.some((files) => files.length > 1);
           parent.children.splice(i + 1, 0, ...shown.map(seeCpp));
           i += shown.length;
         }
       }
     };
     walk(tree);
+    if (needsTabs) tree.children.unshift(structuredClone(cppTabsImport));
   };
 }
 
