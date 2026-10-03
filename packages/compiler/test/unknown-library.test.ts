@@ -22,6 +22,7 @@ import {
   type SwiftFixture,
   xcode,
 } from "./swift-harness.ts";
+import { canRunMounted, runMounted } from "./ui/mount-harness.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixture = path.join(here, "fixtures/unknown-library");
@@ -80,4 +81,36 @@ describe.skipIf(!xcode)("an unknown library on iOS", () => {
       stdout: `gauge g at 3.5 | 3 3.5 | 3.5 box | 7.0 ${lower} | Error\n`,
     });
   }, 600_000);
+});
+
+/** The library's view, a component of the app's: a dial whose turns become events. */
+const dial = Object.fromEntries(
+  ["dial.lucent.ts", "dial.ios.lucent.tsx", "dial.android.lucent.tsx"].map((f) => [
+    f,
+    fs.readFileSync(path.join(root, "ios", f), "utf8"),
+  ]),
+);
+
+describe("an unknown library's view on iOS", () => {
+  it.skipIf(!canRunMounted)(
+    "mounts as a component: props, events and commands by rule, released with its mount",
+    () => {
+      const dials = path.join(root, "ios", `${prefix}Dials`);
+
+      expect(
+        runMounted(dial, path.join(root, "ios/dial_run.mm"), {
+          includePaths: [dials],
+          sources: [path.join(dials, `${prefix}Dials.m`)],
+        }),
+      ).toEqual([
+        "mounted: level 2",
+        "committed: level 5",
+        "turned: level 6, sent 6",
+        "command: answer 3 = 6",
+        "disposed: block gone",
+        "released: native references all released, dial gone",
+      ]);
+    },
+    600_000,
+  );
 });
