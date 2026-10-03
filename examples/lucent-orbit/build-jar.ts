@@ -41,5 +41,7 @@ execFileSync(
     "-d",
     process.argv[2] ?? path.join(here, "android/orbit.jar"),
   ],
-  { stdio: "inherit" },
+  // The jar's entries carry a fixed date in the JVM's time zone: UTC, so any
+  // machine writes the same bytes.
+  { stdio: "inherit", env: { ...process.env, TZ: "UTC" } },
 );
