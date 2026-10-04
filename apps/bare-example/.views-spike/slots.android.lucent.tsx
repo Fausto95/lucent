@@ -60,7 +60,11 @@ export function Card(props: { title: string; inset: number; children?: Children 
     probe: (x: number, y: number): string => `unsupported ${x},${y}`,
     // As on iOS: a move a native timer makes 200 ms later, `dx` dp right.
     driftLater: (dx: number): void => {
-      new Handler(Looper.getMainLooper()).postDelayed(() => {
+      const main = Looper.getMainLooper();
+
+      if (main === null) return;
+
+      new Handler(main).postDelayed(() => {
         drift += dx;
         place(props.inset);
       }, 200n);
