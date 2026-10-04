@@ -626,8 +626,11 @@ UIViewController`): a generated Objective-C subclass stands for each
   now.
 - Java exceptions become Lucent errors whose `code` is the exception class
   (`java.lang.IllegalArgumentException`) and whose message is the
-  exception's. A `nil`/`null` result where the schema promises an object
-  throws `TypeError`.
+  exception's. `errorOf(throwable)` from `lucent:android` makes the same
+  error of a `Throwable` a callback API reports, so an adapter's
+  `reject(errorOf(e))` rejects as the call would have thrown. A
+  `nil`/`null` result where the schema promises an object throws
+  `TypeError`.
 - A `Task`, a `ListenableFuture`, a `CompletionStage` or any other Java
   object is not a promise: `await` on a value typed as an SDK class is
   refused (LUCENT1010), whatever the class. Its completion listener becomes one

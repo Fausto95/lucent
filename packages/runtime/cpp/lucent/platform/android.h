@@ -37,6 +37,9 @@ inline void check(JNIEnv* env) {
 }
 /// A Java exception (a Throwable) as a Lucent error, coded as rethrowPending does.
 Error errorOf(JNIEnv* env, jobject throwable);
+/// `errorOf(throwable)` from lucent:android: the same error, but a Lucent
+/// error the exception carries stays with it, for the next call to read.
+Error errorOf(const NativeRef& throwable);
 
 /// Closes an AutoCloseable (a Closeable, a Cursor…): how a `using`
 /// declaration disposes one. Throws what close() throws.
