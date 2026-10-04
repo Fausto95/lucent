@@ -11,8 +11,8 @@ const KEY = "lucent-parity";
 
 export async function packagedLibrary(): Promise<string> {
   if (PLATFORM === "ios") {
-    // The app's own service: Keychain(service:) and Keychain(accessGroup:) both take one string.
-    const keychain = new Keychain();
+    // init(service:): init(accessGroup:) takes one string too, so each is a factory.
+    const keychain = Keychain.withService("dev.lucent.bare");
     keychain.set("stored", KEY);
     const read = keychain.get(KEY);
     keychain.remove(KEY);
