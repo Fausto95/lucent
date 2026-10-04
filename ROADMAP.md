@@ -849,7 +849,7 @@ small fixes found on the way.
 | [T50](#t50)   | Integrate Yoga with explicit layout-owner boundaries              | T48      | waiting (maintainer) |
 | [T51](#t51)   | Implement the small Lucent UI library and examples                | T49, T50 | waiting (maintainer) |
 | [T52](#t52)   | Complete useful wrapper ports and certify a preview               | —        | ready (maintainer)   |
-| [TA25](#ta25) | Fix the bare app's FlatList crash from a second react-native copy | —        | ready                |
+| [TA25](#ta25) | Fix the bare app's FlatList crash from a second react-native copy | —        | in review            |
 | [TA26](#ta26) | Lay out the slot after a native-only move on iOS                  | —        | ready                |
 
 The Needs column lists only open dependencies.
@@ -1083,22 +1083,31 @@ the preview artifacts; publishing them is a separate action.
 **Goal:** Make a FlatList work as a React child in the bare example app,
 where it crashes today.
 
-- **Status:** open, ready to start.
+- **Status:** in review (2026-10-04): every item below passes on its
+  branch.
 - **Area:** Views, example apps.
 - **Needs:** none.
 - **Verify:** V5.
 - **Where:** The bare example app's dependency resolution and its slots
   screen.
 
-- [ ] Reproduce: in the bare example app, `@react-native/virtualized-lists`
+- [x] Reproduce: in the bare example app, `@react-native/virtualized-lists`
       resolves a second copy of `react-native` (the app's own
       `node_modules/react-native` and the workspace root's), the bundle
       holds two `ReactNativeViewConfigRegistry` copies, and FlatList fails
       with "View config getter callback for RCTScrollContentView must be a
-      function".
-- [ ] Make the app resolve one `react-native`.
-- [ ] Run the slots screen with a FlatList child on the iOS simulator and
-      the Android emulator.
+      function". The second copy is installed under the hoisted
+      virtualized-lists (its peer: the root holds the Expo app's release);
+      `packages/lucent/test/bare-example-bundle.test.ts` bundles FlatList
+      with the app's config and finds both registries.
+- [x] Make the app resolve one `react-native`. The app's Metro config
+      resolves `react-native` and its subpaths from the app, whatever
+      module asks; each app keeps the release it pins.
+- [x] Run the slots screen with a FlatList child on the iOS simulator and
+      the Android emulator. The slots spike's lists are FlatLists again (a
+      list of cards, rows in a card); `node scripts/views-spike.ts --entry
+slots.js` passes its 16 checks on both, twice each, its list card
+      and row 60 shown after scrolling.
 
 **Done when:** a FlatList child in a Lucent slot runs in the bare app on
 both platforms.
@@ -2248,8 +2257,8 @@ Last recorded runs:
   [T49](#t49)'s) and no layout for a plain view's children until Yoga
   ([T50](#t50)); its rules read declarations, not behavior (Android's
   AdapterView declares `addView(View, int)` and throws from it).
-- The FlatList crash in the bare app ([TA25](#ta25)) and the iOS
-  native-only slot move ([TA26](#ta26)) are open.
+- The iOS native-only slot move ([TA26](#ta26)) is open; the bare app's
+  FlatList crash ([TA25](#ta25)) is in review.
 
 ### Language, runtime and bindings
 

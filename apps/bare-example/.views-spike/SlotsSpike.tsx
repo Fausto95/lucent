@@ -5,9 +5,8 @@
 // shows in another window); the card unmounted and mounted again (a
 // recycled host); a windowed list of cards, scrolled so its cells unmount
 // and mount again (recycled hosts); and a windowed list in a card, scrolled
-// so its rows come and go. (Windowed by hand: in this app, FlatList's
-// package resolves a second copy of React Native, whose view configs the
-// renderer does not see.) Panels hold their slot below a native header:
+// so its rows come and go: FlatLists, which the app's Metro config keeps on
+// its one React Native (TA25). Panels hold their slot below a native header:
 // a flex: 1 child must fill the slot (and follow it when an effect grows
 // the header), a panel sized by its children must grow by the header,
 // and a panel whose slot fills it must lay its child out once, never
@@ -18,15 +17,13 @@
 // console.error: the only level a Release build logs.
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
+  FlatList,
   findNodeHandle,
   type LayoutChangeEvent,
   Modal,
-  type NativeScrollEvent,
-  type NativeSyntheticEvent,
   PixelRatio,
   Platform,
   SafeAreaView,
-  ScrollView,
   Text,
   View,
 } from "react-native";
@@ -193,53 +190,15 @@ function compare(answer: string, names: string[], extra = 0): string {
   return `${ok ? "pass" : "FAIL"} native [${answer}] react [${react}]`;
 }
 
-/**
- * A list rendering only the items near what it shows (`size` apart,
- * `count` of them): scrolled, its items unmount and mount again.
- */
-function Windowed({
-  ref,
-  ...props
-}: {
-  count: number;
-  size: number;
-  horizontal?: boolean;
-  ref: React.Ref<ScrollView>;
-  style?: object;
-  renderItem: (index: number) => ReactNode;
-}) {
-  const [first, setFirst] = useState(0);
-  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { x, y } = e.nativeEvent.contentOffset;
+/** Items 0 to `count`, the data of a list of fixed-size items. */
+const indexes = (count: number) => Array.from({ length: count }, (_, i) => i);
 
-    setFirst(Math.max(0, Math.floor((props.horizontal ? x : y) / props.size) - 2));
-  };
-  const shown = Array.from({ length: 10 }, (_, i) => first + i).filter((i) => i < props.count);
-  const length = props.count * props.size;
-
-  return (
-    <ScrollView
-      ref={ref}
-      horizontal={props.horizontal}
-      scrollEventThrottle={16}
-      onScroll={onScroll}
-      style={props.style}
-      contentContainerStyle={props.horizontal ? { width: length } : { height: length }}
-    >
-      {shown.map((i) => (
-        <View
-          key={i}
-          style={{
-            position: "absolute",
-            [props.horizontal ? "left" : "top"]: i * props.size,
-          }}
-        >
-          {props.renderItem(i)}
-        </View>
-      ))}
-    </ScrollView>
-  );
-}
+/** Where item `index` of a list of `size`-long items is: FlatList need not measure it. */
+const fixed = (size: number) => (_: ArrayLike<number> | null | undefined, index: number) => ({
+  length: size,
+  offset: size * index,
+  index,
+});
 
 export function SlotsSpike() {
   const card = useRef<CardRef>(null);
@@ -248,8 +207,8 @@ export function SlotsSpike() {
   const sized = useRef<PanelRef>(null);
   const filled = useRef<PanelRef>(null);
   const [header, setHeader] = useState(40);
-  const list = useRef<ScrollView>(null);
-  const rows = useRef<ScrollView>(null);
+  const list = useRef<FlatList<number>>(null);
+  const rows = useRef<FlatList<number>>(null);
   const [order, setOrder] = useState(["A", "B", "C"]);
   const [labels, setLabels] = useState<Record<string, string>>({ A: "A", B: "B", C: "C" });
   const [text, setText] = useState(false);
@@ -376,9 +335,9 @@ export function SlotsSpike() {
         },
       ],
       [13500, () => list.current?.scrollToEnd({ animated: false })],
-      [14500, () => list.current?.scrollTo({ x: 0, animated: false })],
+      [14500, () => list.current?.scrollToOffset({ offset: 0, animated: false })],
       [15500, async () => note(`list card: ${(await listCard.current?.inspect()) ?? "none"}`)],
-      [16000, () => rows.current?.scrollTo({ y: 60 * 24, animated: false })],
+      [16000, () => rows.current?.scrollToOffset({ offset: 60 * 24, animated: false })],
       [
         16800,
         () => {
@@ -471,29 +430,37 @@ export function SlotsSpike() {
             </Panel>
           </View>
         </View>
-        <Windowed
+        <FlatList
           ref={list}
           horizontal
-          count={40}
-          size={94}
+          data={indexes(40)}
+          keyExtractor={String}
+          getItemLayout={fixed(94)}
+          initialNumToRender={6}
+          windowSize={3}
           style={{ height: 70, flexGrow: 0 }}
-          renderItem={(i) => (
-            <Card
-              ref={i === 0 ? listCard : undefined}
-              title={`cell ${i}`}
-              inset={4}
-              style={{ width: 90, height: 60 }}
-            >
-              <Text>cell {i}</Text>
-            </Card>
+          renderItem={({ item: i }) => (
+            <View style={{ width: 94 }}>
+              <Card
+                ref={i === 0 ? listCard : undefined}
+                title={`cell ${i}`}
+                inset={4}
+                style={{ width: 90, height: 60 }}
+              >
+                <Text>cell {i}</Text>
+              </Card>
+            </View>
           )}
         />
         <Card title="list" inset={4} style={{ height: 120 }}>
-          <Windowed
+          <FlatList
             ref={rows}
-            count={100}
-            size={24}
-            renderItem={(i) => (
+            data={indexes(100)}
+            keyExtractor={String}
+            getItemLayout={fixed(24)}
+            initialNumToRender={10}
+            windowSize={3}
+            renderItem={({ item: i }) => (
               <View
                 style={{ height: 24 }}
                 onLayout={i === 60 ? () => log("windowed: row 60 laid out") : undefined}
