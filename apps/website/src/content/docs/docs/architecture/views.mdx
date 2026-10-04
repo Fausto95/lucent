@@ -1,7 +1,150 @@
 ---
-title: "How do native views work? (experimental)"
-description: "This page is being rewritten."
+title: "How do native views work?"
+sidebar_label: "Native views"
+description: "A component's setup runs once per mount on the main thread, without the Lucent lock, and builds the view Fabric shows."
 kind: explanation
+views: true
+sidebar_class_name: experimental
 ---
 
-This page is being rewritten.
+:::caution
+Experimental: views are behind `LUCENT_VIEWS=fabric`, off by default, and change without notice. [Turn on native views](/docs/guides/views/) first.
+:::
+
+<Tabs>
+<TabItem label="component">
+
+```tsx title="ticker.lucent.tsx"
+import { appContext } from "lucent:android";
+import { TimeAnimator } from "lucent:android/android.animation";
+import { TextView } from "lucent:android/android.widget";
+import { Timer } from "lucent:ios/Foundation";
+import { UILabel } from "lucent:ios/UIKit";
+import { PLATFORM } from "lucent:platform";
+import { effect, expose, onDispose, signal } from "lucent:ui";
+
+export function Ticker(props: { label: string; onTick?: (count: number) => void }) {
+  const count = signal(0);
+  const tick = () => {
+    count.set(count.peek() + 1);
+    props.onTick?.(count.peek());
+  };
+
+  expose({ reset: () => count.set(0) });
+
+  if (PLATFORM === "ios") {
+    const label = new UILabel();
+    const timer = Timer.scheduledTimer(1, true, () => tick());
+
+    onDispose(() => timer.invalidate());
+    effect(() => {
+      label.text = `${props.label}: ${count.get()}`;
+    });
+
+    return label;
+  }
+
+  const text = new TextView(appContext());
+  const animator = new TimeAnimator();
+  let last = Date.now();
+
+  animator.setTimeListener((_animation, _total, _delta) => {
+    if (Date.now() - last < 1000) return;
+
+    last = Date.now();
+    tick();
+  });
+  animator.start();
+  onDispose(() => {
+    animator.setTimeListener(null);
+    animator.cancel();
+  });
+  effect(() => {
+    text.setText(`${props.label}: ${count.get()}`);
+  });
+
+  return text;
+}
+```
+
+</TabItem>
+<TabItem label="JS usage">
+
+```tsx title="App.tsx"
+import { useRef } from "react";
+import { Button, View } from "react-native";
+import { Ticker } from "./ticker.lucent";
+
+type TickerRef = { reset(): void };
+
+export default function App() {
+  const ticker = useRef<TickerRef>(null);
+
+  return (
+    <View>
+      <Ticker ref={ticker} label="Uptime" onTick={(count) => console.log(count)} />
+      <Button title="Reset" onPress={() => ticker.current?.reset()} />
+    </View>
+  );
+}
+```
+
+</TabItem>
+</Tabs>
+
+## A component is a Fabric component
+
+An exported function of a `.lucent.tsx` module that returns a view is a component. `lucent build` generates the props, events, shadow node and descriptor Fabric needs for each one.
+
+Its proxy exports a React component: props are React props, events are callback props, and the [commands](/docs/api/views/components/#commands-and-requests) setup passes to [`expose`](/docs/api/views/lucent-ui/#expose) are its ref's methods.
+
+## Setup runs once per mount
+
+A mount is one run of setup on one native host view, while that view shows the component.
+
+- **Create.** The first commit runs setup, and the view it returns becomes the host's content.
+- **Update.** A later commit hands over the changed props at once, and the effects that read a changed prop or signal run again.
+- **Dispose.** When the view goes, its effects stop and its `onDispose` cleanups run.
+- **Recycle.** iOS always pools views; Android does only with React Native's `enableViewRecycling` on. Recycling disposes the mount, and the next commit runs setup again, with new signals ([Mounts and recycling](/docs/api/views/components/#mounts-and-recycling)).
+- **Reload.** React Native drops the old views, disposing their mounts, and the new runtime's views mount afresh.
+
+## The main thread, without the lock
+
+Setup, effects, commands and the callbacks setup gives the platform run on the main thread, in the [main context](/docs/api/language/concurrency/#the-main-context). It works without the Lucent lock, so a view never waits behind module code, and component code can't read module state ([LUCENT3022](/docs/api/diagnostics/#lucent3022)).
+
+Calling an event prop posts the event to the JavaScript thread without waiting, so a view keeps updating while JavaScript is busy.
+
+## SwiftUI and Compose bodies
+
+A component can return JSX from `lucent:swiftui` or `lucent:compose` instead of a view. The body becomes a Swift `View` in a `UIHostingController`, or a `@Composable` in a `ComposeView`, one per mount.
+
+The setup still compiles to C++: it computes the values the body reads, and pushes each change into the body's state. A function the body calls runs Lucent code.
+
+## Sizing and children
+
+A component whose style gives it a size, explicit or from flex, fills it. One taking children is sized by Yoga, as a View is: its content is never measured.
+
+Otherwise the host measures the component's content on the main thread whenever the mount's code has run. Code after an `await` calls [`invalidateSize()`](/docs/api/views/lucent-ui/#invalidatesize) instead.
+
+A component whose props declare `children?: Children` puts a [`slot()`](/docs/api/views/lucent-ui/#slot) view where its children go. React Native owns the children and their frames, and setup decides where the slot sits ([Put React children inside a native view](/docs/guides/views/children/)).
+
+## Limits
+
+Beside Lucent's other [known limitations](/docs/releases/roadmap/#known-limitations):
+
+- Views have run only on simulators and emulators. Unchecked: SwiftUI hosting on iOS 17 and earlier, Compose under rotation, react-native-screens, and TalkBack.
+- Long work in setup, effects or commands stalls the UI: move it to a [compute task](/docs/guides/run-in-parallel/).
+- A size measured from content, and a slot's place, wait for the JavaScript thread to apply them. Until then the view keeps its last layout, zero-sized at mount.
+- A fixed-size slot inside a component sized by its children gets three reports to settle its place, then stops.
+- An absolutely positioned child is placed from the slot, grown by the component's padding, as a View's child is from its padding box.
+- The React children share one slot, so a stack view can't arrange each one itself.
+- A transform on a view between the host and the slot applies to the children, but their layout ignores it.
+- A slot inside a native scroll view doesn't scroll: put a React `ScrollView` in the slot. `removeClippedSubviews` doesn't apply to its children.
+- Discrete and `Continuous` events are never dropped, so a busy JavaScript thread queues them. Mark an event `Coalesced` when only its latest value counts ([Delivery](/docs/api/views/components/#delivery)).
+- With two React Native runtimes alive at once, requests are answered to the one that connected last.
+- Helper view functions take plain data, and callbacks of numbers, booleans and strings: no toolkit values, children, lists or bindings.
+- SwiftUI: a static value named like a method, such as `Animation.easeInOut`, is left out: call the method. Only closed ranges (`a...b`) map, and content conditions must be `boolean`.
+- SwiftUI: `Int(x)` traps on NaN or infinity, and a two-value `onChange` closure doesn't type-check.
+- Compose: when two Kotlin packages declare a class of the same name, `lucent:compose` keeps the first one's.
+- [Platform-view JSX](/docs/api/views/platform-views/) isn't in a release yet. Its children are fixed ([T49](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t49)), and a plain view lays none out until [T50](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t50). Its rules read declarations: Android's `AdapterView` declares `addView(View, int)`, then throws from it.
+- Platform-view JSX: a view made through a Swift initializer needs `create`, and a pod's view has attributes only with `lucent:ios/UIKit` imported ([TA33](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta33)).

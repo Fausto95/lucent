@@ -1,7 +1,140 @@
 ---
 title: "What do Lucent's terms mean?"
-description: "This page is being rewritten."
+sidebar_label: "Glossary"
+description: "Each term the docs use for Lucent's code, builds and threads, in one or two sentences, with the page that explains it."
 kind: reference
 ---
 
-This page is being rewritten.
+Each entry gives the one sense the docs use the term in, and links the page that explains it.
+
+## Code you write
+
+### Module
+
+One `.lucent.ts` file, or `.lucent.tsx` for components, and what it exports. It compiles to native code, and JavaScript imports it like any TypeScript file ([Run your first module](/docs/guides/first-module/)).
+
+### Module name
+
+The name a module has in the native package. An app's module is named after its file, and a Lucent package's is `<package>/<path under sources>` ([Module names](/docs/packages/package-json/#module-names)).
+
+### Shared module
+
+A module with no platform imports, whose code runs the same on iOS and Android ([Share code between platforms](/docs/guides/share-code-between-platforms/)).
+
+### Platform branch
+
+`if (PLATFORM === "ios")` inside one module, with `PLATFORM` from `lucent:platform`. Each platform compiles only its own branch ([Platform code](/docs/api/language/platform-code/)).
+
+### Platform file
+
+`x.ios.lucent.ts` or `x.android.lucent.ts`, the opt-in alternative to platform branches. Each one implements the exports of its declaration file ([Platform code](/docs/api/language/platform-code/)).
+
+### Declaration file
+
+The shared `x.lucent.ts` that declares the exports its platform files implement ([Platform code](/docs/api/language/platform-code/)).
+
+### lucent:* modules
+
+The modules Lucent provides, imported by name: `lucent:core`, `lucent:platform`, `lucent:thread`, `lucent:ios` and `lucent:android`. The SDK bindings, native extensions and the views' modules are `lucent:` modules too ([API](/docs/api/)).
+
+### SDK bindings
+
+The typed view of iOS and Android APIs that modules import from `lucent:ios/*` and `lucent:android/*`. Lucent reads them from your installed SDKs and the app's dependencies ([How Lucent calls iOS and Android APIs](/docs/architecture/sdk-bindings/)).
+
+### SDK object
+
+An instance of an iOS or Android class, made or returned through the SDK bindings. Lucent code holds it by reference and can't pass it to JavaScript ([Memory](/docs/architecture/memory/)).
+
+## Packages
+
+### Lucent package
+
+An npm package whose package.json has a `lucent` field. It ships its modules as source, and each app that installs it compiles them ([What is a Lucent package?](/docs/packages/)).
+
+### Native extension
+
+A C library, or a C interface over C++, that a Lucent package wraps. Modules import it from `lucent:ext/<name>`: the header gives the signatures, and `lucent.json` what C can't say ([Native extensions](/docs/packages/native-extensions/)).
+
+## Builds
+
+### Native package
+
+What `lucent build` writes to `.lucent/native`: the C++ runtime, the generated code, the build files and the proxies. React Native links it into the app ([The .lucent directory](/docs/api/lucent-directory/)).
+
+### Proxy
+
+The JavaScript file Metro bundles in place of a module, `.lucent/native/js/<module name>.js`. It loads the module from the app's native code ([Builds](/docs/architecture/builds/#the-app-checks-its-native-code-at-load)).
+
+### Pending action
+
+What the app needs after a build: `reload-js`, `compile-native`, `repackage`, `relink` or `reinstall`. A build names it from the files it changed ([Builds](/docs/architecture/builds/#actions-come-from-what-a-build-changed)).
+
+### Build identity
+
+What a build compiled, carried by the native code and by the proxies. When they differ, loading a module throws `LUCENT_NATIVE_MISMATCH`, or only warns if the module's API is the same ([Builds](/docs/architecture/builds/#the-app-checks-its-native-code-at-load)).
+
+### SDK lock
+
+`lucent-sdk.lock.json`: the SDKs and SDK symbols a project uses, which `--frozen` builds check ([Pin Xcode and the Android SDK](/docs/guides/pin-sdks/)).
+
+## Running
+
+### The boundary
+
+Where JavaScript calls into Lucent code, and Lucent code calls back. Values are checked and converted there ([What happens when JavaScript calls a module?](/docs/architecture/boundary/)).
+
+### Module code
+
+A module's exports, what runs after their `await`s, and the callbacks it registers: the code that holds the Lucent lock ([Concurrency](/docs/api/language/concurrency/)).
+
+### Module state
+
+A module's top-level variables and its classes' static fields, except a `const` or `readonly` one holding no object. All module code shares it, and compute tasks and view code can't use it ([Concurrency](/docs/api/language/concurrency/#the-lucent-lock)).
+
+### Turn
+
+A job of module code and the `await` continuations it queues, run under the Lucent lock from start to end ([The Lucent lock](/docs/api/language/concurrency/#the-lucent-lock)).
+
+### Lucent thread
+
+The background thread async module code runs on ([Threads](/docs/architecture/threads/)).
+
+### Lucent lock
+
+The lock module code runs under, so it runs one turn at a time. [Concurrency](/docs/api/language/concurrency/) says which code holds it.
+
+### Main context
+
+Where view code runs: a component's setup, its effects and commands, and the callbacks it gives the platform, on the main thread. `main(f)` and other main-thread callbacks run module code instead ([Concurrency](/docs/api/language/concurrency/#the-main-context)).
+
+### Compute task
+
+A top-level function that `compute()` from `lucent:core` runs on a worker thread, in parallel with module code. It gets a copy of its input, and the compiler checks that it shares no state ([Run work in parallel](/docs/guides/run-in-parallel/)).
+
+## Views (experimental)
+
+### Component
+
+An exported function of a `.lucent.tsx` module that returns a view. React renders it as a native component ([How do native views work?](/docs/architecture/views/)).
+
+### Setup
+
+A component's function body. It runs once per mount, on the main thread, and returns the view the component shows.
+
+### Mount
+
+One run of a component's setup on one native host view, until React Native drops or recycles that view ([Setup runs once per mount](/docs/architecture/views/#setup-runs-once-per-mount)).
+
+### Toolkit body
+
+The SwiftUI or Jetpack Compose JSX a component returns instead of a view, from `lucent:swiftui` or `lucent:compose` ([SwiftUI and Compose bodies](/docs/architecture/views/#swiftui-and-compose-bodies)).
+
+### Slot
+
+The view a component's React children go in, made with `slot()` from [lucent:ui](/docs/api/views/lucent-ui/#slot).
+
+## The docs
+
+### Internals
+
+The Architecture pages for contributors, which use the compiler's own names for its parts ([Internals](/docs/architecture/internals/)).
