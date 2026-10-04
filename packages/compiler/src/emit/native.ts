@@ -2692,6 +2692,12 @@ export function iosSuperInit(
       Codes.UnsupportedClassFeature,
       `${base.name}: Swift initializers cannot be inherited`,
     );
+  if (ctor.factory)
+    fail(
+      node,
+      Codes.UnsupportedClassFeature,
+      `${base.name}: ${ctor.selector} makes its own object (a class method Swift imports as an initializer), so a subclass cannot call it as super(…): call another of ${base.name}'s initializers`,
+    );
 
   const plan = requirePlan(node, ref, ctor, "new");
   requireAvailable(em, node, ref, ctor.since, `new ${base.name}(…)`);
@@ -2732,8 +2738,9 @@ export function nativeNew(em: FnEmitter, node: ts.NewExpression, t: LType & { k:
   noteIncludes(em, ref);
   if (ref.platform === "ios") {
     const a = args.map((x, i) => toObjc(em, x, params[i]!, plan));
-    const alloc = cpp.send(ref.cls.native, "alloc");
-    const created = send(alloc, ctor.selector ?? "init", a);
+    // A factory initializer is a class method: sent to the class, which makes the object.
+    const receiver = ctor.factory ? cpp.id(ref.cls.native) : cpp.send(ref.cls.native, "alloc");
+    const created = send(receiver, ctor.selector ?? "init", a);
     return { c: cpp.call("lucent::objc::wrap", [created, cpp.str(`new ${t.name}`)]), t };
   }
   warnOutsideGroups(em, ctor.params, args, `new ${t.name}`);

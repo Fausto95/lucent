@@ -251,7 +251,10 @@ directory:
   with bare arguments (`new Locale_LanguageCode("en")`, while
   `init(stringLiteral:)` is `withStringLiteral`); methods
   that collide get their labels appended (`resize(height:)` →
-  `resizeHeight`). Objective-C initializers are not separated yet;
+  `resizeHeight`). Objective-C initializers are not separated yet. An
+  Objective-C class method Swift imports as an initializer
+  (`+widgetWithLabel:` as `init(label:)`) is a `constructor` too, sent to
+  the class rather than to a new instance;
 - Java names on Android, plus Kotlin-style getter properties
   (`VibratorManager.defaultVibrator`); Kotlin classes as Kotlin declares
   them (see below);

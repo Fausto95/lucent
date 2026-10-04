@@ -1764,8 +1764,11 @@ the app's target needs an availability check.
 - [ ] Tuples, which the extractor skips (now explained when called).
 - [ ] Functions returned by or passed to Swift (LUCENT2002, "fn values
       cannot cross to Swift yet").
-- [ ] Factory initializers Swift imports as `init`, which the extractor
-      drops (recheck first: recorded 2026-09-23).
+- [x] Factory initializers Swift imports as `init`, which the extractor
+      drops (recheck first: recorded 2026-09-23). Still dropped on
+      recheck: `+widgetWithLabel:` is now a constructor sent to the class
+      (`[WDGWidget widgetWithLabel:…]`, `factory` in the schema); a
+      subclass calling it as `super(…)` is refused, named.
 - [ ] Members Swift imports onto CoreFoundation-style handles
       (`cgImage.width`; recheck first).
 - [x] A subclass's initializers inherited from a class whose module is only

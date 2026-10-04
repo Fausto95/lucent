@@ -338,6 +338,12 @@ export interface SdkCallable {
   facts?: NativeFacts;
   /** Objective-C selector (iOS). */
   selector?: string;
+  /**
+   * A constructor that is an Objective-C class method Swift imports as an
+   * initializer (`+widgetWithLabel:` as `init(label:)`): sent to the class,
+   * not to a new instance.
+   */
+  factory?: true;
   /** API level (Android) or OS version (iOS) that introduced it. */
   since?: number | string;
   /** Exact JNI descriptor (Android), when the types alone do not give it (generic erasure). */

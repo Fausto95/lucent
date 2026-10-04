@@ -1084,8 +1084,13 @@ export function buildIosSchema(
             type: withEscaping(parseType(afterColon(pp.declarationFragments), r), escaping[i]),
           }));
           if (mem.kind.identifier === "swift.init") {
-            if (kind === "cm") continue;
-            const c: SdkCallable = { params, selector, symbol };
+            // A class method Swift imports as an initializer: sent to the class.
+            const c: SdkCallable = {
+              params,
+              selector,
+              ...(kind === "cm" ? { factory: true as const } : {}),
+              symbol,
+            };
             if (facts) c.facts = facts;
             if (memberSince && memberSince !== cls.since) c.since = memberSince;
             ctors.push(c);
