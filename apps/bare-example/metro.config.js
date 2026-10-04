@@ -9,6 +9,17 @@ const config = {
   watchFolders: [root],
   resolver: {
     nodeModulesPaths: [path.resolve(__dirname, "node_modules"), path.resolve(root, "node_modules")],
+    // One react-native, the app's: the workspace's other app pins another release, so a
+    // package hoisted to the root (FlatList's @react-native/virtualized-lists) gets a copy
+    // of its own, and two copies of the renderer's registries break the views it makes.
+    resolveRequest: (context, moduleName, platform) =>
+      context.resolveRequest(
+        moduleName === "react-native" || moduleName.startsWith("react-native/")
+          ? { ...context, originModulePath: path.join(__dirname, "package.json") }
+          : context,
+        moduleName,
+        platform,
+      ),
   },
 };
 
