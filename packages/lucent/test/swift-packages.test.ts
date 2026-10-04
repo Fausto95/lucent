@@ -27,7 +27,11 @@ function app(): string {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "lucent-spm-")));
   const repo = path.join(root, "gauges.git");
 
-  fs.cpSync(path.join(here, "fixtures/spm/Gauges"), repo, { recursive: true });
+  // Its sources, not a build an editor may have left beside them.
+  fs.cpSync(path.join(here, "fixtures/spm/Gauges"), repo, {
+    recursive: true,
+    filter: (f) => !f.split(path.sep).includes(".build"),
+  });
   git(repo, "init", "-q");
   git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "add", ".");
   git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "Gauges");
