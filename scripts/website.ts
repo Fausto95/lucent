@@ -9,21 +9,24 @@
  *      docs' structure: page files match the sidebar, each page says its
  *      kind and has its "Next" link; and each post's date;
  *   4. compiles every `*.lucent.ts` sample on the docs pages and blog posts;
- *   5. checks internal links and their anchors, and each docs page's length
- *      budget (words and lines of code, by kind of page);
+ *   5. checks internal links and their anchors, links into the docs from the
+ *      repository (READMEs, docs/, the homepage, the CLI's diagnostics URL),
+ *      and each docs page's length budget (words and lines of code, by kind);
  *   6. writes each page's and post's prose as Markdown to apps/website/.prose/
  *      and runs Vale on it (apps/website/CONTRIBUTING-DOCS.md has the rules).
  *
  *   node scripts/website.ts           regenerate, then check
  *   node scripts/website.ts --check   fail if generated files are stale, or Vale is missing (CI)
  */
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
+import { docsUrl, Explanations } from "../packages/compiler/src/index.ts";
 import { pageToMdx } from "../apps/website/src/docs/mdx-write.ts";
 import { root, website, docFile } from "./website/context.ts";
 import { checkBudgets } from "./website/budget.ts";
 import { generatedFiles } from "./website/generated.ts";
-import { checkLinks } from "./website/links.ts";
+import { checkLinks, checkOutsideLinks } from "./website/links.ts";
 import {
   checkedPages,
   checkPosts,
@@ -105,6 +108,35 @@ for (const name of existing.filter((f) => !(f in generated) && !unbuilt.has(f)))
 }
 
 problems.push(...checkLinks(checked));
+
+// Links into the docs from outside its pages: with no redirects, a moved page breaks them.
+const tracked = spawnSync("git", ["ls-files", "--", "docs"], { cwd: root, encoding: "utf8" });
+const outside = [
+  "apps/website/src/pages/index.astro",
+  "apps/website/src/docs/comparison-table.ts",
+  "apps/website/README.md",
+  "apps/website/CONTRIBUTING-DOCS.md",
+  "README.md",
+  "packages/lucent/README.md",
+  "CONTRIBUTING.md",
+  "AGENTS.md",
+  "ROADMAP.md",
+  // Tracked only: docs/ also holds local planning files that git ignores.
+  ...tracked.stdout.split("\n").filter((f) => f.endsWith(".md")),
+];
+problems.push(
+  ...checkOutsideLinks(
+    [
+      ...outside.map((name) => ({ name, text: fs.readFileSync(path.join(root, name), "utf8") })),
+      // The URL `lucent explain` and the editor print for each diagnostic.
+      {
+        name: "docsUrl() in packages/compiler/src/codes.ts",
+        text: Object.keys(Explanations).map(docsUrl).join("\n"),
+      },
+    ],
+    checked,
+  ),
+);
 problems.push(...checkBudgets(checked));
 const prose = checkProse(checked, check);
 problems.push(...prose.problems);
