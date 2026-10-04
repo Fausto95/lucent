@@ -120,22 +120,27 @@ function diagnostics(): string {
   )};\n`;
 }
 
-/** The ports the Examples pages show, read from the example apps and packages so the pages can't drift from them. */
-export const exampleSources: Record<string, string> = {
-  location: "scripts/example-app/src/sdk/location.lucent.ts",
-  netinfo: "scripts/example-app/src/sdk/netInfo.lucent.ts",
-  "local-authentication": "scripts/example-app/src/sdk/localAuthentication.lucent.ts",
-  "secure-store": "examples/lucent-secure-store/src/secureStore.lucent.ts",
-  haptics: "examples/lucent-haptics/src/haptics.lucent.ts",
-  clipboard: "scripts/example-app/src/sdk/clipboard.lucent.ts",
+/**
+ * Repository files pages include, by their path under snippets/
+ * (```ts include="examples/clipboard.lucent.ts"```), read from the example
+ * apps and packages so the pages can't drift from them.
+ */
+const snippetSources: Record<string, string> = {
+  "examples/location.lucent.ts": "scripts/example-app/src/sdk/location.lucent.ts",
+  "examples/netinfo.lucent.ts": "scripts/example-app/src/sdk/netInfo.lucent.ts",
+  "examples/local-authentication.lucent.ts":
+    "scripts/example-app/src/sdk/localAuthentication.lucent.ts",
+  "examples/secure-store.lucent.ts": "examples/lucent-secure-store/src/secureStore.lucent.ts",
+  "examples/haptics.lucent.ts": "examples/lucent-haptics/src/haptics.lucent.ts",
+  "examples/clipboard.lucent.ts": "scripts/example-app/src/sdk/clipboard.lucent.ts",
   // Compiles only inside the bare app, which links the libraries it imports.
-  linked: "apps/bare-example/src/sdk/linked.lucent.ts",
+  "examples/linked.lucent.ts": "apps/bare-example/src/sdk/linked.lucent.ts",
 };
 
-/** A port's source without its opening comment, which the page replaces. */
-function example(file: string): string {
+/** A repository file as a page shows it: a module without its opening comment, which the page replaces. */
+function snippet(file: string): string {
   const lines = fs.readFileSync(path.join(root, file), "utf8").split("\n");
-  const start = lines.findIndex((line) => !line.startsWith("//"));
+  const start = /\.tsx?$/.test(file) ? lines.findIndex((line) => !line.startsWith("//")) : 0;
   return `${lines.slice(start).join("\n").trimEnd()}\n`;
 }
 
@@ -252,10 +257,7 @@ export function generatedFiles(): Record<string, string> {
     "compatibility.ts": compatibility(),
     "roadmap.ts": roadmap(),
     ...Object.fromEntries(
-      Object.entries(exampleSources).map(([name, file]) => [
-        `snippets/examples/${name}.lucent.ts`,
-        example(file),
-      ]),
+      Object.entries(snippetSources).map(([name, file]) => [`snippets/${name}`, snippet(file)]),
     ),
   };
 }
