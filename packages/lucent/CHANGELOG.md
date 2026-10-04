@@ -1,5 +1,27 @@
 # @lucent-lang/lucent
 
+## 0.1.3
+
+### Patch Changes
+
+- [#64](https://github.com/Fausto95/lucent/pull/64) [`fe9758d`](https://github.com/Fausto95/lucent/commit/fe9758de1923ae93d4de12c40d2248c5eda08a20) Thanks [@Fausto95](https://github.com/Fausto95)! - Start every `lucent` command about 0.1 s sooner: Node keeps the compiled code of the CLI and TypeScript on disk between runs.
+
+- [#68](https://github.com/Fausto95/lucent/pull/68) [`fbb8e10`](https://github.com/Fausto95/lucent/commit/fbb8e10c683dd2f14410170fc78daeeeebc13e19) Thanks [@Fausto95](https://github.com/Fausto95)! - Bind the version of a native library installed now in `lucent dev` and the editor: after a `pod install` or a rebuilt Swift module, the next rebuild uses its new API instead of the one the process first read.
+
+- [#65](https://github.com/Fausto95/lucent/pull/65) [`23cc5a1`](https://github.com/Fausto95/lucent/commit/23cc5a1a3342b46d593c2883709c2ba794eeb080) Thanks [@Fausto95](https://github.com/Fausto95)! - Let `lucent build --platforms ios` (or `host`) succeed before the app's Android dependencies are resolved: imports of them in Android code are left untyped with a warning pointing to the Android build, instead of failing with LUCENT3004.
+
+- [#78](https://github.com/Fausto95/lucent/pull/78) [`88cef84`](https://github.com/Fausto95/lucent/commit/88cef84e27b3bf08f16fd3a330f653568edda6a2) Thanks [@Fausto95](https://github.com/Fausto95)! - Bind Kotlin function types on Android: a `(Double) -> Unit` parameter, property or result is a TypeScript function instead of the `Function1` class, so a Lucent function can be passed or assigned to it and a Kotlin function Lucent gets can be called. A property of a fun interface's type (any Java interface with one abstract method) now takes a function too, in module code, in a view's setup and as a JSX attribute.
+
+- [#68](https://github.com/Fausto95/lucent/pull/68) [`fbb8e10`](https://github.com/Fausto95/lucent/commit/fbb8e10c683dd2f14410170fc78daeeeebc13e19) Thanks [@Fausto95](https://github.com/Fausto95)! - Say what to do when a native library's type has no member the code uses: the error names the module and the installed version (`pod:Name@version`) that declare the type, after a library update removed or renamed it. On iOS, for a type only named in another module's signatures, it says to import its module.
+
+- [#75](https://github.com/Fausto95/lucent/pull/75) [`23704bd`](https://github.com/Fausto95/lucent/commit/23704bd5b1534c2d5262ab19ac51768f1ae5a338) Thanks [@Fausto95](https://github.com/Fausto95)! - Add `--views` to `lucent sdk coverage`: with the internal views switch on (`LUCENT_VIEWS=fabric`), it lists each view class of a module as a JSX tag, how a tag makes it, the props and events its declarations give, whether it takes children, and what is left out and why.
+
+- [#64](https://github.com/Fausto95/lucent/pull/64) [`fe9758d`](https://github.com/Fausto95/lucent/commit/fe9758de1923ae93d4de12c40d2248c5eda08a20) Thanks [@Fausto95](https://github.com/Fausto95)! - Make each `lucent build` and `lucent check` start faster: the declarations of the SDK frameworks a project imports are kept in the SDK cache instead of written again by every run (a check importing UIKit: 1.9 s to 1 s).
+
+- [#64](https://github.com/Fausto95/lucent/pull/64) [`fe9758d`](https://github.com/Fausto95/lucent/commit/fe9758de1923ae93d4de12c40d2248c5eda08a20) Thanks [@Fausto95](https://github.com/Fausto95)! - Make rebuilds in `lucent dev`, checks in the editor and repeated builds faster: the declarations of the SDK frameworks a module imports are written once per process instead of for every compile.
+
+- [#68](https://github.com/Fausto95/lucent/pull/68) [`fbb8e10`](https://github.com/Fausto95/lucent/commit/fbb8e10c683dd2f14410170fc78daeeeebc13e19) Thanks [@Fausto95](https://github.com/Fausto95)! - Explain a native member Lucent does not bind: calling one the extractor skipped (a Swift tuple, say) now says it exists in the library, why it is not bound, and to wrap it in Swift or Kotlin of your own, rather than that the installed version lacks it. A member refused for a type that cannot cross yet (LUCENT2002) gets the same fix.
+
 ## 0.1.2
 
 ### Patch Changes
