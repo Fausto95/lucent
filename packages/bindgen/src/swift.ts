@@ -4,6 +4,7 @@
  * shim needs to call them (docs/design/swift-shims.md).
  */
 import {
+  formatSchemaType,
   parseSchemaType,
   type SchemaType,
   type SdkCallable,
@@ -345,7 +346,9 @@ export function addSwiftDeclarations(ctx: SwiftContext): void {
         readonly: true,
         swift: { name: "bytes", bytes: true },
       });
-    if (bound.ctors.length) cls.constructors = bound.ctors;
+    const apart = factoriesOfSameTyped(bound.ctors, `${module}.${cls.name}`);
+    bound.methods.push(...apart.factories);
+    if (apart.ctors.length) cls.constructors = apart.ctors;
     if (bound.methods.length) cls.methods = bound.methods;
     if (bound.props.length) cls.properties = bound.props;
     mod.types.push(cls);
@@ -375,7 +378,11 @@ export function addSwiftDeclarations(ctx: SwiftContext): void {
     const methods = withoutPropertyNames(bound.methods, cls.properties ?? [], bound.symbols, skip);
     for (const m of methods) if (!has(cls.methods, m.name)) (cls.methods ??= []).push(m);
     for (const p of bound.props) if (!has(cls.properties, p.name)) (cls.properties ??= []).push(p);
-    if (bound.ctors.length && !cls.constructors?.length) cls.constructors = bound.ctors;
+    if (bound.ctors.length && !cls.constructors?.length) {
+      const apart = factoriesOfSameTyped(bound.ctors, `${module}.${cls.name}`);
+      for (const f of apart.factories) if (!has(cls.methods, f.name)) (cls.methods ??= []).push(f);
+      if (apart.ctors.length) cls.constructors = apart.ctors;
+    }
   }
 
   // Top-level functions and variables.
@@ -713,4 +720,62 @@ function payload(c: SymbolGraphSymbol, r: Resolver): { label?: string; type: Sch
       const type = parseType(label ? afterColon(p.slice(1)) : p, r);
       return label ? { label, type } : { type };
     });
+}
+
+/**
+ * Swift initializers TypeScript cannot tell apart, their parameters' types
+ * the same (`init(service: String)`, `init(accessGroup: String)`): `new`
+ * would bind whichever is declared first. Each becomes a static factory
+ * named after its labels instead (`withService`, `withAccessGroup`; after
+ * its parameters' types where the labels are the same, `withInt`), which
+ * calls it; `new` keeps the initializers that stand apart, and one whose
+ * arguments have no labels, which Swift itself calls with bare arguments.
+ */
+export function factoriesOfSameTyped(
+  ctors: SdkCallable[],
+  self: string,
+): { ctors: SdkCallable[]; factories: SdkMethodSchema[] } {
+  const key = (c: SdkCallable) =>
+    c.params.map((p) => typeKind(formatSchemaType({ ...p.type, nullable: false }))).join(",");
+  const groups = new Map<string, SdkCallable[]>();
+  for (const c of ctors) groups.set(key(c), [...(groups.get(key(c)) ?? []), c]);
+
+  const capitalized = (w: string) => w.charAt(0).toUpperCase() + w.slice(1);
+  const byLabels = (c: SdkCallable) =>
+    `with${splitName(c.swift?.name ?? "init()")
+      .labels.filter((l) => l !== "_")
+      .map(capitalized)
+      .join("")}`;
+  const unlabeled = (c: SdkCallable) =>
+    splitName(c.swift?.name ?? "init()").labels.every((l) => l === "_");
+  const byTypes = (c: SdkCallable) =>
+    `with${c.params.map((p) => capitalized(formatSchemaType(p.type).replace(/\W/g, ""))).join("")}`;
+
+  const factories: SdkMethodSchema[] = [];
+  const turned = new Set<SdkCallable>();
+  for (const all of groups.values()) {
+    if (all.length < 2) continue;
+
+    // Unlabeled, it is what Swift calls with bare arguments (`Locale.LanguageCode("en")`): `new`.
+    const bare = all.filter((c) => !c.params.length || unlabeled(c));
+    const group = bare.length === 1 ? all.filter((c) => c !== bare[0]) : all;
+
+    const labelled = group.map(byLabels);
+    const names = new Set(labelled).size === group.length ? labelled : group.map(byTypes);
+    if (new Set(names).size !== group.length) continue;
+
+    group.forEach((c, i) => {
+      factories.push({ ...c, name: names[i]!, static: true, returns: parseSchemaType(self) });
+      turned.add(c);
+    });
+  }
+
+  return { ctors: ctors.filter((c) => !turned.has(c)), factories };
+}
+
+/** A schema type as TypeScript sees it: numbers of every width alike. */
+function typeKind(t: string): string {
+  return /^(double|float|CGFloat|NSInteger|NSUInteger|u?int(8|16|32|64)?|short|byte)$/.test(t)
+    ? "number"
+    : t;
 }
