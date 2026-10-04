@@ -32,6 +32,7 @@ import {
   type Notice,
   hasAndroidProject,
   pendingAndroidModules,
+  podsToInstall,
   projectHashes,
   projectSdk,
   resolveAndroidDependencies,
@@ -520,6 +521,18 @@ export async function buildProject(
   const diagnostics = result.diagnostics.map(relative);
   const warnings = (result.warnings ?? []).map(relative);
   if (!result.ok) {
+    // The packages' pods the app lacks: what the iOS code may have failed to import.
+    const pods =
+      built.includes("ios") &&
+      podsToInstall(
+        root,
+        native.manifest,
+        sdk,
+        path.join(path.relative(root, outDir), "LucentNative.podspec"),
+        build,
+      );
+    if (pods) notify(pods);
+
     graph.record("check", "check", "failed", {
       inputs: checkInputs,
       detail: plural(diagnostics.length, "error"),

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { frameworkSearchPath } from "@lucent-lang/bindgen";
+import { frameworkSearchPath, lockedPods } from "@lucent-lang/bindgen";
 import {
   fileHashes,
   forgetLoadedSdks,
@@ -345,6 +345,42 @@ function writeGradleDependencies(out: string, native: NativeInputs): void {
   if (fs.existsSync(file) && fs.readFileSync(file, "utf8") === text) return;
   fs.mkdirSync(path.dirname(file), { recursive: true });
   writeWhole(file, text);
+}
+
+/**
+ * The Lucent packages' pods a bare app (one with a Podfile) has not
+ * installed, with the packages declaring them and what installs them, for
+ * a check that failed: installed is what bindgen reads the pods' modules
+ * from, the Podfile.lock of the app's installed pods. A build (`wrote`) has
+ * declared them in `podspec` already; a check writes nothing.
+ */
+export function podsToInstall(
+  root: string,
+  native: ResolvedNative,
+  sdk: SdkOptions,
+  podspec: string,
+  wrote: boolean,
+): Notice | undefined {
+  if (!fs.existsSync(path.join(root, "ios/Podfile"))) return undefined;
+
+  const installed = new Set(sdk.ios?.lockfile ? lockedPods(sdk.ios.lockfile).keys() : []);
+  const missing = Object.entries(native.ios.pods).filter(
+    ([pod]) => !installed.has(pod.split("/")[0]!),
+  );
+  if (!missing.length) return undefined;
+
+  const named = missing.map(
+    ([pod, asked]) => `${[...new Set(Object.values(asked).flat())].join(" and ")}'s pod ${pod}`,
+  );
+  const subject = `${named.join(", ")} ${missing.length === 1 ? "is" : "are"} not installed`;
+  const them = missing.length === 1 ? "it" : "them";
+
+  return {
+    level: "warn",
+    text: wrote
+      ? `${subject}: ${podspec} depends on ${them}; run pod install in ios/, then lucent build`
+      : `${subject}: run lucent build, which adds ${them} to ${podspec}, then pod install in ios/`,
+  };
 }
 
 /** The app's property lists Lucent packages add entries to, and where the build finds them. */

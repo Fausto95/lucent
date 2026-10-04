@@ -74,11 +74,31 @@ conflict names the two packages that disagree:
 The merged result goes into the native package:
 
 - **Pods** become dependencies of its podspec, marked `# lucent.json`. A
-  build writes them before it checks the modules, so a module that imports
-  a package's pod builds in a new app: the first build fails with
-  LUCENT3004 and asks for `pod install`, which installs the pod, and the
-  next build binds it. A pod the packages no longer declare leaves the
-  podspec; the pods the code imports from the app's Podfile stay.
+  build writes them before it checks the modules, so in a bare React
+  Native app a module can import a package's pod before it is installed:
+  the first `lucent build` leaves the podspec depending on it, fails with
+  LUCENT3004 and names the pod, its package and the next steps. Then
+  `pod install` in `ios/` installs it, and the next `lucent build` binds
+  it; when that build adds files to the native package, it asks for
+  `pod install` again (`iOS: pod install first`). `lucent check`, which
+  writes nothing, names the pod and says to run `lucent build` first. A
+  pod the packages no longer declare leaves the podspec; a pod the code
+  imports that no package declares must be in the app's Podfile. Expo
+  apps don't get there yet: the config plugin runs `lucent build` in
+  `expo prebuild`, before the pods are installed, and stops at its
+  failure.
+- A pod binds through the module it defines, as the app target's Pods
+  xcconfig gives it (`podsSearchPaths` in `@lucent-lang/bindgen`): a
+  `module.modulemap` under its header search paths or passed with
+  `-fmodule-map-file`, a `.swiftmodule` in a header search path, or, with
+  `use_frameworks!`, the framework module map and umbrella header CocoaPods
+  writes in `Pods/Target Support Files/` and the headers the umbrella
+  imports. Built as a static library (React Native's default), a pod
+  defines one when its podspec sets `DEFINES_MODULE` or the Podfile asks
+  for modular headers (`use_modular_headers!`, `:modular_headers => true`).
+  Paths in the build products directory (`PODS_CONFIGURATION_BUILD_DIR`)
+  are not read, so a Swift pod built as a static library, whose module
+  Xcode writes there, is not bound.
 - **Frameworks** join the podspec's `s.frameworks`, with the frameworks of
   the `lucent:ios/*` modules its code imports.
 - **Gradle artifacts** are `api` dependencies of its Android library. They

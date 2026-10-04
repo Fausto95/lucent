@@ -2290,8 +2290,14 @@ Last recorded runs:
 - Module state is process-wide and reset when a new `Host` is created.
 - On Android API 24 and 25, a Java default method that Lucent does not
   implement returns its zero value, and the reason is logged.
-- A pod added to `lucent.json` after the first build needs `pod install`
-  before it can be bound.
+- A Lucent package's pod binds once installed. In a bare app, the
+  `lucent build` that first meets it declares it in the native package's
+  podspec, fails with LUCENT3004 and names it; `pod install`, then
+  `lucent build` binds it, and asks for `pod install` again when it adds
+  files. `expo prebuild` stops at that first failure: the config plugin
+  builds before the pods are installed. A pod binds through the module it
+  defines (`DEFINES_MODULE`, modular headers, or `use_frameworks!`); a
+  Swift pod built as a static library is not bound.
 - Typed native extensions: Swift and Kotlin sources in a package are not
   typed yet, and extension calls cannot be cancelled.
 - Tracing records allocations for native buffers only, and its buffer
