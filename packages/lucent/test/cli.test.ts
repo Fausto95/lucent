@@ -136,6 +136,27 @@ describe("Lucent packages", () => {
     expect(fs.existsSync(path.join(root, ".lucent/native/js/lucent-near/hello.js"))).toBe(true);
   });
 
+  it("builds an app importing such a package by path through a linked --root", () => {
+    const root = project();
+    nestedPackage(root, "lucent-near");
+    fs.writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "app", dependencies: { "lucent-near": "file:packages/lucent-near" } }),
+    );
+    fs.mkdirSync(path.join(root, "node_modules"));
+    fs.symlinkSync("../packages/lucent-near", path.join(root, "node_modules/lucent-near"));
+    fs.writeFileSync(
+      path.join(root, "near.lucent.ts"),
+      'import { hello } from "./packages/lucent-near/src/hello.lucent";\nexport function near(): number { return hello(); }\n',
+    );
+    const link = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-link-")), "app");
+    fs.symlinkSync(root, link);
+
+    const r = lucent(link, "build");
+    expect(r.out).not.toMatch(/LUCENT3001/);
+    expect(r.status).toBe(0);
+  });
+
   it("leaves a Lucent package inside the app out of the build when the app does not depend on it", () => {
     const root = project();
     nestedPackage(root, "lucent-far");
