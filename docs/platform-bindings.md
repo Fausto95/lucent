@@ -241,6 +241,17 @@ directory:
   the SDK declares initializers;
 - Swift names on iOS (`UIDevice.current`, `init(style:)` → `constructor(style)`),
   nested types joined with `_` (`UIImpactFeedbackGenerator_FeedbackStyle`);
+  Swift initializers TypeScript cannot tell apart, their parameters' types
+  the same (`init(service: String)`, `init(accessGroup: String)`), are
+  static factories named after their labels (`Keychain.withService(…)`,
+  `Keychain.withAccessGroup(…)`; after their types where the labels are
+  the same, `withInt`), never a `constructor` that would bind whichever
+  is declared first, and `new` with their arguments says so; one whose
+  arguments have no labels stays the `constructor`, as Swift calls it
+  with bare arguments (`new Locale_LanguageCode("en")`, while
+  `init(stringLiteral:)` is `withStringLiteral`); methods
+  that collide get their labels appended (`resize(height:)` →
+  `resizeHeight`). Objective-C initializers are not separated yet;
 - Java names on Android, plus Kotlin-style getter properties
   (`VibratorManager.defaultVibrator`); Kotlin classes as Kotlin declares
   them (see below);
