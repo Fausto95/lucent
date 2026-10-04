@@ -3,5 +3,12 @@ import type { View } from "lucent:android/android.view";
 import type { Props } from "./dial-jsx.lucent";
 
 export function Dial(props: Props): View {
-  return <QXNDial qxnLevel={props.level} onQXNTurn={(level) => props.onTurn?.(level)} />;
+  return (
+    <QXNDial
+      qxnLevel={props.level}
+      onQXNTurn={(level) => props.onTurn?.(level)}
+      qxnOnSpin={(level) => props.onTurn?.(level)}
+      qxnSettled={(level) => props.onTurn?.(level)}
+    />
+  );
 }
