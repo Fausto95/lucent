@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { findOwnFiles } from "@lucent-lang/compiler/packages";
+import { findOwnFiles, LUCENT_EXTENSION } from "@lucent-lang/compiler/packages";
 import { type PackageManager, packageManagerOf, runner } from "../package-manager.ts";
 import { withLucentTsconfig } from "../tsconfig.ts";
 import {
@@ -127,7 +127,7 @@ export function planInit(root: string): InitPlan {
     "the native package is generated, like a build output",
     ignoreNativePackage(read(root, ".gitignore")),
   );
-  if (!findOwnFiles(root, /\.lucent\.tsx?$/).length)
+  if (!findOwnFiles(root, LUCENT_EXTENSION).length)
     change("src/hello.lucent.ts", "a first module to try", HELLO);
 
   const x = runner(packageManager);

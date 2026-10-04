@@ -30,6 +30,9 @@ interface PackageJson {
   lucent?: { sources?: string; compatible?: string };
 }
 
+/** A Lucent module's file: `*.lucent.ts`, or `*.lucent.tsx` with views. */
+export const LUCENT_EXTENSION = /\.lucent\.tsx?$/;
+
 const read = (file: string): PackageJson | undefined => {
   try {
     return JSON.parse(fs.readFileSync(file, "utf8")) as PackageJson;

@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { findOwnFiles, lucentPackageOf, lucentPackages } from "./packages.ts";
+import { findOwnFiles, LUCENT_EXTENSION, lucentPackageOf, lucentPackages } from "./packages.ts";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ts as dts } from "@lucent-lang/codegen";
@@ -87,7 +87,6 @@ export function coreTypesPath(): string {
   return sdkLibPath("core");
 }
 
-export const LUCENT_EXTENSION = /\.lucent\.tsx?$/;
 export const PLATFORM_EXTENSION = /\.(ios|android)\.lucent\.tsx?$/;
 
 /** The module a file belongs to: `haptics` for haptics.lucent.ts and haptics.ios.lucent.ts. */
