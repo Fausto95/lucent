@@ -11,6 +11,9 @@ value class Score(val points: Int)
 interface Judge {
   fun judge(score: Score): Score
 
+  /** An object result. */
+  fun crown(board: Board): Board
+
   suspend fun pick(names: List<String>): String
 }
 
@@ -26,7 +29,7 @@ class Board {
 
   /** Asks a judge: its value-class member, then its suspend one. */
   suspend fun ask(judge: Judge, names: List<String>): String =
-    "${judge.judge(Score(2)).points} ${judge.pick(names)}"
+    "${judge.judge(Score(2)).points} ${judge.crown(this) === this} ${judge.pick(names)}"
 }
 
 /** A class generic in a bounded type parameter: its suspend member through a shim. */

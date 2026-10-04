@@ -487,7 +487,7 @@ describe("binding plans: JNI rules", () => {
     });
   });
 
-  it("plans interface methods Lucent implements: chars refused where taken, results boxed", () => {
+  it("plans interface methods Lucent implements: chars refused where taken, results boxed or objects", () => {
     const onKey = planBinding(listener, method(listener, "onKey"), pkg, types, "implement");
     const describe = planBinding(listener, method(listener, "describe"), pkg, types, "implement");
 
@@ -495,9 +495,7 @@ describe("binding plans: JNI rules", () => {
     expect(takenReason(onKey.inputs, 1)).toBeUndefined();
     expect(takenReason(onKey.inputs, 2)).toBe("a char argument is not supported yet");
     expect(describe.delivery).toBe("sync");
-    expect(unsupportedReason(describe)).toBe(
-      "Lucent functions cannot return a com.example.Color to Java yet",
-    );
+    expect(unsupportedReason(describe)).toBeUndefined();
   });
 });
 
@@ -679,9 +677,13 @@ describe("binding plans: Kotlin facts", () => {
       backend: "kotlin-shim",
       inputs: [{ op: "retain-object" }],
     });
-    expect(planBinding(client, property(client, "lastId"), pkg, types, "set").refused).toBeUndefined();
+    expect(
+      planBinding(client, property(client, "lastId"), pkg, types, "set").refused,
+    ).toBeUndefined();
     for (const name of ["fetch", "load"])
-      expect(planBinding(loader, method(loader, name), pkg, types, "implement").refused).toBeUndefined();
+      expect(
+        planBinding(loader, method(loader, name), pkg, types, "implement").refused,
+      ).toBeUndefined();
   });
 
   it("refuses what the shims do not handle yet, naming the rule", () => {
@@ -715,7 +717,9 @@ describe("binding plans: Kotlin facts", () => {
       rule: "jvm-mangled-name",
       reason: "a method whose JVM name Java cannot write (load-X6dG1pw) cannot be overridden",
     });
-    expect(planBinding(loader, method(loader, "load"), pkg, types, "implement").refused).toBeUndefined();
+    expect(
+      planBinding(loader, method(loader, "load"), pkg, types, "implement").refused,
+    ).toBeUndefined();
   });
 });
 

@@ -738,7 +738,12 @@ class Fair implements Judge {
     return new Score(score.points * 10);
   }
 
+  crown(board: Board): Board {
+    return board;
+  }
+
   async pick(names: string[]): Promise<string> {
+    if (!names.length) throw new Error("no names");
     return names[names.length - 1]!;
   }
 }
@@ -751,8 +756,14 @@ export async function run(): Promise<string> {
   const lowest = board.lowest(["y", "x", "z"]);
   const best = await new Ranked(["x", "z", "y"]).best();
   const asked = await board.ask(new Fair(), ["p", "q"]);
+  let failed = "";
+  try {
+    await board.ask(new Fair(), []);
+  } catch (e) {
+    failed = (e as Error).message;
+  }
 
-  return \`\${board.best.points} \${top} \${lowest} \${best} \${asked}\`;
+  return \`\${board.best.points} \${top} \${lowest} \${best} \${asked} \${failed}\`;
 }
 `;
 
@@ -779,7 +790,7 @@ describe.skipIf(!toolchain || !jdk)("Kotlin shims, finished (TA31)", () => {
     expect(p.r.diagnostics).toEqual([]);
     expect(jvmRun(p.r, p.dir, jars, tc!)).toEqual({
       status: 0,
-      stdout: "7 c x z 20 q\n",
+      stdout: "7 c x z 20 true q no names\n",
       stderr: "",
     });
   }, 600_000);
