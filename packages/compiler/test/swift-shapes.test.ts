@@ -55,10 +55,14 @@ describe.skipIf(!xcode)("Swift shapes", () => {
     seen.push(v);
   });
   const greeted = meter.greet("ada", (n) => n.toUpperCase());
-  return \`\${add(2)} \${meter.apply((x) => x * 3)} \${seen.join(",")} \${greeted}\`;`);
+  let heard = "";
+  meter.announce((s) => {
+    heard = s;
+  });
+  return \`\${add(2)} \${meter.apply((x) => x * 3)} \${seen.join(",")} \${greeted} \${heard}\`;`);
 
     expect(p.r.diagnostics).toEqual([]);
     expect(compileErrors(p)).toEqual(compiles);
-    expect(hostRun(p)).toMatchObject({ status: 0, stdout: "3 6 1,2 ADA\n" });
+    expect(hostRun(p)).toMatchObject({ status: 0, stdout: "3 6 1,2 ADA ready\n" });
   }, 600_000);
 });

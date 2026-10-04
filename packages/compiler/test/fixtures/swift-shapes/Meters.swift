@@ -34,4 +34,9 @@ public final class Meter {
   public func greet(_ name: String, _ f: (String) -> String) -> String {
     f(name)
   }
+
+  /// A closure returning `()`, Swift's other spelling of Void.
+  public func announce(_ f: (String) -> ()) {
+    f("ready")
+  }
 }
