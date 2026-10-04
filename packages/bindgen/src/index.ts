@@ -73,6 +73,7 @@ export { sourcesHash } from "./provenance.ts";
 export { buildSourceSchema, isScalarProtocol } from "./swift-source.ts";
 export { boundValue } from "./source-plan.ts";
 export { type PodFramework, podsSearchPaths, type PodsSearchPaths } from "./pods.ts";
+export { type SwiftPackagePin, type XcodeApp, xcodeApp } from "./xcode.ts";
 export {
   coverage,
   type Coverage,
