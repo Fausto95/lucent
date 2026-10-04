@@ -5,6 +5,7 @@ import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import { frameworkSearchPath, lockedPods } from "@lucent-lang/bindgen";
 import {
+  closesPodspec,
   fileHashes,
   forgetLoadedSdks,
   libraryBuildGradle,
@@ -292,12 +293,16 @@ export function writeLinkedPackage(
  * The native package's podspec depending on the Lucent packages' pods, before
  * the rest is written: a check that fails because a package's pod isn't
  * installed yet leaves the pod declared, so pod install installs it and the
- * next build binds it.
+ * next build binds it. A podspec an edit took the closing `end` from starts
+ * again from the template, as the full build's does.
  */
 function writePodDependencies(out: string, native: NativeInputs): void {
   const file = path.join(out, "LucentNative.podspec");
   const text = fs.readFileSync(file, "utf8");
-  const next = withPodDependencies(text, packagePods(native.manifest));
+  const from = closesPodspec(text)
+    ? text
+    : fs.readFileSync(path.join(runtimeDir(), "native/LucentNative.podspec"), "utf8");
+  const next = withPodDependencies(from, packagePods(native.manifest));
 
   if (next !== text) writeWhole(file, next);
 }

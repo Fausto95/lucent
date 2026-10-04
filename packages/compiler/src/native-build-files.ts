@@ -49,6 +49,9 @@ const rubyHash = (r: SwiftPackageRequirement) =>
 /** The podspec's closing line: what the build's lines go before. */
 const CLOSING_END = /^end\s*$/m;
 
+/** Whether `podspec` has its closing line, where withPodDependencies adds pods. */
+export const closesPodspec = (podspec: string) => CLOSING_END.test(podspec);
+
 /** LucentNative.podspec: the template with the frameworks, sources, resources and pods the build needs. */
 export function podspec(template: string, inputs: PodspecInputs): string {
   let text = template.replace(
