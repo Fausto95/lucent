@@ -1,7 +1,7 @@
 # Lucent packages
 
 The contributor spec. Users read the
-[`lucent.json` reference](https://lucent-lang.dev/docs/reference/lucent-json/).
+[`lucent.json` reference](https://lucent-lang.dev/docs/packages/lucent-json/).
 
 An npm package can ship Lucent modules. An app that installs it gets them
 compiled into its one native package: the same runtime, the same toolchain,
