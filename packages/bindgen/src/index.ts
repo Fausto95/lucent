@@ -19,7 +19,9 @@ export type {
   SwiftParamFacts,
   SwiftType,
   SymbolId,
+  KotlinTypeRef,
   TypeParamBounds,
+  TypeParamUpperBounds,
 } from "./schema.ts";
 export {
   canonicalSchema,

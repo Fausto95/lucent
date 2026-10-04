@@ -155,6 +155,7 @@ export interface KotlinClassFacts {
   /** A value class: the property holding its underlying value, and that value's type. */
   value?: { property: string; type: SchemaType };
   bounds?: TypeParamBounds;
+  upperBounds?: TypeParamUpperBounds;
   /**
    * The receiver of a lambda parameter of the API (`BoxScope`): its members
    * are called in such a lambda, which gives them their receiver.
@@ -169,6 +170,23 @@ export interface KotlinClassFacts {
  * `other` (`T : Comparable<T>`). Unlisted ones take any value (`Any?`).
  */
 export type TypeParamBounds = Record<string, "non-null" | "other">;
+
+/**
+ * A Kotlin type as a shim writes it in a type parameter's bound: a class
+ * or type alias by its Kotlin name (`kotlin.Comparable`), or a type
+ * parameter by its own (`T`); arguments invariant or star-projected.
+ */
+export interface KotlinTypeRef {
+  name: string;
+  args?: (KotlinTypeRef | "*")[];
+  nullable?: true;
+}
+
+/**
+ * The upper bounds of the type parameters bounded `other`, by name, as a
+ * shim writes them; a parameter whose bounds it cannot write is left out.
+ */
+export type TypeParamUpperBounds = Record<string, KotlinTypeRef[]>;
 
 /**
  * What Kotlin metadata says of a member (Android) that its JVM method does
@@ -187,6 +205,7 @@ export interface KotlinMemberFacts {
   unboxed?: true;
   /** Its own type parameters' bounds. */
   bounds?: TypeParamBounds;
+  upperBounds?: TypeParamUpperBounds;
   /** An extension property, read from its receiver (`params[0]`): `20.dp`. */
   property?: true;
   /** Compose's `@Composable`: it runs while a composition composes, and only then. */
