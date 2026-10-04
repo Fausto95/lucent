@@ -47,9 +47,15 @@ describe.skipIf(!xcode)("Swift initializers TypeScript cannot tell apart", () =>
     expect(hostRun(p)).toMatchObject({ status: 0, stdout: "s g default\n" });
   }, 600_000);
 
-  it("are not what `new` with their arguments binds, which would pick one", () => {
+  it("are not what `new` with their arguments binds, which would pick one: the error names them", () => {
     expect(program('  return new Vault("s").service;').r.diagnostics).toEqual([
-      expect.objectContaining({ code: "LUCENT9001" }),
+      expect.objectContaining({
+        code: "LUCENT9001",
+        message: expect.stringContaining(
+          "Vault's initializers that take the same types are its static factories, which TypeScript tells apart: Vault.withAccessGroup(…) for init(accessGroup:), Vault.withService(…) for init(service:).",
+        ),
+        fix: "call the one you mean: Vault.withAccessGroup(…)",
+      }),
     ]);
   }, 600_000);
 });
