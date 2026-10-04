@@ -1767,8 +1767,13 @@ the app's target needs an availability check.
       shim as an array of its elements' objects, both ways
       (`swift-shapes.test.ts`). Tuples of optional values or C structs are
       refused, named.
-- [ ] Functions returned by or passed to Swift (LUCENT2002, "fn values
-      cannot cross to Swift yet").
+- [x] Functions returned by or passed to Swift (LUCENT2002, "fn values
+      cannot cross to Swift yet"). A closure crosses a shim as an
+      Objective-C block (`@convention(block)`): a Lucent function given,
+      escaping or not, is the block the glue makes of it, which Swift
+      calls as a closure; a closure Swift returns is cast to a block,
+      which Lucent calls. Closures taking or giving other than numbers,
+      booleans, strings and Objective-C objects are refused, named.
 - [x] Factory initializers Swift imports as `init`, which the extractor
       drops (recheck first: recorded 2026-09-23). Still dropped on
       recheck: `+widgetWithLabel:` is now a constructor sent to the class

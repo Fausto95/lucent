@@ -1208,6 +1208,24 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
     case "tparam":
       return undefined;
 
+    // A closure crosses as an Objective-C block: what a block's signature can hold.
+    case "fn": {
+      const blockable = (x: SchemaType, result: boolean): boolean => {
+        if (x.k === "prim")
+          return (result && x.name === "void") || (!!SWIFT_SCALARS[x.name] && !x.nullable);
+        if (x.k === "string") return true;
+        if (x.k !== "ref") return false;
+        const facts = ctx.types(x.module, x.name);
+        return (facts?.kind === "class" || facts?.kind === "protocol") && !facts.swift;
+      };
+      if (![...t.params.map((x) => blockable(x, false)), blockable(t.ret, true)].every(Boolean))
+        return not(
+          "closures taking or giving values other than numbers, booleans, strings and Objective-C objects",
+        );
+
+      return t.nullable ? not("optional closures") : undefined;
+    }
+
     case "tuple":
       if (t.of.some((x) => x.nullable)) return not("tuples of optional values");
       if (t.of.some((x) => isStruct(x, ctx))) return not("tuples of C structs");

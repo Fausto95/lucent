@@ -398,9 +398,11 @@ a suspend function argument) has the `kotlin-shim` backend, which refuses
 generic members bounded by a projected type (`T : List<out R>`, whose
 bound the schema does not keep) and overriding a Kotlin class's suspend
 or value-class members, for now;
-Swift shims pass scalars, Swift enums, objects and tuples (as arrays of
-their elements' objects; not of optional values or C structs), not
-optionals of scalars, Objective-C enums or closures. A value that cannot cross is an `unsupported` conversion with
+Swift shims pass scalars, Swift enums, objects, tuples (as arrays of
+their elements' objects; not of optional values or C structs) and
+closures (as Objective-C blocks, both ways: of numbers, booleans,
+strings and Objective-C objects), not optionals of scalars or
+Objective-C enums. A value that cannot cross is an `unsupported` conversion with
 its reason; a member no use of which can work (a read-only property
 written, a Swift async initializer, a member of a protocol with associated
 types called, a static requirement implemented) is `refused`, with the

@@ -864,6 +864,12 @@ function bareSwiftType(t: SdkType): swift.Type {
       return swift.array(swiftType(t.of));
     case "record":
       return swift.dictionary(swift.type("String"), swiftType(t.of));
+    // A closure as the Objective-C block it crosses as.
+    case "fn":
+      return swift.blockFunction(
+        t.params.map(swiftType),
+        t.ret.k === "prim" && t.ret.name === "void" ? swift.type("Void") : swiftType(t.ret),
+      );
     case "ref": {
       const info = sdkTypeInfo("ios", t.module, t.name);
       // C structs by their C name: the Clang module declaring them may not be their schema's.
@@ -932,6 +938,12 @@ export function fromObject(t: SdkType, o: swift.Expr): swift.Expr {
         "mapValues",
         fromObject(t.of, n("$0")),
       );
+    // A Lucent function: the block it crosses as, which Swift calls as a closure.
+    case "fn":
+      return swift.call(n("unsafeBitCast"), [
+        { value: o },
+        { label: "to", value: n(`(${swift.printType(swiftType(t))}).self`) },
+      ]);
     // A tuple crosses as an array of its elements' objects.
     case "tuple": {
       const items = cast(swift.array(swift.type("AnyObject")));
@@ -977,6 +989,12 @@ function toObject(t: SdkType, v: swift.Expr): swift.Expr {
       return as(bridges(t.of) ? v : each(v, "map", toObject(t.of, n("$0"))), "NSArray");
     case "record":
       return as(bridges(t.of) ? v : each(v, "mapValues", toObject(t.of, n("$0"))), "NSDictionary");
+    // A Swift closure: as a block, an object.
+    case "fn":
+      return swift.call(n("unsafeBitCast"), [
+        { value: swift.cast(v, "as", swiftType(t)) },
+        { label: "to", value: n("AnyObject.self") },
+      ]);
     case "tuple":
       return as(
         swift.arrayLiteral(
