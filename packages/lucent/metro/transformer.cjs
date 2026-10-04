@@ -8,23 +8,31 @@ const upstream = require(process.env.LUCENT_UPSTREAM_TRANSFORMER);
 const LUCENT = /\.lucent\.tsx?$/;
 
 /**
- * The module's name, as the compiler's moduleNameOf gives it: its file's, or
- * in a Lucent package (the nearest package.json with a name or dependencies
- * has a `lucent` field) `<package>/<path under its sources>`.
+ * The Lucent package a file belongs to, as the compiler's lucentPackageOf
+ * finds it: the nearest package.json with a name or dependencies, if it has
+ * a `lucent` field.
  */
-function moduleName(filename) {
-  const base = (f) => f.replace(/\.(ios|android)(?=\.lucent\.tsx?$)/, "").replace(LUCENT, "");
+function lucentPackageOf(filename) {
   for (let dir = path.dirname(path.resolve(filename)); ; dir = path.dirname(dir)) {
     const file = path.join(dir, "package.json");
     const pkg = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : undefined;
     if (pkg && (pkg.name || pkg.dependencies)) {
-      if (!pkg.lucent || !pkg.name) break;
-      const rel = path.relative(path.join(dir, pkg.lucent.sources || "."), path.resolve(filename));
-      return `${pkg.name}/${base(rel).split(path.sep).join("/")}`;
+      if (!pkg.lucent || !pkg.name) return undefined;
+      return { name: pkg.name, sources: path.join(dir, pkg.lucent.sources || ".") };
     }
-    if (path.dirname(dir) === dir) break;
+    if (path.dirname(dir) === dir) return undefined;
   }
-  return base(path.basename(filename));
+}
+
+/**
+ * The module's name, as the compiler's moduleNameOf gives it: its file's, or
+ * in Lucent package `pkg` `<package>/<path under its sources>`.
+ */
+function moduleName(filename, pkg) {
+  const base = (f) => f.replace(/\.(ios|android)(?=\.lucent\.tsx?$)/, "").replace(LUCENT, "");
+  if (!pkg) return base(path.basename(filename));
+  const rel = path.relative(pkg.sources, path.resolve(filename));
+  return `${pkg.name}/${base(rel).split(path.sep).join("/")}`;
 }
 
 /**
@@ -37,11 +45,12 @@ function nativePackage(projectRoot) {
 }
 
 function proxyFor(filename, projectRoot) {
-  const name = moduleName(filename);
-  const generated = path.join(nativePackage(projectRoot), "js", `${name}.js`);
+  const pkg = lucentPackageOf(filename);
+  const generated = path.join(nativePackage(projectRoot), "js", `${moduleName(filename, pkg)}.js`);
   if (fs.existsSync(generated))
     return rebase(fs.readFileSync(generated, "utf8"), generated, filename);
-  return `throw new Error(${JSON.stringify(`Lucent: ${path.basename(filename)} has not been compiled. Run \`lucent build\` and rebuild the app.`)});\n`;
+  const why = pkg ? ` (lucent build compiles ${pkg.name} only when the app depends on it)` : "";
+  return `throw new Error(${JSON.stringify(`Lucent: ${path.basename(filename)} has not been compiled. Run \`lucent build\` and rebuild the app${why}.`)});\n`;
 }
 
 /**
