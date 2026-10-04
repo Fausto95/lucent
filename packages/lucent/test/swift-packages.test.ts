@@ -22,7 +22,7 @@ const git = (cwd: string, ...args: string[]) => {
   return r.stdout.trim();
 };
 
-/** An app whose Xcode project links the Gauges package, tagged 1.0.0 in a repository of its own. */
+/** An app whose Xcode project references the Gauges package, tagged 1.0.0 in a repository of its own. */
 function app(): string {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "lucent-spm-")));
   const repo = path.join(root, "gauges.git");
