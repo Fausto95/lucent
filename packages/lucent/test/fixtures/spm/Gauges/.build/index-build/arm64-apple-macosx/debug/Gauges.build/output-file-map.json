@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Gauges.build/primary.swiftdeps"
+  },
+  "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/Sources/Gauges/Gauges.swift": {
+    "dependencies": "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Gauges.build/Gauges.d",
+    "object": "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Gauges.build/Gauges.swift.o",
+    "swiftmodule": "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Gauges.build/Gauges~partial.swiftmodule",
+    "swift-dependencies": "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Gauges.build/Gauges.swiftdeps",
+    "diagnostics": "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Gauges.build/Gauges.dia"
+  }
+}

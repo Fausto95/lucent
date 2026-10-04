@@ -1,0 +1,145 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "Gauges-arm64-apple-macosx-debug.module": ["<Gauges-arm64-apple-macosx-debug.module>"]
+  "PackageStructure": ["<PackageStructure>"]
+  "main": ["<Gauges-arm64-apple-macosx-debug.module>"]
+  "test": ["<Gauges-arm64-apple-macosx-debug.module>"]
+default: "main"
+nodes:
+  "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/Sources/Gauges/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git", ".build"]
+commands:
+  "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Gauges.build/sources":
+    tool: write-auxiliary-file
+    inputs:
+      [
+        "<sources-file-list>",
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/Sources/Gauges/Gauges.swift",
+      ]
+    outputs:
+      [
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Gauges.build/sources",
+      ]
+    description: "Write auxiliary file /Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Gauges.build/sources"
+
+  "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt":
+    tool: write-auxiliary-file
+    inputs:
+      [
+        "<swift-get-version>",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+      ]
+    outputs:
+      [
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt",
+      ]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt"
+
+  "<Gauges-arm64-apple-macosx-debug.module>":
+    tool: phony
+    inputs:
+      [
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Modules/Gauges.swiftmodule",
+      ]
+    outputs: ["<Gauges-arm64-apple-macosx-debug.module>"]
+
+  "C.Gauges-arm64-apple-macosx-debug.module":
+    tool: shell
+    inputs:
+      [
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/Sources/Gauges/Gauges.swift",
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/swift-version--58304C5D6DBC2206.txt",
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Gauges.build/sources",
+      ]
+    outputs:
+      [
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Modules/Gauges.swiftmodule",
+      ]
+    description: "Compiling Swift Module 'Gauges' (1 sources)"
+    args:
+      [
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc",
+        "-module-name",
+        "Gauges",
+        "-emit-dependencies",
+        "-emit-module",
+        "-emit-module-path",
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Modules/Gauges.swiftmodule",
+        "-output-file-map",
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Gauges.build/output-file-map.json",
+        "-parse-as-library",
+        "-incremental",
+        "@/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Gauges.build/sources",
+        "-I",
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Modules",
+        "-target",
+        "arm64-apple-macosx12.0",
+        "-incremental",
+        "-enable-batch-mode",
+        "-serialize-diagnostics",
+        "-Onone",
+        "-enable-testing",
+        "-j11",
+        "-DSWIFT_PACKAGE",
+        "-DDEBUG",
+        "-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE",
+        "-module-cache-path",
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/ModuleCache",
+        "-parseable-output",
+        "-parse-as-library",
+        "-emit-objc-header",
+        "-emit-objc-header-path",
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/.build/index-build/arm64-apple-macosx/debug/Gauges.build/include/Gauges-Swift.h",
+        "-swift-version",
+        "5",
+        "-Xfrontend",
+        "-experimental-lazy-typecheck",
+        "-Xfrontend",
+        "-experimental-skip-all-function-bodies",
+        "-Xfrontend",
+        "-experimental-allow-module-with-compiler-errors",
+        "-Xfrontend",
+        "-empty-abi-descriptor",
+        "-plugin-path",
+        "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/plugins/testing",
+        "-sdk",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk",
+        "-F",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-I",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-L",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/usr/lib",
+        "-g",
+        "-Xcc",
+        "-isysroot",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.0.sdk",
+        "-Xcc",
+        "-F",
+        "-Xcc",
+        "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/Library/Frameworks",
+        "-Xcc",
+        "-fPIC",
+        "-Xcc",
+        "-g",
+        "-package-name",
+        "gauges",
+      ]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs:
+      [
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/Sources/Gauges/",
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/Package.swift",
+        "/Users/faustino/Documents/dev/lucent/packages/lucent/test/fixtures/spm/Gauges/Package.resolved",
+      ]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
