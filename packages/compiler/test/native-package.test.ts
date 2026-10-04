@@ -597,7 +597,7 @@ describe("publishing the native package", () => {
     const out = path.join(dir, "native");
 
     fs.writeFileSync(src, "export function one(): number { return 1; }\n");
-    writeNativePackage(compile([src]), out, { inputsKey: "first" });
+    writeNativePackage(compile([src]), out, { check: { inputs: "first", read: [] } });
 
     // A reader holding the old file (a link to it) keeps reading the old file.
     const proxy = path.join(out, "js/a.js");
@@ -609,7 +609,7 @@ describe("publishing the native package", () => {
       src,
       "export function one(): number { return 1; }\nexport function two(): number { return 2; }\n",
     );
-    const r = writeNativePackage(compile([src]), out, { inputsKey: "second" });
+    const r = writeNativePackage(compile([src]), out, { check: { inputs: "second", read: [] } });
 
     expect(fs.readFileSync(held, "utf8")).toBe(before);
     expect(fs.readFileSync(proxy, "utf8")).toContain("exports.two");

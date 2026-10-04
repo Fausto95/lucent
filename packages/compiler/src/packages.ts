@@ -11,6 +11,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readText } from "./reads.ts";
 
 export interface LucentPackage {
   name: string;
@@ -30,9 +31,12 @@ interface PackageJson {
   lucent?: { sources?: string; compatible?: string };
 }
 
+// Noted as read: a compile names its modules after the package.json it finds.
 const read = (file: string): PackageJson | undefined => {
+  const text = readText(file);
+
   try {
-    return JSON.parse(fs.readFileSync(file, "utf8")) as PackageJson;
+    return text === undefined ? undefined : (JSON.parse(text) as PackageJson);
   } catch {
     return undefined;
   }

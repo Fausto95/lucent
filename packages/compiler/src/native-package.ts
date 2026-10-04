@@ -18,7 +18,8 @@ import {
 import type { NativeInputs, PackagePath } from "./package-config.ts";
 import { inNativePackage } from "./package-files.ts";
 import { coreTypesPath } from "./program.ts";
-import { currentSdkIdentity } from "./sdk/schema.ts";
+import { currentReads, readsKey } from "./reads.ts";
+import { currentSdkIdentity, type SdkOptions, withSdkOptions } from "./sdk/schema.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -45,11 +46,13 @@ export interface WriteResult {
 }
 
 /**
- * A key for everything a build depends on: the sources, the compiler, the
- * runtime and templates it copies, and the output location. Content, not
- * versions, so edits to the compiler or runtime invalidate it too.
+ * A key for everything a build is given: the sources, the compiler, the
+ * runtime and templates it copies, the SDKs it binds (`sdk`, as compile
+ * takes them) and the output location. Content, not versions, so edits to
+ * the compiler or runtime invalidate it too. What the compile reads besides
+ * is in its CheckRecord.
  */
-export function inputsKey(files: string[], outDir: string): string {
+export function inputsKey(files: string[], outDir: string, sdk?: SdkOptions): string {
   const hash = crypto.createHash("sha256");
   hash.update(path.resolve(outDir));
   // The compiler itself: its sources in this repository, dist when installed.
@@ -66,8 +69,9 @@ export function inputsKey(files: string[], outDir: string): string {
     ),
     coreTypesPath(),
   ];
-  // The SDKs bindings come from (their schemas are derived from them).
-  hash.update(currentSdkIdentity());
+  // The SDKs bindings come from (their schemas are derived from them): the app's
+  // dependencies' artifacts too.
+  hash.update(withSdkOptions(sdk, currentSdkIdentity));
   // Whether components' views are generated.
   hash.update(`views:${fabricViews()}`);
   for (const f of [...files.map((f) => path.resolve(f)).sort(), ...deps.sort()]) {
@@ -77,13 +81,38 @@ export function inputsKey(files: string[], outDir: string): string {
   return hash.digest("hex");
 }
 
-/** Whether `outDir` was written by a build with the same inputs. */
-export function isUpToDate(outDir: string, key: string): boolean {
+/**
+ * What a passing check was given and read: `.lucent/check.json` keeps it,
+ * and a build's native package's manifest.
+ */
+export interface CheckRecord {
+  /** The key of what it was given (inputsKey) and of the files it read. */
+  inputs: string;
+  /** The files it read. */
+  read: string[];
+}
+
+/** The record of a check given `key` that read `read` (CompileResult.read). */
+export function checkRecord(key: string, read: ReadonlyMap<string, string>): CheckRecord {
+  return { inputs: `${key}:${readsKey(read)}`, read: [...read.keys()].sort() };
+}
+
+/**
+ * The files the check recorded in `file` (a CheckRecord, or a native
+ * package's manifest) read, as they are now, when its result holds: it was
+ * given `key`, and each file is as it found it. Undefined otherwise.
+ */
+export function upToDate(file: string, key: string): ReadonlyMap<string, string> | undefined {
+  let last: Partial<CheckRecord> | null;
   try {
-    return JSON.parse(fs.readFileSync(path.join(outDir, "manifest.json"), "utf8")).inputs === key;
+    last = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<CheckRecord> | null;
   } catch {
-    return false;
+    return undefined;
   }
+  if (!last || !Array.isArray(last.read)) return undefined;
+
+  const read = currentReads(last.read);
+  return checkRecord(key, read).inputs === last.inputs ? read : undefined;
 }
 
 function listFiles(dir: string): string[] {
@@ -120,7 +149,8 @@ export function writeNativePackage(
   result: EmitResult,
   outDir: string,
   options: {
-    inputsKey?: string;
+    /** The check the package's code passed, for the next build to tell whether it holds (upToDate). */
+    check?: CheckRecord;
     native?: NativeInputs;
     /** Android's code is built later, by the app's Gradle build (see deferredLibraryGradle). */
     androidDeferred?: boolean;
@@ -258,7 +288,8 @@ export function writeNativePackage(
       {
         generator: "lucent",
         modules: [...result.proxies.keys()].sort(),
-        inputs: options.inputsKey,
+        inputs: options.check?.inputs,
+        read: options.check?.read,
         identity: result.identity,
       },
       null,

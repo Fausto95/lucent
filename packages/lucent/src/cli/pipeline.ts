@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   bindExtensions,
+  checkRecord,
   compile,
   deferredLibraryGradle,
   type Diagnostic,
@@ -10,7 +11,6 @@ import {
   extractionCount,
   inNativePackage,
   inputsKey,
-  isUpToDate,
   lucentPackages,
   moduleNameOf,
   moduleNamespace,
@@ -21,6 +21,7 @@ import {
   type ResolvedNative,
   sdkModule,
   type Target,
+  upToDate,
   usesPlatforms,
   writeNativePackage,
 } from "@lucent-lang/compiler";
@@ -46,6 +47,7 @@ import {
   contentHash,
   fileArtifact,
   type PendingAction,
+  projectPath,
   requiredAction,
   writeBuildRecord,
 } from "./build-graph.ts";
@@ -405,31 +407,37 @@ export async function buildProject(
   // The platforms the check compiles platform code for (none: the project has none).
   const built = (platforms ?? []).filter((p): p is Platform => p !== "host");
 
-  // What the check reads: the sources and the targets they are compiled for.
-  const checkInputs: Artifact[] = [
-    ...files.map((f) => fileArtifact(root, f)),
-    { key: "targets", hash: contentHash(targets.join(",")) },
-  ];
+  // What the check reads: the sources, the targets they are compiled for, and each other
+  // file it read (the files imports resolve to, package.json files), as it found it.
+  const checkInputs = (read: ReadonlyMap<string, string>): Artifact[] => {
+    const sources = files.map((f) => fileArtifact(root, f));
+    const keys = new Set(sources.map((a) => a.key));
+
+    return [
+      ...sources,
+      { key: "targets", hash: contentHash(targets.join(",")) },
+      ...[...read]
+        .map(([f, found]) => ({ key: projectPath(root, f), hash: found }))
+        .filter((a) => !keys.has(a.key)),
+    ];
+  };
 
   const key =
-    inputsKey(files, outDir) +
+    inputsKey(files, outDir, sdk) +
     (platforms ? `:${platforms.join(",")}` : "") +
     `:${createHash("sha256").update(JSON.stringify(native.manifest)).digest("hex").slice(0, 12)}`;
-  // A check of the same inputs passed before: every input is in the key.
+  // A check given the same inputs passed before, and every file it read is as it found it:
+  // its record says (a build's, its native package's manifest).
   // Its usage report is one of its outputs: lost or unreadable, it runs again.
   const checked = path.join(root, ".lucent/check.json");
   const cacheable = !options.force && !lock && usageReadable(path.join(root, USAGE_FILE));
-  if (!build && cacheable) {
-    const last = fs.existsSync(checked)
-      ? (JSON.parse(fs.readFileSync(checked, "utf8")) as { inputs?: string })
-      : {};
-    if (last.inputs === key) {
-      graph.record("check", "check", "cached", { inputs: checkInputs });
-      return outcome({ ok: true, upToDate: true, modules });
-    }
-  }
-  if (build && cacheable && isUpToDate(outDir, key)) {
-    graph.record("check", "check", "cached", { inputs: checkInputs });
+  const held = cacheable
+    ? upToDate(build ? path.join(outDir, "manifest.json") : checked, key)
+    : undefined;
+  if (held) {
+    graph.record("check", "check", "cached", { inputs: checkInputs(held) });
+    if (!build) return outcome({ ok: true, upToDate: true, modules });
+
     graph.record("generate", "generate", "cached", { outputs: packageArtifacts(root, outDir) });
 
     steps.finish({
@@ -517,7 +525,7 @@ export async function buildProject(
   const warnings = (result.warnings ?? []).map(relative);
   if (!result.ok) {
     graph.record("check", "check", "failed", {
-      inputs: checkInputs,
+      inputs: checkInputs(result.read),
       detail: plural(diagnostics.length, "error"),
       ms: Date.now() - tCheck,
     });
@@ -543,7 +551,7 @@ export async function buildProject(
   const unlocked = lock ? lockProblems(lock, usage.modules, usage.symbols) : [];
   if (unlocked.length) {
     graph.record("check", "check", "failed", {
-      inputs: checkInputs,
+      inputs: checkInputs(result.read),
       detail: unlocked.join("\n"),
       ms: Date.now() - tCheck,
     });
@@ -558,7 +566,10 @@ export async function buildProject(
     return outcome({ modules, warnings, usage, fatal: frozenFailure(unlocked) });
   }
 
-  graph.record("check", "check", "ok", { inputs: checkInputs, ms: Date.now() - tCheck });
+  graph.record("check", "check", "ok", {
+    inputs: checkInputs(result.read),
+    ms: Date.now() - tCheck,
+  });
 
   steps.finish({
     name: "check",
@@ -566,9 +577,10 @@ export async function buildProject(
     status: "ok",
     ms: Date.now() - tCheck,
   });
+  const check = checkRecord(key, result.read);
   if (!build) {
     fs.mkdirSync(path.dirname(checked), { recursive: true });
-    fs.writeFileSync(checked, `${JSON.stringify({ inputs: key })}\n`);
+    fs.writeFileSync(checked, `${JSON.stringify(check)}\n`);
     return outcome({ ok: true, modules, warnings, usage });
   }
 
@@ -582,7 +594,7 @@ export async function buildProject(
 
   const tWrite = Date.now();
   const w = writeNativePackage(result, outDir, {
-    inputsKey: key,
+    check,
     native,
     androidDeferred: deferred.includes("android"),
   });
