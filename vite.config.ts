@@ -47,6 +47,7 @@ const slow = [
   "packages/compiler/test/unknown-library.test.ts",
   "packages/compiler/test/ui/*-run.test.ts",
   "packages/lucent/test/android-project.test.ts",
+  "packages/lucent/test/bare-example-bundle.test.ts",
 ];
 const all = !!process.env.CI || !!process.env.LUCENT_ALL_TESTS;
 
