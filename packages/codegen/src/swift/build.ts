@@ -18,6 +18,7 @@ export const nil: Expr = { k: "nil" };
 export const self: Expr = { k: "self" };
 export const member = (object: Expr, n: string): Expr => ({ k: "member", object, name: n });
 export const arrayLiteral = (items: Expr[]): Expr => ({ k: "arrayLiteral", items });
+export const tupleLiteral = (items: Expr[]): Expr => ({ k: "tupleLiteral", items });
 export const dictionaryLiteral = (entries: { key: Expr; value: Expr }[]): Expr => ({
   k: "dictionaryLiteral",
   entries,

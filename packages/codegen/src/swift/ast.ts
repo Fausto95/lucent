@@ -35,6 +35,8 @@ export type Expr =
   | { k: "self" }
   | { k: "member"; object: Expr; name: string }
   | { k: "arrayLiteral"; items: Expr[] }
+  /** `(a, b)`. */
+  | { k: "tupleLiteral"; items: Expr[] }
   | { k: "dictionaryLiteral"; entries: { key: Expr; value: Expr }[] }
   | { k: "index"; object: Expr; index: Expr }
   /** `callee(args) { trailing }`. */
