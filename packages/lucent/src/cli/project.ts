@@ -20,6 +20,7 @@ import {
   type SdkOptions,
   sdkModules,
   withPodDependencies,
+  writeWhole,
 } from "@lucent-lang/compiler";
 import { withLucentPaths } from "./tsconfig.ts";
 import { packageFile } from "./version.ts";
@@ -297,7 +298,7 @@ function writePodDependencies(out: string, native: NativeInputs): void {
   const text = fs.readFileSync(file, "utf8");
   const next = withPodDependencies(text, packagePods(native.manifest));
 
-  if (next !== text) fs.writeFileSync(file, next);
+  if (next !== text) writeWhole(file, next);
 }
 
 /**
@@ -343,7 +344,7 @@ function writeGradleDependencies(out: string, native: NativeInputs): void {
   );
   if (fs.existsSync(file) && fs.readFileSync(file, "utf8") === text) return;
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, text);
+  writeWhole(file, text);
 }
 
 /** The app's property lists Lucent packages add entries to, and where the build finds them. */

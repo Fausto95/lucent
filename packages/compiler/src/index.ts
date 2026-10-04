@@ -126,6 +126,7 @@ export {
   isUpToDate,
   packagePods,
   writeNativePackage,
+  writeWhole,
   runtimeDir,
   type WriteResult,
 } from "./native-package.ts";

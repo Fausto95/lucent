@@ -331,7 +331,7 @@ export function writeNativePackage(
 }
 
 /** Writes `file` through a temporary file renamed over it: a reader sees the old file or the new one, never part of one. */
-function writeWhole(file: string, content: Buffer): void {
+export function writeWhole(file: string, content: string | Buffer): void {
   const tmp = `${file}.${process.pid}.tmp`;
 
   fs.writeFileSync(tmp, content);
