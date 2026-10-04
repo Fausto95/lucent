@@ -189,4 +189,24 @@ Fn<void()> onAppEvent(const String& event, Fn<void()> listener, Opt<AbortSignal>
 /// scene's session's persistent identifier.
 Fn<void()> onSceneEvent(const String& event, Fn<void(String)> listener, Opt<AbortSignal> signal = {});
 
+/**
+ * Calls `handler` with the control on each of `events` (a UIControlEvents
+ * mask): a JSX element's control event (T48), as the UIAction UIKit
+ * registers. Gives the action, for removeControlAction: the control keeps
+ * it, and through it the handler, until then.
+ */
+template <class Handler>
+NativeRef addControlAction(id control, NSUInteger events, Handler handler) {
+  UIAction* action = [UIAction actionWithHandler:^(UIAction* a) {
+    handler(a.sender);
+  }];
+  [(UIControl*)control addAction:action forControlEvents:(UIControlEvents)events];
+  return wrap(action, "a control's action");
+}
+
+/** Takes back an action addControlAction registered. */
+inline void removeControlAction(id control, const NativeRef& action, NSUInteger events) {
+  [(UIControl*)control removeAction:(UIAction*)unwrap(action) forControlEvents:(UIControlEvents)events];
+}
+
 }  // namespace lucent::objc

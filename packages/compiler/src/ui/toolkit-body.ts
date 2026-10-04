@@ -33,7 +33,7 @@ import { branchPlatform, platformGuard } from "../platforms.ts";
 import { builtinSdkModuleOf, platformOf } from "../program.ts";
 import { inComposition } from "./composition.ts";
 import type { ViewType } from "./contract.ts";
-import type { FunctionLike } from "./roots.ts";
+import { type FunctionLike, nativeTagType } from "./roots.ts";
 import type { HelperUse, ViewHelper } from "./view-helpers.ts";
 import { TOOLKITS, type ToolkitName, toolkitOfModule, toolkitOfPlatform } from "./toolkits.ts";
 import { ViewTypes } from "./values.ts";
@@ -261,6 +261,15 @@ export function bodyOf(fn: FunctionLike, name: ToolkitName, checker: ts.TypeChec
   const { title, platform } = TOOLKITS[name];
   const refused = `a ${title} component returns its body: JSX of ${title}'s views, which the setup's last statement returns`;
 
+  // Native views' JSX (T48) not returned as it is: the component looks like a toolkit's.
+  const native = nativeJsxIn(fn, checker);
+  if (native)
+    fail(
+      native,
+      Codes.NativeViewJsx,
+      "JSX of native views is what a component returns: return it, as the last statement of the component",
+    );
+
   if (fn.body && !ts.isBlock(fn.body)) {
     if (jsxRoot(fn.body)) return fn.body;
 
@@ -346,6 +355,23 @@ export function isUiForm(
     decl.name?.text === name &&
     builtinSdkModuleOf(decl.getSourceFile()) === "lucent:ui"
   );
+}
+
+/** The first JSX element of native views in `fn`'s own code, if any. */
+function nativeJsxIn(fn: FunctionLike, checker: ts.TypeChecker): ts.Expression | undefined {
+  let found: ts.Expression | undefined;
+  const visit = (n: ts.Node): void => {
+    if (found || (n !== fn && ts.isFunctionLike(n))) return;
+    if ((ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n)) && nativeTagType(checker, n)) {
+      found = n;
+      return;
+    }
+
+    ts.forEachChild(n, visit);
+  };
+
+  if (fn.body) visit(fn.body);
+  return found;
 }
 
 /** Whether a call is lucent:ui's `bind(signal)`. */

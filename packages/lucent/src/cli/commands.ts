@@ -206,6 +206,11 @@ export const commands: CommandSpec[] = [
         description: "A JSON array of the symbol keys tests or probes ran (see --members)",
       },
       { name: "members", description: "List every member with its stage, key and reason" },
+      {
+        name: "views",
+        description:
+          "With views on (LUCENT_VIEWS=fabric), list each view class's JSX attributes by rule",
+      },
     ],
     load: () => import("./commands/sdk-coverage.ts"),
   },

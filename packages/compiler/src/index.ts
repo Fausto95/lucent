@@ -70,6 +70,7 @@ export { libraryBuildGradle } from "./native-build-files.ts";
 export { fileHashes, type FileHashes, inNativePackage } from "./package-files.ts";
 export { coverage as sdkCoverage, type Coverage as SdkCoverage } from "@lucent-lang/bindgen";
 export { jsxToolkits, toolkitsFrom } from "./ui/toolkit-modules.ts";
+export { viewCoverage, type ViewCoverage } from "./ui/view-coverage.ts";
 export { lucentPackages, lucentVersion, satisfies, type LucentPackage } from "./packages.ts";
 export {
   EXTENSION_FIELDS,

@@ -134,6 +134,16 @@ export function auditSdk(platform: Platform, modules: string[]): Audit {
  * (`{ "ios/Fixture": sdkDts(schema) }`), resolving `lucent:<platform>/<module>`
  * among them and `lucent:ios` / `lucent:android` to Lucent's libraries.
  */
+/**
+ * UIKit's root view, as a toolkit's JSX namespace names it (T48: UIKit
+ * views are tags too), for auditing the toolkit's declarations alone.
+ */
+export const UIKIT = `export declare class UIView {
+  private readonly __lucent_UIView: never;
+  readonly "~jsx"?: {};
+}
+`;
+
 export function auditTexts(texts: Record<string, string>): Audit {
   const base = compilerOptions();
   // A toolkit's declarations may name lucent:ui's (a bound signal).

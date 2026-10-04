@@ -15,8 +15,8 @@ class QXNDial(context: Context) : View(context) {
 
   private var listener: QXNTurnListener? = null
 
-  /** Calls `listener` on every turn; null stops (as View.setOnClickListener does). */
-  fun qxnSetOnTurn(listener: QXNTurnListener?) {
+  /** Calls `listener` on every turn; null stops (Android's listener convention). */
+  fun setOnQXNTurnListener(listener: QXNTurnListener?) {
     this.listener = listener
   }
 

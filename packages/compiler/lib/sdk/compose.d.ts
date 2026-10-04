@@ -32,8 +32,8 @@
  *
  * @experimental
  */
-import type { ViewGroup } from "lucent:android/android.view";
-import type { Bound } from "lucent:ui";
+import type { View, ViewGroup } from "lucent:android/android.view";
+import type { Bound, NativeViewTag } from "lucent:ui";
 
 /** Kotlin's Float: a number, converted where the body passes it. */
 export type Float = number & { readonly "lucent:compose.Float"?: never };
@@ -76,13 +76,26 @@ export type ScopedChildren<S> = Shown | ((scope: S) => Shown);
 
 /**
  * How TypeScript types an Android file's JSX: an element is a composable,
- * a function of its props whose children are its `children` prop.
+ * a function of its props whose children are its `children` prop, or a
+ * view class (T48), typed with its declarations' `~jsx` attributes, as
+ * native-jsx-dts.ts writes the generated toolkits' namespaces.
  */
 export declare namespace JSX {
-  type Element = Composed;
+  type Element = Composed & View;
+
+  type ElementType = ((props: never) => Composed) | NativeViewTag<View>;
 
   interface ElementChildrenAttribute {
     children: {};
+  }
+
+  interface ElementAttributesProperty {
+    "~jsx": {};
+  }
+
+  interface IntrinsicClassAttributes<T> {
+    /** Makes the view, where its class has no frame or Context constructor to make it with. */
+    create?: () => T;
   }
 
   interface IntrinsicElements {}

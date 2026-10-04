@@ -3,7 +3,7 @@ import { SCHEMA_FORMAT } from "@lucent-lang/bindgen";
 import { parseSdkType, type SdkModuleSchema, type SdkParam } from "../src/sdk/schema.ts";
 import { toolkitDts } from "../src/sdk/toolkit-dts.ts";
 import { TOOLKITS } from "../src/ui/toolkits.ts";
-import { auditTexts, tally } from "./dts-audit.ts";
+import { auditTexts, tally, UIKIT } from "./dts-audit.ts";
 
 const T = (s: string) => parseSdkType(s, "SwiftUI");
 
@@ -298,7 +298,12 @@ describe("a toolkit's declarations, from its source module", () => {
     expect(text).toContain(
       "export declare type Content = View | false | null | undefined | readonly (View | false | null | undefined)[];",
     );
-    expect(text).toContain("export declare namespace JSX {\n  type Element = View;");
+    // An element is a SwiftUI view or (T48) a UIKit view's, as the component returns it.
+    expect(text).toContain("export declare namespace JSX {\n  type Element = View & ios_UIView;");
+    expect(text).toContain(
+      "type ElementType = ((props: never) => View) | NativeViewTag<ios_UIView>;",
+    );
+    expect(text).toContain('import type { UIView as ios_UIView } from "lucent:ios/UIKit";');
   });
 
   it("declares a view's JSX per call form, its attributes its labels and modifiers", () => {
@@ -381,7 +386,7 @@ describe("a toolkit's declarations, from its source module", () => {
   it("types a Binding of a number and a range with lucent:ui's forms", () => {
     const text = swiftui();
 
-    expect(text).toContain('import type { Bound, ClosedRange } from "lucent:ui";');
+    expect(text).toContain('import type { Bound, ClosedRange, NativeViewTag } from "lucent:ui";');
     expect(text).toContain(
       "(labeled: { value: Bound<number>; in: ClosedRange<number>; step?: number }): Slider;",
     );
@@ -420,6 +425,6 @@ describe("a toolkit's declarations, from its source module", () => {
   });
 
   it("type-checks", () => {
-    expect(tally(auditTexts({ "toolkit/swiftui": swiftui() }))).toEqual({});
+    expect(tally(auditTexts({ "toolkit/swiftui": swiftui(), "ios/UIKit": UIKIT }))).toEqual({});
   });
 });

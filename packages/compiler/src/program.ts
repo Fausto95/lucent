@@ -20,7 +20,11 @@ import {
   sourceModuleLookup,
   WRAP_UNBOUND,
 } from "./sdk/schema.ts";
+import { NATIVE_JSX_UI, nativeJsxDecls, nativeTags, rootViews } from "./sdk/native-jsx-dts.ts";
+import { classOfDecl } from "./sdk/declarations.ts";
 import { toolkitDts } from "./sdk/toolkit-dts.ts";
+import { viewTag } from "./sdk/view-rules.ts";
+import { nativeTagType } from "./ui/roots.ts";
 import { extensionDts } from "./extensions/dts.ts";
 import { boundExtensions, findExtension } from "./extensions/registry.ts";
 import { moduleNamespace } from "./types.ts";
@@ -160,7 +164,10 @@ const toolkitTexts = new WeakMap<SdkModuleSchema, string>();
  * nothing else), and each names-only module's, once per names index: every
  * compile asks for them, and writing UIKit's or Foundation's takes seconds.
  */
-const sdkTexts = new WeakMap<SdkModuleSchema, string>();
+const sdkTexts = {
+  plain: new WeakMap<SdkModuleSchema, string>(),
+  jsx: new WeakMap<SdkModuleSchema, string>(),
+};
 const stubTexts = new WeakMap<object, string>();
 
 /** A generated toolkit's declarations, or why there are none. */
@@ -230,15 +237,18 @@ function virtualSdkText(file: string, direct: Set<string>): string | undefined {
   }
   const schema = findSdkModule(platform, module);
   if (!schema) return undefined;
-  let text = sdkTexts.get(schema);
+  // Views' declarations also give each view class its JSX attributes (T48).
+  const jsx = fabricRequested();
+  const texts = sdkTexts[jsx ? "jsx" : "plain"];
+  let text = texts.get(schema);
   if (text === undefined)
-    sdkTexts.set(
+    texts.set(
       schema,
       (text = cachedDeclarations(
         sdkCacheDir(),
         currentSdkIdentity(),
-        ["full", platform, module],
-        () => sdkDts(schema),
+        ["full", platform, module, ...(jsx ? ["jsx"] : [])],
+        () => sdkDts(schema, { jsx }),
       )),
     );
   // Modules it re-exports are used as directly as it is.
@@ -458,6 +468,9 @@ function jsxRuntimeText(): string {
     platformSdkTyped(TOOLKITS[t].platform),
   );
   const elements = typed.map((t) => TOOLKITS[t].element);
+  // The typed platforms' views are tags too (T48), and an element is any of them at once.
+  const platforms = PLATFORMS.filter((p) => platformSdkTyped(p));
+  const { imports: rootImports, types: roots } = rootViews(platforms);
 
   return dts.printUnit({
     banner: "The JSX of a shared Lucent file: each platform's toolkit's, in its code.",
@@ -467,6 +480,8 @@ function jsxRuntimeText(): string {
         names: [TOOLKITS[t].element],
         from: `lucent:${t}`,
       })),
+      { k: "importType", names: NATIVE_JSX_UI, from: "lucent:ui" },
+      ...rootImports,
       {
         k: "namespace",
         name: "JSX",
@@ -474,9 +489,10 @@ function jsxRuntimeText(): string {
           {
             k: "typeAlias",
             name: "Element",
-            type: elements.length
-              ? dts.intersection(elements.map((e) => dts.ref(e)))
-              : dts.keyword("unknown"),
+            type:
+              elements.length || roots.length
+                ? dts.intersection([...elements.map((e) => dts.ref(e)), ...roots])
+                : dts.keyword("unknown"),
           },
           // A tag is a component of either toolkit: it makes that toolkit's element. An
           // untyped toolkit's tags (its module untyped) are any component.
@@ -490,8 +506,10 @@ function jsxRuntimeText(): string {
               ...(typed.length < Object.keys(TOOLKITS).length
                 ? [dts.fn([dts.param("props", dts.keyword("never"))], dts.keyword("unknown"))]
                 : []),
+              ...nativeTags(roots),
             ]),
           },
+          ...nativeJsxDecls(),
           {
             k: "interface",
             name: "ElementChildrenAttribute",
@@ -598,7 +616,7 @@ export function createLucentProgram(
         )
       )
         continue;
-      const hint = nativeMemberHint(d, checker, direct);
+      const hint = nativeMemberHint(d, checker, direct) ?? nativeAttributeHint(d, checker);
       const diagnostic = fromTs(d);
       diagnostics.push(
         hint
@@ -685,6 +703,47 @@ function skippedMember(
 
   return undefined;
 }
+
+/**
+ * What to do about an attribute a native view's tag does not take (T48),
+ * where its class's rules leave it out: the reason, and that setup code
+ * can call it on a view the element's `create` gives. Undefined for any
+ * other error.
+ */
+function nativeAttributeHint(
+  d: ts.Diagnostic,
+  checker: ts.TypeChecker,
+): { message: string; fix: string } | undefined {
+  if (!MISSING_ATTRIBUTE.has(d.code) || !d.file || d.start === undefined) return undefined;
+
+  let element: ts.Node | undefined = nodeAt(d.file, d.start);
+  while (element && !ts.isJsxOpeningElement(element) && !ts.isJsxSelfClosingElement(element))
+    element = element.parent;
+  if (!element) return undefined;
+
+  const type = nativeTagType(checker, ts.isJsxOpeningElement(element) ? element.parent : element);
+  const decl = type?.getSymbol()?.declarations?.[0];
+  const ref = decl && classOfDecl(decl);
+  const schema = ref && findSdkModule(ref.platform, ref.module);
+  if (!ref || !schema) return undefined;
+
+  const tag = viewTag(ref.cls, schema, (m) => findSdkModule(ref.platform, m));
+  for (const a of element.attributes.properties) {
+    const name = ts.isJsxAttribute(a) ? a.name.getText() : undefined;
+    const reason = name && tag.refused.get(name);
+
+    if (reason)
+      return {
+        message: `<${ref.cls.name}> does not take ${name}: ${reason}.`,
+        fix: `call it in setup code, on the view made with create={() => new ${ref.cls.name}(…)}`,
+      };
+  }
+
+  return undefined;
+}
+
+/** TypeScript's errors for an attribute a tag does not take (2769: one per constructor tried). */
+const MISSING_ATTRIBUTE = new Set([2322, 2769]);
 
 /** The innermost node at `pos`. */
 export function nodeAt(sf: ts.SourceFile, pos: number): ts.Node {

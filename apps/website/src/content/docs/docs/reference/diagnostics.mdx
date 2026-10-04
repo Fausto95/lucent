@@ -62,6 +62,7 @@ Codes are stable. `1xxx` are syntax and built-ins, `2xxx` types without a native
 | [`LUCENT3022`](#lucent3022) | A component's setup, or a function it creates, using module state, code the compiler cannot follow, or native code unfit for the main thread. |
 | [`LUCENT3023`](#lucent3023) | A component whose props, events or commands differ between platforms or from its declaration, or that is a component on one platform only. |
 | [`LUCENT3024`](#lucent3024) | A component's SwiftUI or Jetpack Compose body that Lucent cannot write out in Swift or Kotlin, or toolkit code used outside such a body. |
+| [`LUCENT3025`](#lucent3025) | JSX of UIKit or Android views that Lucent cannot make: a view, attribute or child its declarations do not provide for. |
 | [`LUCENT3030`](#lucent3030) | A span that withRead or withWrite lends escapes its callback: returned, stored, kept by a closure or callee, or held across await. |
 | [`LUCENT3031`](#lucent3031) | A NativeBuffer is used after transfer() or after it was handed to compute(), which move its bytes to another buffer. |
 | [`LUCENT9001`](#lucent9001) | A TypeScript error. Lucent stops at type errors, because it compiles from the checker's types. |
@@ -1578,6 +1579,92 @@ export function Title(props: { title: string }) {
     taps.set(taps.peek() + 1);
   };
   return <Text onTapGesture={() => tap()}>{props.title}</Text>;
+}
+```
+
+</TabItem>
+</Tabs>
+
+## LUCENT3025
+
+**Native view JSX that cannot be compiled**
+
+A component can return its platform's views as JSX, declared as returning UIView or View (internal, under LUCENT\_VIEWS=fabric). A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Each attribute is kept up to date like an effect, from when the view mounts.
+
+**Fix:** write each attribute on its element, and set what the declarations do not provide for in setup code.
+
+<Tabs>
+<TabItem label="✗ package.json">
+
+```json title="package.json (wrong)"
+{ "name": "example-app" }
+```
+
+</TabItem>
+<TabItem label="✗ title.lucent.tsx">
+
+```tsx title="title.lucent.tsx (wrong)"
+import type { View } from "lucent:android/android.view";
+import type { UIView } from "lucent:ios/UIKit";
+export declare function Title(props: { title: string }): UIView | View;
+```
+
+</TabItem>
+<TabItem label="✗ title.android.lucent.tsx">
+
+```tsx title="title.android.lucent.tsx (wrong)"
+import type { View } from "lucent:android/android.view";
+import { TextView } from "lucent:android/android.widget";
+export function Title(props: { title: string }): View {
+  return <TextView text={props.title} />;
+}
+```
+
+</TabItem>
+<TabItem label="✗ title.ios.lucent.tsx">
+
+```tsx title="title.ios.lucent.tsx (wrong)"
+import { UILabel, type UIView } from "lucent:ios/UIKit";
+export function Title(props: { title: string }): UIView {
+  const attributes = { text: props.title };
+  return <UILabel {...attributes} />;
+}
+```
+
+</TabItem>
+<TabItem label="✓ package.json">
+
+```json title="package.json (right)"
+{ "name": "example-app" }
+```
+
+</TabItem>
+<TabItem label="✓ title.lucent.tsx">
+
+```tsx title="title.lucent.tsx (right)"
+import type { View } from "lucent:android/android.view";
+import type { UIView } from "lucent:ios/UIKit";
+export declare function Title(props: { title: string }): UIView | View;
+```
+
+</TabItem>
+<TabItem label="✓ title.android.lucent.tsx">
+
+```tsx title="title.android.lucent.tsx (right)"
+import type { View } from "lucent:android/android.view";
+import { TextView } from "lucent:android/android.widget";
+export function Title(props: { title: string }): View {
+  return <TextView text={props.title} />;
+}
+```
+
+</TabItem>
+<TabItem label="✓ title.ios.lucent.tsx">
+
+```tsx title="title.ios.lucent.tsx (right)"
+import { UILabel, type UIView } from "lucent:ios/UIKit";
+export function Title(props: { title: string }): UIView {
+  return <UILabel text={props.title} />;
 }
 ```
 

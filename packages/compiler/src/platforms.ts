@@ -9,7 +9,7 @@ import {
   platformOf,
 } from "./program.ts";
 import { type Platform, PLATFORMS } from "./sdk/schema.ts";
-import { toolkitRootType } from "./ui/roots.ts";
+import { elementsOf, toolkitRootType } from "./ui/roots.ts";
 import { TOOLKITS, type ToolkitName, toolkitOfModule } from "./ui/toolkits.ts";
 
 /** What a build targets: a platform, or `host` (tests and tools: platform modules become stubs). */
@@ -122,6 +122,21 @@ function conformsByRoot(checker: ts.TypeChecker, impl: ts.Type, declared: ts.Typ
   );
 }
 
+/**
+ * A type as a message shows it: a component returning JSX by the toolkit
+ * element it makes (`(props: Props) => Composed`), not JSX.Element's name.
+ */
+function described(checker: ts.TypeChecker, t: ts.Type): string {
+  const [sig, ...more] = t.getCallSignatures();
+  const elements = sig && !more.length ? elementsOf(sig.getReturnType()) : undefined;
+  if (!sig || !elements) return checker.typeToString(t);
+
+  const params = sig.parameters.map(
+    (p) => `${p.name}: ${checker.typeToString(checker.getTypeOfSymbol(p))}`,
+  );
+  return `(${params.join(", ")}) => ${elements.map((e) => checker.typeToString(e)).join(" & ")}`;
+}
+
 /** The platform file exports exactly the declared values, with assignable types. */
 export function conformanceErrors(lp: LucentProgram): Diagnostic[] {
   const checker = lp.checker;
@@ -160,7 +175,7 @@ export function conformanceErrors(lp: LucentProgram): Diagnostic[] {
         out.push(
           at(
             decl,
-            `${d.name} in ${implName} has type ${checker.typeToString(implType)}, which does not match ${checker.typeToString(declType)} declared in ${declName}`,
+            `${d.name} in ${implName} has type ${described(checker, implType)}, which does not match ${checker.typeToString(declType)} declared in ${declName}`,
           ),
         );
       }

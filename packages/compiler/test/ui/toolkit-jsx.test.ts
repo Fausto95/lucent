@@ -10,7 +10,7 @@ import ts from "typescript";
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "../../src/index.ts";
 import { builtinSdkModuleOf, createLucentProgram, jsxRuntimeOf } from "../../src/program.ts";
-import { returnShape, sdkRoot } from "../../src/ui/roots.ts";
+import { elementsOf, returnShape, sdkRoot } from "../../src/ui/roots.ts";
 import { bodyOf, isToolkitBody, jsxRoot } from "../../src/ui/toolkit-body.ts";
 import { jsxToolkits } from "../../src/ui/toolkit-modules.ts";
 
@@ -71,10 +71,13 @@ describe("toolkit JSX", () => {
       "ios",
     );
     const sf = lp.modules[0]!.sourceFile;
+    // An element is SwiftUI's View, and (T48) UIKit's UIView: a component returns either.
     const element = lp.checker.getTypeAtLocation(firstJsx(sf));
-    const decl = element.getSymbol()?.declarations?.[0];
+    const [view, ...others] = elementsOf(element) ?? [];
+    const decl = view?.getSymbol()?.declarations?.[0];
 
-    expect(lp.checker.typeToString(element)).toBe("View");
+    expect(view && lp.checker.typeToString(view)).toBe("View");
+    expect(others).toEqual([]);
     expect(decl && builtinSdkModuleOf(decl.getSourceFile())).toBe("lucent:swiftui");
     expect(lp.diagnostics.map((d) => d.message).filter((m) => /TS(2875|7026)/.test(m))).toEqual([]);
   });
@@ -87,9 +90,14 @@ describe("toolkit JSX", () => {
       });
       const element = lp.checker.getTypeAtLocation(firstJsx(lp.modules[0]!.sourceFile));
 
+      // Both toolkits' views at once, and both platforms' root views (T48).
+      expect(elementsOf(element)?.map((t) => lp.checker.typeToString(t))).toEqual([
+        "View",
+        "Composed",
+      ]);
       expect(
         element.isIntersection() && element.types.map((t) => lp.checker.typeToString(t)),
-      ).toEqual(["View", "Composed"]);
+      ).toEqual(["View", "Composed", "UIView", "View"]);
       expect(lp.diagnostics).toEqual([]);
     },
   );

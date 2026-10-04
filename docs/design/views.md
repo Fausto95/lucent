@@ -890,6 +890,99 @@ state held the new mount, not the old one. A heap dump after garbage
 collection then held one state holder, one ComposeView and four function
 proxies: the live mount's.
 
+## Platform views as JSX
+
+A component can also return its platform's views as JSX: UIKit views on
+iOS, Android views on Android, under the same internal switch. Nothing
+about the views is listed in Lucent: what a tag takes comes from its
+class's declarations, by rule (`packages/compiler/src/sdk/view-rules.ts`).
+
+```tsx
+// settings.ios.lucent.tsx
+import { UILabel, UIStackView, UISwitch, type UIView } from "lucent:ios/UIKit";
+import type { Props } from "./settings.lucent";
+
+export function Settings(props: Props): UIView {
+  return (
+    <UIStackView spacing={8}>
+      <UILabel text={props.title} numberOfLines={1n} />
+      <UISwitch isOn={props.enabled} onValueChanged={(control) => props.onToggle?.(control.isOn)} />
+    </UIStackView>
+  );
+}
+```
+
+```tsx
+// settings.android.lucent.tsx
+export function Settings(props: Props): View {
+  return (
+    <LinearLayout orientation={1}>
+      <TextView text={props.title} />
+      <CheckBox checked={props.enabled} onCheckedChange={(_box, on) => props.onToggle?.(on)} />
+    </LinearLayout>
+  );
+}
+```
+
+**The rules.** Each view class gives its tag:
+
+- **Props:** its writable properties (iOS, Kotlin), and on Android its
+  one-value `set<X>` methods, overloads one prop (the value's type picks
+  the overload). Methods, read-only, static and constant members are not
+  props. A generic setter is left out: an attribute gives no type for it.
+- **Events:** on Android, `setOn<X>Listener(L)` where `L` has one method
+  gives `on<X>`, a function of that method's arguments; a listener of
+  several methods (SeekBar's, TextWatcher) is left out, for setup code. On
+  iOS, a class declaring `addAction:forControlEvents:` (UIControl's
+  convention) gives `on<Case>` for each single-bit case of the events it
+  takes (`onTouchUpInside`, `onValueChanged`); the handler gets the tag's
+  own class (`(control: UISwitch) => …`).
+- **Children:** a class that inserts views at an index takes children:
+  on iOS the nearest `insert<X>:atIndex:` (a stack view's
+  `insertArrangedSubview:atIndex:`, any view's `insertSubview:atIndex:`),
+  on Android `addView(View, int)`. Any other class takes none. No adapter
+  is written: the compiler knows the method's shape, never a class name.
+- **Construction:** iOS `initWithFrame:` with a zero frame, else `init`,
+  the class's own or inherited; Android the `(Context)` constructor, given
+  the hosting view's context (`lucent::jni::viewContext`). Otherwise the
+  element says how: `create={() => new MyChart(frame, options)}`, which
+  any tag may give.
+
+A subclass inherits its classes' attributes, the nearest class's
+winning. The rules are pure functions of the schema; `lucent sdk
+coverage --views` lists them per module, with `--members` each
+attribute's rule and artifact.
+
+**Typing.** Each view class's declaration gives what it adds under a key
+of its own, `"~jsx:<module>.<class>"`, typed with the tag's class
+(`this`), so a control's handler gets the subclass; the root view's
+`"~jsx"` gathers every key of the hierarchy (lucent:ui's
+`NativeAttributes<this>`), which `JSX.ElementAttributesProperty` reads.
+Each attribute is documented with its rule and artifact, which the editor
+shows. A JSX element is the toolkit's view and the platform's root view
+at once (`View & UIView`), so a component returning native JSX is
+declared as returning `UIView` (or `View`); its root is the returned
+tag's class. These declarations exist only under the switch, cached
+apart from the others, which stay as they were.
+
+**Lowering.** The JSX is compiled as the setup a person would write.
+Each view is made when the component mounts, in source order, a parent
+before its children. Each prop is an effect of the mount, as a toolkit
+body's value is: evaluated now and whenever what it read changes, and set
+through its binding plan; a bare attribute is `true`, set once. An event's
+handler is evaluated once and registered (a listener proxy on Android, a
+UIAction for the control's event mask on iOS, through
+`lucent::objc::addControlAction`), and taken back when the mount ends,
+which breaks the cycle through the handler. Children are inserted in order.
+
+**Diagnostics.** LUCENT3025: native JSX the component does not return
+as it is, a spread attribute, a child that is not a native view's
+element, a class with no constructor to make it with (and no `create`),
+or a prop reading a copy setup made of a prop (`const title =
+props.title`), which would never change. An attribute the rules leave out
+is TypeScript's error with the rule's reason after it. An attribute's
+code is setup code: the main thread's rules (LUCENT3022) hold in it.
+
 ## Accepted limitations
 
 - Android pools component views only when the app turns React Native's
@@ -907,6 +1000,13 @@ proxies: the live mount's.
   runtime that connected last.
 - Setup, effects and commands run on the main thread. Long work there
   stalls the UI; compute tasks are where it belongs.
+- Platform-view JSX (T48): a plain view's children have no layout until
+  Yoga lays them out (T50); a stack view or an Android layout lays out its
+  own. Children are fixed: conditional and keyed children are T49's.
+  Rules read declarations, not behavior: Android's AdapterView declares
+  `addView(View, int)` and throws from it. A view made through a Swift
+  initializer needs `create`. A pod's view whose superclass module
+  (UIKit) is not imported has no attributes until it is (TA33).
 
 ## Sizing
 

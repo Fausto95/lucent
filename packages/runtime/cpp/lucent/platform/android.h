@@ -291,6 +291,12 @@ NativeRef appContext();
 /// outside any setup.
 Opt<NativeRef> hostContext();
 
+/// The Context a view is made with: the hosting view's (its Activity's theme), else the app's.
+inline NativeRef viewContext() {
+  Opt<NativeRef> host = hostContext();
+  return host.has() ? host.get() : appContext();
+}
+
 /**
  * While one lives, `view` (a local reference) hosts the mount whose setup
  * runs on this thread, and hostContext() is its context: the Android host
