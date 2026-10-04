@@ -1,6 +1,7 @@
 /**
  * Swift shapes bound by rule (TA33): tuples cross as TypeScript tuples,
- * their labels kept as the elements' names.
+ * their labels kept as the elements' names; closures as Lucent functions,
+ * both ways, through Objective-C blocks.
  */
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -45,5 +46,19 @@ describe.skipIf(!xcode)("Swift shapes", () => {
     expect(p.r.diagnostics).toEqual([]);
     expect(compileErrors(p)).toEqual(compiles);
     expect(hostRun(p)).toMatchObject({ status: 0, stdout: "1 3 5 -1 9 on true\n" });
+  }, 600_000);
+
+  it("passes Lucent functions as Swift closures, and calls the closures Swift returns", () => {
+    const p = program(`  const add = meter.adder(1);
+  const seen: number[] = [];
+  meter.each([1, 2], (v) => {
+    seen.push(v);
+  });
+  const greeted = meter.greet("ada", (n) => n.toUpperCase());
+  return \`\${add(2)} \${meter.apply((x) => x * 3)} \${seen.join(",")} \${greeted}\`;`);
+
+    expect(p.r.diagnostics).toEqual([]);
+    expect(compileErrors(p)).toEqual(compiles);
+    expect(hostRun(p)).toMatchObject({ status: 0, stdout: "3 6 1,2 ADA\n" });
   }, 600_000);
 });
