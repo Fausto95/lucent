@@ -2,7 +2,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { compile, lucentPackages, moduleNameOf, projectFiles } from "../src/index.ts";
+import {
+  compile,
+  currentReads,
+  lucentPackages,
+  moduleNameOf,
+  projectFiles,
+  readsKey,
+} from "../src/index.ts";
 
 /** An app whose node_modules has Lucent packages (a `lucent` field) and others. */
 function app(): string {
@@ -129,5 +136,51 @@ describe("Lucent packages", () => {
     expect(() => lucentPackages(root)).toThrow(
       /lucent-b@2\.0\.0 supports Lucent \^9\.0\.0, not \d+\.\d+\.\d+/,
     );
+  });
+});
+
+describe("what a compile reads", () => {
+  /** app(), with a module that imports a package's module by path, and types from a plain TypeScript file. */
+  function importing(): string {
+    // Its real path: the temporary directory is behind a link on macOS.
+    const root = fs.realpathSync(app());
+    fs.writeFileSync(
+      path.join(root, "src/uses.lucent.ts"),
+      'import { where } from "lucent-a/src/storage.lucent";\nimport type { Place } from "./place";\nexport function here(p: Place): string { return `${where()} ${p.name}`; }\n',
+    );
+    fs.writeFileSync(path.join(root, "src/place.ts"), "export interface Place { name: string }\n");
+    return root;
+  }
+
+  it("reports the files it read: the package.json files resolution and package lookups read, and the files types come from", () => {
+    const root = importing();
+    const r = compile(projectFiles(root));
+
+    expect(r.diagnostics).toEqual([]);
+    expect([...r.read.keys()].map((f) => path.relative(root, f))).toEqual(
+      expect.arrayContaining([
+        "package.json",
+        "node_modules/lucent-a/package.json",
+        "src/place.ts",
+        // Looked for, and missing: the nearest package.json names the app's modules.
+        "src/package.json",
+      ]),
+    );
+  });
+
+  it("keys the files it read the same while they are as it read them, and apart once one changes", () => {
+    const root = importing();
+    // TypeScript reads past a byte order mark.
+    fs.writeFileSync(
+      path.join(root, "src/place.ts"),
+      "\uFEFFexport interface Place { name: string }\n",
+    );
+    const { read } = compile(projectFiles(root));
+
+    expect(readsKey(currentReads(read.keys()))).toBe(readsKey(read));
+
+    // A package.json where there was none.
+    fs.writeFileSync(path.join(root, "src/package.json"), JSON.stringify({ name: "nested" }));
+    expect(readsKey(currentReads(read.keys()))).not.toBe(readsKey(read));
   });
 });

@@ -117,7 +117,9 @@ describe("lucent build's record", () => {
 
     const check = node(r, "check")!;
     expect(check).toMatchObject({ kind: "check", status: "ok" });
-    expect(check.inputs.map((i) => i.key)).toEqual(["a.lucent.ts", "targets"]);
+    expect(check.inputs.map((i) => i.key)).toEqual(
+      expect.arrayContaining(["a.lucent.ts", "targets"]),
+    );
 
     const generate = node(r, "generate")!;
     expect(generate.status).toBe("ok");
