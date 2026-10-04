@@ -39,6 +39,8 @@ NS_SWIFT_UI_ACTOR
 - (instancetype)init;
 - (instancetype)initWithStyle:(WDGStyle)style;
 + (instancetype)widgetNamed:(NSString *)name NS_SWIFT_NAME(named(_:));
+/// A factory Swift imports as an initializer: init(label:).
++ (instancetype)widgetWithLabel:(NSString *)label;
 
 @property (class, readonly, strong) WDGWidget *sharedWidget NS_SWIFT_NAME(shared);
 @property (nonatomic, copy) NSString *name;

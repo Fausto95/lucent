@@ -526,6 +526,25 @@ export async function run(): Promise<string> {
     expect(mm).toContain("objc_setAssociatedObject(");
   });
 
+  it("makes an object with a factory Swift imports as an initializer, on the class", () => {
+    const widgets = path.join(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "../../bindgen/test/fixtures/objc",
+    );
+    const { r, mm } = ios(
+      `import { WDGWidget } from "lucent:ios/Widgets";
+export async function run(): Promise<string> {
+  return new WDGWidget("dial").name;
+}
+`,
+      { ios: { includePaths: [widgets] } },
+    );
+
+    expect(r.diagnostics).toEqual([]);
+    expect(mm).toContain("[WDGWidget widgetWithLabel:");
+    expect(mm).not.toContain("alloc] widgetWithLabel:");
+  });
+
   it("reads NSError out-parameters as Lucent errors", () => {
     const { r, mm } = ios(errorOut);
     expect(r.diagnostics).toEqual([]);

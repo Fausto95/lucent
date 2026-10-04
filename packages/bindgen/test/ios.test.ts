@@ -188,13 +188,20 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     expect(type("WDGStyle")).not.toHaveProperty("options");
   });
 
-  it("maps initializers, factories and class properties to their selectors", () => {
+  it("maps initializers, factory initializers, factories and class properties to their selectors", () => {
     expect(widget().constructors).toEqual([
       { params: [], selector: "init", symbol: "objc:c:objc(cs)WDGWidget(im)init" },
       {
         params: [{ name: "style", type: T("Widgets.WDGStyle") }],
         selector: "initWithStyle:",
         symbol: "objc:c:objc(cs)WDGWidget(im)initWithStyle:",
+      },
+      // A class method Swift imports as an initializer: called on the class.
+      {
+        params: [{ name: "label", type: T("string") }],
+        selector: "widgetWithLabel:",
+        factory: true,
+        symbol: "objc:c:objc(cs)WDGWidget(cm)widgetWithLabel:",
       },
     ]);
     expect(method("named")[0]).toMatchObject({
