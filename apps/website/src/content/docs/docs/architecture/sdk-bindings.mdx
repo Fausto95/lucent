@@ -1,7 +1,73 @@
 ---
 title: "How does Lucent call iOS and Android APIs?"
-description: "This page is being rewritten."
+description: "Lucent reads declarations from installed SDKs and libraries, and compiles each call to Objective-C, JNI, generated Swift, generated Kotlin or C."
+sidebar_label: "SDK bindings"
 kind: explanation
 ---
 
-This page is being rewritten.
+```ts title="device.lucent.ts" cpp
+import { PLATFORM } from "lucent:platform";
+import { UIDevice } from "lucent:ios/UIKit";
+import { Build } from "lucent:android/android.os";
+import { main } from "lucent:thread";
+
+export async function model(): Promise<string> {
+  if (PLATFORM === "ios") return main(() => UIDevice.current.model);
+  else return Build.MODEL ?? "unknown";
+}
+```
+
+One module calls both platforms' SDKs. Each platform's build compiles its own branch, and "See the C++" shows both results.
+
+<Diagram name="platform-call">
+
+Each call takes one of five routes, chosen from the member's declaration.
+
+</Diagram>
+
+## Where declarations come from
+
+There's no list of supported frameworks or libraries. Lucent reads the declarations of what your app's build resolves:
+
+- iOS: your Xcode's SDK, your pods at the versions `Podfile.lock` names, and the frameworks Lucent packages ship. Lucent reads their Clang headers and Swift symbol graphs.
+- Android: the SDK platform's `android.jar`, the jars and AARs of your Gradle dependencies, and those Lucent packages ship. Lucent reads their class files.
+- Kotlin libraries: the Kotlin metadata in their class files, which keeps `suspend` functions, default arguments and extensions.
+- Native extensions: the C header a Lucent package declares ([native extensions](/docs/packages/native-extensions/)).
+
+Behavior is never chosen by a library's or a class's name: every member is bound by the same type rules. What the declarations state is checked when you compile, such as main-thread-only members ([LUCENT3006](/docs/api/diagnostics/#lucent3006)) and APIs newer than the oldest supported OS ([LUCENT3007](/docs/api/diagnostics/#lucent3007)). That floor is the oldest OS Lucent supports, not your app's deployment target ([Compatibility](/docs/api/compatibility/)).
+
+## Read once, then cached
+
+The first import of a module, such as `lucent:ios/UIKit` or `lucent:android/android.os`, reads its declarations and caches them on your machine. Later builds reuse them while the SDK and the libraries they came from stay the same.
+
+Reading `android.jar` takes a few hundred milliseconds. A large iOS framework such as UIKit takes tens of seconds, once per Xcode, and `lucent sdk prefetch` reads ahead of time.
+
+Without a platform's SDK, that platform's imports are untyped, and `lucent build` skips the platform with a warning. [Environment variables](/docs/api/environment-variables/) move the cache and choose the SDKs.
+
+## Five routes into native code
+
+| Route | For | What the call becomes |
+| --- | --- | --- |
+| Objective-C | iOS classes and protocols | A message send with the SDK's own selector, compiled against its headers. |
+| JNI | Java classes, and Kotlin that Java can call | A JNI call, with class and member IDs looked up once per call site. |
+| Generated Swift | APIs only Swift can call, such as StoreKit 2 | A call to a generated Swift function, exported to C. |
+| Generated Kotlin | `suspend` functions, value classes, calls leaving out Kotlin defaults | A JNI call to a generated Kotlin function. |
+| C | C functions, CoreFoundation types and native extensions | A direct C call. |
+
+Each member takes the route its declaration calls for. The Swift and Kotlin are generated into the native package for the members your code uses, so there's no Swift or Kotlin to write.
+
+Values convert at each call. SDK objects stay in native code, native 64-bit integers are `bigint`, and `nil` or `null` where the SDK promises a value throws a `TypeError`. A Swift `async` or Kotlin `suspend` function returns a promise, and takes an `AbortSignal` that cancels it.
+
+[iOS SDK](/docs/api/ios-sdk/) and [Android SDK](/docs/api/android-sdk/) give every rule, errors included.
+
+## What can't be bound yet
+
+A member that no rule binds yet is marked `Lucent cannot use this yet` in its declaration, with the reason. Using it fails to compile with a `LUCENT` diagnostic that gives the same reason. The few shapes TypeScript can't express are left out instead.
+
+[`lucent sdk coverage`](/docs/api/cli/#lucent-sdk-coverage) reports how far each member of a module gets: discovered, representable, generated, exercised, with the reasons for the rest. Swift packages and a Lucent package's own Swift and Kotlin sources aren't read yet. The known gaps are on the [roadmap](/docs/releases/roadmap/#known-limitations).
+
+## Pinned SDKs
+
+Bindings follow the SDKs installed where you build, so two machines can build against different ones. `lucent sdk lock` records the SDKs and SDK symbols your code uses in `lucent-sdk.lock.json`, and a `--frozen` build fails when they differ.
+
+`lucent sdk diff` lists what a newer SDK removes or changes among those symbols, before you rebuild. [Pin SDKs](/docs/guides/pin-sdks/) shows the workflow.

@@ -1,7 +1,85 @@
 ---
 title: "What happens when JavaScript calls a module?"
-description: "This page is being rewritten."
+description: "Each exported function is a JSI host function, which checks and converts the arguments, runs your C++ and converts the result back."
+sidebar_label: "Calls across the boundary"
 kind: explanation
 ---
 
-This page is being rewritten.
+<Tabs>
+<TabItem label="module">
+
+```ts title="greet.lucent.ts"
+export function greet(name: string): string {
+  return `Hello, ${name}!`;
+}
+```
+
+</TabItem>
+<TabItem label="JS usage">
+
+```js title="App.js"
+import { greet } from "./src/greet.lucent";
+
+greet("Ada"); // "Hello, Ada!"
+greet(42); // TypeError: greet: argument 'name' must be a string, got a number
+```
+
+</TabItem>
+</Tabs>
+
+<Diagram name="call-sync">
+
+A synchronous call: every step runs on the JS thread, while JavaScript waits.
+
+</Diagram>
+
+## The exports object, made once
+
+The first time JavaScript loads a module, the `Lucent` TurboModule sets Lucent up for that JavaScript runtime and runs every module's initialization. Then it builds the module's exports object, once per runtime.
+
+Each exported function becomes a JSI host function: a JavaScript function whose body is C++. An exported class becomes a factory function, with host functions for its methods on its prototype.
+
+The bundled proxy copies the functions onto its own exports, and wraps each class factory in a constructor so `new` and `instanceof` work. So a call goes from JavaScript straight to the host function, with no lookup, queue or JSON on the way.
+
+## A synchronous call
+
+1. The host function takes the lock module code shares, so no other module code runs meanwhile ([threads](/docs/architecture/threads/)).
+2. It converts each argument to a C++ value, checking it against the parameter's declared type.
+3. Your C++ runs on the JS thread, while JavaScript waits.
+4. It converts the result to a JavaScript value and returns it.
+
+JavaScript can pass anything, so the check is what keeps a wrong value from reaching your code. The `TypeError` names the function and where the value sits, down to a field: `midpoint: argument 'a'.y must be a number, got undefined`.
+
+## An async call
+
+An `async` export checks and converts its arguments the same way, on the JS thread, so a wrong value throws at once rather than rejecting. Then it posts its body to the Lucent thread and returns a promise, which the result settles on the JS thread. [Threads](/docs/architecture/threads/) follows that path.
+
+## Copies and references
+
+<Diagram name="places">
+
+What crosses the boundary, in each direction.
+
+</Diagram>
+
+Plain data is copied each time it crosses, in either direction: numbers, strings, arrays, object types, maps, sets, `Uint8Array` and `Date`. A change on one side never reaches the other.
+
+Copies are deliberate: JavaScript values may only be touched on the JS thread, while your code owns a copy wherever it runs. A copy costs time in proportion to its size, so [shape your API](/docs/architecture/api-design/) to send large data rarely. A `NativeBuffer` crosses by reference, so its bytes stay in native code and are copied only when JavaScript reads them ([Pass large buffers](/docs/guides/pass-large-buffers/)).
+
+A class instance crosses by reference instead. Its JavaScript object holds the native instance, so its methods run your C++, and the same instance always comes back as the same object. It lives as long as either side holds it.
+
+[Share data with JavaScript](/docs/guides/share-data-with-javascript/) shows both, and [the boundary rules](/docs/api/language/boundary/) cover every type.
+
+## Errors
+
+An error thrown in Lucent code reaches JavaScript with the same `name`, `message` and `code`. A `TypeError`, `RangeError` or `SyntaxError` becomes JavaScript's own, and the stack starts with the `.lucent.ts` line that created the error.
+
+An async export rejects its promise with the error instead. What a JavaScript callback throws, or the promise it returns rejects with, becomes a Lucent error your code can catch. A callback posted to the JS thread that returns nothing only logs what it throws ([Throw and handle errors](/docs/guides/throw-and-handle-errors/)).
+
+## Callbacks
+
+A JavaScript function passed in becomes a callback. Lucent keeps the function alive until your code drops its last reference to it, then releases it on the JS thread.
+
+Called during a synchronous call, a callback runs at once, on the JS thread, and can return a value. Called from async code or another thread, it's posted to the JS thread instead. So it must return nothing, or a promise Lucent can await.
+
+A Lucent function passed to JavaScript becomes a host function, and promises stay promises in both directions. [Accept a JS callback](/docs/guides/accept-a-js-callback/) shows the patterns.
