@@ -2,7 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { commands } from "../../../packages/lucent/src/cli/commands.ts";
-import { jsonOutputs, schemaFields } from "../../../scripts/website/schema-fields.ts";
+import {
+  jsonOutputs,
+  type SchemaNode,
+  schemaFields,
+} from "../../../scripts/website/schema-fields.ts";
 
 const schemas = path.join(import.meta.dirname, "../../../packages/lucent/schemas");
 const read = (file: string) => JSON.parse(fs.readFileSync(path.join(schemas, file), "utf8"));
@@ -42,7 +46,7 @@ describe("schemaFields", () => {
   });
 
   it("merges the fields of a union's members, once each", () => {
-    const schema = {
+    const schema: SchemaNode = {
       type: "object",
       properties: {
         v: {
