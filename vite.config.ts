@@ -42,6 +42,7 @@ const slow = [
   "packages/compiler/test/platforms-cold-sdk.test.ts",
   "packages/compiler/test/swift-shims.test.ts",
   "packages/compiler/test/swift-overloads.test.ts",
+  "packages/compiler/test/swift-shapes.test.ts",
   "packages/compiler/test/swift-requirements.test.ts",
   "packages/compiler/test/ios-subclass.test.ts",
   "packages/compiler/test/kotlin-shims.test.ts",
