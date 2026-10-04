@@ -70,7 +70,7 @@
         },
         "vendoredFrameworks": {
           "type": "array",
-          "description": "Prebuilt .framework or .xcframework directories the pod links and embeds. lucent:ios binds their modules (an XCFramework's through its iOS simulator slice). Two with the same framework name fail the build, naming both packages.",
+          "description": "Prebuilt .framework or .xcframework directories the pod vendors: CocoaPods links them, and embeds the dynamic ones. lucent:ios binds their modules (an XCFramework's through its iOS simulator slice). Two with the same framework name fail the build, naming both packages.",
           "items": {
             "type": "string"
           }
@@ -212,7 +212,7 @@
         },
         "nativeSources": {
           "type": "array",
-          "description": "Java and Kotlin source roots of the native package's Android library, such as \"native/android\". Their C and C++ files (.c, .cc, .cpp) are compiled with the runtime. Each directory is also a header search path. Kotlin sources apply the Kotlin Android plugin.",
+          "description": "Java and Kotlin source roots of the native package's Android library, such as \"native/android\". Their C and C++ files (.c, .cc, .cpp) are compiled with the runtime. A directory holding C or C++ files is also a header search path. Kotlin sources apply the Kotlin Android plugin.",
           "items": {
             "type": "string"
           }

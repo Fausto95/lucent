@@ -2,7 +2,13 @@
 
 import type { UIViewController } from "lucent:ios/UIKit";
 
-/** Whether the OS is at least `major.minor` (Swift's `#available`). */
+/**
+ * Whether the OS is at least `major.minor` (Swift's `#available`).
+ *
+ * @param platform Always `"ios"`.
+ * @param major The major version, such as `16`.
+ * @param minor The minor version; 0 when left out.
+ */
 export declare function available(platform: "ios", major: number, minor?: number): boolean;
 
 /** The root of Objective-C objects. Values of type `Any` (`id`) arrive as NSObjects. */
@@ -70,6 +76,10 @@ export type SceneEvent =
  * Lucent observes the notifications, so the app's delegate and other
  * modules' stay as they are. What `listener` throws is logged, and the app
  * goes on.
+ *
+ * @param event The notification, by name.
+ * @param listener Called on the main thread each time it is posted.
+ * @param signal Stops listening, as the returned function does.
  */
 export declare function onAppEvent(
   event: AppEvent,
@@ -80,6 +90,10 @@ export declare function onAppEvent(
 /**
  * Like `onAppEvent`, for each scene's `event`: `listener` gets the scene's
  * session's `persistentIdentifier`.
+ *
+ * @param event The notification, by name.
+ * @param listener Called with the scene's `persistentIdentifier`.
+ * @param signal Stops listening, as the returned function does.
  */
 export declare function onSceneEvent(
   event: SceneEvent,
@@ -104,6 +118,9 @@ export declare function onSceneEvent(
  *
  * It rejects with an `InvalidStateError` when no scene is in the
  * foreground, or UIKit doesn't present it.
+ *
+ * @param build Makes the view controller, on the main thread.
+ * @param signal Dismisses it and rejects with an `AbortError`.
  */
 export declare function present<T>(
   build: (resolve: (value: T) => void, reject: (reason: Error) => void) => UIViewController,

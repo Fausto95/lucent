@@ -19,6 +19,8 @@
  * Runs `run` now, and again after a prop or signal it read changes. Before
  * it runs again, and when the view goes, what it registered with
  * `onDispose` runs.
+ *
+ * @param run Reads props and signals; runs again when one of them changes.
  */
 export declare function effect(run: () => void): void;
 
@@ -32,7 +34,11 @@ export interface Signal<T> {
   set(value: T): void;
 }
 
-/** A signal holding `initial`, for this mount of the view. */
+/**
+ * A signal holding `initial`, for this mount of the view.
+ *
+ * @param initial Its first value.
+ */
 export declare function signal<T>(initial: T): Signal<T>;
 
 /**
@@ -45,7 +51,11 @@ export interface Bound<T> {
   readonly __lucentBound: T;
 }
 
-/** `signal`, bound to the view of a body it is given to: only there. */
+/**
+ * `signal`, bound to the view of a body it is given to: only there.
+ *
+ * @param signal The signal the view shows and sets.
+ */
 export declare function bind<T>(signal: Signal<T>): Bound<T>;
 
 /**
@@ -58,7 +68,12 @@ export interface ClosedRange<T> {
   readonly __lucentRange: T;
 }
 
-/** The closed range from `from` to `to`, for the view of a body it is given to: only there. */
+/**
+ * The closed range from `from` to `to`, for the view of a body it is given to: only there.
+ *
+ * @param from The first number.
+ * @param to The last number, included.
+ */
 export declare function range(from: number, to: number): ClosedRange<number>;
 
 /**
@@ -66,12 +81,16 @@ export declare function range(from: number, to: number): ClosedRange<number>;
  * setup, with an object literal of functions. A command returning nothing
  * runs on the main thread; one returning a value (or a promise) answers
  * JavaScript's promise.
+ *
+ * @param commands An object literal of functions.
  */
 export declare function expose<T extends object>(commands: T): void;
 
 /**
  * Runs `cleanup` when the view goes; inside an effect, before the effect
  * runs again.
+ *
+ * @param cleanup What to undo.
  */
 export declare function onDispose(cleanup: () => void): void;
 

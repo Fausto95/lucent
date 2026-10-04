@@ -7,5 +7,7 @@
  *
  * `f` runs holding the lock module code shares, and the main thread waits
  * for any module job before it starts. Keep it short.
+ *
+ * @param f The code to run on the main thread: its result resolves the promise.
  */
 export declare function main<T>(f: () => T): Promise<T>;

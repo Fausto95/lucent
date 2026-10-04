@@ -4,19 +4,41 @@
  * `@lucent-lang/lucent/core`, so the same source also runs as TypeScript.
  */
 
-/** Resolves after `ms` milliseconds; rejects with the signal's reason if it aborts first. */
+/**
+ * Resolves after `ms` milliseconds; rejects with the signal's reason if it aborts first.
+ *
+ * @param ms How long to wait, in milliseconds.
+ * @param signal Rejects the promise early, with its reason.
+ */
 export declare function delay(ms: number, signal?: AbortSignal): Promise<void>;
 
-/** An Error with a machine-readable `code`, which JavaScript reads as `error.code`. */
+/**
+ * An Error with a machine-readable `code`, which JavaScript reads as `error.code`.
+ *
+ * @param code What JavaScript branches on, such as `"E_NOT_FOUND"`.
+ * @param message What a person reads.
+ */
 export declare function error(code: string, message: string): Error;
 
-/** The `code` of an error made with `error()`, or undefined. */
+/**
+ * The `code` of an error made with `error()`, or undefined.
+ *
+ * @param e An error, from `error()` or not.
+ */
 export declare function errorCode(e: Error): string | undefined;
 
-/** The UTF-8 bytes of a string, like `new TextEncoder().encode(s)`. */
+/**
+ * The UTF-8 bytes of a string, like `new TextEncoder().encode(s)`.
+ *
+ * @param s The string to encode.
+ */
 export declare function utf8Encode(s: string): Uint8Array;
 
-/** Decodes UTF-8 bytes, like `new TextDecoder().decode(bytes)`, replacing invalid sequences. */
+/**
+ * Decodes UTF-8 bytes, like `new TextDecoder().decode(bytes)`, replacing invalid sequences.
+ *
+ * @param bytes The UTF-8 bytes to decode.
+ */
 export declare function utf8Decode(bytes: Uint8Array): string;
 
 /** Milliseconds from a monotonic clock, for measuring durations. */
@@ -63,6 +85,9 @@ export declare function now(): number;
  *   }, signal);
  * }
  * ```
+ *
+ * @param register Starts listening with `resolve` and `reject`, and may return the cleanup.
+ * @param signal Rejects the promise with its reason, and runs the cleanup.
  */
 export declare function fromCallback<T>(
   register: (resolve: (value: T) => void, reject: (reason: Error) => void) => (() => void) | void,
@@ -81,6 +106,10 @@ export declare function fromCallback<T>(
  *
  * The cleanup, a throw from `register`, an aborted signal and calls from
  * other threads behave as in `fromCallback`.
+ *
+ * @param register Starts listening with `next`, `end` and `fail`, and may return the cleanup.
+ * @param onValue Called with each value while the subscription is open.
+ * @param signal Ends the subscription, rejecting with its reason.
  */
 export declare function subscribe<T>(
   register: (
@@ -137,6 +166,10 @@ export interface ComputeOptions {
  *   return await compute(edgePositions, bytes, { signal });
  * }
  * ```
+ *
+ * @param task A function declared at the top level of a module, taking one parameter.
+ * @param input Data, copied when `compute` is called.
+ * @param options `signal` cancels the task.
  */
 export declare function compute<T, R>(
   task: (input: T) => R,
