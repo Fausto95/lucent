@@ -110,16 +110,16 @@ export function deferredLibraryGradle(native: NativeInputs | undefined): string 
   return libraryBuildGradle(template, native, true, fabricViews() ? "unknown" : []);
 }
 
-/** Lucent packages' pods, each with every version requirement the packages ask, sorted. */
+/**
+ * Lucent packages' pods, each with every version requirement the packages
+ * ask, sorted. The pods keep the manifest's order: by name in code-unit
+ * order (resolveNative's), the same in every locale.
+ */
 export function packagePods(manifest: NativeInputs["manifest"] | undefined): [string, string[]][] {
-  return Object.entries(manifest?.ios.pods ?? {})
-    .map(([pod, asked]): [string, string[]] => [
-      pod,
-      [
-        ...new Set(Object.keys(asked).flatMap((r) => r.split(",").map((part) => part.trim()))),
-      ].sort(),
-    ])
-    .sort(([a], [b]) => a.localeCompare(b));
+  return Object.entries(manifest?.ios.pods ?? {}).map(([pod, asked]) => [
+    pod,
+    [...new Set(Object.keys(asked).flatMap((r) => r.split(",").map((part) => part.trim())))].sort(),
+  ]);
 }
 
 /**

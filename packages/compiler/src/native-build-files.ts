@@ -46,6 +46,9 @@ const rubyHash = (r: SwiftPackageRequirement) =>
     .map(([k, v]) => `${k}: ${JSON.stringify(v)}`)
     .join(", ")} }`;
 
+/** The podspec's closing line: what the build's lines go before. */
+const CLOSING_END = /^end\s*$/m;
+
 /** LucentNative.podspec: the template with the frameworks, sources, resources and pods the build needs. */
 export function podspec(template: string, inputs: PodspecInputs): string {
   let text = template.replace(
@@ -117,7 +120,7 @@ export function podspec(template: string, inputs: PodspecInputs): string {
     ),
   ];
 
-  return lines.length ? text.replace(/^end\s*$/m, () => `${lines.join("\n")}\nend`) : text;
+  return lines.length ? text.replace(CLOSING_END, () => `${lines.join("\n")}\nend`) : text;
 }
 
 /** Ends a podspec line that a Lucent package's lucent.json asks for. */
@@ -129,9 +132,10 @@ const podLine = ([pod, requirements]: [string, string[]], fromPackage = true) =>
 
 /**
  * `podspec` depending on the Lucent packages' `pods` as given: each pod's
- * line is replaced in place, a missing one is added before `end`, and a
- * marked one no package asks for any more is dropped. The pods the iOS code
- * imports, unmarked, stay; and the same pods make the same text.
+ * line is replaced in place, a missing one is added before the closing
+ * `end`, and a marked one no package asks for any more is dropped. The pods
+ * the iOS code imports, unmarked, stay; and the same pods make the same
+ * text. Lines may end in whitespace or `\r`.
  */
 export function withPodDependencies(podspec: string, pods: [string, string[]][]): string {
   const wanted = new Map(pods);
@@ -148,12 +152,15 @@ export function withPodDependencies(podspec: string, pods: [string, string[]][])
       return [podLine([pod, requirements])];
     }
 
-    return line.endsWith(PACKAGE_POD) ? [] : [line];
+    return line.trimEnd().endsWith(PACKAGE_POD) ? [] : [line];
   });
   const missing = pods.filter(([pod]) => !done.has(pod)).map((pod) => podLine(pod));
-  const end = lines.lastIndexOf("end");
+  if (!missing.length) return lines.join("\n");
 
-  if (missing.length) lines.splice(end < 0 ? lines.length : end, 0, ...missing);
+  const end = lines.findIndex((line) => CLOSING_END.test(line));
+  if (end < 0) throw new Error('a podspec without its closing "end" line: no place for pods');
+
+  lines.splice(end, 0, ...missing);
   return lines.join("\n");
 }
 
