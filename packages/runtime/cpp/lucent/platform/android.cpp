@@ -126,13 +126,13 @@ std::optional<Error> takeThrown(JNIEnv* e, jobject t) {
 
 }  // namespace
 
-void throwToJava(JNIEnv* e, Error error) {
+jthrowable throwableOf(JNIEnv* e, Error error) {
   static jclass cls = findClass("java/lang/RuntimeException");
   static jmethodID init = method(cls, "<init>", "(Ljava/lang/String;)V");
   jstring message = toJString(e, error->message);
   auto exception = static_cast<jthrowable>(e->NewObject(cls, init, message));
   e->DeleteLocalRef(message);
-  if (!exception) return;  // A pending OutOfMemoryError ends the call instead.
+  if (!exception) return nullptr;  // A pending OutOfMemoryError ends the call instead.
 
   {
     std::lock_guard<std::mutex> g(thrownMutex);
@@ -145,8 +145,117 @@ void throwToJava(JNIEnv* e, Error error) {
     });
     v.push_back({e->NewWeakGlobalRef(exception), std::move(error)});
   }
+  return exception;
+}
+
+void throwToJava(JNIEnv* e, Error error) {
+  jthrowable exception = throwableOf(e, std::move(error));
+  if (!exception) return;
+
   e->Throw(exception);
   e->DeleteLocalRef(exception);
+}
+
+namespace {
+
+/// A primitive of descriptor `d`, from its boxed object.
+jvalue unboxed(JNIEnv* e, char d, jobject boxed) {
+  jvalue v{};
+  switch (d) {
+    case 'Z': v.z = unboxBoolean(e, boxed) ? JNI_TRUE : JNI_FALSE; break;
+    case 'J': v.j = unboxLong(e, boxed); break;
+    case 'I': v.i = static_cast<jint>(unboxNumber(e, boxed)); break;
+    case 'S': v.s = static_cast<jshort>(unboxNumber(e, boxed)); break;
+    case 'B': v.b = static_cast<jbyte>(unboxNumber(e, boxed)); break;
+    case 'C': v.c = static_cast<jchar>(unboxNumber(e, boxed)); break;
+    case 'F': v.f = static_cast<jfloat>(unboxNumber(e, boxed)); break;
+    case 'D': v.d = unboxNumber(e, boxed); break;
+    default: v.l = boxed;
+  }
+  return v;
+}
+
+}  // namespace
+
+jobject boxValueClass(JNIEnv* e, const char* cls, const char* underlying, jobject value) {
+  if (!value && underlying[0] != 'L' && underlying[0] != '[') return nullptr;
+
+  jclass c = findClass(cls);
+  std::string sig = std::string("(") + underlying + ")L" + cls + ";";
+  jmethodID box = staticMethod(c, "box-impl", sig.c_str());
+  jvalue v = unboxed(e, underlying[0], value);
+  jobject r = e->CallStaticObjectMethodA(c, box, &v);
+  check(e);
+  return r;
+}
+
+jobject unboxValueClass(JNIEnv* e, const char* cls, const char* underlying, jobject boxed) {
+  if (!boxed) return nullptr;
+
+  jmethodID unbox = method(findClass(cls), "unbox-impl", (std::string("()") + underlying).c_str());
+
+  // Each read checked before the boxing calls Java again.
+  auto read = [e](auto v) {
+    check(e);
+    return v;
+  };
+  switch (underlying[0]) {
+    case 'Z': return boxBoolean(e, read(e->CallBooleanMethod(boxed, unbox)) == JNI_TRUE);
+    case 'J': return boxLong(e, read(e->CallLongMethod(boxed, unbox)));
+    case 'I': return boxInt(e, read(e->CallIntMethod(boxed, unbox)));
+    case 'S': return boxShort(e, read(e->CallShortMethod(boxed, unbox)));
+    case 'B': return boxByte(e, read(e->CallByteMethod(boxed, unbox)));
+    case 'C': return boxChar(e, read(e->CallCharMethod(boxed, unbox)));
+    case 'F': return boxFloat(e, read(e->CallFloatMethod(boxed, unbox)));
+    case 'D': return boxDouble(e, read(e->CallDoubleMethod(boxed, unbox)));
+    default: return read(e->CallObjectMethod(boxed, unbox));
+  }
+}
+
+jobject suspendedCall(JNIEnv* e, jobject continuation, const std::function<void(Resume)>& start) {
+  static jclass intrinsics = findClass("kotlin/coroutines/intrinsics/IntrinsicsKt");
+  static jmethodID intercepted = staticMethod(
+      intrinsics, "intercepted", "(Lkotlin/coroutines/Continuation;)Lkotlin/coroutines/Continuation;");
+  static jclass safeClass = findClass("kotlin/coroutines/SafeContinuation");
+  static jmethodID safeInit = method(safeClass, "<init>", "(Lkotlin/coroutines/Continuation;)V");
+  static jmethodID getOrThrow = method(safeClass, "getOrThrow", "()Ljava/lang/Object;");
+  static jmethodID resumeWith = method(safeClass, "resumeWith", "(Ljava/lang/Object;)V");
+  static jclass results = findClass("kotlin/ResultKt");
+  static jmethodID failure = staticMethod(results, "createFailure", "(Ljava/lang/Throwable;)Ljava/lang/Object;");
+
+  // As suspendCoroutine does: resumed through its dispatcher, never on the Lucent thread,
+  // and a result that arrives before the call returns is its result.
+  jobject dispatched = e->CallStaticObjectMethod(intrinsics, intercepted, continuation);
+  check(e);
+  jobject local = e->NewObject(safeClass, safeInit, dispatched);
+  e->DeleteLocalRef(dispatched);
+  check(e);
+  auto safe = std::make_shared<NativeRef>(wrap(e, e->NewLocalRef(local), "a continuation"));
+
+  // Kotlin's Result is the value itself, or a failure of the Throwable.
+  start([safe](JNIEnv* env, jobject value, const Error* error) {
+    jobject result = value;
+    if (error) {
+      jthrowable t = throwableOf(env, *error);
+      result = env->CallStaticObjectMethod(results, failure, t);
+      env->DeleteLocalRef(t);
+      check(env);
+    }
+    env->CallVoidMethod(unwrap(*safe), resumeWith, result);
+    if (error) env->DeleteLocalRef(result);
+    check(env);
+  });
+
+  // COROUTINE_SUSPENDED, or the result already there; a failure already there stays pending.
+  jobject r = e->CallObjectMethod(local, getOrThrow);
+  e->DeleteLocalRef(local);
+  return r;
+}
+
+jobject unit(JNIEnv* e) {
+  static jclass cls = findClass("kotlin/Unit");
+  static jfieldID instance = staticField(cls, "INSTANCE", "Lkotlin/Unit;");
+  return e->GetStaticObjectField(cls, instance);
 }
 
 void rethrowPending(JNIEnv* e) {
