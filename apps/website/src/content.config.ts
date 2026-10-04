@@ -3,13 +3,16 @@ import { docsSchema } from "@astrojs/starlight/schema";
 import { defineCollection } from "astro:content";
 import { glob } from "astro/loaders";
 import { z } from "astro/zod";
+import { DOC_KINDS, type DocKind } from "./docs/types.ts";
 
 /** What src/docs/types.ts calls DocFrontmatter beyond Starlight's own fields. */
 const docs = defineCollection({
   loader: docsLoader(),
   schema: docsSchema({
     extend: z.object({
-      kind: z.enum(["start", "learn", "guide", "reference", "example", "other"]).optional(),
+      // Optional for Starlight: blog posts render through <StarlightPage> with this schema.
+      // scripts/website.ts requires it on every docs page.
+      kind: z.enum(Object.keys(DOC_KINDS) as [DocKind, ...DocKind[]]).optional(),
       samplesWith: z.string().optional(),
       views: z.literal(true).optional(),
     }),

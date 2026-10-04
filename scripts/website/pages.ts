@@ -3,9 +3,16 @@ import path from "node:path";
 import { runnerImport } from "vite";
 import { readMdx } from "../../apps/website/src/docs/mdx-read.ts";
 import type { PostEntry } from "../../apps/website/src/blog/types.ts";
-import { docsSlugs } from "../../apps/website/src/docs/nav.ts";
+import {
+  type DocSection,
+  INTERNALS,
+  docsSections,
+  docsSlugs,
+  locate,
+} from "../../apps/website/src/docs/nav.ts";
 import {
   type Block,
+  DOC_KINDS,
   type DocFrontmatter,
   type DocKind,
   type DocPage,
@@ -108,12 +115,9 @@ export function checkedPages(pages: DocPage[], posts: Post[]): CheckedPage[] {
   ];
 }
 
-const KINDS = new Set<DocKind>(["start", "learn", "guide", "reference", "example", "other"]);
+const KINDS = new Set(Object.keys(DOC_KINDS));
 
-/**
- * Page files match the sidebar (src/docs/nav.ts), and each page says its
- * kind and has its one "Next" link.
- */
+/** Page files match the sidebar (src/docs/nav.ts), and each page follows checkPages' rules. */
 export function checkStructure(pages: DocPage[]): string[] {
   const problems: string[] = [];
   const slugs = new Set(pages.map((p) => p.slug));
@@ -127,23 +131,43 @@ export function checkStructure(pages: DocPage[]): string[] {
     if (!slugs.has(slug)) problems.push(`${where(slug)} has no ${docFile(slug)}`);
   const dups = docsSlugs.filter((s, i) => docsSlugs.indexOf(s) !== i);
   for (const dup of new Set(dups)) problems.push(`${where(dup)} is in the sidebar twice`);
+  return [...problems, ...checkPages(pages)];
+}
 
-  const hrefs = new Set(pages.map((p) => docsHref(p.slug)));
-  const last = docsSlugs.at(-1);
+/** Whether a slug is one of Architecture's contributor pages. */
+const internal = (slug: string): boolean => slug === INTERNALS || slug.startsWith(`${INTERNALS}/`);
+
+/**
+ * Each page says its kind, internals pages and only those are under
+ * Architecture's Internals, pages about views are badged experimental, and
+ * a frontmatter "Next" names a page of the same section by its title.
+ */
+export function checkPages(pages: DocPage[], sections: DocSection[] = docsSections): string[] {
+  const problems: string[] = [];
+  const byHref = new Map(pages.map((p) => [docsHref(p.slug), p]));
   for (const page of pages) {
+    const at = where(page.slug);
     if (!page.title || !page.description)
-      problems.push(`${where(page.slug)} needs a title and a description in its frontmatter`);
+      problems.push(`${at} needs a title and a description in its frontmatter`);
     if (!KINDS.has(page.kind))
+      problems.push(`${at}: kind is ${page.kind}, not one of ${[...KINDS].join(", ")}`);
+    if (page.kind === "internals" && !internal(page.slug))
+      problems.push(`${at}: kind internals is for pages under ${where(INTERNALS)}`);
+    if (internal(page.slug) && page.kind !== "internals")
+      problems.push(`${at}: a page under ${where(INTERNALS)} is kind internals`);
+    if (page.views && page.sidebar?.badge !== "Experimental")
+      problems.push(`${at}: views are experimental: set sidebar: { badge: "Experimental" }`);
+    if (page.next === undefined) continue;
+    const target = byHref.get(page.next.link);
+    const from = locate(page.slug, sections)?.section;
+    const to = target && locate(target.slug, sections)?.section;
+    if (!target) problems.push(`${at}: next is ${page.next.link}, which is not a page`);
+    else if (page.next.label !== target.title)
+      problems.push(`${at}: next's label should be its page's title`);
+    else if (from && to && from !== to)
       problems.push(
-        `${where(page.slug)}: kind is ${page.kind}, not one of ${[...KINDS].join(", ")}`,
+        `${at}: next is ${page.next.link}, in ${to.label}: Next stays in ${from.label}`,
       );
-    if (page.next !== undefined) {
-      if (!hrefs.has(page.next.link))
-        problems.push(`${where(page.slug)}: next is ${page.next.link}, which is not a page`);
-      else if (page.next.label !== pages.find((p) => docsHref(p.slug) === page.next!.link)?.title)
-        problems.push(`${where(page.slug)}: next's label should be its page's title`);
-    } else if (page.slug === last)
-      problems.push(`${where(page.slug)} has no "Next" link: set next in its frontmatter`);
   }
   return problems;
 }

@@ -117,6 +117,9 @@ export const docsSections: DocSection[] = [
   },
 ];
 
+/** Architecture's contributor pages: only these are kind "internals", and .vale.ini lets them name the compiler's parts. */
+export const INTERNALS = "architecture/internals";
+
 /** Every docs page's slug, in reading order. */
 export const docsSlugs: string[] = docsSections.flatMap((s) => s.groups.flatMap((g) => g.slugs));
 

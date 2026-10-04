@@ -4,11 +4,7 @@ import { milestones } from "../../generated/roadmap";
 export const frontmatter: DocFrontmatter = {
   title: "Roadmap",
   description: "What works today, what's next, and what's later, milestone by milestone.",
-  kind: "other",
-  next: {
-    link: "/docs/",
-    label: "What is Lucent",
-  },
+  kind: "reference",
 };
 
 export const blocks: Block[] = [

@@ -66,12 +66,25 @@ export type DiagramName =
   | "threads";
 
 /**
- * Start: what Lucent is and getting it running. Learn: how to think in it,
- * read in order. Guide: one task. Reference: the exact rules, generated where
- * possible. Example: a whole module from the example apps. The kind sets the
- * page's length budget (CONTRIBUTING-DOCS.md).
+ * The kinds of docs page, and each one's length budget (CONTRIBUTING-DOCS.md):
+ * words of prose and lines of code; undefined is unbounded. Start: what
+ * Lucent is and getting it running, read in order. Guide: one task.
+ * Explanation: how a part of Lucent works and why. Example: a whole module
+ * from the example apps. Reference: the exact rules, generated where
+ * possible. Internals: how Lucent's code works, for contributors (only
+ * under architecture/internals).
  */
-export type DocKind = "start" | "learn" | "guide" | "reference" | "example" | "other";
+export const DOC_KINDS = {
+  start: { words: 400, code: 60 },
+  guide: { words: 400, code: 60 },
+  explanation: { words: 800, code: 120 },
+  // A whole module is the point of an example page.
+  example: { words: 400, code: Infinity },
+  reference: undefined,
+  internals: undefined,
+} as const satisfies Record<string, { words: number; code: number } | undefined>;
+
+export type DocKind = keyof typeof DOC_KINDS;
 
 /**
  * A docs page's frontmatter (src/content.config.ts validates it). Starlight
@@ -85,6 +98,8 @@ export interface DocFrontmatter {
   kind: DocKind;
   /** The page's one "Next" link, when it isn't the following page in the sidebar. */
   next?: { link: string; label: string };
+  /** Starlight's sidebar entry: a shorter label, or a badge ("Experimental" on pages about views). */
+  sidebar?: { label?: string; badge?: string };
   /**
    * A directory (from the repository root) whose `*.lucent.ts` files compile with
    * the page's samples, so a page can show one module of a project, or its diff.
