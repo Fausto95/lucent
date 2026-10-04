@@ -155,6 +155,11 @@ typedef struct {
 - (void)enumerateLevels:(void (NS_NOESCAPE ^)(double level, BOOL *stop))block;
 @end
 
+/// A class whose only initializer of its own is a factory: it keeps NSObject's init.
+@interface WDGBadge : NSObject
++ (instancetype)badgeWithText:(NSString *)text;
+@end
+
 double WDGDistance(WDGWidget *a, WDGWidget *b);
 
 typedef enum {

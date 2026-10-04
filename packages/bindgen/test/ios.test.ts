@@ -229,6 +229,13 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     expect(props.size).toMatchObject({ type: T("uint64") });
   });
 
+  it("keeps the initializers a class inherits beside its factory ones", () => {
+    expect(cls("WDGBadge").constructors).toEqual([
+      expect.objectContaining({ selector: "badgeWithText:", factory: true }),
+      { params: [], selector: "init" },
+    ]);
+  });
+
   it("types parameters and results: nullability, collections, data, dates, id", () => {
     expect(method("touch")[0]).toMatchObject({
       selector: "touch:other:",
