@@ -250,10 +250,11 @@ export async function run(): Promise<string> {
 
 /** CoreGraphics' C functions as Swift imports them: members of their handles. */
 const cgMembers = `import { UIImage } from "lucent:ios/UIKit";
+import type { CGImage } from "lucent:ios/CoreGraphics";
 import { main } from "lucent:thread";
 export async function run(): Promise<string> {
   return main(() => {
-    const cg = new UIImage(new Uint8Array(0)).cgImage;
+    const cg: CGImage | null = new UIImage(new Uint8Array(0)).cgImage;
     if (cg === null) return "none";
     const cropped = cg.cropping({ origin: { x: 0, y: 0 }, size: { width: 1, height: 1 } });
     return \`\${cg.width}x\${cg.height} \${cropped === null}\`;
