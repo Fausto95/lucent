@@ -85,6 +85,7 @@ export const docsSections: DocSection[] = [
           "reference/platform-types",
           "reference/modules",
           "reference/cli",
+          "api/json-formats",
           "reference/metro-and-expo",
           "reference/diagnostics",
           "reference/compatibility",

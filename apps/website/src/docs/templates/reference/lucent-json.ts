@@ -28,10 +28,11 @@ export const blocks: Block[] = [
   },
   {
     kind: "table",
-    head: ["Field", "Type", "Meaning"],
-    rows: lucentJsonFields.map(({ field, type, description }) => [
+    head: ["Field", "Type", "Required", "Meaning"],
+    rows: lucentJsonFields.map(({ field, type, required, description }) => [
       `\`${field}\``,
       `\`${type}\``,
+      required ? "yes" : "",
       description,
     ]),
   },
@@ -41,6 +42,6 @@ export const blocks: Block[] = [
   },
   {
     kind: "p",
-    text: "The schema ships in the package, at `@lucent-lang/lucent/schemas/lucent.schema.json`, and this table is generated from it.",
+    text: "This table is generated from the schema, which editors read through the `$schema` URL above. The package ships it too, at `node_modules/@lucent-lang/lucent/schemas/lucent.schema.json`.",
   },
 ];

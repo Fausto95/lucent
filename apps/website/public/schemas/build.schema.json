@@ -221,7 +221,7 @@
         "properties": {
           "kind": {
             "enum": ["reinstall", "relink", "compile-native", "repackage", "reload-js"],
-            "description": "reinstall: the app's configuration (Info.plist, entitlements, manifest) changed; relink: native dependencies or build files changed; compile-native: native code changed; repackage: resources or assets changed; reload-js: only JavaScript proxies changed"
+            "description": "What the app needs. reinstall: its configuration (Info.plist, entitlements, manifest) changed. relink: native dependencies or build files changed. compile-native: native code changed. repackage: resources or assets changed. reload-js: only JavaScript proxies changed."
           },
           "targets": {
             "type": "array",

@@ -379,7 +379,7 @@
         "properties": {
           "header": {
             "type": "string",
-            "description": "The C header, relative to the package, in a directory both ios.nativeSources and android.nativeSources list: both builds compile the extension and search that directory. It must compile as C and as C++, declaring its functions in extern \"C\" when C++ includes it. Functions it declares that need no declaration here (numbers and booleans) are bound as they are; one that takes a handle must be named here."
+            "description": "The C header, relative to the package. Its directory is in both ios.nativeSources and android.nativeSources, so both builds compile the extension and search there. It must compile as C and as C++, declaring its functions in extern \"C\" when C++ includes it. Functions that take only numbers and booleans are bound as they are; one that takes a handle must be named here."
           },
           "handles": {
             "type": "object",
