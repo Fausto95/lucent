@@ -286,6 +286,18 @@ void inMainContext(const char* where, F&& work) {
         LucentComponentView *view = weakSelf;
 
         return view ? [view lucentMeasure:constraints] : std::nullopt;
+      },
+      // The content changed, a native timer's or an animation's code too, not
+      // only a commit's or a command's: it may have moved the slot, which lays
+      // out again on UIKit's next pass and reports where it is, past the
+      // reports' bound (TA26).
+      [weakSelf] {
+        LucentComponentView *view = weakSelf;
+
+        if (!view) return;
+
+        view->_place.contentChanged();
+        [view->_children.slot setNeedsLayout];
       });
   _place.start(static_cast<float>(RCTScreenScale()), static_cast<int>(self.tag));
   [self.lucentChildren startMount];

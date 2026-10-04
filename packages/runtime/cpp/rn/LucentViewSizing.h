@@ -199,11 +199,15 @@ class HostSizing {
 
   /// A mount starts on the view `tag` names, at `scale` pixels per point,
   /// its content measured by `measure`: revision 1, measured from scratch.
-  void start(float scale, int tag, Measure measure) {
+  /// `changed`, if any, runs after each change of the content is measured:
+  /// what else the host follows the content for (its slot, which the
+  /// content may have moved).
+  void start(float scale, int tag, Measure measure, std::function<void()> changed = nullptr) {
     measurer_ = sizing::Measurer(scale);
     lastPost_.reset();
     tag_ = tag;
     measure_ = std::move(measure);
+    changed_ = std::move(changed);
     content_ = ui::Content::create([this] { contentChanged(); });
     traceSizing("%d start", tag_);
   }
@@ -214,6 +218,7 @@ class HostSizing {
 
     content_.reset();
     measure_ = nullptr;
+    changed_ = nullptr;
     state_.reset();
     lastPost_.reset();
   }
@@ -246,6 +251,8 @@ class HostSizing {
     measurer_.contentChanged();
     traceSizing("%d content rev %llu", tag_, static_cast<unsigned long long>(measurer_.revision()));
     measure();
+
+    if (changed_) changed_();
   }
 
   /// Measures if the state asks for constraints this content revision has
@@ -338,6 +345,7 @@ class HostSizing {
   sizing::Measurer measurer_;
   std::optional<Post> lastPost_;
   Measure measure_;
+  std::function<void()> changed_;
   std::shared_ptr<ui::Content> content_;
   int tag_ = 0;
 };

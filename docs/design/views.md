@@ -1203,8 +1203,9 @@ Sizing):
 2. It posts that as a state update when the state lacks it, once while
    it is pending, and does not wait. On iOS it measures each time the
    slot has laid itself out: after the mount, after each applied commit
-   and command, when the host lays out, and when the slot moves or
-   resizes. On Android the slot passes its place on at each of its
+   and command, after the mount's code changes its content with neither
+   (a native timer's, an animation's callback), when the host lays out,
+   and when the slot moves or resizes. On Android the slot passes its place on at each of its
    layouts and before each frame, when it or the content box changed.
 3. The renderer applies the update on the JavaScript thread. It keeps
    the report only if it is not older than the one the state holds and
@@ -1245,9 +1246,11 @@ host lays out, and after each commit and command the mount applies
 (UIKit tells a view nothing when an ancestor moves without resizing it);
 each realignment is when the host measures the slot's place. On
 Android the slot scrolls its content by that origin at each layout and
-before each frame. On iOS a native view moved by native code alone (an
-animation, a timer) takes the slot along only at the component's next
-layout.
+before each frame. On iOS the mount's own code moving a native view (a
+native timer's or an animation's callback) marks its content changed, and
+the slot lays out on UIKit's next pass (TA26); a move no code of the
+mount makes (a Core Animation animation running on its own) takes the
+slot along at the component's next layout.
 
 Because the children are laid out in the component's coordinates, the
 slot works under any native view that shows it: a view setup made, or,

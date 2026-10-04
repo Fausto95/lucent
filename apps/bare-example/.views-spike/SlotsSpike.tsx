@@ -30,7 +30,11 @@ import {
 // Components' React exports exist only when views are generated.
 import * as slots from "./slots.lucent";
 
-type CardRef = { inspect(): Promise<string>; probe(x: number, y: number): Promise<string> };
+type CardRef = {
+  inspect(): Promise<string>;
+  probe(x: number, y: number): Promise<string>;
+  driftLater(dx: number): Promise<void>;
+};
 type PanelRef = { inspect(): Promise<string> };
 type CardProps = {
   title: string;
@@ -297,6 +301,10 @@ export function SlotsSpike() {
       [6500, () => check("native move", ["C", "A", "T"])],
       [7000, () => setPadding(30)],
       [7500, () => check("relayout", ["C", "A", "T"])],
+      // The slot moved by a native timer, no commit or command at the time: the
+      // children follow it without another layout of the host (TA26).
+      [7600, () => card.current?.driftLater(16)],
+      [7950, () => check("timer move", ["C", "A", "T"])],
       [
         8000,
         async () => {

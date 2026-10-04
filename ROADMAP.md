@@ -850,7 +850,7 @@ small fixes found on the way.
 | [T51](#t51)   | Implement the small Lucent UI library and examples                | T49, T50 | waiting (maintainer) |
 | [T52](#t52)   | Complete useful wrapper ports and certify a preview               | —        | ready (maintainer)   |
 | [TA25](#ta25) | Fix the bare app's FlatList crash from a second react-native copy | —        | in review            |
-| [TA26](#ta26) | Lay out the slot after a native-only move on iOS                  | —        | ready                |
+| [TA26](#ta26) | Lay out the slot after a native-only move on iOS                  | —        | in review            |
 
 The Needs column lists only open dependencies.
 
@@ -1125,18 +1125,26 @@ both platforms.
 **Goal:** Move a slot's React children as soon as the slot moves on iOS,
 even when no commit or command caused the move.
 
-- **Status:** open, ready to start.
+- **Status:** in review (2026-10-04): every item below passes on its
+  branch.
 - **Area:** Views (iOS host).
 - **Needs:** none.
 - **Verify:** V1, V5.
 - **Where:** The iOS host's slot layout (`HostSlot`) and the `ui::Content`
   callback.
 
-- [ ] Mark the slot for layout from the `ui::Content` callback that T46
+- [x] Mark the slot for layout from the `ui::Content` callback that T46
       added (it owns the sizing callback today; pass a second callback).
-- [ ] Reset `HostSlot`'s bound when the slot moves.
-- [ ] Test a slot moved by a timer or an animation on the iOS simulator: the
-      children follow without waiting for the next host layout.
+      `HostSizing::start` takes a callback run after each content change is
+      measured; the iOS host's marks the slot for layout.
+- [x] Reset `HostSlot`'s bound when the slot moves. The same callback calls
+      `contentChanged()`, so the slot reports again past the bound.
+- [x] Test a slot moved by a timer or an animation on the iOS simulator: the
+      children follow without waiting for the next host layout. The slots
+      spike's Card moves its slot from a native timer (`driftLater`); its
+      "timer move" check failed on the simulator before (children at x 74
+      natively, 58 in React) and passes after, 17 checks of 17, twice. The
+      Android emulator passes it with no change: its host already followed.
 
 **Done when:** a native-only slot move on iOS repositions the children
 without an unrelated layout pass.
@@ -2257,8 +2265,8 @@ Last recorded runs:
   [T49](#t49)'s) and no layout for a plain view's children until Yoga
   ([T50](#t50)); its rules read declarations, not behavior (Android's
   AdapterView declares `addView(View, int)` and throws from it).
-- The iOS native-only slot move ([TA26](#ta26)) is open; the bare app's
-  FlatList crash ([TA25](#ta25)) is in review.
+- The bare app's FlatList crash ([TA25](#ta25)) and the iOS native-only
+  slot move ([TA26](#ta26)) are in review.
 
 ### Language, runtime and bindings
 
