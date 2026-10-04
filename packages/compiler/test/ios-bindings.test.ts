@@ -533,8 +533,9 @@ export async function run(): Promise<string> {
     );
     const { r, mm } = ios(
       `import { WDGWidget } from "lucent:ios/Widgets";
+import { main } from "lucent:thread";
 export async function run(): Promise<string> {
-  return new WDGWidget("dial").name;
+  return main(() => new WDGWidget("dial").name);
 }
 `,
       { ios: { includePaths: [widgets] } },
