@@ -1748,18 +1748,24 @@ and what to do.
 **Goal:** Let adapters reject with the `Error` a thrown Java exception
 becomes, its `code` kept.
 
-- **Status:** open, ready to start.
+- **Status:** in review (2026-10-04): every item below passes on its
+  branch.
 - **Area:** Runtime, Android host.
 - **Needs:** none.
 - **Verify:** V1, V3.
 - **Where:** `lucent:android`, `packages/runtime/cpp/lucent/platform/android.cpp`
   (`errorOf`).
 
-- [ ] Add a `lucent:android` function taking a `Throwable` and returning
+- [x] Add a `lucent:android` function taking a `Throwable` and returning
       the `Error` Lucent makes of a thrown one (`name`, `message`, `code`
-      as the class name).
-- [ ] Use it in an adapter test where a callback API reports failure with a
-      `Throwable`.
+      as the class name): `errorOf(throwable)`. Unlike a rethrow, it
+      leaves a Lucent error the exception carries with it, so reading the
+      same `Throwable` twice gives the same error.
+- [x] Use it in an adapter test where a callback API reports failure with a
+      `Throwable`: `android-throwable-error.test.ts`, on the desktop JNI
+      host, rejects a `fromCallback` adapter with the error a thrown
+      `IllegalStateException` becomes, `code` included, and reads a
+      message-less exception's as its class name.
 
 **Done when:** an adapter's rejection has the same `code` as a thrown
 exception's.

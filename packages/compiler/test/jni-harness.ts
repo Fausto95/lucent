@@ -138,7 +138,7 @@ export function jvmRun(
   r: CompileResult,
   dir: string,
   classpath: string[],
-  tc: KotlinToolchain,
+  tc?: KotlinToolchain,
 ): { status: number | null; stdout: string; stderr: string } {
   const out = writeOut(r, dir);
 
@@ -151,6 +151,7 @@ export function jvmRun(
     return file;
   });
   if (shims.length) {
+    if (!tc) throw new Error("the program has Kotlin shims: kotlinc is needed");
     const jar = path.join(dir, "shims.jar");
     const k = runKotlinc(tc, [
       "-jvm-target",
