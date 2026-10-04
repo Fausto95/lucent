@@ -64,6 +64,12 @@ describe("Swift expressions", () => {
     ).toBe("(o as! NSArray)[0]");
   });
 
+  it("print tuple literals and their elements", () => {
+    const t = name("t");
+
+    expect(printExpr(swift.tupleLiteral([member(t, "1"), member(t, "0")]))).toBe("(t.1, t.0)");
+  });
+
   it("print dictionary literals", () => {
     const entry = (key: string, value: swift.Expr) => ({ key: swift.str(key), value });
     expect(
