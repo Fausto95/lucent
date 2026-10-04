@@ -1124,6 +1124,30 @@ describe("lucent check", () => {
     expect(r.out).toContain("LUCENT9001");
     expect(r.status).toBe(1);
   });
+
+  it("checks again when a file appears where an import looked first", () => {
+    const root = project();
+    const shape = (file: string, width: string) =>
+      fs.writeFileSync(
+        path.join(root, file),
+        `export interface Shape { width: ${width}; height: number }\n`,
+      );
+
+    // "./shape" resolves to shape.d.ts while there is no shape.ts, which TypeScript prefers.
+    shape("shape.d.ts", "number");
+    fs.writeFileSync(
+      path.join(root, "a.lucent.ts"),
+      'import type { Shape } from "./shape";\nexport function area(s: Shape): number { return s.width * s.height; }\n',
+    );
+    expect(lucent(root, "check").status).toBe(0);
+    expect(lucent(root, "check").out).toMatch(/unchanged since the last check/);
+
+    shape("shape.ts", "string");
+    const r = lucent(root, "check");
+    expect(r.out).not.toMatch(/unchanged/);
+    expect(r.out).toContain("LUCENT9001");
+    expect(r.status).toBe(1);
+  });
 });
 
 describe("--json", () => {
