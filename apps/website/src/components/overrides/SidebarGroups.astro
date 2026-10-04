@@ -1,18 +1,22 @@
 ---
 /**
- * Six's sidebar entries, rendered expanded and spaced as they will stay:
- * Sidebar.astro's inline script collapses the groups a reader closed before
- * the page paints, so nothing moves after load.
+ * Six's sidebar entries, as React Native's docs show theirs: a group starts
+ * collapsed unless it holds the current page, and may hold sub-groups.
+ * Sidebar.astro's inline script opens the groups a reader opened before the
+ * page paints, so nothing moves after load.
  */
 import type { StarlightRouteData } from "@astrojs/starlight/route-data";
+import { holdsCurrent } from "../../docs/sections";
 
 interface Props {
   sublist: StarlightRouteData["sidebar"];
-  /** Whose groups these are (a docs section, the blog): a group's collapsed state is kept per scope. */
+  /** Whose groups these are (a docs section, the blog): a group's state is kept per scope. */
   scope: string;
+  /** 0 for a section's groups, 1 for their sub-groups. */
+  depth?: number;
 }
 
-const { sublist, scope } = Astro.props;
+const { sublist, scope, depth = 0 } = Astro.props;
 ---
 
 {sublist.map((entry) =>
@@ -28,11 +32,19 @@ const { sublist, scope } = Astro.props;
       {entry.badge && <span class="entry-badge">{entry.badge.text}</span>}
     </a>
   ) : (
-    <div class="container-sidebar-entry is-expanded" data-group={`${scope}/${entry.label}`}>
+    <div
+      class:list={[
+        "container-sidebar-entry",
+        holdsCurrent(entry) ? "is-expanded" : "collapsed",
+        depth > 0 && "subgroup",
+      ]}
+      data-group={`${scope}/${entry.label}`}
+      data-current={holdsCurrent(entry) ? "" : undefined}
+    >
       <button
         class="entry-title-button"
         type="button"
-        aria-expanded="true"
+        aria-expanded={holdsCurrent(entry) ? "true" : "false"}
         data-group-toggle
       >
         <h4 class="entry-title">{entry.label}</h4>
@@ -53,7 +65,7 @@ const { sublist, scope } = Astro.props;
         </svg>
       </button>
       <div class="container-group-link">
-        <Astro.self sublist={entry.entries} scope={scope} />
+        <Astro.self sublist={entry.entries} scope={scope} depth={depth + 1} />
       </div>
     </div>
   ),
@@ -78,6 +90,16 @@ const { sublist, scope } = Astro.props;
   }
   .container-sidebar-entry.is-expanded {
     margin-bottom: 1rem;
+  }
+  .subgroup {
+    padding-left: 0.75rem;
+  }
+  .subgroup.is-expanded {
+    margin-bottom: 0.5rem;
+  }
+  .subgroup .entry-title {
+    font-weight: 500;
+    color: var(--muted-foreground);
   }
   .entry-title-button {
     display: flex;

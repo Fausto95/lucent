@@ -1,20 +1,20 @@
 import { describe, expect, it } from "vite-plus/test";
 import { checkPages } from "../../../scripts/website/pages.ts";
-import type { DocSection } from "../src/docs/nav.ts";
+import { type DocSection, slugsOf } from "../src/docs/nav.ts";
 import type { DocPage } from "../src/docs/types.ts";
 
 const sections: DocSection[] = [
   {
     label: "Guides",
     dir: "guides",
-    groups: [{ label: "Get started", slugs: ["", "guides/install"] }],
+    groups: [{ label: "Get started", items: ["", "guides/install"] }],
   },
   {
     label: "Architecture",
     dir: "architecture",
     groups: [
-      { label: "How Lucent works", slugs: ["architecture"] },
-      { label: "Internals", slugs: ["architecture/internals", "architecture/internals/compiler"] },
+      { label: "How Lucent works", items: ["architecture"] },
+      { label: "Internals", items: ["architecture/internals", "architecture/internals/compiler"] },
     ],
   },
 ];
@@ -29,9 +29,7 @@ const page = (slug: string, extra: Partial<DocPage> = {}): DocPage => ({
 });
 
 const pages = (overrides: Record<string, Partial<DocPage>> = {}): DocPage[] =>
-  sections.flatMap((s) =>
-    s.groups.flatMap((g) => g.slugs.map((slug) => page(slug, overrides[slug]))),
-  );
+  slugsOf(sections).map((slug) => page(slug, overrides[slug]));
 
 describe("the docs pages", () => {
   it("pass when each says its kind and Next stays in its section", () => {

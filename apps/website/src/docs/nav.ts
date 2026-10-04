@@ -1,22 +1,29 @@
 /**
  * The docs' sections, their sidebar groups and pages, in reading order. A
  * section is a tab in the header with its own sidebar; Previous and Next
- * never leave it (sections.ts). A page's slug is its path under /docs/ (""
- * is the index), and its file is src/content/docs/docs/<slug>.mdx
- * (index.mdx for ""). Keep it two levels deep, section > group > page: the
- * theme's mobile drawer shows only a group's direct links.
+ * never leave it (sections.ts). A group holds pages and sub-groups, and a
+ * sub-group holds pages only: the types keep the sidebar three levels deep,
+ * as the patched mobile drawer shows it. A page's slug is its path under
+ * /docs/ ("" is the index), and its file is src/content/docs/docs/<slug>.mdx
+ * (index.mdx for "").
  */
 import { docsHref } from "./types.ts";
 
-export interface DocGroup {
+export interface DocSubgroup {
   label: string;
   slugs: string[];
+}
+
+export interface DocGroup {
+  label: string;
+  /** Pages, by slug, and sub-groups, in reading order. */
+  items: (string | DocSubgroup)[];
 }
 
 export interface DocSection {
   label: string;
   /** Every page of the section lives under this directory, except the docs home "". */
-  dir: "guides" | "packages" | "api" | "architecture";
+  dir: "guides" | "packages" | "api" | "architecture" | "releases";
   groups: DocGroup[];
 }
 
@@ -25,10 +32,10 @@ export const docsSections: DocSection[] = [
     label: "Guides",
     dir: "guides",
     groups: [
-      { label: "Start", slugs: ["", "install", "first-module"] },
+      { label: "Start", items: ["", "install", "first-module"] },
       {
         label: "Guides",
-        slugs: [
+        items: [
           "guides/call-an-ios-api",
           "guides/call-an-android-api",
           "guides/find-an-sdk-class",
@@ -55,7 +62,7 @@ export const docsSections: DocSection[] = [
       },
       {
         label: "Examples",
-        slugs: [
+        items: [
           "examples",
           "examples/clipboard",
           "examples/location",
@@ -70,7 +77,7 @@ export const docsSections: DocSection[] = [
   {
     label: "Packages",
     dir: "packages",
-    groups: [{ label: "Package reference", slugs: ["reference/lucent-json"] }],
+    groups: [{ label: "Package reference", items: ["reference/lucent-json"] }],
   },
   {
     label: "API",
@@ -78,7 +85,7 @@ export const docsSections: DocSection[] = [
     groups: [
       {
         label: "Modules and globals",
-        slugs: [
+        items: [
           "api/lucent-core",
           "api/lucent-platform",
           "api/lucent-thread",
@@ -89,7 +96,7 @@ export const docsSections: DocSection[] = [
       },
       {
         label: "Reference",
-        slugs: [
+        items: [
           "reference/language",
           "reference/built-ins",
           "reference/boundary-types",
@@ -103,7 +110,7 @@ export const docsSections: DocSection[] = [
       },
       {
         label: "Views reference",
-        slugs: ["api/views/lucent-ui", "api/views/lucent-compose"],
+        items: ["api/views/lucent-ui", "api/views/lucent-compose"],
       },
     ],
   },
@@ -113,11 +120,11 @@ export const docsSections: DocSection[] = [
     groups: [
       {
         label: "How Lucent works",
-        slugs: ["how-it-works", "how-it-works/calls", "how-it-works/platform-calls"],
+        items: ["how-it-works", "how-it-works/calls", "how-it-works/platform-calls"],
       },
       {
         label: "Thinking in Lucent",
-        slugs: [
+        items: [
           "thinking/three-places",
           "thinking/boundary-first",
           "thinking/shared-first",
@@ -127,7 +134,7 @@ export const docsSections: DocSection[] = [
           "coming-from-native",
         ],
       },
-      { label: "More", slugs: ["comparison", "faq", "roadmap"] },
+      { label: "More", items: ["comparison", "faq", "roadmap"] },
     ],
   },
 ];
@@ -135,26 +142,41 @@ export const docsSections: DocSection[] = [
 /** Architecture's contributor pages: only these are kind "internals", and .vale.ini lets them name the compiler's parts. */
 export const INTERNALS = "architecture/internals";
 
+/** The pages of some sections, by slug, in reading order. */
+export const slugsOf = (sections: DocSection[]): string[] =>
+  sections.flatMap((s) =>
+    s.groups.flatMap((g) => g.items.flatMap((i) => (typeof i === "string" ? [i] : i.slugs))),
+  );
+
 /** Every docs page's slug, in reading order. */
-export const docsSlugs: string[] = docsSections.flatMap((s) => s.groups.flatMap((g) => g.slugs));
+export const docsSlugs: string[] = slugsOf(docsSections);
 
 /** A Starlight route id's docs slug; undefined outside the docs (a blog post, the 404 page). */
 export const slugOfId = (id: string): string | undefined =>
   id === "docs" ? "" : id.startsWith("docs/") ? id.slice("docs/".length) : undefined;
 
-/** The section and group that list a page; undefined when none does. */
-export function locate(
-  slug: string,
-  sections: DocSection[] = docsSections,
-): { section: DocSection; sectionIndex: number; group: DocGroup } | undefined {
+/** Where a page is listed: its section, the section's place, its group and sub-group. */
+export interface Location {
+  section: DocSection;
+  sectionIndex: number;
+  group: DocGroup;
+  subgroup?: DocSubgroup;
+}
+
+/** The section, group and sub-group that list a page; undefined when none does. */
+export function locate(slug: string, sections: DocSection[] = docsSections): Location | undefined {
   for (const [sectionIndex, section] of sections.entries())
     for (const group of section.groups)
-      if (group.slugs.includes(slug)) return { section, sectionIndex, group };
+      for (const item of group.items) {
+        if (item === slug) return { section, sectionIndex, group };
+        if (typeof item !== "string" && item.slugs.includes(slug))
+          return { section, sectionIndex, group, subgroup: item };
+      }
   return undefined;
 }
 
 /** The header's tabs, also the mobile drawer's links: each section's first page, then the blog. */
 export const headerLinks: { label: string; link: string }[] = [
-  ...docsSections.map((s) => ({ label: s.label, link: docsHref(s.groups[0]!.slugs[0]!) })),
+  ...docsSections.map((s) => ({ label: s.label, link: docsHref(slugsOf([s])[0]!) })),
   { label: "Blog", link: "/blog/" },
 ];

@@ -15,7 +15,11 @@ const at = slug === undefined ? undefined : locate(slug);
 
 {template !== "splash" && (
   <>
-    {at && <div class="breadcrumb">{at.section.label} · {at.group.label}</div>}
+    {at && (
+      <div class="breadcrumb">
+        {[at.section.label, at.group.label, at.subgroup?.label].filter(Boolean).join(" · ")}
+      </div>
+    )}
     <h1 id="_top">{title}</h1>
     {description && <p set:html={inlineHtml(description)} />}
   </>

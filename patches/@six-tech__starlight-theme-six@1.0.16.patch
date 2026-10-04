@@ -1,5 +1,60 @@
+diff --git a/src/components/Drawer.astro b/src/components/Drawer.astro
+index ea0028e4da1aa321145de9a5a0cfc01f903a98f6..aea9c1fe5d18e1b61419f9e5f817dd1fb58e694b 100644
+--- a/src/components/Drawer.astro
++++ b/src/components/Drawer.astro
+@@ -43,13 +43,24 @@ const { siteTitleHref, sidebar } = Astro.locals.starlightRoute
+                 <div class="container-sidebar-entry">
+                   <h4 class="entry-title">{entry.label}</h4>
+ 
+-                  {entry.entries.map(
+-                    (link) =>
+-                      link.type === 'link' && (
+-                        <a href={link.href} {...link.attrs}>
+-                          {link.label}
+-                        </a>
+-                      ),
++                  {entry.entries.map((link) =>
++                    link.type === 'link' ? (
++                      <a href={link.href} {...link.attrs}>
++                        {link.label}
++                      </a>
++                    ) : (
++                      <div class="container-sidebar-subentry">
++                        <h5 class="entry-subtitle">{link.label}</h5>
++                        {link.entries.map(
++                          (sub) =>
++                            sub.type === 'link' && (
++                              <a href={sub.href} {...sub.attrs}>
++                                {sub.label}
++                              </a>
++                            ),
++                        )}
++                      </div>
++                    ),
+                   )}
+                 </div>
+               ),
+@@ -174,6 +185,18 @@ const { siteTitleHref, sidebar } = Astro.locals.starlightRoute
+     font-weight: 500;
+   }
+ 
++  .container-sidebar-subentry {
++    display: flex;
++    flex-direction: column;
++    gap: 0.5rem;
++    padding-left: 0.75rem;
++  }
++
++  .entry-subtitle {
++    font-weight: 500;
++    color: var(--muted-foreground);
++  }
++
+   .container-sidebar-entry a {
+     font-size: 1rem;
+     line-height: 1.5rem;
 diff --git a/src/styles/base.css b/src/styles/base.css
-index d46ad761e70233896ad79444027608f07f9ccb8b..cd9f063cda022c8031747a1e462e9bbc3c2259f4 100644
+index d46ad761e70233896ad79444027608f07f9ccb8b..ac2b0e8202d844b68bd2ae6837c45d13d88a2c32 100644
 --- a/src/styles/base.css
 +++ b/src/styles/base.css
 @@ -24,7 +24,8 @@

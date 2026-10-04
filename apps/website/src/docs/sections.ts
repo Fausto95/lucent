@@ -22,6 +22,10 @@ export interface SectionRouteInput {
 const linksOf = (entries: Entry[]): Link[] =>
   entries.flatMap((e) => (e.type === "link" ? [e] : linksOf(e.entries)));
 
+/** Whether a sidebar entry is the current page or holds it: its group starts expanded. */
+export const holdsCurrent = (entry: Entry): boolean =>
+  entry.type === "link" ? entry.isCurrent : entry.entries.some(holdsCurrent);
+
 /** The page's section's sidebar and pagination; {} for pages outside the docs. */
 export function sectionRoute(
   route: SectionRouteInput,

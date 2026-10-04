@@ -8,6 +8,9 @@ import { remarkFormat, remarkInclude, remarkSeeCpp, remarkVersion } from "./src/
 import { pluginNoCopy } from "./src/docs/expressive-code.ts";
 import { SITE } from "./src/blog/meta.ts";
 
+/** A docs page in Starlight's sidebar config. */
+const page = (slug: string) => ({ slug: slug ? `docs/${slug}` : "docs" });
+
 export default defineConfig({
   site: SITE,
   trailingSlash: "always",
@@ -56,7 +59,11 @@ export default defineConfig({
         label: section.label,
         items: section.groups.map((group) => ({
           label: group.label,
-          items: group.slugs.map((slug) => ({ slug: slug ? `docs/${slug}` : "docs" })),
+          items: group.items.map((item) =>
+            typeof item === "string"
+              ? page(item)
+              : { label: item.label, items: item.slugs.map(page) },
+          ),
         })),
       })),
       routeMiddleware: "./src/docs/route-data.ts",
