@@ -1,7 +1,95 @@
 ---
-title: "Where does Lucent differ from JavaScript?"
-description: "This page is being rewritten."
+title: Where does Lucent differ from JavaScript?
+sidebar_label: Differences from JavaScript
+description: "Code that type-checks and uses the supported subset behaves as in JavaScript, except in the cases listed here, each with its reason."
 kind: reference
 ---
 
-This page is being rewritten.
+A module that type-checks, and uses only what the Language pages list, behaves as the same code does in JavaScript. Each difference in the sections below is deliberate, and its row says why. The [known gaps](/docs/api/language/differences/#known-gaps) at the end aren't: Lucent should refuse that code or match JavaScript.
+
+Each e2e case is a module in `packages/compiler/test/e2e/cases/`, run natively and as JavaScript, whose outputs must match. A case therefore tests the behavior around a difference, never the difference itself.
+
+## Arrays and collections
+
+| JavaScript | Lucent | Why | e2e case |
+| --- | --- | --- | --- |
+| `arr[i] = v` past the end leaves holes. | Throws a `RangeError`, unless the element type includes `undefined`, which fills the gap. Append with `push`, or assign at `length`. | A Lucent array has no holes: each element holds a value of its type. | `assignment-order` |
+| `arr[-1] = v` and `arr[1.5] = v` add a property. | Throws a `RangeError`. | A Lucent array has elements only, no other properties. | None |
+| Setting a larger `length` leaves holes. | Throws a `RangeError`, unless the element type includes `undefined`. | A Lucent array has no holes. | None |
+| `new Array(n)` has `n` holes. | Holds `n` default values, such as `0`, `""` or `false`, unless the element type includes `undefined`. So does `Array.from({ length: n })` without a function. | A Lucent array has no holes, and its element type may have no `undefined`. | `collections` |
+| `x!` does nothing at run time. | Throws a `TypeError` when `x` is `undefined` or `null`, such as an index out of range. | The assertion is checked, so a wrong one fails where it's made. | None |
+| `map.keys()`, `values()` and `entries()`, and the same methods of arrays and sets, return iterators. | They return arrays, holding the contents at the time of the call. | An array serves everywhere these iterators are read: `for…of`, spread and `Array.from`. | `collections` |
+| Garbage collection frees cycles. | Reference counting never frees a cycle. Break it by clearing a field ([Memory](/docs/api/language/memory/#cycles-leak)). | Lucent counts references, and no collector runs. | None |
+| Deep recursion throws a `RangeError`. | Deep recursion may overflow the native stack, which crashes the app. | Lucent code runs on the native stack, with no depth check. | None |
+
+## Comparisons
+
+| JavaScript | Lucent | Why | e2e case |
+| --- | --- | --- | --- |
+| `==` converts a number, string, boolean, bigint or object first, so `1 == "1"`. | Refused ([LUCENT1002](/docs/api/diagnostics/#lucent1002)). Compare with `===` after converting. | Lucent compiles `==` only where no conversion is needed: between values of one kind, or with `null` or `undefined` on one side. | `mixed-equality` |
+| Functions compare by reference. | Comparing functions is refused, by `===`, `indexOf` or `includes` ([LUCENT1002](/docs/api/diagnostics/#lucent1002)), or as `Map` keys and `Set` elements ([LUCENT2002](/docs/api/diagnostics/#lucent2002)). | A function value has no stable identity in native code. | `function-values` |
+| Tuples are arrays, compared by reference. | Tuples are values: `===` compares their elements. | A tuple is a fixed-size value in native code, not an array. | None |
+| Two `subarray()` views of one range are different objects. | They are one view: `===`, `indexOf`, and `Map` and `Set` keys compare a view's buffer and range. | A view is a buffer and a range, with no identity of its own. | `reference-identity` |
+
+## Strings, JSON and dates
+
+| JavaScript | Lucent | Why | e2e case |
+| --- | --- | --- | --- |
+| `console.log(obj)` shows the object's structure. | Prints `String(obj)`. | The platform log takes a line of text. | `object-strings` |
+| `str.split(regexp)` inserts `undefined` for a capture group that didn't match. | Inserts `""`. | The result's type is `string[]`. | `regexps` |
+| `JSON.parse` returns whatever the text holds. | The text must match the target type. A mismatch throws a `TypeError` naming the path: `JSON.parse: expected a number at .items[2].price, got a string`. | The value is built in its type's native layout. | `json` |
+| `JSON.stringify` of parsed data keeps the text's key order. | Keys follow the declared type's order. | An object type's fields have one order, the declared one. | `json` |
+| `date.toString()` names the time zone in some engines. | Gives `Mon Jul 22 2019 15:51:50 GMT-0700`, as Hermes does. The `toLocale…` methods are refused. | Lucent follows React Native's engine, and has no `Intl` for locale formats. | `dates` |
+
+## The boundary
+
+| JavaScript | Lucent | Why | e2e case |
+| --- | --- | --- | --- |
+| Type annotations are erased: any value reaches a function. | Each argument from JavaScript is checked against its declared type, and a mismatch throws a `TypeError` before the code runs ([The boundary](/docs/api/language/boundary/#when-a-value-doesnt-match)). | A native value needs the declared layout. | None |
+| A function declared to take `T \| undefined` runs with a `null` it's given. | It takes `null` too, and keeps it apart from `undefined`. Once code narrows the value to `T`, as after `x !== undefined`, using it throws a `TypeError`. Test for absence with `== null` or `??`. | An optional from JavaScript holds either one, and a narrowed read checks that a value is there. | None |
+| An imported `let` is a live binding. | JavaScript gets a copy of an exported `const` or `let`, made when it imports the module ([Modules](/docs/api/language/modules/#exports)). | The value is copied at the boundary like any other. | None |
+| Arrays and objects passed to other code are shared. | Copied at the boundary; inside Lucent they're shared. | JavaScript objects belong to the JS thread, and Lucent code runs on others. | `reference-identity` |
+| `Date` objects passed to other code are shared. | Copied at the boundary; inside Lucent they're shared. | The same as for arrays and objects. | `dates` |
+| A function JavaScript passes returns its value whenever it's called. | Called off the JS thread, it's posted there, so it must return `void` or a `Promise`. | Lucent code never waits for the JS thread. | `async` |
+| A class's `[Symbol.dispose]()` can be called from JavaScript. | JavaScript doesn't see the symbol-keyed members of a Lucent class. | Lucent gives JavaScript a class's members by name, and a symbol has none. | `using` |
+
+## Errors and cancellation
+
+| JavaScript | Lucent | Why | e2e case |
+| --- | --- | --- | --- |
+| `error.stack` is a string. | `undefined` in Lucent code, unless the error came from JavaScript. JavaScript receives a `stack` whose first frame is the Lucent one. | Native code records the site where it made an error, not a stack. | `errors` |
+| `abort()` without a reason gives an `AbortError` whose message depends on the engine. | `AbortError: signal is aborted without reason`, as in React Native and browsers. | One message on both platforms. Node says `This operation was aborted`. | `abort`, `listeners` |
+| An abort reason can be any value. | A reason from JavaScript becomes an error, with `String(reason)` as its message when it isn't an object. `abort()` in Lucent takes an `Error`. | Lucent's errors are `Error` objects. | `abort` |
+| `resolve(promise)` in a promise executor adopts the promise. | `resolve` takes a value. Passing a promise fails, in `new Promise` with [LUCENT2002](/docs/api/diagnostics/#lucent2002) and in `fromCallback` with [LUCENT1007](/docs/api/diagnostics/#lucent1007). Await the promise, and resolve with its value. | A promise settles once, with a value of its type. | `listeners` |
+| `await` on an object without a `then` method gives the object. | `await` on an SDK object is refused ([LUCENT1010](/docs/api/diagnostics/#lucent1010)). Adapt its completion listener with `fromCallback`. | Lucent never picks an SDK object's completion API by its name. | None |
+| A thrown instance of an error class reaches a JavaScript caller as itself. | JavaScript gets an `Error`, `TypeError`, `RangeError` or `SyntaxError` with its `name`, `message` and `code` ([The boundary](/docs/api/language/boundary/#errors)). So `instanceof ParseError` is `false` there, and other fields are dropped. | An error crosses as a new JavaScript error made from its values, not as a reference. | `errors` |
+| An error no code can catch, such as a cleanup's, reaches the host's error handler. | It's written to the platform log (logcat, the unified log) and to stderr. | Native code has no JavaScript error handler to call. | None |
+
+## Classes
+
+| JavaScript | Lucent | Why | e2e case |
+| --- | --- | --- | --- |
+| A subclass field read from a base constructor is `undefined` until the subclass sets it. | A number, string, boolean, array, map or set field reads its default value: `0`, `""`, `false` or empty. An object- or class-typed field holds no value yet ([known gaps](/docs/api/language/differences/#known-gaps)). | A field holds a native value from the start. | None |
+| Any object with the right members fits an interface. | Only classes that declare `implements` fit one. A plain JavaScript object is refused at the boundary with a `TypeError`. | An interface with methods is a native base class, which only declared classes derive from. | `interfaces` |
+
+## Known gaps
+
+These calls compile, but don't do what JavaScript does. Lucent should refuse them or match JavaScript; until it does, avoid them ([roadmap](/docs/releases/roadmap/#known-limitations)).
+
+| JavaScript | Lucent | Why | e2e case |
+| --- | --- | --- | --- |
+| `arr.indexOf(x, fromIndex)`, and `lastIndexOf` and `includes`, start at `fromIndex`. | `fromIndex` is ignored: the whole array is searched. | Not implemented, and not refused yet. | None |
+| `new Array(n)` throws a `RangeError` unless `n` is an integer from 0 to 4294967295. | `n` is truncated to a 32-bit unsigned integer: `new Array(2.5)` has 2 elements, and `new Array(-1)` asks for 4294967295. | Not implemented, and not refused yet. | None |
+| `Array.from({ length: n }, f)` truncates a fractional `n`, and gives `[]` for a negative one. | Throws a `RangeError` when `n` is fractional or negative. | Not implemented, and not refused yet. | None |
+| `Array.isArray(x)` tests the value `x` holds. | `false` when the type of `x` is a union holding an array, such as `string \| string[]`. Test `x instanceof Array` instead. | Not implemented, and not refused yet. | None |
+| `Object.keys(obj)` lists the properties the object has. | For an object type, lists every declared field, an optional one that isn't set included. | Lucent lists the type's fields. | `absent-results` |
+| A `Uint8Array`'s `fill`, `indexOf` and `includes` take a start, an end or a `fromIndex`. | Those arguments are ignored. | Not implemented, and not refused yet. | None |
+| `str.normalize(form)` returns the normalized string. | Returns the string unchanged. | Not implemented, and not refused yet. | None |
+| `str.replace("x", "$&$&")` expands `$` patterns, with a string pattern too. | With a string pattern, the replacement is inserted as written. | Not implemented, and not refused yet. | `strings` |
+| `toLocaleUpperCase(locale)` and `localeCompare(other, locales, options)` use their arguments. | The locale and options arguments are ignored. | Lucent has no `Intl`, which these arguments need. | `strings` |
+| `Number.isInteger(x)`, `isSafeInteger`, `isFinite` and `isNaN` test the value `x` holds. | `false` when the type of `x` isn't exactly `number`, such as `number \| undefined`, whatever it holds. | Not implemented, and not refused yet. | `numbers` |
+| `new SyntaxError(message)` makes a `SyntaxError`. | Makes an error named `Error`, which `instanceof SyntaxError` doesn't match. | Not implemented, and not refused yet. | None |
+| `new Error(message, { cause })` keeps the cause. | The cause is dropped. | Not implemented, and not refused yet. | None |
+| `new ParseError(message)` sets `message` when the error class has no constructor. | The message is dropped, and `message` is `""`. Give the class a constructor that calls `super(message)`. | Not implemented, and not refused yet. | None |
+| A base constructor that reads a subclass's object field gets `undefined`. | An object- or class-typed field holds no value yet. It isn't `undefined` to `===`, and reading a member of it crashes the app. | Not implemented, and not refused yet. | None |
+| `new Proxy(target, handler)` wraps the target. | With a class instance as the target, it makes a new instance of that class, and ignores the target and the handler. A plain object target fails with [LUCENT1003](/docs/api/diagnostics/#lucent1003). | Not implemented, and not refused yet. | None |

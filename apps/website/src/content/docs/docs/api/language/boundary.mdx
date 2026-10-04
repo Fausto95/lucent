@@ -1,7 +1,184 @@
 ---
-title: "What crosses between JavaScript and Lucent?"
-description: "This page is being rewritten."
+title: What crosses between JavaScript and Lucent?
+sidebar_label: The boundary
+description: "Values are checked and copied; class instances and native buffers cross as references that keep their identity, functions as callbacks, and promises as promises."
 kind: reference
 ---
 
-This page is being rewritten.
+JavaScript sees a module's exports only. Each value that crosses the boundary, in either direction, is converted at the call. JavaScript can pass anything, so every argument is checked against its declared type before the module's code runs.
+
+## Example
+
+<Tabs>
+<TabItem label="module">
+
+```ts title="geometry.lucent.ts"
+export type Point = { x: number; y: number };
+
+export function midpoint(a: Point, b: Point): Point {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+export class Route {
+  stops: Point[] = [];
+
+  add(stop: Point): number {
+    this.stops.push(stop);
+    return this.stops.length;
+  }
+}
+
+export function longest(routes: Route[]): Route | undefined {
+  let best: Route | undefined;
+  for (const route of routes) if (!best || route.stops.length > best.stops.length) best = route;
+  return best;
+}
+```
+
+</TabItem>
+<TabItem label="JS usage">
+
+```tsx title="App.tsx"
+import { longest, midpoint, Route } from "./src/geometry.lucent";
+
+const home = { x: 0, y: 0 };
+const route = new Route();
+route.add(home);
+
+route.stops[0] === home; // false: home was copied in
+route.stops === route.stops; // false: each read is a new copy
+longest([route]) === route; // true: the same instance
+
+const saved = JSON.parse('{ "x": 1 }'); // no y
+midpoint(saved, home); // TypeError: midpoint: argument 'a'.y must be a number, got undefined
+```
+
+</TabItem>
+</Tabs>
+
+## How each type crosses
+
+| Type | Crosses as | From JavaScript, Lucent accepts |
+| --- | --- | --- |
+| `number`, `boolean` | A copy | A number, a boolean |
+| `bigint` | A copy, exact at any size | A bigint; a number is refused |
+| `string`, string literal types | A copy | A string; any string, for a literal type |
+| enums | A copy of the member's value | A number or a string; membership isn't checked |
+| `T \| undefined`, `T \| null`, `x?: T` | The value, or its absence: `undefined` and `null` stay apart | `undefined` or `null`, whatever the type names; the value keeps which one it is. Test it with `== null` or `??`: after `x !== undefined`, a `null` throws a `TypeError` where it's used. |
+| `T[]` | A copy | An array; each element is checked |
+| `[A, B]` | A copy | An array; a missing element is read as `undefined` |
+| object types, interfaces without methods | A copy; an optional field that isn't set is left out | An object with each declared field; other fields are ignored |
+| `Record<string, V>` | A copy | An object; each value is checked |
+| `Map<K, V>`, `Set<T>` | A copy | A `Map` or a `Set`; each key and value is checked |
+| `Uint8Array` | A copy of the bytes | A `Uint8Array` or an `ArrayBuffer` |
+| `Date` | A copy of its time | An object whose `getTime()` returns a number |
+| `RegExp` | Its source and flags | An object with string `source` and `flags`; `lastIndex` isn't kept |
+| other unions | The member the value is | A value of one member; object members need a string-literal field that tells them apart |
+| classes | A reference, with its identity | An instance of that class or a subclass |
+| interfaces that classes implement | A reference to the class instance | An instance of a Lucent class that implements it |
+| functions | A callback | A function |
+| `Promise<T>` | A promise | A promise, or a value of `T`, as `await` takes it |
+| `AbortSignal` | Into Lucent only | An `AbortSignal` |
+| `Iterable<T>`, as a parameter | A snapshot, taken with `Array.from` | An iterable, or a string |
+| `NativeBuffer` | A reference, with its identity | A `NativeBuffer` that came from Lucent |
+| `Error` | Its name, message, code and stack | Any value |
+| `void` | `undefined` | |
+
+[Return data and objects to JavaScript](/docs/guides/share-data-with-javascript/) shows copies and references in an app.
+
+## When a value doesn't match
+
+The call throws a `TypeError` before the module's code runs. An `async` export throws it too, rather than returning a rejected promise. The message names the function, the argument, and the path to the wrong value:
+
+```sh title="TypeError messages" nocopy
+hash: argument 'input' must be a string, got a number
+midpoint: argument 'a'.y must be a number, got undefined
+sumPoints: argument 'points'[3].x must be a number, got a string
+```
+
+What a JavaScript callback returns to Lucent is checked the same way.
+
+## Class instances
+
+- An instance is the same JavaScript object each time it crosses, so `===` works. It lives while either side holds it.
+- JavaScript calls `new` on an exported class, which checks the constructor's arguments, and `instanceof` works.
+- JavaScript gets the instance's own class: a subclass instance returned as its base type is an instance of the subclass.
+- Public fields, getters, setters and methods are on the prototype, and `readonly` fields can't be written. Reading an array or object field returns a new copy, and writing one copies the value in.
+- Static methods are on the constructor. Static fields aren't visible.
+- `private`, `protected` and `#private` members are hidden, and so is `[Symbol.dispose]()`.
+- An interface value crosses as its class instance. From JavaScript, a plain object in its place throws a `TypeError`.
+
+## Callbacks
+
+A function JavaScript passes becomes a callback that Lucent calls. Where Lucent calls it decides what it may return:
+
+| Called | The callback | It may return |
+| --- | --- | --- |
+| On the JS thread, during a synchronous call from JavaScript | Runs at once, while Lucent waits for it | Any value that crosses, checked |
+| Anywhere else: async code, `main()`, an SDK callback | Is posted to the JS thread | `void`, or a `Promise` that Lucent can `await` |
+
+- Run at once, a callback's throw becomes a Lucent error that `catch` handles, with JavaScript's `stack` kept.
+- Posted, a `void` callback reports nothing back. What it throws goes to the platform log, as `Uncaught error in callback: …`.
+- Posted, a callback returning a `Promise` hands it to Lucent. A throw, or a rejection, rejects the promise Lucent awaits.
+- Posted, a callback declared to return anything else throws an `Error` in Lucent. Make it return a `Promise`.
+- A callback stays alive while Lucent holds a reference to it, and is released after.
+- After a reload, a stale `void` callback does nothing, and any other throws an `AbortError`.
+
+A function Lucent returns becomes a JavaScript function. Each call runs it at once, with its arguments checked, and each crossing makes a new JavaScript function. [Accept a JS callback](/docs/guides/accept-a-js-callback/) shows both.
+
+## Promises
+
+- A Lucent promise reaches JavaScript as a JavaScript promise, which settles on the JS thread. An `async` export returns one.
+- A JavaScript promise passed as a `Promise<T>` becomes a Lucent promise that `await` takes, and its value is checked when it resolves. A value that isn't a promise must be a `T`, and passes through as `await` passes it.
+- A rejection's reason becomes a Lucent error, as [Errors](/docs/api/language/boundary/#errors) says.
+- When the JavaScript runtime goes before its promise settles, the Lucent promise rejects with an `AbortError`.
+
+## AbortSignal
+
+- A signal from JavaScript is mirrored by a native one. JavaScript's `controller.abort()` aborts it at once, and its listeners in Lucent run then.
+- One JavaScript signal maps to one native signal, however often it crosses. An aborted signal arrives aborted.
+- `abort()` with no reason gives an `AbortError` with the message `signal is aborted without reason`. Another reason becomes an error, as in [Errors](/docs/api/language/boundary/#errors).
+- A signal goes only into Lucent. Returning one, or passing one to a callback, fails with [LUCENT2006](/docs/api/diagnostics/#lucent2006), and an `AbortController` can't cross at all.
+
+[Cancel work](/docs/guides/cancel-work/) uses one.
+
+## Errors
+
+From Lucent to JavaScript:
+
+- An error becomes a JavaScript `TypeError`, `RangeError` or `SyntaxError` when its name is one of those, and an `Error` otherwise.
+- It keeps its `name`, its `message` and its `code`, when it has one. Other fields of an error class don't cross, and JavaScript's `instanceof` that class is `false`.
+- An error made with `new Error()`, `new TypeError()`, `new RangeError()` or `error()` has a `stack` that starts with the Lucent frame that made it. That frame reads `at parse (/app/src/config.lucent.ts:12)`, and JavaScript's frames follow.
+- An error that came from JavaScript keeps its original `stack`.
+
+From JavaScript to Lucent, as a callback's throw, a rejection, an abort reason or an `Error` argument:
+
+- An object gives its `name`, `message`, `code` and `stack`, those that are strings.
+- Any other value becomes an `Error` whose message is `String(value)`.
+
+[Throw and handle errors](/docs/guides/throw-and-handle-errors/) shows `error(code, message)` and `errorCode`.
+
+## NativeBuffer
+
+A `NativeBuffer` crosses as an opaque object, the same one each time for the same buffer. It has `byteLength`, `withRead`, `withWrite`, `toUint8Array`, `transfer` and `close`, as in Lucent. Where the JavaScript engine has `Symbol.dispose`, it has `[Symbol.dispose]()` too, so `using` closes it.
+
+JavaScript never holds the buffer's memory. `withRead` lends its callback a copy of the bytes, and `withWrite` copies them back when its callback returns. `NativeBuffer.stats()` counts both copies.
+
+So a `Uint8Array` that a JavaScript callback keeps doesn't follow the buffer. Under the JavaScript `lucent:core` that tests run, it is the buffer's own bytes. The ownership rules are on [lucent:core](/docs/api/lucent-core/#nativebuffer).
+
+## What can't cross
+
+| Value | Fails with |
+| --- | --- |
+| An SDK object, such as a `CLLocationManager` | [LUCENT2006](/docs/api/diagnostics/#lucent2006) |
+| A handle from a native extension | [LUCENT2006](/docs/api/diagnostics/#lucent2006) |
+| An iterable, an iterator or a generator, going to JavaScript | [LUCENT2006](/docs/api/diagnostics/#lucent2006) |
+| An iterator result, either way | [LUCENT2006](/docs/api/diagnostics/#lucent2006) |
+| A `RegExp` match result | [LUCENT2006](/docs/api/diagnostics/#lucent2006) |
+| An `AbortSignal`, going to JavaScript | [LUCENT2006](/docs/api/diagnostics/#lucent2006) |
+| An `AbortController`, either way | [LUCENT2006](/docs/api/diagnostics/#lucent2006) |
+| A `ByteSpan` or a `MutableByteSpan` | [LUCENT2006](/docs/api/diagnostics/#lucent2006) |
+| A generic function or class | [LUCENT2007](/docs/api/diagnostics/#lucent2007) |
+| A union whose object members have no string-literal field to tell them apart | [LUCENT2005](/docs/api/diagnostics/#lucent2005) |
+
+An SDK object stays in native code: keep it in a Lucent class, and export the values JavaScript needs.
