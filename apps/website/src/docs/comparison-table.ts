@@ -141,7 +141,7 @@ export const comparisonRows: ComparisonRow[] = [
       lucent: {
         value: "Experimental",
         tone: "partial",
-        detail: "see the [roadmap](/docs/roadmap/)",
+        detail: "see the [roadmap](/docs/releases/roadmap/)",
       },
       expo: { value: "Production", tone: "available", detail: "the Expo SDK is built on it" },
       nitro: {

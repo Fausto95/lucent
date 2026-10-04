@@ -4,7 +4,7 @@ Lucent compiles TypeScript modules and components to C++ that React Native
 calls over JSI. This file is the project's plan and the record of its
 status: what is done, what is next, the decisions behind it, and every open
 task with its checklist. The website's
-[roadmap page](https://lucent-lang.dev/docs/roadmap/) is generated from the
+[roadmap page](https://lucent-lang.dev/docs/releases/roadmap/) is generated from the
 [status at a glance](#status-at-a-glance).
 
 Updated 2026-10-01. A commit that finishes, changes or adds a task updates
@@ -2281,15 +2281,15 @@ Last recorded runs:
 - Helper view functions take plain data and scalar callbacks only: no
   toolkit values, children, lists or bindings inside a helper.
 - SwiftUI: a static value named like a method (`Animation.easeInOut`) is
-  left out, so write the call; only closed ranges (`a...b`) are mapped;
-  content conditions must be `boolean`; `Int(x)` traps on NaN or infinity.
-  A two-value `onChange` closure does not type-check, because TypeScript
-  tries the one-value overload first.
+  left out, so write the call. Only closed ranges (`a...b`) are mapped,
+  content conditions must be `boolean`, and `Int(x)` traps on NaN or
+  infinity. A two-value `onChange` closure does not type-check, because
+  TypeScript tries the one-value overload first.
 - Compose: class names that clash keep the first package's.
-- Native views' JSX (T48) has fixed children (conditional and keyed are
-  [T49](#t49)'s) and no layout for a plain view's children until Yoga
-  ([T50](#t50)); its rules read declarations, not behavior (Android's
-  AdapterView declares `addView(View, int)` and throws from it).
+- Native views' JSX (T48) has fixed children: conditional and keyed ones
+  are [T49](#t49)'s. A plain view's children have no layout until Yoga
+  ([T50](#t50)). Its rules read declarations, not behavior: Android's
+  AdapterView declares `addView(View, int)` and throws from it.
 - The bare app's FlatList crash ([TA25](#ta25)) and the iOS native-only
   slot move ([TA26](#ta26)) are in review.
 
@@ -2298,10 +2298,10 @@ Last recorded runs:
 - Reference cycles are not collected (see [Not planned](#not-planned)).
 - Compute tasks are named top-level functions; safepoints are only in
   module functions' task variants. The JavaScript reference differs from
-  native on `#private` fields (the copy loses them), subclass instances
-  behind a base type (native throws `DataCloneError`), and an abort that
-  lands after the task ran but before the promise settled (native rejects,
-  JavaScript resolves).
+  native in three cases. The copy of an object loses its `#private`
+  fields, and native throws `DataCloneError` for a subclass instance
+  behind a base type. An abort that lands after the task ran but before
+  the promise settled rejects natively and resolves in JavaScript.
 - Module state is process-wide and reset when a new `Host` is created.
 - On Android API 24 and 25, a Java default method that Lucent does not
   implement returns its zero value, and the reason is logged.

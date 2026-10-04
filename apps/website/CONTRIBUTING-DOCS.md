@@ -41,7 +41,7 @@ count every sample on the page. A page over its budget gets split.
    Internals pages are for contributors and may name them.
 6. **One name per thing.** Use the glossary below and nothing else.
 7. **Honest limits.** A page that touches a limitation states it in one line
-   and links to [the roadmap](/docs/roadmap/). No "coming soon" paragraphs.
+   and links to [the roadmap](/docs/releases/roadmap/). No "coming soon" paragraphs.
 8. **Every sample is real.** Samples compile in CI; runnable ones run in CI.
    No `// ...` hiding code the reader needs to copy.
 9. **"Next" stays in the section.** Each page's one "Next" link is the

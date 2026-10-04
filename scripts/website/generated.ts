@@ -7,6 +7,7 @@ import { compilerOptions } from "../../packages/compiler/src/program.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { compileSamples } from "./compile.ts";
+import { knownLimitations, parseChangelog } from "./releases.ts";
 import { declarationsOf } from "./declarations.ts";
 import { jsonOutputs, type SchemaNode, schemaFields } from "./schema-fields.ts";
 import { root } from "./context.ts";
@@ -240,7 +241,13 @@ function roadmap(): string {
       current.items.push({ ...(status ? { status } : {}), text: item[2]! });
     }
   }
-  return `${header}/** From ROADMAP.md. */\nexport const milestones: { title: string; goal?: string; items: { status?: string; text: string }[] }[] = ${json(milestones)};\n`;
+  return `${header}/** From ROADMAP.md. */\nexport const milestones: { title: string; goal?: string; items: { status?: string; text: string }[] }[] = ${json(milestones)};\n\nexport const limitations: { title: string; items: string[] }[] = ${json(knownLimitations(text))};\n`;
+}
+
+/** The releases of @lucent-lang/lucent, newest first, from its CHANGELOG.md. */
+function changelog(): string {
+  const text = fs.readFileSync(path.join(root, "packages/lucent/CHANGELOG.md"), "utf8");
+  return `${header}/** From packages/lucent/CHANGELOG.md. */\nexport const releases: { version: string; changes: { kind: string; entries: string[] }[] }[] = ${json(parseChangelog(text))};\n`;
 }
 
 /**
@@ -260,6 +267,7 @@ export function generatedFiles(): Record<string, string> {
     "api.ts": apiModules(),
     "compatibility.ts": compatibility(),
     "roadmap.ts": roadmap(),
+    "changelog.ts": changelog(),
     ...Object.fromEntries(
       Object.entries(snippetSources).map(([name, file]) => [`snippets/${name}`, snippet(file)]),
     ),

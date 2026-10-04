@@ -245,3 +245,34 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
     "goal": "Ready for apps in production."
   }
 ];
+
+export const limitations: { title: string; items: string[] }[] = [
+  {
+    "title": "Views",
+    "items": [
+      "Views are behind the internal `LUCENT_VIEWS=fabric` switch, off by default.",
+      "Android pools component views only when the app turns on React Native's `enableViewRecycling`; iOS always recycles them.",
+      "Intrinsic sizes and slot insets wait for the JavaScript thread to apply them (one layout when idle).",
+      "Absolute children of a padded component follow React Native's padding-box rule relative to the slot. A fixed-size slot inside a component sized by its children is bounded at three reports.",
+      "With two React Native runtimes alive at once, requests are answered to the runtime that connected last.",
+      "Helper view functions take plain data and scalar callbacks only: no toolkit values, children, lists or bindings inside a helper.",
+      "SwiftUI: a static value named like a method (`Animation.easeInOut`) is left out, so write the call. Only closed ranges (`a...b`) are mapped, content conditions must be `boolean`, and `Int(x)` traps on NaN or infinity. A two-value `onChange` closure does not type-check, because TypeScript tries the one-value overload first.",
+      "Compose: class names that clash keep the first package's.",
+      "Native views' JSX (T48) has fixed children: conditional and keyed ones are [T49](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t49)'s. A plain view's children have no layout until Yoga ([T50](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t50)). Its rules read declarations, not behavior: Android's AdapterView declares `addView(View, int)` and throws from it.",
+      "The bare app's FlatList crash ([TA25](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta25)) and the iOS native-only slot move ([TA26](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta26)) are in review."
+    ]
+  },
+  {
+    "title": "Language, runtime and bindings",
+    "items": [
+      "Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)).",
+      "Compute tasks are named top-level functions; safepoints are only in module functions' task variants. The JavaScript reference differs from native in three cases. The copy of an object loses its `#private` fields, and native throws `DataCloneError` for a subclass instance behind a base type. An abort that lands after the task ran but before the promise settled rejects natively and resolves in JavaScript.",
+      "Module state is process-wide and reset when a new `Host` is created.",
+      "On Android API 24 and 25, a Java default method that Lucent does not implement returns its zero value, and the reason is logged.",
+      "A pod added to `lucent.json` after the first build needs `pod install` before it can be bound.",
+      "Typed native extensions: Swift and Kotlin sources in a package are not typed yet, and extension calls cannot be cancelled.",
+      "Tracing records allocations for native buffers only, and its buffer uses one mutex: fine for debugging, not for continuous production use.",
+      "The known binding gaps are tasks [TA30](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta30) to [TA34](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta34)."
+    ]
+  }
+];

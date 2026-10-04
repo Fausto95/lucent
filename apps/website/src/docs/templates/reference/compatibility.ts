@@ -35,6 +35,6 @@ export const blocks: Block[] = [
   },
   {
     kind: "p",
-    text: "Tested on the iOS simulator (Xcode 27) and the Android emulator, in the example apps, bare and Expo. Not yet on physical devices ([roadmap](/docs/roadmap/)).",
+    text: "Tested on the iOS simulator (Xcode 27) and the Android emulator, in the example apps, bare and Expo. Not yet on physical devices ([roadmap](/docs/releases/roadmap/)).",
   },
 ];

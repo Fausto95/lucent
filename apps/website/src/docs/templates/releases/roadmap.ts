@@ -1,5 +1,5 @@
-import type { Block, DocFrontmatter } from "../types";
-import { milestones } from "../../generated/roadmap";
+import type { Block, DocFrontmatter } from "../../types";
+import { limitations, milestones } from "../../../generated/roadmap";
 
 export const frontmatter: DocFrontmatter = {
   title: "Roadmap",
@@ -23,6 +23,11 @@ export const blocks: Block[] = [
           rows: items.map((item) => [item.status!, item.text]),
         }
       : { kind: "list" as const, items: items.map((item) => item.text) },
+  ]),
+  { kind: "h2", text: "Known limitations" },
+  ...limitations.flatMap(({ title, items }): Block[] => [
+    { kind: "h3", text: title },
+    { kind: "list", items },
   ]),
   {
     kind: "p",

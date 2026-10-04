@@ -134,8 +134,13 @@ export const docsSections: DocSection[] = [
           "coming-from-native",
         ],
       },
-      { label: "More", items: ["comparison", "faq", "roadmap"] },
+      { label: "More", items: ["comparison", "faq"] },
     ],
+  },
+  {
+    label: "Releases",
+    dir: "releases",
+    groups: [{ label: "Releases", items: ["releases/roadmap", "releases/changelog"] }],
   },
 ];
 
