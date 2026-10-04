@@ -1040,14 +1040,18 @@ file's extension:
 | `cpp/`, `ios/`, generated Java; a package's `nativeSources`                                           | `compile-native` (the targets whose code changed) |
 | a package's `resources`, `resourceBundles`, `assets`                                                  | `repackage`                                       |
 | the podspec, `android/` build files; a package's `libraries`, `nativeLibraries`, `vendoredFrameworks` | `relink`                                          |
+| the packages' pods, Gradle artifacts or `minSdk` in `resolved.json`                                   | `relink`                                          |
 | the library manifest; `Info.plist` entries or entitlements in `resolved.json`                         | `reinstall`                                       |
 | a file added or removed that iOS builds                                                               | `relink` on iOS (pod install lists files)         |
 | `types/`, `manifest.json`, `js/_lucent/identity.js` (it changes with the generated code)              | nothing                                           |
 
 A package's file is classified by the field that lists it, in the resolved
-manifest of this build or the last. An unknown output relinks. Each action
-has its targets and files; `requiredAction` (the single action of
-C-BUILD v1) stays as it was.
+manifest of this build or the last. The packages' pods, Gradle artifacts
+and `minSdk` are compared with the last full build's `resolved.json`: a
+build writes them into the build files before its check, so a full build
+finds those files already written, also after a failed or superseded
+build. An unknown output relinks. Each action has its targets and files;
+`requiredAction` (the single action of C-BUILD v1) stays as it was.
 
 The native package is published file by file through a temporary file
 renamed over the old one, so Metro never reads half a proxy, and
