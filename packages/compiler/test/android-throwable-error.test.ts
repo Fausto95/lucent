@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "@lucent-lang/bindgen";
 import { classpathFile, javac, javaJar } from "../../bindgen/test/java-fixtures.ts";
+import { compileKotlin, kotlinToolchain } from "../../bindgen/test/kotlin-toolchain.ts";
 import { android } from "./android-harness.ts";
 import { jdk, jvmRun } from "./jni-harness.ts";
 
@@ -88,4 +89,57 @@ describe.skipIf(!jvm)("errorOf from lucent:android", () => {
       stderr: "",
     });
   }, 300_000);
+});
+
+/** A Kotlin library that runs a suspend function and gives back what it threw. */
+const attempt = `package dev.probe.kt
+
+suspend fun attempt(step: suspend () -> String): Throwable? =
+  try {
+    step()
+    null
+  } catch (e: Throwable) {
+    e
+  }
+`;
+
+const roundTrip = `import { errorOf } from "lucent:android";
+import { RunnerKt } from "lucent:android/dev.probe.kt";
+
+export async function run(): Promise<string> {
+  const original = new RangeError("out of range");
+  const thrown = await RunnerKt.attempt((): string => {
+    if (original.message) throw original;
+    return "kept";
+  });
+  const back = errorOf(thrown!);
+
+  return \`\${back === original} \${back.name} \${back.message}\`;
+}
+`;
+
+const tc = kotlinToolchain();
+const coroutines = tc && path.join(tc.lib, "kotlinx-coroutines-core-jvm.jar");
+const kotlin =
+  !!tc && !!coroutines && fs.existsSync(coroutines) && !!jdk && sdkAvailable("android");
+
+describe.skipIf(!kotlin)("errorOf of a Lucent error Kotlin caught", () => {
+  it("is the error itself: thrown to Kotlin by a suspend function, read back", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-throwable-kt-"));
+    const source = path.join(root, "Runner.kt");
+    fs.writeFileSync(source, attempt);
+    const lib = await compileKotlin(tc!, [source], path.join(root, "runner.jar"), {
+      classpath: coroutines!,
+    });
+    const jars = [path.join(tc!.lib, "kotlin-stdlib.jar"), coroutines!, lib];
+    const classpath = classpathFile(path.join(root, "android-classpath.json"), jars);
+    const p = android(roundTrip, { android: { classpath } });
+
+    expect(p.r.diagnostics).toEqual([]);
+    expect(jvmRun(p.r, p.dir, jars, tc!)).toEqual({
+      status: 0,
+      stdout: "true RangeError out of range\n",
+      stderr: "",
+    });
+  }, 600_000);
 });

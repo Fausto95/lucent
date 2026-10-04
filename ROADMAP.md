@@ -1780,7 +1780,10 @@ becomes, its `code` kept.
       `Throwable`: `android-throwable-error.test.ts`, on the desktop JNI
       host, rejects a `fromCallback` adapter with the error a thrown
       `IllegalStateException` becomes, `code` included, and reads a
-      message-less exception's as its class name.
+      message-less exception's as its class name. A Lucent error thrown to
+      Kotlin by a suspend function argument and handed back as the
+      `Throwable` Kotlin caught reads as that error itself (`===`, its
+      `RangeError` name kept).
 
 **Done when:** an adapter's rejection has the same `code` as a thrown
 exception's.
