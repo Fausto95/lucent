@@ -1,4 +1,5 @@
 import { appContext } from "lucent:android";
+import { Handler, Looper } from "lucent:android/android.os";
 import type { ViewGroup } from "lucent:android/android.view";
 import { FrameLayout, FrameLayout_LayoutParams } from "lucent:android/android.widget";
 import { type Children, effect, expose, slot } from "lucent:ui";
@@ -15,13 +16,17 @@ export function Card(props: { title: string; inset: number; children?: Children 
   card.addView(inner);
   inner.addView(content);
 
-  effect(() => {
-    const px = Math.round(props.inset * density);
+  // How far driftLater moved the teal view right, in dp.
+  let drift = 0;
+  const place = (inset: number) => {
+    const px = Math.round(inset * density);
     const params = new FrameLayout_LayoutParams(-1, -1);
 
-    params.setMargins(px, px, px, px);
+    params.setMargins(px + Math.round(drift * density), px, px, px);
     inner.setLayoutParams(params);
-  });
+  };
+
+  effect(() => place(props.inset));
 
   expose({
     // As on iOS, in density-independent pixels: each child in the slot, where it
@@ -53,6 +58,13 @@ export function Card(props: { title: string; inset: number; children?: Children 
       return `host ${host.getId()} mark ${host.getContentDescription()?.toString() ?? "?"} placed ${placed ? "yes" : "no"} children ${children.join(" ")}`;
     },
     probe: (x: number, y: number): string => `unsupported ${x},${y}`,
+    // As on iOS: a move a native timer makes 200 ms later, `dx` dp right.
+    driftLater: (dx: number): void => {
+      new Handler(Looper.getMainLooper()).postDelayed(() => {
+        drift += dx;
+        place(props.inset);
+      }, 200n);
+    },
   });
 
   return card;

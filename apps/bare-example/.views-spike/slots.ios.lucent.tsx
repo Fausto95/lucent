@@ -1,3 +1,4 @@
+import { Timer } from "lucent:ios/Foundation";
 import { UIColor, UIView, UIView_AutoresizingMask } from "lucent:ios/UIKit";
 import { type Children, effect, expose, slot } from "lucent:ui";
 
@@ -38,6 +39,15 @@ export function Card(props: { title: string; inset: number; children?: Children 
       });
 
       return `host ${host.tag} mark ${host.restorationIdentifier ?? "?"} placed ${content.isDescendant(card) ? "yes" : "no"} children ${children.join(" ")}`;
+    },
+    // A move no commit or command announces (TA26): a native timer's, 200 ms
+    // later, `dx` points right; the children must follow the slot.
+    driftLater: (dx: number): void => {
+      Timer.scheduledTimer(0.2, false, () => {
+        const at = inner.frame.origin;
+
+        inner.frame = { origin: { x: at.x + dx, y: at.y }, size: inner.frame.size };
+      });
     },
     // The view a touch at (x, y) of the host reaches, as UIKit hit-tests it:
     // its tag, or which of the card's own views it is.
