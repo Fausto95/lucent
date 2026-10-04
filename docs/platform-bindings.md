@@ -129,19 +129,23 @@ artifacts the app's build resolved (bindgen's `nativeArtifacts`):
   module's pod is the directory of Pods/ that Podfile.lock names in its
   path, so a pod may name its module otherwise (`react-native-netinfo`,
   module `react_native_netinfo`).
-- **iOS Swift packages**: the products the app target of the app's Xcode
-  project links (`ios/<App>.xcodeproj`, its `packageProductDependencies`),
-  at the versions Package.resolved pins (the workspace's, else the
-  project's), are built for Lucent to read: each package is cloned at its
-  pinned revision into the cache (`spm/`), with the app's Package.resolved
-  pinning its dependencies, and `xcodebuild` builds each product for the
-  simulator at the app's deployment target. Its Swift modules are one
-  artifact, `spm:identity@version`, read from the build's products; a
-  dependency's modules are its own package's, at the version the app
-  pins. A build runs once per revision, target and Xcode version; one
-  that fails is named where a module it would have given is missing. The
-  generated pod links the packages whose modules the code imports
-  (`spm_dependency`, at the exact version the app resolved).
+- **iOS Swift packages**: the packages the app's Xcode project references
+  (`ios/<App>.xcodeproj`, its `packageReferences`), at the versions
+  Package.resolved pins (the workspace's, else the project's), are built
+  for Lucent to read: each is cloned at its pinned revision into the cache
+  (`spm/`), with the app's Package.resolved pinning its dependencies, and
+  `xcodebuild` builds its library products (its manifest's, read with
+  `swift package dump-package`) for the simulator at the app's deployment
+  target. Their Swift modules (or frameworks, for dynamic products) are
+  one artifact, `spm:identity@version`; a dependency's modules are its own
+  package's, at the version the app pins. A build runs once per revision,
+  target and Xcode version; one that fails is named where a module it
+  would have given is missing. LucentNative links a package's products
+  where the code imports its modules (`spm_dependency`, at the exact
+  version the app resolved), so the app adds the package to its project
+  without adding the product to its app target: linked by both, a static
+  package's symbols would be duplicated, as React Native's SPM helper
+  warns.
 - **iOS with `use_frameworks!`**: pods are frameworks Xcode builds later, in
   the build products directory the xcconfig's framework search paths name.
   Before that build, each is what CocoaPods wrote for it: the module map and

@@ -1707,13 +1707,15 @@ targets.
 
 - [x] Discover Swift Package Manager modules the app's Xcode project
       resolves, as pods are, keyed by their resolved versions. The project
-      file names the products the app target links, Package.resolved
-      their pins; Lucent clones each at its revision and builds its
-      products with `xcodebuild` (decided 2026-10-04: Lucent builds them,
-      rather than reading Xcode's DerivedData, so they bind before the
-      app's first build), cached per revision, target and Xcode. Modules
-      are `spm:identity@version`, and the generated pod links those the
-      code imports at the app's exact version.
+      file names the packages it references, Package.resolved their pins;
+      Lucent clones each at its revision and builds its library products
+      with `xcodebuild` (decided 2026-10-04: Lucent builds them, rather
+      than reading Xcode's DerivedData, so they bind before the app's
+      first build), cached per revision, target and Xcode. Modules are
+      `spm:identity@version`, and LucentNative links the packages the code
+      imports at the app's exact version (decided 2026-10-04: LucentNative
+      owns the link, the app target does not add the product, since a
+      static package linked by both duplicates its symbols).
 - [x] Extract against the deployment target the project sets, not a fixed
       one: the app target's `IPHONEOS_DEPLOYMENT_TARGET` (the expo
       example's 16.4) is the extraction target, and the oldest iOS the
@@ -1723,8 +1725,9 @@ targets.
 to an app deployed to iOS 16.4: it binds from `spm:gauges@1.0.0` read for
 `arm64-apple-ios16.4-simulator`, its 16.4 API needs no check and its iOS
 17 one does (LUCENT3007, "apps run from iOS 16.4"), and LucentNative's
-podspec links the package at 1.0.0. Not run: an app build linking it
-(V5), which needs a package added to an example app.
+podspec links the package at 1.0.0. The bare example references
+KeychainAccess 4.2.2: its SDK probe stores, reads and removes a value
+through it.
 
 **Done when:** an app's Swift package binds by rule, and an API newer than
 the app's target needs an availability check.

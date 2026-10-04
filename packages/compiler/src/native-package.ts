@@ -21,7 +21,7 @@ import { coreTypesPath } from "./program.ts";
 import { currentSdkIdentity } from "./sdk/schema.ts";
 import type { SwiftPackage } from "./package-schema.ts";
 import { compareVersions } from "./package-versions.ts";
-import type { SwiftPackagePin } from "@lucent-lang/bindgen";
+import type { BuiltSwiftPackage } from "@lucent-lang/bindgen";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -128,7 +128,7 @@ export function writeNativePackage(
     /** Android's code is built later, by the app's Gradle build (see deferredLibraryGradle). */
     androidDeferred?: boolean;
     /** The app's Xcode project: its deployment target, and the Swift packages it links. */
-    app?: { deploymentTarget?: string; swiftPackages?: SwiftPackagePin[] };
+    app?: { deploymentTarget?: string; swiftPackages?: BuiltSwiftPackage[] };
   } = {},
 ): WriteResult {
   const rt = runtimeDir();
@@ -346,7 +346,7 @@ function writeWhole(file: string, content: Buffer): void {
  * `identity@version`), as LucentNative's dependencies: at the version the
  * app resolved, with the products it links.
  */
-function appSwiftPackages(used: string[], pins: SwiftPackagePin[]): [string, SwiftPackage][] {
+function appSwiftPackages(used: string[], pins: BuiltSwiftPackage[]): [string, SwiftPackage][] {
   return pins
     .filter((p) => used.some((u) => u.slice(0, u.lastIndexOf("@")) === p.identity))
     .map((p) => [

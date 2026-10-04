@@ -451,6 +451,9 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
   const frameworkPaths = [
     ...(opts.ios?.frameworkPaths ?? []),
     ...(opts.ios?.frameworks ?? []).map((f) => podFramework(memo, f)),
+    ...new Set(
+      (opts.ios?.swiftPackages?.modules ?? []).filter((m) => m.framework).map((m) => m.dir),
+    ),
   ];
   const moduleMaps = opts.ios?.moduleMaps ?? [];
   const defines = opts.ios?.defines ?? [];
@@ -496,9 +499,11 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
   }
   for (const map of moduleMaps) readMap(map);
 
-  // The app's Swift packages: each module from its package's build.
+  // The app's Swift packages: each Swift module from its package's build (a framework's is on
+  // the framework paths).
   const packages = opts.ios?.swiftPackages;
   for (const m of packages?.modules ?? []) {
+    if (m.framework) continue;
     modules.set(m.module, []);
     sources.set(m.module, {
       kind: "swift-module",
@@ -506,7 +511,9 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
       spm: m.package,
     });
   }
-  const packageDirs = [...new Set((packages?.modules ?? []).map((m) => m.dir))];
+  const packageDirs = [
+    ...new Set((packages?.modules ?? []).filter((m) => !m.framework).map((m) => m.dir)),
+  ];
 
   for (const dir of frameworkPaths) {
     for (const f of fs.existsSync(dir) ? fs.readdirSync(dir) : []) {
@@ -520,6 +527,12 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
       });
       frameworkDirs.set(name, dir);
     }
+  }
+
+  // A Swift package's framework is its package's.
+  for (const m of packages?.modules ?? []) {
+    const source = m.framework ? sources.get(m.module) : undefined;
+    if (source) source.spm = m.package;
   }
 
   // A pod's framework is its pod's files (Target Support Files/<pod>/ says which pod).

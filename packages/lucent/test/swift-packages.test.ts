@@ -109,7 +109,7 @@ describe.skipIf(!xcodebuild)("an app's Swift package", () => {
     writeNativePackage(r, out, {
       app: {
         deploymentTarget: sdk.ios!.deploymentTarget!,
-        swiftPackages: sdk.ios!.swiftPackages!.pins,
+        swiftPackages: sdk.ios!.swiftPackages!.packages,
       },
     });
     const podspec = fs.readFileSync(path.join(out, "LucentNative.podspec"), "utf8");

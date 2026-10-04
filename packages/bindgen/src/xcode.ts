@@ -1,27 +1,27 @@
 /**
  * What an app's Xcode project says Lucent binds against (TA32): the iOS
- * version its app target is deployed to, and the Swift package products
- * it links, at the versions Package.resolved pins. Read from the project
+ * version its app target is deployed to, and the Swift packages the
+ * project references, at the versions Package.resolved pins. Read from the project
  * file itself (an old-style property list) and Package.resolved, as
  * pods are read from what CocoaPods writes.
  */
 import fs from "node:fs";
 import path from "node:path";
 
-/** A Swift package the app links: its pin, and the products its app target names. */
+/** A Swift package the app's project references, at the version Package.resolved pins. */
 export interface SwiftPackagePin {
   /** SwiftPM's identity: the repository's last path component, lowercased. */
   identity: string;
   location: string;
   version?: string;
   revision: string;
-  products: string[];
 }
 
 export interface XcodeApp {
   project: string;
   /** The app target's IPHONEOS_DEPLOYMENT_TARGET (else the project's). */
   deploymentTarget?: string;
+  /** The Swift packages the project references (their dependencies aside). */
   packages: SwiftPackagePin[];
   /** The Package.resolved that pins them. */
   resolved?: string;
@@ -60,16 +60,14 @@ export function xcodeApp(iosDir: string): XcodeApp | undefined {
   };
   const deploymentTarget = deploymentOf(app) ?? deploymentOf(projectObject);
 
-  // The products the app target names, by the repository they come from.
-  const products = new Map<string, string[]>();
-  for (const dependency of list(app?.packageProductDependencies).map(object)) {
-    const reference = object(dependency?.package);
-    const url = reference?.repositoryURL;
-    if (typeof url !== "string" || typeof dependency?.productName !== "string") continue;
-
-    const id = identityOf(url);
-    products.set(id, [...(products.get(id) ?? []), dependency.productName]);
-  }
+  // The packages the project references, by identity: LucentNative links their products.
+  const referenced = new Set(
+    list(projectObject?.packageReferences)
+      .map(object)
+      .map((r) => r?.repositoryURL)
+      .filter((url): url is string => typeof url === "string")
+      .map(identityOf),
+  );
 
   const resolved = [
     path.join(iosDir, name.replace(/\.xcodeproj$/, ".xcworkspace")),
@@ -78,9 +76,7 @@ export function xcodeApp(iosDir: string): XcodeApp | undefined {
     .map((w) => path.join(w, "xcshareddata/swiftpm/Package.resolved"))
     .find((f) => fs.existsSync(f));
 
-  const packages = (resolved ? pinsOf(resolved) : [])
-    .filter((p) => products.has(p.identity))
-    .map((p) => ({ ...p, products: products.get(p.identity)! }));
+  const packages = (resolved ? pinsOf(resolved) : []).filter((p) => referenced.has(p.identity));
 
   return {
     project,
@@ -99,7 +95,7 @@ export function identityOf(location: string): string {
 }
 
 /** Package.resolved's pins, in its version 1 form or the later ones. */
-export function pinsOf(resolved: string): Omit<SwiftPackagePin, "products">[] {
+export function pinsOf(resolved: string): SwiftPackagePin[] {
   const json = JSON.parse(fs.readFileSync(resolved, "utf8")) as {
     pins?: { identity?: string; location?: string; state?: Record<string, string> }[];
     object?: {

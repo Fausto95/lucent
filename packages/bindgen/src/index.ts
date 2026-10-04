@@ -75,6 +75,7 @@ export { boundValue } from "./source-plan.ts";
 export { type PodFramework, podsSearchPaths, type PodsSearchPaths } from "./pods.ts";
 export { type SwiftPackagePin, type XcodeApp, xcodeApp } from "./xcode.ts";
 export {
+  type BuiltSwiftPackage,
   DEFAULT_DEPLOYMENT_TARGET,
   type SwiftPackageModule,
   type SwiftPackages,

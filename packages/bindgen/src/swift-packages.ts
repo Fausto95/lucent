@@ -1,9 +1,10 @@
 /**
- * The Swift packages an app links, built for Lucent to read (TA32): each
- * pin Package.resolved names is checked out at its revision into the
- * cache, and the products the app target links are built for the
- * simulator at the app's deployment target, with the app's pins for their
- * dependencies. Their Swift modules are then read as any other, and keyed
+ * The Swift packages an app's project references, built for Lucent to
+ * read (TA32): each is checked out at the revision Package.resolved pins
+ * into the cache, and its library products (its manifest's) are built for
+ * the simulator at the app's deployment target, with the app's pins for
+ * their dependencies. LucentNative links them where the code imports
+ * their modules: the app target itself does not. Their Swift modules are then read as any other, and keyed
  * by the package's resolved version: a build runs once per revision,
  * target and Xcode.
  */
@@ -13,16 +14,26 @@ import path from "node:path";
 import { cacheRoot, hash } from "./cache.ts";
 import { type SwiftPackagePin, type XcodeApp, pinsOf } from "./xcode.ts";
 
-/** A Swift module a package's build gave: where its `.swiftmodule` is, and the package's `identity@version`. */
+/**
+ * A Swift module a package's build gave: the directory with its
+ * `.swiftmodule`, or with its framework (a dynamic library product), and
+ * the package's `identity@version`.
+ */
 export interface SwiftPackageModule {
   module: string;
   dir: string;
+  framework?: true;
   package: string;
+}
+
+/** A package as LucentNative links it: its pin, and its library products. */
+export interface BuiltSwiftPackage extends SwiftPackagePin {
+  products: string[];
 }
 
 export interface SwiftPackages {
   modules: SwiftPackageModule[];
-  pins: SwiftPackagePin[];
+  packages: BuiltSwiftPackage[];
   /** Package.resolved, which says which versions these are. */
   resolved?: string;
   /** What could not be built, and why: said where a module is missing. */
@@ -43,7 +54,7 @@ export function swiftPackages(app: XcodeApp, opts: { cacheDir?: string } = {}): 
   const xcode = run("xcodebuild", ["-version"], process.cwd());
   const out: SwiftPackages = {
     modules: [],
-    pins: app.packages,
+    packages: [],
     ...(app.resolved ? { resolved: app.resolved } : {}),
     failures: [],
   };
@@ -54,14 +65,18 @@ export function swiftPackages(app: XcodeApp, opts: { cacheDir?: string } = {}): 
   }
 
   for (const pin of app.packages) {
-    const key = hash([pin.identity, pin.revision, target, xcode.output, ...pin.products]);
+    const key = hash([pin.identity, pin.revision, target, xcode.output]);
     const dir = path.join(cacheRoot(opts.cacheDir), "spm", `${pin.identity}-${key}`);
     const done = path.join(dir, "modules.json");
 
     try {
       if (!fs.existsSync(done)) build(pin, dir, target, app.resolved);
-      const modules = JSON.parse(fs.readFileSync(done, "utf8")) as SwiftPackageModule[];
-      out.modules.push(...modules);
+      const built = JSON.parse(fs.readFileSync(done, "utf8")) as {
+        products: string[];
+        modules: SwiftPackageModule[];
+      };
+      out.packages.push({ ...pin, products: built.products });
+      out.modules.push(...built.modules);
     } catch (e) {
       out.failures.push(`${pinName(pin)}: ${(e as Error).message}`);
     }
@@ -97,7 +112,19 @@ function build(pin: SwiftPackagePin, dir: string, target: string, resolved?: str
   // Its dependencies at the versions the app resolved: SwiftPM keeps a pin it can use.
   if (resolved) fs.copyFileSync(resolved, path.join(src, "Package.resolved"));
 
-  for (const product of pin.products) {
+  // Its library products, as its manifest declares them.
+  const manifest = run("swift", ["package", "dump-package"], src);
+  if (!manifest.ok) throw new Error(`swift package dump-package failed: ${manifest.output}`);
+  const products = (
+    JSON.parse(manifest.stdout) as {
+      products: { name: string; type: Record<string, unknown> }[];
+    }
+  ).products
+    .filter((p) => "library" in p.type)
+    .map((p) => p.name);
+  if (!products.length) throw new Error("its manifest declares no library product");
+
+  for (const product of products) {
     const r = run(
       "xcodebuild",
       [
@@ -121,7 +148,7 @@ function build(pin: SwiftPackagePin, dir: string, target: string, resolved?: str
   }
 
   // Each module is the package's whose sources declare it; else this one's.
-  const products = path.join(derived, "Build/Products/Debug-iphonesimulator");
+  const built = path.join(derived, "Build/Products/Debug-iphonesimulator");
   const checkouts = path.join(derived, "SourcePackages/checkouts");
   const ownerOf = (module: string) => {
     for (const id of fs.existsSync(checkouts) ? fs.readdirSync(checkouts) : [])
@@ -129,26 +156,41 @@ function build(pin: SwiftPackagePin, dir: string, target: string, resolved?: str
     return pin.identity;
   };
 
-  const modules: SwiftPackageModule[] = fs
-    .readdirSync(products)
-    .filter((f) => f.endsWith(".swiftmodule"))
-    .map((f) => {
-      const module = f.slice(0, -".swiftmodule".length);
-      const owner = ownerOf(module);
-      return {
-        module,
-        dir: products,
-        package: owner === pin.identity ? pinName(pin) : `${owner}@`,
-      };
-    });
+  const modules: SwiftPackageModule[] = fs.readdirSync(built).flatMap((f) => {
+    const [, module, kind] = /^(.+)\.(swiftmodule|framework)$/.exec(f) ?? [];
+    if (!module) return [];
+    // A framework of a Swift module: one a dynamic library product gave.
+    const framework = kind === "framework";
+    if (framework && !fs.existsSync(path.join(built, f, "Modules", `${module}.swiftmodule`)))
+      return [];
 
-  fs.writeFileSync(path.join(dir, "modules.json"), `${JSON.stringify(modules, null, 2)}\n`);
+    const owner = ownerOf(module);
+    return [
+      {
+        module,
+        dir: built,
+        ...(framework ? { framework: true as const } : {}),
+        package: owner === pin.identity ? pinName(pin) : `${owner}@`,
+      },
+    ];
+  });
+
+  fs.writeFileSync(
+    path.join(dir, "modules.json"),
+    `${JSON.stringify({ products, modules }, null, 2)}\n`,
+  );
 }
 
-function run(cmd: string, args: string[], cwd: string): { ok: boolean; output: string } {
+function run(
+  cmd: string,
+  args: string[],
+  cwd: string,
+): { ok: boolean; stdout: string; output: string } {
   const r = spawnSync(cmd, args, { cwd, encoding: "utf8", maxBuffer: 1 << 26 });
+  const stdout = r.stdout ?? "";
   return {
     ok: r.status === 0,
-    output: `${r.stdout ?? ""}${r.stderr ?? r.error?.message ?? ""}`.trim(),
+    stdout,
+    output: `${stdout}${r.stderr ?? r.error?.message ?? ""}`.trim(),
   };
 }

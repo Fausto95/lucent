@@ -587,7 +587,7 @@ export async function buildProject(
     androidDeferred: deferred.includes("android"),
     app: {
       ...(sdk.ios?.deploymentTarget ? { deploymentTarget: sdk.ios.deploymentTarget } : {}),
-      swiftPackages: sdk.ios?.swiftPackages?.pins ?? [],
+      swiftPackages: sdk.ios?.swiftPackages?.packages ?? [],
     },
   });
   const inPackage = (f: string) => path.relative(outDir, f).split(path.sep).join("/");
