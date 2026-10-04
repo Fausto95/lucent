@@ -41,6 +41,30 @@ export declare class Handle {
 export type Float = number & { readonly "lucent:compose.Float"?: never };
 `;
 
+const PARAMS = `/**
+ * Waits for a while.
+ *
+ * @param ms How long, in milliseconds.
+ * @param signal Stops the wait early.
+ */
+export declare function wait(ms: number, signal?: AbortSignal): Promise<void>;
+`;
+
+describe("a function's parameters", () => {
+  const [wait] = declarationsOf("params.d.ts", PARAMS).declarations;
+
+  it("are read from its signature, with their @param text", () => {
+    expect(wait!.params).toEqual([
+      { name: "ms", type: "number", optional: false, doc: "How long, in milliseconds." },
+      { name: "signal", type: "AbortSignal", optional: true, doc: "Stops the wait early." },
+    ]);
+  });
+
+  it("leave the description's paragraphs", () => {
+    expect(wait!.doc).toEqual(["Waits for a while."]);
+  });
+});
+
 describe("declarationsOf", () => {
   const module = declarationsOf("demo.d.ts", SOURCE);
 
