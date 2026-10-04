@@ -231,7 +231,11 @@ object Shims {
       ret: kt.type("R"),
     });
     const printed = (f: kt.Fun) =>
-      kt.printUnit({ packageName: "p", imports: [], decls: [{ k: "object", name: "O", members: [f] }] });
+      kt.printUnit({
+        packageName: "p",
+        imports: [],
+        decls: [{ k: "object", name: "O", members: [f] }],
+      });
 
     expect(printed(fun({ T: [comparable] }))).toContain(
       "  fun <T : kotlin.Comparable<T>, R> best(items: kotlin.collections.List<T>): R\n",
