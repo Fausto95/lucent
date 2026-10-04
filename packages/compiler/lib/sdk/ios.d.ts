@@ -65,9 +65,11 @@ export type SceneEvent =
 /**
  * Calls `listener` each time the app posts `event`, until the returned
  * function is called or `signal` aborts. It runs on the main thread, as
- * UIKit posts it, so main-thread APIs work there without `main()`. Lucent
- * observes the notifications: the app's delegate, and other modules', stay
- * as they are. What `listener` throws is logged; the app goes on.
+ * UIKit posts it, so main-thread APIs work there without `main()`.
+ *
+ * Lucent observes the notifications, so the app's delegate and other
+ * modules' stay as they are. What `listener` throws is logged, and the app
+ * goes on.
  */
 export declare function onAppEvent(
   event: AppEvent,
@@ -87,18 +89,21 @@ export declare function onSceneEvent(
 
 /**
  * Presents the view controller `build` returns from the scene the person is
- * using (the top view controller of its key window), and resolves with the
+ * using (the top view controller of its key window). Resolves with the
  * value given to `resolve`, or rejects with the error given to `reject`.
- * `build` runs on the main thread, like `main()`'s function: make the view
+ *
+ * `build` runs on the main thread, like `main()`'s function. Make the view
  * controller there, and call `resolve` or `reject` from its delegate or
  * completion handler.
  *
  * It settles once, and whatever settles it dismisses the view controller if
  * it is still shown. It rejects with an `AbortError` when `signal` aborts,
- * when the person dismisses the view controller (swiping a sheet down), when
- * the view controller goes before settling, or when its scene disconnects;
- * with an `InvalidStateError` when no scene is in the foreground or UIKit
- * does not present it.
+ * or when the person dismisses the view controller (swiping a sheet down).
+ * It does too when the view controller goes before settling, or when its
+ * scene disconnects.
+ *
+ * It rejects with an `InvalidStateError` when no scene is in the
+ * foreground, or UIKit doesn't present it.
  */
 export declare function present<T>(
   build: (resolve: (value: T) => void, reject: (reason: Error) => void) => UIViewController,

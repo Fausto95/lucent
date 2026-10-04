@@ -1,22 +1,22 @@
 /**
- * Helpers available to Lucent modules. Each one has a native implementation
- * in the Lucent runtime and a JavaScript implementation (the e2e harness's
- * core.js) so the same source also runs as plain TypeScript.
+ * lucent:core: helpers every module can import. Each has a native
+ * implementation in the Lucent runtime, and a JavaScript one in
+ * `@lucent-lang/lucent/core`, so the same source also runs as TypeScript.
  */
 
 /** Resolves after `ms` milliseconds; rejects with the signal's reason if it aborts first. */
 export declare function delay(ms: number, signal?: AbortSignal): Promise<void>;
 
-/** An Error with a machine-readable `code`, visible to JavaScript as `error.code`. */
+/** An Error with a machine-readable `code`, which JavaScript reads as `error.code`. */
 export declare function error(code: string, message: string): Error;
 
-/** The `code` of an error created with `error()`, or undefined. */
+/** The `code` of an error made with `error()`, or undefined. */
 export declare function errorCode(e: Error): string | undefined;
 
-/** UTF-8 encoding of a string (like `new TextEncoder().encode(s)`). */
+/** The UTF-8 bytes of a string, like `new TextEncoder().encode(s)`. */
 export declare function utf8Encode(s: string): Uint8Array;
 
-/** Decodes UTF-8 bytes (like `new TextDecoder().decode(b)`), replacing invalid sequences. */
+/** Decodes UTF-8 bytes, like `new TextDecoder().decode(bytes)`, replacing invalid sequences. */
 export declare function utf8Decode(bytes: Uint8Array): string;
 
 /** Milliseconds from a monotonic clock, for measuring durations. */
@@ -24,27 +24,45 @@ export declare function now(): number;
 
 /**
  * A promise of what a callback API reports once, such as a native listener.
- * `register` starts listening, at once, and may return the cleanup that
- * stops it:
- *
- * ```ts
- * fromCallback<string>((resolve, reject) => {
- *   const subscription = source.listen(resolve, reject);
- *   return () => subscription.cancel();
- * }, signal);
- * ```
+ * `register` starts listening at once, and may return the cleanup that
+ * stops it.
  *
  * The first of `resolve`, `reject` and the signal aborting settles the
- * promise; later calls do nothing. The cleanup runs exactly once, as soon as
- * the promise settles, or right after `register` returns if it settled
- * during registration. A throw from `register` rejects the promise. With an
- * aborted signal, the promise rejects with the signal's reason and
- * `register` is not called. A cleanup that throws is reported as uncaught;
- * the promise keeps its outcome. `resolve` takes a value, not a promise.
+ * promise, and later calls do nothing. `resolve` takes a value, not a
+ * promise: the compiler refuses a promise type.
  *
- * Called from another thread (a `main` block, say), `resolve` and `reject`
- * take effect on the thread `fromCallback` was called on, in the order
- * they were called.
+ * The cleanup runs exactly once, inside the call that settles the promise,
+ * before anything awaiting it continues. If the promise settled during
+ * registration, it runs right after `register` returns. A cleanup that
+ * throws is reported as uncaught, and the promise keeps its outcome.
+ *
+ * A throw from `register` rejects the promise. With a signal already
+ * aborted, the promise rejects with the signal's reason, and `register` is
+ * not called.
+ *
+ * Called from another thread (inside `main()`, say), `resolve` and
+ * `reject` take effect on the thread `fromCallback` was called on, in the
+ * order they were called.
+ *
+ * ```ts
+ * import { fromCallback } from "lucent:core";
+ *
+ * // Who waits for the next tick, as a native listener would hold it.
+ * let waiting: ((tick: number) => void) | undefined;
+ *
+ * export function tick(n: number): void {
+ *   waiting?.(n);
+ * }
+ *
+ * export async function nextTick(signal?: AbortSignal): Promise<number> {
+ *   return await fromCallback<number>((resolve) => {
+ *     waiting = resolve;
+ *     return () => {
+ *       waiting = undefined;
+ *     };
+ *   }, signal);
+ * }
+ * ```
  */
 export declare function fromCallback<T>(
   register: (resolve: (value: T) => void, reject: (reason: Error) => void) => (() => void) | void,
@@ -53,15 +71,16 @@ export declare function fromCallback<T>(
 
 /**
  * Passes what a listener reports to `onValue` until the subscription ends,
- * and resolves when it does. `register` starts listening, at once, and may
+ * and resolves when it does. `register` starts listening at once, and may
  * return the cleanup that stops it.
  *
  * `next(value)` calls `onValue(value)` while the subscription is open, and
  * does nothing after. The first of `end()`, `fail(error)`, `onValue`
- * throwing and the signal aborting ends it: the promise resolves (`end`) or
- * rejects (with the error, or the signal's reason), and the cleanup runs
- * exactly once. Registration, an aborted signal, a throwing cleanup and
- * calls from other threads behave as in `fromCallback`.
+ * throwing and the signal aborting ends it. The promise then resolves
+ * (`end`) or rejects, with the error or the signal's reason.
+ *
+ * The cleanup, a throw from `register`, an aborted signal and calls from
+ * other threads behave as in `fromCallback`.
  */
 export declare function subscribe<T>(
   register: (
@@ -80,27 +99,33 @@ export interface ComputeOptions {
 }
 
 /**
- * Runs `task(input)` on a pool of worker threads and resolves with its
- * result, on the thread that called `compute`. `task` is a function declared
- * at the top level of a module, taking one parameter: the compiler checks
- * everything it runs can run on a worker (no module state, no main-thread
- * or unknown-thread native code, nothing asynchronous) and that `input` and
- * its result are data.
+ * Runs `task(input)` on a pool of worker threads, and resolves with its
+ * result on the thread that called `compute`. Several tasks run at once.
  *
- * `input` is copied when `compute` is called: later changes by the caller
- * do not reach the task. Objects reached twice are copied once, and cycles
- * survive. The result comes back as it is.
+ * `task` is a function declared at the top level of a module, taking one
+ * parameter. The compiler checks that it uses no module state, no
+ * main-thread native code and nothing asynchronous (LUCENT3011). It checks
+ * that `input` and its result are data too (LUCENT3012).
  *
- * A task that throws rejects the promise with its error. With `signal`,
- * aborting it rejects the promise at once with the signal's reason: a
- * queued task never starts, and a running one stops at the next iteration
- * of a loop in the task or in a module function it calls. Loops in
- * closures, methods and generic functions, and native calls, run to their
- * end first; the result is then dropped. The pool
- * holds a bounded number of waiting tasks; beyond that, `compute` rejects
- * with a QuotaExceededError.
+ * `input` is copied when `compute` is called, so later changes by the
+ * caller don't reach the task. Objects reached twice are copied once, and
+ * cycles survive. The result comes back as it is.
+ *
+ * A task that throws rejects the promise with its error. Aborting `signal`
+ * rejects it at once with the signal's reason, and a queued task never
+ * starts.
+ *
+ * A running task stops at the next iteration of a loop in it, or in a
+ * module function it calls. Loops in closures, methods and generic
+ * functions, and native calls, run to their end first, and their result is
+ * dropped.
+ *
+ * The pool holds a bounded number of waiting tasks: beyond it, `compute`
+ * rejects with a QuotaExceededError.
  *
  * ```ts
+ * import { compute } from "lucent:core";
+ *
  * function edgePositions(bytes: Uint8Array): number[] {
  *   const positions: number[] = [];
  *   for (let i = 1; i < bytes.length; i++)
@@ -121,25 +146,39 @@ export declare function compute<T, R>(
 
 /**
  * Bytes native code owns, handed to compute tasks and JavaScript without
- * copying them. A `Uint8Array` is copied whenever it crosses; a
+ * copying them. A `Uint8Array` is copied whenever it crosses, while a
  * NativeBuffer moves.
  *
- * The bytes are reached through a borrow, for the length of one call:
- * `withRead` lends them to its callback as a `ByteSpan`, `withWrite` as a
- * `MutableByteSpan`. Reads share the buffer; a write needs it to itself.
- * A borrow that would conflict with one in progress (a write inside a
- * read, a close or transfer inside either) throws an InvalidStateError at
- * once. The compiler keeps a span inside its callback: it cannot be
- * returned, stored, captured by a closure that outlives the call, passed
- * to code that keeps it, or held across `await`.
+ * The bytes are reached through a borrow, for the length of one call.
+ * `withRead` lends them to its callback as a `ByteSpan`, and `withWrite` as
+ * a `MutableByteSpan`. Reads share the buffer, while a write needs it to
+ * itself.
  *
- * `transfer()` moves the bytes to a new buffer, uncopied: every reference
- * to the old one then refuses them. Passing a buffer to `compute`, alone
- * or inside the input, moves it the same way, and a task's buffer comes
- * back as it is. Copies are explicit: `NativeBuffer.from(bytes)` and
- * `toUint8Array()`, which `NativeBuffer.stats()` counts.
+ * A borrow that conflicts with one in progress throws an InvalidStateError
+ * ("NativeBuffer is borrowed") at once. That is a write inside a read, or
+ * a close or transfer inside either.
+ *
+ * The callback is a function literal or the name of a function, and its
+ * span stays inside it. Returning the span, storing it, keeping it in a
+ * closure or a callee, or holding it across `await` is refused (LUCENT3030).
+ *
+ * `transfer()` moves the bytes to a new buffer, uncopied. Every reference
+ * to the old one then throws an InvalidStateError ("NativeBuffer was
+ * transferred"), and closing it does nothing. A use the compiler can tell
+ * follows a move is refused (LUCENT3031).
+ *
+ * Passing a buffer to `compute`, alone or inside the input, moves it the
+ * same way, and a task's buffer comes back as it is. A buffer borrowed at
+ * the time doesn't move: the promise rejects.
+ *
+ * After `close()`, or the end of its `using` block, the buffer throws an
+ * InvalidStateError ("NativeBuffer is closed"). Copies are explicit:
+ * `NativeBuffer.from(bytes)` and `toUint8Array()`, which
+ * `NativeBuffer.stats()` counts.
  *
  * ```ts
+ * import { compute, NativeBuffer } from "lucent:core";
+ *
  * function scan(buffer: NativeBuffer): number {
  *   using owned = buffer;
  *   return owned.withRead((bytes) => {
@@ -156,8 +195,8 @@ export declare function compute<T, R>(
  * }
  * ```
  *
- * JavaScript sees a buffer as an opaque object with the same methods; its
- * borrows lend it a copy of the bytes (copied back after `withWrite`), so
+ * JavaScript sees a buffer as an opaque object with the same methods. Its
+ * borrows lend it a copy of the bytes, copied back after `withWrite`, so
  * JavaScript never holds memory a worker may be writing.
  */
 export declare class NativeBuffer {

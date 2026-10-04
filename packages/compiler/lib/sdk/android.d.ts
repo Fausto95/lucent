@@ -17,12 +17,14 @@ export declare function available(platform: "android", api: number): boolean;
 export declare function currentActivity(): Activity | null;
 
 /**
- * Starts `intent` from the Activity in front and resolves with its result
+ * Starts `intent` from the Activity in front, and resolves with its result
  * (`getResultCode()`, `getResultData()`). The request survives the app's
- * Activity being recreated meanwhile. Rejects with `ERR_NO_ACTIVITY` without
- * an Activity, `ERR_ACTIVITY_NOT_FOUND` when no app handles the intent, and
- * the signal's reason if it aborts first: the answer, if it still comes, is
- * dropped (Lucent closes what it started when Android lets it).
+ * Activity being recreated meanwhile.
+ *
+ * It rejects with `ERR_NO_ACTIVITY` without an Activity, and with
+ * `ERR_ACTIVITY_NOT_FOUND` when no app handles the intent. It rejects with
+ * the signal's reason if it aborts first, and drops the answer if it comes.
+ * Lucent closes what it started when Android lets it.
  */
 export declare function startActivityForResult(
   intent: Intent,
@@ -32,7 +34,7 @@ export declare function startActivityForResult(
 /**
  * Asks for runtime permissions (`"android.permission.CAMERA"`), and
  * resolves with whether each was granted, in order. Requests wait for the
- * one before them, as Android asks one at a time. Rejects like
+ * one before them, as Android asks one at a time. It rejects like
  * `startActivityForResult`.
  */
 export declare function requestPermissions(
