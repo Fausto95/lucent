@@ -1,7 +1,78 @@
 ---
-title: "Create a Lucent package"
-description: "This page is being rewritten."
+title: Create a Lucent package
+description: Put the modules in a folder, name it in the `lucent` field of `package.json`, and re-export the modules from the package's `main`.
 kind: guide
 ---
 
-This page is being rewritten.
+<Tabs>
+<TabItem label="package.json">
+
+```json title="package.json"
+{
+  "name": "lucent-device",
+  "version": "0.1.0",
+  "description": "The name of the device's operating system.",
+  "main": "index.ts",
+  "files": ["index.ts", "src"],
+  "lucent": {
+    "sources": "src",
+    "compatible": "^0.1.0"
+  }
+}
+```
+
+</TabItem>
+<TabItem label="index.ts">
+
+```ts title="index.ts"
+export * from "./src/device.lucent";
+```
+
+</TabItem>
+<TabItem label="module">
+
+```ts title="src/device.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { UIDevice } from "lucent:ios/UIKit";
+import { Build_VERSION } from "lucent:android/android.os";
+import { main } from "lucent:thread";
+
+export async function systemName(): Promise<string> {
+  if (PLATFORM === "ios") return main(() => UIDevice.current.systemName);
+  return `Android ${Build_VERSION.RELEASE ?? ""}`;
+}
+```
+
+</TabItem>
+<TabItem label="JS usage">
+
+```tsx title="App.tsx"
+import { systemName } from "lucent-device";
+
+await systemName(); // "iOS" on an iPhone, "Android 16" on Android 16
+```
+
+</TabItem>
+</Tabs>
+
+That's a whole package. Its modules are ordinary modules: shared code, platform branches and platform files all work, in `src/` or in folders under it. Lucent skips folders named `ios` or `android`, so put a platform file next to its declaration file.
+
+| Field | What it does |
+| --- | --- |
+| `name` | Names the package's modules: this one is `lucent-device/device`, its path under `sources` after the package's name. |
+| `main` | The package's JavaScript API. It re-exports the modules, and Metro swaps each one for its proxy in the app. |
+| `files` | What npm packs. List `main`, the sources and, once the package has one, `lucent.json` and every path it lists. |
+| `lucent.sources` | The folder that holds the modules. Without it, the modules are found from the package's root. |
+| `lucent.compatible` | The Lucent versions the package supports, as an npm range. An app on another version fails to build, naming the package. |
+
+The [package.json reference](/docs/packages/package-json/) has each field's exact rules. [Version and publish a package](/docs/packages/publish-a-package/) says which range to choose.
+
+## Import the modules from Lucent code
+
+An app's own modules, and other packages, import a package's module by its path: `import { systemName } from "lucent-device/src/device.lucent"`.
+
+A package whose modules import another Lucent package lists it in `dependencies`. Apps find Lucent packages through `dependencies` only, never `devDependencies` or `peerDependencies`.
+
+## Declare what the native code needs
+
+A module that needs a pod, a Gradle dependency or a permission declares it in a `lucent.json` next to `package.json`. [Add pods, Gradle dependencies and Swift packages](/docs/packages/add-native-dependencies/) and [Declare permissions, Info.plist keys and entitlements](/docs/packages/declare-permissions-and-entitlements/) show how.

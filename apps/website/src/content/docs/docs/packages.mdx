@@ -1,7 +1,47 @@
 ---
-title: "What is a Lucent package?"
-description: "This page is being rewritten."
+title: What is a Lucent package?
+description: An npm package with a `lucent` field in its `package.json`, whose modules ship as source and compile in each app that installs it.
 kind: start
 ---
 
-This page is being rewritten.
+```text title="lucent-device"
+lucent-device/
+├── package.json          the lucent field: where the modules are, which Lucent versions
+├── index.ts              the JavaScript API: re-exports the modules
+├── src/
+│   └── device.lucent.ts  a module, shipped as source
+└── lucent.json           optional: what the native code needs from the app
+```
+
+An app installs a Lucent package from npm like any other. When the app builds, Lucent finds the package among its `dependencies` and compiles its modules with the app's own, into one native package. JavaScript imports the package by name, and Metro swaps each module for the proxy that calls its native code.
+
+You don't compile the modules before publishing, so there is no binary of them to keep in step with Lucent's releases. Instead, the package can name the Lucent versions it supports in `lucent.compatible`. An app on another version then fails to build, naming the package.
+
+[How packages end up in an app](/docs/architecture/packages/) explains the build.
+
+## What a package holds
+
+- **Modules**, as source: shared modules, platform branches and platform files. The app names them `<package>/<module>`, so they never clash with its own.
+- **`lucent.json`**: what the native code needs from the app, such as pods, Gradle dependencies, permissions, `Info.plist` keys and Android components.
+- **Prebuilt libraries**: frameworks, AARs and JARs, which the modules import from `lucent:ios/*` and `lucent:android/*`.
+- **Native sources and resources**, compiled and bundled into the app. Lucent code can't import those sources, except C through a native extension, `lucent:ext/<name>`.
+
+## When to make one
+
+- Several apps share the same modules.
+- You publish a native API on npm, for any React Native app to install.
+
+A module only one app uses stays in that app's `src/`: it needs no package.
+
+The repository has three example packages, which its example apps install and which aren't on npm: [lucent-haptics](/docs/packages/examples/haptics/), [lucent-secure-store](/docs/packages/examples/secure-store/) and [lucent-orbit](/docs/packages/examples/orbit/).
+
+## Where to go from here
+
+<CardGrid>
+  <LinkCard title="Create a package" description="Set up package.json, develop the package in an app, publish it." href="/docs/packages/create-a-package/" />
+  <LinkCard title="Native needs" description="Declare pods, Gradle dependencies, permissions and Android components." href="/docs/packages/add-native-dependencies/" />
+  <LinkCard title="Native code" description="Ship prebuilt libraries and native sources, or wrap a C library." href="/docs/packages/ship-a-prebuilt-library/" />
+  <LinkCard title="Reference" description="Every field of package.json and lucent.json." href="/docs/packages/package-json/" />
+  <LinkCard title="Example packages" description="Three packages from the repository, file by file." href="/docs/packages/examples/haptics/" />
+  <LinkCard title="Install a package in an app" description="Add a Lucent package to an app and call its modules." href="/docs/guides/use-a-lucent-package/" />
+</CardGrid>
