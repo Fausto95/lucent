@@ -39,6 +39,8 @@ export type Type =
 
 export interface TupleElement {
   type: Type;
+  /** `name: T`: a labeled element. */
+  name?: string;
   /** `T?`: a value may leave it out. */
   optional?: boolean;
 }
