@@ -1,7 +1,70 @@
 ---
-title: "Declare an Android service, receiver or provider"
-description: "This page is being rewritten."
+title: Declare an Android activity, service, receiver or provider
+description: "Add it to `android.components` in the package's `lucent.json`: `lucent build` writes it into the native package's manifest, which Android merges into the app's."
 kind: guide
 ---
 
-This page is being rewritten.
+```json title="lucent.json"
+{
+  "android": {
+    "nativeSources": ["android/src"],
+    "permissions": [
+      "android.permission.FOREGROUND_SERVICE",
+      "android.permission.FOREGROUND_SERVICE_DATA_SYNC"
+    ],
+    "components": [
+      {
+        "kind": "activity",
+        "name": "dev.example.share.ShareActivity",
+        "exported": true,
+        "theme": "@android:style/Theme.Translucent.NoTitleBar",
+        "intentFilters": [
+          {
+            "actions": ["android.intent.action.SEND"],
+            "categories": ["android.intent.category.DEFAULT"],
+            "data": [{ "mimeType": "text/plain" }]
+          }
+        ]
+      },
+      {
+        "kind": "service",
+        "name": "dev.example.share.UploadService",
+        "exported": false,
+        "foregroundServiceType": "dataSync"
+      }
+    ]
+  }
+}
+```
+
+`lucent build` adds these elements to the `<application>` of the native package's manifest, after the runtime's own provider and activity. Android merges that manifest into the app's, so the app adds nothing.
+
+```xml title=".lucent/native/android/src/main/AndroidManifest.xml" nocopy
+<activity android:name="dev.example.share.ShareActivity" android:exported="true" android:theme="@android:style/Theme.Translucent.NoTitleBar">
+  <intent-filter>
+    <action android:name="android.intent.action.SEND" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <data android:mimeType="text/plain" />
+  </intent-filter>
+</activity>
+<service android:name="dev.example.share.UploadService" android:exported="false" android:foregroundServiceType="dataSync" />
+```
+
+- `kind` is `activity`, `service`, `receiver` or `provider`, and `name` is the fully qualified class name. A provider also needs `authorities`.
+- `exported`, `enabled`, `permission`, `authorities`, `grantUriPermissions`, `foregroundServiceType`, `theme` and `configChanges` become `android:` attributes of the same name.
+- `intentFilters` become `<intent-filter>` elements, and each `metaData` entry a `<meta-data>` element with `android:value`. Set `exported` on a component with `intentFilters`: apps targeting Android 12 or later fail to build without it, and Lucent doesn't check.
+- An unknown field, or a value of the wrong type, fails the build and names the package and the field. [lucent.json](/docs/packages/lucent-json/) lists every field.
+
+The permissions the component uses, such as `FOREGROUND_SERVICE_DATA_SYNC`, go in `android.permissions` (see [Declare permissions, Info.plist keys and entitlements](/docs/packages/declare-permissions-and-entitlements/)). Its `permission` field is the one callers must hold.
+
+## Ship the class
+
+Lucent writes the declaration without checking that the class exists. Ship it in the package's [native sources](/docs/packages/ship-native-sources/), as this package does under `android/src`, or in a [prebuilt library](/docs/packages/ship-a-prebuilt-library/) or a [Gradle dependency](/docs/packages/add-native-dependencies/).
+
+Write a provider's `authorities` with the `${applicationId}` placeholder, such as `${applicationId}.share.files`. The manifest merger fills it in, so two apps that install your package don't clash.
+
+## One declaration per class
+
+Two packages may declare the same class only if their declarations are identical. Otherwise the build fails and names both packages.
+
+A change to a component needs the app reinstalled: `lucent build` lists it under `actions`.

@@ -1,7 +1,59 @@
 ---
-title: "Declare permissions, Info.plist keys and entitlements"
-description: "This page is being rewritten."
+title: Declare permissions, Info.plist keys and entitlements
+description: "List them in `lucent.json`: Android permissions need nothing from the app, Expo's plugin adds iOS entries, and bare builds name what's missing."
 kind: guide
 ---
 
-This page is being rewritten.
+import { Tabs, TabItem } from "@astrojs/starlight/components";
+
+```json title="lucent.json"
+{
+  "ios": {
+    "infoPlist": {
+      "NFCReaderUsageDescription": "Read the tags you scan"
+    },
+    "entitlements": {
+      "com.apple.developer.nfc.readersession.formats": ["TAG"]
+    }
+  },
+  "android": {
+    "permissions": ["android.permission.NFC"]
+  }
+}
+```
+
+## Android permissions
+
+`lucent build` writes each permission into the native package's manifest once, however many packages list it. Android merges that manifest into the app's, so the app adds nothing.
+
+Leave out a permission that an Android SDK method your modules call declares with `@RequiresPermission`: the build adds it (see [Android SDK](/docs/api/android-sdk/)). List every other permission your code needs. A dangerous permission still needs the user's consent at run time: see [Ask for a runtime permission](/docs/guides/ask-for-a-permission/).
+
+`lucent build` writes a permission by name, with no `maxSdkVersion`, and `lucent.json` can't declare `<uses-feature>` or `<queries>`. Tell apps to add those to their own manifest.
+
+## Info.plist keys and entitlements
+
+A value is a string, a boolean or an array of strings. Packages must agree on a key's value, so two packages with different usage strings for one key fail the build. Arrays join instead.
+
+Your strings and booleans are defaults: an app that sets the key keeps its own value. How the rest reach the app depends on its setup.
+
+<Tabs syncKey="setup">
+<TabItem label="Expo">
+
+The [config plugin](/docs/api/integrations/) adds them to the app's `Info.plist` and entitlements when `npx expo prebuild` runs. An array the app sets gains the values it lacks.
+
+</TabItem>
+<TabItem label="Bare React Native">
+
+`lucent build` doesn't edit the app's files. It names each key, and each array value, that the app's `Info.plist` or `.entitlements` file lacks, or the file itself:
+
+```sh title="terminal" nocopy
+! lucent-nfc needs NFCReaderUsageDescription in ios/App/Info.plist (the Expo config plugin adds it)
+! lucent-nfc needs com.apple.developer.nfc.readersession.formats, but the app's target has no .entitlements file (the Expo config plugin adds it)
+```
+
+The app adds them as [Add Info.plist keys, entitlements and manifest entries](/docs/guides/add-permissions-and-config/) shows.
+
+</TabItem>
+</Tabs>
+
+A change to any of these needs the app reinstalled. On iOS, reinstall after `npx expo prebuild` in an Expo app, or after a bare app adds what `lucent build` names. `lucent build` lists the reinstall under `actions`, as [Get a module change into the running app](/docs/guides/apply-a-change/) explains.

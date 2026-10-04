@@ -1,7 +1,69 @@
 ---
-title: "Add pods, Gradle dependencies and Swift packages"
-description: "This page is being rewritten."
+title: Add pods, Gradle dependencies and Swift packages
+description: "List them in the package's `lucent.json`: every app that installs the package links them, and your modules import the pods' and Gradle libraries' classes."
 kind: guide
 ---
 
-This page is being rewritten.
+import { Steps } from "@astrojs/starlight/components";
+
+```json title="lucent.json"
+{
+  "ios": {
+    "pods": { "SDWebImage": "~> 5.19" },
+    "nativeSources": ["ios"],
+    "frameworks": ["Accelerate"],
+    "swiftPackages": {
+      "https://github.com/apple/swift-collections": {
+        "requirement": { "kind": "upToNextMajorVersion", "minimumVersion": "1.1.0" },
+        "products": ["Collections"]
+      }
+    },
+    "deploymentTarget": "16.0"
+  },
+  "android": {
+    "dependencies": { "com.github.bumptech.glide:glide": "4.16.0" },
+    "minSdk": 26
+  }
+}
+```
+
+`lucent.json` sits next to the package's `package.json`. `lucent build` merges the files of all the app's packages into its native package.
+
+| Field | What the app gets | What your modules get |
+| --- | --- | --- |
+| `ios.pods` | a dependency of the native package's pod | `lucent:ios/<Module>`, after `pod install` |
+| `ios.frameworks` | Apple frameworks the pod links | nothing new: frameworks your modules import are linked without listing them, so list the ones your native sources need |
+| `ios.swiftPackages` | a dependency React Native's `spm_dependency` adds to the pod at `pod install` | nothing yet: your modules can't import them ([TA32](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta32)), but your Swift native sources can |
+| `android.dependencies` | `api` dependencies of the native package's Android library | `lucent:android/<package>`, in the same build |
+
+When two packages ask for the same pod or Gradle artifact, CocoaPods or Gradle picks the version. Requirements that can't both hold, such as `~> 5.19` and `~> 6.0`, fail the build and name both packages. [lucent.json](/docs/packages/lucent-json/) gives each field's merge rule.
+
+## Bind a new pod
+
+Lucent binds a pod only once the app has installed it:
+
+<Steps>
+
+1. ### Add the pod
+
+   Add it to `ios.pods`, then run `npx lucent build` in an app that uses your package: the native package's pod now depends on it.
+
+2. ### Install it
+
+   Run `pod install` in the app's `ios` directory. In an Expo app, `npx expo prebuild` runs both commands.
+
+3. ### Import it
+
+   Import its module, such as `lucent:ios/SDWebImage`, and build again.
+
+</Steps>
+
+Importing the pod first fails with [`LUCENT3004`](/docs/api/diagnostics/#lucent3004), and a failed build leaves the pod out of the native package. An app that installs your package fails the same way, since nothing has installed the pod yet ([known limitations](/docs/releases/roadmap/#known-limitations)). Until that changes, tell apps to add the pod to their own Podfile and run `pod install` first: Lucent binds any pod the app installed.
+
+A Gradle artifact needs no extra step: Lucent resolves the app's Gradle classpath with it before checking your modules.
+
+## Require a newer OS
+
+`ios.deploymentTarget` and `android.minSdk` are the oldest versions your package runs on. The native package requires the highest any of the app's packages asks for. An app with a lower target fails at `pod install` or in Android's manifest merger until it raises it.
+
+Your modules are still checked against the versions on [Compatibility](/docs/api/compatibility/), so guard newer APIs with [an availability check](/docs/guides/check-the-os-version/). Checking against the app's iOS target is [TA32](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta32). Android's check stays at API 24, and no task changes it.
