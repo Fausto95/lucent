@@ -239,6 +239,12 @@ directory:
 
 - classes are nominal (a private brand) and have a private constructor unless
   the SDK declares initializers;
+- C functions Swift imports as members of CoreFoundation-style handles,
+  as the module's API notes or its headers' `swift_name` attributes say
+  (`CGImageGetWidth` → `cgImage.width`, `CGImageCreateWithImageInRect` →
+  `cgImage.cropping(rect)`): called as the C functions they are, the
+  object where the name puts `self`, a Create/Copy function's result
+  owned;
 - Swift names on iOS (`UIDevice.current`, `init(style:)` → `constructor(style)`),
   nested types joined with `_` (`UIImpactFeedbackGenerator_FeedbackStyle`);
   Swift initializers TypeScript cannot tell apart, their parameters' types

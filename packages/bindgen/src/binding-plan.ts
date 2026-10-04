@@ -893,18 +893,25 @@ function resultOwnership(
   role: Role,
   facts: NativeFacts,
 ): NativeFacts {
-  if (module.platform !== "ios" || member.swift || role !== "call" || !("returns" in member))
-    return facts;
+  // A C function Swift imports as a member (`cropping(to:)`): its own name says.
+  const cFunction = "cFunction" in member ? member.cFunction?.name : undefined;
+  const made = role === "new" && !!cFunction;
+  if (module.platform !== "ios" || member.swift) return facts;
+  if (!made && (role !== "call" || !("returns" in member))) return facts;
   if (facts.ownership !== "unknown") return facts;
 
   const family = /^(alloc|new|copy|mutableCopy|create)(?![a-z])/;
-  const rule = owner
-    ? family.test(member.selector ?? member.name)
-      ? "objc-method-family"
-      : undefined
-    : /Create|Copy/.test(member.name)
+  const rule = cFunction
+    ? /Create|Copy/.test(cFunction)
       ? "cf-create-rule"
-      : undefined;
+      : undefined
+    : owner
+      ? family.test(member.selector ?? ("name" in member ? member.name : ""))
+        ? "objc-method-family"
+        : undefined
+      : /Create|Copy/.test("name" in member ? member.name : "")
+        ? "cf-create-rule"
+        : undefined;
   if (!rule) return facts;
 
   const evidence: FactEvidence = { fact: "ownership", source: "convention", detail: rule };

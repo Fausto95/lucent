@@ -26,9 +26,9 @@ describe("Swift types", () => {
   });
 
   it("print block function types, which Objective-C blocks are in Swift", () => {
-    expect(
-      printType(swift.blockFunction([swift.type("Double")], swift.type("String"))),
-    ).toBe("@convention(block) (Double) -> String");
+    expect(printType(swift.blockFunction([swift.type("Double")], swift.type("String")))).toBe(
+      "@convention(block) (Double) -> String",
+    );
   });
 
   it("print Swift function types, parenthesized where optional", () => {

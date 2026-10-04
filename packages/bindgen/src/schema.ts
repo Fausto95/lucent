@@ -344,6 +344,13 @@ export interface SdkCallable {
    * not to a new instance.
    */
   factory?: true;
+  /**
+   * A C function Swift imports as this member of a CoreFoundation-style
+   * handle (`CGImageCreateWithImageInRect` as `CGImage.cropping(to:)`):
+   * called with the object at `self` among its arguments (none: an
+   * initializer or a static member).
+   */
+  cFunction?: { name: string; self?: number };
   /** API level (Android) or OS version (iOS) that introduced it. */
   since?: number | string;
   /** Exact JNI descriptor (Android), when the types alone do not give it (generic erasure). */
@@ -408,6 +415,11 @@ export interface SdkPropertySchema {
   getter?: string;
   /** A C global holding the value (iOS typed string keys: `NSFileCreationDate`). */
   global?: string;
+  /**
+   * The C functions Swift imports as this property of a CoreFoundation-style
+   * handle (`CGImageGetWidth` as `CGImage.width`), each taking the object.
+   */
+  cFunctions?: { getter: string; setter?: string };
   /**
    * A compile-time constant (`static final` primitives and strings); a
    * long's (a 64-bit integer's) as its decimal digits, exactly.

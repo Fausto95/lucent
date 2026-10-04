@@ -37,6 +37,7 @@ import {
   withEscaping,
 } from "./symbols.ts";
 import { undeclaredReason, undeclaredType } from "./binding-plan.ts";
+import { swiftMemberOf } from "./c-swift-names.ts";
 import { classThreadFlags, memberFacts, memberThreadFlags } from "./facts.ts";
 import { graphSymbol, type IosModuleSource, iosProvenance } from "./provenance.ts";
 import { addSwiftDeclarations, associatedTypesOf, swiftName, swiftTypeKinds } from "./swift.ts";
@@ -791,6 +792,8 @@ export function buildIosSchema(
   g: SymbolGraph,
   names: NamesIndex[],
   values: (enums: string[]) => Map<string, Map<string, number>>,
+  /** C function name → the Swift name it is imported under (see cSwiftNames). */
+  importedNames: ReadonlyMap<string, string> = new Map(),
 ): SdkModuleSchema {
   const refs = new Map<string, string>(names.flatMap((n) => Object.entries(n.refs)));
   const aliases = new Map<string, Fragment[]>(names.flatMap((n) => Object.entries(n.aliases)));
@@ -947,18 +950,101 @@ export function buildIosSchema(
         });
     }
 
-    // Opaque CoreFoundation-style handles, passed through as they are.
+    /**
+     * The C functions Swift imports as members of handle `cls`, read from
+     * its Swift members whose USR is a C function's: properties (their
+     * getter, and setter where one is named), methods taking the object
+     * where their Swift name says, initializers. A failable initializer, or
+     * a function whose Swift name is not known, is left out, said why.
+     */
+    const cfMembers = (
+      cls: SdkClassSchema,
+      list: SymbolGraphSymbol[],
+      setters: ReadonlyMap<string, string>,
+    ) => {
+      const r = resolver();
+      for (const mem of list) {
+        const fn = /^c:@F@(\w+)$/.exec(mem.identifier.precise)?.[1];
+        if (!fn || unavailable(mem)) continue;
+
+        const imported = importedNames.get(fn);
+        const member = imported ? swiftMemberOf(imported) : undefined;
+        const symbol = graphSymbol(mem.identifier.precise);
+        const v = since(mem);
+        try {
+          if (!member)
+            throw new Unsupported(`${fn}'s Swift name is in no API notes or header Lucent reads`);
+          const k = mem.kind.identifier;
+          if (k === "swift.property" || k === "swift.type.property") {
+            if (member.kind !== "getter") continue;
+            const setter = setters.get(`${member.type}.${member.name}`);
+            const p: SdkPropertySchema = {
+              name: mem.names.title,
+              type: parseType(propertyType(mem.declarationFragments ?? []), r),
+              cFunctions: { getter: fn, ...(setter ? { setter } : {}) },
+              symbol,
+            };
+            if (!setter) p.readonly = true;
+            if (member.self === undefined) p.static = true;
+            if (v && v !== cls.since) p.since = v;
+            (cls.properties ??= []).push(p);
+            continue;
+          }
+
+          const sig = mem.functionSignature;
+          const params = (sig?.parameters ?? []).map((pp) => ({
+            name: pp.internalName ?? pp.name,
+            type: parseType(afterColon(pp.declarationFragments), r),
+          }));
+          if (k === "swift.init") {
+            if (/\binit\?/.test(declText(mem))) throw new Unsupported("a failable initializer");
+            const c: SdkCallable = { params, cFunction: { name: fn }, symbol };
+            if (v && v !== cls.since) c.since = v;
+            (cls.constructors ??= []).push(c);
+            continue;
+          }
+          if (k !== "swift.method" && k !== "swift.type.method") continue;
+
+          const m: SdkMethodSchema = {
+            name: splitName(mem.names.title).base,
+            params,
+            returns: sig?.returns?.length ? parseType(sig.returns, r) : parseSchemaType("void"),
+            cFunction: { name: fn, ...(member.self !== undefined ? { self: member.self } : {}) },
+            symbol,
+          };
+          if (member.self === undefined) m.static = true;
+          if (v && v !== cls.since) m.since = v;
+          (cls.methods ??= []).push(m);
+        } catch (e) {
+          if (e instanceof Unsupported) skip(cls.name, mem, e.message);
+          else throw e;
+        }
+      }
+      if (cls.methods) disambiguate(cls.methods);
+    };
+
+    // Opaque CoreFoundation-style handles, passed through as they are, with the C functions
+    // Swift imports as their members (`CGImageGetWidth` as `CGImage.width`).
+    const setters = new Map<string, string>();
+    for (const [fn, imported] of importedNames) {
+      const member = swiftMemberOf(imported);
+      if (member?.kind === "setter") setters.set(`${member.type}.${member.name}`, fn);
+    }
     for (const s of g.symbols) {
       const handle =
         s.kind.identifier === "swift.class" ? typedefName(s.identifier.precise) : undefined;
-      if (handle && !unavailable(s))
-        mod.types.push({
-          kind: "class",
-          name: s.pathComponents.join("_"),
-          native: handle,
-          cf: true,
-          symbol: graphSymbol(s.identifier.precise),
-        });
+      if (!handle || unavailable(s)) continue;
+
+      const name = s.pathComponents.join("_");
+      const cls: SdkClassSchema = {
+        kind: "class",
+        name,
+        native: handle,
+        cf: true,
+        symbol: graphSymbol(s.identifier.precise),
+      };
+      cfMembers(cls, members.get(s.identifier.precise) ?? [], setters);
+      mod.types.push(cls);
     }
 
     // Classes and protocols.
@@ -1113,7 +1199,10 @@ export function buildIosSchema(
           if (twin) {
             try {
               const tr = twin.functionSignature?.returns;
-              method.async = { returns: tr?.length ? parseType(tr, r) : parseSchemaType("void") };
+              const settled = tr?.length ? parseType(tr, r) : parseSchemaType("void");
+              // Several results (a tuple): a completion handler's arguments, not one value.
+              if (settled.k === "tuple") throw new Unsupported("tuples");
+              method.async = { returns: settled };
               if (/\bthrows\b/.test(declText(twin))) method.async.throws = true;
               const asyncName = splitName(twin.names.title).base;
               if (asyncName !== base) method.async.name = asyncName;

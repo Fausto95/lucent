@@ -32,6 +32,7 @@ import {
 } from "./provenance.ts";
 import type { PodFramework } from "./pods.ts";
 import type { SwiftPackages } from "./swift-packages.ts";
+import { cSwiftNames } from "./c-swift-names.ts";
 import { buildSourceSchema } from "./swift-source.ts";
 import type { SymbolGraph } from "./symbols.ts";
 import {
@@ -811,8 +812,21 @@ function extractIosModule(r: Resolved, module: string): Extracted {
   const deps = [...referenced].filter((m) => modules.has(m));
   const names = [own, ...namesFor(r, deps)];
   const headers = modules.get(module) ?? [`${module}/${module}.h`];
-  const schema = buildIosSchema(module, g, names, (enums) =>
-    enumValues(enums, headers, ios, sdkPath),
+  // Where its headers are: the C functions Swift imports as members are named there.
+  const headerDirs = modules.get(module)
+    ? [...new Set(headers.map((h) => path.dirname(h)))]
+    : [
+        path.join(
+          r.ios!.frameworkDirs.get(module) ?? r.ios!.frameworks,
+          `${module}.framework/Headers`,
+        ),
+      ];
+  const schema = buildIosSchema(
+    module,
+    g,
+    names,
+    (enums) => enumValues(enums, headers, ios, sdkPath),
+    cSwiftNames(headerDirs),
   );
   // SDK frameworks are linked; the app's dependencies link themselves.
   // Module maps and frameworks name their umbrella header.

@@ -2770,6 +2770,11 @@ export function nativeNew(em: FnEmitter, node: ts.NewExpression, t: LType & { k:
   noteIncludes(em, ref);
   if (ref.platform === "ios") {
     const a = args.map((x, i) => toObjc(em, x, params[i]!, plan));
+    // A C function Swift imports as an initializer: it creates the object, owned.
+    if (ctor.cFunction) {
+      const made = cpp.cast("bridge_transfer", cpp.type("id"), cpp.call(ctor.cFunction.name, a));
+      return { c: cpp.call("lucent::objc::wrap", [made, cpp.str(`new ${t.name}`)]), t };
+    }
     // A factory initializer is a class method: sent to the class, which makes the object.
     const receiver = ctor.factory ? cpp.id(ref.cls.native) : cpp.send(ref.cls.native, "alloc");
     const created = send(receiver, ctor.selector ?? "init", a);
@@ -2927,6 +2932,15 @@ function property(
   const lt = declaredLt(em, ref.platform, t, node);
   if (ref.platform === "ios") {
     if (prop.global) return fromObjc(em, cpp.id(prop.global), t, lt, what);
+    // A C getter Swift imports as the property: of the object, or of none for a static one.
+    if (prop.cFunctions)
+      return fromObjc(
+        em,
+        cpp.call(prop.cFunctions.getter, obj ? [cfReceiver(ref, obj)] : []),
+        t,
+        lt,
+        what,
+      );
     const read = send(objcReceiver(ref, obj), prop.selector ?? prop.name, []);
     return fromObjc(em, read, t, lt, what);
   }
@@ -3116,14 +3130,22 @@ function iosCall(
   );
   const throws = plan.error?.detail === "nserror-out";
   const selector = m.selector ?? m.name;
-  const code = superOf
-    ? send(
-        cpp.cast("c", objcPointer(superOf), cpp.call("lucent::objc::unwrap", [obj!.c])),
-        superSelector(selector),
-        a,
-        throws,
-      )
-    : send(objcReceiver(ref, obj), selector, a, throws);
+  const c = m.cFunction;
+  // A C function Swift imports as the method: the object among its arguments where its name says.
+  const cArgs =
+    c && obj && c.self !== undefined
+      ? [...a.slice(0, c.self), cfReceiver(ref, obj), ...a.slice(c.self)]
+      : a;
+  const code = c
+    ? cpp.call(c.name, cArgs)
+    : superOf
+      ? send(
+          cpp.cast("c", objcPointer(superOf), cpp.call("lucent::objc::unwrap", [obj!.c])),
+          superSelector(selector),
+          a,
+          throws,
+        )
+      : send(objcReceiver(ref, obj), selector, a, throws);
   const ret = parseSdkType(m.returns, ref.module, tps);
   const what = `${ref.cls.name}.${m.name}()`;
   const lt = declaredLt(em, "ios", ret, node);
@@ -3134,6 +3156,11 @@ function iosCall(
 
 /** The selector of the method a generated subclass calls its base's `selector` with. */
 export const superSelector = (selector: string) => `lucentSuper_${selector}`;
+
+/** A CoreFoundation-style handle's object, as the C functions taking it do (`CGImageRef`). */
+function cfReceiver(ref: SdkClassRef, obj: E): cpp.Expr {
+  return cpp.cast("bridge", cpp.type(ref.cls.native), cpp.call("lucent::objc::unwrap", [obj.c]));
+}
 
 function objcReceiver(ref: SdkClassRef, obj: E | undefined): cpp.Expr {
   if (!obj) return cpp.id(ref.cls.native);
@@ -3214,6 +3241,17 @@ export function propertySetter(
             );
       const conv = t.nullable ? ifPresent(v, one) : one(v);
       const held = cpp.varDecl(cpp.auto, "v_", value);
+      // A C setter Swift imports as the property's: the object, then the value.
+      if (prop.cFunctions?.setter)
+        return cpp.statementExpr(
+          [
+            held,
+            cpp.exprStmt(
+              cpp.call(prop.cFunctions.setter, [...(obj ? [cfReceiver(ref, obj)] : []), conv]),
+            ),
+          ],
+          v,
+        );
       if (!prop.weak)
         return cpp.statementExpr(
           [held, cpp.exprStmt(send(objcReceiver(ref, obj), prop.setter!, [conv]))],
