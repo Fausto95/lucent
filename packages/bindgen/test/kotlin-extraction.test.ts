@@ -203,7 +203,7 @@ describe.skipIf(!tc || !android)("Android extraction of Kotlin libraries", () =>
       .map((t) => `${t.module}.${t.name}`);
     const members = [...modules.values()].flatMap((m) =>
       m.types.flatMap((t) =>
-        t.kind === "class" ? (t.methods ?? []).map((x) => `${t.name}.${x.java ?? x.name}`) : [],
+        t.kind === "class" ? (t.methods ?? []).map((x) => `${t.name}.${x.name}`) : [],
       ),
     );
     const classes = module("dev.orbit.search").types.map((t) => t.name);
@@ -436,14 +436,19 @@ describe.skipIf(!tc || !android)("Android extraction of Kotlin libraries", () =>
     expect(module("dev.orbit.interop").skipped).toEqual([]);
   });
 
-  it("records the type parameters whose bounds a shim cannot write as Any?", () => {
+  it("records type parameters' bounds, and those other than Any as a shim writes them", () => {
     const box = cls("dev.orbit.shelf", "Box");
+    const comparable = (of: string) => [{ name: "kotlin.Comparable", args: [{ name: of }] }];
 
-    expect(method(search("SearchClient"), "best").kotlin).toEqual({ bounds: { T: "other" } });
+    expect(method(search("SearchClient"), "best").kotlin).toEqual({
+      bounds: { T: "other" },
+      upperBounds: { T: comparable("T") },
+    });
     expect(box.kotlin).toEqual({ kind: "class" });
     expect(cls("dev.orbit.shelf", "Keyed").kotlin).toEqual({
       kind: "class",
       bounds: { K: "non-null", V: "other" },
+      upperBounds: { V: comparable("V") },
     });
   });
 
@@ -457,6 +462,21 @@ describe.skipIf(!tc || !android)("Android extraction of Kotlin libraries", () =>
     expect(method(dial, "filter").params).toEqual([
       { name: "test", type: fn("@escaping (string, int) => boolean") },
     ]);
+  });
+
+  it("names a value class property's accessors as Kotlin does, keeping their mangled JVM names", () => {
+    const dial = cls("dev.orbit.shelf", "Dial");
+    const accessors = (dial.methods ?? []).filter((m) => m.name.endsWith("Turns"));
+
+    expect(accessors.map((m) => [m.name, m.java])).toEqual([
+      ["getTurns", expect.stringMatching(/^getTurns-/)],
+      ["setTurns", expect.stringMatching(/^setTurns-/)],
+    ]);
+    expect(property(dial, "turns")).toMatchObject({
+      getter: expect.stringMatching(/^getTurns-/),
+      setter: expect.stringMatching(/^setTurns-/),
+      kotlin: { unboxed: true },
+    });
   });
 
   it("marks fun interfaces, whose functions a lambda implements", () => {

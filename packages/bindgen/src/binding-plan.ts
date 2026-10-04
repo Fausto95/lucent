@@ -28,6 +28,7 @@ import {
   type SwiftType,
   type SymbolId,
   type TypeParamBounds,
+  type TypeParamUpperBounds,
 } from "./schema.ts";
 
 /**
@@ -609,14 +610,18 @@ function needsKotlinShim(member: Member): boolean {
 }
 
 /**
- * Whether a shim cannot name a member's type parameters: it writes each as
- * `Any?`, or `Any` where Kotlin bounds it so, and knows no other bound.
+ * Whether a shim cannot write a member's type parameters: one is bounded
+ * by what the schema keeps no Kotlin type of (a use-site projection).
  */
 function bounded(owner: SdkClassSchema | undefined, member: Member): boolean {
-  const other = (bounds: TypeParamBounds | undefined) =>
-    !!bounds && Object.values(bounds).includes("other");
+  const unwritable = (
+    facts: { bounds?: TypeParamBounds; upperBounds?: TypeParamUpperBounds } | undefined,
+  ) =>
+    Object.entries(facts?.bounds ?? {}).some(
+      ([name, bound]) => bound === "other" && !facts?.upperBounds?.[name],
+    );
 
-  return other(owner?.kotlin?.bounds) || other(member.kotlin?.bounds);
+  return unwritable(owner?.kotlin) || unwritable(member.kotlin);
 }
 
 /**
@@ -642,18 +647,14 @@ const KOTLIN_SHIM_REFUSALS: [
     {
       rule: "kotlin-shim-generic",
       reason:
-        "generic Kotlin members whose type parameters have bounds are not supported through a shim yet",
+        "generic Kotlin members bounded by a projected type (`T : List<out R>`) are not supported through a shim yet",
     },
   ],
   [
-    (_, __, role) => role === "set",
-    { rule: "kotlin-shim", reason: "assigning Kotlin value classes is not supported yet" },
-  ],
-  [
-    (_, __, role) => role === "implement",
+    (owner, _, role) => role === "implement" && !owner?.interface,
     {
       rule: "kotlin-shim",
-      reason: "Lucent classes cannot implement suspend functions or value-class members yet",
+      reason: "Lucent classes cannot override a Kotlin class's suspend or value-class members yet",
     },
   ],
 ];
@@ -785,11 +786,18 @@ function refusalOf(
       return { rule: "no-setter", reason: "it has no setter" };
   }
 
+  // A class's override is Java source; an interface's implementation is a proxy, by any name.
   const jvmName = "java" in member ? member.java : undefined;
-  if (backend === "jni" && role === "implement" && jvmName && !javaIdentifier(jvmName))
+  if (
+    backend === "jni" &&
+    role === "implement" &&
+    !owner?.interface &&
+    jvmName &&
+    !javaIdentifier(jvmName)
+  )
     return {
       rule: "jvm-mangled-name",
-      reason: `a method whose JVM name Java cannot write (${jvmName}) cannot be implemented`,
+      reason: `a method whose JVM name Java cannot write (${jvmName}) cannot be overridden`,
     };
 
   if (backend !== "swift-shim") return undefined;
@@ -1103,7 +1111,7 @@ function jniRule(t: SchemaType, place: Place, ctx: Context): string | undefined 
 
   if (place.offered && t.k === "prim" && t.name === "char")
     return "a char argument is not supported yet";
-  if (place.result && t.k !== "prim" && t.k !== "string" && t.k !== "tparam")
+  if (place.result && !["prim", "string", "tparam", "ref"].includes(t.k))
     return `Lucent functions cannot return a ${formatSchemaType({ ...t, nullable: false })} to Java yet`;
 
   return undefined;
