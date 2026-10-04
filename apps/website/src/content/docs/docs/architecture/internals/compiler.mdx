@@ -1,7 +1,296 @@
 ---
 title: "How does the compiler turn a program into C++?"
-description: "This page is being rewritten."
+sidebar_label: "The compiler"
+description: "It types modules with TypeScript's checker, analyzes the whole program, lowers each function through a verified IR and prints C++ from syntax trees."
 kind: internals
 ---
 
-This page is being rewritten.
+The compiler is `packages/compiler/src`, and `compile()` in its `index.ts` is the entry. This page follows a program from typing to C++, in the order `compile()` runs. [Components](/docs/architecture/internals/views/) and [SDK bindings](/docs/architecture/internals/bindings/) have pages of their own.
+
+## Example
+
+```ts title="order.lucent.ts" cpp
+let log = "";
+
+function note(name: string, value: number): number {
+  log += name;
+  return value;
+}
+
+export function weigh(a: number, b: number): string {
+  log = "";
+  const total = note("a", a) * 2 + note("b", b);
+  return `${log}=${total}`;
+}
+```
+
+In the C++, each call to `note` is a statement of its own, in source order, and the product sits between them. `log` is the module variable `lucent_app::m_order::log`, which `init()` assigns. The `#line` directives point debuggers and compiler errors at the module.
+
+## The stages
+
+| Stage | Code | What it gives |
+| --- | --- | --- |
+| Plan | `platforms.ts` | Shared modules, and each platform module's declaration file and implementations |
+| Type | `program.ts`, `types.ts` | A TypeScript program per target, and each type's native representation (`LType`) |
+| Check | `platforms.ts`, `ui/analyze.ts` | TypeScript's errors, platform scopes, platform modules' conformance and components' contracts |
+| Analyze | `analysis/` | `ProgramFacts`: what each unit of code may do, and where it may run |
+| Lower | `ir/lower.ts`, `emit/leaf.ts` | One `IrFunction` per function, method, accessor, constructor, module `init()`, task variant and setup |
+| Verify | `ir/verify.ts` | The IR's invariants, checked before any C++ exists |
+| Emit | `ir/cpp.ts`, `emit/` | C++ syntax trees, and the trees of the other languages |
+| Print | `packages/codegen` | Source text, with the parentheses precedence needs |
+| Merge | `index.ts` | One result: each target's files, the merged components, one build identity |
+
+## Targets
+
+`planModules()` pairs each platform file (`x.ios.lucent.ts`) with its declaration file (`x.lucent.ts`). Without platform code, `compile()` builds one program. With platform files, or a shared module that branches on `PLATFORM` (`usesPlatforms()`), it builds one per target.
+
+- The default targets are the platforms whose SDK is installed. When none is, every platform is a target, so the diagnostics say what is missing.
+- A target's files land under `<target>/`, which the native package keeps under `cpp/generated/`. The JavaScript proxies are shared.
+- The `host` target compiles shared modules and declaration files, for tests and tools. A platform module's export there throws, or rejects, saying it is not available on this platform. `lucent build --platforms host` asks for it, as [the CLI reference](/docs/api/cli/#lucent-build) shows.
+- A deferred platform is no target. Android is deferred until Gradle resolves the app's dependencies, and the other programs leave its code untyped.
+- A problem several targets report is reported once.
+
+## Typing
+
+The compiler never infers a type itself. `createLucentProgram()` in `program.ts` builds a real `ts.Program`, and every expression's type comes from the checker at its location, narrowing included.
+
+- `compilerOptions()` sets `strict`, `noUncheckedIndexedAccess`, ES2022 with `esnext.disposable` and bundler resolution. Its `paths` map `lucent:core`, `lucent:thread`, `lucent:platform`, `lucent:ios` and `lucent:android` to `lib/sdk/`.
+- SDK modules (`lucent:ios/*`, `lucent:android/*`) and native extensions (`lucent:ext/*`) resolve in a virtual directory. The compiler host writes each SDK module's declarations from its binding schema (`sdk/dts.ts`) and caches them on disk (`sdk/declaration-cache.ts`).
+- Unsaved editor text comes in through `readSource`, and parsed `.d.ts` files are cached for the process.
+- Under `LUCENT_VIEWS=fabric`, the program types JSX too, as [Components](/docs/architecture/internals/views/#typing-jsx) explains.
+
+`TypeRegistry` in `types.ts` lowers each TypeScript type to an `LType`, its native representation, and `cppType()` spells it in C++.
+
+### The native representation of types
+
+| TypeScript | `LType` | C++ |
+| --- | --- | --- |
+| `number` | `number` | `double` |
+| `bigint` | `bigint` | `lucent::BigInt` |
+| `boolean` | `boolean` | `bool` |
+| `string`, string literal and template literal types | `string` | `lucent::String` |
+| `undefined`, `null` | `undefined`, `null` | `lucent::Undefined` (`void` as a result), `lucent::Null` |
+| `void`, `never` | `void`, `never` | `void`; a `never` value is `lucent::Undefined` |
+| `T[]`, `readonly T[]` | `array` | `lucent::Array<T>` |
+| `[A, B]` | `tuple` | `std::tuple<A, B>` |
+| `Record<string, V>`, `{ [k: string]: V }` | `dict` | `lucent::Dict<V>` |
+| `Map<K, V>`, `Set<T>` | `map`, `set` | `lucent::Map<K, V>`, `lucent::Set<T>` |
+| object types: aliases, interfaces without methods, literals | `struct` | `lucent::Ref<lucent_app::S_Name>` |
+| Lucent classes | `class` | `lucent::Ref<lucent_app::C_Name>` |
+| interfaces with methods, or named in an `implements` | `iface` | `lucent::Ref<lucent_app::I_Name>` |
+| `T \| undefined`, `T \| null`, `x?: T` | `opt` | `lucent::Opt<T>` |
+| other unions | `union` | `std::variant<…>` |
+| enums | their members' types | `double`, `lucent::String`, or a variant of both |
+| `(a: A) => R` | `fn` | `lucent::Fn<R(A)>` |
+| `Promise<T>` | `promise` | `lucent::Promise<T>` |
+| `Generator<T>`, `Iterable<T>`, the library's iterators | `iter` | `lucent::Iter<T>` |
+| `Uint8Array` | `bytes` | `lucent::Bytes` |
+| `Error`, `TypeError`, `RangeError`, `SyntaxError` | `error` | `lucent::Error` |
+| `Date`, `RegExp`, `RegExpMatchArray` | `date`, `regexp`, `regexMatch` | `lucent::Date`, `lucent::RegExp`, `lucent::RegExpMatch` |
+| `AbortSignal`, `AbortController` | `abortSignal`, `abortController` | `lucent::AbortSignal`, `lucent::AbortController` |
+| `NativeBuffer`, `ByteSpan`, `MutableByteSpan` | `buffer`, `span` | `lucent::NativeBuffer`, `lucent::ByteSpan`, `lucent::MutableByteSpan` |
+| SDK classes | `native` | `lucent::NativeRef` |
+| native extension handles | `handle` | `lucent::Handle` |
+| type parameters | `tparam` | the template's parameter |
+| `Signal<T>` of `lucent:ui` | `signal` | `lucent::ui::Signal<T>` |
+
+- `lucent::Ref` is a `std::shared_ptr`, so assigning an object aliases it, as in JavaScript. Arrays, maps, sets, dictionaries, bytes, functions and promises are handles to shared objects too.
+- A tuple is a value, and so is a string: `lucent::String` is immutable and shared.
+- Literal types widen to their base type. An optional remembers whether it holds `undefined` or `null`.
+- A union's members are sorted by type key, so `string | number` and `number | string` are one C++ type.
+- Object types with the same fields share one struct, named after its alias or interface (`S_Point`), else `S_Object<n>`.
+- A `catch` variable is a `lucent::Error`, whatever its declared type.
+
+### What has no representation
+
+`TypeRegistry` refuses what has no representation where the type is used: LUCENT2001 for `any` and `unknown`, LUCENT2002 for the rest, as [Unsupported types](/docs/api/language/types/#unsupported-types) lists.
+
+## Program analyses
+
+`programFacts()` in `analysis/index.ts` summarizes what each unit of code may do, once per program and target. The results are deterministic and conservative: what the compiler cannot see stays unknown.
+
+- **Units** (`units.ts`): functions, closures, methods, getters, setters, a class's construction and each module's initialization. Another platform's branches are left out, as the emitter leaves them out. Each unit has an id stable across builds, like `geo.Cache.get`.
+- **Own facts** (`local.ts`): the module state a unit reads or writes, allocation, throwing, suspension, scheduling and native calls. A flow graph follows object and function values through variables, literals, closures and calls.
+- **Known code** (`library.ts`, `native.ts`, `extensions/facts.ts`): what the JavaScript library and the `lucent:*` modules do, and the thread, blocking and callback facts of each SDK use's binding plan. Nothing is inferred from a name.
+- **Summaries** (`solve.ts`): a unit's facts, joined with those of the units it calls and the callbacks it runs. At a native call, they include the Lucent code native code may call back. Facts only rise, so iterating reaches a fixed point, recursion included.
+- **Owner checks** (`ownership.ts`): whether a unit can run on a context, whether a value can move to another one, and what a closure captures.
+- **Owners** (`owners()`): the contexts that may run each unit, and why. An export or a module's initialization runs in module code, a native callback where its plan says.
+
+Units are processed in a fixed order and keep the first cause found. Every refusal names its cause path, the same on every build: `run` calls `decode`, which reads module state `cache`.
+
+Module state is a `let`, a static field, or a `const` holding an object, whose contents stay mutable whatever `readonly` says. Code that the platform calls back during a native call (a kept callback, an override, a requirement) is recorded apart, as `calledBack`. It runs in the module context its glue enters, so it counts for the caller's IR effects but not for the caller's context checks.
+
+| Context | Refuses |
+| --- | --- |
+| A compute task | Module state, module constants that are not literals, main-thread native code, native code of unknown thread, code the compiler cannot see, asynchronous work |
+| The main thread, for component setups | Module state, worker-only native code, blocking native code, code the compiler cannot see |
+
+A task refuses a non-literal constant because a reload of JavaScript runs `init()` again, which assigns it while a task may read it. Code reads a literal constant as its literal, never from storage.
+
+| Consumer | What it asks | Diagnostics |
+| --- | --- | --- |
+| The IR | Each function's effect record, which the verifier checks | none |
+| `compute()`, in `emit/compute.ts` | Whether the task can run on a worker, what it captures, and whether its input and result are data | LUCENT3011, LUCENT3012 |
+| Component setups, in `ui/analyze.ts` | Whether setup, its functions and its commands can run on the main thread, and whether props, events and commands carry data | LUCENT3021, LUCENT3022 |
+| `NativeBuffer` borrows, in `emit/buffers.ts` | Whether a lent span escapes its callback, and whether a buffer is used after it moved | LUCENT3030, LUCENT3031 |
+
+Main-thread-only SDK members are checked at each use instead, in `emit/native.ts`. A use outside a main context fails with LUCENT3006, and a `@WorkerThread` member inside one warns with LUCENT3009.
+
+## The semantic IR
+
+`ir/` holds a typed representation between the checker and the C++ tree. Every function, method, accessor, constructor, module `init()`, compute task variant and component setup lowers through it. `emit/through-ir.ts` is the emitter's one hook into it.
+
+An `IrFunction` (`ir/ir.ts`) holds dense tables of values, regions and places, its captures, the module variables it uses, its effect summary and its source span. Each value is defined once, by one operation, with a type and a span. A region is a list of operations, which run in list order.
+
+| Kind | Operations |
+| --- | --- |
+| Values | `const`, `param`, `unary`, `binary`, `convert` |
+| Places | `local` (boxed, or held in an integer register), `load`, `store` |
+| Calls | `call` of a module function or a runtime builtin, with its throw claim |
+| Control flow | `if` (whose branches may `yield` a result), `loop` (a body and a `next` region), `block`, `iterate` for `for … of`, `try` (its catch and finally regions), `dispose` for `using` |
+| Exits | `return`, `throw`, `break`, `continue`, `yield` |
+| Functions | `closure`: a nested `IrFunction` and the values or boxes it captures |
+| Suspension | `await`, and `produce` for a generator's next element |
+| Everything else | `plan`: the backend's code for what the IR does not model |
+| Proofs | `unreachable`, and `never` for the value of what never completes |
+
+### Lowering
+
+`ir/lower.ts` lowers TypeScript to the IR through a `LowerHost`, which gives types, declarations, leaves, the platform and boxes.
+
+- It appends every subexpression's operations in JavaScript's evaluation order. A right side that may not run (`&&`, `||`, `??`, `?:`) goes in a branch.
+- It models control flow (branches, loops, `for … of`, `switch`, labels, `try`, `using`), places, closures, generics, exceptions and suspension.
+- A platform test keeps only the branch the target runs, and a guard clause narrows the rest of its block.
+- Nested function declarations are hoisted, as boxed locals from the start of their block.
+- A generic function keeps its type parameters, and its C++ is a template. `emit/instantiations.ts` checks what each instantiation asks of its types, at the call.
+- What the IR cannot lower throws `IrUnsupported`, which `ir/cpp.ts` reports as LUCENT1001: Lucent does not compile it yet.
+
+### Plans and leaves
+
+What the IR does not model itself is a `plan`: member reads and writes, runtime and SDK methods, constructions, array and object literals, JSX. The IR lowers the operands a plan takes first, in source order. The emitter's leaf code (`emit/leaf.ts`, over the expression code of `emit/function.ts`) then gives the plan's C++ over those values, by name.
+
+So builtin and SDK semantics are written once, and a plan evaluates none of the source's subexpressions itself: it gets them as names. A compound assignment of a field or an element reads through one plan and writes through another, around its right side.
+
+`lowering/` holds what the IR and the leaves share. `conversions.ts` plans every conversion between optionals, unions and absent values once. The other files spell bigint operators, literals, loose equality's refusals, union members and source paths.
+
+### The verifier
+
+`ir/verify.ts` checks each function before any C++ exists. Invalid IR is an internal compiler error (`IrVerifyError`, with the dump `ir/dump.ts` prints), never C++.
+
+1. Every value is defined once, before its uses and inside their region, and every region but the body has one owner.
+2. Operand and result types agree with each operation, conversion, callee signature and return.
+3. Exits end their region, jumps name an enclosing target, conditions are booleans, and an `if` with a result yields from each branch.
+4. Every operation and value has a well-formed span inside its function's.
+5. Operands are value ids, never nested expressions, so the operation list is the evaluation order.
+6. Nothing claims less than it does: a call's effect reference and the function's summary admit what its operations and known callees do.
+
+## Evaluation order
+
+JavaScript evaluates operands left to right; C++ leaves the order of a call's arguments unspecified. The IR settles it once, as data.
+
+- `ir/lower.ts` appends operations in evaluation order, and the verifier keeps operands as names.
+- A plan's operands are lowered before the plan, in source order (`operands()` in `ir/lower.ts`). A plan asking for an operand out of order fails with LUCENT1001, unless the operands lowered after it are pure.
+- `ir/cpp.ts` gives each operation that does something its own statement. A value the next operation uses once may be spelled there. An operator or a conversion may sit inside another, but a call or a plan only where it is assigned.
+- So a call is never another call's argument. A plan's C++ may still be a GNU statement expression for its own statements, but its operands are names.
+- SDK glue runs in C++ lambdas, which cannot be coroutines. An awaited receiver or argument is an operand, awaited before the plan runs.
+
+Numbers keep JavaScript's rounding too: every build of Lucent C++ passes `-ffp-contract=off`, so `a * b + c` rounds twice. [AGENTS.md](https://github.com/Fausto95/lucent/blob/main/AGENTS.md) makes both rules binding on every change.
+
+## C++ emission
+
+`emitProgram()` in `emit/index.ts` works in two passes.
+
+The first registers classes, then functions and variables, so any body can refer to any top-level declaration. The second emits classes, base first, then functions, component setups, each module's `init()` and compute task variants. The boundary's bindings and the structs come last, once every type is known.
+
+| File | What it holds |
+| --- | --- |
+| `lucent_app.h` | Every struct, interface and class of the program, in namespace `lucent_app`, and the JSON readers |
+| `m_<module>.h` | A module's declarations, in `lucent_app::m_<module>`. It includes only the modules it imports, so changing exports recompiles only importers. |
+| `m_<module>.cpp`, `m_<module>.mm` | A module's definitions and `init()`. The unit is Objective-C++ on iOS for a platform file, or a module using `lucent:ios` or SwiftUI. |
+| `lucent_bindings.cpp` | The boundary: a `Convert<T>` per type crossing it, class prototypes, one installer per module and `resetModuleState()` |
+| `lucent_identity.cpp` | What the program was built from, as [React Native integration](/docs/architecture/internals/react-native/) explains |
+| `LucentShims.swift` | The Swift the iOS glue calls, when the program uses Swift-only APIs |
+| `views/` | Components' sources, under `LUCENT_VIEWS=fabric` |
+
+A module's `init()` assigns its classes' static fields, then its variables, in order, lowered through the IR. `resetModuleState()` runs every module's `init()` in import order.
+
+### Classes, interfaces and structs
+
+- A struct derives from `lucent::Object`, and a value holds it through `lucent::Ref`.
+- Class inheritance is C++ inheritance. Methods and accessors in a hierarchy are `virtual`, and an override must keep the overridden member's native signature (LUCENT1005).
+- A class's `construct()` runs its field initializers, then its constructor's body. With a Lucent base, `super(…)` runs the base's `construct()`, then the subclass's field initializers.
+- A class value crosses the boundary as its most derived class, deepest subclasses tried first. Its prototype's `__proto__` is its base's.
+- An interface with methods, or named in an `implements`, is an abstract base `I_Name` with pure virtual methods and `get_`/`set_` accessors.
+- A generic interface is a class template. An interface extending others inherits them `virtual`ly, so a class implementing `A` and `B extends A` has one `A`.
+- At the boundary, an interface value converts by trying each implementing class in turn: every implementer is known at compile time.
+
+### Closures, coroutines and generators
+
+- A closure is a C++ lambda in a `lucent::Fn`. It captures copies of what it reads, or shares the `lucent::Box` of a variable that code writes after the capture (`analysis/scopes.ts`).
+- An async function returns `lucent::Promise<T>` and is a C++20 coroutine. Each `await` is its own operation, a `co_await`.
+- A coroutine never references lambda captures. An async or generator closure's lambda calls a capture-less inner lambda, passing its captures as parameters.
+- A generator returns `lucent::Iter<T>`, whose `coroutine_traits` specialization supplies the promise. `yield* xs` iterates `xs`.
+- `iterator.return()` resumes a suspended generator so that its pending `co_yield` throws `lucent::GeneratorReturn`. That unwinds through the generated `finally` code, and `catch` clauses rethrow it.
+- `for … of` walks a collection by its kind: by index, by a string's code points, over a hash table's live slots, or with an iterator. Leaving early closes the iterator.
+
+### Exceptions and finally
+
+- A `catch` saves the exception as a `std::exception_ptr` and runs its body after the C++ handler, because `co_await` is not allowed inside one.
+- A `finally` is a frame with a completion code. A return, break or continue past it stores its code and goes to the finally, and the code then picks what follows.
+- A `using` declaration is a finally that disposes. When disposing throws while an exception is pending, both become a `SuppressedError`.
+- A jump is C++'s `break` or `continue` when that reaches its target, and a `goto` otherwise.
+
+### Integers
+
+`emit/integers.ts` proves which locals hold exact integers. A local whose every write is a bitwise result or an integer literal lives in an `int32_t`, `uint32_t` or `int64_t`.
+
+- `|`, `&`, `^`, `<<`, `>>`, `~`, `Math.imul` and `Math.clz32` give an int32, `>>>` a uint32, and a mix of both an int64.
+- A `for` counter that nothing else writes, stepped by an integer, is an `int64_t`.
+- Increments and arithmetic writes keep a local a `double`, because `x + 1` does not wrap in JavaScript.
+
+The IR marks these values and locals, so chains of bitwise operations never go through a `double`. The value is exact in both forms, so reading it as a number changes no result.
+
+### Names, macros and source lines
+
+- `cppIdent()` keeps a name's spelling, so a debugger shows it as written. It escapes what C++ can't spell, such as `$` or non-ASCII letters, as `_u<hex>_`. It renames C++ keywords, names the glue uses (`std`, `self`, `env`), and names with `__`, a leading `_` and capital, a `LUCENT_` prefix or a trailing `_`.
+- The C library and the SDK headers define macros under ordinary names (`HUGE`, `DOMAIN`, `pascal`, `si_value`). Each generated file undefines every name the program declares that it spells, after its includes, and restores them at its end (`emit/macros.ts`).
+- `#line` directives name the source's canonical absolute path. Compiler errors, debuggers and crash symbolication then point at the module.
+- An Error made in Lucent code records the same site (`lucent::withSite`), and the boundary puts that frame at the top of the JavaScript error's `stack`.
+- Each binding names where its export is declared (`LUCENT_TRACE_SITE_AT`), and a native span inside Lucent code (`LUCENT_TRACE_SCOPE`) takes the site of the `#line` in force.
+
+## Other output languages
+
+Emitters write every language through `packages/codegen`'s trees. Only the native package's build files are templates filled with text: the podspec, `build.gradle`, `packages.cmake`, `consumer-rules.pro` and `react-native.config.js`. A C++ expression used as a string throws, rather than print `[object Object]` into the output.
+
+The C++ printer also parenthesizes the mixes clang's `-Wparentheses` warns about, because the Android app's NDK build compiles generated code with `-Werror`.
+
+| Language | Written by | What |
+| --- | --- | --- |
+| Objective-C++ | `emit/native.ts`, `emit/objc-subclass.ts`, `emit/delegates.ts` | iOS units: message sends, Objective-C subclasses of the iOS classes Lucent classes extend, and objects adopting SDK protocols for Lucent classes |
+| Swift | `emit/swift.ts`, `emit/swift-proxy.ts` | `LucentShims.swift`: one `@_cdecl` shim per Swift-only member used, and classes conforming to Swift-only protocols for Lucent classes |
+| Java | `emit/java.ts` | Subclasses of the Android SDK classes Lucent classes extend, under `dev/lucent/generated/` |
+| Kotlin | `emit/kotlin.ts` | Shims for what JNI cannot call as Kotlin declares it: suspend functions, left-out defaults, value classes. They live under `dev/lucent/shims/`. |
+| JavaScript and TypeScript | `emit/index.ts`, `sdk/dts.ts`, `extensions/dts.ts` | Each module's proxy, and the declarations of SDK modules and native extensions |
+| XML | `native-build-files.ts` | The Android library's manifest: the permissions the code's SDK calls need, and the packages' manifest entries |
+
+[SDK bindings](/docs/architecture/internals/bindings/) explains how each call is planned and written. [Components](/docs/architecture/internals/views/) covers the SwiftUI and Compose bodies.
+
+## Diagnostics
+
+`codes.ts` holds every code and its explanation. The CLI's code frames and fix hints, `lucent explain`, the editor plugin and the [diagnostics reference](/docs/api/diagnostics/) all read it. It imports nothing, so `lucent explain` loads it without the compiler.
+
+| Range | Covers |
+| --- | --- |
+| LUCENT1xxx | Syntax and built-ins outside the subset |
+| LUCENT2xxx | Types without a native representation, or that can't cross the boundary |
+| LUCENT3xxx | Module structure, platform code, components, and what may run where |
+| LUCENT9xxx | TypeScript's errors, passed through |
+
+- `fail(node, Codes.X, message, fix?)` throws a `CompileError`. `Ctx.guard()` turns it into a diagnostic at the node and goes on with the next declaration, so one build reports many errors.
+- `Ctx.warn()` records a warning: reported, and the code still compiles.
+- TypeScript's errors stop the compile before any lowering, because the checker's types are unreliable past them. Errors in code for a platform whose SDK this program leaves untyped are left out.
+- Unsupported code never becomes invalid C++. The IR throws `IrUnsupported`, which is LUCENT1001, and a verifier failure is an internal error.
+- `compile()` adds each code's usual fix, unless the diagnostic names its own, and the code's link to the reference.
+- `checkSources()` is the same check for editors, reading unsaved text.
+
+The IR's tests are in `packages/compiler/test/ir/`. `node scripts/codegen-corpus.ts write <dir>` before a change and `compare <dir>` after it compare what the compiler writes for every end-to-end case and both example apps. [docs/testing.md](https://github.com/Fausto95/lucent/blob/main/docs/testing.md#code-generation-corpus) explains how.
