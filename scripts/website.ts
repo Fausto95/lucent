@@ -65,11 +65,12 @@ for (const name of fs.readdirSync(schemasDir))
 // The reference pages, from their templates.
 const templates = await loadTemplates();
 const pagesWritten: Record<string, string> = {};
-for (const [slug, { frontmatter, blocks }] of Object.entries(templates)) {
+for (const [slug, { file, frontmatter, blocks }] of Object.entries(templates)) {
   const name = docFile(slug);
-  pagesWritten[name] = pageToMdx({ ...frontmatter }, blocks, {
-    generatedFrom: `src/docs/templates/${slug}.ts`,
-  });
+  const template = `src/docs/templates/${file}`;
+  // "Edit page" opens the template: the page itself says not to edit it.
+  const editUrl = `https://github.com/Fausto95/lucent/edit/main/apps/website/${template}`;
+  pagesWritten[name] = pageToMdx({ ...frontmatter, editUrl }, blocks, { generatedFrom: template });
   write(name, pagesWritten[name]!);
 }
 

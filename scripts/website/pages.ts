@@ -16,10 +16,10 @@ import {
   type DocFrontmatter,
   type DocKind,
   type DocPage,
-  type DocTemplate,
   docsHref,
 } from "../../apps/website/src/docs/types.ts";
-import type { docTemplates } from "./doc-modules.ts";
+import type { templateModules } from "./doc-modules.ts";
+import { type TemplatePage, templatePages } from "./templates.ts";
 import { blogContent, docFile, docsContent, website, websiteSrc, where } from "./context.ts";
 
 /**
@@ -44,13 +44,13 @@ export interface Post extends PostEntry {
   blocks: Block[];
 }
 
-/** The reference pages' templates (src/docs/templates/), by slug. */
-export async function loadTemplates(): Promise<Record<string, DocTemplate>> {
-  const { module } = await runnerImport<{ docTemplates: typeof docTemplates }>(
+/** The generated pages, by slug, each with the template (src/docs/templates/) that writes it. */
+export async function loadTemplates(): Promise<Record<string, TemplatePage>> {
+  const { module } = await runnerImport<{ templateModules: typeof templateModules }>(
     path.join(import.meta.dirname, "doc-modules.ts"),
     { configFile: false, root: websiteSrc, logLevel: "error" },
   );
-  return module.docTemplates;
+  return templatePages(module.templateModules);
 }
 
 /** The `.mdx` files under `dir`, relative to it, with forward slashes; none when it doesn't exist. */
