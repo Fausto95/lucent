@@ -436,14 +436,19 @@ describe.skipIf(!tc || !android)("Android extraction of Kotlin libraries", () =>
     expect(module("dev.orbit.interop").skipped).toEqual([]);
   });
 
-  it("records the type parameters whose bounds a shim cannot write as Any?", () => {
+  it("records type parameters' bounds, and those other than Any as a shim writes them", () => {
     const box = cls("dev.orbit.shelf", "Box");
+    const comparable = (of: string) => [{ name: "kotlin.Comparable", args: [{ name: of }] }];
 
-    expect(method(search("SearchClient"), "best").kotlin).toEqual({ bounds: { T: "other" } });
+    expect(method(search("SearchClient"), "best").kotlin).toEqual({
+      bounds: { T: "other" },
+      upperBounds: { T: comparable("T") },
+    });
     expect(box.kotlin).toEqual({ kind: "class" });
     expect(cls("dev.orbit.shelf", "Keyed").kotlin).toEqual({
       kind: "class",
       bounds: { K: "non-null", V: "other" },
+      upperBounds: { V: comparable("V") },
     });
   });
 
