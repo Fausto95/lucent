@@ -13,6 +13,12 @@ fun interface QXNTurnListener {
 class QXNDial(context: Context) : View(context) {
   var qxnLevel: Double = 0.0
 
+  /** What a dial calls when spun: a Kotlin function. */
+  var qxnOnSpin: ((Double) -> Unit)? = null
+
+  /** What a dial calls when it settles: a fun interface. */
+  var qxnSettled: QXNTurnListener? = null
+
   private var listener: QXNTurnListener? = null
 
   /** Calls `listener` on every turn; null stops (Android's listener convention). */
@@ -24,5 +30,7 @@ class QXNDial(context: Context) : View(context) {
   fun qxnTurn(delta: Double) {
     qxnLevel += delta
     listener?.qxnTurned(qxnLevel)
+    qxnOnSpin?.invoke(qxnLevel)
+    qxnSettled?.qxnTurned(qxnLevel)
   }
 }

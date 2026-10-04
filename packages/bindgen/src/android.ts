@@ -578,13 +578,37 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
               return nullable({ k: "classOf", param: arg.name, nullable: false });
             throw new Unsupported("java.lang.Class");
           }
-          if (!known.has(t.name)) throw new Unsupported(t.name.replace(/\//g, "."));
 
           // A type argument: a number or boolean Kotlin boxes is one.
           const typeArg = (a: JType, i: number) => {
             const at = argument(i, t.args.length);
             return boxedAs(at, a) ?? typeOf(a, true, tparams, at);
           };
+
+          // Kotlin's function type: a function of its arguments, giving its result (else
+          // the FunctionN class, as for any other).
+          if (kotlinFunction(t, kt)) {
+            const last = t.args.length - 1;
+            const result = argument(last, t.args.length);
+
+            try {
+              return nullable({
+                k: "fn",
+                params: t.args.slice(0, last).map(typeArg),
+                ret:
+                  classOfKotlin(result) === "kotlin/Unit"
+                    ? parseSchemaType("void")
+                    : typeArg(t.args[last]!, last),
+                escaping: true,
+                main: false,
+                nullable: false,
+              });
+            } catch (e) {
+              if (!(e instanceof Unsupported)) throw e;
+            }
+          }
+
+          if (!known.has(t.name)) throw new Unsupported(t.name.replace(/\//g, "."));
 
           // Kotlin's read-only List of typed elements: a copy of them.
           if (readOnlyList(t, kt)) {
@@ -1071,6 +1095,25 @@ function readOnlyList(t: JType & { k: "class" }, kt: KotlinType | undefined): bo
     !kt.platform &&
     classOfKotlin(kt) === "kotlin/collections/List" &&
     typeArgument(kt, 0) !== undefined
+  );
+}
+
+/**
+ * Whether a JVM `kotlin.jvm.functions.FunctionN` is a Kotlin function type
+ * (`(Double) -> Unit`) of typed arguments: neither a suspend function's
+ * (a continuation among them), an extension's (its receiver first) nor a
+ * composable's.
+ */
+function kotlinFunction(t: JType & { k: "class" }, kt: KotlinType | undefined): boolean {
+  return (
+    /^kotlin\/jvm\/functions\/Function\d+$/.test(t.name) &&
+    !!kt &&
+    !kt.platform &&
+    !kt.suspend &&
+    !kt.annotations?.length &&
+    classOfKotlin(kt) === `kotlin/${t.name.slice(t.name.lastIndexOf("/") + 1)}` &&
+    kt.arguments.length === t.args.length &&
+    kt.arguments.every((a) => a !== "*")
   );
 }
 

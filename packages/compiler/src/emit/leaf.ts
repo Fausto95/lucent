@@ -326,7 +326,7 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
     place: (target, operands): LeafPlace => {
       const lv = new LeafEmitter(ctx, opts, target, operands).lvalue(target);
       const name = nameOf(target);
-      const { direct, set } = lv;
+      const { direct, set, assign } = lv;
 
       if (!direct && !set) throw new IrUnsupported(target, "a place that cannot be written");
 
@@ -338,6 +338,15 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
           code: direct ? cpp.assign(direct, operand(v)) : set!(operand(v)),
           type: T.void,
         }),
+        ...(assign
+          ? {
+              assign: (v: ValueId, from: LType) => ({
+                name: `${name} =`,
+                code: assign({ c: operand(v), t: from }),
+                type: T.void,
+              }),
+            }
+          : {}),
       };
     },
   };

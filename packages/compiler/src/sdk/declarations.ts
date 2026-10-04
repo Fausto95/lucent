@@ -104,7 +104,7 @@ export function schemaMethod(
  */
 export function schemaProperty(
   ref: SdkClassRef,
-  decl: ts.PropertyDeclaration,
+  decl: SdkPropertyDecl,
 ): { ref: SdkClassRef; property: SdkPropertySchema } | undefined {
   const inherited = inheritedFrom(ref, decl);
   if (inherited)
@@ -116,6 +116,12 @@ export function schemaProperty(
 
   return property ? { ref, property } : undefined;
 }
+
+/** A property's declaration: a property, or the get and set accessors of one whose write type is its own. */
+export type SdkPropertyDecl = ts.PropertyDeclaration | ts.AccessorDeclaration;
+
+export const isSdkPropertyDecl = (d: ts.Node): d is SdkPropertyDecl =>
+  ts.isPropertyDeclaration(d) || ts.isGetAccessorDeclaration(d) || ts.isSetAccessorDeclaration(d);
 
 /** A member declared again from a supertype (INHERITED_TAG): the class declaring it, and its index there. */
 function inheritedFrom(

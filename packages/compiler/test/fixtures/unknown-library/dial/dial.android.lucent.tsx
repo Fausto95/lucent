@@ -14,8 +14,18 @@ export function Dial(props: Props): QXNDial {
     props.onTurn?.(level);
   });
 
+  // A Kotlin function and a fun interface, each given a function run on the main thread.
+  dial.qxnOnSpin = (level) => {
+    props.onTurn?.(level);
+  };
+  dial.qxnSettled = (level) => {
+    props.onTurn?.(level);
+  };
+
   onDispose(() => {
     dial.setOnQXNTurnListener(null);
+    dial.qxnOnSpin = null;
+    dial.qxnSettled = null;
   });
 
   expose({ level: (): number => dial.qxnLevel });

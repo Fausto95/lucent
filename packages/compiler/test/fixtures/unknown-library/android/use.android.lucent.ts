@@ -17,8 +17,21 @@ export async function run(): Promise<string> {
   const recorder = new Recorder();
 
   gauge.qxnListener = recorder;
+
+  // Kotlin functions both ways, and a fun interface's property, given functions.
+  const heard: number[] = [];
+  gauge.qxnOnBump = (level) => {
+    heard.push(level);
+  };
+  gauge.qxnWatcher = (level) => {
+    heard.push(-level);
+  };
+
   gauge.qxnBump(1);
   gauge.qxnBump(0.5);
+
+  const applied = gauge.qxnApply((level) => level + 1);
+  const scaled = gauge.qxnScaler()(2);
 
   const boxed = new QXNBox<QXNGauge>(gauge).qxnItem.qxnLevel;
   const labels = new QXNBox<string>("box").qxnItem;
@@ -33,5 +46,5 @@ export async function run(): Promise<string> {
   const unit: QXNUnit = gauge.qxnUnit();
   const formatted = unit.qxnFormat(measured);
 
-  return `${base.qxnDescribe()} | ${recorder.levels.join(" ")} | ${boxed} ${labels} | ${formatted} | ${failed}`;
+  return `${base.qxnDescribe()} | ${recorder.levels.join(" ")} | ${boxed} ${labels} | ${formatted} | ${failed} | ${heard.join(" ")} | ${applied} ${scaled}`;
 }

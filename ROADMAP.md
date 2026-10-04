@@ -1181,7 +1181,7 @@ Several tasks need physical devices, which only the maintainer can run.
 | [T64](#t64)   | Run lifetime, concurrency and Fabric stress validation          | T49, T55, T59, T60      | waiting (maintainer) |
 | [T65](#t65)   | Enforce physical-device performance budgets                     | T54, T55, T56, T59, T64 | waiting (maintainer) |
 | [T66](#t66)   | Complete user documentation and migration examples              | T51, T52, T60, T61      | waiting              |
-| [TA30](#ta30) | Bind Kotlin function types and callback properties              | —                       | ready                |
+| [TA30](#ta30) | Bind Kotlin function types and callback properties              | —                       | in review            |
 | [TA31](#ta31) | Finish the Kotlin shim shapes                                   | —                       | ready                |
 | [TA32](#ta32) | Read Swift packages and the iOS target from the project         | —                       | ready                |
 | [TA33](#ta33) | Bind the remaining Swift shapes                                 | —                       | ready                |
@@ -1615,24 +1615,34 @@ This final sweep does not excuse delaying docs for earlier completed tasks.
 **Goal:** Let Lucent functions be Kotlin function types and fill
 callback properties, which T28's unknown Android view could not.
 
-- **Status:** open, ready to start.
+- **Status:** in review (2026-10-04): every item below passes on its
+  branch.
 - **Area:** Bindings, Android host.
 - **Needs:** none.
 - **Verify:** V1, V4.
 - **Where:** Kotlin metadata to schema types, Android declarations and
   JNI glue (`NativeProxy` for `kotlin.jvm.functions`), the view rules.
 
-- [ ] Bind a Kotlin function type (`(Double) -> Unit`, nullable or not) as
+- [x] Bind a Kotlin function type (`(Double) -> Unit`, nullable or not) as
       a TypeScript function type both ways: a Lucent function passed or
       assigned becomes a `FunctionN` proxy, and a Kotlin one returned is
-      callable.
-- [ ] Let a property of a single-method interface type take a Lucent
-      function, as a method parameter of that type does.
-- [ ] Let a view set such a property with a function (its call runs on the
-      main thread), instead of refusing every way to set it (LUCENT3021).
-- [ ] Extend T28's unknown library: its Android dial takes a Kotlin
-      function-typed property, run on the desktop JNI host where it does
-      not need a view.
+      callable. The extraction types it as the function it declares
+      (`kotlin-extraction.test.ts`); JNI plans take it, refusing a
+      function of functions.
+- [x] Let a property of a single-method interface type take a Lucent
+      function, as a method parameter of that type does: on Android a
+      property's write type is its own (a get and a set accessor), and
+      an assignment converts the value as an argument is.
+- [x] Let a view set such a property with a function (its call runs on the
+      main thread), instead of refusing every way to set it (LUCENT3021):
+      in setup code, and as a JSX attribute (the view rules take both
+      properties).
+- [x] Extend T28's unknown library: its Kotlin gauge takes a function
+      property, a fun interface property, a function argument, and returns
+      a Kotlin function, run on the desktop JNI host
+      (`unknown-library.test.ts`, its output `3 -3 3.5 -3.5 | 4.5 7`); its
+      Android dial sets both kinds of property in setup and as JSX, whose
+      glue compiles against jni.h.
 
 **Done when:** the idiomatic Kotlin callback shapes bind by rule, in
 module code and in views.

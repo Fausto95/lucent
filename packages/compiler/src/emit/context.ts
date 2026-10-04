@@ -31,6 +31,11 @@ export interface Lvalue {
   direct?: cpp.Expr;
   get: cpp.Expr;
   set?: (v: cpp.Expr) => cpp.Expr;
+  /**
+   * Assigns a value of its own type, giving it: where what is written is
+   * not what is read (a fun interface's property takes a function).
+   */
+  assign?: (v: E) => cpp.Expr;
   type: LType;
 }
 

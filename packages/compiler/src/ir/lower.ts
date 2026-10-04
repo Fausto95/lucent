@@ -269,6 +269,8 @@ export interface LeafPlace {
   type: LType;
   get: Leaf;
   set(value: ValueId): Leaf;
+  /** Writing a value of its own type, `from`: where what is written is not what is read. */
+  assign?(value: ValueId, from: LType): Leaf;
 }
 
 /** What a name holds in a function: a parameter's value, or a place. */
@@ -286,6 +288,8 @@ interface Target {
   type: LType;
   read(): ValueId;
   write(value: ValueId, source: SourceSpan): void;
+  /** Writes a value as it is, converted by the place: see LeafPlace.assign. */
+  assign?(value: ValueId, source: SourceSpan): void;
 }
 
 /**
@@ -1626,10 +1630,15 @@ class Lowerer {
     const { operands, args } = this.operands();
     const place = host.place(node, operands);
 
+    const assign = place.assign;
+
     return {
       type: place.type,
       read: () => this.planOf(place.get, args, spanOf(node)),
       write: (v, span) => void this.planOf(place.set(v), [...args, v], span),
+      ...(assign
+        ? { assign: (v, span) => void this.planOf(assign(v, this.b.typeOf(v)), [...args, v], span) }
+        : {}),
     };
   }
 
@@ -2754,6 +2763,15 @@ const BINARY_FORMS: Partial<
     }
 
     const target = lw.target(n.left);
+
+    // A place taking values of their own type: the value as it is.
+    if (target.assign) {
+      const value = lw.expr(n.right);
+
+      target.assign(value, spanOf(n));
+      return value;
+    }
+
     const value = lw.expr(n.right, target.type);
 
     target.write(lw.coerce(value, target.type, n.right), spanOf(n));

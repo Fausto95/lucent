@@ -447,6 +447,18 @@ describe.skipIf(!tc || !android)("Android extraction of Kotlin libraries", () =>
     });
   });
 
+  it("types a Kotlin function type as the function it is, not the FunctionN class", () => {
+    const dial = cls("dev.orbit.shelf", "Dial");
+    const fn = (s: string, nullable = false): SchemaType => ({ ...T(s), nullable });
+
+    expect(property(dial, "onTurn")?.type).toEqual(fn("@escaping (double) => void", true));
+    expect(property(dial, "format")?.type).toEqual(fn("@escaping (int) => string"));
+    expect(method(dial, "scaler").returns).toEqual(fn("@escaping (double) => double"));
+    expect(method(dial, "filter").params).toEqual([
+      { name: "test", type: fn("@escaping (string, int) => boolean") },
+    ]);
+  });
+
   it("marks fun interfaces, whose functions a lambda implements", () => {
     expect(cls("dev.orbit.shelf", "Visitor").kotlin).toEqual({ kind: "interface", fun: true });
     expect(cls("dev.orbit.shelf", "Visitor").functional).toBe("visit");

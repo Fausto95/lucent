@@ -58,6 +58,32 @@ describe("TypeScript types", () => {
     ).toBe("export declare interface Attributes {\n  padding?: number;\n}\n");
   });
 
+  it("print a property taking more when written as a get and a set accessor", () => {
+    const listener = union([A, ts.nullType]);
+
+    expect(
+      ts.printUnit({
+        decls: [
+          {
+            k: "class",
+            name: "Dial",
+            members: [
+              {
+                k: "property",
+                name: "listener",
+                type: listener,
+                set: union([A, ts.fn([ts.param("arg0", num)], ts.keyword("void")), ts.nullType]),
+                doc: "Its listener.",
+              },
+            ],
+          },
+        ],
+      }),
+    ).toBe(
+      "export declare class Dial {\n  /** Its listener. */\n  get listener(): A | null;\n  set listener(value: A | ((arg0: number) => void) | null);\n}\n",
+    );
+  });
+
   it("print intersections, parenthesized by precedence", () => {
     expect(printType(ts.intersection([ts.object([{ name: "a", type: A }]), ref("B")]))).toBe(
       "{ a: A } & B",

@@ -170,6 +170,27 @@ describe("view rules on Android", () => {
       native: `dev/${P.toLowerCase()}/views/${P}Dial`,
       extends: "android.view.View",
       constructors: [{ params: [{ name: "context", type: "android.content.Context?" }] }],
+      properties: [
+        {
+          name: "onSpin",
+          type: {
+            k: "fn",
+            params: [{ k: "prim", name: "double", nullable: false }],
+            ret: { k: "prim", name: "void", nullable: false },
+            escaping: true,
+            main: false,
+            nullable: true,
+          },
+          getter: "getOnSpin",
+          setter: "setOnSpin",
+        },
+        {
+          name: "settled",
+          type: `${P}Dial_OnTurnListener?`,
+          getter: "getSettled",
+          setter: "setSettled",
+        },
+      ],
       methods: [
         { name: "setText", params: [{ name: "text", type: "string?" }], returns: "void" },
         { name: "setText", params: [{ name: "id", type: "int" }], returns: "void" },
@@ -240,8 +261,23 @@ describe("view rules on Android", () => {
   it("takes its one-value setters as props, overloads together", () => {
     const rules = viewRules(classOf(views, `${P}Dial`), views, find);
 
-    expect(rules.props.map((p) => p.name)).toEqual(["text", "level"]);
-    expect(rules.props[0]).toMatchObject({ kind: "setter", overloads: [{}, {}] });
+    expect(rules.props.filter((p) => p.kind === "setter").map((p) => p.name)).toEqual([
+      "text",
+      "level",
+    ]);
+    expect(rules.props.find((p) => p.name === "text")).toMatchObject({
+      kind: "setter",
+      overloads: [{}, {}],
+    });
+  });
+
+  it("takes a Kotlin function property, and a fun interface's, as props", () => {
+    const rules = viewRules(classOf(views, `${P}Dial`), views, find);
+
+    expect(rules.props.filter((p) => p.kind === "property").map((p) => p.name)).toEqual([
+      "onSpin",
+      "settled",
+    ]);
   });
 
   it("derives an event from a listener setter of a one-method interface, and explains the other", () => {

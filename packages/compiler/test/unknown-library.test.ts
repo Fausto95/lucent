@@ -310,7 +310,7 @@ describe.skipIf(!jvm)("an unknown library on Android", () => {
     expect(p.r.diagnostics).toEqual([]);
     expect(jvmRun(p.r, p.dir, jars, kotlin!)).toEqual({
       status: 0,
-      stdout: `gauge g at 3.5 | 3 3.5 | 3.5 box | 7.0 ${lower} | Error\n`,
+      stdout: `gauge g at 3.5 | 3 3.5 | 3.5 box | 7.0 ${lower} | Error | 3 -3 3.5 -3.5 | 4.5 7\n`,
       stderr: "",
     });
   }, 600_000);
@@ -341,7 +341,7 @@ describe.skipIf(!jvm)("an unknown library on Android", () => {
     }
   }, 600_000);
 
-  it("binds its view as JSX: a Kotlin property, a listener event by convention", () => {
+  it("binds its view as JSX: Kotlin properties, functions among them, a listener event by convention", () => {
     const classpath = classpathFile(path.join(root, "jars/views-classpath.json"), [
       path.join(kotlin!.lib, "kotlin-stdlib.jar"),
       viewJar,
@@ -354,6 +354,7 @@ describe.skipIf(!jvm)("an unknown library on Android", () => {
 
     expect(r.diagnostics).toEqual([]);
     expect(glue).toContain(`"setOn${prefix}TurnListener"`);
+    expect(glue).toContain(`"set${lower[0]!.toUpperCase()}${lower.slice(1)}OnSpin"`);
     expect(glueErrors(r, dir, "android/m_dial_u2d_jsx.cpp")).toBe("");
   }, 600_000);
 });

@@ -100,3 +100,12 @@ export function blockConversion(t: SdkType & { k: "fn" }): ConversionPlan {
     sdkTypeFacts("ios"),
   );
 }
+
+/** A function passed where Kotlin takes a function type: its conversion, the FunctionN's arguments offered to it. */
+export function kotlinFunctionConversion(t: SdkType & { k: "fn" }): ConversionPlan {
+  return planConversion(
+    { ...t, nullable: false },
+    { backend: "jni", platform: "android", flow: "in", passed: true },
+    sdkTypeFacts("android"),
+  );
+}
