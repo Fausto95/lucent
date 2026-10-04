@@ -109,12 +109,19 @@ describe("Lucent packages", () => {
 describe("a Lucent package's own pod", () => {
   const ios = sdkAvailable("ios");
 
-  /** A bare app (it has a Podfile) whose Lucent package's iOS code imports a pod its lucent.json declares. */
+  /**
+   * A bare app (a Podfile, and the react-native.config.js lucent init writes, which links the
+   * native package) whose Lucent package's iOS code imports a pod its lucent.json declares.
+   */
   function appWithPackagePod(): string {
     const root = project();
     fs.writeFileSync(
       path.join(root, "package.json"),
       JSON.stringify({ name: "app", dependencies: { "lucent-auth": "1.0.0" } }),
+    );
+    fs.writeFileSync(
+      path.join(root, "react-native.config.js"),
+      'module.exports = {\n  dependencies: {\n    "lucent": { root: require("path").join(__dirname, ".lucent", "native") },\n  },\n};\n',
     );
     fs.mkdirSync(path.join(root, "ios"));
     fs.writeFileSync(path.join(root, "ios/Podfile"), "target 'App' do\nend\n");
@@ -194,6 +201,31 @@ describe("a Lucent package's own pod", () => {
       fs.writeFileSync(path.join(root, "ios/Podfile.lock"), "PODS:\n  - LucentAuthKit (1.0.3)\n");
 
       // The pod defines no module here: the check still fails, for that alone.
+      const r = lucent(root, "build", "--platforms", "ios");
+
+      expect(r.status).not.toBe(0);
+      expect(r.out).toMatch(/LUCENT3004[\s\S]*lucent:ios\/LucentAuthKit/);
+      expect(r.out).not.toContain("is not installed");
+    },
+    600_000,
+  );
+
+  it.skipIf(!ios)(
+    "is not named in an Expo app's prebuild, where pod install does not install it",
+    () => {
+      const root = appWithPackagePod();
+      // As the config plugin builds in expo prebuild: the template's Podfile is there, and
+      // react-native.config.js links the native package only once a build succeeds.
+      fs.writeFileSync(
+        path.join(root, "package.json"),
+        JSON.stringify({ name: "app", dependencies: { expo: "55.0.0", "lucent-auth": "1.0.0" } }),
+      );
+      fs.writeFileSync(
+        path.join(root, "app.json"),
+        JSON.stringify({ expo: { name: "app", plugins: ["@lucent-lang/lucent"] } }),
+      );
+      fs.rmSync(path.join(root, "react-native.config.js"));
+
       const r = lucent(root, "build", "--platforms", "ios");
 
       expect(r.status).not.toBe(0);
