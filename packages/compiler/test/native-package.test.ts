@@ -7,8 +7,10 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   compile,
   type LucentPackage,
+  packagePods,
   resolveNative,
   runtimeDir,
+  withPodDependencies,
   writeNativePackage,
 } from "../src/index.ts";
 
@@ -617,5 +619,37 @@ describe("publishing the native package", () => {
 
     // The manifest (Metro's cache key) comes last: proxies are in place when it changes.
     expect(path.relative(out, r.written.at(-1)!)).toBe("manifest.json");
+  });
+});
+
+describe("the Lucent packages' pods in a podspec", () => {
+  const podspec =
+    'Pod::Spec.new do |s|\n  s.name = "LucentNative"\n  s.dependency "OtherPod"\nend\n';
+
+  it("are each pod with every requirement the packages ask, in order", () => {
+    const native = nativeOf(
+      ["lucent-a", { ios: { pods: { WidgetsPod: "~> 1.0" } } }],
+      ["lucent-b", { ios: { pods: { WidgetsPod: ">= 1.2", AuthPod: "2.0" } } }],
+    );
+
+    expect(packagePods(native.manifest)).toEqual([
+      ["AuthPod", ["2.0"]],
+      ["WidgetsPod", [">= 1.2", "~> 1.0"]],
+    ]);
+  });
+
+  it("are added to a podspec that lacks them, beside its other dependencies", () => {
+    expect(withPodDependencies(podspec, [["WidgetsPod", ["~> 1.0"]]])).toBe(
+      'Pod::Spec.new do |s|\n  s.name = "LucentNative"\n  s.dependency "OtherPod"\n  s.dependency "WidgetsPod", "~> 1.0"\nend\n',
+    );
+  });
+
+  it("replace a pod's line when its requirements change, once", () => {
+    const once = withPodDependencies(podspec, [["WidgetsPod", ["~> 1.0"]]]);
+    const changed = withPodDependencies(once, [["WidgetsPod", ["~> 2.0"]]]);
+
+    expect(changed.match(/s\.dependency "WidgetsPod"/g)).toHaveLength(1);
+    expect(changed).toContain('s.dependency "WidgetsPod", "~> 2.0"\n');
+    expect(withPodDependencies(changed, [["WidgetsPod", ["~> 2.0"]]])).toBe(changed);
   });
 });

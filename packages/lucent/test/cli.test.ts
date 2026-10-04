@@ -106,6 +106,42 @@ describe("Lucent packages", () => {
   });
 });
 
+describe("a Lucent package's own pod", () => {
+  it.skipIf(!sdkAvailable("ios"))(
+    "is in the podspec after the first build, which asks for pod install before it binds it",
+    () => {
+      const root = project();
+      fs.writeFileSync(
+        path.join(root, "package.json"),
+        JSON.stringify({ name: "app", dependencies: { "lucent-auth": "1.0.0" } }),
+      );
+      const pkg = path.join(root, "node_modules/lucent-auth");
+      fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
+      fs.writeFileSync(
+        path.join(pkg, "package.json"),
+        JSON.stringify({ name: "lucent-auth", version: "1.0.0", lucent: { sources: "src" } }),
+      );
+      fs.writeFileSync(
+        path.join(pkg, "lucent.json"),
+        JSON.stringify({ ios: { pods: { LucentAuthKit: "~> 1.0" } } }),
+      );
+      fs.writeFileSync(
+        path.join(pkg, "src/auth.lucent.ts"),
+        'import { PLATFORM } from "lucent:platform";\nimport { LAKAuthenticator } from "lucent:ios/LucentAuthKit";\n\nexport function ready(): boolean {\n  if (PLATFORM === "ios") return LAKAuthenticator.isAvailable;\n  return false;\n}\n',
+      );
+
+      const r = lucent(root, "build", "--platforms", "ios");
+
+      expect(r.status).not.toBe(0);
+      expect(r.out).toMatch(/LUCENT3004[\s\S]*lucent:ios\/LucentAuthKit[\s\S]*pod install/);
+      expect(
+        fs.readFileSync(path.join(root, ".lucent/native/LucentNative.podspec"), "utf8"),
+      ).toContain('s.dependency "LucentAuthKit", "~> 1.0"');
+    },
+    600_000,
+  );
+});
+
 describe("Lucent packages' native needs", () => {
   it("writes them into the native package, and names Info.plist keys the app lacks", () => {
     const root = project();
