@@ -3,9 +3,8 @@ import {
   type DocSection,
   docsSections,
   docsSlugs,
-  headerLinks,
   locate,
-  slugOfId,
+  sidebarsOf,
   slugsOf,
 } from "../src/docs/nav.ts";
 
@@ -41,29 +40,6 @@ describe("the docs sections", () => {
   it("start with the docs home", () => {
     expect(docsSlugs[0]).toBe("");
   });
-
-  it("are tabs in the header, each opening its first page, with the blog last", () => {
-    expect(headerLinks).toEqual([
-      ...docsSections.map((s) => ({
-        label: s.label,
-        link: slugsOf([s])[0] ? `/docs/${slugsOf([s])[0]}/` : "/docs/",
-      })),
-      { label: "Blog", link: "/blog/" },
-    ]);
-    expect(headerLinks[0]!.link).toBe("/docs/");
-  });
-});
-
-describe("slugOfId", () => {
-  it("reads a docs page's slug from its route id", () => {
-    expect(slugOfId("docs")).toBe("");
-    expect(slugOfId("docs/api/cli")).toBe("api/cli");
-  });
-
-  it("is undefined outside the docs", () => {
-    expect(slugOfId("blog/native-views")).toBeUndefined();
-    expect(slugOfId("404")).toBeUndefined();
-  });
 });
 
 describe("locate", () => {
@@ -84,5 +60,39 @@ describe("locate", () => {
 
   it("is undefined for a page the sidebar doesn't list", () => {
     expect(locate("guides/missing", sections)).toBeUndefined();
+  });
+});
+
+describe("sidebarsOf", () => {
+  it("makes one Docusaurus sidebar per section, of collapsed categories", () => {
+    expect(sidebarsOf(sections)).toEqual({
+      guides: [
+        {
+          type: "category",
+          label: "Get started",
+          collapsed: true,
+          items: ["index", "guides/install"],
+        },
+        {
+          type: "category",
+          label: "Native APIs",
+          collapsed: true,
+          items: [
+            "guides/native",
+            {
+              type: "category",
+              label: "iOS",
+              collapsed: true,
+              items: ["guides/call-ios", "guides/present"],
+            },
+          ],
+        },
+      ],
+      api: [{ type: "category", label: "Modules", collapsed: true, items: ["api", "api/core"] }],
+    });
+  });
+
+  it("names the docs home index, as Docusaurus does", () => {
+    expect(JSON.stringify(sidebarsOf(sections))).not.toContain('""');
   });
 });
