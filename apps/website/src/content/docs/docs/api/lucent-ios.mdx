@@ -9,7 +9,27 @@ custom_edit_url: https://github.com/Fausto95/lucent/edit/main/apps/website/src/d
 
 The iOS SDK itself is imported from `lucent:ios/<Framework>`, typed from the installed Xcode: see [Find an SDK class](/docs/guides/find-an-sdk-class/).
 
-## available
+## Example
+
+```ts title="haptic.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { UIImpactFeedbackGenerator, UIImpactFeedbackGenerator_FeedbackStyle as Style } from "lucent:ios/UIKit";
+import { available } from "lucent:ios";
+import { main } from "lucent:thread";
+
+export async function tap(): Promise<void> {
+  if (PLATFORM === "ios") {
+    await main(() => {
+      const style = available("ios", 13) ? Style.soft : Style.light;
+      new UIImpactFeedbackGenerator(style).impactOccurred();
+    });
+  }
+}
+```
+
+## Functions
+
+### available()
 
 ```ts title="ios.d.ts"
 function available(platform: "ios", major: number, minor?: number): boolean;
@@ -17,25 +37,13 @@ function available(platform: "ios", major: number, minor?: number): boolean;
 
 Whether the OS is at least `major.minor` (Swift's `#available`).
 
-## NSObject
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `platform` | `"ios"` | yes | Always `"ios"`. |
+| `major` | `number` | yes | The major version, such as `16`. |
+| `minor` | `number` | no | The minor version; 0 when left out. |
 
-```ts title="ios.d.ts"
-class NSObject {
-  protected constructor();
-}
-```
-
-The root of Objective-C objects. Values of type `Any` (`id`) arrive as NSObjects.
-
-## ObjCValue
-
-```ts title="ios.d.ts"
-type ObjCValue = string | number | boolean | Uint8Array | Date | NSObject | null;
-```
-
-What can go where Objective-C takes `Any` (`id`), CoreFoundation values included.
-
-## mainQueue
+### mainQueue()
 
 ```ts title="ios.d.ts"
 function mainQueue(): NSObject;
@@ -43,7 +51,7 @@ function mainQueue(): NSObject;
 
 The main dispatch queue (dispatch\_get\_main\_queue()), for APIs that take a queue.
 
-## asString
+### asString()
 
 ```ts title="ios.d.ts"
 function asString(value: NSObject | null): string | null;
@@ -51,7 +59,11 @@ function asString(value: NSObject | null): string | null;
 
 Swift's `as? String`: the string an `Any` holds, or null.
 
-## asNumber
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `value` | `NSObject \| null` | yes |  |
+
+### asNumber()
 
 ```ts title="ios.d.ts"
 function asNumber(value: NSObject | null): number | null;
@@ -59,7 +71,11 @@ function asNumber(value: NSObject | null): number | null;
 
 Swift's `as? Double` (an NSNumber).
 
-## asBoolean
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `value` | `NSObject \| null` | yes |  |
+
+### asBoolean()
 
 ```ts title="ios.d.ts"
 function asBoolean(value: NSObject | null): boolean | null;
@@ -67,7 +83,11 @@ function asBoolean(value: NSObject | null): boolean | null;
 
 Swift's `as? Bool` (an NSNumber).
 
-## asData
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `value` | `NSObject \| null` | yes |  |
+
+### asData()
 
 ```ts title="ios.d.ts"
 function asData(value: NSObject | null): Uint8Array | null;
@@ -75,7 +95,11 @@ function asData(value: NSObject | null): Uint8Array | null;
 
 Swift's `as? Data`.
 
-## asDate
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `value` | `NSObject \| null` | yes |  |
+
+### asDate()
 
 ```ts title="ios.d.ts"
 function asDate(value: NSObject | null): Date | null;
@@ -83,46 +107,11 @@ function asDate(value: NSObject | null): Date | null;
 
 Swift's `as? Date`.
 
-## Out
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `value` | `NSObject \| null` | yes |  |
 
-```ts title="ios.d.ts"
-class Out<T> {
-  constructor();
-  value: T | null;
-}
-```
-
-What a method writes through a pointer (`CGFloat *`, `NSRange *`, `NSDate **`, `CFTypeRef *`): pass it, then read `value`. For a pointer the method also reads (a number or a struct), set `value` first.
-
-## AppEvent
-
-```ts title="ios.d.ts"
-type AppEvent =
-  | "didBecomeActive"
-  | "willResignActive"
-  | "didEnterBackground"
-  | "willEnterForeground"
-  | "didReceiveMemoryWarning"
-  | "willTerminate";
-```
-
-UIApplication's lifecycle notifications, by name: `"didBecomeActive"` is `UIApplication.didBecomeActiveNotification`.
-
-## SceneEvent
-
-```ts title="ios.d.ts"
-type SceneEvent =
-  | "willConnect"
-  | "didDisconnect"
-  | "didActivate"
-  | "willDeactivate"
-  | "willEnterForeground"
-  | "didEnterBackground";
-```
-
-UIScene's lifecycle notifications, by name: `"willConnect"` is `UIScene.willConnectNotification`.
-
-## onAppEvent
+### onAppEvent()
 
 ```ts title="ios.d.ts"
 function onAppEvent(
@@ -136,7 +125,13 @@ Calls `listener` each time the app posts `event`, until the returned function is
 
 Lucent observes the notifications, so the app's delegate and other modules' stay as they are. What `listener` throws is logged, and the app goes on.
 
-## onSceneEvent
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `event` | `AppEvent` | yes | The notification, by name. |
+| `listener` | `() => void` | yes | Called on the main thread each time it is posted. |
+| `signal` | `AbortSignal` | no | Stops listening, as the returned function does. |
+
+### onSceneEvent()
 
 ```ts title="ios.d.ts"
 function onSceneEvent(
@@ -148,7 +143,13 @@ function onSceneEvent(
 
 Like `onAppEvent`, for each scene's `event`: `listener` gets the scene's session's `persistentIdentifier`.
 
-## present
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `event` | `SceneEvent` | yes | The notification, by name. |
+| `listener` | `(scene: string) => void` | yes | Called with the scene's `persistentIdentifier`. |
+| `signal` | `AbortSignal` | no | Stops listening, as the returned function does. |
+
+### present()
 
 ```ts title="ios.d.ts"
 function present<T>(
@@ -164,3 +165,69 @@ Presents the view controller `build` returns from the scene the person is using 
 It settles once, and whatever settles it dismisses the view controller if it is still shown. It rejects with an `AbortError` when `signal` aborts, or when the person dismisses the view controller (swiping a sheet down). It does too when the view controller goes before settling, or when its scene disconnects.
 
 It rejects with an `InvalidStateError` when no scene is in the foreground, or UIKit doesn't present it.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `build` | `(resolve: (value: T) => void, reject: (reason: Error) => void) => UIViewController` | yes | Makes the view controller, on the main thread. |
+| `signal` | `AbortSignal` | no | Dismisses it and rejects with an `AbortError`. |
+
+## Classes
+
+### NSObject
+
+```ts title="ios.d.ts"
+class NSObject {
+  protected constructor();
+}
+```
+
+The root of Objective-C objects. Values of type `Any` (`id`) arrive as NSObjects.
+
+### Out
+
+```ts title="ios.d.ts"
+class Out<T> {
+  constructor();
+  value: T | null;
+}
+```
+
+What a method writes through a pointer (`CGFloat *`, `NSRange *`, `NSDate **`, `CFTypeRef *`): pass it, then read `value`. For a pointer the method also reads (a number or a struct), set `value` first.
+
+## Types
+
+### ObjCValue
+
+```ts title="ios.d.ts"
+type ObjCValue = string | number | boolean | Uint8Array | Date | NSObject | null;
+```
+
+What can go where Objective-C takes `Any` (`id`), CoreFoundation values included.
+
+### AppEvent
+
+```ts title="ios.d.ts"
+type AppEvent =
+  | "didBecomeActive"
+  | "willResignActive"
+  | "didEnterBackground"
+  | "willEnterForeground"
+  | "didReceiveMemoryWarning"
+  | "willTerminate";
+```
+
+UIApplication's lifecycle notifications, by name: `"didBecomeActive"` is `UIApplication.didBecomeActiveNotification`.
+
+### SceneEvent
+
+```ts title="ios.d.ts"
+type SceneEvent =
+  | "willConnect"
+  | "didDisconnect"
+  | "didActivate"
+  | "willDeactivate"
+  | "willEnterForeground"
+  | "didEnterBackground";
+```
+
+UIScene's lifecycle notifications, by name: `"willConnect"` is `UIScene.willConnectNotification`.

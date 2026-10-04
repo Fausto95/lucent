@@ -15,8 +15,8 @@ const notes: Record<string, Block[]> = {
 ✓ Generated C++  2 changed              24 ms
 ✓ Native package  .lucent/native
 
-modules  trip-tracker/location  ios android
-         trip-tracker/trip      shared
+modules  location  ios android
+         trip      shared
 next     rebuild the app (iOS: pod install first)
 actions  relink native dependencies  ios           LucentNative.podspec, cpp/generated/ios/m_location.mm +3 more
          recompile native code       ios, android  cpp/generated/ios/m_location.mm, cpp/generated/android/m_location.cpp +2 more`,

@@ -13,7 +13,9 @@ custom_edit_url: https://github.com/Fausto95/lucent/edit/main/apps/website/src/d
 Experimental: this module resolves only when `LUCENT_VIEWS=fabric`, and changes without notice until Lucent's views are public.
 :::
 
-## effect
+## Functions
+
+### effect()
 
 ```ts title="ui.d.ts"
 function effect(run: () => void): void;
@@ -21,7 +23,92 @@ function effect(run: () => void): void;
 
 Runs `run` now, and again after a prop or signal it read changes. Before it runs again, and when the view goes, what it registered with `onDispose` runs.
 
-## Signal
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `run` | `() => void` | yes | Reads props and signals; runs again when one of them changes. |
+
+### signal()
+
+```ts title="ui.d.ts"
+function signal<T>(initial: T): Signal<T>;
+```
+
+A signal holding `initial`, for this mount of the view.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `initial` | `T` | yes | Its first value. |
+
+### bind()
+
+```ts title="ui.d.ts"
+function bind<T>(signal: Signal<T>): Bound<T>;
+```
+
+`signal`, bound to the view of a body it is given to: only there.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `signal` | `Signal<T>` | yes | The signal the view shows and sets. |
+
+### range()
+
+```ts title="ui.d.ts"
+function range(from: number, to: number): ClosedRange<number>;
+```
+
+The closed range from `from` to `to`, for the view of a body it is given to: only there.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `from` | `number` | yes | The first number. |
+| `to` | `number` | yes | The last number, included. |
+
+### expose()
+
+```ts title="ui.d.ts"
+function expose<T extends object>(commands: T): void;
+```
+
+Gives the component's React ref `commands`: called once, at the top of setup, with an object literal of functions. A command returning nothing runs on the main thread; one returning a value (or a promise) answers JavaScript's promise.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `commands` | `T` | yes | An object literal of functions. |
+
+### onDispose()
+
+```ts title="ui.d.ts"
+function onDispose(cleanup: () => void): void;
+```
+
+Runs `cleanup` when the view goes; inside an effect, before the effect runs again.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `cleanup` | `() => void` | yes | What to undo. |
+
+### slot()
+
+```ts title="ui.d.ts"
+function slot<T extends object>(): T;
+```
+
+The view a component's React children are mounted in, for a component whose props declare `children: Children`. Call it once, in a `const` at the top of setup, with the platform's container class: `slot<UIView>()` on iOS, `slot<ViewGroup>()` on Android.
+
+Put it in the view setup returns, where the children belong: it fills the view it is added to unless setup sizes it. React lays the children out in the component's own coordinates, wherever the slot is, and they show within the slot's bounds. React Native adds, moves and removes them: setup never changes the slot's subviews.
+
+### invalidateSize()
+
+```ts title="ui.d.ts"
+function invalidateSize(): void;
+```
+
+Has the view measured again once the main thread's work ends, after a change to its native content that its host can't hear of. The host hears of every function setup makes running: an effect, a native callback, a command. Code after an `await` runs in none of them.
+
+## Types
+
+### Signal
 
 ```ts title="ui.d.ts"
 interface Signal<T> {
@@ -39,15 +126,7 @@ A value of the view's own, which effects track like props.
 | `peek(): T;` | The value, without tracking it. |
 | `set(value: T): void;` | Changes it, unless `value` is the same (Object.is), running what read it. |
 
-## signal
-
-```ts title="ui.d.ts"
-function signal<T>(initial: T): Signal<T>;
-```
-
-A signal holding `initial`, for this mount of the view.
-
-## Bound
+### Bound
 
 ```ts title="ui.d.ts"
 interface Bound<T> {
@@ -56,15 +135,7 @@ interface Bound<T> {
 
 A signal given to a view of a toolkit body that changes it: SwiftUI's Binding, or Compose's value and its change callback. The view shows the signal's value, and a change the user makes sets the signal. The signal may keep another value, and the view shows what it keeps.
 
-## bind
-
-```ts title="ui.d.ts"
-function bind<T>(signal: Signal<T>): Bound<T>;
-```
-
-`signal`, bound to the view of a body it is given to: only there.
-
-## ClosedRange
+### ClosedRange
 
 ```ts title="ui.d.ts"
 interface ClosedRange<T> {
@@ -73,31 +144,7 @@ interface ClosedRange<T> {
 
 The numbers from `from` to `to`, both included, given to a view of a toolkit body that takes a range (a slider's, a stepper's bounds): SwiftUI's `from ... to`. Written where the view takes it, as bind(signal) is.
 
-## range
-
-```ts title="ui.d.ts"
-function range(from: number, to: number): ClosedRange<number>;
-```
-
-The closed range from `from` to `to`, for the view of a body it is given to: only there.
-
-## expose
-
-```ts title="ui.d.ts"
-function expose<T extends object>(commands: T): void;
-```
-
-Gives the component's React ref `commands`: called once, at the top of setup, with an object literal of functions. A command returning nothing runs on the main thread; one returning a value (or a promise) answers JavaScript's promise.
-
-## onDispose
-
-```ts title="ui.d.ts"
-function onDispose(cleanup: () => void): void;
-```
-
-Runs `cleanup` when the view goes; inside an effect, before the effect runs again.
-
-## Children
+### Children
 
 ```ts title="ui.d.ts"
 interface Children {
@@ -106,17 +153,7 @@ interface Children {
 
 The type of a component's `children` prop: the React elements JavaScript nests in it, which React Native mounts in the view `slot` gives setup. Setup never reads them.
 
-## slot
-
-```ts title="ui.d.ts"
-function slot<T extends object>(): T;
-```
-
-The view a component's React children are mounted in, for a component whose props declare `children: Children`. Call it once, in a `const` at the top of setup, with the platform's container class: `slot<UIView>()` on iOS, `slot<ViewGroup>()` on Android.
-
-Put it in the view setup returns, where the children belong: it fills the view it is added to unless setup sizes it. React lays the children out in the component's own coordinates, wherever the slot is, and they show within the slot's bounds. React Native adds, moves and removes them: setup never changes the slot's subviews.
-
-## NativeViewTag
+### NativeViewTag
 
 ```ts title="ui.d.ts"
 type NativeViewTag<V> = abstract new (...args: never[]) => V;
@@ -124,7 +161,7 @@ type NativeViewTag<V> = abstract new (...args: never[]) => V;
 
 A native view class, as a JSX tag: any class whose instances are `V`.
 
-## NativeAttributes
+### NativeAttributes
 
 ```ts title="ui.d.ts"
 type NativeAttributes<T> = [
@@ -142,15 +179,7 @@ type NativeAttributes<T> = [
 
 The JSX attributes of a native view class: what each class in its hierarchy gives under its own `~jsx:<module>.<class>` key, together. The keys are derived by rule from the declarations. Each key's type takes the class itself (`this`), so a control event's handler gets the tag's class.
 
-## invalidateSize
-
-```ts title="ui.d.ts"
-function invalidateSize(): void;
-```
-
-Has the view measured again once the main thread's work ends, after a change to its native content that its host can't hear of. The host hears of every function setup makes running: an effect, a native callback, a command. Code after an `await` runs in none of them.
-
-## Continuous
+### Continuous
 
 ```ts title="ui.d.ts"
 type Continuous<F extends (...args: never[]) => void> = F;
@@ -158,7 +187,7 @@ type Continuous<F extends (...args: never[]) => void> = F;
 
 Marks an event prop's callback type: JavaScript hears each of its events at a lower priority than a discrete one (a tap). React may then batch what they update. It suits events that come often, such as a drag or a timer, while an unmarked event is discrete.
 
-## Coalesced
+### Coalesced
 
 ```ts title="ui.d.ts"
 type Coalesced<F extends (...args: never[]) => void> = F;

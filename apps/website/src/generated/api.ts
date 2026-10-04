@@ -15,7 +15,21 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Resolves after `ms` milliseconds; rejects with the signal's reason if it aborts first."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "ms",
+            "type": "number",
+            "optional": false,
+            "doc": "How long to wait, in milliseconds."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Rejects the promise early, with its reason."
+          }
+        ]
       },
       {
         "name": "error",
@@ -25,7 +39,21 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "An Error with a machine-readable `code`, which JavaScript reads as `error.code`."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "code",
+            "type": "string",
+            "optional": false,
+            "doc": "What JavaScript branches on, such as `\"E_NOT_FOUND\"`."
+          },
+          {
+            "name": "message",
+            "type": "string",
+            "optional": false,
+            "doc": "What a person reads."
+          }
+        ]
       },
       {
         "name": "errorCode",
@@ -35,7 +63,15 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "The `code` of an error made with `error()`, or undefined."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "e",
+            "type": "Error",
+            "optional": false,
+            "doc": "An error, from `error()` or not."
+          }
+        ]
       },
       {
         "name": "utf8Encode",
@@ -45,7 +81,15 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "The UTF-8 bytes of a string, like `new TextEncoder().encode(s)`."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "s",
+            "type": "string",
+            "optional": false,
+            "doc": "The string to encode."
+          }
+        ]
       },
       {
         "name": "utf8Decode",
@@ -55,7 +99,15 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Decodes UTF-8 bytes, like `new TextDecoder().decode(bytes)`, replacing invalid sequences."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "bytes",
+            "type": "Uint8Array",
+            "optional": false,
+            "doc": "The UTF-8 bytes to decode."
+          }
+        ]
       },
       {
         "name": "now",
@@ -65,7 +117,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Milliseconds from a monotonic clock, for measuring durations."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "fromCallback",
@@ -81,7 +134,21 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "examples": [
           "import { fromCallback } from \"lucent:core\";\n\n// Who waits for the next tick, as a native listener would hold it.\nlet waiting: ((tick: number) => void) | undefined;\n\nexport function tick(n: number): void {\n  waiting?.(n);\n}\n\nexport async function nextTick(signal?: AbortSignal): Promise<number> {\n  return await fromCallback<number>((resolve) => {\n    waiting = resolve;\n    return () => {\n      waiting = undefined;\n    };\n  }, signal);\n}"
         ],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "register",
+            "type": "(resolve: (value: T) => void, reject: (reason: Error) => void) => (() => void) | void",
+            "optional": false,
+            "doc": "Starts listening with `resolve` and `reject`, and may return the cleanup."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Rejects the promise with its reason, and runs the cleanup."
+          }
+        ]
       },
       {
         "name": "subscribe",
@@ -93,7 +160,27 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "The cleanup, a throw from `register`, an aborted signal and calls from other threads behave as in `fromCallback`."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "register",
+            "type": "(\n    next: (value: T) => void,\n    end: () => void,\n    fail: (error: Error) => void,\n  ) => (() => void) | void",
+            "optional": false,
+            "doc": "Starts listening with `next`, `end` and `fail`, and may return the cleanup."
+          },
+          {
+            "name": "onValue",
+            "type": "(value: T) => void",
+            "optional": false,
+            "doc": "Called with each value while the subscription is open."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Ends the subscription, rejecting with its reason."
+          }
+        ]
       },
       {
         "name": "ComputeOptions",
@@ -109,7 +196,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "signature": "signal?: AbortSignal;",
             "doc": "Aborting it cancels the task: the promise rejects with its reason at once."
           }
-        ]
+        ],
+        "params": []
       },
       {
         "name": "compute",
@@ -126,7 +214,27 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "examples": [
           "import { compute } from \"lucent:core\";\n\nfunction edgePositions(bytes: Uint8Array): number[] {\n  const positions: number[] = [];\n  for (let i = 1; i < bytes.length; i++)\n    if (Math.abs(bytes[i]! - bytes[i - 1]!) > 40) positions.push(i);\n  return positions;\n}\n\nexport async function edges(bytes: Uint8Array, signal: AbortSignal): Promise<number[]> {\n  return await compute(edgePositions, bytes, { signal });\n}"
         ],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "task",
+            "type": "(input: T) => R",
+            "optional": false,
+            "doc": "A function declared at the top level of a module, taking one parameter."
+          },
+          {
+            "name": "input",
+            "type": "T",
+            "optional": false,
+            "doc": "Data, copied when `compute` is called."
+          },
+          {
+            "name": "options",
+            "type": "ComputeOptions",
+            "optional": true,
+            "doc": "`signal` cancels the task."
+          }
+        ]
       },
       {
         "name": "NativeBuffer",
@@ -196,7 +304,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "signature": "[Symbol.dispose](): void;",
             "doc": ""
           }
-        ]
+        ],
+        "params": []
       },
       {
         "name": "ByteSpan",
@@ -217,7 +326,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "signature": "readonly [index: number]: number;",
             "doc": ""
           }
-        ]
+        ],
+        "params": []
       },
       {
         "name": "MutableByteSpan",
@@ -243,7 +353,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "signature": "set(source: Uint8Array, offset?: number): void;",
             "doc": "Copies `source` in at `offset`: a RangeError if it does not fit."
           }
-        ]
+        ],
+        "params": []
       },
       {
         "name": "NativeBufferStats",
@@ -279,7 +390,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "signature": "readonly bytesCopied: number;",
             "doc": ""
           }
-        ]
+        ],
+        "params": []
       }
     ]
   },
@@ -294,7 +406,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "The platform: `if (PLATFORM === \"ios\") { … } else { … }` and `PLATFORM === \"ios\" ? … : …` compile each platform's branch only, so a shared module can use `lucent:ios/…` and `lucent:android/…` in them."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       }
     ]
   },
@@ -310,7 +423,15 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "`f` runs holding the lock module code shares, and the main thread waits for any module job before it starts. Keep it short."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "f",
+            "type": "() => T",
+            "optional": false,
+            "doc": "The code to run on the main thread: its result resolves the promise."
+          }
+        ]
       }
     ]
   },
@@ -325,7 +446,27 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Whether the OS is at least `major.minor` (Swift's `#available`)."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "platform",
+            "type": "\"ios\"",
+            "optional": false,
+            "doc": "Always `\"ios\"`."
+          },
+          {
+            "name": "major",
+            "type": "number",
+            "optional": false,
+            "doc": "The major version, such as `16`."
+          },
+          {
+            "name": "minor",
+            "type": "number",
+            "optional": true,
+            "doc": "The minor version; 0 when left out."
+          }
+        ]
       },
       {
         "name": "NSObject",
@@ -341,7 +482,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "signature": "protected constructor();",
             "doc": ""
           }
-        ]
+        ],
+        "params": []
       },
       {
         "name": "ObjCValue",
@@ -351,7 +493,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "What can go where Objective-C takes `Any` (`id`), CoreFoundation values included."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "mainQueue",
@@ -361,7 +504,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "The main dispatch queue (dispatch_get_main_queue()), for APIs that take a queue."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "asString",
@@ -371,7 +515,15 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Swift's `as? String`: the string an `Any` holds, or null."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "value",
+            "type": "NSObject | null",
+            "optional": false,
+            "doc": ""
+          }
+        ]
       },
       {
         "name": "asNumber",
@@ -381,7 +533,15 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Swift's `as? Double` (an NSNumber)."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "value",
+            "type": "NSObject | null",
+            "optional": false,
+            "doc": ""
+          }
+        ]
       },
       {
         "name": "asBoolean",
@@ -391,7 +551,15 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Swift's `as? Bool` (an NSNumber)."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "value",
+            "type": "NSObject | null",
+            "optional": false,
+            "doc": ""
+          }
+        ]
       },
       {
         "name": "asData",
@@ -401,7 +569,15 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Swift's `as? Data`."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "value",
+            "type": "NSObject | null",
+            "optional": false,
+            "doc": ""
+          }
+        ]
       },
       {
         "name": "asDate",
@@ -411,7 +587,15 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Swift's `as? Date`."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "value",
+            "type": "NSObject | null",
+            "optional": false,
+            "doc": ""
+          }
+        ]
       },
       {
         "name": "Out",
@@ -432,7 +616,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "signature": "value: T | null;",
             "doc": ""
           }
-        ]
+        ],
+        "params": []
       },
       {
         "name": "AppEvent",
@@ -442,7 +627,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "UIApplication's lifecycle notifications, by name: `\"didBecomeActive\"` is `UIApplication.didBecomeActiveNotification`."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "SceneEvent",
@@ -452,7 +638,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "UIScene's lifecycle notifications, by name: `\"willConnect\"` is `UIScene.willConnectNotification`."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "onAppEvent",
@@ -463,7 +650,27 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Lucent observes the notifications, so the app's delegate and other modules' stay as they are. What `listener` throws is logged, and the app goes on."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "AppEvent",
+            "optional": false,
+            "doc": "The notification, by name."
+          },
+          {
+            "name": "listener",
+            "type": "() => void",
+            "optional": false,
+            "doc": "Called on the main thread each time it is posted."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Stops listening, as the returned function does."
+          }
+        ]
       },
       {
         "name": "onSceneEvent",
@@ -473,7 +680,27 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Like `onAppEvent`, for each scene's `event`: `listener` gets the scene's session's `persistentIdentifier`."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "SceneEvent",
+            "optional": false,
+            "doc": "The notification, by name."
+          },
+          {
+            "name": "listener",
+            "type": "(scene: string) => void",
+            "optional": false,
+            "doc": "Called with the scene's `persistentIdentifier`."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Stops listening, as the returned function does."
+          }
+        ]
       },
       {
         "name": "present",
@@ -486,7 +713,21 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "It rejects with an `InvalidStateError` when no scene is in the foreground, or UIKit doesn't present it."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "build",
+            "type": "(resolve: (value: T) => void, reject: (reason: Error) => void) => UIViewController",
+            "optional": false,
+            "doc": "Makes the view controller, on the main thread."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Dismisses it and rejects with an `AbortError`."
+          }
+        ]
       }
     ]
   },
@@ -501,7 +742,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "The application Context."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "available",
@@ -511,7 +753,21 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Whether the device runs at least API level `api` (`Build.VERSION.SDK_INT >= api`)."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "platform",
+            "type": "\"android\"",
+            "optional": false,
+            "doc": "Always `\"android\"`."
+          },
+          {
+            "name": "api",
+            "type": "number",
+            "optional": false,
+            "doc": "The API level, such as `31`."
+          }
+        ]
       },
       {
         "name": "currentActivity",
@@ -521,7 +777,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "The Activity in front: the one last created, started or resumed and not destroyed, or null (before the first, between two, after the last). Lucent holds Activities weakly: use this one now, on the main thread (inside `main()`), and ask again later rather than keeping it."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "startActivityForResult",
@@ -532,7 +789,21 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "It rejects with `ERR_NO_ACTIVITY` without an Activity, and with `ERR_ACTIVITY_NOT_FOUND` when no app handles the intent. It rejects with the signal's reason if it aborts first, and drops the answer if it comes. Lucent closes what it started when Android lets it."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "intent",
+            "type": "Intent",
+            "optional": false,
+            "doc": "What to start."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Rejects with its reason; a later answer is dropped."
+          }
+        ]
       },
       {
         "name": "requestPermissions",
@@ -542,7 +813,21 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Asks for runtime permissions (`\"android.permission.CAMERA\"`), and resolves with whether each was granted, in order. Requests wait for the one before them, as Android asks one at a time. It rejects like `startActivityForResult`."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "permissions",
+            "type": "string[]",
+            "optional": false,
+            "doc": "Their names, such as `\"android.permission.CAMERA\"`."
+          },
+          {
+            "name": "signal",
+            "type": "AbortSignal",
+            "optional": true,
+            "doc": "Rejects with its reason; a later answer is dropped."
+          }
+        ]
       },
       {
         "name": "ActivityEvent",
@@ -552,7 +837,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "The lifecycle events of the app's Activities, and a new intent sent to one."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "onActivityEvent",
@@ -562,7 +848,21 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Runs `handler` after each `event` of the app's Activities, with the Activity (and the intent, for \"newIntent\"), in a turn of the calling context. Returns the function that stops it."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "event",
+            "type": "ActivityEvent",
+            "optional": false,
+            "doc": "The lifecycle event, or `\"newIntent\"`."
+          },
+          {
+            "name": "handler",
+            "type": "(activity: Activity, intent: Intent | null) => void",
+            "optional": false,
+            "doc": "Called with the Activity, and the intent for `\"newIntent\"`."
+          }
+        ]
       }
     ]
   },
@@ -603,7 +903,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "signature": "error(...data: unknown[]): void;",
             "doc": ""
           }
-        ]
+        ],
+        "params": []
       },
       {
         "name": "AbortSignal",
@@ -634,7 +935,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "signature": "addEventListener(type: \"abort\", listener: () => void): void;",
             "doc": ""
           }
-        ]
+        ],
+        "params": []
       },
       {
         "name": "AbortController",
@@ -655,7 +957,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "signature": "abort(reason?: any): void;",
             "doc": "In Lucent code, `reason` must be an Error."
           }
-        ]
+        ],
+        "params": []
       }
     ]
   },
@@ -670,7 +973,15 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Runs `run` now, and again after a prop or signal it read changes. Before it runs again, and when the view goes, what it registered with `onDispose` runs."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "run",
+            "type": "() => void",
+            "optional": false,
+            "doc": "Reads props and signals; runs again when one of them changes."
+          }
+        ]
       },
       {
         "name": "Signal",
@@ -696,7 +1007,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
             "signature": "set(value: T): void;",
             "doc": "Changes it, unless `value` is the same (Object.is), running what read it."
           }
-        ]
+        ],
+        "params": []
       },
       {
         "name": "signal",
@@ -706,7 +1018,15 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "A signal holding `initial`, for this mount of the view."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "initial",
+            "type": "T",
+            "optional": false,
+            "doc": "Its first value."
+          }
+        ]
       },
       {
         "name": "Bound",
@@ -716,7 +1036,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "A signal given to a view of a toolkit body that changes it: SwiftUI's Binding, or Compose's value and its change callback. The view shows the signal's value, and a change the user makes sets the signal. The signal may keep another value, and the view shows what it keeps."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "bind",
@@ -726,7 +1047,15 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "`signal`, bound to the view of a body it is given to: only there."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "signal",
+            "type": "Signal<T>",
+            "optional": false,
+            "doc": "The signal the view shows and sets."
+          }
+        ]
       },
       {
         "name": "ClosedRange",
@@ -736,7 +1065,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "The numbers from `from` to `to`, both included, given to a view of a toolkit body that takes a range (a slider's, a stepper's bounds): SwiftUI's `from ... to`. Written where the view takes it, as bind(signal) is."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "range",
@@ -746,7 +1076,21 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "The closed range from `from` to `to`, for the view of a body it is given to: only there."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "from",
+            "type": "number",
+            "optional": false,
+            "doc": "The first number."
+          },
+          {
+            "name": "to",
+            "type": "number",
+            "optional": false,
+            "doc": "The last number, included."
+          }
+        ]
       },
       {
         "name": "expose",
@@ -756,7 +1100,15 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Gives the component's React ref `commands`: called once, at the top of setup, with an object literal of functions. A command returning nothing runs on the main thread; one returning a value (or a promise) answers JavaScript's promise."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "commands",
+            "type": "T",
+            "optional": false,
+            "doc": "An object literal of functions."
+          }
+        ]
       },
       {
         "name": "onDispose",
@@ -766,7 +1118,15 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Runs `cleanup` when the view goes; inside an effect, before the effect runs again."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": [
+          {
+            "name": "cleanup",
+            "type": "() => void",
+            "optional": false,
+            "doc": "What to undo."
+          }
+        ]
       },
       {
         "name": "Children",
@@ -776,7 +1136,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "The type of a component's `children` prop: the React elements JavaScript nests in it, which React Native mounts in the view `slot` gives setup. Setup never reads them."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "slot",
@@ -787,7 +1148,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Put it in the view setup returns, where the children belong: it fills the view it is added to unless setup sizes it. React lays the children out in the component's own coordinates, wherever the slot is, and they show within the slot's bounds. React Native adds, moves and removes them: setup never changes the slot's subviews."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "NativeViewTag",
@@ -797,7 +1159,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "A native view class, as a JSX tag: any class whose instances are `V`."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "NativeAttributes",
@@ -807,7 +1170,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "The JSX attributes of a native view class: what each class in its hierarchy gives under its own `~jsx:<module>.<class>` key, together. The keys are derived by rule from the declarations. Each key's type takes the class itself (`this`), so a control event's handler gets the tag's class."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "invalidateSize",
@@ -817,7 +1181,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Has the view measured again once the main thread's work ends, after a change to its native content that its host can't hear of. The host hears of every function setup makes running: an effect, a native callback, a command. Code after an `await` runs in none of them."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "Continuous",
@@ -827,7 +1192,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Marks an event prop's callback type: JavaScript hears each of its events at a lower priority than a discrete one (a tap). React may then batch what they update. It suits events that come often, such as a drag or a timer, while an unmarked event is discrete."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "Coalesced",
@@ -837,7 +1203,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Marks an event prop's callback type as continuous, and coalesced. While the view's latest event waiting for JavaScript is one of this type, a new one replaces it, so JavaScript hears the latest value. It suits events whose latest value is all that counts, such as a scroll position."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       }
     ]
   },
@@ -852,7 +1219,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Kotlin's Float: a number, converted where the body passes it."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "Int",
@@ -862,7 +1230,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Kotlin's Int."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "Long",
@@ -872,7 +1241,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Kotlin's Long."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "Short",
@@ -882,7 +1252,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Kotlin's Short."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "Byte",
@@ -892,7 +1263,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Kotlin's Byte."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "Composed",
@@ -902,7 +1274,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "What an element shows (`<Box …/>`): an item of content, the value of JSX, never a value setup holds."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "Shown",
@@ -912,7 +1285,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "Content: what composables show, in order, or nothing where a condition is false."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "Content",
@@ -922,7 +1296,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "A @Composable content lambda given as a prop: its statements compose, and it returns what it shows."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "ScopedContent",
@@ -932,7 +1307,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "A content lambda composed in a receiver scope (a Row's RowScope), given as a prop. Its first parameter is the scope, whose methods and Modifier run in it."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "ScopedChildren",
@@ -942,7 +1318,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "An element's children composed in a receiver scope: what they show, or a function of the scope showing it. Children that use the scope take the function: `{(row) => <Text modifier={row.Modifier.weight(1)} … />}`."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "JSX",
@@ -952,7 +1329,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "How TypeScript types the JSX of an Android file. An element is a composable: a function of its props, whose children are its `children` prop. It may also be a view class, typed with its declarations' `~jsx` attributes."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       },
       {
         "name": "ComposeView",
@@ -962,7 +1340,8 @@ export const apiModules: Record<string, ModuleDeclarations> = {
           "The Android view hosting a composition: the view a component returning JSX makes."
         ],
         "examples": [],
-        "members": []
+        "members": [],
+        "params": []
       }
     ]
   }

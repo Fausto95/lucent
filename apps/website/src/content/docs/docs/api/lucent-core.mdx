@@ -9,7 +9,26 @@ custom_edit_url: https://github.com/Fausto95/lucent/edit/main/apps/website/src/d
 
 Each helper has a native implementation, and a JavaScript one in `@lucent-lang/lucent/core` that tests run modules with ([Test a module](/docs/guides/test-a-module/)). This page documents both.
 
-## delay
+## Example
+
+```ts title="measure.lucent.ts"
+import { delay, error, errorCode, now } from "lucent:core";
+
+export async function measure(task: string, signal?: AbortSignal): Promise<number> {
+  if (task.length === 0) throw error("E_EMPTY", "Name the task to measure.");
+  const start = now();
+  await delay(10, signal);
+  return now() - start;
+}
+
+export function codeOf(e: Error): string {
+  return errorCode(e) ?? "unknown";
+}
+```
+
+## Functions
+
+### delay()
 
 ```ts title="core.d.ts"
 function delay(ms: number, signal?: AbortSignal): Promise<void>;
@@ -17,7 +36,12 @@ function delay(ms: number, signal?: AbortSignal): Promise<void>;
 
 Resolves after `ms` milliseconds; rejects with the signal's reason if it aborts first.
 
-## error
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `ms` | `number` | yes | How long to wait, in milliseconds. |
+| `signal` | `AbortSignal` | no | Rejects the promise early, with its reason. |
+
+### error()
 
 ```ts title="core.d.ts"
 function error(code: string, message: string): Error;
@@ -25,7 +49,12 @@ function error(code: string, message: string): Error;
 
 An Error with a machine-readable `code`, which JavaScript reads as `error.code`.
 
-## errorCode
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `code` | `string` | yes | What JavaScript branches on, such as `"E_NOT_FOUND"`. |
+| `message` | `string` | yes | What a person reads. |
+
+### errorCode()
 
 ```ts title="core.d.ts"
 function errorCode(e: Error): string | undefined;
@@ -33,7 +62,11 @@ function errorCode(e: Error): string | undefined;
 
 The `code` of an error made with `error()`, or undefined.
 
-## utf8Encode
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `e` | `Error` | yes | An error, from `error()` or not. |
+
+### utf8Encode()
 
 ```ts title="core.d.ts"
 function utf8Encode(s: string): Uint8Array;
@@ -41,7 +74,11 @@ function utf8Encode(s: string): Uint8Array;
 
 The UTF-8 bytes of a string, like `new TextEncoder().encode(s)`.
 
-## utf8Decode
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `s` | `string` | yes | The string to encode. |
+
+### utf8Decode()
 
 ```ts title="core.d.ts"
 function utf8Decode(bytes: Uint8Array): string;
@@ -49,7 +86,11 @@ function utf8Decode(bytes: Uint8Array): string;
 
 Decodes UTF-8 bytes, like `new TextDecoder().decode(bytes)`, replacing invalid sequences.
 
-## now
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `bytes` | `Uint8Array` | yes | The UTF-8 bytes to decode. |
+
+### now()
 
 ```ts title="core.d.ts"
 function now(): number;
@@ -57,7 +98,7 @@ function now(): number;
 
 Milliseconds from a monotonic clock, for measuring durations.
 
-## fromCallback
+### fromCallback()
 
 ```ts title="core.d.ts"
 function fromCallback<T>(
@@ -75,6 +116,11 @@ The cleanup runs exactly once, inside the call that settles the promise, before 
 A throw from `register` rejects the promise. With a signal already aborted, the promise rejects with the signal's reason, and `register` is not called.
 
 Called from another thread (inside `main()`, say), `resolve` and `reject` take effect on the thread `fromCallback` was called on, in the order they were called.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `register` | `(resolve: (value: T) => void, reject: (reason: Error) => void) => (() => void) \| void` | yes | Starts listening with `resolve` and `reject`, and may return the cleanup. |
+| `signal` | `AbortSignal` | no | Rejects the promise with its reason, and runs the cleanup. |
 
 ```ts title="fromCallback.lucent.ts"
 import { fromCallback } from "lucent:core";
@@ -96,7 +142,7 @@ export async function nextTick(signal?: AbortSignal): Promise<number> {
 }
 ```
 
-## subscribe
+### subscribe()
 
 ```ts title="core.d.ts"
 function subscribe<T>(
@@ -116,21 +162,17 @@ Passes what a listener reports to `onValue` until the subscription ends, and res
 
 The cleanup, a throw from `register`, an aborted signal and calls from other threads behave as in `fromCallback`.
 
-## ComputeOptions
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `register` | `(
+    next: (value: T) => void,
+    end: () => void,
+    fail: (error: Error) => void,
+  ) => (() => void) \| void` | yes | Starts listening with `next`, `end` and `fail`, and may return the cleanup. |
+| `onValue` | `(value: T) => void` | yes | Called with each value while the subscription is open. |
+| `signal` | `AbortSignal` | no | Ends the subscription, rejecting with its reason. |
 
-```ts title="core.d.ts"
-interface ComputeOptions {
-  signal?: AbortSignal;
-}
-```
-
-How a compute task runs.
-
-| Member | What it does |
-| --- | --- |
-| `signal?: AbortSignal;` | Aborting it cancels the task: the promise rejects with its reason at once. |
-
-## compute
+### compute()
 
 ```ts title="core.d.ts"
 function compute<T, R>(
@@ -152,6 +194,12 @@ A running task stops at the next iteration of a loop in it, or in a module funct
 
 The pool holds a bounded number of waiting tasks: beyond it, `compute` rejects with a QuotaExceededError.
 
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `task` | `(input: T) => R` | yes | A function declared at the top level of a module, taking one parameter. |
+| `input` | `T` | yes | Data, copied when `compute` is called. |
+| `options` | `ComputeOptions` | no | `signal` cancels the task. |
+
 ```ts title="compute.lucent.ts"
 import { compute } from "lucent:core";
 
@@ -167,7 +215,9 @@ export async function edges(bytes: Uint8Array, signal: AbortSignal): Promise<num
 }
 ```
 
-## NativeBuffer
+## Classes
+
+### NativeBuffer
 
 ```ts title="core.d.ts"
 class NativeBuffer {
@@ -233,7 +283,23 @@ export async function sample(): Promise<number> {
 | `close(): void;` | Releases the bytes. Closing a closed or transferred buffer does nothing. |
 | `[Symbol.dispose](): void;` |  |
 
-## ByteSpan
+## Types
+
+### ComputeOptions
+
+```ts title="core.d.ts"
+interface ComputeOptions {
+  signal?: AbortSignal;
+}
+```
+
+How a compute task runs.
+
+| Member | What it does |
+| --- | --- |
+| `signal?: AbortSignal;` | Aborting it cancels the task: the promise rejects with its reason at once. |
+
+### ByteSpan
 
 ```ts title="core.d.ts"
 interface ByteSpan {
@@ -244,7 +310,7 @@ interface ByteSpan {
 
 The bytes `withRead` lends, read like a `Uint8Array`'s: `bytes[i]` is undefined out of range.
 
-## MutableByteSpan
+### MutableByteSpan
 
 ```ts title="core.d.ts"
 interface MutableByteSpan extends ByteSpan {
@@ -262,7 +328,7 @@ The bytes `withWrite` lends, written like a `Uint8Array`'s: values wrap to 0–2
 | `fill(value: number, start?: number, end?: number): void;` | Sets the bytes from `start` to `end` (counted from the end when negative) to `value`. |
 | `set(source: Uint8Array, offset?: number): void;` | Copies `source` in at `offset`: a RangeError if it does not fit. |
 
-## NativeBufferStats
+### NativeBufferStats
 
 ```ts title="core.d.ts"
 interface NativeBufferStats {

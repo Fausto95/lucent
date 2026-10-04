@@ -1,10 +1,15 @@
 /**
  * Reads a declaration file (packages/compiler/lib/sdk/*.d.ts, lib/globals.d.ts)
  * into what the API pages show of each export: its signature, its own doc
- * comment as paragraphs and examples, and its members.
+ * comment as paragraphs and examples, its parameters and its members.
  */
 import ts from "typescript";
-import type { Declaration, Member, ModuleDeclarations } from "../../apps/website/src/docs/api.ts";
+import type {
+  Declaration,
+  Member,
+  ModuleDeclarations,
+  Param,
+} from "../../apps/website/src/docs/api.ts";
 
 /** Members and type parts that only tag a type for the compiler. */
 const BRAND = /__lucent|"lucent:compose\.|\[delivery\]/;
@@ -21,16 +26,42 @@ function commentText(raw: string): string {
     .trim();
 }
 
-/** A comment's paragraphs and code blocks; `@tag` lines are left out. */
-function parseDoc(text: string): { doc: string[]; examples: string[] } {
+/**
+ * A comment's paragraphs and code blocks, and its @param tags by name; other
+ * `@tag` lines are left out. A tag runs to the next tag or blank line.
+ */
+function parseDoc(text: string): {
+  doc: string[];
+  examples: string[];
+  paramDocs: Map<string, string>;
+} {
   const examples: string[] = [];
+  const paramDocs = new Map<string, string>();
+  let tag: string | undefined;
   const prose = text
     .replace(/```\w*\n([\s\S]*?)\n```/g, (_, code: string) => {
       examples.push(code.trimEnd());
       return "\n\n";
     })
     .split("\n")
-    .filter((line) => !/^@\w+/.test(line.trim()))
+    .filter((line) => {
+      const param = /^@param\s+(\w+)\s*(.*)$/.exec(line.trim());
+      if (param) {
+        tag = param[1]!;
+        paramDocs.set(tag, param[2]!.replace(/^-\s*/, ""));
+        return false;
+      }
+      if (/^@\w+/.test(line.trim())) {
+        tag = undefined;
+        return false;
+      }
+      if (tag && line.trim()) {
+        paramDocs.set(tag, `${paramDocs.get(tag)} ${line.trim()}`.trim());
+        return false;
+      }
+      tag = undefined;
+      return true;
+    })
     .join("\n");
   const doc = prose
     .split(/\n\s*\n/)
@@ -42,7 +73,7 @@ function parseDoc(text: string): { doc: string[]; examples: string[] } {
         .trim(),
     )
     .filter(Boolean);
-  return { doc, examples };
+  return { doc, examples, paramDocs };
 }
 
 /** Signature text: no `export declare`, no doc comments, no brands, no blank lines. */
@@ -75,12 +106,16 @@ export function declarationsOf(file: string, text: string): ModuleDeclarations {
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
   const opening = /^\/\*\*[\s\S]*?\*\//.exec(text);
 
-  /** The node's own doc comment: the last before it, never the file's opening one. */
+  /**
+   * The node's own doc comment: the last before it. The file's opening
+   * comment counts only when no other comment follows it.
+   */
   const docOf = (node: ts.Node): string | undefined => {
-    const ranges = (ts.getLeadingCommentRanges(text, node.pos) ?? []).filter(
-      (r) => text.startsWith("/**", r.pos) && !(opening && r.pos === 0),
+    const docs = (ts.getLeadingCommentRanges(text, node.pos) ?? []).filter((r) =>
+      text.startsWith("/**", r.pos),
     );
-    const last = ranges.at(-1);
+    const own = docs.length > 1 && opening && docs[0]!.pos === 0 ? docs.slice(1) : docs;
+    const last = own.at(-1);
     return last && commentText(text.slice(last.pos, last.end));
   };
 
@@ -121,12 +156,23 @@ export function declarationsOf(file: string, text: string): ModuleDeclarations {
             ];
           })
         : [];
+    const { doc, examples, paramDocs } = parseDoc(comment);
+    const params = ts.isFunctionDeclaration(node)
+      ? node.parameters.map((p): Param => ({
+          name: p.name.getText(sf),
+          type: p.type ? p.type.getText(sf) : "unknown",
+          optional: !!p.questionToken || !!p.initializer,
+          doc: paramDocs.get(p.name.getText(sf)) ?? "",
+        }))
+      : [];
     return {
       name,
       kind,
       signature: signatureOf(text.slice(node.getStart(sf), node.end)),
-      ...parseDoc(comment),
+      doc,
+      examples,
       members,
+      params,
     };
   });
 

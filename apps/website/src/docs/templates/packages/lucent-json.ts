@@ -14,7 +14,6 @@ export const blocks: Block[] = [
     kind: "code",
     filename: "lucent.json",
     code: `{
-  "$schema": "https://lucent-lang.dev/schemas/lucent.schema.json",
   "ios": {
     "pods": { "LucentAuthKit": "~> 1.0" },
     "frameworks": ["LocalAuthentication"],
@@ -29,12 +28,14 @@ export const blocks: Block[] = [
   {
     kind: "table",
     head: ["Field", "Type", "Required", "Meaning"],
-    rows: lucentJsonFields.map(({ field, type, required, description }) => [
-      `\`${field}\``,
-      `\`${type}\``,
-      required ? "yes" : "",
-      description,
-    ]),
+    rows: lucentJsonFields
+      .filter((f) => f.field !== "extensions" && !f.field.startsWith("extensions."))
+      .map(({ field, type, required, description }) => [
+        `\`${field}\``,
+        `\`${type}\``,
+        required ? "yes" : "",
+        description,
+      ]),
   },
   {
     kind: "p",
@@ -42,6 +43,6 @@ export const blocks: Block[] = [
   },
   {
     kind: "p",
-    text: "This table is generated from the schema, which editors read through the `$schema` URL above. The package ships it too, at `node_modules/@lucent-lang/lucent/schemas/lucent.schema.json`.",
+    text: "This table is generated from the schema at `https://lucent-lang.dev/schemas/lucent.schema.json`, which the package also ships, at `node_modules/@lucent-lang/lucent/schemas/lucent.schema.json`. Point your editor's JSON schema setting at it for `lucent.json` files: the file itself doesn't take a `$schema` field. The `extensions` field has its own page, [Native extensions](/docs/packages/native-extensions/).",
   },
 ];

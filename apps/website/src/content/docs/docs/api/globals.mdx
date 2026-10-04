@@ -9,7 +9,9 @@ custom_edit_url: https://github.com/Fausto95/lucent/edit/main/apps/website/src/d
 
 The global variables `console`, `AbortController` and `AbortSignal` have these types. The JavaScript built-ins a module can use are on [Built-ins](/docs/reference/built-ins/).
 
-## Console
+## Types
+
+### Console
 
 ```ts title="globals.d.ts"
 interface Console {
@@ -23,7 +25,7 @@ interface Console {
 
 What `console` logs. On iOS each line goes to the unified log, prefixed `[Lucent]`; on Android, to logcat under the tag `Lucent`. An object prints as `String(obj)`.
 
-## AbortSignal
+### AbortSignal
 
 ```ts title="globals.d.ts"
 interface AbortSignal {
@@ -43,7 +45,7 @@ The signal of an `AbortController`, which JavaScript passes to cancel an async c
 | `throwIfAborted(): void;` |  |
 | `addEventListener(type: "abort", listener: () => void): void;` |  |
 
-## AbortController
+### AbortController
 
 ```ts title="globals.d.ts"
 interface AbortController {
