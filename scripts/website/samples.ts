@@ -50,6 +50,32 @@ function cppOf(files: Map<string, string>, filename: string): CppFile[] {
   });
 }
 
+/** A page whose platform C++ this machine can't rebuild. */
+export interface Unbuilt {
+  platforms: string[];
+  /** Its `cpp` samples, by file name. */
+  samples: string[];
+}
+
+/**
+ * Pages whose C++ isn't rebuilt here need it committed for every `cpp`
+ * sample: else "See the C++" would vanish without a word.
+ */
+export function unbuiltProblems(
+  unbuilt: Map<string, Unbuilt>,
+  committed: (href: string) => Record<string, unknown> | undefined,
+): string[] {
+  return [...unbuilt].flatMap(([href, { platforms, samples }]) => {
+    const has = committed(href) ?? {};
+    return samples
+      .filter((name) => !(name in has))
+      .map(
+        (name) =>
+          `${href}: its "See the C++" for ${name} isn't built: run \`node scripts/website.ts\` where the ${platforms.join(" and ")} SDK is installed`,
+      );
+  });
+}
+
 /**
  * A page's samples compile together, as one app; a sample with `expect` compiles alone and must fail with that code.
  * Returns the C++ of the samples marked `cpp`, by page URL.
@@ -58,14 +84,17 @@ export function checkSamples(pages: CheckedPage[]): {
   checked: number;
   problems: string[];
   cpp: Map<string, Record<string, CppFile[]>>;
-  /** Pages whose platform C++ needs an SDK this machine lacks (CI has no Xcode), by URL: their generated C++ is left as it is. */
-  unbuilt: Map<string, string[]>;
+  /**
+   * Pages whose platform C++ needs an SDK this machine lacks (CI has no Xcode), by URL: the
+   * platforms missing, and the samples whose C++ is left as committed.
+   */
+  unbuilt: Map<string, Unbuilt>;
   /** Pages of view components that no SDK here compiles (a component's view is a platform's), by URL. */
   unchecked: string[];
 } {
   const problems: string[] = [];
   const cpp = new Map<string, Record<string, CppFile[]>>();
-  const unbuilt = new Map<string, string[]>();
+  const unbuilt = new Map<string, Unbuilt>();
   const missing = PLATFORMS.filter((p) => !platformSdkTyped(p));
   const unchecked: string[] = [];
   let checked = 0;
@@ -92,7 +121,8 @@ export function checkSamples(pages: CheckedPage[]): {
       // "See the C++" reads a docs page's generated C++ (src/generated/cpp/<slug>.json).
       if (shown.length && page.kind === "post")
         problems.push(`${page.href}: "See the C++" (cpp: true) is for docs pages`);
-      else if (shown.length && platformCode && missing.length) unbuilt.set(page.href, missing);
+      else if (shown.length && platformCode && missing.length)
+        unbuilt.set(page.href, { platforms: missing, samples: shown.map((s) => s.filename) });
       else if (shown.length && !diagnostics.length)
         cpp.set(
           page.href,

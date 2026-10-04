@@ -35,7 +35,7 @@ import {
   loadTemplates,
 } from "./website/pages.ts";
 import { checkProse } from "./website/prose.ts";
-import { checkSamples } from "./website/samples.ts";
+import { checkSamples, unbuiltProblems } from "./website/samples.ts";
 
 const check = process.argv.includes("--check");
 const problems: string[] = [];
@@ -88,15 +88,24 @@ for (const [href, cpp] of samples.cpp) {
   generated[name] = `${JSON.stringify(cpp, null, 2)}\n`;
   write(name, generated[name]!);
 }
-for (const href of samples.unchecked)
-  console.warn(`! ${href}: its view samples are not checked here, without an iOS or Android SDK`);
-const unbuilt = new Set(
-  [...samples.unbuilt.keys()].map((href) => `src/generated/cpp/${slugOf(href) || "index"}.json`),
-);
-for (const [href, platforms] of samples.unbuilt)
+// Views compile where an iOS or Android SDK is; CI has the Android SDK, so there they must.
+for (const href of samples.unchecked) {
+  const unchecked = `${href}: its view samples are not checked here, without an iOS or Android SDK`;
+  if (check) problems.push(unchecked);
+  else console.warn(`! ${unchecked}`);
+}
+const cppFile = (href: string) => `src/generated/cpp/${slugOf(href) || "index"}.json`;
+const unbuilt = new Set([...samples.unbuilt.keys()].map(cppFile));
+for (const [href, { platforms }] of samples.unbuilt)
   console.warn(
     `! ${href}: its C++ is not rebuilt here, without the ${platforms.join(" and ")} SDK`,
   );
+problems.push(
+  ...unbuiltProblems(samples.unbuilt, (href) => {
+    const file = path.join(website, cppFile(href));
+    return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : undefined;
+  }),
+);
 const generatedDir = path.join(website, "src/generated");
 const existing = fs
   .readdirSync(generatedDir, { recursive: true, encoding: "utf8" })
