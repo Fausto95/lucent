@@ -936,6 +936,10 @@ export function extractAndroid(opts: AndroidOptions): SdkModuleSchema[] {
       if (ks?.name && ks.name !== m.name) {
         method.name = ks.name;
         method.java = m.name;
+      } else if (member && mangled(m.name)) {
+        // A value class property's accessor (`getBest-JdFk__0`): named as Java callers see it.
+        method.name = m.name.slice(0, m.name.indexOf("-"));
+        method.java = m.name;
       }
       if (Object.keys(kotlinFacts).length) method.kotlin = kotlinFacts;
       if (m.access & ACC.STATIC) method.static = true;

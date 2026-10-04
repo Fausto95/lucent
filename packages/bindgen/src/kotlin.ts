@@ -23,7 +23,9 @@ import type {
   KotlinClassFacts,
   KotlinMemberFacts,
   KotlinParamFacts,
+  KotlinTypeRef,
   TypeParamBounds,
+  TypeParamUpperBounds,
 } from "./schema.ts";
 
 /** A class file's decoded metadata: its declaration (undefined when not API), or why it was not read. */
@@ -86,7 +88,8 @@ export function kotlinApi(k: KotlinClasses, internal: string): boolean {
 
 /** A JVM method's source declaration. */
 export type KotlinMember =
-  | { role: "function"; function: KotlinFunction }
+  /** `outer`: the type parameters of the class declaring it, which its own bounds may name. */
+  | { role: "function"; function: KotlinFunction; outer: readonly KotlinTypeParameter[] }
   | { role: "constructor"; constructor: KotlinConstructor }
   | { role: "getter" | "setter"; property: KotlinProperty };
 
@@ -166,6 +169,7 @@ const CLASS_KINDS: Record<KotlinClass["kind"], KotlinClassFacts["kind"]> = {
 
 function classView(k: KotlinClasses, internal: string, c: KotlinClass): KotlinView {
   const bounds = boundsOf(c.typeParameters);
+  const upperBounds = upperBoundsOf(c.typeParameters, []);
   const view = membersView(
     {
       kind: CLASS_KINDS[c.kind],
@@ -174,6 +178,7 @@ function classView(k: KotlinClasses, internal: string, c: KotlinClass): KotlinVi
       ...(c.modality === "sealed" ? { sealed: c.sealedSubclasses } : {}),
       ...(c.valueClass ? { value: c.valueClass } : {}),
       ...(bounds ? { bounds } : {}),
+      ...(upperBounds ? { upperBounds } : {}),
     },
     [c],
   );
@@ -206,7 +211,11 @@ function classView(k: KotlinClasses, internal: string, c: KotlinClass): KotlinVi
 /** The view of what declares functions and properties: a class, a facade's file or files. */
 function membersView(
   facts: KotlinView["facts"],
-  owners: { functions: KotlinFunction[]; properties: KotlinProperty[] }[],
+  owners: {
+    functions: KotlinFunction[];
+    properties: KotlinProperty[];
+    typeParameters?: KotlinTypeParameter[];
+  }[],
 ): KotlinView {
   const view: KotlinView = {
     facts,
@@ -221,7 +230,11 @@ function membersView(
     for (const f of owner.functions) {
       if (!f.jvm) continue;
 
-      view.members.set(f.jvm.name + f.jvm.descriptor, { role: "function", function: f });
+      view.members.set(f.jvm.name + f.jvm.descriptor, {
+        role: "function",
+        function: f,
+        outer: owner.typeParameters ?? [],
+      });
       if (f.parameters.some((p) => p.declaresDefault)) view.overloaded.add(f.jvm.name);
     }
 
@@ -264,6 +277,60 @@ function boundsOf(params: readonly KotlinTypeParameter[]): TypeParamBounds | und
   return Object.keys(bounds).length ? bounds : undefined;
 }
 
+/**
+ * The upper bounds of `params` bounded other than by Any, as a shim
+ * writes them; `outer` are the type parameters around them their bounds
+ * may also name. Undefined when there is none.
+ */
+function upperBoundsOf(
+  params: readonly KotlinTypeParameter[],
+  outer: readonly KotlinTypeParameter[],
+): TypeParamUpperBounds | undefined {
+  const names = new Map([...outer, ...params].map((p) => [p.id, p.name]));
+  const bounds = boundsOf(params) ?? {};
+  const upper: TypeParamUpperBounds = {};
+
+  for (const p of params) {
+    if (bounds[p.name] !== "other") continue;
+
+    const refs = p.upperBounds.map((b) => typeRef(b, names));
+    if (refs.every((r) => r !== undefined)) upper[p.name] = refs as KotlinTypeRef[];
+  }
+
+  return Object.keys(upper).length ? upper : undefined;
+}
+
+/** A Kotlin type as a shim writes it; undefined for a use-site projection or a name it cannot reach. */
+function typeRef(t: KotlinType, names: ReadonlyMap<number, string>): KotlinTypeRef | undefined {
+  const c = t.classifier;
+  const name =
+    "class" in c
+      ? c.class.replaceAll("/", ".")
+      : "typeAlias" in c
+        ? c.typeAlias.replaceAll("/", ".")
+        : names.get(c.typeParameter);
+  if (!name) return undefined;
+
+  const args: (KotlinTypeRef | "*")[] = [];
+  for (const a of t.arguments) {
+    if (a === "*") {
+      args.push("*");
+      continue;
+    }
+    if (a.variance !== "invariant") return undefined;
+
+    const ref = typeRef(a.type, names);
+    if (!ref) return undefined;
+    args.push(ref);
+  }
+
+  return {
+    name,
+    ...(args.length ? { args } : {}),
+    ...(t.nullable ? { nullable: true as const } : {}),
+  };
+}
+
 /** One JVM parameter as Kotlin declares it. */
 export interface KotlinParam {
   name: string;
@@ -292,6 +359,7 @@ export function kotlinSignature(member: KotlinMember): KotlinSignature {
       const f = member.function;
       const receiver = f.receiver ? [{ name: "receiver", type: f.receiver }] : [];
       const bounds = boundsOf(f.typeParameters);
+      const upperBounds = upperBoundsOf(f.typeParameters, member.outer);
 
       return {
         name: f.name,
@@ -305,6 +373,7 @@ export function kotlinSignature(member: KotlinMember): KotlinSignature {
           ...(f.suspend ? { suspend: true } : {}),
           ...(f.receiver ? { extension: true } : {}),
           ...(bounds ? { bounds } : {}),
+          ...(upperBounds ? { upperBounds } : {}),
         },
       };
     }

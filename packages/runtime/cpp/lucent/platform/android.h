@@ -204,11 +204,79 @@ jobject boxDouble(JNIEnv* env, jdouble v);
 jobject boxFloat(JNIEnv* env, jfloat v);
 jobject boxBoolean(JNIEnv* env, bool v);
 
+/**
+ * A Kotlin value class `cls` (`dev/x/Score`) the JVM passes as its
+ * underlying value, whose descriptor is `underlying` (`I`): its boxed
+ * object of `value` (boxed itself, as a proxy receives it: an Integer),
+ * through the class's `box-impl`; and the underlying value of a boxed
+ * object, boxed as a proxy returns it, through its `unbox-impl`. Local
+ * references.
+ */
+jobject boxValueClass(JNIEnv* env, const char* cls, const char* underlying, jobject value);
+jobject unboxValueClass(JNIEnv* env, const char* cls, const char* underlying, jobject boxed);
+
 // --- Kotlin coroutines through generated shims ----------------------------------------
 
-/// Throws `error` to Java as a java.lang.RuntimeException carrying its
-/// message, which errorOf reads back as `error` itself.
+/// `error` as a java.lang.RuntimeException carrying its message, which
+/// errorOf reads back as `error` itself. A local reference.
+jthrowable throwableOf(JNIEnv* env, Error error);
+
+/// Throws `error` to Java, as throwableOf makes it.
 void throwToJava(JNIEnv* env, Error error);
+
+/**
+ * How a Kotlin suspend function a Lucent class implements ends: resumes
+ * its continuation with a value (a Java object, or null), or with the
+ * error (see throwableOf). Any thread may call it, once.
+ */
+using Resume = std::function<void(JNIEnv* env, jobject value, const Error* error)>;
+
+/**
+ * A suspend function a Lucent class implements, called through a proxy
+ * with `continuation` (its last argument): `start` is given what resumes
+ * it, and Kotlin is told the call suspended (COROUTINE_SUSPENDED), whose
+ * result it waits for.
+ */
+jobject suspendedCall(JNIEnv* env, jobject continuation, const std::function<void(Resume)>& start);
+
+/// Kotlin's Unit, what a suspend function giving nothing resumes with. A local reference.
+jobject unit(JNIEnv* env);
+
+/**
+ * Resumes a suspend call (`resume`) with what `call` gives: a promise's
+ * outcome once it settles, else its value now; what it throws is its
+ * error. `box(env, value)` makes the Java object of a value. On the
+ * Lucent thread, where the call runs.
+ */
+template <class F, class B>
+void resumeWithResult(const Resume& resume, F call, B box) {
+  auto settle = [resume, box](const auto& value) {
+    JNIEnv* e = env();
+    LocalFrame frame(e);
+    resume(e, box(e, value), nullptr);
+  };
+  auto fail = [resume](const Error& error) {
+    JNIEnv* e = env();
+    LocalFrame frame(e);
+    resume(e, nullptr, &error);
+  };
+
+  try {
+    auto r = call();
+    if constexpr (IsPromise<decltype(r)>::value) {
+      r.onSettled([r, settle, fail] {
+        if (r.fulfilled())
+          settle(r.value());
+        else
+          fail(r.error());
+      });
+    } else {
+      settle(r);
+    }
+  } catch (...) {
+    fail(currentError(std::current_exception()));
+  }
+}
 
 /**
  * A Lucent function a generated shim runs as a Kotlin suspend function (a

@@ -219,6 +219,32 @@ object Shims {
 `);
   });
 
+  it("print type parameters' bounds: one inline, several in a where clause", () => {
+    const comparable = kt.type("kotlin.Comparable", kt.type("T"));
+    const fun = (bounds: Record<string, kt.Type[]>): kt.Fun => ({
+      k: "fun",
+      modifiers: [],
+      typeParams: ["T", "R"],
+      bounds,
+      name: "best",
+      params: [kt.param("items", kt.type("kotlin.collections.List", kt.type("T")))],
+      ret: kt.type("R"),
+    });
+    const printed = (f: kt.Fun) =>
+      kt.printUnit({
+        packageName: "p",
+        imports: [],
+        decls: [{ k: "object", name: "O", members: [f] }],
+      });
+
+    expect(printed(fun({ T: [comparable] }))).toContain(
+      "  fun <T : kotlin.Comparable<T>, R> best(items: kotlin.collections.List<T>): R\n",
+    );
+    expect(printed(fun({ T: [comparable, kt.type("kotlin.CharSequence")] }))).toContain(
+      "  fun <T, R> best(items: kotlin.collections.List<T>): R where T : kotlin.Comparable<T>, T : kotlin.CharSequence\n",
+    );
+  });
+
   it("print data classes with default values", () => {
     expect(
       kt.printUnit({
