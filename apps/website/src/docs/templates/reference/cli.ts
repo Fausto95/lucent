@@ -35,7 +35,7 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
   check: [
     {
       kind: "p",
-      text: "It reports problems as the [diagnostics](/docs/reference/diagnostics/) page shows them, and writes nothing. A pass is remembered, so checking an unchanged project takes a fraction of a second. Use it in CI.",
+      text: "It reports problems as the [diagnostics](/docs/api/diagnostics/) page shows them, and writes nothing. A pass is remembered, so checking an unchanged project takes a fraction of a second. Use it in CI.",
     },
   ],
   dev: [
@@ -72,7 +72,7 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
   explain: [
     {
       kind: "p",
-      text: "Prints a code's entry from the [diagnostics](/docs/reference/diagnostics/): why the rule exists, the fix, and a wrong and a right example. `lucent explain 3006` works too.",
+      text: "Prints a code's entry from the [diagnostics](/docs/api/diagnostics/): why the rule exists, the fix, and a wrong and a right example. `lucent explain 3006` works too.",
     },
   ],
   bench: [

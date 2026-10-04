@@ -78,7 +78,7 @@ Type-check and validate every module without writing anything
 | --- | --- |
 | `--frozen` | Fail unless the SDKs and SDK symbols are the ones lucent-sdk.lock.json records, with every target it lists (CI, releases) |
 
-It reports problems as the [diagnostics](/docs/reference/diagnostics/) page shows them, and writes nothing. A pass is remembered, so checking an unchanged project takes a fraction of a second. Use it in CI.
+It reports problems as the [diagnostics](/docs/api/diagnostics/) page shows them, and writes nothing. A pass is remembered, so checking an unchanged project takes a fraction of a second. Use it in CI.
 
 ## lucent dev
 
@@ -129,7 +129,7 @@ Scaffold a module in src/: shared, or with --ios / --android one module that bra
 
 What a LUCENT diagnostic code means, and how to fix it (every code without one)
 
-Prints a code's entry from the [diagnostics](/docs/reference/diagnostics/): why the rule exists, the fix, and a wrong and a right example. `lucent explain 3006` works too.
+Prints a code's entry from the [diagnostics](/docs/api/diagnostics/): why the rule exists, the fix, and a wrong and a right example. `lucent explain 3006` works too.
 
 ## lucent bench
 

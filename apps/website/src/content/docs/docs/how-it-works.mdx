@@ -15,7 +15,7 @@ import Diagram from "~/components/Diagram.astro";
 
    Lucent runs the real TypeScript compiler, in strict mode with `noUncheckedIndexedAccess`. Every type comes from the checker, including narrowing, so your editor and `lucent build` see the same types.
 
-   Then Lucent applies its own rules: no `any`, no `var`, no dynamic property access. Breaking one stops the build with a `LUCENT` code, and nothing is written. The [diagnostics](/docs/reference/diagnostics/) list every code.
+   Then Lucent applies its own rules: no `any`, no `var`, no dynamic property access. Breaking one stops the build with a `LUCENT` code, and nothing is written. The [diagnostics](/docs/api/diagnostics/) list every code.
 
 2. ### Lucent writes C++
 

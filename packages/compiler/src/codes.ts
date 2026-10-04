@@ -136,7 +136,7 @@ export const Explanations: Record<Code, Explanation> = {
   LUCENT1002: {
     title: "Unsupported operator",
     summary:
-      "An operator the subset doesn't support, such as `delete`, `in` on anything but a record, or `instanceof` with a generic class. A loose `==` that JavaScript converts for, or comparing two functions, is refused too.",
+      "An operator the subset doesn't support, such as `delete` or `in` on anything but a record, or `instanceof` with a generic class. A loose `==` that JavaScript converts for, or comparing two functions, is refused too.",
     details:
       "Objects in Lucent have a fixed native layout, so an operator that adds or removes properties at run time (`delete`) has no native equivalent. `in` works on records (`Record<string, T>`), whose keys are dynamic, and not on objects with a known shape. Two functions cannot be compared, because a function value has no stable identity (a named function is a new value at each use).",
     fix: "use a Map or a Record for keys that come and go, or an optional field for one that may be missing",
@@ -689,5 +689,5 @@ export const Explanations: Record<Code, Explanation> = {
 
 /** Where a code is explained on the website. */
 export function docsUrl(code: string): string {
-  return `https://lucent-lang.dev/docs/reference/diagnostics/#${code.toLowerCase()}`;
+  return `https://lucent-lang.dev/docs/api/diagnostics/#${code.toLowerCase()}`;
 }

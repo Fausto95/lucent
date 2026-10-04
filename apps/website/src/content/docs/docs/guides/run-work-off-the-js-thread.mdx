@@ -52,8 +52,8 @@ export async function edges(bytes: Uint8Array, signal?: AbortSignal): Promise<nu
 }
 ```
 
-- The task is a function declared at the top level of a module, with one parameter. The compiler checks all it runs: no module state, no main-thread native code, no `await` ([LUCENT3011](/docs/reference/diagnostics/#lucent3011)). Module constants it reads must be literals, such as numbers or strings: a reload of JavaScript computes the others again.
-- Its input is copied when you call `compute`, so later changes do not reach the task. The input and the result must be data: no functions, promises or native objects ([LUCENT3012](/docs/reference/diagnostics/#lucent3012)).
+- The task is a function declared at the top level of a module, with one parameter. The compiler checks all it runs: no module state, no main-thread native code, no `await` ([LUCENT3011](/docs/api/diagnostics/#lucent3011)). Module constants it reads must be literals, such as numbers or strings: a reload of JavaScript computes the others again.
+- Its input is copied when you call `compute`, so later changes do not reach the task. The input and the result must be data: no functions, promises or native objects ([LUCENT3012](/docs/api/diagnostics/#lucent3012)).
 - Aborting the signal rejects the promise at once. A running task stops at the next iteration of a loop in the task or a module function it calls. Loops in closures and methods finish first.
 
 ## Hand large buffers over without copying
@@ -80,6 +80,6 @@ export async function sample(): Promise<number> {
 ```
 
 - `withRead` and `withWrite` lend their callback the bytes. Reads share the buffer, a write needs it to itself, and a conflicting borrow throws an `InvalidStateError`.
-- The bytes stay in the callback: returning, storing or awaiting past them does not compile ([LUCENT3030](/docs/reference/diagnostics/#lucent3030)).
-- `transfer()`, or passing the buffer to `compute`, moves the bytes. The old buffer refuses every use from then on ([LUCENT3031](/docs/reference/diagnostics/#lucent3031) where the compiler can tell).
+- The bytes stay in the callback: returning, storing or awaiting past them does not compile ([LUCENT3030](/docs/api/diagnostics/#lucent3030)).
+- `transfer()`, or passing the buffer to `compute`, moves the bytes. The old buffer refuses every use from then on ([LUCENT3031](/docs/api/diagnostics/#lucent3031) where the compiler can tell).
 - `toUint8Array()` and `NativeBuffer.from(bytes)` copy; `NativeBuffer.stats()` counts the copies, so you can check a path makes none.
