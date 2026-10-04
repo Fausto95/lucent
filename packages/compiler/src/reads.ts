@@ -35,9 +35,17 @@ export function readText(file: string): string | undefined {
   return bytes && decode(bytes);
 }
 
-/** Whether `file` exists, noted as read when it does not. */
+/**
+ * Whether `file` exists, noted as read: resolution may find a file through a
+ * link, then read it at the link's target, so what it found here counts.
+ */
 export function fileExists(file: string): boolean {
-  return stat(file)?.isFile() || missing(file);
+  const exists = stat(file)?.isFile() === true;
+  const at = path.resolve(file);
+  if (recording && !recording.has(at))
+    recording.set(at, found(file, exists ? contents(file) : undefined));
+
+  return exists;
 }
 
 /** Whether directory `dir` exists, noted as read when it does not. */
