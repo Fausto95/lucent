@@ -564,6 +564,17 @@ describe("binding plans: Kotlin facts", () => {
             typeParams: ["T"],
             params: [{ name: "items", type: T("List<T>", ["T"]) }],
             returns: T("T?", ["T"]),
+            kotlin: {
+              suspend: true,
+              bounds: { T: "other" },
+              upperBounds: { T: [{ name: "kotlin.Comparable", args: [{ name: "T" }] }] },
+            },
+          },
+          {
+            name: "worst",
+            typeParams: ["T"],
+            params: [{ name: "items", type: T("List<T>", ["T"]) }],
+            returns: T("T?", ["T"]),
             kotlin: { suspend: true, bounds: { T: "other" } },
           },
         ],
@@ -613,10 +624,26 @@ describe("binding plans: Kotlin facts", () => {
           },
         ],
       },
+      {
+        kind: "class",
+        name: "Base",
+        native: "dev/orbit/Base",
+        kotlin: { kind: "class" },
+        methods: [
+          {
+            name: "load",
+            java: "load-X6dG1pw",
+            abstract: true,
+            params: [{ name: "id", type: T("dev.orbit.HitId?") }],
+            returns: T("void"),
+          },
+        ],
+      },
     ],
   });
   const client = pkg.types[0] as SdkClassSchema;
   const loader = pkg.types[2] as SdkClassSchema;
+  const base = pkg.types[3] as SdkClassSchema;
   const types = typesOf(pkg, lookup(pkg));
   const plan = (name: string) => planBinding(client, method(client, name), pkg, types);
 
@@ -645,26 +672,30 @@ describe("binding plans: Kotlin facts", () => {
     expect(plan("onResult").refused).toBeUndefined();
   });
 
+  it("calls bounded generics, assigns value classes and implements interfaces' Kotlin members", () => {
+    expect(plan("best")).toMatchObject({ backend: "kotlin-shim" });
+    expect(plan("best").refused).toBeUndefined();
+    expect(planBinding(client, property(client, "lastId"), pkg, types, "set")).toMatchObject({
+      backend: "kotlin-shim",
+      inputs: [{ op: "retain-object" }],
+    });
+    expect(planBinding(client, property(client, "lastId"), pkg, types, "set").refused).toBeUndefined();
+    for (const name of ["fetch", "load"])
+      expect(planBinding(loader, method(loader, name), pkg, types, "implement").refused).toBeUndefined();
+  });
+
   it("refuses what the shims do not handle yet, naming the rule", () => {
-    expect(plan("best").refused).toEqual({
+    expect(plan("worst").refused).toEqual({
       rule: "kotlin-shim-generic",
       reason:
-        "generic Kotlin members whose type parameters have bounds are not supported through a shim yet",
+        "generic Kotlin members bounded by a projected type (`T : List<out R>`) are not supported through a shim yet",
     });
-    expect(planBinding(client, property(client, "lastId"), pkg, types, "set").refused).toEqual({
-      rule: "kotlin-shim",
-      reason: "assigning Kotlin value classes is not supported yet",
-    });
-    expect(planBinding(loader, method(loader, "fetch"), pkg, types, "implement").refused).toEqual({
-      rule: "kotlin-shim",
-      reason: "Lucent classes cannot implement suspend functions or value-class members yet",
-    });
-    expect(explainRefusal(plan("best"))).toBe(
-      "Client.best: generic Kotlin members whose type parameters have bounds are not supported through a shim yet (in jar:orbit.jar)",
+    expect(explainRefusal(plan("worst"))).toBe(
+      "Client.worst: generic Kotlin members bounded by a projected type (`T : List<out R>`) are not supported through a shim yet (in jar:orbit.jar)",
     );
   });
 
-  it("lets a call leave out Kotlin defaults, which a shim omits, unless type parameters have bounds", () => {
+  it("lets a call leave out Kotlin defaults, which a shim omits, unless it cannot write the bounds", () => {
     expect(plan("configure")).toMatchObject({
       backend: "jni",
       inputs: [{ op: "number", detail: "int", omissible: true }],
@@ -673,17 +704,18 @@ describe("binding plans: Kotlin facts", () => {
     expect(plan("first").inputs[1]).toMatchObject({ omissible: true });
   });
 
-  it("writes Kotlin properties through their setters, and refuses implementing mangled names", () => {
+  it("writes Kotlin properties through their setters, and refuses overriding mangled names", () => {
     const set = planBinding(client, property(client, "pageSize"), pkg, types, "set");
-    const load = planBinding(loader, method(loader, "load"), pkg, types, "implement");
+    const load = planBinding(base, method(base, "load"), pkg, types, "implement");
 
     expect(set).toMatchObject({ backend: "jni", inputs: [{ op: "number", detail: "int" }] });
     expect(set.refused).toBeUndefined();
+    // A class's override is Java source; an interface's implementation is a proxy, by any name.
     expect(load.refused).toEqual({
       rule: "jvm-mangled-name",
-      reason: "a method whose JVM name Java cannot write (load-X6dG1pw) cannot be implemented",
+      reason: "a method whose JVM name Java cannot write (load-X6dG1pw) cannot be overridden",
     });
-    expect(planBinding(loader, method(loader, "load"), pkg, types).refused).toBeUndefined();
+    expect(planBinding(loader, method(loader, "load"), pkg, types, "implement").refused).toBeUndefined();
   });
 });
 
