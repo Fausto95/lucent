@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { lucentPackageOf, lucentPackages } from "./packages.ts";
+import { findOwnFiles, lucentPackageOf, lucentPackages } from "./packages.ts";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ts as dts } from "@lucent-lang/codegen";
@@ -347,25 +347,9 @@ export function compilerOptions(): ts.CompilerOptions {
   };
 }
 
-/** Finds `*.lucent.ts` files under `root`, skipping node_modules and build output. */
+/** The `*.lucent.ts` files of the package `root` is in (see findOwnFiles). */
 export function findLucentFiles(root: string): string[] {
-  const out: string[] = [];
-  const walk = (dir: string) => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (
-        entry.name === "node_modules" ||
-        entry.name.startsWith(".") ||
-        entry.name === "ios" ||
-        entry.name === "android"
-      )
-        continue;
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (LUCENT_EXTENSION.test(entry.name)) out.push(full);
-    }
-  };
-  walk(root);
-  return out.sort();
+  return findOwnFiles(root, LUCENT_EXTENSION);
 }
 
 /** Text of a file that differs from disk (an editor's unsaved buffer), if any. */

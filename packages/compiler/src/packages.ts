@@ -57,6 +57,44 @@ export function lucentPackageOf(file: string): LucentPackage | undefined {
 }
 
 /**
+ * The files under `root` matching `pattern` that belong to its package, as
+ * lucentPackageOf (and so a module's name) tells them apart. Dependencies
+ * (node_modules), dot directories (build output), native projects (ios,
+ * android) and other packages' directories are left out: in an app, a
+ * Lucent package's (a workspace under packages/), which the app builds as
+ * a dependency or not at all; in a Lucent package, any package's (an
+ * example app).
+ */
+export function findOwnFiles(root: string, pattern: RegExp): string[] {
+  const owner = (dir: string) => lucentPackageOf(path.join(dir, "package.json"))?.dir;
+  const own = owner(root);
+
+  // Only a package.json can make a directory another package's.
+  const ours = (dir: string) =>
+    !fs.existsSync(path.join(dir, "package.json")) || owner(dir) === own;
+
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (
+        entry.name === "node_modules" ||
+        entry.name.startsWith(".") ||
+        entry.name === "ios" ||
+        entry.name === "android"
+      )
+        continue;
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (ours(full)) walk(full);
+      } else if (pattern.test(entry.name)) out.push(full);
+    }
+  };
+
+  walk(root);
+  return out.sort();
+}
+
+/**
  * The Lucent packages `root` (the app) depends on, transitively, each once,
  * sorted by name. Throws for one whose `compatible` range excludes this
  * Lucent, naming it.
