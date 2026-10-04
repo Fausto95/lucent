@@ -3,7 +3,8 @@ import { requirements } from "../../../generated/compatibility";
 
 export const frontmatter: DocFrontmatter = {
   title: "Compatibility",
-  description: "The React Native, Expo, Node, JDK, Android and iOS versions Lucent supports.",
+  description:
+    "The React Native, Expo, Node, JDK, Android, iOS and TypeScript versions Lucent supports.",
   kind: "reference",
 };
 
@@ -20,7 +21,11 @@ export const blocks: Block[] = [
         "Android",
         `API ${requirements.minAndroidApi} and later; newer APIs need an \`available\` check`,
       ],
-      ["iOS", "React Native's minimum iOS version"],
+      ["iOS", `${requirements.minIos} and later; newer APIs need an \`available\` check`],
+      [
+        "TypeScript",
+        `${requirements.typescript.replace(/^[~^]/, "")}, which the package brings; modules are checked against ${requirements.lib.map((l) => `\`${l.replace(/^lib\.|\.d\.ts$/g, "")}\``).join(" and ")}`,
+      ],
       ["Xcode, Android SDK and NDK", "the versions your React Native version needs"],
     ],
   },

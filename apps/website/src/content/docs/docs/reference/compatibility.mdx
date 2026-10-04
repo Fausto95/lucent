@@ -1,6 +1,6 @@
 ---
 title: Compatibility
-description: The React Native, Expo, Node, JDK, Android and iOS versions Lucent supports.
+description: The React Native, Expo, Node, JDK, Android, iOS and TypeScript versions Lucent supports.
 kind: reference
 editUrl: https://github.com/Fausto95/lucent/edit/main/apps/website/src/docs/templates/reference/compatibility.ts
 ---
@@ -14,7 +14,8 @@ editUrl: https://github.com/Fausto95/lucent/edit/main/apps/website/src/docs/temp
 | Node | 22\.12 or later |
 | JDK, for Android builds | 17 to 21 |
 | Android | API 24 and later; newer APIs need an `available` check |
-| iOS | React Native's minimum iOS version |
+| iOS | 15\.1 and later; newer APIs need an `available` check |
+| TypeScript | 5\.9.3, which the package brings; modules are checked against `es2022` and `esnext.disposable` |
 | Xcode, Android SDK and NDK | the versions your React Native version needs |
 
 `lucent doctor` checks these on your machine, and this table is generated from the same numbers.

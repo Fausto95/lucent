@@ -2,7 +2,8 @@ import { Explanations, formatDiagnostic } from "../../packages/compiler/src/inde
 import { GLOBAL_FLAGS } from "../../packages/lucent/src/cli/args.ts";
 import { commands } from "../../packages/lucent/src/cli/commands.ts";
 import { REQUIREMENTS } from "../../packages/lucent/src/cli/doctor.ts";
-import { MIN_ANDROID_API } from "../../packages/compiler/src/sdk/schema.ts";
+import { MIN_ANDROID_API, MIN_IOS } from "../../packages/compiler/src/sdk/schema.ts";
+import { compilerOptions } from "../../packages/compiler/src/program.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { compileSamples } from "./compile.ts";
@@ -187,7 +188,16 @@ function apiModules(): string {
 
 /** What Lucent needs, as lucent doctor and the compiler check it. */
 function compatibility(): string {
-  return `${header}export const requirements = ${json({ ...REQUIREMENTS, minAndroidApi: MIN_ANDROID_API })} as const;\n`;
+  const lucent = JSON.parse(
+    fs.readFileSync(path.join(root, "packages/lucent/package.json"), "utf8"),
+  ) as { dependencies: Record<string, string> };
+  return `${header}export const requirements = ${json({
+    ...REQUIREMENTS,
+    minAndroidApi: MIN_ANDROID_API,
+    minIos: MIN_IOS,
+    typescript: lucent.dependencies.typescript,
+    lib: compilerOptions().lib,
+  })} as const;\n`;
 }
 
 const STATUS: Record<string, string> = {
