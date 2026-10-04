@@ -5,7 +5,7 @@
  * pinned Lucent column. `compact` (the homepage) shows the summary rows
  * without details.
  */
-import clsx from "clsx";
+import { clsx } from "clsx";
 import { comparisonRows, type Tone, tools } from "../../docs/comparison-table";
 import { inlineHtml } from "../../docs/inline-html";
 
