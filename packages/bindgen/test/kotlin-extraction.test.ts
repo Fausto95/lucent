@@ -203,7 +203,7 @@ describe.skipIf(!tc || !android)("Android extraction of Kotlin libraries", () =>
       .map((t) => `${t.module}.${t.name}`);
     const members = [...modules.values()].flatMap((m) =>
       m.types.flatMap((t) =>
-        t.kind === "class" ? (t.methods ?? []).map((x) => `${t.name}.${x.java ?? x.name}`) : [],
+        t.kind === "class" ? (t.methods ?? []).map((x) => `${t.name}.${x.name}`) : [],
       ),
     );
     const classes = module("dev.orbit.search").types.map((t) => t.name);
@@ -457,6 +457,21 @@ describe.skipIf(!tc || !android)("Android extraction of Kotlin libraries", () =>
     expect(method(dial, "filter").params).toEqual([
       { name: "test", type: fn("@escaping (string, int) => boolean") },
     ]);
+  });
+
+  it("names a value class property's accessors as Kotlin does, keeping their mangled JVM names", () => {
+    const dial = cls("dev.orbit.shelf", "Dial");
+    const accessors = (dial.methods ?? []).filter((m) => m.name.endsWith("Turns"));
+
+    expect(accessors.map((m) => [m.name, m.java])).toEqual([
+      ["getTurns", expect.stringMatching(/^getTurns-/)],
+      ["setTurns", expect.stringMatching(/^setTurns-/)],
+    ]);
+    expect(property(dial, "turns")).toMatchObject({
+      getter: expect.stringMatching(/^getTurns-/),
+      setter: expect.stringMatching(/^setTurns-/),
+      kotlin: { unboxed: true },
+    });
   });
 
   it("marks fun interfaces, whose functions a lambda implements", () => {

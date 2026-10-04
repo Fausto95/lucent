@@ -11,6 +11,7 @@ import { compile, type CompileResult, type SdkOptions } from "../src/index.ts";
 import { consumerRules } from "../src/native-build-files.ts";
 import { android, ndkClang, ndkErrorsAll } from "./android-harness.ts";
 import { runKotlinc } from "../../bindgen/test/jvm-tools.ts";
+import { jdk, jvmRun } from "./jni-harness.ts";
 
 /*
  * Kotlin members JNI cannot call as Kotlin declares them (suspend
@@ -727,4 +728,59 @@ export async function run(): Promise<string> {
     },
     300_000,
   );
+});
+
+/** TA31's shapes, run through the JNI glue and the shims on the desktop JVM. */
+const board = `import { Board, Ranked, Score, type Judge } from "lucent:android/dev.shims.board";
+
+class Fair implements Judge {
+  judge(score: Score): Score {
+    return new Score(score.points * 10);
+  }
+
+  async pick(names: string[]): Promise<string> {
+    return names[names.length - 1]!;
+  }
+}
+
+export async function run(): Promise<string> {
+  const board = new Board();
+  board.best = new Score(7);
+
+  const top = await board.top(["b", "c", "a"]);
+  const lowest = board.lowest(["y", "x", "z"]);
+  const best = await new Ranked(["x", "z", "y"]).best();
+  const asked = await board.ask(new Fair(), ["p", "q"]);
+
+  return \`\${board.best.points} \${top} \${lowest} \${best} \${asked}\`;
+}
+`;
+
+describe.skipIf(!toolchain || !jdk)("Kotlin shims, finished (TA31)", () => {
+  let jars: string[] = [];
+
+  beforeAll(async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-kotlin-board-"));
+    const lib = await compileKotlin(
+      tc!,
+      [path.join(here, "fixtures/kotlin-shims/board/Board.kt")],
+      path.join(dir, "board.jar"),
+      { classpath: coroutines! },
+    );
+
+    jars = [path.join(tc!.lib, "kotlin-stdlib.jar"), coroutines!, lib];
+  }, 300_000);
+
+  it("calls bounded generics, assigns value classes and implements suspend and value-class members", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-kotlin-board-run-"));
+    const classpath = classpathFile(path.join(dir, "android-classpath.json"), jars);
+    const p = android(board, { android: { classpath } });
+
+    expect(p.r.diagnostics).toEqual([]);
+    expect(jvmRun(p.r, p.dir, jars, tc!)).toEqual({
+      status: 0,
+      stdout: "7 c x z 20 q\n",
+      stderr: "",
+    });
+  }, 600_000);
 });
