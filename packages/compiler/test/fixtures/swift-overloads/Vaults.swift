@@ -20,3 +20,17 @@ public final class Vault {
     self.accessGroup = accessGroup
   }
 }
+
+// One of them unlabeled: what Swift itself calls with a bare argument
+// (`Badge("n")`, as `Locale.LanguageCode("en")`).
+public final class Badge {
+  public let text: String
+
+  public init(_ name: String) {
+    text = "name \(name)"
+  }
+
+  public init(code: String) {
+    text = "code \(code)"
+  }
+}

@@ -26,7 +26,7 @@ const vaults: SwiftFixture = {
 
 const program = (body: string) =>
   iosProgram(
-    `import { Vault } from "lucent:ios/Vaults";
+    `import { Badge, Vault } from "lucent:ios/Vaults";
 export async function run(): Promise<string> {
 ${body}
 }
@@ -45,6 +45,14 @@ describe.skipIf(!xcode)("Swift initializers TypeScript cannot tell apart", () =>
     expect(p.r.diagnostics).toEqual([]);
     expect(compileErrors(p)).toEqual(compiles);
     expect(hostRun(p)).toMatchObject({ status: 0, stdout: "s g default\n" });
+  }, 600_000);
+
+  it("keep the unlabeled one as what `new` calls, as Swift calls it with bare arguments", () => {
+    const p = program('  return `${new Badge("n").text}, ${Badge.withCode("c").text}`;');
+
+    expect(p.r.diagnostics).toEqual([]);
+    expect(compileErrors(p)).toEqual(compiles);
+    expect(hostRun(p)).toMatchObject({ status: 0, stdout: "name n, code c\n" });
   }, 600_000);
 
   it("are not what `new` with their arguments binds, which would pick one: the error names them", () => {
