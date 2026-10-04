@@ -1,7 +1,406 @@
 ---
 title: "How are SDK declarations read, cached and turned into calls?"
-description: "This page is being rewritten."
+sidebar_label: "SDK bindings"
+description: "bindgen extracts each imported module from the artifacts the app's build resolved, caches its schema by content, and plans every use from it."
 kind: internals
 ---
 
-This page is being rewritten.
+SDK bindings are `packages/bindgen/src`, which reads declarations into binding schemas and plans each member, and `packages/compiler/src/sdk`, which types the program from those schemas. The glue is written by the emitters in `packages/compiler/src/emit`. [How Lucent calls iOS and Android APIs](/docs/architecture/sdk-bindings/) explains the routes, and [iOS SDK](/docs/api/ios-sdk/) and [Android SDK](/docs/api/android-sdk/) state the rules your code sees.
+
+| Step | Code | What it gives |
+| --- | --- | --- |
+| Resolve | `provider.ts` (`locate()`), `artifacts.ts`, `pods.ts`, `vendored.ts` | The artifacts the app's build resolved, each with an identity |
+| Extract | `ios.ts`, `symbols.ts`, `swift.ts`, `android.ts`, `classfile.ts`, `kotlin*.ts` | One module's schema |
+| Cache | `provider.ts`, `cache.ts` | The schema, reused while what it read resolves the same way |
+| Declare | `compiler/src/sdk/dts.ts`, `declaration-cache.ts` | The `.d.ts` that types `lucent:ios/*` and `lucent:android/*` imports |
+| Plan | `binding-plan.ts`, `compiler/src/sdk/plans.ts` | Each use's backend, conversions and refusal |
+| Emit | `emit/native.ts`, `swift.ts`, `swift-proxy.ts`, `kotlin.ts`, `java.ts`, `objc-subclass.ts`, `delegates.ts` | The glue, and the Swift and Kotlin shims |
+| Record | `compiler/src/sdk/usage.ts`, `bindgen/src/usage.ts` | The symbols a compile used, for [the SDK lock](/docs/architecture/internals/tooling/#sdk-usage-and-the-sdk-lock) |
+| Count | `coverage.ts` | How much of each module Lucent can call |
+
+No behavior is chosen by a framework's, class's or package's name, beyond a few fixed platform fundamentals such as `java.lang.Object`. It comes from metadata and general type rules ([contracts.md](https://github.com/Fausto95/lucent/blob/main/docs/design/contracts.md#cross-cutting-rules)), so a library Lucent has never seen binds like the SDK.
+
+## Where declarations come from
+
+`locate()` in `provider.ts` resolves a platform once per build: the SDK, then every artifact the app's build system resolved. A module imports from whichever artifact declares it, so there is no list of modules.
+
+| Platform | Artifacts | Read with |
+| --- | --- | --- |
+| iOS | The simulator SDK (`sdk:iphonesimulator27.0`), each pod as one artifact (`pod:Name@version`), and other module maps, frameworks and Swift modules on the search paths | `swift-symbolgraph-extract` for declarations, and clang's JSON AST for enum values |
+| Android | The SDK platform's `android.jar` (`android-sdk:35`), each JAR and AAR of the app's compile classpath (`maven:group:name:version`, else `jar:` or `aar:` and the file's name), and the archives Lucent packages ship | `zip.ts` and `classfile.ts`, without a JVM |
+
+- On iOS, `podsSearchPaths()` reads the app target's Pods xcconfig: its header and framework search paths, module maps and preprocessor definitions. `Podfile.lock` gives each pod's version and the pods it depends on.
+- A module belongs to a pod when its files sit in the `Pods/` directory `Podfile.lock` names. So a pod may name its module otherwise, as `react-native-netinfo` names `react_native_netinfo`.
+- With `use_frameworks!`, a pod is a framework Xcode hasn't built yet. `podFramework()` lays out its module map and headers as that framework, in the cache under a hash of their contents.
+- On Android, the classpath is `.lucent/android-classpath.json`, which the `lucentClasspath` Gradle task writes. Without it, the SDK and the packages' archives still bind.
+- An archive's packages come from its zip directory alone, so indexing a classpath of hundreds of AARs reads no class.
+
+### Artifact identity
+
+An artifact's identity is its build-system id and a hash of its declaration inputs' contents, written `id#contentHash`. Paths are never part of it.
+
+- On iOS, the hash covers the headers, module maps or `.swiftmodule`. The SDK's is its version and build.
+- On Android, a JAR is hashed by its classes' names, CRCs and lengths, so the same JAR written again keeps its identity. The SDK's API levels and annotations are hashed by content.
+- `memoByStat()` remembers what a file's contents gave, keyed by its path, size, times and inode, so an unchanged file is never read twice. The memo is never part of a key.
+- On Android, two archives with the same classes, such as a package's library and Gradle's copy of it, count once.
+
+## Extraction
+
+`sdkModule(platform, module)` returns a module's schema: from this process's memo, else the cache, else extracted under a lock and cached.
+
+### iOS
+
+`extractIosModule()` runs `swift-symbolgraph-extract` for the module, with the xcconfig's paths and definitions, for `arm64-apple-ios15.1-simulator`. The symbol graph gives Objective-C members with their clang USRs, and Swift-only ones with Swift USRs.
+
+- Enum values come from clang: `enumValues()` imports the module's headers in an Objective-C file and reads the AST's constants.
+- A type another module declares keeps its Swift name. `headerIndex()` finds that module by a scan of headers, cached per SDK in `headers.json` and per other artifact by content.
+- Those other modules contribute names only: `namesFor()` reads their symbol graphs, without clang, into `<entry>.names.json`. A program that imports such a module gets its full schema.
+- A method whose completion block Swift also imports as `async` keeps one entry, with `async` saying how to call it for a promise.
+- Swift-only declarations (`swift.ts`) record what their shim needs: the Swift name, `async`, `throws`, `mutating`, and a type's shape.
+- `schema.header` is the umbrella header the glue imports. `schema.frameworks` lists the SDK framework to link, and a module from outside the SDK links itself.
+
+`sdkSourceModule()` extracts a module written as Swift source in a component's body (SwiftUI), cached under the module's `source/`. [Components](/docs/architecture/internals/views/) covers how its schema is used.
+
+### Android
+
+`extractAndroid()` reads class files into a schema per Java package, and records each package it looked up.
+
+- References are nullable unless annotated otherwise. API levels come from the SDK's `api-versions.xml`.
+- `annotations.zip` (the SDK's, and each AAR's) gives `@RequiresPermission`, `@IntDef`, `@StringDef` and `@LongDef`, and the thread annotations.
+- Each member records its JVM descriptor (`descriptor`), and a renamed overload records the JVM name it calls (`java`).
+
+### Kotlin metadata
+
+Classes kotlinc wrote carry `@kotlin.Metadata`, which holds what the JVM erases: `suspend`, defaults, nullability, properties, value and sealed classes, extension receivers and file facades.
+
+- `addKotlinClass()` reads the annotation's header from the class file's bytes as the classpath is indexed. `kotlin-metadata-decode.ts` decodes its protobuf the first time an extraction needs the class.
+- The decoder follows the official `kotlin-metadata-jvm` library's readers, with field numbers from its 2.4.20 sources. No JVM runs and no class is loaded.
+- It reads metadata versions 1.1 to 2.4, and 2.5 when the class isn't marked strict. A class it can't read is declared as Java sees it, and `skipped` says why.
+- `kotlinView()` gives each JVM method its source declaration. `android.ts` types the member from it, keeping the JVM method beside it.
+- Internal and private declarations, `$DefaultImpls` and multi-file parts are left out, as Kotlin callers don't see them.
+
+`packages/bindgen/kotlin-helper` runs the official library in a JVM. `test/kotlin-metadata.test.ts` compares both readers over a fixture library, and they must give the same normalized form (`kotlin-metadata.ts`).
+
+Compose's libraries are bound differently, as Kotlin source calls them (`kotlin-api.ts`). `scripts/compose-bindings.ts` binds them at the Compose BOM's versions into `packages/compiler/lib/sdk/compose.schemas.json.gz`, which Lucent ships.
+
+### Facts
+
+`facts.ts` turns annotations and attributes into `NativeFacts`: an affinity (`main`, `worker` or `any`), blocking, ownership, and the evidence for each. `@MainActor`, `@UiThread` and `@MainThread` prove `main`, and `@WorkerThread` proves `worker`.
+
+- A thread mark proves where code runs, and nothing else. Blocking and ownership stay `unknown`.
+- A member without facts takes its class's, and without those every fact is unknown, never "safe".
+- The schema's `mainActor` and `worker` flags are derived from the same facts in `facts.ts` (`classThreadFlags()`, `memberThreadFlags()`), so they can't disagree.
+
+The checks read the flags. A main-only member used outside `main()` or a main-thread callback fails with [LUCENT3006](/docs/api/diagnostics/#lucent3006), and a worker member inside one warns with [LUCENT3009](/docs/api/diagnostics/#lucent3009). [Concurrency](/docs/api/language/concurrency/#diagnostics) states the rules.
+
+## The cache
+
+`cacheRoot()` is `$LUCENT_CACHE_DIR`, else `$XDG_CACHE_HOME/lucent`, else `~/.cache/lucent` ([Environment variables](/docs/api/environment-variables/)). Every project on the machine shares it.
+
+```text title="~/.cache/lucent" nocopy
+sdk/
+  ios/iphonesimulator<version>-<build>-<key>/   key: the extractor, the schema format, the target, the definitions
+    headers.json                                which SDK framework declares each type
+    <Module>/<entry>.json                       a schema, and what its extraction read
+    <Module>/<entry>.names.json                 the module's type names only
+    <Module>/source/<entry>.json                a module written as Swift source
+    <Module>/schema.lock                        held while a process extracts the module
+  android/<platform>-<key>/                     key: the extractor, the schema format, the SDK platform's identity
+    <package>/<entry>.json
+memo/<extractor>/                               what files' contents give, by their stats
+declarations/<hash>.d.ts                        the compiler's declarations of a module
+```
+
+The extractor is the hash of bindgen's own sources, fixed when the CLI is bundled. So a release that leaves bindgen alone keeps users' caches, and a change to it extracts again.
+
+### What an entry holds
+
+An entry records the inputs its extraction read: each module or package it looked up, with the identities of the artifacts declaring it. Its file name is a hash of those inputs.
+
+```json title="android.os.ext/006e390b1a1b000d.json" nocopy
+{
+  "inputs": {
+    "android.os": "android-sdk:37.0#91def8abfcd43380",
+    "android.os.Build": "",
+    "android.os.ext": "android-sdk:37.0#91def8abfcd43380",
+    "java.lang": "android-sdk:37.0#91def8abfcd43380",
+    "java.util": "android-sdk:37.0#91def8abfcd43380"
+  },
+  "schema": {
+    "format": 1,
+    "platform": "android",
+    "module": "android.os.ext",
+    "types": [
+      {
+        "kind": "class",
+        "name": "SdkExtensions",
+        "native": "android/os/ext/SdkExtensions",
+        "symbol": "jvm:android/os/ext/SdkExtensions",
+        "since": 30,
+        "methods": [
+          {
+            "name": "getAllExtensionVersions",
+            "params": [],
+            "returns": {
+              "k": "ref", "module": "java.util", "name": "Map", "nullable": false,
+              "args": [
+                { "k": "ref", "module": "java.lang", "name": "Integer", "nullable": false },
+                { "k": "ref", "module": "java.lang", "name": "Integer", "nullable": false }
+              ]
+            },
+            "descriptor": "()Ljava/util/Map;",
+            "symbol": "jvm:android/os/ext/SdkExtensions#getAllExtensionVersions()Ljava/util/Map;",
+            "static": true,
+            "since": 31
+          },
+          {
+            "name": "getExtensionVersion",
+            "params": [
+              {
+                "name": "arg0",
+                "type": { "k": "prim", "name": "int", "nullable": false, "group": true },
+                "oneOf": [
+                  "android.os.Build_VERSION_CODES.R",
+                  "android.os.Build_VERSION_CODES.S",
+                  "android.os.Build_VERSION_CODES.TIRAMISU",
+                  "android.os.Build_VERSION_CODES.UPSIDE_DOWN_CAKE",
+                  "android.os.Build_VERSION_CODES.VANILLA_ICE_CREAM",
+                  "android.os.Build_VERSION_CODES.BAKLAVA",
+                  "android.os.Build_VERSION_CODES.CINNAMON_BUN",
+                  "android.os.ext.SdkExtensions.AD_SERVICES"
+                ]
+              }
+            ],
+            "returns": { "k": "prim", "name": "int", "nullable": false },
+            "descriptor": "(I)I",
+            "symbol": "jvm:android/os/ext/SdkExtensions#getExtensionVersion(I)I",
+            "static": true
+          }
+        ],
+        "properties": [
+          {
+            "name": "AD_SERVICES",
+            "type": { "k": "prim", "name": "int", "nullable": false },
+            "symbol": "jvm:android/os/ext/SdkExtensions#AD_SERVICES:I",
+            "static": true,
+            "readonly": true,
+            "value": 1000000,
+            "since": 34
+          }
+        ]
+      }
+    ],
+    "skipped": [],
+    "provenance": {
+      "artifact": "android-sdk:37.0",
+      "kind": "sdk",
+      "contentHash": "a730dd9ba9ac69c6",
+      "target": "android-37.0",
+      "extractor": "8b5832f2"
+    }
+  }
+}
+```
+
+`findEntry()` takes the first entry whose every input resolves to the same identities now. An empty identity means no artifact declared that package, so a library that starts declaring it extracts the schema again.
+
+- Adding an unrelated dependency, moving the checkout or the Gradle cache, or installing the same pods again extracts nothing.
+- A change to a library whose class a schema used extracts that schema again, and only that one. So does a new library declaring a type the schema couldn't name.
+- Entries of other resolutions, such as another app's classpath, sit beside each other.
+
+### Locks and publishing
+
+- `withLock()` holds `<module>/schema.lock` while one process extracts, so a build and a prefetch never do the same work twice. Waiters poll, and find the entry once it's there.
+- The lock holds its host and process id. A lock whose process died on this host, or older than ten minutes, is taken over.
+- `publish()` writes a temporary file and renames it, so an entry is whole or absent. An entry that doesn't parse, or has another `format`, is a miss and is extracted again.
+- `lucent build` starts up to one detached `lucent sdk prefetch` per spare core, dealing the imported modules round robin. The build then waits on their locks rather than extracting one module after another.
+
+## The schema
+
+A module's schema (`schema.ts`) is plain data: classes, enums and structs, C functions and constants, the members the extractor skipped with a reason, and provenance. `SCHEMA_FORMAT` (1) is written into each schema, and `loadSchema()` refuses any other format from outside the cache.
+
+- A class has its native name, superclass, interfaces, type parameters, constructors, methods and properties, its facts, availability (`since`), and its Swift or Kotlin shape.
+- A member has its parameters, result, `symbol`, facts and `since`. It also has what calling it needs: a selector, a JVM descriptor and name, `throws`, an `async` form, a setter or getter.
+- Types are a grammar (`SchemaType`): primitives, strings, arrays, sets, bytes, dates, Objective-C `id`, records, out-parameters, Java's `Class<T>`, blocks, errors, type parameters and references.
+- `canonicalSchema()` orders types and members by name, then by symbol, so identical inputs publish identical schemas.
+
+### Symbols and provenance
+
+Names are for TypeScript. Each declaration also records its native identity, its `symbol`, which renaming never changes:
+
+| Kind | Symbol |
+| --- | --- |
+| Objective-C | `objc:` and the clang USR, from the symbol graph |
+| C | `c:` and the clang USR |
+| Swift | `swift:` and the Swift USR |
+| JVM class | `jvm:` and its internal name |
+| JVM method | the class's symbol, `#`, the name and the descriptor |
+| JVM field | the class's symbol, `#`, the name, `:` and the descriptor |
+
+A member a Swift protocol extension gives a conforming type keeps the extension's symbol. An overload renamed for TypeScript keeps the JVM method it calls.
+
+`provenance` names the artifact a schema's declarations come from: its build-system id, its kind, its target, the extractor's hash and a hash of its contents. It holds no machine path, and an artifact with its symbol identifies a declaration.
+
+### Declarations
+
+`sdkDts()` writes a schema as TypeScript, which the compiler serves from a virtual directory. `cachedDeclarations()` keeps each module's text on disk, keyed by the code that writes declarations and the SDKs' identity.
+
+- Classes are nominal, through a private brand, and have a private constructor unless the SDK declares initializers.
+- A class declares again what TypeScript would hide: inherited overloads beside its own. Each carries `@lucentInherited` with the class that declares it.
+- A member every use of which its plan refuses is documented `Lucent cannot use this yet:` with the reason, and a property that can't be written `Lucent cannot assign this yet:`.
+
+The compiler maps a use back to the schema through the checker's resolved declaration (`sdk/declarations.ts`), by name and overload order.
+
+## Binding plans
+
+`planBinding()` in `binding-plan.ts` derives how one member is used in one role: `call`, `new`, `get`, `set`, or `implement` for a requirement a Lucent class implements. The compiler's `memberPlan()` calls it with the type facts it can read.
+
+A `BindingPlan` holds:
+
+- the backend, and one conversion each for the receiver, the inputs and the output;
+- how the member reports failure: `nserror-out`, `swift-throws` or `java-exception`;
+- for a function native code runs, its delivery: `sync` while native code waits, holding the lock, or `queued` on the Lucent thread;
+- the refusal, when no use in this role can work;
+- the facts, the availability and the artifacts to link.
+
+Plans are derived each time, never cached with the schema. The declarations, the checks, the glue and coverage all read the same plan, so they can't disagree.
+
+### Backends
+
+| Backend | Chosen for | How a call runs |
+| --- | --- | --- |
+| `objc` | Members of Objective-C classes | A message send with the SDK's selector, in Objective-C++ compiled against the real headers |
+| `c-abi` | C functions, C globals and CoreFoundation types | A C call |
+| `swift-shim` | Swift-only members | A `@_cdecl` function in `LucentShims.swift`, which the glue calls as C |
+| `jni` | Java members, and Kotlin ones JNI can call | A JNI call with the member's descriptor |
+| `kotlin-shim` | `suspend` functions, value classes the JVM passes unboxed, and suspend function parameters | A Kotlin function in `dev.lucent.shims.LucentShims_<package>`, called over JNI as a static method |
+| `kotlin-source`, `swift-source` | APIs a component's Compose content or SwiftUI body calls | Written as Kotlin or Swift source in the body: nothing crosses |
+
+A call that leaves out a Kotlin default also goes through a shim, though its plan's backend is `jni`. The shim leaves the argument out too, so Kotlin's default applies.
+
+### Conversions
+
+Each value gets a `ConversionPlan`: `passthrough`, `number`, `bigint`, a copy (`copy-string`, `copy-bytes`, `copy-array`, `copy-record`, `copy-set`, `copy-date`), `retain-object`, `box-swift-value`, `optional`, `tagged-union`, `enum`, `struct`, `out`, `callback` or `error`.
+
+A value that can't cross is `unsupported`, with its reason. The backend's ABI rules decide, knowing which way the value flows:
+
+- **Objective-C and C**: collections read from Objective-C hold plain values. Errors don't go in, and blocks go in only as arguments, never nested three deep.
+- **Objective-C blocks**: a block native code gives back takes no blocks.
+- **Objective-C pointers**: a pointer a block or requirement receives is written back only while the platform waits, and only to a number or enum.
+- **JNI**: an array of a type parameter's values can't be passed, since its Java class depends on the values. Kotlin functions taking or giving functions are refused.
+- **Swift shims**: scalars, Swift enums and objects cross. Optionals of scalars, Objective-C enums and closures don't yet.
+- **Kotlin source**: a vararg's values and Kotlin's `Char` have no Lucent value yet.
+
+A value a use may leave out is `omissible`: an argument with a default, or one a block offers a Lucent function. Its refusal counts only against the uses that give or take it (`takenReason`).
+
+The facts of types other modules declare come from a lookup. A fact the lookup doesn't know refuses nothing: unknown stays unknown.
+
+### Ownership
+
+`resultOwnership()` applies the platform's naming conventions on iOS. Cocoa's method families (`alloc`, `new`, `copy`, `mutableCopy`, `create`) and CoreFoundation's Create and Copy rule give the caller the result. The evidence is `objc-method-family` or `cf-create-rule`.
+
+### Refusals
+
+A member-level rule refuses every use of a member in a role. For a use through glue, `requirePlan()` reports it with the rule's code, or LUCENT1007 when the rule has none:
+
+| Rule | Refuses | Code |
+| --- | --- | --- |
+| `read-only`, `no-setter`, `java-field-write` | Writing a property that is read-only, has no setter, or is a Java field | [LUCENT1008](/docs/api/diagnostics/#lucent1008) |
+| `jvm-mangled-name` | Implementing a method whose JVM name Java can't write | [LUCENT1005](/docs/api/diagnostics/#lucent1005) |
+| `async-initializer` | A Swift `async` initializer as a constructor | [LUCENT1001](/docs/api/diagnostics/#lucent1001) |
+| `associated-types` | Calling a member of a Swift protocol with associated types | [LUCENT1001](/docs/api/diagnostics/#lucent1001) |
+| `static-requirement`, `requirement-effects` | Implementing a static Swift requirement, or an `async` or throwing property requirement | `static-requirement`: [LUCENT1007](/docs/api/diagnostics/#lucent1007); `requirement-effects`: [LUCENT1005](/docs/api/diagnostics/#lucent1005) |
+| `kotlin-shim-generic`, `kotlin-shim` | Shim members bounded by a projected type (`T : List<out R>`); overriding a Kotlin class's suspend or value-class members | [LUCENT1007](/docs/api/diagnostics/#lucent1007) |
+| `kotlin-source-*`, `kotlin-*`, `compose-applier` | What a component's Compose content can't call yet, such as reified, experimental or restricted APIs | none: `lucent:compose` leaves the member out of its declarations |
+
+A value that can't cross is [LUCENT2002](/docs/api/diagnostics/#lucent2002). Either way, `explainRefusal()` writes the member, the reason, and the symbol and artifact it comes from:
+
+```text title="diagnostic" nocopy
+ABIThing.grid: nested collections from Objective-C are not supported yet (objc:c:objc(cs)ABIThing(im)grid in clang-module:Abi)
+```
+
+`requirePlan()` in `emit/native.ts` makes that check at every use through glue. A use it accepts is noted among the compile's SDK symbols.
+
+## How calls are implemented
+
+Each SDK use is a `plan` operation of the IR, whose leaf code `emit/native.ts` writes. The IR lowers its operands first, in source order, so the glue runs no Lucent code of its own.
+
+- **Objective-C**: a message send with the SDK's selector, in a unit compiled as Objective-C++ with ARC. Each SDK enum value the code names gets a `static_assert` against the header's constant.
+- **JNI**: each call site is a lambda whose class and member IDs are `static`, so they're looked up once. A `LocalFrame` frees its local references, and `jni::check` turns a pending exception into a Lucent error.
+- **Class loading**: `findClass` falls back to the application's class loader for classes the system class loader can't see.
+- **Swift shims**: `emit/swift.ts` writes one shim per member used, and one per specialization of a generic member. Values cross as the Objective-C values the glue already converts: scalars, an enum's case index, and objects.
+- **Swift values**: a Swift struct or other value crosses in a `LucentBox`. An `async` member runs in a `Task` behind `lucent::nativeOperation`, and a shim carries `@available` for what it calls.
+- **Kotlin shims**: `emit/kotlin.ts` writes one function per member and pattern of given arguments. It takes numbers and booleans as themselves, and anything else as `Any?`, cast where Kotlin infers the type.
+- **Suspend calls**: the shim starts the coroutine in a `CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)`, reports to a `BiConsumer`, and returns an `AutoCloseable` that cancels it.
+- **Suspend promises**: `lucent::jni::launch` runs the call as a `nativeOperation` of the calling context. An abort or a disposed scope rejects the promise and cancels the coroutine.
+- **Permissions and constants**: an Android call adds its member's `@RequiresPermission` to the library's manifest. An argument outside its constant group warns with [LUCENT3008](/docs/api/diagnostics/#lucent3008).
+
+### Implementing and extending SDK types
+
+- **iOS protocols**: `emit/delegates.ts` writes an Objective-C class adopting the protocols, which forwards the requirements the Lucent class implements.
+- **Swift-only protocols**: `emit/swift-proxy.ts` writes a Swift class that conforms, and calls each requirement through a C function the glue gives it.
+- **iOS classes**: `emit/objc-subclass.ts` writes an Objective-C subclass of the base, which stands for each instance for its whole life.
+- **Java and Kotlin interfaces**: `NativeProxy`, one Java proxy for every interface, calls C++ by method name and descriptor.
+- **Android classes**: `emit/java.ts` writes a Java subclass under `dev/lucent/generated/`, whose overrides forward with `NativeProxy`'s keys.
+
+An Objective-C subclass's native object holds the Lucent object, and each Lucent reference holds the native object. So neither outlives the other, and no cycle keeps them alive.
+
+### Availability
+
+`requireAvailable()` checks a member's `since` against the oldest OS apps run on: `MIN_IOS` (15.1) and `MIN_ANDROID_API` (24) in `sdk/schema.ts`. A newer API outside a check of the running OS fails with [LUCENT3007](/docs/api/diagnostics/#lucent3007). A package's `deploymentTarget` or `minSdk` raises the native package's, not this floor ([TA32](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta32) for iOS).
+
+The glue includes `platform/ios.h`, which leaves Clang's own availability warnings off: the check is Lucent's.
+
+### Output per target
+
+A program without platform code writes one set of files, `cpp/generated/*`. With platform code, each target writes a complete set under `cpp/generated/<target>/`, as [the compiler](/docs/architecture/internals/compiler/#targets) explains.
+
+- The podspec compiles `generated/ios`, where a module using `lucent:ios` is an `.mm` unit, and CMake compiles `generated/android`.
+- `lucent build --platforms host` writes `generated/host`, where platform code throws. `scripts/app-check.ts` uses it to run the rest of an app in Hermes.
+
+## Coverage
+
+`coverage()` in `coverage.ts` counts how far each member of a module gets. Each stage needs the one before:
+
+| Stage | Evidence |
+| --- | --- |
+| discovered | The schema declares the member, or `skipped` lists it |
+| representable | Its plan admits some use: `unsupportedReason()` finds no refusal |
+| generated | The project's last build used it, by symbol key, from `.lucent/sdk-usage.json` |
+| exercised | An `--exercised` file of symbol keys, which tests or probes write, lists it |
+
+- A member the extractor skipped, or whose plan refuses every use, counts as unrepresentable under its reason.
+- Members are judged with the module's own types (`ownTypes()`). Other modules' facts are unknown, so they refuse nothing.
+- A stage without evidence is `null`, never 0. An unreadable usage report counts as none, with a warning.
+- Coverage also counts members reached through an idiom: an `async` form, or a getter read as a property.
+
+CI runs `lucent sdk coverage --check sdk-coverage.json` over UIKit, Foundation, AVFoundation, StoreKit, CryptoKit and every `android.*` package. It fails when a module's unrepresentable share grows past the baseline by more than 0.05 points. It compares shares, not counts, because another SDK version has other members.
+
+## Native extensions
+
+A native extension is C a Lucent package declares in its `lucent.json`. It needs no platform branch, because its C builds on every platform. [Native extensions](/docs/packages/native-extensions/) gives the fields.
+
+1. `resolveNative()` in `package-config.ts` locates each extension's header, which must sit in a directory both `ios.nativeSources` and `android.nativeSources` list.
+2. `bindExtensions()` in `extensions/bind.ts` reads the header with clang's JSON AST twice: as C11 for its declarations (`extractCHeader`), and as C++20 for which functions have C linkage (`cLinkage`).
+3. It checks the declaration against the header into an `ExtensionBinding`: handles with their create, destroy and methods, and functions with one `ParamBinding` per C parameter. A header function it can't bind is listed in `skipped` with the reason.
+4. `withExtensions()` in `registry.ts` sets the bindings for one compile, and `extensionDts()` declares `lucent:ext/<name>`.
+5. `emit/extensions.ts` converts each call's arguments in order, runs the C call inside `lucent::ext::call`, then checks the result's `failsWhen`.
+
+- `findClang()` uses `$LUCENT_CLANG`, else `clang` on the `PATH`, else Xcode's, else an Android NDK's ([Environment variables](/docs/api/environment-variables/)).
+- Integer types are classified by the widest they are on any target Lucent builds for, so a declaration has one Lucent type everywhere.
+- A parameter takes a number, bigint, boolean, handle, string or bytes. A length is the bytes' length, and an error struct is filled in by the call.
+- `lucent::ext::call` is `noexcept`, so an exception escaping the C or C++ ends the process instead of unwinding through Lucent and JSI.
+- A failed call throws through `lucent::ext::fail`, with C's message and code.
+- `extensions/facts.ts` gives the analyses the declared thread and blocking, and says nothing Lucent passes escapes the call.
+
+At run time a handle is a `lucent::Handle` (`extension.h`), destroyed once by `close()` or its last reference, on the context its affinity names. Numbers into integer parameters are checked as WebIDL's `[EnforceRange]` does, and strings cross as NUL-terminated UTF-8.
+
+## Tests
+
+| Suite | What it checks |
+| --- | --- |
+| `packages/bindgen/test/` | Extraction, artifacts, keys, the cache's files and locks, provenance, plans and ABI rules, coverage, usage and Kotlin metadata |
+| `packages/compiler/test/binding-plans.test.ts` | What the compiler accepts and refuses by plan, and the reason and provenance a refusal gives |
+| `packages/compiler/test/ios-bindings.test.ts`, `android-bindings.test.ts`, `kotlin-shims.test.ts`, `swift-shims.test.ts` | The glue each backend writes |
+| `packages/compiler/test/extensions.test.ts` | Native extensions, bound from a fixture package's header with clang |
+| `packages/compiler/test/dts-audit.test.ts` | That the generated SDK declarations type-check without `skipLibCheck`, against a baseline |

@@ -1,7 +1,200 @@
 ---
 title: "How do builds record steps, compute actions and watch files?"
-description: "This page is being rewritten."
+sidebar_label: "Builds and tooling"
+description: "One pipeline records each step with hashed inputs, derives pending actions from the files it changed, records SDK usage, and reruns on watched changes."
 kind: internals
 ---
 
-This page is being rewritten.
+`buildProject()` in `packages/lucent/src/cli/pipeline.ts` is the one pipeline. `lucent build`, `lucent check`, `lucent dev`, `lucent sdk lock`, Metro's watcher, the Gradle task and the Expo plugin all run it. [How Lucent's code is organized](/docs/architecture/internals/#how-a-build-flows) lists its steps; this page covers what the CLI keeps around them.
+
+After a body edit that changes a module's C++, the build record's actions say what the app needs next:
+
+```json title=".lucent/build-record.json" nocopy
+{
+  "requiredAction": {
+    "kind": "compile-native",
+    "targets": ["ios", "android"],
+    "changedUnits": ["cpp/generated/lucent_identity.cpp", "cpp/generated/m_stats.cpp"]
+  },
+  "pendingActions": [
+    {
+      "kind": "compile-native",
+      "targets": ["ios", "android"],
+      "files": ["cpp/generated/lucent_identity.cpp", "cpp/generated/m_stats.cpp"]
+    }
+  ]
+}
+```
+
+The build also rewrote `js/_lucent/identity.js` and `manifest.json`, which need nothing from the app. An edit that leaves the C++ as it was writes only `manifest.json`, and the record's actions are empty.
+
+## The published package
+
+An app installs one package, `@lucent-lang/lucent`. It holds the CLI (`bin/lucent.cjs`), the Expo config plugin (`app.plugin.js`), Metro's integration (`metro/`), the editor plugin (`ts-plugin/`) and the Gradle scripts (`gradle/`). `schemas/` holds the JSON schemas of `lucent.json` and of the CLI's outputs.
+
+- `vp pack` (`packages/lucent/vite.config.ts`) bundles the CLI and the compiler, with bindgen and codegen, into `dist/cli.js` and `dist/compiler.js`, as ES modules.
+- It copies what the compiler reads at run time beside them: `lib/` (the `lucent:*` declarations) and `runtime/` (the C++ runtime, the native templates and the JavaScript loader).
+- It defines `__LUCENT_EXTRACTOR__` and `__LUCENT_DECLARATIONS__`: hashes of bindgen's sources and of the code that writes SDK declarations. The SDK caches key on those, so a release that leaves them alone keeps users' caches.
+- TypeScript, Ink and React stay dependencies, resolved from where the package is installed. picocolors is bundled.
+
+The same code runs bundled and from sources. `runtimeDir()` looks for `runtime/` beside the compiler's code first, and the editor plugin loads the workspace's compiler when `src/` exists beside it.
+
+The app's JavaScript needs nothing from `@lucent-lang/lucent` at run time. `lucent build` copies the runtime and the loader into `.lucent/native`, and the proxies require the loader by a relative path that Metro's transformer rebases. The `./core` export is `lucent:core` in JavaScript, for tests that run modules as plain TypeScript.
+
+## Build records
+
+Every run writes `.lucent/build-record.json` (`build-graph.ts`), whether it builds, checks, fails or finds nothing to do. `writeBuildRecord()` writes a temporary file and renames it.
+
+A record is its `schemaVersion` (1), its `mode` (`build` or `check`), its nodes, the actions the app needs, and the timings. Each node is one step:
+
+| Field | Holds |
+| --- | --- |
+| `id` | The step: `resolve`, `extract:extensions`, `resolve:lock`, `resolve:android`, `resolve:platforms`, `extract`, `extract:lock`, `check` or `generate` |
+| `kind` | `resolve`, `extract`, `check` or `generate`, in the pipeline's records |
+| `status` | `ok`, `cached`, `failed`, or `skipped` (Android left to the Gradle build, or a build superseded by a newer change) |
+| `inputs`, `outputs` | Each a project-relative path or a named key, with a content hash, sorted by key |
+| `hash` | A hash of the kind, inputs and outputs: two nodes with the same hash did the same work |
+| `detail` | Why it failed, what it extracted, or what it wrote |
+
+Times stay out of the nodes. `timings` holds each step's duration and `startedAt` its start, counted from the build's, both in milliseconds. So two builds of the same inputs write the same nodes.
+
+- `resolve` takes the merged `lucent.json` needs (`native-dependencies`) and each path a Lucent package lists, as `packages/<package>/<path>`, hashed by its files' paths and contents.
+- `extract` takes each imported SDK module, hashed on the artifacts its schema was read from, and each artifact by its id and content hash. [SDK bindings](/docs/architecture/internals/bindings/#artifact-identity) explains those identities.
+- `extract:extensions` takes each native extension, hashed on its header and the native source directories it may include from.
+- `check` takes each module's file and the targets it compiles for. `generate` gives every file of the native package except `manifest.json`, which holds a machine path.
+
+`.lucent/file-hashes.json` keeps each listed file's hash while its size, times and inode hold (`fileHashes()` in `package-files.ts`). A file changed within a second of being hashed is hashed again, since a later write in that second may keep its times.
+
+`lucent trace` (`src/cli/trace.ts`) turns the nodes into a Chrome trace, as the process `lucent build`. A timed step is a span at its `startedAt`, any other a mark, and each runtime trace given becomes a process of its own.
+
+### When a build or check is skipped
+
+A build of the same inputs is skipped before any SDK module is extracted. Its key is `inputsKey()`, the targets and a hash of the merged `lucent.json` needs.
+
+- `inputsKey()` hashes the sources, the compiler's own files, the runtime, the `lucent:core` declarations, the SDKs' identity, the views switch and the output directory.
+- A build compares the key with `manifest.json`'s `inputs`, and a check with `.lucent/check.json`, which only a passing check writes.
+- `--force`, `--frozen`, and a missing or unreadable `.lucent/sdk-usage.json` all run the check again. The usage report is one of a check's outputs.
+
+## Pending actions
+
+`classifyChanges()` in `src/cli/changes.ts` derives the record's `pendingActions`, also `actions` in [`lucent build --json`](/docs/api/json-formats/#lucent-build---json). It reads what the build wrote and removed in the native package, never a source file's extension.
+
+| Native package path | Action | Targets |
+| --- | --- | --- |
+| `manifest.json`, `types/`, `js/_lucent/identity.js` | none | |
+| `js/` | `reload-js` | all |
+| `cpp/generated/<target>/` | `compile-native` | that target |
+| other `cpp/` | `compile-native` | all |
+| `ios/` | `compile-native` | iOS |
+| `android/src/main/java/` | `compile-native` | Android |
+| `android/src/main/AndroidManifest.xml` | `reinstall` | Android |
+| `LucentNative.podspec` | `relink` | iOS |
+| other `android/` | `relink` | Android |
+| `packages/<package>/…` | the action of the `lucent.json` field listing it | that field's platform |
+| anything else | `relink` | all |
+
+- A package's file takes the action of the field listing it, in this build's resolved needs or the last one's. A file no field lists relinks.
+- `nativeSources` compiles native code, `resources`, `resourceBundles` and `assets` repackage, and frameworks and libraries relink.
+- A change to `resolved.json` needs `reinstall` on iOS only when its `infoPlist` or `entitlements` changed. The rest of it is already in the build files.
+- Adding or removing a file with an iOS action other than `reload-js`, such as a source, resource or framework, adds `relink` on iOS. CocoaPods lists a pod's files at `pod install`.
+- An action is kept only for targets the build compiled for. There is one action per kind, strongest first: `reinstall`, `relink`, `compile-native`, `repackage`, `reload-js`.
+
+`requiredAction` is the single action of C-BUILD v1, kept for readers of that version. [Builds and stale native code](/docs/architecture/builds/#actions-come-from-what-a-build-changed) says what each action means for you.
+
+`writeNativePackage()` leaves an unchanged file's content and modification time as they were, so Xcode and Gradle rebuild only what changed. [React Native integration](/docs/architecture/internals/react-native/#the-native-package) says how it publishes the rest.
+
+## SDK usage and the SDK lock
+
+Every SDK use in generated code goes through its binding plan. `noteSdkUse()` in `compiler/src/sdk/usage.ts` notes each use a plan accepts, and `recordSdkUses()` collects them for one compile, as `sdkUses`.
+
+- `symbolKey()` (`bindgen/src/usage.ts`) keys a used member by platform, module, owner, kind and native symbol, or by name and signature without one. It records the roles the member is used in: `call`, `new`, `get`, `set` or `implement`.
+- Its module's types that the member names are recorded too, without roles. Other modules' types would need their schemas, which a use doesn't otherwise extract.
+- A symbol records what a use relies on: its Lucent name, its signature as Lucent declares it, `since`, deprecation, and an enum's cases.
+
+A check or build whose code checks writes `.lucent/sdk-usage.json` (`src/cli/sdk-usage.ts`): the targets it compiled, the symbols, and each used or imported module. A module records the artifacts its schema was read from (`id#contentHash`) and its SDK cache entry (`<scope>/<entry>`). Nothing in it names a machine path.
+
+`lucent sdk lock` runs a forced check and copies that report to `lucent-sdk.lock.json`, which the app commits. It fails, writing nothing, when the project doesn't check. It fails too when a platform the project has code for has no SDK, unless `--platforms` leaves it out.
+
+A `--frozen` build or check reads the lock, skips the build caches, and stops:
+
+- when a target the lock lists has no SDK, or this build would skip it, instead of going on with a warning;
+- before the check, when a used or locked module is read from other artifacts than the lock records, or isn't recorded;
+- after the check, when the code uses symbols the lock doesn't record.
+
+`lucent sdk diff` finds each locked symbol in the installed SDK: by native symbol, else by name and signature. Then it tries the name alone, when one member of that name is left, except for constructors: their signature tells overloads apart.
+
+- A member is looked for under its owner as the new version has it. So a member an extension gives several types never answers for another type's, and each installed symbol answers for one locked symbol.
+- A change is reported as what differs: the owner, the TypeScript name, static or instance, the signature, the native symbol, `since`, deprecation and enum cases.
+- `--all` diffs every member of the locked modules, reading the locked schemas back with `cachedSchema()` while this machine's SDK cache still holds them.
+
+[JSON formats](/docs/api/json-formats/#lucent-sdklockjson) gives the lock's fields, and the contract is C-BUILD ([contracts.md](https://github.com/Fausto95/lucent/blob/main/docs/design/contracts.md#c-build-build-records-and-identities)).
+
+## Android dependencies and Gradle
+
+`resolveAndroidDependencies()` in `src/cli/project.ts` runs Gradle when the code imports Android packages and the app has a Gradle wrapper. It runs the `lucentClasspath` task through an init script, so the app's build files stay as they are, and the task writes `.lucent/android-classpath.json`.
+
+- `.lucent/android-classpath.state.json` records a hash of what decides the classpath, and whether Gradle resolved it. The hash covers the Gradle files, the JS lockfile and the packages' Gradle dependencies.
+- The same inputs never run Gradle again, a failure included, until `--force`.
+- `.lucent/gradle.lock` lets one Gradle run go at a time. A build that waited uses what the other resolved for the same inputs, and a lock whose process died is taken over.
+- A Gradle run gets `LUCENT_GRADLE_CLASSPATH=1`, as the app's `lucentBuild` task sets it. A build that sees it starts no Gradle, and records the classpath for later builds.
+- `LUCENT_NO_GRADLE=1`, which the Expo plugin sets during prebuild, runs no Gradle, because `android/` is half written then. Android waits for the Gradle build unless a classpath is already resolved.
+
+A Gradle build configured the Lucent Android library before its `lucentBuild` task ran. When this build changes the library's `build.gradle` (a first Kotlin shim, a package's Android dependency), it writes the file and fails, asking for another build. Gradle would otherwise build the library as it first read it.
+
+A `lucentBuild` that creates the native package fails the same way: that Gradle build read the app's autolinking config before the package existed.
+
+A build that leaves Android to the Gradle build can't tell whether Android needs Kotlin shims, or Compose for components' content. So `deferredLibraryGradle()` configures the library for Kotlin shims, and for Compose when views are on: whatever Android turns out to need.
+
+## Watching
+
+`startSession()` in `src/cli/dev/session.ts` is `lucent dev`. Metro's `withLucent` starts it as a child, `lucent dev --compact`, when Metro runs `start`, `run:ios` or `run:android`, unless `watch: false` or `LUCENT_WATCH=0` turns it off.
+
+- It watches the app's directory, and each Lucent package outside it (workspace or linked packages), whole, with recursive `fs.watch`.
+- A change counts when a build reads the file: a module, a `package.json` or `lucent.json`, or a path a package lists (the last build's `nativeInputs`).
+- Paths under `node_modules` or a dot directory never count. Builds write in `.lucent`, so a build never triggers another.
+- An event for a file last changed before the last build started is ignored: that build read it.
+- Events within 40 ms make one build. A change during a build aborts it through `BuildOptions.signal`, before it publishes anything, and one build follows.
+
+After each build, the session watches the packages it now depends on, and drops the ones it no longer does.
+
+## Editor diagnostics
+
+`@lucent-lang/lucent/ts-plugin` is a TypeScript language-service plugin. tsserver loads it with `require()` and its own `typescript`, which may be another version than the compiler's.
+
+- So the plugin never hands the editor's AST to the compiler. It imports the compiler, an ES module, asynchronously, and refreshes diagnostics once it's loaded.
+- `checkSources(files, readSource, { extensions })` checks the project's `*.lucent.ts` files as `compile()` does, reading the editor's unsaved text through `readSource`.
+- `projectExtensions()` binds the packages' native extensions for each check, and a header that didn't change isn't read again. When one extension can't be bound, the editor checks with none bound, and the build reports why.
+- One check serves every file until a module's script version changes.
+- TypeScript's own errors (LUCENT9001) are left to TypeScript. Each Lucent diagnostic shows its code, fix and docs link, as an error or a warning.
+
+The plugin also types each module's JSX with its toolkit, as the compiler does. It wraps the host's module resolution, so the implicit `jsx-runtime` import of `*.ios.lucent.tsx` resolves to `lucent:swiftui`, of `*.android.lucent.tsx` to `lucent:compose`, and of a shared `.lucent.tsx` to `lucent:jsx`.
+
+An app whose JSX imports no runtime, as React Native's `jsx: react-native` does, gets React's as its `jsxImportSource` once it has `.lucent.tsx` files. Its other files' JSX is then typed by `react/jsx-runtime`, whose `JSX` is React's.
+
+## Packages
+
+| File | What it does |
+| --- | --- |
+| `compiler/src/packages.ts` | `lucentPackages()`: the Lucent packages an app depends on, through `dependencies` only, as Node resolves them. `lucentPackageOf()`, `lucentVersion()` and `satisfies()` for `compatible`. |
+| `compiler/src/package-schema.ts` | `PACKAGE_FIELDS` and `EXTENSION_FIELDS`: every `lucent.json` field the build reads, and its check. `readPackageNative()` refuses anything else, naming the package and the field. |
+| `compiler/src/package-config.ts` | `resolveNative()`: each package's `lucent.json` read and merged, with the packages each need came from, into `NativeInputs` |
+| `compiler/src/package-files.ts` | `locate()`, `fileHashes()`, `inNativePackage()` and `landsOnce()`: listed paths located in their package, hashed, placed under `packages/<package>/`, and checked for collisions |
+| `compiler/src/extensions/bind.ts` | `bindExtensions()`: each native extension's declaration checked against its header, as [SDK bindings](/docs/architecture/internals/bindings/#native-extensions) explains |
+
+`packages/lucent/schemas/lucent.schema.json` is the editor's schema of `lucent.json`. `packages/lucent/test/lucent-json.test.ts` checks that it names exactly the fields the build reads. A platform's fields are compared with the test's own list, typed against `PackageNative`, and an extension's with `EXTENSION_FIELDS`.
+
+`resolveNative()` gives `NativeInputs`:
+
+- `manifest`: the merged needs, `ResolvedNative`, which the build writes as `resolved.json`. Every list and record is sorted, so the result doesn't depend on the order packages are found in.
+- `files`: each path in the native package, with the package file it copies.
+- `read`: every package file the resolution read, which the watcher follows.
+- `binaries`: the frameworks, JARs and AARs packages ship, which SDK bindings read.
+- `extensions`: each extension's header, include paths and declaration, with a hash of what reading it depends on.
+
+A package installed twice from two directories fails, since the app builds one copy of a Lucent package. A conflict between two packages' needs names both. [lucent.json](/docs/packages/lucent-json/) gives each field's merge rule.
+
+Finding packages reads only `package.json`. So an invalid `lucent.json` stops a build or check at `resolve`, while the editor plugin goes on with no native extensions bound.
+
+## Tests
+
+`packages/lucent/test/` covers the CLI: the pipeline, records, actions, the SDK lock, watching and the editor plugin. `packages/compiler/test/packages.test.ts` and `package-config.test.ts` cover discovery and merging. `node scripts/smoke-install.ts` packs `@lucent-lang/lucent` and installs it alone in a fresh app.
