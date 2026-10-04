@@ -14,6 +14,8 @@ export type Type =
   | { k: "dictionary"; key: Type; value: Type }
   /** `@convention(c) (A, B) -> R`: what a C callback is in Swift. */
   | { k: "cFunction"; params: Type[]; ret: Type }
+  /** `@convention(block) (A, B) -> R`: what an Objective-C block is in Swift. */
+  | { k: "blockFunction"; params: Type[]; ret: Type }
   /** `(A, B) -> R`: a closure's type. */
   | { k: "function"; params: Type[]; ret: Type }
   /** `some View`: a type the compiler infers, known by a protocol it conforms to. */
@@ -35,6 +37,8 @@ export type Expr =
   | { k: "self" }
   | { k: "member"; object: Expr; name: string }
   | { k: "arrayLiteral"; items: Expr[] }
+  /** `(a, b)`. */
+  | { k: "tupleLiteral"; items: Expr[] }
   | { k: "dictionaryLiteral"; entries: { key: Expr; value: Expr }[] }
   | { k: "index"; object: Expr; index: Expr }
   /** `callee(args) { trailing }`. */

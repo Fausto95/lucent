@@ -1199,7 +1199,7 @@ Several tasks need physical devices, which only the maintainer can run.
 | [TA30](#ta30) | Bind Kotlin function types and callback properties              | —                       | in review            |
 | [TA31](#ta31) | Finish the Kotlin shim shapes                                   | —                       | in review            |
 | [TA32](#ta32) | Read Swift packages and the iOS target from the project         | —                       | in review            |
-| [TA33](#ta33) | Bind the remaining Swift shapes                                 | —                       | ready                |
+| [TA33](#ta33) | Bind the remaining Swift shapes                                 | —                       | in review            |
 | [TA34](#ta34) | Turn a Java Throwable into a Lucent Error                       | —                       | ready                |
 | [T67](#t67)   | Pass the integrated production-candidate gate                   | T62, T63, T64, T65, T66 | waiting (maintainer) |
 
@@ -1755,23 +1755,46 @@ the app's target needs an availability check.
 
 **Goal:** Bind or precisely refuse the Swift shapes still left out.
 
-- **Status:** open, ready to start.
+- **Status:** in review (2026-10-04): every item below passes on its
+  branch.
 - **Area:** Bindings, Apple host.
 - **Needs:** none.
 - **Verify:** V1, V4.
 - **Where:** `packages/bindgen/src/swift.ts`, `ios.ts`, the Swift shims.
 
-- [ ] Tuples, which the extractor skips (now explained when called).
-- [ ] Functions returned by or passed to Swift (LUCENT2002, "fn values
-      cannot cross to Swift yet").
-- [ ] Factory initializers Swift imports as `init`, which the extractor
-      drops (recheck first: recorded 2026-09-23).
-- [ ] Members Swift imports onto CoreFoundation-style handles
-      (`cgImage.width`; recheck first).
-- [ ] A subclass's initializers inherited from a class whose module is only
+- [x] Tuples, which the extractor skips (now explained when called).
+      A Swift tuple is a TypeScript tuple, its labels the elements' names
+      (`(min: Int, max: Int)` → `[min: number, max: number]`), crossing a
+      shim as an array of its elements' objects, both ways
+      (`swift-shapes.test.ts`). Tuples of optional values or C structs are
+      refused, named.
+- [x] Functions returned by or passed to Swift (LUCENT2002, "fn values
+      cannot cross to Swift yet"). A closure crosses a shim as an
+      Objective-C block (`@convention(block)`): a Lucent function given,
+      escaping or not, is the block the glue makes of it, which Swift
+      calls as a closure; a closure Swift returns is cast to a block,
+      which Lucent calls. Closures taking or giving other than numbers,
+      booleans, strings and Objective-C objects are refused, named.
+- [x] Factory initializers Swift imports as `init`, which the extractor
+      drops (recheck first: recorded 2026-09-23). Still dropped on
+      recheck: `+widgetWithLabel:` is now a constructor sent to the class
+      (`[WDGWidget widgetWithLabel:…]`, `factory` in the schema); a
+      subclass calling it as `super(…)` is refused, named.
+- [x] Members Swift imports onto CoreFoundation-style handles
+      (`cgImage.width`; recheck first). Still missing on recheck (CGImage
+      declared nothing). The C functions Swift imports as a handle's
+      members are read from the module's API notes and headers'
+      `swift_name` attributes (CoreGraphics: 566): properties (their
+      getter, and setter), methods (the object where the name puts
+      `self`), static members and initializers, each a C call; a
+      Create/Copy function's result is owned. A failable initializer, or a
+      function whose Swift name Lucent does not find, is left out, said why.
+- [x] A subclass's initializers inherited from a class whose module is only
       named: today `new Dial(frame)` fails with TS2674 (UIView's
       constructor is protected) until UIKit is imported. Type them, or say
-      to import the superclass's module.
+      to import the superclass's module. The error now says so: the dial's
+      initializers are UIView's, from lucent:ios/UIKit, which no file
+      imports; a bare import declares them (`unknown-library.test.ts`).
 
 **Done when:** each shape binds by rule, or its diagnostic names the member
 and what to do.

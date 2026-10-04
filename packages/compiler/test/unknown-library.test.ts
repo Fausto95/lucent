@@ -105,12 +105,12 @@ export async function run(): Promise<string> {
 `;
 
   it("names a member it does not bind, why, and the way around it", () => {
-    const skipped = iosProgram(calling(`gauge.${lower}Range();`), modules);
+    const skipped = iosProgram(calling(`gauge.${lower}Range(1);`), modules);
     expect(skipped.r.diagnostics).toEqual([
       expect.objectContaining({
         code: "LUCENT9001",
         message: expect.stringContaining(
-          `${prefix}Gauge.${lower}Range() is in swift-module:${prefix}Kit, but Lucent does not bind it: Swift: tuples.`,
+          `${prefix}Gauge.${lower}Range(_:) is in swift-module:${prefix}Kit, but Lucent does not bind it: Swift: CustomStringConvertible.`,
         ),
         fix: wrap,
       }),
@@ -397,6 +397,32 @@ describe("an unknown library's view on iOS", () => {
         "turned: level 6, sent 6",
         "released: native references all released, dial gone",
       ]);
+    },
+    600_000,
+  );
+
+  it.skipIf(!xcode)(
+    "says to import the module of the superclass whose initializers its view inherits",
+    () => {
+      const unimported = {
+        ...dial,
+        "dial.ios.lucent.tsx": dial["dial.ios.lucent.tsx"]!.replace(
+          /^\/\/ The superclass's module[^]*?import "lucent:ios\/UIKit";\n/m,
+          "",
+        ),
+      };
+      const { r } = compiledViews(unimported, "ios", { ios: { includePaths: [dials] } });
+
+      // Among the errors after it: the dial `new` fails to make is untyped.
+      expect(r.diagnostics).toContainEqual(
+        expect.objectContaining({
+          code: "LUCENT9001",
+          message: expect.stringContaining(
+            `${prefix}Dial's initializers are UIView's, inherited from lucent:ios/UIKit, which no file imports: only its name is known.`,
+          ),
+          fix: `import "lucent:ios/UIKit" (a bare import is enough) to make a ${prefix}Dial with UIView's initializers`,
+        }),
+      );
     },
     600_000,
   );

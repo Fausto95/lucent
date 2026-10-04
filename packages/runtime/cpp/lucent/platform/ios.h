@@ -90,6 +90,13 @@ NSArray* toNSArray(const Array<T>& a, F toObject) {
   }
   return out;
 }
+/// An array of `items` (objects, never nil): a Swift tuple's elements, as its shim takes them.
+template <class... T>
+NSArray* toNSArrayOf(T... items) {
+  id all[] = {items...};
+  return [NSArray arrayWithObjects:all count:sizeof...(T)];
+}
+
 template <class T, class F>
 Array<T> fromNSArray(NSArray* a, F fromObject, const char* what) {
   if (!a) returnedNil(what);

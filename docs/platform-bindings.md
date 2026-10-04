@@ -239,6 +239,12 @@ directory:
 
 - classes are nominal (a private brand) and have a private constructor unless
   the SDK declares initializers;
+- C functions Swift imports as members of CoreFoundation-style handles,
+  as the module's API notes or its headers' `swift_name` attributes say
+  (`CGImageGetWidth` → `cgImage.width`, `CGImageCreateWithImageInRect` →
+  `cgImage.cropping(rect)`): called as the C functions they are, the
+  object where the name puts `self`, a Create/Copy function's result
+  owned;
 - Swift names on iOS (`UIDevice.current`, `init(style:)` → `constructor(style)`),
   nested types joined with `_` (`UIImpactFeedbackGenerator_FeedbackStyle`);
   Swift initializers TypeScript cannot tell apart, their parameters' types
@@ -251,7 +257,10 @@ directory:
   with bare arguments (`new Locale_LanguageCode("en")`, while
   `init(stringLiteral:)` is `withStringLiteral`); methods
   that collide get their labels appended (`resize(height:)` →
-  `resizeHeight`). Objective-C initializers are not separated yet;
+  `resizeHeight`). Objective-C initializers are not separated yet. An
+  Objective-C class method Swift imports as an initializer
+  (`+widgetWithLabel:` as `init(label:)`) is a `constructor` too, sent to
+  the class rather than to a new instance;
 - Java names on Android, plus Kotlin-style getter properties
   (`VibratorManager.defaultVibrator`); Kotlin classes as Kotlin declares
   them (see below);
@@ -395,8 +404,11 @@ a suspend function argument) has the `kotlin-shim` backend, which refuses
 generic members bounded by a projected type (`T : List<out R>`, whose
 bound the schema does not keep) and overriding a Kotlin class's suspend
 or value-class members, for now;
-Swift shims pass scalars, Swift enums and objects, not optionals of
-scalars, Objective-C enums or closures. A value that cannot cross is an `unsupported` conversion with
+Swift shims pass scalars, Swift enums, objects, tuples (as arrays of
+their elements' objects; not of optional values or C structs) and
+closures (as Objective-C blocks, both ways: of numbers, booleans,
+strings and Objective-C objects), not optionals of scalars or
+Objective-C enums. A value that cannot cross is an `unsupported` conversion with
 its reason; a member no use of which can work (a read-only property
 written, a Swift async initializer, a member of a protocol with associated
 types called, a static requirement implemented) is `refused`, with the

@@ -188,13 +188,20 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     expect(type("WDGStyle")).not.toHaveProperty("options");
   });
 
-  it("maps initializers, factories and class properties to their selectors", () => {
+  it("maps initializers, factory initializers, factories and class properties to their selectors", () => {
     expect(widget().constructors).toEqual([
       { params: [], selector: "init", symbol: "objc:c:objc(cs)WDGWidget(im)init" },
       {
         params: [{ name: "style", type: T("Widgets.WDGStyle") }],
         selector: "initWithStyle:",
         symbol: "objc:c:objc(cs)WDGWidget(im)initWithStyle:",
+      },
+      // A class method Swift imports as an initializer: called on the class.
+      {
+        params: [{ name: "label", type: T("string") }],
+        selector: "widgetWithLabel:",
+        factory: true,
+        symbol: "objc:c:objc(cs)WDGWidget(cm)widgetWithLabel:",
       },
     ]);
     expect(method("named")[0]).toMatchObject({
@@ -220,6 +227,13 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     });
     expect(props.edges).toMatchObject({ type: T("Widgets.WDGEdges") });
     expect(props.size).toMatchObject({ type: T("uint64") });
+  });
+
+  it("keeps the initializers a class inherits beside its factory ones", () => {
+    expect(cls("WDGBadge").constructors).toEqual([
+      expect.objectContaining({ selector: "badgeWithText:", factory: true }),
+      { params: [], selector: "init" },
+    ]);
   });
 
   it("types parameters and results: nullability, collections, data, dates, id", () => {
