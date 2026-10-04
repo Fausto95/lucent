@@ -8,6 +8,11 @@ export const array = (of: Type): Type => ({ k: "array", of });
 export const dictionary = (key: Type, value: Type): Type => ({ k: "dictionary", key, value });
 export const cFunction = (params: Type[], ret: Type): Type => ({ k: "cFunction", params, ret });
 export const fn = (params: Type[], ret: Type): Type => ({ k: "function", params, ret });
+export const blockFunction = (params: Type[], ret: Type): Type => ({
+  k: "blockFunction",
+  params,
+  ret,
+});
 export const opaque = (of: Type): Type => ({ k: "opaque", of });
 
 export const name = (n: string): Expr => ({ k: "name", name: n });
