@@ -71,12 +71,15 @@ Optional: the most common mistake.
 ````
 
 The page shows the title, the description, the content, then a "Next"
-link: the following page of its section, or the frontmatter's
-`next: { link, label }`, a page of the same section. A page whose samples
-are views (`views: true`) sets `sidebar: { badge: "Experimental" }`: views
-are behind `LUCENT_VIEWS=fabric`. A removed page gets no redirect: update
-the links to it. Search (Pagefind) indexes every page when the site is
-built.
+link: the following page of its section, or the doc the frontmatter's
+`pagination_next` names, in the same section. `sidebar_label` shortens a
+long title in the sidebar. A page whose samples are views (`views: true`)
+sets `sidebar_class_name: experimental`, which the sidebar marks: views are
+behind `LUCENT_VIEWS=fabric`. A removed page gets no redirect: update the
+links to it. The search indexes every page when the site is built.
+
+Pages import nothing: the site gives every page the components below
+(`src/theme/MDXComponents.tsx`).
 
 A page is written in a small vocabulary, the docs blocks of
 `src/docs/types.ts`, so `scripts/website.ts` can check it: paragraphs with

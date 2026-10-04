@@ -1,14 +1,11 @@
 /**
  * The docs' sections, their sidebar groups and pages, in reading order. A
- * section is a tab in the header with its own sidebar; Previous and Next
- * never leave it (sections.ts). A group holds pages and sub-groups, and a
- * sub-group holds pages only: the types keep the sidebar three levels deep,
- * as the patched mobile drawer shows it. A page's slug is its path under
- * /docs/ ("" is the index), and its file is src/content/docs/docs/<slug>.mdx
- * (index.mdx for "").
+ * section is a tab in the navbar with its own Docusaurus sidebar
+ * (sidebarsOf, docusaurus.config.ts), so Previous and Next never leave it.
+ * A group holds pages and sub-groups, and a sub-group holds pages only. A
+ * page's slug is its path under /docs/ ("" is the index), and its file is
+ * src/content/docs/docs/<slug>.mdx (index.mdx for "").
  */
-import { docsHref } from "./types.ts";
-
 export interface DocSubgroup {
   label: string;
   slugs: string[];
@@ -326,10 +323,6 @@ export const slugsOf = (sections: DocSection[]): string[] =>
 /** Every docs page's slug, in reading order. */
 export const docsSlugs: string[] = slugsOf(docsSections);
 
-/** A Starlight route id's docs slug; undefined outside the docs (a blog post, the 404 page). */
-export const slugOfId = (id: string): string | undefined =>
-  id === "docs" ? "" : id.startsWith("docs/") ? id.slice("docs/".length) : undefined;
-
 /** Where a page is listed: its section, the section's place, its group and sub-group. */
 export interface Location {
   section: DocSection;
@@ -350,8 +343,42 @@ export function locate(slug: string, sections: DocSection[] = docsSections): Loc
   return undefined;
 }
 
-/** The header's tabs, also the mobile drawer's links: each section's first page, then the blog. */
-export const headerLinks: { label: string; link: string }[] = [
-  ...docsSections.map((s) => ({ label: s.label, link: docsHref(slugsOf([s])[0]!) })),
-  { label: "Blog", link: "/blog/" },
-];
+/** A sidebar category, as Docusaurus reads it: doc ids and nested categories. */
+export interface SidebarCategory {
+  type: "category";
+  label: string;
+  collapsed: true;
+  items: (string | SidebarCategory)[];
+}
+
+/** A page's Docusaurus doc id: its slug, and "index" for the docs home. */
+export const docId = (slug: string): string => slug || "index";
+
+/**
+ * One Docusaurus sidebar per section, by its directory: groups and sub-groups
+ * as categories, collapsed until they hold the current page (as React
+ * Native's docs show theirs).
+ */
+export function sidebarsOf(
+  sections: DocSection[] = docsSections,
+): Record<string, SidebarCategory[]> {
+  const category = (label: string, items: (string | SidebarCategory)[]): SidebarCategory => ({
+    type: "category",
+    label,
+    collapsed: true,
+    items,
+  });
+  return Object.fromEntries(
+    sections.map((s) => [
+      s.dir,
+      s.groups.map((g) =>
+        category(
+          g.label,
+          g.items.map((i) =>
+            typeof i === "string" ? docId(i) : category(i.label, i.slugs.map(docId)),
+          ),
+        ),
+      ),
+    ]),
+  );
+}

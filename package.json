@@ -47,9 +47,6 @@
       "allowAny": [
         "vite"
       ]
-    },
-    "patchedDependencies": {
-      "@six-tech/starlight-theme-six@1.0.16": "patches/@six-tech__starlight-theme-six@1.0.16.patch"
     }
   }
 }

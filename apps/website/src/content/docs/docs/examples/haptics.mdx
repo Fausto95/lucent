@@ -4,8 +4,6 @@ description: "`expo-haptics`' API on UIKit's feedback generators and Android's `
 kind: example
 ---
 
-import { Tabs, TabItem } from "@astrojs/starlight/components";
-
 - iOS: UIKit's feedback generators may only run on the main thread, so each call is inside `main()`. The compiler rejects them anywhere else.
 - Android: `available("android", 31)` picks `VibratorManager` or `Vibrator`. Calling an API newer than the app's minimum without such a check is a compile error.
 - It ships as an npm package, `lucent-haptics`, with the same API as `expo-haptics`.

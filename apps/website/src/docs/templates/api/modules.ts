@@ -168,7 +168,7 @@ export const pages: Record<string, DocTemplate> = Object.fromEntries(
       slug,
       {
         frontmatter: api.experimental
-          ? { ...frontmatter, views: true, sidebar: { badge: "Experimental" } }
+          ? { ...frontmatter, views: true, sidebar_class_name: "experimental" }
           : frontmatter,
         blocks: [
           ...experimental,

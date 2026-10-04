@@ -96,10 +96,12 @@ export interface DocFrontmatter {
   /** One sentence: the answer, or what the reader has at the end. Also the <meta name="description">. */
   description: string;
   kind: DocKind;
-  /** The page's one "Next" link, when it isn't the following page in the sidebar. */
-  next?: { link: string; label: string };
-  /** Starlight's sidebar entry: a shorter label, or a badge ("Experimental" on pages about views). */
-  sidebar?: { label?: string; badge?: string };
+  /** The doc the page's "Next" link opens, when it isn't the following page in the sidebar. */
+  pagination_next?: string;
+  /** A shorter label for the sidebar. */
+  sidebar_label?: string;
+  /** "experimental" on pages about views: the sidebar marks them. */
+  sidebar_class_name?: string;
   /**
    * A directory (from the repository root) whose `*.lucent.ts` files compile with
    * the page's samples, so a page can show one module of a project, or its diff.

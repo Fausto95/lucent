@@ -1,8 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "astro",
+  "framework": "docusaurus-2",
   "buildCommand": "pnpm run website:build",
   "devCommand": "pnpm run website",
-  "outputDirectory": "apps/website/dist",
+  "outputDirectory": "apps/website/build",
   "trailingSlash": true
 }

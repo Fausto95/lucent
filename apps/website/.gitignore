@@ -4,3 +4,7 @@ dist/
 node_modules/
 .prose/
 .astro/
+
+# Docusaurus
+.docusaurus/
+build/

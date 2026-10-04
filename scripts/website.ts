@@ -60,7 +60,7 @@ for (const [name, content] of Object.entries(generated)) write(name, content);
 // The JSON schemas, served where their $id says (https://lucent-lang.dev/schemas/…).
 const schemasDir = path.join(root, "packages/lucent/schemas");
 for (const name of fs.readdirSync(schemasDir))
-  write(`public/schemas/${name}`, fs.readFileSync(path.join(schemasDir, name), "utf8"));
+  write(`static/schemas/${name}`, fs.readFileSync(path.join(schemasDir, name), "utf8"));
 
 // The reference pages, from their templates.
 const templates = await loadTemplates();
@@ -68,9 +68,11 @@ const pagesWritten: Record<string, string> = {};
 for (const [slug, { file, frontmatter, blocks }] of Object.entries(templates)) {
   const name = docFile(slug);
   const template = `src/docs/templates/${file}`;
-  // "Edit page" opens the template: the page itself says not to edit it.
-  const editUrl = `https://github.com/Fausto95/lucent/edit/main/apps/website/${template}`;
-  pagesWritten[name] = pageToMdx({ ...frontmatter, editUrl }, blocks, { generatedFrom: template });
+  // "Edit this page" opens the template: the page itself says not to edit it.
+  const custom_edit_url = `https://github.com/Fausto95/lucent/edit/main/apps/website/${template}`;
+  pagesWritten[name] = pageToMdx({ ...frontmatter, custom_edit_url }, blocks, {
+    generatedFrom: template,
+  });
   write(name, pagesWritten[name]!);
 }
 

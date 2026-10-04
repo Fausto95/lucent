@@ -1,0 +1,4 @@
+{
+  "type": "module",
+  "//": "Node reads these modules as ES modules (scripts/website.ts imports them); Docusaurus bundles them."
+}

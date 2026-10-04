@@ -7,6 +7,7 @@ import { compilerOptions } from "../../packages/compiler/src/program.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { compileSamples } from "./compile.ts";
+import { readMdx } from "../../apps/website/src/docs/mdx-read.ts";
 import { knownLimitations, parseChangelog } from "./releases.ts";
 import { declarationsOf } from "./declarations.ts";
 import { jsonOutputs, type SchemaNode, schemaFields } from "./schema-fields.ts";
@@ -267,6 +268,21 @@ function roadmap(): string {
   return `${header}/** From ROADMAP.md. */\nexport const milestones: { title: string; goal?: string; items: { status?: string; text: string }[] }[] = ${json(milestones)};\n\nexport const limitations: { title: string; items: string[] }[] = ${json(knownLimitations(text))};\n`;
 }
 
+/** The blog's posts, newest first: what the homepage and the docs show of them. */
+function posts(): string {
+  const dir = path.join(root, "apps/website/src/content/blog");
+  const list = fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".mdx"))
+    .map((file) => {
+      const { frontmatter } = readMdx(fs.readFileSync(path.join(dir, file), "utf8"));
+      const { title, date, description } = frontmatter as Record<string, string>;
+      return { slug: file.replace(/\.mdx$/, ""), title, date: String(date), description };
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return `${header}/** From src/content/blog/*.mdx. */\nexport const posts: { slug: string; title: string; date: string; description: string }[] = ${json(list)};\n`;
+}
+
 /** The releases of @lucent-lang/lucent, newest first, from its CHANGELOG.md. */
 function changelog(): string {
   const text = fs.readFileSync(path.join(root, "packages/lucent/CHANGELOG.md"), "utf8");
@@ -291,6 +307,7 @@ export function generatedFiles(): Record<string, string> {
     "compatibility.ts": compatibility(),
     "roadmap.ts": roadmap(),
     "changelog.ts": changelog(),
+    "posts.ts": posts(),
     ...Object.fromEntries(
       Object.entries(snippetSources).map(([name, file]) => [`snippets/${name}`, snippet(file)]),
     ),

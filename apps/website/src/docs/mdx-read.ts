@@ -15,12 +15,11 @@ import { unified } from "unified";
 import { parse as parseYaml } from "yaml";
 import type { Block, DiagramName } from "./types.ts";
 import { parseMeta, snippetsDir } from "./markdown.ts";
-
-const websiteRoot = path.resolve(import.meta.dirname, "../..");
+import { websiteDir } from "./site-dir.ts";
 
 /** The file an `include` names, without its final newline. */
 export function readSnippet(name: string): string {
-  return fs.readFileSync(path.join(websiteRoot, snippetsDir, name), "utf8").replace(/\n$/, "");
+  return fs.readFileSync(path.join(websiteDir(), snippetsDir, name), "utf8").replace(/\n$/, "");
 }
 
 const processor = unified().use(remarkParse).use(remarkMdx).use(remarkGfm).use(remarkDirective);

@@ -4,8 +4,6 @@ description: "`expo-secure-store`'s API on the iOS Keychain and the Android Keys
 kind: example
 ---
 
-import { Tabs, TabItem } from "@astrojs/starlight/components";
-
 - iOS: the Keychain's C functions (`SecItemAdd`, `SecItemCopyMatching`), with a query built as a `Record` and the result read through `Out<NSObject>`.
 - Android: an AES/GCM key from the Android Keystore encrypts each value, stored in `SharedPreferences`.
 - It ships as an npm package, `lucent-secure-store`: an app that installs it compiles the module with its own.
