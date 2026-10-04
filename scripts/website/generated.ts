@@ -6,6 +6,7 @@ import { MIN_ANDROID_API } from "../../packages/compiler/src/sdk/schema.ts";
 import fs from "node:fs";
 import path from "node:path";
 import { compileSamples } from "./compile.ts";
+import { declarationsOf } from "./declarations.ts";
 import { jsonOutputs, type SchemaNode, schemaFields } from "./schema-fields.ts";
 import { root } from "./context.ts";
 
@@ -162,16 +163,26 @@ function jsonFormats(): string {
   return `${header}/** From packages/lucent/schemas/*.schema.json. */\nexport const jsonOutputs: { command: string; file: string; description: string; fields: ${field}[] }[] = ${json(outputs)};\n\nexport const sdkLock: { description: string; fields: ${field}[] } = ${json({ description: lock.description ?? "", fields: schemaFields(lock) })};\n`;
 }
 
-/** The lucent:* modules, from the declarations the compiler serves for them. */
-function lucentModules(): string {
-  const dir = path.join(root, "packages/compiler/lib/sdk");
-  const modules = ["core", "platform", "thread", "ios", "android"].map((name) => {
-    const text = fs.readFileSync(path.join(dir, `${name}.d.ts`), "utf8");
-    // The file's opening comment is for contributors; the rest is the module's API.
-    const opening = /^(\/\/[^\n]*\n|\/\*\*[\s\S]*?\*\/\n)\s*/.exec(text);
-    return { name: `lucent:${name}`, declarations: text.slice(opening?.[0].length ?? 0).trimEnd() };
-  });
-  return `${header}/** From packages/compiler/lib/sdk/*.d.ts. */\nexport const lucentModules: { name: string; declarations: string }[] = ${json(modules)};\n`;
+/** Each lucent:* module and the globals, read per export from the declarations the compiler serves. */
+function apiModules(): string {
+  const lib = path.join(root, "packages/compiler/lib");
+  const files: Record<string, string> = {
+    core: "sdk/core.d.ts",
+    platform: "sdk/platform.d.ts",
+    thread: "sdk/thread.d.ts",
+    ios: "sdk/ios.d.ts",
+    android: "sdk/android.d.ts",
+    globals: "globals.d.ts",
+    ui: "sdk/ui.d.ts",
+    compose: "sdk/compose.d.ts",
+  };
+  const modules = Object.fromEntries(
+    Object.entries(files).map(([name, file]) => [
+      name,
+      declarationsOf(file, fs.readFileSync(path.join(lib, file), "utf8")),
+    ]),
+  );
+  return `${header}import type { ModuleDeclarations } from "../docs/api";\n\n/** From packages/compiler/lib/sdk/*.d.ts and lib/globals.d.ts. */\nexport const apiModules: Record<string, ModuleDeclarations> = ${json(modules)};\n`;
 }
 
 /** What Lucent needs, as lucent doctor and the compiler check it. */
@@ -227,7 +238,7 @@ export function generatedFiles(): Record<string, string> {
     "diagnostics.ts": diagnostics(),
     "lucent-json.ts": lucentJson(),
     "json-formats.ts": jsonFormats(),
-    "modules.ts": lucentModules(),
+    "api.ts": apiModules(),
     "compatibility.ts": compatibility(),
     "roadmap.ts": roadmap(),
     ...Object.fromEntries(

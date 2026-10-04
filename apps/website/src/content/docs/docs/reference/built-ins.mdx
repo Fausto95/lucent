@@ -22,4 +22,4 @@ kind: reference
 | `console` | `log`, `info`, `debug`, `warn`, `error`: to the unified log on iOS, logcat on Android (tag `Lucent`). | Arguments print as `String(value)`; a bigint with its `n`, as in JavaScript. |
 | `AbortController`, `AbortSignal` | `signal`, `abort(error?)`; `aborted`, `throwIfAborted()`, `addEventListener("abort", …)`. | No `signal.reason`. |
 
-Not available: `Intl`, `Symbol`, `WeakMap`, `WeakRef`, `Proxy`, `eval`, `TextEncoder` and `TextDecoder`. Each is a compile error; for text, use `utf8Encode` and `utf8Decode` from [`lucent:core`](/docs/reference/modules/#lucentcore).
+Not available: `Intl`, `Symbol`, `WeakMap`, `WeakRef`, `Proxy`, `eval`, `TextEncoder` and `TextDecoder`. Each is a compile error; for text, use `utf8Encode` and `utf8Decode` from [`lucent:core`](/docs/api/lucent-core/).

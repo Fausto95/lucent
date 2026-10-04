@@ -77,19 +77,33 @@ export const docsSections: DocSection[] = [
     dir: "api",
     groups: [
       {
+        label: "Modules and globals",
+        slugs: [
+          "api/lucent-core",
+          "api/lucent-platform",
+          "api/lucent-thread",
+          "api/lucent-ios",
+          "api/lucent-android",
+          "api/globals",
+        ],
+      },
+      {
         label: "Reference",
         slugs: [
           "reference/language",
           "reference/built-ins",
           "reference/boundary-types",
           "reference/platform-types",
-          "reference/modules",
           "reference/cli",
           "api/json-formats",
           "reference/metro-and-expo",
           "reference/diagnostics",
           "reference/compatibility",
         ],
+      },
+      {
+        label: "Views reference",
+        slugs: ["api/views/lucent-ui", "api/views/lucent-compose"],
       },
     ],
   },
