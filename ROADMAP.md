@@ -1199,7 +1199,7 @@ Several tasks need physical devices, which only the maintainer can run.
 | [TA30](#ta30) | Bind Kotlin function types and callback properties              | —                       | in review            |
 | [TA31](#ta31) | Finish the Kotlin shim shapes                                   | —                       | in review            |
 | [TA32](#ta32) | Read Swift packages and the iOS target from the project         | —                       | in review            |
-| [TA33](#ta33) | Bind the remaining Swift shapes                                 | —                       | ready                |
+| [TA33](#ta33) | Bind the remaining Swift shapes                                 | —                       | in progress          |
 | [TA34](#ta34) | Turn a Java Throwable into a Lucent Error                       | —                       | ready                |
 | [T67](#t67)   | Pass the integrated production-candidate gate                   | T62, T63, T64, T65, T66 | waiting (maintainer) |
 
@@ -1755,7 +1755,7 @@ the app's target needs an availability check.
 
 **Goal:** Bind or precisely refuse the Swift shapes still left out.
 
-- **Status:** open, ready to start.
+- **Status:** in progress (2026-10-04).
 - **Area:** Bindings, Apple host.
 - **Needs:** none.
 - **Verify:** V1, V4.
@@ -1768,10 +1768,12 @@ the app's target needs an availability check.
       drops (recheck first: recorded 2026-09-23).
 - [ ] Members Swift imports onto CoreFoundation-style handles
       (`cgImage.width`; recheck first).
-- [ ] A subclass's initializers inherited from a class whose module is only
+- [x] A subclass's initializers inherited from a class whose module is only
       named: today `new Dial(frame)` fails with TS2674 (UIView's
       constructor is protected) until UIKit is imported. Type them, or say
-      to import the superclass's module.
+      to import the superclass's module. The error now says so: the dial's
+      initializers are UIView's, from lucent:ios/UIKit, which no file
+      imports; a bare import declares them (`unknown-library.test.ts`).
 
 **Done when:** each shape binds by rule, or its diagnostic names the member
 and what to do.

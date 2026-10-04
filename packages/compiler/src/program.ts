@@ -10,6 +10,7 @@ import { cachedDeclarations } from "./sdk/declaration-cache.ts";
 import {
   currentSdkIdentity,
   findSdkModule,
+  parseSdkType,
   type Platform,
   PLATFORMS,
   platformSdkTyped,
@@ -619,7 +620,8 @@ export function createLucentProgram(
       const hint =
         nativeMemberHint(d, checker, direct) ??
         nativeAttributeHint(d, checker) ??
-        initializerFactoryHint(d, checker);
+        initializerFactoryHint(d, checker) ??
+        inheritedInitializerHint(d, checker, direct);
       const diagnostic = fromTs(d);
       diagnostics.push(
         hint
@@ -684,6 +686,61 @@ function nativeMemberHint(
     message: `${symbol.name} is ${spec}'s, from ${provenance.artifact} as installed, which has no ${name.text}.`,
     fix: `use what ${symbol.name} declares in this version of ${sdk.module}, or install a version that has ${name.text}`,
   };
+}
+
+/** TypeScript's error for a protected constructor called from outside. */
+const PROTECTED_CONSTRUCTOR = 2674;
+
+/**
+ * Where `new` of a native class reaches the constructor of a superclass
+ * whose module no file imports (only its name is known, so it declares
+ * none): the initializers the class inherits are that superclass's, and
+ * importing its module declares them.
+ */
+function inheritedInitializerHint(
+  d: ts.Diagnostic,
+  checker: ts.TypeChecker,
+  direct: Set<string>,
+): { message: string; fix: string } | undefined {
+  if (d.code !== PROTECTED_CONSTRUCTOR && !NO_OVERLOAD.has(d.code)) return undefined;
+  if (!d.file || d.start === undefined) return undefined;
+
+  let at: ts.Node | undefined = nodeAt(d.file, d.start);
+  while (at && !ts.isNewExpression(at)) at = at.parent;
+  if (!at || !ts.isNewExpression(at)) return undefined;
+
+  const named = checker.getSymbolAtLocation(at.expression);
+  const symbol =
+    named && named.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(named) : named;
+  const declared = symbol?.declarations?.[0]?.getSourceFile();
+  const sdk = declared && sdkModuleOf(declared);
+  if (!symbol || !sdk) return undefined;
+
+  // Up the classes that inherit their initializers, to the one declaring them.
+  let module = sdk.module;
+  let name = symbol.name;
+  for (let depth = 0; depth < 32; depth++) {
+    const found = sdkLookup(sdk.platform, module);
+    const cls =
+      "schema" in found
+        ? found.schema.types.find((t) => t.kind === "class" && t.name === name)
+        : undefined;
+    if (cls?.kind !== "class" || cls.constructors?.length || !cls.inheritsInit || !cls.extends)
+      break;
+
+    const up = parseSdkType(cls.extends, module);
+    if (up.k !== "ref") break;
+    [module, name] = [up.module, up.name];
+
+    const spec = `lucent:${sdk.platform}/${module}`;
+    if (module !== sdk.module && !direct.has(`${sdk.platform}/${module}`))
+      return {
+        message: `${symbol.name}'s initializers are ${name}'s, inherited from ${spec}, which no file imports: only its name is known.`,
+        fix: `import "${spec}" (a bare import is enough) to make a ${symbol.name} with ${name}'s initializers`,
+      };
+  }
+
+  return undefined;
 }
 
 /** TypeScript's errors for a call no overload takes. */
