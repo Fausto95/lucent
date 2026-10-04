@@ -103,6 +103,8 @@ export type Member =
       computed?: boolean;
       /** `name?: T`: an object may leave it out. */
       optional?: boolean;
+      /** What it takes when written, where that is more than `type`: a get and a set accessor. */
+      set?: Type;
       doc?: Doc;
     }
   | { k: "constructor"; params: Param[]; protected?: boolean; private?: boolean; doc?: Doc }
