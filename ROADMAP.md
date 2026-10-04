@@ -1182,7 +1182,7 @@ Several tasks need physical devices, which only the maintainer can run.
 | [T65](#t65)   | Enforce physical-device performance budgets                     | T54, T55, T56, T59, T64 | waiting (maintainer) |
 | [T66](#t66)   | Complete user documentation and migration examples              | T51, T52, T60, T61      | waiting              |
 | [TA30](#ta30) | Bind Kotlin function types and callback properties              | —                       | in review            |
-| [TA31](#ta31) | Finish the Kotlin shim shapes                                   | —                       | ready                |
+| [TA31](#ta31) | Finish the Kotlin shim shapes                                   | —                       | in review            |
 | [TA32](#ta32) | Read Swift packages and the iOS target from the project         | —                       | ready                |
 | [TA33](#ta33) | Bind the remaining Swift shapes                                 | —                       | ready                |
 | [TA34](#ta34) | Turn a Java Throwable into a Lucent Error                       | —                       | ready                |
@@ -1659,16 +1659,33 @@ module code and in views.
 
 **Goal:** Call the Kotlin members T26's shims refuse.
 
-- **Status:** open, ready to start.
+- **Status:** in review (2026-10-04): every item below passes on its
+  branch.
 - **Area:** Bindings, Android host.
 - **Needs:** none.
 - **Verify:** V1, V4.
 - **Where:** `packages/compiler/src/emit/kotlin.ts`, the shim plans.
 
-- [ ] Generic members (functions and properties of a type parameter).
-- [ ] Lucent functions passed as `suspend` functions.
-- [ ] Assigning value classes, and implementing members that take them.
-- [ ] Defaults left out for generic members.
+- [x] Generic members (functions and properties of a type parameter).
+      Unbounded ones went through shims already (T26's flows); a bounded
+      one's shim is generic itself, declaring the bounds the schema now
+      keeps (`kotlin.upperBounds`), for a member's and a class's type
+      parameters. A bound with a use-site projection stays refused, named.
+- [x] Lucent functions passed as `suspend` functions: already through
+      shims (T26: `Ticker.each`, `transformed`, on the JVM).
+- [x] Assigning value classes, and implementing members that take them:
+      a setter's shim; an interface's value-class member through the
+      proxy (`box-impl`, `unbox-impl`), and its suspend member, resumed by
+      the promise the Lucent method returns. Overriding a Kotlin class's
+      such members stays refused, named. A value class property's
+      accessors are now named as Kotlin's (their mangled JVM names made
+      the declarations invalid).
+- [x] Defaults left out for generic members: through the same generic
+      shims.
+
+`kotlin-shims.test.ts` runs each shape through the JNI glue on the
+desktop JVM (`7 c x z 20 true q no names`, CheckJNI on); the shims compile
+with kotlinc, warnings as errors.
 
 **Done when:** each shape is called through a shim and checked by the
 Kotlin shim tests, or refused with a diagnostic naming the member.

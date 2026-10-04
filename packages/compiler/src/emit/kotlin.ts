@@ -15,7 +15,9 @@
  * Arguments a call leaves out are left out of the Kotlin call too, so
  * Kotlin's own defaults apply. A generic member's type parameters are
  * `Any?` (`Any` where Kotlin bounds them so): the values are Java objects
- * either way. A Lucent function passed where Kotlin takes a suspend
+ * either way. Where Kotlin bounds one otherwise (`T : Comparable<T>`),
+ * the shim is generic itself: it declares its class's and its member's
+ * type parameters with their bounds, and passes them on. A Lucent function passed where Kotlin takes a suspend
  * function, or a fun interface whose function suspends (a Flow's
  * FlowCollector), reaches the shim as a Kotlin function object
  * (`kotlin.jvm.functions.FunctionN`), which the shim calls from the lambda
@@ -36,7 +38,7 @@ import {
   type SdkPropertySchema,
   type SdkType,
 } from "../sdk/schema.ts";
-import type { TypeParamBounds } from "@lucent-lang/bindgen";
+import type { KotlinTypeRef, TypeParamBounds, TypeParamUpperBounds } from "@lucent-lang/bindgen";
 import type { Ctx } from "./context.ts";
 
 /** The package of the generated shims (kept from the app's shrinker with the rest of dev.lucent). */
@@ -61,7 +63,7 @@ export interface KotlinUse {
   /** The SDK module (Java package) of the member's class. */
   module: string;
   cls: SdkClassSchema;
-  role: "call" | "new" | "get";
+  role: "call" | "new" | "get" | "set";
   member: SdkMethodSchema | SdkCallable | SdkPropertySchema;
   /** Whether an instance member's receiver is passed (none for statics and constructors). */
   instance: boolean;
@@ -135,6 +137,60 @@ function anyFor(name: string, bounds: TypeParamBounds | undefined): kt.Type {
   return bounds?.[name] === "non-null" ? kt.type("Any") : kt.nullable(kt.type("Any"));
 }
 
+/** A bound as Kotlin types it (`kotlin.Comparable<T>`). */
+function boundType(ref: KotlinTypeRef): kt.Type {
+  const named = kt.type(
+    ref.name,
+    ...(ref.args ?? []).map((a) => (a === "*" ? kt.star : boundType(a))),
+  );
+  return ref.nullable ? kt.nullable(named) : named;
+}
+
+/**
+ * The type parameters a use's shim declares, with their bounds: none when
+ * neither its class's nor its member's are bounded other than by Any
+ * (each is then `Any?`, or `Any`), else all of both, as Kotlin declares
+ * them, so that a bound naming another parameter has it.
+ */
+function declaredTypeParams(use: KotlinUse): {
+  names: string[];
+  bounds: Record<string, kt.Type[]>;
+} {
+  const classFacts = use.cls.kotlin;
+  const memberFacts = use.member.kotlin;
+  const classParams = use.cls.typeParams ?? [];
+  const memberParams = "typeParams" in use.member ? (use.member.typeParams ?? []) : [];
+  const other = (f: { upperBounds?: TypeParamUpperBounds } | undefined) =>
+    Object.keys(f?.upperBounds ?? {}).length > 0;
+  if (!other(classFacts) && !other(memberFacts)) return { names: [], bounds: {} };
+
+  // A static member does not see its class's type parameters.
+  const fromClass = use.instance || use.role === "new" ? classParams : [];
+  const clash = memberParams.find((n) => fromClass.includes(n));
+  if (clash)
+    fail(
+      use.node,
+      Codes.UnsupportedCall,
+      `${use.what}: its type parameter ${clash} shadows its class's, which a shim cannot declare twice`,
+    );
+
+  const bounds: Record<string, kt.Type[]> = {};
+  const bind = (
+    names: string[],
+    f: { bounds?: TypeParamBounds; upperBounds?: TypeParamUpperBounds } | undefined,
+  ) => {
+    for (const n of names) {
+      const upper = f?.upperBounds?.[n];
+      if (upper) bounds[n] = upper.map(boundType);
+      else if (f?.bounds?.[n] === "non-null") bounds[n] = [kt.type("Any")];
+    }
+  };
+  bind(fromClass, classFacts);
+  bind(memberParams, memberFacts);
+
+  return { names: [...fromClass, ...memberParams], bounds };
+}
+
 /** A value of schema type `t` as a shim takes or gives it: a primitive, else any object. */
 function boundary(t: SdkType): { type: kt.Type; descriptor: string } {
   const prim = primOf(t);
@@ -166,6 +222,8 @@ function kotlinType(use: KotlinUse, t: SdkType): kt.Type {
           : kt.type("kotlin.Array", kotlinType(use, t.of));
       }
       case "tparam": {
+        if (declaredTypeParams(use).names.includes(t.name)) return kt.type(t.name);
+
         const own = "typeParams" in use.member && use.member.typeParams?.includes(t.name);
         return anyFor(t.name, own ? use.member.kotlin?.bounds : use.cls.kotlin?.bounds);
       }
@@ -224,7 +282,8 @@ export function kotlinShim(ctx: Ctx, use: KotlinUse): KotlinShim {
     memberName,
     use.given.map((g, i) => (g ? (use.wrapped[i] ? "f" : 1) : 0)).join(""),
   ].join("|");
-  const name = `${use.cls.name}_${use.role === "get" ? `get_${memberName}` : memberName}_${hashOf(key)}`;
+  const accessor = use.role === "get" || use.role === "set" ? `${use.role}_` : "";
+  const name = `${use.cls.name}_${accessor}${memberName}_${hashOf(key)}`;
 
   const shims = ctx.kotlinShims.get(use.module) ?? new Map<string, KotlinShim>();
   ctx.kotlinShims.set(use.module, shims);
@@ -247,6 +306,9 @@ export function kotlinShim(ctx: Ctx, use: KotlinUse): KotlinShim {
   if (use.instance) take("receiver", "receiver");
   else if (receiverType) take("receiver", primOf(receiverType) ? receiverType : "receiver");
 
+  // A property's new value.
+  if (use.role === "set" && "type" in use.member) take("value", use.member.type);
+
   // The arguments the call gives, by name: Kotlin's defaults fill the rest.
   const sourceParams = extension ? params.slice(1) : params;
   const given = extension ? use.given.slice(1) : use.given;
@@ -268,10 +330,14 @@ export function kotlinShim(ctx: Ctx, use: KotlinUse): KotlinShim {
     });
   });
 
-  // Type parameters as Any? (Any where Kotlin bounds them so).
-  const classArgs = (use.cls.typeParams ?? []).map((n) => anyFor(n, use.cls.kotlin?.bounds));
+  // Type parameters as Any? (Any where Kotlin bounds them so), or the shim's own, declared with
+  // their bounds where Kotlin bounds them otherwise.
+  const declared = declaredTypeParams(use);
+  const typeArg = (n: string, bounds: TypeParamBounds | undefined) =>
+    declared.names.includes(n) ? kt.type(n) : anyFor(n, bounds);
+  const classArgs = (use.cls.typeParams ?? []).map((n) => typeArg(n, use.cls.kotlin?.bounds));
   const memberParams = "typeParams" in use.member ? (use.member.typeParams ?? []) : [];
-  const memberArgs = memberParams.map((n) => anyFor(n, use.member.kotlin?.bounds));
+  const memberArgs = memberParams.map((n) => typeArg(n, use.member.kotlin?.bounds));
   const typeArgs = (list: kt.Type[]) => (list.length ? list : undefined);
 
   // What the call reaches: its receiver, a top-level declaration, a class.
@@ -299,7 +365,9 @@ export function kotlinShim(ctx: Ctx, use: KotlinUse): KotlinShim {
     const reached = target
       ? kt.member(target, n)
       : qualified(`${topLevel ? pkg : kotlinName(use.cls.native)}.${n}`);
-    return use.role === "get" ? reached : kt.call(reached, args, undefined, typeArgs(memberArgs));
+    return use.role === "get" || use.role === "set"
+      ? reached
+      : kt.call(reached, args, undefined, typeArgs(memberArgs));
   })();
 
   let body: kt.Stmt[];
@@ -314,6 +382,15 @@ export function kotlinShim(ctx: Ctx, use: KotlinUse): KotlinShim {
     body = [
       kt.ret(
         kt.call(kt.name("start"), [{ value: kt.name("done") }], kt.lambda([], [kt.exprStmt(call)])),
+      ),
+    ];
+  } else if (use.role === "set") {
+    const value = "type" in use.member && primOf(use.member.type);
+    retDescriptor = "V";
+    body = [
+      kt.assign(
+        call,
+        value ? kt.name("value") : kt.call(kt.name("cast"), [{ value: kt.name("value") }]),
       ),
     ];
   } else if (isVoid(use.returns)) {
@@ -334,6 +411,7 @@ export function kotlinShim(ctx: Ctx, use: KotlinUse): KotlinShim {
       k: "fun",
       annotations: ["JvmStatic"],
       modifiers: [],
+      ...(declared.names.length ? { typeParams: declared.names, bounds: declared.bounds } : {}),
       name,
       params: shimParams,
       ...(ret ? { ret } : {}),

@@ -104,6 +104,8 @@ export interface Fun {
   annotations?: string[];
   modifiers: Modifier[];
   typeParams?: string[];
+  /** Type parameters' upper bounds, by name: one inline (`<T : B>`), several in a where clause. */
+  bounds?: Record<string, Type[]>;
   /** An extension function's receiver. */
   receiver?: Type;
   name: string;

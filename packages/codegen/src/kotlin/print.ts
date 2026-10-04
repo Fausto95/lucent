@@ -332,10 +332,20 @@ const params = (ps: Param[], indent: string) =>
     .join(", ");
 
 function fun(f: Fun, indent: string): string[] {
-  const tps = f.typeParams?.length ? `<${f.typeParams.map(ident).join(", ")}> ` : "";
+  const bounds = (n: string) => f.bounds?.[n] ?? [];
+  const typeParam = (n: string) => {
+    const [only, ...more] = bounds(n);
+    return only && !more.length ? `${ident(n)} : ${printType(only)}` : ident(n);
+  };
+  const where = (f.typeParams ?? [])
+    .filter((n) => bounds(n).length > 1)
+    .flatMap((n) => bounds(n).map((b) => `${ident(n)} : ${printType(b)}`));
+
+  const tps = f.typeParams?.length ? `<${f.typeParams.map(typeParam).join(", ")}> ` : "";
   const receiver = f.receiver ? `${printType(f.receiver)}.` : "";
   const ret = f.ret ? `: ${printType(f.ret)}` : "";
-  const head = `${indent}${mods(f.modifiers)}fun ${tps}${receiver}${ident(f.name)}(${params(f.params, indent)})${ret}`;
+  const clause = where.length ? ` where ${where.join(", ")}` : "";
+  const head = `${indent}${mods(f.modifiers)}fun ${tps}${receiver}${ident(f.name)}(${params(f.params, indent)})${ret}${clause}`;
 
   return [
     ...annotations(f.annotations, indent),
