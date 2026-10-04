@@ -1359,17 +1359,60 @@ function proxyEntry(
 
   const ret = parseSdkType(m.returns, module, m.typeParams ?? []);
   const what = `${owner}.${m.name}`;
+  const suspend = !!m.kotlin?.suspend;
+
+  // Value classes the JVM passes as their underlying values: boxed for Lucent, and back.
+  const slots = descriptorSlots(descriptor);
+  const result = unboxedSlot(ret, suspend ? undefined : slots.ret);
+  const valueLt = suspend && fn.ret.k === "promise" ? fn.ret.inner : fn.ret;
+  const box = (r: cpp.Expr): cpp.Expr =>
+    result
+      ? jni(
+          "unboxValueClass",
+          env,
+          cpp.str(result.native),
+          cpp.str(result.underlying),
+          jni("unwrap", r),
+        )
+      : suspend && ret.k === "prim" && ret.name === "void"
+        ? jni("unit", env)
+        : boxJava(em, node, ret, r, what, valueLt);
 
   return proxyMethod(em, node, {
     key: `${m.java ?? m.name}${descriptor.slice(0, descriptor.indexOf(")") + 1)}`,
     params: params.slice(0, n),
-    box: (r) => boxJava(node, ret, r, what, fn.ret),
+    unboxed: params.slice(0, n).map((p, i) => unboxedSlot(p, slots.params[i])),
+    box,
     queued: plan.delivery === "queued",
+    // A suspend function's continuation comes after what it declares.
+    ...(suspend ? { continuation: params.length } : {}),
     what,
     fn,
     capture,
     call,
   });
+}
+
+/** A JVM method descriptor's parameter and result types, as written (`I`, `Ljava/lang/String;`). */
+function descriptorSlots(descriptor: string): { params: string[]; ret: string } {
+  const slots = descriptor.match(/\[*(?:[ZBCSIJFDV]|L[^;]+;)/g) ?? [];
+  return { params: slots.slice(0, -1), ret: slots.at(-1) ?? "V" };
+}
+
+/**
+ * Where a value class crosses as its underlying value (its slot in the
+ * descriptor is not the class): the class, and that value's descriptor.
+ */
+function unboxedSlot(
+  t: SdkType,
+  slot: string | undefined,
+): { native: string; underlying: string } | undefined {
+  if (t.k !== "ref" || !slot) return undefined;
+
+  const cls = findSdkType("android", t.module, t.name);
+  if (cls?.kind !== "class" || !cls.kotlin?.value) return undefined;
+
+  return slot === `L${cls.native};` ? undefined : { native: cls.native, underlying: slot };
 }
 
 /**
@@ -1383,44 +1426,89 @@ function proxyMethod(
   m: {
     key: string;
     params: SdkType[];
+    /** Value classes among `params` the JVM passes as their underlying values. */
+    unboxed?: ({ native: string; underlying: string } | undefined)[];
     box: (result: cpp.Expr) => cpp.Expr;
     queued: boolean;
+    /** A suspend function's: the index of its continuation among the arguments. */
+    continuation?: number;
     what: string;
     fn: LType & { k: "fn" };
     capture: cpp.Capture;
     call: (args: cpp.Expr[]) => cpp.Expr;
   },
 ): cpp.Expr {
-  const args = proxyArguments(em, node, m.params, m.fn, m.what);
+  const args = proxyArguments(em, node, m.params, m.fn, m.what, m.unboxed);
   const names = args.map((_, i) => `a${i}_`);
   const convert = args.map((a, i) => cpp.varDecl(cpp.auto, names[i]!, a));
   const holder = typeof m.capture === "string" ? m.capture : m.capture.name;
   const made = m.call(names.map(cpp.id));
   const jobject = cpp.type("jobject");
   const entry = callbackEntry(em, node);
-  const body: cpp.Stmt[] = m.queued
-    ? [
-        ...convert,
+
+  // A suspend function: the call is queued, and the continuation resumed once it settles.
+  const resumed = (k: number): cpp.Stmt[] => {
+    const resume = cpp.id("resume_");
+    const boxValue = cpp.lambda(
+      [],
+      [
+        cpp.param(cpp.pointer(cpp.type("JNIEnv")), "env"),
+        cpp.param(cpp.reference(cpp.constType(cpp.auto)), "v_"),
+      ],
+      [cpp.ret(m.box(cpp.id("v_")))],
+      { ret: jobject },
+    );
+    const run = cpp.lambda(
+      [holder, ...names, "resume_"],
+      [],
+      [
         cpp.exprStmt(
-          entry.later(
-            cpp.lambda([holder, ...names], [], [cpp.exprStmt(cpp.cast("c", cpp.voidType, made))]),
-          ),
+          jni("resumeWithResult", resume, cpp.lambda(["&"], [], [cpp.ret(made)]), boxValue),
         ),
-        cpp.ret(cpp.nullptr),
-      ]
-    : [
-        ...convert,
-        cpp.ret(
-          entry.now(
-            cpp.lambda(
-              ["&"],
-              [],
-              [cpp.varDecl(cpp.auto, "r_", made), cpp.ret(m.box(cpp.id("r_")))],
-              { ret: jobject },
+      ],
+    );
+    const start = cpp.lambda(
+      [holder, ...names],
+      [cpp.param(cpp.type("lucent::jni::Resume"), "resume_")],
+      [cpp.exprStmt(entry.later(run))],
+    );
+
+    return [
+      ...convert,
+      cpp.ret(jni("suspendedCall", env, jni("arg", env, cpp.id("args_"), cpp.num(k)), start)),
+    ];
+  };
+
+  const body: cpp.Stmt[] =
+    m.continuation !== undefined
+      ? resumed(m.continuation)
+      : m.queued
+        ? [
+            ...convert,
+            cpp.exprStmt(
+              entry.later(
+                cpp.lambda(
+                  [holder, ...names],
+                  [],
+                  [cpp.exprStmt(cpp.cast("c", cpp.voidType, made))],
+                ),
+              ),
             ),
-          ),
-        ),
-      ];
+            cpp.ret(cpp.nullptr),
+          ]
+        : [
+            ...convert,
+            cpp.ret(
+              entry.now(
+                cpp.lambda(
+                  ["&"],
+                  [],
+                  [cpp.varDecl(cpp.auto, "r_", made), cpp.ret(m.box(cpp.id("r_")))],
+                  { ret: jobject },
+                ),
+              ),
+            ),
+          ];
   const method = cpp.lambda(
     [m.capture],
     [
@@ -1440,11 +1528,15 @@ function proxyArguments(
   params: SdkType[],
   fn: LType & { k: "fn" },
   what: string,
+  unboxed: ({ native: string; underlying: string } | undefined)[] = [],
 ): cpp.Expr[] {
   return params.map((p, i) => {
-    const a = jni("arg", env, cpp.id("args_"), cpp.num(i));
-    if (p.k === "prim") return unboxedPrim(p, a);
+    const arg = jni("arg", env, cpp.id("args_"), cpp.num(i));
+    if (p.k === "prim") return unboxedPrim(p, arg);
 
+    // A value class's underlying value: its boxed object, as Lucent holds it.
+    const v = unboxed[i];
+    const a = v ? jni("boxValueClass", env, cpp.str(v.native), cpp.str(v.underlying), arg) : arg;
     return fromJni(em, a, p, fn.params[i]!, what, node).c;
   });
 }
@@ -1482,7 +1574,7 @@ function kotlinFunction(
   // Its result as Kotlin takes it: an object as a new local reference, since r_ goes first.
   const result = (): cpp.Expr => {
     const r = cpp.id("r_");
-    if (ret.k === "tparam") return boxJava(arg, ret, r, what, fn.ret);
+    if (ret.k === "tparam") return boxJava(em, arg, ret, r, what, fn.ret);
     if (ret.k === "ref") return envCall("NewLocalRef", toJavaObjectOf(em, ret, r, fn.ret, what));
 
     return toJavaObjectOf(em, ret, r, fn.ret, what);
@@ -1613,7 +1705,7 @@ function toKotlinFunction(
   // Its result as Kotlin takes it: an object as a new local reference, since r_ goes first.
   const ret = t.ret;
   const box = (r: cpp.Expr): cpp.Expr => {
-    if (ret.k === "tparam") return boxJava(arg, ret, r, what, fn.ret);
+    if (ret.k === "tparam") return boxJava(em, arg, ret, r, what, fn.ret);
     if (ret.k === "ref") return envCall("NewLocalRef", toJavaObjectOf(em, ret, r, fn.ret, what));
 
     return toJavaObjectOf(em, ret, r, fn.ret, what);
@@ -1822,7 +1914,14 @@ function javaObjectOfClass(
 }
 
 /** A Lucent result `c` as the boxed object a proxy method returns. */
-function boxJava(node: ts.Node, t: SdkType, c: cpp.Expr, what: string, lt?: LType): cpp.Expr {
+function boxJava(
+  em: FnEmitter,
+  node: ts.Node,
+  t: SdkType,
+  c: cpp.Expr,
+  what: string,
+  lt?: LType,
+): cpp.Expr {
   if (t.k === "string") return jni("toJString", env, c);
   if (t.k === "tparam") {
     const inner = lt ? stripOpt(lt) : undefined;
@@ -1837,6 +1936,8 @@ function boxJava(node: ts.Node, t: SdkType, c: cpp.Expr, what: string, lt?: LTyp
       `${what} returns a type parameter's value: Lucent functions return an SDK object, a string or a boolean there`,
     );
   }
+  // An object: a new local reference, as for a type parameter's.
+  if (t.k === "ref") return envCall("NewLocalRef", toJavaObjectOf(em, t, c, lt, what));
   if (t.k !== "prim") throw new Error(`${what}: a ${t.k} result its plan refuses`);
 
   return boxedForJava(t, c, `${what}'s result`);
@@ -3102,29 +3203,54 @@ export function propertySetter(
   }
   if (!prop.setter) throw new Error(`${plan.display}: a Java field write its plan refuses`);
 
-  // A Kotlin property's setter: gives the value assigned.
+  // A Kotlin property's setter, or a shim's (a value class the JVM passes unboxed): gives
+  // the value assigned.
+  const what = `${ref.cls.name}.${prop.name}`;
+  const shim =
+    plan.backend === "kotlin-shim"
+      ? kotlinShim(em.ctx, {
+          node: site,
+          module: ref.module,
+          cls: ref.cls,
+          role: "set",
+          member: prop,
+          instance: !!obj,
+          given: [],
+          wrapped: [],
+          returns: VOID,
+          what,
+        })
+      : undefined;
   const desc =
+    shim?.descriptor ??
     ref.cls.methods?.find((m) => (m.java ?? m.name) === prop.setter && m.params.length === 1)
-      ?.descriptor ?? jniDescriptor([prop.type], "void");
+      ?.descriptor ??
+    jniDescriptor([prop.type], "void");
+  const recv = obj ? [jni("unwrap", cpp.id("recv_"))] : [];
+
   const set = (value: cpp.Expr) => {
     const v = cpp.id("v_");
     const converted = jniOf(em, site, t, jniValue(em, ref, site, t, { c: v, t: type }));
     const call = jniCall(em, {
       node: site,
-      cls: ref.cls,
-      lookup: obj ? "method" : "staticMethod",
-      name: prop.setter!,
+      cls: shim
+        ? ({ kind: "class", name: shim.name, native: shim.owner } as SdkClassSchema)
+        : ref.cls,
+      lookup: obj && !shim ? "method" : "staticMethod",
+      name: shim?.name ?? prop.setter!,
       desc,
       access: (id) =>
-        envCall(
-          `Call${obj ? "" : "Static"}VoidMethod`,
-          obj ? jni("unwrap", cpp.id("recv_")) : cpp.id("cls_"),
-          id,
-          converted,
-        ),
+        shim
+          ? envCall("CallStaticVoidMethod", cpp.id("cls_"), id, ...recv, converted)
+          : envCall(
+              `Call${obj ? "" : "Static"}VoidMethod`,
+              recv[0] ?? cpp.id("cls_"),
+              id,
+              converted,
+            ),
       ret: VOID,
       lt: T.undefined,
-      what: `${ref.cls.name}.${prop.name}`,
+      what,
       pre: obj ? [cpp.varDecl(cpp.auto, "recv_", obj.c)] : [],
     });
 

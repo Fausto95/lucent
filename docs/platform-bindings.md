@@ -277,9 +277,11 @@ android.ts declares its members from it, each keeping the JVM method it is
 - a parameter that declares a default is marked (`kotlin.default`), and is
   optional where the defaults end the parameter list, or takes `undefined`
   where one without a default follows (a Kotlin shim leaves
-  it out; not yet for generic members whose type parameters have bounds);
+  it out);
 - a type parameter's bound other than `Any?` is recorded (`kotlin.bounds`:
-  `non-null` for `Any`, `other` for the rest), and so is a `fun interface`
+  `non-null` for `Any`, `other` for the rest), each `other` one's bounds as
+  Kotlin types a shim writes (`kotlin.upperBounds`: `kotlin.Comparable<T>`;
+  none for a use-site projection), and so is a `fun interface`
   (`kotlin.fun`);
 - properties are Kotlin's (`isEnabled`, not `enabled`), read through their
   getter and, when the setter is API, written through it (`setter`);
@@ -356,12 +358,13 @@ requirement receives is written back only while the platform waits and
 only to a number or an enum; JNI cannot write fields or call setters, nor pass arrays of a type
 parameter's values (their Java class depends on the values), nor Kotlin
 functions taking or giving functions, and a Lucent
-class cannot implement a method whose JVM name Java cannot write; what
-only a Kotlin shim can call (a suspend function, a value class the JVM
-unboxes, a suspend function argument) has the `kotlin-shim` backend, which
-refuses generic members whose type parameters have bounds other than
-`Any` (`T : Comparable<T>`), assigning value classes and implementing
-such members, for now;
+class cannot override a class's method whose JVM name Java cannot write
+(an interface's it implements through a proxy, by any name); what only a
+Kotlin shim can call (a suspend function, a value class the JVM unboxes,
+a suspend function argument) has the `kotlin-shim` backend, which refuses
+generic members bounded by a projected type (`T : List<out R>`, whose
+bound the schema does not keep) and overriding a Kotlin class's suspend
+or value-class members, for now;
 Swift shims pass scalars, Swift enums and objects, not optionals of
 scalars, Objective-C enums or closures. A value that cannot cross is an `unsupported` conversion with
 its reason; a member no use of which can work (a read-only property
@@ -447,7 +450,14 @@ numbers.
   read as their classes'. A generic member's shim writes its type
   parameters as `Any?` (`Any` where Kotlin bounds them so,
   `cast<Flow<Any?>>(receiver).collect(…)`): its values are Java objects
-  either way, and Lucent reads them as the use's type arguments say.
+  either way, and Lucent reads them as the use's type arguments say. Where
+  Kotlin bounds one otherwise (`T : Comparable<T>`), the shim is generic
+  itself: it declares its class's and its member's type parameters with
+  their bounds and passes them on (`fun <T : kotlin.Comparable<T>>
+Board_top(…) = …top<T>(…)`), which the JVM erases. A value class property
+  is assigned through a shim too (`….best = cast(value)`), and its
+  accessors are named as Kotlin's (`getBest`), their JVM names
+  (`getBest-JdFk__0`) kept.
 - **Kotlin functions** (Android): a Lucent function passed or assigned
   where Kotlin takes a function type is a `kotlin.jvm.functions.FunctionN`
   (a NativeProxy, over JNI) whose `invoke` converts its boxed arguments and
@@ -461,6 +471,16 @@ numbers.
   interface with one abstract method) takes a function when written, as a
   parameter of that type does: it reads back as the interface (a get and a
   set accessor of their own types).
+- **Kotlin interfaces Lucent classes implement** (Android): a member the
+  JVM passes value classes unboxed (`judge-8AA5ETM(I)I`) is implemented by
+  the proxy as by any name; its arguments are boxed for Lucent through the
+  class's `box-impl`, and its result unboxed through `unbox-impl`. A
+  suspend member (`pick(List, Continuation)`) queues the Lucent method's
+  call and tells Kotlin it suspended (a `SafeContinuation` over the
+  intercepted continuation, as `suspendCoroutine` makes): the promise it
+  returns resumes it, through the caller's dispatcher, with its value, or
+  with its error as a Java exception that Lucent reads back as the error
+  itself. Its AbortSignal is not given yet.
 - **Kotlin suspend functions Lucent functions implement** (Android): a
   Lucent function passed where a shim's member takes a suspend function
   (`step: suspend (String) -> Unit`), or a fun interface whose function
