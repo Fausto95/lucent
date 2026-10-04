@@ -10,7 +10,7 @@
  *      kind and has its "Next" link; and each post's date;
  *   4. compiles every `*.lucent.ts` sample on the docs pages and blog posts;
  *   5. checks internal links and their anchors, links into the docs from the
- *      repository (READMEs, docs/, the homepage, the CLI's diagnostics URL),
+ *      repository (READMEs, docs/, the CLI's diagnostics URL),
  *      and each docs page's length budget (words and lines of code, by kind);
  *   6. writes each page's and post's prose as Markdown to apps/website/.prose/
  *      and runs Vale on it (apps/website/CONTRIBUTING-DOCS.md has the rules).
@@ -122,9 +122,9 @@ for (const name of existing.filter((f) => !(f in generated) && !unbuilt.has(f)))
 problems.push(...checkLinks(checked));
 
 // Links into the docs from outside its pages: with no redirects, a moved page breaks them.
+// The homepage's go through Docusaurus' <Link>, which the site's build checks.
 const tracked = spawnSync("git", ["ls-files", "--", "docs"], { cwd: root, encoding: "utf8" });
 const outside = [
-  "apps/website/src/pages/index.astro",
   "apps/website/src/docs/comparison-table.ts",
   "apps/website/README.md",
   "apps/website/CONTRIBUTING-DOCS.md",
