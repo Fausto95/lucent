@@ -10,7 +10,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
-import { compile, sdkAvailable, sdkModule } from "@lucent-lang/compiler";
+import { compile, sdkAvailable, sdkModule, writeNativePackage } from "@lucent-lang/compiler";
 import { projectSdk } from "../src/cli/project.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -96,6 +96,25 @@ describe.skipIf(!xcodebuild)("an app's Swift package", () => {
       artifact: "spm:gauges@1.0.0",
       target: "arm64-apple-ios16.4-simulator",
     });
+  }, 900_000);
+
+  it("is linked by the native package, at the version the app resolved, for the app's target", () => {
+    const { sdk, r } = compiled(root, "  return gauge.steady();");
+    const out = path.join(root, ".lucent/native");
+
+    writeNativePackage(r, out, {
+      app: {
+        deploymentTarget: sdk.ios!.deploymentTarget!,
+        swiftPackages: sdk.ios!.swiftPackages!.pins,
+      },
+    });
+    const podspec = fs.readFileSync(path.join(out, "LucentNative.podspec"), "utf8");
+
+    expect(r.swiftPackages).toEqual(["gauges@1.0.0"]);
+    expect(podspec).toContain(
+      `spm_dependency(s, url: ${JSON.stringify(`file://${path.join(root, "gauges.git")}`)}, requirement: { kind: "exactVersion", version: "1.0.0" }, products: ["Gauges"])`,
+    );
+    expect(podspec).toContain('[min_ios_version_supported, "16.4"]');
   }, 900_000);
 
   it("needs an availability check for an API newer than the app's target", () => {
