@@ -59,7 +59,7 @@ describe("diagnostics", () => {
       docs: docsUrl("LUCENT1001"),
     });
     expect(docsUrl("LUCENT1001")).toBe(
-      "https://lucent-lang.dev/docs/reference/diagnostics/#lucent1001",
+      "https://lucent-lang.dev/docs/api/diagnostics/#lucent1001",
     );
   });
 });
