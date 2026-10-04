@@ -616,7 +616,10 @@ export function createLucentProgram(
         )
       )
         continue;
-      const hint = nativeMemberHint(d, checker, direct) ?? nativeAttributeHint(d, checker);
+      const hint =
+        nativeMemberHint(d, checker, direct) ??
+        nativeAttributeHint(d, checker) ??
+        initializerFactoryHint(d, checker);
       const diagnostic = fromTs(d);
       diagnostics.push(
         hint
@@ -680,6 +683,49 @@ function nativeMemberHint(
   return {
     message: `${symbol.name} is ${spec}'s, from ${provenance.artifact} as installed, which has no ${name.text}.`,
     fix: `use what ${symbol.name} declares in this version of ${sdk.module}, or install a version that has ${name.text}`,
+  };
+}
+
+/** TypeScript's errors for a call no overload takes. */
+const NO_OVERLOAD = new Set([2554, 2769, 2345]);
+
+/**
+ * Where `new` of a native class takes none of the arguments: its Swift
+ * initializers TypeScript cannot tell apart (the same types, other
+ * labels) are its static factories, which the error names.
+ */
+function initializerFactoryHint(
+  d: ts.Diagnostic,
+  checker: ts.TypeChecker,
+): { message: string; fix: string } | undefined {
+  if (!NO_OVERLOAD.has(d.code) || !d.file || d.start === undefined) return undefined;
+
+  let at: ts.Node | undefined = nodeAt(d.file, d.start);
+  while (at && !ts.isNewExpression(at)) at = at.parent;
+  if (!at || !ts.isNewExpression(at)) return undefined;
+
+  const named = checker.getSymbolAtLocation(at.expression);
+  const symbol =
+    named && named.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(named) : named;
+  const declared = symbol?.declarations?.[0]?.getSourceFile();
+  const sdk = declared && sdkModuleOf(declared);
+  if (!symbol || !sdk) return undefined;
+
+  const found = sdkLookup(sdk.platform, sdk.module);
+  const cls =
+    "schema" in found
+      ? found.schema.types.find((t) => t.kind === "class" && t.name === symbol.name)
+      : undefined;
+  const factories =
+    cls?.kind === "class"
+      ? (cls.methods ?? []).filter((m) => m.static && m.swift?.name.startsWith("init("))
+      : [];
+  if (!factories.length) return undefined;
+
+  const listed = factories.map((f) => `${symbol.name}.${f.name}(…) for ${f.swift!.name}`);
+  return {
+    message: `${symbol.name}'s initializers that take the same types are its static factories, which TypeScript tells apart: ${listed.join(", ")}.`,
+    fix: `call the one you mean: ${symbol.name}.${factories[0]!.name}(…)`,
   };
 }
 
