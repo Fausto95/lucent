@@ -1,7 +1,179 @@
 ---
-title: "What do the Metro, Expo, Gradle and editor integrations do?"
-description: "This page is being rewritten."
+title: Metro, Expo, Gradle and editor integrations
+sidebar_label: Integrations
+description: "`withLucent` bundles modules as proxies, the Expo plugin and the Gradle task run `lucent build` before native builds, and the editor plugin shows Lucent's errors."
 kind: reference
 ---
 
-This page is being rewritten.
+`@lucent-lang/lucent` hooks into four tools. Only `withLucent` takes an option.
+
+| Integration | Where it goes | Options |
+| --- | --- | --- |
+| [Metro](/docs/api/integrations/#metro) | `withLucent` from `@lucent-lang/lucent/metro`, in `metro.config.js` | `watch` |
+| [Expo config plugin](/docs/api/integrations/#expo-config-plugin) | `"@lucent-lang/lucent"` in the `plugins` of `app.json`, `app.config.js` or `app.config.ts` | none |
+| [Gradle tasks](/docs/api/integrations/#gradle-tasks) | one line in `android/app/build.gradle` | none |
+| [Editor plugin](/docs/api/integrations/#editor-plugin) | `@lucent-lang/lucent/ts-plugin` in the `plugins` of `tsconfig.json` | none |
+
+[`lucent init`](/docs/api/cli/#lucent-init) wraps the Metro config and adds the Expo plugin, or the bare wiring, to the app it runs in. It also maps `lucent:*` in `tsconfig.json`. You add the editor plugin yourself.
+
+## Expo or bare React Native
+
+| What the app needs | Expo | Bare React Native |
+| --- | --- | --- |
+| Metro bundles each module's proxy | `withLucent` | `withLucent` |
+| React Native links `.lucent/native` | the plugin writes the `react-native.config.js` entry at prebuild | the `react-native.config.js` entry that `lucent init` adds |
+| Modules compiled before an Android build | the Gradle task, which the plugin applies | the Gradle task, which `lucent init` applies |
+| Modules compiled before an iOS build | `lucent build` at prebuild, then `lucent dev` or Metro's watcher | `lucent build`, `lucent dev` or Metro's watcher: Xcode doesn't run it |
+| `Info.plist` keys and entitlements that Lucent packages list | the plugin adds them at prebuild | `lucent build` names what the app's files lack, and you add it |
+| Android permissions and components | Gradle merges the native package's manifest into the app's | the same |
+
+## Metro
+
+<Tabs syncKey="setup">
+<TabItem label="Expo">
+
+```js title="metro.config.js"
+const { getDefaultConfig } = require("expo/metro-config");
+const { withLucent } = require("@lucent-lang/lucent/metro");
+
+module.exports = withLucent(getDefaultConfig(__dirname));
+```
+
+</TabItem>
+<TabItem label="Bare React Native">
+
+```js title="metro.config.js"
+const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
+const { withLucent } = require("@lucent-lang/lucent/metro");
+
+module.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), {}));
+```
+
+</TabItem>
+</Tabs>
+
+`withLucent(config, options?)` returns the config with Lucent's Babel transformer in front of the config's own.
+
+| Option | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `watch` | `boolean` | on when Metro runs `start`, `run:ios` or `run:android` | Runs `lucent dev --compact` beside Metro, which rebuilds `.lucent/native` on each save. When set, it wins over [`LUCENT_WATCH`](/docs/api/environment-variables/). |
+
+- Each `*.lucent.ts` and `*.lucent.tsx` file is bundled as its proxy, `.lucent/native/js/<module>.js`. [`LUCENT_OUT`](/docs/api/environment-variables/) names another native package.
+- Metro reads the native package's `manifest.json` into its cache key when it starts. A Metro started after a build that changed it transforms every file again, the proxies included.
+- Lucent's transformer hands every file on to the one in `transformer.babelTransformerPath`, else React Native's or Expo's default. Apply `withLucent` last: a wrapper after it that sets `babelTransformerPath` replaces Lucent's.
+- The watcher prints one line per build in Metro's output, leaves Metro's keys alone and stops with Metro. For the full dashboard, run `lucent dev` in a terminal of its own.
+
+A module with no proxy in the native package bundles a `throw` instead: see [Runtime errors](/docs/api/runtime-errors/#a-module-has-not-been-compiled).
+
+## Expo config plugin
+
+```json title="app.json"
+{
+  "expo": {
+    "plugins": ["@lucent-lang/lucent"]
+  }
+}
+```
+
+`lucent init` adds the plugin to `app.json`. In `app.config.js` or `app.config.ts`, add it yourself.
+
+The plugin takes no options. During `npx expo prebuild`, for either platform, it:
+
+- runs `lucent build` once, without Gradle: the Gradle task resolves Android's dependencies when the app builds. A failed build stops prebuild with its errors.
+- writes `react-native.config.js` with the `lucent` entry. If the file exists without that entry, prebuild stops and names the entry to add.
+- applies the [Gradle tasks](/docs/api/integrations/#gradle-tasks) to `android/app/build.gradle`, after React Native's plugin. It leaves a [Kotlin build script](/docs/api/integrations/#kotlin-build-scripts) alone.
+- adds the `Info.plist` keys and entitlements that Lucent packages list in their `lucent.json`. A key the app sets keeps the app's value, and an array the app sets gains the values it lacks.
+
+Packages declare those keys as [Declare permissions, Info.plist keys and entitlements](/docs/packages/declare-permissions-and-entitlements/) shows.
+
+Lucent adds native code, so Expo Go can't run it. Use a development build: `npx expo run:ios`, `npx expo run:android` or EAS Build.
+
+## Bare React Native
+
+`lucent init` writes these two changes. When it can't patch a file, it prints the lines to add by hand.
+
+<Tabs>
+<TabItem label="react-native.config.js">
+
+```js title="react-native.config.js"
+module.exports = {
+  dependencies: {
+    "lucent": { root: require("path").join(__dirname, ".lucent", "native") },
+  },
+};
+```
+
+</TabItem>
+<TabItem label="android/app/build.gradle">
+
+```groovy title="android/app/build.gradle"
+apply plugin: "com.android.application"
+apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.facebook.react"
+apply from: new File(new File(["node", "--print", "require.resolve('@lucent-lang/lucent/package.json')"].execute(null, rootDir).text.trim()).parentFile, "gradle/lucent.gradle")
+```
+
+</TabItem>
+</Tabs>
+
+- The `react-native.config.js` entry links `.lucent/native`. React Native's autolinking finds the `LucentNative` pod and the Android library there.
+- The Gradle line asks Node where `@lucent-lang/lucent` is installed, so it works with any package manager's layout. It's Groovy: see [Kotlin build scripts](/docs/api/integrations/#kotlin-build-scripts).
+- iOS has no build hook. Run `lucent build`, or keep `lucent dev` or Metro's watcher running, before you build in Xcode.
+- Run `pod install` after the first build. Run it again when `lucent build` says `iOS: pod install first`: the build added or removed native files.
+- `lucent build` doesn't edit `Info.plist` or the entitlements. It names each key a Lucent package needs that the app's files lack, as [Add permissions and native config](/docs/guides/add-permissions-and-config/) shows.
+
+## Gradle tasks
+
+`gradle/lucent.gradle` registers `lucentBuild`, in the group `lucent`. It also applies `gradle/lucent-classpath.gradle`, which registers `lucentClasspath` in the app project.
+
+| Task | What it does |
+| --- | --- |
+| `lucentBuild` | Runs `lucent build` in the app's directory, after `lucentClasspath`. Every project's `preBuild` depends on it, so any Gradle build compiles the modules first: Android Studio, `./gradlew`, `expo run:android` and CI alike. |
+| `lucentClasspath` | Writes the AARs and JARs that the app's debug compile classpath gets from repositories, such as AndroidX and Play services, to `.lucent/android-classpath.json`. The app's other Gradle projects, such as autolinked React Native libraries, aren't in it. Imports from `lucent:android/<package>` bind from it. |
+
+Outside Gradle, `lucent build` runs `lucentClasspath` itself, through an init script that leaves the app's build files alone. It does so only when the code imports from `lucent:android/*` and the app has `android/gradlew`, and never during Expo prebuild.
+
+It runs Gradle when `.lucent/android-classpath.json` is missing, or when the Gradle files, the JS lockfile or the packages' Gradle dependencies changed. A failed resolution is retried when those change, or with `lucent build --force`.
+
+:::note
+A Gradle build whose `lucentBuild` creates `.lucent/native`, or changes the native package's `android/build.gradle`, stops and asks you to build again. Gradle read the old files before the task ran, and the next build reads the new ones: see [Builds](/docs/architecture/builds/#a-gradle-build-can-ask-for-another).
+:::
+
+### Kotlin build scripts
+
+An app whose script is `android/app/build.gradle.kts` isn't patched, so its Gradle builds don't run `lucent build`. The Expo plugin leaves it alone, and the line `lucent init` prints for it is Groovy, which doesn't compile as Kotlin. Run `lucent build` before each Android build, as for iOS, or translate the line to Kotlin yourself.
+
+## Editor plugin
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "noUncheckedIndexedAccess": true,
+    "paths": { "lucent:*": ["./.lucent/native/types/*"] },
+    "plugins": [{ "name": "@lucent-lang/lucent/ts-plugin" }]
+  }
+}
+```
+
+| Setting | Added by | What it does |
+| --- | --- | --- |
+| `paths` for `lucent:*` | `lucent init`, and `lucent build` when it's missing | Resolves `lucent:*` imports to the declarations a build writes in `.lucent/native/types`, for editors and `tsc`. |
+| `noUncheckedIndexedAccess` | `lucent init` | Types an indexed read as possibly `undefined`, as the compiler always does. |
+| `plugins` | you | Loads the editor plugin. |
+
+The plugin adds Lucent's diagnostics to `*.lucent.ts` and `*.lucent.tsx` files as you type, unsaved changes included. Each shows its `LUCENT` code and message, then its fix and docs link when it has them. A warning shows as a warning.
+
+- In VS Code, run TypeScript: Select TypeScript Version and pick Use Workspace Version. VS Code's own TypeScript doesn't load plugins from the project.
+- Only editors load the plugin, not `tsc`. On the command line, [`lucent check`](/docs/api/cli/#lucent-check) checks the modules.
+
+### JSX in .lucent.tsx files
+
+Views are experimental: see [Turn on native views](/docs/guides/views/). The plugin types each `.lucent.tsx` file's JSX with its platform's toolkit.
+
+| File | Its JSX is typed by |
+| --- | --- |
+| `x.ios.lucent.tsx` | `lucent:swiftui` |
+| `x.android.lucent.tsx` | `lucent:compose` |
+| `x.lucent.tsx` | `lucent:jsx`: either toolkit's, each in its platform branch |
+
+These declarations come from `.lucent/native/types`, so a toolkit is typed once a build has used it. The app's other files keep their own JSX. With `"jsx": "react-native"`, which imports no JSX runtime, the plugin sets `jsxImportSource` to `react` once the project has a `.lucent.tsx` file, and React's JSX types the same way.
