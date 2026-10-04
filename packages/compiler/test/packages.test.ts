@@ -285,4 +285,29 @@ describe("Lucent packages inside the project's directory", () => {
     expect(relativeTo(root, projectFiles(root))).toContain("src/legacy/old.lucent.ts");
     expect(moduleNameOf(path.join(root, "src/legacy/old.lucent.ts"))).toBe("old");
   });
+
+  it("walks a Lucent package's folder whose package.json only sets the module type as the package's", () => {
+    const root = app();
+    write(root, "node_modules/lucent-a/src/geo/package.json", JSON.stringify({ type: "module" }));
+    const distance = "node_modules/lucent-a/src/geo/distance.lucent.ts";
+    write(root, distance, "export function distance(): number { return 5; }\n");
+
+    expect(relativeTo(root, projectFiles(root))).toContain(distance);
+    expect(moduleNameOf(path.join(root, distance))).toBe("lucent-a/geo/distance");
+  });
+
+  it("leaves an app with dependencies but no name inside a Lucent package to itself", () => {
+    const lib = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkgs-"));
+    write(
+      lib,
+      "package.json",
+      JSON.stringify({ name: "lucent-lib", version: "1.0.0", lucent: {} }),
+    );
+    write(lib, "lib.lucent.ts", "export function answer(): number { return 42; }\n");
+    write(lib, "example/package.json", JSON.stringify({ dependencies: { "lucent-lib": "1.0.0" } }));
+    write(lib, "example/src/demo.lucent.ts", "export function demo(): string { return 'demo'; }\n");
+
+    expect(relativeTo(lib, projectFiles(lib))).toEqual(["lib.lucent.ts"]);
+    expect(moduleNameOf(path.join(lib, "example/src/demo.lucent.ts"))).toBe("demo");
+  });
 });
