@@ -1,7 +1,285 @@
 ---
-title: "How do iOS APIs appear in Lucent?"
-description: "This page is being rewritten."
+title: How do iOS APIs appear in Lucent?
+sidebar_label: SDK bindings
+description: "`lucent:ios/<Module>` declares Objective-C and Swift APIs with Swift's names: optionals are `| null`, 64-bit integers `bigint`, errors thrown, completion handlers promises."
 kind: reference
 ---
 
-This page is being rewritten.
+Every module of the installed iOS SDK, of the app's pods, and of the frameworks its Lucent packages ship imports as `lucent:ios/<Module>`. Lucent reads a module's declarations from Xcode the first time your code imports it, and types them by the rules on this page. Swift-only APIs are called through Swift that Lucent generates into the native package: there's no Swift to write.
+
+## Look an API up
+
+- `lucent sdk search <name>` lists the classes and members whose name contains it, with the import line of each type. It searches the modules your code imports and those already in the SDK cache. Run `lucent sdk prefetch --all` first to cache every module, so a search covers them all.
+- `lucent sdk show <Module>.<Type>` prints the declaration your code sees, with its doc comments. Add `.<member>` to print only that member's overloads, without their doc comments.
+- In the editor, hover a name. `lucent build` writes the declarations of the modules your code imports to `.lucent/native/types/`, where the editor reads them.
+
+```sh title="terminal" nocopy
+$ npx lucent sdk show LocalAuthentication.LAContext.evaluatePolicy
+// lucent:ios/LocalAuthentication
+export declare class LAContext extends NSObject {
+  evaluatePolicy(policy: LAPolicy, localizedReason: string, reply: (arg0: boolean, arg1: Error | null) => void): void;
+  evaluatePolicy(policy: LAPolicy, localizedReason: string): Promise<boolean>;
+}
+```
+
+A declaration's doc comment gives its rules. Hover a name, or show its whole type, to read them:
+
+- `Since iOS 16.0.` is the version that added it.
+- `Main thread only` asks you to call it in code the main thread runs.
+- `Lucent cannot use this yet:` says why it can't be used, and `Lucent cannot assign this yet:` why a property can be read but not set.
+
+## Example
+
+```ts title="storage.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { errorCode } from "lucent:core";
+import { asNumber, Out } from "lucent:ios";
+import {
+  FileAttributeKey,
+  FileManager,
+  FileManager_SearchPathDirectory as Directory,
+  FileManager_SearchPathDomainMask as Domain,
+  ProcessInfo,
+} from "lucent:ios/Foundation";
+import { LAContext, LAPolicy } from "lucent:ios/LocalAuthentication";
+
+/** The size of a file in Documents, or 0 when there's none. */
+export async function fileSize(name: string): Promise<number> {
+  if (PLATFORM !== "ios") return 0;
+
+  const files = FileManager.default;
+  const documents = files.urls(Directory.documentDirectory, Domain.userDomainMask)[0];
+  try {
+    const attributes = files.attributesOfItem(`${documents?.path ?? ""}/${name}`);
+    return asNumber(attributes[FileAttributeKey.size] ?? null) ?? 0;
+  } catch (e) {
+    // NSFileReadNoSuchFileError: the file isn't there.
+    if (errorCode(e as Error) === "NSCocoaErrorDomain:260") return 0;
+    throw e;
+  }
+}
+
+/** Asks for Face ID or Touch ID, or says why it can't. */
+export async function unlock(): Promise<string> {
+  if (PLATFORM !== "ios") return "unsupported";
+
+  const policy = LAPolicy.deviceOwnerAuthenticationWithBiometrics;
+  const context = new LAContext();
+  const why = new Out<Error>();
+  if (!context.canEvaluatePolicy(policy, why)) return why.value?.message ?? "unavailable";
+
+  try {
+    await context.evaluatePolicy(policy, "Unlock your notes");
+    return "unlocked";
+  } catch (e) {
+    // LAError.userCancel: the person cancelled.
+    if (errorCode(e as Error) === "com.apple.LocalAuthentication:-2") return "cancelled";
+    return (e as Error).message;
+  }
+}
+
+/** The device's memory in bytes: a UInt64, so a bigint. */
+export async function memory(): Promise<string> {
+  if (PLATFORM !== "ios") return "";
+
+  return `${ProcessInfo.processInfo.physicalMemory}`;
+}
+```
+
+[Call an iOS API](/docs/guides/call-an-ios-api/) walks through a first call.
+
+## Names
+
+| In the SDK | In Lucent |
+| --- | --- |
+| Classes, properties and methods | Swift's names: `UIDevice.current`, `FileManager.default`, `isBatteryMonitoringEnabled`. |
+| Nested types | Their names joined with `_`: Swift's `UIDevice.BatteryState` is `UIDevice_BatteryState`, and `AES.GCM` is `AES_GCM`. |
+| Methods | Swift's base name, with the argument labels dropped: `evaluatePolicy(_:localizedReason:)` is `evaluatePolicy(policy, reason)`. |
+| Methods TypeScript couldn't tell apart | The later ones keep their labels, appended: `resize(height:)` is `resizeHeight`. A method named like a property keeps them too, and the property keeps the name. |
+| Initializers | `constructor`, labels dropped: `new CLLocation(48.85, 2.35)`. A class that declares none has its superclass's. |
+| Protocol requirements | The base name and the labels joined with `_`: `locationManager(_:didUpdateLocations:)` is `locationManager_didUpdateLocations`. |
+| C functions and constants | Their C names: `SecItemCopyMatching`, `kSecClass`. |
+| Typed string constants (`NS_TYPED_ENUM`) | Static string properties of their type: `FileAttributeKey.size`. |
+
+## Types
+
+| In the SDK | In Lucent |
+| --- | --- |
+| `T?`, `T!` | `T \| null`. A `nil` where the SDK promises a value throws a `TypeError`. |
+| `Bool`, `BOOL` | `boolean` |
+| `Int`, `UInt`, `Int64`, `UInt64`, `NSInteger`, `NSUInteger`, `int64_t`, `uint64_t`, `CFIndex` | `bigint`, as every native 64-bit integer is: see [Types](/docs/api/language/types/). |
+| `Double`, `Float`, `CGFloat`, `Int32`, `int` and the other numbers | `number` |
+| `String`, `NSString`, `CFString` | `string` |
+| `Data`, `NSData`, `CFData` | `Uint8Array`, copied. |
+| `Date`, `NSDate` | `Date` |
+| `[T]`, `NSArray<T>`, `CFArray` | `T[]`, copied. |
+| `Set<T>`, `NSSet<T>` | `Set<T>`, copied. |
+| `[String: T]`, `NSDictionary`, `CFDictionary` | `Record<string, T>`, copied. Keys that aren't strings are left out. |
+| `Any`, `AnyObject`, `id` | `ObjCValue` as a parameter, `NSObject` as a result. Read an `NSObject` with `asString`, `asNumber`, `asBoolean`, `asData` or `asDate` from [lucent:ios](/docs/api/lucent-ios/). |
+| `NSNumber` | The `NSNumber` class: read its `doubleValue` and the other members Foundation declares. |
+| `URL`, `UUID` and the other Swift values that bridge to a class | That class: `NSURL`, `NSUUID`. |
+| Objective-C enums (`NS_ENUM`) | A TypeScript `enum`. Each value used is checked against the SDK's when the native code compiles. |
+| Option sets (`NS_OPTIONS`) | The `enum`, or `0` for the empty set. Combine cases with `\|`. |
+| C structs | Object types, copied: `CGRect` is `{ origin: { x, y }, size: { width, height } }`. |
+| CoreFoundation handles (`CGImage`) | Objects. Lucent follows CoreFoundation's Create and Copy rule to know which results it releases. |
+| Generic classes (`NSCache<KeyType, ObjectType>`) | Generic classes: `new NSCache<string, number>()`. |
+
+A type of a module your code doesn't import has its name only. Import its module, a type import being enough, to use its members: `NSNumber`'s come from `lucent:ios/Foundation`.
+
+## Objects
+
+- Classes are nominal: an object with the same members isn't an instance. A class has a constructor only where the SDK declares an initializer.
+- An SDK object is a reference, and `===` compares identity.
+- SDK objects can't cross to JavaScript (`LUCENT2006`): return plain values. [The boundary](/docs/api/language/boundary/) lists what crosses.
+- Assigning an object to a `weak` property, such as a `delegate`, keeps the object alive while the property holds it.
+
+## Out parameters
+
+A pointer a method writes through (`CGFloat *`, `NSRange *`, `NSDate **`, `CFTypeRef *`) takes an [Out](/docs/api/lucent-ios/#out) from `lucent:ios`. Pass it, then read `value` after the call:
+
+- For a number or a struct the method also reads, set `value` before the call.
+- `null` leaves the pointer out: `UIColor.red.getRed(red, null, null, alpha)`.
+- An `NSError **` that Swift doesn't turn into `throws` takes an `Out<Error>`, as `canEvaluatePolicy` does in the example.
+- A block or requirement that receives a pointer, such as `BOOL *stop`, gets an `Out` it sets while the platform waits.
+
+## Blocks and completion handlers
+
+- A function passed where the SDK takes a block, or assigned to a block property, becomes a block.
+- A block the SDK passes to Lucent code, such as a completion handler a protocol method receives, is a function to call.
+- A method whose last parameter is a completion handler Swift also imports as `async` has a second form. It leaves the handler out and returns a promise, under the `async` form's name: `getPendingNotificationRequests(completionHandler:)` is `pendingNotificationRequests()`.
+- The promise rejects with the handler's error when the `async` form throws. Protocol requirements keep only the handler form, which a class implements.
+
+A block that returns nothing, outlives the call and runs off the main thread is queued on the Lucent thread. Any other block runs while the platform waits for it, holding the lock.
+
+A block Swift runs on the main thread, marked `@MainActor` or not `@Sendable` in a main-actor method, runs there holding the lock. Main-thread-only APIs work in it. [Concurrency](/docs/api/language/concurrency/#where-each-kind-of-code-runs) says where each kind of code runs.
+
+## Errors
+
+| In the SDK | In Lucent |
+| --- | --- |
+| A method that `throws`, or an `NSError **` Swift turns into `throws` | A thrown `Error`: its `message` is the error's description, and its `code`, read with `errorCode`, is `"<domain>:<code>"`. |
+| An `NSError **` Swift doesn't turn into `throws` | An `Out<Error>` parameter. |
+| A Swift error | The same `Error`, made from its `NSError`. |
+| An `NSException` | Not caught by Lucent. |
+
+[Throw and handle errors](/docs/guides/throw-and-handle-errors/) shows the catch side.
+
+## Protocols
+
+- A protocol is an abstract class that a Lucent class `implements`: `class Tracker implements CLLocationManagerDelegate`. Optional requirements are optional methods.
+- An instance goes wherever the SDK takes the protocol.
+- A requirement that returns nothing is queued on the Lucent thread. One that returns a value, or that runs on the main thread, runs while the platform waits.
+
+[Implement a delegate](/docs/guides/implement-a-delegate/) keeps a delegate registered and cleans it up.
+
+## Subclasses
+
+A Lucent class can extend an Objective-C class: `class Greeting extends UIViewController`. Lucent generates an Objective-C subclass that stands for each instance.
+
+- `super(…)` calls the base initializer its arguments match. A class without a constructor uses the base's initializer without arguments.
+- A method named like an instance method of the base overrides it, and runs while the caller waits. `super.name(…)` calls the base's.
+- An instance goes wherever the base, or a protocol the class implements, is taken.
+- A class extending a main-thread class, such as `UIView` or `UIViewController`, is made and used only in code the main thread runs (`LUCENT3006`).
+
+These fail to compile with `LUCENT1005`:
+
+- A field, getter or setter named like a property of the base: set the property in the constructor instead.
+- A class without a constructor whose base has no initializer without arguments: declare a constructor that calls `super(…)`.
+- A method that overrides a Swift member of the base.
+- A generic class extending an iOS class.
+- A class extending a Swift class, or a Lucent class that extends an iOS class.
+
+[Subclass an SDK class](/docs/guides/subclass-an-sdk-class/) shows a whole subclass.
+
+## Threads and versions
+
+- A class or member Swift marks `@MainActor` compiles only in code the main thread runs (`LUCENT3006`). That's a `main(() => …)` function, a block or requirement the SDK runs there, a `lucent:ios` callback, and a main-thread class's subclass. Swift `async` members are the exception: they move to the main thread themselves.
+- An API newer than the oldest iOS Lucent supports compiles only under an `available("ios", major, minor)` check (`LUCENT3007`). [Compatibility](/docs/api/compatibility/) gives that version, and [Check the OS version](/docs/guides/check-the-os-version/) the forms of the check.
+
+## Swift-only APIs
+
+Swift structs, enums, classes and protocols, and the Swift members of any type, are declared beside the Objective-C ones. Lucent generates a Swift function for each one your code uses, so CryptoKit, StoreKit 2 and the Swift overlays work like UIKit.
+
+```sh title="terminal" nocopy
+$ npx lucent sdk show StoreKit.VerificationResult
+// lucent:ios/StoreKit
+export declare type VerificationResult<SignedType = unknown> = { kind: "unverified"; _0: SignedType; _1: VerificationResult_VerificationError } | { kind: "verified"; value: SignedType };
+```
+
+```ts title="store.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { Transaction } from "lucent:ios/StoreKit";
+import { SHA256 } from "lucent:ios/CryptoKit";
+
+/** When the product was last bought, if StoreKit verified the purchase. */
+export async function lastPurchase(productId: string, signal?: AbortSignal): Promise<string> {
+  if (PLATFORM !== "ios") return "";
+
+  const result = await Transaction.latest(productId, signal);
+  if (result === null || result.kind === "unverified") return "";
+  return result.value.purchaseDate.toISOString();
+}
+
+/** A SHA-256 digest's bytes. */
+export async function digest(data: Uint8Array): Promise<Uint8Array> {
+  if (PLATFORM !== "ios") return new Uint8Array(0);
+
+  return SHA256.hash(data).bytes;
+}
+```
+
+| In Swift | In Lucent |
+| --- | --- |
+| A `struct` | A class. Variables holding one share it, and its `mutating` methods and setters change it in place. |
+| A `class` | A class that doesn't extend `NSObject`. |
+| An `enum` without payloads | A TypeScript `enum` whose values are the cases' indexes. |
+| An `enum` with payloads | A union discriminated by `kind`. A labeled payload is a field of its label, a lone unlabeled one is `value`, and several are `_0`, `_1`. |
+| `throws` | A thrown `Error`, as for Objective-C. |
+| An `async` method, function or getter | A promise. Methods and functions take an optional `AbortSignal` last: aborting rejects the promise at once and cancels the task. |
+| Default arguments at the end | Optional parameters. A defaulted parameter of a type Lucent can't pass is left out, and always takes its default. |
+| A generic member | A generic member: Lucent generates one Swift function per combination of type arguments your code uses. |
+| A type that is `ContiguousBytes`, such as a digest or a key | An object with a `bytes` property: a `Uint8Array` copy of its bytes. |
+| `some DataProtocol`, `some StringProtocol`, `some Collection<E>` | `Uint8Array`, `string`, `E[]`. |
+| A member a module's protocol extension gives a type | A member of that type: `SHA256.hash` comes from `HashFunction`. |
+| A protocol's values (`any Drawable`) | Objects of the protocol's type. |
+
+A case an OS update adds after your build reads as a `TypeError` in an enum with payloads, and as `-1` in an enum without them. Passing that `-1` back to Swift crashes the app. A Swift class can't be extended in Lucent: subclass it in Swift of your own, in a local pod the app depends on.
+
+### Implementing a Swift protocol
+
+A Lucent class can implement a Swift-only protocol. Lucent generates a Swift class that conforms to it and calls the Lucent object's methods.
+
+- Method, property, throwing, `async` and `mutating` requirements can be implemented. A settable property requirement needs a field that isn't `readonly`, or a setter.
+- What a throwing requirement throws reaches Swift as an `NSError` and comes back as the same Lucent error. What a requirement that doesn't throw throws is reported as uncaught.
+- Associated types are the protocol's type parameters: `implements Store<string>` fixes them. `Self` is the implementing class, so a method returning `Self` declares its own class.
+- A value of a protocol with associated types crosses only as an argument that names each of them, which needs iOS 16: check `available("ios", 16)`. Its members can't be called.
+- Initializer and static requirements fail to compile, as do `async` and throwing property requirements.
+
+[Call a Swift-only API](/docs/guides/call-a-swift-only-api/) and [Implement a Swift protocol](/docs/guides/implement-a-swift-protocol/) show both in an app.
+
+## What isn't bound
+
+A member Lucent can't use is declared with the reason in its doc comment. Using it fails to compile with that reason, followed by the native symbol and the library it comes from.
+
+A member Lucent couldn't type isn't declared at all, so calling one fails as a member its type lacks. On `main`, not in 0.1.2, the error also says why, and to wrap it in Swift of your own, in a local pod.
+
+`lucent sdk coverage` measures each module your code imports, or those `--ios` names:
+
+```sh title="terminal" nocopy
+$ npx lucent sdk coverage --ios CoreLocation
+module        discovered  representable  unrepresentable  generated  exercised
+CoreLocation  272         217            55 (20.2%)       -          -
+```
+
+| Stage | A member reaches it when |
+| --- | --- |
+| discovered | Its module, or Android package, declares it. |
+| representable | Lucent can call it. A member that stops at discovered has a reason. |
+| generated | The last successful `lucent build` or `lucent check` used it. |
+| exercised | Its symbol key is in the file `--exercised` names, which your tests or probes write. |
+
+Each stage needs the one before, and a `-` means no evidence for that stage, not zero.
+
+`--members` lists every member with its stage and reason, and `--check <baseline>` fails when a module's unrepresentable share grows. The stages and flags are the same for Android packages. [lucent sdk coverage](/docs/api/cli/#lucent-sdk-coverage) lists the flags.
+
+Swift packages the app adds, and the deployment target it sets, aren't read yet ([TA32](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta32)). The Swift shapes left out are [TA33](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta33). The roadmap lists every [known limitation](/docs/releases/roadmap/#known-limitations).

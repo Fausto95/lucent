@@ -1,7 +1,315 @@
 ---
-title: "How do Android APIs appear in Lucent?"
-description: "This page is being rewritten."
+title: How do Android APIs appear in Lucent?
+sidebar_label: SDK bindings
+description: "`lucent:android/<package>` declares Java and Kotlin APIs with their own names: unannotated references are `| null`, `long` is `bigint`, arrays and read-only lists are copies, exceptions are thrown."
 kind: reference
 ---
 
-This page is being rewritten.
+Every package of the Android SDK's `android.jar`, of the app's Gradle dependencies, and of the JARs and AARs its Lucent packages ship imports as `lucent:android/<package>`. Lucent reads a package's class files the first time your code imports it, and types them by the rules on this page.
+
+Kotlin classes are declared as Kotlin declares them. What JNI can't call goes through Kotlin that Lucent generates into the native package: there's no Kotlin to write.
+
+## Look an API up
+
+- `lucent sdk search <name>` lists the classes and members whose name contains it, with the import line of each class. It searches the packages your code imports and those already in the SDK cache. Run `lucent sdk prefetch --all` first to cache every package, so a search covers them all.
+- `lucent sdk show <package>.<Class>` prints the declaration your code sees, with its doc comments. Add `.<member>` to print only that member's overloads, without their doc comments.
+- In the editor, hover a name. `lucent build` writes the declarations of the packages your code imports to `.lucent/native/types/`, where the editor reads them.
+
+```sh title="terminal" nocopy
+$ npx lucent sdk show android.view.View.getVisibility
+// lucent:android/android.view
+export declare class View extends Object {
+  getVisibility(): typeof View.VISIBLE | typeof View.INVISIBLE | typeof View.GONE;
+}
+```
+
+A declaration's doc comment gives its rules. Hover a name, or show its whole class, to read them:
+
+- `Since API 26.` is the API level that added it.
+- `Main thread only` asks you to call it in code the main thread runs, and `Blocks (@WorkerThread)` to call it outside `main(() => …)`.
+- `Lucent cannot use this yet:` says why it can't be used, and `Lucent cannot assign this yet:` why a property can be read but not set.
+
+Parameters of `android.jar` are named `arg0`, `arg1`: its class files don't keep their names.
+
+## Example
+
+```ts title="device.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { errorCode } from "lucent:core";
+import { appContext } from "lucent:android";
+import { ConnectivityManager, NetworkCapabilities } from "lucent:android/android.net";
+import { Build, SystemClock } from "lucent:android/android.os";
+import { File } from "lucent:android/java.io";
+import { Integer } from "lucent:android/java.lang";
+
+/** Whether the active network is Wi-Fi. */
+export async function onWifi(): Promise<boolean> {
+  if (PLATFORM !== "android") return false;
+
+  // A Class<T> parameter takes the class: the result is a ConnectivityManager or null.
+  const manager = appContext().getSystemService(ConnectivityManager);
+  // @RequiresPermission(ACCESS_NETWORK_STATE): the native package's manifest declares it.
+  const network = manager?.getActiveNetwork() ?? null;
+  const capabilities = manager?.getNetworkCapabilities(network) ?? null;
+  return capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ?? false;
+}
+
+/** The device model, and the seconds since boot: a Java long, so a bigint. */
+export async function uptime(): Promise<string> {
+  if (PLATFORM !== "android") return "";
+
+  const seconds = SystemClock.elapsedRealtime() / 1000n;
+  return `${Build.MODEL ?? "unknown"}: ${seconds} s`;
+}
+
+/** The names of the files in a directory: a Java array, copied. */
+export async function list(path: string): Promise<string[]> {
+  if (PLATFORM !== "android") return [];
+
+  const files: File[] = new File(path).listFiles() ?? [];
+  return files.map((file) => file.getName());
+}
+
+/** The number Java parses, or null when it throws. */
+export async function parse(text: string): Promise<number | null> {
+  if (PLATFORM !== "android") return null;
+
+  try {
+    return Integer.parseInt(text);
+  } catch (e) {
+    if (errorCode(e as Error) === "java.lang.NumberFormatException") return null;
+    throw e;
+  }
+}
+```
+
+[Call an Android API](/docs/guides/call-an-android-api/) walks through a first call.
+
+## Names
+
+| In the SDK | In Lucent |
+| --- | --- |
+| Classes, fields and methods | Java's names: `Build.MODEL`, `getSystemService`. |
+| Nested classes | Their names joined with `_`: `Build.VERSION` is `Build_VERSION`, and `ConnectivityManager.NetworkCallback` is `ConnectivityManager_NetworkCallback`. |
+| A Java class's `getX()`, and its `isX()` returning a `boolean` | The method, and a read-only property: `getDefaultVibrator()` is also `defaultVibrator`, and `isCharging()` is also `charging`. The property is left out when a member already has its name. |
+| Overloads that differ only in Java number types (`int`, `long`, `double` and the others, or arrays of them) | One keeps the name, picked in the order `int`, `long`, `double`, `float`, `short`, `byte`, `char`. Among arrays, the first one Java declares keeps it. The others get their parameter types appended: `Math.abs(long)` is `abs_long`, and `Arrays.copyOf(int[], int)` is `copyOf_intArray_int`. |
+| An interface's default method that overloads an abstract one | Its parameter types appended: `onLocationChanged(List)` is `onLocationChanged_List`. |
+| Kotlin declarations | As Kotlin declares them: see [Kotlin](#kotlin). |
+
+## Types
+
+| In the SDK | In Lucent |
+| --- | --- |
+| A reference without `@NonNull` | `T \| null`. A `null` where the SDK promises a value throws a `TypeError`. |
+| `boolean` | `boolean` |
+| `long`, and Kotlin's `Long` | `bigint`, as every native 64-bit integer is: see [Types](/docs/api/language/types/). |
+| `int`, `short`, `byte`, `char`, `float`, `double` | `number` |
+| `String`, `CharSequence` | `string`. A `CharSequence` result is read with its `toString()`. |
+| `byte[]` | `Uint8Array`, copied both ways. |
+| `int[]`, `float[]`, `char[]` and the other arrays of numbers | `number[]`, copied both ways. |
+| `long[]`, `boolean[]` | `bigint[]`, `boolean[]`, copied both ways. |
+| Arrays of objects, strings and arrays | Arrays copied element by element: `File[]` is `File[]`, and `int[][]` is `number[][]`. A `null` element where the type says none throws a `TypeError`. |
+| A `Class<T>` parameter | The class itself: `getSystemService(Vibrator)` returns a `Vibrator \| null`. |
+| A generic class, such as `List<E>` | A generic class: `List<String>.get(0)` returns a `string \| null`. A reference without type arguments takes `unknown` for each. |
+| A `static final` constant | Its value's literal type: `View.GONE` is `8`, and a `long` constant is an exact `bigint`. |
+| `java.util.List`, `Set` and `Map` | The Java objects, read and changed through their methods. |
+| An interface with one abstract method | The interface, or a function: `manager.requestLocationUpdates(provider, 1000n, 0, (location) => …)`. |
+| `java.lang.Object` | The class every Java class extends. |
+
+### Constant groups
+
+A parameter, result or property annotated `@IntDef` or `@StringDef` names the constants it takes.
+
+- A parameter keeps its type. A known value outside the group, such as `Toast.makeText(context, "hi", 5)`, compiles with a `LUCENT3008` warning, as Android lint warns.
+- A result or a property is the union of the group's constants: `getVisibility()` returns `typeof View.VISIBLE | typeof View.INVISIBLE | typeof View.GONE`.
+- A group of flags, whose constants combine, is a plain number.
+- An `@LongDef` group's `long` values are numbers, exact or a `RangeError`.
+
+## Objects
+
+- Classes are nominal: an object with the same members isn't an instance. `new` makes one only where Java declares a public constructor.
+- An SDK object is a reference, and `===` compares identity.
+- `value instanceof Circle` tests a Java object's class, as Kotlin's sealed cases need.
+- An instance field reads as a property. Assigning a Java field fails to compile (`LUCENT1008`): call its setter instead.
+- A method of an SDK object can't be used as a value (`LUCENT1001`): call it, or wrap it in a function.
+- SDK objects can't cross to JavaScript (`LUCENT2006`): return plain values. [The boundary](/docs/api/language/boundary/) lists what crosses.
+
+## Errors
+
+| In the SDK | In Lucent |
+| --- | --- |
+| A Java exception | A thrown `Error`. Its `message` is the exception's message, else its class name, and its `code`, read with `errorCode`, is the class name: `"java.lang.NumberFormatException"`. |
+| An exception a Kotlin `suspend` function throws | The promise rejects with the same `Error`. |
+| A Lucent error thrown into Java from a callback | The same Lucent error again when it comes back. |
+| A `Task`, `ListenableFuture`, `CompletionStage` or any other Java object | Not a promise: `await` on it fails to compile (`LUCENT1010`). Turn its listener into one with [fromCallback](/docs/api/lucent-core/#fromcallback). |
+
+No class is recognized by name: a Play services `Task` is a Java object like any other. [Await a callback API](/docs/guides/await-a-callback-api/) wraps one. Turning a `Throwable` a listener reports into the same `Error` a thrown one becomes is [TA34](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta34).
+
+## Interfaces and callbacks
+
+- A Lucent class `implements` a Java interface. Each instance is one Java object per interface it's passed as.
+- A function goes where Java takes an interface with one abstract method. The same function passed twice is the same Java object, so a listener added with one call is removed with another.
+- A default method is optional to implement. Calling one takes a `!`: `manager.getCredential!(context, request)`.
+- A method Java calls that returns nothing is queued on the Lucent thread. One that returns a value runs while Java waits, holding the lock. [Concurrency](/docs/api/language/concurrency/) defines the lock.
+
+[Implement a delegate](/docs/guides/implement-a-delegate/) keeps a listener registered and cleans it up.
+
+## Subclasses
+
+A Lucent class can extend a Java class, abstract or not, that has a constructor without arguments: `class Watcher extends ConnectivityManager_NetworkCallback`. Its constructor calls `super()` with no arguments.
+
+- Lucent generates a Java subclass. The methods the Lucent class defines override the base's, and the others keep the SDK's code.
+- An instance goes wherever the base is taken.
+- An override that returns nothing is queued on the Lucent thread. One that returns a value runs while Java waits, holding the lock, as an interface method does.
+
+[Subclass an SDK class](/docs/guides/subclass-an-sdk-class/) shows a whole subclass.
+
+## Resources
+
+Java's `AutoCloseable`, and so `Closeable`, `Cursor` and the rest, declares `[Symbol.dispose]()`. `using cursor = …` calls `close()` however the block is left. [Release native resources](/docs/guides/release-native-resources/) shows it, and [Memory](/docs/api/language/memory/) gives the rules of `using`.
+
+## Threads, versions and permissions
+
+- A class or method annotated `@UiThread` or `@MainThread` compiles only in code the main thread runs, such as a `main(() => …)` function (`LUCENT3006`). A member annotated `@AnyThread` is the exception: every member of `View` but those is main-only.
+- A method annotated `@WorkerThread` called in code the main thread runs compiles with a `LUCENT3009` warning: it blocks the UI.
+- An API newer than the oldest Android Lucent supports compiles only under `available("android", N)` or `Build_VERSION.SDK_INT >= N` (`LUCENT3007`). [Compatibility](/docs/api/compatibility/) gives that level, and [Check the OS version](/docs/guides/check-the-os-version/) the forms of the check.
+- `appContext()`, `currentActivity()`, activity results and permission requests come from [lucent:android](/docs/api/lucent-android/).
+
+### @RequiresPermission
+
+When module code calls an SDK method annotated `@RequiresPermission`, the native package's `AndroidManifest.xml` declares each permission it names. That's every permission of its `value`, `anyOf` and `allOf`, so `LocationManager.getLastKnownLocation` adds both `ACCESS_COARSE_LOCATION` and `ACCESS_FINE_LOCATION`. Android's build merges the native package's manifest into the app's.
+
+- The annotations come from the SDK's `annotations.zip` and from each AAR's.
+- A permission Android calls dangerous still needs the user's grant: ask with `requestPermissions` from [lucent:android](/docs/api/lucent-android/#requestpermissions).
+- A Lucent package declares any other permission it needs in [lucent.json](/docs/packages/lucent-json/).
+
+:::caution
+Only a method call adds its permissions. Reading the property a getter gives, such as `activeNetwork` for `getActiveNetwork()`, doesn't: call the method.
+:::
+
+[Ask for a permission](/docs/guides/ask-for-a-permission/) walks through a request.
+
+## Kotlin
+
+A class kotlinc wrote is declared from its Kotlin metadata. Its names, nullability and defaults are Kotlin's, and each member is still the JVM method it is. Lucent generates Kotlin into the native package for what JNI can't call as Kotlin does: `suspend` functions, defaults left out and value classes.
+
+<Tabs>
+<TabItem label="Kotlin">
+
+```kotlin title="Searcher.kt"
+package dev.orbit.search
+
+import kotlinx.coroutines.delay
+
+data class Hit(val title: String, val score: Double = 1.0)
+
+class Searcher(val name: String = "orbit", private val token: String? = null) {
+  var pageSize: Int = 2
+
+  var lastQuery: String? = null
+
+  suspend fun search(prefix: String, limit: Int = pageSize, latency: Long = 0): List<Hit> {
+    lastQuery = prefix
+    delay(latency)
+    return listOf("orbit", "origin").filter { it.startsWith(prefix) }.take(limit).map { Hit(it) }
+  }
+
+  fun describe(prefix: String = "search", separator: String? = ":"): String =
+    "$prefix${separator ?: " "}$name"
+}
+```
+
+</TabItem>
+<TabItem label="Declaration">
+
+```ts title="dev.orbit.search.d.ts"
+export declare class Searcher extends Object {
+  constructor();
+  constructor(name?: string, token?: string | null);
+  lastQuery: string | null;
+  readonly name: string;
+  pageSize: number;
+  describe(prefix?: string, separator?: string | null): string;
+  getLastQuery(): string | null;
+  getName(): string;
+  getPageSize(): number;
+  search(prefix: string, limit?: number, latency?: bigint, signal?: AbortSignal): Promise<Hit[]>;
+  setLastQuery(value: string | null): void;
+  setPageSize(value: number): void;
+}
+```
+
+</TabItem>
+</Tabs>
+
+| In Kotlin | In Lucent |
+| --- | --- |
+| Parameter names and nullability | Kotlin's, where Java's are unknown. A platform type, such as `String!`, stays nullable. |
+| A property | Kotlin's name, such as `isEnabled`, read through its getter. It's writable when its setter is public, and the getter and setter stay methods too. |
+| A `suspend` function | A promise of its result, taking an optional `AbortSignal` last. Aborting rejects the promise at once and cancels the coroutine, and a value that arrives later is dropped. |
+| Default arguments | Optional parameters where they end the list. A defaulted parameter before one without a default takes `undefined` to leave it out. |
+| An extension function | A static of its file's class, taking the receiver first: `fun Shape.scaled()` in `Shapes.kt` is `ShapesKt.scaled(shape)`. An extension property is its getter: `ExtensionsKt.getShortTitle(hit)`. |
+| Top-level functions and properties | Statics of their file's class: `var unit` in `Shapes.kt` is `ShapesKt.unit`. |
+| An `object`, a companion | Its `INSTANCE`, and the class's `Companion`. `@JvmStatic` members are statics as well. |
+| An `enum class` | Its entries are static fields, never `null`: `Mode.FAST`. |
+| A `sealed` class or interface | Its cases are classes: test one with `instanceof` and read its payload's properties. |
+| A `value` class | A class: `new Meters(2)` makes one, and `meters.value` reads its underlying value. A member the JVM passes it unboxed to takes and gives the class. |
+| A read-only `List<E>` | `E[]`, a copy each way. `List<Int>` is `number[]`, `List<Long>` is `bigint[]` and `List<String?>` is `(string \| null)[]`. |
+| `MutableList<E>`, `List<*>` | The Java object, read and changed through its methods. |
+| A function type, such as `(Double) -> Unit` | On `main`, not in 0.1.2: a function, both ways. A property of a `fun interface` type also takes a function when written. |
+| A `suspend` function type, such as a `Flow`'s collector | A function that runs while Kotlin waits, holding the lock. What it throws rejects the call. An `async` function fails to compile there (`LUCENT1007`). |
+| An interface function with a body | An optional method, as a Java default method is. |
+| `internal` and `private` declarations | Not declared. |
+
+A call that leaves defaults out goes through generated Kotlin, so Kotlin's defaults apply. So does a call of a member that is `suspend`, takes a `suspend` function, or takes or returns a value class. Any other call, giving every argument with `null` included, calls the JVM method directly.
+
+An argument that may be `undefined` where Kotlin has a default fails to compile (`LUCENT1007`): pass a value, or leave it out.
+
+A class whose metadata comes from a newer Kotlin than Lucent reads is declared as Java sees it, and `lucent sdk coverage --members` says why. The Kotlin shapes the generated Kotlin doesn't call yet are [TA31](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta31).
+
+### Flows
+
+A `Flow`'s `collect` is a `suspend` function, so collecting a flow is a promise. It resolves when the flow completes and rejects with the error the flow throws, after the values before it. Its `AbortSignal` cancels the coroutine collecting it, which stops the flow.
+
+```ts title="flows.lucent.ts" from="examples/lucent-orbit/src/flows.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { Ticker } from "lucent:android/dev.orbit.ticker";
+import { FlowKt } from "lucent:android/kotlinx.coroutines.flow";
+
+const NONE = "no Kotlin on iOS";
+
+/** Every value of a flow that completes, in order, then the first of another. */
+export async function flowValues(): Promise<string> {
+  if (PLATFORM === "ios") {
+    return NONE;
+  } else {
+    const ticker = new Ticker();
+    const seen: number[] = [];
+    await ticker.count(3, 5n).collect((n) => {
+      seen.push(n);
+    });
+
+    return `${seen.join(",")} ${await FlowKt.first(ticker.count(2))} ${(await FlowKt.toList(ticker.count(4))).length}`;
+  }
+}
+```
+
+`FlowKt`'s top-level functions, such as `FlowKt.first` and `FlowKt.toList`, are called the same way. [Collect a Kotlin flow](/docs/guides/collect-a-kotlin-flow/) turns one into a subscription, and [Call a Kotlin library](/docs/guides/call-a-kotlin-library/) shows a library in an app.
+
+## What isn't bound
+
+A member Lucent can't use is declared with the reason in its doc comment. Using it fails to compile with that reason, followed by the native symbol and the library it comes from.
+
+A member Lucent couldn't type isn't declared at all, so calling one fails as a member its type lacks. On `main`, not in 0.1.2, the error also says why, and to wrap it in Kotlin of your own, in a Gradle module.
+
+`lucent sdk coverage` measures each package your code imports, or those `--android` names, `android.*` for every package with that prefix:
+
+```sh title="terminal" nocopy
+$ npx lucent sdk coverage --android android.location
+module            discovered  representable  unrepresentable  generated  exercised
+android.location  842         842            0 (0.0%)         -          -
+```
+
+Its columns are [the same stages as on iOS](/docs/api/ios-sdk/#what-isnt-bound), and `--members` and `--check` work the same way. [lucent sdk coverage](/docs/api/cli/#lucent-sdk-coverage) lists the flags.
+
+The roadmap lists every [known limitation](/docs/releases/roadmap/#known-limitations), Android API 24 and 25's default methods among them.
