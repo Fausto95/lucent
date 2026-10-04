@@ -1,45 +1,122 @@
+/*
+ * The homepage (src/pages/index.tsx), a page of its own outside the docs'
+ * layout. Every rule is scoped to #voltage-home: the stylesheet stays loaded
+ * once the reader moves on to the docs.
+ *
+ * Colors follow Docusaurus' color mode through the tokens below. Not through
+ * light-dark(): Docusaurus' CSS pipeline polyfills it from color-scheme
+ * declarations, and Infima declares color-scheme through a variable.
+ *
+ * The production build moves every @media block after the plain rules and
+ * merges each query's blocks, widest max-width first: a media rule here must
+ * not count on a plain rule, or a wider query, further down to override it.
+ */
 #voltage-home {
   --acid: #c4f85a;
-  --ink: light-dark(#17200f, #f1f5eb);
-  --paper: light-dark(#eef2e7, #10130f);
-  --panel: light-dark(#f8faf3, #181e14);
-  --line: light-dark(#ccd6c0, #303b26);
-  --quiet: light-dark(#58674b, #a8b59c);
-  --accent: light-dark(#4d741b, var(--acid));
+  --ink: #17200f;
+  --paper: #eef2e7;
+  --panel: #f8faf3;
+  --line: #ccd6c0;
+  --quiet: #58674b;
+  --accent: #4d741b;
+  --beam: #a3bd7c;
+  --liked: #c52b59;
+  --glow: #ddf4bd77;
+  --stack-top: #fcfdf8;
+  --stack-side: #e2e8d9;
+  --stack-edge: #28351c;
+  --stack-base: #eef3e6;
+  --stack-base-side: #d8e1ca;
+  --search-muted: #67705e;
+  --search-line: #dce3d4;
   background: var(--paper);
   color: var(--ink);
   font-family: "Geist", sans-serif;
   overflow: hidden;
 }
+
+[data-theme="dark"] #voltage-home {
+  --ink: #f1f5eb;
+  --paper: #10130f;
+  --panel: #181e14;
+  --line: #303b26;
+  --quiet: #a8b59c;
+  --accent: var(--acid);
+  --beam: #799c35;
+  --liked: #ff719b;
+  --glow: #83ba2917;
+  --stack-top: #263020;
+  --stack-side: #182011;
+  --stack-edge: #a9bd8e;
+  --stack-base: #202b19;
+  --stack-base-side: #172110;
+  --search-muted: #aab69e;
+  --search-line: #35412b;
+}
+
+/* Infima's base styles and its .hero, which the page was not designed with, undone. */
+#voltage-home {
+  line-height: normal;
+  overflow-wrap: normal;
+  -webkit-font-smoothing: auto;
+  text-rendering: auto;
+}
+
+#voltage-home h1,
+#voltage-home h2,
+#voltage-home h3 {
+  color: inherit;
+  line-height: inherit;
+}
+
+#voltage-home pre {
+  overflow: visible;
+  border-radius: 0;
+}
+
+#voltage-home .hero {
+  display: block;
+  align-items: normal;
+  background: none;
+  color: inherit;
+}
+
 #voltage-home * {
   box-sizing: border-box;
 }
+
 #voltage-home h1,
 #voltage-home h2,
 #voltage-home h3,
 #voltage-home p {
   margin: 0;
 }
+
 #voltage-home a {
   color: inherit;
   text-decoration: none;
 }
+
 #voltage-home a:hover {
   text-decoration: underline;
   text-underline-offset: 5px;
 }
+
 #voltage-home button {
   font: inherit;
   cursor: pointer;
 }
+
 #voltage-home .wrap {
   padding-inline: 44px;
 }
+
 #voltage-home .mono {
   font-family: "Geist Mono", monospace;
   font-size: 11px;
   letter-spacing: 0.045em;
 }
+
 #voltage-home nav {
   display: flex;
   justify-content: space-between;
@@ -48,6 +125,7 @@
   padding-block: 24px;
   border-bottom: 1px solid var(--line);
 }
+
 #voltage-home .logo {
   font-family: "Geist", sans-serif;
   font-size: 27px;
@@ -57,6 +135,7 @@
   align-items: center;
   gap: 10px;
 }
+
 #voltage-home .mark {
   display: block;
   width: 17px;
@@ -66,28 +145,33 @@
   transform: skew(-13deg);
   color: var(--accent);
 }
+
 #voltage-home .navlinks {
   display: flex;
   align-items: center;
   gap: 25px;
   font-size: 12px;
 }
+
 #voltage-home .nav-start {
   border: 1px solid var(--line);
   padding: 10px 15px;
   border-radius: 4px;
 }
+
 #voltage-home .hero {
   position: relative;
   padding-top: 57px;
   padding-bottom: 30px;
 }
+
 #voltage-home .eyebrow {
   color: var(--accent);
   display: flex;
   align-items: center;
   gap: 9px;
 }
+
 #voltage-home .eyebrow:before {
   content: "";
   width: 6px;
@@ -95,6 +179,7 @@
   border-radius: 50%;
   background: currentColor;
 }
+
 #voltage-home h1 {
   font-family: "Geist", sans-serif;
   font-size: clamp(52px, 9.5vw, 106px);
@@ -105,10 +190,12 @@
   position: relative;
   z-index: 1;
 }
+
 #voltage-home h1 em {
   font-style: normal;
   color: var(--accent);
 }
+
 #voltage-home .beam {
   position: absolute;
   right: 38px;
@@ -121,12 +208,14 @@
   gap: 14px;
   pointer-events: none;
 }
+
 #voltage-home .beam i {
   flex: 1;
-  background: linear-gradient(0deg, transparent, light-dark(#a3bd7c, #799c35));
+  background: linear-gradient(0deg, transparent, var(--beam));
   border-top: 2px solid var(--acid);
   transform: skewY(-20deg);
 }
+
 #voltage-home .hero-bottom {
   display: flex;
   justify-content: space-between;
@@ -136,12 +225,14 @@
   position: relative;
   z-index: 1;
 }
+
 #voltage-home .intro {
   max-width: 400px;
   color: var(--quiet);
   font-size: 16px;
   line-height: 1.65;
 }
+
 #voltage-home .actions {
   display: flex;
   align-items: center;
@@ -149,6 +240,7 @@
   flex-wrap: wrap;
   font-size: 13px;
 }
+
 #voltage-home .cta {
   display: inline-flex;
   align-items: center;
@@ -160,24 +252,29 @@
   border-radius: 4px;
   font-weight: 600;
 }
+
 #voltage-home .codebox {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 7px;
   overflow: hidden;
 }
+
 #voltage-home .hero-code {
   display: grid;
   grid-template-columns: 1fr 1fr;
   margin-top: 37px;
 }
+
 #voltage-home .codepane {
   min-width: 0;
   padding: 21px 25px;
 }
+
 #voltage-home .codepane + .codepane {
   border-left: 1px solid var(--line);
 }
+
 #voltage-home .code-label {
   display: flex;
   justify-content: space-between;
@@ -185,6 +282,7 @@
   color: var(--quiet);
   margin-bottom: 17px;
 }
+
 #voltage-home pre {
   background: none;
   color: var(--ink);
@@ -196,16 +294,21 @@
   font:
     12px/1.9 "Geist Mono",
     monospace;
+  font-variant-ligatures: none;
 }
+
 #voltage-home code {
   font-family: "Geist Mono", monospace;
 }
+
 #voltage-home .kw {
   color: var(--accent);
 }
+
 #voltage-home .comment {
   color: var(--quiet);
 }
+
 #voltage-home .support {
   padding-top: 23px;
   padding-bottom: 28px;
@@ -216,11 +319,13 @@
   color: var(--quiet);
   border-bottom: 1px solid var(--line);
 }
+
 #voltage-home .section {
   padding-top: 66px;
   padding-bottom: 66px;
   border-bottom: 1px solid var(--line);
 }
+
 #voltage-home .section-head {
   display: flex;
   justify-content: space-between;
@@ -228,33 +333,41 @@
   gap: 30px;
   margin-bottom: 32px;
 }
+
 #voltage-home .kicker {
   color: var(--quiet);
   margin-bottom: 17px;
 }
+
 #voltage-home h2 {
-  font:
-    500 clamp(30px, 4.7vw, 49px)/1.06 "Geist",
-    sans-serif;
+  font-family: "Geist", sans-serif;
+  font-size: clamp(30px, 4.7vw, 49px);
+  font-weight: 500;
+  line-height: 1.06;
   letter-spacing: -0.055em;
 }
+
 #voltage-home h2 span {
   color: var(--accent);
 }
+
 #voltage-home .section-head > a {
   font-size: 12px;
   white-space: nowrap;
 }
+
 #voltage-home .three {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 30px;
 }
+
 #voltage-home .number {
   font-size: 12px;
   color: var(--accent);
   margin-bottom: 22px;
 }
+
 #voltage-home h3 {
   font-family: "Geist", sans-serif;
   font-size: 19px;
@@ -262,39 +375,48 @@
   font-weight: 500;
   margin-bottom: 10px;
 }
+
 #voltage-home .bodycopy {
   font-size: 13px;
   line-height: 1.8;
   color: var(--quiet);
 }
+
 #voltage-home .feature {
   padding-top: 19px;
   border-top: 1px solid var(--line);
 }
+
 #voltage-home .textlink {
   font-size: 13px;
   color: var(--accent);
 }
+
 #voltage-home details {
   border-bottom: 1px solid var(--line);
   padding: 19px 0;
 }
+
 #voltage-home summary {
   font-size: 15px;
   cursor: pointer;
 }
+
 #voltage-home details p {
   max-width: 650px;
   padding: 15px 0 0;
 }
+
 #voltage-home .faq {
   display: grid;
   grid-template-columns: 0.8fr 1.2fr;
   gap: 45px;
 }
+
 #voltage-home .faq .kicker {
   margin-bottom: 17px;
 }
+
 #voltage-home .closing {
   padding-top: 58px;
   padding-bottom: 53px;
@@ -305,12 +427,15 @@
   gap: 45px;
   align-items: center;
 }
+
 #voltage-home .closing h2 {
   font-size: clamp(36px, 5vw, 55px);
 }
+
 #voltage-home .closing .kicker {
   color: #4a602b;
 }
+
 #voltage-home .closing .terminal {
   background: #18220f;
   color: #edf7df;
@@ -318,14 +443,17 @@
   border-radius: 5px;
   min-width: 0;
 }
+
 #voltage-home .terminal pre {
   color: #edf7df;
   font-size: 11px;
 }
+
 #voltage-home .terminal .mono {
   color: #b7c9a3;
   margin-bottom: 12px;
 }
+
 #voltage-home .closing .setup {
   display: flex;
   justify-content: space-between;
@@ -333,6 +461,7 @@
   font-size: 12px;
   margin-top: 17px;
 }
+
 #voltage-home footer {
   padding-top: 28px;
   padding-bottom: 28px;
@@ -342,76 +471,88 @@
   gap: 24px;
   flex-wrap: wrap;
 }
+
 #voltage-home footer .logo {
   font-size: 22px;
 }
+
 #voltage-home footer .links {
   display: flex;
   gap: 21px;
   font-size: 12px;
 }
+
 #voltage-home footer .tag {
   color: var(--quiet);
   font-size: 11px;
 }
+
 @media (max-width: 680px) {
   #voltage-home .wrap {
     padding-inline: 23px;
   }
-  #voltage-home nav {
-    gap: 15px;
-  }
-  #voltage-home .navlinks {
-    gap: 16px;
-  }
+
   #voltage-home .optional {
     display: none;
   }
+
   #voltage-home .hero {
     padding-top: 39px;
   }
+
   #voltage-home .hero-bottom {
     display: block;
   }
+
   #voltage-home .actions {
     margin-top: 25px;
   }
+
   #voltage-home .beam {
     width: 140px;
     right: 15px;
     opacity: 0.25;
   }
+
   #voltage-home .hero-code,
   #voltage-home .three,
   #voltage-home .faq,
   #voltage-home .closing {
     grid-template-columns: 1fr;
   }
+
   #voltage-home .codepane + .codepane {
     border-left: 0;
     border-top: 1px solid var(--line);
   }
+
   #voltage-home .section {
     padding-top: 44px;
     padding-bottom: 44px;
   }
+
   #voltage-home .section-head {
     align-items: flex-start;
     flex-direction: column;
     gap: 20px;
   }
+
   #voltage-home .three {
     gap: 25px;
   }
+
   #voltage-home .number {
     margin-bottom: 14px;
   }
+
   #voltage-home .faq {
     gap: 28px;
   }
+
   #voltage-home .closing {
     gap: 25px;
   }
+
   #voltage-home .closing .setup {
     flex-wrap: wrap;
   }
@@ -430,6 +571,7 @@
   position: relative;
   z-index: 2;
 }
+
 #voltage-home .hero-status {
   display: inline-flex;
   align-items: center;
@@ -444,6 +586,7 @@
   letter-spacing: 0.055em;
   flex-shrink: 0;
 }
+
 #voltage-home .hero-status::before {
   content: "";
   width: 7px;
@@ -451,6 +594,7 @@
   border-radius: 50%;
   background: currentColor;
 }
+
 #voltage-home .hero-blog {
   display: flex;
   align-items: center;
@@ -461,6 +605,7 @@
   font-size: 15px;
   line-height: 1.5;
 }
+
 #voltage-home .hero-blog .news-label {
   display: block;
   font:
@@ -470,22 +615,27 @@
   margin-bottom: 3px;
   color: #40571e;
 }
+
 #voltage-home .hero-blog .news-title {
   font-weight: 600;
 }
+
 #voltage-home .hero-blog .news-action {
   font-size: 12px;
   white-space: nowrap;
   border-bottom: 1px solid #718e35;
   padding-block: 4px;
 }
+
 #voltage-home .hero-blog:hover {
   color: #1a260c;
   text-decoration: none;
 }
+
 #voltage-home .hero-blog:hover .news-action {
   border-bottom-color: currentColor;
 }
+
 @media (max-width: 680px) {
   #voltage-home .hero-announcement {
     padding: 20px 23px;
@@ -493,12 +643,14 @@
     align-items: flex-start;
     flex-direction: column;
   }
+
   #voltage-home .hero-blog {
     width: 100%;
     font-size: 14px;
     gap: 15px;
     flex-wrap: wrap;
   }
+
   #voltage-home .hero-status {
     font-size: 11px;
     padding: 7px 10px;
@@ -510,6 +662,7 @@
   padding-bottom: 56px;
   border-bottom: 1px solid var(--line);
 }
+
 #voltage-home .views-title {
   display: flex;
   align-items: center;
@@ -517,9 +670,11 @@
   flex-wrap: wrap;
   margin-bottom: 16px;
 }
+
 #voltage-home .views-title .kicker {
   margin: 0;
 }
+
 #voltage-home .experimental {
   font:
     10px "Geist Mono",
@@ -529,6 +684,7 @@
   padding: 5px 7px;
   color: var(--accent);
 }
+
 #voltage-home .view-grid {
   display: grid;
   grid-template-columns: 1.18fr 1fr;
@@ -536,23 +692,28 @@
   margin-top: 29px;
   align-items: stretch;
 }
+
 #voltage-home .view-grid > div {
   min-width: 0;
 }
+
 #voltage-home .view-code {
   padding: 23px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 6px;
 }
+
 #voltage-home .view-code pre {
   font-size: 11px;
 }
+
 #voltage-home .view-demos {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
+
 #voltage-home .device {
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -563,12 +724,14 @@
   flex-direction: column;
   justify-content: space-between;
 }
+
 #voltage-home .device-name {
   font:
     12px "Geist Mono",
     monospace;
   color: var(--quiet);
 }
+
 #voltage-home .like-preview {
   align-self: center;
   display: flex;
@@ -581,36 +744,44 @@
   min-height: 48px;
   font-size: 24px;
 }
+
 #voltage-home .like-preview .heart {
   color: var(--quiet);
   font-size: 31px;
 }
+
 #voltage-home .like-preview[aria-pressed="true"] .heart {
-  color: light-dark(#c52b59, #ff719b);
+  color: var(--liked);
 }
+
 #voltage-home .like-preview strong {
   font-size: 21px;
   font-weight: 600;
 }
+
 #voltage-home .device small {
   font-size: 10px;
   color: var(--quiet);
 }
+
 #voltage-home .view-import {
   padding: 15px 18px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 5px;
 }
+
 #voltage-home .view-import pre {
   font-size: 11px;
 }
+
 #voltage-home .view-note {
   margin-top: 16px;
   color: var(--quiet);
   font-size: 11px;
   line-height: 1.7;
 }
+
 #voltage-home .view-foot {
   display: flex;
   gap: 20px;
@@ -619,17 +790,21 @@
   margin-top: 22px;
   align-items: center;
 }
+
 #voltage-home .view-foot p {
   max-width: 550px;
 }
+
 @media (max-width: 680px) {
   #voltage-home .view-grid {
     grid-template-columns: 1fr;
   }
+
   #voltage-home .views-showcase {
     padding-top: 40px;
     padding-bottom: 40px;
   }
+
   #voltage-home .device {
     padding: 15px 10px;
   }
@@ -640,17 +815,16 @@
   position: relative;
   border: 1px solid var(--line);
   border-radius: 8px;
-  background:
-    radial-gradient(ellipse at 50% 65%, light-dark(#d9f5ad88, #83ba2922), transparent 66%),
-    var(--panel);
   padding: 23px 22px 20px;
 }
+
 #voltage-home .architecture-label {
   display: flex;
   justify-content: space-between;
   gap: 15px;
   color: var(--quiet);
 }
+
 #voltage-home .stack-art {
   display: block;
   width: 100%;
@@ -658,43 +832,47 @@
   max-width: 750px;
   margin: 0 auto;
   overflow: visible;
-  --stack-top: light-dark(#fcfdf8, #263020);
-  --stack-side: light-dark(#e2e8d9, #182011);
-  --stack-edge: light-dark(#28351c, #a9bd8e);
-  --stack-base: light-dark(#eef3e6, #202b19);
-  --stack-base-side: light-dark(#d8e1ca, #172110);
 }
+
 #voltage-home .stack-art .topface {
   fill: var(--stack-top);
 }
+
 #voltage-home .stack-art .sideface {
   fill: var(--stack-side);
 }
+
 #voltage-home .stack-art .baseface {
   fill: var(--stack-base);
 }
+
 #voltage-home .stack-art .baseside {
   fill: var(--stack-base-side);
 }
+
 #voltage-home .stack-art .edge {
   stroke: var(--stack-edge);
   stroke-width: 2.5;
   stroke-linejoin: round;
 }
+
 #voltage-home .stack-art text {
   font-family: "Geist", sans-serif;
   fill: var(--ink);
 }
+
 #voltage-home .stack-art .slabtext {
   font-size: 32px;
   letter-spacing: -1px;
   font-weight: 500;
 }
+
 #voltage-home .stack-art .logictext {
   fill: #263912;
   font-size: 28px;
   font-weight: 500;
 }
+
 #voltage-home .architecture-legend {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -702,61 +880,69 @@
   padding-top: 17px;
   border-top: 1px solid var(--line);
 }
+
 #voltage-home .architecture-legend b {
   display: block;
   font-size: 13px;
   font-weight: 500;
   margin-bottom: 5px;
 }
+
 #voltage-home .architecture-legend p {
   font-size: 12px;
   line-height: 1.7;
   color: var(--quiet);
 }
+
 @media (max-width: 680px) {
   #voltage-home .architecture {
     padding: 18px 10px;
   }
+
   #voltage-home .architecture-label {
     padding: 0 7px;
     font-size: 10px;
   }
+
   #voltage-home .architecture-legend {
     grid-template-columns: 1fr;
     gap: 15px;
-    padding: 17px 7px 0;
   }
 }
 
 #voltage-home .architecture {
   margin-top: 32px;
   padding: 30px;
-  background:
-    radial-gradient(ellipse at 30% 50%, light-dark(#ddf4bd77, #83ba2917), transparent 65%),
-    var(--panel);
+  background: radial-gradient(ellipse at 30% 50%, var(--glow), transparent 65%), var(--panel);
 }
+
 #voltage-home .architecture-label {
   margin-bottom: 24px;
   line-height: 1.6;
 }
+
 #voltage-home .architecture-content {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
   gap: 38px;
   align-items: center;
 }
+
 #voltage-home .stack-art {
   max-width: 420px;
   margin: 0 auto;
   overflow: hidden;
 }
+
 #voltage-home .stack-art .slabtext {
   font-size: 34px;
   letter-spacing: -1px;
 }
+
 #voltage-home .stack-art .logictext {
   font-size: 28px;
 }
+
 #voltage-home .architecture-legend {
   display: flex;
   flex-direction: column;
@@ -764,36 +950,44 @@
   border: 0;
   padding: 0;
 }
+
 #voltage-home .architecture-legend b {
   font-size: 16px;
   margin-bottom: 9px;
 }
+
 #voltage-home .architecture-legend p {
   font-size: 13px;
   line-height: 1.8;
 }
+
 #voltage-home .stack-source {
   color: var(--quiet);
   font-size: 11px;
   margin-bottom: 18px;
 }
+
 @media (max-width: 680px) {
   #voltage-home .architecture {
     padding: 24px 18px;
   }
+
   #voltage-home .architecture-content {
     grid-template-columns: 1fr;
     gap: 30px;
   }
+
   #voltage-home .architecture-label {
     font-size: 11px;
     padding: 0;
   }
+
   #voltage-home .architecture-legend {
     padding-top: 24px;
     border-top: 1px solid var(--line);
     gap: 20px;
   }
+
   #voltage-home .stack-art {
     max-width: 350px;
   }
@@ -806,49 +1000,61 @@
   fill: var(--ink);
   letter-spacing: -0.6px;
 }
+
 #voltage-home .stack-art .slabtext {
   font-size: 42px;
   letter-spacing: -1.8px;
 }
+
 #voltage-home .float-source {
   animation: voltage-source-float 6s ease-in-out infinite;
 }
+
 #voltage-home .float-logic {
   animation: voltage-logic-float 6s ease-in-out infinite;
 }
+
 #voltage-home .float-ios {
   animation: voltage-base-float 6s ease-in-out infinite;
 }
+
 #voltage-home .float-android {
   animation: voltage-base-float 6s ease-in-out -1s infinite;
 }
+
 @keyframes voltage-source-float {
   0%,
   100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-8px);
   }
 }
+
 @keyframes voltage-logic-float {
   0%,
   100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(-4px);
   }
 }
+
 @keyframes voltage-base-float {
   0%,
   100% {
     transform: translateY(0);
   }
+
   50% {
     transform: translateY(3px);
   }
 }
+
 @media (prefers-reduced-motion: reduce) {
   #voltage-home .float-source,
   #voltage-home .float-logic,
@@ -862,6 +1068,7 @@
   padding-block: 44px;
   border-bottom: 1px solid var(--line);
 }
+
 #voltage-home .compat-heading {
   display: flex;
   align-items: baseline;
@@ -869,18 +1076,22 @@
   gap: 22px;
   margin-bottom: 28px;
 }
+
 #voltage-home .compat-heading h2 {
   font-size: 28px;
 }
+
 #voltage-home .compat-heading a {
   font-size: 12px;
   color: var(--accent);
 }
+
 #voltage-home .compat-line {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 24px;
 }
+
 #voltage-home .compat-line strong {
   font:
     500 20px "Geist",
@@ -889,18 +1100,21 @@
   display: block;
   margin-bottom: 7px;
 }
+
 #voltage-home .compat-line span {
   font-size: 11px;
   color: var(--quiet);
   line-height: 1.6;
   display: block;
 }
+
 @media (max-width: 680px) {
   #voltage-home .compat-heading {
     align-items: flex-start;
     flex-direction: column;
     gap: 14px;
   }
+
   #voltage-home .compat-line {
     grid-template-columns: 1fr 1fr;
     gap: 25px;
@@ -912,35 +1126,27 @@
   max-width: 650px;
   gap: 45px;
 }
+
 #voltage-home .compat-brand {
   display: flex;
   align-items: center;
   gap: 18px;
 }
-#voltage-home .compat-brand img {
-  flex-shrink: 0;
-  object-fit: contain;
-}
-@media (prefers-color-scheme: dark) {
-  #voltage-home .compat-brand img {
-    filter: invert(1);
-  }
-}
+
 @media (max-width: 680px) {
   #voltage-home .compat-line {
     gap: 25px;
   }
+
   #voltage-home .compat-brand {
     gap: 12px;
   }
-  #voltage-home .compat-brand img {
-    width: 28px;
-    height: 28px;
-  }
+
   #voltage-home .compat-line strong {
     font-size: 18px;
   }
 }
+
 @media (max-width: 400px) {
   #voltage-home .compat-line {
     grid-template-columns: 1fr;
@@ -955,6 +1161,7 @@
   margin: 20px 0 18px;
   padding-bottom: 9px;
 }
+
 #voltage-home .code-switch button {
   background: transparent;
   color: var(--quiet);
@@ -964,40 +1171,48 @@
   font-size: 12px;
   min-height: 40px;
 }
+
 #voltage-home .code-switch button[aria-pressed="true"] {
   background: var(--acid);
   color: #1a260c;
 }
+
 #voltage-home .view-demos > .device {
   flex: 1;
   min-height: 250px;
   padding: 22px;
 }
+
 #voltage-home .view-code pre[hidden] {
   display: none;
 }
+
 #voltage-home .device .like-preview {
   gap: 13px;
 }
+
 #voltage-home .device .like-preview .heart {
   font-size: 47px;
 }
+
 #voltage-home .device .like-preview strong {
   font-size: 31px;
 }
 
 /* Page shell and production accessibility. */
-:root {
-  color-scheme: light dark;
+html:has(#voltage-home) {
+  background: #eef2e7;
 }
-body {
-  margin: 0;
-  background: light-dark(#eef2e7, #10130f);
+
+html[data-theme="dark"]:has(#voltage-home) {
+  background: #10130f;
 }
+
 #voltage-home {
   max-width: 1200px;
   margin-inline: auto;
 }
+
 #voltage-home .skip-link {
   position: absolute;
   top: 0;
@@ -1008,59 +1223,70 @@ body {
   background: var(--acid);
   color: #1a260c;
 }
+
 #voltage-home .skip-link:focus {
   transform: translateY(0);
 }
+
 #voltage-home a:focus-visible,
 #voltage-home button:focus-visible,
 #voltage-home summary:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 4px;
 }
+
 #voltage-home .hero-blog:focus-visible {
   outline-color: #1a260c;
 }
+
 #voltage-home .navlinks {
   flex-wrap: wrap;
 }
+
 #voltage-home .view-grid {
   grid-template-columns: minmax(0, 1.18fr) minmax(0, 1fr);
 }
+
 #voltage-home .hero-code {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
+
 #voltage-home .closing {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
-#voltage-home .view-code pre,
-#voltage-home pre {
-  font-variant-ligatures: none;
-}
+
 #voltage-home .stack-art {
   overflow: visible;
 }
+
 #voltage-home [hidden] {
   display: none !important;
 }
+
 @media (max-width: 680px) {
   #voltage-home .view-grid,
   #voltage-home .hero-code,
   #voltage-home .closing {
     grid-template-columns: minmax(0, 1fr);
   }
+
   #voltage-home h1 {
     font-size: clamp(40px, 9.5vw, 65px);
   }
+
   #voltage-home .architecture-label {
     overflow-wrap: anywhere;
   }
+
   #voltage-home .news-title {
     overflow-wrap: anywhere;
   }
+
   #voltage-home .code-label {
     flex-wrap: wrap;
   }
 }
+
 @media (pointer: coarse) {
   #voltage-home .navlinks a,
   #voltage-home summary {
@@ -1077,9 +1303,11 @@ body {
   background: var(--ink);
   mask: var(--brand-image) center / contain no-repeat;
 }
+
 #voltage-home .brand-react {
   --brand-image: url(/brand/react-native.svg);
 }
+
 #voltage-home .brand-expo {
   --brand-image: url(/brand/expo.svg);
 }
@@ -1095,23 +1323,28 @@ body {
   align-items: center;
   gap: 25px;
 }
+
 #voltage-home .nav-toggle {
   display: none;
 }
+
 @media (max-width: 760px) {
   #voltage-home nav {
     position: relative;
     gap: 12px;
     padding: 14px 20px;
   }
+
   #voltage-home .logo {
     flex-shrink: 0;
     font-size: 24px;
   }
+
   #voltage-home .navlinks {
     flex-wrap: nowrap;
     gap: 10px;
   }
+
   #voltage-home .nav-toggle {
     display: flex;
     align-items: center;
@@ -1125,6 +1358,7 @@ body {
     color: var(--ink);
     cursor: pointer;
   }
+
   #voltage-home .nav-menu {
     display: none;
     position: absolute;
@@ -1138,10 +1372,12 @@ body {
     background: var(--paper);
     box-shadow: 0 12px 28px #0002;
   }
+
   #voltage-home .nav-toggle[aria-expanded="true"] + .nav-menu {
     display: grid;
     gap: 4px;
   }
+
   #voltage-home .nav-menu a {
     display: flex;
     align-items: center;
@@ -1149,7 +1385,88 @@ body {
     padding: 10px 14px;
     border-radius: 5px;
   }
+
   #voltage-home .nav-menu a:hover {
     background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+}
+
+/* Docusaurus' search bar, drawn as the page's search button was. */
+#voltage-home .navbar__search {
+  --ifm-navbar-search-input-background-color: transparent;
+  --ifm-navbar-search-input-color: var(--search-muted);
+  --ifm-navbar-search-input-placeholder-color: var(--search-muted);
+  --search-local-input-active-border-color: var(--accent);
+  margin-left: 0;
+  font-family: "Geist", system-ui, sans-serif;
+}
+
+#voltage-home .navbar__search-input {
+  width: 134px;
+  height: 33.5px;
+  padding: 0 44px 0 32px;
+  border: 1px solid var(--search-line);
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  font-size: 12px;
+}
+
+/*
+ * The results open leftwards from the field's right edge, as wide as the
+ * room left of it allows: the viewport less the page's padding on both sides
+ * and what sits right of the field (the links and their gap, or the gap and
+ * the menu button).
+ */
+#voltage-home .navbar__search {
+  --search-room: calc(100vw - 2 * 44px - 25px - 290px);
+  --search-local-modal-width: min(560px, var(--search-room));
+  --search-local-modal-width-sm: var(--search-room);
+}
+
+@media (max-width: 760px) {
+  #voltage-home .navbar__search {
+    --search-room: calc(100vw - 2 * 44px - 10px - 44px);
+  }
+}
+
+@media (max-width: 680px) {
+  #voltage-home .navbar__search {
+    --search-room: calc(100vw - 2 * 23px - 10px - 44px);
+  }
+}
+
+#voltage-home .navbar__search :has(> kbd) {
+  right: 12px;
+  gap: 6px;
+}
+
+#voltage-home .navbar__search kbd {
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--ifm-navbar-search-input-placeholder-color);
+  font:
+    10px "Geist Mono",
+    monospace;
+}
+
+@media (max-width: 600px) {
+  #voltage-home .navbar__search-input {
+    width: 92px;
+    padding-right: 8px;
+    padding-left: 30px;
+  }
+
+  #voltage-home .navbar__search kbd {
+    display: none;
+  }
+}
+
+/* At 16px, iOS Safari leaves the page unzoomed when the field takes focus. */
+@media (pointer: coarse) {
+  #voltage-home .navbar__search-input {
+    font-size: 16px;
   }
 }

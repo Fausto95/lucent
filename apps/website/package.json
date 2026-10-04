@@ -45,5 +45,17 @@
     "vite": "catalog:",
     "vite-plus": "catalog:",
     "yaml": "^2.9.1"
+  },
+  "browserslist": {
+    "production": [
+      ">0.5%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 3 chrome version",
+      "last 3 firefox version",
+      "last 5 safari version"
+    ]
   }
 }

@@ -127,7 +127,7 @@ function seeCpp(files: CppFile[]): RootContent {
           ]
         : codes),
     ],
-    { class: "see-cpp" },
+    { className: "see-cpp" },
   );
 }
 

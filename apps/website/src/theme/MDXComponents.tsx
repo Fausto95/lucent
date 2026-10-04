@@ -11,6 +11,7 @@ import Comparison from "../components/mdx/Comparison";
 import Diagram from "../components/mdx/Diagram";
 import LinkCard from "../components/mdx/LinkCard";
 import Steps from "../components/mdx/Steps";
+import Table from "../components/mdx/Table";
 import TabItem from "../components/mdx/TabItem";
 import Tabs from "../components/mdx/Tabs";
 
@@ -27,6 +28,7 @@ export default {
   ...MDXComponents,
   pre: (props: ComponentProps<"pre">) => <pre {...props} />,
   code: Code,
+  table: Table,
   Tabs,
   TabItem,
   Steps,

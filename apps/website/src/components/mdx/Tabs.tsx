@@ -45,7 +45,7 @@ export default function Tabs({ syncKey, children }: Props) {
     };
     window.addEventListener(EVENT, onSync);
     return () => window.removeEventListener(EVENT, onSync);
-  }, [storageKey, labels.join("\u0000")]);
+  }, [storageKey, labels]);
 
   const select = (index: number) => {
     setSelected(index);
