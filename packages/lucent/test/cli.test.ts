@@ -104,6 +104,48 @@ describe("Lucent packages", () => {
     expect(r.out).toMatch(/lucent-greet\/greet/);
     expect(fs.existsSync(path.join(root, ".lucent/native/js/lucent-greet/greet.js"))).toBe(true);
   });
+
+  /** A Lucent package in the app's packages/ directory, as a workspace or file: dependency. */
+  function nestedPackage(root: string, name: string): void {
+    const pkg = path.join(root, "packages", name);
+    fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(pkg, "package.json"),
+      JSON.stringify({ name, version: "1.0.0", lucent: { sources: "src" } }),
+    );
+    fs.writeFileSync(
+      path.join(pkg, "src/hello.lucent.ts"),
+      "export function hello(): number { return 1; }\n",
+    );
+  }
+
+  it("builds a Lucent package inside the app, linked as a dependency, once", () => {
+    const root = project();
+    nestedPackage(root, "lucent-near");
+    fs.writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "app", dependencies: { "lucent-near": "file:packages/lucent-near" } }),
+    );
+    fs.mkdirSync(path.join(root, "node_modules"));
+    fs.symlinkSync("../packages/lucent-near", path.join(root, "node_modules/lucent-near"));
+
+    const r = lucent(root, "build");
+    expect(r.out).not.toMatch(/LUCENT3010/);
+    expect(r.status).toBe(0);
+    expect(r.out).toMatch(/lucent-near\/hello/);
+    expect(fs.existsSync(path.join(root, ".lucent/native/js/lucent-near/hello.js"))).toBe(true);
+  });
+
+  it("leaves a Lucent package inside the app out of the build when the app does not depend on it", () => {
+    const root = project();
+    nestedPackage(root, "lucent-far");
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app" }));
+
+    const r = lucent(root, "build");
+    expect(r.status).toBe(0);
+    expect(r.out).not.toMatch(/lucent-far/);
+    expect(fs.existsSync(path.join(root, ".lucent/native/js/lucent-far"))).toBe(false);
+  });
 });
 
 describe("Lucent packages' native needs", () => {
