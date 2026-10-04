@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { type Code, docsUrl, Explanations } from "./codes.ts";
 import { type Diagnostic, formatDiagnostic } from "./diagnostics.ts";
@@ -17,6 +18,7 @@ import {
   findLucentFiles,
   type LucentProgram,
   platformOf,
+  projectFiles,
   type ReadSource,
   sdkModuleOf,
   usesPlatforms,
@@ -391,6 +393,23 @@ export function projectExtensions(root: string): ExtensionBinding[] {
   } catch {
     return [];
   }
+}
+
+/**
+ * The files of `files` (an editor's project) that `lucent build` compiles
+ * in `root`: not those of a Lucent package inside the app that the app
+ * does not depend on. All of them when root's packages cannot be resolved
+ * (the build reports why).
+ */
+export function filesInBuild(root: string, files: readonly string[]): string[] {
+  let built: Set<string>;
+  try {
+    built = new Set(projectFiles(root).map((f) => fs.realpathSync(f)));
+  } catch {
+    return [...files];
+  }
+
+  return files.filter((f) => fs.existsSync(f) && built.has(fs.realpathSync(f)));
 }
 
 export function compileDirectory(root: string): CompileResult {

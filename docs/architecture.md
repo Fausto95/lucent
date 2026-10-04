@@ -1095,8 +1095,10 @@ version from the compiler's; the lowering matches on `ts.SyntaxKind`, so the
 plugin never hands the editor's AST to the compiler. It `import()`s the
 compiler (an ES module) asynchronously, refreshes diagnostics once loaded, and
 calls `checkSources(files, readSource, { extensions })` with the project's
-`*.lucent.ts` paths, the editor's unsaved buffer text and the Lucent
-packages' native extensions, bound once per session (`projectExtensions`). The compiler builds its own program
+`*.lucent.ts` paths that `lucent build` compiles (`filesInBuild`: not a
+Lucent package inside the app that the app does not depend on), the
+editor's unsaved buffer text and the Lucent packages' native extensions,
+bound once per session (`projectExtensions`). The compiler builds its own program
 (library declarations are parsed once per process) and returns diagnostics
 with offsets and lengths. One check serves every file until a Lucent source
 changes version. TypeScript errors are left to TypeScript.
