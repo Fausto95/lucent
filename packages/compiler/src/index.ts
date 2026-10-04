@@ -73,7 +73,7 @@ export { coverage as sdkCoverage, type Coverage as SdkCoverage } from "@lucent-l
 export { jsxToolkits, toolkitsFrom } from "./ui/toolkit-modules.ts";
 export { viewCoverage, type ViewCoverage } from "./ui/view-coverage.ts";
 export { lucentPackages, lucentVersion, satisfies, type LucentPackage } from "./packages.ts";
-export { currentReads, readsKey } from "./reads.ts";
+export { currentReads, foundFile, readsKey } from "./reads.ts";
 export {
   EXTENSION_FIELDS,
   PACKAGE_FIELDS,

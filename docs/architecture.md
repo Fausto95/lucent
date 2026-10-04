@@ -983,6 +983,10 @@ targets, and every other file the compile read (`compiler/src/reads.ts`):
 the files imports resolve to, the `package.json` files TypeScript's
 resolution reads and the one that names a module, each hashed by the
 content read, or `missing` for a file it looked for and did not find.
+Those outside the project (the compiler's own, a linked package's) are
+one `outside-project` input, hashed on the contents of the files found
+there, so the node is the same wherever the project, the compiler and
+the working directory are.
 `startedAt` says when each timed step started (milliseconds from the
 build's start, outside the node hashes like the timings), so `lucent trace`
 (`src/cli/trace.ts`) lays the steps out as spans beside runtime traces; see

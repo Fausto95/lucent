@@ -2334,9 +2334,11 @@ export interface BuildRecord {
   absolute paths, and it lists the files the check read by theirs);
   `resolved.json` is.
 - The `check` node's inputs are the sources, `targets`, and every other
-  file the check read, project-relative, hashed by the content read; a
-  path it looked for and did not find is `missing`, or `directory` when
-  one is there.
+  file the check read in the project, project-relative, hashed by the
+  content read; a path it looked for and did not find is `missing`, or
+  `directory` when one is there. The files it read outside the project
+  are one `outside-project` input, hashed on their contents alone (the
+  paths it found nothing at there left out).
 - The `resolve` node lists one `packages/<package>/<path>` input per
   native path a package's `lucent.json` lists. Native extensions are
   read in an `extract:extensions` node.
@@ -2434,7 +2436,8 @@ export interface BuildIdentity {
   Migration: apps built before build identities fail to load with
   `compile-native`: rebuild the app.
 - **v1.5** (2026-10-04, proposed): the `check` node's inputs include
-  every other file the check read; `.lucent/check.json` and the native
+  every other file the check read, those outside the project as one
+  `outside-project` input; `.lucent/check.json` and the native
   package's `manifest.json` list them (`read`). Migration: none (the
   first check or build after it runs again).
 

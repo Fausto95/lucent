@@ -9,6 +9,7 @@ import {
   type Diagnostic,
   type ExtensionBinding,
   extractionCount,
+  foundFile,
   inNativePackage,
   inputsKey,
   lucentPackages,
@@ -408,7 +409,7 @@ export async function buildProject(
   const built = (platforms ?? []).filter((p): p is Platform => p !== "host");
 
   // What the check reads: the sources, the targets they are compiled for, and each other
-  // file it read (the files imports resolve to, package.json files), as it found it.
+  // file it read (the files imports resolve to, package.json files; see readInputs).
   const checkInputs = (read: ReadonlyMap<string, string>): Artifact[] => {
     const sources = files.map((f) => fileArtifact(root, f));
     const keys = new Set(sources.map((a) => a.key));
@@ -416,9 +417,7 @@ export async function buildProject(
     return [
       ...sources,
       { key: "targets", hash: contentHash(targets.join(",")) },
-      ...[...read]
-        .map(([f, found]) => ({ key: projectPath(root, f), hash: found }))
-        .filter((a) => !keys.has(a.key)),
+      ...readInputs(root, read).filter((a) => !keys.has(a.key)),
     ];
   };
 
@@ -689,6 +688,35 @@ function packageInputs(native: NativeInputs): Artifact[] {
   return [...new Map(listed.map((p) => [inNativePackage(p), p.hash])).entries()].map(
     ([key, hash]) => ({ key, hash }),
   );
+}
+
+/**
+ * The files a check read (CompileResult.read), as inputs: each in the project
+ * by its path there and what the check found, and those outside it (the
+ * compiler's own, a linked package's) together by what they hold, so the
+ * record is the same wherever the project, the compiler and its caller are.
+ */
+function readInputs(root: string, read: ReadonlyMap<string, string>): Artifact[] {
+  // TypeScript reads the files imports resolve to at their real paths.
+  const roots = [root, fs.realpathSync(root)];
+  const inProject = (key: string) =>
+    key !== ".." && !key.startsWith("../") && !path.isAbsolute(key);
+  const inside = new Map<string, string>();
+  const outside: string[] = [];
+
+  for (const [file, found] of read) {
+    const key = roots.map((r) => projectPath(r, file)).find(inProject);
+    if (key !== undefined) inside.set(key, found);
+    // Paths looked for outside and not found: how many depends on how deep the project is.
+    else if (foundFile(found)) outside.push(found);
+  }
+
+  return [
+    ...[...inside].map(([key, hash]) => ({ key, hash })),
+    ...(outside.length
+      ? [{ key: "outside-project", hash: contentHash(outside.sort().join("\n")) }]
+      : []),
+  ];
 }
 
 /**

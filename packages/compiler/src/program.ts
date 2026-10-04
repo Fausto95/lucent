@@ -310,6 +310,8 @@ export function compilerOptions(): ts.CompilerOptions {
     moduleResolution: ts.ModuleResolutionKind.Bundler,
     // esnext.disposable: Symbol.dispose, for `using` declarations.
     lib: ["lib.es2022.d.ts", "lib.esnext.disposable.d.ts"],
+    // TypeScript's own: no @typescript/lib-* replacement looked for from the working directory.
+    libReplacement: false,
     types: [],
     noEmit: true,
     skipLibCheck: true,

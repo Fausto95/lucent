@@ -72,6 +72,11 @@ function missing(file: string): false {
   return false;
 }
 
+/** Whether a read found a file (its content's hash), not a directory or nothing. */
+export function foundFile(found: string): boolean {
+  return found !== "directory" && found !== "missing";
+}
+
 /** What a read of `file` found: its content's hash, else a directory or nothing. */
 function found(file: string, bytes: Buffer | undefined): string {
   if (bytes) return createHash("sha256").update(bytes).digest("hex").slice(0, 16);
