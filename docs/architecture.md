@@ -999,8 +999,10 @@ the sources, the compiler and runtime, the SDKs with the app's dependencies,
 the output location, the targets, the packages' native needs) and of the
 files it read, and lists those files; the next run reads them again
 (`upToDate`), so a dependency's `package.json` gaining an `exports` map, or
-a file a module imports types from, makes it check again. `--force` always
-does.
+a file a module imports types from, makes it check again. So does a lost
+record or usage report (`.lucent/sdk-usage.json`); `--frozen` always
+checks again, and `lucent build --force` always builds again (`lucent check`
+takes no `--force`).
 
 ### SDK usage and the SDK lock
 
