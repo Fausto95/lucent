@@ -1,7 +1,192 @@
 ---
 title: "What can a module import and export?"
-description: "This page is being rewritten."
+sidebar_label: Modules
+description: "The top level holds declarations, imports name other modules or `lucent:*` modules, exports are what JavaScript gets, and a reload starts module state over."
 kind: reference
 ---
 
-This page is being rewritten.
+A module is a file whose name ends in `.lucent.ts`, or `.lucent.tsx` when it has JSX. This page gives what it may declare and import, what JavaScript gets of its exports, and how long its state lives.
+
+## Example
+
+<Tabs>
+<TabItem label="geometry.lucent.ts">
+
+```ts title="geometry.lucent.ts"
+export type Point = { x: number; y: number };
+
+export function distance(a: Point, b: Point): number {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+```
+
+</TabItem>
+<TabItem label="route.lucent.ts">
+
+```ts title="route.lucent.ts"
+import { distance, type Point } from "./geometry.lucent";
+
+let measured = 0;
+
+export const UNITS = ["m", "km"];
+
+export class Route {
+  readonly points: Point[] = [];
+
+  add(p: Point): void {
+    this.points.push(p);
+  }
+
+  length(): number {
+    measured++;
+    let total = 0;
+    for (let i = 1; i < this.points.length; i++) {
+      total += distance(this.points[i - 1]!, this.points[i]!);
+    }
+    return total;
+  }
+}
+
+export function measurements(): number {
+  return measured;
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { Route, measurements, UNITS } from "./route.lucent";
+
+const route = new Route();
+route.add({ x: 0, y: 0 });
+route.add({ x: 3, y: 4 });
+route.length(); // 5
+measurements(); // 1
+UNITS; // ["m", "km"], a copy
+```
+
+</TabItem>
+</Tabs>
+
+`route.lucent.ts` imports another module, keeps a counter as module state, and exports a class, a constant and a function. JavaScript imports the module file itself; Metro bundles a small proxy in its place, which calls the native code.
+
+## Module files
+
+- Lucent compiles every module under the app's directory, except under `node_modules`, `ios`, `android` and directories whose name starts with `.`.
+- It also compiles the modules of the Lucent packages the app depends on, under each package's `sources` ([package.json](/docs/packages/package-json/)).
+- A module named `x.ios.lucent.ts` or `x.android.lucent.ts` is a platform file: see [Platform files](/docs/api/language/platform-code/#platform-files).
+
+## The top level
+
+A module's top level holds declarations only:
+
+| Declaration | Rule |
+| --- | --- |
+| `function` | Named, with a body. Overload signatures fail with `LUCENT3002`. |
+| `class` | Named. |
+| `let`, `const` | One name per declarator: destructuring at the top level fails with `LUCENT3002`. `var` fails with `LUCENT3002`. |
+| `enum` | Every member is a constant (`LUCENT3002` otherwise). |
+| `type`, `interface` | Any type [Types](/docs/api/language/types/) allows. |
+| `import` | See [Imports](#imports). |
+
+Any other statement fails with [LUCENT3002](/docs/api/diagnostics/#lucent3002):
+
+```ts title="cache.lucent.ts" expect="LUCENT3002"
+const cache = new Map<string, number>();
+cache.set("zero", 0);
+```
+
+Code that should run when the module starts goes into a variable's initializer:
+
+```ts title="lookup.lucent.ts"
+const cache = new Map<string, number>([["zero", 0]]);
+
+export function lookup(key: string): number | undefined {
+  return cache.get(key);
+}
+```
+
+## Imports
+
+| Import | What it is |
+| --- | --- |
+| `"./geometry.lucent"` or `"./geometry.lucent.ts"` | Another module, by its path relative to this one. The `.lucent` part is required: `"./geometry"` doesn't resolve. |
+| `"lucent:core"`, `"lucent:thread"`, `"lucent:platform"` | Lucent's own modules: [lucent:core](/docs/api/lucent-core/), [lucent:thread](/docs/api/lucent-thread/) and [lucent:platform](/docs/api/lucent-platform/). |
+| `"lucent:ios"`, `"lucent:ios/<Module>"`, `"lucent:android"`, `"lucent:android/<package>"` | The iOS and Android helpers and SDK bindings. They are platform code: see [Platform code](/docs/api/language/platform-code/). |
+| `"lucent:ext/<name>"` | A native extension, C functions that a Lucent package declares: see [Native extensions](/docs/packages/native-extensions/). It runs on both platforms. |
+| `"<package>/<path>.lucent"` | A module of a Lucent package the app depends on, by its file's path in the package: see [Importing another package's module](/docs/packages/package-json/#importing-another-packages-module). |
+| `import type { … }` from any file | Types only, from any file TypeScript resolves, such as a `.ts` file or an npm package's types. None of its code runs. |
+| `"lucent:ui"`, `"lucent:swiftui"`, `"lucent:compose"` | The view modules, experimental, behind `LUCENT_VIEWS=fabric`: see [Views](/docs/guides/views/). |
+
+- A value import from anything else, such as an npm package or a plain `.ts` file, fails with [LUCENT3001](/docs/api/diagnostics/#lucent3001). Its code has no native implementation.
+- `import { type X }` counts as a value import: write `import type { X }` to import a type from a file that isn't a module.
+- An unknown `lucent:` module fails with [LUCENT3004](/docs/api/diagnostics/#lucent3004), and so does a `lucent:ext/<name>` that no package declares.
+- Import names one by one, renamed or not. A namespace import, `import * as geometry`, fails with `LUCENT1001` where you use it.
+- A dynamic `import()` fails with `LUCENT1001`: import statically.
+- Modules may import each other in a cycle.
+
+Cases: `modules` for imports between modules, `native-extension` for `lucent:ext/<name>`.
+
+## Exports
+
+Only exported declarations are visible to JavaScript. How each value converts is in [What crosses between JavaScript and Lucent](/docs/api/language/boundary/).
+
+| Export | What JavaScript gets |
+| --- | --- |
+| `export function` | A function that calls the native one. A synchronous one runs on the JavaScript thread, an `async` one on the Lucent thread ([Concurrency](/docs/api/language/concurrency/)). |
+| `export class` | A constructor: `new` and `instanceof` work, and each native instance has one JavaScript object. |
+| `export const`, `export let` | A copy of the value, made when JavaScript first imports the module. Later changes by Lucent code don't reach that copy: export a function that returns the current value. |
+| `export enum` | A frozen object, made in JavaScript without calling native code. A numeric enum also maps each value back to its name, as TypeScript's do. |
+| `export type`, `export interface` | Types, for TypeScript only. |
+| An exported function of a `.lucent.tsx` module that returns a view | A component: it isn't one of the module's functions. See [Views](/docs/guides/views/), experimental. |
+
+- A generic function or class can't be exported ([LUCENT2007](/docs/api/diagnostics/#lucent2007)). Export a concrete function that calls it.
+- Export lists and re-exports, `export { lookup }` and `export * from "./geometry.lucent"`, fail with [LUCENT3003](/docs/api/diagnostics/#lucent3003). Put `export` on the declaration.
+- `export default` of an expression fails with `LUCENT3003`.
+
+:::caution
+`export default function f() {}` and `export default class C {}` compile, but JavaScript gets them as `f` and `C`, not as the default export. Use named exports.
+:::
+
+## Module names
+
+Each module has a name, from its file, or `<package>/<path>` in a Lucent package. Two modules with one name fail with [LUCENT3010](/docs/api/diagnostics/#lucent3010): see [Module names](/docs/packages/package-json/#module-names).
+
+## Module state
+
+A module's top-level variables and its classes' static fields are its state. The app has one copy of it, which every call into the module shares, and it lasts until JavaScript reloads.
+
+- A `compute` task can't read or write module state ([LUCENT3011](/docs/api/diagnostics/#lucent3011)), and neither can a component's setup ([LUCENT3022](/docs/api/diagnostics/#lucent3022)). [Concurrency](/docs/api/language/concurrency/) says why.
+- JavaScript's copy of an exported variable doesn't follow it: see [Exports](#exports).
+
+## Initialization order
+
+Every module of the app initializes when JavaScript first imports one of them, before any call runs.
+
+1. A module initializes after the modules it imports. In a cycle of imports, a module may initialize before one it imports.
+2. Within a module, its classes' static fields initialize first, in order of declaration.
+3. Then its variables initialize, in source order. A variable whose initializer calls a function runs that function then.
+
+:::caution
+Unlike JavaScript, a module's static fields initialize before its variables, even those declared above them. So a static initializer reading a module variable gets its default, such as `0`, at start, and its previous value after a reload. Read module variables from functions, not static initializers ([known gap](/docs/api/language/differences/#known-gaps)).
+:::
+
+## What a reload does
+
+A JavaScript reload, such as Metro's reload command, starts a new JavaScript runtime in the same app. Native code stays loaded: Lucent ends what belonged to the old runtime, then initializes every module again, in the order above.
+
+| What | After a reload |
+| --- | --- |
+| Module state | Initialized again: each variable and static field gets its initial value. |
+| Exported constants | Copied again when the new JavaScript imports the module. |
+| Lucent code awaiting a JavaScript promise or callback | Resumes with an `AbortError`: `The JavaScript runtime is gone`. |
+| A JavaScript callback that Lucent calls later | Does nothing, or throws that `AbortError` when Lucent expects a result. |
+| `compute` tasks | Cancelled. |
+| Requests and subscriptions that module code made | Kept running: `fromCallback`, `subscribe`, `present`, `onAppEvent`, `startActivityForResult`, `onActivityEvent` and the like. |
+| Native objects that only the old module state held | Released, as the new initialization replaces them. |
+| Module code | Unchanged: the native code the app was built with. Changing a module needs a native rebuild ([Apply a change](/docs/guides/apply-a-change/)). |
+
+Module code gets no reload event, so after a full reload the old requests and subscriptions keep running beside the new ones. Let JavaScript end what it starts, with a returned stop function or an `AbortSignal` parameter. End it when the screen is done.
+
+In debug builds, Lucent logs `[lucent] N native reference(s) module code still holds at teardown` as the old runtime goes ([At teardown](/docs/api/language/memory/#at-teardown)).

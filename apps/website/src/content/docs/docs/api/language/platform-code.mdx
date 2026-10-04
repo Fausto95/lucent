@@ -1,7 +1,165 @@
 ---
 title: "How do PLATFORM branches and platform files work?"
-description: "This page is being rewritten."
+sidebar_label: Platform code
+description: "A `PLATFORM` test makes each side of a branch one platform's code, compiled only for that platform; platform files are the opt-in alternative."
 kind: reference
 ---
 
-This page is being rewritten.
+A shared module uses both platforms' SDKs and branches on `PLATFORM` from `lucent:platform`. Each build compiles its own platform's code and the code both platforms share. This page gives the exact rules: what counts as a branch, which declarations belong to one platform, and how platform files pair up.
+
+## Example
+
+```ts title="device.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { UIDevice } from "lucent:ios/UIKit";
+import { Build, Build_VERSION } from "lucent:android/android.os";
+import { main } from "lucent:thread";
+
+// iOS code: it uses lucent:ios outside a branch.
+function iosModel(): Promise<string> {
+  return main(() => UIDevice.current.model);
+}
+
+export async function model(): Promise<string> {
+  if (PLATFORM === "ios") return iosModel();
+
+  // After the guard clause, only Android runs this.
+  return `${Build.MODEL ?? "unknown"} (API ${Build_VERSION.SDK_INT})`;
+}
+
+export function platformName(): string {
+  return PLATFORM === "ios" ? "iOS" : "Android";
+}
+```
+
+The iOS build compiles `iosModel` and the first `return`. The Android build compiles the second `return`. Both compile `platformName`, each with its own side of the `? :`.
+
+## PLATFORM
+
+`PLATFORM` from [lucent:platform](/docs/api/lucent-platform/) has the type `"ios" | "android"`. As a value, it is the platform the build is for. The host build has none: see [What each build compiles](#what-each-build-compiles).
+
+## Platform tests
+
+A platform test compares `PLATFORM` with the string `"ios"` or `"android"`:
+
+- with `===`, `!==`, `==` or `!=`;
+- with `PLATFORM` on either side, and the whole comparison in parentheses or not: `(PLATFORM) === "ios"` is not a test.
+
+Nothing else is a platform test: not `!(PLATFORM === "ios")`, `PLATFORM === "ios" || ready`, a variable that holds a comparison or a function that returns one. Their branches are shared code, where platform code fails with [LUCENT3004](/docs/api/diagnostics/#lucent3004).
+
+## Branches
+
+| Code | iOS code | Android code | Shared code |
+| --- | --- | --- | --- |
+| `if (PLATFORM === "ios") a(); else b();` | `a()` | `b()` | |
+| `if (PLATFORM !== "ios") a(); else b();` | `b()` | `a()` | |
+| `PLATFORM === "ios" ? a() : b()` | `a()` | `b()` | |
+| `if (PLATFORM === "ios" && ready) a(); else b();` | `a()` | | `b()` |
+| `if (PLATFORM === "ios") return a();` and the rest of the block | `return a()` | the rest of the block | |
+
+- A test may lead a chain of `&&`s, as in `PLATFORM === "ios" && ready`. Its true side is that platform's code. Its false side is shared code, since both platforms reach it.
+- Only `if`, `? :` and `switch` make branches. The operands of `&&` are shared code, so `return PLATFORM === "ios" && ProcessInfo.processInfo.isLowPowerModeEnabled;` fails with `LUCENT3004`.
+- Branches nest: the innermost branch around a piece of code decides which platform it belongs to.
+
+### Guard clauses
+
+An `if` statement is a guard clause when all of these hold:
+
+- its condition is a platform test alone, not a chain of `&&`s;
+- it has no `else`;
+- its branch always exits: it is a `return`, `throw`, `break` or `continue`, or a block whose last statement is one.
+
+The statements after a guard clause in the same block are the other platform's code, blocks nested in them included. This holds in a function body, any block and a `case` clause, as TypeScript narrows `PLATFORM` there.
+
+### switch (PLATFORM)
+
+- `case "ios":` runs on iOS, `case "android":` on Android, and `default:` on the platforms that no case names.
+- A clause that doesn't always exit falls through: the next clause also runs on the platforms that reach the first.
+- A clause that both platforms reach is shared code.
+
+## Platform declarations
+
+A top-level declaration that uses one platform's code outside a branch belongs to that platform. It may use it directly, or through another declaration that belongs to it.
+
+- iOS code is what `lucent:ios` and `lucent:ios/<Module>` export, and `lucent:swiftui` with views on. Android code is what `lucent:android` and `lucent:android/<package>` export, and `lucent:compose`.
+- Functions, classes, variables, type aliases, interfaces and enums can belong to a platform. A type annotation is a use: a variable typed `CLLocationManager` is iOS code. Type-only imports count too.
+- A platform's declaration compiles in its own build only. It may be used in that platform's branches and declarations, and anywhere else fails with `LUCENT3004`.
+- A declaration that uses both platforms' code outside branches fails with `LUCENT3004`. Branch inside it, or split it in two.
+- An export never belongs to one platform, since JavaScript calls it on both. Platform code in an export must be inside a branch, or it fails with `LUCENT3004` where it is used.
+- `main` from `lucent:thread` is platform code of either platform: use it inside a branch or a platform's declaration (`LUCENT3004` otherwise).
+- `lucent:core`, `lucent:platform`, `lucent:ui` and `lucent:ext/<name>` run on both platforms.
+
+## What each build compiles
+
+- When a module imports `lucent:platform` or a `lucent:ios` or `lucent:android` module, or the app has platform files, the app's modules compile once per platform. The iOS build compiles iOS code and shared code; the Android build compiles Android code and shared code.
+- Every build type-checks both platforms' code.
+- The host build, `lucent build --platforms host` for tests, has no platform and compiles neither platform's code. Reading `PLATFORM` throws there, so every platform test and `switch (PLATFORM)` throws. So does platform code, with `<file>:<line>: this code runs only on iOS and Android`.
+
+## When a platform's types are missing
+
+On a machine without a platform's SDK, such as Linux without Xcode, that platform's `lucent:` modules are untyped. TypeScript errors in its code are ignored, and its code isn't compiled there. Give a value that comes out of that code a type annotation.
+
+Some Android imports come from the app's dependencies: classes that neither `android.jar` nor a Lucent package's libraries declare. The app's Gradle build resolves them:
+
+| Build | Those Android imports |
+| --- | --- |
+| `lucent check` or `lucent build` in an Expo app before `expo prebuild`, with no `android/` directory | Untyped, and named in a warning. Android is skipped until `android/` exists. |
+| `lucent build --platforms ios` or `host`, before a Gradle build has resolved the app's classpath | From the release after 0.1.2: untyped, and named in a warning that points to the Android build. In 0.1.2, the build fails with `LUCENT3004` ([Changelog](/docs/releases/changelog/)). |
+| The Android build: `lucent build --platforms android`, or the Gradle build's `lucentBuild` task | Resolved, and Android is checked. An import that is still missing fails with `LUCENT3004`. |
+
+An app whose Android imports are all in `android.jar` builds and checks Android as usual.
+
+## Platform files
+
+A module whose platform halves share nothing can be split into a declaration file and one file per platform:
+
+<Tabs>
+<TabItem label="haptics.lucent.ts">
+
+```ts title="haptics.lucent.ts"
+export type Strength = "light" | "heavy";
+
+export declare function tap(strength: Strength): Promise<void>;
+```
+
+</TabItem>
+<TabItem label="haptics.ios.lucent.ts">
+
+```ts title="haptics.ios.lucent.ts"
+import {
+  UIImpactFeedbackGenerator,
+  UIImpactFeedbackGenerator_FeedbackStyle as Style,
+} from "lucent:ios/UIKit";
+import { main } from "lucent:thread";
+import type { Strength } from "./haptics.lucent";
+
+export async function tap(strength: Strength): Promise<void> {
+  const style = strength === "heavy" ? Style.heavy : Style.light;
+  await main(() => new UIImpactFeedbackGenerator(style).impactOccurred());
+}
+```
+
+</TabItem>
+<TabItem label="haptics.android.lucent.ts">
+
+```ts title="haptics.android.lucent.ts"
+import { appContext } from "lucent:android";
+import { Vibrator } from "lucent:android/android.os";
+import type { Strength } from "./haptics.lucent";
+
+export async function tap(strength: Strength): Promise<void> {
+  const vibrator = appContext().getSystemService(Vibrator);
+  vibrator?.vibrate(strength === "heavy" ? 40n : 15n);
+}
+```
+
+</TabItem>
+</Tabs>
+
+- The files pair up by name and directory: `haptics.ios.lucent.ts` and `haptics.android.lucent.ts` sit next to `haptics.lucent.ts`. A platform file without its declaration file fails with [LUCENT3005](/docs/api/diagnostics/#lucent3005), and so does a platform's build when its file is missing.
+- The declaration file holds only `export declare function`s, types, interfaces and imports (`LUCENT3005` otherwise). So a split module exports functions only. Put shared code, constants and enums in another module that all three import.
+- Each platform file exports exactly the declared functions, with types assignable to the declared ones. A missing, extra or mismatched export fails with `LUCENT3005`.
+- An `.ios.lucent.ts` file may import `lucent:ios` and `lucent:ios/<Module>`, and an `.android.lucent.ts` file `lucent:android` and `lucent:android/<package>`. Both may also import what any module may, such as `lucent:core`, `lucent:thread`, `lucent:ext/<name>` and other modules. The other platform's modules fail with `LUCENT3004`.
+- Other modules and JavaScript import the declaration file, `./haptics.lucent`, and each call goes to the platform's implementation.
+- In the host build, each export throws, or rejects, `<module>.<name> is not available on this platform`.
+- Keep platform files out of directories named `ios` or `android`: Lucent doesn't look for modules there.

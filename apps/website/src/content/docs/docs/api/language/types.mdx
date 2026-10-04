@@ -1,7 +1,149 @@
 ---
 title: "Which types does Lucent support?"
-description: "This page is being rewritten."
+sidebar_label: Types
+description: "Every TypeScript type with a native form, from exact numbers to nominal interfaces; `any`, intersections and `symbol` fail to compile."
 kind: reference
 ---
 
-This page is being rewritten.
+Lucent takes each value's native type from its TypeScript type. This page gives, for each type, how its values behave, and which types have no native form.
+
+## Example
+
+```ts title="pairs.lucent.ts"
+export function sharedArray(): boolean {
+  const a = [1, 2];
+  const b = a;
+  b.push(3);
+  return a.length === 3; // true: an array is shared, as in JavaScript
+}
+
+export function valueTuple(): boolean {
+  const p: [number, string] = [1, "a"];
+  const q: [number, string] = [1, "a"];
+  return p === q; // true: a tuple is a value
+}
+```
+
+An array is a reference: assigning it shares it. A tuple is a value, and `===` compares its elements, which JavaScript doesn't do. [Differences](/docs/api/language/differences/) lists such cases.
+
+## Supported types
+
+| TypeScript | Behaves as | e2e case |
+| --- | --- | --- |
+| `number`, number literal types | A 64-bit float with JavaScript's arithmetic: see [Numbers](#numbers). | `numbers`, `integers` |
+| `bigint` | An integer of any size, with JavaScript's operators. | `bigint-arith`, `bigint-values` |
+| `boolean` | A boolean. | |
+| `string`, string literal and template literal types | An immutable UTF-16 string, as in JavaScript: `length` counts UTF-16 code units. TypeScript checks literal types; Lucent stores a string. | `strings` |
+| `null`, `undefined`, `void`, `never` | As in JavaScript. | `void-or-undefined`, `never-values` |
+| `enum` | The numbers or strings its members are, as declared. | `misc` |
+| `T[]`, `readonly T[]` | A shared array: assigning it shares it. | `collections`, `reference-identity` |
+| `[A, B]` | A tuple, which is a value. `===` compares its elements, and an element can't be assigned (`LUCENT1008`). | |
+| `Record<string, V>`, `{ [key: string]: V }` | A shared dictionary. Its keys keep JavaScript's order: integer-like keys ascending, then the others in insertion order. | `collections` |
+| `Map<K, V>`, `Set<T>` | Shared, in insertion order, with keys compared by SameValueZero. | `collections` |
+| Object types: `type` aliases, object literals, interfaces without methods | A shared object with a fixed set of fields: see [Object types](#object-types). | `objects` |
+| Classes | A shared object with methods, accessors and static members. Each instance has one identity. | `classes`, `inheritance` |
+| Interfaces with methods, or named in a class's `implements` | An instance of a class that declares `implements`: see [Interfaces](#interfaces). | `interfaces` |
+| `T \| undefined`, `T \| null`, `x?: T` | An optional value that remembers whether it is `undefined` or `null`. | `narrowed-absent`, `absent-results` |
+| Other unions | A value that knows which member it holds: see [Unions](#unions). | `control-flow`, `conditional-objects` |
+| Function types, `(a: A) => R` | A function. A closure shares the variables it captures. | `closures`, `function-values` |
+| `Promise<T>` | A promise. | `async` |
+| `Uint8Array` | A view of bytes in a shared buffer. | `misc`, `buffers` |
+| `Date` | A shared, mutable time. Local time comes from the device's time zone database. | `dates` |
+| `RegExp` | A regular expression: see [Regular expressions](/docs/api/language/statements/#regular-expressions). | `regexps` |
+| `Error`, `TypeError`, `RangeError`, `SyntaxError`, classes that extend `Error` | An error with a `name` and a `message`, and the `code` that [error()](/docs/api/lucent-core/#error) gives it. `new SyntaxError()` in a module makes a plain `Error` ([known gap](/docs/api/language/differences/#known-gaps)). | `errors` |
+| `Generator<T>`, `Iterable<T>` | A lazy sequence: see [Generators](/docs/api/language/statements/#generators). | `generators`, `iterable-spread` |
+| `AbortSignal`, `AbortController` | See [Globals](/docs/api/globals/). | `abort` |
+| `NativeBuffer`, `ByteSpan`, `MutableByteSpan` | See [lucent:core](/docs/api/lucent-core/#nativebuffer). | `buffers` |
+| Classes from `lucent:ios/*` and `lucent:android/*` | A platform object: see [iOS SDK bindings](/docs/api/ios-sdk/) and [Android SDK bindings](/docs/api/android-sdk/). | |
+| Classes from `lucent:ext/<name>` | A handle to a C object: see [Native extensions](/docs/packages/native-extensions/). | `native-extension` |
+| Type parameters, `<T>` | See [Generics](#generics). | `generics`, `union-generics` |
+
+## Unsupported types
+
+| Type | Diagnostic | Write instead |
+| --- | --- | --- |
+| `any`, and `unknown` outside a `catch` clause | [LUCENT2001](/docs/api/diagnostics/#lucent2001) | A concrete type, a union or a generic. |
+| Intersections, `A & B` | [LUCENT2002](/docs/api/diagnostics/#lucent2002) | One object type with every field. |
+| `object`, `symbol` | `LUCENT2002` | A concrete type. |
+| Object types with methods or getters | `LUCENT2002` | A class, or a property whose type is a function. |
+| Function types with overloads or properties, and rest parameters | `LUCENT2002` | One signature, and an array parameter. |
+| Constructor types and class expressions | `LUCENT2002` | A class declaration. |
+| Index signatures keyed by numbers, or next to other properties | `LUCENT2002` | A `Record<string, V>`, a `Map`, or an object type. |
+| `Map` keys and `Set` elements that are functions, or tuples or unions holding one | `LUCENT2002` | A key that names the function. |
+| `WeakMap`, `WeakSet`, `WeakRef`, `Intl` types, typed arrays other than `Uint8Array` | `LUCENT2002` | `Map`, `Set`, and `Uint8Array`. |
+
+## Numbers
+
+- A `number` is a 64-bit float with JavaScript's arithmetic, rounding and formatting: `0.1 + 0.2` is `0.30000000000000004`.
+- `%`, `**` and the bitwise operators work as in JavaScript, which converts to 32-bit integers for the bitwise ones.
+- Each operation rounds on its own, as in JavaScript: `a * b + c` rounds twice, never as one fused multiply-add (case `order`).
+- A local that only holds integers may be stored as an integer. Its results are the same (case `integers`).
+
+## Native 64-bit integers are bigints
+
+A native 64-bit integer is a `bigint` in Lucent, so no value is rounded:
+
+| Language | 64-bit integer types |
+| --- | --- |
+| Java, Kotlin | `long`, `Long`; a `long[]` is a `bigint[]` |
+| Objective-C, C | `NSInteger`, `NSUInteger`, `int64_t`, `uint64_t` |
+| Swift | `Int`, `UInt`, `Int64`, `UInt64` |
+
+```ts title="device.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { ProcessInfo } from "lucent:ios/Foundation";
+import { Runtime, System } from "lucent:android/java.lang";
+
+export function processors(): number {
+  // NSUInteger: a bigint, made a number.
+  if (PLATFORM === "ios") return Number(ProcessInfo.processInfo.processorCount);
+  // Java's int: a number.
+  return Runtime.getRuntime()?.availableProcessors() ?? 1;
+}
+
+export function bootTime(): bigint {
+  if (PLATFORM === "ios") {
+    return BigInt(Math.round(Date.now() - ProcessInfo.processInfo.systemUptime * 1000));
+  }
+  // Java's long: a bigint.
+  return System.currentTimeMillis();
+}
+```
+
+- Values of these types are bigints, such as an `NSUInteger` count (`3n`) or a Java `long` timestamp. A Java `int`, such as `availableProcessors()` above, stays a number. `Number(x)` makes a number of a bigint.
+- Each value read from native code is exact, sentinels at a type's limits included, such as `NSNotFound` and `Long.MAX_VALUE`.
+- A bigint passed to native code must fit its type: from `-(2n ** 63n)` to `2n ** 63n - 1n`, or from `0n` to `2n ** 64n - 1n` for an unsigned one.
+- A bigint that doesn't fit throws a `RangeError` that names the parameter or field: `<parameter> of <Class>.<method>: <value> is out of range for a 64-bit signed integer`.
+- Enums, option sets and Android constant groups (`@IntDef`, `@LongDef`) stay numbers. A 64-bit one that a number can't hold exactly, beyond ±(2^53 − 1), throws a `RangeError` instead of rounding.
+- A native extension's 64-bit integers are bigints too ([Native extensions](/docs/packages/native-extensions/)).
+
+## Object types
+
+- Object types with the same fields are one type, whatever their names: `type Point = { x: number; y: number }` and an interface with the same fields are interchangeable.
+- An object type is exact. TypeScript lets a value with more fields stand for a type with fewer, and Lucent doesn't ([LUCENT2003](/docs/api/diagnostics/#lucent2003)). Build the smaller object from the fields it needs.
+- A collection keeps its element type. A `number[]` can't be used as a `(number | string)[]` ([LUCENT2004](/docs/api/diagnostics/#lucent2004)): annotate the value with the type it is used as.
+
+## Interfaces
+
+An interface without methods that no class implements is an object type. An interface with methods, or one that a class names in `implements`, is nominal:
+
+- Only instances of classes that declare `implements` are values of it ([LUCENT2008](/docs/api/diagnostics/#lucent2008)). An object literal is not one, even with the right members.
+- Each member a class implements has the interface member's exact parameter and result types ([LUCENT2009](/docs/api/diagnostics/#lucent2009)). TypeScript accepts an extra optional parameter or a narrower result, and Lucent doesn't.
+- Such an interface declares methods and properties only (`LUCENT2002` otherwise). Optional methods and generic methods fail with `LUCENT2009`.
+- Interfaces may be generic, as in `Source<T>`, and may extend other interfaces.
+
+## Unions
+
+- A union value knows which member it holds. Narrow it with `typeof`, `instanceof` (`x instanceof Array` for an array), a discriminant field or a `null` check. `in` on a union fails with `LUCENT1002`.
+- `T | undefined`, `T | null` and `x?: T` keep `undefined` and `null` apart, as JavaScript does.
+- Values from JavaScript and from `JSON.parse` need a string-literal field, such as `kind: "circle"`, to tell object members apart ([LUCENT2005](/docs/api/diagnostics/#lucent2005)).
+- A union of `bigint` and `number` takes the operators [Statements](/docs/api/language/statements/#bigint-operators) lists.
+
+## Generics
+
+Functions, classes and interfaces may be generic. Lucent compiles a generic as one template, which each set of type arguments the code uses fills in (case `generics`).
+
+- A value of a type parameter can be stored, passed, returned and compared. Its members can't be used, even with a constraint such as `T extends Shape`: that fails with `LUCENT1003`. Take the interface type instead of a type parameter.
+- A generic function or class can't be exported ([LUCENT2007](/docs/api/diagnostics/#lucent2007)), a generic function can't be used as a value (`LUCENT1001`), and `instanceof` a generic class fails with `LUCENT1002`.
+- A union that holds a type parameter keeps its shape in every instantiation. In `T | undefined` or `T | null`, the type argument can't be optional, `null` or `undefined`. In a union such as `A | B`, it also can't be a union or a type the union already holds, as in `pick<number, number>` (`LUCENT2002`, case `union-generics`).
+- A comparison inside a generic is checked for each instantiation. One that would compare functions, or need a converting `==`, fails with `LUCENT1002` (case `mixed-equality`).
