@@ -322,6 +322,8 @@ export function parseType(frags: Fragment[], r: Resolver): SchemaType {
         return closure(items, attrs);
       }
       if (items.length === 1 && !attrs.length && !labels.length) return items[0]!;
+      // `()`: Void, the empty tuple.
+      if (!items.length && !attrs.length) return parseSchemaType("void");
       if (attrs.length) throw new Unsupported(`type syntax ${attrs.join(" ")}`);
       // A tuple: a TypeScript tuple, its labels the elements' names.
       return {

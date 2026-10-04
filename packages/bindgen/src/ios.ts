@@ -543,6 +543,41 @@ export function buildIosSchemas(
 }
 
 /**
+ * A class with factory initializers that inherits its others: TypeScript
+ * hides a superclass's constructors once a class declares any, so the
+ * ones it inherits are declared on it too, as Swift keeps them
+ * (`UICollectionViewLayout`'s beside a factory's): its superclasses' in
+ * this module. A root class gets NSObject's init where it is built;
+ * superclasses of other modules' stay hidden.
+ */
+function withInheritedInitializers(mod: SdkModuleSchema): void {
+  const classes = new Map(
+    mod.types.filter((t): t is SdkClassSchema => t.kind === "class").map((c) => [c.name, c]),
+  );
+
+  for (const cls of classes.values()) {
+    if (!cls.inheritsInit || !cls.constructors?.length) continue;
+
+    let inherited: SdkCallable[] | undefined;
+    for (let at = cls.extends, depth = 0; at && depth < 64 && !inherited; depth++) {
+      const [owner, ...rest] = at.split(".");
+      const sup = owner === mod.module ? classes.get(rest.join(".")) : undefined;
+      if (!sup) break;
+
+      const own = (sup.constructors ?? []).filter((c) => !c.factory);
+      if (own.length) inherited = own;
+      else if (!sup.inheritsInit) break;
+      at = sup.extends;
+    }
+
+    if (inherited) {
+      cls.constructors.push(...inherited.map((c) => ({ ...c })));
+      delete cls.inheritsInit;
+    }
+  }
+}
+
+/**
  * A property a subclass redeclares without a nullability contract of its own
  * (`T!`: unaudited or null_resettable) keeps its superclass's non-null one:
  * reading it never gives nil. Superclasses in the same module only.
@@ -1243,8 +1278,8 @@ export function buildIosSchema(
         delete (x as SdkMethodSchema & { swiftName?: string }).swiftName;
       }
       // Objective-C initializers are inherited (NSObject's init at the root)
-      // unless the class makes init unavailable.
-      if (!ctors.length && !initUnavailable && k === "swift.class") {
+      // unless the class makes init unavailable; factory initializers aside.
+      if (!ctors.some((c) => !c.factory) && !initUnavailable && k === "swift.class") {
         if (cls.extends) cls.inheritsInit = true;
         else ctors.push({ params: [], selector: "init" });
       }
@@ -1319,6 +1354,7 @@ export function buildIosSchema(
       return !!t && (t.typeParams ?? 0) === arity;
     });
     keepInheritedNonNull(mod, unaudited);
+    withInheritedInitializers(mod);
     resolveMemberKinds(mod, names);
 
     void byUsr;
