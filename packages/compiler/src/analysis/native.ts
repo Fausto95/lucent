@@ -8,6 +8,7 @@ import ts from "typescript";
 import { sdkModuleOf } from "../program.ts";
 import {
   classOfDecl,
+  isSdkPropertyDecl,
   promiseForm,
   requirementOf,
   schemaConstructor,
@@ -227,7 +228,7 @@ function classMemberPlan(
   if (ts.isConstructorDeclaration(decl))
     return memberPlan(ref.platform, ref.module, ref.cls, schemaConstructor(ref, decl), "new");
 
-  if (!ts.isPropertyDeclaration(decl) || !ts.isIdentifier(decl.name)) return undefined;
+  if (!isSdkPropertyDecl(decl) || !ts.isIdentifier(decl.name)) return undefined;
 
   const found = schemaProperty(ref, decl);
   if (!found) return undefined;

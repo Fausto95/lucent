@@ -1267,6 +1267,8 @@ export class FnEmitter {
         cpp.assign(cpp.id(il.cpp), this.toKind(value, il.int!, node)),
       );
     const lv = this.lvalue(target);
+    if (lv.assign) return lv.assign(value);
+
     const v = this.coerce(value, lv.type, node);
     if (lv.direct) return cpp.assign(lv.direct, v);
     return lv.set!(v);
@@ -1416,7 +1418,10 @@ export class FnEmitter {
   private lvalueType(target: ts.Expression): LType | undefined {
     try {
       if (ts.isArrayLiteralExpression(target)) return undefined;
-      return this.lvalue(target).type;
+
+      // One that takes values of their own type: the value is evaluated as it is.
+      const lv = this.lvalue(target);
+      return lv.assign ? undefined : lv.type;
     } catch {
       return undefined;
     }

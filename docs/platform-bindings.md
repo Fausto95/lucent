@@ -293,6 +293,11 @@ android.ts declares its members from it, each keeping the JVM method it is
   a `HitId`) is typed with the value class and marked `kotlin.unboxed`;
 - a suspend function parameter is typed as the function Kotlin declares,
   not `Function2<A, Continuation<R>, Object>` (`kotlin.suspendFunction`);
+- a Kotlin function type (`(Double) -> Unit`, nullable or not) is the
+  function it declares, its result `void` for `Unit`, wherever it is (a
+  parameter, a result, a property), not the `Function1<Double, Unit>` the
+  JVM erases it to; an extension's, a composable's and one of a type
+  Lucent does not bind stay the `FunctionN` class;
 - a read-only `List<E>` of typed elements is `List<E>` in the schema (a
   copy, see [Calls](#calls)); a `MutableList`, a `List<*>` and a Java
   declaration's `java.util.List` stay `java.util.List`. A type argument
@@ -349,7 +354,8 @@ do not go in, blocks go in only as arguments and are not nested three
 deep, a block read from native code takes no blocks, a pointer a block or
 requirement receives is written back only while the platform waits and
 only to a number or an enum; JNI cannot write fields or call setters, nor pass arrays of a type
-parameter's values (their Java class depends on the values), and a Lucent
+parameter's values (their Java class depends on the values), nor Kotlin
+functions taking or giving functions, and a Lucent
 class cannot implement a method whose JVM name Java cannot write; what
 only a Kotlin shim can call (a suspend function, a value class the JVM
 unboxes, a suspend function argument) has the `kotlin-shim` backend, which
@@ -442,6 +448,19 @@ numbers.
   parameters as `Any?` (`Any` where Kotlin bounds them so,
   `cast<Flow<Any?>>(receiver).collect(…)`): its values are Java objects
   either way, and Lucent reads them as the use's type arguments say.
+- **Kotlin functions** (Android): a Lucent function passed or assigned
+  where Kotlin takes a function type is a `kotlin.jvm.functions.FunctionN`
+  (a NativeProxy, over JNI) whose `invoke` converts its boxed arguments and
+  calls it: queued on the Lucent thread when it gives nothing, else now,
+  holding the lock, and its result boxed back; made in a view's setup, it
+  runs on the main thread. It takes as many of the arguments as it
+  declares; a function taking or giving functions is refused. A Kotlin
+  function Lucent receives is a Lucent function holding a global reference
+  to it, which calls `invoke` with its arguments boxed, a Java exception
+  thrown as a Lucent error. A property of a fun interface's type (any Java
+  interface with one abstract method) takes a function when written, as a
+  parameter of that type does: it reads back as the interface (a get and a
+  set accessor of their own types).
 - **Kotlin suspend functions Lucent functions implement** (Android): a
   Lucent function passed where a shim's member takes a suspend function
   (`step: suspend (String) -> Unit`), or a fun interface whose function

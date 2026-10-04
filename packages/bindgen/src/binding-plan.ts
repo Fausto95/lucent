@@ -279,17 +279,8 @@ export const isUnsignedWide = (name: string) => name === "NSUInteger" || name ==
 /** Whether values of a type are bigints in Lucent: 64-bit integers but a constant group's. */
 export const isBigIntType = (t: SchemaType) => t.k === "prim" && isWideInteger(t.name) && !t.group;
 
-/** Schema kinds with no Java type: JNI cannot pass them. */
-const NOT_JAVA = new Set<SchemaType["k"]>([
-  "bytes",
-  "date",
-  "id",
-  "record",
-  "set",
-  "out",
-  "fn",
-  "error",
-]);
+/** Schema kinds with no Java type: JNI cannot pass them. A function is Kotlin's FunctionN. */
+const NOT_JAVA = new Set<SchemaType["k"]>(["bytes", "date", "id", "record", "set", "out", "error"]);
 
 /**
  * The numbers and booleans Swift shims pass, with their Swift and C types:
@@ -1103,6 +1094,10 @@ function kotlinSourceRule(t: SchemaType, place: Place): string | undefined {
 function jniRule(t: SchemaType, place: Place, ctx: Context): string | undefined {
   if (t.k === "array" && !t.list && t.of.k === "tparam" && place.flow === "in")
     return "arrays of a type parameter's values cannot be passed to Java yet";
+
+  // A Kotlin function's arguments and result cross boxed, one by one: not functions.
+  if (ctx.backend === "jni" && t.k === "fn" && [...t.params, t.ret].some((x) => x.k === "fn"))
+    return "Kotlin functions taking or giving functions are not supported yet";
 
   if (ctx.role !== "implement") return undefined;
 

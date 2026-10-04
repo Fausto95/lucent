@@ -586,10 +586,17 @@ function classDts(
       p.value !== undefined && p.static && p.readonly
         ? ts.literal(constantValue(parse(p.type), p.value))
         : settled(p, oneOf(p.oneOf, result(parse(p.type)), true));
+    // Written on Android, it takes what a parameter of its type does: a function for a fun
+    // interface. (On iOS, a type read and written alike: a subclass may redeclare it.)
+    const set =
+      p.readonly || schema.platform !== "android"
+        ? undefined
+        : oneOf(p.oneOf, parse(p.type), false);
     members.push({
       k: "property",
       name: p.name,
       type,
+      ...(set && ts.printType(set) !== ts.printType(type) ? { set } : {}),
       ...(p.static ? { static: true } : {}),
       ...(p.readonly ? { readonly: true } : {}),
       ...memberDoc(p),

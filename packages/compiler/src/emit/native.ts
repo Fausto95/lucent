@@ -4,6 +4,7 @@ import { type Code, Codes, fail } from "../diagnostics.ts";
 import { builtinSdkModuleOf, sdkModuleOf } from "../program.ts";
 import {
   classOfDecl,
+  isSdkPropertyDecl,
   promiseForm,
   requirementOf,
   schemaConstructor,
@@ -19,6 +20,7 @@ import {
   isBigIntType,
   isUnsignedWide,
   isWideInteger,
+  kotlinFunctionConversion,
   memberPlan,
   provenanceOf,
   type Role,
@@ -1128,6 +1130,8 @@ function jniArgument(em: FnEmitter, ref: SdkClassRef, arg: ts.Expression, t: Sdk
       return { c: em.coerce(value, typed, arg), t: typed };
     }
     case "tparam":
+    case "fn":
+      // A function as it is (a Kotlin function made of it), or null.
       return em.expr(arg);
     default:
       throw new Error(`${t.k} values, which plans refuse over JNI`);
@@ -1187,9 +1191,12 @@ function jniOf(em: FnEmitter, arg: ts.Expression, t: SdkType, value: E): cpp.Exp
     }
     case "ref":
       if (value.t.k === "fn") return javaProxy(em, arg, value, t);
+      if (eitherMembers(value.t)) return jniEither(em, arg, t, value);
       return jni("unwrap", value.c);
     case "tparam":
       return toJavaObject(arg, value);
+    case "fn":
+      return toKotlinFunction(em, arg, t, value);
     default:
       throw new Error(`${t.k} values, which plans refuse over JNI`);
   }
@@ -1335,49 +1342,13 @@ function proxyEntry(
 ): cpp.Expr {
   const params = m.params.map((p) => parseSdkType(p.type, module, m.typeParams ?? []));
   const n = Math.min(fn.params.length, params.length);
-  const what = `${owner}.${m.name}`;
 
   // What the method is given and gives back, as a Lucent function implementing it.
   const cls = findSdkType("android", module, owner);
-  if (cls?.kind !== "class") throw new Error(`${what}: no class`);
+  if (cls?.kind !== "class") throw new Error(`${owner}.${m.name}: no class`);
   const plan = requirePlan(node, { platform: "android", module, cls }, m, "implement");
   requireTaken(node, plan, plan.inputs, n);
 
-  const args = proxyArguments(em, node, params.slice(0, n), fn, what);
-  const names = args.map((_, i) => `a${i}_`);
-  const convert = args.map((a, i) => cpp.varDecl(cpp.auto, names[i]!, a));
-  const ret = parseSdkType(m.returns, module, m.typeParams ?? []);
-  const holder = typeof capture === "string" ? capture : capture.name;
-  const made = call(names.map(cpp.id));
-  const jobject = cpp.type("jobject");
-  const entry = callbackEntry(em, node);
-  const body: cpp.Stmt[] =
-    plan.delivery === "queued"
-      ? [
-          ...convert,
-          cpp.exprStmt(
-            entry.later(
-              cpp.lambda([holder, ...names], [], [cpp.exprStmt(cpp.cast("c", cpp.voidType, made))]),
-            ),
-          ),
-          cpp.ret(cpp.nullptr),
-        ]
-      : [
-          ...convert,
-          cpp.ret(
-            entry.now(
-              cpp.lambda(
-                ["&"],
-                [],
-                [
-                  cpp.varDecl(cpp.auto, "r_", made),
-                  cpp.ret(boxJava(node, ret, cpp.id("r_"), what, fn.ret)),
-                ],
-                { ret: jobject },
-              ),
-            ),
-          ),
-        ];
   const descriptor =
     m.descriptor ??
     jniDescriptor(
@@ -1385,9 +1356,73 @@ function proxyEntry(
       m.returns,
       m.typeParams,
     );
-  const key = `${m.java ?? m.name}${descriptor.slice(0, descriptor.indexOf(")") + 1)}`;
+
+  const ret = parseSdkType(m.returns, module, m.typeParams ?? []);
+  const what = `${owner}.${m.name}`;
+
+  return proxyMethod(em, node, {
+    key: `${m.java ?? m.name}${descriptor.slice(0, descriptor.indexOf(")") + 1)}`,
+    params: params.slice(0, n),
+    box: (r) => boxJava(node, ret, r, what, fn.ret),
+    queued: plan.delivery === "queued",
+    what,
+    fn,
+    capture,
+    call,
+  });
+}
+
+/**
+ * A proxy method's `{ key, lambda }`, the call itself: its `params`
+ * (those the Lucent function takes) converted from `args_`, `call` made
+ * queued or now, and its result boxed by `box`.
+ */
+function proxyMethod(
+  em: FnEmitter,
+  node: ts.Node,
+  m: {
+    key: string;
+    params: SdkType[];
+    box: (result: cpp.Expr) => cpp.Expr;
+    queued: boolean;
+    what: string;
+    fn: LType & { k: "fn" };
+    capture: cpp.Capture;
+    call: (args: cpp.Expr[]) => cpp.Expr;
+  },
+): cpp.Expr {
+  const args = proxyArguments(em, node, m.params, m.fn, m.what);
+  const names = args.map((_, i) => `a${i}_`);
+  const convert = args.map((a, i) => cpp.varDecl(cpp.auto, names[i]!, a));
+  const holder = typeof m.capture === "string" ? m.capture : m.capture.name;
+  const made = m.call(names.map(cpp.id));
+  const jobject = cpp.type("jobject");
+  const entry = callbackEntry(em, node);
+  const body: cpp.Stmt[] = m.queued
+    ? [
+        ...convert,
+        cpp.exprStmt(
+          entry.later(
+            cpp.lambda([holder, ...names], [], [cpp.exprStmt(cpp.cast("c", cpp.voidType, made))]),
+          ),
+        ),
+        cpp.ret(cpp.nullptr),
+      ]
+    : [
+        ...convert,
+        cpp.ret(
+          entry.now(
+            cpp.lambda(
+              ["&"],
+              [],
+              [cpp.varDecl(cpp.auto, "r_", made), cpp.ret(m.box(cpp.id("r_")))],
+              { ret: jobject },
+            ),
+          ),
+        ),
+      ];
   const method = cpp.lambda(
-    [capture],
+    [m.capture],
     [
       cpp.param(cpp.pointer(cpp.type("JNIEnv")), "env"),
       cpp.param(cpp.type("jobjectArray"), "args_"),
@@ -1395,7 +1430,7 @@ function proxyEntry(
     body,
     { ret: jobject },
   );
-  return cpp.initList([cpp.str(key), method]);
+  return cpp.initList([cpp.str(m.key), method]);
 }
 
 /** A proxy method's boxed arguments (`args_`), as the Lucent function `fn` takes them. */
@@ -1488,6 +1523,194 @@ function kotlinFunction(
       cpp.initList([cpp.initList([cpp.str(key), method])]),
       cpp.str(site),
     ),
+  );
+}
+
+/** The members of a union (absent or not) of objects and functions: what a fun interface's property is written. */
+function eitherMembers(t: LType): LType[] | undefined {
+  const inner = stripOpt(t);
+  return inner.k === "union" && inner.ms.some((m) => m.k === "fn") ? inner.ms : undefined;
+}
+
+/**
+ * A value written where Java takes interface `t`, an object or a function
+ * (a fun interface's property): the object's reference, or a proxy calling
+ * the function. Null, or an absent value, is null.
+ */
+function jniEither(
+  em: FnEmitter,
+  arg: ts.Expression,
+  t: SdkType & { k: "ref" },
+  value: E,
+): cpp.Expr {
+  const jobject = cpp.type("jobject");
+  const present = (v: E): cpp.Expr => {
+    const u = cpp.id("u_");
+    const each = eitherMembers(v.t)!.map((m, i) => {
+      const got: E = { c: cpp.call("std::get", [u], [cpp.num(i)]), t: m };
+
+      return {
+        test: cpp.binary(cpp.call(cpp.dot(u, "index")), "==", cpp.num(i)),
+        c: cpp.staticCast(
+          jobject,
+          m.k === "fn" ? javaProxy(em, arg, got, t) : jni("unwrap", got.c),
+        ),
+      };
+    });
+    const chain = each
+      .slice(0, -1)
+      .reduceRight((rest: cpp.Expr, e) => cpp.conditional(e.test, e.c, rest), each.at(-1)!.c);
+
+    return cpp.statementExpr([cpp.varDecl(cpp.auto, "u_", v.c)], chain);
+  };
+
+  return value.t.k === "opt" ? whenPresent(value, present) : present(value);
+}
+
+/** `value`, an optional, converted by `present` when it holds a value; null otherwise. */
+function whenPresent(value: E, present: (v: E) => cpp.Expr): cpp.Expr {
+  if (value.t.k !== "opt") throw new Error(`an optional value that is a ${value.t.k}`);
+
+  const jobject = cpp.type("jobject");
+  const o = cpp.id("o_");
+
+  return cpp.statementExpr(
+    [cpp.varDecl(cpp.auto, "o_", value.c)],
+    cpp.conditional(
+      cpp.call(cpp.dot(o, "has")),
+      cpp.staticCast(jobject, present({ c: cpp.call(cpp.dot(o, "get")), t: value.t.inner })),
+      cpp.staticCast(jobject, cpp.nullptr),
+    ),
+  );
+}
+
+/**
+ * A Lucent function `value` where Kotlin takes function type `t`: a
+ * `kotlin.jvm.functions.FunctionN` whose invoke calls it, queued on the
+ * Lucent thread when it gives nothing, else now, holding the lock (in a
+ * view's setup, on the main thread). It takes as many of the arguments as
+ * it declares. Null, or an absent value, is null.
+ */
+function toKotlinFunction(
+  em: FnEmitter,
+  arg: ts.Expression,
+  t: SdkType & { k: "fn" },
+  value: E,
+): cpp.Expr {
+  if (value.t.k === "null" || value.t.k === "undefined") return cpp.nullptr;
+  if (value.t.k === "opt") return whenPresent(value, (v) => toKotlinFunction(em, arg, t, v));
+
+  const fn = value.t;
+  if (fn.k !== "fn") fail(arg, Codes.UnsupportedType, "pass a function");
+
+  const what = argumentWhat(em, arg);
+  const plan = kotlinFunctionConversion(t);
+  if (plan.op !== "callback") throw new Error(`${what}: a Kotlin function its plan refuses`);
+
+  const n = Math.min(fn.params.length, t.params.length);
+  requireTaken(arg, { display: what }, plan.of!.slice(0, -1), n);
+
+  // Its result as Kotlin takes it: an object as a new local reference, since r_ goes first.
+  const ret = t.ret;
+  const box = (r: cpp.Expr): cpp.Expr => {
+    if (ret.k === "tparam") return boxJava(arg, ret, r, what, fn.ret);
+    if (ret.k === "ref") return envCall("NewLocalRef", toJavaObjectOf(em, ret, r, fn.ret, what));
+
+    return toJavaObjectOf(em, ret, r, fn.ret, what);
+  };
+  const entry = proxyMethod(em, arg, {
+    key: `invoke(${"Ljava/lang/Object;".repeat(t.params.length)})`,
+    params: t.params.slice(0, n),
+    box,
+    queued: plan.delivery === "queued",
+    what,
+    fn,
+    capture: "f_",
+    call: (a) => cpp.call(cpp.id("f_"), a),
+  });
+
+  return cpp.statementExpr(
+    [cpp.varDecl(cpp.auto, "f_", value.c)],
+    jni(
+      "proxyFor",
+      env,
+      javaClass(em, `kotlin/jvm/functions/Function${t.params.length}`),
+      cpp.call(cpp.dot(cpp.id("f_"), "identity")),
+      cpp.initList([entry]),
+    ),
+  );
+}
+
+/**
+ * A Kotlin function Java gives (`kotlin.jvm.functions.FunctionN`, `code`)
+ * as a Lucent function of type `lt` calling its invoke: its arguments
+ * boxed, its result unboxed, a Java exception thrown as a Lucent error.
+ * The function holds a global reference to it; null is absent.
+ */
+function fromKotlinFunction(
+  em: FnEmitter,
+  code: cpp.Expr,
+  t: SdkType & { k: "fn" },
+  lt: LType,
+  what: string,
+  node: ts.Node,
+): cpp.Expr {
+  const fn = stripOpt(lt);
+  if (fn.k !== "fn") throw new Error(`${what}: a Kotlin function read as ${fn.k}`);
+
+  const arity = t.params.length;
+  const params = fn.params.map((p, i) => cpp.param(em.reg.cppType(p), `v${i}_`));
+  // Arguments its Lucent type leaves out are null.
+  const args = t.params.map((p, i) =>
+    i < params.length ? toJavaObjectOf(em, p, cpp.id(`v${i}_`), fn.params[i], what) : cpp.nullptr,
+  );
+  const isVoid = t.ret.k === "prim" && t.ret.name === "void";
+  const r = cpp.id("r_");
+  const result = isVoid
+    ? undefined
+    : t.ret.k === "prim"
+      ? unboxedPrim(t.ret, r)
+      : fromJni(em, r, t.ret, fn.ret, `${what}'s result`, node).c;
+
+  const call = envCall("CallObjectMethod", jni("unwrap", cpp.id("f_")), cpp.id("id_"), ...args);
+  const body: cpp.Stmt[] = [
+    cpp.varDecl(cpp.pointer(cpp.type("JNIEnv")), "env", jni("env")),
+    cpp.varDecl(cpp.type("lucent::jni::LocalFrame"), "frame_", env, { style: "construct" }),
+    cpp.varDecl(
+      cpp.type("jclass"),
+      "cls_",
+      jni("findClass", javaClass(em, `kotlin/jvm/functions/Function${arity}`)),
+      { static: true },
+    ),
+    cpp.varDecl(
+      cpp.auto,
+      "id_",
+      jni(
+        "method",
+        cpp.id("cls_"),
+        cpp.str("invoke"),
+        javaDescriptor(em, `(${"Ljava/lang/Object;".repeat(arity)})Ljava/lang/Object;`),
+      ),
+      { static: true },
+    ),
+    cpp.varDecl(cpp.auto, "r_", call),
+    cpp.exprStmt(jni("check", env)),
+    ...(result ? [cpp.ret(result)] : []),
+  ];
+  const lambda = cpp.lambda(
+    [{ name: "f_", init: jni("wrap", env, code, cpp.str(what)) }],
+    params,
+    body,
+    { ret: em.reg.cppRetType(fn.ret) },
+  );
+  const value = cpp.construct(em.reg.cppType(fn), [lambda]);
+  if (lt.k !== "opt") return value;
+
+  const optional = em.reg.cppType(lt);
+  return cpp.conditional(
+    code,
+    cpp.construct(optional, [value]),
+    cpp.construct(optional, [cpp.id("lucent::null")]),
   );
 }
 
@@ -2020,6 +2243,8 @@ function fromJni(
         : { c: jni("wrap", env, code, w), t: lt };
     case "tparam":
       return fromJavaObject(code, lt, what, node);
+    case "fn":
+      return { c: fromKotlinFunction(em, code, t, lt, what, node), t: lt };
     default:
       throw new Error(`unsupported Java result type ${t.k}`);
   }
@@ -2472,7 +2697,7 @@ export function nativeStaticProperty(
     }
     return undefined;
   }
-  if (!ts.isPropertyDeclaration(decl)) return undefined;
+  if (!isSdkPropertyDecl(decl)) return undefined;
   const ref = classOfDecl(decl);
   if (!ref || !ts.getModifiers(decl)?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword))
     return undefined;
@@ -2529,7 +2754,7 @@ export function nativeMember(em: FnEmitter, obj: E, node: ts.Node): E {
   }
   const decl = resolved(em, name)?.valueDeclaration;
   const ref = decl ? classOfDecl(decl) : undefined;
-  if (!ref || !decl || !ts.isPropertyDeclaration(decl))
+  if (!ref || !decl || !isSdkPropertyDecl(decl))
     fail(node, Codes.UnsupportedSyntax, "methods of platform objects must be called directly");
   const found = schemaProperty(ref, decl)!;
   return property(em, node, found.ref, found.property, obj);
@@ -2798,14 +3023,19 @@ export function nativeLvalue(
   }
   const decl = resolved(em, target.name)?.valueDeclaration;
   const declaring = decl ? classOfDecl(decl) : undefined;
-  if (!declaring || !decl || !ts.isPropertyDeclaration(decl)) return undefined;
+  if (!declaring || !decl || !isSdkPropertyDecl(decl)) return undefined;
   const found = schemaProperty(declaring, decl);
   if (!found || !!found.property.static !== !obj) return undefined;
   const { ref, property: prop } = found;
   const type = em.lt(target);
   const set = propertySetter(em, target, ref, prop, obj, type);
   const get = property(em, target, ref, prop, obj);
-  return { get: get.c, set, type };
+  if (ref.platform !== "android" || !prop.setter) return { get: get.c, set, type };
+
+  // A value of its own type, converted as an argument of the property's type is.
+  const assign = (v: E) => propertySetter(em, target, ref, prop, obj, v.t)(v.c);
+
+  return { get: get.c, set, assign, type };
 }
 
 /**
@@ -2878,7 +3108,7 @@ export function propertySetter(
       ?.descriptor ?? jniDescriptor([prop.type], "void");
   const set = (value: cpp.Expr) => {
     const v = cpp.id("v_");
-    const converted = jniOf(em, site, t, { c: v, t: type });
+    const converted = jniOf(em, site, t, jniValue(em, ref, site, t, { c: v, t: type }));
     const call = jniCall(em, {
       node: site,
       cls: ref.cls,
@@ -3542,7 +3772,7 @@ function jniValue(em: FnEmitter, ref: SdkClassRef, site: ts.Expression, t: SdkTy
       return as(t.nullable ? unionOf([lt, T.null]) : lt);
     }
     case "ref": {
-      if (value.t.k === "fn") return value;
+      if (value.t.k === "fn" || eitherMembers(value.t)) return value;
       const lt: LType = { k: "native", platform: ref.platform, module: t.module, name: t.name };
       return as(t.nullable ? unionOf([lt, T.null]) : lt);
     }
