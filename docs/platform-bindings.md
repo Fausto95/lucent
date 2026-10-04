@@ -117,7 +117,9 @@ Hermes host.
 There is no list of frameworks or packages. Bindings come from the native
 artifacts the app's build resolved (bindgen's `nativeArtifacts`):
 
-- **iOS**: the simulator SDK (`sdk:iphonesimulator27.0`), and each module on
+- **iOS**: the simulator SDK (`sdk:iphonesimulator27.0`), read for the app
+  target's deployment target (`IPHONEOS_DEPLOYMENT_TARGET` in the app's
+  Xcode project, else iOS 15.1), and each module on
   the search paths the app target's Pods xcconfig gives: a pod's modules are
   one artifact, `pod:Name@version` at the version Podfile.lock installed,
   with the pods it depends on there; other module maps, frameworks and Swift
@@ -127,6 +129,23 @@ artifacts the app's build resolved (bindgen's `nativeArtifacts`):
   module's pod is the directory of Pods/ that Podfile.lock names in its
   path, so a pod may name its module otherwise (`react-native-netinfo`,
   module `react_native_netinfo`).
+- **iOS Swift packages**: the packages the app's Xcode project references
+  (`ios/<App>.xcodeproj`, its `packageReferences`), at the versions
+  Package.resolved pins (the workspace's, else the project's), are built
+  for Lucent to read: each is cloned at its pinned revision into the cache
+  (`spm/`), with the app's Package.resolved pinning its dependencies, and
+  `xcodebuild` builds its library products (its manifest's, read with
+  `swift package dump-package`) for the simulator at the app's deployment
+  target. Their Swift modules (or frameworks, for dynamic products) are
+  one artifact, `spm:identity@version`; a dependency's modules are its own
+  package's, at the version the app pins. A build runs once per revision,
+  target and Xcode version; one that fails is named where a module it
+  would have given is missing. LucentNative links a package's products
+  where the code imports its modules (`spm_dependency`, at the exact
+  version the app resolved), so the app adds the package to its project
+  without adding the product to its app target: linked by both, a static
+  package's symbols would be duplicated, as React Native's SPM helper
+  warns.
 - **iOS with `use_frameworks!`**: pods are frameworks Xcode builds later, in
   the build products directory the xcconfig's framework search paths name.
   Before that build, each is what CocoaPods wrote for it: the module map and
@@ -666,8 +685,9 @@ same facts, in one place (`bindgen/src/facts.ts`), so the two cannot
 disagree.
 
 `available("ios", major, minor?)` and `available("android", api)` check the
-running OS. An API newer than the oldest OS apps run on (iOS 15.1, Android
-API 24), by the SDK's availability attributes (iOS) or API levels
+running OS. An API newer than the oldest OS the app runs on (on iOS, its
+Xcode project's deployment target, never below 15.1; Android API 24), by
+the SDK's availability attributes (iOS) or API levels
 (Android's `api-versions.xml`), must be used under such a check (an `if`, an early exit on the
 opposite check, `?:` or `&&`), or it is LUCENT3007; on iOS, so is passing
 a Swift value that needs a newer Swift runtime (a parameterized protocol

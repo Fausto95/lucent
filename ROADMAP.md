@@ -1198,7 +1198,7 @@ Several tasks need physical devices, which only the maintainer can run.
 | [T66](#t66)   | Complete user documentation and migration examples              | T51, T52, T60, T61      | waiting              |
 | [TA30](#ta30) | Bind Kotlin function types and callback properties              | —                       | in review            |
 | [TA31](#ta31) | Finish the Kotlin shim shapes                                   | —                       | in review            |
-| [TA32](#ta32) | Read Swift packages and the iOS target from the project         | —                       | ready                |
+| [TA32](#ta32) | Read Swift packages and the iOS target from the project         | —                       | in review            |
 | [TA33](#ta33) | Bind the remaining Swift shapes                                 | —                       | ready                |
 | [TA34](#ta34) | Turn a Java Throwable into a Lucent Error                       | —                       | ready                |
 | [T67](#t67)   | Pass the integrated production-candidate gate                   | T62, T63, T64, T65, T66 | waiting (maintainer) |
@@ -1712,17 +1712,37 @@ Kotlin shim tests, or refused with a diagnostic naming the member.
 **Goal:** Bind Swift packages an app adds, against the iOS version the app
 targets.
 
-- **Status:** open, ready to start.
+- **Status:** in review (2026-10-04): every item below passes on its
+  branch.
 - **Area:** Bindings, Apple host, build.
 - **Needs:** none.
 - **Verify:** V1, V4, V5.
 - **Where:** `packages/bindgen/src/provider.ts` (iOS artifacts), the Xcode
   project reader.
 
-- [ ] Discover Swift Package Manager modules the app's Xcode project
-      resolves, as pods are, keyed by their resolved versions.
-- [ ] Extract against the deployment target the project sets, not a fixed
-      one.
+- [x] Discover Swift Package Manager modules the app's Xcode project
+      resolves, as pods are, keyed by their resolved versions. The project
+      file names the packages it references, Package.resolved their pins;
+      Lucent clones each at its revision and builds its library products
+      with `xcodebuild` (decided 2026-10-04: Lucent builds them, rather
+      than reading Xcode's DerivedData, so they bind before the app's
+      first build), cached per revision, target and Xcode. Modules are
+      `spm:identity@version`, and LucentNative links the packages the code
+      imports at the app's exact version (decided 2026-10-04: LucentNative
+      owns the link, the app target does not add the product, since a
+      static package linked by both duplicates its symbols).
+- [x] Extract against the deployment target the project sets, not a fixed
+      one: the app target's `IPHONEOS_DEPLOYMENT_TARGET` (the expo
+      example's 16.4) is the extraction target, and the oldest iOS the
+      availability checks and the generated pod use (never below 15.1).
+
+`packages/lucent/test/swift-packages.test.ts` adds a package tagged 1.0.0
+to an app deployed to iOS 16.4: it binds from `spm:gauges@1.0.0` read for
+`arm64-apple-ios16.4-simulator`, its 16.4 API needs no check and its iOS
+17 one does (LUCENT3007, "apps run from iOS 16.4"), and LucentNative's
+podspec links the package at 1.0.0. The bare example references
+KeychainAccess 4.2.2: its SDK probe stores, reads and removes a value
+through it.
 
 **Done when:** an app's Swift package binds by rule, and an API newer than
 the app's target needs an availability check.

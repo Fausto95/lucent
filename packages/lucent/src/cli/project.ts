@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { frameworkSearchPath } from "@lucent-lang/bindgen";
+import { frameworkSearchPath, swiftPackages, xcodeApp } from "@lucent-lang/bindgen";
 import {
   fileHashes,
   forgetLoadedSdks,
@@ -45,13 +45,22 @@ export function mapLucentPaths(root: string): Notice | undefined {
 
 /**
  * Where this project's bindings come from: the SDKs, and what the app
- * links: its pods and Gradle classpath, and the prebuilt frameworks and
- * libraries its Lucent packages ship (`native`, resolved here when not
- * given).
+ * links: its pods, Swift packages and Gradle classpath, and the prebuilt
+ * frameworks and libraries its Lucent packages ship (`native`, resolved
+ * here when not given); and the iOS version it is deployed to.
  */
 export function projectSdk(root: string, native?: NativeInputs): SdkOptions {
   const binaries = native?.binaries ?? packageBinaries(root);
   const pods = podsSearchPaths(path.join(root, "ios"));
+
+  // The app's Xcode project: the iOS version it is deployed to, and its Swift packages, built.
+  const app = xcodeApp(path.join(root, "ios"));
+  const project = app
+    ? {
+        ...(app.deploymentTarget ? { deploymentTarget: app.deploymentTarget } : {}),
+        ...(app.packages.length ? { swiftPackages: swiftPackages(app) } : {}),
+      }
+    : {};
 
   const frameworkPaths = [
     ...new Set(
@@ -59,7 +68,7 @@ export function projectSdk(root: string, native?: NativeInputs): SdkOptions {
     ),
   ];
   const ios: NonNullable<SdkOptions["ios"]> | undefined =
-    pods || frameworkPaths.length ? (pods ?? {}) : undefined;
+    pods || frameworkPaths.length || app ? { ...pods, ...project } : undefined;
 
   return {
     android: {
