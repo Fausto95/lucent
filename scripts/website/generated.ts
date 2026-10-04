@@ -140,6 +140,29 @@ const snippetSources: Record<string, string> = {
   "examples/clipboard.lucent.ts": "scripts/example-app/src/sdk/clipboard.lucent.ts",
   // Compiles only inside the bare app, which links the libraries it imports.
   "examples/linked.lucent.ts": "apps/bare-example/src/sdk/linked.lucent.ts",
+  // The example packages, whole, for the Packages section.
+  "packages/haptics/package.json": "examples/lucent-haptics/package.json",
+  "packages/haptics/index.ts": "examples/lucent-haptics/index.ts",
+  "packages/secure-store/package.json": "examples/lucent-secure-store/package.json",
+  "packages/secure-store/index.ts": "examples/lucent-secure-store/index.ts",
+  "packages/orbit/package.json": "examples/lucent-orbit/package.json",
+  "packages/orbit/lucent.json": "examples/lucent-orbit/lucent.json",
+  "packages/orbit/index.ts": "examples/lucent-orbit/index.ts",
+  "packages/orbit/build-jar.ts": "examples/lucent-orbit/build-jar.ts",
+  "packages/orbit/datastore.lucent.ts": "examples/lucent-orbit/src/datastore.lucent.ts",
+  "packages/orbit/credentials.lucent.ts": "examples/lucent-orbit/src/credentials.lucent.ts",
+  "packages/orbit/collections.lucent.ts": "examples/lucent-orbit/src/collections.lucent.ts",
+  "packages/orbit/flows.lucent.ts": "examples/lucent-orbit/src/flows.lucent.ts",
+  "packages/orbit/orbit.lucent.ts": "examples/lucent-orbit/src/orbit.lucent.ts",
+  "packages/orbit/Ticker.kt": "examples/lucent-orbit/kotlin/dev/orbit/ticker/Ticker.kt",
+  "packages/orbit/Shelf.kt": "examples/lucent-orbit/kotlin/dev/orbit/shelf/Shelf.kt",
+  // A native extension, as the compiler's tests build it.
+  "packages/orbit-filter/orbit_filter.h":
+    "packages/compiler/test/fixtures/orbit-filter/native/orbit_filter.h",
+  "packages/orbit-filter/lucent.json": "packages/compiler/test/fixtures/orbit-filter/lucent.json",
+  "packages/orbit-filter/package.json": "packages/compiler/test/fixtures/orbit-filter/package.json",
+  "packages/orbit-filter/filter.lucent.ts":
+    "packages/compiler/test/fixtures/orbit-filter/src/filter.lucent.ts",
 };
 
 /** A repository file as a page shows it: a module without its opening comment, which the page replaces. */

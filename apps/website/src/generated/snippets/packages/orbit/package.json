@@ -1,0 +1,20 @@
+{
+  "name": "lucent-orbit",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kotlin libraries called from Lucent through generated Kotlin shims: a fixture library (suspend functions, defaults, value and sealed classes, Long ids, collections, flows) and ports of Jetpack DataStore Preferences and Credential Manager. An example Lucent package.",
+  "files": [
+    "index.ts",
+    "src",
+    "android",
+    "lucent.json"
+  ],
+  "main": "index.ts",
+  "scripts": {
+    "build-jar": "node build-jar.ts"
+  },
+  "lucent": {
+    "sources": "src",
+    "compatible": ">=0.0.3"
+  }
+}
