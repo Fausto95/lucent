@@ -640,8 +640,30 @@ describe("the Lucent packages' pods in a podspec", () => {
 
   it("are added to a podspec that lacks them, beside its other dependencies", () => {
     expect(withPodDependencies(podspec, [["WidgetsPod", ["~> 1.0"]]])).toBe(
-      'Pod::Spec.new do |s|\n  s.name = "LucentNative"\n  s.dependency "OtherPod"\n  s.dependency "WidgetsPod", "~> 1.0"\nend\n',
+      'Pod::Spec.new do |s|\n  s.name = "LucentNative"\n  s.dependency "OtherPod"\n  s.dependency "WidgetsPod", "~> 1.0" # lucent.json\nend\n',
     );
+  });
+
+  it("leave a pod the packages no longer declare, and keep the code's own pods", () => {
+    const declared = withPodDependencies(podspec, [["WidgetsPod", ["~> 1.0"]]]);
+    const dropped = withPodDependencies(declared, [["AuthPod", ["2.0"]]]);
+
+    expect(dropped).not.toContain("WidgetsPod");
+    expect(dropped).toContain('s.dependency "AuthPod", "2.0"');
+    expect(dropped).toContain('s.dependency "OtherPod"\n');
+  });
+
+  it("are marked as a full build writes them, so an early write finds them", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const src = path.join(dir, "sample.lucent.ts");
+    fs.writeFileSync(src, "export function one(): number { return 1; }");
+    writeNativePackage({ ...compile([src]), pods: ["OtherPod"] }, path.join(dir, "out"), {
+      native: nativeOf(["lucent-widgets", { ios: { pods: { WidgetsPod: "~> 1.0" } } }]),
+    });
+    const written = fs.readFileSync(path.join(dir, "out", "LucentNative.podspec"), "utf8");
+
+    expect(withPodDependencies(written, [])).not.toContain("WidgetsPod");
+    expect(withPodDependencies(written, [])).toContain('s.dependency "OtherPod"');
   });
 
   it("replace a pod's line when its requirements change, once", () => {
