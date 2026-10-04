@@ -432,6 +432,17 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-04: The website runs on Docusaurus.** The site moves from Astro
+Starlight to Docusaurus, as reactnative.dev runs, and its docs take
+React Native's layout: one navbar item and sidebar per section, collapsed
+groups with sub-groups, and a Releases section with the roadmap and the
+changelog. The homepage is ported as it was, the search is a local index,
+and code blocks keep their look through Expressive Code. _Why:_ the
+sections, sidebars and pagination React Native's docs have are built into
+Docusaurus, where Starlight needed a route middleware, overrides and a
+theme patch. _Changed:_ the 2026-10-01 move to Starlight and the 2026-10-03
+homepage decision (the page is the same, in React).
+
 **2026-10-04: The docs are four sections, and guides replace the
 tutorial.** The website's docs split into Guides, Packages, API and
 Architecture, each a header tab with its own sidebar. The trip-tracker
