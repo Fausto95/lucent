@@ -8,7 +8,7 @@ const notes: Record<string, Block[]> = {
       kind: "code",
       filename: "terminal",
       copy: false,
-      code: `◆ lucent 0.0.3
+      code: `◆ lucent {{lucent-version}}
 
 ✓ SDK bindings  CoreLocation · android.location · android.os  cached
 ✓ Checked 2 modules                     733 ms

@@ -110,6 +110,10 @@ A code block's meta names its file and what the check does with it
   for it, generated into `src/generated/cpp/`. Use it on Get started and
   Architecture samples.
 - `nocopy`: no copy button, for output the reader reads rather than runs.
+- `{{lucent-version}}` in a sample becomes the current version of
+  `@lucent-lang/lucent` when the site is built: write it in terminal
+  output (`◆ lucent {{lucent-version}}`) rather than a number that goes
+  stale.
 - `include="examples/clipboard.lucent.ts"`: fills an empty block with a
   file `scripts/website.ts` writes under `src/generated/snippets/`, so a
   page shows code from the repository (the example ports) without copying

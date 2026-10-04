@@ -4,7 +4,7 @@ import starlightThemeSix from "@six-tech/starlight-theme-six";
 import { unified } from "@astrojs/markdown-remark";
 import { defineConfig } from "astro/config";
 import { docsSections, headerLinks } from "./src/docs/nav.ts";
-import { remarkFormat, remarkInclude, remarkSeeCpp } from "./src/docs/remark.ts";
+import { remarkFormat, remarkInclude, remarkSeeCpp, remarkVersion } from "./src/docs/remark.ts";
 import { pluginNoCopy } from "./src/docs/expressive-code.ts";
 import { SITE } from "./src/blog/meta.ts";
 
@@ -14,7 +14,7 @@ export default defineConfig({
   markdown: {
     // Pages say what they mean in straight quotes: they often quote code.
     processor: unified({
-      remarkPlugins: [remarkInclude, remarkFormat, remarkSeeCpp],
+      remarkPlugins: [remarkInclude, remarkVersion, remarkFormat, remarkSeeCpp],
       smartypants: false,
     }),
   },

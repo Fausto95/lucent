@@ -3,6 +3,7 @@
  * markdown.ts:
  *   - `include="…"` fills an empty fence with a file from src/generated/snippets/,
  *     and a diff shows as added and removed lines;
+ *   - `{{lucent-version}}` in a sample becomes the version of @lucent-lang/lucent;
  *   - TypeScript and JavaScript samples are formatted with Oxfmt;
  *   - a sample flagged `cpp` gets "See the C++" under it (under its tabs, in a
  *     <Tabs>): what the compiler writes for it, from src/generated/cpp/<slug>.json.
@@ -17,6 +18,7 @@ import remarkMdx from "remark-mdx";
 import type { CppFile } from "./types.ts";
 import { docsSlugOf, formatMeta, langOf, parseMeta } from "./markdown.ts";
 import { readSnippet } from "./mdx-read.ts";
+import lucent from "../../../../packages/lucent/package.json" with { type: "json" };
 
 type Parent = { children: RootContent[] };
 type File = { path?: string; history?: string[] };
@@ -46,6 +48,19 @@ export function remarkInclude() {
       const { include } = parseMeta(code.meta);
       if (typeof include === "string") code.value = readSnippet(include);
       if (code.lang === "diff") code.value = diffForDisplay(code.value);
+    });
+  };
+}
+
+/**
+ * The current version where a sample says `{{lucent-version}}`, such as a
+ * terminal's `◆ lucent 0.1.2`. Read at build, so a release's version bump
+ * needs no regenerated page.
+ */
+export function remarkVersion() {
+  return (tree: Root) => {
+    eachCode(tree, (code) => {
+      code.value = code.value.replaceAll("{{lucent-version}}", lucent.version);
     });
   };
 }
