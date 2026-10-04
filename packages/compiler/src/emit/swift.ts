@@ -932,6 +932,13 @@ export function fromObject(t: SdkType, o: swift.Expr): swift.Expr {
         "mapValues",
         fromObject(t.of, n("$0")),
       );
+    // A tuple crosses as an array of its elements' objects.
+    case "tuple": {
+      const items = cast(swift.array(swift.type("AnyObject")));
+      return swift.tupleLiteral(
+        t.of.map((x, i) => fromObject(x, swift.index(items, swift.num(i)))),
+      );
+    }
     case "ref": {
       const e = swiftEnum(t);
       if (e) return swift.index(casesOf(e), swift.member(cast(swift.type("NSNumber")), "intValue"));
@@ -970,6 +977,13 @@ function toObject(t: SdkType, v: swift.Expr): swift.Expr {
       return as(bridges(t.of) ? v : each(v, "map", toObject(t.of, n("$0"))), "NSArray");
     case "record":
       return as(bridges(t.of) ? v : each(v, "mapValues", toObject(t.of, n("$0"))), "NSDictionary");
+    case "tuple":
+      return as(
+        swift.arrayLiteral(
+          t.of.map((x, i) => as(toObject(x, swift.member(v, String(i))), "AnyObject")),
+        ),
+        "NSArray",
+      );
     case "ref": {
       const e = swiftEnum(t);
       if (e) return swift.call(n("NSNumber"), [{ label: "value", value: indexOf(e, v) }]);

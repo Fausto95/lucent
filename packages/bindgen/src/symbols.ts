@@ -303,18 +303,33 @@ export function parseType(frags: Fragment[], r: Resolver): SchemaType {
     }
     if (tok === "(") {
       const items: SchemaType[] = [];
+      const labels: string[] = [];
       while (toks[p] !== ")") {
+        // A tuple element's label (`min: Int`).
+        const label = toks[p];
+        if (typeof label === "string" && /^\w+$/.test(label) && toks[p + 1] === ":") {
+          labels.push(label);
+          p += 2;
+        }
         items.push(type());
         if (toks[p] === ",") p++;
         else break;
       }
       if (toks[p++] !== ")") throw new Unsupported("closures and tuples");
       if (toks[p] === "->") {
+        if (labels.length) throw new Unsupported("closures with labeled parameters");
         p++;
         return closure(items, attrs);
       }
-      if (items.length === 1 && !attrs.length) return items[0]!;
-      throw new Unsupported("tuples");
+      if (items.length === 1 && !attrs.length && !labels.length) return items[0]!;
+      if (attrs.length) throw new Unsupported(`type syntax ${attrs.join(" ")}`);
+      // A tuple: a TypeScript tuple, its labels the elements' names.
+      return {
+        k: "tuple",
+        of: items,
+        ...(labels.length === items.length ? { labels } : {}),
+        nullable: false,
+      };
     }
     if (tok === "->") throw new Unsupported("closures and tuples");
     if (attrs.length) throw new Unsupported(`type syntax ${attrs.join(" ")}`);

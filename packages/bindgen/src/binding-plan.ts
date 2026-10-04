@@ -72,6 +72,8 @@ export type ConversionOp =
   | "copy-array"
   | "copy-record"
   | "copy-set"
+  /** A Swift tuple to or from a TypeScript one, element by element (`of`). */
+  | "copy-tuple"
   | "copy-date"
   /** A native reference, retained by a NativeRef. */
   | "retain-object"
@@ -213,6 +215,8 @@ export function undeclaredType(
       return undeclaredType(t.of, declared);
     case "fn":
       return [...t.params, t.ret].map((x) => undeclaredType(x, declared)).find(Boolean);
+    case "tuple":
+      return t.of.map((x) => undeclaredType(x, declared)).find(Boolean);
     default:
       return undefined;
   }
@@ -281,7 +285,16 @@ export const isUnsignedWide = (name: string) => name === "NSUInteger" || name ==
 export const isBigIntType = (t: SchemaType) => t.k === "prim" && isWideInteger(t.name) && !t.group;
 
 /** Schema kinds with no Java type: JNI cannot pass them. A function is Kotlin's FunctionN. */
-const NOT_JAVA = new Set<SchemaType["k"]>(["bytes", "date", "id", "record", "set", "out", "error"]);
+const NOT_JAVA = new Set<SchemaType["k"]>([
+  "bytes",
+  "date",
+  "id",
+  "record",
+  "set",
+  "tuple",
+  "out",
+  "error",
+]);
 
 /**
  * The numbers and booleans Swift shims pass, with their Swift and C types:
@@ -962,6 +975,8 @@ function kindConversion(t: SchemaType, place: Place, ctx: Context): ConversionPl
       );
     case "set":
       return { op: "copy-set", type: t, of: [inner(t.of, { element: true })] };
+    case "tuple":
+      return { op: "copy-tuple", type: t, of: t.of.map((x) => inner(x, { element: true })) };
     case "record":
       return withDetail(
         { op: "copy-record", type: t, of: [inner(t.of, { element: true })] },
@@ -1192,6 +1207,12 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
     // Specialized with the use's type arguments, which planConversion judges.
     case "tparam":
       return undefined;
+
+    case "tuple":
+      if (t.of.some((x) => x.nullable)) return not("tuples of optional values");
+      if (t.of.some((x) => isStruct(x, ctx))) return not("tuples of C structs");
+
+      return t.nullable ? not("optional tuples") : undefined;
 
     case "array":
     case "record":

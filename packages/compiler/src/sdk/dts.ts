@@ -122,6 +122,13 @@ function emitDts(
           return ts.ref("Out", tsType(t.of, true));
         case "set":
           return ts.ref("Set", tsType(t.of, out));
+        case "tuple":
+          return ts.tuple(
+            t.of.map((x, i) => ({
+              type: tsType(x, out),
+              ...(t.labels ? { name: t.labels[i]! } : {}),
+            })),
+          );
         case "array":
           if (t.of.k === "prim" && t.of.name === "byte" && !t.list) return ts.ref("Uint8Array");
           return ts.array(tsType(t.of, out));

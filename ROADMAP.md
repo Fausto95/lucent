@@ -1761,7 +1761,12 @@ the app's target needs an availability check.
 - **Verify:** V1, V4.
 - **Where:** `packages/bindgen/src/swift.ts`, `ios.ts`, the Swift shims.
 
-- [ ] Tuples, which the extractor skips (now explained when called).
+- [x] Tuples, which the extractor skips (now explained when called).
+      A Swift tuple is a TypeScript tuple, its labels the elements' names
+      (`(min: Int, max: Int)` → `[min: number, max: number]`), crossing a
+      shim as an array of its elements' objects, both ways
+      (`swift-shapes.test.ts`). Tuples of optional values or C structs are
+      refused, named.
 - [ ] Functions returned by or passed to Swift (LUCENT2002, "fn values
       cannot cross to Swift yet").
 - [x] Factory initializers Swift imports as `init`, which the extractor

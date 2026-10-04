@@ -253,6 +253,7 @@ export function jniDescriptor(
       case "id":
       case "record":
       case "set":
+      case "tuple":
       case "out":
       case "fn":
       case "error":

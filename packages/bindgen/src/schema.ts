@@ -539,6 +539,12 @@ export type SchemaType =
   | { k: "array"; of: SchemaType; nullable: boolean; cf?: boolean; list?: true }
   /** NSSet (Swift's Set): a Lucent Set. */
   | { k: "set"; of: SchemaType; nullable: boolean }
+  /**
+   * A Swift tuple (`(Double, Double)`, `(min: Int, max: Int)`): a
+   * TypeScript tuple, its labels the elements' names. Written
+   * `Tuple<double, double>`, `Tuple<min: int, max: int>`.
+   */
+  | { k: "tuple"; of: SchemaType[]; labels?: string[]; nullable: boolean }
   /** NSData / CFData: Uint8Array. */
   | { k: "bytes"; nullable: boolean; cf?: boolean }
   /** NSDate: Date. */
@@ -601,7 +607,7 @@ export function parseSchemaType(
   module = "",
   typeParams: readonly string[] = [],
 ): SchemaType {
-  const toks = s.match(/@\w+|=>|[()[\]<>?,]|[\w.$]+/g) ?? [];
+  const toks = s.match(/@\w+|=>|[()[\]<>?,:]|[\w.$]+/g) ?? [];
   let p = 0;
   const expect = (t: string) => {
     if (toks[p++] !== t) throw new Error(`schema type ${s}: expected ${t}`);
@@ -654,6 +660,26 @@ export function parseSchemaType(
         const param = toks[p++]!;
         expect(">");
         return { k: "classOf", param, nullable: false };
+      }
+      if (name === "Tuple") {
+        const of: SchemaType[] = [];
+        const labels: string[] = [];
+        for (;;) {
+          if (toks[p + 1] === ":") {
+            labels.push(toks[p]!);
+            p += 2;
+          }
+          of.push(type());
+          if (toks[p] !== ",") break;
+          p++;
+        }
+        expect(">");
+        return {
+          k: "tuple",
+          of,
+          ...(labels.length === of.length ? { labels } : {}),
+          nullable: false,
+        };
       }
       const args = [type()];
       while (toks[p] === ",") {
@@ -738,6 +764,8 @@ export function formatSchemaType(t: SchemaType): string {
       return t.cf ? `CFDictionary${q}` : `Record<${formatSchemaType(t.of)}>${q}`;
     case "set":
       return `Set<${formatSchemaType(t.of)}>${q}`;
+    case "tuple":
+      return `Tuple<${t.of.map((x, i) => `${t.labels ? `${t.labels[i]}: ` : ""}${formatSchemaType(x)}`).join(", ")}>${q}`;
     case "out":
       return `Out<${formatSchemaType(t.of)}>${q}`;
     case "classOf":
