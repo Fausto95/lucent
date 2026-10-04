@@ -1,7 +1,7 @@
 import type { StarlightRouteData } from "@astrojs/starlight/route-data";
 import { describe, expect, it } from "vite-plus/test";
-import type { DocSection } from "../src/docs/nav.ts";
-import { sectionRoute } from "../src/docs/sections.ts";
+import { type DocSection, slugsOf } from "../src/docs/nav.ts";
+import { holdsCurrent, sectionRoute } from "../src/docs/sections.ts";
 
 type Entry = StarlightRouteData["sidebar"][number];
 
@@ -10,11 +10,11 @@ const sections: DocSection[] = [
     label: "Guides",
     dir: "guides",
     groups: [
-      { label: "Get started", slugs: ["", "guides/install"] },
-      { label: "Errors", slugs: ["guides/throw"] },
+      { label: "Get started", items: ["", "guides/install"] },
+      { label: "Errors", items: [{ label: "Throwing", slugs: ["guides/throw"] }] },
     ],
   },
-  { label: "API", dir: "api", groups: [{ label: "Modules", slugs: ["api", "api/core"] }] },
+  { label: "API", dir: "api", groups: [{ label: "Modules", items: ["api", "api/core"] }] },
 ];
 
 const href = (slug: string) => (slug ? `/docs/${slug}/` : "/docs/");
@@ -28,26 +28,39 @@ const link = (slug: string, current: string): Extract<Entry, { type: "link" }> =
   attrs: {},
 });
 
+const group = (label: string, entries: Entry[]): Entry => ({
+  type: "group",
+  label,
+  collapsed: false,
+  badge: undefined,
+  entries,
+});
+
 /** Starlight's sidebar for the page at `current`: every section, as nested groups. */
 function sidebar(current: string): Entry[] {
-  return sections.map((s) => ({
-    type: "group",
-    label: s.label,
-    collapsed: false,
-    badge: undefined,
-    entries: s.groups.map((g) => ({
-      type: "group",
-      label: g.label,
-      collapsed: false,
-      badge: undefined,
-      entries: g.slugs.map((slug) => link(slug, current)),
-    })),
-  }));
+  return sections.map((s) =>
+    group(
+      s.label,
+      s.groups.map((g) =>
+        group(
+          g.label,
+          g.items.map((item) =>
+            typeof item === "string"
+              ? link(item, current)
+              : group(
+                  item.label,
+                  item.slugs.map((slug) => link(slug, current)),
+                ),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 /** A route as Starlight computes it: pagination over the whole sidebar, crossing sections. */
 function route(current: string, data: { prev?: unknown; next?: unknown } = {}) {
-  const all = sections.flatMap((s) => s.groups.flatMap((g) => g.slugs));
+  const all = slugsOf(sections);
   const at = all.indexOf(current);
   return {
     id: current ? `docs/${current}` : "docs",
@@ -102,5 +115,16 @@ describe("sectionRoute", () => {
     shuffled.sidebar.reverse();
 
     expect(() => sectionRoute(shuffled, sections)).toThrow("API");
+  });
+});
+
+describe("holdsCurrent", () => {
+  it("is whether a sidebar entry is, or holds at any depth, the current page", () => {
+    const [guides] = sidebar("guides/throw");
+    const [getStarted, errors] = guides!.type === "group" ? guides!.entries : [];
+
+    expect(holdsCurrent(errors!)).toBe(true);
+    expect(holdsCurrent(getStarted!)).toBe(false);
+    expect(holdsCurrent(link("guides/throw", "guides/throw"))).toBe(true);
   });
 });

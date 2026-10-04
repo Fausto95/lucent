@@ -6,6 +6,7 @@ import {
   headerLinks,
   locate,
   slugOfId,
+  slugsOf,
 } from "../src/docs/nav.ts";
 
 const sections: DocSection[] = [
@@ -13,16 +14,28 @@ const sections: DocSection[] = [
     label: "Guides",
     dir: "guides",
     groups: [
-      { label: "Get started", slugs: ["", "guides/install"] },
-      { label: "Errors", slugs: ["guides/throw"] },
+      { label: "Get started", items: ["", "guides/install"] },
+      {
+        label: "Native APIs",
+        items: ["guides/native", { label: "iOS", slugs: ["guides/call-ios", "guides/present"] }],
+      },
     ],
   },
-  { label: "API", dir: "api", groups: [{ label: "Modules", slugs: ["api", "api/core"] }] },
+  { label: "API", dir: "api", groups: [{ label: "Modules", items: ["api", "api/core"] }] },
 ];
 
 describe("the docs sections", () => {
-  it("list every page in reading order: sections, then groups, then pages", () => {
-    expect(docsSlugs).toEqual(docsSections.flatMap((s) => s.groups.flatMap((g) => g.slugs)));
+  it("list every page in reading order: sections, groups, sub-groups, then pages", () => {
+    expect(slugsOf(sections)).toEqual([
+      "",
+      "guides/install",
+      "guides/native",
+      "guides/call-ios",
+      "guides/present",
+      "api",
+      "api/core",
+    ]);
+    expect(docsSlugs).toEqual(slugsOf(docsSections));
   });
 
   it("start with the docs home", () => {
@@ -33,7 +46,7 @@ describe("the docs sections", () => {
     expect(headerLinks).toEqual([
       ...docsSections.map((s) => ({
         label: s.label,
-        link: s.groups[0]!.slugs[0] ? `/docs/${s.groups[0]!.slugs[0]}/` : "/docs/",
+        link: slugsOf([s])[0] ? `/docs/${slugsOf([s])[0]}/` : "/docs/",
       })),
       { label: "Blog", link: "/blog/" },
     ]);
@@ -54,11 +67,17 @@ describe("slugOfId", () => {
 });
 
 describe("locate", () => {
-  it("finds a page's section, the section's index and its group", () => {
-    expect(locate("guides/throw", sections)).toEqual({
+  it("finds a page's section, the section's index, its group and its sub-group", () => {
+    expect(locate("guides/native", sections)).toEqual({
       section: sections[0],
       sectionIndex: 0,
       group: sections[0]!.groups[1],
+    });
+    expect(locate("guides/present", sections)).toEqual({
+      section: sections[0],
+      sectionIndex: 0,
+      group: sections[0]!.groups[1],
+      subgroup: { label: "iOS", slugs: ["guides/call-ios", "guides/present"] },
     });
     expect(locate("api/core", sections)?.sectionIndex).toBe(1);
   });
