@@ -75,6 +75,30 @@ describe("Metro transformer", () => {
     ).toBe("// the proxy of lucent-a/geo/distance\n");
   });
 
+  it("says a package's module is compiled only when the app depends on the package", () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-metro-"));
+    const upstream = path.join(root, "upstream.cjs");
+    fs.writeFileSync(upstream, "module.exports = { transform: (a) => a.src };\n");
+    process.env.LUCENT_UPSTREAM_TRANSFORMER = upstream;
+    const pkg = path.join(root, "packages/lucent-far");
+    fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(pkg, "package.json"),
+      JSON.stringify({ name: "lucent-far", lucent: { sources: "src" } }),
+    );
+    const t = require("../metro/transformer.cjs") as {
+      transform(a: { filename: string; src: string; options: { projectRoot: string } }): string;
+    };
+
+    const proxy = t.transform({
+      filename: path.join(pkg, "src/far.lucent.ts"),
+      src: "",
+      options: { projectRoot: root },
+    });
+    expect(proxy).toMatch(/^throw new Error\(.*has not been compiled/);
+    expect(proxy).toMatch(/compiles lucent-far only when the app depends on it/);
+  });
+
   it("points the proxy's loader require at the generated loader, from where the module is", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-metro-"));
     const upstream = path.join(root, "upstream.cjs");

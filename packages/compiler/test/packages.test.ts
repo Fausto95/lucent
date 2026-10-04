@@ -216,6 +216,49 @@ describe("Lucent packages inside the project's directory", () => {
     ]);
   });
 
+  it("tells an app importing a Lucent package it does not depend on to depend on it", () => {
+    const root = app();
+    write(
+      root,
+      "packages/lucent-far/package.json",
+      JSON.stringify({ ...near, name: "lucent-far" }),
+    );
+    write(
+      root,
+      "packages/lucent-far/src/far.lucent.ts",
+      "export function far(): number { return 2; }\n",
+    );
+    write(
+      root,
+      "src/uses-far.lucent.ts",
+      'import { far } from "../packages/lucent-far/src/far.lucent";\nexport function twice(): number { return far() * 2; }\n',
+    );
+
+    expect(compile(projectFiles(root)).diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "LUCENT3001",
+        message: expect.stringMatching(/lucent-far, a Lucent package the app does not depend on/),
+        fix: expect.stringMatching(/add lucent-far to the app's dependencies/),
+      }),
+    );
+  });
+
+  it("says an imported Lucent file outside the app's modules is not compiled with it", () => {
+    const root = app();
+    write(
+      root,
+      "src/uses-plain.lucent.ts",
+      'import { never } from "../node_modules/plain-js/index.lucent";\nexport function zero(): number { return never(); }\n',
+    );
+
+    expect(compile(projectFiles(root)).diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "LUCENT3001",
+        message: expect.stringMatching(/is not among the modules compiled with the app/),
+      }),
+    );
+  });
+
   it("walks a Lucent package inside another package's sources only as itself", () => {
     const root = app();
     const vendored = "node_modules/lucent-a/src/vendor/lucent-c";
