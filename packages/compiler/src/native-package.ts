@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { sdkIdentity } from "@lucent-lang/bindgen";
 import { identityScript } from "./emit/identity.ts";
 import { type EmitResult, IDENTITY, LOADER } from "./emit/index.ts";
 import { androidViewFiles, autolinkingConfig } from "./ui/android.ts";
@@ -19,7 +20,7 @@ import type { NativeInputs, PackagePath } from "./package-config.ts";
 import { inNativePackage } from "./package-files.ts";
 import { coreTypesPath } from "./program.ts";
 import { currentReads, readsKey } from "./reads.ts";
-import { currentSdkIdentity, type SdkOptions, withSdkOptions } from "./sdk/schema.ts";
+import { currentSdkIdentity, type SdkOptions } from "./sdk/schema.ts";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -70,8 +71,9 @@ export function inputsKey(files: string[], outDir: string, sdk?: SdkOptions): st
     coreTypesPath(),
   ];
   // The SDKs bindings come from (their schemas are derived from them): the app's
-  // dependencies' artifacts too.
-  hash.update(withSdkOptions(sdk, currentSdkIdentity));
+  // dependencies' artifacts too. Through the caller's own options object: SDKs are
+  // located once per object, and the caller may have located them already.
+  hash.update(sdk ? sdkIdentity(sdk) : currentSdkIdentity());
   // Whether components' views are generated.
   hash.update(`views:${fabricViews()}`);
   for (const f of [...files.map((f) => path.resolve(f)).sort(), ...deps.sort()]) {
