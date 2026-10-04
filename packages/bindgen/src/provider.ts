@@ -31,6 +31,7 @@ import {
   lockedPods,
 } from "./provenance.ts";
 import type { PodFramework } from "./pods.ts";
+import type { SwiftPackages } from "./swift-packages.ts";
 import { buildSourceSchema } from "./swift-source.ts";
 import type { SymbolGraph } from "./symbols.ts";
 import {
@@ -87,6 +88,13 @@ export interface SdkOptions {
     defines?: string[];
     /** Podfile.lock: which pods installed the modules, their versions and dependencies. */
     lockfile?: string;
+    /**
+     * The iOS version the app is deployed to (its Xcode project's): what
+     * declarations are read for, and the oldest iOS its code runs on.
+     */
+    deploymentTarget?: string;
+    /** The Swift packages the app links, built for it (see swiftPackages). */
+    swiftPackages?: SwiftPackages;
     xcrun?: string;
   };
 }
@@ -152,6 +160,8 @@ interface Resolved {
     frameworkDirs: Map<string, string>;
     /** How each module outside the SDK reaches the build (SDK frameworks are absent). */
     sources: Map<string, IosModuleSource>;
+    /** The app's Swift packages that could not be built, and why. */
+    packageFailures: string[];
   };
 }
 
@@ -486,6 +496,18 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
   }
   for (const map of moduleMaps) readMap(map);
 
+  // The app's Swift packages: each module from its package's build.
+  const packages = opts.ios?.swiftPackages;
+  for (const m of packages?.modules ?? []) {
+    modules.set(m.module, []);
+    sources.set(m.module, {
+      kind: "swift-module",
+      files: [path.join(m.dir, `${m.module}.swiftmodule`)],
+      spm: m.package,
+    });
+  }
+  const packageDirs = [...new Set((packages?.modules ?? []).map((m) => m.dir))];
+
   for (const dir of frameworkPaths) {
     for (const f of fs.existsSync(dir) ? fs.readdirSync(dir) : []) {
       if (!f.endsWith(".framework")) continue;
@@ -515,7 +537,16 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
     }
   }
 
-  const ios: IosOptions = { modules: [], includePaths, frameworkPaths, moduleMaps, defines, xcrun };
+  const deployment = opts.ios?.deploymentTarget;
+  const ios: IosOptions = {
+    modules: [],
+    includePaths: [...includePaths, ...packageDirs],
+    frameworkPaths,
+    moduleMaps,
+    defines,
+    xcrun,
+    ...(deployment ? { target: `arm64-apple-ios${deployment}-simulator` } : {}),
+  };
   const targetTriple = iosTarget(ios);
 
   const artifacts = iosArtifacts(memo, {
@@ -523,7 +554,8 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
     sources,
     lockfile,
     pods,
-    includePaths,
+    ...(packages?.resolved ? { resolved: packages.resolved } : {}),
+    includePaths: ios.includePaths ?? [],
     compilerArguments: defines.map((d) => `-D${d}`),
     targetTriple,
   });
@@ -543,7 +575,17 @@ function locateIos(opts: SdkOptions): Resolved | { missing: string } {
       scope: path.join(root, "sdk/ios", `iphonesimulator${version}-${build}-${key}`),
       memo,
       artifacts,
-      ios: { sdk, version, ios, frameworks, modules, umbrellas, frameworkDirs, sources },
+      ios: {
+        sdk,
+        version,
+        ios,
+        frameworks,
+        modules,
+        umbrellas,
+        frameworkDirs,
+        sources,
+        packageFailures: packages?.failures ?? [],
+      },
     },
     (a) => a.modules.filter((m) => byModule.get(m) === a),
   );
@@ -728,8 +770,12 @@ function iosNotFound(r: Resolved, module: string): { missing: string } {
     ? ` and the app's pods (${extra.join(", ")}); run pod install after adding a pod`
     : "; no pods were read: when it comes from a pod, run pod install first";
   const where = `looked in ${r.ios!.frameworks}${pods}`;
+  const failed = r.ios!.packageFailures;
+  const packages = failed.length
+    ? `; the app's Swift packages could not all be built: ${failed.join("; ")}`
+    : "";
   return {
-    missing: `lucent:ios/${module} was not found in the SDK or the app's dependencies (${where})`,
+    missing: `lucent:ios/${module} was not found in the SDK or the app's dependencies (${where})${packages}`,
   };
 }
 

@@ -585,6 +585,10 @@ export async function buildProject(
     inputsKey: key,
     native,
     androidDeferred: deferred.includes("android"),
+    app: {
+      ...(sdk.ios?.deploymentTarget ? { deploymentTarget: sdk.ios.deploymentTarget } : {}),
+      swiftPackages: sdk.ios?.swiftPackages?.pins ?? [],
+    },
   });
   const inPackage = (f: string) => path.relative(outDir, f).split(path.sep).join("/");
   const written = new Set(w.written.map(inPackage));

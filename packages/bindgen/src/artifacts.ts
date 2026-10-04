@@ -123,14 +123,16 @@ export interface IosInputs {
   /** Podfile.lock, and the pods it installed. */
   lockfile?: string;
   pods: Map<string, LockedPod>;
+  /** Package.resolved, which pins the Swift packages modules came from. */
+  resolved?: string;
   includePaths: string[];
   compilerArguments: string[];
   targetTriple: string;
 }
 
 /**
- * The SDK, then one artifact per pod (all the modules it defines) and per
- * module on the search paths that no pod installed.
+ * The SDK, then one artifact per pod or Swift package (all the modules it
+ * defines) and per module on the search paths that neither installed.
  */
 export function iosArtifacts(memo: string, inputs: IosInputs): NativeArtifact[] {
   const { sdk, sources, pods, includePaths, compilerArguments, targetTriple } = inputs;
@@ -151,7 +153,11 @@ export function iosArtifacts(memo: string, inputs: IosInputs): NativeArtifact[] 
 
   const groups = new Map<string, { source: IosModuleSource; modules: string[] }>();
   for (const [module, source] of sources) {
-    const id = source.pod ? `pod:${source.pod}` : `${source.kind}:${module}`;
+    const id = source.pod
+      ? `pod:${source.pod}`
+      : source.spm
+        ? `spm:${source.spm}`
+        : `${source.kind}:${module}`;
     const group = groups.get(id) ?? { source, modules: [] };
     group.modules.push(module);
     groups.set(id, group);
@@ -172,7 +178,13 @@ export function iosArtifacts(memo: string, inputs: IosInputs): NativeArtifact[] 
       declarationInputs: files,
       origin: pod
         ? { package: name!, version: pod.version, buildFile: inputs.lockfile! }
-        : { package: modules[0]!, version: "", buildFile: files[0] ?? "" },
+        : source.spm
+          ? {
+              package: source.spm.slice(0, source.spm.lastIndexOf("@")),
+              version: source.spm.slice(source.spm.lastIndexOf("@") + 1),
+              buildFile: inputs.resolved ?? files[0] ?? "",
+            }
+          : { package: modules[0]!, version: "", buildFile: files[0] ?? "" },
       ...common,
     });
   }

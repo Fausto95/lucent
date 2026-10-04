@@ -32,7 +32,7 @@ import {
   loadSdkModule,
   jniDescriptor,
   MIN_ANDROID_API,
-  MIN_IOS,
+  oldestIos,
   sdkTypeInfo,
   parseSdkType,
   type Platform,
@@ -2445,7 +2445,7 @@ function needOf(platform: Platform, since: number | string | undefined): Need | 
   if (typeof since !== (platform === "android" ? "number" : "string")) return undefined;
 
   const version = String(since);
-  const oldest = platform === "ios" ? MIN_IOS : String(MIN_ANDROID_API);
+  const oldest = platform === "ios" ? oldestIos() : String(MIN_ANDROID_API);
   return compareVersions(version, oldest) > 0 ? { platform, version } : undefined;
 }
 
@@ -2475,7 +2475,7 @@ export function requireAvailable(
     node,
     Codes.Unavailable,
     need.platform === "ios"
-      ? `${what} needs iOS ${need.version} (apps run from iOS ${MIN_IOS}): use it under if (available("ios", ${availableArgs(need)}))`
+      ? `${what} needs iOS ${need.version} (apps run from iOS ${oldestIos()}): use it under if (available("ios", ${availableArgs(need)}))`
       : `${what} needs API ${need.version} (apps run from API ${MIN_ANDROID_API}): use it under if (available("android", ${need.version})) or Build_VERSION.SDK_INT >= ${need.version}`,
   );
 }
@@ -3315,15 +3315,16 @@ export function noteFramework(em: FnEmitter, module: string): void {
 }
 
 /**
- * Links what an iOS module needs: its frameworks, or the pod that installed
- * it (as the schema's provenance says), which LucentNative must depend on
- * for framework builds to find the pod's headers.
+ * Links what an iOS module needs: its frameworks, or the pod or Swift
+ * package that installed it (as the schema's provenance says), which
+ * LucentNative must depend on for its builds to find the module.
  */
 export function linkModule(em: FnEmitter, schema: SdkModuleSchema): void {
   for (const f of schema.frameworks ?? []) em.ctx.frameworks.add(f);
 
   const artifact = schema.provenance?.artifact;
   if (artifact?.startsWith("pod:")) em.ctx.pods.add(artifact.slice("pod:".length).split("@")[0]!);
+  if (artifact?.startsWith("spm:")) em.ctx.swiftPackages.add(artifact.slice("spm:".length));
 }
 
 function androidCall(
