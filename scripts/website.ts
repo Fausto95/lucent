@@ -7,8 +7,7 @@
  *      as MDX, and each page's "See the C++" (src/generated/cpp/<slug>.json);
  *   3. reads every docs page and blog post from its MDX and checks the
  *      docs' structure: page files match the sidebar, each page says its
- *      kind and has its "Next" link, retired slugs redirect to pages that
- *      exist; and each post's date;
+ *      kind and has its "Next" link; and each post's date;
  *   4. compiles every `*.lucent.ts` sample on the docs pages and blog posts;
  *   5. checks internal links and their anchors, and each docs page's length
  *      budget (words and lines of code, by kind of page);

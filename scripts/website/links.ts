@@ -18,7 +18,7 @@ function anchorsOf(blocks: Block[]): string[] {
 /** Pages that aren't checked pages themselves, but links may name: the list of posts. */
 const indexes = ["/blog/"];
 
-/** Every link into the docs or the blog names a page that exists (not a redirect), and its #anchor a heading on that page. */
+/** Every link into the docs or the blog names a page that exists, and its #anchor a heading on that page. */
 export function checkLinks(pages: CheckedPage[]): string[] {
   const anchors = new Map([
     ...indexes.map((href) => [href, new Set<string>()] as const),

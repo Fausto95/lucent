@@ -4,7 +4,6 @@ import { runnerImport } from "vite";
 import { readMdx } from "../../apps/website/src/docs/mdx-read.ts";
 import type { PostEntry } from "../../apps/website/src/blog/types.ts";
 import { docsGroups, docsSlugs } from "../../apps/website/src/docs/nav.ts";
-import { docsRedirects } from "../../apps/website/src/docs/redirects.ts";
 import {
   type Block,
   type DocFrontmatter,
@@ -112,8 +111,8 @@ export function checkedPages(pages: DocPage[], posts: Post[]): CheckedPage[] {
 const KINDS = new Set<DocKind>(["start", "learn", "guide", "reference", "example", "other"]);
 
 /**
- * Page files match the sidebar (src/docs/nav.ts), each page says its kind
- * and has its one "Next" link, and retired slugs redirect to pages that exist.
+ * Page files match the sidebar (src/docs/nav.ts), and each page says its
+ * kind and has its one "Next" link.
  */
 export function checkStructure(pages: DocPage[]): string[] {
   const problems: string[] = [];
@@ -145,10 +144,6 @@ export function checkStructure(pages: DocPage[]): string[] {
         problems.push(`${where(page.slug)}: next's label should be its page's title`);
     } else if (page.slug === last)
       problems.push(`${where(page.slug)} has no "Next" link: set next in its frontmatter`);
-  }
-  for (const [from, to] of Object.entries(docsRedirects)) {
-    if (slugs.has(from)) problems.push(`redirect from ${where(from)} shadows a page`);
-    if (!slugs.has(to)) problems.push(`redirect ${where(from)} → ${where(to)}: no such page`);
   }
   return problems;
 }

@@ -4,25 +4,13 @@ import starlightThemeSix from "@six-tech/starlight-theme-six";
 import { unified } from "@astrojs/markdown-remark";
 import { defineConfig } from "astro/config";
 import { docsGroups } from "./src/docs/nav.ts";
-import { docsRedirects } from "./src/docs/redirects.ts";
-import { docsHref } from "./src/docs/types.ts";
 import { remarkFormat, remarkInclude, remarkSeeCpp } from "./src/docs/remark.ts";
 import { pluginNoCopy } from "./src/docs/expressive-code.ts";
 import { SITE } from "./src/blog/meta.ts";
 
-/** Retired docs slugs, and the URLs from before /docs/, to the pages that replaced them. */
-const redirects = {
-  ...Object.fromEntries(
-    Object.entries(docsRedirects).map(([from, to]) => [docsHref(from), docsHref(to)]),
-  ),
-  "/language/": "/docs/reference/language/",
-  "/get-started/": "/docs/install/",
-};
-
 export default defineConfig({
   site: SITE,
   trailingSlash: "always",
-  redirects,
   markdown: {
     // Pages say what they mean in straight quotes: they often quote code.
     processor: unified({

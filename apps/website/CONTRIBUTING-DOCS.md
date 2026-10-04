@@ -63,9 +63,8 @@ Optional: the most common mistake.
 
 The page shows the title, the description, the content, then a "Next"
 link: the following page in the sidebar, or the frontmatter's
-`next: { link, label }`. A removed page gets an entry in
-`src/docs/redirects.ts`. Search (Pagefind) indexes every page when the site
-is built.
+`next: { link, label }`. A removed page gets no redirect: update the links
+to it. Search (Pagefind) indexes every page when the site is built.
 
 A page is written in a small vocabulary, the docs blocks of
 `src/docs/types.ts`, so `scripts/website.ts` can check it: paragraphs with

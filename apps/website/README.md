@@ -12,15 +12,17 @@ pnpm install
 pnpm website          # http://127.0.0.1:4321
 ```
 
-| Path                          | Page                                                    |
-| ----------------------------- | ------------------------------------------------------- |
-| `/`                           | Home (`src/content/docs/index.mdx`)                     |
-| `/docs/`                      | What is Lucent                                          |
-| `/docs/<slug>/`               | Every docs page; `src/docs/nav.ts` lists them           |
-| `/blog/`, `/blog/<slug>/`     | Every post, newest first; one per `src/content/blog/`   |
-| `/blog/rss.xml`               | The blog's feed                                         |
-| `/language/`, `/get-started/` | Redirect to their docs pages (pre-docs URLs)            |
-| retired `/docs/<slug>/`       | Redirect to their replacement (`src/docs/redirects.ts`) |
+| Path                      | Page                                                  |
+| ------------------------- | ----------------------------------------------------- |
+| `/`                       | Home (`src/pages/index.astro`)                        |
+| `/docs/`                  | What is Lucent                                        |
+| `/docs/<slug>/`           | Every docs page; `src/docs/nav.ts` lists them         |
+| `/blog/`, `/blog/<slug>/` | Every post, newest first; one per `src/content/blog/` |
+| `/blog/rss.xml`           | The blog's feed                                       |
+
+A removed or renamed page gets no redirect: until Lucent is production
+grade the docs change with it, and the checks keep every link in the
+repository pointing at a page that exists.
 
 ## Checks and production
 
@@ -37,7 +39,7 @@ website:build`, output `apps/website/dist`).
 ## Source
 
 - `astro.config.ts`: Starlight, the Six theme, the sidebar (from
-  `src/docs/nav.ts`), redirects, and the remark plugins.
+  `src/docs/nav.ts`), and the remark plugins.
 - `src/content/docs/docs/**.mdx`: the docs pages.
   [CONTRIBUTING-DOCS.md](CONTRIBUTING-DOCS.md) says how to write one.
 - `src/content/blog/*.mdx`: the posts. `src/pages/blog/` lists them,
