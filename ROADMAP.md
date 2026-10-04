@@ -2294,8 +2294,9 @@ Last recorded runs:
   `lucent build` that first meets it declares it in the native package's
   podspec, fails with LUCENT3004 and names it; `pod install`, then
   `lucent build` binds it, and asks for `pod install` again when it adds
-  files. `expo prebuild` stops at that first failure: the config plugin
-  builds before the pods are installed. A pod binds through the module it
+  files. `expo prebuild` stops at that first failure, which names no
+  steps: the config plugin builds before the pods are installed and
+  before it links the native package. A pod binds through the module it
   defines (`DEFINES_MODULE`, modular headers, or `use_frameworks!`); a
   Swift pod built as a static library is not bound.
 - Typed native extensions: Swift and Kotlin sources in a package are not

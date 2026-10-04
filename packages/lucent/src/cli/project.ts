@@ -22,6 +22,7 @@ import {
   withPodDependencies,
   writeWhole,
 } from "@lucent-lang/compiler";
+import { linkNativePackage } from "./init/patch.ts";
 import { withLucentPaths } from "./tsconfig.ts";
 import { packageFile } from "./version.ts";
 
@@ -348,11 +349,15 @@ function writeGradleDependencies(out: string, native: NativeInputs): void {
 }
 
 /**
- * The Lucent packages' pods a bare app (one with a Podfile) has not
- * installed, with the packages declaring them and what installs them, for
- * a check that failed: installed is what bindgen reads the pods' modules
- * from, the Podfile.lock of the app's installed pods. A build (`wrote`) has
- * declared them in `podspec` already; a check writes nothing.
+ * The Lucent packages' pods the app has not installed, with the packages
+ * declaring them and what installs them, for a check that failed:
+ * installed is what bindgen reads the pods' modules from, the Podfile.lock
+ * of the app's installed pods. A build (`wrote`) has declared them in
+ * `podspec` already; a check writes nothing.
+ *
+ * Only where pod install installs them: an app with a Podfile whose
+ * react-native.config.js links the native package, as lucent init writes
+ * it. In expo prebuild the config plugin links it once a build succeeds.
  */
 export function podsToInstall(
   root: string,
@@ -361,7 +366,10 @@ export function podsToInstall(
   podspec: string,
   wrote: boolean,
 ): Notice | undefined {
-  if (!fs.existsSync(path.join(root, "ios/Podfile"))) return undefined;
+  const config = path.join(root, "react-native.config.js");
+  const linked =
+    fs.existsSync(config) && linkNativePackage(fs.readFileSync(config, "utf8")) === undefined;
+  if (!linked || !fs.existsSync(path.join(root, "ios/Podfile"))) return undefined;
 
   const installed = new Set(sdk.ios?.lockfile ? lockedPods(sdk.ios.lockfile).keys() : []);
   const missing = Object.entries(native.ios.pods).filter(

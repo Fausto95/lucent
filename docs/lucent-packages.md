@@ -75,18 +75,20 @@ The merged result goes into the native package:
 
 - **Pods** become dependencies of its podspec, marked `# lucent.json`. A
   build writes them before it checks the modules, so in a bare React
-  Native app a module can import a package's pod before it is installed:
-  the first `lucent build` leaves the podspec depending on it, fails with
-  LUCENT3004 and names the pod, its package and the next steps. Then
-  `pod install` in `ios/` installs it, and the next `lucent build` binds
-  it; when that build adds files to the native package, it asks for
-  `pod install` again (`iOS: pod install first`). `lucent check`, which
-  writes nothing, names the pod and says to run `lucent build` first. A
-  pod the packages no longer declare leaves the podspec; a pod the code
-  imports that no package declares must be in the app's Podfile. Expo
-  apps don't get there yet: the config plugin runs `lucent build` in
-  `expo prebuild`, before the pods are installed, and stops at its
-  failure.
+  Native app (its `react-native.config.js` links `.lucent/native`, as
+  `lucent init` sets up) a module can import a package's pod before it
+  is installed: the first `lucent build` leaves the podspec depending on
+  it, fails with LUCENT3004 and names the pod, its package and the next
+  steps. Then `pod install` in `ios/` installs it, and the next
+  `lucent build` binds it; when that build adds files to the native
+  package, it asks for `pod install` again (`iOS: pod install first`).
+  `lucent check`, which writes nothing, names the pod and says to run
+  `lucent build` first. A pod the packages no longer declare leaves the
+  podspec; a pod the code imports that no package declares must be in
+  the app's Podfile. Expo apps don't get there yet: the config plugin
+  runs `lucent build` in `expo prebuild`, before the pods are installed
+  and before it links the native package, and stops at its failure,
+  which names no steps.
 - A pod binds through the module it defines, as the app target's Pods
   xcconfig gives it (`podsSearchPaths` in `@lucent-lang/bindgen`): a
   `module.modulemap` under its header search paths or passed with
