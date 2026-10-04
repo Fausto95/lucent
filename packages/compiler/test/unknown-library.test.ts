@@ -105,12 +105,12 @@ export async function run(): Promise<string> {
 `;
 
   it("names a member it does not bind, why, and the way around it", () => {
-    const skipped = iosProgram(calling(`gauge.${lower}Range();`), modules);
+    const skipped = iosProgram(calling(`gauge.${lower}Range(1);`), modules);
     expect(skipped.r.diagnostics).toEqual([
       expect.objectContaining({
         code: "LUCENT9001",
         message: expect.stringContaining(
-          `${prefix}Gauge.${lower}Range() is in swift-module:${prefix}Kit, but Lucent does not bind it: Swift: tuples.`,
+          `${prefix}Gauge.${lower}Range(_:) is in swift-module:${prefix}Kit, but Lucent does not bind it: Swift: CustomStringConvertible.`,
         ),
         fix: wrap,
       }),
