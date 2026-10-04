@@ -8,9 +8,11 @@ import type { StarlightRouteData } from "@astrojs/starlight/route-data";
 
 interface Props {
   sublist: StarlightRouteData["sidebar"];
+  /** Whose groups these are (a docs section, the blog): a group's collapsed state is kept per scope. */
+  scope: string;
 }
 
-const { sublist } = Astro.props;
+const { sublist, scope } = Astro.props;
 ---
 
 {sublist.map((entry) =>
@@ -26,7 +28,7 @@ const { sublist } = Astro.props;
       {entry.badge && <span class="entry-badge">{entry.badge.text}</span>}
     </a>
   ) : (
-    <div class="container-sidebar-entry is-expanded" data-group={entry.label}>
+    <div class="container-sidebar-entry is-expanded" data-group={`${scope}/${entry.label}`}>
       <button
         class="entry-title-button"
         type="button"
@@ -51,7 +53,7 @@ const { sublist } = Astro.props;
         </svg>
       </button>
       <div class="container-group-link">
-        <Astro.self sublist={entry.entries} />
+        <Astro.self sublist={entry.entries} scope={scope} />
       </div>
     </div>
   ),

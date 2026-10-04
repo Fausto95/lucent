@@ -3,7 +3,7 @@ import starlight from "@astrojs/starlight";
 import starlightThemeSix from "@six-tech/starlight-theme-six";
 import { unified } from "@astrojs/markdown-remark";
 import { defineConfig } from "astro/config";
-import { docsGroups } from "./src/docs/nav.ts";
+import { docsSections, headerLinks } from "./src/docs/nav.ts";
 import { remarkFormat, remarkInclude, remarkSeeCpp } from "./src/docs/remark.ts";
 import { pluginNoCopy } from "./src/docs/expressive-code.ts";
 import { SITE } from "./src/blog/meta.ts";
@@ -51,10 +51,15 @@ export default defineConfig({
           },
         },
       ],
-      sidebar: docsGroups.map((group) => ({
-        label: group.label,
-        items: group.slugs.map((slug) => ({ slug: slug ? `docs/${slug}` : "docs" })),
+      // Every section, as nested groups; route-data.ts narrows each page to its own section.
+      sidebar: docsSections.map((section) => ({
+        label: section.label,
+        items: section.groups.map((group) => ({
+          label: group.label,
+          items: group.slugs.map((slug) => ({ slug: slug ? `docs/${slug}` : "docs" })),
+        })),
       })),
+      routeMiddleware: "./src/docs/route-data.ts",
       customCss: [
         "@fontsource/geist/400.css",
         "@fontsource/geist/500.css",
@@ -84,10 +89,8 @@ export default defineConfig({
       },
       plugins: [
         starlightThemeSix({
-          navLinks: [
-            { label: "Docs", link: "/docs/" },
-            { label: "Blog", link: "/blog/" },
-          ],
+          // The mobile drawer's links; Header.astro draws the same as tabs.
+          navLinks: headerLinks,
           footerText:
             "Lucent is open source under the MIT license. [GitHub](https://github.com/Fausto95/lucent)",
         }),

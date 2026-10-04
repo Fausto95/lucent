@@ -7,13 +7,16 @@
  * closed and put the sidebar back where it was scrolled.
  */
 import SidebarGroups from "./SidebarGroups.astro";
+import { locate, slugOfId } from "../../docs/nav";
 
-const { sidebar } = Astro.locals.starlightRoute;
+const { id, sidebar } = Astro.locals.starlightRoute;
+const slug = slugOfId(id);
+const scope = (slug === undefined ? undefined : locate(slug)?.section.label) ?? "blog";
 ---
 
 <div class="sidebar">
   <div class="container-sidebar">
-    <SidebarGroups sublist={sidebar} />
+    <SidebarGroups sublist={sidebar} scope={scope} />
   </div>
 </div>
 

@@ -2,6 +2,12 @@
 import ThemeSelect from "@six-tech/starlight-theme-six/overrides/ThemeSelect.astro";
 import SocialIcons from "@six-tech/starlight-theme-six/overrides/SocialIcons.astro";
 import Search from "./Search.astro";
+import { headerLinks, locate, slugOfId } from "../../docs/nav";
+
+const { id } = Astro.locals.starlightRoute;
+const slug = slugOfId(id);
+// The tab of the page's section, or the blog's on a post.
+const current = slug === undefined ? (id.startsWith("blog") ? "Blog" : undefined) : locate(slug)?.section.label;
 ---
 
 <div class="docs-header">
@@ -10,8 +16,9 @@ import Search from "./Search.astro";
     <span>Lucent</span>
   </a>
   <nav aria-label="Main navigation">
-    <a href="/docs/">Docs</a>
-    <a href="/blog/">Blog</a>
+    {headerLinks.map(({ label, link }) => (
+      <a href={link} aria-current={label === current ? "true" : undefined}>{label}</a>
+    ))}
   </nav>
   <div class="tools">
     <Search />
@@ -66,8 +73,14 @@ import Search from "./Search.astro";
     color: var(--muted-foreground);
     text-decoration: none;
   }
-  nav a:hover {
+  nav a:hover,
+  nav a[aria-current] {
     color: var(--foreground);
+  }
+  nav a[aria-current] {
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 6px;
   }
   .tools {
     display: flex;

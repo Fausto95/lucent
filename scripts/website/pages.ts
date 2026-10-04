@@ -3,7 +3,7 @@ import path from "node:path";
 import { runnerImport } from "vite";
 import { readMdx } from "../../apps/website/src/docs/mdx-read.ts";
 import type { PostEntry } from "../../apps/website/src/blog/types.ts";
-import { docsGroups, docsSlugs } from "../../apps/website/src/docs/nav.ts";
+import { docsSlugs } from "../../apps/website/src/docs/nav.ts";
 import {
   type Block,
   type DocFrontmatter,
@@ -129,7 +129,7 @@ export function checkStructure(pages: DocPage[]): string[] {
   for (const dup of new Set(dups)) problems.push(`${where(dup)} is in the sidebar twice`);
 
   const hrefs = new Set(pages.map((p) => docsHref(p.slug)));
-  const last = docsGroups.at(-1)?.slugs.at(-1);
+  const last = docsSlugs.at(-1);
   for (const page of pages) {
     if (!page.title || !page.description)
       problems.push(`${where(page.slug)} needs a title and a description in its frontmatter`);
