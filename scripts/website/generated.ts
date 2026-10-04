@@ -3,7 +3,6 @@ import { GLOBAL_FLAGS } from "../../packages/lucent/src/cli/args.ts";
 import { commands } from "../../packages/lucent/src/cli/commands.ts";
 import { REQUIREMENTS } from "../../packages/lucent/src/cli/doctor.ts";
 import { MIN_ANDROID_API } from "../../packages/compiler/src/sdk/schema.ts";
-import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { compileSamples } from "./compile.ts";
@@ -137,65 +136,6 @@ function example(file: string): string {
   return `${lines.slice(start).join("\n").trimEnd()}\n`;
 }
 
-const stepsDir = path.join(root, "apps/tutorial/steps");
-
-/** The tutorial's steps, in order: apps/tutorial/steps/<n>-<name>/. */
-export function tutorialSteps(): string[] {
-  return fs
-    .readdirSync(stepsDir)
-    .filter((d) => /^\d+-/.test(d))
-    .sort((a, b) => parseInt(a) - parseInt(b));
-}
-
-function filesOf(dir: string): string[] {
-  return fs
-    .readdirSync(dir, { recursive: true, encoding: "utf8" })
-    .filter((f) => fs.statSync(path.join(dir, f)).isFile())
-    .map((f) => f.split(path.sep).join("/"))
-    .sort();
-}
-
-/** A unified diff of one file, without git's header lines; "" when nothing changed. */
-function diffOf(before: string | undefined, after: string): string {
-  const out = spawnSync(
-    "git",
-    ["diff", "--no-index", "--no-color", "-U3", before ?? "/dev/null", after],
-    { encoding: "utf8" },
-  );
-  if (out.status !== 0 && out.status !== 1) throw new Error(`git diff failed: ${out.stderr}`);
-  return out.stdout
-    .split("\n")
-    .filter((line) => !/^(diff --git|index |new file mode|--- |\+\+\+ )/.test(line))
-    .join("\n")
-    .trimEnd();
-}
-
-/**
- * A tutorial step's files, `tutorial/<step>/<file>`, and what changed in each
- * since the step before, `tutorial/<step>/<file>.diff`. A file that moved
- * (into the package, in the last step) is compared with the previous step's
- * file of the same name.
- */
-function tutorialStep(steps: string[], index: number): Record<string, string> {
-  const dir = path.join(stepsDir, steps[index]!);
-  const previous = index > 0 ? path.join(stepsDir, steps[index - 1]!) : undefined;
-  const before = previous ? filesOf(previous) : [];
-  const out: Record<string, string> = {};
-  const at = `snippets/tutorial/${steps[index]}`;
-  for (const file of filesOf(dir)) {
-    out[`${at}/${file}`] = `${fs.readFileSync(path.join(dir, file), "utf8").trimEnd()}\n`;
-    const match = before.includes(file)
-      ? file
-      : before.find((b) => path.basename(b) === path.basename(file));
-    const diff = diffOf(
-      match && previous ? path.join(previous, match) : undefined,
-      path.join(dir, file),
-    );
-    if (diff) out[`${at}/${file}.diff`] = `${diff}\n`;
-  }
-  return out;
-}
-
 type SchemaNode = {
   type?: string;
   description?: string;
@@ -305,6 +245,5 @@ export function generatedFiles(): Record<string, string> {
         example(file),
       ]),
     ),
-    ...Object.assign({}, ...tutorialSteps().map((_, i, steps) => tutorialStep(steps, i))),
   };
 }

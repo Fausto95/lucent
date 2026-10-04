@@ -104,7 +104,7 @@ checks them, and CI runs it with `--check`:
 
 - it regenerates what the site shows from the source: the CLI and
   diagnostics references, the `lucent:*` declarations, the examples, the
-  tutorial's steps and diffs, the C++ of samples, the search index;
+  C++ of samples, the search index;
 - it compiles every `*.lucent.ts` sample;
 - it checks internal links and anchors, each page's length budget, and its
   prose with Vale (`brew install vale`).

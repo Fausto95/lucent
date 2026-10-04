@@ -2,7 +2,7 @@
  * Keeps the website honest about the compiler and its own rules:
  *   1. regenerates apps/website/src/generated/: the data the reference
  *      templates read, and the snippets pages include (the homepage's C++,
- *      the example ports, the tutorial's steps and diffs);
+ *      the example ports);
  *   2. writes the reference pages from their templates (src/docs/templates/)
  *      as MDX, and each page's "See the C++" (src/generated/cpp/<slug>.json);
  *   3. reads every docs page and blog post from its MDX and checks the

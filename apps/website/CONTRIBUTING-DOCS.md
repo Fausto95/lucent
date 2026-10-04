@@ -101,8 +101,8 @@ A code block's meta names its file and what the check does with it
 - `nocopy`: no copy button, for output the reader reads rather than runs.
 - `include="examples/clipboard.lucent.ts"`: fills an empty block with a
   file `scripts/website.ts` writes under `src/generated/snippets/`, so a
-  page shows code from the repository (the example ports, the tutorial's
-  steps and diffs) without copying it.
+  page shows code from the repository (the example ports) without copying
+  it.
 - ` ```diff lang="ts" `: a unified diff; it isn't compiled.
 
 ## Blog posts

@@ -432,6 +432,20 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-04: The docs are four sections, and guides replace the
+tutorial.** The website's docs split into Guides, Packages, API and
+Architecture, each a header tab with its own sidebar. The trip-tracker
+tutorial and the guides merge into one set of guides, rewritten against
+the code: an ordered "Get started", then one task per page. The language
+spec moves from docs/semantics.md onto the API section; Architecture ends
+with an Internals group for contributors that replaces
+docs/architecture.md. Removed pages get no redirect, and the redirect
+setup goes. _Why:_ the docs mixed tutorial, guide, explanation and
+reference in each group and repeated facts that had drifted from the code;
+until production grade the docs evolve with it, so old URLs aren't kept.
+_Changed:_ the 2026-09-24 Docs decision (the trip-tracker tutorial) and
+T66's tutorial items.
+
 **2026-10-04: Native views' JSX derives children; no adapters.** A view
 class takes JSX children through the insert-at-index method its
 declarations give (`insertArrangedSubview:atIndex:`,
@@ -1584,9 +1598,10 @@ match shipped behavior.
 - **Where:** Public guides, reference and examples, coordinated with ongoing
   docs.
 
-- [ ] Finish module and view tutorials, setup-once reactivity, ownership and
+- [ ] Finish module and view guides, setup-once reactivity, ownership and
       threading, buffers, SDK discovery, adapters, native configuration and
-      troubleshooting.
+      troubleshooting (the docs restructure of 2026-10-04: Guides, Packages,
+      API and Architecture sections).
 - [ ] Publish capability and support tables generated from actual evidence;
       remove stale claims, and distinguish TypeScript-only support from
       explicit native extensions.
@@ -1602,8 +1617,8 @@ match shipped behavior.
       tables.
 - [ ] Carried over from the docs plan: runnable samples in CI (run in
       Hermes, output compared with the page), a weekly external link check,
-      and a run of the tutorial on the iOS simulator and the Android
-      emulator.
+      and a run of the Get started guides on the iOS simulator and the
+      Android emulator.
 
 **Done when:** the docs support independent use and match shipped behavior.
 This final sweep does not excuse delaying docs for earlier completed tasks.

@@ -85,7 +85,7 @@ JDK, and the app's setup.
 
 [What is Lucent](https://lucent-lang.dev/docs/) ·
 [Install](https://lucent-lang.dev/docs/install/) ·
-[Tutorial](https://lucent-lang.dev/docs/tutorial/1-shared-logic/) ·
+[First module](https://lucent-lang.dev/docs/first-module/) ·
 [How it works](https://lucent-lang.dev/docs/how-it-works/) ·
 [Guides](https://lucent-lang.dev/docs/guides/call-an-ios-api/) ·
 [Reference](https://lucent-lang.dev/docs/reference/language/) ·

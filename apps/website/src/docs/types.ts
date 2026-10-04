@@ -16,7 +16,7 @@ export type Block =
   /**
    * `copy: false` for output the reader reads rather than runs (a terminal's output).
    * `cpp: true` on a `.lucent.ts` sample adds "See the C++": what the compiler writes for it.
-   * `diff: true` shows a unified diff (what a tutorial step changed); it isn't compiled.
+   * `diff: true` shows a unified diff (what a change did); it isn't compiled.
    * `from` names the repository file the sample is, generated from it: a module that compiles
    * only in its app (it imports the app's own libraries), so the app's build checks it instead.
    */

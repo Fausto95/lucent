@@ -15,19 +15,6 @@ export const docsGroups: DocGroup[] = [
     slugs: ["", "install", "first-module"],
   },
   {
-    label: "Tutorial: a trip tracker",
-    slugs: [
-      "tutorial/1-shared-logic",
-      "tutorial/2-data",
-      "tutorial/3-async",
-      "tutorial/4-errors",
-      "tutorial/5-platform-code",
-      "tutorial/6-callbacks",
-      "tutorial/7-permissions",
-      "tutorial/8-publish",
-    ],
-  },
-  {
     label: "How Lucent works",
     slugs: ["how-it-works", "how-it-works/calls", "how-it-works/platform-calls"],
   },
@@ -61,7 +48,6 @@ export const docsGroups: DocGroup[] = [
       "guides/share-code-between-platforms",
       "guides/add-permissions-and-config",
       "guides/use-a-third-party-sdk",
-      "guides/publish-a-library",
       "guides/use-a-library",
       "guides/port-an-expo-module",
       "guides/port-a-turbomodule",
