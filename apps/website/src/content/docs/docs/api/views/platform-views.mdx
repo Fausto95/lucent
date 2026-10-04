@@ -1,7 +1,194 @@
 ---
-title: "Which UIKit and Android view members become JSX attributes?"
-description: "This page is being rewritten."
+title: UIKit and Android views in JSX
+sidebar_label: UIKit and Android views
+description: "A UIKit or Android view class is a JSX tag: writable properties and setters are attributes, and listeners and control events are `on…` handlers."
 kind: reference
+views: true
+sidebar_class_name: experimental
 ---
 
-This page is being rewritten.
+:::caution
+Experimental: JSX of UIKit and Android views is on `main` and not in 0.1.2. It compiles only when `LUCENT_VIEWS=fabric` is set: [Turn on native views](/docs/guides/views/) says how.
+:::
+
+A component can return its platform's views as JSX. Nothing about a view is listed in Lucent: what a tag takes comes from its class's declarations, by the rules on this page. So a view from an SDK, a pod or an Android library works without a Lucent entry for it.
+
+## Example
+
+<Tabs>
+<TabItem label="settings.lucent.ts">
+
+```ts title="settings.lucent.ts"
+import type { View } from "lucent:android/android.view";
+import type { UIView } from "lucent:ios/UIKit";
+
+export type SettingsProps = {
+  title: string;
+  enabled: boolean;
+  onToggle?: (on: boolean) => void;
+};
+
+export declare function Settings(props: SettingsProps): UIView | View;
+```
+
+</TabItem>
+<TabItem label="settings.ios.lucent.tsx">
+
+```tsx title="settings.ios.lucent.tsx"
+import { UILabel, UIStackView, UISwitch, type UIView } from "lucent:ios/UIKit";
+import type { SettingsProps } from "./settings.lucent";
+
+export function Settings(props: SettingsProps): UIView {
+  return (
+    <UIStackView spacing={8}>
+      <UILabel text={props.title} numberOfLines={1n} />
+      <UISwitch isOn={props.enabled} onValueChanged={(control) => props.onToggle?.(control.isOn)} />
+    </UIStackView>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="settings.android.lucent.tsx">
+
+```tsx title="settings.android.lucent.tsx"
+import type { View } from "lucent:android/android.view";
+import { CheckBox, LinearLayout, TextView } from "lucent:android/android.widget";
+import type { SettingsProps } from "./settings.lucent";
+
+export function Settings(props: SettingsProps): View {
+  return (
+    <LinearLayout orientation={LinearLayout.HORIZONTAL}>
+      <TextView text={props.title} />
+      <CheckBox checked={props.enabled} onCheckedChange={(_box, on) => props.onToggle?.(on)} />
+    </LinearLayout>
+  );
+}
+```
+
+</TabItem>
+</Tabs>
+
+`spacing`, `text` and `isOn` are writable properties on iOS, and `orientation`, `text` and `checked` are setters on Android. `onValueChanged` is a `UIControl` control event, whose handler gets the `UISwitch`, and `onCheckedChange` a `CompoundButton` listener. `UIStackView` and `LinearLayout` take children.
+
+## Where native JSX goes
+
+- A component returns its native JSX as the last statement of its setup. JSX kept in a variable, or returned from a platform branch, fails with [LUCENT3025](/docs/api/diagnostics/#lucent3025).
+- So in one file, only the platform whose code ends the function can return native JSX. For native JSX on both platforms, write [platform files](/docs/api/views/components/#one-file-or-platform-files): a declaration file, then one file per platform.
+- A platform file's component returns `UIView` or `View`, and its declaration file `UIView | View`. The component's root view is the class of the tag it returns.
+- A tag is a class that is or extends UIKit's `UIView` or Android's `android.view.View`, from any module Lucent binds.
+- A SwiftUI or Compose element can't stand among native views.
+
+Setup code may come before the `return`: signals, effects, `expose()` and other statements, as in [any component](/docs/api/views/components/).
+
+## Props
+
+| Platform | A prop is | Example |
+| --- | --- | --- |
+| iOS | A writable property: not read-only, static or a constant. | `<UILabel text={props.title} />` sets `UILabel.text`. |
+| Android | A writable property of a Kotlin class. | |
+| Android | A method `set<X>` that takes one value and returns nothing, as the attribute `x`. Its overloads are one attribute, and the value's type picks one. | `<TextView text={props.title} />` calls `TextView.setText`. |
+
+- A prop's value is an effect of the mount. It's set when the view is made, and again when a prop or signal it read changes.
+- An attribute written alone, `<UILabel isHidden />`, is `true`, set once.
+- Read a prop in the attribute itself. An attribute reading a `const` setup copied from a prop, `const title = props.title`, would never change: it fails with LUCENT3025.
+- Methods, read-only, static and constant members aren't props. A generic setter is left out, since an attribute gives no type for it.
+
+## Events
+
+| Platform | An event is | Example |
+| --- | --- | --- |
+| Android | `setOn<X>Listener(listener)`, where the listener has one method: the attribute `on<X>`, a function of that method's parameters. It returns what the method returns. | `CompoundButton.setOnCheckedChangeListener` gives `onCheckedChange={(button, checked) => …}`. |
+| iOS | Each single-bit case of `UIControl_Event`, on a class declaring `addAction:forControlEvents:` as `UIControl` does: the attribute `on<Case>`. The handler gets the tag's own class. | `UIControl_Event.valueChanged` gives a `UISwitch` tag `onValueChanged={(control) => …}`, where `control` is a `UISwitch`. |
+
+- A listener of several methods, such as `SeekBar`'s or a `TextWatcher`, is left out. Setup can't set one either: giving the platform an instance of a Lucent class fails with [LUCENT3021](/docs/api/diagnostics/#lucent3021).
+- A handler is made once, registered when the view is made, and removed when the mount ends.
+- A handler is setup code, run on the main thread. It tells JavaScript by calling an event prop: `props.onToggle?.(on)`.
+
+## Children
+
+| Platform | A class takes children through | Example |
+| --- | --- | --- |
+| iOS | The nearest `insert<X>:atIndex:` method of the class or a class above it. | A `UIStackView` inserts arranged subviews with `insertArrangedSubview:atIndex:`, and any other `UIView` subviews with `insertSubview:atIndex:`. |
+| Android | `addView(View, int)`. | Every `ViewGroup` declares it, so a `LinearLayout` or a `FrameLayout` takes children. A `TextView` takes none. |
+
+- Children are made and inserted in source order, a parent before its children.
+- Each child is an element of a native view. Text, `{cond && <UILabel />}` and other expressions fail.
+
+Children are fixed, and a plain view lays none out yet: see [the limits](/docs/architecture/views/#limits). A `UIStackView` or an Android layout lays out its own.
+
+For React children inside a native view, use a [slot](/docs/api/views/components/#children) instead.
+
+## Construction
+
+| Platform | How a tag makes its view |
+| --- | --- |
+| iOS | `initWithFrame:` with a zero frame, else `init`: the class's own, or one it inherits. |
+| Android | The class's public `(Context)` constructor, given the hosting view's context, which carries its Activity's theme. |
+| Both | `create={() => new X(…)}`, which any tag may give. |
+
+A class with neither constructor needs `create`, or fails with LUCENT3025. Android's `KeyboardView` takes a `Context` and an `AttributeSet`, and a view made through a Swift initializer needs `create` too.
+
+## Inheritance and typing
+
+A tag takes the attributes of its class and of every class above it, up to `UIView` or `View`. Where two classes give one name, the nearest class's wins. Here is an excerpt of what `CompoundButton` adds:
+
+```ts title=".lucent/native/types/android/android.widget.d.ts" nocopy
+declare interface __jsx_CompoundButton<Self> {
+  /** CompoundButton.setChecked: a setter taking one value, in android-sdk:37.0 */
+  checked?: boolean;
+  /** CompoundButton.setOnCheckedChangeListener: a listener with one method (CompoundButton_OnCheckedChangeListener.onCheckedChanged), in android-sdk:37.0 */
+  onCheckedChange?: (arg0: CompoundButton, arg1: boolean) => void;
+}
+```
+
+- Each view class's declaration gives what it adds under a key of its own, `"~jsx:<module>.<class>"`, typed with the tag's class. So a control event's handler gets the subclass.
+- The root view's `"~jsx"` gathers every key of the hierarchy through [NativeAttributes](/docs/api/views/lucent-ui/#nativeattributes) from `lucent:ui`. JSX reads a tag's attributes from it.
+- Each attribute's doc comment gives its rule and the artifact it comes from, as above: your editor shows it.
+
+## List a module's tags
+
+```sh title="terminal"
+LUCENT_VIEWS=fabric npx lucent sdk coverage --views --android android.inputmethodservice
+```
+
+```sh title="terminal" nocopy
+module                      discovered  representable  unrepresentable  generated  exercised
+android.inputmethodservice  293         293            0 (0.0%)         -          -
+
+android.inputmethodservice views
+view             made     props  events  children  left out
+ExtractEditText  context  1      0       -         0
+KeyboardView     create   5      0       -         1
+```
+
+`made` says how a tag makes its view: `frame`, `init`, `context`, or `create` when the element must give one. The counts are what each class adds itself: a tag also takes its superclasses' attributes and children.
+
+`--members` adds each attribute with its rule, and `--json` each left-out attribute with its reason. [lucent sdk coverage](/docs/api/cli/#lucent-sdk-coverage) lists the other flags.
+
+## Diagnostics
+
+```tsx title="title.lucent.tsx" expect="LUCENT3025"
+import { TextView } from "lucent:android/android.widget";
+import { UILabel } from "lucent:ios/UIKit";
+import { PLATFORM } from "lucent:platform";
+
+export function Title(props: { title: string }) {
+  if (PLATFORM === "ios") return <UILabel text={props.title} />;
+
+  return <TextView text={props.title} />;
+}
+```
+
+The iOS JSX isn't the component's last statement, so it fails with LUCENT3025. Platform files fix it, as in the [example](#example).
+
+| Code | What fails |
+| --- | --- |
+| [LUCENT3025](/docs/api/diagnostics/#lucent3025) | Native JSX the component doesn't return as its last statement, or a spread attribute. A child expression that isn't an element, or a SwiftUI or Compose element among native views. A class with no constructor and no `create`, or an attribute reading a copy of a prop. |
+| [LUCENT9001](/docs/api/diagnostics/#lucent9001) | A tag that isn't a view class, an attribute the tag doesn't take, or children of a class that inserts none. Also children that aren't elements, such as text or `{cond && <UILabel />}`. For an attribute the rules leave out, the message gives the reason. |
+| [LUCENT3022](/docs/api/diagnostics/#lucent3022) | An attribute's code that can't run on the main thread, as for any setup code. |
+| [LUCENT3007](/docs/api/diagnostics/#lucent3007) | A tag's class or initializer, an attribute's setter, listener or control event, or a child's insert method, newer than Lucent's lowest OS. |
+
+:::caution
+An iOS property attribute isn't checked against the iOS floor yet: `<UIButton isSymbolAnimationEnabled />` compiles, though the property needs iOS 17. Set a newer property in setup code, under `available()`.
+:::
