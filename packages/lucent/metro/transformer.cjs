@@ -9,15 +9,15 @@ const LUCENT = /\.lucent\.tsx?$/;
 
 /**
  * The module's name, as the compiler's moduleNameOf gives it: its file's, or
- * in a Lucent package (the nearest package.json has a `lucent` field)
- * `<package>/<path under its sources>`.
+ * in a Lucent package (the nearest package.json with a name or dependencies
+ * has a `lucent` field) `<package>/<path under its sources>`.
  */
 function moduleName(filename) {
   const base = (f) => f.replace(/\.(ios|android)(?=\.lucent\.tsx?$)/, "").replace(LUCENT, "");
   for (let dir = path.dirname(path.resolve(filename)); ; dir = path.dirname(dir)) {
     const file = path.join(dir, "package.json");
-    if (fs.existsSync(file)) {
-      const pkg = JSON.parse(fs.readFileSync(file, "utf8"));
+    const pkg = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : undefined;
+    if (pkg && (pkg.name || pkg.dependencies)) {
       if (!pkg.lucent || !pkg.name) break;
       const rel = path.relative(path.join(dir, pkg.lucent.sources || "."), path.resolve(filename));
       return `${pkg.name}/${base(rel).split(path.sep).join("/")}`;

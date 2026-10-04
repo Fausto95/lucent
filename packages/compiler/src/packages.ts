@@ -41,11 +41,17 @@ const read = (file: string): PackageJson | undefined => {
   }
 };
 
-/** The Lucent package a file belongs to: the nearest package.json, if it has a `lucent` field. */
+/**
+ * The Lucent package a file belongs to: the nearest package, if its
+ * package.json has a `lucent` field. A package.json with neither a name nor
+ * dependencies, such as `{ "type": "module" }`, makes no package: it only
+ * says how Node loads the files beside it, which npm publishes with the
+ * package above.
+ */
 export function lucentPackageOf(file: string): LucentPackage | undefined {
   for (let dir = path.dirname(path.resolve(file)); ; dir = path.dirname(dir)) {
     const pkg = read(path.join(dir, "package.json"));
-    if (pkg) {
+    if (pkg && (pkg.name || pkg.dependencies)) {
       if (!pkg.lucent || !pkg.name) return undefined;
       return {
         name: pkg.name,

@@ -319,9 +319,11 @@ directories, `ios`, `android` and Lucent packages' directories
 (`findOwnFiles` in `packages/compiler/src/packages.ts`). A Lucent package
 inside the app, such as a workspace under `packages/`, is compiled once,
 as a package, when the app depends on it, and left out otherwise. A
-package's modules stop likewise at any directory with a `package.json` of
-its own, such as an example app. `lucent init` and `lucent bench` look for
-modules and `*.bench.ts` files the same way.
+package's modules stop likewise at any other package's directory, such as
+an example app. A `package.json` with neither a name nor dependencies, such
+as `{ "type": "module" }`, makes no package: its folder stays the app's or
+the package's, and its modules are named as theirs. `lucent init` and
+`lucent bench` look for modules and `*.bench.ts` files the same way.
 
 Lucent code imports another package's modules by path, for example
 `import { impactAsync } from "lucent-haptics/src/haptics.lucent"`.
