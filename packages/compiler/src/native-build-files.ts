@@ -17,8 +17,10 @@ export interface PodspecInputs {
   frameworks: string[];
   /** Whether the pod has Swift sources. */
   swift: boolean;
-  /** Pod name → its version requirements (none: the app's Podfile decides). */
+  /** Lucent packages' pods: pod name → its version requirements. */
   pods: [string, string[]][];
+  /** Other pods the iOS code imports modules of: the app's Podfile decides their versions. */
+  importedPods: string[];
   /** Directories of Lucent packages' sources, compiled into the pod. */
   sources: string[];
   /** Copied to the app bundle's root. */
@@ -106,10 +108,8 @@ export function podspec(template: string, inputs: PodspecInputs): string {
     ...(inputs.vendoredFrameworks.length
       ? [`  s.vendored_frameworks = ${list(inputs.vendoredFrameworks)}`]
       : []),
-    ...inputs.pods.map(
-      ([pod, requirements]) =>
-        `  s.dependency ${[pod, ...requirements].map((r) => JSON.stringify(r)).join(", ")}`,
-    ),
+    ...inputs.pods.map((pod) => podLine(pod)),
+    ...inputs.importedPods.map((pod) => podLine([pod, []], false)),
     // React Native's helper (react_native_pods.rb) adds them to the pod's target at pod install.
     ...inputs.swiftPackages.map(
       ([url, { requirement, products }]) =>
@@ -118,6 +118,43 @@ export function podspec(template: string, inputs: PodspecInputs): string {
   ];
 
   return lines.length ? text.replace(/^end\s*$/m, () => `${lines.join("\n")}\nend`) : text;
+}
+
+/** Ends a podspec line that a Lucent package's lucent.json asks for. */
+const PACKAGE_POD = " # lucent.json";
+
+/** A pod's line in a podspec: the pod, then its version requirements; marked when a package asks for it. */
+const podLine = ([pod, requirements]: [string, string[]], fromPackage = true) =>
+  `  s.dependency ${[pod, ...requirements].map((r) => JSON.stringify(r)).join(", ")}${fromPackage ? PACKAGE_POD : ""}`;
+
+/**
+ * `podspec` depending on the Lucent packages' `pods` as given: each pod's
+ * line is replaced in place, a missing one is added before `end`, and a
+ * marked one no package asks for any more is dropped. The pods the iOS code
+ * imports, unmarked, stay; and the same pods make the same text.
+ */
+export function withPodDependencies(podspec: string, pods: [string, string[]][]): string {
+  const wanted = new Map(pods);
+  const done = new Set<string>();
+  const lines = podspec.split("\n").flatMap((line) => {
+    const pod = /^\s*s\.dependency "([^"]+)"/.exec(line)?.[1];
+    if (pod === undefined) return [line];
+
+    const requirements = wanted.get(pod);
+    if (requirements) {
+      if (done.has(pod)) return [];
+
+      done.add(pod);
+      return [podLine([pod, requirements])];
+    }
+
+    return line.endsWith(PACKAGE_POD) ? [] : [line];
+  });
+  const missing = pods.filter(([pod]) => !done.has(pod)).map((pod) => podLine(pod));
+  const end = lines.lastIndexOf("end");
+
+  if (missing.length) lines.splice(end < 0 ? lines.length : end, 0, ...missing);
+  return lines.join("\n");
 }
 
 /** The files of `p` in the native package: `p` itself for a listed file. */

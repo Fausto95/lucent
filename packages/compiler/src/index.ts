@@ -66,7 +66,7 @@ export {
   coreTypesPath,
   type ReadSource,
 } from "./program.ts";
-export { libraryBuildGradle } from "./native-build-files.ts";
+export { libraryBuildGradle, withPodDependencies } from "./native-build-files.ts";
 export { fileHashes, type FileHashes, inNativePackage } from "./package-files.ts";
 export { coverage as sdkCoverage, type Coverage as SdkCoverage } from "@lucent-lang/bindgen";
 export { jsxToolkits, toolkitsFrom } from "./ui/toolkit-modules.ts";
@@ -124,6 +124,7 @@ export {
   deferredLibraryGradle,
   inputsKey,
   isUpToDate,
+  packagePods,
   writeNativePackage,
   runtimeDir,
   type WriteResult,

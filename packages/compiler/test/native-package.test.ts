@@ -671,7 +671,7 @@ describe("the Lucent packages' pods in a podspec", () => {
     const changed = withPodDependencies(once, [["WidgetsPod", ["~> 2.0"]]]);
 
     expect(changed.match(/s\.dependency "WidgetsPod"/g)).toHaveLength(1);
-    expect(changed).toContain('s.dependency "WidgetsPod", "~> 2.0"\n');
+    expect(changed).toContain('s.dependency "WidgetsPod", "~> 2.0" # lucent.json\n');
     expect(withPodDependencies(changed, [["WidgetsPod", ["~> 2.0"]]])).toBe(changed);
   });
 });

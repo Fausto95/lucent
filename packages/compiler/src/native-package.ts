@@ -110,6 +110,18 @@ export function deferredLibraryGradle(native: NativeInputs | undefined): string 
   return libraryBuildGradle(template, native, true, fabricViews() ? "unknown" : []);
 }
 
+/** Lucent packages' pods, each with every version requirement the packages ask, sorted. */
+export function packagePods(manifest: NativeInputs["manifest"] | undefined): [string, string[]][] {
+  return Object.entries(manifest?.ios.pods ?? {})
+    .map(([pod, asked]): [string, string[]] => [
+      pod,
+      [
+        ...new Set(Object.keys(asked).flatMap((r) => r.split(",").map((part) => part.trim()))),
+      ].sort(),
+    ])
+    .sort(([a], [b]) => a.localeCompare(b));
+}
+
 /**
  * Writes the native package React Native autolinks: the C++ runtime, the
  * generated module code, the TurboModule host, build files for both
@@ -145,15 +157,10 @@ export function writeNativePackage(
 
   // Lucent packages' pods, with every requirement on them, and the pods whose
   // modules the iOS code imports (the app's Podfile resolves those).
-  const pods = new Map<string, string[]>(
-    Object.entries(native?.ios.pods ?? {}).map(([pod, asked]) => [
-      pod,
-      [
-        ...new Set(Object.keys(asked).flatMap((r) => r.split(",").map((part) => part.trim()))),
-      ].sort(),
-    ]),
+  const pods = packagePods(native);
+  const importedPods = [...new Set(result.pods ?? [])].filter(
+    (pod) => !pods.some(([p]) => p === pod),
   );
-  for (const pod of result.pods ?? []) if (!pods.has(pod)) pods.set(pod, []);
 
   // Frameworks the iOS platform code and the packages use join the podspec's.
   const frameworks = new Set([
@@ -178,7 +185,8 @@ export function writeNativePackage(
       swift:
         [...result.files.keys()].some((f) => f.endsWith(".swift")) ||
         packageFiles.some(([f]) => f.endsWith(".swift") && inSources(f)),
-      pods: [...pods],
+      pods,
+      importedPods,
       sources,
       resources: inPackage(native?.ios.resources ?? []),
       resourceBundles: Object.entries(native?.ios.resourceBundles ?? {}).map(([name, paths]) => [

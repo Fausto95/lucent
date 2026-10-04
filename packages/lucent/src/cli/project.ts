@@ -10,6 +10,7 @@ import {
   libraryBuildGradle,
   lucentPackages,
   type NativeInputs,
+  packagePods,
   type Platform,
   type PlistValue,
   podsSearchPaths,
@@ -18,6 +19,7 @@ import {
   runtimeDir,
   type SdkOptions,
   sdkModules,
+  withPodDependencies,
 } from "@lucent-lang/compiler";
 import { withLucentPaths } from "./tsconfig.ts";
 import { packageFile } from "./version.ts";
@@ -244,18 +246,26 @@ export type AndroidDependencies =
   | { status: "failed"; detail: string };
 
 /**
- * The native package as autolinking reads it, before a Gradle run reads
- * the app's autolinking config: the templates (react-native.config.js,
- * package.json, the podspec, the Android library) where missing, the rest
- * left as the last build wrote it, and build.gradle with the Lucent
- * packages' Gradle artifacts, so the classpath Gradle resolves has them.
+ * The native package as autolinking reads it, before a Gradle run or pod
+ * install reads the app's autolinking config: the templates
+ * (react-native.config.js, package.json, the podspec, the Android library)
+ * where missing, the rest left as the last build wrote it, with the Lucent
+ * packages' native dependencies for the platforms the build compiles:
+ * build.gradle with their Gradle artifacts, so the classpath Gradle
+ * resolves has them, and the podspec with their pods, so pod install
+ * installs them.
  *
  * React Native caches that config until a JS lockfile changes. When this
  * creates the package, the config cached without it is marked stale, and
  * the next Gradle run reads it again. Returns whether it created the
  * package.
  */
-export function writeLinkedPackage(root: string, out: string, native: NativeInputs): boolean {
+export function writeLinkedPackage(
+  root: string,
+  out: string,
+  native: NativeInputs,
+  platforms: { ios?: boolean; android?: boolean },
+): boolean {
   const templates = path.join(runtimeDir(), "native");
   const created = !fs.existsSync(path.join(out, "react-native.config.js"));
 
@@ -268,11 +278,26 @@ export function writeLinkedPackage(root: string, out: string, native: NativeInpu
     fs.copyFileSync(file, to);
   }
 
-  writeGradleDependencies(out, native);
+  if (platforms.android) writeGradleDependencies(out, native);
+  if (platforms.ios) writePodDependencies(out, native);
 
   if (created) staleAutolinking(root);
 
   return created;
+}
+
+/**
+ * The native package's podspec depending on the Lucent packages' pods, before
+ * the rest is written: a check that fails because a package's pod isn't
+ * installed yet leaves the pod declared, so pod install installs it and the
+ * next build binds it.
+ */
+function writePodDependencies(out: string, native: NativeInputs): void {
+  const file = path.join(out, "LucentNative.podspec");
+  const text = fs.readFileSync(file, "utf8");
+  const next = withPodDependencies(text, packagePods(native.manifest));
+
+  if (next !== text) fs.writeFileSync(file, next);
 }
 
 /**

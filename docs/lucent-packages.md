@@ -73,7 +73,12 @@ conflict names the two packages that disagree:
 
 The merged result goes into the native package:
 
-- **Pods** become dependencies of its podspec.
+- **Pods** become dependencies of its podspec, marked `# lucent.json`. A
+  build writes them before it checks the modules, so a module that imports
+  a package's pod builds in a new app: the first build fails with
+  LUCENT3004 and asks for `pod install`, which installs the pod, and the
+  next build binds it. A pod the packages no longer declare leaves the
+  podspec; the pods the code imports from the app's Podfile stay.
 - **Frameworks** join the podspec's `s.frameworks`, with the frameworks of
   the `lucent:ios/*` modules its code imports.
 - **Gradle artifacts** are `api` dependencies of its Android library. They
