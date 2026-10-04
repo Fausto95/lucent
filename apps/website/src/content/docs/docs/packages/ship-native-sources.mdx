@@ -1,7 +1,60 @@
 ---
-title: "Ship native sources and resources"
-description: "This page is being rewritten."
+title: Ship native sources and resources
+description: "List them in the package's `lucent.json`: `lucent build` copies them into the native package, whose pod and Android library compile and bundle them into the app."
 kind: guide
 ---
 
-This page is being rewritten.
+```json title="lucent.json"
+{
+  "ios": {
+    "nativeSources": ["native/ios"],
+    "resources": ["assets/chime.caf"],
+    "resourceBundles": { "OrbitAssets": ["assets/images"] }
+  },
+  "android": {
+    "nativeSources": ["native/android"],
+    "resources": ["res"],
+    "assets": ["assets/android"],
+    "nativeLibraries": ["jniLibs"]
+  }
+}
+```
+
+Paths are relative to the package. `lucent build` copies the files they hold to `.lucent/native/packages/<package>/<path>`, leaving hidden files such as `.DS_Store` behind. It deletes the copies once a package stops listing them.
+
+A path outside the package, missing, or of the wrong kind fails the build, naming the package, the field and the path.
+
+:::caution
+Modules can't import these sources. They are for native code: an Android service that [`android.components` declares](/docs/packages/declare-android-components/), or the C behind a [native extension](/docs/packages/wrap-a-c-library/). To call your own Swift or Kotlin from a module, ship it [prebuilt](/docs/packages/ship-a-prebuilt-library/).
+:::
+
+## Where each field goes
+
+| Field                     | Lists                              | In the app's build                                                                                                                                                                                                                             |
+| ------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ios.nativeSources`       | directories                        | Their `.h .hpp .m .mm .c .cc .cpp .swift` files join the pod's sources, and each directory is a header search path. A Swift file makes it a Swift pod.                                                                                         |
+| `ios.resources`           | files or directories               | Copied to the root of the app bundle under their own names.                                                                                                                                                                                    |
+| `ios.resourceBundles`     | bundle name → files or directories | Copied into `<name>.bundle` in the app. A bundle name belongs to one package.                                                                                                                                                                  |
+| `android.nativeSources`   | directories                        | Java and Kotlin source roots of the Android library; a Kotlin file applies the Kotlin Android plugin. Their `.c .cc .cpp` files compile with the runtime through `android/packages.cmake`, each directory with C or C++ files an include path. |
+| `android.resources`       | directories                        | Resource directories in the `res/` layout, such as `drawable/` and `values/`.                                                                                                                                                                  |
+| `android.assets`          | directories                        | Packaged into the app's assets.                                                                                                                                                                                                                |
+| `android.nativeLibraries` | directories                        | Prebuilt `<abi>/lib*.so` files, such as `arm64-v8a/liborbit.so`, packaged into the app.                                                                                                                                                        |
+
+Every field and its exact rules are in the [lucent.json reference](/docs/packages/lucent-json/).
+
+## Collisions
+
+Two files that would land in the same place of the app fail the build, naming both packages and both files.
+
+| Files                                            | Compared by                                                                        |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| `ios.resources`                                  | name at the bundle's root: move one into a `resourceBundles` bundle                |
+| the files of one `ios.resourceBundles` entry     | name inside the bundle                                                             |
+| `ios.vendoredFrameworks`                         | framework name                                                                     |
+| `android.resources`                              | path under the resource directory, except `values*/`, which Android merges by name |
+| `android.assets`                                 | path under the asset directory                                                     |
+| `android.nativeLibraries`                        | path, such as `arm64-v8a/liborbit.so`                                              |
+| `android.libraries`                              | file name                                                                          |
+| Java and Kotlin files of `android.nativeSources` | path under the source root                                                         |
+
+Android's resource merger reports duplicate values itself. After you change a listed file, rebuild the app: `lucent build` names what the change needs ([Get a module change into the running app](/docs/guides/apply-a-change/)).
