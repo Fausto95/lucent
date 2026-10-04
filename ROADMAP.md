@@ -2297,8 +2297,9 @@ Last recorded runs:
   files. `expo prebuild` stops at that first failure, which names no
   steps: the config plugin builds before the pods are installed and
   before it links the native package. A pod binds through the module it
-  defines (`DEFINES_MODULE`, modular headers, or `use_frameworks!`); a
-  Swift pod built as a static library is not bound.
+  defines (`DEFINES_MODULE`, modular headers, a prebuilt `.framework`, or
+  `use_frameworks!`); a Swift pod built as a static library, or one that
+  ships an `.xcframework`, is not bound.
 - Typed native extensions: Swift and Kotlin sources in a package are not
   typed yet, and extension calls cannot be cancelled.
 - Tracing records allocations for native buffers only, and its buffer

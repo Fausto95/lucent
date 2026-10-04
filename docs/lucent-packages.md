@@ -92,15 +92,18 @@ The merged result goes into the native package:
 - A pod binds through the module it defines, as the app target's Pods
   xcconfig gives it (`podsSearchPaths` in `@lucent-lang/bindgen`): a
   `module.modulemap` under its header search paths or passed with
-  `-fmodule-map-file`, a `.swiftmodule` in a header search path, or, with
-  `use_frameworks!`, the framework module map and umbrella header CocoaPods
-  writes in `Pods/Target Support Files/` and the headers the umbrella
-  imports. Built as a static library (React Native's default), a pod
-  defines one when its podspec sets `DEFINES_MODULE` or the Podfile asks
-  for modular headers (`use_modular_headers!`, `:modular_headers => true`).
-  Paths in the build products directory (`PODS_CONFIGURATION_BUILD_DIR`)
-  are not read, so a Swift pod built as a static library, whose module
-  Xcode writes there, is not bound.
+  `-fmodule-map-file`, a `.swiftmodule` in a header search path, a
+  prebuilt `.framework` the pod ships under `Pods/` (on its framework
+  search paths), or, with `use_frameworks!`, the framework module map and
+  umbrella header CocoaPods writes in `Pods/Target Support Files/` and the
+  headers the umbrella imports. Built as a static library (React Native's
+  default), a pod defines one when its podspec sets `DEFINES_MODULE` or
+  the Podfile asks for modular headers (`use_modular_headers!`,
+  `:modular_headers => true`). Paths in the build products directory
+  (`PODS_CONFIGURATION_BUILD_DIR`) are not read, so a Swift pod built as a
+  static library, whose module Xcode writes there, is not bound, nor is a
+  pod that ships an `.xcframework`, which CocoaPods copies there
+  (`PODS_XCFRAMEWORKS_BUILD_DIR`).
 - **Frameworks** join the podspec's `s.frameworks`, with the frameworks of
   the `lucent:ios/*` modules its code imports.
 - **Gradle artifacts** are `api` dependencies of its Android library. They
