@@ -4,8 +4,6 @@ description: Keep the TypeScript API, and write the Swift and Kotlin bodies as t
 kind: guide
 ---
 
-import { Tabs, TabItem } from "@astrojs/starlight/components";
-
 1. Copy the module's TypeScript API: its exported functions, types and enums. That's your module's export list.
 2. For each function, take the Swift and the Kotlin body and write them as the two branches of one Lucent function, `if (PLATFORM === "ios") { … } else { … }`.
 3. Keep the SDK calls; change the syntax. Swift's names work as they are, nested types join with `_`, and Kotlin's getters are properties.

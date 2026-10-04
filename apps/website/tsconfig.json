@@ -1,13 +1,42 @@
 {
-  "extends": "astro/tsconfigs/strict",
+  "extends": "@docusaurus/tsconfig",
   "compilerOptions": {
-    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "allowImportingTsExtensions": true,
-    "types": ["node"],
-    "paths": { "~/*": ["./src/*"] }
+    "noEmit": true,
+    "types": [
+      "node",
+      "@docusaurus/module-type-aliases"
+    ],
+    "paths": {
+      "@site/*": [
+        "./*"
+      ],
+      "~/*": [
+        "./src/*"
+      ]
+    },
+    "target": "ES2023",
+    "lib": [
+      "ESNext",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "jsx": "react-jsx"
   },
-  "include": [".astro/types.d.ts", "**/*"],
-  "exclude": ["dist", ".prose", "src/generated/snippets"]
+  "include": [
+    "src",
+    "test",
+    "docusaurus.config.ts",
+    "sidebars.ts"
+  ],
+  "exclude": [
+    "build",
+    ".docusaurus",
+    ".prose",
+    "src/generated/snippets"
+  ]
 }

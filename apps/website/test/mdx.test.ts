@@ -79,11 +79,11 @@ describe("the docs' MDX", () => {
     expect(page.blocks).toEqual(blocks);
   });
 
-  it("imports the components a page uses, and only those", () => {
+  it("imports no component: the site gives every page its components", () => {
     const mdx = pageToMdx(frontmatter, [{ kind: "comparison" }]);
 
-    expect(mdx).toContain('import Comparison from "~/components/Comparison.astro";');
-    expect(mdx).not.toContain("@astrojs/starlight/components");
+    expect(mdx).toContain("<Comparison />");
+    expect(mdx).not.toContain("import ");
   });
 
   it("says a generated page is generated", () => {
@@ -103,7 +103,7 @@ describe("the docs' MDX", () => {
     );
   });
 
-  it("names headings as Astro does", () => {
+  it("names headings as Docusaurus does", () => {
     expect(headingId("What's copied, and what isn't")).toBe("whats-copied-and-what-isnt");
     expect(headingId("When you need `main()`")).toBe("when-you-need-main");
   });

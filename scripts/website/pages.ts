@@ -6,6 +6,7 @@ import type { PostEntry } from "../../apps/website/src/blog/types.ts";
 import {
   type DocSection,
   INTERNALS,
+  docId,
   docsSections,
   docsSlugs,
   locate,
@@ -32,7 +33,7 @@ export interface CheckedPage {
   /** A docs page's kind sets its length budget; a post has none. */
   kind: DocKind | "post";
   title: string;
-  /** A docs page's description, a post's summary. */
+  /** A docs page's description, a post's too. */
   description: string;
   blocks: Block[];
   samplesWith?: string;
@@ -108,7 +109,7 @@ export function checkedPages(pages: DocPage[], posts: Post[]): CheckedPage[] {
       href: `/blog/${p.slug}/`,
       kind: "post" as const,
       title: p.title,
-      description: p.summary,
+      description: p.description,
       blocks: p.blocks,
       ...(p.views ? { views: p.views } : {}),
     })),
@@ -139,12 +140,11 @@ const internal = (slug: string): boolean => slug === INTERNALS || slug.startsWit
 
 /**
  * Each page says its kind, internals pages and only those are under
- * Architecture's Internals, pages about views are badged experimental, and
- * a frontmatter "Next" names a page of the same section by its title.
+ * Architecture's Internals, pages about views are marked experimental, and
+ * a frontmatter pagination_next names a doc of the same section.
  */
 export function checkPages(pages: DocPage[], sections: DocSection[] = docsSections): string[] {
   const problems: string[] = [];
-  const byHref = new Map(pages.map((p) => [docsHref(p.slug), p]));
   for (const page of pages) {
     const at = where(page.slug);
     if (!page.title || !page.description)
@@ -155,18 +155,16 @@ export function checkPages(pages: DocPage[], sections: DocSection[] = docsSectio
       problems.push(`${at}: kind internals is for pages under ${where(INTERNALS)}`);
     if (internal(page.slug) && page.kind !== "internals")
       problems.push(`${at}: a page under ${where(INTERNALS)} is kind internals`);
-    if (page.views && page.sidebar?.badge !== "Experimental")
-      problems.push(`${at}: views are experimental: set sidebar: { badge: "Experimental" }`);
-    if (page.next === undefined) continue;
-    const target = byHref.get(page.next.link);
+    if (page.views && page.sidebar_class_name !== "experimental")
+      problems.push(`${at}: views are experimental: set sidebar_class_name: experimental`);
+    if (page.pagination_next === undefined) continue;
+    const target = pages.find((p) => docId(p.slug) === page.pagination_next);
     const from = locate(page.slug, sections)?.section;
     const to = target && locate(target.slug, sections)?.section;
-    if (!target) problems.push(`${at}: next is ${page.next.link}, which is not a page`);
-    else if (page.next.label !== target.title)
-      problems.push(`${at}: next's label should be its page's title`);
+    if (!target) problems.push(`${at}: pagination_next is ${page.pagination_next}, which is not a page`);
     else if (from && to && from !== to)
       problems.push(
-        `${at}: next is ${page.next.link}, in ${to.label}: Next stays in ${from.label}`,
+        `${at}: pagination_next is ${page.pagination_next}, in ${to.label}: Next stays in ${from.label}`,
       );
   }
   return problems;
@@ -174,14 +172,14 @@ export function checkPages(pages: DocPage[], sections: DocSection[] = docsSectio
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Each post has a title and summary, and its date is a real day. */
+/** Each post has a title and a description, and its date is a real day. */
 export function checkPosts(
-  posts: Pick<PostEntry, "slug" | "title" | "date" | "summary">[],
+  posts: Pick<PostEntry, "slug" | "title" | "date" | "description">[],
 ): string[] {
   const problems: string[] = [];
   for (const post of posts) {
-    if (!post.title || !post.summary)
-      problems.push(`/blog/${post.slug}/ needs a title and a summary in its frontmatter`);
+    if (!post.title || !post.description)
+      problems.push(`/blog/${post.slug}/ needs a title and a description in its frontmatter`);
     // Date.parse rolls 2026-02-30 over to March: a real day reads back the same.
     const date = String(post.date);
     const day = Date.parse(`${date}T00:00:00Z`);

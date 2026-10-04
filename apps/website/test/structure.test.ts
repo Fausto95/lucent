@@ -46,23 +46,17 @@ describe("the docs pages", () => {
   });
 
   it("keep a frontmatter Next inside the page's section", () => {
-    const next = { link: "/docs/architecture/", label: "architecture" };
-
-    expect(checkPages(pages({ "guides/install": { next } }), sections)).toEqual([
-      "/docs/guides/install/: next is /docs/architecture/, in Architecture: Next stays in Guides",
+    expect(
+      checkPages(pages({ "guides/install": { pagination_next: "architecture" } }), sections),
+    ).toEqual([
+      "/docs/guides/install/: pagination_next is architecture, in Architecture: Next stays in Guides",
     ]);
   });
 
-  it("name a page that exists, by its title, as Next", () => {
-    expect(
-      checkPages(pages({ "": { next: { link: "/docs/guides/gone/", label: "Gone" } } }), sections),
-    ).toEqual(["/docs/: next is /docs/guides/gone/, which is not a page"]);
-    expect(
-      checkPages(
-        pages({ "": { next: { link: "/docs/guides/install/", label: "Install" } } }),
-        sections,
-      ),
-    ).toEqual(["/docs/: next's label should be its page's title"]);
+  it("name a page that exists as Next", () => {
+    expect(checkPages(pages({ "": { pagination_next: "guides/gone" } }), sections)).toEqual([
+      "/docs/: pagination_next is guides/gone, which is not a page",
+    ]);
   });
 
   it("say a kind the checks know", () => {
@@ -88,11 +82,11 @@ describe("the docs pages", () => {
 
   it("mark pages about views as experimental in the sidebar", () => {
     expect(checkPages(pages({ "guides/install": { views: true } }), sections)).toEqual([
-      '/docs/guides/install/: views are experimental: set sidebar: { badge: "Experimental" }',
+      "/docs/guides/install/: views are experimental: set sidebar_class_name: experimental",
     ]);
     expect(
       checkPages(
-        pages({ "guides/install": { views: true, sidebar: { badge: "Experimental" } } }),
+        pages({ "guides/install": { views: true, sidebar_class_name: "experimental" } }),
         sections,
       ),
     ).toEqual([]);

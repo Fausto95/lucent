@@ -2,16 +2,21 @@ import { describe, expect, it } from "vite-plus/test";
 import { checkPosts } from "../../../scripts/website/pages.ts";
 import { formatDate, newestFirst } from "../src/blog/types.ts";
 
-const post = (slug: string, date: string) => ({ slug, date, title: slug, summary: "A post." });
+const post = (slug: string, date: string) => ({
+  slug,
+  date,
+  title: slug,
+  description: "A post.",
+});
 
 describe("blog posts", () => {
-  it("pass with a title, a summary and a real day", () => {
+  it("pass with a title, a description and a real day", () => {
     expect(checkPosts([post("views", "2026-10-02"), post("modules", "2026-09-30")])).toEqual([]);
   });
 
-  it("need a title and a summary", () => {
-    expect(checkPosts([{ ...post("views", "2026-10-02"), summary: "" }])).toEqual([
-      "/blog/views/ needs a title and a summary in its frontmatter",
+  it("need a title and a description", () => {
+    expect(checkPosts([{ ...post("views", "2026-10-02"), description: "" }])).toEqual([
+      "/blog/views/ needs a title and a description in its frontmatter",
     ]);
   });
 

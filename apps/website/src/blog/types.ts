@@ -1,4 +1,4 @@
-/** A blog post's frontmatter (src/content.config.ts validates it), with its slug. */
+/** A blog post's frontmatter (Docusaurus' blog reads it), with its slug. */
 export interface PostEntry {
   /** Path under /blog/, without slashes: the file's name. */
   slug: string;
@@ -6,7 +6,7 @@ export interface PostEntry {
   /** The day it was published, as YYYY-MM-DD. */
   date: string;
   /** One or two sentences for the list of posts. Also the <meta name="description">. */
-  summary: string;
+  description: string;
   /**
    * The post's samples include components drawn with SwiftUI and Compose
    * (`.lucent.tsx`): they compile with the components' views generated.

@@ -6,7 +6,7 @@ export const frontmatter: DocFrontmatter = {
   description:
     "The fields of each command's `--json` output, and of `lucent-sdk.lock.json`, from their JSON schemas.",
   kind: "reference",
-  sidebar: { label: "JSON formats" },
+  sidebar_label: "JSON formats",
 };
 
 type Field = { field: string; type: string; required: boolean; description: string };
