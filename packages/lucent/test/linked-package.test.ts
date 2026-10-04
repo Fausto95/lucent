@@ -66,4 +66,26 @@ describe("the linked native package, before a build writes the rest", () => {
 
     fs.rmSync(root, { recursive: true, force: true });
   });
+
+  it("starts the podspec again from the template when an edit took its closing end", () => {
+    const { root, out } = lastBuild({});
+    const one = packageNative("lucent-auth", { ios: { pods: { LucentAuthKit: "~> 1.0" } } });
+    const two = packageNative("lucent-auth", {
+      ios: { pods: { LucentAuthKit: "~> 1.0", OtherKit: "1.0" } },
+    });
+    writeLinkedPackage(root, out, one, { ios: true });
+    const file = path.join(out, "LucentNative.podspec");
+    fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace(/^end\s*$/m, ""));
+
+    writeLinkedPackage(root, out, two, { ios: true });
+
+    const fresh = lastBuild({});
+    writeLinkedPackage(fresh.root, fresh.out, two, { ios: true });
+    expect(fs.readFileSync(file, "utf8")).toBe(
+      fs.readFileSync(path.join(fresh.out, "LucentNative.podspec"), "utf8"),
+    );
+
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(fresh.root, { recursive: true, force: true });
+  });
 });
