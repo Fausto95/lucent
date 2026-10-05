@@ -1428,7 +1428,7 @@ count.
 coherent workflow.
 
 - **Status:** in progress (2026-10-05): one slice per item, each its own
-  PR; SDK coverage of every module first.
+  PR; the two carried-over items first.
 - **Area:** Tooling.
 - **Needs:** T23 (done), T24 (done), T40 (done), T41 (done), [T48](#t48)
   (open).
@@ -1448,9 +1448,11 @@ coherent workflow.
 - [ ] Validate TTY, non-TTY and JSON output, `init`, new module and new
       view, transitive workspace edits, cold failures and recovery; measure
       the warm feedback targets.
-- [ ] Carried over from T41: check that view loading runs the same
+- [x] Carried over from T41: check that view loading runs the same
       stale-native identity check as modules (T41 left views to the view
-      work), or add it.
+      work), or add it: it does (a view-only module's proxy checks before
+      it makes a component; its props, events and commands are in its API
+      hash), proven by `view-identity.test.ts`.
 - [x] Carried over from the full SDK plan: run `lucent sdk coverage --all`
       in CI and show the top 20 skip reasons in the job summary (CI checks
       five iOS modules and `android.*` today): `--all` and `--summary`; 526
