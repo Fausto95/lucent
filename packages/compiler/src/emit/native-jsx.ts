@@ -315,7 +315,12 @@ function element(em: FnEmitter, node: ts.Expression, made: Made, keyed = false):
       run.captures.push(view);
 
       made.statements.push(
-        effectOf(em, value, [view, made.item.signal, { name: "lucent_get", init: get.c }], ended(run)),
+        effectOf(
+          em,
+          value,
+          [view, made.item.signal, { name: "lucent_get", init: get.c }],
+          ended(run),
+        ),
       );
       continue;
     }
@@ -456,9 +461,11 @@ function children(
   const at = (name: string) => cpp.param(cpp.type("int"), name);
   const moves = rule.movesByInsert
     ? [
-        cpp.lambda(["="], [child, at("lucent_from"), at("lucent_to")], [
-          cpp.exprStmt(insert(cpp.id("lucent_child"), cpp.id("lucent_to"))),
-        ]),
+        cpp.lambda(
+          ["="],
+          [child, at("lucent_from"), at("lucent_to")],
+          [cpp.exprStmt(insert(cpp.id("lucent_child"), cpp.id("lucent_to")))],
+        ),
       ]
     : [];
 
@@ -474,9 +481,11 @@ function children(
       cpp.construct(
         cpp.type("lucent::ui::ChildOps", viewType),
         [
-          cpp.lambda(["="], [child, at("lucent_index")], [
-            cpp.exprStmt(insert(cpp.id("lucent_child"), cpp.id("lucent_index"))),
-          ]),
+          cpp.lambda(
+            ["="],
+            [child, at("lucent_index")],
+            [cpp.exprStmt(insert(cpp.id("lucent_child"), cpp.id("lucent_index")))],
+          ),
           cpp.lambda(
             ["="],
             [child],
@@ -595,12 +604,7 @@ function branch(
         enterMount(
           em,
           e,
-          cpp.lambda(
-            ["=", ...conditions],
-            [],
-            [cpp.ret(choice)],
-            { ret: cpp.type("int") },
-          ),
+          cpp.lambda(["=", ...conditions], [], [cpp.ret(choice)], { ret: cpp.type("int") }),
         ),
         enterMount(
           em,
@@ -624,7 +628,11 @@ function list(
   region: cpp.Expr,
 ): void {
   if (made.item)
-    fail(e, Codes.NativeViewJsx, "a list inside a list's item: make the item a component of its own");
+    fail(
+      e,
+      Codes.NativeViewJsx,
+      "a list inside a list's item: make the item a component of its own",
+    );
 
   const items = (e.expression as ts.PropertyAccessExpression).expression;
   const arrayType = em.lt(items);
@@ -635,7 +643,11 @@ function list(
     fail(items, Codes.NativeViewJsx, `a list maps an array: ${items.getText()} is none`);
 
   if (!fn || !(ts.isArrowFunction(fn) || ts.isFunctionExpression(fn)) || e.arguments.length !== 1)
-    fail(e, Codes.NativeViewJsx, "a list maps a function literal: `items.map((item) => <X key={…} />)`");
+    fail(
+      e,
+      Codes.NativeViewJsx,
+      "a list maps a function literal: `items.map((item) => <X key={…} />)`",
+    );
 
   const [param, index] = fn.parameters;
 
@@ -647,7 +659,11 @@ function list(
     );
 
   if (!param || !ts.isIdentifier(param.name))
-    fail(fn, Codes.NativeViewJsx, "a list's callback names its item: `(item) => <X key={item.id} />`");
+    fail(
+      fn,
+      Codes.NativeViewJsx,
+      "a list's callback names its item: `(item) => <X key={item.id} />`",
+    );
 
   const body = ts.isBlock(fn.body)
     ? fn.body.statements.length === 1 && ts.isReturnStatement(fn.body.statements[0]!)
@@ -686,9 +702,7 @@ function list(
   const keyOf = later(em, own, keyValue, { type: keyType });
   const array = em.thunk(items, { type: arrayType });
   const listName = em.ctx.fresh("list");
-  const signalType = cpp.constType(
-    cpp.reference(cpp.type("lucent::ui::Signal", itemType)),
-  );
+  const signalType = cpp.constType(cpp.reference(cpp.type("lucent::ui::Signal", itemType)));
 
   made.statements.push(
     cpp.varDecl(
@@ -707,10 +721,12 @@ function list(
           enterMount(
             em,
             e,
-            cpp.lambda(["="], [cpp.param(signalType, "lucent_item")], [
-              ...ended(own),
-              cpp.ret(cpp.id(view)),
-            ], { ret: cpp.type("lucent::NativeRef") }),
+            cpp.lambda(
+              ["="],
+              [cpp.param(signalType, "lucent_item")],
+              [...ended(own), cpp.ret(cpp.id(view))],
+              { ret: cpp.type("lucent::NativeRef") },
+            ),
           ),
         ],
       ),
