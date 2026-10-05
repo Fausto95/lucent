@@ -88,7 +88,10 @@ class String {
   }
 
   // --- JavaScript String.prototype ---------------------------------------
-  double charCodeAt(double index) const;
+  double charCodeAt(double index) const {
+    if (size_t i = indexBelow(index, length()); i != kNoIndex) return unit(i);
+    return charCodeAtOther(index);
+  }
   String charAt(double index) const;
   Opt<String> at(double index) const;
   Opt<double> codePointAt(double index) const;
@@ -194,6 +197,8 @@ class String {
   static Data* append(Data* d, const String& s);
   /// Takes ownership of `d` (the reference allocate() returned).
   static String adopt(Data* d);
+  /// charCodeAt of an index that is not an integer within the string.
+  double charCodeAtOther(double index) const;
   /// Writes the code units as UTF-16 to `out` (room for length() units).
   void copyUnitsTo(char16_t* out) const;
   /// a + b stored inline; the two fit in kInline bytes.
