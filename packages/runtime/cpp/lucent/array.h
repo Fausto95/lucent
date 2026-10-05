@@ -199,17 +199,31 @@ class Array {
 
   String join() const { return join(String::fromLatin1(",")); }
   String join(const String& sep) const {
-    String out;
-    for (size_t i = 0; i < d_->size(); i++) {
-      if (i > 0) out += sep;
-      if constexpr (IsOpt<T>::value) {
-        const T& v = (*d_)[i];
-        if (v.has()) out += toJsString(v.get());
-      } else {
-        out += toJsString(at(i));
+    size_t n = d_->size();
+    if (n == 0) return String();
+    // Strings: the exact size up front, so the result is one allocation.
+    // Other elements: their strings, appended as they come.
+    size_t capacity = sep.length() * (n - 1);
+    bool oneByte = sep.isOneByte();
+    if constexpr (std::is_same_v<T, String>) {
+      for (const String& s : *d_) {
+        capacity += s.length();
+        oneByte = oneByte && s.isOneByte();
       }
     }
-    return out;
+    StringBuilder out(capacity, oneByte);
+    for (size_t i = 0; i < n; i++) {
+      if (i > 0) out.append(sep);
+      if constexpr (std::is_same_v<T, String>) {
+        out.append((*d_)[i]);
+      } else if constexpr (IsOpt<T>::value) {
+        const T& v = (*d_)[i];
+        if (v.has()) out.append(toJsString(v.get()));
+      } else {
+        out.append(toJsString(at(i)));
+      }
+    }
+    return std::move(out).build();
   }
 
   double indexOf(const T& v, double from = 0) const {
