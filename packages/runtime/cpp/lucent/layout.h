@@ -261,6 +261,8 @@ class LayoutNode {
   LayoutNode& operator=(const LayoutNode&) = delete;
 
   ~LayoutNode() {
+    // Letting the children go marks the node dirty: no one is told of a node that is going.
+    YGNodeSetDirtiedFunc(node_, nullptr);
     YGNodeRemoveAllChildren(node_);
     for (auto& c : children_) c->parent_ = nullptr;
 
