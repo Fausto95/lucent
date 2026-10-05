@@ -320,6 +320,30 @@ describe("IR verifier", () => {
     ]);
   });
 
+  it("rejects an integer register on anything but a number, or on a boxed local", () => {
+    const b = new IrBuilder("ints", T.void, at(0, 100));
+
+    b.local("n", T.number, at(1), false, "i64");
+    b.local("s", T.string, at(2), false, "i32");
+    b.local("shared", T.number, at(3), true, "i64");
+
+    const built = b.finish();
+    const t = new IrBuilder("text", T.string, at(0, 100));
+
+    t.return(t.const("x", at(1)), at(2));
+
+    const text = t.finish();
+    // A string claimed to be held in an integer register.
+    const f = { ...text, values: text.values.map((x) => ({ ...x, int: "u32" as const })) };
+
+    expect(problemsOf(built)).toEqual([
+      "r0[1] local holds p1 in an i32 register, but it is not a local number",
+      "r0[2] local holds p2 in an i64 register, but it is not a local number",
+    ]);
+
+    expect(problemsOf(f)).toContain("v0 is held in an u32 register, but is a string");
+  });
+
   it("rejects throwing a value that is not an Error", () => {
     const b = new IrBuilder("boom", T.string, at(0, 100));
 

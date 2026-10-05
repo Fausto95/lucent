@@ -543,26 +543,35 @@ class Emitter {
 
     if (own) return own === kind ? this.intValue(v) : cpp.staticCast(type, this.intValue(v));
 
-    const def = this.definitions.get(v);
+    const int64 = kind === "i64" ? this.int64(v) : undefined;
 
-    if (
-      kind === "i64" &&
-      def?.kind === "binary" &&
-      (def.op === "+" || def.op === "-") &&
-      this.inlined.has(v) &&
-      this.intKind(def.left) &&
-      this.intKind(def.right)
-    ) {
-      const [l, r] = [def.left, def.right].map((x) => cpp.staticCast(type, this.intValue(x)));
-
-      return cpp.binary(l!, def.op, r!);
-    }
+    if (int64) return int64;
 
     if (kind === "i32") return cpp.call("lucent::toInt32", [this.value(v)]);
 
     if (kind === "u32") return cpp.call("lucent::toUint32", [this.value(v)]);
 
     return cpp.staticCast(type, this.value(v));
+  }
+
+  /**
+   * `v`, a write the integer analysis proved exact (emit/integers.ts), computed in int64: an
+   * integer register, or `+`, `-`, `*` or `%` of such, spelled in place. Every value the
+   * analysis allows is an exact integer within ±2^53 and never -0, a remainder's dividend is
+   * never negative and its divisor at least 1, so int64 gives each the double's value. Undefined
+   * for anything else, which the double computes.
+   */
+  private int64(v: ValueId): cpp.Expr | undefined {
+    if (this.intKind(v)) return cpp.staticCast(cpp.type("int64_t"), this.intValue(v));
+
+    const def = this.definitions.get(v);
+
+    if (def?.kind !== "binary" || !this.inlined.has(v) || !INT64_ARITHMETIC.has(def.op))
+      return undefined;
+
+    const [l, r] = [this.int64(def.left), this.int64(def.right)];
+
+    return l && r ? cpp.binary(l, def.op as cpp.BinaryOp, r) : undefined;
   }
 
   /** Whether `v` is spelled where its one use is, rather than as a variable. */
@@ -1367,8 +1376,13 @@ function directCallback(
   return uses === 1 && direct;
 }
 
-/** The operation after `ops[at]`, past a local declared where it is first stored (`T x = v;`). */
+/**
+ * The operation after `ops[at]`, past constants (spelled where they are used, they run nothing)
+ * and a local declared where it is first stored (`T x = v;`).
+ */
 function nextUse(ops: readonly IrOp[], at: number): IrOp | undefined {
+  while (ops[at + 1]?.kind === "const") at++;
+
   const next = ops[at + 1];
   const after = ops[at + 2];
 
@@ -1381,6 +1395,9 @@ function nextUse(ops: readonly IrOp[], at: number): IrOp | undefined {
 function deep(fn: IrFunction, op: IrOp): IrOp[] {
   return [op, ...regionsOf(op).flatMap((r) => fn.regions[r]!.ops.flatMap((o) => deep(fn, o)))];
 }
+
+/** The arithmetic `Emitter.int64` computes in int64. */
+const INT64_ARITHMETIC = new Set<BinaryOp>(["+", "-", "*", "%"]);
 
 /** The C++ type of each integer register. */
 const INT_CPP: Record<IntKind, string> = { i32: "int32_t", u32: "uint32_t", i64: "int64_t" };
