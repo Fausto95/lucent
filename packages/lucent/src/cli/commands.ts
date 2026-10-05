@@ -56,7 +56,7 @@ export const commands: CommandSpec[] = [
   {
     name: "doctor",
     summary:
-      "Check the machine and the app: Node, React Native, Xcode, CocoaPods, the Android SDK, the JDK, the Metro config, versions",
+      "Check the machine, the app and its builds: Node, React Native, Xcode, CocoaPods, Android, the JDK, Metro, versions",
     flags: [],
     load: () => import("./commands/doctor.ts"),
   },
