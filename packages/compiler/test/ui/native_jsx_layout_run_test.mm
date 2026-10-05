@@ -101,6 +101,10 @@ void run() {
     call();
   };
 
+  __weak UIView* made = nil;
+
+  // UIKit's arrays (subviews, sorted copies) are autoreleased: the pool lets them go before the release check.
+  @autoreleasepool {
   auto empty = std::make_shared<const card::Props>();
   auto props = commit(parser, empty,
                       R"({"p0": "Hello", "p1": false, "p2": [{"id": "a", "name": "A"}, {"id": "b", "name": "B"}]})");
@@ -108,7 +112,7 @@ void run() {
   host([&] { mount = card::Mount::create(*props, [](const card::Event&) {}); });
 
   UIView* row = (UIView*)lucent::objc::unwrap(mount->view());
-  __weak UIView* made = row;
+  made = row;
   row.frame = CGRectMake(0, 0, 400, 200);
   [row layoutIfNeeded];
 
@@ -146,7 +150,8 @@ void run() {
   say("stack: " + verdict("4 in from its place, its labels where it put them",
                           {{near(stack.frame.origin.y, 10 + 4), "stack " + frame(stack)},
                            {kept, "its labels moved"},
-                           {second, "its labels not 2 apart"}}));
+                           {second, "its labels not 2 apart: " + frame(stack.arrangedSubviews[0]) + " " +
+                                        frame(stack.arrangedSubviews[1]) + " in " + frame(stack)}}));
 
   const CGFloat titleWas = title.frame.size.width;
   const CGFloat spacerWas = spacer.frame.size.width;
@@ -196,6 +201,8 @@ void run() {
   mount->dispose();
   mount.reset();
   row = nil;
+  }
+
   say(std::string("released: native references ") + (lucent::liveNativeRefs() == refs ? "all released" : "held") +
       ", row " + (made ? "kept" : "gone"));
 }
