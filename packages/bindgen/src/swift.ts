@@ -373,10 +373,12 @@ export function addSwiftDeclarations(ctx: SwiftContext): void {
       handled,
     );
     // An Objective-C member of the same name wins: the shim is for what Objective-C cannot call.
+    // Swift's own overloads (`decodeTopLevelObject()`, `…(forKey:)`) are all kept.
+    const objc = new Set((cls.methods ?? []).map((m) => m.name));
     const has = (list: { name: string }[] | undefined, n: string) =>
       !!list?.some((x) => x.name === n);
     const methods = withoutPropertyNames(bound.methods, cls.properties ?? [], bound.symbols, skip);
-    for (const m of methods) if (!has(cls.methods, m.name)) (cls.methods ??= []).push(m);
+    for (const m of methods) if (!objc.has(m.name)) (cls.methods ??= []).push(m);
     for (const p of bound.props) if (!has(cls.properties, p.name)) (cls.properties ??= []).push(p);
     if (bound.ctors.length && !cls.constructors?.length) {
       const apart = factoriesOfSameTyped(bound.ctors, `${module}.${cls.name}`);
@@ -415,8 +417,12 @@ export function addSwiftDeclarations(ctx: SwiftContext): void {
  */
 function parameters(m: SymbolGraphSymbol, r: Resolver): SdkParam[] {
   const defaults = defaultedParameters(declText(m));
+  // A module's own graph keeps `inout` in the declaration alone, not the parameter's fragments.
+  const inout = parameterTexts(declText(m)).map((p) => /:\s*(@\w+\s+)*inout\b/.test(p));
   const params = (m.functionSignature?.parameters ?? []).map((pp, i): SdkParam => {
     const name = pp.internalName ?? pp.name;
+    // A value Swift writes back: no Lucent argument is a place it can write to.
+    if (inout[i]) throw new Unsupported("inout parameters");
     try {
       const type = parseType(afterColon(pp.declarationFragments), r);
       return defaults[i] ? { name, type, defaulted: "optional" } : { name, type };
@@ -432,6 +438,28 @@ function parameters(m: SymbolGraphSymbol, r: Resolver): SdkParam[] {
     else if (required) delete p.defaulted;
   }
   return params;
+}
+
+/** A declaration's parameters as written (`into total: inout Int`), by position. */
+function parameterTexts(text: string): string[] {
+  const open = text.indexOf("(", Math.max(0, text.search(/\b(func|init)\b/)));
+  if (open < 0) return [];
+  const out: string[] = [];
+  let depth = 0;
+  let start = open + 1;
+  for (let i = open + 1; i < text.length; i++) {
+    const c = text[i]!;
+    if ("([<{".includes(c)) depth++;
+    else if (")]>}".includes(c) && text[i - 1] !== "-") {
+      if (depth-- > 0) continue;
+      if (i > open + 1) out.push(text.slice(start, i));
+      break;
+    } else if (depth === 0 && c === ",") {
+      out.push(text.slice(start, i));
+      start = i + 1;
+    }
+  }
+  return out;
 }
 
 /** Which of a declaration's parameters have a default (`= []`), by position. */
