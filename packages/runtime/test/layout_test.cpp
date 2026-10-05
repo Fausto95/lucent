@@ -319,6 +319,31 @@ static void saysWhenItNeedsLayout() {
   CHECK(needed == 4);
 }
 
+// The size a tree takes within a bound: its own unbounded, or the bound
+// where it would exceed it (text wrapping to the narrower width).
+static void fitsWithinABound() {
+  auto column = LayoutNode::create();
+  column->set("padding", 5.0);
+  auto text = LayoutNode::create();
+  text->measureWith([](float w, ui::MeasureMode m, float, ui::MeasureMode) {
+    const float width = m == ui::MeasureMode::Undefined ? 100 : std::min(100.0f, w);
+    return ui::LayoutSize{width, 1000 / width};
+  });
+  column->insert(text, 0);
+
+  auto fits = column->fit(none, none, ui::LayoutDirection::LTR);
+  CHECK(fits.width == 110 && fits.height == 20);
+
+  fits = column->fit(500, none, ui::LayoutDirection::LTR);
+  CHECK(fits.width == 110 && fits.height == 20);
+
+  fits = column->fit(60, none, ui::LayoutDirection::LTR);
+  CHECK(fits.width == 60 && fits.height == 30);
+
+  fits = column->fit(none, 15, ui::LayoutDirection::LTR);
+  CHECK(fits.width == 110 && fits.height == 15);
+}
+
 // A parent gone first leaves its children whole, to lay out alone.
 static void outlivesItsParent() {
   auto child = leaf(10, 10);
@@ -343,6 +368,7 @@ int main() {
   snapsToPixels();
   refusesWhatItDoesNotTake();
   saysWhenItNeedsLayout();
+  fitsWithinABound();
   outlivesItsParent();
 
   std::printf("layout: %d checks, %d failures\n", checks, failures);
