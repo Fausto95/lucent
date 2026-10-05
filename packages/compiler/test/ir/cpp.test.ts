@@ -140,7 +140,7 @@ describe("IR to C++", () => {
     b.return(joined, at(5));
 
     expect(printed(b.finish())).toContain(
-      '  lucent::String v1_ = lucent::toJsString(p0_);\n  return lucent::String(LUCENT_STR("n=")) + v1_;',
+      '  return lucent::String(LUCENT_STR("n=")) + lucent::toJsString(p0_);',
     );
   });
 
@@ -225,8 +225,7 @@ describe("IR to C++", () => {
       [
         "void ops(double p0_, lucent::Opt<double> p1_) {",
         // The int32 operators work on integer registers, read back as a double where one is needed.
-        "  int32_t v3_ = lucent::toInt32(p0_) & 3;",
-        "  int32_t v6_ = ~static_cast<int32_t>(static_cast<uint32_t>(v3_) >> (static_cast<uint32_t>(1) & 31u));",
+        "  int32_t v6_ = ~static_cast<int32_t>(static_cast<uint32_t>(lucent::toInt32(p0_) & 3) >> (static_cast<uint32_t>(1) & 31u));",
         "  bool v7_ = lucent::truthy(p1_);",
         "  bool v9_ = !p1_.has();",
         "  bool v11_ = lucent::strictEquals(p1_, lucent::undefined);",
@@ -279,8 +278,7 @@ describe("IR to C++ for bigints", () => {
     expect(printed(b.finish()).replace(/^#line .*\n/gm, "")).toBe(
       [
         "lucent::BigInt big(lucent::BigInt p0_) {",
-        '  lucent::BigInt v4_ = lucent::BigInt::pow(p0_ % lucent::BigInt::fromInt64(-5), LUCENT_BIGINT("18446744073709551616"));',
-        "  lucent::BigInt v6_ = v4_ << lucent::BigInt::fromInt64(3);",
+        '  lucent::BigInt v6_ = lucent::BigInt::pow(p0_ % lucent::BigInt::fromInt64(-5), LUCENT_BIGINT("18446744073709551616")) << lucent::BigInt::fromInt64(3);',
         "  return v6_ ^ ~p0_;",
         "}",
       ].join("\n"),
