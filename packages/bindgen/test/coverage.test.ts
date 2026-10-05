@@ -168,6 +168,14 @@ describe("a coverage summary", () => {
     expect(summary).toContain("(top 2 of 2)");
   });
 
+  it("lists the modules it could not read, and why", () => {
+    const summary = coverageSummary([report("A", 1, 0, {})], 20, [
+      { module: "IOKit", reason: "no symbol graph" },
+    ]);
+
+    expect(summary).toContain("1 module could not be read:\n\n- IOKit: no symbol graph\n");
+  });
+
   it("escapes a reason's table characters", () => {
     expect(coverageSummary([report("A", 1, 1, { "a | b": 1 })])).toContain("| 1 | a \\| b |");
   });
