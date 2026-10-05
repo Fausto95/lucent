@@ -432,6 +432,19 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-05: Native views are laid out by a `Flex` tag.** A subtree
+Lucent lays out with Yoga is written as `<Flex style={…}>` from
+`lucent:ui`, backed by runtime classes (a UIView subclass, a ViewGroup);
+each child's Yoga style is its `layout={{…}}` attribute, refused outside
+a Flex. A plain UIView stays unmanaged, and a native container keeps
+laying out its own children. _Why:_ the design asks for an explicitly
+created layout container, and a tag makes ownership a matter of the
+element, never of a prop (a width must not switch who writes a frame);
+one `layout` object never clashes with a native prop of the same name
+(Android's `setPadding`). Not a cross-platform view vocabulary (T51):
+the children stay each platform's views. _Changed:_ T50's scope (a
+`Flex` tag and `layout`, no automatic layout of plain parents).
+
 **2026-10-04: Same-typed Swift initializers are static factories.** Swift
 initializers whose parameters' TypeScript types are the same, only their
 labels differing (KeychainAccess's `init(service:)` and
@@ -861,7 +874,7 @@ small fixes found on the way.
 | ------------- | ----------------------------------------------------------------- | -------- | -------------------- |
 | [T48](#t48)   | Derive general SDK-view JSX rules and diagnostics                 | —        | in review            |
 | [T49](#t49)   | Add conditional and keyed-list reactive lowering                  | T48      | in review            |
-| [T50](#t50)   | Integrate Yoga with explicit layout-owner boundaries              | T48      | waiting (maintainer) |
+| [T50](#t50)   | Integrate Yoga with explicit layout-owner boundaries              | T48      | in review            |
 | [T51](#t51)   | Implement the small Lucent UI library and examples                | T49, T50 | waiting (maintainer) |
 | [T52](#t52)   | Complete useful wrapper ports and certify a preview               | —        | ready (maintainer)   |
 | [TA25](#ta25) | Fix the bare app's FlatList crash from a second react-native copy | —        | in review            |
@@ -993,24 +1006,32 @@ only the affected operations under the specified mutation model.
 **Goal:** Lay out Lucent subtrees with React Native's Yoga, with exactly one
 owner writing each frame.
 
-- **Status:** open, waiting on open dependencies.
+- **Status:** in review (2026-10-05): every item below passes on its
+  branch; the physical-device run (V8) is the maintainer's.
 - **Area:** Views.
 - **Needs:** T46 (done), T47 (done), [T48](#t48) (open).
 - **Verify:** V1, V4, V5, V8.
-- **Where:** UI layout integration and adapters, backend and device layout
-  scenarios.
+- **Where:** `packages/runtime/cpp/lucent/layout.h` (the core) and
+  `ui_flex.h`, `platform/ios_layout.mm`, `platform/android_layout.cpp`
+  with `LucentFlexView.java` (the adapters); `lib/sdk/ui.d.ts` (`Flex`,
+  `LayoutStyle`) and `emit/native-jsx.ts` (lowering);
+  [views.md](docs/design/views.md#platform-views-as-jsx).
 - **Needs the maintainer:** physical devices (V8).
 
-- [ ] Use React Native's Yoga dependency, and avoid a second, conflicting
-      Yoga ABI.
-- [ ] Keep outer Fabric layout, the Lucent Yoga subtree and native-container
+- [x] Use React Native's Yoga dependency, and avoid a second, conflicting
+      Yoga ABI: `layout.h` includes React Native's `<yoga/Yoga.h>` (the
+      app's pod and prefab); the runtime tests build its sources.
+- [x] Keep outer Fabric layout, the Lucent Yoga subtree and native-container
       child layout separate; a width prop must not silently switch the
-      ownership mode.
-- [ ] Implement layout and measure invalidation and frames through the
-      approved adapters, including native content changes and constraints.
-- [ ] Test nested native and Lucent containers, margins, padding and gaps,
+      ownership mode: the `Flex` tag decides (decisions log, 2026-10-05).
+- [x] Implement layout and measure invalidation and frames through the
+      approved adapters, including native content changes and constraints:
+      Yoga's dirty marks, the mount's `Content` listeners, leaves measured
+      by `sizeThatFits:`, Auto Layout or `View.measure`.
+- [x] Test nested native and Lucent containers, margins, padding and gaps,
       RTL and density, and confirm that only one owner writes each child's
-      frame.
+      frame: `layout_test.cpp` and the Catalyst mount
+      (`native-jsx-layout-run.test.ts`); Android compile-checked.
 
 **Done when:** native and Yoga layouts compose with predictable ownership,
 no competing frame writers and no perpetual measurement loop.
@@ -2367,9 +2388,9 @@ Last recorded runs:
   A two-value `onChange` closure does not type-check, because TypeScript
   tries the one-value overload first.
 - Compose: class names that clash keep the first package's.
-- Native views' JSX (T48) has fixed children (conditional and keyed are
-  [T49](#t49)'s) and no layout for a plain view's children until Yoga
-  ([T50](#t50)); its rules read declarations, not behavior (Android's
+- Native views' JSX (T48): a plain view's children have no layout (a
+  `Flex`'s are Yoga's, [T50](#t50)), and a list's item is one element
+  ([T49](#t49)); its rules read declarations, not behavior (Android's
   AdapterView declares `addView(View, int)` and throws from it).
 - The bare app's FlatList crash ([TA25](#ta25)) and the iOS native-only
   slot move ([TA26](#ta26)) are in review.
