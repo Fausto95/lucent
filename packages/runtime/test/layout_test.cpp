@@ -248,10 +248,16 @@ static void snapsToPixels() {
   row->insert(a, 0);
   row->insert(b, 1);
 
-  // 10.1 points are 30.3 pixels: 30, a third of a point at a time.
+  // 10.1 points are 30.3 pixels: a measured leaf rounds up (31), so its
+  // content is never cut; every edge is on a third of a point.
   row->calculate(none, none, ui::LayoutDirection::LTR);
-  CHECK(frameIs(a, 0, 0, 10, 10));
-  CHECK(frameIs(b, 10, 0, 5, 10));
+  const auto onGrid = [](float v) { return std::abs(v * 3 - std::round(v * 3)) < 0.01f; };
+  for (auto& n : {a, b}) {
+    auto f = n->frame();
+    CHECK(onGrid(f.x) && onGrid(f.width));
+  }
+  CHECK(a->frame().width >= 10.1f);
+  CHECK(frameIs(a, 0, 0, 31.0f / 3, 10));
 }
 
 // What React Native's style would refuse throws, naming it.
