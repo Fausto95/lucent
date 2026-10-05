@@ -348,9 +348,11 @@ function element(em: FnEmitter, node: ts.Expression, made: Made, keyed = false):
     refuseCopies(em, setup.fn, value);
 
     // A prop is an effect of the mount: set now, and again whenever what it read changes. A
-    // property takes its type; a setter's value keeps its own, which chooses the overload.
+    // property takes its type; a setter's value keeps its own, which chooses the overload (a
+    // quoted one is a string: the checker types `text="…"`'s literal any).
     const property = prop.prop.kind === "property";
-    const get = later(em, made, value, { site: value, ...(property ? { type } : {}) });
+    const own = ts.isStringLiteral(value) ? { type: T.string } : {};
+    const get = later(em, made, value, { site: value, ...(property ? { type } : own) });
     const got = !property ? resultOf(get, type) : type;
 
     made.statements.push(
