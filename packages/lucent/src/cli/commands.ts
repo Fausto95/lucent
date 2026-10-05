@@ -205,6 +205,12 @@ export const commands: CommandSpec[] = [
         value: "file",
         description: "A JSON array of the symbol keys tests or probes ran (see --members)",
       },
+      { name: "all", description: "Every module of each SDK there is" },
+      {
+        name: "summary",
+        value: "file",
+        description: "Append a markdown summary of why members are left out (CI's step summary)",
+      },
       { name: "members", description: "List every member with its stage, key and reason" },
       {
         name: "views",

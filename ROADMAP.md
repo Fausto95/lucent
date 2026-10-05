@@ -1223,7 +1223,7 @@ Several tasks need physical devices, which only the maintainer can run.
 | [T56](#t56)   | Add native gestures and frame-driven animation facilities       | T51, T52                | waiting (maintainer) |
 | [T59](#t59)   | Prove media pipelines, high-rate streams and callback executors | T52                     | waiting (maintainer) |
 | [T60](#t60)   | Implement headless, background and additional native targets    | —                       | ready (maintainer)   |
-| [T61](#t61)   | Finish the editor, doctor, SDK and debugging workflows          | T48                     | waiting              |
+| [T61](#t61)   | Finish the editor, doctor, SDK and debugging workflows          | T48                     | in progress          |
 | [T62](#t62)   | Run the distribution and supported-version compatibility matrix | T52, T60, T61           | waiting              |
 | [T63](#t63)   | Run the final no-catalog audit, including views and extensions  | T28, T48, T50           | waiting              |
 | [T64](#t64)   | Run lifetime, concurrency and Fabric stress validation          | T49, T55, T59, T60      | waiting (maintainer) |
@@ -1427,7 +1427,8 @@ count.
 **Goal:** Let a developer build and diagnose a module or view through one
 coherent workflow.
 
-- **Status:** open, waiting on open dependencies.
+- **Status:** in progress (2026-10-05): one slice per item, each its own
+  PR; SDK coverage of every module first.
 - **Area:** Tooling.
 - **Needs:** T23 (done), T24 (done), T40 (done), T41 (done), [T48](#t48)
   (open).
@@ -1450,9 +1451,10 @@ coherent workflow.
 - [ ] Carried over from T41: check that view loading runs the same
       stale-native identity check as modules (T41 left views to the view
       work), or add it.
-- [ ] Carried over from the full SDK plan: run `lucent sdk coverage --all`
+- [x] Carried over from the full SDK plan: run `lucent sdk coverage --all`
       in CI and show the top 20 skip reasons in the job summary (CI checks
-      five iOS modules and `android.*` today).
+      five iOS modules and `android.*` today): `--all` and `--summary`; 526
+      modules locally, 53 unreadable for the simulator and listed.
 
 **Done when:** a developer can build and diagnose a module or view through
 one coherent workflow, and machine-readable consumers share its schema.
