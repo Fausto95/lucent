@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { coverage } from "../src/coverage.ts";
+import { type Coverage, coverage, coverageSummary } from "../src/coverage.ts";
 import { parseSchemaType, SCHEMA_FORMAT, type SdkModuleSchema } from "../src/schema.ts";
 import { sdkSymbols, symbolKey } from "../src/usage.ts";
 
@@ -111,5 +111,64 @@ describe("SDK coverage", () => {
       generated: null,
       exercised: null,
     });
+  });
+});
+
+describe("a coverage summary", () => {
+  const report = (
+    module: string,
+    total: number,
+    unrepresentable: number,
+    reasons: Record<string, number>,
+  ) =>
+    ({
+      module,
+      idiomatic: 0,
+      raw: total - unrepresentable,
+      unrepresentable,
+      total,
+      reasons,
+      stages: {
+        discovered: total,
+        representable: total - unrepresentable,
+        generated: null,
+        exercised: null,
+      },
+      members: [],
+    }) satisfies Coverage;
+
+  it("totals the modules and ranks the reasons summed across them", () => {
+    const summary = coverageSummary(
+      [
+        report("UIKit", 1000, 100, { "generic members": 60, "C unions": 40 }),
+        report("android.os", 500, 50, { "generic members": 30, varargs: 20 }),
+      ],
+      2,
+    );
+
+    expect(summary).toBe(
+      [
+        "## SDK coverage",
+        "",
+        "2 modules: 1500 members, 1350 representable (90.0%), 150 unrepresentable (10.0%).",
+        "",
+        "| Members | Why they are unrepresentable (top 2 of 3) |",
+        "| ---: | --- |",
+        "| 90 | generic members |",
+        "| 40 | C unions |",
+        "",
+      ].join("\n"),
+    );
+  });
+
+  it("breaks ties by reason, so the summary is the same each run", () => {
+    const summary = coverageSummary([report("A", 10, 4, { b: 2, a: 2 })]);
+
+    expect(summary.indexOf("| 2 | a |")).toBeLessThan(summary.indexOf("| 2 | b |"));
+    expect(summary).toContain("(top 2 of 2)");
+  });
+
+  it("escapes a reason's table characters", () => {
+    expect(coverageSummary([report("A", 1, 1, { "a | b": 1 })])).toContain("| 1 | a \\| b |");
   });
 });
