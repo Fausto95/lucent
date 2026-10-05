@@ -548,21 +548,29 @@ export function buildIosSchemas(
  * ones it inherits are declared on it too, as Swift keeps them
  * (`UICollectionViewLayout`'s beside a factory's): its superclasses' in
  * this module. A root class gets NSObject's init where it is built;
- * superclasses of other modules' stay hidden.
+ * superclasses of other modules' stay hidden. A superclass is settled
+ * before its subclasses read it, so a class gets what its superclass
+ * inherits too, whichever order the symbol graph gives them in.
  */
 export function withInheritedInitializers(mod: SdkModuleSchema): void {
   const classes = new Map(
     mod.types.filter((t): t is SdkClassSchema => t.kind === "class").map((c) => [c.name, c]),
   );
+  const settled = new Set<SdkClassSchema>();
 
-  for (const cls of classes.values()) {
-    if (!cls.inheritsInit || !cls.constructors?.length) continue;
+  const settle = (cls: SdkClassSchema): void => {
+    if (settled.has(cls)) return;
+    settled.add(cls);
+
+    if (!cls.inheritsInit || !cls.constructors?.length) return;
 
     let inherited: SdkCallable[] | undefined;
     for (let at = cls.extends, depth = 0; at && depth < 64 && !inherited; depth++) {
       const [owner, ...rest] = at.split(".");
       const sup = owner === mod.module ? classes.get(rest.join(".")) : undefined;
       if (!sup) break;
+
+      settle(sup);
 
       const own = (sup.constructors ?? []).filter((c) => !c.factory);
       if (own.length) inherited = own;
@@ -574,7 +582,9 @@ export function withInheritedInitializers(mod: SdkModuleSchema): void {
       cls.constructors.push(...inherited.map((c) => ({ ...c })));
       delete cls.inheritsInit;
     }
-  }
+  };
+
+  for (const cls of classes.values()) settle(cls);
 }
 
 /**
