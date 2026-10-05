@@ -96,7 +96,11 @@ Notable lowering choices:
   `x + 1` does not wrap in JavaScript.
 - **Closures** are C++ lambdas wrapped in `lucent::Fn`. A local captured by a
   closure _and_ written after its declaration lives in a `lucent::Box`, so both
-  sides see one variable (analysis in `analysis/scopes.ts`).
+  sides see one variable (analysis in `analysis/scopes.ts`). An arrow function
+  passed straight to a runtime method that takes a callback (`sort`, `map`,
+  `filter`, `forEach`, `reduce`, …) and used nowhere else is passed as the
+  lambda itself, which the method's template calls directly and the C++
+  compiler can inline; its identity is never observed.
 - **Generators** are coroutines whose declared return type is
   `lucent::Iter<T>` (a `coroutine_traits` specialization supplies the
   promise). `iterator.return()` resumes a suspended generator so that its

@@ -273,6 +273,8 @@ class Emitter {
     // call stays a statement of its own, never a C++ argument of another.
     if (op.kind === "call" || op.kind === "plan") return assigns;
 
+    if (op.kind === "closure") return next.kind === "plan" && directCallback(op, next, v);
+
     return spells && ["unary", "binary", "convert"].includes(op.kind);
   }
 
@@ -561,6 +563,11 @@ class Emitter {
     if (kind === "u32") return cpp.call("lucent::toUint32", [this.value(v)]);
 
     return cpp.staticCast(type, this.value(v));
+  }
+
+  /** Whether `v` is spelled where its one use is, rather than as a variable. */
+  isInlined(v: ValueId): boolean {
+    return this.inlined.has(v);
   }
 
   /** `v` is spelled `c` wherever it is used (a literal or a parameter). */
@@ -978,7 +985,13 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
         ? lambda
         : cpp.call("lucent::ui::inContent", [e.value(op.enters), lambda]);
 
-    e.define(op, op.result, cpp.construct(e.backend.cppType(e.typeOf(op.result)), [made]));
+    // Spelled in its one use, a runtime method's callback (see directCallback): the lambda
+    // itself, which the method's template calls directly, rather than a function value.
+    e.define(
+      op,
+      op.result,
+      e.isInlined(op.result) ? made : cpp.construct(e.backend.cppType(e.typeOf(op.result)), [made]),
+    );
 
     // The lambda's statements named lines of their own.
     e.lineChanged();
@@ -1285,6 +1298,73 @@ function after(effect: cpp.Expr, value: cpp.Expr): cpp.Expr {
   const pure = ["id", "number", "string", "bool"].includes(effect.k);
 
   return pure ? value : cpp.comma(cpp.cast("c", cpp.voidType, effect), value);
+}
+
+/**
+ * The runtime methods that take a callback as a template parameter (`F&&`) and only call it:
+ * Array's, and Map's, Set's and Bytes' forEach, map and reduce.
+ */
+const CALLBACK_METHODS = new Set([
+  "every",
+  "filter",
+  "find",
+  "findIndex",
+  "findLast",
+  "findLastIndex",
+  "flatMap",
+  "forEach",
+  "map",
+  "reduce",
+  "reduceRight",
+  "some",
+  "sort",
+  "toSorted",
+]);
+
+/**
+ * Devirtualization: whether the closure `op` makes, `v`, can be passed to `plan`, its one use,
+ * as the lambda itself rather than a function value (`lucent::Fn`, a shared, type-erased
+ * `std::function`). It can when `plan`'s code passes it, once, straight to one of
+ * CALLBACK_METHODS: the method's template then calls the lambda directly, and the compiler can
+ * inline it. Nothing else sees the value, so its identity is never compared; making a lambda
+ * runs none of its code, and its captures copy values (or boxes) the IR defined before, so
+ * making it as the method's argument changes no order. A coroutine's lambda, or one that enters
+ * a setup's mount, stays a function value.
+ */
+function directCallback(
+  op: IrOp & { kind: "closure" },
+  plan: IrOp & { kind: "plan" },
+  v: ValueId,
+): boolean {
+  if (op.fn.async || op.fn.generator !== undefined || op.enters !== undefined) return false;
+
+  type Node = { k?: string; name?: unknown; callee?: Node; args?: Node[] };
+  const names = [`${OPERAND}${v}`, `${INT_OPERAND}${v}`];
+  const isOperand = (n: Node | undefined) => n?.k === "id" && names.includes(n.name as string);
+  let uses = 0;
+  let direct = false;
+  const visit = (node: unknown): void => {
+    if (Array.isArray(node)) return node.forEach(visit);
+
+    if (typeof node !== "object" || node === null) return;
+
+    const n = node as Node;
+
+    if (isOperand(n)) uses++;
+
+    if (
+      n.k === "call" &&
+      n.callee?.k === "member" &&
+      CALLBACK_METHODS.has(n.callee.name as string) &&
+      n.args?.some(isOperand)
+    )
+      direct = true;
+
+    Object.values(node).forEach(visit);
+  };
+
+  visit(plan.code);
+  return uses === 1 && direct;
 }
 
 /** The operation after `ops[at]`, past a local declared where it is first stored (`T x = v;`). */
