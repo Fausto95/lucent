@@ -67,6 +67,7 @@ export default defineConfig({
       "apps/website/test/**/*.test.ts",
       // The example app's plain logic (routes, summaries), without React Native.
       "scripts/example-app/**/*.test.ts",
+      "scripts/*.test.ts",
     ],
     exclude: ["**/node_modules/**", "**/.git/**", ...(all ? [] : slow)],
     testTimeout: 60000,

@@ -432,6 +432,16 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-05: CI runs the jobs a pull request's files need.** The
+Linux unit tests and typecheck run on every pull request; the other jobs
+run when a file they read changes (`scripts/ci-changes.ts` maps paths to
+jobs), and a push to `main` runs them all. A path no area names runs
+everything until it is placed, and one `CI` check sums the jobs, skipped
+ones passing. _Why:_ docs, website and app changes waited on the five
+macOS jobs and the harnesses, which their files can't affect. _Changed:_
+`ci.yml` (a `Changed areas` job, the harness matrix built by the script,
+the `CI` gate).
+
 **2026-10-04: Same-typed Swift initializers are static factories.** Swift
 initializers whose parameters' TypeScript types are the same, only their
 labels differing (KeychainAccess's `init(service:)` and
