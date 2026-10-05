@@ -143,6 +143,35 @@ describe("native view JSX diagnostics", () => {
     );
   });
 
+  const flex = (code: string) =>
+    diagnostics(
+      "ios",
+      'import { Flex } from "lucent:ui";\nimport { UILabel, UIStackView } from "lucent:ios/UIKit";',
+      `  return (\n    ${code}\n  );`,
+    );
+
+  it.skipIf(!ios)("places only a Flex's children with `layout`", () => {
+    expect(
+      flex('<UIStackView><UILabel text="a" layout={{ flexGrow: 1 }} /></UIStackView>'),
+    ).toEqual(says("`layout` places a Flex's child: this element's parent is no Flex"));
+  });
+
+  it.skipIf(!ios)("takes a Flex's style as an object literal", () => {
+    expect(
+      flex(
+        "<Flex style={props.title === '' ? { gap: 1 } : { gap: 2 }}><UILabel text=\"a\" /></Flex>",
+      ),
+    ).toEqual(says("`style` is an object literal"));
+  });
+
+  it.skipIf(!ios)("refuses a key a Flex's style and layout both set", () => {
+    expect(
+      flex(
+        '<Flex><Flex style={{ width: 10 }} layout={{ width: 20 }}><UILabel text="a" /></Flex></Flex>',
+      ),
+    ).toEqual(says("width is set by both `style` and `layout`"));
+  });
+
   it.skipIf(!android)("explains an attribute its rules leave out", () => {
     expect(
       diagnostics(

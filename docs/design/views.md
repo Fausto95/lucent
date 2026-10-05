@@ -1016,6 +1016,59 @@ Android's `removeView`.
   new order (`[a,b,c]` to `[c,a,b]` is one move, no create or remove); no
   longest-increasing-subsequence step until one is measured to matter.
 
+**Layout (T50).** A plain view's children have no layout of their own.
+`Flex`, from `lucent:ui`, is a container laid out by React Native's own
+Yoga (no second Yoga is bundled):
+
+```tsx
+<Flex style={{ flexDirection: "row", gap: 8, padding: 12 }}>
+  <UILabel text={props.title} layout={{ flexGrow: 1 }} />
+  <UISwitch isOn={props.on} />
+</Flex>
+```
+
+- **Who owns what.** The tag decides, never a prop. A Flex writes its
+  direct children's frames, at each of its layouts, and nothing else
+  writes them. Its own frame is its parent's: Fabric for the component's
+  root (it fills the content box), a native container, or an enclosing
+  Flex. A native container among its children (a stack view, a
+  LinearLayout) lays out its own children, which the Flex never touches.
+  A plain view's children stay unmanaged.
+- **Style.** `style` places a Flex's children, and a child's `layout`
+  places it, in React Native's layout names and values: numbers in points
+  (dp), `"50%"`, `"auto"` where Yoga takes it, enums as React Native
+  spells them. Each key is an effect, set again when what it reads
+  changes; undefined restores React Native's default. Both are object
+  literals, and a nested Flex may not set one key in both.
+- **The tree.** Flexes inside one another make one Yoga tree. The
+  outermost lays it out at its bounds (in its platform's layout pass:
+  `layoutSubviews`, `onLayout`), snapped to the screen's pixels, in its
+  view's layout direction; each Flex then places its own children. The
+  runtime keeps the logic in a plain core, `lucent/layout.h`, which
+  `platform/ios_layout.mm` and `platform/android_layout.cpp` (with
+  `dev.lucent.LucentFlexView`) adapt.
+- **Leaves.** A child that is no Flex is measured by what it says of
+  itself. On iOS: `sizeThatFits:` where its class overrides it; Auto
+  Layout where its own constraints lay its content out (a stack view's);
+  else its intrinsic size (a plain view's is none: zero). On Android:
+  `View.measure`. A measured size rounds up to the pixel grid, so text is
+  never cut. No leaf is measured by the frame a Flex gave it, which would
+  feed a frame back into its own measurement.
+- **Laid out again** when its tree changes (a key set to another value,
+  a child inserted or removed: Yoga's dirty marks reach the root, which
+  asks its platform for a layout), and when its mount's code has run.
+  Then every leaf is measured again, since the code may have changed what
+  they show. That is the signal sizing by content hears (`Content`, whose
+  listeners run before the host measures), with the same limitation: a
+  change no code of the mount makes needs `invalidateSize()`.
+- **Sizing by content.** A component whose root is a Flex is measured
+  through its tree: iOS `sizeThatFits:`, Android `onMeasure`. The tree
+  fits the bound, laid out again at the bound where it would exceed it
+  (text wrapping to it).
+- **Lifetimes.** On Android a Flex's C++ side lives as long as the scope
+  it was made in (its mount's, an item's, a branch's); after it the view
+  lays nothing out. On iOS the view owns it.
+
 **Diagnostics.** LUCENT3025: native JSX the component does not return
 as it is, a spread attribute, a child that is not a native view's
 element, a class with no constructor to make it with (and no `create`),
@@ -1024,7 +1077,9 @@ props.title`), which would never change; a list's element without a
 `key`, a list's index parameter (indexes change as items move), a
 callback giving anything but one element, a `key` outside a list, a
 list inside a condition or inside a list's item, or an Android parent
-with no `removeView` among dynamic children. An attribute the rules leave out
+with no `removeView` among dynamic children; `layout` on an element whose
+parent is no Flex, a `style` or `layout` that is no object literal, a key
+a nested Flex sets in both, and other attributes on a Flex. An attribute the rules leave out
 is TypeScript's error with the rule's reason after it. An attribute's
 code is setup code: the main thread's rules (LUCENT3022) hold in it.
 
@@ -1045,10 +1100,13 @@ code is setup code: the main thread's rules (LUCENT3022) hold in it.
   runtime that connected last.
 - Setup, effects and commands run on the main thread. Long work there
   stalls the UI; compute tasks are where it belongs.
-- Platform-view JSX (T48): a plain view's children have no layout until
-  Yoga lays them out (T50); a stack view or an Android layout lays out its
+- Platform-view JSX (T48): a plain view's children have no layout; a
+  Flex's are Yoga's (T50), a stack view or an Android layout lays out its
   own. A list's item is one element (no fragment), and a list inside an
-  item is its own component's.
+  item is its own component's. A Flex inside a native container is sized
+  when its container asks (`sizeThatFits:`, `onMeasure`); a stack view
+  laying a Flex out by Auto Layout sees no intrinsic size. Physical
+  devices have not run a Flex yet (V8).
   Rules read declarations, not behavior: Android's AdapterView declares
   `addView(View, int)` and throws from it. A view made through a Swift
   initializer needs `create`. A pod's view whose superclass module

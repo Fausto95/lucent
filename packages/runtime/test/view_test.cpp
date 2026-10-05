@@ -170,6 +170,38 @@ static void hostsHearOnceAnEntryEnds() {
   CHECK((heard == std::vector<std::string>{"a", "b", "|", "b"}));
 }
 
+/// Code of the mount listens to its content's changes (a Flex marking its
+/// leaves to measure again): before the host measures, once per flush;
+/// a listener taken back hears nothing more, and its marks are no change.
+static void listenersHearBeforeTheHost() {
+  auto heard = onUi([] {
+    std::vector<std::string> out;
+    std::shared_ptr<ui::Content> content;
+    content = ui::Content::create([&out] { out.push_back("host"); });
+
+    const auto first = content->listen([&] {
+      out.push_back("first");
+      content->invalidate();
+    });
+    content->listen([&out] { out.push_back("second"); });
+
+    {
+      ui::ContentEntry entry(content);
+    }
+
+    content->unlisten(first);
+    out.push_back("|");
+
+    {
+      ui::ContentEntry entry(content);
+    }
+
+    return out;
+  });
+
+  CHECK((heard == std::vector<std::string>{"first", "second", "host", "|", "second", "host"}));
+}
+
 /// A function made in a setup enters its mount each time it runs, whoever
 /// calls it: what it makes in turn belongs to the same mount.
 static void functionsEnterTheirMount() {
@@ -255,6 +287,7 @@ int main() {
   eventsFollowTheirRoute();
   errorsNameTheirSource();
   hostsHearOnceAnEntryEnds();
+  listenersHearBeforeTheHost();
   functionsEnterTheirMount();
   invalidationsOutsideAnEntryWaitForTheTurn();
   entriesBelongToTheMainThread();

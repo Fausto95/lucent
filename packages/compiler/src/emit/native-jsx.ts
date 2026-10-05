@@ -27,7 +27,7 @@ import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import { findSdkModule } from "../sdk/schema.ts";
 import { type ViewOwner, viewTag } from "../sdk/view-rules.ts";
-import { nativeTagType } from "../ui/roots.ts";
+import { isFlexTag, nativeTagType } from "../ui/roots.ts";
 import type { Thunk } from "../ir/lower.ts";
 import { type LType, T } from "../types.ts";
 import type { E } from "./context.ts";
@@ -42,7 +42,7 @@ import {
   setterCall,
   viewNew,
 } from "./native.ts";
-import { enterMount, setupOf, site } from "./setups.ts";
+import { enterMount, mountContent, setupOf, site } from "./setups.ts";
 
 /** The JSX a component returns, made: the root view, its children inside it. */
 export function nativeJsx(em: FnEmitter, node: ts.Expression): E {
@@ -58,7 +58,7 @@ export function nativeJsx(em: FnEmitter, node: ts.Expression): E {
   const made = madeIn();
   const root = element(em, node, made);
 
-  return { c: cpp.statementExpr(ended(made), cpp.id(root)), t: setup.root };
+  return { c: cpp.statementExpr(ended(made), cpp.id(root.view)), t: setup.root };
 }
 
 /**
@@ -189,17 +189,31 @@ function unwrapped(e: ts.Expression): ts.Expression {
   return out;
 }
 
+/** An element made: its view's C++ name, and in a Flex its child's (its view and node). */
+interface Child {
+  view: string;
+  flex?: string;
+}
+
 /**
- * One element: its view made, its attributes and children given; the
- * view's C++ name. `keyed`: the element a list's callback returns, whose
- * `key` the list reads.
+ * One element: its view made, its attributes and children given. `keyed`:
+ * the element a list's callback returns, whose `key` the list reads;
+ * `inFlex`: a Flex's child, a node of its tree placed by its `layout`.
  */
-function element(em: FnEmitter, node: ts.Expression, made: Made, keyed = false): string {
+function element(
+  em: FnEmitter,
+  node: ts.Expression,
+  made: Made,
+  keyed = false,
+  inFlex = false,
+): Child {
   const setup = setupOf(em.ctx, node)!;
   const jsx = unwrapped(node);
 
   if (!isElement(jsx))
     fail(node, Codes.NativeViewJsx, "a native view's children are elements of native views");
+
+  if (isFlexTag(em.checker, jsx)) return flexElement(em, jsx, made, keyed, inFlex);
 
   const opening = ts.isJsxElement(jsx) ? jsx.openingElement : jsx;
   const tag = opening.tagName;
@@ -252,6 +266,16 @@ function element(em: FnEmitter, node: ts.Expression, made: Made, keyed = false):
   const self: E = { c: cpp.id(view), t: lt };
   made.captures.push(view);
 
+  // A Flex's child: a leaf of its tree, measured by its platform.
+  const flex = inFlex ? em.ctx.fresh("child") : undefined;
+  if (flex) {
+    flexUnit(em);
+    made.statements.push(
+      cpp.varDecl(cpp.auto, flex, cpp.call("lucent::ui::flex::leaf", [cpp.id(view)])),
+    );
+    made.captures.push(flex);
+  }
+
   for (const a of attributes as ts.NodeArray<ts.JsxAttribute>) {
     const name = a.name.getText();
     if (name === "create") continue;
@@ -264,6 +288,11 @@ function element(em: FnEmitter, node: ts.Expression, made: Made, keyed = false):
         Codes.NativeViewJsx,
         "`key` is for the element a list's callback returns: `{items.map((item) => <X key={item.id} />)}`",
       );
+    }
+
+    if (name === "layout") {
+      placed(em, made, a, flex, new Set());
+      continue;
     }
 
     const value = valueOf(a);
@@ -368,9 +397,124 @@ function element(em: FnEmitter, node: ts.Expression, made: Made, keyed = false):
     );
   }
 
-  children(em, jsx, made, ref, rules, self);
+  children(em, jsx, made, sdkParent(em, jsx, ref, rules, self));
 
-  return view;
+  return { view, ...(flex ? { flex } : {}) };
+}
+
+/** Code using a Flex includes its runtime. */
+const flexUnit = (em: FnEmitter) => em.ctx.nativeUnit(em.opts.module).include("lucent/ui_flex.h");
+
+/**
+ * A Flex (lucent:ui's, T50): its view and node made by the runtime, its
+ * `style` (and in a Flex its `layout`) keys set on its node, its children
+ * inserted through it.
+ */
+function flexElement(
+  em: FnEmitter,
+  jsx: ts.JsxElement | ts.JsxSelfClosingElement,
+  made: Made,
+  keyed: boolean,
+  inFlex: boolean,
+): Child {
+  const opening = ts.isJsxElement(jsx) ? jsx.openingElement : jsx;
+  const flex = em.ctx.fresh("flex");
+  const view = em.ctx.fresh("view_Flex");
+
+  flexUnit(em);
+  made.statements.push(
+    cpp.varDecl(cpp.auto, flex, cpp.call("lucent::ui::flex::container", [mountContent(em, jsx)])),
+    cpp.varDecl(cpp.auto, view, cpp.dot(cpp.id(flex), "view")),
+  );
+  made.captures.push(flex, view);
+
+  // A key set twice (`style` and `layout`) would have two writers.
+  const keys = new Set<string>();
+
+  for (const a of opening.attributes.properties) {
+    if (!ts.isJsxAttribute(a))
+      fail(a, Codes.NativeViewJsx, "a native view's attributes are written one by one, not spread");
+
+    const name = a.name.getText();
+
+    if (name === "key" && keyed) continue;
+
+    if (name === "style") placed(em, made, a, flex, keys, "style");
+    else if (name === "layout") placed(em, made, a, inFlex ? flex : undefined, keys);
+    else
+      fail(
+        a,
+        Codes.NativeViewJsx,
+        `<Flex> takes \`style\`, its children, and in a Flex \`layout\`: not ${name}`,
+      );
+  }
+
+  children(em, jsx, made, {
+    name: "Flex",
+    child: cpp.type("lucent::ui::FlexChild"),
+    flex: true,
+    ops: () => cpp.call("lucent::ui::flex::ops", [cpp.id(flex)]),
+  });
+
+  return { view, flex };
+}
+
+/**
+ * A `style` or `layout` object literal set on the node of `target` (a
+ * FlexChild's C++ name), each key an effect: set now, and again when what
+ * it reads changes. `layout` is a Flex's child's: none elsewhere.
+ */
+function placed(
+  em: FnEmitter,
+  made: Made,
+  a: ts.JsxAttribute,
+  target: string | undefined,
+  keys: Set<string>,
+  what: "style" | "layout" = "layout",
+): void {
+  if (!target)
+    fail(
+      a,
+      Codes.NativeViewJsx,
+      "`layout` places a Flex's child: this element's parent is no Flex",
+      "put the element in a <Flex>, or lay it out with its native parent's own properties",
+    );
+
+  const value = valueOf(a);
+  const object = value && unwrapped(value);
+
+  if (!object || !ts.isObjectLiteralExpression(object))
+    fail(a, Codes.NativeViewJsx, `\`${what}\` is an object literal: ${what}={{ flexGrow: 1 }}`);
+
+  for (const p of object.properties) {
+    if (!ts.isPropertyAssignment(p) || !(ts.isIdentifier(p.name) || ts.isStringLiteral(p.name)))
+      fail(
+        p,
+        Codes.NativeViewJsx,
+        `\`${what}\` names each key: no spread, no computed or shorthand key`,
+      );
+
+    const key = p.name.text;
+
+    if (keys.has(key))
+      fail(p, Codes.NativeViewJsx, `${key} is set by both \`style\` and \`layout\`: set it once`);
+    keys.add(key);
+
+    const get = later(em, made, p.initializer);
+    const set = cpp.call(cpp.arrow(cpp.dot(cpp.id(target), "node"), "set"), [
+      cpp.str(key),
+      cpp.call("lucent::ui::flex::value", [call(made, cpp.id("lucent_get"))]),
+    ]);
+
+    made.statements.push(
+      effectOf(
+        em,
+        p.initializer,
+        [target, ...(made.item ? [made.item.signal] : []), { name: "lucent_get", init: get.c }],
+        [cpp.exprStmt(set)],
+      ),
+    );
+  }
 }
 
 /** An attribute's value: its expression, its string, or none (a bare attribute). */
@@ -398,20 +542,96 @@ function effectOf(
 
 type Rules = ReturnType<typeof viewTag>;
 
+/** What a parent does with its children: an SDK view's methods, or a Flex's. */
+interface Parent {
+  name: string;
+  /** A child as its ChildOps take it. */
+  child: cpp.Type;
+  /** Its children are a Flex's: each a node of its tree. */
+  flex?: true;
+  /** Its ChildOps (built only where its children come and go). */
+  ops: () => cpp.Expr;
+  /** Inserts a child at a fixed index, where every child is fixed (no regions needed). */
+  insert?: (child: cpp.Expr, index: cpp.Expr) => cpp.Expr;
+  /** Why its children cannot come and go, if they cannot. */
+  fixed?: string;
+}
+
 /**
- * An element's children, in order, where the class inserts views at an
- * index. Fixed ones are inserted at their index once; with a branch or a
- * list among them, each child is a region of the parent's children (one
- * view, or as many as the region shows), inserted where the regions
- * before it end.
+ * An SDK view as a parent, where its class inserts views at an index:
+ * inserting by that method, letting go by its remove rule (and on iOS the
+ * child's removeFromSuperview), moving by inserting again where UIKit does.
+ */
+function sdkParent(
+  em: FnEmitter,
+  jsx: ts.JsxElement | ts.JsxSelfClosingElement,
+  ref: NonNullable<ReturnType<typeof sdkTagClass>>,
+  rules: Rules,
+  self: E,
+): Parent | undefined {
+  if (!rules.children) return undefined;
+
+  const { rule, owner } = rules.children;
+  const parent = { platform: ref.platform, module: owner.schema.module, cls: owner.cls };
+  const insert = (child: cpp.Expr, index: cpp.Expr) =>
+    insertChild(em, jsx, parent, rule.insert, self, { c: child, t: self.t }, index);
+  const viewType = cpp.type("lucent::NativeRef");
+  const child = cpp.param(cpp.constType(cpp.reference(viewType)), "lucent_child");
+  const at = (name: string) => cpp.param(cpp.type("int"), name);
+
+  // Built only where children come and go: removeChild notes what it calls.
+  const ops = () =>
+    cpp.construct(
+      cpp.type("lucent::ui::ChildOps", viewType),
+      [
+        cpp.lambda(
+          ["="],
+          [child, at("lucent_index")],
+          [cpp.exprStmt(insert(cpp.id("lucent_child"), cpp.id("lucent_index")))],
+        ),
+        cpp.lambda(
+          ["="],
+          [child],
+          removeChild(em, jsx, parent, rule.remove, self, { c: cpp.id("lucent_child"), t: self.t }),
+        ),
+        ...(rule.movesByInsert
+          ? [
+              cpp.lambda(
+                ["="],
+                [child, at("lucent_from"), at("lucent_to")],
+                [cpp.exprStmt(insert(cpp.id("lucent_child"), cpp.id("lucent_to")))],
+              ),
+            ]
+          : []),
+      ],
+      true,
+    );
+
+  return {
+    name: ref.cls.name,
+    child: viewType,
+    ops,
+    insert,
+    ...(ref.platform === "android" && !rule.remove
+      ? {
+          fixed: `<${ref.cls.name}>'s children are fixed: its class declares no method letting a view go (removeView)`,
+        }
+      : {}),
+  };
+}
+
+/**
+ * An element's children, in order. Fixed ones under an SDK view are
+ * inserted at their index once; otherwise (a branch or a list among them,
+ * or a Flex's) each child is a region of the parent's children (one view,
+ * or as many as the region shows), inserted where the regions before it
+ * end, through the parent's ChildOps.
  */
 function children(
   em: FnEmitter,
   jsx: ts.JsxElement | ts.JsxSelfClosingElement,
   made: Made,
-  ref: NonNullable<ReturnType<typeof sdkTagClass>>,
-  rules: Rules,
-  self: E,
+  parent: Parent | undefined,
 ): void {
   const written = ts.isJsxElement(jsx)
     ? jsx.children.filter(
@@ -422,24 +642,24 @@ function children(
     : [];
   if (!written.length) return;
 
-  if (!rules.children)
+  if (!parent) {
+    const tag = (ts.isJsxElement(jsx) ? jsx.openingElement : jsx).tagName.getText();
+
     fail(
       written[0]!,
       Codes.NativeViewJsx,
-      `<${ref.cls.name}> takes no children: its class declares no method inserting a view at an index`,
+      `<${tag}> takes no children: its class declares no method inserting a view at an index`,
     );
+  }
 
-  const { rule, owner } = rules.children;
-  const parent = { platform: ref.platform, module: owner.schema.module, cls: owner.cls };
-  const insert = (child: cpp.Expr, index: cpp.Expr) =>
-    insertChild(em, jsx, parent, rule.insert, self, { c: child, t: self.t }, index);
+  const childOf = (c: Child) => cpp.id(parent.flex ? c.flex! : c.view);
 
-  // All fixed: each inserted at its index.
-  if (written.every(isElement)) {
+  // All fixed under an SDK view: each inserted at its index.
+  if (parent.insert && written.every(isElement)) {
     written.forEach((c, index) => {
       const child = element(em, c, made);
 
-      made.statements.push(cpp.exprStmt(insert(cpp.id(child), cpp.num(index))));
+      made.statements.push(cpp.exprStmt(parent.insert!(childOf(child), cpp.num(index))));
     });
     return;
   }
@@ -448,28 +668,11 @@ function children(
     if (!isElement(c) && !ts.isJsxExpression(c))
       fail(c, Codes.NativeViewJsx, "a native view's children are elements of native views");
 
-  if (ref.platform === "android" && !rule.remove)
-    fail(
-      written.find((c) => !isElement(c))!,
-      Codes.NativeViewJsx,
-      `<${ref.cls.name}>'s children are fixed: its class declares no method letting a view go (removeView)`,
-    );
+  const dynamic = written.find((c) => !isElement(c));
+  if (dynamic && parent.fixed) fail(dynamic, Codes.NativeViewJsx, parent.fixed);
 
-  // What the parent does with its children, natively.
   const regions = em.ctx.fresh("regions");
   const ops = em.ctx.fresh("ops");
-  const viewType = cpp.type("lucent::NativeRef");
-  const child = cpp.param(cpp.constType(cpp.reference(viewType)), "lucent_child");
-  const at = (name: string) => cpp.param(cpp.type("int"), name);
-  const moves = rule.movesByInsert
-    ? [
-        cpp.lambda(
-          ["="],
-          [child, at("lucent_from"), at("lucent_to")],
-          [cpp.exprStmt(insert(cpp.id("lucent_child"), cpp.id("lucent_to")))],
-        ),
-      ]
-    : [];
 
   made.statements.push(
     cpp.varDecl(
@@ -477,30 +680,7 @@ function children(
       regions,
       cpp.call(cpp.templateId("std::make_shared", [cpp.type("lucent::ui::ChildRegions")]), []),
     ),
-    cpp.varDecl(
-      cpp.auto,
-      ops,
-      cpp.construct(
-        cpp.type("lucent::ui::ChildOps", viewType),
-        [
-          cpp.lambda(
-            ["="],
-            [child, at("lucent_index")],
-            [cpp.exprStmt(insert(cpp.id("lucent_child"), cpp.id("lucent_index")))],
-          ),
-          cpp.lambda(
-            ["="],
-            [child],
-            removeChild(em, jsx, parent, rule.remove, self, {
-              c: cpp.id("lucent_child"),
-              t: self.t,
-            }),
-          ),
-          ...moves,
-        ],
-        true,
-      ),
-    ),
+    cpp.varDecl(cpp.auto, ops, parent.ops()),
   );
   made.captures.push(regions);
 
@@ -508,21 +688,31 @@ function children(
     const index = cpp.call(cpp.arrow(cpp.id(regions), "offset"), [cpp.num(region)]);
 
     if (isElement(c)) {
-      const fixed = element(em, c, made);
+      const fixed = element(em, c, made, false, !!parent.flex);
 
       made.statements.push(
         cpp.exprStmt(cpp.call(cpp.arrow(cpp.id(regions), "add"), [cpp.num(1)])),
-        cpp.exprStmt(insert(cpp.id(fixed), index)),
+        cpp.exprStmt(cpp.call(cpp.dot(cpp.id(ops), "insert"), [childOf(fixed), index])),
       );
       return;
     }
 
     const e = unwrapped((c as ts.JsxExpression).expression!);
     const added = cpp.call(cpp.arrow(cpp.id(regions), "add"), [cpp.num(0)]);
+    const into = { parent, ops, regions, region: added, childOf };
 
-    if (ts.isCallExpression(e) && mapped(e)) list(em, e, made, ops, regions, added);
-    else branch(em, e, made, ops, regions, added);
+    if (ts.isCallExpression(e) && mapped(e)) list(em, e, made, into);
+    else branch(em, e, made, into);
   });
+}
+
+/** Where a branch or a list puts its children: its parent's region. */
+interface Into {
+  parent: Parent;
+  ops: string;
+  regions: string;
+  region: cpp.Expr;
+  childOf: (c: Child) => cpp.Expr;
 }
 
 /** Whether `e` is `items.map(…)`: a keyed list. */
@@ -534,14 +724,7 @@ function mapped(e: ts.CallExpression): boolean {
  * A branch: `cond && <X/>`, `c ? <X/> : <Y/>`, nested, each side an
  * element or nothing (`null`, `undefined`, `false`).
  */
-function branch(
-  em: FnEmitter,
-  e: ts.Expression,
-  made: Made,
-  ops: string,
-  regions: string,
-  region: cpp.Expr,
-): void {
+function branch(em: FnEmitter, e: ts.Expression, made: Made, into: Into): void {
   const elements: ts.Expression[] = [];
   const conditions: cpp.Capture[] = [];
 
@@ -588,8 +771,8 @@ function branch(
   // Each element made where it shows, in its branch's scope.
   const built = elements.map((el, i) => {
     const own = madeIn(made.item);
-    const view = element(em, el, own);
-    const body = [...ended(own), cpp.ret(cpp.id(view))];
+    const child = element(em, el, own, false, !!into.parent.flex);
+    const body = [...ended(own), cpp.ret(into.childOf(child))];
 
     return i === elements.length - 1
       ? cpp.block(body)
@@ -598,11 +781,11 @@ function branch(
 
   made.statements.push(
     cpp.exprStmt(
-      cpp.call(cpp.templateId("lucent::ui::branch", [cpp.type("lucent::NativeRef")]), [
+      cpp.call(cpp.templateId("lucent::ui::branch", [into.parent.child]), [
         graph(),
-        cpp.id(ops),
-        cpp.id(regions),
-        region,
+        cpp.id(into.ops),
+        cpp.id(into.regions),
+        into.region,
         enterMount(
           em,
           e,
@@ -612,7 +795,7 @@ function branch(
           em,
           e,
           cpp.lambda(["="], [cpp.param(cpp.type("int"), "lucent_branch")], built, {
-            ret: cpp.type("lucent::NativeRef"),
+            ret: into.parent.child,
           }),
         ),
       ]),
@@ -621,14 +804,7 @@ function branch(
 }
 
 /** A keyed list: `items.map((item) => <X key={item.id} … />)`. */
-function list(
-  em: FnEmitter,
-  e: ts.CallExpression,
-  made: Made,
-  ops: string,
-  regions: string,
-  region: cpp.Expr,
-): void {
+function list(em: FnEmitter, e: ts.CallExpression, made: Made, into: Into): void {
   if (made.item)
     fail(
       e,
@@ -697,7 +873,7 @@ function list(
   const symbol = em.checker.getSymbolAtLocation(param.name)!;
   const item: Item = { names: [symbol], type: arrayType.e, signal: "lucent_item" };
   const own = madeIn(item);
-  const view = element(em, returned, own, true);
+  const child = element(em, returned, own, true, !!into.parent.flex);
 
   const itemType = em.reg.cppType(arrayType.e);
   const keyCpp = em.reg.cppType(keyType);
@@ -712,22 +888,22 @@ function list(
       listName,
       cpp.call(
         cpp.templateId("std::make_shared", [
-          cpp.type("lucent::ui::KeyedList", keyCpp, itemType, cpp.type("lucent::NativeRef")),
+          cpp.type("lucent::ui::KeyedList", keyCpp, itemType, into.parent.child),
         ]),
         [
           graph(),
           cpp.call(cpp.arrow(graph(), "scope")),
-          cpp.id(ops),
-          cpp.id(regions),
-          region,
+          cpp.id(into.ops),
+          cpp.id(into.regions),
+          into.region,
           enterMount(
             em,
             e,
             cpp.lambda(
               ["="],
               [cpp.param(signalType, "lucent_item")],
-              [...ended(own), cpp.ret(cpp.id(view))],
-              { ret: cpp.type("lucent::NativeRef") },
+              [...ended(own), cpp.ret(into.childOf(child))],
+              { ret: into.parent.child },
             ),
           ),
         ],
