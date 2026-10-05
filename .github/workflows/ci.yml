@@ -15,6 +15,29 @@ env:
   HERMES_DIR: ${{ github.workspace }}/.hermes
 
 jobs:
+  # Which jobs this change needs (scripts/ci-changes.ts): the unit tests always run, the rest when
+  # a file they read changes. A push runs everything.
+  changes:
+    name: Changed areas
+    runs-on: ubuntu-latest
+    outputs:
+      runtime: ${{ steps.plan.outputs.runtime }}
+      harnesses: ${{ steps.plan.outputs.harnesses }}
+      website: ${{ steps.plan.outputs.website }}
+      ios-test: ${{ steps.plan.outputs.iosTest }}
+      ios-checks: ${{ steps.plan.outputs.iosChecks }}
+      apps: ${{ steps.plan.outputs.apps }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # A pull request checks out its merge commit: HEAD^ is the base it merges into.
+          fetch-depth: 2
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - id: plan
+        run: node scripts/ci-changes.ts ${{ github.event_name == 'pull_request' && 'HEAD^' || '' }}
+
   # Linux jobs side by side: the unit tests (two shards), the runtime's own tests, and the
   # harnesses that run compiled code (below).
   test:
@@ -46,6 +69,8 @@ jobs:
 
   runtime:
     name: Runtime and JSI host
+    needs: changes
+    if: needs.changes.outputs.runtime == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,27 +91,17 @@ jobs:
         if: always()
         run: ccache --show-stats
 
-  # The harnesses that run compiled code, one job each: each takes minutes.
+  # The harnesses that run compiled code, one job each: each takes minutes. scripts/ci-changes.ts
+  # lists them (name, key, command), the ones this change needs.
   e2e:
     name: ${{ matrix.name }}
+    needs: changes
+    if: needs.changes.outputs.harnesses != '[]'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: End-to-end (native vs. JavaScript)
-            key: e2e
-            run: pnpm test:e2e
-          - name: Performance budgets, fresh install
-            key: bench
-            # The kernels' budgets enforced; the CPU-bound ratios reported (see scripts/bench.ts).
-            run: node scripts/bench.ts --check --shared-runner && node scripts/smoke-install.ts
-          - name: App check (bare)
-            key: app-check-bare
-            run: node scripts/app-check.ts apps/bare-example
-          - name: App check (Expo)
-            key: app-check-expo
-            run: node scripts/app-check.ts apps/expo-example
+        include: ${{ fromJSON(needs.changes.outputs.harnesses) }}
     steps:
       - uses: actions/checkout@v4
       # The app checks' device builds resolve the apps' Android dependencies with Gradle.
@@ -116,6 +131,8 @@ jobs:
 
   website:
     name: Website (samples compile, prose rules, generated files current, build)
+    needs: changes
+    if: needs.changes.outputs.website == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -136,6 +153,8 @@ jobs:
   # macOS jobs, as many as the account runs at once.
   ios-test:
     name: Unit tests with the iOS SDK (${{ matrix.shard }}/3)
+    needs: changes
+    if: needs.changes.outputs.ios-test == 'true'
     runs-on: macos-26
     strategy:
       fail-fast: false
@@ -170,6 +189,8 @@ jobs:
   # Beside the app build: SDK coverage and the runtime under libc++'s sanitizers.
   ios-checks:
     name: SDK coverage, runtime (libc++)
+    needs: changes
+    if: needs.changes.outputs.ios-checks == 'true'
     runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
@@ -199,6 +220,8 @@ jobs:
 
   ios:
     name: Bare example (iOS simulator build)
+    needs: changes
+    if: needs.changes.outputs.apps == 'true'
     runs-on: macos-26
     env:
       LANG: en_US.UTF-8
@@ -254,6 +277,8 @@ jobs:
 
   android:
     name: Bare example (Android build)
+    needs: changes
+    if: needs.changes.outputs.apps == 'true'
     runs-on: ubuntu-latest
     env:
       # CMake compiles the native code through ccache (CMake reads these from the environment).
@@ -291,3 +316,17 @@ jobs:
       - name: Compiler cache statistics
         if: always()
         run: ccache --show-stats
+
+  # One check to require: it passes when every job passed or was skipped as not needed.
+  ci:
+    name: CI
+    if: always()
+    needs: [changes, test, runtime, e2e, website, ios-test, ios-checks, ios, android]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job passed or was skipped
+        run: |
+          if ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}; then
+            echo "::error::A job failed or was cancelled."
+            exit 1
+          fi
