@@ -15,7 +15,8 @@
 //   throws (remove it first). A parent gone first leaves its children
 //   whole, each its own root.
 // - Only a root computes; a leaf (a node with a measure function) keeps
-//   its measurement until it is marked dirty.
+//   its measurement until it is marked dirty. A node may hear when the
+//   tree under it, laid out, changes (onDirtied).
 #pragma once
 
 #include <yoga/Yoga.h>
@@ -311,6 +312,13 @@ class LayoutNode {
     for (auto& c : children_) c->dirtyLeaves();
   }
 
+  /// Calls `dirtied` when the tree under this node, laid out, changes: once
+  /// until it is laid out again (a Flex asking its platform for a layout).
+  void onDirtied(std::function<void()> dirtied) {
+    dirtied_ = std::move(dirtied);
+    YGNodeSetDirtiedFunc(node_, &LayoutNode::dirtied);
+  }
+
   /// Rounds frames to the pixel grid of `scale` pixels a point (0: none), here and below.
   void setPointScale(float scale) {
     scale_ = scale;
@@ -341,11 +349,17 @@ class LayoutNode {
     return {s.width, s.height};
   }
 
+  static void dirtied(YGNodeConstRef node) {
+    auto* self = static_cast<LayoutNode*>(YGNodeGetContext(node));
+    if (self->dirtied_) self->dirtied_();
+  }
+
   YGConfigRef config_;
   YGNodeRef node_;
   LayoutNode* parent_ = nullptr;
   std::vector<std::shared_ptr<LayoutNode>> children_;
   LayoutMeasure measure_;
+  std::function<void()> dirtied_;
   float scale_ = 0;
 };
 
