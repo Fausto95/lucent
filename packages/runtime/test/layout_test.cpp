@@ -280,6 +280,45 @@ static void refusesWhatItDoesNotTake() {
   refuses("flexGrow", s("1"), "flexGrow takes a number");
 }
 
+// A laid-out tree says when it needs laying out again: a style set, a
+// child inserted or removed, a leaf marked dirty, anywhere below. Once,
+// until it is laid out.
+static void saysWhenItNeedsLayout() {
+  auto root = LayoutNode::create();
+  int needed = 0;
+  root->onDirtied([&needed] { needed++; });
+
+  auto inner = LayoutNode::create();
+  auto text = leaf(10, 10);
+  inner->insert(text, 0);
+  root->insert(inner, 0);
+
+  const auto laidOut = [&] { root->calculate(none, none, ui::LayoutDirection::LTR); };
+
+  laidOut();
+  needed = 0;
+  text->set("width", 20.0);
+  inner->set("padding", 2.0);
+  CHECK(needed == 1);
+
+  laidOut();
+  root->dirtyLeaves();
+  CHECK(needed == 2);
+
+  laidOut();
+  auto other = leaf(5, 5);
+  root->insert(other, 1);
+  CHECK(needed == 3);
+
+  laidOut();
+  root->remove(other);
+  CHECK(needed == 4);
+
+  laidOut();
+  text->set("width", 20.0);
+  CHECK(needed == 4);
+}
+
 // A parent gone first leaves its children whole, to lay out alone.
 static void outlivesItsParent() {
   auto child = leaf(10, 10);
@@ -303,6 +342,7 @@ int main() {
   restoresADefault();
   snapsToPixels();
   refusesWhatItDoesNotTake();
+  saysWhenItNeedsLayout();
   outlivesItsParent();
 
   std::printf("layout: %d checks, %d failures\n", checks, failures);
