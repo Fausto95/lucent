@@ -333,6 +333,25 @@ class LayoutNode {
     YGNodeCalculateLayout(node_, width, height, direction == LayoutDirection::RTL ? YGDirectionRTL : YGDirectionLTR);
   }
 
+  /**
+   * The size the tree takes within `maxWidth` by `maxHeight` (NaN: none), as
+   * a view's sizeThatFits answers: its own, unbounded, where it fits; else
+   * laid out at the bound it would exceed (Yoga takes a given size as exact).
+   */
+  LayoutSize fit(float maxWidth, float maxHeight, LayoutDirection direction) {
+    calculate(NAN, NAN, direction);
+
+    const LayoutFrame own = frame();
+    const bool wide = !std::isnan(maxWidth) && own.width > maxWidth;
+    const bool tall = !std::isnan(maxHeight) && own.height > maxHeight;
+    if (!wide && !tall) return {own.width, own.height};
+
+    calculate(wide ? maxWidth : NAN, tall ? maxHeight : NAN, direction);
+
+    const LayoutFrame bounded = frame();
+    return {bounded.width, bounded.height};
+  }
+
   LayoutFrame frame() const {
     return {YGNodeLayoutGetLeft(node_), YGNodeLayoutGetTop(node_), YGNodeLayoutGetWidth(node_),
             YGNodeLayoutGetHeight(node_)};
