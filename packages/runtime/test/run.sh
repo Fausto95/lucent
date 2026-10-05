@@ -32,7 +32,7 @@ source "$here/parallel.sh"
 tests=(runtime_test scope_test callback_test resource_test lifecycle_test extension_test
   execution_test compute_test buffer_test bigint_test number_test reactive_test view_test
   view_registry_test sizing_test slots_test items_test ui_children_test android_requests_test operation_test
-  trace_test)
+  trace_test layout_test)
 binary() { [[ "$1" == runtime_test ]] && echo "$out" || echo "${out}_${1%_test}"; }
 objs="${out}_objs"
 rm -rf "$objs"
@@ -51,8 +51,17 @@ for f in "$cpp"/lucent/*.cpp; do
   bg ${CXX:-clang++} "${flags[@]}" -c "$f" -o "$o"
   robjs+=("$o")
 done
+# The layout core is React Native's Yoga: its sources, from the example app's react-native.
+yoga="$here/../../../apps/bare-example/node_modules/react-native/ReactCommon/yoga"
+[[ -d "$yoga" ]] || yoga="$here/../../../node_modules/react-native/ReactCommon/yoga"
+yobjs=()
+while IFS= read -r f; do
+  o="$objs/yoga_$(echo "${f#"$yoga"/}" | tr / _ | sed 's/\.cpp$//').o"
+  bg ${CXX:-clang++} "${flags[@]}" -w -I"$yoga" -c "$f" -o "$o"
+  yobjs+=("$o")
+done < <(find "$yoga/yoga" -name '*.cpp' | sort)
 for t in "${tests[@]}"; do
-  bg ${CXX:-clang++} "${flags[@]}" -c "$here/$t.cpp" -o "$objs/$t.o"
+  bg ${CXX:-clang++} "${flags[@]}" -I"$yoga" -c "$here/$t.cpp" -o "$objs/$t.o"
 done
 if [[ "$(uname)" == "Darwin" ]]; then
   bg ${CXX:-clang++} "${flags[@]}" -fobjc-arc -x objective-c++ -c "$here/objc_test.mm" -o "$objs/objc_test.o"
@@ -66,6 +75,8 @@ drain
 for t in "${tests[@]}"; do
   if [[ "$t" == view_registry_test ]]; then
     bg ${CXX:-clang++} "${flags[@]}" "$objs/$t.o" -o "$(binary "$t")"
+  elif [[ "$t" == layout_test ]]; then
+    bg ${CXX:-clang++} "${flags[@]}" "$objs/$t.o" "${yobjs[@]}" "${robjs[@]}" "${cobjs[@]}" "${libs[@]}" -o "$(binary "$t")"
   else
     bg ${CXX:-clang++} "${flags[@]}" "$objs/$t.o" "${robjs[@]}" "${cobjs[@]}" "${libs[@]}" -o "$(binary "$t")"
   fi
@@ -142,6 +153,10 @@ run_binary "$log" "${out}_items"
 # against a recording backend (moves, item scopes, duplicate keys) and a
 # conditional child.
 run_binary "$log" "${out}_ui_children"
+
+# The layout core: React Native's Yoga styled by its names, its leaves
+# measured by a function, nested trees, right to left, pixel snapping.
+run_binary "$log" "${out}_layout"
 
 # Requests Android answers later (activity results, permissions): settled
 # once on the context that asked, forgotten on the platform when cancelled.
