@@ -584,7 +584,7 @@ export function ifPresent(v: cpp.Expr, f: (x: cpp.Expr) => cpp.Expr): cpp.Expr {
  * do, and the plan refuses those it cannot be given; `use` is the member
  * the block is passed to, for messages.
  */
-function objcBlock(
+export function objcBlock(
   em: FnEmitter,
   node: ts.Node,
   f: cpp.Expr,
@@ -2692,6 +2692,12 @@ export function iosSuperInit(
       Codes.UnsupportedClassFeature,
       `${base.name}: Swift initializers cannot be inherited`,
     );
+  if (ctor.factory)
+    fail(
+      node,
+      Codes.UnsupportedClassFeature,
+      `${base.name}: this initializer is the class method +${ctor.selector}, which makes a ${base.name}, not a subclass: call super(…) with another of ${base.name}'s initializers`,
+    );
 
   const plan = requirePlan(node, ref, ctor, "new");
   requireAvailable(em, node, ref, ctor.since, `new ${base.name}(…)`);
@@ -2732,8 +2738,10 @@ export function nativeNew(em: FnEmitter, node: ts.NewExpression, t: LType & { k:
   noteIncludes(em, ref);
   if (ref.platform === "ios") {
     const a = args.map((x, i) => toObjc(em, x, params[i]!, plan));
-    const alloc = cpp.send(ref.cls.native, "alloc");
-    const created = send(alloc, ctor.selector ?? "init", a);
+    // A factory initializer is a class method: sent to the class being constructed.
+    const created = ctor.factory
+      ? send(cpp.id(ref.cls.native), ctor.selector!, a)
+      : send(cpp.send(ref.cls.native, "alloc"), ctor.selector ?? "init", a);
     return { c: cpp.call("lucent::objc::wrap", [created, cpp.str(`new ${t.name}`)]), t };
   }
   warnOutsideGroups(em, ctor.params, args, `new ${t.name}`);

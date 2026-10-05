@@ -22,6 +22,21 @@ export async function run(): Promise<string> {
 
   const boxed = new QXNBox<QXNGauge>(gauge).qxnItem.qxnLevel;
   const labels = new QXNBox<string>("box").qxnItem;
+
+  // Functions both ways: one stored (called later, on this thread), one passed, one returned.
+  const other = new QXNGauge("f", 1);
+  const shifts: number[] = [];
+  other.qxnOnShift = (level) => {
+    shifts.push(level);
+  };
+  other.qxnShift(2);
+  const each = other.qxnEach([1, 2], (step, label) => `${label}${step * 10}`);
+  const watch = other.qxnWatcher();
+
+  // Tuples, as arrays: one returned, one passed and returned labeled.
+  const [low, high] = other.qxnRange();
+  const [clamped, label] = other.qxnClamp([0, 2]);
+
   const measured = await gauge.qxnMeasure();
   let failed = "no";
   try {
@@ -33,5 +48,7 @@ export async function run(): Promise<string> {
   const unit: QXNUnit = gauge.qxnUnit();
   const formatted = unit.qxnFormat(measured);
 
-  return `${base.qxnDescribe()} | ${recorder.levels.join(" ")} | ${boxed} ${labels} | ${formatted} | ${failed}`;
+  other.qxnOnShift = null;
+
+  return `${base.qxnDescribe()} | ${recorder.levels.join(" ")} | ${boxed} ${labels} | ${formatted} | ${failed} | ${shifts.join(" ")} ${each.join(" ")} ${watch()} | ${low} ${high} ${clamped} ${label}`;
 }

@@ -18,10 +18,14 @@ export function printType(t: Type): string {
       return `[${printType(t.key)}: ${printType(t.value)}]`;
     case "cFunction":
       return `@convention(c) (${t.params.map(printType).join(", ")}) -> ${printType(t.ret)}`;
-    case "function":
-      return `(${t.params.map(printType).join(", ")}) -> ${printType(t.ret)}`;
+    case "function": {
+      const attributes = t.attributes?.length ? `${t.attributes.join(" ")} ` : "";
+      return `${attributes}(${t.params.map(printType).join(", ")}) -> ${printType(t.ret)}`;
+    }
     case "opaque":
       return `some ${printType(t.of)}`;
+    case "tuple":
+      return `(${t.items.map((x) => `${x.label ? `${x.label}: ` : ""}${printType(x.type)}`).join(", ")})`;
   }
 }
 
@@ -105,6 +109,8 @@ function bare(e: Expr, indent: string): string {
       return `${expr(e.object, PREC.postfix, indent)}.${e.name}`;
     case "arrayLiteral":
       return `[${e.items.map((x) => expr(x, PREC.assign, indent)).join(", ")}]`;
+    case "tuple":
+      return `(${e.items.map((x) => expr(x, PREC.assign, indent)).join(", ")})`;
     case "dictionaryLiteral":
       if (!e.entries.length) return "[:]";
       return `[${e.entries.map((x) => `${expr(x.key, PREC.assign, indent)}: ${expr(x.value, PREC.assign, indent)}`).join(", ")}]`;

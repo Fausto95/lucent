@@ -338,6 +338,11 @@ export interface SdkCallable {
   facts?: NativeFacts;
   /** Objective-C selector (iOS). */
   selector?: string;
+  /**
+   * A class method Swift imports as an initializer (`+buttonWithType:` as
+   * `init(type:)`): the selector is sent to the class, not to a new object.
+   */
+  factory?: boolean;
   /** API level (Android) or OS version (iOS) that introduced it. */
   since?: number | string;
   /** Exact JNI descriptor (Android), when the types alone do not give it (generic erasure). */
@@ -555,6 +560,8 @@ export type SchemaType =
     }
   /** Swift's Error (an NSError): a Lucent Error. */
   | { k: "error"; nullable: boolean }
+  /** A Swift tuple (`(min: Double, max: Double)`): a Lucent tuple, its labels its elements' names. */
+  | { k: "tuple"; items: { label?: string; type: SchemaType }[]; nullable: boolean }
   /**
    * A type parameter. `bound`: the Lucent values it takes, for one a body
    * written as Swift source gives (`V: Equatable`, any of Lucent's
@@ -595,7 +602,7 @@ export function parseSchemaType(
   module = "",
   typeParams: readonly string[] = [],
 ): SchemaType {
-  const toks = s.match(/@\w+|=>|[()[\]<>?,]|[\w.$]+/g) ?? [];
+  const toks = s.match(/@\w+|=>|[()[\]<>?,:]|[\w.$]+/g) ?? [];
   let p = 0;
   const expect = (t: string) => {
     if (toks[p++] !== t) throw new Error(`schema type ${s}: expected ${t}`);
@@ -616,6 +623,20 @@ export function parseSchemaType(
   const primary = (): SchemaType => {
     const attrs: string[] = [];
     while (toks[p]?.startsWith("@")) attrs.push(toks[p++]!);
+    // A tuple: `[double, string]`, `[min: double, max: double]`.
+    if (toks[p] === "[") {
+      p++;
+      const items: { label?: string; type: SchemaType }[] = [];
+      while (toks[p] !== "]") {
+        const label = toks[p + 1] === ":" ? toks[p] : undefined;
+        if (label) p += 2;
+        items.push(label ? { label, type: type() } : { type: type() });
+        if (toks[p] === ",") p++;
+        else break;
+      }
+      expect("]");
+      return { k: "tuple", items, nullable: false };
+    }
     if (toks[p] === "(") {
       p++;
       const items: SchemaType[] = [];
@@ -741,6 +762,12 @@ export function formatSchemaType(t: SchemaType): string {
     case "ref": {
       const args = t.args?.length ? `<${t.args.map(formatSchemaType).join(", ")}>` : "";
       return `${t.module ? `${t.module}.` : ""}${t.name}${args}${q}`;
+    }
+    case "tuple": {
+      const items = t.items.map(
+        (x) => `${x.label ? `${x.label}: ` : ""}${formatSchemaType(x.type)}`,
+      );
+      return `[${items.join(", ")}]${q}`;
     }
     case "fn": {
       const flags = `${t.escaping && !t.nullable ? "@escaping " : ""}${t.main ? "@main " : ""}`;

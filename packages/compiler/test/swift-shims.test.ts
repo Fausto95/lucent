@@ -158,7 +158,27 @@ export async function run(): Promise<string> {
 }
 `;
 
+/** C functions Swift imports as a CoreFoundation handle's initializer, properties and methods. */
+const coreGraphics = `import { CGColor } from "lucent:ios/CoreGraphics";
+export async function run(): Promise<string> {
+  const color = new CGColor(1, 0.5, 0, 0.25);
+  const opaque = color.copy(1);
+  return \`\${color.alpha} \${color.numberOfComponents} \${opaque?.alpha} \${color.components?.join(",")}\`;
+}
+`;
+
 describe.skipIf(!xcode)("Swift-only SDK APIs", () => {
+  it("calls the C functions Swift imports as a CoreFoundation handle's members, through shims", () => {
+    const p = sdk(coreGraphics);
+    expect(p.r.diagnostics).toEqual([]);
+    // Written as Swift calls them: the handle is whichever argument Swift says.
+    expect(p.shims).toContain("CoreGraphics.CGColor(red: a0, green: a1, blue: a2, alpha: a3)");
+    expect(p.shims).toContain(".numberOfComponents");
+    expect(p.shims).toContain(".copy(alpha: a0)");
+    expect(compileErrors(p)).toEqual(compiles);
+    expect(hostRun(p)).toMatchObject({ status: 0, stdout: "0.25 4 1 1,0.5,0,0.25\n" });
+  }, 600_000);
+
   it.each([
     ["CryptoKit", cryptoKit],
     ["StoreKit 2", storeKit],

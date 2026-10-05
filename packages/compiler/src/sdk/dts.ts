@@ -129,6 +129,16 @@ function emitDts(
           return ts.object([{ name: "prototype", type: ts.ref(t.param), readonly: true }]);
         case "error":
           return ts.ref("Error");
+        case "tuple": {
+          // Labeled as Swift labels it (`[min: number, max: number]`): all or none.
+          const labeled = t.items.every((x) => x.label && /^[A-Za-z_$][\w$]*$/.test(x.label));
+          return ts.tuple(
+            t.items.map((x) => ({
+              ...(labeled ? { name: x.label! } : {}),
+              type: tsType(x.type, out),
+            })),
+          );
+        }
         case "fn":
           // The block's arguments come from the platform; its result goes back.
           return ts.fn(

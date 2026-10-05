@@ -432,6 +432,20 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-04: Swift functions cross shims as blocks, tuples as arrays.**
+A Swift function type crosses a `@_cdecl` shim as an Objective-C block
+taking and giving scalars and objects, which the shims file turns into
+the Swift function (and back) with a pair of functions per signature; a
+tuple crosses as an array of its elements' objects, declared as a
+labeled TypeScript tuple. CoreFoundation handles' imported members go
+through shims too, not the glue. _Why:_ the glue already makes blocks of
+Lucent functions and Lucent functions of blocks, and arrays of objects,
+so Swift reuses those conversions, as values already reuse the
+Objective-C ones; a C function imported as a member does not say which
+argument is the handle, Swift's call does. _Changed:_ C-BIND v1.6 (the
+tuple type, `copy-tuple`, factory constructors); a function's values may
+not be enums, C structs, unions or functions, whose block forms differ.
+
 **2026-10-04: Native views' JSX derives children; no adapters.** A view
 class takes JSX children through the insert-at-index method its
 declarations give (`insertArrangedSubview:atIndex:`,
@@ -825,7 +839,8 @@ snapshots, or renaming a class that is already handled, is not enough.
   `code`. From the improvement plan (2026-09-23, not rechecked since,
   [TA33](#ta33)): factory initializers that Swift imports as `init` are
   dropped by the extractor, and functions Swift imports as members of
-  CoreFoundation-style handles (`cgImage.width`) are not bound.
+  CoreFoundation-style handles (`cgImage.width`) are not bound (both
+  bound since, with T28's tuples and Swift functions).
 
 <a id="g3-wrapper-preview-ready"></a>
 
@@ -1184,7 +1199,7 @@ Several tasks need physical devices, which only the maintainer can run.
 | [TA30](#ta30) | Bind Kotlin function types and callback properties              | —                       | in review            |
 | [TA31](#ta31) | Finish the Kotlin shim shapes                                   | —                       | in review            |
 | [TA32](#ta32) | Read Swift packages and the iOS target from the project         | —                       | ready                |
-| [TA33](#ta33) | Bind the remaining Swift shapes                                 | —                       | ready                |
+| [TA33](#ta33) | Bind the remaining Swift shapes                                 | —                       | in review            |
 | [TA34](#ta34) | Turn a Java Throwable into a Lucent Error                       | —                       | ready                |
 | [T67](#t67)   | Pass the integrated production-candidate gate                   | T62, T63, T64, T65, T66 | waiting (maintainer) |
 
@@ -1720,26 +1735,50 @@ the app's target needs an availability check.
 
 **Goal:** Bind or precisely refuse the Swift shapes still left out.
 
-- **Status:** open, ready to start.
+- **Status:** in review (2026-10-04): every item below passes on its
+  branch.
 - **Area:** Bindings, Apple host.
 - **Needs:** none.
 - **Verify:** V1, V4.
 - **Where:** `packages/bindgen/src/swift.ts`, `ios.ts`, the Swift shims.
 
-- [ ] Tuples, which the extractor skips (now explained when called).
-- [ ] Functions returned by or passed to Swift (LUCENT2002, "fn values
-      cannot cross to Swift yet").
-- [ ] Factory initializers Swift imports as `init`, which the extractor
-      drops (recheck first: recorded 2026-09-23).
-- [ ] Members Swift imports onto CoreFoundation-style handles
-      (`cgImage.width`; recheck first).
-- [ ] A subclass's initializers inherited from a class whose module is only
-      named: today `new Dial(frame)` fails with TS2674 (UIView's
-      constructor is protected) until UIKit is imported. Type them, or say
-      to import the superclass's module.
+- [x] Tuples, which the extractor skipped: a Swift member's tuple is a
+      TypeScript tuple labeled as Swift labels it, crossing as an array
+      (`copy-tuple`); optional elements, and tuples in collections,
+      tuples or payloads, are refused by rule. C arrays Swift imports as
+      tuples stay skipped. T28's unknown library returns one and takes
+      and returns a labeled one, run on the host.
+- [x] Functions returned by or passed to Swift: a Swift function type is a
+      Lucent function both ways, crossing as a block (scalars as
+      themselves, other values as objects); one taking or giving enums,
+      C structs, unions or functions is refused naming them, and so is
+      one in a requirement a Lucent class implements. T28's library
+      stores, takes and returns one, run on the host.
+- [x] Factory initializers Swift imports as `init`, which the extractor
+      dropped (rechecked: `UIButton(type:)`, `UIAlertController(title:…)`,
+      `BlockOperation(block:)`; 111 in UIKit, 54 in Foundation): a
+      constructor sent to the class; a class whose only initializers are
+      factories lists those it inherits from its module too, and a Lucent
+      subclass's `super(…)` cannot call one (LUCENT1005).
+- [x] Members Swift imports onto CoreFoundation-style handles (rechecked:
+      `CGImage.width` is `c:@F@CGImageGetWidth`, dropped): called through
+      shims, which Swift writes with the handle wherever it goes;
+      `CGColor`'s initializer, properties and `copy(alpha:)` run on the
+      host.
+- [x] A subclass's initializers inherited from a class whose module is only
+      named: `new Dial(frame)`'s TS2674 now says the dial inherits its
+      initializers from UIView, which is `lucent:ios/UIKit`'s, and to
+      import it.
 
 **Done when:** each shape binds by rule, or its diagnostic names the member
 and what to do.
+
+**Notes:**
+
+- Found on the way: a Swift `inout` parameter was bound as a value, whose
+  shim would not compile; it is skipped now ("Swift: inout parameters").
+  The overlays' Swift overloads of one name (`copy()`, `copy(alpha:)`)
+  were all but the first dropped; they are all kept.
 
 <a id="ta34"></a>
 

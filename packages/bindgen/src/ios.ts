@@ -947,22 +947,28 @@ export function buildIosSchema(
         });
     }
 
-    // Opaque CoreFoundation-style handles, passed through as they are.
+    // Classes of the module whose members Swift declares or imports (shims call them).
+    const objcClasses = new Map<string, SdkClassSchema>();
+
+    // Opaque CoreFoundation-style handles, passed through as they are. The C
+    // functions Swift imports as their members (`cgImage.width`) are called
+    // through shims: Swift knows which argument is the handle.
     for (const s of g.symbols) {
       const handle =
         s.kind.identifier === "swift.class" ? typedefName(s.identifier.precise) : undefined;
-      if (handle && !unavailable(s))
-        mod.types.push({
-          kind: "class",
-          name: s.pathComponents.join("_"),
-          native: handle,
-          cf: true,
-          symbol: graphSymbol(s.identifier.precise),
-        });
+      if (!handle || unavailable(s)) continue;
+      const cls: SdkClassSchema = {
+        kind: "class",
+        name: s.pathComponents.join("_"),
+        native: handle,
+        cf: true,
+        symbol: graphSymbol(s.identifier.precise),
+      };
+      mod.types.push(cls);
+      objcClasses.set(s.identifier.precise, cls);
     }
 
     // Classes and protocols.
-    const objcClasses = new Map<string, SdkClassSchema>();
     for (const s of g.symbols) {
       const k = s.kind.identifier;
       const m = objcClass(s.identifier.precise);
@@ -1084,8 +1090,13 @@ export function buildIosSchema(
             type: withEscaping(parseType(afterColon(pp.declarationFragments), r), escaping[i]),
           }));
           if (mem.kind.identifier === "swift.init") {
-            if (kind === "cm") continue;
-            const c: SdkCallable = { params, selector, symbol };
+            // A factory method (`+buttonWithType:`) Swift imports as `init(type:)`.
+            const c: SdkCallable = {
+              params,
+              selector,
+              symbol,
+              ...(kind === "cm" ? { factory: true } : {}),
+            };
             if (facts) c.facts = facts;
             if (memberSince && memberSince !== cls.since) c.since = memberSince;
             ctors.push(c);
@@ -1149,8 +1160,9 @@ export function buildIosSchema(
         delete (x as SdkMethodSchema & { swiftName?: string }).swiftName;
       }
       // Objective-C initializers are inherited (NSObject's init at the root)
-      // unless the class makes init unavailable.
-      if (!ctors.length && !initUnavailable && k === "swift.class") {
+      // unless the class makes init unavailable. Factories (convenience
+      // initializers to Swift) do not stop it: inheritedInitializers lists them.
+      if (!ctors.some((c) => !c.factory) && !initUnavailable && k === "swift.class") {
         if (cls.extends) cls.inheritsInit = true;
         else ctors.push({ params: [], selector: "init" });
       }
@@ -1214,6 +1226,7 @@ export function buildIosSchema(
       }),
       objcClasses,
     });
+    inheritedInitializers(mod);
     dropUndeclared(mod, (ref, arity) => {
       const [owner, ...rest] = ref.split(".");
       const name = rest.join(".");
@@ -1253,6 +1266,34 @@ function disambiguate(methods: SdkMethodSchema[]): void {
     }
     m.name = withLabels(m);
     seen.add(key(m));
+  }
+}
+
+/**
+ * A class whose only initializers are factories inherits its superclass's
+ * too, which its declaration must then list: a TypeScript constructor hides
+ * the inherited ones. A superclass of another module's are not known here,
+ * and stay hidden. Factories are not inherited: one may make instances of
+ * the class that declares it only. (A class with Swift initializers keeps
+ * them alone, as before it had factories.)
+ */
+function inheritedInitializers(mod: SdkModuleSchema): void {
+  const classes = new Map<string, SdkClassSchema>(
+    mod.types.flatMap((t) => (t.kind === "class" ? [[`${mod.module}.${t.name}`, t]] : [])),
+  );
+  const made = (cls: SdkClassSchema, depth = 0): SdkCallable[] | undefined => {
+    if (!cls.inheritsInit) return (cls.constructors ?? []).filter((c) => !c.factory);
+    const sup = cls.extends ? classes.get(cls.extends) : undefined;
+    return sup && depth < 64 ? made(sup, depth + 1) : undefined;
+  };
+  const inherited = new Map<SdkClassSchema, SdkCallable[]>();
+  for (const cls of classes.values())
+    if (cls.inheritsInit && cls.constructors?.length && cls.constructors.every((c) => c.factory))
+      inherited.set(cls, made(cls) ?? []);
+  for (const [cls, ctors] of inherited) {
+    delete cls.inheritsInit;
+    for (const c of ctors)
+      if (!cls.constructors!.some((x) => x.selector === c.selector)) cls.constructors!.push(c);
   }
 }
 

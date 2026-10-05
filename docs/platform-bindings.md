@@ -190,7 +190,10 @@ with the module's name when the format is missing or not the current one.
   plus clang for its enum values. Frameworks the program only meets in
   signatures (UIKit's methods take Foundation types) get **names only**: their
   types as opaque nominal classes, from their symbol graphs; importing such a
-  framework gives it full declarations. Which module declares a type comes
+  framework gives it full declarations (`import "lucent:ios/UIKit";` is
+  enough). Using a member of such a type, or constructing a class that
+  inherits its initializers from one (`new Dial(frame)`, a UIView), says
+  which module to import. Which module declares a type comes
   from a scan of the headers: the SDK's once per SDK, each other artifact's
   once per contents.
 - Extractions take a lock per module, so a build and a prefetch never do the
@@ -222,6 +225,10 @@ directory:
   the SDK declares initializers;
 - Swift names on iOS (`UIDevice.current`, `init(style:)` → `constructor(style)`),
   nested types joined with `_` (`UIImpactFeedbackGenerator_FeedbackStyle`);
+  a factory method Swift imports as an initializer (`+buttonWithType:` as
+  `init(type:)`) is a constructor too, sent to the class, beside the
+  initializers a class with only factories inherits (a Lucent subclass's
+  `super(…)` cannot call one);
 - Java names on Android, plus Kotlin-style getter properties
   (`VibratorManager.defaultVibrator`); Kotlin classes as Kotlin declares
   them (see below);
@@ -365,8 +372,11 @@ a suspend function argument) has the `kotlin-shim` backend, which refuses
 generic members bounded by a projected type (`T : List<out R>`, whose
 bound the schema does not keep) and overriding a Kotlin class's suspend
 or value-class members, for now;
-Swift shims pass scalars, Swift enums and objects, not optionals of
-scalars, Objective-C enums or closures. A value that cannot cross is an `unsupported` conversion with
+Swift shims pass scalars, Swift enums, objects, functions (as blocks) and
+tuples (as arrays, `copy-tuple`), not optionals of scalars or Objective-C
+enums; a function's own values are scalars or objects (no enums, C
+structs or functions), a tuple's are not optional, and tuples are not
+elements. A value that cannot cross is an `unsupported` conversion with
 its reason; a member no use of which can work (a read-only property
 written, a Swift async initializer, a member of a protocol with associated
 types called, a static requirement implemented) is `refused`, with the
@@ -532,7 +542,15 @@ Board_top(…) = …top<T>(…)`), which the JVM erases. A value class property
   throwing, async and mutating requirements; associated types are the
   protocol's type parameters, fixed by `implements Store<string>`, and
   `Self` is the implementing class (initializer and static requirements
-  are refused).
+  are refused). Swift function types are Lucent functions both ways: one
+  passed or assigned becomes a block the shim calls as the Swift function,
+  one Swift returns a Lucent function calling it. Tuples are TypeScript
+  tuples labeled as Swift labels them (`[min: number, max: number]`),
+  passed as arrays. `inout` parameters are skipped.
+- C functions Swift imports as members of a CoreFoundation-style handle
+  (`CGImageGetWidth` as `cgImage.width`, `CGColorCreateGenericRGB` as
+  `new CGColor(r, g, b, a)`) are called through shims too: Swift knows
+  which argument is the handle.
 - Pointers a method writes through (`CGFloat *`, `NSRange *`, `NSDate **`,
   `NSError **` where Swift does not throw, `CFTypeRef *`) take an `Out<T>`
   from `lucent:ios`: read `value` after the call, and set it first for a

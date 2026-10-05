@@ -758,6 +758,30 @@ describe("binding plans: Swift rules", () => {
             swift: { name: "each(_:)" },
           },
           {
+            name: "onOutline",
+            params: [{ name: "f", type: T("(Shapes.Outline) => void") }],
+            returns: T("void"),
+            swift: { name: "onOutline(_:)" },
+          },
+          {
+            name: "bounds",
+            params: [],
+            returns: T("[min: double, max: double]"),
+            swift: { name: "bounds()" },
+          },
+          {
+            name: "spans",
+            params: [],
+            returns: T("[double, double][]"),
+            swift: { name: "spans()" },
+          },
+          {
+            name: "partial",
+            params: [{ name: "p", type: T("[double?, string]") }],
+            returns: T("void"),
+            swift: { name: "partial(_:)" },
+          },
+          {
             name: "outline",
             params: [{ name: "o", type: T("Shapes.Outline?") }],
             returns: T("void"),
@@ -867,7 +891,20 @@ describe("binding plans: Swift rules", () => {
   it("refuses what cannot cross to Swift, as the call would", () => {
     expect(reason(pen, "width")).toBe("optional numbers and booleans cannot cross to Swift yet");
     expect(reason(pen, "style")).toBe("Objective-C enums (KITEdges) cannot cross to Swift yet");
-    expect(reason(pen, "each")).toBe("fn values cannot cross to Swift yet");
+    // Functions cross as blocks: their values as a block's, objects or scalars.
+    expect(reason(pen, "each")).toBeUndefined();
+    expect(reason(pen, "onOutline")).toBe(
+      "Swift functions taking or giving enums with payloads (Outline) cannot cross yet",
+    );
+    // Tuples cross as arrays of their elements.
+    expect(planBinding(pen, method(pen, "bounds"), shapes, types).output).toMatchObject({
+      op: "copy-tuple",
+      of: [{ op: "number" }, { op: "number" }],
+    });
+    expect(reason(pen, "spans")).toBe(
+      "tuples in collections, tuples or payloads cannot cross to Swift yet",
+    );
+    expect(reason(pen, "partial")).toBe("optional values in tuples cannot cross to Swift yet");
     expect(reason(pen, "sizes")).toBe("collections of optional values cannot cross to Swift yet");
     // An optional enum with payloads: passed in, not read out.
     expect(reason(pen, "outline")).toBe(

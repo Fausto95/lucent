@@ -257,6 +257,19 @@ inline id swiftPayload(id c, const char* field) {
                             String::fromUtf8(std::string(type) + " has no case " + [[((NSDictionary*)c)[@"kind"] description] UTF8String])));
 }
 
+// --- Swift tuples ----------------------------------------------------------------------
+
+/// A Swift tuple, as the shims pass it: an array of its elements (none of them nil).
+inline id swiftTuple(std::initializer_list<id> items) {
+  NSMutableArray* a = [NSMutableArray arrayWithCapacity:items.size()];
+  for (id item : items) [a addObject:item];
+  return a;
+}
+/// An element of a tuple a shim passed.
+inline id swiftTupleItem(id t, NSUInteger i) {
+  return ((NSArray*)t)[i];
+}
+
 // --- errors ----------------------------------------------------------------------------
 
 /// The domain of the NSErrors Lucent errors become (toNSError).

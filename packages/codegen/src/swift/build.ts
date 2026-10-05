@@ -7,7 +7,8 @@ export const optional = (of: Type): Type => ({ k: "optional", of });
 export const array = (of: Type): Type => ({ k: "array", of });
 export const dictionary = (key: Type, value: Type): Type => ({ k: "dictionary", key, value });
 export const cFunction = (params: Type[], ret: Type): Type => ({ k: "cFunction", params, ret });
-export const fn = (params: Type[], ret: Type): Type => ({ k: "function", params, ret });
+export const fn = (params: Type[], ret: Type, attributes?: string[]): Type =>
+  attributes?.length ? { k: "function", params, ret, attributes } : { k: "function", params, ret };
 export const opaque = (of: Type): Type => ({ k: "opaque", of });
 
 export const name = (n: string): Expr => ({ k: "name", name: n });
@@ -18,6 +19,8 @@ export const nil: Expr = { k: "nil" };
 export const self: Expr = { k: "self" };
 export const member = (object: Expr, n: string): Expr => ({ k: "member", object, name: n });
 export const arrayLiteral = (items: Expr[]): Expr => ({ k: "arrayLiteral", items });
+export const tuple = (items: Expr[]): Expr => ({ k: "tuple", items });
+export const tupleType = (items: { label?: string; type: Type }[]): Type => ({ k: "tuple", items });
 export const dictionaryLiteral = (entries: { key: Expr; value: Expr }[]): Expr => ({
   k: "dictionaryLiteral",
   entries,

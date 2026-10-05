@@ -137,4 +137,20 @@ describe("schema types", () => {
       name: "List",
     });
   });
+
+  it("writes and reads a Swift tuple, its labels kept, as [label: T, …]", () => {
+    const t = parseSchemaType("[min: double, max: Shapes.Point]?");
+
+    expect(t).toEqual({
+      k: "tuple",
+      nullable: true,
+      items: [
+        { label: "min", type: { k: "prim", name: "double", nullable: false } },
+        { label: "max", type: { k: "ref", module: "Shapes", name: "Point", nullable: false } },
+      ],
+    });
+    expect(formatSchemaType(t)).toBe("[min: double, max: Shapes.Point]?");
+    // Unlabeled, and an array of tuples.
+    expect(formatSchemaType(parseSchemaType("[double, string][]"))).toBe("[double, string][]");
+  });
 });

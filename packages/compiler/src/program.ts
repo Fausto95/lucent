@@ -616,7 +616,10 @@ export function createLucentProgram(
         )
       )
         continue;
-      const hint = nativeMemberHint(d, checker, direct) ?? nativeAttributeHint(d, checker);
+      const hint =
+        nativeMemberHint(d, checker, direct) ??
+        inheritedInitializerHint(d, checker, direct) ??
+        nativeAttributeHint(d, checker);
       const diagnostic = fromTs(d);
       diagnostics.push(
         hint
@@ -626,6 +629,54 @@ export function createLucentProgram(
     }
   }
   return { program, platform, checker, modules, diagnostics };
+}
+
+/** TypeScript's error for constructing a class whose constructor is protected. */
+const PROTECTED_CONSTRUCTOR = 2674;
+
+/**
+ * What to do about `new C(…)` of a native class that inherits its
+ * initializers from a class only named (an iOS module only named in other
+ * modules' signatures declares no initializers): import that module.
+ */
+function inheritedInitializerHint(
+  d: ts.Diagnostic,
+  checker: ts.TypeChecker,
+  direct: Set<string>,
+): { message: string; fix: string } | undefined {
+  if (d.code !== PROTECTED_CONSTRUCTOR || !d.file || d.start === undefined) return undefined;
+
+  let node: ts.Node | undefined = nodeAt(d.file, d.start);
+  while (node && !ts.isNewExpression(node)) node = node.parent;
+  if (!node) return undefined;
+
+  // The class itself (a `new` it cannot make has no type of its own).
+  let own = checker.getSymbolAtLocation(node.expression);
+  if (own && own.flags & ts.SymbolFlags.Alias) own = checker.getAliasedSymbol(own);
+  if (!own?.declarations?.[0] || !sdkModuleOf(own.declarations[0].getSourceFile()))
+    return undefined;
+  const made = checker.getDeclaredTypeOfSymbol(own);
+
+  // Up the superclasses to the first that declares constructors: the one only named, if any.
+  let t: ts.Type | undefined = made;
+  for (let depth = 0; t && depth < 64; depth++) {
+    const decl = t.getSymbol()?.declarations?.find(ts.isClassDeclaration);
+    if (!decl) return undefined;
+    if (decl.members.some(ts.isConstructorDeclaration)) {
+      const sdk = sdkModuleOf(decl.getSourceFile());
+      if (!sdk || sdk.platform !== "ios" || direct.has(`${sdk.platform}/${sdk.module}`))
+        return undefined;
+      const spec = `lucent:${sdk.platform}/${sdk.module}`;
+      const name = decl.name?.text ?? "its superclass";
+      return {
+        message: `${own.name} inherits its initializers from ${name}, which is ${spec}'s, which no file imports: only its name is known.`,
+        fix: `import from ${spec} (\`import "${spec}";\` is enough) to construct ${own.name}`,
+      };
+    }
+    const declared: ts.Type = (t as ts.TypeReference).target ?? t;
+    t = checker.getBaseTypes(declared as ts.InterfaceType)[0];
+  }
+  return undefined;
 }
 
 /** TypeScript's errors for a member a type does not have (2551: with a suggestion). */

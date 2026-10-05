@@ -40,6 +40,7 @@ import {
   linkModule,
   noteFramework,
   numberToNative,
+  objcBlock,
   primLt,
   toObjc,
   toObjcExpr,
@@ -159,17 +160,34 @@ function cStruct(t: SdkType): string | undefined {
   return info?.kind === "struct" ? info.native : undefined;
 }
 
+/** A CoreFoundation handle's C type (`CGColorRef`): it crosses as the object it is. */
+function cfHandle(t: SdkType): string | undefined {
+  if (t.k !== "ref") return undefined;
+  const info = sdkTypeInfo("ios", t.module, t.name);
+  return info?.cf ? info.native : undefined;
+}
+
+/** A value of type `t` the glue converted (`converted`) as the object it crosses as. */
+const asObject = (t: SdkType, converted: cpp.Expr) =>
+  cfHandle(t) ? cpp.cast("bridge", cpp.type("id"), converted) : converted;
+
 /** A Lucent value `c` of type `t` as the object it crosses as. */
 export function objectOf(t: SdkType, c: cpp.Expr): cpp.Expr {
   return cStruct(t)
     ? cpp.call("lucent::objc::structBytes", [toObjcExpr(t, c, false)])
-    : toObjcExpr(t, c, false);
+    : asObject(t, toObjcExpr(t, c, false));
 }
 
 /** An object `code` that crossed as type `t`, as a Lucent value of type `lt`. */
 export function valueOf(em: FnEmitter, code: cpp.Expr, t: SdkType, lt: LType, what: string): E {
+  if (t.k === "tuple") return tupleFromObjc(em, code, t, lt, what);
   const s = cStruct(t);
-  const c = s ? cpp.call("lucent::objc::structFromBytes", [code], [cpp.type(s)]) : code;
+  const cf = cfHandle(t);
+  const c = s
+    ? cpp.call("lucent::objc::structFromBytes", [code], [cpp.type(s)])
+    : cf
+      ? cpp.cast("bridge", cpp.type(cf), code)
+      : code;
   return fromObjc(em, c, t, lt, what);
 }
 
@@ -241,7 +259,8 @@ export function swiftCall(
         return cpp.staticCast(cpp.type("NSInteger"), em.exprAs(a, T.number));
       case "object":
         if (cStruct(t)) return cpp.call("lucent::objc::structBytes", [toObjc(em, a, t, member)]);
-        if (!hasUnion(t)) return toObjc(em, a, t, member);
+        if (t.k === "tuple") return tupleToObjc(t, em.exprAs(a, declaredTypes(em, use).params[i]!));
+        if (!hasUnion(t)) return asObject(t, toObjc(em, a, t, member));
         // Unions convert from the parameter's declared type (the argument's may be a case).
         return unionToObjc(em, use, t, em.exprAs(a, declaredTypes(em, use).params[i]!), i);
     }
@@ -277,8 +296,19 @@ export function swiftSet(
         return cpp.staticCast(cpp.type("NSInteger"), v);
       case "object":
         if (hasUnion(t)) return unionToObjc(em, use, t, v, 0);
+        if (t.k === "tuple") return tupleToObjc(t, v);
+        // A Lucent function, as the block it crosses as.
+        if (t.k === "fn") {
+          const lt = declaredTypes(em, use).params[0]!;
+          const fn = nonNull(t) as SdkType & { k: "fn" };
+          const block = (f: cpp.Expr) => objcBlock(em, use.node, f, lt, fn, { display: use.what });
+          return t.nullable ? ifPresent(v, block) : block(v);
+        }
         return t.nullable
-          ? ifPresent(v, (x) => toObjcExpr({ ...t, nullable: false } as SdkType, x, false))
+          ? asObject(
+              t,
+              ifPresent(v, (x) => toObjcExpr({ ...t, nullable: false } as SdkType, x, false)),
+            )
           : objectOf(t, v);
     }
   })();
@@ -330,7 +360,7 @@ function resultOf(em: FnEmitter, use: SwiftUse, r: cpp.Expr): E {
   const lt: LType =
     use.role === "init" && ret.k === "ref"
       ? { k: "native", platform: "ios", module: ret.module, name: ret.name }
-      : hasUnion(ret) || cStruct(ret)
+      : hasUnion(ret) || cStruct(ret) || ret.k === "fn" || ret.k === "tuple"
         ? declaredTypes(em, use).ret
         : declaredLt(em, "ios", ret, use.node);
   return valueOf(em, r, ret, lt, use.what);
@@ -609,6 +639,62 @@ function unionToObjc(em: FnEmitter, use: SwiftUse, t: SdkType, c: cpp.Expr, i: n
   return toObjcExpr(t, c, false);
 }
 
+// --- tuples: Lucent tuples, arrays to the shims ---------------------------------------------
+
+/** A Lucent tuple `c` (of type `t`, absent when nullable) as the array of its elements' objects. */
+function tupleToObjc(t: SdkType & { k: "tuple" }, c: cpp.Expr): cpp.Expr {
+  const items = (x: cpp.Expr) =>
+    cpp.statementExpr(
+      [cpp.varDecl(cpp.auto, "t_", x)],
+      cpp.call("lucent::objc::swiftTuple", [
+        cpp.initList(
+          t.items.map((item, i) =>
+            boxed(item.type, cpp.call("std::get", [cpp.id("t_")], [cpp.type(`${i}`)])),
+          ),
+        ),
+      ]),
+    );
+  return t.nullable ? ifPresent(c, items) : items(c);
+}
+
+/** An array `code` a shim passed for tuple `t` as the Lucent tuple `lt`; null for nil when `lt` allows it. */
+function tupleFromObjc(
+  em: FnEmitter,
+  code: cpp.Expr,
+  t: SdkType & { k: "tuple" },
+  lt: LType,
+  what: string,
+): E {
+  const inner = withoutNull(lt);
+  if (inner.k !== "tuple") throw new Error(`${what}: a tuple read as ${inner.k}`);
+  const read = (o: cpp.Expr) =>
+    cpp.construct(
+      em.reg.cppType(inner),
+      t.items.map((x, i) =>
+        cpp.statementExpr(
+          [
+            cpp.varDecl(
+              cpp.type("id"),
+              "e_",
+              cpp.call("lucent::objc::swiftTupleItem", [o, cpp.num(i)]),
+            ),
+          ],
+          x.type.k === "prim" || swiftEnum(x.type)
+            ? fromObjcItem(em, x.type, inner.es[i]!, what)
+            : fromObjc(em, cpp.id("e_"), x.type, inner.es[i]!, what).c,
+        ),
+      ),
+    );
+  if (typeKey(inner) === typeKey(lt)) return { c: read(code), t: lt };
+  const u = cpp.id("u_");
+  const value = cpp.conditional(
+    u,
+    em.coerce({ c: read(u), t: inner }, lt),
+    em.coerce({ c: cpp.id("lucent::null"), t: T.null }, lt),
+  );
+  return { c: cpp.statementExpr([cpp.varDecl(cpp.type("id"), "u_", code)], value), t: lt };
+}
+
 /** A case's dictionary `code` (enum `t`) as the union `lt`; null for nil when `lt` allows it. */
 export function swiftUnionFromObjc(em: FnEmitter, code: cpp.Expr, t: SdkType, lt: LType): E {
   const inner = withoutNull(lt);
@@ -851,7 +937,13 @@ export function swiftType(t: SdkType): swift.Type {
 function bareSwiftType(t: SdkType): swift.Type {
   switch (t.k) {
     case "prim":
-      return swift.type(SCALARS[t.name]!.swift);
+      return swift.type(isVoid(t) ? "Void" : SCALARS[t.name]!.swift);
+    case "fn":
+      return swift.fn(t.params.map(swiftType), swiftType(t.ret));
+    case "tuple":
+      return swift.tupleType(
+        t.items.map((x) => ({ ...(x.label ? { label: x.label } : {}), type: swiftType(x.type) })),
+      );
     case "string":
       return swift.type("String");
     case "bytes":
@@ -922,6 +1014,10 @@ export function fromObject(t: SdkType, o: swift.Expr): swift.Expr {
   const cast = (type: swift.Type) => swift.cast(o, "as!", type);
   if (bridges(t)) return t.k === "id" ? o : cast(swiftType(t));
   switch (t.k) {
+    case "fn":
+      return call1(closureFunction(t, "Function"), o);
+    case "tuple":
+      return call1(tupleFunction(t, "Value"), o);
     case "array":
       if (bridges(t.of)) return cast(swiftType(t));
       return each(cast(swift.array(swift.type("AnyObject"))), "map", fromObject(t.of, n("$0")));
@@ -966,6 +1062,10 @@ function toObject(t: SdkType, v: swift.Expr): swift.Expr {
       return as(v, "NSDate");
     case "id":
       return as(v, "AnyObject");
+    case "fn":
+      return call1(closureFunction(t, "Block"), v);
+    case "tuple":
+      return call1(tupleFunction(t, "Object"), v);
     case "array":
       return as(bridges(t.of) ? v : each(v, "map", toObject(t.of, n("$0"))), "NSArray");
     case "record":
@@ -1404,6 +1504,175 @@ function unionFunctions(e: { name: string; cases: PayloadCase[] }): swift.Decl[]
   ];
 }
 
+// --- Swift functions: blocks to the glue ---------------------------------------------------
+
+/**
+ * The Swift file's functions between a Swift function type and the block
+ * it crosses as: one per signature, named by it.
+ */
+function closureFunction(t: SdkType & { k: "fn" }, to: "Function" | "Block"): string {
+  const signature = formatSchemaType({ ...t, escaping: false, main: false, nullable: false });
+  return `lucent${to}_${createHash("sha1").update(signature).digest("hex").slice(0, 12)}`;
+}
+
+/**
+ * A block's type in Swift: numbers and booleans as themselves, every other
+ * value as an object (what the glue's block takes and gives).
+ */
+function blockType(t: SdkType & { k: "fn" }): swift.Type {
+  const value = (x: SdkType) =>
+    x.k === "prim"
+      ? swiftType(x)
+      : x.nullable
+        ? swift.optional(swift.type("AnyObject"))
+        : swift.type("AnyObject");
+  return swift.fn(t.params.map(value), value(t.ret), ["@convention(block)"]);
+}
+
+/** A Swift value `v` of type `t` as a block passes or returns it. */
+function toBlockValue(t: SdkType, v: swift.Expr): swift.Expr {
+  if (t.k === "prim") return v;
+  return t.nullable ? each(v, "map", toObject(nonNull(t), n("$0"))) : toObject(t, v);
+}
+
+/** What a block passed or returned (`o`) as the Swift value of type `t`. */
+function fromBlockValue(t: SdkType, o: swift.Expr): swift.Expr {
+  if (t.k === "prim") return o;
+  return t.nullable ? each(o, "map", fromObject(nonNull(t), n("$0"))) : fromObject(t, o);
+}
+
+/**
+ * A Swift function type's two functions: a block (a Lucent function, as the
+ * glue made it) as the Swift function, and a Swift function as a block the
+ * glue makes a Lucent function of.
+ */
+function closureFunctions(t: SdkType & { k: "fn" }): swift.Decl[] {
+  const block = blockType(t);
+  const names = t.params.map((_, i) => `p${i}`);
+  const call = (f: swift.Expr, args: swift.Expr[]) =>
+    swift.call(
+      f,
+      args.map((value) => ({ value })),
+    );
+  const body = (result: swift.Expr) => [isVoid(t.ret) ? swift.exprStmt(result) : swift.ret(result)];
+  const fromBlock = swift.closure(
+    names,
+    body(
+      fromBlockValue(
+        t.ret,
+        call(
+          n("b"),
+          t.params.map((p, i) => toBlockValue(p, n(names[i]!))),
+        ),
+      ),
+    ),
+  );
+  const toBlock = swift.closure(
+    names,
+    body(
+      toBlockValue(
+        t.ret,
+        call(
+          n("f"),
+          t.params.map((p, i) => fromBlockValue(p, n(names[i]!))),
+        ),
+      ),
+    ),
+  );
+  const fnType = swiftType(nonNull(t));
+  const bitCast = (value: swift.Expr, to: string) =>
+    swift.call(n("unsafeBitCast"), [{ value }, { label: "to", value: n(`${to}.self`) }]);
+  return [
+    {
+      k: "func",
+      modifiers: [],
+      name: closureFunction(t, "Function"),
+      params: [{ external: "_", name: "o", type: swift.type("AnyObject") }],
+      ret: fnType,
+      body: [
+        swift.letStmt("b", bitCast(n("o"), `(${swift.printType(block)})`)),
+        swift.ret(fromBlock),
+      ],
+    },
+    {
+      k: "func",
+      modifiers: [],
+      name: closureFunction(t, "Block"),
+      params: [
+        {
+          external: "_",
+          name: "f",
+          type: swift.fn(t.params.map(swiftType), swiftType(t.ret), ["@escaping"]),
+        },
+      ],
+      ret: swift.type("AnyObject"),
+      body: [swift.letStmt("b", toBlock, block), swift.ret(bitCast(n("b"), "AnyObject"))],
+    },
+  ];
+}
+
+// --- tuples: arrays to the glue -----------------------------------------------------------
+
+/** The Swift file's functions between a tuple type and the array it crosses as. */
+function tupleFunction(t: SdkType & { k: "tuple" }, to: "Object" | "Value"): string {
+  const signature = formatSchemaType(nonNull(t));
+  return `lucentTuple${to}_${createHash("sha1").update(signature).digest("hex").slice(0, 12)}`;
+}
+
+/** A tuple type's two functions: the tuple as an array of its elements' objects, and back. */
+function tupleFunctions(t: SdkType & { k: "tuple" }): swift.Decl[] {
+  const type = swiftType(nonNull(t));
+  const v = n("v");
+  const a = n("a");
+  return [
+    {
+      k: "func",
+      modifiers: [],
+      name: tupleFunction(t, "Object"),
+      params: [{ external: "_", name: "v", type }],
+      ret: swift.type("AnyObject"),
+      body: [
+        swift.ret(
+          swift.cast(
+            swift.arrayLiteral(t.items.map((x, i) => toObject(x.type, swift.member(v, `${i}`)))),
+            "as",
+            swift.type("NSArray"),
+          ),
+        ),
+      ],
+    },
+    {
+      k: "func",
+      modifiers: [],
+      name: tupleFunction(t, "Value"),
+      params: [{ external: "_", name: "o", type: swift.type("AnyObject") }],
+      ret: type,
+      body: [
+        swift.letStmt("a", swift.cast(n("o"), "as!", swift.array(swift.type("AnyObject")))),
+        swift.ret(
+          swift.tuple(t.items.map((x, i) => fromObject(x.type, swift.index(a, swift.num(i))))),
+        ),
+      ],
+    },
+  ];
+}
+
+/** The tuple types a type holds, by their functions' names. */
+function tuplesOf(t: SdkType, out: Map<string, SdkType & { k: "tuple" }>): void {
+  if (t.k === "array" || t.k === "record" || t.k === "set") return tuplesOf(t.of, out);
+  if (t.k !== "tuple") return;
+  out.set(tupleFunction(t, "Value"), t);
+  for (const x of t.items) tuplesOf(x.type, out);
+}
+
+/** The Swift function types a type holds, by their functions' names. */
+function closuresOf(t: SdkType, out: Map<string, SdkType & { k: "fn" }>): void {
+  if (t.k === "array" || t.k === "record" || t.k === "set") return closuresOf(t.of, out);
+  if (t.k !== "fn") return;
+  out.set(closureFunction(t, "Function"), t);
+  for (const p of [...t.params, t.ret]) closuresOf(p, out);
+}
+
 /** The enums with payloads a type holds, those their payloads hold included. */
 export function unionsOf(
   t: SdkType,
@@ -1419,6 +1688,8 @@ export function unionsOf(
 /** The modules a type's Swift name needs imported. */
 export function modulesOf(t: SdkType): string[] {
   if (t.k === "array" || t.k === "record") return modulesOf(t.of);
+  if (t.k === "fn") return [...t.params, t.ret].flatMap(modulesOf);
+  if (t.k === "tuple") return t.items.flatMap((x) => modulesOf(x.type));
   return t.k === "ref" ? [t.module] : [];
 }
 
@@ -1436,8 +1707,13 @@ export function shimsFile(
 ): string {
   const all = [...shims].sort((a, b) => a.symbol.localeCompare(b.symbol));
   const unions = new Map<string, { name: string; cases: PayloadCase[] }>();
-  for (const t of [...all.flatMap((s) => [...s.params, s.ret]), ...proxies.types])
+  const closures = new Map<string, SdkType & { k: "fn" }>();
+  const tuples = new Map<string, SdkType & { k: "tuple" }>();
+  for (const t of [...all.flatMap((s) => [...s.params, s.ret]), ...proxies.types]) {
     unionsOf(t, unions);
+    closuresOf(t, closures);
+    tuplesOf(t, tuples);
+  }
   const modules = new Set(["Foundation", ...proxies.modules]);
   const types = [
     ...all.flatMap((s) => [...s.params, s.ret]),
@@ -1452,6 +1728,10 @@ export function shimsFile(
       ...helpers(),
       ...(all.some((x) => x.member.async) ? taskHelpers() : []),
       ...[...unions.values()].sort((a, b) => a.name.localeCompare(b.name)).flatMap(unionFunctions),
+      ...[...closures]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .flatMap(([, t]) => closureFunctions(t)),
+      ...[...tuples].sort(([a], [b]) => a.localeCompare(b)).flatMap(([, t]) => tupleFunctions(t)),
       ...all.map(shimFunction),
       ...proxies.decls,
     ],

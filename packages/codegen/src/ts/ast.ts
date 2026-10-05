@@ -38,6 +38,8 @@ export type Type =
   | { k: "typeof"; name: string };
 
 export interface TupleElement {
+  /** Its label: `[min: number, max: number]`. */
+  name?: string;
   type: Type;
   /** `T?`: a value may leave it out. */
   optional?: boolean;

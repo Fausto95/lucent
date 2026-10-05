@@ -71,6 +71,8 @@ export type ConversionOp =
   | "copy-bytes"
   | "copy-array"
   | "copy-record"
+  /** A Swift tuple, as an array of its elements (`of`, in order). */
+  | "copy-tuple"
   | "copy-set"
   | "copy-date"
   /** A native reference, retained by a NativeRef. */
@@ -969,6 +971,12 @@ function kindConversion(t: SchemaType, place: Place, ctx: Context): ConversionPl
       );
     case "date":
       return { op: "copy-date", type: t };
+    case "tuple":
+      return {
+        op: "copy-tuple",
+        type: t,
+        of: t.items.map((x) => inner(x.type, { element: true })),
+      };
     case "id":
       return withDetail({ op: "retain-object", type: t }, t.cf ? "CFTypeRef" : "id");
     case "error":
@@ -1128,6 +1136,8 @@ function objcRule(t: SchemaType, place: Place, ctx: Context): string | undefined
   if (place.pointee) return undefined;
 
   const k = t.k;
+  // Only Swift has them, and its shims pass them.
+  if (k === "tuple") return "tuples cannot cross to Objective-C";
   const unconverted = k === "fn" || k === "out" || k === "error" || k === "classOf";
 
   if (place.element) {
@@ -1171,14 +1181,38 @@ function objcRule(t: SchemaType, place: Place, ctx: Context): string | undefined
 
 /**
  * Swift shims: scalars, enums as their case index, and objects (C structs
- * as their bytes, enums with payloads as their case's dictionary). What
- * would need a Swift optional of a scalar, or a closure, does not cross yet.
+ * as their bytes, enums with payloads as their case's dictionary, Swift
+ * functions as blocks). What would need a Swift optional of a scalar does
+ * not cross yet.
  */
 function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefined {
   const not = (what: string) => `${what} cannot cross to Swift yet`;
   const optionalUnion = "optional Swift enums with payloads cannot cross to Swift yet";
 
   switch (t.k) {
+    case "fn":
+      if (ctx.role === "implement")
+        return "functions in requirements a Lucent class implements cannot cross to Swift yet";
+      if (place.element) return not("collections of functions");
+      if (place.flow === "in" && !place.passed)
+        return not("functions other than arguments and assigned values");
+
+      return (
+        t.params.map((p) => closureValueRule(p, ctx)).find(Boolean) ??
+        (isVoidType(t.ret) ? undefined : closureValueRule(t.ret, ctx))
+      );
+
+    // An array of its elements, each crossing as a collection's does.
+    case "tuple":
+      if (ctx.role === "implement")
+        return "tuples in requirements a Lucent class implements cannot cross to Swift yet";
+      if (place.element) return not("tuples in collections, tuples or payloads");
+
+      if (t.items.some((x) => x.type.nullable)) return not("optional values in tuples");
+      if (t.items.some((x) => isStruct(x.type, ctx) || hasUnion(x.type, ctx)))
+        return not("C structs and enums with payloads in tuples");
+      return undefined;
+
     case "prim":
       if (t.name === "void") return place.result ? undefined : not("void values");
       if (!SWIFT_SCALARS[t.name]) return not(`${t.name} values`);
@@ -1225,6 +1259,32 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
       return not(`${t.k} values`);
   }
 }
+
+/**
+ * What a Swift function takes and gives crosses as a block's arguments and
+ * result: numbers and booleans as themselves, the rest as objects. Values
+ * a shim passes otherwise (enums as their case index, C structs as their
+ * bytes, unions as dictionaries) do not cross there yet; the rest of the
+ * rule is swiftRule's, applied to each one.
+ */
+function closureValueRule(t: SchemaType, ctx: Context): string | undefined {
+  const not = (what: string) => `Swift functions taking or giving ${what} cannot cross yet`;
+  if (t.k === "fn") return not("functions");
+  if (t.k === "tuple") return not("tuples");
+  if (t.k === "array" || t.k === "record" || t.k === "set") return closureValueRule(t.of, ctx);
+  if (t.k !== "ref") return undefined;
+
+  const facts = ctx.types(t.module, t.name);
+  if (facts?.kind === "enum") return not(`enums (${t.name})`);
+  if (facts?.kind === "struct") return not(`C structs (${t.name})`);
+
+  const swift = facts?.swift === true ? undefined : facts?.swift;
+  if (swift?.cases) return not(`enums with payloads (${t.name})`);
+  if (swift?.associatedTypes) return not(`${t.name} values (a protocol with associated types)`);
+  return undefined;
+}
+
+const isVoidType = (t: SchemaType) => t.k === "prim" && t.name === "void";
 
 /**
  * A value of a protocol with associated types or `Self` requirements

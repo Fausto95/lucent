@@ -44,6 +44,17 @@ describe("TypeScript types", () => {
     expect(printType(ts.array(ts.tuple([{ type: A }])))).toBe("[A][]");
   });
 
+  it("print labeled tuples", () => {
+    expect(
+      printType(
+        ts.tuple([
+          { name: "min", type: num },
+          { name: "max", type: num, optional: true },
+        ]),
+      ),
+    ).toBe("[min: number, max?: number]");
+  });
+
   it("print optional properties", () => {
     expect(
       ts.printUnit({

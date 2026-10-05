@@ -84,6 +84,9 @@ const CONTIGUOUS_BYTES = "s:10Foundation15ContiguousBytesP";
 /** A Swift declaration Lucent calls through shims, not a C or Objective-C one. */
 export const isSwiftUsr = (usr: string) => usr.startsWith("s:") && !usr.includes("::SYNTHESIZED::");
 
+/** A C function: one Swift imports as a type's member (`CGImageGetWidth` as `CGImage.width`) is called through a shim. */
+const isCFunction = (usr: string) => usr.startsWith("c:@F@");
+
 /**
  * A member an extension of one of the module's own protocols gives a Swift
  * type that conforms to it (`SHA256.hash(data:)`, from HashFunction). The
@@ -351,10 +354,14 @@ export function addSwiftDeclarations(ctx: SwiftContext): void {
     mod.types.push(cls);
   }
 
-  // Swift members of Objective-C classes (the Swift overlays' extensions).
+  // Swift members of Objective-C classes (the Swift overlays' extensions), and
+  // the C functions Swift imports as CoreFoundation handles' members.
   for (const [usr, cls] of ctx.objcClasses) {
     const members = (ctx.members.get(usr) ?? []).filter(
-      (m) => isSwiftUsr(m.identifier.precise) || isSynthesized(m.identifier.precise, module),
+      (m) =>
+        isSwiftUsr(m.identifier.precise) ||
+        isSynthesized(m.identifier.precise, module) ||
+        (!!cls.cf && isCFunction(m.identifier.precise)),
     );
     if (!members.length) continue;
     const bound = memberSchemas(
@@ -370,12 +377,16 @@ export function addSwiftDeclarations(ctx: SwiftContext): void {
       handled,
     );
     // An Objective-C member of the same name wins: the shim is for what Objective-C cannot call.
+    // Swift's own overloads (`copy()`, `copy(alpha:)`) are all kept.
+    const objc = new Set((cls.methods ?? []).map((m) => m.name));
     const has = (list: { name: string }[] | undefined, n: string) =>
       !!list?.some((x) => x.name === n);
     const methods = withoutPropertyNames(bound.methods, cls.properties ?? [], bound.symbols, skip);
-    for (const m of methods) if (!has(cls.methods, m.name)) (cls.methods ??= []).push(m);
+    for (const m of methods) if (!objc.has(m.name)) (cls.methods ??= []).push(m);
     for (const p of bound.props) if (!has(cls.properties, p.name)) (cls.properties ??= []).push(p);
-    if (bound.ctors.length && !cls.constructors?.length) cls.constructors = bound.ctors;
+    // Beside factories alone (`UIButton(type:)`, and the overlay's `init(type:primaryAction:)`).
+    if (bound.ctors.length && !cls.constructors?.some((c) => !c.factory))
+      cls.constructors = [...(cls.constructors ?? []), ...bound.ctors];
   }
 
   // Top-level functions and variables.
@@ -408,8 +419,12 @@ export function addSwiftDeclarations(ctx: SwiftContext): void {
  */
 function parameters(m: SymbolGraphSymbol, r: Resolver): SdkParam[] {
   const defaults = defaultedParameters(declText(m));
+  const inout = parameterTexts(declText(m)).map((p) => /:\s*(@\w+\s+)*inout\b/.test(p));
   const params = (m.functionSignature?.parameters ?? []).map((pp, i): SdkParam => {
     const name = pp.internalName ?? pp.name;
+    // A value Swift writes back: no Lucent argument is a place it can write to.
+    // (A module's own graph keeps `inout` in the declaration only.)
+    if (inout[i]) throw new Unsupported("inout parameters");
     try {
       const type = parseType(afterColon(pp.declarationFragments), r);
       return defaults[i] ? { name, type, defaulted: "optional" } : { name, type };
@@ -425,6 +440,28 @@ function parameters(m: SymbolGraphSymbol, r: Resolver): SdkParam[] {
     else if (required) delete p.defaulted;
   }
   return params;
+}
+
+/** A declaration's parameters as written (`_ other: inout Double`), by position. */
+function parameterTexts(text: string): string[] {
+  const open = text.indexOf("(", Math.max(0, text.search(/\b(func|init)\b/)));
+  if (open < 0) return [];
+  const out: string[] = [];
+  let depth = 0;
+  let start = open + 1;
+  for (let i = open + 1; i < text.length; i++) {
+    const c = text[i]!;
+    if ("([<{".includes(c)) depth++;
+    else if (")]>}".includes(c) && text[i - 1] !== "-") {
+      if (depth-- > 0) continue;
+      if (i > open + 1) out.push(text.slice(start, i));
+      break;
+    } else if (depth === 0 && c === ",") {
+      out.push(text.slice(start, i));
+      start = i + 1;
+    }
+  }
+  return out;
 }
 
 /** Which of a declaration's parameters have a default (`= []`), by position. */
@@ -575,14 +612,18 @@ function memberSchemas(
     const own = (m.swiftGenerics?.parameters ?? [])
       .map((p) => p.name)
       .filter((p) => !owner.typeParams.includes(p) && !typeArgs.has(p));
-    const r = ctx.resolver({
-      self: owner.self,
-      mainActor,
-      typeParams: [...owner.typeParams, ...own],
-      typeArgs,
-      ...(owner.associated ? { associated: owner.associated } : {}),
-      ...(owner.selfType ? { selfType: owner.selfType } : {}),
-    });
+    const r = {
+      ...ctx.resolver({
+        self: owner.self,
+        mainActor,
+        typeParams: [...owner.typeParams, ...own],
+        typeArgs,
+        ...(owner.associated ? { associated: owner.associated } : {}),
+        ...(owner.selfType ? { selfType: owner.selfType } : {}),
+      }),
+      // A Swift member's own tuples (not the C functions Swift imports as members).
+      tuples: isSwiftUsr(m.identifier.precise),
+    };
     const symbol = graphSymbol(m.identifier.precise);
     const introduced = since(m);
     const available = introduced && introduced !== owner.since ? { since: introduced } : {};

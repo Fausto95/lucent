@@ -14,10 +14,12 @@ export type Type =
   | { k: "dictionary"; key: Type; value: Type }
   /** `@convention(c) (A, B) -> R`: what a C callback is in Swift. */
   | { k: "cFunction"; params: Type[]; ret: Type }
-  /** `(A, B) -> R`: a closure's type. */
-  | { k: "function"; params: Type[]; ret: Type }
+  /** `(A, B) -> R`: a closure's type; with attributes, `@escaping (A) -> R`, `@convention(block) …`. */
+  | { k: "function"; params: Type[]; ret: Type; attributes?: string[] }
   /** `some View`: a type the compiler infers, known by a protocol it conforms to. */
-  | { k: "opaque"; of: Type };
+  | { k: "opaque"; of: Type }
+  /** `(min: Double, max: Double)`, `(Double, String)`. */
+  | { k: "tuple"; items: { label?: string; type: Type }[] };
 
 // --- expressions -----------------------------------------------------------------------
 
@@ -35,6 +37,8 @@ export type Expr =
   | { k: "self" }
   | { k: "member"; object: Expr; name: string }
   | { k: "arrayLiteral"; items: Expr[] }
+  /** `(a, b)`: a tuple's elements. */
+  | { k: "tuple"; items: Expr[] }
   | { k: "dictionaryLiteral"; entries: { key: Expr; value: Expr }[] }
   | { k: "index"; object: Expr; index: Expr }
   /** `callee(args) { trailing }`. */

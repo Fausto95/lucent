@@ -30,7 +30,7 @@ so; the code is what runs.
 
 | Contract | Purpose                                                                         | Current version | Status                             | Main code location                                                                                  |
 | -------- | ------------------------------------------------------------------------------- | --------------- | ---------------------------------- | --------------------------------------------------------------------------------------------------- |
-| C-BIND   | Binding schemas: format, native identity, provenance, facts, binding plans      | v1.5            | v1.2 frozen; v1.3 to v1.5 proposed | `packages/bindgen/src/schema.ts`, `binding-plan.ts`, `usage.ts`, `source-plan.ts`                   |
+| C-BIND   | Binding schemas: format, native identity, provenance, facts, binding plans      | v1.6            | v1.2 frozen; v1.3 to v1.6 proposed | `packages/bindgen/src/schema.ts`, `binding-plan.ts`, `usage.ts`, `source-plan.ts`                   |
 | C-IR     | Semantic IR, its verifier, effect summaries, program facts                      | v1.3            | v1.2 frozen; v1.2.1, v1.3 proposed | `packages/compiler/src/ir/`, `packages/compiler/src/analysis/`                                      |
 | C-EXEC   | Runtime identities, scopes, operations, contexts, transport, compute, callbacks | v1.6            | v1.5 frozen; v1.6 proposed         | `packages/runtime/cpp/lucent/` (`scope.h`, `execution.h`, `transport.h`, `compute.h`, `callback.h`) |
 | C-BIGINT | The runtime's `BigInt` and its native integer conversions                       | v1.1            | v1 frozen; v1.1 proposed           | `packages/runtime/cpp/lucent/bigint.h`                                                              |
@@ -77,8 +77,8 @@ These hold for every contract.
 
 ## C-BIND: binding schemas and plans
 
-**Current version: v1.5 (proposed).** v1.2 is the last frozen revision.
-v1.3, v1.4 and v1.5 are additive and implemented; none of them changed
+**Current version: v1.6 (proposed).** v1.2 is the last frozen revision.
+v1.3 to v1.6 are additive and implemented; none of them changed
 `SCHEMA_FORMAT`.
 
 C-BIND is what bindgen produces and the compiler consumes: the schema of
@@ -398,6 +398,7 @@ export type ConversionOp =
   | "copy-bytes"
   | "copy-array"
   | "copy-record"
+  | "copy-tuple" // a Swift tuple, as an array of its elements (`of`, in order)
   | "copy-set"
   | "copy-date"
   | "retain-object" // a native reference retained by a NativeRef
@@ -711,6 +712,14 @@ Tests keep each of these true.
   - TD3's source rules `builders` and `action-arguments` were lifted by
     TD7; the remaining source rules are listed above.
   - Migration: none (additive).
+- **v1.6** (2026-10-04, TA33, proposed):
+  - `SchemaType` gains `{ k: "tuple"; items: { label?; type }[] }`,
+    written `[min: double, max: double]`, for Swift members' tuples, and
+    `ConversionOp` gains `copy-tuple`.
+  - `SdkCallable.factory`: an Objective-C class method Swift imports as an
+    initializer, sent to the class.
+  - Migration: none (additive); caches re-extract through the extractor
+    hash.
 - **Not adopted.**
   - T07's proposed Kotlin extension (`jvmSetter`,
     `SdkClassSchema.kotlin.{companion, valueClass}`,

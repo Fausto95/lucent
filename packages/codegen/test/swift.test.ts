@@ -31,6 +31,36 @@ describe("Swift types", () => {
     expect(printType(fn)).toBe("(Double, String) -> Void");
     expect(printType(swift.optional(fn))).toBe("((Double, String) -> Void)?");
   });
+
+  it("print tuple types, labeled or not, and tuples", () => {
+    const double = swift.type("Double");
+
+    expect(printType(swift.tupleType([{ type: double }, { type: swift.type("String") }]))).toBe(
+      "(Double, String)",
+    );
+    expect(
+      printType(
+        swift.tupleType([
+          { label: "min", type: double },
+          { label: "max", type: double },
+        ]),
+      ),
+    ).toBe("(min: Double, max: Double)");
+    expect(printExpr(swift.tuple([swift.name("a"), swift.member(swift.name("v"), "0")]))).toBe(
+      "(a, v.0)",
+    );
+  });
+
+  it("print a function type's attributes: a block's convention, an escaping parameter", () => {
+    const object = swift.type("AnyObject");
+
+    expect(printType(swift.fn([object], object, ["@convention(block)"]))).toBe(
+      "@convention(block) (AnyObject) -> AnyObject",
+    );
+    expect(printType(swift.fn([], swift.type("Double"), ["@escaping"]))).toBe(
+      "@escaping () -> Double",
+    );
+  });
 });
 
 describe("Swift expressions", () => {

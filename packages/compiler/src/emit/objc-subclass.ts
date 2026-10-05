@@ -145,7 +145,7 @@ export function subclassImplicitSuper(info: ClassInfo): cpp.Stmt {
   const chain = baseChain(info);
   const init = chain
     .flatMap((ref) => ref.cls.constructors ?? [])
-    .find((c) => !c.params.length && !c.swift);
+    .find((c) => !c.params.length && !c.swift && !c.factory);
   if (!init)
     fail(
       info.decl,

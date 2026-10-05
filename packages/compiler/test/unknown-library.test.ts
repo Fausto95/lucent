@@ -85,7 +85,7 @@ describe.skipIf(!xcode)("an unknown library on iOS", () => {
     expect(compileErrors(p)).toEqual(compiles);
     expect(hostRun(p)).toMatchObject({
       status: 0,
-      stdout: `gauge g at 3.5 | 3 3.5 | 3.5 box | 7.0 ${lower} | Error\n`,
+      stdout: `gauge g at 3.5 | 3 3.5 | 3.5 box | 7.0 ${lower} | Error | 3 f10 f20 3 | 0 3 2 f\n`,
     });
   }, 600_000);
 
@@ -105,24 +105,24 @@ export async function run(): Promise<string> {
 `;
 
   it("names a member it does not bind, why, and the way around it", () => {
-    const skipped = iosProgram(calling(`gauge.${lower}Range();`), modules);
+    const skipped = iosProgram(calling(`gauge.${lower}Swap(1);`), modules);
     expect(skipped.r.diagnostics).toEqual([
       expect.objectContaining({
         code: "LUCENT9001",
         message: expect.stringContaining(
-          `${prefix}Gauge.${lower}Range() is in swift-module:${prefix}Kit, but Lucent does not bind it: Swift: tuples.`,
+          `${prefix}Gauge.${lower}Swap(_:) is in swift-module:${prefix}Kit, but Lucent does not bind it: Swift: inout parameters.`,
         ),
         fix: wrap,
       }),
     ]);
 
-    const refused = iosProgram(calling(`gauge.${lower}Watcher();`), modules);
+    const refused = iosProgram(calling(`gauge.${lower}OnFailure(() => {});`), modules);
     expect(refused.r.diagnostics).toEqual([
       expect.objectContaining({
         code: "LUCENT2002",
         message: expect.stringMatching(
           new RegExp(
-            `^${prefix}Gauge\\.${lower}Watcher: .* \\(swift:\\S+ in swift-module:${prefix}Kit\\)$`,
+            `^${prefix}Gauge\\.${lower}OnFailure: Swift functions taking or giving enums \\(${prefix}Failure\\) cannot cross yet \\(swift:\\S+ in swift-module:${prefix}Kit\\)$`,
           ),
         ),
         fix: wrap,
@@ -205,7 +205,7 @@ describe.skipIf(!xcode)("an unknown library's next version on iOS", () => {
     expect(compileErrors(p)).toEqual(compiles);
     expect(hostRun(p)).toMatchObject({
       status: 0,
-      stdout: `gauge g at 3.5 | 3 3.5 | 3.5 box | 7.0 ${lower} | Error\n`,
+      stdout: `gauge g at 3.5 | 3 3.5 | 3.5 box | 7.0 ${lower} | Error | 3 f10 f20 3 | 0 3 2 f\n`,
     });
   }, 600_000);
 
@@ -397,6 +397,32 @@ describe("an unknown library's view on iOS", () => {
         "turned: level 6, sent 6",
         "released: native references all released, dial gone",
       ]);
+    },
+    600_000,
+  );
+
+  it.skipIf(!xcode)(
+    "says to import the superclass's module for the initializers the view inherits",
+    () => {
+      const unimported = {
+        ...dial,
+        "dial.ios.lucent.tsx": dial["dial.ios.lucent.tsx"]!.replace(
+          /^import "lucent:ios\/UIKit";\n/m,
+          "",
+        ),
+      };
+      const { r } = compiledViews(unimported, "ios", { ios: { includePaths: [dials] } });
+
+      // First: what follows is TypeScript's from the dial it could not make.
+      expect(r.diagnostics[0]).toEqual(
+        expect.objectContaining({
+          code: "LUCENT9001",
+          message: expect.stringContaining(
+            `${prefix}Dial inherits its initializers from UIView, which is lucent:ios/UIKit's, which no file imports: only its name is known.`,
+          ),
+          fix: `import from lucent:ios/UIKit (\`import "lucent:ios/UIKit";\` is enough) to construct ${prefix}Dial`,
+        }),
+      );
     },
     600_000,
   );

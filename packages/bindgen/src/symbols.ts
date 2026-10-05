@@ -163,6 +163,8 @@ export interface Resolver {
   typeArgs?: ReadonlyMap<string, SchemaType>;
   /** `Self.Digest`: the type the owner gives an associated type (its typealias). */
   associated?: (name: string) => SchemaType | undefined;
+  /** Tuples are types: a Swift shim's member passes them as arrays. */
+  tuples?: boolean;
 }
 
 /**
@@ -302,19 +304,28 @@ export function parseType(frags: Fragment[], r: Resolver): SchemaType {
       return closure([], attrs);
     }
     if (tok === "(") {
-      const items: SchemaType[] = [];
+      const items: { label?: string; type: SchemaType }[] = [];
       while (toks[p] !== ")") {
-        items.push(type());
+        // A tuple element's label (`min: Double`).
+        const label =
+          typeof toks[p] === "string" && toks[p + 1] === ":" ? (toks[p] as string) : undefined;
+        if (label) p += 2;
+        items.push(label ? { label, type: type() } : { type: type() });
         if (toks[p] === ",") p++;
         else break;
       }
       if (toks[p++] !== ")") throw new Unsupported("closures and tuples");
       if (toks[p] === "->") {
         p++;
-        return closure(items, attrs);
+        return closure(
+          items.map((x) => x.type),
+          attrs,
+        );
       }
-      if (items.length === 1 && !attrs.length) return items[0]!;
-      throw new Unsupported("tuples");
+      if (items.length === 1 && !items[0]!.label && !attrs.length) return items[0]!.type;
+      // Only shims pass them; C arrays Swift imports as tuples, and several async results, have no glue.
+      if (!r.tuples || attrs.length) throw new Unsupported("tuples");
+      return { k: "tuple", items, nullable: false };
     }
     if (tok === "->") throw new Unsupported("closures and tuples");
     if (attrs.length) throw new Unsupported(`type syntax ${attrs.join(" ")}`);

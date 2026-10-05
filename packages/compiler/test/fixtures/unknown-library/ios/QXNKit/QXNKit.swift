@@ -49,13 +49,36 @@ public final class QXNGauge: QXNBase {
     QXNUnit(qxnSymbol: "qxn")
   }
 
-  /// Shapes Lucent does not bind yet: a tuple, and a function returned.
+  /// Tuples: arrays in Lucent, labeled as Swift labels them.
   public func qxnRange() -> (Double, Double) {
     (0, qxnLevel)
   }
 
+  public func qxnClamp(_ range: (low: Double, high: Double)) -> (level: Double, label: String) {
+    (min(max(qxnLevel, range.low), range.high), qxnLabel)
+  }
+
+  /// Shapes Lucent does not bind yet: an inout parameter, and a function taking an enum.
+  public func qxnSwap(_ other: inout Double) {
+    swap(&qxnLevel, &other)
+  }
+
+  public func qxnOnFailure(_ handler: @escaping (QXNFailure) -> Void) {}
+
+  /// Functions both ways: one returned, one passed, one stored.
   public func qxnWatcher() -> () -> Double {
     { self.qxnLevel }
+  }
+
+  public func qxnEach(_ steps: [Double], _ body: (Double, String) -> String) -> [String] {
+    steps.map { body($0, qxnLabel) }
+  }
+
+  public var qxnOnShift: ((Double) -> Void)?
+
+  public func qxnShift(by delta: Double) {
+    qxnLevel += delta
+    qxnOnShift?(qxnLevel)
   }
 
   /// Twice the level, a moment later; fails below zero.

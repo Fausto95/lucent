@@ -43,6 +43,13 @@ per number of arguments), and those Lucent has no value for (`isolation:
 isolated (any Actor)? = #isolation`) are never given. A method named like
 a property (`frame(in:)` and `frame`) is left out: the property stays.
 
+C functions Swift imports as a CoreFoundation-style handle's members
+(`CGImageGetWidth` as `CGImage.width`, `CGColorCreateGenericRGB` as
+`CGColor(red:green:blue:alpha:)`) are bound the same way, called through
+shims: Swift's name says which argument is the handle, which the symbol
+graph does not. A parameter declared `inout` is never bound: no Lucent
+argument is a place Swift can write back to.
+
 Types that conform to `ContiguousBytes` (a digest, a key) stay objects, and
 get a `bytes: Uint8Array` property that copies their bytes out: a key must
 remain a key to be used again, and its bytes are one property away.
@@ -75,7 +82,21 @@ conversions serves Objective-C and Swift:
   with `loadUnaligned` in Swift and copied in the glue;
 - objects cross as `void *`: those returned to Lucent retained
   (`Unmanaged.passRetained`, `__bridge_transfer` in the glue), arguments
-  borrowed (`__bridge`, `takeUnretainedValue`).
+  borrowed (`__bridge`, `takeUnretainedValue`);
+- Swift functions as Objective-C blocks, which the glue already makes of
+  Lucent functions and calls: the block takes and gives numbers and
+  booleans as themselves and every other value as an object
+  (`@convention(block) (Double, AnyObject) -> AnyObject`). The Swift file
+  gets two functions per function type, one turning such a block into the
+  Swift function (its values converted as a shim's are), one turning a
+  Swift function into a block. A function's own values may not be enums,
+  C structs, unions or functions, whose block form would differ from the
+  glue's;
+- tuples as arrays of their elements' objects (two functions per tuple
+  type in the Swift file, `swiftTuple` and `swiftTupleItem` in the glue);
+  Lucent declares them as TypeScript tuples, labeled as Swift labels
+  them. Their elements are not optional, and they are not elements of
+  collections, other tuples or payloads.
 
 This departs from the plan's "String as a UTF-16 buffer": bridging through
 `NSString` reuses conversions the Objective-C glue already has, tested, and

@@ -196,6 +196,13 @@ describe.skipIf(!xcode)("iOS extractor", () => {
         selector: "initWithStyle:",
         symbol: "objc:c:objc(cs)WDGWidget(im)initWithStyle:",
       },
+      // Swift imports the factory as `init(size:)`: a constructor that sends it to the class.
+      {
+        params: [{ name: "size", type: T("double") }],
+        selector: "widgetWithSize:",
+        symbol: "objc:c:objc(cs)WDGWidget(cm)widgetWithSize:",
+        factory: true,
+      },
     ]);
     expect(method("named")[0]).toMatchObject({
       static: true,

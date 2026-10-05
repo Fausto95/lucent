@@ -24,6 +24,29 @@ function ios(src: string, sdk?: SdkOptions) {
   return { r, mm: (r.files.get("ios/m_m.mm") ?? "").replace(/\s+/g, " "), dir };
 }
 
+const factories = `import { BlockOperation } from "lucent:ios/Foundation";
+export async function run(): Promise<string> {
+  let ran = 0;
+  const op = new BlockOperation(() => {
+    ran += 1;
+  });
+  op.start();
+  const empty = new BlockOperation();
+  return \`\${ran} \${empty.isFinished}\`;
+}
+`;
+
+const factorySuper = `import { BlockOperation } from "lucent:ios/Foundation";
+class Job extends BlockOperation {
+  constructor() {
+    super(() => {});
+  }
+}
+export async function run(): Promise<string> {
+  return \`\${new Job().isFinished}\`;
+}
+`;
+
 const caches = `import { NSCache } from "lucent:ios/Foundation";
 import { UIImage } from "lucent:ios/UIKit";
 export async function run(): Promise<string> {
@@ -572,6 +595,26 @@ export async function run(): Promise<string> {
     expect(mm).toContain("initWithCGImage:(__bridge CGImageRef)lucent::objc::unwrap(");
     // Methods named create/copy/new return handles the caller owns (Cocoa's naming rule).
     expect(mm).toContain("lucent::objc::wrapOpt((__bridge_transfer id)[");
+  });
+
+  it("constructs through factory methods Swift imports as initializers", () => {
+    const { r, mm } = ios(factories);
+    expect(r.diagnostics).toEqual([]);
+    // Sent to the class: `+blockOperationWithBlock:` is `BlockOperation(block:)` in Swift.
+    expect(mm).toContain("[NSBlockOperation blockOperationWithBlock:");
+    expect(mm).not.toContain("alloc] blockOperationWithBlock:");
+    // Beside it, the initializer it inherits.
+    expect(mm).toContain("[[NSBlockOperation alloc] init]");
+  });
+
+  it("refuses a factory as a Lucent subclass's super(…)", () => {
+    const { r } = ios(factorySuper);
+    expect(r.diagnostics).toEqual([
+      expect.objectContaining({
+        code: "LUCENT1005",
+        message: expect.stringContaining("the class method +blockOperationWithBlock:"),
+      }),
+    ]);
   });
 
   it("passes type parameters' values as objects, read back as the type arguments say", () => {
