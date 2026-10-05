@@ -521,7 +521,7 @@ size_t String::find(const String& needle, size_t from) const {
   return std::string::npos;
 }
 
-double String::charCodeAt(double index) const {
+double String::charCodeAtOther(double index) const {
   if (std::isnan(index)) index = 0;
   index = std::trunc(index);
   if (index < 0 || index >= static_cast<double>(length())) return std::nan("");
@@ -529,6 +529,7 @@ double String::charCodeAt(double index) const {
 }
 
 String String::charAt(double index) const {
+  if (size_t i = indexBelow(index, length()); i != kNoIndex) return fromCodeUnit(unit(i));
   if (std::isnan(index)) index = 0;
   index = std::trunc(index);
   if (index < 0 || index >= static_cast<double>(length())) return String();

@@ -132,8 +132,8 @@ What's next, in order of readiness:
    [T50](#t50).
 3. [T52](#t52) with [TA25](#ta25) and [TA26](#ta26): wrapper ports and the
    views preview (closes G3; needs physical devices).
-4. [T54](#t54) and [T60](#t60), which are ready and independent of the
-   view work.
+4. [T54](#t54) (in review) and [T60](#t60), which is ready and independent
+   of the view work.
 5. A scope decision on [T51](#t51), which as written conflicts with the
    decision against a cross-platform view vocabulary.
 
@@ -411,17 +411,17 @@ report the boundary and floor ratios, which move with the CPU
 devices measure them; a missed target is recorded and decided, never
 quietly weakened.
 
-| Id  | Dimension           | Workload                                          | Gate                                                                                        | State                                              |
-| --- | ------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| P1  | Primitive calls     | Boundary `add` and `concat`, 1,000 calls          | Within 1.25x a bare host function (host); within 20% of the fastest framework path (device) | Host checked; device open (T65)                    |
-| P2  | Computation         | The benchmark kernels                             | No regression of the kernel budgets; within 20% of handwritten native for selected kernels  | Host checked; native references open (T54, T65)    |
-| P3  | Binary transport    | `NativeBuffer` handoff of 1 KB, 1 MB and a stream | No payload copy on owned handoff; copies and allocations counted                            | Implemented (T31, T32); device open                |
-| P4  | View frames         | A steady-state wrapper workload                   | p95 frame work within 16.7 ms (60 Hz) or 8.3 ms (120 Hz), under 1% missed                   | Open (T65, devices)                                |
-| P5  | UI isolation        | Busy JavaScript plus a 500 ms compute task        | No equivalent UI stall; lock and queue waits reported                                       | Simulator and emulator evidence (T44); device open |
-| P6  | Teardown and memory | 1,000 mount/dispose and subscribe/cancel cycles   | Owned counts return to baseline, no retained growth                                         | Open (T64)                                         |
-| P7  | Feedback            | A fixture app's edit loop                         | p95 warm diagnostics under 500 ms; check and generation under 1 s                           | Warm check measured at 0.3 s; open (T61)           |
-| P8  | Startup and size    | Empty app, one module, one view, many packages    | Budgets set at first measurement                                                            | Open (T62, T65)                                    |
-| P9  | Reliability         | Sanitizers and stress                             | No use-after-free, deadlock or cross-thread JSI access                                      | Host sanitizers clean; stress open (T64)           |
+| Id  | Dimension           | Workload                                          | Gate                                                                                        | State                                                                  |
+| --- | ------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| P1  | Primitive calls     | Boundary `add` and `concat`, 1,000 calls          | Within 1.25x a bare host function (host); within 20% of the fastest framework path (device) | Host checked; device open (T65)                                        |
+| P2  | Computation         | The benchmark kernels                             | No regression of the kernel budgets; within 20% of handwritten native for selected kernels  | Host checked; host native references measured (T54); device open (T65) |
+| P3  | Binary transport    | `NativeBuffer` handoff of 1 KB, 1 MB and a stream | No payload copy on owned handoff; copies and allocations counted                            | Implemented (T31, T32); device open                                    |
+| P4  | View frames         | A steady-state wrapper workload                   | p95 frame work within 16.7 ms (60 Hz) or 8.3 ms (120 Hz), under 1% missed                   | Open (T65, devices)                                                    |
+| P5  | UI isolation        | Busy JavaScript plus a 500 ms compute task        | No equivalent UI stall; lock and queue waits reported                                       | Simulator and emulator evidence (T44); device open                     |
+| P6  | Teardown and memory | 1,000 mount/dispose and subscribe/cancel cycles   | Owned counts return to baseline, no retained growth                                         | Open (T64)                                                             |
+| P7  | Feedback            | A fixture app's edit loop                         | p95 warm diagnostics under 500 ms; check and generation under 1 s                           | Warm check measured at 0.3 s; open (T61)                               |
+| P8  | Startup and size    | Empty app, one module, one view, many packages    | Budgets set at first measurement                                                            | Open (T62, T65)                                                        |
+| P9  | Reliability         | Sanitizers and stress                             | No use-after-free, deadlock or cross-thread JSI access                                      | Host sanitizers clean; stress open (T64)                               |
 
 Benchmarks keep raw samples, report median, p95 and p99, separate
 throughput from latency, interleave implementations after warmup, verify
@@ -442,6 +442,19 @@ of the five macOS runners while the other runs queued; its page showed
 nothing, the output going through `tail`. _Changed:_ a hung job fails
 within its limit; the SDK coverage step keeps its own 45 minutes, inside
 its job's 75.
+
+**2026-10-05: Strings keep an atomic reference count; integer ranges are
+flow-insensitive.** A string is one allocation (or none, up to 15 Latin-1
+units), and its reference count stays atomic rather than non-atomic for
+strings that never leave the Lucent thread, as the earlier TODO proposed.
+Integer inference proves ranges over a local's writes without following
+statement order. _Why:_ strings cross threads (compute contexts, the JS
+thread), and a non-atomic count measured no faster on the kernels (within
+noise on `strings`, `wordCount` and `murmur`) once most of their strings
+became inline; a flow-insensitive range needs no control-flow analysis and
+already proves the bounded remainders the profiles showed, while staying
+sound (`acc += x; acc %= m` is left a double). _Changed:_ T54's string and
+representation items.
 
 **2026-10-05: Native views are laid out by a `Flex` tag.** A subtree
 Lucent lays out with Yoga is written as `<Flex style={…}>` from
@@ -1223,13 +1236,13 @@ lists, gestures, media, background targets), the distribution matrix, the
 no-catalog audit, stress tests, physical-device budgets, complete docs and a
 green CI. The gate closes with T67.
 
-T54, T60 and T28's binding follow-ups (TA30 to TA34) are ready now (CI has
+T54 is in review; T60 and T28's binding follow-ups (TA30 to TA34) are ready now (CI has
 been green on main since 2026-10-03). The rest follow G1 and G3 work.
 Several tasks need physical devices, which only the maintainer can run.
 
 | Task          | Title                                                           | Needs                   | Status               |
 | ------------- | --------------------------------------------------------------- | ----------------------- | -------------------- |
-| [T54](#t54)   | Implement measured compiler and runtime optimizations           | —                       | ready                |
+| [T54](#t54)   | Implement measured compiler and runtime optimizations           | —                       | in review            |
 | [T55](#t55)   | Implement native recycled and virtualized lists                 | T49, T50, T52           | waiting (maintainer) |
 | [T56](#t56)   | Add native gestures and frame-driven animation facilities       | T51, T52                | waiting (maintainer) |
 | [T59](#t59)   | Prove media pipelines, high-rate streams and callback executors | T52                     | waiting (maintainer) |
@@ -1256,42 +1269,87 @@ The Needs column lists only open dependencies.
 **Goal:** Make generated code faster where profiles show it matters, without
 changing JavaScript semantics.
 
-- **Status:** open, ready to start.
+- **Status:** in review (2026-10-05): every item below passes on its
+  branch.
 - **Area:** Compiler, with runtime and verification review.
 - **Needs:** T10 (done), T30 (done), T32 (done), T53 (done).
 - **Verify:** V1, V2, V3, V7.
-- **Where:** Optimization passes and targeted runtime hot paths.
+- **Where:** `emit/integers.ts` (range analysis), `ir/cpp.ts` (int64
+  writes, direct callbacks), `ir/verify.ts`, the runtime's `jsstring`,
+  `array.h`, `number.h` and `core.h`.
 
-- [ ] Profile first; prioritize specialization and representation
-      propagation, escape and allocation reduction, retain/release removal,
-      devirtualization, conversion elimination and proven bounds and loop
-      optimizations.
-- [ ] For each pass, add a must-optimize fixture, a similar
+- [x] Profile first: the kernels sampled natively (`sample` on macOS)
+      showed string allocation and 32-byte `String` moves (`strings`,
+      `wordCount`), a data-dependent branch in `toInt32` (`crc32`), a
+      double remainder chain (`xorshift`) and a `std::function` comparator
+      (`sortNumbers`). Implemented, in that order of gain: allocation
+      reduction (one allocation per string, none up to 15 Latin-1 units;
+      `join` sized up front), representation propagation (a range analysis
+      keeps bounded arithmetic in int64), devirtualization (an arrow passed
+      straight to a runtime method is the lambda itself), conversion
+      elimination (one-branch `toInt32`, integer `numberToString` with
+      `to_chars`). Specialization, object escape analysis, retain/release
+      removal and bounds-check elimination did not show in the profiles:
+      for-of copies a string handle per element (free for inline strings),
+      and removing `crc32`'s bounds check needs the table's length, which
+      flow-insensitive analysis cannot prove.
+- [x] For each pass, add a must-optimize fixture, a similar
       must-not-optimize fixture, verifier coverage, and a comparison of
-      baseline and optimized observable results.
-- [ ] Preserve JavaScript numbers, UTF-16, order, errors and identity, and
+      baseline and optimized observable results:
+      `test/ir/optimizations.test.ts` (which locals become int64 and which
+      stay double, which callbacks are lambdas), `e2e/cases/optimizations`
+      (the same functions against JavaScript: -0, NaN, 2^53, ToInt32 edges,
+      inline and heap and two-byte strings as `Map` keys, callbacks that
+      mutate or throw), the verifier's integer-register rule, and the
+      runtime's `stringStorage` and `indexes` checks.
+- [x] Preserve JavaScript numbers, UTF-16, order, errors and identity, and
       keep floating-point contraction off; never use fast-math to win a
-      benchmark.
-- [ ] Report runtime gain, allocation and copy effects, native code size and
+      benchmark. Arithmetic is an int64 only where every value is an exact
+      integer within ±2^53 that is never -0; a callback is a lambda only
+      where nothing else sees the function value; `-ffp-contract=off`
+      throughout. The e2e suite, the runtime tests and ASan, UBSan and TSan
+      pass.
+- [x] Report runtime gain, allocation and copy effects, native code size and
       build time; cap specialization growth and keep checks where the proof
-      is insufficient.
-- [ ] Carried over from the earlier TODO: find why `sieve` is about 21x
+      is insufficient. Host Hermes on an M5 Pro, speedup against JavaScript,
+      main → branch: `crc32` 3.4x → 5.9x, `xorshift` 7.8x → 22.8x,
+      `wordCount` 2.9x → 4.5x, `strings` 2.4x → 4.4x, `sortNumbers` 10x →
+      14.2x, `murmur` 15.8x → 20.8x, the rest unchanged; `strings1000` 1.25x →
+      1.18x a C++ TurboModule's call, `structsOut1000` 2.79x → 2.73x (budget
+      2.75x). A long string is one allocation instead of two, a short one
+      none; `join` allocates once. Generated objects of five e2e modules 633
+      KB → 456 KB (fewer `lucent::Fn` wrappers), runtime objects 997 KB →
+      986 KB, serial compile time unchanged (4.0 s and 11 s). No
+      specialization was added, so there is no growth to cap; bounds checks
+      stay.
+- [x] Carried over from the earlier TODO: find why `sieve` is about 21x
       faster than JavaScript on macOS but about 4.8x on the Linux CI runner
-      (clang and libstdc++): `Array<boolean>` storage, the allocator,
-      vectorization.
-- [ ] Carried over from the earlier TODO: one allocation per string (units
-      inline with the header, a non-atomic reference count for strings that
-      never leave the Lucent thread); allocation dominates `wordCount` and
-      `strings`, which are only 2–3x faster than JavaScript.
+      (clang and libstdc++). On baseline x86-64 (no SSE4.1, as CI builds)
+      `std::trunc` is a call into libm, made for every `composite[j] = true`
+      with a double index; and libstdc++ against libc++ costs it more again.
+      Measured in an x86-64 container (emulated, so relative only): `sieve`
+      11.5 ms on main, 7.9 ms with the index check that converts to an
+      integer and back there (`indexBelow`); on ARM, `frintz` is one
+      instruction, so the check keeps it.
+- [x] Carried over from the earlier TODO: one allocation per string (units
+      inline with the header). The reference count stays atomic (decision
+      of 2026-10-05).
 
 **Done when:** improvements are measured, semantics-preserving and within
 the runtime, size and build budgets, rather than only producing shorter C++.
 
 **Notes:**
 
+- Against handwritten C++ (the same kernels, written natively, on the same
+  host): `fnv1a`, `xorshift`, `mandelbrot`, `sortNumbers`, `wordCount` and
+  `strings` are within 20% or faster; `murmur`, `crc32` and `sieve` are
+  about 2x, held back by a per-character `+=`, a `number[]` table of doubles
+  with its bounds check, and a double loop index. Those are the next
+  candidates: element representation for local arrays, and counters bounded
+  by their loop's condition.
 - T10's host tooling is done; its physical-device baselines are deferred to
   the maintainer and belong to T65. Boundary budgets have thin margins:
-  `structsOut1000` measured 2.56–2.71x against 2.75x on the development
+  `structsOut1000` measured 2.56–2.79x against 2.75x on the development
   machine, and `structsIn1000` 1.63–1.67x on the CI runner, now against
   1.75x (decision of 2026-10-03). Design reference: section 13.4.
 

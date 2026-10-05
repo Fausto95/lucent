@@ -12,6 +12,7 @@
 // strong references is kept alive until the process ends.
 #pragma once
 
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <memory>
@@ -24,6 +25,28 @@ namespace lucent {
 
 template <class T>
 using Ref = std::shared_ptr<T>;
+
+/// What indexBelow gives for a number that is not an index below its limit.
+inline constexpr size_t kNoIndex = SIZE_MAX;
+
+/// `v` as an index below `limit` (at most 2^53), when it is an integer there
+/// (-0 is 0); otherwise kNoIndex.
+inline size_t indexBelow(double v, size_t limit) {
+  // A constant bound, then an integer comparison with `limit`: converting
+  // the limit to a double costs a loop an instruction more each time.
+  if (!(v >= 0 && v < 9007199254740992.0)) return kNoIndex;
+  auto i = static_cast<size_t>(v);
+#if defined(__x86_64__) && !defined(__SSE4_1__)
+  // std::trunc is a call into the C library on x86-64 without SSE4.1 (the
+  // baseline CI's Linux hosts build for): a double in range is an integer
+  // exactly when converting it to an integer and back gives it again.
+  bool integer = static_cast<double>(i) == v;
+#else
+  // One instruction elsewhere (frintz, roundsd), cheaper than the round trip.
+  bool integer = std::trunc(v) == v;
+#endif
+  return integer && i < limit ? i : kNoIndex;
+}
 
 /// Base of every struct and class instance.
 struct Object : std::enable_shared_from_this<Object> {
