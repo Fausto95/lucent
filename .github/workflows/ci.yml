@@ -188,12 +188,17 @@ jobs:
             lucent-sdk-${{ runner.os }}-
       - name: SDK coverage (fails when a module's unrepresentable share grows past sdk-coverage.json)
         run: node packages/lucent/bin/lucent.cjs sdk coverage --ios UIKit,Foundation,AVFoundation,StoreKit,CryptoKit --android 'android.*' --json --check sdk-coverage.json > sdk-coverage.current.json
-      - name: Keep the coverage report
+      - name: SDK coverage of every module (the top reasons in the job summary; fails nothing)
+        timeout-minutes: 45
+        run: node packages/lucent/bin/lucent.cjs sdk coverage --all --json --summary "$GITHUB_STEP_SUMMARY" > sdk-coverage.all.json
+      - name: Keep the coverage reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: sdk-coverage
-          path: sdk-coverage.current.json
+          path: |
+            sdk-coverage.current.json
+            sdk-coverage.all.json
       - name: Runtime unit tests (ASan/UBSan, libc++)
         run: SANITIZE=1 packages/runtime/test/run.sh
 
