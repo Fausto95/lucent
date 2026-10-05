@@ -301,11 +301,14 @@ describe("lucent doctor and the app's build", () => {
   it("says why steps ran again, and warns of one that ran again for nothing", () => {
     const root = app({
       ".lucent/build-record.previous.json": record([
+        // Resolving runs every build: it computes the inputs the others are reused by.
+        { id: "resolve", status: "ok", inputs: { "native-dependencies": "1" } },
         { id: "check", status: "ok", inputs: { "src/a.lucent.ts": "1", "src/b.lucent.ts": "1" } },
         { id: "generate:ios", status: "ok", inputs: { "ios/schema": "1" } },
         { id: "extract:UIKit", status: "ok", inputs: { UIKit: "1" } },
       ]),
       ".lucent/build-record.json": record([
+        { id: "resolve", status: "ok", inputs: { "native-dependencies": "1" } },
         { id: "check", status: "ok", inputs: { "src/a.lucent.ts": "2", "src/b.lucent.ts": "1" } },
         { id: "generate:ios", status: "cached", inputs: { "ios/schema": "1" } },
         { id: "extract:UIKit", status: "ok", inputs: { UIKit: "1" } },
@@ -317,6 +320,7 @@ describe("lucent doctor and the app's build", () => {
     expect(c.detail).toContain("1 of 3 steps reused");
     expect(c.detail).toContain("check ran again: src/a.lucent.ts changed");
     expect(c.detail).toContain("extract:UIKit ran again with the same inputs");
+    expect(c.detail).not.toContain("resolve");
   });
 
   it("finds a platform the app has that this JavaScript was built without", () => {
