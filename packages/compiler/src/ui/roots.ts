@@ -99,8 +99,11 @@ export function returnShape(
 
   if (promised) return members(promised).some(isView) ? { kind: "promised" } : { kind: "value" };
 
-  const returned = returnedExpressions(checker, fn, platform).map(
-    (e) => nativeTagType(checker, e) ?? checker.getTypeAtLocation(e),
+  // A Flex is the platform's view the component declares it returns (UIView, View).
+  const returned = returnedExpressions(checker, fn, platform).map((e) =>
+    isFlexTag(checker, e) && declared
+      ? declared
+      : (nativeTagType(checker, e) ?? checker.getTypeAtLocation(e)),
   );
   const types = (fn.body ? returned : declared ? [declared] : []).flatMap(members);
   const views: ts.ClassDeclaration[] = [];
@@ -193,6 +196,18 @@ export function nativeTagType(checker: ts.TypeChecker, e: ts.Expression): ts.Typ
   const decl = target?.declarations?.[0];
 
   return decl && ts.isClassDeclaration(decl) ? checker.getDeclaredTypeOfSymbol(target!) : undefined;
+}
+
+/** Whether `e` is a `<Flex>` element (lucent:ui's, T50). */
+export function isFlexTag(checker: ts.TypeChecker, e: ts.Expression): boolean {
+  const decl = nativeTagType(checker, e)?.getSymbol()?.declarations?.[0];
+
+  return (
+    !!decl &&
+    ts.isClassDeclaration(decl) &&
+    decl.name?.text === "Flex" &&
+    builtinSdkModuleOf(decl.getSourceFile()) === "lucent:ui"
+  );
 }
 
 /** `T` of a `Promise<T>` (or `PromiseLike<T>`), if the type is one. */

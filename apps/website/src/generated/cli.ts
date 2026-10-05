@@ -45,7 +45,7 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
   },
   {
     "name": "doctor",
-    "summary": "Check the machine and the app: Node, React Native, Xcode, CocoaPods, the Android SDK, the JDK, the Metro config, versions",
+    "summary": "Check the machine, the app and its builds: Node, React Native, Xcode, CocoaPods, Android, the JDK, Metro, versions",
     "flags": []
   },
   {
@@ -177,6 +177,14 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
       {
         "flag": "--exercised <file>",
         "description": "A JSON array of the symbol keys tests or probes ran (see --members)"
+      },
+      {
+        "flag": "--all",
+        "description": "Every module of each SDK there is"
+      },
+      {
+        "flag": "--summary <file>",
+        "description": "Append a markdown summary of why members are left out (CI's step summary)"
       },
       {
         "flag": "--members",

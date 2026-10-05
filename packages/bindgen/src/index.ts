@@ -83,6 +83,7 @@ export {
 } from "./swift-packages.ts";
 export {
   coverage,
+  coverageSummary,
   type Coverage,
   type CoverageEvidence,
   type CoverageMember,

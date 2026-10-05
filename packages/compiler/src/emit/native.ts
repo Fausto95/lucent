@@ -4043,7 +4043,7 @@ export function insertChild(
   method: SdkMethodSchema,
   parent: E,
   child: E,
-  index: number,
+  index: cpp.Expr,
 ): cpp.Expr {
   const what = `${ref.cls.name}.${method.selector ?? method.name}`;
   const childType = parseSdkType(method.params[0]!.type, ref.module);
@@ -4056,7 +4056,7 @@ export function insertChild(
   if (ref.platform === "ios")
     return send(objcReceiver(ref, parent), method.selector!, [
       toObjcExpr({ ...childType, nullable: false } as SdkType, child.c, false, what),
-      cpp.num(index),
+      index,
     ]);
 
   return jniCall(em, {
@@ -4076,13 +4076,84 @@ export function insertChild(
         jni("unwrap", cpp.id("recv_")),
         id,
         jni("unwrap", cpp.id("child_")),
-        cpp.staticCast(cpp.type("jint"), cpp.num(index)),
+        cpp.staticCast(cpp.type("jint"), index),
       ),
     ret: VOID,
     lt: T.undefined,
     what,
     pre: [cpp.varDecl(cpp.auto, "recv_", parent.c), cpp.varDecl(cpp.auto, "child_", child.c)],
   }).c;
+}
+
+/**
+ * Lets `child` go from `parent`'s children (T49): by `method`, the
+ * parent's own (`removeArrangedSubview:`, `removeView`), then on iOS by
+ * the child's `removeFromSuperview`, which is all a parent inserting
+ * subviews has.
+ */
+export function removeChild(
+  em: FnEmitter,
+  site: ts.Expression,
+  ref: SdkClassRef,
+  method: SdkMethodSchema | undefined,
+  parent: E,
+  child: E,
+): cpp.Stmt[] {
+  const fromSuperview = cpp.send(
+    cpp.cast("c", objcPointer("UIView"), cpp.call("lucent::objc::unwrap", [child.c])),
+    "removeFromSuperview",
+  );
+
+  if (!method) {
+    if (ref.platform === "ios") return [cpp.exprStmt(fromSuperview)];
+    throw new Error(`${ref.cls.name}: no method letting a child go`);
+  }
+
+  const what = `${ref.cls.name}.${method.selector ?? method.name}`;
+  const childType = parseSdkType(method.params[0]!.type, ref.module);
+
+  requirePlan(site, ref, method, "call");
+  requireMain(em, site, ref, method);
+  requireAvailable(em, site, ref, method.since, what);
+  noteIncludes(em, ref);
+
+  if (ref.platform === "ios")
+    return [
+      cpp.exprStmt(
+        send(objcReceiver(ref, parent), method.selector!, [
+          toObjcExpr({ ...childType, nullable: false } as SdkType, child.c, false, what),
+        ]),
+      ),
+      cpp.exprStmt(fromSuperview),
+    ];
+
+  return [
+    cpp.exprStmt(
+      jniCall(em, {
+        node: site,
+        cls: ref.cls,
+        lookup: "method",
+        name: method.java ?? method.name,
+        desc:
+          method.descriptor ??
+          jniDescriptor(
+            method.params.map((p) => p.type),
+            "void",
+          ),
+        access: (id) =>
+          envCall(
+            "CallVoidMethod",
+            jni("unwrap", cpp.id("recv_")),
+            id,
+            jni("unwrap", cpp.id("child_")),
+          ),
+        ret: VOID,
+        lt: T.undefined,
+        what,
+        pre: [cpp.varDecl(cpp.auto, "recv_", parent.c), cpp.varDecl(cpp.auto, "child_", child.c)],
+      }).c,
+    ),
+  ];
 }
 
 /**

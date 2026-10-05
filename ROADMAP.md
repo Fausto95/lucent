@@ -432,6 +432,19 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-05: Native views are laid out by a `Flex` tag.** A subtree
+Lucent lays out with Yoga is written as `<Flex style={…}>` from
+`lucent:ui`, backed by runtime classes (a UIView subclass, a ViewGroup);
+each child's Yoga style is its `layout={{…}}` attribute, refused outside
+a Flex. A plain UIView stays unmanaged, and a native container keeps
+laying out its own children. _Why:_ the design asks for an explicitly
+created layout container, and a tag makes ownership a matter of the
+element, never of a prop (a width must not switch who writes a frame);
+one `layout` object never clashes with a native prop of the same name
+(Android's `setPadding`). Not a cross-platform view vocabulary (T51):
+the children stay each platform's views. _Changed:_ T50's scope (a
+`Flex` tag and `layout`, no automatic layout of plain parents).
+
 **2026-10-04: Same-typed Swift initializers are static factories.** Swift
 initializers whose parameters' TypeScript types are the same, only their
 labels differing (KeychainAccess's `init(service:)` and
@@ -860,8 +873,8 @@ small fixes found on the way.
 | Task          | Title                                                             | Needs    | Status               |
 | ------------- | ----------------------------------------------------------------- | -------- | -------------------- |
 | [T48](#t48)   | Derive general SDK-view JSX rules and diagnostics                 | —        | in review            |
-| [T49](#t49)   | Add conditional and keyed-list reactive lowering                  | T48      | waiting              |
-| [T50](#t50)   | Integrate Yoga with explicit layout-owner boundaries              | T48      | waiting (maintainer) |
+| [T49](#t49)   | Add conditional and keyed-list reactive lowering                  | T48      | in review            |
+| [T50](#t50)   | Integrate Yoga with explicit layout-owner boundaries              | T48      | in review            |
 | [T51](#t51)   | Implement the small Lucent UI library and examples                | T49, T50 | waiting (maintainer) |
 | [T52](#t52)   | Complete useful wrapper ports and certify a preview               | —        | ready (maintainer)   |
 | [TA25](#ta25) | Fix the bare app's FlatList crash from a second react-native copy | —        | in review            |
@@ -946,23 +959,35 @@ prop, event or measuring entry.
 **Goal:** Make conditional and keyed-list UI update only what changed,
 keeping each item's identity and lifetime.
 
-- **Status:** open, waiting on open dependencies.
+- **Status:** in review (2026-10-05): every item below passes on its
+  branch.
 - **Area:** Views and compiler.
 - **Needs:** T42 (done), [T48](#t48) (open).
 - **Verify:** V1, V2, V3.
-- **Where:** UI control-flow lowering, the keyed scope reconciler and the
-  test backend.
+- **Where:** `packages/runtime/cpp/lucent/ui_children.h` (the keyed
+  reconciler and branches) and `test/ui_children_test.cpp` (the reference
+  backend); `packages/compiler/src/emit/native-jsx.ts` (lowering) and
+  `sdk/view-rules.ts` (remove and move by rule);
+  [views.md](docs/design/views.md#platform-views-as-jsx).
 
-- [ ] Implement conditional insertion and removal, and keyed item scopes
-      with reactive item replacement for a preserved key.
-- [ ] Define duplicate keys, array identity and mutation notification,
-      nested scopes, cleanup, and stable component state across reorders.
-- [ ] Verify that `[a,b,c] → [c,a,b]` causes no create or delete and one
+- [x] Implement conditional insertion and removal, and keyed item scopes
+      with reactive item replacement for a preserved key: native view JSX
+      takes `{cond && <X />}`, `{c ? <X /> : <Y />}` and
+      `{items.map((item) => <X key={item.id} />)}`, mounted on Mac Catalyst
+      (`native-jsx-flow-run.test.ts`) and compiled for Android against
+      jni.h.
+- [x] Define duplicate keys, array identity and mutation notification,
+      nested scopes, cleanup, and stable component state across reorders
+      (views.md, "Children that come and go"): arrays and items are
+      values; a duplicate or NaN key throws and keeps the children; each
+      item and branch is a scope of its own, ended once.
+- [x] Verify that `[a,b,c] → [c,a,b]` causes no create or delete and one
       indexed move on the test backend, and that a title change affects only
-      the retained item's binding.
-- [ ] Add reorder, delete and reinsert stress tests with active tasks and
-      listeners; measure before adding more elaborate move-minimizing
-      algorithms.
+      the retained item's binding; on Catalyst, the kept labels are the
+      same views.
+- [x] Add reorder, delete and reinsert stress tests with active tasks and
+      listeners (500 random rounds, plain and sanitized); measure before
+      adding more elaborate move-minimizing algorithms.
 
 **Done when:** UI control flow preserves identity and lifetimes and updates
 only the affected operations under the specified mutation model.
@@ -981,24 +1006,32 @@ only the affected operations under the specified mutation model.
 **Goal:** Lay out Lucent subtrees with React Native's Yoga, with exactly one
 owner writing each frame.
 
-- **Status:** open, waiting on open dependencies.
+- **Status:** in review (2026-10-05): every item below passes on its
+  branch; the physical-device run (V8) is the maintainer's.
 - **Area:** Views.
 - **Needs:** T46 (done), T47 (done), [T48](#t48) (open).
 - **Verify:** V1, V4, V5, V8.
-- **Where:** UI layout integration and adapters, backend and device layout
-  scenarios.
+- **Where:** `packages/runtime/cpp/lucent/layout.h` (the core) and
+  `ui_flex.h`, `platform/ios_layout.mm`, `platform/android_layout.cpp`
+  with `LucentFlexView.java` (the adapters); `lib/sdk/ui.d.ts` (`Flex`,
+  `LayoutStyle`) and `emit/native-jsx.ts` (lowering);
+  [views.md](docs/design/views.md#platform-views-as-jsx).
 - **Needs the maintainer:** physical devices (V8).
 
-- [ ] Use React Native's Yoga dependency, and avoid a second, conflicting
-      Yoga ABI.
-- [ ] Keep outer Fabric layout, the Lucent Yoga subtree and native-container
+- [x] Use React Native's Yoga dependency, and avoid a second, conflicting
+      Yoga ABI: `layout.h` includes React Native's `<yoga/Yoga.h>` (the
+      app's pod and prefab); the runtime tests build its sources.
+- [x] Keep outer Fabric layout, the Lucent Yoga subtree and native-container
       child layout separate; a width prop must not silently switch the
-      ownership mode.
-- [ ] Implement layout and measure invalidation and frames through the
-      approved adapters, including native content changes and constraints.
-- [ ] Test nested native and Lucent containers, margins, padding and gaps,
+      ownership mode: the `Flex` tag decides (decisions log, 2026-10-05).
+- [x] Implement layout and measure invalidation and frames through the
+      approved adapters, including native content changes and constraints:
+      Yoga's dirty marks, the mount's `Content` listeners, leaves measured
+      by `sizeThatFits:`, Auto Layout or `View.measure`.
+- [x] Test nested native and Lucent containers, margins, padding and gaps,
       RTL and density, and confirm that only one owner writes each child's
-      frame.
+      frame: `layout_test.cpp` and the Catalyst mount
+      (`native-jsx-layout-run.test.ts`); Android compile-checked.
 
 **Done when:** native and Yoga layouts compose with predictable ownership,
 no competing frame writers and no perpetual measurement loop.
@@ -1190,7 +1223,7 @@ Several tasks need physical devices, which only the maintainer can run.
 | [T56](#t56)   | Add native gestures and frame-driven animation facilities       | T51, T52                | waiting (maintainer) |
 | [T59](#t59)   | Prove media pipelines, high-rate streams and callback executors | T52                     | waiting (maintainer) |
 | [T60](#t60)   | Implement headless, background and additional native targets    | —                       | ready (maintainer)   |
-| [T61](#t61)   | Finish the editor, doctor, SDK and debugging workflows          | T48                     | waiting              |
+| [T61](#t61)   | Finish the editor, doctor, SDK and debugging workflows          | T48                     | in progress          |
 | [T62](#t62)   | Run the distribution and supported-version compatibility matrix | T52, T60, T61           | waiting              |
 | [T63](#t63)   | Run the final no-catalog audit, including views and extensions  | T28, T48, T50           | waiting              |
 | [T64](#t64)   | Run lifetime, concurrency and Fabric stress validation          | T49, T55, T59, T60      | waiting (maintainer) |
@@ -1394,7 +1427,8 @@ count.
 **Goal:** Let a developer build and diagnose a module or view through one
 coherent workflow.
 
-- **Status:** open, waiting on open dependencies.
+- **Status:** in progress (2026-10-05): one slice per item, each its own
+  PR; the carried-over items and doctor's build checks so far.
 - **Area:** Tooling.
 - **Needs:** T23 (done), T24 (done), T40 (done), T41 (done), [T48](#t48)
   (open).
@@ -1405,21 +1439,27 @@ coherent workflow.
 - [ ] Add navigation to a declaration's origin, availability and ownership
       diagnostics, quick fixes, SDK mapping explanations and used-symbol
       upgrade reports.
-- [ ] Have `doctor` read the shared build and artifact identities, and
+- [x] Have `doctor` read the shared build and artifact identities, and
       explain dependency conflicts, cache misses, missing targets and stale
-      installations.
+      installations: `last-build`, `cache` (against the record before,
+      which the build keeps), `native-targets` and `native-build` (the
+      newest Xcode or Gradle build read for the identity Lucent compiles
+      in, judged as the app judges it).
 - [ ] Show view trees, effect updates, source-mapped native failures, copy
       and queue traces and owned resources, without exposing implementation
       noise in ordinary application UI.
 - [ ] Validate TTY, non-TTY and JSON output, `init`, new module and new
       view, transitive workspace edits, cold failures and recovery; measure
       the warm feedback targets.
-- [ ] Carried over from T41: check that view loading runs the same
+- [x] Carried over from T41: check that view loading runs the same
       stale-native identity check as modules (T41 left views to the view
-      work), or add it.
-- [ ] Carried over from the full SDK plan: run `lucent sdk coverage --all`
+      work), or add it: it does (a view-only module's proxy checks before
+      it makes a component; its props, events and commands are in its API
+      hash), proven by `view-identity.test.ts`.
+- [x] Carried over from the full SDK plan: run `lucent sdk coverage --all`
       in CI and show the top 20 skip reasons in the job summary (CI checks
-      five iOS modules and `android.*` today).
+      five iOS modules and `android.*` today): `--all` and `--summary`; 526
+      modules locally, 53 unreadable for the simulator and listed.
 
 **Done when:** a developer can build and diagnose a module or view through
 one coherent workflow, and machine-readable consumers share its schema.
@@ -2365,9 +2405,9 @@ Last recorded runs:
   A two-value `onChange` closure does not type-check, because TypeScript
   tries the one-value overload first.
 - Compose: class names that clash keep the first package's.
-- Native views' JSX (T48) has fixed children (conditional and keyed are
-  [T49](#t49)'s) and no layout for a plain view's children until Yoga
-  ([T50](#t50)); its rules read declarations, not behavior (Android's
+- Native views' JSX (T48): a plain view's children have no layout (a
+  `Flex`'s are Yoga's, [T50](#t50)), and a list's item is one element
+  ([T49](#t49)); its rules read declarations, not behavior (Android's
   AdapterView declares `addView(View, int)` and throws from it).
 - The bare app's FlatList crash ([TA25](#ta25)) and the iOS native-only
   slot move ([TA26](#ta26)) are in review.
