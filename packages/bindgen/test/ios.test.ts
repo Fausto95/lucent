@@ -2,8 +2,20 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
-import { buildIosSchemas, extractIos, namesOf, symbolGraph } from "../src/ios.ts";
-import { canonicalSchema, parseSchemaType } from "../src/schema.ts";
+import {
+  buildIosSchemas,
+  extractIos,
+  namesOf,
+  symbolGraph,
+  withInheritedInitializers,
+} from "../src/ios.ts";
+import {
+  canonicalSchema,
+  parseSchemaType,
+  SCHEMA_FORMAT,
+  type SdkClassSchema,
+  type SdkModuleSchema,
+} from "../src/schema.ts";
 import type { SymbolGraph } from "../src/symbols.ts";
 import { nativeId, schemaSymbols } from "./schema-symbols.ts";
 import { swiftModule } from "./swift-module.ts";
@@ -945,5 +957,54 @@ describe.skipIf(!xcode)("iOS extractor, requirements Lucent classes implement", 
       ],
     });
     expect(swiftType("Ranked")).not.toHaveProperty("typeParams");
+  });
+});
+
+describe("initializers a class inherits", () => {
+  // UIKit's shape: UIAction has factory initializers (Objective-C) and Swift's own, and inherits
+  // UIMenuElement's init(coder:); UIWindowScene.ActivationAction has a factory of its own.
+  const coder = {
+    params: [{ name: "coder", type: T("Foundation.NSCoder") }],
+    selector: "initWithCoder:",
+  };
+  const classes = (): SdkClassSchema[] => [
+    { kind: "class", name: "Element", native: "Element", constructors: [coder] },
+    {
+      kind: "class",
+      name: "Action",
+      native: "Action",
+      extends: "Kit.Element",
+      inheritsInit: true,
+      constructors: [
+        { params: [], selector: "action", factory: true },
+        { params: [{ name: "title", type: T("string") }] },
+      ],
+    },
+    {
+      kind: "class",
+      name: "SceneAction",
+      native: "SceneAction",
+      extends: "Kit.Action",
+      inheritsInit: true,
+      constructors: [{ params: [], selector: "sceneAction", factory: true }],
+    },
+  ];
+  const resolved = (types: SdkClassSchema[]) => {
+    const mod: SdkModuleSchema = { format: SCHEMA_FORMAT, module: "Kit", platform: "ios", types };
+    withInheritedInitializers(mod);
+    return Object.fromEntries(
+      types.map((t) => [t.name, (t.constructors ?? []).map((c) => c.selector ?? "swift")]),
+    );
+  };
+
+  it("gives a subclass what its superclass inherits too, whatever order the classes come in", () => {
+    const expected = {
+      Element: ["initWithCoder:"],
+      Action: ["action", "swift", "initWithCoder:"],
+      SceneAction: ["sceneAction", "swift", "initWithCoder:"],
+    };
+
+    expect(resolved(classes())).toEqual(expected);
+    expect(resolved(classes().toReversed())).toEqual(expected);
   });
 });

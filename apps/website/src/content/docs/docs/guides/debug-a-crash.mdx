@@ -35,3 +35,10 @@ npx lucent doctor
 Each proxy checks that the app's native code was built from the same sources as the JavaScript. When it wasn't, the error says what to do: rebuild and reinstall the app (`compile-native`), or reload JavaScript built for the installed app (`reload-js`). When only function bodies differ, it's a warning.
 
 A JavaScript update, a reload or an update over the air, can't replace native code.
+
+`lucent doctor` reads the app's build too, before the app runs:
+
+- **Last build**: the steps the last `lucent build` failed at, such as an Android dependency conflict, with what each said and its log.
+- **Build cache**: which steps ran again, and which input changed for each.
+- **Native targets**: a platform the app has that this JavaScript was built without.
+- **Native build**: the newest native build of the app, from Xcode or Gradle, checked as the app checks it. A module with another API would be refused, so doctor fails; other sources with the same APIs get a warning.

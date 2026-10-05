@@ -56,7 +56,7 @@ export const commands: CommandSpec[] = [
   {
     name: "doctor",
     summary:
-      "Check the machine and the app: Node, React Native, Xcode, CocoaPods, the Android SDK, the JDK, the Metro config, versions",
+      "Check the machine, the app and its builds: Node, React Native, Xcode, CocoaPods, Android, the JDK, Metro, versions",
     flags: [],
     load: () => import("./commands/doctor.ts"),
   },
@@ -204,6 +204,12 @@ export const commands: CommandSpec[] = [
         name: "exercised",
         value: "file",
         description: "A JSON array of the symbol keys tests or probes ran (see --members)",
+      },
+      { name: "all", description: "Every module of each SDK there is" },
+      {
+        name: "summary",
+        value: "file",
+        description: "Append a markdown summary of why members are left out (CI's step summary)",
       },
       { name: "members", description: "List every member with its stage, key and reason" },
       {

@@ -722,9 +722,34 @@ signal)` starts native work that completes later, on any thread (a
   content while its code runs (`inContent` wraps a function so it
   enters its mount whenever it runs), and the host's `changed` runs
   once, when the outermost entry on the main context ends.
+  Code of the mount may listen to its changes too (`listen`: a Flex
+  measuring its leaves again), before the host hears.
   `invalidateSize` marks it outside any entry (after an await): the host
   hears in a later turn. Marks made while the host measures are not
   changes.
+- `ui_children.h`: a native view's children that come and go (T49),
+  which `view.h` includes. A parent's children are `ChildRegions` in
+  order, each its current size, and `ChildOps` is what the parent does
+  natively (insert at an index, remove, and move where it can). A
+  `KeyedList` reconciles an array by key: the keys gone are removed and
+  their scopes disposed once, a kept key's new item is written to its
+  signal (only that item's bindings rerun), a new key's view is made in a
+  scope of its own, then each child is put in place walking the new order
+  (`[a,b,c]` to `[c,a,b]` is one move). Keys are unique and never NaN
+  (`items.h`'s rules): an array breaking them throws before anything
+  changes. `branch` is an effect choosing one of several children, or
+  none, each made in a scope of its own and ended when it goes.
+- `layout.h` (T50, header-only, React Native's Yoga): `LayoutNode`, a node
+  of a layout tree set by React Native's style names and values through
+  one table (undefined restores a default, anything else throws), its
+  leaves measured by a function. Only a root lays out; `fit` answers the
+  size within a bound; `onDirtied` says when a laid-out tree changed.
+  Only code using a Flex includes it, so only those builds need Yoga.
+- `ui_flex.h`: a Flex, lucent:ui's Yoga container, as generated code
+  makes it: a container, a leaf, a Flex's `ChildOps`, style values from
+  what code has. `platform/ios_layout.mm` (LucentFlexView) and
+  `platform/android_layout.cpp` (with dev.lucent.LucentFlexView) define
+  it.
 - `reactive.h`: the UI's reactive graph (the state a view keeps), owned by
   one execution context, the main one for views: used from any other
   thread it throws, and it never takes the Lucent lock or waits for the JS
