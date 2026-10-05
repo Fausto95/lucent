@@ -33,7 +33,7 @@
  * @experimental
  */
 import type { View, ViewGroup } from "lucent:android/android.view";
-import type { Bound, NativeViewTag } from "lucent:ui";
+import type { Bound, Flex, LayoutStyle, NativeViewTag } from "lucent:ui";
 
 /** Kotlin's Float: a number, converted where the body passes it. */
 export type Float = number & { readonly "lucent:compose.Float"?: never };
@@ -83,7 +83,7 @@ export type ScopedChildren<S> = Shown | ((scope: S) => Shown);
 export declare namespace JSX {
   type Element = Composed & View;
 
-  type ElementType = ((props: never) => Composed) | NativeViewTag<View>;
+  type ElementType = ((props: never) => Composed) | NativeViewTag<View> | NativeViewTag<Flex>;
 
   interface ElementChildrenAttribute {
     children: {};
@@ -98,6 +98,8 @@ export declare namespace JSX {
     create?: () => T;
     /** Tells a list's item apart from the others (`items.map((item) => <… key={item.id} />)`): its view and state stay with the key. */
     key?: string | number;
+    /** Places a Flex's child: React Native's layout style (`{ flexGrow: 1, margin: 4 }`). Only a Flex's children take it. */
+    layout?: LayoutStyle;
   }
 
   interface IntrinsicElements {}

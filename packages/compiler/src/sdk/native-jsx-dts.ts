@@ -11,7 +11,7 @@ import type { Platform } from "./schema.ts";
 import { ROOT_VIEW } from "./view-rules.ts";
 
 /** The names a namespace's native part imports from lucent:ui. */
-export const NATIVE_JSX_UI = ["NativeViewTag"];
+export const NATIVE_JSX_UI = ["NativeViewTag", "Flex", "LayoutStyle"];
 
 /**
  * The root view classes of `platforms`: their imports, each under its
@@ -34,9 +34,11 @@ export function rootViews(platforms: readonly Platform[]): {
   };
 }
 
-/** What a tag of `roots` (the root views' types) is: one of their classes. */
+/** What a tag of `roots` (the root views' types) is: one of their classes, or a Flex. */
 export const nativeTags = (roots: readonly ts.Type[]): ts.Type[] =>
-  roots.map((r) => ts.ref("NativeViewTag", r));
+  roots.length
+    ? [...roots.map((r) => ts.ref("NativeViewTag", r)), ts.ref("NativeViewTag", ts.ref("Flex"))]
+    : [];
 
 /** The namespace's declarations for class tags: attributes from `~jsx`, and `create`. */
 export function nativeJsxDecls(): ts.Decl[] {
@@ -64,6 +66,13 @@ export function nativeJsxDecls(): ts.Decl[] {
           type: ts.union([ts.keyword("string"), ts.keyword("number")]),
           optional: true,
           doc: "Tells a list's item apart from the others (`items.map((item) => <… key={item.id} />)`): its view and state stay with the key.",
+        },
+        {
+          k: "property",
+          name: "layout",
+          type: ts.ref("LayoutStyle"),
+          optional: true,
+          doc: "Places a Flex's child: React Native's layout style (`{ flexGrow: 1, margin: 4 }`). Only a Flex's children take it.",
         },
       ],
     },
