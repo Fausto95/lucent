@@ -63,11 +63,9 @@ struct Item {
   std::string title;
 };
 
-using Ref = std::shared_ptr<Item>;
+using ItemRef = std::shared_ptr<Item>;
 
-bool strictEquals(const Ref& a, const Ref& b) { return a.get() == b.get(); }
-
-Ref item(std::string key, std::string title = "") { return std::make_shared<Item>(Item{std::move(key), std::move(title)}); }
+ItemRef item(std::string key, std::string title = "") { return std::make_shared<Item>(Item{std::move(key), std::move(title)}); }
 
 /// A native view: its name, and the title its binding last set.
 struct View {
@@ -116,16 +114,16 @@ struct Lives {
 }  // namespace fixture
 
 using fixture::Item;
-using fixture::Ref;
+using fixture::ItemRef;
 using fixture::View;
 
 /// A list under `parent` after `before` fixed children: each item a view
 /// whose title is a binding (an effect reading the item's signal), and a
 /// cleanup counted in `lives`.
-static std::shared_ptr<ui::KeyedList<String, Ref, View>> listOf(
+static std::shared_ptr<ui::KeyedList<String, ItemRef, View>> listOf(
     const std::shared_ptr<ui::Graph>& g, const std::shared_ptr<Scope>& mount, fixture::Parent& parent,
     const std::shared_ptr<ui::ChildRegions>& regions, size_t region, bool moves, fixture::Lives& lives) {
-  auto make = [g, &lives](const ui::Signal<Ref>& item) {
+  auto make = [g, &lives](const ui::Signal<ItemRef>& item) {
     lives.made++;
     View v{item.peek()->key};
     auto title = v.title;
@@ -137,13 +135,13 @@ static std::shared_ptr<ui::KeyedList<String, Ref, View>> listOf(
     return v;
   };
 
-  return std::make_shared<ui::KeyedList<String, Ref, View>>(g, mount, parent.ops(moves), regions, region, make);
+  return std::make_shared<ui::KeyedList<String, ItemRef, View>>(g, mount, parent.ops(moves), regions, region, make);
 }
 
-static ui::KeyOf<String, Ref> byKey = [](const Ref& r) { return String::fromUtf8(r->key); };
+static ui::KeyOf<String, ItemRef> byKey = [](const ItemRef& r) { return String::fromUtf8(r->key); };
 
-static Array<Ref> items(std::initializer_list<Ref> list) {
-  Array<Ref> out;
+static Array<ItemRef> items(std::initializer_list<ItemRef> list) {
+  Array<ItemRef> out;
   for (auto& r : list) out.push(r);
   return out;
 }
@@ -314,10 +312,10 @@ static void switchesBranches() {
     regions->add(1);
     parent.children.push_back("F");
 
-    auto which = ui::signal(g, -1);
+    auto which = ui::signal(g, -1.0);
     int made = 0, ended = 0;
     g->within(mount, [&] {
-      ui::branch<View>(g, parent.ops(false), regions, region, [which] { return which.get(); },
+      ui::branch<View>(g, parent.ops(false), regions, region, [which] { return static_cast<int>(which.get()); },
                        [g, &made, &ended](int i) {
                          made++;
                          g->onCleanup([&ended] { ended++; });
@@ -326,24 +324,24 @@ static void switchesBranches() {
     });
     CHECK(parent.order() == "HF");
 
-    g->transaction([&] { which.set(0); });
+    g->transaction([&] { which.set(0.0); });
     CHECK(parent.order() == "HAF");
     CHECK(made == 1);
 
     // The same branch again: nothing is made.
-    g->transaction([&] { which.set(0); });
+    g->transaction([&] { which.set(0.0); });
     CHECK(made == 1);
 
-    g->transaction([&] { which.set(1); });
+    g->transaction([&] { which.set(1.0); });
     CHECK(parent.order() == "HBF");
     CHECK(made == 2);
     CHECK(ended == 1);
 
-    g->transaction([&] { which.set(-1); });
+    g->transaction([&] { which.set(-1.0); });
     CHECK(parent.order() == "HF");
     CHECK(ended == 2);
 
-    g->transaction([&] { which.set(0); });
+    g->transaction([&] { which.set(0.0); });
     mount->dispose();
     CHECK(ended == 3);
   });
@@ -361,7 +359,7 @@ static void survivesRandomReorders() {
     auto list = listOf(g, mount, parent, regions, regions->add(0), true, lives);
 
     std::mt19937 random(49);
-    std::map<std::string, Ref> pool;
+    std::map<std::string, ItemRef> pool;
     for (char k = 'a'; k <= 'p'; k++) pool[std::string(1, k)] = fixture::item(std::string(1, k));
 
     for (int round = 0; round < 500; round++) {
@@ -370,7 +368,7 @@ static void survivesRandomReorders() {
         if (random() % 3) keys.push_back(k);
       std::shuffle(keys.begin(), keys.end(), random);
 
-      Array<Ref> next;
+      Array<ItemRef> next;
       std::string expected;
       for (auto& k : keys) {
         // Sometimes another object under the same key.
