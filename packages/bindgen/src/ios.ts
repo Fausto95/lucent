@@ -550,7 +550,7 @@ export function buildIosSchemas(
  * this module. A root class gets NSObject's init where it is built;
  * superclasses of other modules' stay hidden.
  */
-function withInheritedInitializers(mod: SdkModuleSchema): void {
+export function withInheritedInitializers(mod: SdkModuleSchema): void {
   const classes = new Map(
     mod.types.filter((t): t is SdkClassSchema => t.kind === "class").map((c) => [c.name, c]),
   );
