@@ -1799,6 +1799,16 @@ the app's target needs an availability check.
 **Done when:** each shape binds by rule, or its diagnostic names the member
 and what to do.
 
+**Notes:**
+
+- Found after (2026-10-05): a Swift `inout` parameter was bound as a value,
+  its shim not compiling (a module's own graph marks it in the
+  declaration only); it is skipped, said why. Of an overlay's Swift
+  overloads of one name on an Objective-C class, only the first was kept
+  (`NSCoder.decodeTopLevelObject(forKey:)`, `RunLoop.schedule(after:…)`
+  were dropped unsaid); all are kept, an Objective-C member of that name
+  still winning.
+
 <a id="ta34"></a>
 
 ### TA34: Turn a Java Throwable into a Lucent Error

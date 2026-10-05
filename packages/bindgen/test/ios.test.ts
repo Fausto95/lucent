@@ -859,6 +859,13 @@ describe.skipIf(!xcode)("iOS extractor, Swift modules", () => {
     );
   });
 
+  it("leaves out inout parameters, which a module's graph marks in the declaration alone", () => {
+    expect(mod().skipped).toContain("Counter.add(into:): Swift: inout parameters");
+    const counter = swiftType("Counter");
+    if (counter.kind !== "class") throw new Error("Counter is not a class");
+    expect(counter.methods?.map((m) => m.name)).not.toContain("add");
+  });
+
   it("leaves out generic initializers, which TypeScript constructors cannot declare", () => {
     expect(mod().skipped).toContain("Uses.init(tag:): Swift: generic initializer");
   });
