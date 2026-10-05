@@ -717,6 +717,18 @@ signal)` starts native work that completes later, on any thread (a
   `invalidateSize` marks it outside any entry (after an await): the host
   hears in a later turn. Marks made while the host measures are not
   changes.
+- `ui_children.h`: a native view's children that come and go (T49),
+  which `view.h` includes. A parent's children are `ChildRegions` in
+  order, each its current size, and `ChildOps` is what the parent does
+  natively (insert at an index, remove, and move where it can). A
+  `KeyedList` reconciles an array by key: the keys gone are removed and
+  their scopes disposed once, a kept key's new item is written to its
+  signal (only that item's bindings rerun), a new key's view is made in a
+  scope of its own, then each child is put in place walking the new order
+  (`[a,b,c]` to `[c,a,b]` is one move). Keys are unique and never NaN
+  (`items.h`'s rules): an array breaking them throws before anything
+  changes. `branch` is an effect choosing one of several children, or
+  none, each made in a scope of its own and ended when it goes.
 - `reactive.h`: the UI's reactive graph (the state a view keeps), owned by
   one execution context, the main one for views: used from any other
   thread it throws, and it never takes the Lucent lock or waits for the JS

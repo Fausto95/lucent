@@ -975,11 +975,56 @@ UIAction for the control's event mask on iOS, through
 `lucent::objc::addControlAction`), and taken back when the mount ends,
 which breaks the cycle through the handler. Children are inserted in order.
 
+**Children that come and go (T49).** A child may be a branch or a keyed
+list:
+
+```tsx
+<UIStackView spacing={4}>
+  <UILabel text={props.title} />
+  {props.showNote && <UILabel text="note" />}
+  {props.dark ? <UILabel text="dark" /> : <UILabel text="light" />}
+  {props.rows.map((row) => (
+    <UILabel key={row.id} text={row.title} />
+  ))}
+</UIStackView>
+```
+
+With one among a parent's children, each child is a region of the
+parent's children (`lucent/ui_children.h`), inserted where the regions
+before it end, and the parent's class gives what removes and moves one:
+iOS's `remove<X>:` beside its `insert<X>:atIndex:` and then the child's
+`removeFromSuperview` (a move inserts again: UIKit moves a view it has),
+Android's `removeView`.
+
+- **A branch** (`cond && <X />`, `c ? <X /> : <Y />`, nested, a side
+  `null`, `undefined` or `false`) is an effect choosing which element
+  shows. The element shown is made in a scope of its own, its props'
+  effects and its events there; when another shows, that scope ends and
+  its view leaves. A condition is JavaScript's truthiness: `{0 && <X />}`
+  shows nothing (React would show the text `0`, which a native view
+  cannot hold).
+- **A keyed list** (`items.map((item) => <X key={item.id} … />)`) is
+  one element per key, made once in a scope of its own, never per commit.
+  Arrays and items are values: a new array (a commit gives one) reconciles
+  the list; mutating one in place notifies nothing. A kept key whose item
+  is another value has it written to the item's signal, so only the
+  bindings reading `item` rerun, its view and scope kept; an event of the
+  item is registered again with the new item. A key gone ends its scope
+  (its effects, listeners and tasks, once) and lets its view go. Keys are
+  a string or a number, unique and never NaN: an array breaking that
+  throws, naming the key, and the list keeps its children. Moves walk the
+  new order (`[a,b,c]` to `[c,a,b]` is one move, no create or remove); no
+  longest-increasing-subsequence step until one is measured to matter.
+
 **Diagnostics.** LUCENT3025: native JSX the component does not return
 as it is, a spread attribute, a child that is not a native view's
 element, a class with no constructor to make it with (and no `create`),
-or a prop reading a copy setup made of a prop (`const title =
-props.title`), which would never change. An attribute the rules leave out
+a prop reading a copy setup made of a prop (`const title =
+props.title`), which would never change; a list's element without a
+`key`, a list's index parameter (indexes change as items move), a
+callback giving anything but one element, a `key` outside a list, a
+list inside a condition or inside a list's item, or an Android parent
+with no `removeView` among dynamic children. An attribute the rules leave out
 is TypeScript's error with the rule's reason after it. An attribute's
 code is setup code: the main thread's rules (LUCENT3022) hold in it.
 
@@ -1002,7 +1047,8 @@ code is setup code: the main thread's rules (LUCENT3022) hold in it.
   stalls the UI; compute tasks are where it belongs.
 - Platform-view JSX (T48): a plain view's children have no layout until
   Yoga lays them out (T50); a stack view or an Android layout lays out its
-  own. Children are fixed: conditional and keyed children are T49's.
+  own. A list's item is one element (no fragment), and a list inside an
+  item is its own component's.
   Rules read declarations, not behavior: Android's AdapterView declares
   `addView(View, int)` and throws from it. A view made through a Swift
   initializer needs `create`. A pod's view whose superclass module
