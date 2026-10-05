@@ -767,12 +767,19 @@ function jsxAttributes(
   const rules = viewRules(cls, schema, find);
   // Children are views of the platform: what a JSX element is, as a component returns it.
   const childrenMember = (c: { explanation: string }): ts.Member => {
-    const child = tsType(parseSdkType(`${view.module}.${view.name}`), false);
+    // A view, or a conditional child's nothing (`cond && <X/>`); a list's views (`.map`) among them.
+    const one = ts.union([
+      tsType(parseSdkType(`${view.module}.${view.name}`), false),
+      ts.literal(false),
+      ts.nullType,
+      ts.keyword("undefined"),
+    ]);
+    const many = ts.readonlyArray(ts.union([one, ts.readonlyArray(one)]));
 
     return {
       k: "property",
       name: "children",
-      type: ts.union([child, ts.readonlyArray(child)]),
+      type: ts.union([one, many]),
       optional: true,
       doc: c.explanation,
     };

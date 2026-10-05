@@ -66,6 +66,15 @@ void Content::invalidate() {
   });
 }
 
+size_t Content::listen(std::function<void()> listener) {
+  listeners_.emplace_back(++nextListener_, std::move(listener));
+  return nextListener_;
+}
+
+void Content::unlisten(size_t id) {
+  std::erase_if(listeners_, [id](const auto& l) { return l.first == id; });
+}
+
 void Content::flush() {
   auto& e = entries();
 
@@ -83,6 +92,10 @@ void Content::flush() {
     content->measuring_ = true;
 
     try {
+      // A copy: a listener may listen or take one back.
+      auto listeners = content->listeners_;
+
+      for (auto& [id, listener] : listeners) listener();
       content->changed_();
     } catch (...) {
       reportUncaught(std::current_exception(), "a component's measurement");

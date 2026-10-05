@@ -24,6 +24,7 @@
 
 #include "json.h"
 #include "reactive.h"
+#include "ui_children.h"
 
 namespace lucent::ui {
 
@@ -88,7 +89,9 @@ void reportViewError(std::exception_ptr error, const char* component, const char
  * mount's code runs, or by invalidateSize(); the host's `changed` runs
  * once for any number of marks: when the outermost entry into a mount
  * ends, or in a later turn of the main context for a mark made outside
- * any. Marks made while `changed` runs (measuring may run the mount's
+ * any. Code of the mount may listen too (a Flex marking its leaves to
+ * measure again): listeners hear first, in the order they listened, then
+ * the host. Marks made while they run (measuring may run the mount's
  * code) are not changes. Main thread only.
  */
 class Content : public std::enable_shared_from_this<Content> {
@@ -105,6 +108,10 @@ class Content : public std::enable_shared_from_this<Content> {
   /// Marks the content changed.
   void invalidate();
 
+  /// Calls `listener` at each change, before the host; unlisten() takes it back.
+  size_t listen(std::function<void()> listener);
+  void unlisten(size_t id);
+
  private:
   friend class ContentEntry;
 
@@ -112,6 +119,8 @@ class Content : public std::enable_shared_from_this<Content> {
   static void flush();
 
   std::function<void()> changed_;
+  std::vector<std::pair<size_t, std::function<void()>>> listeners_;
+  size_t nextListener_ = 0;
   bool marked_ = false;
   bool measuring_ = false;
 };
