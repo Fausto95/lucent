@@ -215,7 +215,13 @@ const identityJs = (identity: object) =>
 
 /** A build record of `nodes` (id, status, inputs as key → hash), and what it said the app needs. */
 function record(
-  nodes: { id: string; status: string; inputs?: Record<string, string>; detail?: string; log?: string }[],
+  nodes: {
+    id: string;
+    status: string;
+    inputs?: Record<string, string>;
+    detail?: string;
+    log?: string;
+  }[],
   pendingActions: { kind: string; targets: string[]; files: string[] }[] = [],
 ) {
   return JSON.stringify({
@@ -240,7 +246,10 @@ function record(
 
 /** A native binary holding the strings Lucent's identity unit compiles in. */
 const binary = (...strings: string[]) =>
-  Buffer.concat([Buffer.from([0xcf, 0xfa, 0xed, 0xfe]), ...strings.map((x) => Buffer.from(`\0${x}\0`))]);
+  Buffer.concat([
+    Buffer.from([0xcf, 0xfa, 0xed, 0xfe]),
+    ...strings.map((x) => Buffer.from(`\0${x}\0`)),
+  ]);
 
 /** An iOS simulator build of the app in Xcode's DerivedData (under `home`), its executable `contents`. */
 function xcodeBuild(root: string, home: string, contents: Buffer): void {
@@ -340,7 +349,19 @@ describe("lucent doctor and the app's build", () => {
   it("finds a native build made from these sources", () => {
     const h = home();
     const root = app({ ".lucent/native/js/_lucent/identity.js": identityJs(IDENTITY) });
-    xcodeBuild(root, h, binary("__lucentIdentity", "ios", IDENTITY.programs.ios, "battery", "1111111111111111", "device", "2222222222222222"));
+    xcodeBuild(
+      root,
+      h,
+      binary(
+        "__lucentIdentity",
+        "ios",
+        IDENTITY.programs.ios,
+        "battery",
+        "1111111111111111",
+        "device",
+        "2222222222222222",
+      ),
+    );
 
     const c = find(diagnose(root, machine(h)), "native-build");
 
@@ -351,7 +372,11 @@ describe("lucent doctor and the app's build", () => {
   it("warns of a native build of other sources with the same APIs, as the app does", () => {
     const h = home();
     const root = app({ ".lucent/native/js/_lucent/identity.js": identityJs(IDENTITY) });
-    xcodeBuild(root, h, binary("__lucentIdentity", "ios", "cccccccccccccccc", "1111111111111111", "2222222222222222"));
+    xcodeBuild(
+      root,
+      h,
+      binary("__lucentIdentity", "ios", "cccccccccccccccc", "1111111111111111", "2222222222222222"),
+    );
 
     const c = find(diagnose(root, machine(h)), "native-build");
 
@@ -363,7 +388,11 @@ describe("lucent doctor and the app's build", () => {
   it("fails a native build whose modules the app would refuse to load", () => {
     const h = home();
     const root = app({ ".lucent/native/js/_lucent/identity.js": identityJs(IDENTITY) });
-    xcodeBuild(root, h, binary("__lucentIdentity", "ios", "cccccccccccccccc", "1111111111111111", "9999999999999999"));
+    xcodeBuild(
+      root,
+      h,
+      binary("__lucentIdentity", "ios", "cccccccccccccccc", "1111111111111111", "9999999999999999"),
+    );
 
     const c = find(diagnose(root, machine(h)), "native-build");
 
@@ -376,11 +405,20 @@ describe("lucent doctor and the app's build", () => {
     const root = app({
       ".lucent/native/js/_lucent/identity.js": identityJs(IDENTITY),
     });
-    const lib = path.join(root, "android/app/build/intermediates/merged_native_libs/debug/out/lib/arm64-v8a");
+    const lib = path.join(
+      root,
+      "android/app/build/intermediates/merged_native_libs/debug/out/lib/arm64-v8a",
+    );
     fs.mkdirSync(lib, { recursive: true });
     fs.writeFileSync(
       path.join(lib, "liblucentnative.so"),
-      binary("__lucentIdentity", "android", IDENTITY.programs.android, "1111111111111111", "2222222222222222"),
+      binary(
+        "__lucentIdentity",
+        "android",
+        IDENTITY.programs.android,
+        "1111111111111111",
+        "2222222222222222",
+      ),
     );
 
     const c = find(diagnose(root, machine(home())), "native-build");

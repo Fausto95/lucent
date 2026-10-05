@@ -126,7 +126,6 @@ describe("the build graph", () => {
   });
 });
 
-
 describe("lucent build's record", () => {
   it("records the check and the generated files, with project-relative paths", () => {
     const root = project();
