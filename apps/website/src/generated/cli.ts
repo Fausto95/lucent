@@ -45,7 +45,7 @@ export const cliCommands: { name: string; summary: string; flags: { flag: string
   },
   {
     "name": "doctor",
-    "summary": "Check the machine and the app: Node, React Native, Xcode, CocoaPods, the Android SDK, the JDK, the Metro config, versions",
+    "summary": "Check the machine, the app and its builds: Node, React Native, Xcode, CocoaPods, Android, the JDK, Metro, versions",
     "flags": []
   },
   {

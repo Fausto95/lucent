@@ -1428,7 +1428,7 @@ count.
 coherent workflow.
 
 - **Status:** in progress (2026-10-05): one slice per item, each its own
-  PR; the two carried-over items first.
+  PR; the carried-over items and doctor's build checks so far.
 - **Area:** Tooling.
 - **Needs:** T23 (done), T24 (done), T40 (done), T41 (done), [T48](#t48)
   (open).
@@ -1439,9 +1439,12 @@ coherent workflow.
 - [ ] Add navigation to a declaration's origin, availability and ownership
       diagnostics, quick fixes, SDK mapping explanations and used-symbol
       upgrade reports.
-- [ ] Have `doctor` read the shared build and artifact identities, and
+- [x] Have `doctor` read the shared build and artifact identities, and
       explain dependency conflicts, cache misses, missing targets and stale
-      installations.
+      installations: `last-build`, `cache` (against the record before,
+      which the build keeps), `native-targets` and `native-build` (the
+      newest Xcode or Gradle build read for the identity Lucent compiles
+      in, judged as the app judges it).
 - [ ] Show view trees, effect updates, source-mapped native failures, copy
       and queue traces and owned resources, without exposing implementation
       noise in ordinary application UI.
