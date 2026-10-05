@@ -104,11 +104,13 @@ struct Parent {
   }
 };
 
-/// What the items' scopes did: how many were set up, and cleaned up.
+/// What the items' scopes did: how many were set up, and cleaned up, and
+/// how many of their pending tasks were cancelled.
 struct Lives {
   int made = 0;
   int ended = 0;
   int titled = 0;
+  int cancelled = 0;
 };
 
 }  // namespace fixture
@@ -118,8 +120,8 @@ using fixture::ItemRef;
 using fixture::View;
 
 /// A list under `parent` after `before` fixed children: each item a view
-/// whose title is a binding (an effect reading the item's signal), and a
-/// cleanup counted in `lives`.
+/// whose title is a binding (an effect reading the item's signal), a
+/// cleanup and a task that never settles, counted in `lives`.
 static std::shared_ptr<ui::KeyedList<String, ItemRef, View>> listOf(
     const std::shared_ptr<ui::Graph>& g, const std::shared_ptr<Scope>& mount, fixture::Parent& parent,
     const std::shared_ptr<ui::ChildRegions>& regions, size_t region, bool moves, fixture::Lives& lives) {
@@ -132,6 +134,12 @@ static std::shared_ptr<ui::KeyedList<String, ItemRef, View>> listOf(
       lives.titled++;
     });
     g->onCleanup([&lives] { lives.ended++; });
+
+    auto task = Operation<void>::start(g->scope());
+    task->onSettled([&lives](const Operation<void>::Outcome& outcome) {
+      if (outcome.state == OperationState::Cancelled) lives.cancelled++;
+    });
+
     return v;
   };
 
@@ -348,7 +356,7 @@ static void switchesBranches() {
 }
 
 // Reorders, deletions and reinsertions at random: the children always follow
-// the array, and every item set up ends exactly once.
+// the array, and every item set up ends exactly once, its task cancelled.
 static void survivesRandomReorders() {
   onUi([] {
     auto g = ui::Graph::create();
@@ -380,10 +388,12 @@ static void survivesRandomReorders() {
       g->within(mount, [&] { list->update(next, byKey); });
       CHECK(parent.order() == expected);
       CHECK(lives.made - lives.ended == static_cast<int>(keys.size()));
+      CHECK(lives.cancelled == lives.ended);
     }
 
     mount->dispose();
     CHECK(lives.made == lives.ended);
+    CHECK(lives.cancelled == lives.made);
   });
 }
 
