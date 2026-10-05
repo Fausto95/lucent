@@ -24,6 +24,7 @@
 
 #include "json.h"
 #include "reactive.h"
+#include "ui_children.h"
 
 namespace lucent::ui {
 

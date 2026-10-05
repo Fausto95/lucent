@@ -96,6 +96,8 @@ export declare namespace JSX {
   interface IntrinsicClassAttributes<T> {
     /** Makes the view, where its class has no frame or Context constructor to make it with. */
     create?: () => T;
+    /** Tells a list's item apart from the others (`items.map((item) => <… key={item.id} />)`): its view and state stay with the key. */
+    key?: string | number;
   }
 
   interface IntrinsicElements {}

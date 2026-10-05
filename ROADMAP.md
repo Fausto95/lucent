@@ -860,7 +860,7 @@ small fixes found on the way.
 | Task          | Title                                                             | Needs    | Status               |
 | ------------- | ----------------------------------------------------------------- | -------- | -------------------- |
 | [T48](#t48)   | Derive general SDK-view JSX rules and diagnostics                 | —        | in review            |
-| [T49](#t49)   | Add conditional and keyed-list reactive lowering                  | T48      | waiting              |
+| [T49](#t49)   | Add conditional and keyed-list reactive lowering                  | T48      | in review            |
 | [T50](#t50)   | Integrate Yoga with explicit layout-owner boundaries              | T48      | waiting (maintainer) |
 | [T51](#t51)   | Implement the small Lucent UI library and examples                | T49, T50 | waiting (maintainer) |
 | [T52](#t52)   | Complete useful wrapper ports and certify a preview               | —        | ready (maintainer)   |
@@ -946,23 +946,35 @@ prop, event or measuring entry.
 **Goal:** Make conditional and keyed-list UI update only what changed,
 keeping each item's identity and lifetime.
 
-- **Status:** open, waiting on open dependencies.
+- **Status:** in review (2026-10-05): every item below passes on its
+  branch.
 - **Area:** Views and compiler.
 - **Needs:** T42 (done), [T48](#t48) (open).
 - **Verify:** V1, V2, V3.
-- **Where:** UI control-flow lowering, the keyed scope reconciler and the
-  test backend.
+- **Where:** `packages/runtime/cpp/lucent/ui_children.h` (the keyed
+  reconciler and branches) and `test/ui_children_test.cpp` (the reference
+  backend); `packages/compiler/src/emit/native-jsx.ts` (lowering) and
+  `sdk/view-rules.ts` (remove and move by rule);
+  [views.md](docs/design/views.md#platform-views-as-jsx).
 
-- [ ] Implement conditional insertion and removal, and keyed item scopes
-      with reactive item replacement for a preserved key.
-- [ ] Define duplicate keys, array identity and mutation notification,
-      nested scopes, cleanup, and stable component state across reorders.
-- [ ] Verify that `[a,b,c] → [c,a,b]` causes no create or delete and one
+- [x] Implement conditional insertion and removal, and keyed item scopes
+      with reactive item replacement for a preserved key: native view JSX
+      takes `{cond && <X />}`, `{c ? <X /> : <Y />}` and
+      `{items.map((item) => <X key={item.id} />)}`, mounted on Mac Catalyst
+      (`native-jsx-flow-run.test.ts`) and compiled for Android against
+      jni.h.
+- [x] Define duplicate keys, array identity and mutation notification,
+      nested scopes, cleanup, and stable component state across reorders
+      (views.md, "Children that come and go"): arrays and items are
+      values; a duplicate or NaN key throws and keeps the children; each
+      item and branch is a scope of its own, ended once.
+- [x] Verify that `[a,b,c] → [c,a,b]` causes no create or delete and one
       indexed move on the test backend, and that a title change affects only
-      the retained item's binding.
-- [ ] Add reorder, delete and reinsert stress tests with active tasks and
-      listeners; measure before adding more elaborate move-minimizing
-      algorithms.
+      the retained item's binding; on Catalyst, the kept labels are the
+      same views.
+- [x] Add reorder, delete and reinsert stress tests with active tasks and
+      listeners (500 random rounds, plain and sanitized); measure before
+      adding more elaborate move-minimizing algorithms.
 
 **Done when:** UI control flow preserves identity and lifetimes and updates
 only the affected operations under the specified mutation model.

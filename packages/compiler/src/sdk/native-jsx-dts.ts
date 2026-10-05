@@ -58,6 +58,13 @@ export function nativeJsxDecls(): ts.Decl[] {
           optional: true,
           doc: "Makes the view, where its class has no frame or Context constructor to make it with.",
         },
+        {
+          k: "property",
+          name: "key",
+          type: ts.union([ts.keyword("string"), ts.keyword("number")]),
+          optional: true,
+          doc: "Tells a list's item apart from the others (`items.map((item) => <… key={item.id} />)`): its view and state stay with the key.",
+        },
       ],
     },
   ];

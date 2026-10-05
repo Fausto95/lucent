@@ -1,7 +1,8 @@
 // What a component of native view JSX (T48) cannot do, and how Lucent says
 // so: LUCENT3025 for native JSX it cannot make, with what to do instead;
 // an attribute the rules refuse, explained; the main thread's rules
-// (LUCENT3022), which an attribute's code keeps like any setup code.
+// (LUCENT3022), which an attribute's code keeps like any setup code; the
+// shapes a child that comes and goes (T49) takes.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -17,7 +18,7 @@ function diagnostics(platform: "ios" | "android", imports: string, code: string)
   const root = platform === "ios" ? "UIView" : "View";
   const from = platform === "ios" ? "lucent:ios/UIKit" : "lucent:android/android.view";
   const files = {
-    "title.lucent.ts": `import type { UIView } from "lucent:ios/UIKit";\nimport type { View } from "lucent:android/android.view";\n\nexport type Props = { title: string };\n\nexport declare function Title(props: Props): UIView | View;\n`,
+    "title.lucent.ts": `import type { UIView } from "lucent:ios/UIKit";\nimport type { View } from "lucent:android/android.view";\n\nexport type Tag = { id: string; name: string };\n\nexport type Props = { title: string; tags: Tag[] };\n\nexport declare function Title(props: Props): UIView | View;\n`,
     [`title.${platform}.lucent.tsx`]: `${imports}\nimport type { ${root} } from "${from}";\nimport type { Props } from "./title.lucent";\n\nexport function Title(props: Props): ${root} {\n${code}\n}\n`,
   };
 
@@ -94,6 +95,52 @@ describe("native view JSX diagnostics", () => {
         code: expect.stringMatching(/^LUCENT(3025|9001)$/),
       }),
     ]);
+  });
+
+  const stack = (child: string) =>
+    `  return (\n    <UIStackView>\n      ${child}\n    </UIStackView>\n  );`;
+  const UIKIT = 'import { UILabel, UIStackView } from "lucent:ios/UIKit";';
+  const refused = (child: string) => diagnostics("ios", UIKIT, stack(child));
+  const says = (message: string) => [
+    expect.objectContaining({ code: "LUCENT3025", message: expect.stringContaining(message) }),
+  ];
+
+  it.skipIf(!ios)("asks a list's element for its key", () => {
+    expect(refused("{props.tags.map((tag) => <UILabel text={tag.name} />)}")).toEqual(
+      says("a list's element has a `key` saying which item it is"),
+    );
+  });
+
+  it.skipIf(!ios)("refuses a list's index", () => {
+    expect(refused("{props.tags.map((tag, i) => <UILabel key={tag.id} text={`${i}`} />)}")).toEqual(
+      says("a list's item has no index"),
+    );
+  });
+
+  it.skipIf(!ios)("refuses a list's callback giving no element", () => {
+    expect(
+      refused('{props.tags.map((tag) => (tag.id === "" ? null : <UILabel key={tag.id} />))}'),
+    ).toEqual(says("a list's callback returns one element of a native view"));
+  });
+
+  it.skipIf(!ios)("refuses a key outside a list", () => {
+    expect(refused('<UILabel key="a" text={props.title} />')).toEqual(
+      says("`key` is for the element a list's callback returns"),
+    );
+  });
+
+  it.skipIf(!ios)("refuses a list inside a condition", () => {
+    expect(
+      refused(
+        "{props.title !== '' && props.tags.map((tag) => <UILabel key={tag.id} text={tag.name} />)}",
+      ),
+    ).toEqual(says("a list is a child of its own"));
+  });
+
+  it.skipIf(!ios)("says which children come and go", () => {
+    expect(refused('{[<UILabel text="a" />]}')).toEqual(
+      says("a native view's child that comes and goes is"),
+    );
   });
 
   it.skipIf(!android)("explains an attribute its rules leave out", () => {
