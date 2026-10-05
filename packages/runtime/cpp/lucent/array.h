@@ -97,28 +97,19 @@ class Array {
   }
   /// `a[i]`: undefined when out of bounds.
   Opt<T> get(double index) const {
-    if (index >= 0 && index < static_cast<double>(d_->size()) && std::trunc(index) == index) {
-      return static_cast<T>((*d_)[static_cast<size_t>(index)]);
-    }
+    size_t i = indexBelow(index, d_->size());
+    if (i != kNoIndex) return static_cast<T>((*d_)[i]);
     return undefined;
   }
   /// `a[i] = v`. Writing at `length` appends; writing further would create
   /// holes, which Lucent arrays do not have.
   void set(double index, T value) {
-    if (!(index >= 0) || std::trunc(index) != index) throwRangeError("Invalid array index");
-    size_t i = static_cast<size_t>(index);
-    if (i < d_->size()) {
-      (*d_)[i] = static_cast<Elem>(std::move(value));
-    } else if (i == d_->size()) {
-      d_->push_back(static_cast<Elem>(std::move(value)));
-    } else {
-      if constexpr (IsOpt<T>::value) {
-        d_->resize(i);
-        d_->push_back(static_cast<Elem>(std::move(value)));
-      } else {
-        throwRangeError("Array index out of bounds (Lucent arrays cannot have holes)");
-      }
+    // Small enough to inline into a loop's body: what lies past the end is not.
+    if (size_t at = indexBelow(index, d_->size()); at != kNoIndex) {
+      (*d_)[at] = static_cast<Elem>(std::move(value));
+      return;
     }
+    setPastEnd(*d_, index, std::move(value));
   }
 
   double push(T v) {
@@ -405,6 +396,25 @@ class Array {
   std::vector<Elem>& items() { return *d_; }
 
  private:
+  /// set() at or past the end: appending, or growing with absent values; any
+  /// other index is an error. Static, given the storage: the array's own
+  /// address never escapes a loop that sets elements, so the loop keeps the
+  /// storage in a register (a byte store may alias anything whose address did).
+  [[gnu::noinline]] static void setPastEnd(std::vector<Elem>& d, double index, T value) {
+    if (!(index >= 0) || std::trunc(index) != index) throwRangeError("Invalid array index");
+    size_t i = static_cast<size_t>(index);
+    if (i == d.size()) {
+      d.push_back(static_cast<Elem>(std::move(value)));
+    } else {
+      if constexpr (IsOpt<T>::value) {
+        d.resize(i);
+        d.push_back(static_cast<Elem>(std::move(value)));
+      } else {
+        throwRangeError("Array index out of bounds (Lucent arrays cannot have holes)");
+      }
+    }
+  }
+
   template <class Cmp>
   void mergeSort(Cmp&& cmp) {
     // Stable, and safe against inconsistent comparators (never reads out of

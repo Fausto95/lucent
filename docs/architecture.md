@@ -92,11 +92,20 @@ Notable lowering choices:
   by an integer is an `int64_t`. Values are exact in both representations, so
   reads convert to `double` without changing results; expressions also carry
   their integer form, so chains of bitwise operations never round-trip through
-  `double`. Increments and arithmetic writes keep a local a `double`, because
-  `x + 1` does not wrap in JavaScript.
+  `double`. Arithmetic (`+`, `-`, `*`, `%`, compound assignments, `++`) keeps a
+  local a `double`, because `x + 1` does not wrap in JavaScript, unless a range
+  analysis over the local's writes proves every value an exact integer within
+  ±2^53 that is never -0 (a product of non-negative values, a remainder of a
+  non-negative dividend): `sum = (sum + (x >>> 0)) % 1000000007` is an
+  `int64_t`, its writes computed in int64. The analysis does not follow
+  statement order, and a range still growing after a few rounds is any double.
 - **Closures** are C++ lambdas wrapped in `lucent::Fn`. A local captured by a
   closure _and_ written after its declaration lives in a `lucent::Box`, so both
-  sides see one variable (analysis in `analysis/scopes.ts`).
+  sides see one variable (analysis in `analysis/scopes.ts`). An arrow function
+  passed straight to a runtime method that takes a callback (`sort`, `map`,
+  `filter`, `forEach`, `reduce`, …) and used nowhere else is passed as the
+  lambda itself, which the method's template calls directly and the C++
+  compiler can inline; its identity is never observed.
 - **Generators** are coroutines whose declared return type is
   `lucent::Iter<T>` (a `coroutine_traits` specialization supplies the
   promise). `iterator.return()` resumes a suspended generator so that its

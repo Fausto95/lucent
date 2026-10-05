@@ -337,6 +337,40 @@ static void stringStorage() {
   CHECK(keys.size() == 2 && keys.get(fifteen).get() == 2 && keys.get(sixteen).get() == 4);
 }
 
+static void indexes() {
+  CHECK(indexBelow(0, 3) == 0);
+  CHECK(indexBelow(-0.0, 3) == 0);
+  CHECK(indexBelow(2, 3) == 2);
+  CHECK(indexBelow(3, 3) == kNoIndex);
+  CHECK(indexBelow(1.5, 3) == kNoIndex);
+  CHECK(indexBelow(-1, 3) == kNoIndex);
+  CHECK(indexBelow(kNaN, 3) == kNoIndex);
+  CHECK(indexBelow(kInfinity, 3) == kNoIndex);
+  CHECK(indexBelow(9007199254740992.0, SIZE_MAX) == kNoIndex);
+  // Array writes: in place, at the end (appending), past it (holes are errors), not an index.
+  Array<double> xs{1, 2};
+  xs.set(1, 5);
+  xs.set(2, 7);
+  CHECK(xs.size() == 3 && xs.at(1) == 5 && xs.at(2) == 7);
+  CHECK_THROWS(xs.set(5, 1), "RangeError");
+  CHECK_THROWS(xs.set(0.5, 1), "RangeError");
+  CHECK_THROWS(xs.set(-1, 1), "RangeError");
+  Array<Opt<double>> holes;
+  holes.set(2, 1.0);
+  CHECK(holes.size() == 3 && !holes.at(0).has());
+  CHECK(xs.get(1.0).get() == 5 && !xs.get(1.5).has() && !xs.get(3).has());
+  CHECK(S("abc").charCodeAt(1.9) == 'b');
+  CHECK(S("abc").charCodeAt(-0.5) == 'a');
+  CHECK(std::isnan(S("abc").charCodeAt(-1)));
+  CHECK(S("abc").charCodeAt(kNaN) == 'a');
+  // ToInt32: one branch for every value int64 holds.
+  CHECK(toInt32(9.2e18) == toInt32(9.2e18 - 4294967296.0 * 2097152));
+  CHECK(toInt32(-9223372036854775808.0) == 0);
+  CHECK(toInt32(9223372036854775808.0) == 0);
+  CHECK(toInt32(1e20) == 1661992960);
+  CHECK(toInt32(-kInfinity) == 0);
+}
+
 static void arrays() {
   Array<double> a{3, 1, 2};
   Array<double> alias = a;
@@ -1004,6 +1038,7 @@ int main() {
   concatenation();
   strings();
   stringStorage();
+  indexes();
   arrays();
   maps();
   optionalsAndUnions();
