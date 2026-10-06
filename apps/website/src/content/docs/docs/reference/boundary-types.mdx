@@ -54,7 +54,8 @@ TypeError: midpoint: argument 'a'.y must be a number, got undefined
 - The same native object is the same JS object each time, so `===` works. It lives while either side holds it.
 - JavaScript can call `new` on an exported class. The constructor's arguments are checked like a function's.
 - Public fields, getters, setters and methods are on the prototype. Each read of an array or object field returns a fresh copy.
-- Static methods are on the constructor. Static fields aren't visible from JavaScript.
+- Static methods and fields are on the constructor, its own and those of its Lucent base classes. A static field reads and writes the native one.
+- A `readonly` field or static field has no setter: assigning it from JavaScript throws a `TypeError` in strict mode.
 - `private`, `protected` and `#private` members are hidden.
 
 ## Callbacks

@@ -209,14 +209,17 @@ export class BindingsEmitter {
     const key = `C:${id}`;
     if (this.flows.has(key)) return;
     this.flows.add(key);
-    for (const m of publicMembers(this.ctx, this.reg.cls(id))) {
-      if (m.kind === "method") {
-        m.params!.forEach((p) => this.flow(p.cppType, false, m.node));
-        this.flow(m.ret!, true, m.node);
-      } else {
-        this.flow(m.types[0]!, true, m.node);
-        if (m.writable) this.flow(m.types[0]!, false, m.node);
-      }
+    for (const m of publicMembers(this.ctx, this.reg.cls(id))) this.memberFlow(m);
+  }
+
+  /** JavaScript calls a method, or reads (and writes, if writable) a property. */
+  private memberFlow(m: PublicMember): void {
+    if (m.kind === "method") {
+      m.params!.forEach((p) => this.flow(p.cppType, false, m.node));
+      this.flow(m.ret!, true, m.node);
+    } else {
+      this.flow(m.types[0]!, true, m.node);
+      if (m.writable) this.flow(m.types[0]!, false, m.node);
     }
   }
 
@@ -243,6 +246,11 @@ export class BindingsEmitter {
         this.ctx.guard(() => {
           this.use({ k: "class", id: c.id, args: [] }, c.decl);
           this.classFlow(c.id);
+          if (c.typeParams.length) return;
+          for (const s of staticMembers(this.ctx, c)) {
+            for (const t of s.types) this.use(t, s.node);
+            this.memberFlow(s);
+          }
         });
       }
       for (const c of m.consts) {
@@ -517,74 +525,11 @@ export class BindingsEmitter {
     const name = info.decl.name!.text;
     const selfT = this.reg.cppType({ k: "class", id: info.id, args: [] });
     const [proto, self] = [cpp.id("proto"), cpp.id("self")];
-    const body: cpp.Stmt[] = [];
     const selfOf = (fname: string) =>
       cpp.varDecl(cpp.auto, "self", fromJs(selfT, cpp.id("thisVal"), path(fname, "this")));
-    for (const m of publicMembers(this.ctx, info)) {
-      if (m.kind === "method") {
-        const d = m.node as ts.MethodDeclaration;
-        const fname = `${name}.${memberName(d)}`;
-        const call = this.callBody(
-          fname,
-          d,
-          m.params!,
-          m.ret!,
-          m.async!,
-          cpp.arrow(self, cppIdent(memberName(d))),
-          selfOf(fname),
-          ["self"],
-        );
-        body.push(
-          cpp.exprStmt(
-            cpp.call("defineFunction", [
-              rt,
-              proto,
-              cpp.str(memberName(d)),
-              cpp.num(m.params!.length),
-              hostFunction(call, "thisVal"),
-            ]),
-          ),
-        );
-      } else {
-        const fname = `${name}.${m.name}`;
-        const t = this.reg.cppType(m.types[0]!);
-        const got =
-          m.kind === "accessor"
-            ? cpp.call(cpp.arrow(self, `get_${cppIdent(m.name)}`))
-            : cpp.arrow(self, cppIdent(m.name));
-        const getter = cpp.lambda(
-          [INSTALLED],
-          [
-            cpp.param(cpp.reference(cpp.type("jsi::Runtime")), "rt"),
-            cpp.param(cpp.reference(cpp.constType(JS_VALUE)), "thisVal"),
-            cpp.param(cpp.pointer(cpp.constType(JS_VALUE))),
-            cpp.param(cpp.type("size_t")),
-          ],
-          sync([selfOf(fname), cpp.ret(toJs(t, cpp.id("host"), got))]),
-          { ret: JS_VALUE },
-        );
-        let setter = cpp.nullptr;
-        if (m.writable) {
-          const value = cpp.id("value");
-          const assign =
-            m.kind === "accessor"
-              ? cpp.call(cpp.arrow(self, `set_${cppIdent(m.name)}`), [value])
-              : cpp.assign(cpp.arrow(self, cppIdent(m.name)), value);
-          setter = hostFunction(
-            sync([
-              selfOf(fname),
-              cpp.varDecl(cpp.auto, "value", fromJs(t, argAt(0), path(fname, "value"))),
-              cpp.exprStmt(assign),
-              cpp.ret(cpp.call("jsi::Value::undefined")),
-            ]),
-            "thisVal",
-          );
-        }
-        body.push(
-          cpp.exprStmt(cpp.call("defineAccessor", [rt, proto, cpp.str(m.name), getter, setter])),
-        );
-      }
-    }
+    const body = publicMembers(this.ctx, info).map((m) =>
+      this.defineMember(proto, name, m, (n) => cpp.arrow(self, n), selfOf),
+    );
     if (info.base) {
       const base = this.reg.cls(info.base.id);
       body.push(
@@ -618,6 +563,80 @@ export class BindingsEmitter {
       );
     }
     return cpp.fn(`proto_${info.cppName}`, cpp.voidType, PROTO_PARAMS, body);
+  }
+
+  /**
+   * Defines member `m` on `target`, the prototype or a constructor: a method,
+   * or an accessor property for a field or accessor. `place` names the
+   * member in C++; `selfOf` converts `thisVal` to the instance it is on.
+   */
+  private defineMember(
+    target: cpp.Expr,
+    cls: string,
+    m: PublicMember,
+    place: (cppName: string) => cpp.Expr,
+    selfOf?: (fname: string) => cpp.Stmt,
+  ): cpp.Stmt {
+    const fname = `${cls}.${m.name}`;
+    const prelude = selfOf?.(fname);
+    const thisVal = prelude ? "thisVal" : undefined;
+    const captures = prelude ? ["self"] : [];
+    if (m.kind === "method") {
+      const call = this.callBody(
+        fname,
+        m.node,
+        m.params!,
+        m.ret!,
+        m.async!,
+        place(cppIdent(m.name)),
+        prelude,
+        captures,
+      );
+
+      return cpp.exprStmt(
+        cpp.call("defineFunction", [
+          rt,
+          target,
+          cpp.str(m.name),
+          cpp.num(m.params!.length),
+          hostFunction(call, thisVal),
+        ]),
+      );
+    }
+
+    const t = this.reg.cppType(m.types[0]!);
+    const got =
+      m.kind === "accessor" ? cpp.call(place(`get_${cppIdent(m.name)}`)) : place(cppIdent(m.name));
+    const getter = cpp.lambda(
+      [INSTALLED],
+      [
+        cpp.param(cpp.reference(cpp.type("jsi::Runtime")), "rt"),
+        cpp.param(cpp.reference(cpp.constType(JS_VALUE)), thisVal),
+        cpp.param(cpp.pointer(cpp.constType(JS_VALUE))),
+        cpp.param(cpp.type("size_t")),
+      ],
+      sync([...(prelude ? [prelude] : []), cpp.ret(toJs(t, cpp.id("host"), got))]),
+      { ret: JS_VALUE },
+    );
+    let setter = cpp.nullptr;
+    if (m.writable) {
+      const value = cpp.id("value");
+      const assign =
+        m.kind === "accessor"
+          ? cpp.call(place(`set_${cppIdent(m.name)}`), [value])
+          : cpp.assign(place(cppIdent(m.name)), value);
+      setter = hostFunction(
+        sync([
+          ...(prelude ? [prelude] : []),
+          cpp.varDecl(cpp.auto, "value", fromJs(t, argAt(0), path(fname, "value"))),
+          cpp.exprStmt(assign),
+          cpp.ret(cpp.call("jsi::Value::undefined")),
+        ]),
+        thisVal,
+      );
+    }
+
+    return cpp.exprStmt(cpp.call("defineAccessor", [rt, target, cpp.str(m.name), getter, setter]));
   }
 
   /** The body of a host function that converts arguments, calls, and converts back. */
@@ -784,48 +803,23 @@ export class BindingsEmitter {
           ]),
         ),
       );
-      // Static methods live on the constructor.
-      const statics = c.decl.members.filter(
-        (x): x is ts.MethodDeclaration => ts.isMethodDeclaration(x) && isStaticPublic(x),
-      );
-      if (statics.length) {
-        const inner: cpp.Stmt[] = [
-          cpp.varDecl(
-            cpp.type("jsi::Object"),
-            "ctor",
-            cpp.call(cpp.dot(exports, "getPropertyAsObject"), [rt, cpp.str(name)]),
-          ),
-        ];
-        for (const s of statics) {
-          const sig = this.ctx.checker.getSignatureFromDeclaration(s)!;
-          const ft = this.reg.lowerSignature(sig, s) as LType & { k: "fn" };
-          const isAsync = !!ts.getModifiers(s)?.some((x) => x.kind === ts.SyntaxKind.AsyncKeyword);
-          const ret = isAsync && ft.ret.k === "promise" ? ft.ret.inner : ft.ret;
-          const ps = em.paramInfos(s, ft);
-          ps.forEach((p) => this.ctx.guard(() => this.use(p.cppType, s)));
-          const fname = `${name}.${memberName(s)}`;
-          const call = this.callBody(
-            fname,
-            s,
-            ps,
-            ret,
-            isAsync,
-            cpp.id(`lucent_app::${c.cppName}::${cppIdent(memberName(s))}`),
-          );
-          inner.push(
-            cpp.exprStmt(
-              cpp.call("defineFunction", [
-                rt,
-                cpp.id("ctor"),
-                cpp.str(memberName(s)),
-                cpp.num(ps.length),
-                hostFunction(call),
-              ]),
+      // Static members live on the constructor.
+      const statics = staticMembers(this.ctx, c);
+      if (statics.length)
+        body.push(
+          cpp.block([
+            cpp.varDecl(
+              cpp.type("jsi::Object"),
+              "ctor",
+              cpp.call(cpp.dot(exports, "getPropertyAsObject"), [rt, cpp.str(name)]),
             ),
-          );
-        }
-        body.push(cpp.block(inner));
-      }
+            ...statics.map((s) =>
+              this.defineMember(cpp.id("ctor"), name, s, (n) =>
+                cpp.scoped(this.reg.cppClassType(s.owner!), n),
+              ),
+            ),
+          ]),
+        );
     }
     for (const c of m.consts) {
       const name = c.decl.name.getText();
@@ -1075,18 +1069,6 @@ function hostFunction(body: cpp.Stmt[], thisVal?: string): cpp.Expr {
   );
 }
 
-export function isStaticPublic(m: ts.ClassElement): boolean {
-  const mods = ts.canHaveModifiers(m) ? (ts.getModifiers(m) ?? []) : [];
-  if (!mods.some((x) => x.kind === ts.SyntaxKind.StaticKeyword)) return false;
-  if (
-    mods.some(
-      (x) => x.kind === ts.SyntaxKind.PrivateKeyword || x.kind === ts.SyntaxKind.ProtectedKeyword,
-    )
-  )
-    return false;
-  return !(m.name && ts.isPrivateIdentifier(m.name));
-}
-
 interface PublicMember {
   kind: "method" | "field" | "accessor";
   name: string;
@@ -1096,22 +1078,42 @@ interface PublicMember {
   ret?: LType;
   async?: boolean;
   writable?: boolean;
+  /** For a static member: the class in the chain that declares it. */
+  owner?: LType & { k: "class" };
 }
 
 /** Instance members JavaScript can use: public, non-static. */
 export function publicMembers(ctx: Ctx, info: ClassInfo): PublicMember[] {
+  return declaredMembers(ctx, info, false);
+}
+
+/**
+ * Static members JavaScript can use on a class's constructor: public, its
+ * own and those its ancestors declare (nearest first), as JavaScript's
+ * constructors inherit them.
+ */
+export function staticMembers(ctx: Ctx, info: ClassInfo): PublicMember[] {
+  const out = new Map<string, PublicMember>();
+
+  for (const link of ctx.reg.chain({ k: "class", id: info.id, args: [] }))
+    for (const m of declaredMembers(ctx, link.info, true))
+      if (!out.has(m.name)) out.set(m.name, { ...m, owner: link.t });
+
+  return [...out.values()];
+}
+
+/** The public members `info` declares: its instance members, or its static ones. */
+function declaredMembers(ctx: Ctx, info: ClassInfo, statics: boolean): PublicMember[] {
   const out: PublicMember[] = [];
   const isPublic = (m: ts.Node & { name?: ts.PropertyName | ts.BindingName }) => {
     const mods = ts.canHaveModifiers(m) ? (ts.getModifiers(m) ?? []) : [];
     if (
       mods.some(
-        (x) =>
-          x.kind === ts.SyntaxKind.PrivateKeyword ||
-          x.kind === ts.SyntaxKind.ProtectedKeyword ||
-          x.kind === ts.SyntaxKind.StaticKeyword,
+        (x) => x.kind === ts.SyntaxKind.PrivateKeyword || x.kind === ts.SyntaxKind.ProtectedKeyword,
       )
     )
       return false;
+    if (mods.some((x) => x.kind === ts.SyntaxKind.StaticKeyword) !== statics) return false;
     return !(m.name && ts.isPrivateIdentifier(m.name as ts.Node));
   };
   const reg = ctx.reg;
@@ -1119,7 +1121,7 @@ export function publicMembers(ctx: Ctx, info: ClassInfo): PublicMember[] {
     module: undefined as unknown as LucentModule,
     async: false,
   });
-  const ctor = info.decl.members.find(ts.isConstructorDeclaration);
+  const ctor = statics ? undefined : info.decl.members.find(ts.isConstructorDeclaration);
   for (const p of parameterProperties(ctor)) {
     if (!isPublic(p)) continue;
     const readonly = !!ts.getModifiers(p)?.some((x) => x.kind === ts.SyntaxKind.ReadonlyKeyword);

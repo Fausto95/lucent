@@ -286,6 +286,11 @@ Only exported functions, classes and constants are visible from JavaScript.
 - **Class instances keep their identity.** The same native object always maps to
   the same JS object, so `===` works. Instances live as long as either side
   holds them.
+- **Exported classes** are constructors: JavaScript calls `new` on them and
+  tests `instanceof`. A class's static methods and fields, its own and those
+  its Lucent base classes declare, are on its constructor; a static field is
+  a property that reads and writes the native one, so the module sees
+  JavaScript's writes.
 - **Interface values** cross as their concrete class instance. From JavaScript,
   only instances of Lucent classes that implement the interface are accepted.
 - **Unions of object types** need a string-literal discriminant (for example
@@ -369,6 +374,8 @@ explicitly, for example by clearing a field.
 | an abort reason can be any value                                                                | reasons from JavaScript become errors (`String(reason)` as the message when it is not an object); `abort()` in Lucent takes an `Error`    |
 | a subclass field read from a base constructor is `undefined` until the subclass initializes it  | it reads the type's default (`0`, `""`, `false`, empty object)                                                                            |
 | any object with the right members satisfies an interface                                        | only classes that declare `implements`; plain JS objects are rejected at the boundary with a `TypeError`                                  |
+| assigning a static field a class inherits gives the subclass its own                            | from JavaScript, it writes the base class's field, which the subclass's constructor shares                                                |
+| a `readonly` field can be assigned from JavaScript: TypeScript checks it only at compile time   | JavaScript sees a getter without a setter, so assigning one throws `TypeError` in strict mode code and is ignored otherwise               |
 | a class's `[Symbol.dispose]()` is callable from JavaScript                                      | it is for Lucent code: JavaScript does not see symbol-keyed members of Lucent classes                                                     |
 | `resolve(promise)` in a promise executor adopts the promise                                     | `fromCallback` reports values, not promises: a promise type is refused (`LUCENT1007`); await it and report its value                      |
 | `await` on an object without a `then` method gives the object                                   | `await` on a platform SDK object is refused (`LUCENT1010`): adapt its completion listener with `fromCallback`                             |
