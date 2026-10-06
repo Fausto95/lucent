@@ -129,7 +129,7 @@ describe.skipIf(!javac || !android)("lucent sdk", () => {
     const member = lucent(app(), "show", "com.example.widgets.Widget.getName");
 
     expect(member.out).toMatch(
-      /Native: com\.example\.widgets\.Widget#getName\(\)Ljava\/lang\/String;, in com\.example\.widgets\.[\s\S]*getName\(\): string;/,
+      /Native: com\.example\.widgets\.Widget#getName\(\)Ljava\/lang\/String;, in com\.example\.widgets \(jar:widgets\.jar\)\.[\s\S]*getName\(\): string;/,
     );
   });
 
