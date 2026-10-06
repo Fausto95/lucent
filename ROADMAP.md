@@ -432,6 +432,14 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-06: An exported `let` is a live binding.** JavaScript reads an
+exported `let` through a getter, on the native exports object and on the
+proxy, instead of a copy taken at import; an exported `const` is still
+copied once. _Why:_ ES modules export bindings, and refusing a reassigned
+exported `let` would break existing modules (the e2e case `modules`
+exports a counter), while a getter costs one host call per read.
+_Changed:_ docs/semantics.md's Modules section.
+
 **2026-10-04: Native views' JSX derives children; no adapters.** A view
 class takes JSX children through the insert-at-index method its
 declarations give (`insertArrangedSubview:atIndex:`,

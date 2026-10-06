@@ -1012,7 +1012,22 @@ function jsProxy(m: ModuleExports, components: readonly ComponentDescription[]):
   }
   for (const c of m.consts) {
     const name = c.decl.name.getText();
-    decls.push(exported(name, js.member(mod, name)));
+    decls.push(
+      c.isConst
+        ? exported(name, js.member(mod, name))
+        : js.stmt(
+            js.exprStmt(
+              js.call(js.member(js.name("Object"), "defineProperty"), [
+                exports,
+                js.str(name),
+                js.objectLit([
+                  { key: "enumerable", value: js.bool(true) },
+                  { key: "get", value: js.arrow([], js.member(mod, name)) },
+                ]),
+              ]),
+            ),
+          ),
+    );
   }
   for (const e of m.enums) {
     const entries: { key: string; value: js.Expr; quoted: true }[] = [];

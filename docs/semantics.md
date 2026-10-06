@@ -24,6 +24,7 @@ export function f(x: number): number { ... }         // callable from JavaScript
 export async function g(): Promise<string> { ... }   // returns a JS promise; runs off the JS thread
 export class Store { ... }                            // `new Store()` from JavaScript
 export const VERSION = "1.0";                          // copied to JavaScript once
+export let count = 0;                                  // read live: JavaScript sees each new value
 export enum Mode { Fast = "fast", Safe = "safe" }     // becomes a frozen JS object
 export type Item = { id: string; tags: string[] };    // types are free
 
@@ -34,6 +35,13 @@ let counter = 0;                                      // module state, reset on 
 - Exports are named by their declarations: export lists, re-exports and
   default exports (`export default function f`, which JavaScript would see
   as `default`) report `LUCENT3003`.
+- An exported `let` is a live binding, as in an ES module: each read from
+  JavaScript gets the value the module holds now (an object is copied at
+  each read, by the boundary's copy rule). An exported `const` is copied
+  once, which is exact because its binding never changes. Refusing an
+  exported `let` that the module reassigns would have broken ordinary
+  counters and caches, and a getter fits both the native exports object
+  and the JavaScript proxy.
 - Top-level declarations initialize in source order, as in JavaScript: a
   class's static fields where the class is declared, between the module's
   variables. A JS reload runs every initializer again and resets every

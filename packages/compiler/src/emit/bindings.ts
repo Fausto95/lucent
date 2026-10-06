@@ -802,14 +802,22 @@ export class BindingsEmitter {
       }
     }
     for (const c of m.consts) {
-      const name = c.decl.name.getText();
+      const name = cpp.str(c.decl.name.getText());
+      const value = toJs(this.reg.cppType(c.type), cpp.id("host"), cpp.id(c.cpp));
+
+      // A `let` the module may reassign is read live, as an ES module
+      // binding; a `const` binding never changes, so one copy is exact.
       body.push(
         cpp.exprStmt(
-          cpp.call(cpp.dot(exports, "setProperty"), [
-            rt,
-            cpp.str(name),
-            toJs(this.reg.cppType(c.type), cpp.id("host"), cpp.id(c.cpp)),
-          ]),
+          c.isConst
+            ? cpp.call(cpp.dot(exports, "setProperty"), [rt, name, value])
+            : cpp.call("defineAccessor", [
+                rt,
+                exports,
+                name,
+                hostFunction(sync([cpp.ret(value)])),
+                cpp.nullptr,
+              ]),
         ),
       );
     }
