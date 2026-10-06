@@ -60,6 +60,38 @@ describe("native view JSX diagnostics", () => {
     ]);
   });
 
+  it.skipIf(!ios)("checks an iOS attribute against the oldest iOS, as setup code is", () => {
+    expect(
+      diagnostics(
+        "ios",
+        'import { UIButton } from "lucent:ios/UIKit";',
+        "  return <UIButton isSymbolAnimationEnabled />;",
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        code: "LUCENT3007",
+        message:
+          'UIControl.isSymbolAnimationEnabled needs iOS 17.0 (apps run from iOS 15.1): use it under if (available("ios", 17))',
+      }),
+    ]);
+  });
+
+  it.skipIf(!ios)("checks an iOS enum attribute against the oldest iOS too", () => {
+    expect(
+      diagnostics(
+        "ios",
+        'import { UIButton, UIContextMenuConfiguration_ElementOrder } from "lucent:ios/UIKit";',
+        "  return <UIButton preferredMenuElementOrder={UIContextMenuConfiguration_ElementOrder.fixed} />;",
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        code: "LUCENT3007",
+        message:
+          'UIButton.preferredMenuElementOrder needs iOS 16.0 (apps run from iOS 15.1): use it under if (available("ios", 16))',
+      }),
+    ]);
+  });
+
   it.skipIf(!ios)("refuses an attribute reading a copy setup made of a prop", () => {
     expect(
       diagnostics(
