@@ -98,6 +98,10 @@ for (const href of samples.unchecked) {
   if (check) problems.push(unchecked);
   else console.warn(`! ${unchecked}`);
 }
+for (const [href, platforms] of samples.untyped)
+  console.warn(
+    `! ${href}: its view samples are not checked here, without the ${platforms.join(" and ")} SDK`,
+  );
 const cppFile = (href: string) => `src/generated/cpp/${slugOf(href) || "index"}.json`;
 const unbuilt = new Set([...samples.unbuilt.keys()].map(cppFile));
 for (const [href, { platforms }] of samples.unbuilt)

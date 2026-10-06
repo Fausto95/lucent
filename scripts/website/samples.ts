@@ -75,18 +75,32 @@ export function checkSamples(pages: CheckedPage[]): {
   unbuilt: Map<string, Unbuilt>;
   /** Pages of view components that no SDK here compiles (a component's view is a platform's), by URL. */
   unchecked: string[];
+  /**
+   * Pages of view components that use the classes of a platform whose SDK
+   * is missing here, by URL: that platform's modules are untyped (`any`),
+   * so its branch would make a native view `any` and hide its diagnostics.
+   */
+  untyped: Map<string, string[]>;
 } {
   const problems: string[] = [];
   const cpp = new Map<string, Record<string, CppFile[]>>();
   const unbuilt = new Map<string, Unbuilt>();
   const missing = PLATFORMS.filter((p) => !platformSdkTyped(p));
   const unchecked: string[] = [];
+  const untyped = new Map<string, string[]>();
   let checked = 0;
   for (const page of pages) {
     const samples = samplesOf(page.blocks);
     // A view component compiles for a platform whose SDK is here; one is enough.
     if (page.views && samples.length && missing.length === PLATFORMS.length) {
       unchecked.push(page.href);
+      continue;
+    }
+    const uses = page.views
+      ? missing.filter((p) => samples.some((s) => s.code.includes(`from "lucent:${p}`)))
+      : [];
+    if (uses.length) {
+      untyped.set(page.href, uses);
       continue;
     }
     const app = samples.filter((s) => !s.expect);
@@ -125,5 +139,5 @@ export function checkSamples(pages: CheckedPage[]): {
     }
     checked += samples.length;
   }
-  return { checked, problems, cpp, unbuilt, unchecked };
+  return { checked, problems, cpp, unbuilt, unchecked, untyped };
 }
