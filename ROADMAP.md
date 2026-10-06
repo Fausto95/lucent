@@ -432,6 +432,16 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-07: Ports keep their APIs; views share state the main thread
+owns.** To port mmkv, expo-file-system, expo-image and expo-video (TA35),
+Lucent gained rest parameters, `ArrayBuffer` and main-thread state. A
+module variable only main-thread code uses (components, `main()`
+callbacks) is the main thread's: views use it without the Lucent lock.
+Taking the lock in views was rejected: the main context never waits
+behind module code. Class instances as view props were rejected too:
+they would need handles with lifetimes across Fabric, while Expo's own
+`VideoView` passes the player's id, which a port can do.
+
 **2026-10-06: A built-in is exact or refused.** A built-in that compiled
 but differed from JavaScript now follows JavaScript or gives `LUCENT1003`
 (a refusal may cover only the arguments Lucent can't honor). Implemented:
@@ -1084,6 +1094,7 @@ small fixes found on the way.
 | [T52](#t52)   | Complete useful wrapper ports and certify a preview               | —        | ready (maintainer)   |
 | [TA25](#ta25) | Fix the bare app's FlatList crash from a second react-native copy | —        | in review            |
 | [TA26](#ta26) | Lay out the slot after a native-only move on iOS                  | —        | in review            |
+| [TA35](#ta35) | Close the gaps four reference ports need                          | —        | in review            |
 
 The Needs column lists only open dependencies.
 
@@ -1412,6 +1423,59 @@ without an unrelated layout pass.
 
 - Found by T47b, which documented it as a limitation. A similar wait applies
   inside a hosting controller between commits.
+
+<a id="ta35"></a>
+
+### TA35: Close the gaps four reference ports need
+
+**Goal:** Let react-native-mmkv, expo-file-system, expo-image and
+expo-video be ported with their React-facing APIs kept, to prove a
+native module and a native view each.
+
+- **Status:** in review (2026-10-07): every item below passes on its
+  branch.
+- **Area:** Compiler, runtime, views.
+- **Needs:** none.
+- **Verify:** V1, V3, V5.
+- **Where:** `types.ts` (`gathersRest`), `emit/bindings.ts`,
+  `runtime/cpp/lucent/bytes.h` (`ArrayBuffer`),
+  `analysis/main-state.ts`, `emit/index.ts` (`mainInitialization`).
+
+- [x] Probe each library's API shape against main: rest parameters
+      (`new File(dir, "a.txt")`), `ArrayBuffer` (MMKV's values), and a
+      class's native object reaching a view (expo-video) were refused;
+      a constructor taking a union no other export used did not build.
+- [x] Convert the types only constructors take at the boundary
+      (`classes` case).
+- [x] Rest parameters on functions, methods and constructors, from
+      JavaScript and Lucent, spreads of any iterable included
+      (`rest-parameters` case); refused as values and in function types.
+- [x] `ArrayBuffer`: views sharing it, `slice`, ToIndex checks, the
+      boundary (a copy), unions and compute tasks, in the runtime and the
+      JavaScript `lucent:core` (`array-buffers` case).
+- [x] Main-thread state: a variable only main-thread code uses is read
+      and written by views without the lock, and assigned on the main
+      thread on reload (`main-state.test.ts`).
+- [x] The players spike (`--entry players.js`) on the iOS simulator
+      (iPhone 17 Pro, Release): each view shows the native label its
+      player keeps, the first renamed through `main()` two seconds in
+      without a render; a rest parameter and ArrayBuffers cross the app's
+      JSI (`joined("a","b","c")`, checksum 38037, a 3-byte ArrayBuffer
+      back). Android is not run.
+
+**Done when:** the four ports compile against a release with these, each
+keeping its React-facing API behind a thin JavaScript wrapper where the
+original has one.
+
+**Notes:**
+
+- Not needed: class instances as view props (Expo's `VideoView` passes
+  its player's shared-object id, and so can a port), mixed unions in
+  view props (Expo's JavaScript normalizes `source` before native), and
+  records in view props (expo-image's `headers` can cross as pairs).
+- MMKV through its pod and Gradle library binds today; whether it keeps
+  Nitro's speed on Android (JNI against Nitro's direct C++) is for T54's
+  measurements.
 
 <a id="g4-production-candidate"></a>
 
