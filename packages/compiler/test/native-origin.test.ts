@@ -178,7 +178,7 @@ describe("a declaration's native origin", () => {
       kind: "class",
       name: "Searcher",
       native: "dev/orbit/Searcher",
-      kotlin: {},
+      kotlin: { kind: "class" },
       methods: [
         {
           name: "search",
