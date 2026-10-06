@@ -10,14 +10,16 @@ Every module of the installed iOS SDK, of the app's pods and Swift packages, and
 ## Look an API up
 
 - `lucent sdk search <name>` lists the classes and members whose name contains it, with the import line of each type. It searches the modules your code imports and those already in the SDK cache. Run `lucent sdk prefetch --all` first to cache every module, so a search covers them all.
-- `lucent sdk show <Module>.<Type>` prints the declaration your code sees, with its doc comments. Add `.<member>` to print only that member's overloads, without their doc comments.
+- `lucent sdk show <Module>.<Type>` prints the declaration your code sees, with its doc comments. Add `.<member>` to print only that member's overloads, each with its doc comment.
 - In the editor, hover a name. `lucent build` writes the declarations of the modules your code imports to `.lucent/native/types/`, where the editor reads them.
 
 ```sh title="terminal" nocopy
 $ npx lucent sdk show LocalAuthentication.LAContext.evaluatePolicy
 // lucent:ios/LocalAuthentication
 export declare class LAContext extends NSObject {
+  /** Native: -[LAContext evaluatePolicy:localizedReason:reply:], in LocalAuthentication; without its completion handler, a Promise it settles. */
   evaluatePolicy(policy: LAPolicy, localizedReason: string, reply: (arg0: boolean, arg1: Error | null) => void): void;
+  /** Native: -[LAContext evaluatePolicy:localizedReason:reply:], in LocalAuthentication; without its completion handler, a Promise it settles. */
   evaluatePolicy(policy: LAPolicy, localizedReason: string): Promise<boolean>;
 }
 ```

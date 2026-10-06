@@ -12,13 +12,14 @@ Kotlin classes are declared as Kotlin declares them. What JNI can't call goes th
 ## Look an API up
 
 - `lucent sdk search <name>` lists the classes and members whose name contains it, with the import line of each class. It searches the packages your code imports and those already in the SDK cache. Run `lucent sdk prefetch --all` first to cache every package, so a search covers them all.
-- `lucent sdk show <package>.<Class>` prints the declaration your code sees, with its doc comments. Add `.<member>` to print only that member's overloads, without their doc comments.
+- `lucent sdk show <package>.<Class>` prints the declaration your code sees, with its doc comments. Add `.<member>` to print only that member's overloads, each with its doc comment.
 - In the editor, hover a name. `lucent build` writes the declarations of the packages your code imports to `.lucent/native/types/`, where the editor reads them.
 
 ```sh title="terminal" nocopy
 $ npx lucent sdk show android.view.View.getVisibility
 // lucent:android/android.view
 export declare class View extends Object {
+  /** Native: android.view.View#getVisibility()I, in android.view. */
   getVisibility(): typeof View.VISIBLE | typeof View.INVISIBLE | typeof View.GONE;
 }
 ```

@@ -29,28 +29,46 @@ It searches the modules your code imports and those in the SDK cache. To search 
 $ npx lucent sdk show UIKit.UIImpactFeedbackGenerator
 // lucent:ios/UIKit
 /**
+ * Native: Objective-C class UIImpactFeedbackGenerator, in UIKit.
  * Main thread only: use it inside `main(() => …)` from lucent:thread.
  * Since iOS 10.0.
  */
 export declare class UIImpactFeedbackGenerator extends UIFeedbackGenerator {
   private readonly __lucent_UIImpactFeedbackGenerator: never;
+  /**
+   * Since iOS 17.5.
+   * Native: +[UIImpactFeedbackGenerator feedbackGeneratorWithStyle:forView:], in UIKit.
+   */
+  constructor(style: UIImpactFeedbackGenerator_FeedbackStyle, view: UIView);
+  /** Native: -[UIImpactFeedbackGenerator initWithStyle:], in UIKit. */
   constructor(style: UIImpactFeedbackGenerator_FeedbackStyle);
+  /** Native: -[UIImpactFeedbackGenerator impactOccurred], in UIKit. */
   impactOccurred(): void;
-  /** Since iOS 17.5. */
+  /**
+   * Since iOS 17.5.
+   * Native: -[UIImpactFeedbackGenerator impactOccurredAtLocation:], in UIKit.
+   */
   impactOccurred(location: CGPoint): void;
-  /** Since iOS 13.0. */
+  /**
+   * Since iOS 13.0.
+   * Native: -[UIImpactFeedbackGenerator impactOccurredWithIntensity:], in UIKit.
+   */
   impactOccurred(intensity: number): void;
-  /** Since iOS 17.5. */
+  /**
+   * Since iOS 17.5.
+   * Native: -[UIImpactFeedbackGenerator impactOccurredWithIntensity:atLocation:], in UIKit.
+   */
   impactOccurred(intensity: number, location: CGPoint): void;
 }
 ```
 
 Name a type as `<Module>.<Type>`: `UIKit.UIImpactFeedbackGenerator`, or `android.os.Vibrator` for an Android class. You get the declaration your code is checked against, with its doc comments:
 
+- `Native:` names the Objective-C, Swift, Java or Kotlin declaration it calls, and the module it comes from.
 - `Main thread only` means calling it in code the main thread runs, such as a `main()` function.
 - `Since iOS 17.5.` or `Since API 26.` is the version that added it. One newer than the oldest OS your app runs on needs a [version check](/docs/guides/check-the-os-version/).
 
-Add a member, as in `UIKit.UIImpactFeedbackGenerator.impactOccurred`, to print only its overloads, without their doc comments.
+Add a member, as in `UIKit.UIImpactFeedbackGenerator.impactOccurred`, to print only its overloads, each with its doc comment.
 
 ## Read it in your editor
 
@@ -59,18 +77,14 @@ Add a member, as in `UIKit.UIImpactFeedbackGenerator.impactOccurred`, to print o
 ## When a member isn't there
 
 ```sh title="terminal" nocopy
-$ npx lucent sdk show LocalAuthentication.LADomainStateCompanion
+$ npx lucent sdk show LocalAuthentication.LADomainStateCompanion.availableCompanionTypes
 // lucent:ios/LocalAuthentication
-/**
- * Since iOS 18.0.
- */
 export declare class LADomainStateCompanion extends NSObject {
-  private readonly __lucent_LADomainStateCompanion: never;
-  constructor();
-  /** Lucent cannot use this yet: set values cannot cross to Swift yet. */
+  /**
+   * Lucent cannot use this yet: set values cannot cross to Swift yet.
+   * Native: Swift LADomainStateCompanion.availableCompanionTypes, in LocalAuthentication.
+   */
   readonly availableCompanionTypes: Set<LACompanionType>;
-  readonly stateHash: Uint8Array | null;
-  stateHashFor(companionType: LACompanionType): Uint8Array | null;
 }
 ```
 
