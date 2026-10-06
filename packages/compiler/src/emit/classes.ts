@@ -176,9 +176,10 @@ export function emitClass(
   const virtuals = ctx.guard(() => virtualMembers(ctx, info)) ?? new Set<string>();
 
   const fieldType = (n: ts.Node) => reg.lower(ctx.checker.getTypeAtLocation(n), n);
-  /** A field redeclared from a base class shares the base's storage. */
+  /** A field redeclared from a base class shares the base's storage, Error's own fields too. */
   const declareField = (m: ts.PropertyDeclaration | ts.ParameterDeclaration, t: LType) => {
     const name = memberName(m);
+    if (info.isError && ERROR_FIELDS.includes(name)) return;
     const base = inherited(name, isField);
     if (!base) return body.push(cpp.field(reg.cppType(t), cppIdent(name)));
     const baseType = substitute(fieldType(base.decl), argMap(ctx, base.owner.t));
@@ -372,7 +373,8 @@ export function emitClass(
     );
 
     return [
-      ...(info.isError
+      // A Lucent base class names it first.
+      ...(info.isError && !info.base
         ? [{ value: { string: "Error" }, type: T.string, into: { write: write("name") } }]
         : []),
       ...parameterProperties(ctor).map((p) => ({
@@ -540,6 +542,9 @@ export function emitClass(
 function assigns(name: string, place: cpp.Expr, value: ValueId): Leaf {
   return { name, code: cpp.assign(place, operand(value)), type: T.void };
 }
+
+/** Error's own fields, which a subclass redeclaring them shares. */
+const ERROR_FIELDS = ["name", "message"];
 
 /** The message an Error subclass's implicit constructor passes to Error. */
 const ERROR_MESSAGE: ParamInfo = {
