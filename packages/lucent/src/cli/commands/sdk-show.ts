@@ -64,8 +64,7 @@ function declaration(dts: string, name: string): string | undefined {
     ).test(l),
   );
   if (start < 0) return undefined;
-  let from = start;
-  while (from > 0 && /^\s*(\/\*\*|\*)/.test(lines[from - 1]!)) from--;
+  const from = docStart(lines, start);
   if (!lines[start]!.trimEnd().endsWith("{")) return lines.slice(from, start + 1).join("\n");
   let depth = 0;
   for (let i = start; i < lines.length; i++) {
@@ -79,10 +78,20 @@ function declaration(dts: string, name: string): string | undefined {
 function memberLines(block: string, member: string): string | undefined {
   const lines = block.split("\n");
   const head = lines.find((l) => l.startsWith("export "))!;
-  const found = lines.filter((l) =>
-    new RegExp(`^\\s+(static |readonly |get |set |protected |private )*${member}\\b[?(<:]`).test(l),
+  const pattern = new RegExp(
+    `^\\s+(static |readonly |get |set |protected |private )*${member}\\b[?(<:]`,
+  );
+  const found = lines.flatMap((l, i) =>
+    pattern.test(l) ? lines.slice(docStart(lines, i), i + 1) : [],
   );
   return found.length ? [head, ...found, "}"].join("\n") : undefined;
+}
+
+/** The first line of the doc comment right above line `i` (`i` when there is none). */
+function docStart(lines: string[], i: number): number {
+  let from = i;
+  while (from > 0 && /^\s*(\/\*\*|\*)/.test(lines[from - 1]!)) from--;
+  return from;
 }
 
 /** Keywords and types in colour, the rest as is. */
