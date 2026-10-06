@@ -100,7 +100,7 @@ export async function memory(): Promise<string> {
 | Methods | Swift's base name, with the argument labels dropped: `evaluatePolicy(_:localizedReason:)` is `evaluatePolicy(policy, reason)`. |
 | Methods TypeScript couldn't tell apart | The later ones keep their labels, appended: `resize(height:)` is `resizeHeight`. A method named like a property keeps them too, and the property keeps the name. |
 | Initializers | `constructor`, labels dropped: `new CLLocation(48.85, 2.35)`. A class that declares none has its superclass's. An Objective-C factory Swift imports as an initializer is one too: `+widgetWithLabel:` is `new Widget(label)`. |
-| Swift initializers that differ only by their labels | Static factories named after the labels: `init(service:)` is `Keychain.withService(service)`. One without labels stays the `constructor`. |
+| Swift initializers that differ only by their labels | Static factories named after the labels: `init(service:)` is `Keychain.withService(service)`. One without labels stays the `constructor`. A `new` no constructor takes fails with an error naming the factories. |
 | Protocol requirements | The base name and the labels joined with `_`: `locationManager(_:didUpdateLocations:)` is `locationManager_didUpdateLocations`. |
 | C functions and constants | Their C names: `SecItemCopyMatching`, `kSecClass`. |
 | Typed string constants (`NS_TYPED_ENUM`) | Static string properties of their type: `FileAttributeKey.size`. |
@@ -152,6 +152,7 @@ A pointer a method writes through (`CGFloat *`, `NSRange *`, `NSDate **`, `CFTyp
 - A block the SDK passes to Lucent code, such as a completion handler a protocol method receives, is a function to call.
 - A method whose last parameter is a completion handler Swift also imports as `async` has a second form. It leaves the handler out and returns a promise, under the `async` form's name: `getPendingNotificationRequests(completionHandler:)` is `pendingNotificationRequests()`.
 - The promise rejects with the handler's error when the `async` form throws. Protocol requirements keep only the handler form, which a class implements.
+- A completion handler that receives several values keeps only the handler form.
 
 A block that returns nothing, outlives the call and runs off the main thread is queued on the Lucent thread. Any other block runs while the platform waits for it, holding the lock.
 
@@ -189,6 +190,7 @@ These fail to compile with `LUCENT1005`:
 
 - A field, getter or setter named like a property of the base: set the property in the constructor instead.
 - A class without a constructor whose base has no initializer without arguments: declare a constructor that calls `super(…)`.
+- A `super(…)` that calls an Objective-C factory initializer, such as `+widgetWithLabel:`, which makes its own object: call another initializer of the base.
 - A method that overrides a Swift member of the base.
 - A generic class extending an iOS class.
 - A class extending a Swift class, or a Lucent class that extends an iOS class.
@@ -290,4 +292,6 @@ Each stage needs the one before, and a `-` means no evidence for that stage, not
 
 Selectors (`Selector`), class objects (`AnyClass`) and protocol compositions such as `A & B` have no Lucent type yet, except a composition with `NSObjectProtocol`, which is the other type.
 
-Through Swift, optional numbers and booleans, Objective-C enums, tuples holding optional values or C structs, and closures of other types don't cross yet. Members using them carry the reason, and so do those with `inout` parameters. The roadmap lists every [known limitation](/docs/releases/roadmap/#known-limitations).
+Through Swift, optional numbers and booleans, Objective-C enums and closures of other types don't cross yet. Nor do optional tuples, or tuples holding optional values or C structs. Members using them carry the reason, and so do those with `inout` parameters.
+
+The roadmap lists every [known limitation](/docs/releases/roadmap/#known-limitations).

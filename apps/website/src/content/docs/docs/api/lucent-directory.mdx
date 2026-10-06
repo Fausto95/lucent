@@ -22,6 +22,7 @@ kind: reference
 │   ├── js/
 │   └── types/
 ├── build-record.json
+├── build-record.previous.json
 ├── sdk-usage.json
 ├── check.json                     after lucent check or sdk lock
 ├── file-hashes.json
@@ -37,6 +38,7 @@ kind: reference
 | --- | --- | --- | --- |
 | `native/` | `lucent build` | The native package: see [The native package](/docs/api/lucent-directory/#the-native-package). | The app can't build until a build writes it again. |
 | `build-record.json` | every build and check, from the CLI, Metro's watcher, the Gradle task or Expo prebuild | The last run's steps with their inputs, outputs and times, and the action the app needs next. [`lucent trace`](/docs/api/cli/#lucent-trace) lays these steps out. | `lucent trace` has no build steps until the next build. |
+| `build-record.previous.json` | each run that writes `build-record.json` | The record it replaced. The [`lucent doctor`](/docs/api/cli/#lucent-doctor) check **Build cache** compares the two to say which steps ran again, and why. | The doctor skips its **Build cache** check until the next build. |
 | `sdk-usage.json` | a build or check whose code checks | The SDK symbols the code uses, and the SDKs and libraries they were read from. `lucent sdk coverage` reads it, and `lucent sdk lock` records the same in `lucent-sdk.lock.json`. | The next build or check runs in full, even with the same inputs. |
 | `check.json` | `lucent check` and `lucent sdk lock` | The inputs of the last check that passed. A check of the same inputs ends at once. | The next check runs in full. |
 | `file-hashes.json` | builds, checks and the editor plugin | The content hashes of the files Lucent packages list, kept while each file's size and times stay the same. | The next build reads and hashes those files again. |
