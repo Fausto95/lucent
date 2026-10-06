@@ -1,7 +1,64 @@
 ---
-title: "Get a module change into the running app"
-description: "This page is being rewritten."
+title: Get a module change into the running app
+sidebar_label: Apply a change
+description: "Rebuild the app after you edit a module: its code runs as native code, and each build prints what the app needs next."
 kind: start
 ---
 
-This page is being rewritten.
+```sh title="terminal" nocopy
+[14:02:11] ✓ 1 module  41 ms · rebuild the app · recompile native code (ios, android)
+[14:03:52] ✓ 1 module  44 ms · rebuild the app · recompile native code (ios, android), reload JavaScript (ios, android)
+```
+
+When Metro runs as a dev server, it starts [`lucent dev`](/docs/api/cli/#lucent-dev) beside it. Each time you save a module, `lucent dev` rebuilds the [native package](/docs/architecture/glossary/#native-package) and prints a line in Metro's output. After the last `·`, the line names what the app needs, and on which platforms.
+
+The first line is a change to a function's body, and the second adds an export. An edit that changes no generated code, such as a comment at the end of the file, names no action. The rest of your JavaScript refreshes as usual.
+
+## Do what the line says
+
+| The line says | What you do |
+| --- | --- |
+| reload JavaScript | Reload the app: press `r` in Metro's terminal. |
+| recompile native code | Rebuild and run the app. |
+| repackage resources | Rebuild and run the app. |
+| relink native dependencies | On iOS, run `pod install` in `ios/` first. Then rebuild and run the app. |
+| reinstall the app | On iOS, bare apps add the `Info.plist` keys and entitlements `lucent build` names, as [Add permissions and config](/docs/guides/add-permissions-and-config/) shows. Expo apps run `npx expo prebuild`. Then rebuild and install the app. |
+
+<Tabs syncKey="setup">
+<TabItem label="Expo">
+
+```sh title="terminal"
+npx expo run:ios
+npx expo run:android
+```
+
+</TabItem>
+<TabItem label="Bare React Native">
+
+```sh title="terminal"
+npx react-native run-ios
+npx react-native run-android
+```
+
+Building from Xcode or Android Studio works too.
+
+</TabItem>
+</Tabs>
+
+## Why a reload isn't enough
+
+Your module runs as native code compiled into the app. A JavaScript reload, or an over-the-air update, keeps running the native code the app was built with.
+
+Lucent checks this when a module loads. If its exports or signatures changed, loading it throws an error with `code: "LUCENT_NATIVE_MISMATCH"`, which [Runtime errors](/docs/api/runtime-errors/#lucent_native_mismatch) explains. If only its code changed, it loads with a warning, and the old code runs.
+
+## Build without Metro
+
+Without the dev server, run `npx lucent build` before an iOS build. Android's Gradle build runs it first on its own. The build ends with the same answer:
+
+```sh title="terminal" nocopy
+modules  greet  shared
+next     rebuild the app
+actions  recompile native code  ios, android  cpp/generated/lucent_identity.cpp, cpp/generated/m_greet.cpp
+```
+
+`next` is the short answer. `actions` lists each action, its platforms and the generated files that need it, and [`lucent build --json`](/docs/api/json-formats/#lucent-build---json) gives the same list to scripts. [How Lucent decides what a change needs](/docs/architecture/builds/#actions-come-from-what-a-build-changed) says which change leads to which action.

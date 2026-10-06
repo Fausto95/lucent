@@ -1,20 +1,72 @@
 ---
-title: Use a third-party SDK
-description: Add the pod or Gradle dependency to the app as usual, then import it from `lucent:ios/*` or `lucent:android/*`.
+title: Call a CocoaPods or Gradle library
+description: "Add the library to your app and install it, then import it from `lucent:ios/<Module>` or `lucent:android/<package>` like the SDK."
 kind: guide
 ---
+
+<Tabs>
+<TabItem label="module">
 
 ```ts title="linked.lucent.ts" from="apps/bare-example/src/sdk/linked.lucent.ts" include="examples/linked.lucent.ts"
 ```
 
-A library the app already links is imported like the SDK: a pod's module on iOS, an AndroidX package on Android. This module is from the example apps, which add nothing for it.
+</TabItem>
+<TabItem label="JS usage">
 
-## Add a library
+```tsx title="App.tsx"
+import { Button } from "react-native";
+import { linkedLibraries } from "./src/sdk/linked.lucent";
 
-1. Add it to the app as usual: a pod in `ios/Podfile`, or a dependency in `android/app/build.gradle`.
-2. iOS: run `pod install`. Lucent reads the pods' headers from the app's `Pods` folder.
-3. Android: nothing more. `lucent build` asks Gradle for the app's compile classpath, and caches the answer until the Gradle files change.
-4. Import from `lucent:ios/<Module>` or `lucent:android/<package>`.
+export default function App() {
+  // "INTERNET granted true" on Android, "<n> request handlers, <m> image decoders" on iOS
+  return <Button title="Linked libraries" onPress={async () => console.log(await linkedLibraries())} />;
+}
+```
 
-- Swift Package Manager libraries can't be imported yet; CocoaPods ones can ([roadmap](/docs/releases/roadmap/)).
-- A library in a Lucent package goes in its `lucent.json` instead, so apps get it when they install the package.
+</TabItem>
+</Tabs>
+
+This module, from the bare example app, calls two libraries the app links: React Native's `ReactAppDependencyProvider` pod on iOS, and AndroidX Core on Android. Lucent binds the libraries your app installs, so there is no list of supported ones.
+
+## Add the library
+
+<Tabs syncKey="setup">
+<TabItem label="Expo">
+
+Prebuild writes `ios/` and `android/`, so add the pod and the Gradle dependency with a config plugin that edits the Podfile and `android/app/build.gradle`. Then run `npx expo prebuild`, which installs the pods, before a module imports them.
+
+</TabItem>
+<TabItem label="Bare React Native">
+
+Add the pod to your app's target in `ios/Podfile`, and the dependency to `android/app/build.gradle`:
+
+```ruby title="ios/Podfile"
+pod "SDWebImage", "~> 5.19"
+```
+
+```groovy title="android/app/build.gradle"
+implementation("com.google.android.gms:play-services-location:21.0.1")
+```
+
+Then run `pod install` in `ios/`.
+
+</TabItem>
+</Tabs>
+
+## Import it
+
+- On iOS, import the pod's module, the name Swift's `import` uses. Lucent reads the modules of the pods your app's target installed, so a pod that isn't installed yet fails with [`LUCENT3004`](/docs/api/diagnostics/#lucent3004).
+- On Android, import the Java package. `lucent build` asks Gradle for your app's compile classpath, again whenever the Gradle files change.
+- Use the library in a `PLATFORM` branch or a platform file, as for the SDK.
+
+The first build that imports a pod adds it to the native package's pod, so it asks you to relink. Run `pod install` again, then rebuild the app.
+
+## What Lucent can bind
+
+- A pod must define a module: an Objective-C pod with modular headers (`DEFINES_MODULE`, `:modular_headers => true`, `use_modular_headers!`), or a pod built as a framework under `use_frameworks! :linkage => :static`. Dynamic linkage is untested ([T62](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t62)).
+- A Swift pod's Swift API can't be bound yet, since it exists only once Xcode builds the pod. Nor can a pod that ships its library as an XCFramework, as many binary SDKs do.
+- Swift Package Manager libraries can't be imported yet ([TA32](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta32)).
+- In an Expo app, prebuild compiles your modules before it installs pods. A prebuild with no pods installed, such as `--clean`, fails with `LUCENT3004` once a module imports a pod.
+- On Android, a library must come from a repository, such as Maven Central or Google's. Another Gradle project's classes, such as an autolinked React Native library's, can't be imported.
+
+Play services return a `Task`: [Await a callback API](/docs/guides/await-a-callback-api/#a-play-services-task) turns it into a promise. To ship a library with a Lucent package instead, list it in the package's `lucent.json`, as [Add native dependencies](/docs/packages/add-native-dependencies/) shows.

@@ -1,7 +1,59 @@
 ---
-title: "Install a Lucent package"
-description: "This page is being rewritten."
+title: Install a Lucent package
+description: "Add it to your app's `dependencies` and build: JavaScript imports it by name, and your modules by its file path."
 kind: guide
 ---
 
-This page is being rewritten.
+```sh title="terminal"
+npm pack ../lucent/examples/lucent-haptics
+npm install ./lucent-haptics-0.1.0.tgz
+npx lucent build
+```
+
+A Lucent package is an npm package of modules, which your app compiles with its own. Install a published one with `npm install <name>`. The example packages in [Lucent's repository](https://github.com/Fausto95/lucent/tree/main/examples) aren't on npm, so these commands pack `lucent-haptics` from a clone next to your app.
+
+Keep the package in `dependencies`. Lucent doesn't look in `devDependencies` or `peerDependencies`, so their modules aren't compiled: [How an app finds packages](/docs/packages/package-json/#how-an-app-finds-packages) has the rules.
+
+## Call it
+
+```tsx title="App.tsx"
+import { Button } from "react-native";
+import { ImpactFeedbackStyle, impactAsync } from "lucent-haptics";
+
+export default function App() {
+  return <Button title="Tap" onPress={() => impactAsync(ImpactFeedbackStyle.Heavy)} />;
+}
+```
+
+JavaScript imports the package by its name. Your own modules import a package's module by its file path in the package, ending in `.lucent`: `import { impactAsync } from "lucent-haptics/src/haptics.lucent";`. [Importing another package's module](/docs/packages/package-json/#importing-another-packages-module) has the rules.
+
+## Rebuild the app
+
+The package's modules become native code in your app, so `lucent build` asks for a rebuild, often after `pod install` on iOS. [Get a module change into the running app](/docs/guides/apply-a-change/) says what each request needs.
+
+The package's [`lucent.json`](/docs/packages/lucent-json/) lists what its code needs from the app. Its pods and Gradle dependencies join the native package, and Gradle merges its Android permissions into your app. Its `Info.plist` keys and entitlements reach your app this way:
+
+<Tabs syncKey="setup">
+<TabItem label="Expo">
+
+Run `npx expo prebuild`. The config plugin adds the keys and entitlements to your app, then prebuild installs the pods.
+
+</TabItem>
+<TabItem label="Bare React Native">
+
+`lucent build` names each one your app lacks, and you add it, as [Add permissions and config](/docs/guides/add-permissions-and-config/) shows:
+
+```sh title="terminal" nocopy
+! lucent-nfc needs NFCReaderUsageDescription in ios/App/Info.plist (the Expo config plugin adds it)
+```
+
+</TabItem>
+</Tabs>
+
+:::caution
+A package whose modules import a pod it lists fails your first build with [`LUCENT3004`](/docs/api/diagnostics/#lucent3004) until that pod is installed ([known limitations](/docs/releases/roadmap/#known-limitations)). In a bare app, add the pod to `ios/Podfile` and run `pod install` first. In an Expo app, prebuild compiles your modules before it installs pods, so it fails the same way.
+:::
+
+## When the versions don't match
+
+A package's `compatible` field names the Lucent versions it supports. Outside that range, `lucent build` fails and names the package, and [`lucent doctor`](/docs/api/cli/#lucent-doctor) reports it under "Lucent versions". Update the package or Lucent: [compatible](/docs/packages/package-json/#compatible) has the range syntax.

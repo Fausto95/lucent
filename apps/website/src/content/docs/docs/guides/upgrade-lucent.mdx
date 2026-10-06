@@ -1,7 +1,67 @@
 ---
-title: "Upgrade Lucent"
-description: "This page is being rewritten."
+title: Upgrade Lucent
+description: "Install the new `@lucent-lang/lucent`, check that your Lucent packages accept it, then build and rebuild the app: its runtime is native code."
 kind: guide
 ---
 
-This page is being rewritten.
+<Steps>
+
+1. ### Read what changed
+
+   Before 1.0, a minor release can break what an earlier one did. The [changelog](/docs/releases/changelog/) lists each release's changes, and [Compatibility](/docs/api/compatibility/) the React Native, Expo and Node versions Lucent needs.
+
+2. ### Install it
+
+   Stop Metro first: its watcher keeps running the Lucent it started with.
+
+   ```sh title="terminal"
+   npm install --save-dev @lucent-lang/lucent@latest
+   npx lucent doctor
+   ```
+
+   `lucent doctor` checks the versions under "Lucent versions". A Lucent package whose `compatible` range leaves out the new version fails it, and fails every build, naming the package. Update that package, or stay on the version it accepts.
+
+3. ### Build
+
+   ```sh title="terminal"
+   npx lucent build
+   ```
+
+   The build cache keys on Lucent's own files, so this build compiles every module again. It also reads the SDK bindings again when the new version reads them differently, which makes it slower.
+
+4. ### Rebuild the app
+
+   Lucent's C++ runtime is part of the native package, so the build asks for a native rebuild. [Get a module change into the running app](/docs/guides/apply-a-change/) explains what it prints.
+
+   <Tabs syncKey="setup">
+   <TabItem label="Expo">
+
+   ```sh title="terminal"
+   npx expo prebuild
+   npx expo run:ios
+   npx expo run:android
+   ```
+
+   Prebuild applies the new config plugin and installs the pods.
+
+   </TabItem>
+   <TabItem label="Bare React Native">
+
+   ```sh title="terminal"
+   cd ios && pod install && cd ..
+   npx react-native run-ios
+   npx react-native run-android
+   ```
+
+   </TabItem>
+   </Tabs>
+
+</Steps>
+
+## Ship a new app build first
+
+An over-the-air update built with the new Lucent still runs the native code your users installed. If that code has another runtime ABI, or other exports or signatures for a module, loading that module throws [`LUCENT_NATIVE_MISMATCH`](/docs/api/runtime-errors/#lucent_native_mismatch). Otherwise the module loads and the installed code runs, with a [warning](/docs/api/runtime-errors/#the-installed-implementation-runs) when that code differs.
+
+Release a new build of the app before you ship updates built with the new version.
+
+SDK bindings an older Lucent read stay in the SDK cache. `npx lucent clean --cache` removes the project's `.lucent/` and the whole SDK cache. The next build writes the native package and reads the SDK bindings again.
