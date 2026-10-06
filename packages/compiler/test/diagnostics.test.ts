@@ -412,4 +412,12 @@ export function f(round: boolean): number {
       ).toEqual([]);
     });
   });
+
+  it("rejects Array.isArray of an Iterable, which no longer knows its kind", () => {
+    expect(
+      codes(
+        "function g(x: Iterable<number>): boolean { return Array.isArray(x); }\nexport function f(): boolean { return g([1]); }",
+      ),
+    ).toContain("LUCENT1003");
+  });
 });
