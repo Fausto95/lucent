@@ -425,9 +425,11 @@ export function numberFromNative(t: SdkType, code: cpp.Expr): cpp.Expr {
  * A Lucent value `c` of schema type `t` (primLt) as the native number
  * `native`: a bigint exactly, or RangeError naming `what` (the parameter or
  * field); a group's number as WebIDL's [EnforceRange] long long; the
- * others as WebIDL's default conversion (lucent::toNativeNumber).
+ * others as WebIDL's default conversion (lucent::toNativeNumber). A
+ * boolean (a Swift Bool) is no number: it is cast.
  */
 export function numberToNative(t: SdkType, native: cpp.Type, c: cpp.Expr, what: string): cpp.Expr {
+  if (isBool(t)) return cpp.staticCast(native, c);
   if (isBigIntType(t)) return cpp.call("lucent::toNativeInteger", [c, cpp.str(what)], [native]);
 
   return isGroupWide(t)
