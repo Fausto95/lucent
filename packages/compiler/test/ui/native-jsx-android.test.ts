@@ -102,6 +102,8 @@ describe("a component of Android JSX", () => {
 
       // The runtime's side of a Flex, built as the desktop JNI host builds Lucent's JNI runtime.
       expect(runtimeAndroidErrors(dir, "cpp/lucent/platform/android_layout.cpp")).toBe("");
+      // And the view tree a debug build's snapshot shows.
+      expect(runtimeAndroidErrors(dir, "cpp/lucent/platform/android_debug.cpp")).toBe("");
 
       // Its view class, against android.jar.
       const classes = path.join(dir, "classes");
