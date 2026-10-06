@@ -4,7 +4,12 @@
  * package's file by the lucent.json field that lists it. Never by a file's
  * extension alone.
  */
-import { inNativePackage, type PackagePath, type ResolvedNative } from "@lucent-lang/compiler";
+import {
+  inNativePackage,
+  type PackagePath,
+  packagePods,
+  type ResolvedNative,
+} from "@lucent-lang/compiler";
 import { ACTION_KINDS, type ActionKind, type PendingAction } from "./build-graph.ts";
 
 /** What a build changed in the native package (paths relative to it, with `/`), and what it resolved. */
@@ -69,6 +74,25 @@ const FIELD_ACTIONS = {
 
 /** The app configuration resolved.json carries that no build file does: the app's own files take it at install. */
 const APP_CONFIGURATION = ["infoPlist", "entitlements"] as const;
+
+/**
+ * The packages' dependencies a build writes into the build files before its
+ * check (writeLinkedPackage), as those files say them. The full build finds
+ * the files already written, so what the last full build resolved tells
+ * whether they changed: the podspec's pods, build.gradle's artifacts and
+ * minimum SDK.
+ */
+const LINKED_DEPENDENCIES = {
+  ios: { pods: (n?: ResolvedNative) => packagePods(n) },
+  android: {
+    dependencies: (n?: ResolvedNative) =>
+      Object.entries(n?.android.dependencies ?? {}).map(([artifact, versions]) => [
+        artifact,
+        Object.keys(versions),
+      ]),
+    minSdk: (n?: ResolvedNative) => n?.android.minSdk?.value,
+  },
+};
 
 /** Each field listing `file` (a native-package path under packages/), as the role it gives it. */
 function packageRoles(file: string, manifests: ResolvedNative[]): Role[] {
@@ -138,11 +162,17 @@ export function classifyChanges(change: NativeChange): PendingAction[] {
   };
 
   for (const file of [...change.written, ...change.removed]) {
-    // resolved.json: only what the app's own files take (the rest is in the build files).
+    // resolved.json: what the app's own files take, and what the build files had before
+    // this build wrote them (the rest shows in the build files).
     if (file === "resolved.json") {
       for (const key of APP_CONFIGURATION)
         if (canonical(change.manifest.ios[key]) !== canonical(change.previous?.ios[key] ?? {}))
           need("reinstall", ["ios"], `resolved.json#ios.${key}`);
+
+      for (const platform of ["ios", "android"] as const)
+        for (const [field, of] of Object.entries(LINKED_DEPENDENCIES[platform]))
+          if (canonical(of(change.manifest)) !== canonical(of(change.previous)))
+            need("relink", [platform], `resolved.json#${platform}.${field}`);
       continue;
     }
 
