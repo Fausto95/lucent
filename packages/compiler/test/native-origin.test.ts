@@ -101,10 +101,10 @@ describe("a declaration's native origin", () => {
       "Native: -[UIDevice loadWithReply:], in UIKit",
     );
     expect(d).toContain(
-      "   * Native: -[UIDevice loadWithReply:], in UIKit.\n   */\n  load(reply: (",
+      "  /** Native: -[UIDevice loadWithReply:], in UIKit. */\n  load(reply: (",
     );
     expect(d).toContain(
-      "   * Native: -[UIDevice loadWithReply:], in UIKit; without its completion handler, a Promise it settles.\n   */\n  load(): Promise<void>;",
+      "  /** Native: -[UIDevice loadWithReply:], in UIKit; without its completion handler, a Promise it settles. */\n  load(): Promise<void>;",
     );
   });
 
