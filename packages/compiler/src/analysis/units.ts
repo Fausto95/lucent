@@ -580,7 +580,7 @@ export function literalConstant(
  * arrays, collections and class instances stay mutable even when
  * `readonly` in TypeScript, which other references can bypass.
  */
-function immutableType(type: ts.Type): boolean {
+export function immutableType(type: ts.Type): boolean {
   if (type.isUnion()) return type.types.every(immutableType);
 
   const scalar =

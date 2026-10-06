@@ -1336,7 +1336,7 @@ export function Title(props: { title: string; onMeasure?: (width: number) => voi
 
 **Component code that cannot run on the main thread**
 
-A component sets up its view on the main (UI) thread, where the handlers it gives the view run too. Module variables belong to the module's thread, code the compiler cannot follow may do anything, and blocking or background-only native code freezes the UI. Calling an event prop directly (`props.onChange?.(value)`) is fine: it posts the event to JavaScript.
+A component sets up its view on the main (UI) thread, where its handlers run, and reads only module state main-thread code alone uses. Code the compiler cannot follow may do anything; blocking or background-only native code freezes the UI. Calling an event prop directly (`props.onChange?.(value)`) is fine: it posts the event to JavaScript.
 
 **Fix:** keep the state in the component (a local), or pass it in as a prop.
 
@@ -1356,6 +1356,9 @@ import { appContext } from "lucent:android";
 import { TextView } from "lucent:android/android.widget";
 import { UILabel } from "lucent:ios/UIKit";
 let shown = 0;
+export function timesShown(): number {
+  return shown;
+}
 export function Title(props: { title: string }) {
   shown++;
   if (PLATFORM === "ios") {

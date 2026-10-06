@@ -123,6 +123,6 @@ An event's name is `on` and a capital letter, it returns nothing, and its parame
 
 Setup, its effects and the callbacks it gives the platform run on the main thread, in the [main context](/docs/api/language/concurrency/#the-main-context). Keep them short: long work there stalls the UI, so move it to a [compute task](/docs/guides/run-in-parallel/).
 
-Setup can't read module state, which fails with [LUCENT3022](/docs/api/diagnostics/#lucent3022): keep a view's state in signals.
+Setup can't read module state, which fails with [LUCENT3022](/docs/api/diagnostics/#lucent3022): keep a view's state in signals. State only main-thread code uses is the exception: see [Main-thread state](/docs/api/language/concurrency/#main-thread-state).
 
 A mount ends when React unmounts the view, JavaScript reloads or React Native recycles the host view. A recycled host runs setup again: see [Mounts and recycling](/docs/api/views/components/#mounts-and-recycling).

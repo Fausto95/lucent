@@ -77,6 +77,8 @@ export interface ViewAnalysis {
   readonly declarations: ReadonlySet<ts.Node>;
   /** Each component's setup: the function its id names. */
   readonly setups: ReadonlyMap<string, FunctionLike>;
+  /** Module variables only main-thread code uses, which components may use (analysis/main-state.ts). */
+  readonly mainState: ReadonlySet<ts.Symbol>;
   readonly diagnostics: Diagnostic[];
 }
 
@@ -154,6 +156,7 @@ export function analyzeViews(lp: LucentProgram, env: ViewEnv = sdkViews(lp)): Vi
       components: [],
       declarations,
       setups: new Map(),
+      mainState: new Set(),
       diagnostics: inSourceOrder(diagnostics),
     };
 
@@ -165,6 +168,7 @@ export function analyzeViews(lp: LucentProgram, env: ViewEnv = sdkViews(lp)): Vi
     ...(lp.platform ? { platform: lp.platform } : {}),
     native: env.native,
     posts: postedCalls(checker, env, candidates),
+    mainRoots: candidates.flatMap((c) => [c.fn, ...commandFunctions(checker, c, calls.exposes)]),
   });
   const types = new ViewTypes(checker, (t, name) => facts.transfer(t, name));
   const components: ComponentDescription[] = [];
@@ -185,8 +189,33 @@ export function analyzeViews(lp: LucentProgram, env: ViewEnv = sdkViews(lp)): Vi
     components: diagnostics.length ? [] : components,
     declarations,
     setups: diagnostics.length ? new Map() : setups,
+    mainState: facts.mainState().owned,
     diagnostics: inSourceOrder(diagnostics),
   };
+}
+
+/**
+ * A component's commands, which run on the main thread: the functions its
+ * `expose` names (`expose({ bump })`) and those it writes in place.
+ */
+function commandFunctions(
+  checker: ts.TypeChecker,
+  c: Candidate,
+  exposes: readonly ts.CallExpression[],
+): ts.Node[] {
+  const { commands } = setupExpose(c.name, c.fn, exposes);
+
+  if (!commands) return [];
+
+  const written = commands.properties.flatMap((p): ts.Node[] => {
+    if (ts.isMethodDeclaration(p)) return [p];
+
+    const value = ts.isPropertyAssignment(p) ? skipParentheses(p.initializer) : undefined;
+
+    return value && (ts.isArrowFunction(value) || ts.isFunctionExpression(value)) ? [value] : [];
+  });
+
+  return [...namedFunctions(checker, commands), ...written];
 }
 
 /** Diagnostics by file and position; those at one place keep their order. */

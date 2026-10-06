@@ -1116,6 +1116,8 @@ export interface ProgramFacts {
   owners(unit: Unit): ReadonlyMap<OwnerId, Cause>;
   /** Why a unit (and all it runs) cannot run on `context`; empty when it can. */
   check(unit: Unit, context: Context): Violation[];
+  /** The module state only main-thread code uses, and why the rest is not the main thread's. */
+  mainState(): MainState;
   captures(unit: Unit): Capture[];
   checkCaptures(unit: Unit, context: Context): Violation[];
   /** Why a value of `type`, named `name`, cannot be handed to another context. */
@@ -1139,6 +1141,19 @@ export interface ProgramFacts {
 - `OwnerId`: units get `legacy-module`, `main`, `task` (compute entries)
   or `unknown`. A helper runs in each context of its callers, so it takes
   theirs. `IrValue.owner` stays unset.
+- `AnalysisInput.mainRoots?: readonly ts.Node[]` names functions that run
+  on the main thread whatever exports them: the view analysis passes
+  component setups and their commands, which own `main` instead of
+  `legacy-module`.
+- `mainState()` (`analysis/main-state.ts`): a top-level variable is the
+  main thread's when every reference to it is in a unit owned by `main`
+  alone (its own initializer aside), and, unless it holds only plain
+  values or native objects, it is a library `Map`, `Set` or array of
+  such values, used through its members, starting and assigned as a
+  literal or an empty collection. `check(unit, "main")` accepts reading
+  and writing it, and names why any other module variable is not. The
+  emitter assigns these variables in a job `init()` posts to the main
+  thread (`ViewAnalysis.mainState`).
 
 ### First proof
 

@@ -587,10 +587,10 @@ export const Explanations: Record<Code, Explanation> = {
     summary:
       "A component's setup, or a function it creates, using module state, code the compiler cannot follow, or native code unfit for the main thread.",
     details:
-      "A component sets up its view on the main (UI) thread, where the handlers it gives the view run too. Module variables belong to the module's thread, code the compiler cannot follow may do anything, and blocking or background-only native code freezes the UI. Calling an event prop directly (`props.onChange?.(value)`) is fine: it posts the event to JavaScript.",
+      "A component sets up its view on the main (UI) thread, where its handlers run, and reads only module state main-thread code alone uses. Code the compiler cannot follow may do anything; blocking or background-only native code freezes the UI. Calling an event prop directly (`props.onChange?.(value)`) is fine: it posts the event to JavaScript.",
     fix: "keep the state in the component (a local), or pass it in as a prop",
     wrong: component(
-      `${LABEL_IMPORTS}let shown = 0;\nexport function Title(props: { title: string }) {\n  shown++;\n${LABEL_BODY}`,
+      `${LABEL_IMPORTS}let shown = 0;\nexport function timesShown(): number {\n  return shown;\n}\nexport function Title(props: { title: string }) {\n  shown++;\n${LABEL_BODY}`,
     ),
     right: component(
       `${LABEL_IMPORTS}export function Title(props: { title: string }) {\n${LABEL_BODY}`,

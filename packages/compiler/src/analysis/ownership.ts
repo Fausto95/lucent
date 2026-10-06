@@ -11,6 +11,7 @@ import type { OwnerId } from "../ir/ir.ts";
 import { coreTypesPath, isLibFile } from "../program.ts";
 import { type Cause, code, describe, step, type Step, stepsOf, type Summary } from "./facts.ts";
 import { declaredAt, tracked } from "./local.ts";
+import type { MainState } from "./main-state.ts";
 import type { NativeFactsSource } from "./native.ts";
 import type { Solved } from "./solve.ts";
 import type { Unit } from "./units.ts";
@@ -70,12 +71,19 @@ const FIXES: Record<Rule, string> = {
 
 type SummaryRule = Exclude<Rule, "not-transferable">;
 
+/** What `rule` refuses in a summary, with the module variable's key for module state. */
+function findings(rule: SummaryRule, s: Summary): [string | undefined, Cause | undefined][] {
+  if (rule === "module-state")
+    return [...s.reads.vars.entries(), ...[...s.writes.vars].filter(([k]) => !s.reads.vars.has(k))];
+
+  return FINDINGS[rule](s).map((c) => [undefined, c]);
+}
+
 /** The facts of a summary each rule refuses, in a fixed order. */
-const FINDINGS: Record<SummaryRule, (s: Summary) => (Cause | undefined)[]> = {
-  "module-state": (s) => [
-    ...s.reads.vars.values(),
-    ...[...s.writes.vars].filter(([k]) => !s.reads.vars.has(k)).map(([, c]) => c),
-  ],
+const FINDINGS: Record<
+  Exclude<SummaryRule, "module-state">,
+  (s: Summary) => (Cause | undefined)[]
+> = {
   "module-constant": (s) => [...s.reads.constants.values()],
   "main-thread": (s) => [s.affinity.main],
   "worker-thread": (s) => [s.affinity.worker],
@@ -112,16 +120,37 @@ function violation(rule: Rule, unit: Unit, context: Context, cause: Cause): Viol
   };
 }
 
-/** Why `unit` (its code and everything it runs) cannot run on `context`; empty when it can. */
-export function checkUnit(summary: Summary, unit: Unit, context: Context): Violation[] {
+/**
+ * Why `unit` (its code and everything it runs) cannot run on `context`;
+ * empty when it can. On the main thread, `main` says which module state is
+ * the main thread's own (main-state.ts), and why the rest is not.
+ */
+export function checkUnit(
+  summary: Summary,
+  unit: Unit,
+  context: Context,
+  main?: MainState,
+): Violation[] {
   const out: Violation[] = [];
   const seen = new Set<string>();
+  const shared = context === "main" ? main : undefined;
 
   for (const rule of REFUSES[context])
-    for (const cause of FINDINGS[rule](summary)) {
+    for (const [key, cause] of findings(rule, summary)) {
       if (!cause) continue;
 
-      const v = violation(rule, unit, context, cause);
+      const reason = key === undefined ? undefined : shared?.why.get(key);
+
+      if (key !== undefined && shared?.why.has(key) && !reason) continue;
+
+      const found = violation(rule, unit, context, cause);
+      const v = reason
+        ? {
+            ...found,
+            message: `${found.message} It is not the main thread's alone: ${reason}.`,
+            fix: `${FIXES["module-state"]}, or use it only in components and main(…) callbacks, holding plain values or native objects`,
+          }
+        : found;
 
       if (seen.has(v.message)) continue;
 
@@ -404,7 +433,10 @@ interface Runs {
  * callers, or anywhere when its function value escapes to code the
  * compiler cannot see.
  */
-export function ownersOf(solved: Solved): Map<Unit, Map<OwnerId, Cause>> {
+export function ownersOf(
+  solved: Solved,
+  mainRoots: ReadonlySet<ts.Node> = new Set(),
+): Map<Unit, Map<OwnerId, Cause>> {
   const owners = new Map<Unit, Map<OwnerId, Cause>>();
   const add = (u: Unit, owner: OwnerId, cause: Cause): boolean => {
     let map = owners.get(u);
@@ -418,6 +450,8 @@ export function ownersOf(solved: Solved): Map<Unit, Map<OwnerId, Cause>> {
   for (const u of solved.p.units.list) {
     if (u.kind === "module-init")
       add(u, "legacy-module", step(u, u.node, "initializes its module"));
+    else if (mainRoots.has(u.node))
+      add(u, "main", step(u, u.node, "is a component's setup: it runs on the main thread"));
     else if (u.exported)
       add(u, "legacy-module", step(u, u.node, "is exported: JavaScript calls it"));
   }

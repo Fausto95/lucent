@@ -391,6 +391,7 @@ function compileChecked(
     views?.declarations,
     fabric,
     fabric ? views?.setups : undefined,
+    views?.mainState,
   );
   const ok = result.diagnostics.length === 0;
   const components = views?.components.length ? { components: views.components } : {};

@@ -205,6 +205,17 @@ host calls it from UIKit or the Android main looper as it is. The main
 context never takes the Lucent lock. Entering it while holding the lock
 throws.
 
+Module state is the module's thread's, so setup code cannot use it
+(LUCENT3022), except state only main-thread code uses: components and
+`main()` callbacks (contracts.md, `mainState()`). Every use of that runs
+on the one main thread, so it needs no lock. It holds plain values or
+native objects, through a collection's members only, so no reference to
+it reaches the module's thread; `init()` assigns it on the main thread,
+so a reload does not race a view still mounted. This is how a class
+JavaScript makes shares a native object with a view: expo-video's
+`VideoPlayer` keeps its `AVPlayer` in such a map, under the id the view
+takes as a prop, as Expo's own view does.
+
 | Work                                                                  | Thread                                      | Waits for       |
 | --------------------------------------------------------------------- | ------------------------------------------- | --------------- |
 | setup, effects, commands, dispose; callbacks setup gives the platform | main (main context)                         | nothing         |
