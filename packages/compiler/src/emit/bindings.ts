@@ -3,17 +3,8 @@ import ts from "typescript";
 import { Codes, CompileError, fail } from "../diagnostics.ts";
 import { sourcePath } from "../lowering/source.ts";
 import type { LucentModule } from "../program.ts";
-import {
-  type ClassInfo,
-  cppIdent,
-  isVoidish,
-  type LType,
-  stripOpt,
-  substitute,
-  T,
-  typeKey,
-} from "../types.ts";
-import { memberName, parameterProperties } from "./classes.ts";
+import { type ClassInfo, cppIdent, isVoidish, type LType, stripOpt, typeKey } from "../types.ts";
+import { constructorOf, memberName, parameterProperties } from "./classes.ts";
 import type { Ctx, Global, ParamInfo } from "./context.ts";
 import { FnEmitter } from "./function.ts";
 
@@ -731,26 +722,8 @@ export class BindingsEmitter {
     for (const c of m.classes) {
       if (c.typeParams.length) continue;
       const name = c.decl.name!.text;
-      // The nearest constructor in the chain; subclasses may inherit theirs.
-      const owner = this.reg
-        .chain({ k: "class", id: c.id, args: [] })
-        .find((x) => x.info.decl.members.some(ts.isConstructorDeclaration));
-      const ctor = owner?.info.decl.members.find(ts.isConstructorDeclaration);
       const em = new FnEmitter(this.ctx, { module: m.module, async: false });
-      const ctorType = ctor
-        ? (this.reg.lowerSignature(
-            this.ctx.checker.getSignatureFromDeclaration(ctor)!,
-            ctor,
-          ) as LType & { k: "fn" })
-        : { k: "fn" as const, params: [], ret: T.void };
-      const map = owner
-        ? new Map(owner.info.typeParams.map((p, i) => [p, owner.t.args[i]!] as [string, LType]))
-        : new Map<string, LType>();
-      const params = (ctor ? em.paramInfos(ctor, ctorType) : []).map((p) => ({
-        ...p,
-        type: substitute(p.type, map),
-        cppType: substitute(p.cppType, map),
-      }));
+      const params = constructorOf(this.ctx, { k: "class", id: c.id, args: [] });
       const selfT: LType = { k: "class", id: c.id, args: [] };
       const construct = c.abstract
         ? [

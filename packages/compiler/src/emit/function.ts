@@ -22,7 +22,7 @@ import {
 import { containsAwait, type FunctionLike, symbolOf } from "../analysis/scopes.ts";
 import * as builtins from "./builtins.ts";
 import { spanElement } from "./buffers.ts";
-import { DISPOSE, isSymbolDispose } from "./classes.ts";
+import { constructorOf, DISPOSE, isSymbolDispose } from "./classes.ts";
 import { TASK, taskVariant } from "./compute.ts";
 import * as extensions from "./extensions.ts";
 import * as native from "./native.ts";
@@ -2287,21 +2287,8 @@ export class FnEmitter {
     if (t.k === "handle") return extensions.handleNew(this, node, t);
     if (t.k === "class") {
       requireSubclassMain(node, this.reg.cls(t.id), (n) => native.inMainContext(this, n));
-      // The nearest constructor in the class chain (subclasses may inherit it).
-      const owner = this.reg
-        .chain(t)
-        .find((c) => c.info.decl.members.some(ts.isConstructorDeclaration));
-      const ctor = owner?.info.decl.members.find(ts.isConstructorDeclaration);
-      const fnType: LType = ctor
-        ? (this.reg.lowerSignature(this.checker.getSignatureFromDeclaration(ctor)!, ctor) as LType)
-        : { k: "fn", params: [], ret: T.void };
-      const params = ctor ? this.paramInfos(ctor, fnType as LType & { k: "fn" }) : [];
-      let paramTypes = params.map((p) => p.cppType);
-      if (owner && owner.t.args.length) {
-        const oi = owner.info;
-        const map = new Map(oi.typeParams.map((p, i) => [p, owner.t.args[i]!]));
-        paramTypes = paramTypes.map((p) => substitute(p, map));
-      }
+      const params = constructorOf(this.ctx, t);
+      const paramTypes = params.map((p) => p.cppType);
       const rest =
         params.length && params[params.length - 1]!.rest
           ? paramTypes[paramTypes.length - 1]

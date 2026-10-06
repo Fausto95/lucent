@@ -2,8 +2,17 @@ import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import type { LucentModule } from "../program.ts";
-import { type ClassChain, type ClassInfo, cppIdent, type LType, substitute, T } from "../types.ts";
-import type { Ctx } from "./context.ts";
+import { stringExpr } from "../lowering/literals.ts";
+import {
+  type ClassChain,
+  type ClassInfo,
+  cppIdent,
+  type LType,
+  substitute,
+  T,
+  unionOf,
+} from "../types.ts";
+import type { Ctx, ParamInfo } from "./context.ts";
 import { operand } from "../ir/cpp.ts";
 import type { ValueId } from "../ir/ir.ts";
 import type { Initializer, Leaf } from "../ir/lower.ts";
@@ -381,7 +390,9 @@ export function emitClass(
   let ctorDecls: cpp.Param[] = [];
   /** The implicit constructor, through the IR: its base's construction on its arguments, then the fields. */
   const implicitConstructor = (): void => {
-    const params = superCtor?.params ?? [];
+    // Without a Lucent base, an Error subclass's arguments go to Error: its message.
+    const toError = !superCtor && info.isError;
+    const params = superCtor?.params ?? (toError ? [ERROR_MESSAGE.cppType] : []);
     const sc = superCtor;
     const lowered = initializationThroughIr(
       ctx,
@@ -409,7 +420,18 @@ export function emitClass(
                   type: T.void,
                 }),
               }
-            : {}),
+            : toError
+              ? {
+                  first: ([message]: ValueId[]): Leaf => ({
+                    name: "this->message =",
+                    code: cpp.assign(
+                      cpp.arrow(cpp.self, "message"),
+                      cpp.call(cpp.dot(operand(message!), "valueOr"), [stringExpr("")]),
+                    ),
+                    type: T.void,
+                  }),
+                }
+              : {}),
         initializers: fieldInitializers(),
       },
       {
@@ -430,7 +452,7 @@ export function emitClass(
   const superCtor = baseT
     ? {
         call: cpp.baseMember(cpp.self, reg.cppClassType(baseT), "construct"),
-        params: inheritedCtorParams(ctx, ancestry),
+        params: constructorOf(ctx, baseT).map((p) => p.cppType),
       }
     : undefined;
   if (ctor) ctorDecls = emitMethod(ctor, "construct", false, superCtor).decls;
@@ -519,19 +541,36 @@ function assigns(name: string, place: cpp.Expr, value: ValueId): Leaf {
   return { name, code: cpp.assign(place, operand(value)), type: T.void };
 }
 
-/** Parameters of the nearest ancestor constructor, in terms of the subclass's type arguments. */
-function inheritedCtorParams(ctx: Ctx, ancestry: ClassChain): LType[] {
-  for (const a of ancestry) {
-    const ctor = a.info.decl.members.find(ts.isConstructorDeclaration);
-    if (!ctor) continue;
-    const fn = ctx.reg.lowerSignature(
-      ctx.checker.getSignatureFromDeclaration(ctor)!,
-      ctor,
-    ) as LType & { k: "fn" };
-    const module = ctx.modules.find((m) => m.sourceFile === ctor.getSourceFile())!;
-    const em = new FnEmitter(ctx, { module, async: false });
-    const map = argMap(ctx, a.t);
-    return em.paramInfos(ctor, fn).map((p) => substitute(p.cppType, map));
-  }
-  return [];
+/** The message an Error subclass's implicit constructor passes to Error. */
+const ERROR_MESSAGE: ParamInfo = {
+  name: "message",
+  type: unionOf([T.string, T.undefined]),
+  cppType: unionOf([T.string, T.undefined]),
+  optional: true,
+  rest: false,
+};
+
+/**
+ * The parameters `new` on `t` takes: the nearest constructor its chain
+ * declares, in `t`'s type arguments, or, declaring none, Error's message
+ * for an Error subclass (JavaScript's implicit constructor forwards its
+ * arguments to its base's).
+ */
+export function constructorOf(ctx: Ctx, t: LType & { k: "class" }): ParamInfo[] {
+  const owner = ctx.reg.chain(t).find((c) => c.info.decl.members.some(ts.isConstructorDeclaration));
+  if (!owner) return ctx.reg.cls(t.id).isError ? [ERROR_MESSAGE] : [];
+
+  const ctor = owner.info.decl.members.find(ts.isConstructorDeclaration)!;
+  const fn = ctx.reg.lowerSignature(
+    ctx.checker.getSignatureFromDeclaration(ctor)!,
+    ctor,
+  ) as LType & { k: "fn" };
+  const module = ctx.modules.find((m) => m.sourceFile === ctor.getSourceFile())!;
+  const map = argMap(ctx, owner.t);
+
+  return new FnEmitter(ctx, { module, async: false }).paramInfos(ctor, fn).map((p) => ({
+    ...p,
+    type: substitute(p.type, map),
+    cppType: substitute(p.cppType, map),
+  }));
 }
