@@ -432,6 +432,23 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-06: A built-in is exact or refused.** A built-in that compiled
+but differed from JavaScript now follows JavaScript or gives `LUCENT1003`
+(a refusal may cover only the arguments Lucent can't honor). Implemented:
+`fromIndex`/`start`/`end` arguments, `undefined` for any optional
+argument, `$` patterns in string-pattern `replace`, `SyntaxError`'s name,
+`Number.is*` and `Array.isArray`/`instanceof` on unions, array lengths
+(`RangeError`, ToLength), device-locale `toLocale…Case`, and WebIDL's
+wrapping for numbers passed as narrower native integers. Refused:
+`normalize()`, `locales`/`options` arguments, an error's `cause`,
+`Object.keys`/`for…in`/`in` on object types, the forms that make array
+holes, `new Proxy`. _Why:_ the runtime has no ICU or normalization
+tables, Lucent arrays have no holes, and object types record neither
+which optional fields are set nor their order; a silent difference is
+worse than a diagnostic that names the alternative. _Changed:_
+`docs/semantics.md` (built-ins, error type, platform numbers), the
+LUCENT1003 text.
+
 **2026-10-04: Native views' JSX derives children; no adapters.** A view
 class takes JSX children through the insert-at-index method its
 declarations give (`insertArrangedSubview:atIndex:`,
@@ -2014,6 +2031,11 @@ iOS simulator and the Android emulator; physical-device checks are
 - **TA17, TA22, TA23** Made the main-thread and compute checks precise
   about native calls that call back into Lucent.
 - **TA27** Printed Swift by precedence and associativity.
+- **Built-ins audit** (2026-10-06) Made every built-in the docs'
+  fact-checkers found differing from JavaScript exact or a `LUCENT1003`
+  (see the decision of the same date); e2e `optional-arguments` and the
+  extended `collections`, `strings`, `numbers`, `errors`, `kind-checks`
+  and `misc` cases check them against Hermes.
 
 ### Runtime and execution
 
@@ -2260,6 +2282,9 @@ Last recorded runs:
   design's gate for app integration asks for it.
 - **react-native-screens.** Not in the example apps, so hosting inside its
   screens is untested.
+- **Device-locale casing.** `toLocaleUpperCase`/`toLocaleLowerCase` were
+  checked for a Turkish locale on macOS only; Android's JNI path is
+  compiled, not run.
 
 ### Project infrastructure
 
@@ -2298,6 +2323,12 @@ Last recorded runs:
 ### Language, runtime and bindings
 
 - Reference cycles are not collected (see [Not planned](#not-planned)).
+- Refused built-ins (`LUCENT1003` unless noted): `normalize()`,
+  `locales`/`options` arguments, an error's `cause`, `Object.keys` (and
+  `for…in`, `LUCENT1009`, and `in`, `LUCENT1002`) on object types,
+  `new Array(n)` without a whole `.fill(v)`, `Array.from({ length: n })`
+  without a map function when elements can't be `undefined`, and
+  `new Proxy`.
 - Compute tasks are named top-level functions; safepoints are only in
   module functions' task variants. The JavaScript reference differs from
   native on `#private` fields (the copy loses them), subclass instances
