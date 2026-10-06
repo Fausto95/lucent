@@ -122,6 +122,7 @@ export function emitProgram(
     imports.set(m, []);
     for (const s of m.sourceFile.statements) {
       if (ts.isClassDeclaration(s) && here(s)) {
+        if (isDefaultExport(s)) ctx.guard(() => fail(s, Codes.UnsupportedExport, defaultExport));
         if (!s.name) {
           ctx.diagnostics.push({
             code: Codes.UnsupportedTopLevel,
@@ -502,12 +503,20 @@ export function emitProgram(
   };
 }
 
-function isExported(n: ts.Node): boolean {
-  return (
-    ts.canHaveModifiers(n) &&
-    !!ts.getModifiers(n)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
-  );
+function hasModifier(n: ts.Node, kind: ts.SyntaxKind): boolean {
+  return ts.canHaveModifiers(n) && !!ts.getModifiers(n)?.some((m) => m.kind === kind);
 }
+
+function isExported(n: ts.Node): boolean {
+  return hasModifier(n, ts.SyntaxKind.ExportKeyword);
+}
+
+// JavaScript would see a default-exported declaration as `default`; the proxy exports by name.
+function isDefaultExport(n: ts.Node): boolean {
+  return hasModifier(n, ts.SyntaxKind.DefaultKeyword);
+}
+
+const defaultExport = "default exports are not supported; export the declaration by name";
 
 function collect(
   ctx: Ctx,
@@ -556,6 +565,7 @@ function collect(
     return;
   }
   if (ts.isFunctionDeclaration(s)) {
+    if (isDefaultExport(s)) fail(s, Codes.UnsupportedExport, defaultExport);
     if (!s.name) fail(s, Codes.UnsupportedTopLevel, "functions need a name");
     const declared = !!ts.getModifiers(s)?.some((x) => x.kind === ts.SyntaxKind.DeclareKeyword);
     if (!s.body && !(m.stub && declared)) {
@@ -627,7 +637,7 @@ function collect(
       "export lists and re-exports are not supported; export declarations directly",
     );
   if (ts.isExportAssignment(s))
-    fail(s, Codes.UnsupportedExport, "default exports are not supported");
+    fail(s, Codes.UnsupportedExport, defaultExport);
   if (ts.isEmptyStatement(s)) return;
   fail(
     s,

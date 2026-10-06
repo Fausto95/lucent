@@ -408,9 +408,10 @@ export const Explanations: Record<Code, Explanation> = {
   },
   LUCENT3003: {
     title: "Unsupported export form",
-    summary: "An export form Lucent does not support: export lists, re-exports, default exports.",
+    summary:
+      "An export form Lucent does not support: export lists, re-exports, default exports (`export default function`, `export default class`, `export default value`).",
     details:
-      "Each export becomes a property of the module's native object, named by its declaration. Export lists, re-exports and default exports name exports apart from their declarations.",
+      "Each export becomes a property of the module's native object, named by its declaration. Export lists, re-exports and default exports name exports apart from their declarations: JavaScript would see `export default function twice` as `default`, not `twice`.",
     fix: "put `export` on the declaration itself",
     wrong: ex("function twice(n: number): number {\n  return n * 2;\n}\nexport { twice };\n"),
     right: ex("export function twice(n: number): number {\n  return n * 2;\n}\n"),

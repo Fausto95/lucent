@@ -31,6 +31,9 @@ let counter = 0;                                      // module state, reset on 
 ```
 
 - The top level may only contain declarations.
+- Exports are named by their declarations: export lists, re-exports and
+  default exports (`export default function f`, which JavaScript would see
+  as `default`) report `LUCENT3003`.
 - Imports are limited to other `*.lucent.ts` files, `lucent:core`, and
   the `lucent:` platform modules (below).
 - Module names are file names without `.lucent.ts`, and must be unique within an app.
