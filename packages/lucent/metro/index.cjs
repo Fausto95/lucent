@@ -1,6 +1,6 @@
 "use strict";
 // Metro integration. `*.lucent.ts` files stay the source of truth for types;
-// when bundling, their contents are replaced by the generated JS proxy that
+// when bundling, each becomes a require of the generated JS proxy that
 // forwards to the native module (written by `lucent build`).
 const path = require("node:path");
 const { spawn } = require("node:child_process");

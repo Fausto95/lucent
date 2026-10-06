@@ -1,5 +1,5 @@
 "use strict";
-// Metro babel transformer: swaps each *.lucent.ts module for its JS proxy.
+// Metro babel transformer: bundles each *.lucent.ts module as a require of its JS proxy.
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
@@ -36,26 +36,32 @@ function nativePackage(projectRoot) {
   return path.resolve(projectRoot, process.env.LUCENT_OUT || path.join(".lucent", "native"));
 }
 
+/**
+ * The module as Metro bundles it: a require of its proxy, a module of its
+ * own, so Metro watches it and serves what the last build wrote. A module
+ * not compiled yet fails the transform, which Metro retries on the next
+ * request, rather than bundling a throw it would keep until a restart.
+ */
 function proxyFor(filename, projectRoot) {
-  const name = moduleName(filename);
-  const generated = path.join(nativePackage(projectRoot), "js", `${name}.js`);
-  if (fs.existsSync(generated))
-    return rebase(fs.readFileSync(generated, "utf8"), generated, filename);
-  return `throw new Error(${JSON.stringify(`Lucent: ${path.basename(filename)} has not been compiled. Run \`lucent build\` and rebuild the app.`)});\n`;
+  // Metro passes the file's path relative to the project.
+  const file = path.resolve(projectRoot, filename);
+  const generated = path.join(nativePackage(projectRoot), "js", `${moduleName(file)}.js`);
+  if (!fs.existsSync(generated))
+    throw new Error(
+      `Lucent: ${path.basename(file)} has not been compiled. Run \`lucent build\` and rebuild the app.`,
+    );
+
+  const rel = path.relative(path.dirname(file), generated).split(path.sep).join("/");
+  return `module.exports = require(${JSON.stringify(rel.startsWith(".") ? rel : `./${rel}`)});\n`;
 }
 
-/**
- * The proxy's relative requires (the JS loader), which are relative to the
- * generated file, made relative to the source file Metro bundles it as.
- */
-function rebase(proxy, generated, filename) {
-  return proxy.replace(/require\("(\.\.?\/[^"]+)"\)/g, (_, spec) => {
-    const rel = path
-      .relative(path.dirname(filename), path.resolve(path.dirname(generated), spec))
-      .split(path.sep)
-      .join("/");
-    return `require(${JSON.stringify(rel.startsWith(".") ? rel : `./${rel}`)})`;
-  });
+/** The module names the native package's manifest lists, which name each module's proxy. */
+function moduleNames(pkg) {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(pkg, "manifest.json"), "utf8")).modules || [];
+  } catch {
+    return [];
+  }
 }
 
 module.exports = {
@@ -69,11 +75,17 @@ module.exports = {
     }
     return upstream.transform(args);
   },
-  getCacheKey(...args) {
-    const base = typeof upstream.getCacheKey === "function" ? upstream.getCacheKey(...args) : "";
-    // Proxies change when `lucent build` runs: include the manifest in the key.
-    const manifest = path.join(nativePackage(process.cwd()), "manifest.json");
-    const stamp = fs.existsSync(manifest) ? fs.readFileSync(manifest, "utf8") : "";
-    return crypto.createHash("sha1").update(base).update(stamp).update("lucent-1").digest("hex");
+  getCacheKey(options, ...rest) {
+    const base =
+      typeof upstream.getCacheKey === "function" ? upstream.getCacheKey(options, ...rest) : "";
+    // A module's output is a require of its proxy: it depends on where the
+    // package is and which modules it has, not on what a build wrote.
+    const pkg = nativePackage((options && options.projectRoot) || process.cwd());
+    return crypto
+      .createHash("sha1")
+      .update(base)
+      .update(JSON.stringify([pkg, moduleNames(pkg)]))
+      .update("lucent-2")
+      .digest("hex");
   },
 };

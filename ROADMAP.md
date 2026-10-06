@@ -432,6 +432,18 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-06: Metro bundles each proxy as a module of its own.** The
+Metro transformer turns a `*.lucent.ts` file into a require of its proxy
+in the native package instead of inlining the proxy's text. _Why:_ Metro
+computes a transformer's cache key once per process and re-transforms only
+files of its graph that change, so an inlined proxy stayed stale after a
+build rewrote it, and a module bundled before its first build kept its
+"not compiled" stub until a restart (sometimes after one too, from the
+persistent cache). _Changed:_ a build needs a reload, not a Metro restart;
+a module with no proxy fails the bundle instead of bundling a throw; the
+cache key holds the native package's location and module names, not the
+whole manifest.
+
 **2026-10-04: Native views' JSX derives children; no adapters.** A view
 class takes JSX children through the insert-at-index method its
 declarations give (`insertArrangedSubview:atIndex:`,
