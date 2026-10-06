@@ -34,8 +34,13 @@ prints how long each cause took:
 ```text
 ✓ wrote .lucent/trace.json  open it in ui.perfetto.dev or chrome://tracing
   build            resolve 12 ms · check 340 ms · generate 25 ms
-  trace.json       entry 3.2 ms · queue 41 ms · run 2.9 ms · compute 18 ms · copy 6.1 ms (8.4 MB)
+  trace.json       entry 3.2 ms · queue 41 ms · run 2.9 ms · effect 4.4 ms · compute 18 ms · copy 6.1 ms (8.4 MB)
+                   effect /app/src/rows.lucent.tsx:11  48× 3.1 ms
+                   effect /app/src/rows.lucent.tsx:7  2× 1.3 ms
 ```
+
+Under a trace's causes come the view bindings that took the most time:
+each effect's `.lucent.ts` line, how many times it ran, and for how long.
 
 `--out <file>` writes it elsewhere; `--runtime` takes several files,
 comma-separated.
@@ -49,6 +54,7 @@ comma-separated.
 | `queue`      | `wait`, `js.wait`                                | a job waiting for its owner; a result waiting for the JS thread     |
 | `run`        | `run`                                            | a posted job running on its owner                                   |
 | `native`     | a `LUCENT_TRACE_SCOPE` name, at its source line  | native work                                                         |
+| `effect`     | `effect`, at its `.lucent.ts` line               | a view's effect running: a prop kept up to date, an `effect()`      |
 | `completion` | the export's name                                | an async result being delivered to JavaScript                       |
 | `compute`    | `compute.wait`, `compute.run`, `compute.deliver` | a compute task waiting for a worker, running, being delivered       |
 | `compute`    | `compute.saturated`, `compute.rejected`          | every worker busy (with the queue's depth); the queue full          |
@@ -75,3 +81,28 @@ Each export's binding names where it is declared, so an `entry` event
 points at `stats.lucent.ts:12`, not at generated code. Native code marks
 its own spans with `LUCENT_TRACE_SCOPE("name")`; inside Lucent code the
 `#line` directives the compiler emits give those the `.lucent.ts` line too.
+
+## What a running app owns
+
+A debug build installs `__lucentDebug` beside the runtime. From React
+Native's DevTools console:
+
+```js
+await __lucentDebug.snapshot();
+```
+
+resolves with what the app's native side holds now:
+
+- `resources`: live counts of what the runtime owns: native references,
+  scopes, operations, resources, and a view's effects, signals and
+  computed values;
+- `mounts`: each mounted component (its registration and its setup's
+  source line) with its native views' tree: each view's class, frame and
+  children, hidden ones marked (points on iOS, density-independent pixels
+  on Android);
+- `host`: what the runtime holds for JavaScript: promises, callbacks,
+  modules, tasks in flight (`__lucentHost.ownership`).
+
+A count that keeps growing as screens come and go is a leak; a view that
+is not where it should be shows its frame. Release builds have no
+`__lucentDebug`.

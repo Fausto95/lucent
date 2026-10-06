@@ -1247,7 +1247,7 @@ Several tasks need physical devices, which only the maintainer can run.
 | [T56](#t56)   | Add native gestures and frame-driven animation facilities       | T51, T52                | waiting (maintainer) |
 | [T59](#t59)   | Prove media pipelines, high-rate streams and callback executors | T52                     | waiting (maintainer) |
 | [T60](#t60)   | Implement headless, background and additional native targets    | —                       | ready (maintainer)   |
-| [T61](#t61)   | Finish the editor, doctor, SDK and debugging workflows          | T48                     | in progress          |
+| [T61](#t61)   | Finish the editor, doctor, SDK and debugging workflows          | T48                     | in review            |
 | [T62](#t62)   | Run the distribution and supported-version compatibility matrix | T52, T60, T61           | waiting              |
 | [T63](#t63)   | Run the final no-catalog audit, including views and extensions  | T28, T48, T50           | waiting              |
 | [T64](#t64)   | Run lifetime, concurrency and Fabric stress validation          | T49, T55, T59, T60      | waiting (maintainer) |
@@ -1496,8 +1496,8 @@ count.
 **Goal:** Let a developer build and diagnose a module or view through one
 coherent workflow.
 
-- **Status:** in progress (2026-10-05): one slice per item, each its own
-  PR; all but the debugging output (view trees, effects, owned resources).
+- **Status:** in review (2026-10-06): every item below passes on its
+  branch, one PR per slice.
 - **Area:** Tooling.
 - **Needs:** T23 (done), T24 (done), T40 (done), T41 (done), [T48](#t48)
   (open).
@@ -1519,9 +1519,13 @@ coherent workflow.
       which the build keeps), `native-targets` and `native-build` (the
       newest Xcode or Gradle build read for the identity Lucent compiles
       in, judged as the app judges it).
-- [ ] Show view trees, effect updates, source-mapped native failures, copy
+- [x] Show view trees, effect updates, source-mapped native failures, copy
       and queue traces and owned resources, without exposing implementation
-      noise in ordinary application UI.
+      noise in ordinary application UI: effect runs are trace spans at their
+      `.lucent.ts` line (`lucent trace` lists the bindings that took the
+      most), and a debug build's `__lucentDebug.snapshot()` gives the live
+      counts of what the runtime owns and each mount's native view tree;
+      copy and queue traces and `#line`-mapped failures already existed.
 - [x] Validate TTY, non-TTY and JSON output, `init`, new module and new
       view, transitive workspace edits, cold failures and recovery; measure
       the warm feedback targets: `output-matrix.test.ts` runs every command

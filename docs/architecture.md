@@ -755,6 +755,18 @@ signal)` starts native work that completes later, on any thread (a
   what code has. `platform/ios_layout.mm` (LucentFlexView) and
   `platform/android_layout.cpp` (with dev.lucent.LucentFlexView) define
   it.
+- `live.h` and `debug.h` (T61): what a debug build reports of the
+  runtime. A class counts its instances by holding a `live::Counted`
+  member (scopes, operations, resources, a view's effects, signals and
+  computed values); `debug::resources()` reads the counts with the native
+  references. `view.h` keeps the live mounts (`addMount`, which a
+  generated mount calls once its setup succeeds, `removeMount` at its
+  disposal) and how a platform writes a view's tree (`setViewTree`:
+  `platform/ios_debug.mm`, `platform/android_debug.cpp`, installed by the
+  hosts); `debugSnapshot()` writes it all as JSON, which the JSI host's
+  `__lucentDebug.snapshot()` (debug builds) settles on the JS thread with
+  what the host holds. An effect's runs are trace spans (`effect`) at the
+  `.lucent.ts` line the compiler gives `effect()`.
 - `reactive.h`: the UI's reactive graph (the state a view keeps), owned by
   one execution context, the main one for views: used from any other
   thread it throws, and it never takes the Lucent lock or waits for the JS

@@ -24,6 +24,16 @@ An error made in Lucent, with `error()` or `new Error`, reaches JavaScript with 
 
 The C++ carries `#line` directives, so its debug information points at your `.lucent.ts` files. With the app's dSYM on iOS, or its unstripped `.so` on Android, a crash report names the module's file and line. Xcode and Android Studio also step through `.lucent.ts` lines.
 
+## Inspect a running app
+
+In a debug build, ask React Native's DevTools console:
+
+```js title="DevTools console"
+await __lucentDebug.snapshot();
+```
+
+It counts what Lucent owns and gives each mounted component's native view tree, with frames. A count that grows each time you reopen a screen is a leak. In a trace, each effect's runs are `effect` events at their `.lucent.ts` line.
+
 ## Check the setup
 
 ```sh title="terminal"
