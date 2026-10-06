@@ -441,6 +441,18 @@ function the compiler serves them with, and only with views on, saying so
 otherwise. _Why:_ the docs and the CLI disagreed with what compiled.
 _Changed:_ nothing planned; T61's SDK workflow item builds on it.
 
+**2026-10-06: iOS binds a package's pods after their install.** An Expo
+app whose Lucent package imports a pod its own `lucent.json` declares
+binds that pod in an iOS build step that runs once pods are installed,
+as Android's `lucentBuild` Gradle task resolves Android's dependencies,
+and `expo prebuild` defers iOS binding with a warning while such a pod
+is missing from `Podfile.lock`, rather than failing ([TA35](#ta35)).
+_Why:_ the config plugin runs `lucent build` before prebuild's own
+`pod install`, so the build fails with LUCENT3004 and the plugin throws
+before it links the native package: the pod is never installed, and no
+step the user can take from there installs it. _Changed:_ TA35 tracks
+the work; until it lands, the limitation stays listed.
+
 **2026-10-06: CI jobs time out past their slowest runs.** Each job
 stops at two to three times its longest run on cold caches (the maxima of
 the last hundred runs) rather than at GitHub's six hours, and the iOS
@@ -1245,7 +1257,7 @@ lists, gestures, media, background targets), the distribution matrix, the
 no-catalog audit, stress tests, physical-device budgets, complete docs and a
 green CI. The gate closes with T67.
 
-T54 is in review; T60 and T28's binding follow-ups (TA30 to TA34) are ready now (CI has
+T54 is in review; T60, T28's binding follow-ups (TA30 to TA34) and TA35 are ready now (CI has
 been green on main since 2026-10-03). The rest follow G1 and G3 work.
 Several tasks need physical devices, which only the maintainer can run.
 
@@ -1267,6 +1279,7 @@ Several tasks need physical devices, which only the maintainer can run.
 | [TA32](#ta32) | Read Swift packages and the iOS target from the project         | —                       | in review            |
 | [TA33](#ta33) | Bind the remaining Swift shapes                                 | —                       | in review            |
 | [TA34](#ta34) | Turn a Java Throwable into a Lucent Error                       | —                       | ready                |
+| [TA35](#ta35) | Bind a package's own pods in an Expo app                        | —                       | ready                |
 | [T67](#t67)   | Pass the integrated production-candidate gate                   | T62, T63, T64, T65, T66 | waiting (maintainer) |
 
 The Needs column lists only open dependencies.
@@ -1977,6 +1990,48 @@ exception's.
 
 **Notes:** From T25, which removed the named awaitable dispatch.
 
+<a id="ta35"></a>
+
+### TA35: Bind a package's own pods in an Expo app
+
+**Goal:** Let `expo prebuild` and the iOS build that follows it bind a
+pod that a Lucent package's own `lucent.json` declares, without a manual
+step.
+
+- **Status:** ready.
+- **Area:** Tooling, Apple host.
+- **Needs:** none.
+- **Verify:** V1, V5, V6, V9.
+- **Where:** `packages/lucent/app.plugin.js`, the iOS build step
+  (`packages/runtime/native/LucentNative.podspec`, or a Podfile hook the
+  config plugin adds), `packages/lucent/src/cli/pipeline.ts` and
+  `project.ts` (the deferral).
+
+- [ ] Run `lucent build` from the iOS build once pods are installed, the
+      iOS counterpart of Android's `lucentBuild` Gradle task: a podspec
+      `script_phase` or a Podfile `post_install` hook, whichever runs
+      after the package's pods are installed and before the native
+      package compiles.
+- [ ] In `expo prebuild`, a package pod missing from `Podfile.lock` defers
+      iOS binding with a warning that names the pod and the step that
+      binds it, instead of failing with LUCENT3004; the config plugin
+      then links the native package, so prebuild's `pod install`
+      installs the pod.
+- [ ] A test with a Lucent package that imports a pod its `lucent.json`
+      declares: a fresh `expo prebuild` succeeds, the iOS build binds the
+      pod, and a pod the build still cannot find fails with LUCENT3004
+      naming it.
+- [ ] The smoke install (`node scripts/smoke-install.ts`) covers such a
+      package in its fresh Expo app, and the docs on Lucent packages'
+      pods describe the Expo flow.
+
+**Done when:** a fresh Expo app with a Lucent package that imports its
+own pod runs `expo prebuild` and builds for iOS with that pod bound, no
+manual `pod install` or `lucent build` in between.
+
+**Notes:** From fix/package-pod-first-build, which named the steps a
+bare app takes and found that Expo's prebuild stops before them.
+
 <a id="t67"></a>
 
 ### T67: Pass the integrated production-candidate gate
@@ -2521,8 +2576,17 @@ Last recorded runs:
 - Module state is process-wide and reset when a new `Host` is created.
 - On Android API 24 and 25, a Java default method that Lucent does not
   implement returns its zero value, and the reason is logged.
-- A pod added to `lucent.json` after the first build needs `pod install`
-  before it can be bound.
+- A Lucent package's pod binds once installed. In a bare app, the
+  `lucent build` that first meets it declares it in the native package's
+  podspec, fails with LUCENT3004 and names it; `pod install`, then
+  `lucent build` binds it, and asks for `pod install` again when it adds
+  files. `expo prebuild` stops at that first failure, which names no
+  steps: the config plugin builds before the pods are installed and
+  before it links the native package. A pod binds through the module it
+  defines (`DEFINES_MODULE`, modular headers, a prebuilt `.framework`, or
+  `use_frameworks!`); a Swift pod built as a static library, or one that
+  ships an `.xcframework`, is not bound. Binding a package's own pod in
+  an Expo app is [TA35](#ta35).
 - Typed native extensions: Swift and Kotlin sources in a package are not
   typed yet, and extension calls cannot be cancelled.
 - Tracing records allocations for native buffers only, and its buffer
