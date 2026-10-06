@@ -1665,6 +1665,8 @@ export function Title(props: { title: string }) {
 
 A component can return its platform's views as JSX, declared as returning UIView or View (internal, under LUCENT\_VIEWS=fabric). A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Attributes are kept up to date like effects, and a child may come and go: `{cond && <X />}`, `{c ? <X /> : <Y />}`, or a keyed list, `{items.map((item) => <X key={item.id} />)}`.
 
+A `<Flex>` takes only `style`, `key`, its children and, as a Flex's child, `layout`. `layout` goes only on a Flex's child. `style` and `layout` are object literals naming each key, and no key is set in both.
+
 **Fix:** write each attribute on its element, and set what the declarations do not provide for in setup code.
 
 <Tabs>

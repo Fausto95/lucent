@@ -91,6 +91,7 @@ Setup code may come before the `return`: signals, effects, `expose()` and other 
 
 - A prop's value is an effect of the mount. It's set when the view is made, and again when a prop or signal it read changes.
 - An attribute written alone, `<UILabel isHidden />`, is `true`, set once.
+- A quoted value, `<TextView text="note" />`, is a string, set once, on either platform.
 - Read a prop in the attribute itself. An attribute reading a `const` setup copied from a prop, `const title = props.title`, would never change: it fails with LUCENT3025.
 - Methods, read-only, static and constant members aren't props. A generic setter is left out, since an attribute gives no type for it.
 
@@ -244,7 +245,7 @@ export function Row(props: RowProps): View {
 </TabItem>
 </Tabs>
 
-[Flex](/docs/api/views/lucent-ui/#flex), from `lucent:ui`, lays out its children with React Native's Yoga. Its `style` places its children, and each child's `layout` places that child, both a [LayoutStyle](/docs/api/views/lucent-ui/#layoutstyle): React Native's layout names and values, numbers in points.
+[Flex](/docs/api/views/lucent-ui/#flex), from `lucent:ui`, lays out its children with React Native's Yoga. Its `style` places its children, and each child's `layout` places that child, both a [LayoutStyle](/docs/api/views/lucent-ui/#layoutstyle). It takes React Native's layout names and values, with numbers in points on iOS and dp on Android.
 
 - The tag decides who sets a view's frame. A Flex sets its children's frames, and nothing else does.
 - A Flex's own frame comes from its parent: the component's box when it's the root, a native container, or an enclosing Flex.

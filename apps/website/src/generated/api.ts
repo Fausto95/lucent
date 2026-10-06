@@ -1175,7 +1175,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "kind": "type",
         "signature": "type LayoutLength = number | `${number}%`;",
         "doc": [
-          "A length in points, or a percent of the parent's (`\"50%\"`)."
+          "A length in points on iOS and dp on Android, or a percent of the parent's (`\"50%\"`)."
         ],
         "examples": [],
         "members": [],
@@ -1197,7 +1197,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "kind": "interface",
         "signature": "interface LayoutStyle {\n  direction?: \"inherit\" | \"ltr\" | \"rtl\";\n  flexDirection?: \"column\" | \"column-reverse\" | \"row\" | \"row-reverse\";\n  justifyContent?:\n    | \"flex-start\"\n    | \"center\"\n    | \"flex-end\"\n    | \"space-between\"\n    | \"space-around\"\n    | \"space-evenly\";\n  alignItems?: LayoutAlign;\n  alignSelf?: LayoutAlign;\n  alignContent?: LayoutAlign;\n  flexWrap?: \"nowrap\" | \"wrap\" | \"wrap-reverse\";\n  position?: \"relative\" | \"absolute\" | \"static\";\n  display?: \"flex\" | \"none\" | \"contents\";\n  overflow?: \"visible\" | \"hidden\" | \"scroll\";\n  flex?: number;\n  flexGrow?: number;\n  flexShrink?: number;\n  flexBasis?: LayoutDimension;\n  aspectRatio?: number;\n  width?: LayoutDimension;\n  height?: LayoutDimension;\n  minWidth?: LayoutLength;\n  maxWidth?: LayoutLength;\n  minHeight?: LayoutLength;\n  maxHeight?: LayoutLength;\n  margin?: LayoutDimension;\n  marginHorizontal?: LayoutDimension;\n  marginVertical?: LayoutDimension;\n  marginTop?: LayoutDimension;\n  marginRight?: LayoutDimension;\n  marginBottom?: LayoutDimension;\n  marginLeft?: LayoutDimension;\n  marginStart?: LayoutDimension;\n  marginEnd?: LayoutDimension;\n  padding?: LayoutLength;\n  paddingHorizontal?: LayoutLength;\n  paddingVertical?: LayoutLength;\n  paddingTop?: LayoutLength;\n  paddingRight?: LayoutLength;\n  paddingBottom?: LayoutLength;\n  paddingLeft?: LayoutLength;\n  paddingStart?: LayoutLength;\n  paddingEnd?: LayoutLength;\n  top?: LayoutDimension;\n  right?: LayoutDimension;\n  bottom?: LayoutDimension;\n  left?: LayoutDimension;\n  start?: LayoutDimension;\n  end?: LayoutDimension;\n  gap?: LayoutLength;\n  rowGap?: LayoutLength;\n  columnGap?: LayoutLength;\n}",
         "doc": [
-          "React Native's layout style (its Yoga's): a Flex's `style`, and the `layout` of a Flex's child. Numbers are points."
+          "React Native's layout style (its Yoga's): a Flex's `style`, and the `layout` of a Flex's child. Numbers are points on iOS and dp on Android."
         ],
         "examples": [],
         "members": [
@@ -1449,7 +1449,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "kind": "class",
         "signature": "class Flex {\n  constructor(none: never);\n  \"~jsx\"?: {\n    style?: LayoutStyle;\n    children?: FlexChild | readonly (FlexChild | readonly FlexChild[])[];\n  };\n}",
         "doc": [
-          "A container of native views laid out by React Native's Yoga (T50): its `style` places its children, and each child's `layout` places it. It writes its children's frames, and nothing else does; a native container among them (a stack view, a LinearLayout) lays out its own. Native view JSX only: `<Flex style={{ flexDirection: \"row\", gap: 8 }}>…</Flex>`."
+          "A container of native views laid out by React Native's Yoga: its `style` places its children, and each child's `layout` places it. It writes its children's frames, and nothing else does; a native container among them (a stack view, a LinearLayout) lays out its own. Native view JSX only: `<Flex style={{ flexDirection: \"row\", gap: 8 }}>…</Flex>`."
         ],
         "examples": [],
         "members": [

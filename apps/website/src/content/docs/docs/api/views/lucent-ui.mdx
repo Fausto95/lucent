@@ -120,7 +120,7 @@ class Flex {
 }
 ```
 
-A container of native views laid out by React Native's Yoga (T50): its `style` places its children, and each child's `layout` places it. It writes its children's frames, and nothing else does; a native container among them (a stack view, a LinearLayout) lays out its own. Native view JSX only: `<Flex style={{ flexDirection: "row", gap: 8 }}>…</Flex>`.
+A container of native views laid out by React Native's Yoga: its `style` places its children, and each child's `layout` places it. It writes its children's frames, and nothing else does; a native container among them (a stack view, a LinearLayout) lays out its own. Native view JSX only: `<Flex style={{ flexDirection: "row", gap: 8 }}>…</Flex>`.
 
 | Member | What it does |
 | --- | --- |
@@ -179,7 +179,7 @@ The type of a component's `children` prop: the React elements JavaScript nests i
 type LayoutLength = number | `${number}%`;
 ```
 
-A length in points, or a percent of the parent's (`"50%"`).
+A length in points on iOS and dp on Android, or a percent of the parent's (`"50%"`).
 
 ### LayoutDimension
 
@@ -250,7 +250,7 @@ interface LayoutStyle {
 }
 ```
 
-React Native's layout style (its Yoga's): a Flex's `style`, and the `layout` of a Flex's child. Numbers are points.
+React Native's layout style (its Yoga's): a Flex's `style`, and the `layout` of a Flex's child. Numbers are points on iOS and dp on Android.
 
 ### NativeViewTag
 

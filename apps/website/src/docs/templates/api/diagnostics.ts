@@ -68,7 +68,7 @@ export const blocks: Block[] = [
           ...codes.flatMap(({ code, title, details, fix, wrong, right, warning }): Block[] => [
             { kind: "h3", text: code },
             { kind: "p", text: `**${title}**${warning ? " (a warning)" : ""}` },
-            { kind: "p", text: details },
+            ...details.split("\n\n").map((text): Block => ({ kind: "p", text })),
             { kind: "p", text: `**Fix:** ${fix}.` },
             { kind: "tabs", tabs: [...tabs("wrong", wrong), ...tabs("right", right)] },
           ]),

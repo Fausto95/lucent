@@ -102,6 +102,8 @@ Experimental: views need `LUCENT_VIEWS=fabric` and change without notice. Read [
 
    `lucent build` writes the component's React type to `.lucent/native/types/views/greeting.d.ts`. Nothing connects that file to your app's TypeScript yet, so App.tsx casts the import to it.
 
+   To start from platform files instead, `npx lucent new view Card` writes `src/card.lucent.ts` and an iOS and an Android `.lucent.tsx`, each a label in a [Flex](/docs/api/views/platform-views/#layout).
+
 3. ### Build and run the app
 
    <Tabs syncKey="setup">

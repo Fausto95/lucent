@@ -117,7 +117,7 @@ export interface Children {
  */
 export declare function slot<T extends object>(): T;
 
-/** A length in points, or a percent of the parent's (`"50%"`). */
+/** A length in points on iOS and dp on Android, or a percent of the parent's (`"50%"`). */
 export type LayoutLength = number | `${number}%`;
 
 /** A length, or `"auto"`: what the layout gives. */
@@ -136,7 +136,7 @@ type LayoutAlign =
 
 /**
  * React Native's layout style (its Yoga's): a Flex's `style`, and the
- * `layout` of a Flex's child. Numbers are points.
+ * `layout` of a Flex's child. Numbers are points on iOS and dp on Android.
  */
 export interface LayoutStyle {
   direction?: "inherit" | "ltr" | "rtl";
@@ -199,7 +199,7 @@ export interface LayoutStyle {
 type FlexChild = object | false | null | undefined;
 
 /**
- * A container of native views laid out by React Native's Yoga (T50): its
+ * A container of native views laid out by React Native's Yoga: its
  * `style` places its children, and each child's `layout` places it. It
  * writes its children's frames, and nothing else does; a native container
  * among them (a stack view, a LinearLayout) lays out its own. Native view
