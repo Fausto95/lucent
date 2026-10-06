@@ -31,5 +31,7 @@ export default function run(mod, print, lucentClass, mods) {
   print(mod.presence(c, "s", 1));
   print(mod.relayed());
   print(mod.labelled());
+  const Sized = lucentClass(mod.Sized);
+  print(new Sized(3, { name: "px" }).text, new Sized("auto").text);
 
 }
