@@ -313,6 +313,38 @@ describe("lucent sdk coverage of SwiftUI", () => {
   );
 });
 
+describe("lucent sdk show and search of lucent:swiftui", () => {
+  const ios = process.platform === "darwin" && sdkAvailable("ios");
+
+  it.skipIf(!ios)(
+    "show and search SwiftUI's views as lucent:swiftui declares them with views on, and say why not without",
+    () => {
+      const root = project();
+      const sdk = (views: boolean, ...args: string[]) => {
+        const env = { ...process.env };
+        delete env.LUCENT_VIEWS;
+        if (views) env.LUCENT_VIEWS = "fabric";
+
+        // Extracting SwiftUI's declarations takes minutes on a cold cache.
+        return runLucent(["sdk", ...args, "--root", root], { env, timeout: 600_000 });
+      };
+
+      const text = sdk(true, "show", "SwiftUI.Text");
+      expect(text.status, text.stderr).toBe(0);
+      expect(text.stdout).toContain("// lucent:swiftui");
+      expect(text.stdout).toContain("export declare interface Text extends View");
+
+      const stack = sdk(true, "search", "HStack");
+      expect(stack.stdout).toContain('import { HStack } from "lucent:swiftui";');
+
+      const off = sdk(false, "show", "SwiftUI.Text");
+      expect(off.status).toBe(1);
+      expect(off.stdout + off.stderr).toMatch(/lucent:swiftui.*LUCENT_VIEWS=fabric/);
+    },
+    600_000,
+  );
+});
+
 describe("lucent sdk and Compose's bindings", () => {
   const sdk = (root: string, env: NodeJS.ProcessEnv, ...args: string[]) =>
     runLucent(["sdk", ...args, "--root", root], {
@@ -354,6 +386,20 @@ describe("lucent sdk and Compose's bindings", () => {
       // Without views, Compose is no SDK module of Lucent's.
       const off = sdk(root, {}, "coverage", "--android", "androidx.compose.*", "--json");
       expect(JSON.parse(off.stdout)).toEqual([]);
+    },
+  );
+
+  it.skipIf(!android)(
+    "search Compose's declarations with views on, and say why not without",
+    () => {
+      const root = project();
+
+      const found = sdk(root, { LUCENT_VIEWS: "fabric" }, "search", "BoxWithConstraints");
+      expect(found.stdout).toContain('import { BoxWithConstraints } from "lucent:compose";');
+
+      const off = sdk(root, {}, "show", "androidx.compose.foundation.layout.Box");
+      expect(off.status).toBe(1);
+      expect(off.stdout + off.stderr).toMatch(/lucent:compose.*LUCENT_VIEWS=fabric/);
     },
   );
 });
