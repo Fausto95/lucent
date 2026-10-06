@@ -1,26 +1,23 @@
 ---
-title: What is Lucent
-description: "Lucent brings native logic and views to React Native through TypeScript. Write modules in `.lucent.ts` and experimental native components in `.lucent.tsx`."
+title: What is Lucent?
+description: "Lucent compiles TypeScript modules to C++ that your React Native app calls over JSI, and those modules call iOS and Android APIs directly."
 kind: start
 ---
 
-import { Tabs, TabItem } from "@astrojs/starlight/components";
+Lucent is a compiler for React Native's native modules. You write a module in TypeScript, as a `*.lucent.ts` file, and Lucent compiles it to C++ that your app links. JavaScript imports the module like any other file, and each call reaches the C++ over JSI.
 
 <Tabs>
-<TabItem label="shared">
+<TabItem label="module">
 
-```ts title="stats.lucent.ts" cpp
-export type Summary = { count: number; mean: number; max: number };
+```ts title="cart.lucent.ts" cpp
+export type Item = { price: number; quantity: number };
 
-export function summarize(values: number[]): Summary {
+export function total(items: Item[], taxRate: number): number {
   let sum = 0;
-  let max = -Infinity;
-  for (const value of values) {
-    sum += value;
-    if (value > max) max = value;
+  for (const item of items) {
+    sum += item.price * item.quantity;
   }
-  const mean = values.length > 0 ? sum / values.length : 0;
-  return { count: values.length, mean, max };
+  return Math.round(sum * (1 + taxRate) * 100) / 100;
 }
 ```
 
@@ -28,17 +25,15 @@ export function summarize(values: number[]): Summary {
 <TabItem label="JS usage">
 
 ```tsx title="App.tsx"
-import { summarize } from "./src/stats.lucent";
+import { total } from "./src/cart.lucent";
 
-summarize([3, 1, 4, 1, 5]); // { count: 5, mean: 2.8, max: 5 }
+total([{ price: 4.5, quantity: 2 }, { price: 3, quantity: 1 }], 0.2); // 14.4
 ```
 
 </TabItem>
 </Tabs>
 
-The TypeScript checker checks the module, Lucent compiles it to C++, and your app links that C++. The import in `App.tsx` stays an ordinary, typed import. When Metro bundles the app, it swaps the module for a small proxy that calls the C++.
-
-No JavaScript engine runs your module, and there's no Swift or Kotlin to write. Modules can also call iOS and Android APIs directly.
+The import is typed from the module's source. No JavaScript engine runs the module: the array is [checked and copied](/docs/api/language/boundary/) into C++ values, and the loop runs as C++. A module is written in a subset of TypeScript, without `any` or `eval` ([why](/docs/api/language/#why-a-subset)).
 
 ## Call iOS and Android
 
@@ -54,30 +49,28 @@ No JavaScript engine runs your module, and there's no Swift or Kotlin to write. 
 ```tsx title="App.tsx"
 import { hasStringAsync } from "./src/clipboard.lucent";
 
-await hasStringAsync(); // true when the clipboard holds text
+hasStringAsync().then((hasText) => console.log(hasText)); // true when the clipboard holds text
 ```
 
 </TabItem>
 </Tabs>
 
-A module imports the SDKs directly, typed from your Xcode and Android SDK. Each platform's build compiles its own branch. It's one function of the `expo-clipboard` port; the [examples](/docs/examples/clipboard/) have the whole port.
+A module imports the iOS and Android SDKs directly, typed from your Xcode and Android SDK, with no Swift or Kotlin to write. Each platform's build compiles its own side of the `PLATFORM` test.
 
 ## When to use it
 
-- Logic you want in native code: parsers, codecs, geometry, data structures.
-- Calls to iOS and Android APIs, written once in TypeScript instead of in Swift and Kotlin.
-- Work that must stay off the JS thread: `async` exports run on a background thread.
+- Logic you want as native code: parsers, codecs, geometry, data structures.
+- Calls to iOS and Android APIs, written once in TypeScript.
+- Work that must stay off the JS thread: an `async` export runs on a background thread.
 
-## When not to use it
+Lucent is experimental, not for production apps, and has [known limitations](/docs/releases/roadmap/#known-limitations). [The comparison](/docs/guides/comparison/) sets it beside Expo Modules, Nitro and Turbo Native Modules.
 
-- Shipping native views to production. The [views implementation](/blog/native-views/) is experimental, behind `LUCENT_VIEWS=fabric`, and still needs physical-device validation.
-- Production apps. Lucent is experimental, and its APIs change without a migration path.
-- Code that needs `any`, `eval` or dynamic property access. Lucent compiles a checked subset of TypeScript.
+## Next steps
 
-## How it compares
-
-- **Expo Modules and Turbo Native Modules**: you write Swift and Kotlin, and a JavaScript API over them.
-- **Nitro Modules**: you write Swift, Kotlin or C++ against a TypeScript spec.
-- **Lucent**: you write TypeScript, and the compiler writes the C++ and the calls into the SDK.
-
-[The comparison](/docs/comparison/) has the details, with dates and sources.
+<CardGrid>
+  <LinkCard title="Install Lucent" description="Add Lucent to an Expo or bare React Native app, and run it." href="/docs/guides/install/" />
+  <LinkCard title="Write a package" description="Ship modules on npm for other apps to install." href="/docs/packages/" />
+  <LinkCard title="API reference" description="The exact rules of the language, each lucent:* module and each command." href="/docs/api/" />
+  <LinkCard title="How Lucent works" description="How a module becomes native code, and how a call crosses the boundary." href="/docs/architecture/" />
+  <LinkCard title="Native views" description="Write experimental native components in .lucent.tsx files." href="/docs/guides/views/" />
+</CardGrid>

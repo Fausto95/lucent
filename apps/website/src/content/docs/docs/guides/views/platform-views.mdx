@@ -1,0 +1,105 @@
+---
+title: Render a UIKit or Android view
+description: "Write the component as platform files, each returning its platform's view classes as JSX, with properties and setters as attributes."
+kind: guide
+views: true
+sidebar_class_name: experimental
+---
+
+:::caution
+Experimental: views change without notice. They need `LUCENT_VIEWS=fabric` where Lucent builds: see [Turn on native views](/docs/guides/views/). Read [the limits](/docs/architecture/views/#limits) first.
+:::
+
+<Tabs>
+<TabItem label="pedometer.lucent.ts">
+
+```ts title="pedometer.lucent.ts"
+import type { View } from "lucent:android/android.view";
+import type { UIView } from "lucent:ios/UIKit";
+
+export type PedometerProps = { steps: number };
+
+export declare function Pedometer(props: PedometerProps): UIView | View;
+```
+
+</TabItem>
+<TabItem label="pedometer.ios.lucent.tsx">
+
+```tsx title="pedometer.ios.lucent.tsx"
+import { UIColor, UIFont, UILabel, type UIView } from "lucent:ios/UIKit";
+import { Flex } from "lucent:ui";
+import type { PedometerProps } from "./pedometer.lucent";
+
+export function Pedometer(props: PedometerProps): UIView {
+  return (
+    <Flex style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <UILabel text="Steps today" textColor={UIColor.secondaryLabel} layout={{ flexGrow: 1 }} />
+      <UILabel text={`${props.steps}`} font={UIFont.boldSystemFont(28)} />
+      {props.steps >= 10000 && <UILabel text="Goal" />}
+    </Flex>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="pedometer.android.lucent.tsx">
+
+```tsx title="pedometer.android.lucent.tsx"
+import type { View } from "lucent:android/android.view";
+import { TextView } from "lucent:android/android.widget";
+import { Flex } from "lucent:ui";
+import type { PedometerProps } from "./pedometer.lucent";
+
+export function Pedometer(props: PedometerProps): View {
+  return (
+    <Flex style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <TextView text="Steps today" layout={{ flexGrow: 1 }} />
+      <TextView text={`${props.steps}`} textSize={28} />
+      {props.steps >= 10000 && <TextView text="Goal" />}
+    </Flex>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useState } from "react";
+import { Button, View } from "react-native";
+import * as pedometer from "./pedometer.lucent";
+
+const { Pedometer } = pedometer as unknown as typeof import("./.lucent/native/types/views/pedometer");
+
+export default function App() {
+  const [steps, setSteps] = useState(0);
+
+  return (
+    <View style={{ padding: 48 }}>
+      <Pedometer steps={steps} />
+      <Button title="Step" onPress={() => setSteps(steps + 1)} />
+    </View>
+  );
+}
+```
+
+</TabItem>
+</Tabs>
+
+A tag is a view class: any class that extends `UIView` or Android's `View`, from the SDK or a library Lucent binds. The declaration file declares the props once, and each platform file returns its own views.
+
+- An attribute is a writable property on iOS, and a one-value setter on Android: `text` calls `setText` ([Props](/docs/api/views/platform-views/#props)).
+- An attribute that reads a prop, as the second label's `text` reads `props.steps`, is set again when React passes a new value.
+- Listeners and control events are `on…` attributes, such as a `UISwitch`'s `onValueChanged` ([Events](/docs/api/views/platform-views/#events)).
+- `{cond && <X />}` adds a child while the condition holds, and `items.map` with a `key` makes a list ([Children](/docs/api/views/platform-views/#children)).
+- `Flex` lays out its children with React Native's Yoga, and `layout` places one child ([Layout](/docs/api/views/platform-views/#layout)).
+
+A plain `UIView` or `ViewGroup` doesn't lay out its children, so put them in a `Flex` or a native container. A component whose root is a `Flex` is sized by its content when its style gives no size.
+
+`tsc` checks a `.lucent.tsx` file's JSX as React's and reports errors in it: only the [editor plugin](/docs/api/integrations/#jsx-in-lucenttsx-files) types it.
+
+[UIKit and Android views in JSX](/docs/api/views/platform-views/) gives every rule, and how to list a module's tags.
+
+## Why platform files
+
+Platform-view JSX ends setup, so in one file only the last platform could return it ([Where native JSX goes](/docs/api/views/platform-views/#where-native-jsx-goes)).

@@ -8,5 +8,11 @@ export const requirements = {
     "min": 17,
     "max": 21
   },
-  "minAndroidApi": 24
+  "minAndroidApi": 24,
+  "minIos": "15.1",
+  "typescript": "~5.9.3",
+  "lib": [
+    "lib.es2022.d.ts",
+    "lib.esnext.disposable.d.ts"
+  ]
 } as const;

@@ -4,7 +4,7 @@ Lucent compiles TypeScript modules and components to C++ that React Native
 calls over JSI. This file is the project's plan and the record of its
 status: what is done, what is next, the decisions behind it, and every open
 task with its checklist. The website's
-[roadmap page](https://lucent-lang.dev/docs/roadmap/) is generated from the
+[roadmap page](https://lucent-lang.dev/docs/releases/roadmap/) is generated from the
 [status at a glance](#status-at-a-glance).
 
 Updated 2026-10-01. A commit that finishes, changes or adds a task updates
@@ -185,9 +185,9 @@ Goal: Call the iOS and Android SDKs directly from Lucent.
 - ✅ A coverage report of what each SDK binds, and why the rest is skipped.
 - ✅ Pinning the SDKs a project uses, and listing what an SDK update changes for your code.
 - ✅ Ports of Expo and community modules, checked against the originals.
-- 🚧 Native libraries nobody has seen before, bound and run with no change to Lucent.
+- 🚧 Native libraries nobody has seen before, bound and run with no change to Lucent (in review).
+- 🚧 The app's Swift packages, bound against the iOS version the app targets (in review).
 - 🔭 Weak references.
-- 🔭 Binding the APIs of Swift Package Manager libraries.
 
 ### Views
 
@@ -198,7 +198,7 @@ Goal: Native views from Lucent components, rendered by React Native's Fabric.
 - ✅ One file per component, with each platform's body in a platform branch.
 - ✅ Events, commands, requests that answer, recycling, sizing to content and React children.
 - ✅ Views that keep updating while JavaScript is blocked.
-- 🚧 JSX for any SDK view, keyed lists and Yoga layout.
+- 🚧 JSX for any SDK view, keyed lists and Yoga layout (in review).
 - ⏳ A views preview with wrapper ports, such as maps, web views and video.
 - 🔭 Native lists, gestures and animations, and media pipelines.
 
@@ -639,6 +639,31 @@ the package in the bare example (TA32). _Changed:_ the iOS declarations
 of such classes (CryptoKit's P256 keys and signatures, whose
 representations are factories now, `withRawRepresentation`); Objective-C
 initializers are not separated yet.
+
+**2026-10-04: The website runs on Docusaurus.** The site moves from Astro
+Starlight to Docusaurus, as reactnative.dev runs, and its docs take
+React Native's layout: one navbar item and sidebar per section, collapsed
+groups with sub-groups, and a Releases section with the roadmap and the
+changelog. The homepage is ported as it was, the search is a local index,
+and code blocks keep their look through Expressive Code. _Why:_ the
+sections, sidebars and pagination React Native's docs have are built into
+Docusaurus, where Starlight needed a route middleware, overrides and a
+theme patch. _Changed:_ the 2026-10-01 move to Starlight and the 2026-10-03
+homepage decision (the page is the same, in React).
+
+**2026-10-04: The docs are four sections, and guides replace the
+tutorial.** The website's docs split into Guides, Packages, API and
+Architecture, each a header tab with its own sidebar. The trip-tracker
+tutorial and the guides merge into one set of guides, rewritten against
+the code: an ordered "Get started", then one task per page. The language
+spec moves from docs/semantics.md onto the API section; Architecture ends
+with an Internals group for contributors that replaces
+docs/architecture.md. Removed pages get no redirect, and the redirect
+setup goes. _Why:_ the docs mixed tutorial, guide, explanation and
+reference in each group and repeated facts that had drifted from the code;
+until production grade the docs evolve with it, so old URLs aren't kept.
+_Changed:_ the 2026-09-24 Docs decision (the trip-tracker tutorial) and
+T66's tutorial items.
 
 **2026-10-04: Native views' JSX derives children; no adapters.** A view
 class takes JSX children through the insert-at-index method its
@@ -1887,9 +1912,10 @@ match shipped behavior.
 - **Where:** Public guides, reference and examples, coordinated with ongoing
   docs.
 
-- [ ] Finish module and view tutorials, setup-once reactivity, ownership and
+- [ ] Finish module and view guides, setup-once reactivity, ownership and
       threading, buffers, SDK discovery, adapters, native configuration and
-      troubleshooting.
+      troubleshooting (the docs restructure of 2026-10-04: Guides, Packages,
+      API and Architecture sections).
 - [ ] Publish capability and support tables generated from actual evidence;
       remove stale claims, and distinguish TypeScript-only support from
       explicit native extensions.
@@ -1905,8 +1931,8 @@ match shipped behavior.
       tables.
 - [ ] Carried over from the docs plan: runnable samples in CI (run in
       Hermes, output compared with the page), a weekly external link check,
-      and a run of the tutorial on the iOS simulator and the Android
-      emulator.
+      and a run of the Get started guides on the iOS simulator and the
+      Android emulator.
 
 **Done when:** the docs support independent use and match shipped behavior.
 This final sweep does not excuse delaying docs for earlier completed tasks.
@@ -2701,77 +2727,76 @@ Last recorded runs:
 - Helper view functions take plain data and scalar callbacks only: no
   toolkit values, children, lists or bindings inside a helper.
 - SwiftUI: a static value named like a method (`Animation.easeInOut`) is
-  left out, so write the call; only closed ranges (`a...b`) are mapped;
-  content conditions must be `boolean`; `Int(x)` traps on NaN or infinity.
-  A two-value `onChange` closure does not type-check, because TypeScript
-  tries the one-value overload first.
+  left out, so write the call. Only closed ranges (`a...b`) are mapped,
+  content conditions must be `boolean`, and `Int(x)` traps on NaN or
+  infinity. A two-value `onChange` closure does not type-check, because
+  TypeScript tries the one-value overload first.
 - Compose: class names that clash keep the first package's.
-- Native views' JSX (T48): a plain view's children have no layout (a
-  `Flex`'s are Yoga's, [T50](#t50)), and a list's item is one element
-  ([T49](#t49)); its rules read declarations, not behavior (Android's
-  AdapterView declares `addView(View, int)` and throws from it). A root
-  returned under a runtime condition is chosen once per mount: a later
-  change of what the condition read does not swap it, and a signal read
-  there is neither tracked nor warned about (a prop is, LUCENT3021).
+- Native views' JSX (T48): a plain view's children have no layout; a
+  `Flex`'s are Yoga's ([T50](#t50)). A list's item is one element
+  ([T49](#t49)). Its rules read declarations, not behavior: Android's
+  AdapterView declares `addView(View, int)` and throws from it. A root
+  returned under a runtime condition is chosen once per mount. A later
+  change of what the condition read does not swap it. A signal read there
+  is neither tracked nor warned about (a prop is, LUCENT3021).
 - Where a platform's SDK is missing, a component's code for that platform
-  is untyped and not checked: its diagnostics (LUCENT3025 for its native
-  JSX) come only where its SDK is installed.
+  is untyped and not checked. Its diagnostics (LUCENT3025 for its native
+  JSX) come only where that SDK is installed.
 - The bare app's FlatList crash ([TA25](#ta25)) and the iOS native-only
   slot move ([TA26](#ta26)) are in review.
 
 ### Language, runtime and bindings
 
 - Reference cycles are not collected (see [Not planned](#not-planned)).
-- Refused built-ins (`LUCENT1003` unless noted): `normalize()`,
-  `locales`/`options` arguments, an error's `cause`, `Object.keys`,
-  `values` and `entries` (and `for…in`, `LUCENT1009`, and `in`,
-  `LUCENT1002`) on object types, `new Array(n)` without a whole
-  `.fill(v)` (preallocating then assigning each index too),
-  `Array.from({ length: n })` without a map function when elements can't
-  be `undefined`, and `new Proxy`. Writing past an array's end or growing
-  its `length` throws `RangeError`.
+- Some language features and built-ins differ from JavaScript without a
+  diagnostic; the website lists them under
+  [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps).
+- Refused built-ins give `LUCENT1003` unless noted. They are
+  `normalize()`, `locales`/`options` arguments and an error's `cause`. On
+  object types, `Object.keys`, `values` and `entries` are refused, and so
+  are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`). So is `new
+Array(n)` without a whole `.fill(v)`, even when each index is then
+  assigned. So is `Array.from({ length: n })` without a map function when
+  elements can't be `undefined`, and `new Proxy`. Writing past an array's
+  end or growing its `length` throws `RangeError`.
 - Compute tasks are named top-level functions; safepoints are only in
   module functions' task variants. The JavaScript reference differs from
-  native on `#private` fields (the copy loses them), subclass instances
-  behind a base type (native throws `DataCloneError`), and an abort that
-  lands after the task ran but before the promise settled (native rejects,
-  JavaScript resolves).
+  native in three cases. The copy of an object loses its `#private`
+  fields, and native throws `DataCloneError` for a subclass instance
+  behind a base type. An abort that lands after the task ran but before
+  the promise settled rejects natively and resolves in JavaScript.
 - Module state is process-wide and reset when a new `Host` is created.
 - `null` and `undefined` from JavaScript are told apart for arguments,
-  setter values and object fields only; inside arrays, maps, sets,
+  setter values and object fields only. Inside arrays, maps, sets,
   records, tuples, callback results and promise values, a `T | undefined`
-  also takes `null` (and `T | null` takes `undefined`), and a use of it
-  then throws `TypeError`.
-- A field or variable of an object type read before it is assigned
-  throws `TypeError` (JavaScript reads `undefined`, also through `?.`);
-  one of a value type (number, string, boolean, tuple, array, map, set,
-  record, `Uint8Array`) reads its default. A `let` read before its
-  declaration runs reads as unassigned, not `ReferenceError`.
-- JavaScript sees an exported class's static methods but not its static
-  fields, and an instance of an exported Error subclass made or returned
-  to JavaScript has no `message` or `name` and is not `instanceof Error`
-  (a thrown one converts to a real Error).
+  also takes `null`, and `T | null` takes `undefined`. A use of such a
+  value then throws `TypeError`.
+- A field or variable of an object type read before it is assigned throws
+  `TypeError`. JavaScript reads `undefined`, also through `?.`. One of a
+  value type (number, string, boolean, tuple, array, map, set, record,
+  `Uint8Array`) reads its default. A `let` read before its declaration
+  runs reads as unassigned, not `ReferenceError`.
 - On Android API 24 and 25, a Java default method that Lucent does not
   implement returns its zero value, and the reason is logged.
 - A Lucent package's pod binds once installed. In a bare app, the
   `lucent build` that first meets it declares it in the native package's
-  podspec, fails with LUCENT3004 and names it; `pod install`, then
-  `lucent build` binds it, and asks for `pod install` again when it adds
-  files. `expo prebuild` stops at that first failure, which names no
-  steps: the config plugin builds before the pods are installed and
-  before it links the native package. A pod binds through the module it
-  defines (`DEFINES_MODULE`, modular headers, a prebuilt `.framework`, or
-  `use_frameworks!`); a Swift pod built as a static library, or one that
-  ships an `.xcframework`, is not bound. Binding a package's own pod in
-  an Expo app is [TA35](#ta35).
+  podspec. That build fails with LUCENT3004 and names the pod. After
+  `pod install`, `lucent build` binds it, and asks for `pod install`
+  again when it adds files. `expo prebuild` stops at that first failure,
+  which names no steps. The config plugin builds before the pods are
+  installed and before it links the native package. A pod binds through
+  the module it defines: `DEFINES_MODULE`, modular headers, a prebuilt
+  `.framework`, or `use_frameworks!`. A Swift pod built as a static
+  library, or one that ships an `.xcframework`, is not bound. Binding a
+  package's own pod in an Expo app is [TA35](#ta35).
 - An Android app with product flavors binds the libraries of its first
-  debug variant by name: a library only another flavor depends on is not
+  debug variant by name. A library only another flavor depends on is not
   bindable.
 - Typed native extensions: Swift and Kotlin sources in a package are not
   typed yet, and extension calls cannot be cancelled.
 - Tracing records allocations for native buffers only, and its buffer
   uses one mutex: fine for debugging, not for continuous production use.
-- The known binding gaps are tasks [TA30](#ta30) to [TA34](#ta34).
+- The known binding gaps, tasks [TA30](#ta30) to [TA34](#ta34), are in review.
 
 ## Design slices and tasks
 

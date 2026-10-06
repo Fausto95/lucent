@@ -1,0 +1,147 @@
+---
+title: Call iOS and Android from one module
+description: "`npx lucent new module device --ios --android` writes a module whose `PLATFORM` branch calls UIKit on iOS and `android.os` on Android, and JavaScript awaits it."
+kind: start
+---
+
+```sh title="terminal"
+npx lucent new module device --ios --android
+```
+
+<Tabs>
+<TabItem label="module">
+
+```ts title="device.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { UIDevice } from "lucent:ios/UIKit";
+import { main } from "lucent:thread";
+import { Build_VERSION } from "lucent:android/android.os";
+
+export async function hello(name: string): Promise<string> {
+  if (PLATFORM === "ios") {
+    const system = await main(() => UIDevice.current.systemName);
+    return `Hello, ${name}, from ${system}`;
+  } else {
+    return `Hello, ${name}, from Android ${Build_VERSION.RELEASE ?? ""}`;
+  }
+}
+```
+
+</TabItem>
+<TabItem label="JS usage">
+
+```tsx title="App.tsx"
+import { useEffect, useState } from "react";
+import { Text } from "react-native";
+import { hello } from "./src/device.lucent";
+
+export default function App() {
+  const [greeting, setGreeting] = useState("");
+
+  useEffect(() => {
+    hello("Ada").then(setGreeting);
+  }, []);
+
+  return <Text>{greeting}</Text>;
+}
+```
+
+</TabItem>
+</Tabs>
+
+The command writes `src/device.lucent.ts`. `PLATFORM` is `"ios"` or `"android"`, and each platform's build compiles its own branch. Every build type-checks both.
+
+- `UIDevice` is a main-thread API, so the iOS branch reads it inside `main()`, which resolves with the value: see [Call a main-thread-only API](/docs/guides/run-on-the-main-thread/).
+- Java's `Build.VERSION` is `Build_VERSION` ([names](/docs/api/android-sdk/#names)), and its `RELEASE` may be `null` ([types](/docs/api/android-sdk/#types)).
+- `hello` is `async`, so it runs on the [Lucent thread](/docs/api/language/concurrency/#where-each-kind-of-code-runs), and JavaScript gets a promise.
+- With `--ios` or `--android` alone, the other branch throws `ERR_UNIMPLEMENTED` until you write it.
+
+## Run it on each platform
+
+The new module adds files to the native package, so iOS needs `pod install` before the rebuild:
+
+<Tabs syncKey="setup">
+<TabItem label="Expo">
+
+```sh title="terminal"
+npx expo prebuild
+npx expo run:ios
+npx expo run:android
+```
+
+`expo prebuild` builds your modules and runs `pod install`.
+
+</TabItem>
+<TabItem label="Bare React Native">
+
+```sh title="terminal"
+npx lucent build
+cd ios && pod install && cd ..
+npx react-native run-ios
+npx react-native run-android
+```
+
+</TabItem>
+</Tabs>
+
+The build (`npx lucent build`, or `npx expo prebuild` with Expo) prints:
+
+```sh title="terminal" nocopy
+◆ lucent {{lucent-version}}
+
+✓ SDK bindings  UIKit · android.os      1 m 48 s
+✓ Checked 2 modules                     11.3 s
+✓ Generated C++  2 changed              92 ms
+✓ Native package  .lucent/native
+
+modules  device  ios android
+         hello   shared
+next     rebuild the app (iOS: pod install first)
+actions  relink native dependencies  ios, android  LucentNative.podspec, android/consumer-rules.pro +12 more
+         recompile native code       ios, android  cpp/generated/android/lucent_app.h, cpp/generated/android/lucent_bindings.cpp +17 more
+         reload JavaScript           ios, android  js/device.js
+```
+
+The first build that imports an SDK module reads it from Xcode or the Android SDK. Later builds read it from a cache, and the line says `cached`. `actions` lists what the new files need: [Get a module change into the running app](/docs/guides/apply-a-change/) says what to do for each.
+
+The screen shows `Hello, Ada, from iOS` on an iPhone, and the Android version on Android.
+
+## Platform files
+
+When the two halves share nothing, write them as platform files instead. JavaScript imports `./src/greeting.lucent`, and each build compiles its platform's file.
+
+<Tabs>
+<TabItem label="greeting.lucent.ts">
+
+```ts title="greeting.lucent.ts"
+export declare function hello(name: string): Promise<string>;
+```
+
+</TabItem>
+<TabItem label="greeting.ios.lucent.ts">
+
+```ts title="greeting.ios.lucent.ts"
+import { UIDevice } from "lucent:ios/UIKit";
+import { main } from "lucent:thread";
+
+export async function hello(name: string): Promise<string> {
+  const system = await main(() => UIDevice.current.systemName);
+  return `Hello, ${name}, from ${system}`;
+}
+```
+
+</TabItem>
+<TabItem label="greeting.android.lucent.ts">
+
+```ts title="greeting.android.lucent.ts"
+import { Build_VERSION } from "lucent:android/android.os";
+
+export async function hello(name: string): Promise<string> {
+  return `Hello, ${name}, from Android ${Build_VERSION.RELEASE ?? ""}`;
+}
+```
+
+</TabItem>
+</Tabs>
+
+[Share code between iOS and Android](/docs/guides/share-code-between-platforms/) helps you pick one form, and [Platform code](/docs/api/language/platform-code/) has the rules of both.

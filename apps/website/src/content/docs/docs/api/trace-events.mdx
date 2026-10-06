@@ -1,0 +1,136 @@
+---
+title: Trace events
+description: Set `LUCENT_TRACE` (`debug.lucent.trace` on Android) to record each call's waits, jobs, copies and compute tasks, then read them in Instruments, Perfetto or, from a `.json` file, `lucent trace`.
+kind: reference
+---
+
+A runtime trace shows where a call's time went: lock waits, queued jobs, running code, copies and compute tasks. It also shows each run of a view's effects. Tracing is off by default, and off it costs one atomic read where the runtime checks it.
+
+[Find why a call is slow](/docs/guides/trace-a-slow-call/) shows how to capture a trace and read it.
+
+## Example
+
+```ts title="edges.lucent.ts"
+import { compute } from "lucent:core";
+
+function edgePositions(bytes: Uint8Array): number[] {
+  const positions: number[] = [];
+  for (let i = 1; i < bytes.length; i++)
+    if (Math.abs(bytes[i]! - bytes[i - 1]!) > 40) positions.push(i);
+  return positions;
+}
+
+export async function edges(bytes: Uint8Array, signal?: AbortSignal): Promise<number[]> {
+  return await compute(edgePositions, bytes, { signal });
+}
+```
+
+One call to `edges` from JavaScript with a 7-byte array, traced in a desktop build, recorded these events, oldest first:
+
+| Event | Category | Thread | Fields | Took |
+| --- | --- | --- | --- | --- |
+| `edges` | `entry` | JS | `id` 1, `site` ending `edges.lucent.ts:10` | 10.5 µs |
+| `wait` | `queue` | Lucent thread | `id` 1 | 16.0 µs |
+| `run` | `run` | Lucent thread | `id` 1 | 96.7 µs |
+| `transport.copy` | `copy` | Lucent thread | `parent` 1, `value` 7 bytes, `count` 1 | 1.6 µs |
+| `compute.wait` | `compute` | compute worker | `id` 2, `detail` `edges.edgePositions` | 5.0 µs |
+| `wait` | `queue` | compute worker | `id` 3, `parent` 1 | 4.2 µs |
+| `run` | `run` | compute worker | `id` 3, `parent` 1 | 3.1 µs |
+| `compute.run` | `compute` | compute worker | `id` 2 | 1.1 µs |
+| `compute.deliver` | `compute` | Lucent thread | `id` 2 | 6.5 µs |
+| `wait` | `queue` | Lucent thread | `id` 4, `parent` 3 | 3.6 µs |
+| `run` | `run` | Lucent thread | `id` 4, `parent` 3 | 2.8 µs |
+| `js.wait` | `queue` | JS | `id` 1 | 4.8 µs |
+| `edges` | `completion` | JS | `id` 1 | 4.3 µs |
+
+The call's events share `id` 1, so Perfetto draws arrows from its entry to its completion. The compute task has an `id` of its own. The job posted to its worker names the call's job as its `parent`, and the job bringing the result back names the worker's job.
+
+Calls and turns of the Lucent thread also record `lucent-lock` spans, left out here.
+
+## Capture settings
+
+| Setting | Records | Read it in |
+| --- | --- | --- |
+| `LUCENT_TRACE=<file>.json` | The buffer, written to the file as a Chrome trace when the process exits. Use it for desktop processes, such as tests and `lucent bench`. | [`lucent trace`](/docs/api/cli/#lucent-trace), then Perfetto or `chrome://tracing` |
+| `LUCENT_TRACE=1` | The buffer only. | No tool: Lucent writes the buffer nowhere. |
+| `LUCENT_TRACE=platform` | The buffer, and each span live as an os_signpost interval of subsystem `dev.lucent`, category `runtime`. Instants and counters become os_signpost events named `event` and `counter`. On iOS, set it in the Xcode scheme's environment variables. | Instruments, with the os_signpost instrument |
+| `adb shell setprop debug.lucent.trace 1` | On Android, the buffer, and each span live as an ATrace section named `<category>:<name>`. Instants become short sections of the same name, and counters ATrace counters. | Perfetto, recording atrace for the app's package |
+
+- The runtime reads the setting once per process, when the app first loads a module. Restart the app after you change it.
+- Unset, empty or `0` is off. Any other value records like `1`, and a value ending in `.json` also writes that file at exit.
+- An iOS or Android app is usually killed rather than exited, so don't count on a `.json` file there.
+- `platform` mirrors events on Apple platforms only. Signposts are logged even when no tool records them, so no other value turns them on.
+- Android ignores `LUCENT_TRACE` and reads the `debug.lucent.trace` property, with the same values. It always mirrors to ATrace, which costs one check while nothing records.
+- On Android, spans and counters reach ATrace from Android 10 (API 29). Older versions show the instant events only.
+- A property set with `setprop` lasts until the device restarts. Set it to `0`, then restart the app, to stop tracing.
+
+## The buffer
+
+Started, tracing keeps the latest 65,536 events in memory. Older events are dropped and counted: the Chrome trace's `otherData.dropped` holds the count, and `lucent trace` prints it.
+
+Tracing records allocations for native buffers only, and its buffer takes one mutex per event: it's for debugging, not for production ([known limitations](/docs/releases/roadmap/#known-limitations)).
+
+## Event fields
+
+A runtime trace is a Chrome trace: a `traceEvents` array with one object per event. An `args` field other than `context` is left out when it is 0 or unset.
+
+| Field | Holds |
+| --- | --- |
+| `name` | The event's name, from [Categories](/docs/api/trace-events/#categories) |
+| `cat` | Its category, or `counter` for a counter |
+| `ph` | `X` for a span, `i` for an instant, `C` for a counter |
+| `ts` | When it started, in microseconds on a steady clock |
+| `dur` | A span's length, in microseconds |
+| `pid` | Always 1: `lucent trace` gives each file a process of its own |
+| `tid` | A small number per thread, in the order threads first record an event |
+| `args.context` | The execution context current when it was recorded, 0 for none |
+| `args.id` | The id it shares with the events that belong with it |
+| `args.parent` | The traced job that was running on its thread: for a job, the one that posted it |
+| `args.value` | Bytes, or a queue's depth |
+| `args.count` | Objects copied |
+| `args.detail` | What it concerns: a compute task's `<module>.<function>` |
+| `args.site` | The source file and line, as `path:line` |
+
+A counter's `args` holds its value under its name. Flow events (`ph` `s` and `f`, `cat` `flow`) link the spans that share an `id`, in time order: they are Perfetto's arrows.
+
+## Categories
+
+| Category | Names | Records |
+| --- | --- | --- |
+| `entry` | the export's name (`Class.method` for a method) | A call from JavaScript into an exported function or method, until it returns. Has a `site`, and an `id` when the export is async. |
+| `lock` | `lucent-lock` | A wait for the [Lucent lock](/docs/api/language/concurrency/), by a call from JavaScript, a platform callback or a turn of the Lucent thread. Recorded only when the thread doesn't hold the lock already. |
+| `queue` | `wait` | A posted job waiting for its execution context, such as the Lucent thread or a compute worker, to run it. |
+| `queue` | `js.wait` | An async call's result waiting for the JS thread. |
+| `run` | `run` | A posted job running. |
+| `native` | the scope's name | A scope of C++ code that marked itself, with its `site`. Lucent's own code records none: only C++ you write does. |
+| `effect` | `effect` | A run of a view's effect: an attribute or prop kept up to date, a list's items, or an `effect()` in a component's setup. Its `site` is the effect's `.lucent.ts` or `.lucent.tsx` line. |
+| `completion` | the export's name (`Class.method` for a method) | An async call's result being converted and its promise settled, on the JS thread. |
+| `compute` | `compute.wait`, `compute.run`, `compute.deliver` | A compute task waiting for a worker, running on it, and its result going back to the context that called `compute`. Each task has its own `id`. |
+| `compute` | `compute.saturated` | An instant: every worker was busy, so the task queued. `value` is the queue's depth, also set as the `compute.queued` counter. |
+| `compute` | `compute.rejected` | An instant: the task was refused, because the queue was full or the pool closed. |
+| `copy` | `transport.copy` | A copy of a compute task's input: `value` bytes and `count` objects. `count` is -1 when the copy failed. |
+| `copy` | `buffer.copy` | An instant: bytes a native buffer copied, for `NativeBuffer.from`, `toUint8Array()`, and `withRead` or `withWrite` called from JavaScript (`withWrite` copies back too). |
+| `alloc` | `buffer.allocate`, `buffer.adopt` | Instants: a native buffer allocated, or made over memory native code owns. `value` is its size. |
+| `build` | the step's id: `resolve`, `check`, `generate`, … | A step of the last build, which `lucent trace` adds: a span when the step was timed, else a mark. `args` holds its `kind`, `status` and `detail`. |
+
+## lucent trace
+
+```sh title="terminal"
+npx lucent trace --runtime trace.json
+```
+
+```sh title="terminal" nocopy
+✓ wrote .lucent/trace.json  open it in ui.perfetto.dev or chrome://tracing
+  build            resolve 1 ms · check 152 ms · generate 37 ms
+  trace.json       entry 0.26 ms · lock 0.03 ms · queue 20.2 ms · run 1.58 ms · completion 1.57 ms · compute 6.84 ms · copy 0.055 ms (0.0 MB)
+```
+
+`lucent trace` writes one Chrome trace with the last build's steps, from `.lucent/build-record.json`, as the process `lucent build`. Each runtime trace given becomes a process named after its file.
+
+Its flags are on [`lucent trace`](/docs/api/cli/#lucent-trace).
+
+- Without `--runtime`, it writes and prints the last build's steps only. With no build record either, it fails and says how to capture a trace.
+- Each runtime trace's line adds up the time of its spans by category, the bytes `transport.copy` moved, and the events the buffer dropped.
+- Under it come the ten effect sites that took the most time, each with its runs and their total, such as `effect /app/src/rows.lucent.tsx:11  48× 3.1 ms`.
+- A span inside another counts in both totals: a synchronous call's `entry` includes its `lock` wait.
+- Open the file in [ui.perfetto.dev](https://ui.perfetto.dev) or `chrome://tracing`.

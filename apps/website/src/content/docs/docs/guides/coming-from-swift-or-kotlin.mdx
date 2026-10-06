@@ -1,0 +1,136 @@
+---
+title: Map Swift and Kotlin concepts to Lucent
+sidebar_label: Coming from Swift or Kotlin
+description: "You call the same SDK APIs from TypeScript: objects behave as in JavaScript, memory is reference-counted as in Swift, and one lock replaces queues."
+kind: explanation
+---
+
+<Tabs>
+<TabItem label="Swift">
+
+```swift title="Battery.swift"
+import UIKit
+
+struct Battery {
+  let level: Float
+  let charging: Bool
+}
+
+struct UnknownLevel: Error {}
+
+@MainActor
+func battery() throws -> Battery {
+  let device = UIDevice.current
+  device.isBatteryMonitoringEnabled = true
+  guard device.batteryLevel >= 0 else { throw UnknownLevel() }
+  return Battery(level: device.batteryLevel, charging: device.batteryState == .charging)
+}
+```
+
+</TabItem>
+<TabItem label="Kotlin">
+
+```kotlin title="Battery.kt"
+import android.content.Context
+import android.os.BatteryManager
+
+data class Battery(val level: Float, val charging: Boolean)
+
+fun battery(context: Context): Battery {
+  val manager = context.getSystemService(BatteryManager::class.java)
+    ?: throw IllegalStateException("The battery level is unknown")
+  return Battery(
+    level = manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) / 100f,
+    charging = manager.isCharging,
+  )
+}
+```
+
+</TabItem>
+<TabItem label="Lucent">
+
+```ts title="battery.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { error } from "lucent:core";
+import { main } from "lucent:thread";
+import { UIDevice, UIDevice_BatteryState } from "lucent:ios/UIKit";
+import { appContext } from "lucent:android";
+import { BatteryManager } from "lucent:android/android.os";
+
+export type Battery = { level: number; charging: boolean };
+
+export async function battery(): Promise<Battery> {
+  if (PLATFORM === "ios") {
+    return main(() => {
+      const device = UIDevice.current;
+      device.isBatteryMonitoringEnabled = true;
+      if (device.batteryLevel < 0) throw error("E_UNKNOWN", "The battery level is unknown");
+      const charging = device.batteryState === UIDevice_BatteryState.charging;
+      return { level: device.batteryLevel, charging };
+    });
+  }
+
+  const manager = appContext().getSystemService(BatteryManager);
+  if (!manager) throw error("E_UNKNOWN", "The battery level is unknown");
+  return {
+    level: manager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) / 100,
+    charging: manager.isCharging(),
+  };
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { battery } from "./src/battery.lucent";
+
+battery()
+  .then(({ level, charging }) => console.log(`${Math.round(level * 100)}%`, charging ? "charging" : ""))
+  .catch((e: Error & { code?: string }) => {
+    if (e.code === "E_UNKNOWN") console.log("No battery level");
+  });
+```
+
+</TabItem>
+</Tabs>
+
+One module replaces both functions, and JavaScript calls it directly. The SDK calls are the ones you know, written in TypeScript.
+
+## What carries over
+
+- **SDK names.** iOS APIs keep Swift's names, and Android APIs keep Java's and Kotlin's. A nested type joins its names with `_`, as `UIDevice_BatteryState` does ([iOS names](/docs/api/ios-sdk/#names), [Android names](/docs/api/android-sdk/#names)).
+- **Types and control flow.** Classes, interfaces, enums, generics, closures, `async` and `await`, and `try` and `catch` read as they do in TypeScript.
+- **Delegates, listeners and subclasses.** A class `implements` an SDK protocol or interface, and `extends` an SDK class ([Implement a delegate](/docs/guides/implement-a-delegate/), [Subclass an SDK class](/docs/guides/subclass-an-sdk-class/)).
+- **Nullability.** An SDK value that may be missing is `T | null`, and `?.`, `??` and `if (x)` handle it.
+
+## What differs
+
+| You know | In Lucent |
+| --- | --- |
+| A `struct` or a `data class` | An object type, shared between variables as in JavaScript, and copied when it crosses to JavaScript ([Types](/docs/api/language/types/#object-types)). A Swift struct from the SDK, or a Kotlin data class from a library, is a class, shared the same way ([Swift-only APIs](/docs/api/ios-sdk/#swift-only-apis), [Kotlin](/docs/api/android-sdk/#kotlin)). |
+| ARC and `weak`, or garbage collection | Reference counting, as in Swift, with no weak references. A cycle is never freed: break it yourself ([Memory](/docs/api/language/memory/#cycles-leak)). |
+| Swift's `Int` and `Int64`, Kotlin's `Long` | `bigint`, for every native 64-bit integer. Kotlin's `Int` stays a `number`, a 64-bit float ([Types](/docs/api/language/types/#native-64-bit-integers-are-bigints)). |
+| `throws`, or Kotlin's exceptions | `throw` and `catch`. SDK errors arrive as an `Error` whose code `errorCode()` reads ([Throw errors](/docs/guides/throw-and-handle-errors/)). |
+| Swift `async` and Kotlin `suspend` APIs | Promises. A method takes an optional `AbortSignal` last, which cancels the task or coroutine ([Cancel work](/docs/guides/cancel-work/)). |
+| `@MainActor`, `@UiThread` and `@MainThread` | Code given to `main(() => …)`. A main-thread-only API outside code the main thread runs fails to compile ([Run code on the main thread](/docs/guides/run-on-the-main-thread/)). |
+| Dispatch queues, actors, `Dispatchers` and locks | None to manage. Module code takes turns under one lock, and `compute()` runs work in parallel ([Concurrency](/docs/api/language/concurrency/)). |
+| A Kotlin `Flow` | Collecting it is a promise, and `subscribe()` streams its values to JavaScript ([Collect a Kotlin Flow](/docs/guides/collect-a-kotlin-flow/)). |
+| Swift extensions, Kotlin extension functions | Plain functions in your own code. An SDK's Swift extension members are members of their type, as `SHA256.hash` is ([Swift-only APIs](/docs/api/ios-sdk/#swift-only-apis)). A Kotlin extension is a static of its file's class: `ShapesKt.scaled(shape)` ([Kotlin](/docs/api/android-sdk/#kotlin)). |
+| An `enum` with associated values, a `sealed` class | A union told apart by a `kind` field. An SDK's sealed cases are classes, tested with `instanceof` ([Unions](/docs/api/language/types/#unions), [Kotlin](/docs/api/android-sdk/#kotlin)). |
+| `defer`, or Kotlin's `use` | `try` and `finally`, or `using`, which calls `[Symbol.dispose]()` when the block ends ([Release native resources](/docs/guides/release-native-resources/)). |
+| `#available` and `SDK_INT` checks | `available("ios", 17)` from `lucent:ios`, and on Android `available("android", 34)` or `Build_VERSION.SDK_INT >= 34`, which the compiler requires around newer APIs ([Check the OS version](/docs/guides/check-the-os-version/)). |
+
+## Threads without queues
+
+Where each export runs, and why module state needs no locks, is in [Concurrency](/docs/api/language/concurrency/#where-each-kind-of-code-runs).
+
+In the sample, `main()` moves the iOS half to the main thread, as `@MainActor` does. The compiler checks it: `UIDevice` outside `main()` fails with [LUCENT3006](/docs/api/diagnostics/#lucent3006).
+
+## No Swift or Kotlin to write
+
+Objective-C APIs are called directly, and Java and Kotlin APIs through JNI. Swift-only and Kotlin-only APIs, such as StoreKit 2 or a `suspend` function, need Swift or Kotlin to call them. Lucent generates those shims into the native package, for the members your code uses ([SDK bindings](/docs/architecture/sdk-bindings/)).
+
+You never edit the shims: `lucent build` writes them again. Swift or Kotlin of your own is called as a library, prebuilt into a framework, an AAR or a JAR ([Ship a prebuilt library](/docs/packages/ship-a-prebuilt-library/)).
+
+To move an existing Expo module, see [Port an Expo module](/docs/guides/port-an-expo-module/).

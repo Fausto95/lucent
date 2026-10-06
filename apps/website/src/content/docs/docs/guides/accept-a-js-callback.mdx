@@ -1,33 +1,86 @@
 ---
-title: Accept a JS callback
-description: "A function parameter: called at once during a synchronous call, posted to the JS thread from async code."
+title: Call a JavaScript callback
+description: "A synchronous export calls it at once and gets its result; async code posts each call, so the callback must return `void` or a `Promise`."
 kind: guide
 ---
 
-```ts title="callbacks.lucent.ts"
-/** Synchronous: the callback runs while JavaScript waits, and may return a value. */
-export function sortBy(words: string[], key: (word: string) => number): string[] {
-  return [...words].sort((a, b) => key(a) - key(b));
+<Tabs>
+<TabItem label="module">
+
+```ts title="uploads.lucent.ts"
+import { delay } from "lucent:core";
+
+export type Photo = { name: string; size: number };
+
+/** Synchronous: `keep` runs at once, and what it returns is checked. */
+export function pick(photos: Photo[], keep: (photo: Photo) => boolean): Photo[] {
+  return photos.filter(keep);
 }
 
-/** From async code: the callback is posted to the JS thread, so it returns void. */
-export async function countTo(n: number, onStep: (step: number) => void): Promise<void> {
-  for (let i = 1; i <= n; i++) onStep(i);
-}
-
-/** Returning a Promise lets async code wait for JavaScript's answer. */
-export async function askTwice(ask: (question: string) => Promise<number>): Promise<number> {
-  const a = await ask("first");
-  const b = await ask("second");
-  return a + b;
+/** Async: each call to `confirm` and `onProgress` is posted to the JS thread. */
+export async function upload(
+  photos: Photo[],
+  confirm: (photo: Photo) => Promise<boolean>,
+  onProgress: (sent: number) => void,
+): Promise<number> {
+  let sent = 0;
+  for (const photo of photos) {
+    if (!(await confirm(photo))) continue;
+    await delay(photo.size / 10_000); // stand-in for the network
+    onProgress(++sent);
+  }
+  return sent;
 }
 ```
 
-| Called from | The callback | It may return |
-| --- | --- | --- |
-| a synchronous export | runs at once, on the JS thread | any value that can cross; it's checked |
-| async code | is posted to the JS thread | `void`, or a `Promise` that Lucent can `await` |
+</TabItem>
+<TabItem label="JS usage">
 
-- A callback that throws, or whose promise rejects, throws in Lucent too: `catch` it there.
-- Lucent keeps a callback while it holds a reference to it, and releases it on the JS thread after.
-- After a reload, a stale `void` callback does nothing; one that returns a value throws.
+```tsx title="App.tsx"
+import { useState } from "react";
+import { Alert, Button, Text, View } from "react-native";
+import { type Photo, pick, upload } from "./src/uploads.lucent";
+
+const photos: Photo[] = [
+  { name: "beach.jpg", size: 2_400_000 },
+  { name: "icon.png", size: 12_000 },
+];
+
+function ask(photo: Photo): Promise<boolean> {
+  return new Promise((resolve) =>
+    Alert.alert(`Upload ${photo.name}?`, undefined, [
+      { text: "Skip", onPress: () => resolve(false) },
+      { text: "Upload", onPress: () => resolve(true) },
+    ]),
+  );
+}
+
+export default function App() {
+  const [sent, setSent] = useState(0);
+  const start = () => upload(pick(photos, (photo) => photo.size > 100_000), ask, setSent);
+
+  return (
+    <View>
+      <Button title="Upload large photos" onPress={start} />
+      <Text>{sent} sent</Text>
+    </View>
+  );
+}
+```
+
+</TabItem>
+</Tabs>
+
+`pick` is synchronous: it runs on the JS thread, so it calls `keep` at once and waits for its result. `keep` may return any value that crosses, checked like an argument. What it throws is a Lucent error that `catch` handles.
+
+`upload` is async, so its code runs off the JS thread. Each callback call is posted to the JS thread, and the callback must return `void` or a `Promise`:
+
+- `onProgress` returns `void`, so nothing comes back and `upload` goes on at once. What it throws is only logged, as `Uncaught error in callback: …` ([Read errors and logs](/docs/guides/read-errors-and-logs/)).
+- `confirm` returns a `Promise`, which `upload` awaits. A throw or a rejection in `confirm` rejects that `await`.
+- A callback declared to return anything else throws an `Error` when async code calls it. Make it return a `Promise`.
+
+## Keep a callback for later
+
+Lucent keeps a callback alive while it holds a reference to it. Stored in module state, the function stays alive with what it captures, until you remove it ([Listeners and subscriptions](/docs/api/language/memory/#listeners-and-subscriptions)). To send a stream of values, use the pattern in [Stream events to JavaScript](/docs/guides/send-events-to-javascript/).
+
+The full rules are in [Callbacks](/docs/api/language/boundary/#callbacks).

@@ -1,0 +1,123 @@
+---
+title: Release native resources with using
+description: "Declare the value with `using`, and its `[Symbol.dispose]()` runs however the block ends; give your class a `close()` too, for JavaScript."
+kind: guide
+---
+
+<Tabs>
+<TabItem label="module">
+
+```ts title="canvas.lucent.ts"
+import { NativeBuffer } from "lucent:core";
+
+/** RGBA pixels in native memory, until close(). */
+export class Canvas {
+  private pixels: NativeBuffer;
+
+  constructor(width: number, height: number) {
+    this.pixels = NativeBuffer.allocate(width * height * 4);
+  }
+
+  fill(value: number): void {
+    this.pixels.withWrite((bytes) => bytes.fill(value));
+  }
+
+  snapshot(): Uint8Array {
+    return this.pixels.toUint8Array();
+  }
+
+  /** For JavaScript, which doesn't see [Symbol.dispose](). */
+  close(): void {
+    this.pixels.close();
+  }
+
+  [Symbol.dispose](): void {
+    this.close();
+  }
+}
+
+export function whiteImage(width: number, height: number): Uint8Array {
+  using canvas = new Canvas(width, height);
+  canvas.fill(255);
+  return canvas.snapshot();
+} // canvas is closed here, even when fill() throws
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { Canvas } from "./src/canvas.lucent";
+
+export function paint(width: number, height: number): Uint8Array {
+  const canvas = new Canvas(width, height);
+  try {
+    canvas.fill(128);
+    return canvas.snapshot();
+  } finally {
+    canvas.close(); // frees the pixels now, not when JavaScript collects canvas
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+A `using` declaration disposes its value when the block ends: after its last statement, at a `return`, `break` or `continue`, or by a throw. [using and Symbol.dispose](/docs/api/language/memory/#using-and-symboldispose) has the rules, such as the order and what a throwing disposal does.
+
+Without `close()`, the pixels would live as long as the JavaScript object, which its garbage collector frees when it chooses. Until it's closed, a native object lives while anything refers to it, module state included ([Memory](/docs/api/language/memory/#reference-counting)).
+
+## Close SDK objects
+
+On Android, an SDK object that implements `AutoCloseable`, such as a `Cursor`, a database or a stream, is a `using` value: its `close()` runs.
+
+```ts title="notes.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { appContext } from "lucent:android";
+
+export async function noteCount(): Promise<number> {
+  if (PLATFORM === "android") {
+    using db = appContext().openOrCreateDatabase("notes.db", 0, null);
+    if (db === null) return 0;
+    db.execSQL("CREATE TABLE IF NOT EXISTS notes (text TEXT)");
+    using cursor = db.rawQuery("SELECT count(*) FROM notes", null);
+    return cursor.moveToFirst() ? cursor.getInt(0) : 0; // closes the cursor, then db
+  }
+  return 0;
+}
+```
+
+A `NativeBuffer` is a `using` value too, and so is a handle from a [native extension](/docs/packages/native-extensions/). iOS SDK objects aren't: call their own method, such as a timer's `invalidate()`, from your class's `[Symbol.dispose]()`.
+
+## Let your editor accept using
+
+Lucent compiles `using` whatever the app's `tsconfig.json` says. Your editor and `tsc` need `esnext.disposable` in its `lib` ([using declarations](/docs/api/language/statements/#using-declarations)).
+
+<Tabs syncKey="setup">
+<TabItem label="Expo">
+
+Nothing to do: `expo/tsconfig.base` has `ESNext` in its `lib`, which includes it.
+
+</TabItem>
+<TabItem label="Bare React Native">
+
+`@react-native/typescript-config` leaves it out. Add a `lib` to `compilerOptions`, next to the lines `lucent init` wrote. It replaces the base's, so copy the list in `node_modules/@react-native/typescript-config/tsconfig.json` and add `esnext.disposable`.
+
+```json title="tsconfig.json"
+{
+  "extends": "@react-native/typescript-config",
+  "compilerOptions": {
+    "noUncheckedIndexedAccess": true,
+    "paths": { "lucent:*": ["./.lucent/native/types/*"] },
+    "lib": [
+      "es2019", "es2020.bigint", "es2020.date", "es2020.number", "es2020.promise",
+      "es2020.string", "es2020.symbol.wellknown", "es2021.promise", "es2021.string",
+      "es2021.weakref", "es2022.array", "es2022.error", "es2022.object", "es2022.string",
+      "es2024.promise", "esnext.promise", "esnext.disposable"
+    ]
+  }
+}
+```
+
+</TabItem>
+</Tabs>

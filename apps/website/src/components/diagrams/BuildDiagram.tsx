@@ -8,8 +8,8 @@ const w = 300;
 const stages = [
   { label: "greet.lucent.ts", sub: "your module" },
   { label: "TypeScript checker", sub: "Lucent's rules · LUCENT codes" },
-  { label: "C++", sub: "one file per module · #line to your source" },
-  { label: ".lucent/native", sub: "the native package" },
+  { label: "C++, and Swift or Kotlin shims", sub: "a C++ file per module · #line to source" },
+  { label: ".lucent/native", sub: "the native package, one runtime" },
   { label: "Xcode · Gradle", sub: "CocoaPods · CMake · into your app" },
 ];
 const top = (i: number) => 20 + i * 72;

@@ -1,0 +1,309 @@
+---
+title: SwiftUI and Compose in JSX
+sidebar_label: SwiftUI and Compose
+description: "SwiftUI views and Compose composables are JSX elements: SwiftUI attributes are initializer labels, then modifiers; Compose props are named parameters."
+kind: reference
+views: true
+sidebar_class_name: experimental
+---
+
+:::caution
+Experimental: `lucent:swiftui` and `lucent:compose` resolve only when `LUCENT_VIEWS=fabric` is set, and they change without notice. [Turn on native views](/docs/guides/views/) says how.
+:::
+
+A component can return its body as JSX of its platform's toolkit: SwiftUI on iOS, Jetpack Compose on Android. Lucent writes the body out as Swift or Kotlin, built with the app, and compiles the rest of setup to C++. This page maps each toolkit to JSX, and the API itself is the toolkit's own.
+
+## Example
+
+```tsx title="tasks.lucent.tsx"
+import {
+  Alignment,
+  BasicText,
+  Column,
+  dp,
+  LazyColumn,
+  Modifier,
+  Row,
+  Switch,
+} from "lucent:compose";
+import { PLATFORM } from "lucent:platform";
+import { Font, ForEach, Text, Toggle, VStack } from "lucent:swiftui";
+import { bind, signal } from "lucent:ui";
+
+type Task = { id: number; title: string; done: boolean };
+
+export function Tasks(props: { title: string }) {
+  const tasks = signal<Task[]>([{ id: 1, title: "Write the docs", done: false }]);
+  const showDone = signal(true);
+  const shown = (): Task[] => tasks.get().filter((t) => showDone.get() || !t.done);
+  const toggle = (task: Task) => {
+    tasks.set(tasks.peek().map((t) => (t.id === task.id ? { ...t, done: !t.done } : t)));
+  };
+
+  if (PLATFORM === "ios")
+    return (
+      <VStack spacing={8} padding={12}>
+        <Text font={Font.headline}>{props.title}</Text>
+        <Toggle isOn={bind(showDone)}>Show done</Toggle>
+        <ForEach data={shown()} id={(t) => t.id}>
+          {(t) => <Text onTapGesture={() => toggle(t)}>{t.done ? `[x] ${t.title}` : t.title}</Text>}
+        </ForEach>
+      </VStack>
+    );
+
+  return (
+    <Column modifier={Modifier.padding(dp(12))}>
+      <BasicText text={props.title} />
+      <Row verticalAlignment={Alignment.CenterVertically}>
+        <BasicText text="Show done" />
+        <Switch checked={bind(showDone)} />
+      </Row>
+      <LazyColumn>
+        {(list) => (
+          <list.items items={shown()} key={(t) => t.id}>
+            {(_, t) => (
+              <BasicText
+                text={t.done ? `[x] ${t.title}` : t.title}
+                modifier={Modifier.clickable(() => toggle(t))}
+              />
+            )}
+          </list.items>
+        )}
+      </LazyColumn>
+    </Column>
+  );
+}
+```
+
+The logic is written once, and each platform's body with its own toolkit. `spacing` is an argument of `VStack`'s initializer, `padding` and `font` are SwiftUI modifiers, and `modifier` is a parameter of Compose's `Column`. `bind(showDone)` gives the toggle and the switch a signal, and each list keeps its items by `id`.
+
+## Where toolkit code goes
+
+- A `lucent:swiftui` name stands in iOS code, and a `lucent:compose` name in Android code. That is a [platform branch](/docs/api/language/platform-code/), the code after a guard that returns, a platform file, or a helper view. Anywhere else it fails with [LUCENT3024](/docs/api/diagnostics/#lucent3024).
+- A `*.ios.lucent.tsx` file's JSX is SwiftUI's, and a `*.android.lucent.tsx` file's is Compose's. On `main`, either may be [UIKit or Android views](/docs/api/views/platform-views/) instead. In a shared `.lucent.tsx` module, each element is typed by its own toolkit.
+- When one file imports both toolkits' names, alias the names both have: `Text as CText`.
+- A component returns its body once, as the last statement of its platform's code. Its conditions are written in the body: `{shown && <Text>…</Text>}`.
+- A component with a body on one platform must return a view on the other too, or it fails with [LUCENT3023](/docs/api/diagnostics/#lucent3023).
+
+[Component props, events and commands](/docs/api/views/components/) gives the rules every component follows.
+
+## Where the declarations come from
+
+`lucent:swiftui` is generated from the SwiftUI of the installed Xcode, SwiftUICore included. Each overload is one way to call one SwiftUI member, and Swift resolves the call as it would the same call written by hand.
+
+`lucent:compose` declares the Compose release Lucent builds with, from its Kotlin metadata: runtime, UI, foundation, animation and Material 3. It's the same for every app, since the native package builds with Lucent's Compose, not the app's. [lucent:compose](/docs/api/views/lucent-compose/) lists the types Lucent adds to it.
+
+```sh title="terminal"
+LUCENT_VIEWS=fabric npx lucent sdk show androidx.compose.foundation.layout.Row
+```
+
+```sh title="terminal" nocopy
+// lucent:compose
+/** Kotlin's androidx.compose.foundation.layout.Row: composable. */
+export declare function Row(props: { modifier?: Modifier; horizontalArrangement?: Arrangement.Horizontal; verticalAlignment?: Alignment.Vertical; children: ScopedChildren<RowScope> }): Composed;
+```
+
+[lucent sdk show](/docs/api/cli/#lucent-sdk-show) prints Compose's declarations, but not SwiftUI's yet. A member Lucent can't write in a body yet is left out, or its declaration says why.
+
+## SwiftUI
+
+### Elements
+
+An element is a view's initializer, called by its Swift type's name. `lucent:swiftui` declares one JSX form for each of the initializer's call forms.
+
+| Swift | JSX | Rule |
+| --- | --- | --- |
+| `Image(systemName: "star")` | `<Image systemName="star" />` | A labeled argument is the attribute named by its label. |
+| `Picker("Size", selection: $size) { … }` | `<Picker titleKey="Size" selection={bind(size)}>…</Picker>` | An unlabeled argument is named after its Swift parameter. |
+| `Text("Hi")` | `<Text>Hi</Text>` | A first unlabeled string is the children. |
+| `Button("Add", action: add)` | `<Button action={add}>Add</Button>` | A trailing action is named by its label, or by its parameter when it has none. |
+| `VStack(spacing: 8) { … }` | `<VStack spacing={8}>…</VStack>` | A trailing `@ViewBuilder` closure is the children. |
+| `Slider(value: $level, label: { Text("Level") })` | `<Slider value={bind(level)} label={<Text>Level</Text>} />` | Content given as another argument is JSX too. |
+
+Text children are one string. To join values, write a template literal in braces.
+
+### Modifiers
+
+Every other attribute is a modifier, applied in the order written, after the initializer. Its value is the modifier's arguments:
+
+| Swift | JSX | Rule |
+| --- | --- | --- |
+| `.padding()` | `padding` | No arguments: the attribute alone. |
+| `.padding(8)` | `padding={8}` | One argument: its value. |
+| `.frame(width: 52, height: 32)` | `frame={{ width: 52, height: 32 }}` | Labeled arguments: one object. |
+| `.padding(.horizontal, 16)` | `padding={[Edge.Set.horizontal, 16]}` | Several arguments: a tuple, the labeled ones as one object. |
+| `.animation(.spring(), value: on)` | `animation={[Animation.spring(), { value: on.get() }]}` | The same, with an unlabeled and a labeled argument. |
+| `.padding(8).background(.red).padding(4)` | `(<Text padding={8} background={Color.red}>a</Text>).padding(4)` | A modifier given again chains after the element, as a method. |
+
+- Trailing optional arguments may be left out: `background={Color.red}`.
+- Where a value could be a tuple or one array, it's the tuple.
+- Each modifier applies to what the ones before it made. A modifier the result no longer has fails, such as a `Shape`'s `stroke` after `fill`: chain it after the element.
+- A name that is both an initializer label and a modifier is the argument: `<RoundedRectangle cornerRadius={8} />`. Chain the modifier after the element: `(<Color red={1} green={0} blue={0} opacity={0.5} />).opacity(0.8)`.
+- A modifier generic over a value takes the value's scalar type, which its callback names: `onChange={[{ of: level.get() }, (now: number) => leveled(now)]}`.
+- A callback may take fewer values than SwiftUI gives it. Where SwiftUI has several forms, the one every supported iOS has comes first: `onChange`'s callback gets the new value only.
+
+### Values
+
+SwiftUI's values are calls in the same call form: unlabeled arguments in order, the labeled ones as one object, and a closure last.
+
+| Swift | JSX |
+| --- | --- |
+| `.spring(response: 0.3)` | `Animation.spring({ response: 0.3 })` |
+| `Color.blue.opacity(0.15)` | `Color.blue.opacity(0.15)` |
+| `.degrees(angle)` | `Angle.degrees(angle.get())` |
+| `.green`, `.horizontal` | `Color.green`, `Edge.Set.horizontal` |
+| `.clipShape(Circle())` | `clipShape={Circle()}` |
+
+- A type's statics and enum cases are values of it, written with the type: `Font.headline`.
+- A view given as a value, as `clipShape`'s shape, is a call. In content, views are JSX.
+- A static named like a method of its type is left out: write the call, `Animation.easeInOut({ duration: 0.3 })`.
+
+### Numbers, ranges and bindings
+
+- A floating-point or `Strideable` type parameter, such as a `Slider`'s or a `Stepper`'s value, is a number: a `Double` in Swift. So is its step.
+- `range(from, to)` from [lucent:ui](/docs/api/views/lucent-ui/#range) is Swift's closed range `from...to`. It's written only where a view takes one: `<Slider value={bind(level)} in={range(0, 1)} step={0.1} />`.
+- `bind(signal)` from [lucent:ui](/docs/api/views/lucent-ui/#bind) is a `Binding` of a number, boolean or string signal: `<Toggle isOn={bind(done)}>Done</Toggle>`.
+- A type parameter that any number, string or boolean fits, as a `Picker`'s selection, is a TypeScript type parameter: `<Picker titleKey="Size" selection={bind(size)}>`.
+- A member taking a `Binding` of another type, such as a `Binding<Color>`, is left out.
+
+### Content
+
+- A condition in content is SwiftUI's `if`: `{shown.get() && <Text>a</Text>}`, or a ternary whose branch may be `null`. Content takes `false`, `null` and `undefined` for a view left out.
+- A condition is a `boolean`. A number, or a boolean that may be `undefined`, fails.
+- `<ForEach data={items} id={(item) => item.id}>{(item) => …}</ForEach>` is a keyed list: see [Lists](#lists).
+
+### Environment
+
+`Environment((values) => values.colorScheme)`, from `lucent:swiftui`, reads SwiftUI's environment where the view reading it draws: Swift's `@Environment(\.colorScheme)`. Content may compare it, `=== ColorScheme.dark`, and a callback may pass it to a setup function.
+
+### Animations
+
+- The body animates with SwiftUI's modifiers, such as `animation`. A conditional view moves in and out with its `transition` when the change is animated.
+- `withAnimation(animation, body)` from `lucent:swiftui`, in setup code, runs SwiftUI's `withAnimation` around `body`, so the changes `body` writes animate.
+- A `withAnimation` called while effects wait, inside an effect, doesn't animate: the effects of its writes run after it.
+
+### The iOS floor
+
+A SwiftUI body uses only what the oldest iOS your app runs on has: your Xcode project's deployment target, never below 15.1 ([Compatibility](/docs/api/compatibility/)). A member that needs a later iOS fails with [LUCENT3024](/docs/api/diagnostics/#lucent3024): `NavigationStack` needs iOS 16.0. A body can't check `available()` yet.
+
+## Compose
+
+### Elements
+
+A composable that shows UI is an element. Its props are Kotlin's named arguments, and its children are its trailing `@Composable` content lambda.
+
+| Kotlin | JSX | Rule |
+| --- | --- | --- |
+| `Box(modifier = m) { … }` | `<Box modifier={m}>…</Box>` | Named arguments are props, and the trailing content is the children. |
+| `BasicText("Hi")` | `<BasicText text="Hi" />` | Every argument is a prop named by its parameter. |
+| `BasicTextField(singleLine = true, …)` | `<BasicTextField singleLine … />` | A prop written alone is `true`. |
+| `Switch(thumbContent = { … })` | `thumbContent={() => <BasicText text="o" />}` | Content given as another prop is a function returning what it shows. |
+| `Row { Text("a", Modifier.weight(1f)) }` | `<Row>{(row) => <BasicText text="a" modifier={row.Modifier.weight(1)} />}</Row>` | Content in a receiver scope may be a function of the scope: see [Scopes](#scopes). |
+
+Children are what the element shows, in order: elements, fragments, `cond && <A />` and `cond ? <A /> : <B />`, which are Kotlin's `if`. Calling a composable that shows UI as a function, `Box({ … })`, fails with LUCENT3024, and so do spread props and elements that aren't Compose's.
+
+### Functions, classes and values
+
+| Kotlin | TypeScript | Rule |
+| --- | --- | --- |
+| `Modifier.padding(8.dp)` | `Modifier.padding(dp(8))` | A class's extensions are its methods, so modifiers chain. |
+| `20.dp` | `dp(20)` | An extension property of a number is a function of it. |
+| `Color.White` | `Color.White` | A companion's members are statics. |
+| `Color(0xffeeeeee)` | `Color(0xffeeeeee)` | A constructor, or a factory function named like its class, is a function of that name. |
+| `spring(stiffness = 300f)` | `spring({ stiffness: 300 })` | When every parameter has a default, they're one options object. |
+| `Modifier.clickable(enabled = false) { … }` | `Modifier.clickable(onClick, { enabled: false })` | When a default comes before a parameter without one, those without come first, then an options object. |
+| `animateDpAsState(target, spring())` | `animateDpAsState(target, spring())` | Otherwise, parameters are in Kotlin's order, the defaulted ones optional. |
+
+- Kotlin's `Float`, `Int`, `Long`, `Short` and `Byte` are numbers branded with their type, so generics keep them: `State<Float>`. A number given to one is converted.
+- A `suspend` function returns a promise.
+- Overloads that differ only in their number types keep the name for the one taking the widest numbers. The others are renamed: `RoundedCornerShape_Float`.
+- Left out: experimental APIs that need an opt-in, members with reified type parameters, and defaulted parameters content can't write.
+
+### Scopes
+
+Content Compose runs in a receiver scope, such as a `Row`'s `RowScope`, may be a function of the scope.
+
+- The scope's extensions are its methods, and its composables are elements: `<column.AnimatedVisibility visible={…}>`.
+- Its member extensions of `Modifier` start from its `Modifier`: `row.Modifier.weight(1)`. A chain keeps the scope.
+- A lazy list's content is a function of its `LazyListScope`, whose `items` is an element: see [Lists](#lists).
+
+### Composition statements
+
+A statement of the component's own code that calls a composable, or reads a composable property, composes. `remember(…)`, `rememberSaveable(…)`, `animateDpAsState(…)`, `LaunchedEffect(…)`, `DisposableEffect(…)`, `isSystemInDarkTheme()` and `LocalDensity.current` compose.
+
+Lucent moves these statements into the body, in order, before what the JSX shows, and they run each time the body composes. Setup runs once, before the first composition. So these rules hold, and breaking one fails with LUCENT3024:
+
+- A composition statement stands in the component's own code: not in an `if`, a loop or a block, nor in a function setup makes.
+- It may read setup's values, and the values of the composition statements before it.
+- Setup code never reads a composition value: it has none when it runs.
+- Compose's other values, such as `spring()` or `Color.Red`, are made in the JSX or in a composition statement, never in setup code.
+- A composition local, `LocalConfiguration.current`, and a composable such as `isSystemInDarkTheme()` are read where the body composes, never in a callback.
+
+`remember` and `rememberSaveable` keep their values for as long as the mount lasts.
+
+## What the body reads from setup
+
+The body and its setup meet in four ways, the same on both toolkits. The body holds no logic of its own.
+
+| In the body | It is | What happens |
+| --- | --- | --- |
+| A prop, a signal's `get()`, a setup function's result, or a template, object or array of them | A value | An effect computes it at mount, and again when what it read changes. The body then draws again. |
+| A setup function called from a callback, or passed as one | An action | The toolkit calls it on the main thread, and it runs as Lucent code. |
+| An array setup computes, shown item by item | A list | Each item keeps its state while its key stays: see [Lists](#lists). |
+| `bind(signal)` | A binding | The view shows the signal's value, and a change the user makes sets the signal. |
+
+- A number, boolean or string crosses as it is. An object crosses as a Swift struct or a Kotlin data class, its fields in the order its type declares them.
+- A callback gives a setup function its own parameters, literals and values setup computes: numbers, booleans and strings.
+- `bind` takes a signal of a number, boolean or string. It's written only where a view takes a binding, and never in a list's item.
+- A change of setup state, or an event sent to JavaScript, goes in a setup function a callback calls. The body changing a signal fails with LUCENT3024.
+
+### Lists
+
+| Toolkit | Keyed list |
+| --- | --- |
+| SwiftUI | `<ForEach data={tasks()} id={(t) => t.id}>{(t) => …}</ForEach>` |
+| Compose | `<LazyColumn>{(list) => <list.items items={tasks()} key={(t) => t.id}>{(_, t) => …}</list.items>}</LazyColumn>` |
+
+- The key function gives each item a string or a number. Two items with one key, or a `NaN` key, are an error.
+- Each value an item shows is computed for that item. The item keeps its state, updated in place, while its key stays, and the list changes only when the keys or their order do.
+- A callback may give a setup function the item itself. It crosses as its key, and setup finds the item again, or does nothing once the item is gone.
+- An item shows no list of its own.
+
+## Helper views
+
+A helper is a function of the same file, not exported, that returns the toolkit's JSX. The body uses it as an element, `<TaskRow title={t.title} />`, or calls it in content, `{TaskRow({ title: t.title })}`. Lucent writes each helper once per component, as a Swift `View` or a Kotlin `@Composable` function.
+
+- It takes one props object, read as `props.name`: plain data, and callbacks that take numbers, booleans and strings and return nothing.
+- It reads nothing of setup's but its props. It may use other helpers, but not itself.
+- A SwiftUI helper returns its JSX as its only statement. A Compose helper may have composition statements before it.
+- A helper fails with LUCENT3024 when it destructures its props, takes several parameters, or takes a toolkit value such as a `Color`. So does a list or a binding inside it.
+
+## Diagnostics
+
+```tsx title="taps.lucent.tsx" expect="LUCENT3024"
+import { BasicText, Modifier } from "lucent:compose";
+import { PLATFORM } from "lucent:platform";
+import { Text } from "lucent:swiftui";
+import { signal } from "lucent:ui";
+
+export function Taps(props: { title: string }) {
+  const taps = signal(0);
+
+  if (PLATFORM === "ios")
+    return <Text onTapGesture={() => taps.set(taps.peek() + 1)}>{props.title}</Text>;
+
+  return <BasicText text={props.title} modifier={Modifier.clickable(() => taps.set(taps.peek() + 1))} />;
+}
+```
+
+The body changes `taps` itself, so both platforms fail with LUCENT3024. A setup function, `const tap = () => taps.set(taps.peek() + 1)`, given to `onTapGesture` and `clickable`, fixes it.
+
+[LUCENT3024](/docs/api/diagnostics/#lucent3024) reports a body Lucent can't write out in Swift or Kotlin, with the reason:
+
+- A toolkit name outside its platform's code, or a toolkit value made in setup code.
+- A body returned twice, or a body with logic of its own.
+- A SwiftUI member Lucent can't write yet, or one newer than the iOS floor.
+- A Compose composition statement that breaks a rule, or a composable read in a callback.
+- A helper view that breaks a rule.
+
+[LUCENT3023](/docs/api/diagnostics/#lucent3023) reports a body on one platform only.

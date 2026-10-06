@@ -89,12 +89,9 @@ describe("lucent.json schema", () => {
     expect(await validate({ extensions: { "2d": { header: "o.h" } } })).not.toEqual([]);
   });
 
-  it("accepts the lucent.json files the docs show", async () => {
-    const tutorial = JSON.parse(
-      fs.readFileSync(
-        path.join(root, "apps/tutorial/steps/8-publish/trip-tracker/lucent.json"),
-        "utf8",
-      ),
+  it("accepts the example packages' lucent.json and every field", async () => {
+    const orbit = JSON.parse(
+      fs.readFileSync(path.join(root, "examples/lucent-orbit/lucent.json"), "utf8"),
     );
     const full = {
       ios: {
@@ -148,7 +145,7 @@ describe("lucent.json schema", () => {
         minSdk: 26,
       },
     };
-    expect(await validate(tutorial)).toEqual([]);
+    expect(await validate(orbit)).toEqual([]);
     expect(await validate(full)).toEqual([]);
   });
 

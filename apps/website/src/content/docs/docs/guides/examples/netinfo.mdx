@@ -1,0 +1,61 @@
+---
+title: Port NetInfo
+description: "One module reports the connection and its changes with the Network framework's path monitor on iOS and `ConnectivityManager` on Android, in NetInfo's state shape."
+kind: example
+sidebar_label: Network state
+---
+
+`@react-native-community/netinfo` tells whether the device is online, over which kind of connection, and reports each change. This port keeps `fetch` and the listener, and NetInfo's `type`, `isConnected`, `isInternetReachable` and `details` fields. It is [netInfo.lucent.ts](https://github.com/Fausto95/lucent/blob/main/scripts/example-app/src/sdk/netInfo.lucent.ts) in the example apps.
+
+<Tabs>
+<TabItem label="netInfo.lucent.ts">
+
+```ts title="netInfo.lucent.ts" include="examples/netinfo.lucent.ts"
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useEffect, useState } from "react";
+import { Text } from "react-native";
+import * as NetInfo from "./src/netInfo.lucent";
+
+export default function App() {
+  const [state, setState] = useState<NetInfo.NetInfoState | null>(null);
+
+  // Called with the state now, then on each change, until the screen goes.
+  useEffect(() => {
+    const listener = NetInfo.addEventListener(setState);
+    return () => {
+      void listener.then((id) => NetInfo.removeEventListener(id));
+    };
+  }, []);
+
+  return <Text>{state ? `${state.type}, connected: ${state.isConnected}` : "Checking"}</Text>;
+}
+```
+
+</TabItem>
+</Tabs>
+
+## How the port works
+
+- On iOS, the module calls the Network framework's C functions. The update handler is a Lucent function passed as a block, and [`mainQueue()`](/docs/api/lucent-ios/#mainqueue) is the queue it runs on.
+- iOS `fetch()` starts a monitor and stops it at its first update, which reports the current path.
+- As NetInfo does on iOS, the port tells only cellular apart: any other connected path is `wifi`.
+- On Android, `Watcher` extends `ConnectivityManager_NetworkCallback`, an SDK class, and overrides three of its methods ([Subclass a UIKit or Android class](/docs/guides/subclass-an-sdk-class/)).
+- `addEventListener` keeps each monitor or callback in a map under a number, which `removeEventListener` takes back.
+
+## What differs from NetInfo
+
+- `addEventListener` resolves with a number for `removeEventListener`, where NetInfo returns an unsubscribe function. To stop it with an `AbortSignal` instead, build it on `subscribe()` ([Stream events to JavaScript](/docs/guides/send-events-to-javascript/)).
+- On iOS, `isInternetReachable` stays `null` while connected, as the port makes no reachability request. On Android, it comes from Android's validation of the network.
+- `details` holds only `isConnectionExpensive`: no SSID, signal strength or cellular generation.
+- `refresh`, `configure`, `useNetInfo` and the `isWifiEnabled` field aren't ported.
+
+The example apps' SDK lab checks that `fetch()` gives the same `type`, `isConnected` and `isConnectionExpensive` as NetInfo.
+
+## What it needs
+
+No `Info.plist` key or library. Lucent adds `ACCESS_NETWORK_STATE` to the manifest, since `getActiveNetwork` and other `ConnectivityManager` methods the port calls require it ([@RequiresPermission](/docs/api/android-sdk/#requirespermission)).

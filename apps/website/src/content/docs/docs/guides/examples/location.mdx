@@ -1,0 +1,107 @@
+---
+title: Port expo-location
+description: "One module reads the position with `CLLocationManager` and a delegate on iOS, and with Play services and `LocationManager` on Android, under expo-location's names."
+kind: example
+sidebar_label: Location
+---
+
+`expo-location` reads the device's position once or as it moves, and also geocodes, follows the heading and tracks in the background. This port keeps its foreground position functions, with the same names and result shapes. It is [location.lucent.ts](https://github.com/Fausto95/lucent/blob/main/scripts/example-app/src/sdk/location.lucent.ts) in the example apps, which link Play services.
+
+<Tabs>
+<TabItem label="location.lucent.ts">
+
+```ts title="location.lucent.ts" from="scripts/example-app/src/sdk/location.lucent.ts" include="examples/location.lucent.ts"
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useEffect, useState } from "react";
+import { Button, Text, View } from "react-native";
+import * as Location from "./src/location.lucent";
+
+export default function App() {
+  const [position, setPosition] = useState<Location.LocationObject | null>(null);
+
+  // Follows the position while the screen shows, if the app may read it.
+  useEffect(() => {
+    const watch = Location.getForegroundPermissionsAsync().then(({ granted }) =>
+      granted ? Location.watchPositionAsync(setPosition) : null,
+    );
+    return () => {
+      void watch.then((id) => (id === null ? undefined : Location.stopWatching(id)));
+    };
+  }, []);
+
+  const locate = async () => setPosition(await Location.getCurrentPositionAsync());
+
+  return (
+    <View>
+      <Button title="Locate me" onPress={locate} />
+      <Text>{position ? `${position.coords.latitude}, ${position.coords.longitude}` : "No position"}</Text>
+    </View>
+  );
+}
+```
+
+</TabItem>
+</Tabs>
+
+:::caution
+The port reads the permission but doesn't ask for it, and without it the app gets no position. Ask first, as [Ask for a runtime permission](/docs/guides/ask-for-a-permission/#when-a-delegate-gets-the-answer) does for location.
+:::
+
+## How the port works
+
+- On iOS, `Updates` implements `CLLocationManagerDelegate` and forwards each position or error ([Implement an SDK delegate or listener](/docs/guides/implement-a-delegate/)).
+- A `CLLocationManager` calls its delegate on the thread that made it, so each one is made inside `main()`. The `managers` map keeps a request's manager until its position or error comes, and a watch's until it stops.
+- On Android, the current position is Play services' fused location, as in `expo-location`. `fromCallback` turns its `Task` into a promise ([Turn a callback API into a promise](/docs/guides/await-a-callback-api/)).
+- Watching on Android uses the platform's `LocationManager`, with a function as the listener. `removeUpdates` takes the same function back, since it is the same Java object each time ([Interfaces and callbacks](/docs/api/android-sdk/#interfaces-and-callbacks)).
+- `available("android", 26)` guards the vertical accuracy, which is `null` on older devices ([Use an API newer than your app's oldest OS](/docs/guides/check-the-os-version/)).
+
+The Expo example app's SDK lab checks the permission, the services and the current position against `expo-location`.
+
+## What differs from expo-location
+
+- The functions take no options. On Android, the current position asks for high accuracy, and a watch reports at most once a second.
+- `watchPositionAsync(callback)` resolves with a number, and `stopWatching(id)` ends the watch. The original resolves with a subscription whose `remove()` does.
+- On iOS, a watch drops the errors the manager reports.
+- On Android, `getForegroundPermissionsAsync()` checks coarse location only, and answers `granted` or `undetermined`, never `denied`.
+- Asking for permission, geocoding, headings, background updates and geofencing aren't ported.
+
+## What it needs
+
+<Tabs syncKey="setup">
+<TabItem label="Expo">
+
+```json title="app.json"
+{
+  "expo": {
+    "ios": {
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Shows where you are on the map."
+      }
+    }
+  }
+}
+```
+
+Add `com.google.android.gms:play-services-location` with a config plugin ([Call a CocoaPods or Gradle library](/docs/guides/use-a-third-party-sdk/#add-the-library)). Then run `npx expo prebuild`.
+
+</TabItem>
+<TabItem label="Bare React Native">
+
+```xml title="ios/MyApp/Info.plist"
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>Shows where you are on the map.</string>
+```
+
+```groovy title="android/app/build.gradle"
+implementation("com.google.android.gms:play-services-location:21.0.1")
+```
+
+</TabItem>
+</Tabs>
+
+Lucent adds `ACCESS_COARSE_LOCATION` and `ACCESS_FINE_LOCATION` to the manifest, since `getLastKnownLocation` requires them ([@RequiresPermission](/docs/api/android-sdk/#requirespermission)).

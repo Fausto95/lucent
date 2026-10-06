@@ -62,23 +62,23 @@ export type Content = () => Shown;
 
 /**
  * A content lambda composed in a receiver scope (a Row's RowScope), given
- * as a prop: its first parameter is the scope, whose methods and Modifier
+ * as a prop. Its first parameter is the scope, whose methods and Modifier
  * run in it.
  */
 export type ScopedContent<S> = (scope: S) => Shown;
 
 /**
- * An element's children composed in a receiver scope: what they show, or
- * a function of the scope showing it, for children that use the scope
- * (`{(row) => <Text modifier={row.Modifier.weight(1)} … />}`).
+ * An element's children composed in a receiver scope: what they show, or a
+ * function of the scope showing it. Children that use the scope take the
+ * function: `{(row) => <Text modifier={row.Modifier.weight(1)} … />}`.
  */
 export type ScopedChildren<S> = Shown | ((scope: S) => Shown);
 
 /**
- * How TypeScript types an Android file's JSX: an element is a composable,
- * a function of its props whose children are its `children` prop, or a
- * view class (T48), typed with its declarations' `~jsx` attributes, as
- * native-jsx-dts.ts writes the generated toolkits' namespaces.
+ * How TypeScript types the JSX of an Android file. An element is a
+ * composable: a function of its props, whose children are its `children`
+ * prop. It may also be a view class, typed with its declarations' `~jsx`
+ * attributes.
  */
 export declare namespace JSX {
   type Element = Composed & View;

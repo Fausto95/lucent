@@ -1,0 +1,180 @@
+---
+title: "Which statements and expressions does Lucent support?"
+sidebar_label: Statements
+description: "JavaScript's statements, operators, functions, classes, async code and generators, run in JavaScript's order; `var`, rest parameters and async generators fail to compile."
+kind: reference
+---
+
+Inside functions and initializers, a module runs JavaScript's statements and expressions with JavaScript's results. This page lists what Lucent supports, what it refuses and with which diagnostic, and the order code runs in.
+
+## Example
+
+```ts title="inventory.lucent.ts"
+type Item = { name: string; count: number; tags?: string[] };
+
+export function inStock(text: string): Item[] {
+  const items = JSON.parse(text) as Item[];
+  return items.filter(({ count }) => count > 0);
+}
+
+export function firstTagged(items: Item[], tag: string): string | undefined {
+  for (const { name, tags = [] } of items) {
+    if (tags.includes(tag)) return name;
+  }
+  return undefined;
+}
+```
+
+`JSON.parse` builds a typed value, checked against `Item[]`. Destructuring with a default works in parameters and in `for…of`, as in JavaScript.
+
+## Declarations
+
+- `let` and `const` declare variables. `var` fails with [LUCENT1001](/docs/api/diagnostics/#lucent1001).
+- Destructuring works in declarations, parameters, `for…of` and assignments, with defaults, nested patterns and array rest (`[first, ...others]`).
+- Object rest (`{ id, ...rest }`) and computed keys fail with [LUCENT1004](/docs/api/diagnostics/#lucent1004). So do rest elements in a destructuring assignment.
+- A function declared inside a function is hoisted, as in JavaScript. A class or an enum declared inside a function fails with `LUCENT1001`: declare it at the top level.
+
+## Control flow
+
+| Statement | Rules | e2e case |
+| --- | --- | --- |
+| `if`, `while`, `do…while`, `for` | As in JavaScript. A `let` in a `for` gets a new binding on each iteration. | `control-flow`, `closures` |
+| `for…of` | Over arrays, strings (by code point), `Map`s (their entries), `Set`s, `Uint8Array`s, generators and `Iterable<T>`s. `for await` fails with [LUCENT1009](/docs/api/diagnostics/#lucent1009). | `control`, `iterable-spread` |
+| `for…in` | Over a record's keys, an array's indexes as strings, or an object type's declared fields. An unset optional field is included, unlike JavaScript ([known gap](/docs/api/language/differences/#known-gaps)). | `control` |
+| `switch` | With fall-through, and `default` anywhere. A clause can't use a `let` or `const` that another clause declares (`LUCENT1001`): wrap each clause in a block. | `switch-returns` |
+| Labels | On any statement. `break label` leaves it, and `continue label` continues a labeled loop. | `control-flow` |
+| `try`, `catch`, `finally` | As in JavaScript, with `return` or `break` inside `try`. The `catch` binding is optional. Its type is `unknown`, so it can't be destructured: narrow it with `instanceof`. | `control`, `errors` |
+| `throw` | Only errors: an `Error`, `TypeError`, `RangeError`, `SyntaxError` or a class that extends `Error`. Anything else fails with [LUCENT1006](/docs/api/diagnostics/#lucent1006). | `errors` |
+| `using` | See [using declarations](#using-declarations). | `using` |
+| `debugger` | Fails with `LUCENT1001`. | |
+
+## Operators
+
+| Operators | Rules |
+| --- | --- |
+| `+`, `-`, `*`, `/`, `%`, `**`, unary `-` and `+`, `++`, `--` | As in JavaScript: [Numbers](/docs/api/language/types/#numbers). |
+| `&`, `\|`, `^`, `~`, `<<`, `>>`, `>>>` | As in JavaScript, on 32-bit integers. |
+| `<`, `<=`, `>`, `>=` | As in JavaScript. A bigint and a number compare by exact value. |
+| `&&`, `\|\|`, `??`, `!` | `&&`, `\|\|` and `??` return one of their operands, as in JavaScript. |
+| `=`, `+=` and the other compound assignments, `??=`, `\|\|=`, `&&=` | As in JavaScript, in JavaScript's [order](#evaluation-order). |
+| `===`, `!==`, `==`, `!=` | See [Equality](#equality). |
+| `? :`, `,`, `void`, `typeof` | As in JavaScript. |
+| `instanceof` | With a Lucent or SDK class, `Error`, `TypeError`, `RangeError`, `SyntaxError`, `Array`, `Map`, `Set`, `Uint8Array` or `Date`. Anything else fails with [LUCENT1002](/docs/api/diagnostics/#lucent1002), and so does a generic class. |
+| `in` | On a record, whether it has the key. On an object type, whether the type declares the field: unlike JavaScript, an unset optional field gives `true` ([known gap](/docs/api/language/differences/#known-gaps)). Anything else fails with `LUCENT1002`. |
+| `delete` | On a record entry only, `delete record[key]` (`LUCENT1002`). Set an optional field to `undefined` instead. |
+| `x!` | Checked: it throws a `TypeError` when `x` is `null` or `undefined`. It works as an assignment target too: `xs[i]! += 1`. |
+| `?.` | `a?.b`, `a?.[i]`, `a?.m()` and `f?.()`. |
+
+### Equality
+
+- `===` and `!==` compare arrays, maps, sets, records, objects, `Uint8Array`s, promises and class instances by reference, as JavaScript does (case `reference-identity`).
+- A tuple is a value: `===` compares its elements, where JavaScript compares references.
+- Two functions can't be compared, since a function value has no stable identity in Lucent. Comparing them with `===`, `indexOf`, `lastIndexOf` or `includes` fails with `LUCENT1002` (case `function-values`).
+- `==` and `!=` work between values of one kind, and between `null` or `undefined` and anything.
+- Where JavaScript would convert first, `==` fails with `LUCENT1002`. That is a number, string, boolean or bigint against another of those, as in `1 == "1"`, or an object against a primitive. Convert, then compare with `===` (case `mixed-equality`).
+
+### bigint operators
+
+- Literals: `123n`, `0xffn`, `0b1011n`, `1_000n`.
+- Every operator works on bigints, at any size, except `>>>` and unary `+`, which TypeScript rejects. `/` truncates toward zero, and `%` takes the sign of the dividend.
+- Arithmetic that mixes a bigint and a number fails to compile. Convert one side with `BigInt()` or `Number()`.
+- On a `bigint | number`, the relational operators, unary `-`, `~`, `++` and `--` act on the kind of value it holds.
+- Division by `0n`, a negative exponent and a result beyond 2^30 bits throw a `RangeError`.
+
+Cases: `bigint-arith`, `bigint-unions`.
+
+## Expressions
+
+- Template literals work, and so does spread in array literals, over any iterable: `[...map]`, `[...set]`, `[...text]`, `[...generator()]` (case `iterable-spread`).
+- An object literal holds fields, spread objects and properties whose value is a function, `name: (…) => …`. A method fails with [LUCENT2002](/docs/api/diagnostics/#lucent2002), and a getter or setter with `LUCENT1001`: use a class.
+- A computed key, `{ [key]: value }`, works in a record literal only. Reading an object type's field by a computed key, `obj[key]`, fails with `LUCENT1001`: use a `Record` or a `Map`.
+- A spread argument works in three calls, as the only argument: `Math.min(...xs)`, `Math.max(...xs)` and `xs.push(...ys)`. Spreading into a function's parameters fails with [LUCENT1007](/docs/api/diagnostics/#lucent1007), and into other calls with `LUCENT1001` or `LUCENT1003`. Pass the elements one by one instead.
+- `eval` fails with [LUCENT1003](/docs/api/diagnostics/#lucent1003), `new Function` with `LUCENT2002`, and tagged templates with `LUCENT1001`.
+
+## Functions
+
+- Function declarations, arrow functions, function expressions and recursion work as in JavaScript.
+- A closure shares the variables it captures with the scope that declares them (case `closures`).
+- Parameters may be optional or have defaults. Rest parameters, `...xs: T[]`, fail with `LUCENT2002`: take an array.
+- Overload signatures of a top-level function fail with [LUCENT3002](/docs/api/diagnostics/#lucent3002). A generic function can't be used as a value (`LUCENT1001`).
+- `this` works inside class members only (`LUCENT1001`), and `call`, `apply` and `bind` fail with `LUCENT1003`.
+
+## Classes
+
+- Fields with initializers, constructors, parameter properties, methods, getters, setters and `static` members work. So do `private`, `protected`, `readonly`, `#private` fields and methods, `accessor` fields and `abstract` classes.
+- A class may extend another Lucent class, with virtual methods and `super` (case `inheritance`). It may extend `Error` (case `errors`), or an SDK class: see [Subclass an SDK class](/docs/guides/subclass-an-sdk-class/).
+- A class implements interfaces with `implements`: see [Interfaces](/docs/api/language/types/#interfaces).
+- `[Symbol.dispose]()` is the one member a class may name with a symbol: see [using declarations](#using-declarations).
+- Extending a built-in class other than `Error` fails with [LUCENT1005](/docs/api/diagnostics/#lucent1005). So do static blocks, index signatures, and an override whose parameter or result types differ from the base method's.
+- Class expressions fail with `LUCENT2002`.
+- Decorators compile but never run, on a class or on a member: Lucent ignores them, so don't use one ([known gap](/docs/api/language/differences/#known-gaps)). A decorator function with a parameter type Lucent refuses, such as `ClassMethodDecoratorContext` (`LUCENT2002`), fails to compile.
+
+## Async
+
+- `async` functions, methods and arrow functions work, with `await`. `new Promise`, `Promise.all`, `Promise.resolve` and `Promise.reject` are in [Built-ins](/docs/api/language/built-ins/) (cases `async`, `async-throws`).
+- Async generators fail with [LUCENT2002](/docs/api/diagnostics/#lucent2002), and awaiting a value typed as a promise or `undefined` fails with `LUCENT1001`.
+- `await` on an SDK object fails with [LUCENT1010](/docs/api/diagnostics/#lucent1010): wrap its listener in [fromCallback()](/docs/api/lucent-core/#fromcallback).
+- An `AbortSignal` cancels async work: see [Globals](/docs/api/globals/) and [Cancel work](/docs/guides/cancel-work/).
+- Where async code runs, and how its awaits interleave, is in [Concurrency](/docs/api/language/concurrency/).
+
+## Generators
+
+- Generator functions, generator methods and generator function expressions work, with `yield`, `yield*` and `return;`.
+- A generator is lazy, as in JavaScript: calling one runs nothing, and its body starts at the first `next()` (case `generator-bodies`).
+- `for…of`, spread and `Array.from` consume a generator. An `Iterable<T>` parameter takes generators, arrays, sets, maps, strings and `Uint8Array`s (case `generators`).
+- Leaving a `for…of` early runs the generator's `finally` blocks.
+- Using the value of `yield` (`next(x)`) and returning a value from a generator fail with `LUCENT1001`. A generator can't be returned to JavaScript ([LUCENT2006](/docs/api/diagnostics/#lucent2006)): return an array.
+
+## Regular expressions
+
+- Regular expression literals and `new RegExp(pattern, flags)` support every ECMAScript feature, such as lookbehind, named groups and Unicode property escapes.
+- Members and flags are in [RegExp](/docs/api/language/built-ins/#regexp) and [String](/docs/api/language/built-ins/#string). A match's `indices` isn't available (`LUCENT1003`).
+- An invalid pattern or flag throws a `SyntaxError`.
+- A replacement can be a string with `$` patterns or a callback. A callback that takes captures needs a literal pattern, so the number of groups is known (`LUCENT1003`).
+- A capture parameter typed `string` throws a `TypeError` when its group didn't take part in the match. Type it `string | undefined`.
+
+Case: `regexps`.
+
+## JSON
+
+`JSON.parse` builds a value of a type you name: `JSON.parse(text) as T`, or a call where the type is declared, such as an annotated variable (case `json`).
+
+- `T` is plain data: numbers, strings, booleans, `null`, arrays, tuples, records, object types and optional fields. A class, a `Map`, a `Date` or a bigint in it fails with `LUCENT1003`.
+- A union in `T` needs members that JSON's kinds or a string-literal field tell apart ([LUCENT2005](/docs/api/diagnostics/#lucent2005)).
+- `JSON.parse` without a target type, and a reviver, fail with `LUCENT1003`.
+- Text that isn't JSON throws a `SyntaxError`. Text that doesn't match `T` throws a `TypeError` naming the path: `JSON.parse: expected a number at .items[2].price, got a string`.
+- A missing optional field is `undefined`, and fields that `T` doesn't declare are dropped.
+
+`JSON.stringify` is in [Built-ins](/docs/api/language/built-ins/).
+
+## using declarations
+
+```ts title="session.lucent.ts"
+class Session {
+  constructor(readonly name: string) {}
+
+  [Symbol.dispose](): void {
+    console.log(`closed ${this.name}`);
+  }
+}
+
+export function run(): string {
+  using session = new Session("main");
+  return session.name; // closed main, after the return value is read
+}
+```
+
+- One `using` declaration may name several values: `using a = new Session("a"), b = new Session("b");`.
+- `await using` fails with `LUCENT1001`, and so does `using` directly in a `case` clause: wrap the clause in a block.
+- When and how each value is disposed is in [using and Symbol.dispose](/docs/api/language/memory/#using-and-symboldispose).
+
+Lucent always compiles `using`. Your editor and `tsc` accept it only with `esnext.disposable`, or `esnext`, in the app's `tsconfig.json` `lib`. Expo's base config has it; React Native's `@react-native/typescript-config` doesn't, so copy its `lib` list and add `"esnext.disposable"`.
+
+Case: `using`.
+
+## Evaluation order
+
+- Operands and arguments run left to right, as in JavaScript, even where C++ would leave the order open. A call that throws stops everything after it (case `order`).
+- An assignment evaluates its target's object and key first, once each.
+- A compound assignment, such as `x += f()`, reads the target before the right side runs, then stores. A right side that changes the target doesn't change what was read, and one that throws stores nothing (case `assignment-order`).
+- A condition runs once per test, left to right (case `control-flow`).

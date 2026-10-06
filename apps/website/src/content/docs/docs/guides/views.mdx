@@ -1,0 +1,155 @@
+---
+title: Turn on native views
+description: "Set `LUCENT_VIEWS=fabric` where `lucent build` runs, then export a function from a `.lucent.tsx` module that returns a view: React renders it as a component."
+kind: guide
+views: true
+sidebar_class_name: experimental
+---
+
+:::caution
+Experimental: views need `LUCENT_VIEWS=fabric` and change without notice. Read [the limits](/docs/architecture/views/#limits) first.
+:::
+
+<Steps>
+
+1. ### Set the variable where Lucent builds
+
+   <Tabs syncKey="setup">
+   <TabItem label="Expo">
+
+   ```sh title="terminal"
+   export LUCENT_VIEWS=fabric
+   ```
+
+   Run step 3 in this terminal: prebuild, Metro's watcher and the Gradle task that `npx expo run:android` starts all read it from there.
+
+   </TabItem>
+   <TabItem label="Bare React Native">
+
+   ```sh title="terminal"
+   export LUCENT_VIEWS=fabric
+   npx react-native start
+   ```
+
+   Metro's watcher reads it from this terminal. Export it in the terminal that builds the app too: `lucent build` and Gradle's `lucentBuild` task read it there.
+
+   </TabItem>
+   </Tabs>
+
+   Each process that compiles modules reads it from its own environment:
+
+   | Process | Reads it from |
+   | --- | --- |
+   | `lucent build`, `lucent dev`, `lucent check` | The terminal. |
+   | Gradle's `lucentBuild` task | The terminal running Gradle, or Android Studio's environment. |
+   | The editor plugin | The editor's environment. |
+
+   Xcode doesn't run `lucent build`. Without the variable, an import from `lucent:ui` fails with [LUCENT3004](/docs/api/diagnostics/#lucent3004), and JSX with [LUCENT9001](/docs/api/diagnostics/#lucent9001). A component that uses neither compiles, but JavaScript gets no export for it.
+
+2. ### Write a component
+
+   <Tabs>
+   <TabItem label="greeting.lucent.tsx">
+
+   ```tsx title="greeting.lucent.tsx"
+   import { appContext } from "lucent:android";
+   import { TextView } from "lucent:android/android.widget";
+   import { UILabel } from "lucent:ios/UIKit";
+   import { PLATFORM } from "lucent:platform";
+   import { effect } from "lucent:ui";
+
+   export function Greeting(props: { name: string }) {
+     if (PLATFORM === "ios") {
+       const label = new UILabel();
+
+       effect(() => {
+         label.text = `Hello, ${props.name}`;
+       });
+
+       return label;
+     }
+
+     const text = new TextView(appContext());
+
+     effect(() => text.setText(`Hello, ${props.name}`));
+
+     return text;
+   }
+   ```
+
+   </TabItem>
+   <TabItem label="App.tsx">
+
+   ```tsx title="App.tsx"
+   import { View } from "react-native";
+   import * as greeting from "./greeting.lucent";
+
+   const { Greeting } = greeting as unknown as typeof import("./.lucent/native/types/views/greeting");
+
+   export default function App() {
+     return (
+       <View style={{ padding: 48 }}>
+         <Greeting name="Ada" />
+       </View>
+     );
+   }
+   ```
+
+   </TabItem>
+   </Tabs>
+
+   An exported function that returns a view is a component. Its body, the setup, runs once each time React mounts it, and the effect sets the text again when `name` changes.
+
+   `lucent build` writes the component's React type to `.lucent/native/types/views/greeting.d.ts`. Nothing connects that file to your app's TypeScript yet, so App.tsx casts the import to it.
+
+   To start from platform files instead, `npx lucent new view Card` writes `src/card.lucent.ts` and an iOS and an Android `.lucent.tsx`, each a label in a [Flex](/docs/api/views/platform-views/#layout).
+
+3. ### Build and run the app
+
+   <Tabs syncKey="setup">
+   <TabItem label="Expo">
+
+   ```sh title="terminal"
+   npx expo prebuild
+   npx expo run:ios
+   ```
+
+   </TabItem>
+   <TabItem label="Bare React Native">
+
+   ```sh title="terminal"
+   export LUCENT_VIEWS=fabric
+   npx lucent build
+   cd ios && pod install && cd ..
+   npx react-native run-ios
+   ```
+
+   </TabItem>
+   </Tabs>
+
+   A component adds native code, so `lucent build` asks for a new build of the app:
+
+   ```sh title="terminal" nocopy
+   modules  greeting  ios android
+   next     rebuild the app (iOS: pod install first)
+   actions  reinstall the app           android       android/src/main/AndroidManifest.xml
+            relink native dependencies  ios, android  LucentNative.podspec, android/consumer-rules.pro +124 more
+            recompile native code       ios, android  android/src/main/java/dev/lucent/LucentViewManagers.java, android/src/main/java/dev/lucent/generated/LucentGreeting_b616637901d4Manager.java +133 more
+            reload JavaScript           ios, android  js/_lucent/runtime.js, js/_lucent/views.js +1 more
+   ```
+
+   When you save a component later, Metro prints the same request on one line. [Get a module change into the running app](/docs/guides/apply-a-change/) explains each action.
+
+</Steps>
+
+## What components can do
+
+<CardGrid>
+  <LinkCard title="Render a UIKit or Android view" description="Return a platform view as JSX." href="/docs/guides/views/platform-views/" />
+  <LinkCard title="Write a view in SwiftUI and Jetpack Compose" description="One component, each platform's toolkit." href="/docs/guides/views/swiftui-and-compose/" />
+  <LinkCard title="Update a view, and send events" description="Props, signals, effects and event props." href="/docs/guides/views/state-and-events/" />
+  <LinkCard title="Call a component's methods from React" description="Commands and requests through a ref." href="/docs/guides/views/commands/" />
+  <LinkCard title="Put React children inside a native view" description="A slot for React children." href="/docs/guides/views/children/" />
+</CardGrid>
+
+[Component props, events and commands](/docs/api/views/components/) gives every rule a component follows.

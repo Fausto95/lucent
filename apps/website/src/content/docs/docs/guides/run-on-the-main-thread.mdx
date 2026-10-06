@@ -1,26 +1,83 @@
 ---
-title: Run code on the main thread
-description: "`main(() => …)` from `lucent:thread` runs a function on the main thread and resolves with its result."
+title: Call a main-thread-only API
+description: "Call it inside `main(() => …)` from `lucent:thread`: the function runs on the main thread, and the promise resolves with what it returns."
 kind: guide
 ---
+
+<Tabs>
+<TabItem label="screen.lucent.ts">
 
 ```ts title="screen.lucent.ts"
 import { PLATFORM } from "lucent:platform";
 import { UIApplication } from "lucent:ios/UIKit";
+import { currentActivity } from "lucent:android";
 import { main } from "lucent:thread";
 
+/** Keeps the screen on while `on` is true. */
 export async function keepAwake(on: boolean): Promise<void> {
   if (PLATFORM === "ios") {
     await main(() => {
       UIApplication.shared.isIdleTimerDisabled = on;
     });
+  } else {
+    await main(() => {
+      currentActivity()?.getWindow()?.getDecorView()?.setKeepScreenOn(on);
+    });
   }
+}
+
+/** Whether the screen is kept on. */
+export async function isKeptAwake(): Promise<boolean> {
+  if (PLATFORM === "ios") return main(() => UIApplication.shared.isIdleTimerDisabled);
+
+  return main(() => currentActivity()?.getWindow()?.getDecorView()?.getKeepScreenOn() ?? false);
 }
 ```
 
-`main(f)` from `lucent:thread` runs `f` on the main thread and resolves with its result. The caller doesn't block, so call it from `async` code.
+</TabItem>
+<TabItem label="App.tsx">
 
-- On iOS, APIs that Swift marks `@MainActor`, such as UIKit's, compile only inside `main()` (`LUCENT3006`). So do SDK callbacks the SDK calls on the main thread.
-- `f` must be a function literal, and it can't be `async`. Keep it short: move data in and out, and do the work around it.
-- Android has no such check. Some Android APIs still need the main thread, such as the clipboard; call them inside `main()` too.
-- Objects that deliver to the thread that made them, such as `CLLocationManager`, should be made inside `main()`.
+```tsx title="App.tsx"
+import { useEffect } from "react";
+import { keepAwake } from "./src/screen.lucent";
+
+/** Keeps the screen on while the component that calls it is shown. */
+export function useKeepAwake(): void {
+  useEffect(() => {
+    void keepAwake(true);
+    return () => void keepAwake(false);
+  }, []);
+}
+```
+
+</TabItem>
+</Tabs>
+
+`main(f)` runs `f` on the main thread: the main queue on iOS, the main Looper on Android. It returns a promise of what `f` returns, and a throw in `f` rejects it. The calling thread doesn't block on it: `await` the promise.
+
+- Write the main-thread calls in `f`'s own body. A function that `f` calls, or passes to `forEach`, is checked on its own, so UIKit there fails with [LUCENT3006](/docs/api/diagnostics/#lucent3006): loop with `for` instead.
+- `f` runs holding the [Lucent lock](/docs/api/language/concurrency/#the-lucent-lock), so module code and `f` wait for each other. Keep `f` short: compute outside it, and pass the result in.
+- `main()` is called in platform code, such as a platform branch ([LUCENT3004](/docs/api/diagnostics/#lucent3004)). Its `f` is a function literal that isn't `async` and returns no promise ([LUCENT1007](/docs/api/diagnostics/#lucent1007)).
+
+## Which APIs need it
+
+| Platform | Main-thread only |
+| --- | --- |
+| iOS | Classes and members Swift marks `@MainActor`, such as UIKit's |
+| Android | Classes and methods annotated `@UiThread` or `@MainThread`, such as `View`'s |
+
+Anywhere else, they fail with `LUCENT3006`. [lucent sdk show](/docs/guides/find-an-sdk-class/) marks such a class "Main thread only" when you show the class, as in `lucent sdk show UIKit.UIApplication`. A single member shows no mark.
+
+On Android, a method annotated `@WorkerThread` blocks: in code the main thread runs, it compiles with a [LUCENT3009](/docs/api/diagnostics/#lucent3009) warning.
+
+The checks read these marks only. An API that needs a particular thread without the mark compiles anywhere, so follow its documentation. `CLLocationManager`, for one, calls its delegate on the run loop of the thread that made it: make it inside `main()`.
+
+## Where you don't need main()
+
+Code the main thread already runs calls these APIs directly:
+
+- a listener of `onAppEvent` or `onSceneEvent`, and the function given to `present()`, from [lucent:ios](/docs/api/lucent-ios/#onappevent);
+- a method of a main-thread protocol, such as a UIKit delegate, and a block UIKit runs on the main thread;
+- the methods of a class that extends `UIViewController` or `UIView` ([Subclass a UIKit or Android class](/docs/guides/subclass-an-sdk-class/)).
+
+An `onActivityEvent` handler from `lucent:android` runs on the Lucent thread, so it needs `main()`. [Concurrency](/docs/api/language/concurrency/#where-each-kind-of-code-runs) lists where each kind of code runs, and [main(f)](/docs/api/language/concurrency/#mainf) its rules.

@@ -5,6 +5,7 @@
 import { describe, expect, it } from "vite-plus/test";
 import { sdkAvailable } from "../../../packages/compiler/src/index.ts";
 import { compileSamples } from "../../../scripts/website/compile.ts";
+import { unbuiltProblems } from "../../../scripts/website/samples.ts";
 
 /** The component the blog shows: a like button, one file for both platforms. */
 const LIKE = `import { PLATFORM } from "lucent:platform";
@@ -54,4 +55,23 @@ describe("the website's samples", () => {
     },
     600_000,
   );
+});
+
+describe("C++ this machine can't rebuild", () => {
+  const unbuilt = new Map([
+    ["/docs/guides/call-an-ios-api/", { platforms: ["ios"], samples: ["battery.lucent.ts"] }],
+  ]);
+
+  it("is fine while the committed C++ covers every sample", () => {
+    expect(unbuiltProblems(unbuilt, () => ({ "battery.lucent.ts": [] }))).toEqual([]);
+  });
+
+  it("is a problem when a page's C++ is missing or lacks a sample", () => {
+    const problem = [
+      '/docs/guides/call-an-ios-api/: its "See the C++" for battery.lucent.ts isn\'t built: run `node scripts/website.ts` where the ios SDK is installed',
+    ];
+
+    expect(unbuiltProblems(unbuilt, () => undefined)).toEqual(problem);
+    expect(unbuiltProblems(unbuilt, () => ({ "device.lucent.ts": [] }))).toEqual(problem);
+  });
 });

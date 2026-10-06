@@ -1,0 +1,56 @@
+---
+title: Port expo-haptics as a package
+description: "`lucent-haptics` is one module whose exports branch on iOS and Android, made a package by the `lucent` field of its `package.json`."
+kind: example
+sidebar_label: Haptics
+---
+
+`lucent-haptics` ports three functions of `expo-haptics` to Lucent: `impactAsync`, `notificationAsync` and `selectionAsync`, with the two enums they take. It is a private example in the Lucent repository, [examples/lucent-haptics](https://github.com/Fausto95/lucent/tree/main/examples/lucent-haptics), and is not published to npm.
+
+## The package
+
+<Tabs>
+<TabItem label="package.json">
+
+```json title="package.json" include="packages/haptics/package.json"
+```
+
+</TabItem>
+<TabItem label="index.ts">
+
+```ts title="index.ts" include="packages/haptics/index.ts"
+```
+
+</TabItem>
+</Tabs>
+
+- [`lucent.sources`](/docs/packages/package-json/#sources) is the directory of the package's modules. Lucent names this module `lucent-haptics/haptics` ([module names](/docs/packages/package-json/#module-names)).
+- [`lucent.compatible`](/docs/packages/package-json/#compatible) is the range of Lucent versions the package supports. The examples accept `>=0.0.3` because the repository's tests run Lucent from source, version 0.0.3. A published package states a range such as `^0.2.0`.
+- `index.ts` re-exports the module. Metro turns the `.lucent` import into the module's JavaScript proxy.
+- There is no `lucent.json`. The frameworks a module imports are linked without one, and calling `Vibrator.vibrate` adds the `VIBRATE` permission it requires to the manifest ([Android SDK](/docs/api/android-sdk/)).
+
+## The module
+
+```ts title="haptics.lucent.ts" include="examples/haptics.lucent.ts"
+```
+
+The module is `src/haptics.lucent.ts`. Each exported function branches on `PLATFORM`, and each build compiles only its own platform's branch. A helper outside the branches that uses one platform's SDK, such as `vibrator()`, compiles for that platform only ([platform code](/docs/api/language/platform-code/)).
+
+- UIKit declares its feedback generators `@MainActor`, so each iOS branch creates its generator and triggers the feedback inside [`main()`](/docs/api/lucent-thread/#main). Outside it, the compiler stops with [LUCENT3006](/docs/api/diagnostics/#lucent3006).
+- `VibratorManager` needs Android API 31 and `VibrationEffect` API 26, while apps run from API 24. The [`available()`](/docs/api/lucent-android/#available) checks fall back to older APIs; without them, the compiler stops with [LUCENT3007](/docs/api/diagnostics/#lucent3007).
+- Android takes a pattern's durations as `long[]`, which Lucent types as `bigint[]` ([Android SDK](/docs/api/android-sdk/)). `millis()` converts the milliseconds.
+- When Android gives no vibrator service, the call rejects with an error whose `code` is `E_HAPTICS_NOT_SUPPORTED`, made with [`error()`](/docs/api/lucent-core/#error).
+- The string enums reach JavaScript as frozen objects, so `ImpactFeedbackStyle.Heavy` works there as it does with `expo-haptics`.
+
+## Call it from JavaScript
+
+```tsx title="App.tsx"
+import { Button } from "react-native";
+import { ImpactFeedbackStyle, impactAsync } from "lucent-haptics";
+
+export function LikeButton() {
+  return <Button title="Like" onPress={() => impactAsync(ImpactFeedbackStyle.Heavy)} />;
+}
+```
+
+Both example apps install the package as a `workspace:*` dependency. The repository's install test packs it and installs the tarball in a new app. To add it to your own app, follow [Install a Lucent package](/docs/guides/use-a-lucent-package/).

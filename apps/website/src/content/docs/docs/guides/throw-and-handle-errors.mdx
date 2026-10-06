@@ -1,31 +1,43 @@
 ---
-title: Throw and handle errors
-description: "`error(code, message)` throws an error JavaScript receives with its `code`. Errors from JavaScript and the SDK arrive the same way."
+title: Throw errors JavaScript can catch
+description: "Throw `error(code, message)` or an `Error` subclass; JavaScript catches an `Error` with the same `name`, `message` and `code`."
 kind: guide
 ---
-
-import { Tabs, TabItem } from "@astrojs/starlight/components";
 
 <Tabs>
 <TabItem label="module">
 
-```ts title="config.lucent.ts"
-import { error, errorCode } from "lucent:core";
+```ts title="settings.lucent.ts"
+import { delay, error, errorCode } from "lucent:core";
 
-export type Config = { name: string; retries: number };
-
-export function parseConfig(text: string): Config {
-  if (text.trim().length === 0) throw error("E_EMPTY", "The config is empty");
-  return JSON.parse(text) as Config;
+export class SettingError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SettingError";
+  }
 }
 
-export function retriesOr(text: string, fallback: number): number {
+const values = new Map<string, string>();
+
+export function read(key: string): string {
+  const value = values.get(key);
+  if (value === undefined) throw error("E_NOT_FOUND", `No setting named ${key}`);
+  return value;
+}
+
+export function readOr(key: string, fallback: string): string {
   try {
-    return parseConfig(text).retries;
+    return read(key);
   } catch (e) {
-    if (e instanceof Error && errorCode(e) === "E_EMPTY") return fallback;
+    if (e instanceof Error && errorCode(e) === "E_NOT_FOUND") return fallback;
     throw e;
   }
+}
+
+export async function save(key: string, value: string): Promise<void> {
+  if (key === "") throw new SettingError("A setting needs a name");
+  await delay(10); // stand-in for writing to disk
+  values.set(key, value);
 }
 ```
 
@@ -33,21 +45,45 @@ export function retriesOr(text: string, fallback: number): number {
 <TabItem label="JS usage">
 
 ```tsx title="App.tsx"
-try {
-  parseConfig("");
-} catch (e) {
-  if ((e as { code?: string }).code === "E_EMPTY") showDefaults();
-  else throw e;
+import { read, save } from "./src/settings.lucent";
+
+function theme(): string {
+  try {
+    return read("theme");
+  } catch (e) {
+    // e.name "Error", e.message "No setting named theme", e.code "E_NOT_FOUND"
+    if ((e as { code?: unknown }).code === "E_NOT_FOUND") return "light";
+    throw e;
+  }
 }
+
+save("", "dark").catch((e: Error) => {
+  e.name; // "SettingError"
+  e.message; // "A setting needs a name"
+});
 ```
 
 </TabItem>
 </Tabs>
 
-- `error(code, message)` from `lucent:core` makes an `Error` with a `code`. Test the code, not the message.
-- JavaScript receives an `Error`, `TypeError` or `RangeError`, with the same `name`, `message` and `code`. Its stack starts at the line that made the error.
-- Only `Error` values can be thrown (`LUCENT1006`). Subclasses reach JavaScript as plain errors, with their name, message and code.
-- An async export's error rejects its promise. A JS callback's error, or a rejected promise you `await`, is thrown in Lucent, with its `code`.
-- SDK errors arrive the same way: a Java exception's `code` is its class, and an `NSError`'s is `domain:code`.
+`error(code, message)` from [lucent:core](/docs/api/lucent-core/#error) makes an `Error` with a `code`. JavaScript reads it as `e.code`, and Lucent code with `errorCode(e)`. Branch on the code: the message is for people.
 
-An error that nothing catches in an SDK callback is logged: `[lucent] uncaught exception in …`, in the unified log on iOS and logcat on Android.
+## What JavaScript catches
+
+- A synchronous export throws at the call. An `async` export rejects its promise instead, even when it throws before its first `await`.
+- An argument of the wrong type throws a `TypeError` at the call, for an `async` export too ([When a value doesn't match](/docs/api/language/boundary/#when-a-value-doesnt-match)).
+- A subclass instance arrives as an `Error` with its `name` and `message`, so `instanceof SettingError` is `false`. Its other fields are dropped, a `code` field you declare included: neither JavaScript nor `errorCode` sees it.
+
+The full rules are in [The boundary](/docs/api/language/boundary/#errors), and how errors differ from JavaScript's in [Errors and cancellation](/docs/api/language/differences/#errors-and-cancellation).
+
+:::caution
+Give an error subclass a constructor that calls `super(message)`. Without one, the message is dropped ([Known gaps](/docs/api/language/differences/#known-gaps)).
+:::
+
+## Errors that reach Lucent
+
+`catch` handles the errors the SDK throws, and a rejected promise you `await`, a callback's included. It also catches a JavaScript callback's throw when Lucent calls the callback during a synchronous call. A posted `void` callback's throw is only logged ([Callbacks](/docs/api/language/boundary/#callbacks)).
+
+An `NSError`'s code is `"<domain>:<code>"` ([iOS](/docs/api/ios-sdk/#errors)), and a Java exception's is its class name ([Android](/docs/api/android-sdk/#errors)).
+
+Only an `Error` can be thrown: `throw "text"` fails with [LUCENT1006](/docs/api/diagnostics/#lucent1006).

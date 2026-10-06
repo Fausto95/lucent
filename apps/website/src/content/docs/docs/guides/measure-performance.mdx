@@ -1,34 +1,89 @@
 ---
-title: Measure performance
-description: "`lucent bench` times each case natively and as JavaScript, and shows the speedup."
+title: Compare a module's speed with JavaScript
+sidebar_label: Measure performance
+description: "Export cases from a `*.bench.ts` file and run `lucent bench`: it checks that each case returns the same result natively and as JavaScript, then times both."
 kind: guide
 ---
 
-```ts title="src/path.bench.ts"
-import { pathLength, spiralLength } from "./path.lucent";
+<Tabs>
+<TabItem label="module">
 
-const points = Array.from({ length: 1000 }, (_, i) => ({ x: Math.cos(i / 10) * i, y: Math.sin(i / 10) * i }));
+```ts title="primes.lucent.ts"
+export type Point = { x: number; y: number };
+
+/** How many primes are below `limit`. */
+export function countPrimes(limit: number): number {
+  const composite = new Array<boolean>(limit).fill(false);
+  let count = 0;
+  for (let i = 2; i < limit; i++) {
+    if (composite[i]) continue;
+    count++;
+    for (let j = i * i; j < limit; j += i) composite[j] = true;
+  }
+  return count;
+}
+
+/** The point farthest from the origin. */
+export function farthest(points: Point[]): Point | undefined {
+  let best: Point | undefined;
+  for (const p of points) {
+    if (!best || p.x * p.x + p.y * p.y > best.x * best.x + best.y * best.y) best = p;
+  }
+  return best;
+}
+```
+
+</TabItem>
+<TabItem label="primes.bench.ts">
+
+```ts title="primes.bench.ts"
+import { countPrimes, farthest } from "./primes.lucent";
+
+const points = Array.from({ length: 10_000 }, (_, i) => ({ x: i, y: -i }));
 
 export default {
-  objects: () => pathLength(points),
-  native: () => spiralLength(1000),
+  primes: () => countPrimes(100_000),
+  farthest: () => farthest(points),
 };
 ```
+
+</TabItem>
+</Tabs>
 
 ```sh title="terminal"
 npx lucent bench
 ```
 
 ```sh title="terminal" nocopy
-CASE      JS         LUCENT     SPEEDUP
-src/path.bench.ts
-objects   54.0 µs    67.1 µs    0.8x
-native    90.9 µs    7.9 µs     11.5x
+building the native host (the first run compiles the runtime)…
+
+CASE       JS        LUCENT     SPEEDUP
+src/primes.bench.ts
+primes     34.0 ms   837.8 µs   40.6x
+farthest   1.03 ms   3.18 ms    0.3x
 
 per call, best of 5 rounds; desktop Hermes, so devices differ
 ```
 
-- A `*.bench.ts` file next to your modules exports an object of cases: functions without arguments.
-- Each case runs as your compiled module and as the same TypeScript run as JavaScript, in a desktop Hermes. The results must be equal.
-- A speedup below 1x usually means the call copies more data than it computes on. [Design the boundary first](/docs/thinking/boundary-first/) explains why.
-- Absolute times differ on devices; the comparison carries over. For numbers on a device, time the call in the app's release build.
+- `lucent bench` runs every `*.bench.ts` file in the app, outside `node_modules`, `ios` and `android`. Its default export names the cases: functions without arguments. It can import modules and other bench files by relative path, and `lucent:core`: nothing else, not even a plain `.ts` helper.
+- Each case runs once as your compiled module and once as the same TypeScript run as JavaScript. The two results must be equal as JSON: otherwise its row says `results differ`, and the command exits with 1.
+- Then both are timed, in a desktop Hermes on your computer. `JS` and `LUCENT` are the time per call, and `SPEEDUP` is the first divided by the second.
+- `--json` prints each case's `js` and `native` milliseconds, its `speedup`, and `same` for the result check.
+
+`primes` runs 40 times faster natively. `farthest` runs slower: it copies 10,000 objects into native code to do little with each. Few calls that each do a lot, on data that stays native, pay off: [Shaping a module's API](/docs/architecture/api-design/) explains why.
+
+## What the numbers mean
+
+- Your module's C++ is compiled with optimizations on, as in a release build of the app. Times on a device differ: for those, time the call in a release build of the app.
+- A bench file can't import a module with platform code. Its JavaScript run has no `lucent:platform` or SDK modules, so the whole run fails with `cannot resolve lucent:platform`. Benchmark the shared code it calls.
+- A case runs synchronously. An `async` export's case reports `results differ`, because its promise isn't awaited.
+
+## Give it a desktop Hermes
+
+`lucent bench` builds its host against Hermes in `~/hermes`, or in the directory [`HERMES_DIR`](/docs/api/environment-variables/) names. Build it once, with CMake and Ninja:
+
+```sh title="terminal"
+git clone https://github.com/facebook/hermes ~/hermes
+cmake -S ~/hermes -B ~/hermes/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+ninja -C ~/hermes/build hermesvm jsi
+```

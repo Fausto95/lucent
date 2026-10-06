@@ -1,55 +1,160 @@
 ---
-title: Port an Expo Module
-description: Keep the TypeScript API, and write the Swift and Kotlin bodies as the two branches of one Lucent module.
+title: Port an Expo module
+description: "Make each `Constant`, `Function` and `AsyncFunction` an export of one module, with the Swift and Kotlin bodies as its `PLATFORM` branches, and import that module instead."
 kind: guide
 ---
 
-import { Tabs, TabItem } from "@astrojs/starlight/components";
-
-1. Copy the module's TypeScript API: its exported functions, types and enums. That's your module's export list.
-2. For each function, take the Swift and the Kotlin body and write them as the two branches of one Lucent function, `if (PLATFORM === "ios") { … } else { … }`.
-3. Keep the SDK calls; change the syntax. Swift's names work as they are, nested types join with `_`, and Kotlin's getters are properties.
-4. Replace `AsyncFunction(…).runOnQueue(.main)` with an `async` function whose SDK calls sit in `main()`.
-5. Replace `throw Exception(…)` with `throw error("ERR_CODE", message)`, keeping the original's codes, so JavaScript can test them.
-6. Replace events (`sendEvent`) with a callback parameter and a stop function. See [Send events to JavaScript](/docs/guides/send-events-to-javascript/).
-7. Delete the Swift, the Kotlin, the podspec, the Gradle file and `expo-module.config.json`. Point the JavaScript imports at the `.lucent` module.
-
 <Tabs>
-<TabItem label="Expo Module (Swift)">
+<TabItem label="Swift">
 
-```swift title="ClipboardModule.swift"
-AsyncFunction("hasStringAsync") { () -> Bool in
-  UIPasteboard.general.hasStrings
-}
-```
+```swift title="DeviceModule.swift"
+import ExpoModulesCore
+import UIKit
 
-</TabItem>
-<TabItem label="Lucent">
+public class DeviceModule: Module {
+  public func definition() -> ModuleDefinition {
+    Name("Device")
 
-```ts title="clipboard.lucent.ts"
-import { PLATFORM } from "lucent:platform";
-import { UIPasteboard } from "lucent:ios/UIKit";
-import { ClipboardManager, ClipDescription } from "lucent:android/android.content";
-import { appContext } from "lucent:android";
-import { main } from "lucent:thread";
+    Constant("osName") { "iOS" }
 
-export async function hasStringAsync(): Promise<boolean> {
-  if (PLATFORM === "ios") {
-    return UIPasteboard.general.hasStrings;
-  } else {
-    return main(() => {
-      const manager = appContext().getSystemService(ClipboardManager);
-      return manager?.getPrimaryClipDescription()?.hasMimeType(ClipDescription.MIMETYPE_TEXT_PLAIN) ?? false;
-    });
+    Function("isLowPowerMode") {
+      ProcessInfo.processInfo.isLowPowerModeEnabled
+    }
+
+    AsyncFunction("getModelAsync") {
+      UIDevice.current.model
+    }.runOnQueue(.main)
   }
 }
 ```
 
 </TabItem>
+<TabItem label="Kotlin">
+
+```kotlin title="DeviceModule.kt"
+import android.os.Build
+import android.os.PowerManager
+import expo.modules.kotlin.exception.Exceptions
+import expo.modules.kotlin.modules.Module
+import expo.modules.kotlin.modules.ModuleDefinition
+
+class DeviceModule : Module() {
+  override fun definition() = ModuleDefinition {
+    Name("Device")
+
+    Constant("osName") { "Android" }
+
+    Function("isLowPowerMode") {
+      val context = appContext.reactContext ?: throw Exceptions.ReactContextLost()
+      context.getSystemService(PowerManager::class.java)?.isPowerSaveMode ?: false
+    }
+
+    AsyncFunction("getModelAsync") {
+      Build.MODEL
+    }
+  }
+}
+```
+
+</TabItem>
+<TabItem label="index.ts">
+
+```ts title="modules/device/index.ts"
+import { requireNativeModule } from "expo-modules-core";
+
+const Device = requireNativeModule("Device");
+
+export const osName: string = Device.osName;
+export const isLowPowerMode = (): boolean => Device.isLowPowerMode();
+export const getModelAsync = (): Promise<string> => Device.getModelAsync();
+```
+
+</TabItem>
 </Tabs>
 
-Test the port next to the original: call both from one screen and compare. The [examples](/docs/examples/) are ports of six Expo and community modules, each checked this way.
+The same API as one Lucent module, and the app using it:
 
-:::caution
-Some SDK features aren't bound yet, such as Swift-only APIs, Android generic classes' members and iOS subclassing. [SDK types](/docs/reference/platform-types/#not-bound-yet) lists them; check before you start.
-:::
+<Tabs>
+<TabItem label="module">
+
+```ts title="device.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { ProcessInfo } from "lucent:ios/Foundation";
+import { UIDevice } from "lucent:ios/UIKit";
+import { appContext } from "lucent:android";
+import { Build, PowerManager } from "lucent:android/android.os";
+import { main } from "lucent:thread";
+
+export const osName = PLATFORM === "ios" ? "iOS" : "Android";
+
+export function isLowPowerMode(): boolean {
+  if (PLATFORM === "ios") return ProcessInfo.processInfo.isLowPowerModeEnabled;
+  return appContext().getSystemService(PowerManager)?.isPowerSaveMode() ?? false;
+}
+
+export async function getModelAsync(): Promise<string> {
+  if (PLATFORM === "ios") return main(() => UIDevice.current.model);
+  return Build.MODEL ?? "unknown";
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { getModelAsync, isLowPowerMode, osName } from "./src/device.lucent"; // was "./modules/device"
+
+console.log(osName, isLowPowerMode()); // "iOS" false
+getModelAsync().then((model) => console.log(model)); // "iPhone"
+```
+
+</TabItem>
+</Tabs>
+
+The SDK calls keep their names: Swift's on iOS, Java's on Android ([Call an iOS API](/docs/guides/call-an-ios-api/)). `.runOnQueue(.main)` becomes `main()`, and the compiler refuses a main-thread-only call outside it.
+
+## Map the module definition
+
+| Expo Modules | Lucent |
+| --- | --- |
+| `Name` | The module's file name. |
+| `Function` | `export function`, which runs on the JS thread. |
+| `AsyncFunction` | `export async function`, which runs on the Lucent thread ([Concurrency](/docs/api/language/concurrency/#where-each-kind-of-code-runs)). |
+| `Constant` | `export const`, copied when JavaScript first imports the module. |
+| `Property` | An exported function that returns the current value: JavaScript calls `prop()`, unless the package's `index.ts` wraps it in a getter. |
+| `Class` and shared objects | An exported class: JavaScript calls `new`, and each instance keeps its identity. |
+| `Events`, `sendEvent` and `addListener` | A function taking a callback and an `AbortSignal`, through `subscribe()` ([Stream events](/docs/guides/send-events-to-javascript/)). |
+| `OnAppEntersBackground`, `OnActivityEntersBackground` and the other lifecycle events | `onAppEvent()` on iOS, `onActivityEvent()` on Android ([Respond to the app lifecycle](/docs/guides/respond-to-app-lifecycle/)). |
+| An `Exception` with a code | `throw error(code, message)`: JavaScript reads `code` ([Throw errors](/docs/guides/throw-and-handle-errors/)). |
+| Records and enums | Object types and enums ([How each type crosses](/docs/api/language/boundary/#how-each-type-crosses)). |
+| `View` and `Prop` | An experimental component in a `.lucent.tsx` module ([Native views](/docs/guides/views/)). |
+
+## Remove the Expo module
+
+<Tabs syncKey="setup">
+<TabItem label="Expo">
+
+Delete `modules/device`, then rebuild with `npx expo run:ios` and `npx expo run:android` ([Apply a change](/docs/guides/apply-a-change/)).
+
+</TabItem>
+<TabItem label="Bare React Native">
+
+Delete the module's folder, run `pod install` in `ios/`, and rebuild the app.
+
+</TabItem>
+</Tabs>
+
+To keep the module a package, move its folder out of the app's and give it a `package.json` with a `lucent` field. Link it into the app's `dependencies` ([Develop a package inside an app](/docs/packages/develop-a-package-locally/)), and declare pods, permissions and `Info.plist` keys in its `lucent.json` ([Create a Lucent package](/docs/packages/create-a-package/)).
+
+Its `index.ts` can keep JavaScript-only helpers, such as an `addListener` that wraps the subscription.
+
+## Example ports
+
+Each is one module for both platforms, checked against the package it replaces:
+
+- [Port expo-clipboard](/docs/guides/examples/clipboard/): one SDK class per platform.
+- [Port expo-location](/docs/guides/examples/location/): a CoreLocation delegate, an Android listener, and a Play services `Task` awaited as a promise.
+- [Port NetInfo](/docs/guides/examples/netinfo/): the Network framework's C API with a block, and an Android class extended in Lucent.
+- [Port expo-local-authentication](/docs/guides/examples/local-authentication/): a completion handler awaited as a promise, and `NSError` out-parameters.
+- [Port expo-haptics as a package](/docs/packages/examples/haptics/): main-thread UIKit calls and Android API-level checks.
+- [Port expo-secure-store as a package](/docs/packages/examples/secure-store/): Keychain C functions and an Android Keystore key.

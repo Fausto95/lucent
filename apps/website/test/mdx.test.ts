@@ -10,7 +10,10 @@ const frontmatter = { title: "A page", description: "It shows `code`.", kind: "g
 
 /** Every kind of block, with text that Markdown or MDX would read as something else. */
 const blocks: Block[] = [
-  { kind: "p", text: "Plain, `code`, **strong** and [a link](/docs/install/#check-your-machine)." },
+  {
+    kind: "p",
+    text: "Plain, `code`, **strong** and [a link](/docs/guides/install/#when-init-cant-patch-a-file).",
+  },
   {
     kind: "p",
     text: "Characters MDX reads: {braces}, <angle> brackets, snake_case, a * b, ~tilde, [brackets].",
@@ -67,7 +70,10 @@ const blocks: Block[] = [
       { label: "Bare React Native", blocks: [{ kind: "list", items: ["a", "b"] }] },
     ],
   },
-  { kind: "cards", items: [{ title: "Install", text: "Set it up.", href: "/docs/install/" }] },
+  {
+    kind: "cards",
+    items: [{ title: "Install", text: "Set it up.", href: "/docs/guides/install/" }],
+  },
 ];
 
 describe("the docs' MDX", () => {
@@ -79,11 +85,11 @@ describe("the docs' MDX", () => {
     expect(page.blocks).toEqual(blocks);
   });
 
-  it("imports the components a page uses, and only those", () => {
+  it("imports no component: the site gives every page its components", () => {
     const mdx = pageToMdx(frontmatter, [{ kind: "comparison" }]);
 
-    expect(mdx).toContain('import Comparison from "~/components/Comparison.astro";');
-    expect(mdx).not.toContain("@astrojs/starlight/components");
+    expect(mdx).toContain("<Comparison />");
+    expect(mdx).not.toContain("import ");
   });
 
   it("says a generated page is generated", () => {
@@ -103,7 +109,7 @@ describe("the docs' MDX", () => {
     );
   });
 
-  it("names headings as Astro does", () => {
+  it("names headings as Docusaurus does", () => {
     expect(headingId("What's copied, and what isn't")).toBe("whats-copied-and-what-isnt");
     expect(headingId("When you need `main()`")).toBe("when-you-need-main");
   });

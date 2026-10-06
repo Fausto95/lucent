@@ -1,33 +1,100 @@
 ---
-title: Find an SDK class
-description: "`lucent sdk search` finds classes and members with the import to copy; `lucent sdk show` prints what Lucent code sees."
+title: Find an SDK class or member
+sidebar_label: Find an SDK class
+description: "`lucent sdk search` finds a class or member and its import, `lucent sdk show` prints the declaration your code sees, and `lucent sdk coverage --members` says why a member is missing."
 kind: guide
 ---
 
-```sh title="terminal"
-npx lucent sdk search BatteryManager
+```sh title="terminal" nocopy
+$ npx lucent sdk search FeedbackGenerator
+ios  UIKit
+  class  UICanvasFeedbackGenerator                     import { UICanvasFeedbackGenerator } from "lucent:ios/UIKit";
+  class  UIFeedbackGenerator                           import { UIFeedbackGenerator } from "lucent:ios/UIKit";
+  class  UIImpactFeedbackGenerator                     import { UIImpactFeedbackGenerator } from "lucent:ios/UIKit";
+  enum   UIImpactFeedbackGenerator_FeedbackStyle       import { UIImpactFeedbackGenerator_FeedbackStyle } from "lucent:ios/UIKit";
+  class  UINotificationFeedbackGenerator               import { UINotificationFeedbackGenerator } from "lucent:ios/UIKit";
+  enum   UINotificationFeedbackGenerator_FeedbackType  import { UINotificationFeedbackGenerator_FeedbackType } from "lucent:ios/UIKit";
+  class  UISelectionFeedbackGenerator                  import { UISelectionFeedbackGenerator } from "lucent:ios/UIKit";
+
+searched 191 modules (your imports and the SDK cache; lucent sdk prefetch --all to search every module)
 ```
+
+The search lists the classes and members whose name contains the term, by platform and module. A class's row ends with the import to copy, and a member's row names its class.
+
+It searches the modules your code imports and those in the SDK cache. To search the whole SDK, run `npx lucent sdk prefetch --all` once: it caches every module, which takes minutes.
+
+## See the declaration
 
 ```sh title="terminal" nocopy
-android  android.os
-  class  BatteryManager  import { BatteryManager } from "lucent:android/android.os";
-
-searched 297 modules of 299 (your imports and the SDK cache; lucent sdk prefetch --all to search every module)
-```
-
-The search matches classes and members, in the modules you import and those already cached. The import line is ready to copy. To search everything, run `lucent sdk prefetch --all` once.
-
-```sh title="terminal"
-npx lucent sdk show UIKit.UIDevice.batteryLevel
-```
-
-```sh title="terminal" nocopy
+$ npx lucent sdk show UIKit.UIImpactFeedbackGenerator
 // lucent:ios/UIKit
-export declare class UIDevice extends NSObject {
-  readonly batteryLevel: number;
+/**
+ * Native: Objective-C class UIImpactFeedbackGenerator, in UIKit.
+ * Main thread only: use it inside `main(() => …)` from lucent:thread.
+ * Since iOS 10.0.
+ */
+export declare class UIImpactFeedbackGenerator extends UIFeedbackGenerator {
+  private readonly __lucent_UIImpactFeedbackGenerator: never;
+  /**
+   * Since iOS 17.5.
+   * Native: +[UIImpactFeedbackGenerator feedbackGeneratorWithStyle:forView:], in UIKit.
+   */
+  constructor(style: UIImpactFeedbackGenerator_FeedbackStyle, view: UIView);
+  /** Native: -[UIImpactFeedbackGenerator initWithStyle:], in UIKit. */
+  constructor(style: UIImpactFeedbackGenerator_FeedbackStyle);
+  /** Native: -[UIImpactFeedbackGenerator impactOccurred], in UIKit. */
+  impactOccurred(): void;
+  /**
+   * Since iOS 17.5.
+   * Native: -[UIImpactFeedbackGenerator impactOccurredAtLocation:], in UIKit.
+   */
+  impactOccurred(location: CGPoint): void;
+  /**
+   * Since iOS 13.0.
+   * Native: -[UIImpactFeedbackGenerator impactOccurredWithIntensity:], in UIKit.
+   */
+  impactOccurred(intensity: number): void;
+  /**
+   * Since iOS 17.5.
+   * Native: -[UIImpactFeedbackGenerator impactOccurredWithIntensity:atLocation:], in UIKit.
+   */
+  impactOccurred(intensity: number, location: CGPoint): void;
 }
 ```
 
-`sdk show` prints what Lucent code sees: a class, or one member. Name it as `<module>.<Class>`, such as `UIKit.UIDevice` or `android.os.BatteryManager`. Doc comments say when a class is main-thread only, and the OS version each member needs.
+Name a type as `<Module>.<Type>`: `UIKit.UIImpactFeedbackGenerator`, or `android.os.Vibrator` for an Android class. You get the declaration your code is checked against, with its doc comments:
 
-Your editor shows the same declarations, since `lucent build` writes them to `.lucent/native/types/`.
+- `Native:` names the Objective-C, Swift, Java or Kotlin declaration it calls, and the module it comes from.
+- `Main thread only` means calling it in code the main thread runs, such as a `main()` function.
+- `Since iOS 17.5.` or `Since API 26.` is the version that added it. One newer than the oldest OS your app runs on needs a [version check](/docs/guides/check-the-os-version/).
+
+Add a member, as in `UIKit.UIImpactFeedbackGenerator.impactOccurred`, to print only its overloads, each with its doc comment.
+
+## Read it in your editor
+
+`lucent build` writes the declarations of the modules your code imports to `.lucent/native/types/`, and maps `lucent:*` to them in the app's `tsconfig.json`. Your editor then completes SDK names, and hovering one shows its declaration and doc comments.
+
+## When a member isn't there
+
+```sh title="terminal" nocopy
+$ npx lucent sdk show LocalAuthentication.LADomainStateCompanion.availableCompanionTypes
+// lucent:ios/LocalAuthentication
+export declare class LADomainStateCompanion extends NSObject {
+  /**
+   * Lucent cannot use this yet: set values cannot cross to Swift yet.
+   * Native: Swift LADomainStateCompanion.availableCompanionTypes, in LocalAuthentication.
+   */
+  readonly availableCompanionTypes: Set<LACompanionType>;
+}
+```
+
+A member Lucent can't use yet is declared with the reason in its doc comment, and using it fails to compile with that reason. A member Lucent couldn't type isn't declared at all. `lucent sdk coverage --members` lists both, with every other member of the module and how far each gets:
+
+```sh title="terminal" nocopy
+$ npx lucent sdk coverage --ios LocalAuthentication --members | grep availableCompanionTypes
+  discovered     LADomainStateCompanion.availableCompanionTypes                 set values cannot cross to Swift yet
+```
+
+A member that stops at `discovered` can't be called, for the reason given. [What isn't bound](/docs/api/ios-sdk/#what-isnt-bound) defines the stages, and `--android <packages>` measures Android packages instead.
+
+To use one now, wrap it in your own Swift, in a local pod, or your own Kotlin, in a Gradle module. The roadmap lists the [known limitations](/docs/releases/roadmap/#known-limitations).

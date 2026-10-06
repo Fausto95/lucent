@@ -1,0 +1,257 @@
+---
+title: "How do components compile?"
+sidebar_label: "Components"
+sidebar_class_name: experimental
+description: "The compiler describes each component as plain data, generates its Fabric sources and registration from it, and compiles its setup and body from source."
+kind: internals
+---
+
+A component is an exported function of a `.lucent.tsx` module whose code returns a platform view. The compiler describes it instead of exporting it as a JavaScript function.
+
+Under the internal switch [`LUCENT_VIEWS=fabric`](/docs/api/environment-variables/#variables) (`ui/switch.ts`), it also generates what React Native's renderer needs; without it, components are only described. `lucent:ui` and the toolkit modules resolve only under the switch.
+
+This page covers the compiler's side, in `packages/compiler/src/ui/` and the `emit/` files it names. [docs/design/views.md](https://github.com/Fausto95/lucent/blob/main/docs/design/views.md) records what the hosts do at run time: registration, the mount lifecycle, threads, sizing and children. [How native views work](/docs/architecture/views/) explains the design to users, and [its limits](/docs/architecture/views/#limits) list what views can't do yet.
+
+```text title="What one component generates" nocopy
+.lucent/native/
+  cpp/generated/<target>/
+    m_<module>.h, m_<module>.cpp or .mm     <Export>_Props, <Export>_Commands, <Export>_setup()
+    views/<registration>.h, .cpp            props, events, shadow node, descriptor, Mount
+    views/<registration>_mount.cpp          the Mount: commits into signals, setup, commands
+    views/lucent_views.h, .cpp              registerComponents(): every descriptor
+    views/<registration>ComponentView.mm    iOS: the view React Native's renderer creates
+    views/<registration>.swift              iOS: a SwiftUI body
+    views/<registration>_android.cpp        Android: the mounted component, for the C++ host
+    views/lucent_hosts.cpp                  Android: every component the C++ host can mount
+  android/src/main/java/dev/lucent/
+    generated/<registration>Manager.java    Android: the component's view manager
+    LucentViewManagers.java                 Android: the managers LucentPackage returns
+    compose/<registration>.kt               Android: a Compose body
+  android/include/react/renderer/components/lucentnative/ComponentDescriptors.h
+  react-native.config.js                    componentDescriptors, for autolinking
+  js/<module>.js                            the component's React export
+  types/views/<module>.d.ts                 its React-facing declarations
+```
+
+## Which exports are components
+
+`analyzeViews()` in `ui/analyze.ts` reads every exported function of a `.lucent.tsx` module, in the code the target runs. `returnShape()` in `ui/roots.ts` decides by what the function returns.
+
+- A view is an object of a class deriving from the platform's root view class: UIKit's `UIView`, or Android's `View` in `android.view`. Every view class is recognized by its ancestry in the discovered SDK, not from a list.
+- A toolkit's root counts too: SwiftUI's `UIHostingController`, Compose's `ComposeView` (`ui/toolkits.ts`).
+- A function returning a view on some paths and another value on others fails (LUCENT3020). So does one returning a promise of a view.
+- A component takes one props object, or none, and no type parameters. Destructured props fail: setup runs once, so a destructured prop would keep its first value.
+- Lucent code can't call a component or use it as a value: only its host mounts it (LUCENT3020).
+
+The emitter leaves a component's declaration out of the module's functions (`emitProgram()`'s `components`). Helper views are left out too: they are their toolkit's code.
+
+## The description
+
+A component's description (`ComponentDescription` in `ui/contract.ts`) is plain data, and the one source every generator and host reads. Nothing about a component is registered or declared anywhere else. `VIEW_CONTRACT_VERSION` changes when its layout does.
+
+| Field | Where it comes from |
+| --- | --- |
+| `id` | `<package>/<module path>#<export>` (`ui/identity.ts`). A Lucent package's path is under its sources, an app's under the directory of its `package.json`. Platform files share their module's path. |
+| `registration` | `Lucent<export>_<hash>`, the hash being the first 12 hex digits of the id's SHA-256. It is valid in C++, Objective-C and Java. |
+| `props` | The props object's type: numbers, strings, booleans, string literal unions, arrays and plain objects, each maybe null or missing (`ui/values.ts`) |
+| `events` | Callback props named `on…` that return nothing. Each has a slot number, in prop order, and a delivery: discrete, or `Continuous<F>` or `Coalesced<F>` from `lucent:ui`. |
+| `commands` | The object literal setup gives `expose()` once, at its top level (`ui/expose.ts`). A void command enqueues; any other answers a promise. |
+| `children` | A `children` prop of type `Children`. Setup makes its slot once, in a top-level `const`: `slot<UIView>()`, or `slot<ViewGroup>()` on Android (`ui/slot.ts`). |
+| `platforms` | Per platform, the root class the component returns, and the class its host registers |
+
+`ui/describe.ts` builds each part from the checked source, and names the component, member and path when a value can't be plain data (LUCENT3021). The analyses check that setup, the functions it creates and the functions its commands name can run on the main thread (LUCENT3022). There, calling an event prop (`props.onChange?.(v)`) only posts its arguments.
+
+Each target describes the components it implements. `mergeComponents()` in `ui/merge.ts` joins them, and refuses props, events or commands that differ between platforms. A component on one platform must be one on every platform compiled (LUCENT3023).
+
+## The React side
+
+Each module's proxy exports its components (`componentExports()` in `ui/proxy.ts`) as data. The views runtime (`runtime/js/views.js`) makes each a React component that renders the native view registered under the registration name. `componentDeclarations()` writes their React-facing types, which the native package keeps in `types/views/<module>.d.ts`.
+
+Props and events travel under keys of their own (`ui/transport.ts`), so they never meet React Native's view props.
+
+- Prop `i` travels as `p<i>`. A nullable value travels boxed, `[value]`, because React sends a removed prop as null.
+- The handler of event slot `n` is `e<n>`, true while JavaScript listens. The view dispatches `lucent<n>`, which React Native registers as `topLucent<n>`.
+- An event's arguments travel by position (`{ args }`), because React Native sets `target` on every payload.
+- A command that answers carries a request id, settled once through the native host's `__lucentViewRequests` channel. It rejects with an `AbortError` if its view unmounts first, and a command sent to an unmounted view fails with an `InvalidStateError`.
+
+A module's API hash covers its components' contracts, so changing one changes the build identity [React Native integration](/docs/architecture/internals/react-native/) checks.
+
+## Fabric sources
+
+`fabricSources()` in `ui/fabric.ts` writes `views/<registration>.h` and `.cpp` for each component, in namespace `lucent::views::<registration>`. Their values have plain C++ types (`double`, `bool`, `std::string`, `std::vector`, `std::optional` for null, a struct per object and per enum), which the renderer may build on any thread.
+
+- `Values` holds each prop, missing (never set, or removed) or its value. `Props` derives from `ViewProps`, with the values, which events JavaScript listens to, and `changed()` against the previous commit.
+- One struct per event, and an `EventEmitter` with one `emit` per event. A discrete event dispatches in React Native's discrete category and a continuous one in its continuous category. A coalesced event is dispatched as a unique event, which replaces the view's latest waiting event of its type.
+- The `ShadowNode` is a `HostShadowNode` (`LucentViewSizing.h`), a leaf taking the size its style and flex give it, else its content's. A component taking children gets a `SlotShadowNode` (`LucentViewSlots.h`). Then come the `ComponentDescriptor` and the commands' typed arguments.
+- The `Mount` a platform host drives is declared there too: `create`, `view`, `update`, `setEmit`, `command` and `dispose`.
+
+`views/lucent_views.h` and `.cpp` hold `registerComponents()`, which adds every component's descriptor.
+
+## Setups
+
+`emit/setups.ts` compiles each component's setup through the IR, as functions are. Setup runs once per mount, on the main thread, in the mount's scope. In the module's namespace, a component `Meter` gets:
+
+- `Meter_Props`, with a signal per prop (`lucent::ui::Signal`, on the main context's reactive graph in `lucent/view.h`) and a route per event;
+- `Meter_Commands`, with a `lucent::Fn` per command, which `expose()` fills;
+- `Meter_setup(props, commands)`, which returns the view as a `lucent::NativeRef`. A component taking children gets its host's slot as a third parameter, which `slot()` in setup is.
+
+Inside setup, `lucent:ui` lowers to the runtime's reactive graph.
+
+| Code | Becomes |
+| --- | --- |
+| `props.name` | The prop's signal, read; inside an effect, the effect runs again when a commit changes it |
+| `props.onChange?.(v)` | The arguments, sent along the event's route |
+| `signal(v)`, `s.get()`, `s.peek()`, `s.set(v)` | A `lucent::ui::Signal` of the main graph |
+| `effect(() => …)` | `lucent::ui::effect()`, named by its source line in loop reports |
+| `onDispose(() => …)` | A cleanup of the mount's scope |
+| `invalidateSize()` | Marks the mount's content to be measured again, from code no setup function runs, such as after an `await` |
+| `expose({ … })` | The command table's entries |
+| `slot()` | The slot the host made for this mount |
+
+Setup constructs the native objects it shows (`new UILabel()`), as any Lucent code does, and the mount holds them until the host destroys it. Reading a prop while setup runs, outside any function, warns (LUCENT3021): later commits never reach it.
+
+Every function setup creates enters the main context when the platform calls it, and never takes the Lucent lock (`callbackEntry()`). It also enters its mount whenever it runs: the IR's `closure` op `enters` the setup's ambient mount, `lucent_content`. So the host hears that the mount's code ran, and measures it again.
+
+A Lucent class given to the platform from a setup is refused, because its methods would run in module code, holding the lock (`emit/native.ts`).
+
+## The mount glue
+
+`mountUnit()` in `emit/setups.ts` writes `views/<registration>_mount.cpp`, which defines the component's `Mount`. Each method enters the main context itself, so a host calls it as it is. An `update` from another thread is posted there.
+
+| Method | What it does |
+| --- | --- |
+| `create` | At committed mount: makes the props' signals and the events' routes to the host's `emit`, then runs setup once, in the mount's scope. `rn/LucentViewValues.h` converts the commit's values. |
+| `update` | A later commit, from any thread: the changed props and listened-to events, applied as one transaction on the main thread |
+| `setEmit` | A new event emitter; the native subscriptions setup made stay |
+| `command` | A command, after the pending props; a request answers once through `lucent::views::Respond` |
+| `dispose` | Ends the scope: effects, cleanups, subscriptions, routes and the view are released, and requests still owed are rejected |
+
+Errors setup and commands throw are reported with the component's identity and source line (`lucent::ui::reportViewError`).
+
+## Host glue
+
+`emit/views.ts` writes each platform's glue for the shared hosts in `runtime/cpp/rn`.
+
+- **iOS.** `views/<registration>ComponentView.mm` subclasses `LucentComponentView`. Its `+load` registers it with React Native's component view factory, and it provides the component's descriptor and a `Mounted` over its `Mount`.
+- **Android.** `views/<registration>_android.cpp` is the same `Mounted`, for the C++ host behind the Java managers, and `views/lucent_hosts.cpp` lists every component.
+- **Android registration.** `androidViewFiles()` in `ui/android.ts` writes a `LucentViewManager` subclass per component, and the `LucentViewManagers` list `LucentPackage` returns.
+- **Android autolinking.** `autolinkingConfig()` adds each descriptor to `react-native.config.js` as `componentDescriptors`, wrapped in `HostDescriptor`, with the `ComponentDescriptors.h` autolinking includes.
+
+While Android is deferred to the app's Gradle build, every described component gets its Android registration. A component on one platform is one on every platform, so that build implements each one, or fails.
+
+## Typing JSX
+
+Under the switch, `compilerOptions()` sets `jsx: react-jsx` with `lucent:jsx` as the import source. The compiler host resolves each file's implicit `lucent:jsx/jsx-runtime` import with `jsxRuntimeOf()` in `program.ts`.
+
+| File | Its JSX is |
+| --- | --- |
+| `*.ios.lucent.tsx` | `lucent:swiftui`, whose `JSX` namespace types SwiftUI's views and UIKit's view classes |
+| `*.android.lucent.tsx` | `lucent:compose`, whose `JSX` namespace types Compose's composables and Android's view classes |
+| a shared `.lucent.tsx` | `lucent:jsx`, the virtual `toolkit/jsx.d.ts` |
+
+In `lucent:jsx`, `JSX.Element` is every typed toolkit's element at once (`View & Composed`), and `JSX.ElementType` either toolkit's component. So a one-file component writes each platform's toolkit in that platform's branch. The native package's `types/` holds it as `jsx.d.ts`, for the app's TypeScript.
+
+`platformScopes()` takes a toolkit module as its platform's code, as it takes the SDK's, and refuses a toolkit's name outside it (LUCENT3024). `lucent:ui` is every platform's. `TypeRegistry` lowers a shared file's element type to the target's toolkit's.
+
+The editor plugin resolves JSX the same way, as [Tooling](/docs/architecture/internals/tooling/) explains.
+
+## Toolkit bodies
+
+A component may return its toolkit's JSX: its body. `bodyOf()` in `ui/toolkit-body.ts` finds it: the JSX setup returns in the platform's code, once, as its last statement, with the modifiers chained after it. It prunes the other platform's branches (`branchPlatform()`), and `jsxToolkitOf()` tells a shared file's JSX by its branch, else by the views it shows.
+
+The body is written in the toolkit's language and never as C++. The rest of the setup is C++, and the two meet through slots:
+
+- **Value slots.** Plain data the setup computes, such as `props.title`, `on.get()`, a template of them, or what a setup function returns. Each is the IR's thunk, a function of the setup's code, which an effect of the mount calls and sets on the toolkit's state.
+- **Action slots.** A setup function the body calls from a callback, or passes as one. The toolkit calls it, and it runs as Lucent code in the main context, entering its mount.
+- **List slots.** An array shown item by item (SwiftUI's `ForEach`, Compose's `items`), each item keyed by a string or a number. The toolkit keeps one model per key, and the setup keeps the items by key (`lucent::ui::Items`) for actions.
+
+`emit/toolkit.ts` makes the host where setup returns the body, feeds every slot, and refuses a toolkit's JSX anywhere else (LUCENT3024). Numbers, booleans and strings cross as they are, and other values are encoded (`emit/toolkit-values.ts`). The body holds no logic of its own: it can't change the setup's state, send events or read the setup's other values.
+
+A helper view (`ui/view-helpers.ts`) is a function of the file that isn't exported and returns its toolkit's JSX. It is written once per component in the toolkit's language. The emitter, the module's registration and the analyses leave it out.
+
+Where a body uses a helper, what the helper computes from its props is a value slot of that place (`ValueSlot.use`). The slot's thunk first evaluates, once, what the element gives each prop the helper reads (`Thunk.given`).
+
+### SwiftUI
+
+`lucent:swiftui` is generated from the installed SDK's SwiftUI, read as source by bindgen (`sdkSourceModule()`, with SwiftUICore, which SwiftUI exports). Its schemas are cached like the SDK's.
+
+- Each parameter records its Swift label, and whether it is a value, an action or a builder's content. Bindgen's `callForms()` turns them into Lucent's call forms.
+- `sdk/toolkit-dts.ts` declares one overload per form, tagged `@swift <symbol> <form>`. A view's type also takes one JSX signature per form (`jsxForm()`). Its labels are attributes, and a trailing builder's content or its first unlabeled string is its children.
+- A view's props end with its modifiers as attributes (`<Type>$Modifiers`). `sdk/toolkit-forms.ts` adds Lucent's own forms, such as keyed lists (`@list`).
+- What a form can't write yet is skipped, or refused by the member's plan (`source-plan.ts`, backend `swift-source`). `lucent sdk coverage` counts both in a `lucent:swiftui` row.
+
+`emit/swiftui.ts` writes the body as `views/<registration>.swift`: an actions class, an `ObservableObject` model with a `@Published` property per value slot, the `View`, and `@_cdecl` functions. Each element and call follows its member's schema (`ui/source-members.ts` reads the tag back), and members newer than the app's deployment target are refused. The setup reaches the body through the C functions of `lucent/platform/swiftui.h`.
+
+- An element's attributes named by its initializer's labels are arguments; the others are modifiers, applied in the order written. A conditional view in content is SwiftUI's `if`.
+- `withAnimation()` in setup code calls a per-site shim that runs SwiftUI's `withAnimation` around the Lucent code.
+- The `make` function returns a generated `UIHostingController` subclass, which the host shows in the nearest view controller. It tracks its content's ideal size (iOS 16), and each change marks the mount's content to be measured again.
+
+### Compose
+
+`lucent:compose` is declared from the Compose release the generated Android library builds with (`COMPOSE_BOM` in `native-build-files.ts`), not the app's. Its schemas ship in `lib/sdk/compose.schemas.json.gz`, made by `scripts/compose-bindings.ts` with bindgen's `extractKotlinApi()`.
+
+- `ui/compose-dts.ts` writes the declarations after `lucent:compose`'s own (`lib/sdk/compose.d.ts`), by rules. Kotlin's `Float`, `Int`, `Long`, `Short` and `Byte` are branded numbers, so generics keep them.
+- Each declaration keeps its binding (`ui/compose-api.ts`): the member, each parameter's name, position, kind (content, callback or value), default and Kotlin type.
+- A composable showing UI is an element: its props are Kotlin's named arguments, and its children its trailing content lambda.
+- The setup's statements that compose (`remember`, `animateDpAsState`, `LaunchedEffect`) are lifted into the content, before what the JSX shows (`ui/composition.ts`). The setup's C++ leaves them out.
+
+`ui/compose.ts` writes `dev/lucent/compose/<registration>.kt`: the `<registration>State` holder, the `@Composable` `<registration>Content` and the `<registration>Host` object. The host object gives the content to the runtime's `LucentComposition`, which owns the `ComposeView` and its composition.
+
+While views are on, `lucent sdk` lists, shows and counts Compose's packages as Android modules (`sdk/modules.ts`).
+
+`emit/compose.ts` makes the state holder in the setup (`lucent/platform/compose.h`). An effect sets each value slot on it, and each action slot is a Kotlin function object that enters the main context. With Compose content, the Android library applies the Compose compiler plugin at the app's Kotlin version and compiles the runtime's Compose sources.
+
+## Platform-view JSX
+
+A component may return JSX of UIKit or Android view classes, such as `<UIStackView spacing={8}>`. No view, prop or event is listed in Lucent: `sdk/view-rules.ts` derives what each class takes, by rule, from its binding schema.
+
+| Part | iOS | Android |
+| --- | --- | --- |
+| Props | Writable properties | Writable Kotlin properties, and one-value `set<X>` methods: each name is one prop, its overload chosen by the value's type |
+| Events | `on<Case>` for each single-bit case of a class declaring `addAction:forControlEvents:` | `on<X>` for `setOn<X>Listener(L)`, where `L` has one method |
+| Children | Inserted by the nearest class's `insert<X>:atIndex:` | Inserted by `addView(View, int)` |
+| Construction | `initWithFrame:` with a zero frame, else `init` | The `(Context)` constructor, given the hosting view's context |
+
+A class without a rule for construction takes `create={() => new X(…)}`, which every class tag accepts. `sdk/native-jsx-dts.ts` declares each view class as a tag in the toolkits' and the shared file's `JSX` namespaces, typed with its declarations' `~jsx` attributes.
+
+`emit/native-jsx.ts` lowers the JSX as the setup a person would write:
+
+- each element's view is made when the component mounts, in source order, a parent before its children;
+- each prop is an effect of the mount, set again whenever what it read changes, and a literal is set once;
+- each event's handler is evaluated once, registered, and taken back when the mount ends;
+- children are inserted in order, by their parent class's method;
+- a branch (`cond && <X />`, `c ? <X /> : <Y />`) is an effect choosing which element shows, each made in a scope of its own and ended when it goes;
+- a keyed list (`items.map((item) => <X key={item.id} />)`) makes one element per key in its own scope, with `item` a signal the list writes when the key's item changes.
+
+The JSX must be what the component returns, as its last statement (LUCENT3025). A prop reading a copy setup made of a prop fails too: the attribute would never change.
+
+`lucent sdk coverage --views` lists what each class's tag takes and what the rules leave out (`ui/view-coverage.ts`).
+
+### Children that come and go
+
+When every child is an element, each is inserted once at its index. With a branch or a list among them, each child is a region of the parent's children (`lucent/ui_children.h`). `ChildRegions` gives where a region starts, and `ChildOps` inserts, removes and moves a view through the parent's class.
+
+`sdk/view-rules.ts` finds the remove method beside the insert one: iOS's `remove<X>:` then `removeFromSuperview` (a move inserts again), Android's `removeView`.
+
+`KeyedList` reconciles a new array by key. A kept key keeps its view and scope, a gone key ends its scope, and moves walk the new order. A duplicate or `NaN` key throws before anything changes, and the list keeps its children.
+
+The reference backend in `packages/runtime/test/ui_children_test.cpp` records each insert, remove and move.
+
+### Flex
+
+`ui/roots.ts` (`isFlexTag`) recognizes `lucent:ui`'s `Flex`, which `emit/native-jsx.ts` lowers apart from SDK tags. Its view and Yoga node come from `lucent::ui::flex::container` (`lucent/ui_flex.h`), and each child that isn't a Flex becomes a leaf node (`flex::leaf`). Every `style` or `layout` key is an effect setting the node's key, and children go through `ChildOps`.
+
+The core is `lucent/layout.h`, on React Native's own `<yoga/Yoga.h>`. `platform/ios_layout.mm` (`LucentFlexView`) and `platform/android_layout.cpp` with `dev.lucent.LucentFlexView` adapt it: the outermost Flex lays the tree out in its platform's layout pass, and each writes its own children's frames.
+
+## Diagnostics
+
+| Code | Raised by | When |
+| --- | --- | --- |
+| LUCENT3020 | `ui/analyze.ts` | An export isn't a valid component, or Lucent code uses a component |
+| LUCENT3021 | `ui/analyze.ts` (messages from `ui/describe.ts`), `emit/setups.ts`, `emit/native.ts` | A contract can't be described, `expose` or `slot` is called outside a setup's top level, or setup reads a prop once. Also when a setup gives the platform a Lucent class. |
+| LUCENT3022 | `ui/analyze.ts` | Setup or a command can't run on the main thread |
+| LUCENT3023 | `ui/analyze.ts`, `ui/merge.ts` | A component differs between platforms, or exists on some only |
+| LUCENT3024 | `platforms.ts`, `ui/toolkit-body.ts` (also through `emit/toolkit.ts`), `ui/compose.ts`, `ui/composition.ts`, `emit/setups.ts` | A body breaks its rules, `bind` or `range` is used outside one, or a toolkit's name is used outside its platform |
+| LUCENT3025 | `emit/native-jsx.ts`, `emit/native.ts`, `ui/toolkit-body.ts` | Platform-view JSX isn't what the component returns, or uses a view, attribute or child its class's declarations don't provide. A class made through Swift needs `create`. A list, `key`, `layout` or Flex attribute breaks its rules. |
+
+The tests are in `packages/compiler/test/ui/`. Some mount a component's Fabric glue on Mac Catalyst, as [docs/testing.md](https://github.com/Fausto95/lucent/blob/main/docs/testing.md) explains.

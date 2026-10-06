@@ -1,0 +1,64 @@
+---
+title: Find why a call is slow
+sidebar_label: Trace a slow call
+description: "Turn tracing on, make the call, and read its spans: a long lock wait, queued job, compute wait or copy names the cause."
+kind: guide
+---
+
+<Tabs>
+<TabItem label="iOS">
+
+```text title="Xcode scheme › Run › Environment Variables"
+LUCENT_TRACE=platform
+```
+
+</TabItem>
+<TabItem label="Android">
+
+```sh title="terminal"
+adb shell setprop debug.lucent.trace 1
+adb shell am force-stop com.example.app
+adb shell perfetto -o /data/misc/perfetto-traces/app.pftrace -t 20s -a com.example.app
+adb pull /data/misc/perfetto-traces/app.pftrace
+```
+
+</TabItem>
+<TabItem label="Desktop">
+
+```sh title="terminal"
+LUCENT_TRACE=trace.json npx lucent bench
+npx lucent trace --runtime trace.json
+```
+
+</TabItem>
+</Tabs>
+
+The app reads the setting when it first loads a module, so start it again after you change it. [Capture settings](/docs/api/trace-events/#capture-settings) names the spans on each platform.
+
+- iOS: run Product › Profile, which takes the Run action's environment, and record with the os_signpost instrument.
+- Android: while `perfetto` records, open the app and make the call. Open the pulled file in ui.perfetto.dev. Spans need Android 10 (API 29) or later, and older versions show instant events only.
+- Desktop: `lucent bench` traces your [benchmark cases](/docs/guides/measure-performance/) and writes `trace.json` when it exits. [The buffer](/docs/api/trace-events/#the-buffer) keeps the latest 65,536 events, and each case runs thousands of times, so trace a bench file holding one case. `lucent trace` adds the last build's steps, writes `.lucent/trace.json` for ui.perfetto.dev, and prints each category's total:
+
+```sh title="terminal" nocopy
+✓ wrote .lucent/trace.json  open it in ui.perfetto.dev or chrome://tracing
+  build            resolve 6 ms · resolve:android 2 ms · check 234 ms · generate 53 ms
+  trace.json       entry 445 ms · lock 0.029 ms · queue 0.074 ms · run 0.002 ms
+```
+
+## Read the cause
+
+Find the call's `entry` span, named after the export. An async call's later spans share its `id`, and Perfetto links them with arrows.
+
+| In the call's spans | Cause | What to do |
+| --- | --- | --- |
+| A long `lucent-lock` | Other module code held the [Lucent lock](/docs/api/language/concurrency/#the-lucent-lock): a job, code given to `main()`, or an SDK callback. | Keep that code's turns short. Move long computations into [compute tasks](/docs/guides/run-in-parallel/), which run without the lock. |
+| A long `wait` before a short `run` | The job queued behind others on the Lucent thread. | The same. |
+| `compute.saturated`, then a long `compute.wait` | Every compute worker was busy. | Start fewer tasks at once, and [abort](/docs/guides/cancel-work/) those you no longer need. |
+| A long `transport.copy` | A compute task's input was large, and was copied. | [Pass a NativeBuffer](/docs/guides/pass-large-buffers/), which moves instead. |
+| A long `js.wait` | The result waited for a busy JavaScript thread. | Profile your JavaScript. |
+| Many `effect` spans at one line | A view's effect ran often: each span is one run, at its `.lucent.tsx` line. `lucent trace` lists the busiest lines. | Read only the signals and props the effect shows, so it runs less. |
+| A long `entry` or `run` alone | The work itself. A synchronous call's `entry` includes converting its arguments. | Benchmark it, and make fewer calls that each do more. |
+
+Tracing takes a mutex for each event: it's for debugging, not for production ([known limitations](/docs/releases/roadmap/#known-limitations)). On Android, set the property back to `0` and restart the app.
+
+[Trace events](/docs/api/trace-events/) lists every setting, category and field. Without `--runtime`, `lucent trace` shows the last build's steps, for a slow build.

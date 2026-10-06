@@ -464,9 +464,9 @@ export const Explanations: Record<Code, Explanation> = {
     sdk: "ios",
   },
   LUCENT3007: {
-    title: "Platform API newer than the oldest supported OS",
+    title: "Platform API newer than the app's oldest OS",
     summary:
-      "A platform API newer than the oldest supported OS version, used without an `available()` or `SDK_INT` check around it.",
+      "A platform API newer than the oldest OS the app runs on, used without an `available()` or `SDK_INT` check around it. That OS is the app's iOS deployment target, at least 15.1, or Android API 24.",
     details:
       "Apps run on older OS versions than the SDK they build with. An API introduced later crashes there, so Lucent requires a check that the running OS has it.",
     fix: 'check first: if (available("ios", 16)) …, if (available("android", 26)) … or Build_VERSION.SDK_INT >= 26',
@@ -633,7 +633,7 @@ export const Explanations: Record<Code, Explanation> = {
     summary:
       "JSX of UIKit or Android views that Lucent cannot make: a view, attribute or child its declarations do not provide for.",
     details:
-      "A component can return its platform's views as JSX, declared as returning UIView or View (internal, under LUCENT_VIEWS=fabric). A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Attributes are kept up to date like effects, and a child may come and go: `{cond && <X />}`, `{c ? <X /> : <Y />}`, or a keyed list, `{items.map((item) => <X key={item.id} />)}`.",
+      "A component can return its platform's views as JSX, declared as returning UIView or View (internal, under LUCENT_VIEWS=fabric). A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Attributes are kept up to date like effects, and a child may come and go: `{cond && <X />}`, `{c ? <X /> : <Y />}`, or a keyed list, `{items.map((item) => <X key={item.id} />)}`.\n\nA `<Flex>` takes only `style`, `key`, its children and, as a Flex's child, `layout`. `layout` goes only on a Flex's child. `style` and `layout` are object literals naming each key, and no key is set in both.",
     fix: "write each attribute on its element, and set what the declarations do not provide for in setup code",
     wrong: {
       ...NATIVE_TITLE,
@@ -690,5 +690,5 @@ export const Explanations: Record<Code, Explanation> = {
 
 /** Where a code is explained on the website. */
 export function docsUrl(code: string): string {
-  return `https://lucent-lang.dev/docs/reference/diagnostics/#${code.toLowerCase()}`;
+  return `https://lucent-lang.dev/docs/api/diagnostics/#${code.toLowerCase()}`;
 }

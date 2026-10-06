@@ -1,0 +1,107 @@
+---
+title: Develop a package inside an app
+description: Link the package's folder into an app's `dependencies`, let Metro and `lucent dev` watch it, and install the tarball `npm pack` writes before you publish.
+kind: guide
+---
+
+<Steps>
+
+1. ### Link the package into an app
+
+   ```sh title="terminal"
+   npm install ../lucent-device
+   ```
+
+   npm adds `"lucent-device": "file:../lucent-device"` to the app's `dependencies` and links the folder. In a pnpm or Yarn 2+ workspace, depend on `workspace:*` instead. Keep it in `dependencies`: Lucent doesn't look in `devDependencies`.
+
+   Keep the package's folder outside the app's: the app already compiles every module under its own.
+
+2. ### Let Metro see the folder
+
+   <Tabs syncKey="setup">
+   <TabItem label="Expo">
+
+   ```js title="metro.config.js"
+   const path = require("node:path");
+   const { getDefaultConfig } = require("expo/metro-config");
+   const { withLucent } = require("@lucent-lang/lucent/metro");
+
+   const config = getDefaultConfig(__dirname);
+   config.watchFolders.push(path.resolve(__dirname, "../lucent-device"));
+   config.resolver.nodeModulesPaths.push(path.resolve(__dirname, "node_modules"));
+
+   module.exports = withLucent(config);
+   ```
+
+   Inside the app's workspace, Expo's config already does both.
+
+   </TabItem>
+   <TabItem label="Bare React Native">
+
+   ```js title="metro.config.js"
+   const path = require("node:path");
+   const { getDefaultConfig, mergeConfig } = require("@react-native/metro-config");
+   const { withLucent } = require("@lucent-lang/lucent/metro");
+
+   const config = {
+     watchFolders: [path.resolve(__dirname, "../lucent-device")],
+     resolver: { nodeModulesPaths: [path.resolve(__dirname, "node_modules")] },
+   };
+
+   module.exports = withLucent(mergeConfig(getDefaultConfig(__dirname), config));
+   ```
+
+   </TabItem>
+   </Tabs>
+
+   Metro bundles each module's proxy from the package's folder, and the proxy imports `react-native`. `nodeModulesPaths` lets it find the app's copy.
+
+3. ### Watch the package
+
+   Start the app's dev server as usual. Metro runs [`lucent dev`](/docs/api/cli/#lucent-dev) beside it, which watches the app and every Lucent package outside it, and prints a line per build:
+
+   ```sh title="terminal" nocopy
+   [14:02:11] ✓ 2 modules  36 ms · rebuild the app · recompile native code (ios, android)
+   ```
+
+   It rebuilds when a module, `package.json`, `lucent.json` or a file `lucent.json` lists changes. Each line says whether to reload JavaScript or rebuild the app, as [Get a module change into the running app](/docs/guides/apply-a-change/) explains.
+
+   A mistake in `lucent.json` fails `lucent build` and `lucent check`, which say where it is, but your editor doesn't show it: see [when Lucent reads it](/docs/packages/package-json/#lucentjson).
+
+4. ### Test the packed package
+
+   ```sh title="terminal"
+   cd ../lucent-device && npm pack
+   cd ../my-app && npm install ../lucent-device/lucent-device-0.1.0.tgz
+   npx lucent build
+   ```
+
+   `npm pack` writes the tarball that `npm publish` uploads, holding what `files` lists. Installed from it, the package sits in `node_modules` as it will from npm, so a file missing from `files` shows up now. `lucent dev` doesn't watch `node_modules`, so link the folder again to keep working: `npm install ../lucent-device`.
+
+</Steps>
+
+## Type `lucent:*` in the package
+
+Your editor types `lucent:*` imports from the declarations a build writes to `.lucent/native/types`. Map the package's `tsconfig.json` to those of the app you link it into: its build reads the package's `lucent.json`, and `lucent dev` keeps them current.
+
+```json title="tsconfig.json"
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["es2022", "esnext.disposable", "dom"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "paths": { "lucent:*": ["../my-app/.lucent/native/types/*"] },
+    "plugins": [{ "name": "@lucent-lang/lucent/ts-plugin" }]
+  },
+  "include": ["index.ts", "src"]
+}
+```
+
+A build declares the modules the code uses, so a new `lucent:*` import is typed after the next build. In an app, React Native's types declare globals such as `AbortSignal` and `console`; here the `dom` library does.
+
+The plugin shows Lucent's errors as you type, once `@lucent-lang/lucent` is a dev dependency of the package: see [editor integration](/docs/api/integrations/).
+
+A package that imports only system SDKs can write its own declarations: run `npx lucent build` in its folder, map `./.lucent/native/types/*` and add `.lucent/` to `.gitignore`. That build doesn't read the package's `lucent.json`, so it types the system SDKs only.

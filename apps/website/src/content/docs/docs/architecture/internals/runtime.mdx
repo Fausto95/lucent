@@ -1,0 +1,256 @@
+---
+title: "How does the C++ runtime run Lucent code?"
+sidebar_label: "The runtime"
+description: "Values keep JavaScript's semantics, code runs on execution contexts that post jobs to each other, and scopes and hosts end what each owns."
+kind: internals
+---
+
+The runtime is `packages/runtime/cpp/lucent`: C++20 with no dependency beyond the standard library, two vendored libraries, and `lucent/jsi` at the boundary. `lucent build` copies it into the native package, and generated code includes `lucent/lucent.h`. [The compiler](/docs/architecture/internals/compiler/#the-native-representation-of-types) maps each TypeScript type to a runtime type; this page says what those types do and where code runs.
+
+## Example
+
+```ts title="stats.lucent.ts" cpp
+import { compute } from "lucent:core";
+
+let calls = 0;
+
+function sum(values: number[]): number {
+  let total = 0;
+  for (const v of values) total += v;
+  return total;
+}
+
+export function count(): number {
+  return calls;
+}
+
+export async function total(values: number[]): Promise<number> {
+  calls++;
+  return await compute(sum, values);
+}
+```
+
+The module's C++ shows the compute task. `entry_sum` is its `TaskEntry`, and `sum_task_` is the variant of `sum` a worker runs, which calls `task_.checkCancelled()` in every iteration. `total` submits it with `lucent::compute()`, under `lucent::moduleScope()`.
+
+The boundary is in `lucent_bindings.cpp`, which installs each export as a host function:
+
+```cpp title="lucent_bindings.cpp" nocopy
+void install_m_stats(jsi::Runtime& rt, Host& host, jsi::Object& exports) {
+  defineFunction(rt, exports, "count", 0, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, LUCENT_TRACE_SITE_AT("count", "stats.lucent.ts", 11), [&]() -> jsi::Value {
+      return Convert<double>::toJs(rt, host, lucent_app::m_stats::count());
+    });
+  });
+  defineFunction(rt, exports, "total", 1, [installed = host.shared_from_this()](jsi::Runtime& rt, const jsi::Value&, const jsi::Value* args, size_t count) -> jsi::Value {
+    Host& host = Host::from(rt, installed);
+    return callSync(rt, host, [&]() -> jsi::Value {
+      auto a0 = Convert<lucent::Array<double>>::fromJs(rt, arg(args, count, 0), Path{"total", "argument 'values'"});
+      return callAsync<double>(rt, host, LUCENT_TRACE_SITE_AT("total", "stats.lucent.ts", 15), [a0]() {
+        return lucent_app::m_stats::total(a0);
+      });
+    });
+  });
+}
+```
+
+- `callSync` (`jsi/convert.h`) holds the Lucent lock while its body runs on the JS thread, and turns a Lucent error into a JavaScript one.
+- `total` converts its argument under the lock too. `callAsync` then makes a JavaScript promise and posts the body to the Lucent thread, through `Host::postToModule`.
+- The body is a coroutine. `lucent::compute()` copies the array into the task's input, and the body's result settles the JavaScript promise on the JS thread.
+- `LUCENT_TRACE_SITE_AT` gives each entry its export's name, file and line, which [tracing](#tracing) records.
+
+## The files
+
+| Header | What it holds |
+| --- | --- |
+| `core.h` | `Ref<T>` (a `std::shared_ptr`), `Object`, `Undefined`, `Null`, `Opt<T>` and `Union<…>` (a `std::variant`) |
+| `jsstring.h`, `number.h`, `bigint.h` | Strings, numbers and bigints with JavaScript's semantics |
+| `array.h`, `map.h`, `bytes.h`, `date.h`, `regexp.h` | `Array`, `Map`, `Set`, `Dict`, `Bytes` (a `Uint8Array`), `Date` and `RegExp` |
+| `function.h`, `async.h`, `generator.h` | `Fn`, `Promise` and `Iter`, with coroutines behind the last two |
+| `jserror.h`, `json.h`, `json_parse.h`, `ops.h`, `equality.h`, `conversions.h`, `helpers.h`, `console.h` | Errors, JSON, operators, conversions and `console` |
+| `execution.h`, `scheduler.h` | Execution contexts, the Lucent lock and the Lucent thread |
+| `scope.h`, `operation.h`, `callback.h`, `resource.h`, `abort.h` | Scopes, one-shot operations, `fromCallback` and `subscribe`, resources and `AbortSignal` |
+| `native.h`, `extension.h`, `lifecycle.h`, `presentation.h`, `platform/` | SDK objects, platform callbacks, native extensions' handles, the app's lifecycle, presentations and the glue helpers |
+| `transport.h`, `compute.h`, `buffer.h` | Compute tasks' inputs, the compute pool and native buffers |
+| `trace.h`, `report.h` | Tracing, and where uncaught errors go |
+| `view.h`, `reactive.h`, `sizing.h`, `slots.h`, `items.h` | What compiled views share: the main context's reactive graph, sizing, slots and lists |
+| `jsi/host.h`, `jsi/convert.h` | The boundary: one host per JavaScript runtime, and `Convert<T>` for each type |
+
+`lucent.h` includes most of them. `compute.h` goes only into modules that compute or have task variants, and `jsi/` only into `lucent_bindings.cpp` and `lucent_identity.cpp`.
+
+The views' headers and `cpp/rn`'s view hosts are recorded in [docs/design/views.md](https://github.com/Fausto95/lucent/blob/main/docs/design/views.md), and [Components](/docs/architecture/internals/views/) covers the code the compiler writes for them. This page leaves them out.
+
+## Values
+
+A primitive is held by value: `double`, `bool` or `String`. Everything else is a handle to a shared heap object, so copying a handle aliases the object, as assigning one does in JavaScript.
+
+- Objects are reference counted, with no cycle collector. A cycle of strong references stays alive until the process ends.
+- `String` is immutable UTF-16, stored one byte per unit when every unit fits in Latin-1. A Latin-1 string of up to 15 bytes lives inline.
+- `+=` grows a string in place when its handle is the only owner, so a loop of appends is linear.
+- `number.h` prints the shortest digits that read back as the same double, with Dragonbox (`cpp/third_party/dragonbox`).
+- `BigInt` holds a value that fits in `int64_t` inline, and a larger one in shared, immutable 32-bit limbs. The form is canonical, so equality and hashing are exact and cheap.
+- `BigInt` converts to native integers exactly (`toInt64`, `toUint64`) or wrapping (`wrapToInt64`). SDK glue passes a native API `toNativeInteger<I>`, whose `RangeError` names the parameter.
+- `Map` and `Set` iterate in insertion order, and `Dict` in `Object.keys` order: integer-like keys ascending, then the rest in insertion order. `Bytes` is a view over a shared buffer: `subarray` shares it and `slice` copies.
+- `Date` takes local time from the C library (`localtime_r`), and `RegExp` compiles patterns once with QuickJS's `libregexp` (`cpp/third_party/quickjs`).
+- A Lucent `throw` throws a `lucent::Exception` holding an `ErrorObject`: its name, message, `code`, and the site where Lucent code made it.
+
+Numbers and bigints are checked against Node: `test/number/corpus.ts` and `test/bigint/corpus.ts` write seeded corpora of its answers, which the C++ tests compare line by line.
+
+## Execution contexts
+
+An execution context runs code one piece at a time. Its executor runs turns in the order they were posted, and each turn runs its job, then the context's own microtasks. [Threads](/docs/architecture/threads/) explains why; this section names the code.
+
+| Context | Class | Runs on | Takes the Lucent lock |
+| --- | --- | --- | --- |
+| The legacy module context | `Scheduler` | The Lucent thread, and any thread holding the lock | Yes: holding it is what makes it current |
+| The main context | `ExecutionContext::main()` | The platform's UI loop, or a stand-in thread on hosts without one | No |
+| An isolated context | `IsolatedContext` | A thread of its own: each compute worker is one | No |
+
+- `ExecutionContext::current()` is the legacy module context while the thread holds the lock, else the context it entered, else null.
+- A `ContextRef` names a context as an owner, and null names the legacy module context.
+- `post(job)` runs a job as a turn, from any thread. `post(job, scope)` drops it if the scope was disposed before its turn, and `postDelayed` waits first.
+- `enqueueMicrotask` throws `std::logic_error` unless the context is current: in a turn or an entry, or, for the legacy one, holding the lock.
+- `WorkerThread` is the thread behind the Lucent thread and isolated contexts. It runs posted jobs, and timers once due, one at a time.
+
+No context waits for another. Work crosses between contexts as posted jobs that own what they carry, as the C-EXEC contract says ([contracts.md](https://github.com/Fausto95/lucent/blob/main/docs/design/contracts.md#c-exec-execution-identities-scopes-and-operations)).
+
+### The Lucent lock
+
+`LucentLock` in `scheduler.h` serializes module code. Every synchronous call from JavaScript and every turn of the Lucent thread holds it.
+
+- It is recursive, because a Lucent call may call JavaScript that calls Lucent again. A relaxed load of the owner's thread id tells a nested entry, which only counts its depth.
+- It is a fair ticket lock: two atomics, the next ticket and the one served. A thread that releases it and asks again queues behind the threads already waiting.
+- Waiters block in `atomic::wait`, which is a futex, or `__ulock` on Apple platforms. Uncontended, taking it costs one atomic increment and a load.
+- Code holding it never waits for another thread. So any thread may block on it without a deadlock.
+
+`LucentScope` enters the legacy module context by taking the lock. Leaving on another thread with microtasks pending, it posts an empty turn to the Lucent thread, whose end runs them. With tracing on, the wait becomes a `lucent-lock` span.
+
+### Entering another context
+
+`ContextEntry` enters a context other than the legacy one, synchronously, for a platform callback that needs an answer now. It throws `std::logic_error` when the thread isn't the context's own, holds the Lucent lock, or is already in another context. Leaving the outermost entry runs the context's microtasks.
+
+`native.h` gives platform glue one function per way in:
+
+| Function | Runs `f` | For |
+| --- | --- | --- |
+| `postCallback(f)` | As a turn of the legacy module context, on the Lucent thread | A callback that returns nothing and outlives the call, so the platform never waits for Lucent code |
+| `callNow(f)` | On the calling thread, holding the Lucent lock | A callback the platform waits for: for its result, during the call, or on the main thread |
+| `runOnMain(f)` | On the main thread, holding the Lucent lock | `main(f)` from `lucent:thread`: a promise of its result, settled on the caller's context |
+| `postTo(context, f)` | As a turn of `context` | What `postCallback` does, for any context |
+| `callNowIn(context, f)` | Now, inside `context`, on that context's own thread | What `callNow` does, for a context other than the legacy one; its microtasks run before it returns |
+| `runIn(context, f)` | As a turn of `context` | What `runOnMain` does, for any context; neither side waits |
+
+`callNow` and `callNowIn` report a Lucent error, and the platform gets a default result.
+
+### Promises and coroutines
+
+An `async function` is a C++20 coroutine returning `Promise<T>` (`async.h`). Its body starts at once, and every `await` suspends, resuming from the microtask queue, never inline.
+
+- A promise belongs to the context current when it was made. Settling it, or registering a continuation, from another thread posts to that context.
+- A continuation runs on the context that registered it: as a microtask there, or posted from elsewhere. So a coroutine stays on the context it started on.
+- Coroutine parameters are taken by value, so a frame never holds a reference to its caller's locals.
+
+## Scopes and operations
+
+A `Scope` (`scope.h`) owns work that must end when its owner does: child scopes, pending operations and cleanups. Its states only move forward: active, disposing, disposed.
+
+- `dispose()` is idempotent. It changes the scope's generation, refuses new registrations, disposes its children and cancels its operations, most recent first, then runs its cleanups in reverse.
+- Everything runs even when something throws. The errors come back aggregated like `using`'s: the last one, with the earlier ones as a `SuppressedError`.
+- Each context owns a root scope. A scope under it that is disposed on another thread, or loses its last reference there, posts its disposal to the context.
+
+An `Operation<T>` is one pending request with exactly one outcome: a value, an error or a cancellation. The first call to settle it wins, from any thread.
+
+- Its registration begins the native work and returns the cleanup that ends it. The cleanup runs once, after settlement.
+- An aborted signal or an inactive scope starts it cancelled, and the registration never runs.
+- An outcome that loses the race is counted, and its value is released, through `onLateOutcome` when one is set, never delivered.
+- An `OperationToken` names it without a pointer: a runtime id, a scope id, the scope's generation and an operation id. A late native callback checks it with `Scope::validates`.
+
+`fromCallback` and `subscribe` (`callback.h`) and `nativeOperation` (`operation.h`) are operations under the calling context's root scope. Android's activity results and permission requests and iOS presentations are operations too, and so is each compute task.
+
+A `Resource` (`resource.h`) is something Lucent code opens and closes once. It closes at the first of `close()`, its scope's disposal or its last reference going. Its release runs once: on the context it names, if any, else on the thread that closes it.
+
+A native extension's `Handle` (`extension.h`) closes at the first of `close()` or its last copy going, and has no scope. Its destroy function runs once, as a resource's release does, and a close during a call destroys the pointer after the call.
+
+## Compute
+
+`ComputePool::shared()` (`compute.h`) has one worker fewer than the cores, at least one. Each worker is an isolated context, and up to `kDefaultCapacity` (1024) tasks wait in the pool's one queue.
+
+1. `compute(entry, input, options)` copies the input with `transportCopy`. A copy refused with a `DataCloneError` rejects the promise, and nothing is submitted.
+2. `submit()` starts an `Operation` under `options.scope`, the calling context's root by default. Compiled code passes `moduleScope()`.
+3. `ComputePool::admit()` hands the task to an idle worker, or queues it. A full queue rejects at once with a `QuotaExceededError`, and a closed pool with an `InvalidStateError`.
+4. The worker runs the entry with a `TaskContext`. The task's own scope, made on first use, is disposed on the worker when it returns.
+5. The outcome is posted to the owner and settles the promise there.
+
+A signal, the scope's disposal or the pool's shutdown cancels a task, and the promise rejects at once. A queued task leaves the queue, and a running one stops at its next `checkCancelled()`, one relaxed load. Native code between safepoints runs to its end, and what it returns is released, never delivered.
+
+`transport.h` copies the input into a graph only the task holds. `CopyGraph` remembers each object copied, so aliases and cycles survive, and strings are shared as they are. The `Transportable<T>` concept refuses functions, promises and signals as the input compiles.
+
+- Generated code gives each struct and class a `Transport` through `transportObject`, which refuses a subclass behind its base type with a `DataCloneError`.
+- A transport that moves rather than copies registers the move with `CopyGraph::onCommit`. Moves commit once the whole input is copied, and roll back otherwise.
+- `stats()` counts what the pool did, and `setTimingSink()` times each task's admission, wait, run and delivery.
+
+## Native objects and hosts
+
+A `NativeRef` (`native.h`) holds an SDK object: a retained Objective-C object, or a JNI global reference. It is opaque, so generated headers stay plain C++, and `platform/ios.h` and `platform/android.h` wrap and unwrap it.
+
+- Its release runs when the last copy goes, on the context it names, whichever thread dropped that copy. iOS objects name the main context.
+- `same()` compares identity: pointers on iOS, `IsSameObject` on Android.
+- `liveNativeRefs()` counts every SDK object Lucent holds. `moduleNativeRefs()` leaves out the main context's and those kept for the process (`keepForProcess()`).
+
+In debug builds, `LucentModule`'s destructor posts a check of `moduleNativeRefs()`. Anything left logs `[lucent] N native reference(s) module code still holds at teardown`.
+
+### One host per JavaScript runtime
+
+A `Host` (`jsi/host.h`) owns every JSI reference Lucent keeps: promise resolvers, retained functions, class prototypes and the identity cache. JSI values may be touched only on the JS thread, so native code refers to them by id and hops there.
+
+- `retain()` gives a JavaScript function an id, and `release(id)` from any thread releases it on the JS thread. `createPromise()` gives a JavaScript promise one too.
+- `postToJs(task)` runs a task through React Native's `CallInvoker`. A task that never runs is released on the legacy module context, with what it carries.
+- A class instance's JavaScript object carries an `InstanceState`: the native object and its host. The identity cache gives one JavaScript object per instance per runtime.
+- `id()` is a `RuntimeId` no other host has had, and `scope()` is a child of the legacy module context's root.
+- `Host::from()` finds the host a host function was installed with. It skips the `thread_local` lookup, which Android builds with a `minSdk` below 29 emulate.
+
+`Host::create()` replaces a runtime's previous host, which it tears down. It sets an anchor on `global` as `__lucentHost`, makes the new scope the module scope (`setModuleScope`), and runs `resetModuleState()` under the lock.
+
+Tearing a host down (`invalidate()`) rejects the JavaScript promises it owes with an `AbortError`, disposes its scope and drops its JSI references. Lucent code awaiting a JavaScript promise resumes with an `AbortError`, and an object the old host made is refused with a `TypeError`. When the runtime itself is destroyed, the anchor's destructor tears the host down without running JavaScript.
+
+So a reload runs every module's `init()` again and cancels compute tasks module code started. Operations under a context's root outlive it, as [what a reload does](/docs/api/language/modules/#what-a-reload-does) says. In debug builds, `__lucentHost.ownership` shows what a host holds.
+
+A signal from JavaScript is mirrored by a native one, kept as the JS object's `NativeState`. An `abort` listener on the JS signal aborts the mirror in `callSync`, so native listeners run on the JS thread, holding the lock.
+
+## Native buffers
+
+A `NativeBuffer` (`buffer.h`) is bytes native code owns: allocated zeroed, or adopted with the release they need and the context it runs on. A reference keeps the handle alive, but access to the bytes is a borrow for one synchronous call.
+
+- One atomic word holds the state (open, transferring, transferred, closed), a writer bit and the count of readers. A borrow that conflicts throws an `InvalidStateError` at once, from any thread.
+- `close()` is refused while borrowed and returns false once closed. The storage is released once, on its context, at `close()` or when the last reference goes.
+- `transfer()` moves the storage, uncopied, to a new handle one generation on, and every alias of the old one refuses access. A compute task's input moves a buffer in two steps, so a failed copy rolls it back.
+- Compiled `withRead(buffer, f)` and `withWrite(buffer, f)` lend `f` a `ByteSpan` or `MutableByteSpan`. JavaScript gets a copy under the borrow instead, written back after a write.
+- `toBytes`, `fromBytes`, `copyOut` and `copyIn` are the only copies, and `stats()` counts them.
+
+The rules are C-BUFFER ([contracts.md](https://github.com/Fausto95/lucent/blob/main/docs/design/contracts.md#c-buffer-native-buffers)), and [lucent:core](/docs/api/lucent-core/) states them for Lucent code.
+
+## Tracing
+
+`trace.h` is off by default: `trace::enabled()` is one relaxed load of a constant-initialized atomic. [Trace events](/docs/api/trace-events/) lists the settings, fields and categories; this is how they're recorded.
+
+- `trace::start()` allocates a ring of 65,536 events behind one `std::mutex`. When it's full, a new event overwrites the oldest and counts it as dropped.
+- An event holds only static strings and a pointer to a static `Site`, so recording copies no text. `record()` stamps a small number per thread and the current context's id.
+- `trace::Current` names the job running on a thread, so a job it posts names it as its `parent`. `trace::Correlate` hands a JavaScript call's id to the job it posts.
+- `callAsync` makes the id. Its entry span, its job's wait and run, the result's wait for the JS thread and the delivery all carry it.
+- `LUCENT_TRACE_SITE_AT` and `LUCENT_TRACE_SCOPE` keep their site in a function-local static. Inside Lucent code, `#line` makes `__FILE__` and `__LINE__` the module's.
+
+`Scheduler`'s constructor calls `startFromEnvironment()` once, so tracing starts with the first module. It reads `LUCENT_TRACE`, or the `debug.lucent.trace` property on Android, and a value ending in `.json` registers an `atexit` that calls `writeChromeJson`.
+
+`chromeJson()` writes one object per event under process 1, then a pair of flow events between each two consecutive spans sharing an id. The buffer's dropped count goes in `otherData.dropped`. Live mirroring goes to `os_signpost` (log `dev.lucent`, one interval name per category) or to ATrace's async sections, looked up with `dlsym`.
+
+The buffer's mutex makes tracing a debugging tool, not one for production ([known limitations](/docs/releases/roadmap/#known-limitations)). The format is C-TRACE ([contracts.md](https://github.com/Fausto95/lucent/blob/main/docs/design/contracts.md#c-trace-correlated-tracing)).
+
+## Errors nobody can catch
+
+`reportUncaught(error, where)` (`report.h`) is the one place an error goes when no Lucent code can catch it: a job's, a microtask's, a cleanup's or a platform callback's. It logs to the platform's log, the unified log on iOS or logcat on Android, and to stderr.
+
+## Tests
+
+`packages/runtime/test/run.sh` compiles the runtime once and links each `*_test.cpp` against it. `SANITIZE=1` adds AddressSanitizer and UndefinedBehaviorSanitizer, and `SANITIZE=thread` adds ThreadSanitizer, for the lock, contexts and scopes. A runtime change passes `run.sh` as it is and with `SANITIZE=1 CXX=g++`, which CI runs with GCC's standard library on Linux.
+
+`test/jsi/run.sh` runs the host's lifetime across runtimes, a hand-written module and the loader's identity check in Hermes. It needs a Hermes build in `HERMES_DIR`, `~/hermes` by default. `test/reactive/reference.ts` states the reactive graph's rules in JavaScript, and a seeded corpus of scenarios must give the same log in both.

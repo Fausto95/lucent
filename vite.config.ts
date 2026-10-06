@@ -14,12 +14,13 @@ const generated = [
   "packages/runtime/cpp/lucent/unicode_data.inc",
   // Written by scripts/website.ts, which checks them byte for byte.
   "apps/website/src/generated/**",
-  "apps/website/public/schemas/**",
+  "apps/website/static/schemas/**",
   // Docs pages and posts: formatting would move JSX inside a list item (a <Steps> step)
   // out of the item, and scripts/website.ts writes the reference pages byte for byte.
   "apps/website/src/content/**",
-  // Astro's generated types.
-  "apps/website/.astro/**",
+  // Docusaurus's generated files and its build.
+  "apps/website/.docusaurus/**",
+  "apps/website/build/**",
   // Written by lucent sdk coverage --json.
   "sdk-coverage.json",
   // Written by scripts/sync-examples.ts from the e2e cases and scripts/example-app.

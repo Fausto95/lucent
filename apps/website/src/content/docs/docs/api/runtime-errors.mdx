@@ -1,0 +1,112 @@
+---
+title: Runtime errors
+description: A setup error names the step the app is missing, and a `LUCENT_NATIVE_MISMATCH` error's `action` says whether the app needs a native rebuild or other JavaScript.
+kind: reference
+---
+
+Lucent's JavaScript throws these errors when a module loads, and a view's request rejects with one when it is sent. Either the app isn't set up, or its native code and its JavaScript come from different builds.
+
+An error your module code throws reaches JavaScript as [Throw and handle errors](/docs/guides/throw-and-handle-errors/) shows. A `lucent:*` function's errors are on its page: [`present`](/docs/api/lucent-ios/#present), [`startActivityForResult`](/docs/api/lucent-android/#startactivityforresult), [`compute`](/docs/api/lucent-core/#compute) and [`NativeBuffer`](/docs/api/lucent-core/#nativebuffer).
+
+## Example
+
+```ts title="load-scanner.ts"
+import type * as Scanner from "./scanner.lucent";
+
+export function loadScanner(onStale: (action?: string) => void): typeof Scanner | undefined {
+  try {
+    return require("./scanner.lucent");
+  } catch (e) {
+    const error = e as Error & { code?: string; action?: string };
+    if (error.code !== "LUCENT_NATIVE_MISMATCH") throw e;
+
+    // "compile-native": this JavaScript needs a new build of the app.
+    // "reload-js": the installed app is newer than this JavaScript.
+    onStale(error.action);
+    return undefined;
+  }
+}
+```
+
+Lucent checks a module when JavaScript first evaluates it, so a static `import` throws while the importing file loads. Load the module inside `try`, as above, where the app must keep running.
+
+An over-the-air update replaces only JavaScript. When its modules' exports or signatures differ from the installed app's, loading them throws with `compile-native`: that update needs a new build of the app. When only their code differs, they load and run the installed code, with a warning.
+
+## Setup errors
+
+[`lucent doctor`](/docs/api/cli/#lucent-doctor) checks the app's setup: its Metro config, its Gradle task and its Lucent versions.
+
+### The native module is not linked
+
+```text title="JavaScript error" nocopy
+Lucent: the native module is not linked. Run `lucent build`, then rebuild the app (iOS: `pod install` first).
+```
+
+React Native has no module named `Lucent`: the app was built before `lucent build` wrote the native package, or without linking it.
+
+<Tabs syncKey="setup">
+<TabItem label="Expo">
+
+Check that the app config's `plugins` lists `@lucent-lang/lucent`, which `npx lucent init` adds to `app.json`. Run `npx expo prebuild`: the [config plugin](/docs/api/integrations/#expo-config-plugin) runs `lucent build` and links the native package. Then make a development build with `npx expo run:ios` or `npx expo run:android`.
+
+Expo Go can't load native code, so every module fails this way there.
+
+</TabItem>
+<TabItem label="Bare React Native">
+
+Check that `react-native.config.js` has the `lucent` entry for `.lucent/native`, which `npx lucent init` adds. Run `npx lucent build`, then on iOS `pod install` in `ios/`, and build the app again.
+
+</TabItem>
+</Tabs>
+
+### A module has not been compiled
+
+```text title="JavaScript error" nocopy
+Lucent: scanner.lucent.ts has not been compiled. Run `lucent build` and rebuild the app.
+```
+
+Metro found no compiled version of the module in the native package, so it bundled this error in the module's place. Run `npx lucent build` and fix the errors it reports, then rebuild the app. If Metro was already running, restart it so it bundles the new module.
+
+A module of a Lucent package fails this way when the build didn't find the package. Building again doesn't fix it: add the package to the app's `dependencies`, as [How an app finds packages](/docs/packages/package-json/#how-an-app-finds-packages) explains.
+
+When Metro runs as a dev server, `withLucent` rebuilds your modules as you edit them and prints the errors in Metro's output. Metro reads the native package from `.lucent/native`, or from the directory [`LUCENT_OUT`](/docs/api/environment-variables/) names: set it to the `--out` directory when you build with `--out`.
+
+### A module is not in the native build
+
+```text title="JavaScript error" nocopy
+Lucent: module "scanner" is not in the native build. Run `lucent build` and rebuild the app.
+```
+
+A module built by a Lucent release before 0.1.0 throws it when the installed app was built before the module existed. Run `npx lucent build` and rebuild the app. Later releases report this case as a [`LUCENT_NATIVE_MISMATCH`](/docs/api/runtime-errors/#lucent_native_mismatch).
+
+## LUCENT_NATIVE_MISMATCH
+
+Before a module loads, Lucent checks that the app's native code was built from the same modules as this JavaScript. [How Lucent decides what a change needs](/docs/architecture/builds/#the-app-checks-its-native-code-at-load) explains the check. Edits to the rest of your JavaScript never fail it.
+
+When the two differ in a way calls can't survive, the load throws an `Error` whose `code` is `"LUCENT_NATIVE_MISMATCH"`. Its `action` names the fix, and its message names the cause. A reload checks again.
+
+| `action` | Means | Fix |
+| --- | --- | --- |
+| `"compile-native"` | The installed native code is older than this JavaScript, or built from other sources. | Run `npx lucent build`, then build and install the app again. A reload or an over-the-air update can't replace native code. |
+| `"reload-js"` | The installed native code is newer than this JavaScript. | Load JavaScript built for the installed app: run `npx lucent build` and reload, or ship an update built with the app's Lucent version. |
+
+| The message says | Cause | `action` |
+| --- | --- | --- |
+| `the app's native code was built before Lucent gave it a build identity` | The app was built with a Lucent release before 0.1.0. | `compile-native` |
+| `the app's native code has Lucent runtime ABI A, and this JavaScript needs B` | The app and this JavaScript come from Lucent versions with incompatible runtimes. | `compile-native` when A is lower than B, `reload-js` when it's higher |
+| `this JavaScript was built without the <target> native code the app runs` | This JavaScript was built without the app's platform, or the modules gained or lost platform code since the app was built. | `compile-native` |
+| `module "x" is not in the app's native code` | The app was built without the module, usually before it was added. | `compile-native` |
+| `module "x" of the app's native code has other exports or signatures` | Its exports, their signatures or the types they pass differ between the two builds. | `compile-native` |
+| `the app's native code cannot answer view commands` | A component's request rejects with it when the app was built before Lucent answered requests. Views are experimental. | `compile-native` |
+
+[Get a module change into the running app](/docs/guides/apply-a-change/) shows which change needs which action.
+
+## The installed implementation runs
+
+```text title="JavaScript warning" nocopy
+Lucent: the app's native code (ios program 5e0c2d1f9a3b7c48) was not built from the sources this JavaScript was (program 9a41be07c35d2f16): its modules have the same APIs, but the installed implementation runs. Recompile the app's native code: run `lucent build`, then build and install the app again (compile-native). A JavaScript update (a reload, or over the air) cannot replace native code. If the app was installed after this JavaScript was built, reload JavaScript instead (reload-js).
+```
+
+When the modules' exports and signatures match but their code doesn't, the module loads and Lucent warns with `console.warn`. Calls are safe, but they run the code the installed app was built with. The warning shows once per JavaScript runtime and build of this JavaScript.
+
+It happens after you change a function's body and reload before the app is rebuilt. Lucent can't tell which build is older here, so the warning names both fixes. Rebuild the app, or reload if the app is the newer build.

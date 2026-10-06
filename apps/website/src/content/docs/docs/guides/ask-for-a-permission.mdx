@@ -1,0 +1,105 @@
+---
+title: Ask for a runtime permission
+description: "Call `requestPermissions()` from `lucent:android` on Android, and the framework's own request on iOS, such as `AVCaptureDevice.requestAccess()`: each resolves with the person's answer."
+kind: guide
+---
+
+<Tabs>
+<TabItem label="camera.lucent.ts">
+
+```ts title="camera.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { AVCaptureDevice, AVMediaType } from "lucent:ios/AVFoundation";
+import { requestPermissions } from "lucent:android";
+
+/** Asks for the camera if the person hasn't answered yet, and resolves with whether the app may use it. */
+export async function requestCamera(): Promise<boolean> {
+  if (PLATFORM === "ios") return AVCaptureDevice.requestAccess(AVMediaType.video);
+
+  const [granted] = await requestPermissions(["android.permission.CAMERA"]);
+  return granted ?? false;
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useEffect, useState } from "react";
+import { Text } from "react-native";
+import { requestCamera } from "./src/camera.lucent";
+
+export default function App() {
+  const [allowed, setAllowed] = useState<boolean | null>(null);
+
+  useEffect(() => void requestCamera().then(setAllowed), []);
+
+  return <Text>{allowed === null ? "Asking" : allowed ? "Camera on" : "No camera"}</Text>;
+}
+```
+
+</TabItem>
+</Tabs>
+
+- `requestPermissions()` resolves with whether each permission was granted, in order. One already granted answers `true` without a dialog, and a dismissed dialog answers `false`. Requests wait for the one before them.
+- On iOS, each framework asks for its own access. A request with a completion handler is also a promise, such as `PHPhotoLibrary.requestAuthorization(PHAccessLevel.readWrite)`: see [Await a callback API](/docs/guides/await-a-callback-api/).
+- iOS asks only once, and Android stops asking after repeated denials. Later requests answer at once, and the person changes the answer in Settings.
+
+## Declare the permission first
+
+Android answers `false` for a permission the app's manifest lacks, and iOS ends an app that asks for the camera without a usage description. This module needs two entries:
+
+| Platform | Entry |
+| --- | --- |
+| iOS | the `NSCameraUsageDescription` key: the sentence the prompt shows |
+| Android | the `android.permission.CAMERA` permission |
+
+[Add Info.plist keys, entitlements and manifest entries](/docs/guides/add-permissions-and-config/) shows where they go. Lucent declares an Android permission itself when a module calls an SDK method that requires it ([@RequiresPermission](/docs/api/android-sdk/#requirespermission)). A name in a string, as `requestPermissions()` takes, doesn't count.
+
+## When a delegate gets the answer
+
+```ts title="location-permission.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { CLAuthorizationStatus as Status, CLLocationManager, type CLLocationManagerDelegate } from "lucent:ios/CoreLocation";
+import { requestPermissions } from "lucent:android";
+import { main } from "lucent:thread";
+
+// A manager lives until its delegate hears back.
+const asking = new Set<CLLocationManager>();
+
+class Answer implements CLLocationManagerDelegate {
+  constructor(private readonly onAnswer: (granted: boolean) => void) {}
+
+  locationManagerDidChangeAuthorization(manager: CLLocationManager): void {
+    const status = manager.authorizationStatus;
+    if (status === Status.notDetermined) return;
+
+    manager.delegate = null;
+    asking.delete(manager);
+    this.onAnswer(status === Status.authorizedWhenInUse || status === Status.authorizedAlways);
+  }
+}
+
+export async function requestLocation(): Promise<boolean> {
+  if (PLATFORM === "android") {
+    const [, coarse] = await requestPermissions([
+      "android.permission.ACCESS_FINE_LOCATION",
+      "android.permission.ACCESS_COARSE_LOCATION",
+    ]);
+    return coarse ?? false;
+  }
+
+  return new Promise((resolve) => {
+    void main(() => {
+      const manager = new CLLocationManager();
+      manager.delegate = new Answer(resolve);
+      asking.add(manager);
+      manager.requestWhenInUseAuthorization();
+    });
+  });
+}
+```
+
+`requestWhenInUseAuthorization()` has no completion handler: `CLLocationManager` tells its delegate, once when it's made and again after the person answers. Make the manager inside `main()`, keep it until the answer, then let both go. The delegate uses the `manager` it receives rather than holding one, since the two would hold each other ([cycles leak](/docs/api/language/memory/#cycles-leak)).
+
+This module needs the `NSLocationWhenInUseUsageDescription` key, and the `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` permissions. Without the key, iOS doesn't ask. On Android, coarse location is granted whether the person picks precise or approximate.

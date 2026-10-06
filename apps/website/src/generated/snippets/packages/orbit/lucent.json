@@ -1,0 +1,9 @@
+{
+  "android": {
+    "libraries": ["android/orbit.jar"],
+    "dependencies": {
+      "androidx.credentials:credentials": "1.5.0",
+      "androidx.datastore:datastore-preferences": "1.1.7"
+    }
+  }
+}

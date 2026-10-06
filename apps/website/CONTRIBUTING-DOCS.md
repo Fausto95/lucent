@@ -4,15 +4,23 @@ These rules apply to every page under `src/content/docs/docs`, and to blog posts
 as [Blog posts](#blog-posts) says. `node scripts/website.ts` checks them; CI
 runs the same script with `--check`.
 
-## The four kinds of page
+## Sections and kinds of page
 
-| Kind      | Reader's question                         | Style                                                            | Length budget             |
-| --------- | ----------------------------------------- | ---------------------------------------------------------------- | ------------------------- |
-| Start     | "What is this, and can I get it running?" | Short, linear, no choices                                        | 400 words, 60 code lines  |
-| Learn     | "How do I think in Lucent?"               | Read in order                                                    | 800 words, 120 code lines |
-| Guide     | "How do I do X?"                          | One task, read in any order                                      | 400 words, 60 code lines  |
-| Reference | "What exactly is the rule?"               | Tables and generated lists                                       | none                      |
-| Example   | "What does a real module look like?"      | A port from the example apps, its source generated from the file | 400 words                 |
+The docs are five sections, each a tab with its own sidebar, listed in
+`src/docs/nav.ts`: **Guides** (tasks, in any order after The Basics),
+**Packages** (writing a Lucent package), **API** (the exact rules and every
+API), **Architecture** (how Lucent works, then Internals for
+contributors) and **Releases** (the roadmap and the changelog). A page lives under its section's directory, and a landing
+page `x` is `x.mdx` beside `x/`, never `x/index.mdx`.
+
+| Kind        | Reader's question                         | Style                                                            | Length budget             |
+| ----------- | ----------------------------------------- | ---------------------------------------------------------------- | ------------------------- |
+| Start       | "What is this, and can I get it running?" | Short, linear, read in order                                     | 400 words, 60 code lines  |
+| Guide       | "How do I do X?"                          | One task, read in any order                                      | 400 words, 60 code lines  |
+| Explanation | "How does this part work, and why?"       | The mechanism, linking the rules it explains                     | 800 words, 120 code lines |
+| Reference   | "What exactly is the rule?"               | Tables and generated lists                                       | none                      |
+| Example     | "What does a real module look like?"      | A port from the example apps, its source generated from the file | 400 words                 |
+| Internals   | "How does Lucent's code do this?"         | For contributors; only under Architecture › Internals            | none                      |
 
 Words count prose only: paragraphs, lists, notes, table cells. Code lines
 count every sample on the page. A page over its budget gets split.
@@ -30,13 +38,15 @@ count every sample on the page. A page over its budget gets split.
    means split.
 5. **Plain words.** No "simply", "just", "easy", "powerful", "seamless",
    "blazing", "robust", "leverage". No emoji. No internal names (IR, LType,
-   bindgen, emitter, lowering): say what the user sees.
+   bindgen, emitter, lowering): say what the user sees. Architecture ›
+   Internals pages are for contributors and may name them.
 6. **One name per thing.** Use the glossary below and nothing else.
 7. **Honest limits.** A page that touches a limitation states it in one line
-   and links to [the roadmap](/docs/roadmap/). No "coming soon" paragraphs.
+   and links to [the roadmap](/docs/releases/roadmap/). No "coming soon" paragraphs.
 8. **Every sample is real.** Samples compile in CI; runnable ones run in CI.
    No `// ...` hiding code the reader needs to copy.
-9. **Every page ends with one "Next" link.** Not a list.
+9. **"Next" stays in the section.** Each page's one "Next" link is the
+   following page of its section; a section's last page has none.
 
 ## Page template
 
@@ -47,7 +57,7 @@ sidebar in `src/docs/nav.ts`. Its frontmatter says what the page is:
 ---
 title: Call an iOS API # the task or question
 description: Import the framework from `lucent:ios` and call it. # the answer, shown first
-kind: guide # start, learn, guide, reference, example, other
+kind: guide # start, guide, explanation, reference, example, internals
 ---
 
 ```ts title="battery.lucent.ts"
@@ -62,10 +72,15 @@ Optional: the most common mistake.
 ````
 
 The page shows the title, the description, the content, then a "Next"
-link: the following page in the sidebar, or the frontmatter's
-`next: { link, label }`. A removed page gets an entry in
-`src/docs/redirects.ts`. Search (Pagefind) indexes every page when the site
-is built.
+link: the following page of its section, or the doc the frontmatter's
+`pagination_next` names, in the same section. `sidebar_label` shortens a
+long title in the sidebar. A page whose samples are views (`views: true`)
+sets `sidebar_class_name: experimental`, which the sidebar marks: views are
+behind `LUCENT_VIEWS=fabric`. A removed page gets no redirect: update the
+links to it. The search indexes every page when the site is built.
+
+Pages import nothing: the site gives every page the components below
+(`src/theme/MDXComponents.tsx`).
 
 A page is written in a small vocabulary, the docs blocks of
 `src/docs/types.ts`, so `scripts/website.ts` can check it: paragraphs with
@@ -96,13 +111,17 @@ A code block's meta names its file and what the check does with it
 - `expect="LUCENT0xx"`: a sample that must fail with that code. It
   compiles on its own.
 - `cpp`: adds "See the C++" under a sample, the file the compiler writes
-  for it, generated into `src/generated/cpp/`. Use it on the Start, Learn
-  and How Lucent works examples.
+  for it, generated into `src/generated/cpp/`. Use it on Get started and
+  Architecture samples.
 - `nocopy`: no copy button, for output the reader reads rather than runs.
+- `{{lucent-version}}` in a sample becomes the current version of
+  `@lucent-lang/lucent` when the site is built: write it in terminal
+  output (`◆ lucent {{lucent-version}}`) rather than a number that goes
+  stale.
 - `include="examples/clipboard.lucent.ts"`: fills an empty block with a
   file `scripts/website.ts` writes under `src/generated/snippets/`, so a
-  page shows code from the repository (the example ports, the tutorial's
-  steps and diffs) without copying it.
+  page shows code from the repository (the example ports) without copying
+  it.
 - ` ```diff lang="ts" `: a unified diff; it isn't compiled.
 
 ## Blog posts
@@ -122,18 +141,19 @@ The blog's RSS feed, `/blog/rss.xml`, lists every post, newest first.
 
 Use exactly these terms.
 
-| Term             | Meaning                                                                                   |
-| ---------------- | ----------------------------------------------------------------------------------------- |
-| module           | one `.lucent.ts` file and what it exports                                                 |
-| shared module    | a module with no platform imports                                                         |
-| platform branch  | `if (PLATFORM === "ios")` inside one module (`PLATFORM` from `lucent:platform`)           |
-| platform file    | `x.ios.lucent.ts` / `x.android.lucent.ts`, the opt-in alternative to branches             |
-| declaration file | the shared `x.lucent.ts` that platform files implement                                    |
-| the boundary     | where JS calls into Lucent and back                                                       |
-| Lucent thread    | the background thread async Lucent code runs on                                           |
-| main context     | code allowed to call main-thread-only APIs: inside `main()` or a main-thread callback     |
-| native package   | what `lucent build` writes to `.lucent/native`                                            |
-| SDK bindings     | the typed view of iOS/Android APIs imported through `lucent:ios/*` and `lucent:android/*` |
+| Term                      | Meaning                                                                                         |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
+| module                    | one `.lucent.ts` file and what it exports                                                       |
+| shared module             | a module with no platform imports                                                               |
+| platform branch           | `if (PLATFORM === "ios")` inside one module (`PLATFORM` from `lucent:platform`)                 |
+| platform file             | `x.ios.lucent.ts` / `x.android.lucent.ts`, the opt-in alternative to branches                   |
+| declaration file          | the shared `x.lucent.ts` that platform files implement                                          |
+| the boundary              | where JS calls into Lucent and back                                                             |
+| Lucent thread             | the background thread async Lucent code runs on                                                 |
+| main context              | the views' context (setups, effects, commands, their callbacks); never takes the Lucent lock    |
+| code the main thread runs | module code on the main thread, holding the Lucent lock: `main(f)`'s `f`, main-thread callbacks |
+| native package            | what `lucent build` writes to `.lucent/native`                                                  |
+| SDK bindings              | the typed view of iOS/Android APIs imported through `lucent:ios/*` and `lucent:android/*`       |
 
 Not "Lucent file", "native module file", "bridge", "the native side" or
 "generated package".

@@ -1,22 +1,9 @@
 ---
-title: Add permissions and native config
-description: Android permissions come from the SDK; iOS usage descriptions go in `Info.plist` or `app.json`.
+title: Add Info.plist keys, entitlements and manifest entries
+sidebar_label: Add permissions and config
+description: "Declare them in `app.json` with Expo, or in the app's `Info.plist`, `.entitlements` and `AndroidManifest.xml`; Lucent adds the Android permissions SDK methods require."
 kind: guide
 ---
-
-import { Tabs, TabItem } from "@astrojs/starlight/components";
-
-| What | Android | iOS |
-| --- | --- | --- |
-| permissions an SDK method needs | added for you, from the SDK's `@RequiresPermission` | an `Info.plist` usage description, which you add |
-| other permissions and entries | the app's `AndroidManifest.xml` | the app's `Info.plist` |
-| asking at run time | `requestPermissions` from `lucent:android`, or `PermissionsAndroid` in JavaScript | the SDK from Lucent, such as `requestWhenInUseAuthorization` |
-
-## Android
-
-When a module calls a method the SDK marks with `@RequiresPermission`, `lucent build` adds that permission to the native package's manifest. Android merges it into the app's. Location, network state, vibration and biometrics work this way.
-
-## iOS
 
 <Tabs syncKey="setup">
 <TabItem label="Expo">
@@ -26,26 +13,66 @@ When a module calls a method the SDK marks with `@RequiresPermission`, `lucent b
   "expo": {
     "ios": {
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "Shows where you are on the map."
+        "NSCameraUsageDescription": "Scans the codes you point the camera at."
+      },
+      "entitlements": {
+        "com.apple.security.application-groups": ["group.com.example.myapp"]
       }
+    },
+    "android": {
+      "permissions": ["android.permission.CAMERA"]
     }
   }
 }
 ```
 
+Run `npx expo prebuild` to write them into `ios/` and `android/`, then build the app again. A manifest entry that `app.json` has no field for, such as `<queries>`, takes a config plugin of your own.
+
 </TabItem>
 <TabItem label="Bare React Native">
 
-```xml title="ios/<App>/Info.plist"
-<key>NSLocationWhenInUseUsageDescription</key>
-<string>Shows where you are on the map.</string>
+```xml title="ios/MyApp/Info.plist"
+<key>NSCameraUsageDescription</key>
+<string>Scans the codes you point the camera at.</string>
 ```
+
+```xml title="ios/MyApp/MyApp.entitlements"
+<key>com.apple.security.application-groups</key>
+<array>
+  <string>group.com.example.myapp</string>
+</array>
+```
+
+```xml title="android/app/src/main/AndroidManifest.xml"
+<uses-permission android:name="android.permission.CAMERA" />
+```
+
+Each `<key>` goes in the file's top `<dict>`, and `<uses-permission>` in `<manifest>`. Add an entitlement through its capability in Xcode's Signing & Capabilities tab, which creates the `.entitlements` file. Build the app again after changing any of these files.
 
 </TabItem>
 </Tabs>
 
-Rebuild the app after changing either file. iOS shows a permission prompt only when the app gives the reason for it.
+A usage description is the sentence iOS shows when a module asks for access: [Ask for a runtime permission](/docs/guides/ask-for-a-permission/) makes the request. These entries are native configuration, so a JavaScript reload doesn't apply them.
+
+## What Lucent declares for you
+
+| What a module needs | Who declares it |
+| --- | --- |
+| An Android permission that an SDK method it calls requires | Lucent, from the method's [@RequiresPermission](/docs/api/android-sdk/#requirespermission) |
+| An Android permission or component a Lucent package lists | Lucent |
+| An `Info.plist` key or entitlement a Lucent package lists | Expo's config plugin, at prebuild; in a bare app, you |
+| Anything else | You, as above |
+
+Lucent writes its Android entries into the native package's manifest, and Android's build merges it into the app's.
+
+In a bare app, `lucent build` names each `Info.plist` key and entitlement a package lists that the app's files lack:
+
+```sh title="terminal" nocopy
+! lucent-nfc needs NFCReaderUsageDescription in ios/MyApp/Info.plist (the Expo config plugin adds it)
+```
+
+Add it as the bare tab shows. [Integrations](/docs/api/integrations/#expo-or-bare-react-native) compares both setups.
 
 :::note
-An app has no `lucent.json`: that file is for packages, to tell the apps that install them what they need. See [Publish a Lucent library](/docs/guides/publish-a-library/).
+An app has no `lucent.json`: `lucent build` reads that file only from the packages the app depends on, to learn what they need. [Declare permissions, Info.plist keys and entitlements](/docs/packages/declare-permissions-and-entitlements/) is the package side.
 :::

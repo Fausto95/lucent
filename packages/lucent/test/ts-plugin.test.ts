@@ -115,7 +115,7 @@ describe("@lucent-lang/lucent/ts-plugin", () => {
     await s.ready;
     const [d] = lucent(s.ls.getSemanticDiagnostics(s.file("a.lucent.ts")));
     expect(d!.messageText).toMatch(
-      /\nfix: .*let.*\ndocs: https:\/\/lucent-lang\.dev\/docs\/reference\/diagnostics\/#lucent1001$/,
+      /\nfix: .*let.*\ndocs: https:\/\/lucent-lang\.dev\/docs\/api\/diagnostics\/#lucent1001$/,
     );
   });
 

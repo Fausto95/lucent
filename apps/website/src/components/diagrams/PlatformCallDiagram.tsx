@@ -5,43 +5,102 @@ import { DiagramNote } from "./DiagramNote";
 import { DiagramSvg } from "./DiagramSvg";
 
 const m = "platform-call-arrow";
-const cols = [20, 230] as const;
-const w = 190;
+const laneW = 265;
+const laneX = [10, 285] as const;
+const x = laneX.map((l) => l + 15);
+const w = laneW - 30;
+const routeY = (i: number) => 172 + i * 54;
 
-/** One SDK call in a module, and what each platform's build turns it into. */
+/** Each platform's routes, by what the member is; the sample's calls take the highlighted ones. */
+const routes = [
+  [
+    { label: "Objective-C", sub: "a message send", accent: true },
+    { label: "generated Swift", sub: "Swift-only APIs" },
+    { label: "C", sub: "C functions, extensions" },
+  ],
+  [
+    { label: "JNI", sub: "Java methods and fields", accent: true },
+    { label: "generated Kotlin", sub: "suspend, value classes" },
+    { label: "C", sub: "native extensions" },
+  ],
+] as const;
+
+/** Where each platform's declarations are read from. */
+const sources = [
+  { label: "Xcode's SDK · pods", sub: "headers, Swift symbol graphs" },
+  { label: "Android SDK · Gradle", sub: "class files, Kotlin metadata" },
+] as const;
+
+/** One SDK call in a module, the route each platform's build compiles it to, and where its declarations come from. */
 export function PlatformCallDiagram() {
+  const lanesY = 144;
+  const sourcesY = routeY(3) + 26;
+
   return (
     <DiagramSvg
-      viewBox="0 0 440 330"
+      viewBox={`0 0 560 ${sourcesY + 96}`}
       markerId={m}
-      title="An SDK call compiles to an Objective-C message send on iOS and a JNI call on Android"
+      title="An SDK call compiles to one of five routes: Objective-C, generated Swift, JNI, generated Kotlin or C"
     >
-      <DiagramBox x={95} y={14} w={250} label="device.lucent.ts" sub="one module" />
       <DiagramBox
-        x={cols[0]}
+        x={x[0]}
+        y={14}
+        w={x[1] + w - x[0]}
+        label="device.lucent.ts"
+        sub="one module, a branch per platform"
+      />
+      <DiagramBox
+        x={x[0]}
         y={84}
         w={w}
         label="UIDevice.current.model"
         sub="the iOS branch"
         accent
       />
-      <DiagramBox x={cols[1]} y={84} w={w} label="Build.MODEL" sub="the Android branch" accent />
-      <DiagramArrow from={[cols[0] + w / 2, 58]} to={[cols[0] + w / 2, 84]} marker={m} />
-      <DiagramArrow from={[cols[1] + w / 2, 58]} to={[cols[1] + w / 2, 84]} marker={m} />
-      <DiagramLane x={10} y={140} w={w + 20} h={140} label="IOS" />
-      <DiagramLane x={220} y={140} w={w + 20} h={140} label="ANDROID" />
-      <DiagramBox x={cols[0]} y={168} w={w} label="message send" sub="[UIDevice currentDevice]" />
-      <DiagramBox x={cols[1]} y={168} w={w} label="JNI call" sub="GetStaticObjectField" />
-      <DiagramBox x={cols[0]} y={228} w={w} label="UIKit" sub="from your Xcode" />
-      <DiagramBox x={cols[1]} y={228} w={w} label="android.os.Build" sub="from your Android SDK" />
-      <DiagramArrow from={[cols[0] + w / 2, 128]} to={[cols[0] + w / 2, 168]} marker={m} />
-      <DiagramArrow from={[cols[1] + w / 2, 128]} to={[cols[1] + w / 2, 168]} marker={m} />
-      <DiagramArrow from={[cols[0] + w / 2, 212]} to={[cols[0] + w / 2, 228]} marker={m} />
-      <DiagramArrow from={[cols[1] + w / 2, 212]} to={[cols[1] + w / 2, 228]} marker={m} />
+      <DiagramBox x={x[1]} y={84} w={w} label="Build.MODEL" sub="the Android branch" accent />
+      {routes.map((platform, p) => (
+        <g key={p}>
+          <DiagramLane
+            x={laneX[p]}
+            y={lanesY}
+            w={laneW}
+            h={sourcesY - lanesY - 12}
+            label={p === 0 ? "IOS" : "ANDROID"}
+          />
+          {platform.map((r, i) => (
+            <DiagramBox
+              key={r.label}
+              x={x[p]}
+              y={routeY(i)}
+              w={w}
+              h={40}
+              label={r.label}
+              sub={r.sub}
+              accent={"accent" in r}
+            />
+          ))}
+          <DiagramBox x={x[p]} y={sourcesY} w={w} label={sources[p].label} sub={sources[p].sub} />
+        </g>
+      ))}
+      {x.map((left) => (
+        <g key={left}>
+          <DiagramArrow from={[left + w / 2, 58]} to={[left + w / 2, 84]} marker={m} />
+          <DiagramArrow from={[left + w / 2, 128]} to={[left + w / 2, routeY(0)]} marker={m} />
+          <DiagramArrow
+            from={[left + w / 2, sourcesY]}
+            to={[left + w / 2, sourcesY - 30]}
+            marker={m}
+            dashed
+          />
+        </g>
+      ))}
       <DiagramNote
         x={20}
-        y={306}
-        lines={["Types come from the SDKs on your machine,", "read on first import and cached."]}
+        y={sourcesY + 72}
+        lines={[
+          "Each member takes one route, chosen from its declaration;",
+          "declarations are read from your SDKs and libraries, then cached.",
+        ]}
       />
     </DiagramSvg>
   );
