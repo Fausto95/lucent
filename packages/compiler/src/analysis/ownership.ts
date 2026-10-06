@@ -140,7 +140,7 @@ export interface TransferProblem {
 }
 
 /** Library types copied whole to another context. */
-const COPIED = new Set(["Uint8Array", "Date"]);
+const COPIED = new Set(["Uint8Array", "ArrayBuffer", "Date"]);
 
 const BORROWED = "a byte span, which lives only for the borrow that lent it";
 

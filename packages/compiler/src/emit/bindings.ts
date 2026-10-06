@@ -910,6 +910,9 @@ export class BindingsEmitter {
         case "bytes":
           test(instance("Uint8Array"));
           break;
+        case "arrayBuffer":
+          test(cpp.and(isObject, cpp.call(cpp.dot(object, "isArrayBuffer"), [rt])));
+          break;
         case "map":
           test(instance("Map"));
           break;

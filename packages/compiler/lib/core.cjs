@@ -362,6 +362,12 @@ function transportCopy(value, copies = new Map(), moved = []) {
     return successor;
   }
 
+  if (value instanceof ArrayBuffer) {
+    const buffer = value.slice(0);
+    copies.set(value, buffer);
+    return buffer;
+  }
+
   if (value instanceof Uint8Array) {
     let buffer = copies.get(value.buffer);
     if (!buffer) {

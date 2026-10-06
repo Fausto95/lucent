@@ -313,6 +313,13 @@ struct Convert<Bytes> {
   static jsi::Value toJs(jsi::Runtime& rt, Host& h, const Bytes& b);
 };
 
+/// An ArrayBuffer crosses as a copy, as a Uint8Array does.
+template <>
+struct Convert<ArrayBuffer> {
+  static ArrayBuffer fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p);
+  static jsi::Value toJs(jsi::Runtime& rt, Host& h, const ArrayBuffer& b);
+};
+
 // --- native buffers ------------------------------------------------------------------------
 
 /// A NativeBuffer crosses as an opaque handle, the same JS object for the

@@ -105,6 +105,7 @@ infinities become 0, the rest is truncated and wraps modulo 2^bits, as
 | `(a: A) => R`                                                              | function value (closures capture by reference)                                                                                                                |
 | `Promise<T>`                                                               | promise (C++20 coroutine)                                                                                                                                     |
 | `Uint8Array`                                                               | byte view over a shared buffer                                                                                                                                |
+| `ArrayBuffer`                                                              | bytes `Uint8Array`s view; its copies share them                                                                                                               |
 | `Date`                                                                     | shared mutable time value; local time from the device's time zone database                                                                                    |
 | `Error`, `TypeError`, `RangeError`, `SyntaxError`, `class X extends Error` | error object with `name` (its constructor's), `message`, `code`; no `cause` (`LUCENT1003`)                                                                    |
 | unconstrained generics `<T>`                                               | C++ templates (functions and classes)                                                                                                                         |
@@ -257,6 +258,13 @@ runs, so a right side that changes the target does not change what is read.
   and growing `a.length` depend on runtime values, so they throw
   `RangeError` whatever the element type (see the deviations below).
 - **Map / Set**: the full instance API; `new Map(entries)`, `new Set(iterable)`.
+- **ArrayBuffer**: `new ArrayBuffer(length)`, `byteLength` and `slice(start?,
+end?)`, which copies. `new Uint8Array(buffer, byteOffset?, length?)` views
+  a buffer's bytes, sharing them as JavaScript's views do, and a view's
+  `buffer` and `byteOffset` name what it views. Lengths and ranges are
+  checked as in JavaScript (`RangeError`). Not supported: resizable buffers,
+  `ArrayBuffer.isView`, `DataView` and `SharedArrayBuffer`; a `Uint8Array`'s
+  `buffer` (typed `ArrayBufferLike`) is an `ArrayBuffer`.
 - **Object**: `keys`, `values`, `entries` (records), `fromEntries`. Object
   types refuse `Object.keys`, `values`, `entries`, `for…in` and `in` (even
   on a required field): their native layout records neither which optional
@@ -371,8 +379,8 @@ static methods; its static fields stay inside Lucent.
 null }` and `{ v: string | undefined }` share one native layout). A body
   that reads the one its type excludes throws `TypeError` when it uses the
   value.
-- **Values are copied:** arrays, records, maps, sets, tuples and plain objects
-  cross the boundary as copies. If native code mutates an array it received,
+- **Values are copied:** arrays, records, maps, sets, tuples, plain objects,
+  `Uint8Array`s and `ArrayBuffer`s cross the boundary as copies. If native code mutates an array it received,
   the caller's array is unchanged. A plain object reaches JavaScript with
   its fields in its type's order (see the deviations), without the
   optional ones left unset.
@@ -483,7 +491,7 @@ explicitly, for example by clearing a field.
 | `date.toString()` includes the zone name in some engines                                        | `Mon Jul 22 2019 15:51:50 GMT-0700`, like Hermes; `toLocale…` methods are not supported                                                                                                                                                                                                                                  |
 | `abort()` without a reason uses an `AbortError` whose message depends on the engine             | `AbortError: signal is aborted without reason`, as in React Native and browsers (Node says "This operation was aborted")                                                                                                                                                                                                 |
 | an abort reason can be any value                                                                | reasons from JavaScript become errors (`String(reason)` as the message when it is not an object); `abort()` in Lucent takes an `Error`                                                                                                                                                                                   |
-| a field or variable read before it is assigned (from a base constructor, say) is `undefined`    | a number, string, boolean, tuple, array, map, set, record or `Uint8Array` (or their union) reads a default; an object throws `TypeError`                                                                                                                                                                                 |
+| a field or variable read before it is assigned (from a base constructor, say) is `undefined`    | a number, string, boolean, tuple, array, map, set, record, `Uint8Array` or `ArrayBuffer` (or their union) reads a default; an object throws `TypeError`                                                                                                                                                                  |
 | `this.p?.x` on an object field not yet assigned is `undefined`                                  | throws `TypeError`, as any read of that field does                                                                                                                                                                                                                                                                       |
 | a `let` or `const` read before its declaration runs throws `ReferenceError`                     | it reads as a variable not yet assigned, above                                                                                                                                                                                                                                                                           |
 | any object with the right members satisfies an interface                                        | only classes that declare `implements`; plain JS objects are rejected at the boundary with a `TypeError`                                                                                                                                                                                                                 |

@@ -182,6 +182,17 @@ jsi::Value Convert<Bytes>::toJs(jsi::Runtime& rt, Host&, const Bytes& b) {
   return rt.global().getPropertyAsFunction(rt, "Uint8Array").callAsConstructor(rt, ab);
 }
 
+ArrayBuffer Convert<ArrayBuffer>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p) {
+  if (!v.isObject() || !v.getObject(rt).isArrayBuffer(rt)) throwBoundaryError(rt, p, "an ArrayBuffer", v);
+  jsi::ArrayBuffer ab = v.getObject(rt).getArrayBuffer(rt);
+  return ArrayBuffer::copy(ab.data(rt), ab.size(rt));
+}
+
+jsi::Value Convert<ArrayBuffer>::toJs(jsi::Runtime& rt, Host&, const ArrayBuffer& b) {
+  auto buffer = std::make_shared<OwnedBuffer>(std::vector<uint8_t>(b.data(), b.data() + b.size()));
+  return jsi::ArrayBuffer(rt, buffer);
+}
+
 namespace {
 const char* const kBufferPrototype = "lucent:NativeBuffer";
 

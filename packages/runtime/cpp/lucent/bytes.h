@@ -1,4 +1,4 @@
-// Lucent runtime — Uint8Array.
+// Lucent runtime — Uint8Array and ArrayBuffer.
 #pragma once
 
 #include <cmath>
@@ -11,6 +11,51 @@
 #include "jsstring.h"
 
 namespace lucent {
+
+namespace detail {
+
+/// JavaScript's ToIndex: NaN is 0, fractions truncate, and a negative or
+/// unsafe index is a RangeError with `message`.
+inline size_t toIndex(double v, const char* message) {
+  double i = std::isnan(v) ? 0 : std::trunc(v);
+  if (i < 0 || i > 9007199254740991.0) throwRangeError(message);
+  return static_cast<size_t>(i);
+}
+
+}  // namespace detail
+
+/// An ArrayBuffer: the bytes Uint8Arrays view. Copies of it share them, so
+/// it is named by its storage: `u8.buffer === u8.buffer`.
+class ArrayBuffer {
+ public:
+  ArrayBuffer() : buf_(std::make_shared<std::vector<uint8_t>>()) {}
+  explicit ArrayBuffer(double length)
+      : buf_(std::make_shared<std::vector<uint8_t>>(detail::toIndex(length, "Invalid array buffer length"))) {}
+  explicit ArrayBuffer(std::shared_ptr<std::vector<uint8_t>> storage) : buf_(std::move(storage)) {}
+  static ArrayBuffer copy(const uint8_t* data, size_t n) {
+    return ArrayBuffer(std::make_shared<std::vector<uint8_t>>(data, data + n));
+  }
+
+  const std::shared_ptr<std::vector<uint8_t>>& storage() const { return buf_; }
+  size_t size() const { return buf_->size(); }
+  double byteLength() const { return static_cast<double>(buf_->size()); }
+  uint8_t* data() { return buf_->data(); }
+  const uint8_t* data() const { return buf_->data(); }
+
+  ArrayBuffer slice(double start = 0, double end = kInfinity) const {
+    size_t a = detail::relativeIndex(start, size()), b = detail::relativeIndex(end, size());
+    return b > a ? copy(data() + a, b - a) : ArrayBuffer();
+  }
+
+  const void* identity() const { return buf_.get(); }
+
+ private:
+  std::shared_ptr<std::vector<uint8_t>> buf_;
+};
+
+inline bool strictEquals(const ArrayBuffer& a, const ArrayBuffer& b) { return a.storage() == b.storage(); }
+
+inline String toJsString(const ArrayBuffer&) { return String::fromLatin1("[object ArrayBuffer]"); }
 
 /// A Uint8Array: a view (offset, length) over a shared byte buffer.
 /// `subarray` shares the buffer; `slice` copies, as in JavaScript.
@@ -30,6 +75,24 @@ class Bytes {
     return Bytes(std::move(out));
   }
   static Bytes copy(const uint8_t* data, size_t n) { return Bytes(std::vector<uint8_t>(data, data + n)); }
+
+  /// `new Uint8Array(buffer, byteOffset?, length?)`: a view of `buffer`'s
+  /// bytes from `byteOffset`, to its end unless `length` is given.
+  static Bytes over(const ArrayBuffer& buffer, Opt<double> byteOffset = undefined, Opt<double> length = undefined) {
+    size_t offset = byteOffset.has() ? detail::toIndex(byteOffset.get(), "Start offset is outside the bounds of the buffer") : 0;
+    size_t size = buffer.size();
+    if (!length.has()) {
+      if (offset > size) throwRangeError("Start offset is outside the bounds of the buffer");
+      return Bytes(buffer.storage(), offset, size - offset);
+    }
+    size_t n = detail::toIndex(length.get(), "Invalid typed array length");
+    if (offset > size || n > size - offset) throwRangeError("Invalid typed array length");
+    return Bytes(buffer.storage(), offset, n);
+  }
+
+  /// The whole buffer this view is over (`u8.buffer`), and where it starts in it.
+  ArrayBuffer arrayBuffer() const { return ArrayBuffer(buf_); }
+  double byteOffset() const { return static_cast<double>(off_); }
 
   /// A view of `length` bytes at `offset` in `buffer`, which must hold them.
   static Bytes view(std::shared_ptr<std::vector<uint8_t>> buffer, size_t offset, size_t length) {
@@ -158,5 +221,7 @@ String utf8Decode(const Bytes& b);
 
 template <class T>
 using IsBytes = std::is_same<T, Bytes>;
+template <class T>
+using IsArrayBuffer = std::is_same<T, ArrayBuffer>;
 
 }  // namespace lucent
