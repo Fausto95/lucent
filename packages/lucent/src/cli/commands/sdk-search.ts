@@ -138,7 +138,7 @@ export function run({ root, positionals, out }: Invocation): number {
       `searched ${searched} module${searched === 1 ? "" : "s"}${total > searched ? ` of ${total}` : ""} (your imports and the SDK cache; lucent sdk prefetch --all to search every module)`,
     ),
   );
-  if (!matches.length && !toolkitModules().length) {
+  if (!toolkitModules().length) {
     const toolkits = toolkitModules(true).map((m) => m.module);
     out.print(t.dim(`${toolkits.join(" and ")} are searched with views on (LUCENT_VIEWS=fabric)`));
   }

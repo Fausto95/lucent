@@ -56,10 +56,10 @@ export function run({ root, positionals, out }: Invocation): number {
       if (!declared.length) {
         const toolkit = toolkitNeedingViews(platform, module);
         out.error(
-          `${t.error(t.symbols.fail)} no ${type} in lucent:${platform}/${module}: ${
+          `${t.error(t.symbols.fail)} no ${type} in lucent:${platform}/${module}: lucent sdk search ${type} finds similar names${
             toolkit
-              ? `${module}'s views are ${toolkit}'s, declared with views on (LUCENT_VIEWS=fabric)`
-              : `lucent sdk search ${type} finds similar names`
+              ? `; ${module}'s views are ${toolkit}'s, declared with views on (LUCENT_VIEWS=fabric)`
+              : ""
           }`,
         );
         return 1;
