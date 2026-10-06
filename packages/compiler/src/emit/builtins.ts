@@ -690,7 +690,7 @@ export function staticCall(
       return num(
         cpp.call(
           "lucent::dateUTC",
-          a.map((x) => em.exprAs(x, T.number)),
+          a.map((x) => orUndefined(em, x, T.number, NAN)),
         ),
       );
     if (name === "parse") return num(cpp.call("lucent::dateParse", [argAs(em, node, 0, T.string)]));
