@@ -34,6 +34,7 @@ const CATEGORIES = [
   "queue",
   "run",
   "native",
+  "effect",
   "completion",
   "compute",
   "copy",
