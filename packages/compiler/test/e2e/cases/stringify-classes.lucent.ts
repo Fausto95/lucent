@@ -246,7 +246,7 @@ export function generics(): string {
     JSON.stringify(plain),
     JSON.stringify(new Labeled()),
     JSON.stringify(cell),
-    JSON.stringify([new Shown(1), new Shown<number | undefined>(undefined)]),
+    JSON.stringify([new Shown<number | undefined>(1), new Shown<number | undefined>(undefined)]),
     JSON.stringify({ s: new Shown<number | undefined>(undefined) }),
   ].join(" ");
 }
