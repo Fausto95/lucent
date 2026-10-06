@@ -255,6 +255,12 @@ export function f(round: boolean): number {
     expect(codes(src)).toContain("LUCENT1005");
   });
 
+  it("rejects a toJSON that JSON.stringify would call with a key", () => {
+    const src =
+      "class P { toJSON(key: string): string { return key; } }\nexport function f(): string { return JSON.stringify(new P()); }";
+    expect(codes(src)).toContain("LUCENT1005");
+  });
+
   it("rejects overrides whose native signature differs", () => {
     const src =
       "class A { f(x: number): number { return x; } }\nclass B extends A { override f(x?: number): number { return 1; } }\nexport function g(): number { return new B().f(1); }";
