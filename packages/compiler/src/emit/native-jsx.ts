@@ -24,7 +24,7 @@
  */
 import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
-import { Codes, fail } from "../diagnostics.ts";
+import { Codes, fail, replacing } from "../diagnostics.ts";
 import { findSdkModule } from "../sdk/schema.ts";
 import { type ViewOwner, viewTag } from "../sdk/view-rules.ts";
 import { isFlexTag, nativeTagType } from "../ui/roots.ts";
@@ -169,6 +169,7 @@ function refuseCopies(em: FnEmitter, fn: ts.FunctionLikeDeclaration, value: ts.E
         Codes.NativeViewJsx,
         `\`${n.getText()}\` is ${read.getText()} as setup first read it: the attribute would never change`,
         `read ${read.getText()} in the attribute, which keeps it up to date`,
+        replacing(n, read.getText(), `Read ${read.getText()} in the attribute`),
       );
 
     ts.forEachChild(n, visit);

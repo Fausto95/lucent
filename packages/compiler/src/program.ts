@@ -4,7 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { ts as dts } from "@lucent-lang/codegen";
 import ts from "typescript";
-import { Codes, type Diagnostic } from "./diagnostics.ts";
+import { Codes, type Diagnostic, type QuickFix } from "./diagnostics.ts";
 import { sdkDts, stubDts } from "./sdk/dts.ts";
 import { cachedDeclarations } from "./sdk/declaration-cache.ts";
 import {
@@ -617,7 +617,7 @@ export function createLucentProgram(
         )
       )
         continue;
-      const hint =
+      const hint: { message: string; fix: string; quickFix?: QuickFix } | undefined =
         nativeMemberHint(d, checker, direct) ??
         nativeAttributeHint(d, checker) ??
         initializerFactoryHint(d, checker) ??
@@ -625,7 +625,12 @@ export function createLucentProgram(
       const diagnostic = fromTs(d);
       diagnostics.push(
         hint
-          ? { ...diagnostic, message: `${diagnostic.message} ${hint.message}`, fix: hint.fix }
+          ? {
+              ...diagnostic,
+              message: `${diagnostic.message} ${hint.message}`,
+              fix: hint.fix,
+              ...(hint.quickFix ? { quickFix: hint.quickFix } : {}),
+            }
           : diagnostic,
       );
     }
@@ -691,6 +696,21 @@ function nativeMemberHint(
 /** TypeScript's error for a protected constructor called from outside. */
 const PROTECTED_CONSTRUCTOR = 2674;
 
+/** A quick fix adding `import "spec";` after `file`'s last import (at its top without one). */
+function importing(file: ts.SourceFile, spec: string): QuickFix {
+  const last = file.statements.filter(ts.isImportDeclaration).at(-1);
+  const line = `import "${spec}";`;
+
+  return {
+    title: `Add import "${spec}"`,
+    edits: [
+      last
+        ? { start: last.getEnd(), length: 0, text: `\n${line}` }
+        : { start: 0, length: 0, text: `${line}\n` },
+    ],
+  };
+}
+
 /**
  * Where `new` of a native class reaches the constructor of a superclass
  * whose module no file imports (only its name is known, so it declares
@@ -701,7 +721,7 @@ function inheritedInitializerHint(
   d: ts.Diagnostic,
   checker: ts.TypeChecker,
   direct: Set<string>,
-): { message: string; fix: string } | undefined {
+): { message: string; fix: string; quickFix: QuickFix } | undefined {
   if (d.code !== PROTECTED_CONSTRUCTOR && !NO_OVERLOAD.has(d.code)) return undefined;
   if (!d.file || d.start === undefined) return undefined;
 
@@ -737,6 +757,7 @@ function inheritedInitializerHint(
       return {
         message: `${symbol.name}'s initializers are ${name}'s, inherited from ${spec}, which no file imports: only its name is known.`,
         fix: `import "${spec}" (a bare import is enough) to make a ${symbol.name} with ${name}'s initializers`,
+        quickFix: importing(d.file, spec),
       };
   }
 
