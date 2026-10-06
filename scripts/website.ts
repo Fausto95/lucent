@@ -6,8 +6,9 @@
  *   2. writes the reference pages from their templates (src/docs/templates/)
  *      as MDX, and each page's "See the C++" (src/generated/cpp/<slug>.json);
  *   3. reads every docs page and blog post from its MDX and checks the
- *      docs' structure: page files match the sidebar, each page says its
- *      kind and has its "Next" link; and each post's date;
+ *      docs' structure: page files match the sidebar, each slug sits under
+ *      its section's directory, each page says its kind and has its "Next"
+ *      link; and each post's date;
  *   4. compiles every `*.lucent.ts` sample on the docs pages and blog posts;
  *   5. checks internal links and their anchors, links into the docs from the
  *      repository (READMEs, docs/, the CLI's diagnostics URL),

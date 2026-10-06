@@ -10,7 +10,8 @@ The docs are four sections, each a tab with its own sidebar, listed in
 `src/docs/nav.ts`: **Guides** (tasks, in any order after Get started),
 **Packages** (writing a Lucent package), **API** (the exact rules and every
 API) and **Architecture** (how Lucent works, then Internals for
-contributors). A page lives under its section's directory.
+contributors). A page lives under its section's directory, and a landing
+page `x` is `x.mdx` beside `x/`, never `x/index.mdx`.
 
 | Kind        | Reader's question                         | Style                                                            | Length budget             |
 | ----------- | ----------------------------------------- | ---------------------------------------------------------------- | ------------------------- |

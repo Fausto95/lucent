@@ -10,6 +10,7 @@ import {
   docsSections,
   docsSlugs,
   locate,
+  slugsOf,
 } from "../../apps/website/src/docs/nav.ts";
 import {
   type Block,
@@ -118,7 +119,7 @@ export function checkedPages(pages: DocPage[], posts: Post[]): CheckedPage[] {
 
 const KINDS = new Set(Object.keys(DOC_KINDS));
 
-/** Page files match the sidebar (src/docs/nav.ts), and each page follows checkPages' rules. */
+/** Page files match the sidebar (src/docs/nav.ts), which follows checkNav's slug scheme, and each page follows checkPages' rules. */
 export function checkStructure(pages: DocPage[]): string[] {
   const problems: string[] = [];
   const slugs = new Set(pages.map((p) => p.slug));
@@ -132,7 +133,50 @@ export function checkStructure(pages: DocPage[]): string[] {
     if (!slugs.has(slug)) problems.push(`${where(slug)} has no ${docFile(slug)}`);
   const dups = docsSlugs.filter((s, i) => docsSlugs.indexOf(s) !== i);
   for (const dup of new Set(dups)) problems.push(`${where(dup)} is in the sidebar twice`);
-  return [...problems, ...checkPages(pages)];
+  return [...problems, ...checkNav(), ...checkPages(pages)];
+}
+
+/**
+ * The slug scheme: each page under its section's directory, the docs home
+ * ("") first and only there, a landing page x next to x/ (never x/index, which
+ * Docusaurus would serve at x/), no empty section, group or sub-group, and
+ * each group's label once in its section.
+ */
+export function checkNav(sections: DocSection[] = docsSections): string[] {
+  const problems: string[] = [];
+  if (slugsOf(sections).some((slug, i) => slug === "" && i > 0))
+    problems.push(`${where("")} is the first page of the first section, and only there`);
+
+  for (const section of sections) {
+    if (!section.groups.length) problems.push(`${section.label} has no group`);
+
+    const labels = section.groups.map((g) => g.label);
+    for (const label of new Set(labels.filter((l, i) => labels.indexOf(l) !== i)))
+      problems.push(`${section.label} has two groups labelled ${label}`);
+
+    for (const group of section.groups) {
+      const at = `${section.label} › ${group.label}`;
+      if (!group.items.length) problems.push(`${at} has no page`);
+      for (const item of group.items)
+        if (typeof item !== "string" && !item.slugs.length)
+          problems.push(`${at} › ${item.label} has no page`);
+    }
+
+    for (const slug of slugsOf([section])) {
+      if (slug === "") continue;
+      if (slug !== section.dir && !slug.startsWith(`${section.dir}/`))
+        problems.push(
+          `${where(slug)} is listed in ${section.label}: its slug starts with ${section.dir}/`,
+        );
+      if (slug.endsWith("/index")) {
+        const landing = slug.slice(0, -"/index".length);
+        problems.push(
+          `${where(slug)}: a landing page is ${landing} (its file ${landing}.mdx), not ${slug}`,
+        );
+      }
+    }
+  }
+  return problems;
 }
 
 /** Whether a slug is one of Architecture's contributor pages. */
