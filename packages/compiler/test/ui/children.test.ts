@@ -223,7 +223,10 @@ describe("a component's React children", () => {
           {
             "card.lucent.tsx": ONE_FILE_CARD["card.lucent.tsx"]
               .replace('  if (PLATFORM === "ios") {', '  switch (PLATFORM) {\n  case "ios": {')
-              .replace("    );\n  }\n\n  const content", "    );\n  }\n  default: {\n  const content")
+              .replace(
+                "    );\n  }\n\n  const content",
+                "    );\n  }\n  default: {\n  const content",
+              )
               .replace("    </LinearLayout>\n  );\n}", "    </LinearLayout>\n  );\n  }\n  }\n}"),
           },
           platform,
@@ -241,7 +244,10 @@ describe("a component's React children", () => {
       const { result } = build(
         {
           "card.lucent.tsx": ONE_FILE_CARD["card.lucent.tsx"]
-            .replace('  if (PLATFORM === "ios") {', '  if (PLATFORM === "ios" && props.title !== "") {')
+            .replace(
+              '  if (PLATFORM === "ios") {',
+              '  if (PLATFORM === "ios" && props.title !== "") {',
+            )
             .replace(
               "    );\n  }\n\n  const content",
               '    );\n  }\n\n  if (PLATFORM === "ios") return <UILabel text="none" />;\n\n  const content',

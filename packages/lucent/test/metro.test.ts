@@ -170,7 +170,11 @@ describe("Metro resolver", () => {
     };
 
     return withLucent(
-      { projectRoot: root, transformer: { babelTransformerPath: upstream }, resolver: { extraNodeModules } },
+      {
+        projectRoot: root,
+        transformer: { babelTransformerPath: upstream },
+        resolver: { extraNodeModules },
+      },
       { watch: false },
     ).resolver.extraNodeModules;
   };
