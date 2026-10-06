@@ -93,7 +93,7 @@ sets and Android constant groups (`@IntDef`, `@LongDef`) stay numbers; a
 | `Record<string, V>`, `{ [k: string]: V }`                   | string-keyed dictionary, JS key order                                                                                                                         |
 | `Map<K, V>`, `Set<T>`                                       | insertion-ordered, SameValueZero keys                                                                                                                         |
 | object types (`type`, `interface`, literals)                | shared struct; types with the same shape share one struct                                                                                                     |
-| classes                                                     | shared object with methods, accessors, statics; `extends` another Lucent class (virtual dispatch, `super`, abstract classes)                                  |
+| classes                                                     | shared object with methods, accessors, static methods; `extends` another Lucent class (virtual dispatch, `super`, abstract classes)                           |
 | interfaces with methods, or named in a class's `implements` | abstract base with virtual methods and property accessors; implemented only by classes that declare `implements`                                              |
 | `T \| undefined`, `T \| null`, `x?: T`, `null \| undefined` | optional that remembers `undefined` vs `null`                                                                                                                 |
 | other unions                                                | tagged union (`string \| number`, discriminated object unions, …)                                                                                             |
@@ -308,6 +308,8 @@ diagnostic.
 ## Crossing the JavaScript boundary
 
 Only exported functions, classes and constants are visible from JavaScript.
+An exported class shows JavaScript its constructor, instance members and
+static methods; its static fields stay inside Lucent.
 
 - **Arguments are validated**, because JavaScript callers can pass anything:
   `hash: argument 'input' must be a string, got a number`, or for nested values
@@ -412,7 +414,8 @@ explicitly, for example by clearing a field.
 | `date.toString()` includes the zone name in some engines                                        | `Mon Jul 22 2019 15:51:50 GMT-0700`, like Hermes; `toLocale…` methods are not supported                                                   |
 | `abort()` without a reason uses an `AbortError` whose message depends on the engine             | `AbortError: signal is aborted without reason`, as in React Native and browsers (Node says "This operation was aborted")                  |
 | an abort reason can be any value                                                                | reasons from JavaScript become errors (`String(reason)` as the message when it is not an object); `abort()` in Lucent takes an `Error`    |
-| a field or variable read before it is assigned (from a base constructor, say) is `undefined`    | a number, string, boolean, array, map or record reads its type's default; an object, or a union holding one, throws `TypeError`           |
+| a field or variable read before it is assigned (from a base constructor, say) is `undefined`    | a number, string, boolean, tuple, array, map, set, record or `Uint8Array` (or their union) reads a default; an object throws `TypeError`  |
+| `this.p?.x` on an object field not yet assigned is `undefined`                                  | throws `TypeError`, as any read of that field does                                                                                        |
 | a `let` or `const` read before its declaration runs throws `ReferenceError`                     | it reads as a variable not yet assigned, above                                                                                            |
 | any object with the right members satisfies an interface                                        | only classes that declare `implements`; plain JS objects are rejected at the boundary with a `TypeError`                                  |
 | a class's `[Symbol.dispose]()` is callable from JavaScript                                      | it is for Lucent code: JavaScript does not see symbol-keyed members of Lucent classes                                                     |

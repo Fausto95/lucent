@@ -2355,8 +2355,14 @@ Last recorded runs:
   also takes `null` (and `T | null` takes `undefined`), and a use of it
   then throws `TypeError`.
 - A field or variable of an object type read before it is assigned
-  throws `TypeError` (JavaScript reads `undefined`), and a `let` read
-  before its declaration runs reads as unassigned, not `ReferenceError`.
+  throws `TypeError` (JavaScript reads `undefined`, also through `?.`);
+  one of a value type (number, string, boolean, tuple, array, map, set,
+  record, `Uint8Array`) reads its default. A `let` read before its
+  declaration runs reads as unassigned, not `ReferenceError`.
+- JavaScript sees an exported class's static methods but not its static
+  fields, and an instance of an exported Error subclass made or returned
+  to JavaScript has no `message` or `name` and is not `instanceof Error`
+  (a thrown one converts to a real Error).
 - On Android API 24 and 25, a Java default method that Lucent does not
   implement returns its zero value, and the reason is logged.
 - A pod added to `lucent.json` after the first build needs `pod install`
