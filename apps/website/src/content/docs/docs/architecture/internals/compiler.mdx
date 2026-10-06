@@ -30,7 +30,7 @@ In the C++, each call to `note` is a statement of its own, in source order, and 
 
 | Stage | Code | What it gives |
 | --- | --- | --- |
-| Plan | `platforms.ts` | Shared modules, and each platform module's declaration file and implementations |
+| Plan | `platforms.ts` | The modules without platform files (`shared`), and each platform module's declaration file and implementations |
 | Type | `program.ts`, `types.ts` | A TypeScript program per target, and each type's native representation (`LType`) |
 | Check | `platforms.ts`, `ui/analyze.ts` | TypeScript's errors, platform scopes, platform modules' conformance and components' contracts |
 | Analyze | `analysis/` | `ProgramFacts`: what each unit of code may do, and where it may run |
@@ -42,11 +42,11 @@ In the C++, each call to `note` is a statement of its own, in source order, and 
 
 ## Targets
 
-`planModules()` pairs each platform file (`x.ios.lucent.ts`) with its declaration file (`x.lucent.ts`). Without platform code, `compile()` builds one program. With platform files, or a shared module that branches on `PLATFORM` (`usesPlatforms()`), it builds one per target.
+`planModules()` pairs each platform file (`x.ios.lucent.ts`) with its declaration file (`x.lucent.ts`). Without platform code, `compile()` builds one program. With platform files, or a module with platform branches (`usesPlatforms()`), it builds one per target.
 
 - The default targets are the platforms whose SDK is installed. When none is, every platform is a target, so the diagnostics say what is missing.
 - A target's files land under `<target>/`, which the native package keeps under `cpp/generated/`. The JavaScript proxies are shared.
-- The `host` target compiles shared modules and declaration files, for tests and tools. A platform module's export there throws, or rejects, saying it is not available on this platform. `lucent build --platforms host` asks for it, as [the CLI reference](/docs/api/cli/#lucent-build) shows.
+- The `host` target compiles the modules without platform files, and declaration files, for tests and tools. A platform module's export there throws, or rejects, saying it is not available on this platform. `lucent build --platforms host` asks for it, as [the CLI reference](/docs/api/cli/#lucent-build) shows.
 - A deferred platform is no target. Android is deferred until Gradle resolves the app's dependencies, and the other programs leave its code untyped.
 - A problem several targets report is reported once.
 
@@ -134,7 +134,7 @@ A task refuses a non-literal constant because a reload of JavaScript runs `init(
 | Component setups, in `ui/analyze.ts` | Whether setup, its functions and its commands can run on the main thread, and whether props, events and commands carry data | LUCENT3021, LUCENT3022 |
 | `NativeBuffer` borrows, in `emit/buffers.ts` | Whether a lent span escapes its callback, and whether a buffer is used after it moved | LUCENT3030, LUCENT3031 |
 
-Main-thread-only SDK members are checked at each use instead, in `emit/native.ts`. A use outside a main context fails with LUCENT3006, and a `@WorkerThread` member inside one warns with LUCENT3009.
+Main-thread-only SDK members are checked at each use instead, in `emit/native.ts`, where `inMainContext()` finds code on the main thread. That is a component's setup (the main context), `main(f)`'s function, a main-thread callback or protocol requirement, or a main-thread subclass's member. A use anywhere else fails with LUCENT3006, and a `@WorkerThread` member in that code warns with LUCENT3009.
 
 ## The semantic IR
 

@@ -1214,7 +1214,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
       {
         "name": "Float",
         "kind": "type",
-        "signature": "type Float = number;",
+        "signature": "type Float = number & { readonly \"lucent:compose.Float\"?: never };",
         "doc": [
           "Kotlin's Float: a number, converted where the body passes it."
         ],
@@ -1225,7 +1225,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
       {
         "name": "Int",
         "kind": "type",
-        "signature": "type Int = number;",
+        "signature": "type Int = number & { readonly \"lucent:compose.Int\"?: never };",
         "doc": [
           "Kotlin's Int."
         ],
@@ -1236,7 +1236,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
       {
         "name": "Long",
         "kind": "type",
-        "signature": "type Long = number;",
+        "signature": "type Long = number & { readonly \"lucent:compose.Long\"?: never };",
         "doc": [
           "Kotlin's Long."
         ],
@@ -1247,7 +1247,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
       {
         "name": "Short",
         "kind": "type",
-        "signature": "type Short = number;",
+        "signature": "type Short = number & { readonly \"lucent:compose.Short\"?: never };",
         "doc": [
           "Kotlin's Short."
         ],
@@ -1258,7 +1258,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
       {
         "name": "Byte",
         "kind": "type",
-        "signature": "type Byte = number;",
+        "signature": "type Byte = number & { readonly \"lucent:compose.Byte\"?: never };",
         "doc": [
           "Kotlin's Byte."
         ],

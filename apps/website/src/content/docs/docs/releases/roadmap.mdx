@@ -117,6 +117,7 @@ Ready for apps in production.
 ### Language, runtime and bindings
 
 - Reference cycles are not collected (see [Not planned](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#not-planned)).
+- Some language features and built-ins differ from JavaScript without a diagnostic; the website lists them under [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps).
 - Compute tasks are named top-level functions; safepoints are only in module functions' task variants. The JavaScript reference differs from native in three cases. The copy of an object loses its `#private` fields, and native throws `DataCloneError` for a subclass instance behind a base type. An abort that lands after the task ran but before the promise settled rejects natively and resolves in JavaScript.
 - Module state is process-wide and reset when a new `Host` is created.
 - On Android API 24 and 25, a Java default method that Lucent does not implement returns its zero value, and the reason is logged.

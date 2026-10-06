@@ -151,6 +151,7 @@ No class is recognized by name: a Play services `Task` is a Java object like any
 - A function goes where Java takes an interface with one abstract method. The same function passed twice is the same Java object, so a listener added with one call is removed with another.
 - A default method is optional to implement. Calling one takes a `!`: `manager.getCredential!(context, request)`.
 - A method Java calls that returns nothing is queued on the Lucent thread. One that returns a value runs while Java waits, holding the lock. [Concurrency](/docs/api/language/concurrency/) defines the lock.
+- An `async` method implements a Kotlin interface's `suspend` member. Kotlin suspends until its promise settles, and a rejection throws there.
 
 [Implement a delegate](/docs/guides/implement-a-delegate/) keeps a listener registered and cleans it up.
 
@@ -256,7 +257,7 @@ export declare class Searcher extends Object {
 | A `value` class | A class: `new Meters(2)` makes one, and `meters.value` reads its underlying value. A member the JVM passes it unboxed to takes and gives the class. |
 | A read-only `List<E>` | `E[]`, a copy each way. `List<Int>` is `number[]`, `List<Long>` is `bigint[]` and `List<String?>` is `(string \| null)[]`. |
 | `MutableList<E>`, `List<*>` | The Java object, read and changed through its methods. |
-| A function type, such as `(Double) -> Unit` | On `main`, not in 0.1.2: a function, both ways. A property of a `fun interface` type also takes a function when written. |
+| A function type, such as `(Double) -> Unit` | A function, both ways. A property of a `fun interface` type also takes a function when written. |
 | A `suspend` function type, such as a `Flow`'s collector | A function that runs while Kotlin waits, holding the lock. What it throws rejects the call. An `async` function fails to compile there (`LUCENT1007`). |
 | An interface function with a body | An optional method, as a Java default method is. |
 | `internal` and `private` declarations | Not declared. |
@@ -265,7 +266,12 @@ A call that leaves defaults out goes through generated Kotlin, so Kotlin's defau
 
 An argument that may be `undefined` where Kotlin has a default fails to compile (`LUCENT1007`): pass a value, or leave it out.
 
-A class whose metadata comes from a newer Kotlin than Lucent reads is declared as Java sees it, and `lucent sdk coverage --members` says why. The Kotlin shapes the generated Kotlin doesn't call yet are [TA31](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta31).
+A class whose metadata comes from a newer Kotlin than Lucent reads is declared as Java sees it, and `lucent sdk coverage --members` says why.
+
+These Kotlin shapes fail to compile, with the reason:
+
+- A member that needs generated Kotlin, such as a `suspend` one, whose type parameter's bound uses a projection: `T : List<out R>`.
+- A Lucent class's override of a Kotlin class's `suspend` or value-class member.
 
 ### Flows
 
@@ -300,7 +306,7 @@ export async function flowValues(): Promise<string> {
 
 A member Lucent can't use is declared with the reason in its doc comment. Using it fails to compile with that reason, followed by the native symbol and the library it comes from.
 
-A member Lucent couldn't type isn't declared at all, so calling one fails as a member its type lacks. On `main`, not in 0.1.2, the error also says why, and to wrap it in Kotlin of your own, in a Gradle module.
+A member Lucent couldn't type isn't declared at all, so calling one fails as a member its type lacks. The error also says why, and to wrap it in Kotlin of your own, in a Gradle module.
 
 `lucent sdk coverage` measures each package your code imports, or those `--android` names, `android.*` for every package with that prefix:
 

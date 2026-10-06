@@ -189,4 +189,4 @@ A JavaScript reload, such as Metro's reload command, starts a new JavaScript run
 
 Module code gets no reload event, so after a full reload the old requests and subscriptions keep running beside the new ones. Let JavaScript end what it starts, with a returned stop function or an `AbortSignal` parameter. End it when the screen is done.
 
-In debug builds, Lucent logs `[lucent] N native reference(s) module code still holds at teardown` as the old runtime goes ([At teardown](/docs/api/language/memory/#at-teardown)).
+As the old runtime goes, a debug build logs how many SDK objects module code still holds ([At teardown](/docs/api/language/memory/#at-teardown)).

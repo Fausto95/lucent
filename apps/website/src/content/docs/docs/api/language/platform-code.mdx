@@ -5,7 +5,7 @@ description: "A `PLATFORM` test makes each side of a branch one platform's code,
 kind: reference
 ---
 
-A shared module uses both platforms' SDKs and branches on `PLATFORM` from `lucent:platform`. Each build compiles its own platform's code and the code both platforms share. This page gives the exact rules: what counts as a branch, which declarations belong to one platform, and how platform files pair up.
+A module with platform branches uses both platforms' SDKs, and tests `PLATFORM` from `lucent:platform` to tell them apart. Each build compiles its own platform's code and the code both platforms share. This page gives the exact rules: what counts as a branch, which declarations belong to one platform, and how platform files pair up.
 
 ## Example
 
@@ -104,7 +104,7 @@ Some Android imports come from the app's dependencies: classes that neither `and
 | Build | Those Android imports |
 | --- | --- |
 | `lucent check` or `lucent build` in an Expo app before `expo prebuild`, with no `android/` directory | Untyped, and named in a warning. Android is skipped until `android/` exists. |
-| `lucent build --platforms ios` or `host`, before a Gradle build has resolved the app's classpath | From the release after 0.1.2: untyped, and named in a warning that points to the Android build. In 0.1.2, the build fails with `LUCENT3004` ([Changelog](/docs/releases/changelog/)). |
+| `lucent build --platforms ios` or `host`, before a Gradle build has resolved the app's classpath | Untyped, and named in a warning that points to the Android build. |
 | The Android build: `lucent build --platforms android`, or the Gradle build's `lucentBuild` task | Resolved, and Android is checked. An import that is still missing fails with `LUCENT3004`. |
 
 An app whose Android imports are all in `android.jar` builds and checks Android as usual.

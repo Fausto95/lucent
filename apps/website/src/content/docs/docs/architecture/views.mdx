@@ -94,7 +94,7 @@ export default function App() {
 
 ## A component is a Fabric component
 
-An exported function of a `.lucent.tsx` module that returns a view is a component. `lucent build` generates the props, events, shadow node and descriptor Fabric needs for each one.
+An exported function of a `.lucent.tsx` module that returns a view is a component. `lucent build` generates the props, events, shadow node and descriptor Fabric needs for each.
 
 Its proxy exports a React component: props are React props, events are callback props, and the [commands](/docs/api/views/components/#commands-and-requests) setup passes to [`expose`](/docs/api/views/lucent-ui/#expose) are its ref's methods.
 
@@ -105,26 +105,26 @@ A mount is one run of setup on one native host view, while that view shows the c
 - **Create.** The first commit runs setup, and the view it returns becomes the host's content.
 - **Update.** A later commit hands over the changed props at once, and the effects that read a changed prop or signal run again.
 - **Dispose.** When the view goes, its effects stop and its `onDispose` cleanups run.
-- **Recycle.** iOS always pools views; Android does only with React Native's `enableViewRecycling` on. Recycling disposes the mount, and the next commit runs setup again, with new signals ([Mounts and recycling](/docs/api/views/components/#mounts-and-recycling)).
-- **Reload.** React Native drops the old views, disposing their mounts, and the new runtime's views mount afresh.
+- **Recycle.** iOS always pools views; Android does only with React Native's `enableViewRecycling` on. Recycling disposes the mount, and the next commit runs setup again ([Mounts and recycling](/docs/api/views/components/#mounts-and-recycling)).
+- **Reload.** React Native drops the old views, disposing their mounts, and mounts new ones.
 
 ## The main thread, without the lock
 
-Setup, effects, commands and the callbacks setup gives the platform run on the main thread, in the [main context](/docs/api/language/concurrency/#the-main-context). It works without the Lucent lock, so a view never waits behind module code, and component code can't read module state ([LUCENT3022](/docs/api/diagnostics/#lucent3022)).
+Setup, effects, commands and the callbacks setup gives the platform run on the main thread, in the [main context](/docs/api/language/concurrency/#the-main-context). It never takes the Lucent lock, so a view never waits behind module code, and can't read module state ([LUCENT3022](/docs/api/diagnostics/#lucent3022)).
 
-Calling an event prop posts the event to the JavaScript thread without waiting, so a view keeps updating while JavaScript is busy.
+An event prop's call is posted to the JavaScript thread, so a view never waits for JavaScript.
 
 ## SwiftUI and Compose bodies
 
 A component can return JSX from `lucent:swiftui` or `lucent:compose` instead of a view. The body becomes a Swift `View` in a `UIHostingController`, or a `@Composable` in a `ComposeView`, one per mount.
 
-The setup still compiles to C++: it computes the values the body reads, and pushes each change into the body's state. A function the body calls runs Lucent code.
+The setup still compiles to C++: it computes the values the body reads and pushes each change into its state. Functions the body calls run Lucent code.
 
 ## Sizing and children
 
-A component whose style gives it a size, explicit or from flex, fills it. One taking children is sized by Yoga, as a View is: its content is never measured.
+A component whose style gives it a size, explicit or from flex, fills it. One taking children is sized by Yoga, as a View is, never by its content.
 
-Otherwise the host measures the component's content on the main thread whenever the mount's code has run. Code after an `await` calls [`invalidateSize()`](/docs/api/views/lucent-ui/#invalidatesize) instead.
+Otherwise the host measures its content on the main thread whenever the mount's code has run. Code after an `await` calls [`invalidateSize()`](/docs/api/views/lucent-ui/#invalidatesize) instead.
 
 A component whose props declare `children?: Children` puts a [`slot()`](/docs/api/views/lucent-ui/#slot) view where its children go. React Native owns the children and their frames, and setup decides where the slot sits ([Put React children inside a native view](/docs/guides/views/children/)).
 
@@ -140,11 +140,11 @@ Beside Lucent's other [known limitations](/docs/releases/roadmap/#known-limitati
 - The React children share one slot, so a stack view can't arrange each one itself.
 - A transform on a view between the host and the slot applies to the children, but their layout ignores it.
 - A slot inside a native scroll view doesn't scroll: put a React `ScrollView` in the slot. `removeClippedSubviews` doesn't apply to its children.
-- Discrete and `Continuous` events are never dropped, so a busy JavaScript thread queues them. Mark an event `Coalesced` when only its latest value counts ([Delivery](/docs/api/views/components/#delivery)).
-- With two React Native runtimes alive at once, requests are answered to the one that connected last.
+- Only a `Coalesced` event drops all but its latest value: the others queue while JavaScript is busy ([Delivery](/docs/api/views/components/#delivery)).
+- With two React Native runtimes alive, requests are answered to the one that connected last.
 - Helper view functions take plain data, and callbacks of numbers, booleans and strings: no toolkit values, children, lists or bindings.
-- SwiftUI: a static value named like a method, such as `Animation.easeInOut`, is left out: call the method. Only closed ranges (`a...b`) map, and content conditions must be `boolean`.
-- SwiftUI: `Int(x)` traps on NaN or infinity, and a two-value `onChange` closure doesn't type-check.
+- SwiftUI: a static value named like a method, such as `Animation.easeInOut`, is left out: call the method. Only closed ranges (`a...b`) map, and content conditions must be `boolean`. `Int(x)` traps on NaN or infinity, and a two-value `onChange` closure doesn't type-check.
 - Compose: when two Kotlin packages declare a class of the same name, `lucent:compose` keeps the first one's.
-- [Platform-view JSX](/docs/api/views/platform-views/) isn't in a release yet. Its children are fixed ([T49](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t49)), and a plain view lays none out until [T50](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t50). Its rules read declarations: Android's `AdapterView` declares `addView(View, int)`, then throws from it.
-- Platform-view JSX: a view made through a Swift initializer needs `create`, and a pod's view has attributes only with `lucent:ios/UIKit` imported ([TA33](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta33)).
+- [Platform-view JSX](/docs/api/views/platform-views/): its children are fixed ([T49](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t49)), and a plain view lays none out until [T50](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t50). Its rules read declarations: Android's `AdapterView` declares `addView(View, int)`, then throws from it.
+- Platform-view JSX: a view made through a Swift initializer needs `create`. A pod's view inherits `UIView`'s initializers only once a file imports `lucent:ios/UIKit`, even with a bare `import`.
+- A listener with several methods, such as `TextWatcher` or SeekBar's, is left out of JSX, and setup can't give one ([LUCENT3021](/docs/api/diagnostics/#lucent3021)).

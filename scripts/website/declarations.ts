@@ -76,12 +76,26 @@ function parseDoc(text: string): {
   return { doc, examples, paramDocs };
 }
 
-/** Signature text: no `export declare`, no doc comments, no brands, no blank lines. */
+/**
+ * A type alias that brands a primitive, its brand all it adds
+ * (`type Float = number & { readonly "lucent:compose.Float"?: never }`).
+ */
+const PRIMITIVE_BRAND =
+  /^type \w+ = (?:number|string|boolean|bigint) & \{ readonly "lucent:[^"]+"\??: never \};?$/;
+
+/**
+ * Signature text: no `export declare`, no doc comments, no brands, no blank
+ * lines. A primitive's brand stays: without it, the alias would read as the
+ * primitive itself.
+ */
 function signatureOf(text: string): string {
-  return text
+  const declared = text
     .replace(/^export\s+/, "")
     .replace(/^declare\s+/, "")
-    .replace(/[ \t]*\/\*\*[\s\S]*?\*\/[ \t]*\n?/g, "")
+    .replace(/[ \t]*\/\*\*[\s\S]*?\*\/[ \t]*\n?/g, "");
+  if (PRIMITIVE_BRAND.test(declared)) return declared;
+
+  return declared
     .replace(TYPE_BRAND, "")
     .split("\n")
     .filter((line) => !BRAND.test(line) && line.trim() !== "")

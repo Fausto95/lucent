@@ -105,7 +105,7 @@ The lock module code runs under, so it runs one turn at a time. [Concurrency](/d
 
 ### Main context
 
-Where view code runs: a component's setup, its effects and commands, and the callbacks it gives the platform, on the main thread. `main(f)` and other main-thread callbacks run module code instead ([Concurrency](/docs/api/language/concurrency/#the-main-context)).
+Where view code runs, on the main thread: a component's setup, its effects and commands, and the callbacks it gives the platform. It never takes the Lucent lock. The function given to `main(f)` and main-thread SDK callbacks aren't in it: they're module code the main thread runs, holding the lock ([Concurrency](/docs/api/language/concurrency/#the-main-context)).
 
 ### Compute task
 

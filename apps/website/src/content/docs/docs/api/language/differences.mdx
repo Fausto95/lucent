@@ -46,7 +46,6 @@ Each e2e case is a module in `packages/compiler/test/e2e/cases/`, run natively a
 | JavaScript | Lucent | Why | e2e case |
 | --- | --- | --- | --- |
 | Type annotations are erased: any value reaches a function. | Each argument from JavaScript is checked against its declared type, and a mismatch throws a `TypeError` before the code runs ([The boundary](/docs/api/language/boundary/#when-a-value-doesnt-match)). | A native value needs the declared layout. | None |
-| A function declared to take `T \| undefined` runs with a `null` it's given. | It takes `null` too, and keeps it apart from `undefined`. Once code narrows the value to `T`, as after `x !== undefined`, using it throws a `TypeError`. Test for absence with `== null` or `??`. | An optional from JavaScript holds either one, and a narrowed read checks that a value is there. | None |
 | An imported `let` is a live binding. | JavaScript gets a copy of an exported `const` or `let`, made when it imports the module ([Modules](/docs/api/language/modules/#exports)). | The value is copied at the boundary like any other. | None |
 | Arrays and objects passed to other code are shared. | Copied at the boundary; inside Lucent they're shared. | JavaScript objects belong to the JS thread, and Lucent code runs on others. | `reference-identity` |
 | `Date` objects passed to other code are shared. | Copied at the boundary; inside Lucent they're shared. | The same as for arrays and objects. | `dates` |
@@ -74,7 +73,7 @@ Each e2e case is a module in `packages/compiler/test/e2e/cases/`, run natively a
 
 ## Known gaps
 
-These calls compile, but don't do what JavaScript does. Lucent should refuse them or match JavaScript; until it does, avoid them ([roadmap](/docs/releases/roadmap/#known-limitations)).
+This code compiles, but doesn't do what JavaScript does. Lucent should refuse it or match JavaScript; until it does, avoid it ([roadmap](/docs/releases/roadmap/#known-limitations)).
 
 | JavaScript | Lucent | Why | e2e case |
 | --- | --- | --- | --- |
@@ -82,7 +81,7 @@ These calls compile, but don't do what JavaScript does. Lucent should refuse the
 | `new Array(n)` throws a `RangeError` unless `n` is an integer from 0 to 4294967295. | `n` is truncated to a 32-bit unsigned integer: `new Array(2.5)` has 2 elements, and `new Array(-1)` asks for 4294967295. | Not implemented, and not refused yet. | None |
 | `Array.from({ length: n }, f)` truncates a fractional `n`, and gives `[]` for a negative one. | Throws a `RangeError` when `n` is fractional or negative. | Not implemented, and not refused yet. | None |
 | `Array.isArray(x)` tests the value `x` holds. | `false` when the type of `x` is a union holding an array, such as `string \| string[]`. Test `x instanceof Array` instead. | Not implemented, and not refused yet. | None |
-| `Object.keys(obj)` lists the properties the object has. | For an object type, lists every declared field, an optional one that isn't set included. | Lucent lists the type's fields. | `absent-results` |
+| `Object.keys(obj)`, `for…in` and `"key" in obj` see the properties the object has. | For an object type, they see every declared field, an optional one that isn't set included. | Lucent lists the type's fields. | `absent-results` |
 | A `Uint8Array`'s `fill`, `indexOf` and `includes` take a start, an end or a `fromIndex`. | Those arguments are ignored. | Not implemented, and not refused yet. | None |
 | `str.normalize(form)` returns the normalized string. | Returns the string unchanged. | Not implemented, and not refused yet. | None |
 | `str.replace("x", "$&$&")` expands `$` patterns, with a string pattern too. | With a string pattern, the replacement is inserted as written. | Not implemented, and not refused yet. | `strings` |
@@ -92,4 +91,8 @@ These calls compile, but don't do what JavaScript does. Lucent should refuse the
 | `new Error(message, { cause })` keeps the cause. | The cause is dropped. | Not implemented, and not refused yet. | None |
 | `new ParseError(message)` sets `message` when the error class has no constructor. | The message is dropped, and `message` is `""`. Give the class a constructor that calls `super(message)`. | Not implemented, and not refused yet. | None |
 | A base constructor that reads a subclass's object field gets `undefined`. | An object- or class-typed field holds no value yet. It isn't `undefined` to `===`, and reading a member of it crashes the app. | Not implemented, and not refused yet. | None |
+| A function declared to take `T \| undefined` runs with a `null` it's given. | The argument check lets `null` through, and keeps it apart from `undefined`. Once code narrows the value to `T`, as after `x !== undefined`, using it throws a `TypeError`. Test for absence with `== null` or `??`. | The check takes either absence for an optional, and doesn't refuse `null` yet. | None |
+| `export default function f` and `export default class C` give JavaScript a `default` export. | JavaScript gets them as `f` and `C`, and `default` is `undefined`. Use named exports. | Not implemented, and not refused yet. | None |
+| A static field's initializer runs after the module variables declared above its class. | Static fields initialize before the module's variables, so one reading a module variable gets its default, such as `0` ([Modules](/docs/api/language/modules/#initialization-order)). | Lucent initializes static fields first, and doesn't refuse the read yet. | None |
+| A decorator on a class or a member runs when the class is defined. | It compiles, but never runs. | Not implemented, and not refused yet. | None |
 | `new Proxy(target, handler)` wraps the target. | With a class instance as the target, it makes a new instance of that class, and ignores the target and the handler. A plain object target fails with [LUCENT1003](/docs/api/diagnostics/#lucent1003). | Not implemented, and not refused yet. | None |

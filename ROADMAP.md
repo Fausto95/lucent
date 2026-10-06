@@ -2324,6 +2324,9 @@ Last recorded runs:
 ### Language, runtime and bindings
 
 - Reference cycles are not collected (see [Not planned](#not-planned)).
+- Some language features and built-ins differ from JavaScript without a
+  diagnostic; the website lists them under
+  [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps).
 - Compute tasks are named top-level functions; safepoints are only in
   module functions' task variants. The JavaScript reference differs from
   native in three cases. The copy of an object loses its `#private`

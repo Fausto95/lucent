@@ -58,7 +58,7 @@ Every function and constant of `Math`. A spread is allowed only as the one argum
 | `BigInt.asIntN(bits, x)`, `BigInt.asUintN(bits, x)` | |
 | `toString(radix?)`, `valueOf` | `toLocaleString` isn't available. |
 
-The operators on bigints are on [Types](/docs/api/language/types/).
+The operators on bigints are on [Statements](/docs/api/language/statements/#bigint-operators).
 
 ## Global functions
 
@@ -145,7 +145,7 @@ Other `Object` functions, such as `assign`, `freeze` and `is`, aren't available.
 | `/pattern/flags`, `new RegExp(pattern, flags?)` | Every ECMAScript pattern feature and flag. The `v` flag in a literal is a TypeScript error under ES2022: write `new RegExp(pattern, "v")`. |
 | `exec`, `test`, `lastIndex` | |
 | `source`, `flags`, `global`, `ignoreCase`, `multiline`, `dotAll` | |
-| `unicode`, `sticky`, `hasIndices` | `unicodeSets` is ES2024, a TypeScript error: test `flags.includes("v")` instead. |
+| `unicode`, `sticky`, `hasIndices` | `unicodeSets` isn't available: it's ES2024, so TypeScript reports TS2550. Test `flags.includes("v")` instead. |
 
 The string methods that take a `RegExp` are on [String](/docs/api/language/built-ins/#string). Replacement callbacks and capture groups are on [Statements](/docs/api/language/statements/).
 

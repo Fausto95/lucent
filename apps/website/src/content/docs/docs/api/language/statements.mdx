@@ -165,7 +165,6 @@ export function run(): string {
 ```
 
 - One `using` declaration may name several values: `using a = new Session("a"), b = new Session("b");`.
-- A disposal that throws while another error is pending throws a `SuppressedError`.
 - `await using` fails with `LUCENT1001`, and so does `using` directly in a `case` clause: wrap the clause in a block.
 - When and how each value is disposed is in [using and Symbol.dispose](/docs/api/language/memory/#using-and-symboldispose).
 

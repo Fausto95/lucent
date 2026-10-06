@@ -140,18 +140,19 @@ The blog's RSS feed, `/blog/rss.xml`, lists every post, newest first.
 
 Use exactly these terms.
 
-| Term             | Meaning                                                                                   |
-| ---------------- | ----------------------------------------------------------------------------------------- |
-| module           | one `.lucent.ts` file and what it exports                                                 |
-| shared module    | a module with no platform imports                                                         |
-| platform branch  | `if (PLATFORM === "ios")` inside one module (`PLATFORM` from `lucent:platform`)           |
-| platform file    | `x.ios.lucent.ts` / `x.android.lucent.ts`, the opt-in alternative to branches             |
-| declaration file | the shared `x.lucent.ts` that platform files implement                                    |
-| the boundary     | where JS calls into Lucent and back                                                       |
-| Lucent thread    | the background thread async Lucent code runs on                                           |
-| main context     | code allowed to call main-thread-only APIs: inside `main()` or a main-thread callback     |
-| native package   | what `lucent build` writes to `.lucent/native`                                            |
-| SDK bindings     | the typed view of iOS/Android APIs imported through `lucent:ios/*` and `lucent:android/*` |
+| Term                      | Meaning                                                                                         |
+| ------------------------- | ----------------------------------------------------------------------------------------------- |
+| module                    | one `.lucent.ts` file and what it exports                                                       |
+| shared module             | a module with no platform imports                                                               |
+| platform branch           | `if (PLATFORM === "ios")` inside one module (`PLATFORM` from `lucent:platform`)                 |
+| platform file             | `x.ios.lucent.ts` / `x.android.lucent.ts`, the opt-in alternative to branches                   |
+| declaration file          | the shared `x.lucent.ts` that platform files implement                                          |
+| the boundary              | where JS calls into Lucent and back                                                             |
+| Lucent thread             | the background thread async Lucent code runs on                                                 |
+| main context              | the views' context (setups, effects, commands, their callbacks); never takes the Lucent lock    |
+| code the main thread runs | module code on the main thread, holding the Lucent lock: `main(f)`'s `f`, main-thread callbacks |
+| native package            | what `lucent build` writes to `.lucent/native`                                                  |
+| SDK bindings              | the typed view of iOS/Android APIs imported through `lucent:ios/*` and `lucent:android/*`       |
 
 Not "Lucent file", "native module file", "bridge", "the native side" or
 "generated package".

@@ -103,7 +103,7 @@ export async function keepAwake(on: boolean): Promise<void> {
     intro: [
       {
         kind: "p",
-        text: "The iOS SDK itself is imported from `lucent:ios/<Framework>`, typed from the installed Xcode: see [Find an SDK class](/docs/guides/find-an-sdk-class/).",
+        text: "The iOS SDK itself is imported from `lucent:ios/<Framework>`, typed from the installed Xcode. [iOS SDK bindings](/docs/api/ios-sdk/) gives the rules, and [Find an SDK class](/docs/guides/find-an-sdk-class/) looks one up.",
       },
     ],
     example: {
@@ -135,7 +135,7 @@ export async function tap(): Promise<void> {
     intro: [
       {
         kind: "p",
-        text: "The Android SDK itself is imported from `lucent:android/<package>`, typed from the installed SDK and the app's Gradle libraries: see [Find an SDK class](/docs/guides/find-an-sdk-class/).",
+        text: "The Android SDK itself is imported from `lucent:android/<package>`, typed from the installed SDK and the app's Gradle libraries. [Android SDK bindings](/docs/api/android-sdk/) gives the rules, and [Find an SDK class](/docs/guides/find-an-sdk-class/) looks one up.",
       },
     ],
     example: {
@@ -167,7 +167,7 @@ export function vibrate(): void {
     intro: [
       {
         kind: "p",
-        text: "The global variables `console`, `AbortController` and `AbortSignal` have these types. The JavaScript built-ins a module can use are on [Built-ins](/docs/reference/built-ins/).",
+        text: "The global variables `console`, `AbortController` and `AbortSignal` have these types. The JavaScript built-ins a module can use are on [Built-ins](/docs/api/language/built-ins/).",
       },
     ],
   },
@@ -193,7 +193,7 @@ export function vibrate(): void {
     intro: [
       {
         kind: "p",
-        text: "After these declarations, `lucent:compose` exports Compose's and Material 3's API under their own names, generated from the Compose release Lucent builds with. `lucent sdk show` prints any of them.",
+        text: "After these declarations, `lucent:compose` exports Compose's and Material 3's API under their own names, generated from the Compose release Lucent builds with. `lucent sdk show` prints any of them when `LUCENT_VIEWS=fabric` is set.",
       },
     ],
   },

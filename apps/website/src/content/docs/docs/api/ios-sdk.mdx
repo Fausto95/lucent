@@ -168,7 +168,7 @@ A block Swift runs on the main thread, marked `@MainActor` or not `@Sendable` in
 
 - A protocol is an abstract class that a Lucent class `implements`: `class Tracker implements CLLocationManagerDelegate`. Optional requirements are optional methods.
 - An instance goes wherever the SDK takes the protocol.
-- A requirement that returns nothing is queued on the Lucent thread. One that returns a value, or that runs on the main thread, runs while the platform waits.
+- A requirement that returns nothing, or is `async`, is queued on the Lucent thread: Swift doesn't wait for an `async` one. One that returns a value, throws in Swift or runs on the main thread runs while the platform waits, holding the lock.
 
 [Implement a delegate](/docs/guides/implement-a-delegate/) keeps a delegate registered and cleans it up.
 
@@ -261,7 +261,7 @@ A Lucent class can implement a Swift-only protocol. Lucent generates a Swift cla
 
 A member Lucent can't use is declared with the reason in its doc comment. Using it fails to compile with that reason, followed by the native symbol and the library it comes from.
 
-A member Lucent couldn't type isn't declared at all, so calling one fails as a member its type lacks. On `main`, not in 0.1.2, the error also says why, and to wrap it in Swift of your own, in a local pod.
+A member Lucent couldn't type isn't declared at all, so calling one fails as a member its type lacks. The error also says why, and to wrap it in Swift of your own, in a local pod.
 
 `lucent sdk coverage` measures each module your code imports, or those `--ios` names:
 
