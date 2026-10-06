@@ -332,6 +332,21 @@ static void arrays() {
   CHECK(visits == 2);
   auto gen = Array<double>::generate(4, [](double i) { return i * i; });
   CHECK_STR(gen.join(), "0,1,4,9");
+  // Array.from's length is ToLength's: truncated, 0 when negative or NaN.
+  auto index = [](double i) { return i; };
+  CHECK(Array<double>::generate(2.5, index).size() == 2);
+  CHECK(Array<double>::generate(-1, index).size() == 0);
+  CHECK(Array<double>::generate(kNaN, index).size() == 0);
+  CHECK_THROWS(Array<double>::generate(4294967296.0, index), "RangeError");
+  CHECK(arrayLikeLength(-1) == 0);
+  CHECK(arrayLikeLength(2.5) == 2);
+  // new Array(n)'s is ArrayCreate's: an integer from 0 to 2^32 - 1.
+  CHECK(arrayLength(3) == 3);
+  CHECK(arrayLength(4294967295.0) == 4294967295u);
+  CHECK_THROWS(arrayLength(-1), "RangeError");
+  CHECK_THROWS(arrayLength(1.5), "RangeError");
+  CHECK_THROWS(arrayLength(kNaN), "RangeError");
+  CHECK_THROWS(arrayLength(4294967296.0), "RangeError");
   Array<Array<double>> nested{Array<double>{1}, Array<double>{2, 3}};
   auto flat = nested.flatMap<double>([](const Array<double>& x) { return x; });
   CHECK_STR(flat.join(), "1,2,3");

@@ -455,4 +455,53 @@ export function f(round: boolean): number {
       expect(codes(shape + src)).toContain(code);
     });
   });
+
+  describe("arrays with holes, which Lucent arrays cannot hold", () => {
+    it.each([
+      ["new Array(n)", "export function f(): number[] { return new Array<number>(3); }"],
+      [
+        "new Array(n) of a type that admits undefined",
+        "export function f(): (number | undefined)[] { return new Array<number | undefined>(3); }",
+      ],
+      [
+        "new Array(n) filled in part",
+        "export function f(): number[] { return new Array<number>(3).fill(0, 1); }",
+      ],
+      [
+        "new Array(n) filled later",
+        "export function f(n: number): number[] { const a = new Array<number>(n); a.fill(0); return a; }",
+      ],
+      [
+        "new Array(x) of a number or an element",
+        "export function f(x: number | string): (number | string)[] { return new Array<number | string>(x); }",
+      ],
+      [
+        "Array.from({ length }) of elements that cannot be undefined",
+        "export function f(): number[] { const c: number[] = Array.from({ length: 3 }); return c; }",
+      ],
+      [
+        "Array.from of an array-like with elements",
+        "export function f(): number[] { return Array.from({ length: 2, 0: 5 }, (v, i) => (v ?? 0) + i); }",
+      ],
+    ])("rejects %s", (_, src) => {
+      expect(codes(src)).toContain("LUCENT1003");
+    });
+
+    it.each([
+      [
+        "new Array(n).fill(value)",
+        "export function f(n: number): number[] { return new Array<number>(n).fill(0); }",
+      ],
+      [
+        "Array.from({ length }) of elements that may be undefined",
+        "export function f(n: number): (number | undefined)[] { const a: (number | undefined)[] = Array.from({ length: n }); return a; }",
+      ],
+      [
+        "Array.from({ length }, map)",
+        "export function f(n: number): number[] { return Array.from({ length: n }, (_, i) => i); }",
+      ],
+    ])("accepts %s", (_, src) => {
+      expect(codes(src)).toEqual([]);
+    });
+  });
 });

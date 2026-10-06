@@ -10,5 +10,8 @@ export default function run(mod, print, lucentClass, mods) {
   print(JSON.stringify(mod.matrix(3)));
   print(JSON.stringify(mod.uniq(["b", "a", "b", "c", "a"])));
   print(mod.searchFrom(), mod.searchFrom(4));
+  print([1.5, NaN, 2 ** 32 + 1, 3].map((n) => mod.newArrayLength(n)).join(" "));
+  print([-1, 1.5, 2.5, NaN, 3].map((n) => mod.fromLength(n)).join(" "));
+  print([-1, 1.5, 2.5, NaN, 3].map((n) => mod.fromUndefined(n)).join(" "));
 
 }
