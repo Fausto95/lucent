@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "report.h"
+#include "trace.h"
 
 namespace lucent::ui {
 
@@ -224,6 +225,9 @@ void Graph::runEffect(detail::EffectNode& e) {
     Tracking tracking(*this, &e);
     ScopeSwap swap(*this, e.run_);
 
+    // A span per run, at the effect's source line: one relaxed load when tracing is off.
+    trace::Scope span(trace::Category::Effect, "effect", e.site_);
+
     try {
       e.fn_();
     } catch (...) {
@@ -285,11 +289,12 @@ void Graph::report(std::exception_ptr error, const char* where) {
   }
 }
 
-Effect effect(const std::shared_ptr<Graph>& graph, std::function<void()> fn, std::string name) {
+Effect effect(const std::shared_ptr<Graph>& graph, std::function<void()> fn, std::string name,
+              const trace::Site* site) {
   Graph& g = *graph;
   g.checkOwner();
 
-  auto node = std::make_shared<detail::EffectNode>(graph, std::move(fn), std::move(name), ++g.made_);
+  auto node = std::make_shared<detail::EffectNode>(graph, std::move(fn), std::move(name), ++g.made_, site);
   const std::shared_ptr<Scope>& scope = g.scope_;
 
   if (scope->state() != Scope::State::Active) {

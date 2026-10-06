@@ -37,6 +37,7 @@ import type { FnEmitter } from "./function.ts";
 import type { CppFunction } from "../ir/cpp.ts";
 import type { IrUnit } from "./through-ir.ts";
 import { liftedStatements } from "./toolkit.ts";
+import { traceSite } from "./trace-site.ts";
 
 /** A prop, an event or a command of a compiled setup: its C++ member and its Lucent type(s). */
 export interface SetupProp {
@@ -300,7 +301,12 @@ export function uiCall(em: FnEmitter, node: ts.CallExpression): E | undefined {
   switch (helper) {
     case "effect":
       return {
-        c: cpp.call("lucent::ui::effect", [graph, em.closure(fnArg()).c, cpp.str(site(node))]),
+        c: cpp.call("lucent::ui::effect", [
+          graph,
+          em.closure(fnArg()).c,
+          cpp.str(site(node)),
+          traceSite("effect", node),
+        ]),
         t: T.undefined,
       };
 
@@ -650,6 +656,7 @@ export function mountUnit(ctx: Ctx, s: Setup): { name: string; text: string } {
     cpp.field(cpp.type("Emit"), "emit"),
     cpp.field(cpp.type("std::bitset", cpp.num(c.events.length)), "handlers"),
     cpp.field(cpp.type("bool"), "disposed", { init: cpp.bool(false) }),
+    cpp.field(cpp.type("size_t"), "record", { init: cpp.num(0) }),
     ...(owesAnswers(s)
       ? [
           {
@@ -798,6 +805,34 @@ export function mountUnit(ctx: Ctx, s: Setup): { name: string; text: string } {
           },
         ],
       },
+      // Live, for a debug build's snapshot: its component, its setup's source and its view now.
+      cpp.ifStmt(cpp.not(at("disposed")), [
+        cpp.exprStmt(
+          cpp.assign(
+            at("record"),
+            cpp.call("lucent::ui::addMount", [
+              cpp.initList([
+                id,
+                where,
+                cpp.lambda(
+                  ["weak"],
+                  [],
+                  [
+                    cpp.varDecl(cpp.auto, "live", cpp.call(cpp.dot(weak, "lock"))),
+                    cpp.ret(
+                      cpp.conditional(
+                        cpp.id("live"),
+                        cpp.arrow(cpp.id("live"), "view"),
+                        cpp.construct(cpp.type("lucent::NativeRef")),
+                      ),
+                    ),
+                  ],
+                ),
+              ]),
+            ]),
+          ),
+        ),
+      ]),
       cpp.ret(cpp.id("mount")),
     ],
     { scope: cpp.type("Mount") },
@@ -906,6 +941,7 @@ export function mountUnit(ctx: Ctx, s: Setup): { name: string; text: string } {
       cpp.ifStmt(cpp.or(cpp.not(state), at("disposed")), [cpp.ret()]),
       enterMain(),
       cpp.exprStmt(cpp.assign(at("disposed"), cpp.bool(true))),
+      cpp.exprStmt(cpp.call("lucent::ui::removeMount", [at("record")])),
       cpp.exprStmt(cpp.call(cpp.arrow(at("inbox"), "close"))),
       cpp.varDecl(
         cpp.auto,

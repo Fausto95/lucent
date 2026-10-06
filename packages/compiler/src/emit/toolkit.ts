@@ -52,6 +52,7 @@ import type { FnEmitter } from "./function.ts";
 import { enterMount, type Setup, setupOf, site } from "./setups.ts";
 import { swiftUIEmitter } from "./swiftui.ts";
 import { encoded, scalarType } from "./toolkit-values.ts";
+import { traceSite } from "./trace-site.ts";
 
 /** A body's generated file: `views/<registration>.swift`, or Kotlin under the library's sources. */
 export interface ToolkitFile {
@@ -237,7 +238,9 @@ function host(em: FnEmitter, setup: Setup, bodyNode: Body, where: ts.Expression)
 
   const items = new Map(crossings.lists.map((l) => [l, em.ctx.fresh(`items_${l.index}`)]));
   const effect = (keep: cpp.Expr, at: ts.Node) =>
-    cpp.exprStmt(cpp.call("lucent::ui::effect", [graph, keep, cpp.str(site(at))]));
+    cpp.exprStmt(
+      cpp.call("lucent::ui::effect", [graph, keep, cpp.str(site(at)), traceSite("effect", at)]),
+    );
 
   const statements: cpp.Stmt[] = [
     ...madeHost,

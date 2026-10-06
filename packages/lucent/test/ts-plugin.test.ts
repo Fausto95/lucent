@@ -13,7 +13,11 @@ const { createPlugin, TOOLKIT_JSX } = require("../ts-plugin/index.js") as {
 };
 
 /** A language service over `files` (unsaved text in `buffers`) with the plugin applied. */
-function service(files: Record<string, string>, options: ts.CompilerOptions = {}) {
+function service(
+  files: Record<string, string>,
+  options: ts.CompilerOptions = {},
+  loaded_: typeof compiler = compiler,
+) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-plugin-"));
   const buffers = new Map<string, { text: string; version: number }>();
   for (const [name, text] of Object.entries(files)) {
@@ -60,7 +64,7 @@ function service(files: Record<string, string>, options: ts.CompilerOptions = {}
   const loaded = new Promise<void>((resolve) => (markLoaded = resolve));
   const factory = createPlugin(async () => {
     try {
-      return compiler;
+      return loaded_;
     } finally {
       setTimeout(markLoaded);
     }
@@ -172,6 +176,84 @@ export async function toast(): Promise<boolean> {
     expect(messages).toContainEqual(
       expect.stringMatching(/lucent-far, a Lucent package the app does not depend on/),
     );
+  });
+
+  describe("quick fixes", () => {
+    const fixes = (
+      s: ReturnType<typeof service>,
+      name: string,
+      d: { start?: number; length?: number },
+      codes: number[],
+    ) => s.ls.getCodeFixesAtPosition(s.file(name), d.start!, d.start! + d.length!, codes, {}, {});
+
+    it("offers a Lucent diagnostic's quick fix, which applies", async () => {
+      const source = 'export function f(): number { throw "nope"; }\n';
+      const s = service({ "a.lucent.ts": source });
+      await s.ready;
+      const [d] = lucent(s.ls.getSemanticDiagnostics(s.file("a.lucent.ts")));
+
+      expect(d).toMatchObject({ code: 1006 });
+      expect(s.ls.getSupportedCodeFixes(s.file("a.lucent.ts"))).toContain("1006");
+
+      const [fix] = fixes(s, "a.lucent.ts", d!, [1006]);
+      expect(fix).toMatchObject({ fixName: "lucent", description: 'Throw new Error("nope")' });
+      const [change] = fix!.changes;
+      expect(change!.fileName).toBe(s.file("a.lucent.ts"));
+      const applied = [...change!.textChanges]
+        .sort((a, b) => b.span.start - a.span.start)
+        .reduce(
+          (text, c) =>
+            text.slice(0, c.span.start) + c.newText + text.slice(c.span.start + c.span.length),
+          source,
+        );
+      expect(applied).toBe('export function f(): number { throw new Error("nope"); }\n');
+    });
+
+    it("offers none away from the diagnostic, or for another code there", async () => {
+      const s = service({ "a.lucent.ts": 'export function f(): number { throw "nope"; }\n' });
+      await s.ready;
+      const [d] = lucent(s.ls.getSemanticDiagnostics(s.file("a.lucent.ts")));
+
+      expect(fixes(s, "a.lucent.ts", { start: 0, length: 1 }, [1006])).toEqual([]);
+      expect(fixes(s, "a.lucent.ts", d!, [2322])).toEqual([]);
+    });
+
+    it("offers the fix a TypeScript error's Lucent hint carries, on TypeScript's own error", async () => {
+      const source = "class A {\n  protected constructor() {}\n}\nexport const a = new A();\n";
+      const at = source.indexOf("new A()");
+      const stub = {
+        ...compiler,
+        projectExtensions: () => [],
+        checkSources: (files: string[]) => [
+          {
+            code: "LUCENT9001",
+            message:
+              "TS2674: Constructor of class 'A' is protected. A's initializers are elsewhere.",
+            file: files[0],
+            start: at,
+            length: "new A()".length,
+            fix: 'import "lucent:x/Y"',
+            quickFix: {
+              title: 'Add import "lucent:x/Y"',
+              edits: [{ start: 0, length: 0, text: 'import "lucent:x/Y";\n' }],
+            },
+          },
+        ],
+      } as unknown as typeof compiler;
+      const s = service({ "a.lucent.ts": source }, {}, stub);
+      await s.ready;
+      const own = s.ls.getSemanticDiagnostics(s.file("a.lucent.ts"));
+
+      // TypeScript reports the error itself; the passthrough is not reported again.
+      expect(lucent(own)).toEqual([]);
+      const error = own.find((d) => d.code === 2674)!;
+      expect(s.ls.getSupportedCodeFixes(s.file("a.lucent.ts"))).toContain("2674");
+
+      const lucentFixes = fixes(s, "a.lucent.ts", error, [2674]).filter(
+        (f) => f.fixName === "lucent",
+      );
+      expect(lucentFixes.map((f) => f.description)).toEqual(['Add import "lucent:x/Y"']);
+    });
   });
 
   describe("JSX", () => {

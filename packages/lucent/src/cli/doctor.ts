@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { lucentPackages } from "@lucent-lang/compiler/packages";
+import { buildChecks } from "./doctor-build.ts";
 import { packageManagerOf } from "./package-manager.ts";
 
 export interface RunResult {
@@ -121,6 +122,7 @@ export function diagnose(root: string, probe: Probe): Check[] {
     tsconfig(root),
     sdkCache(probe),
     versions(root, probe),
+    ...buildChecks(root, probe),
   ];
 }
 

@@ -41,6 +41,11 @@ async function main(argv: string[]): Promise<number> {
     out.print(commandHelp(command, out.theme));
     return 0;
   }
+  // stderr itself: --json keeps the output's own lines for the JSON document.
+  if (flags.json && !command.json) {
+    process.stderr.write(`lucent ${command.name} has no JSON output: run it without --json\n`);
+    return 2;
+  }
   const module = await command.load();
   return module.run({ root, flags, positionals, out });
 }

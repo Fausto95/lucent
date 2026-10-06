@@ -53,13 +53,13 @@ public final class QXNGauge: QXNBase {
     QXNUnit(qxnSymbol: "qxn")
   }
 
-  /// Shapes Lucent does not bind yet: a tuple, and a function returned.
-  public func qxnRange() -> (Double, Double) {
-    (0, qxnLevel)
+  /// Shapes Lucent does not bind yet: a value of two protocols at once, and an optional tuple.
+  public func qxnRange(_ v: any Sendable & CustomStringConvertible) -> String {
+    v.description
   }
 
-  public func qxnWatcher() -> () -> Double {
-    { self.qxnLevel }
+  public func qxnWatcher() -> (Double, Double)? {
+    (0, qxnLevel)
   }
 
   /// Twice the level, a moment later; fails below zero.

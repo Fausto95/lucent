@@ -110,11 +110,30 @@ function glueFlags(out: string): string[] {
     "-Wno-parentheses-equality",
     "-Wno-comma",
     `-I${path.join(runtimeDir(), "cpp")}`,
+    // React Native's Yoga, which a Flex's runtime (lucent/layout.h) includes.
+    `-I${path.join(import.meta.dirname, "../../../apps/bare-example/node_modules/react-native/ReactCommon/yoga")}`,
     `-I${host}`,
     `-I${path.join(out, "android")}`,
     `-I${path.join(jdk!.home, "include")}`,
     `-I${path.join(jdk!.home, "include/darwin")}`,
   ];
+}
+
+/** What the host's clang says of the runtime's Android `source` (desktop JNI host build): nothing when it compiles. */
+export function runtimeAndroidErrors(dir: string, source: string): string {
+  const check = spawnSync(
+    "xcrun",
+    [
+      "clang++",
+      ...glueFlags(dir),
+      "-DLUCENT_JNI_HOST",
+      "-fsyntax-only",
+      path.join(runtimeDir(), source),
+    ],
+    { encoding: "utf8" },
+  );
+
+  return check.stderr;
 }
 
 /** What the host's clang says of a compile's Android glue `file` (`android/m_m.cpp`): nothing when it compiles. */
@@ -138,7 +157,7 @@ export function jvmRun(
   r: CompileResult,
   dir: string,
   classpath: string[],
-  tc: KotlinToolchain,
+  tc?: KotlinToolchain,
 ): { status: number | null; stdout: string; stderr: string } {
   const out = writeOut(r, dir);
 
@@ -151,6 +170,7 @@ export function jvmRun(
     return file;
   });
   if (shims.length) {
+    if (!tc) throw new Error("the program has Kotlin shims: kotlinc is needed");
     const jar = path.join(dir, "shims.jar");
     const k = runKotlinc(tc, [
       "-jvm-target",

@@ -114,8 +114,9 @@ function createPlugin(loadCompiler) {
           // Bound again each check: headers (and packages) change too; unchanged ones are read once.
           const extensions = compiler.projectExtensions(root);
           const checked = compiler.filesInBuild(root, files);
+          // TypeScript's own errors stay TypeScript's to report; kept for the fixes their hints carry.
           for (const d of compiler.checkSources(checked, readSource, { extensions })) {
-            if (d.code === TYPESCRIPT_PASSTHROUGH || !d.file) continue;
+            if (!d.file || (d.code === TYPESCRIPT_PASSTHROUGH && !d.quickFix)) continue;
             const list = byFile.get(d.file) || [];
             list.push(d);
             byFile.set(d.file, list);
@@ -136,30 +137,85 @@ function createPlugin(loadCompiler) {
         let extra;
         try {
           const file = info.languageService.getProgram()?.getSourceFile(fileName);
-          extra = lucentDiagnostics(fileName).map((d) => ({
-            file,
-            start: d.start ?? 0,
-            length: d.length ?? 0,
-            messageText: [
-              `${d.code}: ${d.message}`,
-              d.fix && `fix: ${d.fix}`,
-              d.docs && `docs: ${d.docs}`,
-            ]
-              .filter(Boolean)
-              .join("\n"),
-            category:
-              d.severity === "warning"
-                ? ts.DiagnosticCategory.Warning
-                : ts.DiagnosticCategory.Error,
-            code: Number(d.code.replace(/^LUCENT/, "")),
-            source: "lucent",
-          }));
+          extra = lucentDiagnostics(fileName)
+            .filter((d) => d.code !== TYPESCRIPT_PASSTHROUGH)
+            .map((d) => ({
+              file,
+              start: d.start ?? 0,
+              length: d.length ?? 0,
+              messageText: [
+                `${d.code}: ${d.message}`,
+                d.fix && `fix: ${d.fix}`,
+                d.docs && `docs: ${d.docs}`,
+              ]
+                .filter(Boolean)
+                .join("\n"),
+              category:
+                d.severity === "warning"
+                  ? ts.DiagnosticCategory.Warning
+                  : ts.DiagnosticCategory.Error,
+              code: Number(d.code.replace(/^LUCENT/, "")),
+              source: "lucent",
+            }));
         } catch (e) {
           log(`check failed: ${e && e.stack ? e.stack : e}`);
           return own;
         }
         return [...own, ...extra];
       };
+
+      // A diagnostic's code as the editor has it: Lucent's number, or a passthrough's TypeScript one.
+      const editorCode = (d) =>
+        d.code === TYPESCRIPT_PASSTHROUGH
+          ? Number((/^TS(\d+):/.exec(d.message) || [])[1])
+          : Number(d.code.replace(/^LUCENT/, ""));
+
+      // Lucent's numbers are TypeScript's too (1006): a fix is offered at its diagnostic's span only.
+      proxy.getCodeFixesAtPosition = (fileName, start, end, errorCodes, format, preferences) => {
+        const own = info.languageService.getCodeFixesAtPosition(
+          fileName,
+          start,
+          end,
+          errorCodes,
+          format,
+          preferences,
+        );
+        if (!compiler || !LUCENT_FILE.test(fileName)) return own;
+
+        const fixes = lucentDiagnostics(fileName)
+          .filter(
+            (d) =>
+              d.quickFix &&
+              errorCodes.includes(editorCode(d)) &&
+              (d.start ?? 0) <= end &&
+              start <= (d.start ?? 0) + (d.length ?? 0),
+          )
+          .map((d) => ({
+            fixName: "lucent",
+            description: d.quickFix.title,
+            changes: [
+              {
+                fileName,
+                textChanges: d.quickFix.edits.map((e) => ({
+                  span: { start: e.start, length: e.length },
+                  newText: e.text,
+                })),
+              },
+            ],
+          }));
+        return [...own, ...fixes];
+      };
+
+      proxy.getSupportedCodeFixes = (fileName) => {
+        const own = info.languageService.getSupportedCodeFixes(fileName);
+        if (!compiler || !fileName || !LUCENT_FILE.test(fileName)) return own;
+
+        const lucent = lucentDiagnostics(fileName)
+          .filter((d) => d.quickFix)
+          .map((d) => String(editorCode(d)));
+        return [...new Set([...own, ...lucent])];
+      };
+
       return proxy;
     }
     return { create };
