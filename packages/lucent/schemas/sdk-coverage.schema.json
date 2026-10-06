@@ -1,0 +1,77 @@
+{
+  "$id": "https://lucent-lang.dev/schemas/sdk-coverage.schema.json",
+  "title": "lucent sdk coverage --json",
+  "type": "array",
+  "description": "One report per module (a toolkit generated from one under its own name)",
+  "items": {
+    "type": "object",
+    "required": ["module", "idiomatic", "raw", "unrepresentable", "total", "reasons", "stages"],
+    "properties": {
+      "module": {
+        "type": "string"
+      },
+      "provenance": {
+        "type": "object",
+        "description": "Where the module's declarations come from"
+      },
+      "idiomatic": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Reached through an idiom: a getter read as a property, a completion handler called as a promise"
+      },
+      "raw": {
+        "type": "integer",
+        "minimum": 0,
+        "description": "Callable as the platform declares it"
+      },
+      "unrepresentable": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "total": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "reasons": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "description": "Why members are unrepresentable, with how many"
+      },
+      "stages": {
+        "type": "object",
+        "required": ["discovered", "representable", "generated", "exercised"],
+        "additionalProperties": false,
+        "properties": {
+          "discovered": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "representable": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "generated": {
+            "type": ["integer", "null"],
+            "minimum": 0
+          },
+          "exercised": {
+            "type": ["integer", "null"],
+            "minimum": 0
+          }
+        },
+        "description": "How many members reach each stage; null without evidence for it"
+      },
+      "members": {
+        "type": "array",
+        "description": "With --members: each member's stage, key and reason"
+      },
+      "views": {
+        "type": "array",
+        "description": "With --views: each view class's JSX attributes by rule"
+      }
+    }
+  }
+}

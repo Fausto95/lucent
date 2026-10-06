@@ -20,7 +20,10 @@
  * 4. Every operation and value has a well-formed span inside the function's.
  * 5. Operands are value ids, never nested expressions, so the order of the
  *    operation list is the evaluation order.
- * 6. Nothing claims less than it does: a call's effect reference is at least
+ * 6. An integer register (`int`, which emit/integers.ts proves) holds a
+ *    number: a value's is on a number, a local's on a number no closure
+ *    shares in a box.
+ * 7. Nothing claims less than it does: a call's effect reference is at least
  *    as conservative as what is known of its callee, and the function's
  *    summary admits every exit, read and write its operations (and the
  *    callees whose summaries are known) can make; loads and stores of
@@ -181,6 +184,9 @@ class Checker {
       if (v.id !== i) this.problem(`the value at index ${i} has id v${v.id}`);
 
       if (v.type.k === "void") this.problem(`v${i} has type void, which has no values`);
+
+      if (v.int && v.type.k !== "number")
+        this.problem(`v${i} is held in an ${v.int} register, but is a ${typeKey(v.type)}`);
 
       if (v.owner !== undefined && !OWNERS.includes(v.owner))
         this.problem(`v${i} has an unknown owner ${JSON.stringify(v.owner)}`);
@@ -629,7 +635,15 @@ const CHECKS: { [K in IrOp["kind"]]: Check<K> } = {
       c.problemAt(where, `cannot convert a ${typeKey(from)} to ${typeKey(op.to)}`);
   },
 
-  local: (op, c, where) => c.declare(op.place, op.type, where, op.boxed),
+  local: (op, c, where) => {
+    c.declare(op.place, op.type, where, op.boxed);
+
+    if (op.int && (op.type.k !== "number" || op.boxed))
+      c.problemAt(
+        where,
+        `holds p${op.place} in an ${op.int} register, but it is not a local number`,
+      );
+  },
 
   load: (op, c, where) => c.expectType(op.result, c.place(op.place, where)?.type, where),
 

@@ -115,6 +115,8 @@ public struct Counter {
   public private(set) var count = 0
   public init() {}
   public mutating func increment() { count += 1 }
+  /// Writes back through its argument: no Lucent argument is a place to write to.
+  public func add(into total: inout Int) { total += count }
 }
 
 /// Main-thread only, as UIKit is.

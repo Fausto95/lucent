@@ -18,7 +18,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "description": "Stable: node, package-manager, react-native, expo, xcode, simulator, cocoapods, android-sdk, ndk, jdk, gradle-task, metro, tsconfig, sdk-cache, versions"
+            "description": "Stable: node, package-manager, react-native, expo, xcode, simulator, cocoapods, android-sdk, ndk, jdk, gradle-task, metro, tsconfig, sdk-cache, versions, last-build, cache, native-targets, native-build"
           },
           "label": {
             "type": "string"

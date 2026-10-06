@@ -1,0 +1,33 @@
+{
+  "$id": "https://lucent-lang.dev/schemas/sdk-lock-result.schema.json",
+  "title": "lucent sdk lock --json",
+  "type": "object",
+  "required": ["ok", "file", "targets", "modules", "symbols"],
+  "additionalProperties": false,
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "file": {
+      "type": "string",
+      "description": "The lock written, relative to the project (its contents follow sdk-lock.schema.json)"
+    },
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "The platforms it records"
+    },
+    "modules": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "SDK modules the project uses"
+    },
+    "symbols": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "SDK symbols the project uses"
+    }
+  }
+}

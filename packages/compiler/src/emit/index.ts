@@ -52,6 +52,8 @@ export interface EmitResult {
   frameworks?: string[];
   /** Pods whose modules the iOS platform code imports. */
   pods?: string[];
+  /** The app's Swift packages whose modules the iOS platform code imports (`identity@version`). */
+  swiftPackages?: string[];
   /** Java the Android platform code needs (subclasses of SDK classes), keyed by path under src/main/java. */
   java?: Map<string, string>;
   /** Java classes the Android glue names (JNI names), for the app's shrinker to keep. */
@@ -494,6 +496,7 @@ export function emitProgram(
     warnings: ctx.warnings,
     frameworks: [...ctx.frameworks].sort(),
     pods: [...ctx.pods].sort(),
+    swiftPackages: [...ctx.swiftPackages].sort(),
     java,
     javaKeep: [...ctx.javaClasses].sort(),
     kotlin: new Map([...kotlinFiles(ctx), ...toolkitFiles(ctx, "compose")]),
