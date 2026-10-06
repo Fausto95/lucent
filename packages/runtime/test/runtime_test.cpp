@@ -263,6 +263,114 @@ static void strings() {
   CHECK(String::fromUtf8("\xff").charCodeAt(0) == 0xFFFD);
 }
 
+// How strings are stored (inline up to 15 Latin-1 units, otherwise one
+// allocation) never shows: equal strings are equal and hash alike however
+// they were made.
+static void stringStorage() {
+  const String fifteen = S("123456789012345");
+  const String sixteen = S("1234567890123456");
+  // Equal strings built each way: literals, concatenation, slices, UTF-16 that narrows, builders.
+  String fromParts[] = {S("12345678") + S("9012345"), sixteen.slice(0, 15),
+                        String::fromUtf16(u"123456789012345"), Array<String>{S("1234567"), S("89012345")}.join(S(""))};
+  for (const String& s : fromParts) {
+    CHECK(s == fifteen);
+    CHECK(s.hash() == fifteen.hash());
+  }
+  String longParts[] = {fifteen + S("6"), S("12345678") + S("90123456"), String::fromUtf16(u"1234567890123456"),
+                        Array<double>{1234567890123456.0}.join(S(","))};
+  for (const String& s : longParts) {
+    CHECK(s == sixteen);
+    CHECK(s.hash() == sixteen.hash());
+  }
+  String grown = S("1234567890");
+  grown += S("12345");
+  CHECK(grown == fifteen);
+  grown += S("6");
+  CHECK(grown == sixteen && grown.hash() == sixteen.hash());
+  // Two-byte strings: widening in place, and narrowing back where every unit fits.
+  String wide = S("abcdefghijklmnopqrstuvwxyz");
+  String before = wide;
+  wide += S("Ω");
+  CHECK(!wide.isOneByte() && before.isOneByte());
+  CHECK_STR(wide, "abcdefghijklmnopqrstuvwxyzΩ");
+  CHECK_STR(before, "abcdefghijklmnopqrstuvwxyz");
+  CHECK(wide.slice(0, 26) == before && wide.slice(0, 26).isOneByte());
+  CHECK(S("ω") + S("é") == S("ωé") && S("ωé").hash() == (S("ω") + S("é")).hash());
+  CHECK(S("é") != S("ω"));
+  // A shared string never grows under another handle.
+  String a = sixteen;
+  String b = a;
+  a += S("!");
+  CHECK_STR(b, "1234567890123456");
+  CHECK_STR(a, "1234567890123456!");
+  // A moved-from string is the empty string, inline or not.
+  String movedInline = fifteen;
+  String to = std::move(movedInline);
+  CHECK(movedInline.empty() && movedInline == String() && movedInline.hash() == String().hash());
+  String movedHeap = sixteen;
+  to = std::move(movedHeap);
+  CHECK(movedHeap.empty() && movedHeap == S("") && to == sixteen);
+  movedHeap += S("x");
+  CHECK_STR(movedHeap, "x");
+  // Builders: Latin-1 promised, then a two-byte part; exact and short results.
+  StringBuilder mixed(4, true);
+  mixed.append(S("ab"));
+  mixed.append(S("ψ"));
+  mixed.appendAscii("12");
+  CHECK_STR(std::move(mixed).build(), "abψ12");
+  StringBuilder none(0, true);
+  CHECK(std::move(none).build().empty());
+  // Single code units: Latin-1 ones inline, others two-byte.
+  CHECK(String::fromCodeUnit('a') == S("a") && String::fromCodeUnit(0xE9) == S("é"));
+  CHECK(String::fromCodeUnit(0x3A9) == S("Ω") && !String::fromCodeUnit(0x3A9).isOneByte());
+  // Many strings in a growing vector (moved by memcpy as it grows), then read back.
+  std::vector<String> many;
+  for (int i = 0; i < 1000; i++) many.push_back(i % 2 ? numberToString(i) : sixteen + numberToString(i));
+  CHECK_STR(many[999], "999");
+  CHECK_STR(many[998], "1234567890123456998");
+  // Map keys made different ways are the same key.
+  Map<String, double> keys;
+  keys.set(fifteen, 1);
+  keys.set(fromParts[0], 2);
+  keys.set(sixteen, 3);
+  keys.set(longParts[1], 4);
+  CHECK(keys.size() == 2 && keys.get(fifteen).get() == 2 && keys.get(sixteen).get() == 4);
+}
+
+static void indexes() {
+  CHECK(indexBelow(0, 3) == 0);
+  CHECK(indexBelow(-0.0, 3) == 0);
+  CHECK(indexBelow(2, 3) == 2);
+  CHECK(indexBelow(3, 3) == kNoIndex);
+  CHECK(indexBelow(1.5, 3) == kNoIndex);
+  CHECK(indexBelow(-1, 3) == kNoIndex);
+  CHECK(indexBelow(kNaN, 3) == kNoIndex);
+  CHECK(indexBelow(kInfinity, 3) == kNoIndex);
+  CHECK(indexBelow(9007199254740992.0, SIZE_MAX) == kNoIndex);
+  // Array writes: in place, at the end (appending), past it (holes are errors), not an index.
+  Array<double> xs{1, 2};
+  xs.set(1, 5);
+  xs.set(2, 7);
+  CHECK(xs.size() == 3 && xs.at(1) == 5 && xs.at(2) == 7);
+  CHECK_THROWS(xs.set(5, 1), "RangeError");
+  CHECK_THROWS(xs.set(0.5, 1), "RangeError");
+  CHECK_THROWS(xs.set(-1, 1), "RangeError");
+  Array<Opt<double>> holes;
+  holes.set(2, 1.0);
+  CHECK(holes.size() == 3 && !holes.at(0).has());
+  CHECK(xs.get(1.0).get() == 5 && !xs.get(1.5).has() && !xs.get(3).has());
+  CHECK(S("abc").charCodeAt(1.9) == 'b');
+  CHECK(S("abc").charCodeAt(-0.5) == 'a');
+  CHECK(std::isnan(S("abc").charCodeAt(-1)));
+  CHECK(S("abc").charCodeAt(kNaN) == 'a');
+  // ToInt32: one branch for every value int64 holds.
+  CHECK(toInt32(9.2e18) == toInt32(9.2e18 - 4294967296.0 * 2097152));
+  CHECK(toInt32(-9223372036854775808.0) == 0);
+  CHECK(toInt32(9223372036854775808.0) == 0);
+  CHECK(toInt32(1e20) == 1661992960);
+  CHECK(toInt32(-kInfinity) == 0);
+}
+
 static void arrays() {
   Array<double> a{3, 1, 2};
   Array<double> alias = a;
@@ -929,6 +1037,8 @@ int main() {
   nativeReferencesReleaseOnTheirContext();
   concatenation();
   strings();
+  stringStorage();
+  indexes();
   arrays();
   maps();
   optionalsAndUnions();

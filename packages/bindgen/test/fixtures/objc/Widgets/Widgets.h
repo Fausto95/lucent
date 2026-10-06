@@ -39,6 +39,8 @@ NS_SWIFT_UI_ACTOR
 - (instancetype)init;
 - (instancetype)initWithStyle:(WDGStyle)style;
 + (instancetype)widgetNamed:(NSString *)name NS_SWIFT_NAME(named(_:));
+/// A factory Swift imports as an initializer: init(label:).
++ (instancetype)widgetWithLabel:(NSString *)label;
 
 @property (class, readonly, strong) WDGWidget *sharedWidget NS_SWIFT_NAME(shared);
 @property (nonatomic, copy) NSString *name;
@@ -151,6 +153,11 @@ typedef struct {
 - (BOOL)readSince:(NSDate *_Nullable *_Nullable)since label:(NSString *_Nullable *_Nullable)label;
 - (void)getOn:(BOOL *)on;
 - (void)enumerateLevels:(void (NS_NOESCAPE ^)(double level, BOOL *stop))block;
+@end
+
+/// A class whose only initializer of its own is a factory: it keeps NSObject's init.
+@interface WDGBadge : NSObject
++ (instancetype)badgeWithText:(NSString *)text;
 @end
 
 double WDGDistance(WDGWidget *a, WDGWidget *b);

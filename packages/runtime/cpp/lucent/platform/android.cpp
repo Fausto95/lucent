@@ -109,12 +109,14 @@ std::vector<Thrown>& thrown() {
   return *v;
 }
 
-/// The Lucent error `t` carries, removed from the list; none for other exceptions.
-std::optional<Error> takeThrown(JNIEnv* e, jobject t) {
+/// The Lucent error `t` carries, removed from the list when `take` (Lucent
+/// has caught the exception); none for other exceptions.
+std::optional<Error> findThrown(JNIEnv* e, jobject t, bool take) {
   std::lock_guard<std::mutex> g(thrownMutex);
   auto& v = thrown();
   for (auto it = v.begin(); it != v.end(); ++it) {
     if (!e->IsSameObject(it->exception, t)) continue;
+    if (!take) return it->error;
 
     Error error = std::move(it->error);
     e->DeleteWeakGlobalRef(it->exception);
@@ -264,8 +266,12 @@ void rethrowPending(JNIEnv* e) {
   throw Exception(errorOf(e, t));
 }
 
-Error errorOf(JNIEnv* e, jobject t) {
-  if (auto own = t ? takeThrown(e, t) : std::nullopt) return std::move(*own);
+namespace {
+
+/// A Java exception as a Lucent error; a Lucent error it carries is
+/// removed from the list when `take`.
+Error errorOf(JNIEnv* e, jobject t, bool take) {
+  if (auto own = t ? findThrown(e, t, take) : std::nullopt) return std::move(*own);
   if (!t) {
     // No exception to read: a cancelled task.
     Error err = makeError(String::fromLatin1("Error"), String::fromLatin1("cancelled"));
@@ -287,6 +293,12 @@ Error errorOf(JNIEnv* e, jobject t) {
   err->code = className;
   return err;
 }
+
+}  // namespace
+
+Error errorOf(JNIEnv* e, jobject t) { return errorOf(e, t, true); }
+
+Error errorOf(const NativeRef& throwable) { return errorOf(env(), unwrap(throwable), false); }
 
 void close(const NativeRef& closeable) {
   JNIEnv* e = env();

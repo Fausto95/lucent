@@ -24,6 +24,16 @@ export type NodeKind =
 
 export type NodeStatus = "ok" | "cached" | "failed" | "skipped";
 
+/**
+ * The steps a build reuses when their inputs are unchanged (recorded
+ * "cached"); with a `:` suffix, steps of that one (`extract:UIKit`). The
+ * others run every build: resolving computes what these are reused by.
+ */
+export const REUSABLE_STEPS = ["resolve:android", "extract", "check", "generate"] as const;
+
+export const reusable = (id: string) =>
+  REUSABLE_STEPS.some((step) => id === step || id.startsWith(`${step}:`));
+
 /** One input or output: a project-relative path or a named key, and its content hash. */
 export interface Artifact {
   key: string;
@@ -175,12 +185,17 @@ export class BuildGraph {
   }
 }
 
-/** Writes the record atomically: a reader never sees half a file. */
+/**
+ * Writes the record atomically: a reader never sees half a file. The one
+ * it replaces stays beside it (`build-record.previous.json`), for doctor
+ * to say what a step ran again for.
+ */
 export function writeBuildRecord(file: string, record: BuildRecord): void {
   fs.mkdirSync(path.dirname(file), { recursive: true });
 
   const tmp = `${file}.${process.pid}.tmp`;
   fs.writeFileSync(tmp, `${JSON.stringify(record, null, 2)}\n`);
+  if (fs.existsSync(file)) fs.renameSync(file, file.replace(/\.json$/, ".previous.json"));
   fs.renameSync(tmp, file);
 }
 

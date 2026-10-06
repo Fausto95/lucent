@@ -25,6 +25,12 @@ describe("Swift types", () => {
     );
   });
 
+  it("print block function types, which Objective-C blocks are in Swift", () => {
+    expect(printType(swift.blockFunction([swift.type("Double")], swift.type("String")))).toBe(
+      "@convention(block) (Double) -> String",
+    );
+  });
+
   it("print Swift function types, parenthesized where optional", () => {
     const fn = swift.fn([swift.type("Double"), swift.type("String")], swift.type("Void"));
 
@@ -62,6 +68,12 @@ describe("Swift expressions", () => {
     expect(
       printExpr(swift.index(swift.cast(name("o"), "as!", swift.type("NSArray")), swift.num(0))),
     ).toBe("(o as! NSArray)[0]");
+  });
+
+  it("print tuple literals and their elements", () => {
+    const t = name("t");
+
+    expect(printExpr(swift.tupleLiteral([member(t, "1"), member(t, "0")]))).toBe("(t.1, t.0)");
   });
 
   it("print dictionary literals", () => {

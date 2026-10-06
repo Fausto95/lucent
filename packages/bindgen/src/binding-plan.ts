@@ -72,6 +72,8 @@ export type ConversionOp =
   | "copy-array"
   | "copy-record"
   | "copy-set"
+  /** A Swift tuple to or from a TypeScript one, element by element (`of`). */
+  | "copy-tuple"
   | "copy-date"
   /** A native reference, retained by a NativeRef. */
   | "retain-object"
@@ -213,6 +215,8 @@ export function undeclaredType(
       return undeclaredType(t.of, declared);
     case "fn":
       return [...t.params, t.ret].map((x) => undeclaredType(x, declared)).find(Boolean);
+    case "tuple":
+      return t.of.map((x) => undeclaredType(x, declared)).find(Boolean);
     default:
       return undefined;
   }
@@ -281,7 +285,16 @@ export const isUnsignedWide = (name: string) => name === "NSUInteger" || name ==
 export const isBigIntType = (t: SchemaType) => t.k === "prim" && isWideInteger(t.name) && !t.group;
 
 /** Schema kinds with no Java type: JNI cannot pass them. A function is Kotlin's FunctionN. */
-const NOT_JAVA = new Set<SchemaType["k"]>(["bytes", "date", "id", "record", "set", "out", "error"]);
+const NOT_JAVA = new Set<SchemaType["k"]>([
+  "bytes",
+  "date",
+  "id",
+  "record",
+  "set",
+  "tuple",
+  "out",
+  "error",
+]);
 
 /**
  * The numbers and booleans Swift shims pass, with their Swift and C types:
@@ -880,18 +893,25 @@ function resultOwnership(
   role: Role,
   facts: NativeFacts,
 ): NativeFacts {
-  if (module.platform !== "ios" || member.swift || role !== "call" || !("returns" in member))
-    return facts;
+  // A C function Swift imports as a member (`cropping(to:)`): its own name says.
+  const cFunction = "cFunction" in member ? member.cFunction?.name : undefined;
+  const made = role === "new" && !!cFunction;
+  if (module.platform !== "ios" || member.swift) return facts;
+  if (!made && (role !== "call" || !("returns" in member))) return facts;
   if (facts.ownership !== "unknown") return facts;
 
   const family = /^(alloc|new|copy|mutableCopy|create)(?![a-z])/;
-  const rule = owner
-    ? family.test(member.selector ?? member.name)
-      ? "objc-method-family"
-      : undefined
-    : /Create|Copy/.test(member.name)
+  const rule = cFunction
+    ? /Create|Copy/.test(cFunction)
       ? "cf-create-rule"
-      : undefined;
+      : undefined
+    : owner
+      ? family.test(member.selector ?? ("name" in member ? member.name : ""))
+        ? "objc-method-family"
+        : undefined
+      : /Create|Copy/.test("name" in member ? member.name : "")
+        ? "cf-create-rule"
+        : undefined;
   if (!rule) return facts;
 
   const evidence: FactEvidence = { fact: "ownership", source: "convention", detail: rule };
@@ -962,6 +982,8 @@ function kindConversion(t: SchemaType, place: Place, ctx: Context): ConversionPl
       );
     case "set":
       return { op: "copy-set", type: t, of: [inner(t.of, { element: true })] };
+    case "tuple":
+      return { op: "copy-tuple", type: t, of: t.of.map((x) => inner(x, { element: true })) };
     case "record":
       return withDetail(
         { op: "copy-record", type: t, of: [inner(t.of, { element: true })] },
@@ -1192,6 +1214,30 @@ function swiftRule(t: SchemaType, place: Place, ctx: Context): string | undefine
     // Specialized with the use's type arguments, which planConversion judges.
     case "tparam":
       return undefined;
+
+    // A closure crosses as an Objective-C block: what a block's signature can hold.
+    case "fn": {
+      const blockable = (x: SchemaType, result: boolean): boolean => {
+        if (x.k === "prim")
+          return (result && x.name === "void") || (!!SWIFT_SCALARS[x.name] && !x.nullable);
+        if (x.k === "string") return true;
+        if (x.k !== "ref") return false;
+        const facts = ctx.types(x.module, x.name);
+        return (facts?.kind === "class" || facts?.kind === "protocol") && !facts.swift;
+      };
+      if (![...t.params.map((x) => blockable(x, false)), blockable(t.ret, true)].every(Boolean))
+        return not(
+          "closures taking or giving values other than numbers, booleans, strings and Objective-C objects",
+        );
+
+      return t.nullable ? not("optional closures") : undefined;
+    }
+
+    case "tuple":
+      if (t.of.some((x) => x.nullable)) return not("tuples of optional values");
+      if (t.of.some((x) => isStruct(x, ctx))) return not("tuples of C structs");
+
+      return t.nullable ? not("optional tuples") : undefined;
 
     case "array":
     case "record":

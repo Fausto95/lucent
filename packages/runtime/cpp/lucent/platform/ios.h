@@ -29,6 +29,9 @@ namespace lucent::objc {
 
 inline void releaseObject(void* retained) { CFRelease(retained); }
 
+/// Installs the view tree a debug build's snapshot shows (ios_debug.mm): the host's to call.
+void installViewTree();
+
 /// A Lucent reference to `obj` (retained), released on the main thread:
 /// UIKit objects must be deallocated there, and the last Lucent reference
 /// can go on any thread. Throws TypeError for nil.
@@ -90,6 +93,13 @@ NSArray* toNSArray(const Array<T>& a, F toObject) {
   }
   return out;
 }
+/// An array of `items` (objects, never nil): a Swift tuple's elements, as its shim takes them.
+template <class... T>
+NSArray* toNSArrayOf(T... items) {
+  id all[] = {items...};
+  return [NSArray arrayWithObjects:all count:sizeof...(T)];
+}
+
 template <class T, class F>
 Array<T> fromNSArray(NSArray* a, F fromObject, const char* what) {
   if (!a) returnedNil(what);

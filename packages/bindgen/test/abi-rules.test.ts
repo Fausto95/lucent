@@ -758,6 +758,12 @@ describe("binding plans: Swift rules", () => {
             swift: { name: "each(_:)" },
           },
           {
+            name: "visit",
+            params: [{ name: "f", type: T("(Shapes.Outline) => void") }],
+            returns: T("void"),
+            swift: { name: "visit(_:)" },
+          },
+          {
             name: "outline",
             params: [{ name: "o", type: T("Shapes.Outline?") }],
             returns: T("void"),
@@ -864,10 +870,13 @@ describe("binding plans: Swift rules", () => {
   const reason = (cls: SdkClassSchema, name: string, role?: "implement") =>
     unsupportedReason(planBinding(cls, method(cls, name), shapes, types, role));
 
-  it("refuses what cannot cross to Swift, as the call would", () => {
+  it("refuses what cannot cross to Swift, as the call would, and takes closures blocks can be", () => {
     expect(reason(pen, "width")).toBe("optional numbers and booleans cannot cross to Swift yet");
     expect(reason(pen, "style")).toBe("Objective-C enums (KITEdges) cannot cross to Swift yet");
-    expect(reason(pen, "each")).toBe("fn values cannot cross to Swift yet");
+    expect(reason(pen, "each")).toBeUndefined();
+    expect(reason(pen, "visit")).toBe(
+      "closures taking or giving values other than numbers, booleans, strings and Objective-C objects cannot cross to Swift yet",
+    );
     expect(reason(pen, "sizes")).toBe("collections of optional values cannot cross to Swift yet");
     // An optional enum with payloads: passed in, not read out.
     expect(reason(pen, "outline")).toBe(

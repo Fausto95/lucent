@@ -102,6 +102,7 @@ os_log_t signposts() {
     case Category::Copy: os_signpost_interval_##kind(signposts(), id, "copy", "%{public}s", name); break; \
     case Category::Alloc: os_signpost_interval_##kind(signposts(), id, "alloc", "%{public}s", name); break; \
     case Category::Build: os_signpost_interval_##kind(signposts(), id, "build", "%{public}s", name); break; \
+    case Category::Effect: os_signpost_interval_##kind(signposts(), id, "effect", "%{public}s", name); break; \
   }
 
 void platformBegin(uint64_t cookie, Category category, const char* name) {
@@ -251,6 +252,7 @@ const char* categoryName(Category category) {
     case Category::Copy: return "copy";
     case Category::Alloc: return "alloc";
     case Category::Build: return "build";
+    case Category::Effect: return "effect";
   }
 
   return "native";

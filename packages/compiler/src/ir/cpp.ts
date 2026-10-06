@@ -273,6 +273,8 @@ class Emitter {
     // call stays a statement of its own, never a C++ argument of another.
     if (op.kind === "call" || op.kind === "plan") return assigns;
 
+    if (op.kind === "closure") return next.kind === "plan" && directCallback(op, next, v);
+
     return spells && ["unary", "binary", "convert"].includes(op.kind);
   }
 
@@ -541,26 +543,40 @@ class Emitter {
 
     if (own) return own === kind ? this.intValue(v) : cpp.staticCast(type, this.intValue(v));
 
-    const def = this.definitions.get(v);
+    const int64 = kind === "i64" ? this.int64(v) : undefined;
 
-    if (
-      kind === "i64" &&
-      def?.kind === "binary" &&
-      (def.op === "+" || def.op === "-") &&
-      this.inlined.has(v) &&
-      this.intKind(def.left) &&
-      this.intKind(def.right)
-    ) {
-      const [l, r] = [def.left, def.right].map((x) => cpp.staticCast(type, this.intValue(x)));
-
-      return cpp.binary(l!, def.op, r!);
-    }
+    if (int64) return int64;
 
     if (kind === "i32") return cpp.call("lucent::toInt32", [this.value(v)]);
 
     if (kind === "u32") return cpp.call("lucent::toUint32", [this.value(v)]);
 
     return cpp.staticCast(type, this.value(v));
+  }
+
+  /**
+   * `v`, a write the integer analysis proved exact (emit/integers.ts), computed in int64: an
+   * integer register, or `+`, `-`, `*` or `%` of such, spelled in place. Every value the
+   * analysis allows is an exact integer within ±2^53 and never -0, a remainder's dividend is
+   * never negative and its divisor at least 1, so int64 gives each the double's value. Undefined
+   * for anything else, which the double computes.
+   */
+  private int64(v: ValueId): cpp.Expr | undefined {
+    if (this.intKind(v)) return cpp.staticCast(cpp.type("int64_t"), this.intValue(v));
+
+    const def = this.definitions.get(v);
+
+    if (def?.kind !== "binary" || !this.inlined.has(v) || !INT64_ARITHMETIC.has(def.op))
+      return undefined;
+
+    const [l, r] = [this.int64(def.left), this.int64(def.right)];
+
+    return l && r ? cpp.binary(l, def.op as cpp.BinaryOp, r) : undefined;
+  }
+
+  /** Whether `v` is spelled where its one use is, rather than as a variable. */
+  isInlined(v: ValueId): boolean {
+    return this.inlined.has(v);
   }
 
   /** `v` is spelled `c` wherever it is used (a literal or a parameter). */
@@ -978,7 +994,13 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
         ? lambda
         : cpp.call("lucent::ui::inContent", [e.value(op.enters), lambda]);
 
-    e.define(op, op.result, cpp.construct(e.backend.cppType(e.typeOf(op.result)), [made]));
+    // Spelled in its one use, a runtime method's callback (see directCallback): the lambda
+    // itself, which the method's template calls directly, rather than a function value.
+    e.define(
+      op,
+      op.result,
+      e.isInlined(op.result) ? made : cpp.construct(e.backend.cppType(e.typeOf(op.result)), [made]),
+    );
 
     // The lambda's statements named lines of their own.
     e.lineChanged();
@@ -1287,8 +1309,80 @@ function after(effect: cpp.Expr, value: cpp.Expr): cpp.Expr {
   return pure ? value : cpp.comma(cpp.cast("c", cpp.voidType, effect), value);
 }
 
-/** The operation after `ops[at]`, past a local declared where it is first stored (`T x = v;`). */
+/**
+ * The runtime methods that take a callback as a template parameter (`F&&`) and only call it:
+ * Array's, and Map's, Set's and Bytes' forEach, map and reduce.
+ */
+const CALLBACK_METHODS = new Set([
+  "every",
+  "filter",
+  "find",
+  "findIndex",
+  "findLast",
+  "findLastIndex",
+  "flatMap",
+  "forEach",
+  "map",
+  "reduce",
+  "reduceRight",
+  "some",
+  "sort",
+  "toSorted",
+]);
+
+/**
+ * Devirtualization: whether the closure `op` makes, `v`, can be passed to `plan`, its one use,
+ * as the lambda itself rather than a function value (`lucent::Fn`, a shared, type-erased
+ * `std::function`). It can when `plan`'s code passes it, once, straight to one of
+ * CALLBACK_METHODS: the method's template then calls the lambda directly, and the compiler can
+ * inline it. Nothing else sees the value, so its identity is never compared; making a lambda
+ * runs none of its code, and its captures copy values (or boxes) the IR defined before, so
+ * making it as the method's argument changes no order. A coroutine's lambda, or one that enters
+ * a setup's mount, stays a function value.
+ */
+function directCallback(
+  op: IrOp & { kind: "closure" },
+  plan: IrOp & { kind: "plan" },
+  v: ValueId,
+): boolean {
+  if (op.fn.async || op.fn.generator !== undefined || op.enters !== undefined) return false;
+
+  type Node = { k?: string; name?: unknown; callee?: Node; args?: Node[] };
+  const names = [`${OPERAND}${v}`, `${INT_OPERAND}${v}`];
+  const isOperand = (n: Node | undefined) => n?.k === "id" && names.includes(n.name as string);
+  let uses = 0;
+  let direct = false;
+  const visit = (node: unknown): void => {
+    if (Array.isArray(node)) return node.forEach(visit);
+
+    if (typeof node !== "object" || node === null) return;
+
+    const n = node as Node;
+
+    if (isOperand(n)) uses++;
+
+    if (
+      n.k === "call" &&
+      n.callee?.k === "member" &&
+      CALLBACK_METHODS.has(n.callee.name as string) &&
+      n.args?.some(isOperand)
+    )
+      direct = true;
+
+    Object.values(node).forEach(visit);
+  };
+
+  visit(plan.code);
+  return uses === 1 && direct;
+}
+
+/**
+ * The operation after `ops[at]`, past constants (spelled where they are used, they run nothing)
+ * and a local declared where it is first stored (`T x = v;`).
+ */
 function nextUse(ops: readonly IrOp[], at: number): IrOp | undefined {
+  while (ops[at + 1]?.kind === "const") at++;
+
   const next = ops[at + 1];
   const after = ops[at + 2];
 
@@ -1301,6 +1395,9 @@ function nextUse(ops: readonly IrOp[], at: number): IrOp | undefined {
 function deep(fn: IrFunction, op: IrOp): IrOp[] {
   return [op, ...regionsOf(op).flatMap((r) => fn.regions[r]!.ops.flatMap((o) => deep(fn, o)))];
 }
+
+/** The arithmetic `Emitter.int64` computes in int64. */
+const INT64_ARITHMETIC = new Set<BinaryOp>(["+", "-", "*", "%"]);
 
 /** The C++ type of each integer register. */
 const INT_CPP: Record<IntKind, string> = { i32: "int32_t", u32: "uint32_t", i64: "int64_t" };

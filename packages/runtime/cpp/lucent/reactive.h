@@ -44,11 +44,16 @@
 #include <utility>
 #include <vector>
 
+#include "live.h"
 #include "core.h"
 #include "equality.h"
 #include "execution.h"
 #include "jserror.h"
 #include "scope.h"
+
+namespace lucent::trace {
+struct Site;
+}  // namespace lucent::trace
 
 namespace lucent::ui {
 
@@ -109,8 +114,10 @@ class Effect;
 class Graph;
 
 /// Makes an effect in graph->scope() and runs it at once. `name` names it in
-/// loop reports. Made in a scope that is no longer active, it never runs.
-Effect effect(const std::shared_ptr<Graph>& graph, std::function<void()> fn, std::string name = "effect");
+/// loop reports, and each run is a trace span at `site` (its .lucent.ts
+/// line). Made in a scope that is no longer active, it never runs.
+Effect effect(const std::shared_ptr<Graph>& graph, std::function<void()> fn, std::string name = "effect",
+              const trace::Site* site = nullptr);
 
 class Graph : public std::enable_shared_from_this<Graph> {
   struct Token {};
@@ -182,7 +189,8 @@ class Graph : public std::enable_shared_from_this<Graph> {
   friend class detail::ComputedNode;
   friend class detail::Observer;
   friend class Effect;
-  friend Effect effect(const std::shared_ptr<Graph>& graph, std::function<void()> fn, std::string name);
+  friend Effect effect(const std::shared_ptr<Graph>& graph, std::function<void()> fn, std::string name,
+                       const trace::Site* site);
 
   /// Writes wait while one lives; the outermost runs the pending effects.
   struct Batch {
@@ -317,12 +325,16 @@ class Observer : public Node {
 
 class EffectNode final : public Observer {
  public:
-  EffectNode(std::shared_ptr<Graph> graph, std::function<void()> fn, std::string name, uint64_t order)
-      : Observer(std::move(graph), true), fn_(std::move(fn)), name_(std::move(name)), order_(order) {}
+  EffectNode(std::shared_ptr<Graph> graph, std::function<void()> fn, std::string name, uint64_t order,
+             const trace::Site* site)
+      : Observer(std::move(graph), true), fn_(std::move(fn)), name_(std::move(name)), order_(order), site_(site) {}
 
   std::function<void()> fn_;
   const std::string name_;
   const uint64_t order_;
+  /// Where its runs show in a trace (static, as trace events are).
+  const trace::Site* const site_;
+  [[no_unique_address]] live::Counted<live::Kind::Effect> counted_;
 
   /// The last run's scope: its tasks, cleanups and nested effects.
   std::shared_ptr<Scope> run_;
@@ -346,6 +358,7 @@ class SignalNode final : public Node {
 
   T value_;
   Equality<T> equals_;
+  [[no_unique_address]] live::Counted<live::Kind::Signal> counted_;
 };
 
 template <class T>
@@ -401,6 +414,7 @@ class ComputedNode final : public Observer {
   std::optional<T> value_;
   std::exception_ptr error_;
   bool computing_ = false;
+  [[no_unique_address]] live::Counted<live::Kind::Computed> counted_;
 };
 
 }  // namespace detail

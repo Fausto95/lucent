@@ -19,6 +19,9 @@ import type { NativeInputs, PackagePath } from "./package-config.ts";
 import { inNativePackage } from "./package-files.ts";
 import { coreTypesPath } from "./program.ts";
 import { currentSdkIdentity } from "./sdk/schema.ts";
+import type { SwiftPackage } from "./package-schema.ts";
+import { compareVersions } from "./package-versions.ts";
+import type { BuiltSwiftPackage } from "@lucent-lang/bindgen";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 
@@ -134,6 +137,8 @@ export function writeNativePackage(
     native?: NativeInputs;
     /** Android's code is built later, by the app's Gradle build (see deferredLibraryGradle). */
     androidDeferred?: boolean;
+    /** The app's Xcode project: its deployment target, and the Swift packages it links. */
+    app?: { deploymentTarget?: string; swiftPackages?: BuiltSwiftPackage[] };
   } = {},
 ): WriteResult {
   const rt = runtimeDir();
@@ -192,8 +197,14 @@ export function writeNativePackage(
         inPackage(paths),
       ]),
       vendoredFrameworks: inPackage(native?.ios.vendoredFrameworks ?? []),
-      swiftPackages: Object.entries(native?.ios.swiftPackages ?? {}),
-      deploymentTarget: native?.ios.deploymentTarget?.value,
+      swiftPackages: [
+        ...Object.entries(native?.ios.swiftPackages ?? {}),
+        ...appSwiftPackages(result.swiftPackages ?? [], options.app?.swiftPackages ?? []),
+      ],
+      deploymentTarget: highestVersion([
+        native?.ios.deploymentTarget?.value,
+        options.app?.deploymentTarget,
+      ]),
     }),
   );
 
@@ -333,4 +344,31 @@ export function writeWhole(file: string, content: string | Buffer): void {
 
   fs.writeFileSync(tmp, content);
   fs.renameSync(tmp, file);
+}
+
+/**
+ * The app's Swift packages whose modules the iOS code imports (`used`, as
+ * `identity@version`), as LucentNative's dependencies: at the version the
+ * app resolved, with the products it links.
+ */
+function appSwiftPackages(used: string[], pins: BuiltSwiftPackage[]): [string, SwiftPackage][] {
+  return pins
+    .filter((p) => used.some((u) => u.slice(0, u.lastIndexOf("@")) === p.identity))
+    .map((p) => [
+      p.location,
+      {
+        requirement: p.version
+          ? { kind: "exactVersion", version: p.version }
+          : { kind: "revision", revision: p.revision },
+        products: p.products,
+      },
+    ]);
+}
+
+/** The highest of `versions`, if any. */
+function highestVersion(versions: (string | undefined)[]): string | undefined {
+  return versions
+    .filter((v): v is string => !!v)
+    .sort(compareVersions)
+    .at(-1);
 }

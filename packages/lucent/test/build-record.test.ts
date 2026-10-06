@@ -114,6 +114,26 @@ describe("the build graph", () => {
     expect(fs.readdirSync(path.dirname(file))).toEqual(["build-record.json"]);
     expect(JSON.parse(fs.readFileSync(file, "utf8")).schemaVersion).toBe(1);
   });
+  it("keeps the record before it, for doctor to say what a step ran again for", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-record-previous-"));
+    const file = path.join(dir, "build-record.json");
+    const first = new BuildGraph("build");
+    first.record("check", "check", "ok", { inputs: [{ key: "a.lucent.ts", hash: "1" }] });
+    const second = new BuildGraph("build");
+    second.record("check", "check", "cached", { inputs: [{ key: "a.lucent.ts", hash: "1" }] });
+
+    writeBuildRecord(file, first.toRecord({ kind: "none" }));
+    expect(fs.existsSync(path.join(dir, "build-record.previous.json"))).toBe(false);
+
+    writeBuildRecord(file, second.toRecord({ kind: "none" }));
+    const previous = JSON.parse(
+      fs.readFileSync(path.join(dir, "build-record.previous.json"), "utf8"),
+    ) as BuildRecord;
+    expect(previous.nodes[0]!.status).toBe("ok");
+    expect((JSON.parse(fs.readFileSync(file, "utf8")) as BuildRecord).nodes[0]!.status).toBe(
+      "cached",
+    );
+  });
 });
 
 describe("lucent build's record", () => {

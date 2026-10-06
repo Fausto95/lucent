@@ -199,7 +199,9 @@ describe.skipIf(!javac)("cache keys: Android", () => {
   });
 });
 
-describe.skipIf(!xcode)("cache keys: iOS", () => {
+// Each test extracts from the SDK with clang: minutes on a slow CI runner (204 s for the
+// file on one), seconds on most.
+describe.skipIf(!xcode)("cache keys: iOS", { timeout: 300_000 }, () => {
   const module = (dir: string, name: string, body: string) => {
     fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(path.join(dir, "module.modulemap"), `module ${name} { header "${name}.h" }\n`);

@@ -69,16 +69,16 @@ describe("closures in the IR", () => {
     expect(fn).toContain("[fib = fib]");
   });
 
-  it("passes a callback to a builtin as a closure", () => {
+  it("passes a callback to a builtin as the lambda itself, which the method calls directly", () => {
     const file = module(`export function scaled(xs: number[], k: number): number[] {
   return xs.map((x) => x * k);
 }
 `);
     const scaled = body(cppOf(file), "scaled");
 
-    expect(scaled).toMatch(/\.template map<double>\(v\d+_\)/);
+    expect(scaled).toContain(".template map<double>([k = p1_](double p0_");
 
-    expect(scaled).toContain("[k = p1_]");
+    expect(scaled).not.toContain("lucent::Fn<");
   });
 
   it("gives a call that never returns a value no code uses", () => {

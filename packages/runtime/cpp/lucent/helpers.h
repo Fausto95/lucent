@@ -85,7 +85,8 @@ void assignEntries(Dict<V>& target, const Dict<V>& source) {
 
 /// `s[i]`: undefined when out of range (unlike `s.at(i)`, no negative indexes).
 inline Opt<String> stringIndex(const String& s, double i) {
-  if (i >= 0 && i < static_cast<double>(s.length()) && std::trunc(i) == i) return String::fromCodeUnit(s.unit(static_cast<size_t>(i)));
+  size_t at = indexBelow(i, s.length());
+  if (at != kNoIndex) return String::fromCodeUnit(s.unit(at));
   return undefined;
 }
 
