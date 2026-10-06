@@ -432,6 +432,15 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-06: SDK declarations say what the compiler checks.** A
+generated declaration's thread line comes from the predicate LUCENT3006
+uses (`mainThreadOnly`), so an async Swift member of a main-actor class is
+documented as callable from any thread; `sdk show` and `sdk search` read
+the toolkit modules (`lucent:swiftui`, `lucent:compose`) through the same
+function the compiler serves them with, and only with views on, saying so
+otherwise. _Why:_ the docs and the CLI disagreed with what compiled.
+_Changed:_ nothing planned; T61's SDK workflow item builds on it.
+
 **2026-10-04: Native views' JSX derives children; no adapters.** A view
 class takes JSX children through the insert-at-index method its
 declarations give (`insertArrangedSubview:atIndex:`,
@@ -1981,7 +1990,10 @@ iOS simulator and the Android emulator; physical-device checks are
   included), converted and compared `bigint | number` as JavaScript does,
   and migrated docs, samples and apps.
 - **Fixes** A `@WorkerThread` member of a `@UiThread` class; the Expo
-  plugin's unquoted key.
+  plugin's unquoted key; `@RequiresPermission` on a property's getter and
+  setter; generated Kotlin in the program hash; thread and protocol doc
+  lines in the generated declarations; members' doc comments in `sdk show`,
+  and `lucent:swiftui` and `lucent:compose` in `sdk show` and `sdk search`.
 
 ### Compiler and language
 

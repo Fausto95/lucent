@@ -80,7 +80,8 @@ The merged result goes into the native package:
   join the app's compile classpath, so `lucent:android` binds them.
 - **Permissions** go into its manifest, which Android merges into the app's.
   Permissions the SDK methods require (`@RequiresPermission`) are added
-  without listing them here.
+  without listing them here, including those of a property's getter when
+  the code reads it and of its setter when the code assigns it.
 - **Info.plist entries** are written by the Expo config plugin: a key the
   app sets keeps the app's value, and an array gains the values it lacks.
   For bare apps, `lucent build` names the keys and array values the app's
