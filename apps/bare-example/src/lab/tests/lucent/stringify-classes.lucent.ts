@@ -133,3 +133,120 @@ export function shapes(): string {
     .map((x) => JSON.stringify(x))
     .join(" ");
 }
+
+class Maybe {
+  constructor(private v: number | undefined) {}
+
+  toJSON(): number | undefined {
+    return this.v;
+  }
+}
+
+class Callable {
+  toJSON(): () => number {
+    return () => 1;
+  }
+}
+
+class Self {
+  x = 1;
+
+  toJSON(): Self {
+    return this;
+  }
+}
+
+class Wrapper {
+  toJSON(): Self {
+    return new Self();
+  }
+}
+
+class Literal {
+  toJSON(): { toJSON: () => number } {
+    return { toJSON: () => 2 };
+  }
+}
+
+export function toJsonUndefined(): string {
+  const gone = new Maybe(undefined);
+  const kept = new Maybe(4);
+  const fn = new Callable();
+  return [
+    JSON.stringify({ gone, kept, fn }),
+    JSON.stringify([gone, kept, fn]),
+    `${JSON.stringify(gone)}`,
+    JSON.stringify({ all: { gone: [gone] } }),
+    JSON.stringify(new Map<string, Maybe>([["a", gone]])),
+    JSON.stringify({ r: { a: gone, b: kept } as Record<string, Maybe> }),
+  ].join(" ");
+}
+
+export function toJsonOnce(): string {
+  return [
+    JSON.stringify(new Self()),
+    JSON.stringify(new Wrapper()),
+    JSON.stringify(new Literal()),
+    JSON.stringify({ at: { toJSON: () => 3 } }),
+  ].join(" ");
+}
+
+class Pair<A, B> {
+  constructor(
+    public first: A,
+    private second: B,
+  ) {}
+}
+
+class Cell<T> {
+  value: T;
+  count = 0;
+
+  constructor(value: T) {
+    this.value = value;
+  }
+}
+
+class Tagged<T> extends Plain {
+  constructor(public tag: T) {
+    super();
+  }
+}
+
+class Labeled extends Cell<string> {
+  label = "l";
+
+  constructor() {
+    super("s");
+  }
+}
+
+class Shown<T> {
+  constructor(private v: T) {}
+
+  toJSON(): T {
+    return this.v;
+  }
+}
+
+export function generics(): string {
+  const cells: Cell<number>[] = [new Cell(1), new Cell(2)];
+  const byName: Record<string, Cell<Point>> = { p: new Cell(new Point(7, 8)) };
+  const plain: Plain = new Tagged(true);
+  const cell: Cell<string> = new Labeled();
+  return [
+    JSON.stringify(new Cell(5)),
+    JSON.stringify(new Cell("s")),
+    JSON.stringify(new Cell(new Point(1, 2))),
+    JSON.stringify(new Cell(new Cell([1, 2]))),
+    JSON.stringify(new Pair(1, "two")),
+    JSON.stringify(cells),
+    JSON.stringify(byName),
+    JSON.stringify(new Tagged("t")),
+    JSON.stringify(plain),
+    JSON.stringify(new Labeled()),
+    JSON.stringify(cell),
+    JSON.stringify([new Shown<number | undefined>(1), new Shown<number | undefined>(undefined)]),
+    JSON.stringify({ s: new Shown<number | undefined>(undefined) }),
+  ].join(" ");
+}

@@ -8,7 +8,7 @@ import { platformScopes } from "../platforms.ts";
 import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
 import { BindingsEmitter, type ModuleExports } from "./bindings.ts";
-import { emitClass, memberName, parameterProperties } from "./classes.ts";
+import { emitClass, jsonMemberParams, memberName, parameterProperties } from "./classes.ts";
 import { bindCompute, emitTaskVariants, taskHeader } from "./compute.ts";
 import { objcDelegate } from "./delegates.ts";
 import { iosSubclass } from "./objc-subclass.ts";
@@ -746,82 +746,71 @@ function topoSort(
 function jsonWriters(ctx: Ctx): { decls: cpp.Decl[]; defs: cpp.Decl[] } {
   const decls: cpp.Decl[] = [];
   const defs: cpp.Decl[] = [];
-  const [w, v, first] = [cpp.id("w"), cpp.id("v"), cpp.id("first")];
+  const [w, v, first, toJson] = [cpp.id("w"), cpp.id("v"), cpp.id("first"), cpp.id("toJson")];
   const raw = (text: string) => cpp.exprStmt(cpp.call(cpp.dot(w, "raw"), [cpp.str(text)]));
-  const writer = (name: string, body: cpp.Stmt[]) => {
+  /** A free function taking a struct's Ref, found by ADL. */
+  const structFn = (name: string, ret: cpp.Type, s: string, body: cpp.Stmt[]) => {
     const params = [
-      cpp.param(cpp.reference(cpp.type("lucent::JsonWriter")), "w"),
-      cpp.param(cpp.reference(cpp.constType(cpp.type("lucent::Ref", cpp.type(name)))), "v"),
+      jsonMemberParams[0]!,
+      cpp.param(cpp.reference(cpp.constType(cpp.type("lucent::Ref", cpp.type(s)))), "v"),
     ];
-    decls.push(cpp.fn("jsonWrite", cpp.voidType, params));
-    defs.push(
-      cpp.fn(
-        "jsonWrite",
-        cpp.voidType,
-        params,
-        [cpp.ifStmt(cpp.not(v), [raw("null"), cpp.ret()]), ...body],
-        { inline: true },
-      ),
-    );
+    decls.push(cpp.fn(name, ret, params));
+    defs.push(cpp.fn(name, ret, params, body, { inline: true }));
   };
-  const object = (fields: string[]): cpp.Stmt[] => [
+  const object = (self: cpp.Expr, fields: string[]): cpp.Stmt[] => [
     raw("{"),
     cpp.varDecl(cpp.type("bool"), "first", cpp.bool(true)),
     ...fields.map((f) =>
       cpp.exprStmt(
-        cpp.call("lucent::jsonField", [w, first, cpp.str(f), cpp.arrow(v, cppIdent(f))]),
+        cpp.call("lucent::jsonField", [w, first, cpp.str(f), cpp.arrow(self, cppIdent(f))]),
       ),
     ),
     cpp.exprStmt(cpp.cast("c", cpp.voidType, first)),
     raw("}"),
   ];
-  for (const s of ctx.reg.structs.values()) writer(s.cppName, object(s.fields.map((f) => f.name)));
+  /** `return lucent::jsonResult(w, self->toJSON());` */
+  const result = (self: cpp.Expr) =>
+    cpp.ret(cpp.call("lucent::jsonResult", [w, cpp.call(cpp.arrow(self, cppIdent("toJSON")))]));
+
+  for (const s of ctx.reg.structs.values()) {
+    const fields = s.fields.map((f) => f.name);
+    structFn("jsonWrite", cpp.voidType, s.cppName, [
+      cpp.ifStmt(cpp.not(v), [raw("null"), cpp.ret()]),
+      ...object(v, fields),
+    ]);
+
+    // A toJSON function property: JavaScript writes its value instead (JSON.stringify passes
+    // the key, which a function without parameters ignores).
+    const fn = s.fields.find((f) => f.name === "toJSON" && !f.optional)?.type;
+    if (fn?.k === "fn" && !fn.params.length)
+      structFn("jsonValue", cpp.type("bool"), s.cppName, [
+        cpp.ifStmt(cpp.not(v), [raw("null"), cpp.ret(cpp.bool(true))]),
+        result(v),
+      ]);
+  }
   for (const c of ctx.reg.classes.values()) {
-    if (c.typeParams.length) continue;
-    // A base-typed value may hold a subclass instance: it writes as that subclass.
-    const subclasses = ctx.reg
-      .descendants(c.id)
-      .filter((d) => !d.typeParams.length)
-      .map((d) =>
-        cpp.block([
-          cpp.varDecl(
-            cpp.auto,
-            "sub",
-            cpp.call("std::dynamic_pointer_cast", [v], [cpp.type(d.cppName)]),
-          ),
-          cpp.ifStmt(cpp.id("sub"), [
-            cpp.exprStmt(cpp.call("jsonWrite", [w, cpp.id("sub")])),
-            cpp.ret(),
-          ]),
-        ]),
-      );
-    const own = ctx.guard(() => classJson(c)) ?? object([]);
-    writer(c.cppName, [...subclasses, ...own]);
+    const own = ctx.guard(() => classJson(c));
+    if (!own) continue;
+
+    const self = cpp.type(c.cppName, ...c.typeParams.map((p) => cpp.type(cppIdent(p))));
+    defs.push(
+      cpp.fn("lucentJson_", cpp.type("bool"), jsonMemberParams, own, {
+        scope: self,
+        inline: true,
+        ...(c.typeParams.length ? { template: c.typeParams.map(cppIdent) } : {}),
+      }),
+    );
   }
   return { decls, defs };
 
-  /** toJSON's value, or every own enumerable field: TypeScript visibility does not hide one. */
+  /**
+   * The body of a class's lucentJson_: toJSON's value, or every own enumerable
+   * field (TypeScript visibility does not hide one).
+   */
   function classJson(c: ClassInfo): cpp.Stmt[] {
     const chain = ctx.reg.chain({ k: "class", id: c.id, args: [] });
-    for (const { info } of chain) {
-      const toJson = info.decl.members.find(
-        (m): m is ts.MethodDeclaration =>
-          ts.isMethodDeclaration(m) &&
-          !isStatic(m) &&
-          ts.isIdentifier(m.name) &&
-          m.name.text === "toJSON",
-      );
-      if (!toJson) continue;
-      if (toJson.parameters.length || toJson.typeParameters?.length || isAsync(toJson))
-        fail(
-          toJson,
-          Codes.UnsupportedClassFeature,
-          "toJSON takes no parameters and is not async or generic: JSON.stringify writes its value",
-        );
-      return [cpp.exprStmt(cpp.call("jsonWrite", [w, cpp.call(cpp.arrow(v, "toJSON"))]))];
-    }
-    // Base fields first, as super() creates them; parameter properties before declared fields.
     const fields = new Set<string>();
+    // Base fields first, as super() creates them; parameter properties before declared fields.
     for (const { info } of chain.toReversed()) {
       const ctor = info.decl.members.find(ts.isConstructorDeclaration);
       for (const p of parameterProperties(ctor)) fields.add(memberName(p));
@@ -829,7 +818,25 @@ function jsonWriters(ctx: Ctx): { decls: cpp.Decl[]; defs: cpp.Decl[] } {
         if (ts.isPropertyDeclaration(m) && !ts.isPrivateIdentifier(m.name) && !declaredOnly(m))
           fields.add(memberName(m));
     }
-    return object([...fields]);
+    const body = [...object(cpp.self, [...fields]), cpp.ret(cpp.bool(true))];
+    for (const { info } of chain) {
+      const method = info.decl.members.find(
+        (m): m is ts.MethodDeclaration =>
+          ts.isMethodDeclaration(m) &&
+          !isStatic(m) &&
+          ts.isIdentifier(m.name) &&
+          m.name.text === "toJSON",
+      );
+      if (!method) continue;
+      if (method.parameters.length || method.typeParameters?.length || isAsync(method))
+        fail(
+          method,
+          Codes.UnsupportedClassFeature,
+          "toJSON takes no parameters and is not async or generic: JSON.stringify writes its value",
+        );
+      return [cpp.ifStmt(toJson, [result(cpp.self)]), ...body];
+    }
+    return body;
   }
 }
 
