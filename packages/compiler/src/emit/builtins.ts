@@ -651,6 +651,9 @@ const MATH_FUNCTIONS = new Set([
   "max",
 ]);
 
+/** The Object functions that list an object's fields. */
+const OBJECT_LISTINGS = new Set(["keys", "values", "entries"]);
+
 export function staticCall(
   em: FnEmitter,
   node: ts.CallExpression,
@@ -732,11 +735,11 @@ export function staticCall(
           t: { k: "array", e: { k: "tuple", es: [T.string, t.val] } },
         };
     }
-    if (t.k === "struct" && name === "keys")
+    if ((t.k === "struct" || t.k === "class") && name !== "fromEntries")
       fail(
         node,
         Codes.UnsupportedBuiltin,
-        "Object.keys of an object type is not supported: Lucent objects do not record which optional fields are set or the order JavaScript made them in; use a Record<string, T>, or list the fields",
+        `Object.${name} of an object type is not supported${OBJECT_LISTINGS.has(name) ? ": Lucent objects do not record which optional fields are set or the order JavaScript made them in; use a Record<string, T>, or list the fields" : ""}`,
       );
     if (name === "fromEntries") {
       const rt = em.lt(node);
@@ -2157,7 +2160,7 @@ function heldKind(node: ts.Node, v: E, kind: Kind): E {
     fail(
       node,
       Codes.UnsupportedBuiltin,
-      `testing whether an Iterable is a ${kind} is not supported: an Iterable no longer knows what it was made from; take a ${kind === "Array" ? "T[]" : kind} parameter`,
+      `testing whether an Iterable is ${kind === "Array" ? "an" : "a"} ${kind} is not supported: an Iterable no longer knows what it was made from; take a ${kind === "Array" ? "T[]" : kind} parameter`,
     );
   return bool(cpp.call("lucent::holds", [v.c], [cpp.type(KIND_TRAITS[kind])]));
 }
