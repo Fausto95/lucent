@@ -50,7 +50,7 @@ import {
   requiredAction,
   writeBuildRecord,
 } from "./build-graph.ts";
-import { classifyChanges } from "./changes.ts";
+import { classifyChanges, needsPodInstall } from "./changes.ts";
 import {
   frozenFailure,
   LOCK_FILE,
@@ -76,7 +76,7 @@ export interface ModuleSummary {
 export interface Next {
   /** Native code changed: rebuild the app. */
   rebuild: boolean;
-  /** Native files were added or removed: pod install before the iOS build. */
+  /** iOS relinks (files came or went, the podspec or its pods changed): pod install before its build. */
   podInstall: boolean;
   /** Only the JavaScript proxies changed. */
   reload: boolean;
@@ -158,7 +158,7 @@ export async function buildProject(
   const outcome = (o: Partial<BuildOutcome>): BuildOutcome => {
     const next = o.next ?? NONE;
     const actions = o.actions ?? [];
-    const record = graph.toRecord(requiredAction(next, targets, changedUnits), actions);
+    const record = graph.toRecord(requiredAction(next, targets, changedUnits, actions), actions);
     writeBuildRecord(path.join(root, ".lucent/build-record.json"), record);
 
     return {
@@ -463,8 +463,10 @@ export async function buildProject(
     await steps.flush();
     const t = Date.now();
     const before = extractionCount();
-    for (const [p, m] of wanted) sdkModule(p, m, sdk);
+    const unbound = wanted.filter(([p, m]) => "missing" in sdkModule(p, m, sdk)).map(([, m]) => m);
     const extracted = extractionCount() - before;
+    // The check says why a module has no bindings.
+    const status = unbound.length ? "failed" : extracted ? "ok" : "cached";
 
     // Each module, keyed on the artifacts its schema was read from, and those artifacts.
     const read = wanted.map(([p, m]) => ({
@@ -474,7 +476,7 @@ export async function buildProject(
     const artifacts = new Map(read.flatMap((r) => r.artifacts).map((a) => [a.id, a]));
     const identity = (a: { id: string; contentHash: string }) => `${a.id}#${a.contentHash}`;
 
-    graph.record("extract", "extract", extracted ? "ok" : "cached", {
+    graph.record("extract", "extract", status, {
       inputs: [
         ...read.map((r) => ({
           key: r.key,
@@ -489,9 +491,9 @@ export async function buildProject(
     steps.finish({
       name: "sdk",
       label: "SDK bindings",
-      status: extracted ? "ok" : "cached",
-      detail: listed,
-      ms: extracted ? Date.now() - t : undefined,
+      status,
+      detail: unbound.length ? `no bindings for ${unbound.join(" · ")}` : listed,
+      ms: status === "ok" ? Date.now() - t : undefined,
     });
   }
 
@@ -659,22 +661,24 @@ export async function buildProject(
   for (const n of missingAppEntries(root, native.manifest)) notify(n);
   const nativeChanged =
     w.removed.length > 0 || [...written].some((f) => !f.startsWith("js/") && f !== "manifest.json");
+  const actions = classifyChanges({
+    written: [...written],
+    added: w.added.map(inPackage),
+    removed: w.removed.map(inPackage),
+    manifest: native.manifest,
+    previous,
+    targets,
+  });
+
   return outcome({
     ok: true,
     modules,
     warnings,
     usage,
-    actions: classifyChanges({
-      written: [...written],
-      added: w.added.map(inPackage),
-      removed: w.removed.map(inPackage),
-      manifest: native.manifest,
-      previous,
-      targets,
-    }),
+    actions,
     next: {
       rebuild: nativeChanged,
-      podInstall: w.structureChanged,
+      podInstall: needsPodInstall(actions),
       reload: !nativeChanged && [...written].some((f) => f.startsWith("js/")),
     },
   });
