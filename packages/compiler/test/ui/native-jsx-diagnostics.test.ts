@@ -28,7 +28,12 @@ function diagnostics(platform: "ios" | "android", imports: string, code: string)
   return compile(
     Object.keys(files).map((f) => path.join(dir, f)),
     { platforms: [platform] },
-  ).diagnostics.map((d) => ({ code: d.code, message: d.message, fix: d.fix }));
+  ).diagnostics.map((d) => ({
+    code: d.code,
+    message: d.message,
+    fix: d.fix,
+    ...(d.quickFix ? { quickFix: d.quickFix } : {}),
+  }));
 }
 
 describe("native view JSX diagnostics", () => {
