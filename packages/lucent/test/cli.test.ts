@@ -340,6 +340,16 @@ describe("lucent sdk show and search of lucent:swiftui", () => {
       const off = sdk(false, "show", "SwiftUI.Text");
       expect(off.status).toBe(1);
       expect(off.stdout + off.stderr).toMatch(/lucent:swiftui.*LUCENT_VIEWS=fabric/);
+
+      // A misspelled name is still pointed to search.
+      const typo = sdk(false, "show", "SwiftUI.Colr");
+      expect(typo.status).toBe(1);
+      expect(typo.stdout + typo.stderr).toContain("lucent sdk search Colr finds similar names");
+
+      // Views off, a term other SDK names match still says where SwiftUI's are.
+      const stacks = sdk(false, "search", "Stack");
+      expect(stacks.stdout).not.toContain("nothing named like Stack");
+      expect(stacks.stdout).toMatch(/lucent:swiftui.*LUCENT_VIEWS=fabric/);
     },
     600_000,
   );
