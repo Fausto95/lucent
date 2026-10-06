@@ -6,6 +6,8 @@ import { describe, expect, it } from "vite-plus/test";
 
 const require = createRequire(import.meta.url);
 const plugin = require("../app.plugin.js") as {
+  (config: object): object;
+  GRADLE_LINES: Record<string, string>;
   linkNativePackage: (root: string) => void;
   withPackageEntries: (
     app: Record<string, unknown>,
@@ -67,4 +69,34 @@ describe("the Expo config plugin's Info.plist entries from Lucent packages", () 
       UIFileSharingEnabled: true,
     });
   });
+});
+
+describe("the Expo config plugin's Gradle task", () => {
+  it("applies the Gradle task to a Kotlin app build script during prebuild", async () => {
+    const { compileModsAsync } = require("expo/config-plugins") as {
+      compileModsAsync(
+        config: object,
+        options: { projectRoot: string; platforms: string[] },
+      ): Promise<object>;
+    };
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-plugin-"));
+    const script = 'plugins {\n  id("com.android.application")\n  id("com.facebook.react")\n}\n';
+    fs.mkdirSync(path.join(root, "android/app"), { recursive: true });
+    fs.writeFileSync(path.join(root, "android/app/build.gradle.kts"), script);
+    fs.writeFileSync(path.join(root, "android/settings.gradle.kts"), 'include(":app")\n');
+    fs.writeFileSync(path.join(root, "package.json"), '{ "name": "app" }\n');
+    fs.writeFileSync(
+      path.join(root, "a.lucent.ts"),
+      "export function one(): number { return 1; }\n",
+    );
+
+    await compileModsAsync(plugin({ name: "app", slug: "app" }), {
+      projectRoot: root,
+      platforms: ["android"],
+    });
+
+    const patched = fs.readFileSync(path.join(root, "android/app/build.gradle.kts"), "utf8");
+    expect(patched).not.toBe(script);
+    expect(patched).toBe(`${script}${plugin.GRADLE_LINES.kt}\n`);
+  }, 120_000);
 });

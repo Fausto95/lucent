@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
+import { applyGradleTask } from "../src/cli/init/patch.ts";
 
 const repo = path.resolve(import.meta.dirname, "../../..");
 const gradleDir = path.resolve(import.meta.dirname, "../gradle");
@@ -193,6 +194,29 @@ describe("Lucent's Gradle scripts", () => {
       const r = lucentClasspath(root);
       expect(r.status, r.out).toBe(0);
       expect(r.out).toMatch(/no debug or release variant/);
+      expect(bound(root)).toEqual({ aars: [], jars: [] });
+    },
+    300_000,
+  );
+
+  it.skipIf(!canRun)(
+    "apply Lucent's Gradle task from a Kotlin build script, as lucent init writes it",
+    () => {
+      const root = app({
+        build: {
+          file: "app/build.gradle.kts",
+          text: applyGradleTask('plugins { id("com.android.application") }\n', "kt")!,
+        },
+      });
+      // The line asks Node where the app's @lucent-lang/lucent is.
+      fs.mkdirSync(path.join(root, "node_modules/@lucent-lang"), { recursive: true });
+      fs.symlinkSync(
+        path.resolve(gradleDir, ".."),
+        path.join(root, "node_modules/@lucent-lang/lucent"),
+      );
+
+      const r = gradle(root, ":app:lucentClasspath");
+      expect(r.status, r.out).toBe(0);
       expect(bound(root)).toEqual({ aars: [], jars: [] });
     },
     300_000,

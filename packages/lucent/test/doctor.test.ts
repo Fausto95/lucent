@@ -145,6 +145,22 @@ describe("lucent doctor", () => {
     expect(c.fix).toMatch(/lucent init/);
   });
 
+  it("names the Kotlin build script that lacks the Gradle task", () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-home-"));
+    const c = find(
+      diagnose(
+        app({
+          "android/app/build.gradle": undefined,
+          "android/app/build.gradle.kts": 'plugins {\n  id("com.android.application")\n}\n',
+        }),
+        machine(home),
+      ),
+      "gradle-task",
+    );
+    expect(c).toMatchObject({ status: "fail" });
+    expect(c.detail).toMatch(/android\/app\/build\.gradle\.kts does not apply it/);
+  });
+
   it("finds mismatched versions: the app's Lucent is not the one running", () => {
     const home = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-home-"));
     const root = app({
