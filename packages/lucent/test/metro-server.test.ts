@@ -17,7 +17,10 @@ const require = createRequire(path.join(modules, "metro/package.json"));
 
 interface Metro {
   loadConfig(argv: { config: string; port: number }, defaults: object): Promise<object>;
-  runServer(config: object, options: { host: string }): Promise<{ httpServer: Server }>;
+  runServer(
+    config: object,
+    options: { host: string; watch: boolean },
+  ): Promise<{ httpServer: Server }>;
 }
 
 const running: Server[] = [];
@@ -67,7 +70,8 @@ module.exports = withLucent(
     { config: path.join(root, "metro.config.js"), port: 0 },
     {},
   );
-  const { httpServer } = await metro.runServer(loaded, { host: "127.0.0.1" });
+  // A dev server watches files; Metro's own default doesn't under CI, which the tests set.
+  const { httpServer } = await metro.runServer(loaded, { host: "127.0.0.1", watch: true });
   running.push(httpServer);
   const { port } = httpServer.address() as AddressInfo;
   const url = `http://127.0.0.1:${port}/index.bundle?platform=ios&dev=true&minify=false`;
