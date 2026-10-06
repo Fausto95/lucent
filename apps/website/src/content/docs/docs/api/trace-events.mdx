@@ -4,7 +4,7 @@ description: Set `LUCENT_TRACE` (`debug.lucent.trace` on Android) to record each
 kind: reference
 ---
 
-A runtime trace shows where a call's time went: lock waits, queued jobs, running code, copies and compute tasks. Tracing is off by default, and off it costs one atomic read where the runtime checks it.
+A runtime trace shows where a call's time went: lock waits, queued jobs, running code, copies and compute tasks. It also shows each run of a view's effects. Tracing is off by default, and off it costs one atomic read where the runtime checks it.
 
 [Find why a call is slow](/docs/guides/trace-a-slow-call/) shows how to capture a trace and read it.
 
@@ -103,6 +103,7 @@ A counter's `args` holds its value under its name. Flow events (`ph` `s` and `f`
 | `queue` | `js.wait` | An async call's result waiting for the JS thread. |
 | `run` | `run` | A posted job running. |
 | `native` | the scope's name | A scope of C++ code that marked itself, with its `site`. Lucent's own code records none: only C++ you write does. |
+| `effect` | `effect` | A run of a view's effect: an attribute or prop kept up to date, a list's items, or an `effect()` in a component's setup. Its `site` is the effect's `.lucent.ts` or `.lucent.tsx` line. |
 | `completion` | the export's name (`Class.method` for a method) | An async call's result being converted and its promise settled, on the JS thread. |
 | `compute` | `compute.wait`, `compute.run`, `compute.deliver` | A compute task waiting for a worker, running on it, and its result going back to the context that called `compute`. Each task has its own `id`. |
 | `compute` | `compute.saturated` | An instant: every worker was busy, so the task queued. `value` is the queue's depth, also set as the `compute.queued` counter. |
@@ -130,5 +131,6 @@ Its flags are on [`lucent trace`](/docs/api/cli/#lucent-trace).
 
 - Without `--runtime`, it writes and prints the last build's steps only. With no build record either, it fails and says how to capture a trace.
 - Each runtime trace's line adds up the time of its spans by category, the bytes `transport.copy` moved, and the events the buffer dropped.
+- Under it come the ten effect sites that took the most time, each with its runs and their total, such as `effect /app/src/rows.lucent.tsx:11  48× 3.1 ms`.
 - A span inside another counts in both totals: a synchronous call's `entry` includes its `lock` wait.
 - Open the file in [ui.perfetto.dev](https://ui.perfetto.dev) or `chrome://tracing`.

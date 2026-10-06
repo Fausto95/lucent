@@ -56,6 +56,7 @@ Find the call's `entry` span, named after the export. An async call's later span
 | `compute.saturated`, then a long `compute.wait` | Every compute worker was busy. | Start fewer tasks at once, and [abort](/docs/guides/cancel-work/) those you no longer need. |
 | A long `transport.copy` | A compute task's input was large, and was copied. | [Pass a NativeBuffer](/docs/guides/pass-large-buffers/), which moves instead. |
 | A long `js.wait` | The result waited for a busy JavaScript thread. | Profile your JavaScript. |
+| Many `effect` spans at one line | A view's effect ran often: each span is one run, at its `.lucent.tsx` line. `lucent trace` lists the busiest lines. | Read only the signals and props the effect shows, so it runs less. |
 | A long `entry` or `run` alone | The work itself. A synchronous call's `entry` includes converting its arguments. | Benchmark it, and make fewer calls that each do more. |
 
 Tracing takes a mutex for each event: it's for debugging, not for production ([known limitations](/docs/releases/roadmap/#known-limitations)). On Android, set the property back to `0` and restart the app.

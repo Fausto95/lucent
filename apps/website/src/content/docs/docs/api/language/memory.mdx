@@ -130,4 +130,6 @@ When JavaScript reloads, or the app ends, a debug build writes this to the platf
 [lucent] 3 native reference(s) module code still holds at teardown
 ```
 
-It counts the SDK objects that module state holds, with listeners never removed and the cycles through them. Objects that view code made aren't counted. [Modules](/docs/api/language/modules/) says what a reload keeps.
+It counts the SDK objects that module state holds, with listeners never removed and the cycles through them. Objects that view code made aren't counted.
+
+While the app runs, [`__lucentDebug.snapshot()`](/docs/guides/read-errors-and-logs/#inspect-what-a-running-app-holds) gives live counts. [Modules](/docs/api/language/modules/) says what a reload keeps.
