@@ -1,62 +1,83 @@
 ---
-title: Send events to JavaScript
-description: Take a JS callback, call it from async code, and return an id that stops it.
+title: Stream events to JavaScript
+description: "Export an async function that takes a callback and an `AbortSignal`, and hand both to `subscribe()`; JavaScript stops the stream with `abort()`."
 kind: guide
 ---
 
 <Tabs>
 <TabItem label="module">
 
-```ts title="ticker.lucent.ts"
-import { delay } from "lucent:core";
+```ts title="downloads.lucent.ts"
+import { delay, subscribe } from "lucent:core";
 
-const running = new Set<number>();
-let nextId = 1;
+export type Progress = { url: string; percent: number };
 
-/** Calls `onTick` every `ms` milliseconds, until `stop(id)`. */
-export async function start(ms: number, onTick: (count: number) => void): Promise<number> {
-  const id = nextId++;
-  running.add(id);
-  void tick(id, ms, onTick);
-  return id;
-}
+const listeners = new Map<number, (progress: Progress) => void>();
+let nextId = 0;
 
-async function tick(id: number, ms: number, onTick: (count: number) => void): Promise<void> {
-  let count = 0;
-  while (running.has(id)) {
-    await delay(ms);
-    if (running.has(id)) onTick(++count);
+export async function download(url: string): Promise<void> {
+  for (let percent = 0; percent <= 100; percent += 10) {
+    for (const listener of listeners.values()) listener({ url, percent });
+    await delay(200); // stand-in for the network
   }
 }
 
-export function stop(id: number): void {
-  running.delete(id);
+/** Sends every download's progress to `onProgress`, until `signal` aborts. */
+export async function watchDownloads(
+  onProgress: (progress: Progress) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  await subscribe<Progress>(
+    (next) => {
+      const id = nextId++;
+      listeners.set(id, next);
+      return () => {
+        listeners.delete(id);
+      };
+    },
+    onProgress,
+    signal,
+  );
 }
 ```
 
 </TabItem>
 <TabItem label="JS usage">
 
-```tsx title="Clock.tsx"
+```tsx title="App.tsx"
 import { useEffect, useState } from "react";
-import { Text } from "react-native";
-import { start, stop } from "./src/ticker.lucent";
+import { Button, Text, View } from "react-native";
+import { type Progress, download, watchDownloads } from "./src/downloads.lucent";
 
-export function Clock() {
-  const [count, setCount] = useState(0);
+export default function App() {
+  const [progress, setProgress] = useState<Progress>();
+
   useEffect(() => {
-    const started = start(1000, setCount);
-    return () => void started.then(stop);
+    const controller = new AbortController();
+    watchDownloads(setProgress, controller.signal).catch((e: Error) => {
+      if (e.name !== "AbortError") console.error(e);
+    });
+    return () => controller.abort();
   }, []);
-  return <Text>{count}</Text>;
+
+  return (
+    <View>
+      <Button title="Download" onPress={() => download("https://example.com/a.zip")} />
+      <Text>{progress ? `${progress.url}: ${progress.percent}%` : "Idle"}</Text>
+    </View>
+  );
 }
 ```
 
 </TabItem>
 </Tabs>
 
-- JavaScript passes a function, and Lucent keeps it while `tick` runs. Each call from async code is posted to the JS thread.
-- `start` returns an id and `stop` takes it back. Stopping is what lets go of the function.
-- An event handler called from async code must return `void` or a `Promise`.
+`subscribe(register, onValue, signal)` calls `register` at once, with `next`, `end` and `fail`. Here it adds `next` to the listeners, and returns the cleanup that removes it. Each `next(value)` passes the value to `onValue` while the subscription is open.
 
-For events that come from the SDK, keep the delegate or listener in a `Map` by id instead of the `Set`. [Implement a delegate or listener](/docs/guides/implement-a-delegate/) shows one, and the [network state example](/docs/examples/netinfo/) the whole pattern.
+The signal aborting, `end()` or `fail(error)` ends the subscription, and its cleanup then runs once. The promise resolves on `end()` and rejects otherwise.
+
+- When the component unmounts, `abort()` ends the subscription, and `watchDownloads` rejects with an `AbortError`, which the `catch` ignores.
+- Each value reaches JavaScript as a copy, posted to the JS thread. So `onProgress` returns `void`, and what it throws is only logged ([Call a JavaScript callback](/docs/guides/accept-a-js-callback/)).
+- A JavaScript reload doesn't end a subscription that module code made. End each one from JavaScript, as the effect's cleanup does ([What a reload does](/docs/api/language/modules/#what-a-reload-does)).
+
+The full contract is on [lucent:core](/docs/api/lucent-core/#subscribe). For events from an SDK listener, `register` adds the listener and the cleanup removes it: see [Implement an SDK delegate or listener](/docs/guides/implement-a-delegate/). For one value rather than a stream, [Turn a callback API into a promise](/docs/guides/await-a-callback-api/).
