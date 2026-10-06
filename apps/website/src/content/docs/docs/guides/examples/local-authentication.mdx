@@ -1,7 +1,96 @@
 ---
-title: "Port expo-local-authentication"
-description: "This page is being rewritten."
+title: Port expo-local-authentication
+description: "One module checks the device's biometrics with `LAContext` on iOS and `BiometricManager` on Android, and prompts with Face ID, Touch ID or the passcode on iOS."
 kind: example
+sidebar_label: Local authentication
 ---
 
-This page is being rewritten.
+`expo-local-authentication` tells whether the device can check who holds it, and asks the person to confirm with their face, fingerprint or passcode. This port keeps five of its functions, with their names and results. It is [localAuthentication.lucent.ts](https://github.com/Fausto95/lucent/blob/main/scripts/example-app/src/sdk/localAuthentication.lucent.ts) in the example apps.
+
+<Tabs>
+<TabItem label="localAuthentication.lucent.ts">
+
+```ts title="localAuthentication.lucent.ts" include="examples/local-authentication.lucent.ts"
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useState } from "react";
+import { Button, Text, View } from "react-native";
+import * as LocalAuthentication from "./src/localAuthentication.lucent";
+
+export default function App() {
+  const [status, setStatus] = useState("Locked");
+
+  const unlock = async () => {
+    if (!(await LocalAuthentication.isEnrolledAsync())) return setStatus("No biometrics enrolled");
+
+    const result = await LocalAuthentication.authenticateAsync({ promptMessage: "Unlock your notes" });
+    setStatus(result.success ? "Unlocked" : `Not unlocked: ${result.error}`);
+  };
+
+  return (
+    <View>
+      <Button title="Unlock" onPress={unlock} />
+      <Text>{status}</Text>
+    </View>
+  );
+}
+```
+
+</TabItem>
+</Tabs>
+
+:::caution
+The port doesn't implement the Android prompt yet. There, `authenticateAsync` shows nothing and resolves with `not_available`, or `not_enrolled` on a device without a screen lock.
+:::
+
+The example apps' sign-in demo prompts on Android another way. It starts the screen lock's confirmation screen for a result ([Start an Android Activity for a result](/docs/guides/start-an-activity/)).
+
+## How the port works
+
+- On iOS, `evaluatePolicy` takes a completion handler that Swift also imports as `async`, so the module awaits it ([Blocks and completion handlers](/docs/api/ios-sdk/#blocks-and-completion-handlers)).
+- When the prompt fails, `evaluatePolicy` rejects with an error whose `code` is `"<domain>:<code>"`. `codeOf` reads the number with [`errorCode()`](/docs/api/lucent-core/#errorcode), and the port resolves with `success: false` and expo's name for it.
+- `canEvaluatePolicy` reports why it can't through an `NSError` pointer, which the port reads with an `Out<Error>` ([Out parameters](/docs/api/ios-sdk/#out-parameters)).
+- On Android, the platform's `BiometricManager` and `KeyguardManager` answer the checks. `canAuthenticate` needs API 30, so older devices report no biometric hardware.
+
+The Expo example app's SDK lab checks the four capability functions, and a biometrics-only `authenticateAsync`, against `expo-local-authentication`.
+
+## What differs from expo-local-authentication
+
+- The port exports no `AuthenticationType` or `SecurityLevel` enum: its results are those enums' numbers.
+- The options are `promptMessage`, `cancelLabel`, `fallbackLabel` and `disableDeviceFallback`. The Android-only options and `cancelAuthenticate()` aren't ported.
+
+## What it needs
+
+<Tabs syncKey="setup">
+<TabItem label="Expo">
+
+```json title="app.json"
+{
+  "expo": {
+    "ios": {
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Unlocks your notes with Face ID."
+      }
+    }
+  }
+}
+```
+
+Then run `npx expo prebuild`.
+
+</TabItem>
+<TabItem label="Bare React Native">
+
+```xml title="ios/MyApp/Info.plist"
+<key>NSFaceIDUsageDescription</key>
+<string>Unlocks your notes with Face ID.</string>
+```
+
+</TabItem>
+</Tabs>
+
+Without the key, a Face ID device's result carries a warning, and `disableDeviceFallback` fails with `missing_usage_description`. Lucent adds `USE_BIOMETRIC` to the Android manifest, since `BiometricManager.canAuthenticate` requires it ([@RequiresPermission](/docs/api/android-sdk/#requirespermission)).

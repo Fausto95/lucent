@@ -1,7 +1,62 @@
 ---
-title: "Port expo-clipboard"
-description: "This page is being rewritten."
+title: Port expo-clipboard
+description: "One module keeps expo-clipboard's three text functions, with `UIPasteboard` on iOS and `ClipboardManager` on Android."
 kind: example
+sidebar_label: Clipboard
 ---
 
-This page is being rewritten.
+`expo-clipboard` copies and pastes text, images and URLs, and reports clipboard changes. This port keeps its plain-text functions, `getStringAsync`, `setStringAsync` and `hasStringAsync`, under the same names. It is [clipboard.lucent.ts](https://github.com/Fausto95/lucent/blob/main/scripts/example-app/src/sdk/clipboard.lucent.ts) in the example apps.
+
+<Tabs>
+<TabItem label="clipboard.lucent.ts">
+
+```ts title="clipboard.lucent.ts" include="examples/clipboard.lucent.ts"
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useState } from "react";
+import { Button, Text, View } from "react-native";
+import * as Clipboard from "./src/clipboard.lucent";
+
+export default function App() {
+  const [pasted, setPasted] = useState("");
+
+  const paste = async () => {
+    if (await Clipboard.hasStringAsync()) setPasted(await Clipboard.getStringAsync());
+  };
+
+  return (
+    <View>
+      <Button title="Copy" onPress={() => Clipboard.setStringAsync("Hello from Lucent")} />
+      <Button title="Paste" onPress={paste} />
+      <Text>{pasted}</Text>
+    </View>
+  );
+}
+```
+
+</TabItem>
+</Tabs>
+
+## How the port works
+
+- Each export branches on `PLATFORM`, so each platform's build compiles only its own branch ([platform code](/docs/api/language/platform-code/)).
+- On iOS, `UIPasteboard.general.string` reads and writes like a property. It reads `null` when the pasteboard holds no text, which `?? ""` turns into an empty string.
+- On Android, the calls run on the main thread, inside [`main()`](/docs/api/lucent-thread/#main), which resolves with what its function returns.
+- When Android gives no `ClipboardManager`, `clipboard()` throws an [`error()`](/docs/api/lucent-core/#error). The call then rejects in JavaScript with the `code` `ERR_CLIPBOARD_UNAVAILABLE`.
+
+The Expo example app's SDK lab checks the port against `expo-clipboard`: what one of them copies, the other pastes.
+
+## What differs from expo-clipboard
+
+- `getStringAsync()` and `setStringAsync(text)` take no options, so HTML isn't read or written.
+- The image and URL functions, the change listener and the paste button aren't ported.
+
+## What it needs
+
+Nothing: no `Info.plist` key, no library and no Android permission. Lucent adds a permission to the manifest for an SDK method that requires one ([@RequiresPermission](/docs/api/android-sdk/#requirespermission)). None of the `ClipboardManager` methods the port calls does.
+
+Both platforms limit reading, as they do for the original. Android 10 and later give no clip to an app that isn't in focus, so `getStringAsync()` resolves with `""` then. On iOS 16 and later, reading text another app copied shows the system's paste prompt.
