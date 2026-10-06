@@ -20,7 +20,7 @@ import {
 } from "../ir/lower.ts";
 import { numberExpr, stringExpr } from "../lowering/literals.ts";
 import { type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
-import { disposeCall, methodCall } from "./builtins.ts";
+import { disposeCall, methodCall, structKeys } from "./builtins.ts";
 import { safepoint } from "./compute.ts";
 import type { Ctx, E } from "./context.ts";
 import { type FnOptions, FnEmitter, type Local } from "./function.ts";
@@ -292,11 +292,8 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
 
         if (t.k === "dict") return { c: cpp.call(cpp.dot(v, "keys")), t: keys };
 
-        if (t.k === "struct") {
-          const names = ctx.reg.struct(t.id).fields.map((f) => stringExpr(f.name));
-
-          return { c: cpp.construct(strings, names, true), t: keys };
-        }
+        if (t.k === "struct")
+          return structKeys(new LeafEmitter(ctx, opts, node, noOperands(node)), { c: v, t: from });
 
         if (t.k === "array") {
           const [k, out] = [cpp.id("k"), cpp.id("keys")];

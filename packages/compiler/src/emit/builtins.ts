@@ -684,11 +684,7 @@ export function staticCall(
           t: { k: "array", e: { k: "tuple", es: [T.string, t.val] } },
         };
     }
-    if (t.k === "struct" && name === "keys") {
-      const fields = em.reg.struct(t.id).fields.map((f) => stringExpr(f.name));
-      const strings = cpp.type("lucent::Array", cpp.type("lucent::String"));
-      return { c: cpp.construct(strings, fields, true), t: { k: "array", e: T.string } };
-    }
+    if (t.k === "struct" && name === "keys") return structKeys(em, v);
     if (name === "fromEntries") {
       const rt = em.lt(node);
       if (rt.k !== "dict")
@@ -882,6 +878,36 @@ export function staticCall(
 }
 
 /** The call that disposes a `using` value of type `t` (never null). */
+/**
+ * An object's keys, in its type's declaration order: an optional field left unset is not one,
+ * as JavaScript's object lacks the key. An object that may be undefined has none.
+ */
+export function structKeys(em: FnEmitter, v: E): E {
+  const t = stripOpt(v.t);
+  if (t.k !== "struct") throw new Error(`structKeys of ${typeKey(v.t)}`);
+  const [srcName, keysName] = [em.ctx.fresh("src"), em.ctx.fresh("keys")];
+  const [src, keys] = [cpp.id(srcName), cpp.id(keysName)];
+  const obj = v.t.k === "opt" ? cpp.call(cpp.dot(src, "get")) : src;
+  const strings = cpp.type("lucent::Array", cpp.type("lucent::String"));
+  const pushes = em.reg.struct(t.id).fields.map((f) => {
+    const push = cpp.exprStmt(cpp.call(cpp.dot(keys, "push"), [stringExpr(f.name)]));
+    if (f.type.k !== "opt") return push;
+    const value = cpp.arrow(obj, cppIdent(f.name));
+    return cpp.ifStmt(cpp.not(cpp.call(cpp.dot(value, "isUndefined"))), [push]);
+  });
+  return {
+    c: cpp.statementExpr(
+      [
+        cpp.varDecl(cpp.auto, srcName, v.c),
+        cpp.varDecl(strings, keysName),
+        ...(v.t.k === "opt" ? [cpp.ifStmt(cpp.call(cpp.dot(src, "has")), pushes)] : pushes),
+      ],
+      keys,
+    ),
+    t: { k: "array", e: T.string },
+  };
+}
+
 export function disposeCall(em: FnEmitter, v: E, node: ts.Node): cpp.Expr {
   const t = v.t;
   if (t.k === "handle") return handleDispose(v);
