@@ -1,7 +1,142 @@
 ---
-title: "Install Lucent in a React Native app"
-description: "This page is being rewritten."
+title: Install Lucent in a React Native app
+sidebar_label: Install Lucent
+description: "Add `@lucent-lang/lucent`, run `npx lucent init` to set up the app, check the machine with `npx lucent doctor`, then build the app."
 kind: start
 ---
 
-This page is being rewritten.
+Lucent works in bare React Native and Expo apps. It needs what React Native builds with: Xcode and CocoaPods, the Android SDK and NDK, and a JDK. [Compatibility](/docs/api/compatibility/) lists the versions.
+
+:::note
+Expo Go can't load the native code Lucent adds to the app. Use a development build: `npx expo run:ios`, `npx expo run:android` or EAS Build.
+:::
+
+<Steps>
+
+1. ### Install the package
+
+   ```sh title="terminal"
+   npm i -D @lucent-lang/lucent
+   ```
+
+   It brings the compiler, the `lucent` command, the Metro and Expo integrations and the editor plugin.
+
+2. ### Set up the app
+
+   ```sh title="terminal"
+   npx lucent init
+   ```
+
+   `lucent init` shows each change as a diff and applies the ones you confirm. `--yes` applies them all, and outside a terminal nothing changes without it.
+
+   <Tabs syncKey="setup">
+   <TabItem label="Expo">
+
+   ```sh title="terminal" nocopy
+   ◆ lucent init  Expo app · npm
+
+   ✓ metro.config.js  bundle each *.lucent.ts as the proxy of its native module
+   ✓ app.json  compile the modules during expo prebuild, and link the native package
+   ✓ tsconfig.json  let editors and tsc resolve lucent:* and check indexing as the compiler does
+   ✓ .gitignore  the native package is generated, like a build output
+   ✓ src/hello.lucent.ts  a first module to try
+
+   next  npx expo run:ios
+   ```
+
+   The config plugin added to `app.json` compiles your modules during `expo prebuild`. Its Gradle task compiles them before each Android build.
+
+   </TabItem>
+   <TabItem label="Bare React Native">
+
+   ```sh title="terminal" nocopy
+   ◆ lucent init  bare React Native app · npm
+
+   ✓ metro.config.js  bundle each *.lucent.ts as the proxy of its native module
+   ✓ android/app/build.gradle  run lucent build before every Android build
+   ✓ react-native.config.js  autolink the generated native package (.lucent/native)
+   ✓ tsconfig.json  let editors and tsc resolve lucent:* and check indexing as the compiler does
+   ✓ .gitignore  the native package is generated, like a build output
+   ✓ src/hello.lucent.ts  a first module to try
+
+   next  npx lucent build && npx react-native run-ios
+   ```
+
+   The Gradle task compiles your modules before each Android build. iOS has no such hook.
+
+   </TabItem>
+   </Tabs>
+
+   It writes `src/hello.lucent.ts` only in an app without modules. Running it again offers only what's still missing, and says `already set up` when nothing is. [Integrations](/docs/api/integrations/) says what each change does.
+
+3. ### Check the machine
+
+   ```sh title="terminal"
+   npx lucent doctor
+   ```
+
+   ```sh title="terminal" nocopy
+   ◆ lucent doctor {{lucent-version}}
+
+   ✓ Node.js                v24.16.0
+   ✓ Xcode                  27.0
+   ✓ CocoaPods              1.16.2
+   ✓ Android NDK            27.1.12297006
+   ! JDK                    27; React Native's Gradle build needs 17 to 21
+       fix  set JAVA_HOME to JDK 17 or 21 (macOS: export JAVA_HOME=$(/usr/libexec/java_home -v 21))
+   ✓ Metro config           metro.config.js uses withLucent
+
+   1 warning
+   ```
+
+   It checks the tools above, React Native, the Expo SDK, the Android SDK, the Gradle task and the `lucent:*` paths, among [others](/docs/api/cli/#lucent-doctor). The output above is shortened. Each problem comes with its fix.
+
+4. ### Build and run the app
+
+   <Tabs syncKey="setup">
+   <TabItem label="Expo">
+
+   ```sh title="terminal"
+   npx expo run:ios
+   npx expo run:android
+   ```
+
+   `expo run` runs prebuild, whose plugin writes the native package to `.lucent/native`, when the platform's directory is missing. If `ios` and `android` exist, run `npx expo prebuild` first.
+
+   </TabItem>
+   <TabItem label="Bare React Native">
+
+   ```sh title="terminal"
+   npx lucent build
+   cd ios && pod install && cd ..
+   npx react-native run-ios
+   npx react-native run-android
+   ```
+
+   `lucent build` writes the native package, and `pod install` links it on iOS. Before each Xcode build, run `lucent build` again or keep Metro running: it rebuilds on save.
+
+   </TabItem>
+   </Tabs>
+
+</Steps>
+
+## When init can't patch a file
+
+```sh title="terminal" nocopy
+! app.config.ts  compile the modules during expo prebuild, and link the native package; add by hand:
+    plugins: ["@lucent-lang/lucent"]
+```
+
+`lucent init` leaves a file alone when it can't change it safely, and prints the lines to add by hand. It does so for:
+
+- an `app.config.js` or `app.config.ts`, in an Expo app without `app.json`;
+- a Metro config without `module.exports = …`;
+- a `react-native.config.js` without `dependencies`;
+- a `tsconfig.json` it can't parse;
+- an `android/app/build.gradle.kts`, which needs the line in Kotlin ([Kotlin build scripts](/docs/api/integrations/#kotlin-build-scripts)).
+
+Add the lines, then run `npx lucent init` again: it lists what's still missing.
+
+## See errors in your editor
+
+`lucent init` doesn't add the [editor plugin](/docs/api/integrations/#editor-plugin), which shows Lucent's errors as you type. Add it to `tsconfig.json` yourself.

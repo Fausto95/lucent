@@ -1,7 +1,78 @@
 ---
-title: "Run your first module"
-description: "This page is being rewritten."
+title: Run your first module
+description: "Import `hello` from the `src/hello.lucent.ts` that `lucent init` wrote, call it from `App.tsx`, and the screen shows what the C++ returned."
 kind: start
 ---
 
-This page is being rewritten.
+<Tabs>
+<TabItem label="module">
+
+```ts title="hello.lucent.ts" cpp
+export function hello(name: string): string {
+  return `Hello, ${name}, from native code`;
+}
+```
+
+</TabItem>
+<TabItem label="JS usage">
+
+```tsx title="App.tsx"
+import { Text } from "react-native";
+import { hello } from "./src/hello.lucent";
+
+export default function App() {
+  return <Text>{hello("Ada")}</Text>;
+}
+```
+
+</TabItem>
+</Tabs>
+
+`lucent init` wrote `src/hello.lucent.ts`, and the first build in [Install Lucent](/docs/guides/install/#build-and-run-the-app) compiled it into the app. Any `*.lucent.ts` file is a module, and JavaScript can call what it exports.
+
+<Steps>
+
+1. ### Call it from a screen
+
+   Import `hello` in `App.tsx`, as above, and save. Metro reloads the app, and the screen shows `Hello, Ada, from native code`.
+
+   In an Expo Router app, import it in a route file instead, with a path relative to that file.
+
+   A new import needs no rebuild, since the module's C++ is already in the app. The import is typed from the module's source, so your editor checks the call.
+
+2. ### Change the module
+
+   Change `Hello` to `Hi` in `hello.lucent.ts` and save. Metro runs `lucent dev`, which rebuilds the native package and prints one line in Metro's output:
+
+   ```sh title="terminal" nocopy
+   [14:02:11] ✓ 1 module  680 ms · rebuild the app · recompile native code (ios, android)
+   ```
+
+   The C++ is part of the app binary, so a reload still runs the old code. The app warns that its [native code is out of date](/docs/architecture/builds/#the-app-checks-its-native-code-at-load). Run the app again:
+
+   <Tabs syncKey="setup">
+   <TabItem label="Expo">
+
+   ```sh title="terminal"
+   npx expo run:ios
+   npx expo run:android
+   ```
+
+   </TabItem>
+   <TabItem label="Bare React Native">
+
+   ```sh title="terminal"
+   npx react-native run-ios
+   npx react-native run-android
+   ```
+
+   </TabItem>
+   </Tabs>
+
+   The screen shows `Hi, Ada, from native code`. [Get a module change into the running app](/docs/guides/apply-a-change/) says what each kind of change needs.
+
+</Steps>
+
+When a module breaks one of Lucent's rules, Metro's output shows the error and its `LUCENT` code instead. [Fix a LUCENT compile error](/docs/guides/fix-a-compile-error/) shows how to read it.
+
+`lucent build` compiled the module to C++ in the native package, and Xcode or Gradle compiled that into the app. Metro bundled a proxy in the module's place, which calls the C++. [How Lucent turns TypeScript into native code](/docs/architecture/) follows each step.
