@@ -193,7 +193,7 @@ function jsonFormats(): string {
     .sort();
   const outputs = jsonOutputs(
     files.map((file) => ({ file, schema: schemaOf(file) })),
-    commands.map((c) => c.name),
+    commands,
   );
   const lock = schemaOf("sdk-lock.schema.json");
   const field = "{ field: string; type: string; required: boolean; description: string }";

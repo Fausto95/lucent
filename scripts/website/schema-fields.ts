@@ -106,16 +106,32 @@ export interface JsonOutput {
   fields: SchemaField[];
 }
 
-/** The schemas titled `lucent <command> --json`, each matched to a command the CLI has. */
+/**
+ * The schemas titled `lucent <command> --json` (several, comma-separated, for
+ * one output two commands share), one entry per public command a title names.
+ */
 export function jsonOutputs(
   schemas: { file: string; schema: SchemaNode }[],
-  commands: string[],
+  commands: { name: string; internal?: boolean }[],
 ): JsonOutput[] {
   return schemas.flatMap(({ file, schema }) => {
-    const command = /^lucent (.+) --json$/.exec(schema.title ?? "")?.[1];
-    if (!command) return [];
-    if (!commands.includes(command))
-      throw new Error(`${file}: there is no \`lucent ${command}\` command`);
-    return [{ command, file, description: schema.description ?? "", fields: schemaFields(schema) }];
+    const named = (schema.title ?? "")
+      .split(", ")
+      .map((part) => /^lucent (.+) --json$/.exec(part)?.[1])
+      .filter((name) => name !== undefined);
+
+    return named.flatMap((name) => {
+      const command = commands.find((c) => c.name === name);
+      if (!command) throw new Error(`${file}: there is no \`lucent ${name}\` command`);
+      if (command.internal) return [];
+      return [
+        {
+          command: name,
+          file,
+          description: schema.description ?? "",
+          fields: schemaFields(schema),
+        },
+      ];
+    });
   });
 }
