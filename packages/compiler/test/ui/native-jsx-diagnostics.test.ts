@@ -2,7 +2,9 @@
 // so: LUCENT3025 for native JSX it cannot make, with what to do instead;
 // an attribute the rules refuse, explained; the main thread's rules
 // (LUCENT3022), which an attribute's code keeps like any setup code; the
-// shapes a child that comes and goes (T49) takes.
+// shapes a child that comes and goes (T49) takes; an attribute checked
+// against the oldest iOS like setup code; and the returns it may take,
+// from any of setup's own code, one file's PLATFORM branches included.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -34,6 +36,25 @@ function diagnostics(platform: "ios" | "android", imports: string, code: string)
     fix: d.fix,
     ...(d.quickFix ? { quickFix: d.quickFix } : {}),
   }));
+}
+
+/** A one-file `title.lucent.tsx`, `code` its body, compiled for `platform`: diagnostics and root. */
+function oneFile(platform: "ios" | "android", code: string) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-native-jsx-one-file-"));
+  const file = path.join(dir, "title.lucent.tsx");
+
+  fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
+  fs.writeFileSync(
+    file,
+    `import { PLATFORM } from "lucent:platform";\nimport { UILabel } from "lucent:ios/UIKit";\nimport { TextView } from "lucent:android/android.widget";\n\nexport function Title(props: { title: string }) {\n${code}\n}\n`,
+  );
+
+  const result = compile([file], { platforms: [platform] });
+
+  return {
+    diagnostics: result.diagnostics.map((d) => `${d.code} ${d.message}`),
+    root: result.components?.[0]?.platforms[platform]?.root,
+  };
 }
 
 describe("native view JSX diagnostics", () => {
@@ -230,4 +251,48 @@ describe("native view JSX diagnostics", () => {
       }),
     ]);
   });
+
+  it.skipIf(!ios)("returns native JSX under available(), the floor checked through it", () => {
+    expect(
+      diagnostics(
+        "ios",
+        'import { available } from "lucent:ios";\nimport { UIButton } from "lucent:ios/UIKit";',
+        '  if (available("ios", 17)) return <UIButton isSymbolAnimationEnabled />;\n  return <UIButton />;',
+      ),
+    ).toEqual([]);
+  });
+
+  it.skipIf(!ios)("refuses native JSX a function setup makes returns", () => {
+    expect(
+      diagnostics(
+        "ios",
+        'import { UILabel } from "lucent:ios/UIKit";',
+        "  const make = () => <UILabel text={props.title} />;\n  return make();",
+      ),
+    ).toEqual([expect.objectContaining({ code: expect.stringMatching(/^LUCENT302[45]$/) })]);
+  });
+
+  const roots = {
+    ios: { module: "UIKit", name: "UILabel" },
+    android: { module: "android.widget", name: "TextView" },
+  };
+  const returns = {
+    "a PLATFORM branch":
+      '  if (PLATFORM === "ios") {\n    return <UILabel text={props.title} />;\n  }\n\n  return <TextView text={props.title} />;',
+    "a PLATFORM guard":
+      '  if (PLATFORM === "ios") return <UILabel text={props.title} />;\n\n  return <TextView text={props.title} />;',
+    "both arms of a PLATFORM if":
+      '  if (PLATFORM === "ios") {\n    return <UILabel text={props.title} />;\n  } else {\n    return <TextView text={props.title} />;\n  }',
+    "a PLATFORM ternary":
+      '  return PLATFORM === "ios" ? <UILabel text={props.title} /> : <TextView text={props.title} />;',
+  };
+
+  for (const [form, code] of Object.entries(returns))
+    it.skipIf(!ios || !android)(
+      `returns each platform's native JSX from ${form} of one file`,
+      () => {
+        expect(oneFile("ios", code)).toEqual({ diagnostics: [], root: roots.ios });
+        expect(oneFile("android", code)).toEqual({ diagnostics: [], root: roots.android });
+      },
+    );
 });
