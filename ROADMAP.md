@@ -450,8 +450,13 @@ architecture.md, views.md.
 component returns its platform views' JSX from its last statement, a
 PLATFORM branch or guard, a ternary's arms, or any condition of setup's
 (`if (available("ios", 17)) return <… />`), and makes its slot at the
-top level of setup or of a PLATFORM branch. JSX kept in a variable or
-made by a function of setup's is still refused (LUCENT3025). _Why:_ the
+top level of setup or of a PLATFORM branch (an `if` testing the platform
+alone, or a case of `switch (PLATFORM)`; the host's program takes one
+slot per branch). One platform's branch may return a toolkit's body and
+the other native views. JSX kept in a variable or made by a function of
+setup's is still refused (LUCENT3025), and so is a slot under a PLATFORM
+test with another condition (`PLATFORM === "ios" && ready`), which runs
+only when the condition holds (LUCENT3021). _Why:_ the
 last-statement rule came from toolkit bodies, which compile to one
 Swift or Kotlin body; native JSX is setup code run once per mount, so a
 return under a branch is ordinary JavaScript, and each platform's
@@ -2531,7 +2536,8 @@ Last recorded runs:
   ([T49](#t49)); its rules read declarations, not behavior (Android's
   AdapterView declares `addView(View, int)` and throws from it). A root
   returned under a runtime condition is chosen once per mount: a later
-  change of what the condition read does not swap it.
+  change of what the condition read does not swap it, and a signal read
+  there is neither tracked nor warned about (a prop is, LUCENT3021).
 - The bare app's FlatList crash ([TA25](#ta25)) and the iOS native-only
   slot move ([TA26](#ta26)) are in review.
 

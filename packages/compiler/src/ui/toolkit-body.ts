@@ -31,6 +31,7 @@ import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import { branchPlatform, topLevel } from "../platforms.ts";
 import { builtinSdkModuleOf, platformOf } from "../program.ts";
+import type { Platform } from "../sdk/schema.ts";
 import { inComposition } from "./composition.ts";
 import type { ViewType } from "./contract.ts";
 import { type FunctionLike, nativeTagType } from "./roots.ts";
@@ -272,7 +273,7 @@ export function bodyOf(fn: FunctionLike, name: ToolkitName, checker: ts.TypeChec
   const refused = `a ${title} component returns its body: JSX of ${title}'s views, which the setup's last statement returns`;
 
   // Native views' JSX (T48) not returned as it is: the component looks like a toolkit's.
-  const native = nativeJsxIn(fn, checker);
+  const native = nativeJsxIn(fn, checker, platform);
   if (native) refuseNativeJsx(native);
 
   if (fn.body && !ts.isBlock(fn.body)) {
@@ -345,11 +346,22 @@ export function isUiForm(
   );
 }
 
-/** The first JSX element of native views in `fn`'s own code, if any. */
-function nativeJsxIn(fn: FunctionLike, checker: ts.TypeChecker): ts.Expression | undefined {
+/**
+ * The first JSX element of native views in `fn`'s code on `platform`, its
+ * functions' too (whose JSX it does not return), if any.
+ */
+function nativeJsxIn(
+  fn: FunctionLike,
+  checker: ts.TypeChecker,
+  platform: Platform,
+): ts.Expression | undefined {
   let found: ts.Expression | undefined;
   const visit = (n: ts.Node): void => {
-    if (found || (n !== fn && ts.isFunctionLike(n))) return;
+    if (found) return;
+
+    const branch = branchPlatform(checker, n);
+
+    if (branch && branch !== platform) return;
     if ((ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n)) && nativeTagType(checker, n)) {
       found = n;
       return;

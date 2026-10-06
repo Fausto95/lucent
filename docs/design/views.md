@@ -991,8 +991,11 @@ last statement, a PLATFORM branch or guard, a ternary's arms, or any
 condition (`if (available("ios", 17)) return <UIButton
 isSymbolAnimationEnabled />`). A one-file component returns each
 platform's views from its branch, and each platform's program keeps only
-its own. A root chosen by a runtime condition is chosen once per mount:
-a later change of what it read does not swap it. What it may not be is a
+its own; one platform's branch may return a toolkit's body (SwiftUI's,
+Compose's) and the other native views. A root chosen by a runtime
+condition is chosen once per mount: a later change of what it read does
+not swap it, and a signal read there is not tracked, nor warned about as
+a prop read once is (LUCENT3021). What it may not be is a
 value: JSX kept in a variable, or made by a function of setup's.
 Unlike a toolkit body, which compiles to one Swift or Kotlin body,
 nothing here asks for a single return.
@@ -1274,7 +1277,8 @@ A component takes React children when its props declare
 `children?: Children` (or `children: Children`), `Children` coming from
 `lucent:ui`. Its setup then makes the view they are mounted in, its slot,
 once, in a `const` at its top level (or at the top level of a PLATFORM
-branch, in a one-file component), and puts it in the view it returns:
+branch, `if (PLATFORM === "ios")` or a case of `switch (PLATFORM)`, in a
+one-file component), and puts it in the view it returns:
 
 ```tsx
 export function Card(props: { title: string; children?: Children }): UIView {
@@ -1291,8 +1295,9 @@ export function Card(props: { title: string; children?: Children }): UIView {
 Android's `ViewGroup`, and the compiler refuses any other. It also
 refuses children without a slot, a slot without children, a second slot,
 a slot made anywhere but a top-level `const` of setup or of its PLATFORM
-branch (another platform's branch is not the platform's code), and setup
-reading
+branch (another platform's branch is not the platform's code; a branch
+under another condition too, `PLATFORM === "ios" && ready`, runs only
+when it holds, so it is not a place for the slot), and setup reading
 `props.children`. React's declarations take `children?: ReactNode`, and
 the runtime renders the native view with them.
 
