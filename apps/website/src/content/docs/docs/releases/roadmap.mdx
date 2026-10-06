@@ -111,7 +111,7 @@ Ready for apps in production.
 - Helper view functions take plain data and scalar callbacks only: no toolkit values, children, lists or bindings inside a helper.
 - SwiftUI: a static value named like a method (`Animation.easeInOut`) is left out, so write the call. Only closed ranges (`a...b`) are mapped, content conditions must be `boolean`, and `Int(x)` traps on NaN or infinity. A two-value `onChange` closure does not type-check, because TypeScript tries the one-value overload first.
 - Compose: class names that clash keep the first package's.
-- Native views' JSX (T48) has fixed children: conditional and keyed ones are [T49](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t49)'s. A plain view's children have no layout until Yoga ([T50](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t50)). Its rules read declarations, not behavior: Android's AdapterView declares `addView(View, int)` and throws from it.
+- Native views' JSX (T48): a plain view's children have no layout; a `Flex`'s are Yoga's ([T50](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t50)). A list's item is one element ([T49](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t49)). Its rules read declarations, not behavior: Android's AdapterView declares `addView(View, int)` and throws from it.
 - The bare app's FlatList crash ([TA25](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta25)) and the iOS native-only slot move ([TA26](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta26)) are in review.
 
 ### Language, runtime and bindings

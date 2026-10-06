@@ -2516,10 +2516,10 @@ Last recorded runs:
   infinity. A two-value `onChange` closure does not type-check, because
   TypeScript tries the one-value overload first.
 - Compose: class names that clash keep the first package's.
-- Native views' JSX (T48): a plain view's children have no layout (a
-  `Flex`'s are Yoga's, [T50](#t50)), and a list's item is one element
-  ([T49](#t49)); its rules read declarations, not behavior (Android's
-  AdapterView declares `addView(View, int)` and throws from it).
+- Native views' JSX (T48): a plain view's children have no layout; a
+  `Flex`'s are Yoga's ([T50](#t50)). A list's item is one element
+  ([T49](#t49)). Its rules read declarations, not behavior: Android's
+  AdapterView declares `addView(View, int)` and throws from it.
 - The bare app's FlatList crash ([TA25](#ta25)) and the iOS native-only
   slot move ([TA26](#ta26)) are in review.
 
