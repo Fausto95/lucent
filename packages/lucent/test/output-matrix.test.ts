@@ -16,7 +16,15 @@ const android = sdkAvailable("android");
 /** How a command runs in a test project; `needs` an SDK, `plain` false for one that keeps running. */
 const RUNS: Record<
   string,
-  { args: string[]; env?: Record<string, string>; needs?: "android"; plain?: false }
+  {
+    args: string[];
+    env?: Record<string, string>;
+    needs?: "android";
+    plain?: false;
+    skip?: true;
+    /** A command run in the project first. */
+    before?: string[];
+  }
 > = {
   build: { args: ["--platforms", "host"] },
   check: { args: [] },
@@ -26,14 +34,16 @@ const RUNS: Record<
   "new module": { args: ["geo"] },
   "new view": { args: ["Badge"], env: { LUCENT_VIEWS: "fabric" } },
   explain: { args: ["LUCENT1006"] },
-  bench: { args: [], plain: false },
+  // Runs the benchmark harness: bench.test.ts checks its JSON.
+  bench: { args: [], plain: false, skip: true },
   trace: { args: [], plain: false },
   clean: { args: [] },
-  "sdk search": { args: ["Vibrator", "--android"], needs: "android" },
+  "sdk search": { args: ["Vibrator"], needs: "android" },
   "sdk show": { args: ["android.os.Vibrator.vibrate"], needs: "android" },
   "sdk prefetch": { args: ["--android", "android.os"], needs: "android" },
   "sdk lock": { args: ["--platforms", "android"], needs: "android" },
-  "sdk diff": { args: [], needs: "android" },
+  // Against the lock it writes first.
+  "sdk diff": { args: [], needs: "android", before: ["sdk", "lock", "--platforms", "android"] },
   "sdk coverage": { args: ["--android", "android.os"], needs: "android" },
 };
 
@@ -60,9 +70,11 @@ function run(name: string, extra: string[]) {
   void NO_COLOR;
   void FORCE_COLOR;
 
-  return runLucent([...name.split(" "), ...spec.args, ...extra, "--root", project()], {
-    env: { ...env, LUCENT_CACHE_DIR: cache, ...spec.env },
-  });
+  const root = project();
+  const options = { env: { ...env, LUCENT_CACHE_DIR: cache, ...spec.env } };
+  if (spec.before) runLucent([...spec.before, "--root", root], options);
+
+  return runLucent([...name.split(" "), ...spec.args, ...extra, "--root", root], options);
 }
 
 async function validator(schema: string) {
@@ -79,13 +91,27 @@ async function validator(schema: string) {
 }
 
 describe("every command's output", () => {
+  it.skipIf(!android)(
+    "says why a command failed under --json, on stderr, leaving stdout empty",
+    () => {
+      const root = project();
+      const r = runLucent(["sdk", "diff", "--json", "--root", root], {
+        env: { ...process.env, LUCENT_CACHE_DIR: cache },
+      });
+
+      expect(r.status).not.toBe(0);
+      expect(r.stdout).toBe("");
+      expect(r.stderr).toMatch(/lucent-sdk\.lock\.json/);
+    },
+  );
+
   it("knows how to run every command of the registry", () => {
     expect(commands.map((c) => c.name).filter((n) => !RUNS[n])).toEqual([]);
   });
 
   for (const spec of commands) {
     const how = RUNS[spec.name];
-    const skip = !how || (how.needs === "android" && !android);
+    const skip = !how || !!how.skip || (how.needs === "android" && !android);
 
     if (spec.json)
       it.skipIf(skip)(
