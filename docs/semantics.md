@@ -139,10 +139,13 @@ Supported:
   (checked), also as an assignment target: `xs[i]! += 1`.
 - Template literals, spread in calls, object literals and arrays (any
   iterable: `[...map]`, `[...set]`, `[...text]`, `[...generator()]`). An
-  object literal of an object type spreads objects; a record literal
-  spreads records of its value type, or undefined. Spreading an object
-  into a record is refused (`LUCENT1001`): an object's fields have no key
-  order nor a record of which optional ones are set.
+  object literal of an object type spreads objects, and skips an optional
+  field the object leaves unset, so `{ ...defaults, ...overrides }` keeps
+  the defaults that are not overridden; a record literal spreads records
+  of its value type. Spreading `undefined` or `null` adds nothing.
+  Spreading an object into a record is refused (`LUCENT1001`): an
+  object's fields have no key order nor a record of which optional ones
+  are set.
 - `typeof`, `instanceof` (classes, `Error` kinds, `Array`, `Map`, …), `in` on records.
 - Arrow functions and function expressions, nested function declarations
   (hoisted), recursion. Closures share variables with their enclosing scope,
@@ -367,6 +370,7 @@ explicitly, for example by clearing a field.
 | `str.split(regexp)` inserts `undefined` for a capture group that did not participate            | inserts `""` (the result is a `string[]`)                                                                                                 |
 | `JSON.parse` returns whatever the text contains                                                 | the text must match the target type: a mismatch throws `TypeError` naming the path (`expected a number at .items[2].price, got a string`) |
 | `JSON.stringify` of parsed data keeps the text's key order                                      | keys follow the declared type's order                                                                                                     |
+| spreading `{ b: undefined }` sets `b` to `undefined`                                            | an optional field holding `undefined` is a field left unset: spreading skips it                                                           |
 | `Date` objects passed to native code are shared                                                 | copied at the boundary (inside Lucent they are shared)                                                                                    |
 | `date.toString()` includes the zone name in some engines                                        | `Mon Jul 22 2019 15:51:50 GMT-0700`, like Hermes; `toLocale…` methods are not supported                                                   |
 | `abort()` without a reason uses an `AbortError` whose message depends on the engine             | `AbortError: signal is aborted without reason`, as in React Native and browsers (Node says "This operation was aborted")                  |

@@ -5,4 +5,9 @@ print("maybeFirst", mod.maybeFirst(full), mod.maybeFirst(partial), mod.maybeFirs
 print("maybeLast", mod.maybeLast(full), mod.maybeLast(partial), mod.maybeLast(undefined));
 print("maybeReturned", mod.maybeReturned(undefined).d, mod.maybeReturned(full).a);
 print("maybeOnce", mod.maybeOnce(full), mod.maybeOnce(undefined));
-print("merged", mod.merged({}), mod.merged({ size: 2 }), mod.merged({ label: "big", color: "blue" }));
+print(
+  "merged",
+  mod.merged({}),
+  mod.merged({ size: 2 }),
+  mod.merged({ label: "big", color: "blue" }),
+);
