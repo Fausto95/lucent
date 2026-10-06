@@ -26,7 +26,7 @@ export default function App() {
 </TabItem>
 </Tabs>
 
-This module, from the bare example app, calls two libraries the app links: React Native's `ReactAppDependencyProvider` pod on iOS, and AndroidX Core on Android. Lucent binds the libraries your app installs, so there is no list of supported ones.
+This module, from the bare example app, calls a pod on iOS and AndroidX Core on Android. Lucent binds whatever your app installs: there's no list of supported libraries.
 
 ## Add the library
 
@@ -59,13 +59,14 @@ Then run `pod install` in `ios/`.
 - On Android, import the Java package. `lucent build` asks Gradle for your app's compile classpath, again whenever the Gradle files change.
 - Use the library in a `PLATFORM` branch or a platform file, as for the SDK.
 
-The first build that imports a pod adds it to the native package's pod, so it asks you to relink. Run `pod install` again, then rebuild the app.
+A pod's first import asks you to relink. Run `pod install` again, then rebuild the app.
 
 ## What Lucent can bind
 
 - A pod must define a module: an Objective-C pod with modular headers (`DEFINES_MODULE`, `:modular_headers => true`, `use_modular_headers!`), or a pod built as a framework under `use_frameworks! :linkage => :static`. Dynamic linkage is untested ([T62](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t62)).
-- A Swift pod's Swift API can't be bound yet, since it exists only once Xcode builds the pod. Nor can a pod that ships its library as an XCFramework, as many binary SDKs do.
+- A Swift pod's Swift API can't be bound yet: it exists only once Xcode builds the pod. Nor can a pod that ships its library as an XCFramework, as many binary SDKs do.
 - A Swift package binds once your app's Xcode project references it, at the version `Package.resolved` pins. Add it in Xcode, but not its product to the app target: the native package links the ones your modules import.
+- The first build that reads a Swift package clones it with git and builds it with `xcodebuild`, which needs the network. An import says why a build failed.
 - In an Expo app, prebuild compiles your modules before it installs pods. A prebuild with no pods installed, such as `--clean`, fails with `LUCENT3004` once a module imports a pod.
 - On Android, a library must come from a repository, such as Maven Central or Google's. Another Gradle project's classes, such as an autolinked React Native library's, can't be imported.
 

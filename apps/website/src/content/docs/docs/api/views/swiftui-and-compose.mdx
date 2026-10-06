@@ -184,7 +184,7 @@ SwiftUI's values are calls in the same call form: unlabeled arguments in order, 
 
 ### The iOS floor
 
-A SwiftUI body uses only what iOS 15.1 has, the [lowest iOS Lucent supports](/docs/api/compatibility/). A member that needs a later iOS fails with [LUCENT3024](/docs/api/diagnostics/#lucent3024): `NavigationStack` needs iOS 16.0. A body can't check `available()` yet.
+A SwiftUI body uses only what the oldest iOS your app runs on has: your Xcode project's deployment target, never below 15.1 ([Compatibility](/docs/api/compatibility/)). A member that needs a later iOS fails with [LUCENT3024](/docs/api/diagnostics/#lucent3024): `NavigationStack` needs iOS 16.0. A body can't check `available()` yet.
 
 ## Compose
 

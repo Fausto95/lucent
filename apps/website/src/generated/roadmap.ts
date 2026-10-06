@@ -143,15 +143,15 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "in progress",
-        "text": "Native libraries nobody has seen before, bound and run with no change to Lucent."
+        "text": "Native libraries nobody has seen before, bound and run with no change to Lucent (in review)."
+      },
+      {
+        "status": "in progress",
+        "text": "The app's Swift packages, bound against the iOS version the app targets (in review)."
       },
       {
         "status": "later",
         "text": "Weak references."
-      },
-      {
-        "status": "later",
-        "text": "Binding the APIs of Swift Package Manager libraries."
       }
     ],
     "goal": "Call the iOS and Android SDKs directly from Lucent."
@@ -181,7 +181,7 @@ export const milestones: { title: string; goal?: string; items: { status?: strin
       },
       {
         "status": "in progress",
-        "text": "JSX for any SDK view, keyed lists and Yoga layout."
+        "text": "JSX for any SDK view, keyed lists and Yoga layout (in review)."
       },
       {
         "status": "next",
@@ -273,7 +273,7 @@ export const limitations: { title: string; items: string[] }[] = [
       "A pod added to `lucent.json` after the first build needs `pod install` before it can be bound.",
       "Typed native extensions: Swift and Kotlin sources in a package are not typed yet, and extension calls cannot be cancelled.",
       "Tracing records allocations for native buffers only, and its buffer uses one mutex: fine for debugging, not for continuous production use.",
-      "The known binding gaps are tasks [TA30](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta30) to [TA34](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta34)."
+      "The known binding gaps, tasks [TA30](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta30) to [TA34](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta34), are in review."
     ]
   }
 ];

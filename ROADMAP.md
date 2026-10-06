@@ -185,9 +185,9 @@ Goal: Call the iOS and Android SDKs directly from Lucent.
 - ✅ A coverage report of what each SDK binds, and why the rest is skipped.
 - ✅ Pinning the SDKs a project uses, and listing what an SDK update changes for your code.
 - ✅ Ports of Expo and community modules, checked against the originals.
-- 🚧 Native libraries nobody has seen before, bound and run with no change to Lucent.
+- 🚧 Native libraries nobody has seen before, bound and run with no change to Lucent (in review).
+- 🚧 The app's Swift packages, bound against the iOS version the app targets (in review).
 - 🔭 Weak references.
-- 🔭 Binding the APIs of Swift Package Manager libraries.
 
 ### Views
 
@@ -198,7 +198,7 @@ Goal: Native views from Lucent components, rendered by React Native's Fabric.
 - ✅ One file per component, with each platform's body in a platform branch.
 - ✅ Events, commands, requests that answer, recycling, sizing to content and React children.
 - ✅ Views that keep updating while JavaScript is blocked.
-- 🚧 JSX for any SDK view, keyed lists and Yoga layout.
+- 🚧 JSX for any SDK view, keyed lists and Yoga layout (in review).
 - ⏳ A views preview with wrapper ports, such as maps, web views and video.
 - 🔭 Native lists, gestures and animations, and media pipelines.
 
@@ -2544,7 +2544,7 @@ Last recorded runs:
   typed yet, and extension calls cannot be cancelled.
 - Tracing records allocations for native buffers only, and its buffer
   uses one mutex: fine for debugging, not for continuous production use.
-- The known binding gaps are tasks [TA30](#ta30) to [TA34](#ta34).
+- The known binding gaps, tasks [TA30](#ta30) to [TA34](#ta34), are in review.
 
 ## Design slices and tasks
 

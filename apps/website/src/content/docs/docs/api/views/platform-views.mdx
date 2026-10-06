@@ -327,7 +327,7 @@ The iOS JSX isn't the component's last statement, so it fails with LUCENT3025. P
 | LUCENT3025 | A `layout` outside a Flex, a `style` or `layout` that isn't an object literal, or a key set in both. Any other attribute on a Flex. |
 | [LUCENT9001](/docs/api/diagnostics/#lucent9001) | A tag that isn't a view class, an attribute the tag doesn't take, or children of a class that inserts none. Also children that aren't elements, such as text. For an attribute the rules leave out, the message gives the reason. |
 | [LUCENT3022](/docs/api/diagnostics/#lucent3022) | An attribute's code that can't run on the main thread, as for any setup code. |
-| [LUCENT3007](/docs/api/diagnostics/#lucent3007) | A tag's class or initializer, an attribute's setter, listener or control event, or a child's insert method, newer than Lucent's lowest OS. |
+| [LUCENT3007](/docs/api/diagnostics/#lucent3007) | A tag's class or initializer, an attribute's setter, listener or control event, or a child's insert method, newer than the app's oldest OS. |
 
 :::caution
 An iOS property attribute isn't checked against the iOS floor yet: `<UIButton isSymbolAnimationEnabled />` compiles, though the property needs iOS 17. Set a newer property in setup code, under `available()`.

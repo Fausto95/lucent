@@ -29,18 +29,22 @@ Each call takes one of five routes, chosen from the member's declaration.
 
 There's no list of supported frameworks or libraries. Lucent reads the declarations of what your app's build resolves:
 
-- iOS: your Xcode's SDK, your pods at the versions `Podfile.lock` names, and the frameworks Lucent packages ship. Lucent reads their Clang headers and Swift symbol graphs.
+- iOS: your Xcode's SDK, your pods at the versions `Podfile.lock` names, your app's Swift packages and the frameworks Lucent packages ship. Lucent reads their Clang headers and Swift symbol graphs.
 - Android: the SDK platform's `android.jar`, the jars and AARs of your Gradle dependencies, and those Lucent packages ship. Lucent reads their class files.
 - Kotlin libraries: the Kotlin metadata in their class files, which keeps `suspend` functions, default arguments and extensions.
 - Native extensions: the C header a Lucent package declares ([native extensions](/docs/packages/native-extensions/)).
 
-Behavior is never chosen by a library's or a class's name: every member is bound by the same type rules. What the declarations state is checked when you compile, such as main-thread-only members ([LUCENT3006](/docs/api/diagnostics/#lucent3006)) and APIs newer than the oldest supported OS ([LUCENT3007](/docs/api/diagnostics/#lucent3007)). That floor is the oldest OS Lucent supports, not your app's deployment target ([Compatibility](/docs/api/compatibility/)).
+Behavior is never chosen by a library's or a class's name: every member is bound by the same type rules. What the declarations state is checked when you compile, such as main-thread-only members ([LUCENT3006](/docs/api/diagnostics/#lucent3006)) and APIs newer than your app's oldest OS ([LUCENT3007](/docs/api/diagnostics/#lucent3007)).
+
+That floor is your Xcode project's deployment target on iOS, never below 15.1, and API 24 on Android ([Compatibility](/docs/api/compatibility/)).
 
 ## Read once, then cached
 
 The first import of a module, such as `lucent:ios/UIKit` or `lucent:android/android.os`, reads its declarations and caches them on your machine. Later builds reuse them while the SDK and the libraries they came from stay the same.
 
 Reading `android.jar` takes a few hundred milliseconds. A large iOS framework such as UIKit takes tens of seconds, once per Xcode, and `lucent sdk prefetch` reads ahead of time.
+
+Your app's Swift packages are built before they're read. Each pinned revision is cloned and built for the simulator into the cache's `spm/` directory, once per revision, deployment target and Xcode.
 
 Without a platform's SDK, that platform's imports are untyped, and `lucent build` skips the platform with a warning. [Environment variables](/docs/api/environment-variables/) move the cache and choose the SDKs.
 

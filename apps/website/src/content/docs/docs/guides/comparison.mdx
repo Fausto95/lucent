@@ -23,7 +23,7 @@ Each of the four puts your own native code in the app, so each needs a developme
 - **It's experimental.** Its APIs change without a migration path, and it hasn't been tested on physical devices. The [known limitations](/docs/releases/roadmap/#known-limitations) list the rest.
 - **A subset of TypeScript.** `any`, `eval` and a few dynamic features have no native form ([Why a subset](/docs/api/language/#why-a-subset)).
 - **Copies at the boundary.** Arrays, objects and `Uint8Array`s are copied each time they cross. A `NativeBuffer` keeps bytes in native code instead ([Pass large buffers](/docs/guides/pass-large-buffers/)).
-- **Gaps in the bindings.** Some SDK members can't be bound yet, nor can the Swift API of a Swift pod or a Swift package. `lucent sdk coverage` lists the gaps ([What isn't bound](/docs/api/ios-sdk/#what-isnt-bound)).
+- **Gaps in the bindings.** Some SDK members can't be bound yet, nor can the Swift API of a Swift pod, though your app's Swift packages bind. `lucent sdk coverage` lists the gaps ([What isn't bound](/docs/api/ios-sdk/#what-isnt-bound)).
 - **Experimental views.** Components are behind `LUCENT_VIEWS=fabric` ([Native views](/docs/guides/views/)). Keep a production Fabric component as it is.
 - **A young ecosystem.** The example packages live in the repository, not on npm, while the other three tools have years of published libraries.
 

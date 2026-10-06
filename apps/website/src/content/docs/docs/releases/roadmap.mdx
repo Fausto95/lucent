@@ -62,9 +62,9 @@ Call the iOS and Android SDKs directly from Lucent.
 | done | A coverage report of what each SDK binds, and why the rest is skipped. |
 | done | Pinning the SDKs a project uses, and listing what an SDK update changes for your code. |
 | done | Ports of Expo and community modules, checked against the originals. |
-| in progress | Native libraries nobody has seen before, bound and run with no change to Lucent. |
+| in progress | Native libraries nobody has seen before, bound and run with no change to Lucent (in review). |
+| in progress | The app's Swift packages, bound against the iOS version the app targets (in review). |
 | later | Weak references. |
-| later | Binding the APIs of Swift Package Manager libraries. |
 
 ## Views
 
@@ -77,7 +77,7 @@ Native views from Lucent components, rendered by React Native's Fabric.
 | done | One file per component, with each platform's body in a platform branch. |
 | done | Events, commands, requests that answer, recycling, sizing to content and React children. |
 | done | Views that keep updating while JavaScript is blocked. |
-| in progress | JSX for any SDK view, keyed lists and Yoga layout. |
+| in progress | JSX for any SDK view, keyed lists and Yoga layout (in review). |
 | next | A views preview with wrapper ports, such as maps, web views and video. |
 | later | Native lists, gestures and animations, and media pipelines. |
 
@@ -124,6 +124,6 @@ Ready for apps in production.
 - A pod added to `lucent.json` after the first build needs `pod install` before it can be bound.
 - Typed native extensions: Swift and Kotlin sources in a package are not typed yet, and extension calls cannot be cancelled.
 - Tracing records allocations for native buffers only, and its buffer uses one mutex: fine for debugging, not for continuous production use.
-- The known binding gaps are tasks [TA30](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta30) to [TA34](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta34).
+- The known binding gaps, tasks [TA30](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta30) to [TA34](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta34), are in review.
 
 This page is generated from [ROADMAP.md](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md) in the repository.
