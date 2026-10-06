@@ -27,8 +27,8 @@ Codes are stable. `1xxx` are syntax and built-ins, `2xxx` types without a native
 | Code | Meaning |
 | --- | --- |
 | [`LUCENT1001`](#lucent1001) | Syntax outside the subset, such as `var`, getters or setters in object literals, or `await using`. |
-| [`LUCENT1002`](#lucent1002) | An operator the subset doesn't support: `delete`, `instanceof` with a generic class, or `in` on a class, a union or an optional field. A loose `==` that JavaScript converts for, or comparing two functions, is refused too. |
-| [`LUCENT1003`](#lucent1003) | A built-in Lucent lacks, such as `Symbol()`, `eval`, an unknown `Math`, `Number` or string method, or `Object.keys` on a type with optional fields. |
+| [`LUCENT1002`](#lucent1002) | An operator the subset doesn't support: `delete`, `instanceof` with a generic class, or `in` on a class, a union or an object type. A loose `==` that JavaScript converts for, or comparing two functions, is refused too. |
+| [`LUCENT1003`](#lucent1003) | A built-in function, method or argument Lucent does not implement, such as `Symbol()`, `eval`, `normalize()`, a locale argument or an unknown `Math`, `Number` or string method. |
 | [`LUCENT1004`](#lucent1004) | A destructuring form outside the subset: object rest, computed keys, or a pattern without an initializer. |
 | [`LUCENT1005`](#lucent1005) | A class feature outside the subset: extending a built-in other than `Error`, an override with another native signature, a static block or a decorator. |
 | [`LUCENT1006`](#lucent1006) | Throwing a value that is not an `Error`. |
@@ -104,7 +104,7 @@ export function total(xs: number[]): number {
 
 **Unsupported operator**
 
-Objects in Lucent have a fixed native layout, so `delete`, which removes a property at run time, has no native equivalent. An optional field is stored even when unset, so `in` and `for…in` can't tell it from one set to `undefined`. Two functions can't be compared: a function value has no stable identity (a named function is a new value at each use).
+Objects in Lucent have a fixed native layout, so `delete`, which removes a property at run time, has no native equivalent. An object type stores its optional fields even when unset, so `in` can't answer as JavaScript does on one. Two functions can't be compared: a function value has no stable identity (a named function is a new value at each use).
 
 **Fix:** use a Map or Record for changing keys, compare an optional field with `undefined`, and tell union members apart by a discriminant.
 
@@ -135,7 +135,7 @@ export function clear(tags: { name?: string }): { name?: string } {
 
 **Built-in without a native implementation**
 
-Every built-in a module calls runs as native code from the Lucent runtime. The ones listed in the language reference are implemented with JavaScript's exact semantics; the rest are reported rather than approximated. An object type's optional field is stored even when unset, so `Object.keys` can't tell which fields are set.
+Every built-in a module calls runs as native code from the Lucent runtime. The ones the language reference lists behave as in JavaScript, apart from the differences it gives reasons for. The rest are reported rather than approximated, as are arguments Lucent cannot honor exactly (a locale, an error's `cause`).
 
 **Fix:** use a built-in Lucent implements, or write the helper in the module.
 
@@ -335,7 +335,7 @@ export function now(): number {
 
 **Loop over a value that is not iterable**
 
-`for…of` works on arrays, strings, maps, sets, typed arrays and generators, and `for…in` on records, arrays and object types without optional fields. Async iteration (`for await`) is not supported: await each promise in an ordinary loop.
+`for…of` works on arrays, strings, maps, sets, typed arrays and generators, and `for…in` on records and arrays. An object type records neither which optional fields are set nor their order. Async iteration (`for await`) is not supported: await each promise in an ordinary loop.
 
 **Fix:** loop over an array (`Object.keys`, `Array.from`), or await inside a plain loop.
 

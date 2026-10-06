@@ -180,8 +180,7 @@ String numberToString(double v) {
 }
 
 String numberToString(double v, double radixValue) {
-  double r = std::trunc(radixValue);
-  if (std::isnan(radixValue)) r = 10;
+  double r = std::isnan(radixValue) ? 0 : std::trunc(radixValue);
   if (r < 2 || r > 36) throwRangeError("toString() radix must be between 2 and 36");
   int radix = static_cast<int>(r);
   if (radix == 10 || std::isnan(v) || std::isinf(v) || v == 0) return numberToString(v);

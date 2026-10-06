@@ -55,7 +55,7 @@ export function asValues(): string {
     const list: (string | undefined)[] = [bump("element")];
     const named: Named = { name: bump("field") };
 
-    return `${list.length} ${named.name === undefined}`;
+    return `${list.length} ${named.name ?? "none"}`;
   });
 }
 

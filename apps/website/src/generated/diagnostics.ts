@@ -17,8 +17,8 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT1002",
     "title": "Unsupported operator",
-    "summary": "An operator the subset doesn't support: `delete`, `instanceof` with a generic class, or `in` on a class, a union or an optional field. A loose `==` that JavaScript converts for, or comparing two functions, is refused too.",
-    "details": "Objects in Lucent have a fixed native layout, so `delete`, which removes a property at run time, has no native equivalent. An optional field is stored even when unset, so `in` and `for…in` can't tell it from one set to `undefined`. Two functions can't be compared: a function value has no stable identity (a named function is a new value at each use).",
+    "summary": "An operator the subset doesn't support: `delete`, `instanceof` with a generic class, or `in` on a class, a union or an object type. A loose `==` that JavaScript converts for, or comparing two functions, is refused too.",
+    "details": "Objects in Lucent have a fixed native layout, so `delete`, which removes a property at run time, has no native equivalent. An object type stores its optional fields even when unset, so `in` can't answer as JavaScript does on one. Two functions can't be compared: a function value has no stable identity (a named function is a new value at each use).",
     "fix": "use a Map or Record for changing keys, compare an optional field with `undefined`, and tell union members apart by a discriminant",
     "wrong": {
       "example.lucent.ts": "export function clear(tags: { name?: string }): { name?: string } {\n  delete tags.name;\n  return tags;\n}\n"
@@ -30,8 +30,8 @@ export const explanations: { code: string; title: string; summary: string; detai
   {
     "code": "LUCENT1003",
     "title": "Built-in without a native implementation",
-    "summary": "A built-in Lucent lacks, such as `Symbol()`, `eval`, an unknown `Math`, `Number` or string method, or `Object.keys` on a type with optional fields.",
-    "details": "Every built-in a module calls runs as native code from the Lucent runtime. The ones listed in the language reference are implemented with JavaScript's exact semantics; the rest are reported rather than approximated. An object type's optional field is stored even when unset, so `Object.keys` can't tell which fields are set.",
+    "summary": "A built-in function, method or argument Lucent does not implement, such as `Symbol()`, `eval`, `normalize()`, a locale argument or an unknown `Math`, `Number` or string method.",
+    "details": "Every built-in a module calls runs as native code from the Lucent runtime. The ones the language reference lists behave as in JavaScript, apart from the differences it gives reasons for. The rest are reported rather than approximated, as are arguments Lucent cannot honor exactly (a locale, an error's `cause`).",
     "fix": "use a built-in Lucent implements, or write the helper in the module",
     "wrong": {
       "example.lucent.ts": "export function rotate(xs: number[]): number[] {\n  return xs.copyWithin(0, 1);\n}\n"
@@ -109,7 +109,7 @@ export const explanations: { code: string; title: string; summary: string; detai
     "code": "LUCENT1009",
     "title": "Loop over a value that is not iterable",
     "summary": "A loop over a value that is not iterable in Lucent, or `for await`.",
-    "details": "`for…of` works on arrays, strings, maps, sets, typed arrays and generators, and `for…in` on records, arrays and object types without optional fields. Async iteration (`for await`) is not supported: await each promise in an ordinary loop.",
+    "details": "`for…of` works on arrays, strings, maps, sets, typed arrays and generators, and `for…in` on records and arrays. An object type records neither which optional fields are set nor their order. Async iteration (`for await`) is not supported: await each promise in an ordinary loop.",
     "fix": "loop over an array (`Object.keys`, `Array.from`), or await inside a plain loop",
     "wrong": {
       "example.lucent.ts": "export async function total(xs: Promise<number>[]): Promise<number> {\n  let sum = 0;\n  for await (const x of xs) sum += x;\n  return sum;\n}\n"

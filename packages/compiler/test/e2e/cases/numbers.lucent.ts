@@ -64,6 +64,28 @@ export function checks(v: number): boolean[] {
   ];
 }
 
+/** The checks of a value that may not be a number: true or false by the value held. */
+export function heldChecks(
+  a: number | undefined,
+  b: number | string,
+  c: number | null,
+  d: number | bigint,
+): string {
+  return [
+    Number.isInteger(a),
+    Number.isSafeInteger(a),
+    Number.isFinite(a),
+    Number.isNaN(a),
+    Number.isInteger(b),
+    Number.isFinite(b),
+    Number.isNaN(b),
+    Number.isInteger(c),
+    Number.isSafeInteger(c),
+    Number.isInteger(d),
+    Number.isFinite(d),
+  ].join(",");
+}
+
 export function sum(xs: number[]): number {
   let total = 0;
   for (const x of xs) total += x;

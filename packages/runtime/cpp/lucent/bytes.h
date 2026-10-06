@@ -61,13 +61,12 @@ class Bytes {
     if (i != kNoIndex) data()[i] = toUint8(value);
   }
   void setFrom(const Bytes& src, double offset = 0) {
-    if (!(offset >= 0) || static_cast<size_t>(offset) + src.len_ > len_) throwRangeError("offset is out of bounds");
+    size_t o = setOffset(offset, src.len_);
     std::vector<uint8_t> tmp(src.data(), src.data() + src.len_);
-    std::copy(tmp.begin(), tmp.end(), data() + static_cast<size_t>(offset));
+    std::copy(tmp.begin(), tmp.end(), data() + o);
   }
   void setFrom(const Array<double>& src, double offset = 0) {
-    if (!(offset >= 0) || static_cast<size_t>(offset) + src.size() > len_) throwRangeError("offset is out of bounds");
-    size_t o = static_cast<size_t>(offset);
+    size_t o = setOffset(offset, src.size());
     for (size_t i = 0; i < src.size(); i++) data()[o + i] = toUint8(src.at(i));
   }
   Bytes subarray(double start) const { return subarray(start, length()); }
@@ -84,17 +83,18 @@ class Bytes {
     size_t a = detail::relativeIndex(start, len_), b = detail::relativeIndex(end, len_);
     return b > a ? copy(data() + a, b - a) : Bytes();
   }
-  Bytes& fill(double v) {
-    std::fill(data(), data() + len_, toUint8(v));
+  Bytes& fill(double v, double start = 0, double end = kInfinity) {
+    size_t a = detail::relativeIndex(start, len_), b = detail::relativeIndex(end, len_);
+    if (a < b) std::fill(data() + a, data() + b, toUint8(v));
     return *this;
   }
-  double indexOf(double v) const {
-    for (size_t i = 0; i < len_; i++) {
+  double indexOf(double v, double from = 0) const {
+    for (size_t i = detail::relativeIndex(from, len_); i < len_; i++) {
       if (static_cast<double>(data()[i]) == v) return static_cast<double>(i);
     }
     return -1;
   }
-  bool includes(double v) const { return indexOf(v) >= 0; }
+  bool includes(double v, double from = 0) const { return indexOf(v, from) >= 0; }
   template <class F>
   void forEach(F&& f) const {
     for (size_t i = 0; i < len_; i++) invokeCallback(f, at(i), static_cast<double>(i), *this);
@@ -130,6 +130,15 @@ class Bytes {
   Bytes(std::shared_ptr<std::vector<uint8_t>> buffer, size_t offset, size_t length)
       : buf_(std::move(buffer)), off_(offset), len_(length) {}
 
+  /// set()'s offset as an index, checked in double before any cast: NaN is
+  /// 0 (ToIntegerOrInfinity), and a source that would run past the end is a
+  /// RangeError.
+  size_t setOffset(double offset, size_t count) const {
+    double o = std::isnan(offset) ? 0 : std::trunc(offset);
+    if (o < 0 || o + static_cast<double>(count) > static_cast<double>(len_)) throwRangeError("offset is out of bounds");
+    return static_cast<size_t>(o);
+  }
+
   std::shared_ptr<std::vector<uint8_t>> buf_;
   size_t off_ = 0;
   size_t len_ = 0;
@@ -146,5 +155,8 @@ inline String toJsString(const Bytes& b) { return b.join(); }
 /// TextEncoder().encode / TextDecoder().decode for UTF-8.
 Bytes utf8Encode(const String& s);
 String utf8Decode(const Bytes& b);
+
+template <class T>
+using IsBytes = std::is_same<T, Bytes>;
 
 }  // namespace lucent

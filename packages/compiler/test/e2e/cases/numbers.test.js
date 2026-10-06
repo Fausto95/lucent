@@ -17,6 +17,9 @@ print(
   JSON.stringify(mod.checks(NaN)),
   JSON.stringify(mod.checks(Infinity)),
 );
+print(mod.heldChecks(3, 4, 5, 6));
+print(mod.heldChecks(NaN, "4", null, 7n));
+print(mod.heldChecks(undefined, 1.5, 2 ** 60, Infinity));
 print(mod.sum([1, 2, 3.5]), mod.fib(20));
 print(
   mod.multiplyAdd(0.1, 10, -1),

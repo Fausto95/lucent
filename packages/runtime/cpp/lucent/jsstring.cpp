@@ -616,6 +616,15 @@ String String::substring(double start, double end) const {
   return a <= b ? sub(a, b) : sub(b, a);
 }
 
+String String::substr(double start) const { return substr(start, static_cast<double>(length())); }
+
+String String::substr(double start, double length) const {
+  size_t a = clampIndex(start, this->length());
+  double count = std::isnan(length) ? 0 : std::trunc(length);
+  double end = std::min(static_cast<double>(a) + std::max(count, 0.0), static_cast<double>(this->length()));
+  return sub(a, static_cast<size_t>(end));
+}
+
 namespace {
 
 #include "unicode_data.inc"
@@ -810,37 +819,6 @@ static String pad(const String& s, double target, const String& fill, bool atSta
 String String::padStart(double targetLength, const String& fill) const { return pad(*this, targetLength, fill, true); }
 String String::padEnd(double targetLength, const String& fill) const { return pad(*this, targetLength, fill, false); }
 
-String String::replace(const String& search, const String& replacement) const {
-  size_t at = find(search, 0);
-  if (at == std::string::npos) return *this;
-  return sub(0, at) + replacement + sub(at + search.length(), length());
-}
-
-String String::replaceAll(const String& search, const String& replacement) const {
-  std::u16string out;
-  size_t n = length(), m = search.length();
-  if (m == 0) {
-    // "ab".replaceAll("", "-") === "-a-b-"
-    for (size_t i = 0; i < n; i++) {
-      replacement.appendUnitsTo(out);
-      out.push_back(unit(i));
-    }
-    replacement.appendUnitsTo(out);
-    return make(std::move(out));
-  }
-  size_t pos = 0;
-  for (;;) {
-    size_t at = find(search, pos);
-    if (at == std::string::npos) break;
-    for (size_t i = pos; i < at; i++) out.push_back(unit(i));
-    replacement.appendUnitsTo(out);
-    pos = at + m;
-  }
-  if (pos == 0) return *this;
-  for (size_t i = pos; i < n; i++) out.push_back(unit(i));
-  return make(std::move(out));
-}
-
 #if defined(__APPLE__) && !defined(LUCENT_PORTABLE_COLLATION)
 
 // Like Hermes on Apple platforms: CoreFoundation with the current locale,
@@ -856,6 +834,27 @@ double String::localeCompare(const String& other) const {
   CFRelease(locale);
   return r == kCFCompareLessThan ? -1 : r == kCFCompareGreaterThan ? 1 : 0;
 }
+
+namespace {
+
+// Like Hermes on Apple platforms: Foundation's case mapping for the current locale.
+String caseInCurrentLocale(const String& s, void (*map)(CFMutableStringRef, CFLocaleRef)) {
+  std::u16string units = s.toUtf16();
+  CFMutableStringRef str = CFStringCreateMutable(nullptr, 0);
+  CFStringAppendCharacters(str, reinterpret_cast<const UniChar*>(units.data()), static_cast<CFIndex>(units.size()));
+  CFLocaleRef locale = CFLocaleCopyCurrent();
+  map(str, locale);
+  std::u16string out(static_cast<size_t>(CFStringGetLength(str)), u'\0');
+  CFStringGetCharacters(str, CFRangeMake(0, CFStringGetLength(str)), reinterpret_cast<UniChar*>(out.data()));
+  CFRelease(locale);
+  CFRelease(str);
+  return String::fromUtf16(out);
+}
+
+}  // namespace
+
+String String::toLocaleUpperCase() const { return caseInCurrentLocale(*this, CFStringUppercase); }
+String String::toLocaleLowerCase() const { return caseInCurrentLocale(*this, CFStringLowercase); }
 
 #elif defined(__ANDROID__) && !defined(LUCENT_PORTABLE_COLLATION)
 
@@ -875,6 +874,34 @@ double String::localeCompare(const String& other) const {
   env->DeleteLocalRef(jb);
   return r < 0 ? -1 : r > 0 ? 1 : 0;
 }
+
+namespace {
+
+// Like Hermes on Android: java.lang.String's case mapping for the default locale.
+String caseInDefaultLocale(const String& s, bool upper) {
+  JNIEnv* env = facebook::jni::Environment::ensureCurrentThreadIsAttached();
+  static jclass stringClass = static_cast<jclass>(env->NewGlobalRef(env->FindClass("java/lang/String")));
+  static jclass localeClass = static_cast<jclass>(env->NewGlobalRef(env->FindClass("java/util/Locale")));
+  static jmethodID getDefault = env->GetStaticMethodID(localeClass, "getDefault", "()Ljava/util/Locale;");
+  static jmethodID toUpper = env->GetMethodID(stringClass, "toUpperCase", "(Ljava/util/Locale;)Ljava/lang/String;");
+  static jmethodID toLower = env->GetMethodID(stringClass, "toLowerCase", "(Ljava/util/Locale;)Ljava/lang/String;");
+  std::u16string units = s.toUtf16();
+  jstring js = env->NewString(reinterpret_cast<const jchar*>(units.data()), static_cast<jsize>(units.size()));
+  jobject locale = env->CallStaticObjectMethod(localeClass, getDefault);
+  auto mapped = static_cast<jstring>(env->CallObjectMethod(js, upper ? toUpper : toLower, locale));
+  const jchar* chars = env->GetStringChars(mapped, nullptr);
+  String out = String::fromUtf16(reinterpret_cast<const char16_t*>(chars), static_cast<size_t>(env->GetStringLength(mapped)));
+  env->ReleaseStringChars(mapped, chars);
+  env->DeleteLocalRef(mapped);
+  env->DeleteLocalRef(locale);
+  env->DeleteLocalRef(js);
+  return out;
+}
+
+}  // namespace
+
+String String::toLocaleUpperCase() const { return caseInDefaultLocale(*this, true); }
+String String::toLocaleLowerCase() const { return caseInDefaultLocale(*this, false); }
 
 #else
 
@@ -937,6 +964,10 @@ double String::localeCompare(const String& other) const {
   if (int r = compareLevel(a, b, [](const CollationElement& e) { return e.upper; })) return r;
   return static_cast<double>(compare(*this, other));
 }
+
+// Without a platform locale (tests on Linux): the root locale's mappings.
+String String::toLocaleUpperCase() const { return toUpperCase(); }
+String String::toLocaleLowerCase() const { return toLowerCase(); }
 
 #endif
 

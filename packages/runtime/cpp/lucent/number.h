@@ -61,6 +61,14 @@ String numberToFixed(double v, double digits);
 String numberToPrecision(double v, double precision);
 String numberToExponential(double v, double digits);
 String numberToExponential(double v);
+/// toPrecision(p) and toExponential(d) with an argument that may be
+/// undefined: undefined is the argument left out, unlike NaN.
+inline String numberToPrecision(double v, const Opt<double>& precision) {
+  return precision.has() ? numberToPrecision(v, precision.get()) : numberToString(v);
+}
+inline String numberToExponential(double v, const Opt<double>& digits) {
+  return digits.has() ? numberToExponential(v, digits.get()) : numberToExponential(v);
+}
 /// Number(string) / unary plus.
 double stringToNumber(const String& s);
 double parseFloat(const String& s);
@@ -75,6 +83,8 @@ inline String toJsString(Null) { return String::fromLatin1("null"); }
 
 inline bool isInteger(double v) { return std::isfinite(v) && std::trunc(v) == v; }
 inline bool isSafeInteger(double v) { return isInteger(v) && std::fabs(v) <= 9007199254740991.0; }
+inline bool isFinite(double v) { return std::isfinite(v); }
+inline bool isNaN(double v) { return std::isnan(v); }
 
 [[noreturn]] void throwInexactInteger(const std::string& value);
 
@@ -106,6 +116,24 @@ I toExactInteger(double v) {
   if (!(t >= low && t <= 9007199254740991.0)) throwInexactInteger(numberToString(v).toUtf8());
 
   return static_cast<I>(t);
+}
+
+/// A number as a narrower native number, as WebIDL's default conversion
+/// (no [EnforceRange]): an integer of 32 bits or fewer takes ToInt32 and
+/// wraps modulo 2^bits; a 64-bit one takes toExactInteger; an enum its
+/// underlying type's; a floating type rounds.
+template <class T>
+T toNativeNumber(double v) {
+  static_assert(!std::is_same_v<T, bool>, "a boolean is not a number");
+
+  if constexpr (std::is_enum_v<T>)
+    return static_cast<T>(toNativeNumber<std::underlying_type_t<T>>(v));
+  else if constexpr (std::is_floating_point_v<T>)
+    return static_cast<T>(v);
+  else if constexpr (sizeof(T) <= 4)
+    return static_cast<T>(toInt32(v));
+  else
+    return toExactInteger<T>(v);
 }
 
 namespace math {

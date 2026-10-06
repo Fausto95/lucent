@@ -170,6 +170,24 @@ export async function run(): Promise<string> {
     expect(cpp).toContain('"putExtra", "(Ljava/lang/String;J)Landroid/content/Intent;"');
   });
 
+  it("converts numbers to Java's int, short, byte and char by iOS's rule: NaN 0, modulo 2^bits", () => {
+    const { r, cpp } = android(`import { ByteBuffer } from "lucent:android/java.nio";
+export async function run(): Promise<string> {
+  const buffer = ByteBuffer.allocate(8)!;
+  buffer.putShort(0, 40000);
+  buffer.put(2, 300);
+  buffer.putChar(4, 65);
+  return \`\${buffer.getShort(0)} \${buffer.get(2)} \${buffer.getChar(4)}\`;
+}
+`);
+
+    expect(r.diagnostics).toEqual([]);
+    expect(cpp).toContain("lucent::toNativeNumber<jint>(8.0)");
+    expect(cpp).toContain("lucent::toNativeNumber<jshort>(40000.0)");
+    expect(cpp).toContain("lucent::toNativeNumber<jbyte>(300.0)");
+    expect(cpp).toContain("lucent::toNativeNumber<jchar>(65.0)");
+  });
+
   it("copies byte[] as Uint8Array and String[] as string[]", () => {
     const { r, cpp } = android(`import { Build } from "lucent:android/android.os";
 import { Base64 } from "lucent:android/android.util";

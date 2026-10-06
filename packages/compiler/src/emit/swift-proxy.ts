@@ -22,7 +22,7 @@ import { classMember, classMemberLvalue } from "./builtins.ts";
 import { findMember } from "./classes.ts";
 import type { Ctx, E } from "./context.ts";
 import { FnEmitter } from "./function.ts";
-import { fromObjc, ifPresent, requirePlan, toObjcExpr } from "./native.ts";
+import { fromObjc, ifPresent, requirePlan, toNativeNumber, toObjcExpr } from "./native.ts";
 import {
   baseName,
   call1,
@@ -421,7 +421,7 @@ function crossBack(em: FnEmitter, ret: SdkType, r: cpp.Expr, lt: LType, what: st
           : objectOf(ret, r),
       );
     case "enum":
-      return cpp.staticCast(cpp.type("NSInteger"), r);
+      return toNativeNumber(cpp.type("NSInteger"), r);
     case "scalar":
       return toObjcExpr(ret, r, false, `${what}'s result`);
   }

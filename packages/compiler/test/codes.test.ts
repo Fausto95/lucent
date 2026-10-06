@@ -156,18 +156,6 @@ describe("fixes fit the construct reported", () => {
       "initializer",
     ],
     [
-      "LUCENT1003",
-      "Object.keys with an optional field",
-      "type P = { x: number; y?: number };\nexport function f(p: P): string[] {\n  return Object.keys(p);\n}\n",
-      "`undefined`",
-    ],
-    [
-      "LUCENT1002",
-      "for…in with an optional field",
-      'type P = { x: number; y?: number };\nexport function f(p: P): string {\n  let s = "";\n  for (const k in p) s += k;\n  return s;\n}\n',
-      "`undefined`",
-    ],
-    [
       "LUCENT2002",
       "a rest parameter",
       "function sum(...xs: number[]): number {\n  return xs.length;\n}\nexport function f(): number {\n  return sum(1, 2);\n}\n",

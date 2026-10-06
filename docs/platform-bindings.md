@@ -636,6 +636,10 @@ UIViewController`): a generated Objective-C subclass stands for each
   groups (`@IntDef`, `@LongDef`) stay numbers. A `@LongDef` group's
   `long`s, its constants included, cross as numbers exactly or throw
   `RangeError` (their plans mark them `exact`).
+- A number crossing into a narrower native integer or an enum
+  (`lucent::toNativeNumber`) takes WebIDL's default conversion on both
+  platforms: NaN and infinities give 0, the rest truncates and wraps
+  modulo 2^bits; a 64-bit target takes the `exact` rule; `float` rounds.
 - Java arrays are copied either way: `byte[]` as a `Uint8Array`, arrays of
   numbers (`int[]`, `float[]`, `char[]`…) as `number[]`, `long[]` as
   `bigint[]`, `boolean[]` as

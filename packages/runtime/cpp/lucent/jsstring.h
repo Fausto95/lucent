@@ -106,19 +106,22 @@ class String {
   String slice(double start, double end) const;
   String substring(double start) const;
   String substring(double start, double end) const;
+  /// Annex B substr(start, length): a negative start counts from the end.
+  String substr(double start) const;
+  String substr(double start, double length) const;
   String toUpperCase() const;
   String toLowerCase() const;
+  /// In the device's locale, like Hermes: Turkish maps "i" to "İ".
+  String toLocaleUpperCase() const;
+  String toLocaleLowerCase() const;
   String trim() const;
   String trimStart() const;
   String trimEnd() const;
   String repeat(double count) const;
   String padStart(double targetLength, const String& fill) const;
   String padEnd(double targetLength, const String& fill) const;
-  String replace(const String& search, const String& replacement) const;
-  String replaceAll(const String& search, const String& replacement) const;
   String concat(const String& other) const { return *this + other; }
   double localeCompare(const String& other) const;
-  String normalize() const { return *this; }
 
   /// Substring by code unit range, clamped.
   String sub(size_t begin, size_t end) const;

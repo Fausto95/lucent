@@ -523,7 +523,7 @@ export function f(round: boolean): number {
         codes(
           `${P}export function f(p: P): string {\n  let s = "";\n  for (const k in p) s += k;\n  return s;\n}\n`,
         ),
-      ).toEqual(["LUCENT1002"]);
+      ).toEqual(["LUCENT1009"]);
     });
 
     it("refuses Object.keys on a type with optional fields", () => {
@@ -587,6 +587,173 @@ export function f(round: boolean): number {
           "function* g(): Generator<number, void, number> { const x = yield 1; }\nexport function f(): number { g(); return 1; }",
         ),
       ).toContain("LUCENT1001");
+    });
+  });
+
+  describe("string methods that need Unicode or locale data", () => {
+    it.each([
+      ["normalize()", "export function f(s: string): string { return s.normalize(); }"],
+      ['normalize("NFD")', 'export function f(s: string): string { return s.normalize("NFD"); }'],
+      [
+        "toLocaleUpperCase(locale)",
+        'export function f(s: string): string { return s.toLocaleUpperCase("tr"); }',
+      ],
+      [
+        "toLocaleLowerCase(locales)",
+        'export function f(s: string): string { return s.toLocaleLowerCase(["tr"]); }',
+      ],
+      [
+        "localeCompare(other, locale)",
+        'export function f(a: string, b: string): number { return a.localeCompare(b, "en"); }',
+      ],
+      [
+        "localeCompare(other, undefined, options)",
+        'export function f(a: string, b: string): number { return a.localeCompare(b, undefined, { sensitivity: "base" }); }',
+      ],
+    ])("rejects %s", (_, src) => {
+      expect(codes(src)).toContain("LUCENT1003");
+    });
+
+    it("accepts the locale methods without a locale, for the device's", () => {
+      expect(
+        codes(
+          "export function f(a: string, b: string): string { return `${a.toLocaleUpperCase()} ${a.toLocaleLowerCase()} ${a.localeCompare(b)}`; }",
+        ),
+      ).toEqual([]);
+    });
+  });
+
+  describe("an error's cause", () => {
+    it.each([
+      [
+        "new Error(message, { cause })",
+        'export function f(e: Error): Error { return new Error("x", { cause: e }); }',
+      ],
+      [
+        "new TypeError(message, { cause })",
+        'export function f(e: Error): Error { return new TypeError("x", { cause: e }); }',
+      ],
+      [
+        "super(message, { cause }) in an Error class",
+        'class Wrapped extends Error {\n  constructor(m: string, c: Error) {\n    super(m, { cause: c });\n  }\n}\nexport function f(e: Error): Error { return new Wrapped("x", e); }',
+      ],
+      [
+        "new on an Error class without a constructor of its own",
+        'class Plain extends Error {}\nexport function f(e: Error): Error { return new Plain("x", { cause: e }); }',
+      ],
+    ])("rejects %s", (_, src) => {
+      expect(codes(src)).toContain("LUCENT1003");
+    });
+  });
+
+  it("rejects Array.isArray of an Iterable, which no longer knows its kind", () => {
+    const src =
+      "function g(x: Iterable<number>): boolean { return Array.isArray(x); }\nexport function f(): boolean { return g([1]); }";
+
+    expect(compileSource(src).diagnostics).toContainEqual(
+      expect.objectContaining({
+        code: "LUCENT1003",
+        message: expect.stringContaining("testing whether an Iterable is an Array"),
+      }),
+    );
+  });
+
+  describe("object types' keys, which record neither which optional fields are set nor their order", () => {
+    const shape = "type P = { a: number; b?: number };\n";
+
+    it.each([
+      ["Object.keys", "export function f(p: P): string[] { return Object.keys(p); }", "LUCENT1003"],
+      [
+        "for…in",
+        'export function f(p: P): string { let s = ""; for (const k in p) s += k; return s; }',
+        "LUCENT1009",
+      ],
+      ["in", 'export function f(p: P): boolean { return "b" in p; }', "LUCENT1002"],
+    ])("rejects %s on an object type", (_, src, code) => {
+      expect(codes(shape + src)).toContain(code);
+    });
+
+    it.each(["values", "entries"])("names Object.%s's reason in words", (name) => {
+      const src = `export function f(p: P): number { return Object.${name}(p).length; }`;
+
+      expect(compileSource(shape + src).diagnostics).toContainEqual(
+        expect.objectContaining({
+          code: "LUCENT1003",
+          message: expect.stringContaining(`Object.${name} of an object type is not supported`),
+        }),
+      );
+    });
+  });
+
+  describe("arrays with holes, which Lucent arrays cannot hold", () => {
+    it.each([
+      ["new Array(n)", "export function f(): number[] { return new Array<number>(3); }"],
+      [
+        "new Array(n) of a type that admits undefined",
+        "export function f(): (number | undefined)[] { return new Array<number | undefined>(3); }",
+      ],
+      [
+        "new Array(n) filled in part",
+        "export function f(): number[] { return new Array<number>(3).fill(0, 1); }",
+      ],
+      [
+        "new Array(n) filled later",
+        "export function f(n: number): number[] { const a = new Array<number>(n); a.fill(0); return a; }",
+      ],
+      [
+        "new Array(x) of a number or an element",
+        "export function f(x: number | string): (number | string)[] { return new Array<number | string>(x); }",
+      ],
+      [
+        "Array.from({ length }) of elements that cannot be undefined",
+        "export function f(): number[] { const c: number[] = Array.from({ length: 3 }); return c; }",
+      ],
+      [
+        "Array.from of an array-like with elements",
+        "export function f(): number[] { return Array.from({ length: 2, 0: 5 }, (v, i) => (v ?? 0) + i); }",
+      ],
+    ])("rejects %s", (_, src) => {
+      expect(codes(src)).toContain("LUCENT1003");
+    });
+
+    it.each([
+      [
+        "new Array(n).fill(value)",
+        "export function f(n: number): number[] { return new Array<number>(n).fill(0); }",
+      ],
+      [
+        "Array.from({ length }) of elements that may be undefined",
+        "export function f(n: number): (number | undefined)[] { const a: (number | undefined)[] = Array.from({ length: n }); return a; }",
+      ],
+      [
+        "Array.from({ length }, map)",
+        "export function f(n: number): number[] { return Array.from({ length: n }, (_, i) => i); }",
+      ],
+    ])("accepts %s", (_, src) => {
+      expect(codes(src)).toEqual([]);
+    });
+  });
+
+  describe("new Proxy", () => {
+    it("rejects a proxy of a class instance, rather than making another instance", () => {
+      const r = compileSource(
+        "class C {\n  n = 1;\n}\nexport function f(): number {\n  const c = new C();\n  const p = new Proxy(c, { get: () => 42 });\n  p.n = 5;\n  return c.n;\n}",
+      );
+
+      expect(r.diagnostics).toEqual([
+        expect.objectContaining({
+          code: "LUCENT1003",
+          message: expect.stringContaining("new Proxy()"),
+        }),
+      ]);
+    });
+
+    it("rejects a proxy of a built-in", () => {
+      expect(
+        codes(
+          "export function f(): number { const p = new Proxy(new Map<string, number>(), {}); return p.size; }",
+        ),
+      ).toContain("LUCENT1003");
     });
   });
 });

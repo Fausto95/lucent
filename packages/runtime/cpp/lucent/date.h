@@ -66,6 +66,9 @@ class DateObject : public Object {
 };
 using Date = Ref<DateObject>;
 
+template <class T>
+using IsDate = std::is_same<T, Date>;
+
 /// `new Date(t)`: the time value is clipped (NaN beyond ±8.64e15).
 Date makeDate(double t);
 /// `new Date(y, m, d, h, mi, s, ms)` in local time (years 0–99 mean 1900–1999).

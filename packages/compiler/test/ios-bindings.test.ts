@@ -583,7 +583,10 @@ export async function run(): Promise<string> {
     expect(r.diagnostics).toEqual([]);
     expect(mm).toContain("CMTimeMake(");
     // Fields take their own C types: an option set, and NSUInteger where Swift says Int.
-    expect(mm).toContain("static_cast<decltype(CMTime::flags)>(");
+    // A number becomes a narrower C number as WebIDL converts it: NaN 0, modulo 2^bits.
+    expect(mm).toContain("lucent::toNativeNumber<decltype(CMTime::flags)>(later->flags)");
+    expect(mm).toContain("lucent::toNativeNumber<decltype(CMTime::timescale)>(later->timescale)");
+    expect(mm).toContain("lucent::toNativeNumber<int32_t>(600.0)");
     // NSUInteger fields are 64-bit integers: bigints, exactly or RangeError.
     // Each by the field's own C type: NSUInteger, where Swift says Int.
     expect(mm).toMatch(

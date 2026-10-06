@@ -7,3 +7,7 @@ print(mod.mergedRecords({ a: 1, b: 2 }), mod.mergedRecords({ b: 2 }, { z: 5, y: 
 print(mod.entries({ x: "1", y: "2" }));
 print(JSON.stringify(mod.matrix(3)));
 print(JSON.stringify(mod.uniq(["b", "a", "b", "c", "a"])));
+print(mod.searchFrom(), mod.searchFrom(4));
+print([1.5, NaN, 2 ** 32 + 1, 3].map((n) => mod.newArrayLength(n)).join(" "));
+print([-1, 1.5, 2.5, NaN, 3].map((n) => mod.fromLength(n)).join(" "));
+print([-1, 1.5, 2.5, NaN, 3].map((n) => mod.fromUndefined(n)).join(" "));

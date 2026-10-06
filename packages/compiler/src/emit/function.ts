@@ -2282,12 +2282,18 @@ export class FnEmitter {
   private newInner(node: ts.NewExpression): E {
     const callee = node.expression;
     const t = this.lt(node);
+    builtins.requireConstructor(this, node, t);
     if (t.k === "native") return native.nativeNew(this, node, t);
     if (t.k === "handle") return extensions.handleNew(this, node, t);
     if (t.k === "class") {
       requireSubclassMain(node, this.reg.cls(t.id), (n) => native.inMainContext(this, n));
       const params = constructorOf(this.ctx, t);
       const paramTypes = params.map((p) => p.cppType);
+      // An Error subclass without a constructor takes Error's, whose options carry the cause.
+      const ownCtor = this.reg
+        .chain(t)
+        .some((c) => c.info.decl.members.some(ts.isConstructorDeclaration));
+      if (!ownCtor && this.reg.cls(t.id).isError) builtins.refuseCause(this, node.arguments?.[1]);
       const rest =
         params.length && params[params.length - 1]!.rest
           ? paramTypes[paramTypes.length - 1]
