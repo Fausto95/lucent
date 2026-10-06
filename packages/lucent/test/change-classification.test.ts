@@ -182,6 +182,30 @@ describe("lucent build's pending actions", () => {
     ]);
   });
 
+  it("asks for pod install before the rebuild when the iOS pods change, not for Android's", () => {
+    const { app, pkg } = workspace();
+    const declare = (pods: Record<string, string>, dependencies: Record<string, string>) =>
+      fs.writeFileSync(
+        path.join(pkg, "lucent.json"),
+        JSON.stringify({
+          ios: { resources: ["assets/chime.caf"], pods },
+          android: { assets: ["assets/android"], dependencies },
+        }),
+      );
+    const next = () =>
+      runLucent(["build", "--root", app], { env: { ...process.env, NO_COLOR: "1" } }).stdout;
+    const gradle = { "dev.orbit:orbit": "1.0.0" };
+
+    declare({ OrbitKit: "~> 1.0" }, gradle);
+    build(app);
+
+    declare({ OrbitKit: "~> 1.1" }, gradle);
+    expect(next()).toMatch(/\nnext +rebuild the app \(iOS: pod install first\)\n/);
+
+    declare({ OrbitKit: "~> 1.1" }, { "dev.orbit:orbit": "1.1.0" });
+    expect(next()).toMatch(/\nnext +rebuild the app\n/);
+  });
+
   it("says what the app needs in its output, and records it", () => {
     const { app, pkg } = workspace();
     build(app);

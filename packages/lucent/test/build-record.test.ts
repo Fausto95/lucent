@@ -93,6 +93,16 @@ describe("the build graph", () => {
     expect(
       requiredAction({ rebuild: true, podInstall: true, reload: false }, ["ios"], []),
     ).toMatchObject({ kind: "relink", targets: ["ios"] });
+
+    // What the relink is for: the files that need it, a package's pods among them.
+    expect(
+      requiredAction(
+        { rebuild: true, podInstall: true, reload: false },
+        ["ios"],
+        [],
+        [{ kind: "relink", targets: ["ios"], files: ["resolved.json#ios.pods"] }],
+      ),
+    ).toEqual({ kind: "relink", targets: ["ios"], dependencyChanges: ["resolved.json#ios.pods"] });
   });
 
   it("writes the record whole, leaving no temporary file", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import type { ResolvedNative } from "@lucent-lang/compiler";
-import { classifyChanges, type NativeChange } from "../src/cli/changes.ts";
+import { classifyChanges, type NativeChange, needsPodInstall } from "../src/cli/changes.ts";
 
 const hash = "0000000000000000";
 
@@ -224,5 +224,27 @@ describe("a package's native dependencies, which a build writes into the build f
       classify({ written: ["resolved.json"], manifest: twoPods, previous: undefined }),
     ).toEqual([{ kind: "relink", targets: ["ios"], files: ["resolved.json#ios.pods"] }]);
     expect(classify({ written: ["resolved.json"], previous: undefined })).toEqual([]);
+  });
+});
+
+describe("whether the app needs pod install before its iOS build", () => {
+  it("does when iOS relinks: CocoaPods reads the podspec and its pods at pod install", () => {
+    const pods = manifest({ pods: { OrbitKit: { "~> 1.1": ["lucent-orbit"] } } });
+
+    expect(needsPodInstall(classify({ written: ["resolved.json"], manifest: pods }))).toBe(true);
+    expect(needsPodInstall(classify({ written: ["LucentNative.podspec"] }))).toBe(true);
+    expect(
+      needsPodInstall(
+        classify({ written: ["cpp/generated/m_b.cpp"], added: ["cpp/generated/m_b.cpp"] }),
+      ),
+    ).toBe(true);
+  });
+
+  it("does not for a change Xcode builds as it is, or for Android's relink", () => {
+    expect(needsPodInstall(classify({ written: ["cpp/generated/m_a.cpp"] }))).toBe(false);
+    expect(needsPodInstall(classify({ written: ["android/build.gradle"] }))).toBe(false);
+    expect(
+      needsPodInstall(classify({ written: ["LucentNative.podspec"], targets: ["android"] })),
+    ).toBe(false);
   });
 });

@@ -160,6 +160,13 @@ describe("a Lucent package's own pod", () => {
       expect(
         fs.readFileSync(path.join(root, ".lucent/native/LucentNative.podspec"), "utf8"),
       ).toContain('s.dependency "LucentAuthKit", "~> 1.0"');
+
+      // A module that is not there has no bindings, and its own fix.
+      expect(r.out).toMatch(/✗ SDK bindings +no bindings for LucentAuthKit\n/);
+      expect(r.out.replace(/\s+/g, " ")).toContain(
+        "fix check the module's name, and that the app installs the pod or framework that defines it",
+      );
+      expect(r.out).not.toContain("use the SDK inside a PLATFORM branch");
     },
     600_000,
   );

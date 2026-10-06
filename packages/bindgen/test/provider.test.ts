@@ -182,6 +182,7 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
     });
     expect(r).toEqual({
       missing: expect.stringMatching(/androidx\.biometric.*not found.*lucentClasspath/s),
+      fix: "check the package's name, and that the app depends on the library that has it",
     });
   });
 
@@ -489,6 +490,7 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     const r = sdkModule("ios", "NoSuchPodModule", { cacheDir: tmp("lucent-cache-"), ios: {} });
     expect(r).toEqual({
       missing: expect.stringMatching(/NoSuchPodModule.*not found.*no pods.*run pod install/s),
+      fix: "check the module's name, and that the app installs the pod or framework that defines it",
     });
   });
 
