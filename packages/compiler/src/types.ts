@@ -65,6 +65,13 @@ export type LType =
   /** The mount a setup runs in (lucent::ui::Content), which the functions it makes enter. */
   | { k: "mount" };
 
+/** The error constructors Lucent makes; an error is named after its constructor. */
+const ERROR_NAMES = ["Error", "TypeError", "RangeError", "SyntaxError"] as const;
+
+export function isErrorName(name: string): name is (typeof ERROR_NAMES)[number] {
+  return (ERROR_NAMES as readonly string[]).includes(name);
+}
+
 export const T = {
   number: { k: "number" } as LType,
   bigint: { k: "bigint" } as LType,
@@ -917,6 +924,7 @@ export class TypeRegistry {
       return { k: "signal", inner: this.lower(inner!, node) };
     }
     const lib = this.libName(type);
+    if (lib && isErrorName(lib)) return T.error;
     if (lib) {
       const args = c.getTypeArguments(type as ts.TypeReference);
       switch (lib) {
@@ -931,11 +939,6 @@ export class TypeRegistry {
           return { k: "promise", inner: this.lower(args[0]!, node) };
         case "Uint8Array":
           return T.bytes;
-        case "Error":
-        case "TypeError":
-        case "RangeError":
-        case "SyntaxError":
-          return T.error;
         case "Date":
           return T.date;
         case "RegExp":

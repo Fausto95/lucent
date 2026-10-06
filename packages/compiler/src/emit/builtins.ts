@@ -8,6 +8,7 @@ import {
   cppIdent,
   functionsNotCompared,
   holdsFunction,
+  isErrorName,
   isVoidish,
   type LType,
   stripOpt,
@@ -2042,9 +2043,9 @@ export function newBuiltin(
       };
     }
     case "error": {
-      const kind = ["TypeError", "RangeError"].includes(name) ? name : "Error";
+      if (!isErrorName(name) || !isLibGlobal(em, callee, name)) break;
       const msg = a[0] ? em.exprAs(a[0], T.string) : stringExpr("");
-      return { c: withSite(cpp.call("lucent::makeError", [stringExpr(kind), msg]), node), t };
+      return { c: withSite(cpp.call("lucent::makeError", [stringExpr(name), msg]), node), t };
     }
   }
   fail(node, Codes.UnsupportedBuiltin, `new ${name || callee.getText()}() is not supported`);
@@ -2059,10 +2060,7 @@ export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {
   const v = em.expr(node.left);
   const right = node.right;
   if (ts.isIdentifier(right)) {
-    if (
-      ["Error", "TypeError", "RangeError", "SyntaxError"].includes(right.text) &&
-      isLibGlobal(em, right, right.text)
-    ) {
+    if (isErrorName(right.text) && isLibGlobal(em, right, right.text)) {
       const kind = right.text === "Error" ? cpp.nullptr : cpp.str(right.text);
       return bool(cpp.call("lucent::isErrorOf", [v.c, kind]));
     }
