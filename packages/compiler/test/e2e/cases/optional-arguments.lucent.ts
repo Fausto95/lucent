@@ -72,6 +72,9 @@ function checks(): Check[] {
     (at) => String(new Date(2020, 1, 15).setHours(10, at)),
     (at) => String(new Date(2020, 1, 15).setMinutes(5, at)),
     (at) => String(new Date(2020, 1, 15).setUTCFullYear(2021, at)),
+    (at) => String(Date.UTC(2020, at)),
+    (at) => String(Date.UTC(2020, 1, at)),
+    (at) => String(Date.UTC(2020, 1, 1, 0, at, at, at)),
   ];
 
   return [...strings, ...arrays, ...typed, ...numbers, ...dates];
