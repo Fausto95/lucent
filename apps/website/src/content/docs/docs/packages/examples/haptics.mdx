@@ -25,7 +25,7 @@ sidebar_label: Haptics
 </Tabs>
 
 - [`lucent.sources`](/docs/packages/package-json/#sources) is the directory of the package's modules. Lucent names this module `lucent-haptics/haptics` ([module names](/docs/packages/package-json/#module-names)).
-- [`lucent.compatible`](/docs/packages/package-json/#compatible) is the range of Lucent versions the package supports. The examples accept `>=0.0.3` because the repository's tests run Lucent from source, version 0.0.3. A published package states a range such as `^0.1.0`.
+- [`lucent.compatible`](/docs/packages/package-json/#compatible) is the range of Lucent versions the package supports. The examples accept `>=0.0.3` because the repository's tests run Lucent from source, version 0.0.3. A published package states a range such as `^0.2.0`.
 - `index.ts` re-exports the module. Metro turns the `.lucent` import into the module's JavaScript proxy.
 - There is no `lucent.json`. The frameworks a module imports are linked without one, and calling `Vibrator.vibrate` adds the `VIBRATE` permission it requires to the manifest ([Android SDK](/docs/api/android-sdk/)).
 
