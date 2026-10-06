@@ -129,7 +129,7 @@ describe.skipIf(!javac || !android)("lucent sdk", () => {
     const r = lucent(app(), "show", "com.example.widgets.Widget.old");
 
     expect(r.status).toBe(0);
-    expect(r.out).toContain("  /** @deprecated */\n  old(): void;");
+    expect(r.out).toContain("   * @deprecated\n   */\n  old(): void;");
   });
 
   it("show prints a member's doc, with what it calls natively", () => {

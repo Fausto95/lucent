@@ -487,12 +487,12 @@ describe("SDK declarations", () => {
       }),
     );
 
-    expect(d).toContain(
-      "  /** Main thread only: call it inside `main(() => …)`. */\n  static review(): void;",
+    expect(d).toMatch(
+      /\* Main thread only: call it inside `main\(\(\) => …\)`\.\n[^/]*\*\/\n  static review\(\): void;/,
     );
-    expect(d).not.toMatch(/Main thread only[^\n]*\n  static refund/);
-    expect(d).toContain(
-      "  /** Any thread: no `main(() => …)` needed. */\n  show(signal?: AbortSignal): Promise<boolean>;",
+    expect(d).not.toMatch(/Main thread only[^/]*\*\/\n  static refund/);
+    expect(d).toMatch(
+      /\* Any thread: no `main\(\(\) => …\)` needed\.\n[^/]*\*\/\n  show\(signal\?: AbortSignal\): Promise<boolean>;/,
     );
   });
 
