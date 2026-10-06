@@ -641,7 +641,6 @@ function classDts(
     const shared = {
       ...(m.static ? { static: true } : {}),
       ...(tps.length ? { typeParams: tps.map((name) => ({ name })) } : {}),
-      ...memberDoc(m, { method: m }),
     };
     members.push({
       k: "method",
@@ -650,6 +649,7 @@ function classDts(
       ret: settled(m, oneOf(m.returnsOneOf, result(parse(m.returns, tps)), true)),
       ...(optional ? { optional: true } : {}),
       ...shared,
+      ...memberDoc(m, { method: m }),
     });
     // Without its completion handler: a promise of what the handler receives.
     if (m.async && declaresPromise(cls, m))
@@ -659,6 +659,7 @@ function classDts(
         params: params({ params: m.params.slice(0, -1) }, tps),
         ret: ts.ref("Promise", tsType(parse(m.async.returns, tps))),
         ...shared,
+        ...memberDoc(m, { method: m, promise: true }),
       });
   }
   // Java and Objective-C inherit the overloads a subclass does not override;
