@@ -58,8 +58,6 @@ describe("diagnostics", () => {
       fix: Explanations.LUCENT1001.fix,
       docs: docsUrl("LUCENT1001"),
     });
-    expect(docsUrl("LUCENT1001")).toBe(
-      "https://lucent-lang.dev/docs/api/diagnostics/#lucent1001",
-    );
+    expect(docsUrl("LUCENT1001")).toBe("https://lucent-lang.dev/docs/api/diagnostics/#lucent1001");
   });
 });

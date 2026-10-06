@@ -83,7 +83,7 @@ describe("schemaFields", () => {
 
 describe("jsonOutputs", () => {
   it("names the command each --json schema describes", () => {
-    const files = fs.readdirSync(schemas).filter((f) => / --json$/.test(read(f).title ?? ""));
+    const files = fs.readdirSync(schemas).filter((f) => (read(f).title ?? "").endsWith(" --json"));
     const outputs = jsonOutputs(
       files.map((file) => ({ file, schema: read(file) })),
       commands,

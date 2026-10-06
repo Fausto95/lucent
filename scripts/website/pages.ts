@@ -161,7 +161,8 @@ export function checkPages(pages: DocPage[], sections: DocSection[] = docsSectio
     const target = pages.find((p) => docId(p.slug) === page.pagination_next);
     const from = locate(page.slug, sections)?.section;
     const to = target && locate(target.slug, sections)?.section;
-    if (!target) problems.push(`${at}: pagination_next is ${page.pagination_next}, which is not a page`);
+    if (!target)
+      problems.push(`${at}: pagination_next is ${page.pagination_next}, which is not a page`);
     else if (from && to && from !== to)
       problems.push(
         `${at}: pagination_next is ${page.pagination_next}, in ${to.label}: Next stays in ${from.label}`,
