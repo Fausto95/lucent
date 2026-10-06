@@ -22,6 +22,7 @@
 #include "lucent/buffer.h"
 #include "lucent/compute.h"
 #include "lucent/lucent.h"
+#include "lucent/reactive.h"
 #include "lucent/trace.h"
 #include "lucent/transport.h"
 
@@ -380,6 +381,47 @@ static void measure() {
               siteOn);
 }
 
+/// Runs `f` as a turn of the main context, as views' effects run.
+template <class F>
+static void onMain(F f) {
+  std::promise<void> done;
+  ExecutionContext::main().post([&] {
+    f();
+    done.set_value();
+  });
+  done.get_future().wait();
+}
+
+// An effect's runs are spans of their own, at the .lucent.ts line the
+// compiler gave it: which bindings run, how often, for how long.
+static void effectRunsKeepTheirSite() {
+  onMain([] {
+    auto g = ui::Graph::create();
+    auto title = ui::signal(g, 1.0);
+
+    trace::start();
+    auto e = ui::effect(
+        g, [title] { (void)title.get(); }, "rows.lucent.tsx:11",
+        LUCENT_TRACE_SITE_AT("effect", "rows.lucent.tsx", 11));
+    title.set(2.0);
+    std::vector<Event> events = trace::events();
+    trace::stop();
+
+    std::vector<Event> runs;
+    for (auto& ev : events)
+      if (ev.category == Category::Effect) runs.push_back(ev);
+
+    CHECK(runs.size() == 2);
+    CHECK(!runs.empty() && runs[0].site && runs[0].site->line == 11 &&
+          std::string(runs[0].site->file) == "rows.lucent.tsx");
+    CHECK(std::string(trace::categoryName(Category::Effect)) == "effect");
+
+    // Off: an effect's run records nothing.
+    title.set(3.0);
+    CHECK(trace::events().size() == events.size());
+  });
+}
+
 int main() {
   offByDefaultAndWhenStopped();
   theBufferIsBounded();
@@ -390,6 +432,7 @@ int main() {
   threeCausesStayApart();
   nativeWorkKeepsItsSource();
   nestedPostsNameTheirParent();
+  effectRunsKeepTheirSite();
 
   if (const char* bench = std::getenv("LUCENT_TRACE_BENCH"); bench && std::string(bench) == "1") measure();
 
