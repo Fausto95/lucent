@@ -18,7 +18,7 @@ import {
   type LeafPlace,
   type Thunk,
 } from "../ir/lower.ts";
-import { numberExpr, stringExpr } from "../lowering/literals.ts";
+import { numberExpr } from "../lowering/literals.ts";
 import { type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
 import { disposeCall, methodCall, structKeys } from "./builtins.ts";
 import { safepoint } from "./compute.ts";
