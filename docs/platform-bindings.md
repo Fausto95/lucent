@@ -139,7 +139,10 @@ artifacts the app's build resolved (bindgen's `nativeArtifacts`):
   depends on the pod.
 - **Android**: the SDK platform (`android-sdk:35`: android.jar,
   `api-versions.xml`, `annotations.zip`), then each jar and AAR of the app's
-  resolved compile classpath, by its Maven coordinates from Gradle's cache
+  resolved compile classpath (its debug variant's; with product flavors the
+  first debug variant by name, so a library only another flavor depends on
+  isn't bindable; its release variant's when it has no debug variant), by
+  its Maven coordinates from Gradle's cache
   (`maven:group:name:version`), else `jar:`/`aar:` and its file name, and
   the jars and AARs the app's Lucent packages ship (`android.libraries`,
   which the classpath does not list: the Lucent library links them). Which
