@@ -82,6 +82,12 @@ Schema: `https://lucent-lang.dev/schemas/check.schema.json`.
 | `diagnostics[].fix` | `string` |  | How to fix it, in one line |
 | `diagnostics[].docs` | `string` |  | Where the code is explained |
 | `diagnostics[].severity` | `"warning"` |  | Present on warnings only |
+| `diagnostics[].quickFix` | `object` |  | Where the fix is exact: edits to the diagnostic's file, which an editor offers to apply |
+| `diagnostics[].quickFix.title` | `string` | yes | What it does, as an editor lists it |
+| `diagnostics[].quickFix.edits` | `object[]` | yes |  |
+| `diagnostics[].quickFix.edits[].start` | `integer` | yes | Offset in the file |
+| `diagnostics[].quickFix.edits[].length` | `integer` | yes |  |
+| `diagnostics[].quickFix.edits[].text` | `string` | yes | What replaces the length characters at start |
 | `warnings` | `object[]` | yes | Warnings: reported, but the build goes on |
 | `warnings[].code` | `string` | yes | Stable code; lucent explain \<code\> describes it |
 | `warnings[].message` | `string` | yes |  |
@@ -93,8 +99,24 @@ Schema: `https://lucent-lang.dev/schemas/check.schema.json`.
 | `warnings[].fix` | `string` |  | How to fix it, in one line |
 | `warnings[].docs` | `string` |  | Where the code is explained |
 | `warnings[].severity` | `"warning"` |  | Present on warnings only |
+| `warnings[].quickFix` | `object` |  | Where the fix is exact: edits to the diagnostic's file, which an editor offers to apply |
+| `warnings[].quickFix.title` | `string` | yes | What it does, as an editor lists it |
+| `warnings[].quickFix.edits` | `object[]` | yes |  |
+| `warnings[].quickFix.edits[].start` | `integer` | yes | Offset in the file |
+| `warnings[].quickFix.edits[].length` | `integer` | yes |  |
+| `warnings[].quickFix.edits[].text` | `string` | yes | What replaces the length characters at start |
 | `errors` | `integer` | yes |  |
 | `ms` | `number` | yes |  |
+
+## lucent clean --json
+
+Schema: `https://lucent-lang.dev/schemas/clean.schema.json`.
+
+| Field | Type | Always there | Meaning |
+| --- | --- | --- | --- |
+| `removed` | `object[]` | yes | What was removed: .lucent, and with --cache the SDK cache |
+| `removed[].path` | `string` | yes |  |
+| `removed[].bytes` | `integer` | yes |  |
 
 ## lucent doctor --json
 
@@ -104,11 +126,61 @@ Schema: `https://lucent-lang.dev/schemas/doctor.schema.json`.
 | --- | --- | --- | --- |
 | `ok` | `boolean` | yes | No check failed; the exit code is 0 exactly then |
 | `checks` | `object[]` | yes |  |
-| `checks[].id` | `string` | yes | Stable: node, package-manager, react-native, expo, xcode, simulator, cocoapods, android-sdk, ndk, jdk, gradle-task, metro, tsconfig, sdk-cache, versions |
+| `checks[].id` | `string` | yes | Stable: node, package-manager, react-native, expo, xcode, simulator, cocoapods, android-sdk, ndk, jdk, gradle-task, metro, tsconfig, sdk-cache, versions, last-build, cache, native-targets, native-build |
 | `checks[].label` | `string` | yes |  |
 | `checks[].status` | `"ok" or "warn" or "fail" or "skip"` | yes |  |
 | `checks[].detail` | `string` | yes |  |
 | `checks[].fix` | `string` |  | What to do about a failure or warning |
+
+## lucent explain --json
+
+Schema: `https://lucent-lang.dev/schemas/explain.schema.json`.
+
+| Field | Type | Always there | Meaning |
+| --- | --- | --- | --- |
+| `codes` | `object[]` | yes |  |
+| `codes[].code` | `string` | yes |  |
+| `codes[].title` | `string` | yes |  |
+| `code` | `string` | yes |  |
+| `title` | `string` | yes |  |
+| `summary` | `string` | yes |  |
+| `details` | `string` | yes |  |
+| `fix` | `string` | yes | What to do, in one line |
+| `wrong` | `{ [name]: string }` | yes | Code that has the diagnostic: file name to source |
+| `right` | `{ [name]: string }` | yes | The same code fixed: file name to source |
+| `docs` | `string` | yes |  |
+
+## lucent new module --json
+
+Schema: `https://lucent-lang.dev/schemas/new.schema.json`.
+
+| Field | Type | Always there | Meaning |
+| --- | --- | --- | --- |
+| `files` | `string[]` | yes | What was written, relative to the project |
+| `import` | `string` | yes | The import that uses it, from the project's root |
+
+## lucent sdk coverage --json
+
+One report per module (a toolkit generated from one under its own name)
+
+Schema: `https://lucent-lang.dev/schemas/sdk-coverage.schema.json`.
+
+| Field | Type | Always there | Meaning |
+| --- | --- | --- | --- |
+| `[].module` | `string` | yes |  |
+| `[].provenance` | `object` |  | Where the module's declarations come from |
+| `[].idiomatic` | `integer` | yes | Reached through an idiom: a getter read as a property, a completion handler called as a promise |
+| `[].raw` | `integer` | yes | Callable as the platform declares it |
+| `[].unrepresentable` | `integer` | yes |  |
+| `[].total` | `integer` | yes |  |
+| `[].reasons` | `{ [name]: integer }` | yes | Why members are unrepresentable, with how many |
+| `[].stages` | `object` | yes | How many members reach each stage; null without evidence for it |
+| `[].stages.discovered` | `integer` | yes |  |
+| `[].stages.representable` | `integer` | yes |  |
+| `[].stages.generated` | `integer or null` | yes |  |
+| `[].stages.exercised` | `integer or null` | yes |  |
+| `[].members` | `unknown[]` |  | With --members: each member's stage, key and reason |
+| `[].views` | `unknown[]` |  | With --views: each view class's JSX attributes by rule |
 
 ## lucent sdk diff --json
 
@@ -142,6 +214,18 @@ Schema: `https://lucent-lang.dev/schemas/sdk-diff.schema.json`.
 | `others[].details` | `string[]` | yes | What changed; why, for a removed module |
 | `uncached` | `string[]` |  | With --all: modules whose locked schema this machine's SDK cache does not hold |
 
+## lucent sdk lock --json
+
+Schema: `https://lucent-lang.dev/schemas/sdk-lock-result.schema.json`.
+
+| Field | Type | Always there | Meaning |
+| --- | --- | --- | --- |
+| `ok` | `boolean` | yes |  |
+| `file` | `string` | yes | The lock written, relative to the project (its contents follow sdk-lock.schema.json) |
+| `targets` | `string[]` | yes | The platforms it records |
+| `modules` | `integer` | yes | SDK modules the project uses |
+| `symbols` | `integer` | yes | SDK symbols the project uses |
+
 ## lucent sdk prefetch --json
 
 Schema: `https://lucent-lang.dev/schemas/sdk-prefetch.schema.json`.
@@ -169,6 +253,17 @@ Schema: `https://lucent-lang.dev/schemas/sdk-search.schema.json`.
 | `matches[].kind` | `"class" or "protocol" or "interface" or "enum" or "struct" or "method" or "property" or "function" or "constant"` | yes |  |
 | `matches[].name` | `string` | yes | The type, or Type.member(params) for members |
 | `matches[].import` | `string` | yes | The import line that brings the type in |
+
+## lucent sdk show --json
+
+Schema: `https://lucent-lang.dev/schemas/sdk-show.schema.json`.
+
+| Field | Type | Always there | Meaning |
+| --- | --- | --- | --- |
+| `platform` | `"ios" or "android"` | yes |  |
+| `module` | `string` | yes |  |
+| `symbol` | `string` | yes | What was asked for: \<module\>.\<Type\>\[.\<member\>\] |
+| `declaration` | `string` | yes | The declaration Lucent code sees, with its doc comments (what it calls natively among them) |
 
 ## lucent-sdk.lock.json
 

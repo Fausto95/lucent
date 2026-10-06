@@ -746,6 +746,25 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "params": []
       },
       {
+        "name": "errorOf",
+        "kind": "function",
+        "signature": "function errorOf(throwable: Throwable): Error;",
+        "doc": [
+          "The Error Lucent makes of `throwable` when a call throws it. Its message is the exception's (or its class name, without one), and its `code` is the class name (`java.lang.IllegalStateException`). An exception carrying a Lucent error, one a Lucent suspend function ended a Kotlin call with, gives that error.",
+          "For an adapter whose callback API reports failure with a Throwable, `reject(errorOf(e))` rejects as the call would have thrown."
+        ],
+        "examples": [],
+        "members": [],
+        "params": [
+          {
+            "name": "throwable",
+            "type": "Throwable",
+            "optional": false,
+            "doc": "The exception, such as one a callback received."
+          }
+        ]
+      },
+      {
         "name": "available",
         "kind": "function",
         "signature": "function available(platform: \"android\", api: number): boolean;",
@@ -1152,6 +1171,297 @@ export const apiModules: Record<string, ModuleDeclarations> = {
         "params": []
       },
       {
+        "name": "LayoutLength",
+        "kind": "type",
+        "signature": "type LayoutLength = number | `${number}%`;",
+        "doc": [
+          "A length in points, or a percent of the parent's (`\"50%\"`)."
+        ],
+        "examples": [],
+        "members": [],
+        "params": []
+      },
+      {
+        "name": "LayoutDimension",
+        "kind": "type",
+        "signature": "type LayoutDimension = LayoutLength | \"auto\";",
+        "doc": [
+          "A length, or `\"auto\"`: what the layout gives."
+        ],
+        "examples": [],
+        "members": [],
+        "params": []
+      },
+      {
+        "name": "LayoutStyle",
+        "kind": "interface",
+        "signature": "interface LayoutStyle {\n  direction?: \"inherit\" | \"ltr\" | \"rtl\";\n  flexDirection?: \"column\" | \"column-reverse\" | \"row\" | \"row-reverse\";\n  justifyContent?:\n    | \"flex-start\"\n    | \"center\"\n    | \"flex-end\"\n    | \"space-between\"\n    | \"space-around\"\n    | \"space-evenly\";\n  alignItems?: LayoutAlign;\n  alignSelf?: LayoutAlign;\n  alignContent?: LayoutAlign;\n  flexWrap?: \"nowrap\" | \"wrap\" | \"wrap-reverse\";\n  position?: \"relative\" | \"absolute\" | \"static\";\n  display?: \"flex\" | \"none\" | \"contents\";\n  overflow?: \"visible\" | \"hidden\" | \"scroll\";\n  flex?: number;\n  flexGrow?: number;\n  flexShrink?: number;\n  flexBasis?: LayoutDimension;\n  aspectRatio?: number;\n  width?: LayoutDimension;\n  height?: LayoutDimension;\n  minWidth?: LayoutLength;\n  maxWidth?: LayoutLength;\n  minHeight?: LayoutLength;\n  maxHeight?: LayoutLength;\n  margin?: LayoutDimension;\n  marginHorizontal?: LayoutDimension;\n  marginVertical?: LayoutDimension;\n  marginTop?: LayoutDimension;\n  marginRight?: LayoutDimension;\n  marginBottom?: LayoutDimension;\n  marginLeft?: LayoutDimension;\n  marginStart?: LayoutDimension;\n  marginEnd?: LayoutDimension;\n  padding?: LayoutLength;\n  paddingHorizontal?: LayoutLength;\n  paddingVertical?: LayoutLength;\n  paddingTop?: LayoutLength;\n  paddingRight?: LayoutLength;\n  paddingBottom?: LayoutLength;\n  paddingLeft?: LayoutLength;\n  paddingStart?: LayoutLength;\n  paddingEnd?: LayoutLength;\n  top?: LayoutDimension;\n  right?: LayoutDimension;\n  bottom?: LayoutDimension;\n  left?: LayoutDimension;\n  start?: LayoutDimension;\n  end?: LayoutDimension;\n  gap?: LayoutLength;\n  rowGap?: LayoutLength;\n  columnGap?: LayoutLength;\n}",
+        "doc": [
+          "React Native's layout style (its Yoga's): a Flex's `style`, and the `layout` of a Flex's child. Numbers are points."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "direction",
+            "signature": "direction?: \"inherit\" | \"ltr\" | \"rtl\";",
+            "doc": ""
+          },
+          {
+            "name": "flexDirection",
+            "signature": "flexDirection?: \"column\" | \"column-reverse\" | \"row\" | \"row-reverse\";",
+            "doc": ""
+          },
+          {
+            "name": "justifyContent",
+            "signature": "justifyContent?:\n    | \"flex-start\"\n    | \"center\"\n    | \"flex-end\"\n    | \"space-between\"\n    | \"space-around\"\n    | \"space-evenly\";",
+            "doc": ""
+          },
+          {
+            "name": "alignItems",
+            "signature": "alignItems?: LayoutAlign;",
+            "doc": ""
+          },
+          {
+            "name": "alignSelf",
+            "signature": "alignSelf?: LayoutAlign;",
+            "doc": ""
+          },
+          {
+            "name": "alignContent",
+            "signature": "alignContent?: LayoutAlign;",
+            "doc": ""
+          },
+          {
+            "name": "flexWrap",
+            "signature": "flexWrap?: \"nowrap\" | \"wrap\" | \"wrap-reverse\";",
+            "doc": ""
+          },
+          {
+            "name": "position",
+            "signature": "position?: \"relative\" | \"absolute\" | \"static\";",
+            "doc": ""
+          },
+          {
+            "name": "display",
+            "signature": "display?: \"flex\" | \"none\" | \"contents\";",
+            "doc": ""
+          },
+          {
+            "name": "overflow",
+            "signature": "overflow?: \"visible\" | \"hidden\" | \"scroll\";",
+            "doc": ""
+          },
+          {
+            "name": "flex",
+            "signature": "flex?: number;",
+            "doc": ""
+          },
+          {
+            "name": "flexGrow",
+            "signature": "flexGrow?: number;",
+            "doc": ""
+          },
+          {
+            "name": "flexShrink",
+            "signature": "flexShrink?: number;",
+            "doc": ""
+          },
+          {
+            "name": "flexBasis",
+            "signature": "flexBasis?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "aspectRatio",
+            "signature": "aspectRatio?: number;",
+            "doc": ""
+          },
+          {
+            "name": "width",
+            "signature": "width?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "height",
+            "signature": "height?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "minWidth",
+            "signature": "minWidth?: LayoutLength;",
+            "doc": ""
+          },
+          {
+            "name": "maxWidth",
+            "signature": "maxWidth?: LayoutLength;",
+            "doc": ""
+          },
+          {
+            "name": "minHeight",
+            "signature": "minHeight?: LayoutLength;",
+            "doc": ""
+          },
+          {
+            "name": "maxHeight",
+            "signature": "maxHeight?: LayoutLength;",
+            "doc": ""
+          },
+          {
+            "name": "margin",
+            "signature": "margin?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "marginHorizontal",
+            "signature": "marginHorizontal?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "marginVertical",
+            "signature": "marginVertical?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "marginTop",
+            "signature": "marginTop?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "marginRight",
+            "signature": "marginRight?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "marginBottom",
+            "signature": "marginBottom?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "marginLeft",
+            "signature": "marginLeft?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "marginStart",
+            "signature": "marginStart?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "marginEnd",
+            "signature": "marginEnd?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "padding",
+            "signature": "padding?: LayoutLength;",
+            "doc": ""
+          },
+          {
+            "name": "paddingHorizontal",
+            "signature": "paddingHorizontal?: LayoutLength;",
+            "doc": ""
+          },
+          {
+            "name": "paddingVertical",
+            "signature": "paddingVertical?: LayoutLength;",
+            "doc": ""
+          },
+          {
+            "name": "paddingTop",
+            "signature": "paddingTop?: LayoutLength;",
+            "doc": ""
+          },
+          {
+            "name": "paddingRight",
+            "signature": "paddingRight?: LayoutLength;",
+            "doc": ""
+          },
+          {
+            "name": "paddingBottom",
+            "signature": "paddingBottom?: LayoutLength;",
+            "doc": ""
+          },
+          {
+            "name": "paddingLeft",
+            "signature": "paddingLeft?: LayoutLength;",
+            "doc": ""
+          },
+          {
+            "name": "paddingStart",
+            "signature": "paddingStart?: LayoutLength;",
+            "doc": ""
+          },
+          {
+            "name": "paddingEnd",
+            "signature": "paddingEnd?: LayoutLength;",
+            "doc": ""
+          },
+          {
+            "name": "top",
+            "signature": "top?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "right",
+            "signature": "right?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "bottom",
+            "signature": "bottom?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "left",
+            "signature": "left?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "start",
+            "signature": "start?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "end",
+            "signature": "end?: LayoutDimension;",
+            "doc": ""
+          },
+          {
+            "name": "gap",
+            "signature": "gap?: LayoutLength;",
+            "doc": ""
+          },
+          {
+            "name": "rowGap",
+            "signature": "rowGap?: LayoutLength;",
+            "doc": ""
+          },
+          {
+            "name": "columnGap",
+            "signature": "columnGap?: LayoutLength;",
+            "doc": ""
+          }
+        ],
+        "params": []
+      },
+      {
+        "name": "Flex",
+        "kind": "class",
+        "signature": "class Flex {\n  constructor(none: never);\n  \"~jsx\"?: {\n    style?: LayoutStyle;\n    children?: FlexChild | readonly (FlexChild | readonly FlexChild[])[];\n  };\n}",
+        "doc": [
+          "A container of native views laid out by React Native's Yoga (T50): its `style` places its children, and each child's `layout` places it. It writes its children's frames, and nothing else does; a native container among them (a stack view, a LinearLayout) lays out its own. Native view JSX only: `<Flex style={{ flexDirection: \"row\", gap: 8 }}>…</Flex>`."
+        ],
+        "examples": [],
+        "members": [
+          {
+            "name": "constructor",
+            "signature": "constructor(none: never);",
+            "doc": "Made by its JSX only: nothing can be passed."
+          }
+        ],
+        "params": []
+      },
+      {
         "name": "NativeViewTag",
         "kind": "type",
         "signature": "type NativeViewTag<V> = abstract new (...args: never[]) => V;",
@@ -1324,7 +1634,7 @@ export const apiModules: Record<string, ModuleDeclarations> = {
       {
         "name": "JSX",
         "kind": "namespace",
-        "signature": "namespace JSX {\n  type Element = Composed & View;\n  type ElementType = ((props: never) => Composed) | NativeViewTag<View>;\n  interface ElementChildrenAttribute {\n    children: {};\n  }\n  interface ElementAttributesProperty {\n    \"~jsx\": {};\n  }\n  interface IntrinsicClassAttributes<T> {\n    create?: () => T;\n  }\n  interface IntrinsicElements {}\n}",
+        "signature": "namespace JSX {\n  type Element = Composed & View;\n  type ElementType = ((props: never) => Composed) | NativeViewTag<View> | NativeViewTag<Flex>;\n  interface ElementChildrenAttribute {\n    children: {};\n  }\n  interface ElementAttributesProperty {\n    \"~jsx\": {};\n  }\n  interface IntrinsicClassAttributes<T> {\n    create?: () => T;\n    key?: string | number;\n    layout?: LayoutStyle;\n  }\n  interface IntrinsicElements {}\n}",
         "doc": [
           "How TypeScript types the JSX of an Android file. An element is a composable: a function of its props, whose children are its `children` prop. It may also be a view class, typed with its declarations' `~jsx` attributes."
         ],

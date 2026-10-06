@@ -369,6 +369,42 @@ export const jsonOutputs: { command: string; file: string; description: string; 
         "description": "Present on warnings only"
       },
       {
+        "field": "diagnostics[].quickFix",
+        "type": "object",
+        "required": false,
+        "description": "Where the fix is exact: edits to the diagnostic's file, which an editor offers to apply"
+      },
+      {
+        "field": "diagnostics[].quickFix.title",
+        "type": "string",
+        "required": true,
+        "description": "What it does, as an editor lists it"
+      },
+      {
+        "field": "diagnostics[].quickFix.edits",
+        "type": "object[]",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "diagnostics[].quickFix.edits[].start",
+        "type": "integer",
+        "required": true,
+        "description": "Offset in the file"
+      },
+      {
+        "field": "diagnostics[].quickFix.edits[].length",
+        "type": "integer",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "diagnostics[].quickFix.edits[].text",
+        "type": "string",
+        "required": true,
+        "description": "What replaces the length characters at start"
+      },
+      {
         "field": "warnings",
         "type": "object[]",
         "required": true,
@@ -435,6 +471,42 @@ export const jsonOutputs: { command: string; file: string; description: string; 
         "description": "Present on warnings only"
       },
       {
+        "field": "warnings[].quickFix",
+        "type": "object",
+        "required": false,
+        "description": "Where the fix is exact: edits to the diagnostic's file, which an editor offers to apply"
+      },
+      {
+        "field": "warnings[].quickFix.title",
+        "type": "string",
+        "required": true,
+        "description": "What it does, as an editor lists it"
+      },
+      {
+        "field": "warnings[].quickFix.edits",
+        "type": "object[]",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "warnings[].quickFix.edits[].start",
+        "type": "integer",
+        "required": true,
+        "description": "Offset in the file"
+      },
+      {
+        "field": "warnings[].quickFix.edits[].length",
+        "type": "integer",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "warnings[].quickFix.edits[].text",
+        "type": "string",
+        "required": true,
+        "description": "What replaces the length characters at start"
+      },
+      {
         "field": "errors",
         "type": "integer",
         "required": true,
@@ -443,6 +515,31 @@ export const jsonOutputs: { command: string; file: string; description: string; 
       {
         "field": "ms",
         "type": "number",
+        "required": true,
+        "description": ""
+      }
+    ]
+  },
+  {
+    "command": "clean",
+    "file": "clean.schema.json",
+    "description": "",
+    "fields": [
+      {
+        "field": "removed",
+        "type": "object[]",
+        "required": true,
+        "description": "What was removed: .lucent, and with --cache the SDK cache"
+      },
+      {
+        "field": "removed[].path",
+        "type": "string",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "removed[].bytes",
+        "type": "integer",
         "required": true,
         "description": ""
       }
@@ -469,7 +566,7 @@ export const jsonOutputs: { command: string; file: string; description: string; 
         "field": "checks[].id",
         "type": "string",
         "required": true,
-        "description": "Stable: node, package-manager, react-native, expo, xcode, simulator, cocoapods, android-sdk, ndk, jdk, gradle-task, metro, tsconfig, sdk-cache, versions"
+        "description": "Stable: node, package-manager, react-native, expo, xcode, simulator, cocoapods, android-sdk, ndk, jdk, gradle-task, metro, tsconfig, sdk-cache, versions, last-build, cache, native-targets, native-build"
       },
       {
         "field": "checks[].label",
@@ -494,6 +591,189 @@ export const jsonOutputs: { command: string; file: string; description: string; 
         "type": "string",
         "required": false,
         "description": "What to do about a failure or warning"
+      }
+    ]
+  },
+  {
+    "command": "explain",
+    "file": "explain.schema.json",
+    "description": "",
+    "fields": [
+      {
+        "field": "codes",
+        "type": "object[]",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "codes[].code",
+        "type": "string",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "codes[].title",
+        "type": "string",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "code",
+        "type": "string",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "title",
+        "type": "string",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "summary",
+        "type": "string",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "details",
+        "type": "string",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "fix",
+        "type": "string",
+        "required": true,
+        "description": "What to do, in one line"
+      },
+      {
+        "field": "wrong",
+        "type": "{ [name]: string }",
+        "required": true,
+        "description": "Code that has the diagnostic: file name to source"
+      },
+      {
+        "field": "right",
+        "type": "{ [name]: string }",
+        "required": true,
+        "description": "The same code fixed: file name to source"
+      },
+      {
+        "field": "docs",
+        "type": "string",
+        "required": true,
+        "description": ""
+      }
+    ]
+  },
+  {
+    "command": "new module",
+    "file": "new.schema.json",
+    "description": "",
+    "fields": [
+      {
+        "field": "files",
+        "type": "string[]",
+        "required": true,
+        "description": "What was written, relative to the project"
+      },
+      {
+        "field": "import",
+        "type": "string",
+        "required": true,
+        "description": "The import that uses it, from the project's root"
+      }
+    ]
+  },
+  {
+    "command": "sdk coverage",
+    "file": "sdk-coverage.schema.json",
+    "description": "One report per module (a toolkit generated from one under its own name)",
+    "fields": [
+      {
+        "field": "[].module",
+        "type": "string",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "[].provenance",
+        "type": "object",
+        "required": false,
+        "description": "Where the module's declarations come from"
+      },
+      {
+        "field": "[].idiomatic",
+        "type": "integer",
+        "required": true,
+        "description": "Reached through an idiom: a getter read as a property, a completion handler called as a promise"
+      },
+      {
+        "field": "[].raw",
+        "type": "integer",
+        "required": true,
+        "description": "Callable as the platform declares it"
+      },
+      {
+        "field": "[].unrepresentable",
+        "type": "integer",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "[].total",
+        "type": "integer",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "[].reasons",
+        "type": "{ [name]: integer }",
+        "required": true,
+        "description": "Why members are unrepresentable, with how many"
+      },
+      {
+        "field": "[].stages",
+        "type": "object",
+        "required": true,
+        "description": "How many members reach each stage; null without evidence for it"
+      },
+      {
+        "field": "[].stages.discovered",
+        "type": "integer",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "[].stages.representable",
+        "type": "integer",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "[].stages.generated",
+        "type": "integer or null",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "[].stages.exercised",
+        "type": "integer or null",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "[].members",
+        "type": "unknown[]",
+        "required": false,
+        "description": "With --members: each member's stage, key and reason"
+      },
+      {
+        "field": "[].views",
+        "type": "unknown[]",
+        "required": false,
+        "description": "With --views: each view class's JSX attributes by rule"
       }
     ]
   },
@@ -655,6 +935,43 @@ export const jsonOutputs: { command: string; file: string; description: string; 
     ]
   },
   {
+    "command": "sdk lock",
+    "file": "sdk-lock-result.schema.json",
+    "description": "",
+    "fields": [
+      {
+        "field": "ok",
+        "type": "boolean",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "file",
+        "type": "string",
+        "required": true,
+        "description": "The lock written, relative to the project (its contents follow sdk-lock.schema.json)"
+      },
+      {
+        "field": "targets",
+        "type": "string[]",
+        "required": true,
+        "description": "The platforms it records"
+      },
+      {
+        "field": "modules",
+        "type": "integer",
+        "required": true,
+        "description": "SDK modules the project uses"
+      },
+      {
+        "field": "symbols",
+        "type": "integer",
+        "required": true,
+        "description": "SDK symbols the project uses"
+      }
+    ]
+  },
+  {
     "command": "sdk prefetch",
     "file": "sdk-prefetch.schema.json",
     "description": "",
@@ -749,6 +1066,37 @@ export const jsonOutputs: { command: string; file: string; description: string; 
         "type": "string",
         "required": true,
         "description": "The import line that brings the type in"
+      }
+    ]
+  },
+  {
+    "command": "sdk show",
+    "file": "sdk-show.schema.json",
+    "description": "",
+    "fields": [
+      {
+        "field": "platform",
+        "type": "\"ios\" or \"android\"",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "module",
+        "type": "string",
+        "required": true,
+        "description": ""
+      },
+      {
+        "field": "symbol",
+        "type": "string",
+        "required": true,
+        "description": "What was asked for: <module>.<Type>[.<member>]"
+      },
+      {
+        "field": "declaration",
+        "type": "string",
+        "required": true,
+        "description": "The declaration Lucent code sees, with its doc comments (what it calls natively among them)"
       }
     ]
   }

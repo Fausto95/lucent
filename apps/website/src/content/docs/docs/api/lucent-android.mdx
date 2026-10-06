@@ -37,6 +37,20 @@ function appContext(): Context;
 
 The application Context.
 
+### errorOf()
+
+```ts title="android.d.ts"
+function errorOf(throwable: Throwable): Error;
+```
+
+The Error Lucent makes of `throwable` when a call throws it. Its message is the exception's (or its class name, without one), and its `code` is the class name (`java.lang.IllegalStateException`). An exception carrying a Lucent error, one a Lucent suspend function ended a Kotlin call with, gives that error.
+
+For an adapter whose callback API reports failure with a Throwable, `reject(errorOf(e))` rejects as the call would have thrown.
+
+| Parameter | Type | Required | Description |
+| --- | --- | --- | --- |
+| `throwable` | `Throwable` | yes | The exception, such as one a callback received. |
+
 ### available()
 
 ```ts title="android.d.ts"

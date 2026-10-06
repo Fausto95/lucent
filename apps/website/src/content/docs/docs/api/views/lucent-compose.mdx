@@ -115,7 +115,7 @@ An element's children composed in a receiver scope: what they show, or a functio
 ```ts title="compose.d.ts"
 namespace JSX {
   type Element = Composed & View;
-  type ElementType = ((props: never) => Composed) | NativeViewTag<View>;
+  type ElementType = ((props: never) => Composed) | NativeViewTag<View> | NativeViewTag<Flex>;
   interface ElementChildrenAttribute {
     children: {};
   }
@@ -124,6 +124,8 @@ namespace JSX {
   }
   interface IntrinsicClassAttributes<T> {
     create?: () => T;
+    key?: string | number;
+    layout?: LayoutStyle;
   }
   interface IntrinsicElements {}
 }
