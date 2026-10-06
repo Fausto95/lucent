@@ -2,6 +2,12 @@ print(mod.parseError());
 print(mod.caught());
 print(mod.withoutMessage());
 print(mod.named());
+print(mod.inheritedName());
+try {
+  mod.thrownNamed();
+} catch (e) {
+  print(e.name, e.message);
+}
 print(mod.twoLevels());
 print(mod.derived());
 print(mod.subCoded());

@@ -37,3 +37,9 @@ print(
   outcome(() => mod.field({})),
   outcome(() => mod.field({ note: "n" })),
 );
+print(
+  outcome(() => mod.unset({ v: undefined })),
+  outcome(() => mod.nulled({ v: null })),
+  outcome(() => mod.pairNull({ a: null })),
+  outcome(() => mod.pairUndefined({ a: undefined })),
+);

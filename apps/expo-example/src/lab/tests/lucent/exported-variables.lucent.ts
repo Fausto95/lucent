@@ -1,9 +1,10 @@
 // JavaScript reads an exported `let` live, as an ES module binding: it
-// sees each value the module assigns.
+// sees each value the module assigns, and the same object until then.
 type Config = { size: number };
 
 export let count = 0;
 export let config: Config = { size: 1 };
+export let list: number[] = [1, 2];
 export const limit = 3;
 
 export function bump(): number {

@@ -5,6 +5,12 @@ export class ParseError extends Error {}
 class Named extends Error {
   override name = "Named";
 }
+class NamedChild extends Named {}
+class NamedExplicit extends Named {
+  constructor(message: string) {
+    super(message);
+  }
+}
 
 class Outer extends Error {}
 class Inner extends Outer {}
@@ -50,6 +56,19 @@ export function withoutMessage(): string {
 export function named(): string {
   const n = new Named("nm");
   return `${n.message} ${n.name}`;
+}
+
+// An overridden name is the error's: its subclasses inherit it, and
+// String() reads it.
+export function inheritedName(): string {
+  const a = new Named("a");
+  const b = new NamedChild("b");
+  const c = new NamedExplicit("c");
+  return [String(a), `${a}`, b.name, String(b), c.name, String(c)].join("|");
+}
+
+export function thrownNamed(): void {
+  throw new NamedChild("named to js");
 }
 
 export function twoLevels(): string {

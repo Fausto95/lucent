@@ -401,6 +401,14 @@ export function f(round: boolean): number {
         expect.objectContaining({ code: "LUCENT1005", line, column }),
       );
     });
+
+    it("leaves parameter decorators to TypeScript, which rejects them", () => {
+      expect(
+        codes(
+          "function inject(_t: unknown, _k: string | undefined, _i: number): void {}\nexport class A {\n  constructor(@inject public x: number) {}\n}\n",
+        ),
+      ).toEqual(["LUCENT9001"]);
+    });
   });
 
   describe("default exports", () => {
@@ -419,6 +427,10 @@ export function f(round: boolean): number {
       expect(codes("export default function (n: number): number {\n  return n;\n}\n")).toEqual([
         "LUCENT3003",
       ]);
+    });
+
+    it("reports an anonymous default-exported class once", () => {
+      expect(codes("export default class {\n  v = 1;\n}\n")).toEqual(["LUCENT3003"]);
     });
   });
 
@@ -462,6 +474,19 @@ export function f(round: boolean): number {
           message: expect.stringContaining("discriminant"),
         }),
       ]);
+    });
+
+    it.each([
+      [
+        "a class instance",
+        'class K {\n  a = 1;\n}\nexport function f(): boolean {\n  return "a" in new K();\n}\n',
+      ],
+      ["an array", 'export function f(a: number[]): boolean {\n  return "length" in a;\n}\n'],
+      ["a Map", 'export function f(m: Map<string, number>): boolean {\n  return "size" in m;\n}\n'],
+    ])("names %s as what `in` refused", (what, source) => {
+      const [d] = compileSource(source).diagnostics;
+      expect(d).toMatchObject({ code: "LUCENT1002", message: expect.stringContaining(what) });
+      expect(d!.message).not.toContain("discriminant");
     });
   });
 

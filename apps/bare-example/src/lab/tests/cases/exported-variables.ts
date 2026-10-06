@@ -8,5 +8,13 @@ export default function run(mod, print, lucentClass, mods) {
   mod.grow();
   print(mod.config.size - size);
   print(mod.limit);
+  print(mod.config === mod.config, mod.list === mod.list);
+  mod.config.size += 10;
+  print(mod.config.size - size);
+  mod.config.size -= 10;
+  const length = mod.list.length;
+  mod.list.push(3);
+  print(mod.list.length - length);
+  mod.list.pop();
 
 }

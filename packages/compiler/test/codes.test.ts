@@ -138,3 +138,51 @@ describe("summaries name constructs that report their code", () => {
     expect(r.diagnostics.map((d) => d.code)).toContain(code);
   });
 });
+
+describe("fixes fit the construct reported", () => {
+  // The fix the CLI prints under a diagnostic: the site's own when the
+  // code's general fix is about something else.
+  it.each([
+    [
+      "LUCENT1005",
+      "a decorator",
+      "function sealed(_t: typeof A): void {}\n@sealed\nexport class A {}\n",
+      "decorator",
+    ],
+    [
+      "LUCENT1005",
+      "a static block",
+      "class C {\n  static x = 1;\n  static {\n    C.x = 2;\n  }\n}\nexport function f(): number {\n  return C.x;\n}\n",
+      "initializer",
+    ],
+    [
+      "LUCENT1003",
+      "Object.keys with an optional field",
+      "type P = { x: number; y?: number };\nexport function f(p: P): string[] {\n  return Object.keys(p);\n}\n",
+      "`undefined`",
+    ],
+    [
+      "LUCENT1002",
+      "for…in with an optional field",
+      'type P = { x: number; y?: number };\nexport function f(p: P): string {\n  let s = "";\n  for (const k in p) s += k;\n  return s;\n}\n',
+      "`undefined`",
+    ],
+    [
+      "LUCENT2002",
+      "a rest parameter",
+      "function sum(...xs: number[]): number {\n  return xs.length;\n}\nexport function f(): number {\n  return sum(1, 2);\n}\n",
+      "array",
+    ],
+    [
+      "LUCENT2002",
+      "an async generator",
+      "export class G {\n  async *g(): AsyncGenerator<number> {\n    yield 1;\n  }\n}\n",
+      "generator",
+    ],
+  ])("%s: %s", (code, _construct, source, fix) => {
+    const r = compileExample({ "sample.lucent.ts": source });
+    expect(r.diagnostics).toContainEqual(
+      expect.objectContaining({ code, fix: expect.stringContaining(fix) }),
+    );
+  });
+});
