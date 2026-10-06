@@ -975,6 +975,18 @@ UIAction for the control's event mask on iOS, through
 `lucent::objc::addControlAction`), and taken back when the mount ends,
 which breaks the cycle through the handler. Children are inserted in order.
 
+**Where it is returned.** Native JSX is setup code, and setup runs once
+per mount, so the component may return it from any of its own code: the
+last statement, a PLATFORM branch or guard, a ternary's arms, or any
+condition (`if (available("ios", 17)) return <UIButton
+isSymbolAnimationEnabled />`). A one-file component returns each
+platform's views from its branch, and each platform's program keeps only
+its own. A root chosen by a runtime condition is chosen once per mount:
+a later change of what it read does not swap it. What it may not be is a
+value: JSX kept in a variable, or made by a function of setup's.
+Unlike a toolkit body, which compiles to one Swift or Kotlin body,
+nothing here asks for a single return.
+
 **Children that come and go (T49).** A child may be a branch or a keyed
 list:
 
@@ -1070,7 +1082,7 @@ Yoga (no second Yoga is bundled):
   lays nothing out. On iOS the view owns it.
 
 **Diagnostics.** LUCENT3025: native JSX the component does not return
-as it is, a spread attribute, a child that is not a native view's
+as it is, from its own code, a spread attribute, a child that is not a native view's
 element, a class with no constructor to make it with (and no `create`),
 a prop reading a copy setup made of a prop (`const title =
 props.title`), which would never change; a list's element without a
@@ -1251,7 +1263,8 @@ mounts another, and, on iOS, changes the text size live.
 A component takes React children when its props declare
 `children?: Children` (or `children: Children`), `Children` coming from
 `lucent:ui`. Its setup then makes the view they are mounted in, its slot,
-once, in a `const` at its top level, and puts it in the view it returns:
+once, in a `const` at its top level (or at the top level of a PLATFORM
+branch, in a one-file component), and puts it in the view it returns:
 
 ```tsx
 export function Card(props: { title: string; children?: Children }): UIView {
@@ -1267,7 +1280,9 @@ export function Card(props: { title: string; children?: Children }): UIView {
 `slot<T>()` names the platform's container class, UIKit's `UIView` or
 Android's `ViewGroup`, and the compiler refuses any other. It also
 refuses children without a slot, a slot without children, a second slot,
-a slot made anywhere but a top-level `const` of setup, and setup reading
+a slot made anywhere but a top-level `const` of setup or of its PLATFORM
+branch (another platform's branch is not the platform's code), and setup
+reading
 `props.children`. React's declarations take `children?: ReactNode`, and
 the runtime renders the native view with them.
 

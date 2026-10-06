@@ -432,6 +432,22 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-06: Native JSX returns from any of setup's own code.** A
+component returns its platform views' JSX from its last statement, a
+PLATFORM branch or guard, a ternary's arms, or any condition of setup's
+(`if (available("ios", 17)) return <… />`), and makes its slot at the
+top level of setup or of a PLATFORM branch. JSX kept in a variable or
+made by a function of setup's is still refused (LUCENT3025). _Why:_ the
+last-statement rule came from toolkit bodies, which compile to one
+Swift or Kotlin body; native JSX is setup code run once per mount, so a
+return under a branch is ordinary JavaScript, and each platform's
+program lowers only its own branch. The rule made one-file components
+with platform views or children impossible, though one file with
+PLATFORM branches is how a component is written (2026-09-30), and left
+LUCENT3007's advice, `if (available(…))`, unusable for an attribute.
+_Changed:_ T48's diagnostics, views.md (Platform views as JSX:
+where it is returned; Children: the slot rule).
+
 **2026-10-06: CI jobs time out past their slowest runs.** Each job
 stops at two to three times its longest run on cold caches (the maxima of
 the last hundred runs) rather than at GitHub's six hours, and the iOS
@@ -975,6 +991,10 @@ prop, event or measuring entry.
   `test/ui/native-jsx-diagnostics.test.ts`, `test/unknown-library.test.ts`.
   Android views mount only on Android; their glue is compiled against
   jni.h.
+- Native JSX may be returned from any of setup's own code, a one-file
+  component's PLATFORM branches included, and its slot made in one
+  (decisions log, 2026-10-06); an iOS attribute is checked against the
+  oldest iOS, as an assignment in setup code is (LUCENT3007).
 
 <a id="t49"></a>
 

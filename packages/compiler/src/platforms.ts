@@ -340,6 +340,30 @@ export function guardClause(checker: ts.TypeChecker, s: ts.Statement): Platform 
 }
 
 /**
+ * Whether a statement stands in `fn`'s own code: in its body, or only in
+ * PLATFORM branches there (`if (PLATFORM === "ios") { … }`), which a
+ * platform's program takes as its code.
+ */
+export function topLevel(
+  checker: ts.TypeChecker,
+  s: ts.Statement,
+  fn: { body?: ts.Node },
+): boolean {
+  for (let n: ts.Node = s; n.parent !== fn.body; n = n.parent) {
+    const p = n.parent;
+    const branch =
+      (ts.isBlock(p) &&
+        ts.isIfStatement(p.parent) &&
+        platformGuard(checker, p.parent.expression)) ||
+      (ts.isIfStatement(p) && n !== p.expression && platformGuard(checker, p.expression));
+
+    if (!branch || ts.isFunctionLike(p)) return false;
+  }
+
+  return true;
+}
+
+/**
  * The platform the innermost platform branch, case or guard clause around
  * `node` runs on; code both platforms reach has none.
  */
