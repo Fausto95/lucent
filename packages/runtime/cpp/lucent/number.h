@@ -113,6 +113,24 @@ I toExactInteger(double v) {
   return static_cast<I>(t);
 }
 
+/// A number as a narrower native number, as WebIDL's default conversion
+/// (no [EnforceRange]): an integer of 32 bits or fewer takes ToInt32 and
+/// wraps modulo 2^bits; a 64-bit one takes toExactInteger; an enum its
+/// underlying type's; a floating type rounds.
+template <class T>
+T toNativeNumber(double v) {
+  static_assert(!std::is_same_v<T, bool>, "a boolean is not a number");
+
+  if constexpr (std::is_enum_v<T>)
+    return static_cast<T>(toNativeNumber<std::underlying_type_t<T>>(v));
+  else if constexpr (std::is_floating_point_v<T>)
+    return static_cast<T>(v);
+  else if constexpr (sizeof(T) <= 4)
+    return static_cast<T>(toInt32(v));
+  else
+    return toExactInteger<T>(v);
+}
+
 namespace math {
 inline double abs(double v) { return std::fabs(v); }
 inline double floor(double v) { return std::floor(v); }

@@ -42,6 +42,7 @@ import {
   numberToNative,
   primLt,
   toObjc,
+  toNativeNumber,
   toObjcExpr,
 } from "./native.ts";
 
@@ -238,7 +239,7 @@ export function swiftCall(
       case "scalar":
         return numberToNative(t, cType(t), em.exprAs(a, primLt(t)), argumentWhat(em, a));
       case "enum":
-        return cpp.staticCast(cpp.type("NSInteger"), em.exprAs(a, T.number));
+        return toNativeNumber(cpp.type("NSInteger"), em.exprAs(a, T.number));
       case "object":
         if (cStruct(t)) return cpp.call("lucent::objc::structBytes", [toObjc(em, a, t, member)]);
         if (!hasUnion(t)) return toObjc(em, a, t, member);
@@ -274,7 +275,7 @@ export function swiftSet(
       case "scalar":
         return numberToNative(t, cType(t), v, use.what);
       case "enum":
-        return cpp.staticCast(cpp.type("NSInteger"), v);
+        return toNativeNumber(cpp.type("NSInteger"), v);
       case "object":
         if (hasUnion(t)) return unionToObjc(em, use, t, v, 0);
         return t.nullable

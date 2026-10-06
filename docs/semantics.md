@@ -56,7 +56,12 @@ must fit the native type (`0n` to `2n ** 64n - 1n` for unsigned ones), or
 the call throws `RangeError` naming the parameter or field. Enums, option
 sets and Android constant groups (`@IntDef`, `@LongDef`) stay numbers; a
 `@LongDef` value a number cannot hold exactly (beyond ±(2^53 − 1)) throws
-`RangeError` instead of rounding.
+`RangeError` instead of rounding. A number passed where native code takes a
+narrower integer (`int`, `int32_t`, `uint8_t`, Java's `short` or `char`, an
+enum's raw value) converts as WebIDL's default conversion: NaN and
+infinities become 0, the rest is truncated and wraps modulo 2^bits, as
+`x | 0` does for 32 bits; a 64-bit one that stays a number (a Swift enum's
+`Int` raw value) throws `RangeError` unless finite and within ±(2^53 − 1).
 
 ## Types
 

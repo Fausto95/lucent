@@ -425,14 +425,19 @@ export function numberFromNative(t: SdkType, code: cpp.Expr): cpp.Expr {
  * A Lucent value `c` of schema type `t` (primLt) as the native number
  * `native`: a bigint exactly, or RangeError naming `what` (the parameter or
  * field); a group's number as WebIDL's [EnforceRange] long long; the
- * others cast.
+ * others as WebIDL's default conversion (lucent::toNativeNumber).
  */
 export function numberToNative(t: SdkType, native: cpp.Type, c: cpp.Expr, what: string): cpp.Expr {
   if (isBigIntType(t)) return cpp.call("lucent::toNativeInteger", [c, cpp.str(what)], [native]);
 
   return isGroupWide(t)
     ? cpp.call("lucent::toExactInteger", [c], [native])
-    : cpp.staticCast(native, c);
+    : toNativeNumber(native, c);
+}
+
+/** A number `c` as the native number or enum `native`, defined for every value. */
+export function toNativeNumber(native: cpp.Type, c: cpp.Expr): cpp.Expr {
+  return cpp.call("lucent::toNativeNumber", [c], [native]);
 }
 
 /**
@@ -701,7 +706,7 @@ export function toObjcExpr(t: SdkType, c: cpp.Expr, owned: boolean, what = "a va
       return objc("outSlot", cpp.bool(owned));
     case "ref": {
       const e = sdkEnum("ios", t);
-      if (e) return cpp.staticCast(cpp.type(e.native), c);
+      if (e) return toNativeNumber(cpp.type(e.native), c);
       // A union (a Swift enum with payloads): the case's dictionary.
       if (isPayloadEnum(t)) return cpp.call("lucentSwiftObject", [c]);
       const s = sdkStruct(t);
@@ -1147,13 +1152,13 @@ function jniOf(em: FnEmitter, arg: ts.Expression, t: SdkType, value: E): cpp.Exp
           cpp.type("jboolean"),
           cpp.conditional(value.c, cpp.id("JNI_TRUE"), cpp.id("JNI_FALSE")),
         );
-      // Integral Java types take ToInt32 of the number, as JavaScript's bit operations
-      // do; long (a bigint) takes it exactly.
-      const integral = ["int", "short", "byte", "char"].includes(t.name);
-      const native = cpp.type(JNI_PRIM[t.name] ?? "jdouble");
-      return integral
-        ? cpp.staticCast(native, cpp.call("lucent::toInt32", [value.c]))
-        : numberToNative(t, native, value.c, argumentWhat(em, arg));
+      // long (a bigint) takes it exactly; the others wrap as on iOS.
+      return numberToNative(
+        t,
+        cpp.type(JNI_PRIM[t.name] ?? "jdouble"),
+        value.c,
+        argumentWhat(em, arg),
+      );
     }
     case "string": {
       if (!t.nullable) return jni("toJString", env, value.c);
@@ -2133,14 +2138,8 @@ function boxedForJava(t: SdkType & { k: "prim" }, c: cpp.Expr, what: string): cp
   const box = BOX[t.name];
   if (!box) throw new Error(`${t.name} values, which Java does not box`);
   if (t.name === "boolean" || t.name === "double") return jni(box, env, c);
-  if (t.name === "long" || t.name === "float")
-    return jni(box, env, numberToNative(t, cpp.type(JNI_PRIM[t.name]!), c, what));
 
-  return jni(
-    box,
-    env,
-    cpp.staticCast(cpp.type(JNI_PRIM[t.name]!), cpp.call("lucent::toInt32", [c])),
-  );
+  return jni(box, env, numberToNative(t, cpp.type(JNI_PRIM[t.name]!), c, what));
 }
 
 /**
