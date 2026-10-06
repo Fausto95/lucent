@@ -174,6 +174,41 @@ describe("diagnostics", () => {
     ).toEqual(["LUCENT1001"]);
   });
 
+  describe("spreads into a record literal", () => {
+    const spread = (decls: string, type: string) =>
+      compileSource(
+        `${decls}\nexport function f(v: ${type}): number {\n  const r: Record<string, number | undefined> = { ...v };\n  return Object.keys(r).length;\n}\n`,
+      ).diagnostics;
+
+    it("accepts a record", () => {
+      expect(spread("", "Record<string, number | undefined>")).toEqual([]);
+    });
+
+    it("accepts a record that may be undefined", () => {
+      expect(spread("", "Record<string, number | undefined> | undefined")).toEqual([]);
+    });
+
+    it.each([
+      ["an object type", "type P = { a: number; b?: number };", "P"],
+      ["a class instance", "class C { a = 1; b?: number; }", "C"],
+      ["an interface", "interface I { a: number; b?: number }", "I"],
+    ])("rejects %s, which has no key order nor set of present keys", (_, decls, type) => {
+      expect(spread(decls, type)).toEqual([
+        expect.objectContaining({
+          code: "LUCENT1001",
+          line: 3,
+          message: expect.stringContaining("only records can be spread into a record literal"),
+        }),
+      ]);
+    });
+
+    it("rejects a record of another value type", () => {
+      expect(spread("", "Record<string, number>")).toEqual([
+        expect.objectContaining({ code: "LUCENT2004" }),
+      ]);
+    });
+  });
+
   it("rejects throwing non-errors", () => {
     expect(codes('export function f(): number { throw "nope"; }')).toContain("LUCENT1006");
   });
