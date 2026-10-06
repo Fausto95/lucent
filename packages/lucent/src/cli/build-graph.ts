@@ -65,7 +65,7 @@ export type RequiredAction =
 export const ACTION_KINDS = [
   // The app's configuration (Info.plist, entitlements, manifest) changed: build and install it again.
   "reinstall",
-  // Native dependencies or build files changed (pod install on iOS when files came or went).
+  // Native dependencies or build files changed (pod install first on iOS).
   "relink",
   // Native code changed: rebuild the app, which restarts it.
   "compile-native",
@@ -208,9 +208,14 @@ export function requiredAction(
   next: { rebuild: boolean; podInstall: boolean; reload: boolean },
   targets: string[],
   changedUnits: string[],
+  actions: PendingAction[] = [],
 ): RequiredAction {
   if (next.podInstall)
-    return { kind: "relink", targets, dependencyChanges: ["native files added or removed"] };
+    return {
+      kind: "relink",
+      targets,
+      dependencyChanges: actions.find((a) => a.kind === "relink")?.files ?? [],
+    };
 
   if (next.rebuild)
     return { kind: "compile-native", targets, changedUnits: [...changedUnits].sort() };

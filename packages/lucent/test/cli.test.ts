@@ -156,6 +156,69 @@ describe("Lucent packages", () => {
     expect(fs.existsSync(proxy("lucent-hello/greet"))).toBe(true);
     expect(fs.existsSync(proxy("lucent-greet/greet"))).toBe(false);
   });
+
+  /** A Lucent package in the app's packages/ directory, as a workspace or file: dependency. */
+  function nestedPackage(root: string, name: string): void {
+    const pkg = path.join(root, "packages", name);
+    fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(pkg, "package.json"),
+      JSON.stringify({ name, version: "1.0.0", lucent: { sources: "src" } }),
+    );
+    fs.writeFileSync(
+      path.join(pkg, "src/hello.lucent.ts"),
+      "export function hello(): number { return 1; }\n",
+    );
+  }
+
+  it("builds a Lucent package inside the app, linked as a dependency, once", () => {
+    const root = project();
+    nestedPackage(root, "lucent-near");
+    fs.writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "app", dependencies: { "lucent-near": "file:packages/lucent-near" } }),
+    );
+    fs.mkdirSync(path.join(root, "node_modules"));
+    fs.symlinkSync("../packages/lucent-near", path.join(root, "node_modules/lucent-near"));
+
+    const r = lucent(root, "build");
+    expect(r.out).not.toMatch(/LUCENT3010/);
+    expect(r.status).toBe(0);
+    expect(r.out).toMatch(/lucent-near\/hello/);
+    expect(fs.existsSync(path.join(root, ".lucent/native/js/lucent-near/hello.js"))).toBe(true);
+  });
+
+  it("builds an app importing such a package by path through a linked --root", () => {
+    const root = project();
+    nestedPackage(root, "lucent-near");
+    fs.writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "app", dependencies: { "lucent-near": "file:packages/lucent-near" } }),
+    );
+    fs.mkdirSync(path.join(root, "node_modules"));
+    fs.symlinkSync("../packages/lucent-near", path.join(root, "node_modules/lucent-near"));
+    fs.writeFileSync(
+      path.join(root, "near.lucent.ts"),
+      'import { hello } from "./packages/lucent-near/src/hello.lucent";\nexport function near(): number { return hello(); }\n',
+    );
+    const link = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "lucent-cli-link-")), "app");
+    fs.symlinkSync(root, link);
+
+    const r = lucent(link, "build");
+    expect(r.out).not.toMatch(/LUCENT3001/);
+    expect(r.status).toBe(0);
+  });
+
+  it("leaves a Lucent package inside the app out of the build when the app does not depend on it", () => {
+    const root = project();
+    nestedPackage(root, "lucent-far");
+    fs.writeFileSync(path.join(root, "package.json"), JSON.stringify({ name: "app" }));
+
+    const r = lucent(root, "build");
+    expect(r.status).toBe(0);
+    expect(r.out).not.toMatch(/lucent-far/);
+    expect(fs.existsSync(path.join(root, ".lucent/native/js/lucent-far"))).toBe(false);
+  });
 });
 
 describe("a Lucent package's own pod", () => {
@@ -212,6 +275,13 @@ describe("a Lucent package's own pod", () => {
       expect(
         fs.readFileSync(path.join(root, ".lucent/native/LucentNative.podspec"), "utf8"),
       ).toContain('s.dependency "LucentAuthKit", "~> 1.0"');
+
+      // A module that is not there has no bindings, and its own fix.
+      expect(r.out).toMatch(/✗ SDK bindings +no bindings for LucentAuthKit\n/);
+      expect(r.out.replace(/\s+/g, " ")).toContain(
+        "fix check the module's name, and that the app installs the pod or framework that defines it",
+      );
+      expect(r.out).not.toContain("use the SDK inside a PLATFORM branch");
     },
     600_000,
   );

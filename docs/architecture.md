@@ -78,6 +78,12 @@ Notable lowering choices:
   signature, and `super(...)` runs the base's `construct()` and then the
   subclass's field initializers. A base-typed value converts to JavaScript
   as its most derived class, whose prototype's `__proto__` is the base's.
+  A class that extends `Error` derives from `ErrorObject`, and its root
+  prototype's `__proto__` is `Error.prototype`, with `name`, `message` and
+  `stack` read from the native error (`defineErrorPrototype`). The
+  generated `errorInstanceToJs` lets `Host::errorToJs` throw, reject or
+  return such an error as its instance, and an instance coming back is
+  itself again.
 - **Interfaces implemented by classes** become abstract C++ bases (`I_Shape`)
   with pure-virtual methods and `get_`/`set_` accessors for properties.
   Implementing classes inherit them, fields get generated overrides, and
@@ -135,8 +141,10 @@ Notable lowering choices:
   library and the SDK headers define macros under ordinary names (`HUGE`,
   `DOMAIN`, `pascal`, `si_value`), different on each platform, so no list
   can avoid them: each generated file undefines, after its includes, every
-  name the program declares that it spells (`#pragma push_macro`, `#undef`)
-  and restores them at its end (`emit/macros.ts`).
+  name the program declares that it spells as an identifier, outside
+  comments and string literals (`#pragma push_macro`, `#undef`), and
+  restores them at its end (`emit/macros.ts`). The `#line` paths are
+  strings, so the sources' directory never changes the guards.
 - **Trace sites**: each binding names where its export is declared
   (`LUCENT_TRACE_SITE_AT`, the same path as `#line`), so a trace of a call
   points at the `.lucent.ts` declaration rather than at generated code;
@@ -1184,8 +1192,10 @@ version from the compiler's; the lowering matches on `ts.SyntaxKind`, so the
 plugin never hands the editor's AST to the compiler. It `import()`s the
 compiler (an ES module) asynchronously, refreshes diagnostics once loaded, and
 calls `checkSources(files, readSource, { extensions })` with the project's
-`*.lucent.ts` paths, the editor's unsaved buffer text and the Lucent
-packages' native extensions, bound once per session (`projectExtensions`). The compiler builds its own program
+`*.lucent.ts` paths that `lucent build` compiles (`filesInBuild`: not a
+Lucent package inside the app that the app does not depend on), the
+editor's unsaved buffer text and the Lucent packages' native extensions,
+bound once per session (`projectExtensions`). The compiler builds its own program
 (library declarations are parsed once per process) and returns diagnostics
 with offsets and lengths. One check serves every file until a Lucent source
 changes version. TypeScript errors are left to TypeScript.
