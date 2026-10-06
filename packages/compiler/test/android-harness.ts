@@ -6,6 +6,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { classpathFile } from "../../bindgen/test/java-fixtures.ts";
+import { runJar } from "../../bindgen/test/jvm-tools.ts";
 import {
   compileKotlin,
   kotlinFixtures,
@@ -83,18 +84,40 @@ export function ndkErrorsAll(
   return runAll(units.map((u) => ndkJob(bin, u.files, u.dir))).map((r) => r.output);
 }
 
-/** An app's classpath holding bindgen's Kotlin fixture library and the Kotlin standard library. */
-export async function kotlinClasspath(kotlin: KotlinToolchain): Promise<SdkOptions> {
+/**
+ * An app's classpath holding bindgen's Kotlin fixture library and the Kotlin standard library.
+ * With `annotations` (an annotations.xml for dev.orbit.search), the library is an AAR whose
+ * annotations.zip carries them, as an Android library ships its @RequiresPermission.
+ */
+export async function kotlinClasspath(
+  kotlin: KotlinToolchain,
+  options: { annotations?: string } = {},
+): Promise<SdkOptions> {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-kotlin-classpath-"));
   const jar = await compileKotlin(
     kotlin,
     kotlinSources(kotlinFixtures),
     path.join(dir, "orbit-search.jar"),
   );
-  const classpath = classpathFile(path.join(dir, "android-classpath.json"), [
-    path.join(kotlin.lib, "kotlin-stdlib.jar"),
-    jar,
-  ]);
+  const stdlib = path.join(kotlin.lib, "kotlin-stdlib.jar");
+  const classpath = path.join(dir, "android-classpath.json");
 
-  return { android: { classpath } };
+  if (!options.annotations) return { android: { classpath: classpathFile(classpath, [stdlib, jar]) } };
+
+  const aar = path.join(dir, "aar");
+  fs.mkdirSync(aar);
+  fs.copyFileSync(jar, path.join(aar, "classes.jar"));
+  const xml = path.join(dir, "ann/dev/orbit/search");
+  fs.mkdirSync(xml, { recursive: true });
+  fs.writeFileSync(path.join(xml, "annotations.xml"), options.annotations);
+  jarOrThrow(["cfM", path.join(aar, "annotations.zip"), "-C", path.join(dir, "ann"), "."]);
+  const file = path.join(dir, "orbit-search.aar");
+  jarOrThrow(["cfM", file, "-C", aar, "."]);
+
+  return { android: { classpath: classpathFile(classpath, [stdlib], [file]) } };
+}
+
+function jarOrThrow(args: string[]): void {
+  const r = runJar(args);
+  if (r.status !== 0) throw new Error(r.stderr);
 }
