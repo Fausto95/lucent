@@ -92,6 +92,11 @@ String stringReplaceAll(const String& s, const RegExp& re, const String& replace
 String stringReplaceAll(const String& s, const RegExp& re, const Replacer& replacer);
 Array<String> stringSplit(const String& s, const RegExp& re, Opt<double> limit = undefined);
 
+/// A string pattern: the replacement reads `$` patterns as a RegExp's does,
+/// with no captures, so `$1` and `$<name>` stay as written.
+String stringReplace(const String& s, const String& search, const String& replacement);
+String stringReplaceAll(const String& s, const String& search, const String& replacement);
+
 /// A capture passed to a replacement callback parameter typed `string`.
 String captureOrThrow(const Opt<String>& capture, int group);
 

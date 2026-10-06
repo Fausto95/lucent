@@ -72,8 +72,6 @@ class String {
   String repeat(double count) const;
   String padStart(double targetLength, const String& fill) const;
   String padEnd(double targetLength, const String& fill) const;
-  String replace(const String& search, const String& replacement) const;
-  String replaceAll(const String& search, const String& replacement) const;
   String concat(const String& other) const { return *this + other; }
   double localeCompare(const String& other) const;
   String normalize() const { return *this; }

@@ -1400,7 +1400,11 @@ function stringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExp
       if (second && (ts.isArrowFunction(second) || ts.isFunctionExpression(second)))
         fail(second, Codes.UnsupportedBuiltin, "replacement functions are not supported");
       return str(
-        cpp.call(cpp.dot(o, name), [argAs(em, node, 0, T.string), argAs(em, node, 1, T.string)]),
+        cpp.call(name === "replace" ? "lucent::stringReplace" : "lucent::stringReplaceAll", [
+          o,
+          argAs(em, node, 0, T.string),
+          argAs(em, node, 1, T.string),
+        ]),
       );
     }
     case "split": {

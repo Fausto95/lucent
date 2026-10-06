@@ -224,9 +224,9 @@ static void strings() {
   CHECK_THROWS(S("ab").repeat(-1), "RangeError");
   CHECK_STR(S("5").padStart(3, S("0")), "005");
   CHECK_STR(S("abc").padEnd(6, S("12")), "abc121");
-  CHECK_STR(S("a-b-c").replace(S("-"), S("+")), "a+b-c");
-  CHECK_STR(S("a-b-c").replaceAll(S("-"), S("+")), "a+b+c");
-  CHECK_STR(S("ab").replaceAll(S(""), S("-")), "-a-b-");
+  CHECK_STR(stringReplace(S("a-b-c"), S("-"), S("+")), "a+b-c");
+  CHECK_STR(stringReplaceAll(S("a-b-c"), S("-"), S("+")), "a+b+c");
+  CHECK_STR(stringReplaceAll(S("ab"), S(""), S("-")), "-a-b-");
   // A string pattern's replacement reads $ patterns as a RegExp's does, with no captures.
   CHECK_STR(stringReplace(S("abc"), S("b"), S("[$&]")), "a[b]c");
   CHECK_STR(stringReplace(S("abc"), S("b"), S("$$|$1|$<x>")), "a$|$1|$<x>c");

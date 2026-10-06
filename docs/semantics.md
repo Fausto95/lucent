@@ -191,8 +191,9 @@ runs, so a right side that changes the target does not change what is read.
 - **String**: `length`, `charAt`, `charCodeAt`, `codePointAt`, `at`, `indexOf`,
   `lastIndexOf`, `includes`, `startsWith`, `endsWith`, `slice`, `substring`,
   `substr`, `toUpperCase`/`toLowerCase`, `trim*`, `padStart`/`padEnd`, `repeat`,
-  `replace`/`replaceAll` (string patterns), `split` (string separators),
-  `concat`, `localeCompare`; `String.fromCharCode`, `String.fromCodePoint`.
+  `replace`/`replaceAll` (string patterns, with `$` patterns), `split`
+  (string separators), `concat`, `localeCompare`; `String.fromCharCode`,
+  `String.fromCodePoint`.
 - **Array**: `length` (read/write), `push`, `pop`, `shift`, `unshift`, `slice`,
   `splice`, `concat`, `join`, `indexOf`, `lastIndexOf`, `includes`, `find`,
   `findIndex`, `filter`, `map`, `flatMap`, `forEach`, `some`, `every`,

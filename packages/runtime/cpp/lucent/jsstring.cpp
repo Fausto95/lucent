@@ -750,37 +750,6 @@ static String pad(const String& s, double target, const String& fill, bool atSta
 String String::padStart(double targetLength, const String& fill) const { return pad(*this, targetLength, fill, true); }
 String String::padEnd(double targetLength, const String& fill) const { return pad(*this, targetLength, fill, false); }
 
-String String::replace(const String& search, const String& replacement) const {
-  size_t at = find(search, 0);
-  if (at == std::string::npos) return *this;
-  return sub(0, at) + replacement + sub(at + search.length(), length());
-}
-
-String String::replaceAll(const String& search, const String& replacement) const {
-  std::u16string out;
-  size_t n = length(), m = search.length();
-  if (m == 0) {
-    // "ab".replaceAll("", "-") === "-a-b-"
-    for (size_t i = 0; i < n; i++) {
-      replacement.appendUnitsTo(out);
-      out.push_back(unit(i));
-    }
-    replacement.appendUnitsTo(out);
-    return make(std::move(out));
-  }
-  size_t pos = 0;
-  for (;;) {
-    size_t at = find(search, pos);
-    if (at == std::string::npos) break;
-    for (size_t i = pos; i < at; i++) out.push_back(unit(i));
-    replacement.appendUnitsTo(out);
-    pos = at + m;
-  }
-  if (pos == 0) return *this;
-  for (size_t i = pos; i < n; i++) out.push_back(unit(i));
-  return make(std::move(out));
-}
-
 #if defined(__APPLE__) && !defined(LUCENT_PORTABLE_COLLATION)
 
 // Like Hermes on Apple platforms: CoreFoundation with the current locale,
