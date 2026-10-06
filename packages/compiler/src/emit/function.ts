@@ -373,7 +373,11 @@ export class FnEmitter {
         `object types must match exactly to share a native representation (${this.describe(from)} vs ${this.describe(to)})`,
       );
     }
-    if ((from.k === "array" && to.k === "array") || (from.k === "map" && to.k === "map")) {
+    if (
+      (from.k === "array" && to.k === "array") ||
+      (from.k === "map" && to.k === "map") ||
+      (from.k === "dict" && to.k === "dict")
+    ) {
       fail(
         node,
         Codes.ArrayVariance,
@@ -2418,7 +2422,28 @@ export class FnEmitter {
           parts.push(set(stringExpr(p.name.text), this.exprAs(p.name, t.val)));
         } else if (ts.isSpreadAssignment(p)) {
           const s = this.expr(p.expression);
-          parts.push(cpp.exprStmt(cpp.call("lucent::assignEntries", [tmp, s.c])));
+          if (s.t.k === "opt" && s.t.inner.k === "dict") {
+            // Spreading undefined adds nothing.
+            const srcName = this.ctx.fresh("src");
+            const src = cpp.id(srcName);
+            const entries = this.coerce({ c: cpp.call(cpp.dot(src, "get")), t: s.t.inner }, t, p);
+            parts.push(cpp.varDecl(cpp.auto, srcName, s.c));
+            parts.push(
+              cpp.ifStmt(cpp.call(cpp.dot(src, "has")), [
+                cpp.exprStmt(cpp.call("lucent::assignEntries", [tmp, entries])),
+              ]),
+            );
+            continue;
+          }
+          // An object's fields have a fixed layout: no key order, no record of which optional
+          // fields are set, so its keys can't be enumerated the way JavaScript does.
+          if (s.t.k !== "dict")
+            fail(
+              p,
+              Codes.UnsupportedSyntax,
+              `only records can be spread into a record literal, not ${this.checker.typeToString(this.checker.getTypeAtLocation(p.expression))}; set the entries one by one (\`r.a = value.a\`)`,
+            );
+          parts.push(cpp.exprStmt(cpp.call("lucent::assignEntries", [tmp, this.coerce(s, t, p)])));
         } else fail(p, Codes.UnsupportedSyntax, "unsupported property in record literal");
       }
       return { c: cpp.statementExpr(parts, tmp), t };

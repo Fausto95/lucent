@@ -138,7 +138,11 @@ Supported:
 - Optional chaining `a?.b`, `a?.[i]`, `a?.m()`, `f?.()`, and non-null `x!`
   (checked), also as an assignment target: `xs[i]! += 1`.
 - Template literals, spread in calls, object literals and arrays (any
-  iterable: `[...map]`, `[...set]`, `[...text]`, `[...generator()]`).
+  iterable: `[...map]`, `[...set]`, `[...text]`, `[...generator()]`). An
+  object literal of an object type spreads objects; a record literal
+  spreads records of its value type, or undefined. Spreading an object
+  into a record is refused (`LUCENT1001`): an object's fields have no key
+  order nor a record of which optional ones are set.
 - `typeof`, `instanceof` (classes, `Error` kinds, `Array`, `Map`, …), `in` on records.
 - Arrow functions and function expressions, nested function declarations
   (hoisted), recursion. Closures share variables with their enclosing scope,
