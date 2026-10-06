@@ -191,6 +191,50 @@ export function toJsonOnce(): string {
   ].join(" ");
 }
 
+class Arrow {
+  n = 2;
+  toJSON = (): number => this.n * 10;
+}
+
+class ArrowBase {
+  tag = "t";
+  toJSON = (): string => `base ${this.tag}`;
+}
+
+class ArrowSub extends ArrowBase {
+  extra = 1;
+}
+
+class Given {
+  constructor(
+    public label: string,
+    public toJSON: () => string,
+  ) {}
+}
+
+class Dropped {
+  keep = 1;
+  toJSON = (): number | undefined => undefined;
+}
+
+class NotCalled {
+  toJSON = 5;
+  other = "o";
+}
+
+export function toJsonField(): string {
+  const arrow = new Arrow();
+  arrow.n = 3;
+  return [
+    JSON.stringify(arrow),
+    JSON.stringify(new ArrowSub()),
+    JSON.stringify(new Given("g", () => "given")),
+    JSON.stringify({ d: new Dropped(), a: [arrow] }),
+    JSON.stringify([new Dropped()]),
+    JSON.stringify(new NotCalled()),
+  ].join(" ");
+}
+
 class Pair<A, B> {
   constructor(
     public first: A,
@@ -246,7 +290,7 @@ export function generics(): string {
     JSON.stringify(plain),
     JSON.stringify(new Labeled()),
     JSON.stringify(cell),
-    JSON.stringify([new Shown<number | undefined>(1), new Shown<number | undefined>(undefined)]),
+    JSON.stringify([new Shown(1), new Shown<number | undefined>(undefined)]),
     JSON.stringify({ s: new Shown<number | undefined>(undefined) }),
   ].join(" ");
 }

@@ -261,6 +261,16 @@ export function f(round: boolean): number {
     expect(codes(src)).toContain("LUCENT1005");
   });
 
+  it.each([
+    ["takes a key", "toJSON = (key: string): string => key;"],
+    ["may be absent", "toJSON?: () => string;"],
+    ["may hold undefined", "toJSON: (() => string) | undefined = undefined;"],
+    ["is async", "toJSON = async (): Promise<string> => 'p';"],
+  ])("rejects a toJSON field that %s", (_, field) => {
+    const src = `class P { ${field} }\nexport function f(): string { return JSON.stringify(new P()); }`;
+    expect(codes(src)).toContain("LUCENT1005");
+  });
+
   it("rejects overrides whose native signature differs", () => {
     const src =
       "class A { f(x: number): number { return x; } }\nclass B extends A { override f(x?: number): number { return 1; } }\nexport function g(): number { return new B().f(1); }";
@@ -396,6 +406,49 @@ export function f(round: boolean): number {
           "class P { x = 1; }\nexport function f(s: string): number { return (JSON.parse(s) as P).x; }",
         ),
       ).toContain("LUCENT1003");
+    });
+  });
+
+  describe("generic class instantiations", () => {
+    const prelude = [
+      "class Shown<T> { constructor(public v: T) {} }",
+      "class Sub<T> extends Shown<T> {}",
+      "type Maybe = Shown<number | undefined>;",
+      "function take(x: Maybe): number { return x.v ?? 0; }",
+      "",
+    ].join("\n");
+
+    /** The diagnostics of `body`, run in a function given an existing `Shown<number>`. */
+    function refused(body: string) {
+      return compileSource(
+        `${prelude}export function f(): number {\n  const one = new Shown(1);\n  ${body}\n}\n`,
+      ).diagnostics;
+    }
+
+    it.each([
+      ["a declaration", "const m: Maybe = one; return take(m);"],
+      ["an assignment", "let m: Maybe = new Shown<number | undefined>(2); m = one; return take(m);"],
+      ["an array element", "return [one, new Shown<number | undefined>(2)].length;"],
+      ["an argument", "return take(one);"],
+      ["a tuple element", "const t: [Maybe, number] = [one, 2]; return t[1];"],
+      ["a record value", "const r: Record<string, Maybe> = { a: one }; return take(r.a!);"],
+      ["a union member", "const u: Maybe | string = one; return typeof u === 'string' ? 0 : 1;"],
+      ["a Map value", "const m = new Map<string, Maybe>(); m.set('a', one); return m.size;"],
+      ["a Set element", "const s = new Set<Maybe>(); s.add(one); return s.size;"],
+      ["a subclass instance", "const s = new Sub(1); return take(s);"],
+    ])("rejects an existing instance of another instantiation as %s", (_, body) => {
+      const d = refused(body);
+
+      expect(d.map((x) => x.code)).toEqual(["LUCENT2004"]);
+      expect(d[0]!.message).toMatch(/Shown<number>.*Shown<number \| undefined>/);
+    });
+
+    it("rejects returning an existing instance of another instantiation", () => {
+      const d = compileSource(
+        `${prelude}const one = new Shown(1);\nfunction give(): Maybe { return one; }\nexport function f(): number { return take(give()); }\n`,
+      ).diagnostics;
+
+      expect(d.map((x) => x.code)).toEqual(["LUCENT2004"]);
     });
   });
 
