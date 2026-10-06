@@ -41,10 +41,12 @@
  ├── resolved.json                   Lucent packages' lucent.json, merged, with provenance
  ├── packages/<package>/             the native files each Lucent package lists
  ├── react-native.config.js          pure C++ dependency (cxxModule* fields)
- ├── types/                          lucent:core and SDK declarations (tsconfig paths)
+ ├── types/                          lucent:core and SDK declarations (tsconfig paths),
+ │                                   types/views/<module>.d.ts components' React types
  └── js/<module>.js                  proxies Metro bundles instead of the .ts,
      js/_lucent/runtime.js           and the loader they require,
-     js/_lucent/views.js             and the views runtime components' exports use
+     js/_lucent/views.js             and the views runtime components' exports use,
+     js/_lucent/components/<module>.js  lucent:views/<module>: requires the module
 ```
 
 ## Compiler
@@ -78,6 +80,12 @@ Notable lowering choices:
   signature, and `super(...)` runs the base's `construct()` and then the
   subclass's field initializers. A base-typed value converts to JavaScript
   as its most derived class, whose prototype's `__proto__` is the base's.
+  A class that extends `Error` derives from `ErrorObject`, and its root
+  prototype's `__proto__` is `Error.prototype`, with `name`, `message` and
+  `stack` read from the native error (`defineErrorPrototype`). The
+  generated `errorInstanceToJs` lets `Host::errorToJs` throw, reject or
+  return such an error as its instance, and an instance coming back is
+  itself again.
 - **Interfaces implemented by classes** become abstract C++ bases (`I_Shape`)
   with pure-virtual methods and `get_`/`set_` accessors for properties.
   Implementing classes inherit them, fields get generated overrides, and
@@ -135,8 +143,10 @@ Notable lowering choices:
   library and the SDK headers define macros under ordinary names (`HUGE`,
   `DOMAIN`, `pascal`, `si_value`), different on each platform, so no list
   can avoid them: each generated file undefines, after its includes, every
-  name the program declares that it spells (`#pragma push_macro`, `#undef`)
-  and restores them at its end (`emit/macros.ts`).
+  name the program declares that it spells as an identifier, outside
+  comments and string literals (`#pragma push_macro`, `#undef`), and
+  restores them at its end (`emit/macros.ts`). The `#line` paths are
+  strings, so the sources' directory never changes the guards.
 - **Trace sites**: each binding names where its export is declared
   (`LUCENT_TRACE_SITE_AT`, the same path as `#line`), so a trace of a call
   points at the `.lucent.ts` declaration rather than at generated code;
@@ -276,7 +286,11 @@ Notable lowering choices:
   its components (`ui/proxy.ts`) as React components the views runtime
   (`runtime/js/views.js`) makes from a generated description; their
   React-facing declarations come from `componentDeclarations`, written
-  to the native package's `types/views/<module>.d.ts`, and a module's API
+  to the native package's `types/views/<module>.d.ts`, which the app's
+  `lucent:*` tsconfig path makes `lucent:views/<module>`; Metro's
+  resolver (`withLucent`) maps that name to
+  `js/_lucent/components/<module>.js`, which requires the component's
+  module itself, so the app's two imports are one module. A module's API
   hash covers its components' contracts. Props and
   event handlers travel under keys of their own (`ui/transport.ts`:
   `p<index>`, `e<slot>`, events `lucent<slot>`), never meeting React
@@ -1004,10 +1018,14 @@ code runs bundled and from sources. The compiler, bindgen and runtime are
 private workspace packages.
 
 Nothing Lucent ships is needed at run time as a package: `lucent build` copies
-the runtime and the JS loader into `.lucent/native`, and the generated proxies
-require the loader by a relative path, which Metro's transformer rebases onto
-the `*.lucent.ts` file each proxy replaces. `lucent:core` is served by the
-compiler like `lucent:thread`.
+the runtime and the JS loader into `.lucent/native`. Metro bundles each
+`*.lucent.ts` file as a require of its generated proxy, a module Metro
+watches like any source file, so a build that rewrites a proxy needs a
+reload, not a restart. The proxy requires the loader by a path relative to
+itself, which resolves inside the native package, and `react-native` from
+the app's `node_modules`, which `withLucent` adds to Metro's
+`resolver.nodeModulesPaths` for a native package outside the app
+(`LUCENT_OUT`). `lucent:core` is served by the compiler like `lucent:thread`.
 
 ### Build records
 
@@ -1028,10 +1046,35 @@ may include from. The resolve node's inputs include each path a Lucent package
 lists in its `lucent.json` (`packages/<package>/<path>`), hashed by its
 files' paths and contents; `.lucent/file-hashes.json` keeps each file's hash
 while its size and times hold (a file changed within a second of being
-hashed is hashed again). `startedAt` says when each timed step started
-(milliseconds from the build's start, outside the node hashes like the
-timings), so `lucent trace` (`src/cli/trace.ts`) lays the steps out as
-spans beside runtime traces; see [tracing.md](tracing.md).
+hashed is hashed again). The check node's inputs are the sources, the
+targets, and every other file the compile read (`compiler/src/reads.ts`):
+the files imports resolve to, the `package.json` files TypeScript's
+resolution reads and the one that names a module, each hashed by the
+content read, or `missing` for a file it looked for and did not find.
+Those outside the project (the compiler's own, a linked package's) are
+one `outside-project` input, hashed on the contents of the files found
+there, so the node is the same wherever the project, the compiler and
+the working directory are. Where the links resolution followed led is
+left out: it names paths on this machine (see below).
+`startedAt` says when each timed step started (milliseconds from the
+build's start, outside the node hashes like the timings), so `lucent trace`
+(`src/cli/trace.ts`) lays the steps out as spans beside runtime traces; see
+[tracing.md](tracing.md).
+
+A check or build answers from the last one that passed while nothing it
+used changed. Its record (`.lucent/check.json`, or for a build the native
+package's `manifest.json`) keeps a key of what it was given (`inputsKey`:
+the sources, the compiler and runtime, the SDKs with the app's dependencies,
+the output location, the targets, the packages' native needs), of the
+files it read, and of where each path resolution followed a link from led
+(TypeScript's `realpath`), and lists those files and paths; the next run
+reads them again (`upToDate`), so a dependency's `package.json` gaining an
+`exports` map, a file a module imports types from, or a linked package
+replaced by an installed copy (whose files where the check read them may
+be the same while those they re-export differ) makes it check again. So does a lost
+record or usage report (`.lucent/sdk-usage.json`); `--frozen` always
+checks again, and `lucent build --force` always builds again (`lucent check`
+takes no `--force`).
 
 ### SDK usage and the SDK lock
 
@@ -1105,17 +1148,28 @@ build. An unknown output relinks. Each action has its targets and files;
 
 The native package is published file by file through a temporary file
 renamed over the old one, so Metro never reads half a proxy, and
-`manifest.json`, Metro's cache key, comes last. Unchanged files keep their
+`manifest.json` comes last: its module list keys Metro's transform cache,
+and Metro watches the proxies themselves. Unchanged files keep their
 content and mtime.
 
 ### Watching
 
 `lucent dev` (and Metro's watcher, which runs it) watches the app and every
 Lucent package whose directory is outside it (workspace or linked
-packages), whole. A change rebuilds when a build reads the file: a module,
-a `package.json` or `lucent.json`, or a path a package lists (the build's
-`nativeInputs`). Dependencies and dot directories, where builds write, are
-never read, so a build never triggers another; nor does an event for a
+packages), whole, and the entries of each directory holding a file the
+last build read (for a file it looked for and did not find, the nearest
+directory there is), inside those too: Linux's recursive watch reports
+neither a link swapped for a directory nor what then changes in it. A
+directory replaced since it was watched (another inode at its path) is
+watched again after the next build. A change rebuilds when the last
+build read the file, wherever it is: a file its check read or a path it
+resolved a link from (the build's `read`, the paths its record keys on),
+or a path a package lists (`nativeInputs`); so does a directory between
+a watched one and such a file being created, removed or swapped for a
+link. In the app and its packages, outside dependencies and dot
+directories, so does any module, `package.json` or `lucent.json`, which
+the next build may read whatever the last one did. No build reads what
+builds write, so a build never triggers another; nor does an event for a
 file last changed before the last build started. Saves are debounced; a
 change during a build aborts it (`BuildOptions.signal`) before it writes,
 and one build follows.
@@ -1149,8 +1203,10 @@ version from the compiler's; the lowering matches on `ts.SyntaxKind`, so the
 plugin never hands the editor's AST to the compiler. It `import()`s the
 compiler (an ES module) asynchronously, refreshes diagnostics once loaded, and
 calls `checkSources(files, readSource, { extensions })` with the project's
-`*.lucent.ts` paths, the editor's unsaved buffer text and the Lucent
-packages' native extensions, bound once per session (`projectExtensions`). The compiler builds its own program
+`*.lucent.ts` paths that `lucent build` compiles (`filesInBuild`: not a
+Lucent package inside the app that the app does not depend on), the
+editor's unsaved buffer text and the Lucent packages' native extensions,
+bound once per session (`projectExtensions`). The compiler builds its own program
 (library declarations are parsed once per process) and returns diagnostics
 with offsets and lengths. One check serves every file until a Lucent source
 changes version. TypeScript errors are left to TypeScript.

@@ -68,7 +68,7 @@ describe("C++ expressions", () => {
   it("escape string literals as UTF-8 bytes", () => {
     expect(printExpr(str('a"b\\c'))).toBe('"a\\"b\\\\c"');
     expect(printExpr(str("é?"))).toBe('"\\303\\251\\077"');
-    expect(printExpr(cpp.str16("\ud800"))).toBe('u"\\ud800"');
+    expect(printExpr(cpp.str16("a\ud800"))).toBe('u"\\x61\\xd800"');
   });
 
   it("print lambdas one statement per line, and simple statement expressions inline", () => {

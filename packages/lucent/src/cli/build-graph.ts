@@ -65,7 +65,7 @@ export type RequiredAction =
 export const ACTION_KINDS = [
   // The app's configuration (Info.plist, entitlements, manifest) changed: build and install it again.
   "reinstall",
-  // Native dependencies or build files changed (pod install on iOS when files came or went).
+  // Native dependencies or build files changed (pod install first on iOS).
   "relink",
   // Native code changed: rebuild the app, which restarts it.
   "compile-native",
@@ -101,12 +101,16 @@ export function contentHash(data: string | Buffer): string {
   return createHash("sha256").update(data).digest("hex").slice(0, 16);
 }
 
+/** A file's path as artifacts key it: relative to `root`, with `/`. */
+export function projectPath(root: string, file: string): string {
+  return path.relative(root, path.resolve(file)).split(path.sep).join("/");
+}
+
 /** A file as an artifact: its path relative to `root` (with `/`), and its content's hash. */
 export function fileArtifact(root: string, file: string): Artifact {
-  const key = path.relative(root, path.resolve(file)).split(path.sep).join("/");
   const hash = fs.existsSync(file) ? contentHash(fs.readFileSync(file)) : "missing";
 
-  return { key, hash };
+  return { key: projectPath(root, file), hash };
 }
 
 function byKey(a: Artifact, b: Artifact): number {
@@ -204,9 +208,14 @@ export function requiredAction(
   next: { rebuild: boolean; podInstall: boolean; reload: boolean },
   targets: string[],
   changedUnits: string[],
+  actions: PendingAction[] = [],
 ): RequiredAction {
   if (next.podInstall)
-    return { kind: "relink", targets, dependencyChanges: ["native files added or removed"] };
+    return {
+      kind: "relink",
+      targets,
+      dependencyChanges: actions.find((a) => a.kind === "relink")?.files ?? [],
+    };
 
   if (next.rebuild)
     return { kind: "compile-native", targets, changedUnits: [...changedUnits].sort() };

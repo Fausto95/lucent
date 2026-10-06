@@ -92,7 +92,7 @@ describe("build identities", () => {
     expect(after).toEqual(before);
   });
 
-  it("change the API with what JavaScript sees: signatures, exports, fields, members and enum values", () => {
+  it("change the API with what JavaScript sees: signatures, exports, fields, members, statics and enum values", () => {
     const before = identity({ "a.lucent.ts": shapes }).apis.all!.a;
     const edits = [
       shapes.replace("speed(mode: Mode)", "speed(mode: Mode, boost?: number)"),
@@ -102,6 +102,7 @@ describe("build identities", () => {
       `${shapes}export const LIMIT = 3;\n`,
       shapes.replace("y: number }", "y: number; z?: number }"),
       shapes.replace("count = 0;", 'count = 0;\n  label = "";'),
+      shapes.replace("count = 0;", "count = 0;\n  static made = 0;"),
       shapes.replace("Slow = 2", "Slow = 3"),
     ];
 

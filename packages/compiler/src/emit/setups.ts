@@ -26,10 +26,11 @@ import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
 import { builtinSdkModuleOf, type LucentModule } from "../program.ts";
 import { cppIdent, type LType, T } from "../types.ts";
+import type { Platform } from "../sdk/schema.ts";
 import type { ComponentDescription } from "../ui/contract.ts";
 import { fabricNames } from "../ui/fabric.ts";
 import { assignFieldRepr, assignRepr, fieldToLucent, toLucent } from "./view-values.ts";
-import { type FunctionLike, toolkitOf } from "../ui/roots.ts";
+import { type FunctionLike, returnShape, sdkRoot, toolkitOf } from "../ui/roots.ts";
 import { type BodySetup, bodyOf, isJsx } from "../ui/toolkit-body.ts";
 import type { ToolkitName } from "../ui/toolkits.ts";
 import type { Ctx, E } from "./context.ts";
@@ -151,8 +152,7 @@ export function planSetup(
     return { name: c.name, field: `c${i}_${cppIdent(c.name)}`, type };
   });
 
-  const sig = checker.getSignatureFromDeclaration(fn);
-  const root = ctx.reg.lower(checker.getReturnTypeOfSignature(sig!), fn);
+  const root = ctx.reg.lower(rootType(checker, fn, ctx.platform), fn);
   const propsSymbol = param && checker.getSymbolAtLocation(param.name);
   const described = ctx.platform && component.platforms[ctx.platform]?.root;
   const toolkit = described && toolkitOf(described);
@@ -175,6 +175,29 @@ export function planSetup(
   ctx.setups.set(fn, setup);
 
   return setup;
+}
+
+/**
+ * The type a setup returns: the root view class the target's own code
+ * returns, which the component's description names (returnShape), where
+ * its signature's mixes in other code: a one-file component's return type
+ * is the union of each platform's view, or `any` where another platform's
+ * SDK is missing here (its views untyped).
+ */
+function rootType(
+  checker: ts.TypeChecker,
+  fn: FunctionLike,
+  platform: Platform | undefined,
+): ts.Type {
+  const declared = checker.getReturnTypeOfSignature(checker.getSignatureFromDeclaration(fn)!);
+
+  if (!(declared.flags & ts.TypeFlags.Any) && !declared.isUnion()) return declared;
+
+  const shape = returnShape(checker, fn, platform, sdkRoot);
+  const symbol =
+    shape.kind === "view" && shape.root.name && checker.getSymbolAtLocation(shape.root.name);
+
+  return symbol ? checker.getDeclaredTypeOfSymbol(symbol) : declared;
 }
 
 /**

@@ -111,4 +111,22 @@ setTimeout(() => {
 
     await exited;
   }, 30_000);
+
+  it("reports why Gradle failed, not only the end of its output", () => {
+    const { root, file } = app();
+    const fixture = path.join(import.meta.dirname, "fixtures/gradle/resolution.txt");
+    fs.writeFileSync(
+      path.join(root, "android/gradlew"),
+      `#!/bin/sh\ncat ${JSON.stringify(fixture)} >&2\nexit 1\n`,
+      { mode: 0o755 },
+    );
+
+    const outcome = resolve(root, file);
+
+    expect(outcome.status).toBe("failed");
+
+    const detail = outcome.status === "failed" ? outcome.detail : "";
+    expect(detail).toContain("Could not resolve com.example.missing:lib:1.0.0.");
+    expect(detail).not.toContain("BUILD FAILED");
+  });
 });

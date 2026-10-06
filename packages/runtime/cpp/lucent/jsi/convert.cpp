@@ -282,6 +282,7 @@ jsi::Value Convert<NativeBuffer>::toJs(jsi::Runtime& rt, Host& h, const NativeBu
 }
 
 Error Convert<Error>::fromJs(jsi::Runtime& rt, const jsi::Value& v, const Path&) {
+  if (auto own = std::dynamic_pointer_cast<ErrorObject>(instanceOf(rt, v))) return own;
   Error e = makeError(String::fromLatin1("Error"), String());
   if (v.isObject()) {
     jsi::Object o = v.getObject(rt);

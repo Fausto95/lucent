@@ -29,8 +29,9 @@
  */
 import ts from "typescript";
 import { Codes, fail } from "../diagnostics.ts";
-import { branchPlatform, platformGuard } from "../platforms.ts";
+import { branchPlatform, topLevel } from "../platforms.ts";
 import { builtinSdkModuleOf, platformOf } from "../program.ts";
+import type { Platform } from "../sdk/schema.ts";
 import { inComposition } from "./composition.ts";
 import type { ViewType } from "./contract.ts";
 import { type FunctionLike, nativeTagType } from "./roots.ts";
@@ -251,6 +252,16 @@ function shownToolkit(
   return returned ? shownToolkit(returned, checker, seen) : undefined;
 }
 
+/** Fails for native views' JSX (T48) a component does not return as it is. */
+export function refuseNativeJsx(node: ts.Node): never {
+  return fail(
+    node,
+    Codes.NativeViewJsx,
+    "JSX of native views is what a component returns: return it from the component's own code",
+    "return the JSX where it is written, `return <UILabel … />`, in the component or one of its branches",
+  );
+}
+
 /**
  * A setup's body: the JSX it returns, once, as the last statement of its
  * own code (an arrow function's expression), with the modifiers chained
@@ -262,13 +273,8 @@ export function bodyOf(fn: FunctionLike, name: ToolkitName, checker: ts.TypeChec
   const refused = `a ${title} component returns its body: JSX of ${title}'s views, which the setup's last statement returns`;
 
   // Native views' JSX (T48) not returned as it is: the component looks like a toolkit's.
-  const native = nativeJsxIn(fn, checker);
-  if (native)
-    fail(
-      native,
-      Codes.NativeViewJsx,
-      "JSX of native views is what a component returns: return it, as the last statement of the component",
-    );
+  const native = nativeJsxIn(fn, checker, platform);
+  if (native) refuseNativeJsx(native);
 
   if (fn.body && !ts.isBlock(fn.body)) {
     if (jsxRoot(fn.body)) return fn.body;
@@ -306,26 +312,6 @@ export function bodyOf(fn: FunctionLike, name: ToolkitName, checker: ts.TypeChec
 }
 
 /**
- * Whether a statement stands in `fn`'s own code: in its body, or only in
- * PLATFORM branches there (`if (PLATFORM === "ios") { … }`), which a
- * platform's program takes as its code.
- */
-function topLevel(checker: ts.TypeChecker, s: ts.Statement, fn: FunctionLike): boolean {
-  for (let n: ts.Node = s; n.parent !== fn.body; n = n.parent) {
-    const p = n.parent;
-    const branch =
-      (ts.isBlock(p) &&
-        ts.isIfStatement(p.parent) &&
-        platformGuard(checker, p.parent.expression)) ||
-      (ts.isIfStatement(p) && n !== p.expression && platformGuard(checker, p.expression));
-
-    if (!branch || ts.isFunctionLike(p)) return false;
-  }
-
-  return true;
-}
-
-/**
  * Whether `node` is in a body: its code is the toolkit's, so the program's
  * analyses and the C++ emitter leave it out.
  */
@@ -360,11 +346,22 @@ export function isUiForm(
   );
 }
 
-/** The first JSX element of native views in `fn`'s own code, if any. */
-function nativeJsxIn(fn: FunctionLike, checker: ts.TypeChecker): ts.Expression | undefined {
+/**
+ * The first JSX element of native views in `fn`'s code on `platform`, its
+ * functions' too (whose JSX it does not return), if any.
+ */
+function nativeJsxIn(
+  fn: FunctionLike,
+  checker: ts.TypeChecker,
+  platform: Platform,
+): ts.Expression | undefined {
   let found: ts.Expression | undefined;
   const visit = (n: ts.Node): void => {
-    if (found || (n !== fn && ts.isFunctionLike(n))) return;
+    if (found) return;
+
+    const branch = branchPlatform(checker, n);
+
+    if (branch && branch !== platform) return;
     if ((ts.isJsxElement(n) || ts.isJsxSelfClosingElement(n)) && nativeTagType(checker, n)) {
       found = n;
       return;
@@ -382,7 +379,7 @@ export const isBind = (checker: ts.TypeChecker, call: ts.CallExpression): boolea
   isUiForm(checker, call, "bind");
 
 /** Whether `node` is in the setup's own code: not in a function the setup makes. */
-export function inSetupCode(node: ts.Node, setup: FunctionLike): boolean {
+export function inSetupCode(node: ts.Node, setup: ts.FunctionLikeDeclaration): boolean {
   for (let n = node.parent; n; n = n.parent) if (ts.isFunctionLike(n)) return n === setup;
 
   return false;

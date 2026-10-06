@@ -6,6 +6,7 @@
 
 #include "../execution.h"
 #include "../view.h"
+#include "convert.h"
 
 namespace lucent::js {
 
@@ -513,7 +514,111 @@ jsi::Value Host::wrap(jsi::Runtime& rt, const Ref<Object>& instance, const char*
   return jsi::Value(std::move(obj));
 }
 
+namespace {
+
+/// `head`, then the Lucent frame `site` when there is one, then the frames
+/// of `stack`, a JS Error's.
+std::string stackWithSite(const std::string& head, const Opt<String>& site, const std::string& stack) {
+  size_t firstFrame = stack.find('\n');
+  std::string frames = firstFrame == std::string::npos ? "" : stack.substr(firstFrame);
+  return site.has() ? head + "\n    at " + site.get().toUtf8() + frames : head + frames;
+}
+
+/// `o[name] = value` as JavaScript assigns an Error's own data property:
+/// writable, configurable, not enumerable, even over an accessor it inherits.
+void defineOwn(jsi::Runtime& rt, const jsi::Object& o, const char* name, const jsi::Value& value) {
+  jsi::Object descriptor(rt);
+  descriptor.setProperty(rt, "value", value);
+  descriptor.setProperty(rt, "writable", true);
+  descriptor.setProperty(rt, "configurable", true);
+  rt.global()
+      .getPropertyAsObject(rt, "Object")
+      .getPropertyAsFunction(rt, "defineProperty")
+      .call(rt, o, jsi::String::createFromAscii(rt, name), descriptor);
+}
+
+bool hasOwn(jsi::Runtime& rt, const jsi::Object& o, const char* name) {
+  return rt.global()
+      .getPropertyAsObject(rt, "Object")
+      .getPropertyAsObject(rt, "prototype")
+      .getPropertyAsFunction(rt, "hasOwnProperty")
+      .callWithThis(rt, o, jsi::String::createFromAscii(rt, name))
+      .getBool();
+}
+
+/// What JavaScript's `e.stack` reads when the error has no stack of its own.
+String errorStack(const Error& e) {
+  if (e->stack.has()) return e->stack.get();
+  String head = errorToString(e);
+  return e->site.has() ? head + String::fromLatin1("\n    at ") + e->site.get() : head;
+}
+
+/// An accessor of the native error behind `thisVal`; on anything else
+/// (the prototype itself), Error.prototype's property, as JavaScript's
+/// subclasses inherit it.
+void defineErrorAccessor(jsi::Runtime& rt, Host& host, jsi::Object& proto, const char* name, String (*read)(const Error&),
+                         void (*write)(const Error&, String)) {
+  auto self = [](jsi::Runtime& rt, const jsi::Value& thisVal) { return std::dynamic_pointer_cast<ErrorObject>(instanceOf(rt, thisVal)); };
+  auto getter = [installed = host.shared_from_this(), name, read, self](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value*,
+                                                                       size_t) -> jsi::Value {
+    Error e = self(rt, thisVal);
+    if (!e) return rt.global().getPropertyAsObject(rt, "Error").getPropertyAsObject(rt, "prototype").getProperty(rt, name);
+    return callSync(rt, Host::from(rt, installed), [&]() -> jsi::Value { return jsi::Value(stringToJs(rt, read(e))); });
+  };
+  auto setter = [installed = host.shared_from_this(), name, write, self](jsi::Runtime& rt, const jsi::Value& thisVal, const jsi::Value* args,
+                                                                        size_t count) -> jsi::Value {
+    Error e = write ? self(rt, thisVal) : nullptr;
+    if (!e) {
+      if (thisVal.isObject()) defineOwn(rt, thisVal.getObject(rt), name, arg(args, count, 0));
+      return jsi::Value::undefined();
+    }
+    std::string fn = std::string("Error.") + name;
+    String value = Convert<String>::fromJs(rt, arg(args, count, 0), Path{fn.c_str(), "value"});
+    return callSync(rt, Host::from(rt, installed), [&]() -> jsi::Value {
+      write(e, std::move(value));
+      return jsi::Value::undefined();
+    });
+  };
+  defineAccessor(rt, proto, name, getter, setter);
+}
+
+}  // namespace
+
+void defineErrorPrototype(jsi::Runtime& rt, Host& host, jsi::Object& proto) {
+  jsi::Object object = rt.global().getPropertyAsObject(rt, "Object");
+  jsi::Value errorProto = rt.global().getPropertyAsObject(rt, "Error").getProperty(rt, "prototype");
+  object.getPropertyAsFunction(rt, "setPrototypeOf").call(rt, proto, errorProto);
+
+  defineErrorAccessor(
+      rt, host, proto, "name", [](const Error& e) { return e->name; }, [](const Error& e, String v) { e->name = std::move(v); });
+  defineErrorAccessor(
+      rt, host, proto, "message", [](const Error& e) { return e->message; },
+      [](const Error& e, String v) { e->message = std::move(v); });
+  // Assigning `stack` gives the object its own, as on an Error.
+  defineErrorAccessor(rt, host, proto, "stack", errorStack, nullptr);
+
+  // Not enumerable, as an Error's own are.
+  for (const char* name : {"name", "message", "stack"}) {
+    jsi::Object descriptor(rt);
+    descriptor.setProperty(rt, "enumerable", false);
+    object.getPropertyAsFunction(rt, "defineProperty").call(rt, proto, jsi::String::createFromAscii(rt, name), descriptor);
+  }
+}
+
 jsi::Value Host::errorToJs(jsi::Runtime& rt, const Error& e) {
+  jsi::Value instance = errorInstanceToJs(rt, *this, e);
+  if (instance.isObject()) {
+    // Its stack, once: the Lucent frame that made it, if any, then the
+    // JavaScript frames where it first reached JavaScript.
+    jsi::Object o = instance.getObject(rt);
+    if (!e->stack.has() && !hasOwn(rt, o, "stack")) {
+      jsi::Value here = rt.global().getPropertyAsFunction(rt, "Error").callAsConstructor(rt).getObject(rt).getProperty(rt, "stack");
+      std::string frames = here.isString() ? here.getString(rt).utf8(rt) : "";
+      defineOwn(rt, o, "stack", jsi::String::createFromUtf8(rt, stackWithSite(errorToString(e).toUtf8(), e->site, frames)));
+    }
+    return instance;
+  }
+
   std::string name = e->name.toUtf8();
   // The kinds Lucent throws (SyntaxError from BigInt(string)), as JavaScript's own.
   const char* ctor = (name == "TypeError" || name == "RangeError" || name == "SyntaxError") ? name.c_str() : "Error";
@@ -532,13 +637,14 @@ jsi::Value Host::errorToJs(jsi::Runtime& rt, const Error& e) {
     std::string stack = current.isString() ? current.getString(rt).utf8(rt) : "";
     size_t firstFrame = stack.find('\n');
     std::string head = firstFrame == std::string::npos ? stack : stack.substr(0, firstFrame);
-    std::string frames = firstFrame == std::string::npos ? "" : stack.substr(firstFrame);
-    err.setProperty(rt, "stack", jsi::String::createFromUtf8(rt, head + "\n    at " + e->site.get().toUtf8() + frames));
+    err.setProperty(rt, "stack", jsi::String::createFromUtf8(rt, stackWithSite(head, e->site, stack)));
   }
   return jsi::Value(std::move(err));
 }
 
 Error Host::errorFromJs(jsi::Runtime& rt, const jsi::JSError& e) {
+  // A Lucent error that went through JavaScript is itself again.
+  if (auto own = std::dynamic_pointer_cast<ErrorObject>(instanceOf(rt, e.value()))) return own;
   Error out = makeError(String::fromLatin1("Error"), String::fromUtf8(e.getMessage()));
   out->stack = String::fromUtf8(e.getStack());
   const jsi::Value& v = e.value();

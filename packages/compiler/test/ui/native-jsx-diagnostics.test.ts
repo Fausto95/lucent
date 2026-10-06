@@ -2,7 +2,9 @@
 // so: LUCENT3025 for native JSX it cannot make, with what to do instead;
 // an attribute the rules refuse, explained; the main thread's rules
 // (LUCENT3022), which an attribute's code keeps like any setup code; the
-// shapes a child that comes and goes (T49) takes.
+// shapes a child that comes and goes (T49) takes; an attribute checked
+// against the oldest iOS like setup code; and the returns it may take,
+// from any of setup's own code, one file's PLATFORM branches included.
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -36,6 +38,28 @@ function diagnostics(platform: "ios" | "android", imports: string, code: string)
   }));
 }
 
+/**
+ * A one-file `title.lucent.tsx`, `code` its body after `imports` and those of
+ * both platforms' views, compiled for `platform`: diagnostics and root.
+ */
+function oneFile(platform: "ios" | "android", code: string, imports = "") {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-native-jsx-one-file-"));
+  const file = path.join(dir, "title.lucent.tsx");
+
+  fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
+  fs.writeFileSync(
+    file,
+    `${imports}import { PLATFORM } from "lucent:platform";\nimport { UILabel } from "lucent:ios/UIKit";\nimport { TextView } from "lucent:android/android.widget";\n\nexport function Title(props: { title: string }) {\n${code}\n}\n`,
+  );
+
+  const result = compile([file], { platforms: [platform] });
+
+  return {
+    diagnostics: result.diagnostics.map((d) => `${d.code} ${d.message}`),
+    root: result.components?.[0]?.platforms[platform]?.root,
+  };
+}
+
 describe("native view JSX diagnostics", () => {
   beforeEach(() => {
     process.env.LUCENT_VIEWS = "fabric";
@@ -56,6 +80,38 @@ describe("native view JSX diagnostics", () => {
       expect.objectContaining({
         code: "LUCENT3025",
         message: expect.stringContaining("JSX of native views is what a component returns"),
+      }),
+    ]);
+  });
+
+  it.skipIf(!ios)("checks an iOS attribute against the oldest iOS, as setup code is", () => {
+    expect(
+      diagnostics(
+        "ios",
+        'import { UIButton } from "lucent:ios/UIKit";',
+        "  return <UIButton isSymbolAnimationEnabled />;",
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        code: "LUCENT3007",
+        message:
+          'UIControl.isSymbolAnimationEnabled needs iOS 17.0 (apps run from iOS 15.1): use it under if (available("ios", 17))',
+      }),
+    ]);
+  });
+
+  it.skipIf(!ios)("checks an iOS enum attribute against the oldest iOS too", () => {
+    expect(
+      diagnostics(
+        "ios",
+        'import { UIButton, UIContextMenuConfiguration_ElementOrder } from "lucent:ios/UIKit";',
+        "  return <UIButton preferredMenuElementOrder={UIContextMenuConfiguration_ElementOrder.fixed} />;",
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        code: "LUCENT3007",
+        message:
+          'UIButton.preferredMenuElementOrder needs iOS 16.0 (apps run from iOS 15.1): use it under if (available("ios", 16))',
       }),
     ]);
   });
@@ -198,4 +254,61 @@ describe("native view JSX diagnostics", () => {
       }),
     ]);
   });
+
+  it.skipIf(!ios)("returns native JSX under available(), the floor checked through it", () => {
+    expect(
+      diagnostics(
+        "ios",
+        'import { available } from "lucent:ios";\nimport { UIButton } from "lucent:ios/UIKit";',
+        '  if (available("ios", 17)) return <UIButton isSymbolAnimationEnabled />;\n  return <UIButton />;',
+      ),
+    ).toEqual([]);
+  });
+
+  it.skipIf(!ios || !android)("refuses native JSX a function setup makes returns", () => {
+    expect(
+      oneFile(
+        "ios",
+        '  if (PLATFORM === "ios") {\n    const make = () => <UILabel text={props.title} />;\n\n    return make();\n  }\n\n  return <TextView text={props.title} />;',
+      ).diagnostics,
+    ).toEqual([
+      "LUCENT3025 JSX of native views is what a component returns: return it from the component's own code",
+    ]);
+  });
+
+  const roots = {
+    ios: { module: "UIKit", name: "UILabel" },
+    android: { module: "android.widget", name: "TextView" },
+  };
+  const returns = {
+    "a PLATFORM branch":
+      '  if (PLATFORM === "ios") {\n    return <UILabel text={props.title} />;\n  }\n\n  return <TextView text={props.title} />;',
+    "a PLATFORM guard":
+      '  if (PLATFORM === "ios") return <UILabel text={props.title} />;\n\n  return <TextView text={props.title} />;',
+    "both arms of a PLATFORM if":
+      '  if (PLATFORM === "ios") {\n    return <UILabel text={props.title} />;\n  } else {\n    return <TextView text={props.title} />;\n  }',
+    "a PLATFORM ternary":
+      '  return PLATFORM === "ios" ? <UILabel text={props.title} /> : <TextView text={props.title} />;',
+  };
+
+  for (const [form, code] of Object.entries(returns))
+    it.skipIf(!ios || !android)(
+      `returns each platform's native JSX from ${form} of one file`,
+      () => {
+        expect(oneFile("ios", code)).toEqual({ diagnostics: [], root: roots.ios });
+        expect(oneFile("android", code)).toEqual({ diagnostics: [], root: roots.android });
+      },
+    );
+
+  it.skipIf(!ios || !android)(
+    "returns a SwiftUI body on iOS and native JSX on Android from one file",
+    () => {
+      const code =
+        '  if (PLATFORM === "ios") return <Text>{props.title}</Text>;\n\n  return <TextView text={props.title} />;';
+      const imports = 'import { Text } from "lucent:swiftui";\n';
+
+      expect(oneFile("ios", code, imports).diagnostics).toEqual([]);
+      expect(oneFile("android", code, imports)).toEqual({ diagnostics: [], root: roots.android });
+    },
+  );
 });

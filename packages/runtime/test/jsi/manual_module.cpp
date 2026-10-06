@@ -304,6 +304,7 @@ const ModuleDef* registeredModules(size_t& count) {
   return kModules;
 }
 void resetModuleState() {}
+jsi::Value errorInstanceToJs(jsi::Runtime&, Host&, const Error&) { return jsi::Value::undefined(); }
 const BuildIdentity& buildIdentity() {
   static const ModuleIdentity modules[] = {{"manual", "api-of-manual"}};
   static const BuildIdentity identity{"all", "program-of-manual", modules, 1};

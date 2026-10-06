@@ -51,6 +51,15 @@ const isAsync = (n: ts.Node) => modifiers(n).includes(ts.SyntaxKind.AsyncKeyword
 /** The name of a class's `[Symbol.dispose]()` method: the one symbol-keyed member Lucent classes have. */
 export const DISPOSE = "[Symbol.dispose]";
 
+/**
+ * `lucentJson_(w, toJson)`, every class's JSON writer (emit/index.ts
+ * jsonWriters defines it): virtual, so a base-typed value writes as its class.
+ */
+export const jsonMemberParams = [
+  cpp.param(cpp.reference(cpp.type("lucent::JsonWriter")), "w"),
+  cpp.param(cpp.type("bool"), "toJson"),
+];
+
 /** `Symbol.dispose`, as written. */
 export function isSymbolDispose(e: ts.Expression): boolean {
   return (
@@ -536,6 +545,15 @@ export function emitClass(
       fail(m, Codes.UnsupportedClassFeature, "index signatures in classes are not supported");
     }
   }
+  body.push(
+    cpp.method(
+      "lucentJson_",
+      cpp.type("bool"),
+      jsonMemberParams,
+      undefined,
+      info.base ? { override: true } : { virtual: true },
+    ),
+  );
   const overrides = ctx.guard(() => ifaceOverrides(ctx, info)) ?? [];
   const definition = cpp.struct(info.cppName, [...body, ...overrides], {
     ...(template ? { template } : {}),

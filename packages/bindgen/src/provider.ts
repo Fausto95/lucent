@@ -100,7 +100,8 @@ export interface SdkOptions {
   };
 }
 
-export type SdkLookup = { schema: SdkModuleSchema } | { missing: string };
+/** A module's schema, or why there is none and, when the module was not found, what to do. */
+export type SdkLookup = { schema: SdkModuleSchema } | { missing: string; fix?: string };
 
 let extractions = 0;
 /** How many modules were extracted in this process (tests). */
@@ -254,7 +255,9 @@ type SchemaEntry = { inputs: Inputs; schema: SdkModuleSchema };
 type NamesEntry = { inputs: Inputs; names: NamesIndex };
 
 /** A module's extraction, and the modules or packages it read. */
-type Extracted = { schema: SdkModuleSchema; read: Iterable<string> } | { missing: string };
+type Extracted =
+  | { schema: SdkModuleSchema; read: Iterable<string> }
+  | { missing: string; fix?: string };
 
 // --- Android -------------------------------------------------------------------------
 
@@ -353,7 +356,7 @@ function unique(artifacts: NativeArtifact[]): NativeArtifact[] {
   });
 }
 
-function androidNotFound(r: Resolved, module: string): { missing: string } {
+function androidNotFound(r: Resolved, module: string): { missing: string; fix: string } {
   const { jars, dependencies, classpath } = r.android!;
   const platformJars = jars.slice(0, jars.length - dependencies);
   let where = `looked in ${platformJars.join(", ")}`;
@@ -364,6 +367,7 @@ function androidNotFound(r: Resolved, module: string): { missing: string } {
 
   return {
     missing: `lucent:android/${module} was not found in the SDK or the app's dependencies (${where})`,
+    fix: "check the package's name, and that the app depends on the library that has it",
   };
 }
 
@@ -767,7 +771,7 @@ function namesFor(r: Resolved, modules: string[]): NamesIndex[] {
   return modules.map(read).filter((n): n is NamesIndex => !!n);
 }
 
-function iosNotFound(r: Resolved, module: string): { missing: string } {
+function iosNotFound(r: Resolved, module: string): { missing: string; fix: string } {
   const { ios } = r.ios!;
   const extra = [
     ios.includePaths?.length
@@ -790,6 +794,7 @@ function iosNotFound(r: Resolved, module: string): { missing: string } {
     : "";
   return {
     missing: `lucent:ios/${module} was not found in the SDK or the app's dependencies (${where})${packages}`,
+    fix: "check the module's name, and that the app installs the pod or framework that defines it",
   };
 }
 
@@ -985,7 +990,7 @@ function load(platform: Platform, r: Resolved, module: string): Loaded {
     withLock(
       path.join(dir, "schema"),
       () => cached() !== undefined,
-      (): SchemaEntry | { missing: string } => {
+      (): SchemaEntry | { missing: string; fix?: string } => {
         const x =
           platform === "android" ? extractAndroidModule(r, module) : extractIosModule(r, module);
         if ("missing" in x) return x;
