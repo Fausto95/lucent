@@ -1083,7 +1083,9 @@ export class TypeRegistry {
       let t = this.lower(c.getTypeOfSymbolAtLocation(p, decl ?? node), decl ?? node);
       if (decl && ts.isParameter(decl) && (decl.questionToken || decl.initializer) && t.k !== "opt")
         t = { k: "opt", inner: t, absent: "undefined" };
-      if (decl && ts.isParameter(decl) && decl.dotDotDotToken)
+      // A declared function, method or constructor gathers its rest into an
+      // array at each call; a function type has no call to gather it.
+      if (decl && ts.isParameter(decl) && decl.dotDotDotToken && !gathersRest(decl.parent))
         fail(
           decl,
           Codes.UnsupportedType,
@@ -1351,6 +1353,16 @@ export class TypeRegistry {
   cppClass(t: LType & { k: "class" }): string {
     return cpp.printType(this.cppClassType(t));
   }
+}
+
+/** Whether `fn` is a declaration whose calls gather a rest parameter (function values cannot). */
+export function gathersRest(fn: ts.Node): boolean {
+  return (
+    (ts.isFunctionDeclaration(fn) ||
+      ts.isMethodDeclaration(fn) ||
+      ts.isConstructorDeclaration(fn)) &&
+    fn.body !== undefined
+  );
 }
 
 /** The platform of a toolkit's module (`lucent:compose`: Android), if it is one. */

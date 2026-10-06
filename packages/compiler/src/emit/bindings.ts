@@ -688,7 +688,7 @@ export class BindingsEmitter {
       const n = `a${i}`;
       names.push(n);
       if (p.rest) {
-        const elem = this.reg.cppType((p.cppType as LType & { k: "array" }).e);
+        const elem = (p.cppType as LType & { k: "array" }).e;
         const at = cpp.id("i");
         const which = cpp.binary(
           cpp.str("argument "),
@@ -703,7 +703,7 @@ export class BindingsEmitter {
           body: [
             cpp.exprStmt(
               cpp.call(cpp.dot(cpp.id(n), "push"), [
-                fromJs(elem, cpp.index(cpp.id("args"), at), path(fname, which)),
+                this.convertFromJs(elem, cpp.index(cpp.id("args"), at), path(fname, which)),
               ]),
             ),
           ],

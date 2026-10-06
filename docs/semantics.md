@@ -178,6 +178,11 @@ Supported:
 - `typeof`, `instanceof` (classes, `Error` kinds, `Array`, `Map`, …), `in`
   on records, including the keys every object inherits (`"toString" in r`).
   `in` on a union is refused: tell its members apart by a discriminant.
+- Rest parameters (`...xs: T[]`) on function declarations, methods and
+  constructors, exported ones too: `new File(dir, "a.txt")` from
+  JavaScript gathers its arguments as JavaScript does. Such a function
+  is called, not used as a value, and a function type has no rest
+  parameter (`LUCENT2002`).
 - Arrow functions and function expressions, nested function declarations
   (hoisted), recursion. Closures share variables with their enclosing scope,
   and `let` loop variables get a fresh binding per iteration.

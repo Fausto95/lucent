@@ -981,6 +981,13 @@ export class FnEmitter {
       if (g.kind === "function") {
         if (g.generic)
           fail(id, Codes.UnsupportedSyntax, "generic functions cannot be used as values");
+        if (g.params.at(-1)?.rest)
+          fail(
+            id,
+            Codes.UnsupportedType,
+            `${text} takes a rest parameter, so it can only be called, not used as a value`,
+            "call it inside an arrow function",
+          );
         // A top-level function as a value: a lambda forwarding to it.
         const fnType = g.type;
         const params = g.params.map((p, i) => cpp.param(this.reg.cppType(p.cppType), `a${i}`));
@@ -2270,20 +2277,8 @@ export class FnEmitter {
       else fail(node, Codes.UnsupportedCall, "missing argument");
     }
     if (rest) {
-      // The rest parameter: an array of what is left, spread arrays appended.
-      const restT = rest as LType & { k: "array" };
-      const tmpName = this.ctx.fresh("rest");
-      const tmp = cpp.id(tmpName);
-      const parts = args
-        .slice(fixed)
-        .map((a) =>
-          cpp.exprStmt(
-            ts.isSpreadElement(a)
-              ? cpp.call(cpp.dot(tmp, "append"), [this.exprAs(a.expression, restT)])
-              : cpp.call(cpp.dot(tmp, "push"), [this.exprAs(a, restT.e)]),
-          ),
-        );
-      out.push(cpp.statementExpr([cpp.varDecl(this.reg.cppType(restT), tmpName), ...parts], tmp));
+      // The rest parameter: an array of what is left, spread iterables appended.
+      out.push(this.gathered(args.slice(fixed), rest as LType & { k: "array" }));
     }
     return out;
   }
@@ -2413,12 +2408,18 @@ export class FnEmitter {
       return { c: cpp.construct(this.reg.cppType(t), parts, true), t };
     }
     // With spreads: built element by element.
+    return { c: this.gathered(node.elements, t), t };
+  }
+
+  /** An array of type `t` holding `elements` in order, each spread one's items appended. */
+  private gathered(elements: readonly ts.Expression[], t: LType & { k: "array" }): cpp.Expr {
+    const elemT = t.e;
     const tmpName = this.ctx.fresh("arr");
     const tmp = cpp.id(tmpName);
     const append = (x: cpp.Expr) => cpp.exprStmt(cpp.call(cpp.dot(tmp, "append"), [x]));
     const push = (x: cpp.Expr) => cpp.exprStmt(cpp.call(cpp.dot(tmp, "push"), [x]));
     const parts: cpp.Stmt[] = [cpp.varDecl(this.reg.cppType(t), tmpName)];
-    for (const el of node.elements) {
+    for (const el of elements) {
       if (!ts.isSpreadElement(el)) {
         parts.push(push(this.exprAs(el, elemT)));
         continue;
@@ -2444,7 +2445,7 @@ export class FnEmitter {
         body: [push(this.coerce({ c: item, t: items.e }, elemT, el))],
       });
     }
-    return { c: cpp.statementExpr(parts, tmp), t };
+    return cpp.statementExpr(parts, tmp);
   }
 
   contextualType(node: ts.Expression): LType | undefined {

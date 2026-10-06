@@ -287,6 +287,13 @@ export function classMember(
   }
   if (ts.isMethodDeclaration(decl)) {
     // A bound method used as a value.
+    if (decl.parameters.at(-1)?.dotDotDotToken)
+      fail(
+        node,
+        Codes.UnsupportedType,
+        `${name} takes a rest parameter, so it can only be called, not used as a value`,
+        "call it inside an arrow function",
+      );
     const ft = em.lt(node);
     if (ft.k !== "fn") fail(node, Codes.UnsupportedClassFeature, "unsupported method reference");
     // The receiver is captured by reference counting, as `this` is.
