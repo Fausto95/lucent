@@ -774,6 +774,7 @@ function importDiagnostics(sf: ts.SourceFile, platform: Platform | undefined): D
     if (!m) continue;
     const [, scope, module] = m;
     let message: string | undefined;
+    let fix: string | undefined;
     if ((scope === "core" || scope === "thread" || scope === "platform") && !module) continue;
     if (scope === "ui" && !module && fabricRequested()) continue;
     const toolkit = toolkitOfModule(`lucent:${scope}`);
@@ -815,10 +816,17 @@ function importDiagnostics(sf: ts.SourceFile, platform: Platform | undefined): D
       message = `${spec} is only available in *.${scope}.lucent.ts files, or in shared files inside \`if (PLATFORM === "${scope}")\``;
     else if (module && (target === platform || platformSdkTyped(target))) {
       const found = sdkLookup(target, module);
-      if ("missing" in found) message = found.missing;
-      else continue;
+      if (!("missing" in found)) continue;
+
+      message = found.missing;
+      fix = found.fix;
     } else continue;
-    out.push({ ...at(sf, s.moduleSpecifier), code: Codes.SdkImport, message });
+    out.push({
+      ...at(sf, s.moduleSpecifier),
+      code: Codes.SdkImport,
+      message,
+      ...(fix ? { fix } : {}),
+    });
   }
   return out;
 }

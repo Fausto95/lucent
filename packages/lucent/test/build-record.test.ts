@@ -135,7 +135,8 @@ describe("lucent build's record", () => {
     expect(generate.outputs.every((o) => o.key.startsWith(".lucent/native/"))).toBe(true);
 
     expect(JSON.stringify(r.nodes)).not.toContain(root);
-    expect(r.requiredAction.kind).toBe("relink");
+    // A host build: no pod install, which only an iOS target needs.
+    expect(r.requiredAction.kind).toBe("compile-native");
     expect(typeof r.timings.check).toBe("number");
   });
 

@@ -40,8 +40,6 @@ export interface WriteResult {
   removed: string[];
   /** Written files that did not exist before. */
   added: string[];
-  /** True when files were added or removed (pods / Gradle need a resync). */
-  structureChanged: boolean;
 }
 
 /**
@@ -326,7 +324,6 @@ export function writeNativePackage(
     unchanged,
     removed,
     added: written.filter((f) => !before.has(f)),
-    structureChanged: removed.length > 0 || written.some((f) => !before.has(f)),
   };
 }
 

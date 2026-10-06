@@ -171,7 +171,7 @@ describe.skipIf(!javac)("cache keys: Android", () => {
     expect(telemetry.extracted).toBe(1);
     expect(members(telemetry.schema, "Telemetry")).toEqual(["clock", "count"]);
     expect(telemetry.schema?.provenance?.artifact).toBe("maven:dev.comet:telemetry:1.0.0");
-    expect(sdkModule("android", "dev.orbit.tracking", app.opts)).toEqual({
+    expect(sdkModule("android", "dev.orbit.tracking", app.opts)).toMatchObject({
       missing: expect.stringMatching(/dev\.orbit\.tracking was not found/),
     });
   });

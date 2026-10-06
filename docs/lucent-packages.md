@@ -81,7 +81,9 @@ The merged result goes into the native package:
   it, fails with LUCENT3004 and names the pod, its package and the next
   steps. Then `pod install` in `ios/` installs it, and the next
   `lucent build` binds it; when that build adds files to the native
-  package, it asks for `pod install` again (`iOS: pod install first`).
+  package, or a later one changes the pods (a requirement goes from
+  `~> 1.0` to `~> 1.1`), it asks for `pod install` again
+  (`iOS: pod install first`).
   `lucent check`, which writes nothing, names the pod and says to run
   `lucent build` first. A pod the packages no longer declare leaves the
   podspec; a pod the code imports that no package declares must be in
