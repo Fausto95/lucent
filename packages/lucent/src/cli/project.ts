@@ -3,13 +3,15 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
-import { frameworkSearchPath, swiftPackages, xcodeApp } from "@lucent-lang/bindgen";
+import { frameworkSearchPath, lockedPods, swiftPackages, xcodeApp } from "@lucent-lang/bindgen";
 import {
+  closesPodspec,
   fileHashes,
   forgetLoadedSdks,
   libraryBuildGradle,
   lucentPackages,
   type NativeInputs,
+  packagePods,
   type Platform,
   type PlistValue,
   podsSearchPaths,
@@ -18,7 +20,10 @@ import {
   runtimeDir,
   type SdkOptions,
   sdkModules,
+  withPodDependencies,
+  writeWhole,
 } from "@lucent-lang/compiler";
+import { linkNativePackage } from "./init/patch.ts";
 import { withLucentPaths } from "./tsconfig.ts";
 import { packageFile } from "./version.ts";
 
@@ -253,18 +258,26 @@ export type AndroidDependencies =
   | { status: "failed"; detail: string };
 
 /**
- * The native package as autolinking reads it, before a Gradle run reads
- * the app's autolinking config: the templates (react-native.config.js,
- * package.json, the podspec, the Android library) where missing, the rest
- * left as the last build wrote it, and build.gradle with the Lucent
- * packages' Gradle artifacts, so the classpath Gradle resolves has them.
+ * The native package as autolinking reads it, before a Gradle run or pod
+ * install reads the app's autolinking config: the templates
+ * (react-native.config.js, package.json, the podspec, the Android library)
+ * where missing, the rest left as the last build wrote it, with the Lucent
+ * packages' native dependencies for the platforms the build compiles:
+ * build.gradle with their Gradle artifacts, so the classpath Gradle
+ * resolves has them, and the podspec with their pods, so pod install
+ * installs them.
  *
  * React Native caches that config until a JS lockfile changes. When this
  * creates the package, the config cached without it is marked stale, and
  * the next Gradle run reads it again. Returns whether it created the
  * package.
  */
-export function writeLinkedPackage(root: string, out: string, native: NativeInputs): boolean {
+export function writeLinkedPackage(
+  root: string,
+  out: string,
+  native: NativeInputs,
+  platforms: { ios?: boolean; android?: boolean },
+): boolean {
   const templates = path.join(runtimeDir(), "native");
   const created = !fs.existsSync(path.join(out, "react-native.config.js"));
 
@@ -277,11 +290,30 @@ export function writeLinkedPackage(root: string, out: string, native: NativeInpu
     fs.copyFileSync(file, to);
   }
 
-  writeGradleDependencies(out, native);
+  if (platforms.android) writeGradleDependencies(out, native);
+  if (platforms.ios) writePodDependencies(out, native);
 
   if (created) staleAutolinking(root);
 
   return created;
+}
+
+/**
+ * The native package's podspec depending on the Lucent packages' pods, before
+ * the rest is written: a check that fails because a package's pod isn't
+ * installed yet leaves the pod declared, so pod install installs it and the
+ * next build binds it. A podspec an edit took the closing `end` from starts
+ * again from the template, as the full build's does.
+ */
+function writePodDependencies(out: string, native: NativeInputs): void {
+  const file = path.join(out, "LucentNative.podspec");
+  const text = fs.readFileSync(file, "utf8");
+  const from = closesPodspec(text)
+    ? text
+    : fs.readFileSync(path.join(runtimeDir(), "native/LucentNative.podspec"), "utf8");
+  const next = withPodDependencies(from, packagePods(native.manifest));
+
+  if (next !== text) writeWhole(file, next);
 }
 
 /**
@@ -327,7 +359,50 @@ function writeGradleDependencies(out: string, native: NativeInputs): void {
   );
   if (fs.existsSync(file) && fs.readFileSync(file, "utf8") === text) return;
   fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, text);
+  writeWhole(file, text);
+}
+
+/**
+ * The Lucent packages' pods the app has not installed, with the packages
+ * declaring them and what installs them, for a check that failed:
+ * installed is what bindgen reads the pods' modules from, the Podfile.lock
+ * of the app's installed pods. A build (`wrote`) has declared them in
+ * `podspec` already; a check writes nothing.
+ *
+ * Only where pod install installs them: an app with a Podfile whose
+ * react-native.config.js links the native package, as lucent init writes
+ * it. In expo prebuild the config plugin links it once a build succeeds.
+ */
+export function podsToInstall(
+  root: string,
+  native: ResolvedNative,
+  sdk: SdkOptions,
+  podspec: string,
+  wrote: boolean,
+): Notice | undefined {
+  const config = path.join(root, "react-native.config.js");
+  const linked =
+    fs.existsSync(config) && linkNativePackage(fs.readFileSync(config, "utf8")) === undefined;
+  if (!linked || !fs.existsSync(path.join(root, "ios/Podfile"))) return undefined;
+
+  const installed = new Set(sdk.ios?.lockfile ? lockedPods(sdk.ios.lockfile).keys() : []);
+  const missing = Object.entries(native.ios.pods).filter(
+    ([pod]) => !installed.has(pod.split("/")[0]!),
+  );
+  if (!missing.length) return undefined;
+
+  const named = missing.map(
+    ([pod, asked]) => `${[...new Set(Object.values(asked).flat())].join(" and ")}'s pod ${pod}`,
+  );
+  const subject = `${named.join(", ")} ${missing.length === 1 ? "is" : "are"} not installed`;
+  const them = missing.length === 1 ? "it" : "them";
+
+  return {
+    level: "warn",
+    text: wrote
+      ? `${subject}: ${podspec} depends on ${them}; run pod install in ios/, then lucent build`
+      : `${subject}: run lucent build, which adds ${them} to ${podspec}, then pod install in ios/`,
+  };
 }
 
 /** The app's property lists Lucent packages add entries to, and where the build finds them. */

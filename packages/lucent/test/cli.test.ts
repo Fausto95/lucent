@@ -169,6 +169,136 @@ describe("Lucent packages", () => {
   });
 });
 
+describe("a Lucent package's own pod", () => {
+  const ios = sdkAvailable("ios");
+
+  /**
+   * A bare app (a Podfile, and the react-native.config.js lucent init writes, which links the
+   * native package) whose Lucent package's iOS code imports a pod its lucent.json declares.
+   */
+  function appWithPackagePod(): string {
+    const root = project();
+    fs.writeFileSync(
+      path.join(root, "package.json"),
+      JSON.stringify({ name: "app", dependencies: { "lucent-auth": "1.0.0" } }),
+    );
+    fs.writeFileSync(
+      path.join(root, "react-native.config.js"),
+      'module.exports = {\n  dependencies: {\n    "lucent": { root: require("path").join(__dirname, ".lucent", "native") },\n  },\n};\n',
+    );
+    fs.mkdirSync(path.join(root, "ios"));
+    fs.writeFileSync(path.join(root, "ios/Podfile"), "target 'App' do\nend\n");
+
+    const pkg = path.join(root, "node_modules/lucent-auth");
+    fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(pkg, "package.json"),
+      JSON.stringify({ name: "lucent-auth", version: "1.0.0", lucent: { sources: "src" } }),
+    );
+    fs.writeFileSync(
+      path.join(pkg, "lucent.json"),
+      JSON.stringify({ ios: { pods: { LucentAuthKit: "~> 1.0" } } }),
+    );
+    fs.writeFileSync(
+      path.join(pkg, "src/auth.lucent.ts"),
+      'import { PLATFORM } from "lucent:platform";\nimport { LAKAuthenticator } from "lucent:ios/LucentAuthKit";\n\nexport function ready(): boolean {\n  if (PLATFORM === "ios") return LAKAuthenticator.isAvailable;\n  return false;\n}\n',
+    );
+
+    return root;
+  }
+
+  it.skipIf(!ios)(
+    "is in the podspec after the first build, which names it for pod install before it binds it",
+    () => {
+      const root = appWithPackagePod();
+
+      const r = lucent(root, "build", "--platforms", "ios");
+
+      expect(r.status).not.toBe(0);
+      expect(r.out).toMatch(/LUCENT3004[\s\S]*lucent:ios\/LucentAuthKit/);
+      expect(r.out).toContain(
+        "lucent-auth's pod LucentAuthKit is not installed: .lucent/native/LucentNative.podspec depends on it; run pod install in ios/, then lucent build\n",
+      );
+      expect(r.out).not.toContain("nothing was written");
+      expect(
+        fs.readFileSync(path.join(root, ".lucent/native/LucentNative.podspec"), "utf8"),
+      ).toContain('s.dependency "LucentAuthKit", "~> 1.0"');
+    },
+    600_000,
+  );
+
+  it.skipIf(!ios)(
+    "is named by lucent check, which writes nothing, and in lucent build --json's notices",
+    () => {
+      const root = appWithPackagePod();
+
+      const check = lucent(root, "check");
+
+      expect(check.status).not.toBe(0);
+      expect(check.out).toContain(
+        "lucent-auth's pod LucentAuthKit is not installed: run lucent build, which adds it to .lucent/native/LucentNative.podspec, then pod install in ios/\n",
+      );
+      expect(fs.existsSync(path.join(root, ".lucent/native"))).toBe(false);
+
+      const build = JSON.parse(lucent(root, "build", "--platforms", "ios", "--json").stdout);
+
+      expect(build.notices).toContainEqual({
+        level: "warn",
+        text: expect.stringContaining("lucent-auth's pod LucentAuthKit is not installed"),
+      });
+    },
+    600_000,
+  );
+
+  it.skipIf(!ios)(
+    "is not named once pod install has installed it",
+    () => {
+      const root = appWithPackagePod();
+      // What pod install leaves: the app target's Pods xcconfig, and Podfile.lock listing the pod.
+      const support = path.join(root, "ios/Pods/Target Support Files/Pods-App");
+      fs.mkdirSync(support, { recursive: true });
+      fs.writeFileSync(
+        path.join(support, "Pods-App.debug.xcconfig"),
+        "HEADER_SEARCH_PATHS = $(inherited)\n",
+      );
+      fs.writeFileSync(path.join(root, "ios/Podfile.lock"), "PODS:\n  - LucentAuthKit (1.0.3)\n");
+
+      // The pod defines no module here: the check still fails, for that alone.
+      const r = lucent(root, "build", "--platforms", "ios");
+
+      expect(r.status).not.toBe(0);
+      expect(r.out).toMatch(/LUCENT3004[\s\S]*lucent:ios\/LucentAuthKit/);
+      expect(r.out).not.toContain("is not installed");
+    },
+    600_000,
+  );
+
+  it.skipIf(!ios)(
+    "is not named in an Expo app's prebuild, where pod install does not install it",
+    () => {
+      const root = appWithPackagePod();
+      // As the config plugin builds in expo prebuild: the template's Podfile is there, and
+      // react-native.config.js links the native package only once a build succeeds.
+      fs.writeFileSync(
+        path.join(root, "package.json"),
+        JSON.stringify({ name: "app", dependencies: { expo: "55.0.0", "lucent-auth": "1.0.0" } }),
+      );
+      fs.writeFileSync(
+        path.join(root, "app.json"),
+        JSON.stringify({ expo: { name: "app", plugins: ["@lucent-lang/lucent"] } }),
+      );
+      fs.rmSync(path.join(root, "react-native.config.js"));
+
+      const r = lucent(root, "build", "--platforms", "ios");
+
+      expect(r.status).not.toBe(0);
+      expect(r.out).toMatch(/LUCENT3004[\s\S]*lucent:ios\/LucentAuthKit/);
+      expect(r.out).not.toContain("is not installed");
+    },
+    600_000,
+  );
+});
+
 describe("Lucent packages' native needs", () => {
   it("writes them into the native package, and names Info.plist keys the app lacks", () => {
     const root = project();

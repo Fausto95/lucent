@@ -7,8 +7,10 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   compile,
   type LucentPackage,
+  packagePods,
   resolveNative,
   runtimeDir,
+  withPodDependencies,
   writeNativePackage,
 } from "../src/index.ts";
 
@@ -617,5 +619,108 @@ describe("publishing the native package", () => {
 
     // The manifest (Metro's cache key) comes last: proxies are in place when it changes.
     expect(path.relative(out, r.written.at(-1)!)).toBe("manifest.json");
+  });
+});
+
+describe("the Lucent packages' pods in a podspec", () => {
+  const podspec =
+    'Pod::Spec.new do |s|\n  s.name = "LucentNative"\n  s.dependency "OtherPod"\nend\n';
+
+  it("are each pod with every requirement the packages ask, in order", () => {
+    const native = nativeOf(
+      ["lucent-a", { ios: { pods: { WidgetsPod: "~> 1.0" } } }],
+      ["lucent-b", { ios: { pods: { WidgetsPod: ">= 1.2", AuthPod: "2.0" } } }],
+    );
+
+    expect(packagePods(native.manifest)).toEqual([
+      ["AuthPod", ["2.0"]],
+      ["WidgetsPod", [">= 1.2", "~> 1.0"]],
+    ]);
+  });
+
+  it("are in code-unit order, as resolved.json has them, whatever the locale's collation", () => {
+    // A collation puts lowercase among uppercase (and Estonian's, Z before T).
+    const native = nativeOf([
+      "lucent-a",
+      {
+        ios: {
+          pods: {
+            ZXingObjC: "3.6",
+            abseil: "1.0",
+            TOCropViewController: "2.6",
+            "BoringSSL-GRPC": "0.0.1",
+          },
+        },
+      },
+    ]);
+
+    expect(packagePods(native.manifest).map(([pod]) => pod)).toEqual([
+      "BoringSSL-GRPC",
+      "TOCropViewController",
+      "ZXingObjC",
+      "abseil",
+    ]);
+  });
+
+  it("are added to a podspec that lacks them, beside its other dependencies", () => {
+    expect(withPodDependencies(podspec, [["WidgetsPod", ["~> 1.0"]]])).toBe(
+      'Pod::Spec.new do |s|\n  s.name = "LucentNative"\n  s.dependency "OtherPod"\n  s.dependency "WidgetsPod", "~> 1.0" # lucent.json\nend\n',
+    );
+  });
+
+  it("leave a pod the packages no longer declare, and keep the code's own pods", () => {
+    const declared = withPodDependencies(podspec, [["WidgetsPod", ["~> 1.0"]]]);
+    const dropped = withPodDependencies(declared, [["AuthPod", ["2.0"]]]);
+
+    expect(dropped).not.toContain("WidgetsPod");
+    expect(dropped).toContain('s.dependency "AuthPod", "2.0"');
+    expect(dropped).toContain('s.dependency "OtherPod"\n');
+  });
+
+  it("are marked as a full build writes them, so an early write finds them", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-pkg-"));
+    const src = path.join(dir, "sample.lucent.ts");
+    fs.writeFileSync(src, "export function one(): number { return 1; }");
+    writeNativePackage({ ...compile([src]), pods: ["OtherPod"] }, path.join(dir, "out"), {
+      native: nativeOf(["lucent-widgets", { ios: { pods: { WidgetsPod: "~> 1.0" } } }]),
+    });
+    const written = fs.readFileSync(path.join(dir, "out", "LucentNative.podspec"), "utf8");
+
+    expect(withPodDependencies(written, [])).not.toContain("WidgetsPod");
+    expect(withPodDependencies(written, [])).toContain('s.dependency "OtherPod"');
+  });
+
+  it("replace a pod's line when its requirements change, once", () => {
+    const once = withPodDependencies(podspec, [["WidgetsPod", ["~> 1.0"]]]);
+    const changed = withPodDependencies(once, [["WidgetsPod", ["~> 2.0"]]]);
+
+    expect(changed.match(/s\.dependency "WidgetsPod"/g)).toHaveLength(1);
+    expect(changed).toContain('s.dependency "WidgetsPod", "~> 2.0" # lucent.json\n');
+    expect(withPodDependencies(changed, [["WidgetsPod", ["~> 2.0"]]])).toBe(changed);
+  });
+
+  it("go before a closing end that trailing whitespace follows, and leave a stale one there", () => {
+    const spaced = 'Pod::Spec.new do |s|\n  s.dependency "OldPod", "1.0" # lucent.json  \nend  \n';
+
+    expect(withPodDependencies(spaced, [["WidgetsPod", ["~> 1.0"]]])).toBe(
+      'Pod::Spec.new do |s|\n  s.dependency "WidgetsPod", "~> 1.0" # lucent.json\nend  \n',
+    );
+  });
+
+  it("go before the closing end of a podspec with CRLF line endings, and leave a stale one there", () => {
+    const crlf =
+      'Pod::Spec.new do |s|\r\n  s.name = "LucentNative"\r\n  s.dependency "OldPod", "1.0" # lucent.json\r\nend\r\n';
+    const pods = withPodDependencies(crlf, [["WidgetsPod", ["~> 1.0"]]]);
+
+    expect(pods).not.toContain("OldPod");
+    expect(pods).toMatch(/\n {2}s\.dependency "WidgetsPod", "~> 1\.0" # lucent\.json\r?\nend\r\n$/);
+  });
+
+  it("are not added to a podspec without a closing end", () => {
+    expect(() =>
+      withPodDependencies('Pod::Spec.new do |s|\n  s.name = "LucentNative"\n', [
+        ["WidgetsPod", ["~> 1.0"]],
+      ]),
+    ).toThrow(/closing "end"/);
   });
 });
