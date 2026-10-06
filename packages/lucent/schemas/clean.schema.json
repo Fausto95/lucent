@@ -1,0 +1,27 @@
+{
+  "$id": "https://lucent-lang.dev/schemas/clean.schema.json",
+  "title": "lucent clean --json",
+  "type": "object",
+  "required": ["removed"],
+  "additionalProperties": false,
+  "properties": {
+    "removed": {
+      "type": "array",
+      "description": "What was removed: .lucent, and with --cache the SDK cache",
+      "items": {
+        "type": "object",
+        "required": ["path", "bytes"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  }
+}
