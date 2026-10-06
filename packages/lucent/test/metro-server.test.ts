@@ -30,14 +30,25 @@ const markers = (bundle: string) =>
   [...bundle.matchAll(/exports\.marker = "([^"]*)"/g)].map((m) => m[1]);
 
 afterEach(async () => {
+  delete process.env.LUCENT_OUT;
   for (const server of running.splice(0))
     await new Promise((resolve) => server.close(() => resolve(undefined)));
 });
 
-/** A project whose index.js imports src/a.lucent.ts, served by Metro on a free port. */
-async function serve() {
+/**
+ * A project whose index.js imports src/a.lucent.ts, served by Metro on a
+ * free port. Its proxy requires `react-native`, here a package only the
+ * project's node_modules has, from the native package `out` names
+ * (LUCENT_OUT) or the project's own.
+ */
+async function serve(out?: string) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-metro-server-"));
   fs.writeFileSync(path.join(root, "package.json"), '{ "name": "app", "private": true }\n');
+  fs.mkdirSync(path.join(root, "node_modules/react-native"), { recursive: true });
+  fs.writeFileSync(
+    path.join(root, "node_modules/react-native/index.js"),
+    'exports.from = "the app\'s react-native";\n',
+  );
   fs.writeFileSync(path.join(root, "index.js"), 'globalThis.a = require("./src/a.lucent");\n');
   fs.mkdirSync(path.join(root, "src"));
   fs.writeFileSync(
@@ -53,7 +64,7 @@ const { withLucent } = require(${json(path.join(repo, "packages/lucent/metro/ind
 module.exports = withLucent(
   {
     projectRoot: __dirname,
-    watchFolders: [${json(path.join(modules, "metro-runtime"))}],
+    watchFolders: ${json([path.join(modules, "metro-runtime"), ...(out ? [out] : [])])},
     maxWorkers: 1,
     reporter: { update: () => {} },
     cacheStores: [new FileStore({ root: __dirname + "/metro-cache" })],
@@ -65,6 +76,8 @@ module.exports = withLucent(
 `,
   );
 
+  if (out) process.env.LUCENT_OUT = out;
+  const pkg = out ?? path.join(root, ".lucent/native");
   const metro = require("metro") as Metro;
   const loaded = await metro.loadConfig(
     { config: path.join(root, "metro.config.js"), port: 0 },
@@ -78,12 +91,15 @@ module.exports = withLucent(
 
   /** Writes a.lucent.ts's proxy as a build publishes it: a temporary file renamed into place. */
   const build = (marker: string) => {
-    const proxy = path.join(root, ".lucent/native/js/a.js");
+    const proxy = path.join(pkg, "js/a.js");
     fs.mkdirSync(path.dirname(proxy), { recursive: true });
-    fs.writeFileSync(`${proxy}.tmp`, `exports.marker = ${JSON.stringify(marker)};\n`);
+    fs.writeFileSync(
+      `${proxy}.tmp`,
+      `require("react-native");\nexports.marker = ${JSON.stringify(marker)};\n`,
+    );
     fs.renameSync(`${proxy}.tmp`, proxy);
     fs.writeFileSync(
-      path.join(root, ".lucent/native/manifest.json"),
+      path.join(pkg, "manifest.json"),
       JSON.stringify({ inputs: marker, modules: ["a"] }),
     );
   };
@@ -128,5 +144,16 @@ describe.skipIf(!hasMetro)("a running Metro", () => {
     const bundle = await metro.bundleWith("P1");
     expect(bundle.status).toBe(200);
     expect(markers(bundle.text)).toEqual(["P1"]);
+  }, 60_000);
+
+  it("resolves a proxy's packages from the app when LUCENT_OUT is outside it", async () => {
+    const out = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-metro-out-"));
+    const metro = await serve(out);
+    metro.build("P1");
+
+    const bundle = await metro.bundleWith("P1");
+    expect(bundle.status).toBe(200);
+    expect(markers(bundle.text)).toEqual(["P1"]);
+    expect(bundle.text).toContain("the app's react-native");
   }, 60_000);
 });
