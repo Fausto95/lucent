@@ -812,9 +812,17 @@ export class BindingsEmitter {
     for (const c of m.consts) {
       const name = cpp.str(c.decl.name.getText());
       const value = toJs(this.reg.cppType(c.type), cpp.id("host"), cpp.id(c.cpp));
+      // One copy per value the module assigns, as JavaScript holds one object.
+      const read = copiedOnce(c.type)
+        ? cpp.call(cpp.dot(cpp.id("host"), "exported"), [
+            rt,
+            cpp.id(c.cpp),
+            cpp.lambda(["&"], [], [cpp.ret(value)], { ret: JS_VALUE }),
+          ])
+        : value;
 
       // A `let` the module may reassign is read live, as an ES module
-      // binding; a `const` binding never changes, so one copy is exact.
+      // binding; a `const` binding never changes, so one copy is enough.
       body.push(
         cpp.exprStmt(
           c.isConst
@@ -823,7 +831,7 @@ export class BindingsEmitter {
                 rt,
                 exports,
                 name,
-                hostFunction(sync([cpp.ret(value)])),
+                hostFunction(sync([cpp.ret(read)])),
                 cpp.nullptr,
               ]),
         ),
@@ -1019,6 +1027,35 @@ export class BindingsEmitter {
 }
 
 const [rt, v, p] = [cpp.id("rt"), cpp.id("v"), cpp.id("p")];
+
+/** Kinds the boundary copies into a new JavaScript object at each conversion. */
+const COPIED = new Set<LType["k"]>(["struct", "array", "tuple", "map", "set", "dict", "bytes"]);
+/** Kinds `lucent::strictEquals` compares: by identity, or as primitives. */
+const COMPARED = new Set<LType["k"]>([
+  ...COPIED,
+  "number",
+  "string",
+  "boolean",
+  "bigint",
+  "null",
+  "undefined",
+  "class",
+]);
+
+/**
+ * Whether an exported variable of type `t` is copied once per value
+ * (Host::exported) rather than at each read: one the boundary copies,
+ * made only of what strictEquals compares.
+ */
+function copiedOnce(t: LType): boolean {
+  const members = (x: LType): LType[] =>
+    x.k === "opt" ? members(x.inner) : x.k === "union" ? x.ms.flatMap(members) : [x];
+  const compared = (x: LType): boolean =>
+    x.k === "tuple" ? x.es.every(compared) : members(x).every((m) => COMPARED.has(m.k));
+  const ms = members(t);
+
+  return ms.some((m) => COPIED.has(m.k)) && ms.every(compared);
+}
 /** How boundary errors name the values a type accepts, as the runtime's Convert does. */
 const DESCRIPTIONS: Partial<Record<LType["k"], string>> = {
   number: "a number",

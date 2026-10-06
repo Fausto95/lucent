@@ -36,12 +36,19 @@ let counter = 0;                                      // module state, reset on 
   default exports (`export default function f`, which JavaScript would see
   as `default`) report `LUCENT3003`.
 - An exported `let` is a live binding, as in an ES module: each read from
-  JavaScript gets the value the module holds now (an object is copied at
-  each read, by the boundary's copy rule). An exported `const` is copied
-  once, which is exact because its binding never changes. Refusing an
-  exported `let` that the module reassigns would have broken ordinary
-  counters and caches, and a getter fits both the native exports object
-  and the JavaScript proxy.
+  JavaScript gets the value the module holds now. An exported `const` is
+  copied once, as its binding never changes. Refusing an exported `let`
+  that the module reassigns would have broken ordinary counters and
+  caches, and a getter fits both the native exports object and the
+  JavaScript proxy.
+- An exported variable holding an object, array, map, set, record, tuple
+  or `Uint8Array` reaches JavaScript as a copy, by the boundary's copy
+  rule: one copy per value the module assigns, so reads give the same
+  object (`mod.config === mod.config`) and JavaScript's own changes to it
+  stay until the module assigns another. Changes the module makes inside
+  that value (`config.size++`, `list.push(x)`) are not seen by JavaScript,
+  for a `let` or a `const`: export a function that returns the value, or
+  assign a new one, to show them.
 - Top-level declarations initialize in source order, as in JavaScript: a
   class's static fields where the class is declared, between the module's
   variables. A JS reload runs every initializer again and resets every
@@ -313,7 +320,7 @@ Only exported functions, classes and constants are visible from JavaScript.
   promise's value, either absent value is accepted, as the converter there
   is shared by every optional of that type; so is a field of two object
   types that differ only in the absent value it admits (`{ v: string |
-  null }` and `{ v: string | undefined }` share one native layout). A body
+null }` and `{ v: string | undefined }` share one native layout). A body
   that reads the one its type excludes throws `TypeError` when it uses the
   value.
 - **Values are copied:** arrays, records, maps, sets, tuples and plain objects
