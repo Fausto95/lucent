@@ -24,6 +24,7 @@ import {
   spanMethod,
   spanProperty,
 } from "./buffers.ts";
+import { assignedRead } from "../lowering/unassigned.ts";
 import { DISPOSE, findMember } from "./classes.ts";
 import { type E, type Lvalue } from "./context.ts";
 import { coreCall, isCoreSymbol } from "./core.ts";
@@ -226,7 +227,10 @@ export function classMember(
     return { c: cpp.call(cpp.arrow(obj.c, `get_${cppIdent(name)}`), []), t: type };
   }
   if (ts.isPropertyDeclaration(decl) || ts.isParameter(decl)) {
-    return { c: cpp.arrow(obj.c, cppIdent(name)), t: memberType(em, t, decl) };
+    const type = memberType(em, t, decl);
+    const what = `${em.reg.cls(t.id).decl.name?.text ?? "this"}.${name}`;
+
+    return { c: assignedRead(cpp.arrow(obj.c, cppIdent(name)), type, what), t: type };
   }
   if (ts.isMethodDeclaration(decl)) {
     // A bound method used as a value.
@@ -544,7 +548,11 @@ export function staticProperty(em: FnEmitter, node: ts.PropertyAccessExpression)
       return {
         c: literal
           ? em.exprAs(literal, t)
-          : cpp.id(`lucent_app::${owner.cppName}::${cppIdent(name)}`),
+          : assignedRead(
+              cpp.id(`lucent_app::${owner.cppName}::${cppIdent(name)}`),
+              t,
+              `${owner.decl.name?.text}.${name}`,
+            ),
         t,
       };
     }

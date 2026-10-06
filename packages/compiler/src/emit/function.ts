@@ -49,6 +49,7 @@ import {
   numericUnion,
 } from "../lowering/bigint.ts";
 import { looseConversion, looseConversionMessage } from "../lowering/loose-equality.ts";
+import { assignedRead } from "../lowering/unassigned.ts";
 import { bigintExpr, bigintLiteralValue, numberExpr, stringExpr } from "../lowering/literals.ts";
 
 export interface Local {
@@ -927,7 +928,9 @@ export class FnEmitter {
       // must not read the storage a reload of JavaScript assigns again.
       if (g.kind === "var")
         return this.narrowed(id, {
-          c: g.literal ? this.exprAs(g.literal, g.type) : cpp.id(g.cpp),
+          c: g.literal
+            ? this.exprAs(g.literal, g.type)
+            : assignedRead(cpp.id(g.cpp), g.type, g.decl.name.getText()),
           t: g.type,
         });
       if (g.kind === "function") {
