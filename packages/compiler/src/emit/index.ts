@@ -7,8 +7,8 @@ import type { CppFunction } from "../ir/cpp.ts";
 import { platformScopes } from "../platforms.ts";
 import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
-import { BindingsEmitter, type ModuleExports, publicMembers } from "./bindings.ts";
-import { emitClass } from "./classes.ts";
+import { BindingsEmitter, type ModuleExports } from "./bindings.ts";
+import { emitClass, memberName, parameterProperties } from "./classes.ts";
 import { bindCompute, emitTaskVariants, taskHeader } from "./compute.ts";
 import { objcDelegate } from "./delegates.ts";
 import { iosSubclass } from "./objc-subclass.ts";
@@ -747,49 +747,101 @@ function jsonWriters(ctx: Ctx): { decls: cpp.Decl[]; defs: cpp.Decl[] } {
   const decls: cpp.Decl[] = [];
   const defs: cpp.Decl[] = [];
   const [w, v, first] = [cpp.id("w"), cpp.id("v"), cpp.id("first")];
-  const writer = (name: string, fields: string[]) => {
+  const raw = (text: string) => cpp.exprStmt(cpp.call(cpp.dot(w, "raw"), [cpp.str(text)]));
+  const writer = (name: string, body: cpp.Stmt[]) => {
     const params = [
       cpp.param(cpp.reference(cpp.type("lucent::JsonWriter")), "w"),
       cpp.param(cpp.reference(cpp.constType(cpp.type("lucent::Ref", cpp.type(name)))), "v"),
     ];
-    const raw = (text: string) => cpp.exprStmt(cpp.call(cpp.dot(w, "raw"), [cpp.str(text)]));
     decls.push(cpp.fn("jsonWrite", cpp.voidType, params));
     defs.push(
       cpp.fn(
         "jsonWrite",
         cpp.voidType,
         params,
-        [
-          cpp.ifStmt(cpp.not(v), [raw("null"), cpp.ret()]),
-          raw("{"),
-          cpp.varDecl(cpp.type("bool"), "first", cpp.bool(true)),
-          ...fields.map((f) =>
-            cpp.exprStmt(
-              cpp.call("lucent::jsonField", [w, first, cpp.str(f), cpp.arrow(v, cppIdent(f))]),
-            ),
-          ),
-          cpp.exprStmt(cpp.cast("c", cpp.voidType, first)),
-          raw("}"),
-        ],
+        [cpp.ifStmt(cpp.not(v), [raw("null"), cpp.ret()]), ...body],
         { inline: true },
       ),
     );
   };
-  for (const s of ctx.reg.structs.values())
-    writer(
-      s.cppName,
-      s.fields.map((f) => f.name),
-    );
+  const object = (fields: string[]): cpp.Stmt[] => [
+    raw("{"),
+    cpp.varDecl(cpp.type("bool"), "first", cpp.bool(true)),
+    ...fields.map((f) =>
+      cpp.exprStmt(
+        cpp.call("lucent::jsonField", [w, first, cpp.str(f), cpp.arrow(v, cppIdent(f))]),
+      ),
+    ),
+    cpp.exprStmt(cpp.cast("c", cpp.voidType, first)),
+    raw("}"),
+  ];
+  for (const s of ctx.reg.structs.values()) writer(s.cppName, object(s.fields.map((f) => f.name)));
   for (const c of ctx.reg.classes.values()) {
     if (c.typeParams.length) continue;
-    const fields: string[] = [];
-    ctx.guard(() => {
-      for (const m of publicMembers(ctx, c)) if (m.kind === "field") fields.push(m.name);
-    });
-    writer(c.cppName, fields);
+    // A base-typed value may hold a subclass instance: it writes as that subclass.
+    const subclasses = ctx.reg
+      .descendants(c.id)
+      .filter((d) => !d.typeParams.length)
+      .map((d) =>
+        cpp.block([
+          cpp.varDecl(
+            cpp.auto,
+            "sub",
+            cpp.call("std::dynamic_pointer_cast", [v], [cpp.type(d.cppName)]),
+          ),
+          cpp.ifStmt(cpp.id("sub"), [
+            cpp.exprStmt(cpp.call("jsonWrite", [w, cpp.id("sub")])),
+            cpp.ret(),
+          ]),
+        ]),
+      );
+    const own = ctx.guard(() => classJson(c)) ?? object([]);
+    writer(c.cppName, [...subclasses, ...own]);
   }
   return { decls, defs };
+
+  /** toJSON's value, or every own enumerable field: TypeScript visibility does not hide one. */
+  function classJson(c: ClassInfo): cpp.Stmt[] {
+    const chain = ctx.reg.chain({ k: "class", id: c.id, args: [] });
+    for (const { info } of chain) {
+      const toJson = info.decl.members.find(
+        (m): m is ts.MethodDeclaration =>
+          ts.isMethodDeclaration(m) &&
+          !isStatic(m) &&
+          ts.isIdentifier(m.name) &&
+          m.name.text === "toJSON",
+      );
+      if (!toJson) continue;
+      if (toJson.parameters.length || toJson.typeParameters?.length || isAsync(toJson))
+        fail(
+          toJson,
+          Codes.UnsupportedClassFeature,
+          "toJSON takes no parameters and is not async or generic: JSON.stringify writes its value",
+        );
+      return [cpp.exprStmt(cpp.call("jsonWrite", [w, cpp.call(cpp.arrow(v, "toJSON"))]))];
+    }
+    // Base fields first, as super() creates them; parameter properties before declared fields.
+    const fields = new Set<string>();
+    for (const { info } of chain.toReversed()) {
+      const ctor = info.decl.members.find(ts.isConstructorDeclaration);
+      for (const p of parameterProperties(ctor)) fields.add(memberName(p));
+      for (const m of info.decl.members)
+        if (ts.isPropertyDeclaration(m) && !ts.isPrivateIdentifier(m.name) && !declaredOnly(m))
+          fields.add(memberName(m));
+    }
+    return object([...fields]);
+  }
 }
+
+const hasModifier = (m: ts.Node, kind: ts.SyntaxKind) =>
+  ts.canHaveModifiers(m) && !!ts.getModifiers(m)?.some((x) => x.kind === kind);
+const isStatic = (m: ts.Node) => hasModifier(m, ts.SyntaxKind.StaticKeyword);
+const isAsync = (m: ts.Node) => hasModifier(m, ts.SyntaxKind.AsyncKeyword);
+/** A field JavaScript does not create on the instance: static, `declare` or `abstract`. */
+const declaredOnly = (m: ts.Node) =>
+  [ts.SyntaxKind.StaticKeyword, ts.SyntaxKind.DeclareKeyword, ts.SyntaxKind.AbstractKeyword].some(
+    (k) => hasModifier(m, k),
+  );
 
 /** JsonRead specializations for the object types and unions JSON.parse builds. */
 function jsonReaders(ctx: Ctx): { decls: cpp.Decl[]; defs: cpp.Decl[] } {
