@@ -125,6 +125,14 @@ describe.skipIf(!javac || !android)("lucent sdk", () => {
     expect(member.out).not.toMatch(/export declare class OnEvent/);
   });
 
+  it("show prints a member's doc, with what it calls natively", () => {
+    const member = lucent(app(), "show", "com.example.widgets.Widget.getName");
+
+    expect(member.out).toMatch(
+      /Native: com\.example\.widgets\.Widget#getName\(\)Ljava\/lang\/String;, in com\.example\.widgets\.[\s\S]*getName\(\): string;/,
+    );
+  });
+
   it("binds the libraries the app's Lucent packages ship", () => {
     const a = app();
     const pkg = path.join(a.root, "node_modules/lucent-widgets");
