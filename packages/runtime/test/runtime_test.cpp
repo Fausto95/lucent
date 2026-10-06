@@ -362,9 +362,10 @@ static void indexes() {
   CHECK_THROWS(xs.set(5, 1), "RangeError");
   CHECK_THROWS(xs.set(0.5, 1), "RangeError");
   CHECK_THROWS(xs.set(-1, 1), "RangeError");
+  // Optional elements too: undefined elements are not holes.
   Array<Opt<double>> holes;
-  holes.set(2, 1.0);
-  CHECK(holes.size() == 3 && !holes.at(0).has());
+  CHECK_THROWS(holes.set(2, 1.0), "RangeError");
+  CHECK(holes.size() == 0);
   CHECK(xs.get(1.0).get() == 5 && !xs.get(1.5).has() && !xs.get(3).has());
   CHECK(S("abc").charCodeAt(1.9) == 'b');
   CHECK(S("abc").charCodeAt(-0.5) == 'a');
