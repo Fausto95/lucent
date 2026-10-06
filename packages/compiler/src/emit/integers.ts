@@ -7,8 +7,13 @@ import type { IntKind } from "./context.ts";
  * `&`, `^`, `<<`, `>>`, `~`, `Math.imul`, `Math.clz32`; `u32` for `>>>`; `i64`
  * when both kinds, or a loop counter, are stored. The value is exact in every
  * representation, so reads convert to double without changing any result.
- * Increments and arithmetic writes keep a local a double: `x + 1` on an int32
- * does not wrap in JavaScript.
+ *
+ * Arithmetic (`+`, `-`, `*`, `%`, and `+=`, `++` and the like) keeps a local
+ * a double unless its range is proven (see `rangeOf`): `x + 1` on an int32
+ * does not wrap in JavaScript, so it is an `i64` only when every value it can
+ * take is an exact integer within ±2^53 and never -0. A local whose writes are
+ * all bounded this way, such as `sum = (sum + (x >>> 0)) % 1000000007`, is an
+ * `i64`, and the emitter computes those writes in int64 (ir/cpp.ts, `stored`).
  *
  * A `for` counter (`let i = <int>; …; i++ / i-- / i += <int>`) that nothing
  * else writes becomes an `i64`: exact for every value JavaScript can count to.
@@ -17,9 +22,150 @@ import type { IntKind } from "./context.ts";
 const I32_MIN = -2147483648;
 const I32_MAX = 2147483647;
 const U32_MAX = 4294967295;
+/** Doubles are exact integers up to here; an integer register holds the same value. */
+const EXACT = 2 ** 53;
 
 /** What one write stores: an integer kind, a literal compatible with some kinds, or not an integer. */
 type Write = IntKind | "small" | "negative" | "unsigned" | undefined;
+
+/** The exact integers, never -0, a number's every value lies between. */
+export interface Range {
+  lo: number;
+  hi: number;
+}
+
+/**
+ * What the range analysis knows of a value: its range; EMPTY, no value yet
+ * (a local the fixpoint has not reached, which adds nothing to a range); or
+ * undefined, any double.
+ */
+type Interval = Range | typeof EMPTY | undefined;
+const EMPTY = "empty";
+
+const I32: Range = { lo: I32_MIN, hi: I32_MAX };
+const U32: Range = { lo: 0, hi: U32_MAX };
+const COUNTER: Range = { lo: -EXACT, hi: EXACT };
+
+/** The ranges locals have: the range fixpoint's, and those of the kinds the others are known to hold. */
+interface RangeContext {
+  ranges: ReadonlyMap<ts.Symbol, Interval>;
+  kinds: ReadonlyMap<ts.Symbol, IntKind | "any">;
+  opts: Pick<InferOptions, "checker" | "isMath">;
+}
+
+/** The smallest interval holding both. */
+function hull(a: Interval, b: Interval): Interval {
+  if (a === undefined || b === undefined) return undefined;
+  if (a === EMPTY) return b;
+  if (b === EMPTY) return a;
+  return { lo: Math.min(a.lo, b.lo), hi: Math.max(a.hi, b.hi) };
+}
+
+/**
+ * `a op b` on exact integers, when every result is an exact integer within
+ * ±2^53 and never -0: a sum or difference of integers that are never -0 is
+ * +0 when it is zero; a product of non-negative integers too (`0 * -1` is
+ * -0); and a remainder of a non-negative dividend by a divisor of at least 1
+ * (`-4 % 2` is -0, `x % 0` NaN).
+ */
+function arithmetic(op: ts.SyntaxKind, a: Interval, b: Interval): Interval {
+  if (a === undefined || b === undefined) return undefined;
+  if (a === EMPTY || b === EMPTY) return EMPTY;
+  let r: Range;
+  switch (op) {
+    case ts.SyntaxKind.PlusToken:
+      r = { lo: a.lo + b.lo, hi: a.hi + b.hi };
+      break;
+    case ts.SyntaxKind.MinusToken:
+      r = { lo: a.lo - b.hi, hi: a.hi - b.lo };
+      break;
+    case ts.SyntaxKind.AsteriskToken:
+      if (a.lo < 0 || b.lo < 0) return undefined;
+      r = { lo: a.lo * b.lo, hi: a.hi * b.hi };
+      break;
+    case ts.SyntaxKind.PercentToken:
+      if (a.lo < 0 || b.lo < 1) return undefined;
+      r = { lo: 0, hi: Math.min(a.hi, b.hi - 1) };
+      break;
+    default:
+      return undefined;
+  }
+  return r.lo >= -EXACT && r.hi <= EXACT ? r : undefined;
+}
+
+const ARITHMETIC = new Set([
+  ts.SyntaxKind.PlusToken,
+  ts.SyntaxKind.MinusToken,
+  ts.SyntaxKind.AsteriskToken,
+  ts.SyntaxKind.PercentToken,
+]);
+
+/** The arithmetic operator of a compound assignment (`+=` is `+`). */
+const COMPOUND_ARITHMETIC = new Map<ts.SyntaxKind, ts.SyntaxKind>([
+  [ts.SyntaxKind.PlusEqualsToken, ts.SyntaxKind.PlusToken],
+  [ts.SyntaxKind.MinusEqualsToken, ts.SyntaxKind.MinusToken],
+  [ts.SyntaxKind.AsteriskEqualsToken, ts.SyntaxKind.AsteriskToken],
+  [ts.SyntaxKind.PercentEqualsToken, ts.SyntaxKind.PercentToken],
+]);
+
+/** The range of the number `e` gives, from the ranges of the locals it reads. */
+export function rangeOf(e: ts.Expression, cx: RangeContext): Interval {
+  if (ts.isParenthesizedExpression(e)) return rangeOf(e.expression, cx);
+  if (ts.isNumericLiteral(e)) {
+    const v = Number(e.text.replace(/_/g, ""));
+    return Number.isInteger(v) && Math.abs(v) <= EXACT ? { lo: v, hi: v } : undefined;
+  }
+  if (ts.isPrefixUnaryExpression(e)) {
+    if (e.operator === ts.SyntaxKind.TildeToken) return I32;
+    if (e.operator === ts.SyntaxKind.MinusToken && ts.isNumericLiteral(e.operand)) {
+      const v = -Number(e.operand.text.replace(/_/g, ""));
+      // `-0` is not an integer register value.
+      return Number.isInteger(v) && v < 0 && v >= -EXACT ? { lo: v, hi: v } : undefined;
+    }
+    return undefined;
+  }
+  if (ts.isBinaryExpression(e)) {
+    const op = e.operatorToken.kind;
+    if (ARITHMETIC.has(op)) return arithmetic(op, rangeOf(e.left, cx), rangeOf(e.right, cx));
+    switch (op) {
+      case ts.SyntaxKind.AmpersandToken: {
+        // A mask: `x & 0xff` is 0 to 255.
+        const mask = [e.left, e.right]
+          .map((x) => rangeOf(x, cx))
+          .find(
+            (r): r is Range =>
+              typeof r === "object" && r.lo === r.hi && r.lo >= 0 && r.lo <= I32_MAX,
+          );
+        return mask ? { lo: 0, hi: mask.hi } : I32;
+      }
+      case ts.SyntaxKind.BarToken:
+      case ts.SyntaxKind.CaretToken:
+      case ts.SyntaxKind.LessThanLessThanToken:
+      case ts.SyntaxKind.GreaterThanGreaterThanToken:
+        return I32;
+      case ts.SyntaxKind.GreaterThanGreaterThanGreaterThanToken:
+        return U32;
+    }
+    return undefined;
+  }
+  if (
+    ts.isCallExpression(e) &&
+    ts.isPropertyAccessExpression(e.expression) &&
+    cx.opts.isMath(e.expression.expression)
+  ) {
+    const name = e.expression.name.text;
+    return name === "imul" ? I32 : name === "clz32" ? { lo: 0, hi: 32 } : undefined;
+  }
+  if (ts.isConditionalExpression(e)) return hull(rangeOf(e.whenTrue, cx), rangeOf(e.whenFalse, cx));
+  if (ts.isIdentifier(e)) {
+    const sym = cx.opts.checker.getSymbolAtLocation(e);
+    if (!sym) return undefined;
+    if (cx.ranges.has(sym)) return cx.ranges.get(sym);
+    const k = cx.kinds.get(sym);
+    return k === "i32" ? I32 : k === "u32" ? U32 : k === "i64" ? COUNTER : undefined;
+  }
+  return undefined;
+}
 
 export interface IntegerFacts {
   locals: Map<ts.Symbol, IntKind>;
@@ -43,13 +189,21 @@ function literalWrite(v: number): Write {
   return undefined;
 }
 
-/** The integer kind an expression produces, given the kinds of integer locals. */
+/**
+ * The integer kind an expression produces, given the kinds of integer locals
+ * (and, for arithmetic, the ranges the range analysis proved).
+ */
 export function writeKind(
   e: ts.Expression,
   kinds: ReadonlyMap<ts.Symbol, IntKind | "any">,
   opts: Pick<InferOptions, "checker" | "isMath">,
+  ranges: ReadonlyMap<ts.Symbol, Interval> = new Map(),
 ): Write {
-  if (ts.isParenthesizedExpression(e)) return writeKind(e.expression, kinds, opts);
+  if (ts.isParenthesizedExpression(e)) return writeKind(e.expression, kinds, opts, ranges);
+  if (ts.isBinaryExpression(e) && ARITHMETIC.has(e.operatorToken.kind)) {
+    const r = rangeOf(e, { ranges, kinds, opts });
+    return typeof r === "object" ? "i64" : undefined;
+  }
   if (ts.isNumericLiteral(e)) return literalWrite(Number(e.text.replace(/_/g, "")));
   if (ts.isPrefixUnaryExpression(e)) {
     if (e.operator === ts.SyntaxKind.TildeToken) return "i32";
@@ -82,8 +236,8 @@ export function writeKind(
     return name === "imul" || name === "clz32" ? "i32" : undefined;
   }
   if (ts.isConditionalExpression(e)) {
-    const a = writeKind(e.whenTrue, kinds, opts);
-    const b = writeKind(e.whenFalse, kinds, opts);
+    const a = writeKind(e.whenTrue, kinds, opts, ranges);
+    const b = writeKind(e.whenFalse, kinds, opts, ranges);
     const k = join([a, b]);
     if (k === undefined) return undefined;
     if (a === k || b === k) return k;
@@ -199,6 +353,61 @@ function isFunctionBoundary(n: ts.Node): boolean {
   return ts.isFunctionLike(n) || ts.isClassLike(n);
 }
 
+/**
+ * One write of a local: an expression it stores; an arithmetic compound
+ * assignment or increment (`x += e` is `+` of `e`, `x++` of 1); the kind an
+ * int32 compound assignment gives (`x |= e`); or anything else.
+ */
+type WriteOf = ts.Expression | { op: ts.SyntaxKind; right: ts.Expression | 1 } | IntKind | "other";
+
+/** Rounds after which a range still growing (`x = x + 1`) is taken to be any double. */
+const WIDEN_AFTER = 8;
+
+/**
+ * The range of each local, a fixpoint over its writes: each starts with no
+ * value (EMPTY) and grows to hold what its writes can store, given the
+ * others' ranges. One still growing after WIDEN_AFTER rounds is any double,
+ * so the fixpoint ends (a range only grows, and any double is final).
+ */
+function inferRanges(
+  writes: ReadonlyMap<ts.Symbol, WriteOf[]>,
+  kinds: ReadonlyMap<ts.Symbol, IntKind>,
+  opts: Pick<InferOptions, "checker" | "isMath">,
+): Map<ts.Symbol, Interval> {
+  const ranges = new Map<ts.Symbol, Interval>([...writes.keys()].map((s) => [s, EMPTY]));
+  const cx: RangeContext = { ranges, kinds, opts };
+  const rangeOfWrite = (sym: ts.Symbol, w: WriteOf): Interval => {
+    if (w === "other") return undefined;
+    if (w === "i32") return I32;
+    if (w === "u32") return U32;
+    if (w === "i64") return undefined;
+    if ("op" in w) {
+      const right = w.right === 1 ? { lo: 1, hi: 1 } : rangeOf(w.right, cx);
+      return arithmetic(w.op, ranges.get(sym), right);
+    }
+    return rangeOf(w, cx);
+  };
+  for (let round = 0, changed = true; changed; round++) {
+    changed = false;
+    for (const [sym, list] of writes) {
+      const old = ranges.get(sym);
+      if (old === undefined) continue;
+      const next = list.reduce<Interval>((r, w) => hull(r, rangeOfWrite(sym, w)), EMPTY);
+      const same =
+        next === old ||
+        (typeof next === "object" &&
+          typeof old === "object" &&
+          next.lo === old.lo &&
+          next.hi === old.hi);
+      if (!same) {
+        ranges.set(sym, round < WIDEN_AFTER ? next : undefined);
+        changed = true;
+      }
+    }
+  }
+  return ranges;
+}
+
 export function inferIntegers(body: ts.Node, opts: InferOptions): IntegerFacts {
   const { checker } = opts;
   const decls = new Map<ts.Symbol, ts.VariableDeclaration>();
@@ -231,7 +440,7 @@ export function inferIntegers(body: ts.Node, opts: InferOptions): IntegerFacts {
 
   // Every write, including those in nested functions (a local written there
   // is boxed and was never a candidate, but reads through closures are fine).
-  const writes = new Map<ts.Symbol, (ts.Expression | IntKind | "other")[]>();
+  const writes = new Map<ts.Symbol, WriteOf[]>();
   for (const [sym, d] of decls) writes.set(sym, [d.initializer!]);
   const visit = (n: ts.Node): void => {
     if (ts.isIdentifier(n)) {
@@ -240,8 +449,21 @@ export function inferIntegers(body: ts.Node, opts: InferOptions): IntegerFacts {
       if (list) {
         const p = n.parent;
         if (ts.isBinaryExpression(p) && p.left === n && isAssignment(p.operatorToken.kind)) {
-          if (p.operatorToken.kind === ts.SyntaxKind.EqualsToken) list.push(p.right);
-          else list.push(INT_COMPOUND.get(p.operatorToken.kind) ?? "other");
+          const op = p.operatorToken.kind;
+          const arithmetic = COMPOUND_ARITHMETIC.get(op);
+          if (op === ts.SyntaxKind.EqualsToken) list.push(p.right);
+          else if (arithmetic) list.push({ op: arithmetic, right: p.right });
+          else list.push(INT_COMPOUND.get(op) ?? "other");
+        } else if (
+          (ts.isPrefixUnaryExpression(p) || ts.isPostfixUnaryExpression(p)) &&
+          (p.operator === ts.SyntaxKind.PlusPlusToken ||
+            p.operator === ts.SyntaxKind.MinusMinusToken)
+        ) {
+          const op =
+            p.operator === ts.SyntaxKind.PlusPlusToken
+              ? ts.SyntaxKind.PlusToken
+              : ts.SyntaxKind.MinusToken;
+          list.push({ op, right: 1 });
         } else if (isOtherWrite(n)) list.push("other");
       }
     }
@@ -249,20 +471,22 @@ export function inferIntegers(body: ts.Node, opts: InferOptions): IntegerFacts {
   };
   visit(body);
 
+  const counterKinds = new Map<ts.Symbol, IntKind>([...counters].map((c) => [c, "i64"]));
+  const ranges = inferRanges(writes, counterKinds, opts);
+
   const kinds = new Map<ts.Symbol, IntKind | "any">([...decls.keys()].map((s) => [s, "any"]));
-  const withCounters = () =>
-    new Map<ts.Symbol, IntKind | "any">([
-      ...kinds,
-      ...[...counters].map((c): [ts.Symbol, IntKind] => [c, "i64"]),
-    ]);
+  const withCounters = () => new Map<ts.Symbol, IntKind | "any">([...kinds, ...counterKinds]);
   for (let changed = true; changed;) {
     changed = false;
     for (const [sym, list] of writes) {
       if (!kinds.has(sym)) continue;
       const known = withCounters();
-      const ws = list.map((w): Write =>
-        w === "other" ? undefined : typeof w === "string" ? w : writeKind(w, known, opts),
-      );
+      const ws = list.map((w): Write => {
+        if (w === "other") return undefined;
+        if (typeof w === "string") return w;
+        if ("op" in w) return typeof ranges.get(sym) === "object" ? "i64" : undefined;
+        return writeKind(w, known, opts, ranges);
+      });
       const k = join(ws);
       if (k === undefined) {
         kinds.delete(sym);

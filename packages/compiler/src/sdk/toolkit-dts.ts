@@ -34,7 +34,7 @@ import { safeName } from "./dts.ts";
 import { NATIVE_JSX_UI, nativeJsxDecls, nativeTags, rootViews } from "./native-jsx-dts.ts";
 import { toolkitForms } from "./toolkit-forms.ts";
 import {
-  MIN_IOS,
+  oldestIos,
   type SdkCallable,
   type SdkClassSchema,
   type SdkMethodSchema,
@@ -237,7 +237,7 @@ export function toolkitDts(
   const overloads = (owner: SdkClassSchema | undefined, m: Member, name: string): Overload[] => {
     const refused = unsupportedReason(planBinding(owner, m, schema, ownTypes(schema)));
     const since = String(m.since ?? owner?.since ?? "0");
-    const newer = compareVersions(since, MIN_IOS) > 0;
+    const newer = compareVersions(since, oldestIos()) > 0;
     const doc = (form?: number) => [
       ...(refused ? [`Lucent cannot write this in a body yet: ${refused}.`] : []),
       ...(m.deprecated ? ["@deprecated"] : []),

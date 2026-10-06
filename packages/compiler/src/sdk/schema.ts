@@ -25,6 +25,7 @@ import {
   type SdkOptions,
   sdkSourceModule,
 } from "@lucent-lang/bindgen";
+import { compareVersions } from "../package-versions.ts";
 
 export { formatSchemaType, PLATFORMS };
 
@@ -85,6 +86,16 @@ let deferredPlatforms: readonly Platform[] = [];
  * compile gets its own options object: its artifacts are resolved anew,
  * as installed now.
  */
+/**
+ * The oldest iOS the app runs on: its deployment target (its Xcode
+ * project's, as the SDK options say), never below React Native's minimum.
+ * An API newer than it needs an availability check.
+ */
+export function oldestIos(): string {
+  const target = sdkOptions.ios?.deploymentTarget;
+  return target && compareVersions(target, MIN_IOS) > 0 ? target : MIN_IOS;
+}
+
 export function withSdkOptions<T>(
   opts: SdkOptions | undefined,
   f: () => T,
@@ -256,6 +267,7 @@ export function jniDescriptor(
       case "id":
       case "record":
       case "set":
+      case "tuple":
       case "out":
       case "fn":
       case "error":

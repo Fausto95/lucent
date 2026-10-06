@@ -307,6 +307,12 @@ void inMainContext(const char* where, F&& work) {
 
   lucent::views::HostView host(self, _token);
 
+#ifndef NDEBUG
+  // A debug build's snapshot (__lucentDebug.snapshot()) walks UIKit's views.
+  static const bool walker = (lucent::objc::installViewTree(), true);
+  (void)walker;
+#endif
+
   inMainContext("a component's setup", [&] {
     lucent::ui::ContentEntry entry(_sizing.content());
 

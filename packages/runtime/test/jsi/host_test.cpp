@@ -918,6 +918,23 @@ static void hostsReportWhatTheyHold() {
   m_t::kept = undefined;
 }
 
+/// A debug build's snapshot (__lucentDebug.snapshot()): a promise, settled
+/// on the JS thread, of what the runtime owns live, its live mounts, and
+/// what the host holds for JavaScript.
+static void debugSnapshotsSettleOnTheJsThread() {
+  JsThread js;
+  auto host = install(js);
+
+  js.eval("var snap; __lucentDebug.snapshot().then((s) => { snap = s; });");
+
+  CHECK(within(2000, [&] { return js.string("typeof snap") == "object"; }));
+  CHECK(js.string("JSON.stringify(Object.keys(snap))") == "[\"resources\",\"mounts\",\"host\"]");
+  CHECK(js.string("typeof snap.resources.scopes") == "number");
+  CHECK(js.string("JSON.stringify(snap.mounts)") == "[]");
+  CHECK(js.number("snap.host.modules") == 1);
+  CHECK(js.number("snap.host.runtime") == static_cast<double>(host->id()));
+}
+
 /// Tasks for the JS thread count, from any thread, until they run or are
 /// released.
 static void tasksInFlightAreCounted() {
@@ -1179,6 +1196,7 @@ int main() {
   objectsOfATornDownHostAreRefused();
   collectedInstancesReleaseOnTheirThread();
   hostsReportWhatTheyHold();
+  debugSnapshotsSettleOnTheJsThread();
   tasksInFlightAreCounted();
   syncCallsTraceTheirEntry();
   asyncCallsCorrelateToTheirCompletion();

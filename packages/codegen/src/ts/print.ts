@@ -38,7 +38,15 @@ function bareType(t: Type): string {
     case "intersection":
       return t.members.map((m) => type(m, At.intersectionMember)).join(" & ");
     case "tuple":
-      return `[${t.elements.map((e) => (e.optional ? `${type(e.type, At.arrayElement)}?` : printType(e.type))).join(", ")}]`;
+      return `[${t.elements
+        .map((e) =>
+          e.name
+            ? `${e.name}${e.optional ? "?" : ""}: ${printType(e.type)}`
+            : e.optional
+              ? `${type(e.type, At.arrayElement)}?`
+              : printType(e.type),
+        )
+        .join(", ")}]`;
     case "fn":
       return `(${params(t.params)}) => ${printType(t.ret)}`;
     case "object":

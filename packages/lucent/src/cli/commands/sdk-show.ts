@@ -133,13 +133,21 @@ function block(lines: string[], start: number): string {
 /** A member's lines inside a declaration (its overloads too), with the declaration's first line for context. */
 function memberLines(block: string, member: string): string | undefined {
   const lines = block.split("\n");
+  // A declaration's first line: not every one is exported (a toolkit's namespace).
   const head = lines.find((l) => !/^\s*(\/\*\*|\*)/.test(l))!;
-  const pattern = new RegExp(
+  const declares = new RegExp(
     `^\\s+(static |readonly |get |set |protected |private )*${member}\\b[?(<:]`,
   );
-  const found = lines.flatMap((l, i) =>
-    pattern.test(l) ? lines.slice(docStart(lines, i), i + 1) : [],
-  );
+
+  // Each declaration with its doc comment: what it calls natively, what using it takes.
+  const found = lines.flatMap((l, i) => {
+    if (!declares.test(l)) return [];
+
+    let from = i;
+    if (/\*\/\s*$/.test(lines[i - 1] ?? ""))
+      while (from > 0 && !/^\s*\/\*\*/.test(lines[from - 1]!)) from--;
+    return lines.slice(from > 0 && /^\s*\/\*\*/.test(lines[from - 1]!) ? from - 1 : i, i + 1);
+  });
   return found.length ? [head, ...found, "}"].join("\n") : undefined;
 }
 

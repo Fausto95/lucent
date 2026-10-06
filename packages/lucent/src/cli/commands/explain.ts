@@ -7,6 +7,13 @@ export function run({ positionals, out }: Invocation): number {
   const t = out.theme;
   const [wanted] = positionals;
   if (!wanted) {
+    if (out.json) {
+      out.data({
+        codes: Object.entries(Explanations).map(([code, e]) => ({ code, title: e.title })),
+      });
+      return 0;
+    }
+
     for (const line of table(
       Object.entries(Explanations).map(([code, e]) => [t.bold(code), e.title]),
     ))
@@ -20,6 +27,20 @@ export function run({ positionals, out }: Invocation): number {
     out.error(`${t.error(t.symbols.fail)} no ${code}: run lucent explain for the list of codes`);
     return 1;
   }
+  if (out.json) {
+    out.data({
+      code,
+      title: e.title,
+      summary: e.summary,
+      details: e.details,
+      fix: e.fix,
+      wrong: e.wrong,
+      right: e.right,
+      docs: docsUrl(code),
+    });
+    return 0;
+  }
+
   const indent = (text: string) =>
     text
       .trimEnd()

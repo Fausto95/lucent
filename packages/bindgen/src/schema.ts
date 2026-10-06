@@ -338,6 +338,19 @@ export interface SdkCallable {
   facts?: NativeFacts;
   /** Objective-C selector (iOS). */
   selector?: string;
+  /**
+   * A constructor that is an Objective-C class method Swift imports as an
+   * initializer (`+widgetWithLabel:` as `init(label:)`): sent to the class,
+   * not to a new instance.
+   */
+  factory?: true;
+  /**
+   * A C function Swift imports as this member of a CoreFoundation-style
+   * handle (`CGImageCreateWithImageInRect` as `CGImage.cropping(to:)`):
+   * called with the object at `self` among its arguments (none: an
+   * initializer or a static member).
+   */
+  cFunction?: { name: string; self?: number };
   /** API level (Android) or OS version (iOS) that introduced it. */
   since?: number | string;
   /** Exact JNI descriptor (Android), when the types alone do not give it (generic erasure). */
@@ -402,6 +415,11 @@ export interface SdkPropertySchema {
   getter?: string;
   /** A C global holding the value (iOS typed string keys: `NSFileCreationDate`). */
   global?: string;
+  /**
+   * The C functions Swift imports as this property of a CoreFoundation-style
+   * handle (`CGImageGetWidth` as `CGImage.width`), each taking the object.
+   */
+  cFunctions?: { getter: string; setter?: string };
   /**
    * A compile-time constant (`static final` primitives and strings); a
    * long's (a 64-bit integer's) as its decimal digits, exactly.
@@ -533,6 +551,12 @@ export type SchemaType =
   | { k: "array"; of: SchemaType; nullable: boolean; cf?: boolean; list?: true }
   /** NSSet (Swift's Set): a Lucent Set. */
   | { k: "set"; of: SchemaType; nullable: boolean }
+  /**
+   * A Swift tuple (`(Double, Double)`, `(min: Int, max: Int)`): a
+   * TypeScript tuple, its labels the elements' names. Written
+   * `Tuple<double, double>`, `Tuple<min: int, max: int>`.
+   */
+  | { k: "tuple"; of: SchemaType[]; labels?: string[]; nullable: boolean }
   /** NSData / CFData: Uint8Array. */
   | { k: "bytes"; nullable: boolean; cf?: boolean }
   /** NSDate: Date. */
@@ -595,7 +619,7 @@ export function parseSchemaType(
   module = "",
   typeParams: readonly string[] = [],
 ): SchemaType {
-  const toks = s.match(/@\w+|=>|[()[\]<>?,]|[\w.$]+/g) ?? [];
+  const toks = s.match(/@\w+|=>|[()[\]<>?,:]|[\w.$]+/g) ?? [];
   let p = 0;
   const expect = (t: string) => {
     if (toks[p++] !== t) throw new Error(`schema type ${s}: expected ${t}`);
@@ -648,6 +672,26 @@ export function parseSchemaType(
         const param = toks[p++]!;
         expect(">");
         return { k: "classOf", param, nullable: false };
+      }
+      if (name === "Tuple") {
+        const of: SchemaType[] = [];
+        const labels: string[] = [];
+        for (;;) {
+          if (toks[p + 1] === ":") {
+            labels.push(toks[p]!);
+            p += 2;
+          }
+          of.push(type());
+          if (toks[p] !== ",") break;
+          p++;
+        }
+        expect(">");
+        return {
+          k: "tuple",
+          of,
+          ...(labels.length === of.length ? { labels } : {}),
+          nullable: false,
+        };
       }
       const args = [type()];
       while (toks[p] === ",") {
@@ -732,6 +776,8 @@ export function formatSchemaType(t: SchemaType): string {
       return t.cf ? `CFDictionary${q}` : `Record<${formatSchemaType(t.of)}>${q}`;
     case "set":
       return `Set<${formatSchemaType(t.of)}>${q}`;
+    case "tuple":
+      return `Tuple<${t.of.map((x, i) => `${t.labels ? `${t.labels[i]}: ` : ""}${formatSchemaType(x)}`).join(", ")}>${q}`;
     case "out":
       return `Out<${formatSchemaType(t.of)}>${q}`;
     case "classOf":

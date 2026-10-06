@@ -92,6 +92,7 @@ const COPIED = new Set<ConversionPlan["op"]>([
   "copy-array",
   "copy-record",
   "copy-set",
+  "copy-tuple",
   "copy-date",
 ]);
 

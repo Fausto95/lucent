@@ -66,9 +66,21 @@ export type ViewEvent =
       explanation: string;
     };
 
-/** How a class inserts the views written as its children: `insert(child, index)`. */
+/**
+ * How a class inserts the views written as its children
+ * (`insert(child, index)`), lets one go, and moves one (T49).
+ */
 export interface ViewChildren {
   insert: SdkMethodSchema;
+  /**
+   * Its own method letting a child go: the `remove…:` beside an iOS
+   * `insert…:atIndex:` (`removeArrangedSubview:`), Android's
+   * `removeView(View)`. On iOS the child's `removeFromSuperview` follows,
+   * and is all there is for `insertSubview:atIndex:`.
+   */
+  remove?: SdkMethodSchema;
+  /** iOS: inserting a child it has moves it to the index (UIKit's insert…:atIndex:). */
+  movesByInsert?: true;
   explanation: string;
 }
 
@@ -98,6 +110,30 @@ const REGISTER = "addAction:forControlEvents:";
 const INSERT_AT = /^insert\w*:atIndex:$/;
 
 const capitalized = (s: string) => s[0]!.toUpperCase() + s.slice(1);
+
+/**
+ * Whether `m` lets go of a child `insert` inserted: on iOS the `remove…:`
+ * of the same name (`insertArrangedSubview:atIndex:`,
+ * `removeArrangedSubview:`), on Android `removeView(View)`.
+ */
+function removes(
+  m: SdkMethodSchema,
+  insert: SdkMethodSchema,
+  platform: "ios" | "android",
+): boolean {
+  if (m.static || m.params.length !== 1 || m.params[0]!.type.k !== "ref") return false;
+  if (platform === "android") {
+    const child = m.params[0]!.type;
+    return (
+      m.name === "removeView" &&
+      child.module === ROOT_VIEW.android.module &&
+      child.name === ROOT_VIEW.android.name
+    );
+  }
+
+  const name = /^insert(\w*):atIndex:$/.exec(insert.selector ?? "")?.[1];
+  return !!name && m.selector === `remove${name}:`;
+}
 const decapitalized = (s: string) => s[0]!.toLowerCase() + s.slice(1);
 
 /** Whether `value` is one bit: a single event, not a group of them (`allTouchEvents`). */
@@ -161,9 +197,12 @@ export function viewRules(cls: SdkClassSchema, schema: SdkModuleSchema, find: Fi
           child!.type.module === ROOT_VIEW.android.module &&
           child!.type.name === ROOT_VIEW.android.name);
     if (inserts && !children) {
+      const remove = (cls.methods ?? []).find((r) => removes(r, m, schema.platform));
       children = {
         insert: m,
-        explanation: `${cls.name}.${m.selector ?? m.name}: inserts a view at an index, in ${where}`,
+        ...(remove ? { remove } : {}),
+        ...(schema.platform === "ios" ? { movesByInsert: true as const } : {}),
+        explanation: `${cls.name}.${m.selector ?? m.name}: inserts a view at an index${remove ? `, ${remove.selector ?? remove.name} lets it go` : ""}, in ${where}`,
       };
       continue;
     }

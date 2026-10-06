@@ -136,3 +136,49 @@ export function coverage(
     members,
   };
 }
+
+/**
+ * A markdown summary of `reports` (CI's step summary): their members in
+ * total, and the `top` reasons members are unrepresentable, summed across
+ * modules, most first (ties by reason, so each run gives the same text);
+ * then the modules that could not be read, and why.
+ */
+export function coverageSummary(
+  reports: readonly Coverage[],
+  top = 20,
+  unread: readonly { module: string; reason: string }[] = [],
+): string {
+  const total = reports.reduce((n, c) => n + c.total, 0);
+  const unrepresentable = reports.reduce((n, c) => n + c.unrepresentable, 0);
+  const pct = (n: number) => `${total ? ((100 * n) / total).toFixed(1) : "0.0"}%`;
+
+  const reasons = new Map<string, number>();
+  for (const c of reports)
+    for (const [reason, n] of Object.entries(c.reasons))
+      reasons.set(reason, (reasons.get(reason) ?? 0) + n);
+
+  const ranked = [...reasons]
+    .sort(([a, x], [b, y]) => y - x || (a < b ? -1 : a > b ? 1 : 0))
+    .slice(0, top);
+  const cell = (s: string) => s.replace(/\|/g, "\\|").replace(/\n/g, " ");
+  const modules = `${reports.length} module${reports.length === 1 ? "" : "s"}`;
+
+  return [
+    "## SDK coverage",
+    "",
+    `${modules}: ${total} members, ${total - unrepresentable} representable (${pct(total - unrepresentable)}), ${unrepresentable} unrepresentable (${pct(unrepresentable)}).`,
+    "",
+    `| Members | Why they are unrepresentable (top ${ranked.length} of ${reasons.size}) |`,
+    "| ---: | --- |",
+    ...ranked.map(([reason, n]) => `| ${n} | ${cell(reason)} |`),
+    "",
+    ...(unread.length
+      ? [
+          `${unread.length} module${unread.length === 1 ? "" : "s"} could not be read:`,
+          "",
+          ...unread.map((u) => `- ${u.module}: ${u.reason.split("\n")[0]!.replace(/:$/, "")}`),
+          "",
+        ]
+      : []),
+  ].join("\n");
+}

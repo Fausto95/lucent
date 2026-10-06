@@ -1,0 +1,74 @@
+{
+  "$id": "https://lucent-lang.dev/schemas/explain.schema.json",
+  "title": "lucent explain --json",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["codes"],
+      "additionalProperties": false,
+      "description": "Without a code: every code",
+      "properties": {
+        "codes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["code", "title"],
+            "additionalProperties": false,
+            "properties": {
+              "code": {
+                "type": "string",
+                "pattern": "^LUCENT\\d{4}$"
+              },
+              "title": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["code", "title", "summary", "details", "fix", "wrong", "right", "docs"],
+      "additionalProperties": false,
+      "description": "One code",
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^LUCENT\\d{4}$"
+        },
+        "title": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "details": {
+          "type": "string"
+        },
+        "fix": {
+          "type": "string",
+          "description": "What to do, in one line"
+        },
+        "wrong": {
+          "type": "object",
+          "description": "Code that has the diagnostic: file name to source",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "right": {
+          "type": "object",
+          "description": "The same code fixed: file name to source",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "docs": {
+          "type": "string",
+          "format": "uri"
+        }
+      }
+    }
+  ]
+}
