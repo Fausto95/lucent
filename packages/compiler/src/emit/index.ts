@@ -8,7 +8,7 @@ import { platformScopes } from "../platforms.ts";
 import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
 import { BindingsEmitter, type ModuleExports, publicMembers } from "./bindings.ts";
-import { emitClass } from "./classes.ts";
+import { type ClassOutput, emitClass, initialValue } from "./classes.ts";
 import { bindCompute, emitTaskVariants, taskHeader } from "./compute.ts";
 import { objcDelegate } from "./delegates.ts";
 import { iosSubclass } from "./objc-subclass.ts";
@@ -176,7 +176,7 @@ export function emitProgram(
   const moduleDecls = new Map<LucentModule, cpp.Decl[]>();
   const moduleDefs = new Map<LucentModule, cpp.Decl[]>();
   const genericFns = new Map<LucentModule, cpp.Decl[]>();
-  const statics = new Map<LucentModule, Initializer[]>();
+  const statics = new Map<LucentModule, ClassOutput["statics"]>();
   const nativeDecls: cpp.Decl[] = [];
   const java = new Map<string, string>();
   for (const m of lp.modules) {
@@ -274,31 +274,28 @@ export function emitProgram(
 
     decls.push(cpp.fn("init", cpp.voidType, []));
 
-    // Its classes' static fields, then its variables (a type's default without a value).
+    // Its classes' static fields and its variables, in source order (a type's default without a value).
     const initializers: Initializer[] = [
       ...statics.get(m)!,
       ...vars.map((g) => ({
-        value: g.decl.initializer
-          ? { expr: g.decl.initializer }
-          : {
-              leaf: {
-                name: "default",
-                code: cpp.construct(ctx.reg.cppType(g.type), [], true),
-                type: g.type,
-              },
+        decl: g.decl,
+        init: {
+          value: initialValue(ctx, g.decl.initializer, g.type),
+          type: g.type,
+          into: {
+            variable: {
+              kind: "var" as const,
+              id: g.cpp,
+              name: g.decl.name.getText(),
+              type: g.type,
+              mutable: true,
             },
-        type: g.type,
-        into: {
-          variable: {
-            kind: "var" as const,
-            id: g.cpp,
-            name: g.decl.name.getText(),
-            type: g.type,
-            mutable: true,
           },
         },
       })),
-    ];
+    ]
+      .sort((a, b) => a.decl.getStart() - b.decl.getStart())
+      .map((s) => s.init);
     const body = ctx.guard(() => initThroughIr(ctx, m, initializers, ir).body) ?? [];
 
     moduleDefs.get(m)!.push(cpp.fn("init", cpp.voidType, [], body, { scope: cpp.type(m.ns) }));

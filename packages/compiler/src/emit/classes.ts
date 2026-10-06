@@ -18,8 +18,19 @@ export interface ClassOutput {
   definition: cpp.Decl;
   /** Out-of-line member definitions (none for generic classes). */
   members: cpp.Decl[];
-  /** Each static field's initializer and where it goes, which the module's init() runs. */
-  statics: Initializer[];
+  /** Each static field, with its initializer and where it goes, which the module's init() runs. */
+  statics: { decl: ts.PropertyDeclaration; init: Initializer }[];
+}
+
+/** An initializer's value: its expression, or its type's default without one. */
+export function initialValue(
+  ctx: Ctx,
+  initializer: ts.Expression | undefined,
+  t: LType,
+): Initializer["value"] {
+  return initializer
+    ? { expr: initializer }
+    : { leaf: { name: "default", code: cpp.construct(ctx.reg.cppType(t), [], true), type: t } };
 }
 
 function modifiers(n: ts.Node): ts.SyntaxKind[] {
@@ -151,7 +162,7 @@ export function emitClass(
   ];
   const body: cpp.Member[] = [];
   const members: cpp.Decl[] = [];
-  const statics: Initializer[] = [];
+  const statics: ClassOutput["statics"] = [];
   const ctor = decl.members.find(ts.isConstructorDeclaration);
   const virtuals = ctx.guard(() => virtualMembers(ctx, info)) ?? new Set<string>();
 
@@ -186,15 +197,16 @@ export function emitClass(
           "static fields in generic classes are not supported",
         );
       body.push(cpp.field(reg.cppType(t), name, { static: true, inline: true }));
-      if (m.initializer) {
-        const field = cpp.scoped(cpp.type(info.cppName), name);
+      const field = cpp.scoped(cpp.type(info.cppName), name);
 
-        statics.push({
-          value: { expr: m.initializer },
+      statics.push({
+        decl: m,
+        init: {
+          value: initialValue(ctx, m.initializer, t),
           type: t,
           into: { write: (v) => assigns(`${info.cppName}::${name} =`, field, v) },
-        });
-      }
+        },
+      });
     } else {
       declareField(m, t);
     }

@@ -1001,8 +1001,8 @@ integers`: its int locals, and `for` counters as int64s), or a plan's
   (parameter properties, field initializers, an Error's name) where it
   starts, or, with a Lucent base class, right after its `super(…)`
   (`LeafHost.superCall`); its span is its class's. A module's `init()`
-  (`lowerInit`) stores its classes' static fields, then its variables, a
-  variable without a value getting its type's default. The constructor a
+  (`lowerInit`) stores its classes' static fields and its variables in
+  source order, one without a value getting its type's default. The constructor a
   class does not declare is the same kind of code: its parameters, its
   base's construction on them, then its fields.
 - A compute task's variant (`LowerInput.task`) is its function lowered
