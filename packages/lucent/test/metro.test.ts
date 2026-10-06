@@ -22,6 +22,14 @@ function metroProject(): string {
 
 const transformer = () => require("../metro/transformer.cjs") as Transformer;
 
+/** The file a transformed module requires, resolved from the module's directory. */
+function requiredBy(t: Transformer, filename: string, projectRoot: string): string {
+  const out = t.transform({ filename, src: "", options: { projectRoot } });
+  const spec = /require\(("[^"]+")\)/.exec(out)?.[1];
+  expect(spec, out).toBeDefined();
+  return path.resolve(path.dirname(filename), JSON.parse(spec as string) as string);
+}
+
 describe("Metro transformer", () => {
   it("bundles a Lucent module as a require of its proxy, which Metro watches", () => {
     const root = metroProject();
@@ -39,22 +47,14 @@ describe("Metro transformer", () => {
     fs.writeFileSync(path.join(root, ".lucent/native/js/storage.js"), "// the app's storage\n");
     const t = transformer();
 
-    expect(
-      t.transform({
-        filename: path.join(pkg, "src/storage.lucent.ts"),
-        src: "",
-        options: { projectRoot: root },
-      }),
-    ).toBe('module.exports = require("../../../.lucent/native/js/lucent-a/storage.js");\n');
+    expect(requiredBy(t, path.join(pkg, "src/storage.lucent.ts"), root)).toBe(
+      path.join(root, ".lucent/native/js/lucent-a/storage.js"),
+    );
 
     fs.mkdirSync(path.join(root, "src"), { recursive: true });
-    expect(
-      t.transform({
-        filename: path.join(root, "src/storage.lucent.ts"),
-        src: "",
-        options: { projectRoot: root },
-      }),
-    ).toBe('module.exports = require("../.lucent/native/js/storage.js");\n');
+    expect(requiredBy(t, path.join(root, "src/storage.lucent.ts"), root)).toBe(
+      path.join(root, ".lucent/native/js/storage.js"),
+    );
   });
 
   it("refuses to bundle a module that has not been compiled", () => {
@@ -109,24 +109,19 @@ describe("Metro transformer with LUCENT_OUT", () => {
     );
 
     const t = transformer();
-    const transform = () =>
-      t.transform({
-        filename: path.join(root, "src/storage.lucent.ts"),
-        src: "",
-        options: { projectRoot: root },
-      });
+    const proxy = () => requiredBy(t, path.join(root, "src/storage.lucent.ts"), root);
 
     try {
       // Relative to the project, as lucent build --out resolves it.
       process.env.LUCENT_OUT = "host/native";
 
       // The proxy, and so what it requires (the loader, the build identity), come from that package.
-      expect(transform()).toBe('module.exports = require("../host/native/js/storage.js");\n');
+      expect(proxy()).toBe(path.join(out, "js/storage.js"));
     } finally {
       delete process.env.LUCENT_OUT;
     }
 
-    expect(transform()).toBe('module.exports = require("../.lucent/native/js/storage.js");\n');
+    expect(proxy()).toBe(path.join(root, ".lucent/native/js/storage.js"));
   });
 
   it("keys the cache on that package's module names", () => {
