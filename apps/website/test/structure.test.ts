@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import { checkPages } from "../../../scripts/website/pages.ts";
-import { type DocSection, slugsOf } from "../src/docs/nav.ts";
+import { checkNav, checkPages } from "../../../scripts/website/pages.ts";
+import { type DocSection, docsSections, slugsOf } from "../src/docs/nav.ts";
 import type { DocPage } from "../src/docs/types.ts";
 
 const sections: DocSection[] = [
@@ -90,5 +90,92 @@ describe("the docs pages", () => {
         sections,
       ),
     ).toEqual([]);
+  });
+});
+
+describe("the docs sidebar", () => {
+  const withGroups = (
+    guides: DocSection["groups"],
+    api: DocSection["groups"] = [{ label: "Modules", items: ["api"] }],
+  ): DocSection[] => [
+    { label: "Guides", dir: "guides", groups: guides },
+    { label: "API", dir: "api", groups: api },
+  ];
+
+  it("passes as the site lists it", () => {
+    expect(checkNav(sections)).toEqual([]);
+    expect(checkNav(docsSections)).toEqual([]);
+  });
+
+  it("keeps each page under its section's directory", () => {
+    expect(
+      checkNav(
+        withGroups(
+          [{ label: "Get started", items: ["", "install"] }],
+          [{ label: "Modules", items: ["api", { label: "iOS", slugs: ["guides/ios"] }] }],
+        ),
+      ),
+    ).toEqual([
+      "/docs/install/ is listed in Guides: its slug starts with guides/",
+      "/docs/guides/ios/ is listed in API: its slug starts with api/",
+    ]);
+  });
+
+  it("lists the docs home first, and only there", () => {
+    expect(
+      checkNav(
+        withGroups(
+          [{ label: "Get started", items: ["guides/install"] }],
+          [{ label: "Modules", items: [""] }],
+        ),
+      ),
+    ).toEqual(["/docs/ is the first page of the first section, and only there"]);
+  });
+
+  it("names a landing page x, not x/index", () => {
+    expect(
+      checkNav(withGroups([{ label: "Get started", items: ["", "guides/views/index"] }])),
+    ).toEqual([
+      "/docs/guides/views/index/: a landing page is guides/views (its file guides/views.mdx), not guides/views/index",
+    ]);
+  });
+
+  it("has no empty section, group or sub-group", () => {
+    expect(
+      checkNav(
+        withGroups(
+          [
+            { label: "Get started", items: [""] },
+            { label: "Native APIs", items: [{ label: "iOS", slugs: [] }] },
+          ],
+          [],
+        ),
+      ),
+    ).toEqual(["Guides › Native APIs › iOS has no page", "API has no group"]);
+    expect(
+      checkNav(
+        withGroups(
+          [
+            { label: "Get started", items: [""] },
+            { label: "Empty", items: [] },
+          ],
+          [{ label: "Modules", items: ["api"] }],
+        ),
+      ),
+    ).toEqual(["Guides › Empty has no page"]);
+  });
+
+  it("labels each group of a section once", () => {
+    expect(
+      checkNav(
+        withGroups(
+          [
+            { label: "Get started", items: [""] },
+            { label: "Get started", items: ["guides/install"] },
+          ],
+          [{ label: "Get started", items: ["api"] }],
+        ),
+      ),
+    ).toEqual(["Guides has two groups labelled Get started"]);
   });
 });
