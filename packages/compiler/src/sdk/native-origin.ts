@@ -16,7 +16,8 @@ import {
 } from "./schema.ts";
 
 export type OriginMember =
-  | { method: SdkMethodSchema }
+  // `promise`: the form declared without its completion handler, returning a Promise.
+  | { method: SdkMethodSchema; promise?: true }
   | { property: SdkPropertySchema }
   | { initializer: SdkCallable };
 
@@ -121,11 +122,9 @@ function appleMember(schema: SdkModuleSchema, cls: SdkClassSchema, member: Origi
 
   if ("method" in member) {
     const m = member.method;
-    // A class's async method is declared as a Promise; a protocol's requirement keeps its handler.
-    const mapping =
-      m.async && !cls.interface
-        ? "without its completion handler, a Promise it settles"
-        : undefined;
+    const mapping = member.promise
+      ? "without its completion handler, a Promise it settles"
+      : undefined;
 
     if (m.swift) return line(schema, `Swift ${cls.native}.${m.swift.name}`, mapping);
     if (m.cFunction) return line(schema, `${m.cFunction.name}()`, mapping);
