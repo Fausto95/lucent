@@ -358,6 +358,7 @@ async function runTest(c: Case, mods: Record<string, unknown>, logs: boolean): P
     Map,
     Set,
     Uint8Array,
+    ArrayBuffer,
     Date,
     AbortController,
     AbortSignal,

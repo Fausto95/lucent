@@ -5,6 +5,8 @@ import * as abortModule from "../lucent/abort.lucent";
 import abortRun from "./abort";
 import * as absentResultsModule from "../lucent/absent-results.lucent";
 import absentResultsRun from "./absent-results";
+import * as arrayBuffersModule from "../lucent/array-buffers.lucent";
+import arrayBuffersRun from "./array-buffers";
 import * as assignmentOrderModule from "../lucent/assignment-order.lucent";
 import assignmentOrderRun from "./assignment-order";
 import * as asyncModule from "../lucent/async.lucent";
@@ -143,6 +145,7 @@ import voidOrUndefinedRun from "./void-or-undefined";
 export const cases: TestCase[] = [
   { name: "abort", module: abortModule, run: abortRun, expected: ["stopped: AbortError","finished","stopped: AbortError","thrown AbortError running","no signal thrown AbortError","ticked, then aborted","aborted before the first tick","before false, listener, after true, caught AbortError, thrown AbortError","Error: stop please","js aborted, caught Error, aborted=true"] },
   { name: "absent-results", module: absentResultsModule, run: absentResultsRun, expected: ["none null undefined [optional,null,union]","1 none [declared,declared null,element,field]","true fallback [loose equality,nullish]","threw no argument [argument]","threw no declared [declared]"] },
+  { name: "array-buffers", module: arrayBuffersModule, run: arrayBuffersRun, expected: ["8 0,0,7,0,0,0,0,1 2+3 6+2 true true 0,0,9 2 0 7","RangeError,2,0,RangeError,0,RangeError,3","10 0","true 3 2,2,2","4,3,2,1","object [object ArrayBuffer] {\"buffer\":{},\"size\":4} none","flag:boolean,name:string,n:number,raw:buffer(4)","true 1,2,3,4 undefined","22581 5 7"] },
   { name: "assignment-order", module: assignmentOrderModule, run: assignmentOrderRun, expected: ["moduleString ax | x ","moduleNumbers 101 99 297 74.25 4.25 18.0625 7 28 | bump1 bump2 bump3 bump4 bump7 bump2 bump1 bump2 ","moduleLogical 7 7 7 false true true | maybe7 flagfalse flagtrue ","moduleThrows 100 | t t failed ","locals ab 11 2 | ","captured ax! 202 | ","fields 2,50,1 2 changed1 | mutate mutate p q ","replaced 5 4 -1 5,8,9 7,8,9 | replace replace replace ","elements 2,8,8 | grow 2 i1 i5 i2 i1 i2 ","entries 40 0 | clobber b clobber ","elementThrows 1,2,3 | i1 rhs rhs failed key key failed ","members 1 | step "] },
   { name: "async", module: asyncModule, run: asyncRun, expected: ["42","[2,4,6]","[8,10,12]","rejected: bad","caught boom","done 1,2,3","42","js rejection: js said no","X X Y 2","start a, start b, both started, end b, end a","undefined void async ran","2","caught fast failed, slow settled","caught fast failed, slow settled","t0, t1, all 9, t2, t3, t4","42","RangeError nope","TypeError thrown","first executor,constructed,after","8 10 done 1,2","Z 1 true"] },
   { name: "async-throws", module: asyncThrowsModule, run: asyncThrowsRun, expected: ["rejected thrown [thrown,called] | rejected no returned [returned,called] | rejected nothing [called] | rejected no load key [load key,called]","rejected block [called] | rejected no expression [expression,called] | rejected no statement [statement,called]","exported returned a promise","exported rejected no exported"] },
