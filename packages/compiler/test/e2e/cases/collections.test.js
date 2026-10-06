@@ -6,3 +6,4 @@ print(JSON.stringify(mod.records({ a: 1, b: 2, c: 3 })));
 print(mod.entries({ x: "1", y: "2" }));
 print(JSON.stringify(mod.matrix(3)));
 print(JSON.stringify(mod.uniq(["b", "a", "b", "c", "a"])));
+print(mod.searchFrom(), mod.searchFrom(4));

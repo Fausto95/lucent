@@ -9,5 +9,6 @@ export default function run(mod, print, lucentClass, mods) {
   print(mod.entries({ x: "1", y: "2" }));
   print(JSON.stringify(mod.matrix(3)));
   print(JSON.stringify(mod.uniq(["b", "a", "b", "c", "a"])));
+  print(mod.searchFrom(), mod.searchFrom(4));
 
 }

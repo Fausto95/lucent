@@ -14,5 +14,7 @@ export default function run(mod, print, lucentClass, mods) {
   );
   print(mod.jsonOut());
   print(mod.counterKeys("banana"));
+  print(mod.bytesFrom(2));
+  print(mod.bytesFrom());
 
 }
