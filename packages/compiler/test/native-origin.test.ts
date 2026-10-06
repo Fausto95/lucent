@@ -87,8 +87,22 @@ describe("a declaration's native origin", () => {
   it("says how a mapping differs from the native declaration", () => {
     const m = device.methods!.find((x) => x.name === "load")!;
 
-    expect(memberOrigin(ios([device]), device, { method: m })).toBe(
+    expect(memberOrigin(ios([device]), device, { method: m, promise: true })).toBe(
       "Native: -[UIDevice loadWithReply:], in UIKit; without its completion handler, a Promise it settles",
+    );
+  });
+
+  it("gives a completion-handler method's two forms each its own line", () => {
+    const m = device.methods!.find((x) => x.name === "load")!;
+    const d = sdkDts(ios([device]));
+
+    // The handler form calls the Objective-C method as is.
+    expect(memberOrigin(ios([device]), device, { method: m })).toBe(
+      "Native: -[UIDevice loadWithReply:], in UIKit",
+    );
+    expect(d).toContain("  /** Native: -[UIDevice loadWithReply:], in UIKit. */\n  load(reply: (");
+    expect(d).toContain(
+      "  /** Native: -[UIDevice loadWithReply:], in UIKit; without its completion handler, a Promise it settles. */\n  load(): Promise<void>;",
     );
   });
 

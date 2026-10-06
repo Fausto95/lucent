@@ -23,7 +23,10 @@ async function main(argv: string[]): Promise<number> {
     out.print(`  Android SDK  ${sdks.android ?? "not found"}`);
     return 0;
   }
-  const root = path.resolve(typeof flags.root === "string" ? flags.root : process.cwd());
+  // Its realpath, as the cwd and the Lucent packages' directories are: through a
+  // link, the app's modules would be spelled apart from the paths importing them.
+  const given = path.resolve(typeof flags.root === "string" ? flags.root : process.cwd());
+  const root = fs.existsSync(given) ? fs.realpathSync(given) : given;
   if (!command && !flags.help && out.terminal.interactive) {
     // A bare `lucent`: the dashboard in a Lucent project, setting one up elsewhere.
     const name = usesLucent(root) ? "dev" : "init";

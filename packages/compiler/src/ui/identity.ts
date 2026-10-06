@@ -6,8 +6,8 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { lucentPackageOf } from "../packages.ts";
-import { LUCENT_EXTENSION, PLATFORM_EXTENSION } from "../program.ts";
+import { LUCENT_EXTENSION, lucentPackageOf } from "../packages.ts";
+import { PLATFORM_EXTENSION } from "../program.ts";
 
 export interface ModuleIdentity {
   readonly package: string;

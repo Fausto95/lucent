@@ -118,4 +118,35 @@ describe("a component of Android JSX", () => {
     },
     600_000,
   );
+  it.skipIf(!sdkAvailable("android") || !jdk)(
+    "makes the views a one-file component's Android branch returns, in glue that compiles",
+    () => {
+      process.env.LUCENT_VIEWS = "fabric";
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-native-jsx-one-file-android-"));
+      const file = path.join(dir, "title.lucent.tsx");
+
+      fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
+      fs.writeFileSync(
+        file,
+        `import { PLATFORM } from "lucent:platform";
+import { UILabel } from "lucent:ios/UIKit";
+import { TextView } from "lucent:android/android.widget";
+
+export function Title(props: { title: string }) {
+  if (PLATFORM === "android") return <TextView text={props.title} />;
+
+  return <UILabel text={props.title} />;
+}
+`,
+      );
+
+      const r = compile([file], { platforms: ["android"] });
+      const glue = r.files.get("android/m_title.cpp") ?? "";
+
+      expect(r.diagnostics.map((d) => `${d.code} ${d.message}`)).toEqual([]);
+      expect(glue).toContain('"android/widget/TextView"');
+      expect(glueErrors(r, dir, "android/m_title.cpp")).toBe("");
+    },
+    600_000,
+  );
 });

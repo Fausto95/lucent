@@ -432,6 +432,50 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-06: The app imports a component as `lucent:views/<module>`.**
+TypeScript reads the React declarations `lucent build` writes
+(`types/views/<module>.d.ts`) through the `lucent:*` path `lucent init`
+already writes, and Metro's resolver (`withLucent`) maps the name to a
+generated module that requires the component's own, so both imports are
+one module and React Native registers the view once. _Why:_ TypeScript
+resolves `./x.lucent` to the source before any `paths`, `rootDirs` or
+ambient module, so no file under `.lucent` can type it; a declaration
+beside the source would also capture the platform files' own imports of
+it, and an editor plugin leaves `tsc` failing. Resolving the name to the
+generated proxy would load it twice, and React Native refuses a view
+registered twice. _Changed:_ C-VIEW v2.4, `lucent new view`'s import,
+architecture.md, views.md.
+
+**2026-10-06: Native JSX returns from any of setup's own code.** A
+component returns its platform views' JSX from its last statement, a
+PLATFORM branch or guard, a ternary's arms, or any condition of setup's
+(`if (available("ios", 17)) return <… />`), and makes its slot at the
+top level of setup or of a PLATFORM branch (an `if` testing the platform
+alone, or a case of `switch (PLATFORM)`; the host's program takes one
+slot per branch). One platform's branch may return a toolkit's body and
+the other native views. JSX kept in a variable or made by a function of
+setup's is still refused (LUCENT3025), and so is a slot under a PLATFORM
+test with another condition (`PLATFORM === "ios" && ready`), which runs
+only when the condition holds (LUCENT3021). _Why:_ the
+last-statement rule came from toolkit bodies, which compile to one
+Swift or Kotlin body; native JSX is setup code run once per mount, so a
+return under a branch is ordinary JavaScript, and each platform's
+program lowers only its own branch. The rule made one-file components
+with platform views or children impossible, though one file with
+PLATFORM branches is how a component is written (2026-09-30), and left
+LUCENT3007's advice, `if (available(…))`, unusable for an attribute.
+_Changed:_ T48's diagnostics, views.md (Platform views as JSX:
+where it is returned; Children: the slot rule).
+
+**2026-10-06: SDK declarations say what the compiler checks.** A
+generated declaration's thread line comes from the predicate LUCENT3006
+uses (`mainThreadOnly`), so an async Swift member of a main-actor class is
+documented as callable from any thread; `sdk show` and `sdk search` read
+the toolkit modules (`lucent:swiftui`, `lucent:compose`) through the same
+function the compiler serves them with, and only with views on, saying so
+otherwise. _Why:_ the docs and the CLI disagreed with what compiled.
+_Changed:_ nothing planned; T61's SDK workflow item builds on it.
+
 **2026-10-06: iOS binds a package's pods after their install.** An Expo
 app whose Lucent package imports a pod its own `lucent.json` declares
 binds that pod in an iOS build step that runs once pods are installed,
@@ -987,6 +1031,12 @@ prop, event or measuring entry.
   `test/ui/native-jsx-diagnostics.test.ts`, `test/unknown-library.test.ts`.
   Android views mount only on Android; their glue is compiled against
   jni.h.
+- Native JSX may be returned from any of setup's own code, a one-file
+  component's PLATFORM branches included, and its slot made in one
+  (decisions log, 2026-10-06); an iOS attribute is checked against the
+  oldest iOS, as an assignment in setup code is (LUCENT3007).
+- The app imports a component's React types as `lucent:views/<module>`,
+  which TypeScript and Metro both resolve (decisions log, 2026-10-06).
 
 <a id="t49"></a>
 
@@ -2238,7 +2288,10 @@ iOS simulator and the Android emulator; physical-device checks are
   included), converted and compared `bigint | number` as JavaScript does,
   and migrated docs, samples and apps.
 - **Fixes** A `@WorkerThread` member of a `@UiThread` class; the Expo
-  plugin's unquoted key.
+  plugin's unquoted key; `@RequiresPermission` on a property's getter and
+  setter; generated Kotlin in the program hash; thread and protocol doc
+  lines in the generated declarations; members' doc comments in `sdk show`,
+  and `lucent:swiftui` and `lucent:compose` in `sdk show` and `sdk search`.
 
 ### Compiler and language
 
@@ -2548,7 +2601,10 @@ Last recorded runs:
 - Native views' JSX (T48): a plain view's children have no layout (a
   `Flex`'s are Yoga's, [T50](#t50)), and a list's item is one element
   ([T49](#t49)); its rules read declarations, not behavior (Android's
-  AdapterView declares `addView(View, int)` and throws from it).
+  AdapterView declares `addView(View, int)` and throws from it). A root
+  returned under a runtime condition is chosen once per mount: a later
+  change of what the condition read does not swap it, and a signal read
+  there is neither tracked nor warned about (a prop is, LUCENT3021).
 - Where a platform's SDK is missing, a component's code for that platform
   is untyped and not checked: its diagnostics (LUCENT3025 for its native
   JSX) come only where its SDK is installed.

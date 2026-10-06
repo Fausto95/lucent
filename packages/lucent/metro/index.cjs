@@ -4,6 +4,7 @@
 // forwards to the native module (written by `lucent build`).
 const path = require("node:path");
 const { spawn } = require("node:child_process");
+const { nativePackage } = require("./native-package.cjs");
 
 /**
  * Wraps a Metro config:
@@ -16,7 +17,8 @@ const { spawn } = require("node:child_process");
  * `{ watch: false }` or LUCENT_WATCH=0 to turn that off (LUCENT_WATCH=1 forces it).
  */
 function withLucent(config, options = {}) {
-  if (shouldWatch(options)) startWatcher(config.projectRoot || process.cwd());
+  const root = config.projectRoot || process.cwd();
+  if (shouldWatch(options)) startWatcher(root);
   const upstream =
     (config.transformer && config.transformer.babelTransformerPath) || defaultTransformer();
   // Transformer workers inherit the environment.
@@ -26,6 +28,16 @@ function withLucent(config, options = {}) {
     transformer: {
       ...config.transformer,
       babelTransformerPath: path.join(__dirname, "transformer.cjs"),
+    },
+    resolver: {
+      ...config.resolver,
+      // A component's React types are lucent:views/<module> (tsconfig's lucent:* path);
+      // `lucent build` writes, under that name, a module that requires the component's own.
+      // The app's map stays the prototype: a Proxy's get trap keeps answering for the rest.
+      extraNodeModules: Object.assign(
+        Object.create((config.resolver && config.resolver.extraNodeModules) || null),
+        { "lucent:views": path.join(nativePackage(root), "js/_lucent/components") },
+      ),
     },
   };
 }

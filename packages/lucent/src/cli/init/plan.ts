@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { findOwnFiles, LUCENT_EXTENSION } from "@lucent-lang/compiler/packages";
 import { type PackageManager, packageManagerOf, runner } from "../package-manager.ts";
 import { withLucentTsconfig } from "../tsconfig.ts";
 import {
@@ -126,7 +127,8 @@ export function planInit(root: string): InitPlan {
     "the native package is generated, like a build output",
     ignoreNativePackage(read(root, ".gitignore")),
   );
-  if (!hasModules(root)) change("src/hello.lucent.ts", "a first module to try", HELLO);
+  if (!findOwnFiles(root, LUCENT_EXTENSION).length)
+    change("src/hello.lucent.ts", "a first module to try", HELLO);
 
   const x = runner(packageManager);
   return {
@@ -136,22 +138,6 @@ export function planInit(root: string): InitPlan {
     manual,
     next: kind === "expo" ? `${x} expo run:ios` : `${x} lucent build && ${x} react-native run-ios`,
   };
-}
-
-/** Whether the project has a *.lucent.ts file (build output and dependencies aside). */
-function hasModules(root: string): boolean {
-  const walk = (dir: string): boolean =>
-    fs.readdirSync(dir, { withFileTypes: true }).some((e) => {
-      if (
-        e.name === "node_modules" ||
-        e.name.startsWith(".") ||
-        e.name === "ios" ||
-        e.name === "android"
-      )
-        return false;
-      return e.isDirectory() ? walk(path.join(dir, e.name)) : /\.lucent\.tsx?$/.test(e.name);
-    });
-  return walk(root);
 }
 
 /** Writes the changes. */

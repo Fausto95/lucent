@@ -583,7 +583,7 @@ function slotProblems(
   const checker = lp.checker;
   const container = SLOT_VIEWS[lp.platform ?? "ios"].name;
   const example = `slot<${container}>()`;
-  const slot = setupSlot(c.name, c.fn, calls, example);
+  const slot = setupSlot(c.name, c.fn, calls, example, checker, lp.platform);
   const out = [...slot.problems];
 
   // A host program's stub declares a component without code.
