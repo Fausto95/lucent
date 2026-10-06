@@ -67,11 +67,27 @@ function checks(): Check[] {
     (at) => String(Number.parseInt("11", at)),
   ];
 
+  // Local times print as wall-clock milliseconds, the same in every time
+  // zone (the example apps run this case in their machine's).
+  const wall = (d: Date, time: number) => String(time - d.getTimezoneOffset() * 60000);
+
   const dates: Check[] = [
-    (at) => String(new Date(2020, 1, at).getTime()),
-    (at) => String(new Date(2020, 1, 15).setHours(10, at)),
-    (at) => String(new Date(2020, 1, 15).setMinutes(5, at)),
-    (at) => String(new Date(2020, 1, 15).setUTCFullYear(2021, at)),
+    (at) => {
+      const d = new Date(2020, 1, at);
+
+      return wall(d, d.getTime());
+    },
+    (at) => {
+      const d = new Date(2020, 1, 15);
+
+      return wall(d, d.setHours(10, at));
+    },
+    (at) => {
+      const d = new Date(2020, 1, 15);
+
+      return wall(d, d.setMinutes(5, at));
+    },
+    (at) => String(new Date(Date.UTC(2020, 1, 15)).setUTCFullYear(2021, at)),
     (at) => String(Date.UTC(2020, at)),
     (at) => String(Date.UTC(2020, 1, at)),
     (at) => String(Date.UTC(2020, 1, 1, 0, at, at, at)),
