@@ -1,5 +1,5 @@
 ---
-title: Use an API newer than the oldest supported OS
+title: Use an API newer than your app's oldest OS
 sidebar_label: Check the OS version
 description: Call it under a check of the running OS, such as `available("ios", 16)` or `Build_VERSION.SDK_INT >= 26`; without one, it fails to compile with `LUCENT3007`.
 kind: guide
@@ -58,7 +58,7 @@ export async function setUpNotifications(): Promise<void> {
 </TabItem>
 </Tabs>
 
-An SDK declaration's doc comment gives the version that added it, such as `Since iOS 16.0.` or `Since API 26.`: [`lucent sdk show`](/docs/guides/find-an-sdk-class/) prints it. A class or member newer than the oldest OS Lucent supports compiles only where your code checks the running OS first. Without the check, the build stops:
+An SDK declaration's doc comment gives the version that added it, such as `Since iOS 16.0.` or `Since API 26.`: [`lucent sdk show`](/docs/guides/find-an-sdk-class/) prints it. A class or member newer than [the oldest OS your app runs on](#the-oldest-os-your-app-runs-on) compiles only where your code checks the running OS first. Without the check, the build stops:
 
 ```sh title="terminal" nocopy
 $ npx lucent check
@@ -90,8 +90,10 @@ The compiler looks for the check around the call, in the source:
 - The version is a number literal: `Build_VERSION_CODES.O` or a variable isn't read as a check. A check for an older version than the API's doesn't count.
 - Code written inside the check is covered, `main()` functions included. A function it calls needs its own check.
 
-## The oldest supported OS
+## The oldest OS your app runs on
 
-[Compatibility](/docs/api/compatibility/) lists the oldest iOS and Android versions Lucent supports. Your app's iOS deployment target and Android `minSdkVersion` don't raise them, and neither does a package's `ios.deploymentTarget` or `android.minSdk` in [lucent.json](/docs/packages/lucent-json/).
+On iOS, it's your app's deployment target: the app target's `IPHONEOS_DEPLOYMENT_TARGET` in the Xcode project under `ios/`, else the project's. An app deployed to iOS 16 calls an iOS 16 API without a check. Without an `ios/` project, as in an Expo app before `npx expo prebuild`, it's the oldest iOS on [Compatibility](/docs/api/compatibility/).
 
-So an app that requires iOS 16 still checks before an iOS 16 API. Reading the app's iOS target is [TA32](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta32). Android's floor is fixed, and no roadmap task changes it.
+On Android, it's the API level on Compatibility, whatever your app's `minSdkVersion`. No roadmap task changes it.
+
+A package's `ios.deploymentTarget` or `android.minSdk` in [lucent.json](/docs/packages/lucent-json/) raises the native package's, not these.

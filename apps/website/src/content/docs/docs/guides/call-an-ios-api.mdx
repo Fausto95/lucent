@@ -82,7 +82,7 @@ Rebuild the app after you add or change the module: [Get a module change into th
 - **Errors.** A method that throws in Swift throws an `Error`, and `errorCode()` from `lucent:core` reads its code, `"<domain>:<code>"` ([Errors](/docs/api/ios-sdk/#errors)). [Throw errors JavaScript can catch](/docs/guides/throw-and-handle-errors/) shows the JavaScript side.
 - **Plain results.** SDK objects [can't cross](/docs/api/language/boundary/#what-cant-cross) to JavaScript, so each function returns plain values: an object of strings, a boolean, an array of strings.
 
-An API newer than the oldest iOS Lucent supports compiles only under a [version check](/docs/guides/check-the-os-version/).
+An API newer than your app's deployment target compiles only under a [version check](/docs/guides/check-the-os-version/).
 
 [iOS SDK bindings](/docs/api/ios-sdk/) gives every rule: names, types, out parameters, blocks and errors. Swift-only APIs, such as StoreKit 2 and CryptoKit, are called the same way: see [Call a Swift-only API](/docs/guides/call-a-swift-only-api/).
 

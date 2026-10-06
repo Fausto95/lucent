@@ -48,7 +48,7 @@ export declare class UIImpactFeedbackGenerator extends UIFeedbackGenerator {
 Name a type as `<Module>.<Type>`: `UIKit.UIImpactFeedbackGenerator`, or `android.os.Vibrator` for an Android class. You get the declaration your code is checked against, with its doc comments:
 
 - `Main thread only` means calling it in code the main thread runs, such as a `main()` function.
-- `Since iOS 17.5.` or `Since API 26.` is the version that added it. One newer than the oldest OS Lucent supports needs a [version check](/docs/guides/check-the-os-version/).
+- `Since iOS 17.5.` or `Since API 26.` is the version that added it. One newer than the oldest OS your app runs on needs a [version check](/docs/guides/check-the-os-version/).
 
 Add a member, as in `UIKit.UIImpactFeedbackGenerator.impactOccurred`, to print only its overloads, without their doc comments.
 

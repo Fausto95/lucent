@@ -180,7 +180,7 @@ Where a body uses a helper, what the helper computes from its props is a value s
 - A view's props end with its modifiers as attributes (`<Type>$Modifiers`). `sdk/toolkit-forms.ts` adds Lucent's own forms, such as keyed lists (`@list`).
 - What a form can't write yet is skipped, or refused by the member's plan (`source-plan.ts`, backend `swift-source`). `lucent sdk coverage` counts both in a `lucent:swiftui` row.
 
-`emit/swiftui.ts` writes the body as `views/<registration>.swift`: an actions class, an `ObservableObject` model with a `@Published` property per value slot, the `View`, and `@_cdecl` functions. Each element and call follows its member's schema (`ui/source-members.ts` reads the tag back), and members newer than the oldest supported iOS are refused. The setup reaches the body through the C functions of `lucent/platform/swiftui.h`.
+`emit/swiftui.ts` writes the body as `views/<registration>.swift`: an actions class, an `ObservableObject` model with a `@Published` property per value slot, the `View`, and `@_cdecl` functions. Each element and call follows its member's schema (`ui/source-members.ts` reads the tag back), and members newer than the app's deployment target are refused. The setup reaches the body through the C functions of `lucent/platform/swiftui.h`.
 
 - An element's attributes named by its initializer's labels are arguments; the others are modifiers, applied in the order written. A conditional view in content is SwiftUI's `if`.
 - `withAnimation()` in setup code calls a per-site shim that runs SwiftUI's `withAnimation` around the Lucent code.

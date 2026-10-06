@@ -59,9 +59,10 @@ The package is the pod `LucentNative`. Its podspec compiles `cpp/**` and `ios/**
 So React Native finds it in its global map of C++ modules, with no codegen and no change to the app delegate. `podspec()` then adds what the build needs:
 
 - the frameworks the iOS code imports, and every pod a module imports or a Lucent package asks for, with each requirement on it;
-- the packages' sources, resources, resource bundles and vendored frameworks under `packages/`, and their Swift packages through `spm_dependency`;
+- the packages' sources, resources, resource bundles and vendored frameworks under `packages/`;
+- through `spm_dependency`, the packages' Swift packages, and the app's ones a module imports at the app's pinned version;
 - Swift 5.9, with the C++ headers private, when there are Swift shims or Swift sources;
-- a deployment target that is the higher of React Native's minimum and the packages' `deploymentTarget`.
+- a deployment target that is the highest of React Native's minimum, the packages' `deploymentTarget` and the app's own.
 
 ## Android: a C++ module and a library
 

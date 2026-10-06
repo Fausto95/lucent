@@ -5,7 +5,7 @@ description: "`lucent:ios/<Module>` declares Objective-C and Swift APIs with Swi
 kind: reference
 ---
 
-Every module of the installed iOS SDK, of the app's pods, and of the frameworks its Lucent packages ship imports as `lucent:ios/<Module>`. Lucent reads a module's declarations from Xcode the first time your code imports it, and types them by the rules on this page. Swift-only APIs are called through Swift that Lucent generates into the native package: there's no Swift to write.
+Every module of the installed iOS SDK, of the app's pods and Swift packages, and of the frameworks its Lucent packages ship imports as `lucent:ios/<Module>`. Lucent reads a module's declarations from Xcode the first time your code imports it, and types them by the rules on this page. Swift-only APIs are called through Swift that Lucent generates into the native package: there's no Swift to write.
 
 ## Look an API up
 
@@ -194,7 +194,7 @@ These fail to compile with `LUCENT1005`:
 ## Threads and versions
 
 - A class or member Swift marks `@MainActor` compiles only in code the main thread runs (`LUCENT3006`). That's a `main(() => …)` function, a block or requirement the SDK runs there, a `lucent:ios` callback, and a main-thread class's subclass. Swift `async` members are the exception: they move to the main thread themselves.
-- An API newer than the oldest iOS Lucent supports compiles only under an `available("ios", major, minor)` check (`LUCENT3007`). [Compatibility](/docs/api/compatibility/) gives that version, and [Check the OS version](/docs/guides/check-the-os-version/) the forms of the check.
+- An API newer than the app's deployment target compiles only under an `available("ios", major, minor)` check (`LUCENT3007`). [Check the OS version](/docs/guides/check-the-os-version/#the-oldest-os-your-app-runs-on) says where the target comes from, and the forms of the check.
 
 ## Swift-only APIs
 
@@ -282,4 +282,4 @@ Each stage needs the one before, and a `-` means no evidence for that stage, not
 
 `--members` lists every member with its stage and reason, and `--check <baseline>` fails when a module's unrepresentable share grows. The stages and flags are the same for Android packages. [lucent sdk coverage](/docs/api/cli/#lucent-sdk-coverage) lists the flags.
 
-Swift packages the app adds, and the deployment target it sets, aren't read yet ([TA32](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta32)). The Swift shapes left out are [TA33](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta33). The roadmap lists every [known limitation](/docs/releases/roadmap/#known-limitations).
+The Swift shapes left out are [TA33](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta33). The roadmap lists every [known limitation](/docs/releases/roadmap/#known-limitations).

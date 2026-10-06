@@ -21,7 +21,10 @@ export const blocks: Block[] = [
         "Android",
         `API ${requirements.minAndroidApi} and later; newer APIs need an \`available\` check`,
       ],
-      ["iOS", `${requirements.minIos} and later; newer APIs need an \`available\` check`],
+      [
+        "iOS",
+        `${requirements.minIos} and later; APIs newer than the app's deployment target need an \`available\` check`,
+      ],
       [
         "TypeScript",
         `${requirements.typescript.replace(/^[~^]/, "")}, which the package brings; modules are checked against ${requirements.lib.map((l) => `\`${l.replace(/^lib\.|\.d\.ts$/g, "")}\``).join(" and ")}`,

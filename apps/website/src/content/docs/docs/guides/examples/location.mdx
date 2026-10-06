@@ -58,7 +58,7 @@ The port reads the permission but doesn't ask for it, and without it the app get
 - A `CLLocationManager` calls its delegate on the thread that made it, so each one is made inside `main()`. The `managers` map keeps a request's manager until its position or error comes, and a watch's until it stops.
 - On Android, the current position is Play services' fused location, as in `expo-location`. `fromCallback` turns its `Task` into a promise ([Turn a callback API into a promise](/docs/guides/await-a-callback-api/)).
 - Watching on Android uses the platform's `LocationManager`, with a function as the listener. `removeUpdates` takes the same function back, since it is the same Java object each time ([Interfaces and callbacks](/docs/api/android-sdk/#interfaces-and-callbacks)).
-- `available("android", 26)` guards the vertical accuracy, which is `null` on older devices ([Use an API newer than the oldest supported OS](/docs/guides/check-the-os-version/)).
+- `available("android", 26)` guards the vertical accuracy, which is `null` on older devices ([Use an API newer than your app's oldest OS](/docs/guides/check-the-os-version/)).
 
 The Expo example app's SDK lab checks the permission, the services and the current position against `expo-location`.
 

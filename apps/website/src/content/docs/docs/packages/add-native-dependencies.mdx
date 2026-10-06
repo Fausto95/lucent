@@ -31,7 +31,7 @@ kind: guide
 | --- | --- | --- |
 | `ios.pods` | a dependency of the native package's pod | `lucent:ios/<Module>`, after `pod install` |
 | `ios.frameworks` | Apple frameworks the pod links | nothing new: frameworks your modules import are linked without listing them, so list the ones your native sources need |
-| `ios.swiftPackages` | a dependency React Native's `spm_dependency` adds to the pod at `pod install` | nothing yet: your modules can't import them ([TA32](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta32)), but your Swift native sources can |
+| `ios.swiftPackages` | a dependency React Native's `spm_dependency` adds to the pod at `pod install` | nothing: your modules can't import them, but your Swift native sources can |
 | `android.dependencies` | `api` dependencies of the native package's Android library | `lucent:android/<package>`, in the same build |
 
 When two packages ask for the same pod or Gradle artifact, CocoaPods or Gradle picks the version. Requirements that can't both hold, such as `~> 5.19` and `~> 6.0`, fail the build and name both packages. [lucent.json](/docs/packages/lucent-json/) gives each field's merge rule.
@@ -64,4 +64,4 @@ A Gradle artifact needs no extra step: Lucent resolves the app's Gradle classpat
 
 `ios.deploymentTarget` and `android.minSdk` are the oldest versions your package runs on. The native package requires the highest any of the app's packages asks for. An app with a lower target fails at `pod install` or in Android's manifest merger until it raises it.
 
-Your modules are still checked against the versions on [Compatibility](/docs/api/compatibility/), so guard newer APIs with [an availability check](/docs/guides/check-the-os-version/). Checking against the app's iOS target is [TA32](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta32). Android's check stays at API 24, and no task changes it.
+Your modules still guard an API newer than [the oldest OS the app runs on](/docs/guides/check-the-os-version/#the-oldest-os-your-app-runs-on), which on iOS is the app's deployment target.

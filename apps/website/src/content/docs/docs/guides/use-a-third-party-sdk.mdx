@@ -65,7 +65,7 @@ The first build that imports a pod adds it to the native package's pod, so it as
 
 - A pod must define a module: an Objective-C pod with modular headers (`DEFINES_MODULE`, `:modular_headers => true`, `use_modular_headers!`), or a pod built as a framework under `use_frameworks! :linkage => :static`. Dynamic linkage is untested ([T62](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#t62)).
 - A Swift pod's Swift API can't be bound yet, since it exists only once Xcode builds the pod. Nor can a pod that ships its library as an XCFramework, as many binary SDKs do.
-- Swift Package Manager libraries can't be imported yet ([TA32](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta32)).
+- A Swift package binds once your app's Xcode project references it, at the version `Package.resolved` pins. Add it in Xcode, but not its product to the app target: the native package links the ones your modules import.
 - In an Expo app, prebuild compiles your modules before it installs pods. A prebuild with no pods installed, such as `--clean`, fails with `LUCENT3004` once a module imports a pod.
 - On Android, a library must come from a repository, such as Maven Central or Google's. Another Gradle project's classes, such as an autolinked React Native library's, can't be imported.
 
