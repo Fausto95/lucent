@@ -38,15 +38,18 @@ function diagnostics(platform: "ios" | "android", imports: string, code: string)
   }));
 }
 
-/** A one-file `title.lucent.tsx`, `code` its body, compiled for `platform`: diagnostics and root. */
-function oneFile(platform: "ios" | "android", code: string) {
+/**
+ * A one-file `title.lucent.tsx`, `code` its body after `imports` and those of
+ * both platforms' views, compiled for `platform`: diagnostics and root.
+ */
+function oneFile(platform: "ios" | "android", code: string, imports = "") {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-native-jsx-one-file-"));
   const file = path.join(dir, "title.lucent.tsx");
 
   fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
   fs.writeFileSync(
     file,
-    `import { PLATFORM } from "lucent:platform";\nimport { UILabel } from "lucent:ios/UIKit";\nimport { TextView } from "lucent:android/android.widget";\n\nexport function Title(props: { title: string }) {\n${code}\n}\n`,
+    `${imports}import { PLATFORM } from "lucent:platform";\nimport { UILabel } from "lucent:ios/UIKit";\nimport { TextView } from "lucent:android/android.widget";\n\nexport function Title(props: { title: string }) {\n${code}\n}\n`,
   );
 
   const result = compile([file], { platforms: [platform] });
@@ -262,14 +265,15 @@ describe("native view JSX diagnostics", () => {
     ).toEqual([]);
   });
 
-  it.skipIf(!ios)("refuses native JSX a function setup makes returns", () => {
+  it.skipIf(!ios || !android)("refuses native JSX a function setup makes returns", () => {
     expect(
-      diagnostics(
+      oneFile(
         "ios",
-        'import { UILabel } from "lucent:ios/UIKit";',
-        "  const make = () => <UILabel text={props.title} />;\n  return make();",
-      ),
-    ).toEqual([expect.objectContaining({ code: expect.stringMatching(/^LUCENT302[45]$/) })]);
+        '  if (PLATFORM === "ios") {\n    const make = () => <UILabel text={props.title} />;\n\n    return make();\n  }\n\n  return <TextView text={props.title} />;',
+      ).diagnostics,
+    ).toEqual([
+      "LUCENT3025 JSX of native views is what a component returns: return it from the component's own code",
+    ]);
   });
 
   const roots = {
@@ -295,4 +299,16 @@ describe("native view JSX diagnostics", () => {
         expect(oneFile("android", code)).toEqual({ diagnostics: [], root: roots.android });
       },
     );
+
+  it.skipIf(!ios || !android)(
+    "returns a SwiftUI body on iOS and native JSX on Android from one file",
+    () => {
+      const code =
+        '  if (PLATFORM === "ios") return <Text>{props.title}</Text>;\n\n  return <TextView text={props.title} />;';
+      const imports = 'import { Text } from "lucent:swiftui";\n';
+
+      expect(oneFile("ios", code, imports).diagnostics).toEqual([]);
+      expect(oneFile("android", code, imports)).toEqual({ diagnostics: [], root: roots.android });
+    },
+  );
 });

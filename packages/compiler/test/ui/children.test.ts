@@ -22,7 +22,7 @@ const sdks = {
 /** `files` in a package `@acme/app`, compiled for `platform`; the directory too. */
 function build(
   files: Record<string, string>,
-  platform: "ios" | "android",
+  platform: "ios" | "android" | "host",
 ): { dir: string; result: CompileResult } {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-children-"));
 
@@ -204,6 +204,59 @@ describe("a component's React children", () => {
       },
       300_000,
     );
+
+  it.skipIf(!sdks.ios || !sdks.android)(
+    "reach a one-file component's slots on the host, one per PLATFORM branch",
+    () => {
+      const { result } = build(ONE_FILE_CARD, "host");
+
+      expect(result.diagnostics.map((d) => `${d.code} ${d.message}`)).toEqual([]);
+    },
+    300_000,
+  );
+
+  for (const platform of ["ios", "android"] as const)
+    it.skipIf(!sdks.ios || !sdks.android)(
+      `reach a one-file component through the slot its switch (PLATFORM) case for ${platform} makes`,
+      () => {
+        const { result } = build(
+          {
+            "card.lucent.tsx": ONE_FILE_CARD["card.lucent.tsx"]
+              .replace('  if (PLATFORM === "ios") {', '  switch (PLATFORM) {\n  case "ios": {')
+              .replace("    );\n  }\n\n  const content", "    );\n  }\n  default: {\n  const content")
+              .replace("    </LinearLayout>\n  );\n}", "    </LinearLayout>\n  );\n  }\n  }\n}"),
+          },
+          platform,
+        );
+
+        expect(result.diagnostics.map((d) => `${d.code} ${d.message}`)).toEqual([]);
+        expect(result.components?.[0]?.children).toEqual({ optional: true });
+      },
+      300_000,
+    );
+
+  it.skipIf(!sdks.ios || !sdks.android)(
+    "refuse a slot made under a PLATFORM test with a condition of setup's",
+    () => {
+      const { result } = build(
+        {
+          "card.lucent.tsx": ONE_FILE_CARD["card.lucent.tsx"]
+            .replace('  if (PLATFORM === "ios") {', '  if (PLATFORM === "ios" && props.title !== "") {')
+            .replace(
+              "    );\n  }\n\n  const content",
+              '    );\n  }\n\n  if (PLATFORM === "ios") return <UILabel text="none" />;\n\n  const content',
+            ),
+        },
+        "ios",
+      );
+
+      expect(result.diagnostics.map((d) => [d.code, d.message])).toContainEqual([
+        "LUCENT3021",
+        expect.stringContaining("`Card` calls slot outside a declaration"),
+      ]);
+    },
+    300_000,
+  );
 
   it.skipIf(!sdks.ios)(
     "still refuse a slot made under a condition of setup's",
