@@ -291,7 +291,11 @@ static void snapshotsLiveMounts() {
     CHECK(before.find("\"resources\":{\"nativeRefs\":") != std::string::npos);
     CHECK(before.find("\"mounts\":[]") != std::string::npos);
 
-    const auto id = ui::addMount({"LucentRows_abc", "rows.lucent.tsx:5", [] { return NativeRef(); }});
+    // A stand-in for the platform view: the walker below reads nothing of it.
+    static int handle = 0;
+    const NativeRef stack(&handle, [](void*) {}, nullptr);
+    const auto id = ui::addMount({"LucentRows_abc", "rows.lucent.tsx:5", [stack] { return stack; }});
+    // No walker (a headless host): the view has no tree.
     CHECK(ui::debugSnapshot().find(
               "{\"component\":\"LucentRows_abc\",\"source\":\"rows.lucent.tsx:5\",\"tree\":null}") !=
           std::string::npos);
