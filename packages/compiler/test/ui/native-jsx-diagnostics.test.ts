@@ -28,7 +28,12 @@ function diagnostics(platform: "ios" | "android", imports: string, code: string)
   return compile(
     Object.keys(files).map((f) => path.join(dir, f)),
     { platforms: [platform] },
-  ).diagnostics.map((d) => ({ code: d.code, message: d.message, fix: d.fix }));
+  ).diagnostics.map((d) => ({
+    code: d.code,
+    message: d.message,
+    fix: d.fix,
+    ...(d.quickFix ? { quickFix: d.quickFix } : {}),
+  }));
 }
 
 describe("native view JSX diagnostics", () => {
@@ -69,6 +74,10 @@ describe("native view JSX diagnostics", () => {
           "`title` is props.title as setup first read it: the attribute would never change",
         ),
         fix: "read props.title in the attribute, which keeps it up to date",
+        quickFix: {
+          title: "Read props.title in the attribute",
+          edits: [{ start: expect.any(Number), length: "title".length, text: "props.title" }],
+        },
       }),
     ]);
   });

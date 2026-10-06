@@ -62,6 +62,39 @@
           "severity": {
             "const": "warning",
             "description": "Present on warnings only"
+          },
+          "quickFix": {
+            "type": "object",
+            "description": "Where the fix is exact: edits to the diagnostic's file, which an editor offers to apply",
+            "required": ["title", "edits"],
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "What it does, as an editor lists it"
+              },
+              "edits": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["start", "length", "text"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "start": {
+                      "type": "integer",
+                      "description": "Offset in the file"
+                    },
+                    "length": {
+                      "type": "integer"
+                    },
+                    "text": {
+                      "type": "string",
+                      "description": "What replaces the length characters at start"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -112,6 +145,39 @@
           "severity": {
             "const": "warning",
             "description": "Present on warnings only"
+          },
+          "quickFix": {
+            "type": "object",
+            "description": "Where the fix is exact: edits to the diagnostic's file, which an editor offers to apply",
+            "required": ["title", "edits"],
+            "additionalProperties": false,
+            "properties": {
+              "title": {
+                "type": "string",
+                "description": "What it does, as an editor lists it"
+              },
+              "edits": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["start", "length", "text"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "start": {
+                      "type": "integer",
+                      "description": "Offset in the file"
+                    },
+                    "length": {
+                      "type": "integer"
+                    },
+                    "text": {
+                      "type": "string",
+                      "description": "What replaces the length characters at start"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },

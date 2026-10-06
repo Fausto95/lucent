@@ -1,3 +1,4 @@
+import { classOrigin, memberOrigin, type OriginMember } from "./native-origin.ts";
 import type { NamesIndex } from "@lucent-lang/bindgen";
 import { ts } from "@lucent-lang/codegen";
 import {
@@ -523,17 +524,25 @@ function classDts(
       mainActor?: boolean;
       worker?: boolean;
     },
+    // What it calls natively: a member the class declares (an inherited one is its superclass's).
+    origin?: OriginMember,
   ) => {
     const parts = [
       sinceText(m.since),
       m.mainActor ? "Main thread only: call it inside `main(() => …)`." : undefined,
       m.worker ? "Blocks (@WorkerThread): call it outside `main(() => …)`." : undefined,
       refused(cls, m),
-      m.deprecated ? "@deprecated" : undefined,
     ].filter(Boolean);
-    return parts.length ? { doc: parts.join(" ") } : {};
+    // On a line of its own: where it comes from, beside what using it takes. A tag comes last:
+    // it takes the text after it as its own.
+    const lines = [
+      ...(parts.length ? [parts.join(" ")] : []),
+      ...(origin ? [`${memberOrigin(schema, cls, origin)}.`] : []),
+      ...(m.deprecated ? ["@deprecated"] : []),
+    ];
+    return lines.length ? { doc: lines.length === 1 ? lines[0]! : lines } : {};
   };
-  const doc: string[] = [];
+  const doc: string[] = [`${classOrigin(schema, cls)}.`];
   if (cls.mainActor)
     doc.push("Main thread only: use it inside `main(() => …)` from lucent:thread.");
   if (cls.interface) doc.push("A Java interface.");
@@ -581,7 +590,7 @@ function classDts(
       k: "constructor",
       params: params(c),
       ...(c.protected ? { protected: true } : {}),
-      ...memberDoc(c),
+      ...memberDoc(c, { initializer: c }),
     });
   // A TypeScript class cannot have a property and a method of one name: the method stays.
   const methodNames = new Set((cls.methods ?? []).map((m) => `${!!m.static}:${m.name}`));
@@ -606,7 +615,7 @@ function classDts(
       ...(set && ts.printType(set) !== ts.printType(type) ? { set } : {}),
       ...(p.static ? { static: true } : {}),
       ...(p.readonly ? { readonly: true } : {}),
-      ...memberDoc(p),
+      ...memberDoc(p, { property: p }),
     });
   }
   for (const m of cls.methods ?? []) {
@@ -632,7 +641,7 @@ function classDts(
     const shared = {
       ...(m.static ? { static: true } : {}),
       ...(tps.length ? { typeParams: tps.map((name) => ({ name })) } : {}),
-      ...memberDoc(m),
+      ...memberDoc(m, { method: m }),
     };
     members.push({
       k: "method",

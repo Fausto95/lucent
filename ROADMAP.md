@@ -1497,7 +1497,7 @@ count.
 coherent workflow.
 
 - **Status:** in progress (2026-10-05): one slice per item, each its own
-  PR; the carried-over items and doctor's build checks so far.
+  PR; the carried-over items, doctor's build checks and the editor so far.
 - **Area:** Tooling.
 - **Needs:** T23 (done), T24 (done), T40 (done), T41 (done), [T48](#t48)
   (open).
@@ -1505,9 +1505,14 @@ coherent workflow.
 - **Where:** CLI and editor integration, JSON schemas, tree and ownership
   debugging output.
 
-- [ ] Add navigation to a declaration's origin, availability and ownership
+- [x] Add navigation to a declaration's origin, availability and ownership
       diagnostics, quick fixes, SDK mapping explanations and used-symbol
-      upgrade reports.
+      upgrade reports: every SDK declaration's doc names what it calls
+      natively and how its mapping differs (hover, go-to-definition,
+      `sdk show`); diagnostics carry quick fixes where the fix is exact,
+      which the ts-plugin offers; availability (LUCENT3007) and ownership
+      (LUCENT3030, 3031) diagnostics and `lucent sdk diff`'s used-symbol
+      report already existed.
 - [x] Have `doctor` read the shared build and artifact identities, and
       explain dependency conflicts, cache misses, missing targets and stale
       installations: `last-build`, `cache` (against the record before,
