@@ -69,7 +69,7 @@ jsi::Value errorInstanceToJs(jsi::Runtime& rt, Host& host, const Error& e);
 /// What generated code and JavaScript proxies expect of this runtime: a
 /// change that breaks either takes a new number. The compiler's
 /// RUNTIME_ABI; generated code checks it as it builds.
-inline constexpr int kRuntimeAbi = 1;
+inline constexpr int kRuntimeAbi = 2;
 
 /// A module as the program was compiled: its name, and a hash of what
 /// JavaScript sees of it (its exports and their signatures).

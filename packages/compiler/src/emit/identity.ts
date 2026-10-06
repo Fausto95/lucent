@@ -20,7 +20,7 @@ import type { Ctx } from "./context.ts";
  * runtime cpp/lucent/jsi/host.h, which the generated identity checks as
  * it builds. A change to the runtime that breaks either takes a new one.
  */
-export const RUNTIME_ABI = 1;
+export const RUNTIME_ABI = 2;
 
 /** The generated C++ unit that carries a program's identity. */
 export const IDENTITY_UNIT = "lucent_identity.cpp";
