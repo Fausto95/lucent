@@ -175,6 +175,20 @@ describe("Lucent's Gradle scripts", () => {
   );
 
   it.skipIf(!canRun)(
+    "prefer the unflavored variant to other build types named like it",
+    () => {
+      // androidx.baselineprofile adds build types such as benchmarkRelease.
+      const root = app({
+        classpaths: ["benchmarkReleaseCompileClasspath", "releaseCompileClasspath"],
+      });
+      const r = lucentClasspath(root);
+      expect(r.status, r.out).toBe(0);
+      expect(bound(root)).toEqual({ aars: [], jars: ["release-1.0.jar"] });
+    },
+    300_000,
+  );
+
+  it.skipIf(!canRun)(
     "fall back to the release variant's classpath when the debug variants are disabled",
     () => {
       for (const variant of ["release", "freeRelease"]) {
