@@ -28,11 +28,6 @@
   --lucent-lime-ink: #4d7c0f;
   --lucent-glow: rgb(196 247 120 / 0.55);
 
-  /* The announcement bar: dark in both modes. */
-  --lucent-night: #0b0f17;
-  --lucent-night-muted: #8b919c;
-  --lucent-night-line: rgb(255 255 255 / 0.1);
-
   /* The navbar and the footer: the page's own colors, translucent over it. */
   --lucent-chrome: rgb(255 255 255 / 0.72);
   --lucent-chrome-raised: rgb(0 0 0 / 0.05);
@@ -42,6 +37,7 @@
   --lucent-chrome-line: rgb(0 0 0 / 0.08);
   --lucent-chrome-active: var(--lucent-lime-ink);
   --lucent-chrome-active-background: rgb(196 247 120 / 0.35);
+  --lucent-chrome-mark: var(--lucent-lime-ink);
 
   --lucent-background: #ffffff;
   --lucent-foreground: oklch(0.482 0 89.876);
@@ -134,7 +130,6 @@ html[data-theme="dark"] {
   --lucent-lime-ink: #c4f778;
   --lucent-glow: rgb(196 247 120 / 0.16);
 
-  --lucent-night: #0d121c;
 
   --lucent-chrome: rgb(7 10 18 / 0.72);
   --lucent-chrome-raised: rgb(255 255 255 / 0.07);
@@ -144,6 +139,7 @@ html[data-theme="dark"] {
   --lucent-chrome-line: rgb(255 255 255 / 0.1);
   --lucent-chrome-active: var(--lucent-lime);
   --lucent-chrome-active-background: rgb(196 247 120 / 0.1);
+  --lucent-chrome-mark: var(--lucent-lime);
 
   --lucent-background: #070a12;
   --lucent-foreground: #b9bdc3;
@@ -528,13 +524,15 @@ pre,
 }
 
 /* ---------------------------------------------------------------------------
- * Announcement bar: on the night, above the navbar.
+ * Announcement bar: above the navbar, in its colors.
  * ------------------------------------------------------------------------ */
 .theme-announcement-bar {
   height: auto;
-  border-bottom: 1px solid var(--lucent-night-line);
-  background-color: var(--lucent-night) !important;
-  color: var(--lucent-night-muted) !important;
+  border-bottom: 1px solid var(--lucent-chrome-line);
+  background-color: var(--lucent-chrome) !important;
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  color: var(--lucent-chrome-muted) !important;
 }
 .theme-announcement-bar [class*="announcementBarContent"] {
   padding: 0.5rem 1.5rem;
@@ -542,7 +540,7 @@ pre,
   line-height: 1.45;
 }
 .theme-announcement-bar b {
-  color: var(--lucent-lime);
+  color: var(--lucent-chrome-mark);
   font-weight: 600;
 }
 @media (max-width: 500px) {
