@@ -2595,15 +2595,15 @@ Last recorded runs:
   implement returns its zero value, and the reason is logged.
 - A Lucent package's pod binds once installed. In a bare app, the
   `lucent build` that first meets it declares it in the native package's
-  podspec, fails with LUCENT3004 and names it; `pod install`, then
-  `lucent build` binds it, and asks for `pod install` again when it adds
-  files. `expo prebuild` stops at that first failure, which names no
-  steps: the config plugin builds before the pods are installed and
-  before it links the native package. A pod binds through the module it
-  defines (`DEFINES_MODULE`, modular headers, a prebuilt `.framework`, or
-  `use_frameworks!`); a Swift pod built as a static library, or one that
-  ships an `.xcframework`, is not bound. Binding a package's own pod in
-  an Expo app is [TA35](#ta35).
+  podspec. That build fails with LUCENT3004 and names the pod. After
+  `pod install`, `lucent build` binds it, and asks for `pod install`
+  again when it adds files. `expo prebuild` stops at that first failure,
+  which names no steps. The config plugin builds before the pods are
+  installed and before it links the native package. A pod binds through
+  the module it defines: `DEFINES_MODULE`, modular headers, a prebuilt
+  `.framework`, or `use_frameworks!`. A Swift pod built as a static
+  library, or one that ships an `.xcframework`, is not bound. Binding a
+  package's own pod in an Expo app is [TA35](#ta35).
 - Typed native extensions: Swift and Kotlin sources in a package are not
   typed yet, and extension calls cannot be cancelled.
 - Tracing records allocations for native buffers only, and its buffer
