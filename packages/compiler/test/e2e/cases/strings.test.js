@@ -60,3 +60,5 @@ print(
 );
 print(JSON.stringify(mod.dollarPatterns()));
 print(mod.localeCase(["straße", "ΣΑΣ", "Ǆ"]));
+for (const limit of [-1, -2, 1.9, -0.5, NaN, 2 ** 32, 2 ** 32 + 1, Infinity, -Infinity])
+  print(String(limit), mod.splitLimits(limit));
