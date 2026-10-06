@@ -432,6 +432,24 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-06: A read before assignment throws, never crashes.** A field,
+static field or module variable of an object type (or a union holding
+one) that is read before it is assigned throws `TypeError` naming it;
+other types keep reading their default. _Why:_ JavaScript gives
+`undefined`, which a native `Ref` or struct can't hold without making
+every object type optional, and the read used to dereference null. The
+pattern (a base constructor reading a subclass's field, a `!` field) is
+not reliably detectable at compile time. _Changed:_ the deviations table
+in docs/semantics.md, which also records the missing temporal dead zone.
+
+**2026-10-06: Decorators and default exports are refused.** Both
+report a diagnostic (LUCENT1005, LUCENT3003) instead of compiling to a
+class whose decorators never run or an export JavaScript sees under its
+own name. _Why:_ a decorator can replace what it decorates at class
+definition, which a static native class can't follow, and the proxy
+exports names; `export function f` is the exact equivalent.
+_Changed:_ docs/semantics.md's Modules and classes sections.
+
 **2026-10-06: Optional fields' presence is refused, not guessed.** `in`
 with an object type's optional field, a computed `in`, `for…in` or
 `Object.keys` on a type with one report LUCENT1002 or LUCENT1003; `in`
@@ -2329,6 +2347,9 @@ Last recorded runs:
   records, tuples, callback results and promise values, a `T | undefined`
   also takes `null` (and `T | null` takes `undefined`), and a use of it
   then throws `TypeError`.
+- A field or variable of an object type read before it is assigned
+  throws `TypeError` (JavaScript reads `undefined`), and a `let` read
+  before its declaration runs reads as unassigned, not `ReferenceError`.
 - On Android API 24 and 25, a Java default method that Lucent does not
   implement returns its zero value, and the reason is logged.
 - A pod added to `lucent.json` after the first build needs `pod install`
