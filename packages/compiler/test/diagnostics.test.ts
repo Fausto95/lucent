@@ -439,4 +439,20 @@ export function f(round: boolean): number {
       ),
     ).toContain("LUCENT1003");
   });
+
+  describe("object types' keys, which record neither which optional fields are set nor their order", () => {
+    const shape = "type P = { a: number; b?: number };\n";
+
+    it.each([
+      ["Object.keys", "export function f(p: P): string[] { return Object.keys(p); }", "LUCENT1003"],
+      [
+        "for…in",
+        'export function f(p: P): string { let s = ""; for (const k in p) s += k; return s; }',
+        "LUCENT1009",
+      ],
+      ["in", 'export function f(p: P): boolean { return "b" in p; }', "LUCENT1002"],
+    ])("rejects %s on an object type", (_, src, code) => {
+      expect(codes(shape + src)).toContain(code);
+    });
+  });
 });
