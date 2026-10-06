@@ -154,7 +154,7 @@ export async function run(): Promise<string> {
 `);
 
     expect(messages(r)).toEqual([]);
-    expect(code).toContain("static_cast<ABIEdges>(0.0)");
+    expect(code).toContain("lucent::toNativeNumber<ABIEdges>(0.0)");
   });
 
   it("passes an object of a protocol composed with NSObjectProtocol, as the protocol", () => {

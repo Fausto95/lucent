@@ -1,6 +1,7 @@
 // Number to string (lucent/number.h): String(x), toString(radix), toFixed,
 // toExponential and toPrecision, checked case by case against the corpus
-// node writes (number/corpus.ts). Built and run by
+// node writes (number/corpus.ts); and numbers as the native numbers C and
+// Objective-C parameters take (toNativeNumber). Built and run by
 // `packages/runtime/test/run.sh` (which writes the corpus), also under
 // ASan/UBSan and TSan. With LUCENT_NUMBER_BENCH=1 it also prints the cost of
 // each form over the corpus's doubles (build with -O2).
@@ -118,6 +119,48 @@ void measure(const std::vector<Case>& cases) {
   }
 }
 
+/// A number as a narrower native number (a C int, an enum, a float), as
+/// WebIDL's default conversion: NaN and infinities 0, truncated, modulo
+/// 2^bits; a 64-bit integer exactly, or RangeError.
+int nativeNumbers() {
+  int wrong = 0;
+  auto check = [&](bool ok, const char* what) {
+    if (ok) return;
+
+    wrong++;
+    std::fprintf(stderr, "native number: %s\n", what);
+  };
+#define CHECK_NATIVE(cond) check(cond, #cond)
+
+  enum class Edges : uint32_t { none = 0, top = 1 };
+
+  CHECK_NATIVE(toNativeNumber<int32_t>(kNaN) == 0);
+  CHECK_NATIVE(toNativeNumber<int32_t>(kInfinity) == 0);
+  CHECK_NATIVE(toNativeNumber<int32_t>(-kInfinity) == 0);
+  CHECK_NATIVE(toNativeNumber<int32_t>(3e9) == -1294967296);
+  CHECK_NATIVE(toNativeNumber<int32_t>(-1.9) == -1);
+  CHECK_NATIVE(toNativeNumber<uint8_t>(-1) == 255);
+  CHECK_NATIVE(toNativeNumber<uint8_t>(300) == 44);
+  CHECK_NATIVE(toNativeNumber<int16_t>(40000) == -25536);
+  CHECK_NATIVE(toNativeNumber<uint32_t>(-1) == 4294967295u);
+  CHECK_NATIVE(toNativeNumber<float>(1.5) == 1.5f);
+  CHECK_NATIVE(toNativeNumber<Edges>(1) == Edges::top);
+  CHECK_NATIVE(toNativeNumber<Edges>(kNaN) == Edges::none);
+  CHECK_NATIVE(toNativeNumber<int64_t>(-3.5) == -3);
+
+  bool threw = false;
+  try {
+    (void)toNativeNumber<int64_t>(kNaN);
+  } catch (const Exception& e) {
+    threw = e.error()->name.toUtf8() == "RangeError";
+  }
+  CHECK_NATIVE(threw);
+#undef CHECK_NATIVE
+
+  std::printf("native numbers: %d wrong\n", wrong);
+  return wrong;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -127,7 +170,7 @@ int main(int argc, char** argv) {
   }
 
   std::vector<Case> cases = readCorpus(argv[1]);
-  int wrong = agreesWithJavaScript(cases);
+  int wrong = agreesWithJavaScript(cases) + nativeNumbers();
 
   if (const char* bench = std::getenv("LUCENT_NUMBER_BENCH"); bench && std::string(bench) == "1") measure(cases);
 
