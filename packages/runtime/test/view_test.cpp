@@ -282,6 +282,34 @@ static void entriesBelongToTheMainThread() {
   onUi([&] { content.reset(); });
 }
 
+/// A debug build's snapshot: each live mount (its component, its source,
+/// its view's tree as the platform walks it) and what the runtime owns.
+/// Without a platform walker, a view has no tree.
+static void snapshotsLiveMounts() {
+  onUi([] {
+    const std::string before = ui::debugSnapshot();
+    CHECK(before.find("\"resources\":{\"nativeRefs\":") != std::string::npos);
+    CHECK(before.find("\"mounts\":[]") != std::string::npos);
+
+    // A stand-in for the platform view: the walker below reads nothing of it.
+    static int handle = 0;
+    const NativeRef stack(&handle, [](void*) {}, nullptr);
+    const auto id = ui::addMount({"LucentRows_abc", "rows.lucent.tsx:5", [stack] { return stack; }});
+    // No walker (a headless host): the view has no tree.
+    CHECK(ui::debugSnapshot().find(
+              "{\"component\":\"LucentRows_abc\",\"source\":\"rows.lucent.tsx:5\",\"tree\":null}") !=
+          std::string::npos);
+
+    ui::setViewTree([](const NativeRef&) { return std::string("{\"class\":\"UIStackView\"}"); });
+    CHECK(ui::debugSnapshot().find("\"tree\":{\"class\":\"UIStackView\"}") != std::string::npos);
+    ui::setViewTree(nullptr);
+
+    ui::removeMount(id);
+    CHECK(ui::debugSnapshot().find("\"mounts\":[]") != std::string::npos);
+    ui::removeMount(0);
+  });
+}
+
 int main() {
   oneMainGraph();
   eventsFollowTheirRoute();
@@ -291,6 +319,7 @@ int main() {
   functionsEnterTheirMount();
   invalidationsOutsideAnEntryWaitForTheTurn();
   entriesBelongToTheMainThread();
+  snapshotsLiveMounts();
 
   std::printf("view: %d checks, %d failures\n", checks, failures);
   return failures == 0 ? 0 : 1;

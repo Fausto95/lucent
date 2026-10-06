@@ -222,6 +222,12 @@ void mount(const std::shared_ptr<HostState>& host) {
 
   if (!host->emitter) logError(("[lucent] " + host->name + " has no event emitter: its events are dropped").c_str());
 
+#ifndef NDEBUG
+  // A debug build's snapshot (__lucentDebug.snapshot()) walks Android's views.
+  static const bool walker = (jni::installViewTree(), true);
+  (void)walker;
+#endif
+
   guarded("a component's setup", [&] {
     ui::ContentEntry entry(host->sizing.content());
     JNIEnv* env = jni::env();

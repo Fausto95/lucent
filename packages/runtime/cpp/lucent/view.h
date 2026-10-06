@@ -18,6 +18,7 @@
 #include <exception>
 #include <functional>
 #include <memory>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
@@ -162,5 +163,30 @@ auto inContent(std::weak_ptr<Content> content, F f) {
 /// lucent:ui's invalidateSize(): marks `content` (the mount of the setup
 /// the call is written in) changed; nothing once the mount has gone.
 void invalidateSize(const std::weak_ptr<Content>& content);
+
+/**
+ * A live mount, for a debug build's snapshot: its component (its
+ * registration), the source line of its setup, and its view now. Main
+ * thread only, as mounts are.
+ */
+struct MountRecord {
+  const char* component;
+  const char* source;
+  std::function<NativeRef()> view;
+};
+
+/// Records a mount; the id removeMount() takes (0: none, which it ignores).
+size_t addMount(MountRecord record);
+void removeMount(size_t id);
+
+/// How a platform writes a view's tree as JSON (its class, frame and
+/// children); none: a view has no tree in the snapshot (a headless host).
+void setViewTree(std::function<std::string(const NativeRef&)> write);
+
+/**
+ * A debug build's snapshot, as JSON: what the runtime owns, live
+ * (debug.h), and each live mount with its view's tree. Main thread.
+ */
+std::string debugSnapshot();
 
 }  // namespace lucent::ui

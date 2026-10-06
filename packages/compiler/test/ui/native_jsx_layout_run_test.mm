@@ -105,6 +105,9 @@ void run() {
 
   // UIKit's arrays (subviews, sorted copies) are autoreleased: the pool lets them go before the release check.
   @autoreleasepool {
+  // As the host does, for a debug build's snapshot.
+  lucent::objc::installViewTree();
+
   auto empty = std::make_shared<const card::Props>();
   auto props = commit(parser, empty,
                       R"({"p0": "Hello", "p1": false, "p2": [{"id": "a", "name": "A"}, {"id": "b", "name": "B"}]})");
@@ -136,6 +139,16 @@ void run() {
                              {near(column.frame.origin.x, CGRectGetMaxX(spacer.frame) + 8), "column " + frame(column)},
                              {near(stack.frame.origin.x, CGRectGetMaxX(column.frame) + 8 + 4), "stack " + frame(stack)},
                              {near(CGRectGetMaxX(stack.frame) + 4, 400 - 10), "row not filled"}}));
+
+  // A debug build's snapshot: the mount, at its setup's source, and its views' tree.
+  const std::string snapshot = lucent::ui::debugSnapshot();
+  const auto has = [&](const char* s) { return snapshot.find(s) != std::string::npos; };
+  say(std::string("snapshot: ") +
+      (has("\"source\":\"card.ios.lucent.tsx:") && has("\"class\":\"LucentFlexView\"") &&
+               has("\"class\":\"UILabel\"") && has("\"class\":\"UIStackView\"") &&
+               has("\"frame\":[0,0,400,200]") && has("\"effects\":")
+           ? "the mount, its Flex, labels and stack, framed"
+           : snapshot));
 
   say("column: " + stacked(column, 4) + (near(column.frame.size.width, 60) ? ", 60 wide" : ", " + frame(column)));
 
@@ -203,6 +216,8 @@ void run() {
   row = nil;
   }
 
+  say(std::string("forgotten: ") +
+      (lucent::ui::debugSnapshot().find("\"mounts\":[]") != std::string::npos ? "no mounts" : "a mount kept"));
   say(std::string("released: native references ") + (lucent::liveNativeRefs() == refs ? "all released" : "held") +
       ", row " + (made ? "kept" : "gone"));
 }

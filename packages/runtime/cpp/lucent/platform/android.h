@@ -362,6 +362,9 @@ NativeRef appContext();
 /// outside any setup.
 Opt<NativeRef> hostContext();
 
+/// Installs the view tree a debug build's snapshot shows (android_debug.cpp): the host's to call.
+void installViewTree();
+
 /// The Context a view is made with: the hosting view's (its Activity's theme), else the app's.
 inline NativeRef viewContext() {
   Opt<NativeRef> host = hostContext();

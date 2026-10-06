@@ -1,9 +1,11 @@
 #include "view.h"
 
+#include <cstdio>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "debug.h"
 #include "execution.h"
 #include "report.h"
 
@@ -131,6 +133,72 @@ ContentEntry::~ContentEntry() {
 
 void invalidateSize(const std::weak_ptr<Content>& content) {
   if (auto target = content.lock()) target->invalidate();
+}
+
+namespace {
+
+struct Mounts {
+  size_t next = 0;
+  std::vector<std::pair<size_t, MountRecord>> live;
+  std::function<std::string(const NativeRef&)> tree;
+};
+
+Mounts& mounts() {
+  static Mounts m;
+  return m;
+}
+
+/// `s` as a JSON string.
+std::string quoted(const std::string& s) {
+  std::string out = "\"";
+  for (char c : s) {
+    if (c == '"' || c == '\\') out += '\\';
+    if (static_cast<unsigned char>(c) < 0x20) {
+      char escaped[8];
+      std::snprintf(escaped, sizeof escaped, "\\u%04x", c);
+      out += escaped;
+      continue;
+    }
+    out += c;
+  }
+  return out + "\"";
+}
+
+}  // namespace
+
+size_t addMount(MountRecord record) {
+  auto& m = mounts();
+  m.live.emplace_back(++m.next, std::move(record));
+  return m.next;
+}
+
+void removeMount(size_t id) {
+  if (id == 0) return;
+  std::erase_if(mounts().live, [id](const auto& e) { return e.first == id; });
+}
+
+void setViewTree(std::function<std::string(const NativeRef&)> write) { mounts().tree = std::move(write); }
+
+std::string debugSnapshot() {
+  const debug::Resources r = debug::resources();
+  const auto count = [](const char* name, long n) { return quoted(name) + ":" + std::to_string(n); };
+
+  std::string out = "{\"resources\":{" + count("nativeRefs", r.nativeRefs) + "," + count("scopes", r.scopes) + "," +
+                    count("operations", r.operations) + "," + count("resources", r.resources) + "," +
+                    count("effects", r.effects) + "," + count("signals", r.signals) + "," +
+                    count("computeds", r.computeds) + "},\"mounts\":[";
+
+  bool first = true;
+  for (const auto& [id, m] : mounts().live) {
+    const NativeRef view = m.view ? m.view() : NativeRef();
+    const std::string tree = view && mounts().tree ? mounts().tree(view) : "null";
+
+    out += first ? "" : ",";
+    out += "{\"component\":" + quoted(m.component) + ",\"source\":" + quoted(m.source) + ",\"tree\":" + tree + "}";
+    first = false;
+  }
+
+  return out + "]}";
 }
 
 }  // namespace lucent::ui

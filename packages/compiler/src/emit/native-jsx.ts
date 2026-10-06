@@ -43,6 +43,7 @@ import {
   viewNew,
 } from "./native.ts";
 import { enterMount, mountContent, setupOf, site } from "./setups.ts";
+import { traceSite } from "./trace-site.ts";
 
 /** The JSX a component returns, made: the root view, its children inside it. */
 export function nativeJsx(em: FnEmitter, node: ts.Expression): E {
@@ -537,6 +538,7 @@ function effectOf(
       graph(),
       enterMount(em, at, cpp.lambda(captures, [], body, { mutable: true })),
       cpp.str(site(at)),
+      traceSite("effect", at),
     ]),
   );
 }
