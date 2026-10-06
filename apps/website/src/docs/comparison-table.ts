@@ -1,8 +1,10 @@
 /**
  * Lucent vs Expo Modules vs Nitro vs Turbo Native Modules, shared by
- * /docs/comparison/ and the homepage summary. Sources and the date they
+ * /docs/guides/comparison/ and the homepage summary. Sources and the date they
  * were checked are on the comparison page.
  */
+import { requirements } from "../generated/compatibility";
+
 export const tools = [
   { id: "lucent", name: "Lucent" },
   { id: "expo", name: "Expo Modules" },
@@ -37,7 +39,8 @@ export const comparisonRows: ComparisonRow[] = [
     cells: {
       lucent: {
         value: "A TypeScript subset",
-        detail: "modules in `*.lucent.ts` and components in `*.lucent.tsx`, compiled to C++20",
+        detail:
+          "modules in `*.lucent.ts`, compiled to C++20, and experimental components in `*.lucent.tsx`; Lucent generates the Swift or Kotlin an SDK call needs",
       },
       expo: { value: "Swift + Kotlin" },
       nitro: {
@@ -50,7 +53,10 @@ export const comparisonRows: ComparisonRow[] = [
   {
     label: "Interface defined by",
     cells: {
-      lucent: { value: "The implementation", detail: "its exported functions, types and classes" },
+      lucent: {
+        value: "The implementation",
+        detail: "its exported functions, classes, constants, enums and types",
+      },
       expo: { value: "A Swift/Kotlin DSL", detail: "the module definition" },
       nitro: {
         value: "A TypeScript spec",
@@ -63,7 +69,7 @@ export const comparisonRows: ComparisonRow[] = [
     label: "Codebases per module",
     summary: true,
     cells: {
-      lucent: { value: "1" },
+      lucent: { value: "1", detail: "one `.lucent.ts` file for both platforms" },
       expo: { value: "2" },
       nitro: { value: "1 or 2", detail: "1 in C++; plus the spec" },
       turbo: {
@@ -75,7 +81,10 @@ export const comparisonRows: ComparisonRow[] = [
   {
     label: "Call path",
     cells: {
-      lucent: { value: "JSI → C++", detail: "one pure C++ TurboModule" },
+      lucent: {
+        value: "JSI → C++",
+        detail: "a JSI host function per export, from one C++ TurboModule",
+      },
       expo: { value: "JSI", detail: "through Expo's module layer" },
       nitro: {
         value: "JSI → C++",
@@ -95,7 +104,7 @@ export const comparisonRows: ComparisonRow[] = [
         value: "Most",
         tone: "partial",
         detail:
-          "typed from your Xcode and Android SDK, Swift-only and Kotlin-only APIs included through generated Swift and Kotlin; `lucent sdk coverage` lists what can't be bound yet. See [SDK types](/docs/reference/platform-types/)",
+          "typed from your Xcode and Android SDK, pods and Gradle dependencies, Swift-only and Kotlin-only APIs included; Swift packages aren't read yet, and `lucent sdk coverage` lists what isn't bound. See [iOS](/docs/api/ios-sdk/) and [Android](/docs/api/android-sdk/)",
       },
       expo: { value: "Full", tone: "available" },
       nitro: { value: "Full", tone: "available" },
@@ -110,7 +119,7 @@ export const comparisonRows: ComparisonRow[] = [
         value: "Experimental",
         tone: "partial",
         detail:
-          "UIKit and Android views, and SwiftUI and Jetpack Compose written as JSX, behind an internal switch. See [the announcement](/blog/native-views/)",
+          "UIKit and Android views, and SwiftUI and Jetpack Compose written as JSX, behind `LUCENT_VIEWS=fabric`. See [Native views](/docs/guides/views/) and [the announcement](/blog/native-views/)",
       },
       expo: { value: "Yes", tone: "available", detail: "`View` in the module definition" },
       nitro: {
@@ -128,7 +137,11 @@ export const comparisonRows: ComparisonRow[] = [
   {
     label: "Bare React Native / Expo",
     cells: {
-      lucent: { value: "Both", tone: "available", detail: "React Native 0.88, Expo SDK 58" },
+      lucent: {
+        value: "Both",
+        tone: "available",
+        detail: `React Native ${requirements.reactNative}+, New Architecture; Expo SDK ${requirements.expoSdk}+, in a development build. See [Compatibility](/docs/api/compatibility/)`,
+      },
       expo: { value: "Both", tone: "available", detail: "bare apps install the `expo` package" },
       nitro: { value: "Both", tone: "available", detail: "React Native 0.75+" },
       turbo: { value: "Both", tone: "available" },
@@ -141,7 +154,7 @@ export const comparisonRows: ComparisonRow[] = [
       lucent: {
         value: "Experimental",
         tone: "partial",
-        detail: "see the [roadmap](/docs/releases/roadmap/)",
+        detail: "not tested on physical devices yet; see the [roadmap](/docs/releases/roadmap/)",
       },
       expo: { value: "Production", tone: "available", detail: "the Expo SDK is built on it" },
       nitro: {
