@@ -37,6 +37,7 @@ import type { FnEmitter } from "./function.ts";
 import type { CppFunction } from "../ir/cpp.ts";
 import type { IrUnit } from "./through-ir.ts";
 import { liftedStatements } from "./toolkit.ts";
+import { traceSite } from "./trace-site.ts";
 
 /** A prop, an event or a command of a compiled setup: its C++ member and its Lucent type(s). */
 export interface SetupProp {
@@ -300,7 +301,12 @@ export function uiCall(em: FnEmitter, node: ts.CallExpression): E | undefined {
   switch (helper) {
     case "effect":
       return {
-        c: cpp.call("lucent::ui::effect", [graph, em.closure(fnArg()).c, cpp.str(site(node))]),
+        c: cpp.call("lucent::ui::effect", [
+          graph,
+          em.closure(fnArg()).c,
+          cpp.str(site(node)),
+          traceSite("effect", node),
+        ]),
         t: T.undefined,
       };
 
