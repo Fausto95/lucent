@@ -2044,11 +2044,20 @@ export function newBuiltin(
     }
     case "error": {
       if (!isErrorName(name) || !isLibGlobal(em, callee, name)) break;
+      if (a[1]) refuseCause(a[1]);
       const msg = a[0] ? em.exprAs(a[0], T.string) : stringExpr("");
       return { c: withSite(cpp.call("lucent::makeError", [stringExpr(name), msg]), node), t };
     }
   }
   fail(node, Codes.UnsupportedBuiltin, `new ${name || callee.getText()}() is not supported`);
+}
+
+function refuseCause(options: ts.Expression): never {
+  fail(
+    options,
+    Codes.UnsupportedBuiltin,
+    "an error's cause (new Error(message, { cause })) is not supported: Lucent errors carry a name, a message and a code; put what the cause says in the message, or keep it in a field of an Error class",
+  );
 }
 
 // --- instanceof / super ----------------------------------------------------------------------
@@ -2115,6 +2124,7 @@ export function superCall(em: FnEmitter, node: ts.CallExpression): E {
   }
   if (!cls || !cls.isError)
     fail(node, Codes.UnsupportedClassFeature, "`super(...)` is only supported in subclasses");
+  if (node.arguments[1]) refuseCause(node.arguments[1]);
   const msg = node.arguments[0] ? em.exprAs(node.arguments[0], T.string) : stringExpr("");
   return {
     c: cpp.comma(cpp.assign(cpp.arrow(cpp.self, "message"), msg), cpp.id("lucent::undefined")),

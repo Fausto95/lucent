@@ -79,7 +79,7 @@ sets and Android constant groups (`@IntDef`, `@LongDef`) stay numbers; a
 | `Promise<T>`                                                               | promise (C++20 coroutine)                                                                                                                                     |
 | `Uint8Array`                                                               | byte view over a shared buffer                                                                                                                                |
 | `Date`                                                                     | shared mutable time value; local time from the device's time zone database                                                                                    |
-| `Error`, `TypeError`, `RangeError`, `SyntaxError`, `class X extends Error` | error object with `name` (its constructor's), `message`, `code`                                                                                               |
+| `Error`, `TypeError`, `RangeError`, `SyntaxError`, `class X extends Error` | error object with `name` (its constructor's), `message`, `code`; no `cause` (`LUCENT1003`)                                                                    |
 | unconstrained generics `<T>`                                               | C++ templates (functions and classes)                                                                                                                         |
 
 Not supported: `any`, `unknown` (except in `catch`), intersections, `symbol`,
