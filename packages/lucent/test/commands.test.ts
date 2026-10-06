@@ -22,7 +22,7 @@ describe("lucent explain", () => {
     expect(r.out).toMatch(
       /✗ wrong  example\.lucent\.ts[\s\S]*return UIDevice\.current\.model;[\s\S]*✓ right  example\.lucent\.ts[\s\S]*main\(\(\) => UIDevice\.current\.model\)/,
     );
-    expect(r.out).toMatch(/https:\/\/lucent-lang\.dev\/docs\/reference\/diagnostics\/#lucent3006/);
+    expect(r.out).toMatch(/https:\/\/lucent-lang\.dev\/docs\/api\/diagnostics\/#lucent3006/);
   });
 
   it("takes the number alone, in any case", () => {
