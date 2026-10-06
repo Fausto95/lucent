@@ -843,6 +843,11 @@ describe.skipIf(!sdkAvailable("android") || !kotlin)(
         kotlinClasspath(kotlin!),
         kotlinClasspath(kotlin!, {
           annotations: `<root>
+  <item name="dev.orbit.search.SearchClient int getPageSize()">
+    <annotation name="androidx.annotation.RequiresPermission">
+      <val name="value" val="&quot;android.permission.READ_CONTACTS&quot;" />
+    </annotation>
+  </item>
   <item name="dev.orbit.search.SearchClient void setPageSize(int)">
     <annotation name="androidx.annotation.RequiresPermission">
       <val name="value" val="&quot;android.permission.INTERNET&quot;" />
@@ -886,7 +891,7 @@ export async function run(): Promise<string> {
       180_000,
     );
 
-    it("declares the permissions of the setter a property write calls", () => {
+    it("declares the permissions of the accessors a property use calls", () => {
       const compiled = (body: string) =>
         android(
           `import { SearchClient } from "lucent:android/dev.orbit.search";
@@ -900,13 +905,19 @@ export async function run(): Promise<string> {
       const call = compiled('client.setPageSize(3);\n  return "";');
       const write = compiled('client.pageSize = 3;\n  return "";');
       const read = compiled("return `${client.pageSize}`;");
+      const update = compiled('client.pageSize += 3;\n  return "";');
 
       // The setter's own call declares it: the library's annotations are read.
       expect(call.androidPermissions).toEqual(["android.permission.INTERNET"]);
       expect(write.diagnostics).toEqual([]);
       expect(write.androidPermissions).toEqual(["android.permission.INTERNET"]);
       expect(read.diagnostics).toEqual([]);
-      expect(read.androidPermissions).toEqual([]);
+      expect(read.androidPermissions).toEqual(["android.permission.READ_CONTACTS"]);
+      expect(update.diagnostics).toEqual([]);
+      expect(update.androidPermissions).toEqual([
+        "android.permission.INTERNET",
+        "android.permission.READ_CONTACTS",
+      ]);
     });
 
     it("declares the library without errors, checked without skipLibCheck", () => {
