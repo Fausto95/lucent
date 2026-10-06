@@ -5,6 +5,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   compile,
   currentReads,
+  currentRealpaths,
   lucentPackages,
   moduleNameOf,
   projectFiles,
@@ -182,5 +183,28 @@ describe("what a compile reads", () => {
     // A package.json where there was none.
     fs.writeFileSync(path.join(root, "src/package.json"), JSON.stringify({ name: "nested" }));
     expect(readsKey(currentReads(read.keys()))).not.toBe(readsKey(read));
+  });
+
+  it("reports where the links resolution followed led, apart from the files it read", () => {
+    const root = importing();
+    const linked = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "lucent-place-")));
+    fs.writeFileSync(path.join(linked, "package.json"), JSON.stringify({ name: "place" }));
+    fs.writeFileSync(path.join(linked, "index.d.ts"), "export interface Place { name: string }\n");
+    fs.symlinkSync(linked, path.join(root, "node_modules/place"));
+    fs.writeFileSync(path.join(root, "src/place.ts"), 'export type { Place } from "place";\n');
+
+    const { diagnostics, read, realpaths } = compile(projectFiles(root));
+    const link = path.join(root, "node_modules/place/index.d.ts");
+
+    expect(diagnostics).toEqual([]);
+    expect(realpaths.get(link)).toBe(path.join(linked, "index.d.ts"));
+    expect(read.has(path.join(linked, "index.d.ts"))).toBe(true);
+    expect(readsKey(currentRealpaths(realpaths.keys()))).toBe(readsKey(realpaths));
+
+    // An installed copy, the same file by file: only where the link led changes.
+    fs.unlinkSync(path.join(root, "node_modules/place"));
+    fs.cpSync(linked, path.join(root, "node_modules/place"), { recursive: true });
+    expect(readsKey(currentReads(read.keys()))).toBe(readsKey(read));
+    expect(currentRealpaths([link]).get(link)).toBe(link);
   });
 });
