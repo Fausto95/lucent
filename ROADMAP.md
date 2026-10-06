@@ -2605,6 +2605,9 @@ Last recorded runs:
   returned under a runtime condition is chosen once per mount: a later
   change of what the condition read does not swap it, and a signal read
   there is neither tracked nor warned about (a prop is, LUCENT3021).
+- Where a platform's SDK is missing, a component's code for that platform
+  is untyped and not checked: its diagnostics (LUCENT3025 for its native
+  JSX) come only where its SDK is installed.
 - The bare app's FlatList crash ([TA25](#ta25)) and the iOS native-only
   slot move ([TA26](#ta26)) are in review.
 

@@ -9,7 +9,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
-import { compile } from "../../src/index.ts";
+import { compile, type SdkOptions } from "../../src/index.ts";
 import { jsxRuntimeOf } from "../../src/program.ts";
 import {
   android,
@@ -269,5 +269,160 @@ function Pop(props: { on: boolean }) {
     expect(diagnostics(build(bad, "android").result)).toContainEqual(
       "LUCENT3024 `Heart` is SwiftUI's (iOS): use it in the component's iOS code, inside `if (PLATFORM === \"ios\")`",
     );
+  }, 600_000);
+});
+
+/**
+ * A component written with UIKit's and Android's own views, made in its
+ * setup: the documentation's counter. Its iOS branch returns a UILabel,
+ * its Android code a TextView.
+ */
+const COUNTER = `import { appContext } from "lucent:android";
+import { TextView } from "lucent:android/android.widget";
+import { UILabel } from "lucent:ios/UIKit";
+import { PLATFORM } from "lucent:platform";
+import { effect, signal } from "lucent:ui";
+
+export function Counter(props: { label: string }) {
+  const count = signal(0);
+
+  if (PLATFORM === "ios") {
+    const label = new UILabel();
+
+    effect(() => {
+      label.text = \`\${props.label}: \${count.get()}\`;
+    });
+
+    return label;
+  }
+
+  const text = new TextView(appContext());
+
+  effect(() => {
+    text.setText(\`\${props.label}: \${count.get()}\`);
+  });
+
+  return text;
+}
+`;
+
+/** A component of each platform's views in platform files, behind a declaration file. */
+const TITLE = {
+  "title.lucent.ts": `import type { View } from "lucent:android/android.view";
+import type { UIView } from "lucent:ios/UIKit";
+
+export declare function Title(props: { title: string }): UIView | View;
+`,
+  "title.ios.lucent.tsx": `import { UILabel, type UIView } from "lucent:ios/UIKit";
+
+export function Title(props: { title: string }): UIView {
+  return <UILabel text={props.title} />;
+}
+`,
+  "title.android.lucent.tsx": `import type { View } from "lucent:android/android.view";
+import { TextView } from "lucent:android/android.widget";
+
+export function Title(props: { title: string }): View {
+  return <TextView text={props.title} />;
+}
+`,
+};
+
+/** Where each platform's SDK is not: a missing xcrun, an empty Android SDK root. */
+const MISSING: Record<"ios" | "android", SdkOptions> = {
+  ios: { ios: { xcrun: path.join(os.tmpdir(), "no-such-xcrun") } },
+  android: { android: { sdkRoots: [path.join(os.tmpdir(), "no-such-android-sdk")] } },
+};
+
+/** `files` in a package `@acme/app`, compiled with views on for the default platforms, `missing`'s SDK absent. */
+function buildWithout(files: Record<string, string>, missing: "ios" | "android") {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), `lucent-no-${missing}-sdk-`));
+
+  fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "@acme/app" }));
+  for (const [name, text] of Object.entries(files)) fs.writeFileSync(path.join(dir, name), text);
+  process.env.LUCENT_VIEWS = "fabric";
+
+  try {
+    return compile(
+      Object.keys(files).map((f) => path.join(dir, f)),
+      { sdk: MISSING[missing] },
+    );
+  } finally {
+    delete process.env.LUCENT_VIEWS;
+  }
+}
+
+describe("a component whose other platform's SDK is missing", () => {
+  it.skipIf(!android)(
+    "compiles for Android alone, its UIKit view untyped and left out",
+    () => {
+      const result = buildWithout({ "counter.lucent.tsx": COUNTER }, "ios");
+      const files = [...result.files.keys()];
+
+      expect(diagnostics(result)).toEqual([]);
+      expect(result.files.get("android/m_counter.cpp")).toContain("android/widget/TextView");
+      expect(files.filter((f) => f.startsWith("ios/"))).toEqual([]);
+      expect(Object.keys(result.components?.[0]?.platforms ?? {})).toEqual(["android"]);
+      expect(result.components?.[0]?.platforms.android?.root).toEqual({
+        module: "android.widget",
+        name: "TextView",
+      });
+    },
+    600_000,
+  );
+
+  it.skipIf(!ios)(
+    "compiles for iOS alone, its Android view untyped and left out",
+    () => {
+      const result = buildWithout({ "counter.lucent.tsx": COUNTER }, "android");
+      const files = [...result.files.keys()];
+
+      expect(diagnostics(result)).toEqual([]);
+      expect(files.some((f) => f.startsWith("ios/m_counter."))).toBe(true);
+      expect(files.filter((f) => f.startsWith("android/"))).toEqual([]);
+      expect(Object.keys(result.components?.[0]?.platforms ?? {})).toEqual(["ios"]);
+      expect(result.components?.[0]?.platforms.ios?.root).toEqual({
+        module: "UIKit",
+        name: "UILabel",
+      });
+    },
+    600_000,
+  );
+
+  it.skipIf(!android)(
+    "compiles platform files for Android alone, the iOS file left out",
+    () => {
+      const result = buildWithout(TITLE, "ios");
+
+      expect(diagnostics(result)).toEqual([]);
+      expect([...result.files.keys()].filter((f) => f.startsWith("ios/"))).toEqual([]);
+      expect(Object.keys(result.components?.[0]?.platforms ?? {})).toEqual(["android"]);
+    },
+    600_000,
+  );
+
+  it.skipIf(!ios)(
+    "compiles platform files for iOS alone, the Android file left out",
+    () => {
+      const result = buildWithout(TITLE, "android");
+
+      expect(diagnostics(result)).toEqual([]);
+      expect([...result.files.keys()].filter((f) => f.startsWith("android/"))).toEqual([]);
+      expect(Object.keys(result.components?.[0]?.platforms ?? {})).toEqual(["ios"]);
+    },
+    600_000,
+  );
+});
+
+describe.skipIf(!both)("a component returning each platform's own view", () => {
+  it("returns its platform's view from its setup, not a variant of both", () => {
+    for (const platform of ["ios", "android"] as const) {
+      const { result } = build({ "counter.lucent.tsx": COUNTER }, platform);
+      const unit = generated(result, new RegExp(`^${platform}/m_counter\\.(cpp|mm)$`));
+
+      expect(diagnostics(result)).toEqual([]);
+      expect(unit).toContain("lucent::NativeRef m_counter::Counter_setup(");
+      expect(unit).not.toContain("std::variant");
+    }
   }, 600_000);
 });
