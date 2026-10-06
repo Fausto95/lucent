@@ -1902,6 +1902,32 @@ const BIGINT_FROM: Partial<Record<LType["k"], (v: cpp.Expr) => cpp.Expr>> = {
 
 // --- new --------------------------------------------------------------------------------------
 
+/** The kind each library constructor makes (the errors are added by name). */
+const LIB_CONSTRUCTORS: Record<string, LType["k"]> = {
+  AbortController: "abortController",
+  RegExp: "regexp",
+  Date: "date",
+  Map: "map",
+  Set: "set",
+  Array: "array",
+  Uint8Array: "bytes",
+  Promise: "promise",
+};
+
+/**
+ * Refuses a library constructor that does not make the kind its result is
+ * typed as: `new Proxy(target, handler)` is typed as its target, and would
+ * otherwise make a fresh value of the target's kind.
+ */
+export function requireConstructor(em: FnEmitter, node: ts.NewExpression, t: LType): void {
+  const callee = node.expression;
+  if (!ts.isIdentifier(callee) || !isLibGlobal(em, callee, callee.text)) return;
+
+  const name = callee.text;
+  const makes = isErrorName(name) ? "error" : LIB_CONSTRUCTORS[name];
+  if (makes !== t.k) fail(node, Codes.UnsupportedBuiltin, `new ${name}() is not supported`);
+}
+
 export function newBuiltin(
   em: FnEmitter,
   node: ts.NewExpression,

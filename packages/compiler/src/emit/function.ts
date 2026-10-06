@@ -2282,6 +2282,7 @@ export class FnEmitter {
   private newInner(node: ts.NewExpression): E {
     const callee = node.expression;
     const t = this.lt(node);
+    builtins.requireConstructor(this, node, t);
     if (t.k === "native") return native.nativeNew(this, node, t);
     if (t.k === "handle") return extensions.handleNew(this, node, t);
     if (t.k === "class") {
