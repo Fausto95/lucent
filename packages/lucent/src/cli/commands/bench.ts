@@ -13,6 +13,7 @@ import {
   runtimeDir,
   viewsSwitchProblem,
 } from "@lucent-lang/compiler";
+import { findOwnFiles } from "@lucent-lang/compiler/packages";
 import { cFlags, hostLibs, runtimeSources } from "@lucent-lang/runtime/sources";
 import ts from "typescript";
 import type { Invocation } from "../args.ts";
@@ -44,7 +45,7 @@ export async function run({ root, out }: Invocation): Promise<number> {
     else out.error(`${t.error(t.symbols.fail)} ${message}`);
     return 1;
   };
-  const benches = findBenches(root);
+  const benches = findOwnFiles(root, /\.bench\.ts$/);
   if (!benches.length)
     return fail("no *.bench.ts file: next to a module, export default { name: () => call(), … }");
   const views = viewsSwitchProblem();
@@ -121,26 +122,6 @@ export async function run({ root, out }: Invocation): Promise<number> {
   });
   out.print(t.dim("\nper call, best of 5 rounds; desktop Hermes, so devices differ"));
   return cases.every((c) => c.same && !c.error) ? 0 : 1;
-}
-
-function findBenches(root: string): string[] {
-  const out: string[] = [];
-  const walk = (dir: string) => {
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (
-        e.name === "node_modules" ||
-        e.name.startsWith(".") ||
-        e.name === "ios" ||
-        e.name === "android"
-      )
-        continue;
-      const full = path.join(dir, e.name);
-      if (e.isDirectory()) walk(full);
-      else if (e.name.endsWith(".bench.ts")) out.push(full);
-    }
-  };
-  walk(root);
-  return out.sort();
 }
 
 /** Compiles `sources` to objects under `work/obj`, reusing an object whose source and flags are unchanged; in parallel. */

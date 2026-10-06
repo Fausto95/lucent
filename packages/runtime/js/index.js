@@ -129,7 +129,11 @@ function lucentClass(factory) {
     writable: true,
   });
   Object.defineProperty(LucentClass, "name", { value: factory.name });
-  for (const key of Object.keys(factory)) LucentClass[key] = factory[key];
+  // Static members as defined: a static field is an accessor of the native one.
+  for (const key of Object.getOwnPropertyNames(factory)) {
+    if (Object.prototype.hasOwnProperty.call(LucentClass, key)) continue;
+    Object.defineProperty(LucentClass, key, Object.getOwnPropertyDescriptor(factory, key));
+  }
   return LucentClass;
 }
 

@@ -4,6 +4,7 @@
 // forwards to the native module (written by `lucent build`).
 const path = require("node:path");
 const { spawn } = require("node:child_process");
+const { nativePackage } = require("./native-package.cjs");
 
 /**
  * Wraps a Metro config:
@@ -34,6 +35,12 @@ function withLucent(config, options = {}) {
       nodeModulesPaths: nodeModulesPaths.includes(appModules)
         ? nodeModulesPaths
         : [...nodeModulesPaths, appModules],
+      // A component's React types are lucent:views/<module> (tsconfig's lucent:* path);
+      // `lucent build` writes, under that name, a module that requires the component's own.
+      // The app's map stays the prototype: a Proxy's get trap keeps answering for the rest.
+      extraNodeModules: Object.assign(Object.create(resolver.extraNodeModules || null), {
+        "lucent:views": path.join(nativePackage(root), "js/_lucent/components"),
+      }),
     },
     transformer: {
       ...config.transformer,

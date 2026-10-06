@@ -134,7 +134,7 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
       cacheDir: tmp("lucent-cache-"),
       android: { jars: [jar] },
     });
-    expect(r).toEqual({
+    expect(r).toMatchObject({
       missing: expect.stringMatching(/com\.example\.nope.*not found.*fixture\.jar/s),
     });
   });
@@ -157,7 +157,7 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
       const r = sdkModule("android", "com.example.widgets", sdk);
       expect("schema" in r && r.schema.types.some((t) => t.name === "Widget")).toBe(true);
       // Where it looked, when a package is in neither.
-      expect(sdkModule("android", "com.example.nope", sdk)).toEqual({
+      expect(sdkModule("android", "com.example.nope", sdk)).toMatchObject({
         missing: expect.stringMatching(
           /not found in the SDK or the app's dependencies.*android\.jar.*1 dependency/s,
         ),
@@ -182,6 +182,7 @@ describe.skipIf(!javac)("SDK modules on demand: Android", () => {
     });
     expect(r).toEqual({
       missing: expect.stringMatching(/androidx\.biometric.*not found.*lucentClasspath/s),
+      fix: "check the package's name, and that the app depends on the library that has it",
     });
   });
 
@@ -489,6 +490,7 @@ describe.skipIf(!xcode)("SDK modules on demand: iOS", () => {
     const r = sdkModule("ios", "NoSuchPodModule", { cacheDir: tmp("lucent-cache-"), ios: {} });
     expect(r).toEqual({
       missing: expect.stringMatching(/NoSuchPodModule.*not found.*no pods.*run pod install/s),
+      fix: "check the module's name, and that the app installs the pod or framework that defines it",
     });
   });
 

@@ -80,11 +80,12 @@ const ALWAYS_READ = (file: string) =>
 /**
  * Watches the project and its Lucent packages (those outside it too, linked
  * or in the workspace), and builds, one build at a time, on every change
- * to a file a build reads: modules, package manifests and lucent.json, and
- * the native files packages list. What builds write is never read, so they
- * never trigger one. A change during a build supersedes it: it stops before
- * publishing, and the next build starts. `store` holds the state for the
- * views.
+ * to a file a build reads: what the last build read (BuildOutcome.read and
+ * nativeInputs), wherever it is, and in the project and its packages any
+ * module, package manifest or lucent.json. What builds write is never read,
+ * so they never trigger one. A change during a build supersedes it: it
+ * stops before publishing, and the next build starts. `store` holds the
+ * state for the views.
  */
 export function startSession(root: string): DevSession {
   const store = createStore();
@@ -100,6 +101,11 @@ export function startSession(root: string): DevSession {
   let timer: NodeJS.Timeout | undefined;
   // What the last build read of Lucent packages: their lucent.json and listed native paths.
   let nativeInputs: string[] = [];
+  // What its check read (BuildOutcome.read), and the directories between each of those and
+  // the directory watching it: one created, removed or swapped for a link changes what is there.
+  let lastRead: string[] = [];
+  let read = new Set<string>();
+  let between = new Set<string>();
   let stopped = false;
   // When the last build that published started: it read every input as it was then.
   let readSince = 0;
@@ -144,6 +150,7 @@ export function startSession(root: string): DevSession {
     }
 
     nativeInputs = r.nativeInputs;
+    lastRead = r.read;
     readSince = started;
     watch();
     const failing = new Map<string, Set<Platform>>();
@@ -197,33 +204,41 @@ export function startSession(root: string): DevSession {
     }
   };
 
-  const relevant = (file: string, dir: string) => {
+  // In a watched tree: a path a package lists, and any module, manifest or lucent.json
+  // outside dependencies and dot directories.
+  const inTree = (file: string, dir: string) => {
+    if (nativeInputs.some((p) => file === p || file.startsWith(`${p}${path.sep}`))) return true;
+
+    // .lucent is where builds write.
     const parts = path.relative(dir, file).split(path.sep);
-
-    // Dependencies, and dot directories (.lucent, where builds write; .git).
-    if (parts.some((part) => part === "node_modules" || part.startsWith("."))) return false;
-
     return (
-      ALWAYS_READ(file) ||
-      nativeInputs.some((p) => file === p || file.startsWith(`${p}${path.sep}`))
+      !parts.some((part) => part === "node_modules" || part.startsWith(".")) && ALWAYS_READ(file)
     );
   };
 
-  const changed = (dir: string, name: string | null) => {
-    if (!name || !relevant(path.join(dir, name), dir)) return;
+  // `name` in `dir`, as watched (`real` is its real path: the check reads files at theirs).
+  const changed = (dir: string, real: string, tree: boolean, name: string) => {
+    const file = path.join(dir, name);
+    const relevant =
+      [file, path.join(real, name)].some((f) => read.has(f) || between.has(f)) ||
+      (tree && inTree(file, dir));
+    if (!relevant) return;
 
     // A file last changed before the last build started is what that build read
     // (a watcher's first events can report files written before it started).
-    const file = path.join(dir, name);
-    if (fs.existsSync(file) && fs.statSync(file).mtimeMs < readSince) return;
+    const stat = fs.lstatSync(file, { throwIfNoEntry: false });
+    if (stat && stat.mtimeMs < readSince) return;
 
     clearTimeout(timer);
     timer = setTimeout(() => void build(false), DEBOUNCE_MS);
   };
 
-  // The app, and each Lucent package that lives outside it (workspaces, links), whole:
-  // its modules, lucent.json and native files. Updated after each build.
-  const watchers = new Map<string, fs.FSWatcher>();
+  // The app, and each Lucent package that lives outside it (workspaces, links), whole
+  // (`tree`); and the entries of each directory holding a file the last build read (the
+  // nearest one there is, for a file it looked for), in a tree too: Linux's recursive
+  // watch misses a link swapped for a directory, and what then changes in it. Each by the
+  // directory it found there (`ino`): one replaced is watched again. Updated after each build.
+  const watchers = new Map<string, { watcher: fs.FSWatcher; tree: boolean; ino?: number }>();
 
   const watch = () => {
     if (stopped) return;
@@ -237,22 +252,44 @@ export function startSession(root: string): DevSession {
       // The build reports it.
     }
 
-    const dirs = new Set([root, ...packages]);
+    const trees = [root, ...packages];
+    const dirs = new Map(trees.map((dir) => [dir, true]));
+    const treeAt = trees.flatMap((dir) => [dir, realpath(dir)]);
+
+    read = new Set(lastRead);
+    between = new Set();
+    for (const file of lastRead) {
+      let nearest = path.dirname(file);
+      while (!isDirectory(nearest)) nearest = path.dirname(nearest);
+      if (!dirs.has(nearest)) dirs.set(nearest, false);
+
+      const dir = treeAt.find((t) => inside(file, t)) ?? nearest;
+      for (let d = path.dirname(file); inside(d, dir); d = path.dirname(d)) between.add(d);
+    }
 
     for (const [dir, w] of watchers)
-      if (!dirs.has(dir)) {
-        w.close();
+      if (dirs.get(dir) !== w.tree || w.ino !== inode(dir)) {
+        w.watcher.close();
         watchers.delete(dir);
       }
 
-    for (const dir of dirs)
-      if (!watchers.has(dir))
-        watchers.set(
-          dir,
-          fs.watch(dir, { recursive: true }, (_event, name) => changed(dir, name)),
-        );
+    for (const [dir, tree] of dirs) {
+      if (watchers.has(dir)) continue;
 
-    store.set({ ...store.get(), watching: [...dirs].map((d) => path.relative(root, d) || ".") });
+      const ino = inode(dir);
+      const real = realpath(dir);
+      const watcher = fs.watch(dir, { recursive: tree }, (_event, name) => {
+        if (name) changed(dir, real, tree, name);
+      });
+      // Its directory removed: the next build watches what it reads then.
+      watcher.on("error", () => {
+        watcher.close();
+        watchers.delete(dir);
+      });
+      watchers.set(dir, { watcher, tree, ino });
+    }
+
+    store.set({ ...store.get(), watching: trees.map((d) => path.relative(root, d) || ".") });
   };
 
   watch();
@@ -270,9 +307,32 @@ export function startSession(root: string): DevSession {
       stopped = true;
       clearTimeout(timer);
       building?.abort();
-      for (const w of watchers.values()) w.close();
+      for (const w of watchers.values()) w.watcher.close();
     },
   };
+}
+
+/** Whether `file` is under `dir`. */
+function inside(file: string, dir: string): boolean {
+  const rel = path.relative(dir, file);
+  return rel !== "" && rel.split(path.sep)[0] !== ".." && !path.isAbsolute(rel);
+}
+
+/** The directory `dir` leads to now, by its inode (none: there is none). */
+function inode(dir: string): number | undefined {
+  return fs.statSync(dir, { throwIfNoEntry: false })?.ino;
+}
+
+function isDirectory(dir: string): boolean {
+  return fs.statSync(dir, { throwIfNoEntry: false })?.isDirectory() === true;
+}
+
+function realpath(dir: string): string {
+  try {
+    return fs.realpathSync(dir);
+  } catch {
+    return dir;
+  }
 }
 
 function mapPlatforms(

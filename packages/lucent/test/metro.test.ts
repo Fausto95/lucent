@@ -89,6 +89,45 @@ describe("Metro transformer", () => {
     manifest({ inputs: "b", modules: ["storage", "haptics"] });
     expect(key()).not.toBe(before);
   });
+
+  it("names a module in a package's folder whose package.json only sets the module type as the package's", () => {
+    const root = metroProject();
+    const pkg = path.join(root, "node_modules/lucent-a");
+    fs.mkdirSync(path.join(pkg, "src/geo"), { recursive: true });
+    fs.writeFileSync(
+      path.join(pkg, "package.json"),
+      JSON.stringify({ name: "lucent-a", lucent: { sources: "src" } }),
+    );
+    fs.writeFileSync(path.join(pkg, "src/geo/package.json"), JSON.stringify({ type: "module" }));
+    fs.mkdirSync(path.join(root, ".lucent/native/js/lucent-a/geo"), { recursive: true });
+    fs.writeFileSync(
+      path.join(root, ".lucent/native/js/lucent-a/geo/distance.js"),
+      "// the proxy of lucent-a/geo/distance\n",
+    );
+
+    expect(requiredBy(transformer(), path.join(pkg, "src/geo/distance.lucent.ts"), root)).toBe(
+      path.join(root, ".lucent/native/js/lucent-a/geo/distance.js"),
+    );
+  });
+
+  it("says a package's module is compiled only when the app depends on the package", () => {
+    const root = metroProject();
+    const pkg = path.join(root, "packages/lucent-far");
+    fs.mkdirSync(path.join(pkg, "src"), { recursive: true });
+    fs.writeFileSync(
+      path.join(pkg, "package.json"),
+      JSON.stringify({ name: "lucent-far", lucent: { sources: "src" } }),
+    );
+    const t = transformer();
+
+    expect(() =>
+      t.transform({
+        filename: path.join(pkg, "src/far.lucent.ts"),
+        src: "",
+        options: { projectRoot: root },
+      }),
+    ).toThrow(/has not been compiled.*compiles lucent-far only when the app depends on it/);
+  });
 });
 
 describe("Metro transformer with LUCENT_OUT", () => {
@@ -140,5 +179,55 @@ describe("Metro transformer with LUCENT_OUT", () => {
     } finally {
       delete process.env.LUCENT_OUT;
     }
+  });
+});
+
+describe("Metro resolver", () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-metro-"));
+  const upstream = path.join(root, "upstream.cjs");
+  fs.writeFileSync(upstream, "module.exports = { transform: (a) => a.src };\n");
+
+  // Metro reads extraNodeModules by indexing it with a package's name (metro-resolver's resolve.js).
+  const resolverOf = (extraNodeModules: object) => {
+    const { withLucent } = require("../metro/index.cjs") as {
+      withLucent(
+        config: object,
+        options: { watch: boolean },
+      ): { resolver: { extraNodeModules: Record<string, string | undefined> } };
+    };
+
+    return withLucent(
+      {
+        projectRoot: root,
+        transformer: { babelTransformerPath: upstream },
+        resolver: { extraNodeModules },
+      },
+      { watch: false },
+    ).resolver.extraNodeModules;
+  };
+
+  it("resolves lucent:views/<module> to the forwarders lucent build writes", () => {
+    const modules = resolverOf({ shared: path.join(root, "shared") });
+
+    expect(modules["lucent:views"]).toBe(path.join(root, ".lucent/native/js/_lucent/components"));
+    expect(modules.shared).toBe(path.join(root, "shared"));
+
+    try {
+      process.env.LUCENT_OUT = "out";
+
+      expect(resolverOf({})["lucent:views"]).toBe(path.join(root, "out/js/_lucent/components"));
+    } finally {
+      delete process.env.LUCENT_OUT;
+    }
+  });
+
+  it("keeps resolving the names an app's extraNodeModules computes", () => {
+    // A monorepo's fallback: every name maps to the app's node_modules.
+    const modules = resolverOf(
+      new Proxy({}, { get: (_, name) => path.join(root, "node_modules", String(name)) }),
+    );
+
+    expect(modules.react).toBe(path.join(root, "node_modules/react"));
+    expect(modules["lucent:views"]).toBe(path.join(root, ".lucent/native/js/_lucent/components"));
   });
 });

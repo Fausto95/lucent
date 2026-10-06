@@ -3,37 +3,37 @@
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const { nativePackage } = require("./native-package.cjs");
 
 const upstream = require(process.env.LUCENT_UPSTREAM_TRANSFORMER);
 const LUCENT = /\.lucent\.tsx?$/;
 
 /**
- * The module's name, as the compiler's moduleNameOf gives it: its file's, or
- * in a Lucent package (the nearest package.json has a `lucent` field)
- * `<package>/<path under its sources>`.
+ * The Lucent package a file belongs to, as the compiler's lucentPackageOf
+ * finds it: the nearest package.json with a name or dependencies, if it has
+ * a `lucent` field.
  */
-function moduleName(filename) {
-  const base = (f) => f.replace(/\.(ios|android)(?=\.lucent\.tsx?$)/, "").replace(LUCENT, "");
+function lucentPackageOf(filename) {
   for (let dir = path.dirname(path.resolve(filename)); ; dir = path.dirname(dir)) {
     const file = path.join(dir, "package.json");
-    if (fs.existsSync(file)) {
-      const pkg = JSON.parse(fs.readFileSync(file, "utf8"));
-      if (!pkg.lucent || !pkg.name) break;
-      const rel = path.relative(path.join(dir, pkg.lucent.sources || "."), path.resolve(filename));
-      return `${pkg.name}/${base(rel).split(path.sep).join("/")}`;
+    const pkg = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : undefined;
+    if (pkg && (pkg.name || pkg.dependencies)) {
+      if (!pkg.lucent || !pkg.name) return undefined;
+      return { name: pkg.name, sources: path.join(dir, pkg.lucent.sources || ".") };
     }
-    if (path.dirname(dir) === dir) break;
+    if (path.dirname(dir) === dir) return undefined;
   }
-  return base(path.basename(filename));
 }
 
 /**
- * The native package whose proxies Metro bundles: the project's
- * .lucent/native, or the one LUCENT_OUT names (as `lucent build --out`,
- * relative to the project).
+ * The module's name, as the compiler's moduleNameOf gives it: its file's, or
+ * in Lucent package `pkg` `<package>/<path under its sources>`.
  */
-function nativePackage(projectRoot) {
-  return path.resolve(projectRoot, process.env.LUCENT_OUT || path.join(".lucent", "native"));
+function moduleName(filename, pkg) {
+  const base = (f) => f.replace(/\.(ios|android)(?=\.lucent\.tsx?$)/, "").replace(LUCENT, "");
+  if (!pkg) return base(path.basename(filename));
+  const rel = path.relative(pkg.sources, path.resolve(filename));
+  return `${pkg.name}/${base(rel).split(path.sep).join("/")}`;
 }
 
 /**
@@ -45,11 +45,14 @@ function nativePackage(projectRoot) {
 function proxyFor(filename, projectRoot) {
   // Metro passes the file's path relative to the project.
   const file = path.resolve(projectRoot, filename);
-  const generated = path.join(nativePackage(projectRoot), "js", `${moduleName(file)}.js`);
-  if (!fs.existsSync(generated))
+  const pkg = lucentPackageOf(file);
+  const generated = path.join(nativePackage(projectRoot), "js", `${moduleName(file, pkg)}.js`);
+  if (!fs.existsSync(generated)) {
+    const why = pkg ? ` (lucent build compiles ${pkg.name} only when the app depends on it)` : "";
     throw new Error(
-      `Lucent: ${path.basename(file)} has not been compiled. Run \`lucent build\` and rebuild the app.`,
+      `Lucent: ${path.basename(file)} has not been compiled. Run \`lucent build\` and rebuild the app${why}.`,
     );
+  }
 
   const rel = path.relative(path.dirname(file), generated).split(path.sep).join("/");
   return `module.exports = require(${JSON.stringify(rel.startsWith(".") ? rel : `./${rel}`)});\n`;

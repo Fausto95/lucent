@@ -422,6 +422,80 @@ describe("SDK declarations", () => {
     );
   });
 
+  it("documents each interface in the language that declares it", () => {
+    const header = (platform: "ios" | "android", facts: Record<string, unknown>) =>
+      sdkDts(
+        typed({
+          platform,
+          module: "Kit",
+          types: [
+            { kind: "class", name: "Listener", native: "Kit/Listener", interface: true, ...facts },
+          ],
+        }),
+      );
+
+    expect(header("ios", {})).toContain(" * An Objective-C protocol.");
+    expect(header("ios", {})).not.toContain("A Java interface.");
+    expect(header("ios", { swift: { kind: "protocol" } })).toContain(" * A Swift protocol.");
+    expect(header("android", {})).toContain(" * A Java interface.");
+    expect(header("android", { kotlin: { kind: "interface" } })).toContain(
+      " * A Kotlin interface.",
+    );
+  });
+
+  it("documents Swift async members of the main actor as callable from any thread, as the compiler checks them", () => {
+    const d = sdkDts(
+      typed({
+        platform: "ios",
+        module: "Kit",
+        types: [
+          {
+            kind: "class",
+            name: "Store",
+            native: "Kit.Store",
+            swift: { kind: "struct" },
+            methods: [
+              {
+                name: "refund",
+                params: [],
+                returns: "void",
+                static: true,
+                mainActor: true,
+                swift: { name: "refund()", async: true },
+              },
+              {
+                name: "review",
+                params: [],
+                returns: "void",
+                static: true,
+                mainActor: true,
+                swift: { name: "review()" },
+              },
+            ],
+          },
+          {
+            kind: "class",
+            name: "Screen",
+            native: "Kit.Screen",
+            mainActor: true,
+            swift: { kind: "class" },
+            methods: [
+              { name: "show", params: [], returns: "bool", swift: { name: "show()", async: true } },
+            ],
+          },
+        ],
+      }),
+    );
+
+    expect(d).toMatch(
+      /\* Main thread only: call it inside `main\(\(\) => …\)`\.\n[^/]*\*\/\n  static review\(\): void;/,
+    );
+    expect(d).not.toMatch(/Main thread only[^/]*\*\/\n  static refund/);
+    expect(d).toMatch(
+      /\* Any thread: no `main\(\(\) => …\)` needed\.\n[^/]*\*\/\n  show\(signal\?: AbortSignal\): Promise<boolean>;/,
+    );
+  });
+
   it("types an option set as its cases or 0, the empty set no case names", () => {
     const d = sdkDts(
       typed({

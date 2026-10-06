@@ -3,14 +3,15 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   bindExtensions,
+  checkRecord,
   compile,
   deferredLibraryGradle,
   type Diagnostic,
   type ExtensionBinding,
   extractionCount,
+  foundFile,
   inNativePackage,
   inputsKey,
-  isUpToDate,
   lucentPackages,
   moduleNameOf,
   moduleNamespace,
@@ -21,6 +22,7 @@ import {
   type ResolvedNative,
   sdkModule,
   type Target,
+  upToDate,
   usesPlatforms,
   viewsSwitchProblem,
   writeNativePackage,
@@ -48,10 +50,11 @@ import {
   contentHash,
   fileArtifact,
   type PendingAction,
+  projectPath,
   requiredAction,
   writeBuildRecord,
 } from "./build-graph.ts";
-import { classifyChanges } from "./changes.ts";
+import { classifyChanges, needsPodInstall } from "./changes.ts";
 import {
   frozenFailure,
   LOCK_FILE,
@@ -77,7 +80,7 @@ export interface ModuleSummary {
 export interface Next {
   /** Native code changed: rebuild the app. */
   rebuild: boolean;
-  /** Native files were added or removed: pod install before the iOS build. */
+  /** iOS relinks (files came or went, the podspec or its pods changed): pod install before its build. */
   podInstall: boolean;
   /** Only the JavaScript proxies changed. */
   reload: boolean;
@@ -103,6 +106,11 @@ export interface BuildOutcome {
   superseded?: boolean;
   /** Every Lucent package file the build read, absolute: lucent.json files and listed native paths. */
   nativeInputs: string[];
+  /**
+   * Every path the check read, absolute (none when it did not get to check):
+   * the files (CompileResult.read) and the paths it resolved links from.
+   */
+  read: string[];
   /** The build's nodes and required action, as written to .lucent/build-record.json. */
   record: BuildRecord;
   /** What the checked code uses of the SDKs, as written to .lucent/sdk-usage.json. */
@@ -149,6 +157,7 @@ export async function buildProject(
   let files: string[] = [];
   let native: NativeInputs;
   let nativeInputs: string[] = [];
+  let read: string[] = [];
 
   // Every return goes through outcome(), which records the build.
   const graph = new BuildGraph(options.mode);
@@ -159,7 +168,7 @@ export async function buildProject(
   const outcome = (o: Partial<BuildOutcome>): BuildOutcome => {
     const next = o.next ?? NONE;
     const actions = o.actions ?? [];
-    const record = graph.toRecord(requiredAction(next, targets, changedUnits), actions);
+    const record = graph.toRecord(requiredAction(next, targets, changedUnits, actions), actions);
     writeBuildRecord(path.join(root, ".lucent/build-record.json"), record);
 
     return {
@@ -172,6 +181,7 @@ export async function buildProject(
       next,
       actions,
       nativeInputs,
+      read,
       record,
       skipped,
       ms: Date.now() - t0,
@@ -418,31 +428,37 @@ export async function buildProject(
   // The platforms the check compiles platform code for (none: the project has none).
   const built = (platforms ?? []).filter((p): p is Platform => p !== "host");
 
-  // What the check reads: the sources and the targets they are compiled for.
-  const checkInputs: Artifact[] = [
-    ...files.map((f) => fileArtifact(root, f)),
-    { key: "targets", hash: contentHash(targets.join(",")) },
-  ];
+  // What the check reads: the sources, the targets they are compiled for, and each other
+  // file it read (the files imports resolve to, package.json files; see readInputs).
+  const checkInputs = (read: ReadonlyMap<string, string>): Artifact[] => {
+    const sources = files.map((f) => fileArtifact(root, f));
+    const keys = new Set(sources.map((a) => a.key));
+
+    return [
+      ...sources,
+      { key: "targets", hash: contentHash(targets.join(",")) },
+      ...readInputs(root, read).filter((a) => !keys.has(a.key)),
+    ];
+  };
 
   const key =
-    inputsKey(files, outDir) +
+    inputsKey(files, outDir, sdk) +
     (platforms ? `:${platforms.join(",")}` : "") +
     `:${createHash("sha256").update(JSON.stringify(native.manifest)).digest("hex").slice(0, 12)}`;
-  // A check of the same inputs passed before: every input is in the key.
+  // A check given the same inputs passed before, every file it read is as it found it, and
+  // every link resolution followed leads where it did: its record says (a build's, its
+  // native package's manifest).
   // Its usage report is one of its outputs: lost or unreadable, it runs again.
   const checked = path.join(root, ".lucent/check.json");
   const cacheable = !options.force && !lock && usageReadable(path.join(root, USAGE_FILE));
-  if (!build && cacheable) {
-    const last = fs.existsSync(checked)
-      ? (JSON.parse(fs.readFileSync(checked, "utf8")) as { inputs?: string })
-      : {};
-    if (last.inputs === key) {
-      graph.record("check", "check", "cached", { inputs: checkInputs });
-      return outcome({ ok: true, upToDate: true, modules });
-    }
-  }
-  if (build && cacheable && isUpToDate(outDir, key)) {
-    graph.record("check", "check", "cached", { inputs: checkInputs });
+  const held = cacheable
+    ? upToDate(build ? path.join(outDir, "manifest.json") : checked, key)
+    : undefined;
+  if (held) {
+    read = [...new Set([...held.read.keys(), ...held.realpaths.keys()])];
+    graph.record("check", "check", "cached", { inputs: checkInputs(held.read) });
+    if (!build) return outcome({ ok: true, upToDate: true, modules });
+
     graph.record("generate", "generate", "cached", { outputs: packageArtifacts(root, outDir) });
 
     steps.finish({
@@ -471,8 +487,10 @@ export async function buildProject(
     await steps.flush();
     const t = Date.now();
     const before = extractionCount();
-    for (const [p, m] of wanted) sdkModule(p, m, sdk);
+    const unbound = wanted.filter(([p, m]) => "missing" in sdkModule(p, m, sdk)).map(([, m]) => m);
     const extracted = extractionCount() - before;
+    // The check says why a module has no bindings.
+    const status = unbound.length ? "failed" : extracted ? "ok" : "cached";
 
     // Each module, keyed on the artifacts its schema was read from, and those artifacts.
     const read = wanted.map(([p, m]) => ({
@@ -482,7 +500,7 @@ export async function buildProject(
     const artifacts = new Map(read.flatMap((r) => r.artifacts).map((a) => [a.id, a]));
     const identity = (a: { id: string; contentHash: string }) => `${a.id}#${a.contentHash}`;
 
-    graph.record("extract", "extract", extracted ? "ok" : "cached", {
+    graph.record("extract", "extract", status, {
       inputs: [
         ...read.map((r) => ({
           key: r.key,
@@ -497,9 +515,9 @@ export async function buildProject(
     steps.finish({
       name: "sdk",
       label: "SDK bindings",
-      status: extracted ? "ok" : "cached",
-      detail: listed,
-      ms: extracted ? Date.now() - t : undefined,
+      status,
+      detail: unbound.length ? `no bindings for ${unbound.join(" · ")}` : listed,
+      ms: status === "ok" ? Date.now() - t : undefined,
     });
   }
 
@@ -525,6 +543,7 @@ export async function buildProject(
   // Until the Gradle build resolves them, Android's imports are untyped in the iOS program.
   const deferred: Platform[] = deferAndroid && !platforms?.includes("android") ? ["android"] : [];
   const result = compile(files, { platforms, sdk, extensions, deferred });
+  read = [...new Set([...result.read.keys(), ...result.realpaths.keys()])];
   const relative = (d: Diagnostic) => ({ ...d, file: d.file && path.relative(root, d.file) });
   const diagnostics = result.diagnostics.map(relative);
   const warnings = (result.warnings ?? []).map(relative);
@@ -542,7 +561,7 @@ export async function buildProject(
     if (pods) notify(pods);
 
     graph.record("check", "check", "failed", {
-      inputs: checkInputs,
+      inputs: checkInputs(result.read),
       detail: plural(diagnostics.length, "error"),
       ms: Date.now() - tCheck,
     });
@@ -568,7 +587,7 @@ export async function buildProject(
   const unlocked = lock ? lockProblems(lock, usage.modules, usage.symbols) : [];
   if (unlocked.length) {
     graph.record("check", "check", "failed", {
-      inputs: checkInputs,
+      inputs: checkInputs(result.read),
       detail: unlocked.join("\n"),
       ms: Date.now() - tCheck,
     });
@@ -583,7 +602,10 @@ export async function buildProject(
     return outcome({ modules, warnings, usage, fatal: frozenFailure(unlocked) });
   }
 
-  graph.record("check", "check", "ok", { inputs: checkInputs, ms: Date.now() - tCheck });
+  graph.record("check", "check", "ok", {
+    inputs: checkInputs(result.read),
+    ms: Date.now() - tCheck,
+  });
 
   steps.finish({
     name: "check",
@@ -591,9 +613,10 @@ export async function buildProject(
     status: "ok",
     ms: Date.now() - tCheck,
   });
+  const check = checkRecord(key, result);
   if (!build) {
     fs.mkdirSync(path.dirname(checked), { recursive: true });
-    fs.writeFileSync(checked, `${JSON.stringify({ inputs: key })}\n`);
+    fs.writeFileSync(checked, `${JSON.stringify(check)}\n`);
     return outcome({ ok: true, modules, warnings, usage });
   }
 
@@ -607,7 +630,7 @@ export async function buildProject(
 
   const tWrite = Date.now();
   const w = writeNativePackage(result, outDir, {
-    inputsKey: key,
+    check,
     native,
     androidDeferred: deferred.includes("android"),
     app: {
@@ -667,22 +690,24 @@ export async function buildProject(
   for (const n of missingAppEntries(root, native.manifest)) notify(n);
   const nativeChanged =
     w.removed.length > 0 || [...written].some((f) => !f.startsWith("js/") && f !== "manifest.json");
+  const actions = classifyChanges({
+    written: [...written],
+    added: w.added.map(inPackage),
+    removed: w.removed.map(inPackage),
+    manifest: native.manifest,
+    previous,
+    targets,
+  });
+
   return outcome({
     ok: true,
     modules,
     warnings,
     usage,
-    actions: classifyChanges({
-      written: [...written],
-      added: w.added.map(inPackage),
-      removed: w.removed.map(inPackage),
-      manifest: native.manifest,
-      previous,
-      targets,
-    }),
+    actions,
     next: {
       rebuild: nativeChanged,
-      podInstall: w.structureChanged,
+      podInstall: needsPodInstall(actions),
       reload: !nativeChanged && [...written].some((f) => f.startsWith("js/")),
     },
   });
@@ -706,6 +731,35 @@ function packageInputs(native: NativeInputs): Artifact[] {
   return [...new Map(listed.map((p) => [inNativePackage(p), p.hash])).entries()].map(
     ([key, hash]) => ({ key, hash }),
   );
+}
+
+/**
+ * The files a check read (CompileResult.read), as inputs: each in the project
+ * by its path there and what the check found, and those outside it (the
+ * compiler's own, a linked package's) together by what they hold, so the
+ * record is the same wherever the project, the compiler and its caller are.
+ */
+function readInputs(root: string, read: ReadonlyMap<string, string>): Artifact[] {
+  // TypeScript reads the files imports resolve to at their real paths.
+  const roots = [root, fs.realpathSync(root)];
+  const inProject = (key: string) =>
+    key !== ".." && !key.startsWith("../") && !path.isAbsolute(key);
+  const inside = new Map<string, string>();
+  const outside: string[] = [];
+
+  for (const [file, found] of read) {
+    const key = roots.map((r) => projectPath(r, file)).find(inProject);
+    if (key !== undefined) inside.set(key, found);
+    // Paths looked for outside and not found: how many depends on how deep the project is.
+    else if (foundFile(found)) outside.push(found);
+  }
+
+  return [
+    ...[...inside].map(([key, hash]) => ({ key, hash })),
+    ...(outside.length
+      ? [{ key: "outside-project", hash: contentHash(outside.sort().join("\n")) }]
+      : []),
+  ];
 }
 
 /**

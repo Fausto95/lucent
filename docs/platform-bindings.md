@@ -692,7 +692,10 @@ main thread, or a protocol requirement it calls there. On Android, the
 SDK's thread annotations say the same: `@UiThread` and `@MainThread` classes
 and methods are main-only (`android.view.View` and every member of it but
 those marked `@AnyThread`), and calling a `@WorkerThread` member in a main
-context warns (LUCENT3009): it blocks.
+context warns (LUCENT3009): it blocks. The generated declarations
+document the same rule from the same check: a main-thread class says
+"Main thread only", and a member says so only where it differs from its
+class (an async Swift member of a `@MainActor` class is "Any thread").
 
 The schema records what those annotations and attributes prove as `facts`
 on classes and members: an affinity (`main`, `worker` or `any`) with the

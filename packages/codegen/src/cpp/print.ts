@@ -26,10 +26,13 @@ export function quoted(s: string): string {
   return `${out}"`;
 }
 
-/** A `u"…"` literal of UTF-16 code units, each escaped (lone surrogates included). */
+/**
+ * A `u"…"` literal of UTF-16 code units, each hex-escaped: a universal
+ * character name may not name a surrogate, a hex escape may.
+ */
 function quoted16(s: string): string {
   let out = 'u"';
-  for (let i = 0; i < s.length; i++) out += `\\u${s.charCodeAt(i).toString(16).padStart(4, "0")}`;
+  for (let i = 0; i < s.length; i++) out += `\\x${s.charCodeAt(i).toString(16)}`;
   return `${out}"`;
 }
 

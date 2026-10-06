@@ -200,6 +200,15 @@ export function classifyChanges(change: NativeChange): PendingAction[] {
   });
 }
 
+/**
+ * Whether the iOS build needs pod install first: CocoaPods reads the
+ * podspec, its pods and the files it lists at pod install, so whatever
+ * relinks iOS does.
+ */
+export function needsPodInstall(actions: PendingAction[]): boolean {
+  return actions.some((a) => a.kind === "relink" && a.targets.includes("ios"));
+}
+
 /** An action in words, for the CLI and lucent dev. */
 export const ACTION_TEXT: Record<ActionKind, string> = {
   reinstall: "reinstall the app",
