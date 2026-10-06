@@ -138,6 +138,50 @@ describe("lucent build's pending actions", () => {
     ]);
   });
 
+  it("relinks for a package's pods and Gradle artifacts, which a build declares before its check", () => {
+    const { app, pkg } = workspace();
+    const declare = (pods: Record<string, string>, dependencies: Record<string, string>) =>
+      fs.writeFileSync(
+        path.join(pkg, "lucent.json"),
+        JSON.stringify({
+          ios: { resources: ["assets/chime.caf"], pods },
+          android: { assets: ["assets/android"], dependencies },
+        }),
+      );
+    const relinkIos = [{ kind: "relink", targets: ["ios"], files: ["resolved.json#ios.pods"] }];
+    const gradle = { "dev.orbit:orbit": "1.0.0" };
+
+    declare({ OrbitKit: "~> 1.0" }, gradle);
+    build(app);
+
+    declare({ OrbitKit: "~> 1.1" }, gradle);
+    expect(build(app).actions).toEqual(relinkIos);
+
+    declare({ OrbitKit: "~> 1.1", OrbitUI: "~> 2.0" }, gradle);
+    expect(build(app).actions).toEqual(relinkIos);
+
+    declare({ OrbitUI: "~> 2.0" }, gradle);
+    expect(build(app).actions).toEqual(relinkIos);
+
+    // A failed check leaves the podspec declaring the pod: the next build still relinks.
+    declare({ OrbitUI: "~> 2.1" }, gradle);
+    fs.writeFileSync(
+      path.join(app, "a.lucent.ts"),
+      'export function one(): number { return "one"; }\n',
+    );
+    expect(build(app).ok).toBe(false);
+    fs.writeFileSync(
+      path.join(app, "a.lucent.ts"),
+      "export function one(): number { return 1; }\n",
+    );
+    expect(build(app).actions).toEqual(relinkIos);
+
+    declare({ OrbitUI: "~> 2.1" }, { "dev.orbit:orbit": "1.1.0" });
+    expect(build(app).actions).toEqual([
+      { kind: "relink", targets: ["android"], files: ["resolved.json#android.dependencies"] },
+    ]);
+  });
+
   it("says what the app needs in its output, and records it", () => {
     const { app, pkg } = workspace();
     build(app);
