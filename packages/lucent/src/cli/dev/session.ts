@@ -234,9 +234,11 @@ export function startSession(root: string): DevSession {
   };
 
   // The app, and each Lucent package that lives outside it (workspaces, links), whole
-  // (`tree`); and the entries of each directory holding a file the last build read
-  // elsewhere (the nearest one there is, for a file it looked for). Updated after each build.
-  const watchers = new Map<string, { watcher: fs.FSWatcher; tree: boolean }>();
+  // (`tree`); and the entries of each directory holding a file the last build read (the
+  // nearest one there is, for a file it looked for), in a tree too: Linux's recursive
+  // watch misses a link swapped for a directory, and what then changes in it. Each by the
+  // directory it found there (`ino`): one replaced is watched again. Updated after each build.
+  const watchers = new Map<string, { watcher: fs.FSWatcher; tree: boolean; ino?: number }>();
 
   const watch = () => {
     if (stopped) return;
@@ -257,18 +259,16 @@ export function startSession(root: string): DevSession {
     read = new Set(lastRead);
     between = new Set();
     for (const file of lastRead) {
-      let dir = treeAt.find((t) => inside(file, t));
-      if (!dir) {
-        dir = path.dirname(file);
-        while (!isDirectory(dir)) dir = path.dirname(dir);
-        if (!dirs.has(dir)) dirs.set(dir, false);
-      }
+      let nearest = path.dirname(file);
+      while (!isDirectory(nearest)) nearest = path.dirname(nearest);
+      if (!dirs.has(nearest)) dirs.set(nearest, false);
 
+      const dir = treeAt.find((t) => inside(file, t)) ?? nearest;
       for (let d = path.dirname(file); inside(d, dir); d = path.dirname(d)) between.add(d);
     }
 
     for (const [dir, w] of watchers)
-      if (dirs.get(dir) !== w.tree) {
+      if (dirs.get(dir) !== w.tree || w.ino !== inode(dir)) {
         w.watcher.close();
         watchers.delete(dir);
       }
@@ -276,6 +276,7 @@ export function startSession(root: string): DevSession {
     for (const [dir, tree] of dirs) {
       if (watchers.has(dir)) continue;
 
+      const ino = inode(dir);
       const real = realpath(dir);
       const watcher = fs.watch(dir, { recursive: tree }, (_event, name) => {
         if (name) changed(dir, real, tree, name);
@@ -285,7 +286,7 @@ export function startSession(root: string): DevSession {
         watcher.close();
         watchers.delete(dir);
       });
-      watchers.set(dir, { watcher, tree });
+      watchers.set(dir, { watcher, tree, ino });
     }
 
     store.set({ ...store.get(), watching: trees.map((d) => path.relative(root, d) || ".") });
@@ -315,6 +316,11 @@ export function startSession(root: string): DevSession {
 function inside(file: string, dir: string): boolean {
   const rel = path.relative(dir, file);
   return rel !== "" && rel.split(path.sep)[0] !== ".." && !path.isAbsolute(rel);
+}
+
+/** The directory `dir` leads to now, by its inode (none: there is none). */
+function inode(dir: string): number | undefined {
+  return fs.statSync(dir, { throwIfNoEntry: false })?.ino;
 }
 
 function isDirectory(dir: string): boolean {

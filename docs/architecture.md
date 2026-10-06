@@ -1137,18 +1137,21 @@ content and mtime.
 
 `lucent dev` (and Metro's watcher, which runs it) watches the app and every
 Lucent package whose directory is outside it (workspace or linked
-packages), whole, and the entries of each other directory holding a file
-the last build read (for a file it looked for and did not find, the
-nearest directory there is). A change rebuilds when the last build read
-the file, wherever it is: a file its check read or a path it resolved a
-link from (the build's `read`, the paths its record keys on), or a path a
-package lists (`nativeInputs`); so does a directory between a watched one
-and such a file being created, removed or swapped for a link. In the app
-and its packages, outside dependencies and dot directories, so does any
-module, `package.json` or `lucent.json`, which the next build may read
-whatever the last one did. No build reads what builds write, so a build
-never triggers another; nor does an event for a file last changed before
-the last build started. Saves are debounced; a
+packages), whole, and the entries of each directory holding a file the
+last build read (for a file it looked for and did not find, the nearest
+directory there is), inside those too: Linux's recursive watch reports
+neither a link swapped for a directory nor what then changes in it. A
+directory replaced since it was watched (another inode at its path) is
+watched again after the next build. A change rebuilds when the last
+build read the file, wherever it is: a file its check read or a path it
+resolved a link from (the build's `read`, the paths its record keys on),
+or a path a package lists (`nativeInputs`); so does a directory between
+a watched one and such a file being created, removed or swapped for a
+link. In the app and its packages, outside dependencies and dot
+directories, so does any module, `package.json` or `lucent.json`, which
+the next build may read whatever the last one did. No build reads what
+builds write, so a build never triggers another; nor does an event for a
+file last changed before the last build started. Saves are debounced; a
 change during a build aborts it (`BuildOptions.signal`) before it writes,
 and one build follows.
 
