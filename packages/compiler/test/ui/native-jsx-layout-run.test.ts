@@ -14,6 +14,7 @@ describe("native view JSX laid out by Yoga, mounted", () => {
     () => {
       expect(runMounted(CARD, "native_jsx_layout_run_test.mm")).toEqual([
         "mounted: title at the padding, children 8 apart, spacer fills the row",
+        "snapshot: the mount, its Flex, labels and stack, framed",
         "column: A B stacked 4 apart, 60 wide",
         "stack: 4 in from its place, its labels where it put them",
         "retitled: title wider, spacer narrower, column in place",
@@ -23,6 +24,7 @@ describe("native view JSX laid out by Yoga, mounted", () => {
         "right to left: title at the right padding",
         "pixels: every frame on the grid",
         "sized by content: fits its children and padding",
+        "forgotten: no mounts",
         "released: native references all released, row gone",
       ]);
     },
