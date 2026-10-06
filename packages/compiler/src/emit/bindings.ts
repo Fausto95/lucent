@@ -276,9 +276,10 @@ export class BindingsEmitter {
       specialize(this.reg.cppType({ k: "class", id, args: [] }), false);
     for (const t of this.ifaces.values()) specialize(this.reg.cppType(t), false);
     for (const u of this.unions.values()) specialize(this.reg.cppType(u), false);
-    for (const id of this.structs) js.push(...this.structConvert(id));
-    for (const id of this.classes) js.push(...this.classConvert(id));
-    for (const t of this.ifaces.values()) js.push(...this.ifaceConvert(t));
+    const guarded = (f: () => cpp.Decl[]) => js.push(...(this.ctx.guard(f) ?? []));
+    for (const id of this.structs) guarded(() => this.structConvert(id));
+    for (const id of this.classes) guarded(() => this.classConvert(id));
+    for (const t of this.ifaces.values()) guarded(() => this.ifaceConvert(t));
     for (const [key, u] of this.unions) {
       const decls = this.ctx.guard(() => {
         try {
@@ -292,7 +293,7 @@ export class BindingsEmitter {
       });
       if (decls) js.push(...decls);
     }
-    const installers = mods.map((m) => this.installer(m));
+    const installers = mods.flatMap((m) => this.ctx.guard(() => this.installer(m)) ?? []);
     const modules = mods.map((m) =>
       cpp.initList([cpp.str(m.module.name), cpp.id(`install_${m.module.ns}`)]),
     );
@@ -1113,8 +1114,19 @@ interface PublicMember {
   writable?: boolean;
 }
 
-/** Instance members JavaScript can use: public, non-static. */
+const membersOf = new WeakMap<ClassInfo, PublicMember[]>();
+
+/**
+ * Instance members JavaScript can use: public, non-static. Lowered once per
+ * class: a member that fails is reported once and left out.
+ */
 export function publicMembers(ctx: Ctx, info: ClassInfo): PublicMember[] {
+  let members = membersOf.get(info);
+  if (!members) membersOf.set(info, (members = lowerPublicMembers(ctx, info)));
+  return members;
+}
+
+function lowerPublicMembers(ctx: Ctx, info: ClassInfo): PublicMember[] {
   const out: PublicMember[] = [];
   const isPublic = (m: ts.Node & { name?: ts.PropertyName | ts.BindingName }) => {
     const mods = ts.canHaveModifiers(m) ? (ts.getModifiers(m) ?? []) : [];
@@ -1138,18 +1150,25 @@ export function publicMembers(ctx: Ctx, info: ClassInfo): PublicMember[] {
   for (const p of parameterProperties(ctor)) {
     if (!isPublic(p)) continue;
     const readonly = !!ts.getModifiers(p)?.some((x) => x.kind === ts.SyntaxKind.ReadonlyKeyword);
-    out.push({
-      kind: "field",
-      name: memberName(p),
-      node: p,
-      types: [reg.lower(ctx.checker.getTypeAtLocation(p), p)],
-      writable: !readonly,
-    });
+    ctx.guard(() =>
+      out.push({
+        kind: "field",
+        name: memberName(p),
+        node: p,
+        types: [reg.lower(ctx.checker.getTypeAtLocation(p), p)],
+        writable: !readonly,
+      }),
+    );
   }
   const accessors = new Map<string, PublicMember>();
   for (const m of info.decl.members) {
     // Symbol-keyed methods ([Symbol.dispose]) are for Lucent code: JSI names properties by string.
     if (!isPublic(m) || (m.name && ts.isComputedPropertyName(m.name))) continue;
+    ctx.guard(() => lowerMember(m));
+  }
+  return out;
+
+  function lowerMember(m: ts.ClassElement): void {
     if (ts.isPropertyDeclaration(m)) {
       const readonly = !!ts.getModifiers(m)?.some((x) => x.kind === ts.SyntaxKind.ReadonlyKeyword);
       out.push({
@@ -1193,7 +1212,6 @@ export function publicMembers(ctx: Ctx, info: ClassInfo): PublicMember[] {
       }
     }
   }
-  return out;
 }
 
 export { stripOpt };
