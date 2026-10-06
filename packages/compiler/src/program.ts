@@ -5,12 +5,13 @@ import { directoryExists, fileExists, readText, realpath } from "./reads.ts";
 import { fileURLToPath } from "node:url";
 import { ts as dts } from "@lucent-lang/codegen";
 import ts from "typescript";
-import { Codes, type Diagnostic } from "./diagnostics.ts";
+import { Codes, type Diagnostic, type QuickFix } from "./diagnostics.ts";
 import { sdkDts, stubDts } from "./sdk/dts.ts";
 import { cachedDeclarations } from "./sdk/declaration-cache.ts";
 import {
   currentSdkIdentity,
   findSdkModule,
+  parseSdkType,
   type Platform,
   PLATFORMS,
   platformSdkTyped,
@@ -617,11 +618,20 @@ export function createLucentProgram(
         )
       )
         continue;
-      const hint = nativeMemberHint(d, checker, direct) ?? nativeAttributeHint(d, checker);
+      const hint: { message: string; fix: string; quickFix?: QuickFix } | undefined =
+        nativeMemberHint(d, checker, direct) ??
+        nativeAttributeHint(d, checker) ??
+        initializerFactoryHint(d, checker) ??
+        inheritedInitializerHint(d, checker, direct);
       const diagnostic = fromTs(d);
       diagnostics.push(
         hint
-          ? { ...diagnostic, message: `${diagnostic.message} ${hint.message}`, fix: hint.fix }
+          ? {
+              ...diagnostic,
+              message: `${diagnostic.message} ${hint.message}`,
+              fix: hint.fix,
+              ...(hint.quickFix ? { quickFix: hint.quickFix } : {}),
+            }
           : diagnostic,
       );
     }
@@ -681,6 +691,120 @@ function nativeMemberHint(
   return {
     message: `${symbol.name} is ${spec}'s, from ${provenance.artifact} as installed, which has no ${name.text}.`,
     fix: `use what ${symbol.name} declares in this version of ${sdk.module}, or install a version that has ${name.text}`,
+  };
+}
+
+/** TypeScript's error for a protected constructor called from outside. */
+const PROTECTED_CONSTRUCTOR = 2674;
+
+/** A quick fix adding `import "spec";` after `file`'s last import (at its top without one). */
+function importing(file: ts.SourceFile, spec: string): QuickFix {
+  const last = file.statements.filter(ts.isImportDeclaration).at(-1);
+  const line = `import "${spec}";`;
+
+  return {
+    title: `Add import "${spec}"`,
+    edits: [
+      last
+        ? { start: last.getEnd(), length: 0, text: `\n${line}` }
+        : { start: 0, length: 0, text: `${line}\n` },
+    ],
+  };
+}
+
+/**
+ * Where `new` of a native class reaches the constructor of a superclass
+ * whose module no file imports (only its name is known, so it declares
+ * none): the initializers the class inherits are that superclass's, and
+ * importing its module declares them.
+ */
+function inheritedInitializerHint(
+  d: ts.Diagnostic,
+  checker: ts.TypeChecker,
+  direct: Set<string>,
+): { message: string; fix: string; quickFix: QuickFix } | undefined {
+  if (d.code !== PROTECTED_CONSTRUCTOR && !NO_OVERLOAD.has(d.code)) return undefined;
+  if (!d.file || d.start === undefined) return undefined;
+
+  let at: ts.Node | undefined = nodeAt(d.file, d.start);
+  while (at && !ts.isNewExpression(at)) at = at.parent;
+  if (!at || !ts.isNewExpression(at)) return undefined;
+
+  const named = checker.getSymbolAtLocation(at.expression);
+  const symbol =
+    named && named.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(named) : named;
+  const declared = symbol?.declarations?.[0]?.getSourceFile();
+  const sdk = declared && sdkModuleOf(declared);
+  if (!symbol || !sdk) return undefined;
+
+  // Up the classes that inherit their initializers, to the one declaring them.
+  let module = sdk.module;
+  let name = symbol.name;
+  for (let depth = 0; depth < 32; depth++) {
+    const found = sdkLookup(sdk.platform, module);
+    const cls =
+      "schema" in found
+        ? found.schema.types.find((t) => t.kind === "class" && t.name === name)
+        : undefined;
+    if (cls?.kind !== "class" || cls.constructors?.length || !cls.inheritsInit || !cls.extends)
+      break;
+
+    const up = parseSdkType(cls.extends, module);
+    if (up.k !== "ref") break;
+    [module, name] = [up.module, up.name];
+
+    const spec = `lucent:${sdk.platform}/${module}`;
+    if (module !== sdk.module && !direct.has(`${sdk.platform}/${module}`))
+      return {
+        message: `${symbol.name}'s initializers are ${name}'s, inherited from ${spec}, which no file imports: only its name is known.`,
+        fix: `import "${spec}" (a bare import is enough) to make a ${symbol.name} with ${name}'s initializers`,
+        quickFix: importing(d.file, spec),
+      };
+  }
+
+  return undefined;
+}
+
+/** TypeScript's errors for a call no overload takes. */
+const NO_OVERLOAD = new Set([2554, 2769, 2345]);
+
+/**
+ * Where `new` of a native class takes none of the arguments: its Swift
+ * initializers TypeScript cannot tell apart (the same types, other
+ * labels) are its static factories, which the error names.
+ */
+function initializerFactoryHint(
+  d: ts.Diagnostic,
+  checker: ts.TypeChecker,
+): { message: string; fix: string } | undefined {
+  if (!NO_OVERLOAD.has(d.code) || !d.file || d.start === undefined) return undefined;
+
+  let at: ts.Node | undefined = nodeAt(d.file, d.start);
+  while (at && !ts.isNewExpression(at)) at = at.parent;
+  if (!at || !ts.isNewExpression(at)) return undefined;
+
+  const named = checker.getSymbolAtLocation(at.expression);
+  const symbol =
+    named && named.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(named) : named;
+  const declared = symbol?.declarations?.[0]?.getSourceFile();
+  const sdk = declared && sdkModuleOf(declared);
+  if (!symbol || !sdk) return undefined;
+
+  const found = sdkLookup(sdk.platform, sdk.module);
+  const cls =
+    "schema" in found
+      ? found.schema.types.find((t) => t.kind === "class" && t.name === symbol.name)
+      : undefined;
+  const factories =
+    cls?.kind === "class"
+      ? (cls.methods ?? []).filter((m) => m.static && m.swift?.name.startsWith("init("))
+      : [];
+  if (!factories.length) return undefined;
+
+  const listed = factories.map((f) => `${symbol.name}.${f.name}(…) for ${f.swift!.name}`);
+  return {
+    message: `${symbol.name}'s initializers that take the same types are its static factories, which TypeScript tells apart: ${listed.join(", ")}.`,
+    fix: `call the one you mean: ${symbol.name}.${factories[0]!.name}(…)`,
   };
 }
 

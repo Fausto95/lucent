@@ -9,7 +9,7 @@ export function printType(t: Type): string {
     case "named":
       return t.args?.length ? `${t.name}<${t.args.map(printType).join(", ")}>` : t.name;
     case "optional":
-      return t.of.k === "cFunction" || t.of.k === "function"
+      return t.of.k === "cFunction" || t.of.k === "blockFunction" || t.of.k === "function"
         ? `(${printType(t.of)})?`
         : `${printType(t.of)}?`;
     case "array":
@@ -18,6 +18,8 @@ export function printType(t: Type): string {
       return `[${printType(t.key)}: ${printType(t.value)}]`;
     case "cFunction":
       return `@convention(c) (${t.params.map(printType).join(", ")}) -> ${printType(t.ret)}`;
+    case "blockFunction":
+      return `@convention(block) (${t.params.map(printType).join(", ")}) -> ${printType(t.ret)}`;
     case "function":
       return `(${t.params.map(printType).join(", ")}) -> ${printType(t.ret)}`;
     case "opaque":
@@ -105,6 +107,8 @@ function bare(e: Expr, indent: string): string {
       return `${expr(e.object, PREC.postfix, indent)}.${e.name}`;
     case "arrayLiteral":
       return `[${e.items.map((x) => expr(x, PREC.assign, indent)).join(", ")}]`;
+    case "tupleLiteral":
+      return `(${e.items.map((x) => expr(x, PREC.assign, indent)).join(", ")})`;
     case "dictionaryLiteral":
       if (!e.entries.length) return "[:]";
       return `[${e.entries.map((x) => `${expr(x.key, PREC.assign, indent)}: ${expr(x.value, PREC.assign, indent)}`).join(", ")}]`;

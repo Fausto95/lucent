@@ -60,6 +60,7 @@ packages/runtime/test/run.sh
 HERMES_DIR=~/hermes node packages/compiler/test/e2e/run.ts [case…]
 HERMES_DIR=~/hermes node scripts/app-check.ts apps/bare-example
 HERMES_DIR=~/hermes node scripts/bench.ts --check   # performance budgets
+node scripts/bench-build.ts --check   # the edit loop's feedback budgets (p95)
 pnpm check   # vp check (Oxfmt, Oxlint) and tsc; pnpm fix formats and applies lint fixes
 pnpm test    # unit tests without the slow ones; pnpm test:all (and CI) run them too
 node scripts/smoke-install.ts   # packs @lucent-lang/lucent, installs it alone in a fresh app

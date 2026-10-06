@@ -16,10 +16,12 @@ const mb = (bytes: number) => `${(bytes / 1e6).toFixed(1)} MB`;
 /** `lucent clean`: removes .lucent/ (the next build starts over); --cache also the SDK cache. */
 export function run({ root, flags, out }: Invocation): number {
   const t = out.theme;
+  const removed: { path: string; bytes: number }[] = [];
   const generated = path.join(root, ".lucent");
   if (fs.existsSync(generated)) {
     const freed = size(generated);
     fs.rmSync(generated, { recursive: true, force: true });
+    removed.push({ path: ".lucent", bytes: freed });
     out.print(`${t.success(t.symbols.ok)} removed .lucent  ${t.dim(mb(freed))}`);
   } else out.print(`${t.dim(t.symbols.off)} nothing to remove in the project`);
   if (flags.cache) {
@@ -30,9 +32,11 @@ export function run({ root, flags, out }: Invocation): number {
     );
     const freed = size(cache);
     fs.rmSync(cache, { recursive: true, force: true });
+    removed.push({ path: cache, bytes: freed });
     out.print(
       `${t.success(t.symbols.ok)} removed the SDK cache  ${t.dim(`${mb(freed)}, ${cache.replace(os.homedir(), "~")}; SDK modules are extracted again on first use`)}`,
     );
   }
+  if (out.json) out.data({ removed });
   return 0;
 }

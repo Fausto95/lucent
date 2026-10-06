@@ -129,6 +129,8 @@ export interface IosModuleSource {
   files: string[];
   /** The pod that installed it, as `Name@version` (Podfile.lock). */
   pod?: string;
+  /** The Swift package whose build gave it, as `identity@version` (Package.resolved). */
+  spm?: string;
 }
 
 /** An iOS module's provenance. */
@@ -140,9 +142,11 @@ export function iosProvenance(
 ): SchemaProvenance {
   const artifact = source.pod
     ? `pod:${source.pod}`
-    : source.kind === "sdk"
-      ? `sdk:iphonesimulator${sdkVersion}`
-      : `${source.kind}:${module}`;
+    : source.spm
+      ? `spm:${source.spm}`
+      : source.kind === "sdk"
+        ? `sdk:iphonesimulator${sdkVersion}`
+        : `${source.kind}:${module}`;
 
   return {
     artifact,

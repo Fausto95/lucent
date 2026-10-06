@@ -36,6 +36,17 @@ describe("TypeScript types", () => {
     expect(printType(ts.typeOf("Toast.LENGTH_SHORT"))).toBe("typeof Toast.LENGTH_SHORT");
   });
 
+  it("print labeled tuples, the labels the elements' names", () => {
+    expect(
+      printType(
+        ts.tuple([
+          { name: "min", type: num },
+          { name: "max", type: num, optional: true },
+        ]),
+      ),
+    ).toBe("[min: number, max?: number]");
+  });
+
   it("print tuples, their optional elements parenthesized by precedence", () => {
     expect(printType(ts.tuple([{ type: A }, { type: num, optional: true }]))).toBe("[A, number?]");
     expect(printType(ts.tuple([{ type: union([A, ts.nullType]), optional: true }]))).toBe(

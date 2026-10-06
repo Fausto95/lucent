@@ -415,10 +415,10 @@ describe("SDK declarations", () => {
       }),
     );
     expect(d).toContain(
-      "  /** Main thread only: call it inside `main(() => …)`. */\n  draw(): void;",
+      "  /**\n   * Main thread only: call it inside `main(() => …)`.\n   * Native: com.example.widgets.Widget#draw()V, in com.example.widgets.\n   */\n  draw(): void;",
     );
     expect(d).toContain(
-      "  /** Since API 30. Blocks (@WorkerThread): call it outside `main(() => …)`. */\n  load(): void;",
+      "  /**\n   * Since API 30. Blocks (@WorkerThread): call it outside `main(() => …)`.\n   * Native: com.example.widgets.Widget#load()V, in com.example.widgets.\n   */\n  load(): void;",
     );
   });
 
@@ -475,12 +475,12 @@ describe("SDK declarations", () => {
     );
 
     expect(d).toContain(
-      "  /** Lucent cannot use this yet: nested collections from Objective-C are not supported yet. */\n  grid(): string[][];",
+      "  /**\n   * Lucent cannot use this yet: nested collections from Objective-C are not supported yet.\n   * Native: -[KITView grid], in Kit.\n   */\n  grid(): string[][];",
     );
     expect(d).toContain("  fill(g: string[][]): void;");
     // A property without a setter selector: read, never written.
     expect(d).toContain(
-      "  /** Lucent cannot assign this yet: it has no setter. */\n  tag: bigint;",
+      "  /**\n   * Lucent cannot assign this yet: it has no setter.\n   * Native: -[KITView tag], in Kit.\n   */\n  tag: bigint;",
     );
   });
 

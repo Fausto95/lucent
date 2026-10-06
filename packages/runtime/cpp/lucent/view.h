@@ -18,12 +18,14 @@
 #include <exception>
 #include <functional>
 #include <memory>
+#include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
 #include "json.h"
 #include "reactive.h"
+#include "ui_children.h"
 
 namespace lucent::ui {
 
@@ -88,7 +90,9 @@ void reportViewError(std::exception_ptr error, const char* component, const char
  * mount's code runs, or by invalidateSize(); the host's `changed` runs
  * once for any number of marks: when the outermost entry into a mount
  * ends, or in a later turn of the main context for a mark made outside
- * any. Marks made while `changed` runs (measuring may run the mount's
+ * any. Code of the mount may listen too (a Flex marking its leaves to
+ * measure again): listeners hear first, in the order they listened, then
+ * the host. Marks made while they run (measuring may run the mount's
  * code) are not changes. Main thread only.
  */
 class Content : public std::enable_shared_from_this<Content> {
@@ -105,6 +109,10 @@ class Content : public std::enable_shared_from_this<Content> {
   /// Marks the content changed.
   void invalidate();
 
+  /// Calls `listener` at each change, before the host; unlisten() takes it back.
+  size_t listen(std::function<void()> listener);
+  void unlisten(size_t id);
+
  private:
   friend class ContentEntry;
 
@@ -112,6 +120,8 @@ class Content : public std::enable_shared_from_this<Content> {
   static void flush();
 
   std::function<void()> changed_;
+  std::vector<std::pair<size_t, std::function<void()>>> listeners_;
+  size_t nextListener_ = 0;
   bool marked_ = false;
   bool measuring_ = false;
 };
@@ -153,5 +163,30 @@ auto inContent(std::weak_ptr<Content> content, F f) {
 /// lucent:ui's invalidateSize(): marks `content` (the mount of the setup
 /// the call is written in) changed; nothing once the mount has gone.
 void invalidateSize(const std::weak_ptr<Content>& content);
+
+/**
+ * A live mount, for a debug build's snapshot: its component (its
+ * registration), the source line of its setup, and its view now. Main
+ * thread only, as mounts are.
+ */
+struct MountRecord {
+  const char* component;
+  const char* source;
+  std::function<NativeRef()> view;
+};
+
+/// Records a mount; the id removeMount() takes (0: none, which it ignores).
+size_t addMount(MountRecord record);
+void removeMount(size_t id);
+
+/// How a platform writes a view's tree as JSON (its class, frame and
+/// children); none: a view has no tree in the snapshot (a headless host).
+void setViewTree(std::function<std::string(const NativeRef&)> write);
+
+/**
+ * A debug build's snapshot, as JSON: what the runtime owns, live
+ * (debug.h), and each live mount with its view's tree. Main thread.
+ */
+std::string debugSnapshot();
 
 }  // namespace lucent::ui

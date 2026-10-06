@@ -90,6 +90,8 @@ export class Ctx {
   readonly frameworks = new Set<string>();
   /** Per program: the pods whose modules the iOS platform code imports (LucentNative depends on them). */
   readonly pods = new Set<string>();
+  /** Per program: the app's Swift packages whose modules it imports (`identity@version`). */
+  readonly swiftPackages = new Set<string>();
   /** Java classes the Android glue names (JNI), which the app's shrinker must keep. */
   readonly javaClasses = new Set<string>();
   /** Android permissions the SDK methods the program calls require. */

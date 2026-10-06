@@ -275,6 +275,7 @@ function compileWith(files: string[], options: CompileOptions): Compiled {
     if (target === "ios") {
       out.frameworks = result.frameworks;
       out.pods = result.pods;
+      out.swiftPackages = result.swiftPackages;
     }
     if (target === "android") {
       out.java = result.java;

@@ -8,7 +8,7 @@ export interface Output {
   json: boolean;
   /** A line of human output (stdout). Silent with --json. */
   print(line?: string): void;
-  /** A line about a problem (stderr). Silent with --json. */
+  /** A line about a problem (stderr), with --json too: stdout keeps the JSON document alone. */
   error(line: string): void;
   /** The command's JSON document (stdout), with --json. */
   data(value: unknown): void;
@@ -26,7 +26,7 @@ export function createOutput(
     theme: createTheme(terminal),
     json,
     print: (line = "") => void (json || stdout.write(`${line}\n`)),
-    error: (line) => void (json || stderr.write(`${line}\n`)),
+    error: (line) => void stderr.write(`${line}\n`),
     data: (value) => void stdout.write(`${JSON.stringify(value, null, 2)}\n`),
   };
 }
