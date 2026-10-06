@@ -10,7 +10,7 @@ const frontmatter = { title: "A page", description: "It shows `code`.", kind: "g
 
 /** Every kind of block, with text that Markdown or MDX would read as something else. */
 const blocks: Block[] = [
-  { kind: "p", text: "Plain, `code`, **strong** and [a link](/docs/install/#check-your-machine)." },
+  { kind: "p", text: "Plain, `code`, **strong** and [a link](/docs/guides/install/#when-init-cant-patch-a-file)." },
   {
     kind: "p",
     text: "Characters MDX reads: {braces}, <angle> brackets, snake_case, a * b, ~tilde, [brackets].",
@@ -67,7 +67,7 @@ const blocks: Block[] = [
       { label: "Bare React Native", blocks: [{ kind: "list", items: ["a", "b"] }] },
     ],
   },
-  { kind: "cards", items: [{ title: "Install", text: "Set it up.", href: "/docs/install/" }] },
+  { kind: "cards", items: [{ title: "Install", text: "Set it up.", href: "/docs/guides/install/" }] },
 ];
 
 describe("the docs' MDX", () => {

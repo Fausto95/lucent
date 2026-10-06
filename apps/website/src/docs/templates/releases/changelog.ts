@@ -10,7 +10,7 @@ export const frontmatter: DocFrontmatter = {
 export const blocks: Block[] = [
   {
     kind: "p",
-    text: "Each entry links the pull request that made it. Before 1.0, a minor release may break what an earlier one did: read its entries before upgrading ([Upgrade Lucent](/docs/guides/upgrade/)).",
+    text: "Each entry links the pull request that made it. Before 1.0, a minor release may break what an earlier one did: read its entries before upgrading ([Upgrade Lucent](/docs/guides/upgrade-lucent/)).",
   },
   ...releases.flatMap(({ version, changes }): Block[] => [
     { kind: "h2", text: version },
