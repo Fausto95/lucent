@@ -2,8 +2,20 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vite-plus/test";
-import { buildIosSchemas, extractIos, namesOf, symbolGraph } from "../src/ios.ts";
-import { canonicalSchema, parseSchemaType } from "../src/schema.ts";
+import {
+  buildIosSchemas,
+  extractIos,
+  namesOf,
+  symbolGraph,
+  withInheritedInitializers,
+} from "../src/ios.ts";
+import {
+  canonicalSchema,
+  parseSchemaType,
+  SCHEMA_FORMAT,
+  type SdkClassSchema,
+  type SdkModuleSchema,
+} from "../src/schema.ts";
 import type { SymbolGraph } from "../src/symbols.ts";
 import { nativeId, schemaSymbols } from "./schema-symbols.ts";
 import { swiftModule } from "./swift-module.ts";
@@ -188,13 +200,20 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     expect(type("WDGStyle")).not.toHaveProperty("options");
   });
 
-  it("maps initializers, factories and class properties to their selectors", () => {
+  it("maps initializers, factory initializers, factories and class properties to their selectors", () => {
     expect(widget().constructors).toEqual([
       { params: [], selector: "init", symbol: "objc:c:objc(cs)WDGWidget(im)init" },
       {
         params: [{ name: "style", type: T("Widgets.WDGStyle") }],
         selector: "initWithStyle:",
         symbol: "objc:c:objc(cs)WDGWidget(im)initWithStyle:",
+      },
+      // A class method Swift imports as an initializer: called on the class.
+      {
+        params: [{ name: "label", type: T("string") }],
+        selector: "widgetWithLabel:",
+        factory: true,
+        symbol: "objc:c:objc(cs)WDGWidget(cm)widgetWithLabel:",
       },
     ]);
     expect(method("named")[0]).toMatchObject({
@@ -220,6 +239,13 @@ describe.skipIf(!xcode)("iOS extractor", () => {
     });
     expect(props.edges).toMatchObject({ type: T("Widgets.WDGEdges") });
     expect(props.size).toMatchObject({ type: T("uint64") });
+  });
+
+  it("keeps the initializers a class inherits beside its factory ones", () => {
+    expect(cls("WDGBadge").constructors).toEqual([
+      expect.objectContaining({ selector: "badgeWithText:", factory: true }),
+      { params: [], selector: "init" },
+    ]);
   });
 
   it("types parameters and results: nullability, collections, data, dates, id", () => {
@@ -845,6 +871,13 @@ describe.skipIf(!xcode)("iOS extractor, Swift modules", () => {
     );
   });
 
+  it("leaves out inout parameters, which a module's graph marks in the declaration alone", () => {
+    expect(mod().skipped).toContain("Counter.add(into:): Swift: inout parameters");
+    const counter = swiftType("Counter");
+    if (counter.kind !== "class") throw new Error("Counter is not a class");
+    expect(counter.methods?.map((m) => m.name)).not.toContain("add");
+  });
+
   it("leaves out generic initializers, which TypeScript constructors cannot declare", () => {
     expect(mod().skipped).toContain("Uses.init(tag:): Swift: generic initializer");
   });
@@ -924,5 +957,54 @@ describe.skipIf(!xcode)("iOS extractor, requirements Lucent classes implement", 
       ],
     });
     expect(swiftType("Ranked")).not.toHaveProperty("typeParams");
+  });
+});
+
+describe("initializers a class inherits", () => {
+  // UIKit's shape: UIAction has factory initializers (Objective-C) and Swift's own, and inherits
+  // UIMenuElement's init(coder:); UIWindowScene.ActivationAction has a factory of its own.
+  const coder = {
+    params: [{ name: "coder", type: T("Foundation.NSCoder") }],
+    selector: "initWithCoder:",
+  };
+  const classes = (): SdkClassSchema[] => [
+    { kind: "class", name: "Element", native: "Element", constructors: [coder] },
+    {
+      kind: "class",
+      name: "Action",
+      native: "Action",
+      extends: "Kit.Element",
+      inheritsInit: true,
+      constructors: [
+        { params: [], selector: "action", factory: true },
+        { params: [{ name: "title", type: T("string") }] },
+      ],
+    },
+    {
+      kind: "class",
+      name: "SceneAction",
+      native: "SceneAction",
+      extends: "Kit.Action",
+      inheritsInit: true,
+      constructors: [{ params: [], selector: "sceneAction", factory: true }],
+    },
+  ];
+  const resolved = (types: SdkClassSchema[]) => {
+    const mod: SdkModuleSchema = { format: SCHEMA_FORMAT, module: "Kit", platform: "ios", types };
+    withInheritedInitializers(mod);
+    return Object.fromEntries(
+      types.map((t) => [t.name, (t.constructors ?? []).map((c) => c.selector ?? "swift")]),
+    );
+  };
+
+  it("gives a subclass what its superclass inherits too, whatever order the classes come in", () => {
+    const expected = {
+      Element: ["initWithCoder:"],
+      Action: ["action", "swift", "initWithCoder:"],
+      SceneAction: ["sceneAction", "swift", "initWithCoder:"],
+    };
+
+    expect(resolved(classes())).toEqual(expected);
+    expect(resolved(classes().toReversed())).toEqual(expected);
   });
 });

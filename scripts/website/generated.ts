@@ -97,11 +97,13 @@ function cli(): string {
   const flag = (f: { name: string; value?: string; optional?: boolean }) =>
     `--${f.name}${f.value ? (f.optional ? ` [<${f.value}>]` : ` <${f.value}>`) : ""}`;
   return `${header}export const cliCommands: { name: string; summary: string; flags: { flag: string; description: string }[] }[] = ${json(
-    commands.map((c) => ({
-      name: c.name,
-      summary: c.summary,
-      flags: c.flags.map((f) => ({ flag: flag(f), description: f.description })),
-    })),
+    commands
+      .filter((c) => !c.internal)
+      .map((c) => ({
+        name: c.name,
+        summary: c.summary,
+        flags: c.flags.map((f) => ({ flag: flag(f), description: f.description })),
+      })),
   )};\n\nexport const globalFlags: { flag: string; description: string }[] = ${json(
     GLOBAL_FLAGS.map((f) => ({ flag: flag(f), description: f.description })),
   )};\n`;

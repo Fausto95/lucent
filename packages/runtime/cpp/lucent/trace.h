@@ -52,6 +52,8 @@ enum class Category : uint8_t {
   Alloc,
   /// A build phase (the CLI's build record).
   Build,
+  /// A view's effect running: a binding, at its .lucent.ts line.
+  Effect,
 };
 
 const char* categoryName(Category category);

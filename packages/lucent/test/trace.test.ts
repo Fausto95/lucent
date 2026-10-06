@@ -103,6 +103,34 @@ describe("merged traces", () => {
   });
 });
 
+describe("effect runs in a trace", () => {
+  it("counts each binding's runs and time, by the .lucent.ts line it is at", () => {
+    const run = (site: string, ts: number, dur: number) => ({
+      name: "effect",
+      cat: "effect",
+      ph: "X",
+      ts,
+      dur,
+      pid: 1,
+      tid: 1,
+      args: { site },
+    });
+    const summary = summarize({
+      traceEvents: [
+        run("/app/src/rows.lucent.tsx:11", 0, 200),
+        run("/app/src/rows.lucent.tsx:11", 300, 100),
+        run("/app/src/rows.lucent.tsx:7", 500, 900),
+      ],
+    });
+
+    expect(summary.categories).toEqual([{ category: "effect", ms: 1.2, count: 3 }]);
+    expect(summary.effects).toEqual([
+      { site: "/app/src/rows.lucent.tsx:7", ms: 0.9, count: 1 },
+      { site: "/app/src/rows.lucent.tsx:11", ms: 0.3, count: 2 },
+    ]);
+  });
+});
+
 describe("lucent trace", () => {
   it("writes the last build's phases and a runtime trace as one Chrome trace", () => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-trace-"));

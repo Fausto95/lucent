@@ -1663,7 +1663,7 @@ export function Title(props: { title: string }) {
 
 **Native view JSX that cannot be compiled**
 
-A component can return its platform's views as JSX, declared as returning UIView or View (internal, under LUCENT\_VIEWS=fabric). A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Each attribute is kept up to date like an effect, from when the view mounts.
+A component can return its platform's views as JSX, declared as returning UIView or View (internal, under LUCENT\_VIEWS=fabric). A tag takes what its class's declarations provide: writable properties, setters, control or listener events, and children where it inserts views at an index. Attributes are kept up to date like effects, and a child may come and go: `{cond && <X />}`, `{c ? <X /> : <Y />}`, or a keyed list, `{items.map((item) => <X key={item.id} />)}`.
 
 **Fix:** write each attribute on its element, and set what the declarations do not provide for in setup code.
 

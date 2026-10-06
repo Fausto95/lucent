@@ -90,10 +90,10 @@ describe("a component's compiled setup", () => {
 
         const unit = file(result, `${platform}/m_meter.${platform === "ios" ? "mm" : "cpp"}`);
 
-        // Effects are named by where they are, for loop reports.
+        // Effects are named by where they are, for loop reports, and traced at that site.
         expect(unit).toMatch(
           new RegExp(
-            `lucent::ui::effect\\(lucent::ui::mainGraph\\(\\), v\\d+_, "meter\\.${platform}\\.lucent\\.tsx:\\d+"\\)`,
+            `lucent::ui::effect\\(lucent::ui::mainGraph\\(\\), v\\d+_, "meter\\.${platform}\\.lucent\\.tsx:\\d+", LUCENT_TRACE_SITE_AT\\("effect", "[^"]*meter\\.${platform}\\.lucent\\.tsx", \\d+\\)\\)`,
           ),
         );
         expect(unit).toContain("props.e0_onChange(");

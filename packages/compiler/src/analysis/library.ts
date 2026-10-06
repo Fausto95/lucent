@@ -344,6 +344,7 @@ const LIBRARY: Record<string, LibraryEffect> = {
   "lucent:thread.main": { allocates: true, schedules: true, main: true },
   "lucent:android.appContext": NONE,
   "lucent:android.available": NONE,
+  "lucent:android.errorOf": ALLOCATES,
   "lucent:ios.available": NONE,
   // lucent:ui (a component's setup, on the main thread): effect and
   // onDispose keep their argument for later, there.

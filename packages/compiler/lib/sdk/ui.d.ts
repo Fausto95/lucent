@@ -117,6 +117,104 @@ export interface Children {
  */
 export declare function slot<T extends object>(): T;
 
+/** A length in points, or a percent of the parent's (`"50%"`). */
+export type LayoutLength = number | `${number}%`;
+
+/** A length, or `"auto"`: what the layout gives. */
+export type LayoutDimension = LayoutLength | "auto";
+
+type LayoutAlign =
+  | "auto"
+  | "flex-start"
+  | "center"
+  | "flex-end"
+  | "stretch"
+  | "baseline"
+  | "space-between"
+  | "space-around"
+  | "space-evenly";
+
+/**
+ * React Native's layout style (its Yoga's): a Flex's `style`, and the
+ * `layout` of a Flex's child. Numbers are points.
+ */
+export interface LayoutStyle {
+  direction?: "inherit" | "ltr" | "rtl";
+  flexDirection?: "column" | "column-reverse" | "row" | "row-reverse";
+  justifyContent?:
+    | "flex-start"
+    | "center"
+    | "flex-end"
+    | "space-between"
+    | "space-around"
+    | "space-evenly";
+  alignItems?: LayoutAlign;
+  alignSelf?: LayoutAlign;
+  alignContent?: LayoutAlign;
+  flexWrap?: "nowrap" | "wrap" | "wrap-reverse";
+  position?: "relative" | "absolute" | "static";
+  display?: "flex" | "none" | "contents";
+  overflow?: "visible" | "hidden" | "scroll";
+  flex?: number;
+  flexGrow?: number;
+  flexShrink?: number;
+  flexBasis?: LayoutDimension;
+  aspectRatio?: number;
+  width?: LayoutDimension;
+  height?: LayoutDimension;
+  minWidth?: LayoutLength;
+  maxWidth?: LayoutLength;
+  minHeight?: LayoutLength;
+  maxHeight?: LayoutLength;
+  margin?: LayoutDimension;
+  marginHorizontal?: LayoutDimension;
+  marginVertical?: LayoutDimension;
+  marginTop?: LayoutDimension;
+  marginRight?: LayoutDimension;
+  marginBottom?: LayoutDimension;
+  marginLeft?: LayoutDimension;
+  marginStart?: LayoutDimension;
+  marginEnd?: LayoutDimension;
+  padding?: LayoutLength;
+  paddingHorizontal?: LayoutLength;
+  paddingVertical?: LayoutLength;
+  paddingTop?: LayoutLength;
+  paddingRight?: LayoutLength;
+  paddingBottom?: LayoutLength;
+  paddingLeft?: LayoutLength;
+  paddingStart?: LayoutLength;
+  paddingEnd?: LayoutLength;
+  top?: LayoutDimension;
+  right?: LayoutDimension;
+  bottom?: LayoutDimension;
+  left?: LayoutDimension;
+  start?: LayoutDimension;
+  end?: LayoutDimension;
+  gap?: LayoutLength;
+  rowGap?: LayoutLength;
+  columnGap?: LayoutLength;
+}
+
+/** A child of a Flex: a native view's element, or nothing (`cond && <X />`). */
+type FlexChild = object | false | null | undefined;
+
+/**
+ * A container of native views laid out by React Native's Yoga (T50): its
+ * `style` places its children, and each child's `layout` places it. It
+ * writes its children's frames, and nothing else does; a native container
+ * among them (a stack view, a LinearLayout) lays out its own. Native view
+ * JSX only: `<Flex style={{ flexDirection: "row", gap: 8 }}>…</Flex>`.
+ */
+export declare class Flex {
+  /** Made by its JSX only: nothing can be passed. */
+  constructor(none: never);
+  "~jsx"?: {
+    /** How the Flex places its children: React Native's layout style. */
+    style?: LayoutStyle;
+    children?: FlexChild | readonly (FlexChild | readonly FlexChild[])[];
+  };
+}
+
 /** A native view class, as a JSX tag: any class whose instances are `V`. */
 export type NativeViewTag<V> = abstract new (...args: never[]) => V;
 

@@ -301,7 +301,7 @@ describe("a toolkit's declarations, from its source module", () => {
     // An element is a SwiftUI view or (T48) a UIKit view's, as the component returns it.
     expect(text).toContain("export declare namespace JSX {\n  type Element = View & ios_UIView;");
     expect(text).toContain(
-      "type ElementType = ((props: never) => View) | NativeViewTag<ios_UIView>;",
+      "type ElementType = ((props: never) => View) | NativeViewTag<ios_UIView> | NativeViewTag<Flex>;",
     );
     expect(text).toContain('import type { UIView as ios_UIView } from "lucent:ios/UIKit";');
   });
@@ -386,7 +386,9 @@ describe("a toolkit's declarations, from its source module", () => {
   it("types a Binding of a number and a range with lucent:ui's forms", () => {
     const text = swiftui();
 
-    expect(text).toContain('import type { Bound, ClosedRange, NativeViewTag } from "lucent:ui";');
+    expect(text).toContain(
+      'import type { Bound, ClosedRange, Flex, LayoutStyle, NativeViewTag } from "lucent:ui";',
+    );
     expect(text).toContain(
       "(labeled: { value: Bound<number>; in: ClosedRange<number>; step?: number }): Slider;",
     );

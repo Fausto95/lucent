@@ -26,3 +26,6 @@ vendor/
 .hermes/
 packages/lucent/lib/
 packages/lucent/runtime/
+
+# SwiftPM builds (an editor indexing a package fixture writes one).
+.build/
