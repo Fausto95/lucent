@@ -90,7 +90,7 @@ describe("declarationsOf", () => {
     expect(wait.signature).toBe("function wait(ms: number): Promise<void>;");
   });
 
-  it("leaves brands out of signatures, and lists members with their comments", () => {
+  it("leaves brands out of signatures but a primitive's, and lists members with their comments", () => {
     const [, handle, float] = module.declarations;
 
     expect(handle!.signature).toBe(
@@ -100,7 +100,28 @@ describe("declarationsOf", () => {
       { name: "close", signature: "close(): void;", doc: "Closes it." },
       { name: "open", signature: "readonly open: boolean;", doc: "" },
     ]);
-    expect(float!.signature).toBe("type Float = number;");
+    expect(float!.signature).toBe(
+      'type Float = number & { readonly "lucent:compose.Float"?: never };',
+    );
+  });
+
+  it("keeps a view class's JSX attributes in its signature, out of its members", () => {
+    const [box] = declarationsOf(
+      "box.d.ts",
+      `/** A box. */
+export declare class Box {
+  /** Opens it. */
+  open(): void;
+  "~jsx"?: {
+    /** Its width. */
+    width?: number;
+  };
+}
+`,
+    ).declarations;
+
+    expect(box!.signature).toContain('"~jsx"?: {');
+    expect(box!.members.map((m) => m.name)).toEqual(["open"]);
   });
 
   it("fails on an exported declaration without a comment", () => {
