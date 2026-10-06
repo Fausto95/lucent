@@ -432,6 +432,17 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-06: Optional fields' presence is refused, not guessed.** `in`
+with an object type's optional field, a computed `in`, `for…in` or
+`Object.keys` on a type with one report LUCENT1002 or LUCENT1003; `in`
+sees the keys every object inherits from `Object.prototype`. _Why:_ an
+optional field is a fixed-layout `Opt<T>` that can't tell unset from
+set to `undefined`; a presence bit per field would have to travel
+through literals, spreads, `JSON.parse` and the boundary, and reading
+`undefined` as absent is wrong for `{ name: maybe }`. _Changed:_
+docs/semantics.md (operators, loops, the key order row), the LUCENT1002
+and LUCENT1009 explanations.
+
 **2026-10-06: An exported `let` is a live binding.** JavaScript reads an
 exported `let` through a getter, on the native exports object and on the
 proxy, instead of a copy taken at import; an exported `const` is still

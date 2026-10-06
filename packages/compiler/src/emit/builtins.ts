@@ -1,7 +1,7 @@
 import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { literalConstant } from "../analysis/index.ts";
-import { Codes, fail } from "../diagnostics.ts";
+import { type Code, Codes, fail } from "../diagnostics.ts";
 import { isLibFile } from "../program.ts";
 import {
   type ClassInfo,
@@ -13,6 +13,7 @@ import {
   stripOpt,
   T,
   typeKey,
+  type TypeRegistry,
   unionOf,
 } from "../types.ts";
 import { AUTO_CLOSEABLE, sdkClassIs } from "../sdk/schema.ts";
@@ -693,7 +694,9 @@ export function staticCall(
         };
     }
     if (t.k === "struct" && name === "keys") {
-      const fields = em.reg.struct(t.id).fields.map((f) => stringExpr(f.name));
+      const fields = structKeys(em.reg, t.id, node, Codes.UnsupportedBuiltin, "Object.keys").map(
+        stringExpr,
+      );
       const strings = cpp.type("lucent::Array", cpp.type("lucent::String"));
       return { c: cpp.construct(strings, fields, true), t: { k: "array", e: T.string } };
     }
@@ -1986,6 +1989,66 @@ export function newBuiltin(
 }
 
 // --- instanceof / super ----------------------------------------------------------------------
+
+/**
+ * An object type's keys, in declared order. Refused when a field is
+ * optional: a native object can't tell an unset field from one set to
+ * undefined, and JavaScript lists only the fields that are set.
+ */
+export function structKeys(
+  reg: TypeRegistry,
+  id: string,
+  node: ts.Node,
+  code: Code,
+  what: string,
+): string[] {
+  const fields = reg.struct(id).fields;
+  const optional = fields.find((f) => f.optional);
+
+  if (optional) fail(node, code, unsetField(what, optional.name));
+
+  return fields.map((f) => f.name);
+}
+
+const unsetField = (what: string, name: string) =>
+  `${what} cannot tell an unset optional field (${name}) from one set to undefined; compare \`.${name} !== undefined\``;
+
+/**
+ * `key in o` on a record, or on an object type when the answer doesn't
+ * depend on whether an optional field is set. Keys every object inherits
+ * (`toString`, `constructor`…) are in, as in JavaScript. The key is
+ * evaluated before the object.
+ */
+export function keyIn(em: FnEmitter, node: ts.BinaryExpression): E {
+  const keyType = em.checker.getTypeAtLocation(node.left);
+  const literal = keyType.isStringLiteral() ? keyType.value : undefined;
+  const k = em.ctx.fresh("key");
+  const key = cpp.varDecl(cpp.type("lucent::String"), k, em.exprAs(node.left, T.string));
+  const obj = em.expr(node.right);
+  const t = stripOpt(obj.t);
+  const answer = (c: cpp.Expr, before: cpp.Stmt[] = []) =>
+    bool(cpp.statementExpr([key, ...before], c));
+
+  if (t.k === "dict") return answer(cpp.call("lucent::keyIn", [cpp.id(k), obj.c]));
+
+  if (t.k !== "struct")
+    fail(
+      node,
+      Codes.UnsupportedOperator,
+      "`in` works on records and object types; tell union members apart by a discriminant field such as `kind`",
+    );
+
+  const fields = em.reg.struct(t.id).fields;
+  const optional = fields.find((f) => f.optional && (literal === undefined || f.name === literal));
+
+  if (optional) fail(node, Codes.UnsupportedOperator, unsetField("`in`", optional.name));
+
+  const names = fields.map((f) => stringExpr(f.name));
+
+  return answer(cpp.call("lucent::keyIn", [cpp.id(k), cpp.initList(names)]), [
+    cpp.exprStmt(cpp.cast("c", cpp.voidType, obj.c)),
+  ]);
+}
 
 export function instanceOf(em: FnEmitter, node: ts.BinaryExpression): E {
   const sdk = nativeInstanceOf(em, node);

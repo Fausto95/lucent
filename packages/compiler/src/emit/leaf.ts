@@ -8,6 +8,7 @@
 import { cpp } from "@lucent-lang/codegen";
 import ts from "typescript";
 import { isInside } from "../analysis/scopes.ts";
+import { Codes } from "../diagnostics.ts";
 import { intOperand, operand } from "../ir/cpp.ts";
 import type { ValueId } from "../ir/ir.ts";
 import {
@@ -20,7 +21,7 @@ import {
 } from "../ir/lower.ts";
 import { numberExpr, stringExpr } from "../lowering/literals.ts";
 import { type LType, stripOpt, T, typeKey, unionOf } from "../types.ts";
-import { disposeCall, methodCall } from "./builtins.ts";
+import { disposeCall, methodCall, structKeys } from "./builtins.ts";
 import { safepoint } from "./compute.ts";
 import type { Ctx, E } from "./context.ts";
 import { type FnOptions, FnEmitter, type Local } from "./function.ts";
@@ -293,7 +294,9 @@ export function leafHost(ctx: Ctx, opts: FnOptions): LeafHost {
         if (t.k === "dict") return { c: cpp.call(cpp.dot(v, "keys")), t: keys };
 
         if (t.k === "struct") {
-          const names = ctx.reg.struct(t.id).fields.map((f) => stringExpr(f.name));
+          const names = structKeys(ctx.reg, t.id, node, Codes.UnsupportedOperator, "for…in").map(
+            stringExpr,
+          );
 
           return { c: cpp.construct(strings, names, true), t: keys };
         }

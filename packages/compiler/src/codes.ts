@@ -136,10 +136,10 @@ export const Explanations: Record<Code, Explanation> = {
   LUCENT1002: {
     title: "Unsupported operator",
     summary:
-      "An operator the subset doesn't support, such as `delete`, `in` on anything but a record, or `instanceof` with a generic class. A loose `==` that JavaScript converts for, or comparing two functions, is refused too.",
+      "An operator the subset doesn't support, such as `delete`, `instanceof` with a generic class, or `in` on a class instance, a union or an object type's optional field. A loose `==` that JavaScript converts for, or comparing two functions, is refused too.",
     details:
-      "Objects in Lucent have a fixed native layout, so an operator that adds or removes properties at run time (`delete`) has no native equivalent. `in` works on records (`Record<string, T>`), whose keys are dynamic, and not on objects with a known shape. Two functions cannot be compared, because a function value has no stable identity (a named function is a new value at each use).",
-    fix: "use a Map or a Record for keys that come and go, or an optional field for one that may be missing",
+      "Objects in Lucent have a fixed native layout, so an operator that adds or removes properties at run time (`delete`) has no native equivalent. `in` works on records (`Record<string, T>`) and object types. An optional field is stored either way, so a native object can't tell one that was never set from one set to `undefined`: `in` with that field, a computed key on a type that has one, and `for…in` over such a type are refused. Union members are told apart by a discriminant field such as `kind`. Two functions cannot be compared, because a function value has no stable identity (a named function is a new value at each use).",
+    fix: "use a Map or a Record for keys that come and go, and compare an optional field with `undefined` instead of testing it with `in`",
     wrong: ex(
       "export function clear(tags: { name?: string }): { name?: string } {\n  delete tags.name;\n  return tags;\n}\n",
     ),
@@ -234,7 +234,7 @@ export const Explanations: Record<Code, Explanation> = {
     title: "Loop over a value that is not iterable",
     summary: "A loop over a value that is not iterable in Lucent, or `for await`.",
     details:
-      "`for…of` works on arrays, strings, maps, sets, typed arrays and generators, and `for…in` on records. Async iteration (`for await`) is not supported: await each promise in an ordinary loop.",
+      "`for…of` works on arrays, strings, maps, sets, typed arrays and generators, and `for…in` on records, arrays and object types without optional fields. Async iteration (`for await`) is not supported: await each promise in an ordinary loop.",
     fix: "loop over an array (`Object.keys`, `Array.from`), or await inside a plain loop",
     wrong: ex(
       "export async function total(xs: Promise<number>[]): Promise<number> {\n  let sum = 0;\n  for await (const x of xs) sum += x;\n  return sum;\n}\n",

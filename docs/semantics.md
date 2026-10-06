@@ -118,7 +118,8 @@ Supported:
 - `let`/`const` (no `var`), destructuring with defaults and rest, in
   declarations, parameters, `for…of` and assignments.
 - `if`, `while`, `do…while`, `for`, `for…of` (arrays, strings by code point,
-  `Map`, `Set`, records, `Uint8Array`), `for…in` (records, object types),
+  `Map`, `Set`, records, `Uint8Array`), `for…in` (records, arrays, object
+  types without optional fields),
   `switch` with fallthrough, labels with `break`/`continue`,
   `try`/`catch`/`finally` (including `return`/`break` inside `try`), `throw`.
 - `using` declarations: the value's `[Symbol.dispose]()` runs however the
@@ -156,7 +157,14 @@ Supported:
   (checked), also as an assignment target: `xs[i]! += 1`.
 - Template literals, spread in calls, object literals and arrays (any
   iterable: `[...map]`, `[...set]`, `[...text]`, `[...generator()]`).
-- `typeof`, `instanceof` (classes, `Error` kinds, `Array`, `Map`, …), `in` on records.
+- `typeof`, `instanceof` (classes, `Error` kinds, `Array`, `Map`, …), `in`
+  on records and object types, including the keys every object inherits
+  (`"toString" in r`). An object type's optional field is stored whether
+  or not it was set, so a native object can't tell an unset field from one
+  set to `undefined`: `in` with that field, `in` with a computed key on a
+  type that has one, `for…in` over it (`LUCENT1002`) and `Object.keys` of it
+  (`LUCENT1003`) are refused; compare the field with `undefined` instead.
+  `in` on a union is refused too: tell its members apart by a discriminant.
 - Arrow functions and function expressions, nested function declarations
   (hoisted), recursion. Closures share variables with their enclosing scope,
   and `let` loop variables get a fresh binding per iteration.
@@ -389,7 +397,7 @@ explicitly, for example by clearing a field.
 | `console.log(obj)` pretty-prints                                                                | prints `String(obj)`                                                                                                                      |
 | `str.split(regexp)` inserts `undefined` for a capture group that did not participate            | inserts `""` (the result is a `string[]`)                                                                                                 |
 | `JSON.parse` returns whatever the text contains                                                 | the text must match the target type: a mismatch throws `TypeError` naming the path (`expected a number at .items[2].price, got a string`) |
-| `JSON.stringify` of parsed data keeps the text's key order                                      | keys follow the declared type's order                                                                                                     |
+| an object's keys (`Object.keys`, `for…in`, `JSON.stringify`) follow the order they were set in  | an object type's keys follow the declared type's order                                                                                    |
 | `Date` objects passed to native code are shared                                                 | copied at the boundary (inside Lucent they are shared)                                                                                    |
 | `date.toString()` includes the zone name in some engines                                        | `Mon Jul 22 2019 15:51:50 GMT-0700`, like Hermes; `toLocale…` methods are not supported                                                   |
 | `abort()` without a reason uses an `AbortError` whose message depends on the engine             | `AbortError: signal is aborted without reason`, as in React Native and browsers (Node says "This operation was aborted")                  |
