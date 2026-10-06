@@ -47,7 +47,8 @@ const RUNS: Record<
   "sdk coverage": { args: ["--android", "android.os"], needs: "android" },
 };
 
-const ESCAPE = /\u001b\[/;
+/** Where a terminal escape code (colour, cursor) starts. */
+const ESCAPE = "\u001b[";
 
 /** A project with one module and a package naming it. */
 function project(): string {
@@ -77,7 +78,10 @@ function run(name: string, extra: string[]) {
   return runLucent([...name.split(" "), ...spec.args, ...extra, "--root", root], options);
 }
 
-async function validator(schema: string) {
+/** A schema's validator; a command declaring JSON without a schema of its own takes any document. */
+async function validator(schema: string | true) {
+  if (schema === true) return Object.assign(() => true, { errors: null });
+
   const { default: Ajv } = (await import("ajv")) as unknown as {
     default: new (o: object) => {
       compile(s: object): ((v: unknown) => boolean) & { errors?: unknown[] | null };
@@ -109,46 +113,47 @@ describe("every command's output", () => {
     expect(commands.map((c) => c.name).filter((n) => !RUNS[n])).toEqual([]);
   });
 
-  for (const spec of commands) {
-    const how = RUNS[spec.name];
-    const skip = !how || !!how.skip || (how.needs === "android" && !android);
+  const skipped = (name: string) => {
+    const how = RUNS[name];
+    return !how || !!how.skip || (how.needs === "android" && !android);
+  };
 
-    if (spec.json)
-      it.skipIf(skip)(
-        `${spec.name} --json: one JSON document${typeof spec.json === "string" ? `, a ${spec.json}.schema.json` : ""}`,
-        async () => {
-          const r = run(spec.name, ["--json"]);
-
-          expect(r.stdout.trim(), r.stderr).not.toBe("");
-          const value = JSON.parse(r.stdout) as unknown;
-          expect(ESCAPE.test(r.stdout) || ESCAPE.test(r.stderr)).toBe(false);
-
-          if (typeof spec.json === "string") {
-            const valid = await validator(spec.json);
-            expect(valid(value), JSON.stringify(valid.errors)).toBe(true);
-          }
-        },
-        600_000,
-      );
-    else
-      it.skipIf(skip)(`${spec.name} --json: refused, as it has no JSON output`, () => {
+  for (const spec of commands.filter((c) => c.json))
+    it.skipIf(skipped(spec.name))(
+      `${spec.name} --json: one JSON document, valid against what it declares`,
+      async () => {
         const r = run(spec.name, ["--json"]);
 
-        expect(r.status).toBe(2);
-        expect(r.stdout).toBe("");
-        expect(r.stderr).toContain(`lucent ${spec.name} has no JSON output`);
-      });
+        expect(r.stdout.trim(), r.stderr).not.toBe("");
+        const value = JSON.parse(r.stdout) as unknown;
+        expect(r.stdout.includes(ESCAPE) || r.stderr.includes(ESCAPE)).toBe(false);
 
-    if (how?.plain !== false)
-      it.skipIf(skip)(
-        `${spec.name}: no escape codes outside a terminal`,
-        () => {
-          const r = run(spec.name, []);
+        const valid = await validator(spec.json!);
+        expect(valid(value), JSON.stringify(valid.errors)).toBe(true);
+      },
+      600_000,
+    );
 
-          expect(r.stdout + r.stderr).not.toBe("");
-          expect(ESCAPE.test(r.stdout) || ESCAPE.test(r.stderr), r.stdout + r.stderr).toBe(false);
-        },
-        600_000,
-      );
-  }
+  for (const spec of commands.filter((c) => !c.json))
+    it.skipIf(skipped(spec.name))(`${spec.name} --json: refused, as it has no JSON output`, () => {
+      const r = run(spec.name, ["--json"]);
+
+      expect(r.status).toBe(2);
+      expect(r.stdout).toBe("");
+      expect(r.stderr).toContain(`lucent ${spec.name} has no JSON output`);
+    });
+
+  for (const spec of commands.filter((c) => RUNS[c.name]?.plain !== false))
+    it.skipIf(skipped(spec.name))(
+      `${spec.name}: no escape codes outside a terminal`,
+      () => {
+        const r = run(spec.name, []);
+
+        expect(r.stdout + r.stderr).not.toBe("");
+        expect(r.stdout.includes(ESCAPE) || r.stderr.includes(ESCAPE), r.stdout + r.stderr).toBe(
+          false,
+        );
+      },
+      600_000,
+    );
 });
