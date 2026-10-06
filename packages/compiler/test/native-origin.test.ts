@@ -100,9 +100,7 @@ describe("a declaration's native origin", () => {
     expect(memberOrigin(ios([device]), device, { method: m })).toBe(
       "Native: -[UIDevice loadWithReply:], in UIKit",
     );
-    expect(d).toContain(
-      "  /** Native: -[UIDevice loadWithReply:], in UIKit. */\n  load(reply: (",
-    );
+    expect(d).toContain("  /** Native: -[UIDevice loadWithReply:], in UIKit. */\n  load(reply: (");
     expect(d).toContain(
       "  /** Native: -[UIDevice loadWithReply:], in UIKit; without its completion handler, a Promise it settles. */\n  load(): Promise<void>;",
     );
