@@ -82,17 +82,12 @@ class Array {
 
   size_t size() const { return d_->size(); }
   double length() const { return static_cast<double>(d_->size()); }
+  /// `a.length = n`: shrinks. Growing would create holes, which Lucent
+  /// arrays do not have (undefined elements are not holes).
   void setLength(double n) {
     size_t len = arrayLength(n);
-    if (len > d_->size()) {
-      if constexpr (std::is_default_constructible_v<Elem> && IsOpt<T>::value) {
-        d_->resize(len);
-      } else {
-        throwRangeError("Cannot grow an array of non-optional elements by setting length");
-      }
-    } else {
-      d_->resize(len);
-    }
+    if (len > d_->size()) throwRangeError("Cannot grow an array by setting length (Lucent arrays cannot have holes)");
+    d_->resize(len);
   }
 
   /// Unchecked element read for compiler-proven in-bounds indexes.
@@ -119,12 +114,7 @@ class Array {
     } else if (i == d_->size()) {
       d_->push_back(static_cast<Elem>(std::move(value)));
     } else {
-      if constexpr (IsOpt<T>::value) {
-        d_->resize(i);
-        d_->push_back(static_cast<Elem>(std::move(value)));
-      } else {
-        throwRangeError("Array index out of bounds (Lucent arrays cannot have holes)");
-      }
+      throwRangeError("Array index out of bounds (Lucent arrays cannot have holes)");
     }
   }
 
