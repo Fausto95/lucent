@@ -1370,12 +1370,17 @@ function stringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExp
     case "substring":
     case "substr":
       return str(cpp.call(cpp.dot(o, name), [...argList(n(0, NAN) ?? cpp.num("0.0"), n(1, END))]));
-    case "toUpperCase":
     case "toLocaleUpperCase":
-      return str(cpp.call(cpp.dot(o, "toUpperCase"), []));
-    case "toLowerCase":
     case "toLocaleLowerCase":
-      return str(cpp.call(cpp.dot(o, "toLowerCase"), []));
+      if (first)
+        fail(
+          first,
+          Codes.UnsupportedBuiltin,
+          `${name}(locales) is not supported: Lucent has no Intl locale data; call it without arguments for the device's locale`,
+        );
+      return str(cpp.call(cpp.dot(o, name), []));
+    case "toUpperCase":
+    case "toLowerCase":
     case "trim":
     case "trimStart":
     case "trimEnd":
@@ -1430,6 +1435,12 @@ function stringMethod(em: FnEmitter, o: cpp.Expr, name: string, node: ts.CallExp
         ),
       );
     case "localeCompare":
+      if (node.arguments[1])
+        fail(
+          node.arguments[1],
+          Codes.UnsupportedBuiltin,
+          "localeCompare(other, locales, options) is not supported: Lucent has no Intl locale data; call localeCompare(other) for the device's locale",
+        );
       return num(cpp.call(cpp.dot(o, "localeCompare"), [argAs(em, node, 0, T.string)]));
     case "normalize":
       fail(

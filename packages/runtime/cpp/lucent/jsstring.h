@@ -66,6 +66,9 @@ class String {
   String substr(double start, double length) const;
   String toUpperCase() const;
   String toLowerCase() const;
+  /// In the device's locale, like Hermes: Turkish maps "i" to "İ".
+  String toLocaleUpperCase() const;
+  String toLocaleLowerCase() const;
   String trim() const;
   String trimStart() const;
   String trimEnd() const;
