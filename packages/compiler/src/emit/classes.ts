@@ -118,6 +118,18 @@ export function emitClass(
 ): ClassOutput {
   const decl = info.decl;
   const reg = ctx.reg;
+  // A decorator may replace what it decorates or add initializers when the
+  // class is defined: the class compiles without it, so its uses still check.
+  for (const n of [decl, ...decl.members])
+    for (const d of (ts.canHaveDecorators(n) && ts.getDecorators(n)) || [])
+      ctx.guard(() =>
+        fail(
+          d,
+          Codes.UnsupportedClassFeature,
+          "decorators are not supported; call the function on the class or method yourself",
+        ),
+      );
+
   const generic = info.typeParams.length > 0;
   const template = generic ? info.typeParams.map(cppIdent) : undefined;
   const selfType = cpp.type(info.cppName, ...info.typeParams.map((p) => cpp.type(cppIdent(p))));

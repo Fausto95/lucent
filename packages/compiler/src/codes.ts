@@ -178,9 +178,9 @@ export const Explanations: Record<Code, Explanation> = {
   LUCENT1005: {
     title: "Unsupported class feature",
     summary:
-      "A class feature outside the subset, such as extending a built-in other than `Error`, or an override that changes the native signature.",
+      "A class feature outside the subset, such as extending a built-in other than `Error`, an override that changes the native signature, a static block or a decorator.",
     details:
-      "Classes compile to C++ classes. A subclass of `Map` or `Array` would inherit the runtime's container internals. An override whose parameters or result differ from the base method's can't share its native slot.",
+      "Classes compile to C++ classes. A subclass of `Map` or `Array` would inherit the runtime's container internals. An override whose parameters or result differ from the base method's can't share its native slot. A decorator runs when the class is defined and may replace the class or member it decorates, which a compiled class can't be.",
     fix: "hold the built-in in a field instead of extending it, and keep overrides' signatures the same as the base method's",
     wrong: ex(
       "class Counts extends Map<string, number> {}\nexport function size(): number {\n  return new Counts().size;\n}\n",

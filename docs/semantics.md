@@ -89,6 +89,8 @@ Not supported: `any`, `unknown` (except in `catch`), intersections, `symbol`,
 `object`, getters in object literals, index signatures mixed with
 properties, and extending built-in classes other than `Error`. An override
 must keep the overridden member's native signature (`LUCENT1005` otherwise).
+Decorators report `LUCENT1005`: one runs when its class is defined and may
+replace the class or member it decorates.
 
 Interfaces implemented by classes are _nominal_: a class must say
 `implements Shape` to be used as a `Shape` (`LUCENT2008` otherwise), and object
