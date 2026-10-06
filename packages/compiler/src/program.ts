@@ -17,19 +17,18 @@ import {
   sdkCacheDir,
   sdkNamesOf,
   type SdkModuleSchema,
-  sourceModuleLookup,
   WRAP_UNBOUND,
 } from "./sdk/schema.ts";
 import { NATIVE_JSX_UI, nativeJsxDecls, nativeTags, rootViews } from "./sdk/native-jsx-dts.ts";
 import { classOfDecl } from "./sdk/declarations.ts";
-import { toolkitDts } from "./sdk/toolkit-dts.ts";
+import { toolkitDeclarations } from "./sdk/toolkit-dts.ts";
 import { viewTag } from "./sdk/view-rules.ts";
 import { nativeTagType } from "./ui/roots.ts";
 import { extensionDts } from "./extensions/dts.ts";
 import { boundExtensions, findExtension } from "./extensions/registry.ts";
 import { moduleNamespace } from "./types.ts";
 import { sdkLibFile } from "./lib-files.ts";
-import { composeModuleText } from "./ui/compose-dts.ts";
+import { toolkitText } from "./ui/toolkit-modules.ts";
 import { fabricRequested } from "./ui/switch.ts";
 import {
   JSX_SOURCE,
@@ -156,9 +155,6 @@ function toolkitTypesPath(name: ToolkitName): string {
   return toolkitSource(name) ? path.join(SDK_ROOT, "toolkit", `${name}.d.ts`) : sdkLibPath(name);
 }
 
-/** Each source module's toolkit declarations, written once per schema. */
-const toolkitTexts = new WeakMap<SdkModuleSchema, string>();
-
 /**
  * Each SDK module's declarations, written once per schema (they depend on
  * nothing else), and each names-only module's, once per names index: every
@@ -170,24 +166,6 @@ const sdkTexts = {
 };
 const stubTexts = new WeakMap<object, string>();
 
-/** A generated toolkit's declarations, or why there are none. */
-function toolkitDeclarations(name: ToolkitName): { text: string } | { missing: string } {
-  const toolkit = TOOLKITS[name];
-  const source = toolkitSource(name);
-  if (!source) return { missing: `lucent:${name} is written by hand` };
-
-  const found = sourceModuleLookup(toolkit.platform, source.module);
-  if ("missing" in found) return found;
-
-  let text = toolkitTexts.get(found.schema);
-  if (text === undefined) {
-    text = toolkitDts({ ...toolkit, source }, found.schema);
-    toolkitTexts.set(found.schema, text);
-  }
-
-  return { text };
-}
-
 /**
  * Modules the program's files import get full declarations. On iOS, modules
  * only other modules' signatures mention get their types' names: extracting
@@ -197,13 +175,15 @@ function virtualSdkText(file: string, direct: Set<string>): string | undefined {
   if (path.resolve(file) === UNTYPED) return untypedSdkText();
   if (path.resolve(file) === JSX_RUNTIME && fabricRequested()) return jsxRuntimeText();
   // lucent:compose: its own declarations, then Compose's, made from its bindings.
-  if (path.resolve(file) === sdkLibPath("compose") && fabricRequested())
-    return composeModuleText(fs.readFileSync(file, "utf8"));
+  if (path.resolve(file) === sdkLibPath("compose") && fabricRequested()) {
+    const found = toolkitText("compose");
+    return "text" in found ? found.text : undefined;
+  }
   const rel = path.relative(SDK_ROOT, path.resolve(file));
 
   const toolkit = /^toolkit[\\/](\w+)\.d\.ts$/.exec(rel)?.[1];
   if (toolkit && Object.hasOwn(TOOLKITS, toolkit)) {
-    const found = toolkitDeclarations(toolkit as ToolkitName);
+    const found = toolkitText(toolkit as ToolkitName);
     return "text" in found ? found.text : undefined;
   }
 

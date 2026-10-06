@@ -5,6 +5,8 @@ import {
   sdkModule,
   sdkNames,
   type SdkModuleSchema,
+  toolkitModules,
+  toolkitModuleText,
 } from "@lucent-lang/compiler";
 import type { Invocation } from "../args.ts";
 import { projectSdk, sdkImports } from "../project.ts";
@@ -14,6 +16,7 @@ type Platform = "ios" | "android";
 
 interface Match {
   platform: Platform;
+  /** An SDK module, or a toolkit's (`lucent:swiftui`). */
   module: string;
   kind:
     | "class"
@@ -24,7 +27,9 @@ interface Match {
     | "method"
     | "property"
     | "function"
-    | "constant";
+    | "constant"
+    | "type"
+    | "namespace";
   name: string;
   /** The import that brings the type in. */
   import: string;
@@ -33,7 +38,8 @@ interface Match {
 /**
  * `lucent sdk search <term>`: classes and members whose name contains the
  * term, in the modules the project imports and every module the SDK cache
- * holds (a cold SDK takes minutes to extract; `sdk prefetch --all` fills it).
+ * holds (a cold SDK takes minutes to extract; `sdk prefetch --all` fills it),
+ * and with views on, the names the toolkit modules export.
  */
 export function run({ root, positionals, out }: Invocation): number {
   const t = out.theme;
@@ -93,6 +99,13 @@ export function run({ root, positionals, out }: Invocation): number {
           });
     }
   }
+  for (const { module, platform } of toolkitModules()) {
+    total++;
+    const found = toolkitModuleText(module, sdk);
+    if ("missing" in found) continue;
+    searched++;
+    matches.push(...toolkitMatches(found.text, module, platform, hit));
+  }
   if (out.json) {
     out.data({ term, searched, matches });
     return 0;
@@ -125,6 +138,10 @@ export function run({ root, positionals, out }: Invocation): number {
       `searched ${searched} module${searched === 1 ? "" : "s"}${total > searched ? ` of ${total}` : ""} (your imports and the SDK cache; lucent sdk prefetch --all to search every module)`,
     ),
   );
+  if (!matches.length && !toolkitModules().length) {
+    const toolkits = toolkitModules(true).map((m) => m.module);
+    out.print(t.dim(`${toolkits.join(" and ")} are searched with views on (LUCENT_VIEWS=fabric)`));
+  }
   return 0;
 }
 
@@ -186,4 +203,42 @@ function schemaMatches(
         import: importLine(module, c.name),
       });
   return out;
+}
+
+/** What a top-level declaration's keyword declares. */
+const DECLARED_KINDS: Record<string, Match["kind"]> = {
+  class: "class",
+  interface: "interface",
+  enum: "enum",
+  "const enum": "enum",
+  type: "type",
+  function: "function",
+  const: "constant",
+  namespace: "namespace",
+};
+
+/**
+ * The names a toolkit module exports: its declarations, not its schemas,
+ * since rules make its names (a SwiftUI type's interface, value and
+ * namespace are one name, listed once).
+ */
+function toolkitMatches(
+  text: string,
+  module: string,
+  platform: Platform,
+  hit: (name: string) => boolean,
+): Match[] {
+  const kinds = new Map<string, Match["kind"]>();
+  for (const [, keyword, name] of text.matchAll(
+    /^export (?:declare )?(?:abstract )?(class|interface|const enum|enum|type|function|const|namespace) (\w+)/gm,
+  ))
+    if (hit(name!) && !kinds.has(name!)) kinds.set(name!, DECLARED_KINDS[keyword!]!);
+
+  return [...kinds].map(([name, kind]) => ({
+    platform,
+    module,
+    kind,
+    name,
+    import: `import { ${name} } from "${module}";`,
+  }));
 }
