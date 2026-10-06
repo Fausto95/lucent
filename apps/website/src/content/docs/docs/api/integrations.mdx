@@ -163,6 +163,8 @@ An app whose script is `android/app/build.gradle.kts` isn't patched, so its Grad
 
 The plugin adds Lucent's diagnostics to `*.lucent.ts` and `*.lucent.tsx` files as you type, unsaved changes included. Each shows its `LUCENT` code and message, then its fix and docs link when it has them. A warning shows as a warning.
 
+Where the fix is exact, it's offered as a quick fix. A thrown string becomes `new Error(…)`, a prop a view's setup copied is read in the attribute, and a missing SDK module import is added.
+
 - In VS Code, run TypeScript: Select TypeScript Version and pick Use Workspace Version. VS Code's own TypeScript doesn't load plugins from the project.
 - Only editors load the plugin, not `tsc`. On the command line, [`lucent check`](/docs/api/cli/#lucent-check) checks the modules.
 

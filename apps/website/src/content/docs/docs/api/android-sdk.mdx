@@ -25,6 +25,7 @@ export declare class View extends Object {
 
 A declaration's doc comment gives its rules. Hover a name, or show its whole class, to read them:
 
+- `Native: android.os.Vibrator#vibrate(J)V, in android.os` names the Java or Kotlin member it calls, with its descriptor, and the library it comes from when it isn't the SDK.
 - `Since API 26.` is the API level that added it.
 - `Main thread only` asks you to call it in code the main thread runs, and `Blocks (@WorkerThread)` to call it outside `main(() => …)`.
 - `Lucent cannot use this yet:` says why it can't be used, and `Lucent cannot assign this yet:` why a property can be read but not set.
@@ -143,7 +144,7 @@ A parameter, result or property annotated `@IntDef` or `@StringDef` names the co
 | A Lucent error thrown into Java from a callback | The same Lucent error again when it comes back. |
 | A `Task`, `ListenableFuture`, `CompletionStage` or any other Java object | Not a promise: `await` on it fails to compile (`LUCENT1010`). Turn its listener into one with [fromCallback](/docs/api/lucent-core/#fromcallback). |
 
-No class is recognized by name: a Play services `Task` is a Java object like any other. [Await a callback API](/docs/guides/await-a-callback-api/) wraps one. Turning a `Throwable` a listener reports into the same `Error` a thrown one becomes is [TA34](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta34).
+No class is recognized by name: a Play services `Task` is a Java object like any other. [Await a callback API](/docs/guides/await-a-callback-api/) wraps one. A `Throwable` a listener reports becomes the `Error` a thrown one would with [errorOf](/docs/api/lucent-android/#errorof).
 
 ## Interfaces and callbacks
 

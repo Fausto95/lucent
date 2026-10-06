@@ -68,6 +68,19 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
       kind: "p",
       text: "Each check passes, warns or fails, with its fix. The exit code is 1 when one fails. It doesn't load the compiler, so it answers even when the project doesn't build.",
     },
+    {
+      kind: "p",
+      text: "It also reads the app's builds, from the files they wrote, without building anything:",
+    },
+    {
+      kind: "list",
+      items: [
+        "**Last build**: the steps the last `lucent build` failed at, such as an Android dependency conflict, with what each said and its log.",
+        "**Build cache**: which steps ran again, and which input changed for each.",
+        "**Native targets**: a platform the app has that this JavaScript was built without.",
+        "**Native build**: whether the newest Xcode or Gradle build of the app has the APIs this JavaScript expects, checked as the app checks it. Other APIs fail, since the app would refuse the module; other sources with the same APIs warn.",
+      ],
+    },
   ],
   explain: [
     {

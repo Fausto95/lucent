@@ -110,6 +110,6 @@ A completion handler without an `async` form, such as `CMPedometer`'s `queryPedo
 
 A `Task`, a `ListenableFuture` or a `CompletionStage` is a Java object, not a promise, so `await` on one fails with [LUCENT1010](/docs/api/diagnostics/#lucent1010). Wrap its completion listener instead.
 
-In `register`, call `task.addOnCompleteListener((done) => …)`. When `done.isSuccessful()`, resolve with `done.getResult()`. Otherwise, reject with an `Error` made from `done.getException()`'s message, or a cancellation error when it has none.
+In `register`, call `task.addOnCompleteListener((done) => …)`. When `done.isSuccessful()`, resolve with `done.getResult()`. Otherwise, pass `done.getException()` to `errorOf` from `lucent:android` and reject with the result, or with a cancellation error when it's `null`.
 
 [Port expo-location](/docs/guides/examples/location/) wraps the fused location provider's `Task` this way. Add Play services to the app's Android build first, as [Call a CocoaPods or Gradle library](/docs/guides/use-a-third-party-sdk/#add-the-library) shows.
