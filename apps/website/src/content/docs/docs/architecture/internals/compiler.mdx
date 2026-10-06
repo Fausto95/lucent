@@ -246,7 +246,7 @@ A module's `init()` assigns its classes' static fields, then its variables, in o
 
 - `|`, `&`, `^`, `<<`, `>>`, `~`, `Math.imul` and `Math.clz32` give an int32, `>>>` a uint32, and a mix of both an int64.
 - A `for` counter that nothing else writes, stepped by an integer, is an `int64_t`.
-- Increments and arithmetic writes keep a local a `double`, because `x + 1` does not wrap in JavaScript.
+- Arithmetic (`+`, `-`, `*`, `%`, `+=`, `++`) keeps a local a `double`, because `x + 1` does not wrap in JavaScript. The exception is a local whose every value `rangeOf` proves an exact integer within ±2^53, never -0. It is an `int64_t`, and its writes are computed in int64: `sum = (sum + (x >>> 0)) % 1000000007`.
 
 The IR marks these values and locals, so chains of bitwise operations never go through a `double`. The value is exact in both forms, so reading it as a number changes no result.
 
