@@ -78,6 +78,8 @@ inline String toJsString(Null) { return String::fromLatin1("null"); }
 
 inline bool isInteger(double v) { return std::isfinite(v) && std::trunc(v) == v; }
 inline bool isSafeInteger(double v) { return isInteger(v) && std::fabs(v) <= 9007199254740991.0; }
+inline bool isFinite(double v) { return std::isfinite(v); }
+inline bool isNaN(double v) { return std::isnan(v); }
 
 [[noreturn]] void throwInexactInteger(const std::string& value);
 

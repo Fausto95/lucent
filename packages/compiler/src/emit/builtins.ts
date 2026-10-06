@@ -684,14 +684,9 @@ export function staticCall(
       case "isFinite":
       case "isNaN": {
         const v = em.expr(a[0]!);
-        if (stripOpt(v.t).k !== "number" || v.t.k === "opt") return bool(cpp.bool(false));
-        const f = {
-          isInteger: "lucent::isInteger",
-          isSafeInteger: "lucent::isSafeInteger",
-          isFinite: "std::isfinite",
-          isNaN: "std::isnan",
-        }[name];
-        return bool(cpp.call(f, [v.c]));
+        const test = `lucent::${name}`;
+        if (v.t.k === "number") return bool(cpp.call(test, [v.c]));
+        return bool(cpp.call("lucent::numberIs", [v.c, cpp.id(test)]));
       }
       case "parseFloat":
         return num(cpp.call("lucent::parseFloat", [argAs(em, node, 0, T.string)]));

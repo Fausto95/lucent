@@ -121,6 +121,21 @@ bool isErrorOf(const V& v, const char* kind) {
   }
 }
 
+/// Number.isInteger and its kin: `test` of the number `v` holds, false
+/// when it holds anything else.
+template <class V, class Test>
+bool numberIs(const V& v, Test test) {
+  if constexpr (std::is_same_v<V, double>) {
+    return test(v);
+  } else if constexpr (IsOpt<V>::value) {
+    return v.has() && numberIs(v.get(), test);
+  } else if constexpr (IsVariant<V>::value) {
+    return std::visit([test](const auto& x) { return numberIs(x, test); }, v);
+  } else {
+    return false;
+  }
+}
+
 /// Checked downcast after `instanceof` narrowing.
 template <class C, class V>
 Ref<C> downcast(const Ref<V>& v) {
