@@ -636,8 +636,7 @@ function collect(
       Codes.UnsupportedExport,
       "export lists and re-exports are not supported; export declarations directly",
     );
-  if (ts.isExportAssignment(s))
-    fail(s, Codes.UnsupportedExport, defaultExport);
+  if (ts.isExportAssignment(s)) fail(s, Codes.UnsupportedExport, defaultExport);
   if (ts.isEmptyStatement(s)) return;
   fail(
     s,
