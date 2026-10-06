@@ -158,7 +158,7 @@ export default async function createConfig(): Promise<Config> {
       docs: { sidebar: { hideable: false, autoCollapseCategories: false } },
       tableOfContents: { minHeadingLevel: 2, maxHeadingLevel: 3 },
       footer: {
-        style: "dark",
+        style: "light",
         links: [
           {
             title: "Docs",
