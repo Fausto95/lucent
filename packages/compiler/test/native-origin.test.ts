@@ -76,10 +76,10 @@ describe("a declaration's native origin", () => {
     expect(memberOrigin(schema, device, { property: p("hidden") })).toBe(
       "Native: -[UIDevice isHidden] and -[UIDevice setHidden:], in UIKit",
     );
-    expect(memberOrigin(schema, device, { constructor: device.constructors![0]! })).toBe(
+    expect(memberOrigin(schema, device, { initializer: device.constructors![0]! })).toBe(
       "Native: -[UIDevice init], in UIKit",
     );
-    expect(memberOrigin(schema, device, { constructor: device.constructors![1]! })).toBe(
+    expect(memberOrigin(schema, device, { initializer: device.constructors![1]! })).toBe(
       "Native: +[UIDevice currentDevice], in UIKit",
     );
   });
@@ -165,7 +165,7 @@ describe("a declaration's native origin", () => {
     expect(memberOrigin(schema, vibrator, { method: vibrator.methods![0]! })).toBe(
       "Native: android.os.Vibrator#vibrate(J)V, in android.os",
     );
-    expect(memberOrigin(schema, vibrator, { constructor: vibrator.constructors![0]! })).toBe(
+    expect(memberOrigin(schema, vibrator, { initializer: vibrator.constructors![0]! })).toBe(
       "Native: android.os.Vibrator#<init>()V, in android.os",
     );
     expect(memberOrigin(schema, vibrator, { property: vibrator.properties![0]! })).toBe(
