@@ -155,3 +155,74 @@ describe("classifying a build's changes into the actions the app needs", () => {
     ]);
   });
 });
+
+describe("a package's native dependencies, which a build writes into the build files before it checks", () => {
+  const from = ["lucent-orbit"];
+  const asked = (needs: Record<string, string>) =>
+    Object.fromEntries(Object.entries(needs).map(([name, r]) => [name, { [r]: from }]));
+
+  const withPods = (pods: Record<string, string>) => manifest({ pods: asked(pods) });
+  const withGradle = (dependencies: Record<string, string>, minSdk?: number): ResolvedNative => {
+    const m = manifest();
+
+    return {
+      ...m,
+      android: {
+        ...m.android,
+        dependencies: asked(dependencies),
+        ...(minSdk ? { minSdk: { value: minSdk, from } } : {}),
+      },
+    };
+  };
+
+  const twoPods = withPods({ OrbitKit: "~> 1.0", OrbitUI: "~> 2.0" });
+
+  it.each([
+    ["a pod's requirement changes", { OrbitKit: "~> 1.1", OrbitUI: "~> 2.0" }],
+    ["a pod is added", { OrbitKit: "~> 1.0", OrbitUI: "~> 2.0", OrbitMaps: "3.0" }],
+    ["one of two pods is dropped", { OrbitKit: "~> 1.0" }],
+  ])("relinks iOS when %s, though the podspec had it before the build", (_, pods) => {
+    expect(
+      classify({ written: ["resolved.json"], manifest: withPods(pods), previous: twoPods }),
+    ).toEqual([{ kind: "relink", targets: ["ios"], files: ["resolved.json#ios.pods"] }]);
+  });
+
+  it.each([
+    [
+      "a Gradle artifact's version changes",
+      withGradle({ "dev.orbit:orbit": "1.1.0" }),
+      "dependencies",
+    ],
+    ["the minimum SDK rises", withGradle({ "dev.orbit:orbit": "1.0.0" }, 26), "minSdk"],
+  ])("relinks Android when %s, though build.gradle had it before the build", (_, after, field) => {
+    expect(
+      classify({
+        written: ["resolved.json"],
+        manifest: after,
+        previous: withGradle({ "dev.orbit:orbit": "1.0.0" }),
+      }),
+    ).toEqual([
+      { kind: "relink", targets: ["android"], files: [`resolved.json#android.${field}`] },
+    ]);
+  });
+
+  it("asks for nothing when only who asks for a pod changes: the podspec says the same", () => {
+    const shared = manifest({
+      pods: {
+        OrbitKit: { "~> 1.0": ["lucent-moon", "lucent-orbit"] },
+        OrbitUI: { "~> 2.0": from },
+      },
+    });
+
+    expect(classify({ written: ["resolved.json"], manifest: shared, previous: twoPods })).toEqual(
+      [],
+    );
+  });
+
+  it("relinks iOS on the first build for the packages' pods, and for nothing without them", () => {
+    expect(
+      classify({ written: ["resolved.json"], manifest: twoPods, previous: undefined }),
+    ).toEqual([{ kind: "relink", targets: ["ios"], files: ["resolved.json#ios.pods"] }]);
+    expect(classify({ written: ["resolved.json"], previous: undefined })).toEqual([]);
+  });
+});
