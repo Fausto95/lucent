@@ -4,6 +4,7 @@ import ts from "typescript";
 import { literalConstant, programFacts } from "../analysis/index.ts";
 import { Codes, fail } from "../diagnostics.ts";
 import type { CppFunction } from "../ir/cpp.ts";
+import { LUCENT_EXTENSION, lucentPackageOf } from "../packages.ts";
 import { platformScopes } from "../platforms.ts";
 import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
@@ -512,6 +513,28 @@ function isExported(n: ts.Node): boolean {
   );
 }
 
+/**
+ * Fails an import of a Lucent file the build leaves out: a module of a
+ * Lucent package the app does not depend on, or a file outside the app's
+ * modules (findOwnFiles).
+ */
+function notCompiled(node: ts.Node, spec: string, file: string): never {
+  const pkg = lucentPackageOf(file);
+  if (pkg && !path.relative(pkg.sources, file).startsWith(".."))
+    fail(
+      node,
+      Codes.UnsupportedImport,
+      `"${spec}" is a module of ${pkg.name}, a Lucent package the app does not depend on`,
+      `add ${pkg.name} to the app's dependencies in package.json`,
+    );
+  fail(
+    node,
+    Codes.UnsupportedImport,
+    `"${spec}" is not among the modules compiled with the app`,
+    "import a module of the app (outside node_modules, ios, android and dot directories) or of a Lucent package it depends on",
+  );
+}
+
 function collect(
   ctx: Ctx,
   m: LucentModule,
@@ -538,12 +561,14 @@ function collect(
     // Platform SDKs, lucent:thread and lucent:platform (checked by createLucentProgram).
     if (spec.startsWith("lucent:")) return;
     const dep = file ? byFile.get(file) : undefined;
-    if (!dep)
+    if (!dep) {
+      if (file && LUCENT_EXTENSION.test(file)) notCompiled(s.moduleSpecifier, spec, file);
       fail(
         s.moduleSpecifier,
         Codes.UnsupportedImport,
         `Lucent modules can only import other *.lucent.ts files and lucent: modules (got "${spec}")`,
       );
+    }
     deps.push(dep);
     return;
   }

@@ -346,6 +346,17 @@ namespace, its TurboModule registry entry and its proxy
 (`.lucent/native/js/lucent-haptics/haptics.js`), so two packages may both
 have a `storage` module. App modules keep their file names.
 
+The app's modules are its `*.lucent.ts` files outside `node_modules`, dot
+directories, `ios`, `android` and Lucent packages' directories
+(`findOwnFiles` in `packages/compiler/src/packages.ts`). A Lucent package
+inside the app, such as a workspace under `packages/`, is compiled once,
+as a package, when the app depends on it, and left out otherwise. A
+package's modules stop likewise at any other package's directory, such as
+an example app. A `package.json` with neither a name nor dependencies, such
+as `{ "type": "module" }`, makes no package: its folder stays the app's or
+the package's, and its modules are named as theirs. `lucent init` and
+`lucent bench` look for modules and `*.bench.ts` files the same way.
+
 Lucent code imports another package's modules by path, for example
 `import { impactAsync } from "lucent-haptics/src/haptics.lucent"`.
 
