@@ -1,34 +1,97 @@
 ---
-title: Check the OS version
-description: '`available("ios", 17)` and `available("android", 31)` guard newer APIs. On Android, the compiler requires it.'
+title: Use an API newer than the oldest supported OS
+sidebar_label: Check the OS version
+description: Call it under a check of the running OS, such as `available("ios", 16)` or `Build_VERSION.SDK_INT >= 26`; without one, it fails to compile with `LUCENT3007`.
 kind: guide
 ---
 
-```ts title="haptic.lucent.ts"
+<Tabs>
+<TabItem label="module">
+
+```ts title="notifications.lucent.ts"
 import { PLATFORM } from "lucent:platform";
-import { UIImpactFeedbackGenerator, UIImpactFeedbackGenerator_FeedbackStyle as Style } from "lucent:ios/UIKit";
-import { Vibrator, VibratorManager } from "lucent:android/android.os";
-import { appContext, available } from "lucent:android";
-import { available as availableOnIOS } from "lucent:ios";
+import { available } from "lucent:ios";
+import { appContext } from "lucent:android";
+import { UIApplication } from "lucent:ios/UIKit";
+import { UNUserNotificationCenter } from "lucent:ios/UserNotifications";
+import { NotificationChannel, NotificationManager } from "lucent:android/android.app";
+import { Build_VERSION } from "lucent:android/android.os";
 import { main } from "lucent:thread";
 
-export async function tap(): Promise<void> {
-  if (PLATFORM === "ios") {
-    await main(() => {
-      const style = availableOnIOS("ios", 13) ? Style.soft : Style.light;
-      new UIImpactFeedbackGenerator(style).impactOccurred();
-    });
+/** Sets the number on the app's icon. Android launchers show their own badges. */
+export async function setBadge(count: number): Promise<void> {
+  if (PLATFORM !== "ios") return;
+
+  if (available("ios", 16)) {
+    await UNUserNotificationCenter.current().setBadgeCount(BigInt(count));
   } else {
-    const context = appContext();
-    const vibrator = available("android", 31)
-      ? context.getSystemService(VibratorManager)?.defaultVibrator
-      : context.getSystemService(Vibrator);
-    vibrator?.vibrate(20n);
+    await main(() => {
+      UIApplication.shared.applicationIconBadgeNumber = BigInt(count);
+    });
   }
+}
+
+/** Creates a notification channel, which Android 8 (API 26) added. */
+export async function createChannel(id: string, name: string): Promise<void> {
+  if (PLATFORM !== "android") return;
+  if (Build_VERSION.SDK_INT < 26) return;
+
+  const channel = new NotificationChannel(id, name, NotificationManager.IMPORTANCE_DEFAULT);
+  appContext().getSystemService(NotificationManager)?.createNotificationChannel(channel);
 }
 ```
 
-- `available("android", api)` from `lucent:android` is `Build.VERSION.SDK_INT >= api`. `available("ios", major, minor?)` from `lucent:ios` is Swift's `#available`.
-- On Android, a class or member newer than API 24 compiles only behind such a check (`LUCENT3007`). `Build_VERSION.SDK_INT >= 31` works too, and so does an early return on the opposite check.
-- On iOS, the compiler doesn't check versions yet: guard new APIs yourself. Each SDK member's doc comment says the version it needs.
-- `vibrate(20n)` passes a `bigint`: the milliseconds are a Java `long`, and every native 64-bit integer is a `bigint` in Lucent.
+</TabItem>
+<TabItem label="JS usage">
+
+```tsx title="App.tsx"
+import { createChannel, setBadge } from "./src/notifications.lucent";
+
+export async function setUpNotifications(): Promise<void> {
+  await createChannel("messages", "Messages"); // returns at once before Android 8
+  // setBadgeCount from iOS 16, the older property before. The badge shows
+  // once the person allows notifications with badges.
+  await setBadge(3);
+}
+```
+
+</TabItem>
+</Tabs>
+
+An SDK declaration's doc comment gives the version that added it, such as `Since iOS 16.0.` or `Since API 26.`: [`lucent sdk show`](/docs/guides/find-an-sdk-class/) prints it. A class or member newer than the oldest OS Lucent supports compiles only where your code checks the running OS first. Without the check, the build stops:
+
+```sh title="terminal" nocopy
+$ npx lucent check
+
+  error LUCENT3007  UNUserNotificationCenter.setBadgeCount needs iOS 16.0 (apps
+                    run from iOS 15.1): use it under if (available("ios", 16))
+
+    src/notifications.lucent.ts:14:9
+    13 │
+    14 │   await UNUserNotificationCenter.current().setBadgeCount(BigInt(count)…
+       │         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    15 │ }
+
+  fix  check first: if (available("ios", 16)) …, if (available("android", 26)) …
+       or Build_VERSION.SDK_INT >= 26
+  docs lucent explain LUCENT3007
+
+  1 error · 1 module · 1.3 s
+```
+
+## What counts as a check
+
+The compiler looks for the check around the call, in the source:
+
+- [`available("ios", major, minor)`](/docs/api/lucent-ios/#available) from `lucent:ios` is Swift's `#available`, with `minor` 0 when left out.
+- [`available("android", level)`](/docs/api/lucent-android/#available) from `lucent:android` is `Build.VERSION.SDK_INT >= level`. `Build_VERSION.SDK_INT` compared with a number, by `>=`, `>`, `<` or `<=` on either side, works too.
+- A check guards the true side of an `if`, a `?:` or an `&&`. The opposite check, such as `!available("ios", 16)` or `Build_VERSION.SDK_INT < 26`, guards the `else`, the false side of a `?:` and what follows `||`.
+- An `if` on the opposite check guards the statements after it, as in `createChannel()`. It has no `else`, and its branch ends in `return`, `throw`, `break` or `continue`.
+- The version is a number literal: `Build_VERSION_CODES.O` or a variable isn't read as a check. A check for an older version than the API's doesn't count.
+- Code written inside the check is covered, `main()` functions included. A function it calls needs its own check.
+
+## The oldest supported OS
+
+[Compatibility](/docs/api/compatibility/) lists the oldest iOS and Android versions Lucent supports. Your app's iOS deployment target and Android `minSdkVersion` don't raise them, and neither does a package's `ios.deploymentTarget` or `android.minSdk` in [lucent.json](/docs/packages/lucent-json/).
+
+So an app that requires iOS 16 still checks before an iOS 16 API. Reading the app's iOS target is [TA32](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md#ta32). Android's floor is fixed, and no roadmap task changes it.

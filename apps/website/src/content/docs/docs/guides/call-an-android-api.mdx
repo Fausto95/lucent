@@ -1,35 +1,90 @@
 ---
 title: Call an Android API
-description: Import a package from `lucent:android/*` and call it with Java's names, from the app's `Context`.
+description: Import the class from `lucent:android/<package>` and call it with its Java names, reaching system services through `appContext()`.
 kind: guide
 ---
 
-```ts title="battery.lucent.ts" cpp
-import { PLATFORM } from "lucent:platform";
-import { BatteryManager } from "lucent:android/android.os";
-import { appContext } from "lucent:android";
-import { error } from "lucent:core";
+<Tabs>
+<TabItem label="module">
 
-export async function isCharging(): Promise<boolean> {
-  if (PLATFORM === "android") {
-    const manager = appContext().getSystemService(BatteryManager);
-    if (!manager) throw error("E_NO_BATTERY", "BatteryManager isn't available");
-    return manager.charging;
-  } else {
-    throw error("E_UNSUPPORTED", "Only Android is implemented");
+```ts title="device.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { errorCode } from "lucent:core";
+import { appContext, currentActivity } from "lucent:android";
+import { ConnectivityManager } from "lucent:android/android.net";
+import { BatteryManager, StatFs } from "lucent:android/android.os";
+import { main } from "lucent:thread";
+
+/** The battery's charge in percent, or null without a battery service. */
+export async function batteryLevel(): Promise<number | null> {
+  if (PLATFORM !== "android") throw new Error("Android only");
+
+  // A Class<T> parameter takes the class itself; the result may be null.
+  const battery = appContext().getSystemService(BatteryManager);
+  return battery?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?? null;
+}
+
+/** Whether the active network is metered. */
+export async function metered(): Promise<boolean> {
+  if (PLATFORM !== "android") throw new Error("Android only");
+
+  // @RequiresPermission(ACCESS_NETWORK_STATE): the manifest declares it.
+  return appContext().getSystemService(ConnectivityManager)?.isActiveNetworkMetered() ?? false;
+}
+
+/** The bytes free at a path, or null when there's no such path. */
+export async function freeBytes(path: string): Promise<number | null> {
+  if (PLATFORM !== "android") throw new Error("Android only");
+
+  try {
+    // getAvailableBytes() returns a Java long: a bigint.
+    return Number(new StatFs(path).availableBytes);
+  } catch (e) {
+    if (errorCode(e as Error) === "java.lang.IllegalArgumentException") return null;
+    throw e;
   }
+}
+
+/** Whether the Activity in front shares the screen with another app. */
+export async function splitScreen(): Promise<boolean> {
+  if (PLATFORM !== "android") throw new Error("Android only");
+
+  return main(() => currentActivity()?.isInMultiWindowMode() ?? false);
 }
 ```
 
-- Import from `lucent:android/<package>`: any package of `android.jar`, or of the app's Gradle dependencies.
-- `appContext()` from `lucent:android` is the app's `Context`. `currentActivity()` is the Activity in front, or null: use it now, inside `main()`, rather than keep it.
-- `startActivityForResult()` and `requestPermissions()` ask from the Activity in front and resolve with the answer. `onActivityEvent()` reports the Activities' lifecycle.
-- A `Class<T>` parameter takes the class itself: `getSystemService(BatteryManager)` returns a `BatteryManager | null`.
-- `isCharging()` is also the property `charging`, as Kotlin makes properties of getters.
-- References the SDK doesn't mark `@NonNull` are `T | null`, so check them.
+</TabItem>
+<TabItem label="JS usage">
 
-A Java exception becomes a thrown error whose `code` is the exception's class. Nested classes join with `_`: `Build.VERSION` is `Build_VERSION`. [SDK types](/docs/reference/platform-types/#android) has every rule.
+```tsx title="App.tsx"
+import { batteryLevel, freeBytes, metered, splitScreen } from "./src/device.lucent";
 
-:::caution
-APIs newer than API 24 compile only behind a version check. See [Check the OS version](/docs/guides/check-the-os-version/).
-:::
+export async function deviceReport(): Promise<string> {
+  const level = await batteryLevel(); // 87
+  const onMeter = await metered(); // false on Wi-Fi
+  const free = await freeBytes("/no/such/folder"); // null
+  const split = await splitScreen(); // false
+  return `${level ?? "?"}% ${onMeter} ${free ?? "no path"} ${split}`;
+}
+```
+
+</TabItem>
+</Tabs>
+
+Each package of the Android SDK imports as `lucent:android/<package>`, and so does each package of the app's Gradle dependencies. Names are Java's, or Kotlin's for a class written in Kotlin.
+
+A nested class joins its parts with `_`: `Build.VERSION` is `Build_VERSION`. A Java getter is also a read-only property: `getAvailableBytes()` is `availableBytes`.
+
+Rebuild the app after you add or change the module: [Get a module change into the running app](/docs/guides/apply-a-change/) says what each build asks for.
+
+## What the module shows
+
+- **The Context.** [`appContext()`](/docs/api/lucent-android/#appcontext) from `lucent:android` is the application `Context`. `getSystemService()` takes the class you want, and returns it or `null`.
+- **The Activity.** [`currentActivity()`](/docs/api/lucent-android/#currentactivity) is the Activity in front, or `null`. Use it inside `main()`, and ask again later rather than keep it.
+- **Nullability.** A reference the SDK doesn't mark `@NonNull` is `T | null` ([Types](/docs/api/android-sdk/#types)), so `?.` and `??` handle a missing service.
+- **Exceptions.** A Java exception becomes a thrown `Error`, and `errorCode()` from `lucent:core` reads its class name ([Errors](/docs/api/android-sdk/#errors)).
+- **Permissions.** Calling a method annotated `@RequiresPermission` adds its permissions to the native package's manifest, so you don't declare them. Reading a getter's property form doesn't. [@RequiresPermission](/docs/api/android-sdk/#requirespermission) gives the rule, and [Ask for a runtime permission](/docs/guides/ask-for-a-permission/) the grant a dangerous one needs.
+
+The compiler also checks [threads and versions](/docs/api/android-sdk/#threads-versions-and-permissions). A member annotated `@UiThread` or `@MainThread` compiles only in code the main thread runs (`LUCENT3006`). One newer than the oldest Android Lucent supports compiles only under a [version check](/docs/guides/check-the-os-version/).
+
+[Android SDK bindings](/docs/api/android-sdk/) gives every rule: names, types, interfaces, threads and Kotlin. To start an Activity for its result, see [Start an Android Activity for a result](/docs/guides/start-an-activity/).
