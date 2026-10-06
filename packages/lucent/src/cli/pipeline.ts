@@ -104,6 +104,11 @@ export interface BuildOutcome {
   superseded?: boolean;
   /** Every Lucent package file the build read, absolute: lucent.json files and listed native paths. */
   nativeInputs: string[];
+  /**
+   * Every path the check read, absolute (none when it did not get to check):
+   * the files (CompileResult.read) and the paths it resolved links from.
+   */
+  read: string[];
   /** The build's nodes and required action, as written to .lucent/build-record.json. */
   record: BuildRecord;
   /** What the checked code uses of the SDKs, as written to .lucent/sdk-usage.json. */
@@ -150,6 +155,7 @@ export async function buildProject(
   let files: string[] = [];
   let native: NativeInputs;
   let nativeInputs: string[] = [];
+  let read: string[] = [];
 
   // Every return goes through outcome(), which records the build.
   const graph = new BuildGraph(options.mode);
@@ -173,6 +179,7 @@ export async function buildProject(
       next,
       actions,
       nativeInputs,
+      read,
       record,
       skipped,
       ms: Date.now() - t0,
@@ -435,6 +442,7 @@ export async function buildProject(
     ? upToDate(build ? path.join(outDir, "manifest.json") : checked, key)
     : undefined;
   if (held) {
+    read = [...new Set([...held.read.keys(), ...held.realpaths.keys()])];
     graph.record("check", "check", "cached", { inputs: checkInputs(held.read) });
     if (!build) return outcome({ ok: true, upToDate: true, modules });
 
@@ -520,6 +528,7 @@ export async function buildProject(
   // Until the Gradle build resolves them, Android's imports are untyped in the iOS program.
   const deferred: Platform[] = deferAndroid && !platforms?.includes("android") ? ["android"] : [];
   const result = compile(files, { platforms, sdk, extensions, deferred });
+  read = [...new Set([...result.read.keys(), ...result.realpaths.keys()])];
   const relative = (d: Diagnostic) => ({ ...d, file: d.file && path.relative(root, d.file) });
   const diagnostics = result.diagnostics.map(relative);
   const warnings = (result.warnings ?? []).map(relative);

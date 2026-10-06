@@ -2348,7 +2348,8 @@ export interface BuildRecord {
 `BuildOptions` gains `signal` (aborted when a newer change makes the
 build stale; it stops before publishing anything) and `frozen`.
 `BuildOutcome` gains `actions`, `superseded`, `nativeInputs` (every
-Lucent package file the build read), `usage` (what the checked code uses
+Lucent package file the build read), `read` (every path its check read:
+the files, and the paths it resolved links from), `usage` (what the checked code uses
 of the SDKs) and `skipped` (the targets the project has code for that
 this build left out, and why).
 

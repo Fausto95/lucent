@@ -1083,11 +1083,18 @@ content and mtime.
 
 `lucent dev` (and Metro's watcher, which runs it) watches the app and every
 Lucent package whose directory is outside it (workspace or linked
-packages), whole. A change rebuilds when a build reads the file: a module,
-a `package.json` or `lucent.json`, or a path a package lists (the build's
-`nativeInputs`). Dependencies and dot directories, where builds write, are
-never read, so a build never triggers another; nor does an event for a
-file last changed before the last build started. Saves are debounced; a
+packages), whole, and the entries of each other directory holding a file
+the last build read (for a file it looked for and did not find, the
+nearest directory there is). A change rebuilds when the last build read
+the file, wherever it is: a file its check read or a path it resolved a
+link from (the build's `read`, the paths its record keys on), or a path a
+package lists (`nativeInputs`); so does a directory between a watched one
+and such a file being created, removed or swapped for a link. In the app
+and its packages, outside dependencies and dot directories, so does any
+module, `package.json` or `lucent.json`, which the next build may read
+whatever the last one did. No build reads what builds write, so a build
+never triggers another; nor does an event for a file last changed before
+the last build started. Saves are debounced; a
 change during a build aborts it (`BuildOptions.signal`) before it writes,
 and one build follows.
 
