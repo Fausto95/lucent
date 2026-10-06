@@ -1036,7 +1036,12 @@ export class TypeRegistry {
       if (decl && ts.isParameter(decl) && (decl.questionToken || decl.initializer) && t.k !== "opt")
         t = { k: "opt", inner: t, absent: "undefined" };
       if (decl && ts.isParameter(decl) && decl.dotDotDotToken)
-        fail(decl, Codes.UnsupportedType, "rest parameters in function types are not supported");
+        fail(
+          decl,
+          Codes.UnsupportedType,
+          "rest parameters in function types are not supported",
+          "take the arguments as one array parameter",
+        );
       return t;
     });
     return { k: "fn", params, ret: this.lower(c.getReturnTypeOfSignature(sig), node) };

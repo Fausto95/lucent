@@ -123,14 +123,8 @@ export function emitProgram(
     for (const s of m.sourceFile.statements) {
       if (ts.isClassDeclaration(s) && here(s)) {
         if (isDefaultExport(s)) ctx.guard(() => fail(s, Codes.UnsupportedExport, defaultExport));
-        if (!s.name) {
-          ctx.diagnostics.push({
-            code: Codes.UnsupportedTopLevel,
-            message: "classes need a name",
-            file: m.file,
-          });
-          continue;
-        }
+        // Only `export default class {}` has no name: reported above.
+        if (!s.name) continue;
         const info = ctx.reg.registerClass(s, m.name, isExported(s));
         const sym = lp.checker.getSymbolAtLocation(s.name)!;
         ctx.globals.set(sym, {

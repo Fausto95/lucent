@@ -150,9 +150,9 @@ export const Explanations: Record<Code, Explanation> = {
   LUCENT1003: {
     title: "Built-in without a native implementation",
     summary:
-      "A built-in function or method Lucent does not implement, such as `Symbol()`, `eval` or an unknown `Math`, `Number` or string method.",
+      "A built-in function or method Lucent does not implement, such as `Symbol()`, `eval` or an unknown `Math`, `Number` or string method, or `Object.keys` of an object type with an optional field.",
     details:
-      "Every built-in a module calls runs as native code from the Lucent runtime. The ones listed in the language reference are implemented with JavaScript's exact semantics; the rest are reported rather than approximated.",
+      "Every built-in a module calls runs as native code from the Lucent runtime. The ones listed in the language reference are implemented with JavaScript's exact semantics; the rest are reported rather than approximated. An object type's optional field is stored even when unset, so `Object.keys` can't tell which fields are set.",
     fix: "use a built-in Lucent implements, or write the helper in the module",
     wrong: ex(
       "export function rotate(xs: number[]): number[] {\n  return xs.copyWithin(0, 1);\n}\n",
@@ -181,7 +181,7 @@ export const Explanations: Record<Code, Explanation> = {
       "A class feature outside the subset: extending a built-in other than `Error`, an override with another native signature, a static block or a decorator.",
     details:
       "Classes compile to C++ classes, so a subclass of `Map` or `Array` would inherit the runtime's container internals. An override whose parameters or result differ from the base method's can't share its native slot. A decorator runs when the class is defined and may replace the class or member it decorates, which a compiled class can't be.",
-    fix: "hold the built-in in a field instead of extending it, and keep overrides' signatures the same as the base method's",
+    fix: "hold the built-in in a field instead of extending it, keep overrides' signatures the same as the base method's, initialize static fields in their declarations instead of a static block, and call a decorator function yourself",
     wrong: ex(
       "class Counts extends Map<string, number> {}\nexport function size(): number {\n  return new Counts().size;\n}\n",
     ),
@@ -273,7 +273,7 @@ export const Explanations: Record<Code, Explanation> = {
       "A type with no native representation: intersections, `symbol`, `object`, `WeakMap`, `Intl`, an index signature mixed with properties, a rest parameter or an async generator.",
     details:
       "Each type maps to one native representation. An intersection can combine unrelated layouts, `symbol` is not implemented yet, and `object` says nothing about the layout. A native member whose types cannot cross yet is named with its symbol and artifact: wrap it in Swift or Kotlin of your own.",
-    fix: "spell the combined type out as one object type, or use a concrete type",
+    fix: "spell the combined type out as one object type, or use a concrete type; take an array instead of a rest parameter, and return an array or a generator instead of an async generator",
     wrong: ex(
       "type Named = { name: string };\ntype Aged = { age: number };\nexport function label(p: Named & Aged): string {\n  return `${p.name} (${p.age})`;\n}\n",
     ),

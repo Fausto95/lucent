@@ -2005,13 +2005,24 @@ export function structKeys(
   const fields = reg.struct(id).fields;
   const optional = fields.find((f) => f.optional);
 
-  if (optional) fail(node, code, unsetField(what, optional.name));
+  if (optional) fail(node, code, unsetField(what, optional.name), UNSET_FIELD_FIX);
 
   return fields.map((f) => f.name);
 }
 
 const unsetField = (what: string, name: string) =>
   `${what} cannot tell an unset optional field (${name}) from one set to undefined; compare \`.${name} !== undefined\``;
+const UNSET_FIELD_FIX =
+  "compare the optional field with `undefined`, or use a Record for keys that come and go";
+
+/** What `in` refuses, for its diagnostic: a union is told apart by a discriminant instead. */
+const NOT_IN: Partial<Record<LType["k"], string>> = {
+  class: "a class instance",
+  array: "an array",
+  tuple: "an array",
+  map: "a Map",
+  set: "a Set",
+};
 
 /**
  * `key in o` on a record, or on an object type when the answer doesn't
@@ -2031,17 +2042,27 @@ export function keyIn(em: FnEmitter, node: ts.BinaryExpression): E {
 
   if (t.k === "dict") return answer(cpp.call("lucent::keyIn", [cpp.id(k), obj.c]));
 
-  if (t.k !== "struct")
+  if (t.k === "union")
     fail(
       node,
       Codes.UnsupportedOperator,
       "`in` works on records and object types; tell union members apart by a discriminant field such as `kind`",
+      "compare a discriminant field such as `kind`",
+    );
+
+  if (t.k !== "struct")
+    fail(
+      node,
+      Codes.UnsupportedOperator,
+      `\`in\` works on records and object types, not on ${NOT_IN[t.k] ?? "this type"}`,
+      "use a Map or a Record for keys that come and go",
     );
 
   const fields = em.reg.struct(t.id).fields;
   const optional = fields.find((f) => f.optional && (literal === undefined || f.name === literal));
 
-  if (optional) fail(node, Codes.UnsupportedOperator, unsetField("`in`", optional.name));
+  if (optional)
+    fail(node, Codes.UnsupportedOperator, unsetField("`in`", optional.name), UNSET_FIELD_FIX);
 
   const names = fields.map((f) => stringExpr(f.name));
 

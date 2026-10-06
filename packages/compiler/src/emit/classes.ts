@@ -146,7 +146,8 @@ export function emitClass(
         fail(
           d,
           Codes.UnsupportedClassFeature,
-          "decorators are not supported; call the function on the class or method yourself",
+          "decorators are not supported",
+          "call the decorator function on the class or method yourself",
         ),
       );
 
@@ -525,7 +526,12 @@ export function emitClass(
     ) {
       continue;
     } else if (ts.isClassStaticBlockDeclaration(m)) {
-      fail(m, Codes.UnsupportedClassFeature, "static blocks are not supported");
+      fail(
+        m,
+        Codes.UnsupportedClassFeature,
+        "static blocks are not supported",
+        "give each static field its value in its initializer, or in a function the module calls",
+      );
     } else if (ts.isIndexSignatureDeclaration(m)) {
       fail(m, Codes.UnsupportedClassFeature, "index signatures in classes are not supported");
     }
