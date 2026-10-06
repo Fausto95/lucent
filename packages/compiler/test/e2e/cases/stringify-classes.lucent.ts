@@ -92,3 +92,44 @@ export function throughBase(): string {
 export function nested(): string {
   return JSON.stringify({ at: new Point(3, 4), all: [new Point(5, 6)] });
 }
+
+class Plain {
+  private a = 1;
+}
+
+class Plainer extends Plain {
+  b = 2;
+}
+
+abstract class Kind {
+  abstract key: string;
+  declare tag: number;
+  count = 0;
+}
+
+class Keyed extends Kind {
+  key = "k";
+}
+
+class Box<T> {
+  constructor(private item: T) {}
+}
+
+class NumberBox extends Box<number> {
+  full = true;
+  constructor() {
+    super(5);
+  }
+}
+
+class CodedError extends Error {
+  code = 7;
+}
+
+export function shapes(): string {
+  const plain: Plain[] = [new Plain(), new Plainer()];
+  const kind: Kind = new Keyed();
+  return [plain, kind, new NumberBox(), new CodedError("m")]
+    .map((x) => JSON.stringify(x))
+    .join(" ");
+}
