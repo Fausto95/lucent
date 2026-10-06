@@ -347,8 +347,8 @@ export class BindingsEmitter {
         cpp.exprStmt(
           cpp.assign(
             cpp.arrow(out, cppIdent(f.name)),
-            fromJs(
-              ft,
+            this.convertFromJs(
+              f.type,
               cpp.call(cpp.dot(o, "getProperty"), [rt, prop(i)]),
               cpp.call(cpp.dot(p, "field"), [cpp.str(f.name)]),
             ),
@@ -565,7 +565,11 @@ export class BindingsEmitter {
           setter = hostFunction(
             sync([
               selfOf(fname),
-              cpp.varDecl(cpp.auto, "value", fromJs(t, argAt(0), path(fname, "value"))),
+              cpp.varDecl(
+                cpp.auto,
+                "value",
+                this.convertFromJs(m.types[0]!, argAt(0), path(fname, "value")),
+              ),
               cpp.exprStmt(assign),
               cpp.ret(cpp.call("jsi::Value::undefined")),
             ]),
@@ -653,7 +657,11 @@ export class BindingsEmitter {
         });
       } else {
         conv.push(
-          cpp.varDecl(cpp.auto, n, fromJs(t, argAt(i), path(fname, `argument '${p.name}'`))),
+          cpp.varDecl(
+            cpp.auto,
+            n,
+            this.convertFromJs(p.cppType, argAt(i), path(fname, `argument '${p.name}'`)),
+          ),
         );
       }
     });
@@ -837,7 +845,6 @@ export class BindingsEmitter {
     const s = this.reg.cppType(u);
     const tests: cpp.Stmt[] = [];
     const objectMembers: LType[] = [];
-    const describe: string[] = [];
     const object = cpp.call(cpp.dot(v, "getObject"), [rt]);
     const isObject = cpp.call(cpp.dot(v, "isObject"));
     const instance = (cls: string) =>
@@ -848,28 +855,22 @@ export class BindingsEmitter {
       switch (m.k) {
         case "number":
           test(is("isNumber"));
-          describe.push("a number");
           break;
         case "string":
           test(is("isString"));
-          describe.push("a string");
           break;
         case "bigint":
           test(is("isBigInt"));
-          describe.push("a bigint");
           break;
         case "boolean":
           test(is("isBool"));
-          describe.push("a boolean");
           break;
         case "array":
         case "tuple":
           test(cpp.and(isObject, cpp.call(cpp.dot(object, "isArray"), [rt])));
-          describe.push("an array");
           break;
         case "fn":
           test(cpp.and(isObject, cpp.call(cpp.dot(object, "isFunction"), [rt])));
-          describe.push("a function");
           break;
         case "bytes":
           test(instance("Uint8Array"));
@@ -888,7 +889,6 @@ export class BindingsEmitter {
           test(
             dynamicCast(cpp.type(`lucent_app::${info.cppName}`), cpp.call("instanceOf", [rt, v])),
           );
-          describe.push(`a ${info.decl.name!.text}`);
           break;
         }
         case "struct":
@@ -905,10 +905,8 @@ export class BindingsEmitter {
     }
     if (objectMembers.length === 1) {
       tests.push(cpp.ifStmt(isObject, [this.unionMember(s, objectMembers[0]!)]));
-      describe.push("an object");
     } else if (objectMembers.length > 1) {
       tests.push(this.discriminate(s, objectMembers));
-      describe.push("an object");
     }
     const x = cpp.id("x");
     const visitor = cpp.lambda(
@@ -919,18 +917,46 @@ export class BindingsEmitter {
     );
     const scope = cpp.type("Convert", s);
     return [
-      cpp.fn(
-        "fromJs",
-        s,
-        fromJsParams(),
-        [...tests, boundaryError(p, describe.join(" or ") || "a value of the union", v)],
-        { inline: true, scope },
-      ),
+      cpp.fn("fromJs", s, fromJsParams(), [...tests, boundaryError(p, this.describe(u), v)], {
+        inline: true,
+        scope,
+      }),
       cpp.fn("toJs", JS_VALUE, toJsParams(s), [cpp.ret(cpp.call("std::visit", [visitor, v]))], {
         inline: true,
         scope,
       }),
     ];
+  }
+
+  /**
+   * Converts `value` to `t`. An optional typed with one absent value
+   * (`T | undefined` or `T | null`) rejects the other here: Convert<Opt<T>>
+   * takes both.
+   */
+  private convertFromJs(t: LType, value: cpp.Expr, at: cpp.Expr): cpp.Expr {
+    if (t.k !== "opt" || t.absent === undefined) return fromJs(this.reg.cppType(t), value, at);
+
+    return cpp.call(
+      "optionalFromJs",
+      [rt, value, at, cpp.bool(t.absent === "null"), cpp.str(this.describe(t))],
+      [this.reg.cppType(t.inner)],
+    );
+  }
+
+  /** What a boundary error says `t` must be: "a string or undefined". */
+  private describe(t: LType): string {
+    switch (t.k) {
+      case "class":
+        return `a ${this.reg.cls(t.id).decl.name!.text}`;
+      case "iface":
+        return `a ${this.reg.iface(t.id).decl.name.text}`;
+      case "union":
+        return [...new Set(t.ms.map((m) => this.describe(m)))].join(" or ");
+      case "opt":
+        return `${this.describe(t.inner)} or ${t.absent ?? "null or undefined"}`;
+      default:
+        return DESCRIPTIONS[t.k] ?? "a value";
+    }
   }
 
   /** `return U(Convert<M>::fromJs(rt, v, p));` */
@@ -993,6 +1019,28 @@ export class BindingsEmitter {
 }
 
 const [rt, v, p] = [cpp.id("rt"), cpp.id("v"), cpp.id("p")];
+/** How boundary errors name the values a type accepts, as the runtime's Convert does. */
+const DESCRIPTIONS: Partial<Record<LType["k"], string>> = {
+  number: "a number",
+  bigint: "a bigint",
+  boolean: "a boolean",
+  string: "a string",
+  undefined: "undefined",
+  null: "null",
+  array: "an array",
+  tuple: "an array",
+  map: "a Map",
+  set: "a Set",
+  dict: "an object",
+  struct: "an object",
+  fn: "a function",
+  bytes: "a Uint8Array",
+  error: "an Error",
+  date: "a Date",
+  regexp: "a RegExp",
+  abortSignal: "an AbortSignal",
+  buffer: "a NativeBuffer",
+};
 const JS_VALUE = cpp.type("jsi::Value");
 const RUNTIME = cpp.param(cpp.reference(cpp.type("jsi::Runtime")), "rt");
 const PATH = cpp.param(cpp.reference(cpp.constType(cpp.type("Path"))), "p");

@@ -2313,6 +2313,11 @@ Last recorded runs:
   lands after the task ran but before the promise settled (native rejects,
   JavaScript resolves).
 - Module state is process-wide and reset when a new `Host` is created.
+- `null` and `undefined` from JavaScript are told apart for arguments,
+  setter values and object fields only; inside arrays, maps, sets,
+  records, tuples, callback results and promise values, a `T | undefined`
+  also takes `null` (and `T | null` takes `undefined`), and a use of it
+  then throws `TypeError`.
 - On Android API 24 and 25, a Java default method that Lucent does not
   implement returns its zero value, and the reason is logged.
 - A pod added to `lucent.json` after the first build needs `pod install`

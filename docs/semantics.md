@@ -297,6 +297,14 @@ Only exported functions, classes and constants are visible from JavaScript.
 - **Arguments are validated**, because JavaScript callers can pass anything:
   `hash: argument 'input' must be a string, got a number`, or for nested values
   `midpoint: argument 'a'.y must be a number, got undefined`.
+- **`null` and `undefined` are told apart** where TypeScript does: an
+  argument, a setter's value or an object's field typed `T | undefined` (or
+  `x?: T`) rejects `null`, and one typed `T | null` rejects `undefined`
+  (`label: argument 'name' must be a string or undefined, got null`). Inside
+  an array, a map, a set, a record, a tuple, a callback's result or a
+  promise's value, either absent value is accepted, as the converter there
+  is shared by every optional of that type; a body that reads the one its
+  type excludes throws `TypeError` when it uses the value.
 - **Values are copied:** arrays, records, maps, sets, tuples and plain objects
   cross the boundary as copies. If native code mutates an array it received,
   the caller's array is unchanged.

@@ -157,6 +157,18 @@ struct Convert<Opt<T>> {
   }
 };
 
+/// An optional TypeScript admits one absent value of: `undefined` (`x?: T`,
+/// `T | undefined`) or, when `admitsNull`, `null` (`T | null`). The other one
+/// fails with `expected`, where Convert<Opt<T>> would take both.
+template <class T>
+Opt<T> optionalFromJs(jsi::Runtime& rt, const jsi::Value& v, const Path& p, bool admitsNull, const char* expected) {
+  if (v.isUndefined() || v.isNull()) {
+    if (v.isNull() != admitsNull) throwBoundaryError(rt, p, expected, v);
+    return v.isNull() ? Opt<T>(null) : Opt<T>(undefined);
+  }
+  return Convert<T>::fromJs(rt, v, p);
+}
+
 // --- arrays -----------------------------------------------------------------------
 
 template <class T>

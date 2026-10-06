@@ -36,7 +36,12 @@ export type LType =
   | { k: "struct"; id: string }
   | { k: "class"; id: string; args: LType[] }
   | { k: "iface"; id: string; args: LType[] }
-  | { k: "opt"; inner: LType }
+  /**
+   * `T | undefined | null`; `absent` set when TypeScript admits only one of
+   * them, which the boundary checks. Not part of typeKey: the C++ type is
+   * Opt<T> either way.
+   */
+  | { k: "opt"; inner: LType; absent?: "undefined" | "null" }
   | { k: "union"; ms: LType[] }
   | { k: "fn"; params: LType[]; ret: LType }
   | { k: "promise"; inner: LType }
@@ -156,13 +161,14 @@ export function sameType(a: LType, b: LType): boolean {
 export function unionOf(members: LType[]): LType {
   if (members.length > 0 && members.every((m) => m.k === "void")) return T.void;
 
-  const undefinedLike = (m: LType) => m.k === "undefined" || m.k === "void";
-  let optional = false;
+  let [hasNull, hasUndefined] = [false, false];
   const flat: LType[] = [];
   const add = (m: LType) => {
-    if (undefinedLike(m) || m.k === "null") optional = true;
+    if (m.k === "undefined" || m.k === "void") hasUndefined = true;
+    else if (m.k === "null") hasNull = true;
     else if (m.k === "opt") {
-      optional = true;
+      hasNull ||= m.absent !== "undefined";
+      hasUndefined ||= m.absent !== "null";
       add(m.inner);
     } else if (m.k === "union") m.ms.forEach(add);
     else if (m.k === "never") return;
@@ -174,19 +180,15 @@ export function unionOf(members: LType[]): LType {
   const ms = [...seen.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([, m]) => m);
   let core: LType;
   if (ms.length === 0) {
-    if (!optional) return T.never;
-    const hasNull = members.some(function holdsNull(m): boolean {
-      return m.k === "null" || (m.k === "union" && m.ms.some(holdsNull));
-    });
-    const hasUndefined = members.some(function holdsUndefined(m): boolean {
-      return undefinedLike(m) || m.k === "opt" || (m.k === "union" && m.ms.some(holdsUndefined));
-    });
     // `null | undefined`: an optional that never holds a value.
     if (hasNull && hasUndefined) return { k: "opt", inner: T.undefined };
-    return hasNull ? T.null : T.undefined;
+    return hasNull ? T.null : hasUndefined ? T.undefined : T.never;
   } else if (ms.length === 1) core = ms[0]!;
   else core = { k: "union", ms };
-  return optional ? { k: "opt", inner: core } : core;
+  if (hasNull && hasUndefined) return { k: "opt", inner: core };
+  if (hasNull || hasUndefined)
+    return { k: "opt", inner: core, absent: hasNull ? "null" : "undefined" };
+  return core;
 }
 
 /** Types an optional absorbs rather than holds: `T | undefined` with T one of them is not Opt<T>. */
@@ -212,8 +214,8 @@ export function substitute(t: LType, map: Map<string, LType>): LType {
       const inner = substitute(t.inner, map);
 
       return MERGES_INTO_OPTIONAL.includes(inner.k)
-        ? unionOf([inner, T.undefined])
-        : { k: "opt", inner };
+        ? unionOf([inner, t.absent === "null" ? T.null : T.undefined])
+        : { ...t, inner };
     }
     case "union": {
       // In the order of the generic's declaration, which its C++ template
@@ -1031,7 +1033,7 @@ export class TypeRegistry {
       const decl = p.valueDeclaration;
       let t = this.lower(c.getTypeOfSymbolAtLocation(p, decl ?? node), decl ?? node);
       if (decl && ts.isParameter(decl) && (decl.questionToken || decl.initializer) && t.k !== "opt")
-        t = { k: "opt", inner: t };
+        t = { k: "opt", inner: t, absent: "undefined" };
       if (decl && ts.isParameter(decl) && decl.dotDotDotToken)
         fail(decl, Codes.UnsupportedType, "rest parameters in function types are not supported");
       return t;
@@ -1128,7 +1130,7 @@ export class TypeRegistry {
         case "map":
           return { k: "map", key: fix(t.key), val: fix(t.val) };
         case "opt":
-          return { k: "opt", inner: fix(t.inner) };
+          return { ...t, inner: fix(t.inner) };
         case "union":
           return { k: "union", ms: t.ms.map(fix) };
         case "tuple":
