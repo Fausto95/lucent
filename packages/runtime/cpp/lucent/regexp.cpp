@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -208,19 +209,22 @@ String replaceMatches(const String& s, const std::vector<RegExpMatch>& matches, 
 
 Array<Opt<String>> capturesOf(const RegExpMatch& m) { return m->items.slice(1); }
 
-String replaceAt(const String& s, const String& search, const std::vector<size_t>& positions, const String& replacement) {
+bool hasDollar(const String& s) {
+  return s.isOneByte() ? s.latin1().find('$') != std::string_view::npos : s.utf16().find(u'$') != std::u16string_view::npos;
+}
+
+String replaceAt(const String& s, const String& search, std::span<const size_t> positions, const String& replacement) {
   if (positions.empty()) return s;
-  bool literal = replacement.find(String::fromLatin1("$"), 0) == std::string::npos;
-  std::u16string out;
+  bool literal = !hasDollar(replacement);
+  StringBuilder out(s.length() + positions.size() * replacement.length(), s.isOneByte() && replacement.isOneByte());
   size_t next = 0;
   for (size_t position : positions) {
-    for (size_t k = next; k < position; k++) out.push_back(s.unit(k));
-    String rep = literal ? replacement : substitute(search, s, position, Array<Opt<String>>(), undefined, replacement);
-    for (size_t k = 0; k < rep.length(); k++) out.push_back(rep.unit(k));
+    out.append(s.sub(next, position));
+    out.append(literal ? replacement : substitute(search, s, position, Array<Opt<String>>(), undefined, replacement));
     next = position + search.length();
   }
-  for (size_t k = next; k < s.length(); k++) out.push_back(s.unit(k));
-  return String::fromUtf16(out);
+  out.append(s.sub(next, s.length()));
+  return std::move(out).build();
 }
 
 class MatchAllIter final : public IterObject<RegExpMatch> {
@@ -406,7 +410,8 @@ String stringReplaceAll(const String& s, const RegExp& re, const Replacer& repla
 
 String stringReplace(const String& s, const String& search, const String& replacement) {
   size_t at = s.find(search, 0);
-  return replaceAt(s, search, at == std::string::npos ? std::vector<size_t>() : std::vector<size_t>{at}, replacement);
+  if (at == std::string::npos) return s;
+  return replaceAt(s, search, std::span<const size_t>(&at, 1), replacement);
 }
 
 String stringReplaceAll(const String& s, const String& search, const String& replacement) {

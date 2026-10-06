@@ -215,15 +215,12 @@ class Array {
     }
     return -1;
   }
-  double lastIndexOf(const T& v) const { return lastIndexOf(v, static_cast<double>(d_->size()) - 1); }
+  double lastIndexOf(const T& v) const { return lastIndexBefore(v, d_->size()); }
   double lastIndexOf(const T& v, double from) const {
     double n = static_cast<double>(d_->size());
     double k = std::isnan(from) ? 0 : std::trunc(from);
     k = k >= 0 ? std::min(k, n - 1) : n + k;
-    for (; k >= 0; k--) {
-      if (strictEquals(at(static_cast<size_t>(k)), v)) return k;
-    }
-    return -1;
+    return k < 0 ? -1 : lastIndexBefore(v, static_cast<size_t>(k) + 1);
   }
   bool includes(const T& v, double from = 0) const {
     for (size_t i = detail::relativeIndex(from, d_->size()); i < d_->size(); i++) {
@@ -392,6 +389,14 @@ class Array {
   std::vector<Elem>& items() { return *d_; }
 
  private:
+  /// The last index below `end` holding `v`, or -1.
+  double lastIndexBefore(const T& v, size_t end) const {
+    for (size_t i = end; i-- > 0;) {
+      if (strictEquals(at(i), v)) return static_cast<double>(i);
+    }
+    return -1;
+  }
+
   template <class Cmp>
   void mergeSort(Cmp&& cmp) {
     // Stable, and safe against inconsistent comparators (never reads out of
