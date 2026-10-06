@@ -61,5 +61,7 @@ export default function run(mod, print, lucentClass, mods) {
       ),
     ),
   );
+  print(JSON.stringify(mod.dollarPatterns()));
+  print(mod.localeCase(["straße", "ΣΑΣ", "Ǆ"]));
 
 }

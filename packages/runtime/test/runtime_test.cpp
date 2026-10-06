@@ -227,6 +227,13 @@ static void strings() {
   CHECK_STR(S("a-b-c").replace(S("-"), S("+")), "a+b-c");
   CHECK_STR(S("a-b-c").replaceAll(S("-"), S("+")), "a+b+c");
   CHECK_STR(S("ab").replaceAll(S(""), S("-")), "-a-b-");
+  // A string pattern's replacement reads $ patterns as a RegExp's does, with no captures.
+  CHECK_STR(stringReplace(S("abc"), S("b"), S("[$&]")), "a[b]c");
+  CHECK_STR(stringReplace(S("abc"), S("b"), S("$$|$1|$<x>")), "a$|$1|$<x>c");
+  CHECK_STR(stringReplace(S("abc"), S("b"), S("x$")), "ax$c");
+  CHECK_STR(stringReplaceAll(S("aXbXc"), S("X"), S("<$`>")), "a<a>b<aXb>c");
+  CHECK_STR(stringReplaceAll(S("aXbXc"), S("X"), S("<$'>")), "a<bXc>b<c>c");
+  CHECK_STR(stringReplaceAll(S("ab"), S(""), S("[$&]")), "[]a[]b[]");
   CHECK(S("a") < S("b"));
   CHECK(S("Z") < S("a"));
   CHECK(S("ab") < S("abc"));

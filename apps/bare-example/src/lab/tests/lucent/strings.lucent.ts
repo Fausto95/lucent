@@ -90,3 +90,26 @@ export function templates(
   );
   return out;
 }
+
+/** `$` patterns in a string pattern's replacement, as JavaScript's GetSubstitution reads them. */
+export function dollarPatterns(): string[] {
+  return [
+    "abc".replace("b", "[$&]"),
+    "abc".replace("b", "$$"),
+    "abc".replace("b", "$`"),
+    "abc".replace("b", "$'"),
+    "abc".replace("b", "$1"),
+    "abc".replace("b", "$<x>"),
+    "abc".replace("b", "x$"),
+    "abab".replaceAll("b", "<$&>"),
+    "abab".replaceAll("a", "$$-"),
+    "abc".replaceAll("", "[$&|$`|$']"),
+    "aXbXc".replaceAll("X", "<$`>"),
+    "aXbXc".replace("X", "<$'>"),
+  ];
+}
+
+/** The device's locale, without arguments: these words case the same in every locale. */
+export function localeCase(words: string[]): string {
+  return words.map((w) => `${w.toLocaleUpperCase()}/${w.toLocaleLowerCase()}`).join(" ");
+}

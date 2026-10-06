@@ -58,3 +58,5 @@ print(
     ),
   ),
 );
+print(JSON.stringify(mod.dollarPatterns()));
+print(mod.localeCase(["straße", "ΣΑΣ", "Ǆ"]));

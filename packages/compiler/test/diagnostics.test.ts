@@ -379,4 +379,37 @@ export function f(round: boolean): number {
       ).toContain("LUCENT1001");
     });
   });
+
+  describe("string methods that need Unicode or locale data", () => {
+    it.each([
+      ["normalize()", "export function f(s: string): string { return s.normalize(); }"],
+      ['normalize("NFD")', 'export function f(s: string): string { return s.normalize("NFD"); }'],
+      [
+        "toLocaleUpperCase(locale)",
+        'export function f(s: string): string { return s.toLocaleUpperCase("tr"); }',
+      ],
+      [
+        "toLocaleLowerCase(locales)",
+        'export function f(s: string): string { return s.toLocaleLowerCase(["tr"]); }',
+      ],
+      [
+        "localeCompare(other, locale)",
+        'export function f(a: string, b: string): number { return a.localeCompare(b, "en"); }',
+      ],
+      [
+        "localeCompare(other, undefined, options)",
+        'export function f(a: string, b: string): number { return a.localeCompare(b, undefined, { sensitivity: "base" }); }',
+      ],
+    ])("rejects %s", (_, src) => {
+      expect(codes(src)).toContain("LUCENT1003");
+    });
+
+    it("accepts the locale methods without a locale, for the device's", () => {
+      expect(
+        codes(
+          "export function f(a: string, b: string): string { return `${a.toLocaleUpperCase()} ${a.toLocaleLowerCase()} ${a.localeCompare(b)}`; }",
+        ),
+      ).toEqual([]);
+    });
+  });
 });
