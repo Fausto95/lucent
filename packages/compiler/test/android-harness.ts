@@ -102,7 +102,8 @@ export async function kotlinClasspath(
   const stdlib = path.join(kotlin.lib, "kotlin-stdlib.jar");
   const classpath = path.join(dir, "android-classpath.json");
 
-  if (!options.annotations) return { android: { classpath: classpathFile(classpath, [stdlib, jar]) } };
+  if (!options.annotations)
+    return { android: { classpath: classpathFile(classpath, [stdlib, jar]) } };
 
   const aar = path.join(dir, "aar");
   fs.mkdirSync(aar);
