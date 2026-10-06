@@ -56,3 +56,14 @@ export function failDeep(): number {
 export function passThrough(f: () => number): number {
   return f();
 }
+
+/** An error is named after the constructor that made it. */
+export function kinds(): string[] {
+  return [new Error("a"), new TypeError("b"), new RangeError("c"), new SyntaxError("d")].map(
+    (e) => `${e.name}:${e instanceof SyntaxError}:${String(e)}`,
+  );
+}
+
+export function syntax(): Error {
+  return new SyntaxError("bad");
+}

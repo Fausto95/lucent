@@ -413,6 +413,25 @@ export function f(round: boolean): number {
     });
   });
 
+  describe("an error's cause", () => {
+    it.each([
+      [
+        "new Error(message, { cause })",
+        'export function f(e: Error): Error { return new Error("x", { cause: e }); }',
+      ],
+      [
+        "new TypeError(message, { cause })",
+        'export function f(e: Error): Error { return new TypeError("x", { cause: e }); }',
+      ],
+      [
+        "super(message, { cause }) in an Error class",
+        'class Wrapped extends Error {\n  constructor(m: string, c: Error) {\n    super(m, { cause: c });\n  }\n}\nexport function f(e: Error): Error { return new Wrapped("x", e); }',
+      ],
+    ])("rejects %s", (_, src) => {
+      expect(codes(src)).toContain("LUCENT1003");
+    });
+  });
+
   it("rejects Array.isArray of an Iterable, which no longer knows its kind", () => {
     expect(
       codes(

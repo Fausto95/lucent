@@ -31,5 +31,8 @@ export default function run(mod, print, lucentClass, mods) {
   } catch (e) {
     print("js stack kept:", e.stack.includes("jsThrower"));
   }
+  print(JSON.stringify(mod.kinds()));
+  const syntax = mod.syntax();
+  print(syntax.name, syntax instanceof SyntaxError, syntax.message);
 
 }
