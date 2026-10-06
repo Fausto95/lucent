@@ -986,7 +986,8 @@ content read, or `missing` for a file it looked for and did not find.
 Those outside the project (the compiler's own, a linked package's) are
 one `outside-project` input, hashed on the contents of the files found
 there, so the node is the same wherever the project, the compiler and
-the working directory are.
+the working directory are. Where the links resolution followed led is
+left out: it names paths on this machine (see below).
 `startedAt` says when each timed step started (milliseconds from the
 build's start, outside the node hashes like the timings), so `lucent trace`
 (`src/cli/trace.ts`) lays the steps out as spans beside runtime traces; see
@@ -996,10 +997,13 @@ A check or build answers from the last one that passed while nothing it
 used changed. Its record (`.lucent/check.json`, or for a build the native
 package's `manifest.json`) keeps a key of what it was given (`inputsKey`:
 the sources, the compiler and runtime, the SDKs with the app's dependencies,
-the output location, the targets, the packages' native needs) and of the
-files it read, and lists those files; the next run reads them again
-(`upToDate`), so a dependency's `package.json` gaining an `exports` map, or
-a file a module imports types from, makes it check again. So does a lost
+the output location, the targets, the packages' native needs), of the
+files it read, and of where each path resolution followed a link from led
+(TypeScript's `realpath`), and lists those files and paths; the next run
+reads them again (`upToDate`), so a dependency's `package.json` gaining an
+`exports` map, a file a module imports types from, or a linked package
+replaced by an installed copy (whose files where the check read them may
+be the same while those they re-export differ) makes it check again. So does a lost
 record or usage report (`.lucent/sdk-usage.json`); `--frozen` always
 checks again, and `lucent build --force` always builds again (`lucent check`
 takes no `--force`).

@@ -425,8 +425,9 @@ export async function buildProject(
     inputsKey(files, outDir, sdk) +
     (platforms ? `:${platforms.join(",")}` : "") +
     `:${createHash("sha256").update(JSON.stringify(native.manifest)).digest("hex").slice(0, 12)}`;
-  // A check given the same inputs passed before, and every file it read is as it found it:
-  // its record says (a build's, its native package's manifest).
+  // A check given the same inputs passed before, every file it read is as it found it, and
+  // every link resolution followed leads where it did: its record says (a build's, its
+  // native package's manifest).
   // Its usage report is one of its outputs: lost or unreadable, it runs again.
   const checked = path.join(root, ".lucent/check.json");
   const cacheable = !options.force && !lock && usageReadable(path.join(root, USAGE_FILE));
@@ -434,7 +435,7 @@ export async function buildProject(
     ? upToDate(build ? path.join(outDir, "manifest.json") : checked, key)
     : undefined;
   if (held) {
-    graph.record("check", "check", "cached", { inputs: checkInputs(held) });
+    graph.record("check", "check", "cached", { inputs: checkInputs(held.read) });
     if (!build) return outcome({ ok: true, upToDate: true, modules });
 
     graph.record("generate", "generate", "cached", { outputs: packageArtifacts(root, outDir) });
@@ -576,7 +577,7 @@ export async function buildProject(
     status: "ok",
     ms: Date.now() - tCheck,
   });
-  const check = checkRecord(key, result.read);
+  const check = checkRecord(key, result);
   if (!build) {
     fs.mkdirSync(path.dirname(checked), { recursive: true });
     fs.writeFileSync(checked, `${JSON.stringify(check)}\n`);

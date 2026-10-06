@@ -2438,8 +2438,10 @@ export interface BuildIdentity {
 - **v1.5** (2026-10-04, proposed): the `check` node's inputs include
   every other file the check read, those outside the project as one
   `outside-project` input; `.lucent/check.json` and the native
-  package's `manifest.json` list them (`read`). Migration: none (the
-  first check or build after it runs again).
+  package's `manifest.json` list them (`read`), and the paths
+  resolution followed links from (`realpaths`, keyed on where each led;
+  not in the record, whose nodes name no machine path). Migration: none
+  (the first check or build after it runs again).
 
 ## C-TRACE: correlated tracing
 

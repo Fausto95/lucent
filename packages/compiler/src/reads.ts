@@ -3,7 +3,10 @@
  * sources, the files their imports resolve to, the package.json files
  * resolution looks through and the one naming a module. A file looked
  * for and missing counts too: one created there may change what an import
- * resolves to. A result holds while every file is as the compile found it.
+ * resolves to. So do the paths resolution followed links from, each with
+ * where it led: a link swapped for a copy holding the same files leads
+ * elsewhere, and what is read there may differ. A result holds while every
+ * file is as the compile found it, and every path leads where it did.
  *
  * Without TypeScript: package lookups read through here, and lucent doctor
  * makes them without loading it.
@@ -12,16 +15,25 @@ import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-let recording: Map<string, string> | undefined;
+let recording: { read: Map<string, string>; realpaths: Map<string, string> } | undefined;
 
-/** Runs `f`, and lists the files it read, each with what it found (see currentReads). */
-export function recordReads<T>(f: () => T): { value: T; read: ReadonlyMap<string, string> } {
+/**
+ * Runs `f`, and lists the files it read, each with what it found (see
+ * currentReads), and the paths it resolved, each with where it led (see
+ * currentRealpaths).
+ */
+export function recordReads<T>(f: () => T): {
+  value: T;
+  read: ReadonlyMap<string, string>;
+  realpaths: ReadonlyMap<string, string>;
+} {
   const saved = recording;
   const read = new Map<string, string>();
-  recording = read;
+  const realpaths = new Map<string, string>();
+  recording = { read, realpaths };
 
   try {
-    return { value: f(), read };
+    return { value: f(), read, realpaths };
   } finally {
     recording = saved;
   }
@@ -30,7 +42,7 @@ export function recordReads<T>(f: () => T): { value: T; read: ReadonlyMap<string
 /** `file`'s text as TypeScript reads it, noted as read. */
 export function readText(file: string): string | undefined {
   const bytes = contents(file);
-  recording?.set(path.resolve(file), found(file, bytes));
+  recording?.read.set(path.resolve(file), found(file, bytes));
 
   return bytes && decode(bytes);
 }
@@ -42,8 +54,8 @@ export function readText(file: string): string | undefined {
 export function fileExists(file: string): boolean {
   const exists = stat(file)?.isFile() === true;
   const at = path.resolve(file);
-  if (recording && !recording.has(at))
-    recording.set(at, found(file, exists ? contents(file) : undefined));
+  if (recording && !recording.read.has(at))
+    recording.read.set(at, found(file, exists ? contents(file) : undefined));
 
   return exists;
 }
@@ -53,12 +65,25 @@ export function directoryExists(dir: string): boolean {
   return stat(dir)?.isDirectory() || missing(dir);
 }
 
+/** Where `file` leads, through any link, as TypeScript resolves it: noted. */
+export function realpath(file: string): string {
+  const real = resolved(file);
+  recording?.realpaths.set(path.resolve(file), real);
+
+  return real;
+}
+
 /** What each file holds now, as a compile reading it would note it. */
 export function currentReads(files: Iterable<string>): Map<string, string> {
   return new Map([...files].map((f) => [f, found(f, contents(f))]));
 }
 
-/** A key of files and what each held: the same while each holds the same. */
+/** Where each path leads now, as a compile resolving it would note it. */
+export function currentRealpaths(files: Iterable<string>): Map<string, string> {
+  return new Map([...files].map((f) => [f, resolved(f)]));
+}
+
+/** A key of files and what each held (or paths and where each led): the same while each does. */
 export function readsKey(read: ReadonlyMap<string, string>): string {
   const hash = createHash("sha256");
   for (const file of [...read.keys()].sort()) hash.update(`${file}\0${read.get(file)}\0`);
@@ -67,7 +92,7 @@ export function readsKey(read: ReadonlyMap<string, string>): string {
 }
 
 function missing(file: string): false {
-  recording?.set(path.resolve(file), found(file, undefined));
+  recording?.read.set(path.resolve(file), found(file, undefined));
 
   return false;
 }
@@ -82,6 +107,15 @@ function found(file: string, bytes: Buffer | undefined): string {
   if (bytes) return createHash("sha256").update(bytes).digest("hex").slice(0, 16);
 
   return stat(file)?.isDirectory() ? "directory" : "missing";
+}
+
+/** TypeScript's sys.realpath: the native call for short paths, and the path itself when it fails. */
+function resolved(file: string): string {
+  try {
+    return file.length < 260 ? fs.realpathSync.native(file) : fs.realpathSync(file);
+  } catch {
+    return file;
+  }
 }
 
 function contents(file: string): Buffer | undefined {
