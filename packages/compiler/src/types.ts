@@ -39,7 +39,8 @@ export type LType =
   /**
    * `T | undefined | null`; `absent` set when TypeScript admits only one of
    * them, which the boundary checks. Not part of typeKey: the C++ type is
-   * Opt<T> either way.
+   * Opt<T> either way, so object types that differ only there share a
+   * struct, whose field then takes both.
    */
   | { k: "opt"; inner: LType; absent?: "undefined" | "null" }
   | { k: "union"; ms: LType[] }
@@ -1110,10 +1111,13 @@ export class TypeRegistry {
       info = { id: key, cppName, fields, boundary: false };
       this.structs.set(key, info);
     } else {
-      // Same shape from another source type: keep literals only when they agree.
+      // Same shape from another source type: keep literals, and the one absent
+      // value a field admits, only when they agree.
       for (const f of info.fields) {
         const other = fields.find((g) => g.name === f.name);
         if (f.literal !== other?.literal) f.literal = undefined;
+        if (f.type.k === "opt" && other?.type.k === "opt" && f.type.absent !== other.type.absent)
+          f.type = { k: "opt", inner: f.type.inner };
       }
     }
     // Patch provisional self references.

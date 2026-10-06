@@ -311,8 +311,11 @@ Only exported functions, classes and constants are visible from JavaScript.
   (`label: argument 'name' must be a string or undefined, got null`). Inside
   an array, a map, a set, a record, a tuple, a callback's result or a
   promise's value, either absent value is accepted, as the converter there
-  is shared by every optional of that type; a body that reads the one its
-  type excludes throws `TypeError` when it uses the value.
+  is shared by every optional of that type; so is a field of two object
+  types that differ only in the absent value it admits (`{ v: string |
+  null }` and `{ v: string | undefined }` share one native layout). A body
+  that reads the one its type excludes throws `TypeError` when it uses the
+  value.
 - **Values are copied:** arrays, records, maps, sets, tuples and plain objects
   cross the boundary as copies. If native code mutates an array it received,
   the caller's array is unchanged.
