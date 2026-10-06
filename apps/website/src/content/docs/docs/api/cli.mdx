@@ -49,6 +49,8 @@ Compile the project's modules and write the native package (.lucent/native); ski
 | `--out <dir>` | Where to write the native package (default: .lucent/native) |
 | `--frozen` | Fail unless the SDKs and SDK symbols are the ones lucent-sdk.lock.json records, with every target it lists (CI, releases) |
 
+With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-build---json).
+
 ```sh title="terminal" nocopy
 ◆ lucent {{lucent-version}}
 
@@ -78,6 +80,8 @@ Type-check and validate every module without writing anything
 | --- | --- |
 | `--frozen` | Fail unless the SDKs and SDK symbols are the ones lucent-sdk.lock.json records, with every target it lists (CI, releases) |
 
+With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-check---json).
+
 It reports problems as the [diagnostics](/docs/api/diagnostics/) page shows them, and writes nothing. A pass is remembered, so checking an unchanged project takes a fraction of a second. Use it in CI.
 
 ## lucent dev
@@ -87,6 +91,8 @@ Rebuild on every change: a live dashboard of modules, platforms and problems (on
 | Flag | Meaning |
 | --- | --- |
 | `--compact` | One line per build instead of the dashboard (Metro runs it so) |
+
+It has no JSON output: with `--json`, it exits with code 2.
 
 ```sh title="terminal" nocopy
 [14:02:11] ✓ 2 modules  36 ms · rebuild the app · recompile native code (ios, android)
@@ -102,6 +108,8 @@ It watches the app and each Lucent package it links from outside it, such as a w
 ## lucent doctor
 
 Check the machine, the app and its builds: Node, React Native, Xcode, CocoaPods, Android, the JDK, Metro, versions
+
+With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-doctor---json).
 
 Each check passes, warns or fails, with its fix. The exit code is 1 when one fails. It doesn't load the compiler, so it answers even when the project doesn't build.
 
@@ -120,6 +128,8 @@ Set an app up for Lucent: the Metro config, the Expo plugin or the Gradle task, 
 | --- | --- |
 | `--yes` | Apply every change without asking |
 
+It has no JSON output: with `--json`, it exits with code 2.
+
 It shows each change as a diff and applies the ones you confirm; `--yes` applies them all. [Install Lucent](/docs/guides/install/) lists the changes for Expo and bare apps. Running it again changes nothing.
 
 ## lucent new module
@@ -132,15 +142,21 @@ Scaffold a module in src/: shared, or with --ios / --android one module that bra
 | `--android` | Implement the Android branch (without --ios, the iOS branch throws) |
 | `--shared` | One module for every platform (the default) |
 
+With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-new-module---json).
+
 ## lucent explain
 
 What a LUCENT diagnostic code means, and how to fix it (every code without one)
+
+With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-explain---json).
 
 Prints a code's entry from the [diagnostics](/docs/api/diagnostics/): why the rule exists, the fix, and a wrong and a right example. `lucent explain 3006` works too.
 
 ## lucent bench
 
 Time the cases of your \*.bench.ts files natively and as JavaScript, and show the speedup (needs a desktop Hermes)
+
+With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-bench---json).
 
 ```ts title="src/path.bench.ts"
 import { pathLength, spiralLength } from "./path.lucent";
@@ -164,6 +180,8 @@ Write the last build's steps and the runtime traces given as one Chrome trace (.
 | `--runtime <files>` | Runtime traces to include, comma-separated (written with LUCENT\_TRACE=\<file\>.json) |
 | `--out <file>` | Where to write it (default: .lucent/trace.json) |
 
+It has no JSON output: with `--json`, it exits with code 2.
+
 ## lucent clean
 
 Remove the generated .lucent/ (the next build starts over)
@@ -172,13 +190,19 @@ Remove the generated .lucent/ (the next build starts over)
 | --- | --- |
 | `--cache` | Also remove the SDK bindings cache |
 
+With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-clean---json).
+
 ## lucent sdk search
 
 Find SDK classes and members by name, with the import to copy (your imports and the SDK cache)
 
+With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-sdk-search---json).
+
 ## lucent sdk show
 
 Print the declaration Lucent code sees for an SDK type or member: android.os.Vibrator, UIKit.UIDevice.current
+
+With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-sdk-show---json).
 
 ## lucent sdk prefetch
 
@@ -190,6 +214,8 @@ Extract SDK bindings into the cache ahead of use (default: the lucent:\* modules
 | `--android [<packages>]` | Android packages, comma-separated; alone: every package |
 | `--all` | Every module of every installed SDK |
 
+With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-sdk-prefetch---json).
+
 ## lucent sdk lock
 
 Record the SDKs and SDK symbols the project uses in lucent-sdk.lock.json, for --frozen builds and sdk diff
@@ -198,6 +224,8 @@ Record the SDKs and SDK symbols the project uses in lucent-sdk.lock.json, for --
 | --- | --- |
 | `--platforms <list>` | Targets to record: ios, android (default: every platform the project has code for, each needing its SDK) |
 
+With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-sdk-lock---json).
+
 ## lucent sdk diff
 
 What the installed SDKs change for the SDK symbols lucent-sdk.lock.json records: removed and changed members, before rebuilding
@@ -205,6 +233,8 @@ What the installed SDKs change for the SDK symbols lucent-sdk.lock.json records:
 | Flag | Meaning |
 | --- | --- |
 | `--all` | Also the other members of the modules the project uses (the locked schemas must be in this machine's SDK cache) |
+
+With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-sdk-diff---json).
 
 ## lucent sdk coverage
 
@@ -220,3 +250,9 @@ Per SDK module, how far members get: discovered, representable, generated by the
 | `--summary <file>` | Append a markdown summary of why members are left out (CI's step summary) |
 | `--members` | List every member with its stage, key and reason |
 | `--views` | With views on (LUCENT\_VIEWS=fabric), list each view class's JSX attributes by rule |
+
+With `--json`, it prints [one JSON document](/docs/api/json-formats/#lucent-sdk-coverage---json).
+
+- Without `--ios`, `--android` or `--all`, it reports the modules your code imports.
+- With `--all`, a module the SDK lists but Lucent can't read, such as IOKit for the simulator, is warned about on stderr and skipped.
+- `--summary` appends the members' totals and a table of the 20 most common reasons they're left out, then the modules that couldn't be read.

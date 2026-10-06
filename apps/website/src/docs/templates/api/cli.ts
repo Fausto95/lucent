@@ -88,6 +88,16 @@ actions  relink native dependencies  ios           LucentNative.podspec, cpp/gen
       text: "Prints a code's entry from the [diagnostics](/docs/api/diagnostics/): why the rule exists, the fix, and a wrong and a right example. `lucent explain 3006` works too.",
     },
   ],
+  "sdk coverage": [
+    {
+      kind: "list",
+      items: [
+        "Without `--ios`, `--android` or `--all`, it reports the modules your code imports.",
+        "With `--all`, a module the SDK lists but Lucent can't read, such as IOKit for the simulator, is warned about on stderr and skipped.",
+        "`--summary` appends the members' totals and a table of the 20 most common reasons they're left out, then the modules that couldn't be read.",
+      ],
+    },
+  ],
   bench: [
     {
       kind: "code",
@@ -149,6 +159,12 @@ export const blocks: Block[] = [
           },
         ]
       : []),
+    {
+      kind: "p",
+      text: c.json
+        ? `With \`--json\`, it prints [one JSON document](/docs/api/json-formats/#lucent-${c.name.replace(/ /g, "-")}---json).`
+        : "It has no JSON output: with `--json`, it exits with code 2.",
+    },
     ...(notes[c.name] ?? []),
   ]),
 ];
