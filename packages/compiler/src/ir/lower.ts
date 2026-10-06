@@ -267,7 +267,7 @@ export type PartOf = { name: string } | { index: number } | { rest: number };
 /** A place a leaf names: reading it, and writing a value (an operand after the place's own). */
 export interface LeafPlace {
   type: LType;
-  get: Leaf;
+  get(): Leaf;
   set(value: ValueId): Leaf;
   /** Writing a value of its own type, `from`: where what is written is not what is read. */
   assign?(value: ValueId, from: LType): Leaf;
@@ -1634,7 +1634,7 @@ class Lowerer {
 
     return {
       type: place.type,
-      read: () => this.planOf(place.get, args, spanOf(node)),
+      read: () => this.planOf(place.get(), args, spanOf(node)),
       write: (v, span) => void this.planOf(place.set(v), [...args, v], span),
       ...(assign
         ? { assign: (v, span) => void this.planOf(assign(v, this.b.typeOf(v)), [...args, v], span) }

@@ -71,7 +71,13 @@ export {
 export { closesPodspec, libraryBuildGradle, withPodDependencies } from "./native-build-files.ts";
 export { fileHashes, type FileHashes, inNativePackage } from "./package-files.ts";
 export { coverage as sdkCoverage, type Coverage as SdkCoverage } from "@lucent-lang/bindgen";
-export { jsxToolkits, toolkitsFrom } from "./ui/toolkit-modules.ts";
+export {
+  jsxToolkits,
+  toolkitModules,
+  toolkitModuleText,
+  toolkitNeedingViews,
+  toolkitsFrom,
+} from "./ui/toolkit-modules.ts";
 export { viewCoverage, type ViewCoverage } from "./ui/view-coverage.ts";
 export {
   LUCENT_EXTENSION,

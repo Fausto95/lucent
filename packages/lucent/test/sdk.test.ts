@@ -125,6 +125,13 @@ describe.skipIf(!javac || !android)("lucent sdk", () => {
     expect(member.out).not.toMatch(/export declare class OnEvent/);
   });
 
+  it("show keeps a member's doc comments", () => {
+    const r = lucent(app(), "show", "com.example.widgets.Widget.old");
+
+    expect(r.status).toBe(0);
+    expect(r.out).toContain("   * @deprecated\n   */\n  old(): void;");
+  });
+
   it("show prints a member's doc, with what it calls natively", () => {
     const member = lucent(app(), "show", "com.example.widgets.Widget.getName");
 

@@ -479,9 +479,12 @@ export function emitProgram(
       ),
     ]),
   );
+  const compose = toolkitFiles(ctx, "compose");
+  const kotlin = new Map([...kotlinFiles(ctx), ...compose]);
   const program = programHash([
     ...files,
     ...[...java].map(([k, v]) => [`java/${k}`, v] as [string, string]),
+    ...[...kotlin].map(([k, v]) => [`kotlin/${k}`, v] as [string, string]),
   ]);
   files.set(IDENTITY_UNIT, identityUnit(target, program, apis));
 
@@ -500,8 +503,8 @@ export function emitProgram(
     swiftPackages: [...ctx.swiftPackages].sort(),
     java,
     javaKeep: [...ctx.javaClasses].sort(),
-    kotlin: new Map([...kotlinFiles(ctx), ...toolkitFiles(ctx, "compose")]),
-    compose: toolkitFiles(ctx, "compose").length > 0,
+    kotlin,
+    compose: compose.length > 0,
     androidPermissions: [...ctx.androidPermissions].sort(),
   };
 }

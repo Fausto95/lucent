@@ -31,6 +31,7 @@ import {
   findSdkType,
   loadSdkModule,
   jniDescriptor,
+  mainThreadOnly,
   MIN_ANDROID_API,
   oldestIos,
   sdkTypeInfo,
@@ -216,10 +217,9 @@ function requireMain(
   em: FnEmitter,
   node: ts.Node,
   ref: SdkClassRef,
-  member?: { mainActor?: boolean },
+  member?: { mainActor?: boolean; swift?: SwiftMember },
 ): void {
-  // A member's own rule first: @AnyThread members of a @UiThread class are not main-only.
-  if (!(member?.mainActor ?? ref.cls.mainActor) || inMainContext(em, node)) return;
+  if (!mainThreadOnly(ref.cls, member) || inMainContext(em, node)) return;
   fail(
     node,
     Codes.MainThreadOnly,
@@ -2847,7 +2847,7 @@ export function nativeStaticProperty(
   if (!ref || !ts.getModifiers(decl)?.some((m) => m.kind === ts.SyntaxKind.StaticKeyword))
     return undefined;
   const found = schemaProperty(ref, decl)!;
-  return property(em, node, found.ref, found.property, undefined);
+  return readProperty(em, node, found.ref, found.property, undefined);
 }
 
 /** `out.value`: what the method wrote, as the Out's type argument says (absent before). */
@@ -2902,7 +2902,19 @@ export function nativeMember(em: FnEmitter, obj: E, node: ts.Node): E {
   if (!ref || !decl || !isSdkPropertyDecl(decl))
     fail(node, Codes.UnsupportedSyntax, "methods of platform objects must be called directly");
   const found = schemaProperty(ref, decl)!;
-  return property(em, node, found.ref, found.property, obj);
+  return readProperty(em, node, found.ref, found.property, obj);
+}
+
+/** A property read: it calls the getter, so it needs the getter's permissions. */
+function readProperty(
+  em: FnEmitter,
+  node: ts.Node,
+  ref: SdkClassRef,
+  prop: SdkPropertySchema,
+  obj: E | undefined,
+): E {
+  notePermissions(em, accessorOf(ref.cls, prop, "get"));
+  return property(em, node, ref, prop, obj);
 }
 
 function property(
@@ -2919,8 +2931,7 @@ function property(
   if (typeof prop.value === "string") return { c: stringExpr(prop.value), t: T.string };
   if (typeof prop.value === "boolean") return { c: cpp.bool(prop.value), t: T.boolean };
   const plan = requirePlan(node, ref, prop, "get");
-  // Async members hop to the main actor themselves.
-  if (!prop.swift?.async) requireMain(em, node, ref, prop);
+  requireMain(em, node, ref, prop);
   warnBlocking(em, node, ref, prop);
   if (!obj) requireAvailable(em, node, ref, ref.cls.since, ref.cls.name);
   requireAvailable(em, node, ref, prop.since, `${ref.cls.name}.${prop.name}`);
@@ -2944,6 +2955,7 @@ function property(
     const read = send(objcReceiver(ref, obj), prop.selector ?? prop.name, []);
     return fromObjc(em, read, t, lt, what);
   }
+  const getter = accessorOf(ref.cls, prop, "get");
   if (plan.backend === "kotlin-shim")
     return kotlinCall(em, {
       node,
@@ -2957,9 +2969,7 @@ function property(
       what,
     });
   if (prop.getter) {
-    const desc =
-      ref.cls.methods?.find((m) => (m.java ?? m.name) === prop.getter && !m.params.length)
-        ?.descriptor ?? jniDescriptor([], prop.type);
+    const desc = getter?.descriptor ?? jniDescriptor([], prop.type);
     const recv = obj ? jni("unwrap", cpp.id("recv_")) : cpp.id("cls_");
     return jniCall(em, {
       node,
@@ -3021,7 +3031,7 @@ export function nativeCall(
       Codes.UnsupportedCall,
       `${ref.cls.name}.${name}() as a promise is not supported on ${ref.platform}`,
     );
-  if (!method.swift?.async) requireMain(em, node, ref, method);
+  requireMain(em, node, ref, method);
   warnBlocking(em, node, ref, method);
   if (!obj) requireAvailable(em, node, ref, ref.cls.since, ref.cls.name);
   requireAvailable(em, node, ref, method.since, `${ref.cls.name}.${method.name}`);
@@ -3196,13 +3206,24 @@ export function nativeLvalue(
   const { ref, property: prop } = found;
   const type = em.lt(target);
   const set = propertySetter(em, target, ref, prop, obj, type);
-  const get = property(em, target, ref, prop, obj);
-  if (ref.platform !== "android" || !prop.setter) return { get: get.c, set, type };
+  const read = property(em, target, ref, prop, obj).c;
+  const getter = accessorOf(ref.cls, prop, "get");
+
+  // Only a use that reads the place (`+=`, `++`) calls the getter and needs its permissions.
+  const place: Lvalue = {
+    get get() {
+      notePermissions(em, getter);
+      return read;
+    },
+    set,
+    type,
+  };
+  if (ref.platform !== "android" || !prop.setter) return place;
 
   // A value of its own type, converted as an argument of the property's type is.
-  const assign = (v: E) => propertySetter(em, target, ref, prop, obj, v.t)(v.c);
+  place.assign = (v: E) => propertySetter(em, target, ref, prop, obj, v.t)(v.c);
 
-  return { get: get.c, set, assign, type };
+  return place;
 }
 
 /**
@@ -3279,6 +3300,8 @@ export function propertySetter(
     return set;
   }
   if (!prop.setter) throw new Error(`${plan.display}: a Java field write its plan refuses`);
+  const setter = accessorOf(ref.cls, prop, "set");
+  notePermissions(em, setter);
 
   // A Kotlin property's setter, or a shim's (a value class the JVM passes unboxed): gives
   // the value assigned.
@@ -3298,11 +3321,7 @@ export function propertySetter(
           what,
         })
       : undefined;
-  const desc =
-    shim?.descriptor ??
-    ref.cls.methods?.find((m) => (m.java ?? m.name) === prop.setter && m.params.length === 1)
-      ?.descriptor ??
-    jniDescriptor([prop.type], "void");
+  const desc = shim?.descriptor ?? setter?.descriptor ?? jniDescriptor([prop.type], "void");
   const recv = obj ? [jni("unwrap", cpp.id("recv_"))] : [];
 
   const set = (value: cpp.Expr) => {
@@ -3404,6 +3423,21 @@ export function linkModule(em: FnEmitter, schema: SdkModuleSchema): void {
   if (artifact?.startsWith("spm:")) em.ctx.swiftPackages.add(artifact.slice("spm:".length));
 }
 
+/** Declares in the manifest the permissions an Android method needs (its @RequiresPermission). */
+function notePermissions(em: FnEmitter, method: { permissions?: string[] } | undefined): void {
+  for (const p of method?.permissions ?? []) em.ctx.androidPermissions.add(p);
+}
+
+/** The Java method a property's read or write calls: its getter or setter. */
+function accessorOf(
+  cls: SdkClassSchema,
+  prop: SdkPropertySchema,
+  role: "get" | "set",
+): SdkMethodSchema | undefined {
+  const [name, arity] = role === "get" ? [prop.getter, 0] : [prop.setter, 1];
+  return cls.methods?.find((m) => (m.java ?? m.name) === name && m.params.length === arity);
+}
+
 function androidCall(
   em: FnEmitter,
   node: ts.CallExpression,
@@ -3413,7 +3447,7 @@ function androidCall(
   plan: BindingPlan,
 ): E {
   const tps = m.typeParams ?? [];
-  for (const p of m.permissions ?? []) em.ctx.androidPermissions.add(p);
+  notePermissions(em, m);
   warnOutsideGroups(em, m.params, argsOf(node), `${ref.cls.name}.${m.name}`);
 
   const what = `${ref.cls.name}.${m.name}()`;
@@ -4013,6 +4047,7 @@ export function setterCall(
   requirePlan(site, ref, method, "call");
   requireMain(em, site, ref, method);
   requireAvailable(em, site, ref, method.since, what);
+  notePermissions(em, method);
   noteIncludes(em, ref);
 
   return jniCall(em, {
@@ -4051,6 +4086,7 @@ export function insertChild(
   requirePlan(site, ref, method, "call");
   requireMain(em, site, ref, method);
   requireAvailable(em, site, ref, method.since, what);
+  notePermissions(em, method);
   noteIncludes(em, ref);
 
   if (ref.platform === "ios")
@@ -4175,6 +4211,7 @@ export function listenerEvent(
   requirePlan(site, ref, setter, "call");
   requireMain(em, site, ref, setter);
   requireAvailable(em, site, ref, setter.since, what);
+  notePermissions(em, setter);
   noteIncludes(em, ref);
 
   const call = (given: cpp.Expr) =>
