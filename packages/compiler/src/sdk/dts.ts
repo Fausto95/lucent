@@ -532,12 +532,13 @@ function classDts(
       m.mainActor ? "Main thread only: call it inside `main(() => …)`." : undefined,
       m.worker ? "Blocks (@WorkerThread): call it outside `main(() => …)`." : undefined,
       refused(cls, m),
-      m.deprecated ? "@deprecated" : undefined,
     ].filter(Boolean);
-    // On a line of its own: where it comes from, beside what using it takes.
+    // On a line of its own: where it comes from, beside what using it takes. A tag comes last:
+    // it takes the text after it as its own.
     const lines = [
       ...(parts.length ? [parts.join(" ")] : []),
       ...(origin ? [`${memberOrigin(schema, cls, origin)}.`] : []),
+      ...(m.deprecated ? ["@deprecated"] : []),
     ];
     return lines.length ? { doc: lines.length === 1 ? lines[0]! : lines } : {};
   };
