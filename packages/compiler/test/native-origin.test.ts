@@ -207,6 +207,17 @@ describe("a declaration's native origin", () => {
     );
   });
 
+  it("puts the line before a deprecated member's tag, which would take it as its message", () => {
+    const old: SdkClassSchema = {
+      ...device,
+      methods: [{ ...device.methods![0]!, deprecated: true, since: "3.0" }],
+    };
+
+    expect(sdkDts(ios([old]))).toContain(
+      "   * Since iOS 3.0.\n   * Native: -[UIDevice endGeneratingDeviceOrientationNotifications], in UIKit.\n   * @deprecated\n",
+    );
+  });
+
   it("puts the line in the declarations' doc comments, where an editor shows it", () => {
     const d = sdkDts(ios([device]));
 
