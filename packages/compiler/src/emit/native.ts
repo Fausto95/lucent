@@ -2891,6 +2891,8 @@ function property(
     const read = send(objcReceiver(ref, obj), prop.selector ?? prop.name, []);
     return fromObjc(em, read, t, lt, what);
   }
+  const getter = accessorOf(ref.cls, prop, "get");
+  notePermissions(em, getter);
   if (plan.backend === "kotlin-shim")
     return kotlinCall(em, {
       node,
@@ -2904,9 +2906,7 @@ function property(
       what,
     });
   if (prop.getter) {
-    const desc =
-      ref.cls.methods?.find((m) => (m.java ?? m.name) === prop.getter && !m.params.length)
-        ?.descriptor ?? jniDescriptor([], prop.type);
+    const desc = getter?.descriptor ?? jniDescriptor([], prop.type);
     const recv = obj ? jni("unwrap", cpp.id("recv_")) : cpp.id("cls_");
     return jniCall(em, {
       node,
@@ -3202,6 +3202,8 @@ export function propertySetter(
     return set;
   }
   if (!prop.setter) throw new Error(`${plan.display}: a Java field write its plan refuses`);
+  const setter = accessorOf(ref.cls, prop, "set");
+  notePermissions(em, setter);
 
   // A Kotlin property's setter, or a shim's (a value class the JVM passes unboxed): gives
   // the value assigned.
@@ -3221,11 +3223,7 @@ export function propertySetter(
           what,
         })
       : undefined;
-  const desc =
-    shim?.descriptor ??
-    ref.cls.methods?.find((m) => (m.java ?? m.name) === prop.setter && m.params.length === 1)
-      ?.descriptor ??
-    jniDescriptor([prop.type], "void");
+  const desc = shim?.descriptor ?? setter?.descriptor ?? jniDescriptor([prop.type], "void");
   const recv = obj ? [jni("unwrap", cpp.id("recv_"))] : [];
 
   const set = (value: cpp.Expr) => {
@@ -3326,6 +3324,21 @@ export function linkModule(em: FnEmitter, schema: SdkModuleSchema): void {
   if (artifact?.startsWith("pod:")) em.ctx.pods.add(artifact.slice("pod:".length).split("@")[0]!);
 }
 
+/** Declares in the manifest the permissions an Android method needs (its @RequiresPermission). */
+function notePermissions(em: FnEmitter, method: { permissions?: string[] } | undefined): void {
+  for (const p of method?.permissions ?? []) em.ctx.androidPermissions.add(p);
+}
+
+/** The Java method a property's read or write calls: its getter or setter. */
+function accessorOf(
+  cls: SdkClassSchema,
+  prop: SdkPropertySchema,
+  role: "get" | "set",
+): SdkMethodSchema | undefined {
+  const [name, arity] = role === "get" ? [prop.getter, 0] : [prop.setter, 1];
+  return cls.methods?.find((m) => (m.java ?? m.name) === name && m.params.length === arity);
+}
+
 function androidCall(
   em: FnEmitter,
   node: ts.CallExpression,
@@ -3335,7 +3348,7 @@ function androidCall(
   plan: BindingPlan,
 ): E {
   const tps = m.typeParams ?? [];
-  for (const p of m.permissions ?? []) em.ctx.androidPermissions.add(p);
+  notePermissions(em, m);
   warnOutsideGroups(em, m.params, argsOf(node), `${ref.cls.name}.${m.name}`);
 
   const what = `${ref.cls.name}.${m.name}()`;
@@ -3929,6 +3942,7 @@ export function setterCall(
   requirePlan(site, ref, method, "call");
   requireMain(em, site, ref, method);
   requireAvailable(em, site, ref, method.since, what);
+  notePermissions(em, method);
   noteIncludes(em, ref);
 
   return jniCall(em, {
@@ -3967,6 +3981,7 @@ export function insertChild(
   requirePlan(site, ref, method, "call");
   requireMain(em, site, ref, method);
   requireAvailable(em, site, ref, method.since, what);
+  notePermissions(em, method);
   noteIncludes(em, ref);
 
   if (ref.platform === "ios")
@@ -4020,6 +4035,7 @@ export function listenerEvent(
   requirePlan(site, ref, setter, "call");
   requireMain(em, site, ref, setter);
   requireAvailable(em, site, ref, setter.since, what);
+  notePermissions(em, setter);
   noteIncludes(em, ref);
 
   const call = (given: cpp.Expr) =>
