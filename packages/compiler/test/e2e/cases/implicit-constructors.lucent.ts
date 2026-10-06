@@ -7,6 +7,7 @@ class Named extends Error {
 }
 class NamedChild extends Named {}
 class NamedExplicit extends Named {
+  // oxlint-disable-next-line no-useless-constructor -- an explicit constructor is the case
   constructor(message: string) {
     super(message);
   }
