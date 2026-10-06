@@ -2103,7 +2103,10 @@ export function newBuiltin(
       if (!isErrorName(name) || !isLibGlobal(em, callee, name)) break;
       refuseCause(em, a[1]);
       return {
-        c: withSite(cpp.call("lucent::makeError", [stringExpr(name), errorMessage(em, a[0])]), node),
+        c: withSite(
+          cpp.call("lucent::makeError", [stringExpr(name), errorMessage(em, a[0])]),
+          node,
+        ),
         t,
       };
     }
