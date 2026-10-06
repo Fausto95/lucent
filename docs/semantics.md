@@ -314,7 +314,9 @@ Only exported functions, classes and constants are visible from JavaScript.
 - **Interface values** cross as their concrete class instance. From JavaScript,
   only instances of Lucent classes that implement the interface are accepted.
 - **Unions of object types** need a string-literal discriminant (for example
-  `kind: "circle"`) so incoming values can be told apart.
+  `kind: "circle"`) so incoming values can be told apart. A value whose
+  discriminant names no member fails with the values accepted:
+  `shape: argument 's'.kind must be "circle" or "square", got "triangle"`.
 - **bigints** cross exactly, as JavaScript bigints, at any size.
 - **Errors** become JS `Error` / `TypeError` / `RangeError` / `SyntaxError` objects with the same
   `name`, `message` and `code`. Their `stack` starts with the Lucent frame
