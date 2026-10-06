@@ -31,7 +31,9 @@ export function arrays(): string {
   const reversed = [new Shown<number | undefined>(undefined), new Shown(2)];
   const sub = [new Sub(3), new Shown<number | undefined>(undefined)];
   const typed: Maybe[] = [new Shown(5), new Shown<number>(6)];
-  const picked = (flag: boolean) => [flag ? new Shown(7) : new Shown<number | undefined>(undefined)];
+  const picked = (flag: boolean) => [
+    flag ? new Shown(7) : new Shown<number | undefined>(undefined),
+  ];
 
   return [
     shows(mixed),

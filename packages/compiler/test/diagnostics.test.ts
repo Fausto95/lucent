@@ -427,7 +427,10 @@ export function f(round: boolean): number {
 
     it.each([
       ["a declaration", "const m: Maybe = one; return take(m);"],
-      ["an assignment", "let m: Maybe = new Shown<number | undefined>(2); m = one; return take(m);"],
+      [
+        "an assignment",
+        "let m: Maybe = new Shown<number | undefined>(2); m = one; return take(m);",
+      ],
       ["an array element", "return [one, new Shown<number | undefined>(2)].length;"],
       ["an argument", "return take(one);"],
       ["a tuple element", "const t: [Maybe, number] = [one, 2]; return t[1];"],
