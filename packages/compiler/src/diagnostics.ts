@@ -17,6 +17,28 @@ export interface Diagnostic {
   docs?: string;
   /** A warning: reported, but the code compiles. Errors leave it out. */
   severity?: "warning";
+  /** Where the fix is exact: edits to the diagnostic's file, which an editor offers to apply. */
+  quickFix?: QuickFix;
+}
+
+/** Text replaced in a file: `length` characters at offset `start` become `text`. */
+export interface TextEdit {
+  start: number;
+  length: number;
+  text: string;
+}
+
+export interface QuickFix {
+  /** What it does, as an editor lists it ("Throw new Error(…)"). */
+  title: string;
+  edits: TextEdit[];
+}
+
+/** A quick fix replacing `node` with `text`. */
+export function replacing(node: ts.Node, text: string, title: string): QuickFix {
+  const start = node.getStart(node.getSourceFile());
+
+  return { title, edits: [{ start, length: node.getEnd() - start, text }] };
 }
 
 export class CompileError extends Error {
@@ -24,11 +46,20 @@ export class CompileError extends Error {
   readonly code: string;
   /** What to do, when it is this error's own rather than its code's usual fix. */
   readonly fix: string | undefined;
-  constructor(node: ts.Node | undefined, code: string, message: string, fix?: string) {
+  /** The edits doing it, where they are exact. */
+  readonly quickFix: QuickFix | undefined;
+  constructor(
+    node: ts.Node | undefined,
+    code: string,
+    message: string,
+    fix?: string,
+    quickFix?: QuickFix,
+  ) {
     super(message);
     this.node = node;
     this.code = code;
     this.fix = fix;
+    this.quickFix = quickFix;
   }
 }
 
@@ -37,12 +68,13 @@ export function fail(
   code: string,
   message: string,
   fix?: string,
+  quickFix?: QuickFix,
 ): never {
-  throw new CompileError(node, code, message, fix);
+  throw new CompileError(node, code, message, fix, quickFix);
 }
 
 export function toDiagnostic(e: CompileError): Diagnostic {
-  const fix = e.fix ? { fix: e.fix } : {};
+  const fix = { ...(e.fix ? { fix: e.fix } : {}), ...(e.quickFix ? { quickFix: e.quickFix } : {}) };
   if (!e.node) return { code: e.code, message: e.message, ...fix };
   const sf = e.node.getSourceFile();
   const start = e.node.getStart(sf);

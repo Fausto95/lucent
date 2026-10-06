@@ -170,6 +170,24 @@ describe.skipIf(!xcode)("Swift-only SDK APIs", () => {
     },
     300_000,
   );
+
+  it("keeps every Swift overload of one name an overlay gives an Objective-C class", () => {
+    const p = sdk(`import { NSCoder } from "lucent:ios/Foundation";
+function decode(coder: NSCoder): string {
+  const all = coder.decodeTopLevelObject();
+  const one = coder.decodeTopLevelObject("key");
+  return \`\${all === null} \${one === null}\`;
+}
+const coders: NSCoder[] = [];
+export async function run(): Promise<string> {
+  return coders.map(decode).join();
+}
+`);
+    expect(p.r.diagnostics).toEqual([]);
+    expect(p.shims).toContain(".decodeTopLevelObject()");
+    expect(p.shims).toContain(".decodeTopLevelObject(forKey: ");
+    expect(compileErrors(p)).toEqual(compiles);
+  }, 300_000);
 });
 
 describe.skipIf(!xcode)("Swift-only members, called through shims", () => {

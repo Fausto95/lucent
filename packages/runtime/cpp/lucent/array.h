@@ -97,28 +97,19 @@ class Array {
   }
   /// `a[i]`: undefined when out of bounds.
   Opt<T> get(double index) const {
-    if (index >= 0 && index < static_cast<double>(d_->size()) && std::trunc(index) == index) {
-      return static_cast<T>((*d_)[static_cast<size_t>(index)]);
-    }
+    size_t i = indexBelow(index, d_->size());
+    if (i != kNoIndex) return static_cast<T>((*d_)[i]);
     return undefined;
   }
   /// `a[i] = v`. Writing at `length` appends; writing further would create
   /// holes, which Lucent arrays do not have.
   void set(double index, T value) {
-    if (!(index >= 0) || std::trunc(index) != index) throwRangeError("Invalid array index");
-    size_t i = static_cast<size_t>(index);
-    if (i < d_->size()) {
-      (*d_)[i] = static_cast<Elem>(std::move(value));
-    } else if (i == d_->size()) {
-      d_->push_back(static_cast<Elem>(std::move(value)));
-    } else {
-      if constexpr (IsOpt<T>::value) {
-        d_->resize(i);
-        d_->push_back(static_cast<Elem>(std::move(value)));
-      } else {
-        throwRangeError("Array index out of bounds (Lucent arrays cannot have holes)");
-      }
+    // Small enough to inline into a loop's body: what lies past the end is not.
+    if (size_t at = indexBelow(index, d_->size()); at != kNoIndex) {
+      (*d_)[at] = static_cast<Elem>(std::move(value));
+      return;
     }
+    setPastEnd(*d_, index, std::move(value));
   }
 
   double push(T v) {
@@ -199,17 +190,31 @@ class Array {
 
   String join() const { return join(String::fromLatin1(",")); }
   String join(const String& sep) const {
-    String out;
-    for (size_t i = 0; i < d_->size(); i++) {
-      if (i > 0) out += sep;
-      if constexpr (IsOpt<T>::value) {
-        const T& v = (*d_)[i];
-        if (v.has()) out += toJsString(v.get());
-      } else {
-        out += toJsString(at(i));
+    size_t n = d_->size();
+    if (n == 0) return String();
+    // Strings: the exact size up front, so the result is one allocation.
+    // Other elements: their strings, appended as they come.
+    size_t capacity = sep.length() * (n - 1);
+    bool oneByte = sep.isOneByte();
+    if constexpr (std::is_same_v<T, String>) {
+      for (const String& s : *d_) {
+        capacity += s.length();
+        oneByte = oneByte && s.isOneByte();
       }
     }
-    return out;
+    StringBuilder out(capacity, oneByte);
+    for (size_t i = 0; i < n; i++) {
+      if (i > 0) out.append(sep);
+      if constexpr (std::is_same_v<T, String>) {
+        out.append((*d_)[i]);
+      } else if constexpr (IsOpt<T>::value) {
+        const T& v = (*d_)[i];
+        if (v.has()) out.append(toJsString(v.get()));
+      } else {
+        out.append(toJsString(at(i)));
+      }
+    }
+    return std::move(out).build();
   }
 
   double indexOf(const T& v, double from = 0) const {
@@ -391,6 +396,25 @@ class Array {
   std::vector<Elem>& items() { return *d_; }
 
  private:
+  /// set() at or past the end: appending, or growing with absent values; any
+  /// other index is an error. Static, given the storage: the array's own
+  /// address never escapes a loop that sets elements, so the loop keeps the
+  /// storage in a register (a byte store may alias anything whose address did).
+  [[gnu::noinline]] static void setPastEnd(std::vector<Elem>& d, double index, T value) {
+    if (!(index >= 0) || std::trunc(index) != index) throwRangeError("Invalid array index");
+    size_t i = static_cast<size_t>(index);
+    if (i == d.size()) {
+      d.push_back(static_cast<Elem>(std::move(value)));
+    } else {
+      if constexpr (IsOpt<T>::value) {
+        d.resize(i);
+        d.push_back(static_cast<Elem>(std::move(value)));
+      } else {
+        throwRangeError("Array index out of bounds (Lucent arrays cannot have holes)");
+      }
+    }
+  }
+
   template <class Cmp>
   void mergeSort(Cmp&& cmp) {
     // Stable, and safe against inconsistent comparators (never reads out of

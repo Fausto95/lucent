@@ -330,8 +330,11 @@ function topLevel(checker: ts.TypeChecker, s: ts.Statement, fn: FunctionLike): b
  * analyses and the C++ emitter leave it out.
  */
 export function isToolkitBody(checker: ts.TypeChecker, node: ts.Node): boolean {
-  for (let n: ts.Node | undefined = node.parent; n; n = n.parent)
+  for (let n: ts.Node | undefined = node.parent; n; n = n.parent) {
+    // Native views' JSX is setup code (T48): its functions (handlers, a list's item) are the program's.
+    if (isJsx(n) && !ts.isJsxFragment(n) && nativeTagType(checker, n)) return false;
     if (isJsx(n) && jsxToolkitOf(n, checker)) return true;
+  }
 
   // Compose's composition statements, lifted from the setup's code into its content.
   return inComposition(checker, node);

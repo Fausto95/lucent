@@ -205,6 +205,8 @@ export function runMounted(
       .map((f) => path.join(cpp, "lucent", f)),
     path.join(cpp, "lucent/platform/ios.mm"),
     path.join(cpp, "lucent/platform/ios_ui.mm"),
+    path.join(cpp, "lucent/platform/ios_layout.mm"),
+    path.join(cpp, "lucent/platform/ios_debug.mm"),
   ];
   const generated = [...result.files.keys()]
     .filter((f) => /\.(cpp|mm)$/.test(f))

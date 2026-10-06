@@ -132,8 +132,8 @@ What's next, in order of readiness:
    [T50](#t50).
 3. [T52](#t52) with [TA25](#ta25) and [TA26](#ta26): wrapper ports and the
    views preview (closes G3; needs physical devices).
-4. [T54](#t54) and [T60](#t60), which are ready and independent of the
-   view work.
+4. [T54](#t54) (in review) and [T60](#t60), which is ready and independent
+   of the view work.
 5. A scope decision on [T51](#t51), which as written conflicts with the
    decision against a cross-platform view vocabulary.
 
@@ -411,17 +411,17 @@ report the boundary and floor ratios, which move with the CPU
 devices measure them; a missed target is recorded and decided, never
 quietly weakened.
 
-| Id  | Dimension           | Workload                                          | Gate                                                                                        | State                                              |
-| --- | ------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------------------------- |
-| P1  | Primitive calls     | Boundary `add` and `concat`, 1,000 calls          | Within 1.25x a bare host function (host); within 20% of the fastest framework path (device) | Host checked; device open (T65)                    |
-| P2  | Computation         | The benchmark kernels                             | No regression of the kernel budgets; within 20% of handwritten native for selected kernels  | Host checked; native references open (T54, T65)    |
-| P3  | Binary transport    | `NativeBuffer` handoff of 1 KB, 1 MB and a stream | No payload copy on owned handoff; copies and allocations counted                            | Implemented (T31, T32); device open                |
-| P4  | View frames         | A steady-state wrapper workload                   | p95 frame work within 16.7 ms (60 Hz) or 8.3 ms (120 Hz), under 1% missed                   | Open (T65, devices)                                |
-| P5  | UI isolation        | Busy JavaScript plus a 500 ms compute task        | No equivalent UI stall; lock and queue waits reported                                       | Simulator and emulator evidence (T44); device open |
-| P6  | Teardown and memory | 1,000 mount/dispose and subscribe/cancel cycles   | Owned counts return to baseline, no retained growth                                         | Open (T64)                                         |
-| P7  | Feedback            | A fixture app's edit loop                         | p95 warm diagnostics under 500 ms; check and generation under 1 s                           | Warm check measured at 0.3 s; open (T61)           |
-| P8  | Startup and size    | Empty app, one module, one view, many packages    | Budgets set at first measurement                                                            | Open (T62, T65)                                    |
-| P9  | Reliability         | Sanitizers and stress                             | No use-after-free, deadlock or cross-thread JSI access                                      | Host sanitizers clean; stress open (T64)           |
+| Id  | Dimension           | Workload                                          | Gate                                                                                        | State                                                                   |
+| --- | ------------------- | ------------------------------------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| P1  | Primitive calls     | Boundary `add` and `concat`, 1,000 calls          | Within 1.25x a bare host function (host); within 20% of the fastest framework path (device) | Host checked; device open (T65)                                         |
+| P2  | Computation         | The benchmark kernels                             | No regression of the kernel budgets; within 20% of handwritten native for selected kernels  | Host checked; host native references measured (T54); device open (T65)  |
+| P3  | Binary transport    | `NativeBuffer` handoff of 1 KB, 1 MB and a stream | No payload copy on owned handoff; copies and allocations counted                            | Implemented (T31, T32); device open                                     |
+| P4  | View frames         | A steady-state wrapper workload                   | p95 frame work within 16.7 ms (60 Hz) or 8.3 ms (120 Hz), under 1% missed                   | Open (T65, devices)                                                     |
+| P5  | UI isolation        | Busy JavaScript plus a 500 ms compute task        | No equivalent UI stall; lock and queue waits reported                                       | Simulator and emulator evidence (T44); device open                      |
+| P6  | Teardown and memory | 1,000 mount/dispose and subscribe/cancel cycles   | Owned counts return to baseline, no retained growth                                         | Open (T64)                                                              |
+| P7  | Feedback            | A fixture app's edit loop                         | p95 warm diagnostics under 500 ms; check and generation under 1 s                           | Met on 53 modules (p95: diagnostics 486 ms, check 941 ms, build 959 ms) |
+| P8  | Startup and size    | Empty app, one module, one view, many packages    | Budgets set at first measurement                                                            | Open (T62, T65)                                                         |
+| P9  | Reliability         | Sanitizers and stress                             | No use-after-free, deadlock or cross-thread JSI access                                      | Host sanitizers clean; stress open (T64)                                |
 
 Benchmarks keep raw samples, report median, p95 and p99, separate
 throughput from latency, interleave implementations after warmup, verify
@@ -463,6 +463,58 @@ whole manifest. `withLucent` adds the app's `node_modules` to
 `resolver.nodeModulesPaths`: a proxy's bare requires now resolve from the
 proxy's directory, which a `LUCENT_OUT` outside the app never connects to
 the app's packages.
+
+**2026-10-06: CI jobs time out past their slowest runs.** Each job
+stops at two to three times its longest run on cold caches (the maxima of
+the last hundred runs) rather than at GitHub's six hours, and the iOS
+app's build step at 30 minutes, after which the job keeps xcodebuild's
+whole log as an artifact. _Why:_ on 2026-10-05 an iOS simulator build
+hung in xcodebuild for over 40 minutes, against 7 on average, holding one
+of the five macOS runners while the other runs queued; its page showed
+nothing, the output going through `tail`. _Changed:_ a hung job fails
+within its limit; the SDK coverage step keeps its own 45 minutes, inside
+its job's 75.
+
+**2026-10-05: Strings keep an atomic reference count; integer ranges are
+flow-insensitive.** A string is one allocation (or none, up to 15 Latin-1
+units), and its reference count stays atomic rather than non-atomic for
+strings that never leave the Lucent thread, as the earlier TODO proposed.
+Integer inference proves ranges over a local's writes without following
+statement order. _Why:_ strings cross threads (compute contexts, the JS
+thread), and a non-atomic count measured no faster on the kernels (within
+noise on `strings`, `wordCount` and `murmur`) once most of their strings
+became inline; a flow-insensitive range needs no control-flow analysis and
+already proves the bounded remainders the profiles showed, while staying
+sound (`acc += x; acc %= m` is left a double). _Changed:_ T54's string and
+representation items.
+
+**2026-10-05: Native views are laid out by a `Flex` tag.** A subtree
+Lucent lays out with Yoga is written as `<Flex style={…}>` from
+`lucent:ui`, backed by runtime classes (a UIView subclass, a ViewGroup);
+each child's Yoga style is its `layout={{…}}` attribute, refused outside
+a Flex. A plain UIView stays unmanaged, and a native container keeps
+laying out its own children. _Why:_ the design asks for an explicitly
+created layout container, and a tag makes ownership a matter of the
+element, never of a prop (a width must not switch who writes a frame);
+one `layout` object never clashes with a native prop of the same name
+(Android's `setPadding`). Not a cross-platform view vocabulary (T51):
+the children stay each platform's views. _Changed:_ T50's scope (a
+`Flex` tag and `layout`, no automatic layout of plain parents).
+
+**2026-10-04: Same-typed Swift initializers are static factories.** Swift
+initializers whose parameters' TypeScript types are the same, only their
+labels differing (KeychainAccess's `init(service:)` and
+`init(accessGroup:)`), are declared as static factories named after their
+labels (`withService`, `withAccessGroup`), not as `constructor`
+overloads, but for one whose arguments have no labels, which stays the
+constructor as Swift calls it with bare arguments; `new` with the others'
+arguments is an error naming them. _Why:_
+TypeScript resolves identical overloads to the first one declared, so
+`new Keychain("x")` silently called `init(accessGroup:)`, found binding
+the package in the bare example (TA32). _Changed:_ the iOS declarations
+of such classes (CryptoKit's P256 keys and signatures, whose
+representations are factories now, `withRawRepresentation`); Objective-C
+initializers are not separated yet.
 
 **2026-10-04: Native views' JSX derives children; no adapters.** A view
 class takes JSX children through the insert-at-index method its
@@ -877,8 +929,8 @@ small fixes found on the way.
 | Task          | Title                                                             | Needs    | Status               |
 | ------------- | ----------------------------------------------------------------- | -------- | -------------------- |
 | [T48](#t48)   | Derive general SDK-view JSX rules and diagnostics                 | —        | in review            |
-| [T49](#t49)   | Add conditional and keyed-list reactive lowering                  | T48      | waiting              |
-| [T50](#t50)   | Integrate Yoga with explicit layout-owner boundaries              | T48      | waiting (maintainer) |
+| [T49](#t49)   | Add conditional and keyed-list reactive lowering                  | T48      | in review            |
+| [T50](#t50)   | Integrate Yoga with explicit layout-owner boundaries              | T48      | in review            |
 | [T51](#t51)   | Implement the small Lucent UI library and examples                | T49, T50 | waiting (maintainer) |
 | [T52](#t52)   | Complete useful wrapper ports and certify a preview               | —        | ready (maintainer)   |
 | [TA25](#ta25) | Fix the bare app's FlatList crash from a second react-native copy | —        | in review            |
@@ -963,23 +1015,35 @@ prop, event or measuring entry.
 **Goal:** Make conditional and keyed-list UI update only what changed,
 keeping each item's identity and lifetime.
 
-- **Status:** open, waiting on open dependencies.
+- **Status:** in review (2026-10-05): every item below passes on its
+  branch.
 - **Area:** Views and compiler.
 - **Needs:** T42 (done), [T48](#t48) (open).
 - **Verify:** V1, V2, V3.
-- **Where:** UI control-flow lowering, the keyed scope reconciler and the
-  test backend.
+- **Where:** `packages/runtime/cpp/lucent/ui_children.h` (the keyed
+  reconciler and branches) and `test/ui_children_test.cpp` (the reference
+  backend); `packages/compiler/src/emit/native-jsx.ts` (lowering) and
+  `sdk/view-rules.ts` (remove and move by rule);
+  [views.md](docs/design/views.md#platform-views-as-jsx).
 
-- [ ] Implement conditional insertion and removal, and keyed item scopes
-      with reactive item replacement for a preserved key.
-- [ ] Define duplicate keys, array identity and mutation notification,
-      nested scopes, cleanup, and stable component state across reorders.
-- [ ] Verify that `[a,b,c] → [c,a,b]` causes no create or delete and one
+- [x] Implement conditional insertion and removal, and keyed item scopes
+      with reactive item replacement for a preserved key: native view JSX
+      takes `{cond && <X />}`, `{c ? <X /> : <Y />}` and
+      `{items.map((item) => <X key={item.id} />)}`, mounted on Mac Catalyst
+      (`native-jsx-flow-run.test.ts`) and compiled for Android against
+      jni.h.
+- [x] Define duplicate keys, array identity and mutation notification,
+      nested scopes, cleanup, and stable component state across reorders
+      (views.md, "Children that come and go"): arrays and items are
+      values; a duplicate or NaN key throws and keeps the children; each
+      item and branch is a scope of its own, ended once.
+- [x] Verify that `[a,b,c] → [c,a,b]` causes no create or delete and one
       indexed move on the test backend, and that a title change affects only
-      the retained item's binding.
-- [ ] Add reorder, delete and reinsert stress tests with active tasks and
-      listeners; measure before adding more elaborate move-minimizing
-      algorithms.
+      the retained item's binding; on Catalyst, the kept labels are the
+      same views.
+- [x] Add reorder, delete and reinsert stress tests with active tasks and
+      listeners (500 random rounds, plain and sanitized); measure before
+      adding more elaborate move-minimizing algorithms.
 
 **Done when:** UI control flow preserves identity and lifetimes and updates
 only the affected operations under the specified mutation model.
@@ -998,24 +1062,32 @@ only the affected operations under the specified mutation model.
 **Goal:** Lay out Lucent subtrees with React Native's Yoga, with exactly one
 owner writing each frame.
 
-- **Status:** open, waiting on open dependencies.
+- **Status:** in review (2026-10-05): every item below passes on its
+  branch; the physical-device run (V8) is the maintainer's.
 - **Area:** Views.
 - **Needs:** T46 (done), T47 (done), [T48](#t48) (open).
 - **Verify:** V1, V4, V5, V8.
-- **Where:** UI layout integration and adapters, backend and device layout
-  scenarios.
+- **Where:** `packages/runtime/cpp/lucent/layout.h` (the core) and
+  `ui_flex.h`, `platform/ios_layout.mm`, `platform/android_layout.cpp`
+  with `LucentFlexView.java` (the adapters); `lib/sdk/ui.d.ts` (`Flex`,
+  `LayoutStyle`) and `emit/native-jsx.ts` (lowering);
+  [views.md](docs/design/views.md#platform-views-as-jsx).
 - **Needs the maintainer:** physical devices (V8).
 
-- [ ] Use React Native's Yoga dependency, and avoid a second, conflicting
-      Yoga ABI.
-- [ ] Keep outer Fabric layout, the Lucent Yoga subtree and native-container
+- [x] Use React Native's Yoga dependency, and avoid a second, conflicting
+      Yoga ABI: `layout.h` includes React Native's `<yoga/Yoga.h>` (the
+      app's pod and prefab); the runtime tests build its sources.
+- [x] Keep outer Fabric layout, the Lucent Yoga subtree and native-container
       child layout separate; a width prop must not silently switch the
-      ownership mode.
-- [ ] Implement layout and measure invalidation and frames through the
-      approved adapters, including native content changes and constraints.
-- [ ] Test nested native and Lucent containers, margins, padding and gaps,
+      ownership mode: the `Flex` tag decides (decisions log, 2026-10-05).
+- [x] Implement layout and measure invalidation and frames through the
+      approved adapters, including native content changes and constraints:
+      Yoga's dirty marks, the mount's `Content` listeners, leaves measured
+      by `sizeThatFits:`, Auto Layout or `View.measure`.
+- [x] Test nested native and Lucent containers, margins, padding and gaps,
       RTL and density, and confirm that only one owner writes each child's
-      frame.
+      frame: `layout_test.cpp` and the Catalyst mount
+      (`native-jsx-layout-run.test.ts`); Android compile-checked.
 
 **Done when:** native and Yoga layouts compose with predictable ownership,
 no competing frame writers and no perpetual measurement loop.
@@ -1196,18 +1268,18 @@ lists, gestures, media, background targets), the distribution matrix, the
 no-catalog audit, stress tests, physical-device budgets, complete docs and a
 green CI. The gate closes with T67.
 
-T54, T60 and T28's binding follow-ups (TA30 to TA34) are ready now (CI has
+T54 is in review; T60 and T28's binding follow-ups (TA30 to TA34) are ready now (CI has
 been green on main since 2026-10-03). The rest follow G1 and G3 work.
 Several tasks need physical devices, which only the maintainer can run.
 
 | Task          | Title                                                           | Needs                   | Status               |
 | ------------- | --------------------------------------------------------------- | ----------------------- | -------------------- |
-| [T54](#t54)   | Implement measured compiler and runtime optimizations           | —                       | ready                |
+| [T54](#t54)   | Implement measured compiler and runtime optimizations           | —                       | in review            |
 | [T55](#t55)   | Implement native recycled and virtualized lists                 | T49, T50, T52           | waiting (maintainer) |
 | [T56](#t56)   | Add native gestures and frame-driven animation facilities       | T51, T52                | waiting (maintainer) |
 | [T59](#t59)   | Prove media pipelines, high-rate streams and callback executors | T52                     | waiting (maintainer) |
 | [T60](#t60)   | Implement headless, background and additional native targets    | —                       | ready (maintainer)   |
-| [T61](#t61)   | Finish the editor, doctor, SDK and debugging workflows          | T48                     | waiting              |
+| [T61](#t61)   | Finish the editor, doctor, SDK and debugging workflows          | T48                     | in review            |
 | [T62](#t62)   | Run the distribution and supported-version compatibility matrix | T52, T60, T61           | waiting              |
 | [T63](#t63)   | Run the final no-catalog audit, including views and extensions  | T28, T48, T50           | waiting              |
 | [T64](#t64)   | Run lifetime, concurrency and Fabric stress validation          | T49, T55, T59, T60      | waiting (maintainer) |
@@ -1215,8 +1287,8 @@ Several tasks need physical devices, which only the maintainer can run.
 | [T66](#t66)   | Complete user documentation and migration examples              | T51, T52, T60, T61      | waiting              |
 | [TA30](#ta30) | Bind Kotlin function types and callback properties              | —                       | in review            |
 | [TA31](#ta31) | Finish the Kotlin shim shapes                                   | —                       | in review            |
-| [TA32](#ta32) | Read Swift packages and the iOS target from the project         | —                       | ready                |
-| [TA33](#ta33) | Bind the remaining Swift shapes                                 | —                       | ready                |
+| [TA32](#ta32) | Read Swift packages and the iOS target from the project         | —                       | in review            |
+| [TA33](#ta33) | Bind the remaining Swift shapes                                 | —                       | in review            |
 | [TA34](#ta34) | Turn a Java Throwable into a Lucent Error                       | —                       | ready                |
 | [T67](#t67)   | Pass the integrated production-candidate gate                   | T62, T63, T64, T65, T66 | waiting (maintainer) |
 
@@ -1229,42 +1301,87 @@ The Needs column lists only open dependencies.
 **Goal:** Make generated code faster where profiles show it matters, without
 changing JavaScript semantics.
 
-- **Status:** open, ready to start.
+- **Status:** in review (2026-10-05): every item below passes on its
+  branch.
 - **Area:** Compiler, with runtime and verification review.
 - **Needs:** T10 (done), T30 (done), T32 (done), T53 (done).
 - **Verify:** V1, V2, V3, V7.
-- **Where:** Optimization passes and targeted runtime hot paths.
+- **Where:** `emit/integers.ts` (range analysis), `ir/cpp.ts` (int64
+  writes, direct callbacks), `ir/verify.ts`, the runtime's `jsstring`,
+  `array.h`, `number.h` and `core.h`.
 
-- [ ] Profile first; prioritize specialization and representation
-      propagation, escape and allocation reduction, retain/release removal,
-      devirtualization, conversion elimination and proven bounds and loop
-      optimizations.
-- [ ] For each pass, add a must-optimize fixture, a similar
+- [x] Profile first: the kernels sampled natively (`sample` on macOS)
+      showed string allocation and 32-byte `String` moves (`strings`,
+      `wordCount`), a data-dependent branch in `toInt32` (`crc32`), a
+      double remainder chain (`xorshift`) and a `std::function` comparator
+      (`sortNumbers`). Implemented, in that order of gain: allocation
+      reduction (one allocation per string, none up to 15 Latin-1 units;
+      `join` sized up front), representation propagation (a range analysis
+      keeps bounded arithmetic in int64), devirtualization (an arrow passed
+      straight to a runtime method is the lambda itself), conversion
+      elimination (one-branch `toInt32`, integer `numberToString` with
+      `to_chars`). Specialization, object escape analysis, retain/release
+      removal and bounds-check elimination did not show in the profiles:
+      for-of copies a string handle per element (free for inline strings),
+      and removing `crc32`'s bounds check needs the table's length, which
+      flow-insensitive analysis cannot prove.
+- [x] For each pass, add a must-optimize fixture, a similar
       must-not-optimize fixture, verifier coverage, and a comparison of
-      baseline and optimized observable results.
-- [ ] Preserve JavaScript numbers, UTF-16, order, errors and identity, and
+      baseline and optimized observable results:
+      `test/ir/optimizations.test.ts` (which locals become int64 and which
+      stay double, which callbacks are lambdas), `e2e/cases/optimizations`
+      (the same functions against JavaScript: -0, NaN, 2^53, ToInt32 edges,
+      inline and heap and two-byte strings as `Map` keys, callbacks that
+      mutate or throw), the verifier's integer-register rule, and the
+      runtime's `stringStorage` and `indexes` checks.
+- [x] Preserve JavaScript numbers, UTF-16, order, errors and identity, and
       keep floating-point contraction off; never use fast-math to win a
-      benchmark.
-- [ ] Report runtime gain, allocation and copy effects, native code size and
+      benchmark. Arithmetic is an int64 only where every value is an exact
+      integer within ±2^53 that is never -0; a callback is a lambda only
+      where nothing else sees the function value; `-ffp-contract=off`
+      throughout. The e2e suite, the runtime tests and ASan, UBSan and TSan
+      pass.
+- [x] Report runtime gain, allocation and copy effects, native code size and
       build time; cap specialization growth and keep checks where the proof
-      is insufficient.
-- [ ] Carried over from the earlier TODO: find why `sieve` is about 21x
+      is insufficient. Host Hermes on an M5 Pro, speedup against JavaScript,
+      main → branch: `crc32` 3.4x → 5.9x, `xorshift` 7.8x → 22.8x,
+      `wordCount` 2.9x → 4.5x, `strings` 2.4x → 4.4x, `sortNumbers` 10x →
+      14.2x, `murmur` 15.8x → 20.8x, the rest unchanged; `strings1000` 1.25x →
+      1.18x a C++ TurboModule's call, `structsOut1000` 2.79x → 2.73x (budget
+      2.75x). A long string is one allocation instead of two, a short one
+      none; `join` allocates once. Generated objects of five e2e modules 633
+      KB → 456 KB (fewer `lucent::Fn` wrappers), runtime objects 997 KB →
+      986 KB, serial compile time unchanged (4.0 s and 11 s). No
+      specialization was added, so there is no growth to cap; bounds checks
+      stay.
+- [x] Carried over from the earlier TODO: find why `sieve` is about 21x
       faster than JavaScript on macOS but about 4.8x on the Linux CI runner
-      (clang and libstdc++): `Array<boolean>` storage, the allocator,
-      vectorization.
-- [ ] Carried over from the earlier TODO: one allocation per string (units
-      inline with the header, a non-atomic reference count for strings that
-      never leave the Lucent thread); allocation dominates `wordCount` and
-      `strings`, which are only 2–3x faster than JavaScript.
+      (clang and libstdc++). On baseline x86-64 (no SSE4.1, as CI builds)
+      `std::trunc` is a call into libm, made for every `composite[j] = true`
+      with a double index; and libstdc++ against libc++ costs it more again.
+      Measured in an x86-64 container (emulated, so relative only): `sieve`
+      11.5 ms on main, 7.9 ms with the index check that converts to an
+      integer and back there (`indexBelow`); on ARM, `frintz` is one
+      instruction, so the check keeps it.
+- [x] Carried over from the earlier TODO: one allocation per string (units
+      inline with the header). The reference count stays atomic (decision
+      of 2026-10-05).
 
 **Done when:** improvements are measured, semantics-preserving and within
 the runtime, size and build budgets, rather than only producing shorter C++.
 
 **Notes:**
 
+- Against handwritten C++ (the same kernels, written natively, on the same
+  host): `fnv1a`, `xorshift`, `mandelbrot`, `sortNumbers`, `wordCount` and
+  `strings` are within 20% or faster; `murmur`, `crc32` and `sieve` are
+  about 2x, held back by a per-character `+=`, a `number[]` table of doubles
+  with its bounds check, and a double loop index. Those are the next
+  candidates: element representation for local arrays, and counters bounded
+  by their loop's condition.
 - T10's host tooling is done; its physical-device baselines are deferred to
   the maintainer and belong to T65. Boundary budgets have thin margins:
-  `structsOut1000` measured 2.56–2.71x against 2.75x on the development
+  `structsOut1000` measured 2.56–2.79x against 2.75x on the development
   machine, and `structsIn1000` 1.63–1.67x on the CI runner, now against
   1.75x (decision of 2026-10-03). Design reference: section 13.4.
 
@@ -1411,7 +1528,8 @@ count.
 **Goal:** Let a developer build and diagnose a module or view through one
 coherent workflow.
 
-- **Status:** open, waiting on open dependencies.
+- **Status:** in review (2026-10-06): every item below passes on its
+  branch, one PR per slice.
 - **Area:** Tooling.
 - **Needs:** T23 (done), T24 (done), T40 (done), T41 (done), [T48](#t48)
   (open).
@@ -1419,24 +1537,46 @@ coherent workflow.
 - **Where:** CLI and editor integration, JSON schemas, tree and ownership
   debugging output.
 
-- [ ] Add navigation to a declaration's origin, availability and ownership
+- [x] Add navigation to a declaration's origin, availability and ownership
       diagnostics, quick fixes, SDK mapping explanations and used-symbol
-      upgrade reports.
-- [ ] Have `doctor` read the shared build and artifact identities, and
+      upgrade reports: every SDK declaration's doc names what it calls
+      natively and how its mapping differs (hover, go-to-definition,
+      `sdk show`); diagnostics carry quick fixes where the fix is exact,
+      which the ts-plugin offers; availability (LUCENT3007) and ownership
+      (LUCENT3030, 3031) diagnostics and `lucent sdk diff`'s used-symbol
+      report already existed.
+- [x] Have `doctor` read the shared build and artifact identities, and
       explain dependency conflicts, cache misses, missing targets and stale
-      installations.
-- [ ] Show view trees, effect updates, source-mapped native failures, copy
+      installations: `last-build`, `cache` (against the record before,
+      which the build keeps), `native-targets` and `native-build` (the
+      newest Xcode or Gradle build read for the identity Lucent compiles
+      in, judged as the app judges it).
+- [x] Show view trees, effect updates, source-mapped native failures, copy
       and queue traces and owned resources, without exposing implementation
-      noise in ordinary application UI.
-- [ ] Validate TTY, non-TTY and JSON output, `init`, new module and new
+      noise in ordinary application UI: effect runs are trace spans at their
+      `.lucent.ts` line (`lucent trace` lists the bindings that took the
+      most), and a debug build's `__lucentDebug.snapshot()` gives the live
+      counts of what the runtime owns and each mount's native view tree;
+      copy and queue traces and `#line`-mapped failures already existed.
+- [x] Validate TTY, non-TTY and JSON output, `init`, new module and new
       view, transitive workspace edits, cold failures and recovery; measure
-      the warm feedback targets.
-- [ ] Carried over from T41: check that view loading runs the same
+      the warm feedback targets: `output-matrix.test.ts` runs every command
+      (one schema-valid JSON document or a refusal; no escape codes outside
+      a terminal; the terminal's own output stays covered by the Ink tests),
+      `lucent new view` (internal, behind LUCENT_VIEWS=fabric),
+      `workspace-build.test.ts`, and `scripts/bench-build.ts --check`
+      (p95 against `bench-build-budgets.json`; 2026-10-06 on 53 modules:
+      diagnostics 486 ms, check 941 ms, build 959 ms, all within budget;
+      close enough to their budgets that it is no CI gate on shared runners).
+- [x] Carried over from T41: check that view loading runs the same
       stale-native identity check as modules (T41 left views to the view
-      work), or add it.
-- [ ] Carried over from the full SDK plan: run `lucent sdk coverage --all`
+      work), or add it: it does (a view-only module's proxy checks before
+      it makes a component; its props, events and commands are in its API
+      hash), proven by `view-identity.test.ts`.
+- [x] Carried over from the full SDK plan: run `lucent sdk coverage --all`
       in CI and show the top 20 skip reasons in the job summary (CI checks
-      five iOS modules and `android.*` today).
+      five iOS modules and `android.*` today): `--all` and `--summary`; 526
+      modules locally, 53 unreadable for the simulator and listed.
 
 **Done when:** a developer can build and diagnose a module or view through
 one coherent workflow, and machine-readable consumers share its schema.
@@ -1729,17 +1869,37 @@ Kotlin shim tests, or refused with a diagnostic naming the member.
 **Goal:** Bind Swift packages an app adds, against the iOS version the app
 targets.
 
-- **Status:** open, ready to start.
+- **Status:** in review (2026-10-04): every item below passes on its
+  branch.
 - **Area:** Bindings, Apple host, build.
 - **Needs:** none.
 - **Verify:** V1, V4, V5.
 - **Where:** `packages/bindgen/src/provider.ts` (iOS artifacts), the Xcode
   project reader.
 
-- [ ] Discover Swift Package Manager modules the app's Xcode project
-      resolves, as pods are, keyed by their resolved versions.
-- [ ] Extract against the deployment target the project sets, not a fixed
-      one.
+- [x] Discover Swift Package Manager modules the app's Xcode project
+      resolves, as pods are, keyed by their resolved versions. The project
+      file names the packages it references, Package.resolved their pins;
+      Lucent clones each at its revision and builds its library products
+      with `xcodebuild` (decided 2026-10-04: Lucent builds them, rather
+      than reading Xcode's DerivedData, so they bind before the app's
+      first build), cached per revision, target and Xcode. Modules are
+      `spm:identity@version`, and LucentNative links the packages the code
+      imports at the app's exact version (decided 2026-10-04: LucentNative
+      owns the link, the app target does not add the product, since a
+      static package linked by both duplicates its symbols).
+- [x] Extract against the deployment target the project sets, not a fixed
+      one: the app target's `IPHONEOS_DEPLOYMENT_TARGET` (the expo
+      example's 16.4) is the extraction target, and the oldest iOS the
+      availability checks and the generated pod use (never below 15.1).
+
+`packages/lucent/test/swift-packages.test.ts` adds a package tagged 1.0.0
+to an app deployed to iOS 16.4: it binds from `spm:gauges@1.0.0` read for
+`arm64-apple-ios16.4-simulator`, its 16.4 API needs no check and its iOS
+17 one does (LUCENT3007, "apps run from iOS 16.4"), and LucentNative's
+podspec links the package at 1.0.0. The bare example references
+KeychainAccess 4.2.2: its SDK probe stores, reads and removes a value
+through it.
 
 **Done when:** an app's Swift package binds by rule, and an API newer than
 the app's target needs an availability check.
@@ -1752,26 +1912,59 @@ the app's target needs an availability check.
 
 **Goal:** Bind or precisely refuse the Swift shapes still left out.
 
-- **Status:** open, ready to start.
+- **Status:** in review (2026-10-04): every item below passes on its
+  branch.
 - **Area:** Bindings, Apple host.
 - **Needs:** none.
 - **Verify:** V1, V4.
 - **Where:** `packages/bindgen/src/swift.ts`, `ios.ts`, the Swift shims.
 
-- [ ] Tuples, which the extractor skips (now explained when called).
-- [ ] Functions returned by or passed to Swift (LUCENT2002, "fn values
-      cannot cross to Swift yet").
-- [ ] Factory initializers Swift imports as `init`, which the extractor
-      drops (recheck first: recorded 2026-09-23).
-- [ ] Members Swift imports onto CoreFoundation-style handles
-      (`cgImage.width`; recheck first).
-- [ ] A subclass's initializers inherited from a class whose module is only
+- [x] Tuples, which the extractor skips (now explained when called).
+      A Swift tuple is a TypeScript tuple, its labels the elements' names
+      (`(min: Int, max: Int)` → `[min: number, max: number]`), crossing a
+      shim as an array of its elements' objects, both ways
+      (`swift-shapes.test.ts`). Tuples of optional values or C structs are
+      refused, named.
+- [x] Functions returned by or passed to Swift (LUCENT2002, "fn values
+      cannot cross to Swift yet"). A closure crosses a shim as an
+      Objective-C block (`@convention(block)`): a Lucent function given,
+      escaping or not, is the block the glue makes of it, which Swift
+      calls as a closure; a closure Swift returns is cast to a block,
+      which Lucent calls. Closures taking or giving other than numbers,
+      booleans, strings and Objective-C objects are refused, named.
+- [x] Factory initializers Swift imports as `init`, which the extractor
+      drops (recheck first: recorded 2026-09-23). Still dropped on
+      recheck: `+widgetWithLabel:` is now a constructor sent to the class
+      (`[WDGWidget widgetWithLabel:…]`, `factory` in the schema); a
+      subclass calling it as `super(…)` is refused, named.
+- [x] Members Swift imports onto CoreFoundation-style handles
+      (`cgImage.width`; recheck first). Still missing on recheck (CGImage
+      declared nothing). The C functions Swift imports as a handle's
+      members are read from the module's API notes and headers'
+      `swift_name` attributes (CoreGraphics: 566): properties (their
+      getter, and setter), methods (the object where the name puts
+      `self`), static members and initializers, each a C call; a
+      Create/Copy function's result is owned. A failable initializer, or a
+      function whose Swift name Lucent does not find, is left out, said why.
+- [x] A subclass's initializers inherited from a class whose module is only
       named: today `new Dial(frame)` fails with TS2674 (UIView's
       constructor is protected) until UIKit is imported. Type them, or say
-      to import the superclass's module.
+      to import the superclass's module. The error now says so: the dial's
+      initializers are UIView's, from lucent:ios/UIKit, which no file
+      imports; a bare import declares them (`unknown-library.test.ts`).
 
 **Done when:** each shape binds by rule, or its diagnostic names the member
 and what to do.
+
+**Notes:**
+
+- Found after (2026-10-05): a Swift `inout` parameter was bound as a value,
+  its shim not compiling (a module's own graph marks it in the
+  declaration only); it is skipped, said why. Of an overlay's Swift
+  overloads of one name on an Objective-C class, only the first was kept
+  (`NSCoder.decodeTopLevelObject(forKey:)`, `RunLoop.schedule(after:…)`
+  were dropped unsaid); all are kept, an Objective-C member of that name
+  still winning.
 
 <a id="ta34"></a>
 
@@ -1780,18 +1973,27 @@ and what to do.
 **Goal:** Let adapters reject with the `Error` a thrown Java exception
 becomes, its `code` kept.
 
-- **Status:** open, ready to start.
+- **Status:** in review (2026-10-04): every item below passes on its
+  branch.
 - **Area:** Runtime, Android host.
 - **Needs:** none.
 - **Verify:** V1, V3.
 - **Where:** `lucent:android`, `packages/runtime/cpp/lucent/platform/android.cpp`
   (`errorOf`).
 
-- [ ] Add a `lucent:android` function taking a `Throwable` and returning
+- [x] Add a `lucent:android` function taking a `Throwable` and returning
       the `Error` Lucent makes of a thrown one (`name`, `message`, `code`
-      as the class name).
-- [ ] Use it in an adapter test where a callback API reports failure with a
-      `Throwable`.
+      as the class name): `errorOf(throwable)`. Unlike a rethrow, it
+      leaves a Lucent error the exception carries with it, so reading the
+      same `Throwable` twice gives the same error.
+- [x] Use it in an adapter test where a callback API reports failure with a
+      `Throwable`: `android-throwable-error.test.ts`, on the desktop JNI
+      host, rejects a `fromCallback` adapter with the error a thrown
+      `IllegalStateException` becomes, `code` included, and reads a
+      message-less exception's as its class name. A Lucent error thrown to
+      Kotlin by a suspend function argument and handed back as the
+      `Throwable` Kotlin caught reads as that error itself (`===`, its
+      `RangeError` name kept).
 
 **Done when:** an adapter's rejection has the same `code` as a thrown
 exception's.
@@ -2320,9 +2522,9 @@ Last recorded runs:
   A two-value `onChange` closure does not type-check, because TypeScript
   tries the one-value overload first.
 - Compose: class names that clash keep the first package's.
-- Native views' JSX (T48) has fixed children (conditional and keyed are
-  [T49](#t49)'s) and no layout for a plain view's children until Yoga
-  ([T50](#t50)); its rules read declarations, not behavior (Android's
+- Native views' JSX (T48): a plain view's children have no layout (a
+  `Flex`'s are Yoga's, [T50](#t50)), and a list's item is one element
+  ([T49](#t49)); its rules read declarations, not behavior (Android's
   AdapterView declares `addView(View, int)` and throws from it).
 - The bare app's FlatList crash ([TA25](#ta25)) and the iOS native-only
   slot move ([TA26](#ta26)) are in review.

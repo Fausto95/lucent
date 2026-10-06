@@ -79,6 +79,10 @@ export function run({ root, flags, positionals, out }: Invocation): number {
   }
   fs.mkdirSync(path.dirname(target), { recursive: true });
   fs.writeFileSync(target, wanted.length ? platformModule(name, wanted) : sharedModule(name));
+  if (out.json) {
+    out.data({ files: [file], import: `import { hello } from "./src/${name}.lucent";` });
+    return 0;
+  }
   out.print(`${t.success(t.symbols.ok)} ${file}`);
   const missing = wanted.length ? platforms.find((p) => !wanted.includes(p)) : undefined;
   if (missing)
