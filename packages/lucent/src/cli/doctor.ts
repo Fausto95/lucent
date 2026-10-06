@@ -338,7 +338,7 @@ function gradleTask(root: string, expo: boolean): Check {
     : fail(
         "gradle-task",
         "Lucent Gradle task",
-        "android/app/build.gradle does not apply it, so Gradle builds may use an old .lucent/native",
+        `${path.relative(root, file)} does not apply it, so Gradle builds may use an old .lucent/native`,
         expo
           ? "run expo prebuild again (the Lucent config plugin adds it), or lucent init"
           : "run lucent init",

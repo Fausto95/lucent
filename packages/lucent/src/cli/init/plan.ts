@@ -5,7 +5,6 @@ import { withLucentTsconfig } from "../tsconfig.ts";
 import {
   addExpoPlugin,
   applyGradleTask,
-  GRADLE_LINE,
   HELLO,
   ignoreNativePackage,
   linkNativePackage,
@@ -85,21 +84,14 @@ export function planInit(root: string): InitPlan {
     }
   } else {
     const gradleWhy = "run lucent build before every Android build";
-    if (fs.existsSync(path.join(root, "android/app/build.gradle")))
+    // Groovy first, as Expo picks it.
+    const gradle = first(root, ["android/app/build.gradle", "android/app/build.gradle.kts"]);
+    if (gradle)
       change(
-        "android/app/build.gradle",
+        gradle,
         gradleWhy,
-        applyGradleTask(read(root, "android/app/build.gradle")!),
+        applyGradleTask(read(root, gradle)!, gradle.endsWith(".kts") ? "kt" : "groovy"),
       );
-    else if (
-      fs.existsSync(path.join(root, "android/app/build.gradle.kts")) &&
-      !read(root, "android/app/build.gradle.kts")!.includes("lucent.gradle")
-    )
-      manual.push({
-        file: "android/app/build.gradle.kts",
-        why: gradleWhy,
-        snippet: `apply(from = ${GRADLE_LINE.replace(/^apply from: /, "")})`,
-      });
     const linked = linkNativePackage(read(root, "react-native.config.js"));
     const linkWhy = "autolink the generated native package (.lucent/native)";
     if (linked === "manual")
