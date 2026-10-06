@@ -11,6 +11,16 @@ function compileSource(source: string, name = "sample") {
   return compile([file]);
 }
 
+/** `source` with `edits` applied, the last first. */
+function applied(
+  source: string,
+  edits: readonly { start: number; length: number; text: string }[],
+) {
+  return [...edits]
+    .sort((a, b) => b.start - a.start)
+    .reduce((s, e) => s.slice(0, e.start) + e.text + s.slice(e.start + e.length), source);
+}
+
 function codes(source: string): string[] {
   return compileSource(source).diagnostics.map((d) => d.code);
 }
@@ -166,6 +176,23 @@ describe("diagnostics", () => {
 
   it("rejects throwing non-errors", () => {
     expect(codes('export function f(): number { throw "nope"; }')).toContain("LUCENT1006");
+  });
+
+  it("fixes a thrown string by making it an Error's message", () => {
+    const source = 'export function f(): number { throw "nope"; }';
+    const [d] = compileSource(source).diagnostics;
+
+    expect(d!.quickFix?.title).toBe('Throw new Error("nope")');
+    const fixed = applied(source, d!.quickFix!.edits);
+    expect(fixed).toBe('export function f(): number { throw new Error("nope"); }');
+    expect(compileSource(fixed).diagnostics).toEqual([]);
+  });
+
+  it("offers no fix for a thrown value that is no string", () => {
+    const [d] = compileSource("export function f(): number { throw 42; }").diagnostics;
+
+    expect(d).toMatchObject({ code: "LUCENT1006" });
+    expect(d!.quickFix).toBeUndefined();
   });
 
   it("rejects inexact object types", () => {

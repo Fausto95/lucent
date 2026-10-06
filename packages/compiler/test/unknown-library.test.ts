@@ -421,8 +421,18 @@ describe("an unknown library's view on iOS", () => {
             `${prefix}Dial's initializers are UIView's, inherited from lucent:ios/UIKit, which no file imports: only its name is known.`,
           ),
           fix: `import "lucent:ios/UIKit" (a bare import is enough) to make a ${prefix}Dial with UIView's initializers`,
+          quickFix: {
+            title: 'Add import "lucent:ios/UIKit"',
+            edits: [{ start: expect.any(Number), length: 0, text: '\nimport "lucent:ios/UIKit";' }],
+          },
         }),
       );
+
+      // After the file's last import.
+      const d = r.diagnostics.find((x) => x.quickFix?.title === 'Add import "lucent:ios/UIKit"')!;
+      const source = unimported["dial.ios.lucent.tsx"]!;
+      const lastImport = source.lastIndexOf("import ");
+      expect(d.quickFix!.edits[0]!.start).toBe(source.indexOf("\n", lastImport));
     },
     600_000,
   );

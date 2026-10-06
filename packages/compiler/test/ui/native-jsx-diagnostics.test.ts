@@ -69,6 +69,10 @@ describe("native view JSX diagnostics", () => {
           "`title` is props.title as setup first read it: the attribute would never change",
         ),
         fix: "read props.title in the attribute, which keeps it up to date",
+        quickFix: {
+          title: "Read props.title in the attribute",
+          edits: [{ start: expect.any(Number), length: "title".length, text: "props.title" }],
+        },
       }),
     ]);
   });
