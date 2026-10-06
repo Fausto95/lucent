@@ -212,6 +212,16 @@ class Given {
   ) {}
 }
 
+class Method {
+  toJSON(): string {
+    return "method";
+  }
+}
+
+class Shadowing extends Method {
+  override toJSON = (): string => "field";
+}
+
 class Dropped {
   keep = 1;
   toJSON = (): number | undefined => undefined;
@@ -232,6 +242,7 @@ export function toJsonField(): string {
     JSON.stringify({ d: new Dropped(), a: [arrow] }),
     JSON.stringify([new Dropped()]),
     JSON.stringify(new NotCalled()),
+    JSON.stringify([new Shadowing(), new Method()]),
   ].join(" ");
 }
 
