@@ -1,0 +1,111 @@
+---
+title: "What TypeScript does Lucent accept?"
+sidebar_label: Language
+description: "A subset of strict TypeScript whose code behaves as it does in JavaScript, or fails to compile with a `LUCENT` diagnostic."
+kind: reference
+---
+
+A module is a `*.lucent.ts` file. Lucent compiles it ahead of time to C++, so every value needs a type that is known when the app builds. These pages give the exact rules of the TypeScript a module can use.
+
+## Example
+
+<Tabs>
+<TabItem label="module">
+
+```ts title="tally.lucent.ts"
+export type Tally = { word: string; count: number };
+
+export class Counter {
+  private counts = new Map<string, number>();
+
+  add(text: string): void {
+    for (const word of text.toLowerCase().split(/\W+/)) {
+      if (word) this.counts.set(word, (this.counts.get(word) ?? 0) + 1);
+    }
+  }
+
+  top(n: number): Tally[] {
+    return [...this.counts]
+      .map(([word, count]) => ({ word, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, n);
+  }
+}
+```
+
+</TabItem>
+<TabItem label="JS usage">
+
+```tsx title="App.tsx"
+import { Counter } from "./tally.lucent";
+
+const counter = new Counter();
+counter.add("the cat and the hat");
+counter.top(1); // [{ word: "the", count: 2 }]
+```
+
+</TabItem>
+</Tabs>
+
+The module is ordinary TypeScript: a class, a `Map`, a regular expression, destructuring and spread. Each of its values has a native type, so it compiles to C++ and runs without a JavaScript engine.
+
+## The contract
+
+- Code that type-checks and stays inside the subset behaves as the same code does in JavaScript, except for the cases in [Differences](/docs/api/language/differences/).
+- Code outside the subset fails to compile with a `LUCENT` diagnostic that points at the source, never with invalid C++. [Diagnostics](/docs/api/diagnostics/) lists every code.
+- Where Lucent can't match JavaScript, it throws or refuses the code. The [known gaps](/docs/api/language/differences/#known-gaps) are the exceptions that compile and differ.
+
+End-to-end cases test the supported behavior: each module runs as native code and as JavaScript, and the two outputs must match line for line. Where a rule has a case, these pages name it, from [packages/compiler/test/e2e/cases](https://github.com/Fausto95/lucent/tree/main/packages/compiler/test/e2e/cases).
+
+## How modules are type-checked
+
+Lucent compiles only code that type-checks: a TypeScript error is [LUCENT9001](/docs/api/diagnostics/#lucent9001). It checks with its own settings, whatever the app's `tsconfig.json` says:
+
+| Setting | Value |
+| --- | --- |
+| `strict` | On. |
+| `noUncheckedIndexedAccess` | On: reading an array element or a record entry gives `T \| undefined`. |
+| `target` | `ES2022`. |
+| `lib` | `es2022` and `esnext.disposable`: no ES2023 methods and no DOM. |
+| TypeScript | The version `@lucent-lang/lucent` brings, in [Compatibility](/docs/api/compatibility/). |
+
+Your editor and `tsc` read the app's `tsconfig.json` instead. `lucent init` turns on `noUncheckedIndexedAccess` there, so both agree. A `using` declaration needs one more `lib` entry, given in [using declarations](/docs/api/language/statements/#using-declarations).
+
+## Why a subset
+
+No JavaScript engine runs in native code. Lucent gives each value a native layout, fixed at build time. A feature that decides a layout at run time has no native form.
+
+| Left out | Why | Write instead |
+| --- | --- | --- |
+| `any`, and `unknown` outside `catch` | A value without a type has no layout. | A concrete type, a union or a generic. |
+| `obj[key]` and `delete` on an object type | An object type is a fixed set of fields. | A `Record<string, T>` or a `Map`. |
+| `eval`, `new Function` | There is no engine to run the text. | Code in the module. |
+| `var` | Function scoping and hoisting. | `let` or `const`. |
+
+## At a glance
+
+| Feature | In Lucent | Rules |
+| --- | --- | --- |
+| Top-level declarations, imports and exports | Yes. The top level holds declarations only. | [Modules](/docs/api/language/modules/) |
+| Imports of other modules, `lucent:*` modules and Lucent packages' modules | Yes. | [Modules](/docs/api/language/modules/) |
+| Imports of npm packages and plain `.ts` files | Types only, with `import type`. | [Modules](/docs/api/language/modules/) |
+| Export lists, re-exports and `export default` | No (`LUCENT3003`). `export default function` and `export default class` export by name. | [Modules](/docs/api/language/modules/) |
+| Module state, and what a JavaScript reload does to it | Initialized again on each reload. | [Modules](/docs/api/language/modules/) |
+| Platform branches (`PLATFORM === "ios"`) and platform files | Yes. | [Platform code](/docs/api/language/platform-code/) |
+| `number`, `bigint`, `string`, `boolean`, `null`, `undefined` | Yes, computed exactly as JavaScript computes them. | [Types](/docs/api/language/types/) |
+| Object types, arrays, tuples, records, `Map`, `Set`, `Uint8Array`, `Date`, `RegExp` | Yes. | [Types](/docs/api/language/types/) |
+| Classes, interfaces, enums, unions and generics | Yes. Interfaces with methods, or that a class implements, are nominal. | [Types](/docs/api/language/types/) |
+| Native 64-bit integers from the SDKs | `bigint`s. | [Types](/docs/api/language/types/) |
+| `any`, intersections, `symbol`, `object` | No (`LUCENT2001`, `LUCENT2002`). | [Types](/docs/api/language/types/) |
+| Control flow, destructuring and operators | Yes, with limits: `delete`, `in` and `instanceof` on some types only, no object rest, and loose `==` only where JavaScript doesn't convert. | [Statements](/docs/api/language/statements/) |
+| Functions, closures, classes, `async`/`await` and generators | Yes. No rest parameters and no async generators. | [Statements](/docs/api/language/statements/) |
+| Regular expressions, and `JSON.parse` into a type | Yes. | [Statements](/docs/api/language/statements/) |
+| `using` declarations | Yes. | [Statements](/docs/api/language/statements/) |
+| `var`, `eval`, tagged templates | No. | [Statements](/docs/api/language/statements/) |
+| Decorators | Ignored: they compile but never run. | [Statements](/docs/api/language/statements/) |
+| `Math`, `String`, `Array`, `Map`, `Date` and the other built-ins | Most members. | [Built-ins](/docs/api/language/built-ins/) |
+| Values passed to and from JavaScript | Copied or shared, by type. | [Boundary](/docs/api/language/boundary/) |
+| Threads, the Lucent lock and `compute` | Module code runs one turn at a time, and `compute` tasks run in parallel. | [Concurrency](/docs/api/language/concurrency/) |
+| Reference counting, `using` and native buffers | No garbage collector. | [Memory](/docs/api/language/memory/) |
+| Components: exported `.lucent.tsx` functions that return a view | Experimental, behind `LUCENT_VIEWS=fabric`. | [Views](/docs/guides/views/) |
+| Behavior that differs from JavaScript | Listed with its reason. | [Differences](/docs/api/language/differences/) |

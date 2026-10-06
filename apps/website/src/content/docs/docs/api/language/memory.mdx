@@ -1,0 +1,135 @@
+---
+title: When is a value freed, and how do using and Symbol.dispose work?
+sidebar_label: Memory
+description: "A value is freed when its last reference goes; cycles leak until you break them, and `using` disposes a value when its block ends."
+kind: reference
+---
+
+Lucent counts references, as Swift does. A value is freed the moment its last reference goes, and no collector runs later. So a cycle of references is never freed, and a resource is released when your code says so.
+
+## Example
+
+<Tabs>
+<TabItem label="module">
+
+```ts title="recorder.lucent.ts"
+export class Recorder {
+  private lines: string[] = [];
+  private open = true;
+
+  write(line: string): void {
+    if (!this.open) throw new Error("Recorder is closed");
+    this.lines.push(line);
+  }
+
+  /** For JavaScript, which doesn't see [Symbol.dispose](). */
+  close(): number {
+    this.open = false;
+    return this.lines.length;
+  }
+
+  [Symbol.dispose](): void {
+    this.close();
+  }
+}
+
+export function record(lines: string[]): number {
+  using recorder = new Recorder();
+  for (const line of lines) recorder.write(line);
+  return lines.length;
+} // recorder is disposed here, however the block ends
+```
+
+</TabItem>
+<TabItem label="JS usage">
+
+```tsx title="App.tsx"
+import { Recorder } from "./src/recorder.lucent";
+
+const recorder = new Recorder();
+try {
+  recorder.write("started");
+} finally {
+  recorder.close();
+}
+```
+
+</TabItem>
+</Tabs>
+
+## Reference counting
+
+- Objects, arrays, maps, sets, records, dates, closures and class instances are reference counted. A value is freed at once when its last reference goes.
+- An object holds its fields' values, and a closure holds the variables it captures.
+- A value copied to JavaScript is JavaScript's own. A class instance or a `NativeBuffer` that JavaScript holds stays alive while its JavaScript object does, and JavaScript's garbage collector decides when that goes.
+
+## Cycles leak
+
+Values that reference each other, directly or through others, keep each other alive and are never freed. A closure stored on an object it captures is such a cycle. So is a Lucent object that an SDK object holds as its delegate, while the Lucent object holds the SDK object.
+
+```ts title="tree.lucent.ts"
+export class TreeNode {
+  parent: TreeNode | undefined;
+  children: TreeNode[] = [];
+
+  add(child: TreeNode): void {
+    child.parent = this; // child and parent now hold each other
+    this.children.push(child);
+  }
+
+  clear(): void {
+    for (const child of this.children) child.parent = undefined; // breaks each cycle
+    this.children = [];
+  }
+}
+```
+
+Break a cycle when you're done with it: set a field to `undefined`, or delete the entry from a collection. Lucent has no weak references, so `WeakRef`, `WeakMap` and `WeakSet` fail with [LUCENT2002](/docs/api/diagnostics/#lucent2002) ([roadmap](/docs/releases/roadmap/#known-limitations)).
+
+## Native references
+
+An SDK object that Lucent holds is released when its last reference goes. On iOS, it's released on the main thread, as UIKit requires. On Android, it's released on the thread that drops that reference.
+
+[Memory across threads and reloads](/docs/architecture/memory/) explains how.
+
+## Listeners and subscriptions
+
+- An SDK object keeps the delegate or listener you give it until you remove it. Everything the listener holds stays alive with it, JavaScript callbacks included.
+- Give each registration a way to end it, and call the SDK's removal there.
+- `fromCallback` and `subscribe` run their registration's cleanup once, when they settle ([lucent:core](/docs/api/lucent-core/#fromcallback)).
+- `onAppEvent` and `onSceneEvent` ([lucent:ios](/docs/api/lucent-ios/#onappevent)) and `onActivityEvent` ([lucent:android](/docs/api/lucent-android/#onactivityevent)) listen until you call the function they return. The iOS ones also stop when their signal aborts.
+- A JavaScript callback stays alive while Lucent holds a reference to it.
+
+## using and Symbol.dispose
+
+A `using` declaration disposes its value when the block ends, however it ends: at its last statement, by `return`, `break` or `continue`, or by a throw.
+
+- The values of several `using` declarations in a block are disposed in reverse order. A `null` or `undefined` value is skipped.
+- In an `async` function, a block's values are disposed when the block ends, after its `await`s.
+- When a disposal throws while another error is on its way out, the block throws a `SuppressedError` instead.
+- Code can call `[Symbol.dispose]()` directly. JavaScript doesn't see it, so give a class that JavaScript uses a `close()` method too.
+
+| A `using` value | Disposed by |
+| --- | --- |
+| An instance of a class with a `[Symbol.dispose]()` method, which takes no parameters | That method |
+| A `NativeBuffer` | Its `close()` |
+| An Android SDK object that implements `java.lang.AutoCloseable` | Its `close()` |
+| A handle from a [native extension](/docs/packages/native-extensions/) | Its `close` function |
+
+[Statements](/docs/api/language/statements/) has what the syntax allows, and the `lib` setting your editor needs for `using`.
+
+## Native buffers
+
+A `NativeBuffer`'s bytes are released at `close()`, at the end of its `using` block, or when its last reference goes. Its borrow, move and close rules are on [lucent:core](/docs/api/lucent-core/#nativebuffer).
+
+## At teardown
+
+When JavaScript reloads, or the app ends, a debug build writes this to the platform log if module code still holds SDK objects:
+
+```sh title="Platform log" nocopy
+[lucent] 3 native reference(s) module code still holds at teardown
+```
+
+It counts the SDK objects that module state holds, with listeners never removed and the cycles through them. Objects that view code made aren't counted.
+
+While the app runs, [`__lucentDebug.snapshot()`](/docs/guides/read-errors-and-logs/#inspect-what-a-running-app-holds) gives live counts. [Modules](/docs/api/language/modules/) says what a reload keeps.

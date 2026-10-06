@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <tuple>
 #include <type_traits>
 #include <utility>
 #include <variant>
@@ -145,6 +146,37 @@ template <class T>
 struct IsVariant : std::false_type {};
 template <class... Ts>
 struct IsVariant<std::variant<Ts...>> : std::true_type {};
+
+template <class T>
+struct IsTuple : std::false_type {};
+template <class... Ts>
+struct IsTuple<std::tuple<Ts...>> : std::true_type {};
+
+/// Whether storage of an object type (a Ref, or a union or tuple holding
+/// one) was never written: it holds a null Ref where JavaScript has undefined.
+template <class T>
+bool unassigned(const T& v) {
+  if constexpr (IsRef<T>::value) {
+    return v == nullptr;
+  } else if constexpr (IsVariant<T>::value) {
+    return std::visit([](const auto& x) { return unassigned(x); }, v);
+  } else if constexpr (IsTuple<T>::value) {
+    return std::apply([](const auto&... xs) { return (unassigned(xs) || ...); }, v);
+  } else {
+    return false;
+  }
+}
+
+[[noreturn]] void throwUnassigned(const char* what);
+
+/// A read of storage that may be unassigned (a field read from a base
+/// constructor, a variable before its initializer): JavaScript's undefined
+/// would throw a TypeError where it is used as an object, so it throws here.
+template <class T>
+const T& assigned(const T& v, const char* what) {
+  if (unassigned(v)) throwUnassigned(what);
+  return v;
+}
 
 /// Boxes a local that a closure captures and later mutates, so the closure and
 /// the enclosing function share one variable, as in JavaScript.

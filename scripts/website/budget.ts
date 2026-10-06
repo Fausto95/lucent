@@ -1,16 +1,10 @@
-import type { Block } from "../../apps/website/src/docs/types.ts";
+import { type Block, DOC_KINDS } from "../../apps/website/src/docs/types.ts";
 import type { CheckedPage } from "./pages.ts";
 import { proseOf } from "./prose.ts";
 
-/** Words of prose and lines of code a page may have (CONTRIBUTING-DOCS.md); reference pages have no budget. */
+/** Words of prose and lines of code a page may have (CONTRIBUTING-DOCS.md); undefined is unbounded. */
 const budgets: Record<CheckedPage["kind"], { words: number; code: number } | undefined> = {
-  start: { words: 400, code: 60 },
-  guide: { words: 400, code: 60 },
-  learn: { words: 800, code: 120 },
-  other: { words: 800, code: 120 },
-  // A whole module is the point of an example page.
-  example: { words: 400, code: Infinity },
-  reference: undefined,
+  ...DOC_KINDS,
   // A post is dated and read once, not kept up to date: it says what it needs to.
   post: undefined,
 };

@@ -38,7 +38,7 @@ export function PlacesDiagram() {
         y={406}
         w={280}
         label="your module's C++ · the SDKs"
-        sub="JS thread · Lucent thread · main thread"
+        sub="JS · Lucent · main threads · workers"
         accent
       />
       <DiagramArrow from={[200, 80]} to={[200, 138]} marker={m} />

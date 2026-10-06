@@ -1,0 +1,128 @@
+---
+title: Update a view from props and state, and send events
+sidebar_label: Handle props, state and events
+description: "Read props and signals inside `effect`, which runs again when they change, and call an `on…` prop to send JavaScript an event."
+kind: guide
+views: true
+sidebar_class_name: experimental
+---
+
+:::caution
+Experimental: views change without notice. They need `LUCENT_VIEWS=fabric` where Lucent builds: see [Turn on native views](/docs/guides/views/). Read [the limits](/docs/architecture/views/#limits) first.
+:::
+
+<Tabs>
+<TabItem label="countdown.lucent.tsx">
+
+```tsx title="countdown.lucent.tsx"
+import { appContext } from "lucent:android";
+import { TimeAnimator } from "lucent:android/android.animation";
+import { TextView } from "lucent:android/android.widget";
+import { Timer } from "lucent:ios/Foundation";
+import { UILabel } from "lucent:ios/UIKit";
+import { PLATFORM } from "lucent:platform";
+import { type Coalesced, effect, onDispose, signal } from "lucent:ui";
+
+export function Countdown(props: {
+  seconds: number;
+  onTick?: Coalesced<(left: number) => void>;
+  onDone?: () => void;
+}) {
+  const left = signal(0);
+  const tick = () => {
+    if (left.peek() === 0) return;
+
+    left.set(left.peek() - 1);
+    props.onTick?.(left.peek());
+    if (left.peek() === 0) props.onDone?.();
+  };
+
+  effect(() => {
+    left.set(props.seconds);
+
+    if (PLATFORM === "ios") {
+      const timer = Timer.scheduledTimer(1, true, () => tick());
+      onDispose(() => timer.invalidate());
+      return;
+    }
+
+    const animator = new TimeAnimator();
+    let last = Date.now();
+    animator.setTimeListener(() => {
+      if (Date.now() - last >= 1000) {
+        last = Date.now();
+        tick();
+      }
+    });
+    animator.start();
+    onDispose(() => animator.cancel());
+  });
+
+  if (PLATFORM === "ios") {
+    const label = new UILabel();
+    effect(() => {
+      label.text = `${left.get()} s`;
+    });
+    return label;
+  }
+
+  const text = new TextView(appContext());
+  effect(() => text.setText(`${left.get()} s`));
+  return text;
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useState } from "react";
+import { Alert, Button, View } from "react-native";
+import * as countdown from "./countdown.lucent";
+
+const { Countdown } = countdown as unknown as typeof import("./.lucent/native/types/views/countdown");
+
+export default function App() {
+  const [seconds, setSeconds] = useState(10);
+
+  return (
+    <View style={{ padding: 48 }}>
+      <Countdown
+        seconds={seconds}
+        onTick={(left) => console.log(left)}
+        onDone={() => Alert.alert("Time's up")}
+      />
+      <Button title="30 seconds" onPress={() => setSeconds(30)} />
+    </View>
+  );
+}
+```
+
+</TabItem>
+</Tabs>
+
+Setup, the component's body, runs once per mount. What changes later runs in effects.
+
+- The first effect reads `props.seconds`, so a new value from React runs it again: it resets `left` and starts a new timer. Read a prop where you use it: a copy setup makes is read once, and warns with [LUCENT3021](/docs/api/diagnostics/#lucent3021).
+- `signal(0)` is the view's own state. Inside an effect, `get()` makes the effect run again when the value changes, while `peek()` doesn't. `set()` changes it.
+- `onDispose` inside an effect runs before the effect runs again, and when the mount ends. Here it stops the old timer.
+
+[lucent:ui](/docs/api/views/lucent-ui/) gives `signal`, `effect` and `onDispose` in full.
+
+## Send events
+
+Calling an event prop, `props.onDone?.()`, posts the call to JavaScript and returns at once: the view never waits for the handler. The prop's type sets how JavaScript hears it:
+
+- `onDone` is discrete, the default: JavaScript hears every call, at a tap's priority.
+- `onTick` is `Coalesced`: while a tick is the view's latest event waiting for JavaScript, the next tick replaces it. A busy JavaScript thread hears the latest.
+- `Continuous` delivers every event at a lower priority, for frequent events that all count.
+
+An event's name is `on` and a capital letter, it returns nothing, and its parameters are plain data. [Events](/docs/api/views/components/#events) gives the rules.
+
+## Where this code runs
+
+Setup, its effects and the callbacks it gives the platform run on the main thread, in the [main context](/docs/api/language/concurrency/#the-main-context). Keep them short: long work there stalls the UI, so move it to a [compute task](/docs/guides/run-in-parallel/).
+
+Setup can't read module state, which fails with [LUCENT3022](/docs/api/diagnostics/#lucent3022): keep a view's state in signals.
+
+A mount ends when React unmounts the view, JavaScript reloads or React Native recycles the host view. A recycled host runs setup again: see [Mounts and recycling](/docs/api/views/components/#mounts-and-recycling).

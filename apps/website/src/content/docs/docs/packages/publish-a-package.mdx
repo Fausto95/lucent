@@ -1,0 +1,55 @@
+---
+title: Version and publish a package
+description: Set `lucent.compatible` to a caret range of the Lucent you tested, publish with npm, and tell apps that changed modules need a native rebuild.
+kind: guide
+---
+
+```json title="package.json"
+{
+  "name": "lucent-device",
+  "version": "0.1.0",
+  "main": "index.ts",
+  "files": ["index.ts", "src"],
+  "lucent": {
+    "sources": "src",
+    "compatible": "^0.2.0"
+  }
+}
+```
+
+```sh title="terminal"
+npm pack --dry-run
+npm publish
+```
+
+`npm pack --dry-run` lists the files the tarball will hold: check that the modules, `lucent.json` and the paths it lists are among them.
+
+## Choose the Lucent versions
+
+Lucent is experimental, and its APIs change between versions without a migration path. Name the versions you tested with a caret range: `^0.2.0` takes 0.2.0 and the later 0.2 releases, but not 0.3.0.
+
+An app on a Lucent outside the range fails to build with this line:
+
+```sh title="terminal" nocopy
+✗ lucent-device@0.1.0 supports Lucent ^0.2.0, not 0.3.0: update one of them
+```
+
+`lucent doctor` reports the same message under "Lucent versions".
+
+When a new Lucent version comes out, build the package with it in an app. If it works, widen the range with `||`, as in `^0.2.0 || ^0.3.0`, and publish a patch release.
+
+Prerelease tags are ignored: Lucent 0.3.0-rc.1 counts as 0.3.0. The [package.json reference](/docs/packages/package-json/#compatible) has the range syntax.
+
+## Choose the package's version
+
+Version the package by its own API, as JavaScript and other packages' modules see it. A changed export or signature breaks their callers, so it takes a new major version, or a new minor one before 1.0. So does a range that drops a Lucent version apps may still use.
+
+Before each release, bump the version with `npm version patch`, `minor` or `major`, then publish again.
+
+## Tell apps what an update needs
+
+A package's modules become native code in each app. After updating the package, an app runs `lucent build`, which names what it needs next: usually rebuilding the app, sometimes after `pod install` on iOS.
+
+An over-the-air update ships only JavaScript, so it can't deliver changed modules. The app keeps running the modules it was built with. A module whose exports or signatures changed, or a new module, throws an error with code `LUCENT_NATIVE_MISMATCH` when JavaScript loads it.
+
+Say in your release notes when a version changes modules. [Runtime errors](/docs/api/runtime-errors/) has the error, and [How Lucent decides what a change needs](/docs/architecture/builds/) the check.

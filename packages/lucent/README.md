@@ -84,12 +84,12 @@ JDK, and the app's setup.
 ## Docs
 
 [What is Lucent](https://lucent-lang.dev/docs/) ·
-[Install](https://lucent-lang.dev/docs/install/) ·
-[Tutorial](https://lucent-lang.dev/docs/tutorial/1-shared-logic/) ·
-[How it works](https://lucent-lang.dev/docs/how-it-works/) ·
+[Install](https://lucent-lang.dev/docs/guides/install/) ·
+[First module](https://lucent-lang.dev/docs/guides/first-module/) ·
+[How it works](https://lucent-lang.dev/docs/architecture/) ·
 [Guides](https://lucent-lang.dev/docs/guides/call-an-ios-api/) ·
-[Reference](https://lucent-lang.dev/docs/reference/language/) ·
-[Examples](https://lucent-lang.dev/docs/examples/) ·
+[API reference](https://lucent-lang.dev/docs/api/) ·
+[Examples](https://lucent-lang.dev/docs/guides/port-an-expo-module/#example-ports) ·
 [Changelog](https://github.com/Fausto95/lucent/blob/main/packages/lucent/CHANGELOG.md)
 
 Issues and source: [github.com/Fausto95/lucent](https://github.com/Fausto95/lucent).

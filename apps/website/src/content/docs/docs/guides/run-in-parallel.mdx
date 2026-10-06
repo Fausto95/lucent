@@ -1,0 +1,78 @@
+---
+title: Run heavy work in parallel
+description: "Pass a top-level function and its input to `compute()` from `lucent:core`: it runs on worker threads, beside module code, and resolves with the result."
+kind: guide
+---
+
+<Tabs>
+<TabItem label="module">
+
+```ts title="photos.lucent.ts"
+import { compute } from "lucent:core";
+
+type Job = { rgba: Uint8Array; threshold: number };
+
+/** Runs on a worker: the share of pixels brighter than the threshold. */
+function brightShare(job: Job): number {
+  const { rgba, threshold } = job;
+  let bright = 0;
+  for (let i = 0; i < rgba.length; i += 4) {
+    const luma = 0.299 * rgba[i]! + 0.587 * rgba[i + 1]! + 0.114 * rgba[i + 2]!;
+    if (luma > threshold) bright++;
+  }
+  return bright / (rgba.length / 4);
+}
+
+/** One task per photo: the pool runs as many at once as it has workers. */
+export async function brightShares(
+  photos: Uint8Array[],
+  threshold: number,
+  signal?: AbortSignal,
+): Promise<number[]> {
+  return await Promise.all(
+    photos.map((rgba) => compute(brightShare, { rgba, threshold }, { signal })),
+  );
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useEffect, useState } from "react";
+import { Text } from "react-native";
+import { brightShares } from "./src/photos.lucent";
+
+export function Exposure({ photos }: { photos: Uint8Array[] }) {
+  const [shares, setShares] = useState<number[]>([]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    brightShares(photos, 200, controller.signal)
+      .then(setShares)
+      .catch((e: Error) => {
+        if (e.name !== "AbortError") console.error(e);
+      });
+    return () => controller.abort(); // cancels the tasks still queued or running
+  }, [photos]);
+
+  return <Text>{shares.map((s) => `${Math.round(s * 100)}% bright`).join("\n")}</Text>;
+}
+```
+
+</TabItem>
+</Tabs>
+
+The pool has one worker fewer than the device has cores, and at least one. Tasks never take the Lucent lock, so module code and synchronous calls from JavaScript go on while they run ([Compute tasks](/docs/api/language/concurrency/#compute-tasks)).
+
+## Give a task one input
+
+A task takes one parameter, so `brightShare` gets what it needs in one object, `Job`. It reads only its input and what it makes. Module constants holding literals, such as `const LIMIT = 200`, are fine, and module state fails with [LUCENT3011](/docs/api/diagnostics/#lucent3011).
+
+## Stop it early
+
+Aborting the signal rejects at once. A queued task never starts. A running one stops at the next iteration of a loop in it, or in a module function it calls.
+
+A throw and a reload end a task early too, and a full queue rejects it: [compute()](/docs/api/lucent-core/#compute) has the exact rules.
+
+Each photo here is copied twice, into the module and into its task. A `NativeBuffer` moves to the task instead of being copied: [Pass large buffers without copying](/docs/guides/pass-large-buffers/).

@@ -16,7 +16,7 @@ export type Block =
   /**
    * `copy: false` for output the reader reads rather than runs (a terminal's output).
    * `cpp: true` on a `.lucent.ts` sample adds "See the C++": what the compiler writes for it.
-   * `diff: true` shows a unified diff (what a tutorial step changed); it isn't compiled.
+   * `diff: true` shows a unified diff (what a change did); it isn't compiled.
    * `from` names the repository file the sample is, generated from it: a module that compiles
    * only in its app (it imports the app's own libraries), so the app's build checks it instead.
    */
@@ -66,12 +66,25 @@ export type DiagramName =
   | "threads";
 
 /**
- * Start: what Lucent is and getting it running. Learn: how to think in it,
- * read in order. Guide: one task. Reference: the exact rules, generated where
- * possible. Example: a whole module from the example apps. The kind sets the
- * page's length budget (CONTRIBUTING-DOCS.md).
+ * The kinds of docs page, and each one's length budget (CONTRIBUTING-DOCS.md):
+ * words of prose and lines of code; undefined is unbounded. Start: what
+ * Lucent is and getting it running, read in order. Guide: one task.
+ * Explanation: how a part of Lucent works and why. Example: a whole module
+ * from the example apps. Reference: the exact rules, generated where
+ * possible. Internals: how Lucent's code works, for contributors (only
+ * under architecture/internals).
  */
-export type DocKind = "start" | "learn" | "guide" | "reference" | "example" | "other";
+export const DOC_KINDS = {
+  start: { words: 400, code: 60 },
+  guide: { words: 400, code: 60 },
+  explanation: { words: 800, code: 120 },
+  // A whole module is the point of an example page.
+  example: { words: 400, code: Infinity },
+  reference: undefined,
+  internals: undefined,
+} as const satisfies Record<string, { words: number; code: number } | undefined>;
+
+export type DocKind = keyof typeof DOC_KINDS;
 
 /**
  * A docs page's frontmatter (src/content.config.ts validates it). Starlight
@@ -83,13 +96,12 @@ export interface DocFrontmatter {
   /** One sentence: the answer, or what the reader has at the end. Also the <meta name="description">. */
   description: string;
   kind: DocKind;
-  /** The page's one "Next" link, when it isn't the following page in the sidebar. */
-  next?: { link: string; label: string };
-  /**
-   * A directory (from the repository root) whose `*.lucent.ts` files compile with
-   * the page's samples, so a page can show one module of a project, or its diff.
-   */
-  samplesWith?: string;
+  /** The doc the page's "Next" link opens, when it isn't the following page in the sidebar. */
+  pagination_next?: string;
+  /** A shorter label for the sidebar. */
+  sidebar_label?: string;
+  /** "experimental" on pages about views: the sidebar marks them. */
+  sidebar_class_name?: string;
   /**
    * The page's samples include components drawn with SwiftUI and Compose
    * (`.lucent.tsx`): they compile with the components' views generated.

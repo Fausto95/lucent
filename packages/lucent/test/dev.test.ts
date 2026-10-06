@@ -9,9 +9,9 @@ import { describe, expect, it } from "vite-plus/test";
 const bin = path.resolve(import.meta.dirname, "../bin/lucent.cjs");
 
 /** `lucent dev --compact` in a project, with its output as it comes. */
-function dev(root: string) {
+function dev(root: string, env: Record<string, string> = {}) {
   const child = spawn(process.execPath, [bin, "dev", "--compact", "--root", root], {
-    env: { ...process.env, NO_COLOR: "1" },
+    env: { ...process.env, NO_COLOR: "1", ...env },
   });
   let out = "";
   child.stdout.on("data", (d: Buffer) => (out += d.toString()));
@@ -47,6 +47,20 @@ describe("lucent dev --compact", () => {
     fs.writeFileSync(file, "export function one(): number {\n  let x = 1;\n  return x;\n}\n");
     await d.until(/✓ 1 module/);
     expect(d.output()).not.toMatch(/LUCENT/);
+
+    d.child.kill("SIGINT");
+    expect(await d.exited).toBe(0);
+  }, 60_000);
+
+  it("shows an unexpected LUCENT_VIEWS as the build's problem and keeps running", async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "lucent-dev-"));
+    fs.writeFileSync(
+      path.join(root, "a.lucent.ts"),
+      "export function one(): number { return 1; }\n",
+    );
+    const d = dev(root, { LUCENT_VIEWS: "foo" });
+    await d.until(/✗ LUCENT_VIEWS must be "fabric" or unset \(got "foo"\)/);
+    expect(d.output()).not.toMatch(/crashed/);
 
     d.child.kill("SIGINT");
     expect(await d.exited).toBe(0);

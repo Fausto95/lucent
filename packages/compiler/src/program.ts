@@ -1,6 +1,7 @@
 import fs from "node:fs";
-import { lucentPackageOf, lucentPackages } from "./packages.ts";
+import { findOwnFiles, LUCENT_EXTENSION, lucentPackageOf, lucentPackages } from "./packages.ts";
 import path from "node:path";
+import { directoryExists, fileExists, readText, realpath } from "./reads.ts";
 import { fileURLToPath } from "node:url";
 import { ts as dts } from "@lucent-lang/codegen";
 import ts from "typescript";
@@ -18,19 +19,18 @@ import {
   sdkCacheDir,
   sdkNamesOf,
   type SdkModuleSchema,
-  sourceModuleLookup,
   WRAP_UNBOUND,
 } from "./sdk/schema.ts";
 import { NATIVE_JSX_UI, nativeJsxDecls, nativeTags, rootViews } from "./sdk/native-jsx-dts.ts";
 import { classOfDecl } from "./sdk/declarations.ts";
-import { toolkitDts } from "./sdk/toolkit-dts.ts";
+import { toolkitDeclarations } from "./sdk/toolkit-dts.ts";
 import { viewTag } from "./sdk/view-rules.ts";
 import { nativeTagType } from "./ui/roots.ts";
 import { extensionDts } from "./extensions/dts.ts";
 import { boundExtensions, findExtension } from "./extensions/registry.ts";
 import { moduleNamespace } from "./types.ts";
 import { sdkLibFile } from "./lib-files.ts";
-import { composeModuleText } from "./ui/compose-dts.ts";
+import { toolkitText } from "./ui/toolkit-modules.ts";
 import { fabricRequested } from "./ui/switch.ts";
 import {
   JSX_SOURCE,
@@ -88,7 +88,6 @@ export function coreTypesPath(): string {
   return sdkLibPath("core");
 }
 
-export const LUCENT_EXTENSION = /\.lucent\.tsx?$/;
 export const PLATFORM_EXTENSION = /\.(ios|android)\.lucent\.tsx?$/;
 
 /** The module a file belongs to: `haptics` for haptics.lucent.ts and haptics.ios.lucent.ts. */
@@ -157,9 +156,6 @@ function toolkitTypesPath(name: ToolkitName): string {
   return toolkitSource(name) ? path.join(SDK_ROOT, "toolkit", `${name}.d.ts`) : sdkLibPath(name);
 }
 
-/** Each source module's toolkit declarations, written once per schema. */
-const toolkitTexts = new WeakMap<SdkModuleSchema, string>();
-
 /**
  * Each SDK module's declarations, written once per schema (they depend on
  * nothing else), and each names-only module's, once per names index: every
@@ -171,24 +167,6 @@ const sdkTexts = {
 };
 const stubTexts = new WeakMap<object, string>();
 
-/** A generated toolkit's declarations, or why there are none. */
-function toolkitDeclarations(name: ToolkitName): { text: string } | { missing: string } {
-  const toolkit = TOOLKITS[name];
-  const source = toolkitSource(name);
-  if (!source) return { missing: `lucent:${name} is written by hand` };
-
-  const found = sourceModuleLookup(toolkit.platform, source.module);
-  if ("missing" in found) return found;
-
-  let text = toolkitTexts.get(found.schema);
-  if (text === undefined) {
-    text = toolkitDts({ ...toolkit, source }, found.schema);
-    toolkitTexts.set(found.schema, text);
-  }
-
-  return { text };
-}
-
 /**
  * Modules the program's files import get full declarations. On iOS, modules
  * only other modules' signatures mention get their types' names: extracting
@@ -198,13 +176,15 @@ function virtualSdkText(file: string, direct: Set<string>): string | undefined {
   if (path.resolve(file) === UNTYPED) return untypedSdkText();
   if (path.resolve(file) === JSX_RUNTIME && fabricRequested()) return jsxRuntimeText();
   // lucent:compose: its own declarations, then Compose's, made from its bindings.
-  if (path.resolve(file) === sdkLibPath("compose") && fabricRequested())
-    return composeModuleText(fs.readFileSync(file, "utf8"));
+  if (path.resolve(file) === sdkLibPath("compose") && fabricRequested()) {
+    const found = toolkitText("compose");
+    return "text" in found ? found.text : undefined;
+  }
   const rel = path.relative(SDK_ROOT, path.resolve(file));
 
   const toolkit = /^toolkit[\\/](\w+)\.d\.ts$/.exec(rel)?.[1];
   if (toolkit && Object.hasOwn(TOOLKITS, toolkit)) {
-    const found = toolkitDeclarations(toolkit as ToolkitName);
+    const found = toolkitText(toolkit as ToolkitName);
     return "text" in found ? found.text : undefined;
   }
 
@@ -310,6 +290,8 @@ export function compilerOptions(): ts.CompilerOptions {
     moduleResolution: ts.ModuleResolutionKind.Bundler,
     // esnext.disposable: Symbol.dispose, for `using` declarations.
     lib: ["lib.es2022.d.ts", "lib.esnext.disposable.d.ts"],
+    // TypeScript's own: no @typescript/lib-* replacement looked for from the working directory.
+    libReplacement: false,
     types: [],
     noEmit: true,
     skipLibCheck: true,
@@ -348,25 +330,9 @@ export function compilerOptions(): ts.CompilerOptions {
   };
 }
 
-/** Finds `*.lucent.ts` files under `root`, skipping node_modules and build output. */
+/** The `*.lucent.ts` files of the package `root` is in (see findOwnFiles). */
 export function findLucentFiles(root: string): string[] {
-  const out: string[] = [];
-  const walk = (dir: string) => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (
-        entry.name === "node_modules" ||
-        entry.name.startsWith(".") ||
-        entry.name === "ios" ||
-        entry.name === "android"
-      )
-        continue;
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (LUCENT_EXTENSION.test(entry.name)) out.push(full);
-    }
-  };
-  walk(root);
-  return out.sort();
+  return findOwnFiles(root, LUCENT_EXTENSION);
 }
 
 /** Text of a file that differs from disk (an editor's unsaved buffer), if any. */
@@ -387,15 +353,13 @@ function compilerHost(
     if (!sdkTexts.has(f)) sdkTexts.set(f, virtualSdkText(f, direct));
     return sdkTexts.get(f);
   };
-  const readFile = host.readFile.bind(host);
-  host.readFile = (f) => readSource?.(path.resolve(f)) ?? readFile(f);
-  const fileExists = host.fileExists.bind(host);
+  // Disk reads are noted (reads.ts): a passing check holds while each file is as it found it.
+  host.readFile = (f) => virtualSdk(f) ?? readSource?.(path.resolve(f)) ?? readText(f);
   host.fileExists = (f) =>
     readSource?.(path.resolve(f)) !== undefined || virtualSdk(f) !== undefined || fileExists(f);
-  const readDisk = host.readFile;
-  host.readFile = (f) => virtualSdk(f) ?? readDisk(f);
+  // Resolution reads a file found through a link at its target: where it led is noted too.
+  host.realpath = (f) => (virtualSdk(f) === undefined ? realpath(f) : f);
   // Module resolution skips files in directories that do not exist.
-  const directoryExists = host.directoryExists?.bind(host);
   host.directoryExists = (d) => {
     const rel = path.relative(SDK_ROOT, path.resolve(d));
     return (
@@ -403,7 +367,7 @@ function compilerHost(
       rel === "ext" ||
       rel === "toolkit" ||
       (PLATFORMS as readonly string[]).includes(rel) ||
-      (directoryExists?.(d) ?? ts.sys.directoryExists(d))
+      directoryExists(d)
     );
   };
   // `lucent:jsx/jsx-runtime`, the JSX runtime every file imports implicitly, is the
@@ -898,6 +862,7 @@ function importDiagnostics(sf: ts.SourceFile, platform: Platform | undefined): D
     if (!m) continue;
     const [, scope, module] = m;
     let message: string | undefined;
+    let fix: string | undefined;
     if ((scope === "core" || scope === "thread" || scope === "platform") && !module) continue;
     if (scope === "ui" && !module && fabricRequested()) continue;
     const toolkit = toolkitOfModule(`lucent:${scope}`);
@@ -939,10 +904,17 @@ function importDiagnostics(sf: ts.SourceFile, platform: Platform | undefined): D
       message = `${spec} is only available in *.${scope}.lucent.ts files, or in shared files inside \`if (PLATFORM === "${scope}")\``;
     else if (module && (target === platform || platformSdkTyped(target))) {
       const found = sdkLookup(target, module);
-      if ("missing" in found) message = found.missing;
-      else continue;
+      if (!("missing" in found)) continue;
+
+      message = found.missing;
+      fix = found.fix;
     } else continue;
-    out.push({ ...at(sf, s.moduleSpecifier), code: Codes.SdkImport, message });
+    out.push({
+      ...at(sf, s.moduleSpecifier),
+      code: Codes.SdkImport,
+      message,
+      ...(fix ? { fix } : {}),
+    });
   }
   return out;
 }

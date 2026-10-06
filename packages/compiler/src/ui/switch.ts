@@ -6,12 +6,17 @@
  * with LUCENT_VIEWS=fabric; otherwise components are only described.
  */
 export function fabricViews(value = process.env.LUCENT_VIEWS): boolean {
-  if (!value) return false;
+  const problem = viewsSwitchProblem(value);
+  if (problem) throw new Error(problem);
 
-  if (value !== "fabric")
-    throw new Error(`LUCENT_VIEWS must be "fabric" when set (got "${value}")`);
+  return value === "fabric";
+}
 
-  return true;
+/** Why the switch's value is invalid, naming the values it accepts; undefined when it is valid. */
+export function viewsSwitchProblem(value = process.env.LUCENT_VIEWS): string | undefined {
+  if (!value || value === "fabric") return undefined;
+
+  return `LUCENT_VIEWS must be "fabric" or unset (got "${value}")`;
 }
 
 /**

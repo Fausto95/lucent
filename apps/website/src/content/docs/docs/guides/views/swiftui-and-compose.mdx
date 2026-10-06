@@ -1,0 +1,96 @@
+---
+title: Write a view in SwiftUI and Jetpack Compose
+sidebar_label: Use SwiftUI and Compose
+description: "Write the component's logic once, and return a SwiftUI body in its iOS branch and a Compose body in its Android branch."
+kind: guide
+views: true
+sidebar_class_name: experimental
+---
+
+:::caution
+Experimental: views change without notice. They need `LUCENT_VIEWS=fabric` where Lucent builds: see [Turn on native views](/docs/guides/views/). Read [the limits](/docs/architecture/views/#limits) first.
+:::
+
+<Tabs>
+<TabItem label="setting.lucent.tsx">
+
+```tsx title="setting.lucent.tsx"
+import {
+  Alignment,
+  Arrangement,
+  dp,
+  Modifier,
+  Row,
+  Switch,
+  Text as CText,
+} from "lucent:compose";
+import { PLATFORM } from "lucent:platform";
+import { Font, HorizontalAlignment, Text, Toggle, VStack } from "lucent:swiftui";
+import { bind, signal } from "lucent:ui";
+
+export function Setting(props: { title: string }) {
+  const on = signal(false);
+  const status = () => (on.get() ? "On" : "Off");
+
+  if (PLATFORM === "ios")
+    return (
+      <VStack alignment={HorizontalAlignment.leading} padding={12}>
+        <Toggle isOn={bind(on)}>{props.title}</Toggle>
+        <Text font={Font.caption}>{status()}</Text>
+      </VStack>
+    );
+
+  return (
+    <Row
+      horizontalArrangement={Arrangement.SpaceBetween}
+      verticalAlignment={Alignment.CenterVertically}
+      modifier={Modifier.padding(dp(12))}
+    >
+      <CText text={`${props.title}: ${status()}`} />
+      <Switch checked={bind(on)} />
+    </Row>
+  );
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { View } from "react-native";
+import * as setting from "./setting.lucent";
+
+const { Setting } = setting as unknown as typeof import("./.lucent/native/types/views/setting");
+
+export default function App() {
+  return (
+    <View style={{ padding: 48 }}>
+      <Setting title="Notifications" />
+    </View>
+  );
+}
+```
+
+</TabItem>
+</Tabs>
+
+`tsc` checks a `.lucent.tsx` file's JSX as React's and reports errors in it: only the [editor plugin](/docs/api/integrations/#jsx-in-lucenttsx-files) types it.
+
+The signal and `status` are written once. Each platform's branch returns its body, which Lucent writes out as Swift or Kotlin and builds with the app. The rest of the component compiles to C++ and runs on the main thread.
+
+- `bind(on)` gives the `Toggle` and the `Switch` the signal: they show its value, and a tap sets it.
+- The body reads `status()` and `props.title`, and draws again when what they read changes.
+- In SwiftUI, an attribute named like an initializer label is an argument, as `alignment` is. Every other attribute is a modifier, applied in the order written, as `padding` is.
+- In Compose, attributes are the composable's named parameters, and `Modifier` chains as in Kotlin.
+
+The body holds no logic of its own. To change a signal on a tap, give the toolkit a setup function: `onTapGesture={flip}`, with `const flip = () => on.set(!on.peek())`. [SwiftUI and Compose in JSX](/docs/api/views/swiftui-and-compose/) gives every mapping, and [what the body reads from setup](/docs/api/views/swiftui-and-compose/#what-the-body-reads-from-setup).
+
+## Import Compose names one by one
+
+Import each `lucent:compose` value you use by name, and alias the names SwiftUI has too: `Text as CText`. A value read through a namespace import, such as `C.Modifier` after `import * as C`, fails with [LUCENT3024](/docs/api/diagnostics/#lucent3024).
+
+To see a composable's props, run `LUCENT_VIEWS=fabric npx lucent sdk show androidx.compose.material3.Switch`. It doesn't print SwiftUI's declarations yet: your editor shows them.
+
+## Write each body in its own file
+
+The branches can be [platform files](/docs/api/views/components/#one-file-or-platform-files) instead: `setting.ios.lucent.tsx` holds SwiftUI JSX and `setting.android.lucent.tsx` Compose's. Their declaration file returns `View | ComposeView`: `View` from `lucent:swiftui`, and `ComposeView` from `lucent:compose`.

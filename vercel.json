@@ -1,9 +1,9 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "astro",
+  "framework": "docusaurus-2",
   "buildCommand": "pnpm run website:build",
   "devCommand": "pnpm run website",
-  "outputDirectory": "apps/website/dist",
+  "outputDirectory": "apps/website/build",
   "trailingSlash": true,
   "ignoreCommand": "git diff --quiet ${VERCEL_GIT_PREVIOUS_SHA:-HEAD^} HEAD -- apps/website vercel.json package.json pnpm-lock.yaml pnpm-workspace.yaml .npmrc .node-version"
 }

@@ -1,0 +1,112 @@
+---
+title: "How is Lucent's code organized?"
+sidebar_label: "Code organization"
+description: "The CLI runs the compiler, which reads SDKs through bindgen, prints code through codegen and copies the runtime into the native package."
+kind: internals
+---
+
+These pages are for contributors. They name the code's parts (the IR, bindgen, the emitters) and describe the code as it is. Like every living doc, a page changes in the same commit as the code it describes.
+
+```text title="From modules to the app" nocopy
+ *.lucent.ts, *.lucent.tsx and lucent.json, in the app and its Lucent packages
+        │   lucent build, lucent dev (Metro starts it), the Expo plugin, Gradle
+        ▼
+ packages/lucent        buildProject(): resolve, extract, check, generate, record
+        │
+        ▼
+ packages/compiler/src
+   platforms.ts           targets, platform modules and branches
+   program.ts, types.ts   the TypeScript program; TypeScript types to Lucent types
+   analysis/              effects, owners, captures and escapes of every unit
+   ui/                    components: descriptions, Fabric sources, toolkit bodies
+   ir/, lowering/         the semantic IR: lower, verify, print as C++
+   emit/                  leaves, classes, JSI bindings, SDK glue, shims, setups
+   sdk/, extensions/      lucent:ios, lucent:android and lucent:ext declarations
+        │   ▲
+        │   └── packages/bindgen   SDKs and libraries read, cached, planned
+        │   syntax trees
+        ▼
+ packages/codegen       C++ and Objective-C++, Java, Kotlin, Swift, TypeScript, XML
+        │
+        ▼
+ .lucent/native         packages/runtime copied, the generated code, podspec,
+                        CMake and Gradle files, JS proxies, lucent:* types
+        │   autolinked by React Native
+        ▼
+ the app                one C++ TurboModule over JSI, and Fabric components
+```
+
+## The packages
+
+Lucent publishes one npm package. The others are private: the published package bundles or copies them.
+
+| Package | Published | What it holds |
+| --- | --- | --- |
+| `packages/lucent` | `@lucent-lang/lucent` | The CLI (`src/cli`), the Metro integration and transformer (`metro/`), the Expo config plugin (`app.plugin.js`), the editor plugin (`ts-plugin/`) and the Gradle scripts (`gradle/`). Also `lucent:core`'s JavaScript for tests (`core/`) and the JSON schemas of the CLI's outputs (`schemas/`). Its build bundles the CLI and the compiler into `dist/`, and copies `lib/` and `runtime/` beside it. |
+| `packages/compiler` | bundled | The TypeScript program, the analyses, the IR, the emitters, components, SDK declarations and the native package writer. Its `lib/` holds the `lucent:*` declarations and the Compose bindings Lucent ships. |
+| `packages/bindgen` | bundled | Reads SDK and library declarations into binding schemas: Clang headers, Swift symbol graphs and interfaces, JVM classfiles and Kotlin metadata. It caches them and plans how each member is called. |
+| `packages/codegen` | bundled | A syntax tree, builders and a printer for each language Lucent writes. Emitters build trees, never source text, and the printers add the parentheses precedence needs. |
+| `packages/runtime` | copied | The C++ runtime (`cpp/lucent`, with `lucent/jsi` at the boundary) and the TurboModule and view hosts (`cpp/rn`). The runtime has no external dependencies: `cpp/third_party` vendors Dragonbox and QuickJS's `libregexp`. Also the native templates (`native/`) and the JavaScript loader and views runtime (`js/`). |
+
+Outside `packages/`, `apps/` holds the two example apps and the website, and `examples/` the example Lucent packages. `scripts/` holds the checks and generators: app checks, benchmarks, the codegen corpus, the example apps' sync and `website.ts`.
+
+## How a build flows
+
+`buildProject()` in `packages/lucent/src/cli/pipeline.ts` is the one pipeline, and it records each step. `lucent build`, `lucent check`, `lucent dev` and `lucent sdk lock` run it. Metro starts `lucent dev`, and the Expo plugin and the Gradle task run `lucent build`.
+
+1. **Resolve.** `lucentPackages()` finds the Lucent packages the app depends on. `resolveNative()` merges their `lucent.json`, keeping which package each value came from.
+2. **Bind extensions.** `bindExtensions()` checks each native extension's declaration against the C header Clang reads.
+3. **Resolve Android dependencies.** When the code imports `lucent:android/*`, `lucent build` has Gradle resolve the classpath Lucent binds from. It does so once per change of the Android build files, the lockfile or the packages' Android dependencies. During `expo prebuild`, Android waits for the app's Gradle build (its `lucentBuild` task), and before the app has an Android project, for one to exist.
+4. **Extract SDK bindings.** For each SDK module the code imports, bindgen reads its schema on first use and caches it (`sdkModule()`).
+5. **Check.** `compile()` builds a TypeScript program, one per target when there is platform code, checks it and generates the code. When the code compiles, the build writes `.lucent/sdk-usage.json`. `lucent check` stops here.
+6. **Generate.** `writeNativePackage()` writes `.lucent/native`. It rewrites only the files whose content changed, each one whole, and `manifest.json`, which Metro keys its cache on, last.
+7. **Record.** Every run writes `.lucent/build-record.json`, `lucent check` and failed builds included. It names what the app needs next, strongest first: `reinstall`, `relink`, `compile-native`, `repackage` or `reload-js`.
+
+The app's native build then compiles `.lucent/native`, and Metro's transformer swaps each module for its JavaScript proxy. [How builds record steps](/docs/architecture/internals/tooling/) covers the records, actions and watching. [How the native package is registered](/docs/architecture/internals/react-native/) covers autolinking and build identities.
+
+## What the native package holds
+
+`writeNativePackage()` in `packages/compiler/src/native-package.ts` assembles `.lucent/native` from the runtime and the compile's result, as [The native package](/docs/architecture/internals/react-native/#the-native-package) explains. [The `.lucent` directory](/docs/api/lucent-directory/#the-native-package) lists every entry.
+
+## What the compiler does with a program
+
+`compile()` in `packages/compiler/src/index.ts` is the compiler's entry. It returns the generated files, the JavaScript proxies, the diagnostics, the component descriptions and the build identity.
+
+- Without platform code, it compiles the modules once. With platform files, or shared modules that branch on `PLATFORM`, it compiles one program per target: `ios`, `android`, or `host` for tests and tools.
+- Each program is checked before any code exists: TypeScript's errors, platform scopes, platform modules' conformance and components' contracts.
+- `emitProgram()` in `emit/index.ts` then lowers every function through the IR into C++, and writes the other languages beside it.
+- Each target's program describes its components, and the descriptions are merged across targets.
+
+[The compiler](/docs/architecture/internals/compiler/) follows a program from typing to C++. [Components](/docs/architecture/internals/views/) covers what `ui/` generates.
+
+## Where to start
+
+| To change | Start in | Prove it with |
+| --- | --- | --- |
+| A language feature | `ir/lower.ts` and `ir/cpp.ts`, or `emit/leaf.ts` for what the IR plans | An end-to-end case (`<name>.lucent.ts` and `<name>.test.js`) in `packages/compiler/test/e2e/cases/`, run with `pnpm test:e2e` against a Hermes build (`HERMES_DIR`, `~/hermes` by default). Then `node scripts/sync-examples.ts`. |
+| A diagnostic | `codes.ts`, which holds each code and its explanation | `packages/compiler/test/diagnostics.test.ts` and `codes.test.ts` |
+| What may run where | `analysis/` | `packages/compiler/test/analysis/` |
+| An SDK binding | `packages/bindgen/src/binding-plan.ts`, then `emit/native.ts` | The binding tests in `packages/compiler/test/` and the host harnesses |
+| The runtime | `packages/runtime/cpp/lucent` | `packages/runtime/test/run.sh`, and again with `SANITIZE=1 CXX=g++` |
+| Components | `ui/` and `emit/setups.ts`, under `LUCENT_VIEWS=fabric` | `packages/compiler/test/ui/` |
+| The CLI or a build step | `packages/lucent/src/cli` | `packages/lucent/test/` |
+
+## Where else to read
+
+- [AGENTS.md](https://github.com/Fausto95/lucent/blob/main/AGENTS.md) lists the rules every change follows: an end-to-end case per feature, LUCENT diagnostics, evaluation order, changesets.
+- [CONTRIBUTING.md](https://github.com/Fausto95/lucent/blob/main/CONTRIBUTING.md) sets up a machine and lists the test commands, the commit rules and the release flow.
+- [docs/testing.md](https://github.com/Fausto95/lucent/blob/main/docs/testing.md) explains the differential suites, Hermes, the host harnesses and the codegen corpus.
+- [ROADMAP.md](https://github.com/Fausto95/lucent/blob/main/ROADMAP.md) is the plan and its status: gates, tasks, decisions and known limitations.
+- [docs/design/contracts.md](https://github.com/Fausto95/lucent/blob/main/docs/design/contracts.md) holds the interfaces where two packages meet.
+- [docs/design/native-platform.md](https://github.com/Fausto95/lucent/blob/main/docs/design/native-platform.md) is the design behind the roadmap.
+- [docs/design/views.md](https://github.com/Fausto95/lucent/blob/main/docs/design/views.md) records what the view hosts do at run time.
+- [docs/design/swift-shims.md](https://github.com/Fausto95/lucent/blob/main/docs/design/swift-shims.md) is the design of calls to Swift-only APIs.
+
+<CardGrid>
+<LinkCard title="The compiler" description="Typing, analyses, the IR, evaluation order and C++." href="/docs/architecture/internals/compiler/" />
+<LinkCard title="Components" description="Descriptions, Fabric sources, setups and toolkit bodies." href="/docs/architecture/internals/views/" />
+<LinkCard title="The runtime" description="Values, execution contexts, native objects and tracing." href="/docs/architecture/internals/runtime/" />
+<LinkCard title="React Native" description="Registration, autolinking and build identities." href="/docs/architecture/internals/react-native/" />
+<LinkCard title="SDK bindings" description="Discovery, extraction, the cache and binding plans." href="/docs/architecture/internals/bindings/" />
+<LinkCard title="Tooling" description="Build records, pending actions, watching and the editor." href="/docs/architecture/internals/tooling/" />
+</CardGrid>

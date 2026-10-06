@@ -1,40 +1,48 @@
 import { DiagramArrow } from "./DiagramArrow";
 import { DiagramBox } from "./DiagramBox";
+import { DiagramLabel } from "./DiagramLabel";
 import { DiagramLane } from "./DiagramLane";
 import { DiagramNote } from "./DiagramNote";
 import { DiagramSvg } from "./DiagramSvg";
 
 const m = "threads-arrow";
-const x = [16, 160, 304] as const;
-const w = 124;
+const lanes = ["JS", "LUCENT", "WORKERS", "MAIN"] as const;
+const laneW = 130;
+const laneX = (i: number) => 8 + i * (laneW + 8);
+const x = (i: number) => laneX(i) + 8;
+const w = laneW - 16;
+const row = (i: number) => 40 + i * 70;
 
-/** What runs on each of the three threads, and how work moves between them. */
+/** What runs on each thread, which of it shares the lock module code takes, and how work moves between threads. */
 export function ThreadsDiagram() {
   return (
     <DiagramSvg
-      viewBox="0 0 440 380"
+      viewBox="0 0 560 380"
       markerId={m}
-      title="The JS thread, the Lucent thread and the main thread, and what runs on each"
+      title="The JS thread, the Lucent thread, compute workers and the main thread, and what runs on each"
     >
-      <DiagramLane x={8} y={10} w={140} h={310} label="JS" />
-      <DiagramLane x={152} y={10} w={140} h={310} label="LUCENT" />
-      <DiagramLane x={296} y={10} w={140} h={310} label="MAIN" />
-      <DiagramBox x={x[0]} y={40} w={w} label="sync export" sub="runs here" accent />
-      <DiagramBox x={x[0]} y={110} w={w} label="async export" sub="called here" />
-      <DiagramBox x={x[1]} y={110} w={w} label="its body" sub="runs here" accent />
-      <DiagramBox x={x[2]} y={180} w={w} label="main(() => …)" sub="UIKit, views" accent />
-      <DiagramBox x={x[1]} y={250} w={w} label="SDK callback" sub="queued here" />
-      <DiagramBox x={x[0]} y={250} w={w} label="JS callback" sub="posted here" />
-      <DiagramArrow from={[x[0] + w, 132]} to={[x[1], 132]} marker={m} />
-      <DiagramArrow from={[x[1] + w, 150]} to={[x[2] + 20, 180]} marker={m} dashed />
-      <DiagramArrow from={[x[2], 290]} to={[x[1] + w, 272]} marker={m} dashed />
-      <DiagramArrow from={[x[1], 272]} to={[x[0] + w, 272]} marker={m} />
+      {lanes.map((label, i) => (
+        <DiagramLane key={label} x={laneX(i)} y={10} w={laneW} h={310} label={label} />
+      ))}
+      <DiagramBox x={x(0)} y={row(0)} w={w} label="sync export" sub="runs here" accent />
+      <DiagramBox x={x(0)} y={row(1)} w={w} label="async export" sub="converts args" />
+      <DiagramBox x={x(1)} y={row(1)} w={w} label="its body" sub="runs here" accent />
+      <DiagramBox x={x(2)} y={row(1)} w={w} label="compute(task)" sub="runs here" accent />
+      <DiagramBox x={x(3)} y={row(2)} w={w} label="main(() => …)" sub="runs here" accent />
+      <DiagramBox x={x(3)} y={row(3)} w={w} label="view setup" sub="main context" accent />
+      <DiagramBox x={x(1)} y={row(3)} w={w} label="SDK callback" sub="queued here" />
+      <DiagramBox x={x(0)} y={row(3)} w={w} label="JS callback" sub="posted here" />
+      <DiagramArrow from={[x(0) + w, row(1) + 22]} to={[x(1), row(1) + 22]} marker={m} dashed />
+      <DiagramLabel x={laneX(1)} y={row(1) - 8} text="posted" />
+      <DiagramArrow from={[x(1) + w, row(1) + 22]} to={[x(2), row(1) + 22]} marker={m} dashed />
+      <DiagramArrow from={[x(1) + w / 2, row(1) + 44]} to={[x(3), row(2) + 22]} marker={m} dashed />
+      <DiagramArrow from={[x(1), row(3) + 22]} to={[x(0) + w, row(3) + 22]} marker={m} dashed />
       <DiagramNote
         x={16}
         y={346}
         lines={[
-          "One lock: Lucent code runs one piece at a time,",
-          "on whichever thread, so it never races itself.",
+          "Module code takes turns under one lock: sync exports, async bodies, main(f).",
+          "Compute tasks and view setups run beside it, without the lock.",
         ]}
       />
     </DiagramSvg>

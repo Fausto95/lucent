@@ -1,0 +1,74 @@
+---
+title: Respond to the app moving to the background
+sidebar_label: Respond to app lifecycle
+description: "`onAppEvent()` from `lucent:ios` and `onActivityEvent()` from `lucent:android` call your function on each lifecycle event, and return the function that stops it."
+kind: guide
+---
+
+<Tabs>
+<TabItem label="background.lucent.ts">
+
+```ts title="background.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { onAppEvent } from "lucent:ios";
+import { onActivityEvent } from "lucent:android";
+
+/** Calls `listener` with true when the app goes to the background, and false when it comes back. */
+export function onBackground(listener: (background: boolean) => void): () => void {
+  const stops =
+    PLATFORM === "ios"
+      ? [
+          onAppEvent("didEnterBackground", () => listener(true)),
+          onAppEvent("willEnterForeground", () => listener(false)),
+        ]
+      : [
+          onActivityEvent("stopped", () => listener(true)),
+          onActivityEvent("started", () => listener(false)),
+        ];
+
+  return () => {
+    for (const stop of stops) stop();
+  };
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useEffect } from "react";
+import { Text } from "react-native";
+import { onBackground } from "./src/background.lucent";
+
+export default function App() {
+  useEffect(() => onBackground((background) => console.log(background ? "left" : "back")), []);
+
+  return <Text>Watching the app's lifecycle</Text>;
+}
+```
+
+</TabItem>
+</Tabs>
+
+Each subscription returns the function that stops it. `onBackground` returns one that stops both, and JavaScript gets it as a function, which `useEffect` calls when the component unmounts.
+
+## What each platform reports
+
+| | iOS | Android |
+| --- | --- | --- |
+| Function | `onAppEvent()`, and `onSceneEvent()` for each scene | `onActivityEvent()` |
+| Events | the lifecycle notifications in [AppEvent](/docs/api/lucent-ios/#appevent) and [SceneEvent](/docs/api/lucent-ios/#sceneevent) | the Activity events in [ActivityEvent](/docs/api/lucent-android/#activityevent), `"newIntent"` included |
+| Runs on | the main thread, so UIKit calls compile there without `main()` | the Lucent thread, for module code: put main-thread calls in `main()` |
+| Stops | when you call the returned function, or `signal` aborts | when you call the returned function |
+
+- Android reports Activities, not the app. With one Activity, as React Native's template has, `"stopped"` means the app went to the background.
+- `onSceneEvent()` gives your function the scene's `persistentIdentifier`, for iPad apps with several windows.
+- Your function runs holding the Lucent lock, so keep it short. On iOS, the UI waits while it runs.
+- On iOS, Lucent observes the notifications, so your app delegate stays as it is.
+- A function that throws is logged, and the app goes on.
+
+[lucent:ios](/docs/api/lucent-ios/#onappevent) and [lucent:android](/docs/api/lucent-android/#onactivityevent) document each function, and [Concurrency](/docs/api/language/concurrency/#where-each-kind-of-code-runs) says where each callback runs.
+
+:::caution
+A JavaScript reload doesn't stop a subscription, so after a full reload in development the app subscribes again beside it ([What a reload does](/docs/api/language/modules/#what-a-reload-does)).
+:::

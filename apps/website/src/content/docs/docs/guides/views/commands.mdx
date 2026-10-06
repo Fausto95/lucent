@@ -1,0 +1,124 @@
+---
+title: Call a component's methods from React
+sidebar_label: Call methods from React
+description: "Pass `expose()` an object of functions in setup: React calls them through the component's ref, and those that return a value answer with a promise."
+kind: guide
+views: true
+sidebar_class_name: experimental
+---
+
+:::caution
+Experimental: views change without notice. They need `LUCENT_VIEWS=fabric` where Lucent builds: see [Turn on native views](/docs/guides/views/). Read [the limits](/docs/architecture/views/#limits) first.
+:::
+
+<Tabs>
+<TabItem label="field.lucent.ts">
+
+```ts title="field.lucent.ts"
+import type { View } from "lucent:android/android.view";
+import type { UIView } from "lucent:ios/UIKit";
+
+export type FieldProps = { placeholder: string };
+
+export declare function Field(props: FieldProps): UIView | View;
+```
+
+</TabItem>
+<TabItem label="field.ios.lucent.tsx">
+
+```tsx title="field.ios.lucent.tsx"
+import { UITextField, type UIView } from "lucent:ios/UIKit";
+import { effect, expose } from "lucent:ui";
+import type { FieldProps } from "./field.lucent";
+
+export function Field(props: FieldProps): UIView {
+  const field = new UITextField({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } });
+
+  effect(() => {
+    field.placeholder = props.placeholder;
+  });
+
+  expose({
+    focus: () => {
+      field.becomeFirstResponder();
+    },
+    clear: () => {
+      field.text = "";
+    },
+    text: (): string => field.text ?? "",
+  });
+
+  return field;
+}
+```
+
+</TabItem>
+<TabItem label="field.android.lucent.tsx">
+
+```tsx title="field.android.lucent.tsx"
+import { appContext } from "lucent:android";
+import type { View } from "lucent:android/android.view";
+import { EditText } from "lucent:android/android.widget";
+import { effect, expose } from "lucent:ui";
+import type { FieldProps } from "./field.lucent";
+
+export function Field(props: FieldProps): View {
+  const field = new EditText(appContext());
+
+  effect(() => field.setHint(props.placeholder));
+
+  expose({
+    focus: () => {
+      field.requestFocus();
+    },
+    clear: () => field.setText(""),
+    text: (): string => field.getText()?.toString() ?? "",
+  });
+
+  return field;
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useRef } from "react";
+import { Button, View } from "react-native";
+import * as field from "./field.lucent";
+
+const { Field } = field as unknown as typeof import("./.lucent/native/types/views/field");
+
+type FieldRef = { focus(): void; clear(): void; text(): Promise<string> };
+
+export default function App() {
+  const ref = useRef<FieldRef>(null);
+  const send = async () => {
+    console.log(await ref.current?.text());
+    ref.current?.clear();
+  };
+
+  return (
+    <View style={{ padding: 48 }}>
+      <Field ref={ref} placeholder="Name" style={{ height: 44 }} />
+      <Button title="Edit" onPress={() => ref.current?.focus()} />
+      <Button title="Send" onPress={send} />
+    </View>
+  );
+}
+```
+
+</TabItem>
+</Tabs>
+
+Call `expose()` once, as a statement at the top level of setup, with an object literal of functions. What each function returns decides what the ref's method is:
+
+- `focus` and `clear` return nothing: they're commands. JavaScript sends them to the view without waiting, and they run on the main thread.
+- `text` returns a value: it's a request, and the ref's `text()` returns a `Promise<string>`. A function that returns a promise answers when that promise settles.
+- Arguments and results are plain data, as props are.
+
+`expose()` can't stand in a platform branch, so a component whose commands use each platform's own view is written as platform files. Both platforms expose the same commands. `.lucent/native/types/views/field.d.ts` types the ref, and App.tsx declares `FieldRef` to match it.
+
+## When a call fails
+
+A call to a view that isn't mounted throws an `InvalidStateError`, and a request whose view unmounts first rejects with an `AbortError`. [Commands and requests](/docs/api/views/components/#commands-and-requests) lists each error.

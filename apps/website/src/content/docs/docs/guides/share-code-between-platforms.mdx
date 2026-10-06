@@ -1,40 +1,92 @@
 ---
 title: Share code between iOS and Android
-description: One module with a platform branch per SDK call; platform files only when the halves share nothing.
+description: "Keep the logic in a shared module and branch on `PLATFORM` only around SDK calls; use platform files when the halves share nothing."
 kind: guide
 ---
 
-```ts title="device.lucent.ts"
+<Tabs>
+<TabItem label="battery.lucent.ts">
+
+```ts title="battery.lucent.ts"
 import { PLATFORM } from "lucent:platform";
-import { UIDevice } from "lucent:ios/UIKit";
-import { Build, Build_VERSION } from "lucent:android/android.os";
+import { UIDevice, UIDevice_BatteryState as State } from "lucent:ios/UIKit";
+import { appContext } from "lucent:android";
+import { BatteryManager } from "lucent:android/android.os";
 import { main } from "lucent:thread";
+import { type Battery, batteryLabel } from "./battery-label.lucent";
 
-export type DeviceInfo = { platform: string; model: string; label: string };
-
-// Shared code: plain Lucent.
-function label(model: string, version: string): string {
-  return `${model} (${version})`;
+// iOS code: it uses lucent:ios outside a branch.
+function iosBattery(): Promise<Battery> {
+  return main(() => {
+    const device = UIDevice.current;
+    device.isBatteryMonitoringEnabled = true;
+    const state = device.batteryState;
+    return { level: device.batteryLevel, charging: state === State.charging || state === State.full };
+  });
 }
 
-export async function deviceInfo(): Promise<DeviceInfo> {
-  if (PLATFORM === "ios") {
-    const [model, version] = await main(() => [UIDevice.current.model, UIDevice.current.systemVersion]);
-    return { platform: PLATFORM, model, label: label(model, `iOS ${version}`) };
-  } else {
-    const model = Build.MODEL ?? "Android";
-    return { platform: PLATFORM, model, label: label(model, `Android ${Build_VERSION.RELEASE ?? ""}`) };
-  }
+export async function batteryStatus(): Promise<string> {
+  if (PLATFORM === "ios") return batteryLabel(await iosBattery());
+
+  // After the guard clause, the rest of the function is Android code.
+  const manager = appContext().getSystemService(BatteryManager);
+  const percent = manager?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?? -1;
+  return batteryLabel({ level: percent / 100, charging: manager?.isCharging() ?? false });
 }
 ```
 
-- `if (PLATFORM === "ios") { … } else { … }` compiles each branch for its own platform. `? :`, `switch (PLATFORM)` and `PLATFORM === "ios" && …` work too.
-- A top-level function, class or variable that uses one platform's SDK outside a branch belongs to that platform, and compiles only there.
-- Exports run on both platforms, so they branch inside.
-- Both branches are type-checked on every build. Where a platform's SDK isn't installed, its code is untyped and skipped.
+</TabItem>
+<TabItem label="battery-label.lucent.ts">
 
-A guard clause works too, as TypeScript narrows it: after `if (PLATFORM === "ios") return …;` the rest of the block is Android code. The test must be `PLATFORM` alone (not `PLATFORM === "ios" && ready`), with no `else`, and its branch must end in `return`, `throw`, `break` or `continue`.
+```ts title="battery-label.lucent.ts"
+export type Battery = { level: number; charging: boolean };
 
-## When to split into platform files
+/** Shared: no platform imports, so it runs the same on iOS, Android and in tests. */
+export function batteryLabel(battery: Battery): string {
+  if (battery.level < 0) return "Unknown";
+  const percent = `${Math.round(battery.level * 100)}%`;
+  if (battery.charging) return `${percent}, charging`;
+  return battery.level <= 0.2 ? `${percent}, low` : percent;
+}
+```
 
-When the two halves share nothing, split the module: `x.lucent.ts` holds only `export declare function`s and types, and `x.ios.lucent.ts` and `x.android.lucent.ts` each implement all of them (`LUCENT3005`). JavaScript imports `x.lucent` either way.
+</TabItem>
+<TabItem label="JS usage">
+
+```tsx title="App.tsx"
+import { useEffect, useState } from "react";
+import { Text } from "react-native";
+import { batteryStatus } from "./src/battery.lucent";
+
+export default function App() {
+  const [status, setStatus] = useState("");
+
+  useEffect(() => {
+    void batteryStatus().then(setStatus);
+  }, []);
+
+  return <Text>{status}</Text>;
+}
+```
+
+</TabItem>
+</Tabs>
+
+Each platform's build compiles its own code and the code both share. The iOS build compiles `iosBattery` and the guard clause, and the Android build the rest of `batteryStatus`. Both compile `batteryLabel`.
+
+## Choose where code goes
+
+- **No SDK call**: a [shared module](/docs/architecture/glossary/#shared-module), like `battery-label.lucent.ts`. Put as much logic there as you can, and turn SDK results into plain values early.
+- **A few SDK calls in an export**: a [platform branch](/docs/architecture/glossary/#platform-branch) in the same module. An export runs on both platforms, so its platform code sits inside a branch.
+- **Helpers that use one SDK**: top-level declarations, like `iosBattery`. They belong to that platform and compile only for it.
+- **Two halves that share nothing**: [platform files](/docs/architecture/glossary/#platform-file), below.
+
+A guard clause such as `if (PLATFORM === "ios") return …;` makes the rest of its block the other platform's code. `? :` and `switch (PLATFORM)` branch too. Platform code in an export outside a branch fails with [LUCENT3004](/docs/api/diagnostics/#lucent3004).
+
+The exact rules for tests and branches are in [Platform code](/docs/api/language/platform-code/#platform-tests).
+
+## Split a module into platform files
+
+When the halves share nothing, split the module into a declaration file and one file per platform. For `power-saving.lucent.ts`, those are `power-saving.ios.lucent.ts` and `power-saving.android.lucent.ts`. JavaScript and other modules still import `./power-saving.lucent`, and each call goes to the platform's file.
+
+A declaration file holds only `export declare function`s and types, so a split module exports functions only. [Platform files](/docs/api/language/platform-code/#platform-files) shows one, with the exact rules.

@@ -3,6 +3,7 @@
  * markdown.ts:
  *   - `include="…"` fills an empty fence with a file from src/generated/snippets/,
  *     and a diff shows as added and removed lines;
+ *   - `{{lucent-version}}` in a sample becomes the version of @lucent-lang/lucent;
  *   - TypeScript and JavaScript samples are formatted with Oxfmt;
  *   - a sample flagged `cpp` gets "See the C++" under it (under its tabs, in a
  *     <Tabs>): what the compiler writes for it, from src/generated/cpp/<slug>.json.
@@ -11,12 +12,10 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Code, Root, RootContent } from "mdast";
 import { format } from "oxfmt";
-import { unified } from "unified";
-import remarkParse from "remark-parse";
-import remarkMdx from "remark-mdx";
 import type { CppFile } from "./types.ts";
 import { docsSlugOf, formatMeta, langOf, parseMeta } from "./markdown.ts";
 import { readSnippet } from "./mdx-read.ts";
+import { websiteDir } from "./site-dir.ts";
 
 type Parent = { children: RootContent[] };
 type File = { path?: string; history?: string[] };
@@ -50,6 +49,21 @@ export function remarkInclude() {
   };
 }
 
+/**
+ * The current version where a sample says `{{lucent-version}}`, such as a
+ * terminal's `◆ lucent 0.1.2`. Read at build, so a release's version bump
+ * needs no regenerated page.
+ */
+export function remarkVersion() {
+  const packageJson = path.join(websiteDir(), "../../packages/lucent/package.json");
+  const { version } = JSON.parse(fs.readFileSync(packageJson, "utf8")) as { version: string };
+  return (tree: Root) => {
+    eachCode(tree, (code) => {
+      code.value = code.value.replaceAll("{{lucent-version}}", version);
+    });
+  };
+}
+
 /** The languages Oxfmt formats, as the file extension it reads them by. */
 const formatted: Record<string, string> = { ts: "ts", tsx: "tsx", js: "js", jsx: "jsx" };
 
@@ -73,23 +87,13 @@ export function remarkFormat() {
   };
 }
 
-const cppDir = path.resolve(import.meta.dirname, "../generated/cpp");
-
 /** A page's samples' C++, by sample file name: none for a page without `cpp` samples. */
 function cppOf(slug: string): Record<string, CppFile[]> {
-  const file = path.join(cppDir, `${slug || "index"}.json`);
+  const file = path.join(websiteDir(), "src/generated/cpp", `${slug || "index"}.json`);
   return fs.existsSync(file)
     ? (JSON.parse(fs.readFileSync(file, "utf8")) as Record<string, CppFile[]>)
     : {};
 }
-
-/** Use private aliases so pages need no imports and existing sample tabs keep working. */
-const cppTabsImport = unified()
-  .use(remarkParse)
-  .use(remarkMdx)
-  .parse(
-    'import { Tabs as LucentCppTabs, TabItem as LucentCppTabItem } from "@astrojs/starlight/components";',
-  ).children[0]!;
 
 /** A disclosure with platform tabs when the compiler writes more than one file. */
 function seeCpp(files: CppFile[]): RootContent {
@@ -117,13 +121,13 @@ function seeCpp(files: CppFile[]): RootContent {
       ...(files.length > 1
         ? [
             element(
-              "LucentCppTabs",
-              files.map((f, i) => element("LucentCppTabItem", [codes[i]!], { label: f.label })),
+              "Tabs",
+              files.map((f, i) => element("TabItem", [codes[i]!], { label: f.label })),
             ),
           ]
         : codes),
     ],
-    { class: "see-cpp" },
+    { className: "see-cpp" },
   );
 }
 
@@ -132,7 +136,6 @@ export function remarkSeeCpp() {
     const slug = docsSlugOf(file.path ?? file.history?.[0] ?? "");
     if (slug === undefined) return;
     const cpp = cppOf(slug);
-    let needsTabs = false;
     const walk = (parent: Parent) => {
       for (let i = 0; i < parent.children.length; i++) {
         const node = parent.children[i]!;
@@ -150,14 +153,12 @@ export function remarkSeeCpp() {
           continue;
         }
         if (shown.length) {
-          needsTabs ||= shown.some((files) => files.length > 1);
           parent.children.splice(i + 1, 0, ...shown.map(seeCpp));
           i += shown.length;
         }
       }
     };
     walk(tree);
-    if (needsTabs) tree.children.unshift(structuredClone(cppTabsImport));
   };
 }
 

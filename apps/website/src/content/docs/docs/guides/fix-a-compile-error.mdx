@@ -1,0 +1,88 @@
+---
+title: Fix a LUCENT compile error
+sidebar_label: Fix a compile error
+description: "Each problem names its `LUCENT` code, its line and a one-line fix; `lucent explain <code>` says why the rule exists, and `lucent check` fails CI on an error."
+kind: guide
+---
+
+```ts title="greet.lucent.ts" expect="LUCENT2001"
+export function greet(name: any): string {
+  return `Hello, ${name}`;
+}
+```
+
+```sh title="terminal"
+npx lucent check
+```
+
+```sh title="terminal" nocopy
+  error LUCENT2001  `any` has no native representation; give this value a
+                    concrete type
+
+    src/greet.lucent.ts:1:23
+    1 │ export function greet(name: any): string {
+      │                       ^^^^^^^^^
+    2 │   return `Hello, ${name}`;
+
+  fix  use a concrete type, a union, or a generic parameter
+  docs lucent explain LUCENT2001
+
+  1 error · 1 module · 1.4 s
+```
+
+- `error LUCENT2001` names the rule the code breaks. An error stops the build, which then writes nothing. A `warning` is reported, and the code still compiles.
+- The file, line and column point at the code, and the frame underlines it.
+- `fix` is the usual fix, in one line. Here, give `name` the type `string`.
+
+`lucent build` prints problems the same way, and Metro's output shows each one on a line, with its fix, as you save. The [editor plugin](/docs/api/integrations/#editor-plugin) underlines it as you type. In the `lucent dev` dashboard, `o` opens the problem in your editor.
+
+## See why the rule exists
+
+```sh title="terminal"
+npx lucent explain 2001
+```
+
+```sh title="terminal" nocopy
+LUCENT2001  Value without a native type
+
+Native code needs to know each value's layout at compile time. `any` gives it none, and `unknown` only stands for a caught error, whose type JavaScript does not say.
+
+fix  use a concrete type, a union, or a generic parameter
+
+✗ wrong  example.lucent.ts
+    export function size(value: any): number {
+      return value.length;
+    }
+
+✓ right  example.lucent.ts
+    export function size(value: string): number {
+      return value.length;
+    }
+
+https://lucent-lang.dev/docs/api/diagnostics/#lucent2001
+```
+
+`lucent explain` without a code lists every code with its title. [Diagnostics](/docs/api/diagnostics/) has each one's reason and examples.
+
+## Fail CI on an error
+
+```yaml title=".github/workflows/lucent.yml"
+name: Lucent
+on: [push, pull_request]
+jobs:
+  check:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm ci
+      - run: npx lucent check
+```
+
+`lucent check` exits with 1 when a module has an error, and writes no native package.
+
+- Platform code is checked for each SDK the machine has, and the others are skipped with a warning. Check on macOS, with Xcode, to cover iOS code.
+- `--json` prints one JSON document: `ok`, the errors in `diagnostics` and the warnings in `warnings`. Each has its `code`, `message`, `file`, `line`, `column` and `fix`, and [JSON output](/docs/api/json-formats/#lucent-check---json) lists every field.
+- `--frozen` also fails when the installed SDKs differ from your lock file ([Pin the SDKs](/docs/guides/pin-sdks/)).

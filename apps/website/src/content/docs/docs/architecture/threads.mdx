@@ -1,0 +1,85 @@
+---
+title: "How do the JS, Lucent and main threads share work?"
+description: "Threads post jobs to each other instead of waiting; module code shares one lock, which compute workers and view code never take."
+sidebar_label: "Threads"
+kind: explanation
+---
+
+```ts title="photos.lucent.ts"
+import { compute } from "lucent:core";
+import { PLATFORM } from "lucent:platform";
+import { UIScreen } from "lucent:ios/UIKit";
+import { main } from "lucent:thread";
+
+let analyzed = 0; // module state
+
+function brightness(pixels: Uint8Array): number {
+  let sum = 0;
+  for (let i = 0; i < pixels.length; i++) sum += pixels[i]!;
+  return pixels.length > 0 ? sum / pixels.length : 0;
+}
+
+export async function analyze(pixels: Uint8Array): Promise<number> {
+  const mean = await compute(brightness, pixels); // a worker thread, without the lock
+  analyzed++; // the Lucent thread, holding the lock
+  if (PLATFORM === "ios") {
+    const screen = await main(() => UIScreen.main.brightness); // the main thread, holding the lock
+    return mean * screen;
+  }
+  return mean;
+}
+
+export function count(): number {
+  return analyzed; // the JS thread, holding the lock
+}
+```
+
+<Diagram name="threads">
+
+Where each kind of code runs. Module code takes turns under one lock; compute tasks and view code run without it.
+
+</Diagram>
+
+## Module code takes turns
+
+Module code is your modules' code outside components and compute tasks. Like JavaScript, it runs one piece at a time: every entry into it holds one lock, whichever thread it runs on.
+
+A synchronous export holds the lock on the JS thread, and an `async` export's body holds it on the Lucent thread. Async code lets go of it only when it awaits something that hasn't settled yet. So two pieces of module code never run at once, and module state needs no guard.
+
+## Why a synchronous call sometimes waits
+
+A synchronous call needs the lock too. While other module code holds it, on any thread, the call waits on the JS thread.
+
+The lock is fair: threads get it in the order they asked. So the Lucent thread, taking it again between turns, queues behind a call already waiting.
+
+In long work that JavaScript may call into meanwhile, `await delay(0)` between chunks lets those calls through. Heavy work belongs in a compute task: [Run work off the JS thread](/docs/guides/run-work-off-the-js-thread/) shows both.
+
+## Posted jobs, not waits
+
+<Diagram name="call-async">
+
+An async call: its body is posted to the Lucent thread, and its result is posted back.
+
+</Diagram>
+
+Apart from taking the lock, no thread waits for another. Work for another thread is posted to it as a job. An async export posts its body to the Lucent thread; the body posts its result back to the JS thread, settling the promise.
+
+A promise settles on the context that made it, so an `await` resumes where its code started. Code holding the lock never waits for another thread, which is why any thread can wait for the lock without a deadlock.
+
+A platform callback that returns nothing and runs later is queued on the Lucent thread, so the SDK doesn't wait for Lucent code. On iOS, one known to run on the main thread is the exception, such as a `@MainActor` delegate method or an `onAppEvent` listener. Those, and callbacks that return a value or run during the SDK call, run at once on the calling thread, holding the lock.
+
+## `main()` and the main context
+
+`main(f)` posts `f` to the main thread and returns a promise, so its caller never waits for the main thread. `f` is module code, so it holds the lock and can use module state. The main thread waits for the lock while other module code runs ([main(f)](/docs/api/language/concurrency/#mainf)).
+
+Views can't afford that wait. Component setups, effects and commands run in the main context, which never takes the lock and can't use module state ([the main context](/docs/api/language/concurrency/#the-main-context)). So views keep updating while JavaScript or module code is busy ([native views](/docs/architecture/views/)).
+
+Some APIs must run on the main thread, and the compiler checks that on both platforms ([LUCENT3006](/docs/api/diagnostics/#lucent3006)). On iOS that's members declared `@MainActor`, most of UIKit among them; on Android, `@UiThread` and `@MainThread` members. [Run code on the main thread](/docs/guides/run-on-the-main-thread/) shows how.
+
+## Compute workers run in parallel
+
+`compute(task, input)` runs a top-level function on a pool of worker threads, one fewer than the device's cores and at least one. Workers never take the lock, so tasks run at the same time as module code and each other.
+
+That is safe because a task shares nothing. Its input is copied, and the compiler refuses a task that uses module state or main-thread code ([LUCENT3011](/docs/api/diagnostics/#lucent3011)). Its result is posted back to the code that called `compute`.
+
+Submitting never blocks either: with 1024 tasks already waiting, `compute` rejects at once with a `QuotaExceededError` ([lucent:core](/docs/api/lucent-core/#compute)). [Concurrency](/docs/api/language/concurrency/#compute-tasks) states the other rules exactly.

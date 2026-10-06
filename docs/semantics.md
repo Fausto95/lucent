@@ -24,6 +24,7 @@ export function f(x: number): number { ... }         // callable from JavaScript
 export async function g(): Promise<string> { ... }   // returns a JS promise; runs off the JS thread
 export class Store { ... }                            // `new Store()` from JavaScript
 export const VERSION = "1.0";                          // copied to JavaScript once
+export let count = 0;                                  // read live: JavaScript sees each new value
 export enum Mode { Fast = "fast", Safe = "safe" }     // becomes a frozen JS object
 export type Item = { id: string; tags: string[] };    // types are free
 
@@ -31,6 +32,27 @@ let counter = 0;                                      // module state, reset on 
 ```
 
 - The top level may only contain declarations.
+- Exports are named by their declarations: export lists, re-exports and
+  default exports (`export default function f`, which JavaScript would see
+  as `default`) report `LUCENT3003`.
+- An exported `let` is a live binding, as in an ES module: each read from
+  JavaScript gets the value the module holds now. An exported `const` is
+  copied once, as its binding never changes. Refusing an exported `let`
+  that the module reassigns would have broken ordinary counters and
+  caches, and a getter fits both the native exports object and the
+  JavaScript proxy.
+- An exported variable holding an object, array, map, set, record, tuple
+  or `Uint8Array` reaches JavaScript as a copy, by the boundary's copy
+  rule: one copy per value the module assigns, so reads give the same
+  object (`mod.config === mod.config`) and JavaScript's own changes to it
+  stay until the module assigns another. Changes the module makes inside
+  that value (`config.size++`, `list.push(x)`) are not seen by JavaScript,
+  for a `let` or a `const`: export a function that returns the value, or
+  assign a new one, to show them.
+- Top-level declarations initialize in source order, as in JavaScript: a
+  class's static fields where the class is declared, between the module's
+  variables. A JS reload runs every initializer again and resets every
+  static field, one without an initializer to its type's default.
 - Imports are limited to other `*.lucent.ts` files, `lucent:core`, and
   the `lucent:` platform modules (below).
 - Module names are file names without `.lucent.ts`, and must be unique within an app.
@@ -56,36 +78,43 @@ must fit the native type (`0n` to `2n ** 64n - 1n` for unsigned ones), or
 the call throws `RangeError` naming the parameter or field. Enums, option
 sets and Android constant groups (`@IntDef`, `@LongDef`) stay numbers; a
 `@LongDef` value a number cannot hold exactly (beyond ±(2^53 − 1)) throws
-`RangeError` instead of rounding.
+`RangeError` instead of rounding. A number passed where native code takes a
+narrower integer (`int`, `int32_t`, `uint8_t`, Java's `short` or `char`, an
+enum's raw value) converts as WebIDL's default conversion: NaN and
+infinities become 0, the rest is truncated and wraps modulo 2^bits, as
+`x | 0` does for 32 bits; a 64-bit one that stays a number (a Swift enum's
+`Int` raw value) throws `RangeError` unless finite and within ±(2^53 − 1).
 
 ## Types
 
-| TypeScript                                                  | Native representation                                                                                                                                         |
-| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `number`                                                    | `double`, with ECMAScript arithmetic (`%`, `**`, bitwise ops through ToInt32, …); every operation rounds separately, as in JavaScript (no fused multiply-add) |
-| `bigint`                                                    | integer of any precision (`lucent::BigInt`), with ECMAScript's operators; a value that fits in 64 bits does not allocate                                      |
-| `boolean`                                                   | `bool`                                                                                                                                                        |
-| `string` (and string literal types)                         | immutable UTF-16 string, stored one byte per unit when possible                                                                                               |
-| `T[]`, `readonly T[]`                                       | shared array (assignment aliases, like JS)                                                                                                                    |
-| `[A, B]`                                                    | tuple (a value)                                                                                                                                               |
-| `Record<string, V>`, `{ [k: string]: V }`                   | string-keyed dictionary, JS key order                                                                                                                         |
-| `Map<K, V>`, `Set<T>`                                       | insertion-ordered, SameValueZero keys                                                                                                                         |
-| object types (`type`, `interface`, literals)                | shared struct; types with the same shape share one struct                                                                                                     |
-| classes                                                     | shared object with methods, accessors, statics; `extends` another Lucent class (virtual dispatch, `super`, abstract classes)                                  |
-| interfaces with methods, or named in a class's `implements` | abstract base with virtual methods and property accessors; implemented only by classes that declare `implements`                                              |
-| `T \| undefined`, `T \| null`, `x?: T`, `null \| undefined` | optional that remembers `undefined` vs `null`                                                                                                                 |
-| other unions                                                | tagged union (`string \| number`, discriminated object unions, …)                                                                                             |
-| `(a: A) => R`                                               | function value (closures capture by reference)                                                                                                                |
-| `Promise<T>`                                                | promise (C++20 coroutine)                                                                                                                                     |
-| `Uint8Array`                                                | byte view over a shared buffer                                                                                                                                |
-| `Date`                                                      | shared mutable time value; local time from the device's time zone database                                                                                    |
-| `Error`, `TypeError`, `RangeError`, `class X extends Error` | error object with `name`, `message`, `code`                                                                                                                   |
-| unconstrained generics `<T>`                                | C++ templates (functions and classes)                                                                                                                         |
+| TypeScript                                                                 | Native representation                                                                                                                                         |
+| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `number`                                                                   | `double`, with ECMAScript arithmetic (`%`, `**`, bitwise ops through ToInt32, …); every operation rounds separately, as in JavaScript (no fused multiply-add) |
+| `bigint`                                                                   | integer of any precision (`lucent::BigInt`), with ECMAScript's operators; a value that fits in 64 bits does not allocate                                      |
+| `boolean`                                                                  | `bool`                                                                                                                                                        |
+| `string` (and string literal types)                                        | immutable UTF-16 string, stored one byte per unit when possible                                                                                               |
+| `T[]`, `readonly T[]`                                                      | shared array (assignment aliases, like JS)                                                                                                                    |
+| `[A, B]`                                                                   | tuple (a value)                                                                                                                                               |
+| `Record<string, V>`, `{ [k: string]: V }`                                  | string-keyed dictionary, JS key order                                                                                                                         |
+| `Map<K, V>`, `Set<T>`                                                      | insertion-ordered, SameValueZero keys                                                                                                                         |
+| object types (`type`, `interface`, literals)                               | shared struct; types with the same shape share one struct                                                                                                     |
+| classes                                                                    | shared object with methods, accessors, statics; `extends` another Lucent class (virtual dispatch, `super`, abstract classes)                                  |
+| interfaces with methods, or named in a class's `implements`                | abstract base with virtual methods and property accessors; implemented only by classes that declare `implements`                                              |
+| `T \| undefined`, `T \| null`, `x?: T`, `null \| undefined`                | optional that remembers `undefined` vs `null`                                                                                                                 |
+| other unions                                                               | tagged union (`string \| number`, discriminated object unions, …)                                                                                             |
+| `(a: A) => R`                                                              | function value (closures capture by reference)                                                                                                                |
+| `Promise<T>`                                                               | promise (C++20 coroutine)                                                                                                                                     |
+| `Uint8Array`                                                               | byte view over a shared buffer                                                                                                                                |
+| `Date`                                                                     | shared mutable time value; local time from the device's time zone database                                                                                    |
+| `Error`, `TypeError`, `RangeError`, `SyntaxError`, `class X extends Error` | error object with `name` (its constructor's), `message`, `code`; no `cause` (`LUCENT1003`)                                                                    |
+| unconstrained generics `<T>`                                               | C++ templates (functions and classes)                                                                                                                         |
 
 Not supported: `any`, `unknown` (except in `catch`), intersections, `symbol`,
 `object`, getters in object literals, index signatures mixed with
 properties, and extending built-in classes other than `Error`. An override
 must keep the overridden member's native signature (`LUCENT1005` otherwise).
+Decorators report `LUCENT1005`: one runs when its class is defined and may
+replace the class or member it decorates.
 
 Interfaces implemented by classes are _nominal_: a class must say
 `implements Shape` to be used as a `Shape` (`LUCENT2008` otherwise), and object
@@ -146,7 +175,9 @@ Supported:
   Spreading an object into a record is refused (`LUCENT1001`): an
   object's fields have no key order nor a record of which optional ones
   are set.
-- `typeof`, `instanceof` (classes, `Error` kinds, `Array`, `Map`, …), `in` on records.
+- `typeof`, `instanceof` (classes, `Error` kinds, `Array`, `Map`, …), `in`
+  on records, including the keys every object inherits (`"toString" in r`).
+  `in` on a union is refused: tell its members apart by a discriminant.
 - Arrow functions and function expressions, nested function declarations
   (hoisted), recursion. Closures share variables with their enclosing scope,
   and `let` loop variables get a fresh binding per iteration.
@@ -198,15 +229,28 @@ runs, so a right side that changes the target does not change what is read.
 - **String**: `length`, `charAt`, `charCodeAt`, `codePointAt`, `at`, `indexOf`,
   `lastIndexOf`, `includes`, `startsWith`, `endsWith`, `slice`, `substring`,
   `substr`, `toUpperCase`/`toLowerCase`, `trim*`, `padStart`/`padEnd`, `repeat`,
-  `replace`/`replaceAll` (string patterns), `split` (string separators),
-  `concat`, `localeCompare`; `String.fromCharCode`, `String.fromCodePoint`.
+  `replace`/`replaceAll` (string patterns, with `$` patterns), `split`
+  (string separators), `concat`, `localeCompare`; `String.fromCharCode`,
+  `String.fromCodePoint`.
 - **Array**: `length` (read/write), `push`, `pop`, `shift`, `unshift`, `slice`,
   `splice`, `concat`, `join`, `indexOf`, `lastIndexOf`, `includes`, `find`,
   `findIndex`, `filter`, `map`, `flatMap`, `forEach`, `some`, `every`,
   `reduce`, `reduceRight`, `sort` (stable; default sort compares strings
   like JS), `reverse`, `fill`, `at`, `keys`, `values`,
   `entries`; `Array.from` (iterables and `{ length }`), `Array.of`,
-  `Array.isArray`, `new Array(n)`.
+  `Array.isArray` (by the value held; refused on an `Iterable`, which no
+  longer knows what made it), `new Array(n).fill(v)`. Lucent arrays have no
+  holes, which JavaScript's `forEach`, `map`, `indexOf` and `for…in` skip,
+  and filling them with `undefined` would show (`forEach` visits an
+  undefined element, `indexOf(undefined)` finds it). So the forms that make
+  holes are refused at compile time: `new Array(n)` unless a whole
+  `.fill(v)` follows it (preallocating and then assigning each index
+  included: write `Array.from({ length: n }, (_, i) => …)` or
+  `new Array(n).fill(v)`), and `Array.from({ length: n })` without a map
+  function unless the elements may be `undefined` (it makes undefined
+  values, not holes). Writing past the end (`a[i] = v` with `i > length`)
+  and growing `a.length` depend on runtime values, so they throw
+  `RangeError` whatever the element type (see the deviations below).
 - **Map / Set**: the full instance API; `new Map(entries)`, `new Set(iterable)`.
 - **Object**: `keys`, `values`, `entries` (records), `fromEntries`. Object
   types refuse `Object.keys`, `values`, `entries`, `for…in` and `in` (even
@@ -230,9 +274,12 @@ runs, so a right side that changes the target does not change what is read.
   written as a function (omitted), not called.
 - **Strings**: `toUpperCase`/`toLowerCase` use the full Unicode case mappings
   of the root locale (including the final sigma rule), from tables generated by
-  `scripts/gen-unicode.ts`. `localeCompare` uses the platform's collator for the
-  current locale, like Hermes (CoreFoundation on iOS, `java.text.Collator` on
-  Android).
+  `scripts/gen-unicode.ts`. `localeCompare`, `toLocaleUpperCase` and
+  `toLocaleLowerCase` use the platform for the device's locale, like Hermes
+  (CoreFoundation on iOS; `java.text.Collator` and `java.lang.String` on
+  Android), so `"i".toLocaleUpperCase()` is `"İ"` on a Turkish device. Their
+  `locales` and `options` arguments are not supported (Lucent has no `Intl`
+  locale data) and give a diagnostic.
 - **console.log / info / debug / warn / error**: written to os_log (iOS) or logcat (Android).
   A bigint argument prints with its `n` (`1n`), as JavaScript consoles print it.
 - **Date**: `new Date(…)`, `Date.now()`, `Date.parse`, `Date.UTC`, `get…`/`set…` in local time and UTC, `getTimezoneOffset`, `toISOString`, `toString`, `toDateString`, `toTimeString`, `toUTCString`; not the `toLocale…` methods.
@@ -294,16 +341,31 @@ transferred`) on use, and closing it does nothing. Passing a buffer to
 The ES2023 methods (`toSorted`, `toReversed`, `findLast`, `findLastIndex`)
 are not available: modules are checked against the ES2022 library.
 
-Not supported: `Intl`, `Symbol`, `WeakMap`, `Proxy`, `eval`. Each gives a
-diagnostic.
+Not supported: `Intl`, `Symbol`, `WeakMap`, `Proxy`, `eval`, and
+`String.prototype.normalize` (the runtime has no Unicode normalization
+tables: normalize the string in JavaScript before passing it). Each gives
+a diagnostic.
 
 ## Crossing the JavaScript boundary
 
 Only exported functions, classes and constants are visible from JavaScript.
+An exported class shows JavaScript its constructor, instance members and
+static methods; its static fields stay inside Lucent.
 
 - **Arguments are validated**, because JavaScript callers can pass anything:
   `hash: argument 'input' must be a string, got a number`, or for nested values
   `midpoint: argument 'a'.y must be a number, got undefined`.
+- **`null` and `undefined` are told apart** where TypeScript does: an
+  argument, a setter's value or an object's field typed `T | undefined` (or
+  `x?: T`) rejects `null`, and one typed `T | null` rejects `undefined`
+  (`label: argument 'name' must be a string or undefined, got null`). Inside
+  an array, a map, a set, a record, a tuple, a callback's result or a
+  promise's value, either absent value is accepted, as the converter there
+  is shared by every optional of that type; so is a field of two object
+  types that differ only in the absent value it admits (`{ v: string |
+null }` and `{ v: string | undefined }` share one native layout). A body
+  that reads the one its type excludes throws `TypeError` when it uses the
+  value.
 - **Values are copied:** arrays, records, maps, sets, tuples and plain objects
   cross the boundary as copies. If native code mutates an array it received,
   the caller's array is unchanged. A plain object reaches JavaScript with
@@ -312,16 +374,29 @@ Only exported functions, classes and constants are visible from JavaScript.
 - **Class instances keep their identity.** The same native object always maps to
   the same JS object, so `===` works. Instances live as long as either side
   holds them.
+- **Exported classes** are constructors: JavaScript calls `new` on them and
+  tests `instanceof`. A class's static methods and fields, its own and those
+  its Lucent base classes declare, are on its constructor; a static field is
+  a property that reads and writes the native one, so the module sees
+  JavaScript's writes.
 - **Interface values** cross as their concrete class instance. From JavaScript,
   only instances of Lucent classes that implement the interface are accepted.
 - **Unions of object types** need a string-literal discriminant (for example
-  `kind: "circle"`) so incoming values can be told apart.
+  `kind: "circle"`) so incoming values can be told apart. A value whose
+  discriminant names no member fails with the values accepted:
+  `shape: argument 's'.kind must be "circle" or "square", got "triangle"`.
 - **bigints** cross exactly, as JavaScript bigints, at any size.
 - **Errors** become JS `Error` / `TypeError` / `RangeError` / `SyntaxError` objects with the same
   `name`, `message` and `code`. Their `stack` starts with the Lucent frame
   that created the error (`at parse (/abs/path/config.lucent.ts:12)`). JS
   exceptions thrown by callbacks become Lucent errors that `catch` can handle,
-  and keep their original `stack` if they reach JavaScript again.
+  and keep their original `stack` if they reach JavaScript again. An instance
+  of a class that extends `Error` crosses as itself, thrown, returned or made
+  with `new` in JavaScript: `instanceof` its class and `Error`, with its
+  fields, and `name`, `message` and `stack` as an Error's. A subclass that no
+  export's types reach (itself, or a base or subclass of a class that
+  crosses) has no prototype in JavaScript: its instances cross as copies,
+  an `Error` with their `name` and `message`.
 - **Callbacks** (`(x: number) => void` parameters):
   - called while the JS thread is inside a synchronous call, they run
     synchronously and may return values;
@@ -384,7 +459,7 @@ explicitly, for example by clearing a field.
 
 | JavaScript                                                                                      | Lucent                                                                                                                                                                                                                                                                                                                   |
 | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `arr[i] = v` with `i > length` creates holes                                                    | throws `RangeError`; append with `push` or assign at `length`                                                                                                                                                                                                                                                            |
+| `arr[i] = v` with `i > length`, or `arr.length = n` above the length, creates holes             | throws `RangeError`, whatever the element type; append with `push` or assign at `length`                                                                                                                                                                                                                                 |
 | `arr[i]` / `record[k]` out of range → `undefined`                                               | same, and the type says `T \| undefined`; `!` throws `TypeError` if absent                                                                                                                                                                                                                                               |
 | arrays and objects passed to native code are shared                                             | copied at the boundary (inside Lucent they are shared)                                                                                                                                                                                                                                                                   |
 | garbage collection frees cycles                                                                 | reference counting leaks cycles                                                                                                                                                                                                                                                                                          |
@@ -403,8 +478,14 @@ explicitly, for example by clearing a field.
 | `date.toString()` includes the zone name in some engines                                        | `Mon Jul 22 2019 15:51:50 GMT-0700`, like Hermes; `toLocale…` methods are not supported                                                                                                                                                                                                                                  |
 | `abort()` without a reason uses an `AbortError` whose message depends on the engine             | `AbortError: signal is aborted without reason`, as in React Native and browsers (Node says "This operation was aborted")                                                                                                                                                                                                 |
 | an abort reason can be any value                                                                | reasons from JavaScript become errors (`String(reason)` as the message when it is not an object); `abort()` in Lucent takes an `Error`                                                                                                                                                                                   |
-| a subclass field read from a base constructor is `undefined` until the subclass initializes it  | it reads the type's default (`0`, `""`, `false`, empty object)                                                                                                                                                                                                                                                           |
+| a field or variable read before it is assigned (from a base constructor, say) is `undefined`    | a number, string, boolean, tuple, array, map, set, record or `Uint8Array` (or their union) reads a default; an object throws `TypeError`                                                                                                                                                                                 |
+| `this.p?.x` on an object field not yet assigned is `undefined`                                  | throws `TypeError`, as any read of that field does                                                                                                                                                                                                                                                                       |
+| a `let` or `const` read before its declaration runs throws `ReferenceError`                     | it reads as a variable not yet assigned, above                                                                                                                                                                                                                                                                           |
 | any object with the right members satisfies an interface                                        | only classes that declare `implements`; plain JS objects are rejected at the boundary with a `TypeError`                                                                                                                                                                                                                 |
+| assigning a static field a class inherits gives the subclass its own                            | from JavaScript, it writes the base class's field, which the subclass's constructor shares                                                                                                                                                                                                                               |
+| a `readonly` field can be assigned from JavaScript: TypeScript checks it only at compile time   | JavaScript sees a getter without a setter, so assigning one throws `TypeError` in strict mode code and is ignored otherwise                                                                                                                                                                                              |
+| `Object.prototype.toString` of an `Error` subclass's instance gives `[object Error]`            | a Lucent class instance is a plain object whose prototype chain reaches `Error.prototype`: it gives `[object Object]`                                                                                                                                                                                                    |
+| any value can be assigned to an error's `name` or `message`                                     | from JavaScript, a Lucent error's `name` and `message` take strings; another value throws `TypeError`                                                                                                                                                                                                                    |
 | a class instance in JavaScript has its fields as own properties, `private` ones included        | public fields are prototype accessors, other members hidden: `Object.keys` and `JSON.stringify` see no fields                                                                                                                                                                                                            |
 | a class's `[Symbol.dispose]()` is callable from JavaScript                                      | it is for Lucent code: JavaScript does not see symbol-keyed members of Lucent classes                                                                                                                                                                                                                                    |
 | `resolve(promise)` in a promise executor adopts the promise                                     | `fromCallback` reports values, not promises: a promise type is refused (`LUCENT1007`); await it and report its value                                                                                                                                                                                                     |

@@ -3,115 +3,431 @@
 /** From packages/lucent/schemas/lucent.schema.json. */
 export const lucentJsonDescription = "What a Lucent package's platform code needs from the app that installs it, next to the package's package.json. The app's build merges every package's needs into .lucent/native/resolved.json, naming the package each came from. Needs that cannot all hold fail the build, naming both packages.";
 
-export const lucentJsonFields: { field: string; type: string; description: string }[] = [
+export const lucentJsonFields: { field: string; type: string; required: boolean; description: string }[] = [
   {
     "field": "ios",
     "type": "object",
+    "required": false,
     "description": "What the iOS code needs."
   },
   {
     "field": "ios.pods",
-    "type": "{ [key]: string }",
+    "type": "{ [name]: string }",
+    "required": false,
     "description": "CocoaPods the native package depends on: pod name → version requirement, as in a Podfile (\"~> 1.0\", \">= 1.2, < 2\"). Every package's requirement on a pod goes to CocoaPods, which picks the version; requirements no version can meet fail the build. Their frameworks can be imported from lucent:ios/* once installed."
   },
   {
     "field": "ios.frameworks",
     "type": "string[]",
+    "required": false,
     "description": "Apple frameworks the native package links, such as \"CoreHaptics\". Frameworks of the lucent:ios/* modules the code imports are linked without listing them here."
   },
   {
     "field": "ios.infoPlist",
-    "type": "{ [key]: string, boolean or string[] }",
+    "type": "{ [name]: string or boolean or string[] }",
+    "required": false,
     "description": "Info.plist entries: key → a string, a boolean or an array of strings. Packages must agree on a key's value, except arrays, which join. The Expo config plugin adds them: a key the app sets keeps the app's value, and an array gains the values it lacks. For bare apps, lucent build names the keys and array values the app's Info.plist lacks."
   },
   {
     "field": "ios.nativeSources",
     "type": "string[]",
+    "required": false,
     "description": "Directories of native sources compiled into the native package's pod: C, C++, Objective-C and Swift (.h, .hpp, .m, .mm, .c, .cc, .cpp, .swift). Each directory is also a header search path. Paths are relative to the package; lucent build copies them into .lucent/native/packages/<package>/."
   },
   {
     "field": "ios.resources",
     "type": "string[]",
+    "required": false,
     "description": "Files or directories copied into the app bundle's root under their own names, such as \"assets/chime.caf\". Two that would land on the same name fail the build, naming both packages: namespace one with resourceBundles."
   },
   {
     "field": "ios.resourceBundles",
-    "type": "{ [key]: string[] }",
+    "type": "{ [name]: string[] }",
+    "required": false,
     "description": "Resource bundles: bundle name → files or directories copied into <name>.bundle in the app. A bundle name belongs to one package."
   },
   {
     "field": "ios.vendoredFrameworks",
     "type": "string[]",
-    "description": "Prebuilt .framework or .xcframework directories the pod links and embeds. lucent:ios binds their modules (an XCFramework's through its iOS simulator slice). Two with the same framework name fail the build, naming both packages."
+    "required": false,
+    "description": "Prebuilt .framework or .xcframework directories the pod vendors: CocoaPods links them, and embeds the dynamic ones. lucent:ios binds their modules (an XCFramework's through its iOS simulator slice). Two with the same framework name fail the build, naming both packages."
   },
   {
     "field": "ios.swiftPackages",
-    "type": "{ [key]: object }",
+    "type": "{ [name]: object }",
+    "required": false,
     "description": "Swift packages the pod depends on: package URL → { requirement, products }. The requirement is Xcode's, such as { \"kind\": \"upToNextMajorVersion\", \"minimumVersion\": \"1.2.0\" }. Packages must agree on a URL's requirement; their products join. React Native's spm_dependency adds them at pod install."
   },
   {
+    "field": "ios.swiftPackages.<name>.requirement",
+    "type": "object",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "ios.swiftPackages.<name>.requirement.kind",
+    "type": "\"upToNextMajorVersion\" or \"upToNextMinorVersion\" or \"exactVersion\" or \"versionRange\" or \"branch\" or \"revision\"",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "ios.swiftPackages.<name>.requirement.minimumVersion",
+    "type": "string",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "ios.swiftPackages.<name>.requirement.version",
+    "type": "string",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "ios.swiftPackages.<name>.requirement.maximumVersion",
+    "type": "string",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "ios.swiftPackages.<name>.requirement.branch",
+    "type": "string",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "ios.swiftPackages.<name>.requirement.revision",
+    "type": "string",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "ios.swiftPackages.<name>.products",
+    "type": "string[]",
+    "required": true,
+    "description": ""
+  },
+  {
     "field": "ios.entitlements",
-    "type": "{ [key]: string, boolean or string[] }",
+    "type": "{ [name]: string or boolean or string[] }",
+    "required": false,
     "description": "The app's entitlements: key → a string, a boolean or an array of strings. Packages must agree on a key's value, except arrays, which join. The Expo config plugin adds them like Info.plist entries. For bare apps, lucent build names what the app's .entitlements file lacks."
   },
   {
     "field": "ios.deploymentTarget",
     "type": "string",
+    "required": false,
     "description": "The lowest iOS version the package runs on, such as \"15.1\". The pod requires the highest any package needs, and never less than React Native's minimum. CocoaPods fails an app target below it."
   },
   {
     "field": "android",
     "type": "object",
+    "required": false,
     "description": "What the Android code needs."
   },
   {
     "field": "android.dependencies",
-    "type": "{ [key]: string }",
+    "type": "{ [name]: string }",
+    "required": false,
     "description": "Gradle artifacts: \"group:artifact\" → version. They become api dependencies of the native package, so lucent:android/* can import their classes. Every package's version of an artifact goes to Gradle, which picks one; a strict version (\"1.0!!\") that another package's excludes fails the build."
   },
   {
     "field": "android.permissions",
     "type": "string[]",
+    "required": false,
     "description": "Android permissions for the manifest, such as \"android.permission.CAMERA\". Each is declared once, however many packages list it. Permissions the SDK methods you call require are added without listing them here."
   },
   {
     "field": "android.nativeSources",
     "type": "string[]",
-    "description": "Java and Kotlin source roots of the native package's Android library, such as \"native/android\". Their C and C++ files (.c, .cc, .cpp) are compiled with the runtime. Each directory is also a header search path. Kotlin sources apply the Kotlin Android plugin."
+    "required": false,
+    "description": "Java and Kotlin source roots of the native package's Android library, such as \"native/android\". Their C and C++ files (.c, .cc, .cpp) are compiled with the runtime. A directory holding C or C++ files is also a header search path. Kotlin sources apply the Kotlin Android plugin."
   },
   {
     "field": "android.resources",
     "type": "string[]",
+    "required": false,
     "description": "Android resource directories (the res layout: drawable/, values/…). A file-based resource two packages both have fails the build, naming both; Android's resource merger reports duplicate value resources."
   },
   {
     "field": "android.assets",
     "type": "string[]",
+    "required": false,
     "description": "Asset directories, packaged into the app's assets. Two files with the same path fail the build, naming both packages."
   },
   {
     "field": "android.libraries",
     "type": "string[]",
+    "required": false,
     "description": "Prebuilt .aar or .jar files, api dependencies of the native package's library. lucent:android binds their classes, before the app's Gradle build has run. Two with the same file name fail the build, naming both packages."
   },
   {
     "field": "android.nativeLibraries",
     "type": "string[]",
+    "required": false,
     "description": "Directories of prebuilt native libraries by ABI (arm64-v8a/liborbit.so), packaged into the app. Two with the same path fail the build, naming both packages."
   },
   {
     "field": "android.components",
     "type": "object[]",
+    "required": false,
     "description": "Components for the library's manifest, which Android merges into the app's: services, receivers, activities and providers. A class is declared once; packages that declare it differently fail the build, naming both."
+  },
+  {
+    "field": "android.components[].kind",
+    "type": "\"activity\" or \"service\" or \"receiver\" or \"provider\"",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "android.components[].name",
+    "type": "string",
+    "required": true,
+    "description": "Fully qualified class name."
+  },
+  {
+    "field": "android.components[].exported",
+    "type": "boolean",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].enabled",
+    "type": "boolean",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].permission",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].authorities",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].grantUriPermissions",
+    "type": "boolean",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].foregroundServiceType",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].theme",
+    "type": "string",
+    "required": false,
+    "description": "An activity's theme, such as \"@android:style/Theme.Translucent.NoTitleBar\"."
+  },
+  {
+    "field": "android.components[].configChanges",
+    "type": "string",
+    "required": false,
+    "description": "The configuration changes an activity handles itself instead of being recreated, such as \"orientation|screenSize\"."
+  },
+  {
+    "field": "android.components[].intentFilters",
+    "type": "object[]",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].intentFilters[].actions",
+    "type": "string[]",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "android.components[].intentFilters[].categories",
+    "type": "string[]",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].intentFilters[].data",
+    "type": "object[]",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].intentFilters[].data[].scheme",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].intentFilters[].data[].host",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].intentFilters[].data[].port",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].intentFilters[].data[].path",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].intentFilters[].data[].pathPrefix",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].intentFilters[].data[].pathPattern",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].intentFilters[].data[].mimeType",
+    "type": "string",
+    "required": false,
+    "description": ""
+  },
+  {
+    "field": "android.components[].metaData",
+    "type": "{ [name]: string }",
+    "required": false,
+    "description": ""
   },
   {
     "field": "android.minSdk",
     "type": "integer",
+    "required": false,
     "description": "The lowest Android API level the package runs on. The library requires the highest any package needs, and never less than the app's minSdkVersion. Android's manifest merger fails an app below it."
   },
   {
     "field": "extensions",
-    "type": "{ [key]: object }",
+    "type": "{ [name]: object }",
+    "required": false,
     "description": "Extension name → a native extension, imported as lucent:ext/<name>. A name belongs to one package of the app."
+  },
+  {
+    "field": "extensions.<name>.header",
+    "type": "string",
+    "required": true,
+    "description": "The C header, relative to the package. Its directory is in both ios.nativeSources and android.nativeSources, so both builds compile the extension and search there. It must compile as C and as C++, declaring its functions in extern \"C\" when C++ includes it. Functions that take only numbers and booleans are bound as they are; one that takes a handle must be named here."
+  },
+  {
+    "field": "extensions.<name>.handles",
+    "type": "{ [name]: object }",
+    "required": false,
+    "description": "Opaque struct (declared, not defined, in the header) → the handle Lucent code holds, a class of lucent:ext/<name>. Handles cannot cross the JavaScript boundary: a Lucent class keeps one."
+  },
+  {
+    "field": "extensions.<name>.handles.<name>.create",
+    "type": "string",
+    "required": true,
+    "description": "The function that makes one: it returns a pointer to the struct, null when it fails (declare failsWhen: null). It is the class's constructor."
+  },
+  {
+    "field": "extensions.<name>.handles.<name>.destroy",
+    "type": "string",
+    "required": true,
+    "description": "void f(T *): runs once, when the handle closes (close(), a using declaration, or its last reference going)."
+  },
+  {
+    "field": "extensions.<name>.handles.<name>.methods",
+    "type": "{ [name]: string }",
+    "required": false,
+    "description": "Method name → the function it calls, with the handle as its first argument."
+  },
+  {
+    "field": "extensions.<name>.handles.<name>.affinity",
+    "type": "\"any\" or \"main\"",
+    "required": false,
+    "description": "The thread: any, one call at a time (the default), or the main thread, where Lucent code uses it inside main(() => …)."
+  },
+  {
+    "field": "extensions.<name>.functions",
+    "type": "{ [name]: object }",
+    "required": false,
+    "description": "C function name → what its parameters and result mean."
+  },
+  {
+    "field": "extensions.<name>.functions.<name>.params",
+    "type": "{ [name]: object }",
+    "required": false,
+    "description": "C parameter name → what the pointer is. Numbers, booleans and handles need nothing; nothing escapes the call."
+  },
+  {
+    "field": "extensions.<name>.functions.<name>.params.<name>.bytes",
+    "type": "\"read\" or \"write\"",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "extensions.<name>.functions.<name>.params.<name>.length",
+    "type": "string",
+    "required": true,
+    "description": "The integer parameter holding the byte count: Lucent passes the array's length."
+  },
+  {
+    "field": "extensions.<name>.functions.<name>.params.<name>.string",
+    "type": "\"utf8\"",
+    "required": true,
+    "description": ""
+  },
+  {
+    "field": "extensions.<name>.functions.<name>.params.<name>.error",
+    "type": "string",
+    "required": true,
+    "description": "A struct declared in errors."
+  },
+  {
+    "field": "extensions.<name>.functions.<name>.failsWhen",
+    "type": "\"null\" or \"negative\" or \"nonzero\" or \"zero\" or \"false\"",
+    "required": false,
+    "description": "How the result says the call failed, which throws an Error with the error struct's message and code. With nonzero or false the result is a status, and the Lucent function returns nothing."
+  },
+  {
+    "field": "extensions.<name>.functions.<name>.affinity",
+    "type": "\"any\" or \"main\"",
+    "required": false,
+    "description": "The thread: any, one call at a time (the default), or the main thread, where Lucent code uses it inside main(() => …)."
+  },
+  {
+    "field": "extensions.<name>.functions.<name>.blocking",
+    "type": "boolean",
+    "required": false,
+    "description": "It may block (I/O, locks, long work): calling it inside main(() => …) is a warning."
+  },
+  {
+    "field": "extensions.<name>.errors",
+    "type": "{ [name]: object }",
+    "required": false,
+    "description": "C struct name (defined in the header) → the error its functions fill in."
+  },
+  {
+    "field": "extensions.<name>.errors.<name>.code",
+    "type": "string",
+    "required": false,
+    "description": "An integer field: the Error's code."
+  },
+  {
+    "field": "extensions.<name>.errors.<name>.message",
+    "type": "string",
+    "required": true,
+    "description": "A const char * field: the Error's message, copied before the call returns."
+  },
+  {
+    "field": "extensions.<name>.errors.<name>.release",
+    "type": "string",
+    "required": false,
+    "description": "void f(E *), called after every call that takes the struct, once it was read, when it holds something to free."
   }
 ];

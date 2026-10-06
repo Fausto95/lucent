@@ -101,3 +101,47 @@ export function matrix(n: number): number[][] {
 export function uniq(xs: string[]): string[] {
   return [...new Set(xs)];
 }
+
+export function searchFrom(from?: number): string {
+  const xs = [1, 2, 3, 1, 2, 3];
+
+  return [
+    xs.indexOf(1, 1),
+    xs.indexOf(3, -2),
+    xs.indexOf(1, 10),
+    xs.lastIndexOf(3, 3),
+    xs.lastIndexOf(1, -4),
+    xs.lastIndexOf(1, -10),
+    xs.lastIndexOf(2, from),
+    xs.includes(1, 4),
+    xs.includes(3, -1),
+    xs.includes(1, from),
+    xs.indexOf(2, from),
+  ].join(",");
+}
+
+function lengthOf(make: () => string): string {
+  try {
+    return make();
+  } catch (e) {
+    return (e as Error).name;
+  }
+}
+
+/** new Array(n)'s length is an integer up to 2^32 - 1, or a RangeError. */
+export function newArrayLength(n: number): string {
+  return lengthOf(() => String(new Array<number>(n).fill(0).length));
+}
+
+/** Array.from's length is truncated, and 0 when negative or NaN. */
+export function fromLength(n: number): string {
+  return lengthOf(() => Array.from({ length: n }, (_, i) => i).join(","));
+}
+
+export function fromUndefined(n: number): string {
+  return lengthOf(() => {
+    const xs: (number | undefined)[] = Array.from({ length: n });
+
+    return `${xs.length}:${xs.join()}`;
+  });
+}

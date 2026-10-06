@@ -115,7 +115,7 @@ describe("@lucent-lang/lucent/ts-plugin", () => {
     await s.ready;
     const [d] = lucent(s.ls.getSemanticDiagnostics(s.file("a.lucent.ts")));
     expect(d!.messageText).toMatch(
-      /\nfix: .*let.*\ndocs: https:\/\/lucent-lang\.dev\/docs\/reference\/diagnostics\/#lucent1001$/,
+      /\nfix: .*let.*\ndocs: https:\/\/lucent-lang\.dev\/docs\/api\/diagnostics\/#lucent1001$/,
     );
   });
 
@@ -154,6 +154,28 @@ export async function toast(): Promise<boolean> {
     expect(lucent(s.ls.getSemanticDiagnostics(s.file("a.lucent.ts")))).toEqual([]);
     expect(s.ls.getSemanticDiagnostics(s.file("a.lucent.ts")).length).toBeGreaterThan(0);
     expect(lucent(s.ls.getSemanticDiagnostics(s.file("b.ts")))).toEqual([]);
+  });
+
+  it("checks the modules lucent build compiles, without a Lucent package the app does not depend on", async () => {
+    const s = service({
+      "package.json": JSON.stringify({ name: "app" }),
+      "packages/lucent-far/package.json": JSON.stringify({
+        name: "lucent-far",
+        version: "1.0.0",
+        lucent: { sources: "src" },
+      }),
+      "packages/lucent-far/src/far.lucent.ts": "export function far(): number { return 2; }\n",
+      "src/app.lucent.ts":
+        'import { far } from "../packages/lucent-far/src/far.lucent";\nexport function app(): number { return far(); }\n',
+    });
+    await s.ready;
+
+    const messages = lucent(s.ls.getSemanticDiagnostics(s.file("src/app.lucent.ts"))).map(
+      (d) => d.messageText,
+    );
+    expect(messages).toContainEqual(
+      expect.stringMatching(/lucent-far, a Lucent package the app does not depend on/),
+    );
   });
 
   describe("quick fixes", () => {

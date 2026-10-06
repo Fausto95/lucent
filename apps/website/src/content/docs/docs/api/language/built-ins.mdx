@@ -1,0 +1,237 @@
+---
+title: Which JavaScript built-ins can a module use?
+sidebar_label: Built-ins
+description: "Most ES2022 built-ins, member by member as listed here; anything else fails to compile, and the last table names a replacement."
+kind: reference
+---
+
+A module is type-checked against TypeScript's ES2022 library, plus `esnext.disposable` for `using` ([Compatibility](/docs/api/compatibility/)). Of what that library declares, Lucent implements the members this page lists, as native code. Another member fails to compile with [LUCENT1003](/docs/api/diagnostics/#lucent1003), and a newer one, such as `toSorted`, is a TypeScript error ([LUCENT9001](/docs/api/diagnostics/#lucent9001)).
+
+A row's notes say where a member behaves differently from JavaScript. [Differences from JavaScript](/docs/api/language/differences/) lists every difference, with its reason.
+
+## Example
+
+```ts title="scores.lucent.ts"
+import { delay, utf8Encode } from "lucent:core";
+
+export function ranked(scores: number[]): number[] {
+  return [...scores].sort((a, b) => b - a); // toSorted() is ES2023
+}
+
+export function summary(scores: number[]): Uint8Array {
+  const best = scores.length > 0 ? Math.max(...scores) : 0;
+  return utf8Encode(`${scores.length} scores, best ${best.toFixed(1)}`);
+}
+
+export async function poll(ready: () => Promise<boolean>, signal: AbortSignal): Promise<number> {
+  let tries = 1;
+  while (!(await ready())) {
+    await delay(500, signal); // in place of setTimeout
+    tries++;
+  }
+  return tries;
+}
+```
+
+`[...scores].sort()` stands in for `toSorted()`, `utf8Encode` for `TextEncoder`, and `delay` for `setTimeout`. [Not available](/docs/api/language/built-ins/#not-available) lists the other replacements.
+
+## Math
+
+Every function and constant of `Math`. A spread is allowed only as the one argument of `Math.min` and `Math.max`, as in `Math.max(...values)`.
+
+## Number
+
+| Member | Notes |
+| --- | --- |
+| `Number.isInteger`, `Number.isSafeInteger`, `Number.isFinite`, `Number.isNaN` | `false` unless the argument's type is exactly `number`. Narrow a union or an optional with `typeof` first. |
+| `Number.parseFloat`, `Number.parseInt` | The same as the global functions. |
+| `MAX_SAFE_INTEGER`, `MIN_SAFE_INTEGER`, `EPSILON`, `MAX_VALUE`, `MIN_VALUE` | Read as `Number.EPSILON` and so on. |
+| `POSITIVE_INFINITY`, `NEGATIVE_INFINITY`, `NaN` | |
+| `toString(radix?)`, `toFixed`, `toPrecision`, `toExponential`, `valueOf` | The digits are JavaScript's, to the last one. |
+| `toLocaleString` | Not available: it needs `Intl`. |
+
+## BigInt
+
+| Member | Notes |
+| --- | --- |
+| `BigInt(x)` | Of a number, a `RangeError` unless it's an integer. Of a string, a `SyntaxError` unless it's an integer literal. Also of a boolean, a bigint, or a union of those. |
+| `BigInt.asIntN(bits, x)`, `BigInt.asUintN(bits, x)` | |
+| `toString(radix?)`, `valueOf` | `toLocaleString` isn't available. |
+
+The operators on bigints are on [Statements](/docs/api/language/statements/#bigint-operators).
+
+## Global functions
+
+| Function | Notes |
+| --- | --- |
+| `parseInt(text, radix?)`, `parseFloat(text)`, `isNaN(n)`, `isFinite(n)` | |
+| `String(x)` | Any value, written as a template literal writes it. |
+| `Number(x)` | A number, string, boolean, bigint, `null` or `undefined`, or a union of those. A bigint rounds to the nearest number. |
+| `Boolean(x)` | Any value, by its truthiness. |
+| `BigInt(x)` | See [BigInt](/docs/api/language/built-ins/#bigint). |
+
+`encodeURIComponent`, `decodeURIComponent`, `encodeURI` and `decodeURI` aren't available. Neither is `globalThis` ([LUCENT1001](/docs/api/diagnostics/#lucent1001)).
+
+## String
+
+| Member | Notes |
+| --- | --- |
+| `length`, `at`, `charAt`, `charCodeAt`, `codePointAt` | |
+| `indexOf`, `lastIndexOf`, `includes`, `startsWith`, `endsWith` | |
+| `slice`, `substring`, `substr`, `concat`, `repeat`, `padStart`, `padEnd` | |
+| `trim`, `trimStart`, `trimEnd`, `trimLeft`, `trimRight` | |
+| `toUpperCase`, `toLowerCase`, `toLocaleUpperCase`, `toLocaleLowerCase` | Unicode's full case mappings, final sigma included, for the root locale. The locale methods ignore their argument. |
+| `localeCompare(other)` | The platform's collator for the device's locale, as in Hermes. A locales or options argument is ignored. |
+| `split(separator?, limit?)` | The separator is a string or a `RegExp`. |
+| `replace`, `replaceAll` | The pattern is a string or a `RegExp`; a replacement function needs a `RegExp`. With a string pattern, `$` patterns in the replacement are inserted as written. |
+| `match`, `matchAll`, `search` | With a `RegExp` only. |
+| `normalize`, `toString`, `valueOf` | `normalize` returns the string unchanged. |
+| `String.fromCharCode`, `String.fromCodePoint` | |
+
+`String.raw` and other tagged templates aren't available ([LUCENT1001](/docs/api/diagnostics/#lucent1001)).
+
+## Array
+
+| Member | Notes |
+| --- | --- |
+| `length` | Read and write. Setting a larger length needs an element type that includes `undefined`, or it throws a `RangeError`. |
+| `push`, `pop`, `shift`, `unshift` | `unshift` takes one item. `push` takes items, or one spread: `push(...more)`. |
+| `slice`, `splice`, `concat`, `join`, `fill`, `reverse` | |
+| `indexOf`, `lastIndexOf`, `includes` | A `fromIndex` argument is ignored. Elements can't be functions ([LUCENT1002](/docs/api/diagnostics/#lucent1002)). |
+| `at`, `find`, `findIndex`, `filter`, `some`, `every` | |
+| `forEach`, `map`, `flatMap`, `reduce`, `reduceRight` | |
+| `sort(compare?)` | Stable. Without a comparator it compares elements as strings, as JavaScript does. |
+| `keys`, `values`, `entries` | Each returns an array, which `for…of` and spread read like JavaScript's iterator. |
+| `Array.from(items, map?)` | From an iterable, or from `{ length: n }`. With a function, a fractional or negative `n` throws a `RangeError`. |
+| `Array.of`, `Array.isArray` | `Array.isArray(x)` is `false` when `x`'s type is a union holding an array: test `x instanceof Array` instead. |
+| `new Array(n)`, `new Array(a, b)` | `new Array(n)` holds `n` default values, such as `0` or `""`, unless the element type includes `undefined`. A fractional or negative `n` doesn't throw: it's truncated to a 32-bit unsigned integer. |
+
+`flat` and `copyWithin` aren't available. Writing past the end of an array throws a `RangeError`, since a Lucent array has no holes.
+
+## Map and Set
+
+| Member | Notes |
+| --- | --- |
+| `new Map()`, `new Map(entries)` | `entries` is an array of `[key, value]` pairs. |
+| `size`, `get`, `set`, `has`, `delete`, `clear`, `forEach` | |
+| `keys`, `values`, `entries` | Each returns an array: the map's contents when it's called. |
+| `new Set()`, `new Set(items)` | `items` is an array, a set or a string. |
+| `size`, `add`, `has`, `delete`, `clear`, `forEach` | |
+| `keys`, `values` | Each returns an array. A set has no `entries`. |
+
+`for…of` reads a map's entries, and a set's values, in insertion order.
+
+## Object
+
+| Function | Notes |
+| --- | --- |
+| `Object.keys(x)` | A record's keys. For an object type, every declared field, set or not. |
+| `Object.values(r)`, `Object.entries(r)` | Records only. |
+| `Object.fromEntries(pairs)` | Makes a record from `[key, value]` pairs. |
+
+Other `Object` functions, such as `assign`, `freeze` and `is`, aren't available. Spread makes a copy: `{ ...a, ...b }`.
+
+## JSON
+
+| Function | Notes |
+| --- | --- |
+| `JSON.stringify(value)` | Any value. Keys follow the declared type's order, and a bigint throws a `TypeError`. A replacer or an indent is refused. |
+| `JSON.parse(text) as T` | Builds a value of type `T`, checked against it ([Statements](/docs/api/language/statements/)). A reviver is refused. |
+
+## RegExp
+
+| Member | Notes |
+| --- | --- |
+| `/pattern/flags`, `new RegExp(pattern, flags?)` | Every ECMAScript pattern feature and flag. The `v` flag in a literal is a TypeScript error under ES2022: write `new RegExp(pattern, "v")`. |
+| `exec`, `test`, `lastIndex` | |
+| `source`, `flags`, `global`, `ignoreCase`, `multiline`, `dotAll` | |
+| `unicode`, `sticky`, `hasIndices` | `unicodeSets` isn't available: it's ES2024, so TypeScript reports TS2550. Test `flags.includes("v")` instead. |
+
+The string methods that take a `RegExp` are on [String](/docs/api/language/built-ins/#string). Replacement callbacks and capture groups are on [Statements](/docs/api/language/statements/).
+
+## Date
+
+| Member | Notes |
+| --- | --- |
+| `new Date()`, `new Date(ms)`, `new Date(text)`, `new Date(date)`, `new Date(year, month, …)` | Local time comes from the device's time zone database. |
+| `Date.now()`, `Date.parse(text)`, `Date.UTC(year, …)` | |
+| `getTime`, `valueOf`, `getTimezoneOffset` | |
+| `getFullYear`, `getMonth`, `getDate`, `getDay`, `getHours`, `getMinutes`, `getSeconds`, `getMilliseconds` | Each has a `getUTC…` form too. |
+| `setTime`, `setFullYear`, `setMonth`, `setDate`, `setHours`, `setMinutes`, `setSeconds`, `setMilliseconds` | Each has a `setUTC…` form too. |
+| `toISOString`, `toJSON`, `toString`, `toDateString`, `toTimeString`, `toUTCString` | `toString` gives `Mon Jul 22 2019 15:51:50 GMT-0700`, as Hermes does. |
+| `toLocaleString`, `toLocaleDateString`, `toLocaleTimeString` | Not available: use `toISOString` or the `get…` methods. |
+
+## Error
+
+| Member | Notes |
+| --- | --- |
+| `new Error(message?)`, `new TypeError(message?)`, `new RangeError(message?)` | A second argument, `{ cause }`, is dropped. |
+| `class ParseError extends Error` | An error class of your own ([Types](/docs/api/language/types/)). Give it a constructor that calls `super(message)`: without one, the message is dropped. |
+| `name`, `message`, `stack`, `toString()` | `name` and `message` are read-only, except in an error class. `stack` is `undefined` unless the error came from JavaScript. |
+| `e instanceof Error`, and `TypeError`, `RangeError`, `SyntaxError` | `BigInt()` and `JSON.parse` throw a `SyntaxError`. Don't make one: `new SyntaxError()` makes an error named `Error`. |
+| `error(code, message)`, `errorCode(e)` | From [lucent:core](/docs/api/lucent-core/#error): an error with a `code` that JavaScript reads. |
+
+`AggregateError`, `EvalError`, `ReferenceError` and `URIError` aren't available ([LUCENT2002](/docs/api/diagnostics/#lucent2002)).
+
+## Promise
+
+| Member | Notes |
+| --- | --- |
+| `new Promise((resolve, reject) => …)` | The executor is a function literal. It runs at once, and a throw from it rejects the promise. |
+| `Promise.resolve(value?)`, `Promise.reject(error)` | |
+| `Promise.all(promises)` | An array of promises of one type, or a tuple of promises. |
+| `await` | In place of `then`, `catch` and `finally`, which aren't available. |
+
+`Promise.race` and `Promise.any` aren't available, and `Promise.allSettled` fails with [LUCENT2002](/docs/api/diagnostics/#lucent2002).
+
+## Uint8Array
+
+| Member | Notes |
+| --- | --- |
+| `new Uint8Array(length)`, `new Uint8Array(numbers)`, `new Uint8Array(bytes)` | From an array or another `Uint8Array`, the bytes are copied. |
+| `length`, `byteLength`, `bytes[i]` | A read out of range is `undefined`, and a write out of range does nothing. Written values wrap to 0–255. |
+| `subarray`, `slice` | `subarray` shares the bytes; `slice` copies them. |
+| `set(source, offset?)` | From a `Uint8Array` or a `number[]`. A `RangeError` if it doesn't fit. |
+| `fill(value)`, `indexOf(value)`, `includes(value)` | A start, end or `fromIndex` argument is ignored. |
+| `forEach`, `map`, `reduce`, `join` | `reduce` needs an initial value. |
+
+`for…of` reads the bytes; other members, such as `at`, `filter` and `buffer`, aren't available. Other typed arrays, `ArrayBuffer` and `DataView` fail with [LUCENT2002](/docs/api/diagnostics/#lucent2002). For bytes that shouldn't be copied, use a [NativeBuffer](/docs/api/lucent-core/#nativebuffer).
+
+## Symbol
+
+`Symbol` is there for `[Symbol.dispose]` only. A class may declare a `[Symbol.dispose]()` method, and code may call it ([Memory](/docs/api/language/memory/#using-and-symboldispose)).
+
+`Symbol()` isn't available. Another symbol, such as `Symbol.iterator`, fails with [LUCENT1005](/docs/api/diagnostics/#lucent1005) as a member name and with [LUCENT1001](/docs/api/diagnostics/#lucent1001) in an expression.
+
+## Functions
+
+A function value is called, passed and stored. Its `call`, `apply` and `bind` methods, and its `name` and `length`, aren't available.
+
+## console, AbortController and AbortSignal
+
+[Globals](/docs/api/globals/) lists their members. `console.log` writes each argument as `String(value)` would, and a bigint with its `n`.
+
+## lucent:core
+
+What JavaScript's built-ins lack has a native implementation in `lucent:core`. [lucent:core](/docs/api/lucent-core/) lists its functions, classes and types.
+
+## Not available
+
+| JavaScript | Fails with | Use instead |
+| --- | --- | --- |
+| `setTimeout`, `setInterval` | LUCENT9001: not declared | `await delay(ms, signal)` from `lucent:core`, in a loop for an interval |
+| `TextEncoder`, `TextDecoder` | LUCENT9001: not declared | `utf8Encode` and `utf8Decode` from `lucent:core` |
+| `xs.toSorted()`, `xs.toReversed()` | LUCENT9001: ES2023 | `[...xs].sort()` and `[...xs].reverse()` |
+| `xs.findLast(f)`, `xs.findLastIndex(f)` | LUCENT9001: ES2023 | A loop from the end |
+| `xs.flat()` | LUCENT1003 | `xs.flatMap((x) => x)` |
+| `Promise.race`, `Promise.any` | LUCENT1003 | None |
+| `promise.then`, `promise.catch`, `promise.finally` | LUCENT1003 | `await`, inside `try`, `catch` and `finally` |
+| `Object.assign(a, b)` | LUCENT1003 | `{ ...a, ...b }` |
+| `Object.hasOwn(r, k)` | LUCENT1003 | `k in r` |
+| `Intl`, `toLocaleString()` | LUCENT2002, LUCENT1003 | `toFixed`, `padStart`, `toISOString` and the `Date` getters |
+| `WeakMap`, `WeakSet`, `WeakRef` | LUCENT2002 | A `Map` whose entries you delete ([Memory](/docs/api/language/memory/#cycles-leak)) |
+| `structuredClone(x)` | LUCENT9001: not declared | A spread or `slice()`, which copies one level |
+| `queueMicrotask(f)` | LUCENT9001: not declared | `await Promise.resolve()`, then the code |
+| `fetch` | LUCENT9001: not declared | Call it from JavaScript, or the platform's HTTP API through `lucent:ios` or `lucent:android` |
+| `eval`, `Reflect`, `globalThis` | LUCENT1003, LUCENT1001 | None |
+| `new Proxy(target, handler)` | LUCENT1003 for a plain object target; a class instance target is a [known gap](/docs/api/language/differences/#known-gaps) | None |

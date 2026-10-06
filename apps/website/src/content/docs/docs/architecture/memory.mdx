@@ -1,0 +1,68 @@
+---
+title: "What happens to native objects across threads and reloads?"
+description: "Objects are freed when their last reference goes, on the thread they need; a reload ends work for JavaScript, not module code's."
+sidebar_label: "Memory and reloads"
+kind: explanation
+---
+
+```ts title="foreground.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { onAppEvent } from "lucent:ios";
+
+let count = 0; // back to 0 when JavaScript reloads
+
+export function watchForeground(): () => void {
+  if (PLATFORM !== "ios") return () => {};
+  // Runs until the returned function is called: a reload doesn't stop it.
+  return onAppEvent("willEnterForeground", () => {
+    count++;
+  });
+}
+
+export function foregrounds(): number {
+  return count;
+}
+```
+
+## Reference counting
+
+Lucent frees an object the moment its last reference goes, as Swift does, rather than when a garbage collector runs. A native object your code stops referencing is released at once.
+
+Two objects that reference each other are never freed, and neither is a closure stored on the object it captures. [Memory](/docs/api/language/memory/) lists what leaks and how to break a cycle.
+
+A class instance JavaScript holds lives until JavaScript's garbage collector drops its object, which can be much later. So close what holds a resource yourself, with `using` or a `close()` method ([Release native resources](/docs/guides/release-native-resources/)).
+
+## Released on the thread it belongs to
+
+The last reference can go on any thread, but some objects must be released on a particular one. Lucent runs each release where it belongs, posting it there when needed:
+
+- An Objective-C object, on the main thread, since UIKit objects must be deallocated there.
+- A JavaScript function Lucent held, on the JS thread.
+- A native extension's handle, on the main thread when its package declares it main-only.
+- A Java object's global reference, on whichever thread drops it, as JNI allows.
+
+So module code on the Lucent thread can drop the last reference to a view controller safely.
+
+## What a reload ends
+
+A reload, or the end of a JavaScript runtime, tears down what Lucent holds for that runtime. That's the promises it owes, the JavaScript callbacks it holds and the work started for it. So Lucent code awaiting its promises or callbacks resumes with an `AbortError`, and compute tasks are cancelled.
+
+[What a reload does](/docs/api/language/modules/#what-a-reload-does) lists each case.
+
+## What a reload keeps
+
+Module state lives in the process, not in the JavaScript runtime. When the new runtime loads its first module, every module's initialization runs again, so module variables get their initial values.
+
+Requests and subscriptions that module code made belong to module code, not to JavaScript, so they keep running: an `onAppEvent` listener, a `subscribe`, a permission request. Their JavaScript callbacks are dropped, and the new JavaScript can't reach their stop functions.
+
+So in development, a full reload leaves the earlier subscriptions running beside the ones the new JavaScript starts. [Modules](/docs/api/language/modules/#what-a-reload-does) states what a reload resets.
+
+## The teardown log
+
+Debug builds log what module code still holds when the `Lucent` TurboModule goes, at a reload or the app's end. The line goes to the unified log on iOS, and to logcat with the tag `Lucent` on Android:
+
+```text title="log" nocopy
+[lucent] 2 native reference(s) module code still holds at teardown
+```
+
+It counts the platform objects module code still references: module state, delegates and listeners never removed, and cycles through them. Views' objects aren't counted, since the renderer releases them on its own schedule.

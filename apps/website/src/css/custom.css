@@ -1,0 +1,1517 @@
+/*
+ * Lucent's docs and blog on Docusaurus' classic theme, laid out as
+ * reactnative.dev lays out its own (a translucent navbar, a quiet sidebar, an
+ * 800px reading column and a small table of contents), in Lucent's colors
+ * and fonts. Code blocks keep the look the site had under Starlight:
+ * Expressive Code (src/docs/expressive-code.ts) and the frames and tabs
+ * at the end of this file.
+ */
+@import "@fontsource/geist/400.css";
+@import "@fontsource/geist/500.css";
+@import "@fontsource/geist/600.css";
+@import "@fontsource/geist/700.css";
+@import "@fontsource/geist-mono/400.css";
+@import "@fontsource/geist-mono/500.css";
+@import "@fontsource/geist-pixel/400.css";
+
+/* ---------------------------------------------------------------------------
+ * Tokens: Lucent's, light and dark, and Infima's from them.
+ * ------------------------------------------------------------------------ */
+:root {
+  --lucent-font: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --lucent-font-mono: "Geist Mono", ui-monospace, monospace;
+  --lucent-font-display: "Geist Pixel", "Geist", ui-sans-serif, sans-serif;
+  --lucent-text-code: 0.8125rem;
+  --lucent-radius: 0.5rem;
+
+  --lucent-lime: #c4f778;
+  --lucent-lime-ink: #4d7c0f;
+  --lucent-glow: rgb(196 247 120 / 0.55);
+
+  /* The navbar and the footer: the page's own colors, translucent over it. */
+  --lucent-chrome: rgb(255 255 255 / 0.72);
+  --lucent-chrome-raised: rgb(0 0 0 / 0.05);
+  --lucent-chrome-text: #23262d;
+  --lucent-chrome-strong: #0b0f17;
+  --lucent-chrome-muted: #6c707b;
+  --lucent-chrome-line: rgb(0 0 0 / 0.08);
+  --lucent-chrome-active: var(--lucent-lime-ink);
+  --lucent-chrome-active-background: rgb(196 247 120 / 0.35);
+  --lucent-chrome-mark: var(--lucent-lime-ink);
+
+  --lucent-background: #ffffff;
+  --lucent-foreground: oklch(0.482 0 89.876);
+  --lucent-foreground-strong: oklch(0.145 0 0);
+  --lucent-text: #23262d;
+  --lucent-muted-foreground: oklch(0.556 0 0);
+  --lucent-subtle: #6c707b;
+  --lucent-card: #ffffff;
+  --lucent-surface: #f6f7f9;
+  --lucent-border: oklch(0.922 0 0);
+  --lucent-code-background: oklch(0.97 0 286);
+  --lucent-mark-background: oklch(0.92 0 286);
+  --lucent-active: color-mix(in srgb, var(--lucent-lime) 26%, white);
+  --lucent-hover: rgb(0 0 0 / 0.05);
+
+  /* The old site's gray scale (Starlight's), for the elements that keep its look. */
+  --lucent-gray-1: hsl(224, 14%, 16%);
+  --lucent-gray-3: hsl(224, 7%, 36%);
+  --lucent-gray-4: hsl(224, 6%, 56%);
+  --lucent-gray-5: hsl(224, 6%, 77%);
+  --lucent-gray-6: hsl(224, 20%, 94%);
+  --lucent-gray-ink: hsl(224, 10%, 10%);
+  --lucent-gray-bg: hsl(0, 0%, 100%);
+  --lucent-green: hsl(101, 90%, 46%);
+  --lucent-orange: hsl(41, 90%, 60%);
+
+  --ifm-font-family-base: var(--lucent-font);
+  --ifm-font-family-monospace: var(--lucent-font-mono);
+  --ifm-heading-font-family: var(--lucent-font);
+  --ifm-heading-font-weight: 600;
+  --ifm-font-weight-bold: 600;
+  --ifm-line-height-base: 1.65;
+  --ifm-heading-line-height: 1.2;
+  --ifm-h1-font-size: 2.5rem;
+  --ifm-h2-font-size: 1.75rem;
+  --ifm-h3-font-size: 1.375rem;
+  --ifm-h4-font-size: 1.125rem;
+  --ifm-h5-font-size: 1rem;
+
+  --ifm-color-primary: #4d7c0f;
+  --ifm-color-primary-dark: #45700e;
+  --ifm-color-primary-darker: #416a0d;
+  --ifm-color-primary-darkest: #36570b;
+  --ifm-color-primary-light: #558810;
+  --ifm-color-primary-lighter: #598e11;
+  --ifm-color-primary-lightest: #64a113;
+  --ifm-background-color: var(--lucent-background);
+  --ifm-font-color-base: var(--lucent-text);
+  --ifm-heading-color: var(--lucent-foreground-strong);
+  --ifm-link-color: var(--lucent-lime-ink);
+  --ifm-link-hover-color: var(--lucent-lime-ink);
+  --ifm-link-hover-decoration: none;
+  --ifm-color-emphasis-300: var(--lucent-border);
+  --ifm-toc-border-color: var(--lucent-border);
+  --ifm-hr-border-color: var(--lucent-border);
+  --ifm-global-radius: 9px;
+  --ifm-code-font-size: 85%;
+  --ifm-code-background: rgb(0 0 0 / 0.06);
+  --ifm-code-border-radius: 0.4rem;
+  --ifm-code-padding-vertical: 0.05rem;
+  --ifm-spacing-horizontal: 16px;
+
+  --ifm-navbar-height: 4rem;
+  --ifm-navbar-padding-horizontal: 1rem;
+  --ifm-navbar-item-padding-horizontal: 0.75rem;
+  --ifm-navbar-background-color: var(--lucent-chrome);
+  --ifm-navbar-shadow: none;
+
+  --ifm-menu-link-padding-horizontal: 0.75rem;
+  --ifm-menu-color: var(--lucent-text);
+  --ifm-menu-color-active: var(--lucent-lime-ink);
+  --ifm-menu-color-background-active: var(--lucent-active);
+  --ifm-menu-color-background-hover: var(--lucent-hover);
+
+  --ifm-toc-link-color: var(--lucent-subtle);
+  --ifm-toc-padding-vertical: 0.375rem;
+
+  --ifm-table-border-color: var(--lucent-border);
+  --ifm-alert-border-radius: 20px;
+  --ifm-alert-border-left-width: 1px;
+  --ifm-pagination-nav-border-radius: 20px;
+
+  --doc-sidebar-width: 266px !important;
+  --docusaurus-announcement-bar-height: auto !important;
+  --docusaurus-highlighted-code-line-bg: rgb(0 0 0 / 0.1);
+}
+
+/* html[…], as Infima's own dark tokens are: a bare [data-theme] would lose to them. */
+html[data-theme="dark"] {
+  --lucent-lime-ink: #c4f778;
+  --lucent-glow: rgb(196 247 120 / 0.16);
+
+  --lucent-chrome: rgb(7 10 18 / 0.72);
+  --lucent-chrome-raised: rgb(255 255 255 / 0.07);
+  --lucent-chrome-text: #f5f6f7;
+  --lucent-chrome-strong: #ffffff;
+  --lucent-chrome-muted: #8b919c;
+  --lucent-chrome-line: rgb(255 255 255 / 0.1);
+  --lucent-chrome-active: var(--lucent-lime);
+  --lucent-chrome-active-background: rgb(196 247 120 / 0.1);
+  --lucent-chrome-mark: var(--lucent-lime);
+
+  --lucent-background: #070a12;
+  --lucent-foreground: #b9bdc3;
+  --lucent-foreground-strong: #f9fafb;
+  --lucent-text: #dfe1e5;
+  --lucent-muted-foreground: #9ca3af;
+  --lucent-subtle: #8b919c;
+  --lucent-card: #0a101a;
+  --lucent-surface: #0f1622;
+  --lucent-border: rgba(204, 235, 255, 0.15);
+  --lucent-code-background: #1f2937;
+  --lucent-mark-background: oklch(0.37 0.01 286);
+  --lucent-active: rgb(196 247 120 / 0.1);
+  --lucent-hover: rgb(255 255 255 / 0.05);
+
+  --lucent-gray-1: hsl(224, 20%, 94%);
+  --lucent-gray-3: hsl(224, 6%, 56%);
+  --lucent-gray-4: hsl(224, 7%, 36%);
+  --lucent-gray-5: hsl(224, 10%, 23%);
+  --lucent-gray-6: hsl(224, 14%, 16%);
+  --lucent-gray-ink: hsl(0, 0%, 100%);
+  --lucent-gray-bg: hsl(224, 10%, 10%);
+  --lucent-green: hsl(101, 82%, 63%);
+  --lucent-orange: hsl(41, 82%, 63%);
+
+  --ifm-color-primary: #c4f778;
+  --ifm-color-primary-dark: #b1f45a;
+  --ifm-color-primary-darker: #a7f24b;
+  --ifm-color-primary-darkest: #8bee1d;
+  --ifm-color-primary-light: #d7fa96;
+  --ifm-color-primary-lighter: #e1fba5;
+  --ifm-color-primary-lightest: #f2fdd3;
+  --ifm-background-color: var(--lucent-background);
+  --ifm-background-surface-color: var(--lucent-card);
+  --ifm-code-background: rgb(255 255 255 / 0.07);
+  --docusaurus-highlighted-code-line-bg: rgb(0 0 0 / 0.3);
+}
+
+/* ---------------------------------------------------------------------------
+ * Text.
+ * ------------------------------------------------------------------------ */
+/* No faux bold: Geist Mono ships 400 and 500, so a 600 label reads as 500, as it did. */
+body {
+  scrollbar-gutter: stable;
+  font-synthesis-weight: none;
+}
+
+/* Code shows what the reader types: `=>` stays two characters. */
+code,
+pre,
+.expressive-code,
+.lucent-diagram-svg {
+  font-variant-ligatures: none;
+}
+
+.markdown {
+  font-size: 1.0625rem;
+}
+
+/* Headings in the pixel face. */
+.markdown :is(h1, h2, h3),
+.hero__title {
+  font-family: var(--lucent-font-display);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.markdown h4 {
+  font-family: var(--lucent-font);
+  font-weight: 600;
+}
+.markdown h1,
+.markdown header h1 {
+  font-size: var(--ifm-h1-font-size);
+  line-height: 1.15;
+}
+.markdown > h2 {
+  margin-top: 2.5rem;
+  font-size: var(--ifm-h2-font-size);
+}
+.markdown > h3 {
+  margin-top: 2rem;
+  font-size: var(--ifm-h3-font-size);
+}
+.markdown > h2:first-child {
+  margin-top: 0;
+}
+.hash-link {
+  color: var(--lucent-subtle);
+}
+
+.markdown strong {
+  font-weight: 600;
+}
+.markdown li + li {
+  margin-top: 0.375rem;
+}
+
+/* Links: the page's color, underlined on hover, as reactnative.dev's are. */
+.markdown a:where(:not(.lucent-link-card, .hash-link)) {
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.15s;
+}
+.markdown a:where(:not(.lucent-link-card, .hash-link)):hover {
+  border-bottom-color: currentColor;
+  text-decoration: none;
+}
+.markdown a code {
+  color: inherit;
+}
+
+/* Inline code: a quiet chip. */
+.markdown :not(pre) > code {
+  border: 0;
+  vertical-align: baseline;
+}
+
+.markdown hr {
+  height: 1px;
+  border: 0;
+  background-color: var(--lucent-border);
+}
+
+.markdown blockquote {
+  padding: 0.75rem 1.25rem;
+  border-left: 4px solid var(--lucent-lime);
+  border-radius: var(--ifm-global-radius);
+  background: var(--lucent-surface);
+  color: var(--lucent-text);
+}
+
+.markdown kbd {
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--lucent-border);
+  border-radius: 0.3rem;
+  background: var(--lucent-surface);
+  box-shadow: inset 0 -1px 0 var(--lucent-border);
+  font-family: var(--lucent-font-mono);
+  font-size: 0.8em;
+}
+
+/* The page's answer, its frontmatter description, under the title. */
+.markdown .lucent-lead {
+  margin: -0.5rem 0 2rem;
+  color: var(--lucent-subtle);
+  font-size: 1.1875rem;
+  line-height: 1.6;
+}
+.markdown .lucent-lead code {
+  font-size: 0.85em;
+}
+
+/* ---------------------------------------------------------------------------
+ * Layout: the docs and the blog in a centred 1400px frame.
+ * ------------------------------------------------------------------------ */
+.docs-wrapper .main-wrapper,
+.blog-wrapper .main-wrapper {
+  align-self: center;
+  width: min(100%, 1400px);
+}
+.docs-wrapper main > .container {
+  padding-top: 2rem !important;
+}
+@media (min-width: 997px) {
+  .theme-doc-sidebar-container {
+    margin-right: 1rem;
+    border-right: 0 !important;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Navbar: translucent over the page, in its colors; pill-shaped links.
+ * ------------------------------------------------------------------------ */
+.navbar {
+  padding: 0;
+  border-bottom: 1px solid var(--lucent-chrome-line);
+  background-color: var(--ifm-navbar-background-color);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+}
+.navbar__inner {
+  --ifm-navbar-link-color: var(--lucent-chrome-text);
+  --ifm-navbar-link-hover-color: var(--lucent-chrome-strong);
+  --ifm-navbar-link-active-color: var(--lucent-chrome-active);
+  max-width: 1400px;
+  height: 100%;
+  margin: 0 auto;
+  padding: 0 var(--ifm-navbar-padding-horizontal);
+  color: var(--lucent-chrome-text);
+}
+.navbar__items {
+  gap: 0.375rem;
+}
+.navbar__brand {
+  margin-right: auto;
+  color: var(--lucent-chrome-text);
+}
+.navbar__brand:hover {
+  color: var(--lucent-chrome-active);
+}
+.navbar__logo {
+  height: 1.875rem;
+  margin-right: 0.625rem;
+}
+.navbar__title {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+.navbar__inner .navbar__item {
+  border-radius: 32px;
+}
+.navbar__inner .navbar__link {
+  padding: 0.3rem 0.75rem;
+  font-size: 1rem;
+  font-weight: 400;
+  transition:
+    color 0.15s,
+    background-color 0.15s;
+}
+.navbar__inner .navbar__link:hover {
+  background-color: var(--lucent-chrome-raised);
+}
+.navbar__inner .navbar__link--active,
+.navbar__inner .navbar__link--active:hover {
+  background-color: var(--lucent-chrome-active-background);
+  color: var(--lucent-chrome-active);
+}
+.navbar__toggle {
+  color: var(--lucent-chrome-text);
+}
+
+/* The GitHub link in the navbar, as an icon in a round button. */
+.navbar-github-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0 !important;
+}
+.navbar-github-link::before {
+  content: "";
+  display: flex;
+  width: 20px;
+  height: 20px;
+  background-color: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12'/%3E%3C/svg%3E")
+    no-repeat center / contain;
+}
+
+/* The color mode toggle: the same round button. */
+.navbar__inner [class*="colorModeToggle"] button {
+  width: 36px;
+  height: 36px;
+  color: var(--lucent-chrome-text);
+}
+.navbar__inner [class*="colorModeToggle"] button:hover {
+  background-color: var(--lucent-chrome-raised);
+}
+
+/* Search (@easyops-cn/docusaurus-search-local): a pill, as DocSearch's is on reactnative.dev. */
+.navbar .navbar__search {
+  --ifm-navbar-search-input-background-color: #ffffff;
+  --ifm-navbar-search-input-color: var(--lucent-text);
+  --ifm-navbar-search-input-placeholder-color: #8b919c;
+  --search-local-input-active-border-color: var(--lucent-lime);
+  --search-local-modal-background: var(--lucent-surface);
+  --search-local-modal-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.35);
+  --search-local-hit-background: var(--lucent-card);
+  --search-local-hit-shadow: 0 0 0 1px var(--lucent-border);
+  --search-local-hit-color: var(--lucent-text);
+  --search-local-highlight-color: var(--lucent-lime-ink);
+  --search-local-hit-active-color: #ffffff;
+  --search-local-muted-color: var(--lucent-subtle);
+  margin-left: 0.25rem;
+}
+.navbar .navbar__search-input {
+  width: 11.5rem;
+  height: 36px;
+  padding: 0 4rem 0 2.25rem;
+  border: 1px solid var(--lucent-chrome-line);
+  border-radius: 32px;
+  font-family: var(--lucent-font);
+  font-size: 0.875rem;
+  transition: box-shadow 0.15s;
+}
+.navbar .navbar__search-input:hover {
+  box-shadow: inset 0 0 0 2px var(--lucent-lime);
+}
+.navbar .navbar__search-input:focus {
+  outline: 2px solid var(--lucent-lime);
+  outline-offset: 0;
+}
+.navbar .navbar__search [class*="searchIcon"] {
+  color: #8b919c;
+}
+.navbar .navbar__search kbd {
+  display: grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 0.25rem;
+  border: 0;
+  border-radius: 0.3rem;
+  background: rgb(0 0 0 / 0.06);
+  box-shadow: none;
+  color: #8b919c;
+  font-family: var(--lucent-font-mono);
+  font-size: 11px;
+  font-weight: 500;
+}
+.navbar .navbar__search [class*="dropdownMenu"] {
+  border: 1px solid var(--lucent-border);
+  border-radius: var(--ifm-global-radius);
+}
+.navbar .navbar__search [class*="suggestion"] {
+  border-radius: 6px;
+}
+.navbar .navbar__search [class*="suggestion"][class*="cursor"] {
+  background-color: var(--lucent-lime-ink);
+}
+[data-theme="dark"] .navbar .navbar__search {
+  --ifm-navbar-search-input-background-color: var(--lucent-background);
+  --ifm-navbar-search-input-color: var(--lucent-text);
+  --search-local-hit-active-color: #0b0f17;
+}
+[data-theme="dark"] .navbar .navbar__search kbd {
+  background: rgb(255 255 255 / 0.08);
+}
+@media (max-width: 1200px) {
+  .navbar__inner .navbar__link {
+    font-size: 0.9375rem;
+  }
+  .navbar .navbar__search-input {
+    width: 9rem;
+    padding-right: 0.75rem;
+  }
+  .navbar .navbar__search [class*="searchHintContainer"] {
+    display: none;
+  }
+}
+@media (max-width: 996px) {
+  .navbar-github-link {
+    display: none !important;
+  }
+  .navbar .navbar__search-input:not(:focus) {
+    width: 36px;
+    padding: 0;
+    color: transparent;
+  }
+  .navbar .navbar__search-input:not(:focus)::placeholder {
+    color: transparent;
+  }
+}
+
+/* The mobile drawer: a header like the navbar's, over the menu. */
+.navbar-sidebar {
+  background-color: var(--ifm-background-color);
+}
+.navbar-sidebar__brand {
+  height: var(--ifm-navbar-height);
+  padding: 0 var(--ifm-navbar-padding-horizontal);
+  border-bottom: 1px solid var(--lucent-chrome-line);
+  background-color: var(--ifm-background-color);
+  box-shadow: none;
+  color: var(--lucent-chrome-text);
+}
+.navbar-sidebar__brand .navbar__brand,
+.navbar-sidebar__brand button {
+  color: inherit;
+}
+.navbar-sidebar__back {
+  width: calc(100% + 1rem);
+  margin: -0.5rem -0.5rem 0.5rem;
+  padding: 0.75rem 1.25rem;
+  border-radius: 0;
+  background: var(--lucent-surface);
+  color: var(--lucent-subtle);
+  font-weight: 600;
+}
+.navbar-sidebar .menu__link {
+  font-size: 1rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Announcement bar: above the navbar, in its colors.
+ * ------------------------------------------------------------------------ */
+.theme-announcement-bar {
+  height: auto;
+  border-bottom: 1px solid var(--lucent-chrome-line);
+  background-color: var(--lucent-chrome) !important;
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  color: var(--lucent-chrome-muted) !important;
+}
+.theme-announcement-bar [class*="announcementBarContent"] {
+  padding: 0.5rem 1.5rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+.theme-announcement-bar b {
+  color: var(--lucent-chrome-mark);
+  font-weight: 600;
+}
+@media (max-width: 500px) {
+  .theme-announcement-bar [class*="announcementBarContent"] {
+    padding: 0.4rem 1rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Sidebar: bold section labels, small items, a lime pill for the page.
+ * ------------------------------------------------------------------------ */
+@media (min-width: 997px) {
+  .theme-doc-sidebar-container .menu {
+    padding: 0.75rem;
+  }
+}
+.menu {
+  font-weight: 400;
+}
+.menu__list .menu__list {
+  margin-top: 0;
+}
+.menu__list-item:not(:first-child) {
+  margin-top: 2px;
+}
+.menu__link {
+  border-radius: var(--ifm-global-radius);
+  line-height: 20px;
+}
+.theme-doc-sidebar-item-category-level-1 {
+  margin-bottom: 0.25rem;
+}
+.theme-doc-sidebar-item-category-level-1 > .menu__list-item-collapsible > .menu__link {
+  padding: 0.375rem 0.5rem;
+  color: var(--lucent-foreground-strong);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.theme-doc-sidebar-item-category-level-2 > .menu__list-item-collapsible > .menu__link {
+  color: var(--lucent-subtle);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+.menu__list .menu__list .menu__link {
+  padding: 0.25rem 0.75rem;
+  font-size: 0.875rem;
+}
+.menu__list .menu__list .menu__list {
+  padding-left: 0.5rem;
+}
+.menu__link--active:not(.menu__link--sublist) {
+  background-color: var(--ifm-menu-color-background-active);
+  color: var(--ifm-menu-color-active);
+  font-weight: 500;
+}
+.menu__list-item-collapsible:hover {
+  background: none;
+}
+.menu__list-item-collapsible .menu__link--sublist:hover,
+.menu__caret:hover {
+  background-color: var(--ifm-menu-color-background-hover);
+}
+.menu__link--sublist-caret::after,
+.menu__caret::before {
+  background-size: 1.66rem 1.66rem;
+}
+
+/* Pages about views (frontmatter sidebar_class_name: experimental). */
+.menu__list-item.experimental > .menu__link {
+  gap: 0.5rem;
+}
+.menu__list-item.experimental > .menu__link::after {
+  content: "Experimental";
+  flex: none;
+  margin-left: auto;
+  padding: 0.125rem 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--lucent-lime) 30%, transparent);
+  color: var(--lucent-lime-ink);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+[data-theme="dark"] .menu__list-item.experimental > .menu__link::after {
+  background: rgb(196 247 120 / 0.14);
+}
+
+/* ---------------------------------------------------------------------------
+ * Breadcrumbs: a quiet trail above the title.
+ * ------------------------------------------------------------------------ */
+.theme-doc-breadcrumbs {
+  margin-bottom: 0.75rem;
+}
+.breadcrumbs__link {
+  padding: 0.125rem 0.375rem;
+  border-radius: 6px;
+  color: var(--lucent-subtle);
+  font-size: 0.8125rem;
+}
+.breadcrumbs__item:first-child .breadcrumbs__link {
+  padding-left: 0;
+}
+a.breadcrumbs__link:hover {
+  background: var(--lucent-hover);
+  color: var(--lucent-text);
+}
+.breadcrumbs__item--active .breadcrumbs__link {
+  background: none;
+  color: var(--lucent-text);
+  font-weight: 500;
+}
+.breadcrumbs__item:not(:last-child)::after {
+  margin: 0 0.125rem;
+  opacity: 0.45;
+}
+.breadcrumbs__link svg {
+  vertical-align: -0.15em;
+}
+
+/* ---------------------------------------------------------------------------
+ * Table of contents: small, without a rail; the section in view in lime.
+ * ------------------------------------------------------------------------ */
+.table-of-contents__left-border {
+  border-left: 0;
+}
+.table-of-contents {
+  padding: 0 0 1.25rem;
+  font-size: 0.8125rem;
+}
+.table-of-contents ul {
+  padding-left: 0.5rem;
+}
+.table-of-contents li {
+  margin: 0.25rem 0;
+}
+.table-of-contents__link {
+  display: block;
+  color: var(--ifm-toc-link-color);
+  line-height: 1.45;
+}
+.table-of-contents__link:hover,
+.table-of-contents__link:hover code {
+  color: var(--lucent-lime-ink);
+}
+.table-of-contents__link--active {
+  color: var(--lucent-lime-ink);
+  font-weight: 500;
+}
+.table-of-contents code {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: 0.95em;
+}
+.theme-doc-toc-mobile[class] {
+  border-radius: var(--ifm-global-radius);
+  background-color: var(--lucent-surface);
+}
+.theme-doc-toc-mobile button {
+  color: var(--lucent-subtle);
+}
+
+/* ---------------------------------------------------------------------------
+ * Admonitions: round cards, as reactnative.dev's.
+ * ------------------------------------------------------------------------ */
+.theme-admonition {
+  margin-bottom: var(--ifm-leading);
+  padding: 1.5rem 1.75rem;
+  border: 1px solid var(--ifm-alert-border-color);
+  border-radius: var(--ifm-alert-border-radius);
+  box-shadow: none;
+  color: var(--lucent-text);
+  font-size: 1rem;
+}
+.theme-admonition [class*="admonitionHeading"] {
+  margin-bottom: 0.5rem;
+  color: var(--lucent-admonition-ink);
+  font-family: var(--lucent-font);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.theme-admonition [class*="admonitionIcon"] svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: var(--lucent-admonition-ink);
+  vertical-align: -0.3em;
+}
+.theme-admonition [class*="admonitionContent"] a {
+  border-bottom: 0;
+  color: inherit;
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 40%, transparent);
+  text-underline-offset: 0.15em;
+}
+.theme-admonition code {
+  background: rgb(0 0 0 / 0.06);
+}
+[data-theme="dark"] .theme-admonition code {
+  background: rgb(255 255 255 / 0.08);
+}
+.alert--secondary {
+  --ifm-alert-background-color: var(--lucent-surface);
+  --ifm-alert-border-color: var(--lucent-border);
+  --lucent-admonition-ink: var(--lucent-subtle);
+}
+.alert--warning {
+  --ifm-alert-background-color: #fff8e6;
+  --ifm-alert-border-color: #f5dfa0;
+  --lucent-admonition-ink: #9a6700;
+}
+.alert--success {
+  --ifm-alert-background-color: color-mix(in srgb, var(--lucent-lime) 14%, white);
+  --ifm-alert-border-color: color-mix(in srgb, var(--lucent-lime) 60%, white);
+  --lucent-admonition-ink: var(--lucent-lime-ink);
+}
+.alert--info {
+  --ifm-alert-background-color: #eef6ff;
+  --ifm-alert-border-color: #c7defa;
+  --lucent-admonition-ink: #1f5fa8;
+}
+.alert--danger {
+  --ifm-alert-background-color: #fff0f0;
+  --ifm-alert-border-color: #f7c4c4;
+  --lucent-admonition-ink: #b42318;
+}
+[data-theme="dark"] .alert--warning {
+  --ifm-alert-background-color: rgb(224 171 101 / 0.1);
+  --ifm-alert-border-color: rgb(224 171 101 / 0.3);
+  --lucent-admonition-ink: #e0ab65;
+}
+[data-theme="dark"] .alert--success {
+  --ifm-alert-background-color: rgb(196 247 120 / 0.07);
+  --ifm-alert-border-color: rgb(196 247 120 / 0.25);
+}
+[data-theme="dark"] .alert--info {
+  --ifm-alert-background-color: rgb(96 165 250 / 0.1);
+  --ifm-alert-border-color: rgb(96 165 250 / 0.3);
+  --lucent-admonition-ink: #8bbcf8;
+}
+[data-theme="dark"] .alert--danger {
+  --ifm-alert-background-color: rgb(248 113 113 / 0.1);
+  --ifm-alert-border-color: rgb(248 113 113 / 0.3);
+  --lucent-admonition-ink: #f87171;
+}
+
+/* ---------------------------------------------------------------------------
+ * Tables: as the site had them, airy in a rounded box.
+ * ------------------------------------------------------------------------ */
+.lucent-table {
+  max-width: 100%;
+  overflow-x: auto;
+  margin-bottom: var(--ifm-leading);
+  border: 1px solid var(--lucent-border);
+  border-radius: 0.625rem;
+  background: var(--lucent-card);
+}
+.lucent-table > table {
+  display: table;
+  width: 100%;
+  margin: 0;
+  border-spacing: 0;
+  border-collapse: separate;
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+.lucent-table thead {
+  background: none;
+}
+/* (thead, tbody) outweighs Infima's striped rows. */
+.lucent-table :is(thead, tbody) tr {
+  border: 0;
+  background: transparent;
+}
+.lucent-table :is(th, td) {
+  min-width: 9rem;
+  padding: 1rem 1.25rem;
+  border: 0;
+  text-align: left;
+  vertical-align: top;
+}
+.lucent-table th {
+  background: color-mix(in srgb, var(--lucent-lime) 9%, var(--lucent-card));
+  color: var(--lucent-muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.lucent-table td {
+  border-top: 1px solid var(--lucent-border);
+}
+.lucent-table td:first-child {
+  font-weight: 500;
+}
+.lucent-table tbody tr:hover {
+  background: color-mix(in srgb, var(--lucent-lime) 4%, var(--lucent-card));
+}
+.lucent-table td code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 0.85em;
+  overflow-wrap: anywhere;
+  box-decoration-break: clone;
+}
+@media (max-width: 50rem) {
+  .lucent-table :is(th, td) {
+    min-width: 11rem;
+    padding: 0.4rem 0.6rem;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Under the page: the edit link, previous and next, tags.
+ * ------------------------------------------------------------------------ */
+.theme-doc-footer {
+  margin-top: 2rem;
+  color: var(--lucent-subtle);
+  font-size: 0.9375rem;
+}
+.theme-edit-this-page {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--lucent-border);
+  border-radius: 32px;
+  color: var(--lucent-subtle);
+  font-size: 0.875rem;
+}
+.theme-edit-this-page:hover {
+  background: var(--ifm-menu-color-background-hover);
+  color: var(--ifm-link-color);
+  text-decoration: none;
+}
+.theme-edit-this-page svg {
+  color: var(--ifm-link-color);
+}
+
+.pagination-nav {
+  gap: 1rem;
+}
+.pagination-nav__link {
+  min-width: 0;
+  border: 0;
+  border-radius: var(--ifm-pagination-nav-border-radius);
+  transition: background-color 0.15s;
+}
+.pagination-nav__link:hover {
+  background-color: var(--ifm-menu-color-background-hover);
+}
+.pagination-nav__sublabel {
+  margin-bottom: 0.125rem;
+  color: var(--lucent-text);
+  font-size: 0.9375rem;
+  font-weight: 400;
+}
+.pagination-nav__label {
+  color: var(--ifm-link-color);
+  font-size: 1.0625rem;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+a[class*="tagRegular"] {
+  padding: 0.25rem 0.75rem;
+  border-radius: 32px;
+  font-size: 0.8125rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * Footer: translucent over the page, in its colors; a narrow centred column.
+ * ------------------------------------------------------------------------ */
+.footer {
+  padding: 3rem 1rem 2.5rem;
+  border-top: 1px solid var(--lucent-chrome-line);
+  background-color: var(--lucent-chrome);
+  backdrop-filter: saturate(180%) blur(12px);
+  -webkit-backdrop-filter: saturate(180%) blur(12px);
+  color: var(--lucent-chrome-muted);
+}
+.footer .container {
+  max-width: 900px;
+}
+.footer__title {
+  margin-bottom: 0.5rem;
+  color: var(--lucent-chrome-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.05rem;
+  text-transform: uppercase;
+}
+.footer__item {
+  padding: 0.25rem 0 0;
+  font-size: 0.875rem;
+}
+.footer__link-item {
+  color: var(--lucent-chrome-text);
+}
+.footer__link-item:hover {
+  color: var(--lucent-chrome-active);
+  text-decoration: none;
+}
+.footer__link-item svg {
+  margin-left: 0.2rem;
+  color: var(--lucent-chrome-muted);
+}
+.footer__bottom {
+  margin-top: 1.5rem;
+}
+.footer__copyright {
+  color: var(--lucent-chrome-muted);
+  font-size: 0.75rem;
+}
+@media (max-width: 996px) {
+  .footer__col {
+    margin-bottom: 1.5rem;
+    text-align: center;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Blog.
+ * ------------------------------------------------------------------------ */
+.blog-wrapper article header :is(h1, h2) {
+  font-family: var(--lucent-font-display);
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.15;
+}
+.blog-wrapper article header h1 {
+  font-size: 2.25rem;
+}
+.blog-wrapper article header h2 {
+  font-size: 2rem;
+}
+.blog-wrapper article header h2 a {
+  color: var(--lucent-foreground-strong);
+}
+.blog-wrapper article header h2 a:hover {
+  opacity: 0.8;
+  text-decoration: none;
+}
+.blog-wrapper [class*="blogPostData"] {
+  color: var(--lucent-subtle);
+  font-size: 0.875rem;
+}
+.blog-wrapper article + article {
+  padding-top: 2.5rem;
+  border-top: 1px solid var(--lucent-border);
+}
+.blog-wrapper footer .col.text--right a {
+  display: inline-block;
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--lucent-border);
+  border-radius: 32px;
+  font-size: 0.875rem;
+}
+.blog-wrapper footer .col.text--right a:hover {
+  background: var(--ifm-menu-color-background-hover);
+  text-decoration: none;
+}
+.blog-wrapper [class*="sidebarItemTitle"] {
+  color: var(--lucent-subtle);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.05rem;
+  text-transform: uppercase;
+}
+.blog-wrapper [class*="yearGroupHeading"] {
+  margin: 1.25rem 0 0.5rem;
+  padding-bottom: 0.375rem;
+  border-bottom: 1px solid var(--lucent-border);
+  color: var(--lucent-subtle);
+  font-family: var(--lucent-font);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+.blog-wrapper [class*="sidebarItemList"] {
+  font-size: 0.875rem;
+}
+.blog-wrapper [class*="sidebarItem_"] {
+  margin-top: 0.5rem;
+}
+
+/* Posts without a table of contents (the list) take the room it leaves. */
+.blog-wrapper .row > main.col--7:last-child {
+  --ifm-col-width: 75%;
+}
+.blog-wrapper [class*="sidebarItemLink"] {
+  color: var(--lucent-text);
+}
+.blog-wrapper [class*="sidebarItemLinkActive"] {
+  color: var(--lucent-lime-ink) !important;
+  font-weight: 500;
+}
+
+/* ---------------------------------------------------------------------------
+ * The 404 page and the search page (/search).
+ * ------------------------------------------------------------------------ */
+main.container.margin-vert--xl .hero__title {
+  font-size: 2.5rem;
+}
+main.container.margin-vert--xl .hero__title + p {
+  color: var(--lucent-subtle);
+}
+.search-page-wrapper h1 {
+  font-family: var(--lucent-font-display);
+  font-weight: 400;
+}
+.search-page-wrapper input:focus {
+  outline: 2px solid var(--lucent-lime);
+  outline-offset: 0;
+}
+.search-page-wrapper mark {
+  background: color-mix(in srgb, var(--lucent-lime) 55%, transparent);
+  color: inherit;
+}
+
+/* ---------------------------------------------------------------------------
+ * Phones: slightly smaller text and headings.
+ * ------------------------------------------------------------------------ */
+@media (max-width: 996px) {
+  .markdown {
+    font-size: 1rem;
+  }
+  .markdown h1,
+  .markdown header h1 {
+    font-size: 2rem;
+  }
+  .markdown > h2 {
+    font-size: 1.5rem;
+  }
+  .markdown > h3 {
+    font-size: 1.25rem;
+  }
+  .markdown .lucent-lead {
+    font-size: 1.0625rem;
+  }
+  .theme-admonition {
+    padding: 1.25rem;
+    border-radius: 14px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Code blocks: Expressive Code's frames, as the site had them.
+ * ------------------------------------------------------------------------ */
+.expressive-code {
+  --ec-codeFontFml: var(--lucent-font-mono);
+  --ec-uiFontFml: var(--lucent-font);
+  min-width: 0;
+  max-width: 100%;
+}
+.markdown .expressive-code,
+.markdown .lucent-tabs {
+  margin-block: 1.5rem;
+}
+.expressive-code pre {
+  overflow-x: auto;
+}
+
+/* Tabs (src/components/mdx/Tabs.tsx): the markup Starlight's had. */
+.lucent-tabs > .tablist-wrapper [role="tablist"] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1px solid var(--lucent-border);
+}
+.lucent-tabs > .tablist-wrapper .tab {
+  display: flex;
+  margin: 0;
+}
+.lucent-tabs > .tablist-wrapper .tab > [role="tab"] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.8rem;
+  border-bottom: 2px solid transparent;
+  color: var(--lucent-muted-foreground);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+}
+.lucent-tabs > .tablist-wrapper .tab > [aria-selected="true"] {
+  border-bottom-color: var(--ifm-color-primary);
+  color: var(--lucent-foreground-strong);
+}
+.lucent-tabs > [role="tabpanel"] {
+  padding-top: 1rem;
+}
+
+/* A single quiet frame for code tabs, file metadata, and source. */
+.lucent-tabs:has(> [role="tabpanel"] > .expressive-code:first-child) {
+  > .tablist-wrapper {
+    padding: 0.4rem 0.5rem;
+    border: 1px solid var(--lucent-border);
+    border-bottom: 0;
+    border-radius: 0.6rem 0.6rem 0 0;
+    background: var(--lucent-card);
+  }
+  > .tablist-wrapper [role="tablist"] {
+    gap: 0.25rem;
+    border: 0;
+  }
+  > .tablist-wrapper .tab > [role="tab"] {
+    min-height: 2.25rem;
+    padding: 0.5rem 0.8rem;
+    border: 0;
+    border-radius: 0.3rem;
+    background: transparent;
+    color: var(--lucent-muted-foreground);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.25;
+  }
+  > .tablist-wrapper .tab > [aria-selected="true"] {
+    background: color-mix(in srgb, var(--lucent-lime) 18%, var(--lucent-card));
+    color: var(--lucent-lime-ink);
+  }
+  > [role="tabpanel"] {
+    padding-top: 0;
+  }
+  > [role="tabpanel"] > .expressive-code:first-child {
+    margin: 0 0 1.5rem;
+    border: 1px solid var(--lucent-border);
+    border-top-color: color-mix(in srgb, var(--lucent-border) 65%, transparent);
+    border-radius: 0 0 0.6rem 0.6rem;
+    box-shadow: none;
+  }
+  > [role="tabpanel"] > .expressive-code:only-child {
+    margin-bottom: 0;
+  }
+  > [role="tabpanel"] > .expressive-code:first-child .frame {
+    border: 0;
+    border-radius: inherit;
+    box-shadow: none;
+  }
+  > [role="tabpanel"] > .expressive-code:first-child .header {
+    justify-content: flex-start;
+    padding: 0.6rem 1rem 0.25rem;
+    border: 0;
+    border-radius: 0;
+    background: var(--lucent-code-background, var(--lucent-card));
+  }
+  > [role="tabpanel"] > .expressive-code:first-child .header::before,
+  > [role="tabpanel"] > .expressive-code:first-child .header::after,
+  > [role="tabpanel"] > .expressive-code:first-child .title::after {
+    display: none;
+  }
+  > [role="tabpanel"] > .expressive-code:first-child .title {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--lucent-muted-foreground);
+    font-family: var(--lucent-font-mono);
+    font-size: 0.6875rem;
+    font-weight: 400;
+    line-height: 1.6;
+  }
+  > [role="tabpanel"] > .expressive-code:first-child pre {
+    border: 0;
+    border-radius: 0 0 0.6rem 0.6rem;
+    box-shadow: none;
+  }
+}
+
+/* Standalone source files use the same header treatment as selected code tabs. */
+.markdown
+  .expressive-code:not(.lucent-tabs .expressive-code):has(.frame.has-title:not(.is-terminal)) {
+  border: 1px solid var(--lucent-border);
+  border-radius: 0.6rem;
+  box-shadow: none;
+  .frame {
+    border: 0;
+    border-radius: inherit;
+    box-shadow: none;
+  }
+  .frame .header {
+    display: flex;
+    justify-content: flex-start;
+    padding: 0.4rem 0.5rem;
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--lucent-border) 65%, transparent);
+    border-radius: 0.6rem 0.6rem 0 0;
+    background: var(--lucent-card);
+  }
+  .frame .header::before,
+  .frame .header::after,
+  .frame .title::after {
+    display: none;
+  }
+  .frame .title {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    min-height: 2.25rem;
+    margin: 0;
+    padding: 0.5rem 0.8rem;
+    border: 0;
+    border-radius: 0.3rem;
+    background: color-mix(in srgb, var(--lucent-lime) 18%, var(--lucent-card));
+    color: var(--lucent-lime-ink);
+    font-family: var(--lucent-font);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    line-height: 1.25;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .frame pre {
+    border: 0;
+    border-radius: 0 0 0.6rem 0.6rem;
+    box-shadow: none;
+  }
+}
+
+/*
+ * "See the C++" under a sample (src/docs/remark.ts): Docusaurus' <details>,
+ * drawn as the site's plain disclosure was: a rail, a chevron, a mono label.
+ */
+.markdown details.see-cpp {
+  --docusaurus-details-decoration-color: var(--lucent-gray-5);
+  margin: 0.5rem 0 var(--ifm-leading);
+  padding: 0 0 0 1rem;
+  border: 0;
+  border-left: 2px solid var(--docusaurus-details-decoration-color);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+}
+.markdown details.see-cpp:not([data-collapsed="false"]):hover,
+.markdown details.see-cpp:has(> summary:hover) {
+  border-left-color: var(--lucent-lime-ink);
+}
+.markdown details.see-cpp > summary {
+  margin-left: -0.5rem;
+  padding-left: 0.5rem;
+  color: var(--lucent-gray-3);
+  font-family: var(--lucent-font-mono);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.75;
+}
+.markdown details.see-cpp > summary:hover {
+  color: var(--lucent-gray-ink);
+}
+.markdown details.see-cpp > summary::before {
+  position: static;
+  display: inline-block;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin: 0 0.25rem 0 -0.3125rem;
+  border: 0;
+  background-color: currentColor;
+  vertical-align: middle;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M14.8 11.3 10.6 7a1 1 0 1 0-1.4 1.5l3.5 3.5-3.5 3.5a1 1 0 0 0 0 1.4 1 1 0 0 0 .7.3 1 1 0 0 0 .7-.3l4.2-4.2a1 1 0 0 0 0-1.4Z'/%3E%3C/svg%3E")
+    no-repeat;
+  transform-origin: center;
+}
+.markdown details.see-cpp [class*="collapsibleContent"] {
+  margin-top: 1rem;
+  padding-top: 0;
+  border-top: 0;
+}
+.markdown details.see-cpp [class*="collapsibleContent"] > :first-child {
+  margin-top: 0;
+}
+
+/* Steps (src/components/mdx/Steps.tsx): numbered bullets down a rail, as the site had them. */
+.lucent-steps > ol {
+  --lucent-bullet-size: 1.75rem;
+  --lucent-bullet-margin: 0.375rem;
+  counter-reset: lucent-step;
+  padding-left: 0;
+  list-style: none;
+}
+.lucent-steps > ol > li {
+  counter-increment: lucent-step;
+  position: relative;
+  min-height: calc(var(--lucent-bullet-size) + var(--lucent-bullet-margin));
+  margin-top: 0.5rem;
+  padding-bottom: 1px;
+  padding-left: calc(var(--lucent-bullet-size) + 1rem);
+}
+.lucent-steps > ol > li::before {
+  content: counter(lucent-step);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--lucent-bullet-size);
+  height: var(--lucent-bullet-size);
+  border-radius: 99rem;
+  background-color: var(--lucent-gray-6);
+  color: var(--lucent-gray-ink);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  line-height: var(--lucent-bullet-size);
+  text-align: center;
+}
+.lucent-steps > ol > li::after {
+  content: "";
+  position: absolute;
+  top: calc(var(--lucent-bullet-size) + var(--lucent-bullet-margin));
+  bottom: var(--lucent-bullet-margin);
+  left: calc((var(--lucent-bullet-size) - 1px) / 2);
+  width: 1px;
+  background-color: var(--lucent-gray-6);
+}
+.lucent-steps > ol > li > :first-child {
+  margin-top: 0;
+  line-height: var(--lucent-bullet-size);
+}
+.lucent-steps > ol > li > h3 {
+  font-size: 1.125rem;
+}
+
+/* Cards (src/components/mdx/CardGrid.tsx, LinkCard.tsx). */
+.lucent-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 1rem;
+  margin-bottom: var(--ifm-leading);
+}
+.lucent-link-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--lucent-border);
+  border-radius: 0.75rem;
+  background: var(--lucent-card);
+  color: inherit;
+}
+.lucent-link-card:hover {
+  border-color: var(--ifm-color-primary);
+  text-decoration: none;
+}
+.lucent-link-card .title {
+  color: var(--lucent-foreground-strong);
+  font-weight: 600;
+}
+.lucent-link-card .description {
+  color: var(--lucent-muted-foreground);
+  font-size: 0.875rem;
+}
+
+/*
+ * Diagrams (src/components/mdx/Diagram.tsx). Their palette
+ * (components/diagrams/palette.ts) names Starlight's colors: these are the
+ * values the site had.
+ */
+.lucent-diagram-svg {
+  --sl-color-gray-3: var(--lucent-gray-3);
+  --sl-color-gray-4: var(--lucent-gray-4);
+  --sl-color-gray-5: var(--lucent-gray-5);
+  --sl-color-gray-6: var(--lucent-gray-6);
+  --sl-color-white: var(--lucent-gray-ink);
+  --sl-color-black: var(--lucent-gray-bg);
+  --sl-color-accent-low: hsl(234, 88%, 90%);
+  --sl-color-accent-high: hsl(234, 80%, 30%);
+}
+[data-theme="dark"] .lucent-diagram-svg {
+  --sl-color-accent-low: hsl(224, 54%, 20%);
+  --sl-color-accent-high: hsl(224, 100%, 85%);
+}
+.lucent-diagram {
+  margin: 1.5rem 0;
+}
+.lucent-diagram-svg {
+  display: block;
+  width: 100%;
+  max-width: 44rem;
+  height: auto;
+  margin-inline: auto;
+}
+.lucent-diagram figcaption {
+  margin-top: 0.75rem;
+  color: var(--lucent-muted-foreground);
+  font-size: 0.875rem;
+  text-align: center;
+}
+.lucent-diagram figcaption p {
+  margin: 0;
+}
+
+/* The comparison table (src/components/mdx/Comparison.tsx), as the site had it. */
+.comparison {
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  border: 1px solid var(--lucent-gray-5);
+  border-radius: 0.75rem;
+}
+.comparison table {
+  display: table;
+  width: 100%;
+  min-width: 40rem;
+  margin: 0;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-size: 0.875rem;
+}
+.comparison th,
+.comparison td {
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  text-align: start;
+  vertical-align: top;
+}
+.comparison :is(thead, tbody) tr {
+  border: 0;
+  background: none;
+}
+.comparison thead th {
+  border-bottom: 1px solid var(--lucent-gray-5);
+  background: none;
+  color: var(--lucent-gray-ink);
+  font-weight: 600;
+}
+.comparison .band th,
+.comparison .band td {
+  padding-block: 0.4rem 0.1rem;
+  border-top: 1px solid var(--lucent-gray-6);
+  color: var(--lucent-gray-3);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.comparison .lucent {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: color-mix(in oklab, var(--lucent-lime) 9%, var(--lucent-gray-bg));
+  box-shadow: inset -1px 0 var(--lucent-gray-5);
+}
+.comparison td.lucent,
+.comparison thead .lucent {
+  color: var(--lucent-gray-ink);
+}
+.comparison .value {
+  display: flex;
+  gap: 0.45rem;
+  align-items: baseline;
+  color: var(--lucent-gray-1);
+}
+.comparison .detail {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--lucent-gray-3);
+  font-size: 0.8125rem;
+}
+.comparison .dot {
+  flex: none;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  transform: translateY(-0.05rem);
+}
+.comparison .available {
+  background: var(--lucent-green);
+}
+.comparison .partial {
+  background: var(--lucent-orange);
+}
+.comparison .planned {
+  background: var(--lucent-gray-4);
+}

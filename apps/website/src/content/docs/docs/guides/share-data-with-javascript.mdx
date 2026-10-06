@@ -1,0 +1,76 @@
+---
+title: Return data and objects to JavaScript
+description: "Object types and arrays reach JavaScript as copies; a class instance crosses as a reference, the same object each time."
+kind: guide
+---
+
+<Tabs>
+<TabItem label="module">
+
+```ts title="cart.lucent.ts"
+export type Item = { name: string; price: number };
+
+export type Summary = { count: number; total: number };
+
+export class Cart {
+  items: Item[] = [];
+
+  add(item: Item): Summary {
+    this.items.push(item);
+    return this.summary();
+  }
+
+  summary(): Summary {
+    let total = 0;
+    for (const item of this.items) total += item.price;
+    return { count: this.items.length, total };
+  }
+}
+
+const carts = new Map<string, Cart>();
+
+/** The cart of `user`, made on first use. */
+export function cartFor(user: string): Cart {
+  let cart = carts.get(user);
+  if (!cart) {
+    cart = new Cart();
+    carts.set(user, cart);
+  }
+  return cart;
+}
+```
+
+</TabItem>
+<TabItem label="JS usage">
+
+```tsx title="App.tsx"
+import { cartFor } from "./src/cart.lucent";
+
+const cart = cartFor("ada");
+cartFor("ada") === cart; // true: the same object
+
+const tea = { name: "Tea", price: 4 };
+const summary = cart.add(tea); // { count: 1, total: 4 }
+tea.price = 0; // the cart copied tea: it still costs 4
+summary.total = 99; // summary is a copy too
+cart.summary().total; // 4
+
+cart.items === cart.items; // false: each read copies the array
+cart.items.push(tea); // pushes to a copy: the cart still has 1 item
+```
+
+</TabItem>
+</Tabs>
+
+`Summary` is an object type, so `summary()` hands JavaScript a copy, made at the call. Arguments cross the same way: `cart.add(tea)` copies `tea` in, and later changes to either side stay on that side.
+
+`Cart` is a class, so `cartFor` hands JavaScript a reference to the native object. It is the same JavaScript object each time it crosses, so `===` works, and its methods run on the one cart. JavaScript can also make one, with `new Cart()`.
+
+## Choose a copy or an object
+
+- Return plain data (object types, arrays, maps, sets, strings, numbers) for a result JavaScript reads. It is a snapshot.
+- Export a class for state that JavaScript keeps and works on. The object lives while either side holds it ([Memory](/docs/api/language/memory/#reference-counting)).
+- An instance's array and object fields are copied at each read. Change them through a method, as `add` does.
+- An SDK object, such as a `CLLocationManager`, [can't cross](/docs/api/language/boundary/#what-cant-cross). Keep it in module state or in a class you don't export, and return the values JavaScript needs.
+
+[The boundary](/docs/api/language/boundary/#how-each-type-crosses) gives the rule for each type, and [Class instances](/docs/api/language/boundary/#class-instances) what JavaScript sees of one.

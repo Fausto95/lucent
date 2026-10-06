@@ -1,0 +1,88 @@
+---
+title: "How does Lucent decide what a change needs?"
+sidebar_label: "Builds and stale native code"
+description: "A build names what the app needs from the native files it changed, and each module checks the app's native code when it loads."
+kind: explanation
+---
+
+```sh title="terminal" nocopy
+[14:02:11] ✓ 2 modules  36 ms · rebuild the app · recompile native code (ios, android)
+```
+
+Your app's native code and its JavaScript are built apart. Lucent keeps them in step twice: each build says what the app needs next, and each module checks the native code before it loads.
+
+## Actions come from what a build changed
+
+A build compares the native package it writes, `.lucent/native`, with the one on disk. Unchanged files keep their content and modification time, so Xcode and Gradle rebuild only what changed. The action follows from where each changed file sits, never from a source file's extension:
+
+| Changed in the native package | Action | What you do |
+| --- | --- | --- |
+| Generated C++, Swift, Java or Kotlin; the runtime's sources; a package's `nativeSources` | `compile-native` | Rebuild the app. |
+| The JavaScript under `js/`: the proxies and their loader | `reload-js` | Reload JavaScript. |
+| A package's `resources`, `resourceBundles` or `assets` | `repackage` | Rebuild the app. |
+| The podspec, Android build files; a package's `libraries`, `nativeLibraries` or `vendoredFrameworks` | `relink` | Run `pod install` on iOS, then rebuild. |
+| A file of the iOS pod, added or removed: a source, resource or framework | `relink`, on iOS | Run `pod install`, then rebuild. |
+| The Android library's manifest; `Info.plist` entries or entitlements | `reinstall` | Build and install the app again. |
+| Editor declarations, the build's cache key, the build identity | nothing | Nothing. |
+
+A package's file takes the action of the [`lucent.json`](/docs/packages/lucent-json/) field that lists it. A file Lucent can't place relinks, which is always enough. Each action names its platforms and files, as `actions` in [`lucent build --json`](/docs/api/json-formats/#lucent-build---json).
+
+Editing a module changes its generated C++, so it needs a native rebuild. A reload alone runs the old code, or throws if the module's API changed. An edit that changes no generated file needs nothing.
+
+[Get a module change into the running app](/docs/guides/apply-a-change/) shows what to do for each action.
+
+## The app checks its native code at load
+
+Each build gives what it compiled an identity:
+
+- the runtime ABI, the version of the contract between generated code and Lucent's C++ runtime;
+- per platform, a program hash, over the generated files;
+- per module, an API hash, over its exports, their signatures and the types that cross with them.
+
+A body edit changes the program, not the API. The native code carries its identity, and the proxies carry the one they were built with:
+
+```js title=".lucent/native/js/greet.js" include="proxy/greet.js"
+```
+
+When JavaScript first imports a module, its proxy calls `loadModule`, which compares the two:
+
+| The app's native code | Result | `error.action` |
+| --- | --- | --- |
+| isn't linked into the app | throws, without `code` | none |
+| predates build identities | throws | `compile-native` |
+| has an older runtime ABI | throws | `compile-native` |
+| has a newer runtime ABI | throws | `reload-js` |
+| runs on a platform this JavaScript's build has no program for | throws | `compile-native` |
+| lacks the module | throws | `compile-native` |
+| has other exports or signatures for the module | throws | `compile-native` |
+| has the same APIs, built from other sources | warns, then loads | none |
+| is what this JavaScript was built with | loads | none |
+
+The other refusals throw an error with `code: "LUCENT_NATIVE_MISMATCH"`, and `action` names the fix. A component's first request also rejects with one, `compile-native`, when the app's native code predates view requests. [Runtime errors](/docs/api/runtime-errors/) has the messages.
+
+Same APIs with another program only warn: every call is still safe, and only the implementation differs. You keep working on JavaScript while the app rebuilds, and the `console.warn` tells you.
+
+The check runs once per JavaScript runtime and build, so a reload checks again. Proxies from before build identities pass none and aren't checked.
+
+An over-the-air update ships JavaScript only: like a reload, it runs the installed code, or throws if a module's API changed.
+
+## lucent dev rebuilds on save
+
+[`lucent dev`](/docs/api/cli/#lucent-dev) rebuilds when a file a build reads changes, and Metro's dev server runs it.
+
+- Saves within 40 ms make one build.
+- Changes under `node_modules` and dot directories are ignored, so editing a package inside `node_modules` doesn't rebuild. Builds write in `.lucent`, so a build never triggers another.
+
+## A Gradle build can ask for another
+
+The Android Gradle build runs `lucent build` first, in its `lucentBuild` task. By then, Gradle has read the app's autolinking config, and configured the Lucent Android library from its `build.gradle`.
+
+A build that changes what Gradle already read writes the new files, then fails with "build again". A Gradle build that creates `.lucent/native` does this. So does one that changes the library's `build.gradle`, for the first Kotlin shim or a package's new Android dependency.
+
+The next build reads the new files. When an earlier build left Android to Gradle, as `expo prebuild` can, that `build.gradle` already builds any of these, so the build doesn't stop.
+
+[Integrations](/docs/api/integrations/) says which tool runs the build on each setup.
+
+## Build records
+
+Each run records its steps and the pending actions in `.lucent/build-record.json`, as [The .lucent directory](/docs/api/lucent-directory/) describes.

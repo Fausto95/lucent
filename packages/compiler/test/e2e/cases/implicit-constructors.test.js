@@ -1,0 +1,21 @@
+print(mod.parseError());
+print(mod.caught());
+print(mod.withoutMessage());
+print(mod.named());
+print(mod.inheritedName());
+try {
+  mod.thrownNamed();
+} catch (e) {
+  print(e.name, e.message);
+}
+print(mod.twoLevels());
+print(mod.derived());
+print(mod.subCoded());
+try {
+  mod.thrown();
+} catch (e) {
+  print(e.name, e.message);
+}
+// Built from JavaScript, read back in Lucent.
+const PE = lucentClass(mod.ParseError);
+print(mod.messageOf(new PE("from js")));

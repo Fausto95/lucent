@@ -1,8 +1,0 @@
-@@ -1,7 +1,6 @@
- import { useEffect, useState } from "react";
- import { PermissionsAndroid, Platform, Text } from "react-native";
--import { requestPermission, stop, watch } from "./src/location.lucent";
--import { Trip, type TripSummary } from "./src/trip.lucent";
-+import { requestPermission, stop, Trip, type TripSummary, watch } from "trip-tracker";
- 
- const trip = new Trip();

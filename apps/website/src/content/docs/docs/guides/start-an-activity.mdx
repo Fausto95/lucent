@@ -1,0 +1,60 @@
+---
+title: Start an Android Activity for a result
+description: "Pass an `Intent` to `startActivityForResult()` from `lucent:android`: it starts the intent from the Activity in front and resolves with the result code and data."
+kind: guide
+---
+
+<Tabs>
+<TabItem label="picker.lucent.ts">
+
+```ts title="picker.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { Activity } from "lucent:android/android.app";
+import { Intent } from "lucent:android/android.content";
+import { startActivityForResult } from "lucent:android";
+import { error } from "lucent:core";
+
+/** Opens the system's document picker, and resolves with the document's URI, or null. */
+export async function pickDocument(signal?: AbortSignal): Promise<string | null> {
+  if (PLATFORM !== "android") throw error("E_UNSUPPORTED", "The picker is Android only");
+
+  const intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+  intent.addCategory(Intent.CATEGORY_OPENABLE);
+  intent.setType("*/*");
+
+  const result = await startActivityForResult(intent, signal);
+  if (result.getResultCode() !== Activity.RESULT_OK) return null;
+
+  return result.getResultData()?.getDataString() ?? null;
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { Button } from "react-native";
+import { pickDocument } from "./src/picker.lucent";
+
+export default function App() {
+  const onPress = async () => {
+    try {
+      console.log((await pickDocument()) ?? "backed out");
+    } catch (e) {
+      // ERR_ACTIVITY_NOT_FOUND: no app on the device opens documents.
+      console.log((e as { code?: string }).code);
+    }
+  };
+
+  return <Button title="Pick a document" onPress={onPress} />;
+}
+```
+
+</TabItem>
+</Tabs>
+
+The promise resolves with an `Instrumentation_ActivityResult`. Compare `getResultCode()` with `Activity.RESULT_OK`: a person who backs out gives `RESULT_CANCELED`, not a rejection. `getResultData()` is the intent the other Activity sent back, or null.
+
+The request runs in a translucent Activity that the native package declares, so your app's Activity needs no `onActivityResult`. It survives that Activity being recreated. [lucent:android](/docs/api/lucent-android/#startactivityforresult) gives its errors and how `signal` cancels it.
+
+For an API that needs the Activity itself, `currentActivity()` from [lucent:android](/docs/api/lucent-android/#currentactivity) gives the one in front. [Call a main-thread-only API](/docs/guides/run-on-the-main-thread/) uses it.

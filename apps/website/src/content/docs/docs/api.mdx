@@ -1,0 +1,96 @@
+---
+title: Where is each Lucent API documented?
+sidebar_label: API reference
+description: "Each `lucent:*` module, language rule, command, file and error has one page, listed below; `@lucent-lang/lucent` itself has seven entry points."
+kind: reference
+---
+
+This page names the page that holds the exact rules of each import, language feature, command, file and error. Find what you're looking at in a table below, and follow its link. The guides show these rules in use, and link back here.
+
+## Imports in a module
+
+| Import | What it gives | Page |
+| --- | --- | --- |
+| `lucent:core` | `delay`, `now`, errors with a code, UTF-8, `fromCallback`, `subscribe`, `compute` and `NativeBuffer` | [lucent:core](/docs/api/lucent-core/) |
+| `lucent:platform` | `PLATFORM`, the platform the code runs on | [lucent:platform](/docs/api/lucent-platform/) |
+| `lucent:thread` | `main()`, which runs a function on the main thread | [lucent:thread](/docs/api/lucent-thread/) |
+| `lucent:ios` | iOS helpers: `available`, `Out`, `mainQueue`, the `as*` readers, `present`, app and scene events | [lucent:ios](/docs/api/lucent-ios/) |
+| `lucent:ios/<Module>` | An iOS SDK framework, a pod's module, or a framework a Lucent package ships | [iOS SDK bindings](/docs/api/ios-sdk/) |
+| `lucent:android` | Android helpers: `appContext`, `available`, `currentActivity`, activity results, permissions, Activity events | [lucent:android](/docs/api/lucent-android/) |
+| `lucent:android/<package>` | A package of the Android SDK, of the app's Gradle libraries, or of a library a Lucent package ships | [Android SDK bindings](/docs/api/android-sdk/) |
+| `lucent:ext/<name>` | A C header a package ships as a native extension, a C++ library through a C interface | [Native extensions](/docs/packages/native-extensions/) |
+| `console`, `AbortController`, `AbortSignal` | The globals every module has, without an import | [Globals](/docs/api/globals/) |
+| `./other.lucent` | Another module of the app | [Modules](/docs/api/language/modules/) |
+| `<package>/<path>.lucent` | A module of a Lucent package the app depends on, by its path in the package | [Modules](/docs/api/language/modules/) |
+
+Views are experimental, behind `LUCENT_VIEWS=fabric`. Their modules and rules have pages of their own:
+
+| Import or code | What it gives | Page |
+| --- | --- | --- |
+| `lucent:ui` | What a component's setup uses: signals, effects, commands, children | [lucent:ui](/docs/api/views/lucent-ui/) |
+| `lucent:compose` | Jetpack Compose, for a component's content on Android | [lucent:compose](/docs/api/views/lucent-compose/) |
+| `lucent:swiftui` | SwiftUI, for a component's content on iOS | [SwiftUI and Compose in JSX](/docs/api/views/swiftui-and-compose/) |
+| `*.lucent.tsx` | A component: its props, `on…` events and `expose()` commands | [Components](/docs/api/views/components/) |
+| `<UILabel>`, `<TextView>` | UIKit and Android views as JSX tags, laid out by `Flex` | [UIKit and Android views](/docs/api/views/platform-views/) |
+
+## Language rules
+
+| Question | Page |
+| --- | --- |
+| Which TypeScript features does a module accept? | [Language](/docs/api/language/) |
+| What can a module import and export, and what does a reload do to it? | [Modules](/docs/api/language/modules/) |
+| How do `PLATFORM` branches and `.ios.lucent.ts` files work? | [Platform code](/docs/api/language/platform-code/) |
+| Which types exist, and how do numbers and bigints behave? | [Types](/docs/api/language/types/) |
+| Which statements and expressions work, `using` and generators included? | [Statements](/docs/api/language/statements/) |
+| Which JavaScript built-ins can a module call? | [Built-ins](/docs/api/language/built-ins/) |
+| What crosses between JavaScript and a module, and how? | [The boundary](/docs/api/language/boundary/) |
+| Which thread runs which code, and what does the lock serialize? | [Concurrency](/docs/api/language/concurrency/) |
+| When are values freed, and how does `using` release them? | [Memory](/docs/api/language/memory/) |
+| Where does native code behave differently from JavaScript? | [Differences](/docs/api/language/differences/) |
+
+## Commands and integrations
+
+| What | Page |
+| --- | --- |
+| Every `lucent` command and flag, `lucent explain` included | [CLI](/docs/api/cli/) |
+| The `--json` output of every command that has one, and the fields of `lucent-sdk.lock.json` | [JSON formats](/docs/api/json-formats/) |
+| `withLucent` for Metro, the Expo config plugin, the Gradle task and the editor plugin | [Integrations](/docs/api/integrations/) |
+| The environment variables Lucent reads | [Environment variables](/docs/api/environment-variables/) |
+
+## Files
+
+| File | Page |
+| --- | --- |
+| `*.lucent.ts`, and the `*.ios.lucent.ts` or `*.android.lucent.ts` beside it | [Modules](/docs/api/language/modules/), [Platform code](/docs/api/language/platform-code/) |
+| `.lucent/`, and the native package in `.lucent/native/` | [The .lucent directory](/docs/api/lucent-directory/) |
+| `lucent-sdk.lock.json` | [JSON formats](/docs/api/json-formats/#lucent-sdklockjson) |
+| `metro.config.js`, `app.json`, `tsconfig.json`, `react-native.config.js`, `android/app/build.gradle` | [Integrations](/docs/api/integrations/) |
+| The `lucent` field of a package's package.json | [package.json](/docs/packages/package-json/) |
+| A package's `lucent.json` | [lucent.json](/docs/packages/lucent-json/) |
+
+## Errors and versions
+
+| What | Page |
+| --- | --- |
+| A `LUCENT` code from the compiler or the editor | [Diagnostics](/docs/api/diagnostics/) |
+| An error Lucent's JavaScript throws as a module loads: a setup error or `LUCENT_NATIVE_MISMATCH` | [Runtime errors](/docs/api/runtime-errors/) |
+| A `lucent:*` function's rejection, such as `present`'s `AbortError` | Its module's page, such as [lucent:ios](/docs/api/lucent-ios/#present) |
+| The events a runtime trace records | [Trace events](/docs/api/trace-events/) |
+| The React Native, Expo, Node, JDK, iOS, Android and TypeScript versions Lucent supports | [Compatibility](/docs/api/compatibility/) |
+| What Lucent doesn't do yet | [Known limitations](/docs/releases/roadmap/#known-limitations) |
+
+## Entry points of @lucent-lang/lucent
+
+`@lucent-lang/lucent` is the one package an app installs. Modules don't import it: they import `lucent:*`, which the compiler provides. The app's tools use these entry points:
+
+| Entry point | What it is | Where it goes |
+| --- | --- | --- |
+| `@lucent-lang/lucent` | The Expo config plugin, the package's main export | `"plugins"` in `app.json` |
+| `@lucent-lang/lucent/app.plugin.js` | The same plugin, under the file name Expo looks for | Expo resolves it |
+| `@lucent-lang/lucent/metro` | `withLucent(config, options?)`, which makes Metro bundle each module's proxy | `metro.config.js` |
+| `@lucent-lang/lucent/ts-plugin` | The TypeScript plugin that shows Lucent's diagnostics in the editor | `"plugins"` in the `compilerOptions` of `tsconfig.json` |
+| `@lucent-lang/lucent/core` | `lucent:core` written in JavaScript and typed as `lucent:core`, for tests that run modules as plain TypeScript | Jest's `moduleNameMapper`, or Vitest's `alias` |
+| `@lucent-lang/lucent/package.json` | The package manifest, through which Lucent's Gradle task finds the package | `android/app/build.gradle` |
+| `lucent` | The command-line tool | `npx lucent`, or a script in the app's package.json |
+
+[Integrations](/docs/api/integrations/) gives the options of the Expo plugin, `withLucent` and the editor plugin. [Test a module](/docs/guides/test-a-module/) sets up `@lucent-lang/lucent/core`.

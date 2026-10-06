@@ -1,0 +1,167 @@
+---
+title: package.json
+description: "A `lucent` field makes an npm package a Lucent package: apps find it through `dependencies` and name its modules `<package>/<path under sources>`."
+kind: reference
+---
+
+A Lucent package is an npm package whose package.json has a `lucent` field. It ships its modules as source, and every app that depends on it compiles them into its native package. This page gives the field's rules, how an app finds packages, and how their modules are named.
+
+## Example
+
+<Tabs>
+<TabItem label="package.json">
+
+```json title="package.json"
+{
+  "name": "lucent-haptics",
+  "version": "0.1.0",
+  "main": "index.ts",
+  "files": ["index.ts", "src"],
+  "lucent": {
+    "sources": "src",
+    "compatible": "^0.2.0"
+  }
+}
+```
+
+</TabItem>
+<TabItem label="index.ts">
+
+```ts title="index.ts"
+// The package's JavaScript API: Metro bundles each module's proxy in its place.
+export * from "./src/haptics.lucent";
+```
+
+</TabItem>
+</Tabs>
+
+An app that lists `lucent-haptics` in its `dependencies` compiles `src/haptics.lucent.ts` as the module `lucent-haptics/haptics`. The app's JavaScript imports it from `"lucent-haptics"`.
+
+[Create a Lucent package](/docs/packages/create-a-package/) walks through writing one, and [Install a Lucent package](/docs/guides/use-a-lucent-package/) is the app's side.
+
+## The lucent field
+
+| Field | Type | Default | Meaning |
+| --- | --- | --- | --- |
+| `sources` | `string` | `"."`, the package's directory | The directory holding the package's modules, relative to the package. |
+| `compatible` | `string` | none: every Lucent version | The Lucent versions the package supports, as an npm range. |
+
+Lucent reads no other key of the field. An empty `"lucent": {}` is enough to make a Lucent package.
+
+### sources
+
+- Every `*.lucent.ts` and `*.lucent.tsx` file under it is compiled, at any depth, platform files included.
+- The search skips `node_modules`, directories named `ios` or `android`, and names that start with `.`.
+- A module file outside it isn't compiled, even inside the package.
+- A module's path under it makes the module's name: see [Module names](/docs/packages/package-json/#module-names).
+
+Put a platform file next to its declaration file, as `haptics.ios.lucent.ts`, not in an `ios` directory. The [platform code](/docs/api/language/platform-code/) rules say how the files pair up.
+
+### compatible
+
+The range of Lucent versions the package supports. Lucent's version is that of the `@lucent-lang/lucent` that runs the command. Outside the range, `lucent check`, `lucent build` and each `lucent dev` build fail, naming the package:
+
+```sh title="terminal" nocopy
+✗ lucent-haptics@0.0.1 supports Lucent ^0.0.3, not {{lucent-version}}: update one of them
+```
+
+`lucent doctor` reports the same under "Lucent versions". Without `compatible`, every Lucent version is accepted.
+
+The range takes this part of npm's syntax:
+
+| Range | Accepts |
+| --- | --- |
+| `^0.1.0` | The version given and later ones with the same leftmost non-zero part: 0.1.x here. `^1.2.0` accepts 1.2.0 and later 1.x. |
+| `~0.1.2` | Patch releases: 0.1.2 and later 0.1.x. |
+| `>=0.1.0`, `>0.1.0`, `<=0.3.0`, `<0.3.0`, `=0.1.2` | The versions on that side of the one given. |
+| `0.1.2`, `0.1`, `0.1.x`, `*` | That version, or every version matching the parts given. |
+| `>=0.1.0 <0.3.0` | Comparators separated by spaces: all of them must hold. |
+| `^0.1.0 \|\| ^0.2.0` | Ranges separated by `\|\|`: one of them must hold. |
+
+- Prerelease tags are ignored on both sides: `0.2.0-rc.1` counts as `0.2.0`.
+- Hyphen ranges (`0.1.0 - 0.3.0`), a space after an operator (`>= 0.1.0`) and tags (`latest`) aren't understood. Such a part never matches, so `>= 0.1.0` alone accepts no version.
+
+[Version and publish a package](/docs/packages/publish-a-package/) says which range to choose.
+
+## Other package.json fields
+
+| Field | What Lucent does with it |
+| --- | --- |
+| `name` | Required: without it, Lucent ignores the `lucent` field. It starts every module name, and errors name the package by it. |
+| `version` | Shown in errors and recorded in `.lucent/native/resolved.json`. A package without one is `0.0.0`. |
+| `dependencies` | Lists the Lucent packages this package needs. The app's build finds them through it. |
+| `main` | Not read by Lucent. Point it at a file that re-exports the modules: Metro bundles each module's JavaScript proxy in its place. |
+| `files` | Not read by Lucent. npm publishes only what it lists: list the `main` file, the sources directory, `lucent.json` and every path `lucent.json` lists. |
+
+## How an app finds packages
+
+`lucent check`, `lucent build` and `lucent dev` compile the app's modules and those of every Lucent package the app depends on. They find the packages by these rules:
+
+| Rule | Detail |
+| --- | --- |
+| Start | The app's package.json `dependencies`. |
+| Fields followed | `dependencies` only, in the app and in every Lucent package. `devDependencies`, `peerDependencies` and `optionalDependencies` are ignored. |
+| Depth | Transitive through Lucent packages: each one's own `dependencies` are followed. A Lucent package that only a plain npm package depends on isn't found. |
+| Lookup | As Node does: in `node_modules` directories, from the depending package's real directory up. Symlinks, such as `workspace:*` links and `npm link`, are followed. |
+| What counts | A dependency whose package.json has a `lucent` field and a `name`. |
+| Copies | One copy of each package. Two copies at different paths fail: `lucent-haptics is installed twice (0.1.0 and 0.2.0): the app can build one copy of a Lucent package`. |
+
+A Lucent package that another one takes as a peer dependency must be in the app's own `dependencies`. JavaScript can still import a package the build didn't find, and its module throws when it loads:
+
+```text title="JavaScript error" nocopy
+Lucent: haptics.lucent.ts has not been compiled. Run `lucent build` and rebuild the app.
+```
+
+Building again doesn't fix it: add the package to the app's `dependencies` first.
+
+:::caution
+Keep a local Lucent package outside the app's directory. The app compiles the modules under its directory, `node_modules` aside, but reads a package's `lucent.json` and `compatible` only through `dependencies`. Listing a package that is inside the app's directory fails with [LUCENT3010](/docs/api/diagnostics/#lucent3010): one file found twice.
+:::
+
+## Module names
+
+A module's name comes from the nearest package.json above its file:
+
+- If that package.json has a `lucent` field and a `name`, the module is `<name>/<path under sources>`. The path drops `.lucent.ts`, `.lucent.tsx` and a platform suffix.
+- Otherwise, as in most apps, the module is named by its file alone. An app's modules are the module files under its directory, skipped as `sources` skips them.
+
+| File | Module name |
+| --- | --- |
+| `lucent-haptics/src/haptics.lucent.ts` | `lucent-haptics/haptics` |
+| `lucent-haptics/src/haptics.ios.lucent.ts` | `lucent-haptics/haptics`, its iOS platform file |
+| `lucent-haptics/src/feedback/impact.lucent.ts` | `lucent-haptics/feedback/impact` |
+| `@acme/maps/src/region.lucent.ts` | `@acme/maps/region` |
+| `lucent-haptics/src/haptics.lucent.ts`, with `sources` omitted | `lucent-haptics/src/haptics` |
+| `src/screens/clipboard.lucent.ts`, in an app | `clipboard` |
+
+So two packages can both have a `storage` module. Two modules with one name, such as two app files called `storage.lucent.ts`, fail with [LUCENT3010](/docs/api/diagnostics/#lucent3010).
+
+### Where the name is used
+
+| Where | For `lucent-haptics/haptics` |
+| --- | --- |
+| The JavaScript proxy: the file Metro bundles in place of the module | `.lucent/native/js/lucent-haptics/haptics.js` |
+| The one `Lucent` TurboModule, which holds every module | its property `"lucent-haptics/haptics"` |
+| The C++ namespace: `m_` and the name made a C++ identifier, a character other than a letter, digit or `_` becoming `_u<hex>_` | `lucent_app::m_lucent_u2d_haptics_u2f_haptics` |
+| The generated C++ files, under `.lucent/native/cpp/generated/` | `m_lucent_u2d_haptics_u2f_haptics.*` |
+
+With [`lucent build --out <dir>`](/docs/api/cli/#lucent-build), `<dir>` replaces `.lucent/native`. Metro bundles the proxies written there only when `LUCENT_OUT` names the same directory: see [Environment variables](/docs/api/environment-variables/).
+
+## Importing another package's module
+
+| From | Specifier | Example |
+| --- | --- | --- |
+| Lucent code | The module's file path in the package, ending in `.lucent` | `import { impactAsync } from "lucent-haptics/src/haptics.lucent";` |
+| JavaScript | The package, through its `main`, or the same path | `import { impactAsync } from "lucent-haptics";` |
+
+From Lucent code:
+
+- The path is the file's, with the sources directory and the `.lucent` suffix. `lucent-haptics/haptics` and `lucent-haptics/src/haptics` fail with [LUCENT9001](/docs/api/diagnostics/#lucent9001).
+- The package must be one the app's build finds. A module of any other package fails with [LUCENT3001](/docs/api/diagnostics/#lucent3001).
+- A package with an `exports` map must map the path to the `.lucent.ts` file, as `"./src/*": "./src/*.ts"` does. Otherwise the import fails with [LUCENT9001](/docs/api/diagnostics/#lucent9001).
+
+What else a module may import is in [Modules](/docs/api/language/modules/).
+
+## lucent.json
+
+Finding packages reads package.json only. A package's `lucent.json` is read next: an invalid one fails `lucent check`, `lucent build` and `lucent dev`, naming the file. Its fields are in [lucent.json](/docs/packages/lucent-json/).

@@ -19,6 +19,8 @@
  * Runs `run` now, and again after a prop or signal it read changes. Before
  * it runs again, and when the view goes, what it registered with
  * `onDispose` runs.
+ *
+ * @param run Reads props and signals; runs again when one of them changes.
  */
 export declare function effect(run: () => void): void;
 
@@ -32,19 +34,28 @@ export interface Signal<T> {
   set(value: T): void;
 }
 
+/**
+ * A signal holding `initial`, for this mount of the view.
+ *
+ * @param initial Its first value.
+ */
 export declare function signal<T>(initial: T): Signal<T>;
 
 /**
  * A signal given to a view of a toolkit body that changes it: SwiftUI's
  * Binding, or Compose's value and its change callback. The view shows the
- * signal's value, and a change the user makes sets the signal (which may
- * keep another value: the view shows what it keeps).
+ * signal's value, and a change the user makes sets the signal. The signal
+ * may keep another value, and the view shows what it keeps.
  */
 export interface Bound<T> {
   readonly __lucentBound: T;
 }
 
-/** `signal`, bound to the view of a body it is given to: only there. */
+/**
+ * `signal`, bound to the view of a body it is given to: only there.
+ *
+ * @param signal The signal the view shows and sets.
+ */
 export declare function bind<T>(signal: Signal<T>): Bound<T>;
 
 /**
@@ -57,7 +68,12 @@ export interface ClosedRange<T> {
   readonly __lucentRange: T;
 }
 
-/** The closed range from `from` to `to`, for the view of a body it is given to: only there. */
+/**
+ * The closed range from `from` to `to`, for the view of a body it is given to: only there.
+ *
+ * @param from The first number.
+ * @param to The last number, included.
+ */
 export declare function range(from: number, to: number): ClosedRange<number>;
 
 /**
@@ -65,12 +81,16 @@ export declare function range(from: number, to: number): ClosedRange<number>;
  * setup, with an object literal of functions. A command returning nothing
  * runs on the main thread; one returning a value (or a promise) answers
  * JavaScript's promise.
+ *
+ * @param commands An object literal of functions.
  */
 export declare function expose<T extends object>(commands: T): void;
 
 /**
  * Runs `cleanup` when the view goes; inside an effect, before the effect
  * runs again.
+ *
+ * @param cleanup What to undo.
  */
 export declare function onDispose(cleanup: () => void): void;
 
@@ -85,9 +105,9 @@ export interface Children {
 
 /**
  * The view a component's React children are mounted in, for a component
- * whose props declare `children: Children`: called once, in a `const` at
- * the top of setup, with the platform's container class
- * (`slot<UIView>()` on iOS, `slot<ViewGroup>()` on Android).
+ * whose props declare `children: Children`. Call it once, in a `const` at
+ * the top of setup, with the platform's container class: `slot<UIView>()`
+ * on iOS, `slot<ViewGroup>()` on Android.
  *
  * Put it in the view setup returns, where the children belong: it fills
  * the view it is added to unless setup sizes it. React lays the children
@@ -97,7 +117,7 @@ export interface Children {
  */
 export declare function slot<T extends object>(): T;
 
-/** A length in points, or a percent of the parent's (`"50%"`). */
+/** A length in points on iOS and dp on Android, or a percent of the parent's (`"50%"`). */
 export type LayoutLength = number | `${number}%`;
 
 /** A length, or `"auto"`: what the layout gives. */
@@ -116,7 +136,7 @@ type LayoutAlign =
 
 /**
  * React Native's layout style (its Yoga's): a Flex's `style`, and the
- * `layout` of a Flex's child. Numbers are points.
+ * `layout` of a Flex's child. Numbers are points on iOS and dp on Android.
  */
 export interface LayoutStyle {
   direction?: "inherit" | "ltr" | "rtl";
@@ -179,7 +199,7 @@ export interface LayoutStyle {
 type FlexChild = object | false | null | undefined;
 
 /**
- * A container of native views laid out by React Native's Yoga (T50): its
+ * A container of native views laid out by React Native's Yoga: its
  * `style` places its children, and each child's `layout` places it. It
  * writes its children's frames, and nothing else does; a native container
  * among them (a stack view, a LinearLayout) lays out its own. Native view
@@ -200,9 +220,9 @@ export type NativeViewTag<V> = abstract new (...args: never[]) => V;
 
 /**
  * The JSX attributes of a native view class: what each class in its
- * hierarchy gives under its own `~jsx:<module>.<class>` key (derived by
- * rule from its declarations), together. Each key's type takes the class
- * itself (`this`), so a control event's handler gets the tag's class.
+ * hierarchy gives under its own `~jsx:<module>.<class>` key, together. The
+ * keys are derived by rule from the declarations. Each key's type takes the
+ * class itself (`this`), so a control event's handler gets the tag's class.
  */
 export type NativeAttributes<T> = [
   {
@@ -217,31 +237,30 @@ export type NativeAttributes<T> = [
     : never;
 
 /**
- * Has the view measured again, once the main thread's current work ends:
- * for a change to its native content its host would not hear of. The host
- * hears of every function setup makes running (an effect, a native
- * callback, a command), since their code may change the view; code after
- * an `await` runs in none of them.
+ * Has the view measured again once the main thread's work ends, after a
+ * change to its native content that its host can't hear of. The host
+ * hears of every function setup makes running: an effect, a native
+ * callback, a command. Code after an `await` runs in none of them.
  */
 export declare function invalidateSize(): void;
 
 declare const delivery: unique symbol;
 
 /**
- * Marks an event prop's callback type: JavaScript hears each of its
- * events at a lower priority than a discrete one (a tap), so React may
- * batch what they update. For events that come often: a drag, a timer.
- * An unmarked event is discrete.
+ * Marks an event prop's callback type: JavaScript hears each of its events
+ * at a lower priority than a discrete one (a tap). React may then batch
+ * what they update. It suits events that come often, such as a drag or a
+ * timer, while an unmarked event is discrete.
  */
 export type Continuous<F extends (...args: never[]) => void> = F & {
   readonly [delivery]?: "continuous";
 };
 
 /**
- * Marks an event prop's callback type: continuous, and while the view's
- * latest event waiting for JavaScript is one of this type, a new one
- * replaces it, so JavaScript hears the latest value. For events whose
- * latest value is all that counts: a scroll position, a level.
+ * Marks an event prop's callback type as continuous, and coalesced. While
+ * the view's latest event waiting for JavaScript is one of this type, a new
+ * one replaces it, so JavaScript hears the latest value. It suits events
+ * whose latest value is all that counts, such as a scroll position.
  */
 export type Coalesced<F extends (...args: never[]) => void> = F & {
   readonly [delivery]?: "coalesced";

@@ -1,0 +1,62 @@
+---
+title: Port expo-secure-store as a package
+description: "`lucent-secure-store` keeps each value in the iOS Keychain, or encrypts it on Android with an Android Keystore key before saving it."
+kind: example
+sidebar_label: Secure store
+---
+
+`lucent-secure-store` gives JavaScript three calls of `expo-secure-store`: `setItemAsync`, `getItemAsync` and `deleteItemAsync`, without their options. It is a private example in the Lucent repository, [examples/lucent-secure-store](https://github.com/Fausto95/lucent/tree/main/examples/lucent-secure-store), and is not published to npm.
+
+## The package
+
+<Tabs>
+<TabItem label="package.json">
+
+```json title="package.json" include="packages/secure-store/package.json"
+```
+
+</TabItem>
+<TabItem label="index.ts">
+
+```ts title="index.ts" include="packages/secure-store/index.ts"
+```
+
+</TabItem>
+</Tabs>
+
+The package has the shape of [lucent-haptics](/docs/packages/examples/haptics/#the-package), and Lucent names its module `lucent-secure-store/secureStore` ([module names](/docs/packages/package-json/#module-names)). It has no `lucent.json`: neither store needs a permission, a pod or a Gradle dependency. The Security framework is linked because the module imports it.
+
+## The module
+
+```ts title="secureStore.lucent.ts" include="examples/secure-store.lucent.ts"
+```
+
+The module is `src/secureStore.lucent.ts`. Each exported function picks the platform's store with `PLATFORM`.
+
+### iOS: the Keychain
+
+- Each value is a generic password item. Its service is `"app"`, and its account is the key's UTF-8 bytes.
+- The `kSec…` constants arrive as strings, so the query is a `Record<string, ObjCValue>`. Lucent passes it to the Keychain's C functions as a dictionary.
+- `SecItemCopyMatching` writes its result through a pointer. The module passes an [`Out<NSObject>`](/docs/api/lucent-ios/#out) and reads its `value` with [`asData()`](/docs/api/lucent-ios/#asdata).
+- `SecItemAdd` returns `errSecDuplicateItem` for a key already stored, and the module then calls `SecItemUpdate`.
+- A missing item reads as `null` and deletes without an error. Other failing statuses throw an error whose `code` is `ERR_SECURESTORE`.
+
+### Android: the Keystore
+
+- `secretKey()` reads an AES key from the Android Keystore under the alias `lucent-secure-store`, and generates it on first use.
+- Each value is encrypted with `AES/GCM/NoPadding`. The module saves the IV the cipher chose and the encrypted bytes, both Base64, in the `SecureStore` preferences file.
+- Java methods with no nullability annotation return values typed as possibly null ([Android SDK](/docs/api/android-sdk/)). Hence the `?.` chains, and the checks that throw `ERR_SECURESTORE`.
+- Nested Java classes are named `Outer_Inner`, as in `KeyGenParameterSpec_Builder`. A `byte[]` is a `Uint8Array`, which [`utf8Encode()`](/docs/api/lucent-core/#utf8encode) and [`utf8Decode()`](/docs/api/lucent-core/#utf8decode) convert from and to text.
+
+## Call it from JavaScript
+
+```tsx title="App.tsx"
+import * as SecureStore from "lucent-secure-store";
+
+export async function rememberToken(token: string): Promise<string | null> {
+  await SecureStore.setItemAsync("token", token);
+  return SecureStore.getItemAsync("token");
+}
+```
+
+Both example apps install the package as a `workspace:*` dependency. To add it to your own app, follow [Install a Lucent package](/docs/guides/use-a-lucent-package/).

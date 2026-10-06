@@ -16,8 +16,7 @@ interface Hop {
 
 const sync: Hop[] = [
   { label: 'greet("Ada")', sub: "your JavaScript", lane: 0, accent: true },
-  { label: "proxy", sub: "greet.lucent → the module", lane: 0 },
-  { label: "JSI", sub: "a host function call", lane: 0 },
+  { label: "host function", sub: "JSI · takes the lock", lane: 0 },
   { label: "argument conversion", sub: "checks each value's type", lane: 0 },
   { label: "your C++", sub: "greet runs", lane: 0, accent: true },
   { label: "return conversion", sub: "C++ value → JS value", lane: 0 },
@@ -26,7 +25,7 @@ const sync: Hop[] = [
 
 const async: Hop[] = [
   { label: "await mean(values)", sub: "your JavaScript", lane: 0, accent: true },
-  { label: "proxy · JSI", sub: "a host function call", lane: 0 },
+  { label: "host function", sub: "JSI · takes the lock", lane: 0 },
   { label: "argument conversion", sub: "checks, then copies", lane: 0 },
   { label: "your C++", sub: "a coroutine", lane: 1, accent: true, via: "posted" },
   { label: "return conversion", sub: "C++ value → JS value", lane: 0, via: "posted back" },

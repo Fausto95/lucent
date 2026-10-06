@@ -1,0 +1,67 @@
+---
+title: Pin Xcode and the Android SDK for CI and releases
+sidebar_label: Pin the SDKs
+description: "Record what your code uses of the SDKs with `lucent sdk lock`, build with `--frozen` in CI, and run `lucent sdk diff` before you switch SDKs."
+kind: guide
+---
+
+```sh title="terminal"
+npx lucent sdk lock
+```
+
+```sh title="terminal" nocopy
+✓ lucent-sdk.lock.json  5 symbols of 2 modules, for android and ios
+```
+
+`lucent sdk lock` checks your project and writes the [SDK lock](/docs/architecture/glossary/#sdk-lock), `lucent-sdk.lock.json`, at its root. It records the source of each SDK module your code imports: Xcode's iOS SDK, an Android SDK platform, a pod or a Gradle library. It also records each SDK member your code uses.
+
+Commit the file. It covers every platform your modules have code for, so each one's SDK must be installed, unless `--platforms` names fewer. [JSON formats](/docs/api/json-formats/#lucent-sdklockjson) lists its fields.
+
+## Fail builds that drift
+
+```sh title="terminal"
+npx lucent build --frozen
+```
+
+A frozen build fails when an installed SDK, pod or Gradle library differs from the one the lock records. It also fails when your code uses an SDK member the lock doesn't record. `lucent check --frozen` runs the same checks without writing the native package.
+
+```sh title="terminal" nocopy
+✗ the SDKs or SDK symbols differ from lucent-sdk.lock.json:
+  1 SDK symbol the code uses is not in lucent-sdk.lock.json: UIDevice.systemVersion
+lucent sdk diff shows what the installed SDKs change for the app; lucent sdk lock records them
+```
+
+Here the code started to use a member the lock doesn't record: run `lucent sdk lock` again, and commit the lock with the code. A frozen build also fails when it skips a locked platform, for a missing SDK or Android left to the Gradle build. On a CI machine without Xcode, build Android alone with `--frozen --platforms android`.
+
+Lucent reads the selected Xcode and the newest Android platform installed. To build against the locked ones, select that Xcode and set [`LUCENT_ANDROID_PLATFORM`](/docs/api/environment-variables/#variables).
+
+## Check a new SDK before you switch
+
+Lucent reads a new Xcode or Android SDK on the next build, and checks your code against it. Before you switch, compare it with the lock:
+
+```sh title="terminal"
+npx lucent sdk diff
+```
+
+```sh title="terminal" nocopy
+android  lucent:android/android.view
+  artifacts  android-sdk:34#3756fea824be3f7a → android-sdk:37.0#91def8abfcd43380
+  changed  Window.setStatusBarColor  deprecated
+
+1 of 5 used symbols changed: 0 removed, 1 changed (lucent sdk lock records the installed SDKs once the code is updated)
+```
+
+For each member the lock records, it says whether the new SDK removed it or changed its signature, availability or deprecation. It exits with 1 when one changed or a locked platform's SDK is missing, so it can gate the upgrade. Update your code, then lock again.
+
+The diff reads the Gradle libraries your last build resolved: after you change Android dependencies, run `lucent build` first. With `--all`, it also lists changes to the other members of the modules you use.
+
+## Watch what Lucent can bind
+
+A new SDK, or a new Lucent, can change how many members Lucent can represent. Record a baseline, then fail CI when a module's share of members Lucent can't represent grows past it:
+
+```sh title="terminal"
+npx lucent sdk coverage --json > sdk-coverage.json
+npx lucent sdk coverage --check sdk-coverage.json
+```
+
+[CLI](/docs/api/cli/#lucent-sdk-lock) has every flag of `lucent sdk lock`, `diff` and `coverage`.

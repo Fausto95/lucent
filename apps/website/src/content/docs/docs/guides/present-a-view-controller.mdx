@@ -1,16 +1,21 @@
 ---
-title: Present a view controller
-description: "`present()` from `lucent:ios` shows a view controller or a system sheet and resolves with its result."
+title: Present a view controller on iOS
+description: "Call `present()` from `lucent:ios` with a function that returns the view controller: the promise resolves with what you pass to `resolve`."
 kind: guide
 ---
+
+<Tabs>
+<TabItem label="share.lucent.ts">
 
 ```ts title="share.lucent.ts"
 import { PLATFORM } from "lucent:platform";
 import { UIActivityViewController } from "lucent:ios/UIKit";
-import { onAppEvent, present } from "lucent:ios";
+import { present } from "lucent:ios";
+import { error } from "lucent:core";
 
+/** Shows the share sheet, and resolves with whether the person shared. */
 export async function share(text: string, signal?: AbortSignal): Promise<boolean> {
-  if (PLATFORM !== "ios") return false;
+  if (PLATFORM !== "ios") throw error("E_UNSUPPORTED", "Sharing is iOS only");
 
   return present<boolean>((resolve) => {
     const sheet = new UIActivityViewController([text], null);
@@ -18,25 +23,39 @@ export async function share(text: string, signal?: AbortSignal): Promise<boolean
     return sheet;
   }, signal);
 }
+```
 
-let stop: (() => void) | null = null;
+</TabItem>
+<TabItem label="App.tsx">
 
-export function onForeground(listener: () => void): void {
-  if (PLATFORM === "ios") {
-    if (stop) stop();
-    stop = onAppEvent("willEnterForeground", listener);
-  }
+```tsx title="App.tsx"
+import { Button, Platform } from "react-native";
+import { share } from "./src/share.lucent";
+
+export default function App() {
+  const onPress = async () => {
+    try {
+      const shared = await share("Made with Lucent");
+      console.log(shared ? "shared" : "closed");
+    } catch (e) {
+      if ((e as Error).name !== "AbortError") throw e;
+      console.log("dismissed");
+    }
+  };
+
+  return Platform.OS === "ios" ? <Button title="Share" onPress={onPress} /> : null;
 }
 ```
 
-`present()` from `lucent:ios` shows the view controller its function returns, from the scene the person is using, and resolves with what you pass to `resolve`. The function runs on the main thread, so UIKit works there: make the view controller, and call `resolve` or `reject` from its completion handler or delegate.
+</TabItem>
+</Tabs>
 
-- It settles once. Settling dismisses the view controller if it's still shown.
-- It rejects with an `AbortError` when the signal aborts, when the person swipes the sheet away, or when the scene goes away.
-- It rejects with an `InvalidStateError` when the app is in the background, or when UIKit won't present it, for example during another presentation.
+`present()` runs your function on the main thread, so UIKit calls compile there without `main()`. Make the view controller, connect its completion handler or delegate to `resolve` or `reject`, and return it. Lucent presents it from the scene the person is using, above what that scene already shows.
 
-`onAppEvent()` and `onSceneEvent()` call a function on each of UIKit's lifecycle notifications, such as `"willEnterForeground"` or a scene's `"didActivate"`, on the main thread. Each returns the function that stops it. Your app delegate stays yours.
+The promise settles once, and settling dismisses the view controller, so you don't call `dismiss`. The person swiping a sheet away rejects it with an `AbortError`, unless its handler settles it first. With `present<void>`, `resolve` takes no value.
 
-:::caution
-A JavaScript reload doesn't stop a presentation or a listener. Stop them, or pass a signal. These APIs are iOS only.
-:::
+On iPad, a popover with no anchor, such as the share sheet, is anchored to the middle of the presenting view. [lucent:ios](/docs/api/lucent-ios/#present) has the rest.
+
+## Present your own screen
+
+A Lucent class that extends `UIViewController` is presented the same way. Make it in the function, and give it `resolve` to call when the person is done. [Subclass an SDK class](/docs/guides/subclass-an-sdk-class/) shows the overrides.

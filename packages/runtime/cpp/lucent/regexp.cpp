@@ -1,9 +1,11 @@
 #include "regexp.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
 #include <mutex>
+#include <span>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -207,6 +209,24 @@ String replaceMatches(const String& s, const std::vector<RegExpMatch>& matches, 
 
 Array<Opt<String>> capturesOf(const RegExpMatch& m) { return m->items.slice(1); }
 
+bool hasDollar(const String& s) {
+  return s.isOneByte() ? s.latin1().find('$') != std::string_view::npos : s.utf16().find(u'$') != std::u16string_view::npos;
+}
+
+String replaceAt(const String& s, const String& search, std::span<const size_t> positions, const String& replacement) {
+  if (positions.empty()) return s;
+  bool literal = !hasDollar(replacement);
+  StringBuilder out(s.length() + positions.size() * replacement.length(), s.isOneByte() && replacement.isOneByte());
+  size_t next = 0;
+  for (size_t position : positions) {
+    out.append(s.sub(next, position));
+    out.append(literal ? replacement : substitute(search, s, position, Array<Opt<String>>(), undefined, replacement));
+    next = position + search.length();
+  }
+  out.append(s.sub(next, s.length()));
+  return std::move(out).build();
+}
+
 class MatchAllIter final : public IterObject<RegExpMatch> {
  public:
   MatchAllIter(RegExp re, String s) : re_(std::move(re)), s_(std::move(s)) {}
@@ -386,6 +406,19 @@ String stringReplaceAll(const String& s, const RegExp& re, const String& replace
 String stringReplaceAll(const String& s, const RegExp& re, const Replacer& replacer) {
   if (!re->global()) throwTypeError("String.prototype.replaceAll needs a global RegExp (the g flag)");
   return stringReplace(s, re, replacer);
+}
+
+String stringReplace(const String& s, const String& search, const String& replacement) {
+  size_t at = s.find(search, 0);
+  if (at == std::string::npos) return s;
+  return replaceAt(s, search, std::span<const size_t>(&at, 1), replacement);
+}
+
+String stringReplaceAll(const String& s, const String& search, const String& replacement) {
+  std::vector<size_t> positions;
+  size_t step = std::max<size_t>(1, search.length());
+  for (size_t at = s.find(search, 0); at != std::string::npos; at = s.find(search, at + step)) positions.push_back(at);
+  return replaceAt(s, search, positions, replacement);
 }
 
 Array<String> stringSplit(const String& s, const RegExp& re, Opt<double> limit) {

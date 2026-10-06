@@ -12,6 +12,7 @@ import { heldAs, throughMembers } from "../lowering/members.ts";
 import { BIGINT_OPERATORS } from "../lowering/bigint.ts";
 import { bigintExpr, numberExpr, stringExpr } from "../lowering/literals.ts";
 import { sourcePath } from "../lowering/source.ts";
+import { assignedRead } from "../lowering/unassigned.ts";
 import { cppIdent, isVoidish, type LType, T } from "../types.ts";
 import {
   type BinaryOp,
@@ -22,6 +23,7 @@ import {
   EXACT,
   type IntKind,
   type IrFunction,
+  type IrModulePlace,
   type IrOp,
   isAbsent,
   isEqualityOp,
@@ -156,6 +158,8 @@ class Emitter {
   /** The places held in integer registers. */
   private readonly placeInts = new Map<number, IntKind>();
   private readonly places = new Map<number, cpp.Expr>();
+  /** The module variables among `places`. */
+  private readonly modulePlaces = new Map<number, IrModulePlace>();
   /** The box variable of each boxed place (its place reads `*box`). */
   private readonly boxes = new Map<number, cpp.Expr>();
   private readonly uses = new Map<ValueId, number>();
@@ -188,7 +192,10 @@ class Emitter {
     this.top = top;
     this.coroutine = fn.async || fn.generator !== undefined;
 
-    for (const p of fn.modulePlaces) this.places.set(p.place, cpp.id(p.symbol));
+    for (const p of fn.modulePlaces) {
+      this.places.set(p.place, cpp.id(p.symbol));
+      this.modulePlaces.set(p.place, p);
+    }
 
     // A lambda's captures, by the names its capture list gives them.
     for (const c of fn.captures) this.declarePlace(c.place, c.spelled ?? cppIdent(c.name), c.boxed);
@@ -418,6 +425,13 @@ class Emitter {
 
   place(p: number): cpp.Expr {
     return this.places.get(p)!;
+  }
+
+  /** A read of the place `p`: a module variable's checks that it was assigned. */
+  read(p: number): cpp.Expr {
+    const module = this.modulePlaces.get(p);
+
+    return module ? assignedRead(this.place(p), module.type, module.name) : this.place(p);
   }
 
   used(v: ValueId): boolean {
@@ -881,8 +895,8 @@ const EMIT: { [K in IrOp["kind"]]: Emit<K> } = {
 
     if (int && e.aliased(op.result)) e.inlineInt(op.result, e.place(op.place));
     else if (int) e.defineInt(op, op.result, e.place(op.place));
-    else if (e.aliased(op.result)) e.inline(op.result, e.place(op.place));
-    else e.define(op, op.result, e.place(op.place));
+    else if (e.aliased(op.result)) e.inline(op.result, e.read(op.place));
+    else e.define(op, op.result, e.read(op.place));
   },
 
   store: (op, e, index, ops) => {

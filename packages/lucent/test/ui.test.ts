@@ -141,7 +141,7 @@ describe("renderDiagnostic", () => {
     column: 15,
     length: 20,
     fix: "wrap the call in main(() => …)",
-    docs: "https://lucent-lang.dev/docs/reference/diagnostics/#lucent3006",
+    docs: "https://lucent-lang.dev/docs/api/diagnostics/#lucent3006",
   };
   for (const width of [80, 120]) {
     it(`renders code, message, frame, fix and docs at ${width} columns`, () => {

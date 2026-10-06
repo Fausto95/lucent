@@ -4,7 +4,7 @@ Lucent compiles TypeScript modules and components to C++ that React Native
 calls over JSI. This file is the project's plan and the record of its
 status: what is done, what is next, the decisions behind it, and every open
 task with its checklist. The website's
-[roadmap page](https://lucent-lang.dev/docs/roadmap/) is generated from the
+[roadmap page](https://lucent-lang.dev/docs/releases/roadmap/) is generated from the
 [status at a glance](#status-at-a-glance).
 
 Updated 2026-10-01. A commit that finishes, changes or adds a task updates
@@ -185,9 +185,9 @@ Goal: Call the iOS and Android SDKs directly from Lucent.
 - ✅ A coverage report of what each SDK binds, and why the rest is skipped.
 - ✅ Pinning the SDKs a project uses, and listing what an SDK update changes for your code.
 - ✅ Ports of Expo and community modules, checked against the originals.
-- 🚧 Native libraries nobody has seen before, bound and run with no change to Lucent.
+- 🚧 Native libraries nobody has seen before, bound and run with no change to Lucent (in review).
+- 🚧 The app's Swift packages, bound against the iOS version the app targets (in review).
 - 🔭 Weak references.
-- 🔭 Binding the APIs of Swift Package Manager libraries.
 
 ### Views
 
@@ -198,7 +198,7 @@ Goal: Native views from Lucent components, rendered by React Native's Fabric.
 - ✅ One file per component, with each platform's body in a platform branch.
 - ✅ Events, commands, requests that answer, recycling, sizing to content and React children.
 - ✅ Views that keep updating while JavaScript is blocked.
-- 🚧 JSX for any SDK view, keyed lists and Yoga layout.
+- 🚧 JSX for any SDK view, keyed lists and Yoga layout (in review).
 - ⏳ A views preview with wrapper ports, such as maps, web views and video.
 - 🔭 Native lists, gestures and animations, and media pipelines.
 
@@ -432,6 +432,150 @@ outputs, and rerun noisy threshold crossings before calling a regression.
 Decisions that shape the plan, newest first. Each one records what was
 decided, why, and what it changed. A decision changes only by a new entry.
 
+**2026-10-06: A built-in is exact or refused.** A built-in that compiled
+but differed from JavaScript now follows JavaScript or gives `LUCENT1003`
+(a refusal may cover only the arguments Lucent can't honor). Implemented:
+`fromIndex`/`start`/`end` arguments, `undefined` for any optional
+argument (`Date.UTC` and an error's message included), `split`'s limit
+through ToUint32, `$` patterns in string-pattern `replace`,
+`SyntaxError`'s name, the message of an `Error` class without a
+constructor, `Number.is*` and `Array.isArray`/`instanceof` on unions,
+array lengths (`RangeError`, ToLength), device-locale `toLocale…Case`,
+and WebIDL's wrapping for numbers passed as narrower native integers.
+Refused: `normalize()`, `locales`/`options` arguments, an error's
+`cause`, `Object.keys`/`values`/`entries`/`for…in`/`in` on object types,
+the forms that make array holes (`new Array(n)` then index assignment
+included), `new Proxy`; writing past an array's end or growing its
+`length` throws `RangeError` for every element type, where it filled
+optional elements with `undefined`. _Why:_ the runtime has no ICU or
+normalization tables, Lucent arrays have no holes (and `undefined`
+elements are visible where holes are not), and object types record
+neither which optional fields are set nor their order; a silent
+difference is worse than a diagnostic that names the alternative.
+_Changed:_
+`docs/semantics.md` (built-ins, error type, platform numbers), the
+LUCENT1003 text.
+
+**2026-10-06: A read before assignment throws, never crashes.** A field,
+static field or module variable of an object type (or a union holding
+one) that is read before it is assigned throws `TypeError` naming it;
+other types keep reading their default. _Why:_ JavaScript gives
+`undefined`, which a native `Ref` or struct can't hold without making
+every object type optional, and the read used to dereference null. The
+pattern (a base constructor reading a subclass's field, a `!` field) is
+not reliably detectable at compile time. _Changed:_ the deviations table
+in docs/semantics.md, which also records the missing temporal dead zone.
+
+**2026-10-06: Decorators and default exports are refused.** Both
+report a diagnostic (LUCENT1005, LUCENT3003) instead of compiling to a
+class whose decorators never run or an export JavaScript sees under its
+own name. _Why:_ a decorator can replace what it decorates at class
+definition, which a static native class can't follow, and the proxy
+exports names; `export function f` is the exact equivalent.
+_Changed:_ docs/semantics.md's Modules and classes sections.
+
+**2026-10-06: Optional fields' presence is refused, not guessed.** `in`
+with an object type's optional field, a computed `in`, `for…in` or
+`Object.keys` on a type with one report LUCENT1002 or LUCENT1003; `in`
+sees the keys every object inherits from `Object.prototype`. _Why:_ an
+optional field is a fixed-layout `Opt<T>` that can't tell unset from
+set to `undefined`; a presence bit per field would have to travel
+through literals, spreads, `JSON.parse` and the boundary, and reading
+`undefined` as absent is wrong for `{ name: maybe }`. _Changed:_
+docs/semantics.md (operators, loops, the key order row), the LUCENT1002
+and LUCENT1009 explanations.
+
+**2026-10-06: An exported `let` is a live binding.** JavaScript reads an
+exported `let` through a getter, on the native exports object and on the
+proxy, instead of a copy taken at import; an exported `const` is still
+copied once. A value the boundary copies (an object, array, map, set,
+record, tuple, `Uint8Array`) is copied once per value the module
+assigns, the host keeping that copy, so reads are `===` and JavaScript's
+changes to it last; the module's changes inside it are not seen, for a
+`let` or a `const`. _Why:_ ES modules export bindings, and refusing a
+reassigned exported `let` would break existing modules (the e2e case
+`modules` exports a counter), while a getter costs one host call per
+read. A copy at each read broke identity and dropped JavaScript's
+changes; tracking the module's changes inside a copied value would need
+a shared object, which the boundary's copy rule excludes. _Changed:_
+docs/semantics.md's Modules section.
+
+**2026-10-06: Kotlin build scripts get a Kotlin line.** `lucent init`
+and the Expo config plugin apply the Gradle task to
+`android/app/build.gradle.kts` with a Kotlin DSL line that asks Node
+through `providers.exec`, appended at the end of the script. _Why:_ init
+printed the Groovy line for a `.kts` script, which does not compile as
+Kotlin, and the plugin skipped such scripts silently. _Changed:_ one table
+of lines keyed by Expo's language names; any other language is an error.
+
+**2026-10-06: The Android classpath falls back by variant name.**
+`lucentClasspath` reads the debug variant's compile classpath, with product
+flavors the first debug variant by name (the unflavored name first, as
+build types like `benchmarkRelease` end like it), and the release
+variant's when there is no debug variant; with neither it writes an empty classpath and
+says why. _Why:_ a flavored app has no `debugCompileClasspath`, so the
+task was never registered and every Gradle build failed on `lucentBuild`'s
+dependency. _Changed:_ the task is always registered.
+
+**2026-10-06: Metro bundles each proxy as a module of its own.** The
+Metro transformer turns a `*.lucent.ts` file into a require of its proxy
+in the native package instead of inlining the proxy's text. _Why:_ Metro
+computes a transformer's cache key once per process and re-transforms only
+files of its graph that change, so an inlined proxy stayed stale after a
+build rewrote it, and a module bundled before its first build kept its
+"not compiled" stub until a restart (sometimes after one too, from the
+persistent cache). _Changed:_ a build needs a reload, not a Metro restart;
+a module with no proxy fails the bundle instead of bundling a throw; the
+cache key holds the native package's location and module names, not the
+whole manifest. `withLucent` adds the app's `node_modules` to
+`resolver.nodeModulesPaths`: a proxy's bare requires now resolve from the
+proxy's directory, which a `LUCENT_OUT` outside the app never connects to
+the app's packages.
+
+**2026-10-06: The app imports a component as `lucent:views/<module>`.**
+TypeScript reads the React declarations `lucent build` writes
+(`types/views/<module>.d.ts`) through the `lucent:*` path `lucent init`
+already writes, and Metro's resolver (`withLucent`) maps the name to a
+generated module that requires the component's own, so both imports are
+one module and React Native registers the view once. _Why:_ TypeScript
+resolves `./x.lucent` to the source before any `paths`, `rootDirs` or
+ambient module, so no file under `.lucent` can type it; a declaration
+beside the source would also capture the platform files' own imports of
+it, and an editor plugin leaves `tsc` failing. Resolving the name to the
+generated proxy would load it twice, and React Native refuses a view
+registered twice. _Changed:_ C-VIEW v2.4, `lucent new view`'s import,
+architecture.md, views.md.
+
+**2026-10-06: Native JSX returns from any of setup's own code.** A
+component returns its platform views' JSX from its last statement, a
+PLATFORM branch or guard, a ternary's arms, or any condition of setup's
+(`if (available("ios", 17)) return <… />`), and makes its slot at the
+top level of setup or of a PLATFORM branch (an `if` testing the platform
+alone, or a case of `switch (PLATFORM)`; the host's program takes one
+slot per branch). One platform's branch may return a toolkit's body and
+the other native views. JSX kept in a variable or made by a function of
+setup's is still refused (LUCENT3025), and so is a slot under a PLATFORM
+test with another condition (`PLATFORM === "ios" && ready`), which runs
+only when the condition holds (LUCENT3021). _Why:_ the
+last-statement rule came from toolkit bodies, which compile to one
+Swift or Kotlin body; native JSX is setup code run once per mount, so a
+return under a branch is ordinary JavaScript, and each platform's
+program lowers only its own branch. The rule made one-file components
+with platform views or children impossible, though one file with
+PLATFORM branches is how a component is written (2026-09-30), and left
+LUCENT3007's advice, `if (available(…))`, unusable for an attribute.
+_Changed:_ T48's diagnostics, views.md (Platform views as JSX:
+where it is returned; Children: the slot rule).
+
+**2026-10-06: SDK declarations say what the compiler checks.** A
+generated declaration's thread line comes from the predicate LUCENT3006
+uses (`mainThreadOnly`), so an async Swift member of a main-actor class is
+documented as callable from any thread; `sdk show` and `sdk search` read
+the toolkit modules (`lucent:swiftui`, `lucent:compose`) through the same
+function the compiler serves them with, and only with views on, saying so
+otherwise. _Why:_ the docs and the CLI disagreed with what compiled.
+_Changed:_ nothing planned; T61's SDK workflow item builds on it.
+
 **2026-10-06: iOS binds a package's pods after their install.** An Expo
 app whose Lucent package imports a pod its own `lucent.json` declares
 binds that pod in an iOS build step that runs once pods are installed,
@@ -495,6 +639,31 @@ the package in the bare example (TA32). _Changed:_ the iOS declarations
 of such classes (CryptoKit's P256 keys and signatures, whose
 representations are factories now, `withRawRepresentation`); Objective-C
 initializers are not separated yet.
+
+**2026-10-04: The website runs on Docusaurus.** The site moves from Astro
+Starlight to Docusaurus, as reactnative.dev runs, and its docs take
+React Native's layout: one navbar item and sidebar per section, collapsed
+groups with sub-groups, and a Releases section with the roadmap and the
+changelog. The homepage is ported as it was, the search is a local index,
+and code blocks keep their look through Expressive Code. _Why:_ the
+sections, sidebars and pagination React Native's docs have are built into
+Docusaurus, where Starlight needed a route middleware, overrides and a
+theme patch. _Changed:_ the 2026-10-01 move to Starlight and the 2026-10-03
+homepage decision (the page is the same, in React).
+
+**2026-10-04: The docs are four sections, and guides replace the
+tutorial.** The website's docs split into Guides, Packages, API and
+Architecture, each a header tab with its own sidebar. The trip-tracker
+tutorial and the guides merge into one set of guides, rewritten against
+the code: an ordered "Get started", then one task per page. The language
+spec moves from docs/semantics.md onto the API section; Architecture ends
+with an Internals group for contributors that replaces
+docs/architecture.md. Removed pages get no redirect, and the redirect
+setup goes. _Why:_ the docs mixed tutorial, guide, explanation and
+reference in each group and repeated facts that had drifted from the code;
+until production grade the docs evolve with it, so old URLs aren't kept.
+_Changed:_ the 2026-09-24 Docs decision (the trip-tracker tutorial) and
+T66's tutorial items.
 
 **2026-10-04: Native views' JSX derives children; no adapters.** A view
 class takes JSX children through the insert-at-index method its
@@ -987,6 +1156,12 @@ prop, event or measuring entry.
   `test/ui/native-jsx-diagnostics.test.ts`, `test/unknown-library.test.ts`.
   Android views mount only on Android; their glue is compiled against
   jni.h.
+- Native JSX may be returned from any of setup's own code, a one-file
+  component's PLATFORM branches included, and its slot made in one
+  (decisions log, 2026-10-06); an iOS attribute is checked against the
+  oldest iOS, as an assignment in setup code is (LUCENT3007).
+- The app imports a component's React types as `lucent:views/<module>`,
+  which TypeScript and Metro both resolve (decisions log, 2026-10-06).
 
 <a id="t49"></a>
 
@@ -1737,9 +1912,10 @@ match shipped behavior.
 - **Where:** Public guides, reference and examples, coordinated with ongoing
   docs.
 
-- [ ] Finish module and view tutorials, setup-once reactivity, ownership and
+- [ ] Finish module and view guides, setup-once reactivity, ownership and
       threading, buffers, SDK discovery, adapters, native configuration and
-      troubleshooting.
+      troubleshooting (the docs restructure of 2026-10-04: Guides, Packages,
+      API and Architecture sections).
 - [ ] Publish capability and support tables generated from actual evidence;
       remove stale claims, and distinguish TypeScript-only support from
       explicit native extensions.
@@ -1755,8 +1931,8 @@ match shipped behavior.
       tables.
 - [ ] Carried over from the docs plan: runnable samples in CI (run in
       Hermes, output compared with the page), a weekly external link check,
-      and a run of the tutorial on the iOS simulator and the Android
-      emulator.
+      and a run of the Get started guides on the iOS simulator and the
+      Android emulator.
 
 **Done when:** the docs support independent use and match shipped behavior.
 This final sweep does not excuse delaying docs for earlier completed tasks.
@@ -2238,7 +2414,10 @@ iOS simulator and the Android emulator; physical-device checks are
   included), converted and compared `bigint | number` as JavaScript does,
   and migrated docs, samples and apps.
 - **Fixes** A `@WorkerThread` member of a `@UiThread` class; the Expo
-  plugin's unquoted key.
+  plugin's unquoted key; `@RequiresPermission` on a property's getter and
+  setter; generated Kotlin in the program hash; thread and protocol doc
+  lines in the generated declarations; members' doc comments in `sdk show`,
+  and `lucent:swiftui` and `lucent:compose` in `sdk show` and `sdk search`.
 
 ### Compiler and language
 
@@ -2271,6 +2450,11 @@ iOS simulator and the Android emulator; physical-device checks are
 - **TA17, TA22, TA23** Made the main-thread and compute checks precise
   about native calls that call back into Lucent.
 - **TA27** Printed Swift by precedence and associativity.
+- **Built-ins audit** (2026-10-06) Made every built-in the docs'
+  fact-checkers found differing from JavaScript exact or a `LUCENT1003`
+  (see the decision of the same date); e2e `optional-arguments` and the
+  extended `collections`, `strings`, `numbers`, `errors`, `kind-checks`
+  and `misc` cases check them against Hermes.
 
 ### Runtime and execution
 
@@ -2517,6 +2701,9 @@ Last recorded runs:
   design's gate for app integration asks for it.
 - **react-native-screens.** Not in the example apps, so hosting inside its
   screens is untested.
+- **Device-locale casing.** `toLocaleUpperCase`/`toLocaleLowerCase` were
+  checked for a Turkish locale on macOS only; Android's JNI path is
+  compiled, not run.
 
 ### Project infrastructure
 
@@ -2540,46 +2727,76 @@ Last recorded runs:
 - Helper view functions take plain data and scalar callbacks only: no
   toolkit values, children, lists or bindings inside a helper.
 - SwiftUI: a static value named like a method (`Animation.easeInOut`) is
-  left out, so write the call; only closed ranges (`a...b`) are mapped;
-  content conditions must be `boolean`; `Int(x)` traps on NaN or infinity.
-  A two-value `onChange` closure does not type-check, because TypeScript
-  tries the one-value overload first.
+  left out, so write the call. Only closed ranges (`a...b`) are mapped,
+  content conditions must be `boolean`, and `Int(x)` traps on NaN or
+  infinity. A two-value `onChange` closure does not type-check, because
+  TypeScript tries the one-value overload first.
 - Compose: class names that clash keep the first package's.
-- Native views' JSX (T48): a plain view's children have no layout (a
-  `Flex`'s are Yoga's, [T50](#t50)), and a list's item is one element
-  ([T49](#t49)); its rules read declarations, not behavior (Android's
-  AdapterView declares `addView(View, int)` and throws from it).
+- Native views' JSX (T48): a plain view's children have no layout; a
+  `Flex`'s are Yoga's ([T50](#t50)). A list's item is one element
+  ([T49](#t49)). Its rules read declarations, not behavior: Android's
+  AdapterView declares `addView(View, int)` and throws from it. A root
+  returned under a runtime condition is chosen once per mount. A later
+  change of what the condition read does not swap it. A signal read there
+  is neither tracked nor warned about (a prop is, LUCENT3021).
+- Where a platform's SDK is missing, a component's code for that platform
+  is untyped and not checked. Its diagnostics (LUCENT3025 for its native
+  JSX) come only where that SDK is installed.
 - The bare app's FlatList crash ([TA25](#ta25)) and the iOS native-only
   slot move ([TA26](#ta26)) are in review.
 
 ### Language, runtime and bindings
 
 - Reference cycles are not collected (see [Not planned](#not-planned)).
+- Some language features and built-ins differ from JavaScript without a
+  diagnostic; the website lists them under
+  [Known gaps](https://lucent-lang.dev/docs/api/language/differences/#known-gaps).
+- Refused built-ins give `LUCENT1003` unless noted. They are
+  `normalize()`, `locales`/`options` arguments and an error's `cause`. On
+  object types, `Object.keys`, `values` and `entries` are refused, and so
+  are `for…in` (`LUCENT1009`) and `in` (`LUCENT1002`). So is `new
+Array(n)` without a whole `.fill(v)`, even when each index is then
+  assigned. So is `Array.from({ length: n })` without a map function when
+  elements can't be `undefined`, and `new Proxy`. Writing past an array's
+  end or growing its `length` throws `RangeError`.
 - Compute tasks are named top-level functions; safepoints are only in
   module functions' task variants. The JavaScript reference differs from
-  native on `#private` fields (the copy loses them), subclass instances
-  behind a base type (native throws `DataCloneError`), and an abort that
-  lands after the task ran but before the promise settled (native rejects,
-  JavaScript resolves).
+  native in three cases. The copy of an object loses its `#private`
+  fields, and native throws `DataCloneError` for a subclass instance
+  behind a base type. An abort that lands after the task ran but before
+  the promise settled rejects natively and resolves in JavaScript.
 - Module state is process-wide and reset when a new `Host` is created.
+- `null` and `undefined` from JavaScript are told apart for arguments,
+  setter values and object fields only. Inside arrays, maps, sets,
+  records, tuples, callback results and promise values, a `T | undefined`
+  also takes `null`, and `T | null` takes `undefined`. A use of such a
+  value then throws `TypeError`.
+- A field or variable of an object type read before it is assigned throws
+  `TypeError`. JavaScript reads `undefined`, also through `?.`. One of a
+  value type (number, string, boolean, tuple, array, map, set, record,
+  `Uint8Array`) reads its default. A `let` read before its declaration
+  runs reads as unassigned, not `ReferenceError`.
 - On Android API 24 and 25, a Java default method that Lucent does not
   implement returns its zero value, and the reason is logged.
 - A Lucent package's pod binds once installed. In a bare app, the
   `lucent build` that first meets it declares it in the native package's
-  podspec, fails with LUCENT3004 and names it; `pod install`, then
-  `lucent build` binds it, and asks for `pod install` again when it adds
-  files. `expo prebuild` stops at that first failure, which names no
-  steps: the config plugin builds before the pods are installed and
-  before it links the native package. A pod binds through the module it
-  defines (`DEFINES_MODULE`, modular headers, a prebuilt `.framework`, or
-  `use_frameworks!`); a Swift pod built as a static library, or one that
-  ships an `.xcframework`, is not bound. Binding a package's own pod in
-  an Expo app is [TA35](#ta35).
+  podspec. That build fails with LUCENT3004 and names the pod. After
+  `pod install`, `lucent build` binds it, and asks for `pod install`
+  again when it adds files. `expo prebuild` stops at that first failure,
+  which names no steps. The config plugin builds before the pods are
+  installed and before it links the native package. A pod binds through
+  the module it defines: `DEFINES_MODULE`, modular headers, a prebuilt
+  `.framework`, or `use_frameworks!`. A Swift pod built as a static
+  library, or one that ships an `.xcframework`, is not bound. Binding a
+  package's own pod in an Expo app is [TA35](#ta35).
+- An Android app with product flavors binds the libraries of its first
+  debug variant by name. A library only another flavor depends on is not
+  bindable.
 - Typed native extensions: Swift and Kotlin sources in a package are not
   typed yet, and extension calls cannot be cancelled.
 - Tracing records allocations for native buffers only, and its buffer
   uses one mutex: fine for debugging, not for continuous production use.
-- The known binding gaps are tasks [TA30](#ta30) to [TA34](#ta34).
+- The known binding gaps, tasks [TA30](#ta30) to [TA34](#ta34), are in review.
 
 ## Design slices and tasks
 

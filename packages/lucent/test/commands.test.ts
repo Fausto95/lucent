@@ -22,7 +22,7 @@ describe("lucent explain", () => {
     expect(r.out).toMatch(
       /✗ wrong  example\.lucent\.ts[\s\S]*return UIDevice\.current\.model;[\s\S]*✓ right  example\.lucent\.ts[\s\S]*main\(\(\) => UIDevice\.current\.model\)/,
     );
-    expect(r.out).toMatch(/https:\/\/lucent-lang\.dev\/docs\/reference\/diagnostics\/#lucent3006/);
+    expect(r.out).toMatch(/https:\/\/lucent-lang\.dev\/docs\/api\/diagnostics\/#lucent3006/);
   });
 
   it("takes the number alone, in any case", () => {
@@ -118,7 +118,8 @@ describe("lucent new view", () => {
       expect(fs.readFileSync(path.join(root, "src/badge.android.lucent.tsx"), "utf8")).toMatch(
         /<Flex[\s\S]*<TextView text=\{props\.title\}/,
       );
-      expect(r.out).toMatch(/import \{ Badge \} from "\.\/src\/badge\.lucent";/);
+      // Its React types: lucent:views/<module>, which TypeScript and Metro both resolve.
+      expect(r.out).toMatch(/import \{ Badge \} from "lucent:views\/badge";/);
       expect(lucent(["check", "--root", root], views)).toMatchObject({ status: 0 });
     },
     600_000,

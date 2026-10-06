@@ -29,7 +29,7 @@ import {
 } from "@lucent-lang/bindgen";
 import { ts } from "@lucent-lang/codegen";
 import { compareVersions } from "../package-versions.ts";
-import type { Toolkit } from "../ui/toolkits.ts";
+import { TOOLKITS, type Toolkit, type ToolkitName, toolkitSource } from "../ui/toolkits.ts";
 import { safeName } from "./dts.ts";
 import { NATIVE_JSX_UI, nativeJsxDecls, nativeTags, rootViews } from "./native-jsx-dts.ts";
 import { toolkitForms } from "./toolkit-forms.ts";
@@ -42,6 +42,7 @@ import {
   type SdkParam,
   type SdkPropertySchema,
   type SdkType,
+  sourceModuleLookup,
 } from "./schema.ts";
 
 /** The JSDoc tag leading a declaration back to its member: `@swift <symbol> [form] [jsx]`. */
@@ -91,6 +92,27 @@ interface Overload {
 
 /** What a type parameter bound to Lucent's scalars may be. */
 const SCALAR = ts.union([ts.keyword("boolean"), ts.keyword("number"), ts.keyword("string")]);
+
+/** Each source module's toolkit declarations, written once per schema. */
+const toolkitTexts = new WeakMap<SdkModuleSchema, string>();
+
+/** A generated toolkit's declarations, or why there are none. */
+export function toolkitDeclarations(name: ToolkitName): { text: string } | { missing: string } {
+  const toolkit = TOOLKITS[name];
+  const source = toolkitSource(name);
+  if (!source) return { missing: `lucent:${name} is written by hand` };
+
+  const found = sourceModuleLookup(toolkit.platform, source.module);
+  if ("missing" in found) return found;
+
+  let text = toolkitTexts.get(found.schema);
+  if (text === undefined) {
+    text = toolkitDts({ ...toolkit, source }, found.schema);
+    toolkitTexts.set(found.schema, text);
+  }
+
+  return { text };
+}
 
 /** `lucent:<toolkit>` for a toolkit whose declarations come from `schema`. */
 export function toolkitDts(

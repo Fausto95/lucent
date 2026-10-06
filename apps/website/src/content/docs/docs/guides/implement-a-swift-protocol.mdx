@@ -1,0 +1,93 @@
+---
+title: Implement a Swift protocol
+description: "A class that `implements` the protocol gets a Swift class conforming to it; `@MainActor` protocols, such as the photo picker's delegate, don't build yet."
+kind: guide
+---
+
+<Tabs>
+<TabItem label="shelf.lucent.ts">
+
+```ts title="shelf.lucent.ts" from="packages/compiler/test/swift-requirements.test.ts"
+import { PLATFORM } from "lucent:platform";
+import { Sources, type Source } from "lucent:ios/Orbit";
+
+class Shelf implements Source {
+  readonly name = "shelf";
+  limit = 2;
+
+  titles(): string[] {
+    if (this.limit < 0) throw new RangeError("negative limit");
+
+    return ["orbit", "ocean", "planet"].slice(0, this.limit);
+  }
+
+  async fetch(prefix: string): Promise<string[]> {
+    return this.titles().filter((title) => title.startsWith(prefix));
+  }
+
+  async count(): Promise<number> {
+    return this.titles().length;
+  }
+
+  reset(): void {
+    this.limit = 2;
+  }
+}
+
+/** What Swift reads from a shelf, through the protocol. */
+export async function describeShelf(): Promise<string> {
+  if (PLATFORM !== "ios") return "";
+
+  const shelf = new Shelf();
+  return `${Sources.describe(shelf)} | ${await Sources.fetch(shelf, "o")}`;
+}
+```
+
+</TabItem>
+<TabItem label="Orbit.swift">
+
+```swift title="Orbit.swift" from="packages/bindgen/test/fixtures/swift/Orbit/Orbit.swift"
+public protocol Source {
+  var name: String { get }
+  var limit: Double { get set }
+
+  func titles() throws -> [String]
+  func fetch(_ prefix: String) async throws -> [String]
+  func count() async -> Double
+  mutating func reset()
+}
+
+public enum Sources {
+  public static func describe(_ source: Source) -> String {
+    "\(source.name) \(source.limit)"
+  }
+
+  public static func fetch(_ source: Source, _ prefix: String) async throws -> String {
+    let titles = try await source.fetch(prefix)
+    let count = await source.count()
+
+    return "\(titles.joined(separator: " ")) of \(count)"
+  }
+}
+```
+
+</TabItem>
+</Tabs>
+
+`Orbit` stands for a Swift library: it's a module from Lucent's tests, which run classes like this one against it on macOS. There, `describeShelf()` resolves with `shelf 2.0 | orbit ocean of 2.0`.
+
+- Each requirement is a member of the class. Swift can set `limit`, so its field isn't `readonly`.
+- An `async` requirement is an `async` method: Swift awaits the promise it returns.
+- What `titles` throws reaches Swift as an `NSError`, which Swift's `try` catches.
+- A requirement that returns nothing, such as `reset`, is queued on the Lucent thread unless it is `@MainActor`: Swift doesn't wait for it.
+
+[Implementing a Swift protocol](/docs/api/ios-sdk/#implementing-a-swift-protocol) gives the rules, from associated types to the requirements Lucent refuses.
+
+## What doesn't build yet
+
+No iOS SDK Swift protocol has been checked end to end yet. These ones compile in Lucent, but the Swift Lucent generates for them fails the app's build:
+
+- A `@MainActor` protocol, such as PhotosUI's `PHPickerViewControllerDelegate`.
+- A protocol whose types are newer than your app's iOS deployment target, such as CloudKit's `CKSyncEngineDelegate` in an app targeting iOS 15.
+
+Your own Swift protocol works when the app adds it as a framework, a pod's Swift module or [a Swift package](/docs/guides/use-a-third-party-sdk/#what-lucent-can-bind). An SDK delegate that is an Objective-C protocol works today, as [Implement a delegate or listener](/docs/guides/implement-a-delegate/) shows.

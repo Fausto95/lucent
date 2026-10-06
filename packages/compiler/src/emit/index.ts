@@ -4,11 +4,19 @@ import ts from "typescript";
 import { literalConstant, programFacts } from "../analysis/index.ts";
 import { Codes, fail } from "../diagnostics.ts";
 import type { CppFunction } from "../ir/cpp.ts";
+import { LUCENT_EXTENSION, lucentPackageOf } from "../packages.ts";
 import { platformScopes } from "../platforms.ts";
 import { coreTypesPath, type LucentModule, type LucentProgram, platformOf } from "../program.ts";
 import { type ClassInfo, cppIdent, type LType, T, typeKey, unionOf } from "../types.ts";
 import { BindingsEmitter, type ModuleExports } from "./bindings.ts";
-import { emitClass, jsonMemberParams, memberName, parameterProperties } from "./classes.ts";
+import {
+  type ClassOutput,
+  emitClass,
+  initialValue,
+  jsonMemberParams,
+  memberName,
+  parameterProperties,
+} from "./classes.ts";
 import { bindCompute, emitTaskVariants, taskHeader } from "./compute.ts";
 import { objcDelegate } from "./delegates.ts";
 import { iosSubclass } from "./objc-subclass.ts";
@@ -72,6 +80,11 @@ export interface EmitResult {
    */
   componentTypes?: Map<string, string>;
   /**
+   * The file JavaScript imports for each of those modules (the shared one,
+   * not a platform file), by module name: what `lucent:views/<module>` is.
+   */
+  componentModules?: Map<string, string>;
+  /**
    * Declarations of the lucent:* modules the platform modules use
    * (`ios/UIKit.d.ts`, `thread.d.ts`…), for the app's own TypeScript:
    * map `lucent:*` to them in tsconfig paths.
@@ -124,14 +137,9 @@ export function emitProgram(
     imports.set(m, []);
     for (const s of m.sourceFile.statements) {
       if (ts.isClassDeclaration(s) && here(s)) {
-        if (!s.name) {
-          ctx.diagnostics.push({
-            code: Codes.UnsupportedTopLevel,
-            message: "classes need a name",
-            file: m.file,
-          });
-          continue;
-        }
+        if (isDefaultExport(s)) ctx.guard(() => fail(s, Codes.UnsupportedExport, defaultExport));
+        // Only `export default class {}` has no name: reported above.
+        if (!s.name) continue;
         const info = ctx.reg.registerClass(s, m.name, isExported(s));
         const sym = lp.checker.getSymbolAtLocation(s.name)!;
         ctx.globals.set(sym, {
@@ -177,7 +185,7 @@ export function emitProgram(
   const moduleDecls = new Map<LucentModule, cpp.Decl[]>();
   const moduleDefs = new Map<LucentModule, cpp.Decl[]>();
   const genericFns = new Map<LucentModule, cpp.Decl[]>();
-  const statics = new Map<LucentModule, Initializer[]>();
+  const statics = new Map<LucentModule, ClassOutput["statics"]>();
   const nativeDecls: cpp.Decl[] = [];
   const java = new Map<string, string>();
   for (const m of lp.modules) {
@@ -275,31 +283,28 @@ export function emitProgram(
 
     decls.push(cpp.fn("init", cpp.voidType, []));
 
-    // Its classes' static fields, then its variables (a type's default without a value).
+    // Its classes' static fields and its variables, in source order (a type's default without a value).
     const initializers: Initializer[] = [
       ...statics.get(m)!,
       ...vars.map((g) => ({
-        value: g.decl.initializer
-          ? { expr: g.decl.initializer }
-          : {
-              leaf: {
-                name: "default",
-                code: cpp.construct(ctx.reg.cppType(g.type), [], true),
-                type: g.type,
-              },
+        decl: g.decl,
+        init: {
+          value: initialValue(ctx, g.decl.initializer, g.type),
+          type: g.type,
+          into: {
+            variable: {
+              kind: "var" as const,
+              id: g.cpp,
+              name: g.decl.name.getText(),
+              type: g.type,
+              mutable: true,
             },
-        type: g.type,
-        into: {
-          variable: {
-            kind: "var" as const,
-            id: g.cpp,
-            name: g.decl.name.getText(),
-            type: g.type,
-            mutable: true,
           },
         },
       })),
-    ];
+    ]
+      .sort((a, b) => a.decl.getStart() - b.decl.getStart())
+      .map((s) => s.init);
     const body = ctx.guard(() => initThroughIr(ctx, m, initializers, ir).body) ?? [];
 
     moduleDefs.get(m)!.push(cpp.fn("init", cpp.voidType, [], body, { scope: cpp.type(m.ns) }));
@@ -478,9 +483,12 @@ export function emitProgram(
       ),
     ]),
   );
+  const compose = toolkitFiles(ctx, "compose");
+  const kotlin = new Map([...kotlinFiles(ctx), ...compose]);
   const program = programHash([
     ...files,
     ...[...java].map(([k, v]) => [`java/${k}`, v] as [string, string]),
+    ...[...kotlin].map(([k, v]) => [`kotlin/${k}`, v] as [string, string]),
   ]);
   files.set(IDENTITY_UNIT, identityUnit(target, program, apis));
 
@@ -499,16 +507,42 @@ export function emitProgram(
     swiftPackages: [...ctx.swiftPackages].sort(),
     java,
     javaKeep: [...ctx.javaClasses].sort(),
-    kotlin: new Map([...kotlinFiles(ctx), ...toolkitFiles(ctx, "compose")]),
-    compose: toolkitFiles(ctx, "compose").length > 0,
+    kotlin,
+    compose: compose.length > 0,
     androidPermissions: [...ctx.androidPermissions].sort(),
   };
 }
 
 function isExported(n: ts.Node): boolean {
-  return (
-    ts.canHaveModifiers(n) &&
-    !!ts.getModifiers(n)?.some((m) => m.kind === ts.SyntaxKind.ExportKeyword)
+  return hasModifier(n, ts.SyntaxKind.ExportKeyword);
+}
+
+// JavaScript would see a default-exported declaration as `default`; the proxy exports by name.
+function isDefaultExport(n: ts.Node): boolean {
+  return hasModifier(n, ts.SyntaxKind.DefaultKeyword);
+}
+
+const defaultExport = "default exports are not supported; export the declaration by name";
+
+/**
+ * Fails an import of a Lucent file the build leaves out: a module of a
+ * Lucent package the app does not depend on, or a file outside the app's
+ * modules (findOwnFiles).
+ */
+function notCompiled(node: ts.Node, spec: string, file: string): never {
+  const pkg = lucentPackageOf(file);
+  if (pkg && !path.relative(pkg.sources, file).startsWith(".."))
+    fail(
+      node,
+      Codes.UnsupportedImport,
+      `"${spec}" is a module of ${pkg.name}, a Lucent package the app does not depend on`,
+      `add ${pkg.name} to the app's dependencies in package.json`,
+    );
+  fail(
+    node,
+    Codes.UnsupportedImport,
+    `"${spec}" is not among the modules compiled with the app`,
+    "import a module of the app (outside node_modules, ios, android and dot directories) or of a Lucent package it depends on",
   );
 }
 
@@ -538,12 +572,14 @@ function collect(
     // Platform SDKs, lucent:thread and lucent:platform (checked by createLucentProgram).
     if (spec.startsWith("lucent:")) return;
     const dep = file ? byFile.get(file) : undefined;
-    if (!dep)
+    if (!dep) {
+      if (file && LUCENT_EXTENSION.test(file)) notCompiled(s.moduleSpecifier, spec, file);
       fail(
         s.moduleSpecifier,
         Codes.UnsupportedImport,
         `Lucent modules can only import other *.lucent.ts files and lucent: modules (got "${spec}")`,
       );
+    }
     deps.push(dep);
     return;
   }
@@ -559,6 +595,7 @@ function collect(
     return;
   }
   if (ts.isFunctionDeclaration(s)) {
+    if (isDefaultExport(s)) fail(s, Codes.UnsupportedExport, defaultExport);
     if (!s.name) fail(s, Codes.UnsupportedTopLevel, "functions need a name");
     const declared = !!ts.getModifiers(s)?.some((x) => x.kind === ts.SyntaxKind.DeclareKeyword);
     if (!s.body && !(m.stub && declared)) {
@@ -629,8 +666,7 @@ function collect(
       Codes.UnsupportedExport,
       "export lists and re-exports are not supported; export declarations directly",
     );
-  if (ts.isExportAssignment(s))
-    fail(s, Codes.UnsupportedExport, "default exports are not supported");
+  if (ts.isExportAssignment(s)) fail(s, Codes.UnsupportedExport, defaultExport);
   if (ts.isEmptyStatement(s)) return;
   fail(
     s,
@@ -1095,7 +1131,22 @@ function jsProxy(m: ModuleExports, components: readonly ComponentDescription[]):
   }
   for (const c of m.consts) {
     const name = c.decl.name.getText();
-    decls.push(exported(name, js.member(mod, name)));
+    decls.push(
+      c.isConst
+        ? exported(name, js.member(mod, name))
+        : js.stmt(
+            js.exprStmt(
+              js.call(js.member(js.name("Object"), "defineProperty"), [
+                exports,
+                js.str(name),
+                js.objectLit([
+                  { key: "enumerable", value: js.bool(true) },
+                  { key: "get", value: js.arrow([], js.member(mod, name)) },
+                ]),
+              ]),
+            ),
+          ),
+    );
   }
   for (const e of m.enums) {
     const entries: { key: string; value: js.Expr; quoted: true }[] = [];

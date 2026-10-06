@@ -158,7 +158,10 @@ artifacts the app's build resolved (bindgen's `nativeArtifacts`):
   depends on the pod.
 - **Android**: the SDK platform (`android-sdk:35`: android.jar,
   `api-versions.xml`, `annotations.zip`), then each jar and AAR of the app's
-  resolved compile classpath, by its Maven coordinates from Gradle's cache
+  resolved compile classpath (its debug variant's; with product flavors the
+  first debug variant by name, so a library only another flavor depends on
+  isn't bindable; its release variant's when it has no debug variant), by
+  its Maven coordinates from Gradle's cache
   (`maven:group:name:version`), else `jar:`/`aar:` and its file name, and
   the jars and AARs the app's Lucent packages ship (`android.libraries`,
   which the classpath does not list: the Lucent library links them). Which
@@ -633,6 +636,10 @@ UIViewController`): a generated Objective-C subclass stands for each
   groups (`@IntDef`, `@LongDef`) stay numbers. A `@LongDef` group's
   `long`s, its constants included, cross as numbers exactly or throw
   `RangeError` (their plans mark them `exact`).
+- A number crossing into a narrower native integer or an enum
+  (`lucent::toNativeNumber`) takes WebIDL's default conversion on both
+  platforms: NaN and infinities give 0, the rest truncates and wraps
+  modulo 2^bits; a 64-bit target takes the `exact` rule; `float` rounds.
 - Java arrays are copied either way: `byte[]` as a `Uint8Array`, arrays of
   numbers (`int[]`, `float[]`, `char[]`…) as `number[]`, `long[]` as
   `bigint[]`, `boolean[]` as
@@ -689,7 +696,10 @@ main thread, or a protocol requirement it calls there. On Android, the
 SDK's thread annotations say the same: `@UiThread` and `@MainThread` classes
 and methods are main-only (`android.view.View` and every member of it but
 those marked `@AnyThread`), and calling a `@WorkerThread` member in a main
-context warns (LUCENT3009): it blocks.
+context warns (LUCENT3009): it blocks. The generated declarations
+document the same rule from the same check: a main-thread class says
+"Main thread only", and a member says so only where it differs from its
+class (an async Swift member of a `@MainActor` class is "Any thread").
 
 The schema records what those annotations and attributes prove as `facts`
 on classes and members: an affinity (`main`, `worker` or `any`) with the

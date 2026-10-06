@@ -1,0 +1,106 @@
+---
+title: Call Kotlin libraries from a package
+description: "`lucent-orbit` carries a JAR built from its own Kotlin, adds DataStore and Credential Manager through Gradle, and its modules import all three from `lucent:android/*`."
+kind: example
+sidebar_label: Kotlin libraries
+---
+
+`lucent-orbit` calls Kotlin from Lucent: a library of its own, compiled into a JAR the package carries, and two Jetpack libraries. It is a private example in the Lucent repository, [examples/lucent-orbit](https://github.com/Fausto95/lucent/tree/main/examples/lucent-orbit), and is not published to npm.
+
+## The package
+
+<Tabs>
+<TabItem label="lucent.json">
+
+```json title="lucent.json" include="packages/orbit/lucent.json"
+```
+
+</TabItem>
+<TabItem label="package.json">
+
+```json title="package.json" include="packages/orbit/package.json"
+```
+
+</TabItem>
+<TabItem label="index.ts">
+
+```ts title="index.ts" include="packages/orbit/index.ts"
+```
+
+</TabItem>
+</Tabs>
+
+- `android.libraries` lists the JAR. Lucent binds its classes, as Kotlin declares them, before Gradle has resolved anything.
+- `android.dependencies` adds DataStore Preferences and Credential Manager. Modules import their classes the same way once Gradle has resolved them, a step Lucent runs itself ([lucent.json](/docs/packages/lucent-json/)).
+- `files` lists `android` and `lucent.json`, so a packed package carries the JAR and its needs.
+- Suspend functions, value classes and other calls Java can't make go through Kotlin that Lucent generates into the native package.
+
+## The JAR
+
+```ts title="build-jar.ts" include="packages/orbit/build-jar.ts"
+```
+
+`build-jar.ts` compiles the sources in `kotlin/` with the `kotlinc` on your `PATH` into `android/orbit.jar`, for Kotlin 2.2. The JAR is committed, and the package's `build-jar` script rebuilds it. Two of its classes:
+
+<Tabs>
+<TabItem label="Ticker.kt">
+
+```kotlin title="Ticker.kt" include="packages/orbit/Ticker.kt"
+```
+
+</TabItem>
+<TabItem label="Shelf.kt">
+
+```kotlin title="Shelf.kt" include="packages/orbit/Shelf.kt"
+```
+
+</TabItem>
+</Tabs>
+
+## The DataStore module
+
+`src/datastore.lucent.ts` calls DataStore Preferences. Like every module of the package, it is a test probe: each function returns a string the example apps check.
+
+<Tabs>
+<TabItem label="datastore.lucent.ts">
+
+```ts title="datastore.lucent.ts" from="examples/lucent-orbit/src/datastore.lucent.ts" include="packages/orbit/datastore.lucent.ts"
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useEffect, useState } from "react";
+import { Text } from "react-native";
+import { preferencesEdit } from "lucent-orbit";
+
+export function DataStoreCase() {
+  const [result, setResult] = useState("running");
+
+  useEffect(() => {
+    preferencesEdit().then(setResult, (e: Error) => setResult(e.message));
+  }, []);
+
+  // "1 true 1 true" on Android, "no DataStore on iOS" on iOS.
+  return <Text>{result}</Text>;
+}
+```
+
+</TabItem>
+</Tabs>
+
+- `PreferenceDataStoreFactory` is a Kotlin object, reached through `INSTANCE`. An `undefined` argument takes its Kotlin default.
+- `PreferencesKt.edit` is a suspend function, so it returns a promise. The Lucent function passed to it is the transaction: if it throws, nothing is written and the promise rejects with its error.
+- `prefs.data` is a Kotlin `Flow`, read with `FlowKt.first`, or followed with `collect` until its `AbortSignal` aborts.
+
+## The other modules
+
+| Module | What it shows |
+| --- | --- |
+| [orbit.lucent.ts](https://github.com/Fausto95/lucent/blob/main/examples/lucent-orbit/src/orbit.lucent.ts) | Suspend functions as promises an `AbortSignal` cancels, Kotlin exceptions as rejections, defaults left out, value and sealed classes, extensions, `Long` as exact bigints. |
+| [collections.lucent.ts](https://github.com/Fausto95/lucent/blob/main/examples/lucent-orbit/src/collections.lucent.ts) | A read-only `List` arrives as an array copy, a `MutableList` as the Kotlin list itself. A null element where Kotlin promised none throws a `TypeError`. |
+| [flows.lucent.ts](https://github.com/Fausto95/lucent/blob/main/examples/lucent-orbit/src/flows.lucent.ts) | Flows collected, failing and cancelled; a `StateFlow`; a flow as a [`subscribe()`](/docs/api/lucent-core/#subscribe) subscription; Lucent functions as suspend function arguments. |
+| [credentials.lucent.ts](https://github.com/Fausto95/lucent/blob/main/examples/lucent-orbit/src/credentials.lucent.ts) | Credential Manager: requests with Kotlin's defaults, and a password lookup cancelled after 5 seconds of waiting. |
+
+The modules compile only in an app that installs the package, where Lucent finds the JAR and the Jetpack libraries. The rules they probe are in [Call a Kotlin library](/docs/guides/call-a-kotlin-library/) and [Collect a Kotlin Flow](/docs/guides/collect-a-kotlin-flow/). To ship a JAR of your own, follow [Ship a prebuilt framework, AAR or JAR](/docs/packages/ship-a-prebuilt-library/).

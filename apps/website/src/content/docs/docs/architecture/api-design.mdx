@@ -1,0 +1,131 @@
+---
+title: "How should I shape a module's API?"
+sidebar_label: "Shaping a module's API"
+description: "Make few calls that each do a lot, keep data JavaScript doesn't need in native code, and make slow work async."
+kind: explanation
+---
+
+Every call across the boundary checks its arguments, and copies the data that crosses in either direction. A module's API decides how many calls cross, and how much each one carries.
+
+## One computation, four shapes
+
+<Tabs>
+<TabItem label="module">
+
+```ts title="path.lucent.ts"
+export type Point = { x: number; y: number };
+
+// Many small calls: JavaScript loops, and each segment crosses.
+export function segment(ax: number, ay: number, bx: number, by: number): number {
+  return Math.hypot(bx - ax, by - ay);
+}
+
+// One call with objects: each point is checked and copied.
+export function pathLength(points: Point[]): number {
+  let total = 0;
+  for (let i = 1; i < points.length; i++) {
+    const a = points[i - 1]!;
+    const b = points[i]!;
+    total += Math.hypot(b.x - a.x, b.y - a.y);
+  }
+  return total;
+}
+
+// One call with numbers: cheaper to check and copy than objects.
+export function pathLengthXY(xs: number[], ys: number[]): number {
+  let total = 0;
+  for (let i = 1; i < xs.length; i++) total += Math.hypot(xs[i]! - xs[i - 1]!, ys[i]! - ys[i - 1]!);
+  return total;
+}
+
+// The data crosses once; each call after that copies nothing.
+export class Path {
+  #xs: number[];
+  #ys: number[];
+
+  constructor(xs: number[], ys: number[]) {
+    this.#xs = xs;
+    this.#ys = ys;
+  }
+
+  length(): number {
+    return pathLengthXY(this.#xs, this.#ys);
+  }
+}
+```
+
+</TabItem>
+<TabItem label="bench">
+
+```ts title="path.bench.ts"
+import { Path, pathLength, pathLengthXY, segment } from "./path.lucent";
+
+const points = Array.from({ length: 1000 }, (_, i) => ({ x: Math.cos(i / 10) * i, y: Math.sin(i / 10) * i }));
+const xs = points.map((p) => p.x);
+const ys = points.map((p) => p.y);
+const path = new Path(xs, ys);
+
+export default {
+  chatty: () => {
+    let total = 0;
+    for (let i = 1; i < points.length; i++) {
+      total += segment(points[i - 1]!.x, points[i - 1]!.y, points[i]!.x, points[i]!.y);
+    }
+    return total;
+  },
+  objects: () => pathLength(points),
+  numbers: () => pathLengthXY(xs, ys),
+  instance: () => path.length(),
+};
+```
+
+</TabItem>
+</Tabs>
+
+```sh title="terminal"
+npx lucent bench
+```
+
+```sh title="terminal" nocopy
+CASE       JS        LUCENT    SPEEDUP
+path.bench.ts
+chatty     77.5 µs   69.3 µs   1.1x
+objects    53.5 µs   64.2 µs   0.8x
+numbers    51.0 µs   18.6 µs   2.7x
+instance   52.5 µs   2.9 µs    17.9x
+
+per call, best of 5 rounds; desktop Hermes, so devices differ
+```
+
+Each case measures the same 1,000-point path, as the compiled module and as the same TypeScript run as JavaScript. This run used an Apple M3 Pro. Compare the LUCENT column: the work is the same, and only the crossing differs.
+
+- `chatty` crosses 999 times, about 70 ns a call. A call is cheap, but a loop of them adds up.
+- `objects` makes one call, but checks and copies 1,000 objects, which costs more than the computation saves.
+- `numbers` copies 2,000 numbers instead, in under a third of the objects' time.
+- `instance` copied the points once, when JavaScript made the `Path`. Each call copies nothing, so only the computation is left.
+
+A single call costs about what a C++ TurboModule's does. On a stable machine, the repository's [`scripts/bench.ts --check`](https://github.com/Fausto95/lucent/blob/main/scripts/bench.ts) fails when it costs over 1.25 times as much.
+
+[Measure performance](/docs/guides/measure-performance/) runs `lucent bench` on your own module. Times on a phone differ from these: measure in the app's release build before relying on one.
+
+## Copies and references
+
+- Data crosses as a copy, checked against the parameter's type: numbers, strings, arrays, objects of a declared type, maps and sets. Its cost grows with its size, and objects cost more than numbers.
+- A class instance crosses as a reference, and keeps its identity in JavaScript. Use a class for state that lives between calls, or data JavaScript queries again and again. Its public array and object fields are copied at each read, so keep large data private behind methods, as `Path` does.
+- An SDK object can't cross at all ([LUCENT2006](/docs/api/diagnostics/#lucent2006)): keep it in native code, behind a function or a class.
+- Large bytes go in a `NativeBuffer`, which crosses as a reference, uncopied ([Pass large buffers](/docs/guides/pass-large-buffers/)).
+
+[The boundary](/docs/api/language/boundary/) gives every type's rule.
+
+## Sync or async
+
+- A synchronous export runs on the JavaScript thread, so JavaScript waits for it. Keep it to quick work.
+- An `async` export starts on the [Lucent thread](/docs/architecture/glossary/#lucent-thread), and JavaScript goes on running. Module code runs one turn at a time, so a synchronous call waits for the running turn to end. A turn ends at an `await` that has to wait, or when the code returns.
+- `compute()` runs a task on a worker thread, in parallel with module code ([Run work in parallel](/docs/guides/run-in-parallel/)).
+
+Make anything that may take more than a few milliseconds `async`. [Concurrency](/docs/api/language/concurrency/) has the exact rules, and [Run work off the JS thread](/docs/guides/run-work-off-the-js-thread/) shows one.
+
+## Errors and events
+
+- Throw errors made with `error(code, message)` from `lucent:core`, so JavaScript can test `error.code` ([Throw and handle errors](/docs/guides/throw-and-handle-errors/)).
+- For a stream of values, let JavaScript subscribe once rather than poll ([Send events to JavaScript](/docs/guides/send-events-to-javascript/)).

@@ -1,0 +1,71 @@
+---
+title: Wrap a C library as a native extension
+description: "Put a C header and its implementation in a directory both platforms' `nativeSources` list, declare the extension in `lucent.json`, and import it from `lucent:ext/<name>`."
+kind: guide
+---
+
+<Tabs>
+<TabItem label="Header">
+
+```cpp title="native/orbit_filter.h" from="packages/compiler/test/fixtures/orbit-filter/native/orbit_filter.h" include="packages/orbit-filter/orbit_filter.h"
+```
+
+</TabItem>
+<TabItem label="lucent.json">
+
+```json title="lucent.json" from="packages/compiler/test/fixtures/orbit-filter/lucent.json" include="packages/orbit-filter/lucent.json"
+```
+
+</TabItem>
+<TabItem label="Module">
+
+```ts title="src/filter.lucent.ts" from="packages/compiler/test/fixtures/orbit-filter/src/filter.lucent.ts" include="packages/orbit-filter/filter.lucent.ts"
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { Filter } from "lucent-orbit-filter";
+
+const filter = new Filter(1.5);
+const scaled = filter.apply(new Uint8Array([0, 10, 100, 200])); // [0, 15, 150, 255]
+filter.close();
+```
+
+</TabItem>
+</Tabs>
+
+Lucent's tests build this package, lucent-orbit-filter: a C interface over a C++ filter that shared modules call on both platforms.
+
+## Write the header
+
+- Put it and its implementation in a directory both `ios.nativeSources` and `android.nativeSources` list. A header anywhere else fails the build.
+- It must compile as C and as C++: wrap the declarations in `extern "C"` when C++ includes it.
+- Declare each handle as an opaque struct, never defined: `typedef struct OrbitFilter OrbitFilter;`.
+
+`lucent build` reads the header with clang, which [`LUCENT_CLANG`](/docs/api/environment-variables/) can choose, and fails on any name the declaration gets wrong, naming the package and the field.
+
+## Declare what C can't say
+
+- `handles`: the struct becomes a class. `create` is its constructor, `destroy` runs once when it closes, and each method names a function taking the handle first. Its `create` needs a `functions` entry with `"failsWhen": "null"`.
+- `params`: each pointer is `bytes` read or written (a `Uint8Array` whose length fills the named parameter), a UTF-8 `string`, or the `error` struct.
+- `failsWhen`: how the result reports a failure (`null`, `negative`, `nonzero`, `zero` or `false`), required with an `error` parameter. With `nonzero` or `false`, the function returns nothing.
+- `errors`: the struct a failed call fills in, whose fields become the thrown `Error`'s `message` and `code` (a string).
+- `affinity: "main"` keeps a handle or function inside `main(() => …)`; `blocking` warns when one is called there.
+
+A function taking only numbers and booleans, such as `orbit_filter_live`, needs no entry. Every field is in the [native extensions reference](/docs/packages/native-extensions/).
+
+## Import it
+
+`lucent:ext/orbit-filter` exports the class `OrbitFilter` and every bound function under its C name, without length and error parameters. 64-bit integers are bigints: `processed()` returns one. `.lucent/native/types/ext/orbit-filter.d.ts` lists the functions Lucent can't bind, such as `orbit_filter_each`, with the reason.
+
+## Keep the handle in a Lucent class
+
+A handle can't cross to JavaScript: returning one fails with [LUCENT2006](/docs/api/diagnostics/#lucent2006). `Filter` keeps its `OrbitFilter` private and gives JavaScript plain values.
+
+`close()` destroys the handle: closing again does nothing, and any other use throws an `InvalidStateError`. A `using` declaration closes it at the end of its block ([Release native resources](/docs/guides/release-native-resources/)), and otherwise its last reference going does.
+
+:::caution
+A C++ exception that escapes an extension function ends the process. Catch it in the implementation and report it through the error struct.
+:::

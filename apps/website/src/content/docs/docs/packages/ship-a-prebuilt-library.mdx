@@ -1,0 +1,58 @@
+---
+title: Ship a prebuilt framework, AAR or JAR
+description: "List the binary under `ios.vendoredFrameworks` or `android.libraries` in the package's `lucent.json`, then import it from `lucent:ios/<Module>` or `lucent:android/<package>`."
+kind: guide
+---
+
+```json title="lucent.json"
+{
+  "ios": { "vendoredFrameworks": ["vendor/Orbit.xcframework"] },
+  "android": { "libraries": ["android/orbit.jar"] }
+}
+```
+
+Paths are relative to the package. `lucent build` copies each binary into the native package. Its pod vendors the framework (CocoaPods links it, and embeds a dynamic one), and its Android library depends on the JAR or AAR.
+
+A prebuilt binary is how a package calls its own Swift, Objective-C, Kotlin or Java. Modules can't import the source files a package ships: see [Ship native sources and resources](/docs/packages/ship-native-sources/).
+
+## Call a JAR from a module
+
+The example package lucent-orbit compiles its Kotlin into `android/orbit.jar` and lists it under `android.libraries`. It ships no iOS framework, and lives in the repository, not on npm.
+
+<Tabs>
+<TabItem label="Module">
+
+```ts title="collections.lucent.ts" from="examples/lucent-orbit/src/collections.lucent.ts" include="packages/orbit/collections.lucent.ts"
+```
+
+</TabItem>
+<TabItem label="Kotlin">
+
+```kotlin title="Shelf.kt" include="packages/orbit/Shelf.kt"
+```
+
+</TabItem>
+<TabItem label="Build script">
+
+```ts title="build-jar.ts" include="packages/orbit/build-jar.ts"
+```
+
+</TabItem>
+</Tabs>
+
+The module imports `Shelf` from `lucent:android/dev.orbit.shelf`, its Kotlin package, in the Android half of a [platform branch](/docs/guides/platform-code/). Lucent reads the JAR when `lucent build` runs, before the app's Gradle build has resolved anything. [Call a Kotlin library](/docs/guides/call-a-kotlin-library/) shows what each Kotlin feature becomes.
+
+`build-jar.ts` runs kotlinc for Kotlin 2.2, the example apps' version. Any tool that writes a JAR or an AAR works, Gradle included. In an app that installs the package, `npx lucent sdk show dev.orbit.shelf.Shelf` prints what modules see.
+
+## Ship an iOS framework
+
+- List a `.framework` or `.xcframework` directory, and import it by the framework's name: `lucent:ios/Orbit` for `Orbit.framework`, or an `.xcframework` holding it.
+- Lucent reads an `.xcframework` through the iOS simulator slice its `Info.plist` names. One without that slice can't be imported.
+- Lucent binds the framework's declarations as it binds any other's: see [Call an iOS API](/docs/guides/call-an-ios-api/).
+
+## Before you publish
+
+- If `package.json` has a `files` list, add the binary's directory to it, as lucent-orbit does with `android`: npm publishes only what it lists.
+- A JAR or AAR listed here brings none of its dependencies. List them in `android.dependencies`: see [Add pods, Gradle dependencies and Swift packages](/docs/packages/add-native-dependencies/).
+- Two packages can't ship frameworks of the same name, or libraries of the same file name: see [Collisions](/docs/packages/ship-native-sources/#collisions).
+- A changed binary needs the app rebuilt, not a reload: see [Get a module change into the running app](/docs/guides/apply-a-change/).

@@ -3,17 +3,25 @@ import path from "node:path";
 import { runnerImport } from "vite";
 import { readMdx } from "../../apps/website/src/docs/mdx-read.ts";
 import type { PostEntry } from "../../apps/website/src/blog/types.ts";
-import { docsGroups, docsSlugs } from "../../apps/website/src/docs/nav.ts";
-import { docsRedirects } from "../../apps/website/src/docs/redirects.ts";
+import {
+  type DocSection,
+  INTERNALS,
+  docId,
+  docsSections,
+  docsSlugs,
+  locate,
+  slugsOf,
+} from "../../apps/website/src/docs/nav.ts";
 import {
   type Block,
+  DOC_KINDS,
   type DocFrontmatter,
   type DocKind,
   type DocPage,
-  type DocTemplate,
   docsHref,
 } from "../../apps/website/src/docs/types.ts";
-import type { docTemplates } from "./doc-modules.ts";
+import type { templateModules } from "./doc-modules.ts";
+import { type TemplatePage, templatePages } from "./templates.ts";
 import { blogContent, docFile, docsContent, website, websiteSrc, where } from "./context.ts";
 
 /**
@@ -26,10 +34,9 @@ export interface CheckedPage {
   /** A docs page's kind sets its length budget; a post has none. */
   kind: DocKind | "post";
   title: string;
-  /** A docs page's description, a post's summary. */
+  /** A docs page's description, a post's too. */
   description: string;
   blocks: Block[];
-  samplesWith?: string;
   /** Its samples include components drawn with SwiftUI and Compose: they compile with views. */
   views?: true;
 }
@@ -38,13 +45,13 @@ export interface Post extends PostEntry {
   blocks: Block[];
 }
 
-/** The reference pages' templates (src/docs/templates/), by slug. */
-export async function loadTemplates(): Promise<Record<string, DocTemplate>> {
-  const { module } = await runnerImport<{ docTemplates: typeof docTemplates }>(
+/** The generated pages, by slug, each with the template (src/docs/templates/) that writes it. */
+export async function loadTemplates(): Promise<Record<string, TemplatePage>> {
+  const { module } = await runnerImport<{ templateModules: typeof templateModules }>(
     path.join(import.meta.dirname, "doc-modules.ts"),
     { configFile: false, root: websiteSrc, logLevel: "error" },
   );
-  return module.docTemplates;
+  return templatePages(module.templateModules);
 }
 
 /** The `.mdx` files under `dir`, relative to it, with forward slashes; none when it doesn't exist. */
@@ -102,19 +109,16 @@ export function checkedPages(pages: DocPage[], posts: Post[]): CheckedPage[] {
       href: `/blog/${p.slug}/`,
       kind: "post" as const,
       title: p.title,
-      description: p.summary,
+      description: p.description,
       blocks: p.blocks,
       ...(p.views ? { views: p.views } : {}),
     })),
   ];
 }
 
-const KINDS = new Set<DocKind>(["start", "learn", "guide", "reference", "example", "other"]);
+const KINDS = new Set(Object.keys(DOC_KINDS));
 
-/**
- * Page files match the sidebar (src/docs/nav.ts), each page says its kind
- * and has its one "Next" link, and retired slugs redirect to pages that exist.
- */
+/** Page files match the sidebar (src/docs/nav.ts), which follows checkNav's slug scheme, and each page follows checkPages' rules. */
 export function checkStructure(pages: DocPage[]): string[] {
   const problems: string[] = [];
   const slugs = new Set(pages.map((p) => p.slug));
@@ -128,41 +132,98 @@ export function checkStructure(pages: DocPage[]): string[] {
     if (!slugs.has(slug)) problems.push(`${where(slug)} has no ${docFile(slug)}`);
   const dups = docsSlugs.filter((s, i) => docsSlugs.indexOf(s) !== i);
   for (const dup of new Set(dups)) problems.push(`${where(dup)} is in the sidebar twice`);
+  return [...problems, ...checkNav(), ...checkPages(pages)];
+}
 
-  const hrefs = new Set(pages.map((p) => docsHref(p.slug)));
-  const last = docsGroups.at(-1)?.slugs.at(-1);
-  for (const page of pages) {
-    if (!page.title || !page.description)
-      problems.push(`${where(page.slug)} needs a title and a description in its frontmatter`);
-    if (!KINDS.has(page.kind))
-      problems.push(
-        `${where(page.slug)}: kind is ${page.kind}, not one of ${[...KINDS].join(", ")}`,
-      );
-    if (page.next !== undefined) {
-      if (!hrefs.has(page.next.link))
-        problems.push(`${where(page.slug)}: next is ${page.next.link}, which is not a page`);
-      else if (page.next.label !== pages.find((p) => docsHref(p.slug) === page.next!.link)?.title)
-        problems.push(`${where(page.slug)}: next's label should be its page's title`);
-    } else if (page.slug === last)
-      problems.push(`${where(page.slug)} has no "Next" link: set next in its frontmatter`);
+/**
+ * The slug scheme: each page under its section's directory, the docs home
+ * ("") first and only there, a landing page x next to x/ (never x/index, which
+ * Docusaurus would serve at x/), no empty section, group or sub-group, and
+ * each group's label once in its section.
+ */
+export function checkNav(sections: DocSection[] = docsSections): string[] {
+  const problems: string[] = [];
+  if (slugsOf(sections).some((slug, i) => slug === "" && i > 0))
+    problems.push(`${where("")} is the first page of the first section, and only there`);
+
+  for (const section of sections) {
+    if (!section.groups.length) problems.push(`${section.label} has no group`);
+
+    const labels = section.groups.map((g) => g.label);
+    for (const label of new Set(labels.filter((l, i) => labels.indexOf(l) !== i)))
+      problems.push(`${section.label} has two groups labelled ${label}`);
+
+    for (const group of section.groups) {
+      const at = `${section.label} › ${group.label}`;
+      if (!group.items.length) problems.push(`${at} has no page`);
+      for (const item of group.items)
+        if (typeof item !== "string" && !item.slugs.length)
+          problems.push(`${at} › ${item.label} has no page`);
+    }
+
+    for (const slug of slugsOf([section])) {
+      if (slug === "") continue;
+      if (slug !== section.dir && !slug.startsWith(`${section.dir}/`))
+        problems.push(
+          `${where(slug)} is listed in ${section.label}: its slug starts with ${section.dir}/`,
+        );
+      if (slug.endsWith("/index")) {
+        const landing = slug.slice(0, -"/index".length);
+        problems.push(
+          `${where(slug)}: a landing page is ${landing} (its file ${landing}.mdx), not ${slug}`,
+        );
+      }
+    }
   }
-  for (const [from, to] of Object.entries(docsRedirects)) {
-    if (slugs.has(from)) problems.push(`redirect from ${where(from)} shadows a page`);
-    if (!slugs.has(to)) problems.push(`redirect ${where(from)} → ${where(to)}: no such page`);
+  return problems;
+}
+
+/** Whether a slug is one of Architecture's contributor pages. */
+const internal = (slug: string): boolean => slug === INTERNALS || slug.startsWith(`${INTERNALS}/`);
+
+/**
+ * Each page says its kind, internals pages and only those are under
+ * Architecture's Internals, pages about views are marked experimental, and
+ * a frontmatter pagination_next names a doc of the same section.
+ */
+export function checkPages(pages: DocPage[], sections: DocSection[] = docsSections): string[] {
+  const problems: string[] = [];
+  for (const page of pages) {
+    const at = where(page.slug);
+    if (!page.title || !page.description)
+      problems.push(`${at} needs a title and a description in its frontmatter`);
+    if (!KINDS.has(page.kind))
+      problems.push(`${at}: kind is ${page.kind}, not one of ${[...KINDS].join(", ")}`);
+    if (page.kind === "internals" && !internal(page.slug))
+      problems.push(`${at}: kind internals is for pages under ${where(INTERNALS)}`);
+    if (internal(page.slug) && page.kind !== "internals")
+      problems.push(`${at}: a page under ${where(INTERNALS)} is kind internals`);
+    if (page.views && page.sidebar_class_name !== "experimental")
+      problems.push(`${at}: views are experimental: set sidebar_class_name: experimental`);
+    if (page.pagination_next === undefined) continue;
+    const target = pages.find((p) => docId(p.slug) === page.pagination_next);
+    const from = locate(page.slug, sections)?.section;
+    const to = target && locate(target.slug, sections)?.section;
+    if (!target)
+      problems.push(`${at}: pagination_next is ${page.pagination_next}, which is not a page`);
+    else if (from && to && from !== to)
+      problems.push(
+        `${at}: pagination_next is ${page.pagination_next}, in ${to.label}: Next stays in ${from.label}`,
+      );
   }
   return problems;
 }
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Each post has a title and summary, and its date is a real day. */
+/** Each post has a title and a description, and its date is a real day. */
 export function checkPosts(
-  posts: Pick<PostEntry, "slug" | "title" | "date" | "summary">[],
+  posts: Pick<PostEntry, "slug" | "title" | "date" | "description">[],
 ): string[] {
   const problems: string[] = [];
   for (const post of posts) {
-    if (!post.title || !post.summary)
-      problems.push(`/blog/${post.slug}/ needs a title and a summary in its frontmatter`);
+    if (!post.title || !post.description)
+      problems.push(`/blog/${post.slug}/ needs a title and a description in its frontmatter`);
     // Date.parse rolls 2026-02-30 over to March: a real day reads back the same.
     const date = String(post.date);
     const day = Date.parse(`${date}T00:00:00Z`);

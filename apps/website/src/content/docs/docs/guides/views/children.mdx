@@ -1,0 +1,115 @@
+---
+title: Put React children inside a native view
+sidebar_label: Add React children
+description: "Declare `children?: Children` in the props, make a `slot()` in each platform file, and add it to the view where the children belong."
+kind: guide
+views: true
+sidebar_class_name: experimental
+---
+
+:::caution
+Experimental: views change without notice. They need `LUCENT_VIEWS=fabric` where Lucent builds: see [Turn on native views](/docs/guides/views/). Read [the limits](/docs/architecture/views/#limits) first.
+:::
+
+<Tabs>
+<TabItem label="card.lucent.ts">
+
+```ts title="card.lucent.ts"
+import type { View } from "lucent:android/android.view";
+import type { UIView } from "lucent:ios/UIKit";
+import type { Children } from "lucent:ui";
+
+export type CardProps = { highlighted: boolean; children?: Children };
+
+export declare function Card(props: CardProps): UIView | View;
+```
+
+</TabItem>
+<TabItem label="card.ios.lucent.tsx">
+
+```tsx title="card.ios.lucent.tsx"
+import { UIColor, UIView } from "lucent:ios/UIKit";
+import { effect, slot } from "lucent:ui";
+import type { CardProps } from "./card.lucent";
+
+export function Card(props: CardProps): UIView {
+  const card = new UIView({ origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } });
+  const content = slot<UIView>();
+
+  card.addSubview(content);
+
+  effect(() => {
+    card.backgroundColor = props.highlighted
+      ? UIColor.systemYellow
+      : UIColor.secondarySystemBackground;
+  });
+
+  return card;
+}
+```
+
+</TabItem>
+<TabItem label="card.android.lucent.tsx">
+
+```tsx title="card.android.lucent.tsx"
+import { appContext } from "lucent:android";
+import { Color } from "lucent:android/android.graphics";
+import type { ViewGroup } from "lucent:android/android.view";
+import { FrameLayout } from "lucent:android/android.widget";
+import { effect, slot } from "lucent:ui";
+import type { CardProps } from "./card.lucent";
+
+export function Card(props: CardProps): FrameLayout {
+  const card = new FrameLayout(appContext());
+  const content = slot<ViewGroup>();
+
+  card.addView(content);
+
+  effect(() => {
+    card.setBackgroundColor(Color.parseColor(props.highlighted ? "#FFE082" : "#EEEEEE"));
+  });
+
+  return card;
+}
+```
+
+</TabItem>
+<TabItem label="App.tsx">
+
+```tsx title="App.tsx"
+import { useState } from "react";
+import { Button, Text, View } from "react-native";
+import * as card from "./card.lucent";
+
+const { Card } = card as unknown as typeof import("./.lucent/native/types/views/card");
+
+export default function App() {
+  const [highlighted, setHighlighted] = useState(false);
+
+  return (
+    <View style={{ padding: 48 }}>
+      <Card highlighted={highlighted}>
+        <View style={{ padding: 16 }}>
+          <Text>Rendered by React, inside a native view.</Text>
+          <Button title="Highlight" onPress={() => setHighlighted(!highlighted)} />
+        </View>
+      </Card>
+    </View>
+  );
+}
+```
+
+</TabItem>
+</Tabs>
+
+`slot()` makes the view React Native mounts the children in. Setup puts it where the children belong, and it fills the view it's added to unless setup sizes it.
+
+Call `slot()` once, in a top-level `const`, with the platform's container class: `slot<UIView>()` or `slot<ViewGroup>()`. So a component taking children is written as platform files. [Children](/docs/api/views/components/#children) gives the rest of the rules.
+
+## How the component is sized
+
+A component taking children is sized by its style, flex and children, as a React Native `View` is. Lucent never measures its native content. When native views sit around the slot, such as a header above it, the component grows by the room they take.
+
+A component without children, and without a size in its style, is sized by its native content. Lucent measures it again after its setup, an effect, a command or a native callback runs. Code after an `await` runs in none of them: call [invalidateSize()](/docs/api/views/lucent-ui/#invalidatesize) after it changes the content.
+
+[The limits](/docs/architecture/views/#limits) list what slots can't do yet, such as scrolling inside a native scroll view.

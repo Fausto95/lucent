@@ -1,0 +1,42 @@
+---
+title: Environment variables
+description: "Each variable overrides one of Lucent's defaults, such as where the SDK cache lives or whether Metro starts the watcher."
+kind: reference
+---
+
+Set a variable in the environment of the process that reads it: the terminal that runs `lucent` or Metro, Gradle, or the app.
+
+```sh title="terminal"
+LUCENT_WATCH=0 npx expo start
+LUCENT_ANDROID_PLATFORM=android-35 npx lucent build
+```
+
+## Variables
+
+| Variable | What it does | Default | Read by |
+| --- | --- | --- | --- |
+| `LUCENT_WATCH` | `0` turns off the watcher Metro starts, and `1` starts it with any Metro command. The `watch` option of `withLucent` wins over it. | on when Metro runs `start`, `run:ios` or `run:android` | [`withLucent`](/docs/api/integrations/#metro) |
+| `LUCENT_OUT` | The native package whose proxies Metro bundles, relative to the project like `lucent build --out`. The app must link the native code of that same build. Metro's watcher, the Gradle task and the Expo plugin still write `.lucent/native`: run `lucent build --out <dir>` yourself, and set `LUCENT_WATCH=0`. | `.lucent/native` | Metro's transformer |
+| `LUCENT_VIEWS` | Experimental: `fabric` makes `lucent:ui`, `lucent:swiftui` and `lucent:compose` importable and generates components' native views. Unset, those imports fail and components are only described. Any other value that isn't empty stops every build and check with an error. | unset | the compiler, in every build and check, and the editor plugin, from the editor's environment |
+| `LUCENT_TRACE` | Starts runtime tracing when the app's module context starts. Its values are on [Trace events](/docs/api/trace-events/#capture-settings). | unset: tracing is off | Lucent's runtime, in the app; on Android, the `debug.lucent.trace` system property replaces it |
+| `LUCENT_CACHE_DIR` | Where the SDK bindings cache lives. Every project on the machine shares it. | `$XDG_CACHE_HOME/lucent`, else `~/.cache/lucent` | every command that binds an SDK, `lucent clean --cache`, `lucent doctor` |
+| `XDG_CACHE_HOME` | The cache's parent directory when `LUCENT_CACHE_DIR` is unset. | `~/.cache` | the same |
+| `ANDROID_HOME`, `ANDROID_SDK_ROOT` | The Android SDK, tried in this order, then the default. SDK bindings and `lucent doctor` use the first with a `platforms` directory, `lucent --version` the first that is set. `lucent doctor` warns when neither variable is set. | `~/Library/Android/sdk`, then `~/Android/Sdk`. `lucent doctor` and `lucent --version` try only the OS's: the first on macOS, the second elsewhere. | SDK bindings, `lucent doctor`, `lucent --version`, and the search for an NDK's clang |
+| `LUCENT_ANDROID_PLATFORM` | The platform to bind, as its directory under the SDK's `platforms`, such as `android-36`. When it isn't installed, Lucent reports the Android SDK as missing. | the newest platform installed | SDK bindings |
+| `LUCENT_ANDROID_JARS` | JARs to bind instead of a platform's `android.jar`, separated by `:` (`;` on Windows). The platform's API levels and annotations aren't read then. | unset | SDK bindings |
+| `LUCENT_XCRUN` | The `xcrun` that finds the iOS simulator SDK and reads its declarations. | `xcrun` on the `PATH` | SDK bindings |
+| `LUCENT_CLANG` | The clang that reads [native extensions'](/docs/packages/native-extensions/) C headers. | `clang` on the `PATH`, then Xcode's, then an Android NDK's | builds and checks of an app with native extensions, and the editor plugin |
+| `ANDROID_NDK_HOME`, `ANDROID_NDK_ROOT` | NDKs whose clang reads C headers when no other clang runs. The NDKs under `$ANDROID_HOME/ndk` and `$ANDROID_SDK_ROOT/ndk` come after them, newest first. The default SDK locations aren't searched for an NDK. | unset | the same as `LUCENT_CLANG` |
+| `HERMES_DIR` | The desktop Hermes that `lucent bench` builds its host against. | `~/hermes` | [`lucent bench`](/docs/api/cli/#lucent-bench) |
+| `CC`, `CXX` | The C and C++ compilers that build the benchmark host. | `clang`, `clang++` | `lucent bench` |
+| `VISUAL`, `EDITOR` | The editor the dashboard opens a problem in, at its line. `VISUAL` wins. | `code` (Visual Studio Code) | [`lucent dev`](/docs/api/cli/#lucent-dev) |
+| `NO_COLOR` | Any value that isn't empty turns color off. | unset | every `lucent` command |
+| `FORCE_COLOR` | Turns color on, even outside a terminal. `0` or `false` turns it off, and `NO_COLOR` wins over it. | unset | every `lucent` command |
+| `CI` | Any value that isn't empty turns off spinners, live views and prompts. Then `lucent init` changes nothing without `--yes`, and `lucent dev` prints one line per build. | unset | every `lucent` command |
+| `TERM` | `dumb` turns off color, animation, prompts and Unicode symbols. `FORCE_COLOR` still turns color on. | set by the terminal | every `lucent` command |
+
+The views guide says where to set `LUCENT_VIEWS` for each build: see [Turn on native views](/docs/guides/views/). [Find why a call is slow](/docs/guides/trace-a-slow-call/) shows how to set `LUCENT_TRACE` for an app.
+
+## Not for you to set
+
+Lucent passes `LUCENT_NO_GRADLE`, `LUCENT_GRADLE_CLASSPATH`, `LUCENT_WATCH_CHILD` and `LUCENT_UPSTREAM_TRANSFORMER` between its own processes. `LUCENT_SIZING_TRACE` logs views' sizing steps for Lucent's developers. The CLI also reads `TERM_PROGRAM`, `WT_SESSION` and `VTE_VERSION` to tell whether the terminal shows links and, on Windows, Unicode symbols.

@@ -1,0 +1,186 @@
+---
+title: "How is the native package registered and its build identity computed?"
+sidebar_label: "React Native integration"
+description: "One C++ TurboModule registers itself on iOS and autolinks through CMake on Android, and each proxy checks the build identity both sides embed."
+kind: internals
+---
+
+`writeNativePackage()` in `packages/compiler/src/native-package.ts` writes `.lucent/native` from `packages/runtime` and the compile's output. React Native links it as an ordinary dependency named `lucent`. [The .lucent directory](/docs/api/lucent-directory/#the-native-package) lists its files, and [Integrations](/docs/api/integrations/) says how each kind of app is wired; this page follows the code.
+
+```js title="react-native.config.js" nocopy
+module.exports = {
+  dependencies: {
+    "lucent": { root: require("path").join(__dirname, ".lucent", "native") },
+  },
+};
+```
+
+That is the app's entry, which `lucent init` adds (`linkNativePackage()` in `init/patch.ts`). The Expo config plugin (`app.plugin.js`) runs `lucent build` during prebuild, then writes the entry, or fails asking for it. The autolinking of React Native's CLI and Expo's both read it.
+
+## The native package
+
+`writeNativePackage()` gathers every file it wants in memory, then publishes the ones whose content changed.
+
+- It copies `cpp/lucent`, `cpp/rn` and `cpp/third_party` from the runtime, and the templates in `packages/runtime/native` to the package's root.
+- The compile's C++ goes under `cpp/generated/`, one set per target when the program has platform code. Generated Java and Kotlin go under `android/src/main/java`.
+- `podspec()`, `libraryBuildGradle()`, `packagesCmake()`, `androidManifest()` and `consumerRules()` in `native-build-files.ts` fill the templates in from the build.
+- Each changed file is written to a temporary file renamed over the old one, so Metro never reads half a proxy. An unchanged file keeps its modification time.
+- A file the build no longer wants is deleted, except Gradle's output under `android/`.
+- `manifest.json` comes last, because Metro's cache keys on it. It holds the modules, the inputs' key and the build identity.
+
+`runtimeDir()` finds `runtime/` next to `dist/` in the published package, and the workspace's `@lucent-lang/runtime` in this repository. A build of the same inputs writes nothing, as [Builds and tooling](/docs/architecture/internals/tooling/#when-a-build-or-check-is-skipped) explains.
+
+## The TurboModule
+
+`LucentModule` (`cpp/rn/LucentModule.h`) is a C++ TurboModule named `Lucent`, with no codegen spec. JavaScript reaches a module through it as `TurboModuleRegistry.get("Lucent")[name]`.
+
+- `create(runtime, name)` makes the runtime's `Host` on its first call, with a poster that hands tasks to React Native's `CallInvoker::invokeAsync`. Making the host runs every module's `init()`.
+- It returns `Host::module(name)`: the module's exports object, which the module's generated `install_*` function fills once per runtime.
+- Two names are not modules. `__lucentIdentity` returns the build identity, and `__lucentViewRequests` returns the function JavaScript connects views' requests with.
+- Its destructor, in debug builds, logs the SDK objects module code still holds, as [the runtime](/docs/architecture/internals/runtime/#native-objects-and-hosts) explains.
+
+## iOS: a pod that registers itself
+
+The package is the pod `LucentNative`. Its podspec compiles `cpp/**` and `ios/**` in C++20, leaves out `cpp/generated/android` and `cpp/generated/host`, and passes `-ffp-contract=off`. `install_modules_dependencies(s)`, React Native's helper, adds React Native's own pods.
+
+`ios/LucentRegistration.mm` registers the module from `+load`, when the binary loads:
+
+```objective-cpp title="LucentRegistration.mm" nocopy
++ (void)load
+{
+  facebook::react::registerCxxModuleToGlobalModuleMap(
+      std::string(facebook::react::LucentModule::kModuleName),
+      [](std::shared_ptr<facebook::react::CallInvoker> jsInvoker) {
+        return std::make_shared<facebook::react::LucentModule>(std::move(jsInvoker));
+      });
+}
+```
+
+So React Native finds it in its global map of C++ modules, with no codegen and no change to the app delegate. `podspec()` then adds what the build needs:
+
+- the frameworks the iOS code imports, and every pod a module imports or a Lucent package asks for, with each requirement on it;
+- the packages' sources, resources, resource bundles and vendored frameworks under `packages/`;
+- through `spm_dependency`, the packages' Swift packages, and the app's ones a module imports at the app's pinned version;
+- Swift 5.9, with the C++ headers private, when there are Swift shims or Swift sources;
+- a deployment target that is the highest of React Native's minimum, the packages' `deploymentTarget` and the app's own.
+
+## Android: a C++ module and a library
+
+The package's own `react-native.config.js` says how Android builds it. With views on, `autolinkingConfig()` in `ui/android.ts` adds the components' `componentDescriptors`.
+
+```js title=".lucent/native/react-native.config.js" nocopy
+module.exports = {
+  dependency: {
+    platforms: {
+      android: {
+        sourceDir: "android",
+        packageImportPath: "import dev.lucent.LucentPackage;",
+        packageInstance: "new LucentPackage()",
+        libraryName: "lucentnative",
+        cxxModuleCMakeListsModuleName: "lucentnative",
+        cxxModuleCMakeListsPath: "CMakeLists.txt",
+        cxxModuleHeaderName: "LucentModule",
+      },
+      ios: {},
+    },
+  },
+};
+```
+
+React Native's Gradle plugin builds `android/CMakeLists.txt` into the app's `appmodules` library. Its generated autolinking code includes `LucentModule.h` and makes a `LucentModule` when JavaScript asks for `Lucent`. Autolinking also calls `lucentnative_ModuleProvider` for Java TurboModules, which `android/include/lucentnative.h` defines to return none.
+
+`CMakeLists.txt` makes `lucentnative`, an object library of every `cpp/**/*.cpp` except the iOS and host sets.
+
+- It compiles C++20 with `-ffp-contract=off`, as the podspec does.
+- QuickJS's C is a static library of its own, `lucentregexp`, so React Native's C++ options never reach it.
+- The runtime compiles with `-fvisibility=hidden`, so calls between its files skip the shared library's PLT. Natives are bound with `RegisterNatives`, never looked up by name.
+- It links `jsi`, `reactnative`, `fbjni`, `log` and `android`, and includes `packages.cmake` when Lucent packages ship C or C++.
+
+`android/build.gradle` is an Android library, namespace `dev.lucent`, whose `compileSdk` and `minSdk` come from the app (36 and 24 by default). `libraryBuildGradle()` adds the rest:
+
+- the Kotlin plugin, when there are Kotlin shims, Compose content or Kotlin sources;
+- `kotlinx-coroutines-core` 1.7.3 for the shims, and Compose's BOM and libraries for components' content;
+- the packages' JARs, AARs and Maven artifacts as `api` dependencies, and their sources, resources, assets and native libraries as source sets;
+- a `minSdk` that is the higher of the app's and the packages'.
+
+`androidManifest()` writes the library's manifest, which Gradle merges into the app's. It lists the permissions the code's SDK calls need, the packages' permissions and components, and two of the runtime's own: `LucentInitializer` and `LucentRequestActivity`. `consumerRules()` keeps `dev.lucent.**`, and every class the JNI glue finds by name, from the app's shrinker.
+
+### The library's Java and Kotlin
+
+| Class | What it does |
+| --- | --- |
+| `LucentPackage` | The `ReactPackage` autolinking adds. It brings the library into the app, and gives React Native the managers of the app's components. |
+| `NativeProxy` | One `java.lang.reflect.Proxy` handler for every Java interface Lucent code implements, keyed by method name and parameter descriptor. A default method Lucent leaves out runs its Java body. |
+| `LucentInitializer` | A content provider, which Android creates before the first Activity. It starts `LucentActivities`. |
+| `LucentActivities` | The app's Activities, held weakly: the current one, their lifecycle events, and requests for an activity result or permissions. |
+| `LucentRequestActivity` | A translucent Activity that asks for one result or one set of permissions, so the app's own Activity may be recreated meanwhile. |
+| `LucentHostView`, `LucentViewManager`, `LucentSlotView`, `LucentChildren`, `LucentViews` | The host of components' views, under `LUCENT_VIEWS=fabric` |
+| `LucentViewManagers` | The managers `LucentPackage` gives React Native: none, until `lucent build` writes the app's components' with views on |
+| `dev.lucent.compose.LucentComposition` | The host of components' Compose content, in `LucentComposition.kt` with its rules in `CompositionRules.kt`, compiled only when there is some |
+
+A `NativeProxy` holds a C++ handle, which its finalizer releases when the proxy is collected. Below API 26, a default method's Java body can't run, so the proxy logs and returns the type's zero value.
+
+### Builds before Gradle reads the package
+
+`gradle/lucent.gradle`, which `lucent init` (or the Expo config plugin, during prebuild) applies in `android/app/build.gradle`, registers `lucentBuild`. It runs `lucent build` after `lucentClasspath`, with `LUCENT_GRADLE_CLASSPATH=1` so that build starts no Gradle of its own, and every project's `preBuild` depends on it.
+
+React Native caches the autolinking config until a lockfile changes. When a build creates the package or rewrites its `react-native.config.js`, `staleAutolinking()` deletes the `.sha` files under `android/build/generated/autolinking`, so the next Gradle run reads the config again.
+
+## JavaScript: proxies and the loader
+
+Metro's transformer (`packages/lucent/metro/transformer.cjs`) bundles `js/<module>.js` in place of each `*.lucent.ts` file. It rebases the proxy's relative requires onto the source file's directory, and adds `manifest.json` to its cache key.
+
+```js title=".lucent/native/js/greet.js" include="proxy/greet.js"
+```
+
+- The proxy requires `react-native` from the app's own location, so a monorepo with several copies uses the app's.
+- `loadModule()` (`runtime/js/index.js`, copied to `js/_lucent/runtime.js`) gets the `Lucent` TurboModule once. Without it, it throws that the native module is not linked.
+- It checks the module against the identity, then returns the module's exports, or throws that the module is not in the native build.
+- `lucentClass()` wraps each exported class's factory in a constructor, so `new` and `instanceof` work.
+- Test hosts set `globalThis.__lucentModules`, which the loader uses in place of the TurboModule.
+
+The loader requires nothing itself: the proxy passes it the registry and the identity. [Runtime errors](/docs/api/runtime-errors/#setup-errors) has its messages.
+
+## Build identity
+
+The app's binary and its JavaScript are built apart. A build identity says what each was compiled from, so the loader can tell them apart. `packages/compiler/src/emit/identity.ts` computes it, per target: `ios`, `android`, `host`, or `all` for a program every target shares.
+
+| Part | What it covers |
+| --- | --- |
+| Runtime ABI | `RUNTIME_ABI`, which must equal the runtime's `kRuntimeAbi` (both 1). A change that breaks generated code or proxies takes a new number. |
+| Program hash | The target's generated files and Java, sorted by name. Lines starting with `#line` are left out, and so are trace sites' files and lines, which hold machine paths. |
+| API hash, per module | `apiSurface()`: each export with its signature, then each type that crosses with it: struct fields, class members, bases, subclasses and an interface's implementations |
+
+A component's contract (its registration, props, events and commands) is part of its module's API. An interface is named by its file's name only, so the hash holds no path. The same sources build the same identity on any machine.
+
+### Where it is embedded
+
+Native code carries it in `lucent_identity.cpp`, which `identityUnit()` writes. Its `static_assert` stops a build against a runtime of another ABI, and `lucent::js::buildIdentity()` returns the target, the program and each module's API.
+
+`Host::identity()` gives JavaScript `{ host, runtimeAbi, target, program, modules }`, where `host` is the host's id. JavaScript reads it as `__lucentIdentity`, next to the modules.
+
+`compile()` merges each target's identity into one, `{ runtimeAbi, programs, apis }`. The build writes it to `js/_lucent/identity.js`, which every proxy requires, and to `manifest.json`. A body edit changes that file, never the proxies.
+
+### How the loader compares
+
+`check()` in the loader runs before a module loads, in this order:
+
+1. Native code without `__lucentIdentity` was built before identities: it throws, with `compile-native`.
+2. A different runtime ABI throws: `reload-js` when the app's is newer, else `compile-native`. Only the ABI orders two builds.
+3. A target this JavaScript has no program for throws, with `compile-native`.
+4. Another program warns with `console.warn`, and the module still loads: calls are safe, but the installed code runs.
+5. A module the app lacks, or one with another API hash, throws with `compile-native`.
+
+Each error has `code: "LUCENT_NATIVE_MISMATCH"` and the action in `action`. A proxy from before identities passes none and isn't checked.
+
+The program's result is kept per host and build. A reload makes a new host, so it checks again, as does a new `identity.js` from Metro. [Builds and stale native code](/docs/architecture/builds/#the-app-checks-its-native-code-at-load) shows what each case means for you.
+
+The format is C-BUILD's build identity ([contracts.md](https://github.com/Fausto95/lucent/blob/main/docs/design/contracts.md#c-build-build-records-and-identities)).
+
+## Tests
+
+- `packages/compiler/test/build-identity.test.ts` checks what changes each hash, and what doesn't.
+- `packages/compiler/test/native-package.test.ts` checks what `writeNativePackage()` writes and keeps.
+- `packages/runtime/test/loader.test.ts` runs the loader's checks, and `test/jsi/identity.test.js` runs them against a real host in Hermes.
+- `node scripts/app-check.ts apps/bare-example` builds an example app for the host, bundles its test cases with its own Metro config and runs them in Hermes.
+- `node scripts/smoke-install.ts` packs `@lucent-lang/lucent` and installs it alone in a fresh app.

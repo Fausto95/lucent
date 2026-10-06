@@ -1,45 +1,117 @@
 ---
 title: Port a TurboModule or Nitro module
-description: The spec becomes the module's exports, hybrid objects become classes, and codegen goes away.
+description: "The spec becomes the module's exports and the native code its platform branches; JavaScript imports the module, and no React Native codegen runs."
 kind: guide
 ---
 
-| TurboModule or Nitro | Lucent |
-| --- | --- |
-| the spec: `NativeX.ts`, or a Nitro `.nitro.ts` interface | the module's exports: its functions, types and classes |
-| codegen, or Nitrogen | none: `lucent build` compiles the module |
-| Objective-C++, Swift, Kotlin or C++ implementations | one `.lucent.ts` file, with a branch per platform |
-| a Nitro hybrid object | an exported class: its instances cross by reference |
-| `Promise<T>` methods | `async` exports; they run on the Lucent thread |
-| events through `RCTEventEmitter` or listeners | a callback parameter and a stop function |
-| `ArrayBuffer` | `Uint8Array`, copied |
-| the library's podspec and Gradle file | `lucent.json`, if the module needs pods, dependencies or permissions |
+<Tabs>
+<TabItem label="spec">
 
-```ts title="counter.lucent.ts"
-/** A Nitro hybrid object becomes a class: JavaScript holds one native instance. */
-export class Counter {
-  private value = 0;
+```ts title="specs/NativeLocalStorage.ts"
+import type { TurboModule } from "react-native";
+import { TurboModuleRegistry } from "react-native";
 
-  increment(by: number): number {
-    this.value += by;
-    return this.value;
-  }
+export interface Spec extends TurboModule {
+  setItem(value: string, key: string): void;
+  getItem(key: string): string | null;
+  removeItem(key: string): void;
+  clear(): void;
+}
 
-  async reset(): Promise<void> {
-    this.value = 0;
+export default TurboModuleRegistry.getEnforcing<Spec>("NativeLocalStorage");
+```
+
+</TabItem>
+<TabItem label="module">
+
+```ts title="localStorage.lucent.ts"
+import { PLATFORM } from "lucent:platform";
+import { UserDefaults } from "lucent:ios/Foundation";
+import { appContext } from "lucent:android";
+import { Context, type SharedPreferences } from "lucent:android/android.content";
+
+const defaults = new UserDefaults("local-storage");
+
+function preferences(): SharedPreferences {
+  const prefs = appContext().getSharedPreferences("my_prefs", Context.MODE_PRIVATE);
+  if (!prefs) throw new Error("SharedPreferences are not available");
+  return prefs;
+}
+
+export function setItem(value: string, key: string): void {
+  if (PLATFORM === "ios") defaults.set(value, key);
+  else preferences().edit()?.putString(key, value)?.apply();
+}
+
+export function getItem(key: string): string | null {
+  if (PLATFORM === "ios") return defaults.string(key);
+  return preferences().getString(key, null);
+}
+
+export function removeItem(key: string): void {
+  if (PLATFORM === "ios") defaults.removeObject(key);
+  else preferences().edit()?.remove(key)?.apply();
+}
+
+export function clear(): void {
+  if (PLATFORM === "ios") {
+    for (const key of Object.keys(defaults.dictionaryRepresentation())) defaults.removeObject(key);
+  } else {
+    preferences().edit()?.clear()?.apply();
   }
 }
 ```
 
-```tsx title="App.tsx"
-import { Counter } from "./src/counter.lucent";
+</TabItem>
+<TabItem label="App.tsx">
 
-const counter = new Counter();
-counter.increment(2); // 2
+```diff lang="tsx" title="App.tsx"
+-import NativeLocalStorage from "./specs/NativeLocalStorage";
++import * as NativeLocalStorage from "./src/localStorage.lucent";
+
+ const stored = NativeLocalStorage?.getItem("myKey");
 ```
 
-Values that Nitro passes without copying, such as large arrays, are copied here. Keep them in native code across calls, as [Design the boundary first](/docs/thinking/boundary-first/) shows.
+</TabItem>
+</Tabs>
+
+This is the module from React Native's [Turbo Native Modules guide](https://reactnative.dev/docs/turbo-native-modules-introduction), ported. The spec's methods become the module's exports, with the same names and types. The iOS and Android code becomes the two sides of each `PLATFORM` branch, calling the same `NSUserDefaults` and `SharedPreferences`.
+
+JavaScript changes one line: it imports the module where it took the spec's default export, and every call stays as it was.
+
+## Map the rest
+
+| TurboModule or Nitro | Lucent |
+| --- | --- |
+| The spec, or a Nitro `*.nitro.ts` interface | The module's exports, typed for JavaScript from their source. |
+| Codegen and `codegenConfig`, or Nitrogen | Nothing: `lucent build` compiles the module, and Metro bundles a proxy in its place. |
+| The `ReactPackage`, `modulesProvider` or autolinking entry | Nothing: one Lucent TurboModule serves every module. |
+| A synchronous method | A function, which runs on the JS thread. |
+| A `Promise<T>` method, or Nitro's `Promise.async` | An `async` function, which runs on the Lucent thread ([Concurrency](/docs/api/language/concurrency/)). |
+| A Nitro hybrid object | An exported class: JavaScript calls `new`, and instances cross by reference. |
+| A callback parameter | A function parameter ([Accept a JS callback](/docs/guides/accept-a-js-callback/)). |
+| Events | A function taking a callback and an `AbortSignal`, through `subscribe()` ([Stream events](/docs/guides/send-events-to-javascript/)). |
+| `ArrayBuffer` | A `Uint8Array`, copied each time. A `NativeBuffer` keeps the bytes in native code ([Pass large buffers](/docs/guides/pass-large-buffers/)). |
+| Errors the native code rejects with | `throw error(code, message)`: JavaScript reads `code` ([Throw errors](/docs/guides/throw-and-handle-errors/)). |
+| The podspec and `build.gradle` | A [Lucent package](/docs/packages/create-a-package/), with a `lucent.json` for pods, Gradle dependencies and permissions. |
+
+[The boundary](/docs/api/language/boundary/#how-each-type-crosses) lists how each type crosses.
+
+## Remove the old module
+
+<Tabs syncKey="setup">
+<TabItem label="Expo">
+
+Uninstall the library that held the module, or delete the spec and `codegenConfig` the app holds. For a Nitro module, also delete its `*.nitro.ts` specs, `nitro.json` and `nitrogen/generated/`. Then rebuild with `npx expo run:ios` and `npx expo run:android`, as [Apply a change](/docs/guides/apply-a-change/) shows.
+
+</TabItem>
+<TabItem label="Bare React Native">
+
+Delete the spec, `codegenConfig`, the iOS and Android sources, and the package `MainApplication` adds. For a Nitro module, also delete its `*.nitro.ts` specs, `nitro.json` and `nitrogen/generated/`, or uninstall its library. Then run `pod install` in `ios/`, so codegen forgets the spec, and rebuild the app.
+
+</TabItem>
+</Tabs>
 
 :::caution
-This guide covers modules. [Native views](/blog/native-views/) are experimental behind `LUCENT_VIEWS=fabric`; keep an existing production Fabric component as it is.
+This covers modules. Lucent's views are experimental, behind `LUCENT_VIEWS=fabric`: keep a production Fabric component or Nitro view as it is.
 :::

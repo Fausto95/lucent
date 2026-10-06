@@ -1,0 +1,75 @@
+---
+title: "How do Lucent packages end up in an app?"
+sidebar_label: "Packages in an app"
+description: "The app's build finds Lucent packages in its dependencies, compiles their modules with its own, and merges what their native code needs."
+kind: explanation
+---
+
+```text title=".lucent/native" nocopy
+.lucent/native/
+├── cpp/                          the runtime, and every module compiled: the app's and its packages'
+├── js/lucent-haptics/haptics.js  the proxy Metro bundles for lucent-haptics/haptics
+├── packages/lucent-orbit/        the files lucent-orbit's lucent.json lists, copied
+└── resolved.json                 what the packages need, merged, with who asked
+```
+
+A Lucent package ships its modules as TypeScript, not as a binary. The app that installs it compiles them, so one native package holds every module the app runs.
+
+## Finding the packages
+
+`lucent build`, `lucent check` and `lucent dev` start from the app's package.json `dependencies`. They follow them as Node resolves them, through symlinks, and on through each Lucent package's own `dependencies`.
+
+A dependency is a Lucent package when its package.json has a `lucent` field and a `name`. The app builds one copy of each package, and two copies at different paths fail the build. Each one's `compatible` range is checked against the Lucent that runs the build ([How an app finds packages](/docs/packages/package-json/#how-an-app-finds-packages)).
+
+## One program, one runtime
+
+The app's modules and every module under each package's `sources` compile together, as one program per platform. The app's Lucent compiles them, with the same checks it applies to the app's own code.
+
+- A package's module is named `<package>/<path under sources>`, so two packages may both have a `storage` module. The name picks the module's C++ namespace, its proxy and its entry in the TurboModule ([Module names](/docs/packages/package-json/#module-names)).
+- The native package holds one copy of the C++ runtime and one `Lucent` TurboModule for every module. A package's code shares the app's [Lucent thread](/docs/architecture/glossary/#lucent-thread) and [lock](/docs/architecture/glossary/#lucent-lock), so all module code runs one piece at a time.
+- A module can import a package's module by its path in that package, such as `lucent-orbit/src/orbit.lucent` ([Importing another package's module](/docs/packages/package-json/#importing-another-packages-module)). The program type-checks the import like any other.
+
+A package ships no compiled modules, so there's no binary of them to rebuild for each Lucent release. The `compatible` range is what keeps a package and the app's Lucent in step.
+
+On the JavaScript side, the package's `main` re-exports its modules. Metro names each module file as the compiler does: from the nearest package.json, `<package>/<path under sources>` when it has a `lucent` field, else the file's name. It then bundles the proxy of that name from the app's `.lucent/native/js/`.
+
+## Merging native needs
+
+After finding the packages, the build reads each one's `lucent.json` and merges them. The result doesn't depend on the order packages are found in.
+
+- Lists such as frameworks and permissions keep each value once, whoever asks.
+- Every requirement on a pod goes to CocoaPods, and every version of a Gradle artifact to Gradle, which pick the version.
+- `Info.plist` entries and entitlements must agree, except arrays, which join. The highest `deploymentTarget` and `minSdk` win.
+- Needs that can't all hold fail the build, naming both packages.
+
+[lucent.json](/docs/packages/lucent-json/) gives each field's merge rule. The merged needs go into the native package's podspec, its Android library's `build.gradle` and its manifest.
+
+On Expo, the config plugin adds `Info.plist` entries and entitlements to the app. On a bare app, `lucent build` names the entries the app lacks, and who needs them ([Integrations](/docs/api/integrations/#expo-config-plugin) has both setups).
+
+`resolved.json` records the merge with its provenance: each need with the packages that asked, and each package's version. Here it is for the bare example app, its empty fields left out:
+
+```json title=".lucent/native/resolved.json" nocopy
+{
+  "packages": { "lucent-haptics": "0.1.0", "lucent-orbit": "0.1.0", "lucent-secure-store": "0.1.0" },
+  "android": {
+    "dependencies": {
+      "androidx.credentials:credentials": { "1.5.0": ["lucent-orbit"] },
+      "androidx.datastore:datastore-preferences": { "1.1.7": ["lucent-orbit"] }
+    },
+    "libraries": [{ "package": "lucent-orbit", "path": "android/orbit.jar", "hash": "343cf26bb7ca48ec" }]
+  }
+}
+```
+
+It holds no machine path, so the same packages resolve to the same file on every machine.
+
+## Files under packages/
+
+A package's native sources, resources and prebuilt libraries are copied to `.lucent/native/packages/<package>/<path>`. The podspec and the Android library's build files point at the copies.
+
+- A listed path must be inside its package. Hidden files, such as `.DS_Store`, stay behind.
+- A copy goes away once its package stops listing it, so a build never depends on what an earlier one left.
+- Two files that would land in the same place in the app fail the build, naming both packages.
+- Each listed path is hashed by its files' paths and contents. A change reruns the build, and its `lucent.json` field decides [what the app needs](/docs/architecture/builds/#actions-come-from-what-a-build-changed).
+
+Lucent code can bind a package's prebuilt frameworks, AARs and JARs, through `lucent:ios/<Module>` and `lucent:android/<package>`. Its native sources are compiled into the app, but Lucent code can't import them. C is the exception, through a [native extension](/docs/packages/native-extensions/) imported from `lucent:ext/<name>`.

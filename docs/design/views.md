@@ -2,7 +2,9 @@
 
 Status: implemented behind `LUCENT_VIEWS=fabric`, an internal switch that
 is off by default. Without it, components are only described and none of
-what follows is generated.
+what follows is generated. Any other value than `fabric` stops the commands
+that read it (`lucent build`, `check`, `dev`, `bench`, `sdk lock`) with an
+error naming the accepted values.
 
 A component is an exported function of a `.lucent.tsx` module that
 returns a platform view (a `UIView` or an Android `View`). Its setup is
@@ -13,6 +15,16 @@ are the commands setup exposes: a void command runs, and a request answers
 a promise. [architecture.md](../architecture.md) describes how the
 compiler generates each piece. This record covers what the platform hosts
 do with them at run time.
+
+The app imports a component as `lucent:views/<module>`
+(`import { Card } from "lucent:views/card"`). TypeScript reads the React
+declarations `lucent build` writes to `types/views/<module>.d.ts` through
+the app's `lucent:*` tsconfig path; Metro resolves the name to a
+generated module that requires the component's own, so it and a relative
+`./card.lucent` import are one module and register the view once.
+TypeScript resolves the relative import to the `.lucent.ts` source, whose
+types are the platform's, not React's, and no file or path can change
+that, so only the `lucent:views` name gives the React types.
 
 ## Platform registration
 
@@ -352,8 +364,11 @@ element is every toolkit's at once (`View & Composed`) and whose tags are
 either toolkit's views, so each element checks against its own
 toolkit's declaration, and a SwiftUI modifier may chain after an element
 (`(<Text>a</Text>).padding(4)`). Where a platform's SDK is missing, its
-toolkit is left out and its code is untyped, as its SDK's is. The
-compiler and editors (through the Lucent TypeScript plugin, and the
+toolkit is left out and its code is untyped, as its SDK's is. A setup
+returns the view its target's own code returns (`emit/setups.ts`) where
+the function's return type mixes platforms: each platform's view at
+once, or `any` where the other's SDK is missing. The compiler and
+editors (through the Lucent TypeScript plugin, and the
 `lucent:jsx` declarations `lucent build` writes beside the others) type
 them alike; the app's own `.tsx` files keep React's.
 
@@ -975,6 +990,21 @@ UIAction for the control's event mask on iOS, through
 `lucent::objc::addControlAction`), and taken back when the mount ends,
 which breaks the cycle through the handler. Children are inserted in order.
 
+**Where it is returned.** Native JSX is setup code, and setup runs once
+per mount, so the component may return it from any of its own code: the
+last statement, a PLATFORM branch or guard, a ternary's arms, or any
+condition (`if (available("ios", 17)) return <UIButton
+isSymbolAnimationEnabled />`). A one-file component returns each
+platform's views from its branch, and each platform's program keeps only
+its own; one platform's branch may return a toolkit's body (SwiftUI's,
+Compose's) and the other native views. A root chosen by a runtime
+condition is chosen once per mount: a later change of what it read does
+not swap it, and a signal read there is not tracked, nor warned about as
+a prop read once is (LUCENT3021). What it may not be is a
+value: JSX kept in a variable, or made by a function of setup's.
+Unlike a toolkit body, which compiles to one Swift or Kotlin body,
+nothing here asks for a single return.
+
 **Children that come and go (T49).** A child may be a branch or a keyed
 list:
 
@@ -1070,7 +1100,7 @@ Yoga (no second Yoga is bundled):
   lays nothing out. On iOS the view owns it.
 
 **Diagnostics.** LUCENT3025: native JSX the component does not return
-as it is, a spread attribute, a child that is not a native view's
+as it is, from its own code, a spread attribute, a child that is not a native view's
 element, a class with no constructor to make it with (and no `create`),
 a prop reading a copy setup made of a prop (`const title =
 props.title`), which would never change; a list's element without a
@@ -1251,7 +1281,9 @@ mounts another, and, on iOS, changes the text size live.
 A component takes React children when its props declare
 `children?: Children` (or `children: Children`), `Children` coming from
 `lucent:ui`. Its setup then makes the view they are mounted in, its slot,
-once, in a `const` at its top level, and puts it in the view it returns:
+once, in a `const` at its top level (or at the top level of a PLATFORM
+branch, `if (PLATFORM === "ios")` or a case of `switch (PLATFORM)`, in a
+one-file component), and puts it in the view it returns:
 
 ```tsx
 export function Card(props: { title: string; children?: Children }): UIView {
@@ -1267,7 +1299,10 @@ export function Card(props: { title: string; children?: Children }): UIView {
 `slot<T>()` names the platform's container class, UIKit's `UIView` or
 Android's `ViewGroup`, and the compiler refuses any other. It also
 refuses children without a slot, a slot without children, a second slot,
-a slot made anywhere but a top-level `const` of setup, and setup reading
+a slot made anywhere but a top-level `const` of setup or of its PLATFORM
+branch (another platform's branch is not the platform's code; a branch
+under another condition too, `PLATFORM === "ios" && ready`, runs only
+when it holds, so it is not a place for the slot), and setup reading
 `props.children`. React's declarations take `children?: ReactNode`, and
 the runtime renders the native view with them.
 
